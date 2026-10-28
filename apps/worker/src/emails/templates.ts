@@ -2083,3 +2083,89 @@ export function partnerPayoutDeclinedEmail(input: {
   );
   return { subject, text, html };
 }
+
+// ---- HandsFreeOS's own affiliate program (20261027014000) ----
+
+/** Approved: they're in, with their link and where to see how it's doing. */
+export function affiliateApprovedEmail(input: {
+  firstName: string;
+  link: string;
+  share: string;
+  pageLink: string;
+}): EmailContent {
+  const subject = 'You’re a HandsFreeOS affiliate';
+  const hello = input.firstName ? `Hi ${input.firstName},` : 'Hi,';
+  const lines = [
+    'You’re in. Here’s your link:',
+    `Each business that signs up through it within 90 days of the click earns you ${input.share} of every plan payment it makes in its first 12 months.`,
+    'Your affiliate page shows your link’s clicks and the businesses you’ve sent.',
+  ];
+  const text = [
+    hello,
+    '',
+    lines[0],
+    input.link,
+    '',
+    lines[1],
+    '',
+    lines[2],
+    `Open it: ${input.pageLink}`,
+  ].join('\n');
+  const html = shell(
+    preheader(`Your link: ${input.link}`) +
+      wordmark +
+      para(escapeHtml(hello)) +
+      para(escapeHtml(lines[0]!)) +
+      `<div style="background: #f2f4f8; border-radius: 10px; padding: 14px 16px; font-size: 15px; font-weight: 600; margin: 8px 0;">${escapeHtml(input.link)}</div>` +
+      para(escapeHtml(lines[1]!)) +
+      para(escapeHtml(lines[2]!)) +
+      button(input.pageLink, 'Open your affiliate page'),
+  );
+  return { subject, text, html };
+}
+
+/** Turned down: said kindly, with when they may apply again. */
+export function affiliateTurnedDownEmail(input: { firstName: string }): EmailContent {
+  const subject = 'Your HandsFreeOS affiliate application';
+  const hello = input.firstName ? `Hi ${input.firstName},` : 'Hi,';
+  const body =
+    'Thank you for applying to be a HandsFreeOS affiliate. We can’t take you on right now. You’re welcome to apply again in 30 days.';
+  const text = [hello, '', body].join('\n');
+  const html = shell(preheader(body) + wordmark + para(escapeHtml(hello)) + para(escapeHtml(body)));
+  return { subject, text, html };
+}
+
+/** To the staff who run the program: somebody applied, with what they said. */
+export function affiliateAppliedEmail(input: {
+  firstName: string;
+  name: string;
+  email: string;
+  code: string;
+  pitch: string;
+  links: string;
+  adminLink: string;
+}): EmailContent {
+  const subject = `New affiliate application: ${input.name}`;
+  const hello = input.firstName ? `Hi ${input.firstName},` : 'Hi,';
+  const what = `${input.name} (${input.email}) applied to be an affiliate, with the link code “${input.code}”.`;
+  const said = [input.pitch, input.links].filter(Boolean).join('\n\n');
+  const text = [
+    hello,
+    '',
+    what,
+    ...(said ? ['', said] : []),
+    '',
+    `Approve or turn them down: ${input.adminLink}`,
+  ].join('\n');
+  const html = shell(
+    preheader(what) +
+      wordmark +
+      para(escapeHtml(hello)) +
+      para(escapeHtml(what)) +
+      (said
+        ? `<div style="background: #f2f4f8; border-radius: 10px; padding: 14px 16px; font-size: 14px; line-height: 1.5; margin: 8px 0; white-space: pre-wrap;">${escapeHtml(said)}</div>`
+        : '') +
+      button(input.adminLink, 'Open Admin → Affiliates'),
+  );
+  return { subject, text, html };
+}

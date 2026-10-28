@@ -125,6 +125,21 @@ export const PART_AUTO_SINCE_ON: Readonly<
 };
 
 /**
+ * The first build of the extension that finds people by topic on Instagram, LinkedIn and Alignable (decision 92): it
+ * checks them, likes the post it found and sends a comment through `sends`. Today gives the found people and comments to
+ * send only while the person's working computer runs it or later (`foundByTopicOn`); an older one keeps the old search
+ * pick and writes no comments, so an OK'd comment never reaches a runner that would send it as a message.
+ */
+export const FOUND_BY_TOPIC_SINCE = '0.95.0';
+
+/**
+ * Whether a computer's build finds people by topic (`FOUND_BY_TOPIC_SINCE`): one that didn't say its build, or no
+ * computer at all, is taken as older, as `tooOldFor` takes it.
+ */
+export const foundByTopicOn = (version: string | null | undefined): boolean =>
+  appVersionAtLeast(version ?? null, FOUND_BY_TOPIC_SINCE);
+
+/**
  * How a part goes in on the person's computer, by its build of the extension: a part that goes in by itself only
  * from a newer build is `steps` on an older one, as that build hands it over. With no computer known (`undefined`) it's
  * the newest build's; a computer that didn't say its build is taken as older, as `tooOldFor` takes it.

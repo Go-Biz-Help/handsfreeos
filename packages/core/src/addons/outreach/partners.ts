@@ -29,7 +29,7 @@ import {
 } from './playbooks';
 import { ANSWER_KEYS, type Answer } from './conversation';
 import type { DownloadMessage } from './download';
-import { postSearchWords } from './posts';
+import { POST_SEARCHES_MOST, signWords } from './posts';
 import { PersonName, ProfileRef } from './saves';
 import {
   ANSWER_ASK,
@@ -193,9 +193,9 @@ export const PARTNER_SEARCH_WORDS_MOST = 160;
 
 /**
  * The words a person's computer searches a network with for partners: the partner playbooks' on that network, the
- * quoted words in their signs, then their words to search for groups, each once, as Find posts takes a customer
- * playbook's (`postSearchWords`). They describe the customers, and people posting about them, or saying they serve
- * them, are who has their attention.
+ * quoted words in their signs, then their words to search for groups, each once (`signWords`), as Find posts took a
+ * customer playbook's before the AI wrote its own (decision 92 leaves these as they were). They describe the
+ * customers, and people posting about them, or saying they serve them, are who has their attention.
  */
 export function partnerSearchWords(
   playbooks: readonly {
@@ -205,7 +205,9 @@ export function partnerSearchWords(
 ): string[] {
   const here = playbooks.filter((p) => p.details.platforms.includes(platform));
   return here.length
-    ? postSearchWords(here, platform).filter((w) => w.length <= PARTNER_SEARCH_WORDS_MOST)
+    ? signWords(here, platform)
+        .slice(0, POST_SEARCHES_MOST)
+        .filter((w) => w.length <= PARTNER_SEARCH_WORDS_MOST)
     : [];
 }
 

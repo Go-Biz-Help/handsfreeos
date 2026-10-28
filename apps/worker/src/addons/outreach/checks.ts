@@ -7,6 +7,9 @@
  * - What the extension reads off their pages (`outreach.check.looked`) queues one read per business, so a morning's
  *   checks are read together.
  * - Each read takes a batch, the oldest first, with what HandsFreeOS knows of them and the person's own chat with them.
+ * - Someone found by topic on Instagram, LinkedIn or Alignable (decision 92, a check `via = 'found'`) gets its own ask
+ *   (`foundCheckSystem`): how they were found (`findFact`), the post it was on and what they said under it, against
+ *   the playbooks' niche, who they're for and their problem; never a chat, as the person doesn't know them yet.
  * - While the business reaches only some countries, the AI also weighs where they live (decision 86): what their
  *   profile says, how many friends they have, where their mutual friends live, and how the person's own friends are
  *   spread, so it knows what "most of them" means here.
@@ -19,7 +22,11 @@ import {
   CheckAnswer,
   checkedAnswer,
   checkPrompt,
+  FOUND_POST_MOST,
+  foundCheckPrompt,
+  foundCheckSystem,
   type CheckPlaybook,
+  type FoundCheckPlaybook,
 } from '@hfos/core/addons/outreach/checks';
 import { outreachSettings } from '@hfos/core/addons/outreach/chat-read';
 import {
@@ -28,6 +35,7 @@ import {
   type MutualCountries,
 } from '@hfos/core/addons/outreach/countries';
 import type { DownloadMessage } from '@hfos/core/addons/outreach/download';
+import { findFact, type CheckVia, type FindHow } from '@hfos/core/addons/outreach/finds';
 import { FOR_CUSTOMERS } from '@hfos/core/addons/outreach/ops/common';
 import { checkSave, mutualCountries } from '@hfos/core/addons/outreach/ops/checks';
 import { NETWORKS, type Platform } from '@hfos/core/addons/outreach/networks';
@@ -137,14 +145,23 @@ export async function checkPeopleJob(ctx: AddonJobContext): Promise<JobResult> {
       group_lines: string[] | null;
       summary: string | null;
       recent: DownloadMessage[] | null;
+      via: CheckVia;
+      find_how: FindHow | null;
+      find_words: string | null;
+      find_place: string | null;
+      find_group: string | null;
+      find_post: string | null;
+      find_said: string | null;
     }>(
       tx,
-      // Each person's own chat with them: the check is theirs, and so is the chat it reads.
+      // Each person's own chat with them: the check is theirs, and so is the chat it reads. Someone found by topic,
+      // with how they were found by that person (decision 92).
       sql`select ch.id, ch.user_id, ch.looked_at, ch.lines, ch.mutual_ids, ch.mutual_read, p.name, p.platform,
             p.intro, p.mutual_friends, p.friends_count, g.name as group_name,
             (select gp.lines from addon_outreach.group_people gp where gp.profile_id = p.id
               order by gp.seen_at desc limit 1) as group_lines,
-            c.summary, c.recent
+            c.summary, c.recent, ch.via, fd.how as find_how, fd.words as find_words, fd.place as find_place,
+            fg.name as find_group, left(fpo.body, ${FOUND_POST_MOST}) as find_post, fd.said as find_said
           from addon_outreach.checks ch
           join addon_outreach.profiles p on p.id = ch.profile_id
           left join addon_outreach.groups g on g.id = p.group_id
@@ -152,6 +169,9 @@ export async function checkPeopleJob(ctx: AddonJobContext): Promise<JobResult> {
             select c.summary, c.recent from addon_outreach.file_chats c
             where c.profile_id = p.id and c.user_id = ch.user_id order by c.last_at desc limit 1
           ) c on true
+          left join addon_outreach.finds fd on fd.profile_id = p.id and fd.user_id = ch.user_id
+          left join addon_outreach.groups fg on fg.id = fd.group_id
+          left join addon_outreach.posts fpo on fpo.id = fd.post_id
           where ch.workspace_id = ${ws} and ch.verdict = 'waiting'
           order by ch.looked_at limit ${CHECK_PEOPLE_BATCH + 1}`,
     ),
@@ -181,47 +201,91 @@ export async function checkPeopleJob(ctx: AddonJobContext): Promise<JobResult> {
         signs: p.details.signs,
         skip: p.details.skip,
       }));
+  // Someone found by topic is weighed against who each is for: its niche and their problem too (decision 92).
+  const toldFoundOn = (platform: Platform): FoundCheckPlaybook[] =>
+    playbooks
+      .filter((p) => runsOn(p.details, platform))
+      .map((p) => ({
+        name: p.name,
+        offer: p.details.offer,
+        audience: p.details.audience,
+        signs: p.details.signs,
+        skip: p.details.skip,
+        niche: p.details.niche ?? null,
+        problem: p.details.problem ?? null,
+      }));
+  const whereOf = (person: (typeof found.waiting)[number]) =>
+    where
+      ? {
+          where: whereLines({
+            lines: [...person.lines, ...person.intro],
+            friends: person.friends_count,
+            mutual: person.mutual_friends,
+            mutualCountries: where.mutual.get(person.id) ?? null,
+            own: where.own.get(person.user_id) ?? [],
+          }),
+        }
+      : {};
+  /** What the AI is asked of someone: found by topic, or known. */
+  const askOf = (person: (typeof found.waiting)[number]) =>
+    person.via === 'found' && person.find_how
+      ? {
+          system: foundCheckSystem(person.platform),
+          content: foundCheckPrompt({
+            business: found.business?.name ?? 'the business',
+            name: person.name,
+            found: findFact({
+              platform: person.platform,
+              how: person.find_how,
+              words: person.find_words,
+              place: person.find_place,
+              group: person.find_group,
+            }),
+            post: person.find_post,
+            said: person.find_said,
+            facts: [...(person.group_lines ?? []), ...person.intro],
+            lines: person.lines,
+            playbooks: toldFoundOn(person.platform),
+            platform: person.platform,
+            ...whereOf(person),
+          }),
+        }
+      : {
+          system: checkSystem(person.platform),
+          content: checkPrompt({
+            business: found.business?.name ?? 'the business',
+            name: person.name,
+            facts: [
+              ...(person.group_lines ?? []),
+              ...person.intro,
+              ...(person.group_name ? [`Found in the group ${person.group_name}`] : []),
+              ...(person.mutual_friends
+                ? [
+                    `${person.mutual_friends.toLocaleString('en-US')} mutual ${NETWORKS[person.platform].words.friends}`,
+                  ]
+                : []),
+            ],
+            lines: person.lines,
+            chat:
+              person.summary || person.recent?.length
+                ? { summary: person.summary, recent: person.recent ?? [] }
+                : null,
+            playbooks: toldOn(person.platform),
+            platform: person.platform,
+            ...whereOf(person),
+          }),
+        };
 
   for (const person of found.waiting.slice(0, CHECK_PEOPLE_BATCH)) {
     let answer: ReturnType<typeof checkedAnswer> | null;
     try {
+      const ask = askOf(person);
       const { value } = await askStructured(ctx, ctx.scope, {
-        system: checkSystem(person.platform),
+        system: ask.system,
         messages: [
           {
             role: 'user',
-            content: checkPrompt({
-              business: found.business?.name ?? 'the business',
-              name: person.name,
-              facts: [
-                ...(person.group_lines ?? []),
-                ...person.intro,
-                ...(person.group_name ? [`Found in the group ${person.group_name}`] : []),
-                ...(person.mutual_friends
-                  ? [
-                      `${person.mutual_friends.toLocaleString('en-US')} mutual ${NETWORKS[person.platform].words.friends}`,
-                    ]
-                  : []),
-              ],
-              lines: person.lines,
-              chat:
-                person.summary || person.recent?.length
-                  ? { summary: person.summary, recent: person.recent ?? [] }
-                  : null,
-              playbooks: toldOn(person.platform),
-              platform: person.platform,
-              ...(where
-                ? {
-                    where: whereLines({
-                      lines: [...person.lines, ...person.intro],
-                      friends: person.friends_count,
-                      mutual: person.mutual_friends,
-                      mutualCountries: where.mutual.get(person.id) ?? null,
-                      own: where.own.get(person.user_id) ?? [],
-                    }),
-                  }
-                : {}),
-            }),
+            content: ask.content,
           },
         ],
         schema: CHECK_SCHEMA,

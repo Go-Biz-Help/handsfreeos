@@ -29,8 +29,13 @@
  *
  * Partners from the Partners list (decision 81) have a part of their own below it: a like first, the ask, follow-ups,
  * the details after a yes, and replies, each message with an OK of its own. Copying one moves them along the list.
+ *
+ * On Instagram, LinkedIn and Alignable (decision 92) the people found by topic say why under their name, from how they
+ * were found ("Commented on a post under #austinroofing") and what the AI saw on their own page; a writer's like goes on
+ * the post that found them, shown under it. A comment on a good post on Instagram and Alignable is drafted to wait
+ * like a message, with **OK**, **Change** and **Skip**, and Approve all takes it too, but never an answer to a post
+ * asking for what the business offers.
  */
-import { TOUCHED_POSTS_WORDS } from '@hfos/core/addons/outreach/activity';
 import { wheelsWords } from '@hfos/core/addons/outreach/automation';
 import { clockWords } from '@hfos/core/addons/outreach/live';
 import { OPENER_KINDS, openerShort, type DraftOpener } from '@hfos/core/addons/outreach/openers';
@@ -43,17 +48,21 @@ import {
   type DraftKind,
   type TodayDraftOutput,
 } from '@hfos/core/addons/outreach/today';
-import { approveAllWords, oneByOne } from '@hfos/core/addons/outreach/waiting-words';
+import {
+  approveAllTakesComments,
+  approveAllWords,
+  forumAnswer,
+  forumAnswersLeftWords,
+  oneByOne,
+} from '@hfos/core/addons/outreach/waiting-words';
 import { askableOn, askOpen, cantAskWhy } from '@hfos/core/addons/outreach/asks';
 import {
-  chatUrlOn,
   dailyWordsOn,
   findPostsWordsOn,
   helpfulOn,
   NETWORK_WORDS as NW,
-  openChatWords,
-  openPageWords,
   todayKindsOn,
+  todayOpenOf,
 } from '@hfos/core/addons/outreach/network-words';
 import {
   NETWORKS,
@@ -130,21 +139,6 @@ const KIND_BADGE = {
   partner_warm_up: 'gray',
 } as const;
 
-/**
- * Where to open someone on the list: the post to comment on, their chat for a message in one (on its network's
- * messaging), else their profile.
- */
-function openUrl(item: TodayItem, platform: Platform): string | null {
-  if (item.postUrl) return item.postUrl;
-  return chatUrlOn(platform, item.threadKey) ?? item.profileUrl;
-}
-
-/** What `openUrl` opens, in words: the post, their chat, or their page. */
-function openUrlWords(item: TodayItem, platform: Platform): string {
-  if (item.postUrl) return TOUCHED_POSTS_WORDS.openPost;
-  return chatUrlOn(platform, item.threadKey) ? openChatWords(platform) : openPageWords(platform);
-}
-
 export function TodayView({
   workspaceId,
   platform = 'facebook',
@@ -201,8 +195,12 @@ export function TodayView({
   const partners = today.partners.filter(
     (i) => !(i.send?.state === 'waiting' && needs.has(i.send.sendId)),
   );
-  // Approve all leaves those that wait for an OK of their own: a reply handed over, or one to someone who needs them.
-  const approvable = items.filter((i) => i.send?.state === 'waiting' && !oneByOne(i.send)).length;
+  // Approve all leaves those that wait for an OK of their own: a reply handed over, one to someone who needs them, or a
+  // forum answer (decision 92).
+  const waitingSends = items.filter((i) => i.send?.state === 'waiting');
+  const approvable = waitingSends.filter((i) => !oneByOne(i.send!)).length;
+  const comments = approveAllTakesComments(waitingSends.map((i) => ({ ...i.send!, kind: i.kind })));
+  const answers = waitingSends.filter((i) => forumAnswer({ ...i.send!, kind: i.kind })).length;
   const approving = useAct();
   const approveAll = () =>
     approving.act('all', async () => {
@@ -210,7 +208,7 @@ export function TodayView({
       const out = unwrap(
         await apiBrowser().POST('/v1/commands/outreach.send.approve', { body: { workspaceId } }),
       );
-      toast.success(W.okdAll(out.approved.length));
+      toast.success(W.okdAll(out.approved.length, comments));
     });
   return (
     <div data-testid="outreach-today">
@@ -273,10 +271,15 @@ export function TodayView({
                     data-testid="today-approve-all"
                   >
                     <CheckCheck className="h-3.5 w-3.5" strokeWidth={1.5} />
-                    {approveAllWords(approvable)}
+                    {approveAllWords(approvable, comments)}
                   </Button>
                 ) : null}
               </div>
+              {approvable > 1 && answers ? (
+                <p className="-mt-1 text-[12.5px] text-text-2" data-testid="today-answers-left">
+                  {forumAnswersLeftWords(answers)}
+                </p>
+              ) : null}
               {ready ? null : (
                 <p className="-mt-1 text-[13px] text-text-2">{READY_WORDS.repliesStill}</p>
               )}
@@ -583,16 +586,17 @@ function TodayRow({
   /** Someone on the Partners list: never offered a demo or Don't pitch, which are a customer's. */
   partner?: boolean;
 }) {
-  const url = openUrl(item, platform);
+  // Where Open goes, and its words, as the phone's: the post, their chat, else their page.
+  const openAt = todayOpenOf(item, platform);
   const draftKind = DRAFT_KINDS.find((k) => k === item.kind);
   return (
     <li className={cn('px-5 py-4', !first && 'border-t border-border')} data-testid="today-item">
       <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
         <div className="min-w-0 text-[13.5px]">
           {partner ? (
-            url ? (
+            openAt ? (
               <a
-                href={url}
+                href={openAt.url}
                 target="_blank"
                 rel="noreferrer"
                 className="font-medium text-accent-text hover:underline"
@@ -618,13 +622,13 @@ function TodayRow({
                 }}
                 className={cn('font-medium', item.profileId && 'text-accent-text')}
               />
-              {url ? (
+              {openAt ? (
                 <a
-                  href={url}
+                  href={openAt.url}
                   target="_blank"
                   rel="noreferrer"
-                  aria-label={openUrlWords(item, platform)}
-                  title={openUrlWords(item, platform)}
+                  aria-label={openAt.words}
+                  title={openAt.words}
                   className="inline-flex h-6 w-6 flex-none items-center justify-center rounded-[4px] text-text-3 hover:bg-card-2 hover:text-text focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring"
                   data-testid="today-open"
                 >
@@ -666,7 +670,12 @@ function TodayRow({
       ) : null}
       <ChatSoFar recent={item.recent} />
       {item.send ? (
-        <Drafted workspaceId={workspaceId} name={item.name} send={item.send} />
+        <Drafted
+          workspaceId={workspaceId}
+          name={item.name}
+          send={item.send}
+          comment={item.kind === 'comment' ? platform : null}
+        />
       ) : draftKind ? (
         <Drafts
           workspaceId={workspaceId}

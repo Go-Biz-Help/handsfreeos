@@ -490,6 +490,19 @@ describe('post search', () => {
   });
 });
 
+describe('post search, never the person’s own', () => {
+  it('leaves out their own post, by the name on the top bar’s Me (decision 92)', () => {
+    const url =
+      'https://www.linkedin.com/search/results/content/?keywords=recommend%20a%20plumber&sortBy=%22date_posted%22';
+    const doc = load('linkedin-search-posts.html', url);
+    // The person here is Jordan Blake: their own post under the search is nobody's to find or comment on.
+    doc.querySelector('nav img')!.setAttribute('alt', 'Jordan Blake');
+    expect(read('linkedin-search-posts.html', url, doc).posts?.map((p) => p.author?.name)).toEqual([
+      'Renée Park',
+    ]);
+  });
+});
+
 describe('a post’s own page', () => {
   it('reads the post, its address from the page’s, and none of its comments or replies as posts', () => {
     const url = 'https://www.linkedin.com/feed/update/urn:li:activity:7380000000000000101/';

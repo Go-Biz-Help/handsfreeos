@@ -3,17 +3,31 @@
  * profile and a post on pages drawn as the owner's Check Instagram outlined them (0.62.0, 18 Oct 2026), with
  * Instagram's own words, labels, roles and link shapes where it put them; their followers, a hashtag, a place, their
  * notifications, their messages and a chat from Instagram's usual markup, then (below) as his Check of 21 Oct 2026
- * outlined them. What a report of each says: how many of each, never what they say.
+ * outlined them. What a report of each says: how many of each, never what they say. Last (decision 92), a post's
+ * people: its Likes box, opened by its count of likes and closed again, and its View all comments, from Instagram's
+ * usual markup, written here by hand with made-up people.
  */
 import { JSDOM } from 'jsdom';
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { ownProfileNote, pageFound } from '../src/jobs/report';
-import { openFollowers } from '../src/networks/instagram/browse';
+import {
+  closeDialog,
+  moreComments,
+  openFollowers,
+  openLikers,
+} from '../src/networks/instagram/browse';
 import { readOwnProfile } from '../src/networks/instagram/own-profile';
-import { followersCount, readInstagram } from '../src/networks/instagram/read';
+import {
+  followersCount,
+  likersBox,
+  likesOpenerIn,
+  moreCommentsIn,
+  postRootOf,
+  readInstagram,
+} from '../src/networks/instagram/read';
 import { readReplies } from '../src/networks/instagram/replies';
 import { INSTAGRAM } from '../src/networks/instagram/site';
-import { readLooking } from '../src/networks/looking/read';
+import { outlineLooking, readLooking } from '../src/networks/looking/read';
 import { boxEverything } from './load';
 
 const IG = 'https://www.instagram.com';
@@ -729,5 +743,232 @@ describe('a hashtag and a place, as the owner’s Check of 21 Oct 2026 found the
     expect(INSTAGRAM.kindOf(new URL(`${IG}/explore/locations/212988663/austin-texas/`))).toBe(
       'place',
     );
+  });
+});
+
+// ------------------------------------------------------------------------------------------------ a post's people
+
+/** A row in a post's Likes box, as Instagram draws its followers' box: picture, username, name, and its own button. */
+const likerRow = (username: string, name: string, button: string) =>
+  `<div><div><div><a role="link" href="/${username}/"><img alt="${username}'s profile picture"></a></div>
+    <div><span dir="auto"><a role="link" href="/${username}/"><span dir="auto">${username}</span></a></span>
+      ${name ? `<span dir="auto">${name}</span>` : ''}</div>
+    ${button ? `<div><button type="button"><div dir="auto">${button}</div></button></div>` : ''}</div></div>`;
+
+/**
+ * A post's Likes box over its page (decision 92), written here by hand from Instagram's usual markup: someone the
+ * person doesn't follow, the person's own row, someone they follow, someone they asked to, and someone with no name.
+ */
+const LIKES_BOX = (
+  heading = '<h2 dir="auto">Likes</h2>',
+) => `<div role="dialog" aria-modal="true"><div>
+  <div>${heading}<div role="button"><svg role="img" aria-label="Close"><title>Close</title></svg></div></div>
+  <div style="overflow-y: auto;"><div>
+    ${likerRow('rio.tanaka', 'Rio Tanaka', 'Follow')}
+    ${likerRow('me.owner', 'Me Owner', '')}
+    ${likerRow('pat.quinn', 'Pat Quinn', 'Following')}
+    ${likerRow('lou.marsh', 'Lou Marsh', 'Requested')}
+    ${likerRow('ada.finch', '', 'Follow')}
+  </div></div></div></div>`;
+
+/** The post above with its Likes box over it, at the address Instagram puts in while it's open. */
+const withLikes = (path = '/p/C3xyzabcd/liked_by/', heading?: string) =>
+  page(path, `${POST.body.innerHTML}${LIKES_BOX(heading)}`);
+
+/** The post above, its count of likes opening its Likes box, whose own Close closes it. */
+function opening(): { doc: Document; pressedInBox: () => number } {
+  const doc = page('/p/C3xyzabcd/', POST.body.innerHTML);
+  let pressed = 0;
+  doc.querySelector('a[href="/p/C3xyzabcd/liked_by/"]')!.addEventListener('click', (e) => {
+    e.preventDefault();
+    doc.body.insertAdjacentHTML('beforeend', LIKES_BOX());
+    const box = doc.querySelector('[role="dialog"]')!;
+    for (const button of box.querySelectorAll('button'))
+      button.addEventListener('click', () => pressed++);
+    box
+      .querySelector('[aria-label="Close"]')!
+      .closest('[role="button"]')!
+      .addEventListener('click', () => box.remove());
+  });
+  return { doc, pressedInBox: () => pressed };
+}
+
+const LIKERS = [
+  { username: 'rio.tanaka', url: `${IG}/rio.tanaka/`, name: 'Rio Tanaka', following: 'no' },
+  { username: 'pat.quinn', url: `${IG}/pat.quinn/`, name: 'Pat Quinn', following: 'following' },
+  { username: 'lou.marsh', url: `${IG}/lou.marsh/`, name: 'Lou Marsh', following: 'requested' },
+  { username: 'ada.finch', url: `${IG}/ada.finch/`, name: null, following: 'no' },
+];
+
+describe('a post’s people on Instagram (decision 92)', () => {
+  afterEach(() => vi.useRealTimers());
+
+  it('knows a post’s Likes box by its address, still the post’s', () => {
+    expect(INSTAGRAM.kindOf(new URL(`${IG}/p/C3xyzabcd/liked_by/`))).toBe('likers');
+    expect(INSTAGRAM.kindOf(new URL(`${IG}/dana.reyes/p/C3xyzabcd/liked_by/`))).toBe('likers');
+    expect(INSTAGRAM.kindOf(new URL(`${IG}/reel/C3xyzabcd/liked_by/`))).toBe('likers');
+    expect(INSTAGRAM.kindOf(new URL(`${IG}/p/C3xyzabcd/`))).toBe('post');
+    expect(INSTAGRAM.postOf(new URL(`${IG}/p/C3xyzabcd/liked_by/`))).toBe(`${IG}/p/C3xyzabcd/`);
+  });
+
+  it('reads who liked it in its Likes box, with whether you follow them, and never you', () => {
+    expect(read(withLikes()).likers).toEqual(LIKERS);
+    // Over the post's own page too, as Instagram opens it from there.
+    expect(read(withLikes('/p/C3xyzabcd/')).likers).toEqual(LIKERS);
+    // The post's page alone has no Likes box: never its writer, its commenters, or who its Liked by line names.
+    expect(read(POST).likers).toEqual([]);
+  });
+
+  it('takes the box over /liked_by/ for its Likes box with no heading, and no other box over a post', () => {
+    expect(read(withLikes('/p/C3xyzabcd/liked_by/', '')).likers).toEqual(LIKERS);
+    expect(read(withLikes('/p/C3xyzabcd/', '')).likers).toEqual([]);
+    // Nor anywhere but a post.
+    const followers = withLikes('/dana.reyes/followers/');
+    expect(likersBox(followers, followers.location.href)).toBeNull();
+  });
+
+  it('counts who liked it in a report, and outlines the box with their names hidden', () => {
+    const doc = withLikes();
+    const found = readLooking(doc, doc.location.href, INSTAGRAM);
+    expect(pageFound(found)).toMatchObject({ likers: 4 });
+    expect(JSON.stringify(pageFound(found))).not.toContain('tanaka');
+    const outline = outlineLooking(doc, doc.location.href, INSTAGRAM, { version: '0.95.0', found });
+    expect(outline).toContain('"Likes"');
+    expect(outline).toContain('aria-label="Close"');
+    for (const hidden of [
+      'rio.tanaka',
+      'Rio Tanaka',
+      'pat.quinn',
+      'Pat Quinn',
+      'lou.marsh',
+      'Lou Marsh',
+      'ada.finch',
+      'me.owner',
+    ])
+      expect(outline).not.toContain(hidden);
+  });
+
+  it('opens the Likes box by its count of likes, as a person does, never by a comment’s likes', () => {
+    const { doc } = opening();
+    expect(openLikers(doc, doc.location.href)).toBe(true);
+    expect(likersBox(doc, doc.location.href)).not.toBeNull();
+    // Open already: nothing more is pressed.
+    expect(openLikers(doc, doc.location.href)).toBe(true);
+    expect(doc.querySelectorAll('[role="dialog"]')).toHaveLength(1);
+    // "1,204 likes" in words, and the number after the post's own Like in the newer layout, never a comment's.
+    const counted = page(
+      '/p/C3xyzabcd/',
+      `<main><section><div role="button"><svg aria-label="Like"></svg></div>
+        <div role="button"><svg aria-label="Comment"></svg></div></section><section><span>1,204 likes</span></section></main>`,
+    );
+    expect(likesOpenerIn(postRootOf(counted), counted.location.href)?.textContent).toBe(
+      '1,204 likes',
+    );
+    const newer = NEWER_POST();
+    expect(likesOpenerIn(postRootOf(newer), newer.location.href)?.textContent).toBe('36.5K');
+    // With its likes hidden there's nothing to open it by: a comment's own likes are never pressed for it.
+    const hidden = page(
+      '/p/C3xyzabcd/',
+      `<main><div>${comment('sam.lee', '17900000000000001', 'Lovely!', '3 likes')}</div>
+        <section><div role="button"><svg aria-label="Like"></svg></div>
+        <div role="button"><svg aria-label="Comment"></svg></div></section></main>`,
+    );
+    expect(openLikers(hidden, hidden.location.href)).toBe(false);
+    // Only on a post's own page.
+    expect(openLikers(profile(FOLLOWING), `${IG}/dana.reyes/`)).toBe(false);
+  });
+
+  it('shows more of its comments with View all comments, pressed once, never View replies', () => {
+    const doc = page(
+      '/dana.reyes/p/C3xyzabcd/',
+      `${MENU}<main role="main"><article>
+        <div><a role="link" href="/dana.reyes/"><span dir="auto">dana.reyes</span></a></div>
+        <div>${comment('sam.lee', '17900000000000001', 'Great work, thank you!', '3 likes')}</div>
+        <div role="button" id="view-all"><span dir="auto">View all 12 comments</span></div>
+        <section><div role="button"><svg aria-label="Like"></svg></div>
+          <div role="button"><svg aria-label="Comment"></svg></div></section>
+        <section><span>14 likes</span></section>
+        <div dir="auto"><a role="link" href="/dana.reyes/p/C3xyzabcd/"><time>October 1</time></a></div>
+        <form><textarea aria-label="Add a comment…" placeholder="Add a comment…"></textarea></form></article></main>`,
+    );
+    let pressed = 0;
+    doc.querySelector('#view-all')!.addEventListener('click', () => pressed++);
+    expect(read(doc).post?.comments).toEqual([
+      { username: 'sam.lee', url: `${IG}/sam.lee/`, text: 'Great work, thank you!' },
+    ]);
+    expect(moreComments(doc, doc.location.href)).toBe(true);
+    expect(pressed).toBe(1);
+    // Load more comments, as an icon's label; and the newer layout's "4 more comments", its number apart.
+    const icon = page(
+      '/p/C3xyzabcd/',
+      `<main><article><button type="button"><svg role="img" aria-label="Load more comments"></svg></button></article></main>`,
+    );
+    expect(moreCommentsIn(postRootOf(icon))?.tagName).toBe('BUTTON');
+    expect(moreCommentsIn(postRootOf(NEWER_POST()))?.textContent).toBe('4 more comments');
+    // A comment's View replies is never pressed for it, nor anything off a post's own page.
+    expect(moreComments(POST, POST.location.href)).toBe(false);
+    expect(moreComments(doc, `${IG}/dana.reyes/`)).toBe(false);
+  });
+
+  it('closes the Likes box by its own Close, or with Escape where it has none', async () => {
+    const { doc } = opening();
+    openLikers(doc, doc.location.href);
+    expect(await closeDialog(doc, doc.location.href)).toBe(true);
+    expect(doc.querySelector('[role="dialog"]')).toBeNull();
+    const bare = page(
+      '/p/C3xyzabcd/liked_by/',
+      `<main></main><div role="dialog"><h2>Likes</h2></div>`,
+    );
+    bare.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') bare.querySelector('[role="dialog"]')?.remove();
+    });
+    expect(await closeDialog(bare, bare.location.href)).toBe(true);
+    expect(bare.querySelector('[role="dialog"]')).toBeNull();
+    // Nothing over the page is closed already.
+    expect(await closeDialog(POST, POST.location.href)).toBe(true);
+  });
+
+  it('opens it for Check’s look, counts its rows and outlines it while it’s open, then closes it', async () => {
+    const { doc, pressedInBox } = opening();
+    const tried = await INSTAGRAM.looks.reactors!.look(doc, doc.location.href);
+    expect(tried).toMatchObject({
+      step: 'reactors',
+      tried: true,
+      works: true,
+      found: { likes: true, box: true, rows: 4, closed: true },
+      missing: [],
+    });
+    expect(tried.outline).toContain('"Likes"');
+    expect(tried.outline).not.toContain('rio.tanaka');
+    // Nothing in it pressed but its Close.
+    expect(pressedInBox()).toBe(0);
+    expect(doc.querySelector('[role="dialog"]')).toBeNull();
+  });
+
+  it('says when there’s no count of likes to open the Likes box with, or it opens none', async () => {
+    const hidden = page(
+      '/p/C3xyzabcd/',
+      `<main><section><div role="button"><svg aria-label="Like"></svg></div>
+        <div role="button"><svg aria-label="Comment"></svg></div></section></main>`,
+    );
+    expect(await INSTAGRAM.looks.reactors!.look(hidden, hidden.location.href)).toMatchObject({
+      tried: false,
+      works: false,
+      found: { likes: false },
+      missing: ['no count of likes on the post to open its Likes box with'],
+    });
+    vi.useFakeTimers({ toFake: ['setTimeout'] });
+    const still = page('/p/C3xyzabcd/', POST.body.innerHTML);
+    still
+      .querySelector('a[href="/p/C3xyzabcd/liked_by/"]')!
+      .addEventListener('click', (e) => e.preventDefault());
+    const trying = INSTAGRAM.looks.reactors!.look(still, still.location.href);
+    await vi.advanceTimersByTimeAsync(15_000);
+    expect(await trying).toMatchObject({
+      tried: true,
+      works: false,
+      found: { likes: true, box: false, rows: 0, closed: true },
+      missing: ['pressing its count of likes opened no Likes box'],
+    });
   });
 });

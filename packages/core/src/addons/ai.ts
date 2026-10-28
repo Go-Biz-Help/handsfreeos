@@ -286,6 +286,42 @@ export function addonAiIssues(modules: readonly AddonServerModule[]): string[] {
   return issues;
 }
 
+/** Whether a person runs it: not a client's portal, a public page, HandsFreeOS's own work or a search answer. */
+const personRuns = (op: CommandDef | QueryDef) =>
+  (op.actors ?? ['human']).includes('human') && !(op.kind === 'query' && op.route === false);
+
+/**
+ * Everything wrong with what the Assistant is given of a set of add-on modules (the owner's rule: it does whatever the
+ * person can): an operation a person runs that neither declares `ai` nor is on its module's `notForTheAssistant` with
+ * why, one that does both, and either on an operation that isn't a person's to run. Whether a declared `ai` makes a
+ * tool is `addonAiIssues`'.
+ */
+export function addonAssistantIssues(modules: readonly AddonServerModule[]): string[] {
+  const issues: string[] = [];
+  for (const { manifest, commands = [], queries = [], notForTheAssistant = {} } of modules) {
+    const ops = [...queries, ...commands];
+    for (const op of ops) {
+      const listed = op.name in notForTheAssistant;
+      if (!personRuns(op)) {
+        if (op.ai) issues.push(`${op.name} isn't a person's to run, so it can't be an AI tool`);
+        if (listed)
+          issues.push(`${op.name} isn't a person's to run: take it off notForTheAssistant`);
+      } else if (op.ai && listed)
+        issues.push(`${op.name} declares \`ai\` and is on notForTheAssistant: keep one`);
+      else if (!op.ai && !listed)
+        issues.push(
+          `${op.name} is something a person does: give it \`ai\`, or add it to notForTheAssistant with why`,
+        );
+    }
+    for (const [name, why] of Object.entries(notForTheAssistant)) {
+      if (!ops.some((op) => op.name === name))
+        issues.push(`notForTheAssistant names ${name}, which ${manifest.id} doesn't have`);
+      if (!why.trim()) issues.push(`${name} is on notForTheAssistant without a why`);
+    }
+  }
+  return issues;
+}
+
 // ---------- find_capabilities ----------
 
 /** One capability as `find_capabilities` hands it to the model. */

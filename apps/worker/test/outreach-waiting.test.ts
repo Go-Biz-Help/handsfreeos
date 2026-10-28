@@ -1,7 +1,8 @@
 /**
  * Pushes about what waits for the person (docs/outreach.md, decision 40): bundled, one push at most every 2 hours in
  * their working hours, 10 minutes after the first new message or step, and only when something is new; or one for
- * each, at once. A reply handed over pushes at once either way (outreach-alerts.test.ts).
+ * each, at once. A reply handed over pushes at once either way (outreach-alerts.test.ts). A comment that waits
+ * (decision 92) pushes by its post.
  */
 import { randomUUID } from 'node:crypto';
 import { HfosError } from '@hfos/core';
@@ -333,6 +334,50 @@ describe('pushes about what waits', () => {
       },
     ]);
     expect(await armed(ws)).toBeNull();
+  }, 60_000);
+
+  it('pushes a comment that waits by its post with “one for each” (decision 92)', async () => {
+    const s = testServices();
+    const ws = await business('Outreach Waiting Comment Co', 'each');
+    const url = 'https://www.instagram.com/p/DQwait0001/';
+    await runAs(owner, ws, 'outreach.posts.save', {
+      platform: 'instagram',
+      found: 'search',
+      posts: [
+        {
+          url,
+          author: {
+            id: null,
+            username: 'quinn.harper.ig',
+            url: 'https://www.instagram.com/quinn.harper.ig/',
+          },
+          name: 'Quinn Harper',
+          text: 'Can anyone recommend a simple CRM for a small crew?',
+        },
+      ],
+    });
+    // The AI called it good: its comment is drafted, and waits for the person's OK at first.
+    const [post] = await rows<{ id: string; profile_id: string }>(
+      admin(),
+      sql`update addon_outreach.posts set check_state = 'good'
+          where workspace_id = ${ws} and url = ${url} returning id, profile_id`,
+    );
+    const queued = await runAs(owner, ws, 'outreach.send.queue', {
+      profileId: post!.profile_id,
+      kind: 'comment',
+      postId: post!.id,
+      text: 'We keep every call in one shared list.',
+    });
+    expect(queued.state).toBe('waiting');
+    await drain(s, ws);
+    expect(await pushes(ws)).toEqual([
+      {
+        title: 'A comment on Quinn Harper’s post waits for your OK',
+        body: 'OK it, change it or skip it on Today.',
+        path: `/app/w/${ws}/a/outreach?view=waiting`,
+        user_ids: [owner.id],
+      },
+    ]);
   }, 60_000);
 
   it('sends nothing bundled once the person switched to one for each', async () => {

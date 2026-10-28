@@ -48,7 +48,10 @@ export const WaitingNeed = z.object({
   url: z.string().nullable(),
   /** Why it couldn't, in the extension's words. */
   why: z.string(),
-  /** For a message that didn't go: its words, and the chat when it's known. */
+  /**
+   * For a message that didn't go: its words, and the chat when it's known. For a comment that didn't (decision 92):
+   * its words.
+   */
   text: z.string().nullable(),
   threadKey: z.string().nullable(),
   /** The last time it couldn't. */
@@ -97,6 +100,12 @@ export const WaitingOutput = z.object({
   items: z.array(WaitingItem),
   /** Their training wheels, for Approve all's words. */
   wheels: WheelsState,
+  /**
+   * The networks whose comments wait for an OK under the comments-only hold now (decision 92's 13), while a comment
+   * waits: what says whether the hold's note shows (`commentHoldShown`), by each comment's own network. Empty when
+   * only the counts were asked for.
+   */
+  commentHolds: z.array(z.enum(PLATFORM_KEYS)),
   /** How their phone hears of it, their working hours and the business's time zone: the pushes and pop-ups follow them. */
   pushes: z.enum(PUSH_MODE_KEYS),
   hours: WorkingHours,

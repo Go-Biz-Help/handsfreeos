@@ -29,7 +29,16 @@ import {
   PARTNER_SEARCH_WORDS_MOST,
   type PartnerSearchKind,
 } from '@hfos/core/addons/outreach/partners';
-import { POST_TEXT_MOST, POSTS_SAVE_MOST } from '@hfos/core/addons/outreach/posts';
+import {
+  FIND_LINE_MOST,
+  FIND_LINES,
+  FIND_PLACE_MOST,
+  FIND_SAID_MOST,
+  FIND_WORDS_MOST,
+  FINDS_SAVE_MOST,
+  type FindSaveHow,
+} from '@hfos/core/addons/outreach/finds';
+import { POST_TEXT_MOST, POST_WORDS_MOST, POSTS_SAVE_MOST } from '@hfos/core/addons/outreach/posts';
 import { LOOKUP_LINE_MOST } from '@hfos/core/addons/outreach/today';
 import type { Answered, Reached, Step, StepGroup } from '../networks/facebook/actions';
 import { asked, askedByYou, mutualFriendsIn, type FriendList } from '../networks/facebook/friends';
@@ -52,6 +61,7 @@ import { profileKey as linkedInKey } from '../networks/linkedin/urls';
 import type {
   Business,
   ChatsCollectInput,
+  FindsSaveInput,
   FriendNoteInput,
   FriendsSaveInput,
   GroupSaveInput,
@@ -144,6 +154,7 @@ export const networkAddress = (url: string | null, platform: Platform = JOBS) =>
   url && url.length <= 500 && NETWORKS[platform].link.test(url) ? url : null;
 
 const NOT_WHOSE = 'Couldn’t tell whose profile it was.';
+const NOT_WHICH_GROUP = 'Couldn’t tell which group this is.';
 
 /** Who a step or an answer was to, as HandsFreeOS takes them: null when the page didn't give a profile it keeps. */
 function whom(
@@ -386,7 +397,7 @@ export function isAdminsPage(href: string): boolean {
 export function groupSave(result: ReadResult, workspaceId: string): Built<GroupSaveInput[]> {
   const page = result.group;
   const group = page?.group ? groupRef({ ...page.group, name: page.name }) : null;
-  if (!page || !group) return { ok: false, why: 'Couldn’t tell which group this is.' };
+  if (!page || !group) return { ok: false, why: NOT_WHICH_GROUP };
   const adminsPage = isAdminsPage(result.url);
   const seen = new Set<string>();
   const people = (result.people ?? []).flatMap((person: Person) => {
@@ -531,14 +542,24 @@ export function linkedInListSave(
 }
 
 /**
+ * The hashtag (without its #) or phrase a look or a search found posts with (decision 92), as a save keeps it on each
+ * new post: none when it went with none.
+ */
+const foundWith = (words: string | null | undefined): string | null =>
+  clip((words ?? '').replace(/^#+/, ''), POST_WORDS_MOST) || null;
+
+/**
  * The posts LinkedIn's post search shows, to keep the ones worth a comment (decision 49, LinkedIn's way: its groups
  * are quiet), in no group: each with who wrote it, its own link and what it says. A post by a company's page, or
- * without its author's profile, its link or any words, is left out: nobody to reach, or nothing to comment on.
+ * without its author's profile, its link or any words, is left out: nobody to reach, or nothing to comment on. From
+ * 0.95.0 each save carries the phrase it searched with (`words`, decision 92), so a post found with a playbook's own
+ * is worth the AI's check whatever its words say.
  */
 export function linkedInPostsSave(
   result: LinkedInRead,
   workspaceId: string,
   found: PostsSaveInput['found'] = 'search',
+  words: string | null = null,
 ): Built<PostsSaveInput> {
   const seen = new Set<string>();
   const posts = (result.posts ?? []).flatMap((post) => {
@@ -569,6 +590,7 @@ export function linkedInPostsSave(
       group: null,
       posts: posts.slice(0, POSTS_SAVE_MOST),
       found,
+      words: foundWith(words),
     },
   };
 }
@@ -676,9 +698,11 @@ export function alignableListSave(
 }
 
 /**
- * The posts on an Alignable page (its town's group, a forum question), to keep the ones worth an answer or a comment
- * (partners stage 6c): each with who wrote it, its own discussion's link and what it says, in no group, as a
- * network's search finds are. A post with no page of its own, or nobody named, is left out.
+ * The posts on an Alignable page (its town's group, a forum question, or from 0.95.0 a group the person joined), to
+ * keep the ones worth an answer or a comment (partners stage 6c, decision 92): each with who wrote it, its own
+ * discussion's link and what it says. The town's posts and the forum's go in no group, as a network's search finds
+ * are; a joined group's feed goes with its group (`group`), so its writers are found in it. A post with no page of its
+ * own, or nobody named, is left out, and so is the whole save when the group isn't one it can keep.
  */
 export function alignablePostsSave(
   threads: readonly {
@@ -689,7 +713,10 @@ export function alignablePostsSave(
     readonly likes: number | null;
   }[],
   workspaceId: string,
+  group: AlignableGroupLink | null = null,
 ): Built<PostsSaveInput> {
+  const inGroup = group ? groupRef(group, ALIGNABLE) : null;
+  if (group && !inGroup) return { ok: false, why: NOT_WHICH_GROUP };
   const seen = new Set<string>();
   const posts = threads.flatMap((thread) => {
     if (!thread.author?.profile) return [];
@@ -716,11 +743,124 @@ export function alignablePostsSave(
     input: {
       workspaceId,
       platform: ALIGNABLE,
-      group: null,
+      group: inGroup,
       posts: posts.slice(0, POSTS_SAVE_MOST),
       found: 'find',
     },
   };
+}
+
+/** A group on Alignable as a link to it showed it: its number or the name in its address, its address, and its name. */
+export interface AlignableGroupLink {
+  readonly id: string;
+  readonly url: string;
+  readonly name: string | null;
+}
+
+/**
+ * A group as an Alignable page listed it (decision 92: a search for groups, the person's own groups): its link, and
+ * what the page said of it.
+ */
+export interface AlignableGroupCard extends AlignableGroupLink {
+  /** How many members it says it has. */
+  readonly members: number | null;
+  /** Whether the person is in it, as the page showed (Joined, or its own Join): null when it didn't say. */
+  readonly joined: boolean | null;
+  /** The line under its name: what it's about, or where. */
+  readonly detail?: string | null;
+}
+
+/**
+ * The groups an Alignable page lists, to save as Alignable's (decision 92), each once with how much the page said.
+ * On the person's own groups page (`own`) each is saved as one they're in, before any search or join (decision 48), so
+ * HandsFreeOS counts it as theirs; anywhere else, only what its card showed. Alignable doesn't say public or private.
+ */
+export function alignableGroupsSave(
+  groups: readonly AlignableGroupCard[],
+  workspaceId: string,
+  own = false,
+): Built<GroupsSaveInput> {
+  const seen = new Set<string>();
+  const kept = groups.flatMap((card) => {
+    const group = groupRef(card, ALIGNABLE);
+    if (!group || seen.has(group.url)) return [];
+    seen.add(group.url);
+    const detail = card.detail ? clip(card.detail, DETAIL_MOST) || null : null;
+    const joined = own ? true : card.joined;
+    return [
+      {
+        group,
+        detail,
+        privacy: null,
+        members: card.members !== null && card.members <= 100_000_000 ? card.members : null,
+        ...(joined === null ? {} : { joined }),
+      },
+    ];
+  });
+  if (!kept.length) return { ok: false, why: 'There are no groups on the page to save.' };
+  return {
+    ok: true,
+    input: { workspaceId, platform: ALIGNABLE, groups: kept.slice(0, GROUPS_SAVE_MOST) },
+  };
+}
+
+/** Someone a group's members page shows: their business, the lines under their name, and whether they lead it. */
+export interface AlignableMember {
+  readonly name: string;
+  readonly profile: ProfileRef;
+  readonly lines: readonly string[];
+  /** One of its leaders (an organizer, an admin, a moderator): kept so, and never reached (decision 92). */
+  readonly leader: boolean;
+}
+
+/**
+ * A group on Alignable and the members its page shows, to save as Alignable's (decision 92), in as many parts as it
+ * takes. Its leaders are kept as running it, never suggested; they stay partner leads. `leadersRead` once the page's
+ * leaders were all read, or the page showed no leaders at all: said only on the last part, as Facebook's admins page
+ * is, so a save that stops halfway doesn't open the gate to its members.
+ */
+export function alignableGroupSave(
+  group: AlignableGroupCard,
+  people: readonly AlignableMember[],
+  workspaceId: string,
+  leadersRead = false,
+): Built<GroupSaveInput[]> {
+  const ref = groupRef(group, ALIGNABLE);
+  if (!ref) return { ok: false, why: NOT_WHICH_GROUP };
+  const seen = new Set<string>();
+  const kept = people.flatMap((person) => {
+    const who = whom({ name: person.name, profile: person.profile }, ALIGNABLE);
+    const key = who
+      ? (who.profile.id ?? who.profile.username ?? who.profile.url).toLowerCase()
+      : '';
+    if (!who || seen.has(key)) return [];
+    seen.add(key);
+    return [
+      {
+        ...who,
+        lines: person.lines
+          .map((line) => clip(line, INTRO_LINE_MOST))
+          .filter(Boolean)
+          .slice(0, GROUP_LINES),
+        part: null,
+        runsGroup: person.leader,
+      },
+    ];
+  });
+  const facts = {
+    workspaceId,
+    platform: ALIGNABLE,
+    group: ref,
+    privacy: null,
+    members: group.members !== null && group.members <= 100_000_000 ? group.members : null,
+    joined: group.joined,
+  };
+  if (!kept.length) return { ok: true, input: [{ ...facts, people: [], adminsPage: leadersRead }] };
+  const parts: GroupSaveInput[] = [];
+  for (let at = 0; at < kept.length; at += GROUP_PEOPLE_MOST)
+    parts.push({ ...facts, people: kept.slice(at, at + GROUP_PEOPLE_MOST), adminsPage: false });
+  parts[parts.length - 1] = { ...parts[parts.length - 1]!, adminsPage: leadersRead };
+  return { ok: true, input: parts };
 }
 
 // ------------------------------------------------------------------------------------------------- Instagram's
@@ -790,11 +930,14 @@ export interface InstagramPostRead {
 /**
  * The posts a look at Instagram's hashtags and places opened (part 15), to keep the ones worth a comment: each with who
  * posted it, by their account's name, and its caption, in no group, as a network's search finds are. A post with
- * nobody named, or no caption to read, is left out.
+ * nobody named, or no caption to read, is left out. From 0.95.0 each hashtag's posts go as a save of their own with the
+ * hashtag (`words`, without its #, decision 92), so a post under a playbook's own is worth the AI's check whatever its
+ * caption says; a place's go with none.
  */
 export function instagramPostsSave(
   posts: readonly InstagramPostRead[],
   workspaceId: string,
+  words: string | null = null,
 ): Built<PostsSaveInput> {
   const seen = new Set<string>();
   const kept = posts.flatMap((post) => {
@@ -831,6 +974,89 @@ export function instagramPostsSave(
       group: null,
       posts: kept.slice(0, POSTS_SAVE_MOST),
       found: 'search',
+      words: foundWith(words),
     },
   };
+}
+
+// ------------------------------------------------------------------------------------------------- found by topic
+
+/**
+ * Someone a page showed, found by topic (decision 92): who liked or commented on a good post, a search's result, a
+ * group's member. Their profile, the lines under their name (a headline, a bio, a kind of business), what a commenter
+ * said, and where a search's result or a member says they are.
+ */
+export interface FoundPerson {
+  readonly name: string;
+  readonly profile: ProfileRef;
+  readonly lines?: readonly string[];
+  readonly said?: string | null;
+  readonly place?: string | null;
+}
+
+/** What the people found were found by: the good post they're the people of, or the group, or the search. */
+export interface FoundOn {
+  /** The good post whose likers or commenters they are (`outreach.posts.people_next`'s `postId`). */
+  readonly postId?: string | null;
+  /** The group whose members they are. */
+  readonly group?: AlignableGroupLink | null;
+  /** The kind of business a search went with (`outreach.finds.searches`). */
+  readonly words?: string | null;
+  /** The town a search looked in: none when it looked anywhere. */
+  readonly place?: string | null;
+}
+
+/**
+ * The people found by topic on a page (decision 92: a good post's likers or commenters, a search's businesses, a
+ * group's members), as HandsFreeOS keeps them for the AI's found check (`outreach.finds.save`): each once, cut to what
+ * it takes, in parts of FINDS_SAVE_MOST. What a commenter said goes only with commenters. Someone whose profile or name
+ * the page didn't show is left out. A post's people go even when there are none (one save with nobody in it), so the
+ * post counts as read; the post or the group it needs missing, nothing goes.
+ */
+export function findsSave(
+  found: readonly FoundPerson[],
+  how: FindSaveHow,
+  platform: Platform,
+  workspaceId: string,
+  on: FoundOn = {},
+): Built<FindsSaveInput[]> {
+  const onPost = how === 'liked' || how === 'commented';
+  if (onPost && !on.postId)
+    return { ok: false, why: 'Couldn’t tell which post they’re the people of.' };
+  const group = on.group ? groupRef(on.group, platform) : null;
+  if (how === 'member' && !group) return { ok: false, why: NOT_WHICH_GROUP };
+  const seen = new Set<string>();
+  const people = found.flatMap((person) => {
+    const who = whom({ name: person.name, profile: person.profile }, platform);
+    if (!who) return [];
+    const key = (who.profile.id ?? who.profile.username ?? who.profile.url).toLowerCase();
+    if (seen.has(key)) return [];
+    seen.add(key);
+    const lines = [
+      ...new Set((person.lines ?? []).map((line) => clip(line, FIND_LINE_MOST)).filter(Boolean)),
+    ];
+    return [
+      {
+        ...who,
+        lines: lines.slice(0, FIND_LINES),
+        said: how === 'commented' ? words(person.said, FIND_SAID_MOST) : null,
+        place: words(person.place, FIND_PLACE_MOST),
+      },
+    ];
+  });
+  const facts = {
+    workspaceId,
+    platform,
+    how,
+    postId: onPost ? on.postId! : null,
+    group,
+    // A post's people take their words from the post itself (its hashtag or phrase).
+    words: onPost ? null : words(on.words, FIND_WORDS_MOST),
+    place: how === 'searched' ? words(on.place, FIND_PLACE_MOST) : null,
+  };
+  if (!people.length) return { ok: true, input: [{ ...facts, people: [] }] };
+  const parts: FindsSaveInput[] = [];
+  for (let at = 0; at < people.length; at += FINDS_SAVE_MOST)
+    parts.push({ ...facts, people: people.slice(at, at + FINDS_SAVE_MOST) });
+  return { ok: true, input: parts };
 }

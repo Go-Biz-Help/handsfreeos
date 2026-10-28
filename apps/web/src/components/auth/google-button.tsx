@@ -3,6 +3,7 @@ import { providerSignInMessage } from '@hfos/core';
 import { useState } from 'react';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
+import type { AffiliateTrail } from '@/lib/auth/visitor';
 import { supabaseBrowser } from '@/lib/supabase/client';
 import { safeNext } from '@/lib/utils';
 
@@ -31,16 +32,19 @@ function GoogleG() {
 
 /**
  * Continue with Google, on the sign-in and sign-up pages once Google is turned on in Supabase. It signs in, or makes
- * the account the first time. `visitor` is the website's Opinly visitor id from a sign-up link, kept on a new account
- * by the callback as the email sign-up keeps it.
+ * the account the first time. `visitor` is the website's Opinly visitor id from a sign-up link, and `affiliate` the
+ * affiliate link they came by (`lib/auth/visitor.ts`): each kept on a new account by the callback, as the email sign-up
+ * keeps them.
  */
 export function GoogleButton({
   next,
   visitor,
+  affiliate,
   label = 'Continue with Google',
 }: {
   next?: string;
   visitor?: string;
+  affiliate?: AffiliateTrail;
   label?: string;
 }) {
   const [busy, setBusy] = useState(false);
@@ -55,6 +59,10 @@ export function GoogleButton({
         setBusy(true);
         const back = new URLSearchParams({ next: safeNext(next) });
         if (visitor) back.set('oa', visitor);
+        if (affiliate) {
+          back.set('ref', affiliate.ref);
+          back.set('ref_at', affiliate.refAt);
+        }
         const redirectTo = `${window.location.origin}/auth/callback?${back}`;
         const { data, error } = await supabaseBrowser().auth.signInWithOAuth({
           provider: 'google',

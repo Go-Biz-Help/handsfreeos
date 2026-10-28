@@ -6,12 +6,14 @@
  *   day, to them alone, on their add-ons switch; it opens the Live tab. A warning on one network is its own: the
  *   others go on, and their warnings push too.
  * - **The feed is kept a week** (`outreach.live_prune`, one job a business, each day): older lines go, asks of
- *   the extension asked a week ago (decision 43), needs done, let go or no longer shown a while since, and computers
- *   not seen for a month but each person's working one. It's armed when the add-on comes on, and when a computer is
+ *   the extension asked a week ago (decision 43), needs done, let go or no longer shown a while since, what people
+ *   found by topic said once the find is 2 weeks old (decision 92), and computers not seen for a month but each
+ *   person's working one. It's armed when the add-on comes on, and when a computer is
  *   new to HandsFreeOS (`outreach.live.changed` with `made`), so a business that had the add-on before it gets one
  *   too.
  */
 import { ASK_KEEP_DAYS } from '@hfos/core/addons/outreach/asks';
+import { FIND_FRESH_DAYS } from '@hfos/core/addons/outreach/finds';
 import { PLATFORM_KEYS, type Platform } from '@hfos/core/addons/outreach/playbooks';
 import {
   COMPUTER_KEEP_DAYS,
@@ -101,7 +103,8 @@ export async function liveChanged(ctx: AddonEventContext): Promise<void> {
  * the notes of what it saw (decision 74), and codes from their email past their 10 minutes;
  * needs done or let go more than `NEED_QUIET_DAYS` ago (Let it go keeps a step quiet that long, no more), and open ones
  * not seen for `NEED_SHOWN_DAYS` and `NEED_GONE_DAYS` more (off the list a while; noted again, one is new anyway);
- * and computers not seen for `COMPUTER_KEEP_DAYS`, but the one that works for each person (ranked as core's
+ * what someone found by topic said under a post, once the find is `FIND_FRESH_DAYS` old (decision 92: nothing a
+ * stranger wrote is kept; their check empties it sooner); and computers not seen for `COMPUTER_KEEP_DAYS`, but the one that works for each person (ranked as core's
  * `workingOf`): their lines went with the week already, and an ask one took keeps no computer. Seen again, a computer
  * comes back as new. It comes back tomorrow.
  */
@@ -111,6 +114,7 @@ export async function livePruneJob(ctx: AddonJobContext): Promise<JobResult> {
   const unseen = new Date(ctx.now - COMPUTER_KEEP_DAYS * DAY).toISOString();
   const cleared = new Date(ctx.now - NEED_QUIET_DAYS * DAY).toISOString();
   const offList = new Date(ctx.now - (NEED_SHOWN_DAYS + NEED_GONE_DAYS) * DAY).toISOString();
+  const stale = new Date(ctx.now - FIND_FRESH_DAYS * DAY).toISOString();
   await asWorker(ctx.db, ctx.scope, async (tx) => {
     await rows(
       tx,
@@ -140,6 +144,15 @@ export async function livePruneJob(ctx: AddonJobContext): Promise<JobResult> {
           where workspace_id = ${ctx.scope.workspaceId}
             and ((state <> 'open' and cleared_at < ${cleared}::timestamptz)
               or (state = 'open' and seen_at < ${offList}::timestamptz))`,
+    );
+    // What a stranger wrote under a post goes once their check reads it, and 2 weeks after it was kept if none did
+    // (decision 92): by when it was kept, so being found again never keeps it longer.
+    await rows(
+      tx,
+      sql`update addon_outreach.finds
+          set said = null, said_at = null, updated_at = ${new Date(ctx.now).toISOString()}::timestamptz
+          where workspace_id = ${ctx.scope.workspaceId} and said is not null
+            and coalesce(said_at, found_at) < ${stale}::timestamptz`,
     );
     await rows(
       tx,

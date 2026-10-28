@@ -7,6 +7,9 @@
  *   admins and moderators has been read; never anyone who runs a group, is on Don't pitch, is in Contacts, or has had
  *   a request from the business already. As many as today's limit has left. Ahead of them, people found by a search
  *   (whoever wrote a post the network's search found, off any group), once a comment or a like has warmed them up.
+ *   On Instagram, LinkedIn and Alignable, for a computer on 0.95.0 or later (decision 92), people found by topic
+ *   (./finds.ts) whose AI check from their own page was good take the place of both: a like first on every network, a
+ *   poster's on the post it found, and anyone that pick had warmed up already still gets their request.
  * - **Like a post first** (decision 33, while the person's **Like a post first** is on): someone's request waits until
  *   a day after one of their posts was liked, so the list has likes for tomorrow's requests, as many as a day's
  *   requests. A profile with no post to like goes without.
@@ -39,7 +42,7 @@
  */
 import { z } from 'zod';
 import { quoteData } from '../../knowledge/prompt';
-import { MESSAGE_KINDS, SENDING_MODE_KEYS, WheelsState } from './automation';
+import { SEND_KINDS, SENDING_MODE_KEYS, WheelsState } from './automation';
 import type { DownloadMessage } from './download';
 import { type DailyStep } from './limits';
 import type { MainOfferParts } from '../../main-offer/parts';
@@ -183,7 +186,10 @@ export const TodayItem = z.object({
   /** The chat, for a follow-up or a reply. */
   chatId: z.uuid().nullable(),
   threadKey: z.string().nullable(),
-  /** The post to comment on: its link, when Facebook said it was posted, and what it says (cut short). */
+  /**
+   * The post to comment on, or for a warm-up the post someone found by topic wrote, which the like goes on (decision
+   * 92): its link, when the network said it was posted, and what it says (cut short).
+   */
   postId: z.uuid().nullable(),
   postUrl: z.string().nullable(),
   posted: z.string().nullable(),
@@ -217,8 +223,9 @@ export const TodayItem = z.object({
   requests: z.boolean().optional(),
   /**
    * For a message, the one the extension drafted to send (./sends.ts): waiting for the person's OK, or OK'd and about
-   * to go. Null until it drafts one. One handed over, or to someone who needs the person, waits for an OK of its own:
-   * Approve all leaves it (`oneByOne` in ./waiting-words.ts).
+   * to go; for a comment where comments wait at first (decision 92), the one drafted for its post. Null until it
+   * drafts one. One handed over, or to someone who needs the person, waits for an OK of its own: Approve all leaves it
+   * (`oneByOne` in ./waiting-words.ts).
    */
   send: z
     .object({
@@ -259,8 +266,11 @@ export const TodayOutput = z.object({
   warning: WarningState.nullable(),
   /** The kinds the extension does on its own for the person (./automation.ts): the rest wait for them. */
   auto: z.array(z.enum(TODAY_KIND_KEYS)),
-  /** The messages it drafts for them to send (./sends.ts): none while Sending is off. */
-  messages: z.array(z.enum(MESSAGE_KINDS)),
+  /**
+   * The messages it drafts for them to send (./sends.ts): none while Sending is off. With them, on a network whose
+   * comments wait at first, `comment` for a build that drafts comments to wait there too (decision 92).
+   */
+  messages: z.array(z.enum(SEND_KINDS)),
   /** Their Sending choice, and their training wheels: while they're on, every message waits and limits are half. */
   sending: z.enum(SENDING_MODE_KEYS),
   wheels: WheelsState,
@@ -379,7 +389,31 @@ export const todayDraftSystem = (platform: Platform = 'facebook') =>
     `You write short ${NETWORKS[platform].name} messages and comments that a small business owner sends themselves, as part of their own outreach.`,
     `Write as the owner, in the first person, ${NETWORKS[platform].words.messageLike}: no greeting card language, no hype, no pressure.`,
     ...DRAFT_RULES,
+    ...(COMMENT_RULES[platform] ? [COMMENT_RULES[platform]] : []),
   ].join('\n');
+
+/**
+ * The most words in a comment where comments go through `sends` (decision 92) and the network keeps them short
+ * (Instagram's); null where a helpful answer may run longer (Alignable's) or comments don't go that way.
+ */
+export const COMMENT_WORDS_MOST: Readonly<Record<Platform, number | null>> = {
+  facebook: null,
+  linkedin: null,
+  instagram: 30,
+  alignable: null,
+};
+
+/**
+ * How a comment is written where comments go through `sends` and the extension posts them once OK'd (decision 92):
+ * Instagram's short, with no link, hashtag or pitch; Alignable's a helpful answer, with no pitch or link.
+ */
+const COMMENT_RULES: Readonly<Record<Platform, string | null>> = {
+  facebook: null,
+  linkedin: null,
+  instagram: `A comment on Instagram is under ${COMMENT_WORDS_MOST.instagram} words, with no link, no web address, no hashtags and no pitch: answer or add something useful, as a friendly local would.`,
+  alignable:
+    'A comment on Alignable is a helpful answer to the post, from what the business knows: no pitch, no link and no web address.',
+};
 
 const DRAFT_RULES = [
   PLAIN_WRITING,
@@ -478,6 +512,18 @@ export const fitsRequests = (text: string): boolean =>
   text.trim().length <= REQUESTS_MESSAGE_MOST && !LINKED.test(text) && !/\n\s*\n/.test(text.trim());
 
 /**
+ * Whether a drafted comment can wait to be posted where comments go through `sends` (decision 92): never with a link
+ * or a web address; where the network keeps comments short (`COMMENT_WORDS_MOST`, Instagram's), never with a hashtag
+ * and within its words. Anywhere else, any draft.
+ */
+export function fitsComment(text: string, platform: Platform): boolean {
+  if (NETWORKS[platform].commentsWait !== 'hold') return true;
+  if (LINKED.test(text)) return false;
+  const most = COMMENT_WORDS_MOST[platform];
+  return most === null || (!/(^|\s)#\w/.test(text) && text.trim().split(/\s+/).length <= most);
+}
+
+/**
  * A kind's task on a network, in its words. A post off a group (LinkedIn's post search and feed, where the helpful post
  * goes on the person's own) is on the network, not in a group.
  */
@@ -491,9 +537,20 @@ function taskOn(kind: CustomerDraftKind, platform: Platform, inGroup: boolean): 
           'They just followed the owner back.',
         )
       : said;
-  if (platform === 'facebook' || inGroup) return task;
+  // A comment that waits to be posted (decision 92) carries no pitch and no link, and keeps to the network's words.
+  const most = COMMENT_WORDS_MOST[platform];
+  const held =
+    kind === 'comment' && NETWORKS[platform].commentsWait === 'hold'
+      ? task
+          .replace(
+            ' first, and only then offer to help, without a hard pitch or a link unless they asked for one.',
+            ', with no pitch and no link.',
+          )
+          .replace('Under 50 words.', most === null ? 'Under 50 words.' : `Under ${most} words.`)
+      : task;
+  if (platform === 'facebook' || inGroup) return held;
   const name = NETWORKS[platform].name;
-  return task.replace(`in a ${name} group`, `on ${name}`);
+  return held.replace(`in a ${name} group`, `on ${name}`);
 }
 
 /** A chat as a draft reads it: "Owner: …" and "Them: …", a line each. */

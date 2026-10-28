@@ -5,7 +5,7 @@
  * and demos, 20261027001200 for the extension on its own, 20261027001300 for the messages it sends,
  * 20261027001500 for live status: the computers, the day and the feed, and 20261027001600 for Waiting for you: the
  * steps it needs the person for, and the bundled push, 20261027001700 for asking the extension, 20261027002000 for
- * the fits among friends and chats, 20261027002100 for stages, 20261027002200 for checking and joining groups, 20261027002810 for countries, 20261027008400 for partners, 20261027009300 for finding partners by search, and 20261027009800 for a code from the person's email):
+ * the fits among friends and chats, 20261027002100 for stages, 20261027002200 for checking and joining groups, 20261027002810 for countries, 20261027008400 for partners, 20261027009300 for finding partners by search, 20261027009800 for a code from the person's email, and 20261027014100 for finding people by topic):
  * the Drizzle mirror its server code reads and writes through.
  * Server-only.
  * test/addons/outreach-tables.test.ts holds the mirror to the live columns.
@@ -28,12 +28,12 @@ import { people, users, workspaces } from '@hfos/db/schema';
 import type { TouchKind, TouchStep } from './activity';
 import type { AskKind, AskReply, AskResult, AskState, AskTask, AskVia } from './asks';
 import type {
-  MessageKind,
   OtherPlatform,
   PostingMode,
   PushMode,
   ReplyMode,
   SendingMode,
+  SendKind,
 } from './automation';
 import type { EngagementKind, HelpfulState } from './helpful';
 import type { ChatReadState } from './chat-read';
@@ -49,6 +49,7 @@ import type { CountryHow, MutualCountries } from './countries';
 import type { GroupCheckState, JoinAnswered, JoinState } from './group-checks';
 import type { PitchRead } from './stages';
 import type { DemoHow } from './demos';
+import type { CheckVia, FindHow } from './finds';
 import type { DayState, DayVia, DayWhy, ReportedState, StepKind } from './live';
 import type { ProfileCheck } from './profile-check';
 import type { ProfileTicks } from './readiness';
@@ -564,6 +565,10 @@ export const posts = addonOutreach.table(
     checkWhy: text('check_why'),
     /** The writer is asking, now, for what the business offers (decision 49): pushed, and first on Today. */
     strong: boolean('strong').notNull().default(false),
+    /** The hashtag or phrase that found it (decision 92); null for a group's or a feed's post. The first one kept. */
+    words: text('words'),
+    /** When its likers and commenters were read (decision 92): each good post's people are read once. */
+    peopleReadAt: ts('people_read_at'),
     checkedAt: ts('checked_at'),
     skippedAt: ts('skipped_at'),
     seenAt: ts('seen_at').notNull(),
@@ -748,8 +753,9 @@ export type NetworkProfilesKept = Partial<Record<OtherPlatform, NetworkProfileKe
 export type NetworkWheelsKept = Partial<Record<OtherPlatform, NetworkWheelKept>>;
 
 /**
- * A message the extension drafted to send for one person (./sends.ts, decisions 26 and 27): the words that go and the
- * AI's own, and where it stands. One open (waiting or OK'd) a person, profile and kind at a time.
+ * A message the extension drafted to send for one person (./sends.ts, decisions 26 and 27), or a comment on a good post
+ * (decision 92): the words that go and the AI's own, and where it stands. One open (waiting or OK'd) a person, profile
+ * and kind at a time.
  */
 export const sends = addonOutreach.table(
   'sends',
@@ -760,7 +766,7 @@ export const sends = addonOutreach.table(
       .notNull()
       .references(() => users.id, { onDelete: 'cascade' }),
     profileId: uuid('profile_id').notNull(),
-    kind: text('kind').notNull().$type<MessageKind>(),
+    kind: text('kind').notNull().$type<SendKind>(),
     chatId: uuid('chat_id'),
     threadKey: text('thread_key'),
     text: text('text').notNull(),
@@ -777,6 +783,8 @@ export const sends = addonOutreach.table(
     profileUrl: text('profile_url'),
     /** The main offer's version it went with (../conversation.ts): what's sent after keeps the first one's. */
     offerVersion: integer('offer_version'),
+    /** A comment's post (decision 92): set for kind `comment`, and only for it. */
+    postId: uuid('post_id'),
     approvedAt: ts('approved_at'),
     doneAt: ts('done_at'),
     createdAt: ts('created_at').notNull().defaultNow(),
@@ -814,6 +822,11 @@ export const computers = addonOutreach.table(
     allowed: text('allowed').array().$type<Platform[]>(),
     nextAt: ts('next_at'),
     toldAt: ts('told_at'),
+    /**
+     * When it first worked on a build that finds people by topic (decision 92, ./ops/live.ts `foundByTopicSince`): the
+     * old search pick carries on only with writers warmed up before then.
+     */
+    foundByTopicAt: ts('found_by_topic_at'),
     createdAt: ts('created_at').notNull().defaultNow(),
     updatedAt: ts('updated_at').notNull().defaultNow(),
   },
@@ -1110,6 +1123,8 @@ export const checks = addonOutreach.table(
       .default(sql`'{}'`),
     /** How many mutual friends the look's page listed, matched or not; null when it wasn't read. */
     mutualRead: integer('mutual_read'),
+    /** Of someone the person knows, or someone found by topic (decision 92): the server sets it at each look. */
+    via: text('via').notNull().default('known').$type<CheckVia>(),
     createdAt: ts('created_at').notNull().defaultNow(),
     updatedAt: ts('updated_at').notNull().defaultNow(),
   },
@@ -1198,6 +1213,45 @@ export const partnerLeads = addonOutreach.table(
     platform: text('platform').notNull().$type<Platform>(),
     kind: text('kind').notNull().$type<PartnerSearchKind>(),
     words: text('words').notNull(),
+    foundAt: ts('found_at').notNull(),
+    createdAt: ts('created_at').notNull().defaultNow(),
+    updatedAt: ts('updated_at').notNull().defaultNow(),
+  },
+  (t) => [
+    unique().on(t.workspaceId, t.id),
+    unique().on(t.workspaceId, t.userId, t.profileId),
+    foreignKey({
+      columns: [t.workspaceId, t.profileId],
+      foreignColumns: [profiles.workspaceId, profiles.id],
+    }).onDelete('cascade'),
+  ],
+);
+
+/**
+ * Someone the person's computer found by topic (decision 92, ./finds.ts): a good post's writer, liker or commenter, an
+ * Alignable search's result or a group's member, with the post or group, the words and place it was found with, and
+ * what a commenter said until the AI's check reads it. Each person's own, one row a person and profile.
+ */
+export const finds = addonOutreach.table(
+  'finds',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    workspaceId: workspaceRef(),
+    userId: uuid('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    profileId: uuid('profile_id').notNull(),
+    platform: text('platform').notNull().$type<Platform>(),
+    how: text('how').notNull().$type<FindHow>(),
+    /** The post they wrote, liked or commented on (let go when it goes). */
+    postId: uuid('post_id'),
+    /** The group they're in, or the post was in (let go when it goes). */
+    groupId: uuid('group_id'),
+    words: text('words'),
+    place: text('place'),
+    /** What a commenter said, and when it was kept: emptied once the AI's check reads it, or 14 days after. */
+    said: text('said'),
+    saidAt: ts('said_at'),
     foundAt: ts('found_at').notNull(),
     createdAt: ts('created_at').notNull().defaultNow(),
     updatedAt: ts('updated_at').notNull().defaultNow(),
@@ -1474,6 +1528,7 @@ export const OUTREACH_TABLES = {
   engagements,
   fileChats,
   filePeople,
+  finds,
   friendEnds,
   friends,
   groupPeople,

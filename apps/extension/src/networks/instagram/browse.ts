@@ -8,10 +8,24 @@
  * (0.84.0: its counts aren't links to the list now). And a chat opened from the side of their messages, whose rows
  * aren't links (the owner's Check, 0.62.0): for Check Instagram, and, from part 13, for Read my chats, which also
  * scrolls that list for more.
+ *
+ * From 0.95.0 (decision 92) a good post's people, for who liked and commented on it: its View all comments (or Load
+ * more comments) pressed once, its Likes box opened by its count of likes, as a person opens it, scrolled as any box
+ * over the page is (`scrollDialog`), and closed again by its own Close. Nothing in them is pressed.
  */
 import { clean } from '../facebook/dom';
-import { followersBox, followersCount, ownOf } from './read';
-import { accountOf, instagramUrl } from './urls';
+import { visible } from '../facebook/fetch';
+import { controlsSaying, waitFor } from '../looking/looks';
+import {
+  followersBox,
+  followersCount,
+  likersBox,
+  likesOpenerIn,
+  moreCommentsIn,
+  ownOf,
+  postRootOf,
+} from './read';
+import { accountOf, instagramUrl, kindOf } from './urls';
 
 /** Most of the box's height at a time, as a person scrolls. */
 const SCREEN = 0.8;
@@ -124,4 +138,65 @@ export function openFollowers(doc: Document, href: string): boolean {
   if (!count) return false;
   count.click();
   return true;
+}
+
+// ------------------------------------------------------------------------------------------------ a post's people
+
+/** A box over the page's own Close, as its label says. */
+const CLOSE = /^close$/i;
+/** How long a box is waited on to go once its Close is pressed. */
+const CLOSED_MS = 4_000;
+
+/** Whether the tab shows a post's own page: its comments and its count of likes are there. */
+const onPost = (href: string): boolean => {
+  const page = instagramUrl(href);
+  return page !== null && kindOf(page) === 'post';
+};
+
+/**
+ * Opens a post's Likes box over its page (decision 92): a press of its count of likes ("12 others", "1,234 likes", or
+ * the number beside its Like), as a person does. Only on a post's own page, and never with the box open already.
+ * Whether the box is there, or was asked for.
+ */
+export function openLikers(doc: Document, href: string): boolean {
+  if (likersBox(doc, href)) return true;
+  if (!onPost(href)) return false;
+  const opener = likesOpenerIn(postRootOf(doc), href);
+  if (!opener) return false;
+  opener.click();
+  return true;
+}
+
+/**
+ * Shows more of a post's comments (decision 92): its own View all comments, or Load more comments, pressed once.
+ * Only on a post's own page; never View replies. Whether there was one.
+ */
+export function moreComments(doc: Document, href: string): boolean {
+  if (!onPost(href)) return false;
+  const more = moreCommentsIn(postRootOf(doc));
+  if (!more) return false;
+  more.click();
+  return true;
+}
+
+/**
+ * Closes the box over the page, a post's Likes box first, by its own Close as a person does, or with Escape where it
+ * has none, and waits for it to go. Whether it went: none there is gone already.
+ */
+export async function closeDialog(doc: Document, href: string): Promise<boolean> {
+  const box = likersBox(doc, href) ?? doc.querySelector('[role="dialog"]');
+  if (!box) return true;
+  const close = controlsSaying(box, CLOSE, true)[0];
+  if (close) close.click();
+  else
+    box.dispatchEvent(
+      new (doc.defaultView ?? globalThis).KeyboardEvent('keydown', {
+        key: 'Escape',
+        code: 'Escape',
+        bubbles: true,
+      }),
+    );
+  return (
+    (await waitFor(() => (!box.isConnected || !visible(box) ? true : null), CLOSED_MS)) === true
+  );
 }

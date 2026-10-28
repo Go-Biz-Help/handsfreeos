@@ -444,6 +444,7 @@ import { paymentCommands } from './payment';
 import { partnerPayoutCommands } from './partner-payouts';
 import { subscriptionCommands } from './subscription';
 import { foundingCommands } from './founding';
+import { affiliateCommands } from './affiliates';
 import { walletCommands } from './wallet';
 import { phoneModelCommands } from './phone-model';
 import { phoneListenerCommands } from './phone-listener';
@@ -1096,6 +1097,8 @@ export const commands: readonly CommandDef[] = [
   ...subscriptionCommands,
   ...walletCommands,
   ...foundingCommands,
+  // HandsFreeOS's own affiliate program (20261027014000).
+  ...affiliateCommands,
   ...phoneModelCommands,
   ...phoneListenerCommands,
   // HandsFreeOS's own business, the one that may use handsfreeos.com for its email (M19).
@@ -1238,6 +1241,7 @@ export * from './offer';
 export * from './main-offer';
 export * from './partners';
 export * from './partner-payouts';
+export * from './affiliates';
 export * from './chat-verify';
 export * from './portal-access';
 export * from './portal-files';

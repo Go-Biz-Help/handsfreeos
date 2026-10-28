@@ -12,6 +12,7 @@ import type { Platform } from '@hfos/core/addons/outreach/networks';
 import type { ProfileRead } from '@hfos/core/addons/outreach/profile-check';
 import type { AboutResult, CodeResult } from '../alignable/own-profile';
 import type { AutoResult, TheirPost } from '../facebook/auto';
+import type { JoinStep } from '../facebook/join';
 import type { BioResult } from '../facebook/own-profile';
 import type { ReplySighting } from '../facebook/replies';
 import type { FormSteps } from '../instagram/own-profile';
@@ -22,6 +23,12 @@ import type { StepTry, TryStep } from '../tries';
 
 /** A network looked at: Instagram or Alignable. */
 export type LookingPlatform = Extract<Platform, 'instagram' | 'alignable'>;
+
+/** Whose post a comment goes on, and which (decision 92): their profile, and the post's own link. */
+export interface CommentOn {
+  readonly profile: ProfileRef;
+  readonly postUrl: string;
+}
 
 /** What one read of a page found on a network still looked at. Plain data: it crosses from the tab as JSON. */
 export interface LookingRead {
@@ -160,6 +167,13 @@ export interface LookingSite {
       href: string,
       name: string | null,
     ) => boolean | Promise<boolean>;
+    /**
+     * A good post's people (Instagram's, decision 92): its Likes box opened over it, its View all comments pressed
+     * once, and the box over the page closed again.
+     */
+    readonly openLikers?: (doc: Document, href: string) => boolean | Promise<boolean>;
+    readonly moreComments?: (doc: Document, href: string) => boolean | Promise<boolean>;
+    readonly closeDialog?: (doc: Document, href: string) => boolean | Promise<boolean>;
   };
   /**
    * The chats on the page whose last message is theirs (decision 22), for HandsFreeOS to hear who wrote back, as the
@@ -170,7 +184,10 @@ export interface LookingSite {
    * The presses its runner makes on its own, once the person lets it (Alignable's, partners stage 6c, part 5; Instagram's,
    * its part 14), each on the page it's for: their posts read on their page, a like on the one picked, their own Connect
    * (Instagram's Follow), and a message in their conversation, which on Instagram their account's Message may open
-   * first. A network without them presses none of these.
+   * first. From 0.95.0 (decision 92), on a site that declares them: a comment on a good post, once OK'd or past the
+   * hold, only on that post's own page and in its own box (`comment`); and a group's own Join, on its page (`join`,
+   * Alignable's). A network without them presses none of these, and a site without `comment` or `join` is never asked
+   * to: the kit answers that it doesn't.
    */
   readonly auto?: {
     readonly theirPosts: (doc: Document, href: string, profile: ProfileRef) => TheirPost[];
@@ -192,6 +209,26 @@ export interface LookingSite {
       text: string,
       profile: ProfileRef,
     ) => Promise<AutoResult>;
+    /**
+     * A comment on their post (decision 92): `on` says whose post and which, and it's written only on that post's own
+     * page, only in the post's own box (never a reply's, never one with writing in it), sent with that box's own
+     * button. `none` with no such box; `not_sent` when the network didn't take it.
+     */
+    readonly comment?: (
+      doc: Document,
+      href: string,
+      text: string,
+      on: CommentOn,
+    ) => Promise<AutoResult>;
+    /**
+     * The group's own Join, on its page (Alignable's, decision 92): what came of it, as Facebook's `hfos-join` says.
+     * `answerJoin`, where the site asks questions first; a site without it asks none, so the kit says there were none.
+     */
+    readonly join?: (doc: Document, href: string) => Promise<JoinStep>;
+    readonly answerJoin?: (
+      doc: Document,
+      answers: readonly string[],
+    ) => Promise<'done' | 'not_sent' | 'none'>;
   };
   /** Its own readers, run on each page read beside the links (`LookingRead.found`). */
   readonly readFound?: (doc: Document, href: string) => Readonly<Record<string, unknown>>;

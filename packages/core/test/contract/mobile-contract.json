@@ -7199,6 +7199,35 @@
               "church",
               "other"
             ]
+          },
+          "affiliate": {
+            "type": "object",
+            "properties": {
+              "code": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 64
+              },
+              "how": {
+                "default": "link",
+                "type": "string",
+                "enum": ["link", "code"]
+              },
+              "clickedAt": {
+                "default": null,
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "format": "date-time"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              }
+            },
+            "required": ["code"],
+            "additionalProperties": false
           }
         },
         "required": ["businessName"]
@@ -8525,6 +8554,43 @@
               "onItsNetworks": {
                 "type": "boolean",
                 "const": true
+              },
+              "hashtags": {
+                "maxItems": 30,
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 40
+                }
+              },
+              "postSearches": {
+                "maxItems": 12,
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 60
+                }
+              },
+              "businessKinds": {
+                "maxItems": 12,
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 80
+                }
+              },
+              "worksOnline": {
+                "type": ["boolean", "null"]
+              },
+              "wordsWritten": {
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "enum": ["instagram", "linkedin", "alignable"]
+                }
               },
               "audience": {
                 "anyOf": [

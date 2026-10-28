@@ -62,6 +62,7 @@ export * from './texting-fee';
 export * from './inbox-visibility';
 export * from './branded-domain';
 export * from './founding';
+export * from './affiliates';
 export * from './job';
 export * from './custom-field';
 export * from './relationship';

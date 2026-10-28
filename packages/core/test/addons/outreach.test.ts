@@ -6,6 +6,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   addonAiIssues,
+  addonAssistantIssues,
   addonModuleIssues,
   allAddonAiTools,
   commands,
@@ -17,6 +18,7 @@ import {
   answerNextLabel,
   blankPlaybook,
   followUpGapsFor,
+  hasWordsOn,
   paceOf,
   nextQuestionId,
   PLAYBOOK_TEMPLATES,
@@ -25,6 +27,12 @@ import {
   upgradePlaybookDetails,
   type PlaybookQuestion,
 } from '../../src/addons/outreach/playbooks';
+import {
+  checkedAssist,
+  PlaybookAssistInput,
+  playbookAssistPrompt,
+} from '../../src/addons/outreach/playbook-assist';
+import { OUTREACH_WORDS, playbookSectionTitle } from '../../src/addons/outreach/words';
 import {
   bestFit,
   byFit,
@@ -62,14 +70,12 @@ describe('Social Outreach', () => {
   });
 
   it('gives the Assistant everything a person does on its screens, and nothing the extension or worker sends in', () => {
-    const ops = [...(outreachAddonServer.queries ?? []), ...(outreachAddonServer.commands ?? [])];
     const tools = new Map(allAddonAiTools([outreachAddonServer]).map((t) => [t.op.name, t]));
-    // A new operation is the Assistant's unless it's listed as one it never runs.
-    expect(ops.filter((op) => !tools.has(op.name) && !NOT_THE_ASSISTANTS.has(op.name))).toEqual([]);
-    expect(ops.filter((op) => tools.has(op.name) && NOT_THE_ASSISTANTS.has(op.name))).toEqual([]);
-    expect([...NOT_THE_ASSISTANTS].filter((name) => !ops.some((op) => op.name === name))).toEqual(
-      [],
-    );
+    // A new operation a person runs is the Assistant's unless the module lists it as one it never runs, with why:
+    // what the extension reads off a network and sends in (only a person's own browser can see Facebook), and a note
+    // of a draft being copied. The worker's own work is never a person's, so never a tool.
+    expect(addonAssistantIssues([outreachAddonServer])).toEqual([]);
+    expect(Object.keys(outreachAddonServer.notForTheAssistant ?? {})).toContain('outreach.lookup');
     // What reaches people, changes settings, adds a customer or can't be taken back waits for the person's OK.
     expect(
       [...tools.values()]
@@ -104,69 +110,6 @@ describe('Social Outreach', () => {
     );
   });
 });
-
-/**
- * Operations the Assistant never runs: what the browser extension reads off a network and sends in (only a person's
- * own browser can see Facebook), what the extension asks for its own run, a note of a draft being copied, and the
- * worker's own work. Everything else is the Assistant's (each operation's `ai`).
- */
-const NOT_THE_ASSISTANTS = new Set([
-  // The extension: what it read, saw or did.
-  'outreach.lookup',
-  'outreach.follow_backs.next',
-  'outreach.helpful.next',
-  'outreach.profile.save',
-  'outreach.chat.save',
-  'outreach.touch.save',
-  'outreach.friend.note',
-  'outreach.friends.save',
-  'outreach.download.save',
-  'outreach.chats.collect',
-  'outreach.groups.save',
-  'outreach.group.save',
-  'outreach.friend.end',
-  'outreach.warning.note',
-  'outreach.posts.save',
-  'outreach.replies.note',
-  'outreach.warm_up.missed',
-  'outreach.send.queue',
-  'outreach.send.done',
-  'outreach.live.beat',
-  'outreach.lists.saved',
-  'outreach.need.note',
-  'outreach.ask.take',
-  'outreach.ask.progress',
-  'outreach.ask.end',
-  'outreach.profile.usernames_save',
-  'outreach.check.look',
-  'outreach.group.look',
-  'outreach.join.note',
-  'outreach.helpful.engaged',
-  'outreach.engaged.save',
-  'outreach.partner.leads',
-  'outreach.partner.look',
-  // The screens note which opener a copied first message was drafted with.
-  'outreach.opener.use',
-  // The worker.
-  'outreach.review.week',
-  'outreach.day_report',
-  'outreach.chat.read',
-  'outreach.post.check',
-  'outreach.demo.note',
-  'outreach.profile.check_save',
-  'outreach.profile.more_save',
-  'outreach.messages.samples_save',
-  'outreach.messages.rewrite_save',
-  'outreach.answer.note',
-  'outreach.check.save',
-  'outreach.group.check',
-  'outreach.helpful.draft',
-  'outreach.countries.save',
-  'outreach.review.save',
-  'outreach.partner.save',
-  'outreach.partner.answer',
-  'outreach.partner.call',
-]);
 
 describe('playbooks', () => {
   it('starts every template and a blank one as a playbook its editor can save', () => {
@@ -341,6 +284,71 @@ describe('a playbook’s conversation', () => {
     expect(pace({ messageAfterDays: 1, followUps: 5, followUpGaps: [1, 1, 0, 2, 2] })).toEqual([
       'pace.followUpGaps.2',
     ]);
+  });
+
+  it('reads one saved before each network had its own words, with them empty (data version 8)', () => {
+    const { hashtags, postSearches, businessKinds, worksOnline, wordsWritten, ...before } =
+      PLAYBOOK_TEMPLATES.crm_demos.details;
+    void [hashtags, postSearches, businessKinds, worksOnline, wordsWritten];
+    expect(PlaybookDetails.parse(upgradePlaybookDetails(before))).toMatchObject({
+      hashtags: [],
+      postSearches: [],
+      businessKinds: [],
+      worksOnline: null,
+      wordsWritten: [],
+    });
+    // Its own words parse, each list once, and only the networks the AI writes for.
+    const words = {
+      ...blankPlaybook(),
+      hashtags: ['austinroofing', 'hailrepair'],
+      postSearches: ['missed calls'],
+      businessKinds: ['Roofing Contractor'],
+      worksOnline: true,
+      wordsWritten: ['instagram', 'alignable'],
+    };
+    expect(PlaybookDetails.parse(words)).toEqual(words);
+    const issues = (over: object) =>
+      PlaybookDetails.safeParse({ ...blankPlaybook(), ...over }).error?.issues.map((i) =>
+        i.path.join('.'),
+      );
+    expect(issues({ hashtags: ['austinroofing', 'AustinRoofing'] })).toEqual(['hashtags']);
+    expect(issues({ businessKinds: ['x'.repeat(81)] })).toEqual(['businessKinds.0']);
+    expect(issues({ wordsWritten: ['facebook'] })).toEqual(['wordsWritten.0']);
+  });
+
+  it('gives a network its own words only on a customers’ playbook that runs there', () => {
+    const customers = {
+      ...blankPlaybook(),
+      platforms: ['facebook' as const, 'instagram' as const],
+    };
+    expect(hasWordsOn(customers, 'instagram')).toBe(true);
+    expect(hasWordsOn(customers, 'alignable')).toBe(false);
+    expect(hasWordsOn({ ...customers, goal: 'partner' }, 'instagram')).toBe(false);
+    expect(playbookSectionTitle('hashtags', customers)).toBe('Hashtags on Instagram');
+    expect(OUTREACH_WORDS.findWords.written(5)).toBe(
+      'The AI wrote these from who it’s for and their problem. Change any; it looks at 5 a day, in turn.',
+    );
+  });
+
+  it('helps with each network’s own words: hashtags as people tag them, and whether it works online', () => {
+    const input = PlaybookAssistInput.parse({
+      part: 'hashtags',
+      mode: 'suggest',
+      draft: { name: 'Roofers', hashtags: ['#AustinRoofing'], worksOnline: false },
+    });
+    expect(
+      checkedAssist(
+        {
+          options: ['#Hail Repair!', 'austinroofing', '##', 'roofleak', 'RoofLeak'],
+          questions: [],
+        },
+        input,
+      ).options,
+    ).toEqual(['hailrepair', 'roofleak']);
+    const prompt = playbookAssistPrompt(input, 'Summit Roofing');
+    expect(prompt).toContain('Works online: no');
+    expect(prompt).toContain('#AustinRoofing');
+    expect(prompt).toContain('a few local ones for the area');
   });
 
   it('moves the follow-ups saved as one number into 6, keeping a pace the business changed', () => {

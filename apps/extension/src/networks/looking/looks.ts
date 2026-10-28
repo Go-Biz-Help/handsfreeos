@@ -7,6 +7,7 @@
  */
 import { clean } from '../facebook/dom';
 import { shown, visible } from '../facebook/fetch';
+import { typeInto } from '../facebook/join';
 import { went, untried, type StepTry, type TryStep } from '../tries';
 import { maskOn, nameOf } from './read';
 import type { LookingSite } from './site';
@@ -30,6 +31,25 @@ export const writingIn = (box: Element): boolean =>
   'value' in box && typeof box.value === 'string'
     ? box.value.trim() !== ''
     : clean(box.textContent) !== '';
+
+/**
+ * Writes in a box as typing does (Chrome's own insertText, whose events the page takes as a person's), or empties it,
+ * in place of what's there; a plain box's value set by hand only where that can't be done. From the owner's third Check
+ * of Instagram (0.60.0): a value set by hand showed Post but didn't stay in Instagram's box. Typing goes where the focus
+ * is, so it's never done unless the box has it. Instagram's looks write with it, and from 0.95.0 the comments the
+ * runners write on a network still looked at (decision 92).
+ */
+export function writeIn(doc: Document, box: HTMLElement, text: string): void {
+  box.focus();
+  const focused = doc.activeElement === box;
+  if (focused && box instanceof doc.defaultView!.HTMLTextAreaElement) box.select();
+  else if (focused && typeof doc.execCommand === 'function') doc.execCommand('selectAll');
+  const typed =
+    focused &&
+    typeof doc.execCommand === 'function' &&
+    (text ? doc.execCommand('insertText', false, text) : doc.execCommand('delete'));
+  if (!typed) typeInto(doc, box, text, true);
+}
 
 /** What a person presses: buttons, links drawn as buttons, and menu rows. */
 const CONTROLS =

@@ -35,6 +35,29 @@ export const PARTNER_GOAL = 'partner' satisfies PlaybookGoal;
 export const forPartners = (details: Pick<PlaybookDetails, 'goal'>): boolean =>
   details.goal === PARTNER_GOAL;
 
+/**
+ * The words the AI writes for each network a customers' playbook runs on (data version 8, docs/outreach.md decision
+ * 92), and the part each goes in: the hashtags Instagram looks at, the phrases LinkedIn's post search goes with, and
+ * the kinds of business Alignable's search looks for. Never on a partner playbook.
+ */
+export const FIND_WORDS_PARTS = {
+  instagram: 'hashtags',
+  linkedin: 'postSearches',
+  alignable: 'businessKinds',
+} as const satisfies Partial<Record<Platform, string>>;
+export type WordsPlatform = keyof typeof FIND_WORDS_PARTS;
+export type FindWordsPart = (typeof FIND_WORDS_PARTS)[WordsPlatform];
+export const WORDS_PLATFORM_KEYS = Object.keys(FIND_WORDS_PARTS) as [
+  WordsPlatform,
+  ...WordsPlatform[],
+];
+/** How many of each network's words a day's look takes, in turn (decision 92): 5 hashtags, 5 phrases, 3 kinds. */
+export const FIND_WORDS_PER_DAY: Readonly<Record<WordsPlatform, number>> = {
+  instagram: 5,
+  linkedin: 5,
+  alignable: 3,
+};
+
 /** The kinds of partner a partner playbook looks for: all three unless it says (./partners.ts). */
 export const PARTNER_KINDS = {
   group_admin: 'Group admin',
@@ -150,6 +173,12 @@ export const PLAYBOOK_LIMITS = {
   usefulLink: 500,
   /** The short video's link (data version 4): Loom, YouTube or Google Drive. */
   videoLink: 500,
+  /** Hashtags Instagram looks at for this playbook (data version 8), each without its #: "austinroofing". */
+  hashtags: { line: 40, most: 30 },
+  /** Words LinkedIn's post search goes with: "missed calls". */
+  postSearches: { line: 60, most: 12 },
+  /** Kinds of business Alignable's search looks for: "Roofing Contractor". */
+  businessKinds: { line: 80, most: 12 },
 } as const;
 
 const line = (max: number, empty = 'Leave out empty lines.') =>
@@ -243,6 +272,33 @@ export const PlaybookDetails = z
      * customers' playbook, as it ran. Left out of a save, it keeps what's saved.
      */
     onItsNetworks: z.literal(true).optional(),
+    /**
+     * Each network's own words (data version 8, decision 92), written by the AI once from the niche, who it's for and
+     * their problem, and the person's to change: the hashtags Instagram looks at (each without its #, as
+     * `hashtagOf` makes them on a save), the phrases LinkedIn's post search goes with, and the kinds of business
+     * Alignable's search looks for. Only a customers' playbook's are read. Left out of a save, each keeps what's
+     * saved; an empty list, once the AI wrote it, means that network looks at nothing for the playbook.
+     */
+    hashtags: lines(PLAYBOOK_LIMITS.hashtags).refine(distinct, 'Each hashtag once.').optional(),
+    postSearches: lines(PLAYBOOK_LIMITS.postSearches)
+      .refine(distinct, 'Each search once.')
+      .optional(),
+    businessKinds: lines(PLAYBOOK_LIMITS.businessKinds)
+      .refine(distinct, 'Each kind of business once.')
+      .optional(),
+    /**
+     * That the business works with this playbook's clients online (decision 92): Alignable then searches anywhere,
+     * not only the person's own town. Null till the AI or the person says; null reads as local.
+     */
+    worksOnline: z.boolean().nullable().optional(),
+    /**
+     * The networks whose words the AI has written (decision 92), so it writes each list once and never over the
+     * person's. The server's alone: a save always keeps what's saved (./ops/playbooks.ts).
+     */
+    wordsWritten: z
+      .array(z.enum(WORDS_PLATFORM_KEYS))
+      .refine(distinct, 'Each network once.')
+      .optional(),
     /** Who it's for, in plain words. */
     audience: words(PLAYBOOK_LIMITS.audience),
     /** What says someone fits: "Owner" in their intro, posts about missed calls. */
@@ -370,6 +426,11 @@ export const blankPlaybook = (): PlaybookDetails => ({
   videoScript: null,
   partnerKinds: [...PARTNER_KIND_KEYS],
   onItsNetworks: true,
+  hashtags: [],
+  postSearches: [],
+  businessKinds: [],
+  worksOnline: null,
+  wordsWritten: [],
   audience: null,
   signs: [],
   skip: [],
@@ -491,6 +552,13 @@ export const PLAYBOOK_V4_KEYS = ['videoLink'] as const;
 export const PLAYBOOK_V5_KEYS = ['videoScript'] as const;
 export const PLAYBOOK_V6_KEYS = ['partnerKinds'] as const;
 export const PLAYBOOK_V7_KEYS = ['onItsNetworks'] as const;
+export const PLAYBOOK_V8_KEYS = [
+  'hashtags',
+  'postSearches',
+  'businessKinds',
+  'worksOnline',
+  'wordsWritten',
+] as const;
 /** What a save that leaves a part out keeps. */
 export const PLAYBOOK_KEPT_KEYS = [
   ...PLAYBOOK_V3_KEYS,
@@ -498,6 +566,7 @@ export const PLAYBOOK_KEPT_KEYS = [
   ...PLAYBOOK_V5_KEYS,
   ...PLAYBOOK_V6_KEYS,
   ...PLAYBOOK_V7_KEYS,
+  ...PLAYBOOK_V8_KEYS,
 ] as const;
 
 /** The networks every customers' playbook ran on before data version 7: those that worked then. */
@@ -506,6 +575,33 @@ const RAN_ON_BEFORE_7: readonly Platform[] = ['facebook', 'linkedin'];
 /** Whether a playbook runs on a network: one of its own (data version 7). */
 export const runsOn = (details: Pick<PlaybookDetails, 'platforms'>, platform: Platform): boolean =>
   details.platforms.includes(platform);
+
+/**
+ * Whether a playbook has a network's own words (data version 8): a customers' playbook that runs there. The builder
+ * shows the list only then, and only then does the AI write it or a search read it.
+ */
+export const hasWordsOn = (
+  details: Pick<PlaybookDetails, 'goal' | 'platforms'>,
+  platform: WordsPlatform,
+): boolean => !forPartners(details) && runsOn(details, platform);
+
+/**
+ * A playbook's own words of one part on a network (data version 8, decision 92), for the look or search that reads
+ * them: its list when it has one; none when the AI wrote it and the person emptied it, so that network looks at
+ * nothing for the playbook; or null while the AI hasn't written for that network (or the part isn't that network's),
+ * when the made-up words from its signs and words for groups stand in.
+ */
+export function ownWordsOn(
+  details: Partial<Pick<PlaybookDetails, FindWordsPart | 'wordsWritten'>>,
+  platform: Platform,
+  part: FindWordsPart,
+): readonly string[] | null {
+  if (!(platform in FIND_WORDS_PARTS) || FIND_WORDS_PARTS[platform as WordsPlatform] !== part)
+    return null;
+  const list = details[part] ?? [];
+  if (list.length) return list;
+  return details.wordsWritten?.includes(platform as WordsPlatform) ? [] : null;
+}
 
 /** The days before follow-ups when they were one number (before data version 4) and the business changed it. */
 const OLD_FOLLOW_UP_START = 3;
@@ -542,7 +638,8 @@ export function paceOf(pace: unknown): Pace {
  * lines of words with no answers, and it had no pace; before 3, no niche, problem, proof or something useful to send;
  * before 4, its follow-ups were one number of quiet days (`paceOf` moves it) and it had no video link; before 5, no
  * video script; before 6, no kinds of partner (every kind); before 7, a customers' playbook ran on every network that
- * worked (Facebook and LinkedIn), so those are put on it. Anything else passes through for the schema to judge.
+ * worked (Facebook and LinkedIn), so those are put on it; before 8, no words of each network's own, nothing said of
+ * working online, and none written by the AI. Anything else passes through for the schema to judge.
  */
 export function upgradePlaybookDetails(stored: unknown): unknown {
   if (typeof stored !== 'object' || stored === null || Array.isArray(stored)) return stored;

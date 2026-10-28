@@ -243,12 +243,27 @@ export const SCREEN_ACTIONS: Readonly<Record<string, ScreenAction>> = {
   },
   'wallet.adjust': { warning: 'This changes their balance, and shows on their statement.' },
   'wallet.set_stage': { warning: 'This changes what happens when their balance runs out.' },
+  'affiliates.save_settings': {
+    warning:
+      'This changes every affiliate’s share without one of their own, for payments from now on.',
+  },
+  'affiliate.decide': { warning: 'They get an email saying what was decided.' },
+  'affiliate.set_status': { warning: 'This changes whether their link credits new businesses.' },
+  'affiliate.set_rate': { warning: 'This changes their share, for payments from now on.' },
+  'affiliate.set_code': { warning: 'Their old link stops working at once.' },
+  'affiliate.set_business': {},
+  // ---- Selling HandsFreeOS (/affiliate): anyone signed in ----
+  'affiliate.apply': {
+    offeredTo: 'assistant.use',
+    warning: 'It goes to HandsFreeOS to decide, and says you live in the US.',
+  },
 };
 
 /**
  * What a screen runs that the Assistant never does, and why: the owner's own decisions (it never deletes anything for
  * good, empties the Deleted bin or deletes an add-on's data), and what only the person can do — sign in somewhere,
  * pay on a card's page, pick a file from their own computer, answer a call, or step into another business or view.
+ * An add-on's are on its own server module's `notForTheAssistant`.
  */
 export const NEVER_FOR_THE_ASSISTANT: Readonly<Record<string, string>> = {
   'account.delete': 'deleting the person’s own account, which only they do, on Account',
@@ -256,7 +271,6 @@ export const NEVER_FOR_THE_ASSISTANT: Readonly<Record<string, string>> = {
   'bin.empty': 'emptying the Deleted bin, which stays the person’s (the owner, 2026-10-26)',
   'addon.purge': 'deleting an add-on’s data for good (the owner, 2026-10-26)',
   'addon.start_fresh': 'deleting an add-on’s data for good (the owner, 2026-10-26)',
-  'salescoach.call.delete': 'deleting a coached call for good',
   'migration.rollback': 'taking back everything a move from another CRM brought, for good',
   'calendar_connection.connect': 'signing in to Google or Outlook, which only the person can do',
   'mailbox.connect': 'signing in to Outlook or Gmail, which only the person can do',
@@ -289,8 +303,6 @@ export const NEVER_FOR_THE_ASSISTANT: Readonly<Record<string, string>> = {
   'look.use_upload': 'a picture from the person’s own computer or phone',
   'number_port.begin_upload': 'a file from the person’s own computer or phone',
   'number_port.attach_document': 'a file from the person’s own computer or phone',
-  'outreach.download.save': 'the person’s Facebook download file, read by their own browser',
-  'realestate.lockbox.save': 'a lockbox’s code never goes through the AI (Real Estate’s rule)',
   'organization.create': 'a new business is set up on its own pages, where it pays',
   'platform.view_as.start':
     'looking at a business as support changes this screen, which only the person starts',
@@ -303,7 +315,6 @@ export const NEVER_FOR_THE_ASSISTANT: Readonly<Record<string, string>> = {
   'notification.seen': 'the bell counting what the person has looked at, as they look',
   'whats_new.mark_seen': 'What’s new noting it was read, as it’s read',
   'template.used': 'the composer counting which templates get used',
-  'outreach.opener.use': 'the outreach page counting which opener was copied',
   'workflow_proposal.mark_applied': 'the workflow editor saying it applied a proposal itself',
 };
 

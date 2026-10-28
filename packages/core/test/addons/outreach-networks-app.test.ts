@@ -81,8 +81,13 @@ describe('a network’s words on screen', () => {
     // Settings show only the switches a network's runner reads; one still looked at has none yet.
     expect(ticksShownOn('facebook')).toEqual(ALONG_TICKS);
     expect(ticksShownOn('linkedin')).toEqual(['warmUp', 'collect']);
-    // Alignable's runner (part 5) reads the warm-up and the once-a-day jobs, as LinkedIn's does.
-    expect(ticksShownOn('alignable')).toEqual(['warmUp', 'collect']);
+    // Alignable's runner (part 5) reads the warm-up and the once-a-day jobs, as LinkedIn's does, and joins good
+    // groups when people found in its groups run low (decision 92).
+    expect(ticksShownOn('alignable')).toEqual(['warmUp', 'collect', 'joinGroups']);
+    expect(ticksOn('alignable').joinGroups).toEqual([
+      'Join good groups when my groups run low',
+      'Your own groups come first. When the people found in them run low, it finds groups for your niche and area, and joins up to 3 good ones a day.',
+    ]);
     // Instagram's (part 14) the same: it confirms no follow requests, joins no groups and has no hourly look.
     expect(ticksShownOn('instagram')).toEqual(['warmUp', 'collect']);
     // And Today marks as done on their own only the steps its runner does: LinkedIn's accepts no invitations.
@@ -98,14 +103,16 @@ describe('a network’s words on screen', () => {
     expect(autoKinds(doing, 'alignable')).toEqual(['warm_up', 'friend_request']);
     // Instagram's comments wait for an OK each time too, as public writing: its runner likes and follows.
     expect(autoKinds(doing, 'instagram')).toEqual(['warm_up', 'friend_request']);
+    // Their comments go through Waiting for you, each waiting for an OK at first, and Alignable's answers to posts
+    // asking for what the business offers always (decision 92).
     expect(sendingModesOn('instagram').steps).toBe(
-      'Follows and likes on their own; each message waits for one tap, and you post each comment',
+      'Follows, likes and comments on their own; each message waits for one tap. Each comment waits for your OK until you’ve OK’d 25 and a week has gone by.',
     );
     expect(sendingModesOn('alignable').steps).toBe(
-      'Connection requests and likes on their own; each message waits for one tap, and you post each comment',
+      'Connection requests, likes and comments on their own; each message waits for one tap. Each comment waits for your OK until you’ve OK’d 25 and a week has gone by. An answer to a post asking for what you offer always waits for your OK.',
     );
     expect(sendingModesOn('alignable').everything).toBe(
-      'Everything on its own, messages too; you post each comment',
+      'Everything on its own, messages too. Each comment waits for your OK until you’ve OK’d 25 and a week has gone by. An answer to a post asking for what you offer always waits for your OK.',
     );
     expect(ticksOn('linkedin').confirmRequests[0]).toBe(
       'Accept invitations from people who fit a playbook',

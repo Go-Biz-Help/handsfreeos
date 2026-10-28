@@ -55,7 +55,6 @@ import {
   PartnerSearchesOutput,
   partnerKindsOf,
   partnerSearchWords,
-  partnerReadsPerDay,
   type PartnerFit,
   type PartnerKind,
   type PartnerMark,
@@ -71,7 +70,7 @@ import {
   type TodayItem,
 } from '../today';
 import { partnerLeads, partners, partnerSearches, playbooks, profiles } from '../tables';
-import { readsPerDay, readToday } from './checks';
+import { perDayFor } from './checks';
 import {
   inWorkspace,
   keptProfile,
@@ -82,7 +81,7 @@ import {
   type Ctx,
 } from './common';
 import { partnerPlaybooksInUse } from './friends';
-import { slowsNow, startOfToday, warningOf } from './tidy';
+import { startOfToday } from './tidy';
 
 const DAY = 86_400_000;
 
@@ -92,19 +91,11 @@ const BUSINESS_WORDS =
 
 /**
  * How many the person's computer reads a day for the AI's partner check on a network, and how many more it may today:
- * at most half the network's profiles read a day (`partnerReadsPerDay`), within what the customer checks left.
+ * at most half the network's profiles read a day (`partnerReadsPerDay`), within what the customer checks left, and on
+ * LinkedIn what its found people's checks hold (decision 92, `perDayFor`).
  */
 export async function partnerPerDayFor(ctx: Ctx, me: string, now: number, platform: Platform) {
-  const todayStart = await startOfToday(ctx, now);
-  const warning = await warningOf(ctx, me, platform, todayStart, now);
-  const read = await readToday(ctx, me, platform, todayStart);
-  const reads = readsPerDay(platform, slowsNow(warning, now));
-  const perDay = partnerReadsPerDay(reads);
-  return {
-    today: read.partners,
-    perDay,
-    room: Math.max(0, Math.min(perDay - read.partners, reads - read.checks - read.partners)),
-  };
+  return (await perDayFor(ctx, me, now, platform)).partners;
 }
 
 export const partnersNext = defineAddonQuery(outreachAddon, {
@@ -148,9 +139,14 @@ export const partnersNext = defineAddonQuery(outreachAddon, {
                 when ${looks('business')}
                   and (p.platform = 'alignable' or array_to_string(p.intro, ' ') ~* ${BUSINESS_WORDS}
                     or l.kind = 'business')
-                  -- Someone the AI found could be a customer is left to the customer steps.
+                  -- Someone the AI found could be a customer is left to the customer steps, and so is someone
+                  -- found by topic (decision 92) till their own check has said.
                   and not exists (select 1 from addon_outreach.checks ch
                     where ch.profile_id = p.id and ch.user_id = ${me} and ch.verdict in ('good', 'maybe'))
+                  and not exists (select 1 from addon_outreach.finds fd
+                    where fd.profile_id = p.id and fd.user_id = ${me}
+                      and not exists (select 1 from addon_outreach.checks ch
+                        where ch.profile_id = p.id and ch.user_id = ${me} and ch.verdict in ('good', 'maybe', 'not')))
                   then 'business'
               end as kind
             from addon_outreach.profiles p

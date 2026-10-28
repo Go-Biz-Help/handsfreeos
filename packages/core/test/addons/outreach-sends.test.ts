@@ -3,7 +3,8 @@
  * wheels). Each drafted one waits for the person's OK, or goes as it is with Sending (b) once training wheels are off;
  * a reply follows Replies, never goes to someone who needs the person, and one that waits after all is handed over.
  * Training wheels start with Sending (b) or Replies (b) or (c), halve the daily limits, come off after 7 days and 25
- * OK'd with few changes, end early for an owner or admin, and go back on with a warning from Facebook.
+ * OK'd with few changes, end early for an owner or admin, and go back on with a warning from Facebook. On Instagram and
+ * Alignable a comment on a good post goes the same way (decision 92), waiting under its own hold at first.
  */
 import { rows, sql } from '@hfos/db/client';
 import { workspaceMemberships } from '@hfos/db/schema';
@@ -11,6 +12,8 @@ import { closeTestDbs, createTestUser, testDbs, type TestUser } from '@hfos/db/t
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import {
   AUTOMATION_DEFAULTS,
+  NETWORK_CHOICES_DEFAULTS,
+  NETWORKS_DEFAULTS,
   NO_WHEELS,
   wheelsEarned,
   wheelsMatter,
@@ -20,12 +23,16 @@ import {
 import { PLAYBOOK_TEMPLATES } from '../../src/addons/outreach/playbooks';
 import {
   changed,
+  COMMENT_HOLD,
+  COMMENT_NEEDS_YOU,
+  commentHoldOn,
   goesAsItIs,
   handedOver,
   handOverPushWords,
+  postStartOf,
   replyNeedsYou,
 } from '../../src/addons/outreach/sends';
-import { outreachBusiness, refused, runAs } from './outreach-fixture';
+import { computerOn, outreachBusiness, refused, runAs } from './outreach-fixture';
 
 const admin = () => testDbs().admin.db;
 const DAY = 86_400_000;
@@ -107,6 +114,37 @@ describe('training wheels', () => {
     expect(wheelsMatter({ sending: 'approve_all', replies: 'draft' })).toBe(false);
     expect(changed('Hi Dana!\n How are you?', ' Hi Dana! How are you?')).toBe(false);
     expect(changed('Hi Dana!', 'Hey Dana!')).toBe(true);
+  });
+
+  it('hold a comment till its network has had them a week and the person OK’d 25, never with Sending Off (decision 92)', () => {
+    const now = Date.UTC(2026, 9, 27, 15);
+    expect(COMMENT_HOLD).toEqual({ days: 7, okd: 25 });
+    expect(commentHoldOn({ firstAt: null, okd: 0, now })).toBe(true);
+    expect(commentHoldOn({ firstAt: now - 8 * DAY, okd: 25, now })).toBe(false);
+    expect(commentHoldOn({ firstAt: now - 8 * DAY, okd: 24, now })).toBe(true);
+    expect(commentHoldOn({ firstAt: now - 6 * DAY, okd: 40, now })).toBe(true);
+    const comment = {
+      sending: 'steps',
+      replies: 'draft',
+      wheels: false,
+      kind: 'comment',
+      simple: false,
+      needsYou: null,
+      held: false,
+    } as const;
+    // Off the hold, a comment goes with any Sending but Off, as Facebook's comments do.
+    expect(goesAsItIs(comment)).toBe(true);
+    expect(goesAsItIs({ ...comment, sending: 'approve_all' })).toBe(true);
+    expect(goesAsItIs({ ...comment, held: true })).toBe(false);
+    expect(goesAsItIs({ ...comment, wheels: true })).toBe(false);
+    expect(goesAsItIs({ ...comment, sending: 'off' })).toBe(false);
+    expect(goesAsItIs({ ...comment, needsYou: COMMENT_NEEDS_YOU.answer })).toBe(false);
+    // Never handed over: that's a reply's.
+    expect(handedOver({ ...comment, goes: false })).toBe(false);
+    // The post's first words above it, cut short.
+    expect(postStartOf('  Short post.  ')).toBe('Short post.');
+    expect(postStartOf('word '.repeat(80))).toMatch(/^word word .*…$/);
+    expect(postStartOf('word '.repeat(80)).length).toBeLessThanOrEqual(200);
   });
 
   it('know a reply that needs the person, as the AI teammate does', () => {
@@ -545,5 +583,320 @@ describe('messages on their own', () => {
         ok: 0,
       });
     });
+  });
+});
+
+/**
+ * Comments on good posts through Waiting for you on Instagram and Alignable (decision 92): queued with their post for
+ * a build that finds people by topic, one open a writer, waiting under the comments-only hold (a week of them and 25
+ * OK'd) and under training wheels, an Alignable answer to a post asking for what the business offers always on its
+ * own, and a post set aside once its comment is skipped or not posted. Facebook's and LinkedIn's are never queued.
+ */
+describe('comments through Waiting for you (decision 92)', () => {
+  let owner: TestUser;
+  let ws: string;
+  const IG = 'https://www.instagram.com';
+  const AL = 'https://www.alignable.com';
+  const account = (username: string) => ({ id: null, username, url: `${IG}/${username}/` });
+  const business = (slug: string) => ({
+    id: null,
+    username: slug,
+    url: `${AL}/austin-tx/${slug}`,
+  });
+  const ASKING =
+    'Our crew keeps missing calls. Can anyone recommend a simple CRM for a small team?';
+  const profileOf = async (username: string) =>
+    (
+      await rows<{ id: string }>(
+        admin(),
+        sql`select id from addon_outreach.profiles where workspace_id = ${ws} and username = ${username}`,
+      )
+    )[0]!.id;
+  /** A post found by the network's own search that the AI called good, by someone: its id. */
+  const goodPost = async (
+    platform: 'instagram' | 'alignable' | 'linkedin',
+    url: string,
+    author: { id: null; username: string; url: string },
+    strong = false,
+  ) => {
+    await runAs(owner, ws, 'outreach.posts.save', {
+      platform,
+      found: 'search',
+      posts: [{ url, author, name: author.username, text: ASKING }],
+    });
+    const [post] = await rows<{ id: string }>(
+      admin(),
+      sql`update addon_outreach.posts set check_state = 'good', strong = ${strong}
+          where workspace_id = ${ws} and user_id = ${owner.id} and url = ${url} returning id`,
+    );
+    return post!.id;
+  };
+  const queue = (profileId: string, postId: string | null, text: string, kind = 'comment') =>
+    runAs(owner, ws, 'outreach.send.queue', {
+      profileId,
+      kind,
+      text,
+      ...(postId ? { postId } : {}),
+    });
+  const todayOn = (platform: 'instagram' | 'alignable' | 'linkedin') =>
+    runAs(owner, ws, 'outreach.today', { platform });
+  const commentRow = async (platform: 'instagram' | 'alignable', postId: string) =>
+    (await todayOn(platform)).items.find(
+      (i: { kind: string; postId: string | null }) => i.kind === 'comment' && i.postId === postId,
+    );
+  const sending = (instagram: string, alignable = 'steps') =>
+    runAs(owner, ws, 'outreach.automation.save', {
+      settings: {
+        ...AUTOMATION_DEFAULTS,
+        networks: {
+          ...NETWORKS_DEFAULTS,
+          instagram: { ...NETWORK_CHOICES_DEFAULTS, on: true, sending: instagram },
+          alignable: { ...NETWORK_CHOICES_DEFAULTS, on: true, sending: alignable },
+          linkedin: { ...NETWORK_CHOICES_DEFAULTS, on: true, sending: 'steps' },
+        },
+      },
+    });
+
+  beforeAll(async () => {
+    owner = await createTestUser('outs-comments', { fullName: 'Avery Owner' });
+    ws = await outreachBusiness(owner, 'Outreach Comments Co');
+    const crm = PLAYBOOK_TEMPLATES.crm_demos;
+    await runAs(owner, ws, 'outreach.playbook.save', {
+      name: crm.name,
+      template: 'crm_demos',
+      details: { ...crm.details, platforms: ['instagram', 'alignable', 'linkedin'] },
+    });
+    await computerOn(owner, ws, '0.95.0');
+    await sending('steps');
+  }, 60_000);
+  afterAll(closeTestDbs);
+
+  it('queues one only on a good post of theirs kept for the person, where comments wait at first', async () => {
+    const post = await goodPost('instagram', `${IG}/p/DQcomment01/`, account('sky.lane.plumbing'));
+    const other = await goodPost('instagram', `${IG}/p/DQcomment02/`, account('tess.moor.hvac'));
+    const sky = await profileOf('sky.lane.plumbing');
+    const instagram = await todayOn('instagram');
+    expect(instagram.messages).toContain('comment');
+    expect((await commentRow('instagram', post)).send).toBeNull();
+    // A comment needs its post, and a post goes only with a comment.
+    expect(await refused(queue(sky, null, 'Great question!'))).toBe('validation');
+    expect(await refused(queue(sky, post, 'Hi Sky!', 'opener'))).toBe('validation');
+    // Someone else's post, or one the AI didn't call good, isn't theirs to comment on.
+    expect(await refused(queue(sky, other, 'Great question!'))).toBe('outreach_comment_post');
+    await rows(
+      admin(),
+      sql`update addon_outreach.posts set check_state = 'not' where id = ${other}`,
+    );
+    expect(await refused(queue(await profileOf('tess.moor.hvac'), other, 'Hi!'))).toBe(
+      'outreach_comment_post',
+    );
+    // LinkedIn's comments go as the runner's own step: never queued, and never on its list of messages.
+    const linkedin = await goodPost(
+      'linkedin',
+      'https://www.linkedin.com/feed/update/urn:li:activity:7390000000000000901/',
+      {
+        id: null,
+        username: 'nia-park-roofing',
+        url: 'https://www.linkedin.com/in/nia-park-roofing/',
+      },
+    );
+    expect(await refused(queue(await profileOf('nia-park-roofing'), linkedin, 'Hi!'))).toBe(
+      'outreach_comment_network',
+    );
+    expect((await todayOn('linkedin')).messages).not.toContain('comment');
+    expect((await runAs(owner, ws, 'outreach.today', {})).messages).not.toContain('comment');
+  });
+
+  it('waits under the hold with its post, one open a writer, and Approve all takes it', async () => {
+    const post = (
+      await rows<{ id: string }>(
+        admin(),
+        sql`select id from addon_outreach.posts where workspace_id = ${ws} and url = ${`${IG}/p/DQcomment01/`}`,
+      )
+    )[0]!.id;
+    const sky = await profileOf('sky.lane.plumbing');
+    const queued = await queue(
+      sky,
+      post,
+      'Same trouble here. A shared inbox for calls helped us most.',
+    );
+    expect(queued).toMatchObject({
+      kind: 'comment',
+      state: 'waiting',
+      name: 'sky.lane.plumbing',
+      postId: post,
+      postUrl: `${IG}/p/DQcomment01/`,
+      post: ASKING,
+      needsYou: null,
+      handedOver: false,
+      recent: [],
+    });
+    expect((await commentRow('instagram', post)).send).toMatchObject({
+      sendId: queued.sendId,
+      state: 'waiting',
+    });
+    // The writer's second good post waits till this comment is sent or skipped; queued anyway, the open one comes back.
+    const second = await goodPost(
+      'instagram',
+      `${IG}/p/DQcomment03/`,
+      account('sky.lane.plumbing'),
+    );
+    expect(await commentRow('instagram', second)).toBeUndefined();
+    expect((await queue(sky, second, 'Another thought')).sendId).toBe(queued.sendId);
+    // In Waiting for you as a message to OK, and Approve all takes it.
+    const waiting = await runAs(owner, ws, 'outreach.waiting', {});
+    expect(waiting.kinds.message.count).toBe(1);
+    expect(
+      waiting.items.find((i: { send?: { sendId: string } }) => i.send?.sendId === queued.sendId)
+        .kind,
+    ).toBe('message');
+    // It says Instagram's comments wait under the hold, for the hold's note there.
+    expect(waiting.commentHolds).toContain('instagram');
+    expect((await runAs(owner, ws, 'outreach.send.approve', {})).approved).toEqual([queued.sendId]);
+    // The extension posts it and notes the comment: the post is done, and the writer's next one comes.
+    await runAs(owner, ws, 'outreach.touch.save', {
+      platform: 'instagram',
+      kind: 'comment',
+      profile: account('sky.lane.plumbing'),
+      name: 'sky.lane.plumbing',
+      postUrl: `${IG}/p/DQcomment01/`,
+      auto: true,
+    });
+    expect(
+      await runAs(owner, ws, 'outreach.send.done', { sendId: queued.sendId, sent: true }),
+    ).toEqual({ sendId: queued.sendId, state: 'sent' });
+    expect(await commentRow('instagram', post)).toBeUndefined();
+    expect(await refused(queue(sky, post, 'Once more'))).toBe('outreach_comment_done');
+    expect((await commentRow('instagram', second)).send).toBeNull();
+  });
+
+  it('sets its post aside once skipped, or not posted, and hands one not posted to the person', async () => {
+    const sky = await profileOf('sky.lane.plumbing');
+    const second = (
+      await rows<{ id: string }>(
+        admin(),
+        sql`select id from addon_outreach.posts where workspace_id = ${ws} and url = ${`${IG}/p/DQcomment03/`}`,
+      )
+    )[0]!.id;
+    const skipped = await queue(sky, second, 'Good luck with the busy season!');
+    await runAs(owner, ws, 'outreach.send.skip', { sendId: skipped.sendId });
+    const asideOf = async (id: string) =>
+      (
+        await rows<{ aside: boolean }>(
+          admin(),
+          sql`select skipped_at is not null as aside from addon_outreach.posts where id = ${id}`,
+        )
+      )[0]!.aside;
+    expect(await asideOf(second)).toBe(true);
+    expect(await commentRow('instagram', second)).toBeUndefined();
+    expect(await refused(queue(sky, second, 'Again'))).toBe('outreach_comment_done');
+
+    const third = await goodPost('instagram', `${IG}/p/DQcomment04/`, account('sky.lane.plumbing'));
+    const failed = await queue(sky, third, 'We use a shared calendar for this.');
+    await runAs(owner, ws, 'outreach.send.approve', { sends: [{ sendId: failed.sendId }] });
+    expect(
+      await runAs(owner, ws, 'outreach.send.done', {
+        sendId: failed.sendId,
+        sent: false,
+        why: 'Instagram didn’t show the comment box.',
+      }),
+    ).toMatchObject({ state: 'failed' });
+    expect(await asideOf(third)).toBe(true);
+    const need = (await runAs(owner, ws, 'outreach.waiting', {})).items.find(
+      (i: { kind: string; need?: { postId: string | null } }) => i.need?.postId === third,
+    ).need;
+    expect(need).toMatchObject({
+      step: 'comment',
+      sendId: failed.sendId,
+      url: `${IG}/p/DQcomment04/`,
+      text: 'We use a shared calendar for this.',
+      why: 'Instagram didn’t show the comment box.',
+    });
+  });
+
+  it('goes on its own after a week of comments and 25 OK’d, but never under training wheels', async () => {
+    // A week and more of comments the person OK'd themselves, each on a post of its own.
+    const vic = await goodPost('instagram', `${IG}/p/DQcomment05/`, account('vic.hale.roofing'));
+    await rows(
+      admin(),
+      sql`with made as (
+            insert into addon_outreach.posts (workspace_id, user_id, profile_id, url, body, found, check_state, seen_at)
+            select ${ws}, ${owner.id}, p.id, ${`${IG}/p/DQold`} || n || '/', 'An older post', 'search', 'good',
+              now() - interval '10 days'
+            from addon_outreach.profiles p, generate_series(1, ${COMMENT_HOLD.okd}) n
+            where p.workspace_id = ${ws} and p.username = 'vic.hale.roofing'
+            returning id, profile_id)
+          insert into addon_outreach.sends (workspace_id, user_id, profile_id, kind, post_id, text, drafted, state,
+            approved_at, done_at, created_at, updated_at)
+          select ${ws}, ${owner.id}, made.profile_id, 'comment', made.id, 'Thanks for sharing!', 'Thanks for sharing!',
+            'sent', now() - interval '9 days', now() - interval '9 days', now() - interval '10 days',
+            now() - interval '9 days'
+          from made`,
+    );
+    const goes = await queue(await profileOf('vic.hale.roofing'), vic, 'Good tip, thanks.');
+    expect(goes.state).toBe('approved');
+    // Sending (b) starts Instagram's training wheels: every comment waits again while they're on.
+    await sending('everything');
+    const wren = await goodPost('instagram', `${IG}/p/DQcomment06/`, account('wren.ash.cleaning'));
+    expect((await queue(await profileOf('wren.ash.cleaning'), wren, 'Nice work!')).state).toBe(
+      'waiting',
+    );
+    // It waits for the training wheels, not the hold: Waiting for you says Instagram's hold is past, Alignable's on.
+    const { commentHolds } = await runAs(owner, ws, 'outreach.waiting', {});
+    expect(commentHolds).not.toContain('instagram');
+    expect(commentHolds).toContain('alignable');
+    await sending('steps');
+  });
+
+  it('keeps an Alignable answer to a post asking for what the business offers waiting for an OK of its own', async () => {
+    const answer = await goodPost(
+      'alignable',
+      `${AL}/forum/what-crm-do-small-crews-use`,
+      business('reyes-plumbing'),
+      true,
+    );
+    const helpful = await goodPost(
+      'alignable',
+      `${AL}/forum/tips-for-a-busy-season`,
+      business('ng-roofing'),
+    );
+    expect((await todayOn('alignable')).messages).toContain('comment');
+    const asked = await queue(
+      await profileOf('reyes-plumbing'),
+      answer,
+      'We help small crews keep every call in one place. Happy to share what works.',
+    );
+    expect(asked).toMatchObject({ state: 'waiting', needsYou: COMMENT_NEEDS_YOU.answer });
+    // Alignable's own hold: no comments there yet, so this one waits too, with nothing of its own.
+    const tip = await queue(
+      await profileOf('ng-roofing'),
+      helpful,
+      'Plan the week on Sunday night.',
+    );
+    expect(tip).toMatchObject({ state: 'waiting', needsYou: null });
+    const all = (await runAs(owner, ws, 'outreach.send.approve', {})).approved;
+    expect(all).toContain(tip.sendId);
+    expect(all).not.toContain(asked.sendId);
+    // Named with another, it's refused; named alone, it's OK'd.
+    expect(
+      await refused(
+        runAs(owner, ws, 'outreach.send.approve', {
+          sends: [{ sendId: asked.sendId }, { sendId: tip.sendId }],
+        }),
+      ),
+    ).toBe('outreach_send_one_by_one');
+    expect(
+      (await runAs(owner, ws, 'outreach.send.approve', { sends: [{ sendId: asked.sendId }] }))
+        .approved,
+    ).toEqual([asked.sendId]);
+  });
+
+  it('drafts comments only for a build that finds people by topic, and none with Sending Off', async () => {
+    await computerOn(owner, ws, '0.94.0');
+    expect((await todayOn('instagram')).messages).not.toContain('comment');
+    await computerOn(owner, ws, '0.95.0');
+    expect((await todayOn('instagram')).messages).toContain('comment');
+    await sending('off');
+    expect((await todayOn('instagram')).messages).toEqual([]);
   });
 });

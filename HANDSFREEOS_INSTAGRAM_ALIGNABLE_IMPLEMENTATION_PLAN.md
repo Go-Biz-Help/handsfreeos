@@ -246,7 +246,8 @@ Get ready reads it and the AI checks it against the main offer, then writes it (
    notifications).
 2. Your own followers who fit, checked by the AI as Facebook's friends are.
 3. Local hashtags and places from the playbook (#austinplumbing, a neighborhood). The posts and the accounts that
-   post them.
+   post them. (From extension 0.95.0, decision 92 in docs/outreach.md: each playbook's own hashtags, and who liked
+   and commented on the good posts too, each checked by the AI from their own account before anything is done.)
 4. The followers and commenters of accounts like yours, which the playbook names: the local chamber, a venue, a
    partner.
 5. Instagram's search, by the playbook's words. Check already reads it.
@@ -289,7 +290,9 @@ Instagram's terms forbid automated access, and it blocks accounts that act too f
 - Your own steps are noted.
 - Reading goes at a person's pace, in its own window.
 - Doing things on its own is your choice, off to start, at the low limits above.
-- Anything public, and every message, waits for an OK to start.
+- Anything public, and every message, waits for an OK to start. (From extension 0.95.0, decision 92 in
+  docs/outreach.md: a comment on Instagram or Alignable waits under a hold of its own, for a week of comments there
+  and 25 the person OK'd, then goes on its own; a forum answer on Alignable always waits.)
 
 ### The inbox
 
@@ -324,10 +327,14 @@ Each playbook says which it looks for (question 7).
 ### Where the people are
 
 1. Your connections who fit, and the requests you've got (the warmest, and quick to accept).
-2. Your town's businesses, by the playbook's kinds of business. Alignable groups its members by town.
+2. Your town's businesses, by the playbook's kinds of business. Alignable groups its members by town. (From
+   extension 0.95.0, decision 92 in docs/outreach.md: Alignable's search, by each playbook's own kinds of business,
+   in your town or anywhere for a playbook that works with clients online, each business checked by the AI first.)
 3. Forum questions asking for what you offer: like LinkedIn's post search, looked at once a day, with a push when
    one is strong.
-4. Groups and events that fit: their members, and who's going.
+4. Groups and events that fit: their members, and who's going. (From extension 0.95.0, decision 92: your groups,
+   and good ones found and joined, 3 a day; their members read, leaders first and never reached; events are still to
+   come.)
 5. Whoever likes, comments on or recommends you: warm leads.
 
 ### The steps

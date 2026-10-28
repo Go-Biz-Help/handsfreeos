@@ -421,6 +421,81 @@ describe('a playbook’s niche, problem, proof and something useful (data versio
   });
 });
 
+describe('each network’s own words on a playbook (data version 8, decision 92)', () => {
+  const crm = PLAYBOOK_TEMPLATES.crm_demos;
+
+  it('cleans hashtags as people tag them, and refuses one that makes none', async () => {
+    const saved = await runAs(owner, ws, 'outreach.playbook.save', {
+      name: 'Hail season',
+      details: {
+        ...crm.details,
+        platforms: ['facebook', 'instagram'],
+        hashtags: ['#Austin Roofing!', 'austinroofing', 'Hail Repair'],
+      },
+    });
+    expect(saved.details.hashtags).toEqual(['austinroofing', 'hailrepair']);
+    expect(
+      await refused(
+        runAs(owner, ws, 'outreach.playbook.save', {
+          playbookId: saved.id,
+          name: 'Hail season',
+          details: { ...saved.details, hashtags: ['austinroofing', '#!?'] },
+        }),
+      ),
+    ).toBe('outreach_playbook_hashtag');
+  });
+
+  it('keeps them when a save leaves them out, and never lets a save say what the AI wrote', async () => {
+    const saved = await runAs(owner, ws, 'outreach.playbook.save', {
+      name: 'Storm leads',
+      details: {
+        ...crm.details,
+        platforms: ['linkedin', 'alignable'],
+        postSearches: ['roof leak'],
+        businessKinds: ['Property Management'],
+        worksOnline: true,
+        // Only the AI's words command says this.
+        wordsWritten: ['linkedin'],
+      },
+    });
+    expect(saved.details).toMatchObject({
+      postSearches: ['roof leak'],
+      businessKinds: ['Property Management'],
+      worksOnline: true,
+      wordsWritten: [],
+    });
+    // As if the AI had written LinkedIn's: a save from the builder, or a phone, keeps it.
+    await rows(
+      admin(),
+      sql`update addon_outreach.playbooks
+          set details = jsonb_set(details, '{wordsWritten}', '["linkedin"]')
+          where id = ${saved.id}`,
+    );
+    const { hashtags, postSearches, businessKinds, worksOnline, wordsWritten, ...older } =
+      saved.details;
+    void [hashtags, postSearches, businessKinds, worksOnline, wordsWritten];
+    const again = await runAs(owner, ws, 'outreach.playbook.save', {
+      playbookId: saved.id,
+      name: 'Storm leads',
+      details: { ...older, offer: 'A free roof check', wordsWritten: [] },
+    });
+    expect(again.details).toMatchObject({
+      offer: 'A free roof check',
+      postSearches: ['roof leak'],
+      businessKinds: ['Property Management'],
+      worksOnline: true,
+      wordsWritten: ['linkedin'],
+    });
+    // The person empties a list: it stays empty, and the AI's mark stays with it.
+    const emptied = await runAs(owner, ws, 'outreach.playbook.save', {
+      playbookId: saved.id,
+      name: 'Storm leads',
+      details: { ...again.details, postSearches: [] },
+    });
+    expect(emptied.details).toMatchObject({ postSearches: [], wordsWritten: ['linkedin'] });
+  });
+});
+
 describe('with the add-on off', () => {
   it('saves nothing and shows nothing', async () => {
     await setOutreach(ws, 'disabled');

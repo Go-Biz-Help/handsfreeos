@@ -477,6 +477,146 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/commands/affiliate.apply": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Apply to be a HandsFreeOS affiliate: sell HandsFreeOS with your own link and earn a share of what each business you send pays for its plan in its first 12 months. While you wait, you can change what you said.
+         * @description Risk level 1. Emits platform.affiliate_applied.
+         */
+        post: operations["command_affiliate_apply"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/affiliate.decide": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Approve an affiliate application, which turns their link on and emails them, or turn it down, which emails them too.
+         * @description Risk level 3. Requires platform.affiliates.manage. Emits platform.affiliate_approved, platform.affiliate_turned_down.
+         */
+        post: operations["command_affiliate_decide"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/affiliate.set_business": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Credit a business to an affiliate by hand, move it to another one, or take it off the one it’s credited to.
+         * @description Risk level 3. Requires platform.affiliates.manage. Emits platform.affiliate_business_set.
+         */
+        post: operations["command_affiliate_set_business"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/affiliate.set_code": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Change the code an affiliate’s link carries. Their old link stops working, so tell them first.
+         * @description Risk level 3. Requires platform.affiliates.manage. Emits platform.affiliate_code_changed.
+         */
+        post: operations["command_affiliate_set_code"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/affiliate.set_rate": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Give one affiliate their own share of each plan payment, or put them back on everyone’s. It counts for payments from now on.
+         * @description Risk level 3. Requires platform.affiliates.manage. Emits platform.affiliate_rate_changed.
+         */
+        post: operations["command_affiliate_set_rate"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/affiliate.set_status": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Pause an affiliate (their link stops crediting new businesses and they stop earning on new payments), bring a paused one back, or end the partnership for good.
+         * @description Risk level 3. Requires platform.affiliates.manage. Emits platform.affiliate_status_changed.
+         */
+        post: operations["command_affiliate_set_status"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/affiliates.save_settings": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Set the share every affiliate earns of each plan payment, unless they have their own. It counts for payments from now on.
+         * @description Risk level 3. Requires platform.affiliates.manage. Emits platform.affiliate_settings_saved.
+         */
+        post: operations["command_affiliates_save_settings"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/commands/ai_provider.set_mode": {
         parameters: {
             query?: never;
@@ -6428,7 +6568,7 @@ export interface paths {
         put?: never;
         /**
          * Create your organization and its first workspace. You become Owner of both.
-         * @description Risk level 1. Emits organization.created, workspace.created.
+         * @description Risk level 1. Emits organization.created, workspace.created, platform.affiliate_business_credited.
          */
         post: operations["command_organization_create"];
         delete?: never;
@@ -6667,7 +6807,7 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * What someone says on their profile and business page, as the person’s computer just read it, with how many friends they have and their mutual friends with the person, for the AI to see whether they fit a playbook and where they live; or that Facebook showed someone else. Kept only until the AI has read it.
+         * What someone says on their profile and business page, as the person’s computer just read it, with how many friends they have and their mutual friends with the person, for the AI to see whether they fit a playbook and where they live; or that the network showed someone else. Someone the person knows, or someone found by topic they don’t know yet, whose check counts on its own. Kept only until the AI has read it.
          * @description Risk level 1. Requires outreach.use. Emits outreach.check.looked.
          */
         post: operations["command_outreach_check_look"];
@@ -6687,7 +6827,7 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * Puts everyone the person’s computer has checked back on the list to check, at the day’s pace, so the AI reads them again. What it said about each stays until then.
+         * Puts everyone the person’s computer has checked among the people they know back on the list to check, at the day’s pace, so the AI reads them again. What it said about each stays until then. People found by topic they don’t know yet aren’t among them.
          * @description Risk level 1. Requires outreach.use. Emits outreach.checks.again.
          */
         post: operations["command_outreach_checks_again"];
@@ -6937,6 +7077,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/commands/outreach.finds.save": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * People found by topic on Instagram, LinkedIn or Alignable, as the person’s computer read them: who liked or commented on a good post its search found (that post’s people are then read), the businesses a search of Alignable showed, or a group’s members. Each one new is kept, the person’s own, for the AI to check from their own page; nobody goes in Contacts. Leaves out the person, the post’s writer, friends and anyone asked either way, customers and clients, anyone on Don’t pitch or Never contact or running a group, anyone who says a playbook’s skip word, and anyone the country setting skips by where they are; and stops once 3 days of checks wait.
+         * @description Risk level 1. Requires outreach.use. Emits outreach.finds.saved.
+         */
+        post: operations["command_outreach_finds_save"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/commands/outreach.friend.end": {
         parameters: {
             query?: never;
@@ -7027,7 +7187,7 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * What a Facebook group’s About page, rules and latest posts said as the person’s computer read them, for the AI to see whether the playbooks’ people are there. The About page and rules are kept on the group; the posts only until the AI has read them.
+         * What a group’s About page, rules and latest posts said as the person’s computer read them, on Facebook or Alignable, for the AI to see whether the playbooks’ people are there. The About page and rules are kept on the group; the posts only until the AI has read them.
          * @description Risk level 1. Requires outreach.use. Emits outreach.group.looked.
          */
         post: operations["command_outreach_group_look"];
@@ -7047,7 +7207,7 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * Save a Facebook group the person has open and the people on its People tab (or one of its See all pages), with the lines under each name. Admins and moderators are kept as such and never suggested; the full list of them marks the group’s admins as read. Nobody goes in Contacts.
+         * Save a group the person has open on Facebook or Alignable and the people on its People tab or members page (or one of its See all pages), with the lines under each name. Admins, moderators and leaders are kept as such and never suggested; the full list of them marks the group’s admins as read. Nobody goes in Contacts.
          * @description Risk level 1. Requires outreach.use. Emits outreach.group.saved.
          */
         post: operations["command_outreach_group_save"];
@@ -7067,7 +7227,7 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * Save the groups on a Facebook page the person has open (their own groups, or search results), with what the page says about each: public or private, how many members, the line under its name, and whether they are in it. Nothing goes in Contacts.
+         * Save the groups on a page the person has open on Facebook or Alignable (their own groups, or search results), with what the page says about each: public or private, how many members, the line under its name, and whether they are in it. Nothing goes in Contacts.
          * @description Risk level 1. Requires outreach.use. Emits outreach.groups.saved.
          */
         post: operations["command_outreach_groups_save"];
@@ -7187,7 +7347,7 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * How the person’s computer’s ask to join a Facebook group went: asked, waiting for the admins, joined, or couldn’t and why, with the AI’s answers to the group’s questions. Joined, it’s one of the person’s groups.
+         * How the person’s computer’s ask to join a group on Facebook or Alignable went: asked, waiting for the admins, joined, or couldn’t and why, with the AI’s answers to the group’s questions. Joined, it’s one of the person’s groups.
          * @description Risk level 1. Requires outreach.use. Emits outreach.join.noted.
          */
         post: operations["command_outreach_join_note"];
@@ -7467,7 +7627,7 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * Keep the posts in a Facebook group’s feed, or found by a network’s own search (LinkedIn’s post search, Instagram’s hashtags and places, Alignable’s town), that are worth a comment from the person: those saying a playbook’s signs or asking for help, with who wrote them, for the AI to check. Says how each post the page shows stands, for the extension to mark. Nobody goes in Contacts.
+         * Keep the posts in a Facebook group’s feed, or found by a network’s own search (LinkedIn’s post search, Instagram’s hashtags and places, Alignable’s town), that are worth a comment from the person: those saying a playbook’s signs or asking for help, or found under a playbook’s own hashtag or phrase, with who wrote them and the hashtag or phrase that found them, for the AI to check. Says how each post the page shows stands, for the extension to mark. Nobody goes in Contacts.
          * @description Risk level 1. Requires outreach.use. Emits outreach.posts.saved.
          */
         post: operations["command_outreach_posts_save"];
@@ -7647,7 +7807,7 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * The person OKs messages the extension drafted, as they are or changed; with none named, every one waiting (Approve all) except replies handed over to them and messages to someone who needs them, which wait to be OK’d one at a time. The extension sends them. On training wheels, each counts toward coming off them.
+         * The person OKs messages and comments the extension drafted, as they are or changed; with none named, every one waiting (Approve all) except replies handed over to them, messages to someone who needs them and answers to Alignable posts asking for what the business offers, which wait to be OK’d one at a time. The extension sends them. On training wheels, each message counts toward coming off them; each comment counts toward the comments’ own wait.
          * @description Risk level 1. Requires outreach.use. Emits outreach.send.approved. Can wait on a phone for 30 minutes, then asks.
          */
         post: operations["command_outreach_send_approve"];
@@ -7667,7 +7827,7 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * The extension sent an OK’d message in Messenger, or couldn’t, and why. The message itself is noted as a step, as any other. One that couldn’t go waits for the person in Waiting for you, with its words, to send themselves.
+         * The extension sent an OK’d message in Messenger, or posted an OK’d comment, or couldn’t, and why. The message or comment itself is noted as a step, as any other. One that couldn’t go waits for the person in Waiting for you, with its words, to send themselves; a comment’s post is then set aside, so it isn’t drafted again.
          * @description Risk level 0. Requires outreach.use. Emits outreach.send.done, outreach.need.noted.
          */
         post: operations["command_outreach_send_done"];
@@ -7687,7 +7847,7 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * The extension drafted a message to someone on the person’s list for today: a first message, a follow-up or a reply. It waits for the person’s OK, or, when they chose for messages to go on their own and their training wheels are off, goes as it is. A message already drafted for them comes back instead. A client in Contacts gets only replies.
+         * The extension drafted a message to someone on the person’s list for today: a first message, a follow-up or a reply; or, on Instagram and Alignable, a comment on a good post of theirs. It waits for the person’s OK, or, when they chose for messages to go on their own and their training wheels are off, goes as it is; a comment goes on its own once the person has OK’d 25 there and a week has gone by, and an answer to an Alignable post asking for what the business offers always waits. A message already drafted for them comes back instead. A client in Contacts gets only replies.
          * @description Risk level 0. Requires outreach.use. Emits outreach.send.queued.
          */
         post: operations["command_outreach_send_queue"];
@@ -7707,7 +7867,7 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * The person skips a message the extension drafted: it isn’t sent, and the person is off their list for today.
+         * The person skips a message the extension drafted: it isn’t sent, and the person is off their list for today. A comment skipped sets its post aside for good.
          * @description Risk level 0. Requires outreach.use. Emits outreach.send.skipped. Can wait on a phone with no signal.
          */
         post: operations["command_outreach_send_skip"];
@@ -15777,6 +15937,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/queries/affiliate.mine": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Your own place in the HandsFreeOS affiliate program: whether you’ve applied and where it stands, your link code, your share, and your link’s clicks.
+         * @description Any signed-in user.
+         */
+        post: operations["query_affiliate_mine"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/queries/ai_setup_template.list": {
         parameters: {
             query?: never;
@@ -18397,6 +18577,46 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/queries/outreach.finds.next": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Who of the people found by topic on a network the person’s computer checks next for whether they fit a playbook, in order and no more than today has room for: those who wrote a good post first, then who commented on one, liked one, are in a group and a search showed; a post asking for what the business offers first, then the newest. Only people found in the last two weeks, not checked yet (or not read a week ago), and still to reach; none while the good fits waiting for their like are 2 days of likes or more.
+         * @description Requires outreach.use.
+         */
+        post: operations["query_outreach_finds_next"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/queries/outreach.finds.searches": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * The searches of a network’s businesses (Alignable’s) the person’s computer does today to find people by topic: the kinds of business the customers’ playbooks there say their clients run, 3 a day in turn, each with whether its playbook works with clients online, so it searches anywhere rather than the person’s own town. None until a playbook has kinds of business, nor while 3 days of checks of people found wait.
+         * @description Requires outreach.use.
+         */
+        post: operations["query_outreach_finds_searches"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/queries/outreach.follow_backs.next": {
         parameters: {
             query?: never;
@@ -18467,7 +18687,7 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * The business’s Facebook groups the extension has seen, each scored against the playbooks in use as Work these, Maybe or Skip with why, with how many people were found there, how many run it, whether its admins have all been read, the friend requests sent to people found there, how many of the people reached from it wrote back and booked a demo, and whether the person is in it. The ones that brought demos and replies first, then the best fit.
+         * The business’s groups on a network (Facebook’s when none is named) the extension has seen, each scored against the playbooks in use as Work these, Maybe or Skip with why, with how many people were found there, how many run it, whether its admins have all been read, the friend requests sent to people found there, how many of the people reached from it wrote back and booked a demo, and whether the person is in it. The ones that brought demos and replies first, then the best fit.
          * @description Requires outreach.use.
          */
         post: operations["query_outreach_groups"];
@@ -18487,7 +18707,7 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * Which of the business’s Facebook groups the person’s computer checks next for whether the playbooks’ people are there: their own groups first, then groups found that fit by name; none checked lately.
+         * Which of the business’s groups on a network (Facebook’s, or Alignable’s) the person’s computer checks next for whether the playbooks’ people are there: their own groups first, then groups found that fit by name; none checked lately. Facebook’s when no network is named.
          * @description Requires outreach.use.
          */
         post: operations["query_outreach_groups_to_check"];
@@ -18547,7 +18767,7 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * Which Facebook groups the person’s computer asks to join next (decision 31): the ones the AI says the business’s people are in, or that fit well by name while it hasn’t read them, that the person isn’t in and hasn’t asked to join; no more than today has room for. With how many people the groups have left to reach, and words to search for more groups with.
+         * Which groups on a network (Facebook’s, or Alignable’s) the person’s computer asks to join next (decisions 31 and 92): the ones the AI says the business’s people are in, or that fit well by name while it hasn’t read them, that the person isn’t in and hasn’t asked to join; no more than today has room for there. With how many people that network’s groups have left to reach, words to search for more groups with and whether they go anywhere, and the person’s Join switch there. Facebook’s when no network is named.
          * @description Requires outreach.use.
          */
         post: operations["query_outreach_joins_next"];
@@ -18777,6 +18997,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/queries/outreach.posts.people_next": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Which good posts the person’s computer reads next for who liked and commented on them, on a network that reads them (Instagram’s and LinkedIn’s): their own, the AI called good, seen in the last week, not put aside, not read yet and not showing none; those asking for what the business offers first, then the busiest, then the newest; no more than the day’s, and none while 3 days of checks of people found wait.
+         * @description Requires outreach.use.
+         */
+        post: operations["query_outreach_posts_people_next"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/queries/outreach.posts.words": {
         parameters: {
             query?: never;
@@ -18787,7 +19027,7 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * The words the person’s computer searches a network’s posts with, from the playbooks in use: the quoted words in their signs, then their words for groups. With them, the hashtags a day’s look on Instagram opens, local ones first, and the playbooks’ places, to tell a post tagged in the area.
+         * The words the person’s computer searches a network’s posts with today, from the playbooks in use: their own phrases for the network’s post search first, a few a day in turn, else the quoted words in their signs, then their words for groups. With them, the hashtags a day’s look on Instagram opens (the playbooks’ own first, else ones made from their area and words), and the playbooks’ places, to tell a post tagged in the area.
          * @description Requires outreach.use.
          */
         post: operations["query_outreach_posts_words"];
@@ -18867,7 +19107,7 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * The person’s messages the extension drafted that wait for their OK, and those OK’d it’s about to send; with their training wheels.
+         * The person’s messages and comments the extension drafted that wait for their OK, and those OK’d it’s about to send; with their training wheels.
          * @description Requires outreach.use.
          */
         post: operations["query_outreach_sends"];
@@ -18927,7 +19167,7 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * The person’s list for today on Facebook, for them or the extension to do: requests they got from people who fit a playbook to confirm, posts to like before a friend request, friend requests to people found in the business’s groups who fit a playbook (never anyone who runs a group, is on Don’t pitch or is in Contacts), a first message to new friends who accepted, friends the AI found a good fit to reconnect with, people ready for the offer to pitch, follow-ups to likely prospects gone quiet, replies owed and posts to comment on; with today’s steps against the daily limits. Nobody marked not a fit, nor a client in Contacts, is reached but with a reply.
+         * The person’s list for today on a network (Facebook unless named), for them or the extension to do: requests they got from people who fit a playbook to confirm, posts to like before a friend request, friend requests to people found in the business’s groups who fit a playbook (never anyone who runs a group, is on Don’t pitch or is in Contacts) or, on Instagram, LinkedIn and Alignable, to people found by topic whom the AI checked as good fits from their own page, a first message to new friends who accepted, friends the AI found a good fit to reconnect with, people ready for the offer to pitch, follow-ups to likely prospects gone quiet, replies owed and posts to comment on; with today’s steps against the daily limits. Nobody marked not a fit, nor a client in Contacts, is reached but with a reply.
          * @description Requires outreach.use.
          */
         post: operations["query_outreach_today"];
@@ -19271,6 +19511,66 @@ export interface paths {
          * @description Requires money.read.
          */
         post: operations["query_plan_list"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/queries/platform.affiliate": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * One affiliate for Admin → Affiliates: what they applied with, their share, the businesses they sent and their link’s clicks a day.
+         * @description Requires platform.affiliates.manage.
+         */
+        post: operations["query_platform_affiliate"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/queries/platform.affiliate_of_business": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Which affiliate a business is credited to, for its page under Admin → Businesses, with the approved affiliates it could be credited to instead.
+         * @description Requires platform.affiliates.manage.
+         */
+        post: operations["query_platform_affiliate_of_business"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/queries/platform.affiliates": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * The affiliate program for Admin → Affiliates: the share everyone earns, the applications waiting, and every affiliate with their clicks and the businesses they sent.
+         * @description Requires platform.affiliates.manage.
+         */
+        post: operations["query_platform_affiliates"];
         delete?: never;
         options?: never;
         head?: never;
@@ -22612,6 +22912,320 @@ export interface operations {
                         addonId: string;
                         voted: boolean;
                         votes: number;
+                    };
+                };
+            };
+        };
+    };
+    command_affiliate_apply: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    code: string;
+                    /** @default  */
+                    links?: string;
+                    livesInUs: boolean;
+                    name: string;
+                    /** @default  */
+                    pitch?: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        affiliateId: string;
+                        created: boolean;
+                    };
+                };
+            };
+        };
+    };
+    command_affiliate_decide: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    affiliateId: string;
+                    /** @enum {string} */
+                    decision: "approve" | "turn_down";
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        affiliate: {
+                            /** Format: uuid */
+                            affiliateId: string;
+                            /** Format: date-time */
+                            appliedAt: string;
+                            businesses: number;
+                            clicks30: number;
+                            clicksAll: number;
+                            code: string;
+                            decidedAt: string | null;
+                            decidedByName: string | null;
+                            email: string;
+                            links: string;
+                            name: string;
+                            ownRateBp: number | null;
+                            pitch: string;
+                            rateBp: number;
+                            /** @enum {string} */
+                            status: "applied" | "approved" | "turned_down" | "paused" | "ended";
+                            /** Format: uuid */
+                            userId: string;
+                        };
+                    };
+                };
+            };
+        };
+    };
+    command_affiliate_set_business: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    affiliateId: string | null;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        affiliate: {
+                            /** Format: uuid */
+                            affiliateId: string;
+                            clickedAt: string | null;
+                            code: string;
+                            /** @enum {string} */
+                            how: "link" | "code" | "by_hand";
+                            name: string;
+                            /** Format: date-time */
+                            referredAt: string;
+                            /** @enum {string} */
+                            status: "applied" | "approved" | "turned_down" | "paused" | "ended";
+                        } | null;
+                        /** Format: uuid */
+                        organizationId: string;
+                    };
+                };
+            };
+        };
+    };
+    command_affiliate_set_code: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    affiliateId: string;
+                    code: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        affiliate: {
+                            /** Format: uuid */
+                            affiliateId: string;
+                            /** Format: date-time */
+                            appliedAt: string;
+                            businesses: number;
+                            clicks30: number;
+                            clicksAll: number;
+                            code: string;
+                            decidedAt: string | null;
+                            decidedByName: string | null;
+                            email: string;
+                            links: string;
+                            name: string;
+                            ownRateBp: number | null;
+                            pitch: string;
+                            rateBp: number;
+                            /** @enum {string} */
+                            status: "applied" | "approved" | "turned_down" | "paused" | "ended";
+                            /** Format: uuid */
+                            userId: string;
+                        };
+                    };
+                };
+            };
+        };
+    };
+    command_affiliate_set_rate: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    affiliateId: string;
+                    rateBp: number | null;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        affiliate: {
+                            /** Format: uuid */
+                            affiliateId: string;
+                            /** Format: date-time */
+                            appliedAt: string;
+                            businesses: number;
+                            clicks30: number;
+                            clicksAll: number;
+                            code: string;
+                            decidedAt: string | null;
+                            decidedByName: string | null;
+                            email: string;
+                            links: string;
+                            name: string;
+                            ownRateBp: number | null;
+                            pitch: string;
+                            rateBp: number;
+                            /** @enum {string} */
+                            status: "applied" | "approved" | "turned_down" | "paused" | "ended";
+                            /** Format: uuid */
+                            userId: string;
+                        };
+                    };
+                };
+            };
+        };
+    };
+    command_affiliate_set_status: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    affiliateId: string;
+                    /** @enum {string} */
+                    status: "approved" | "paused" | "ended";
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        affiliate: {
+                            /** Format: uuid */
+                            affiliateId: string;
+                            /** Format: date-time */
+                            appliedAt: string;
+                            businesses: number;
+                            clicks30: number;
+                            clicksAll: number;
+                            code: string;
+                            decidedAt: string | null;
+                            decidedByName: string | null;
+                            email: string;
+                            links: string;
+                            name: string;
+                            ownRateBp: number | null;
+                            pitch: string;
+                            rateBp: number;
+                            /** @enum {string} */
+                            status: "applied" | "approved" | "turned_down" | "paused" | "ended";
+                            /** Format: uuid */
+                            userId: string;
+                        };
+                    };
+                };
+            };
+        };
+    };
+    command_affiliates_save_settings: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    rateBp: number;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        rateBp: number;
                     };
                 };
             };
@@ -36712,6 +37326,16 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": {
+                    affiliate?: {
+                        /** @default null */
+                        clickedAt?: string | null;
+                        code: string;
+                        /**
+                         * @default link
+                         * @enum {string}
+                         */
+                        how?: "link" | "code";
+                    };
                     businessName: string;
                     /**
                      * @default home_services
@@ -38644,6 +39268,67 @@ export interface operations {
             };
         };
     };
+    command_outreach_finds_save: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** @default null */
+                    group?: {
+                        id: string | null;
+                        /** @default null */
+                        name?: string | null;
+                        slug: string | null;
+                        url: string;
+                    } | null;
+                    /** @enum {string} */
+                    how: "liked" | "commented" | "searched" | "member";
+                    people?: {
+                        /** @default [] */
+                        lines?: string[];
+                        name: string;
+                        /** @default null */
+                        place?: string | null;
+                        profile: {
+                            id: string | null;
+                            url: string;
+                            username: string | null;
+                        };
+                        said?: string | null;
+                    }[];
+                    /** @default null */
+                    place?: string | null;
+                    /** @enum {string} */
+                    platform: "facebook" | "linkedin" | "instagram" | "alignable";
+                    /** @default null */
+                    postId?: string | null;
+                    /** @default null */
+                    words?: string | null;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        added: number;
+                        skipped: number;
+                    };
+                };
+            };
+        };
+    };
     command_outreach_friend_end: {
         parameters: {
             query?: never;
@@ -40078,10 +40763,12 @@ export interface operations {
                             area: string | null;
                             audience: string | null;
                             avoid: string[];
+                            businessKinds?: string[];
                             disclaimer: string | null;
                             /** @enum {string} */
                             goal: "demo" | "consult" | "estimate" | "appointment" | "call" | "sale" | "recruit" | "partner" | "community";
                             groupWords: string[];
+                            hashtags?: string[];
                             link: string | null;
                             niche?: string | null;
                             offer: string | null;
@@ -40099,6 +40786,7 @@ export interface operations {
                             };
                             partnerKinds?: ("group_admin" | "creator" | "business")[];
                             platforms: ("facebook" | "linkedin" | "instagram" | "alignable")[];
+                            postSearches?: string[];
                             problem?: string | null;
                             proof?: string[];
                             questions: {
@@ -40130,6 +40818,8 @@ export interface operations {
                                 }[];
                                 version: number | null;
                             } | null;
+                            wordsWritten?: ("instagram" | "linkedin" | "alignable")[];
+                            worksOnline?: boolean | null;
                         };
                         /** Format: uuid */
                         id: string;
@@ -40156,10 +40846,12 @@ export interface operations {
                         area: string | null;
                         audience: string | null;
                         avoid: string[];
+                        businessKinds?: string[];
                         disclaimer: string | null;
                         /** @enum {string} */
                         goal: "demo" | "consult" | "estimate" | "appointment" | "call" | "sale" | "recruit" | "partner" | "community";
                         groupWords: string[];
+                        hashtags?: string[];
                         link: string | null;
                         niche?: string | null;
                         offer: string | null;
@@ -40177,6 +40869,7 @@ export interface operations {
                         };
                         partnerKinds?: ("group_admin" | "creator" | "business")[];
                         platforms: ("facebook" | "linkedin" | "instagram" | "alignable")[];
+                        postSearches?: string[];
                         problem?: string | null;
                         proof?: string[];
                         questions: {
@@ -40208,6 +40901,8 @@ export interface operations {
                             }[];
                             version: number | null;
                         } | null;
+                        wordsWritten?: ("instagram" | "linkedin" | "alignable")[];
+                        worksOnline?: boolean | null;
                     };
                     name: string;
                     /** Format: uuid */
@@ -40233,10 +40928,12 @@ export interface operations {
                             area: string | null;
                             audience: string | null;
                             avoid: string[];
+                            businessKinds?: string[];
                             disclaimer: string | null;
                             /** @enum {string} */
                             goal: "demo" | "consult" | "estimate" | "appointment" | "call" | "sale" | "recruit" | "partner" | "community";
                             groupWords: string[];
+                            hashtags?: string[];
                             link: string | null;
                             niche?: string | null;
                             offer: string | null;
@@ -40254,6 +40951,7 @@ export interface operations {
                             };
                             partnerKinds?: ("group_admin" | "creator" | "business")[];
                             platforms: ("facebook" | "linkedin" | "instagram" | "alignable")[];
+                            postSearches?: string[];
                             problem?: string | null;
                             proof?: string[];
                             questions: {
@@ -40285,6 +40983,8 @@ export interface operations {
                                 }[];
                                 version: number | null;
                             } | null;
+                            wordsWritten?: ("instagram" | "linkedin" | "alignable")[];
+                            worksOnline?: boolean | null;
                         };
                         /** Format: uuid */
                         id: string;
@@ -40373,6 +41073,8 @@ export interface operations {
                         /** @default null */
                         when?: string | null;
                     }[];
+                    /** @default null */
+                    words?: string | null;
                     /** Format: uuid */
                     workspaceId: string;
                 };
@@ -41402,7 +42104,7 @@ export interface operations {
                     /** @default null */
                     chatId?: string | null;
                     /** @enum {string} */
-                    kind: "opener" | "reconnect" | "pitch" | "video" | "follow_up" | "check_in" | "reply" | "partner_ask" | "partner_follow_up" | "partner_details" | "partner_reply";
+                    kind: "opener" | "reconnect" | "pitch" | "video" | "follow_up" | "check_in" | "reply" | "partner_ask" | "partner_follow_up" | "partner_details" | "partner_reply" | "comment";
                     /** @default null */
                     opener?: {
                         /** @enum {string} */
@@ -41411,6 +42113,8 @@ export interface operations {
                         playbookId: string;
                         text: string;
                     } | null;
+                    /** @default null */
+                    postId?: string | null;
                     /** Format: uuid */
                     profileId: string;
                     /** @default false */
@@ -41436,7 +42140,7 @@ export interface operations {
                         createdAt: string;
                         handedOver: boolean;
                         /** @enum {string} */
-                        kind: "opener" | "reconnect" | "pitch" | "video" | "follow_up" | "check_in" | "reply" | "partner_ask" | "partner_follow_up" | "partner_details" | "partner_reply";
+                        kind: "opener" | "reconnect" | "pitch" | "video" | "follow_up" | "check_in" | "reply" | "partner_ask" | "partner_follow_up" | "partner_details" | "partner_reply" | "comment";
                         name: string;
                         needsYou: string | null;
                         opener: {
@@ -41446,6 +42150,9 @@ export interface operations {
                             playbookId: string;
                             text: string;
                         } | null;
+                        post: string | null;
+                        postId: string | null;
+                        postUrl: string | null;
                         /** Format: uuid */
                         profileId: string;
                         profileUrl: string | null;
@@ -58539,6 +59246,49 @@ export interface operations {
             };
         };
     };
+    query_affiliate_mine: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": Record<string, never>;
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        affiliate: {
+                            /** Format: uuid */
+                            affiliateId: string;
+                            /** Format: date-time */
+                            appliedAt: string;
+                            applyAgainFrom: string | null;
+                            clicks30: number;
+                            clicksAll: number;
+                            code: string;
+                            decidedAt: string | null;
+                            links: string;
+                            name: string;
+                            pitch: string;
+                            rateBp: number;
+                            /** @enum {string} */
+                            status: "applied" | "approved" | "turned_down" | "paused" | "ended";
+                        } | null;
+                        defaultRateBp: number;
+                    };
+                };
+            };
+        };
+    };
     query_ai_setup_template_list: {
         parameters: {
             query?: never;
@@ -71149,6 +71899,87 @@ export interface operations {
             };
         };
     };
+    query_outreach_finds_next: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** @default 40 */
+                    most?: number;
+                    /** @enum {string} */
+                    platform: "facebook" | "linkedin" | "instagram" | "alignable";
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        people: {
+                            /** @enum {string} */
+                            how: "posted" | "commented" | "liked" | "member" | "searched";
+                            name: string;
+                            postUrl: string | null;
+                            /** Format: uuid */
+                            profileId: string;
+                            url: string;
+                            words: string | null;
+                        }[];
+                        perDay: number;
+                        today: number;
+                    };
+                };
+            };
+        };
+    };
+    query_outreach_finds_searches: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /**
+                     * @default alignable
+                     * @enum {string}
+                     */
+                    platform?: "facebook" | "linkedin" | "instagram" | "alignable";
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        searches: {
+                            anywhere: boolean;
+                            words: string;
+                        }[];
+                    };
+                };
+            };
+        };
+    };
     query_outreach_follow_backs_next: {
         parameters: {
             query?: never;
@@ -71517,6 +72348,11 @@ export interface operations {
                 "application/json": {
                     /** @default 8 */
                     most?: number;
+                    /**
+                     * @default facebook
+                     * @enum {string}
+                     */
+                    platform?: "facebook" | "linkedin" | "instagram" | "alignable";
                     /** Format: uuid */
                     workspaceId: string;
                 };
@@ -71667,6 +72503,11 @@ export interface operations {
                     groupIds?: string[];
                     /** @default 3 */
                     most?: number;
+                    /**
+                     * @default facebook
+                     * @enum {string}
+                     */
+                    platform?: "facebook" | "linkedin" | "instagram" | "alignable";
                     /** Format: uuid */
                     workspaceId: string;
                 };
@@ -71680,6 +72521,8 @@ export interface operations {
                 };
                 content: {
                     "application/json": {
+                        /** @default false */
+                        anywhere: boolean;
                         groups: {
                             /** Format: uuid */
                             groupId: string;
@@ -72397,10 +73240,12 @@ export interface operations {
                                 area: string | null;
                                 audience: string | null;
                                 avoid: string[];
+                                businessKinds?: string[];
                                 disclaimer: string | null;
                                 /** @enum {string} */
                                 goal: "demo" | "consult" | "estimate" | "appointment" | "call" | "sale" | "recruit" | "partner" | "community";
                                 groupWords: string[];
+                                hashtags?: string[];
                                 link: string | null;
                                 niche?: string | null;
                                 offer: string | null;
@@ -72418,6 +73263,7 @@ export interface operations {
                                 };
                                 partnerKinds?: ("group_admin" | "creator" | "business")[];
                                 platforms: ("facebook" | "linkedin" | "instagram" | "alignable")[];
+                                postSearches?: string[];
                                 problem?: string | null;
                                 proof?: string[];
                                 questions: {
@@ -72449,6 +73295,8 @@ export interface operations {
                                     }[];
                                     version: number | null;
                                 } | null;
+                                wordsWritten?: ("instagram" | "linkedin" | "alignable")[];
+                                worksOnline?: boolean | null;
                             };
                             /** Format: uuid */
                             id: string;
@@ -72457,6 +73305,49 @@ export interface operations {
                             /** Format: date-time */
                             updatedAt: string;
                         }[];
+                    };
+                };
+            };
+        };
+    };
+    query_outreach_posts_people_next: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** @enum {string} */
+                    platform: "facebook" | "linkedin" | "instagram" | "alignable";
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        perDay: number;
+                        posts: {
+                            comments: number | null;
+                            name: string;
+                            /** Format: uuid */
+                            postId: string;
+                            profileUrl: string;
+                            reactions: number | null;
+                            strong: boolean;
+                            url: string;
+                            words: string | null;
+                        }[];
+                        today: number;
                     };
                 };
             };
@@ -73211,7 +74102,7 @@ export interface operations {
                             createdAt: string;
                             handedOver: boolean;
                             /** @enum {string} */
-                            kind: "opener" | "reconnect" | "pitch" | "video" | "follow_up" | "check_in" | "reply" | "partner_ask" | "partner_follow_up" | "partner_details" | "partner_reply";
+                            kind: "opener" | "reconnect" | "pitch" | "video" | "follow_up" | "check_in" | "reply" | "partner_ask" | "partner_follow_up" | "partner_details" | "partner_reply" | "comment";
                             name: string;
                             needsYou: string | null;
                             opener: {
@@ -73221,6 +74112,9 @@ export interface operations {
                                 playbookId: string;
                                 text: string;
                             } | null;
+                            post: string | null;
+                            postId: string | null;
+                            postUrl: string | null;
                             /** Format: uuid */
                             profileId: string;
                             profileUrl: string | null;
@@ -73517,7 +74411,7 @@ export interface operations {
                                 most: number;
                             };
                         };
-                        messages: ("opener" | "reconnect" | "pitch" | "video" | "follow_up" | "check_in" | "reply" | "partner_ask" | "partner_follow_up" | "partner_details" | "partner_reply")[];
+                        messages: ("opener" | "reconnect" | "pitch" | "video" | "follow_up" | "check_in" | "reply" | "partner_ask" | "partner_follow_up" | "partner_details" | "partner_reply" | "comment")[];
                         /** @default [] */
                         partners: {
                             asking: boolean;
@@ -73716,6 +74610,7 @@ export interface operations {
                 };
                 content: {
                     "application/json": {
+                        commentHolds: ("facebook" | "linkedin" | "instagram" | "alignable")[];
                         count: number;
                         hours: {
                             days: number[];
@@ -73781,7 +74676,7 @@ export interface operations {
                                 createdAt: string;
                                 handedOver: boolean;
                                 /** @enum {string} */
-                                kind: "opener" | "reconnect" | "pitch" | "video" | "follow_up" | "check_in" | "reply" | "partner_ask" | "partner_follow_up" | "partner_details" | "partner_reply";
+                                kind: "opener" | "reconnect" | "pitch" | "video" | "follow_up" | "check_in" | "reply" | "partner_ask" | "partner_follow_up" | "partner_details" | "partner_reply" | "comment";
                                 name: string;
                                 needsYou: string | null;
                                 opener: {
@@ -73791,6 +74686,9 @@ export interface operations {
                                     playbookId: string;
                                     text: string;
                                 } | null;
+                                post: string | null;
+                                postId: string | null;
+                                postUrl: string | null;
                                 /** Format: uuid */
                                 profileId: string;
                                 profileUrl: string | null;
@@ -73819,7 +74717,7 @@ export interface operations {
                                 createdAt: string;
                                 handedOver: boolean;
                                 /** @enum {string} */
-                                kind: "opener" | "reconnect" | "pitch" | "video" | "follow_up" | "check_in" | "reply" | "partner_ask" | "partner_follow_up" | "partner_details" | "partner_reply";
+                                kind: "opener" | "reconnect" | "pitch" | "video" | "follow_up" | "check_in" | "reply" | "partner_ask" | "partner_follow_up" | "partner_details" | "partner_reply" | "comment";
                                 name: string;
                                 needsYou: string | null;
                                 opener: {
@@ -73829,6 +74727,9 @@ export interface operations {
                                     playbookId: string;
                                     text: string;
                                 } | null;
+                                post: string | null;
+                                postId: string | null;
+                                postUrl: string | null;
                                 /** Format: uuid */
                                 profileId: string;
                                 profileUrl: string | null;
@@ -75116,6 +76017,197 @@ export interface operations {
                             taxable: boolean;
                             visitEveryMonths: number | null;
                         }[];
+                    };
+                };
+            };
+        };
+    };
+    query_platform_affiliate: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    affiliateId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        affiliate: {
+                            /** Format: uuid */
+                            affiliateId: string;
+                            /** Format: date-time */
+                            appliedAt: string;
+                            businesses: number;
+                            clicks30: number;
+                            clicksAll: number;
+                            code: string;
+                            decidedAt: string | null;
+                            decidedByName: string | null;
+                            email: string;
+                            links: string;
+                            name: string;
+                            ownRateBp: number | null;
+                            pitch: string;
+                            rateBp: number;
+                            /** @enum {string} */
+                            status: "applied" | "approved" | "turned_down" | "paused" | "ended";
+                            /** Format: uuid */
+                            userId: string;
+                        };
+                        businesses: {
+                            clickedAt: string | null;
+                            /** @enum {string} */
+                            how: "link" | "code" | "by_hand";
+                            markedByName: string | null;
+                            name: string;
+                            /** Format: uuid */
+                            organizationId: string;
+                            /** Format: date-time */
+                            referredAt: string;
+                            workspaceId: string | null;
+                        }[];
+                        clicks: {
+                            clicks: number;
+                            /** Format: date */
+                            day: string;
+                        }[];
+                    };
+                };
+            };
+        };
+    };
+    query_platform_affiliate_of_business: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        affiliate: {
+                            /** Format: uuid */
+                            affiliateId: string;
+                            clickedAt: string | null;
+                            code: string;
+                            /** @enum {string} */
+                            how: "link" | "code" | "by_hand";
+                            name: string;
+                            /** Format: date-time */
+                            referredAt: string;
+                            /** @enum {string} */
+                            status: "applied" | "approved" | "turned_down" | "paused" | "ended";
+                        } | null;
+                        choices: {
+                            /** Format: uuid */
+                            affiliateId: string;
+                            code: string;
+                            name: string;
+                        }[];
+                        /** Format: uuid */
+                        organizationId: string;
+                    };
+                };
+            };
+        };
+    };
+    query_platform_affiliates: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** @default 200 */
+                    limit?: number;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        affiliates: {
+                            /** Format: uuid */
+                            affiliateId: string;
+                            /** Format: date-time */
+                            appliedAt: string;
+                            businesses: number;
+                            clicks30: number;
+                            clicksAll: number;
+                            code: string;
+                            decidedAt: string | null;
+                            decidedByName: string | null;
+                            email: string;
+                            links: string;
+                            name: string;
+                            ownRateBp: number | null;
+                            pitch: string;
+                            rateBp: number;
+                            /** @enum {string} */
+                            status: "applied" | "approved" | "turned_down" | "paused" | "ended";
+                            /** Format: uuid */
+                            userId: string;
+                        }[];
+                        applications: {
+                            /** Format: uuid */
+                            affiliateId: string;
+                            /** Format: date-time */
+                            appliedAt: string;
+                            businesses: number;
+                            clicks30: number;
+                            clicksAll: number;
+                            code: string;
+                            decidedAt: string | null;
+                            decidedByName: string | null;
+                            email: string;
+                            links: string;
+                            name: string;
+                            ownRateBp: number | null;
+                            pitch: string;
+                            rateBp: number;
+                            /** @enum {string} */
+                            status: "applied" | "approved" | "turned_down" | "paused" | "ended";
+                            /** Format: uuid */
+                            userId: string;
+                        }[];
+                        settings: {
+                            rateBp: number;
+                        };
                     };
                 };
             };

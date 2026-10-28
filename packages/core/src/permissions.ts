@@ -177,6 +177,8 @@ export const ROLE_PERMISSIONS = {
     'platform.own_business.manage',
     // Opening partner payouts for a business: HandsFreeOS charging its card and paying its partners (partners stage 3).
     'platform.partner_payouts.manage',
+    // HandsFreeOS's own affiliate program (20261027014000): who's in, and what HandsFreeOS pays them.
+    'platform.affiliates.manage',
   ],
 } as const satisfies Record<string, readonly string[]>;
 
