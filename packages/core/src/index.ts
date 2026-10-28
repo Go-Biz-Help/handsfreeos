@@ -82,6 +82,8 @@ export * from './calendar/index';
 export * from './workflows/index';
 // Forms, surveys and quizzes (M15).
 export * from './forms/index';
+// Documents to sign: templates from a PDF, and signing (20261027015200).
+export * from './documents/index';
 export * from './knowledge/index';
 export * from './main-offer/parts';
 export * from './main-offer/examples';

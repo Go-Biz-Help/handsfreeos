@@ -385,3 +385,17 @@ export type PartnerPayoutsOut = Ok<'/v1/queries/partner.payouts'>;
 export type PartnerPayoutRow = PartnerPayoutsOut['payouts'][number];
 export type PartnerPayoutGetOut = Ok<'/v1/queries/partner.payout_get'>;
 export type PlatformPartnerPayoutsOut = Ok<'/v1/queries/platform.partner_payouts.get'>;
+
+// Documents to sign (docs/documents.md): templates from a PDF, sending one, and following it to the signed copy.
+export type DocumentTemplateListOut = Ok<'/v1/queries/document_template.list'>;
+export type DocumentTemplateRow = DocumentTemplateListOut['templates'][number];
+export type DocumentTemplateGetOut = Ok<'/v1/queries/document_template.get'>;
+export type DocumentIssueRow = DocumentTemplateGetOut['issues'][number];
+export type DocumentFileRef = NonNullable<DocumentTemplateGetOut['source']>;
+export type DocumentListOut = Ok<'/v1/queries/document.list'>;
+export type DocumentRow = DocumentListOut['documents'][number];
+export type DocumentGetOut = Ok<'/v1/queries/document.get'>;
+export type DocumentSignerRow = DocumentGetOut['signers'][number];
+export type DocumentStepRow = DocumentGetOut['steps'][number];
+export type DocumentPrefillOut = Ok<'/v1/queries/document.prefill'>;
+export type DocumentSendBody = Body<'/v1/commands/document.send'>;

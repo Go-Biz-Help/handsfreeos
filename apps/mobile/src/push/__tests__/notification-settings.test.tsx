@@ -101,6 +101,7 @@ const ALL_ON = {
   addons: true,
   supportTickets: true,
   qualifying: true,
+  documents: true,
 };
 
 beforeEach(() => {

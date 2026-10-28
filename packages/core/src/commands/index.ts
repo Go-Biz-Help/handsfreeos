@@ -1,5 +1,7 @@
 import type { CommandDef } from '../kernel/types';
 import { formCommands } from './form';
+import { documentCommands } from './document';
+import { documentTemplateCommands } from './document-template';
 import { reviewCommands } from './review';
 import { templateCommands } from './template';
 import { formResponseCommands } from './form-response';
@@ -1126,6 +1128,9 @@ export const commands: readonly CommandDef[] = [
   // Viewing the app as a teammate, read-only (20261018000100).
   ...teammateViewCommands,
   ...formCommands,
+  // Documents to sign (20261027015200).
+  ...documentTemplateCommands,
+  ...documentCommands,
   ...templateCommands,
   ...reviewCommands,
   ...formResponseCommands,
@@ -1229,6 +1234,8 @@ export * from './telephony-account';
 export * from './reminder';
 export * from './waitlist-offer';
 export * from './form';
+export * from './document';
+export * from './document-template';
 export * from './template';
 export * from './review';
 export * from './form-response';

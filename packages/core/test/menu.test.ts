@@ -101,11 +101,11 @@ describe('normalizeMenu', () => {
   });
 
   it('puts a place it has never heard of beside the neighbour it ships next to', () => {
-    // A menu saved before Reviews shipped: it sits between Forms and Knowledge again.
-    const before = MENU_KEYS.filter((k) => k !== 'reviews').map(link);
+    // A menu saved before Documents shipped: it sits between Forms and Reviews again.
+    const before = MENU_KEYS.filter((k) => k !== 'documents').map(link);
     const keys = menuKeys(normalizeMenu({ entries: before, hidden: [] }));
-    expect(keys.indexOf('reviews')).toBe(keys.indexOf('forms') + 1);
-    expect(keys.indexOf('knowledge')).toBe(keys.indexOf('reviews') + 1);
+    expect(keys.indexOf('documents')).toBe(keys.indexOf('forms') + 1);
+    expect(keys.indexOf('reviews')).toBe(keys.indexOf('documents') + 1);
   });
 
   it('puts an unheard-of place after the group its neighbour sits in', () => {
@@ -117,9 +117,9 @@ describe('normalizeMenu', () => {
       ],
       hidden: [],
     });
-    // Reviews ships after Forms, and Forms is in the group: it lands straight after the group.
+    // Documents ships after Forms, and Forms is in the group: it lands straight after the group.
     const group = menu.entries.findIndex((e) => e.kind === 'group');
-    const at = menu.entries.findIndex((e) => e.kind === 'link' && e.key === 'reviews');
+    const at = menu.entries.findIndex((e) => e.kind === 'link' && e.key === 'documents');
     expect(at).toBe(group + 1);
   });
 

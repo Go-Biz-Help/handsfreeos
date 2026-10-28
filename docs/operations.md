@@ -9167,7 +9167,7 @@ Kept in `app.campaigns` and `app.campaign_recipients`; the worker's jobs are `ca
 
 Needs `20261006000700_email_campaigns.sql`. See "Apply new migrations".
 
-**Call campaigns** (**Send as: Calls** on the new campaign form): the AI teammate calls each person picked, instead of a text each. Only people who agreed to calls in writing (**Calls from us** on the customer's Details says "Agreed in writing", with where) are called; the rest are left out, saying why.
+**Call campaigns** (**Send as: Calls** on the new campaign form): the AI teammate calls each person picked, instead of a text each. Only people who agreed to calls in writing (**Calls from us** on the customer's Details says "Agreed in writing", with where) are called; the rest are left out, saying why. A list of leads who agreed comes in with an import's **Agreed to calls** column (see "AI calls" below); give them a tag on the way in to pick them here.
 
 - Left out too: no phone, called by another campaign in the last 14 days, waiting on a reply or with an open card on Home, or booked in the next 30 days. The same checks run again just before each call.
 - The AI writes one opening line from the goal (and the offer, if any): it finishes "I'm calling …", for example "about our fall tune-up, which is $89 this month." The owner changes it on the review screen (**How every call opens**). On the call the AI says who it is, that it's an AI and that the call is recorded, then that line, then asks if now is a good time, and talks from the campaign's goal and offer, nothing more.
@@ -9318,6 +9318,16 @@ reminder set, there's no call either.
 - **"Don't call me again"** on a call: the AI records it, and no AI call goes to them after that. The customer page's
   Details has **Calls from us** ("Agreed in writing (Signed service agreement)", "Doesn't want calls", "Not asked"),
   where a person can change it. A yes needs where it's written; campaign calls only go to a yes.
+- **Many at once, from a spreadsheet:** **Customers** → **Import** (or **Settings** → **Imports** → **Import a
+  spreadsheet**), with a column mapped to **Agreed to calls (yes or no)**. Yes, Y, True, 1, X or Opted in is a yes,
+  and a date is a yes given that day; No, N, False, 0, Opted out, DNC or Do not call is a no; an empty cell changes
+  nothing. Anything else ("maybe") fails that row, saying what to write, rather than guess. A yes needs where they
+  agreed: a column mapped to **Where they agreed to calls**, or the one answer the Preview step asks for (**Where did
+  they agree in writing?**, "Website form, Oct 2026"), used for rows that don't say. A date is added to it ("Website
+  form, agreed 2026-10-01"). A yes never undoes a "Doesn't want calls" already on file, and people already in
+  HandsFreeOS change only with **Update it**. Each one is a `person.set_call_consent` like the customer page's, by
+  the import on the importer's behalf, and the audit log's "started importing leads.csv, with who agreed to calls"
+  says the file carried it. The business keeps its own proof of each yes; HandsFreeOS keeps where.
 - **On a quote call** the AI knows the quote's name, total and last day. It answers questions from those and what
   the business knows, never changes a price or the terms, and for going ahead points to the link in the text they
   got (the team can text it again).

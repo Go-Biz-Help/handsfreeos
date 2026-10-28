@@ -15,6 +15,8 @@
  *   (`portal.upload_begin`), and the browser gets a one-time link to put it there; then `portal.upload_confirm`
  *   through the door above checks what arrived.
  * - `GET /public/portal/files/:fileId`: a five-minute link to a file in their portal, if row security shows it to them.
+ * - `POST /public/portal/documents/:signerId/open`: the signing page's link for a document they're on, noted as
+ *   opened from their portal.
  *
  * As the money pages do: everything that acts is a POST (mail scanners open links), every answer is `no-store` and
  * `no-referrer`, a honeypot refuses bots, and each address has its limits. Everything runs as the system actor in
@@ -24,6 +26,7 @@ import { createHash, randomBytes, randomUUID } from 'node:crypto';
 import rateLimit from '@fastify/rate-limit';
 import {
   CODE_MINUTES,
+  documentOpen,
   executeCommand,
   executeQuery,
   HfosError,
@@ -39,6 +42,7 @@ import {
 import { asCustomer, asWorker, rows, sql } from '@hfos/db/client';
 import type { FastifyInstance, FastifyRequest } from 'fastify';
 import { z } from 'zod';
+import { signerUrlFor } from '../documents/links';
 import { portalCodeEmail } from '../emails/templates';
 import { resolvePortalToken, type PortalTokenResult } from '../portal/links';
 import { PartnerPayoutsBody, partnerPayoutsAction } from '../partners/payout-routes';
@@ -421,6 +425,58 @@ export async function registerPortalRoutes(app: FastifyInstance, deps: HttpDeps)
           url: await deps.store.signedUrl(f.bucket, f.object_path, DOWNLOAD_SECONDS),
           expiresInSeconds: DOWNLOAD_SECONDS,
         };
+      },
+    );
+
+    // A document they sign or get a copy of, opened from their portal (docs/documents.md, answer 10b): its signing
+    // page's link. Opening it here checks their code, if the template asks for one: signing in to the portal was a
+    // code to them.
+    pub.post<{ Params: { signerId: string } }>(
+      '/public/portal/documents/:signerId/open',
+      { config: { rateLimit: perDevice } },
+      async (req) => {
+        const session = await portalSessionOf(deps, req);
+        if (!session) throw signedOut();
+        const signerId = req.params.signerId;
+        const gone = () =>
+          HfosError.notFound(
+            'That document isn’t in your portal any more. Refresh the page to see what is.',
+          );
+        if (!/^[0-9a-f-]{36}$/i.test(signerId)) throw gone();
+        // Row security, as the customer: only their own place on a document shown to them.
+        const [seen] = await asCustomer(deps.httpDb, session.sessionId, (tx) =>
+          rows<{ status: string }>(
+            tx,
+            sql`select d.status from app.document_signers s join app.documents d on d.id = s.document_id
+                where s.id = ${signerId}::uuid and s.id in (select portal.document_signer_ids())`,
+          ),
+        );
+        if (!seen) throw gone();
+        if (seen.status !== 'out' && seen.status !== 'completed')
+          throw HfosError.rule(
+            'document_not_out',
+            409,
+            'This document isn’t out for signing anymore. Contact the business if it’s still needed.',
+          );
+        if (seen.status === 'out')
+          await executeCommand(
+            deps.httpDb,
+            documentOpen,
+            {
+              workspaceId: session.scope.workspaceId,
+              signerId,
+              channel: 'portal',
+              ip: req.ip?.slice(0, 64) ?? null,
+              device: header(req, 'user-agent')?.slice(0, 400) ?? null,
+            },
+            systemActor(session.scope),
+            meta(req),
+          );
+        const url = await asWorker(deps.httpDb, session.scope, (tx) =>
+          signerUrlFor(tx, deps.moneyLinks, signerId),
+        );
+        if (!url) throw gone();
+        return { url };
       },
     );
 

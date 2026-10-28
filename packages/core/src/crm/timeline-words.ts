@@ -210,6 +210,21 @@ export function describeTimeline(
       return 'uploaded a file';
     case 'file_locked':
       return 'locked a file as signed and kept';
+    // Documents to sign (20261027015200): the document's name is the body, the signer's name in meta.
+    case 'document_sent':
+      return `sent “${e.body ?? 'a document'}” to sign`;
+    case 'document_signed':
+      return str(e.meta.signer)
+        ? `got ${str(e.meta.signer)}’s signature on “${e.body ?? 'a document'}”`
+        : `got a signature on “${e.body ?? 'a document'}”`;
+    case 'document_completed':
+      return `filed the signed copy of “${e.body ?? 'a document'}”`;
+    case 'document_declined':
+      return `${str(e.meta.signer) || 'Someone'} declined to sign “${e.body ?? 'a document'}”`;
+    case 'document_voided':
+      return `voided “${e.body ?? 'a document'}”`;
+    case 'document_expired':
+      return `“${e.body ?? 'a document'}” ran out of time to be signed`;
     // Round six: a legal hold placed and lifted, with its reason in the well.
     case 'legal_hold_placed':
       return 'put this on legal hold';
@@ -361,6 +376,9 @@ export function timelineBody(e: TimelineEntry): string | null {
     case 'stage_changed':
       return str(e.meta.because) || null;
     case 'appointment_cancelled':
+      return str(e.meta.reason) || null;
+    case 'document_declined':
+    case 'document_voided':
       return str(e.meta.reason) || null;
     default:
       return null;

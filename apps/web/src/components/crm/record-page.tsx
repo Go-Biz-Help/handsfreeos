@@ -6,6 +6,7 @@ import {
   CalendarPlus,
   ChevronDown,
   ClipboardList,
+  FilePenLine,
   KanbanSquare,
   Mail,
   MapPin,
@@ -39,7 +40,7 @@ import { LogActivitySheet, type LoggableKind } from '@/components/timeline/log-a
 import { Timeline } from '@/components/timeline/timeline';
 import { Avatar } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
+import { Button, ButtonLink } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import {
   DropdownMenu,
@@ -601,6 +602,17 @@ export function RecordPage(props: RecordPageProps) {
               <Upload className="h-4 w-4" strokeWidth={1.5} />
               File
             </Button>
+            {person && can(permissions, 'documents.send') ? (
+              <ButtonLink
+                variant="secondary"
+                size="sm"
+                href={`/app/w/${workspaceId}/documents/send?person=${person.id}`}
+                data-testid="action-document"
+              >
+                <FilePenLine className="h-4 w-4" strokeWidth={1.5} />
+                Document
+              </ButtonLink>
+            ) : null}
             {person ? (
               <AddToWorkflowButton
                 workspaceId={workspaceId}

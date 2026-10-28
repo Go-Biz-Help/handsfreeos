@@ -168,3 +168,11 @@ export const portalFileUrl = (bearer: string, fileId: string) =>
     method: 'GET',
     headers: headers(bearer),
   });
+
+/** A document they sign or get a copy of (answer 10b): its signing page's address, noted as opened from here. */
+export const portalDocumentOpen = (bearer: string, signerId: string) =>
+  post<{ url: string }>(
+    `/public/portal/documents/${encodeURIComponent(signerId)}/open`,
+    {},
+    bearer,
+  );

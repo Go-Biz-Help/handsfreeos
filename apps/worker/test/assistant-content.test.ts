@@ -810,6 +810,48 @@ describe('workflows and their runs', () => {
     expect(blocked(again.card)).toBe('It has already ended.');
   });
 
+  it('reads a workflow’s steps with their ids, and changes its draft step by step on Confirm', async () => {
+    const { result, card } = await read('get_workflow', { workflowId });
+    expect(card?.type).toBe('workflow');
+    expect(result['steps']).toEqual([
+      { id: 's_fuptask1', depth: 0, says: expect.stringContaining('Call them back') },
+    ]);
+    expect(result['liveVersion']).toBe(1);
+    const draftRevision = result['draftRevision'] as number;
+    const args = {
+      workflowId,
+      baseRevision: draftRevision,
+      ops: [
+        {
+          op: 'update_step',
+          stepId: 's_fuptask1',
+          patch: { config: { title: 'Call them today' } },
+        },
+      ],
+    };
+    const title = async () =>
+      one<{ title: string; revision: number }>(
+        sql`select definition #>> '{steps,0,config,title}' as title, revision
+            from app.workflows where id = ${workflowId}`,
+      );
+
+    const { card: c } = await prepare('edit_workflow_steps', args);
+    expect(c.title).toBe('Change “Follow-up call”?');
+    expect(field(c, 'Change')).toContain('Call them today');
+    expect(c.warnings[0]?.text).toContain('Version 1 keeps running');
+    expect(await title()).toEqual({ title: 'Call them back', revision: draftRevision });
+    await commit('edit_workflow_steps', args);
+    expect(await title()).toEqual({ title: 'Call them today', revision: draftRevision + 1 });
+
+    // A card drawn on the old draft is refused, and so is a change the draft already has.
+    await expect(prepare('edit_workflow_steps', args)).rejects.toMatchObject({
+      rule: 'revision_conflict',
+    });
+    await expect(
+      prepare('edit_workflow_steps', { ...args, baseRevision: draftRevision + 1 }),
+    ).rejects.toThrow('Nothing would change');
+  });
+
   it('renames a workflow, and archives it with its runs going stopped', async () => {
     await prepare('manage_workflow', { workflowId, action: 'rename', name: 'Call-back' });
     await commit('manage_workflow', { workflowId, action: 'rename', name: 'Call-back' });

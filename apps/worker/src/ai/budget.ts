@@ -32,7 +32,9 @@ export type AiUsageSource =
   // Drafting a funnel for the AI teammate from a description (teammate funnels).
   | 'funnel'
   // The Assistant reading its instructions ahead of a question, while the person types (its runs keep the rest).
-  | 'assistant';
+  | 'assistant'
+  // Placing the fields on a document template's PDF.
+  | 'documents';
 
 /** What an AI call was for, for app.ai_usage. */
 export interface AiUsageRef {
@@ -91,6 +93,7 @@ const AI_SUBJECTS: Readonly<Record<AiUsageSource, string>> = {
   funnel: 'AI drafting a funnel',
   // Reading ahead while the person types: on the balance like the questions themselves (20261027012500).
   assistant: 'Ask HandsFreeOS getting ready',
+  documents: 'AI placing fields on a document',
 };
 
 /**

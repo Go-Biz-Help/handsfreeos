@@ -662,6 +662,8 @@ const WORDED_IN_DATABASE: Record<string, number> = {
   bin_record_addon: 409,
   bin_record_private: 409,
   bin_addon_uses: 409,
+  // 20261027015200: a document still out for signing on them.
+  bin_document_out: 409,
   bin_restore_parent: 409,
   person_in_bin: 409,
 };

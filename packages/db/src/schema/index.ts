@@ -283,6 +283,8 @@ export const recordType = app.enum('record_type', [
   'port',
   /** A record of a kind the business made up: a pet, a vehicle, a property (0100). Tags never use it. */
   'custom_record',
+  /** The PDF a document template is made from: record_id is the template (20261027015100). Tags never use it. */
+  'document',
 ]);
 export const activityKind = app.enum('activity_kind', [
   'note',
@@ -2917,6 +2919,8 @@ export const aiUsageSource = app.enum('ai_usage_source', [
   'funnel',
   // The Assistant reading its instructions ahead of a question, while the person types (20261027012400).
   'assistant',
+  // The AI placing the fields on a document template's PDF (20261027017000).
+  'documents',
 ]);
 export const knowledgeItemKind = app.enum('knowledge_item_kind', [
   'faq',
@@ -6519,6 +6523,143 @@ export const formDays = app.table(
   (t) => [primaryKey({ columns: [t.formId, t.day] })],
 );
 
+// ---------- documents and e-signatures (20261027015200) ----------
+
+/**
+ * A document template: a PDF with fields placed on it for its signers, words of it typed over, and its settings
+ * (core's DocumentDefinition). documents.manage makes them.
+ */
+export const documentTemplates = app.table('document_templates', {
+  id: id(),
+  workspaceId: workspaceRef(),
+  name: text('name').notNull(),
+  definition: jsonb('definition').$type<Json>().notNull().default({}),
+  definitionVersion: integer('definition_version').notNull().default(1),
+  /** Every save raises it; a save names the revision it started from. */
+  revision: integer('revision').notNull().default(1),
+  /** The PDF, a file whose record is this template; null until one is added. */
+  sourceFileId: uuid('source_file_id').references(() => files.id, { onDelete: 'set null' }),
+  createdBy: userRef('created_by'),
+  ...timestamps(),
+  archivedAt: ts('archived_at'),
+});
+
+/**
+ * One sent copy of a template: its definition as sent, with that customer's own changes, on exactly one customer,
+ * company, lead or record, where the signed copy is filed, locked.
+ */
+export const documents = app.table('documents', {
+  id: id(),
+  workspaceId: workspaceRef(),
+  templateId: uuid('template_id').references(() => documentTemplates.id, { onDelete: 'set null' }),
+  name: text('name').notNull(),
+  /** out, completed, declined, voided, expired. */
+  status: text('status').notNull().default('out'),
+  definition: jsonb('definition').$type<Json>().notNull(),
+  definitionVersion: integer('definition_version').notNull().default(1),
+  sourceFileId: uuid('source_file_id').references(() => files.id, { onDelete: 'set null' }),
+  personId: uuid('person_id').references(() => people.id, { onDelete: 'cascade' }),
+  companyId: uuid('company_id').references(() => companies.id, { onDelete: 'cascade' }),
+  leadId: uuid('lead_id').references(() => leads.id, { onDelete: 'cascade' }),
+  customRecordId: uuid('custom_record_id').references(() => customRecords.id, {
+    onDelete: 'cascade',
+  }),
+  /** order: one after another. together: all at once. */
+  signingOrder: text('signing_order').notNull().default('order'),
+  message: text('message'),
+  sentBy: userRef('sent_by'),
+  sentAt: ts('sent_at').notNull().defaultNow(),
+  expiresAt: ts('expires_at').notNull(),
+  remindAfterDays: integer('remind_after_days'),
+  remindEveryDays: integer('remind_every_days'),
+  /** Everyone signed: the worker is making the signed copy. */
+  allSignedAt: ts('all_signed_at'),
+  completedAt: ts('completed_at'),
+  signedFileId: uuid('signed_file_id').references(() => files.id, { onDelete: 'set null' }),
+  sourceSha256: text('source_sha256'),
+  signedSha256: text('signed_sha256'),
+  declinedAt: ts('declined_at'),
+  voidedAt: ts('voided_at'),
+  voidedBy: userRef('voided_by'),
+  voidReason: text('void_reason'),
+  expiredAt: ts('expired_at'),
+  ...timestamps(),
+});
+
+/** Who signs a document, and who gets a copy: each signer's own link, their consent and where they signed from. */
+export const documentSigners = app.table('document_signers', {
+  id: id(),
+  workspaceId: uuid('workspace_id').notNull(),
+  documentId: uuid('document_id').notNull(),
+  /** signer or copy. */
+  kind: text('kind').notNull().default('signer'),
+  roleKey: text('role_key'),
+  roleLabel: text('role_label'),
+  position: integer('position').notNull().default(0),
+  personId: uuid('person_id').references(() => people.id, { onDelete: 'set null' }),
+  userId: userRef('user_id'),
+  name: text('name').notNull(),
+  email: text('email'),
+  phoneE164: text('phone_e164'),
+  /** waiting, sent, opened, signed, declined. */
+  status: text('status').notNull().default('waiting'),
+  /** Their link, /d/<public_ref><code>; raising link_version retires it. */
+  publicRef: text('public_ref')
+    .notNull()
+    .default(sql`private.new_public_ref()`),
+  linkVersion: integer('link_version').notNull().default(1),
+  askCode: boolean('ask_code').notNull().default(false),
+  codeHash: text('code_hash'),
+  codeExpiresAt: ts('code_expires_at'),
+  codeTries: integer('code_tries').notNull().default(0),
+  codeCheckedAt: ts('code_checked_at'),
+  sentAt: ts('sent_at'),
+  lastSentAt: ts('last_sent_at'),
+  reminders: integer('reminders').notNull().default(0),
+  sentByChannels: textArray('sent_by_channels'),
+  openedAt: ts('opened_at'),
+  agreedAt: ts('agreed_at'),
+  agreedWording: text('agreed_wording'),
+  signedAt: ts('signed_at'),
+  declinedAt: ts('declined_at'),
+  declineReason: text('decline_reason'),
+  ip: text('ip'),
+  device: text('device'),
+  /** Marked "with you" when it was sent: no link at their turn, they sign on the team's device. */
+  inPerson: boolean('in_person').notNull().default(false),
+  ...timestamps(),
+});
+
+/** What was filled in on a document, once: the team's before sending, each signer's as they sign. */
+export const documentValues = app.table(
+  'document_values',
+  {
+    workspaceId: uuid('workspace_id').notNull(),
+    documentId: uuid('document_id').notNull(),
+    fieldId: text('field_id').notNull(),
+    /** Null: filled in by the team before sending. */
+    signerId: uuid('signer_id').references(() => documentSigners.id, { onDelete: 'cascade' }),
+    value: jsonb('value').notNull(),
+    filledAt: ts('filled_at').notNull().defaultNow(),
+  },
+  (t) => [primaryKey({ columns: [t.documentId, t.fieldId] })],
+);
+
+/** The proof: every step of a document, when, how and from where. Append-only. */
+export const documentSteps = app.table('document_steps', {
+  id: id(),
+  workspaceId: uuid('workspace_id').notNull(),
+  documentId: uuid('document_id').notNull(),
+  signerId: uuid('signer_id').references(() => documentSigners.id, { onDelete: 'cascade' }),
+  kind: text('kind').notNull(),
+  at: ts('at').notNull().defaultNow(),
+  channel: text('channel'),
+  ip: text('ip'),
+  device: text('device'),
+  detail: jsonb('detail').$type<Json>().notNull().default({}),
+  byUserId: userRef('by_user_id'),
+});
+
 // ---------- what customers said in public (M16) ----------
 
 export const reviewProvider = app.enum('review_provider', ['google', 'facebook']);
@@ -8208,6 +8349,11 @@ export const tables = {
   formResponses,
   formAnswers,
   formDays,
+  documentTemplates,
+  documents,
+  documentSigners,
+  documentValues,
+  documentSteps,
   customFields,
   customRecordTypes,
   customRecords,

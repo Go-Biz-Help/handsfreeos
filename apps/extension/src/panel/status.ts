@@ -21,7 +21,12 @@ import { settingsSummary } from '@hfos/core/addons/outreach/automation';
 import { DAILY_STEPS, DAILY_WORDS } from '@hfos/core/addons/outreach/limits';
 import { PLATFORM_KEYS, PLATFORMS } from '@hfos/core/addons/outreach/networks';
 import { PRE_DAY_TITLE, preDayCount, preDaySteps } from '@hfos/core/addons/outreach/lists';
-import { REPORTED_STATES, standDownWords, stateTone } from '@hfos/core/addons/outreach/live';
+import {
+  dayGoing,
+  REPORTED_STATES,
+  standDownWords,
+  stateTone,
+} from '@hfos/core/addons/outreach/live';
 import {
   adviceLeft,
   blocksStart,
@@ -315,7 +320,18 @@ function stateView(now: AutoStatus): Child[] {
     !off && !standing && !state.stopped && !state.working && state.nextAt !== null
       ? state.nextAt
       : null;
-  const going = state.started && !state.stopped;
+  // Going, started or on its own in the working hours (decision 95): Stop for today alone, as on the web and the phone.
+  const going =
+    !state.stopped &&
+    (state.started ||
+      dayGoing({
+        day: { date: state.day ?? '', state: 'none', why: null, via: null, at: null },
+        sending: settings.sending,
+        hours: settings.hours,
+        timezone: automation.timezone,
+        now: Date.now(),
+        platform: 'facebook',
+      }));
   return [
     h('p', { class: 'overline' }, next ? `Next up · ${clock(next)}` : W.rightNow),
     h(

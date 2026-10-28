@@ -921,6 +921,7 @@ const PUSH_LABELS: Record<PushSwitch, string> = {
   addons: 'An add-on needs you',
   supportTickets: 'New support tickets',
   qualifying: 'Your AI teammate’s qualifying',
+  documents: 'Documents you sent',
 };
 
 function nextPush(now: PushSwitches, args: Args): PushSwitches {
@@ -1017,6 +1018,7 @@ const MENU_LABELS: Record<MenuKey, string> = {
   workflows: 'Workflows',
   campaigns: 'Campaigns',
   forms: 'Forms',
+  documents: 'Documents',
   reviews: 'Reviews',
   knowledge: 'Knowledge',
   'ai-team': 'AI teammate',

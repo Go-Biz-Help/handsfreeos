@@ -4,6 +4,7 @@ import { portalQueries } from './portal';
 import { portalFileQueries } from '../commands/portal-files';
 import { portalMessageQueries } from '../commands/portal-messages';
 import { formQueries } from './form';
+import { documentQueries } from './document';
 import { campaignQueries } from './campaign';
 import { contactAiQueries } from './contact-ai';
 import { maintenanceForPerson } from './maintenance';
@@ -410,6 +411,7 @@ export const queries: readonly QueryDef[] = [
   moneySettingsGet,
   ...walletQueries,
   ...formQueries,
+  ...documentQueries,
   ...campaignQueries,
   ...contactAiQueries,
   ...templateQueries,
@@ -495,6 +497,7 @@ export {
 };
 
 export * from './form';
+export * from './document';
 export * from './funnel';
 export * from './portal';
 export * from './campaign';

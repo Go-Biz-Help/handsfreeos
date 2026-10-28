@@ -27,7 +27,7 @@ import { RecordBody, nextVisitLine } from '@/components/customers/record-screen'
 import { EditSheet, RECORD_SHEET_WORDS } from '@/components/customers/sheets';
 import { useBusiness, businessHref } from '@/components/shell/business-context';
 import { Screen } from '@/components/shell/screen';
-import { Video } from '@/components/icons';
+import { FilePenLine, Video } from '@/components/icons';
 import { Text } from '@/components/ui/text';
 import { toast } from '@/components/ui/toast';
 import { startCall } from '@/inbox/calls';
@@ -36,13 +36,16 @@ import { useNetwork } from '@/lib/network';
 import { sees } from '@/view-as/state';
 import { useLens } from '@/view-as/use-lens';
 import { useCanStartVideoCall, useStartVideoCall } from '@/video-call/start-call';
+import { DocumentsCard } from '@/documents/card';
+import { useSendsDocuments } from '@/documents/calls';
 
 /**
  * A customer's own screen — the canvas's 360 view. Everything on it is read from the phone's copy, so it opens with no
  * signal: the head with what they owe and their next visit, the timeline, their leads, tasks, files and details, and
- * the buttons a truck needs (Call through the person's own cell, Text, Email, Book, Note, Photo, Task, Lead, and a
- * Video call where the business has them, which sends them their own link and opens the call). The ads
- * that brought them, and their Partner card, show while there's signal.
+ * the buttons a truck needs (Call through the person's own cell, Text, Email, Book, Note, Photo, Task, Lead, a
+ * Video call where the business has them, which sends them their own link and opens the call, and a Document to sign
+ * for whoever sends them). The ads that brought them, their Partner card and the documents sent to them show while
+ * there's signal.
  *
  * Editing follows the field-merge rules: only what changed is sent, with what the screen showed, so a teammate's
  * change to another detail stays. An owner deletes them for good from Details, with signal (the Deleted bin,
@@ -54,6 +57,7 @@ export default function PersonScreen() {
   const data = useRecord('person', personId);
   const person = data.person;
   const canDelete = holds(useGrants(), 'records.delete');
+  const sendsDocuments = useSendsDocuments();
   const { online } = useNetwork();
   const [deleting, setDeleting] = React.useState(false);
   const canVideo = useCanStartVideoCall(business.id);
@@ -181,6 +185,18 @@ export default function PersonScreen() {
       icon: ACTION_ICONS.lead,
       onPress: () => router.push(businessHref(business.id, 'pipeline') as Href),
     },
+    // A document to sign (docs/documents.md), sent from the Send screen with them picked; it needs signal.
+    ...(sendsDocuments && !person.archivedAt
+      ? [
+          {
+            key: 'document',
+            label: RECORD_WORDS.actions.document,
+            icon: FilePenLine,
+            onPress: () =>
+              router.push(businessHref(business.id, `documents/send?person=${personId}`) as Href),
+          },
+        ]
+      : []),
   ];
 
   const contact = [
@@ -255,6 +271,7 @@ export default function PersonScreen() {
         archived={!!person.archivedAt}
       />
       {person.archivedAt ? null : <FunnelCard workspaceId={business.id} personId={personId} />}
+      <DocumentsCard workspaceId={business.id} personId={personId} />
       <AddonPersonPanels workspaceId={business.id} personId={personId} />
 
       <RecordBody

@@ -6,10 +6,10 @@
  * stays signed in for 30 days after it was last used, 90 at most.
  *
  * The menu is Home, each add-on's own places (its manifest's portal pages without an id, like Real Estate's Homes
- * and To do), and Messages. An add-on's pages open at `a/<id>/<path>` through the registry.
+ * and To do), Documents when there are any for them to sign or keep (docs/documents.md, answer 10b), and Messages. An add-on's pages open at `a/<id>/<path>` through the registry.
  */
-import { PARTNER_PAGE_WORDS } from '@hfos/core';
-import { Handshake, Home, LayoutGrid, MessageSquare } from 'lucide-react';
+import { PARTNER_PAGE_WORDS, PORTAL_DOCUMENT_WORDS } from '@hfos/core';
+import { FileSignature, Handshake, Home, LayoutGrid, MessageSquare } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
@@ -19,6 +19,7 @@ import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { ApiError, errorMessage } from '@/lib/api/errors';
 import {
+  portalDocumentOpen,
   portalFileUrl,
   portalLink,
   portalOp,
@@ -118,6 +119,11 @@ export function PortalShell({ token, children }: { token: string; children: Reac
         const f = await portalFileUrl(bearer, fileId);
         window.open(f.url, '_blank', 'noopener');
       },
+      openDocument: async (signerId) => {
+        const { url } = await portalDocumentOpen(bearer, signerId);
+        const back = new URLSearchParams({ back: `${base}/documents` });
+        window.location.assign(`${new URL(url).pathname}#${back.toString()}`);
+      },
       partnerPayouts: (action, country) => portalPartnerPayouts(token, bearer, action, country),
     };
   }, [state, token, enter]);
@@ -200,6 +206,9 @@ function PortalMenu({ home, base }: { home: PortalHome; base: string }) {
           icon: ADDON_UI[a.id]?.portal?.icons?.[p.path] ?? LayoutGrid,
         })),
     ),
+    ...(home.documents.total > 0
+      ? [{ href: `${base}/documents`, label: PORTAL_DOCUMENT_WORDS.title, icon: FileSignature }]
+      : []),
     ...(home.partner
       ? [{ href: `${base}/partner`, label: PARTNER_PAGE_WORDS.menu, icon: Handshake }]
       : []),
