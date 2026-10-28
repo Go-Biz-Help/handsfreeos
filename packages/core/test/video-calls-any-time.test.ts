@@ -113,15 +113,15 @@ describe('a video call with a customer, any time', () => {
     expect(out.conversationId).not.toBeNull();
     callId = out.callId;
 
-    const [m] = await rows<{ subject: string | null; body: string; sent_by: string | null }>(
+    const [m] = await rows<{ subject: string | null; body_text: string; sent_by: string | null }>(
       admin(),
-      sql`select subject, body, sent_by from app.messages where conversation_id = ${out.conversationId}`,
+      sql`select subject, body_text, sent_by from app.messages where conversation_id = ${out.conversationId}`,
     );
     expect(m).toMatchObject({
       sent_by: t.priya.id,
       subject: expect.stringMatching(/^Video call with /),
     });
-    const key = /https:\/\/book\.example\.com\/j\/([0-9A-Za-z]{32})\b/.exec(m!.body)?.[1];
+    const key = /https:\/\/book\.example\.com\/j\/([0-9A-Za-z]{32})\b/.exec(m!.body_text)?.[1];
     expect(key).toBeDefined();
 
     const c = await callRow(callId);

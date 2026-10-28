@@ -1045,13 +1045,13 @@ describe('a call with a customer that isn’t for an appointment (part 5)', () =
     expect(res.statusCode, res.body).toBe(200);
     const out = res.json() as { callId: string; channel: string; conversationId: string };
     expect(out).toMatchObject({ channel: 'email', name: 'Gia Customer' });
-    const [m] = await rows<{ body: string }>(
+    const [m] = await rows<{ body_text: string }>(
       admin(),
-      sql`select body from app.messages where conversation_id = ${out.conversationId}`,
+      sql`select body_text from app.messages where conversation_id = ${out.conversationId}`,
     );
     // On the address the business's links are on, as a booking's Join link is.
-    const link = /(https?:\/\/\S+\/j\/[0-9A-Za-z]{32})(?:\s|$)/.exec(m!.body)?.[1];
-    expect(link, m!.body).toBeDefined();
+    const link = /(https?:\/\/\S+\/j\/[0-9A-Za-z]{32})(?:\s|$)/.exec(m!.body_text)?.[1];
+    expect(link, m!.body_text).toBeDefined();
     expect(new URL(link!).origin).toBe(new URL(w.s.bookingLinks.webUrl).origin);
 
     expect((await openLink(link!)).json()).toMatchObject({
@@ -1140,11 +1140,11 @@ describe('a call with a customer that isn’t for an appointment (part 5)', () =
     const out = (
       await start(ownerToken, { workspaceId: w.workspaceId, personId: hana!.id })
     ).json() as { callId: string; conversationId: string };
-    const [m] = await rows<{ body: string }>(
+    const [m] = await rows<{ body_text: string }>(
       admin(),
-      sql`select body from app.messages where conversation_id = ${out.conversationId}`,
+      sql`select body_text from app.messages where conversation_id = ${out.conversationId}`,
     );
-    const link = /(https?:\/\/\S+\/j\/[0-9A-Za-z]{32})(?:\s|$)/.exec(m!.body)![1]!;
+    const link = /(https?:\/\/\S+\/j\/[0-9A-Za-z]{32})(?:\s|$)/.exec(m!.body_text)![1]!;
     await rows(
       admin(),
       sql`update app.video_calls set created_at = now() - interval '2 days' where id = ${out.callId}`,

@@ -320,6 +320,7 @@ describe('registry', () => {
       'video_call.left',
       'video_call.finished',
       'video_call.join',
+      'video_call.start',
       'video_call.admit',
       'video_call.turn_away',
       'video_call.remove',
