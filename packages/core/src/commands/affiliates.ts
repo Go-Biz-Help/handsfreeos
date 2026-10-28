@@ -6,6 +6,9 @@
  *
  * - **Anyone signed in** may apply for themselves (`affiliate.apply`), whether or not they have a business (decision
  *   6). They write their own row only through `private.affiliate_apply`, which refuses once somebody has decided.
+ * - **An affiliate agrees to the terms themselves** (`affiliate.accept_terms`, 20261027014500), with their
+ *   application or afterwards, through `private.affiliate_accept_terms`. Never the Assistant: it isn't offered the
+ *   command, and an application it sends doesn't agree for them. Making codes waits for the terms that count now.
  * - **An approved affiliate** makes their own discount and trial codes and turns them off and on (20261027014300),
  *   through `private.affiliate_make_code` and `private.affiliate_turn_code`, which hold them to their limit.
  * - **Staff with `platform.affiliates.manage`** (support admins) do everything else: approve or turn down, pause, end,
@@ -23,6 +26,7 @@
  */
 import { rows, sql } from '@hfos/db/client';
 import { AFFILIATE_MAX_CODES } from '../affiliates/codes';
+import { AFFILIATE_TERMS_VERSION, affiliateTermsCurrent } from '../affiliates/terms';
 import { affiliateRateWords } from '../affiliates/words';
 import { HfosError } from '../errors';
 import { requireHuman } from '../kernel/actor';
@@ -31,6 +35,8 @@ import type { CommandContext } from '../kernel/types';
 import { money } from '../money/format';
 import { affiliateCodeRow, affiliateRow, affiliateOfBusiness } from '../queries/affiliates';
 import {
+  AffiliateAcceptTermsInput,
+  AffiliateAcceptTermsOutput,
   AffiliateApplyInput,
   AffiliateApplyOutput,
   AffiliateCodeOutput,
@@ -63,6 +69,14 @@ const codeTaken = (code: string) =>
     'affiliate_code_taken',
     409,
     `Someone already has the link code “${code}”. Pick another, like your name with a number after it.`,
+  );
+
+/** An approved affiliate who hasn't agreed to the terms that count now. */
+export const affiliateTermsNeeded = () =>
+  HfosError.rule(
+    'affiliate_terms_needed',
+    409,
+    'Agree to the affiliate terms first. Your affiliate page has them, above your link.',
   );
 
 /** One affiliate, read as staff; refused as gone when there's no such affiliate. */
@@ -127,6 +141,9 @@ export const affiliateApply = defineCommand({
       throw HfosError.internal(
         'Your application couldn’t be saved just now. Try again in a minute.',
       );
+    // The person ticked the box themselves. The Assistant never agrees to terms for them.
+    if (input.acceptTerms && ctx.meta.channel !== 'assistant')
+      await ctx.tx.execute(sql`select private.affiliate_accept_terms(${AFFILIATE_TERMS_VERSION})`);
     await ctx.emit({
       type: 'platform.affiliate_applied',
       entityType: 'affiliate',
@@ -142,6 +159,50 @@ export const affiliateApply = defineCommand({
       after: { name: input.name, code: input.code },
     });
     return { affiliateId: found.affiliate_id, created: found.created };
+  },
+});
+
+export const affiliateAcceptTerms = defineCommand({
+  name: 'affiliate.accept_terms',
+  description:
+    'Agree to the affiliate terms that count now, as an affiliate or while your application waits. They say what you earn, how you’re paid and how to tell people about HandsFreeOS. Your link and codes show on your page once you have.',
+  risk: 1,
+  input: AffiliateAcceptTermsInput,
+  output: AffiliateAcceptTermsOutput,
+  permission: null,
+  scope: () => ({ kind: 'account' as const }),
+  emits: ['platform.affiliate_terms_accepted'],
+  async handler(ctx, input) {
+    const me = requireHuman(ctx).userId;
+    if (input.version !== AFFILIATE_TERMS_VERSION)
+      throw HfosError.rule(
+        'affiliate_terms_old',
+        409,
+        'The affiliate terms changed while this page was open. Refresh it, read them again, and agree.',
+      );
+    const [r] = await rows<{ changed: boolean | null; affiliate_id: string | null }>(
+      ctx.tx,
+      sql`select private.affiliate_accept_terms(${input.version}) as changed,
+            (select id from platform.affiliates where user_id = ${me}) as affiliate_id`,
+    );
+    if (!r?.affiliate_id)
+      throw HfosError.rule(
+        'affiliate_not_applied',
+        409,
+        'Apply to be an affiliate first. The form is on your affiliate page, with the terms.',
+      );
+    const changed = !!r.changed;
+    if (changed)
+      await ctx.emit({
+        type: 'platform.affiliate_terms_accepted',
+        entityType: 'affiliate',
+        entityId: r.affiliate_id,
+        organizationId: null,
+        workspaceId: null,
+        payload: { affiliateId: r.affiliate_id, version: input.version },
+        after: { termsVersion: input.version },
+      });
+    return { changed };
   },
 });
 
@@ -576,9 +637,9 @@ export const affiliateMakeCode = defineCommand({
   emits: ['platform.affiliate_code_made'],
   async handler(ctx, input) {
     const me = requireHuman(ctx).userId;
-    const [mine] = await rows<{ id: string }>(
+    const [mine] = await rows<{ id: string; status: string; terms_version: string | null }>(
       ctx.tx,
-      sql`select id from platform.affiliates where user_id = ${me}`,
+      sql`select id, status, terms_version from platform.affiliates where user_id = ${me}`,
     );
     if (!mine)
       throw HfosError.rule(
@@ -586,6 +647,8 @@ export const affiliateMakeCode = defineCommand({
         409,
         'Only an approved affiliate makes codes. Apply on your affiliate page first.',
       );
+    if (mine.status === 'approved' && !affiliateTermsCurrent(mine.terms_version))
+      throw affiliateTermsNeeded();
     return makeCode(ctx, mine.id, input, false);
   },
 });
@@ -671,6 +734,7 @@ export const affiliateSetMaxDiscount = defineCommand({
 
 export const affiliateCommands = [
   affiliateApply,
+  affiliateAcceptTerms,
   affiliatesSaveSettings,
   affiliateDecide,
   affiliateSetStatus,

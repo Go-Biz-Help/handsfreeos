@@ -13,6 +13,7 @@
  *   6. Payouts (20261027014400): an affiliate reads their own bank and payouts, staff read everyone's, and nobody but
  *      the worker writes them. A payout is built once a month, of what's free to pay, only while staff have payouts
  *      on and only to a bank made with the same mode; a sent one stays sent, and is told of once.
+ *   7. The terms (20261027014500): a person agrees on their own row only, through private.affiliate_accept_terms.
  */
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { rows, sql } from '../src/client';
@@ -635,5 +636,42 @@ describe('payouts', () => {
       rows(tx, sql`update platform.affiliate_settings set payouts_on = true returning 1`),
     );
     expect(changed).toEqual([]);
+  });
+});
+
+describe('the terms', () => {
+  const accept = (u: TestUser, version: string) =>
+    as(u)((tx) =>
+      rows<{ changed: boolean }>(
+        tx,
+        sql`select private.affiliate_accept_terms(${version}) as changed`,
+      ),
+    ).then((r) => r[0]!.changed);
+  const termsOf = () =>
+    rows<{ terms_version: string | null }>(
+      dbs.admin.db,
+      sql`select terms_version from platform.affiliates where id = ${sellerId}`,
+    ).then((r) => r[0]!.terms_version);
+
+  it('a person agrees on their own row only, once a version', async () => {
+    expect(await accept(other, '2026-10-28')).toBe(false);
+    expect(await termsOf()).toBeNull();
+    expect(await accept(seller, '2026-10-28')).toBe(true);
+    expect(await accept(seller, '2026-10-28')).toBe(false);
+    expect(await termsOf()).toBe('2026-10-28');
+    const e = await expectPgError(() => accept(seller, 'whatever'));
+    expect(e.code).toBe('23514');
+  });
+
+  it('nobody writes it directly', async () => {
+    const changed = await as(seller)((tx) =>
+      rows(
+        tx,
+        sql`update platform.affiliates set terms_version = '2030-01-01', terms_accepted_at = now()
+            where id = ${sellerId} returning 1`,
+      ),
+    );
+    expect(changed).toEqual([]);
+    expect(await termsOf()).toBe('2026-10-28');
   });
 });

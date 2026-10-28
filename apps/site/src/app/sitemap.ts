@@ -14,7 +14,17 @@ import { absoluteUrl, blogPaths, routePath } from '@/lib/opinly/paths';
  */
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   await connection();
-  const pages = ['', '/features', '/pricing', '/app', '/support', '/privacy', '/terms'];
+  const pages = [
+    '',
+    '/features',
+    '/pricing',
+    '/app',
+    '/affiliates',
+    '/support',
+    '/privacy',
+    '/terms',
+    '/affiliates/terms',
+  ];
   const lastModified = new Date();
   const site: MetadataRoute.Sitemap = pages.map((path) => ({
     url: `${urls.site}${path}`,

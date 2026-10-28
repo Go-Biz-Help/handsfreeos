@@ -7392,6 +7392,9 @@ export const affiliates = platform.table('affiliates', {
   decidedBy: uuid('decided_by').references(() => users.id, { onDelete: 'set null' }),
   /** The most their codes take off, in basis points; null for everyone's. */
   maxDiscountBp: integer('max_discount_bp'),
+  /** The affiliate terms they agreed to, by version, and when (20261027014500). */
+  termsVersion: text('terms_version'),
+  termsAcceptedAt: ts('terms_accepted_at'),
   ...timestamps(),
 });
 

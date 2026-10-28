@@ -21,6 +21,10 @@ They are deployed as **two separate Vercel projects** so a copy change never reb
   A discount or trial code's link (`?code=<code>`) is kept the same way, with no click, and goes to sign-up
   as `?code=` for the plan page to fill in. Its matcher only lets through requests that have `?ref=` or
   `?code=`, so every other page is untouched.
+- **`/affiliates` sells the affiliate program, and `/affiliates/terms` is what affiliates agree to.** The share
+  and the most a code takes off are read live from the worker (`src/lib/affiliate-program.ts`), since staff change
+  them; the page says "a share" without them. The terms page's date is the version affiliates agree to: change it
+  with `AFFILIATE_TERMS_VERSION` in `packages/core/src/affiliates/terms.ts`, and every affiliate agrees again.
 - **The design tokens are copied from `apps/web/src/app/globals.css`** so the site and the app look
   like one product. If the accent colour changes there, change it here.
 - **Three pages exist because somebody reviews them**, and their wording is not decoration:

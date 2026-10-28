@@ -205,4 +205,6 @@ export const AFFILIATE_PAGE_WORDS = {
   saved: 'Saved your application',
   applyAgainFrom: (date: string) => `You can apply again from ${date}.`,
   backToApp: 'Back to HandsFreeOS',
+  /** Its place in the account menu. */
+  menuItem: 'Sell HandsFreeOS',
 } as const;

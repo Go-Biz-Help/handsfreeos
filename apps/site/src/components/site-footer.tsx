@@ -12,6 +12,7 @@ const columns = [
       { href: '/pricing', label: 'Pricing' },
       { href: '/app', label: 'Phone app' },
       { href: '/blog', label: 'Blog' },
+      { href: '/affiliates', label: 'Affiliates' },
     ],
   },
   {
@@ -28,6 +29,7 @@ const columns = [
     links: [
       { href: '/privacy', label: 'Privacy policy' },
       { href: '/terms', label: 'Terms of service' },
+      { href: '/affiliates/terms', label: 'Affiliate terms' },
       { href: '/privacy#messaging', label: 'Texting and consent' },
       { href: '/privacy#google', label: 'Google user data' },
     ],

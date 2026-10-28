@@ -9,7 +9,7 @@
  * - Nothing is sent while staff have payouts off.
  */
 import { randomUUID } from 'node:crypto';
-import { executeCommand, organizationCreate } from '@hfos/core/server';
+import { AFFILIATE_TERMS_VERSION, executeCommand, organizationCreate } from '@hfos/core/server';
 import { rows, sql } from '@hfos/db/client';
 import {
   closeTestDbs,
@@ -65,13 +65,14 @@ const plan = () =>
 const payoutsOn = (on: boolean) =>
   admin().execute(sql`update platform.affiliate_settings set payouts_on = ${on} where id`);
 
-/** An approved affiliate, signed up as a person of their own. */
+/** An approved affiliate, signed up as a person of their own, who agreed to the terms that count now. */
 async function newAffiliate(label: string): Promise<{ user: TestUser; id: string }> {
   const user = await createTestUser(`affiliate-payouts-${label}`, { fullName: 'Sam Seller' });
   const [a] = await rows<{ id: string }>(
     admin(),
-    sql`insert into platform.affiliates (user_id, code, status, name)
-        values (${user.id}::uuid, ${`pay-${randomUUID().slice(0, 8)}`}, 'approved', 'Sam Seller')
+    sql`insert into platform.affiliates (user_id, code, status, name, terms_version, terms_accepted_at)
+        values (${user.id}::uuid, ${`pay-${randomUUID().slice(0, 8)}`}, 'approved', 'Sam Seller',
+          ${AFFILIATE_TERMS_VERSION}, now())
         returning id`,
   );
   return { user, id: a!.id };
@@ -187,12 +188,27 @@ describe('setting up their bank', () => {
     expect(stripe.json<{ url: string }>().url).toContain('dashboard=1');
   });
 
-  it('is only for approved affiliates, signed in', async () => {
+  it('is only for approved affiliates, signed in, who agreed to the terms that count now', async () => {
     expect((await call({ action: 'start' }, null)).statusCode).toBe(401);
     const stranger = await createTestUser('affiliate-payouts-stranger');
     const refused = await call({ action: 'start' }, await signInTestUser(stranger));
     expect(refused.statusCode).toBe(409);
     expect(refused.json()).toMatchObject({ error: { rule: 'affiliate_not_approved' } });
+
+    const { user, id } = await newAffiliate('old-terms');
+    await admin().execute(
+      sql`update platform.affiliates set terms_version = '2026-01-01' where id = ${id}`,
+    );
+    const token = await signInTestUser(user);
+    const old = await call({ action: 'start' }, token);
+    expect(old.statusCode).toBe(409);
+    expect(old.json()).toMatchObject({ error: { rule: 'affiliate_terms_needed' } });
+    expect(
+      await rows(
+        admin(),
+        sql`select 1 from platform.affiliate_payout_accounts where affiliate_id = ${id}`,
+      ),
+    ).toEqual([]);
   });
 });
 
