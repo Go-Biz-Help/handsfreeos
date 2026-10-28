@@ -36,6 +36,8 @@ They are deployed as **two separate Vercel projects** so a copy change never reb
   exactly so, unlike every other page's title. Google's OAuth review checks them against the
   consent screen's app name, and flagged a mismatch while the name came last.
 - **The footer must name the legal company** (`company.legalName`). Twilio checks for it.
+- **The footer keeps the owner's tagline,** "The CRM that doesn't want you to use it.", on every page,
+  since it stopped being the home page's headline.
 - **Pictures carry this site, not paragraphs.** The little product mock-ups in
   `src/components/visuals.tsx` are drawn in the app's own tokens, so they theme with the page, stay
   sharp, cost nothing to load and never show a real customer's data. Add one rather than another

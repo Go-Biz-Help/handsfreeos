@@ -10159,6 +10159,34 @@ webhook for our own account`. A wrong secret is fixed by setting the right one; 
 - **Somebody paid twice.** They did not. One checkout is live per seat, and the same idempotency key goes to
   Stripe every time the page is asked for, so a second press of **Pay** opens the same page.
 
+### The 30-day money back
+
+The owner's call on 2026-10-28. The website and the terms promise it: a business that asks within 30 days of its
+first plan payment gets that payment back in full, monthly ($97) or yearly ($497). It is one business's first plan
+payment, once. It doesn't cover a later month or year, or usage (texts, calls, numbers and AI), which the phone and
+AI companies have already charged us for. The words are `moneyBack` in `apps/site/src/content/site.ts`; change them
+there and in the terms' billing section together.
+
+When somebody asks (it arrives as a support ticket from `support@handsfreeos.com`):
+
+1. **Check it's in time.** In **Admin** → **Businesses**, open their business. The **Founding seat** box says when
+   the seat started. Count 30 days from the first payment, not from when they signed up. If it's past 30 days,
+   reply kindly that the money back has passed, and that they can stop it renewing in **Settings** → **Usage &
+   balance**.
+2. **Refund the payment.** In the Stripe dashboard, in **live** mode, go to **Payments** and search for the email
+   address they paid with. Open their first $97 or $497 payment, press **Refund**, leave the amount as the full
+   payment, pick **Requested by customer** as the reason, and press **Refund**. You should see the payment marked
+   **Refunded**. Stripe sends them a receipt for it.
+3. **Revoke the seat.** Back in the **Founding seat** box on their business, press **Revoke**. This stops the next
+   month or year being charged and gives the spot back for somebody else. You should see it under **Seats given
+   back** in **Admin** → **Founding**.
+4. **Reply to the ticket** to say the refund is on its way. Cards usually show it within 5 to 10 business days.
+
+- **An affiliate sent them.** Nothing more to do: once the platform webhook has the three refund events (see
+  "Adding the refund events to a destination made before 28 Oct 2026" above), the refund takes back the
+  affiliate's share of that payment on its own.
+- **Their usage balance.** Usage isn't part of the money back. Leave their top-ups as they are.
+
 ## Paying partners: Stripe Express
 
 People who send a business its customers earn a share of what those customers pay (the partners plan,
