@@ -1,19 +1,38 @@
 import Image from 'next/image';
 import Link from 'next/link';
+import type { CSSProperties, ReactNode } from 'react';
+import { FeatureTour, type TourFeature } from '@/components/feature-tour';
+import { FoundingCounter, FoundingPill } from '@/components/founding-counter';
+import { Icons } from '@/components/icons';
 import {
   FaqJsonLd,
   OrganizationJsonLd,
   SoftwareApplicationJsonLd,
   WebSiteJsonLd,
 } from '@/components/json-ld';
-import { IconBadge, Icons } from '@/components/icons';
 import { ProductMock } from '@/components/product-mock';
-import { TrustLadderVisual } from '@/components/visuals';
-import { Button, Card, Check, Container, Eyebrow, Section, SectionHeading } from '@/components/ui';
+import { Reveal } from '@/components/reveal';
+import { Button, Check, Container, Eyebrow, Section, SectionHeading } from '@/components/ui';
+import {
+  ActionCenterVisual,
+  AssistantVisual,
+  BookingVisual,
+  BusyTimesVisual,
+  InboxVisual,
+  MissedLeadVisual,
+  MoneyVisual,
+  PaymentsVisual,
+  TrustLadderVisual,
+} from '@/components/visuals';
 import { homeFaqs } from '@/content/faqs';
 import { signUpFor, spotPrices, urls } from '@/content/site';
-import { FoundingStrip } from '@/components/founding-counter';
-import { foundingCounts, foundingSpotsOnSale, hasRoom, type FoundingSpot } from '@/lib/founding';
+import {
+  foundingCounts,
+  foundingSpotsOnSale,
+  hasRoom,
+  type FoundingCount,
+  type FoundingSpot,
+} from '@/lib/founding';
 
 /*
  * The headline is a small puzzle on purpose: "the CRM that doesn't want you to use it" makes somebody
@@ -23,22 +42,28 @@ import { foundingCounts, foundingSpotsOnSale, hasRoom, type FoundingSpot } from 
  *   2. "Answer every lead in seconds, even at 7pm on a Sunday."     (quantified speed)
  *   3. "Your business keeps answering while you're on the job."     (the previous headline)
  * The headline is the highest-leverage line on the page; change one thing at a time.
+ *
+ * The page is meant to feel like the product: calm, with things happening on their own. So it shows rather
+ * than tells — the conversation in the hero plays itself, the chores cross themselves off, the lead you lost
+ * arrives at 8pm — and everything else holds still. Motion lives in globals.css, each piece beside its reason.
  */
 
 /** The spot counts are live, so the home page is rebuilt at most once a minute rather than at deploy. */
 export const revalidate = 60;
+
+/** A step in a staggered arrival: the CSS reads `--i` to wait its turn. */
+const nth = (index: number) => ({ '--i': index }) as CSSProperties;
 
 export default async function HomePage() {
   const counts = await foundingCounts();
   const spots = foundingSpotsOnSale(counts);
   return (
     <>
-      <FoundingStrip counts={counts} />
       <OrganizationJsonLd />
       <WebSiteJsonLd />
       <SoftwareApplicationJsonLd spots={spots} />
       <FaqJsonLd faqs={homeFaqs} id={`${urls.site}/#faq`} />
-      <Hero />
+      <Hero counts={counts} />
       <WhatThatMeans />
       <TheProblem />
       <HowItWorks />
@@ -46,33 +71,34 @@ export default async function HomePage() {
       <ConnectedAccounts />
       <InYourPocket />
       <WhyDifferent />
-      <SpotsStrip spots={spots} />
+      <Spots spots={spots} />
       <Questions />
       <FinalCta />
     </>
   );
 }
 
-function Hero() {
+function Hero({ counts }: { counts: readonly FoundingCount[] | null }) {
   return (
     <div className="relative overflow-hidden">
-      <div className="hero-grid pointer-events-none absolute inset-0" aria-hidden="true" />
-      <Container className="relative py-16 sm:py-24">
-        <div className="grid items-center gap-14 lg:grid-cols-[1.05fr_1fr] lg:gap-16">
+      <div className="hero-glow pointer-events-none absolute inset-0" aria-hidden="true" />
+      <Container className="relative pt-10 pb-20 sm:pt-14 sm:pb-28 lg:pt-20">
+        <div className="grid items-center gap-14 lg:grid-cols-[minmax(0,1.08fr)_minmax(0,0.92fr)] lg:gap-14">
           <div>
+            <FoundingPill counts={counts} />
             {/*
              * The product name leads the page, inside the <h1> and in its own capitals. Google's
              * OAuth review checks that the name on the consent screen is the name a visitor sees
              * here, and a wordmark in the nav bar, or a label set in all capitals, is not what it
              * reads. Keep this string identical to the consent screen's app name.
              */}
-            <h1 className="text-[2.5rem] leading-[1.06] font-bold sm:text-6xl">
-              <span className="text-accent-text mb-4 block text-xs leading-4 font-semibold tracking-[0.14em]">
+            <h1 className="mt-8 text-[2.75rem] leading-[0.98] font-bold tracking-[-0.045em] sm:text-6xl lg:text-[4.5rem]">
+              <span className="text-accent-text mb-5 block text-sm leading-5 font-semibold tracking-normal">
                 HandsFreeOS
               </span>{' '}
               The CRM that doesn&rsquo;t want you to use it.
             </h1>
-            <p className="text-text-2 mt-6 max-w-xl text-lg sm:text-xl">
+            <p className="text-text-2 mt-7 max-w-xl text-lg sm:text-xl">
               Other CRMs make you remember, look things up, type it in, update it, follow up and
               check again. HandsFreeOS spots the new lead, answers it in seconds, books the job,
               keeps the record current, and brings you in when something actually needs you.
@@ -81,8 +107,8 @@ function Hero() {
               The less you use it, the better it&rsquo;s working.
             </p>
 
-            <div className="mt-8 flex flex-col gap-3 sm:flex-row sm:items-center">
-              <Button href={urls.signUp} size="lg">
+            <div className="mt-9 flex flex-col gap-3 sm:flex-row sm:items-center">
+              <Button href={urls.signUp} size="lg" arrow>
                 Sign up
               </Button>
               <Button href="/#how" size="lg" variant="secondary">
@@ -94,7 +120,7 @@ function Hero() {
              * FUD reducers sit directly under the button, and every one of them is true today. The price is one of
              * them: signing up goes straight on to picking a spot and paying, and nobody should meet that cold.
              */}
-            <ul className="text-text-2 mt-5 flex flex-wrap gap-x-5 gap-y-2 text-sm">
+            <ul className="text-text-2 mt-6 flex flex-wrap gap-x-5 gap-y-2 text-sm">
               {[spotPrices, 'Keep the number you have', 'Stop it renewing any time'].map((item) => (
                 <li key={item} className="flex items-center gap-1.5">
                   <Check className="text-success" />
@@ -104,7 +130,7 @@ function Hero() {
             </ul>
           </div>
 
-          <div className="lg:pl-4">
+          <div className="lg:pl-2">
             <ProductMock />
           </div>
         </div>
@@ -114,9 +140,9 @@ function Hero() {
 }
 
 /**
- * The answer to the headline's question. Two lists side by side rather than a paragraph: what an
- * ordinary CRM waits for you to do, and what HandsFreeOS does instead. Every line on the right is
- * something the product does today — keep it that way.
+ * The answer to the headline's question: what an ordinary CRM waits for you to do, crossed off as it comes into
+ * view, and what HandsFreeOS does instead. Every line on the right is something the product does today — keep
+ * it that way.
  */
 function WhatThatMeans() {
   const youDo = [
@@ -150,80 +176,101 @@ function WhatThatMeans() {
     },
   ];
   return (
-    <Section id="what-that-means" className="border-border border-t">
+    <Section id="what-that-means">
       <Eyebrow>What that means</Eyebrow>
       <SectionHeading sub="A CRM is only as good as the hours you put into it. HandsFreeOS is built the other way round: it does the work, and you only open it when it asks.">
         Most CRMs need you. This one covers for you.
       </SectionHeading>
 
-      <div className="mt-12 grid gap-6 md:grid-cols-2">
-        <Card className="h-full">
-          <p className="text-text-3 text-sm font-semibold tracking-[0.1em] uppercase">
-            A normal CRM waits for you to
-          </p>
-          <ul className="mt-5 space-y-3.5">
-            {youDo.map((item) => (
-              <li key={item.verb} className="text-text-2">
-                <span className="text-text font-semibold">{item.verb}</span> {item.body}
+      <div className="mt-14 grid gap-5 md:grid-cols-2 md:gap-6">
+        <Reveal className="border-border h-full rounded-[20px] border p-6 sm:p-8">
+          <p className="text-text-3 text-sm font-medium">A normal CRM waits for you to</p>
+          <ul className="mt-6 space-y-4">
+            {youDo.map((item, index) => (
+              <li
+                key={item.verb}
+                className="chore-text text-text-2 text-[1.0625rem]"
+                style={nth(index)}
+              >
+                <span className="chore-verb text-text relative font-semibold">
+                  {item.verb}
+                  <span
+                    aria-hidden="true"
+                    className="chore-strike bg-accent absolute top-1/2 -right-1 -left-1 h-[2px] -translate-y-1/2 rounded-full"
+                  />
+                </span>{' '}
+                {item.body}
               </li>
             ))}
           </ul>
-        </Card>
+        </Reveal>
 
-        <div className="bg-card border-accent h-full rounded-[var(--radius-card)] border-2 p-6">
-          <p className="text-accent-text text-sm font-semibold tracking-[0.1em] uppercase">
-            HandsFreeOS does it for you
-          </p>
-          <ul className="mt-5 space-y-3.5">
-            {itDoes.map((item) => (
-              <li key={item.verb} className="flex gap-3">
-                <Check className="text-success mt-0.5" />
+        <Reveal className="bg-card border-accent/35 h-full rounded-[20px] border p-6 shadow-[var(--shadow-2)] sm:p-8">
+          <p className="text-accent-text text-sm font-semibold">HandsFreeOS does it for you</p>
+          <ul className="mt-6 space-y-4">
+            {itDoes.map((item, index) => (
+              <li key={item.verb} className="flex gap-3" style={nth(index)}>
+                <Check className="task-tick text-success mt-0.5" />
                 <p className="text-text-2">
                   <span className="text-text font-semibold">{item.verb}.</span> {item.body}
                 </p>
               </li>
             ))}
           </ul>
-        </div>
+        </Reveal>
       </div>
     </Section>
   );
 }
 
+/** After hours, drawn as it is: the band is night in both themes. */
 function TheProblem() {
+  const points = [
+    {
+      title: 'A lead goes cold in under an hour',
+      body: 'People text three businesses and go with whoever answers first. Every hour you take to reply, fewer of them are still listening.',
+    },
+    {
+      title: 'The quote you meant to send on Tuesday',
+      body: 'It is still in your head, or half-written on a notepad in the van. Nobody chased it, so it quietly became a no.',
+    },
+    {
+      title: 'Six apps that do not talk to each other',
+      body: 'A texting app, a calendar, a spreadsheet, an invoicing tool, a notes app, and a phone with 40 unread messages. Nothing knows what anything else did.',
+    },
+  ];
   return (
-    <Section className="bg-card-2 border-border border-y">
-      <SectionHeading sub="Not because you're bad at your job. Because you were up a ladder when they texted, and by the time you got to your phone at 8pm they'd already booked the guy who answered.">
-        The job you lost last week, you never even knew about.
-      </SectionHeading>
+    <NightBand>
+      <div className="grid items-center gap-14 lg:grid-cols-[minmax(0,1.15fr)_minmax(0,0.85fr)] lg:gap-16">
+        <div>
+          <h2 className="text-on-night text-[2.125rem] leading-[1.04] font-bold tracking-[-0.035em] sm:text-5xl md:text-[3.25rem]">
+            The job you lost last week, you never even knew about.
+          </h2>
+          <p className="text-on-night-2 mt-6 max-w-2xl text-lg sm:text-xl">
+            Not because you&rsquo;re bad at your job. Because you were up a ladder when they texted,
+            and by the time you got to your phone at 8pm they&rsquo;d already booked the guy who
+            answered.
+          </p>
+        </div>
+        <Reveal>
+          <MissedLeadVisual />
+        </Reveal>
+      </div>
 
-      <div className="mt-12 grid gap-6 md:grid-cols-3">
-        {[
-          {
-            title: 'A lead goes cold in under an hour',
-            body: 'People text three businesses and go with whoever answers first. Every hour you take to reply, fewer of them are still listening.',
-          },
-          {
-            title: 'The quote you meant to send on Tuesday',
-            body: 'It is still in your head, or half-written on a notepad in the van. Nobody chased it, so it quietly became a no.',
-          },
-          {
-            title: 'Six apps that do not talk to each other',
-            body: 'A texting app, a calendar, a spreadsheet, an invoicing tool, a notes app, and a phone with 40 unread messages. Nothing knows what anything else did.',
-          },
-        ].map((item) => (
-          <Card key={item.title}>
-            <h3 className="text-lg font-semibold">{item.title}</h3>
-            <p className="text-text-2 mt-2.5">{item.body}</p>
-          </Card>
+      <div className="border-night-border mt-16 grid gap-10 border-t pt-10 md:grid-cols-3 md:gap-10">
+        {points.map((point) => (
+          <div key={point.title}>
+            <h3 className="text-on-night text-lg font-semibold">{point.title}</h3>
+            <p className="text-on-night-2 mt-2.5">{point.body}</p>
+          </div>
         ))}
       </div>
 
-      <p className="text-text mt-10 max-w-3xl text-xl font-semibold">
-        HandsFreeOS answers while you work, writes the quote, chases it, takes the payment, and
-        brings you in when something actually needs you.
+      <p className="text-on-night mt-14 max-w-3xl text-2xl leading-snug font-semibold tracking-[-0.02em] sm:text-[1.75rem]">
+        <span className="text-on-night-accent">HandsFreeOS</span> answers while you work, writes the
+        quote, chases it, takes the payment, and brings you in when something actually needs you.
       </p>
-    </Section>
+    </NightBand>
   );
 }
 
@@ -231,109 +278,139 @@ function HowItWorks() {
   const steps = [
     {
       step: 'Week one',
+      mode: { label: 'Moving in', tone: 'bg-card-2 text-text-2' },
       title: 'Your number, your customers, your calendar — moved over',
       body: 'Keep your existing business number or get a new one. Your customers come in from a spreadsheet, or straight out of the CRM you use today. Your Google or Outlook calendar plugs in so nothing gets double-booked.',
     },
     {
       step: 'Week two',
+      mode: {
+        label: 'Drafts every reply · waits for your OK',
+        tone: 'bg-warning-soft text-warning-text',
+      },
       title: 'It watches how you answer, and asks before it acts',
       body: 'The AI teammate drafts every reply and waits for your OK. You fix what is wrong. It learns your prices, your service area and the way you talk from a knowledge base you can read and edit.',
     },
     {
       step: 'From then on',
+      mode: {
+        label: 'Sends what it has earned · yours to take back',
+        tone: 'bg-success-soft text-success-text',
+      },
       title: 'It answers on its own, and hands you the ones that matter',
       body: 'Once a kind of reply has earned enough of your approvals, it sends on its own — and you can put that back any time. Anything it is unsure of, anything about money, and anything a customer gets upset about comes straight to you.',
     },
   ];
   return (
-    <Section id="how">
+    <Section id="how" className="border-border border-t">
       <Eyebrow>How it works</Eyebrow>
       <SectionHeading sub="It does not arrive on day one pretending to be you. It earns each job, one at a time, where you can see it.">
         You stay in charge. It just stops being the thing you do at 11pm.
       </SectionHeading>
 
-      {/* A sequence, so it is drawn as one: a rule the steps sit on, not three separate cards. */}
-      <ol className="relative mt-14 grid gap-12 md:grid-cols-3 md:gap-8">
-        <span
-          aria-hidden="true"
-          className="bg-border absolute top-4 right-8 left-8 hidden h-px md:block"
-        />
-        {steps.map((item, index) => (
-          <li key={item.title} className="relative">
-            <div className="mb-5 flex items-center gap-3">
-              <span className="bg-accent text-white ring-bg relative z-10 flex h-8 w-8 items-center justify-center rounded-full text-sm font-bold ring-8">
-                {index + 1}
-              </span>
-              <span className="text-text-3 bg-bg relative z-10 pr-3 text-sm font-semibold tracking-[0.1em] uppercase">
-                {item.step}
-              </span>
-            </div>
-            <h3 className="text-lg font-semibold">{item.title}</h3>
-            <p className="text-text-2 mt-2.5">{item.body}</p>
-          </li>
-        ))}
-      </ol>
+      {/* A sequence, so it is drawn as one: a rule the weeks sit on, drawing itself the way the weeks go. */}
+      <Reveal className="mt-16">
+        <ol className="relative grid gap-12 md:grid-cols-3 md:gap-10">
+          <span
+            aria-hidden="true"
+            className="timeline-rule bg-border-strong absolute top-4 bottom-0 left-4 w-px md:right-0 md:bottom-auto md:h-px md:w-auto"
+          />
+          {steps.map((item, index) => (
+            <li key={item.title} className="rise relative" style={nth(index)}>
+              <div className="flex items-center gap-3">
+                <span className="timeline-node bg-bg ring-border-strong text-text-2 relative z-10 flex h-8 w-8 items-center justify-center rounded-full text-sm font-bold ring-1">
+                  {index + 1}
+                </span>
+                <span className="text-text-3 bg-bg relative z-10 pr-3 text-sm font-medium">
+                  {item.step}
+                </span>
+              </div>
+              <div className="mt-5 pl-11 md:pl-0">
+                <span
+                  className={`inline-block rounded-full px-2.5 py-1 text-xs font-semibold ${item.mode.tone}`}
+                >
+                  {item.mode.label}
+                </span>
+                <h3 className="mt-4 text-xl leading-snug font-semibold tracking-[-0.015em]">
+                  {item.title}
+                </h3>
+                <p className="text-text-2 mt-3">{item.body}</p>
+              </div>
+            </li>
+          ))}
+        </ol>
+      </Reveal>
     </Section>
   );
 }
 
 function Features() {
-  const features = [
+  const tour: TourFeature[] = [
     {
-      icon: Icons.inbox,
+      id: 'inbox',
+      icon: <Icons.inbox />,
       title: 'Every text, call and email in one thread',
       body: 'One business number, one inbox the whole team shares. Missed calls turn into a text back before the customer has put their phone down. Voicemail comes through typed out.',
+      visual: <InboxVisual />,
     },
     {
-      icon: Icons.calendar,
+      id: 'calendar',
+      icon: <Icons.calendar />,
       title: 'Customers book themselves, at hours you set',
       body: 'A booking page for each service, round robin across your crew, or a whole day dispatched. Reminders go out by text and email, so fewer people forget you are coming.',
+      visual: <BookingVisual />,
     },
     {
-      icon: Icons.receipt,
+      id: 'quotes',
+      icon: <Icons.receipt />,
       title: 'Quotes they approve with their name',
       body: 'Send an estimate from your phone. They accept it on their own screen by typing their name. It becomes an invoice, and the invoice chases itself until it is paid.',
+      visual: <MoneyVisual />,
     },
     {
-      icon: Icons.card,
+      id: 'payments',
+      icon: <Icons.card />,
       title: 'The money lands in your account, not ours',
       body: 'Connect your own Stripe or Square. Card payments, deposits taken at booking, and plans that bill themselves every month settle into your balance. HandsFreeOS never holds your money.',
+      visual: <PaymentsVisual />,
     },
     {
-      icon: Icons.list,
+      id: 'action-center',
+      icon: <Icons.list />,
       title: 'One list of what needs you, money first',
       body: 'Home is not a dashboard of graphs. It is a ranked list: the hot lead waiting eleven minutes, the quote about to go stale, the invoice ten days late. The safe ones it just handles.',
+      visual: <ActionCenterVisual />,
     },
     {
-      icon: Icons.spark,
+      id: 'assistant',
+      icon: <Icons.spark />,
       title: 'Ask it anything, in plain English',
       body: '"Who hasn’t paid me?" "Book Dale for Thursday morning." "Text everyone whose service is due." It answers from your real data, and shows you what it is about to change first.',
+      visual: <AssistantVisual />,
     },
   ];
 
   return (
-    <Section id="features" className="bg-card-2 border-border border-y">
-      <Eyebrow>What it does</Eyebrow>
-      <SectionHeading sub="The parts of running a service business that eat your evenings, in one system that already knows who the customer is.">
-        Six apps and a notepad, replaced by one.
-      </SectionHeading>
-
-      <div className="mt-12 grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-        {features.map((feature) => (
-          <Card key={feature.title} className="h-full">
-            <IconBadge>
-              <feature.icon />
-            </IconBadge>
-            <h3 className="text-lg font-semibold">{feature.title}</h3>
-            <p className="text-text-2 mt-2.5">{feature.body}</p>
-          </Card>
-        ))}
-      </div>
-
-      <div className="mt-10">
-        <Button href="/features" variant="secondary" size="lg">
+    <Section id="features" className="border-border border-t">
+      <div className="flex flex-col gap-8 lg:flex-row lg:items-end lg:justify-between">
+        <div>
+          <Eyebrow>What it does</Eyebrow>
+          <SectionHeading sub="The parts of running a service business that eat your evenings, in one system that already knows who the customer is.">
+            Six apps and a notepad, replaced by one.
+          </SectionHeading>
+        </div>
+        <Button
+          href="/features"
+          variant="secondary"
+          className="shrink-0 self-start lg:self-auto"
+          arrow
+        >
           Everything it does, in full
         </Button>
+      </div>
+
+      <div className="mt-14">
+        <FeatureTour features={tour} />
       </div>
     </Section>
   );
@@ -345,7 +422,8 @@ function Features() {
  * decide whether the app's purpose explains the scopes it asks for, so each line here is meant to
  * map onto one: busy times to calendar.freebusy, appointments written back to
  * calendar.events.owned, and the mailbox scopes to the shared inbox. Gmail is marked coming soon:
- * Connect Gmail stays greyed out in the app until Google's Gmail review.
+ * Connect Gmail stays greyed out in the app until Google's Gmail review. The picture beside it draws
+ * the same promise, so keep the two in step.
  */
 function ConnectedAccounts() {
   const connections = [
@@ -367,31 +445,95 @@ function ConnectedAccounts() {
   ];
 
   return (
-    <Section id="connects">
-      <Eyebrow>Connected accounts</Eyebrow>
-      <SectionHeading sub="HandsFreeOS is the system a small service business runs its customers on: one business number, one shared inbox, a calendar customers book themselves on, and the quotes and invoices that follow. It connects to the calendar and mailbox you already use so you do not have to keep two of anything in step by hand.">
-        It works with the calendar and inbox you already have.
-      </SectionHeading>
+    <Section id="connects" className="bg-card-2 border-border border-y">
+      <div className="grid items-center gap-12 lg:grid-cols-[minmax(0,1.1fr)_minmax(0,0.9fr)] lg:gap-16">
+        <div>
+          <Eyebrow>Connected accounts</Eyebrow>
+          <SectionHeading sub="HandsFreeOS is the system a small service business runs its customers on: one business number, one shared inbox, a calendar customers book themselves on, and the quotes and invoices that follow. It connects to the calendar and mailbox you already use so you do not have to keep two of anything in step by hand.">
+            It works with the calendar and inbox you already have.
+          </SectionHeading>
+        </div>
+        <Reveal>
+          <div className="rise mx-auto max-w-[26rem]">
+            <BusyTimesVisual />
+          </div>
+        </Reveal>
+      </div>
 
-      <div className="mt-12 grid gap-6 md:grid-cols-3">
+      <div className="mt-16 grid gap-10 md:grid-cols-3 md:gap-10">
         {connections.map((item) => (
-          <Card key={item.title} className="h-full">
-            <IconBadge>
+          <div key={item.title} className="border-border-strong border-t pt-6">
+            <span className="text-accent-text">
               <item.icon />
-            </IconBadge>
-            <h3 className="text-lg font-semibold">{item.title}</h3>
+            </span>
+            <h3 className="mt-4 text-lg font-semibold">{item.title}</h3>
             <p className="text-text-2 mt-2.5">{item.body}</p>
-          </Card>
+          </div>
         ))}
       </div>
 
-      <p className="text-text-2 mt-10 max-w-3xl">
+      <p className="text-text-2 mt-12 max-w-3xl">
         HandsFreeOS&rsquo;s use of information received from Google APIs follows the{' '}
-        <Link href="/privacy#google" className="text-accent-text font-semibold underline">
+        <Link
+          href="/privacy#google"
+          className="text-accent-text font-semibold underline underline-offset-2"
+        >
           Google API Services User Data Policy
         </Link>
         , including the Limited Use requirements.
       </p>
+    </Section>
+  );
+}
+
+/** Real screens from the app, because the crew using it will never see a desktop. */
+function InYourPocket() {
+  const shots = [
+    { src: '/screenshots/home.png', alt: 'The app showing what needs attention, money first.' },
+    {
+      src: '/screenshots/offline-queue.png',
+      alt: 'The app showing changes made with no signal, waiting to send.',
+    },
+    { src: '/screenshots/invoice.png', alt: 'An invoice in the app, ready to send to a customer.' },
+  ];
+  return (
+    <Section className="overflow-hidden">
+      <div className="grid items-center gap-14 lg:grid-cols-[minmax(0,26rem)_minmax(0,1fr)] lg:gap-16">
+        <div>
+          <Eyebrow>On the job</Eyebrow>
+          <h2 className="text-[2.125rem] leading-[1.04] font-bold tracking-[-0.035em] sm:text-5xl">
+            And in the pocket of whoever is doing the work.
+          </h2>
+          <p className="text-text-2 mt-6 text-lg">
+            iPhone and Android, working with no signal at all — in a basement, in a crawlspace, an
+            hour out of town — and catching up the moment the bars come back.
+          </p>
+          <Button href="/app" variant="secondary" size="lg" className="mt-8" arrow>
+            See the phone app
+          </Button>
+        </div>
+
+        <Reveal className="grid grid-cols-3 gap-3 sm:gap-5">
+          {shots.map((shot, index) => (
+            <div
+              key={shot.src}
+              className={`rise border-border-strong bg-card overflow-hidden rounded-[22px] border p-1 shadow-[var(--shadow-3)] sm:rounded-[26px] sm:p-1.5 ${
+                index === 1 ? '' : 'mt-8 sm:mt-12'
+              }`}
+              style={nth(index === 1 ? 0 : index + 1)}
+            >
+              <Image
+                src={shot.src}
+                alt={shot.alt}
+                width={1080}
+                height={1920}
+                sizes="(max-width: 640px) 30vw, (max-width: 1024px) 28vw, 15rem"
+                className="h-auto w-full rounded-[18px] sm:rounded-[20px]"
+              />
+            </div>
+          ))}
+        </Reveal>
+      </div>
     </Section>
   );
 }
@@ -421,81 +563,30 @@ function WhyDifferent() {
   ];
 
   return (
-    <Section>
+    <Section className="border-border border-t">
       <Eyebrow>Why this one</Eyebrow>
       <SectionHeading sub="Plenty of tools will answer your customers automatically. The question is what happens the first time one of them gets it wrong.">
         Built to be trusted with your customers before it is trusted on its own.
       </SectionHeading>
 
-      <div className="mt-12 grid items-start gap-10 lg:grid-cols-[minmax(0,1fr)_minmax(0,26rem)] lg:gap-16">
-        <ul className="space-y-8">
+      <div className="mt-14 grid items-start gap-12 lg:grid-cols-[minmax(0,1fr)_minmax(0,24rem)] lg:gap-16">
+        <ul className="grid gap-x-10 gap-y-10 sm:grid-cols-2">
           {points.map((point) => (
-            <li key={point.title} className="flex gap-4">
-              <span className="bg-accent-soft-2 text-accent-text flex h-11 w-11 shrink-0 items-center justify-center rounded-[12px]">
+            <li key={point.title}>
+              <span className="bg-accent-soft text-accent-text flex h-10 w-10 items-center justify-center rounded-[11px]">
                 <point.icon />
               </span>
-              <div>
-                <h3 className="text-lg font-semibold">{point.title}</h3>
-                <p className="text-text-2 mt-2">{point.body}</p>
-              </div>
+              <h3 className="mt-4 text-lg leading-snug font-semibold">{point.title}</h3>
+              <p className="text-text-2 mt-2">{point.body}</p>
             </li>
           ))}
         </ul>
 
-        <div className="lg:sticky lg:top-24">
-          <TrustLadderVisual />
-        </div>
-      </div>
-    </Section>
-  );
-}
-
-/** Real screens from the app, because the crew using it will never see a desktop. */
-function InYourPocket() {
-  const shots = [
-    { src: '/screenshots/home.png', alt: 'The app showing what needs attention, money first.' },
-    {
-      src: '/screenshots/offline-queue.png',
-      alt: 'The app showing changes made with no signal, waiting to send.',
-    },
-    { src: '/screenshots/invoice.png', alt: 'An invoice in the app, ready to send to a customer.' },
-  ];
-  return (
-    <Section className="bg-card-2 border-border border-y">
-      <div className="grid items-center gap-12 lg:grid-cols-[minmax(0,26rem)_minmax(0,1fr)] lg:gap-16">
-        <div>
-          <Eyebrow>On the job</Eyebrow>
-          <h2 className="text-3xl leading-[1.12] font-bold sm:text-4xl">
-            And in the pocket of whoever is doing the work.
-          </h2>
-          <p className="text-text-2 mt-5 text-lg">
-            iPhone and Android, working with no signal at all — in a basement, in a crawlspace, an
-            hour out of town — and catching up the moment the bars come back.
-          </p>
-          <Button href="/app" variant="secondary" size="lg" className="mt-7">
-            See the phone app
-          </Button>
-        </div>
-
-        <div className="grid grid-cols-3 gap-3 sm:gap-5">
-          {shots.map((shot, index) => (
-            <div
-              key={shot.src}
-              className={`border-border-strong bg-card overflow-hidden rounded-[16px] border shadow-[var(--shadow-2)] ${
-                index === 1 ? '' : 'mt-6'
-              }`}
-            >
-              <Image
-                src={shot.src}
-                alt={shot.alt}
-                width={1080}
-                height={1920}
-                sizes="(max-width: 640px) 30vw, (max-width: 1024px) 28vw, 15rem"
-                className="h-auto w-full"
-              />
-            </div>
-          ))}
-        </div>
+        <Reveal className="lg:sticky lg:top-28">
+          <div className="rise">
+            <TrustLadderVisual />
+          </div>
+        </Reveal>
       </div>
     </Section>
   );
@@ -505,7 +596,7 @@ function InYourPocket() {
  * The founding spots on sale, each with its live count. The spots come from the page's own fetch and are passed
  * down rather than fetched here, so the home page makes one request rather than three.
  */
-function SpotsStrip({ spots }: { spots: readonly FoundingSpot[] }) {
+function Spots({ spots }: { spots: readonly FoundingSpot[] }) {
   // Nothing on sale at all: nothing to show, and the pricing page says so.
   if (spots.length === 0) return null;
   return (
@@ -514,61 +605,76 @@ function SpotsStrip({ spots }: { spots: readonly FoundingSpot[] }) {
         <SectionHeading sub="First come, first served: sign up, pick a spot and pay. One plan, every feature in it, and texts and calls billed for what you use. The counts are live.">
           Founding spots are open.
         </SectionHeading>
-        <Button href="/pricing" variant="secondary" size="lg" className="shrink-0">
+        <Button href="/pricing" variant="secondary" size="lg" className="shrink-0" arrow>
           See what is in it
         </Button>
       </div>
 
-      <div className="mt-10 grid gap-4 sm:grid-cols-3">
+      <Reveal
+        className={`mt-12 grid gap-4 sm:gap-5 ${spots.length > 1 ? 'sm:grid-cols-2' : 'max-w-xl'}`}
+      >
         {spots.map((spot) => {
           const { content, count } = spot;
           const room = hasRoom(spot);
+          const lead = room && content.plan === 'yearly';
           return (
             <Link
               key={content.id}
               // A full spot has nothing to sign up for: the pricing page says which one still has room.
               href={room ? signUpFor(content) : '/pricing'}
-              className={`bg-card rounded-[var(--radius-card)] p-5 transition-colors ${
-                room && content.plan === 'yearly'
-                  ? 'border-accent hover:border-accent-hover border-2'
-                  : 'border-border hover:border-border-strong border'
+              className={`group bg-card flex flex-col rounded-[20px] border p-6 transition-[border-color,box-shadow,transform] duration-[150ms,150ms,160ms] ease-[ease,ease,var(--curve-out)] motion-safe:active:scale-[0.99] sm:p-8 ${
+                lead
+                  ? 'border-accent shadow-[0_0_0_3px_color-mix(in_oklab,var(--accent)_14%,transparent),var(--shadow-2)]'
+                  : 'border-border hover:border-border-strong shadow-[var(--shadow-1)]'
               }`}
             >
-              <p className="text-text-3 text-sm font-semibold tracking-[0.1em] uppercase">
-                {content.name}
-              </p>
-              <p className="mt-2 text-3xl font-bold">
+              <p className="text-text-2 text-sm font-semibold">{content.name}</p>
+              <p className="mt-3 text-5xl font-bold tracking-[-0.04em] tabular-nums">
                 {content.priceLabel}
-                <span className="text-text-3 text-base font-normal"> {content.per}</span>
+                <span className="text-text-3 text-base font-normal tracking-normal">
+                  {' '}
+                  {content.per}
+                </span>
               </p>
-              <p className="text-text-2 mt-2 text-base">
-                {/* No live count means no number: the home page never prints one the database hasn't given. */}
-                {count === null || !count.showCounter
-                  ? content.blurb
-                  : count.remaining > 0
-                    ? `${count.remaining.toLocaleString('en-US')} of ${count.seatCap.toLocaleString('en-US')} spots left`
-                    : `All ${count.seatCap.toLocaleString('en-US')} taken`}
-              </p>
+              <p className="text-text-2 mt-3">{content.blurb}</p>
+              <FoundingCounter count={count} className="mt-6" />
+              <span className="text-accent-text mt-auto inline-flex items-center gap-1.5 pt-7 font-semibold">
+                {room
+                  ? `Sign up for ${content.priceLabel} ${content.per}`
+                  : 'See which spot has room'}
+                <svg
+                  viewBox="0 0 16 16"
+                  aria-hidden="true"
+                  className="h-4 w-4 transition-transform duration-200 ease-out group-hover:translate-x-0.5"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="1.8"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                >
+                  <path d="M3 8h9.5M8.5 4l4 4-4 4" />
+                </svg>
+              </span>
             </Link>
           );
         })}
-      </div>
+      </Reveal>
     </Section>
   );
 }
 
 function Questions() {
   return (
-    <Section>
+    <Section id="faq">
       <SectionHeading sub="The things people actually ask before they sign up.">
         Fair questions.
       </SectionHeading>
       {/* Left open rather than hidden in accordions: what gets collapsed does not get read. */}
-      <div className="mt-12 grid gap-8 md:grid-cols-2">
+      <div className="mt-14 grid gap-x-12 md:grid-cols-2">
         {homeFaqs.map((item) => (
-          <div key={item.q}>
-            <h3 className="text-lg font-semibold">{item.q}</h3>
-            <p className="text-text-2 mt-2.5">{item.a}</p>
+          <div key={item.q} className="border-border border-t py-7">
+            <h3 className="text-lg leading-snug font-semibold">{item.q}</h3>
+            <p className="text-text-2 mt-3">{item.a}</p>
           </div>
         ))}
       </div>
@@ -578,24 +684,49 @@ function Questions() {
 
 function FinalCta() {
   return (
-    <Section className="bg-card-2 border-border border-t">
-      <div className="mx-auto max-w-2xl text-center">
-        <h2 className="text-3xl font-bold sm:text-4xl">
+    <NightBand className="text-center">
+      <Reveal className="mx-auto max-w-2xl">
+        {/* The question, answered before it is asked: the same 9 seconds as the hero. */}
+        <div aria-hidden="true" className="flex flex-col items-center gap-2">
+          <span className="rise text-on-night-2 border-night-border rounded-full border bg-white/[0.06] px-3.5 py-1.5 text-sm">
+            New text · 7:00 PM
+          </span>
+          <span
+            className="rise text-success-text bg-success-soft rounded-full px-3.5 py-1.5 text-sm font-semibold"
+            style={nth(3)}
+          >
+            Answered 9 seconds later
+          </span>
+        </div>
+        <h2 className="text-on-night mt-9 text-[2.25rem] leading-[1.04] font-bold tracking-[-0.035em] sm:text-5xl">
           The next lead texts you at 7pm. What happens?
         </h2>
-        <p className="text-text-2 mt-5 text-lg">
+        <p className="text-on-night-2 mt-6 text-lg">
           Set it up this week, watch every reply before it goes out, and let go of the ones it gets
           right. Founding spots are first come, first served.
         </p>
-        <div className="mt-8 flex flex-col justify-center gap-3 sm:flex-row">
-          <Button href={urls.signUp} size="lg">
+        <div className="mt-9 flex flex-col justify-center gap-3 sm:flex-row">
+          <Button href={urls.signUp} size="lg" arrow>
             Sign up
           </Button>
-          <Button href="/support" size="lg" variant="secondary">
+          <Button href="/support" size="lg" variant="night">
             Ask us a question first
           </Button>
         </div>
-      </div>
-    </Section>
+      </Reveal>
+    </NightBand>
+  );
+}
+
+/** The after-hours band: night in both themes, with a little light from the top corner. */
+function NightBand({ children, className = '' }: { children: ReactNode; className?: string }) {
+  return (
+    // The faint edge matters in dark mode, where the page itself is nearly night already.
+    <section
+      className={`bg-night text-on-night border-night-border relative overflow-hidden border-y ${className}`}
+    >
+      <div className="night-glow pointer-events-none absolute inset-0" aria-hidden="true" />
+      <Container className="relative py-24 sm:py-32">{children}</Container>
+    </section>
   );
 }

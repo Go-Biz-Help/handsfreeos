@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react';
+import type { CSSProperties, ReactNode } from 'react';
 
 /**
  * Small pictures of the product, drawn in the app's own tokens rather than screenshotted, so they
@@ -243,6 +243,149 @@ export function MoneyVisual() {
         <span className="text-accent-text text-xs font-semibold">Pay link</span>
       </Row>
     </Mock>
+  );
+}
+
+/** Deposits, invoices and plans, paid into the business's own account rather than ours. */
+export function PaymentsVisual() {
+  const payments = [
+    { what: 'Deposit · taken at booking', who: 'Marisol R.', amount: '$50', status: 'Paid' },
+    { what: 'Invoice #1042', who: 'Marisol R.', amount: '$525', status: 'Paid' },
+    { what: 'Maintenance plan', who: 'Ray K.', amount: '$29/mo', status: 'Renews Nov 1' },
+  ] as const;
+  return (
+    <Mock label="Payments landing in the business's own Stripe or Square account: a deposit taken at booking, a paid invoice and a monthly plan">
+      <div className="flex items-baseline justify-between pb-1">
+        <span className="text-sm font-semibold">Payments</span>
+        <span className="text-text-3 text-xs">This week</span>
+      </div>
+      {payments.map((payment) => (
+        <Row key={payment.what} tone="soft">
+          <div className="min-w-0 flex-1">
+            <p className="text-xs font-semibold">{payment.what}</p>
+            <p className="text-text-3 text-xs">{payment.who}</p>
+          </div>
+          <span className="text-xs font-bold tabular-nums">{payment.amount}</span>
+          <Chip tone={payment.status === 'Paid' ? 'success' : 'plain'}>{payment.status}</Chip>
+        </Row>
+      ))}
+      <Row tone="accent">
+        <span className="text-accent-text text-xs font-semibold">Paid into</span>
+        <span className="flex-1 text-xs font-semibold">Your own Stripe or Square account</span>
+      </Row>
+    </Mock>
+  );
+}
+
+/**
+ * A connected calendar as HandsFreeOS sees it: the times you are busy and nothing else, with its own
+ * appointments written back. This is the Connected accounts promise drawn, so keep it in step with that copy.
+ */
+export function BusyTimesVisual() {
+  const busy =
+    'bg-[repeating-linear-gradient(135deg,var(--card-2)_0_6px,var(--card-3)_6px_12px)] border-border';
+  return (
+    <Mock label="A day in a connected calendar: other events appear only as busy times with no titles, and a HandsFreeOS appointment has been written back">
+      <div className="flex items-baseline justify-between pb-1">
+        <span className="text-sm font-semibold">Tuesday · your calendar</span>
+        <span className="text-text-3 text-xs">as HandsFreeOS sees it</span>
+      </div>
+      {[
+        { time: '8:00', kind: 'job' },
+        { time: '10:30', kind: 'busy' },
+        { time: '1:00', kind: 'busy' },
+        { time: '3:00', kind: 'open' },
+      ].map((slot) => (
+        <div key={slot.time} className="flex items-stretch gap-2.5">
+          <span className="text-text-3 w-9 shrink-0 pt-2.5 text-right text-xs tabular-nums">
+            {slot.time}
+          </span>
+          {slot.kind === 'job' ? (
+            <Row tone="accent" className="flex-1">
+              <div className="min-w-0 flex-1">
+                <p className="text-xs font-semibold">AC diagnostic · Marisol R.</p>
+                <p className="text-accent-text text-xs">Written back by HandsFreeOS</p>
+              </div>
+            </Row>
+          ) : slot.kind === 'busy' ? (
+            <div
+              className={`flex flex-1 items-center justify-between rounded-[10px] border px-2.5 py-2.5 ${busy}`}
+            >
+              <span className="bg-card text-text-2 rounded-full px-2 py-0.5 text-xs font-semibold">
+                Busy
+              </span>
+              <span className="text-text-3 bg-card rounded-full px-2 py-0.5 text-xs">
+                time only, no title
+              </span>
+            </div>
+          ) : (
+            <div className="border-border text-text-3 flex flex-1 items-center rounded-[10px] border border-dashed px-2.5 py-2.5 text-xs">
+              Open · customers can book this
+            </div>
+          )}
+        </div>
+      ))}
+    </Mock>
+  );
+}
+
+/**
+ * The lead nobody answered, as it looks on a lock screen at 8pm: drawn for the night band, so it is set in
+ * the night colours in both themes. The notifications carry `rise`, so inside a `<Reveal>` they arrive one
+ * after another, the way they did.
+ */
+export function MissedLeadVisual() {
+  const notes = [
+    {
+      app: 'Messages',
+      time: '7:42 PM',
+      title: 'Kevin M.',
+      body: 'Hi, is anyone free to look at a leaking water heater today?',
+    },
+    { app: 'Phone', time: '7:49 PM', title: 'Missed call', body: 'Kevin M.' },
+    {
+      app: 'Messages',
+      time: '8:01 PM',
+      title: 'Kevin M.',
+      body: 'All good, found someone who can come tonight. Thanks anyway.',
+    },
+  ] as const;
+  return (
+    <div
+      role="img"
+      aria-label="Three notifications read too late: a new customer's text at 7:42 PM, a missed call from them at 7:49 PM, and at 8:01 PM a text saying they found someone else"
+      className="mx-auto w-full max-w-[24rem]"
+    >
+      <div aria-hidden="true">
+        <p className="text-on-night-2 mb-4 text-center text-sm">
+          <span className="text-on-night text-4xl font-semibold tracking-[-0.03em] tabular-nums">
+            8:04
+          </span>
+          <span className="mt-1 block">when you finally get to your phone</span>
+        </p>
+        <div className="space-y-2.5">
+          {notes.map((note, index) => (
+            <div
+              key={note.time}
+              className="rise border-night-border rounded-[18px] border bg-white/[0.07] px-4 py-3 backdrop-blur-md"
+              style={{ '--i': index + 1 } as CSSProperties}
+            >
+              <div className="text-on-night-2 flex items-center justify-between text-xs">
+                <span className="flex items-center gap-1.5 font-medium">
+                  <span
+                    className={`h-2 w-2 rounded-full ${note.app === 'Phone' ? 'bg-danger' : 'bg-success'}`}
+                  />
+                  {note.app}
+                </span>
+                <span className="tabular-nums">{note.time}</span>
+              </div>
+              <p className="text-on-night mt-1.5 text-sm font-semibold">{note.title}</p>
+              <p className="text-on-night-2 text-sm">{note.body}</p>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
   );
 }
 

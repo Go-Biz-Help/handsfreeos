@@ -23,7 +23,8 @@ export default function BlogError({
   return (
     <Container className="py-28 text-center">
       <div role="alert">
-        <p className="text-accent-text text-sm font-semibold tracking-[0.14em] uppercase">
+        <p className="text-text-2 inline-flex items-center gap-2 text-sm font-medium">
+          <span aria-hidden="true" className="bg-accent h-1.5 w-1.5 rounded-full" />
           Blog unavailable
         </p>
         <h1 className="mt-4 text-4xl font-bold">The articles did not load.</h1>
