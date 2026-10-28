@@ -19,6 +19,7 @@
  */
 
 import { formatUtcDate } from '../crm/format';
+import { money } from '../money/format';
 
 export type FoundingOfferStatus = 'draft' | 'open' | 'closed';
 
@@ -438,6 +439,10 @@ export interface FoundingPlanFacts {
   readonly paidThrough: string | null;
   readonly renewing: boolean;
   readonly renewalProblem: string | null;
+  /** What the next renewal charges, less a code's discount while it lasts (20261027014300). */
+  readonly nextChargeCents?: number;
+  /** While a code's free trial runs, when it ends. */
+  readonly trialEndsAt?: string | null;
 }
 
 /**
@@ -453,7 +458,12 @@ export const FOUNDING_PLAN_WORDS = {
   price: (cents: number, plan: string | null) =>
     `${foundingPriceWords(cents, plan === 'monthly' ? 'monthly' : 'yearly')} for HandsFreeOS itself. Texts, calls and AI come out of your balance.`,
   renews: (iso: string, cents: number) =>
-    `Paid through ${foundingLongDay(iso)}. It renews then for ${foundingPrice(cents)}, charged to the card you paid with.`,
+    `Paid through ${foundingLongDay(iso)}. It renews then for ${money(cents)}, charged to the card you paid with.`,
+  /** A code's free trial, still running (20261027014300). */
+  trial: (iso: string, cents: number) =>
+    `Free trial until ${foundingLongDay(iso)}. Your card is charged ${money(cents)} then, and it renews from there.`,
+  trialStopped: (iso: string) =>
+    `Free trial until ${foundingLongDay(iso)}, and set not to renew. Your spot goes back then, and nothing is charged.`,
   stopped: (iso: string) =>
     `Paid through ${foundingLongDay(iso)}, and set not to renew. Your spot goes back then, and nothing more is charged.`,
   refused: (problem: string) =>

@@ -462,6 +462,12 @@ export interface CheckoutInput {
   /** Keep the card on the customer for charging later without them there (a monthly or yearly renewal). */
   readonly saveCard?: boolean;
   /**
+   * Take the card and charge nothing now (a code's free trial, 20261027014300): Stripe's page in its setup mode, which
+   * keeps the card for the charge when the trial ends. `amountCents` is that charge, and `description` says when it
+   * comes, on the page by its button.
+   */
+  readonly setupOnly?: boolean;
+  /**
    * When the page stops taking payment (ISO), for a page that must close sooner than the provider's default day: a
    * founding spot a business is buying for itself is only held for an hour (20261027012700).
    */
@@ -499,7 +505,10 @@ export interface CheckoutEvent {
   readonly textingFeeId: string | null;
   /** The provider's customer the page made (`cus_…`). */
   readonly customerRef: string | null;
-  /** `paid`, `unpaid` or `no_payment_required`. Only `paid` means the money is in. */
+  /**
+   * `paid`, `unpaid` or `no_payment_required`. Only `paid` means the money is in; `no_payment_required` is a page that
+   * only kept a card (`setupOnly`).
+   */
   readonly paymentStatus: string | null;
   /** The payment behind it (`pi_…`): what a refund is made against. */
   readonly paymentRef: string | null;

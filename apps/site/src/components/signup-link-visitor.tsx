@@ -14,11 +14,12 @@
  * that already says which spot to pick (`?plan=`) keeps it.
  *
  * An affiliate's code, kept by the proxy for 90 days (`lib/affiliate.ts`), goes along the same way as `?ref=` and
- * `?ref_at=`: the new account keeps them, and the business it makes is credited to that affiliate.
+ * `?ref_at=`: the new account keeps them, and the business it makes is credited to that affiliate. A discount or
+ * trial code's link goes as `?code=`, for the plan page to fill in.
  */
 import { useEffect } from 'react';
 import { urls } from '@/content/site';
-import { readRef, REF_COOKIE, REF_PARAM } from '@/lib/affiliate';
+import { CODE_COOKIE, CODE_PARAM, readRef, REF_COOKIE, REF_PARAM, refCode } from '@/lib/affiliate';
 import { anonId } from '@/lib/opinly/pixel';
 
 const SIGN_UP = new URL(urls.signUp);
@@ -40,6 +41,8 @@ function addVisitor(event: Event): void {
     url.searchParams.set(REF_PARAM, ref.code);
     url.searchParams.set(`${REF_PARAM}_at`, ref.clickedAt.toISOString());
   }
+  const code = refCode(cookie(CODE_COOKIE));
+  if (code) url.searchParams.set(CODE_PARAM, code);
   if (url.toString() !== link.href) link.href = url.toString();
 }
 

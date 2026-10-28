@@ -5,8 +5,8 @@
  *
  * - `affiliate.mine` is the signed-in person's own standing, for their page: what they applied with, their link
  *   code, their share, their link's clicks, how many signed up, the businesses that paid by name, and what they've
- *   earned (20261027014200). Read through their own rows' policies and two functions that answer only for them, so
- *   it can only ever be theirs.
+ *   earned (20261027014200), and their codes (20261027014300). Read through their own rows' policies and two functions
+ *   that answer only for them, so it can only ever be theirs.
  * - `platform.affiliates`, `platform.affiliate` and `platform.affiliate_of_business` are staff's, for Admin →
  *   Affiliates and a business's page under Admin → Businesses (`platform.affiliates.manage`).
  */
@@ -23,6 +23,7 @@ import {
   PlatformAffiliateOutput,
   PlatformAffiliatesInput,
   PlatformAffiliatesOutput,
+  type AffiliateCodeRow,
   type AffiliateCommissionKind,
   type AffiliateReferralHow,
   type AffiliateStatus,
@@ -46,6 +47,8 @@ type Row = {
   links: string;
   own_rate_bp: number | null;
   rate_bp: number;
+  own_max_discount_bp: number | null;
+  max_discount_bp: number;
   applied_at: Date | string;
   decided_at: Date | string | null;
   decided_by_name: string | null;
@@ -61,6 +64,7 @@ const rowsWhere = (tx: Tx, where: ReturnType<typeof sql>, limit = 500) =>
     tx,
     sql`select a.id, a.user_id, a.name, u.email::text as email, a.code, a.status, a.pitch, a.links,
           a.rate_bp as own_rate_bp, coalesce(a.rate_bp, s.rate_bp) as rate_bp,
+          a.max_discount_bp as own_max_discount_bp, coalesce(a.max_discount_bp, s.max_discount_bp) as max_discount_bp,
           a.applied_at, a.decided_at,
           coalesce(nullif(btrim(st.display_name), ''), nullif(btrim(du.full_name), ''), du.email::text)
             as decided_by_name,
@@ -99,7 +103,80 @@ const rowOut = (r: Row) => ({
   clicksAll: Number(r.clicks_all),
   businesses: Number(r.businesses),
   earnedCents: Number(r.earned),
+  ownMaxDiscountBp: r.own_max_discount_bp,
+  maxDiscountBp: r.max_discount_bp,
 });
+
+type CodeRow = {
+  id: string;
+  affiliate_id: string | null;
+  code: string;
+  offer_id: string | null;
+  percent_off_bp: number | null;
+  amount_off_cents: number | null;
+  discount_months: number | null;
+  trial_days: number | null;
+  status: 'on' | 'off';
+  off_by_staff: boolean;
+  paid_uses: number;
+  created_at: Date | string;
+};
+
+/** Codes (20261027014300), newest first, read through whatever the reader may see of them. `where` narrows it. */
+const codesWhere = async (tx: Tx, where: ReturnType<typeof sql>): Promise<AffiliateCodeRow[]> =>
+  (
+    await rows<CodeRow>(
+      tx,
+      sql`select c.id, c.affiliate_id, c.code, c.offer_id, c.percent_off_bp, c.amount_off_cents, c.discount_months,
+            c.trial_days, c.status, c.off_by_staff, c.paid_uses, c.created_at
+          from platform.affiliate_codes c
+          where ${where}
+          order by c.created_at desc
+          limit 200`,
+    )
+  ).map((c) => ({
+    codeId: c.id,
+    affiliateId: c.affiliate_id,
+    code: c.code,
+    offerId: c.offer_id,
+    percentOffBp: c.percent_off_bp,
+    amountOffCents: c.amount_off_cents,
+    discountMonths: c.discount_months,
+    trialDays: c.trial_days,
+    status: c.status,
+    offByStaff: c.off_by_staff,
+    paidUses: Number(c.paid_uses),
+    createdAt: iso(c.created_at),
+  }));
+
+/** One code, as whoever reads it may see it, or null. */
+export async function affiliateCodeRow(tx: Tx, codeId: string) {
+  const [found] = await codesWhere(tx, sql`c.id = ${codeId}`);
+  return found ?? null;
+}
+
+/** The plans a code can be for: those that can be bought, in the order staff set. */
+const codePlans = async (tx: Tx) =>
+  (
+    await rows<{
+      id: string;
+      name: string;
+      price_cents: number;
+      billing: 'once' | 'yearly' | 'monthly';
+    }>(
+      tx,
+      sql`select o.id, o.name, o.price_cents,
+            case when o.paid_yearly then 'yearly' else o.billing end as billing
+          from platform.founding_offers o
+          where o.status <> 'draft' and o.price_cents > 0
+          order by o.sort, o.id`,
+    )
+  ).map((o) => ({
+    offerId: o.id,
+    name: o.name,
+    priceCents: Number(o.price_cents),
+    billing: o.billing,
+  }));
 
 /**
  * What an affiliate has earned, waiting and ready (20261027014200), read through whatever the reader may see of
@@ -160,18 +237,18 @@ export async function affiliateOfBusiness(tx: Tx, organizationId: string) {
     : null;
 }
 
-async function defaultRate(tx: Tx): Promise<number> {
-  const [s] = await rows<{ rate_bp: number }>(
+async function settingsOf(tx: Tx): Promise<{ rateBp: number; maxDiscountBp: number }> {
+  const [s] = await rows<{ rate_bp: number; max_discount_bp: number }>(
     tx,
-    sql`select rate_bp from platform.affiliate_settings where id`,
+    sql`select rate_bp, max_discount_bp from platform.affiliate_settings where id`,
   );
-  return s?.rate_bp ?? 4000;
+  return { rateBp: s?.rate_bp ?? 4000, maxDiscountBp: s?.max_discount_bp ?? 5000 };
 }
 
 export const affiliateMine = defineQuery({
   name: 'affiliate.mine',
   description:
-    'Your own place in the HandsFreeOS affiliate program: whether you’ve applied and where it stands, your link code, your share, your link’s clicks, how many signed up, the businesses that pay, and what you’ve earned.',
+    'Your own place in the HandsFreeOS affiliate program: whether you’ve applied and where it stands, your link code, your share, your link’s clicks, how many signed up, the businesses that pay, what you’ve earned, and your discount and trial codes with the most they may take off.',
   input: AffiliateMineInput,
   output: AffiliateMineOutput,
   permission: null,
@@ -179,13 +256,17 @@ export const affiliateMine = defineQuery({
   async handler(ctx) {
     const me = requireHuman(ctx).userId;
     const [mine] = await rows<
-      Omit<Row, 'email' | 'decided_by_name' | 'businesses' | 'earned' | 'user_id'> & {
+      Omit<
+        Row,
+        'email' | 'decided_by_name' | 'businesses' | 'earned' | 'user_id' | 'own_max_discount_bp'
+      > & {
         user_id: string;
       }
     >(
       ctx.tx,
       sql`select a.id, a.user_id, a.name, a.code, a.status, a.pitch, a.links,
-            a.rate_bp as own_rate_bp, coalesce(a.rate_bp, s.rate_bp) as rate_bp, a.applied_at, a.decided_at,
+            a.rate_bp as own_rate_bp, coalesce(a.rate_bp, s.rate_bp) as rate_bp,
+            coalesce(a.max_discount_bp, s.max_discount_bp) as max_discount_bp, a.applied_at, a.decided_at,
             coalesce((select sum(c.clicks) from platform.affiliate_clicks c
                       where c.affiliate_id = a.id and c.day > (now() at time zone 'UTC')::date - 30), 0)
               as clicks30,
@@ -194,8 +275,9 @@ export const affiliateMine = defineQuery({
           from platform.affiliates a cross join platform.affiliate_settings s
           where a.user_id = ${me}`,
     );
-    const defaultRateBp = await defaultRate(ctx.tx);
-    if (!mine) return { affiliate: null, defaultRateBp };
+    const defaultRateBp = (await settingsOf(ctx.tx)).rateBp;
+    const plans = await codePlans(ctx.tx);
+    if (!mine) return { affiliate: null, defaultRateBp, plans };
     const decidedAt = isoOrNull(mine.decided_at);
     const [signUps] = await rows<{ n: number }>(
       ctx.tx,
@@ -226,6 +308,8 @@ export const affiliateMine = defineQuery({
             : null,
         clicks30: Number(mine.clicks30),
         clicksAll: Number(mine.clicks_all),
+        codes: await codesWhere(ctx.tx, sql`c.affiliate_id = ${mine.id}`),
+        maxDiscountBp: mine.max_discount_bp,
         signUps: Number(signUps?.n ?? 0),
         payingBusinesses: paying.map((b) => ({
           name: b.name,
@@ -235,6 +319,7 @@ export const affiliateMine = defineQuery({
         earnings: await earningsOf(ctx.tx, mine.id),
       },
       defaultRateBp,
+      plans,
     };
   },
 });
@@ -242,7 +327,7 @@ export const affiliateMine = defineQuery({
 export const platformAffiliates = defineQuery({
   name: 'platform.affiliates',
   description:
-    'The affiliate program for Admin → Affiliates: the share everyone earns, the applications waiting, and every affiliate with their clicks, the businesses they sent and what they’ve earned.',
+    'The affiliate program for Admin → Affiliates: the share everyone earns and the most a code takes off, the house codes, the applications waiting, and every affiliate with their clicks, the businesses they sent and what they’ve earned.',
   input: PlatformAffiliatesInput,
   output: PlatformAffiliatesOutput,
   permission: 'platform.affiliates.manage',
@@ -250,7 +335,9 @@ export const platformAffiliates = defineQuery({
   async handler(ctx, input) {
     const all = (await rowsWhere(ctx.tx, sql`true`, input.limit)).map(rowOut);
     return {
-      settings: { rateBp: await defaultRate(ctx.tx) },
+      settings: await settingsOf(ctx.tx),
+      houseCodes: await codesWhere(ctx.tx, sql`c.affiliate_id is null`),
+      plans: await codePlans(ctx.tx),
       applications: all.filter((a) => a.status === 'applied').reverse(),
       affiliates: all.filter((a) => a.status !== 'applied'),
     };
@@ -282,7 +369,7 @@ type CommissionRow = {
 export const platformAffiliate = defineQuery({
   name: 'platform.affiliate',
   description:
-    'One affiliate for Admin → Affiliates: what they applied with, their share, the businesses they sent and what each earned them, what they’ve earned, waiting and ready, each share earned or taken back, and their link’s clicks a day.',
+    'One affiliate for Admin → Affiliates: what they applied with, their share, their codes and the most those take off, the businesses they sent and what each earned them, what they’ve earned, waiting and ready, each share earned or taken back, and their link’s clicks a day.',
   input: PlatformAffiliateInput,
   output: PlatformAffiliateOutput,
   permission: 'platform.affiliates.manage',
@@ -349,6 +436,8 @@ export const platformAffiliate = defineQuery({
         earnedAt: iso(c.earned_at),
         payableAt: iso(c.payable_at),
       })),
+      codes: await codesWhere(ctx.tx, sql`c.affiliate_id = ${input.affiliateId}`),
+      plans: await codePlans(ctx.tx),
       clicks: clicks.map((c) => ({ day: c.day, clicks: Number(c.clicks) })),
     };
   },

@@ -1,20 +1,39 @@
 import { NextResponse, type NextFetchEvent, type NextRequest } from 'next/server';
-import { readRef, REF_COOKIE, REF_DAYS, REF_PARAM, refCode, refCookieValue } from '@/lib/affiliate';
+import {
+  CODE_COOKIE,
+  CODE_PARAM,
+  readRef,
+  REF_COOKIE,
+  REF_DAYS,
+  REF_PARAM,
+  refCode,
+  refCookieValue,
+} from '@/lib/affiliate';
 import { workerUrl } from '@/lib/worker-url';
 
 /**
- * An affiliate's link arriving (`?ref=`, 20261027014000; see `lib/affiliate.ts`). The only thing this proxy does, and
- * the matcher sends it nothing else.
+ * An affiliate's link arriving (`?ref=`, 20261027014000), or a discount or trial code's (`?code=`, 20261027014300;
+ * see `lib/affiliate.ts`). The only thing this proxy does, and the matcher sends it nothing else.
  *
- * The code is kept in a cookie for 90 days and the visitor goes on to the same page without `?ref=`. The first time
- * this browser arrives on a code, the worker counts a click for it, after the answer has gone. A code that isn't one
- * is dropped from the address all the same: a mistyped link still opens the page.
+ * Each is kept in a cookie for 90 days and the visitor goes on to the same page without it. The first time this
+ * browser arrives on a link code, the worker counts a click for it, after the answer has gone; a discount code counts
+ * nothing. One that isn't shaped like a code is dropped from the address all the same: a mistyped link still opens
+ * the page.
  */
 export function proxy(request: NextRequest, event: NextFetchEvent) {
   const url = request.nextUrl.clone();
   const code = refCode(url.searchParams.get(REF_PARAM));
+  const discount = refCode(url.searchParams.get(CODE_PARAM));
   url.searchParams.delete(REF_PARAM);
+  url.searchParams.delete(CODE_PARAM);
   const response = NextResponse.redirect(url, 307);
+  if (discount)
+    response.cookies.set(CODE_COOKIE, discount, {
+      maxAge: REF_DAYS * 86_400,
+      path: '/',
+      sameSite: 'lax',
+      secure: url.protocol === 'https:',
+    });
   if (!code) return response;
 
   const was = readRef(request.cookies.get(REF_COOKIE)?.value);
@@ -41,6 +60,10 @@ export const config = {
     {
       source: '/((?!_next/|api/|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico|xml|txt)$).*)',
       has: [{ type: 'query', key: 'ref' }],
+    },
+    {
+      source: '/((?!_next/|api/|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico|xml|txt)$).*)',
+      has: [{ type: 'query', key: 'code' }],
     },
   ],
 };

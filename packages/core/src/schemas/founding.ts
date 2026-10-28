@@ -195,6 +195,32 @@ export const FoundingStartCheckoutInput = z.strictObject({
 export const FoundingBuyInput = z.strictObject({
   workspaceId: uuid,
   offerId,
+  /** An affiliate's or house discount or trial code (20261027014300), as typed. */
+  code: z.string().trim().max(40).nullable().default(null),
+});
+
+/** What a code takes off each plan on sale, for the plan page before Pay (20261027014300). */
+export const FoundingCodePreviewInput = z.strictObject({
+  workspaceId: uuid,
+  code: z.string().trim().min(1, 'Type the code.').max(40),
+});
+
+export const FoundingCodePreviewOutput = z.strictObject({
+  /** The code as kept, lowercase. */
+  code: z.string(),
+  /** Each plan on sale; `applies` false for one the code isn't for. */
+  offers: z.array(
+    z.strictObject({
+      offerId,
+      applies: z.boolean(),
+      fullCents: z.int(),
+      /** Off each payment while the discount lasts. */
+      discountCents: z.int(),
+      /** Null with a discount: for good. */
+      discountMonths: z.int().nullable(),
+      trialDays: z.int().nullable(),
+    }),
+  ),
 });
 
 export const FoundingStartCheckoutOutput = z.strictObject({
@@ -494,6 +520,10 @@ export const FoundingMineOutput = z.strictObject({
   renewing: z.boolean(),
   /** The last renewal the card refused, until it is paid with another card. Null when nothing is owed. */
   renewalProblem: z.string().nullable(),
+  /** What the next renewal charges: the price, less a code's discount while it lasts (20261027014300). */
+  nextChargeCents: z.int(),
+  /** While a code's free trial runs: when it ends and the first charge is due. Null otherwise. */
+  trialEndsAt: z.iso.datetime().nullable(),
 });
 
 // ---------- one business, for the support desk ----------

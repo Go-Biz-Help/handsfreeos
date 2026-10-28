@@ -7302,6 +7302,15 @@ export const foundingCheckouts = platform.table('founding_checkouts', {
   closedAt: ts('closed_at'),
   /** Set on a page paying a refused renewal: the `current_period_end` it renews. Null on a first payment. */
   renewalFor: ts('renewal_for'),
+  /** The affiliate's or house code it was bought with (20261027014300). */
+  codeId: uuid('code_id').references(() => affiliateCodes.id, { onDelete: 'set null' }),
+  /** The plan's price before the code; null without one, when `amountCents` is the price. */
+  fullCents: integer('full_cents'),
+  discountCents: integer('discount_cents').notNull().default(0),
+  /** How long the discount lasts; null for good. */
+  discountMonths: integer('discount_months'),
+  /** A trial: the page only keeps the card, and `amountCents` is the first charge. */
+  trialDays: integer('trial_days'),
   ...timestamps(),
 });
 
@@ -7334,6 +7343,13 @@ export const workspacePlans = app.table('workspace_plans', {
   /** The last renewal the card refused, until it is paid with another card. Nothing is charged while set. */
   renewalProblem: text('renewal_problem'),
   renewalFailedAt: ts('renewal_failed_at'),
+  /** The code the spot was bought with, and what it takes off each charge; `priceCents` stays the full price. */
+  codeId: uuid('code_id').references(() => affiliateCodes.id, { onDelete: 'set null' }),
+  discountCents: integer('discount_cents').notNull().default(0),
+  /** A month or year starting before this is discounted; null for good. */
+  discountUntil: ts('discount_until'),
+  /** When a free trial ends and its first charge is due. */
+  trialEndsAt: ts('trial_ends_at'),
   ...timestamps(),
 });
 
@@ -7346,6 +7362,8 @@ export const affiliateSettings = platform.table('affiliate_settings', {
   id: boolean('id').primaryKey().default(true),
   /** In basis points: 4000 is 40%. */
   rateBp: integer('rate_bp').notNull().default(4000),
+  /** The most an affiliate's code takes off, in basis points (20261027014300). */
+  maxDiscountBp: integer('max_discount_bp').notNull().default(5000),
   updatedBy: uuid('updated_by').references(() => users.id, { onDelete: 'set null' }),
   updatedAt: ts('updated_at').notNull().defaultNow(),
 });
@@ -7370,6 +7388,32 @@ export const affiliates = platform.table('affiliates', {
   appliedAt: ts('applied_at').notNull().defaultNow(),
   decidedAt: ts('decided_at'),
   decidedBy: uuid('decided_by').references(() => users.id, { onDelete: 'set null' }),
+  /** The most their codes take off, in basis points; null for everyone's. */
+  maxDiscountBp: integer('max_discount_bp'),
+  ...timestamps(),
+});
+
+/**
+ * A discount or trial code (20261027014300): an affiliate's own, or a house code (no affiliate). Never changed once
+ * made; only turned off and on. Written through `private.affiliate_make_code` and `private.affiliate_turn_code`.
+ */
+export const affiliateCodes = platform.table('affiliate_codes', {
+  id: id(),
+  affiliateId: uuid('affiliate_id').references(() => affiliates.id, { onDelete: 'cascade' }),
+  /** Lowercase; typed in any case. */
+  code: text('code').notNull().unique(),
+  /** The plan it's for, or null for any. */
+  offerId: text('offer_id').references(() => foundingOffers.id, { onDelete: 'cascade' }),
+  percentOffBp: integer('percent_off_bp'),
+  amountOffCents: integer('amount_off_cents'),
+  /** Null with a discount: for good. */
+  discountMonths: integer('discount_months'),
+  trialDays: integer('trial_days'),
+  /** on or off. */
+  status: text('status').notNull().default('on'),
+  offByStaff: boolean('off_by_staff').notNull().default(false),
+  paidUses: integer('paid_uses').notNull().default(0),
+  createdBy: uuid('created_by').references(() => users.id, { onDelete: 'set null' }),
   ...timestamps(),
 });
 

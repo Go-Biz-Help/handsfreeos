@@ -26,16 +26,21 @@
  * **The $97 spot is paid by the month** (20261027012700), by the same page, sweep and job: only the period differs,
  * and the database decides it. A spot a business bought itself from the plan page gets a page that lapses in
  * `SELF_SERVE_PAGE_MINUTES`, because its spot is only held for an hour while it pays.
+ *
+ * **A code** (20261027014300) takes its discount off the page and the renewals while it lasts
+ * (`private.founding_charge_cents`), or makes the page a free trial: Stripe's page in its setup mode, which charges
+ * nothing and keeps the card. The spot turns on, and the same sweep charges the card when the trial ends.
  */
 import {
+  affiliateCodePriceWords,
   executeCommand,
   foundingLongDay,
-  foundingPrice,
   foundingRecordCheckoutClosed,
   foundingRecordCheckoutOpened,
   foundingRecordCheckoutPaid,
   foundingRecordRefund,
   foundingRecordRenewal,
+  money,
   scheduleJob,
 } from '@hfos/core/server';
 import { asWorker, rows, sql, type Db } from '@hfos/db/client';
@@ -112,6 +117,12 @@ type CheckoutRow = {
   email: string | null;
   /** The business is buying this spot itself, from the plan page (20261027012700). */
   self_serve: boolean;
+  /** Bought with a code (20261027014300): the price before it, what comes off each payment, and for how long. */
+  full_cents: number | null;
+  discount_cents: number;
+  discount_months: number | null;
+  /** A free trial: the page only keeps the card, and `amount_cents` is charged when it ends. */
+  trial_days: number | null;
 };
 
 const checkoutRow = (ctx: { db: Db }, scope: TenantScope, checkoutId: string) =>
@@ -120,7 +131,8 @@ const checkoutRow = (ctx: { db: Db }, scope: TenantScope, checkoutId: string) =>
       tx,
       sql`select c.id, c.status::text as status, c.amount_cents, o.id as offer_id, o.name as offer_name,
             case when o.paid_yearly then 'yearly' else o.billing end as billing, c.renewal_for,
-            c.requested_by::text as requested_by, u.email::text as email, g.self_serve
+            c.requested_by::text as requested_by, u.email::text as email, g.self_serve,
+            c.full_cents, c.discount_cents, c.discount_months, c.trial_days
           from platform.founding_checkouts c
           join platform.founding_offers o on o.id = c.offer_id
           join platform.founding_grants g on g.id = c.grant_id
@@ -151,21 +163,42 @@ const periodAfter = (iso: string | Date, period: 'month' | 'year'): string => {
 };
 
 /**
- * What Stripe's page says the money is for: a seat paid once, a first month or year, or a renewal paid with another
- * card.
+ * What Stripe's page says the money is for: a seat paid once, a first month or year, a renewal paid with another
+ * card, or a free trial, with what a code takes off.
  */
 function checkoutWords(c: CheckoutRow): { productName: string; description: string } {
-  const price = foundingPrice(Number(c.amount_cents));
+  const price = money(Number(c.amount_cents));
   const period = periodOf(c.billing);
   if (c.renewal_for)
     return {
       productName: `HandsFreeOS — ${c.offer_name}: another ${period ?? 'year'}`,
       description: `Paid through ${foundingLongDay(periodAfter(c.renewal_for, period ?? 'year'))}. This card is charged ${price} next ${period ?? 'year'}; you can stop it renewing in Settings → Usage & balance.`,
     };
+  // With a code, the whole deal: "14 days free, then $77.60 a month for the first 3 months, then $97 a month".
+  const deal =
+    c.full_cents !== null && period
+      ? affiliateCodePriceWords({
+          fullCents: Number(c.full_cents),
+          discountCents: Number(c.discount_cents),
+          discountMonths: c.discount_months,
+          trialDays: c.trial_days,
+          billing: period === 'month' ? 'monthly' : 'yearly',
+        })
+      : null;
+  if (c.trial_days && period) {
+    // The trial starts when the page is done, within the hour it's held for.
+    const ends = foundingLongDay(new Date(Date.now() + c.trial_days * 86_400_000).toISOString());
+    return {
+      productName: `HandsFreeOS — ${c.offer_name}: ${c.trial_days} days free`,
+      description: `Nothing is charged today: ${deal ?? `${c.trial_days} days free`}. This card is charged ${price} when the trial ends, on ${ends}, unless you stop it renewing first in Settings → Usage & balance.`,
+    };
+  }
   if (period)
     return {
       productName: `HandsFreeOS — ${c.offer_name}: the first ${period}`,
-      description: `HandsFreeOS for one business. Then ${price} a ${period}, charged to this card; you can stop it renewing in Settings → Usage & balance. Texts, calls and AI are billed for what you use.`,
+      description: deal
+        ? `HandsFreeOS for one business: ${deal}, charged to this card; you can stop it renewing in Settings → Usage & balance. Texts, calls and AI are billed for what you use.`
+        : `HandsFreeOS for one business. Then ${price} a ${period}, charged to this card; you can stop it renewing in Settings → Usage & balance. Texts, calls and AI are billed for what you use.`,
     };
   return {
     productName: `HandsFreeOS — ${c.offer_name}`,
@@ -236,6 +269,8 @@ export const runFoundingCheckout: JobHandler = async (ctx) => {
       ...checkoutWords(c),
       // A spot paid by the month or the year keeps the card, for the next renewal charged without them there.
       ...(periodOf(c.billing) || c.renewal_for ? { saveCard: true } : {}),
+      // A free trial's page charges nothing and only keeps the card (20261027014300).
+      ...(c.trial_days && !c.renewal_for ? { setupOnly: true } : {}),
       // A spot the business is buying itself is held for an hour, so its page closes well inside that.
       ...(c.self_serve && !c.renewal_for
         ? { expiresAt: new Date(Date.now() + SELF_SERVE_PAGE_MINUTES * 60_000).toISOString() }
@@ -402,6 +437,8 @@ type PlanRow = {
   billing: string | null;
   current_period_end: string | Date | null;
   price_cents: number;
+  /** What the month or year due costs: the price, less a code's discount while it lasts (20261027014300). */
+  charge_cents: number;
   stripe_customer_id: string | null;
   stripe_card_id: string | null;
   renewal_stopped_at: string | Date | null;
@@ -416,7 +453,7 @@ const planRow = (ctx: { db: Db }, scope: TenantScope) =>
       tx,
       sql`select p.grant_id, g.status::text as grant_status,
             case when o.paid_yearly then 'yearly' else o.billing end as billing,
-            p.current_period_end, p.price_cents,
+            p.current_period_end, p.price_cents, private.founding_charge_cents(p.workspace_id) as charge_cents,
             p.stripe_customer_id, p.stripe_card_id, p.renewal_stopped_at, p.renewal_failed_at,
             w.name as business, o.name as offer_name
           from app.workspace_plans p
@@ -475,7 +512,7 @@ export const renewFoundingSeat: JobHandler = async (ctx) => {
     }));
   try {
     const result = await ctx.payments.providers.stripe.platform.charge({
-      amountCents: Number(p.price_cents),
+      amountCents: Number(p.charge_cents),
       method: 'card',
       sourceToken: p.stripe_card_id,
       customerRef: p.stripe_customer_id,
@@ -526,7 +563,7 @@ export const onFoundingBilled: EventHandler = async (ctx) => {
       ? foundingRenewedEmail({
           business: p.business,
           offer,
-          paid: foundingPrice(Number(payload.paidCents ?? p.price_cents)),
+          paid: money(Number(payload.paidCents ?? p.charge_cents)),
           until: foundingLongDay(payload.paidThrough ?? iso(p.current_period_end)),
           link,
           period,
@@ -534,7 +571,7 @@ export const onFoundingBilled: EventHandler = async (ctx) => {
       : foundingRenewalFailedEmail({
           business: p.business,
           offer,
-          amount: foundingPrice(Number(payload.amountCents ?? p.price_cents)),
+          amount: money(Number(payload.amountCents ?? p.charge_cents)),
           reason: payload.problem ?? 'The card was declined.',
           link,
           period,
@@ -554,8 +591,8 @@ export const foundingJobs: JobMap = {
 };
 
 /**
- * What a stored checkout event means, in our words. Only `paid` is the money in; a completed page for a
- * payment still settling says `unpaid` and waits for `async_payment_succeeded`.
+ * What a stored checkout event means, in our words. Only `paid` is the money in, or `no_payment_required` on a free
+ * trial's page; a completed page for a payment still settling says `unpaid` and waits for `async_payment_succeeded`.
  */
 export function checkoutOutcome(
   e: CheckoutEvent,
@@ -563,7 +600,11 @@ export function checkoutOutcome(
   switch (e.type) {
     case 'checkout.session.completed':
     case 'checkout.session.async_payment_succeeded':
-      return e.paymentStatus === 'paid' ? { kind: 'paid' } : null;
+      // `no_payment_required` is a free trial's page, which only kept the card: the database turns the spot on only
+      // for a trial's checkout, and only with a card (20261027014300).
+      return e.paymentStatus === 'paid' || e.paymentStatus === 'no_payment_required'
+        ? { kind: 'paid' }
+        : null;
     case 'checkout.session.expired':
       return {
         kind: 'closed',

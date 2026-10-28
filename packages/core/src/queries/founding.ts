@@ -11,16 +11,20 @@
  *   taken back, the date that matters. Never why — the reason was written for us.
  * - `platform.founding.business` is one business's seat, for its page under /admin/businesses, where a seat can
  *   be given to any business on the list. Staff only, like the admin page.
+ * - `founding.code_preview` is what a discount or trial code takes off each plan, for the plan page before Pay
+ *   (20261027014300), for whoever may buy the business's spot.
  */
 import { rows, sql } from '@hfos/db/client';
 import { defineQuery } from '../kernel/define';
 import { HfosError } from '../errors';
-import { hashClaimToken } from '../commands/founding';
+import { codeRefusal, hashClaimToken } from '../commands/founding';
 import {
   FoundingCheckoutStatusInput,
   FoundingCheckoutStatusOutput,
   FoundingClaimPreviewInput,
   FoundingClaimPreviewOutput,
+  FoundingCodePreviewInput,
+  FoundingCodePreviewOutput,
   FoundingBusinessInput,
   FoundingBusinessOutput,
   FoundingCountsInput,
@@ -293,10 +297,19 @@ export const foundingMine = defineQuery({
       current_period_end: Date | null;
       renewal_stopped_at: Date | null;
       renewal_problem: string | null;
+      next_charge_cents: number | null;
+      trial_ends_at: Date | null;
     }>(
       ctx.tx,
+      // The next charge is private.founding_charge_cents's sum, read from the row this person may see.
       sql`select p.plan::text as plan, p.status::text as status, p.price_cents, p.grace_ends_at,
-            o.name as offer_name, p.current_period_end, p.renewal_stopped_at, p.renewal_problem
+            o.name as offer_name, p.current_period_end, p.renewal_stopped_at, p.renewal_problem,
+            greatest(p.price_cents
+                     - case when p.discount_cents > 0
+                             and (p.discount_until is null or p.current_period_end < p.discount_until)
+                            then p.discount_cents else 0 end, 0) as next_charge_cents,
+            -- The trial is over when it ends, or once its first charge is paid.
+            case when p.trial_ends_at > now() and p.renewal_count = 0 then p.trial_ends_at end as trial_ends_at
           from app.workspace_plans p
           left join platform.founding_grants g on g.id = p.grant_id
           left join platform.founding_offers o on o.id = g.offer_id
@@ -312,6 +325,8 @@ export const foundingMine = defineQuery({
       paidThrough: iso(found?.current_period_end ?? null),
       renewing: !!found?.current_period_end && !found.renewal_stopped_at,
       renewalProblem: found?.renewal_problem ?? null,
+      nextChargeCents: Number(found?.next_charge_cents ?? found?.price_cents ?? 0),
+      trialEndsAt: iso(found?.trial_ends_at ?? null),
     };
   },
 });
@@ -539,6 +554,54 @@ export const foundingCheckoutStatus = defineQuery({
   },
 });
 
+/**
+ * What a discount or trial code takes off each plan on sale (20261027014300), so the plan page shows the price before
+ * Pay. A code that isn't one, is off, or is the business's own affiliate's is refused, the way `founding.buy` would; one
+ * for the other plan only says it doesn't apply to this one. The limit is applied as it stands now.
+ */
+export const foundingCodePreview = defineQuery({
+  name: 'founding.code_preview',
+  description:
+    'What a discount or trial code takes off each founding plan on sale, before paying: the full price, what comes off each payment and for how many months, and any free trial. Refused for a code that isn’t one or is turned off.',
+  input: FoundingCodePreviewInput,
+  output: FoundingCodePreviewOutput,
+  permission: 'money.manage',
+  scope: (i: { workspaceId: string }) => ({
+    kind: 'workspace' as const,
+    workspaceId: i.workspaceId,
+  }),
+  async handler(ctx, input) {
+    const found = await rows<{
+      offer_id: string;
+      refusal: string | null;
+      code: string;
+      full_cents: number;
+      discount_cents: number;
+      discount_months: number | null;
+      trial_days: number | null;
+    }>(
+      ctx.tx,
+      sql`select * from private.affiliate_code_preview(${input.code}, ${input.workspaceId}::uuid)`,
+    );
+    // Not a code, or the business's own: the same for every plan, so it's the answer.
+    const whole = found.find(
+      (o) => o.refusal === 'affiliate_code_unknown' || o.refusal === 'affiliate_code_own',
+    );
+    if (whole?.refusal) throw codeRefusal(whole.refusal, input.code) ?? HfosError.internal();
+    return {
+      code: found[0]?.code ?? input.code.toLowerCase(),
+      offers: found.map((o) => ({
+        offerId: o.offer_id,
+        applies: o.refusal === null,
+        fullCents: Number(o.full_cents),
+        discountCents: Number(o.discount_cents),
+        discountMonths: o.discount_months,
+        trialDays: o.trial_days,
+      })),
+    };
+  },
+});
+
 export const foundingQueries = [
   foundingCounts,
   platformFounding,
@@ -546,4 +609,5 @@ export const foundingQueries = [
   platformFoundingBusiness,
   foundingClaimPreview,
   foundingCheckoutStatus,
+  foundingCodePreview,
 ];

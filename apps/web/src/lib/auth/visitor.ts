@@ -35,3 +35,17 @@ export function affiliateTrail(ref: unknown, at: unknown): AffiliateTrail | unde
 /** What a new account keeps of the trail, in its sign-up details. */
 export const affiliateTrailData = (trail: AffiliateTrail | undefined): Record<string, string> =>
   trail ? { affiliate_ref: trail.ref, affiliate_ref_at: trail.refAt } : {};
+
+/**
+ * A discount or trial code from a code's link (20261027014300): the website hands `?code=` on to its sign-up links,
+ * and a new account keeps it as `affiliate_code`, whether made with an email or with Google, for the plan page to fill
+ * in. Only something shaped like a code is kept; whether it is one is the plan page's to ask.
+ */
+export function discountCode(value: unknown): string | undefined {
+  const code = typeof value === 'string' ? value.trim().toLowerCase() : '';
+  return /^[a-z0-9][a-z0-9-]{1,22}[a-z0-9]$/.test(code) ? code : undefined;
+}
+
+/** What a new account keeps of the code, in its sign-up details. */
+export const discountCodeData = (code: string | undefined): Record<string, string> =>
+  code ? { affiliate_code: code } : {};

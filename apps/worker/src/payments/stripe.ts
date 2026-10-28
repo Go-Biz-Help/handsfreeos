@@ -933,6 +933,40 @@ export function createStripePayments(opts: {
           ...input.metadata,
           [`${input.kind ?? 'founding_checkout'}_id`]: input.checkoutId,
         });
+        // A free trial's page charges nothing: it only keeps the card, in setup mode, for the charge when it ends.
+        if (input.setupOnly) {
+          const made = await api<Json>(null, '/checkout/sessions', {
+            body: {
+              mode: 'setup',
+              currency: 'usd',
+              payment_method_types: ['card'],
+              success_url: input.successUrl,
+              cancel_url: input.cancelUrl,
+              client_reference_id: input.checkoutId,
+              ...(input.expiresAt
+                ? { expires_at: Math.floor(new Date(input.expiresAt).getTime() / 1000) }
+                : {}),
+              ...(input.customerEmail ? { customer_email: input.customerEmail } : {}),
+              customer_creation: 'always',
+              metadata,
+              setup_intent_data: { description: input.productName.slice(0, 200), metadata },
+              // A setup page has no line to say what it's for, so it's said by the button.
+              ...(input.description
+                ? { custom_text: { submit: { message: input.description.slice(0, 1200) } } }
+                : {}),
+            },
+            idempotencyKey: input.idempotencyKey,
+          });
+          const sessionRef = str(made['id']);
+          const url = str(made['url']);
+          if (!sessionRef || !url)
+            throw new PaymentError(
+              'Stripe answered without a page to add the card on.',
+              null,
+              false,
+            );
+          return { sessionRef, url, expiresAt: isoOf(made['expires_at']) };
+        }
         const lines = input.lines?.length
           ? input.lines
           : [
@@ -988,11 +1022,24 @@ export function createStripePayments(opts: {
         const session = obj(
           await api<Json>(
             null,
-            `/checkout/sessions/${encodeURIComponent(sessionRef)}?expand[]=payment_intent`,
+            `/checkout/sessions/${encodeURIComponent(sessionRef)}?expand[]=payment_intent&expand[]=setup_intent`,
           ),
         );
+        // A free trial's page (setup mode) kept the card on its SetupIntent; any other page, on its payment.
+        const setup = session['setup_intent'];
         const intent = session['payment_intent'];
-        let cardRef = typeof intent === 'object' ? str(obj(intent)['payment_method']) : null;
+        let cardRef =
+          setup && typeof setup === 'object'
+            ? str(obj(setup)['payment_method'])
+            : intent && typeof intent === 'object'
+              ? str(obj(intent)['payment_method'])
+              : null;
+        if (!cardRef && typeof setup === 'string' && setup)
+          cardRef = str(
+            obj(await api<Json>(null, `/setup_intents/${encodeURIComponent(setup)}`))[
+              'payment_method'
+            ],
+          );
         // Not expanded after all: ask for the payment itself.
         if (!cardRef && typeof intent === 'string' && intent)
           cardRef = str(

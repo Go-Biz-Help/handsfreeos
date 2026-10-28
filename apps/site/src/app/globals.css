@@ -38,6 +38,26 @@
      both themes, the same as the product app. */
   --on-solid: #ffffff;
   --ink: #191d25;
+
+  /* Night: the after-hours bands (the lead you lost, the 7pm text). The same in both themes, because
+     8pm is dark either way. Site-only: the product has no such surface. */
+  --night: #0b0f17;
+  --night-2: #151b27;
+  --night-border: rgba(255, 255, 255, 0.1);
+  --on-night: #f2f4f8;
+  --on-night-2: #a9afba;
+  --on-night-accent: color-mix(in oklab, var(--accent) 58%, #ffffff);
+
+  /* Motion. The built-in curves are too soft to feel intentional, so the site uses these three and no
+     others: out for anything arriving or answering a press, in-out for something moving on screen, and
+     the drawer curve for a selection gliding between items. */
+  --curve-out: cubic-bezier(0.23, 1, 0.32, 1);
+  --curve-in-out: cubic-bezier(0.77, 0, 0.175, 1);
+  --curve-drawer: cubic-bezier(0.32, 0.72, 0, 1);
+  /* How far a thing travels as it arrives. Reduced motion zeroes these and keeps the fade. */
+  --rise: 12px;
+  --settle: 0.97;
+  --soften: 4px;
   color-scheme: light;
 }
 
@@ -100,6 +120,15 @@
   --color-danger-soft: var(--danger-soft);
   --color-danger-text: var(--danger-text);
   --color-on-solid: var(--on-solid);
+  --color-night: var(--night);
+  --color-night-2: var(--night-2);
+  --color-night-border: var(--night-border);
+  --color-on-night: var(--on-night);
+  --color-on-night-2: var(--on-night-2);
+  --color-on-night-accent: var(--on-night-accent);
+  --ease-out: var(--curve-out);
+  --ease-in-out: var(--curve-in-out);
+  --ease-drawer: var(--curve-drawer);
   --font-sans:
     var(--font-hanken), system-ui, -apple-system, 'Segoe UI', Helvetica, Arial, sans-serif;
   --font-mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
@@ -143,33 +172,204 @@ p {
   box-shadow: 0 0 0 3px var(--ring);
 }
 
+/* Reduced motion means fewer and gentler, not none: nothing travels, scales or blurs, and the fades that
+   say "this just arrived" or "this changed" stay. */
 @media (prefers-reduced-motion: reduce) {
+  :root {
+    --rise: 0px;
+    --settle: 1;
+    --soften: 0px;
+  }
   html {
     scroll-behavior: auto;
   }
-  *,
-  *::before,
-  *::after {
-    animation-duration: 0.01ms !important;
-    transition-duration: 0.01ms !important;
+}
+
+/*
+ * The site's motion, in one place. Each piece has a reason to move, and it is written beside it.
+ *
+ * Arrivals as the reader scrolls (components/reveal.tsx): only what started below the fold waits, so nothing
+ * already on screen blinks out, and a page whose JavaScript never runs shows everything. `.rise` fades and
+ * lifts in, in the order its `--i` gives.
+ */
+[data-reveal='waiting'] .rise,
+.rise[data-reveal='waiting'] {
+  opacity: 0;
+  transform: translateY(var(--rise)) scale(var(--settle));
+  filter: blur(var(--soften));
+}
+[data-reveal='in'] .rise,
+.rise[data-reveal='in'] {
+  transition:
+    opacity 640ms var(--curve-out),
+    transform 640ms var(--curve-out),
+    filter 640ms var(--curve-out);
+  transition-delay: calc(var(--i, 0) * 70ms);
+}
+
+/* The hero's conversation (components/product-mock.tsx) plays once when the page opens: an explanation, so it
+   may take its time. Every line holds its place from the start, so nothing around it moves. */
+.seq {
+  animation: seq-in 560ms var(--curve-out) both;
+  animation-delay: var(--at, 0ms);
+}
+@keyframes seq-in {
+  from {
+    opacity: 0;
+    transform: translateY(var(--rise)) scale(var(--settle));
+    filter: blur(var(--soften));
+  }
+}
+.seq-typing {
+  animation: seq-typing var(--for, 1200ms) linear both;
+  animation-delay: var(--at, 0ms);
+}
+@keyframes seq-typing {
+  0% {
+    opacity: 0;
+  }
+  10%,
+  86% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+  }
+}
+/* The dots bounce only while they are showing, then stop: nothing on the page loops forever. */
+.typing-dot {
+  animation: typing-dot 1s ease-in-out 2;
+  animation-delay: calc(var(--at, 0ms) + var(--n, 0) * 150ms);
+}
+@keyframes typing-dot {
+  0%,
+  60%,
+  100% {
+    opacity: 0.35;
+    transform: translateY(0);
+  }
+  30% {
+    opacity: 1;
+    transform: translateY(calc(var(--rise) / -6));
+  }
+}
+/* A tick that draws itself, for "done": the booking in the hero, the jobs it takes off you. */
+.draw-tick path {
+  stroke-dasharray: 20;
+  stroke-dashoffset: 20;
+  animation: draw-tick 480ms var(--curve-out) forwards;
+  animation-delay: var(--at, 0ms);
+}
+@keyframes draw-tick {
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+/* A hidden tab plays nothing: the conversation waits for somebody to look at it. */
+[data-paused] :is(.seq, .seq-typing, .draw-tick path) {
+  animation-play-state: paused;
+}
+
+/* "A normal CRM waits for you to": each chore is crossed out as it comes into view, then the jobs it does
+   instead tick in. The page reads the same without it; the strike is the explanation, not the content. */
+.chore-strike {
+  clip-path: inset(0 100% 0 0);
+}
+[data-reveal='in'] .chore-strike {
+  clip-path: inset(0 0 0 0);
+  transition: clip-path 520ms var(--curve-in-out);
+  transition-delay: calc(240ms + var(--i, 0) * 110ms);
+}
+[data-reveal='in'] :is(.chore-text, .chore-verb) {
+  color: var(--text-3);
+  transition: color 400ms ease;
+  transition-delay: calc(400ms + var(--i, 0) * 110ms);
+}
+.task-tick path {
+  stroke-dasharray: 20;
+  stroke-dashoffset: 0;
+}
+[data-reveal='waiting'] .task-tick path {
+  stroke-dashoffset: 20;
+}
+[data-reveal='in'] .task-tick path {
+  transition: stroke-dashoffset 480ms var(--curve-out);
+  transition-delay: calc(700ms + var(--i, 0) * 110ms);
+}
+
+/* "How it works": the rule the three steps sit on draws itself, left to right, the way the weeks go. */
+.timeline-rule {
+  clip-path: inset(0 100% 0 0);
+}
+[data-reveal='in'] .timeline-rule {
+  clip-path: inset(0 0 0 0);
+  transition: clip-path 1400ms var(--curve-in-out) 150ms;
+}
+@media (max-width: 767px) {
+  .timeline-rule {
+    clip-path: inset(0 0 100% 0);
+  }
+}
+/* Each week lights up as the rule reaches it. */
+[data-reveal='in'] .timeline-node {
+  background-color: var(--accent);
+  color: #ffffff;
+  box-shadow: 0 0 0 1px var(--accent);
+  transition:
+    background-color 300ms ease,
+    color 300ms ease,
+    box-shadow 300ms ease;
+  transition-delay: calc(250ms + var(--i, 0) * 450ms);
+}
+
+/* A founding spot's bar fills to its count when it comes into view. Clipped rather than scaled, so the round
+   ends stay round however little of it is filled. */
+.bar-fill {
+  clip-path: inset(0 calc(100% - var(--fill, 0%)) 0 0 round 999px);
+}
+[data-reveal='waiting'] .bar-fill {
+  clip-path: inset(0 100% 0 0 round 999px);
+}
+[data-reveal='in'] .bar-fill {
+  transition: clip-path 1100ms var(--curve-out) 200ms;
+}
+
+/* The header sits flat on the page at the top and settles into a bar once the page moves under it. Browsers
+   without scroll-driven animations keep the bar all the way down, which is how it always looked. */
+@supports (animation-timeline: scroll()) {
+  .site-header {
+    animation: header-settle linear both;
+    animation-timeline: scroll();
+    animation-range: 0 72px;
+  }
+  @keyframes header-settle {
+    from {
+      background-color: transparent;
+      border-bottom-color: transparent;
+    }
   }
 }
 
-/* The quiet grid behind the hero. */
-.hero-grid {
-  background-image:
-    linear-gradient(
-      to right,
-      color-mix(in oklab, var(--border) 60%, transparent) 1px,
-      transparent 1px
+/* The soft light behind the hero's product picture. */
+.hero-glow {
+  background:
+    radial-gradient(
+      ellipse 50% 60% at 78% 38%,
+      color-mix(in oklab, var(--accent) 16%, transparent),
+      transparent 70%
     ),
-    linear-gradient(
-      to bottom,
-      color-mix(in oklab, var(--border) 60%, transparent) 1px,
-      transparent 1px
+    radial-gradient(
+      ellipse 40% 40% at 92% 80%,
+      color-mix(in oklab, var(--success) 8%, transparent),
+      transparent 70%
     );
-  background-size: 48px 48px;
-  mask-image: radial-gradient(ellipse 80% 60% at 50% 0%, #000 40%, transparent 100%);
+}
+.night-glow {
+  background: radial-gradient(
+    ellipse 60% 70% at 85% 0%,
+    color-mix(in oklab, var(--accent) 22%, transparent),
+    transparent 70%
+  );
 }
 
 /* A blog post's body (src/lib/opinly/render.tsx). Opinly sends structure, not styling, so every element it can

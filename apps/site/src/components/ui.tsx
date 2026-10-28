@@ -28,9 +28,11 @@ export function Section({
   );
 }
 
-export function Eyebrow({ children }: { children: ReactNode }) {
+/** The small label over a section: a quiet dot and words in sentence case, not a shouted capital line. */
+export function Eyebrow({ children, className = '' }: { children: ReactNode; className?: string }) {
   return (
-    <p className="text-accent-text mb-4 text-xs font-semibold tracking-[0.14em] uppercase">
+    <p className={`text-text-2 mb-5 flex items-center gap-2 text-sm font-medium ${className}`}>
+      <span aria-hidden="true" className="bg-accent h-1.5 w-1.5 rounded-full" />
       {children}
     </p>
   );
@@ -51,36 +53,66 @@ export function SectionHeading({
   const Heading = as;
   return (
     <div className={`max-w-3xl ${className}`}>
-      <Heading className="text-3xl leading-[1.12] font-bold sm:text-4xl md:text-[2.75rem]">
+      <Heading className="text-[2.125rem] leading-[1.04] font-bold tracking-[-0.035em] sm:text-5xl md:text-[3.25rem]">
         {children}
       </Heading>
-      {sub ? <p className="text-text-2 mt-5 text-lg sm:text-xl">{sub}</p> : null}
+      {sub ? <p className="text-text-2 mt-6 max-w-2xl text-lg sm:text-xl">{sub}</p> : null}
     </div>
   );
 }
 
 type ButtonProps = ComponentProps<typeof Link> & {
-  variant?: 'primary' | 'secondary';
+  variant?: 'primary' | 'secondary' | 'night';
   size?: 'md' | 'lg';
+  /** A small arrow that leans forward on hover: for the button that moves somebody on, not for every one. */
+  arrow?: boolean;
 };
 
+/**
+ * Every button answers a press at once: it gives a little under the finger (scale 0.97, 160ms), so the page
+ * feels like it heard. Colour changes are plain `ease`; the press uses the site's strong ease-out.
+ */
 export function Button({
   variant = 'primary',
   size = 'md',
+  arrow = false,
   className = '',
+  children,
   ...props
 }: ButtonProps) {
   const base =
-    'inline-flex items-center justify-center gap-2 rounded-[10px] font-semibold transition-colors';
+    'group/button inline-flex items-center justify-center gap-2 rounded-[10px] font-semibold transition-[transform,background-color,border-color,box-shadow] duration-[160ms,150ms,150ms,150ms] ease-[var(--curve-out),ease,ease,ease] motion-safe:active:scale-[0.97]';
   const sizes = {
-    md: 'px-5 py-2.5 text-base',
-    lg: 'px-7 py-4 text-lg',
+    md: 'px-4 py-2.5 text-[0.9375rem]',
+    lg: 'px-6 py-3.5 text-[1.0625rem]',
   } as const;
   const variants = {
-    primary: 'bg-accent text-white hover:bg-accent-hover shadow-[var(--shadow-2)]',
-    secondary: 'bg-card text-text border border-border-strong hover:bg-card-2',
+    primary:
+      'bg-accent text-white hover:bg-accent-hover shadow-[inset_0_1px_0_rgb(255_255_255/0.16),0_1px_2px_rgb(16_24_40/0.12),0_6px_16px_-6px_color-mix(in_oklab,var(--accent)_55%,transparent)]',
+    secondary:
+      'bg-card text-text border border-border-strong hover:bg-card-2 shadow-[0_1px_2px_rgb(16_24_40/0.05)]',
+    night:
+      'bg-white/[0.06] text-on-night border border-night-border hover:bg-white/[0.11] hover:border-white/20',
   } as const;
-  return <Link className={`${base} ${sizes[size]} ${variants[variant]} ${className}`} {...props} />;
+  return (
+    <Link className={`${base} ${sizes[size]} ${variants[variant]} ${className}`} {...props}>
+      {children}
+      {arrow ? (
+        <svg
+          viewBox="0 0 16 16"
+          aria-hidden="true"
+          className="-mr-0.5 h-4 w-4 transition-transform duration-200 ease-out group-hover/button:translate-x-0.5"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="1.8"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        >
+          <path d="M3 8h9.5M8.5 4l4 4-4 4" />
+        </svg>
+      ) : null}
+    </Link>
+  );
 }
 
 export function Card({ children, className = '' }: { children: ReactNode; className?: string }) {
