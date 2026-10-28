@@ -54,6 +54,7 @@ describe('the notification categories', () => {
       support_ticket: ['Open'],
       safety_check: ['I’m OK', '+15 min'],
       safety_alert: ['Open'],
+      document: ['Open'],
     });
     expect(Object.keys(titles).sort()).toEqual([...PUSH_CATEGORY_IDS].sort());
   });

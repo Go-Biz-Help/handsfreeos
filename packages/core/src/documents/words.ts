@@ -105,15 +105,24 @@ export function consentWording(business: string): string {
 
 /** A day filled in on a document, as the page shows it and the signed copy prints it: "October 28, 2026". */
 export function documentDay(day: string): string {
-  const at = new Date(`${day}T12:00:00Z`);
-  if (Number.isNaN(at.getTime())) return day;
-  return at.toLocaleDateString('en-US', {
-    month: 'long',
-    day: 'numeric',
-    year: 'numeric',
-    timeZone: 'UTC',
-  });
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(day);
+  const month = m ? MONTHS[Number(m[2]) - 1] : undefined;
+  return m && month ? `${month} ${Number(m[3])}, ${m[1]}` : day;
 }
+const MONTHS = [
+  'January',
+  'February',
+  'March',
+  'April',
+  'May',
+  'June',
+  'July',
+  'August',
+  'September',
+  'October',
+  'November',
+  'December',
+];
 
 /** How long a 6-digit code works, and how many tries it gets. */
 export const DOCUMENT_CODE_MINUTES = 10;
