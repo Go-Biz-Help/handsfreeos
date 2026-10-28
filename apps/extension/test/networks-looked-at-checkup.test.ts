@@ -27,9 +27,13 @@ const IG_MENU = `<div><a href="/" role="link"><span>Home</span></a>
   <a href="/direct/inbox/" role="link"><span>Messages</span></a>
   <a href="/casey.owner/" role="link"><img alt="casey.owner's profile picture" /><span>Profile</span></a></div>`;
 
-/** An account's header, with its first button: Follow, or Following beside its arrow. */
-const igProfile = (name: string, button: string, post: string) =>
-  html(`${IG_MENU}<main role="main"><header><h2>${name}</h2>
+/** An account's header, with its first button: Follow, or Following beside its arrow; and its story's ring. */
+const igProfile = (name: string, button: string, post: string, story = false) =>
+  html(`${IG_MENU}<main role="main"><header>${
+    story
+      ? `<div role="button"><canvas></canvas><span role="link"><img alt="${name}'s profile picture"></span></div>`
+      : ''
+  }<h2>${name}</h2>
     <button type="button"><div><div dir="auto">${button}</div>
       <svg aria-label="Down chevron icon"><title>Down chevron icon</title></svg></div></button>
     <div role="button">Message</div></header><a href="/p/${post}/">a post</a></main>`);
@@ -46,10 +50,15 @@ const INSTAGRAM_PAGES: Record<string, string> = {
   [`${IG}/explore/search/keyword/?q=small%20business`]: html(
     `${IG_MENU}<main role="main"><a href="/sam.carter/">sam.carter</a><a href="/p/D1aBc34DeFg/">post</a></main>`,
   ),
-  [`${IG}/dana.reyes/`]: igProfile('dana.reyes', 'Follow', 'E2bCd45EfGh').replace(
+  [`${IG}/dana.reyes/`]: igProfile('dana.reyes', 'Follow', 'E2bCd45EfGh', true).replace(
     '<a href="/p/',
     '<a href="/dana.reyes/reel/R0aBc12XyZq/">a reel</a><a href="/p/',
   ),
+  // Their story's viewer (decision 111): its box to reply in, its Like beside it, and its Close.
+  [`${IG}/stories/dana.reyes/`]: html(`<section><div><img alt="Photo by Dana Reyes">
+    <form><textarea aria-label="Reply to dana.reyes…"></textarea></form>
+    <div role="button"><svg aria-label="Like"><title>Like</title></svg></div>
+    <div role="button"><svg aria-label="Close"><title>Close</title></svg></div></div></section>`),
   // A post with a comment, its View all comments, and its count of likes, which opens its Likes box (decision 92).
   [`${IG}/p/E2bCd45EfGh/`]: html(`<main role="main"><article>
     <a href="/explore/locations/212988663/austin-texas/">Austin, Texas</a>
@@ -384,6 +393,8 @@ describe('Check Instagram', () => {
       `${IG}/accounts/edit/`,
       `${IG}/explore/search/keyword/?q=small%20business`,
       `${IG}/dana.reyes/`,
+      // Their story, which their account shows (decision 111).
+      `${IG}/stories/dana.reyes/`,
       `${IG}/p/E2bCd45EfGh/`,
       `${IG}/casey.owner/followers/`,
       `${IG}/explore/tags/smallbusiness/`,
@@ -403,11 +414,18 @@ describe('Check Instagram', () => {
       'checkup.bio',
       'checkup.follow',
       'checkup.message',
+      'checkup.story',
       'checkup.like',
       'checkup.comment',
       'checkup.reactors',
       'checkup.summary',
     ]);
+    // Their story's Like found, never pressed (decision 111).
+    expect(notes.find((n) => n.job === 'checkup.story')?.found).toMatchObject({
+      like: true,
+      liked: false,
+      close: true,
+    });
     expect(notes.find((n) => n.job === 'checkup.message')?.found).toMatchObject({
       box: true,
       closed: true,
@@ -423,16 +441,16 @@ describe('Check Instagram', () => {
       rows: 1,
       closed: true,
     });
-    expect(notes.at(-1)!.found).toEqual({ pages: 12, steps: 6, working: 6 });
+    expect(notes.at(-1)!.found).toEqual({ pages: 13, steps: 7, working: 7 });
     expect(end).toEqual({
-      line: 'Read 12 Instagram pages and tried 6 steps up to their last press. Everything works.',
+      line: 'Read 13 Instagram pages and tried 7 steps up to their last press. Everything works.',
       warned: false,
     });
   });
 
   it('looks for Follow on an account Instagram suggests when they follow the first one already', async () => {
     const pages = { ...INSTAGRAM_PAGES };
-    pages[`${IG}/dana.reyes/`] = igProfile('dana.reyes', 'Following', 'E2bCd45EfGh');
+    pages[`${IG}/dana.reyes/`] = igProfile('dana.reyes', 'Following', 'E2bCd45EfGh', true);
     const { tab, opened } = fakeTab(pages, 'instagram');
     const notes: ReportNote[] = [];
     const job = {
@@ -456,7 +474,7 @@ describe('Check Instagram', () => {
       true,
     ]);
     expect(end.line).toBe(
-      'Read 14 Instagram pages and tried 6 steps up to their last press. Everything works.',
+      'Read 15 Instagram pages and tried 7 steps up to their last press. Everything works.',
     );
   });
 
@@ -497,7 +515,7 @@ describe('Check Instagram', () => {
     const end = await runAsk({ kind: 'checkup' }, job, 'instagram');
     expect(asked.filter((t) => t === 'hfos-show-all')).toHaveLength(1);
     // Its posts opened one at a time till one was tagged at a place; never /explore/locations/ alone.
-    expect(opened.slice(6, 11)).toEqual([
+    expect(opened.slice(7, 12)).toEqual([
       `${IG}/casey.owner/followers/`,
       `${IG}/explore/tags/smallbusiness/`,
       `${IG}/p/G4dEf67GhIj/`,
@@ -506,7 +524,7 @@ describe('Check Instagram', () => {
     ]);
     expect(opened).not.toContain(`${IG}/explore/locations/`);
     expect(end.line).toBe(
-      'Read 14 Instagram pages and tried 6 steps up to their last press. Everything works.',
+      'Read 15 Instagram pages and tried 7 steps up to their last press. Everything works.',
     );
   });
 

@@ -176,7 +176,7 @@ const { searchInstagram } = await import('../src/jobs/instagram/partner-search')
 const { WorkTab } = await import('../src/tab');
 const { LIVE_KEY } = await import('../src/hfos/live');
 const { NETWORKS_KEY } = await import('../src/networks/on');
-const { INSTAGRAM_STATE_KEY } = await import('../src/auto/plan');
+const { freshState, INSTAGRAM_STATE_KEY } = await import('../src/auto/plan');
 const { WARNED_KEY } = await import('../src/hfos/warned');
 const { beforeDayDoing, beforeDayLine } = await import('../src/auto/lists');
 const { chatBoxFor } = await import('../src/networks/instagram/auto');
@@ -241,10 +241,13 @@ const accountHtml = (
     username?: string;
     button?: 'Follow' | 'Following';
     posts?: readonly (readonly [string, string])[];
+    /** Their story's ring round their picture (decision 111). */
+    story?: boolean;
   } = {},
 ) => {
   const username = o.username ?? 'dana.reyes';
   return `${MENU}<main role="main"><header>
+    ${o.story ? `<section><div role="button"><canvas></canvas><span role="link"><img alt="${username}'s profile picture"></span></div></section>` : ''}
     <section><a href="#"><h2 dir="auto"><span>${username}</span></h2></a><span dir="auto">Dana Reyes</span></section>
     <section><div dir="auto">Plumber in Austin</div></section>
     <section><button id="follow"><div dir="auto">${o.button ?? 'Follow'}</div></button>
@@ -254,6 +257,18 @@ const accountHtml = (
     .map(([code, alt]) => `<a href="/${username}/p/${code}/"><img alt="${alt}"></a>`)
     .join('')}</div></main>`;
 };
+
+/** Their story's own address (decision 111), and the story the viewer shows there once View story is pressed. */
+const STORY = `${IG}/stories/dana.reyes/`;
+const STORY_AT = `${IG}/stories/dana.reyes/3100000000000000001/`;
+/** What Instagram asks first on a story's own address. */
+const STORY_ASKS_FIRST = `<section><div><span>dana.reyes will be able to see that you viewed their story.</span>
+  <div role="button" id="view">View story</div><div role="button">Cancel</div></div></section>`;
+/** The story's viewer: its box to reply in, with its Like beside it, and its Close. */
+const STORY_VIEWER = `<section><div><img alt="Photo by Dana Reyes">
+  <form><textarea aria-label="Reply to dana.reyes…"></textarea></form>
+  <div role="button" id="story-like"><svg role="img" aria-label="Like"></svg></div>
+  <div role="button"><svg role="img" aria-label="Close"></svg></div></div></section>`;
 
 /** One of their posts on its own page: who posted it by its own link, its caption, and its bar's Like and Comment. */
 const postHtml = (
@@ -523,15 +538,27 @@ describe('what it does on Instagram’s list', () => {
 describe('a warm-up on Instagram', () => {
   /** Their account and each post's own page; a post's Like says Unlike once pressed. */
   const likes: string[] = [];
-  const pagesFor = (posts?: readonly (readonly [string, string])[]) => {
+  const pagesFor = (posts?: readonly (readonly [string, string])[], story = false) => {
     likes.length = 0;
     world.pages = (url) =>
       url === DANA
-        ? { html: accountHtml({ posts }) }
-        : /\/p\/(\w+)\/$/.test(url)
-          ? { html: postHtml(/\/p\/(\w+)\/$/.exec(url)![1]!) }
-          : null;
+        ? { html: accountHtml({ posts, story }) }
+        : url === STORY
+          ? { html: STORY_ASKS_FIRST }
+          : /\/p\/(\w+)\/$/.test(url)
+            ? { html: postHtml(/\/p\/(\w+)\/$/.exec(url)![1]!) }
+            : null;
     world.behave = (doc, url) => {
+      // Their story's View story draws its viewer at the story's own address, whose Like says Unlike once pressed.
+      doc.querySelector('#view')?.addEventListener('click', () => {
+        doc.defaultView!.history.pushState({}, '', STORY_AT);
+        doc.body.innerHTML = STORY_VIEWER;
+        const like = doc.querySelector('#story-like')!;
+        like.addEventListener('click', () => {
+          like.querySelector('svg')!.setAttribute('aria-label', 'Unlike');
+          likes.push(STORY_AT);
+        });
+      });
       for (const like of doc.querySelectorAll('.like'))
         like.addEventListener('click', () => {
           like.querySelector('svg')!.setAttribute('aria-label', 'Unlike');
@@ -596,6 +623,68 @@ describe('a warm-up on Instagram', () => {
     expect(missedPosted().map((p) => p.body)).toEqual([
       { workspaceId: ME.businessId, profileId: PROFILE_ID },
     ]);
+  });
+
+  /** The story's warm-up (decision 111), with the clock moved on while it's watched. */
+  const warmedWithStory = async (spare: number) => {
+    vi.useFakeTimers({ toFake: ['setTimeout'] });
+    try {
+      const going = doWork(
+        { do: 'step', item: item({ kind: 'warm_up' }) },
+        ME.businessId,
+        true,
+        spare,
+      );
+      await vi.advanceTimersByTimeAsync(30_000);
+      return await going;
+    } finally {
+      vi.useRealTimers();
+    }
+  };
+
+  it('watches their story and likes it first, as one of the warm-up’s likes, noting it by its address (decision 111)', async () => {
+    pagesFor(undefined, true);
+    expect(await warmedWithStory(3)).toEqual({
+      done: true,
+      line: 'Watched Dana Reyes’s story and liked it, and a post of theirs too: the follow comes tomorrow',
+    });
+    // Their account (their posts read on it), their story, then one post: the story is one of the 2 likes.
+    expect(world.opened).toEqual([DANA, STORY, `${IG}/p/C2bbbbbbb/`]);
+    expect(likes).toEqual([STORY_AT, `${IG}/p/C2bbbbbbb/`]);
+    expect(notedAs()).toEqual([
+      {
+        kind: 'like',
+        auto: true,
+        postUrl: STORY_AT,
+        username: 'dana.reyes',
+        platform: 'instagram',
+      },
+      {
+        kind: 'like',
+        auto: true,
+        postUrl: `${IG}/p/C2bbbbbbb/`,
+        username: 'dana.reyes',
+        platform: 'instagram',
+      },
+    ]);
+    expect(store.get(INSTAGRAM_STATE_KEY)).toMatchObject({ done: { story_like: 1 } });
+    expect(missedPosted()).toEqual([]);
+  });
+
+  it('likes their story alone when the day’s likes have no room for a second', async () => {
+    pagesFor(undefined, true);
+    expect(await warmedWithStory(0)).toEqual({
+      done: true,
+      line: 'Watched Dana Reyes’s story and liked it: the follow comes tomorrow',
+    });
+    expect(likes).toEqual([STORY_AT]);
+  });
+
+  it('opens no story once the day’s 20 are liked, and likes their posts as before', async () => {
+    pagesFor(undefined, true);
+    store.set(INSTAGRAM_STATE_KEY, { ...freshState(null), done: { story_like: 20 } });
+    await doWork({ do: 'step', item: item({ kind: 'warm_up' }) }, ME.businessId, true, 3);
+    expect(world.opened).toEqual([DANA, `${IG}/p/C2bbbbbbb/`, `${IG}/p/C3ccccccc/`]);
   });
 
   /** Someone found by a post they wrote (decision 92): its own link, and what it said. */

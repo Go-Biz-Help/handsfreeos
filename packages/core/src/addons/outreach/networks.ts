@@ -124,6 +124,11 @@ export interface NetworkKit {
   /** How many good posts a day have who liked and commented on them read (decision 92); null where none do. */
   readonly postPeoplePerDay: number | null;
   /**
+   * How many warm-ups a day view someone's story and like it, where the network has stories (Instagram's, decision
+   * 111): each counts as one of the warm-up's likes; null where none do.
+   */
+  readonly storyLikesPerDay: number | null;
+  /**
    * How a comment the AI drafts for a good post goes (decision 92): `hold`, through `sends` like a message, waiting
    * for the person's OK at first (Instagram's, Alignable's, and LinkedIn's from decision 102); `never`, never held as a
    * comment there (Facebook's are the person's).
@@ -167,6 +172,7 @@ export const NETWORKS: Readonly<Record<Platform, NetworkKit>> = {
     foundChecksPerDay: null,
     foundShareReads: false,
     postPeoplePerDay: null,
+    storyLikesPerDay: null,
     commentsWait: 'never',
     joinsPerDay: 3,
     tidyLimits: TIDY_LIMITS,
@@ -211,6 +217,7 @@ export const NETWORKS: Readonly<Record<Platform, NetworkKit>> = {
     foundChecksPerDay: 30,
     foundShareReads: true,
     postPeoplePerDay: 5,
+    storyLikesPerDay: null,
     commentsWait: 'hold',
     joinsPerDay: null,
     // Old invitations are withdrawn after the business's wait; nobody is removed.
@@ -259,6 +266,8 @@ export const NETWORKS: Readonly<Record<Platform, NetworkKit>> = {
     foundChecksPerDay: 30,
     foundShareReads: false,
     postPeoplePerDay: 5,
+    // A look at their story and a like on it, as one of the warm-up's likes, 20 a day at most (decision 111).
+    storyLikesPerDay: 20,
     commentsWait: 'hold',
     joinsPerDay: null,
     // Unfollowing those who didn't follow back in the business's wait (3 weeks to start), 20 a day at most; nobody
@@ -304,6 +313,7 @@ export const NETWORKS: Readonly<Record<Platform, NetworkKit>> = {
     foundChecksPerDay: 30,
     foundShareReads: false,
     postPeoplePerDay: null,
+    storyLikesPerDay: null,
     commentsWait: 'hold',
     joinsPerDay: 3,
     tidyLimits: { cancel_request: 20, unfriend: 0 },

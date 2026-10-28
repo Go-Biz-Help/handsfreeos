@@ -2592,6 +2592,22 @@ where decisions 37 and 59 put the settings; what they decided stands. Settled to
         (`LIKE_YOURS_FOLLOWERS`) as finds who follow it (`how: 'follows'`, "Follows @austinchamber on Instagram"),
         never the person or anyone they follow already. Each find gets the AI's found check before any like or follow,
         as every find does. Nothing is followed, liked or written there, and a warning stops it.
+111.  **Their story liked as a warm-up on Instagram** (Chris, 28 Oct 2026, "all of your picks": 11a). "It views their
+      latest story and likes it a day before following, up to 20 a day."
+      - **Read on their account** (0.103.0, `InstagramProfile.story`, `src/networks/instagram/read.ts`): a link to
+        their story (/stories/<name>/), or the ring Instagram draws round their picture (a `canvas` beside it, as the
+        owner's Check outlined it round a post's writer). Never a highlight's ring, in its own list under the bio.
+      - **Liked on its own page, as one of the warm-up's likes** (`src/auto/instagram.ts` `likeStory`): after their
+        latest posts are read on their account, the runner opens /stories/<name>/, presses View story where Instagram
+        asks first, watches it 3 to 5 seconds, presses the viewer's own Like (the one beside its box to reply in) while
+        it says Like, and closes it (`likeTheirStory`, `hfos-like-story`). It counts as one of the warm-up's 1 or 2
+        likes, so a post of theirs is liked beside it only while the day's likes have room. It's noted as a `like` with
+        the story's own address, so the follow waits a day as it does after a post's like.
+      - **Up to 20 a day** (the kit's `storyLikesPerDay`, Instagram's alone), counted on the computer
+        (`done.story_like`); past them, only posts are liked. A story that couldn't be liked (gone, or no Like) is
+        passed over for their posts, and its page is noted with its outline once a day (`warm_up.story`).
+      - **Check Instagram** looks at the story of the account it opens, when it shows one (`story`): it presses View
+        story, finds the viewer's Like without pressing it, and closes it.
 
 ## Rules worth knowing before changing anything
 

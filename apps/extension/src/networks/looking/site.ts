@@ -215,6 +215,15 @@ export interface LookingSite {
    */
   readonly auto?: {
     readonly theirPosts: (doc: Document, href: string, profile: ProfileRef) => TheirPost[];
+    /**
+     * Their story liked on its own page (Instagram's, decision 111): watched a few seconds, liked with the viewer's own
+     * Like, and closed; the address of the story it liked. A site without stories is never asked.
+     */
+    readonly likeStory?: (
+      doc: Document,
+      href: string,
+      profile: ProfileRef,
+    ) => Promise<{ readonly result: AutoResult; readonly storyUrl: string | null }>;
     readonly like: (
       doc: Document,
       href: string,

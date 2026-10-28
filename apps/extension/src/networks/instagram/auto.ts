@@ -6,6 +6,9 @@
  * - **Like** on one of their posts, on that post's own page: only a post whose own link names them, only its own Like
  *   (in the bar with its Comment, never a comment's, which sits by its Reply), and only while it says Like. It's liked
  *   once it says Unlike.
+ * - **Their story** (decision 111, from 0.103.0), on its own page (/stories/<name>/): View story pressed where Instagram
+ *   asks first, watched a few seconds, then the viewer's own Like (beside its box to reply in) pressed while it says
+ *   Like, and the viewer closed with its own Close. Only while the page is their story; liked once it says Unlike.
  * - **Follow** (or Follow Back) on their account's own page, under their name, only while it says so; followed once it
  *   says Following, or Requested for a private account.
  * - **Message** under their name, which opens a chat with them: over the page, or on its own page.
@@ -43,6 +46,7 @@ import {
   postAuthorOf,
   postOf,
   profileOf,
+  storyOf,
 } from './urls';
 
 const FOLLOW = /^(follow|follow back)$/i;
@@ -129,6 +133,73 @@ export async function likeTheirPost(
     return now && LIKED.test(nameOf(now)) ? true : null;
   }, WENT_MS);
   return { result: went ? 'done' : 'not_sent', postUrl: url };
+}
+
+// ------------------------------------------------------------------------------------------------ stories
+
+/** What Instagram asks first on a story's own page, and the viewer's own Close. */
+const VIEW_STORY = /^view story$/i;
+const CLOSE = /^close$/i;
+/** The viewer's box to reply in: "Reply to dana.reyes…". */
+const REPLY_TO = /^reply to\b/i;
+/** How long the viewer is waited on, and how long a story is watched before its Like, as a person watches. */
+const VIEWER_MS = 8_000;
+const WATCH_MS = { least: 3_000, most: 5_000 } as const;
+
+/** The story the tab shows, when it's theirs (/stories/<name>/…, by the name in it): its address, else null. */
+function theirStoryAt(doc: Document, href: string, them: ProfileRef): string | null {
+  const at = instagramUrl(doc.defaultView?.location.href ?? href);
+  return at && kindOf(at) === 'story' && isThem(storyOf(at), them) ? at.href : null;
+}
+
+/** The viewer's own Like (or Unlike): the only one on the page, or else the one nearest its box to reply in. */
+export function storyLikeOf(doc: Document): HTMLElement | null {
+  const likes = controlsSaying(doc.body, /^(like|unlike)$/i, true);
+  if (likes.length <= 1) return likes[0] ?? null;
+  const box = boxesSaying(doc, REPLY_TO)[0];
+  for (let up = box?.parentElement ?? null, n = 0; up && n < 8; up = up.parentElement, n++) {
+    const around = up;
+    const near = likes.find((like) => around.contains(like));
+    if (near) return near;
+  }
+  return null;
+}
+
+/**
+ * Likes their story on its own page (decision 111): View story pressed where Instagram asks first, watched a few
+ * seconds, then the viewer's own Like pressed while it says Like, and the viewer closed with its own Close. `done` once
+ * it says Unlike, `already` when it did, `none` when the page isn't their story or shows no Like, `not_sent` when
+ * Instagram didn't take it; with the address of the story it liked.
+ */
+export async function likeTheirStory(
+  doc: Document,
+  href: string,
+  them: ProfileRef,
+): Promise<{ readonly result: AutoResult; readonly storyUrl: string | null }> {
+  if (!theirStoryAt(doc, href, them)) return { result: 'none', storyUrl: null };
+  controlsSaying(doc.body, VIEW_STORY)[0]?.click();
+  const shown = await waitFor(
+    () => (theirStoryAt(doc, href, them) ? storyLikeOf(doc) : null),
+    VIEWER_MS,
+  );
+  if (!shown) return { result: 'none', storyUrl: theirStoryAt(doc, href, them) };
+  await pause(WATCH_MS.least + Math.random() * (WATCH_MS.most - WATCH_MS.least));
+  // Found again after the watch: the viewer may have gone on to their next story, or past their last.
+  const storyUrl = theirStoryAt(doc, href, them);
+  const like = storyUrl ? storyLikeOf(doc) : null;
+  if (!storyUrl || !like) return { result: 'none', storyUrl };
+  let result: AutoResult = 'none';
+  if (LIKED.test(nameOf(like))) result = 'already';
+  else if (LIKE.test(nameOf(like))) {
+    like.click();
+    const went = await waitFor(() => {
+      const now = storyLikeOf(doc);
+      return now && LIKED.test(nameOf(now)) ? true : null;
+    }, WENT_MS);
+    result = went ? 'done' : 'not_sent';
+  }
+  controlsSaying(doc.body, CLOSE, true)[0]?.click();
+  return { result, storyUrl };
 }
 
 // ------------------------------------------------------------------------------------------------ follow

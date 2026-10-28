@@ -37,8 +37,11 @@ export const INSTAGRAM_STATE_KEY = 'hfos.auto.instagram';
 /** The kinds it does on its own, in the order it does them. */
 export const AUTO_KINDS = ['confirm', 'warm_up', 'friend_request', 'comment'] as const;
 export type AutoKind = (typeof AUTO_KINDS)[number];
-/** What it counts as done today: the steps above, messages drafted, and messages sent. */
-export type DoneKind = AutoKind | 'drafted' | 'sent';
+/**
+ * What it counts as done today: the steps above, messages drafted, and messages sent; and on Instagram the stories its
+ * warm-ups liked (decision 111), against the kit's `storyLikesPerDay`.
+ */
+export type DoneKind = AutoKind | 'drafted' | 'sent' | 'story_like';
 
 /** The jobs it does once a day before the list, in the order it does them (./daily.ts, decision 32). */
 export const DAILY_JOBS = [

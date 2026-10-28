@@ -9,7 +9,8 @@
  *
  * - **Instagram:** the feed, the person's own account (read as the AI's check reads it) and its form (the bio), a
  *   search, someone from their feed
- *   (Follow, which isn't tried on someone they follow, and Message, whose chat is opened and closed), one of their posts
+ *   (Follow, which isn't tried on someone they follow, and Message, whose chat is opened and closed; from 0.103.0,
+ *   decision 111, their story when they have one, watched with its Like looked for and never pressed), one of their posts
  *   (Like, and the box to comment in, where a word is written and taken out to see Post show; from 0.95.0, decision 92,
  *   its Likes box opened by its count of likes and closed again, and its View all comments pressed once), the accounts
  *   Instagram suggests and up to three of them (Follow, on someone they don't follow), and their messages.
@@ -44,7 +45,11 @@ import type { CenterPart } from '../networks/accounts-center/pages';
 import { townOf } from '../networks/alignable/site';
 import { clean } from '../networks/facebook/dom';
 import type { FormSteps } from '../networks/instagram/own-profile';
-import { instagramUrl, profileOf as instagramProfileOf } from '../networks/instagram/urls';
+import {
+  instagramUrl,
+  profileOf as instagramProfileOf,
+  storyUrl,
+} from '../networks/instagram/urls';
 import type { LookingPlatform, LookingRead } from '../networks/looking/site';
 import type { TryStep } from '../networks/tries';
 import {
@@ -144,8 +149,19 @@ async function checkupInstagram(job: Job): Promise<JobEnd> {
     theirPosts = theirs.posts;
     await c.tryHere('follow');
     await c.tryHere('message');
+    // Their story, when their account shows one (decision 111): watched on its own page, its Like looked for and never
+    // pressed, and the viewer closed again.
+    const story = storyOn(theirs);
+    if (story) {
+      if (stoppedEnd(job)) return stoppedEnd(job)!;
+      const page = await c.open(storyUrl(story), 'someone’s story');
+      if (isEnd(page)) return page;
+      await c.note('someone’s story', null);
+      await c.tryHere('story');
+    } else await c.nothingFor('story', 'no story on their account');
   } else {
     await c.nothingFor('message', 'no account on your feed or the search to open');
+    await c.nothingFor('story', 'no account on your feed or the search to open');
   }
 
   // One of their posts, or one from your feed or the search: Like and the box to comment in looked for.
@@ -294,6 +310,13 @@ async function checkupInstagram(job: Job): Promise<JobEnd> {
 const HASHTAG = 'smallbusiness';
 /** The hashtag's posts it opens, one at a time, for one tagged at a place. */
 const PLACE_POSTS = 2;
+
+/** Whose story an account's page shows (`InstagramFound`'s profile, decision 111): their name, or null with none. */
+const storyOn = (page: LookingRead): string | null => {
+  const profile = page.found?.['profile'] as
+    { username?: unknown; story?: unknown } | null | undefined;
+  return profile?.story === true && typeof profile.username === 'string' ? profile.username : null;
+};
 
 /** The addresses one of Instagram's own readers found on a page (`InstagramFound`): places, hashtags or chats. */
 const linksFound = (page: LookingRead, list: 'locations' | 'tags' | 'threads'): string[] => {

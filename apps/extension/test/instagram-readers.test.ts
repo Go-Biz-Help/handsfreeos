@@ -87,6 +87,7 @@ describe('someone’s profile on Instagram', () => {
       // What they do and their bio, for the checks and the look-up; never who they share.
       bio: ['Plumber', 'Fixing Austin leaks since 2009'],
       pictures: ['A new water heater', 'Before and after'],
+      story: false,
     });
   });
 

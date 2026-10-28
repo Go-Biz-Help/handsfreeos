@@ -157,6 +157,15 @@ export type GroupPostAnswer =
   | { readonly ok: false; readonly error: string };
 
 /**
+ * Their story on its own page (decision 111, src/networks/instagram/auto.ts): watched a few seconds and liked with the
+ * viewer's own Like, then closed; how it went, and the address of the story it liked.
+ */
+export type StoryAsk = { readonly type: 'hfos-like-story'; readonly profile: ProfileRef };
+export type StoryAnswer =
+  | { readonly ok: true; readonly result: AutoResult; readonly storyUrl: string | null }
+  | { readonly ok: false; readonly error: string };
+
+/**
  * LinkedIn's helpful post, put up on the person's own feed (src/networks/linkedin/compose.ts): how it went, and its
  * link once LinkedIn shows it. Who engaged is read with `hfos-engaged`, as on Facebook.
  */

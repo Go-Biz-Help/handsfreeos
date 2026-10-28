@@ -21,6 +21,8 @@ import type {
   ConnectAsk,
   FeedPostAnswer,
   FeedPostAsk,
+  StoryAnswer,
+  StoryAsk,
   JoinAnswer,
   JoinAsk,
   OpenMessageAsk,
@@ -142,9 +144,10 @@ async function withdrawHere(site: LookingSite, ask: WithdrawAsk): Promise<Withdr
 /**
  * The runner's presses it answers: their posts, a like, Connect (Follow), Message and a message; and from 0.95.0
  * (decision 92) a comment and a group's Join, only for a site that declares them (`auto.comment`, `auto.join`); from
- * 0.101.0 the person's own helpful post, OK'd (`auto.post`, decision 109).
+ * 0.101.0 the person's own helpful post, OK'd (`auto.post`, decision 109); from 0.103.0 a like on their story
+ * (`auto.likeStory`, Instagram's, decision 111).
  */
-export type OnItsOwnAsk = AutoAsk | ConnectAsk | OpenMessageAsk | JoinAsk | FeedPostAsk;
+export type OnItsOwnAsk = AutoAsk | ConnectAsk | OpenMessageAsk | JoinAsk | FeedPostAsk | StoryAsk;
 export const ON_ITS_OWN_ASKS: ReadonlySet<string> = new Set<OnItsOwnAsk['type']>([
   'hfos-their-posts',
   'hfos-like-post',
@@ -155,6 +158,7 @@ export const ON_ITS_OWN_ASKS: ReadonlySet<string> = new Set<OnItsOwnAsk['type']>
   'hfos-join',
   'hfos-join-answer',
   'hfos-feed-post',
+  'hfos-like-story',
 ]);
 
 /** The person's own helpful post, OK'd, on a site that declares it (`auto.post`, Alignable's, decision 109). */
@@ -162,6 +166,13 @@ async function feedPost(site: LookingSite, ask: FeedPostAsk): Promise<FeedPostAn
   if (!site.auto?.post)
     return { ok: false, error: `The extension doesn’t put posts up on ${site.name}.` };
   return { ok: true, ...(await site.auto.post(document, location.href, ask.text)) };
+}
+
+/** A like on their story, on its own page, where the site has stories (`auto.likeStory`, Instagram's, decision 111). */
+async function likeStory(site: LookingSite, ask: StoryAsk): Promise<StoryAnswer> {
+  if (!site.auto?.likeStory)
+    return { ok: false, error: `The extension doesn’t like stories on ${site.name}.` };
+  return { ok: true, ...(await site.auto.likeStory(document, location.href, ask.profile)) };
 }
 
 /**
@@ -201,10 +212,11 @@ async function commentOrJoin(
 async function onItsOwn(
   site: LookingSite,
   ask: OnItsOwnAsk,
-): Promise<PostsAnswer | AutoAnswer | BrowseAnswer | JoinAnswer | FeedPostAnswer> {
+): Promise<PostsAnswer | AutoAnswer | BrowseAnswer | JoinAnswer | FeedPostAnswer | StoryAnswer> {
   if (ask.type === 'hfos-comment' || ask.type === 'hfos-join' || ask.type === 'hfos-join-answer')
     return commentOrJoin(site, ask);
   if (ask.type === 'hfos-feed-post') return feedPost(site, ask);
+  if (ask.type === 'hfos-like-story') return likeStory(site, ask);
   const auto = site.auto;
   if (!auto)
     return { ok: false, error: `The extension doesn’t work on ${site.name} on its own yet.` };

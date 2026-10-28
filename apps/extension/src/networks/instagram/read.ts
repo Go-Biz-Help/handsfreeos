@@ -5,7 +5,9 @@
  * - **Someone's profile** (/<name>/): their name and username, whether the person follows them (Follow, Follow Back,
  *   Following, Requested), whether they follow the person (Follow Back, "Follows you"), their followers, and their
  *   latest posts' links. From the owner's Check (0.62.0): the header's username in an `h2`, the name in a line of its
- *   own under it, the counts as links, and Following with its words beside an arrow.
+ *   own under it, the counts as links, and Following with its words beside an arrow. From 0.103.0 (decision 111)
+ *   whether it shows their story: a link to it, or the ring Instagram draws round their picture (a `canvas`, as the
+ *   owner's Check outlined it round a post's writer), never a highlight's.
  * - **Your followers** (the box over /<you>/followers/, or over their account once its count is pressed): each
  *   person's username, name and link, and whether the person follows them back: in their own list Instagram shows
  *   Follow beside those they don't, and Remove beside everyone.
@@ -50,6 +52,7 @@ import {
   postAuthorOf,
   postOf,
   profileOf,
+  storyOf,
   threadOf,
 } from './urls';
 
@@ -138,6 +141,8 @@ export interface InstagramProfile extends Account {
    * carries its caption; null where it gave none.
    */
   readonly pictures: readonly (string | null)[];
+  /** Whether their header shows a story to see (decision 111): a link to it, or the ring round their picture. */
+  readonly story: boolean;
 }
 
 /** Someone in the person's followers list. */
@@ -342,6 +347,32 @@ function followingIn(header: Element): InstagramProfile['following'] {
   return null;
 }
 
+/** "dana.reyes's profile picture": whose picture an image is, by what Instagram says it shows. */
+const PICTURE = /^(.+?)['’]s profile picture$/i;
+
+/** A highlight's ring, in the list of them under the bio: never their story. */
+const inHighlights = (el: Element): boolean => el.closest('[role="menu"], li') !== null;
+
+/**
+ * Whether their header shows a story to see (decision 111): a link to their story (/stories/<name>/), or the ring
+ * Instagram draws round their picture, a `canvas` beside it in the part pressed to open it. Never a highlight's ring.
+ */
+function storyIn(header: Element, username: string, base: string): boolean {
+  const name = username.toLowerCase();
+  if (linksIn(header, base).some(({ url }) => storyOf(url)?.toLowerCase() === name)) return true;
+  const picture = [...header.querySelectorAll('img[alt]')].find(
+    (img) => PICTURE.exec(clean(img.getAttribute('alt')))?.[1]?.toLowerCase() === name,
+  );
+  if (!picture || inHighlights(picture)) return false;
+  for (
+    let up = picture.parentElement, n = 0;
+    up && up !== header && n < 3;
+    up = up.parentElement, n++
+  )
+    if ([...up.querySelectorAll('canvas')].some((ring) => !inHighlights(ring))) return true;
+  return false;
+}
+
 /** Someone's profile, from its header: never the person's own (it has Edit profile, and no Follow). */
 export function profileOn(doc: Document, base: string): InstagramProfile | null {
   const page = instagramUrl(base);
@@ -416,6 +447,7 @@ export function profileOn(doc: Document, base: string): InstagramProfile | null 
     posts: [...grid.keys()],
     bio,
     pictures: [...grid.values()],
+    story: storyIn(header, account.username, base),
   };
 }
 

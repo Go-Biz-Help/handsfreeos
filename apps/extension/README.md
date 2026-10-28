@@ -3,7 +3,7 @@
 The extension that works beside a person on Facebook, and on LinkedIn, Instagram and Alignable once they turn each on,
 for the Social Outreach add-on (docs/outreach.md). It connects to HandsFreeOS only for businesses that have that add-on on.
 
-**This is a test build (0.102.0), and a bare one** (decisions 43, 59 and 72 in docs/outreach.md). Everything is set
+**This is a test build (0.103.0), and a bare one** (decisions 43, 59 and 72 in docs/outreach.md). Everything is set
 and started in HandsFreeOS; the extension does the work on Facebook. Its side panel shows progress and activity only:
 signing in, what it does next with today's steps and **Start my day** and **Stop for today**, how many things need
 you in HandsFreeOS (with a link there), each network's line, what it did today, and a link to HandsFreeOS. Needs you
@@ -1069,6 +1069,17 @@ shows under Instagram). Your Instagram choices in HandsFreeOS say what it does (
 Each step is noted as the extension's own (`auto`), as Instagram's. A step its page doesn't let it do goes to your
 Needs you; it never guesses.
 
+### Their story liked as a warm-up on Instagram (0.103.0)
+
+From 0.103.0 (docs/outreach.md, decision 111) an Instagram warm-up likes their story when their account shows one,
+up to 20 a day. After reading their latest posts on their account, it opens their story's own page
+(/stories/<name>/), presses View story where Instagram asks first, watches it a few seconds, presses the viewer's own
+Like (`hfos-like-story`, `src/networks/instagram/auto.ts`), and closes it. The story is one of the warm-up's likes, so
+a post of theirs is liked beside it only while the day's likes have room, and it's noted as a like with the story's
+address, so the follow still comes a day later. The ring round their picture is read on their account, never a
+highlight's. **Check Instagram** opens the story of the account it looks at, when there is one, and finds its Like
+without pressing it (`story`).
+
 ### Accounts like yours on Instagram (0.102.0)
 
 From 0.102.0 (docs/outreach.md, decision 110) Instagram's once-a-day jobs read accounts like yours after your hashtags
@@ -1581,8 +1592,8 @@ on its own there (0.41.0), getting and bringing in its file (0.42.0), and growin
 feed (0.43.0). Joining groups (decision 31; docs/outreach.md, the rest of decisions 26 to 35) is built, tidying
 on its own on every network (decisions 29 and 98, 0.97.0), every part of your profile put in, read on its own on the
 1st (decision 99, 0.98.0), LinkedIn's comments waiting for your OK at first (decision 102, 0.99.0), birthdays and new jobs read once a
-day (decision 108, 0.100.0), the week's helpful post on Instagram and Alignable (decision 109, 0.101.0), and accounts like yours on Instagram
-(decision 110, 0.102.0); Social
+day (decision 108, 0.100.0), the week's helpful post on Instagram and Alignable (decision 109, 0.101.0), accounts like yours on Instagram
+(decision 110, 0.102.0), and their story liked as a warm-up on Instagram (decision 111, 0.103.0); Social
 Outreach's onboarding is built, in HandsFreeOS (decisions 36 and 45). Safari on Mac
 follows in Phase 2.
 

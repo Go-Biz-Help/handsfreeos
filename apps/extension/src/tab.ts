@@ -21,6 +21,8 @@ import type {
   OpenMessageAsk,
   FeedPostAnswer,
   FeedPostAsk,
+  StoryAnswer,
+  StoryAsk,
   PostPeopleAnswer,
   PostPeopleAsk,
   FetchAnswer,
@@ -228,6 +230,7 @@ export class WorkTab {
   async ask(message: JoinAsk): Promise<JoinAnswer>;
   async ask(message: GroupPostAsk): Promise<GroupPostAnswer>;
   async ask(message: FeedPostAsk): Promise<FeedPostAnswer>;
+  async ask(message: StoryAsk): Promise<StoryAnswer>;
   async ask(message: PostPeopleAsk): Promise<PostPeopleAnswer>;
   async ask(message: OwnProfileAsk): Promise<OwnProfileAnswer>;
   async ask(message: WriteNameAsk): Promise<OwnProfileAnswer>;
@@ -248,6 +251,7 @@ export class WorkTab {
       | JoinAsk
       | GroupPostAsk
       | FeedPostAsk
+      | StoryAsk
       | PostPeopleAsk
       | OwnProfileAsk
       | WriteNameAsk
@@ -265,6 +269,7 @@ export class WorkTab {
     | JoinAnswer
     | GroupPostAnswer
     | FeedPostAnswer
+    | StoryAnswer
     | PostPeopleAnswer
     | OwnProfileAnswer
     | ProfileEditAnswers[ProfileEditAsk['type']]
