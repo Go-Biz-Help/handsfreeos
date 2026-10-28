@@ -18907,7 +18907,7 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * Who the person’s computer checks next for whether they fit a playbook, in order and no more than today has room for: anyone they pressed Research on, anyone waiting for a look at where they live (those asking to be friends first), friends whose chat looks like a prospect, then friends with any chat, others they’ve chatted with, friends from the groups, the rest of their friends, then their followers on Facebook who aren’t friends yet. Never anyone on Don’t pitch, nor anyone checked lately unless the person asked to check everyone again or they wait for a look.
+         * Who the person’s computer checks next for whether they fit a playbook, in order and no more than today has room for: anyone they pressed Research on, anyone waiting for a look at where they live (those asking to be friends first), friends whose chat looks like a prospect, then friends with any chat, others they’ve chatted with, friends from the groups, the rest of their friends, their followers on Facebook who aren’t friends yet, then people in the business’s Facebook groups who aren’t friends, the best fit first. Never anyone on Don’t pitch, nor anyone checked lately unless the person asked to check everyone again or they wait for a look.
          * @description Requires outreach.use.
          */
         post: operations["query_outreach_checks_next"];
@@ -19487,7 +19487,7 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * Which good posts the person’s computer reads next for who liked and commented on them, on a network that reads them (Instagram’s and LinkedIn’s): their own, the AI called good or by an Instagram account like yours, seen in the last week, not put aside, not read yet and not showing none; those asking for what the business offers first, then the busiest, then the newest; no more than the day’s, and none while 3 days of checks of people found wait.
+         * Which good posts the person’s computer reads next for who liked and commented on them, on a network that reads them (Instagram’s, LinkedIn’s and Alignable’s): their own, the AI called good or by an Instagram account like yours, seen in the last week, not put aside, not read yet and not showing none; those asking for what the business offers first, then the busiest, then the newest; no more than the day’s, and none while 3 days of checks of people found wait.
          * @description Requires outreach.use.
          */
         post: operations["query_outreach_posts_people_next"];
@@ -72805,6 +72805,17 @@ export interface operations {
                             friend_request: number;
                             like: number;
                         };
+                        topics: {
+                            chatsStarted: number;
+                            demos: number;
+                            friendRequests: number;
+                            people: number;
+                            /** @enum {string} */
+                            platform: "facebook" | "linkedin" | "instagram" | "alignable";
+                            replies: number;
+                            warmedUp: number;
+                            words: string;
+                        }[];
                         warning: {
                             /** Format: date-time */
                             at: string;
@@ -73573,7 +73584,7 @@ export interface operations {
                             /** Format: uuid */
                             profileId: string;
                             /** @enum {string} */
-                            reason: "asked" | "country" | "prospect" | "chat" | "chat_only" | "group" | "friend" | "follower";
+                            reason: "asked" | "country" | "prospect" | "chat" | "chat_only" | "group" | "friend" | "follower" | "member";
                             url: string;
                         }[];
                         perDay: number;
@@ -76589,6 +76600,7 @@ export interface operations {
                             demoLink: string | null;
                             /** @enum {string} */
                             kind: "reply" | "demo_reminder" | "rebook" | "birthday" | "new_job" | "warm_lead" | "pitch" | "video" | "opener" | "follow_up" | "check_in" | "reconnect" | "comment" | "group_reply" | "warm_up" | "friend_request" | "confirm" | "recommend" | "partner_reply" | "partner_details" | "partner_follow_up" | "partner_ask" | "partner_warm_up";
+                            likeComment?: boolean;
                             name: string;
                             nextStep: string | null;
                             partnerId?: string | null;
@@ -76652,6 +76664,7 @@ export interface operations {
                             demoLink: string | null;
                             /** @enum {string} */
                             kind: "reply" | "demo_reminder" | "rebook" | "birthday" | "new_job" | "warm_lead" | "pitch" | "video" | "opener" | "follow_up" | "check_in" | "reconnect" | "comment" | "group_reply" | "warm_up" | "friend_request" | "confirm" | "recommend" | "partner_reply" | "partner_details" | "partner_follow_up" | "partner_ask" | "partner_warm_up";
+                            likeComment?: boolean;
                             name: string;
                             nextStep: string | null;
                             partnerId?: string | null;

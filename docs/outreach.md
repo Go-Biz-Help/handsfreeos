@@ -2689,6 +2689,43 @@ where decisions 37 and 59 put the settings; what they decided stands. Settled to
         the closest, counted from the person's first day on Alignable (`network_starts`), so a week covers the 7
         closest. Its finds carry that town as their place. A HandsFreeOS too old to answer leaves the search in the
         person's own town. No migration.
+116.  **More from finding people by topic** (Chris, 28 Oct 2026, "all of your picks": 34a). "It likes a commenter's
+      comment as the warm-up before following. It reads up to 3 screens of a Likes box, and Alignable likers. The 30
+      found checks a day becomes a business setting from 10 to 100. Activity shows which hashtags brought replies.
+      Finds never checked are tidied away after 14 days. Facebook group members get the AI's check too."
+      - **A commenter's comment liked first** (0.108.0): someone found by their comment on a good post (`finds.how`
+        `commented`) gets their warm-up on that comment, on the post's own page, as a writer's goes on their post
+        (Today's item carries the post and `likeComment`; "Like their comment on the post it found", then "You liked
+        their comment on the post it found" on the friend request). The runner asks for their comment first
+        (`hfos-their-comment`: found again by who wrote it, what it says, whether it's liked) and only then presses its
+        own Like (`hfos-like-comment`), never the post's or another comment's, and never one about grief, illness or
+        trouble (`neverLike`). On Instagram its View all comments is pressed once when theirs isn't shown; on LinkedIn
+        "Load more comments" never is; on Alignable it's their answer's Like. None there, or none to press: their
+        latest is liked in its place as anyone's, and the page is noted with its outline once a day
+        (`warm_up.comment`). It's noted as a like, with the comment's own link where the network gives one. The comment
+        Like's markup on each network is read from guessed markup till the owner's next Check.
+      - **Up to 3 screens of a Likes or reactions box:** Instagram's Likes box scrolled twice past its first screen
+        (`LIKES_SCROLLS`, about 45 people); LinkedIn's reactions box scrolled, else its own Show more results pressed,
+        twice (`REACTORS_MOST` 45).
+      - **Who liked and answered on Alignable** (`post_people`, `src/jobs/alignable/post-people.ts`): once a day after
+        the groups' posts, 5 good posts a day (`postPeoplePerDay`), each on its own page: its answers read, then its box
+        of who liked it opened by its count, up to 3 screens of it read and closed again. Each business goes to the
+        AI's check from its own page before any like or connection. The likers box is read from guessed markup till
+        the owner's next Check Alignable.
+      - **Found checks a day is the business's** (`foundChecksPerDay`, `FOUND_CHECKS`: 10 to 100, starting at 30;
+        Social Outreach → Settings → For your team on the web, a stepper on the phone): for each person, on each
+        network that checks people found, halved on training wheels and for a week after a warning, and LinkedIn's
+        inside its 40 profiles read a day.
+      - **Which words brought replies** (Activity's `topics`): the people found under each hashtag, phrase or search,
+        with how many got a request, a warm-up, a chat, a reply and a demo, those with demos and replies first, on the
+        web's Activity and the phone's Results.
+      - **Finds never checked go after 14 days** (`FIND_FRESH_DAYS`, the worker's daily tidy): someone found by topic
+        and never checked, not found again since, is deleted; past then they're never checked or offered anyway.
+      - **Facebook group members get the AI's check** (`checks.via` `member`, 20261027017400): members (not admins) of
+        the business's groups whose admins have been read, in no group a teammate works, who aren't the person's
+        friends, are checked like friends, last of all, the best fits by the lines under their name first
+        (`membersNext`, up to 500 weighed). Today's friend requests from the groups go by what the AI made of them: a
+        good fit first, a bad one left out.
 
 ## Rules worth knowing before changing anything
 
@@ -3462,10 +3499,10 @@ till they act on them or read their profile again; there's no way to dismiss the
 Finding people by topic (decision 92) reads Instagram's Likes box, LinkedIn's newer reactions box, every Alignable
 group page, the person's own Alignable groups and Alignable's search for groups from guessed markup, not yet tried on
 the owner's account; a reader that finds nothing says so with its outline, and the day goes on. Left for later:
-liking a commenter's comment, Alignable's groups on the Groups tab, LinkedIn's
-comments waiting at first, the AI's check of Facebook's group members, reading further into a Likes or reactions box,
-reading likers on Alignable, a business setting for the 30 found checks a day, results by hashtag, phrase and kind of
-business, and tidying away finds never checked after two weeks (what they said is gone already).
+Alignable's groups on the Groups tab. LinkedIn's comments waiting at first came with decision 102; liking a
+commenter's comment, the AI's check of Facebook's group members, 3 screens of a Likes or reactions box, likers on
+Alignable, the business's found checks a day, results by hashtag, phrase and kind of business, and tidying away finds
+never checked after two weeks came with decision 116, the comment Like and Alignable's likers from guessed markup too.
 
 Next: the AI suggesting a conversation from the rest of the playbook, with AI drafting. Then leads. Then the rest of decisions 26 to 35 (the onboarding,
 decision 36, joining groups, decision 48, and tidying on its own, decision 98, are built), in the order above: team sharing, the after-demo workflow, birthday notes and

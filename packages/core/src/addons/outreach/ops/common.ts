@@ -26,7 +26,7 @@ import type { DontPitch, NeverContact } from '../friends';
 import { DONT_PITCH_TAG, MESSAGE_MOST, type FriendState } from '../limits';
 import type { SendKind } from '../automation';
 import { outreachAddon } from '../manifest';
-import { profileMisfit } from '../networks';
+import { NETWORKS, profileMisfit } from '../networks';
 import type { ClientStanding } from '../person-menu';
 import { PARTNER_GOAL, PLATFORMS, type Platform } from '../playbooks';
 import { RECENT_SHOWN, type RecentMessage } from '../sends';
@@ -390,6 +390,15 @@ export async function outreachSettingsOf(ctx: Ctx): Promise<OutreachSettings> {
         where workspace_id = ${ctx.scope.workspaceId!} and addon_id = ${outreachAddon.id}`,
   );
   return outreachSettings(installed?.settings);
+}
+
+/**
+ * How many people found by topic the AI checks a day on a network for each person, before training wheels and
+ * warnings have their say: the business's setting (decision 116), or null where the network doesn't check them.
+ */
+export async function foundChecksOf(ctx: Ctx, platform: Platform): Promise<number | null> {
+  if (NETWORKS[platform].foundChecksPerDay === null) return null;
+  return (await outreachSettingsOf(ctx)).foundChecksPerDay;
 }
 
 /** The business's country setting (decision 61), as it's read: Anywhere when it isn't set. */

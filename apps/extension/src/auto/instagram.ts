@@ -425,7 +425,96 @@ async function likeFoundPost(
   return went === 'not' ? null : went;
 }
 
-/** What a warm-up's likes came to, in words: the post it found first, their story, then any of their latest. */
+/** The day a comment that couldn't be liked was last noted with its page's outline (decision 74): once a day at most. */
+let commentNotedOn: string | null = null;
+
+/**
+ * Their comment on the good post they were found by (decision 116), liked first, on that post's own page, found again
+ * by who wrote it (its View all comments pressed once when the page doesn't show it yet): `liked`, `already`, or null
+ * when there's none to like there (gone, about grief, illness or trouble, or no Like on it: the page is noted with its
+ * outline once a day), so their latest is liked in its place, as anyone's is. Noted as a like with the comment's own
+ * link, so the follow waits a day as for a post.
+ */
+async function likeFoundComment(
+  item: TodayListItem,
+  businessId: string,
+): Promise<'liked' | 'already' | null | { readonly stop: string } | { readonly again: string }> {
+  const them = wantOf(item.profileUrl);
+  const postUrl = item.postUrl;
+  if (!postUrl || !them) return null;
+  await tab.open(postUrl);
+  await setState({ tabId: tab.tabId });
+  const page = await read();
+  const stop = await warnedOn(page, businessId);
+  if (stop) return { stop };
+  if (page.signedOut) return { again: SIGNED_OUT };
+  const look = async () => {
+    const seen = await tab.ask({ type: 'hfos-their-comment', profile: them, postUrl });
+    if (!seen.ok) throw new Error(seen.error);
+    return seen.comment;
+  };
+  let theirs = await look();
+  // Theirs may be past the comments the post shows first: more of them, once, as a person would look.
+  if (!theirs && (await tab.ask({ type: 'hfos-more-comments' })).ok) {
+    await pause(SETTLE_MS);
+    theirs = await look();
+  }
+  const noteMissed = async () => {
+    const state = await stateNow();
+    if (commentNotedOn === state.day) return;
+    commentNotedOn = state.day;
+    await reporter(tab, answer as Hfos, {
+      businessId,
+      platform: PLATFORM,
+      askId: null,
+      job: 'warm_up.comment',
+    })({ note: 'Couldn’t like their comment.', outline: true });
+  };
+  if (!theirs || theirs.liked === null) {
+    await noteMissed();
+    return null;
+  }
+  // Never one about grief, illness or trouble, nor on a post that is.
+  if (neverLike({ text: `${item.post ?? ''}\n${theirs.text ?? ''}`, pictures: [] })) return null;
+  let went: 'liked' | 'already' = 'already';
+  if (!theirs.liked) {
+    const liked = await tab.ask({ type: 'hfos-like-comment', profile: them, postUrl });
+    if (!liked.ok) throw new Error(liked.error);
+    if (liked.result === 'none' || liked.result === 'not_sent') {
+      await noteMissed();
+      return null;
+    }
+    if (liked.result === 'done') {
+      await pause(SETTLE_MS);
+      const after = await warnedOn(await read(), businessId);
+      if (after) return { stop: after };
+      went = 'liked';
+    }
+  }
+  await takeNote(
+    {
+      type: 'hfos-noted',
+      step: {
+        kind: 'like',
+        to: { name: item.name, profile: them },
+        group: null,
+        postUrl: theirs.commentUrl ?? postUrl,
+        thread: null,
+        replying: null,
+        auto: true,
+        postText: likedText({ text: `Their comment: ${theirs.text ?? ''}`, pictures: [] }),
+      },
+      at: now(),
+    },
+    PLATFORM,
+  );
+  return went;
+}
+
+/**
+ * What a warm-up's likes came to, in words: the post it found first (or their comment on it, decision 116), their
+ * story, then any of their latest.
+ */
 function warmedLine(
   item: TodayListItem,
   found: 'liked' | 'already' | null,
@@ -433,10 +522,11 @@ function warmedLine(
   next: string,
   story: 'liked' | 'already' | null = null,
 ): string {
+  const what = item.likeComment ? 'comment' : 'post';
   if (story) {
     // Their story first (decision 111), then whatever else it liked.
     const more = [
-      found === 'liked' ? 'the post it found' : null,
+      found === 'liked' ? `the ${what} it found` : null,
       liked ? (found || liked === 1 ? 'a post of theirs' : `${liked} posts of theirs`) : null,
     ].filter((part): part is string => part !== null);
     const others = more.join(' and ');
@@ -444,14 +534,16 @@ function warmedLine(
       story === 'liked'
         ? `Watched ${item.name}’s story and liked it${others ? `, and ${others} too` : ''}`
         : `Watched ${item.name}’s story, liked already${others ? `, and liked ${others}` : ''}`;
-    return `${watched}${found === 'already' ? ', the post it found liked already' : ''}: ${next}`;
+    return `${watched}${found === 'already' ? `, the ${what} it found liked already` : ''}: ${next}`;
   }
   if (found === 'liked')
-    return `Liked ${item.name}’s post it found${liked ? ' and another of theirs' : ''}: ${next}`;
+    return `Liked ${item.name}’s ${what} it found${liked ? (item.likeComment ? ' and a post of theirs' : ' and another of theirs') : ''}: ${next}`;
   if (found === 'already')
     return liked
-      ? `Liked another of ${item.name}’s posts, the one it found liked already: ${next}`
-      : `${item.name}’s post it found was liked already: ${next}`;
+      ? item.likeComment
+        ? `Liked a post of ${item.name}’s, their comment it found liked already: ${next}`
+        : `Liked another of ${item.name}’s posts, the one it found liked already: ${next}`
+      : `${item.name}’s ${what} it found was liked already: ${next}`;
   return !liked
     ? `${item.name}’s post was liked already: ${next}`
     : `Looked at ${item.name}’s Instagram and liked ${liked === 1 ? 'a post' : `${liked} posts`} of theirs: ${next}`;
@@ -528,10 +620,14 @@ async function likeStory(
  * on its own page (`postUrl`), and one of their latest beside it only while the day's likes have room; when that post
  * is gone, or isn't right to like, their latest is liked in its place. From 0.103.0 (decision 111), when their account
  * shows a story and the day's story likes have room, their story is watched and liked first, as one of those likes.
+ * From 0.108.0 (decision 116) someone found by their comment on a good post gets the like on that comment first, on
+ * the post's own page, in the same way: their latest in its place when it's gone or not right to like.
  */
 async function warmUp(item: TodayListItem, businessId: string, spare: number): Promise<Outcome> {
   const after = afterWarmUp(item);
-  const found = await likeFoundPost(item, businessId);
+  const found = item.likeComment
+    ? await likeFoundComment(item, businessId)
+    : await likeFoundPost(item, businessId);
   if (typeof found === 'object' && found !== null) return found;
   let story: 'liked' | 'already' | null = null;
   const done = (liked: number): Outcome => ({

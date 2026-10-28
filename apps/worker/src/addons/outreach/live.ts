@@ -104,7 +104,9 @@ export async function liveChanged(ctx: AddonEventContext): Promise<void> {
  * needs done or let go more than `NEED_QUIET_DAYS` ago (Let it go keeps a step quiet that long, no more), and open ones
  * not seen for `NEED_SHOWN_DAYS` and `NEED_GONE_DAYS` more (off the list a while; noted again, one is new anyway);
  * what someone found by topic said under a post, once the find is `FIND_FRESH_DAYS` old (decision 92: nothing a
- * stranger wrote is kept; their check empties it sooner); and computers not seen for `COMPUTER_KEEP_DAYS`, but the one that works for each person (ranked as core's
+ * stranger wrote is kept; their check empties it sooner); someone found by topic and never checked, once they haven't
+ * been found again for `FIND_FRESH_DAYS` (decision 116: past then they're never checked or offered); and computers not
+ * seen for `COMPUTER_KEEP_DAYS`, but the one that works for each person (ranked as core's
  * `workingOf`): their lines went with the week already, and an ask one took keeps no computer. Seen again, a computer
  * comes back as new. It comes back tomorrow.
  */
@@ -138,6 +140,15 @@ export async function livePruneJob(ctx: AddonJobContext): Promise<JobResult> {
           where workspace_id = ${ctx.scope.workspaceId}
             and ((state <> 'open' and cleared_at < ${cleared}::timestamptz)
               or (state = 'open' and seen_at < ${offList}::timestamptz))`,
+    );
+    // Someone found and never checked goes once they haven't been found again for 2 weeks (decision 116): the checks
+    // and Today pass them by from then. A check of theirs keeps the find, for how they were found.
+    await rows(
+      tx,
+      sql`delete from addon_outreach.finds f
+          where f.workspace_id = ${ctx.scope.workspaceId} and f.found_at < ${stale}::timestamptz
+            and not exists (select 1 from addon_outreach.checks ch
+              where ch.workspace_id = f.workspace_id and ch.user_id = f.user_id and ch.profile_id = f.profile_id)`,
     );
     // What a stranger wrote under a post goes once their check reads it, and 2 weeks after it was kept if none did
     // (decision 92): by when it was kept, so being found again never keeps it longer.

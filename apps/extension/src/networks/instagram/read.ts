@@ -601,9 +601,25 @@ export function authorOf(root: Element, base: string, code: string): Account | n
   return null;
 }
 
-/** Its comments: each found by its own link on its time (/p/<code>/c/<id>/), with a Reply beside it. */
-function commentsIn(root: Element, base: string): { comments: Comment[]; parts: Element[] } {
-  const comments: Comment[] = [];
+/** A comment on a post, as its page shows it: who wrote it and what it says, its own link, and its part of the page. */
+export interface CommentPart {
+  readonly comment: Comment;
+  /** Its own link, on its time (/p/<code>/c/<id>/), made whole. */
+  readonly url: string;
+  /** The nearest part around its time that has its Reply and names who wrote it. */
+  readonly part: Element;
+}
+
+/**
+ * Its comments with their parts of the page: each found by its own link on its time (/p/<code>/c/<id>/), with a Reply
+ * beside it, `most` at most; and every part found that way, whoever wrote it.
+ */
+export function commentPartsIn(
+  root: Element,
+  base: string,
+  most = COMMENTS_MOST,
+): { found: CommentPart[]; parts: Element[] } {
+  const found: CommentPart[] = [];
   const seen = new Set<Element>();
   for (const { a, url } of linksIn(root, base)) {
     if (!isCommentLink(url)) continue;
@@ -626,10 +642,20 @@ function commentsIn(root: Element, base: string): { comments: Comment[]; parts: 
           !OWN_WORDS.test(clean(el.textContent)),
       )
       .map((el) => textOf(el))[0];
-    comments.push({ ...by.account, text: said ?? '' });
-    if (comments.length >= COMMENTS_MOST) break;
+    found.push({
+      comment: { ...by.account, text: said ?? '' },
+      url: `${HOST}${url.pathname.endsWith('/') ? url.pathname : `${url.pathname}/`}`,
+      part: at,
+    });
+    if (found.length >= most) break;
   }
-  return { comments, parts: [...seen] };
+  return { found, parts: [...seen] };
+}
+
+/** Its comments: each found by its own link on its time (/p/<code>/c/<id>/), with a Reply beside it. */
+function commentsIn(root: Element, base: string): { comments: Comment[]; parts: Element[] } {
+  const { found, parts } = commentPartsIn(root, base);
+  return { comments: found.map((f) => f.comment), parts };
 }
 
 /**

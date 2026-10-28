@@ -301,6 +301,7 @@ describe('Results on the phone', () => {
       warning: null,
       partners: { asked: 3, interested: 1, calls: 1, partners: 0 },
       groups: [],
+      topics: [],
       people: [],
       morePeople: 0,
     };

@@ -11,7 +11,8 @@
  *   (`foundCheckSystem`): how they were found (`findFact`), the post it was on and what they said under it, against
  *   the playbooks' niche, who they're for and their problem; never a chat, as the person doesn't know them yet.
  * - One of the person's followers on Facebook who isn't a friend (decision 113, a check `via = 'follower'`) is asked
- *   about like a friend, told they follow the owner.
+ *   about like a friend, told they follow the owner; someone in one of the business's groups there who isn't (decision
+ *   116, `via = 'member'`), told which group.
  * - While the business reaches only some countries, the AI also weighs where they live (decision 86): what their
  *   profile says, how many friends they have, where their mutual friends live, and how the person's own friends are
  *   spread, so it knows what "most of them" means here.
@@ -27,6 +28,7 @@ import {
   FOUND_POST_MOST,
   foundCheckPrompt,
   foundCheckSystem,
+  memberFact,
   type CheckPlaybook,
   type FoundCheckPlaybook,
 } from '@hfos/core/addons/outreach/checks';
@@ -146,6 +148,7 @@ export async function checkPeopleJob(ctx: AddonJobContext): Promise<JobResult> {
       mutual_friends: number | null;
       group_name: string | null;
       group_lines: string[] | null;
+      member_group: string | null;
       summary: string | null;
       recent: DownloadMessage[] | null;
       via: CheckVia;
@@ -163,6 +166,10 @@ export async function checkPeopleJob(ctx: AddonJobContext): Promise<JobResult> {
             p.intro, p.mutual_friends, p.friends_count, g.name as group_name,
             (select gp.lines from addon_outreach.group_people gp where gp.profile_id = p.id
               order by gp.seen_at desc limit 1) as group_lines,
+            (select mg.name from addon_outreach.group_people gp
+              join addon_outreach.groups mg on mg.id = gp.group_id
+              where gp.profile_id = p.id and not gp.runs_group
+              order by gp.seen_at desc limit 1) as member_group,
             c.summary, c.recent, ch.via, fd.how as find_how, fd.words as find_words, fd.place as find_place,
             fg.name as find_group, left(fpo.body, ${FOUND_POST_MOST}) as find_post, fd.said as find_said
           from addon_outreach.checks ch
@@ -261,8 +268,11 @@ export async function checkPeopleJob(ctx: AddonJobContext): Promise<JobResult> {
             facts: [
               ...(person.group_lines ?? []),
               ...person.intro,
-              ...(person.group_name ? [`Found in the group ${person.group_name}`] : []),
+              ...(person.group_name && person.via !== 'member'
+                ? [`Found in the group ${person.group_name}`]
+                : []),
               ...(person.via === 'follower' ? [FOLLOWER_FACT] : []),
+              ...(person.via === 'member' ? [memberFact(person.member_group)] : []),
               ...(person.mutual_friends
                 ? [
                     `${person.mutual_friends.toLocaleString('en-US')} mutual ${NETWORKS[person.platform].words.friends}`,

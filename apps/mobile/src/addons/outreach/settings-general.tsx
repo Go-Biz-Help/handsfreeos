@@ -20,6 +20,7 @@ import {
   type OutreachSettings,
 } from '@hfos/core/addons/outreach/chat-read';
 import type { CountryRule } from '@hfos/core/addons/outreach/countries';
+import { FOUND_CHECKS, stepFoundChecks } from '@hfos/core/addons/outreach/finds';
 import { withNetwork } from '@hfos/core/addons/outreach/network-words';
 import { SETTINGS_WORDS } from '@hfos/core/addons/outreach/settings-parts';
 import { SETUP_WORDS } from '@hfos/core/addons/outreach/setup';
@@ -112,6 +113,7 @@ export interface TeamDraft {
   readonly defaults: AutomationSettings;
   readonly contactsFromChats: OutreachSettings['contactsFromChats'];
   readonly cancelRequestsAfterWeeks: number;
+  readonly foundChecksPerDay: number;
   readonly morningPushHour: number | null;
   readonly weeklyReport: boolean;
   readonly countries: CountryRule;
@@ -126,6 +128,7 @@ export const teamDraftOf = (saved: unknown): TeamDraft => {
     defaults: s.rules.defaults,
     contactsFromChats: s.contactsFromChats,
     cancelRequestsAfterWeeks: s.cancelRequestsAfterWeeks,
+    foundChecksPerDay: s.foundChecksPerDay,
     morningPushHour: s.morningPushHour,
     weeklyReport: s.weeklyReport,
     countries: s.countries,
@@ -141,6 +144,7 @@ export const withTeam =
   (now: OutreachSettings): Partial<OutreachSettings> => ({
     contactsFromChats: draft.contactsFromChats,
     cancelRequestsAfterWeeks: draft.cancelRequestsAfterWeeks,
+    foundChecksPerDay: draft.foundChecksPerDay,
     morningPushHour: draft.morningPushHour,
     weeklyReport: draft.weeklyReport,
     countries: draft.countries,
@@ -258,6 +262,22 @@ export function GeneralTeam({
               : null
           }
           testID="settings-cancel-weeks"
+        />
+      </Section>
+      <Section boxed title={W.sections.foundChecks} about={W.abouts.foundChecks}>
+        <Stepper
+          words={W.aDay(d.foundChecksPerDay)}
+          onDown={
+            d.foundChecksPerDay > FOUND_CHECKS.least && !disabled
+              ? () => set({ foundChecksPerDay: stepFoundChecks(d.foundChecksPerDay, -1) }, true)
+              : null
+          }
+          onUp={
+            d.foundChecksPerDay < FOUND_CHECKS.most && !disabled
+              ? () => set({ foundChecksPerDay: stepFoundChecks(d.foundChecksPerDay, 1) }, true)
+              : null
+          }
+          testID="settings-found-checks"
         />
       </Section>
       <Section boxed title={W.sections.morning} about={W.abouts.morning}>

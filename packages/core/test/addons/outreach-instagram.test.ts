@@ -629,7 +629,7 @@ describe('Instagram’s growing on Today (part 15)', () => {
 /**
  * Instagram's people found by topic (decision 92): for a computer on 0.95.0 or later, a good post's writer and who
  * commented on it reach Today only after the AI's check of them from their own page. The writer's like goes on the
- * post the hashtag's look found; a commenter gets one of their own liked; the follow comes a day after.
+ * post the hashtag's look found; a commenter's on their comment on it (decision 116); the follow comes a day after.
  */
 describe('Instagram’s people found by topic (decision 92)', () => {
   let owner: TestUser;
@@ -673,9 +673,16 @@ describe('Instagram’s people found by topic (decision 92)', () => {
   const listed = async () =>
     ((await runAs(owner, ws, 'outreach.today', { platform: 'instagram' })).items as TodayItem[])
       .filter((i) => i.kind === 'warm_up' || i.kind === 'friend_request')
-      .map((i) => ({ name: i.name, kind: i.kind, why: i.why, postUrl: i.postUrl, post: i.post }));
+      .map((i) => ({
+        name: i.name,
+        kind: i.kind,
+        why: i.why,
+        postUrl: i.postUrl,
+        post: i.post,
+        likeComment: i.likeComment,
+      }));
 
-  it('likes the writer’s found post and a post of a commenter’s own once the AI checked them good, then follows', async () => {
+  it('likes the writer’s found post and a commenter’s comment on it once the AI checked them good, then follows', async () => {
     await runAs(owner, ws, 'outreach.posts.save', {
       platform: 'instagram',
       found: 'search',
@@ -739,10 +746,11 @@ describe('Instagram’s people found by topic (decision 92)', () => {
         why: [
           'Commented on a post under #austinplumbing',
           'Owns a drain cleaning business in Austin',
-          'Their follow comes a day after',
+          'Like their comment on the post it found: their follow comes a day after',
         ],
-        postUrl: null,
-        post: null,
+        postUrl: POST,
+        post: expect.stringMatching(/^Three of us run a plumbing crew/),
+        likeComment: true,
       },
     ]);
 
@@ -754,8 +762,22 @@ describe('Instagram’s people found by topic (decision 92)', () => {
     );
     // Today lists likes before requests (TODAY_KINDS).
     expect((await listed()).map((i) => [i.name, i.kind, i.why.at(-1)])).toEqual([
-      ['tate.drains', 'warm_up', 'Their follow comes a day after'],
+      [
+        'tate.drains',
+        'warm_up',
+        'Like their comment on the post it found: their follow comes a day after',
+      ],
       ['sage.plumbing', 'friend_request', 'You liked the post it found'],
+    ]);
+    // And the commenter's, liked yesterday on their comment: their follow comes, saying so.
+    await rows(
+      admin(),
+      sql`insert into addon_outreach.touches (workspace_id, profile_id, user_id, kind, at)
+          values (${ws}, ${await profileOf('tate.drains')}, ${owner.id}, 'like', now() - interval '21 hours')`,
+    );
+    expect((await listed()).map((i) => [i.name, i.kind, i.why.at(-1), i.likeComment])).toEqual([
+      ['sage.plumbing', 'friend_request', 'You liked the post it found', undefined],
+      ['tate.drains', 'friend_request', 'You liked their comment on the post it found', undefined],
     ]);
   });
 });

@@ -220,6 +220,12 @@ export const TodayItem = z.object({
   postUrl: z.string().nullable(),
   posted: z.string().nullable(),
   post: z.string().nullable(),
+  /**
+   * For a warm-up of someone found by their comment on a good post (decision 116): the like goes on their comment
+   * there, found again by who wrote it on the post's own page (`postUrl`), not on the post. Left out otherwise, and by
+   * builds of the phone from before it: read as not.
+   */
+  likeComment: z.boolean().optional(),
   /** The post's writer is asking, now, for what the business offers (./posts.ts, decision 49): first on the list. */
   asking: z.boolean(),
   /** Why it's on the list: "Owner at Pine Street Bakery", "Found in Austin Small Business Owners". */

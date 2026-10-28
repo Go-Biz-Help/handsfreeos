@@ -112,8 +112,10 @@ export interface NetworkKit {
   /**
    * How many people found by topic (decision 92, ./finds.ts: a good post's writer, likers and commenters, search
    * results and group members) the person's computer reads a day for the AI's check, before anything is done for them;
-   * halved on training wheels and for a week after a warning there. Only a good check puts them on Today. Null where
-   * people found are weighed by the words they show (Facebook's group members, `bestFit`).
+   * halved on training wheels and for a week after a warning there. Only a good check puts them on Today. The number
+   * here is where a business starts: its own setting, 10 to 100, takes its place (decision 116, `FOUND_CHECKS`,
+   * ./ops/common.ts `foundChecksOf`). Null where people found are weighed by the words they show (Facebook's group
+   * members, `bestFit`).
    */
   readonly foundChecksPerDay: number | null;
   /**
@@ -308,11 +310,12 @@ export const NETWORKS: Readonly<Record<Platform, NetworkKit>> = {
     requestsMessageAfterDays: null,
     requestsMessagesPerDay: null,
     followBackLooksPerDay: null,
-    // Businesses its search and its groups found, 30 a day beside its 30 reads (the build's choice, decision 92); no
-    // likers are read there. Comments wait for an OK at first, and it joins up to 3 good groups a day.
+    // Businesses its search and its groups found, 30 a day beside its 30 reads (the build's choice, decision 92), and
+    // from 0.108.0 who liked and answered 5 good posts a day (decision 116). Comments wait for an OK at first, and it
+    // joins up to 3 good groups a day.
     foundChecksPerDay: 30,
     foundShareReads: false,
-    postPeoplePerDay: null,
+    postPeoplePerDay: 5,
     storyLikesPerDay: null,
     commentsWait: 'hold',
     joinsPerDay: 3,

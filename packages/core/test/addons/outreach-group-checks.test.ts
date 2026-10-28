@@ -150,8 +150,9 @@ describe('each network’s groups (decision 92)', () => {
     // it joins no groups.
     expect(kit('linkedin')).toEqual([30, true, 5, 'hold', null, false]);
     expect(kit('instagram')).toEqual([30, false, 5, 'hold', null, false]);
-    // Alignable reads no likers, holds comments at first, and joins up to 3 good groups a day.
-    expect(kit('alignable')).toEqual([30, false, null, 'hold', 3, true]);
+    // Alignable reads who liked and answered 5 good posts a day (decision 116), holds comments at first, and joins up to
+    // 3 good groups a day.
+    expect(kit('alignable')).toEqual([30, false, 5, 'hold', 3, true]);
     expect(JOINS_PER_DAY).toBe(3);
     expect(PLATFORM_KEYS.filter(groupsByCheck)).toEqual(['linkedin', 'instagram', 'alignable']);
   });

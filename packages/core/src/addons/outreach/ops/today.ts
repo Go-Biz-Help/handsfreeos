@@ -60,7 +60,7 @@ import {
   LEADERS_WAIT_DAYS,
   type FindHow,
 } from '../finds';
-import { RECONNECT_QUIET_DAYS } from '../checks';
+import { RECONNECT_QUIET_DAYS, type CheckVerdict } from '../checks';
 import { FOLLOWER_WHY, FOLLOWERS_KEPT_DAYS } from '../followers';
 import { type EngagementKind, WARM_LEAD_DAYS } from '../helpful';
 import type { GroupResults } from '../results';
@@ -671,7 +671,13 @@ export const today = defineAddonQuery(outreachAddon, {
             why: [
               ...foundWhy(p, input.platform),
               ...(settings.warmUp && likedBy(p) !== null
-                ? [p.post_id ? 'You liked the post it found' : 'You liked a post of theirs']
+                ? [
+                    !p.post_id
+                      ? 'You liked a post of theirs'
+                      : p.how === 'commented'
+                        ? 'You liked their comment on the post it found'
+                        : 'You liked the post it found',
+                  ]
                 : []),
             ],
             playbookName: p.playbook_name,
@@ -696,8 +702,10 @@ export const today = defineAddonQuery(outreachAddon, {
         for (const p of cold.slice(0, Math.min(foundLikesLeft, wanted))) {
           foundLikes++;
           warmIds.add(p.id);
-          // A poster's like goes on the post it found, which the item carries for the runner to open.
+          // A poster's like goes on the post it found, which the item carries for the runner to open; a commenter's on
+          // their comment there (decision 116).
           const found = p.post_id !== null && p.post_url !== null;
+          const comment = found && p.how === 'commented';
           items.push(
             item({
               kind: 'warm_up',
@@ -710,13 +718,16 @@ export const today = defineAddonQuery(outreachAddon, {
                     postUrl: p.post_url,
                     posted: p.posted,
                     post: p.body === null ? null : shownPost(p.body),
+                    ...(comment ? { likeComment: true } : {}),
                   }
                 : {}),
               why: [
                 ...foundWhy(p, input.platform),
-                found
-                  ? 'Like the post it found: their friend request comes a day after'
-                  : 'Their friend request comes a day after',
+                comment
+                  ? 'Like their comment on the post it found: their friend request comes a day after'
+                  : found
+                    ? 'Like the post it found: their friend request comes a day after'
+                    : 'Their friend request comes a day after',
               ],
               playbookName: p.playbook_name,
             }),
@@ -836,7 +847,8 @@ export const today = defineAddonQuery(outreachAddon, {
     // Friend requests: people found in the groups, the best fit first. With Like a post first on (decision 33),
     // someone's request waits a day after one of their posts was liked, and the list has likes for tomorrow's. Only on
     // a network that weighs people by the words they show (Facebook's): elsewhere a group's member reaches the list
-    // only as someone found, after a good check (decision 92).
+    // only as someone found, after a good check (decision 92). The AI checks them too (decision 116): someone it says
+    // doesn't fit is left off, and a good fit comes ahead, with what it said.
     const requestsLeft = Math.max(
       0,
       leftToday(limits, 'friend_request') -
@@ -873,6 +885,9 @@ export const today = defineAddonQuery(outreachAddon, {
         in_group: boolean;
         liked_at: Date | string | null;
         warm_up_missed_at: Date | string | null;
+        verdict: CheckVerdict | null;
+        verdict_why: string[] | null;
+        verdict_playbook: string | null;
       }>(
         ctx.tx,
         sql`select distinct on (p.id) p.id, p.name, p.url, p.intro, p.mutual_friends, gp.lines,
@@ -882,11 +897,15 @@ export const today = defineAddonQuery(outreachAddon, {
                 where m.group_id = g.id and m.user_id = ${me} and m.joined) as in_group,
               (select max(t.at) from addon_outreach.touches t
                 where t.profile_id = p.id and t.user_id = ${me} and t.kind = 'like'
-                  and t.at >= ${ago(WARM_UP_WINDOW_DAYS)}::timestamptz) as liked_at
+                  and t.at >= ${ago(WARM_UP_WINDOW_DAYS)}::timestamptz) as liked_at,
+              ch.verdict, ch.why as verdict_why, cpb.name as verdict_playbook
             from addon_outreach.group_people gp
             join addon_outreach.groups g on g.id = gp.group_id
             join addon_outreach.profiles p on p.id = gp.profile_id
+            left join addon_outreach.checks ch on ch.profile_id = p.id and ch.user_id = ${me}
+            left join addon_outreach.playbooks cpb on cpb.id = ch.playbook_id
             where gp.workspace_id = ${ws} and g.admins_read_at is not null and not gp.runs_group
+              and ch.verdict is distinct from 'not'
               and ${notOthers(me, 'g')}
               and p.person_id is null and ${pitchable('p')} and ${inPlay(me, 'p')} and ${lets}
               and p.friendship not in ('self', 'friends', 'request_sent', 'request_received')
@@ -921,7 +940,9 @@ export const today = defineAddonQuery(outreachAddon, {
           mutualFriends: p.mutual_friends,
           groupName: p.group_name,
         });
-        return fit.level === 'skip' || fit.level === 'unknown' ? [] : [{ p, fit }];
+        // A good check read their whole profile, over the lines under their name; a playbook's skip still wins.
+        if (fit.level === 'skip') return [];
+        return fit.level === 'unknown' && p.verdict !== 'good' ? [] : [{ p, fit }];
       });
       // Someone from a group whose people wrote back or booked demos comes ahead of others who fit as well (9a);
       // and the person's own groups, and those the AI says their people are in, before the rest (decision 48).
@@ -933,9 +954,15 @@ export const today = defineAddonQuery(outreachAddon, {
         return (
           (!r ? 0 : r.demos ? 2 : r.replies ? 1 : 0) +
           (p.in_group ? 1 : 0) +
-          (p.check_state === 'good' ? 1 : 0)
+          (p.check_state === 'good' ? 1 : 0) +
+          (p.verdict === 'good' ? 2 : 0)
         );
       };
+      // What the AI said of a good fit comes first (decision 116), and its playbook.
+      const checkedWhy = (p: (typeof found)[number]) =>
+        p.verdict === 'good' ? (p.verdict_why ?? []).slice(0, FOUND_WHY_MOST) : [];
+      const playbookOf = (p: (typeof found)[number], fit: (typeof fitted)[number]['fit']) =>
+        (p.verdict === 'good' ? p.verdict_playbook : null) ?? fit.playbookName;
       fitted.sort(
         (a, b) =>
           b.fit.score + lift(b.p) - (a.fit.score + lift(a.p)) || a.p.name.localeCompare(b.p.name),
@@ -967,11 +994,12 @@ export const today = defineAddonQuery(outreachAddon, {
             profileId: p.id,
             profileUrl: p.url,
             why: [
+              ...checkedWhy(p),
               ...fit.reasons,
               ...fromResults(p.group_id),
               ...(settings.warmUp && likedBy(p) !== null ? ['You liked a post of theirs'] : []),
             ],
-            playbookName: fit.playbookName,
+            playbookName: playbookOf(p, fit),
           }),
         );
       if (settings.warmUp) {
@@ -991,8 +1019,8 @@ export const today = defineAddonQuery(outreachAddon, {
               name: p.name,
               profileId: p.id,
               profileUrl: p.url,
-              why: [...fit.reasons, 'Their friend request comes a day after'],
-              playbookName: fit.playbookName,
+              why: [...checkedWhy(p), ...fit.reasons, 'Their friend request comes a day after'],
+              playbookName: playbookOf(p, fit),
             }),
           );
       }
@@ -1886,7 +1914,7 @@ type FoundGood = {
   readonly group_name: string | null;
   readonly check_why: string[];
   readonly playbook_name: string | null;
-  /** The post a poster wrote, which their like goes on: null for anyone else. */
+  /** The post a poster wrote, which their like goes on, or a commenter's comment is on: null for anyone else. */
   readonly post_id: string | null;
   readonly post_url: string | null;
   readonly posted: string | null;
@@ -1925,8 +1953,9 @@ async function foundGood(
           and ch.via = 'found' and ch.verdict = 'good'
         left join addon_outreach.playbooks pb on pb.id = ch.playbook_id
         left join addon_outreach.groups g on g.id = f.group_id
-        -- The post they wrote: their like goes on it. Someone who liked or commented on it gets one of their own.
-        left join addon_outreach.posts po on po.id = f.post_id and f.how = 'posted'
+        -- The post they wrote: their like goes on it. Someone who commented on it gets their comment liked there
+        -- (decision 116), and someone who liked it one of their own posts.
+        left join addon_outreach.posts po on po.id = f.post_id and f.how in ('posted', 'commented')
         where f.workspace_id = ${ctx.scope.workspaceId!} and f.user_id = ${me} and f.platform = ${platform}
           and f.found_at >= ${ago(FIND_FRESH_DAYS)}::timestamptz
           and ${stillToReach(me)} and ${lets}

@@ -9,6 +9,7 @@
  * warnings and the steps it looks for. Everything else is ./kit.ts, ./read.ts and ./looks.ts, the same for each.
  */
 import type { Platform } from '@hfos/core/addons/outreach/networks';
+import type { CommentLiked, TheirComment } from '../../messages';
 import type { ProfileRead } from '@hfos/core/addons/outreach/profile-check';
 import type { AboutResult, CodeResult } from '../alignable/own-profile';
 import type { AlignableWithdrawResult } from '../alignable/withdraw';
@@ -230,6 +231,23 @@ export interface LookingSite {
       profile: ProfileRef,
       pick: { readonly index: number; readonly url: string | null },
     ) => Promise<{ readonly result: AutoResult; readonly postUrl: string | null }>;
+    /**
+     * Their comment on a good post's own page (decision 116: the warm-up for someone found by their comment), found
+     * again by who wrote it: read (`theirComment`), then liked with its own Like (`likeComment`), its link and what it
+     * says. A site without them is never asked.
+     */
+    readonly theirComment?: (
+      doc: Document,
+      href: string,
+      profile: ProfileRef,
+      postUrl: string,
+    ) => TheirComment | null;
+    readonly likeComment?: (
+      doc: Document,
+      href: string,
+      profile: ProfileRef,
+      postUrl: string,
+    ) => Promise<CommentLiked>;
     readonly connect: (
       doc: Document,
       href: string,

@@ -63,6 +63,7 @@ import {
 import {
   countryFateSql,
   countryRuleOf,
+  foundChecksOf,
   inWorkspace,
   keepCountry,
   keptProfile,
@@ -198,7 +199,7 @@ export async function findWriter(
 
 /** Whether the finds waiting for the AI's check on a network are at the cap: 3 days of its found checks. */
 async function findsFull(ctx: Ctx, me: string, platform: Platform, now: number): Promise<boolean> {
-  const most = findsWaitingMost(NETWORKS[platform].foundChecksPerDay ?? 0);
+  const most = findsWaitingMost((await foundChecksOf(ctx, platform)) ?? 0);
   return (await findsWaiting(ctx, me, platform, now)) >= most;
 }
 
@@ -217,7 +218,7 @@ export const findsSave = defineAddonCommand(outreachAddon, {
     const ws = ctx.scope.workspaceId!;
     const at = changeMoment(ctx.meta);
     const kit = NETWORKS[input.platform];
-    const perDay = kit.foundChecksPerDay;
+    const perDay = await foundChecksOf(ctx, input.platform);
     if (perDay === null)
       throw HfosError.rule(
         'outreach_finds_off',
@@ -327,7 +328,7 @@ export const findsSave = defineAddonCommand(outreachAddon, {
 export const postsPeopleNext = defineAddonQuery(outreachAddon, {
   name: 'outreach.posts.people_next',
   description:
-    'Which good posts the person’s computer reads next for who liked and commented on them, on a network that reads them (Instagram’s and LinkedIn’s): their own, the AI called good or by an Instagram account like yours, seen in the last week, not put aside, not read yet and not showing none; those asking for what the business offers first, then the busiest, then the newest; no more than the day’s, and none while 3 days of checks of people found wait.',
+    'Which good posts the person’s computer reads next for who liked and commented on them, on a network that reads them (Instagram’s, LinkedIn’s and Alignable’s): their own, the AI called good or by an Instagram account like yours, seen in the last week, not put aside, not read yet and not showing none; those asking for what the business offers first, then the busiest, then the newest; no more than the day’s, and none while 3 days of checks of people found wait.',
   input: PostsPeopleNextInput,
   output: PostsPeopleNextOutput,
   permission: 'outreach.use',

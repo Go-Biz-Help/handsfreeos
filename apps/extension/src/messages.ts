@@ -166,6 +166,40 @@ export type StoryAnswer =
   | { readonly ok: false; readonly error: string };
 
 /**
+ * Their comment on a good post, on that post's own page (decision 116: the warm-up for someone found by their comment,
+ * src/auto/instagram.ts, src/auto/linkedin.ts, src/auto/alignable.ts), found again by who wrote it: first read (what it
+ * says, so one about grief, illness or trouble is never liked, and whether it's liked), then liked with its own Like;
+ * how that went, with its own link when the page gives one and what it says.
+ */
+export type TheirCommentAsk = {
+  readonly type: 'hfos-their-comment';
+  readonly profile: ProfileRef;
+  readonly postUrl: string;
+};
+export type CommentLikeAsk = {
+  readonly type: 'hfos-like-comment';
+  readonly profile: ProfileRef;
+  readonly postUrl: string;
+};
+/** Their comment as the page shows it: null when the page isn't the post asked for, or shows no comment of theirs. */
+export interface TheirComment {
+  readonly text: string | null;
+  readonly commentUrl: string | null;
+  /** Whether the person's like is on it; null when it shows no Like to press. */
+  readonly liked: boolean | null;
+}
+export type TheirCommentAnswer =
+  | { readonly ok: true; readonly comment: TheirComment | null }
+  | { readonly ok: false; readonly error: string };
+export interface CommentLiked {
+  readonly result: AutoResult;
+  readonly commentUrl: string | null;
+  readonly text: string | null;
+}
+export type CommentLikeAnswer =
+  ({ readonly ok: true } & CommentLiked) | { readonly ok: false; readonly error: string };
+
+/**
  * In one of the person's Facebook groups (decision 114, src/networks/facebook/auto.ts): the newest posts in its feed,
  * each with whether the person liked it already, for the day's likes and its question for a reply; and one of them
  * liked, by its place among those read, checked by its link when the page gave one. The like answers as an

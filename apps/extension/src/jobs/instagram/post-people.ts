@@ -8,8 +8,8 @@
  *
  * - **Each post:** its own page, with its window in front; its View all comments (or Load more comments) pressed once,
  *   and who commented read with what they said (HandsFreeOS keeps it only till the AI's check reads it); then its
- *   Likes box opened by its count of likes, as a person opens it, up to 2 screens of who liked it read (about 30) with
- *   whether the person follows them, and the box closed again by its own Close.
+ *   Likes box opened by its count of likes, as a person opens it, up to 3 screens of who liked it read (decision 116,
+ *   about 45) with whether the person follows them, and the box closed again by its own Close.
  * - **Never** the person, the post's writer, or anyone the person follows (the Likes box's own buttons say so);
  *   HandsFreeOS leaves out anyone else they follow or who follows them, their customers, and anyone left alone.
  *
@@ -33,10 +33,10 @@ const PLATFORM = 'instagram';
 const POST_PACE_MS = [20_000, 40_000] as const;
 /** While Instagram draws what a press opened: more comments, or the Likes box. */
 const DRAWN_MS = [2_000, 4_000] as const;
-/** Screens of the Likes box past its first: 2 in all, about 30 people (decision 92). Never further. */
-const LIKES_SCROLLS = 1;
+/** Screens of the Likes box past its first: 3 in all, about 45 people (decision 116). Never further. */
+const LIKES_SCROLLS = 2;
 /** Of who liked a post, the most it reads. */
-export const LIKERS_MOST = 30;
+export const LIKERS_MOST = 45;
 
 type Post = PostsPeopleNext['posts'][number];
 

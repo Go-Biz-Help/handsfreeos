@@ -12,6 +12,7 @@
 import {
   ACTIVITY_PERIOD_KEYS,
   ACTIVITY_PERIODS,
+  topicName,
   type ActivityPeriod,
 } from '@hfos/core/addons/outreach/activity';
 import { NETWORKS, PLATFORMS } from '@hfos/core/addons/outreach/networks';
@@ -34,6 +35,7 @@ import type { Activity, Tracking } from './types';
 type Numbers = Activity['numbers'];
 type PartnerNumbers = NonNullable<Activity['partners']>;
 type Group = Activity['groups'][number];
+type Topic = Activity['topics'][number];
 type Person = Activity['people'][number];
 
 /** From reached to booked, each step from the one before. */
@@ -151,6 +153,7 @@ export function ActivityView({
         ) : (
           <>
             <GroupsCard groups={activity.groups} />
+            {activity.topics.length ? <TopicsCard topics={activity.topics} /> : null}
             <PeopleCard
               workspaceId={workspaceId}
               people={activity.people}
@@ -274,6 +277,54 @@ function Funnel({ numbers }: { numbers: Numbers }) {
         ))}
       </div>
     </section>
+  );
+}
+
+/**
+ * The people reached by the hashtag, phrase or kind of business they were found with on Instagram, LinkedIn or
+ * Alignable (decision 116): which words bring replies and demos. Only once someone found that way was reached.
+ */
+function TopicsCard({ topics }: { topics: readonly Topic[] }) {
+  return (
+    <Card className="overflow-x-auto p-0" data-testid="activity-topics">
+      <div className="px-5 pt-4">
+        <h3 className="text-[15px] font-semibold">By hashtag or search</h3>
+        <p className="text-[12.5px] text-text-3">
+          The hashtags, phrases and kinds of business the people reached were found with, and what
+          came of it. The ones that bring demos and replies come first.
+        </p>
+      </div>
+      <table className="mt-2 w-full min-w-[680px] text-left text-[13.5px]">
+        <thead className="border-b border-border text-xs font-semibold uppercase tracking-wide text-text-3">
+          <tr>
+            <th className="px-5 py-2.5 font-semibold">Found with</th>
+            <th className="px-3 py-2.5 text-right font-semibold">People</th>
+            <th className="px-3 py-2.5 text-right font-semibold">Requests or follows</th>
+            <th className="px-3 py-2.5 text-right font-semibold">Liked or commented</th>
+            <th className="px-3 py-2.5 text-right font-semibold">Chats started</th>
+            <th className="px-3 py-2.5 text-right font-semibold">Wrote back</th>
+            <th className="px-5 py-2.5 text-right font-semibold">Demos</th>
+          </tr>
+        </thead>
+        <tbody>
+          {topics.map((t) => (
+            <tr
+              key={`${t.platform} ${t.words}`}
+              className="border-b border-border last:border-b-0"
+              data-testid="activity-topic"
+            >
+              <td className="px-5 py-2.5 font-medium">{topicName(t)}</td>
+              <td className="px-3 py-2.5 text-right tabular-nums">{t.people}</td>
+              <td className="px-3 py-2.5 text-right tabular-nums">{t.friendRequests}</td>
+              <td className="px-3 py-2.5 text-right tabular-nums">{t.warmedUp}</td>
+              <td className="px-3 py-2.5 text-right tabular-nums">{t.chatsStarted}</td>
+              <td className="px-3 py-2.5 text-right tabular-nums">{t.replies}</td>
+              <td className="px-5 py-2.5 text-right tabular-nums">{t.demos}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </Card>
   );
 }
 

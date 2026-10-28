@@ -364,11 +364,91 @@ async function likeFoundPost(
   };
 }
 
+/** The day a comment that couldn't be liked was last noted with its page's outline (decision 74): once a day at most. */
+let commentNotedOn: string | null = null;
+
+/**
+ * The like on their comment on the good post a search found them by (decision 116), on that post's own page, found
+ * again by who wrote it, when nothing rules it out (never one about grief, illness or trouble, nor on a post that is).
+ * One liked already counts. Null when the page shows no comment of theirs (LinkedIn shows the most relevant first, and
+ * "Load more comments" is never pressed) or no Like on it, noted with the page's outline once a day: then one of their
+ * latest is liked instead. Noted as a like with the comment's own link when the page gives one.
+ */
+async function likeFoundComment(
+  item: TodayListItem,
+  businessId: string,
+  after: After,
+): Promise<Outcome | null> {
+  const want = item.profileUrl ? profileRefOf(item.profileUrl) : null;
+  const url = item.postUrl ? postOf(item.postUrl) : null;
+  if (!want || !url) return null;
+  await tab.open(url);
+  await setState({ tabId: tab.tabId });
+  const page = await read();
+  const stop = await warnedOn(page, businessId);
+  if (stop) return { stop };
+  if (page.kind !== 'post') return null;
+  const noteMissed = async () => {
+    const state = await stateNow();
+    if (commentNotedOn === state.day) return;
+    commentNotedOn = state.day;
+    await reporter(tab, answer as Hfos, {
+      businessId,
+      platform: PLATFORM,
+      askId: null,
+      job: 'warm_up.comment',
+    })({ note: 'Couldn’t like their comment.', outline: true });
+  };
+  const seen = await tab.ask({ type: 'hfos-their-comment', profile: want, postUrl: url });
+  if (!seen.ok) throw new Error(seen.error);
+  const theirs = seen.comment;
+  if (!theirs || theirs.liked === null) {
+    await noteMissed();
+    return null;
+  }
+  if (neverLike({ text: `${item.post ?? ''}\n${theirs.text ?? ''}`, pictures: [] })) return null;
+  if (!theirs.liked) {
+    const liked = await tab.ask({ type: 'hfos-like-comment', profile: want, postUrl: url });
+    if (!liked.ok) throw new Error(liked.error);
+    if (liked.result === 'none' || liked.result === 'not_sent') {
+      await noteMissed();
+      return null;
+    }
+    await pause(SETTLE_MS);
+    const warned = await warnedOn(await read(), businessId);
+    if (warned) return { stop: warned };
+  }
+  await takeNote(
+    {
+      type: 'hfos-noted',
+      step: {
+        kind: 'like',
+        to: { name: item.name, profile: want },
+        group: null,
+        postUrl: theirs.commentUrl ?? url,
+        thread: null,
+        replying: null,
+        auto: true,
+        postText: likedText({ text: `Their comment: ${theirs.text ?? ''}`, pictures: [] }),
+      },
+      at: now(),
+    },
+    PLATFORM,
+  );
+  return {
+    done: true,
+    line: theirs.liked
+      ? `${item.name}’s comment was liked already: ${after.next}`
+      : `Liked ${item.name}’s comment on a post your search found: ${after.next}`,
+  };
+}
+
 /**
  * A look at their profile, and a like on a post of theirs, a day before the invitation: the first post of theirs that
  * nothing rules out (never one about grief, illness or trouble), not liked yet. One liked already counts. For a writer
  * found by a search (decision 92), the like goes on the post it found, on its own page, and their latest only when
- * that one's gone.
+ * that one's gone. From 0.108.0 (decision 116) someone found by their comment on it gets the like on that comment, in
+ * the same way.
  */
 async function warmUp(item: TodayListItem, businessId: string): Promise<Outcome> {
   // A partner's warm-up comes before the ask about partnering (decision 81), not an invitation.
@@ -377,7 +457,9 @@ async function warmUp(item: TodayListItem, businessId: string): Promise<Outcome>
       ? { without: 'the ask about partnering goes without', next: 'the ask comes tomorrow' }
       : { without: 'the invitation goes without', next: 'the invitation comes tomorrow' };
   if (item.postUrl) {
-    const found = await likeFoundPost(item, businessId, after);
+    const found = item.likeComment
+      ? await likeFoundComment(item, businessId, after)
+      : await likeFoundPost(item, businessId, after);
     if (found) return found;
     await pause(SETTLE_MS);
   }

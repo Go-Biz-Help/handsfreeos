@@ -24,6 +24,7 @@ import {
   TouchedPostsOutput,
   TouchSaveInput,
   TouchSaveOutput,
+  type ActivityTopic,
   type GroupRef,
   type TouchKind,
   type TouchStep,
@@ -402,6 +403,8 @@ export type Listed = {
   readonly group_id: string | null;
   readonly group_name: string | null;
   readonly group_url: string | null;
+  /** The hashtag, phrase or kind of business they were found with, the latest find's (decision 116). */
+  readonly found_words: string | null;
   readonly requested_at: Date | string | null;
   readonly liked_at: Date | string | null;
   readonly commented_at: Date | string | null;
@@ -417,8 +420,8 @@ export type Listed = {
 
 /**
  * Everyone reached since `from`, or who wrote back or booked a demo since: the last of each step to them (ever), the
- * group they were found in (the first step's that said, else the profile's), when they first wrote back, and what
- * of it was since `from`. The person's own steps, or everyone's.
+ * group they were found in (the first step's that said, else the profile's), the words they were found with, when
+ * they first wrote back, and what of it was since `from`. The person's own steps, or everyone's.
  */
 export async function reachedPeople(
   ctx: QueryContext | CommandContext,
@@ -501,6 +504,10 @@ export async function reachedPeople(
         select e.profile_id, p.person_id, p.platform,
           coalesce(nullif(btrim(pp.first_name || ' ' || pp.last_name), ''), p.name) as name, p.url,
           g.id as group_id, g.name as group_name, g.url as group_url,
+          (select f.words from addon_outreach.finds f
+            where f.workspace_id = p.workspace_id and f.profile_id = p.id and ${whose('f.user_id')}
+              and f.words is not null
+            order by f.found_at desc limit 1) as found_words,
           e.requested_at, e.liked_at, e.commented_at, e.messaged_at, r.replied_at,
           greatest(e.touched_at, r.replied_at) as last_at,
           e.requested, e.warmed, e.started,
@@ -546,6 +553,39 @@ export function resultsByGroup(
     });
   }
   return byGroup;
+}
+
+/**
+ * The people reached, by the hashtag, phrase or kind of business they were found with on a network (decision 116): how
+ * many, and what came of it. The same words on two networks are two rows; the same words written another way are one.
+ */
+export function resultsByTopic(listed: readonly Listed[]): Map<string, ActivityTopic> {
+  const byTopic = new Map<string, ActivityTopic>();
+  for (const l of listed) {
+    const words = l.found_words?.trim();
+    if (!words) continue;
+    const key = `${l.platform} ${words.toLowerCase()}`;
+    const t = byTopic.get(key) ?? {
+      platform: l.platform,
+      words,
+      people: 0,
+      friendRequests: 0,
+      warmedUp: 0,
+      chatsStarted: 0,
+      replies: 0,
+      demos: 0,
+    };
+    byTopic.set(key, {
+      ...t,
+      people: t.people + 1,
+      friendRequests: t.friendRequests + Number(l.requested),
+      warmedUp: t.warmedUp + Number(l.warmed),
+      chatsStarted: t.chatsStarted + Number(l.started),
+      replies: t.replies + Number(l.replied),
+      demos: t.demos + Number(l.demo),
+    });
+  }
+  return byTopic;
 }
 
 /** Where a stretch of `days` days ending today starts: midnight in the business's time zone. */
@@ -686,6 +726,9 @@ export const activity = defineAddonQuery(outreachAddon, {
           (a, b) =>
             byResults(a, b) || b.people - a.people || (a.name ?? '').localeCompare(b.name ?? ''),
         )
+        .slice(0, ACTIVITY_GROUPS),
+      topics: [...resultsByTopic(listed).values()]
+        .sort((a, b) => byResults(a, b) || b.people - a.people || a.words.localeCompare(b.words))
         .slice(0, ACTIVITY_GROUPS),
       people: listed.slice(0, ACTIVITY_PEOPLE).map((l) => ({
         profileId: l.profile_id,

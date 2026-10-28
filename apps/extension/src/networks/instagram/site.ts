@@ -35,10 +35,12 @@ import { missingOf, TRY_WORD, went, untried } from '../tries';
 import { instagramNoticer } from './actions';
 import {
   followThem,
+  likeTheirComment,
   likeTheirPost,
   likeTheirStory,
   openTheirChat,
   storyLikeOf,
+  theirComment,
   theirPosts,
   writeMessage,
   writeTheirComment,
@@ -344,6 +346,9 @@ export const INSTAGRAM: LookingSite = {
     // Their story (decision 111, 0.103.0): watched a few seconds and liked on its own page, then closed.
     likeStory: likeTheirStory,
     like: likeTheirPost,
+    // Their comment on a good post (decision 116, 0.108.0): found again by who wrote it, read, then liked.
+    theirComment,
+    likeComment: likeTheirComment,
     connect: followThem,
     openMessage: openTheirChat,
     message: writeMessage,

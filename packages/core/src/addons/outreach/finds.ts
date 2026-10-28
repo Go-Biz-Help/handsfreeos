@@ -46,18 +46,33 @@ export const strongerHow = (a: FindHow, b: FindHow): FindHow =>
   FIND_HOW_KEYS.indexOf(a) <= FIND_HOW_KEYS.indexOf(b) ? a : b;
 
 /**
- * What a check is of (`checks.via`): someone the person knows (decision 46), someone found by topic, or one of their
- * followers on Facebook who isn't their friend (decision 113), checked like a friend. The server sets it at each look;
- * the readers about people the person knows decide by who they know now, never by this, and the day's checks are
- * counted by it: a follower's with the people they know, someone found's on its own.
+ * What a check is of (`checks.via`): someone the person knows (decision 46), someone found by topic, one of their
+ * followers on Facebook who isn't their friend (decision 113), or someone in one of the business's Facebook groups who
+ * isn't their friend (decision 116), both checked like a friend. The server sets it at each look; the readers about
+ * people the person knows decide by who they know now, never by this, and the day's checks are counted by it: a
+ * follower's and a group member's with the people they know, someone found's on its own.
  */
 export const CHECK_VIAS = {
   known: 'Someone you know',
   found: 'Someone found',
   follower: 'Someone who follows you',
+  member: 'Someone in one of your groups',
 } as const;
 export type CheckVia = keyof typeof CHECK_VIAS;
 export const CHECK_VIA_KEYS = Object.keys(CHECK_VIAS) as [CheckVia, ...CheckVia[]];
+
+/**
+ * How many people found by topic the AI checks a day for each person, on each network that checks them (decision 116):
+ * the business's setting (Social Outreach → Settings, For your team), from 10 to 100, starting at 30. Halved on
+ * training wheels and for a week after a warning; on LinkedIn inside its 40 profiles read (`foundShareReads`).
+ */
+export const FOUND_CHECKS = { least: 10, most: 100, start: 30 } as const;
+
+/** The phone's step from a number of found checks a day to the next ten up or down (`by` 1 or -1), 10 to 100. */
+export function stepFoundChecks(n: number, by: 1 | -1): number {
+  const next = by > 0 ? Math.floor(n / 10) * 10 + 10 : Math.ceil(n / 10) * 10 - 10;
+  return Math.min(FOUND_CHECKS.most, Math.max(FOUND_CHECKS.least, next));
+}
 
 /** The most people one save of finds takes: a Likes box's two screens, or a page of a group's members. */
 export const FINDS_SAVE_MOST = 50;

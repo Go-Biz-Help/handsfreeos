@@ -23,6 +23,10 @@ import type {
   FeedPostAsk,
   StoryAnswer,
   StoryAsk,
+  CommentLikeAnswer,
+  CommentLikeAsk,
+  TheirCommentAnswer,
+  TheirCommentAsk,
   GroupFeedAnswer,
   GroupFeedAsk,
   GroupLikeAsk,
@@ -234,6 +238,8 @@ export class WorkTab {
   async ask(message: GroupPostAsk): Promise<GroupPostAnswer>;
   async ask(message: FeedPostAsk): Promise<FeedPostAnswer>;
   async ask(message: StoryAsk): Promise<StoryAnswer>;
+  async ask(message: TheirCommentAsk): Promise<TheirCommentAnswer>;
+  async ask(message: CommentLikeAsk): Promise<CommentLikeAnswer>;
   async ask(message: GroupFeedAsk): Promise<GroupFeedAnswer>;
   async ask(message: GroupLikeAsk): Promise<AutoAnswer>;
   async ask(message: PostPeopleAsk): Promise<PostPeopleAnswer>;
@@ -257,6 +263,8 @@ export class WorkTab {
       | GroupPostAsk
       | FeedPostAsk
       | StoryAsk
+      | TheirCommentAsk
+      | CommentLikeAsk
       | GroupFeedAsk
       | GroupLikeAsk
       | PostPeopleAsk
@@ -277,6 +285,8 @@ export class WorkTab {
     | GroupPostAnswer
     | FeedPostAnswer
     | StoryAnswer
+    | TheirCommentAnswer
+    | CommentLikeAnswer
     | GroupFeedAnswer
     | PostPeopleAnswer
     | OwnProfileAnswer

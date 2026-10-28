@@ -3,7 +3,7 @@
 The extension that works beside a person on Facebook, and on LinkedIn, Instagram and Alignable once they turn each on,
 for the Social Outreach add-on (docs/outreach.md). It connects to HandsFreeOS only for businesses that have that add-on on.
 
-**This is a test build (0.107.0), and a bare one** (decisions 43, 59 and 72 in docs/outreach.md). Everything is set
+**This is a test build (0.108.0), and a bare one** (decisions 43, 59 and 72 in docs/outreach.md). Everything is set
 and started in HandsFreeOS; the extension does the work on Facebook. Its side panel shows progress and activity only:
 signing in, what it does next with today's steps and **Start my day** and **Stop for today**, how many things need
 you in HandsFreeOS (with a link there), each network's line, what it did today, and a link to HandsFreeOS. Needs you
@@ -1071,6 +1071,28 @@ shows under Instagram). Your Instagram choices in HandsFreeOS say what it does (
 Each step is noted as the extension's own (`auto`), as Instagram's. A step its page doesn't let it do goes to your
 Needs you; it never guesses.
 
+### More from finding people by topic (0.108.0)
+
+From 0.108.0 (docs/outreach.md, decision 116):
+
+- **A commenter's comment is liked first.** Someone found by their comment on a good post gets their warm-up on that
+  comment, on the post's own page: their comment found again by who wrote it (`hfos-their-comment`), then only its own
+  Like pressed (`hfos-like-comment`), never the post's or another comment's, and never one about grief, illness or
+  trouble. On Instagram View all comments is pressed once when theirs isn't shown; on LinkedIn "Load more comments"
+  never is; on Alignable it's their answer's Like. With none there, their latest post is liked in its place, and the
+  page is noted with its outline once a day. The follow, invitation or connection request comes a day after, as for a
+  post.
+- **Up to 3 screens of a Likes or reactions box,** about 45 people: Instagram's Likes box scrolled twice, LinkedIn's
+  reactions box scrolled (else its own Show more results pressed) twice.
+- **Who liked and answered good posts on Alignable** (`post_people`, `src/jobs/alignable/post-people.ts`): once a day
+  after the groups' posts, 5 good posts, each on its own page, its answers read, then its box of who liked it opened by
+  its count, read up to 3 screens and closed again. Each business is checked by the AI from its own page first.
+- **Found checks a day** is the business's setting now (10 to 100, starting at 30), which the extension reads from
+  HandsFreeOS.
+
+Guessed markup till the owner's next Check: the comment Like on all three networks, and Alignable's box of who liked a
+post.
+
 ### Alignable's search in the towns near yours (0.107.0)
 
 From 0.107.0 (docs/outreach.md, decision 115) Alignable's **Search for businesses** keeps the businesses in the towns
@@ -1639,7 +1661,8 @@ day (decision 108, 0.100.0), the week's helpful post on Instagram and Alignable 
 (decision 110, 0.102.0), their story liked as a warm-up on Instagram (decision 111, 0.103.0), and the events near
 you on Alignable read once a week (decision 112, 0.104.0), and your Facebook followers checked like friends once a
 week (decision 113, 0.105.0), staying active in your groups (decision 114, 0.106.0), and Alignable's search in the
-towns within 25 miles of yours (decision 115, 0.107.0); Social
+towns within 25 miles of yours (decision 115, 0.107.0), and liking a commenter's comment, 3 screens of a Likes box and
+Alignable's likers (decision 116, 0.108.0); Social
 Outreach's onboarding is built, in HandsFreeOS (decisions 36 and 45). Safari on Mac
 follows in Phase 2.
 
@@ -1648,5 +1671,5 @@ Alignable on 28 Oct 2026: every new step works on Instagram and Alignable. On Li
 and drew nobody, because another window had gone over the Check's and LinkedIn draws its rows only on screen. So since
 0.95.1 a Check's window comes back in front for its next page or step when another goes over it, and Who reacted
 reads each post (and your own posts' reactions) with its window in front. Still to come, as decision 92 left it:
-liking a commenter's comment, Alignable's Groups tab, reading further into a Likes or reactions box, and likers on
-Alignable. Alignable's searches in nearby towns came in 0.107.0 (decision 115). LinkedIn's comments waiting at first came in 0.99.0 (decision 102).
+Alignable's Groups tab. Liking a commenter's comment, reading 3 screens of a Likes or reactions box and likers on
+Alignable came in 0.108.0 (decision 116). Alignable's searches in nearby towns came in 0.107.0 (decision 115). LinkedIn's comments waiting at first came in 0.99.0 (decision 102).

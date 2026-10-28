@@ -98,6 +98,19 @@ interface PageAs {
   readonly nobody?: true;
   readonly empty?: true;
   readonly hidden?: true;
+  /** The box ends with its own Show more results, which draws a screen more of these each press (decision 116). */
+  readonly more?: readonly (readonly [username: string, name: string])[][];
+}
+
+/** A row of the box like Bianca Holt's, for someone else. */
+function rowLike(row: Element, username: string, name: string): Element {
+  const copy = row.cloneNode(true) as Element;
+  copy.querySelector('a')!.setAttribute('href', `/in/${username}/`);
+  const walker = copy.ownerDocument.createTreeWalker(copy, 4);
+  for (let text = walker.nextNode(); text; text = walker.nextNode())
+    text.textContent = text.textContent!.replaceAll('Bianca Holt', name);
+  copy.querySelector('img')?.setAttribute('alt', `View ${name}’s profile`);
+  return copy;
 }
 
 /**
@@ -132,6 +145,19 @@ function postPage(layout: Layout, boxed: boolean, more: PageAs = {}) {
     // Each row is the box around a link to someone.
     if (more.empty)
       for (const a of outlet.querySelectorAll('a[href*="/in/"]')) a.parentElement!.remove();
+    if (more.more) {
+      const row = outlet.querySelector('a[href="/in/bianca-holt-dental/"]')!.parentElement!;
+      const screens = [...more.more];
+      const button = doc.createElement('button');
+      button.type = 'button';
+      button.textContent = 'Show more results';
+      button.addEventListener('click', () => {
+        for (const [username, name] of screens.shift() ?? [])
+          button.before(rowLike(row, username, name));
+        if (!screens.length) button.remove();
+      });
+      row.parentElement!.append(button);
+    }
     doc.body.append(outlet);
     if (more.closes !== false)
       outlet
@@ -252,6 +278,23 @@ describe('a good post’s people, when the page isn’t as hoped', () => {
       'Sam Lee',
       'Jade Moreno',
     ]);
+  });
+
+  it('reads up to 3 screens of the box of who reacted, with its own Show more results, never a 4th (decision 116)', async () => {
+    const screen = (n: number) =>
+      [1, 2].map((i) => [`made-up-${n}${i}`, `Made Up Person ${n}${i}`] as const);
+    const { doc, pressed } = postPage(newer, false, { more: [screen(1), screen(2), screen(3)] });
+    const read = await readReactors(doc, NEWER, { skip: [PRIYA] });
+    expect(read.people.map((p) => p.name)).toEqual([
+      'Bianca Holt',
+      'Marcus Webb',
+      'Made Up Person 11',
+      'Made Up Person 12',
+      'Made Up Person 21',
+      'Made Up Person 22',
+    ]);
+    expect(read).toMatchObject({ rows: 9, closed: true });
+    expect(pressed.slice(1)).toEqual(['Show more results', 'Show more results', 'Dismiss']);
   });
 
   it('says so when the box of who reacted doesn’t close again', async () => {

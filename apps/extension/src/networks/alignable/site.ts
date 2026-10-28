@@ -28,12 +28,15 @@ import {
   commentOn,
   connectOnPage,
   joinOnPage,
+  likeTheirAnswer,
   likeTheirPost,
+  theirAnswer,
   theirPosts,
   writeMessage,
 } from './auto';
 import { openConversation, scrollAny, showAllConnections } from './browse';
 import { postLook, writeAlignablePost } from './compose';
+import { closeLikers, likersBox, likersOn, openLikers, scrollLikers } from './likers';
 import { JOIN, JOIN_ASKED, JOINED, readAlignable } from './read';
 import { readReplies } from './replies';
 import { withdrawOnPage } from './withdraw';
@@ -771,13 +774,20 @@ export const ALIGNABLE: LookingSite = {
   queryKept: QUERY_KEPT,
   // Its own readers (partners stage 6c): businesses, posts, a forum question's answers and chats, counted in each of
   // Check's notes so the next Check shows what they find on the real pages.
-  readFound: readAlignable,
+  // From 0.108.0 (decision 116) who liked a post too, while the box of them is open over its page.
+  readFound: (doc, href) => {
+    const likers = likersOn(doc, href);
+    return { ...readAlignable(doc, href), ...(likers.length ? { likers } : {}) };
+  },
   // Its lists, for the person's asks (part 4): My Network switched to all their connections, and each list scrolled;
   // from 0.84.0 Messages' conversations down its side scrolled too, and one opened by its row's name for Read my chats.
+  // From 0.108.0 (decision 116) a good post's box of who liked it, opened by its count and closed again.
   lists: {
-    scroll: (doc) => scrollAny(doc),
+    scroll: (doc, href) => (likersBox(doc, href) ? scrollLikers(doc, href) : scrollAny(doc)),
     showAll: (doc) => showAllConnections(doc),
     openChat: (doc, _href, name) => openConversation(doc, name),
+    openLikers: (doc, href) => openLikers(doc, href),
+    closeDialog: (doc) => closeLikers(doc),
   },
   // Who wrote back in the conversation open (0.84.0), as the person goes and as Read my chats goes.
   replies: readReplies,
@@ -791,6 +801,9 @@ export const ALIGNABLE: LookingSite = {
   auto: {
     theirPosts: (doc, href, profile) => theirPosts(doc, href, profile).map((f) => f.post),
     like: likeTheirPost,
+    // Their answer on a good post (decision 116, 0.108.0): found again by its business, read, then liked.
+    theirComment: theirAnswer,
+    likeComment: likeTheirAnswer,
     connect: connectOnPage,
     message: writeMessage,
     comment: commentOn,

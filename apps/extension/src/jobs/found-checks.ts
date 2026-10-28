@@ -3,16 +3,17 @@
  * while the extension works on its own there, last of the day's jobs: the writers of good posts, who liked or reacted
  * to them and who commented, the businesses an Alignable search showed and the members of its groups. HandsFreeOS says
  * who's next (writers first, then commenters, likers, members and search results; a post asking for what the business
- * offers first, then the newest) and how many today has room for: the network's found checks a day (30, half on
- * training wheels or for a week after a warning), on LinkedIn inside its 40 profiles read, and none while the good fits
- * waiting for their like are two days of likes or more. The extension opens each one's page in a window of its own,
+ * offers first, then the newest) and how many today has room for: the business's found checks a day (decision 116,
+ * 10 to 100, starting at 30; half on training wheels or for a week after a warning), on LinkedIn inside its 40 profiles
+ * read, and none while the good fits waiting for their like are two days of likes or more. Past one ask's 40 it asks
+ * again for the rest. The extension opens each one's page in a window of its own,
  * checks it's theirs, reads it as that network's checks read people (the network's `read`), and sends those lines for
  * the AI's found check (`outreach.check.look`, which HandsFreeOS marks `found`). Only a good check puts them on Today.
  * Nothing is pressed. It goes at a person's pace, 15 to 30 seconds between people, and stops for the day on any
  * warning. Each network's runner calls it as `jobs/partners.ts`'s `checkPartners` is called, with its own reader.
  */
 import { CHECK_PACE_SECONDS } from '@hfos/core/addons/outreach/checks';
-import { FINDS_NEXT_MOST } from '@hfos/core/addons/outreach/finds';
+import { FINDS_NEXT_MOST, FOUND_CHECKS } from '@hfos/core/addons/outreach/finds';
 import { NETWORKS, type Platform } from '@hfos/core/addons/outreach/networks';
 import type { FindsNext } from '../hfos/messages';
 import { counted } from '../words';
@@ -36,9 +37,8 @@ export interface FoundChecksOn {
   readonly read: (job: Job, who: Who) => Promise<ReadThem>;
 }
 
-/** How many it asks for at once: the network's found checks a day, at most what one ask takes. */
-export const foundMost = (platform: Platform): number =>
-  Math.min(FINDS_NEXT_MOST, NETWORKS[platform].foundChecksPerDay ?? FINDS_NEXT_MOST);
+/** The most it checks in a day: the most a business may set, which HandsFreeOS cuts to the day's room. */
+export const FOUND_DAY_MOST = FOUND_CHECKS.most;
 
 /** How it went, in words for the person. */
 function summary(sent: number, missing: number, platform: Platform): string {
@@ -65,55 +65,65 @@ function noneLine(next: FindsNext, platform: Platform): string {
 export async function checkFound(
   job: Job,
   on: FoundChecksOn,
-  most: number = foundMost(on.platform),
+  most: number = FOUND_DAY_MOST,
 ): Promise<JobEnd> {
-  job.progress('Asking HandsFreeOS who of the people found to check…');
-  const next = valueOf(
-    await job.hfos({
-      type: 'hfos-finds-next',
-      input: {
-        workspaceId: job.businessId,
-        platform: on.platform,
-        most: Math.max(1, Math.min(most, FINDS_NEXT_MOST)),
-      },
-    }),
-  );
-  if (!next.people.length) return { line: noneLine(next, on.platform), warned: false };
   const name = NETWORKS[on.platform].name;
   let sent = 0;
   let missing = 0;
-  for (const [i, who] of next.people.entries()) {
-    if (job.stopped())
-      return { line: `Stopped. ${summary(sent, missing, on.platform)}`, warned: false };
-    job.progress(`${i + 1} of ${next.people.length}: reading ${who.name}’s ${name}…`);
-    let read: ReadThem;
-    try {
-      read = await on.read(job, who);
-    } catch {
-      // The network went elsewhere: tried again in a week.
-      read = { lines: [], missing: true, followers: null };
-    }
-    if ('end' in read)
-      return { ...read.end, line: `${read.end.line} ${summary(sent, missing, on.platform)}` };
-    valueOf(
+  let asked = 0;
+  // One ask takes up to 40: past it, it asks again for the rest of the day's room, till an ask comes back short.
+  for (let left = Math.max(1, most); left > 0;) {
+    const ask = Math.max(1, Math.min(left, FINDS_NEXT_MOST));
+    job.progress('Asking HandsFreeOS who of the people found to check…');
+    const next = valueOf(
       await job.hfos({
-        type: 'hfos-check-look',
-        input: {
-          workspaceId: job.businessId,
-          profileId: who.profileId,
-          lines: read.lines,
-          missing: read.missing,
-        },
+        type: 'hfos-finds-next',
+        input: { workspaceId: job.businessId, platform: on.platform, most: ask },
       }),
     );
-    if (read.missing) missing++;
-    else sent++;
-    if (i < next.people.length - 1 && !job.stopped()) {
-      job.progress(
-        `Checked ${counted(sent, 'person', 'people')} found. Waiting a moment before the next…`,
-      );
-      await pause(paced(PACE_MS));
+    if (!next.people.length) {
+      if (!asked) return { line: noneLine(next, on.platform), warned: false };
+      break;
     }
+    const before = asked;
+    for (const who of next.people) {
+      if (job.stopped())
+        return { line: `Stopped. ${summary(sent, missing, on.platform)}`, warned: false };
+      if (asked > 0) {
+        job.progress(
+          `Checked ${counted(sent, 'person', 'people')} found. Waiting a moment before the next…`,
+        );
+        await pause(paced(PACE_MS));
+        if (job.stopped())
+          return { line: `Stopped. ${summary(sent, missing, on.platform)}`, warned: false };
+      }
+      asked++;
+      job.progress(`${asked} of ${before + next.people.length}: reading ${who.name}’s ${name}…`);
+      let read: ReadThem;
+      try {
+        read = await on.read(job, who);
+      } catch {
+        // The network went elsewhere: tried again in a week.
+        read = { lines: [], missing: true, followers: null };
+      }
+      if ('end' in read)
+        return { ...read.end, line: `${read.end.line} ${summary(sent, missing, on.platform)}` };
+      valueOf(
+        await job.hfos({
+          type: 'hfos-check-look',
+          input: {
+            workspaceId: job.businessId,
+            profileId: who.profileId,
+            lines: read.lines,
+            missing: read.missing,
+          },
+        }),
+      );
+      if (read.missing) missing++;
+      else sent++;
+    }
+    if (next.people.length < ask) break;
+    left -= next.people.length;
   }
   return { line: `Done. ${summary(sent, missing, on.platform)}`, warned: false };
 }

@@ -1,6 +1,7 @@
 import {
   ACTIVITY_PERIOD_KEYS,
   ACTIVITY_PERIODS,
+  topicName,
   type ActivityOutput,
   type ActivityPeriod,
 } from '@hfos/core/addons/outreach/activity';
@@ -197,6 +198,25 @@ export function ResultsBody({
                     </Text>
                     <Note>
                       {`${g.people.toLocaleString('en-US')} reached · ${g.replies.toLocaleString('en-US')} wrote back · ${g.demos.toLocaleString('en-US')} booked`}
+                    </Note>
+                  </View>
+                ))}
+              </Card>
+            </Part>
+          ) : null}
+          {activity.topics.length ? (
+            <Part title="Hashtags and searches that bring results" testID="results-topics">
+              <Card className="px-4 py-1">
+                {activity.topics.slice(0, GROUPS_SHOWN).map((t, i) => (
+                  <View
+                    key={`${t.platform} ${t.words}`}
+                    className={cn('gap-0.5 py-3', i > 0 && 'border-t border-border')}
+                  >
+                    <Text className="text-[15px] font-medium" numberOfLines={1}>
+                      {topicName(t)}
+                    </Text>
+                    <Note>
+                      {`${t.people.toLocaleString('en-US')} reached · ${t.replies.toLocaleString('en-US')} wrote back · ${t.demos.toLocaleString('en-US')} booked`}
                     </Note>
                   </View>
                 ))}

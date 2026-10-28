@@ -177,6 +177,26 @@ vi.mock('../src/tab', async () => {
                 message as never,
               )),
             };
+          case 'hfos-their-comment':
+            return {
+              ok: true,
+              comment: compose.theirComment(
+                doc,
+                this.at,
+                message.profile as never,
+                message.postUrl as string,
+              ),
+            };
+          case 'hfos-like-comment':
+            return {
+              ok: true,
+              ...(await compose.likeTheirComment(
+                doc,
+                this.at,
+                message.profile as never,
+                message.postUrl as string,
+              )),
+            };
           case 'hfos-connect':
             return { ok: true, result: await auto.connect(doc, this.at) };
           case 'hfos-comment':
@@ -601,6 +621,74 @@ describe('what it does on LinkedIn’s list', () => {
           platform: 'linkedin',
         },
       ]);
+    });
+
+    describe('found by their comment on it (decision 116)', () => {
+      const HECTOR = `${LI}/in/hector-ruiz-pm/`;
+      /** Each comment's own reaction button, as LinkedIn shows a like given; who was pressed, by what it says. */
+      const pressed: string[] = [];
+      const commentLikes = (doc: Document) => {
+        pressed.length = 0;
+        likes(doc);
+        for (const icon of doc.querySelectorAll(
+          'div[role="button"] > svg[aria-label="Reaction button state: no reaction"]',
+        ))
+          icon.parentElement!.addEventListener('click', () => {
+            icon.setAttribute('aria-label', 'Reaction button state: like');
+            pressed.push(icon.closest('div:has(> p)')?.textContent?.trim().slice(0, 9) ?? '?');
+          });
+      };
+
+      it('likes their comment on the post it found, never the post, and notes it with the post', async () => {
+        world.pages = (url) => (url === FOUND ? { fixture: 'linkedin-post-2026-10.html' } : null);
+        world.behave = commentLikes;
+        const outcome = await doWork(
+          {
+            do: 'step',
+            item: found({ name: 'Hector Ruiz', profileUrl: HECTOR, likeComment: true }),
+          },
+          ME.businessId,
+          false,
+        );
+        expect(outcome).toEqual({
+          done: true,
+          line: 'Liked Hector Ruiz’s comment on a post your search found: the invitation comes tomorrow',
+        });
+        expect(world.opened).toEqual([FOUND]);
+        expect(pressed).toHaveLength(1);
+        expect(notedAs()).toEqual([
+          { kind: 'like', auto: true, postUrl: FOUND, platform: 'linkedin' },
+        ]);
+      });
+
+      it('likes their latest instead when the post shows no comment of theirs', async () => {
+        world.pages = (url) =>
+          url === FOUND
+            ? { fixture: 'linkedin-post-2026-10.html' }
+            : url.endsWith('recent-activity/all/')
+              ? { fixture: 'linkedin-activity.html' }
+              : { fixture: 'linkedin-profile.html' };
+        world.behave = commentLikes;
+        const outcome = await doWork(
+          {
+            do: 'step',
+            item: found({ name: 'Dana Reyes', profileUrl: DANA, likeComment: true }),
+          },
+          ME.businessId,
+          false,
+        );
+        expect(outcome).toMatchObject({ done: true });
+        expect(world.opened).toEqual([FOUND, DANA, `${DANA}recent-activity/all/`]);
+        expect(pressed).toEqual([]);
+        expect(notedAs()).toEqual([
+          {
+            kind: 'like',
+            auto: true,
+            postUrl: `${LI}/feed/update/urn:li:activity:7380000000000000302/`,
+            platform: 'linkedin',
+          },
+        ]);
+      });
     });
   });
 

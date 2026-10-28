@@ -198,6 +198,8 @@ export type AlignableFound = {
   readonly events?: readonly EventCard[];
   /** An event's own page: who's hosting it and who's going. */
   readonly event?: EventPage;
+  /** From 0.108.0 (decision 116): who liked a post, while the box of them is open over its page (./likers.ts). */
+  readonly likers?: readonly Named[];
 };
 
 export function urlOf(href: string | null | undefined, base: string): URL | null {
@@ -576,6 +578,17 @@ function bodyOf(root: Element, base: string): Element | null {
 
 /** A forum question's answers, and the replies under them, each with its own author, words and Connect. */
 function answersOn(doc: Document, base: string): Answer[] {
+  return answerParts(doc, base).map(({ read }) => read);
+}
+
+/**
+ * A forum question's answers and the replies under them, as `answersOn` reads them, each with its own part of the page
+ * (`discussion-comment`), where its runner finds its own Like (./auto.ts, decision 116).
+ */
+export function answerParts(
+  doc: Document,
+  base: string,
+): { readonly answer: Element; readonly read: Answer }[] {
   return [...doc.querySelectorAll(PART('discussion-comment'))].slice(0, MOST).map((answer) => {
     const own = (el: Element) => el.closest(PART('discussion-comment')) === answer;
     const head = [...answer.querySelectorAll('a[href]')].find(
@@ -586,11 +599,16 @@ function answersOn(doc: Document, base: string): Answer[] {
     const body = [...answer.querySelectorAll(PART('discussion-comment-body'))].find(own);
     const whenEl = head?.nextElementSibling;
     return {
-      author: profile && head ? { name: clean(head.textContent), profile } : null,
-      when: clean(whenEl?.textContent) || null,
-      text: textOf(body),
-      connect: linksIn(answer, base).some(({ a, url: u }) => own(a) && CONNECT_AT.test(u.pathname)),
-      reply: answer.parentElement?.closest(PART('discussion-comment')) !== null,
+      answer,
+      read: {
+        author: profile && head ? { name: clean(head.textContent), profile } : null,
+        when: clean(whenEl?.textContent) || null,
+        text: textOf(body),
+        connect: linksIn(answer, base).some(
+          ({ a, url: u }) => own(a) && CONNECT_AT.test(u.pathname),
+        ),
+        reply: answer.parentElement?.closest(PART('discussion-comment')) !== null,
+      },
     };
   });
 }

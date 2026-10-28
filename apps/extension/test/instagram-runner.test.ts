@@ -765,6 +765,89 @@ describe('a warm-up on Instagram', () => {
     expect(likes).toEqual([`${IG}/p/C2bbbbbbb/`, `${IG}/p/C3ccccccc/`]);
   });
 
+  /** A good post of someone else's, with Dana's comment on it (decision 116): its own link, words, Reply and Like. */
+  const COMMENTED = `${IG}/p/C5commentd/`;
+  const DANAS_COMMENT = `${IG}/p/C5commentd/c/17900000000000005/`;
+  const commentedHtml = (words: string) => `${MENU}<main role="main"><article>
+    <div><a href="/kim_bakes/"><span>kim_bakes</span></a></div>
+    <div><div><div><a role="link" href="/dana.reyes/"><img alt=""></a>
+      <div><div><div><div><span dir="auto"><a role="link" href="/dana.reyes/"><span dir="auto">dana.reyes</span></a></span>
+        <span dir="auto"><a role="link" href="/p/C5commentd/c/17900000000000005/"><time>2h</time></a></span></div>
+        <span dir="auto">${words}</span></div>
+        <div><div role="button"><span dir="auto"><span>Reply</span></span></div></div></div>
+        <div role="button" id="comment-like"><svg role="img" aria-label="Like"></svg></div></div></div></div></div>
+    <section><div><div role="button" class="like"><svg role="img" aria-label="Like"></svg></div>
+      <div role="button"><svg role="img" aria-label="Comment"></svg></div></div></section>
+    <div><a href="/kim_bakes/p/C5commentd/"><time>1d</time></a></div>
+  </article></main>`;
+  /** Someone found by their comment on a good post (decision 116): the post's own link, and what it said. */
+  const foundByComment = (words: string) => {
+    pagesFor();
+    const pages = world.pages;
+    const behave = world.behave;
+    world.pages = (url) => (url === COMMENTED ? { html: commentedHtml(words) } : pages(url));
+    world.behave = (doc, url) => {
+      behave(doc, url);
+      const like = doc.querySelector('#comment-like');
+      like?.addEventListener('click', () => {
+        like.querySelector('svg')!.setAttribute('aria-label', 'Unlike');
+        likes.push(DANAS_COMMENT);
+      });
+    };
+    return item({
+      kind: 'warm_up',
+      postId: POST_ID,
+      postUrl: COMMENTED,
+      post: 'Anyone know a good plumber?',
+      likeComment: true,
+    });
+  };
+
+  it('likes their comment on the post it found them by first, never the post, then one of their latest', async () => {
+    const found = foundByComment('We fix leaks all over Austin.');
+    expect(await doWork({ do: 'step', item: found }, ME.businessId, true, 3)).toEqual({
+      done: true,
+      line: 'Liked Dana Reyes’s comment it found and a post of theirs: the follow comes tomorrow',
+    });
+    // Their comment on the post's own page, never the post's own Like, then their account and one of their latest.
+    expect(world.opened).toEqual([COMMENTED, DANA, `${IG}/p/C2bbbbbbb/`]);
+    expect(likes).toEqual([DANAS_COMMENT, `${IG}/p/C2bbbbbbb/`]);
+    expect(notedAs().map((n) => [n.kind, n.postUrl, n.username])).toEqual([
+      ['like', DANAS_COMMENT, 'dana.reyes'],
+      ['like', `${IG}/p/C2bbbbbbb/`, 'dana.reyes'],
+    ]);
+    // With no room past the warm-ups left, their comment alone.
+    world.opened.length = 0;
+    world.noted.length = 0;
+    expect(
+      await doWork(
+        { do: 'step', item: foundByComment('We fix leaks all over Austin.') },
+        ME.businessId,
+        true,
+        0,
+      ),
+    ).toEqual({
+      done: true,
+      line: 'Liked Dana Reyes’s comment it found: the follow comes tomorrow',
+    });
+    expect(likes).toEqual([DANAS_COMMENT]);
+  });
+
+  it('likes their latest in its place when their comment is about grief, or the post shows none of theirs', async () => {
+    const sad = foundByComment('So sorry for your loss, rest in peace.');
+    await doWork({ do: 'step', item: sad }, ME.businessId, true, 3);
+    expect(world.opened).toEqual([COMMENTED, DANA, `${IG}/p/C2bbbbbbb/`, `${IG}/p/C3ccccccc/`]);
+    expect(likes).toEqual([`${IG}/p/C2bbbbbbb/`, `${IG}/p/C3ccccccc/`]);
+    // Nobody's comment of theirs on it: their latest, as anyone's.
+    world.opened.length = 0;
+    const gone = foundByComment('We fix leaks all over Austin.');
+    world.pages = ((pages) => (url: string) =>
+      url === COMMENTED ? { html: postHtml('C5commentd', 'kim_bakes') } : pages(url))(world.pages);
+    await doWork({ do: 'step', item: gone }, ME.businessId, true, 3);
+    expect(world.opened).toEqual([COMMENTED, DANA, `${IG}/p/C2bbbbbbb/`, `${IG}/p/C3ccccccc/`]);
+    expect(likes).toEqual([`${IG}/p/C2bbbbbbb/`, `${IG}/p/C3ccccccc/`]);
+  });
+
   it('likes nothing on a post that isn’t theirs, and hands the step over when Instagram shows another account', async () => {
     likes.length = 0;
     world.pages = (url) =>

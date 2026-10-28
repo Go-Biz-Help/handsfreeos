@@ -424,9 +424,16 @@ describe('what it does on Alignable’s list', () => {
     expect(nextAlignableDaily({ daily: { ...done, chats: 'c' } })).toBe('partners');
     expect(nextAlignableDaily({ daily: { ...done, chats: 'c', partners: 'z' } })).toBe('posts');
     // Then the search for businesses like their clients, and the groups: found and checked, joined, their members,
-    // their posts (decision 92).
+    // their posts (decision 92); then who liked and answered the good posts found (decision 116).
     const town = { ...done, chats: 'c', partners: 'z', posts: 'w' };
-    const groups = ['search', 'group_checks', 'join', 'members', 'group_posts'] as const;
+    const groups = [
+      'search',
+      'group_checks',
+      'join',
+      'members',
+      'group_posts',
+      'post_people',
+    ] as const;
     let daily: Record<string, string> = town;
     for (const job of groups) {
       expect(nextAlignableDaily({ daily })).toBe(job);
@@ -1585,6 +1592,68 @@ describe('Alignable’s groups', () => {
   });
 });
 
+describe('who liked and answered good posts on Alignable (decision 116)', () => {
+  const LIKES = `<div role="dialog"><h2>Likes</h2><button type="button" aria-label="Close">×</button>
+    <div><a href="/austin-tx/hill-homes?user=8">Hana Hill</a></div>
+    <div><a href="/austin-tx/acme-roofing?user=7">Casey Owner</a></div>
+    <div><a href="/austin-tx/acme-plumbing?user=5">Dana Reyes</a></div>
+    <div><a href="/austin-tx/hill-homes?user=8">Hana Hill</a></div></div>`;
+  const goodPost = {
+    postId: '7a8b9c0d-1e2f-4a3b-8c4d-5e6f7a8b9c0d',
+    url: `${AL}/biz/discussions/93`,
+    name: 'Dana Reyes',
+    profileUrl: `${AL}/austin-tx/acme-plumbing`,
+    words: null,
+    strong: false,
+    comments: 1,
+    reactions: 2,
+  };
+
+  it('reads who answered and who liked it, never you or its writer, then closes the box', async () => {
+    world.hfos['hfos-posts-people-next'] = () => ({ posts: [goodPost], today: 0, perDay: 5 });
+    world.hfos['hfos-finds-save'] = (ask) => ({ added: peopleIn(ask), skipped: 0 });
+    world.pages = (url) =>
+      url === MINE ? myProfile() : url === goodPost.url ? { html: discussionHtml() } : null;
+    world.behave = (doc) =>
+      doc.querySelector('a[href^="/biz/likes?resource="]')?.addEventListener('click', (event) => {
+        event.preventDefault();
+        doc.body.insertAdjacentHTML('beforeend', LIKES);
+        doc
+          .querySelector('[role="dialog"] button')!
+          .addEventListener('click', () => doc.querySelector('[role="dialog"]')!.remove());
+      });
+    const end = await runAlignableDaily('post_people', dailyJob());
+    expect(inputsOf('hfos-posts-people-next')).toEqual([
+      { workspaceId: ME.businessId, platform: 'alignable' },
+    ]);
+    expect(world.opened).toEqual([MINE, goodPost.url]);
+    expect(inputsOf('hfos-finds-save')).toEqual([
+      expect.objectContaining({
+        platform: 'alignable',
+        how: 'commented',
+        postId: goodPost.postId,
+        people: [expect.objectContaining({ name: 'Lee Park', said: 'Check the breaker first.' })],
+      }),
+      expect.objectContaining({
+        how: 'liked',
+        postId: goodPost.postId,
+        people: [expect.objectContaining({ name: 'Hana Hill' })],
+      }),
+    ]);
+    expect(end).toEqual({
+      line: 'Done. Read who liked and answered 1 good post on Alignable: 2 new businesses to check for good fits.',
+      warned: false,
+    });
+  });
+
+  it('says so when no good post waits, or today’s are read', async () => {
+    world.hfos['hfos-posts-people-next'] = () => ({ posts: [], today: 5, perDay: 5 });
+    expect((await runAlignableDaily('post_people', dailyJob())).line).toBe(
+      'That’s today’s 5 good posts on Alignable. It carries on tomorrow.',
+    );
+  });
+});
+
 /** A post's own page, wherever Alignable opens it: their post, its own reply form at the top, and an answer's own. */
 const DISCUSSION = `${AL}/biz/discussions/93`;
 const discussionHtml = (o: { by?: string; name?: string; top?: boolean } = {}) => `<main><section>
@@ -1701,6 +1770,76 @@ describe('a warm-up for the writer of a post found on Alignable', () => {
     expect(world.opened).toEqual([DISCUSSION, DANA_PAGE]);
     // Never the other business's post.
     expect(pressed).toEqual(['91']);
+  });
+});
+
+describe('a warm-up for a business found by its answer on a good post (decision 116)', () => {
+  const LEE = `${AL}/salem-or/park-florist`;
+  const found = item({
+    kind: 'warm_up',
+    name: 'Lee Park',
+    profileUrl: LEE,
+    postUrl: DISCUSSION,
+    likeComment: true,
+  } as Partial<TodayListItem>);
+  /** The discussion with Lee Park's answer's own Like, which says Liked once pressed. */
+  const answered = (words = 'Check the breaker first.') =>
+    discussionAt(
+      discussionHtml()
+        .replace('Check the breaker first.', words)
+        .replace(
+          '<button>Reply</button>',
+          '<button>Reply</button><button id="answer-like">Like</button>',
+        ),
+    );
+  const liking = (pressed: string[]) => (doc: Document) => {
+    for (const like of doc.querySelectorAll('[data-like]'))
+      like.addEventListener('click', (event) => {
+        event.preventDefault();
+        pressed.push(like.getAttribute('data-like')!);
+      });
+    const answer = doc.querySelector('#answer-like');
+    answer?.addEventListener('click', () => {
+      pressed.push('answer');
+      answer.textContent = 'Liked';
+    });
+  };
+
+  it('likes their answer on the post they were found by, never the post, on its own page', async () => {
+    world.pages = (url) => (url === DISCUSSION ? answered() : null);
+    const pressed: string[] = [];
+    world.behave = liking(pressed);
+    expect(await doWork({ do: 'step', item: found }, ME.businessId, false)).toEqual({
+      done: true,
+      line: 'Liked Lee Park’s answer on a post that was found for you: the connection request comes tomorrow',
+    });
+    expect(world.opened).toEqual([DISCUSSION]);
+    expect(pressed).toEqual(['answer']);
+    expect(notedAs()).toEqual([
+      { kind: 'like', auto: true, postUrl: DISCUSSION, id: null, platform: 'alignable' },
+    ]);
+  });
+
+  it('falls back to their business page’s warm-up when their answer is about grief, or has no Like', async () => {
+    for (const page of [
+      answered('Sending condolences to the family.'),
+      discussionAt(discussionHtml()),
+    ]) {
+      world.opened.length = 0;
+      world.pages = (url) =>
+        url === DISCUSSION
+          ? page
+          : url === LEE
+            ? { html: businessHtml({ posts: post({ id: 91 }) }).replace(/Dana Reyes/g, 'Lee Park') }
+            : null;
+      const pressed: string[] = [];
+      world.behave = liking(pressed);
+      expect(await doWork({ do: 'step', item: found }, ME.businessId, false)).toMatchObject({
+        done: true,
+      });
+      expect(world.opened).toEqual([DISCUSSION, LEE]);
+      expect(pressed).not.toContain('answer');
+    }
   });
 });
 

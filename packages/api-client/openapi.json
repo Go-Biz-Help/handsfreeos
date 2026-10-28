@@ -200535,6 +200535,67 @@
                         "additionalProperties": false
                       }
                     },
+                    "topics": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "platform": {
+                            "type": "string",
+                            "enum": [
+                              "facebook",
+                              "linkedin",
+                              "instagram",
+                              "alignable"
+                            ]
+                          },
+                          "words": {
+                            "type": "string"
+                          },
+                          "people": {
+                            "type": "integer",
+                            "minimum": 0,
+                            "maximum": 9007199254740991
+                          },
+                          "friendRequests": {
+                            "type": "integer",
+                            "minimum": 0,
+                            "maximum": 9007199254740991
+                          },
+                          "warmedUp": {
+                            "type": "integer",
+                            "minimum": 0,
+                            "maximum": 9007199254740991
+                          },
+                          "chatsStarted": {
+                            "type": "integer",
+                            "minimum": 0,
+                            "maximum": 9007199254740991
+                          },
+                          "replies": {
+                            "type": "integer",
+                            "minimum": 0,
+                            "maximum": 9007199254740991
+                          },
+                          "demos": {
+                            "type": "integer",
+                            "minimum": 0,
+                            "maximum": 9007199254740991
+                          }
+                        },
+                        "required": [
+                          "platform",
+                          "words",
+                          "people",
+                          "friendRequests",
+                          "warmedUp",
+                          "chatsStarted",
+                          "replies",
+                          "demos"
+                        ],
+                        "additionalProperties": false
+                      }
+                    },
                     "people": {
                       "type": "array",
                       "items": {
@@ -200698,6 +200759,7 @@
                     "warning",
                     "partners",
                     "groups",
+                    "topics",
                     "people",
                     "morePeople"
                   ],
@@ -202576,6 +202638,9 @@
                               "null"
                             ]
                           },
+                          "likeComment": {
+                            "type": "boolean"
+                          },
                           "asking": {
                             "type": "boolean"
                           },
@@ -202844,6 +202909,9 @@
                               "string",
                               "null"
                             ]
+                          },
+                          "likeComment": {
+                            "type": "boolean"
                           },
                           "asking": {
                             "type": "boolean"
@@ -214126,7 +214194,7 @@
     "/v1/queries/outreach.checks.next": {
       "post": {
         "operationId": "query_outreach_checks_next",
-        "summary": "Who the person’s computer checks next for whether they fit a playbook, in order and no more than today has room for: anyone they pressed Research on, anyone waiting for a look at where they live (those asking to be friends first), friends whose chat looks like a prospect, then friends with any chat, others they’ve chatted with, friends from the groups, the rest of their friends, then their followers on Facebook who aren’t friends yet. Never anyone on Don’t pitch, nor anyone checked lately unless the person asked to check everyone again or they wait for a look.",
+        "summary": "Who the person’s computer checks next for whether they fit a playbook, in order and no more than today has room for: anyone they pressed Research on, anyone waiting for a look at where they live (those asking to be friends first), friends whose chat looks like a prospect, then friends with any chat, others they’ve chatted with, friends from the groups, the rest of their friends, their followers on Facebook who aren’t friends yet, then people in the business’s Facebook groups who aren’t friends, the best fit first. Never anyone on Don’t pitch, nor anyone checked lately unless the person asked to check everyone again or they wait for a look.",
         "tags": [
           "queries"
         ],
@@ -214206,7 +214274,8 @@
                               "chat_only",
                               "group",
                               "friend",
-                              "follower"
+                              "follower",
+                              "member"
                             ]
                           },
                           "mutual": {
@@ -216651,7 +216720,7 @@
     "/v1/queries/outreach.posts.people_next": {
       "post": {
         "operationId": "query_outreach_posts_people_next",
-        "summary": "Which good posts the person’s computer reads next for who liked and commented on them, on a network that reads them (Instagram’s and LinkedIn’s): their own, the AI called good or by an Instagram account like yours, seen in the last week, not put aside, not read yet and not showing none; those asking for what the business offers first, then the busiest, then the newest; no more than the day’s, and none while 3 days of checks of people found wait.",
+        "summary": "Which good posts the person’s computer reads next for who liked and commented on them, on a network that reads them (Instagram’s, LinkedIn’s and Alignable’s): their own, the AI called good or by an Instagram account like yours, seen in the last week, not put aside, not read yet and not showing none; those asking for what the business offers first, then the busiest, then the newest; no more than the day’s, and none while 3 days of checks of people found wait.",
         "tags": [
           "queries"
         ],

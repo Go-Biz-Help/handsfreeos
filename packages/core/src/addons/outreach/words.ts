@@ -667,6 +667,7 @@ export const OUTREACH_WORDS = {
     defaults: 'Where a new person starts',
     contacts: 'Who from Facebook chats goes in Contacts',
     cancelAfter: 'Suggest cancelling friend requests after',
+    foundChecks: 'People found by topic checked a day',
     morning: 'Morning push',
     weekly: 'Weekly report by email',
     countries: 'Which countries to reach',
@@ -696,6 +697,8 @@ export const OUTREACH_WORDS = {
       'Each chat brought in from Facebook is read for a summary and your playbooks’ tags, and shows on the Chats tab. This says who also goes in Contacts.',
     cancelAfter:
       'Requests nobody has answered by then show under Tidy up on the Friends tab, for you to tick.',
+    foundChecks:
+      'For each person, on Instagram, LinkedIn and Alignable: how many people found under your hashtags, phrases and searches the AI checks from their own page. Fewer is slower and safer. Halved on training wheels and for a week after a warning, and LinkedIn’s stay inside its 40 profiles read a day.',
     morning:
       'Each person who used the extension lately hears how many are on their list for today, in your business’s time zone.',
     weekly:
@@ -764,6 +767,7 @@ export const OUTREACH_WORDS = {
   to: 'to',
   usual: 'The usual choice.',
   weeks: (n: number) => (n === 1 ? '1 week' : `${n} weeks`),
+  aDay: (n: number) => `${n.toLocaleString()} a day`,
   off: 'Off',
   save: 'Save',
   savedFollows: 'Saved. The extension follows it in a few seconds.',

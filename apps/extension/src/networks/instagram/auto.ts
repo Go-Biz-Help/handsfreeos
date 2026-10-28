@@ -6,6 +6,9 @@
  * - **Like** on one of their posts, on that post's own page: only a post whose own link names them, only its own Like
  *   (in the bar with its Comment, never a comment's, which sits by its Reply), and only while it says Like. It's liked
  *   once it says Unlike.
+ * - **Like** on their comment (decision 116, from 0.108.0), the warm-up for someone found by their comment on a good
+ *   post: on that post's own page, the first comment its own link (/p/<code>/c/<id>/) says they wrote, and only its
+ *   own small Like beside it, never the post's; only while it says Like, and it's liked once it says Unlike.
  * - **Their story** (decision 111, from 0.103.0), on its own page (/stories/<name>/): View story pressed where Instagram
  *   asks first, watched a few seconds, then the viewer's own Like (beside its box to reply in) pressed while it says
  *   Like, and the viewer closed with its own Close. Only while the page is their story; liked once it says Unlike.
@@ -22,6 +25,7 @@
  * Nothing else is pressed, and nothing is written anywhere else. Like the readers, it goes by Instagram's own words,
  * labels, roles and link addresses, never class names.
  */
+import type { CommentLiked, TheirComment } from '../../messages';
 import type { AutoResult, TheirPost } from '../facebook/auto';
 import { clean } from '../facebook/dom';
 import { visible } from '../facebook/fetch';
@@ -37,7 +41,16 @@ import {
   writingIn,
 } from '../looking/looks';
 import type { CommentOn } from '../looking/site';
-import { authorOf, chatOn, linksIn, ownOf, postRootOf, profileOn, says } from './read';
+import {
+  authorOf,
+  chatOn,
+  commentPartsIn,
+  linksIn,
+  ownOf,
+  postRootOf,
+  profileOn,
+  says,
+} from './read';
 import {
   instagramUrl,
   isCommentLink,
@@ -133,6 +146,95 @@ export async function likeTheirPost(
     return now && LIKED.test(nameOf(now)) ? true : null;
   }, WENT_MS);
   return { result: went ? 'done' : 'not_sent', postUrl: url };
+}
+
+// ------------------------------------------------------------------------------------------------ comments
+
+/** How far out from a comment's part its own Like is looked for: Instagram puts it beside the words, not under them. */
+const COMMENT_LIKE_STEPS = 3;
+
+/**
+ * Their comment on the post the tab shows (decision 116): the first of its comments they wrote, by its own link, with
+ * its own Like (or Unlike), the small one beside it: in the comment's part, or a part or two out from it while that
+ * holds no other comment and isn't the post's own bar. Null when the page shows no comment of theirs.
+ */
+export function theirCommentOn(
+  doc: Document,
+  href: string,
+  them: ProfileRef,
+): { readonly url: string; readonly text: string; readonly like: HTMLElement | null } | null {
+  const root = postRootOf(doc);
+  const { found } = commentPartsIn(root, href, Number.POSITIVE_INFINITY);
+  const theirs = found.find((f) => isThem(f.comment.username, them));
+  if (!theirs) return null;
+  const others = found.filter((f) => f !== theirs).map((f) => f.part);
+  const postLike = postLikeOf(root);
+  let like: HTMLElement | null = null;
+  for (
+    let up: Element | null = theirs.part, steps = 0;
+    up && up !== root && steps <= COMMENT_LIKE_STEPS && !like;
+    up = up.parentElement, steps++
+  ) {
+    const around = up;
+    if (others.some((part) => around.contains(part)) || (postLike && around.contains(postLike)))
+      break;
+    like = controlsSaying(around, /^(like|unlike)$/i, true)[0] ?? null;
+  }
+  return { url: theirs.url, text: theirs.comment.text, like };
+}
+
+/** Whether the tab shows the post asked for: the same post's code, however each link was written. */
+function onPost(href: string, postUrl: string): boolean {
+  const page = instagramUrl(href);
+  const asked = instagramUrl(postUrl);
+  const url = page && kindOf(page) === 'post' ? postOf(page) : null;
+  return !!url && !!asked && postOf(asked) === url;
+}
+
+/**
+ * Their comment on the post asked for, as the tab shows it (decision 116): what it says, its own link, and whether the
+ * person's like is on it (null with no Like to press). Null when the page isn't that post or shows no comment of theirs.
+ */
+export function theirComment(
+  doc: Document,
+  href: string,
+  them: ProfileRef,
+  postUrl: string,
+): TheirComment | null {
+  const theirs = onPost(href, postUrl) ? theirCommentOn(doc, href, them) : null;
+  if (!theirs) return null;
+  return {
+    text: theirs.text || null,
+    commentUrl: theirs.url,
+    liked: theirs.like ? LIKED.test(nameOf(theirs.like)) : null,
+  };
+}
+
+/**
+ * Likes their comment on the post the tab shows (decision 116: the warm-up for someone found by their comment on a
+ * good post), when it's the post asked for: its own Like, beside it, pressed while it says Like. `done` once it says
+ * Unlike, `already` when it did, `none` when the page isn't that post, shows no comment of theirs or no Like on it,
+ * `not_sent` when Instagram didn't take it; with the comment's own link and what it says.
+ */
+export async function likeTheirComment(
+  doc: Document,
+  href: string,
+  them: ProfileRef,
+  postUrl: string,
+): Promise<CommentLiked> {
+  if (!onPost(href, postUrl)) return { result: 'none', commentUrl: null, text: null };
+  const theirs = theirCommentOn(doc, href, them);
+  const said = { commentUrl: theirs?.url ?? null, text: theirs?.text || null };
+  if (!theirs?.like) return { result: 'none', ...said };
+  if (LIKED.test(nameOf(theirs.like))) return { result: 'already', ...said };
+  if (!LIKE.test(nameOf(theirs.like))) return { result: 'none', ...said };
+  theirs.like.click();
+  // Instagram may draw the comments again: its Like is found again each look.
+  const went = await waitFor(() => {
+    const now = theirCommentOn(doc, href, them)?.like;
+    return now && LIKED.test(nameOf(now)) ? true : null;
+  }, WENT_MS);
+  return { result: went ? 'done' : 'not_sent', ...said };
 }
 
 // ------------------------------------------------------------------------------------------------ stories
