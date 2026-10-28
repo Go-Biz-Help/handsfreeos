@@ -42,6 +42,8 @@ export interface ChatConfig {
   } | null;
   /** The separate box for offers under it, for a business that sends them; null otherwise. */
   readonly offersConsent: { readonly title: string; readonly detail: string } | null;
+  /** The "OK to call" box, for a business that asks for one; null otherwise. */
+  readonly callConsent: { readonly title: string; readonly detail: string } | null;
   /** Cloudflare Turnstile; a null site key means this app's own (NEXT_PUBLIC_TURNSTILE_SITE_KEY). */
   readonly humanCheck: { readonly siteKey: string | null } | null;
   readonly paused: boolean;
@@ -91,7 +93,7 @@ function logoOf(raw: unknown): ChatConfig['business']['logo'] {
   }
 }
 
-/** The offers box's words, when the worker sent both; anything else means no box. */
+/** The offers or calls box's words, when the worker sent both; anything else means no box. */
 function offersOf(raw: unknown): { title: string; detail: string } | null {
   if (!isObj(raw)) return null;
   const title = text(raw.title);
@@ -133,6 +135,7 @@ export function parseChatConfig(raw: unknown): ChatConfig | null {
         }
       : null,
     offersConsent: offersOf(raw.offersConsent),
+    callConsent: offersOf(raw.callConsent),
     humanCheck: check ? { siteKey: text(check.siteKey) } : null,
     paused: raw.paused === true,
     maxMessageLength: Math.max(1, Math.min(1000, Math.floor(max))),

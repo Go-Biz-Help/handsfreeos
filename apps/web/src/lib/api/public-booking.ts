@@ -16,6 +16,8 @@ export interface PublicBusiness {
   readonly phoneDisplay: string | null;
   /** The separate box for offers under "Text me", for a business that sends them. */
   readonly offersConsent?: { readonly title: string; readonly detail: string } | null;
+  /** The "OK to call" box under those, for a business that asks for one. */
+  readonly callConsent?: { readonly title: string; readonly detail: string } | null;
   /**
    * Its logo and colour (the worker's look/public.ts); a page without them draws the initials in HandsFreeOS's
    * blue.
@@ -349,6 +351,8 @@ interface CustomerFields {
   readonly smsConsent: boolean;
   /** The separate box for offers, for a business that sends them. */
   readonly offersConsent?: boolean;
+  /** The "OK to call" box, for a business that asks for one. */
+  readonly callConsent?: boolean;
   /** The honeypot: always empty from a person. */
   readonly website: string;
   readonly turnstileToken?: string;

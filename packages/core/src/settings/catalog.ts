@@ -837,6 +837,11 @@ const ADJUST_FIELDS = {
     label: 'When a voicemail box answers',
     words: ['leave a voicemail', 'ai calls voicemail'],
   },
+  'adjust.ok_to_call': {
+    automation: 'call_back_missed',
+    label: 'Ask for an OK to call',
+    words: ['call consent', 'consent to calls', 'permission to call', 'ok to call box'],
+  },
   'adjust.how_you_tag': {
     automation: 'ai_tags',
     label: 'How you tag customers',

@@ -23,6 +23,7 @@ import type { CommandContext } from '../kernel/types';
 import { isOptedOut } from '../messaging/store';
 import { OnlineCustomer } from '../schemas/calendar';
 import { isoDateTime, uuid } from '../schemas/common';
+import { recordCallConsent } from '../messaging/call-consent';
 import { recordOffersConsent } from '../messaging/offers';
 
 const DAY = 86_400_000;
@@ -41,6 +42,8 @@ export const WaitlistJoinOnlineInput = z
     smsConsent: z.boolean().default(false),
     /** The separate box for offers, shown when the business sends them. */
     offersConsent: z.boolean().default(false),
+    /** The "OK to call" box, shown when the business asks for one. Starts unticked too. */
+    callConsent: z.boolean().default(false),
   })
   .refine((v) => !!v.appointmentId || (!!v.wantedFrom && !!v.wantedTo), {
     path: ['appointmentId'],
@@ -213,6 +216,9 @@ export const waitlistJoinOnline = defineCommand({
     // The separate box for offers: kept the same way, a new customer's yes, with a number and no STOP.
     if (created && input.offersConsent && !!phone && !stopped)
       await recordOffersConsent(ctx.tx, personId, 'booking_page');
+    // The "OK to call" box: a new customer's yes too, as anyone can type a number on this page.
+    if (created && input.callConsent)
+      await recordCallConsent(ctx.tx, ws, personId, `Waitlist: ${calendar.name}`);
     const [pos] = await rows<{ n: number }>(
       ctx.tx,
       sql`select coalesce(max(position), 0)::int + 1 as n from app.waitlist_entries

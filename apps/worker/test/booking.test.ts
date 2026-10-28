@@ -293,6 +293,52 @@ describe('the booking page', () => {
     expect(again.json()).toMatchObject({ duplicate: true, manageToken: booked.manageToken });
   });
 
+  it('asks for an OK to call once the business does, and keeps a new customer’s yes with the calendar', async () => {
+    const asks = (on: boolean) =>
+      admin().execute(
+        sql`update app.workspaces
+            set settings = jsonb_set(coalesce(settings, '{}'::jsonb), '{automations}',
+              coalesce(settings->'automations', '{}'::jsonb)
+                || jsonb_build_object('calls', jsonb_build_object('askConsent', ${on}::boolean)))
+            where id = ${workspaceId}`,
+      );
+    const cal = await makeCalendar('Duct cleaning');
+    const boxOf = async () =>
+      (
+        (await get(`/public/book/${site}/${cal.slug}`)).json() as {
+          business: { callConsent?: { title: string } | null };
+        }
+      ).business.callConsent ?? null;
+    const consentOf = async (phone: string) =>
+      (
+        await rows<{ consent: string; source: string | null }>(
+          admin(),
+          sql`select call_consent as consent, call_consent_source as source from app.people
+              where workspace_id = ${workspaceId} and phone_e164 = ${phone}`,
+        )
+      )[0];
+    expect(await boxOf()).toBeNull();
+    const { slots } = await openTimes(cal.slug);
+    // Off: a tick sent anyway keeps nothing.
+    const early = bookingBody(slots[0]!.startsAt, { callConsent: true });
+    expect((await post(`/public/book/${site}/${cal.slug}/bookings`, early)).statusCode).toBe(200);
+    expect(await consentOf(early.phone)).toMatchObject({ consent: 'unknown' });
+
+    await asks(true);
+    try {
+      expect((await boxOf())?.title).toMatch(/OK to call/i);
+      const body = bookingBody(slots[2]!.startsAt, { callConsent: true });
+      const res = await post(`/public/book/${site}/${cal.slug}/bookings`, body);
+      expect(res.statusCode, res.body).toBe(200);
+      expect(await consentOf(body.phone)).toEqual({
+        consent: 'opted_in',
+        source: 'Booking page: Duct cleaning',
+      });
+    } finally {
+      await asks(false);
+    }
+  });
+
   it('hides private calendars, says when one is off, and follows the permanent link', async () => {
     const hidden = await makeCalendar('Private', { public: false });
     expect((await get(`/public/book/${site}/${hidden.slug}`)).statusCode).toBe(404);

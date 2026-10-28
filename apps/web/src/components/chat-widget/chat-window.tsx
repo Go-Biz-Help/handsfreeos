@@ -339,6 +339,7 @@ export function ChatWindow({ widgetKey, config, origin, path, preview }: ChatWin
                   consentPolicyUrl={config.smsConsent?.policyUrl ?? null}
                   consentTermsUrl={config.smsConsent?.termsUrl ?? null}
                   offers={config.offersConsent}
+                  calls={config.callConsent}
                   withMessage
                   submitLabel="Send"
                   onSubmit={(v) => identify(v, true)}
@@ -357,6 +358,7 @@ export function ChatWindow({ widgetKey, config, origin, path, preview }: ChatWin
                   consentPolicyUrl={config.smsConsent?.policyUrl ?? null}
                   consentTermsUrl={config.smsConsent?.termsUrl ?? null}
                   offers={config.offersConsent}
+                  calls={config.callConsent}
                   withMessage={false}
                   submitLabel="Start the chat"
                   onSubmit={(v) => identify(v, false)}
@@ -374,6 +376,7 @@ export function ChatWindow({ widgetKey, config, origin, path, preview }: ChatWin
                 consentPolicyUrl={config.smsConsent?.policyUrl ?? null}
                 consentTermsUrl={config.smsConsent?.termsUrl ?? null}
                 offers={config.offersConsent}
+                calls={config.callConsent}
                 withMessage={false}
                 submitLabel="Send"
                 onSubmit={(v) => identify(v, false)}

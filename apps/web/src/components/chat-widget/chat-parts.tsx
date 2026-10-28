@@ -378,6 +378,8 @@ export interface DetailsFormProps {
   readonly consentTermsUrl?: string | null;
   /** The separate box for offers under it, for a business that sends them. */
   readonly offers?: { readonly title: string; readonly detail: string } | null;
+  /** The "OK to call" box, shown with the mobile number, for a business that asks for one. */
+  readonly calls?: { readonly title: string; readonly detail: string } | null;
   /** The away form: "How can we help?" too. */
   readonly withMessage: boolean;
   readonly intro: string | null;
@@ -398,6 +400,7 @@ export function DetailsForm(p: DetailsFormProps) {
     email: '',
     smsConsent: false,
     offersConsent: false,
+    callConsent: false,
     message: '',
   });
   const [problems, setProblems] = useState<FieldProblems>({});
@@ -555,6 +558,21 @@ export function DetailsForm(p: DetailsFormProps) {
             </label>
           ) : null}
         </>
+      ) : null}
+      {/* Calls have their own box, the business's choice rather than the widget's (core's callConsentWords). */}
+      {p.calls && p.show.phone ? (
+        <label className="flex cursor-pointer items-start gap-2.5 text-xs leading-[1.5] text-text-2">
+          <input
+            type="checkbox"
+            checked={!!values.callConsent}
+            onChange={(e) => set({ callConsent: e.target.checked })}
+            className="mt-0.5 h-[18px] w-[18px] flex-none cursor-pointer accent-[var(--wacc)]"
+            data-testid={`${p.testId}-calls`}
+          />
+          <span>
+            <span className="font-medium">{p.calls.title}</span>. {p.calls.detail}
+          </span>
+        </label>
       ) : null}
       {problems.form ? (
         <p role="alert" className="text-xs text-danger-text">

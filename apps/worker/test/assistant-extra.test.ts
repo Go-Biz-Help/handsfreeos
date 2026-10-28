@@ -321,8 +321,10 @@ describe('Settings → Automations', () => {
       ],
       endOfDayEmailAt: '19:30',
       whenVoicemailAnswers: 'hang_up',
+      askForOkToCall: true,
     });
     expect(card.title).toBe('Change your automations');
+    expect(field(card, 'Ask for an OK to call')!.value).toBe('On');
     expect(field(card, 'Day-before confirmation')!.value).toBe('Off');
     expect(field(card, 'Hot lead alert')!.value).toBe('Off');
     expect(field(card, 'End-of-day email at')!.value).toBe('19:30');
@@ -338,7 +340,7 @@ describe('Settings → Automations', () => {
       dayOf: true,
     });
     expect(s['automations'].briefings.eveningAt).toBe('19:30');
-    expect(s['automations'].calls.voicemail).toBe('hang_up');
+    expect(s['automations'].calls).toMatchObject({ voicemail: 'hang_up', askConsent: true });
     expect(s['attention'].kinds.hot_lead).toBe(false);
     expect(s['attention'].kinds.unanswered_lead).toBe(true);
     expect((await teammate()).config['followUp'].neverReplied).toBe(false);

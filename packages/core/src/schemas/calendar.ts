@@ -1094,6 +1094,8 @@ export const AppointmentBookOnlineInput = z.object({
   smsConsent: z.boolean().default(false),
   /** The separate box for offers, shown when the business sends them. Starts unticked too. */
   offersConsent: z.boolean().default(false),
+  /** The "OK to call" box, shown when the business asks for one. Starts unticked too. */
+  callConsent: z.boolean().default(false),
   intake: IntakeAnswers.default(() => ({})),
   notes: z.string().trim().max(2000).nullable().optional(),
   /**

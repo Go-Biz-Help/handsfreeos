@@ -85,6 +85,7 @@ import { invoiceCreate } from './invoice';
 import { leadCreate } from './lead.create';
 import { personUpdate } from './person.update';
 import { taskCreate } from './task';
+import { recordCallConsent } from '../messaging/call-consent';
 import { recordOffersConsent } from '../messaging/offers';
 
 const inWorkspace = (i: { workspaceId: string }) => ({
@@ -681,6 +682,8 @@ export const formResponseSaveContact = defineCommand({
       await recordSmsConsent(ctx.tx, personId, `Form: ${form.name}`);
     if (personId && input.offersConsent)
       await recordOffersConsent(ctx.tx, personId, `Form: ${form.name}`.slice(0, 80));
+    if (personId && input.callConsent)
+      await recordCallConsent(ctx.tx, ctx.scope.workspaceId!, personId, `Form: ${form.name}`);
     if (personId)
       await ctx.emit({
         type: 'form.contact_saved',
@@ -1142,6 +1145,8 @@ export const formResponseSubmit = defineCommand({
       await recordSmsConsent(ctx.tx, personId, `Form: ${form.name}`);
     if (personId && input.offersConsent)
       await recordOffersConsent(ctx.tx, personId, `Form: ${form.name}`.slice(0, 80));
+    if (personId && input.callConsent)
+      await recordCallConsent(ctx.tx, ctx.scope.workspaceId!, personId, `Form: ${form.name}`);
 
     await ctx.emit({
       type: 'form.submitted',
@@ -1342,6 +1347,7 @@ export const formResponseRecord = defineCommand({
       smsConsent: input.smsConsent,
       // The phone's own form has no offers box: a person asks in person, and offers are asked separately.
       offersConsent: false,
+      callConsent: input.callConsent,
     });
   },
 });

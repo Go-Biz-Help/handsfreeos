@@ -276,6 +276,8 @@ export const ChatIdentifyInput = z.object({
   smsConsent: z.boolean().default(false),
   /** The separate box for offers, shown when the business sends them. Never overrides a STOP. */
   offersConsent: z.boolean().default(false),
+  /** The "OK to call" box, shown when the business asks for one. Never overrides "Doesn't want calls". */
+  callConsent: z.boolean().default(false),
 });
 /** Ids and flags only: nothing about a matched customer ever goes back to the visitor. */
 export const ChatIdentifyOutput = z.object({

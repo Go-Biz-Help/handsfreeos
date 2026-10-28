@@ -67,6 +67,7 @@ import {
   AttendeeRescheduleOnlineOutput,
 } from '../schemas/calendar';
 import { announceBooked } from './appointment';
+import { recordCallConsent } from '../messaging/call-consent';
 import { recordOffersConsent } from '../messaging/offers';
 
 const MIN = 60_000;
@@ -353,6 +354,14 @@ export const appointmentBookOnline = defineCommand({
     // The separate box for offers: kept the same way, a new customer's yes, with a number and no STOP.
     if (created && input.offersConsent && !!phone && !stopped)
       await recordOffersConsent(ctx.tx, personId, 'booking_page');
+    // The "OK to call" box: a new customer's yes too, as anyone can type a number on this page.
+    if (created && input.callConsent)
+      await recordCallConsent(
+        ctx.tx,
+        ws,
+        personId,
+        `Booking page: ${service?.name ?? calendar.name}`,
+      );
     const attendee: AttendeeDraft = {
       personId,
       seats: input.partySize,

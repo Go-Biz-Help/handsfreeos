@@ -473,6 +473,8 @@ export const SETTING_TOOLS: Readonly<Record<string, readonly SettingWay[]>> = {
     { tool: 'manage_web_address', field: 'action', value: 'add' },
     { tool: 'manage_web_address', field: 'action', value: 'remove' },
   ],
+  // ---- Automations ----
+  'adjust.ok_to_call': [{ tool: 'update_automations', field: 'askForOkToCall' }],
 };
 
 /** Setting rows the Assistant never changes, and why. */

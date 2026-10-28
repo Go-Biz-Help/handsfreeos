@@ -9,6 +9,7 @@
 import {
   AUTO_CANCEL_WINDOW_MINUTES,
   AUTO_RECENT_PERSON_HOURS,
+  callConsentWords,
   checkNudgeTemplate,
   CONTACT_AI_GUIDE_MAX,
   DEFAULT_FOLLOW_UP_LADDER,
@@ -1864,6 +1865,8 @@ const VOICEMAIL_CHOICES: readonly { value: CallVoicemailChoice; label: string }[
 function AiCallsPanel({ env }: { env: PanelEnv }) {
   const ai = env.teammateName ?? 'Your AI teammate';
   const choice = env.automations.calls.voicemail;
+  const askConsent = env.automations.calls.askConsent;
+  const callWords = callConsentWords(env.businessName);
   return (
     <>
       <Block>
@@ -1904,6 +1907,38 @@ function AiCallsPanel({ env }: { env: PanelEnv }) {
             ))}
           </Select>
         </SetRow>
+      </Block>
+      <Block title="Ask for an OK to call" setting="adjust.ok_to_call">
+        <SetRow
+          first
+          title="Show the box on your pages"
+          description="Under the text box on your forms, booking page, waitlist and website chat. It’s never ticked for them. A tick counts as agreed in writing, so campaign calls can go to them."
+        >
+          <Switch
+            checked={askConsent}
+            label="Ask for an OK to call"
+            onChange={(on) =>
+              void env.saveAutomations(
+                (s) => ({ ...s, calls: { ...s.calls, askConsent: on } }),
+                on
+                  ? 'Your forms, booking page and chat now ask for an OK to call.'
+                  : 'The box is off. Every yes you already have stays.',
+              )
+            }
+            testId="ai-calls-ask-consent"
+          />
+        </SetRow>
+        <div
+          className="rounded-xl border border-border bg-card-2 px-4 py-3.5"
+          data-testid="ai-calls-consent-preview"
+        >
+          <p className="text-[13px] font-medium">☐ {callWords.title}</p>
+          <p className="mt-1 text-xs text-text-3">{callWords.detail}</p>
+        </div>
+        <p className="mt-1.5 text-[12.5px] text-text-3">
+          Each yes shows on the customer’s Details with where they said it, like “Form: Get a
+          quote”. It never undoes a “Doesn’t want calls”.
+        </p>
       </Block>
     </>
   );

@@ -608,6 +608,7 @@ async function listAutomations(db: Db, ctx: ToolContext, args: Args): Promise<To
         : null,
       endOfDayEmailAt: a.briefings.eveningAt,
       whenVoicemailAnswers: a.calls.voicemail,
+      asksForOkToCall: a.calls.askConsent,
     },
   };
 }
@@ -770,11 +771,13 @@ function planAutomations(state: AutomationState, args: Args): AutomationPlan {
   const eveningAt = str(args['endOfDayEmailAt']) ?? now.briefings.eveningAt;
   const voicemail = (str(args['whenVoicemailAnswers']) ??
     now.calls.voicemail) as AutomationSettings['calls']['voicemail'];
+  const askConsent =
+    typeof args['askForOkToCall'] === 'boolean' ? args['askForOkToCall'] : now.calls.askConsent;
   const next: AutomationSettings = {
     ...now,
     reengage: { ...now.reengage, ...reengage },
     briefings: { ...now.briefings, eveningAt },
-    calls: { ...now.calls, voicemail },
+    calls: { ...now.calls, voicemail, askConsent },
   };
   if (reengage.afterDays !== now.reengage.afterDays)
     fields.push({ label: 'Re-engage: gone cold after', value: plural(reengage.afterDays, 'day') });
@@ -796,6 +799,8 @@ function planAutomations(state: AutomationState, args: Args): AutomationPlan {
     fields.push({ label: 'End-of-day email at', value: eveningAt });
   if (voicemail !== now.calls.voicemail)
     fields.push({ label: 'When a voicemail box answers', value: VOICEMAIL_WORDS[voicemail]! });
+  if (askConsent !== now.calls.askConsent)
+    fields.push({ label: 'Ask for an OK to call', value: askConsent ? 'On' : 'Off' });
   if (JSON.stringify(next) !== JSON.stringify(now)) {
     try {
       parseAutomationSettings(next);

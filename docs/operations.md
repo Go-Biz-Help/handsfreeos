@@ -9328,6 +9328,19 @@ reminder set, there's no call either.
   HandsFreeOS change only with **Update it**. Each one is a `person.set_call_consent` like the customer page's, by
   the import on the importer's behalf, and the audit log's "started importing leads.csv, with who agreed to calls"
   says the file carried it. The business keeps its own proof of each yes; HandsFreeOS keeps where.
+- **On the business's own pages:** **Ask for an OK to call** in the same **Adjust** (off to begin with) puts an
+  "OK to call me, including with an AI assistant" box under the text box on its public forms (not anonymous ones),
+  booking page, waitlist and website chat (with the mobile number), and on the phone app's form fill. It's never
+  ticked for them and never required. The fine print says the business may call the number they gave, including
+  with an AI assistant or a recorded voice, about what they asked for and its services and offers; that agreeing
+  isn't a condition of buying; that calls may be recorded; and how to stop. The words are core's `callConsentWords`
+  (`packages/core/src/messaging/consent.ts`), drafted 2026-10-28 for the owner's lawyer to approve, so one change
+  there is every page. A tick is a yes like the customer page's, with where: "Form: Get a quote", "Booking page: AC
+  tune-up", "Waitlist: Homeowner class" or "Website chat". As with texts, the booking page, waitlist and chat keep it
+  for a new customer only (anyone can type a number there); a form keeps it for whoever it matched. Never with no
+  number, never over a "Doesn't want calls", and never while the switch is off (the command checks it again, so a
+  page loaded before it went off keeps nothing). The Assistant turns it on or off with `update_automations`
+  (`askForOkToCall`).
 - **On a quote call** the AI knows the quote's name, total and last day. It answers questions from those and what
   the business knows, never changes a price or the terms, and for going ahead points to the link in the text they
   got (the team can text it again).

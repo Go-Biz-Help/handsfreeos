@@ -64,6 +64,7 @@ export function PublicForm({
   closedMessage,
   botCheck,
   offers = null,
+  calls = null,
   resumed,
   personal = null,
   linkRef = null,
@@ -79,6 +80,8 @@ export function PublicForm({
   botCheck: { siteKey: string | null } | null;
   /** The separate box for offers, for a business that sends them (core's offersConsentWords). */
   offers?: { title: string; detail: string } | null;
+  /** The "OK to call" box, for a business that asks for one (core's callConsentWords). */
+  calls?: { title: string; detail: string } | null;
   resumed: { responseId: string; token: string; answers: AnswerSheet } | null;
   personal?: PersonalLink | null;
   /** The `ref` the page was opened with: the sheet keeps it, and so does a time booked on it. */
@@ -94,6 +97,7 @@ export function PublicForm({
   const [failed, setFailed] = useState<string | null>(null);
   const [consent, setConsent] = useState(false);
   const [offersConsent, setOffersConsent] = useState(false);
+  const [callConsent, setCallConsent] = useState(false);
   /** On a personal link: they want to give their details again, so nothing we know is skipped. */
   const [askAgain, setAskAgain] = useState(false);
   /** Goes up when a "Book a time" question should read its times again (one filled up). */
@@ -220,6 +224,7 @@ export function PublicForm({
           answers: state.answers as Record<string, unknown>,
           smsConsent: consent,
           offersConsent: offers ? offersConsent : false,
+          callConsent: calls ? callConsent : false,
           askAgain,
           website,
           turnstileToken: botToken ?? undefined,
@@ -261,6 +266,7 @@ export function PublicForm({
         answers: state.answers as Record<string, unknown>,
         smsConsent: consent,
         offersConsent: offers ? offersConsent : false,
+        callConsent: calls ? callConsent : false,
         askAgain,
         website,
         turnstileToken: botToken ?? undefined,
@@ -366,6 +372,19 @@ export function PublicForm({
             data-testid="form-offers-consent"
           />
           <p className="ml-[26px] mt-1 text-xs text-text-3">{offers.detail}</p>
+        </>
+      ) : null}
+      {/* Calls have their own box too: a yes to texts isn't a yes to calls from an AI (core's callConsentWords). */}
+      {calls ? (
+        <>
+          <Checkbox
+            className="mt-3 text-[13px] font-medium"
+            label={calls.title}
+            checked={callConsent}
+            onChange={(e) => setCallConsent(e.target.checked)}
+            data-testid="form-call-consent"
+          />
+          <p className="ml-[26px] mt-1 text-xs text-text-3">{calls.detail}</p>
         </>
       ) : null}
     </div>

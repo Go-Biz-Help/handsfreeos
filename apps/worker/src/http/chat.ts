@@ -81,7 +81,7 @@ import {
   type WidgetRow,
 } from '../chat/store';
 import { systemActor, type TenantScope } from '../services';
-import { header, offersBoxFor, parseBody, type HttpDeps } from './common';
+import { callBoxFor, header, offersBoxFor, parseBody, type HttpDeps } from './common';
 import { openStream } from './sse';
 
 // ---- Options ----
@@ -236,6 +236,7 @@ const IdentifyBody = z
     email: z.string().max(320).optional(),
     smsConsent: z.boolean().default(false),
     offersConsent: z.boolean().default(false),
+    callConsent: z.boolean().default(false),
     turnstileToken: z.string().max(2048).optional(),
     honeypot: z.string().max(500).optional(),
   })
@@ -446,6 +447,8 @@ export async function registerChatRoutes(app: FastifyInstance, deps: HttpDeps): 
             offersConsent: widget.smsConsent
               ? await offersBoxFor(tx, route.workspaceId, ws?.name ?? '')
               : null,
+            // The "OK to call" box, for a business that asks for one: its own switch, not the widget's.
+            callConsent: await callBoxFor(tx, route.workspaceId, ws?.name ?? ''),
             humanCheck: botCheck.enabled ? { siteKey: botCheck.siteKey } : null,
             paused: widget.pausedAt !== null,
             maxMessageLength: CHAT_MESSAGE_MAX,
@@ -648,6 +651,7 @@ export async function registerChatRoutes(app: FastifyInstance, deps: HttpDeps): 
           ...(email ? { email } : {}),
           smsConsent: body.smsConsent,
           offersConsent: body.offersConsent,
+          callConsent: body.callConsent,
         });
         if (verdict === 'pass')
           await run(v.scope, chatVisitorRecordSeen, {

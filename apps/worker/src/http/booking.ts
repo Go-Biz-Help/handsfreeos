@@ -87,7 +87,7 @@ import { publicOrigin } from '../hosting/origin';
 import { accountFor } from '../payments/index';
 import { declineWording, type PaymentMethodKind, type PaymentResult } from '../payments/provider';
 import { systemActor, type TenantScope } from '../services';
-import { offersBoxFor, parseBody, type HttpDeps } from './common';
+import { callBoxFor, offersBoxFor, parseBody, type HttpDeps } from './common';
 
 const MIN = 60_000;
 const HOUR = 3_600_000;
@@ -172,6 +172,8 @@ export interface PublicBusiness {
   readonly look: PublicLook;
   /** The separate box for offers under "Text me", for a business that sends them; null otherwise. */
   readonly offersConsent?: { readonly title: string; readonly detail: string } | null;
+  /** The "OK to call" box under those, for a business that asks for one; null otherwise. */
+  readonly callConsent?: { readonly title: string; readonly detail: string } | null;
 }
 
 const SLUG_RE = /^[A-Za-z0-9-]{1,80}$/;
@@ -360,6 +362,7 @@ async function businessIn(
     phoneDisplay: phone ? formatPhone(phone.e164) : null,
     look: publicLookOf(w?.settings, storageUrl),
     offersConsent: await offersBoxFor(tx, workspaceId, name),
+    callConsent: await callBoxFor(tx, workspaceId, name),
   };
 }
 
@@ -633,6 +636,8 @@ const customerFields = {
   smsConsent: z.boolean().default(false),
   /** The separate box for offers, shown when the business sends them. */
   offersConsent: z.boolean().default(false),
+  /** The "OK to call" box, shown when the business asks for one. */
+  callConsent: z.boolean().default(false),
   /** The honeypot: people never see it, so it stays empty. */
   website: z.string().max(500).optional(),
   turnstileToken: z.string().max(2048).optional(),
@@ -1310,6 +1315,7 @@ export async function registerBookingRoutes(app: FastifyInstance, deps: HttpDeps
             customer: { ...splitName(body.name), phone, email: body.email || null },
             smsConsent: body.smsConsent,
             offersConsent: body.offersConsent,
+            callConsent: body.callConsent,
             intake: body.intake,
             notes: body.notes ?? null,
             linkRef: linkRefOf(body.ref),
@@ -1375,6 +1381,7 @@ export async function registerBookingRoutes(app: FastifyInstance, deps: HttpDeps
             customer: { ...splitName(body.name), phone, email: body.email || null },
             smsConsent: body.smsConsent,
             offersConsent: body.offersConsent,
+            callConsent: body.callConsent,
           },
           systemActor(scope),
           meta(),

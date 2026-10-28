@@ -89,6 +89,26 @@ export function offersConsentWords(business: string): { title: string; detail: s
   };
 }
 
+/**
+ * The "OK to call" box a business that asks for it shows under the text boxes (Settings → Automations → AI calls).
+ *
+ * **Its own box, because a call is its own permission.** AI calls use an artificial voice, and the law asks for a
+ * customer's written yes before one about the business's services or offers: a yes to texts isn't a yes to calls. So
+ * the words say who calls (the business, never HandsFreeOS), that it may be an AI assistant or a recorded voice, what
+ * about, that it isn't a condition of buying, that calls may be recorded and how to stop. Never ticked for them and
+ * never required, like the others. Drafted 2026-10-28 for the owner's lawyer to approve; one change here is every page.
+ */
+export function callConsentWords(business: string): { title: string; detail: string } {
+  const who = business.trim() || 'this business';
+  return {
+    title: 'OK to call me, including with an AI assistant',
+    detail:
+      `${who} may call the number you gave, including with an AI assistant or a recorded voice, about what ` +
+      'you asked for and about its services and offers. Agreeing is not a condition of buying anything. ' +
+      `Calls may be recorded. Say stop on any call, or tell ${who}, and the calls stop.`,
+  };
+}
+
 /** True when this use case has the business sending offers as well as customer care, so it needs the second box. */
 export const sendsOffers = (useCase: string | null | undefined): boolean =>
   useCase === 'mixed' || useCase === 'marketing';
