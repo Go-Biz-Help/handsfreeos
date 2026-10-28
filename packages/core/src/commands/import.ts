@@ -92,6 +92,18 @@ export const importStart = defineCommand({
       throw HfosError.validation([{ path: 'mapping', message: 'Map a name column.' }]);
     if (current.kind === 'companies' && !mapped.has('name'))
       throw HfosError.validation([{ path: 'mapping', message: 'Map the company name column.' }]);
+    if (
+      mapped.has('call_consent') &&
+      !mapped.has('call_consent_source') &&
+      !input.options.callConsentSource
+    )
+      throw HfosError.validation([
+        {
+          path: 'options.callConsentSource',
+          message:
+            'Say where these people agreed to calls in writing, like “Website form, Oct 2026”, or map a “Where they agreed to calls” column.',
+        },
+      ]);
     const [info] = await rows<{ size_bytes: number | null }>(
       ctx.tx,
       sql`select size_bytes from private.storage_object_info('imports', ${current.objectPath})`,
@@ -121,6 +133,7 @@ export const importStart = defineCommand({
         kind: current.kind,
         onMatch: input.options.onMatch,
         columns: Object.keys(input.mapping).length,
+        ...(mapped.has('call_consent') ? { callConsent: true } : {}),
       },
     });
     return { importId: current.id };

@@ -16,7 +16,8 @@ import { toast } from 'sonner';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
-import { Select } from '@/components/ui/input';
+import { Field } from '@/components/ui/field';
+import { Input, Select } from '@/components/ui/input';
 import { RadioCard } from '@/components/ui/radio-card';
 import { apiBrowser, errorMessage, unwrap } from '@/lib/api/client';
 import { formatBytes } from '@/lib/format';
@@ -42,6 +43,7 @@ export function ImportWizard({ workspaceId }: { workspaceId: string }) {
   const [parsing, setParsing] = useState(false);
   const [mapping, setMapping] = useState<Record<string, string>>({});
   const [onMatch, setOnMatch] = useState<'skip' | 'update'>('skip');
+  const [callWhere, setCallWhere] = useState('');
   const [running, setRunning] = useState(false);
   const [importId, setImportId] = useState<string | null>(null);
   const [over, setOver] = useState(false);
@@ -98,6 +100,10 @@ export function ImportWizard({ workspaceId }: { workspaceId: string }) {
     kind === 'people'
       ? mapped.has('first_name') || mapped.has('last_name') || mapped.has('full_name')
       : mapped.has('name');
+  // "Agreed to calls": a yes needs where they agreed, from the row's own column or this one answer for the file.
+  const callConsent = kind === 'people' && mapped.has('call_consent');
+  const callWhereColumn = mapped.has('call_consent_source');
+  const needsCallWhere = callConsent && !callWhereColumn && !callWhere.trim();
   const sample = (header: string) => parsed?.rows.find((r) => r[header]?.trim())?.[header] ?? '';
 
   const preview = (parsed?.rows ?? []).slice(0, 20).map((row, i) => {
@@ -110,12 +116,17 @@ export function ImportWizard({ workspaceId }: { workspaceId: string }) {
         problems.push('bad email');
       if ([m.phone, ...m.otherPhones].some((p) => p && !normalizePhone(p)))
         problems.push('bad phone');
+      const c = m.callConsent;
+      if (c?.answer === 'unclear') problems.push('calls not yes or no');
+      else if (c?.answer === 'opted_in' && !c.where && callWhereColumn && !callWhere.trim())
+        problems.push('no where for calls');
       return {
         row: i + 2,
         name: [m.firstName, m.lastName].filter(Boolean).join(' ') || '—',
         phone: m.phone ?? '—',
         email: m.email ?? '—',
         company: m.company ?? '—',
+        calls: c?.answer === 'opted_in' ? 'Agreed' : c?.answer === 'opted_out' ? 'No calls' : '—',
         problems,
       };
     }
@@ -131,6 +142,7 @@ export function ImportWizard({ workspaceId }: { workspaceId: string }) {
       phone: m.phone ?? '—',
       email: m.email ?? '—',
       company: m.website ?? '—',
+      calls: '—',
       problems,
     };
   });
@@ -151,7 +163,15 @@ export function ImportWizard({ workspaceId }: { workspaceId: string }) {
       if (error) throw new Error(`Upload failed: ${error.message}`);
       unwrap(
         await apiBrowser().POST('/v1/commands/import.start', {
-          body: { workspaceId, importId: created.importId, mapping, options: { onMatch } },
+          body: {
+            workspaceId,
+            importId: created.importId,
+            mapping,
+            options: {
+              onMatch,
+              ...(callConsent && callWhere.trim() ? { callConsentSource: callWhere.trim() } : {}),
+            },
+          },
         }),
       );
       setImportId(created.importId);
@@ -385,6 +405,7 @@ export function ImportWizard({ workspaceId }: { workspaceId: string }) {
                     <th className="px-3 py-2">Phone</th>
                     <th className="px-3 py-2">Email</th>
                     <th className="px-3 py-2">{kind === 'people' ? 'Company' : 'Website'}</th>
+                    {callConsent ? <th className="px-3 py-2">Calls</th> : null}
                     <th className="px-3 py-2">Status</th>
                   </tr>
                 </thead>
@@ -396,6 +417,11 @@ export function ImportWizard({ workspaceId }: { workspaceId: string }) {
                       <td className="px-3 py-2 text-[13px]">{p.phone}</td>
                       <td className="max-w-[220px] truncate px-3 py-2 text-[13px]">{p.email}</td>
                       <td className="max-w-[200px] truncate px-3 py-2 text-[13px]">{p.company}</td>
+                      {callConsent ? (
+                        <td className="px-3 py-2 text-[13px]" data-testid="import-preview-calls">
+                          {p.calls}
+                        </td>
+                      ) : null}
                       <td className="px-3 py-2">
                         {p.problems.length ? (
                           <Badge variant={p.problems.includes('empty') ? 'gray' : 'revoked'}>
@@ -413,6 +439,34 @@ export function ImportWizard({ workspaceId }: { workspaceId: string }) {
               </table>
             </div>
           </Card>
+          {callConsent ? (
+            <Card className="p-5 md:p-6" data-testid="import-call-consent">
+              <h3 className="text-[15px] font-semibold">Calls from us</h3>
+              <p className="mb-3 text-[13px] text-text-2">
+                Everyone the file says yes to is marked “Agreed in writing”, so your AI teammate can
+                call them in a call campaign, and everyone it says no to “Doesn’t want calls”. Keep
+                your own proof of each yes.
+              </p>
+              <Field
+                label={
+                  callWhereColumn
+                    ? 'Where did they agree? (for rows that don’t say)'
+                    : 'Where did they agree in writing?'
+                }
+                htmlFor="import-call-where"
+                hint="Like “Website form, Oct 2026”. Someone already marked “Doesn’t want calls” stays that way. People you already have only change when you pick Update it below."
+              >
+                <Input
+                  id="import-call-where"
+                  value={callWhere}
+                  onChange={(e) => setCallWhere(e.target.value)}
+                  placeholder="Website form, Oct 2026"
+                  maxLength={120}
+                  data-testid="import-call-where"
+                />
+              </Field>
+            </Card>
+          ) : null}
           <Card className="p-5 md:p-6">
             <h3 className="text-[15px] font-semibold">
               When a row matches someone you already have
@@ -445,10 +499,22 @@ export function ImportWizard({ workspaceId }: { workspaceId: string }) {
             <Button variant="ghost" onClick={() => setStep(2)}>
               Back
             </Button>
-            <Button onClick={run} loading={running} data-testid="import-run">
-              <Upload className="h-4 w-4" strokeWidth={1.75} />
-              Run import · {parsed.total.toLocaleString()} rows
-            </Button>
+            <span className="flex items-center gap-3">
+              {needsCallWhere ? (
+                <span className="text-[13px] text-warning-text">
+                  Say where they agreed to calls to continue.
+                </span>
+              ) : null}
+              <Button
+                onClick={run}
+                loading={running}
+                disabled={needsCallWhere}
+                data-testid="import-run"
+              >
+                <Upload className="h-4 w-4" strokeWidth={1.75} />
+                Run import · {parsed.total.toLocaleString()} rows
+              </Button>
+            </span>
           </div>
         </div>
       ) : null}

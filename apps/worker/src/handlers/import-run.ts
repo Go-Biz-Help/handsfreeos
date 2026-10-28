@@ -13,9 +13,11 @@ import {
   otherEmailsOf,
   otherPhonesOf,
   personCreate,
+  personSetCallConsent,
   personUpdate,
   companyUpdate,
   tagCreate,
+  type MappedPerson,
   type RequestMeta,
   type SystemActor,
 } from '@hfos/core/server';
@@ -37,7 +39,7 @@ type Job = {
   file_name: string;
   object_path: string;
   mapping: Record<string, string>;
-  options: { onMatch?: 'skip' | 'update' };
+  options: { onMatch?: 'skip' | 'update'; callConsentSource?: string };
   processed_rows: number;
   error_count: number;
   created_by: string | null;
@@ -227,17 +229,81 @@ export async function runImport(
       return out;
     };
 
+    /**
+     * What the row says about calls, checked before anything is saved so a row the import can't read fails whole.
+     * A yes needs where they agreed: the row's own cell, else what the importer said for the whole file.
+     */
+    const callConsentFor = (
+      m: MappedPerson,
+    ): { consent: 'opted_in' | 'opted_out'; source: string } | null => {
+      const c = m.callConsent;
+      if (!c) return null;
+      if (c.answer === 'unclear')
+        throw HfosError.validation([
+          {
+            path: 'Agreed to calls',
+            message: `“${c.value.slice(0, 40)}” isn’t a yes or a no. Write Yes, No or the day they agreed, or leave it empty`,
+          },
+        ]);
+      if (c.answer === 'opted_out')
+        return {
+          consent: 'opted_out',
+          source: (c.where ?? `Imported from ${job.file_name}`).slice(0, 120),
+        };
+      const where = c.where ?? job.options.callConsentSource ?? null;
+      if (!where)
+        throw HfosError.validation([
+          {
+            path: 'Where they agreed to calls',
+            message:
+              'empty, but the row says they agreed. Fill it in, or say where everyone agreed when you start the import',
+          },
+        ]);
+      return {
+        consent: 'opted_in',
+        source: (c.on ? `${where}, agreed ${c.on}` : where).slice(0, 120),
+      };
+    };
+    /** Records it like the customer page does. A yes never undoes a "no calls" already on file. */
+    const applyCallConsent = async (
+      personId: string,
+      consent: ReturnType<typeof callConsentFor>,
+    ): Promise<void> => {
+      if (!consent) return;
+      if (consent.consent === 'opted_in') {
+        const [had] = await transact((tx) =>
+          rows<{ call_consent: string }>(
+            tx,
+            sql`select call_consent::text from app.people where id = ${personId}`,
+          ),
+        );
+        if (had?.call_consent === 'opted_out') return;
+      }
+      await executeCommand(
+        ctx.db,
+        personSetCallConsent,
+        { workspaceId, personId, ...consent },
+        actor,
+        meta,
+      );
+    };
+
     const processRow = async (raw: Record<string, string>, importRow: number): Promise<Outcome> => {
       if (job.kind === 'people') {
         const m = mapPersonRow(raw, job.mapping);
         if (!m.firstName && !m.lastName && !m.email && !m.phone) return 'skipped';
+        const consent = callConsentFor(m);
         const [already] = await transact((tx) =>
           rows<{ id: string }>(
             tx,
             sql`select id from app.people where import_id = ${importId} and import_row = ${importRow}`,
           ),
         );
-        if (already) return 'created';
+        if (already) {
+          // A run that stopped between adding them and recording their answer finishes it.
+          await applyCallConsent(already.id, consent);
+          return 'created';
+        }
         const phoneE164 = m.phone ? normalizePhone(m.phone) : null;
         const matches = await transact((tx) =>
           findMatches(tx, workspaceId, 'person', { email: m.email, phoneE164 }),
@@ -273,9 +339,10 @@ export async function runImport(
             actor,
             meta,
           );
+          await applyCallConsent(matches[0].id, consent);
           return 'updated';
         }
-        await executeCommand(
+        const created = await executeCommand(
           ctx.db,
           personCreate,
           {
@@ -292,6 +359,7 @@ export async function runImport(
           actor,
           meta,
         );
+        await applyCallConsent(created.output.personId, consent);
         return 'created';
       }
       const m = mapCompanyRow(raw, job.mapping);

@@ -13,6 +13,7 @@ import {
   organizationCreate,
   personCreate,
   personList,
+  personSetCallConsent,
   timelineList,
   type HumanActor,
 } from '@hfos/core/server';
@@ -55,7 +56,7 @@ let deps: OutboxDeps;
 /** Reserves an import, uploads the CSV with the worker key, and starts it; returns the import id and the request event. */
 async function startImport(
   csv: string,
-  options: { onMatch: 'skip' | 'update' } = { onMatch: 'skip' },
+  options: { onMatch: 'skip' | 'update'; callConsentSource?: string } = { onMatch: 'skip' },
   opts: { viaOutbox?: boolean } = {},
   mapping = guessMapping(HEADERS, 'people'),
 ) {
@@ -446,6 +447,135 @@ describe('CSV import through the outbox', () => {
     );
     expect(got.import).toMatchObject({ status: 'cancelled', processedRows: 2, createdCount: 2 });
     expect(await deps.store.exists('imports', started.objectPath)).toBe(false);
+  });
+
+  it('records who agreed to calls, and where, without undoing a “no calls” or guessing at unclear answers', async () => {
+    // Otto told the AI on a call not to call again; an old list saying yes mustn't undo that.
+    const otto = await executeCommand(
+      testDbs().api.db,
+      personCreate,
+      { workspaceId, firstName: 'Otto', lastName: 'Out', email: 'otto.out@example.com' },
+      actor(owner),
+      meta(),
+    );
+    await executeCommand(
+      testDbs().api.db,
+      personSetCallConsent,
+      { workspaceId, personId: otto.output.personId, consent: 'opted_out' },
+      actor(owner),
+      meta(),
+    );
+    const headers = [
+      'First Name',
+      'Last Name',
+      'Email Address',
+      'Agreed to calls',
+      'Where they agreed',
+    ];
+    const mapping = guessMapping(headers, 'people');
+    expect(mapping).toMatchObject({
+      'Agreed to calls': 'call_consent',
+      'Where they agreed': 'call_consent_source',
+    });
+    const csv = [
+      headers.join(','),
+      'Cara,Yes,cara.yes@example.com,Yes,',
+      'Dev,Dated,dev.dated@example.com,2026-10-01,Facebook lead ad',
+      'Nia,Never,nia.never@example.com,No,',
+      'Pat,Maybe,pat.maybe@example.com,maybe,',
+      'Otto,Out,otto.out@example.com,Yes,',
+      'Emi,Empty,emi.empty@example.com,,',
+    ].join('\n');
+    const { importId, event } = await startImport(
+      `${csv}\n`,
+      { onMatch: 'update', callConsentSource: 'Website form, Oct 2026' },
+      {},
+      mapping,
+    );
+    await deps.db.transaction(async (tx) =>
+      runImport({ ...contextFor(event), tx }, { batchSize: 10 }),
+    );
+    const got = await executeQuery(
+      testDbs().api.db,
+      importGet,
+      { workspaceId, importId },
+      actor(owner),
+      meta(),
+    );
+    expect(got.import).toMatchObject({
+      status: 'done',
+      createdCount: 4,
+      updatedCount: 1,
+      errorCount: 1,
+    });
+    // "maybe" isn't read as anything: the row fails whole, saying what to write.
+    expect(got.errors).toHaveLength(1);
+    expect(got.errors[0]).toMatchObject({ rowNumber: 5 });
+    expect(got.errors[0]!.message).toMatch(/Agreed to calls: “maybe” isn’t a yes or a no/);
+
+    const consent = await rows<{
+      email: string;
+      call_consent: string;
+      call_consent_source: string | null;
+    }>(
+      testDbs().admin.db,
+      sql`select email::text, call_consent::text, call_consent_source from app.people
+          where workspace_id = ${workspaceId}
+            and email in ('cara.yes@example.com', 'dev.dated@example.com', 'nia.never@example.com',
+                          'pat.maybe@example.com', 'otto.out@example.com', 'emi.empty@example.com')
+          order by email`,
+    );
+    expect(consent.map((r) => [r.email, r.call_consent, r.call_consent_source])).toEqual([
+      // A row without its own where takes the one given for the file.
+      ['cara.yes@example.com', 'opted_in', 'Website form, Oct 2026'],
+      // A row's own where wins, and a date is the day they agreed.
+      ['dev.dated@example.com', 'opted_in', 'Facebook lead ad, agreed 2026-10-01'],
+      ['emi.empty@example.com', 'unknown', null],
+      ['nia.never@example.com', 'opted_out', 'Imported from customers.csv'],
+      ['otto.out@example.com', 'opted_out', 'Asked the team'],
+    ]);
+
+    // Recorded the way the customer page records it: an event and an audit row, by the import on the importer's behalf.
+    const [cara] = await rows<{ id: string }>(
+      testDbs().admin.db,
+      sql`select id from app.people where workspace_id = ${workspaceId} and email = 'cara.yes@example.com'`,
+    );
+    const changed = await testDbs()
+      .admin.db.select()
+      .from(events)
+      .where(eq(events.entityId, cara!.id));
+    const yes = changed.find((e) => e.eventType === 'person.call_consent_changed');
+    expect(yes).toMatchObject({ actorType: 'system', causationId: event.id });
+  });
+
+  it('won’t start an import that marks who agreed to calls without saying where', async () => {
+    const created = await executeCommand(
+      testDbs().api.db,
+      importCreate,
+      { workspaceId, kind: 'people', fileName: 'leads.csv' },
+      actor(owner),
+      meta(),
+    );
+    const up = await admin()
+      .storage.from(created.output.bucket)
+      .upload(created.output.objectPath, Buffer.from('Name,Agreed to calls\nAnn Lee,Yes\n'), {
+        contentType: 'text/csv',
+      });
+    expect(up.error).toBeNull();
+    await expect(
+      executeCommand(
+        testDbs().api.db,
+        importStart,
+        {
+          workspaceId,
+          importId: created.output.importId,
+          mapping: { Name: 'full_name', 'Agreed to calls': 'call_consent' },
+          options: { onMatch: 'skip' },
+        },
+        actor(owner),
+        meta(),
+      ),
+    ).rejects.toMatchObject({ code: 'validation' });
   });
 
   it('gives up after the last attempt and marks the import failed with the reason', async () => {

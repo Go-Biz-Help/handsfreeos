@@ -55,3 +55,43 @@ test('imports a CSV of people through the wizard, updating a duplicate', async (
   await expect(page.getByText('finished importing customers.csv')).toBeVisible();
   await expect(page.getByText('started importing customers.csv')).toBeVisible();
 });
+
+/** A file's "Agreed to calls" column marks who the AI teammate may call, and where they agreed. */
+test('marks who agreed to calls from the file, with where they agreed', async ({ page }) => {
+  await signUpAndConfirm(page, 'import-calls');
+  const workspaceId = await createBusiness(page, { name: 'Lone Star Builders' });
+
+  await page.goto(`/app/w/${workspaceId}/imports/new`);
+  await page.getByTestId('import-file').setInputFiles({
+    name: 'leads.csv',
+    mimeType: 'text/csv',
+    buffer: Buffer.from(
+      'Name,Phone,Agreed to calls\nAnn Lee,713-555-0191,Yes\nBo Diaz,713-555-0192,No\n',
+    ),
+  });
+  await page.getByTestId('import-next').click();
+  await expect(page.getByLabel('Field for Agreed to calls')).toHaveValue('call_consent');
+  await page.getByTestId('import-next').click();
+
+  await expect(page.getByTestId('import-preview-calls')).toHaveText(['Agreed', 'No calls']);
+  // A yes needs where they agreed before the import runs.
+  await expect(page.getByTestId('import-run')).toBeDisabled();
+  await page.getByTestId('import-call-where').fill('Website form, Oct 2026');
+  await page.getByTestId('import-run').click();
+  await expect(page.getByTestId('import-progress')).toHaveAttribute('data-status', 'done', {
+    timeout: 30_000,
+  });
+
+  await page.goto(`/app/w/${workspaceId}/customers?q=lee`);
+  await page.getByTestId('people-table').getByRole('link').filter({ hasText: 'Ann Lee' }).click();
+  await expect(page).toHaveURL(/\/customers\/people\//);
+  await page.getByTestId('tab-details').click();
+  await expect(page.getByTestId('call-consent-value')).toHaveText(
+    'Agreed in writing (Website form, Oct 2026)',
+  );
+
+  await page.goto(`/app/w/${workspaceId}/audit`);
+  await expect(
+    page.getByText('started importing leads.csv, with who agreed to calls'),
+  ).toBeVisible();
+});

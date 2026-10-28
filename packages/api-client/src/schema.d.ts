@@ -33399,6 +33399,7 @@ export interface operations {
                      *     }
                      */
                     options?: {
+                        callConsentSource?: string;
                         /**
                          * @default skip
                          * @enum {string}
@@ -68588,6 +68589,7 @@ export interface operations {
                                 [key: string]: string;
                             };
                             options: {
+                                callConsentSource?: string;
                                 /**
                                  * @default skip
                                  * @enum {string}
@@ -68651,6 +68653,7 @@ export interface operations {
                                 [key: string]: string;
                             };
                             options: {
+                                callConsentSource?: string;
                                 /**
                                  * @default skip
                                  * @enum {string}
