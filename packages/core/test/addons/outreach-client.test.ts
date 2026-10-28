@@ -258,6 +258,12 @@ describe('Mark as client', () => {
       dontPitch: null,
       neverContact: null,
       canTakeOff: { dontPitch: false, neverContact: false },
+      // Nobody has reached them yet; an owner can give them to anyone on the team (decision 107).
+      owner: null,
+      moveTo: [
+        { userId: owner.id, name: 'Morgan Owner', you: true },
+        { userId: member.id, name: 'Riley Member', you: false },
+      ],
     });
     // Kept under a client's name: one, with no reason of their own.
     expect(

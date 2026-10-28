@@ -2510,6 +2510,28 @@ where decisions 37 and 59 put the settings; what they decided stands. Settled to
         (`outreach.demo.held`, on `appointment.completed`), and the customer's Social card, on the web and the phone,
         asks Won or Lost (`outreach.demo.outcome`). Lost asks why, and marks them not a fit with it; a demo marked by
         hand asks the same.
+107.  **Whose each group and person is** (Chris, 28 Oct 2026, "all of your picks": 4a). "Each group belongs to the
+      teammate who works it first, and each person to whoever reached them first. Owners can move either."
+      - **A group** is the teammate's who first took a step from it, asked to join it (any ask but one that couldn't go)
+        or put a helpful post up there (`groups.owner_user_id`, `owned_at`, 20261027015800). **A person** is the
+        teammate's who first took a step to them (any noted, the extension's own included) or booked their demo through
+        their link, or marked it booked (`profiles.owner_user_id`). The first wins (`claimGroup`, `claimProfile`).
+        Filled once from what was kept: the earliest step, join or helpful post, and the earliest step or demo.
+      - **Another teammate's Today leaves them out** (`notOthers`, in `inPlay`): nobody from a group someone else
+        works is friended, warmed up or offered from it, nor are its posts commented on; no helpful post is picked
+        there and no join asked, unless the person names the group; nobody someone else reached is friended, warmed
+        up, messaged, pitched or followed up, nor asked to partner. Still theirs to do: a reply they're owed, a friend
+        request to confirm, a follow back, an answer to a comment on their own post, and a booked demo's reminder and
+        another time (`inPlayAnyOwner`).
+      - **`outreach.send.queue` refuses outreach** to someone else's person (`outreach_someone_elses`, `heldForOthers`):
+        everything but a reply, a partner's reply and the demo's two messages.
+      - **An owner or admin moves either** (`outreach.owner.move`, risk 1, `outreach.manage`): **Move to** on a group's
+        page, and **Give them to {teammate}** or **Make them yours** on the person menu, on the web and the phone. The
+        teammate before stops: their outreach to the person waiting for an OK, or OK'd and not sent, is skipped, never a
+        reply. Only to someone who uses Social Outreach (`outreach_owner_not_on_team`).
+      - **A teammate who no longer uses Social Outreach holds nothing:** their groups and people go to the next to work
+        them. A group's page says who works it, and a customer's Social panel and the person menu who reached them
+        first.
 
 ## Rules worth knowing before changing anything
 

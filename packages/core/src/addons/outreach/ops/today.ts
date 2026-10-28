@@ -69,10 +69,12 @@ import {
   countryLetsSql,
   countryRuleOf,
   inPlay,
+  inPlayAnyOwner,
   inWorkspace,
   isClient,
   notLater,
   notNever,
+  notOthers,
   openToMe,
   pitchable,
   recentOf,
@@ -346,6 +348,7 @@ export const today = defineAddonQuery(outreachAddon, {
       warm_up_missed_at: Date | string | null;
       reached: boolean;
       answered: boolean;
+      free: boolean;
     }>(
       ctx.tx,
       sql`select distinct on (e.profile_id, e.kind) p.id, p.name, p.url, p.friendship, e.kind, e.comment,
@@ -360,7 +363,8 @@ export const today = defineAddonQuery(outreachAddon, {
                   ${follows ? sql`and f.state not in ('friends', 'request_received')` : sql``})) as reached,
             exists (select 1 from addon_outreach.touches t
               where t.user_id = ${me} and t.kind = 'comment' and h.post_url is not null
-                and t.post_url = h.post_url and t.at >= e.seen_at) as answered
+                and t.post_url = h.post_url and t.at >= e.seen_at) as answered,
+            ${notOthers(me, 'p')} as free
           from addon_outreach.engagements e
           join addon_outreach.profiles p on p.id = e.profile_id
           left join addon_outreach.helpful h on h.id = e.helpful_id
@@ -368,7 +372,7 @@ export const today = defineAddonQuery(outreachAddon, {
           left join addon_outreach.playbooks pb on pb.id = h.playbook_id
           where e.workspace_id = ${ws} and e.user_id = ${me}
             and e.seen_at >= ${ago(WARM_LEAD_DAYS)}::timestamptz
-            and p.friendship <> 'self' and ${pitchable('p')} and ${inPlay(me, 'p')} and ${lets}
+            and p.friendship <> 'self' and ${pitchable('p')} and ${inPlayAnyOwner(me, 'p')} and ${lets}
             and not exists (select 1 from addon_outreach.group_people x
               where x.profile_id = p.id and x.runs_group)
           order by e.profile_id, e.kind, e.seen_at desc`,
@@ -412,8 +416,10 @@ export const today = defineAddonQuery(outreachAddon, {
     for (const w of warm) if (!once.has(w.id)) once.set(w.id, w);
     // Who followed the person, on a follow network: being among their followers isn't being followed back.
     const followedYou = new Set(warm.filter((w) => w.kind === 'follow').map((w) => w.id));
+    // Another teammate's person (decision 107) is answered, and followed back, but never friended from here.
     const toFriend = [...once.values()].filter(
       (w) =>
+        (w.free || followedYou.has(w.id)) &&
         !w.reached &&
         !(follows ? ['request_sent'] : ['friends', 'request_sent', 'request_received']).includes(
           w.friendship,
@@ -762,6 +768,7 @@ export const today = defineAddonQuery(outreachAddon, {
             join addon_outreach.groups g on g.id = gp.group_id
             join addon_outreach.profiles p on p.id = gp.profile_id
             where gp.workspace_id = ${ws} and g.admins_read_at is not null and not gp.runs_group
+              and ${notOthers(me, 'g')}
               and p.person_id is null and ${pitchable('p')} and ${inPlay(me, 'p')} and ${lets}
               and p.friendship not in ('self', 'friends', 'request_sent', 'request_received')
               and not ${myOwnProfile(me)}
@@ -1006,7 +1013,7 @@ export const today = defineAddonQuery(outreachAddon, {
             join app.appointment_attendees aa on aa.appointment_id = a.id and aa.person_id = d.person_id
             ${latestChat('p')}
             where d.workspace_id = ${ws} and d.user_id = ${me} and d.how = 'link' and d.undone_at is null
-              and ${pitchable('p')} and ${inPlay(me, 'p')} and ${lets}
+              and ${pitchable('p')} and ${inPlayAnyOwner(me, 'p')} and ${lets}
               and ((a.status = 'scheduled' and aa.status = 'booked'
                   and (a.starts_at at time zone ${zone})::date
                     = (${nowAt}::timestamptz at time zone ${zone})::date + 1
@@ -1433,7 +1440,7 @@ export const today = defineAddonQuery(outreachAddon, {
             where po.workspace_id = ${ws} and po.user_id = ${me} and po.check_state = 'good'
               and po.skipped_at is null and po.seen_at >= ${ago(POST_FRESH_DAYS)}::timestamptz
               and p.friendship <> 'self' and not ${myOwnProfile(me)}
-              and ${pitchable('p')} and ${inPlay(me, 'p')} and ${lets}
+              and ${pitchable('p')} and ${inPlay(me, 'p')} and ${notOthers(me, 'g')} and ${lets}
               and not exists (select 1 from addon_outreach.group_people x
                 where x.profile_id = p.id and x.runs_group)
               and not exists (select 1 from addon_outreach.touches t

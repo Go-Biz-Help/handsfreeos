@@ -7637,6 +7637,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/commands/outreach.owner.move": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * For owners and admins: give a group, or a person reached on a social network, to another teammate who uses Social Outreach (decision 107). Their Today then has the group’s people, or the person; the teammate before no longer does, and a person’s messages from them still waiting for an OK, or OK’d and not sent, are skipped, but a reply.
+         * @description Risk level 1. Requires outreach.manage. Emits outreach.owner.moved, outreach.send.skipped.
+         */
+        post: operations["command_outreach_owner_move"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/commands/outreach.partner.leads": {
         parameters: {
             query?: never;
@@ -19227,7 +19247,7 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * Where someone the person reached stands, as their person menu shows it: in Contacts or not, a client (and why), a partner, a demo booked, on the person’s Later (and until when), on Don’t pitch or Never contact (and who put them on), and whether the person may take them off.
+         * Where someone the person reached stands, as their person menu shows it: in Contacts or not, a client (and why), a partner, a demo booked, on the person’s Later (and until when), on Don’t pitch or Never contact (and who put them on), and whether the person may take them off; who reached them first, and for an owner or admin, the teammates they can be given to.
          * @description Requires outreach.use.
          */
         post: operations["query_outreach_profile_marks"];
@@ -41345,6 +41365,51 @@ export interface operations {
                 content: {
                     "application/json": {
                         noted: boolean;
+                    };
+                };
+            };
+        };
+    };
+    command_outreach_owner_move: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    id: string;
+                    /** @enum {string} */
+                    kind: "group" | "person";
+                    /** Format: uuid */
+                    userId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        id: string;
+                        /** @enum {string} */
+                        kind: "group" | "person";
+                        owner: {
+                            name: string;
+                            /** Format: uuid */
+                            userId: string;
+                            you: boolean;
+                        };
+                        skipped: number;
                     };
                 };
             };
@@ -73346,10 +73411,22 @@ export interface operations {
                             joined: boolean | null;
                             members: number | null;
                             name: string | null;
+                            owner: {
+                                name: string;
+                                /** Format: uuid */
+                                userId: string;
+                                you: boolean;
+                            } | null;
                             /** @enum {string} */
                             platform: "facebook" | "linkedin" | "instagram" | "alignable";
                             url: string;
                         };
+                        moveTo: {
+                            name: string;
+                            /** Format: uuid */
+                            userId: string;
+                            you: boolean;
+                        }[];
                         page: number;
                         pages: number;
                         people: {
@@ -74375,6 +74452,12 @@ export interface operations {
                             lastSeenAt: string;
                             mutualFriends: number | null;
                             name: string;
+                            owner: {
+                                name: string;
+                                /** Format: uuid */
+                                userId: string;
+                                you: boolean;
+                            } | null;
                             /** @enum {string} */
                             platform: "facebook" | "linkedin" | "instagram" | "alignable";
                             url: string;
@@ -74605,10 +74688,22 @@ export interface operations {
                             tagged: boolean;
                         } | null;
                         laterUntil: string | null;
+                        moveTo?: {
+                            name: string;
+                            /** Format: uuid */
+                            userId: string;
+                            you: boolean;
+                        }[];
                         name: string;
                         neverContact: {
                             at: string | null;
                             by: string | null;
+                        } | null;
+                        owner?: {
+                            name: string;
+                            /** Format: uuid */
+                            userId: string;
+                            you: boolean;
                         } | null;
                         partner: boolean;
                         personId: string | null;

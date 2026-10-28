@@ -27,6 +27,7 @@ import { outreachAddon } from '../manifest';
 import type { Platform } from '../networks';
 import { STAGE_KEYS, type Stage } from '../stages';
 import { inWorkspace, seesEveryone, type Ctx } from './common';
+import { moveTargets, ownersOf } from './owners';
 import { staged, standingOf, type StagedRow } from './stages';
 
 const iso = (at: Date | string) => new Date(at).toISOString();
@@ -217,9 +218,10 @@ export const groupPeople = defineAddonQuery(outreachAddon, {
       url: string;
       members: number | null;
       joined: boolean | null;
+      owner_user_id: string | null;
     }>(
       ctx.tx,
-      sql`select g.id, g.platform, g.name, g.url, g.members,
+      sql`select g.id, g.platform, g.name, g.url, g.members, g.owner_user_id,
             (select m.joined from addon_outreach.my_groups m where m.group_id = g.id and m.user_id = ${me}) as joined
           from addon_outreach.groups g
           where g.workspace_id = ${ws} and g.id = ${input.groupId}`,
@@ -276,6 +278,7 @@ export const groupPeople = defineAddonQuery(outreachAddon, {
           limit ${GROUP_PEOPLE_PAGE} offset ${(page - 1) * GROUP_PEOPLE_PAGE}`,
     );
     const now = Date.now();
+    const owners = await ownersOf(ctx, me, [group.owner_user_id]);
     return {
       group: {
         groupId: group.id,
@@ -284,7 +287,9 @@ export const groupPeople = defineAddonQuery(outreachAddon, {
         url: group.url,
         members: group.members,
         joined: group.joined,
+        owner: group.owner_user_id ? (owners.get(group.owner_user_id) ?? null) : null,
       },
+      moveTo: await moveTargets(ctx, me),
       counts,
       people: listed.map((r) => {
         const reached = r.outcome !== 'not_reached' ? standingOf(r, now) : null;

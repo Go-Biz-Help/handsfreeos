@@ -4,7 +4,8 @@
  * (decision 103): where they stand and why, the AI's next step, the groups they were found in, the chat's summary and
  * every step either way, the latest first; and the chats saved with them, newest messages last. Drawn by <AddonSlot>
  * only while the add-on runs and for people with `outreach.use`; a customer nobody saved from a network shows nothing.
- * Once their demo is done, their lead waits for the person's won or lost here (decision 106).
+ * Once their demo is done, their lead waits for the person's won or lost here (decision 106). Who reached them first
+ * shows too (decision 107).
  */
 import { journeyStepWords } from '@hfos/core/addons/outreach/journey';
 import {
@@ -13,6 +14,7 @@ import {
   type DemoOutcome,
   leadWords,
 } from '@hfos/core/addons/outreach/leads';
+import { OWNER_WORDS } from '@hfos/core/addons/outreach/owners';
 import { PLATFORMS, type Platform } from '@hfos/core/addons/outreach/playbooks';
 import { STAGES } from '@hfos/core/addons/outreach/stages';
 import { OUTREACH_WORDS as W } from '@hfos/core/addons/outreach/words';
@@ -129,6 +131,11 @@ function Profile({
           >
             {leadWords(j.lead)}
           </Link>
+        </p>
+      ) : null}
+      {p.owner ? (
+        <p className="mt-1 text-[12.5px] text-text-3" data-testid="outreach-panel-owner">
+          {OWNER_WORDS.personNote(p.owner)}
         </p>
       ) : null}
       {j.lead?.afterDemo ? (

@@ -152,6 +152,7 @@ export const outreachAddon = defineAddon({
       'outreach.lead.wanted',
       'outreach.lead.opened',
       'outreach.demo.decided',
+      'outreach.owner.moved',
     ],
     // The last part of a download, and chats read in Messenger, start the AI's read of the chats
     // (apps/worker/src/addons/outreach/chats.ts); group posts worth a look start its check of them (./posts.ts), and

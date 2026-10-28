@@ -162,6 +162,8 @@ const ONLINE_COMMANDS = [
   'outreach.messages.forget',
   // Won or lost after the demo, on a customer's Social card (decision 106).
   'outreach.demo.outcome',
+  // A group or a person given to a teammate, on a group's page and the person menu (decision 107).
+  'outreach.owner.move',
   // Feedback on the AI teammate's replies (HANDSFREEOS_AI_FEEDBACK_IMPLEMENTATION_PLAN.md), in a conversation and the
   // test console: a thumbs up or down, the answer to its quick question, and Not now on the rule it suggests.
   'ai_teammate.give_feedback',

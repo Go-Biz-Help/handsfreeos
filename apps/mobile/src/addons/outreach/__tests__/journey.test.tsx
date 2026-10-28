@@ -181,6 +181,18 @@ describe('a customer’s Social card', () => {
     expect(screen.queryByTestId('outreach-social-after-demo')).toBeNull();
   });
 
+  it('says a teammate reached them first', async () => {
+    await render(
+      <OutreachSocialBody
+        workspaceId={WS}
+        profiles={[{ ...profile, owner: { userId: id(5), name: 'Riley Member', you: false } }]}
+      />,
+    );
+    expect(screen.getByTestId('outreach-social-owner')).toHaveTextContent(
+      /^Riley Member reached them first, so they aren’t on your Today./,
+    );
+  });
+
   it('shows nothing for a customer nobody saved from a network', async () => {
     await render(<OutreachSocialBody workspaceId={WS} profiles={[]} />);
     expect(screen.queryByTestId('outreach-social')).toBeNull();
@@ -196,7 +208,12 @@ describe('a group’s own page', () => {
       url: 'https://www.facebook.com/groups/1/',
       members: 4_210,
       joined: true,
+      owner: { userId: id(5), name: 'Riley Member', you: false },
     },
+    moveTo: [
+      { userId: id(5), name: 'Riley Member', you: false },
+      { userId: id(6), name: 'Pat Owner', you: true },
+    ],
     counts: {
       all: 2,
       not_reached: 1,
@@ -240,7 +257,7 @@ describe('a group’s own page', () => {
     pages: 1,
     total: 2,
   };
-  const draw = (onView = jest.fn()) =>
+  const draw = (onView = jest.fn(), onRetry = jest.fn()) =>
     render(
       <OutreachWorkspace.Provider value={WS}>
         <GroupPageBody
@@ -249,7 +266,7 @@ describe('a group’s own page', () => {
           onView={onView}
           page={page}
           error={null}
-          onRetry={jest.fn()}
+          onRetry={onRetry}
           onMore={jest.fn()}
         />
       </OutreachWorkspace.Provider>,
@@ -279,5 +296,24 @@ describe('a group’s own page', () => {
     await draw(onView);
     await fireEvent.press(screen.getByTestId('group-page-view-not_reached'));
     expect(onView).toHaveBeenCalledWith('not_reached');
+  });
+
+  it('says who works it, and lets an owner or admin move it', async () => {
+    const onRetry = jest.fn();
+    await draw(jest.fn(), onRetry);
+    expect(screen.getByTestId('group-page-owner')).toHaveTextContent(
+      'Riley Member works this group, so its people aren’t on your Today.',
+    );
+    await fireEvent.press(screen.getByTestId('group-page-move'));
+    expect(screen.queryByText('Riley Member')).toBeNull();
+    await fireEvent.press(screen.getByTestId('group-page-move-0'));
+    expect(change).toHaveBeenCalledWith('outreach.owner.move', {
+      workspaceId: WS,
+      kind: 'group',
+      id: GROUP,
+      userId: id(6),
+    });
+    expect(toast.show).toHaveBeenCalledWith('This group is yours now.');
+    expect(onRetry).toHaveBeenCalled();
   });
 });

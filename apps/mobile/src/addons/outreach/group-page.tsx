@@ -5,19 +5,23 @@ import {
   type GroupPeopleView,
 } from '@hfos/core/addons/outreach/journey';
 import { PLATFORMS } from '@hfos/core/addons/outreach/networks';
+import { OWNER_WORDS, type TeamOwner } from '@hfos/core/addons/outreach/owners';
 import { OUTREACH_WORDS as W } from '@hfos/core/addons/outreach/words';
 import { router, type Href } from 'expo-router';
 import * as React from 'react';
 import { Pressable, View } from 'react-native';
 
-import { ExternalLink } from '@/components/icons';
+import { change, ChangeError } from '@/changes';
+import { ExternalLink, Users } from '@/components/icons';
 import { businessHref } from '@/components/shell/business-context';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Segmented } from '@/components/ui/segmented';
+import { Sheet } from '@/components/ui/sheet';
 import { Text } from '@/components/ui/text';
-import { api, unwrap } from '@/lib/api';
+import { toast } from '@/components/ui/toast';
+import { api, errorMessage, unwrap } from '@/lib/api';
 
 import { OutreachFrame } from './frame';
 import { NeedsSignal, Note, openOutside, useOutreachAnswer, useOutreachContext } from './kit';
@@ -26,7 +30,8 @@ import { NeedsSignal, Note, openOutside, useOutreachAnswer, useOutreachContext }
  * A group's own page on the phone (`?view=groups&group=`, decision 103), the web's: everyone the extension found in
  * it, its admins and moderators marked, and how each turned out for the person, the furthest first, then who's still
  * to reach; one outcome at a time (`?show=`), counted, with Show more for the next page. A customer opens their page,
- * anyone else their profile. It needs signal.
+ * anyone else their profile. Which teammate works it shows at the top, and an owner or admin can move it to another
+ * (decision 107). It needs signal.
  */
 
 export const groupPeopleViewOf = (show: string | undefined): GroupPeopleView =>
@@ -117,6 +122,16 @@ export function GroupPageBody({
             <Note testID="group-page-summary">
               {`${page.counts.all.toLocaleString()} found here, ${(page.counts.all - page.counts.not_reached).toLocaleString()} reached`}
             </Note>
+            <Note testID="group-page-owner">{OWNER_WORDS.group(page.group.owner)}</Note>
+            {page.moveTo.length ? (
+              <MoveGroup
+                workspaceId={workspaceId}
+                groupId={page.group.groupId}
+                owner={page.group.owner}
+                teammates={page.moveTo}
+                onMoved={onRetry}
+              />
+            ) : null}
             <Button
               size="sm"
               variant="ghost"
@@ -186,5 +201,79 @@ export function GroupPageBody({
         <NeedsSignal words={error} onRetry={onRetry} testID="group-page-needs-signal" />
       ) : null}
     </OutreachFrame>
+  );
+}
+
+/** For an owner or admin: give the group to another teammate who uses Social Outreach (`outreach.owner.move`). */
+function MoveGroup({
+  workspaceId,
+  groupId,
+  owner,
+  teammates,
+  onMoved,
+}: {
+  workspaceId: string;
+  groupId: string;
+  owner: TeamOwner | null;
+  teammates: readonly TeamOwner[];
+  onMoved: () => void;
+}) {
+  const [open, setOpen] = React.useState(false);
+  const [busy, setBusy] = React.useState<string | null>(null);
+  const move = async (to: TeamOwner) => {
+    setBusy(to.userId);
+    try {
+      await change('outreach.owner.move', {
+        workspaceId,
+        kind: 'group',
+        id: groupId,
+        userId: to.userId,
+      });
+      toast.show(OWNER_WORDS.moved('group', to));
+      setOpen(false);
+      onMoved();
+    } catch (e) {
+      toast.error(e instanceof ChangeError ? e.message : errorMessage(e));
+    } finally {
+      setBusy(null);
+    }
+  };
+  return (
+    <>
+      <Button
+        size="sm"
+        variant="secondary"
+        icon={Users}
+        className="self-start"
+        accessibilityLabel={OWNER_WORDS.moveLabel}
+        onPress={() => setOpen(true)}
+        testID="group-page-move"
+      >
+        {OWNER_WORDS.move}
+      </Button>
+      <Sheet
+        open={open}
+        onClose={() => setOpen(false)}
+        title={OWNER_WORDS.moveLabel}
+        testID="group-page-move-sheet"
+      >
+        <View className="gap-2">
+          {teammates
+            .filter((t) => t.userId !== owner?.userId)
+            .map((t, i) => (
+              <Button
+                key={t.userId}
+                variant="secondary"
+                loading={busy === t.userId}
+                disabled={busy !== null}
+                onPress={() => void move(t)}
+                testID={`group-page-move-${i}`}
+              >
+                {t.you ? `${t.name} (you)` : t.name}
+              </Button>
+            ))}
+        </View>
+      </Sheet>
+    </>
   );
 }

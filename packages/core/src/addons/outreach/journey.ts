@@ -9,6 +9,7 @@
  */
 import { z } from 'zod';
 import { JourneyLead } from './leads';
+import { TeamOwner } from './owners';
 import { TOUCH_KIND_KEYS, TOUCH_STEPS, type TouchKind } from './limits';
 import { inNetworkWords, PLATFORM_KEYS, type Platform } from './networks';
 import { STAGE_KEYS, STAGES, type Stage } from './stages';
@@ -161,7 +162,11 @@ export const GroupPeopleOutput = z.object({
     members: z.number().int().nullable(),
     /** Whether the person is in it, as the extension last saw. */
     joined: z.boolean().nullable(),
+    /** The teammate who works it (decision 107): null when nobody does yet. */
+    owner: TeamOwner.nullable(),
   }),
+  /** For an owner or admin: the teammates it can be moved to (`outreach.owner.move`); none for anyone else. */
+  moveTo: z.array(TeamOwner),
   counts: z.object({
     all: n,
     not_reached: n,

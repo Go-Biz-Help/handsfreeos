@@ -20,6 +20,7 @@ import { demos, profiles } from '../tables';
 import { inWorkspace, once } from './common';
 import { profileToSet } from './friends';
 import { wantLead } from './leads';
+import { claimProfile } from './owners';
 
 export const demoMark = defineAddonCommand(outreachAddon, {
   name: 'outreach.demo.mark',
@@ -71,7 +72,10 @@ export const demoMark = defineAddonCommand(outreachAddon, {
         entityId: profile.id,
         payload: { booked: input.booked },
       });
-      if (input.booked) await wantLead(ctx, me, profile.id);
+      if (input.booked) {
+        await claimProfile(ctx, me, profile.id, changeMoment(ctx.meta));
+        await wantLead(ctx, me, profile.id);
+      }
       return { profileId: profile.id, booked: input.booked };
     });
   },
@@ -124,6 +128,8 @@ export const demoNote = defineAddonCommand(outreachAddon, {
       entityId: profile.id,
       payload: { userId: named.userId, appointmentId: input.appointmentId },
     });
+    // A demo booked through their link reaches them (decision 107).
+    await claimProfile(ctx, named.userId, profile.id, new Date(input.at));
     await wantLead(ctx, named.userId, profile.id);
     return { counted: true };
   },

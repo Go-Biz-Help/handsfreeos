@@ -8709,6 +8709,31 @@
         "required": ["workspaceId", "needId", "how"]
       }
     },
+    "outreach.owner.move": {
+      "offline": "online",
+      "input": {
+        "type": "object",
+        "properties": {
+          "workspaceId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "kind": {
+            "type": "string",
+            "enum": ["group", "person"]
+          },
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "userId": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        "required": ["workspaceId", "kind", "id", "userId"]
+      }
+    },
     "outreach.partner.mark": {
       "offline": "online",
       "input": {

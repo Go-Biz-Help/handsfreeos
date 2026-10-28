@@ -7,6 +7,7 @@ import {
   leadWords,
 } from '@hfos/core/addons/outreach/leads';
 import { PLATFORMS, type Platform } from '@hfos/core/addons/outreach/networks';
+import { OWNER_WORDS, type TeamOwner } from '@hfos/core/addons/outreach/owners';
 import { STAGES } from '@hfos/core/addons/outreach/stages';
 import { OUTREACH_WORDS as W } from '@hfos/core/addons/outreach/words';
 import { router, type Href } from 'expo-router';
@@ -31,7 +32,8 @@ import { Note, openOutreach, openOutside } from './kit';
  * for them, with where they stand and why, the AI's next step, the groups they were found in (each opens its page),
  * the chat's summary and every step either way, the latest first. None of it is in the phone's copy, so it's asked
  * for while there's signal and stays out of the way without; a customer nobody saved from a network shows nothing.
- * Once their demo is done, their lead waits for the person's won or lost here (decision 106).
+ * Once their demo is done, their lead waits for the person's won or lost here (decision 106). Who reached them first
+ * shows too (decision 107).
  */
 
 /** A profile shows this many of its latest steps until it's opened up. */
@@ -43,6 +45,8 @@ interface SocialProfile {
   readonly url: string;
   readonly name: string;
   readonly journey: Journey;
+  /** Whoever reached them first (decision 107); left out where nobody has. */
+  readonly owner?: TeamOwner | null;
 }
 
 export function OutreachSocialCard({
@@ -140,6 +144,9 @@ function SocialProfileRow({
         >
           <Text className="text-[13px] leading-[18px] text-accent-text">{leadWords(j.lead)}</Text>
         </Pressable>
+      ) : null}
+      {p.owner ? (
+        <Note testID="outreach-social-owner">{OWNER_WORDS.personNote(p.owner)}</Note>
       ) : null}
       {j.lead?.afterDemo ? (
         <AfterDemo workspaceId={workspaceId} profileId={p.id} name={p.name} onChange={onChange} />

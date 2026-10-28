@@ -44,6 +44,7 @@ import {
   type Ctx,
   type Profile,
 } from './common';
+import { moveTargets, ownersOf } from './owners';
 
 const P = OUTREACH_WORDS.person;
 
@@ -223,7 +224,7 @@ export const laterSet = defineAddonCommand(outreachAddon, {
 export const profileMarks = defineAddonQuery(outreachAddon, {
   name: 'outreach.profile.marks',
   description:
-    'Where someone the person reached stands, as their person menu shows it: in Contacts or not, a client (and why), a partner, a demo booked, on the person’s Later (and until when), on Don’t pitch or Never contact (and who put them on), and whether the person may take them off.',
+    'Where someone the person reached stands, as their person menu shows it: in Contacts or not, a client (and why), a partner, a demo booked, on the person’s Later (and until when), on Don’t pitch or Never contact (and who put them on), and whether the person may take them off; who reached them first, and for an owner or admin, the teammates they can be given to.',
   input: ProfileMarksInput,
   output: ProfileMarksOutput,
   permission: 'outreach.use',
@@ -271,6 +272,11 @@ export const profileMarks = defineAddonQuery(outreachAddon, {
         dontPitch: profile.dontPitch && mayTakeOff(profile.dontPitchBy, me, manages),
         neverContact: profile.neverContact && mayTakeOff(profile.neverContactBy, me, manages),
       },
+      // Whose they are (decision 107), and for an owner or admin, who they can be given to.
+      owner: profile.ownerUserId
+        ? ((await ownersOf(ctx, me, [profile.ownerUserId])).get(profile.ownerUserId) ?? null)
+        : null,
+      moveTo: await moveTargets(ctx, me),
     };
   },
 });

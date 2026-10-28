@@ -20,6 +20,7 @@ import { CLIENT_CAUSES, type ClientCause } from '../../crm/record-words';
 import { SEND_KINDS, type MessageKind, type SendKind } from './automation';
 import { chatUrlOn, openChatWords, openPageWords } from './network-words';
 import { PLATFORM_KEYS, type Platform } from './networks';
+import { OWNER_WORDS, TeamOwner } from './owners';
 import { DontPitch, NeverContact } from './saves';
 import { OUTREACH_WORDS } from './words';
 
@@ -138,6 +139,13 @@ export const ProfileMarksOutput = z.object({
   neverContact: NeverContact.nullable(),
   /** Whether the person asking may take them off each list here (`mayTakeOff`), from this profile's own mark. */
   canTakeOff: z.object({ dontPitch: z.boolean(), neverContact: z.boolean() }),
+  /**
+   * Whoever reached them first (decision 107): null when nobody has, or they no longer use Social Outreach. Left out
+   * by builds from before it.
+   */
+  owner: TeamOwner.nullable().optional(),
+  /** For an owner or admin: the teammates they can be given to (`outreach.owner.move`); none for anyone else. */
+  moveTo: z.array(TeamOwner).optional(),
 });
 export type ProfileMarksOutput = z.output<typeof ProfileMarksOutput>;
 
@@ -198,7 +206,8 @@ export type PersonMenuKey =
   | 'dont-pitch-line'
   | 'never-contact'
   | 'not-never-contact'
-  | 'never-contact-line';
+  | 'never-contact-line'
+  | `owner-${string}`;
 
 export interface PersonMenuItem {
   readonly key: PersonMenuKey;
@@ -213,6 +222,8 @@ export interface PersonMenuItem {
   readonly url?: string;
   /** A move's mark (`PersonMenuMove.key`). */
   readonly move?: string;
+  /** The teammate a give goes to (`outreach.owner.move`). */
+  readonly owner?: string;
   /** Shown as a warning: it puts them on a list (Don't pitch, Never contact) or a move says so. */
   readonly danger: boolean;
   /** It needs signal: with none it shows greyed out under the needs-signal note. */
@@ -226,8 +237,9 @@ export interface PersonMenuItem {
 /**
  * The person menu's items, in order: Open on {Network}; Open in {messages} when their chat is known; the Pipeline's
  * moves; In Contacts or Add to Contacts; Mark as client, Not a client after all, or why they're a client; Demo booked
- * or Not a demo after all; Later or Take off Later; Don't pitch, Take off Don't pitch, or who put them on; Never
- * contact, Take off Never contact, or who put them on. A partner has no Client or Demo booked; without `contactsWrite` there's no Add to
+ * or Not a demo after all; Later or Take off Later; who reached them first, and for an owner or admin each teammate to
+ * give them to (decision 107); Don't pitch, Take off Don't pitch, or who put them on; Never contact, Take off Never
+ * contact, or who put them on. A partner has no Client or Demo booked; without `contactsWrite` there's no Add to
  * Contacts or Client to press; a row with its own switches has no Don't pitch or Never contact. The marks' toggles wait
  * for `marks`, and everything but the Open items waits for signal.
  */
@@ -347,7 +359,19 @@ export function personMenuItems(input: PersonMenuInput): PersonMenuItem[] {
       : press('later', P.later, 'person-later'),
   );
 
-  // 8 and 9: the lists, unless the row has its own switches.
+  // 8: whose they are (decision 107): who reached them first, and each teammate an owner or admin can give them to.
+  const owner = marks?.owner ?? null;
+  if (owner) items.push(line('owner-line', OWNER_WORDS.person(owner), 'person-owner-line'));
+  (marks?.moveTo ?? [])
+    .filter((t) => t.userId !== owner?.userId)
+    .forEach((t, i) =>
+      items.push({
+        ...press(`owner-${t.userId}`, OWNER_WORDS.giveTo(t), `person-owner-${i}`),
+        owner: t.userId,
+      }),
+    );
+
+  // 9 and 10: the lists, unless the row has its own switches.
   if (!input.ownSwitches) {
     const dontPitch = marks?.dontPitch ?? null;
     if (!dontPitch)

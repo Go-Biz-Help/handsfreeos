@@ -2,7 +2,8 @@
 /**
  * A group's own page on the Groups tab (`?view=groups&group=`, docs/outreach.md decision 103): everyone the extension
  * found in it, its admins and moderators marked, and how each turned out for the person, the furthest first, then
- * who's still to reach. One outcome at a time, counted; a customer opens their page, anyone else their profile.
+ * who's still to reach. One outcome at a time, counted; a customer opens their page, anyone else their profile. Which
+ * teammate works it shows at the top, and an owner or admin can move it to another (decision 107).
  */
 import {
   GROUP_PEOPLE_PAGE,
@@ -10,15 +11,24 @@ import {
   GROUP_PEOPLE_VIEWS,
   type GroupPeopleView,
 } from '@hfos/core/addons/outreach/journey';
+import { OWNER_WORDS, type TeamOwner } from '@hfos/core/addons/outreach/owners';
 import { OUTREACH_WORDS as W } from '@hfos/core/addons/outreach/words';
-import { ArrowLeft } from 'lucide-react';
+import { ArrowLeft, ChevronDown } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useTransition } from 'react';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import { EmptyState } from '@/components/ui/empty-state';
 import { Segmented } from '@/components/ui/segmented';
+import { apiBrowser, unwrap } from '@/lib/api/client';
 import { useLiveRefresh } from '@/lib/realtime/live-provider';
 import { cn, relativeTime } from '@/lib/utils';
 import { outreachHref } from './address';
@@ -26,6 +36,7 @@ import { Pager } from './friends-view';
 import { NetworkName } from './network-ui';
 import { STAGE_TONE } from './pipeline-view';
 import type { GroupPeople } from './types';
+import { useAct } from './use-act';
 
 export function GroupPage({
   workspaceId,
@@ -107,6 +118,20 @@ export function GroupPage({
             ? `, ${(counts.booked + counts.client).toLocaleString()} booked a demo or became a client`
             : ''}
         </p>
+        <div
+          className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1.5 text-[13px] text-text-2"
+          data-testid="group-page-owner"
+        >
+          <span>{OWNER_WORDS.group(group.owner)}</span>
+          {people.moveTo.length ? (
+            <MoveGroup
+              workspaceId={workspaceId}
+              groupId={group.groupId}
+              owner={group.owner}
+              teammates={people.moveTo}
+            />
+          ) : null}
+        </div>
       </Card>
       <div className="mb-3 max-w-full overflow-x-auto">
         <Segmented
@@ -203,5 +228,60 @@ export function GroupPage({
         </Card>
       )}
     </div>
+  );
+}
+
+/** For an owner or admin: give the group to another teammate who uses Social Outreach (`outreach.owner.move`). */
+function MoveGroup({
+  workspaceId,
+  groupId,
+  owner,
+  teammates,
+}: {
+  workspaceId: string;
+  groupId: string;
+  owner: TeamOwner | null;
+  teammates: readonly TeamOwner[];
+}) {
+  const { busy, act } = useAct();
+  const move = (to: TeamOwner) =>
+    void act(
+      'move',
+      async () =>
+        unwrap(
+          await apiBrowser().POST('/v1/commands/outreach.owner.move', {
+            body: { workspaceId, kind: 'group', id: groupId, userId: to.userId },
+          }),
+        ),
+      OWNER_WORDS.moved('group', to),
+    );
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <Button
+          size="sm"
+          variant="secondary"
+          loading={busy !== null}
+          aria-label={OWNER_WORDS.moveLabel}
+          data-testid="group-page-move"
+        >
+          {OWNER_WORDS.move}
+          <ChevronDown className="h-3.5 w-3.5" strokeWidth={2} aria-hidden />
+        </Button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="start">
+        {teammates
+          .filter((t) => t.userId !== owner?.userId)
+          .map((t, i) => (
+            <DropdownMenuItem
+              key={t.userId}
+              onSelect={() => move(t)}
+              data-testid={`group-page-move-${i}`}
+            >
+              {t.you ? `${t.name} (you)` : t.name}
+            </DropdownMenuItem>
+          ))}
+      </DropdownMenuContent>
+    </DropdownMenu>
   );
 }

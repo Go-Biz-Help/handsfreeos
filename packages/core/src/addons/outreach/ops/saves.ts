@@ -18,6 +18,7 @@ import { changeMoment } from '../../../kernel/moment';
 import { addonTimelineLine, defineAddonCommand, defineAddonQuery } from '../../server';
 import { DONT_PITCH_TAG, type FriendState } from '../limits';
 import { Journey, NO_JOURNEY } from '../journey';
+import { TeamOwner } from '../owners';
 import { outreachAddon } from '../manifest';
 import { PLATFORMS, PLATFORM_KEYS } from '../playbooks';
 import {
@@ -31,6 +32,7 @@ import {
 import { fileChats, profiles, threads } from '../tables';
 import { inWorkspace, neverTwins, once, saveProfile, sourceFor } from './common';
 import { journeysOf } from './journey';
+import { ownersOf } from './owners';
 
 const clip = (text: string, most: number) =>
   text.length > most ? `${text.slice(0, most - 1)}…` : text;
@@ -427,6 +429,8 @@ export const personSocial = defineAddonQuery(outreachAddon, {
         lastSeenAt: z.iso.datetime(),
         /** Their way so far (../journey.ts). */
         journey: Journey,
+        /** Whoever reached them first (decision 107): null when nobody has yet. */
+        owner: TeamOwner.nullable(),
       }),
     ),
     chats: z.array(
@@ -471,10 +475,16 @@ export const personSocial = defineAddonQuery(outreachAddon, {
     const owners = new Map<string, string | null>();
     for (const id of new Set(chats.flatMap((c) => (c.ownerUserId ? [c.ownerUserId] : []))))
       owners.set(id, (await userRef(ctx.tx, id))?.fullName ?? null);
+    const me = requireHuman(ctx).userId;
     const journeys = await journeysOf(
       ctx,
-      requireHuman(ctx).userId,
+      me,
       found.map((p) => p.id),
+    );
+    const reachedBy = await ownersOf(
+      ctx,
+      me,
+      found.map((p) => p.ownerUserId),
     );
     return {
       profiles: found.map((p) => ({
@@ -487,6 +497,7 @@ export const personSocial = defineAddonQuery(outreachAddon, {
         mutualFriends: p.mutualFriends,
         lastSeenAt: p.lastSeenAt.toISOString(),
         journey: journeys.get(p.id) ?? NO_JOURNEY,
+        owner: p.ownerUserId ? (reachedBy.get(p.ownerUserId) ?? null) : null,
       })),
       chats: chats.map((c) => ({
         id: c.id,

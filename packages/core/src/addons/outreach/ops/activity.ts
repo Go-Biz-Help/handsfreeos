@@ -48,6 +48,7 @@ import {
 } from './common';
 import { limitsFor } from './automation';
 import { clearNeeds } from './needs';
+import { claimGroup, claimProfile } from './owners';
 import { notePartnerWarmed } from './partners';
 import { slowsNow, warningOf } from './tidy';
 
@@ -297,6 +298,9 @@ export const touchSave = defineAddonCommand(outreachAddon, {
           repeated: true,
         };
       const step = input.kind === 'message' ? await messageStep(ctx, me, profile, input, at) : null;
+      // The extension on its own goes from the list for today, which doesn't say the group: they were found in
+      // the one their profile was first saved from.
+      const fromGroup = groupId ?? (input.auto ? profile.groupId : null);
       const [row] = await ctx.tx
         .insert(touches)
         .values({
@@ -305,9 +309,7 @@ export const touchSave = defineAddonCommand(outreachAddon, {
           userId: me,
           kind: input.kind,
           step,
-          // The extension on its own goes from the list for today, which doesn't say the group: they were found in
-          // the one their profile was first saved from.
-          groupId: groupId ?? (input.auto ? profile.groupId : null),
+          groupId: fromGroup,
           postUrl: input.postUrl,
           threadKey: input.threadKey,
           auto: input.auto,
@@ -337,6 +339,9 @@ export const touchSave = defineAddonCommand(outreachAddon, {
           set: { firstAt: at },
           setWhere: sql`${networkStarts.firstAt} > ${at.toISOString()}::timestamptz`,
         });
+      // Whoever reached them first, and worked the group first, has them (decision 107).
+      await claimProfile(ctx, me, profile.id, at);
+      await claimGroup(ctx, me, fromGroup, at);
       // A like or a comment on someone just found as a partner warms them up (decision 81).
       if (input.kind === 'like' || input.kind === 'comment')
         await notePartnerWarmed(ctx, me, profile.id, at);

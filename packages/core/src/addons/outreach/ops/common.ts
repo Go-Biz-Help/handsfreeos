@@ -234,12 +234,38 @@ export const notLater = (me: string, p: string) => sql`not exists (
   where sl.profile_id = ${sql.raw(p)}.id and sl.user_id = ${me} and sl.later_until > now())`;
 
 /**
- * A profile still in play for the person `me`: open to them (`openToMe`), not a client (`isClient`, decision 91),
- * who gets no outreach, and not on their Later (`notLater`, decision 100). Every pick on Today but a reply they're
- * owed goes by it. `p` is its alias.
+ * The teammates besides `me` who use Social Outreach, as their business and who, read once for the whole query. Each
+ * person's own access row is theirs alone to read: their permissions come from their membership.
+ */
+const othersWorking = (
+  me: string,
+) => sql`select m.workspace_id, m.user_id from app.workspace_memberships m
+  where m.user_id <> ${me} and 'outreach.use' = any (private.user_permissions(m.user_id, m.workspace_id))`;
+
+/**
+ * A group or a profile that isn't another teammate's (decision 107, the owner's pick 4a): nobody's yet, the person
+ * `me`'s, or theirs who no longer uses Social Outreach. A group is whoever worked it first; a person whoever reached
+ * them first; an owner or admin moves either (`outreach.owner.move`). `x` is its alias.
+ */
+export const notOthers = (me: string, x: string) =>
+  sql`(${sql.raw(x)}.owner_user_id is null
+    or (${sql.raw(x)}.workspace_id, ${sql.raw(x)}.owner_user_id) not in (${othersWorking(me)}))`;
+
+/**
+ * A profile still in play for the person `me`, whoever reached them first: open to them (`openToMe`), not a client
+ * (`isClient`, decision 91), who gets no outreach, and not on their Later (`notLater`, decision 100). For what answers
+ * their own move (a follow back) or a demo they booked through the person's link. `p` is its alias.
+ */
+export const inPlayAnyOwner = (me: string, p: string) =>
+  sql`(${openToMe(me, p)} and not ${isClient(p)} and ${notLater(me, p)})`;
+
+/**
+ * A profile still in play for the person `me` (`inPlayAnyOwner`) that isn't another teammate's (`notOthers`, decision
+ * 107). Every pick on Today but a reply they're owed, their friend request to confirm, a follow back and a booked
+ * demo's messages goes by it. `p` is its alias.
  */
 export const inPlay = (me: string, p: string) =>
-  sql`(${openToMe(me, p)} and not ${isClient(p)} and ${notLater(me, p)})`;
+  sql`(${inPlayAnyOwner(me, p)} and ${notOthers(me, p)})`;
 
 /**
  * The profiles the client rule covers for one customer (`isClient`): every profile on them, on any network, and any

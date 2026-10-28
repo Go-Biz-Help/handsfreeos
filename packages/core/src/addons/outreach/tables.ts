@@ -139,6 +139,9 @@ export const groups = addonOutreach.table(
     checkWho: text('check_who'),
     checkPlaybookId: uuid('check_playbook_id'),
     checkedAt: ts('checked_at'),
+    /** The teammate who worked it first (decision 107), and since when: another's Today leaves it out. */
+    ownerUserId: userRef('owner_user_id'),
+    ownedAt: ts('owned_at'),
     createdAt: ts('created_at').notNull().defaultNow(),
     updatedAt: ts('updated_at').notNull().defaultNow(),
   },
@@ -218,6 +221,9 @@ export const profiles = addonOutreach.table(
      */
     leadId: uuid('lead_id').references(() => leads.id, { onDelete: 'set null' }),
     leadAt: ts('lead_at'),
+    /** Whoever reached them first (decision 107), and since when: another's Today leaves them out. */
+    ownerUserId: userRef('owner_user_id'),
+    ownedAt: ts('owned_at'),
     savedBy: userRef('saved_by'),
     lastSeenBy: userRef('last_seen_by'),
     lastSeenAt: ts('last_seen_at').notNull().defaultNow(),

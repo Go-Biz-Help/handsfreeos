@@ -39,10 +39,11 @@ import {
 import { outreachAddon } from '../manifest';
 import { engagements, helpful } from '../tables';
 import { automationOf } from './automation';
-import { inWorkspace, keptProfile, once, type Ctx } from './common';
+import { inWorkspace, keptProfile, notOthers, once, type Ctx } from './common';
 import { playbooksInUse } from './friends';
 import { groupFitOf } from './group-checks';
 import { NETWORKS, type Platform } from '../networks';
+import { claimGroup } from './owners';
 import { readinessFor } from './readiness';
 import { startOfToday } from './tidy';
 
@@ -212,6 +213,7 @@ export const helpfulAsk = defineAddonCommand(outreachAddon, {
         check_playbook_id: string | null;
         posted_lately: boolean;
         asked: number;
+        free: boolean;
       }>(
         ctx.tx,
         sql`select g.id, g.name, g.detail, g.members, g.privacy, g.check_state, g.check_why, g.check_playbook_id,
@@ -220,7 +222,8 @@ export const helpfulAsk = defineAddonCommand(outreachAddon, {
                   and h.state in ('drafting', 'draft', 'approved', 'posted')
                   and h.asked_at >= ${weekAgo}::timestamptz) as posted_lately,
               (select count(*)::int from addon_outreach.posts po
-                where po.group_id = g.id and po.user_id = ${me}) as asked
+                where po.group_id = g.id and po.user_id = ${me}) as asked,
+              ${notOthers(me, 'g')} as free
             from addon_outreach.groups g
             join addon_outreach.my_groups m on m.group_id = g.id and m.user_id = ${me} and m.joined
             where g.workspace_id = ${ws} and g.platform = 'facebook'
@@ -240,7 +243,9 @@ export const helpfulAsk = defineAddonCommand(outreachAddon, {
           `You posted in ${named.name ?? 'that group'} in the last week. Pick another group: one post a week in each keeps its people glad to see you.`,
         );
       const playbooks = await playbooksInUse(ctx, 'facebook');
-      const ranked = candidates
+      // Picked by the AI: only the person's own groups, or nobody's yet (decision 107); a group named is theirs to pick.
+      const ours = input.groupId ? candidates : candidates.filter((g) => g.free);
+      const ranked = ours
         .filter((g) => !g.posted_lately)
         .map((g) => ({
           g,
@@ -259,9 +264,11 @@ export const helpfulAsk = defineAddonCommand(outreachAddon, {
         throw HfosError.rule(
           'outreach_helpful_no_group',
           409,
-          candidates.length
+          ours.length
             ? 'You posted in each of your groups that fit this week. The next helpful post comes when a week has passed in one of them.'
-            : 'You’re not in a group that fits yet. Press Check my groups on the Groups tab, or join one that fits.',
+            : candidates.length
+              ? 'Each of your groups that fits is worked by a teammate. Ask an owner of this business to move one to you on its page in Social Outreach → Groups, or join another that fits.'
+              : 'You’re not in a group that fits yet. Press Check my groups on the Groups tab, or join one that fits.',
         );
       const { settings } = await automationOf(ctx, me, now);
       const [row] = await ctx.tx
@@ -467,6 +474,8 @@ export const helpfulPosted = defineAddonCommand(outreachAddon, {
       .update(helpful)
       .set({ ...change, updatedAt: at })
       .where(eq(helpful.id, row.id));
+    // A post up in a group works it (decision 107).
+    if (input.posted) await claimGroup(ctx, me, row.groupId, at);
     await ctx.emit({
       type: 'outreach.helpful.posted',
       entityType: 'workspace',

@@ -43,6 +43,7 @@ import { PARTNER_WORDS } from '../partners';
 import { isClientSkipped, type ClientCause } from '../person-menu';
 import { commentSendsOn, LINKEDIN_COMMENTS_WAIT_SINCE } from '../profile-parts';
 import { OUTREACH_WORDS } from '../words';
+import { heldForOthers } from '../owners';
 import { fileChats, openerUses, playbooks, posts, profiles, sends } from '../tables';
 import { isPartnerKind } from '../today';
 import { automationOf, countWheels } from './automation';
@@ -59,6 +60,7 @@ import {
 } from './common';
 import { workingBuild } from './live';
 import { openNeed } from './needs';
+import { someoneElses } from './owners';
 import { notePartnerSent } from './partners';
 import { notePitched } from './stages';
 
@@ -276,6 +278,15 @@ export const sendQueue = defineAddonCommand(outreachAddon, {
         'outreach_client',
         422,
         OUTREACH_WORDS.person.clientNoOutreach(profile.name, profile.client_cause),
+      );
+    // Someone another teammate reached first (decision 107) gets no outreach from the person: a reply they're owed
+    // still goes, and so do a booked demo's messages.
+    const reachedBy = heldForOthers(input.kind) ? await someoneElses(ctx, me, profile.id) : null;
+    if (reachedBy)
+      throw HfosError.rule(
+        'outreach_someone_elses',
+        409,
+        `${reachedBy.name} reached ${profile.name} first, so no message goes to them from you. Only your replies to them do. To work with them yourself, ask an owner of this business to give them to you from the menu on their name in Social Outreach.`,
       );
     // A comment needs its post: a good one of theirs, kept for the person, on a network whose comments wait at first.
     const post =

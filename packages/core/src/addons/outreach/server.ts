@@ -21,6 +21,7 @@ import { helpfulCommands, helpfulQueries } from './ops/helpful';
 import { groupCommands, groupQueries } from './ops/groups';
 import { journeyQueries } from './ops/journey';
 import { leadCommands } from './ops/leads';
+import { ownerCommands } from './ops/owners';
 import { listCommands, listQueries } from './ops/lists';
 import { liveCommands, liveQueries } from './ops/live';
 import { openerCommands, openerQueries } from './ops/openers';
@@ -76,6 +77,7 @@ export const outreachAddonServer: AddonServerModule = {
     ...personMenuCommands,
     ...findCommands,
     ...leadCommands,
+    ...ownerCommands,
   ],
   queries: [
     ...playbookQueries,
