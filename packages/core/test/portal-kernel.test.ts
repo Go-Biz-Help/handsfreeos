@@ -196,6 +196,7 @@ describe('a customer’s look-ups', () => {
         },
       ],
       partner: false,
+      documents: { total: 0, toSign: 0 },
     });
   });
 
