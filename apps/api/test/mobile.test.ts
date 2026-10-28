@@ -201,8 +201,10 @@ describe('an old app build', () => {
     expect(() => readEnv({ ...base, MIN_EXTENSION_VERSION: 'next' })).toThrow(
       /MIN_EXTENSION_VERSION/,
     );
-    expect(readEnv({ ...base, MIN_EXTENSION_VERSION: '0.2' }).minExtensionVersion).toBe('0.2');
-    expect(readEnv(base).minExtensionVersion).toBeNull();
+    expect(readEnv({ ...base, MIN_EXTENSION_VERSION: '0.96' }).minExtensionVersion).toBe('0.96');
+    // Never older than the build that checks whose chat it types in (decision 94), set or not.
+    expect(readEnv({ ...base, MIN_EXTENSION_VERSION: '0.2' }).minExtensionVersion).toBe('0.94.1');
+    expect(readEnv(base).minExtensionVersion).toBe('0.94.1');
   });
 });
 
@@ -211,7 +213,7 @@ describe('the browser extension', () => {
     fromApp({ 'x-hfos-client': 'extension', 'x-hfos-app-version': version });
 
   it('is recorded as the extension’s, with the same repeat protection as the app', async () => {
-    const headers = fromExtension('0.2.0');
+    const headers = fromExtension('0.95.0');
     const body = { workspaceId, firstName: 'Evan', lastName: 'Extension' };
     const first = await post('/v1/commands/person.create', body, headers);
     expect(first.statusCode).toBe(200);

@@ -349,12 +349,20 @@ async function finish(
     .from(filePeople)
     .where(eq(filePeople.importId, done.id));
   const chats = await ctx.tx
-    .select({ id: fileChats.id, nameKey: fileChats.nameKey, profileId: fileChats.profileId })
+    .select({
+      id: fileChats.id,
+      nameKey: fileChats.nameKey,
+      profileId: fileChats.profileId,
+      threadKey: fileChats.threadKey,
+    })
     .from(fileChats)
     .where(eq(fileChats.importId, done.id));
 
   const matched = await matchNames(ctx, me, done.platform, people);
-  const link = async (table: 'file_people' | 'file_chats', list: typeof chats) => {
+  const link = async (
+    table: 'file_people' | 'file_chats',
+    list: readonly { id: string; nameKey: string; profileId: string | null }[],
+  ) => {
     const moved = list.filter((r) => (matched.get(r.nameKey) ?? null) !== r.profileId);
     for (const chunk of inChunks(moved))
       await ctx.tx.execute(
@@ -365,7 +373,12 @@ async function finish(
       );
   };
   await link('file_people', people);
-  await link('file_chats', chats);
+  // A chat read in the person's browser keeps the profile its own link named: a name in the file can't tell two
+  // people with the same name apart (decision 93).
+  await link(
+    'file_chats',
+    chats.filter((c) => !(c.threadKey && c.profileId)),
+  );
 
   const changed = await putInPlace(
     ctx,

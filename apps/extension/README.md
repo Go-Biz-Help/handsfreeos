@@ -1155,10 +1155,9 @@ and press the reload arrow, and stay signed in. A business that keeps its own co
 Outreach → Settings → General → **Where your team gets the extension** (on the web or the phone), and
 everyone's download is that one instead. When a business starts Social Outreach fresh, the extension
 forgets what it kept on the computer for it (chats read, steps not yet sent, the setup opened) the next time it loads
-its settings (`forgetOnFreshStart`). Once everyone has the bare-bones build (0.19.0, settings part 4, or
-newer), set the API's `MIN_EXTENSION_VERSION` to it, so an older build that still saves from its panel is refused
-with an ask to update; `outreach.profile.save` and `outreach.chat.save` can then be retired (docs/outreach.md, "Not
-yet").
+its settings (`forgetOnFreshStart`). The API refuses any build older than 0.94.1 with an ask to update
+(`OLDEST_EXTENSION` in packages/core/src/mobile.ts, docs/outreach.md decision 94); the API's `MIN_EXTENSION_VERSION`
+can raise that, never lower it.
 
 To load your own build:
 

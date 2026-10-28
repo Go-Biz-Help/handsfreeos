@@ -1,5 +1,6 @@
 import { existsSync } from 'node:fs';
 import { resolve } from 'node:path';
+import { OLDEST_EXTENSION, appVersionAtLeast } from '@hfos/core/server';
 
 /** Loads `.env` from the app directory when present. Never throws when the file is missing. */
 export function loadEnv(): void {
@@ -29,9 +30,9 @@ export interface ApiEnv {
   readonly minAppVersion: string | null;
   /**
    * The oldest browser extension build the API still takes (`MIN_EXTENSION_VERSION`, like "0.2.0"): an older one is
-   * told to update (426). Unset, every build is taken.
+   * told to update (426). Never older than `OLDEST_EXTENSION`, which is what's kept when it's unset or lower.
    */
-  readonly minExtensionVersion: string | null;
+  readonly minExtensionVersion: string;
 }
 
 // Secret-looking names anywhere; provider credentials by the prefixes our config uses; any OAuth client setting
@@ -81,11 +82,13 @@ export function readEnv(env: NodeJS.ProcessEnv = process.env): ApiEnv {
   const minAppVersion = env.MIN_APP_VERSION?.trim() || null;
   if (minAppVersion && !/^\d+(\.\d+){0,2}$/.test(minAppVersion))
     throw new Error(`MIN_APP_VERSION must be a build number like 1.4.0, not ${minAppVersion}`);
-  const minExtensionVersion = env.MIN_EXTENSION_VERSION?.trim() || null;
-  if (minExtensionVersion && !/^\d+(\.\d+){0,2}$/.test(minExtensionVersion))
-    throw new Error(
-      `MIN_EXTENSION_VERSION must be a build number like 0.2.0, not ${minExtensionVersion}`,
-    );
+  const setExtension = env.MIN_EXTENSION_VERSION?.trim() || null;
+  if (setExtension && !/^\d+(\.\d+){0,2}$/.test(setExtension))
+    throw new Error(`MIN_EXTENSION_VERSION must be a build number like 0.2.0, not ${setExtension}`);
+  const minExtensionVersion =
+    setExtension && appVersionAtLeast(setExtension, OLDEST_EXTENSION)
+      ? setExtension
+      : OLDEST_EXTENSION;
   return {
     port,
     host: env.HOST ?? '127.0.0.1',
