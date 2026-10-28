@@ -133,6 +133,16 @@ export type PostsPeopleNextInput = Body<'/v1/queries/outreach.posts.people_next'
 export type PostsPeopleNext = Ok<'/v1/queries/outreach.posts.people_next'>;
 export type FindsSaveInput = Body<'/v1/commands/outreach.finds.save'>;
 export type FindsSaved = Ok<'/v1/commands/outreach.finds.save'>;
+/**
+ * Instagram accounts like the business's (decision 110, packages/core/src/addons/outreach/like-yours.ts): what to search
+ * for and which kept account to read today, the accounts a search showed, and an account read.
+ */
+export type LikeYoursNextInput = Body<'/v1/queries/outreach.like_yours.next'>;
+export type LikeYoursNext = Ok<'/v1/queries/outreach.like_yours.next'>;
+export type LikeYoursFoundInput = Body<'/v1/commands/outreach.like_yours.found'>;
+export type LikeYoursFound = Ok<'/v1/commands/outreach.like_yours.found'>;
+export type LikeYoursReadInput = Body<'/v1/commands/outreach.like_yours.read'>;
+export type LikeYoursRead = Ok<'/v1/commands/outreach.like_yours.read'>;
 /** Birthdays and new jobs read once a day (decision 108). */
 export type OccasionsSaveInput = Body<'/v1/commands/outreach.occasions.save'>;
 export type OccasionsSaved = Ok<'/v1/commands/outreach.occasions.save'>;
@@ -325,6 +335,10 @@ export type HfosAsk =
   | { readonly type: 'hfos-posts-people-next'; readonly input: PostsPeopleNextInput }
   | { readonly type: 'hfos-finds-save'; readonly input: FindsSaveInput }
   | { readonly type: 'hfos-occasions-save'; readonly input: OccasionsSaveInput }
+  /** Instagram accounts like the business's (decision 110): what to do next, what a search showed, one read. */
+  | { readonly type: 'hfos-like-yours-next'; readonly input: LikeYoursNextInput }
+  | { readonly type: 'hfos-like-yours-found'; readonly input: LikeYoursFoundInput }
+  | { readonly type: 'hfos-like-yours-read'; readonly input: LikeYoursReadInput }
   | { readonly type: 'hfos-finds-next'; readonly input: FindsNextInput }
   | { readonly type: 'hfos-finds-searches'; readonly input: FindsSearchesInput }
   /**
@@ -400,6 +414,9 @@ export interface HfosValues {
   readonly 'hfos-posts-people-next': PostsPeopleNext;
   readonly 'hfos-finds-save': FindsSaved;
   readonly 'hfos-occasions-save': OccasionsSaved;
+  readonly 'hfos-like-yours-next': LikeYoursNext;
+  readonly 'hfos-like-yours-found': LikeYoursFound;
+  readonly 'hfos-like-yours-read': LikeYoursRead;
   readonly 'hfos-finds-next': FindsNext;
   readonly 'hfos-finds-searches': FindsSearches;
   readonly 'hfos-groups-to-check': GroupsToCheck;

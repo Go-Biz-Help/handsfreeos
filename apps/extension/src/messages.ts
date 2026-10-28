@@ -72,7 +72,12 @@ export type BrowseAsk =
    */
   | { readonly type: 'hfos-open-likers' }
   | { readonly type: 'hfos-more-comments' }
-  | { readonly type: 'hfos-close-dialog' };
+  | { readonly type: 'hfos-close-dialog' }
+  /**
+   * An Instagram account like the business's (decision 110, src/jobs/instagram/like-yours.ts): the box of its followers
+   * opened by its count of followers, on its own page.
+   */
+  | { readonly type: 'hfos-open-their-followers' };
 
 export type BrowseAnswer = { readonly ok: boolean };
 

@@ -154,6 +154,8 @@ export const outreachAddon = defineAddon({
       'outreach.demo.decided',
       'outreach.owner.moved',
       'outreach.occasions.saved',
+      'outreach.like_yours.found',
+      'outreach.like_yours.changed',
     ],
     // The last part of a download, and chats read in Messenger, start the AI's read of the chats
     // (apps/worker/src/addons/outreach/chats.ts); group posts worth a look start its check of them (./posts.ts), and
@@ -175,7 +177,8 @@ export const outreachAddon = defineAddon({
     // write each network's own words for a customers' playbook that has none yet (decision 92, ./words.ts). Someone
     // accepting the person's friend request pushes to their phone, when they switched that on (decision 101, ./alerts.ts).
     // Someone who wants a demo, or answered the playbook's questions, goes in the main pipeline (decision 105, ./leads.ts);
-    // once they came to the demo, their lead moves on and waits for the person's won or lost (decision 106).
+    // once they came to the demo, their lead moves on and waits for the person's won or lost (decision 106). Accounts
+    // an Instagram search showed for accounts like yours wait for the AI to pick the best (decision 110, ./like-yours.ts).
     consumes: [
       'outreach.download.saved',
       'outreach.chats.collected',
@@ -205,6 +208,7 @@ export const outreachAddon = defineAddon({
       'outreach.friend.accepted',
       'outreach.lead.wanted',
       'appointment.completed',
+      'outreach.like_yours.found',
     ],
   },
   jobs: [
@@ -222,6 +226,7 @@ export const outreachAddon = defineAddon({
     'outreach.review',
     'outreach.check_partners',
     'outreach.write_words',
+    'outreach.pick_like_yours',
   ],
   // Who from the chats brought in goes in Contacts (./chat-read.ts), how long a sent request waits, the hour of the
   // morning push, the weekly report, and which countries it reaches: Social Outreach → Settings → General, For your
@@ -248,6 +253,7 @@ export const outreachAddon = defineAddon({
     'helpful',
     'imports',
     'joins',
+    'like_yours',
     'list_saves',
     'live_steps',
     'my_groups',

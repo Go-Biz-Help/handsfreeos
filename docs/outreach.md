@@ -2570,6 +2570,28 @@ where decisions 37 and 59 put the settings; what they decided stands. Settled to
         After my OK. Their OK sends their computer a `post` ask (0.101.0), which writes it in the box on their home
         page and presses its own Post (`src/networks/alignable/compose.ts`, guessed from Alignable's words and looked
         for by Check Alignable, `post`). Who engaged comes from their notifications, as before.
+110.  **Accounts like yours on Instagram** (Chris, 28 Oct 2026, "all of your picks": 10a). "The AI picks up to 5
+      accounts (a chamber, a venue, a partner) from your playbook. You can add or remove them in Settings. It reads
+      their recent commenters and some followers each day."
+      - **Up to 5 kept, the business's** (`LIKE_YOURS_MOST`, `addon_outreach.like_yours`, 20261027016100): each by its
+        username, kept by the AI with why, or added by an owner or admin in **Settings → Instagram → Accounts like
+        yours** on the web and the phone (`outreach.like_yours.add` and `.remove`, `outreach.manage`, with the
+        Assistant). A sixth is refused (`outreach_like_yours_full`), and so is a username Instagram wouldn't take
+        (`outreach_like_yours_username`). A removed one stays removed until a person adds it again.
+      - **The AI picks from what a search found**: while fewer than 5 are kept and none were looked for this week,
+        `outreach.like_yours.next` gives up to 4 searches made from the customers' playbooks that run on Instagram
+        (`likeYoursSearches`: the area's chamber of commerce, its events, a kind of business with the same customers
+        and the niche there; the niche alone without an area). The extension sends the accounts each showed, never the
+        person's own (`outreach.like_yours.found`), and the worker asks the AI to pick the best for the room left
+        (`LIKE_YOURS_PICK_SYSTEM`, `src/addons/outreach/like-yours.ts`). What it didn't pick is passed over for good.
+      - **One kept account read a day** (0.102.0, `like_yours` after the hashtags, `src/jobs/instagram/like-yours.ts`),
+        the one read longest ago: its latest 3 posts go for the AI's check as found by it (`found: 'account'`, words
+        `@username`), and their likers and commenters are read by `post_people` whatever the AI says of the post
+        (`peopleReadOf`); the account itself is never a find. Then its followers' box, opened by its count of
+        followers (`openTheirFollowers`, never on the person's own account), and up to 25 of them
+        (`LIKE_YOURS_FOLLOWERS`) as finds who follow it (`how: 'follows'`, "Follows @austinchamber on Instagram"),
+        never the person or anyone they follow already. Each find gets the AI's found check before any like or follow,
+        as every find does. Nothing is followed, liked or written there, and a warning stops it.
 
 ## Rules worth knowing before changing anything
 

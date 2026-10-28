@@ -67,6 +67,7 @@ import { lookUpOnInstagram } from '../jobs/instagram/lookup';
 import { searchInstagram } from '../jobs/instagram/partner-search';
 import { lookForFollowBacks } from '../jobs/instagram/follow-backs';
 import { saveFollowers } from '../jobs/instagram/people';
+import { readLikeYours } from '../jobs/instagram/like-yours';
 import { readPostPeople } from '../jobs/instagram/post-people';
 import { lookAtTagsAndPlaces } from '../jobs/instagram/posts';
 import { unfollowOnItsOwn } from '../jobs/instagram/unfollow';
@@ -135,7 +136,8 @@ export const INSTAGRAM_AUTO: readonly TodayKind[] = ['warm_up', 'friend_request'
  * partners, and from part 15 the day's hashtags and places (`posts`) and the notifications' warm leads (`helpful`, as
  * Alignable's are). From 0.95.0 (decision 92) who liked and commented on the good posts the hashtags found
  * (`post_people`), and last the people found by topic checked for good fits (`found_checks`). From 0.101.0 the week's
- * helpful post asked for after the warm leads (`weekly_post`, decision 109).
+ * helpful post asked for after the warm leads (`weekly_post`, decision 109). From 0.102.0 accounts like the business's
+ * after the hashtags (`like_yours`, decision 110): searched for, and one read, its posts and its followers.
  */
 export const INSTAGRAM_DAILY = [
   'requests',
@@ -145,6 +147,7 @@ export const INSTAGRAM_DAILY = [
   'chats',
   'partners',
   'posts',
+  'like_yours',
   'helpful',
   'weekly_post',
   'post_people',
@@ -161,6 +164,7 @@ const DAILY_DOING: Readonly<Record<InstagramDaily, string>> = {
   chats: 'Reading your Instagram chats for the AI…',
   partners: 'Searching Instagram for people who could partner with you, then reading them…',
   posts: 'Looking at your hashtags and your area’s places on Instagram for the AI…',
+  like_yours: 'Reading an account like yours on Instagram, its posts and its followers…',
   helpful: 'Reading your notifications for who followed you, or liked or commented on your posts…',
   weekly_post: 'Asking for this week’s helpful post for Instagram…',
   post_people: 'Reading who liked and commented on good posts on Instagram…',
@@ -175,6 +179,7 @@ const DAILY_NAMES: Readonly<Record<InstagramDaily, string>> = {
   chats: 'Read my chats',
   partners: 'Find partners',
   posts: 'Your hashtags and places',
+  like_yours: 'Accounts like yours',
   helpful: 'Who engaged with you',
   weekly_post: 'This week’s helpful post',
   post_people: 'Who liked and commented',
@@ -889,6 +894,9 @@ export async function runInstagramDaily(kind: InstagramDaily, job: Job): Promise
           }),
         ),
       );
+    case 'like_yours':
+      // An account whose followers' box didn't open is noted with its outline (decision 74).
+      return readLikeYours(reporting(job, kind));
     case 'helpful':
       return readInstagramWarmLeads(job);
     case 'weekly_post':

@@ -45,6 +45,7 @@ import {
 import { CHECK_POSTS_JOB, checkPostsJob, postChecked, postsSaved } from './posts';
 import { DRAFT_HELPFUL_JOB, draftHelpfulJob, helpfulAsked } from './helpful';
 import { LIKE_PICK_ACTION, likePick } from './likes';
+import { likeYoursFound, PICK_LIKE_YOURS_JOB, pickLikeYoursJob } from './like-yours';
 import { TODAY_DRAFT_ACTION, todayDraft } from './today';
 import { askCoded, askProgressed, askSettled } from './asks';
 import { armPrune, LIVE_PRUNE_JOB, liveChanged, livePruneJob, warningSeen } from './live';
@@ -178,6 +179,8 @@ export const outreachAddonWorker: AddonWorkerModule = {
     'outreach.lead.wanted': leadWanted,
     // Once they came to the demo, their lead moves on and waits for the person's won or lost (./leads.ts).
     'appointment.completed': appointmentCompleted,
+    // Instagram accounts like the business's, found by search, wait for the AI's pick (./like-yours.ts).
+    'outreach.like_yours.found': likeYoursFound,
   },
   jobs: {
     [READ_CHATS_JOB]: readChatsJob,
@@ -199,6 +202,7 @@ export const outreachAddonWorker: AddonWorkerModule = {
     [DAY_REPORT_JOB]: dayReportJob,
     [REVIEW_JOB]: reviewJob,
     [WRITE_WORDS_JOB]: writeWordsJob,
+    [PICK_LIKE_YOURS_JOB]: pickLikeYoursJob,
   },
   // AI help on a playbook's parts, from the builder (./assist.ts), drafts for Today (./today.ts), and answers to a
   // group's questions when the extension asks to join it (./groups.ts), and which post to like (./likes.ts).

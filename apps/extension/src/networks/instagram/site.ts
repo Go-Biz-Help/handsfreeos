@@ -48,6 +48,7 @@ import {
   moreComments,
   openChat,
   openFollowers,
+  openTheirFollowers,
   openLikers,
   scrollList,
 } from './browse';
@@ -328,6 +329,8 @@ export const INSTAGRAM: LookingSite = {
     openLikers: (doc, href) => openLikers(doc, href),
     moreComments: (doc, href) => moreComments(doc, href),
     closeDialog: (doc, href) => closeDialog(doc, href),
+    // An account like the business's (decision 110, 0.102.0): its followers' box opened by its count of followers.
+    openTheirFollowers: (doc, href) => openTheirFollowers(doc, href),
   },
   // Who wrote back in their chats (part 13), as the person goes and as Read my chats goes.
   replies: readReplies,

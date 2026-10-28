@@ -826,6 +826,72 @@ describe('A network’s page and the person’s computer (decisions 74 and 77)',
     expect(screen.queryByTestId('settings-networks-instagram-profile')).toBeNull();
   });
 
+  it('lists the accounts like yours on Instagram, and lets an owner add and remove them (decision 110)', async () => {
+    const instagramOn: AutomationOutput = {
+      ...AUTOMATION,
+      settings: {
+        ...AUTOMATION_DEFAULTS,
+        networks: {
+          ...NETWORKS_DEFAULTS,
+          instagram: { ...NETWORKS_DEFAULTS.instagram, on: true },
+        },
+      },
+      rules: { ...AUTOMATION.rules, networksAllowed: ['facebook', 'linkedin', 'instagram'] },
+    };
+    const chamber = {
+      id: id(41),
+      username: 'austinchamber',
+      url: 'https://www.instagram.com/austinchamber/',
+      name: 'Austin Chamber',
+      why: 'Local owners follow it',
+      addedBy: 'ai' as const,
+      readAt: null,
+    };
+    const onAdd = jest.fn(async (_account: string) => null);
+    const onRemove = jest.fn(async (_id: string) => null);
+    const likeYours = (canManage: boolean) => ({
+      list: { accounts: [chamber], most: 5, canManage },
+      timeZone: TZ,
+      onAdd,
+      onRemove,
+    });
+    const view = await render(
+      <SettingsPartBody
+        part="instagram"
+        automation={instagramOn}
+        {...partProps()}
+        likeYours={likeYours(true)}
+      />,
+    );
+    const part = screen.getByTestId('settings-networks-instagram-like-yours');
+    expect(within(part).getByText('Accounts like yours')).toBeTruthy();
+    expect(screen.getByTestId('settings-networks-instagram-like-yours-account')).toHaveTextContent(
+      /@austinchamber.*Austin Chamber.*Picked by the AI · Not read yet.*Local owners follow it/,
+    );
+    await fireEvent.press(screen.getByTestId('settings-networks-instagram-like-yours-remove'));
+    await waitFor(() => expect(onRemove).toHaveBeenCalledWith(chamber.id));
+    await fireEvent.changeText(
+      screen.getByTestId('settings-networks-instagram-like-yours-input'),
+      '@atx.events',
+    );
+    await fireEvent.press(screen.getByTestId('settings-networks-instagram-like-yours-add'));
+    await waitFor(() => expect(onAdd).toHaveBeenCalledWith('@atx.events'));
+    // Someone who doesn't manage the business sees the list, and who adds to it.
+    await view.rerender(
+      <SettingsPartBody
+        part="instagram"
+        automation={instagramOn}
+        {...partProps()}
+        likeYours={likeYours(false)}
+      />,
+    );
+    expect(screen.queryByTestId('settings-networks-instagram-like-yours-remove')).toBeNull();
+    expect(screen.queryByTestId('settings-networks-instagram-like-yours-input')).toBeNull();
+    expect(screen.getByTestId('settings-networks-instagram-like-yours')).toHaveTextContent(
+      /An owner or admin of this business adds and removes them\./,
+    );
+  });
+
   it('says how to update a build before Check Facebook, and asks nothing of it', async () => {
     const actions = { busy: null, ask: jest.fn(), reply: jest.fn(), stop: jest.fn() };
     await render(

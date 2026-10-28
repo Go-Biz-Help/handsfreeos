@@ -3,7 +3,7 @@
 The extension that works beside a person on Facebook, and on LinkedIn, Instagram and Alignable once they turn each on,
 for the Social Outreach add-on (docs/outreach.md). It connects to HandsFreeOS only for businesses that have that add-on on.
 
-**This is a test build (0.101.0), and a bare one** (decisions 43, 59 and 72 in docs/outreach.md). Everything is set
+**This is a test build (0.102.0), and a bare one** (decisions 43, 59 and 72 in docs/outreach.md). Everything is set
 and started in HandsFreeOS; the extension does the work on Facebook. Its side panel shows progress and activity only:
 signing in, what it does next with today's steps and **Start my day** and **Stop for today**, how many things need
 you in HandsFreeOS (with a link there), each network's line, what it did today, and a link to HandsFreeOS. Needs you
@@ -1069,6 +1069,20 @@ shows under Instagram). Your Instagram choices in HandsFreeOS say what it does (
 Each step is noted as the extension's own (`auto`), as Instagram's. A step its page doesn't let it do goes to your
 Needs you; it never guesses.
 
+### Accounts like yours on Instagram (0.102.0)
+
+From 0.102.0 (docs/outreach.md, decision 110) Instagram's once-a-day jobs read accounts like yours after your hashtags
+(`like_yours`, `src/jobs/instagram/like-yours.ts`): accounts whose followers are your kind of customer, up to 5, picked
+by the AI or added in **Settings → Instagram → Accounts like yours**. While fewer than 5 are kept, once a week it runs
+HandsFreeOS's searches (your area's chamber of commerce, its events, a business with the same customers, your niche
+there) and sends the accounts each showed, never your own, for the AI to pick from. Each day it reads one kept account,
+the one read longest ago: its latest 3 posts, sent for the AI's check, so who liked and commented on them is read next
+(`post_people`); then the box of its followers, opened by its count of followers as a person opens it
+(`hfos-open-their-followers`, only on another account's page), and up to 25 of them, never you or anyone you follow,
+sent as people found who follow it, each checked by the AI from their own account before any like or follow. Nothing
+is followed, liked or written there; it presses only the account's count of followers and the box's Close, and stops
+on any Instagram warning.
+
 ### The week's helpful post on Instagram and Alignable (0.101.0)
 
 From 0.101.0 (docs/outreach.md, decision 109) Instagram's and Alignable's once-a-day jobs ask HandsFreeOS for the
@@ -1567,7 +1581,8 @@ on its own there (0.41.0), getting and bringing in its file (0.42.0), and growin
 feed (0.43.0). Joining groups (decision 31; docs/outreach.md, the rest of decisions 26 to 35) is built, tidying
 on its own on every network (decisions 29 and 98, 0.97.0), every part of your profile put in, read on its own on the
 1st (decision 99, 0.98.0), LinkedIn's comments waiting for your OK at first (decision 102, 0.99.0), birthdays and new jobs read once a
-day (decision 108, 0.100.0), and the week's helpful post on Instagram and Alignable (decision 109, 0.101.0); Social
+day (decision 108, 0.100.0), the week's helpful post on Instagram and Alignable (decision 109, 0.101.0), and accounts like yours on Instagram
+(decision 110, 0.102.0); Social
 Outreach's onboarding is built, in HandsFreeOS (decisions 36 and 45). Safari on Mac
 follows in Phase 2.
 

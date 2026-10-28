@@ -53,6 +53,7 @@ import {
 import { SaveLine } from './settings-bits';
 import { GeneralMine, GeneralTeam } from './settings-general';
 import { NetworkMine, NetworkTeam } from './settings-network';
+import type { LikeYoursProps } from './like-yours';
 import { useAskActions, useAsks, type AskActions } from './asks';
 import { useProfileProps, type ProfileProps } from './ready';
 
@@ -136,6 +137,17 @@ export function SettingsScreen({ whose, part: raw }: { whose?: string; part?: st
     `countries-count:${ws}`,
     W.rows.settings,
   );
+  // On Instagram's page: the business's accounts like yours (decision 110).
+  const likeYours = useOutreachAnswer(
+    part === 'instagram'
+      ? async () =>
+          unwrap(
+            await api.POST('/v1/queries/outreach.like_yours.list', { body: { workspaceId: ws } }),
+          )
+      : null,
+    `like-yours:${ws}`,
+    W.rows.settings,
+  );
   // A network's page, the person's own: Check LinkedIn's ask, and their computer (decision 74).
   const networkPart = part !== null && part !== 'general' && mine;
   const asks = useAsks('settings', W.rows.settings, networkPart);
@@ -190,6 +202,32 @@ export function SettingsScreen({ whose, part: raw }: { whose?: string; part?: st
       online={ctx.online}
       countries={countries.data}
       onCountries={(list) => openOutreach(ws, 'countries', `show=${list}`)}
+      likeYours={
+        part === 'instagram'
+          ? {
+              list: likeYours.data,
+              timeZone: ctx.timeZone,
+              onAdd: async (account) => {
+                try {
+                  await change('outreach.like_yours.add', { workspaceId: ws, account });
+                  likeYours.reload();
+                  return null;
+                } catch (e) {
+                  return failed(e);
+                }
+              },
+              onRemove: async (id) => {
+                try {
+                  await change('outreach.like_yours.remove', { workspaceId: ws, id });
+                  likeYours.reload();
+                  return null;
+                } catch (e) {
+                  return failed(e);
+                }
+              },
+            }
+          : null
+      }
       onRetry={automation.reload}
       onSaveMine={async (settings) => {
         try {
@@ -389,6 +427,8 @@ interface PartProps {
   /** On General: how many the country setting holds back, and opening its lists. */
   countries?: CountriesSkippedOutput | null;
   onCountries?: (list: CountryList) => void;
+  /** On Instagram's page: the business's accounts like yours, added and removed with signal (decision 110). */
+  likeYours?: LikeYoursProps | null;
 }
 
 /** A part's page: General, or a network's. */
@@ -423,6 +463,7 @@ function PartPage({
   profile = null,
   countries = null,
   onCountries,
+  likeYours = null,
 }: Omit<PartProps, 'automation' | 'error'> & { title: string; automation: AutomationOutput }) {
   const mineID = part === 'general' ? 'settings-general' : `settings-networks-${part}`;
   // One line for the page, fixed under its title so it shows wherever the change was made: how the latest save went,
@@ -491,6 +532,7 @@ function PartPage({
               asks={mine ? asks : null}
               askActions={mine ? askActions : null}
               profile={mine ? profile : null}
+              likeYours={likeYours}
             />
             {manages && business ? (
               <NetworkTeam

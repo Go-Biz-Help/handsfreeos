@@ -931,12 +931,15 @@ export interface InstagramPostRead {
  * posted it, by their account's name, and its caption, in no group, as a network's search finds are. A post with
  * nobody named, or no caption to read, is left out. From 0.95.0 each hashtag's posts go as a save of their own with the
  * hashtag (`words`, without its #, decision 92), so a post under a playbook's own is worth the AI's check whatever its
- * caption says; a place's go with none.
+ * caption says; a place's go with none. From 0.102.0 an account like the business's posts go as found by it
+ * (`account`, decision 110), with its username and its @ (`@austinchamber`), so their people are read whatever the AI
+ * says of the post.
  */
 export function instagramPostsSave(
   posts: readonly InstagramPostRead[],
   workspaceId: string,
   words: string | null = null,
+  found: 'search' | 'account' = 'search',
 ): Built<PostsSaveInput> {
   const seen = new Set<string>();
   const kept = posts.flatMap((post) => {
@@ -972,7 +975,7 @@ export function instagramPostsSave(
       platform: INSTAGRAM,
       group: null,
       posts: kept.slice(0, POSTS_SAVE_MOST),
-      found: 'search',
+      found,
       words: foundWith(words),
     },
   };

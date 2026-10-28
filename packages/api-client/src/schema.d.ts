@@ -7207,7 +7207,7 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * People found by topic on Instagram, LinkedIn or Alignable, as the person’s computer read them: who liked or commented on a good post its search found (that post’s people are then read), the businesses a search of Alignable showed, or a group’s members. Each one new is kept, the person’s own, for the AI to check from their own page; nobody goes in Contacts. Leaves out the person, the post’s writer, friends and anyone asked either way, customers and clients, anyone on Don’t pitch or Never contact or running a group, anyone who says a playbook’s skip word, and anyone the country setting skips by where they are; and stops once 3 days of checks wait.
+         * People found by topic on Instagram, LinkedIn or Alignable, as the person’s computer read them: who liked or commented on a good post its search found, or on an Instagram account like yours’s post (that post’s people are then read), the businesses a search of Alignable showed, a group’s members, or an account like yours’s followers. Each one new is kept, the person’s own, for the AI to check from their own page; nobody goes in Contacts. Leaves out the person, the post’s writer, friends and anyone asked either way, customers and clients, anyone on Don’t pitch or Never contact or running a group, anyone who says a playbook’s skip word, and anyone the country setting skips by where they are; and stops once 3 days of checks wait.
          * @description Risk level 1. Requires outreach.use. Emits outreach.finds.saved.
          */
         post: operations["command_outreach_finds_save"];
@@ -7491,6 +7491,86 @@ export interface paths {
          * @description Risk level 0. Requires outreach.use. Emits outreach.later.marked, outreach.send.skipped.
          */
         post: operations["command_outreach_later_set"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/outreach.like_yours.add": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Add an Instagram account like yours, by its username or address: one whose followers are the business’s kind of customer (its chamber of commerce, a venue, a business with the same customers). Up to 5; one removed before comes back. Owners and admins.
+         * @description Risk level 1. Requires outreach.manage. Emits outreach.like_yours.changed.
+         */
+        post: operations["command_outreach_like_yours_add"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/outreach.like_yours.found": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * The accounts the person’s computer found with Instagram’s search for accounts like yours: each new one waits for the AI to pick the best, up to 5 kept. Never the person’s own account, and never one kept, passed over or removed already.
+         * @description Risk level 0. Requires outreach.use. Emits outreach.like_yours.found.
+         */
+        post: operations["command_outreach_like_yours_found"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/outreach.like_yours.read": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * The person’s computer read an Instagram account like yours today: its latest posts and a screen of its followers. The next one is read tomorrow.
+         * @description Risk level 0. Requires outreach.use. Emits .
+         */
+        post: operations["command_outreach_like_yours_read"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/outreach.like_yours.remove": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Remove an Instagram account like yours from the list, so it isn’t read any more and the AI never picks it again. The people already found from it stay. Owners and admins.
+         * @description Risk level 1. Requires outreach.manage. Emits outreach.like_yours.changed.
+         */
+        post: operations["command_outreach_like_yours_remove"];
         delete?: never;
         options?: never;
         head?: never;
@@ -18997,6 +19077,46 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/queries/outreach.like_yours.list": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * The business’s Instagram accounts like yours (up to 5): accounts whose followers are its kind of customer, like the chamber of commerce, a venue or a business with the same customers, each with who added it (the AI or the team), why, and when the person’s computer last read it. Each day one is read: who commented on its latest posts and some of its followers, each checked by the AI before anything is done.
+         * @description Requires outreach.use.
+         */
+        post: operations["query_outreach_like_yours_list"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/queries/outreach.like_yours.next": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * What the person’s computer does next for the business’s Instagram accounts like yours: the words to search Instagram’s accounts with (from the playbooks’ area, niche and kinds of business), while fewer than 5 are kept and none were looked for this week; and the kept account to read today, the one read longest ago first.
+         * @description Requires outreach.use.
+         */
+        post: operations["query_outreach_like_yours_next"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/queries/outreach.lists": {
         parameters: {
             query?: never;
@@ -19227,7 +19347,7 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * Which good posts the person’s computer reads next for who liked and commented on them, on a network that reads them (Instagram’s and LinkedIn’s): their own, the AI called good, seen in the last week, not put aside, not read yet and not showing none; those asking for what the business offers first, then the busiest, then the newest; no more than the day’s, and none while 3 days of checks of people found wait.
+         * Which good posts the person’s computer reads next for who liked and commented on them, on a network that reads them (Instagram’s and LinkedIn’s): their own, the AI called good or by an Instagram account like yours, seen in the last week, not put aside, not read yet and not showing none; those asking for what the business offers first, then the busiest, then the newest; no more than the day’s, and none while 3 days of checks of people found wait.
          * @description Requires outreach.use.
          */
         post: operations["query_outreach_posts_people_next"];
@@ -39997,7 +40117,7 @@ export interface operations {
                         url: string;
                     } | null;
                     /** @enum {string} */
-                    how: "liked" | "commented" | "searched" | "member";
+                    how: "liked" | "commented" | "searched" | "member" | "follows";
                     people?: {
                         /** @default [] */
                         lines?: string[];
@@ -40682,6 +40802,159 @@ export interface operations {
                         profileId: string;
                         skipped: number;
                         until: string | null;
+                    };
+                };
+            };
+        };
+    };
+    command_outreach_like_yours_add: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    account: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        accounts: {
+                            /** @enum {string} */
+                            addedBy: "ai" | "person";
+                            /** Format: uuid */
+                            id: string;
+                            name: string | null;
+                            readAt: string | null;
+                            url: string;
+                            username: string;
+                            why: string | null;
+                        }[];
+                    };
+                };
+            };
+        };
+    };
+    command_outreach_like_yours_found: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    accounts: {
+                        /** @default null */
+                        name?: string | null;
+                        username: string;
+                        words: string;
+                    }[];
+                    /**
+                     * @default instagram
+                     * @enum {string}
+                     */
+                    platform?: "instagram";
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        candidates: number;
+                    };
+                };
+            };
+        };
+    };
+    command_outreach_like_yours_read: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    id: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        id: string;
+                    };
+                };
+            };
+        };
+    };
+    command_outreach_like_yours_remove: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    id: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        accounts: {
+                            /** @enum {string} */
+                            addedBy: "ai" | "person";
+                            /** Format: uuid */
+                            id: string;
+                            name: string | null;
+                            readAt: string | null;
+                            url: string;
+                            username: string;
+                            why: string | null;
+                        }[];
                     };
                 };
             };
@@ -41917,7 +42190,7 @@ export interface operations {
                      * @default scroll
                      * @enum {string}
                      */
-                    found?: "scroll" | "find" | "watch" | "search";
+                    found?: "scroll" | "find" | "watch" | "search" | "account";
                     /** @default null */
                     group?: {
                         id: string | null;
@@ -73074,7 +73347,7 @@ export interface operations {
                     "application/json": {
                         people: {
                             /** @enum {string} */
-                            how: "posted" | "commented" | "liked" | "member" | "searched";
+                            how: "posted" | "commented" | "liked" | "member" | "follows" | "searched";
                             name: string;
                             postUrl: string | null;
                             /** Format: uuid */
@@ -73810,6 +74083,87 @@ export interface operations {
                         };
                         today: number;
                         words: string | null;
+                    };
+                };
+            };
+        };
+    };
+    query_outreach_like_yours_list: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        accounts: {
+                            /** @enum {string} */
+                            addedBy: "ai" | "person";
+                            /** Format: uuid */
+                            id: string;
+                            name: string | null;
+                            readAt: string | null;
+                            url: string;
+                            username: string;
+                            why: string | null;
+                        }[];
+                        canManage: boolean;
+                        most: number;
+                    };
+                };
+            };
+        };
+    };
+    query_outreach_like_yours_next: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /**
+                     * @default instagram
+                     * @enum {string}
+                     */
+                    platform?: "instagram";
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        account: {
+                            /** Format: uuid */
+                            id: string;
+                            url: string;
+                            username: string;
+                        } | null;
+                        searches: string[];
                     };
                 };
             };

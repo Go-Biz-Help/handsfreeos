@@ -14,6 +14,7 @@ import {
   closeDialog,
   moreComments,
   openFollowers,
+  openTheirFollowers,
   openLikers,
 } from '../src/networks/instagram/browse';
 import { readOwnProfile } from '../src/networks/instagram/own-profile';
@@ -498,6 +499,26 @@ describe('your followers, as the owner’s Check of 21 Oct 2026 found the page',
     let pressed = 0;
     followersCount(theirs)!.addEventListener('click', () => pressed++);
     expect(openFollowers(theirs, theirs.location.href)).toBe(false);
+    expect(pressed).toBe(0);
+  });
+
+  it('opens the box of an account like yours from its count of followers, never on your own (decision 110)', () => {
+    const theirs = pressingOpensBox(
+      page(
+        '/austinchamber/',
+        ownAccount().body.innerHTML.replaceAll('me.owner/stories', 'austinchamber/stories'),
+      ),
+    );
+    expect(read(theirs).followers).toEqual([]);
+    expect(openTheirFollowers(theirs, theirs.location.href)).toBe(true);
+    expect(read(theirs).followers.map((f) => f.username)).toEqual(['dana.reyes', 'sam.lee']);
+    // Open already: nothing more is pressed.
+    expect(openTheirFollowers(theirs, theirs.location.href)).toBe(true);
+    expect(theirs.querySelectorAll('[role="dialog"]')).toHaveLength(1);
+    const own = ownAccount('/me.owner/');
+    let pressed = 0;
+    followersCount(own)!.addEventListener('click', () => pressed++);
+    expect(openTheirFollowers(own, own.location.href)).toBe(false);
     expect(pressed).toBe(0);
   });
 });

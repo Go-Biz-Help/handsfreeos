@@ -393,11 +393,12 @@ export function work(ask: { readonly type: string }): Promise<unknown> | null {
     case 'hfos-scroll-page':
       return Promise.resolve(browseStep(known));
     // Another network's list (Alignable's My Network): Facebook's open on everything already. Instagram's post's boxes
-    // (decision 92) are never asked of a Facebook tab.
+    // (decision 92) and another account's followers (decision 110) are never asked of a Facebook tab.
     case 'hfos-show-all':
     case 'hfos-open-likers':
     case 'hfos-more-comments':
     case 'hfos-close-dialog':
+    case 'hfos-open-their-followers':
       return Promise.resolve({ ok: false });
     case 'hfos-fetch-step':
     case 'hfos-fetch-path':

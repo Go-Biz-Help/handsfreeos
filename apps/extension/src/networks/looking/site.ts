@@ -193,6 +193,11 @@ export interface LookingSite {
     readonly openLikers?: (doc: Document, href: string) => boolean | Promise<boolean>;
     readonly moreComments?: (doc: Document, href: string) => boolean | Promise<boolean>;
     readonly closeDialog?: (doc: Document, href: string) => boolean | Promise<boolean>;
+    /**
+     * Another account's followers (Instagram's accounts like the business's, decision 110): the box of them opened by
+     * its count of followers, on that account's own page.
+     */
+    readonly openTheirFollowers?: (doc: Document, href: string) => boolean | Promise<boolean>;
   };
   /**
    * The chats on the page whose last message is theirs (decision 22), for HandsFreeOS to hear who wrote back, as the

@@ -401,6 +401,11 @@ import {
   HelpfulSkipInput,
 } from '@hfos/core/addons/outreach/helpful';
 import {
+  LikeYoursAddInput,
+  LikeYoursChangeOutput,
+  LikeYoursRemoveInput,
+} from '@hfos/core/addons/outreach/like-yours';
+import {
   NeedClearInput,
   NeedClearOutput,
   RequestSetAsideInput,
@@ -640,6 +645,9 @@ export const PHONE_COMMANDS = {
   'outreach.helpful.skip': command(ONLINE, HelpfulSkipInput, HelpfulChangeOutput),
   // Later, or Take off Later, from the person menu on a name (decision 100): with signal, as Mark as client is.
   'outreach.later.set': command(ONLINE, LaterSetInput, LaterSetOutput),
+  // Settings → Instagram's accounts like yours (decision 110): added or removed by an owner or admin, with signal.
+  'outreach.like_yours.add': command(ONLINE, LikeYoursAddInput, LikeYoursChangeOutput),
+  'outreach.like_yours.remove': command(ONLINE, LikeYoursRemoveInput, LikeYoursChangeOutput),
   // A sample message changed by hand, or a note the AI keeps forgotten, on Get ready (decision 63): with signal.
   'outreach.messages.edit': command(ONLINE, MessageEditInput, ReadinessOutput),
   'outreach.messages.forget': command(ONLINE, MessageForgetInput, ReadinessOutput),

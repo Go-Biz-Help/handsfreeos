@@ -100,6 +100,7 @@ const BROWSE_ASKS: ReadonlySet<string> = new Set<LookingBrowseAsk['type']>([
   'hfos-open-likers',
   'hfos-more-comments',
   'hfos-close-dialog',
+  'hfos-open-their-followers',
 ]);
 
 /**
@@ -119,6 +120,7 @@ async function browse(site: LookingSite, ask: LookingBrowseAsk): Promise<BrowseA
     'hfos-open-likers': lists.openLikers,
     'hfos-more-comments': lists.moreComments,
     'hfos-close-dialog': lists.closeDialog,
+    'hfos-open-their-followers': lists.openTheirFollowers,
   }[ask.type];
   return { ok: go ? await go(document, location.href) : false };
 }

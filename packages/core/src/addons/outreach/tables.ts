@@ -56,6 +56,7 @@ import type { ProfileTicks } from './readiness';
 import type { ListMark } from './lists';
 import type { PartnerFit, PartnerKind, PartnerSearchKind, PartnerStage } from './partners';
 import type { DownloadCounts, DownloadList, DownloadMessage } from './download';
+import type { LikeYoursState } from './like-yours';
 import type { OccasionKind } from './occasions';
 import type { FriendState, TidyKind } from './limits';
 import type { DraftOpener, OpenerKind } from './openers';
@@ -1550,6 +1551,30 @@ export const occasions = addonOutreach.table(
   ],
 );
 
+/**
+ * The business's Instagram accounts like yours (./like-yours.ts, decision 110): those a search showed for the AI to look
+ * at, the ones kept (up to 5), those it passed over and those a person removed, each once by its username, with who
+ * added it (null: the AI) and when the person's computer last read it.
+ */
+export const likeYours = addonOutreach.table(
+  'like_yours',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    workspaceId: workspaceRef(),
+    platform: text('platform').notNull().default('instagram').$type<'instagram'>(),
+    username: text('username').notNull(),
+    name: text('name'),
+    why: text('why'),
+    state: text('state').notNull().$type<LikeYoursState>(),
+    addedByUserId: userRef('added_by_user_id'),
+    foundAt: ts('found_at').notNull(),
+    readAt: ts('read_at'),
+    createdAt: ts('created_at').notNull().defaultNow(),
+    updatedAt: ts('updated_at').notNull().defaultNow(),
+  },
+  (t) => [unique().on(t.workspaceId, t.id), unique().on(t.workspaceId, t.platform, t.username)],
+);
+
 /** Every table above, for the test that holds the mirror to the live columns. */
 export const OUTREACH_TABLES = {
   asks,
@@ -1570,6 +1595,7 @@ export const OUTREACH_TABLES = {
   imports,
   joins,
   demos,
+  likeYours,
   listSaves,
   liveSteps,
   needs,

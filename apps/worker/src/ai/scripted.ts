@@ -2263,7 +2263,20 @@ export const OUTREACH_RULES: readonly ScriptRule[] = [
     json: (message) => scriptedPlaybookAssist(message),
   },
   { when: /Write the words to look with\.$/, json: (message) => scriptedFindWords(message) },
+  {
+    when: /Pick up to \d+ of these accounts whose followers are this business’s customers\.$/,
+    json: (message) => scriptedLikeYoursPick(message),
+  },
 ];
+
+/**
+ * Social Outreach's pick of Instagram accounts like the business's (decision 110): the first account found, with
+ * why; none when the list says nothing.
+ */
+function scriptedLikeYoursPick(message: string) {
+  const first = /<account username="([a-z0-9._]+)"/.exec(message)?.[1];
+  return { picks: first ? [{ username: first, why: 'Shares the business’s customers' }] : [] };
+}
 
 /**
  * Social Outreach's words for finding people by topic (decision 92), from the playbook's niche and area: every list,
