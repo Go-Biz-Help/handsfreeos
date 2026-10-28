@@ -7398,6 +7398,69 @@ export const affiliateReferrals = platform.table('affiliate_referrals', {
 });
 
 /**
+ * What a business paid HandsFreeOS for its plan (20261027014200): a founding checkout's first payment, a renewal
+ * charged to the card kept, or one paid on a page of its own. Kept so a refund can find it.
+ */
+export const planPayments = platform.table('plan_payments', {
+  id: id(),
+  /** Null once the business is deleted for good: what it paid stays. */
+  organizationId: uuid('organization_id').references(() => organizations.id, {
+    onDelete: 'set null',
+  }),
+  workspaceId: uuid('workspace_id').references(() => workspaces.id, { onDelete: 'set null' }),
+  offerId: text('offer_id').references(() => foundingOffers.id, { onDelete: 'set null' }),
+  /** checkout, renewal or renewal_page. */
+  how: text('how').notNull(),
+  checkoutId: uuid('checkout_id').references(() => foundingCheckouts.id, { onDelete: 'set null' }),
+  /** Stripe's `pi_…`. */
+  paymentRef: text('payment_ref').notNull().unique(),
+  amountCents: integer('amount_cents').notNull(),
+  /** The start of the month or year it pays for. */
+  periodFrom: ts('period_from').notNull(),
+  paidAt: ts('paid_at').notNull(),
+  createdAt: ts('created_at').notNull().defaultNow(),
+});
+
+/** Money that went back on a plan payment, from our own account's webhook. */
+export const planRefunds = platform.table('plan_refunds', {
+  id: id(),
+  paymentId: uuid('payment_id')
+    .notNull()
+    .references(() => planPayments.id, { onDelete: 'cascade' }),
+  /** Stripe's `re_…`. */
+  refundRef: text('refund_ref').notNull().unique(),
+  amountCents: integer('amount_cents').notNull(),
+  /** pending, succeeded, failed or canceled. */
+  status: text('status').notNull(),
+  refundedAt: ts('refunded_at').notNull(),
+  ...timestamps(),
+});
+
+/** A share an affiliate earned on a plan payment, took back on a refund, or had given back. */
+export const affiliateCommissions = platform.table('affiliate_commissions', {
+  id: id(),
+  affiliateId: uuid('affiliate_id')
+    .notNull()
+    .references(() => affiliates.id, { onDelete: 'cascade' }),
+  organizationId: uuid('organization_id').references(() => organizations.id, {
+    onDelete: 'set null',
+  }),
+  paymentId: uuid('payment_id')
+    .notNull()
+    .references(() => planPayments.id, { onDelete: 'cascade' }),
+  refundId: uuid('refund_id').references(() => planRefunds.id, { onDelete: 'cascade' }),
+  /** earned, taken_back or given_back. */
+  kind: text('kind').notNull(),
+  baseCents: bigint('base_cents', { mode: 'number' }).notNull(),
+  rateBp: integer('rate_bp').notNull(),
+  /** Negative when taken back. */
+  amountCents: bigint('amount_cents', { mode: 'number' }).notNull(),
+  earnedAt: ts('earned_at').notNull(),
+  payableAt: ts('payable_at').notNull(),
+  createdAt: ts('created_at').notNull().defaultNow(),
+});
+
+/**
  * Automations' "Thank-you after the job" (0094): which way each customer's thank-you went, one per attendee. A
  * `card` row is what opens Home's "job not thanked" card.
  */

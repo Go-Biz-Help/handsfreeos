@@ -25,13 +25,14 @@
  * account's destination — "Your account" in Stripe, not the Connect one at `/webhooks/stripe` — signed with its
  * own secret, and it does what every provider webhook here does: checks the signature over the exact bytes,
  * stores the event once under its own id, and answers. The worker's processor does the rest
- * (founding/checkout.ts).
+ * (founding/checkout.ts). A refund of a plan payment (20261027014200) comes through the same door, routed to the
+ * business by the payment it gives back; a refund of anything else here is taken, and dropped.
  */
 import rateLimit from '@fastify/rate-limit';
 import { FoundingApplyInput } from '@hfos/core';
 import { asWorker, rows, sql } from '@hfos/db/client';
 import type { FastifyInstance } from 'fastify';
-import { checkoutOutcome, FOUNDING_CHECKOUT_KIND } from '../founding/checkout';
+import { checkoutOutcome, FOUNDING_CHECKOUT_KIND, PLAN_REFUND_KIND } from '../founding/checkout';
 import { RCS_CHECKOUT_KIND, rcsCheckoutOutcome } from '../telephony/rcs-billing';
 import { TEXTING_FEE_CHECKOUT_KIND, textingFeeCheckoutOutcome } from '../telephony/texting-fees';
 import { WEBHOOK_MAX_BYTES } from '../money/webhook-events';
@@ -160,6 +161,36 @@ export async function registerFoundingRoutes(app: FastifyInstance, deps: HttpDep
         if (!platform.webhooks.configured || !platform.webhooks.verify({ rawBody, headers, url })) {
           deps.log.warn('rejected an unsigned or mis-signed Stripe webhook for our own account');
           return reply.code(403).type('text/plain').send('Invalid signature');
+        }
+        // A plan payment's refund: routed to the business that paid it. Any other refund isn't ours to keep.
+        const refund = platform.webhooks.refund(rawBody);
+        if (refund) {
+          const [paid] = await asWorker(deps.httpDb, {}, (tx) =>
+            rows<{ workspace_id: string; organization_id: string }>(
+              tx,
+              sql`select workspace_id, organization_id from platform.plan_payments
+                where payment_ref = ${refund.paymentRef}
+                  and workspace_id is not null and organization_id is not null`,
+            ),
+          );
+          if (!paid) return reply.code(200).send({ received: true, ignored: true });
+          await recordDelivery(deps, {
+            provider: 'stripe',
+            kind: PLAN_REFUND_KIND,
+            dedupeKey: refund.id,
+            accountRef: null,
+            url,
+            params: {
+              id: refund.id,
+              type: refund.type,
+              accountRef: '',
+              createdAt: '',
+              body: rawBody,
+            },
+            workspaceId: paid.workspace_id,
+            organizationId: paid.organization_id,
+          });
+          return reply.code(200).send({ received: true });
         }
         const event = platform.webhooks.checkout(rawBody);
         // A texting fee's page (0105): the same door, routed to the business the fee is for.

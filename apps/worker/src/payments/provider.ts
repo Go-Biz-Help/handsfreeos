@@ -506,6 +506,26 @@ export interface CheckoutEvent {
   readonly amountTotal: number | null;
 }
 
+/**
+ * A refund of a payment made to our own account (20261027014200): made in Stripe's dashboard, or what became of it.
+ * Only one of a plan payment kept here is acted on; the rest (an RCS request's, a texting fee's) are passed over.
+ */
+export interface PlanRefundEvent {
+  /** The provider's event id: what the delivery is deduplicated on. */
+  readonly id: string;
+  /** `refund.created`, `refund.updated` or `refund.failed`. */
+  readonly type: string;
+  /** Stripe's `re_…`. */
+  readonly refundRef: string;
+  /** The payment it gives back (`pi_…`). */
+  readonly paymentRef: string;
+  readonly amountCents: number;
+  /** Stripe's word, with `requires_action` read as still pending. */
+  readonly status: 'pending' | 'succeeded' | 'failed' | 'canceled';
+  /** When the refund was made. */
+  readonly refundedAt: string;
+}
+
 /** A partner's Stripe Express account, as Stripe describes it (the partners plan's stage 3). */
 export interface PayoutAccountState {
   /** Stripe's `acct_…`. */
@@ -620,6 +640,8 @@ export interface PlatformPayments {
     verify(input: WebhookInput): boolean;
     /** A checkout event, or null for anything else (answered and dropped). */
     checkout(rawBody: string): CheckoutEvent | null;
+    /** A refund's event, or null for anything else. */
+    refund(rawBody: string): PlanRefundEvent | null;
   };
 }
 

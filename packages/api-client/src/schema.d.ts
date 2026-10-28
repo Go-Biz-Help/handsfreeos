@@ -15947,7 +15947,7 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * Your own place in the HandsFreeOS affiliate program: whether you’ve applied and where it stands, your link code, your share, and your link’s clicks.
+         * Your own place in the HandsFreeOS affiliate program: whether you’ve applied and where it stands, your link code, your share, your link’s clicks, how many signed up, the businesses that pay, and what you’ve earned.
          * @description Any signed-in user.
          */
         post: operations["query_affiliate_mine"];
@@ -19527,7 +19527,7 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * One affiliate for Admin → Affiliates: what they applied with, their share, the businesses they sent and their link’s clicks a day.
+         * One affiliate for Admin → Affiliates: what they applied with, their share, the businesses they sent and what each earned them, what they’ve earned, waiting and ready, each share earned or taken back, and their link’s clicks a day.
          * @description Requires platform.affiliates.manage.
          */
         post: operations["query_platform_affiliate"];
@@ -19567,7 +19567,7 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * The affiliate program for Admin → Affiliates: the share everyone earns, the applications waiting, and every affiliate with their clicks and the businesses they sent.
+         * The affiliate program for Admin → Affiliates: the share everyone earns, the applications waiting, and every affiliate with their clicks, the businesses they sent and what they’ve earned.
          * @description Requires platform.affiliates.manage.
          */
         post: operations["query_platform_affiliates"];
@@ -22989,6 +22989,7 @@ export interface operations {
                             code: string;
                             decidedAt: string | null;
                             decidedByName: string | null;
+                            earnedCents: number;
                             email: string;
                             links: string;
                             name: string;
@@ -23084,6 +23085,7 @@ export interface operations {
                             code: string;
                             decidedAt: string | null;
                             decidedByName: string | null;
+                            earnedCents: number;
                             email: string;
                             links: string;
                             name: string;
@@ -23135,6 +23137,7 @@ export interface operations {
                             code: string;
                             decidedAt: string | null;
                             decidedByName: string | null;
+                            earnedCents: number;
                             email: string;
                             links: string;
                             name: string;
@@ -23187,6 +23190,7 @@ export interface operations {
                             code: string;
                             decidedAt: string | null;
                             decidedByName: string | null;
+                            earnedCents: number;
                             email: string;
                             links: string;
                             name: string;
@@ -59276,10 +59280,22 @@ export interface operations {
                             clicksAll: number;
                             code: string;
                             decidedAt: string | null;
+                            earnings: {
+                                earnedCents: number;
+                                paidCents: number;
+                                readyCents: number;
+                                waitingCents: number;
+                            };
                             links: string;
                             name: string;
+                            payingBusinesses: {
+                                earnedCents: number;
+                                firstPaidAt: string | null;
+                                name: string | null;
+                            }[];
                             pitch: string;
                             rateBp: number;
+                            signUps: number;
                             /** @enum {string} */
                             status: "applied" | "approved" | "turned_down" | "paused" | "ended";
                         } | null;
@@ -76056,6 +76072,7 @@ export interface operations {
                             code: string;
                             decidedAt: string | null;
                             decidedByName: string | null;
+                            earnedCents: number;
                             email: string;
                             links: string;
                             name: string;
@@ -76069,6 +76086,7 @@ export interface operations {
                         };
                         businesses: {
                             clickedAt: string | null;
+                            earnedCents: number;
                             /** @enum {string} */
                             how: "link" | "code" | "by_hand";
                             markedByName: string | null;
@@ -76084,6 +76102,26 @@ export interface operations {
                             /** Format: date */
                             day: string;
                         }[];
+                        commissions: {
+                            amountCents: number;
+                            baseCents: number;
+                            businessName: string | null;
+                            /** Format: uuid */
+                            commissionId: string;
+                            /** Format: date-time */
+                            earnedAt: string;
+                            /** @enum {string} */
+                            kind: "earned" | "taken_back" | "given_back";
+                            /** Format: date-time */
+                            payableAt: string;
+                            rateBp: number;
+                        }[];
+                        earnings: {
+                            earnedCents: number;
+                            paidCents: number;
+                            readyCents: number;
+                            waitingCents: number;
+                        };
                     };
                 };
             };
@@ -76172,6 +76210,7 @@ export interface operations {
                             code: string;
                             decidedAt: string | null;
                             decidedByName: string | null;
+                            earnedCents: number;
                             email: string;
                             links: string;
                             name: string;
@@ -76194,6 +76233,7 @@ export interface operations {
                             code: string;
                             decidedAt: string | null;
                             decidedByName: string | null;
+                            earnedCents: number;
                             email: string;
                             links: string;
                             name: string;

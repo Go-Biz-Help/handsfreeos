@@ -4,7 +4,9 @@
  * Two readers, owed different amounts:
  *
  * - `affiliate.mine` is the signed-in person's own standing, for their page: what they applied with, their link
- *   code, their share and their link's clicks. Read through their own row's policy, so it can only ever be theirs.
+ *   code, their share, their link's clicks, how many signed up, the businesses that paid by name, and what they've
+ *   earned (20261027014200). Read through their own rows' policies and two functions that answer only for them, so
+ *   it can only ever be theirs.
  * - `platform.affiliates`, `platform.affiliate` and `platform.affiliate_of_business` are staff's, for Admin →
  *   Affiliates and a business's page under Admin → Businesses (`platform.affiliates.manage`).
  */
@@ -21,6 +23,7 @@ import {
   PlatformAffiliateOutput,
   PlatformAffiliatesInput,
   PlatformAffiliatesOutput,
+  type AffiliateCommissionKind,
   type AffiliateReferralHow,
   type AffiliateStatus,
 } from '../schemas/affiliates';
@@ -49,6 +52,7 @@ type Row = {
   clicks30: number | string;
   clicks_all: number | string;
   businesses: number | string;
+  earned: number | string;
 };
 
 /** Each affiliate with their share, clicks and how many businesses they sent. `where` narrows it. */
@@ -64,7 +68,9 @@ const rowsWhere = (tx: Tx, where: ReturnType<typeof sql>, limit = 500) =>
                     where c.affiliate_id = a.id and c.day > (now() at time zone 'UTC')::date - 30), 0) as clicks30,
           coalesce((select sum(c.clicks) from platform.affiliate_clicks c where c.affiliate_id = a.id), 0)
             as clicks_all,
-          (select count(*) from platform.affiliate_referrals r where r.affiliate_id = a.id) as businesses
+          (select count(*) from platform.affiliate_referrals r where r.affiliate_id = a.id) as businesses,
+          coalesce((select sum(c.amount_cents) from platform.affiliate_commissions c where c.affiliate_id = a.id), 0)
+            as earned
         from platform.affiliates a
         cross join platform.affiliate_settings s
         left join app.users u on u.id = a.user_id
@@ -92,7 +98,30 @@ const rowOut = (r: Row) => ({
   clicks30: Number(r.clicks30),
   clicksAll: Number(r.clicks_all),
   businesses: Number(r.businesses),
+  earnedCents: Number(r.earned),
 });
+
+/**
+ * What an affiliate has earned, waiting and ready (20261027014200), read through whatever the reader may see of
+ * their commissions. Nothing is paid out until part 4.
+ */
+async function earningsOf(tx: Tx, affiliateId: string) {
+  const [e] = await rows<{ earned: string | number; waiting: string | number }>(
+    tx,
+    sql`select coalesce(sum(amount_cents), 0) as earned,
+          coalesce(sum(amount_cents) filter (where payable_at > now()), 0) as waiting
+        from platform.affiliate_commissions where affiliate_id = ${affiliateId}`,
+  );
+  const earnedCents = Number(e?.earned ?? 0);
+  const waitingCents = Number(e?.waiting ?? 0);
+  const paidCents = 0;
+  return {
+    earnedCents,
+    waitingCents,
+    readyCents: earnedCents - waitingCents - paidCents,
+    paidCents,
+  };
+}
 
 /** One affiliate as staff see them, or null. */
 export async function affiliateRow(tx: Tx, affiliateId: string) {
@@ -142,7 +171,7 @@ async function defaultRate(tx: Tx): Promise<number> {
 export const affiliateMine = defineQuery({
   name: 'affiliate.mine',
   description:
-    'Your own place in the HandsFreeOS affiliate program: whether you’ve applied and where it stands, your link code, your share, and your link’s clicks.',
+    'Your own place in the HandsFreeOS affiliate program: whether you’ve applied and where it stands, your link code, your share, your link’s clicks, how many signed up, the businesses that pay, and what you’ve earned.',
   input: AffiliateMineInput,
   output: AffiliateMineOutput,
   permission: null,
@@ -150,7 +179,9 @@ export const affiliateMine = defineQuery({
   async handler(ctx) {
     const me = requireHuman(ctx).userId;
     const [mine] = await rows<
-      Omit<Row, 'email' | 'decided_by_name' | 'businesses' | 'user_id'> & { user_id: string }
+      Omit<Row, 'email' | 'decided_by_name' | 'businesses' | 'earned' | 'user_id'> & {
+        user_id: string;
+      }
     >(
       ctx.tx,
       sql`select a.id, a.user_id, a.name, a.code, a.status, a.pitch, a.links,
@@ -166,6 +197,18 @@ export const affiliateMine = defineQuery({
     const defaultRateBp = await defaultRate(ctx.tx);
     if (!mine) return { affiliate: null, defaultRateBp };
     const decidedAt = isoOrNull(mine.decided_at);
+    const [signUps] = await rows<{ n: number }>(
+      ctx.tx,
+      sql`select private.affiliate_my_signups() as n`,
+    );
+    const paying = await rows<{
+      name: string | null;
+      first_paid_at: Date | string | null;
+      earned_cents: string | number;
+    }>(
+      ctx.tx,
+      sql`select name, first_paid_at, earned_cents from private.affiliate_my_businesses()`,
+    );
     return {
       affiliate: {
         affiliateId: mine.id,
@@ -183,6 +226,13 @@ export const affiliateMine = defineQuery({
             : null,
         clicks30: Number(mine.clicks30),
         clicksAll: Number(mine.clicks_all),
+        signUps: Number(signUps?.n ?? 0),
+        payingBusinesses: paying.map((b) => ({
+          name: b.name,
+          firstPaidAt: isoOrNull(b.first_paid_at),
+          earnedCents: Number(b.earned_cents),
+        })),
+        earnings: await earningsOf(ctx.tx, mine.id),
       },
       defaultRateBp,
     };
@@ -192,7 +242,7 @@ export const affiliateMine = defineQuery({
 export const platformAffiliates = defineQuery({
   name: 'platform.affiliates',
   description:
-    'The affiliate program for Admin → Affiliates: the share everyone earns, the applications waiting, and every affiliate with their clicks and the businesses they sent.',
+    'The affiliate program for Admin → Affiliates: the share everyone earns, the applications waiting, and every affiliate with their clicks, the businesses they sent and what they’ve earned.',
   input: PlatformAffiliatesInput,
   output: PlatformAffiliatesOutput,
   permission: 'platform.affiliates.manage',
@@ -215,12 +265,24 @@ type BusinessRow = {
   clicked_at: Date | string | null;
   referred_at: Date | string;
   marked_by_name: string | null;
+  earned: string | number;
+};
+
+type CommissionRow = {
+  id: string;
+  kind: AffiliateCommissionKind;
+  business_name: string | null;
+  base_cents: string | number;
+  rate_bp: number;
+  amount_cents: string | number;
+  earned_at: Date | string;
+  payable_at: Date | string;
 };
 
 export const platformAffiliate = defineQuery({
   name: 'platform.affiliate',
   description:
-    'One affiliate for Admin → Affiliates: what they applied with, their share, the businesses they sent and their link’s clicks a day.',
+    'One affiliate for Admin → Affiliates: what they applied with, their share, the businesses they sent and what each earned them, what they’ve earned, waiting and ready, each share earned or taken back, and their link’s clicks a day.',
   input: PlatformAffiliateInput,
   output: PlatformAffiliateOutput,
   permission: 'platform.affiliates.manage',
@@ -238,13 +300,26 @@ export const platformAffiliate = defineQuery({
              order by w.created_at limit 1) as workspace_id,
             o.name, r.how, r.clicked_at, r.referred_at,
             coalesce(nullif(btrim(st.display_name), ''), nullif(btrim(mu.full_name), ''), mu.email::text)
-              as marked_by_name
+              as marked_by_name,
+            coalesce((select sum(c.amount_cents) from platform.affiliate_commissions c
+                      where c.affiliate_id = r.affiliate_id and c.organization_id = r.organization_id), 0)
+              as earned
           from platform.affiliate_referrals r
           join app.organizations o on o.id = r.organization_id
           left join app.users mu on mu.id = r.marked_by
           left join platform.staff st on st.user_id = r.marked_by
           where r.affiliate_id = ${input.affiliateId}
           order by r.referred_at desc`,
+    );
+    const commissions = await rows<CommissionRow>(
+      ctx.tx,
+      sql`select c.id, c.kind, o.name as business_name, c.base_cents, c.rate_bp, c.amount_cents, c.earned_at,
+            c.payable_at
+          from platform.affiliate_commissions c
+          left join app.organizations o on o.id = c.organization_id
+          where c.affiliate_id = ${input.affiliateId}
+          order by c.created_at desc
+          limit 100`,
     );
     const clicks = await rows<{ day: string; clicks: number }>(
       ctx.tx,
@@ -261,6 +336,18 @@ export const platformAffiliate = defineQuery({
         clickedAt: isoOrNull(b.clicked_at),
         referredAt: iso(b.referred_at),
         markedByName: b.marked_by_name,
+        earnedCents: Number(b.earned),
+      })),
+      earnings: await earningsOf(ctx.tx, input.affiliateId),
+      commissions: commissions.map((c) => ({
+        commissionId: c.id,
+        kind: c.kind,
+        businessName: c.business_name,
+        baseCents: Number(c.base_cents),
+        rateBp: c.rate_bp,
+        amountCents: Number(c.amount_cents),
+        earnedAt: iso(c.earned_at),
+        payableAt: iso(c.payable_at),
       })),
       clicks: clicks.map((c) => ({ day: c.day, clicks: Number(c.clicks) })),
     };

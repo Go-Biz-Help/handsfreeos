@@ -47,6 +47,7 @@ import {
   type SubscriptionState,
   type WebhookInput,
   type CheckoutEvent,
+  type PlanRefundEvent,
 } from './provider';
 
 const CONNECT = 'https://connect.stripe.com';
@@ -190,6 +191,51 @@ export function readStripeCheckoutEvent(rawBody: string): CheckoutEvent | null {
     paymentStatus: str(session['payment_status']),
     paymentRef: typeof intent === 'string' ? str(intent) : str(obj(intent)['id']),
     amountTotal: centsOf(session['amount_total']),
+  };
+}
+
+const PLAN_REFUND_STATUS: Readonly<Record<string, PlanRefundEvent['status']>> = {
+  pending: 'pending',
+  requires_action: 'pending',
+  succeeded: 'succeeded',
+  failed: 'failed',
+  canceled: 'canceled',
+};
+
+/**
+ * One of our own account's refund events, or null for anything else (20261027014200). Stripe sends `refund.created`
+ * when one is made, in its dashboard or by us, `refund.updated` as it moves on, and `refund.failed` when the bank
+ * turns one down, maybe days after it went through. Like a checkout event, one naming a connected account isn't ours.
+ */
+export function readStripeRefundEvent(rawBody: string): PlanRefundEvent | null {
+  let body: Json;
+  try {
+    body = obj(JSON.parse(rawBody));
+  } catch {
+    return null;
+  }
+  const id = str(body['id']);
+  const type = str(body['type']);
+  if (!id || !type || !/^refund\.(created|updated|failed)$/.test(type) || str(body['account']))
+    return null;
+  const refund = obj(obj(body['data'])['object']);
+  const refundRef = str(refund['id']);
+  const intent = refund['payment_intent'];
+  const paymentRef = typeof intent === 'string' ? str(intent) : str(obj(intent)['id']);
+  const amountCents = centsOf(refund['amount']);
+  const status = PLAN_REFUND_STATUS[str(refund['status']) ?? ''];
+  const created = Number(refund['created'] ?? body['created']);
+  if (!refundRef || !paymentRef || !amountCents || amountCents <= 0 || !status) return null;
+  return {
+    id,
+    type,
+    refundRef,
+    paymentRef,
+    amountCents,
+    status,
+    refundedAt: new Date(
+      Number.isFinite(created) && created > 0 ? created * 1000 : Date.now(),
+    ).toISOString(),
   };
 }
 
@@ -961,6 +1007,7 @@ export function createStripePayments(opts: {
         configured: !!(opts.secretKey && opts.platformWebhookSecret),
         verify: (input) => verifyStripeSignature(opts.platformWebhookSecret ?? null, input),
         checkout: readStripeCheckoutEvent,
+        refund: readStripeRefundEvent,
       },
     },
 

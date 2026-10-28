@@ -34,6 +34,7 @@ import {
   foundingRecordCheckoutClosed,
   foundingRecordCheckoutOpened,
   foundingRecordCheckoutPaid,
+  foundingRecordRefund,
   foundingRecordRenewal,
   scheduleJob,
 } from '@hfos/core/server';
@@ -72,6 +73,8 @@ export const purchaseJobKey = (checkoutId: string): string =>
 
 /** The webhook delivery kind a checkout event is stored under, beside Stripe's Connect kinds. */
 export const FOUNDING_CHECKOUT_KIND = 'founding_checkout';
+/** A refund of a plan payment, from our own account's webhook (20261027014200). */
+export const PLAN_REFUND_KIND = 'plan_refund';
 
 const HOUR = 60 * 60_000;
 
@@ -646,6 +649,38 @@ export const onFoundingCheckoutEvent: DeliveryProcessor = async (ctx) => {
   );
 };
 
+/**
+ * A refund of a plan payment, made in Stripe's dashboard, or what became of it: kept, and the affiliate's share of it
+ * taken back, or given back when the bank turns it down (founding.record_refund). Repeatable and out of order: a
+ * refund only moves forward.
+ */
+export const onPlanRefundEvent: DeliveryProcessor = async (ctx) => {
+  const p = (ctx.delivery.params ?? {}) as Record<string, unknown>;
+  const body = typeof p['body'] === 'string' ? p['body'] : '';
+  const event = ctx.payments.providers.stripe.platform.webhooks.refund(body);
+  if (!event) return 'ignored';
+  const scope = tenantOf({
+    workspaceId: ctx.delivery.workspaceId,
+    organizationId: ctx.delivery.organizationId,
+  });
+  const done = await executeCommand(
+    ctx.db,
+    foundingRecordRefund,
+    {
+      workspaceId: scope.workspaceId,
+      paymentRef: event.paymentRef,
+      refundRef: event.refundRef,
+      amountCents: event.amountCents,
+      status: event.status,
+      refundedAt: event.refundedAt,
+    },
+    systemActor(scope),
+    workerMeta(),
+  );
+  if (done.output.outcome === 'ignored') return 'ignored';
+};
+
 export const foundingProcessors: ProcessorMap = {
   [`stripe:${FOUNDING_CHECKOUT_KIND}`]: onFoundingCheckoutEvent,
+  [`stripe:${PLAN_REFUND_KIND}`]: onPlanRefundEvent,
 };

@@ -43903,6 +43903,11 @@
                           "type": "integer",
                           "minimum": -9007199254740991,
                           "maximum": 9007199254740991
+                        },
+                        "earnedCents": {
+                          "type": "integer",
+                          "minimum": -9007199254740991,
+                          "maximum": 9007199254740991
                         }
                       },
                       "required": [
@@ -43921,7 +43926,8 @@
                         "decidedByName",
                         "clicks30",
                         "clicksAll",
-                        "businesses"
+                        "businesses",
+                        "earnedCents"
                       ],
                       "additionalProperties": false
                     }
@@ -44075,6 +44081,11 @@
                           "type": "integer",
                           "minimum": -9007199254740991,
                           "maximum": 9007199254740991
+                        },
+                        "earnedCents": {
+                          "type": "integer",
+                          "minimum": -9007199254740991,
+                          "maximum": 9007199254740991
                         }
                       },
                       "required": [
@@ -44093,7 +44104,8 @@
                         "decidedByName",
                         "clicks30",
                         "clicksAll",
-                        "businesses"
+                        "businesses",
+                        "earnedCents"
                       ],
                       "additionalProperties": false
                     }
@@ -44251,6 +44263,11 @@
                           "type": "integer",
                           "minimum": -9007199254740991,
                           "maximum": 9007199254740991
+                        },
+                        "earnedCents": {
+                          "type": "integer",
+                          "minimum": -9007199254740991,
+                          "maximum": 9007199254740991
                         }
                       },
                       "required": [
@@ -44269,7 +44286,8 @@
                         "decidedByName",
                         "clicks30",
                         "clicksAll",
-                        "businesses"
+                        "businesses",
+                        "earnedCents"
                       ],
                       "additionalProperties": false
                     }
@@ -44421,6 +44439,11 @@
                           "type": "integer",
                           "minimum": -9007199254740991,
                           "maximum": 9007199254740991
+                        },
+                        "earnedCents": {
+                          "type": "integer",
+                          "minimum": -9007199254740991,
+                          "maximum": 9007199254740991
                         }
                       },
                       "required": [
@@ -44439,7 +44462,8 @@
                         "decidedByName",
                         "clicks30",
                         "clicksAll",
-                        "businesses"
+                        "businesses",
+                        "earnedCents"
                       ],
                       "additionalProperties": false
                     }
@@ -111465,7 +111489,7 @@
     "/v1/queries/affiliate.mine": {
       "post": {
         "operationId": "query_affiliate_mine",
-        "summary": "Your own place in the HandsFreeOS affiliate program: whether you’ve applied and where it stands, your link code, your share, and your link’s clicks.",
+        "summary": "Your own place in the HandsFreeOS affiliate program: whether you’ve applied and where it stands, your link code, your share, your link’s clicks, how many signed up, the businesses that pay, and what you’ve earned.",
         "tags": [
           "queries"
         ],
@@ -111565,6 +111589,80 @@
                               "type": "integer",
                               "minimum": -9007199254740991,
                               "maximum": 9007199254740991
+                            },
+                            "signUps": {
+                              "type": "integer",
+                              "minimum": -9007199254740991,
+                              "maximum": 9007199254740991
+                            },
+                            "payingBusinesses": {
+                              "type": "array",
+                              "items": {
+                                "type": "object",
+                                "properties": {
+                                  "name": {
+                                    "type": [
+                                      "string",
+                                      "null"
+                                    ]
+                                  },
+                                  "firstPaidAt": {
+                                    "anyOf": [
+                                      {
+                                        "type": "string",
+                                        "format": "date-time",
+                                        "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+                                      },
+                                      {
+                                        "type": "null"
+                                      }
+                                    ]
+                                  },
+                                  "earnedCents": {
+                                    "type": "integer",
+                                    "minimum": -9007199254740991,
+                                    "maximum": 9007199254740991
+                                  }
+                                },
+                                "required": [
+                                  "name",
+                                  "firstPaidAt",
+                                  "earnedCents"
+                                ],
+                                "additionalProperties": false
+                              }
+                            },
+                            "earnings": {
+                              "type": "object",
+                              "properties": {
+                                "earnedCents": {
+                                  "type": "integer",
+                                  "minimum": -9007199254740991,
+                                  "maximum": 9007199254740991
+                                },
+                                "waitingCents": {
+                                  "type": "integer",
+                                  "minimum": -9007199254740991,
+                                  "maximum": 9007199254740991
+                                },
+                                "readyCents": {
+                                  "type": "integer",
+                                  "minimum": -9007199254740991,
+                                  "maximum": 9007199254740991
+                                },
+                                "paidCents": {
+                                  "type": "integer",
+                                  "minimum": -9007199254740991,
+                                  "maximum": 9007199254740991
+                                }
+                              },
+                              "required": [
+                                "earnedCents",
+                                "waitingCents",
+                                "readyCents",
+                                "paidCents"
+                              ],
+                              "additionalProperties": false
                             }
                           },
                           "required": [
@@ -111579,7 +111677,10 @@
                             "decidedAt",
                             "applyAgainFrom",
                             "clicks30",
-                            "clicksAll"
+                            "clicksAll",
+                            "signUps",
+                            "payingBusinesses",
+                            "earnings"
                           ],
                           "additionalProperties": false
                         },
@@ -111609,7 +111710,7 @@
     "/v1/queries/platform.affiliates": {
       "post": {
         "operationId": "query_platform_affiliates",
-        "summary": "The affiliate program for Admin → Affiliates: the share everyone earns, the applications waiting, and every affiliate with their clicks and the businesses they sent.",
+        "summary": "The affiliate program for Admin → Affiliates: the share everyone earns, the applications waiting, and every affiliate with their clicks, the businesses they sent and what they’ve earned.",
         "tags": [
           "queries"
         ],
@@ -111749,6 +111850,11 @@
                             "type": "integer",
                             "minimum": -9007199254740991,
                             "maximum": 9007199254740991
+                          },
+                          "earnedCents": {
+                            "type": "integer",
+                            "minimum": -9007199254740991,
+                            "maximum": 9007199254740991
                           }
                         },
                         "required": [
@@ -111767,7 +111873,8 @@
                           "decidedByName",
                           "clicks30",
                           "clicksAll",
-                          "businesses"
+                          "businesses",
+                          "earnedCents"
                         ],
                         "additionalProperties": false
                       }
@@ -111866,6 +111973,11 @@
                             "type": "integer",
                             "minimum": -9007199254740991,
                             "maximum": 9007199254740991
+                          },
+                          "earnedCents": {
+                            "type": "integer",
+                            "minimum": -9007199254740991,
+                            "maximum": 9007199254740991
                           }
                         },
                         "required": [
@@ -111884,7 +111996,8 @@
                           "decidedByName",
                           "clicks30",
                           "clicksAll",
-                          "businesses"
+                          "businesses",
+                          "earnedCents"
                         ],
                         "additionalProperties": false
                       }
@@ -111906,7 +112019,7 @@
     "/v1/queries/platform.affiliate": {
       "post": {
         "operationId": "query_platform_affiliate",
-        "summary": "One affiliate for Admin → Affiliates: what they applied with, their share, the businesses they sent and their link’s clicks a day.",
+        "summary": "One affiliate for Admin → Affiliates: what they applied with, their share, the businesses they sent and what each earned them, what they’ve earned, waiting and ready, each share earned or taken back, and their link’s clicks a day.",
         "tags": [
           "queries"
         ],
@@ -112032,6 +112145,11 @@
                           "type": "integer",
                           "minimum": -9007199254740991,
                           "maximum": 9007199254740991
+                        },
+                        "earnedCents": {
+                          "type": "integer",
+                          "minimum": -9007199254740991,
+                          "maximum": 9007199254740991
                         }
                       },
                       "required": [
@@ -112050,7 +112168,8 @@
                         "decidedByName",
                         "clicks30",
                         "clicksAll",
-                        "businesses"
+                        "businesses",
+                        "earnedCents"
                       ],
                       "additionalProperties": false
                     },
@@ -112109,6 +112228,11 @@
                               "string",
                               "null"
                             ]
+                          },
+                          "earnedCents": {
+                            "type": "integer",
+                            "minimum": -9007199254740991,
+                            "maximum": 9007199254740991
                           }
                         },
                         "required": [
@@ -112118,7 +112242,103 @@
                           "how",
                           "clickedAt",
                           "referredAt",
-                          "markedByName"
+                          "markedByName",
+                          "earnedCents"
+                        ],
+                        "additionalProperties": false
+                      }
+                    },
+                    "earnings": {
+                      "type": "object",
+                      "properties": {
+                        "earnedCents": {
+                          "type": "integer",
+                          "minimum": -9007199254740991,
+                          "maximum": 9007199254740991
+                        },
+                        "waitingCents": {
+                          "type": "integer",
+                          "minimum": -9007199254740991,
+                          "maximum": 9007199254740991
+                        },
+                        "readyCents": {
+                          "type": "integer",
+                          "minimum": -9007199254740991,
+                          "maximum": 9007199254740991
+                        },
+                        "paidCents": {
+                          "type": "integer",
+                          "minimum": -9007199254740991,
+                          "maximum": 9007199254740991
+                        }
+                      },
+                      "required": [
+                        "earnedCents",
+                        "waitingCents",
+                        "readyCents",
+                        "paidCents"
+                      ],
+                      "additionalProperties": false
+                    },
+                    "commissions": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "commissionId": {
+                            "type": "string",
+                            "format": "uuid",
+                            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                          },
+                          "kind": {
+                            "type": "string",
+                            "enum": [
+                              "earned",
+                              "taken_back",
+                              "given_back"
+                            ]
+                          },
+                          "businessName": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "baseCents": {
+                            "type": "integer",
+                            "minimum": -9007199254740991,
+                            "maximum": 9007199254740991
+                          },
+                          "rateBp": {
+                            "type": "integer",
+                            "minimum": -9007199254740991,
+                            "maximum": 9007199254740991
+                          },
+                          "amountCents": {
+                            "type": "integer",
+                            "minimum": -9007199254740991,
+                            "maximum": 9007199254740991
+                          },
+                          "earnedAt": {
+                            "type": "string",
+                            "format": "date-time",
+                            "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+                          },
+                          "payableAt": {
+                            "type": "string",
+                            "format": "date-time",
+                            "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+                          }
+                        },
+                        "required": [
+                          "commissionId",
+                          "kind",
+                          "businessName",
+                          "baseCents",
+                          "rateBp",
+                          "amountCents",
+                          "earnedAt",
+                          "payableAt"
                         ],
                         "additionalProperties": false
                       }
@@ -112150,6 +112370,8 @@
                   "required": [
                     "affiliate",
                     "businesses",
+                    "earnings",
+                    "commissions",
                     "clicks"
                   ],
                   "additionalProperties": false

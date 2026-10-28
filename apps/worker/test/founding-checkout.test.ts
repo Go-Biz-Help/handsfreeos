@@ -35,7 +35,11 @@ import {
   FAKE_STRIPE_WEBHOOK_SECRET,
 } from '../src/payments/fake';
 import { hmacHex } from '../src/payments/provider';
-import { createStripePayments, readStripeCheckoutEvent } from '../src/payments/stripe';
+import {
+  createStripePayments,
+  readStripeCheckoutEvent,
+  readStripeRefundEvent,
+} from '../src/payments/stripe';
 import type { Opinly } from '../src/opinly';
 import { processors } from '../src/processors/index';
 import { jobs } from '../src/scheduled';
@@ -182,6 +186,40 @@ describe('Stripe Checkout, in our own account', () => {
     expect(readStripeCheckoutEvent(event({ account: 'acct_somebody' }))).toBeNull();
     expect(readStripeCheckoutEvent(event({ type: 'payment_intent.succeeded' }))).toBeNull();
     expect(readStripeCheckoutEvent('not json')).toBeNull();
+  });
+
+  it('reads a refund event, and never one from a connected account', () => {
+    const event = (extra: Record<string, unknown>, refund: Record<string, unknown> = {}) =>
+      JSON.stringify({
+        id: 'evt_2',
+        type: 'refund.updated',
+        data: {
+          object: {
+            id: 're_1',
+            object: 'refund',
+            payment_intent: 'pi_1',
+            amount: 10_000,
+            status: 'requires_action',
+            created: 1_900_000_000,
+            ...refund,
+          },
+        },
+        ...extra,
+      });
+    expect(readStripeRefundEvent(event({}))).toEqual({
+      id: 'evt_2',
+      type: 'refund.updated',
+      refundRef: 're_1',
+      paymentRef: 'pi_1',
+      amountCents: 10_000,
+      status: 'pending',
+      refundedAt: new Date(1_900_000_000 * 1000).toISOString(),
+    });
+    expect(readStripeRefundEvent(event({}, { status: 'canceled' }))?.status).toBe('canceled');
+    expect(readStripeRefundEvent(event({ account: 'acct_somebody' }))).toBeNull();
+    expect(readStripeRefundEvent(event({ type: 'charge.refunded' }))).toBeNull();
+    expect(readStripeRefundEvent(event({}, { payment_intent: null }))).toBeNull();
+    expect(readStripeRefundEvent('not json')).toBeNull();
   });
 });
 
@@ -725,6 +763,163 @@ describe('a spot bought from the plan page, paid by the month', () => {
     const ahead = (new Date(renewed.current_period_end!).getTime() - Date.now()) / 86_400_000;
     expect(ahead).toBeGreaterThan(27);
     expect(ahead).toBeLessThan(32);
+  });
+});
+
+// ---------- what an affiliate earns on it (20261027014200) ----------
+
+describe('what the affiliate who sent the business earns', () => {
+  let affiliateId: string;
+
+  beforeEach(async () => {
+    await admin().execute(
+      sql`update platform.founding_offers set paid_yearly = true, starting_credit_cents = 0 where id = ${PAID}`,
+    );
+    // The monthly spot bought above is this business's too: one seat a business.
+    await admin().execute(sql`delete from platform.founding_checkouts where offer_id = ${MONTHLY}`);
+    await admin().execute(sql`delete from platform.founding_grants where offer_id = ${MONTHLY}`);
+    await admin().execute(
+      sql`delete from platform.plan_payments where organization_id = ${organizationId}::uuid`,
+    );
+    const them = await createTestUser(`founding-affiliate-${randomUUID().slice(0, 8)}`);
+    const [a] = await rows<{ id: string }>(
+      admin(),
+      sql`insert into platform.affiliates (user_id, code, status, name)
+          values (${them.id}::uuid, ${`aff-${randomUUID().slice(0, 8)}`}, 'approved', 'Sam Seller')
+          returning id`,
+    );
+    affiliateId = a!.id;
+    await admin().execute(
+      sql`insert into platform.affiliate_referrals (organization_id, affiliate_id, how, referred_at)
+          values (${organizationId}::uuid, ${affiliateId}::uuid, 'link', now() - interval '1 day')
+          on conflict (organization_id) do update
+            set affiliate_id = excluded.affiliate_id, referred_at = excluded.referred_at`,
+    );
+  });
+
+  const commissions = () =>
+    rows<{ kind: string; amount_cents: string; base_cents: string; payable_at: string }>(
+      admin(),
+      sql`select kind, amount_cents::text, base_cents::text, payable_at::text
+          from platform.affiliate_commissions where affiliate_id = ${affiliateId}::uuid
+          order by created_at, kind`,
+    );
+  const payments = () =>
+    rows<{ how: string; amount_cents: number; payment_ref: string }>(
+      admin(),
+      sql`select how, amount_cents, payment_ref from platform.plan_payments
+          where organization_id = ${organizationId}::uuid order by created_at`,
+    );
+  const sweep = async () => {
+    await admin().execute(
+      sql`update app.workspace_plans set current_period_end = now() - interval '1 minute'
+          where workspace_id = ${workspaceId}`,
+    );
+    await planFoundingRenewals({
+      ...s,
+      job: { payload: {} },
+      scope: {},
+      attempt: 1,
+      now: Date.now(),
+    } as unknown as JobContext);
+    await drain();
+  };
+  async function buy() {
+    const { checkoutId } = await startPaying();
+    const page = s.payments.fake.checkouts().find((p) => p.checkoutId === checkoutId)!;
+    await s.payments.fake.payCheckout(page.sessionRef);
+    await drain();
+    return page;
+  }
+
+  it('earns 40% of each payment in the first 12 months, free to pay out 30 days later', async () => {
+    const page = await buy();
+    expect(await payments()).toEqual([
+      { how: 'checkout', amount_cents: 49_700, payment_ref: page.paymentRef },
+    ]);
+    const [first] = await commissions();
+    expect(first).toMatchObject({ kind: 'earned', amount_cents: '19880', base_cents: '49700' });
+    const days = (new Date(first!.payable_at).getTime() - Date.now()) / 86_400_000;
+    expect(days).toBeGreaterThan(29.9);
+    expect(days).toBeLessThan(30.1);
+
+    // The year renews on the card it kept: inside its first 12 months, so it earns again.
+    await sweep();
+    expect((await payments()).map((p) => p.how)).toEqual(['checkout', 'renewal']);
+    expect((await commissions()).map((c) => c.amount_cents)).toEqual(['19880', '19880']);
+
+    // Once the business is past its first 12 months, what it pays is kept and earns nothing.
+    await admin().execute(
+      sql`update platform.plan_payments set period_from = period_from - interval '13 months'
+          where organization_id = ${organizationId}::uuid and how = 'checkout'`,
+    );
+    await sweep();
+    expect(await payments()).toHaveLength(3);
+    expect(await commissions()).toHaveLength(2);
+  });
+
+  it('takes back the share of a refund, and gives it back when the bank turns the refund down', async () => {
+    const page = await buy();
+    const refund = await s.payments.fake.dashboardRefund(page.paymentRef!, 10_000);
+    await drain();
+    expect((await commissions()).map((c) => [c.kind, c.amount_cents])).toEqual([
+      ['earned', '19880'],
+      ['taken_back', '-4000'],
+    ]);
+    // Heard again: nothing more.
+    const again = s.payments.fake
+      .webhooks()
+      .filter((w) => w.type === 'refund.created')
+      .at(-1)!;
+    await app.inject({
+      method: 'POST',
+      url: '/webhooks/stripe/platform',
+      headers: { 'content-type': 'application/json', ...again.headers },
+      payload: again.body,
+    });
+    await drain();
+    expect(await commissions()).toHaveLength(2);
+
+    await s.payments.fake.settleRefund(refund!.id, 'failed');
+    await drain();
+    expect((await commissions()).map((c) => [c.kind, c.amount_cents])).toEqual([
+      ['earned', '19880'],
+      ['taken_back', '-4000'],
+      ['given_back', '4000'],
+    ]);
+    const [kept] = await rows<{ status: string }>(
+      admin(),
+      sql`select status from platform.plan_refunds where refund_ref = ${refund!.id}`,
+    );
+    expect(kept!.status).toBe('failed');
+  });
+
+  it('never takes back more than was earned on the payment', async () => {
+    const page = await buy();
+    await s.payments.fake.dashboardRefund(page.paymentRef!, 40_000);
+    await s.payments.fake.dashboardRefund(page.paymentRef!, 9_700);
+    await drain();
+    const all = await commissions();
+    expect(all.map((c) => c.kind)).toEqual(['earned', 'taken_back', 'taken_back']);
+    expect(all.reduce((sum, c) => sum + Number(c.amount_cents), 0)).toBe(0);
+  });
+
+  it('earns nothing for a paused affiliate, and a refund then takes nothing back', async () => {
+    await admin().execute(
+      sql`update platform.affiliates set status = 'paused' where id = ${affiliateId}::uuid`,
+    );
+    const page = await buy();
+    expect(await payments()).toHaveLength(1);
+    await s.payments.fake.dashboardRefund(page.paymentRef!, 49_700);
+    await drain();
+    expect(await commissions()).toEqual([]);
+    const [kept] = await rows<{ status: string; amount_cents: number }>(
+      admin(),
+      sql`select r.status, r.amount_cents from platform.plan_refunds r
+          join platform.plan_payments p on p.id = r.payment_id
+          where p.payment_ref = ${page.paymentRef}`,
+    );
+    expect(kept).toEqual({ status: 'succeeded', amount_cents: 49_700 });
   });
 });
 

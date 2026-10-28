@@ -2,7 +2,11 @@
  * The affiliate program's words and links (20261027014000), said once for the web, the phone and the worker's emails.
  * Browser-safe: no runtime imports.
  */
-import type { AffiliateReferralHow, AffiliateStatus } from '../schemas/affiliates';
+import type {
+  AffiliateCommissionKind,
+  AffiliateReferralHow,
+  AffiliateStatus,
+} from '../schemas/affiliates';
 
 /** The website an affiliate's link opens. The website keeps the code (`?ref=`) for {@link AFFILIATE_CLICK_DAYS} days. */
 export const AFFILIATE_SITE = 'https://handsfreeos.com';
@@ -12,6 +16,8 @@ export const AFFILIATE_REF_PARAM = 'ref';
 export const AFFILIATE_CLICK_DAYS = 90;
 /** How many months of a business's payments earn its affiliate their share (decision 2). */
 export const AFFILIATE_MONTHS = 12;
+/** How long a share waits, in case of a refund, before it's paid out (decision 8). */
+export const AFFILIATE_WAIT_DAYS = 30;
 
 /** An affiliate's link. */
 export const affiliateLink = (code: string): string =>
@@ -57,6 +63,28 @@ export const AFFILIATE_MINE_WORDS: Readonly<Record<AffiliateStatus, string>> = {
     'Your affiliate link is paused, so it doesn’t credit new businesses for now. Write to us if you’d like to know why.',
   ended: 'Your time as a HandsFreeOS affiliate has ended. Thank you for everyone you sent our way.',
 };
+
+/** What an affiliate has earned (20261027014200), on their own page and staff's. */
+export const AFFILIATE_EARNINGS_WORDS = {
+  earned: 'Earned',
+  waiting: `Waiting ${AFFILIATE_WAIT_DAYS} days`,
+  ready: 'Ready to pay',
+  paid: 'Paid',
+  help: `Each share waits ${AFFILIATE_WAIT_DAYS} days in case of a refund, then it’s ready for the next monthly payout. A refund takes back the same share of what went back.`,
+} as const;
+
+/** One share earned, taken back or given back, as staff read it. */
+export const AFFILIATE_COMMISSION_WORDS: Readonly<
+  Record<AffiliateCommissionKind, (business: string, base: string, rate: string) => string>
+> = {
+  earned: (business, base, rate) => `${rate} of ${base} from ${business}`,
+  taken_back: (business, base, rate) => `${rate} of a ${base} refund to ${business}, taken back`,
+  given_back: (business, base, rate) =>
+    `${rate} of a ${base} refund to ${business}, given back: the refund failed`,
+};
+
+/** A business that closed its account for good, where its name was. */
+export const AFFILIATE_CLOSED_BUSINESS = 'A business that closed its account';
 
 /** Admin → Affiliates and a business's Affiliate block under Admin → Businesses. */
 export const AFFILIATE_ADMIN_WORDS = {
@@ -114,6 +142,12 @@ export const AFFILIATE_ADMIN_WORDS = {
   markedBy: (name: string) => `set by ${name}`,
   clicksByDay: 'Clicks by day',
   noClicks: 'No clicks yet.',
+  earned: 'Earned',
+  earnings: 'What they’ve earned',
+  businessEarned: (amount: string) => `${amount} earned`,
+  shares: 'Each share',
+  noShares: 'Nothing earned yet. A share shows here when a business they sent pays for its plan.',
+  payable: (when: string) => `free to pay ${when}`,
   allAffiliates: 'All affiliates',
   /** A business's page under Admin → Businesses. */
   block: {
@@ -155,6 +189,15 @@ export const AFFILIATE_PAGE_WORDS = {
   clicks: 'Clicks',
   clicksLine: (last30: number, all: number) =>
     `${last30} in the last 30 days, ${all} in all. A click counts once a browser, for each link.`,
+  signUps: 'Sign-ups',
+  signUpsLine: (n: number, paying: number) =>
+    `${n} ${n === 1 ? 'business' : 'businesses'} signed up through you${n ? `, ${paying} paying` : ''}.`,
+  earnings: 'What you’ve earned',
+  payingBusinesses: 'Businesses that pay',
+  noPaying:
+    'None yet. When a business you sent pays for its plan, it shows here with what it earned you.',
+  payingLine: (earned: string, since: string | null) =>
+    since ? `${earned} earned, paying since ${since}` : `${earned} earned`,
   copyLink: 'Copy your link',
   copied: 'Copied your link',
   sent: 'Thanks, your application is in',
