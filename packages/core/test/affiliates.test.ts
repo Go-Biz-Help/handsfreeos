@@ -91,7 +91,7 @@ beforeAll(async () => {
 
 afterAll(async () => {
   await admin().execute(
-    sql`update platform.affiliate_settings set rate_bp = 4000, max_discount_bp = 5000 where id`,
+    sql`update platform.affiliate_settings set rate_bp = 4000, max_discount_bp = 5000, payouts_on = false where id`,
   );
   await closeTestDbs();
 });
@@ -425,6 +425,7 @@ describe('what they earn', () => {
       earnedCents: 6760,
       waitingCents: 2880,
       readyCents: 3880,
+      onItsWayCents: 0,
       paidCents: 0,
     });
     // Somebody else's page shows none of it.
@@ -446,6 +447,121 @@ describe('what they earn', () => {
     expect(
       page.businesses.find((b) => b.organizationId === paying.organizationId)?.earnedCents,
     ).toBe(6760);
+  });
+
+  it('shows their bank as Stripe says it, and each payout: on its way, then sent', async () => {
+    const affiliateId = await approved(dana, codeFor('paid'));
+    const paying = await run(
+      organizationCreate,
+      { businessName: `Paid Plumbing ${randomUUID().slice(0, 4)}` },
+      buyer,
+    );
+    const share = async (cents: number, payableDays: number) => {
+      const [p] = await rows<{ id: string }>(
+        admin(),
+        sql`insert into platform.plan_payments (organization_id, how, payment_ref, amount_cents, period_from, paid_at)
+            values (${paying.organizationId}, 'checkout', ${`pi_${randomUUID()}`}, 9700, now(), now())
+            returning id`,
+      );
+      await admin().execute(
+        sql`insert into platform.affiliate_commissions
+              (affiliate_id, organization_id, payment_id, kind, base_cents, rate_bp, amount_cents, earned_at,
+               payable_at)
+            values (${affiliateId}, ${paying.organizationId}, ${p!.id}, 'earned', 9700, 4000, ${cents}, now(),
+              now() + make_interval(days => ${payableDays}))`,
+      );
+    };
+    await share(3880, -1);
+    await share(1000, 20);
+
+    const before = (await ask(affiliateMine, {}, dana)).affiliate!;
+    expect(before.bank).toEqual({ state: 'none', due: [], test: false });
+    expect(before.payouts).toEqual([]);
+
+    // They started on Stripe's form, and Stripe still wants their bank.
+    await admin().execute(
+      sql`insert into platform.affiliate_payout_accounts
+            (affiliate_id, account_ref, livemode, details_submitted, payouts_enabled, transfers_active, due)
+          values (${affiliateId}, ${`acct_${randomUUID()}`}, false, true, false, false, '{external_account}')`,
+    );
+    expect((await ask(affiliateMine, {}, dana)).affiliate!.bank).toEqual({
+      state: 'stopped',
+      due: ['external_account'],
+      test: true,
+    });
+    await admin().execute(
+      sql`update platform.affiliate_payout_accounts set payouts_enabled = true, transfers_active = true, due = '{}'
+          where affiliate_id = ${affiliateId}`,
+    );
+
+    // This month's payout, on its way with what was ready.
+    const [p] = await rows<{ id: string; month: string }>(
+      admin(),
+      sql`insert into platform.affiliate_payouts (affiliate_id, month, amount_cents, livemode, account_ref)
+          values (${affiliateId}, date_trunc('month', now() at time zone 'utc')::date, 3880, false,
+            (select account_ref from platform.affiliate_payout_accounts where affiliate_id = ${affiliateId}))
+          returning id, month::text as month`,
+    );
+    await admin().execute(
+      sql`update platform.affiliate_commissions set payout_id = ${p!.id}
+          where affiliate_id = ${affiliateId} and payable_at <= now()`,
+    );
+    const sending = (await ask(affiliateMine, {}, dana)).affiliate!;
+    expect(sending.bank).toEqual({ state: 'ready', due: [], test: true });
+    expect(sending.earnings).toEqual({
+      earnedCents: 4880,
+      waitingCents: 1000,
+      readyCents: 0,
+      onItsWayCents: 3880,
+      paidCents: 0,
+    });
+    expect(sending.payouts).toEqual([
+      {
+        payoutId: p!.id,
+        month: p!.month,
+        amountCents: 3880,
+        status: 'sending',
+        paidAt: null,
+        test: true,
+      },
+    ]);
+
+    await admin().execute(
+      sql`update platform.affiliate_payouts set status = 'paid', transfer_ref = ${`tr_${randomUUID()}`},
+            paid_at = now()
+          where id = ${p!.id}`,
+    );
+    const paid = (await ask(affiliateMine, {}, dana)).affiliate!;
+    expect(paid.earnings).toMatchObject({ onItsWayCents: 0, paidCents: 3880, waitingCents: 1000 });
+    expect(paid.payouts[0]).toMatchObject({ status: 'paid', paidAt: expect.any(String) });
+    // Staff see the same.
+    const page = await ask(platformAffiliate, { affiliateId }, staff);
+    expect(page.bank).toEqual(paid.bank);
+    expect(page.payouts).toEqual(paid.payouts);
+    expect(page.earnings).toEqual(paid.earnings);
+    // Somebody else's page shows none of it.
+    await apply(riley, codeFor('nopay'));
+    const theirs = (await ask(affiliateMine, {}, riley)).affiliate!;
+    expect(theirs).toMatchObject({ payouts: [], bank: { state: 'none' } });
+  });
+
+  it('staff turn paying on and off; affiliates see whether it’s on', async () => {
+    await approved(dana, codeFor('payon'));
+    expect(await run(affiliatesSaveSettings, { rateBp: 4000, payoutsOn: true }, staff)).toEqual({
+      rateBp: 4000,
+      maxDiscountBp: 5000,
+      payoutsOn: true,
+    });
+    expect((await ask(affiliateMine, {}, dana)).payoutsOn).toBe(true);
+    // Saving the share alone leaves it as it is.
+    await run(affiliatesSaveSettings, { rateBp: 4000 }, staff);
+    expect((await ask(platformAffiliates, {}, staff)).settings.payoutsOn).toBe(true);
+    await run(affiliatesSaveSettings, { rateBp: 4000, payoutsOn: false }, staff);
+    expect((await ask(affiliateMine, {}, dana)).payoutsOn).toBe(false);
+    const e = await refusal(() =>
+      run(affiliatesSaveSettings, { rateBp: 4000, payoutsOn: true }, dana),
+    );
+    expect(['forbidden', 'not_found']).toContain(e.code);
   });
 });
 

@@ -69,8 +69,9 @@ export const AFFILIATE_EARNINGS_WORDS = {
   earned: 'Earned',
   waiting: `Waiting ${AFFILIATE_WAIT_DAYS} days`,
   ready: 'Ready to pay',
+  onItsWay: (amount: string) => `${amount} is on its way to the bank.`,
   paid: 'Paid',
-  help: `Each share waits ${AFFILIATE_WAIT_DAYS} days in case of a refund, then it’s ready for the next monthly payout. A refund takes back the same share of what went back.`,
+  help: `Each share waits ${AFFILIATE_WAIT_DAYS} days in case of a refund, then it’s ready for the next monthly payout. A refund takes back the same share of what went back, from the next payout if it was already paid.`,
 } as const;
 
 /** One share earned, taken back or given back, as staff read it. */

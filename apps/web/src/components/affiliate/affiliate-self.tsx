@@ -3,8 +3,9 @@
 /**
  * The person's own affiliate page (20261027014000). Somebody who hasn't applied, or may apply again, sees what the
  * program pays and the form. An application waiting can still be changed. Once approved, it's their link, their share,
- * their link's clicks, how many signed up, and what they've earned and from which businesses (20261027014200), and
- * their discount and trial codes (20261027014300). A paused or ended affiliate still sees what they earned.
+ * their link's clicks, how many signed up, and what they've earned and from which businesses (20261027014200),
+ * their discount and trial codes (20261027014300), and getting paid (20261027014400). A paused or ended affiliate
+ * still sees what they earned, and is paid it.
  */
 import {
   AFFILIATE_CODE_WORDS,
@@ -20,6 +21,7 @@ import { useState, type FormEvent } from 'react';
 import { toast } from 'sonner';
 import { AffiliateCodeList, MakeCodeForm } from '@/components/affiliate/affiliate-codes';
 import { AffiliateEarningsTiles } from '@/components/affiliate/affiliate-earnings';
+import { AffiliateGettingPaid } from '@/components/affiliate/affiliate-payouts';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { CopyField } from '@/components/ui/copy-field';
@@ -64,6 +66,12 @@ export function AffiliateSelf({ mine, name }: { mine: Mine; name: string }) {
       {a &&
       (a.status === 'approved' || a.earnings.earnedCents !== 0 || a.payingBusinesses.length) ? (
         <Earned affiliate={a} />
+      ) : null}
+      {a &&
+      (a.status === 'approved' ||
+        ((a.status === 'paused' || a.status === 'ended') &&
+          (a.earnings.earnedCents !== 0 || a.bank.state !== 'none' || a.payouts.length))) ? (
+        <AffiliateGettingPaid affiliate={a} payoutsOn={mine.payoutsOn} />
       ) : null}
       {!a || mayApplyAgain ? (
         <ApplyForm affiliate={null} name={a?.name ?? name} code={a?.code ?? ''} />

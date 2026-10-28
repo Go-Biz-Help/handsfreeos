@@ -1,6 +1,6 @@
 /**
  * What an affiliate has earned, waiting and ready (20261027014200): the same four figures on their own page and on
- * theirs under Admin → Affiliates.
+ * theirs under Admin → Affiliates, and what's on its way in a payout (20261027014400).
  */
 import { AFFILIATE_EARNINGS_WORDS as W, money } from '@hfos/core';
 import type { Ok } from '@/lib/api/types';
@@ -24,6 +24,11 @@ export function AffiliateEarningsTiles({ earnings: e }: { earnings: Earnings }) 
           </div>
         ))}
       </dl>
+      {e.onItsWayCents !== 0 ? (
+        <p className="mt-2 text-[13px] font-medium text-text-2" data-testid="affiliate-on-its-way">
+          {W.onItsWay(money(e.onItsWayCents))}
+        </p>
+      ) : null}
       <p className="mt-2 text-[12.5px] leading-relaxed text-text-3">{W.help}</p>
     </div>
   );
