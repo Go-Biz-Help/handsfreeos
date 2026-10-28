@@ -297,6 +297,7 @@ const todayOf = (items: TodayItem[]): TodayOutput => ({
   week: null,
   fresh: { on: false, from: null, until: null, days: 14 },
   requestsHeld: null,
+  profileOwn: null,
 });
 
 describe('A network’s list for today', () => {

@@ -22,6 +22,7 @@ import {
   readOwnProfile,
   writeAboutUs,
 } from './own-profile';
+import { writeAlignablePart } from './parts';
 import { alignableNoticer } from './actions';
 import {
   commentOn,
@@ -494,6 +495,18 @@ const WORDS = new Set(
     'Hours',
     'Business Name',
     'Business Description',
+    // Decision 99's editors (from 0.98.0): the Elevator Pitch's words, and a new service.
+    'Add a service',
+    'Add Service',
+    'Add a Service',
+    'Add New Service',
+    'Service Name',
+    'Service Description',
+    'Save Changes',
+    'Write',
+    'Text',
+    'Video',
+    'Record a video',
     'First Name',
     'Last Name',
     'Title',
@@ -794,7 +807,12 @@ export const ALIGNABLE: LookingSite = {
     /^\/biz\/[^/]+\/[^/]+\/edit\/?$/i.test(url.pathname) ||
     /^\/biz\/profile\/[^/]+\/?$/i.test(url.pathname),
   // Read for the AI's check (decision 80), and About Us put in past the code Alignable emails (decision 82).
-  ownProfile: { read: readOwnProfile, writeAbout: writeAboutUs, putCode },
+  ownProfile: {
+    read: readOwnProfile,
+    writeAbout: writeAboutUs,
+    putCode,
+    writePart: writeAlignablePart,
+  },
   // The menu's link to the person's own profile, by its words.
   ownLink: (doc, href) => {
     for (const anchor of doc.querySelectorAll(

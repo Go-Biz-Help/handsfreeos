@@ -371,7 +371,9 @@ describe('a profile’s name, username and links, put in or opened (decision 84)
 
   it('says who does each part: the computer, the page it opens, the app, or the person', () => {
     expect(partHowOn('linkedin', 'name')).toBe('auto');
-    expect(partHowOn('linkedin', 'username')).toBe('steps');
+    // LinkedIn's address went in by itself from 0.98.0 (decision 99); before, its page was opened.
+    expect(partHowOn('linkedin', 'username')).toBe('auto');
+    expect(partHowFor('linkedin', 'username', '0.97.0')).toBe('steps');
     expect(partHowOn('instagram', 'links')).toBe('app');
     expect(partHowOn('facebook', 'picture')).toBe('tip');
     expect(partStepsWords('instagram', 'username', 'casey.roofs')).toContain(

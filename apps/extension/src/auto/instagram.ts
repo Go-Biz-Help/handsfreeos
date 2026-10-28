@@ -73,6 +73,8 @@ import { unfollowOnItsOwn } from '../jobs/instagram/unfollow';
 import { readInstagramIn, type InstagramPage } from '../jobs/instagram/read';
 import { valueOf, warnedLine, type Hfos, type Job, type JobEnd } from '../jobs/job';
 import { checkFound } from '../jobs/found-checks';
+import { instagramProfileRead } from '../jobs/looking';
+import { readProfileOnItsOwn } from '../jobs/own-read';
 import { checkPartners } from '../jobs/partners';
 import { reporter } from '../jobs/report';
 import { instagram } from '../networks';
@@ -144,6 +146,7 @@ export const INSTAGRAM_DAILY = [
   'helpful',
   'post_people',
   'found_checks',
+  'profile',
 ] as const satisfies readonly (DailyJob | OwnDailyJob)[];
 type InstagramDaily = (typeof INSTAGRAM_DAILY)[number];
 
@@ -158,6 +161,7 @@ const DAILY_DOING: Readonly<Record<InstagramDaily, string>> = {
   helpful: 'Reading your notifications for who followed you, or liked or commented on your posts…',
   post_people: 'Reading who liked and commented on good posts on Instagram…',
   found_checks: 'Checking the people found on Instagram for good fits…',
+  profile: 'Reading your Instagram profile, as it does on the 1st of each month…',
 };
 const DAILY_NAMES: Readonly<Record<InstagramDaily, string>> = {
   requests: 'Your newest followers',
@@ -170,6 +174,7 @@ const DAILY_NAMES: Readonly<Record<InstagramDaily, string>> = {
   helpful: 'Who engaged with you',
   post_people: 'Who liked and commented',
   found_checks: 'Check the people found',
+  profile: 'Read my profile',
 };
 
 /** Instagram's pace between steps: slower than LinkedIn's, as Instagram blocks fast (the plan's "The risk"). */
@@ -886,6 +891,8 @@ export async function runInstagramDaily(kind: InstagramDaily, job: Job): Promise
       return readPostPeople(reporting(job, kind));
     case 'found_checks':
       return checkFound(job, { platform: PLATFORM, read: readThemOnInstagram });
+    case 'profile':
+      return readProfileOnItsOwn(job, PLATFORM, (j) => instagramProfileRead(j));
   }
 }
 

@@ -30,6 +30,14 @@ import {
   BIO_MOST_ON,
   cleanUsername,
   EARLIER_KEPT,
+  FEATURE_POST_MOST,
+  IDEAL_MOST,
+  LINK_CHANGES_MOST,
+  SERVICE_NAME_MOST,
+  SERVICE_WORDS_MOST,
+  SERVICES_MOST,
+  WORK_TITLE_MOST,
+  WORK_WORDS_MOST,
   FACEBOOK_NAME_RULE,
   hasBlank,
   MATCH_PARTS,
@@ -101,17 +109,41 @@ export const PART_HOW_ON: Readonly<
   Record<Platform, Readonly<Partial<Record<ProfilePart, PartHow>>>>
 > = {
   // Its links and username go in by themselves from extension 0.93.0, and its name from 0.94.0 (decision 89; the owner,
-  // 26 Oct 2026, "1a 2a 3a"): the username and the name on Accounts Center's pages for their Facebook profile.
-  facebook: { bio: 'auto', links: 'auto', username: 'auto', name: 'auto' },
-  // Its name is in the same box as its headline, Edit intro.
-  linkedin: { bio: 'auto', about: 'auto', links: 'steps', username: 'steps', name: 'auto' },
+  // 26 Oct 2026, "1a 2a 3a"): the username and the name on Accounts Center's pages for their Facebook profile. Its work
+  // and its featured post from 0.98.0 (decision 99).
+  facebook: {
+    bio: 'auto',
+    links: 'auto',
+    username: 'auto',
+    name: 'auto',
+    work: 'auto',
+    featured: 'auto',
+  },
+  // Its name is in the same box as its headline, Edit intro. Its address, links, Experience and Featured from 0.98.0
+  // (decision 99): before that its address and links were the person's, on the page it opened.
+  linkedin: {
+    bio: 'auto',
+    about: 'auto',
+    links: 'auto',
+    username: 'auto',
+    name: 'auto',
+    work: 'auto',
+    featured: 'auto',
+  },
   // Its username and name go in by themselves from 0.94.0, on Accounts Center's pages for their Instagram profile
   // (decision 89). Its links are only in its phone app.
   instagram: { bio: 'auto', links: 'app', username: 'auto', name: 'auto' },
-  alignable: { about: 'auto' },
+  // Its Elevator Pitch, its ideal customer and partner, and its services from 0.98.0 (decision 99).
+  alignable: { about: 'auto', bio: 'auto', work: 'auto', featured: 'auto' },
 };
 export const partHowOn = (platform: Platform, part: ProfilePart): PartHow =>
   PART_HOW_ON[platform][part] ?? 'tip';
+
+/**
+ * The first build that puts in the work, what's featured, Alignable's Elevator Pitch, ideal customer and partner and
+ * services, LinkedIn's address and links, and Facebook's links to take off or change (decision 99).
+ */
+export const EVERY_PART_SINCE = '0.98.0';
 
 /**
  * The first build of the extension that puts a part in by itself, where an older one handed it over (decision 89).
@@ -120,9 +152,30 @@ export const partHowOn = (platform: Platform, part: ProfilePart): PartHow =>
 export const PART_AUTO_SINCE_ON: Readonly<
   Partial<Record<Platform, Partial<Record<ProfilePart, string>>>>
 > = {
-  facebook: { links: '0.93.0', username: '0.93.0', name: '0.94.0' },
+  facebook: {
+    links: '0.93.0',
+    username: '0.93.0',
+    name: '0.94.0',
+    work: EVERY_PART_SINCE,
+    featured: EVERY_PART_SINCE,
+  },
+  linkedin: {
+    links: EVERY_PART_SINCE,
+    username: EVERY_PART_SINCE,
+    work: EVERY_PART_SINCE,
+    featured: EVERY_PART_SINCE,
+  },
   instagram: { username: '0.94.0', name: '0.94.0' },
+  alignable: { bio: EVERY_PART_SINCE, work: EVERY_PART_SINCE, featured: EVERY_PART_SINCE },
 };
+
+/**
+ * The parts a build before `PART_AUTO_SINCE_ON` had no way with at all (decision 99): the work, what's featured, and
+ * Alignable's Elevator Pitch were the person's (`tip`), where LinkedIn's address and links were opened for them.
+ */
+const NEW_PARTS: readonly ProfilePart[] = ['work', 'featured'];
+const newPartOn = (platform: Platform, part: ProfilePart) =>
+  NEW_PARTS.includes(part) || (platform === 'alignable' && part === 'bio');
 
 /**
  * The first build of the extension that finds people by topic on Instagram, LinkedIn and Alignable (decision 92): it
@@ -151,14 +204,225 @@ export function partHowFor(
 ): PartHow {
   const how = partHowOn(platform, part);
   const since = PART_AUTO_SINCE_ON[platform]?.[part];
-  return how === 'auto' && since && version !== undefined && !appVersionAtLeast(version, since)
-    ? 'steps'
-    : how;
+  if (how !== 'auto' || !since || version === undefined || appVersionAtLeast(version, since))
+    return how;
+  return newPartOn(platform, part) ? 'tip' : 'steps';
 }
 
 /** The parts a `profile_edit` takes, beside the bio and the About: what the person's computer puts in or opens. */
 export const EDIT_PARTS = ['bio', 'about', 'name', 'username', 'links'] as const;
 export type EditPart = (typeof EDIT_PARTS)[number];
+
+// ------------------------------------------------------------------------------------------------- every part (99)
+
+/** A month and year, as kept: "2021-03". */
+const MONTH = /^\d{4}-(0[1-9]|1[0-2])$/;
+
+/** The work to add (decision 99): their position at the business, a line or two on it, and when they started. */
+export const ProfileWorkEdit = z.object({
+  title: z.string().trim().min(1, 'Write your position first.').max(WORK_TITLE_MOST),
+  company: z.string().trim().min(1, 'Write your business’s name first.').max(WORK_TITLE_MOST),
+  words: z.string().trim().max(WORK_WORDS_MOST).nullable().default(null),
+  /** When they started, as a month: LinkedIn asks for it (`parseSince`). */
+  since: z
+    .string()
+    .regex(MONTH, 'Say when you started as a month and year, like March 2021.')
+    .nullable()
+    .default(null),
+});
+export type ProfileWorkEdit = z.output<typeof ProfileWorkEdit>;
+
+/** What to feature (answer 15a): the best post, by its words as read, and on LinkedIn the booking link. */
+export const ProfileFeaturedEdit = z
+  .object({
+    post: z.string().trim().min(1).max(FEATURE_POST_MOST).nullable().default(null),
+    link: z.string().trim().min(1).max(500).nullable().default(null),
+  })
+  .refine((f) => f.post !== null || f.link !== null, 'Pick a post or a link to feature first.');
+export type ProfileFeaturedEdit = z.output<typeof ProfileFeaturedEdit>;
+
+/** Alignable's My Ideal Customer and its ideal partner: the words of either, or both. */
+export const ProfileIdealEdit = z
+  .object({
+    customer: z.string().trim().min(1).max(IDEAL_MOST).nullable().default(null),
+    partner: z.string().trim().min(1).max(IDEAL_MOST).nullable().default(null),
+  })
+  .refine(
+    (i) => i.customer !== null || i.partner !== null,
+    'Write your ideal customer or partner first.',
+  );
+export type ProfileIdealEdit = z.output<typeof ProfileIdealEdit>;
+
+/** A service to add on Alignable. */
+export const ProfileServiceEdit = z.object({
+  name: z.string().trim().min(1, 'Name the service first.').max(SERVICE_NAME_MOST),
+  words: z.string().trim().max(SERVICE_WORDS_MOST).nullable().default(null),
+});
+export type ProfileServiceEdit = z.output<typeof ProfileServiceEdit>;
+
+/** A Facebook link there to take off (`to` null) or change to another (answer 16a). */
+export const ProfileLinkChangeEdit = z.object({
+  from: z.string().trim().min(1).max(500),
+  to: z.string().trim().min(1).max(500).nullable().default(null),
+});
+export type ProfileLinkChangeEdit = z.output<typeof ProfileLinkChangeEdit>;
+
+export { SERVICES_MOST, LINK_CHANGES_MOST };
+
+const MONTH_NAMES = [
+  'january',
+  'february',
+  'march',
+  'april',
+  'may',
+  'june',
+  'july',
+  'august',
+  'september',
+  'october',
+  'november',
+  'december',
+];
+
+/**
+ * When someone started, as they typed it ("March 2021", "Mar 2021", "3/2021", "2021-03"), as kept ("2021-03"); null
+ * when it isn't a month and year from 1950 to next year.
+ */
+export function parseSince(text: string): string | null {
+  const t = text.trim().toLowerCase().replace(/[,.]/g, ' ').replace(/\s+/g, ' ');
+  let month: number | null = null;
+  let year: number | null = null;
+  const iso = /^(\d{4})-(\d{1,2})$/.exec(t);
+  const slash = /^(\d{1,2})\s*\/\s*(\d{4})$/.exec(t);
+  const named = /^([a-z]+) (\d{4})$/.exec(t);
+  if (iso) [year, month] = [Number(iso[1]), Number(iso[2])];
+  else if (slash) [month, year] = [Number(slash[1]), Number(slash[2])];
+  else if (named) {
+    const at = MONTH_NAMES.findIndex((m) => named[1]!.length >= 3 && m.startsWith(named[1]!));
+    if (at >= 0) [month, year] = [at + 1, Number(named[2])];
+  }
+  if (month === null || year === null || month < 1 || month > 12) return null;
+  if (year < 1950 || year > new Date().getFullYear() + 1) return null;
+  return `${year}-${String(month).padStart(2, '0')}`;
+}
+
+/** A kept month in words: "March 2021". */
+export const sinceWords = (since: string): string => {
+  const [y, m] = since.split('-');
+  const name = MONTH_NAMES[Number(m) - 1] ?? '';
+  return `${name.charAt(0).toUpperCase()}${name.slice(1)} ${y}`;
+};
+
+/** The work, in a line: "Owner at Summit Roof Leads". */
+export const workLine = (w: { readonly title: string; readonly company: string }): string =>
+  `${w.title} at ${w.company}`;
+/** A service, in a line: "Roof inspections: a free look before storm season". */
+export const serviceLine = (v: { readonly name: string; readonly words: string | null }): string =>
+  v.words ? `${v.name}: ${v.words}` : v.name;
+
+/**
+ * The work Put these in sends (decision 99), from the AI's and when they started as typed: LinkedIn asks for that
+ * month, Facebook doesn't. `why` says what's still needed, when it can't go yet.
+ */
+export function workEdit(
+  platform: Platform,
+  check: ProfileCheck | null,
+  sinceText: string,
+): { readonly edit: ProfileWorkEdit | null; readonly why: string | null } {
+  const draft = check?.workDraft;
+  if (!draft || platform === 'alignable') return { edit: null, why: null };
+  const typed = sinceText.trim();
+  const since = typed ? parseSince(typed) : null;
+  if (typed && !since) return { edit: null, why: EVERY_PART_WORDS.sinceBad };
+  if (platform === 'linkedin' && !since)
+    return { edit: null, why: EVERY_PART_WORDS.sinceHint('linkedin') };
+  return {
+    edit: { title: draft.title, company: draft.company, words: draft.words, since },
+    why: null,
+  };
+}
+
+/** What to feature (answer 15a): the AI's best post, and on LinkedIn the booking link while Featured isn't right. */
+export function featuredEdit(
+  platform: Platform,
+  check: ProfileCheck | null,
+  known: Pick<ProfilesKnown, 'booking'>,
+): ProfileFeaturedEdit | null {
+  if (!check || platform === 'alignable' || platform === 'instagram') return null;
+  const post = check.featurePost ?? null;
+  const link =
+    platform === 'linkedin' && check.items.featured?.ok === false
+      ? (known.booking.linkedin ?? null)
+      : null;
+  return post || link ? { post, link } : null;
+}
+
+/**
+ * Facebook's links to take off or change that the person's computer can (answer 16a): from a build since
+ * `EVERY_PART_SINCE`, as `partHowFor` goes by it. One before it puts links in but never takes one off.
+ */
+export const linkChangesFor = (
+  platform: Platform,
+  check: ProfileCheck | null,
+  version?: string | null,
+): NonNullable<ProfileCheck['linkChanges']> =>
+  platform === 'facebook' && (version === undefined || appVersionAtLeast(version, EVERY_PART_SINCE))
+    ? (check?.linkChanges ?? [])
+    : [];
+
+/** Facebook's links to take off or change that the person left on (answer 16a). */
+export const linkChangesEdit = (
+  check: ProfileCheck | null,
+  on: ReadonlySet<string>,
+): ProfileLinkChangeEdit[] =>
+  (check?.linkChanges ?? []).filter((c) => on.has(c.link)).map((c) => ({ from: c.link, to: c.to }));
+
+export const EVERY_PART_WORDS = {
+  post: 'Your best post',
+  postHint: 'The AI picked it from your latest posts. It’s featured on your profile as it is.',
+  link: 'Your booking link',
+  linkHint: 'From your playbook. LinkedIn shows it under Featured.',
+  since: 'When did you start?',
+  sinceHint: (platform: Platform) =>
+    platform === 'linkedin'
+      ? 'Like March 2021. LinkedIn asks for it.'
+      : 'Like March 2021. You can leave it empty.',
+  sinceBad: 'Type a month and year, like March 2021.',
+  customer: 'Ideal customer',
+  partner: 'Ideal partner',
+  takeOff: 'Take it off',
+  changeTo: (to: string) => `Change it to ${to}`,
+  changes: 'Links there to change',
+  changesHint:
+    'The AI found these don’t fit you or your work. Nothing changes unless you switch it on and press Put these in.',
+} as const;
+
+/**
+ * What the person is asked to do with a part decision 99 adds, where the newest build can't put it in by itself on the
+ * page it opened (a step it couldn't find is handed over, decision 74): the job adds "Then press Carry on.".
+ */
+export const EVERY_PART_STEPS = {
+  work: (platform: Platform, line: string): string =>
+    platform === 'linkedin'
+      ? `Put your work in: on your LinkedIn profile, press the + by Experience (or Add profile section), then Add position. Put in “${line}” and when you started, and press Save.`
+      : `Put your work in: on your Facebook profile, press About, then Work and education, then Add a workplace. Put in “${line}” and press Save.`,
+  featurePost: (platform: Platform, start: string): string =>
+    platform === 'linkedin'
+      ? `Feature your best post: on your LinkedIn posts, find the one that starts “${start}”, press its ⋯ menu, then Feature on top of profile.`
+      : `Feature your best post: on your Facebook profile, find the one that starts “${start}”, press its ⋯ menu, then Pin post.`,
+  featureLink: (link: string): string =>
+    `Feature your booking link: on your LinkedIn profile, press the + by Featured (or Add profile section, then Add featured), then Add a link. Paste “${link}”, press Add, then Save.`,
+  linkOff: (link: string): string =>
+    `Take a link off: on your Facebook profile, press About, then Contact and basic info. By “${link}”, press its pencil or ⋯, then Delete, and confirm.`,
+  username: (username: string): string => partStepsWords('linkedin', 'username', username),
+  linkAdd: (link: string): string => partStepsWords('linkedin', 'links', link),
+  pitch: (words: string): string =>
+    `Put your Elevator Pitch in: on your Alignable profile, press Elevator Pitch, write “${words}”, and press Save.`,
+  ideal: (who: 'customer' | 'partner', words: string): string =>
+    `Put your ideal ${who} in: on your Alignable profile, under ${who === 'customer' ? 'My Ideal Customer' : 'My Ideal Referral Partner'}, press Add (or Edit), write “${words}”, and press Save.`,
+  service: (name: string): string =>
+    `Add your service: on your Alignable profile, press Add a service, put in “${name}” and a few words about it, and press Save.`,
+} as const;
 
 /** The checklist item a part is scored under, where it has one (Instagram's links are its `link`). */
 const ITEM_OF: Readonly<Partial<Record<ProfilePart, AnyProfileItem>>> = {
@@ -286,16 +550,52 @@ export const PART_PAGE_ON: Readonly<
 };
 
 /**
- * A check is due again after a month (decision 80): it says so beside Read my profile, and asks nothing of the
- * person's computer on its own; a new check only suggests.
+ * A check is due again after a month (decision 80): it says so beside Read my profile. From decision 99 the person's
+ * computer reads it again on the 1st (`profileReadDue`); a new check only suggests.
  */
 export const PROFILE_RECHECK_DAYS = 30;
 export const checkDue = (check: { readonly at: string } | null, now: number): boolean =>
   check !== null && now - Date.parse(check.at) > PROFILE_RECHECK_DAYS * 86_400_000;
 
+/**
+ * The read on its own (decision 99, answer 17a): on the 1st of each month, while the person's computer works on its own,
+ * each network's profile is read again and the AI checks it; what it suggests waits for their OK. Due when the latest
+ * read is from before this month's 1st by the computer's clock, or there's none yet. A computer off on the 1st reads it
+ * the first day it works that month.
+ */
+export function profileReadDue(at: string | null | undefined, now: Date): boolean {
+  if (!at) return true;
+  return Date.parse(at) < new Date(now.getFullYear(), now.getMonth(), 1).getTime();
+}
+
+/**
+ * What a read on its own suggests, waiting for the person's OK (answer 17a): each part the AI wrote that isn't right
+ * yet. None for a read the person asked for, as they're there to see it.
+ */
+export function ownSuggestions(check: ProfileCheck | null | undefined): number {
+  if (!check?.own) return 0;
+  const i = check.items;
+  return [
+    i.bio?.ok === false && check.bios.length > 0,
+    i.about?.ok === false && !!check.aboutDraft,
+    (check.names ?? []).length > 0,
+    (check.usernames ?? []).some((u) => u.free !== false),
+    !!check.workDraft || !!check.idealDraft,
+    !!check.featurePost || (check.services ?? []).length > 0,
+    (check.linkChanges ?? []).length > 0,
+  ].filter(Boolean).length;
+}
+
 export const PROFILE_PART_WORDS = {
   /** Beside Read my profile, a month after the last read. */
-  due: 'Read over a month ago. Read it again to see what’s changed.',
+  due: 'Read over a month ago. Your computer reads it again on the 1st, while it works on its own. Or read it now.',
+  /** A read on its own, on the 1st (answer 17a): nothing went in. */
+  own: (when: string) =>
+    `Read on its own ${when}. Nothing changed on your profile: what the AI suggests waits for your OK. Tick what to put in, and press Put these in.`,
+  /** Today's note while it waits. */
+  ownWaiting: (platform: Platform, n: number) =>
+    `The AI read your ${PLATFORMS[platform]} profile on its own, and ${n === 1 ? '1 change waits' : `${n} changes wait`} for your OK.`,
+  ownLook: 'Look at them',
   /** The badge beside each part: who does it. */
   how: {
     auto: 'Goes in',
@@ -504,9 +804,11 @@ export function profileParts(
       }
       case 'links': {
         const add = linksToAdd(platform, known).filter((l) => !l.held);
+        // Facebook's to take off or change, from a build that can (answer 16a).
+        const changes = base.how === 'auto' ? linkChangesFor(platform, check, version) : [];
         return {
           ...base,
-          ok: check !== null && add.length === 0 && (scored?.ok ?? true),
+          ok: check !== null && add.length === 0 && changes.length === 0 && (scored?.ok ?? true),
           now: seen?.links.length ? seen.links.join(', ') : null,
           next: add.map((l) => l.url),
           fix: scored?.fix ?? null,
@@ -520,12 +822,48 @@ export function profileParts(
           next: check?.coverLines ?? (check?.coverLine ? [check.coverLine] : []),
           fix: scored?.fix ?? null,
         };
+      case 'work': {
+        // The work to add (decision 99): on Alignable its ideal customer's and partner's words.
+        const ideal = check?.idealDraft;
+        const next =
+          platform === 'alignable'
+            ? [
+                ideal?.customer ? `${EVERY_PART_WORDS.customer}: ${ideal.customer}` : null,
+                ideal?.partner ? `${EVERY_PART_WORDS.partner}: ${ideal.partner}` : null,
+              ].filter((l): l is string => l !== null)
+            : check?.workDraft
+              ? [workLine(check.workDraft)]
+              : [];
+        return {
+          ...base,
+          ok: scored?.ok ?? false,
+          now: null,
+          next: base.how === 'tip' ? [] : next,
+          fix: scored?.fix ?? null,
+        };
+      }
+      case 'featured': {
+        const ok = scored?.ok ?? false;
+        // What goes in (answer 15a): the best post, and on LinkedIn the booking link; on Alignable its services. A
+        // build that can't put them in gets the AI's words, as before.
+        const booking = platform === 'linkedin' && !ok ? known.booking.linkedin : null;
+        const next =
+          base.how === 'tip'
+            ? (check?.feature ?? [])
+            : platform === 'alignable'
+              ? (check?.services ?? []).map(serviceLine)
+              : [
+                  ...(check?.featurePost ? [`“${check.featurePost}”`] : []),
+                  ...(booking ? [booking] : []),
+                ];
+        return { ...base, ok, now: null, next, fix: scored?.fix ?? null };
+      }
       default:
         return {
           ...base,
           ok: scored?.ok ?? false,
           now: null,
-          next: part === 'featured' ? (check?.feature ?? []) : [],
+          next: [],
           fix: scored?.fix ?? null,
         };
     }

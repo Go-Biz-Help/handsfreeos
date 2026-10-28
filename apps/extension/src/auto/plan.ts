@@ -52,6 +52,7 @@ export const DAILY_JOBS = [
   'checks',
   'partners',
   'helpful',
+  'profile',
 ] as const;
 export type DailyJob = (typeof DAILY_JOBS)[number];
 /**

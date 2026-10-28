@@ -38093,11 +38093,41 @@ export interface operations {
                     } | {
                         about?: string;
                         bio?: string;
+                        featured?: {
+                            /** @default null */
+                            link?: string | null;
+                            /** @default null */
+                            post?: string | null;
+                        };
+                        ideal?: {
+                            /** @default null */
+                            customer?: string | null;
+                            /** @default null */
+                            partner?: string | null;
+                        };
                         /** @enum {string} */
                         kind: "profile_edit";
+                        linkChanges?: {
+                            from: string;
+                            /** @default null */
+                            to?: string | null;
+                        }[];
                         links?: string[];
                         name?: string;
+                        services?: {
+                            name: string;
+                            /** @default null */
+                            words?: string | null;
+                        }[];
                         username?: string;
+                        work?: {
+                            company: string;
+                            /** @default null */
+                            since?: string | null;
+                            title: string;
+                            /** @default null */
+                            words?: string | null;
+                        };
                     } | {
                         /** @enum {string} */
                         kind: "username_check";
@@ -38426,14 +38456,49 @@ export interface operations {
                                 about: string | null;
                                 /** @default null */
                                 bio: string | null;
+                                /** @default null */
+                                featured: {
+                                    /** @default null */
+                                    link: string | null;
+                                    /** @default null */
+                                    post: string | null;
+                                } | null;
+                                /** @default null */
+                                ideal: {
+                                    /** @default null */
+                                    customer: string | null;
+                                    /** @default null */
+                                    partner: string | null;
+                                } | null;
                                 /** @enum {string} */
                                 kind: "profile_edit";
+                                /** @default [] */
+                                linkChanges: {
+                                    from: string;
+                                    /** @default null */
+                                    to: string | null;
+                                }[];
                                 /** @default [] */
                                 links: string[];
                                 /** @default null */
                                 name: string | null;
+                                /** @default [] */
+                                services: {
+                                    name: string;
+                                    /** @default null */
+                                    words: string | null;
+                                }[];
                                 /** @default null */
                                 username: string | null;
+                                /** @default null */
+                                work: {
+                                    company: string;
+                                    /** @default null */
+                                    since: string | null;
+                                    title: string;
+                                    /** @default null */
+                                    words: string | null;
+                                } | null;
                             } | {
                                 /** @enum {string} */
                                 kind: "username_check";
@@ -40704,6 +40769,11 @@ export interface operations {
                                 name?: string[];
                             };
                             feature: string[];
+                            featurePost?: string | null;
+                            idealDraft?: {
+                                customer: string | null;
+                                partner: string | null;
+                            } | null;
                             items: {
                                 about?: {
                                     fix: string | null;
@@ -40751,6 +40821,11 @@ export interface operations {
                                     why: string;
                                 };
                             };
+                            linkChanges?: {
+                                link: string;
+                                to: string | null;
+                                why: string;
+                            }[];
                             look?: {
                                 clashes: string[];
                                 ok: boolean;
@@ -40772,6 +40847,7 @@ export interface operations {
                                 name?: string[];
                                 username?: string[];
                             };
+                            own?: boolean;
                             recommendations?: number | null;
                             recommendNote?: string | null;
                             seen?: {
@@ -40781,11 +40857,20 @@ export interface operations {
                                 url: string | null;
                                 username: string | null;
                             } | null;
+                            services?: {
+                                name: string;
+                                words: string | null;
+                            }[];
                             usernames?: {
                                 free: boolean | null;
                                 value: string;
                             }[];
                             version: number | null;
+                            workDraft?: {
+                                company: string;
+                                title: string;
+                                words: string | null;
+                            } | null;
                         } | null;
                         ready: boolean;
                     };
@@ -40904,6 +40989,11 @@ export interface operations {
                                 name?: string[];
                             };
                             feature: string[];
+                            featurePost?: string | null;
+                            idealDraft?: {
+                                customer: string | null;
+                                partner: string | null;
+                            } | null;
                             items: {
                                 about?: {
                                     fix: string | null;
@@ -40951,6 +41041,11 @@ export interface operations {
                                     why: string;
                                 };
                             };
+                            linkChanges?: {
+                                link: string;
+                                to: string | null;
+                                why: string;
+                            }[];
                             look?: {
                                 clashes: string[];
                                 ok: boolean;
@@ -40972,6 +41067,7 @@ export interface operations {
                                 name?: string[];
                                 username?: string[];
                             };
+                            own?: boolean;
                             recommendations?: number | null;
                             recommendNote?: string | null;
                             seen?: {
@@ -40981,11 +41077,20 @@ export interface operations {
                                 url: string | null;
                                 username: string | null;
                             } | null;
+                            services?: {
+                                name: string;
+                                words: string | null;
+                            }[];
                             usernames?: {
                                 free: boolean | null;
                                 value: string;
                             }[];
                             version: number | null;
+                            workDraft?: {
+                                company: string;
+                                title: string;
+                                words: string | null;
+                            } | null;
                         } | null;
                         ready: boolean;
                     };
@@ -41686,6 +41791,11 @@ export interface operations {
                             name?: string[];
                         };
                         feature: string[];
+                        featurePost?: string | null;
+                        idealDraft?: {
+                            customer: string | null;
+                            partner: string | null;
+                        } | null;
                         items: {
                             about?: {
                                 fix: string | null;
@@ -41733,6 +41843,11 @@ export interface operations {
                                 why: string;
                             };
                         };
+                        linkChanges?: {
+                            link: string;
+                            to: string | null;
+                            why: string;
+                        }[];
                         look?: {
                             clashes: string[];
                             ok: boolean;
@@ -41754,6 +41869,7 @@ export interface operations {
                             name?: string[];
                             username?: string[];
                         };
+                        own?: boolean;
                         recommendations?: number | null;
                         recommendNote?: string | null;
                         seen?: {
@@ -41763,11 +41879,20 @@ export interface operations {
                             url: string | null;
                             username: string | null;
                         } | null;
+                        services?: {
+                            name: string;
+                            words: string | null;
+                        }[];
                         usernames?: {
                             free: boolean | null;
                             value: string;
                         }[];
                         version: number | null;
+                        workDraft?: {
+                            company: string;
+                            title: string;
+                            words: string | null;
+                        } | null;
                     };
                 };
             };
@@ -41881,6 +42006,11 @@ export interface operations {
                                 name?: string[];
                             };
                             feature: string[];
+                            featurePost?: string | null;
+                            idealDraft?: {
+                                customer: string | null;
+                                partner: string | null;
+                            } | null;
                             items: {
                                 about?: {
                                     fix: string | null;
@@ -41928,6 +42058,11 @@ export interface operations {
                                     why: string;
                                 };
                             };
+                            linkChanges?: {
+                                link: string;
+                                to: string | null;
+                                why: string;
+                            }[];
                             look?: {
                                 clashes: string[];
                                 ok: boolean;
@@ -41949,6 +42084,7 @@ export interface operations {
                                 name?: string[];
                                 username?: string[];
                             };
+                            own?: boolean;
                             recommendations?: number | null;
                             recommendNote?: string | null;
                             seen?: {
@@ -41958,11 +42094,20 @@ export interface operations {
                                 url: string | null;
                                 username: string | null;
                             } | null;
+                            services?: {
+                                name: string;
+                                words: string | null;
+                            }[];
                             usernames?: {
                                 free: boolean | null;
                                 value: string;
                             }[];
                             version: number | null;
+                            workDraft?: {
+                                company: string;
+                                title: string;
+                                words: string | null;
+                            } | null;
                         } | null;
                         ready: boolean;
                     };
@@ -42080,6 +42225,11 @@ export interface operations {
                                 name?: string[];
                             };
                             feature: string[];
+                            featurePost?: string | null;
+                            idealDraft?: {
+                                customer: string | null;
+                                partner: string | null;
+                            } | null;
                             items: {
                                 about?: {
                                     fix: string | null;
@@ -42127,6 +42277,11 @@ export interface operations {
                                     why: string;
                                 };
                             };
+                            linkChanges?: {
+                                link: string;
+                                to: string | null;
+                                why: string;
+                            }[];
                             look?: {
                                 clashes: string[];
                                 ok: boolean;
@@ -42148,6 +42303,7 @@ export interface operations {
                                 name?: string[];
                                 username?: string[];
                             };
+                            own?: boolean;
                             recommendations?: number | null;
                             recommendNote?: string | null;
                             seen?: {
@@ -42157,11 +42313,20 @@ export interface operations {
                                 url: string | null;
                                 username: string | null;
                             } | null;
+                            services?: {
+                                name: string;
+                                words: string | null;
+                            }[];
                             usernames?: {
                                 free: boolean | null;
                                 value: string;
                             }[];
                             version: number | null;
+                            workDraft?: {
+                                company: string;
+                                title: string;
+                                words: string | null;
+                            } | null;
                         } | null;
                         ready: boolean;
                     };
@@ -42285,6 +42450,11 @@ export interface operations {
                                 name?: string[];
                             };
                             feature: string[];
+                            featurePost?: string | null;
+                            idealDraft?: {
+                                customer: string | null;
+                                partner: string | null;
+                            } | null;
                             items: {
                                 about?: {
                                     fix: string | null;
@@ -42332,6 +42502,11 @@ export interface operations {
                                     why: string;
                                 };
                             };
+                            linkChanges?: {
+                                link: string;
+                                to: string | null;
+                                why: string;
+                            }[];
                             look?: {
                                 clashes: string[];
                                 ok: boolean;
@@ -42353,6 +42528,7 @@ export interface operations {
                                 name?: string[];
                                 username?: string[];
                             };
+                            own?: boolean;
                             recommendations?: number | null;
                             recommendNote?: string | null;
                             seen?: {
@@ -42362,11 +42538,20 @@ export interface operations {
                                 url: string | null;
                                 username: string | null;
                             } | null;
+                            services?: {
+                                name: string;
+                                words: string | null;
+                            }[];
                             usernames?: {
                                 free: boolean | null;
                                 value: string;
                             }[];
                             version: number | null;
+                            workDraft?: {
+                                company: string;
+                                title: string;
+                                words: string | null;
+                            } | null;
                         } | null;
                         ready: boolean;
                     };
@@ -74222,6 +74407,11 @@ export interface operations {
                                     name?: string[];
                                 };
                                 feature: string[];
+                                featurePost?: string | null;
+                                idealDraft?: {
+                                    customer: string | null;
+                                    partner: string | null;
+                                } | null;
                                 items: {
                                     about?: {
                                         fix: string | null;
@@ -74269,6 +74459,11 @@ export interface operations {
                                         why: string;
                                     };
                                 };
+                                linkChanges?: {
+                                    link: string;
+                                    to: string | null;
+                                    why: string;
+                                }[];
                                 look?: {
                                     clashes: string[];
                                     ok: boolean;
@@ -74290,6 +74485,7 @@ export interface operations {
                                     name?: string[];
                                     username?: string[];
                                 };
+                                own?: boolean;
                                 recommendations?: number | null;
                                 recommendNote?: string | null;
                                 seen?: {
@@ -74299,11 +74495,20 @@ export interface operations {
                                     url: string | null;
                                     username: string | null;
                                 } | null;
+                                services?: {
+                                    name: string;
+                                    words: string | null;
+                                }[];
                                 usernames?: {
                                     free: boolean | null;
                                     value: string;
                                 }[];
                                 version: number | null;
+                                workDraft?: {
+                                    company: string;
+                                    title: string;
+                                    words: string | null;
+                                } | null;
                             } | null;
                             facebook: {
                                 aboutDraft?: string | null;
@@ -74319,6 +74524,11 @@ export interface operations {
                                     name?: string[];
                                 };
                                 feature: string[];
+                                featurePost?: string | null;
+                                idealDraft?: {
+                                    customer: string | null;
+                                    partner: string | null;
+                                } | null;
                                 items: {
                                     about?: {
                                         fix: string | null;
@@ -74366,6 +74576,11 @@ export interface operations {
                                         why: string;
                                     };
                                 };
+                                linkChanges?: {
+                                    link: string;
+                                    to: string | null;
+                                    why: string;
+                                }[];
                                 look?: {
                                     clashes: string[];
                                     ok: boolean;
@@ -74387,6 +74602,7 @@ export interface operations {
                                     name?: string[];
                                     username?: string[];
                                 };
+                                own?: boolean;
                                 recommendations?: number | null;
                                 recommendNote?: string | null;
                                 seen?: {
@@ -74396,11 +74612,20 @@ export interface operations {
                                     url: string | null;
                                     username: string | null;
                                 } | null;
+                                services?: {
+                                    name: string;
+                                    words: string | null;
+                                }[];
                                 usernames?: {
                                     free: boolean | null;
                                     value: string;
                                 }[];
                                 version: number | null;
+                                workDraft?: {
+                                    company: string;
+                                    title: string;
+                                    words: string | null;
+                                } | null;
                             } | null;
                             instagram: {
                                 aboutDraft?: string | null;
@@ -74416,6 +74641,11 @@ export interface operations {
                                     name?: string[];
                                 };
                                 feature: string[];
+                                featurePost?: string | null;
+                                idealDraft?: {
+                                    customer: string | null;
+                                    partner: string | null;
+                                } | null;
                                 items: {
                                     about?: {
                                         fix: string | null;
@@ -74463,6 +74693,11 @@ export interface operations {
                                         why: string;
                                     };
                                 };
+                                linkChanges?: {
+                                    link: string;
+                                    to: string | null;
+                                    why: string;
+                                }[];
                                 look?: {
                                     clashes: string[];
                                     ok: boolean;
@@ -74484,6 +74719,7 @@ export interface operations {
                                     name?: string[];
                                     username?: string[];
                                 };
+                                own?: boolean;
                                 recommendations?: number | null;
                                 recommendNote?: string | null;
                                 seen?: {
@@ -74493,11 +74729,20 @@ export interface operations {
                                     url: string | null;
                                     username: string | null;
                                 } | null;
+                                services?: {
+                                    name: string;
+                                    words: string | null;
+                                }[];
                                 usernames?: {
                                     free: boolean | null;
                                     value: string;
                                 }[];
                                 version: number | null;
+                                workDraft?: {
+                                    company: string;
+                                    title: string;
+                                    words: string | null;
+                                } | null;
                             } | null;
                             linkedin: {
                                 aboutDraft?: string | null;
@@ -74513,6 +74758,11 @@ export interface operations {
                                     name?: string[];
                                 };
                                 feature: string[];
+                                featurePost?: string | null;
+                                idealDraft?: {
+                                    customer: string | null;
+                                    partner: string | null;
+                                } | null;
                                 items: {
                                     about?: {
                                         fix: string | null;
@@ -74560,6 +74810,11 @@ export interface operations {
                                         why: string;
                                     };
                                 };
+                                linkChanges?: {
+                                    link: string;
+                                    to: string | null;
+                                    why: string;
+                                }[];
                                 look?: {
                                     clashes: string[];
                                     ok: boolean;
@@ -74581,6 +74836,7 @@ export interface operations {
                                     name?: string[];
                                     username?: string[];
                                 };
+                                own?: boolean;
                                 recommendations?: number | null;
                                 recommendNote?: string | null;
                                 seen?: {
@@ -74590,11 +74846,20 @@ export interface operations {
                                     url: string | null;
                                     username: string | null;
                                 } | null;
+                                services?: {
+                                    name: string;
+                                    words: string | null;
+                                }[];
                                 usernames?: {
                                     free: boolean | null;
                                     value: string;
                                 }[];
                                 version: number | null;
+                                workDraft?: {
+                                    company: string;
+                                    title: string;
+                                    words: string | null;
+                                } | null;
                             } | null;
                         };
                         website: string | null;
@@ -74716,6 +74981,11 @@ export interface operations {
                                 name?: string[];
                             };
                             feature: string[];
+                            featurePost?: string | null;
+                            idealDraft?: {
+                                customer: string | null;
+                                partner: string | null;
+                            } | null;
                             items: {
                                 about?: {
                                     fix: string | null;
@@ -74763,6 +75033,11 @@ export interface operations {
                                     why: string;
                                 };
                             };
+                            linkChanges?: {
+                                link: string;
+                                to: string | null;
+                                why: string;
+                            }[];
                             look?: {
                                 clashes: string[];
                                 ok: boolean;
@@ -74784,6 +75059,7 @@ export interface operations {
                                 name?: string[];
                                 username?: string[];
                             };
+                            own?: boolean;
                             recommendations?: number | null;
                             recommendNote?: string | null;
                             seen?: {
@@ -74793,11 +75069,20 @@ export interface operations {
                                 url: string | null;
                                 username: string | null;
                             } | null;
+                            services?: {
+                                name: string;
+                                words: string | null;
+                            }[];
                             usernames?: {
                                 free: boolean | null;
                                 value: string;
                             }[];
                             version: number | null;
+                            workDraft?: {
+                                company: string;
+                                title: string;
+                                words: string | null;
+                            } | null;
                         } | null;
                         ready: boolean;
                     };
@@ -75198,6 +75483,12 @@ export interface operations {
                             videoLink: string | null;
                             why: string[];
                         }[];
+                        /** @default null */
+                        profileOwn: {
+                            /** Format: date-time */
+                            at: string;
+                            parts: number;
+                        } | null;
                         readAdmins: {
                             /** Format: uuid */
                             groupId: string;

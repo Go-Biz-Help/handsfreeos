@@ -25,8 +25,9 @@ offer's plan (decisions 62 to 70: the playbook's niche, Get ready, the profile's
 ask straight out, the video, the link, follow-ups until they answer; the short video's script; and the daily numbers,
 with the day's report and the week's review), finding people by topic on Instagram, LinkedIn and Alignable
 (decision 92), the safety for new accounts: half limits on a network new to the person, and no new friend
-requests while 200 wait or near the cap (decisions 96 and 97), and tidying up on its own on every network (decision
-98, extension 0.97.0).
+requests while 200 wait or near the cap (decisions 96 and 97), tidying up on its own on every network (decision
+98, extension 0.97.0), and every part of the profile put in for the person, with a read on its own on the 1st of each
+month (decision 99, extension 0.98.0).
 
 The parts below name the tabs they were built on. Since decision 59 those live here: **Today** has the Live tab's
 status, Start my day and Stop for today in a strip (the full day under its **Details**, `?view=live`), Waiting for
@@ -1889,8 +1890,9 @@ where decisions 37 and 59 put the settings; what they decided stands. Settled to
       name and the links, each as it is and as written, with who does it (`PART_HOW_ON`): the person's computer puts
       it in (`auto`: the bio, the About, LinkedIn's name in its intro's box, and from decision 89 Facebook's username
       and links from extension 0.93.0, and its name and Instagram's username and name from 0.94.0), opens the page
-      where it's changed and hands the step over with what to paste (`steps`: LinkedIn's address and links; names and
-      usernames in Accounts Center on Facebook and Instagram, and Facebook's links, were here until decision 89), says
+      where it's changed and hands the step over with what to paste (`steps`: LinkedIn's address and links until
+      decision 99; names and usernames in Accounts Center on Facebook and Instagram, and Facebook's links, were here
+      until decision 89), says
       it's only in the network's app (`app`: Instagram's links), or it's theirs to do (`tip`). **Put these in** is
       their OK for the ones ticked, one `profile_edit` (name, username and links from extension 0.87.0,
       `PROFILE_PARTS_SINCE`).
@@ -1912,7 +1914,8 @@ where decisions 37 and 59 put the settings; what they decided stands. Settled to
     - **Side by side** (`profileMatch`, Settings → General): each network's name, username, line and link, what's
       unlike the rest marked, and **Fix it on** each.
     - **Once a month** (decision 80's promise, not built till now): a check over 30 days old says so beside **Read my
-      profile** (`checkDue`). It asks nothing of their computer on its own.
+      profile** (`checkDue`). It asked nothing of their computer on its own until decision 99, which reads it on the
+      1st.
 
     Kept with each check, the person's own: the parts compared (`seen`), the names and usernames to use (each free,
     taken or not known), the notes and what came before. A new check keeps the notes, what came before, and what
@@ -2072,7 +2075,8 @@ where decisions 37 and 59 put the settings; what they decided stands. Settled to
       Edit bio has it pressed, as before.
     - **The links:** the Links card's Edit links opens Contact and basic info. For each link to add that isn't there
       yet, it presses Facebook's add for a website, types the address, presses Save and checks it shows. Links are
-      only added: one already there stays, as `linksToAdd` leaves it out.
+      only added: one already there stays, as `linksToAdd` leaves it out (until decision 99, for a link the person
+      switched on).
     - **The username:** on Accounts Center's username page for their Facebook profile (the profile's number from Edit
       profile's link; without it, Profiles, then the Facebook one), and only that profile's page, never Instagram's, the
       Username box is cleared and the new one typed. Done is pressed only once Facebook allows it, and after it
@@ -2132,7 +2136,7 @@ where decisions 37 and 59 put the settings; what they decided stands. Settled to
       Save, Add a website and its box's Save, Done by Username with the network's Change username or Confirm after
       it, and Review change and Done (or Save changes) by the name, with Change name or Confirm after it; never a box
       that offers to change the other network's profile too. It never presses Add a social link, and never removes
-      or changes a link that's there.
+      or changes a link that's there (from decision 99, only one the person switched on).
     - **Check Facebook tries them** up to their last press, never pressing it (decision 77): the bio by its new path,
       the add for a link and its box, and the Username box and Done, a word typed in each and theirs put back. Each
       page's outline is sent, so the owner's first Check tunes them from his own pages.
@@ -2361,6 +2365,52 @@ where decisions 37 and 59 put the settings; what they decided stands. Settled to
       Alignable's markup for a request that waits, so a page it can't work is noted with its outline (decision 74)
       for the next Check; not yet tried on the owner's account.
 
+99. **Every part of your profile put in for you, and read on its own on the 1st** (Chris, 28 Oct 2026, "all of your
+    picks": 15a, 16a and 17a, after "nothing should be handed for the user to do, the extension should be able to do
+    it all"). From extension 0.98.0 (`EVERY_PART_SINCE`) the person's computer puts in what was still theirs, or opened
+    for them (`PART_HOW_ON`):
+    - **The work:** where the work isn't right, the AI writes their position at the business (`workDraft`: a title
+      like Owner, the first name the business goes by, never another's, and a line on what they do for whom). On
+      Facebook it's a workplace under About, Work and education (Add a workplace, with "I currently work here"
+      ticked). On LinkedIn it's a current position under Experience, on LinkedIn's own form, with the month they
+      started, which LinkedIn asks for and the person types (**When did you start?**, `parseSince`); LinkedIn's
+      "notify your network" is left off.
+    - **What's featured** (answer 15a): the AI picks their best post from those read, by its number (`featurePost`,
+      never one made up). Facebook features no posts, so it's pinned (the post's ⋯ menu, Pin post; one pinned already
+      is left as it is). On LinkedIn it's featured on top of the profile, and while Featured isn't right the booking
+      link of a playbook running there is added under Featured too (Add a link).
+    - **LinkedIn's address and links** go in by themselves: the custom address on its public profile settings, and
+      each website in Contact info (Add website).
+    - **Alignable's Elevator Pitch, ideal customer and partner, and services:** the AI writes three pitches to pick
+      from, at most 150 characters each, a few words each for My Ideal Customer and the ideal partner (`idealDraft`),
+      and up to three services not listed yet (`services`). Each goes in on their own Alignable profile, and a code
+      Alignable emails is typed in HandsFreeOS, as for About Us (decision 82).
+    - **Facebook's links to take off or change** (answer 16a): the AI lists a link there that's about another
+      business, an old job or nothing to do with their work (`linkChanges`), to take off, or to change to one that's
+      known to be theirs (a playbook's booking link, the business's website, given it as `<links_to_use>`). Never one of
+      those, and only a link that's there. Each shows with why under **Links there to change**, switched off: nothing
+      is taken off unless the person switches it on and presses Put these in. A change is the old one taken off, then
+      the new one added. This lifts decision 89's "never removes or changes a link that's there" for those alone.
+    - **Read on its own on the 1st** (answer 17a): a once-a-day job, last on every network (`profile`), reads the
+      person's profile once the latest read is from before this month's 1st by the computer's clock, or there's none
+      (`profileReadDue`); a computer off on the 1st reads it the first day it works that month. The AI checks it as Read
+      my profile does, the check marked `own`. Nothing is put in and nothing handed over: what it suggests waits in Get
+      ready ("Read on its own Nov 1. Nothing changed on your profile…"), and Today says how many changes wait
+      (`profileOwn`, `ownSuggestions`), with **Look at them**. A read the person asks for, or Put these in, clears it.
+    - **Put these in is the person's OK,** as before (decision 80). One `profile_edit` carries every part (`work`,
+      `featured`, `ideal`, `services`, `linkChanges`), each refused before it's asked where the network hasn't it, or
+      LinkedIn's start month is missing (rule `outreach_profile_edit_refused`). It's asked only of a 0.98.0 build or
+      later; an older one is asked to update (`hasEveryPart`, rule `outreach_extension_too_old`), and its screens show
+      the new parts as **Yours to do** and LinkedIn's address and links as **You put it in** (`PART_AUTO_SINCE_ON`,
+      `partHowFor`). On the Live tab Alignable's `profile_edit` is **Update your profile** now.
+    - **Found by the network's words, never guessed.** Each form is filled field by field by its label (the
+      extension's `networks/fill.ts`); a field it can't find leaves the part unwritten and hands it over (decision 74)
+      with where to press and what to put in (`EVERY_PART_STEPS`) and its page's outline. Only what shows after is
+      said to be in, and the end names what doesn't show yet. The read on its own hands nothing over.
+
+    Built from Facebook's, LinkedIn's and Alignable's usual words, not yet tried on the owner's account: the first
+    Check after it tunes them from his pages.
+
 ## Rules worth knowing before changing anything
 
 - **Nothing is saved until the person presses a button in HandsFreeOS** (an ask, below), except the four steps the
@@ -2471,7 +2521,13 @@ where decisions 37 and 59 put the settings; what they decided stands. Settled to
   Contact and basic info, Instagram's Edit profile form, and Accounts Center's username and name pages for their own
   Facebook and Instagram profiles, and types only the new bio, links, username and name there: never a password or a
   code, for which it waits for the person. It never ticks, unticks or presses an offer to change the other network's
-  profile too.
+  profile too. From decision 99 also: Facebook's Work and education (Add a workplace), a post's ⋯ menu for Pin post,
+  and a link's Delete for one the person switched on; LinkedIn's own profile, its Experience form, Featured, Contact
+  info and public profile settings; and Alignable's own profile, for its Elevator Pitch, ideal customer and partner,
+  and services. It types only what the person OK'd. Pin post is pressed only on the post picked, and never Unpin.
+- **Read on its own, never changed on its own** (decision 99): on the 1st of each month the person's computer reads
+  their own profile on each network and has the AI check it. Nothing is put in, pressed or handed over: what the AI
+  suggests waits for their OK.
 - **On its own, it does only what's on the person's list for today, and only the kinds they let it**
   (`autoKinds`, the list's `auto`). The list holds no more than today's limits have room for, so the runner never
   passes them; it checks each profile is the one listed and where things stand before pressing and after, passes
@@ -3117,7 +3173,11 @@ yet tried on the owner's account; the phone OKs messages and changes the video's
 are written on the web; and yeses were first kept with step 6 (`stages.positive_at`), so weeks before it count none,
 and people pitched before it have no offer version.
 
-On Facebook, a link already on the profile is never changed or taken away, only new ones added (decision 89).
+On Facebook, a link already on the profile is taken off or changed only when the person switches it on (decision
+99). Every part decision 99 puts in (the work, a pinned or featured post, LinkedIn's Featured, Contact info and
+address, Alignable's Elevator Pitch, ideal customer and partner, and services) follows the networks' usual words, not
+yet tried on the owner's account. The read on its own waits for the person's OK, and the AI's suggestions stay on Today
+till they act on them or read their profile again; there's no way to dismiss them yet.
 
 Finding people by topic (decision 92) reads Instagram's Likes box, LinkedIn's newer reactions box, every Alignable
 group page, the person's own Alignable groups and Alignable's search for groups from guessed markup, not yet tried on

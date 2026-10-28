@@ -60,6 +60,8 @@ import { reporter } from '../jobs/report';
 import { checkConnections, isThem, readThemOnLinkedIn } from '../jobs/linkedin/checks';
 import { checkFound } from '../jobs/found-checks';
 import { checkPartners } from '../jobs/partners';
+import { linkedInProfileRead } from '../jobs/linkedin/profile';
+import { readProfileOnItsOwn } from '../jobs/own-read';
 import { PARTNER_CHECKS_PER_DAY } from '@hfos/core/addons/outreach/partners';
 import { lookUpOnLinkedIn } from '../jobs/linkedin/lookup';
 import { postOnLinkedIn, linkedInHelpfulDaily } from '../jobs/linkedin/helpful';
@@ -128,6 +130,7 @@ export const LINKEDIN_DAILY = [
   'helpful',
   'post_people',
   'found_checks',
+  'profile',
 ] as const satisfies readonly (DailyJob | OwnDailyJob)[];
 type LinkedInDaily = (typeof LINKEDIN_DAILY)[number];
 
@@ -141,6 +144,7 @@ const DAILY_DOING: Readonly<Record<LinkedInDaily, string>> = {
   helpful: 'Asking for today’s helpful post for your feed, and reading who engaged…',
   post_people: 'Reading who reacted to and commented on good posts on LinkedIn…',
   found_checks: 'Checking the people found on LinkedIn for good fits…',
+  profile: 'Reading your LinkedIn profile, as it does on the 1st of each month…',
 };
 const DAILY_NAMES: Readonly<Record<LinkedInDaily, string>> = {
   requests: 'Invitations',
@@ -152,6 +156,7 @@ const DAILY_NAMES: Readonly<Record<LinkedInDaily, string>> = {
   helpful: 'Helpful posts',
   post_people: 'Who reacted and commented',
   found_checks: 'Check the people found',
+  profile: 'Read my profile',
 };
 
 /** LinkedIn's pace between steps: slower than Facebook's, a person's. */
@@ -868,6 +873,8 @@ export async function runLinkedInDaily(kind: LinkedInDaily, job: Job): Promise<J
       return readPostPeople(reporting(job, kind));
     case 'found_checks':
       return checkFound(job, { platform: PLATFORM, read: readThemOnLinkedIn });
+    case 'profile':
+      return readProfileOnItsOwn(job, PLATFORM, linkedInProfileRead);
   }
 }
 

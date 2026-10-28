@@ -374,8 +374,12 @@ describe('what it does on LinkedIn’s list', () => {
     };
     expect(nextLinkedInDaily({ daily: all })).toBe('post_people');
     expect(nextLinkedInDaily({ daily: { ...all, post_people: 's' } })).toBe('found_checks');
+    // And on the 1st of each month, their own profile read (decision 99).
+    expect(nextLinkedInDaily({ daily: { ...all, post_people: 's', found_checks: 't' } })).toBe(
+      'profile',
+    );
     expect(
-      nextLinkedInDaily({ daily: { ...all, post_people: 's', found_checks: 't' } }),
+      nextLinkedInDaily({ daily: { ...all, post_people: 's', found_checks: 't', profile: 'p' } }),
     ).toBeNull();
   });
 

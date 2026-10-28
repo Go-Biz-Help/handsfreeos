@@ -30,11 +30,13 @@ import type {
   UnfollowAnswer,
   WithdrawAnswer,
   WithdrawAsk,
+  WritePartAnswer,
+  WritePartAsk,
 } from '../../messages';
 import { centerUrl } from '../accounts-center/pages';
 import { CENTER_ASKS, centerWork, type CenterAsk } from '../accounts-center/work';
 import { isWholeAddress, type Kit } from '../kit';
-import { outlineLooking, readLooking, readWarnings } from './read';
+import { maskOn, outlineLooking, readLooking, readWarnings } from './read';
 import type { LookingSite } from './site';
 
 /** Answers a look (`hfos-try`), only on the kinds of page its step is for. */
@@ -68,6 +70,13 @@ async function ownProfile(site: LookingSite, ask: OwnProfileAsk): Promise<OwnPro
   if (!own.writeBio)
     return { ok: false, error: `The extension doesn’t put your ${site.name} bio in yet.` };
   return { ok: true, result: await own.writeBio(document, ask.bio) };
+}
+
+/** One of decision 99's parts of the person's own profile, where the site puts them in (Alignable's, from 0.98.0). */
+async function writePart(site: LookingSite, ask: WritePartAsk): Promise<WritePartAnswer> {
+  const write = site.ownProfile?.writePart;
+  if (!write) return { ok: false, error: `The extension doesn’t put that in on ${site.name} yet.` };
+  return { ok: true, ...(await write(document, location.href, ask.part, maskOn(site))) };
 }
 
 /** A code the network emailed them, put in where it asks for it (decision 82). */
@@ -242,14 +251,16 @@ export function lookingKit(site: LookingSite): Kit {
             ? ownProfile(site, ask as OwnProfileAsk)
             : ask.type === 'hfos-put-code'
               ? putCode(site, ask as CodeAsk)
-              : BROWSE_ASKS.has(ask.type)
-                ? browse(site, ask as LookingBrowseAsk)
-                : ask.type === 'hfos-unfollow'
-                  ? unfollowHere(site)
-                  : ask.type === 'hfos-withdraw'
-                    ? withdrawHere(site, ask as WithdrawAsk)
-                    : ON_ITS_OWN_ASKS.has(ask.type)
-                      ? onItsOwn(site, ask as OnItsOwnAsk)
-                      : null,
+              : ask.type === 'hfos-write-part'
+                ? writePart(site, ask as WritePartAsk)
+                : BROWSE_ASKS.has(ask.type)
+                  ? browse(site, ask as LookingBrowseAsk)
+                  : ask.type === 'hfos-unfollow'
+                    ? unfollowHere(site)
+                    : ask.type === 'hfos-withdraw'
+                      ? withdrawHere(site, ask as WithdrawAsk)
+                      : ON_ITS_OWN_ASKS.has(ask.type)
+                        ? onItsOwn(site, ask as OnItsOwnAsk)
+                        : null,
   };
 }

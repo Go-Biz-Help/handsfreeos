@@ -86,6 +86,8 @@ import { withdrawOnItsOwn } from '../jobs/alignable/withdraw';
 import { valueOf, warnedLine, type Hfos, type Job, type JobEnd } from '../jobs/job';
 import { chatMemory } from '../jobs/chats';
 import { checkFound } from '../jobs/found-checks';
+import { alignableProfileRead } from '../jobs/looking';
+import { readProfileOnItsOwn } from '../jobs/own-read';
 import { checkPartners } from '../jobs/partners';
 import { reporter } from '../jobs/report';
 import { alignable } from '../networks';
@@ -162,6 +164,7 @@ export const ALIGNABLE_DAILY = [
   'group_posts',
   'helpful',
   'found_checks',
+  'profile',
 ] as const satisfies readonly (DailyJob | OwnDailyJob)[];
 type AlignableDaily = (typeof ALIGNABLE_DAILY)[number];
 
@@ -180,6 +183,7 @@ const DAILY_DOING: Readonly<Record<AlignableDaily, string>> = {
   group_posts: 'Reading the posts in your Alignable groups for the AI…',
   helpful: 'Reading your notifications for who liked, commented on or recommended you…',
   found_checks: 'Checking the businesses found on Alignable for good fits…',
+  profile: 'Reading your Alignable profile, as it does on the 1st of each month…',
 };
 const DAILY_NAMES: Readonly<Record<AlignableDaily, string>> = {
   my_groups: 'Your groups',
@@ -196,6 +200,7 @@ const DAILY_NAMES: Readonly<Record<AlignableDaily, string>> = {
   group_posts: 'Posts in your groups',
   helpful: 'Who engaged with you',
   found_checks: 'Check the businesses found',
+  profile: 'Read my profile',
 };
 
 /** Alignable's pace between steps: LinkedIn's, a person's (the plan's "The risk, said plainly"). */
@@ -912,6 +917,8 @@ export async function runAlignableDaily(kind: AlignableDaily, job: Job): Promise
       return readWarmLeads(job);
     case 'found_checks':
       return checkFound(job, { platform: PLATFORM, read: readThemOnAlignable });
+    case 'profile':
+      return readProfileOnItsOwn(job, PLATFORM, (j) => alignableProfileRead(j));
   }
 }
 

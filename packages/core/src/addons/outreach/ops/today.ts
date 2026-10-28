@@ -48,6 +48,7 @@ import {
   type TodayItem,
 } from '../today';
 import { POST_FRESH_DAYS } from '../posts';
+import { ownSuggestions } from '../profile-parts';
 import {
   FIND_FRESH_DAYS,
   FIND_HOW_KEYS,
@@ -237,7 +238,14 @@ export const today = defineAddonQuery(outreachAddon, {
     }
     // Until they're ready (decision 63), the list keeps only replies owed to people who wrote to them, and nothing is
     // done on its own: Get ready shows in place of the rest. Their profile never holds it (decision 90).
-    const ready = (await readinessFor(ctx, me, input.platform)).ready;
+    const readiness = await readinessFor(ctx, me, input.platform);
+    const ready = readiness.ready;
+    // Their profile there, read on its own on the 1st: what the AI suggests waits for their OK (decision 99).
+    const suggested = ownSuggestions(readiness.profileCheck);
+    const profileOwn =
+      suggested && readiness.profileCheck
+        ? { at: readiness.profileCheck.at, parts: suggested }
+        : null;
     // No new friend requests while 200 of theirs wait for an answer there, or their friends there near its cap
     // (decision 97): nor the likes before them, as after a warning.
     const [mine] = await rows<{ waiting: number; friends: number }>(
@@ -1540,6 +1548,7 @@ export const today = defineAddonQuery(outreachAddon, {
       week,
       fresh,
       requestsHeld,
+      profileOwn,
     };
   },
 });

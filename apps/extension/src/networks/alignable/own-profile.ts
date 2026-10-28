@@ -24,8 +24,8 @@ import type { LookingSite } from '../looking/site';
 import { went, type StepTry } from '../tries';
 
 /** Its parts, by the test ids its own profile carries. */
-const PART = (id: string) => `[data-testid="${id}"]`;
-const PITCH = PART('elevator-pitch-cta-button');
+export const PART = (id: string) => `[data-testid="${id}"]`;
+export const PITCH = PART('elevator-pitch-cta-button');
 /** Where a person writes: a plain box, or one drawn to write in. */
 const BOXES =
   'textarea, input[type="text"], input:not([type]), [role="textbox"], [contenteditable="true"]';
@@ -79,7 +79,7 @@ export function idealOf(root: ParentNode, who: 'customer' | 'partner') {
 }
 
 /** The services: each one's name and words, from the card around its Edit link. */
-function servicesOf(root: ParentNode): string[] {
+export function servicesOf(root: ParentNode): string[] {
   const services: string[] = [];
   for (const edit of root.querySelectorAll('a[href*="/biz/services/"][href$="/edit"]')) {
     for (let up = edit.parentElement, steps = 0; up && steps < 4; up = up.parentElement, steps++) {

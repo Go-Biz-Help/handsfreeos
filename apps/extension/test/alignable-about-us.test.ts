@@ -205,7 +205,19 @@ describe('Read my profile and Put this one in, on Alignable', () => {
     vi.useFakeTimers({ shouldAdvanceTime: true, advanceTimeDelta: 50 });
     try {
       const going = runAsk(
-        { kind: 'profile_edit', bio: null, about: ABOUT, name: null, username: null, links: [] },
+        {
+          kind: 'profile_edit',
+          bio: null,
+          about: ABOUT,
+          name: null,
+          username: null,
+          links: [],
+          work: null,
+          featured: null,
+          ideal: null,
+          services: [],
+          linkChanges: [],
+        },
         job,
         'alignable',
       );
@@ -228,7 +240,19 @@ describe('Read my profile and Put this one in, on Alignable', () => {
     vi.useFakeTimers({ shouldAdvanceTime: true, advanceTimeDelta: 50 });
     try {
       const going = runAsk(
-        { kind: 'profile_edit', bio: null, about: ABOUT, name: null, username: null, links: [] },
+        {
+          kind: 'profile_edit',
+          bio: null,
+          about: ABOUT,
+          name: null,
+          username: null,
+          links: [],
+          work: null,
+          featured: null,
+          ideal: null,
+          services: [],
+          linkChanges: [],
+        },
         job,
         'alignable',
       );
@@ -250,7 +274,19 @@ describe('Read my profile and Put this one in, on Alignable', () => {
     const { tab } = alignableTab(doc);
     const { job } = alignableJob(tab, [null]);
     const end = await runAsk(
-      { kind: 'profile_edit', bio: null, about: ABOUT, name: null, username: null, links: [] },
+      {
+        kind: 'profile_edit',
+        bio: null,
+        about: ABOUT,
+        name: null,
+        username: null,
+        links: [],
+        work: null,
+        featured: null,
+        ideal: null,
+        services: [],
+        linkChanges: [],
+      },
       job,
       'alignable',
     );

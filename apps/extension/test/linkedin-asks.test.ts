@@ -755,6 +755,11 @@ describe('your own LinkedIn profile, asked from Get ready', () => {
         name: null,
         username: null,
         links: [],
+        work: null,
+        featured: null,
+        ideal: null,
+        services: [],
+        linkChanges: [],
       },
       jobWith(tab, hfos).job,
     );
@@ -788,6 +793,11 @@ describe('your own LinkedIn profile, asked from Get ready', () => {
         name: null,
         username: null,
         links: [],
+        work: null,
+        featured: null,
+        ideal: null,
+        services: [],
+        linkChanges: [],
       },
       job,
     );

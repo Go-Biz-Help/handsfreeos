@@ -34,7 +34,19 @@ import {
   PROFILE_BIO_MOST,
   usernameProblem,
 } from './profile-check';
-import { partHowOn, partName, PARTS_ON } from './profile-parts';
+import {
+  LINK_CHANGES_MOST,
+  partHowOn,
+  partName,
+  PARTS_ON,
+  ProfileFeaturedEdit,
+  ProfileIdealEdit,
+  ProfileLinkChangeEdit,
+  ProfileServiceEdit,
+  ProfileWorkEdit,
+  SERVICES_MOST,
+  type ProfilePart,
+} from './profile-parts';
 import { allowedOn, REPORT_WORDS } from './reports';
 
 /** What a person can ask their computer to do, in the order the Live tab's list names them. */
@@ -155,9 +167,10 @@ const ASK_NAMES_ON: Readonly<Partial<Record<Platform, Partial<Record<AskKind, st
     profile_edit: 'Update your profile',
     username_check: 'Check profile addresses are free',
   },
+  // More than About Us from decision 99: its Elevator Pitch, ideal customer and partner, and services.
   alignable: {
     cancel: 'Withdraw old connection requests',
-    profile_edit: 'Put your About Us in',
+    profile_edit: 'Update your profile',
     posts: 'Find posts in your town',
   },
   instagram: {
@@ -179,27 +192,38 @@ const BIO_NAME_ON: Readonly<Record<Platform, string>> = {
   alignable: 'Elevator Pitch',
 };
 
-/**
- * Why a bio can't go in on a network: longer than it takes (Facebook's short bio 101 characters, LinkedIn's headline
- * 220). Null when it fits.
- */
+/** Everything a `profile_edit` can carry (decisions 80, 84 and 99): what the words and the refusals go by. */
+export interface ProfileEditParts {
+  readonly bio?: string | null;
+  readonly about?: string | null;
+  readonly name?: string | null;
+  readonly username?: string | null;
+  readonly links?: readonly string[] | null;
+  readonly work?: {
+    readonly title: string;
+    readonly company: string;
+    readonly words?: string | null;
+    readonly since?: string | null;
+  } | null;
+  readonly featured?: { readonly post?: string | null; readonly link?: string | null } | null;
+  readonly ideal?: { readonly customer?: string | null; readonly partner?: string | null } | null;
+  readonly services?: readonly { readonly name: string; readonly words?: string | null }[] | null;
+  readonly linkChanges?: readonly { readonly from: string; readonly to?: string | null }[] | null;
+}
+
+/** A whole link, as a profile takes it. */
+const WHOLE_LINK = /^https:\/\/[^\s/]+\.[^\s]+$/i;
+const notWhole = (link: string) =>
+  `“${link}” isn’t a whole link. Links start with https:// and a site, like https://example.com.`;
+
 /**
  * Why what's to go in a profile can't (decision 80): an About anywhere but LinkedIn, one longer than LinkedIn takes,
  * or a part still in [brackets], which the AI writes where it can't know something. Null when it can go in.
  */
-export function profileEditWords(
-  platform: Platform,
-  edit: {
-    readonly bio?: string | null;
-    readonly about?: string | null;
-    readonly name?: string | null;
-    readonly username?: string | null;
-    readonly links?: readonly string[] | null;
-  },
-): string | null {
+export function profileEditWords(platform: Platform, edit: ProfileEditParts): string | null {
   const network = PLATFORMS[platform];
   // The rest of the profile (decision 84): only the parts the network lets the person's computer put in or open.
-  const canChange = (part: 'name' | 'username' | 'links') =>
+  const canChange = (part: ProfilePart) =>
     PARTS_ON[platform].includes(part) && partHowOn(platform, part) !== 'tip';
   if (edit.name) {
     if (!canChange('name')) return `${network}’s name can’t be changed from here.`;
@@ -216,15 +240,17 @@ export function profileEditWords(
   }
   if (edit.links?.length) {
     if (!canChange('links')) return `${network}’s links can’t be changed from here.`;
-    const bad = edit.links.find((l) => !/^https:\/\/[^\s/]+\.[^\s]+$/i.test(l.trim()));
-    if (bad)
-      return `“${bad}” isn’t a whole link. Links start with https:// and a site, like https://example.com.`;
+    const bad = edit.links.find((l) => !WHOLE_LINK.test(l.trim()));
+    if (bad) return notWhole(bad);
   }
+  // The rest (decision 99): each only where the network has it, and on the network's own terms.
+  const every = everyPartWords(platform, edit, canChange);
+  if (every) return every;
   const aboutName = ABOUT_NAME_ON[platform];
   if (edit.about && !aboutName)
     return `${PLATFORMS[platform]} has no About to put in. Put in the bio only.`;
   if (edit.bio && NO_BIO_WRITES_ON.includes(platform))
-    return `${PLATFORMS[platform]}’s ${BIO_NAME_ON[platform]} is made with its own assistant, so your computer can’t put it in. Put in your ${aboutName ?? 'About'} only.`;
+    return `${PLATFORMS[platform]}’s ${BIO_NAME_ON[platform]} can’t be put in from here. Put in your ${aboutName ?? 'About'} only.`;
   if (edit.bio) {
     const tooLong = bioTooLongWords(platform, edit.bio);
     if (tooLong) return tooLong;
@@ -235,17 +261,74 @@ export function profileEditWords(
     edit.bio && hasPlaceholder(edit.bio) && `your ${BIO_NAME_ON[platform]}`,
     edit.about && hasPlaceholder(edit.about) && `your ${aboutName ?? 'About'}`,
     edit.name && hasPlaceholder(edit.name) && 'your name',
+    edit.work &&
+      (hasPlaceholder(edit.work.title) || hasPlaceholder(edit.work.words ?? '')) &&
+      `your ${partName(platform, 'work').toLowerCase()}`,
+    edit.ideal &&
+      (hasPlaceholder(edit.ideal.customer ?? '') || hasPlaceholder(edit.ideal.partner ?? '')) &&
+      'your ideal customer and partner',
+    edit.services?.some((v) => hasPlaceholder(v.name) || hasPlaceholder(v.words ?? '')) &&
+      'your services',
   ].filter((w): w is string => typeof w === 'string');
   if (unfilled.length)
     return `Fill in the parts in [brackets] in ${unfilled.join(' and ')} first: the AI writes them where it can’t know what’s true for you.`;
   return null;
 }
 
-/** What an edit put in, once it's done: "Your bio is in.", "Your bio, username and links are in." */
-export function profileEditDoneWords(
+/**
+ * Why the parts from decision 99 can't go in: the work, what's featured, Alignable's ideal customer and partner and
+ * services, and Facebook's links to take off or change. Null when they can.
+ */
+function everyPartWords(
   platform: Platform,
-  edit: Parameters<typeof profileEditPartsWords>[1],
-): string {
+  edit: ProfileEditParts,
+  canChange: (part: ProfilePart) => boolean,
+): string | null {
+  const network = PLATFORMS[platform];
+  if (edit.work) {
+    if (platform === 'alignable' || !canChange('work'))
+      return `${network}’s work can’t be changed from here.`;
+    // LinkedIn's Experience asks when they started; Facebook's doesn't.
+    if (platform === 'linkedin' && !edit.work.since)
+      return 'LinkedIn asks when you started this work. Type the month and year under Experience, like March 2021, then put it in.';
+  }
+  if (edit.featured) {
+    if (platform === 'alignable' || !canChange('featured'))
+      return `${network}’s featured can’t be changed from here.`;
+    if (edit.featured.link && platform !== 'linkedin')
+      return `${network} features posts, not links. Your booking link goes in your links.`;
+    if (edit.featured.link && !WHOLE_LINK.test(edit.featured.link.trim()))
+      return notWhole(edit.featured.link);
+  }
+  if ((edit.ideal || edit.services?.length) && platform !== 'alignable')
+    return `${network} has no ideal customer or services to change.`;
+  if (edit.linkChanges?.length) {
+    if (platform !== 'facebook')
+      return `Only Facebook’s links can be changed or taken off from here.`;
+    for (const c of edit.linkChanges) {
+      const bad = [c.from, c.to].find((l): l is string => !!l && !WHOLE_LINK.test(l.trim()));
+      if (bad) return notWhole(bad);
+      if (c.to && c.to.trim().toLowerCase() === c.from.trim().toLowerCase())
+        return `“${c.from}” is already that link. Untick it, or pick another to change it to.`;
+    }
+  }
+  return null;
+}
+
+/**
+ * Whether an edit has parts only a build since `EVERY_PART_SINCE` does (decision 99): an older one never sees them, so
+ * it's asked to update first.
+ */
+export const hasEveryPart = (platform: Platform, edit: ProfileEditParts): boolean =>
+  !!edit.work ||
+  !!edit.featured ||
+  !!edit.ideal ||
+  !!edit.services?.length ||
+  !!edit.linkChanges?.length ||
+  (platform === 'alignable' && !!edit.bio);
+
+/** What an edit put in, once it's done: "Your bio is in.", "Your bio, username and links are in." */
+export function profileEditDoneWords(platform: Platform, edit: ProfileEditParts): string {
   const words = profileEditPartsWords(platform, edit);
   const many = words.includes(' and ');
   return `${words.charAt(0).toUpperCase()}${words.slice(1)} ${many ? 'are' : 'is'} in.`;
@@ -262,22 +345,23 @@ export const hasNewProfileParts = (edit: {
   readonly links?: readonly string[] | null;
 }): boolean => !!edit.name || !!edit.username || !!edit.links?.length;
 /** What an edit is about, in words: "your bio, name and links". */
-export function profileEditPartsWords(
-  platform: Platform,
-  edit: {
-    readonly bio?: string | null;
-    readonly about?: string | null;
-    readonly name?: string | null;
-    readonly username?: string | null;
-    readonly links?: readonly string[] | null;
-  },
-): string {
+export function profileEditPartsWords(platform: Platform, edit: ProfileEditParts): string {
+  // A part's name in a sentence: LinkedIn's Experience, Alignable's About Us and Elevator Pitch keep their capitals.
+  const named = (part: ProfilePart) => {
+    const name = partName(platform, part);
+    return /^(About|Experience|Elevator|Featured)/.test(name) && platform !== 'facebook'
+      ? name
+      : name.toLowerCase();
+  };
   const parts = [
-    edit.bio && partName(platform, 'bio').toLowerCase(),
+    edit.bio && (platform === 'alignable' ? partName(platform, 'bio') : named('bio')),
     edit.about && partName(platform, 'about'),
     edit.name && 'name',
     edit.username && partName(platform, 'username').toLowerCase(),
-    edit.links?.length && 'links',
+    (edit.links?.length || edit.linkChanges?.length) && 'links',
+    (edit.work || edit.ideal) && named('work'),
+    edit.featured && named('featured'),
+    edit.services?.length && 'services',
   ].filter((p): p is string => typeof p === 'string');
   if (parts.length <= 1) return `your ${parts[0] ?? 'profile'}`;
   return `your ${parts.slice(0, -1).join(', ')} and ${parts[parts.length - 1]}`;
@@ -599,6 +683,21 @@ export const AskInput = z.discriminatedUnion('kind', [
         .min(1, 'Pick a link first.')
         .max(PROFILE_LINKS_MOST)
         .optional(),
+      /** The rest (decision 99): the work, what's featured, Alignable's ideal customer, partner and services. */
+      work: ProfileWorkEdit.optional(),
+      featured: ProfileFeaturedEdit.optional(),
+      ideal: ProfileIdealEdit.optional(),
+      services: z
+        .array(ProfileServiceEdit)
+        .min(1, 'Pick a service first.')
+        .max(SERVICES_MOST)
+        .optional(),
+      /** Facebook's links there to take off or change (answer 16a). */
+      linkChanges: z
+        .array(ProfileLinkChangeEdit)
+        .min(1, 'Pick a link first.')
+        .max(LINK_CHANGES_MOST)
+        .optional(),
     })
     .refine(
       (e) =>
@@ -606,7 +705,12 @@ export const AskInput = z.discriminatedUnion('kind', [
         e.about !== undefined ||
         e.name !== undefined ||
         e.username !== undefined ||
-        e.links !== undefined,
+        e.links !== undefined ||
+        e.work !== undefined ||
+        e.featured !== undefined ||
+        e.ideal !== undefined ||
+        e.services !== undefined ||
+        e.linkChanges !== undefined,
       'Pick a bio first.',
     ),
   /** Whether usernames are free on the network: the person's computer opens each one's address (decision 84). */
@@ -681,6 +785,7 @@ export const AskTask = z.discriminatedUnion('kind', [
   // its name, username and links too (decision 84). From 0.93.0 Facebook's username and links, and from 0.94.0 its
   // name and Instagram's username and name, go in by themselves rather than being handed over (decision 89): the same
   // ask, so an older build still takes it and hands them over.
+  // From 0.98.0 the rest (decision 99): an older build never sees them, as it's asked to update first.
   z.object({
     kind: z.literal('profile_edit'),
     bio: z.string().nullable().default(null),
@@ -688,6 +793,11 @@ export const AskTask = z.discriminatedUnion('kind', [
     name: z.string().nullable().default(null),
     username: z.string().nullable().default(null),
     links: z.array(z.string()).default([]),
+    work: ProfileWorkEdit.nullable().default(null),
+    featured: ProfileFeaturedEdit.nullable().default(null),
+    ideal: ProfileIdealEdit.nullable().default(null),
+    services: z.array(ProfileServiceEdit).default([]),
+    linkChanges: z.array(ProfileLinkChangeEdit).default([]),
   }),
   z.object({ kind: z.literal('username_check'), usernames: z.array(z.string()) }),
   plain('checkup'),

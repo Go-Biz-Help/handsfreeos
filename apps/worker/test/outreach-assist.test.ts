@@ -248,6 +248,32 @@ describe('your profile, checked by the AI', () => {
     expect(res.statusCode).toBe(409);
     expect(res.json().error.rule).toBe('outreach_profile_not_read');
   });
+
+  it('writes the work for the business, the post to feature and the links to take off, read on its own (decision 99)', async () => {
+    const res = await app.inject({
+      method: 'POST',
+      url: '/v1/addons/outreach/actions/outreach.profile.check',
+      headers: { authorization: `Bearer ${await signInTestUser(owner)}` },
+      payload: {
+        workspaceId: ws,
+        input: { ...read, intro: [], links: ['https://oldjob.example.com/'], own: true },
+      },
+    });
+    expect(res.statusCode).toBe(200);
+    const got = res.json();
+    // The work is added for the business's own name, never one the AI made up.
+    expect(got.workDraft).toEqual({
+      title: 'Owner',
+      company: 'Outreach Assist Co',
+      words: expect.stringContaining('get more booked calls'),
+    });
+    expect(got.featurePost).toBe('Another roof done before the storm.');
+    // No link of theirs is known yet, so the one about another business is taken off, not changed.
+    expect(got.linkChanges).toEqual([
+      { link: 'https://oldjob.example.com/', to: null, why: 'It’s about another business.' },
+    ]);
+    expect(got.own).toBe(true);
+  });
 });
 
 describe('your messages, written by the AI', () => {

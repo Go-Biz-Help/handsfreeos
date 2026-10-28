@@ -417,6 +417,11 @@ async function value(ask: SessionAsk): Promise<HfosValues[SessionAsk['type']]> {
         }),
         ask.workspaceId,
       );
+    case 'hfos-profiles':
+      return call(
+        api().POST('/v1/queries/outreach.profiles', { body: { workspaceId: ask.workspaceId } }),
+        ask.workspaceId,
+      );
     case 'hfos-lists':
       return call(
         api().POST('/v1/queries/outreach.lists', {

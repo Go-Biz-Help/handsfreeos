@@ -26,6 +26,7 @@ import {
   ASK_CODE_MINUTES,
   askCodeRanOutWords,
   askCodeWords,
+  hasEveryPart,
   hasNewProfileParts,
   profileEditDoneWords,
   type AskTaken,
@@ -58,6 +59,7 @@ import {
 import { groupStops } from './alignable/checkup';
 import { Checkup, isEnd, SEARCH_WORDS, wholeProfile } from './checkup';
 import { readPageIn, valueOf, warnedOn, type Job, type JobEnd, type JobTab } from './job';
+import { partSteps, putParts, shownParts, unseenParts, unseenPartsWords } from './own-parts';
 import { checkUsernames, putInByHand, type ByHandPart } from './profile-parts';
 import { ownProfileNote } from './report';
 
@@ -560,7 +562,7 @@ interface InstagramSeen {
  * bio is the bio as kept; both read, noted, and sent for the AI's check. `after` looks at what was read first (Put
  * these in's parts, to be sure they show).
  */
-async function instagramProfileRead(
+export async function instagramProfileRead(
   job: Job,
   after?: (seen: InstagramSeen) => Promise<void>,
 ): Promise<JobEnd> {
@@ -802,8 +804,14 @@ const ALIGNABLE_MINE = 'https://www.alignable.com/biz/businesses/my_profile';
 /** Tries at a code: a mistyped or an old one asks for the newest. */
 const CODE_TRIES = 3;
 
-/** Read my profile, on Alignable: their own profile, read, noted, and sent for the AI's check. */
-async function alignableProfileRead(job: Job): Promise<JobEnd> {
+/**
+ * Read my profile, on Alignable: their own profile, read, noted, and sent for the AI's check. `after` looks at what was
+ * read first (decision 99's parts that went in).
+ */
+export async function alignableProfileRead(
+  job: Job,
+  after?: (read: ProfileRead) => Promise<void>,
+): Promise<JobEnd> {
   job.progress('Opening your Alignable profile…');
   const mine = await openForProfile(job, ALIGNABLE_MINE, 'alignable');
   if (isEnd(mine)) return mine;
@@ -818,24 +826,41 @@ async function alignableProfileRead(job: Job): Promise<JobEnd> {
       warned: false,
       failed: true,
     };
+  await after?.(read);
   job.progress('Checking it with the AI…');
   valueOf(await job.hfos({ type: 'hfos-profile-check', workspaceId: job.businessId, input: read }));
   return { line: P.readDone, warned: false };
 }
 
 /**
- * Put this one in, on Alignable: About Us, past the code Alignable emails (decision 82). Its Edit asks for the code;
- * HandsFreeOS asks the person for it (`job.code`), and it goes in where Alignable asks, then About Us is written and
- * saved. A code that didn't work asks for the newest. None in its 30 minutes hands them Try again: pressed, their
- * profile is opened afresh and its Edit asks Alignable for a new one. Anything else the person does by hand, and
- * presses Carry on. Then it's read again for a new check.
+ * The code Alignable emailed, for one of decision 99's parts: asked of the person in HandsFreeOS and put in where
+ * Alignable asks. `again` to ask the part again (taken, or mistyped with tries left), `none` when none came in its time
+ * or it wasn't taken (the part is handed over then).
  */
-async function alignableProfileEdit(job: Job, task: EditTask): Promise<JobEnd> {
-  const about = task.about;
-  if (!about) return { line: 'Pick an About Us to put in first.', warned: false, failed: true };
-  job.progress('Opening your Alignable profile…');
-  const mine = await openForProfile(job, ALIGNABLE_MINE, 'alignable');
-  if (isEnd(mine)) return mine;
+async function partCode(job: Job, tries: { wrong: number; again: boolean }) {
+  if (!job.code) return 'none' as const;
+  const code = await job.code(askCodeWords('alignable', tries.again));
+  if (job.stopped()) return { line: 'Stopped.', warned: false } satisfies JobEnd;
+  if (!code) return 'none' as const;
+  job.progress('Putting the code in…');
+  const put = await job.tab.ask({ type: 'hfos-put-code', code });
+  const taken = put.ok ? put.code : 'none';
+  if (taken === 'none') return 'none' as const;
+  if (taken === 'wrong') {
+    tries.again = true;
+    return ++tries.wrong >= CODE_TRIES ? ('none' as const) : ('again' as const);
+  }
+  tries.again = false;
+  return 'again' as const;
+}
+
+/**
+ * About Us, past the code Alignable emails (decision 82). Its Edit asks for the code; HandsFreeOS asks the person for
+ * it (`job.code`), and it goes in where Alignable asks, then About Us is written and saved. A code that didn't work
+ * asks for the newest. None in its 30 minutes hands them Try again: pressed, their profile is opened afresh and its
+ * Edit asks Alignable for a new one. Anything else the person does by hand, and presses Carry on. Null once it's in.
+ */
+async function alignableAbout(job: Job, about: string): Promise<JobEnd | null> {
   job.progress('Putting your About Us in…');
   let result: string = 'none';
   let again = false;
@@ -876,33 +901,76 @@ async function alignableProfileEdit(job: Job, task: EditTask): Promise<JobEnd> {
     again = taken === 'wrong';
     job.progress('Putting your About Us in…');
   }
-  if (result !== 'done') {
-    // Something wasn't as expected: the person puts it in, and says when. The note of the page says which.
-    await job.report?.({
-      note: `About Us didn’t go in (${
-        result === 'not_saved'
-          ? 'Save didn’t keep it'
-          : result === 'code'
-            ? 'Alignable kept asking for a code'
-            : 'no Edit, no box for About Us, or no Save'
-      }).`,
-      outline: true,
-    });
-    if (!job.handOver)
-      return {
-        line: 'Alignable didn’t let the extension change your About Us.',
-        warned: false,
-        failed: true,
-      };
-    const reply = await job.handOver(
-      'Put your About Us in: on your Alignable profile press Edit by About Us, paste what HandsFreeOS wrote, and press Save. Then press Carry on.',
-    );
-    if (reply !== 'carry_on') return { line: 'Stopped.', warned: false, failed: true };
+  if (result === 'done') return null;
+  // Something wasn't as expected: the person puts it in, and says when. The note of the page says which.
+  await job.report?.({
+    note: `About Us didn’t go in (${
+      result === 'not_saved'
+        ? 'Save didn’t keep it'
+        : result === 'code'
+          ? 'Alignable kept asking for a code'
+          : 'no Edit, no box for About Us, or no Save'
+    }).`,
+    outline: true,
+  });
+  if (!job.handOver)
+    return {
+      line: 'Alignable didn’t let the extension change your About Us.',
+      warned: false,
+      failed: true,
+    };
+  const reply = await job.handOver(
+    'Put your About Us in: on your Alignable profile press Edit by About Us, paste what HandsFreeOS wrote, and press Save. Then press Carry on.',
+  );
+  return reply === 'carry_on' ? null : { line: 'Stopped.', warned: false, failed: true };
+}
+
+/**
+ * Put this one in, or Put these in, on Alignable: About Us (`alignableAbout`), then from 0.98.0 (decision 99) the
+ * Elevator Pitch, the ideal customer and partner and the services (./own-parts.ts, src/networks/alignable/parts.ts),
+ * each past the code Alignable may email first. Then it's read again for a new check.
+ */
+async function alignableProfileEdit(job: Job, task: EditTask): Promise<JobEnd> {
+  const about = task.about;
+  const every = hasEveryPart('alignable', task);
+  if (!about && !every)
+    return { line: 'Pick an About Us to put in first.', warned: false, failed: true };
+  job.progress('Opening your Alignable profile…');
+  const mine = await openForProfile(job, ALIGNABLE_MINE, 'alignable');
+  if (isEnd(mine)) return mine;
+  if (about) {
+    const ended = await alignableAbout(job, about);
+    if (ended) return ended;
   }
-  const checked = await alignableProfileRead(job);
-  return checked.failed
-    ? checked
-    : { line: profileCheckWordsOn('alignable').editAboutDone, warned: false };
+  const steps = partSteps('alignable', task, { profile: ALIGNABLE_MINE });
+  if (steps.length) {
+    const tries = { wrong: 0, again: false };
+    const put = await putParts(job, steps, {
+      open: async (url) => {
+        const page = await openForProfile(job, url, 'alignable');
+        return isEnd(page) ? page : null;
+      },
+      code: () => partCode(job, tries),
+    });
+    if (!Array.isArray(put)) return put;
+  }
+  let unseen = new Set<string>();
+  const checked = await alignableProfileRead(job, async (read) => {
+    unseen = every ? unseenParts('alignable', task, read) : new Set();
+    if (unseen.size)
+      await job.report?.({
+        job: 'profile_edit.check',
+        note: `Not shown on the profile after it went in: ${[...unseen].map((p) => `the ${p}`).join(', ')}.`,
+        outline: true,
+      });
+  });
+  if (checked.failed) return checked;
+  if (!every) return { line: profileCheckWordsOn('alignable').editAboutDone, warned: false };
+  const words = [
+    profileEditDoneWords('alignable', shownParts(task, unseen)),
+    unseenPartsWords('alignable', unseen),
+  ];
+  return { line: words.filter(Boolean).join(' '), warned: false };
 }
 
 /** What Instagram says when it isn't the person's own account in front of the extension. */

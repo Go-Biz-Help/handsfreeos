@@ -17,6 +17,7 @@ import type { JoinStep } from '../facebook/join';
 import type { BioResult } from '../facebook/own-profile';
 import type { ReplySighting } from '../facebook/replies';
 import type { FormSteps } from '../instagram/own-profile';
+import type { PartWrite, PartWrote } from '../fill';
 import type { ProfileRef } from '../facebook/types';
 import type { CenterNetwork } from '../accounts-center/pages';
 import type { Noticer } from '../kit';
@@ -143,6 +144,13 @@ export interface LookingSite {
     ) => Promise<{ readonly result: BioResult; readonly steps: FormSteps }>;
     readonly writeAbout?: (doc: Document, about: string) => Promise<AboutResult>;
     readonly putCode?: (doc: Document, code: string) => Promise<CodeResult>;
+    /** Decision 99's parts (Alignable's Elevator Pitch, ideal customer and partner, services), from 0.98.0. */
+    readonly writePart?: (
+      doc: Document,
+      href: string,
+      part: PartWrite,
+      mask: (text: string) => string,
+    ) => Promise<PartWrote>;
   };
   /** Noting the person's own steps there, once its steps are known (Alignable's, partners stage 6c). */
   readonly noticer?: () => Noticer;

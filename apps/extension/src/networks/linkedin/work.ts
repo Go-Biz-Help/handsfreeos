@@ -40,7 +40,10 @@ import type {
   PostsAnswer,
   WithdrawAnswer,
   WithdrawAsk,
+  WritePartAnswer,
+  WritePartAsk,
 } from '../../messages';
+import { writeLinkedInPart } from './parts';
 import {
   connect,
   likeTheirPost,
@@ -85,6 +88,7 @@ export const WORK_ASKS: ReadonlySet<string> = new Set([
   'hfos-write-bio',
   'hfos-write-about',
   'hfos-write-name',
+  'hfos-write-part',
   'hfos-withdraw',
   'hfos-their-posts',
   'hfos-like-post',
@@ -104,6 +108,7 @@ type WorkAsk =
   | Extract<BrowseAsk, { type: 'hfos-open-chat' | 'hfos-scroll-chats' | 'hfos-scroll-list' }>
   | OwnProfileAsk
   | WriteNameAsk
+  | WritePartAsk
   | TryAsk
   | WithdrawAsk
   | AutoAsk
@@ -119,6 +124,20 @@ const onProfile = (href: string) => {
   const kind = classifyUrl(href).kind;
   return kind === 'profile' || kind === 'own-profile';
 };
+
+/**
+ * One of decision 99's parts (./parts.ts), only on the person's own pages: their profile, its posts and Add position,
+ * and Public profile & URL.
+ */
+async function writePartStep(ask: WritePartAsk): Promise<WritePartAnswer> {
+  const path = new URL(location.href).pathname;
+  if (
+    !onProfile(location.href) &&
+    !/^\/(in\/[^/]+\/(edit|recent-activity|overlay)\/|public-profile\/settings)/i.test(path)
+  )
+    return { ok: false, error: 'LinkedIn didn’t open your profile.' };
+  return { ok: true, ...(await writeLinkedInPart(document, location.href, ask.part)) };
+}
 
 /** The person's own profile: read it for the AI's check, or put the headline in. */
 async function ownProfileStep(ask: OwnProfileAsk | WriteNameAsk): Promise<OwnProfileAnswer> {
@@ -284,6 +303,8 @@ export function work(ask: { readonly type: string }): Promise<unknown> | null {
     case 'hfos-write-about':
     case 'hfos-write-name':
       return ownProfileStep(known);
+    case 'hfos-write-part':
+      return writePartStep(known);
     case 'hfos-withdraw':
       return withdrawStep(known);
     case 'hfos-their-posts':

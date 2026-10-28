@@ -74,6 +74,7 @@ import {
 import { adviceLeft, READY_WORDS } from '@hfos/core/addons/outreach/readiness';
 import { messageParts } from '@hfos/core/addons/outreach/voice';
 import { OUTREACH_WORDS as W } from '@hfos/core/addons/outreach/words';
+import { PROFILE_PART_WORDS } from '@hfos/core/addons/outreach/profile-parts';
 import {
   BellOff,
   CalendarCheck,
@@ -256,6 +257,21 @@ export function TodayView({
               className="rounded-card bg-warning-soft p-3.5 text-[13px] text-warning-text"
             >
               {requestsHeldWords(today.requestsHeld, platform)}
+            </p>
+          ) : null}
+          {/* Their profile, read on its own on the 1st: what the AI suggests waits for their OK (decision 99). */}
+          {today.profileOwn ? (
+            <p
+              data-testid="today-profile-own"
+              className="rounded-card bg-card-2 p-3.5 text-[13px] text-text-2"
+            >
+              {PROFILE_PART_WORDS.ownWaiting(platform, today.profileOwn.parts)}{' '}
+              <Link
+                href={outreachHref(workspaceId, { view: 'settings', part: platform })}
+                className="font-medium text-accent-text hover:underline"
+              >
+                {PROFILE_PART_WORDS.ownLook}
+              </Link>
             </p>
           ) : null}
           {getReady ? (

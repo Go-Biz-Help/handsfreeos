@@ -187,6 +187,7 @@ describe('Today on the phone', () => {
       week: null,
       fresh: { on: false, from: null, until: null, days: 14 },
       requestsHeld: null,
+      profileOwn: null,
     };
     await render(
       <TodayBody
@@ -238,6 +239,7 @@ describe('Today on the phone', () => {
       week: null,
       fresh: { on: false, from: null, until: null, days: 14 },
       requestsHeld: null,
+      profileOwn: null,
     };
     const onOk = jest.fn();
     const onSkip = jest.fn();
@@ -294,6 +296,7 @@ describe('Today on the phone', () => {
       week: null,
       fresh: { on: false, from: null, until: null, days: 14 },
       requestsHeld: null,
+      profileOwn: null,
     };
     const helpful: HelpfulListOutput = {
       posts: [
@@ -363,6 +366,7 @@ describe('Today on the phone', () => {
       week: null,
       fresh: { on: false, from: null, until: null, days: 14 },
       requestsHeld: null,
+      profileOwn: null,
     };
     const helpful: HelpfulListOutput = {
       posts: [
@@ -434,6 +438,7 @@ const todayOf = (items: TodayItem[], partners: TodayItem[] = []): TodayOutput =>
   week: null,
   fresh: { on: false, from: null, until: null, days: 14 },
   requestsHeld: null,
+  profileOwn: null,
 });
 
 const stagePerson = (

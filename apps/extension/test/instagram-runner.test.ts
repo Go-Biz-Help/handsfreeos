@@ -452,8 +452,12 @@ describe('what it does on Instagram’s list', () => {
     const all = { ...done, chats: 'z', partners: 'w', posts: 'v', helpful: 't' };
     expect(nextInstagramDaily({ daily: all })).toBe('post_people');
     expect(nextInstagramDaily({ daily: { ...all, post_people: 'r' } })).toBe('found_checks');
+    // And on the 1st of each month, their own profile read (decision 99).
+    expect(nextInstagramDaily({ daily: { ...all, post_people: 'r', found_checks: 's' } })).toBe(
+      'profile',
+    );
     expect(
-      nextInstagramDaily({ daily: { ...all, post_people: 'r', found_checks: 's' } }),
+      nextInstagramDaily({ daily: { ...all, post_people: 'r', found_checks: 's', profile: 'p' } }),
     ).toBeNull();
   });
 

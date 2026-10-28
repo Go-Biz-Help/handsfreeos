@@ -42,7 +42,11 @@ import { cn } from '@/lib/utils';
 
 import { AskButton, AskLine, useAskActions, useAsks, useDoneReload, type AskActions } from './asks';
 import { Note, openOutside, useOutreachAnswer, useOutreachContext } from './kit';
-import { checkDue, PROFILE_PART_WORDS as PW } from '@hfos/core/addons/outreach/profile-parts';
+import {
+  checkDue,
+  partHowFor,
+  PROFILE_PART_WORDS as PW,
+} from '@hfos/core/addons/outreach/profile-parts';
 import { ProfileLook, ProfilePicturesNote, ProfileRestList } from './profile-whole';
 
 /**
@@ -469,7 +473,13 @@ export function ProfileList({
           />
         ) : null}
       </View>
-      {checkDue(check, Date.now()) ? <Note testID="ready-profile-due">{PW.due}</Note> : null}
+      {check?.own ? (
+        <Note testID="ready-profile-own">
+          {PW.own(new Date(check.at).toLocaleDateString([], { month: 'short', day: 'numeric' }))}
+        </Note>
+      ) : checkDue(check, Date.now()) ? (
+        <Note testID="ready-profile-due">{PW.due}</Note>
+      ) : null}
       <ProfileLook check={check as ProfileCheck | null} />
       <View className="gap-1">
         {P.items.map((words) => {
@@ -698,7 +708,8 @@ export function ProfileList({
         actions={actions}
       />
       <ProfilePicturesNote platform={platform} check={check as ProfileCheck | null} />
-      {check?.feature.length ? (
+      {check?.feature.length &&
+      partHowFor(platform, 'featured', asks?.computer?.version) === 'tip' ? (
         <View className="gap-1" testID="ready-feature">
           <Text className="text-[14px] font-semibold">{P.feature}</Text>
           {check.feature.map((f) => (

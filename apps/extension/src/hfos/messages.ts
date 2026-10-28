@@ -56,6 +56,8 @@ export type TodayListItem = TodayList['items'][number];
 export type { TodayDraftInput };
 /** Old requests and friends to unfriend, and each one the extension did (packages/core/src/addons/outreach/tidy.ts). */
 export type Tidy = Ok<'/v1/queries/outreach.friends.tidy'>;
+/** Every network's latest check of the person's own profile (decision 99): what the read on its own goes by. */
+export type Profiles = Ok<'/v1/queries/outreach.profiles'>;
 export type TidyCandidate = Tidy['cancel'][number];
 export type FriendEndInput = Body<'/v1/commands/outreach.friend.end'>;
 /** A note of what a job saw on a page (decision 74, src/jobs/report.ts). */
@@ -285,6 +287,8 @@ export type HfosAsk =
     }
   /** The people to tidy on a network (Facebook's unless said): requests to cancel, LinkedIn's invitations to withdraw. */
   | { readonly type: 'hfos-tidy'; readonly workspaceId: string; readonly platform?: Platform }
+  /** Every network's latest check of the person's own profile, for the read on its own on the 1st (decision 99). */
+  | { readonly type: 'hfos-profiles'; readonly workspaceId: string }
   /** When the person's own lists were last saved to their end, and one noted now (../auto/lists.ts). */
   /** A network's lists before its first day (Facebook's unless said), and one noted as saved. */
   | { readonly type: 'hfos-lists'; readonly workspaceId: string; readonly platform?: Platform }
@@ -374,6 +378,7 @@ export interface HfosValues {
   readonly 'hfos-draft': Drafts;
   readonly 'hfos-profile-check': ProfileCheck;
   readonly 'hfos-tidy': Tidy;
+  readonly 'hfos-profiles': Profiles;
   readonly 'hfos-lists': ListsSaved;
   readonly 'hfos-lists-saved': ListsSaved;
   readonly 'hfos-post-words': PostWords;

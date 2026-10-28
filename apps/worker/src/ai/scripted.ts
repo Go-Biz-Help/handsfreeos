@@ -2009,7 +2009,8 @@ function scriptedNicheFit(message: string) {
 /**
  * The AI's check of a person's own profile (outreach.profile.check): an item is right when something was read for it,
  * the picture only when it's a person and the bio only when it names the offer's line of work; three bios from who
- * the offer is for, the last too long for Facebook's short bio.
+ * the offer is for, the last too long for Facebook's short bio. Every part (decision 99): the work to add, the first
+ * post to feature, and each link there that isn't one of theirs changed to the first that is, or taken off.
  */
 function scriptedProfileCheck(message: string) {
   const offer = unquote(quotedBlock(message, 'main_offer') ?? '');
@@ -2027,6 +2028,8 @@ function scriptedProfileCheck(message: string) {
     ok
       ? { ok: true, why: `Your ${what} looks right.`, fix: null }
       : { ok: false, why: `Your ${what} isn’t there yet.`, fix: `Change your ${what}.` };
+  const linksIn = (text: string) => [...text.matchAll(/^- (https?:\/\/\S+)$/gm)].map((m) => m[1]!);
+  const theirs = linksIn(unquote(quotedBlock(message, 'links_to_use') ?? ''));
   return {
     items: {
       picture: item(/person/i.test(one('picture')), 'picture'),
@@ -2063,6 +2066,11 @@ function scriptedProfileCheck(message: string) {
         },
     names: [],
     usernames: [],
+    work: { title: 'Owner', words: `I help ${who} get more booked calls.` },
+    featurePost: 1,
+    linkChanges: linksIn(/^links:\n((?:- .*\n?)*)/m.exec(profile)?.[1] ?? '')
+      .filter((link) => !theirs.includes(link))
+      .map((link) => ({ link, to: theirs[0] ?? null, why: 'It’s about another business.' })),
   };
 }
 

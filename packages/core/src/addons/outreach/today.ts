@@ -322,6 +322,14 @@ export const TodayOutput = z.object({
   fresh: FreshState.default(NOT_FRESH),
   /** Why no new friend requests are listed (decision 97): null while they are. */
   requestsHeld: RequestsHeld.nullable().default(null),
+  /**
+   * The person's profile there, read on its own on the 1st (decision 99, answer 17a): how many changes the AI suggests
+   * wait for their OK. Null while none wait.
+   */
+  profileOwn: z
+    .object({ at: z.iso.datetime(), parts: z.number().int().min(1) })
+    .nullable()
+    .default(null),
 });
 export type TodayOutput = z.output<typeof TodayOutput>;
 

@@ -9,9 +9,16 @@ import type { AsksOutput } from '@hfos/core/addons/outreach/asks';
 import type { Platform } from '@hfos/core/addons/outreach/networks';
 import { shownUsername, type ProfileCheck } from '@hfos/core/addons/outreach/profile-check';
 import {
+  EVERY_PART_WORDS as E,
+  featuredEdit,
   firstUsername,
+  linkChangesEdit,
+  linkChangesFor,
   LOOK_WORDS,
   linksToAdd,
+  serviceLine,
+  workEdit,
+  workLine,
   partStepsWords,
   PICTURE_WORDS,
   profileParts,
@@ -26,6 +33,8 @@ import { Pressable, View } from 'react-native';
 import { Check, CircleCheck } from '@/components/icons';
 import { Button } from '@/components/ui/button';
 import { Icon } from '@/components/ui/icon';
+import { Input } from '@/components/ui/input';
+import { Switch } from '@/components/ui/switch';
 import { Text } from '@/components/ui/text';
 import { api, unwrap } from '@/lib/api';
 import { cn } from '@/lib/utils';
@@ -86,7 +95,13 @@ function PartBadge({ row }: { row: ProfilePartRow }) {
   );
 }
 
-/** The username, name and links: as they are, as written, who does each, and Put these in for the ones ticked. */
+/** The parts listed here: from decision 99 the work and what's featured too, where the person's computer puts them in. */
+const REST_PARTS: readonly string[] = ['username', 'name', 'links', 'work', 'featured'];
+
+/**
+ * The username, name and links, and from decision 99 the work and what's featured (Alignable's ideal customer and
+ * partner, and its services): as they are, as written, who does each, and Put these in for the ones ticked.
+ */
 export function ProfileRestList({
   platform,
   check,
@@ -125,9 +140,15 @@ export function ProfileRestList({
   // and one before 0.94.0 Facebook's name and Instagram's username and name (decision 89).
   const rows = known
     ? profileParts(platform, known, asks?.computer?.version).filter(
-        (r) => ['username', 'name', 'links'].includes(r.part) && r.how !== 'tip',
+        (r) => REST_PARTS.includes(r.part) && r.how !== 'tip',
       )
     : [];
+  // Facebook's links to take off or change (answer 16a), and when they started the work (LinkedIn asks).
+  const changes = rows.some((r) => r.part === 'links')
+    ? linkChangesFor(platform, check, asks?.computer?.version)
+    : [];
+  const [changesOn, setChangesOn] = React.useState<ReadonlySet<string>>(new Set());
+  const [since, setSince] = React.useState('');
   const links = known
     ? linksToAdd(platform, known)
         .filter((l) => !l.held)
@@ -139,22 +160,58 @@ export function ProfileRestList({
   React.useEffect(() => {
     setTicked(
       new Set(
-        rows.filter((r) => !r.ok && r.part !== 'username' && r.next.length).map((r) => r.part),
+        rows
+          .filter(
+            (r) =>
+              !r.ok &&
+              r.part !== 'username' &&
+              (r.next.length > 0 || (r.part === 'links' && changes.length > 0)),
+          )
+          .map((r) => r.part),
       ),
     );
     setUsername(null);
+    // A link is taken off or changed only once it's switched on (answer 16a).
+    setChangesOn(new Set());
+    setSince('');
     // A new check, or new links, starts afresh.
   }, [check?.at, links.length]);
   // A check from before the whole profile was has nothing to say of these: read it again for that.
   if (!check?.look || !rows.length) return null;
   const name = check.names?.[0] ?? check.nameDraft ?? null;
   const offered = firstUsername(check);
+  const pickedChanges = linkChangesEdit(check, changesOn);
+  // The rest (decision 99), as the web works them out.
+  const work = workEdit(platform, check, since);
+  const featured = known ? featuredEdit(platform, check, known) : null;
+  const ideal = platform === 'alignable' ? (check.idealDraft ?? null) : null;
+  const services = platform === 'alignable' ? (check.services ?? []) : [];
+  const can = (part: string): boolean =>
+    part === 'username'
+      ? !!username
+      : part === 'name'
+        ? !!name
+        : part === 'links'
+          ? links.length > 0 || pickedChanges.length > 0
+          : part === 'work'
+            ? platform === 'alignable'
+              ? !!ideal
+              : work.edit !== null
+            : platform === 'alignable'
+              ? services.length > 0
+              : featured !== null;
+  const on = (part: string) => ticked.has(part) && can(part);
   const edit = {
-    ...(ticked.has('name') && name ? { name } : {}),
-    ...(ticked.has('username') && username ? { username } : {}),
-    ...(ticked.has('links') && links.length ? { links } : {}),
+    ...(on('name') && name ? { name } : {}),
+    ...(on('username') && username ? { username } : {}),
+    ...(on('links') && links.length ? { links } : {}),
+    ...(on('links') && pickedChanges.length ? { linkChanges: pickedChanges } : {}),
+    ...(on('work') && work.edit ? { work: work.edit } : {}),
+    ...(on('work') && ideal ? { ideal } : {}),
+    ...(on('featured') && featured ? { featured } : {}),
+    ...(on('featured') && services.length ? { services } : {}),
   };
-  const count = Object.keys(edit).length;
+  const count = rows.filter((r) => on(r.part)).length;
   const toggle = (part: string) =>
     setTicked((was) => {
       const next = new Set(was);
@@ -173,10 +230,20 @@ export function ProfileRestList({
               : null
             : row.part === 'name'
               ? name
-              : links.length
-                ? links.join(', ')
-                : null;
-        const can = row.part === 'username' ? !!username : !!value;
+              : row.part === 'links'
+                ? links.length
+                  ? links.join(', ')
+                  : null
+                : row.part === 'work' && check.workDraft && platform !== 'alignable'
+                  ? workLine(check.workDraft)
+                  : null;
+        const lines =
+          row.part === 'featured' && platform === 'alignable'
+            ? services.map(serviceLine)
+            : row.part === 'featured' || (row.part === 'work' && platform === 'alignable')
+              ? row.next
+              : [];
+        const ok = on(row.part);
         return (
           <View
             key={row.part}
@@ -187,10 +254,10 @@ export function ProfileRestList({
               <Pressable
                 accessibilityRole="checkbox"
                 accessibilityState={{
-                  checked: ticked.has(row.part) && can,
-                  disabled: !can || row.ok,
+                  checked: ok,
+                  disabled: !can(row.part) || row.ok,
                 }}
-                disabled={!can || row.ok}
+                disabled={!can(row.part) || row.ok}
                 onPress={() => toggle(row.part)}
                 className="min-h-[44px] flex-1 flex-row items-center gap-2.5"
                 testID={`ready-part-${row.part}-tick`}
@@ -201,14 +268,10 @@ export function ProfileRestList({
                   <View
                     className={cn(
                       'size-5 items-center justify-center rounded-[6px] border-[1.5px]',
-                      ticked.has(row.part) && can
-                        ? 'border-accent bg-accent'
-                        : 'border-border-strong bg-card',
+                      ok ? 'border-accent bg-accent' : 'border-border-strong bg-card',
                     )}
                   >
-                    {ticked.has(row.part) && can ? (
-                      <Icon as={Check} className="size-3.5 text-white" />
-                    ) : null}
+                    {ok ? <Icon as={Check} className="size-3.5 text-white" /> : null}
                   </View>
                 )}
                 <Text className="text-[14px] font-semibold">{row.name}</Text>
@@ -224,6 +287,66 @@ export function ProfileRestList({
               <Text selectable className="text-[14px] leading-[20px]">
                 {value}
               </Text>
+            ) : null}
+            {!row.ok && lines.length ? (
+              <View className="gap-1.5" testID={`ready-part-${row.part}-next`}>
+                {lines.map((line) => (
+                  <View key={line} className="rounded-menu bg-accent-soft px-3 py-2">
+                    {row.part === 'featured' && platform !== 'alignable' ? (
+                      <Text className="text-[12px] font-medium text-text-2">
+                        {featured?.link === line ? E.link : E.post}
+                      </Text>
+                    ) : null}
+                    <Text selectable className="text-[14px] leading-[20px]">
+                      {line}
+                    </Text>
+                  </View>
+                ))}
+              </View>
+            ) : null}
+            {row.part === 'work' && !row.ok && check.workDraft && platform !== 'alignable' ? (
+              <View className="gap-1.5">
+                {check.workDraft.words ? <Note>{check.workDraft.words}</Note> : null}
+                <Text className="text-[13px] font-medium">{E.since}</Text>
+                <Input
+                  value={since}
+                  onChangeText={setSince}
+                  placeholder="March 2021"
+                  invalid={!!work.why && !!since.trim()}
+                  accessibilityLabel={E.since}
+                  testID="ready-work-since"
+                />
+                <Note>{work.why && since.trim() ? work.why : E.sinceHint(platform)}</Note>
+              </View>
+            ) : null}
+            {row.part === 'links' && !row.ok && changes.length ? (
+              <View className="gap-2 rounded-menu bg-card-2 p-3" testID="ready-link-changes">
+                <Text className="text-[13px] font-semibold">{E.changes}</Text>
+                {changes.map((c) => (
+                  <View key={c.link} className="flex-row items-center gap-3">
+                    <View className="flex-1 gap-0.5">
+                      <Text className="text-[12.5px] text-text-3 line-through">{c.link}</Text>
+                      <Text className="text-[14px] font-medium">
+                        {c.to ? E.changeTo(c.to) : E.takeOff}
+                      </Text>
+                      <Note>{c.why}</Note>
+                    </View>
+                    <Switch
+                      label={c.to ? E.changeTo(c.to) : `${E.takeOff}: ${c.link}`}
+                      checked={changesOn.has(c.link)}
+                      onCheckedChange={(next) =>
+                        setChangesOn((was) => {
+                          const s = new Set(was);
+                          if (next) s.add(c.link);
+                          else s.delete(c.link);
+                          return s;
+                        })
+                      }
+                    />
+                  </View>
+                ))}
+                <Note>{E.changesHint}</Note>
+              </View>
             ) : null}
             {row.part === 'username' && !row.ok && offered && !username ? (
               asking ? (

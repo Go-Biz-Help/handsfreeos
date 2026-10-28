@@ -132,6 +132,7 @@ describe('where your own profile is changed', () => {
         links: 'https://www.facebook.com/casey.owner.7/about_contact?fb_profile_edit_entry_point=9',
         id: '100001234',
         username: 'casey.owner.7',
+        work: 'https://www.facebook.com/casey.owner.7/about_work_and_education',
       });
   });
 
@@ -155,6 +156,7 @@ describe('where your own profile is changed', () => {
       links: 'https://www.facebook.com/casey.owner.7/about_contact',
       id: null,
       username: 'casey.owner.7',
+      work: 'https://www.facebook.com/casey.owner.7/about_work_and_education',
     });
   });
 });

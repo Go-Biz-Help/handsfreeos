@@ -100,6 +100,29 @@ export const UI_WORDS: ReadonlySet<string> = new Set([
   "you haven't posted yet",
   '…more',
   '…see more',
+  // Decision 99's forms (from 0.98.0): the address, Contact info, Add position and Featured. Only their own
+  // phrases: a bare "Website" or "Title" is also a label on someone's page, which the readers keep.
+  'edit your custom url',
+  'custom url',
+  'public profile & url',
+  'edit contact info',
+  'contact info',
+  'add website',
+  'add position',
+  'add new position',
+  'add new experience',
+  'add career break',
+  'company or organization',
+  'i am currently working in this role',
+  'notify network',
+  'share with network',
+  'add featured',
+  'add a post',
+  'add a link',
+  'add media',
+  'feature on top of profile',
+  'remove from featured',
+  'open control menu',
 ]);
 
 // ------------------------------------------------------------------------------------------------ buttons

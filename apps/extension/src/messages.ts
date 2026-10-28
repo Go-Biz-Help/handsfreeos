@@ -14,6 +14,7 @@ import type { LinkedInFilePart } from './hfos/files';
 import type { AboutResult, CodeResult } from './networks/alignable/own-profile';
 import type { EditorSteps } from './networks/facebook/editors';
 import type { LinkResult } from './networks/facebook/links';
+import type { PartWrite, PartWrote } from './networks/fill';
 import type { BioResult, OwnEditors } from './networks/facebook/own-profile';
 import type { FormSteps } from './networks/instagram/own-profile';
 import type { NameWrote } from './networks/accounts-center/name';
@@ -315,10 +316,20 @@ export type AccountWarningsAnswer =
     }
   | { readonly ok: false; readonly error: string };
 
+/**
+ * One of decision 99's parts of the person's own profile, put in on the page the tab shows (src/networks/fill.ts): their
+ * work, a featured post or link, a link taken off, LinkedIn's address and website, Alignable's Elevator Pitch, ideal
+ * customer and partner and services. From 0.98.0.
+ */
+export type WritePartAsk = { readonly type: 'hfos-write-part'; readonly part: PartWrite };
+export type WritePartAnswer =
+  ({ readonly ok: true } & PartWrote) | { readonly ok: false; readonly error: string };
+
 /** Put these in's own asks on Facebook, and in Accounts Center on Instagram (decision 89), and what each is answered. */
 export type ProfileEditAsk =
   | OwnEditorsAsk
   | WriteLinkAsk
+  | WritePartAsk
   | WriteUsernameAsk
   | WriteCenterNameAsk
   | UsernamePageAsk
@@ -326,6 +337,7 @@ export type ProfileEditAsk =
 export interface ProfileEditAnswers {
   readonly 'hfos-own-editors': OwnEditorsAnswer;
   readonly 'hfos-write-link': WriteLinkAnswer;
+  readonly 'hfos-write-part': WritePartAnswer;
   readonly 'hfos-write-username': WriteUsernameAnswer;
   readonly 'hfos-write-center-name': WriteCenterNameAnswer;
   readonly 'hfos-username-page': UsernamePageAnswer;

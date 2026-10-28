@@ -3,7 +3,7 @@
 The extension that works beside a person on Facebook, and on LinkedIn, Instagram and Alignable once they turn each on,
 for the Social Outreach add-on (docs/outreach.md). It connects to HandsFreeOS only for businesses that have that add-on on.
 
-**This is a test build (0.95.0), and a bare one** (decisions 43, 59 and 72 in docs/outreach.md). Everything is set
+**This is a test build (0.98.0), and a bare one** (decisions 43, 59 and 72 in docs/outreach.md). Everything is set
 and started in HandsFreeOS; the extension does the work on Facebook. Its side panel shows progress and activity only:
 signing in, what it does next with today's steps and **Start my day** and **Stop for today**, how many things need
 you in HandsFreeOS (with a link there), each network's line, what it did today, and a link to HandsFreeOS. Needs you
@@ -1066,6 +1066,15 @@ shows under Instagram). Your Instagram choices in HandsFreeOS say what it does (
 Each step is noted as the extension's own (`auto`), as Instagram's. A step its page doesn't let it do goes to your
 Needs you; it never guesses.
 
+### Your profile, read on its own on the 1st (0.98.0)
+
+From 0.98.0 (docs/outreach.md, decision 99) each network's once-a-day jobs end with `profile`: once your latest read
+there is from before this month's 1st by your computer's clock, or there's none, it reads your own profile as **Read
+my profile** does and has the AI check it, marked as read on its own (`own` on `hfos-profile-check`;
+`src/jobs/own-read.ts`). A computer off on the 1st reads it the first day it works that month. Nothing is put in,
+pressed or handed to you: what the AI suggests waits for your OK in Get ready, and Today says how many changes wait.
+Other days it ends saying your profile was read this month.
+
 ### Tidying up on its own (0.97.0)
 
 From 0.97.0 (docs/outreach.md, decision 98) each network's once-a-day jobs tidy up too (`tidy`), as you choose under
@@ -1383,10 +1392,26 @@ networks Chrome lets it on, so HandsFreeOS can say what to press when an ask wai
   the bio's by its name or the bio it holds (`bioBoxFits`; else that box's **Cancel** closes it), and presses only
   that box's own **Save** (`writeBioSteps`). On Contact and basic info: **Add a website** (or Add a link, `ADD_LINK`),
   the address in the one box it opens, and that box's own **Save** (`writeLink`). It never presses **Add a social
-  link**, and never removes or changes a link that's there. Check Facebook opens the same boxes, writes a word and
-  takes it out, and closes them with their **Cancel**, never Save. Anything not as expected is handed to you.
+  link**, and never removes or changes a link that's there, but one you switched on from 0.98.0 (below). Check
+  Facebook opens the same boxes, writes a word and takes it out, and closes them with their **Cancel**, never Save.
+  Anything not as expected is handed to you.
   `test/own-profile.test.ts` and `test/facebook-profile-edit.test.ts` walk each on made-up pages, and with bare
   boxes.
+- **Every part of your own profile, only for Put these in** (0.98.0, decision 99). Each form is filled by its fields'
+  labels (`src/networks/fill.ts`): a field it can't find leaves the part unwritten and hands it to you, with where to
+  press and what to put in and the page's outline. On Facebook (`src/networks/facebook/parts.ts`): **Add a workplace**
+  on Work and education, its Company, Position and Description, **I currently work here**, and its **Save**; a post's
+  **Actions for this post** menu, for **Pin post** on the post picked only, never **Unpin**; and a link's own
+  **Edit** or **⋯**, then **Delete** and the box's confirm, only for a link you switched on. On LinkedIn
+  (`src/networks/linkedin/parts.ts`): **Edit your custom URL** on public profile settings; **Edit contact info**, then
+  **Add website**, its address and type, and **Save**; **Add position** (or the + by Experience) and its form's Title,
+  Company, start month and Description, with **I am currently working in this role** ticked and notifying your
+  network unticked; **Add featured**, then **Add a link**, the address, **Add** and **Save**; and a post's control
+  menu for **Feature on top of profile**, never **Remove from Featured**. On Alignable
+  (`src/networks/alignable/parts.ts`): the Elevator Pitch's box, My Ideal Customer's and the ideal partner's **Add** or
+  **Edit**, and **Add a service**, each with its own **Save**; a code it emails is typed in HandsFreeOS. It types only
+  what you OK'd, and says a part is in only once your profile shows it. `test/profile-every-part.test.ts` walks each
+  on made-up pages.
 - **Instagram's Edit profile form only for your bio** (decision 80, from 0.62.0). Only on your own form
   (/accounts/edit/), only for a **Put this one in** or **Put these in** you pressed: it writes only in the **Bio**
   box, only the bio you picked, and presses only the form's **Submit**, never Website, Gender or anything else there,
@@ -1514,8 +1539,9 @@ networks Chrome lets it on, so HandsFreeOS can say what to press when an ask wai
 
 LinkedIn, part by part (HANDSFREEOS_SOCIAL_NETWORKS_IMPLEMENTATION_PLAN.md): its asks are in (0.40.0), what it does
 on its own there (0.41.0), getting and bringing in its file (0.42.0), and growing, with the helpful post on your own
-feed (0.43.0). Joining groups (decision 31; docs/outreach.md, the rest of decisions 26 to 35) is built, and tidying
-on its own on every network (decisions 29 and 98, 0.97.0); Social Outreach's onboarding is built, in HandsFreeOS (decisions 36 and 45). Safari on Mac
+feed (0.43.0). Joining groups (decision 31; docs/outreach.md, the rest of decisions 26 to 35) is built, tidying
+on its own on every network (decisions 29 and 98, 0.97.0), and every part of your profile put in, read on its own on
+the 1st (decision 99, 0.98.0); Social Outreach's onboarding is built, in HandsFreeOS (decisions 36 and 45). Safari on Mac
 follows in Phase 2.
 
 Finding people by topic (0.95.0, decision 92) was checked by the owner's Check Instagram, Check LinkedIn and Check

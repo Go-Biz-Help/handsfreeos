@@ -43,6 +43,8 @@ import type {
   TryAsk,
   WriteLinkAnswer,
   WriteLinkAsk,
+  WritePartAnswer,
+  WritePartAsk,
 } from '../../messages';
 import { usernamePageOf } from '../accounts-center/username';
 import { CENTER_ASKS, centerWork, type CenterAsk } from '../accounts-center/work';
@@ -61,6 +63,7 @@ import { requestsPage } from './friends';
 import { answerJoin, pressJoin } from './join';
 import { linksPage, writeLink } from './links';
 import { ownEditorsOf, readOwnProfile, writeBioSteps } from './own-profile';
+import { writeFacebookPart } from './parts';
 import { readProfile } from './profile';
 import { tidyPage } from './tidy';
 import {
@@ -209,6 +212,17 @@ function ownEditorsStep(): OwnEditorsAnswer {
 const ownLinksHere = (): boolean => linksPage(location.href) && ownProfileHere();
 
 /** One new link (./links.ts), only on their own profile's About tab, where its links are changed. */
+/**
+ * One of decision 99's parts (./parts.ts), only on their own profile: their work on its About tab, their best post on
+ * the profile, a link taken off on Contact and basic info.
+ */
+async function writePartStep(ask: WritePartAsk): Promise<WritePartAnswer> {
+  if (!ownProfileHere()) return { ok: false, error: 'Facebook didn’t open your profile.' };
+  if (ask.part.kind === 'link_off' && !linksPage(location.href))
+    return { ok: false, error: 'Facebook didn’t open where your links are changed.' };
+  return { ok: true, ...(await writeFacebookPart(document, ask.part)) };
+}
+
 async function writeLinkStep(ask: WriteLinkAsk): Promise<WriteLinkAnswer> {
   if (!ownLinksHere())
     return { ok: false, error: 'Facebook didn’t open where your links are changed.' };
@@ -319,6 +333,7 @@ export const WORK_ASKS: ReadonlySet<string> = new Set([
   'hfos-write-bio',
   'hfos-own-editors',
   'hfos-write-link',
+  'hfos-write-part',
   ...CENTER_ASKS,
   'hfos-try',
 ]);
@@ -333,6 +348,7 @@ type WorkAsk =
   | OwnProfileAsk
   | OwnEditorsAsk
   | WriteLinkAsk
+  | WritePartAsk
   | CenterAsk
   | TryAsk;
 
@@ -352,6 +368,8 @@ export function work(ask: { readonly type: string }): Promise<unknown> | null {
       return Promise.resolve(ownEditorsStep());
     case 'hfos-write-link':
       return writeLinkStep(known);
+    case 'hfos-write-part':
+      return writePartStep(known);
     // Accounts Center's, for the username and the name: only on Facebook's own (../accounts-center/work.ts).
     case 'hfos-write-username':
     case 'hfos-write-center-name':

@@ -434,7 +434,9 @@ describe('what it does on Alignable’s list', () => {
     // Last, the businesses found by topic checked for good fits (decision 92).
     const all = { ...daily, helpful: 'v' };
     expect(nextAlignableDaily({ daily: all })).toBe('found_checks');
-    expect(nextAlignableDaily({ daily: { ...all, found_checks: 'u' } })).toBeNull();
+    // And on the 1st of each month, their own profile read (decision 99).
+    expect(nextAlignableDaily({ daily: { ...all, found_checks: 'u' } })).toBe('profile');
+    expect(nextAlignableDaily({ daily: { ...all, found_checks: 'u', profile: 'p' } })).toBeNull();
   });
 
   it('sends a message only once it’s OK’d: one waiting for the person isn’t sent', () => {

@@ -572,6 +572,44 @@ describe('each network’s own lists, asks and Today', () => {
     );
   });
 
+  it('ask for the work, what’s featured and the rest only of a build from 0.98.0 (decision 99)', async () => {
+    const dana = await teammate('Jordan Vale');
+    const pc = randomUUID();
+    await runAs(dana, ws, 'outreach.automation.save', { settings: linkedInOn });
+    const work = { title: 'Owner', company: 'Summit Roof Leads', words: null, since: '2021-03' };
+    const featured = { post: 'Five stars from the Parkers.', link: 'https://cal.com/casey' };
+    // Refused before it's asked, saying what to do: LinkedIn asks when they started.
+    expect(
+      await refused(
+        ask(dana, 'linkedin', { kind: 'profile_edit', work: { ...work, since: null } }),
+      ),
+    ).toBe('outreach_profile_edit_refused');
+    // 0.97.0 never sees them, so it's asked to update first; its headline still goes in.
+    await beat(dana, pc, '0.97.0');
+    expect(await refused(ask(dana, 'linkedin', { kind: 'profile_edit', work, featured }))).toBe(
+      'outreach_extension_too_old',
+    );
+    await beat(dana, pc, '0.98.0');
+    const made = await ask(dana, 'linkedin', { kind: 'profile_edit', work, featured });
+    expect(made).toMatchObject({
+      fresh: true,
+      ask: { platform: 'linkedin', kind: 'profile_edit' },
+    });
+    const [row] = await rows<{ task: unknown }>(
+      admin(),
+      sql`select task from addon_outreach.asks where id = ${made.ask.askId}`,
+    );
+    expect(row!.task).toMatchObject({
+      kind: 'profile_edit',
+      bio: null,
+      work,
+      featured,
+      ideal: null,
+      services: [],
+      linkChanges: [],
+    });
+  });
+
   it('ask Instagram only what a build there does, its followers from 0.80.0 and its chats from 0.81.0, and start its day', async () => {
     const dana = await teammate('Rowan Ellis');
     const pc = randomUUID();

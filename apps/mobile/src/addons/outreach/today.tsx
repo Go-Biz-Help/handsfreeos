@@ -29,6 +29,7 @@ import {
   type HelpfulListOutput,
 } from '@hfos/core/addons/outreach/helpful';
 import { warningNote } from '@hfos/core/addons/outreach/tidy';
+import { PROFILE_PART_WORDS } from '@hfos/core/addons/outreach/profile-parts';
 import { recentBubbles, RECENT_WORDS } from '@hfos/core/addons/outreach/sends';
 import { oneByOneWords } from '@hfos/core/addons/outreach/waiting-words';
 import * as React from 'react';
@@ -46,7 +47,15 @@ import { api, errorMessage, unwrap } from '@/lib/api';
 
 import { okSend, skipPost, skipSend } from './actions';
 import { ChatBubbles } from './chat-bubbles';
-import { NeedsSignal, Note, openOutside, Part, useOutreachAnswer, useOutreachContext } from './kit';
+import {
+  NeedsSignal,
+  Note,
+  openOutside,
+  openSettingsPart,
+  Part,
+  useOutreachAnswer,
+  useOutreachContext,
+} from './kit';
 import { PersonName } from './person-menu';
 
 /**
@@ -177,6 +186,7 @@ export function useTodayProps(
         failed(e);
       }
     },
+    onProfileOwn: () => openSettingsPart(ws, platform),
     onEndWheels: async (userId, name, network = 'facebook') => {
       try {
         await change('outreach.wheels.end', { workspaceId: ws, userId, platform: network });
@@ -209,6 +219,7 @@ export function TodayBody({
   onSkip,
   onNotForMe,
   onEndWheels,
+  onProfileOwn,
   embedded = false,
   hideSends,
 }: {
@@ -226,6 +237,8 @@ export function TodayBody({
   onNotForMe: (postId: string) => void;
   /** Ends someone's training wheels on a network: Facebook's when left out. */
   onEndWheels: (userId: string, name: string, platform?: Platform) => void;
+  /** Opens the network's part of Settings, where the AI's suggestions for its profile wait (decision 99). */
+  onProfileOwn?: () => void;
   /** Inside Today's tab, under Needs you (./hub.tsx): no screen of its own. */
   embedded?: boolean;
   /** Messages Needs you shows already: left off here, so nobody shows twice. */
@@ -270,6 +283,25 @@ export function TodayBody({
           <Text className="text-[13px] leading-[18px] text-warning-text">
             {requestsHeldWords(list.requestsHeld, platform)}
           </Text>
+        </View>
+      ) : null}
+      {/* Their profile, read on its own on the 1st: what the AI suggests waits for their OK (decision 99). */}
+      {list.profileOwn ? (
+        <View className="gap-2 rounded-menu bg-card-2 px-3 py-2.5" testID="today-profile-own">
+          <Text className="text-[13px] leading-[18px] text-text-2">
+            {PROFILE_PART_WORDS.ownWaiting(platform, list.profileOwn.parts)}
+          </Text>
+          {onProfileOwn ? (
+            <Button
+              size="md"
+              variant="secondary"
+              className="self-start"
+              onPress={onProfileOwn}
+              testID="today-profile-own-look"
+            >
+              {PROFILE_PART_WORDS.ownLook}
+            </Button>
+          ) : null}
         </View>
       ) : null}
       {helpful && onHelpful && helpfulOn(platform) ? (
