@@ -66,7 +66,7 @@ describe('half limits on a network new to the person', () => {
 
   it('keep the account’s age with each network, Facebook’s too', () => {
     const young = withNetwork(AUTOMATION_DEFAULTS, 'facebook', { young: true });
-    expect(young.networks.facebook).toEqual({ on: true, young: true });
+    expect(young.networks.facebook).toEqual({ on: true, young: true, tidy: 'cancel' });
     expect(choicesFor(young, 'facebook').young).toBe(true);
     expect(choicesFor(young, 'linkedin').young).toBe(false);
     // Facebook's own choices stay the settings' fields: the account's age isn't one.

@@ -272,20 +272,6 @@ export async function everyoneAutomation(ctx: Ctx, now = Date.now()) {
 }
 
 /**
- * Whether the person's daily limits on a network are half now: after a warning there (decision 25), on training
- * wheels there, or new there (decision 96).
- */
-export async function slowerFor(
-  ctx: Ctx,
-  userId: string,
-  warned: boolean,
-  now = Date.now(),
-  platform: Platform = 'facebook',
-) {
-  return warned || (await automationOf(ctx, userId, now, platform)).slower;
-}
-
-/**
  * The person's daily limits on a network now: the business's own there, halved after a warning, on training wheels or
  * new there.
  */

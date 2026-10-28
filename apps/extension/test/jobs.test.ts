@@ -114,9 +114,10 @@ const group = (id: string, more: Record<string, unknown> = {}) => ({
 });
 
 describe('the once-a-day jobs, in order', () => {
-  it('checks requests, then groups, joins, members, posts, chats, friends and partners, each once a day', () => {
+  it('checks requests, tidies, then groups, joins, members, posts, chats, friends and partners, each once a day', () => {
     expect(DAILY_JOBS).toEqual([
       'requests',
+      'tidy',
       'group_checks',
       'join',
       'members',
@@ -128,18 +129,28 @@ describe('the once-a-day jobs, in order', () => {
     ]);
     const fresh = freshState('2026-10-10');
     expect(nextDaily(fresh)).toBe('requests');
-    expect(nextDaily({ daily: { requests: 'Saved 2.' } })).toBe('group_checks');
-    expect(
-      nextDaily({ daily: { requests: '', group_checks: '', join: '', members: 'Saved 9.' } }),
-    ).toBe('posts');
-    // A state kept by 0.21 hasn't done the groups' jobs yet today: they come next.
-    expect(nextDaily({ daily: { requests: '', members: '', posts: '', chats: '' } })).toBe(
+    expect(nextDaily({ daily: { requests: 'Saved 2.' } })).toBe('tidy');
+    expect(nextDaily({ daily: { requests: 'Saved 2.', tidy: 'Nothing to tidy up today.' } })).toBe(
       'group_checks',
     );
     expect(
       nextDaily({
+        daily: { requests: '', tidy: '', group_checks: '', join: '', members: 'Saved 9.' },
+      }),
+    ).toBe('posts');
+    // A state kept by 0.21 hasn't done the groups' jobs yet today: they come next.
+    expect(
+      nextDaily({ daily: { requests: '', tidy: '', members: '', posts: '', chats: '' } }),
+    ).toBe('group_checks');
+    // A state kept before tidying on its own (0.97) tidies next, after the requests.
+    expect(
+      nextDaily({ daily: { requests: '', group_checks: '', join: '', members: '', posts: '' } }),
+    ).toBe('tidy');
+    expect(
+      nextDaily({
         daily: {
           requests: '',
+          tidy: '',
           group_checks: '',
           join: '',
           members: '',
@@ -156,6 +167,7 @@ describe('the once-a-day jobs, in order', () => {
       nextDaily({
         daily: {
           requests: '',
+          tidy: '',
           group_checks: '',
           join: '',
           members: '',

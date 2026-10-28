@@ -38485,7 +38485,8 @@ export interface operations {
                              *       "joinGroups": true,
                              *       "watchPosts": true,
                              *       "posting": "after_ok",
-                             *       "young": false
+                             *       "young": false,
+                             *       "tidy": "cancel"
                              *     }
                              */
                             alignable?: {
@@ -38512,6 +38513,11 @@ export interface operations {
                                  * @enum {string}
                                  */
                                 sending?: "off" | "steps" | "approve_all" | "everything";
+                                /**
+                                 * @default cancel
+                                 * @enum {string}
+                                 */
+                                tidy?: "off" | "cancel" | "unfriend";
                                 /** @default true */
                                 warmUp?: boolean;
                                 /** @default true */
@@ -38522,12 +38528,18 @@ export interface operations {
                             /**
                              * @default {
                              *       "on": true,
-                             *       "young": false
+                             *       "young": false,
+                             *       "tidy": "cancel"
                              *     }
                              */
                             facebook?: {
                                 /** @default true */
                                 on?: boolean;
+                                /**
+                                 * @default cancel
+                                 * @enum {string}
+                                 */
+                                tidy?: "off" | "cancel" | "unfriend";
                                 /** @default false */
                                 young?: boolean;
                             };
@@ -38542,7 +38554,8 @@ export interface operations {
                              *       "joinGroups": true,
                              *       "watchPosts": true,
                              *       "posting": "after_ok",
-                             *       "young": false
+                             *       "young": false,
+                             *       "tidy": "cancel"
                              *     }
                              */
                             instagram?: {
@@ -38569,6 +38582,11 @@ export interface operations {
                                  * @enum {string}
                                  */
                                 sending?: "off" | "steps" | "approve_all" | "everything";
+                                /**
+                                 * @default cancel
+                                 * @enum {string}
+                                 */
+                                tidy?: "off" | "cancel" | "unfriend";
                                 /** @default true */
                                 warmUp?: boolean;
                                 /** @default true */
@@ -38587,7 +38605,8 @@ export interface operations {
                              *       "joinGroups": true,
                              *       "watchPosts": true,
                              *       "posting": "after_ok",
-                             *       "young": false
+                             *       "young": false,
+                             *       "tidy": "cancel"
                              *     }
                              */
                             linkedin?: {
@@ -38614,6 +38633,11 @@ export interface operations {
                                  * @enum {string}
                                  */
                                 sending?: "off" | "steps" | "approve_all" | "everything";
+                                /**
+                                 * @default cancel
+                                 * @enum {string}
+                                 */
+                                tidy?: "off" | "cancel" | "unfriend";
                                 /** @default true */
                                 warmUp?: boolean;
                                 /** @default true */
@@ -38807,7 +38831,8 @@ export interface operations {
                              * @default {
                              *       "facebook": {
                              *         "on": true,
-                             *         "young": false
+                             *         "young": false,
+                             *         "tidy": "cancel"
                              *       },
                              *       "linkedin": {
                              *         "on": false,
@@ -38819,7 +38844,8 @@ export interface operations {
                              *         "joinGroups": true,
                              *         "watchPosts": true,
                              *         "posting": "after_ok",
-                             *         "young": false
+                             *         "young": false,
+                             *         "tidy": "cancel"
                              *       },
                              *       "instagram": {
                              *         "on": false,
@@ -38831,7 +38857,8 @@ export interface operations {
                              *         "joinGroups": true,
                              *         "watchPosts": true,
                              *         "posting": "after_ok",
-                             *         "young": false
+                             *         "young": false,
+                             *         "tidy": "cancel"
                              *       },
                              *       "alignable": {
                              *         "on": false,
@@ -38843,7 +38870,8 @@ export interface operations {
                              *         "joinGroups": true,
                              *         "watchPosts": true,
                              *         "posting": "after_ok",
-                             *         "young": false
+                             *         "young": false,
+                             *         "tidy": "cancel"
                              *       }
                              *     }
                              */
@@ -38859,7 +38887,8 @@ export interface operations {
                                  *       "joinGroups": true,
                                  *       "watchPosts": true,
                                  *       "posting": "after_ok",
-                                 *       "young": false
+                                 *       "young": false,
+                                 *       "tidy": "cancel"
                                  *     }
                                  */
                                 alignable: {
@@ -38886,6 +38915,11 @@ export interface operations {
                                      * @enum {string}
                                      */
                                     sending: "off" | "steps" | "approve_all" | "everything";
+                                    /**
+                                     * @default cancel
+                                     * @enum {string}
+                                     */
+                                    tidy: "off" | "cancel" | "unfriend";
                                     /** @default true */
                                     warmUp: boolean;
                                     /** @default true */
@@ -38896,12 +38930,18 @@ export interface operations {
                                 /**
                                  * @default {
                                  *       "on": true,
-                                 *       "young": false
+                                 *       "young": false,
+                                 *       "tidy": "cancel"
                                  *     }
                                  */
                                 facebook: {
                                     /** @default true */
                                     on: boolean;
+                                    /**
+                                     * @default cancel
+                                     * @enum {string}
+                                     */
+                                    tidy: "off" | "cancel" | "unfriend";
                                     /** @default false */
                                     young: boolean;
                                 };
@@ -38916,7 +38956,8 @@ export interface operations {
                                  *       "joinGroups": true,
                                  *       "watchPosts": true,
                                  *       "posting": "after_ok",
-                                 *       "young": false
+                                 *       "young": false,
+                                 *       "tidy": "cancel"
                                  *     }
                                  */
                                 instagram: {
@@ -38943,6 +38984,11 @@ export interface operations {
                                      * @enum {string}
                                      */
                                     sending: "off" | "steps" | "approve_all" | "everything";
+                                    /**
+                                     * @default cancel
+                                     * @enum {string}
+                                     */
+                                    tidy: "off" | "cancel" | "unfriend";
                                     /** @default true */
                                     warmUp: boolean;
                                     /** @default true */
@@ -38961,7 +39007,8 @@ export interface operations {
                                  *       "joinGroups": true,
                                  *       "watchPosts": true,
                                  *       "posting": "after_ok",
-                                 *       "young": false
+                                 *       "young": false,
+                                 *       "tidy": "cancel"
                                  *     }
                                  */
                                 linkedin: {
@@ -38988,6 +39035,11 @@ export interface operations {
                                      * @enum {string}
                                      */
                                     sending: "off" | "steps" | "approve_all" | "everything";
+                                    /**
+                                     * @default cancel
+                                     * @enum {string}
+                                     */
+                                    tidy: "off" | "cancel" | "unfriend";
                                     /** @default true */
                                     warmUp: boolean;
                                     /** @default true */
@@ -72032,7 +72084,8 @@ export interface operations {
                              * @default {
                              *       "facebook": {
                              *         "on": true,
-                             *         "young": false
+                             *         "young": false,
+                             *         "tidy": "cancel"
                              *       },
                              *       "linkedin": {
                              *         "on": false,
@@ -72044,7 +72097,8 @@ export interface operations {
                              *         "joinGroups": true,
                              *         "watchPosts": true,
                              *         "posting": "after_ok",
-                             *         "young": false
+                             *         "young": false,
+                             *         "tidy": "cancel"
                              *       },
                              *       "instagram": {
                              *         "on": false,
@@ -72056,7 +72110,8 @@ export interface operations {
                              *         "joinGroups": true,
                              *         "watchPosts": true,
                              *         "posting": "after_ok",
-                             *         "young": false
+                             *         "young": false,
+                             *         "tidy": "cancel"
                              *       },
                              *       "alignable": {
                              *         "on": false,
@@ -72068,7 +72123,8 @@ export interface operations {
                              *         "joinGroups": true,
                              *         "watchPosts": true,
                              *         "posting": "after_ok",
-                             *         "young": false
+                             *         "young": false,
+                             *         "tidy": "cancel"
                              *       }
                              *     }
                              */
@@ -72084,7 +72140,8 @@ export interface operations {
                                  *       "joinGroups": true,
                                  *       "watchPosts": true,
                                  *       "posting": "after_ok",
-                                 *       "young": false
+                                 *       "young": false,
+                                 *       "tidy": "cancel"
                                  *     }
                                  */
                                 alignable: {
@@ -72111,6 +72168,11 @@ export interface operations {
                                      * @enum {string}
                                      */
                                     sending: "off" | "steps" | "approve_all" | "everything";
+                                    /**
+                                     * @default cancel
+                                     * @enum {string}
+                                     */
+                                    tidy: "off" | "cancel" | "unfriend";
                                     /** @default true */
                                     warmUp: boolean;
                                     /** @default true */
@@ -72121,12 +72183,18 @@ export interface operations {
                                 /**
                                  * @default {
                                  *       "on": true,
-                                 *       "young": false
+                                 *       "young": false,
+                                 *       "tidy": "cancel"
                                  *     }
                                  */
                                 facebook: {
                                     /** @default true */
                                     on: boolean;
+                                    /**
+                                     * @default cancel
+                                     * @enum {string}
+                                     */
+                                    tidy: "off" | "cancel" | "unfriend";
                                     /** @default false */
                                     young: boolean;
                                 };
@@ -72141,7 +72209,8 @@ export interface operations {
                                  *       "joinGroups": true,
                                  *       "watchPosts": true,
                                  *       "posting": "after_ok",
-                                 *       "young": false
+                                 *       "young": false,
+                                 *       "tidy": "cancel"
                                  *     }
                                  */
                                 instagram: {
@@ -72168,6 +72237,11 @@ export interface operations {
                                      * @enum {string}
                                      */
                                     sending: "off" | "steps" | "approve_all" | "everything";
+                                    /**
+                                     * @default cancel
+                                     * @enum {string}
+                                     */
+                                    tidy: "off" | "cancel" | "unfriend";
                                     /** @default true */
                                     warmUp: boolean;
                                     /** @default true */
@@ -72186,7 +72260,8 @@ export interface operations {
                                  *       "joinGroups": true,
                                  *       "watchPosts": true,
                                  *       "posting": "after_ok",
-                                 *       "young": false
+                                 *       "young": false,
+                                 *       "tidy": "cancel"
                                  *     }
                                  */
                                 linkedin: {
@@ -72213,6 +72288,11 @@ export interface operations {
                                      * @enum {string}
                                      */
                                     sending: "off" | "steps" | "approve_all" | "everything";
+                                    /**
+                                     * @default cancel
+                                     * @enum {string}
+                                     */
+                                    tidy: "off" | "cancel" | "unfriend";
                                     /** @default true */
                                     warmUp: boolean;
                                     /** @default true */
@@ -72824,6 +72904,41 @@ export interface operations {
                             };
                         };
                         needsFile: boolean;
+                        /**
+                         * @default {
+                         *       "mode": "off",
+                         *       "cancel": [],
+                         *       "unfriend": []
+                         *     }
+                         */
+                        own: {
+                            cancel: {
+                                fit: ("good" | "maybe" | "unknown" | "skip") | null;
+                                lastContact: string | null;
+                                name: string;
+                                platformId: string | null;
+                                /** Format: uuid */
+                                profileId: string;
+                                /** Format: date-time */
+                                since: string;
+                                url: string;
+                                username: string | null;
+                            }[];
+                            /** @enum {string} */
+                            mode: "off" | "cancel" | "unfriend";
+                            unfriend: {
+                                fit: ("good" | "maybe" | "unknown" | "skip") | null;
+                                lastContact: string | null;
+                                name: string;
+                                platformId: string | null;
+                                /** Format: uuid */
+                                profileId: string;
+                                /** Format: date-time */
+                                since: string;
+                                url: string;
+                                username: string | null;
+                            }[];
+                        };
                         totals: {
                             cancel_request: number;
                             unfriend: number;

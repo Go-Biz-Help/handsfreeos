@@ -82,6 +82,7 @@ import { checkRequests } from '../jobs/alignable/people';
 import { readWarmLeads } from '../jobs/alignable/engaged';
 import { findPostsInTown } from '../jobs/alignable/posts';
 import { ALIGNABLE, readAlignableIn, type AlignablePage } from '../jobs/alignable/read';
+import { withdrawOnItsOwn } from '../jobs/alignable/withdraw';
 import { valueOf, warnedLine, type Hfos, type Job, type JobEnd } from '../jobs/job';
 import { chatMemory } from '../jobs/chats';
 import { checkFound } from '../jobs/found-checks';
@@ -143,11 +144,13 @@ export const ALIGNABLE_AUTO: readonly TodayKind[] = ['warm_up', 'friend_request'
  * engaged, here with no helpful post of their own). From 0.95.0 (decision 92) the person's own groups go first
  * (`my_groups`), before any search or join; after the town's posts, the search for businesses like their clients
  * (`search`), the groups found and checked, joined, their members read and their posts (`group_checks`, `join`,
- * `members`, `group_posts`); and the businesses found by topic are checked last (`found_checks`).
+ * `members`, `group_posts`); and the businesses found by topic are checked last (`found_checks`). From 0.97.0 old
+ * connection requests are withdrawn after the new ones are checked, as the person chose (`tidy`, decision 98).
  */
 export const ALIGNABLE_DAILY = [
   'my_groups',
   'requests',
+  'tidy',
   'checks',
   'chats',
   'partners',
@@ -165,6 +168,7 @@ type AlignableDaily = (typeof ALIGNABLE_DAILY)[number];
 const DAILY_DOING: Readonly<Record<AlignableDaily, string>> = {
   my_groups: 'Reading your groups on Alignable…',
   requests: 'Checking your connection requests on Alignable…',
+  tidy: 'Withdrawing your old connection requests on Alignable…',
   checks: 'Checking your connections for good fits…',
   chats: 'Reading your Alignable chats for the AI…',
   partners: 'Searching Alignable for businesses that could partner with you, then reading them…',
@@ -180,6 +184,7 @@ const DAILY_DOING: Readonly<Record<AlignableDaily, string>> = {
 const DAILY_NAMES: Readonly<Record<AlignableDaily, string>> = {
   my_groups: 'Your groups',
   requests: 'Connection requests',
+  tidy: 'Tidy up',
   checks: 'Check my connections',
   chats: 'Read my chats',
   partners: 'Find partners',
@@ -875,6 +880,8 @@ export async function runAlignableDaily(kind: AlignableDaily, job: Job): Promise
       return readMyGroups(reporting(job, kind));
     case 'requests':
       return checkRequests(job);
+    case 'tidy':
+      return withdrawOnItsOwn(reporting(job, kind));
     case 'checks':
       return checkConnections(job, NETWORKS.alignable.checksPerDay);
     case 'chats':

@@ -1,7 +1,8 @@
 /**
  * Tidying the person's own friends, and the networks' warnings (../tidy.ts): the sent requests and friends the
  * extension may cancel or unfriend once the person ticks them, each one it did, and each warning a network showed
- * them. Each person's are their own, and a warning is its network's alone: the others go on. On a follow network
+ * them. Each person's are their own, and a warning is its network's alone: the others go on. With them, who the
+ * extension tidies on its own today (decision 98), as the person picks for the network. On a follow network
  * (Instagram's), who the extension looks at to see whether they followed back (`outreach.follow_backs.next`), so
  * nobody who did is suggested for unfollowing.
  */
@@ -12,9 +13,10 @@ import { workspaceTimezone } from '../../../crm/records';
 import { requireHuman } from '../../../kernel/actor';
 import { changeMoment } from '../../../kernel/moment';
 import { defineAddonCommand, defineAddonQuery } from '../../server';
+import { tidyModeOn } from '../automation';
 import { outreachSettings } from '../chat-read';
 import { bestFit } from '../fit';
-import { limitNow, WARNING_SLOWER_DAYS, type TidyKind } from '../limits';
+import { limitNow, OWN_TIDY_LIMITS, WARNING_SLOWER_DAYS, type TidyKind } from '../limits';
 import {
   FOLLOW_BACK_AFTER_DAYS,
   FOLLOW_BACK_AGAIN_HOURS,
@@ -38,7 +40,7 @@ import {
   type TidyCandidate,
   type WarningState,
 } from '../tidy';
-import { slowerFor, wheelsBackOn } from './automation';
+import { automationOf, wheelsBackOn } from './automation';
 import { inWorkspace, keepFriendStates, keptProfile, once, pitchable, type Ctx } from './common';
 import { warnDay } from './day';
 import { playbooksInUse } from './friends';
@@ -126,6 +128,10 @@ type Found = {
   readonly mutual_friends: number | null;
   readonly group_name: string | null;
   readonly total: number;
+  /** A friend: any chat with them either way, kept or noted (decision 98). */
+  readonly chatted?: boolean;
+  /** A friend: the AI's check found they aren't a fit. */
+  readonly not_fit?: boolean;
 };
 
 const iso = (at: Date | string) => new Date(at).toISOString();
@@ -154,7 +160,8 @@ export const friendsTidy = defineAddonQuery(outreachAddon, {
     );
     const weeks = outreachSettings(installed?.settings).cancelRequestsAfterWeeks;
     const warning = await warningOf(ctx, me, input.platform, todayFrom, now);
-    const slower = await slowerFor(ctx, me, slowsNow(warning, now), now, input.platform);
+    const auto = await automationOf(ctx, me, now, input.platform);
+    const slower = slowsNow(warning, now) || auto.slower;
     const kit = NETWORKS[input.platform];
     const done = await endsToday(ctx, me, todayFrom, input.platform);
     // On a follow network (Instagram's) tidying unfollows (the Instagram and Alignable plan's question 5): never anyone
@@ -205,7 +212,15 @@ export const friendsTidy = defineAddonQuery(outreachAddon, {
                     (select max(c.last_at) from addon_outreach.file_chats c
                       where c.profile_id = p.id and c.user_id = ${me}),
                     (select max(t.at) from addon_outreach.touches t
-                      where t.profile_id = p.id and t.user_id = ${me})) as last_contact
+                      where t.profile_id = p.id and t.user_id = ${me})) as last_contact,
+                  (exists (select 1 from addon_outreach.file_chats c
+                      where c.profile_id = p.id and c.user_id = ${me})
+                    or exists (select 1 from addon_outreach.replies r
+                      where r.profile_id = p.id and r.user_id = ${me})
+                    or exists (select 1 from addon_outreach.touches t
+                      where t.profile_id = p.id and t.user_id = ${me} and t.kind = 'message')) as chatted,
+                  exists (select 1 from addon_outreach.checks k
+                    where k.profile_id = p.id and k.user_id = ${me} and k.verdict = 'not') as not_fit
                 from addon_outreach.friends f
                 join addon_outreach.profiles p on p.id = f.profile_id
                 where f.workspace_id = ${ws} and f.user_id = ${me} and p.platform = ${input.platform}
@@ -250,19 +265,47 @@ export const friendsTidy = defineAddonQuery(outreachAddon, {
           where f.workspace_id = ${ws} and f.user_id = ${me} and f.state = 'friends'
             and p.platform = ${input.platform}`,
     );
+    const limits = tidyLimits(done, {
+      cancel_request: limitNow(kit.tidyLimits.cancel_request, slower),
+      unfriend: limitNow(kit.tidyLimits.unfriend, slower),
+    });
+    // On its own (decision 98): within the day's limit, what's left of it after any done by hand, and its own limit,
+    // halved as the rest are. Nothing while a warning today stops the extension there.
+    const ownRoom = (kind: TidyKind) =>
+      warning?.today
+        ? 0
+        : Math.max(
+            0,
+            Math.min(limits[kind].most, limitNow(OWN_TIDY_LIMITS[kind], slower)) -
+              limits[kind].done,
+          );
+    const mode = tidyModeOn(input.platform, auto.choices.tidy);
+    const own = {
+      mode,
+      cancel:
+        mode === 'off'
+          ? []
+          : cancel.slice(0, ownRoom('cancel_request')).map((f) => candidate(f, true)),
+      // Only friends the AI found aren't a fit and the person never chatted with, the longest quiet first.
+      unfriend:
+        mode === 'unfriend'
+          ? unfriend
+              .filter((f) => f.not_fit && !f.chatted)
+              .slice(0, ownRoom('unfriend'))
+              .map((f) => candidate(f, false))
+          : [],
+    };
     return {
       cancel: cancel.map((f) => candidate(f, true)),
       unfriend: unfriend.slice(0, TIDY_MOST).map((f) => candidate(f, false)),
       totals: { cancel_request: cancel[0]?.total ?? 0, unfriend: unfriend.length },
       cancelAfterWeeks: weeks,
       needsFile,
-      limits: tidyLimits(done, {
-        cancel_request: limitNow(kit.tidyLimits.cancel_request, slower),
-        unfriend: limitNow(kit.tidyLimits.unfriend, slower),
-      }),
+      limits,
       friends: counted?.friends ?? 0,
       cap: kit.friendsCap,
       warning,
+      own,
     };
   },
 });

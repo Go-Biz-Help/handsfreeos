@@ -67,6 +67,7 @@ import { checkInvitations } from '../jobs/linkedin/people';
 import { findPostsBySearch } from '../jobs/linkedin/posts';
 import { readPostPeople } from '../jobs/linkedin/post-people';
 import { searchLinkedIn } from '../jobs/linkedin/partner-search';
+import { withdrawOnItsOwn } from '../jobs/linkedin/withdraw';
 import { LINKEDIN, readLinkedIn } from '../jobs/linkedin/read';
 import { linkedin, type LinkedInRead } from '../networks';
 import type { ProfileRef, ThreadRef } from '../networks/linkedin/types';
@@ -112,12 +113,14 @@ export const LINKEDIN_ALARM = 'hfos-auto-linkedin';
 /** The kinds it does on its own on LinkedIn, in order: invitations they sent are theirs to accept. */
 export const LINKEDIN_AUTO: readonly TodayKind[] = ['warm_up', 'friend_request', 'comment'];
 /**
- * The once-a-day jobs on LinkedIn, in order. From 0.95.0 (decision 92) who reacted to and commented on the good posts
+ * The once-a-day jobs on LinkedIn, in order. From 0.97.0 it withdraws old invitations on its own after checking the
+ * new ones (`tidy`, decision 98), as the person chose. From 0.95.0 (decision 92) who reacted to and commented on the good posts
  * its search found is read after the helpful post (`post_people`), and the people found are checked last
  * (`found_checks`), inside its 40 profiles read, found people first.
  */
 export const LINKEDIN_DAILY = [
   'requests',
+  'tidy',
   'checks',
   'chats',
   'posts',
@@ -130,6 +133,7 @@ type LinkedInDaily = (typeof LINKEDIN_DAILY)[number];
 
 const DAILY_DOING: Readonly<Record<LinkedInDaily, string>> = {
   requests: 'Checking your invitations on LinkedIn…',
+  tidy: 'Withdrawing your old invitations on LinkedIn…',
   checks: 'Checking your connections for good fits…',
   chats: 'Reading your LinkedIn chats for the AI…',
   posts: 'Finding posts with LinkedIn’s post search…',
@@ -140,6 +144,7 @@ const DAILY_DOING: Readonly<Record<LinkedInDaily, string>> = {
 };
 const DAILY_NAMES: Readonly<Record<LinkedInDaily, string>> = {
   requests: 'Invitations',
+  tidy: 'Tidy up',
   checks: 'Check my connections',
   chats: 'Read my chats',
   posts: 'Find posts',
@@ -829,6 +834,8 @@ export async function runLinkedInDaily(kind: LinkedInDaily, job: Job): Promise<J
   switch (kind) {
     case 'requests':
       return checkInvitations(job);
+    case 'tidy':
+      return withdrawOnItsOwn(job);
     case 'checks':
       return checkConnections(job, CHECKS_PER_DAY);
     case 'partners':

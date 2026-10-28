@@ -80,6 +80,7 @@ import {
   LimitsFields,
   NetworkModes,
   NetworkTicks,
+  NetworkTidy,
   Part,
   PushesPart,
   select,
@@ -596,6 +597,13 @@ function NetworkPage({
                 testId={testId}
               />
               <NetworkTicks
+                card
+                platform={platform}
+                value={choices}
+                onChange={set}
+                testId={testId}
+              />
+              <NetworkTidy
                 card
                 platform={platform}
                 value={choices}

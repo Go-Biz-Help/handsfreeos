@@ -27,6 +27,9 @@
  *   start of the working day, while it works on its own; and checking friends and groups (decisions 46 and 48).
  * - **Join groups** (decision 48): when people left to reach in the groups run low, finding groups and asking to join
  *   up to 3 good ones a day, with the AI answering their questions.
+ * - **Tidy up on its own** (decisions 29 and 98): with the once-a-day jobs, cancelling old requests nobody answered
+ *   (withdrawing, on LinkedIn and Alignable; unfollowing who didn't follow back, on Instagram), up to 20 a day; or
+ *   that and unfriending, on Facebook, only friends the AI found aren't a fit and never chatted with, up to 10 a day.
  *
  * - **Where they're set** (decisions 37 to 40): in HandsFreeOS, on Social Outreach's Settings tab, on the web and the
  *   phone; never in the extension, which loads them when the person signs in and follows each change within seconds.
@@ -97,6 +100,22 @@ export const POSTING_MODES = {
 export type PostingMode = keyof typeof POSTING_MODES;
 export const POSTING_MODE_KEYS = Object.keys(POSTING_MODES) as [PostingMode, ...PostingMode[]];
 
+/**
+ * Tidying up on its own (decisions 29 and 98), each network's own: not at all; old requests nobody answered (the
+ * default); or those and friends to unfriend, on a network with unfriending (Facebook's). In this order, least first.
+ */
+export const TIDY_MODES = {
+  off: 'Only who I tick',
+  cancel: 'Old requests',
+  unfriend: 'Old requests, and friends to unfriend',
+} as const;
+export type TidyMode = keyof typeof TIDY_MODES;
+export const TIDY_MODE_KEYS = Object.keys(TIDY_MODES) as [TidyMode, ...TidyMode[]];
+
+/** A network's tidying as it goes there: unfriending only where the network has it, else just the old requests. */
+export const tidyModeOn = (platform: Platform, mode: TidyMode): TidyMode =>
+  mode === 'unfriend' && NETWORKS[platform].tidyLimits.unfriend === 0 ? 'cancel' : mode;
+
 /** 0 is Sunday. */
 export const WEEKDAY_WORDS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'] as const;
 
@@ -147,6 +166,8 @@ export const NetworkChoices = z.object({
    * says so, as the extension can't see an account's age. Off to start.
    */
   young: z.boolean().default(false),
+  /** Tidying up on its own there (decision 98): old requests to start. */
+  tidy: z.enum(TIDY_MODE_KEYS).default('cancel'),
 });
 export type NetworkChoices = z.output<typeof NetworkChoices>;
 export const NETWORK_CHOICES_DEFAULTS: NetworkChoices = NetworkChoices.parse({});
@@ -158,8 +179,12 @@ export const OTHER_PLATFORMS = PLATFORM_KEYS.filter((p) => p !== 'facebook') as 
 /** Which networks the person works, and each other network's choices. Facebook's choices are the ones beside it. */
 export const NetworksSettings = z.object({
   facebook: z
-    .object({ on: z.boolean().default(true), young: z.boolean().default(false) })
-    .default({ on: true, young: false }),
+    .object({
+      on: z.boolean().default(true),
+      young: z.boolean().default(false),
+      tidy: z.enum(TIDY_MODE_KEYS).default('cancel'),
+    })
+    .default({ on: true, young: false, tidy: 'cancel' }),
   linkedin: NetworkChoices.default(NETWORK_CHOICES_DEFAULTS),
   instagram: NetworkChoices.default(NETWORK_CHOICES_DEFAULTS),
   alignable: NetworkChoices.default(NETWORK_CHOICES_DEFAULTS),
@@ -213,6 +238,7 @@ export function choicesFor(settings: AutomationSettings, platform: Platform): Ne
   return {
     on: settings.networks.facebook.on,
     young: settings.networks.facebook.young,
+    tidy: settings.networks.facebook.tidy,
     sending,
     replies,
     warmUp,

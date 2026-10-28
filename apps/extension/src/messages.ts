@@ -24,7 +24,7 @@ import type { StepAsk, StepResult } from './networks/facebook/fetch';
 import type { Engaged, PostResult } from './networks/facebook/compose';
 import type { JoinStep } from './networks/facebook/join';
 import type { ProfileRef, ReadResult } from './networks/facebook/types';
-import type { WithdrawResult } from './networks/linkedin/withdraw';
+import type { AlignableWithdrawResult } from './networks/alignable/withdraw';
 import type { PostPerson, ReactorsRead } from './networks/linkedin/compose';
 import type { Answered, PageRead, ReplySighting, Seen, Step } from './networks/kit';
 
@@ -347,12 +347,13 @@ export type TryAnswer =
 
 /**
  * On LinkedIn's Sent invitations, withdraw the one to this member (src/networks/linkedin/withdraw.ts): its row is found
- * by their profile link, and nothing else is pressed.
+ * by their profile link, and nothing else is pressed. From 0.97.0, on Alignable, the request to this business, on its
+ * own page (src/networks/alignable/withdraw.ts), which may say it went already or they're connected now.
  */
 export type WithdrawAsk = { readonly type: 'hfos-withdraw'; readonly profile: ProfileRef };
 
 export type WithdrawAnswer =
-  | { readonly ok: true; readonly result: WithdrawResult }
+  | { readonly ok: true; readonly result: AlignableWithdrawResult }
   | { readonly ok: false; readonly error: string };
 
 /**

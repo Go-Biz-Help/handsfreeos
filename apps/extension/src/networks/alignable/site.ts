@@ -34,6 +34,7 @@ import {
 import { openConversation, scrollAny, showAllConnections } from './browse';
 import { JOIN, JOIN_ASKED, JOINED, readAlignable } from './read';
 import { readReplies } from './replies';
+import { withdrawOnPage } from './withdraw';
 import type { LookingSite, PlaceOpening } from '../looking/site';
 import { went } from '../tries';
 
@@ -782,6 +783,8 @@ export const ALIGNABLE: LookingSite = {
     join: joinOnPage,
     answerJoin: () => Promise.resolve('none'),
   },
+  // A request the person sent withdrawn, on that business's own page (0.97.0, decisions 12 and 98).
+  withdraw: withdrawOnPage,
   words: WORDS,
   warnings: WARNINGS,
   placeOpening,

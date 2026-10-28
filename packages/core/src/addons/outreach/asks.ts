@@ -124,7 +124,8 @@ export const ASK_KINDS_ON: Readonly<Record<Platform, readonly AskKind[]>> = {
   ],
   // Alignable from its part 4 (partners stage 6c): its connections and the requests they've got saved, connections
   // checked for fits and one researched, and a business looked up before drafting, as LinkedIn's are. Its chats read
-  // (noting who wrote last) from 0.84.0, once its chat reader was built from the owner's Check of 21 Oct 2026.
+  // (noting who wrote last) from 0.84.0, once its chat reader was built from the owner's Check of 21 Oct 2026. From
+  // 0.97.0 the old connection requests they tick are withdrawn (`cancel`, decision 98).
   alignable: [
     'requests',
     'friends',
@@ -132,6 +133,7 @@ export const ASK_KINDS_ON: Readonly<Record<Platform, readonly AskKind[]>> = {
     'lookup',
     'research',
     'chats',
+    'cancel',
     // Its town's posts and forum questions (part 6's first piece): whoever asks for what the business offers.
     'posts',
     'checkup',
@@ -153,7 +155,11 @@ const ASK_NAMES_ON: Readonly<Partial<Record<Platform, Partial<Record<AskKind, st
     profile_edit: 'Update your profile',
     username_check: 'Check profile addresses are free',
   },
-  alignable: { profile_edit: 'Put your About Us in', posts: 'Find posts in your town' },
+  alignable: {
+    cancel: 'Withdraw old connection requests',
+    profile_edit: 'Put your About Us in',
+    posts: 'Find posts in your town',
+  },
   instagram: {
     friends: 'Save my followers',
     cancel: 'Unfollow the ones you ticked',
@@ -324,7 +330,8 @@ export const ASK_KIND_SINCE_ON: Readonly<
     lookup: '0.81.0',
   },
   // Alignable's profile, read and its About Us put in, past the code it emails (decision 82).
-  // Its connections, requests, checks, research and look-ups: its part 4. Its chats: 0.84.0.
+  // Its connections, requests, checks, research and look-ups: its part 4. Its chats: 0.84.0. Withdrawing the old
+  // connection requests ticked: 0.97.0 (decision 98).
   alignable: {
     profile_read: '0.71.0',
     profile_edit: '0.71.0',
@@ -335,6 +342,7 @@ export const ASK_KIND_SINCE_ON: Readonly<
     research: '0.73.0',
     posts: '0.74.0',
     chats: '0.84.0',
+    cancel: '0.97.0',
   },
 };
 

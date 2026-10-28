@@ -10,15 +10,17 @@
  * it, presses Withdraw and then the box's own Withdraw (src/networks/linkedin/withdraw.ts), checks the row is gone,
  * and notes it in HandsFreeOS. Someone not on the list, read to its end, answered already or was withdrawn: noted as
  * done already, and not counted. It goes slowly, stops at today's limit, and stops on any LinkedIn warning. A step it
- * can't do, it hands to the person: Carry on once they've done it, or Skip that person.
+ * can't do, it hands to the person: Carry on once they've done it, or Skip that person. From 0.97.0 it also withdraws
+ * on its own once a day (decision 98), the oldest HandsFreeOS picks, with nobody handed to the person.
  */
 import { TIDY_PACE_SECONDS } from '@hfos/core/addons/outreach/asks';
-import type { TidyCandidate } from '../../hfos/messages';
+import type { Tidy, TidyCandidate } from '../../hfos/messages';
 import type { LinkedInRead } from '../../networks';
 import type { ProfileRef } from '../../networks/linkedin/types';
 import { sameMember } from '../../networks/linkedin/urls';
 import { counted } from '../../words';
 import { paced, pause, valueOf, warnedOn, type Job, type JobEnd } from '../job';
+import { ownTidy } from '../own-tidy';
 import { INVITATIONS_SENT, readLinkedIn, SCROLL_PACE_MS } from './read';
 
 /** Between people, a steady pace like a person's: never the same twice. */
@@ -143,12 +145,35 @@ export async function withdrawInvitations(
   profileIds: readonly string[],
 ): Promise<JobEnd> {
   job.progress('Getting the list from HandsFreeOS…');
-  const lists = valueOf(
-    await job.hfos({ type: 'hfos-tidy', workspaceId: job.businessId, platform: 'linkedin' }),
-  );
+  const lists = await listsOf(job);
   const byId = new Map(lists.cancel.map((c) => [c.profileId, c]));
   const picks = profileIds.map((id) => byId.get(id)).filter((c): c is TidyCandidate => !!c);
-  const gone = profileIds.length - picks.length;
+  return withdrawThese(job, picks, lists, profileIds.length - picks.length);
+}
+
+/**
+ * Withdrawing on its own, once a day (decision 98): the oldest invitations HandsFreeOS picked for today, as the person
+ * chose for LinkedIn. Nobody is handed to the person: one it can't withdraw, it passes over.
+ */
+export async function withdrawOnItsOwn(job: Job): Promise<JobEnd> {
+  const lists = await listsOf(job);
+  return ownTidy(job, lists, (which, picks) =>
+    which === 'cancel_request'
+      ? withdrawThese(job, picks, lists)
+      : Promise.resolve({ line: '', warned: false }),
+  );
+}
+
+const listsOf = async (job: Job): Promise<Tidy> =>
+  valueOf(await job.hfos({ type: 'hfos-tidy', workspaceId: job.businessId, platform: 'linkedin' }));
+
+/** Goes through those picked, a person at a time, up to today's limit on LinkedIn. */
+async function withdrawThese(
+  job: Job,
+  picks: readonly TidyCandidate[],
+  lists: Tidy,
+  gone = 0,
+): Promise<JobEnd> {
   const limit = lists.limits.cancel_request;
   let room = Math.max(0, limit.most - limit.done);
   let done = 0;

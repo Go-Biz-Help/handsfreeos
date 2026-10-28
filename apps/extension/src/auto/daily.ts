@@ -1,7 +1,7 @@
 /**
  * The once-a-day jobs (docs/outreach.md, decision 32), which the runner that works on its own (./run.ts) does at the
  * start of the person's working day, or after **Start my day**, before going down their list: it checks their friend
- * requests, checks their groups for their people and joins good ones when people left to reach run low (decision 48),
+ * requests, tidies up old ones as the person chose (decision 98), checks their groups for their people and joins good ones when people left to reach run low (decision 48),
  * saves the members of their good groups, finds posts in those groups, reads their chats, and checks their friends for
  * good fits (decision 46), each in the window it works in, at a person's pace (src/jobs/). Those fill the list it
  * then works from: requests to confirm, people to send friend requests to, posts to comment on, chats for the AI, and
@@ -24,6 +24,7 @@ import { joinGroups } from '../jobs/join';
 import type { Job, JobEnd } from '../jobs/job';
 import { checkRequests, saveMembers } from '../jobs/people';
 import { findPosts, groupsToWork, RUN_GROUPS } from '../jobs/posts';
+import { tidyOnItsOwn } from '../jobs/tidy';
 import { postsSave } from '../hfos/saves';
 import type { DailyJob } from './plan';
 
@@ -33,6 +34,7 @@ export const DAILY_CHATS = 60;
 /** What it's doing, in words for the person. */
 export const DAILY_DOING: Readonly<Record<DailyJob, string>> = {
   requests: 'Checking your friend requests…',
+  tidy: 'Tidying up your old friend requests…',
   group_checks: 'Checking your groups for your people…',
   join: 'Looking for good groups to join…',
   members: 'Saving your groups’ members…',
@@ -46,6 +48,7 @@ export const DAILY_DOING: Readonly<Record<DailyJob, string>> = {
 /** The job's name, for the panel's list of what it did today. */
 export const DAILY_NAMES: Readonly<Record<DailyJob, string>> = {
   requests: 'Friend requests',
+  tidy: 'Tidy up',
   group_checks: 'Check my groups',
   join: 'Join groups',
   members: 'Group members',
@@ -82,6 +85,8 @@ export async function runDaily(kind: DailyJob, job: Job): Promise<JobEnd> {
   switch (kind) {
     case 'requests':
       return checkRequests(job);
+    case 'tidy':
+      return tidyOnItsOwn(job);
     case 'group_checks':
       return checkGroups(job, GROUP_CHECKS_DAILY);
     case 'join':

@@ -303,6 +303,7 @@ describe('Check my connections, Research and a look-up, on Alignable', () => {
       tags: [],
       connect: false,
       connected: false,
+      asked: false,
       recommend: false,
       refer: false,
       message: false,

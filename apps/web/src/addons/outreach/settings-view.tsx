@@ -55,6 +55,7 @@ import {
   sendingModesOn,
   ticksOn,
   ticksShownOn,
+  tidyChoiceOn,
   withNetwork,
 } from '@hfos/core/addons/outreach/network-words';
 import {
@@ -325,6 +326,44 @@ export function NetworkTicks({
           testId={`${testId}-${key}`}
         />
       ))}
+    </Part>
+  );
+}
+
+/**
+ * Tidying up on its own on one network (decision 98), in its words: only who the person ticks, the old requests, or on
+ * Facebook those and friends to unfriend. Only where the extension works on its own.
+ */
+export function NetworkTidy({
+  platform,
+  value,
+  onChange,
+  card = false,
+  testId,
+}: {
+  platform: Platform;
+  value: NetworkChoices;
+  onChange: (change: Partial<NetworkChoices>) => void;
+  card?: boolean;
+  testId: string;
+}) {
+  if (!runsOnItsOwn(platform)) return null;
+  const choice = tidyChoiceOn(platform);
+  // A server from before it says nothing: old requests, as it starts.
+  const picked = value.tidy ?? 'cancel';
+  return (
+    <Part title={choice.label} about={choice.about} card={card} testId={`${testId}-tidy`}>
+      <div role="radiogroup" aria-label={choice.label} className="flex flex-col gap-2">
+        {choice.options.map((o) => (
+          <RadioCard
+            key={o.key}
+            selected={picked === o.key}
+            onSelect={() => onChange({ tidy: o.key })}
+            title={o.label}
+            testId={`${testId}-tidy-${o.key}`}
+          />
+        ))}
+      </div>
     </Part>
   );
 }

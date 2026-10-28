@@ -435,8 +435,12 @@ describe('what it does on Instagram’s list', () => {
     // partners, the hashtags and the notifications.
     expect(nextInstagramDaily({ daily: {} })).toBe('requests');
     expect(nextInstagramDaily({ daily: { requests: 'x' } })).toBe('follow_backs');
-    expect(nextInstagramDaily({ daily: { requests: 'x', follow_backs: 'u' } })).toBe('checks');
-    const done = { requests: 'x', follow_backs: 'u', checks: 'y' };
+    // Who didn't follow back unfollowed as they chose, once who did is seen (0.97.0, decision 98).
+    expect(nextInstagramDaily({ daily: { requests: 'x', follow_backs: 'u' } })).toBe('tidy');
+    expect(nextInstagramDaily({ daily: { requests: 'x', follow_backs: 'u', tidy: 't' } })).toBe(
+      'checks',
+    );
+    const done = { requests: 'x', follow_backs: 'u', tidy: 't', checks: 'y' };
     expect(nextInstagramDaily({ daily: done })).toBe('chats');
     expect(nextInstagramDaily({ daily: { ...done, chats: 'z' } })).toBe('partners');
     expect(nextInstagramDaily({ daily: { ...done, chats: 'z', partners: 'w' } })).toBe('posts');

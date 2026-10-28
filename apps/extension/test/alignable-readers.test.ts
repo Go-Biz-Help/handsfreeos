@@ -352,6 +352,7 @@ describe('a business’s page', () => {
       tags: ['Plumbing', 'Drains'],
       connect: true,
       connected: false,
+      asked: false,
       recommend: true,
       refer: true,
       message: false,

@@ -1,7 +1,8 @@
 /**
  * Tidying the person's friends (docs/outreach.md, decisions 10, 12, 15, 17 and 43), asked from the Friends tab in
  * HandsFreeOS: the old requests they ticked to cancel, or the friends they ticked to unfriend
- * (packages/core/src/addons/outreach/tidy.ts). The extension opens each one's profile in a tab they can see, checks
+ * (packages/core/src/addons/outreach/tidy.ts); and from 0.97.0 on its own once a day (decision 98), those HandsFreeOS
+ * picks as the person chose, with nobody handed to them. The extension opens each one's profile in a tab they can see, checks
  * it's them and where things stand, presses Cancel request or Unfriend (src/networks/facebook/tidy.ts), checks it worked, and
  * notes it in HandsFreeOS. It goes slowly, stops at today's limit, and stops for the day on any Facebook warning. A
  * step it can't find, it hands to the person: Carry on once they've done it, or Skip that person.
@@ -11,9 +12,10 @@ import { withTheirName } from '../networks/facebook/auto';
 import { FRIENDSHIP_WORDS, TIDY_PLANS, sameProfile, type TidyJob } from '../networks/facebook/tidy';
 import type { FetchStep } from '../networks/facebook/fetch';
 import { facebook } from '../networks/facebook/kit';
-import type { TidyCandidate } from '../hfos/messages';
+import type { Tidy, TidyCandidate } from '../hfos/messages';
 import { counted } from '../words';
 import { paced, pause, readIn, valueOf, warnedOn, type Job, type JobEnd } from './job';
+import { ownTidy } from './own-tidy';
 
 /** Between people, a steady pace like a person's: never the same twice. */
 const PACE_MS = [TIDY_PACE_SECONDS[0] * 1000, TIDY_PACE_SECONDS[1] * 1000] as const;
@@ -154,21 +156,14 @@ function summary(which: TidyJob, done: number, skipped: number, gone: number): s
   return parts.join(' ');
 }
 
-/**
- * Cancels the old requests, or unfriends the friends, the person ticked: those still on HandsFreeOS's list, a person
- * at a time, up to today's limit.
- */
-export async function tidy(
+/** Goes through those picked, a person at a time, up to today's limit. */
+async function tidyThese(
   job: Job,
   which: TidyJob,
-  profileIds: readonly string[],
+  picks: readonly TidyCandidate[],
+  lists: Tidy,
+  gone = 0,
 ): Promise<JobEnd> {
-  job.progress('Getting the list from HandsFreeOS…');
-  const lists = valueOf(await job.hfos({ type: 'hfos-tidy', workspaceId: job.businessId }));
-  const list = which === 'cancel_request' ? lists.cancel : lists.unfriend;
-  const byId = new Map(list.map((c) => [c.profileId, c]));
-  const picks = profileIds.map((id) => byId.get(id)).filter((c): c is TidyCandidate => !!c);
-  const gone = profileIds.length - picks.length;
   let room = Math.max(0, lists.limits[which].most - lists.limits[which].done);
   let done = 0;
   let skipped = 0;
@@ -198,4 +193,31 @@ export async function tidy(
     }
   }
   return { line: `Done. ${summary(which, done, skipped, gone)}`, warned: false };
+}
+
+/**
+ * Cancels the old requests, or unfriends the friends, the person ticked: those still on HandsFreeOS's list, a person
+ * at a time, up to today's limit.
+ */
+export async function tidy(
+  job: Job,
+  which: TidyJob,
+  profileIds: readonly string[],
+): Promise<JobEnd> {
+  job.progress('Getting the list from HandsFreeOS…');
+  const lists = valueOf(await job.hfos({ type: 'hfos-tidy', workspaceId: job.businessId }));
+  const list = which === 'cancel_request' ? lists.cancel : lists.unfriend;
+  const byId = new Map(list.map((c) => [c.profileId, c]));
+  const picks = profileIds.map((id) => byId.get(id)).filter((c): c is TidyCandidate => !!c);
+  return tidyThese(job, which, picks, lists, profileIds.length - picks.length);
+}
+
+/**
+ * Tidying on its own, once a day (decision 98): those HandsFreeOS picks for today as the person chose for Facebook,
+ * the old requests first, then the friends to unfriend, within today's limits. Nobody is handed to the person: a step
+ * it can't find, it passes over.
+ */
+export async function tidyOnItsOwn(job: Job): Promise<JobEnd> {
+  const lists = valueOf(await job.hfos({ type: 'hfos-tidy', workspaceId: job.businessId }));
+  return ownTidy(job, lists, (which, picks) => tidyThese(job, which, picks, lists));
 }

@@ -104,7 +104,8 @@ const cap = (s: string) => `${s.charAt(0).toUpperCase()}${s.slice(1)}`;
  * A person's limits a day on a network, as its page shows them, read only: each step at the business's own limit
  * there, at most the network's starting one, halved while that network's training wheels are on (`slower`), with the
  * network's cap in any 7 days under its requests; then the kit's others: profiles read for good fits, the helpful
- * post and tidying up (halved too, as `slowerFor` halves tidying). Owners and admins set the steps on the same page.
+ * post and tidying up (halved too, as `automationOf`'s `slower` halves tidying). Owners and admins set the steps on
+ * the same page.
  */
 export function limitsShownOn(
   platform: Platform,
