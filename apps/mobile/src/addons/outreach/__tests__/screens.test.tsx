@@ -4,7 +4,7 @@ import type { StagesOutput } from '@hfos/core/addons/outreach/stages';
 import type { TodayItem, TodayOutput } from '@hfos/core/addons/outreach/today';
 import { blankPlaybook, type Playbook } from '@hfos/core/addons/outreach/playbooks';
 import { VIDEO_PART_KEYS } from '@hfos/core/addons/outreach/video';
-import { COMMENT_NEEDS_YOU } from '@hfos/core/addons/outreach/sends';
+import { COMMENT_NEEDS_YOU, REBOOK_NEEDS_YOU } from '@hfos/core/addons/outreach/sends';
 import { fireEvent, render, screen, within } from '@testing-library/react-native';
 import * as React from 'react';
 
@@ -276,6 +276,69 @@ describe('Today on the phone', () => {
     // A forum answer says it waits for an OK of its own.
     expect(within(rowan!).getByTestId('today-send-alone').props.children).toBe(
       `It waits for you on its own: ${COMMENT_NEEDS_YOU.answer}.`,
+    );
+  });
+
+  it('lists a demo’s reminder and another time after a no-show, which says it waits for an OK of its own', async () => {
+    const message = (n: number, name: string, kind: TodayItem['kind'], why: string): TodayItem => ({
+      ...post(n, name, false),
+      kind,
+      postId: null,
+      postUrl: null,
+      posted: null,
+      post: null,
+      why: [why],
+      send: {
+        sendId: id(70 + n),
+        state: 'waiting',
+        text: 'No worries. Want to pick another time?',
+        handedOver: false,
+        needsYou: kind === 'rebook' ? REBOOK_NEEDS_YOU : null,
+      },
+    });
+    const today: TodayOutput = {
+      limits: LIVE.limits,
+      items: [
+        message(
+          1,
+          'Quinn Harper',
+          'demo_reminder',
+          'Their demo is tomorrow, Thursday, October 29 at 2:00 PM CDT',
+        ),
+        message(2, 'Ari Lane', 'rebook', 'Missed their demo, Tuesday, October 27 at 10:00 AM CDT'),
+      ],
+      partners: [],
+      readAdmins: [],
+      hasPlaybook: true,
+      warning: null,
+      auto: [],
+      messages: ['demo_reminder', 'rebook'],
+      sending: 'steps',
+      wheels: { on: false, from: null, ok: 0, daysLeft: 0, edits: 0 },
+      ready: true,
+      week: null,
+      fresh: { on: false, from: null, until: null, days: 14 },
+      requestsHeld: null,
+      profileOwn: null,
+    };
+    await render(
+      <TodayBody
+        today={today}
+        error={null}
+        wheels={null}
+        onRetry={jest.fn()}
+        onOk={jest.fn()}
+        onSkip={jest.fn()}
+        onNotForMe={jest.fn()}
+        onEndWheels={jest.fn()}
+      />,
+    );
+    expect(screen.getByText('Remind them of the demo · 1')).toBeTruthy();
+    expect(screen.getByText('Offer another time · 1')).toBeTruthy();
+    const [quinn, ari] = screen.getAllByTestId('today-item');
+    expect(within(quinn!).queryByTestId('today-send-alone')).toBeNull();
+    expect(within(ari!).getByTestId('today-send-alone').props.children).toBe(
+      `It waits for you on its own: ${REBOOK_NEEDS_YOU}.`,
     );
   });
 

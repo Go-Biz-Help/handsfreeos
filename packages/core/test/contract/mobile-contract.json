@@ -7535,6 +7535,8 @@
                           "follow_up",
                           "check_in",
                           "reply",
+                          "demo_reminder",
+                          "rebook",
                           "comment",
                           "warm_lead",
                           "partner_ask",

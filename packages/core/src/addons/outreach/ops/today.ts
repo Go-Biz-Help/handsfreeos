@@ -45,6 +45,7 @@ import {
   todayLimits,
   TodayOutput,
   TODAY_POST_MOST,
+  demoWhen,
   type TodayItem,
 } from '../today';
 import { POST_FRESH_DAYS } from '../posts';
@@ -978,6 +979,75 @@ export const today = defineAddonQuery(outreachAddon, {
       ) c on true`;
     const notBooked = (p: string) => sql`not exists (select 1 from addon_outreach.demos d
         where d.profile_id = ${sql.raw(p)}.id and d.user_id = ${me} and d.undone_at is null)`;
+
+    // After a demo booked through the person's link (decision 106): a short reminder the day before, on the business's
+    // calendar, unless the person wrote to them since the day before; and after a no-show lately, another time, until
+    // they book again or write, or the person writes to them or skips it. Anyone owed a reply gets the reply instead.
+    // First of the follow-ups' limit: they're due on the day.
+    if (followLeft > 0) {
+      const zone = await workspaceTimezone(ctx.tx, ws);
+      const demoed = await rows<{
+        id: string;
+        name: string;
+        url: string;
+        chat_id: string | null;
+        thread_key: string | null;
+        summary: string | null;
+        next_step: string | null;
+        starts_at: Date | string;
+        missed: boolean;
+      }>(
+        ctx.tx,
+        sql`select distinct on (p.id) p.id, p.name, p.url, c.id as chat_id, c.thread_key, c.summary, c.next_step,
+              a.starts_at, (a.status = 'no_show' or aa.status = 'no_show') as missed
+            from addon_outreach.demos d
+            join addon_outreach.profiles p on p.id = d.profile_id
+            join app.appointments a on a.id = d.appointment_id and a.bin_item_id is null
+            join app.appointment_attendees aa on aa.appointment_id = a.id and aa.person_id = d.person_id
+            ${latestChat('p')}
+            where d.workspace_id = ${ws} and d.user_id = ${me} and d.how = 'link' and d.undone_at is null
+              and ${pitchable('p')} and ${inPlay(me, 'p')} and ${lets}
+              and ((a.status = 'scheduled' and aa.status = 'booked'
+                  and (a.starts_at at time zone ${zone})::date
+                    = (${nowAt}::timestamptz at time zone ${zone})::date + 1
+                  and not exists (select 1 from addon_outreach.touches t
+                    where t.profile_id = p.id and t.user_id = ${me} and t.kind = 'message'
+                      and t.at > a.starts_at - interval '36 hours'))
+                or ((a.status = 'no_show' or aa.status = 'no_show')
+                  and a.starts_at between ${ago(TODAY_WINDOW_DAYS.rebook)}::timestamptz and ${nowAt}::timestamptz
+                  and not exists (select 1 from addon_outreach.touches t
+                    where t.profile_id = p.id and t.user_id = ${me} and t.kind = 'message' and t.at > a.starts_at)
+                  and not exists (select 1 from addon_outreach.sends s
+                    where s.profile_id = p.id and s.user_id = ${me} and s.kind = 'rebook' and s.state = 'skipped'
+                      and s.done_at > a.starts_at)
+                  and not exists (select 1 from addon_outreach.demos d2
+                    where d2.profile_id = p.id and d2.undone_at is null and d2.at > d.at)))
+              and (c.id is null or c.last_from_me or c.last_at <= d.at)
+              and not exists (select 1 from addon_outreach.replies r
+                where r.profile_id = p.id and r.user_id = ${me} and r.seen_at > d.at
+                  and not exists (select 1 from addon_outreach.touches t
+                    where t.profile_id = p.id and t.user_id = ${me} and t.kind = 'message' and t.at > r.seen_at))
+            order by p.id, a.starts_at desc`,
+      );
+      for (const p of demoed.slice(0, followLeft)) {
+        const when = demoWhen(p.starts_at, intlTimeZone(zone));
+        items.push(
+          item({
+            kind: p.missed ? 'rebook' : 'demo_reminder',
+            name: p.name,
+            profileId: p.id,
+            profileUrl: p.url,
+            chatId: p.chat_id,
+            threadKey: p.thread_key,
+            why: [p.missed ? `Missed their demo, ${when}` : `Their demo is tomorrow, ${when}`],
+            summary: p.summary,
+            nextStep: p.next_step,
+            demoLink: p.missed ? demoFor(p.id) : null,
+          }),
+        );
+      }
+      followLeft -= Math.min(demoed.length, followLeft);
+    }
 
     // Send the link (decisions 47 and 66): someone who said yes to the video, or to the first message when there's no
     // video; or, in a chat that started another way, whose chat the AI read as ready for the offer, or the person

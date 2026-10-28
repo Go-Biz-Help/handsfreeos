@@ -131,6 +131,8 @@ const KIND_BADGE = {
   follow_up: 'gray',
   check_in: 'gray',
   reply: 'pending',
+  demo_reminder: 'accent',
+  rebook: 'pending',
   comment: 'accent',
   warm_lead: 'ok',
   recommend: 'ok',

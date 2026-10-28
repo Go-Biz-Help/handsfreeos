@@ -29,6 +29,9 @@
  * - **Follow up** and **Check in** (decision 67): someone who went quiet after a step, at the playbook's pace, then
  *   once a month; and likely prospects in chats that started another way, a few quiet days after the person wrote.
  * - **Reply**: likely prospects who wrote last, lately, and haven't been answered.
+ * - **Remind them of the demo** and **Offer another time** (decision 106): a short reminder in the chat the day before a
+ *   demo booked through the person's link, and after a no-show a message asking whether they'd like another time,
+ *   which always waits for the person's OK. Both count against the follow-ups.
  * - **Comment on a post**: posts in the business's groups the AI checked as good (./posts.ts, decisions 18 to 20),
  *   from the last week, until the person comments or puts the post aside. As many as today's limit has left.
  *
@@ -78,6 +81,9 @@ import {
  */
 export const TODAY_KINDS = {
   reply: 'Reply',
+  // After a demo is booked through the person's link (decision 106): the day before, and after a no-show.
+  demo_reminder: 'Remind them of the demo',
+  rebook: 'Offer another time',
   warm_lead: 'Answer their comment',
   pitch: 'Send the link',
   video: 'Send the video',
@@ -156,6 +162,8 @@ export const TODAY_LIMIT: Readonly<Record<TodayKind, DailyStep | null>> = {
   video: 'follow_up',
   follow_up: 'follow_up',
   check_in: 'follow_up',
+  demo_reminder: 'follow_up',
+  rebook: 'follow_up',
   reply: null,
   comment: 'comment',
   warm_lead: 'comment',
@@ -166,8 +174,11 @@ export const TODAY_LIMIT: Readonly<Record<TodayKind, DailyStep | null>> = {
   partner_warm_up: 'like',
 };
 
-/** How far back a new friend, a follow-up in a chat that started another way, and a reply are still worth it. */
-export const TODAY_WINDOW_DAYS = { opener: 30, follow_up: 60, reply: 14 } as const;
+/**
+ * How far back a new friend, a follow-up in a chat that started another way, a reply, and a demo they missed (another
+ * time, decision 106) are still worth it.
+ */
+export const TODAY_WINDOW_DAYS = { opener: 30, follow_up: 60, reply: 14, rebook: 14 } as const;
 /** The most of each kind listed when no limit says: replies. */
 export const TODAY_MOST = 20;
 
@@ -366,6 +377,8 @@ export const DRAFT_KINDS = [
   'follow_up',
   'check_in',
   'reply',
+  'demo_reminder',
+  'rebook',
   'comment',
   'warm_lead',
   ...PARTNER_MESSAGE_KINDS,
@@ -386,6 +399,8 @@ export const DRAFTS_FOR: Readonly<Record<DraftKind, number>> = {
   follow_up: DRAFTS_MOST,
   check_in: DRAFTS_MOST,
   reply: DRAFTS_MOST,
+  demo_reminder: DRAFTS_MOST,
+  rebook: DRAFTS_MOST,
   comment: COMMENT_DRAFTS,
   warm_lead: COMMENT_DRAFTS,
   partner_ask: DRAFTS_MOST,
@@ -533,6 +548,10 @@ const TASK: Record<CustomerDraftKind, string> = {
     'They haven’t answered the owner’s follow-ups. Write a short, friendly check-in, one or two lines, that gives them the useful thing below with no ask, and leaves the door open.',
   reply:
     'They wrote last. Write the owner’s reply to their last message. When it’s a question (the price, how it works, proof), answer it in a sentence or two, honestly, with the price when they asked, then say why a quick call helps them: they get a plan for their business, with their numbers. Never give them a reason to skip the call. When they said not now, say no problem and that the owner will check back in a few weeks. When they said no, thank them kindly and leave it there. Otherwise answer and move the conversation along.',
+  demo_reminder:
+    'They booked a call with the owner through the owner’s link, and it’s tomorrow, at the time below. Write a short, friendly reminder, one or two lines: the day and time, that the owner is looking forward to it, and that if the time no longer works they can just say. No pitch, no price, no link.',
+  rebook:
+    'They booked a call with the owner through the owner’s link but didn’t make it. Write a short, kind message, one or two lines: no problem, things come up, and would they like to pick another time, with the link to book again. Never make them feel bad about it. No pitch, no price.',
   comment:
     'They posted this in a Facebook group. Write the owner’s public comment under it: answer what they asked or add something useful first, and only then offer to help, without a hard pitch or a link unless they asked for one. Under 50 words. No questions about things the post already says.',
   warm_lead:
@@ -604,6 +623,28 @@ function taskOn(kind: CustomerDraftKind, platform: Platform, inGroup: boolean): 
 export const chatLines = (recent: readonly DownloadMessage[]) =>
   recent.map((m) => `${m.fromMe ? 'Owner' : 'Them'}: ${m.text}`).join('\n');
 
+/**
+ * When a demo is, for a reminder or another time after a no-show (decision 106), on the business's calendar: "Thursday,
+ * October 29 at 2:00 PM CDT". A zone this engine doesn't know is read as UTC.
+ */
+export function demoWhen(at: Date | string, timeZone: string): string {
+  const words = (zone: string) =>
+    new Date(at).toLocaleString('en-US', {
+      weekday: 'long',
+      month: 'long',
+      day: 'numeric',
+      hour: 'numeric',
+      minute: '2-digit',
+      timeZone: zone,
+      timeZoneName: 'short',
+    });
+  try {
+    return words(timeZone);
+  } catch {
+    return words('UTC');
+  }
+}
+
 /** When the latest message in a chat was, either way. */
 export const lastOf = (recent: readonly DownloadMessage[]): string | null =>
   recent.reduce<string | null>((last, m) => (last === null || m.at > last ? m.at : last), null);
@@ -653,6 +694,8 @@ export function todayDraftPrompt(input: {
    * (decision 87; ./conversation.ts `ownWordsFor`).
    */
   readonly own?: OwnWords | null;
+  /** For a demo reminder or another time after a no-show (decision 106): when it is, or was, in words (`demoWhen`). */
+  readonly demoWhen?: string | null;
 }): string {
   const p = input.playbook;
   const voice = input.voice ?? VOICE_DEFAULTS;
@@ -732,8 +775,11 @@ export function todayDraftPrompt(input: {
       : taskOn(input.kind, input.platform ?? 'facebook', !!input.post?.group),
     where,
     useful,
-    input.kind === 'pitch' && p?.link
+    (input.kind === 'pitch' || input.kind === 'rebook') && p?.link
       ? `Put this link in every draft, exactly as written: ${quoteData(p.link)}`
+      : null,
+    input.demoWhen && (input.kind === 'demo_reminder' || input.kind === 'rebook')
+      ? `${input.kind === 'rebook' ? 'When the call was' : 'When the call is'}: ${quoteData(input.demoWhen)}`
       : null,
     input.kind === 'video' && p?.videoLink
       ? `Put this video link in every draft, exactly as written: ${quoteData(p.videoLink)}`

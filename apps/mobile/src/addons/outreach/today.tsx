@@ -460,7 +460,11 @@ function ItemCard({
   const openAt = todayOpenOf(item, platform);
   // A comment drafted to wait (decision 92): it goes under the post; skipping it puts the post aside.
   const comment = item.kind === 'comment' && item.send !== null;
-  const alone = comment && item.send?.state === 'waiting' ? oneByOneWords(item.send) : null;
+  // It waits for an OK of its own, said under it: a comment's, and another time after a no-show (decision 106).
+  const alone =
+    (comment || item.kind === 'rebook') && item.send?.state === 'waiting'
+      ? oneByOneWords(item.send)
+      : null;
   return (
     <Card className="gap-2 px-4 py-3.5" testID="today-item">
       <View className="flex-row flex-wrap items-center gap-2">

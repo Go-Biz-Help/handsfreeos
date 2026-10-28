@@ -118,6 +118,8 @@ const COUNTED: Record<TodayKind, readonly [string, string]> = {
   follow_up: ['follow-up', 'follow-ups'],
   check_in: ['check-in', 'check-ins'],
   reply: ['reply', 'replies'],
+  demo_reminder: ['demo to remind them of', 'demos to remind them of'],
+  rebook: ['missed demo to offer another time for', 'missed demos to offer another time for'],
   comment: ['post to comment on', 'posts to comment on'],
   warm_lead: ['comment to answer', 'comments to answer'],
   recommend: ['business to recommend', 'businesses to recommend'],

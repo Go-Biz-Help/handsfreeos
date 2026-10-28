@@ -246,8 +246,10 @@ export function goesAsItIs(o: {
   /** For a comment: whether its network's comment hold is on (`commentHoldOn`). */
   readonly held?: boolean;
 }): boolean {
-  // A partner's messages wait for the person's OK, whatever Sending says (decision 81).
-  if (o.wheels || o.sending === 'off' || o.kind.startsWith('partner_')) return false;
+  // A partner's messages wait for the person's OK, whatever Sending says (decision 81), and so does another time after
+  // a no-show (decision 106).
+  if (o.wheels || o.sending === 'off' || o.kind.startsWith('partner_') || o.kind === 'rebook')
+    return false;
   // A comment goes on its own with any Sending but Off, once its hold is off, unless it needs the person (decision 92).
   if (o.kind === 'comment') return !o.held && !o.needsYou;
   if (o.kind !== 'reply') return o.sending === 'everything';
@@ -286,6 +288,9 @@ export const COMMENT_NEEDS_YOU = {
   /** An answer to an Alignable post asking for exactly what the business offers (decision 79). */
   answer: 'a forum answer always waits for your OK',
 } as const;
+
+/** Why another time after a no-show waits for an OK of its own (decision 106, `needsYou`). */
+export const REBOOK_NEEDS_YOU = 'they missed their demo, so you see it first';
 
 /**
  * Whether a reply that waits is handed over with a push: with Replies (b) or (c), off training wheels, the person

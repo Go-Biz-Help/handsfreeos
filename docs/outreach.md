@@ -2490,6 +2490,26 @@ where decisions 37 and 59 put the settings; what they decided stands. Settled to
         with an open lead keeps it, with the line on it; one booked through the demo link is the booking's customer.
       - **None** for Never contact, Don't pitch, a partner or a client, for a deleted customer, for someone whoever
         reached them no longer works here, or when the business has no pipeline with an open stage.
+106.  **After a demo** (Chris, 28 Oct 2026, "all of your picks": 3a, and F3's recommended "Wait for you"). "Also a
+      short reminder in the social chat the day before. After a no-show, the AI drafts 'want to pick another time?' in
+      the chat, and it waits for your OK. After the demo, the lead moves on and you mark it won or lost."
+      - **Remind them of the demo** (`demo_reminder`): a Today message the day before a demo booked through the
+        person's link, on the business's calendar, unless the person wrote to them since the day before. The AI writes
+        one or two lines with the day and time, no pitch and no link. It goes on its own with Sending (c) once training
+        wheels are off, as any message does.
+      - **Offer another time** (`rebook`): after a no-show in the last 14 days (the booking or its attendee marked no
+        show), a kind message asking whether they'd like another time, with the link to book again. It always waits
+        for the person's OK, one at a time, as a partner's does (`goesAsItIs`, `REBOOK_NEEDS_YOU`). Gone once they book
+        again or write, the person writes to them, or it's skipped.
+      - Both count against the follow-ups and come first in them; someone owed a reply gets the reply instead. Neither
+        moves their conversation on (`noteSent`). Older builds of the extension draft and send them unchanged: what's
+        different is all in HandsFreeOS.
+      - **Won or lost**: a lead Social Outreach opens is marked won or lost by hand (core's `lead.wait_for_outcome`,
+        `app.leads.won_by_hand`, 20261027015700), so Automations' "Move deals along for you" never takes the done
+        visit for a win. Once they come to the demo, the worker moves the lead on past the stage for a visit booked
+        (`outreach.demo.held`, on `appointment.completed`), and the customer's Social card, on the web and the phone,
+        asks Won or Lost (`outreach.demo.outcome`). Lost asks why, and marks them not a fit with it; a demo marked by
+        hand asks the same.
 
 ## Rules worth knowing before changing anything
 

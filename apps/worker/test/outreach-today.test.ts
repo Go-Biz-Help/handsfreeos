@@ -380,3 +380,41 @@ describe('a first message on Instagram', () => {
     ]);
   });
 });
+
+describe('after a demo (decision 106)', () => {
+  it('offers another time with the link to book again, and reminds them without it', async () => {
+    const db = testDbs().admin.db;
+    await db
+      .update(playbooks)
+      .set({
+        details: {
+          ...PLAYBOOK_TEMPLATES.crm_demos.details,
+          avoid: ['free trial'],
+          link: 'https://example.com/book',
+        },
+      })
+      .where(eq(playbooks.workspaceId, ws));
+    const [quinn] = await db
+      .insert(profiles)
+      .values({
+        workspaceId: ws,
+        platform: 'facebook',
+        username: 'quinn.harper.7',
+        url: 'https://www.facebook.com/quinn.harper.7',
+        name: 'Quinn Harper',
+        intro: ['Owner at Harper Roofing'],
+      })
+      .returning({ id: profiles.id });
+    const rebook = await draft(owner, { kind: 'rebook', profileId: quinn!.id });
+    expect(rebook.statusCode).toBe(200);
+    const made = rebook.json() as { kind: string; drafts: string[] };
+    expect(made.kind).toBe('rebook');
+    expect(made.drafts.length).toBeGreaterThan(0);
+    for (const d of made.drafts) expect(d).toContain('https://example.com/book');
+    const reminder = (
+      await draft(owner, { kind: 'demo_reminder', profileId: quinn!.id })
+    ).json() as { kind: string; drafts: string[] };
+    expect(reminder.kind).toBe('demo_reminder');
+    for (const d of reminder.drafts) expect(d).not.toContain('https://example.com/book');
+  });
+});

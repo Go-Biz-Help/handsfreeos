@@ -447,7 +447,7 @@ export function autoKinds(settings: DoesChoices, platform: Platform = 'facebook'
 
 /**
  * The kinds on the list that are messages: the extension drafts each, and sends it once it's OK'd (./sends.ts). A
- * partner's (decision 81) always wait for an OK of their own.
+ * partner's (decision 81) always wait for an OK of their own, and so does another time after a no-show (decision 106).
  */
 export const MESSAGE_KINDS = [
   'opener',
@@ -457,6 +457,8 @@ export const MESSAGE_KINDS = [
   'follow_up',
   'check_in',
   'reply',
+  'demo_reminder',
+  'rebook',
   'partner_ask',
   'partner_follow_up',
   'partner_details',
