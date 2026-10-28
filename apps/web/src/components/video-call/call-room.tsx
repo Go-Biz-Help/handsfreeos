@@ -81,7 +81,6 @@ import {
   type CSSProperties,
   type ReactNode,
 } from 'react';
-import { toast } from 'sonner';
 import { Avatar } from '@/components/ui/avatar';
 import { BrandMark } from '@/components/ui/brand';
 import { Button } from '@/components/ui/button';
@@ -101,6 +100,7 @@ import { ChatPanel, PeoplePanel } from './call-panels';
 import { CallStage } from './call-stage';
 import { mediaProblem } from './pre-join';
 import { actOn, endForEveryone, setAiNotes, useVideoCall, type VideoCallGot } from './team-call';
+import { toast } from './toast';
 import type { CallEnd, CallHeading, DeviceChoices, TeamSide } from './types';
 
 /** The stand-in's tickets (apps/worker/src/video-calls/fake.ts): nothing to connect to. */
