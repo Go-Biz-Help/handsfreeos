@@ -4,3 +4,4 @@ export * from './check';
 export * from './words';
 export * from './place';
 export * from './read';
+export * from './edit';

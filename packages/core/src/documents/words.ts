@@ -450,7 +450,6 @@ export const DOCUMENT_SCREEN_WORDS = {
   /** The phone's own words, where the phone does a thing its own way. */
   phone: {
     needsSignal: 'Documents need signal. They show here again once you’re back on.',
-    templatesOnWeb: 'Make and change templates on the web for now.',
     pickTemplate: 'Pick a template',
     searchCustomers: 'Search by name, number or street',
     nobody: (typed: string) => `Nobody here matches “${typed}”.`,
@@ -460,7 +459,6 @@ export const DOCUMENT_SCREEN_WORDS = {
       'Their signing page opens here. When they’re done, they tap Back to the document and hand it back.',
     signNowLocks: 'The app locks again when the page closes, so only you can open it.',
     signNowGo: 'Open it for them',
-    pagesOnWeb: 'See the pages on the web',
     share: 'Share the signed copy',
     fileShareFailed: 'This phone can’t save or share files.',
     datePlaceholder: 'YYYY-MM-DD',

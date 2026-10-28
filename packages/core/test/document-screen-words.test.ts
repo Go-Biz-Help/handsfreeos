@@ -5,6 +5,7 @@
  */
 import { describe, expect, it } from 'vitest';
 import {
+  DOCUMENT_EDITOR_WORDS,
   DOCUMENT_SCREEN_WORDS,
   DocumentDefinition,
   documentBadge,
@@ -114,6 +115,7 @@ describe('the words', () => {
       else if (v && typeof v === 'object') Object.values(v).forEach(walk);
     };
     walk(DOCUMENT_SCREEN_WORDS);
+    walk(DOCUMENT_EDITOR_WORDS);
     for (const words of all) {
       expect(words).not.toMatch(/'/);
       expect(words).not.toMatch(/ — /);

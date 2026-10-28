@@ -7,8 +7,9 @@
  * by dragging it and resizes from its corner; each drag is one change for Undo.
  */
 import {
+  coveredBy,
   DOCUMENT_FIELD_LABELS,
-  newEditId,
+  typeOverLine,
   type DocumentEdit,
   type DocumentField,
   type DocumentValueInput,
@@ -40,15 +41,6 @@ interface Drag {
   readonly start: { x: number; y: number; w: number; h: number };
   moved: boolean;
 }
-
-const overlaps = (
-  a: { x: number; y: number; w: number; h: number },
-  b: { x: number; y: number; w: number; h: number },
-) => {
-  const w = Math.min(a.x + a.w, b.x + b.w) - Math.max(a.x, b.x);
-  const h = Math.min(a.y + a.h, b.y + b.h) - Math.max(a.y, b.y);
-  return w > 0 && h > 0 && (w * h) / (a.w * a.h) > 0.5;
-};
 
 export function EditorCanvas({
   source,
@@ -164,20 +156,7 @@ export function EditorCanvas({
     const colours = canvas
       ? coloursUnder(canvas, run)
       : { background: '#ffffff', color: '#000000' };
-    const edit: DocumentEdit = {
-      id: newEditId(),
-      page: index,
-      x: run.x,
-      y: run.y,
-      w: run.w,
-      h: run.h,
-      text: run.text,
-      original: run.text,
-      size: Math.min(72, Math.max(4, run.size)),
-      font: run.font,
-      bold: run.bold,
-      ...colours,
-    };
+    const edit = typeOverLine(index, run, colours);
     editor.change((def) => ({ ...def, edits: [...def.edits, edit] }));
     onSelect({ kind: 'edit', id: edit.id });
     onToolDone();
@@ -230,7 +209,7 @@ export function EditorCanvas({
             ))}
           {tool?.kind === 'words'
             ? (runs[index] ?? [])
-                .filter((run) => !d.edits.some((x) => x.page === index && overlaps(run, x)))
+                .filter((run) => !d.edits.some((x) => x.page === index && coveredBy(run, x)))
                 .map((run, i) => (
                   <button
                     key={i}

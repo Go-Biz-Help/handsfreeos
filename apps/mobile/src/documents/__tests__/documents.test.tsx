@@ -335,9 +335,11 @@ describe('the documents list', () => {
     );
     expect(sent('/v1/queries/document.list').at(-1)).toMatchObject({ status: 'completed' });
 
-    // Templates are made on the web for now.
-    await fireEvent.press(screen.getByTestId('documents-templates-web'));
-    expect(openWeb).toHaveBeenCalledWith(`/app/w/${LONE_STAR}/documents?tab=templates`);
+    // The templates are a tab of their own.
+    await fireEvent.press(screen.getByTestId('documents-tab-templates'));
+    await fireEvent.press(await screen.findByTestId('template-row'));
+    expect(router.push).toHaveBeenCalledWith(`/app/w/${LONE_STAR}/documents/templates/${TEMPLATE}`);
+    expect(openWeb).not.toHaveBeenCalled();
   });
 
   it('says no template is ready rather than offering to send', async () => {

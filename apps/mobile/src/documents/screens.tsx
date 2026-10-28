@@ -1,6 +1,8 @@
 import {
+  DOCUMENT_EDITOR_WORDS as E,
   DOCUMENT_SCREEN_WORDS as W,
   DOCUMENT_STATUS_LABELS,
+  DocumentDefinition,
   documentBadge,
   documentStepText,
   formatDate,
@@ -10,19 +12,23 @@ import {
   signerIsUp,
   signerStatusLabel,
   type DocumentStatus,
+  type DocumentValueInput,
 } from '@hfos/core';
 import { File, Paths } from 'expo-file-system';
-import { router, type Href } from 'expo-router';
+import { router, useLocalSearchParams, type Href } from 'expo-router';
 import * as Sharing from 'expo-sharing';
 import * as WebBrowser from 'expo-web-browser';
 import * as React from 'react';
 import { Pressable, ScrollView, Share, View } from 'react-native';
+
+import { useColors } from '@/theme';
 
 import {
   Ban,
   BellRing,
   ExternalLink,
   FilePenLine,
+  FileText,
   RotateCcw,
   Send,
   Share as ShareIcon,
@@ -37,6 +43,7 @@ import { Card } from '@/components/ui/card';
 import { FilterChip } from '@/components/ui/filter-chip';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Segmented } from '@/components/ui/segmented';
 import { Sheet } from '@/components/ui/sheet';
 import { Text } from '@/components/ui/text';
 import { toast } from '@/components/ui/toast';
@@ -44,7 +51,6 @@ import { signedUrl } from '@/inbox/storage';
 import { errorMessage } from '@/lib/api';
 import { lockIfEnabled } from '@/lib/app-start';
 import { useLiveAnswer } from '@/lib/live-answer';
-import { openWeb } from '@/lib/open-web';
 
 import {
   documentCalls,
@@ -53,12 +59,15 @@ import {
   type DocumentRow,
   type DocumentSignerRow,
 } from './calls';
+import { boxStyle, EditView, PdfPagesView, usePagePictures, ValueView } from './pages';
+import { TemplateList } from './templates';
 
 /**
- * Documents on the phone (docs/documents.md, part 3), in the web's words: what's been sent and where each one is, and
- * one document, where the team reminds, voids with a reason, sends a signer their link, hands the phone to a signer
- * who's with them (Sign now, answer 13a), sends a corrected one again (answer 15a) and opens or shares the signed
- * copy. It all needs signal; nothing of it is kept on the phone.
+ * Documents on the phone (docs/documents.md, part 3), in the web's words: what's been sent and where each one is, the
+ * templates they're sent from, and one document, where the team reminds, voids with a reason, sends a signer their
+ * link, hands the phone to a signer who's with them (Sign now, answer 13a), sends a corrected one again (answer 15a),
+ * sees its pages as they're filled in and opens or shares the signed copy. It all needs signal; nothing of it is kept
+ * on the phone.
  */
 
 const documentHref = (workspaceId: string, documentId: string) =>
@@ -120,7 +129,29 @@ export function DocumentListRow({
 type Filter = 'all' | DocumentStatus;
 const FILTERS: readonly Filter[] = ['all', 'out', 'completed', 'declined', 'voided', 'expired'];
 
+type Tab = 'sent' | 'templates';
+
 export function DocumentsScreen() {
+  const { business } = useBusiness();
+  const params = useLocalSearchParams<{ tab?: string }>();
+  const [tab, setTab] = React.useState<Tab>(params.tab === 'templates' ? 'templates' : 'sent');
+  return (
+    <Screen title={W.title} leading="back" testID="documents" contentClassName="gap-3">
+      <Segmented
+        value={tab}
+        onChange={setTab}
+        label={W.title}
+        options={[
+          { value: 'sent', label: W.sent, testID: 'documents-tab-sent' },
+          { value: 'templates', label: W.templates, testID: 'documents-tab-templates' },
+        ]}
+      />
+      {tab === 'sent' ? <SentList /> : <TemplateList workspaceId={business.id} />}
+    </Screen>
+  );
+}
+
+function SentList() {
   const { business } = useBusiness();
   const canSend = useSendsDocuments();
   const calls = React.useMemo(() => documentCalls(business.id), [business.id]);
@@ -167,7 +198,7 @@ export function DocumentsScreen() {
 
   const templates = data?.templates ?? [];
   return (
-    <Screen title={W.title} leading="back" testID="documents" contentClassName="gap-3">
+    <>
       {canSend && data ? (
         templates.length ? (
           <Button
@@ -232,18 +263,7 @@ export function DocumentsScreen() {
       ) : (
         <Missing words={answer.loading ? null : answer.error} testID="documents-missing" />
       )}
-      <ListLabel>{W.templates}</ListLabel>
-      <List>
-        <ListRow
-          icon={FilePenLine}
-          label={W.templates}
-          detail={W.phone.templatesOnWeb}
-          external
-          onPress={() => void openWeb(`/app/w/${business.id}/documents?tab=templates`)}
-          testID="documents-templates-web"
-        />
-      </List>
-    </Screen>
+    </>
   );
 }
 
@@ -556,15 +576,19 @@ export function DocumentBody({
         ))}
       </Card>
 
-      <List>
-        <ListRow
-          icon={FilePenLine}
-          label={W.phone.pagesOnWeb}
-          external
-          onPress={() => void openWeb(`/app/w/${workspaceId}/documents/${doc.id}`)}
-          testID="document-pages-web"
-        />
-      </List>
+      {doc.source ? (
+        <List>
+          <ListRow
+            icon={FileText}
+            label={E.phone.seePages}
+            detail={W.pages(DocumentDefinition.parse(doc.definition).pages.length)}
+            onPress={() =>
+              router.push(businessHref(workspaceId, `documents/${doc.id}/pages`) as Href)
+            }
+            testID="document-pages"
+          />
+        </List>
+      ) : null}
 
       <ListLabel>{W.whatHappened}</ListLabel>
       <Card className="gap-2.5 p-4" testID="document-steps">
@@ -643,5 +667,85 @@ export function DocumentBody({
         </View>
       </Sheet>
     </>
+  );
+}
+
+/** A sent document's pages as they're filled in: the words changed for this one, and what each signer has put in. */
+export function DocumentPagesScreen({ documentId }: { documentId: string }) {
+  const { business } = useBusiness();
+  const colors = useColors();
+  const calls = React.useMemo(() => documentCalls(business.id), [business.id]);
+  const load = React.useCallback(() => calls.get(documentId), [calls, documentId]);
+  const answer = useLiveAnswer(load, `${business.id}:${documentId}`, W.phone.needsSignal);
+  const doc = answer.data;
+  const definition = React.useMemo(
+    () => (doc ? DocumentDefinition.parse(doc.definition) : null),
+    [doc],
+  );
+  const source = React.useMemo(() => ({ documentId }), [documentId]);
+  const { pictures, want, failed, retry } = usePagePictures(
+    business.id,
+    doc?.source ? source : null,
+    `${documentId}:${doc?.source?.fileId ?? ''}`,
+  );
+  const values = (doc?.values ?? {}) as Readonly<Record<string, DocumentValueInput>>;
+  return (
+    <Screen
+      title={doc?.name ?? W.title}
+      leading="back"
+      back={businessHref(business.id, `documents/${documentId}`) as Href}
+      scroll={false}
+      testID="document-pages-screen"
+    >
+      {definition ? (
+        <PdfPagesView
+          pages={definition.pages}
+          pictures={pictures}
+          onWant={want}
+          failed={failed}
+          onRetry={retry}
+          testID="document-pages-view"
+          layer={({ index, scale }) => (
+            <>
+              {definition.edits
+                .filter((e) => e.page === index)
+                .map((e) => (
+                  <EditView key={e.id} edit={e} scale={scale} />
+                ))}
+              {definition.fields
+                .filter((f) => f.page === index)
+                .map((f) => {
+                  const v = values[f.id];
+                  return (
+                    <View
+                      key={f.id}
+                      pointerEvents="none"
+                      style={[
+                        boxStyle(f),
+                        v
+                          ? null
+                          : {
+                              borderRadius: 3,
+                              borderWidth: 1,
+                              borderStyle: 'dashed',
+                              borderColor: colors.borderStrong,
+                              backgroundColor: `${colors.card2}80`,
+                            },
+                      ]}
+                      testID={v ? 'document-value' : 'document-field-empty'}
+                    >
+                      {v ? (
+                        <ValueView value={v} type={f.type} fontSize={f.fontSize} scale={scale} />
+                      ) : null}
+                    </View>
+                  );
+                })}
+            </>
+          )}
+        />
+      ) : (
+        <Missing words={answer.loading ? null : answer.error} testID="document-pages-missing" />
+      )}
+    </Screen>
   );
 }
