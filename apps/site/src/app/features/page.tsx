@@ -2,7 +2,7 @@ import type { Metadata } from 'next';
 import Image from 'next/image';
 import Link from 'next/link';
 import type { ReactNode } from 'react';
-import { Button, Card, Check, Container, Section, SectionHeading } from '@/components/ui';
+import { Button, Card, Check, Container, Eyebrow, Section, SectionHeading } from '@/components/ui';
 import {
   ActionCenterVisual,
   AssistantVisual,
@@ -71,9 +71,7 @@ export default function FeaturesPage() {
 
         {/* A plain jump list: everything below is on this page, nothing is hidden behind a tab. */}
         <nav aria-label="On this page" className="border-border mt-12 border-t pt-8">
-          <p className="text-text-3 mb-4 text-xs font-semibold tracking-[0.12em] uppercase">
-            On this page
-          </p>
+          <p className="text-text-3 mb-4 text-sm font-medium">On this page</p>
           <ul className="flex flex-wrap gap-2">
             {featureSections.map((section) => (
               <li key={section.id}>
@@ -101,10 +99,10 @@ export default function FeaturesPage() {
             <Container>
               <div className="grid gap-8 lg:grid-cols-[minmax(0,26rem)_minmax(0,1fr)] lg:gap-16">
                 <div>
-                  <p className="text-accent-text mb-3 text-xs font-semibold tracking-[0.14em] uppercase">
-                    {section.nav}
-                  </p>
-                  <h2 className="text-2xl leading-[1.15] font-bold sm:text-3xl">{section.title}</h2>
+                  <Eyebrow>{section.nav}</Eyebrow>
+                  <h2 className="text-2xl leading-[1.1] font-bold tracking-[-0.025em] sm:text-3xl">
+                    {section.title}
+                  </h2>
                   <p className="text-text-2 mt-4 text-lg">{section.intro}</p>
                   {section.id === 'mobile' ? (
                     <Button href="/app" variant="secondary" className="mt-6">

@@ -9,6 +9,7 @@
  * is not on sale, or its counter is switched off. All three mean "no number to show", which the bar and
  * the sentence both handle by simply not appearing.
  */
+import type { CSSProperties } from 'react';
 import { foundingSpotsOnSale, hasRoom, type FoundingCount } from '@/lib/founding';
 
 /** Full, and worth saying so plainly — an offer that pretends otherwise is the thing people resent. */
@@ -29,11 +30,10 @@ export function SpotBar({ count }: { count: FoundingCount }) {
         aria-valuemax={count.seatCap}
         aria-label={`${n(count.claimed)} of ${n(count.seatCap)} ${count.name} spots taken`}
       >
+        {/* Full width and clipped to the count (globals.css), so it can fill as it comes into view. */}
         <div
-          className={`h-full rounded-full transition-[width] duration-500 ${
-            isFull(count) ? 'bg-text-3' : 'bg-accent'
-          }`}
-          style={{ width: `${Math.max(pct, count.claimed > 0 ? 3 : 0)}%` }}
+          className={`bar-fill h-full w-full rounded-full ${isFull(count) ? 'bg-text-3' : 'bg-accent'}`}
+          style={{ '--fill': `${Math.max(pct, count.claimed > 0 ? 3 : 0)}%` } as CSSProperties}
         />
       </div>
       <p className="text-text-3 mt-2 text-sm">
@@ -82,28 +82,50 @@ export function FoundingCounter({
 }
 
 /**
- * The strip that goes above the fold on the home page. One line, every spot with room, and it disappears
- * entirely rather than degrade — the home page has a job that does not depend on this.
+ * The line over the home page's headline: the spots with room, as one quiet link to the pricing page. It
+ * disappears entirely rather than degrade — the home page has a job that does not depend on this.
+ *
+ * It is always one line. A phone has room for one spot, so it shows the first with room and the pricing page
+ * has the rest; anything wider shows them all.
  */
-export function FoundingStrip({ counts }: { counts: readonly FoundingCount[] | null }) {
+export function FoundingPill({ counts }: { counts: readonly FoundingCount[] | null }) {
   // Only spots with a number to print and room left: a full one, or one with no live number, isn't news.
   const open = foundingSpotsOnSale(counts).flatMap(({ content, count }) =>
     count && count.showCounter && hasRoom({ content, count }) ? [{ content, count }] : [],
   );
   if (open.length === 0) return null;
   return (
-    <div className="border-border bg-card-2 border-b">
-      <div className="mx-auto flex w-full max-w-6xl flex-wrap items-center justify-center gap-x-6 gap-y-1 px-5 py-3 text-center text-sm sm:px-8">
-        {open.map(({ content, count }) => (
-          <span key={content.id} className="text-text-2">
-            <span className="text-accent font-semibold">{n(count.remaining)}</span> of{' '}
-            {n(count.seatCap)} founding spots left at {content.priceLabel} {content.per}
+    <a
+      href="/pricing"
+      className="group border-border bg-card/80 hover:border-border-strong inline-flex max-w-full items-center gap-2.5 rounded-full border py-1.5 pr-3.5 pl-1.5 text-sm whitespace-nowrap shadow-[0_1px_2px_rgb(16_24_40/0.05)] backdrop-blur transition-[border-color,transform] duration-[150ms,160ms] ease-[ease,var(--curve-out)] motion-safe:active:scale-[0.98]"
+    >
+      <span className="bg-accent-soft text-accent-text rounded-full px-2.5 py-0.5 text-xs font-semibold">
+        Founding spots
+      </span>
+      {open.map(({ content, count }, index) => (
+        <span
+          key={content.id}
+          className={`text-text-2 items-center gap-2.5 ${index === 0 ? 'inline-flex' : 'hidden sm:inline-flex'}`}
+        >
+          {index > 0 ? <span aria-hidden="true" className="bg-border-strong h-3.5 w-px" /> : null}
+          <span>
+            {content.priceLabel} {content.per} ·{' '}
+            <span className="text-text font-semibold tabular-nums">{n(count.remaining)}</span> left
           </span>
-        ))}
-        <a href="/pricing" className="text-accent font-semibold underline-offset-4 hover:underline">
-          Get yours
-        </a>
-      </div>
-    </div>
+        </span>
+      ))}
+      <svg
+        viewBox="0 0 16 16"
+        aria-hidden="true"
+        className="text-text-3 group-hover:text-text h-3.5 w-3.5 shrink-0 transition-[transform,color] duration-200 ease-out group-hover:translate-x-0.5"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.8"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      >
+        <path d="M3 8h9.5M8.5 4l4 4-4 4" />
+      </svg>
+    </a>
   );
 }

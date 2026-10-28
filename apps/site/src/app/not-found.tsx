@@ -3,7 +3,8 @@ import { Button, Container } from '@/components/ui';
 export default function NotFound() {
   return (
     <Container className="py-28 text-center">
-      <p className="text-accent-text text-sm font-semibold tracking-[0.14em] uppercase">
+      <p className="text-text-2 inline-flex items-center gap-2 text-sm font-medium">
+        <span aria-hidden="true" className="bg-accent h-1.5 w-1.5 rounded-full" />
         Page not found
       </p>
       <h1 className="mt-4 text-4xl font-bold">That page is not here.</h1>
