@@ -985,42 +985,6 @@ export const asks = addonOutreach.table(
 );
 
 /**
- * What extension 0.48.0 saw on a page a job read (decision 74). Its notes are core's problem reports now
- * (20261027008100 copied these there); nothing reads or writes it anymore, and a later migration drops it.
- */
-export const reports = addonOutreach.table(
-  'reports',
-  {
-    id: uuid('id').primaryKey().defaultRandom(),
-    workspaceId: workspaceRef(),
-    userId: uuid('user_id')
-      .notNull()
-      .references(() => users.id, { onDelete: 'cascade' }),
-    askId: uuid('ask_id'),
-    platform: text('platform').notNull().$type<Platform>(),
-    job: text('job').notNull(),
-    version: text('version'),
-    page: text('page').notNull(),
-    path: text('path').notNull(),
-    shown: boolean('shown'),
-    found: jsonb('found')
-      .notNull()
-      .default(sql`'{}'::jsonb`)
-      .$type<Record<string, unknown>>(),
-    note: text('note'),
-    outline: text('outline'),
-    createdAt: ts('created_at').notNull().defaultNow(),
-  },
-  (t) => [
-    unique().on(t.workspaceId, t.id),
-    foreignKey({
-      columns: [t.workspaceId, t.askId],
-      foreignColumns: [asks.workspaceId, asks.id],
-    }).onDelete('cascade'),
-  ],
-);
-
-/**
  * A code from the person's email that their computer asked for (an ask in `code`, ./asks.ts): kept for the
  * extension to take once, and never after `expiresAt`. Theirs alone, on the database too (20261027009800).
  */
