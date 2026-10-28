@@ -40,6 +40,7 @@ import { readinessCommands, readinessQueries } from './ops/readiness';
 import { setupCommands, setupQueries } from './ops/setup';
 import { stageCommands, stageQueries } from './ops/stages';
 import { tidyCommands, tidyQueries } from './ops/tidy';
+import { townQueries } from './ops/towns';
 import { postCommands, postQueries } from './ops/posts';
 import { todayQueries } from './ops/today';
 import { trackingCommands, trackingQueries } from './ops/tracking';
@@ -123,6 +124,7 @@ export const outreachAddonServer: AddonServerModule = {
     ...eventsQueries,
     ...followersQueries,
     ...activeQueries,
+    ...townQueries,
   ],
   // What the extension sends in: only the person's own browser can see Facebook, Instagram, LinkedIn and Alignable.
   notForTheAssistant: {
@@ -171,6 +173,7 @@ export const outreachAddonServer: AddonServerModule = {
     'outreach.followers.save': EXTENSION,
     'outreach.active.next': EXTENSION,
     'outreach.active.reply': EXTENSION,
+    'outreach.finds.towns': EXTENSION,
     'outreach.opener.use':
       'The screens noting which opener a copied first message was drafted with.',
   },

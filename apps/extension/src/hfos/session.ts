@@ -572,6 +572,11 @@ async function value(ask: SessionAsk): Promise<HfosValues[SessionAsk['type']]> {
         api().POST('/v1/queries/outreach.finds.searches', { body: ask.input }),
         ask.input.workspaceId,
       );
+    case 'hfos-finds-towns':
+      return call(
+        api().POST('/v1/queries/outreach.finds.towns', { body: ask.input }),
+        ask.input.workspaceId,
+      );
     case 'hfos-groups-to-check':
       return call(
         api().POST('/v1/queries/outreach.groups.to_check', { body: ask.input }),

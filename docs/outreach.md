@@ -295,7 +295,7 @@ person's computers and Start fresh. The old addresses (`?view=waiting`, `?view=a
     the AI's help; the phone shows them a part at a time, with no AI buttons.
   - **Where it looks, once a day.** Each runner does it among its jobs. Instagram looks at 5 of the hashtags in turn,
     about 10 posts each. LinkedIn searches posts with 5 of the phrases in turn. Alignable searches its businesses for 3
-    kinds of business in turn, in the person's own town unless that playbook works online. Alignable also reads the
+    kinds of business in turn, in and near the person's own town (decision 115) unless that playbook works online. Alignable also reads the
     person's own groups first, then finds, checks and joins up to 3 good groups a day while the people found in them
     run low, and reads their members (leaders first, never reached) and their posts.
   - **Who it finds.** For up to 5 good posts a day on Instagram and LinkedIn (`outreach.posts.people_next`), the
@@ -2244,8 +2244,8 @@ where decisions 37 and 59 put the settings; what they decided stands. Settled to
       works (their own choice, or the business's starting one, inside the networks it allows), so a Facebook-only
       business spends no AI on them, and turning a network on asks for its words then.
     - **Where it looks:** Instagram 5 hashtags a day in turn, about 10 posts each (2a; places stay 4); LinkedIn 5
-      phrases a day in turn; Alignable 3 kinds of business a day in the person's own town, or anywhere when that
-      playbook works online (9), and the person's own groups, then groups it finds by niche and area (10a).
+      phrases a day in turn; Alignable 3 kinds of business a day in the person's own town and those within 25 miles
+      (decision 115), or anywhere when that playbook works online (9), and the person's own groups, then groups it finds by niche and area (10a).
     - **Who it finds** (`finds`, each person's own): writers of posts the AI calls good, who liked or reacted to them
       and who commented (3a, read only from good posts), Alignable search results and group members. Never the person,
       a friend or connection, a customer or client, Don't pitch or Never contact, or a place outside the business's
@@ -2673,6 +2673,22 @@ where decisions 37 and 59 put the settings; what they decided stands. Settled to
         hold on Facebook, till they've OK'd 25 there and a week has gone by, then it goes on its own with any Sending
         but Off. The runner posts it under the question on its page (`src/auto/comments.ts`) and notes it as a
         comment. A skip puts the post aside.
+115.  **Alignable's search in the towns near yours** (Chris, 28 Oct 2026, "all of your picks": 33a). "Towns within 25
+      miles, closest first."
+      - **The towns** (`outreach.finds.towns`, `towns.ts`): the person's computer sends their own town as Alignable
+        writes it in their business page's address ("austin-tx"), and gets back the towns within 25 miles of it
+        (`NEAR_MILES`), as the crow flies, the closest first, up to 100 (`NEAR_TOWNS_MOST`), and today's one of them.
+        Where each town is comes from the US Census Bureau's 2023 Gazetteer of places (public domain), kept server
+        side (`us-towns.ts`, made by `node scripts/us-towns.mjs`): every city, town, village, borough and
+        census-designated place, a consolidated city by its own name ("nashville-tn"). Saint and St, Fort and Ft,
+        Mount and Mt are one town (`townKey`). Alignable's own nearby-community pages couldn't be checked, so it
+        doesn't lean on them. A town outside the US has none near it, and its searches stay in it as before.
+      - **What a local search keeps** (0.107.0, `src/jobs/alignable/customer-search.ts`): the businesses in the
+        person's own town or any town near it, the closest first (`inTowns`, `townOrder`); never their own.
+      - **One more town a day:** the day's first local search goes again in today's town (`today`), each in turn from
+        the closest, counted from the person's first day on Alignable (`network_starts`), so a week covers the 7
+        closest. Its finds carry that town as their place. A HandsFreeOS too old to answer leaves the search in the
+        person's own town. No migration.
 
 ## Rules worth knowing before changing anything
 
@@ -3446,7 +3462,7 @@ till they act on them or read their profile again; there's no way to dismiss the
 Finding people by topic (decision 92) reads Instagram's Likes box, LinkedIn's newer reactions box, every Alignable
 group page, the person's own Alignable groups and Alignable's search for groups from guessed markup, not yet tried on
 the owner's account; a reader that finds nothing says so with its outline, and the day goes on. Left for later:
-liking a commenter's comment, Alignable searches in nearby towns, Alignable's groups on the Groups tab, LinkedIn's
+liking a commenter's comment, Alignable's groups on the Groups tab, LinkedIn's
 comments waiting at first, the AI's check of Facebook's group members, reading further into a Likes or reactions box,
 reading likers on Alignable, a business setting for the 30 found checks a day, results by hashtag, phrase and kind of
 business, and tidying away finds never checked after two weeks (what they said is gone already).

@@ -3,7 +3,7 @@
 The extension that works beside a person on Facebook, and on LinkedIn, Instagram and Alignable once they turn each on,
 for the Social Outreach add-on (docs/outreach.md). It connects to HandsFreeOS only for businesses that have that add-on on.
 
-**This is a test build (0.106.0), and a bare one** (decisions 43, 59 and 72 in docs/outreach.md). Everything is set
+**This is a test build (0.107.0), and a bare one** (decisions 43, 59 and 72 in docs/outreach.md). Everything is set
 and started in HandsFreeOS; the extension does the work on Facebook. Its side panel shows progress and activity only:
 signing in, what it does next with today's steps and **Start my day** and **Stop for today**, how many things need
 you in HandsFreeOS (with a link there), each network's line, what it did today, and a link to HandsFreeOS. Needs you
@@ -220,7 +220,9 @@ them:
 - **Alignable:** your own groups come first (`my_groups`), read from your groups page and saved as ones you're in.
   After your town's posts comes **Search for businesses** (`search`, `src/jobs/alignable/customer-search.ts`): today's
   3 kinds of business (**Kinds of business to search for on Alignable**), 3 screens each. A local search adds your
-  town's name and keeps only the businesses whose address is in your town; one for a playbook that works with clients
+  town's name and keeps the businesses whose address is in your town or one within 25 miles of it, the closest first;
+  and from 0.107.0 the first one goes again each day in one of those towns, in turn from the closest
+  (`hfos-finds-towns`, decision 115). Outside the US it keeps to your town. One for a playbook that works with clients
   online uses the words alone and keeps every business. With no town known, it says to check your business page's
   address. Then your groups (`src/jobs/alignable/groups.ts`): **Check groups** (up to 4 a day; when none wait, it
   first searches Alignable's groups with today's group words), **Join groups** (up to 3 good ones a day, only while
@@ -1069,6 +1071,14 @@ shows under Instagram). Your Instagram choices in HandsFreeOS say what it does (
 Each step is noted as the extension's own (`auto`), as Instagram's. A step its page doesn't let it do goes to your
 Needs you; it never guesses.
 
+### Alignable's search in the towns near yours (0.107.0)
+
+From 0.107.0 (docs/outreach.md, decision 115) Alignable's **Search for businesses** keeps the businesses in the towns
+within 25 miles of yours too, the closest first. It sends HandsFreeOS your town as your business page's address writes
+it (`hfos-finds-towns`, only on a day with a local search) and gets back the towns near it, from the US Census
+Bureau's list, and today's one of them: the day's first local search goes again there, each town in turn from the
+closest. Outside the US, or with a HandsFreeOS that can't say yet, it keeps to your town as before.
+
 ### Staying active in your groups on Facebook (0.106.0)
 
 From 0.106.0 (docs/outreach.md, decision 114) Facebook's once-a-day jobs stay active in your groups, after finding
@@ -1628,7 +1638,8 @@ on its own on every network (decisions 29 and 98, 0.97.0), every part of your pr
 day (decision 108, 0.100.0), the week's helpful post on Instagram and Alignable (decision 109, 0.101.0), accounts like yours on Instagram
 (decision 110, 0.102.0), their story liked as a warm-up on Instagram (decision 111, 0.103.0), and the events near
 you on Alignable read once a week (decision 112, 0.104.0), and your Facebook followers checked like friends once a
-week (decision 113, 0.105.0), and staying active in your groups (decision 114, 0.106.0); Social
+week (decision 113, 0.105.0), staying active in your groups (decision 114, 0.106.0), and Alignable's search in the
+towns within 25 miles of yours (decision 115, 0.107.0); Social
 Outreach's onboarding is built, in HandsFreeOS (decisions 36 and 45). Safari on Mac
 follows in Phase 2.
 
@@ -1637,5 +1648,5 @@ Alignable on 28 Oct 2026: every new step works on Instagram and Alignable. On Li
 and drew nobody, because another window had gone over the Check's and LinkedIn draws its rows only on screen. So since
 0.95.1 a Check's window comes back in front for its next page or step when another goes over it, and Who reacted
 reads each post (and your own posts' reactions) with its window in front. Still to come, as decision 92 left it:
-liking a commenter's comment, Alignable searches in nearby towns and its Groups tab, reading further into a Likes or
-reactions box, and likers on Alignable. LinkedIn's comments waiting at first came in 0.99.0 (decision 102).
+liking a commenter's comment, Alignable's Groups tab, reading further into a Likes or reactions box, and likers on
+Alignable. Alignable's searches in nearby towns came in 0.107.0 (decision 115). LinkedIn's comments waiting at first came in 0.99.0 (decision 102).

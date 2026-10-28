@@ -14,6 +14,8 @@ import type { TodayListItem } from '../src/hfos/messages';
 import type { Hfos, Job } from '../src/jobs/job';
 
 const AL = 'https://www.alignable.com';
+/** What a HandsFreeOS ask answers to be refused, as an older API refuses an ask it doesn't know. */
+const REFUSED = 'Refused by HandsFreeOS';
 /** Dana Reyes's business, Acme Plumbing, by Alignable's id (42) and at its address in its town. */
 const DANA = `${AL}/biz/businesses/42`;
 const DANA_PAGE = `${AL}/austin-tx/acme-plumbing`;
@@ -1010,7 +1012,10 @@ const dailyJob = (): Job => ({
   hfos: (async (ask: { readonly type: string }) => {
     world.asked.push(ask);
     const found = world.hfos[ask.type];
-    return { ok: true, value: found ? found(ask as Record<string, unknown>) : {} };
+    const value = found ? found(ask as Record<string, unknown>) : {};
+    return value === REFUSED
+      ? { ok: false, problem: { message: 'Not found.', rule: null, status: 404, recheck: false } }
+      : { ok: true, value };
   }) as unknown as Hfos,
   businessId: ME.businessId,
   stopped: () => false,
@@ -1033,6 +1038,8 @@ const OWN_ROW = `<div><a href="/austin-tx/acme-roofing?user=7&result_id=4141"><i
 describe('the search for businesses like their clients on Alignable', () => {
   beforeEach(() => {
     world.hfos['hfos-finds-save'] = (ask) => ({ added: peopleIn(ask) });
+    // No towns near theirs unless a test says: a town outside the US.
+    world.hfos['hfos-finds-towns'] = () => ({ near: [], today: null });
   });
 
   it('keeps only their town’s businesses on a local search, and every one on a search that works online', async () => {
@@ -1086,6 +1093,90 @@ describe('the search for businesses like their clients on Alignable', () => {
       line: 'Searched Alignable for 2 kinds of business: 3 businesses found, 3 new to check. The good fits come onto Today once the AI has read their pages.',
       warned: false,
     });
+  });
+
+  it('keeps the businesses in towns within 25 miles too, the closest first, and searches today’s town near theirs (decision 115)', async () => {
+    // Round Rock's business shows first on Alignable's page: it's kept after Austin's.
+    const [head, hana, ivy] = searchHtml.split(/(?=<div><a href="\/(?:austin|round-rock)-tx\/)/);
+    const roundRockFirst = {
+      html: `${head}${ivy!.replace('</ul>', '')}${hana}</ul></div></section>`,
+    };
+    world.pages = (url) =>
+      url === MINE
+        ? myProfile()
+        : url === `${AL}/biz/search?q=real%20estate%20agent%20Austin%20TX` ||
+            url === `${AL}/biz/search?q=real%20estate%20agent%20Round%20Rock%20TX` ||
+            url === `${AL}/biz/search?q=home%20inspector`
+          ? roundRockFirst
+          : null;
+    world.hfos['hfos-finds-searches'] = () => ({
+      searches: [
+        { words: 'real estate agent', anywhere: false },
+        { words: 'home inspector', anywhere: true },
+      ],
+    });
+    world.hfos['hfos-finds-towns'] = () => ({
+      near: ['round-rock-tx', 'pflugerville-tx'],
+      today: 'round-rock-tx',
+    });
+    const end = await runAlignableDaily('search', dailyJob());
+    expect(inputsOf('hfos-finds-towns')).toEqual([
+      { workspaceId: ME.businessId, town: 'austin-tx' },
+    ]);
+    expect(world.opened).toEqual([
+      MINE,
+      `${AL}/biz/search?q=real%20estate%20agent%20Austin%20TX`,
+      `${AL}/biz/search?q=home%20inspector`,
+      `${AL}/biz/search?q=real%20estate%20agent%20Round%20Rock%20TX`,
+    ]);
+    expect(inputsOf('hfos-finds-save')).toMatchObject([
+      {
+        words: 'real estate agent',
+        place: 'Austin, TX',
+        people: [
+          { name: 'Hana Hill', place: 'Austin, TX' },
+          { name: 'Ivy Inspector', place: 'Round Rock, TX' },
+        ],
+      },
+      // A search that works online keeps them as Alignable shows them.
+      {
+        words: 'home inspector',
+        place: null,
+        people: [{ name: 'Ivy Inspector' }, { name: 'Hana Hill' }],
+      },
+      {
+        words: 'real estate agent',
+        place: 'Round Rock, TX',
+        people: [{ name: 'Hana Hill' }, { name: 'Ivy Inspector' }],
+      },
+    ]);
+    expect(end.line).toBe(
+      'Searched Alignable for 2 kinds of business, and again in Round Rock, TX: 6 businesses found, 6 new to check. The good fits come onto Today once the AI has read their pages.',
+    );
+  });
+
+  it('keeps to their own town when HandsFreeOS can’t say which towns are near, and asks only for a local search', async () => {
+    world.pages = (url) =>
+      url === MINE
+        ? myProfile()
+        : url.startsWith(`${AL}/biz/search?q=`)
+          ? { html: searchHtml }
+          : null;
+    world.hfos['hfos-finds-searches'] = () => ({
+      searches: [{ words: 'real estate agent', anywhere: false }],
+    });
+    world.hfos['hfos-finds-towns'] = () => REFUSED;
+    await runAlignableDaily('search', dailyJob());
+    expect(world.opened).toEqual([MINE, `${AL}/biz/search?q=real%20estate%20agent%20Austin%20TX`]);
+    expect(inputsOf('hfos-finds-save')).toMatchObject([{ people: [{ name: 'Hana Hill' }] }]);
+
+    // Only searches that work online: nothing to ask.
+    world.asked.length = 0;
+    world.hfos['hfos-finds-searches'] = () => ({
+      searches: [{ words: 'home inspector', anywhere: true }],
+    });
+    await runAlignableDaily('search', dailyJob());
+    expect(inputsOf('hfos-finds-towns')).toEqual([]);
   });
 
   it('ends with what to do when Alignable didn’t show their town, after any search that works online', async () => {

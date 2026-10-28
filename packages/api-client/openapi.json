@@ -217819,6 +217819,74 @@
         }
       }
     },
+    "/v1/queries/outreach.finds.towns": {
+      "post": {
+        "operationId": "query_outreach_finds_towns",
+        "summary": "The towns within 25 miles of the person’s own town on Alignable, the closest first, which the person’s computer keeps the businesses its search shows in, and today’s one of them to search in too, each in turn from the closest. None for a town HandsFreeOS doesn’t know the place of (outside the US).",
+        "tags": [
+          "queries"
+        ],
+        "description": "Requires outreach.use.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "workspaceId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  },
+                  "town": {
+                    "type": "string",
+                    "maxLength": 100,
+                    "pattern": "^[a-z0-9]+(-[a-z0-9]+)*-[a-z]{2}$"
+                  }
+                },
+                "required": [
+                  "workspaceId",
+                  "town"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "near": {
+                      "maxItems": 100,
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    },
+                    "today": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "near",
+                    "today"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/v1/queries/salescoach.playbook.list": {
       "post": {
         "operationId": "query_salescoach_playbook_list",

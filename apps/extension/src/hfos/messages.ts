@@ -167,6 +167,9 @@ export type FindsNextInput = Body<'/v1/queries/outreach.finds.next'>;
 export type FindsNext = Ok<'/v1/queries/outreach.finds.next'>;
 export type FindsSearchesInput = Body<'/v1/queries/outreach.finds.searches'>;
 export type FindsSearches = Ok<'/v1/queries/outreach.finds.searches'>;
+/** The towns near the person's own on Alignable (decision 115). */
+export type FindsTownsInput = Body<'/v1/queries/outreach.finds.towns'>;
+export type FindsTowns = Ok<'/v1/queries/outreach.finds.towns'>;
 export type { JoinAnswerInput, JoinAnswerOutput, LikePickInput, LikePickOutput };
 /** The AI's drafts, from the worker (apps/worker/src/addons/outreach/today.ts). */
 export type Drafts = TodayDraftOutput;
@@ -370,6 +373,8 @@ export type HfosAsk =
   | { readonly type: 'hfos-active-reply'; readonly input: ActiveReplyInput }
   | { readonly type: 'hfos-finds-next'; readonly input: FindsNextInput }
   | { readonly type: 'hfos-finds-searches'; readonly input: FindsSearchesInput }
+  /** The towns within 25 miles of the person's own on Alignable, the closest first, and today's to search in (decision 115). */
+  | { readonly type: 'hfos-finds-towns'; readonly input: FindsTownsInput }
   /**
    * Groups to check and to join, and how one went: Facebook's unless the input says its network (`platform`), as
    * Alignable's groups do (decision 92).
@@ -454,6 +459,7 @@ export interface HfosValues {
   readonly 'hfos-active-reply': ActiveReplied;
   readonly 'hfos-finds-next': FindsNext;
   readonly 'hfos-finds-searches': FindsSearches;
+  readonly 'hfos-finds-towns': FindsTowns;
   readonly 'hfos-groups-to-check': GroupsToCheck;
   readonly 'hfos-group-look': GroupLooked;
   readonly 'hfos-joins-next': JoinsNext;

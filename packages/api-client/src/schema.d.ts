@@ -18997,6 +18997,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/queries/outreach.finds.towns": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * The towns within 25 miles of the person’s own town on Alignable, the closest first, which the person’s computer keeps the businesses its search shows in, and today’s one of them to search in too, each in turn from the closest. None for a town HandsFreeOS doesn’t know the place of (outside the US).
+         * @description Requires outreach.use.
+         */
+        post: operations["query_outreach_finds_towns"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/queries/outreach.follow_backs.next": {
         parameters: {
             query?: never;
@@ -73736,6 +73756,37 @@ export interface operations {
                             anywhere: boolean;
                             words: string;
                         }[];
+                    };
+                };
+            };
+        };
+    };
+    query_outreach_finds_towns: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    town: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        near: string[];
+                        today: string | null;
                     };
                 };
             };
