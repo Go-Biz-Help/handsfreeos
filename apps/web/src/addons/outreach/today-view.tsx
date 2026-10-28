@@ -36,7 +36,7 @@
  * like a message, with **OK**, **Change** and **Skip**, and Approve all takes it too, but never an answer to a post
  * asking for what the business offers.
  */
-import { freshWords, wheelsWords } from '@hfos/core/addons/outreach/automation';
+import { freshWords, underAPost, wheelsWords } from '@hfos/core/addons/outreach/automation';
 import { clockWords } from '@hfos/core/addons/outreach/live';
 import { OPENER_KINDS, openerShort, type DraftOpener } from '@hfos/core/addons/outreach/openers';
 import { warningNote } from '@hfos/core/addons/outreach/tidy';
@@ -136,6 +136,7 @@ const KIND_BADGE = {
   birthday: 'accent',
   new_job: 'accent',
   comment: 'accent',
+  group_reply: 'accent',
   warm_lead: 'ok',
   recommend: 'ok',
   partner_reply: 'pending',
@@ -712,7 +713,7 @@ function TodayRow({
           workspaceId={workspaceId}
           name={item.name}
           send={item.send}
-          comment={item.kind === 'comment' ? platform : null}
+          comment={underAPost(item.kind) ? platform : null}
         />
       ) : draftKind ? (
         <Drafts
@@ -792,6 +793,8 @@ function Drafts({
   kind: DraftKind;
   asks: Asks;
 }) {
+  // A comment, a reply in a group, or an answer to a comment on their own post: one, under a post.
+  const underPost = underAPost(kind) || kind === 'warm_lead';
   const [busy, setBusy] = useState(false);
   const [drafted, setDrafted] = useState<readonly string[]>([]);
   /** The opener the drafts were written with, for a first message. */
@@ -884,7 +887,7 @@ function Drafts({
   const copy = async (text: string, part?: { readonly n: number; readonly of: number }) => {
     await copyText(
       text,
-      kind === 'comment' || kind === 'warm_lead'
+      underPost
         ? 'Copied. Paste it as a comment on the post.'
         : part
           ? `Copied text ${part.n} of ${part.of}. Paste it in ${messaging}${part.n < part.of ? ', then copy the next' : ''}.`
@@ -929,8 +932,7 @@ function Drafts({
         <ul className="space-y-1.5" data-testid="today-drafts">
           {drafts.map((text) => {
             // A message the person sends as a few texts: each its own, to copy in turn.
-            const parts =
-              kind === 'comment' || kind === 'warm_lead' ? [text] : messageParts(text, true);
+            const parts = underPost ? [text] : messageParts(text, true);
             return (
               <li key={text} className="space-y-1 rounded-md bg-card-2 px-3 py-2 text-[13px]">
                 {parts.map((part, i) => (
@@ -973,8 +975,10 @@ function Drafts({
             label={
               drafts.length
                 ? 'Look up and draft again'
-                : kind === 'comment' || kind === 'warm_lead'
-                  ? 'Draft a comment'
+                : underPost
+                  ? kind === 'group_reply'
+                    ? 'Draft a reply'
+                    : 'Draft a comment'
                   : 'Draft a message'
             }
             showLine={false}
@@ -1000,8 +1004,10 @@ function Drafts({
           ? 'Draft from what HandsFreeOS knows'
           : drafts.length
             ? 'Draft again'
-            : kind === 'comment' || kind === 'warm_lead'
-              ? 'Draft a comment'
+            : underPost
+              ? kind === 'group_reply'
+                ? 'Draft a reply'
+                : 'Draft a comment'
               : 'Draft a message'}
       </Button>
       {kind === 'video' && item.videoLink ? (

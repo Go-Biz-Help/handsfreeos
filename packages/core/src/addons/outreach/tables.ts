@@ -583,6 +583,8 @@ export const posts = addonOutreach.table(
     words: text('words'),
     /** When its likers and commenters were read (decision 92): each good post's people are read once. */
     peopleReadAt: ts('people_read_at'),
+    /** When it was kept for the day's reply in one of the person's groups (decision 114); null for any other. */
+    replyAt: ts('reply_at'),
     checkedAt: ts('checked_at'),
     skippedAt: ts('skipped_at'),
     seenAt: ts('seen_at').notNull(),

@@ -6697,6 +6697,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/commands/outreach.active.reply": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Keep one recent post that asks something, in one of the person’s Facebook groups, for the day’s reply: the first of those sent that isn’t theirs, answered or put aside already, another teammate’s person’s, or one the AI checks for a comment instead. Today lists it, and the AI writes the reply, which waits for the person’s OK at first. One a day. Nobody goes in Contacts.
+         * @description Risk level 1. Requires outreach.use. Emits .
+         */
+        post: operations["command_outreach_active_reply"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/commands/outreach.ask.cancel": {
         parameters: {
             query?: never;
@@ -8127,7 +8147,7 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * The extension drafted a message to someone on the person’s list for today: a first message, a follow-up or a reply; or, on Instagram and Alignable, a comment on a good post of theirs. It waits for the person’s OK, or, when they chose for messages to go on their own and their training wheels are off, goes as it is; a comment goes on its own once the person has OK’d 25 there and a week has gone by, and an answer to an Alignable post asking for what the business offers always waits, as do a message offering another time after a missed demo and a birthday or new-job note. A message already drafted for them comes back instead. A client in Contacts gets only replies.
+         * The extension drafted a message to someone on the person’s list for today: a first message, a follow-up or a reply; or, on Instagram, LinkedIn and Alignable, a comment on a good post of theirs; or, on Facebook, the day’s reply to a question asked in one of the person’s groups. It waits for the person’s OK, or, when they chose for messages to go on their own and their training wheels are off, goes as it is; a comment or a reply in a group goes on its own once the person has OK’d 25 there and a week has gone by, and an answer to an Alignable post asking for what the business offers always waits, as do a message offering another time after a missed demo and a birthday or new-job note. A message already drafted for them comes back instead. A client in Contacts gets only replies.
          * @description Risk level 0. Requires outreach.use. Emits outreach.send.queued.
          */
         post: operations["command_outreach_send_queue"];
@@ -18731,6 +18751,26 @@ export interface paths {
          * @description Requires workspace.read.
          */
         post: operations["query_onboarding_status"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/queries/outreach.active.next": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * What the person’s computer does today to stay active in their Facebook groups: how many recent posts to like there (3 to 5, within the day’s likes), in which of their groups (up to 3 that fit and that no teammate works, a different few each day), and whether a question there is still to keep for the day’s reply. Nothing before the person is ready, nor with Sending off.
+         * @description Requires outreach.use.
+         */
+        post: operations["query_outreach_active_next"];
         delete?: never;
         options?: never;
         head?: never;
@@ -38097,6 +38137,65 @@ export interface operations {
             };
         };
     };
+    command_outreach_active_reply: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /**
+                     * @default facebook
+                     * @enum {string}
+                     */
+                    platform?: "facebook";
+                    posts: {
+                        author: {
+                            id: string | null;
+                            url: string;
+                            username: string | null;
+                        };
+                        /** @default null */
+                        comments?: number | null;
+                        group: {
+                            id: string | null;
+                            /** @default null */
+                            name?: string | null;
+                            slug: string | null;
+                            url: string;
+                        };
+                        name: string;
+                        /** @default null */
+                        reactions?: number | null;
+                        text: string;
+                        url: string;
+                        /** @default null */
+                        when?: string | null;
+                    }[];
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        postId: string | null;
+                        url: string | null;
+                        why: string | null;
+                    };
+                };
+            };
+        };
+    };
     command_outreach_ask_cancel: {
         parameters: {
             query?: never;
@@ -38142,7 +38241,7 @@ export interface operations {
                             result: {
                                 drafts: string[];
                                 /** @default null */
-                                kind: ("opener" | "reconnect" | "pitch" | "video" | "follow_up" | "check_in" | "reply" | "demo_reminder" | "rebook" | "birthday" | "new_job" | "comment" | "warm_lead" | "partner_ask" | "partner_follow_up" | "partner_details" | "partner_reply") | null;
+                                kind: ("opener" | "reconnect" | "pitch" | "video" | "follow_up" | "check_in" | "reply" | "demo_reminder" | "rebook" | "birthday" | "new_job" | "comment" | "group_reply" | "warm_lead" | "partner_ask" | "partner_follow_up" | "partner_details" | "partner_reply") | null;
                                 /** @default false */
                                 lookedUp: boolean;
                                 /** @default null */
@@ -38216,7 +38315,7 @@ export interface operations {
                             result: {
                                 drafts: string[];
                                 /** @default null */
-                                kind: ("opener" | "reconnect" | "pitch" | "video" | "follow_up" | "check_in" | "reply" | "demo_reminder" | "rebook" | "birthday" | "new_job" | "comment" | "warm_lead" | "partner_ask" | "partner_follow_up" | "partner_details" | "partner_reply") | null;
+                                kind: ("opener" | "reconnect" | "pitch" | "video" | "follow_up" | "check_in" | "reply" | "demo_reminder" | "rebook" | "birthday" | "new_job" | "comment" | "group_reply" | "warm_lead" | "partner_ask" | "partner_follow_up" | "partner_details" | "partner_reply") | null;
                                 /** @default false */
                                 lookedUp: boolean;
                                 /** @default null */
@@ -38261,7 +38360,7 @@ export interface operations {
                     result?: {
                         drafts: string[];
                         /** @default null */
-                        kind?: ("opener" | "reconnect" | "pitch" | "video" | "follow_up" | "check_in" | "reply" | "demo_reminder" | "rebook" | "birthday" | "new_job" | "comment" | "warm_lead" | "partner_ask" | "partner_follow_up" | "partner_details" | "partner_reply") | null;
+                        kind?: ("opener" | "reconnect" | "pitch" | "video" | "follow_up" | "check_in" | "reply" | "demo_reminder" | "rebook" | "birthday" | "new_job" | "comment" | "group_reply" | "warm_lead" | "partner_ask" | "partner_follow_up" | "partner_details" | "partner_reply") | null;
                         /** @default false */
                         lookedUp?: boolean;
                         /** @default null */
@@ -38374,7 +38473,7 @@ export interface operations {
                             /** @default null */
                             chatId?: string | null;
                             /** @enum {string} */
-                            kind: "opener" | "reconnect" | "pitch" | "video" | "follow_up" | "check_in" | "reply" | "demo_reminder" | "rebook" | "birthday" | "new_job" | "comment" | "warm_lead" | "partner_ask" | "partner_follow_up" | "partner_details" | "partner_reply";
+                            kind: "opener" | "reconnect" | "pitch" | "video" | "follow_up" | "check_in" | "reply" | "demo_reminder" | "rebook" | "birthday" | "new_job" | "comment" | "group_reply" | "warm_lead" | "partner_ask" | "partner_follow_up" | "partner_details" | "partner_reply";
                             /** @default null */
                             postId?: string | null;
                             /** @default null */
@@ -38474,7 +38573,7 @@ export interface operations {
                             result: {
                                 drafts: string[];
                                 /** @default null */
-                                kind: ("opener" | "reconnect" | "pitch" | "video" | "follow_up" | "check_in" | "reply" | "demo_reminder" | "rebook" | "birthday" | "new_job" | "comment" | "warm_lead" | "partner_ask" | "partner_follow_up" | "partner_details" | "partner_reply") | null;
+                                kind: ("opener" | "reconnect" | "pitch" | "video" | "follow_up" | "check_in" | "reply" | "demo_reminder" | "rebook" | "birthday" | "new_job" | "comment" | "group_reply" | "warm_lead" | "partner_ask" | "partner_follow_up" | "partner_details" | "partner_reply") | null;
                                 /** @default false */
                                 lookedUp: boolean;
                                 /** @default null */
@@ -38587,7 +38686,7 @@ export interface operations {
                             result: {
                                 drafts: string[];
                                 /** @default null */
-                                kind: ("opener" | "reconnect" | "pitch" | "video" | "follow_up" | "check_in" | "reply" | "demo_reminder" | "rebook" | "birthday" | "new_job" | "comment" | "warm_lead" | "partner_ask" | "partner_follow_up" | "partner_details" | "partner_reply") | null;
+                                kind: ("opener" | "reconnect" | "pitch" | "video" | "follow_up" | "check_in" | "reply" | "demo_reminder" | "rebook" | "birthday" | "new_job" | "comment" | "group_reply" | "warm_lead" | "partner_ask" | "partner_follow_up" | "partner_details" | "partner_reply") | null;
                                 /** @default false */
                                 lookedUp: boolean;
                                 /** @default null */
@@ -38734,7 +38833,7 @@ export interface operations {
                                 draft: {
                                     chatId: string | null;
                                     /** @enum {string} */
-                                    kind: "opener" | "reconnect" | "pitch" | "video" | "follow_up" | "check_in" | "reply" | "demo_reminder" | "rebook" | "birthday" | "new_job" | "comment" | "warm_lead" | "partner_ask" | "partner_follow_up" | "partner_details" | "partner_reply";
+                                    kind: "opener" | "reconnect" | "pitch" | "video" | "follow_up" | "check_in" | "reply" | "demo_reminder" | "rebook" | "birthday" | "new_job" | "comment" | "group_reply" | "warm_lead" | "partner_ask" | "partner_follow_up" | "partner_details" | "partner_reply";
                                     postId: string | null;
                                     profileId: string | null;
                                 };
@@ -43438,7 +43537,7 @@ export interface operations {
                     /** @default null */
                     chatId?: string | null;
                     /** @enum {string} */
-                    kind: "opener" | "reconnect" | "pitch" | "video" | "follow_up" | "check_in" | "reply" | "demo_reminder" | "rebook" | "birthday" | "new_job" | "partner_ask" | "partner_follow_up" | "partner_details" | "partner_reply" | "comment";
+                    kind: "opener" | "reconnect" | "pitch" | "video" | "follow_up" | "check_in" | "reply" | "demo_reminder" | "rebook" | "birthday" | "new_job" | "partner_ask" | "partner_follow_up" | "partner_details" | "partner_reply" | "comment" | "group_reply";
                     /** @default null */
                     opener?: {
                         /** @enum {string} */
@@ -43474,7 +43573,7 @@ export interface operations {
                         createdAt: string;
                         handedOver: boolean;
                         /** @enum {string} */
-                        kind: "opener" | "reconnect" | "pitch" | "video" | "follow_up" | "check_in" | "reply" | "demo_reminder" | "rebook" | "birthday" | "new_job" | "partner_ask" | "partner_follow_up" | "partner_details" | "partner_reply" | "comment";
+                        kind: "opener" | "reconnect" | "pitch" | "video" | "follow_up" | "check_in" | "reply" | "demo_reminder" | "rebook" | "birthday" | "new_job" | "partner_ask" | "partner_follow_up" | "partner_details" | "partner_reply" | "comment" | "group_reply";
                         name: string;
                         needsYou: string | null;
                         opener: {
@@ -72541,6 +72640,51 @@ export interface operations {
             };
         };
     };
+    query_outreach_active_next: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /**
+                     * @default facebook
+                     * @enum {string}
+                     */
+                    platform?: "facebook";
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        groups: {
+                            /** Format: uuid */
+                            groupId: string;
+                            name: string | null;
+                            url: string;
+                        }[];
+                        likes: number;
+                        own: {
+                            url: string | null;
+                            username: string | null;
+                        } | null;
+                        reply: boolean;
+                    };
+                };
+            };
+        };
+    };
     query_outreach_activity: {
         parameters: {
             query?: never;
@@ -72769,7 +72913,7 @@ export interface operations {
                             result: {
                                 drafts: string[];
                                 /** @default null */
-                                kind: ("opener" | "reconnect" | "pitch" | "video" | "follow_up" | "check_in" | "reply" | "demo_reminder" | "rebook" | "birthday" | "new_job" | "comment" | "warm_lead" | "partner_ask" | "partner_follow_up" | "partner_details" | "partner_reply") | null;
+                                kind: ("opener" | "reconnect" | "pitch" | "video" | "follow_up" | "check_in" | "reply" | "demo_reminder" | "rebook" | "birthday" | "new_job" | "comment" | "group_reply" | "warm_lead" | "partner_ask" | "partner_follow_up" | "partner_details" | "partner_reply") | null;
                                 /** @default false */
                                 lookedUp: boolean;
                                 /** @default null */
@@ -76125,7 +76269,7 @@ export interface operations {
                             createdAt: string;
                             handedOver: boolean;
                             /** @enum {string} */
-                            kind: "opener" | "reconnect" | "pitch" | "video" | "follow_up" | "check_in" | "reply" | "demo_reminder" | "rebook" | "birthday" | "new_job" | "partner_ask" | "partner_follow_up" | "partner_details" | "partner_reply" | "comment";
+                            kind: "opener" | "reconnect" | "pitch" | "video" | "follow_up" | "check_in" | "reply" | "demo_reminder" | "rebook" | "birthday" | "new_job" | "partner_ask" | "partner_follow_up" | "partner_details" | "partner_reply" | "comment" | "group_reply";
                             name: string;
                             needsYou: string | null;
                             opener: {
@@ -76371,7 +76515,7 @@ export interface operations {
                 };
                 content: {
                     "application/json": {
-                        auto: ("reply" | "demo_reminder" | "rebook" | "birthday" | "new_job" | "warm_lead" | "pitch" | "video" | "opener" | "follow_up" | "check_in" | "reconnect" | "comment" | "warm_up" | "friend_request" | "confirm" | "recommend" | "partner_reply" | "partner_details" | "partner_follow_up" | "partner_ask" | "partner_warm_up")[];
+                        auto: ("reply" | "demo_reminder" | "rebook" | "birthday" | "new_job" | "warm_lead" | "pitch" | "video" | "opener" | "follow_up" | "check_in" | "reconnect" | "comment" | "group_reply" | "warm_up" | "friend_request" | "confirm" | "recommend" | "partner_reply" | "partner_details" | "partner_follow_up" | "partner_ask" | "partner_warm_up")[];
                         /**
                          * @default {
                          *       "on": false,
@@ -76393,7 +76537,7 @@ export interface operations {
                             demoBooked: boolean;
                             demoLink: string | null;
                             /** @enum {string} */
-                            kind: "reply" | "demo_reminder" | "rebook" | "birthday" | "new_job" | "warm_lead" | "pitch" | "video" | "opener" | "follow_up" | "check_in" | "reconnect" | "comment" | "warm_up" | "friend_request" | "confirm" | "recommend" | "partner_reply" | "partner_details" | "partner_follow_up" | "partner_ask" | "partner_warm_up";
+                            kind: "reply" | "demo_reminder" | "rebook" | "birthday" | "new_job" | "warm_lead" | "pitch" | "video" | "opener" | "follow_up" | "check_in" | "reconnect" | "comment" | "group_reply" | "warm_up" | "friend_request" | "confirm" | "recommend" | "partner_reply" | "partner_details" | "partner_follow_up" | "partner_ask" | "partner_warm_up";
                             name: string;
                             nextStep: string | null;
                             partnerId?: string | null;
@@ -76448,7 +76592,7 @@ export interface operations {
                                 most: number;
                             };
                         };
-                        messages: ("opener" | "reconnect" | "pitch" | "video" | "follow_up" | "check_in" | "reply" | "demo_reminder" | "rebook" | "birthday" | "new_job" | "partner_ask" | "partner_follow_up" | "partner_details" | "partner_reply" | "comment")[];
+                        messages: ("opener" | "reconnect" | "pitch" | "video" | "follow_up" | "check_in" | "reply" | "demo_reminder" | "rebook" | "birthday" | "new_job" | "partner_ask" | "partner_follow_up" | "partner_details" | "partner_reply" | "comment" | "group_reply")[];
                         /** @default [] */
                         partners: {
                             asking: boolean;
@@ -76456,7 +76600,7 @@ export interface operations {
                             demoBooked: boolean;
                             demoLink: string | null;
                             /** @enum {string} */
-                            kind: "reply" | "demo_reminder" | "rebook" | "birthday" | "new_job" | "warm_lead" | "pitch" | "video" | "opener" | "follow_up" | "check_in" | "reconnect" | "comment" | "warm_up" | "friend_request" | "confirm" | "recommend" | "partner_reply" | "partner_details" | "partner_follow_up" | "partner_ask" | "partner_warm_up";
+                            kind: "reply" | "demo_reminder" | "rebook" | "birthday" | "new_job" | "warm_lead" | "pitch" | "video" | "opener" | "follow_up" | "check_in" | "reconnect" | "comment" | "group_reply" | "warm_up" | "friend_request" | "confirm" | "recommend" | "partner_reply" | "partner_details" | "partner_follow_up" | "partner_ask" | "partner_warm_up";
                             name: string;
                             nextStep: string | null;
                             partnerId?: string | null;
@@ -76688,7 +76832,7 @@ export interface operations {
                                 result: {
                                     drafts: string[];
                                     /** @default null */
-                                    kind: ("opener" | "reconnect" | "pitch" | "video" | "follow_up" | "check_in" | "reply" | "demo_reminder" | "rebook" | "birthday" | "new_job" | "comment" | "warm_lead" | "partner_ask" | "partner_follow_up" | "partner_details" | "partner_reply") | null;
+                                    kind: ("opener" | "reconnect" | "pitch" | "video" | "follow_up" | "check_in" | "reply" | "demo_reminder" | "rebook" | "birthday" | "new_job" | "comment" | "group_reply" | "warm_lead" | "partner_ask" | "partner_follow_up" | "partner_details" | "partner_reply") | null;
                                     /** @default false */
                                     lookedUp: boolean;
                                     /** @default null */
@@ -76726,7 +76870,7 @@ export interface operations {
                                 createdAt: string;
                                 handedOver: boolean;
                                 /** @enum {string} */
-                                kind: "opener" | "reconnect" | "pitch" | "video" | "follow_up" | "check_in" | "reply" | "demo_reminder" | "rebook" | "birthday" | "new_job" | "partner_ask" | "partner_follow_up" | "partner_details" | "partner_reply" | "comment";
+                                kind: "opener" | "reconnect" | "pitch" | "video" | "follow_up" | "check_in" | "reply" | "demo_reminder" | "rebook" | "birthday" | "new_job" | "partner_ask" | "partner_follow_up" | "partner_details" | "partner_reply" | "comment" | "group_reply";
                                 name: string;
                                 needsYou: string | null;
                                 opener: {
@@ -76767,7 +76911,7 @@ export interface operations {
                                 createdAt: string;
                                 handedOver: boolean;
                                 /** @enum {string} */
-                                kind: "opener" | "reconnect" | "pitch" | "video" | "follow_up" | "check_in" | "reply" | "demo_reminder" | "rebook" | "birthday" | "new_job" | "partner_ask" | "partner_follow_up" | "partner_details" | "partner_reply" | "comment";
+                                kind: "opener" | "reconnect" | "pitch" | "video" | "follow_up" | "check_in" | "reply" | "demo_reminder" | "rebook" | "birthday" | "new_job" | "partner_ask" | "partner_follow_up" | "partner_details" | "partner_reply" | "comment" | "group_reply";
                                 name: string;
                                 needsYou: string | null;
                                 opener: {

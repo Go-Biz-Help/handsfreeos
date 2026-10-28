@@ -1,8 +1,9 @@
 /**
  * Comments on good posts where they go through `sends` (docs/outreach.md, decision 92: a network whose kit's
  * `commentsWait` is `hold`, Instagram's, Alignable's and from 0.99.0 LinkedIn's, decision 102), as those runners
- * (./instagram.ts, ./alignable.ts, ./linkedin.ts) draft and send them: what's the same on each. Facebook's are the
- * person's, so they never come here.
+ * (./instagram.ts, ./alignable.ts, ./linkedin.ts) draft and send them: what's the same on each. Facebook's comments on
+ * good posts are steps of their own, so they never come here; from 0.106.0 its day's reply under a question in one of
+ * the person's groups does (`group_reply`, decision 114, ./run.ts), and goes the same way.
  *
  * - **Drafted from the post** (`draftComment`): the AI writes it for that post (`hfos-draft` with its `postId`), and
  *   HandsFreeOS queues it with its post (`outreach.send.queue`). It waits for the person's OK while that network's
@@ -14,6 +15,7 @@
  *   post said and the comment. One that couldn't go HandsFreeOS hands to the person with its words, and sets its post
  *   aside so it isn't drafted again.
  */
+import { underAPost } from '@hfos/core/addons/outreach/automation';
 import { NETWORKS, type Platform } from '@hfos/core/addons/outreach/networks';
 import type { Drafts, TodayListItem } from '../hfos/messages';
 import { takeNote } from '../hfos/noting';
@@ -52,13 +54,24 @@ export interface CommentRunner {
   ) => Promise<{ readonly stop: string } | { readonly again: string } | null>;
 }
 
-/** Whether a piece of work on the list is a comment through `sends`: drafted, or sent once OK'd. */
+/**
+ * Whether a piece of work on the list is a comment through `sends`, or the day's reply in a group: drafted, or sent
+ * once OK'd.
+ */
 export const isCommentWork = (work: Work): boolean =>
-  work.do !== 'step' && work.item.kind === 'comment';
+  work.do !== 'step' && underAPost(work.item.kind);
+
+/** Whose post it is, as the runner's lines say it: "Dana Reyes’s post", or "Dana Reyes’s question" for a reply. */
+const postOf = (item: TodayListItem) =>
+  `${item.name}’s ${item.kind === 'group_reply' ? 'question' : 'post'}`;
 
 /** What the runner says it's doing for a comment's draft or send; null for anything else. */
 export function commentDoing(work: Work): string | null {
   if (!isCommentWork(work)) return null;
+  if (work.item.kind === 'group_reply')
+    return work.do === 'draft'
+      ? `Writing a reply to ${postOf(work.item)}…`
+      : `Answering ${postOf(work.item)}…`;
   return work.do === 'draft'
     ? `Writing a comment on ${work.item.name}’s post…`
     : `Commenting on ${work.item.name}’s post…`;
@@ -72,12 +85,13 @@ export async function draftComment(
   item: TodayListItem,
   businessId: string,
 ): Promise<CommentOutcome> {
-  const lead = `${item.name}’s post`;
+  const lead = postOf(item);
+  const kind = item.kind === 'group_reply' ? 'group_reply' : 'comment';
   if (!item.profileId || !item.postId) return { done: false, line: `${lead}: no post kept` };
   const drafted = await answer({
     type: 'hfos-draft',
     workspaceId: businessId,
-    input: { kind: 'comment', profileId: item.profileId, postId: item.postId },
+    input: { kind, profileId: item.profileId, postId: item.postId },
   });
   if (!drafted.ok) return { done: false, line: `${lead}: ${drafted.problem.message}` };
   const text = (drafted.value as Drafts).drafts[0];
@@ -87,7 +101,7 @@ export async function draftComment(
       body: {
         workspaceId: businessId,
         profileId: item.profileId,
-        kind: 'comment',
+        kind,
         chatId: null,
         threadKey: null,
         text,
@@ -98,12 +112,10 @@ export async function draftComment(
     }),
     businessId,
   );
+  const wrote = kind === 'group_reply' ? `Wrote a reply to ${lead}` : `Wrote a comment on ${lead}`;
   return {
     done: true,
-    line:
-      queued.state === 'approved'
-        ? `Wrote a comment on ${item.name}’s post: it goes soon`
-        : `Wrote a comment on ${item.name}’s post: it waits for your OK`,
+    line: queued.state === 'approved' ? `${wrote}: it goes soon` : `${wrote}: it waits for your OK`,
   };
 }
 
@@ -134,7 +146,7 @@ export async function sendComment(
   runner: CommentRunner,
 ): Promise<CommentOutcome> {
   const send = item.send!;
-  const lead = `${item.name}’s post: `;
+  const lead = `${postOf(item)}: `;
   const failed = async (why: string): Promise<CommentOutcome> => {
     await sendDone(send.sendId, businessId, false, why);
     return { done: false, line: `${lead}${why}` };
@@ -175,5 +187,11 @@ export async function sendComment(
   await pause(SETTLE_MS);
   const after = await runner.onPage(businessId);
   if (after && 'stop' in after) return after;
-  return { done: true, line: `Commented on ${item.name}’s post` };
+  return {
+    done: true,
+    line:
+      item.kind === 'group_reply'
+        ? `Answered ${postOf(item)} in your group`
+        : `Commented on ${item.name}’s post`,
+  };
 }

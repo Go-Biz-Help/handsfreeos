@@ -100,6 +100,8 @@ export const TODAY_KINDS = {
   check_in: 'Check in',
   reconnect: 'Reconnect',
   comment: 'Comment on a post',
+  // The day's question in one of the person's Facebook groups (decision 114, ./active.ts): the AI's reply waits at first.
+  group_reply: 'Answer a question in your group',
   warm_up: 'Like a post first',
   friend_request: 'Send a friend request',
   confirm: 'Confirm their request',
@@ -176,6 +178,7 @@ export const TODAY_LIMIT: Readonly<Record<TodayKind, DailyStep | null>> = {
   new_job: 'follow_up',
   reply: null,
   comment: 'comment',
+  group_reply: 'comment',
   warm_lead: 'comment',
   partner_reply: null,
   partner_details: 'follow_up',
@@ -392,6 +395,7 @@ export const DRAFT_KINDS = [
   'birthday',
   'new_job',
   'comment',
+  'group_reply',
   'warm_lead',
   ...PARTNER_MESSAGE_KINDS,
 ] as const;
@@ -416,6 +420,7 @@ export const DRAFTS_FOR: Readonly<Record<DraftKind, number>> = {
   birthday: DRAFTS_MOST,
   new_job: DRAFTS_MOST,
   comment: COMMENT_DRAFTS,
+  group_reply: COMMENT_DRAFTS,
   warm_lead: COMMENT_DRAFTS,
   partner_ask: DRAFTS_MOST,
   partner_follow_up: DRAFTS_MOST,
@@ -432,7 +437,7 @@ export const TodayDraftInput = z.object({
   /** Who it's to: their profile, or for a follow-up or a reply, the chat. */
   profileId: z.uuid().nullable().default(null),
   chatId: z.uuid().nullable().default(null),
-  /** For a comment: the post. */
+  /** For a comment, or a reply in a group: the post. */
   postId: z.uuid().nullable().default(null),
   /** What the extension just read on their profile and business page; the web sends none. Never kept. */
   lookup: z.array(z.string().trim().min(1).max(LOOKUP_LINE_MOST)).max(LOOKUP_LINES).default([]),
@@ -574,6 +579,8 @@ const TASK: Record<CustomerDraftKind, string> = {
     'They posted this in a Facebook group. Write the owner’s public comment under it: answer what they asked or add something useful first, and only then offer to help, without a hard pitch or a link unless they asked for one. Under 50 words. No questions about things the post already says.',
   warm_lead:
     'They commented on the owner’s own helpful post in a Facebook group. Write the owner’s public reply to their comment: thank them by name, answer or add to what they said, and ask one light question back. No pitch, no link. Under 40 words.',
+  group_reply:
+    'They asked this in a Facebook group the owner is in. Write the owner’s public reply under it, as a friendly neighbour would: answer what they asked, or add something useful from what the owner knows. Nothing about the business unless they asked for what it does, and no pitch, no link and no web address. Under 40 words. When there’s nothing useful the owner could honestly add, write no drafts.',
 };
 
 /**
@@ -601,6 +608,9 @@ export const isOccasionKind = (kind: string): kind is OccasionKind =>
 
 /** Whether a drafted birthday or new-job note can go: never with a link or a web address. */
 export const fitsOccasion = (text: string): boolean => !LINKED.test(text);
+
+/** Whether a drafted reply to a question in a group can go (decision 114): never with a link or a web address. */
+export const fitsGroupReply = (text: string): boolean => !LINKED.test(text);
 
 /**
  * Whether a drafted comment can wait to be posted where comments go through `sends` (decision 92): never with a link
@@ -675,7 +685,8 @@ export const lastOf = (recent: readonly DownloadMessage[]): string | null =>
   recent.reduce<string | null>((last, m) => (last === null || m.at > last ? m.at : last), null);
 
 /** Whether a kind of draft is a message in Messenger, which can go as a few texts, rather than a public comment. */
-const isMessageKind = (kind: DraftKind) => kind !== 'comment' && kind !== 'warm_lead';
+const isMessageKind = (kind: DraftKind) =>
+  kind !== 'comment' && kind !== 'group_reply' && kind !== 'warm_lead';
 
 /** The kinds a draft is told the main offer for: the conversation's. Reconnect's drafts stay without a pitch. */
 const OFFER_KINDS: ReadonlySet<DraftKind> = new Set([
@@ -727,8 +738,11 @@ export function todayDraftPrompt(input: {
   const p = input.playbook;
   const voice = input.voice ?? VOICE_DEFAULTS;
   const requests = input.requests === true && input.kind === 'opener';
-  // A birthday or a new-job note (decision 108) is nothing about the business: the playbook gives only its voice.
+  // A birthday or a new-job note (decision 108) is nothing about the business: the playbook gives only its voice. A
+  // reply to a question in a group (decision 114) knows what the business does, to answer from it, but carries no link
+  // and asks nothing of the playbook's conversation.
   const note = isOccasionKind(input.kind);
+  const helping = input.kind === 'group_reply';
   // A message in Messenger can go as a few texts; a comment is one, in public, and so is a message to their Requests.
   const texts = isMessageKind(input.kind) && !requests;
   const playbook = p
@@ -736,17 +750,17 @@ export function todayDraftPrompt(input: {
         `Name: ${p.name}`,
         p.offer && !note ? `Offer: ${p.offer}` : null,
         // A message to their Requests carries no link (`REQUESTS_TASK`), and nor does a note.
-        p.link && !requests && !note ? `Link: ${p.link}` : null,
+        p.link && !requests && !note && !helping ? `Link: ${p.link}` : null,
         p.audience && !note ? `For: ${p.audience}` : null,
         p.niche && !note ? `Niche: ${p.niche}` : null,
-        p.proof?.length && !note
+        p.proof?.length && !note && !helping
           ? `Proof for this niche:\n${p.proof.map((r) => `- ${r}`).join('\n')}`
           : null,
         p.tone ? `Tone: ${p.tone}` : null,
         p.samples.length ? `Sample messages:\n${p.samples.map((s) => `- ${s}`).join('\n')}` : null,
         p.avoid.length ? `Words to avoid: ${p.avoid.join(', ')}` : null,
         p.disclaimer ? `Every message must say: ${p.disclaimer}` : null,
-        p.questions.length && !note
+        p.questions.length && !note && !helping
           ? `Conversation:\n${p.questions.map((q, i) => `${i + 1}. ${q.text}`).join('\n')}`
           : null,
       ]

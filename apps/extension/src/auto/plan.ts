@@ -15,6 +15,7 @@ import {
   businessDay,
   nextInHours,
   startAfterToday,
+  underAPost,
   workWindow,
   type WorkingHours,
 } from '@hfos/core/addons/outreach/automation';
@@ -52,6 +53,7 @@ export const DAILY_JOBS = [
   'join',
   'members',
   'posts',
+  'active',
   'chats',
   'followers',
   'checks',
@@ -238,8 +240,8 @@ export const workKey = (work: Work): string =>
 
 /**
  * The messages on a list it drafts and sends: a kind it writes, to someone kept, with their chat or profile. A comment
- * that goes through `sends` (decision 92: where `comment` is among the list's `messages`) also needs its post, kept and
- * with its link.
+ * that goes through `sends` (decision 92: where `comment` is among the list's `messages`), and the day's reply in a
+ * group (decision 114: `group_reply`), also needs its post, kept and with its link.
  */
 const messagesOn = (items: readonly TodayListItem[], kinds: readonly string[]) =>
   items.filter(
@@ -247,7 +249,7 @@ const messagesOn = (items: readonly TodayListItem[], kinds: readonly string[]) =
       kinds.includes(item.kind) &&
       item.profileId !== null &&
       (item.profileUrl !== null || item.threadKey !== null) &&
-      (item.kind !== 'comment' || (item.postId !== null && item.postUrl !== null)),
+      (!underAPost(item.kind) || (item.postId !== null && item.postUrl !== null)),
   );
 
 /**

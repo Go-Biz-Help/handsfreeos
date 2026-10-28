@@ -238,6 +238,32 @@ describe('drafts for Today', () => {
     expect((await draft(member, { kind: 'comment', postId })).statusCode).toBe(404);
   });
 
+  it('drafts a reply to a question kept in a group, never with a link (decision 114)', async () => {
+    const [asked] = await testDbs()
+      .admin.db.insert(posts)
+      .values({
+        workspaceId: ws,
+        userId: owner.id,
+        profileId,
+        url: 'https://www.facebook.com/groups/323456789/posts/100002/',
+        body: 'What time does the farmers market open on Saturdays?',
+        found: 'active',
+        checkState: 'not',
+        reasons: ['Asks something'],
+        seenAt: new Date(),
+        replyAt: new Date(),
+      })
+      .returning({ id: posts.id });
+    const res = await draft(owner, { kind: 'group_reply', postId: asked!.id });
+    expect(res.statusCode).toBe(200);
+    expect(res.json()).toMatchObject({
+      kind: 'group_reply',
+      drafts: ['Good question, Dana! It opens at eight on Saturdays.'],
+    });
+    expect((await draft(owner, { kind: 'group_reply' })).statusCode).toBe(404);
+    expect((await draft(member, { kind: 'group_reply', postId: asked!.id })).statusCode).toBe(404);
+  });
+
   it('drafts from the person’s own chats only', async () => {
     expect((await draft(owner, { kind: 'reply', chatId })).statusCode).toBe(200);
     expect((await draft(member, { kind: 'reply', chatId })).statusCode).toBe(404);

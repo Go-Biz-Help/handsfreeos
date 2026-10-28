@@ -1814,6 +1814,17 @@ function scriptedTodayDraft(message: string) {
       ],
     };
   }
+  // A reply to a question in one of the owner's groups (decision 114): answers it; one with a link, for the checks to
+  // drop.
+  if (message.includes('Write the owner’s public reply under it, as a friendly neighbour would'))
+    return {
+      simple: false,
+      answer: 'none',
+      drafts: [
+        `Good question, ${first}! It opens at eight on Saturdays.`,
+        `Hi ${first}, the times are on www.example.com`,
+      ],
+    };
   // A first message to someone's Requests on Instagram: one short text; a link is for the checks to drop, and a second
   // text for them to join to the first.
   if (message.includes('this message lands in their message Requests'))

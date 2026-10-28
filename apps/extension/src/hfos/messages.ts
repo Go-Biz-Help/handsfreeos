@@ -155,6 +155,11 @@ export type FollowersNextInput = Body<'/v1/queries/outreach.followers.next'>;
 export type FollowersNext = Ok<'/v1/queries/outreach.followers.next'>;
 export type FollowersSaveInput = Body<'/v1/commands/outreach.followers.save'>;
 export type FollowersSaved = Ok<'/v1/commands/outreach.followers.save'>;
+/** Staying active in the person's Facebook groups (decision 114). */
+export type ActiveNextInput = Body<'/v1/queries/outreach.active.next'>;
+export type ActiveNext = Ok<'/v1/queries/outreach.active.next'>;
+export type ActiveReplyInput = Body<'/v1/commands/outreach.active.reply'>;
+export type ActiveReplied = Ok<'/v1/commands/outreach.active.reply'>;
 /** Birthdays and new jobs read once a day (decision 108). */
 export type OccasionsSaveInput = Body<'/v1/commands/outreach.occasions.save'>;
 export type OccasionsSaved = Ok<'/v1/commands/outreach.occasions.save'>;
@@ -357,6 +362,12 @@ export type HfosAsk =
   /** The person's own followers on Facebook (decision 113): whether this week's read is due, and a part of it saved. */
   | { readonly type: 'hfos-followers-next'; readonly input: FollowersNextInput }
   | { readonly type: 'hfos-followers-save'; readonly input: FollowersSaveInput }
+  /**
+   * Staying active in the person's Facebook groups (decision 114): what today's likes and question there are, and the
+   * question kept for the day's reply.
+   */
+  | { readonly type: 'hfos-active-next'; readonly input: ActiveNextInput }
+  | { readonly type: 'hfos-active-reply'; readonly input: ActiveReplyInput }
   | { readonly type: 'hfos-finds-next'; readonly input: FindsNextInput }
   | { readonly type: 'hfos-finds-searches'; readonly input: FindsSearchesInput }
   /**
@@ -439,6 +450,8 @@ export interface HfosValues {
   readonly 'hfos-events-read': EventsRead;
   readonly 'hfos-followers-next': FollowersNext;
   readonly 'hfos-followers-save': FollowersSaved;
+  readonly 'hfos-active-next': ActiveNext;
+  readonly 'hfos-active-reply': ActiveReplied;
   readonly 'hfos-finds-next': FindsNext;
   readonly 'hfos-finds-searches': FindsSearches;
   readonly 'hfos-groups-to-check': GroupsToCheck;

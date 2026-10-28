@@ -2650,6 +2650,29 @@ where decisions 37 and 59 put the settings; what they decided stands. Settled to
       - **A good fit goes on Today for a friend request** ("Follows you on Facebook", with what the AI saw), ahead of
         the groups' people as they made the first move. With Like a post first on, a like of one of their posts comes
         first and the request a day after, as anyone's does.
+114.  **Staying active in your groups on Facebook** (Chris, 28 Oct 2026, "all of your picks": 19a). "Each day it
+      likes 3 to 5 recent posts in your groups and replies to 1. The AI writes the reply, and replies wait for your OK
+      at first."
+      - **Where** (`outreach.active.next`): up to 3 of the person's groups marked Work these or Maybe that no teammate
+        works (`ACTIVE_GROUPS`), Work these first, a different few each day. Nothing before they're ready, nor with
+        Sending off.
+      - **The likes** (0.106.0, `active` after finding posts, `src/jobs/active.ts`): 3 to 5 a day in all
+        (`likesToday`, the same number all day), less any liked in a group already today, within the day's likes.
+        Each group's newest posts are read (up to 10), and the likes go on recent ones (`recentPost`: within 3 days,
+        or undated at the top), spread over the groups, at a person's pace: never one of the person's own, one liked
+        already, or one about sad news (`neverLike`). Each is noted as a like of theirs. It stops on any warning.
+      - **One reply a day** (`outreach.active.reply`): the recent posts there that ask something (`asksSomething`: a
+        question mark or a call for help) are offered, and the first that isn't the person's own, answered or put
+        aside, another teammate's person's, or one worth the AI's check for a comment (those stay comments, decision 20) is kept (`posts.found` `active`, `posts.reply_at`, 20261027017300). One a day; nobody goes in Contacts.
+      - **On Today** ("Answer a question in your group", "Asked in Austin Small Business Owners"): for 3 days, within
+        the day's comments, and only to a build that posts it (`GROUP_REPLIES_SINCE`, 0.106.0); an older one would
+        send an OK'd reply as a message.
+      - **The AI writes it** (`group_reply`): a friendly answer under 40 words, nothing about the business unless they
+        asked, no pitch and no link; with nothing useful to add, no draft.
+      - **It waits for the person's OK at first** (`sends` kind `group_reply`, with its post): under the comments'
+        hold on Facebook, till they've OK'd 25 there and a week has gone by, then it goes on its own with any Sending
+        but Off. The runner posts it under the question on its page (`src/auto/comments.ts`) and notes it as a
+        comment. A skip puts the post aside.
 
 ## Rules worth knowing before changing anything
 

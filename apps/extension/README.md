@@ -3,7 +3,7 @@
 The extension that works beside a person on Facebook, and on LinkedIn, Instagram and Alignable once they turn each on,
 for the Social Outreach add-on (docs/outreach.md). It connects to HandsFreeOS only for businesses that have that add-on on.
 
-**This is a test build (0.105.0), and a bare one** (decisions 43, 59 and 72 in docs/outreach.md). Everything is set
+**This is a test build (0.106.0), and a bare one** (decisions 43, 59 and 72 in docs/outreach.md). Everything is set
 and started in HandsFreeOS; the extension does the work on Facebook. Its side panel shows progress and activity only:
 signing in, what it does next with today's steps and **Start my day** and **Stop for today**, how many things need
 you in HandsFreeOS (with a link there), each network's line, what it did today, and a link to HandsFreeOS. Needs you
@@ -1069,6 +1069,18 @@ shows under Instagram). Your Instagram choices in HandsFreeOS say what it does (
 Each step is noted as the extension's own (`auto`), as Instagram's. A step its page doesn't let it do goes to your
 Needs you; it never guesses.
 
+### Staying active in your groups on Facebook (0.106.0)
+
+From 0.106.0 (docs/outreach.md, decision 114) Facebook's once-a-day jobs stay active in your groups, after finding
+posts (`active`, `src/jobs/active.ts`). HandsFreeOS names up to 3 of your groups that fit and that no teammate works,
+a different few each day, and how many posts to like there: 3 to 5 in all, within the day's likes. In each it opens
+the newest posts, reads up to 10 (`hfos-group-feed`), and likes recent ones there at a person's pace
+(`hfos-like-group-post`): never your own, one you liked already, an old one or one about sad news. Each is noted as a
+like of yours. The recent posts there that ask something go to HandsFreeOS, which keeps one a day for a reply
+(`hfos-active-reply`): Today lists it ("Answer a question in your group"), the AI writes a short, friendly answer with
+no pitch and no link, and it waits for your OK at first, as comments do, then goes under the question on its page and
+is noted as a comment. A Facebook warning stops it for the day.
+
 ### Your followers on Facebook (0.105.0)
 
 From 0.105.0 (docs/outreach.md, decision 113) Facebook's once-a-day jobs read your followers once a week, after your
@@ -1616,7 +1628,7 @@ on its own on every network (decisions 29 and 98, 0.97.0), every part of your pr
 day (decision 108, 0.100.0), the week's helpful post on Instagram and Alignable (decision 109, 0.101.0), accounts like yours on Instagram
 (decision 110, 0.102.0), their story liked as a warm-up on Instagram (decision 111, 0.103.0), and the events near
 you on Alignable read once a week (decision 112, 0.104.0), and your Facebook followers checked like friends once a
-week (decision 113, 0.105.0); Social
+week (decision 113, 0.105.0), and staying active in your groups (decision 114, 0.106.0); Social
 Outreach's onboarding is built, in HandsFreeOS (decisions 36 and 45). Safari on Mac
 follows in Phase 2.
 

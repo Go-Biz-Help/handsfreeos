@@ -20,7 +20,7 @@ import type { FormSteps } from './networks/instagram/own-profile';
 import type { NameWrote } from './networks/accounts-center/name';
 import type { Asking } from './networks/accounts-center/pages';
 import type { UsernameWrote } from './networks/accounts-center/username';
-import type { AutoResult, MessageWrote, TheirPost } from './networks/facebook/auto';
+import type { AutoResult, GroupFeedPost, MessageWrote, TheirPost } from './networks/facebook/auto';
 import type { StepAsk, StepResult } from './networks/facebook/fetch';
 import type { Engaged, PostResult } from './networks/facebook/compose';
 import type { JoinStep } from './networks/facebook/join';
@@ -164,6 +164,22 @@ export type StoryAsk = { readonly type: 'hfos-like-story'; readonly profile: Pro
 export type StoryAnswer =
   | { readonly ok: true; readonly result: AutoResult; readonly storyUrl: string | null }
   | { readonly ok: false; readonly error: string };
+
+/**
+ * In one of the person's Facebook groups (decision 114, src/networks/facebook/auto.ts): the newest posts in its feed,
+ * each with whether the person liked it already, for the day's likes and its question for a reply; and one of them
+ * liked, by its place among those read, checked by its link when the page gave one. The like answers as an
+ * `AutoAnswer`, with the post's address.
+ */
+export type GroupFeedAsk = { readonly type: 'hfos-group-feed'; readonly most: number };
+export type GroupFeedAnswer =
+  | { readonly ok: true; readonly posts: readonly GroupFeedPost[] }
+  | { readonly ok: false; readonly error: string };
+export type GroupLikeAsk = {
+  readonly type: 'hfos-like-group-post';
+  readonly index: number;
+  readonly url: string | null;
+};
 
 /**
  * LinkedIn's helpful post, put up on the person's own feed (src/networks/linkedin/compose.ts): how it went, and its

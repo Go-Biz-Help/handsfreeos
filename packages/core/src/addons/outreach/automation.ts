@@ -470,11 +470,25 @@ export const MESSAGE_KINDS = [
 export type MessageKind = (typeof MESSAGE_KINDS)[number];
 
 /**
- * What goes through `sends` (./sends.ts): the messages, and a comment on a good post on a network whose comments wait
- * for the person at first (the kit's `commentsWait: 'hold'`, decision 92). `MESSAGE_KINDS` keeps meaning messages.
+ * What goes through `sends` (./sends.ts): the messages; a comment on a good post on a network whose comments wait for
+ * the person at first (the kit's `commentsWait: 'hold'`, decision 92); and on Facebook the day's reply to a question in
+ * one of their groups (decision 114, ./active.ts). `MESSAGE_KINDS` keeps meaning messages.
  */
-export const SEND_KINDS = [...MESSAGE_KINDS, 'comment'] as const satisfies readonly TodayKind[];
+export const SEND_KINDS = [
+  ...MESSAGE_KINDS,
+  'comment',
+  'group_reply',
+] as const satisfies readonly TodayKind[];
 export type SendKind = (typeof SEND_KINDS)[number];
+
+/**
+ * The sends that go under a post rather than in a chat, each with its post: a comment (decision 92), and a reply to a
+ * question in a group (decision 114). Neither has a chat, a pitch or a link, and each waits under the comments' hold.
+ */
+export const POST_SEND_KINDS = ['comment', 'group_reply'] as const satisfies readonly SendKind[];
+export type PostSendKind = (typeof POST_SEND_KINDS)[number];
+export const underAPost = (kind: string): kind is PostSendKind =>
+  (POST_SEND_KINDS as readonly string[]).includes(kind);
 
 /** The messages the extension drafts for the person: none while it's off, or on a network they don't work. */
 export const messageKinds = (settings: Pick<DoesChoices, 'sending' | 'on'>): MessageKind[] =>

@@ -62,7 +62,7 @@ import type { ProfileRef, ReadResult, ThreadRef } from '../networks/facebook/typ
 import { valueOf, type Hfos, type Job, type JobEnd } from '../jobs/job';
 import { reporter } from '../jobs/report';
 import { nameForms, sameName } from '../networks/facebook/people';
-import { FACEBOOK, profileFromUrl } from '../networks/facebook/urls';
+import { FACEBOOK, facebookUrl, profileFromUrl } from '../networks/facebook/urls';
 import type {
   AutoStatus,
   Drafts,
@@ -93,6 +93,14 @@ import { WorkTab } from '../tab';
 import { WATCH_GROUPS } from '@hfos/core/addons/outreach/posts';
 import { groupsToWork, watchPosts } from '../jobs/posts';
 import { postHelpful } from '../jobs/helpful';
+import {
+  commentDoing,
+  draftComment,
+  isCommentWork,
+  sendComment,
+  type CommentOutcome,
+  type CommentRunner,
+} from './comments';
 import { DAILY_DOING, DAILY_NAMES, postSender, runDaily } from './daily';
 import {
   beforeDay,
@@ -838,18 +846,52 @@ const stepKind = (kind: TodayListItem['kind']): AutoKind =>
   kind === 'partner_warm_up' ? 'warm_up' : (kind as AutoKind);
 
 const doing = (work: Work) =>
-  work.do === 'step'
+  commentDoing(work) ??
+  (work.do === 'step'
     ? `${DOING[stepKind(work.item.kind)]} ${work.item.name}…`
     : work.do === 'draft'
       ? `Writing a message to ${work.item.name}…`
-      : `Sending ${work.item.name} a message…`;
+      : `Sending ${work.item.name} a message…`);
 
-/** What a piece of work counts as, done. */
+/** What a piece of work counts as, done: the day's reply in a group, once posted, as a comment. */
 const doneAs = (work: Work): DoneKind =>
-  work.do === 'step' ? stepKind(work.item.kind) : work.do === 'draft' ? 'drafted' : 'sent';
+  work.do === 'step'
+    ? stepKind(work.item.kind)
+    : work.do === 'draft'
+      ? 'drafted'
+      : isCommentWork(work)
+        ? 'comment'
+        : 'sent';
+
+/**
+ * The day's reply under a question in one of the person's groups (decision 114): drafted from the post and posted
+ * under it as a comment through `sends` is (./comments.ts), the post's own page looked at for a warning first.
+ */
+const commenting: CommentRunner = {
+  platform: 'facebook',
+  tab,
+  async onPage(businessId) {
+    await setState({ tabId: tab.tabId });
+    const stop = await warnedOn(await read(), businessId);
+    return stop ? { stop } : null;
+  },
+};
+
+/** A comment's outcome as the runner's: Facebook never asks to sign in there, so it has no "again". */
+const fromComment = (o: CommentOutcome): Outcome =>
+  'again' in o ? { done: false, line: o.again } : o;
+
+async function groupReply(work: Work, businessId: string): Promise<Outcome> {
+  if (work.do === 'draft') return fromComment(await draftComment(work.item, businessId));
+  const link = work.item.profileUrl ? facebookUrl(work.item.profileUrl) : null;
+  return fromComment(
+    await sendComment(work.item, link ? profileFromUrl(link) : null, businessId, commenting),
+  );
+}
 
 /** Does a piece of work: a step on the list, a draft, or a send. */
 export function doWork(work: Work, businessId: string, split: boolean): Promise<Outcome> {
+  if (isCommentWork(work)) return groupReply(work, businessId);
   if (work.do === 'draft') return draftMessage(work.item, businessId);
   if (work.do === 'send') return sendMessage(work.item, businessId, split);
   return doItem(work.item, businessId);

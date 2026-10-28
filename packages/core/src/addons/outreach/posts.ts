@@ -46,10 +46,11 @@ export const COMMENT_DRAFTS = 2;
 export const POST_CHECKS = ['waiting', 'good', 'not', 'failed'] as const;
 export type PostCheck = (typeof POST_CHECKS)[number];
 /**
- * How a post was found: scrolling a group's feed, Find posts, the watch for new ones, a network's own search, or an
- * account like the business's own (decision 110), whose posts are read for who liked and commented on them.
+ * How a post was found: scrolling a group's feed, Find posts, the watch for new ones, a network's own search, an
+ * account like the business's own (decision 110), whose posts are read for who liked and commented on them, or the day's
+ * look at the person's groups for a question to answer (`active`, decision 114, ./active.ts).
  */
-export const POST_FOUND = ['scroll', 'find', 'watch', 'search', 'account'] as const;
+export const POST_FOUND = ['scroll', 'find', 'watch', 'search', 'account', 'active'] as const;
 export type PostFound = (typeof POST_FOUND)[number];
 
 /** The look at the newest posts (decision 49): how many groups, how many screens of each, and how often. */
@@ -258,7 +259,8 @@ export const PostsSaveInput = z
      */
     group: GroupRef.nullable().default(null),
     posts: z.array(PostIn).min(1).max(POSTS_SAVE_MOST),
-    found: z.enum(POST_FOUND).default('scroll'),
+    // A post for the day's reply in a group is kept by `outreach.active.reply` alone.
+    found: z.enum(POST_FOUND).exclude(['active']).default('scroll'),
     /**
      * The hashtag (without its #) or phrase the look or search found these with (decision 92), kept on each new post
      * (`posts.words`, the first one kept). A post found under a playbook's own is worth the AI's check whatever its

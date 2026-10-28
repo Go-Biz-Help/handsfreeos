@@ -47,6 +47,7 @@ import {
   runsOn,
   upgradePlaybookDetails,
 } from '@hfos/core/addons/outreach/playbooks';
+import { underAPost } from '@hfos/core/addons/outreach/automation';
 import { replyNeedsYou } from '@hfos/core/addons/outreach/sends';
 import {
   answerOf,
@@ -55,6 +56,7 @@ import {
   demoWhen,
   DRAFTS_FOR,
   fitsComment,
+  fitsGroupReply,
   fitsOccasion,
   fitsRequests,
   isOccasionKind,
@@ -88,7 +90,7 @@ export const todayDraft: AddonWorkerAction<TodayDraftInput> = {
   ai: {
     tool: 'outreach_draft_message',
     description:
-      "Draft a message for someone the person reached, as Draft a message on Today does: up to three drafts from the AI in the playbook's tone, for a first message, a reconnect, a pitch, a follow-up, a reply (with the chat), a demo's reminder, another time after a missed demo, a birthday or new-job note, or a comment (with the post). Nothing is sent: the person copies one and sends it, then outreach_note_sent notes it.",
+      "Draft a message for someone the person reached, as Draft a message on Today does: up to three drafts from the AI in the playbook's tone, for a first message, a reconnect, a pitch, a follow-up, a reply (with the chat), a demo's reminder, another time after a missed demo, a birthday or new-job note, a comment (with the post), or a reply to a question asked in one of the person’s Facebook groups (with the post). Nothing is sent: the person copies one and sends it, then outreach_note_sent notes it.",
     autonomy: 'auto',
     keywords: ['draft a message', 'write a first message', 'draft a reply', 'draft a comment'],
   },
@@ -115,7 +117,7 @@ export const todayDraft: AddonWorkerAction<TodayDraftInput> = {
             sql`select name, profile_id, recent from addon_outreach.file_chats
                 where workspace_id = ${ws} and id = ${input.chatId} and user_id = ${ctx.userId}`,
           )
-        : input.profileId && input.kind !== 'comment' && input.kind !== 'warm_lead'
+        : input.profileId && !underAPost(input.kind) && input.kind !== 'warm_lead'
           ? // No chat named: their latest with the person, as the extension just brought it in for a reply.
             await rows<{ name: string; profile_id: string | null; recent: DownloadMessage[] }>(
               tx,
@@ -269,7 +271,7 @@ export const todayDraft: AddonWorkerAction<TodayDraftInput> = {
       };
     });
     const name = found.profile?.name ?? found.chat?.name;
-    if (input.kind === 'comment' && !found.post)
+    if (underAPost(input.kind) && !found.post)
       throw HfosError.notFound('That post isn’t on your list anymore. Reload Today.');
     if (input.kind === 'warm_lead' && !found.engaged)
       throw HfosError.notFound('Their comment isn’t on your list anymore. Reload Today.');
@@ -421,19 +423,21 @@ export const todayDraft: AddonWorkerAction<TodayDraftInput> = {
         value,
         playbook?.details.avoid ?? [],
         DRAFTS_FOR[kind],
-        found.voice.split && kind !== 'comment' && kind !== 'warm_lead' && !toRequests,
+        found.voice.split && !underAPost(kind) && kind !== 'warm_lead' && !toRequests,
       );
       // To their Requests: only one short text with no link goes. A comment that waits to be posted (Instagram's and
       // Alignable's, decision 92) never carries a link, and on Instagram no hashtag, within its 30 words; nor does a
-      // birthday or new-job note (decision 108).
+      // birthday or new-job note (decision 108), nor a reply in a group (decision 114).
       const drafts =
         toRequests && kind === 'opener'
           ? checked.filter(fitsRequests)
           : kind === 'comment'
             ? checked.filter((d) => fitsComment(d, platform))
-            : isOccasionKind(kind)
-              ? checked.filter(fitsOccasion)
-              : checked;
+            : kind === 'group_reply'
+              ? checked.filter(fitsGroupReply)
+              : isOccasionKind(kind)
+                ? checked.filter(fitsOccasion)
+                : checked;
       // The link always goes with the link and the video with the video (decisions 47 and 66), and the link with
       // another time after a no-show (decision 106): one the AI left out goes on the end.
       const must =

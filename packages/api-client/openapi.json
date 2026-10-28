@@ -90393,7 +90393,7 @@
     "/v1/commands/outreach.send.queue": {
       "post": {
         "operationId": "command_outreach_send_queue",
-        "summary": "The extension drafted a message to someone on the person’s list for today: a first message, a follow-up or a reply; or, on Instagram and Alignable, a comment on a good post of theirs. It waits for the person’s OK, or, when they chose for messages to go on their own and their training wheels are off, goes as it is; a comment goes on its own once the person has OK’d 25 there and a week has gone by, and an answer to an Alignable post asking for what the business offers always waits, as do a message offering another time after a missed demo and a birthday or new-job note. A message already drafted for them comes back instead. A client in Contacts gets only replies.",
+        "summary": "The extension drafted a message to someone on the person’s list for today: a first message, a follow-up or a reply; or, on Instagram, LinkedIn and Alignable, a comment on a good post of theirs; or, on Facebook, the day’s reply to a question asked in one of the person’s groups. It waits for the person’s OK, or, when they chose for messages to go on their own and their training wheels are off, goes as it is; a comment or a reply in a group goes on its own once the person has OK’d 25 there and a week has gone by, and an answer to an Alignable post asking for what the business offers always waits, as do a message offering another time after a missed demo and a birthday or new-job note. A message already drafted for them comes back instead. A client in Contacts gets only replies.",
         "tags": [
           "commands"
         ],
@@ -90433,7 +90433,8 @@
                       "partner_follow_up",
                       "partner_details",
                       "partner_reply",
-                      "comment"
+                      "comment",
+                      "group_reply"
                     ]
                   },
                   "chatId": {
@@ -90560,7 +90561,8 @@
                         "partner_follow_up",
                         "partner_details",
                         "partner_reply",
-                        "comment"
+                        "comment",
+                        "group_reply"
                       ]
                     },
                     "profileId": {
@@ -92690,6 +92692,7 @@
                                   "birthday",
                                   "new_job",
                                   "comment",
+                                  "group_reply",
                                   "warm_lead",
                                   "partner_ask",
                                   "partner_follow_up",
@@ -93164,6 +93167,7 @@
                                         "birthday",
                                         "new_job",
                                         "comment",
+                                        "group_reply",
                                         "warm_lead",
                                         "partner_ask",
                                         "partner_follow_up",
@@ -93878,6 +93882,7 @@
                                             "birthday",
                                             "new_job",
                                             "comment",
+                                            "group_reply",
                                             "warm_lead",
                                             "partner_ask",
                                             "partner_follow_up",
@@ -94498,6 +94503,7 @@
                                   "birthday",
                                   "new_job",
                                   "comment",
+                                  "group_reply",
                                   "warm_lead",
                                   "partner_ask",
                                   "partner_follow_up",
@@ -94776,6 +94782,7 @@
                                         "birthday",
                                         "new_job",
                                         "comment",
+                                        "group_reply",
                                         "warm_lead",
                                         "partner_ask",
                                         "partner_follow_up",
@@ -95093,6 +95100,7 @@
                                         "birthday",
                                         "new_job",
                                         "comment",
+                                        "group_reply",
                                         "warm_lead",
                                         "partner_ask",
                                         "partner_follow_up",
@@ -95406,6 +95414,7 @@
                                         "birthday",
                                         "new_job",
                                         "comment",
+                                        "group_reply",
                                         "warm_lead",
                                         "partner_ask",
                                         "partner_follow_up",
@@ -106914,6 +106923,233 @@
                     "saved",
                     "added",
                     "readAt"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/commands/outreach.active.reply": {
+      "post": {
+        "operationId": "command_outreach_active_reply",
+        "summary": "Keep one recent post that asks something, in one of the person’s Facebook groups, for the day’s reply: the first of those sent that isn’t theirs, answered or put aside already, another teammate’s person’s, or one the AI checks for a comment instead. Today lists it, and the AI writes the reply, which waits for the person’s OK at first. One a day. Nobody goes in Contacts.",
+        "tags": [
+          "commands"
+        ],
+        "description": "Risk level 1. Requires outreach.use. Emits .",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "workspaceId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  },
+                  "platform": {
+                    "default": "facebook",
+                    "type": "string",
+                    "enum": [
+                      "facebook"
+                    ]
+                  },
+                  "posts": {
+                    "minItems": 1,
+                    "maxItems": 5,
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "url": {
+                          "type": "string",
+                          "maxLength": 500
+                        },
+                        "author": {
+                          "type": "object",
+                          "properties": {
+                            "id": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
+                            "username": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
+                            "url": {
+                              "type": "string",
+                              "maxLength": 500
+                            }
+                          },
+                          "required": [
+                            "id",
+                            "username",
+                            "url"
+                          ]
+                        },
+                        "name": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 200
+                        },
+                        "when": {
+                          "default": null,
+                          "anyOf": [
+                            {
+                              "type": "string",
+                              "minLength": 1,
+                              "maxLength": 100
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "text": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 2000
+                        },
+                        "comments": {
+                          "default": null,
+                          "anyOf": [
+                            {
+                              "type": "integer",
+                              "minimum": 0,
+                              "maximum": 9007199254740991
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "reactions": {
+                          "default": null,
+                          "anyOf": [
+                            {
+                              "type": "integer",
+                              "minimum": 0,
+                              "maximum": 9007199254740991
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "group": {
+                          "type": "object",
+                          "properties": {
+                            "id": {
+                              "anyOf": [
+                                {
+                                  "type": "string",
+                                  "pattern": "^\\d{1,30}$"
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
+                            },
+                            "slug": {
+                              "anyOf": [
+                                {
+                                  "type": "string",
+                                  "pattern": "^[A-Za-z0-9._-]{1,100}$"
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
+                            },
+                            "url": {
+                              "type": "string",
+                              "maxLength": 500
+                            },
+                            "name": {
+                              "default": null,
+                              "anyOf": [
+                                {
+                                  "type": "string",
+                                  "minLength": 1,
+                                  "maxLength": 200
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
+                            }
+                          },
+                          "required": [
+                            "id",
+                            "slug",
+                            "url"
+                          ]
+                        }
+                      },
+                      "required": [
+                        "url",
+                        "author",
+                        "name",
+                        "text",
+                        "group"
+                      ]
+                    }
+                  }
+                },
+                "required": [
+                  "workspaceId",
+                  "posts"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "postId": {
+                      "anyOf": [
+                        {
+                          "type": "string",
+                          "format": "uuid",
+                          "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "url": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "why": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "postId",
+                    "url",
+                    "why"
                   ],
                   "additionalProperties": false
                 }
@@ -202259,6 +202495,7 @@
                               "check_in",
                               "reconnect",
                               "comment",
+                              "group_reply",
                               "warm_up",
                               "friend_request",
                               "confirm",
@@ -202527,6 +202764,7 @@
                               "check_in",
                               "reconnect",
                               "comment",
+                              "group_reply",
                               "warm_up",
                               "friend_request",
                               "confirm",
@@ -202863,6 +203101,7 @@
                           "check_in",
                           "reconnect",
                           "comment",
+                          "group_reply",
                           "warm_up",
                           "friend_request",
                           "confirm",
@@ -202895,7 +203134,8 @@
                           "partner_follow_up",
                           "partner_details",
                           "partner_reply",
-                          "comment"
+                          "comment",
+                          "group_reply"
                         ]
                       }
                     },
@@ -205479,7 +205719,8 @@
                               "partner_follow_up",
                               "partner_details",
                               "partner_reply",
-                              "comment"
+                              "comment",
+                              "group_reply"
                             ]
                           },
                           "profileId": {
@@ -207280,6 +207521,7 @@
                                                   "birthday",
                                                   "new_job",
                                                   "comment",
+                                                  "group_reply",
                                                   "warm_lead",
                                                   "partner_ask",
                                                   "partner_follow_up",
@@ -207472,7 +207714,8 @@
                                       "partner_follow_up",
                                       "partner_details",
                                       "partner_reply",
-                                      "comment"
+                                      "comment",
+                                      "group_reply"
                                     ]
                                   },
                                   "profileId": {
@@ -207696,7 +207939,8 @@
                                       "partner_follow_up",
                                       "partner_details",
                                       "partner_reply",
-                                      "comment"
+                                      "comment",
+                                      "group_reply"
                                     ]
                                   },
                                   "profileId": {
@@ -208478,6 +208722,7 @@
                                           "birthday",
                                           "new_job",
                                           "comment",
+                                          "group_reply",
                                           "warm_lead",
                                           "partner_ask",
                                           "partner_follow_up",
@@ -217441,6 +217686,130 @@
                   },
                   "required": [
                     "due"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/queries/outreach.active.next": {
+      "post": {
+        "operationId": "query_outreach_active_next",
+        "summary": "What the person’s computer does today to stay active in their Facebook groups: how many recent posts to like there (3 to 5, within the day’s likes), in which of their groups (up to 3 that fit and that no teammate works, a different few each day), and whether a question there is still to keep for the day’s reply. Nothing before the person is ready, nor with Sending off.",
+        "tags": [
+          "queries"
+        ],
+        "description": "Requires outreach.use.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "workspaceId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  },
+                  "platform": {
+                    "default": "facebook",
+                    "type": "string",
+                    "enum": [
+                      "facebook"
+                    ]
+                  }
+                },
+                "required": [
+                  "workspaceId"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "likes": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 5
+                    },
+                    "reply": {
+                      "type": "boolean"
+                    },
+                    "groups": {
+                      "maxItems": 3,
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "groupId": {
+                            "type": "string",
+                            "format": "uuid",
+                            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                          },
+                          "name": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "url": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "groupId",
+                          "name",
+                          "url"
+                        ],
+                        "additionalProperties": false
+                      }
+                    },
+                    "own": {
+                      "anyOf": [
+                        {
+                          "type": "object",
+                          "properties": {
+                            "url": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
+                            "username": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            }
+                          },
+                          "required": [
+                            "url",
+                            "username"
+                          ],
+                          "additionalProperties": false
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    }
+                  },
+                  "required": [
+                    "likes",
+                    "reply",
+                    "groups",
+                    "own"
                   ],
                   "additionalProperties": false
                 }

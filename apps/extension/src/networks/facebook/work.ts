@@ -9,7 +9,8 @@
  *   feed, a list of people and a list of groups scrolled for more (./browse.ts).
  * - Working on its own (../../auto/run.ts): Add friend, Confirm and Like on the profiles of people on their list for
  *   today, the comment the AI drafted on a post on their list, and a message they OK'd, only in a chat with them
- *   (./auto.ts).
+ *   (./auto.ts); from 0.106.0 a few recent posts liked in their own groups each day, and the day's reply under a
+ *   question there once OK'd (decision 114).
  * - A good group: Join group, and its questions answered with the AI's answers (./join.ts, decision 48).
  * - A helpful post put up on a group's page, and who engaged with one of theirs (./compose.ts, decision 50).
  * - Their own profile read for the AI's check, and the bio they picked put in (./own-profile.ts, decision 64); for Put
@@ -29,6 +30,9 @@ import type {
   BrowseAsk,
   FetchAnswer,
   FetchAsk,
+  GroupFeedAnswer,
+  GroupFeedAsk,
+  GroupLikeAsk,
   GroupPostAnswer,
   GroupPostAsk,
   JoinAnswer,
@@ -49,8 +53,10 @@ import type {
 import { usernamePageOf } from '../accounts-center/username';
 import { CENTER_ASKS, centerWork, type CenterAsk } from '../accounts-center/work';
 import {
+  likeGroupPost,
   likeTheirPost,
   openMessage,
+  readGroupFeed,
   readTheirPosts,
   writeComment,
   writeMessage,
@@ -134,6 +140,20 @@ async function autoStep(ask: AutoAsk): Promise<AutoAnswer | PostsAnswer> {
   }
   if (kind !== 'post') return { ok: false, error: 'Facebook didn’t open the post.' };
   return { ok: true, result: await writeComment(document, ask.text) };
+}
+
+/**
+ * In one of the person's groups (decision 114): its newest posts read for the day's likes and question, or one of them
+ * liked; only on a group's own page.
+ */
+async function groupFeedStep(
+  ask: GroupFeedAsk | GroupLikeAsk,
+): Promise<GroupFeedAnswer | AutoAnswer> {
+  if (classifyUrl(location.href).kind !== 'group')
+    return { ok: false, error: 'Facebook didn’t open the group.' };
+  if (ask.type === 'hfos-group-feed')
+    return { ok: true, posts: await readGroupFeed(document, location.href, window, ask.most) };
+  return { ok: true, ...likeGroupPost(document, location.href, ask) };
 }
 
 /**
@@ -322,6 +342,8 @@ export const WORK_ASKS: ReadonlySet<string> = new Set([
   'hfos-scroll-page',
   'hfos-their-posts',
   'hfos-like-post',
+  'hfos-group-feed',
+  'hfos-like-group-post',
   'hfos-comment',
   'hfos-message',
   'hfos-open-message',
@@ -342,6 +364,8 @@ type WorkAsk =
   | FetchAsk
   | BrowseAsk
   | AutoAsk
+  | GroupFeedAsk
+  | GroupLikeAsk
   | OpenMessageAsk
   | JoinAsk
   | GroupPostAsk
@@ -384,6 +408,9 @@ export function work(ask: { readonly type: string }): Promise<unknown> | null {
     case 'hfos-comment':
     case 'hfos-message':
       return autoStep(known);
+    case 'hfos-group-feed':
+    case 'hfos-like-group-post':
+      return groupFeedStep(known);
     case 'hfos-open-message':
       return openMessageStep();
     case 'hfos-open-chat':

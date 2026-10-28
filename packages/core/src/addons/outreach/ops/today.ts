@@ -17,7 +17,9 @@ import {
   autoKinds,
   businessLimitsOn,
   messageKinds,
+  underAPost,
 } from '../automation';
+import { GROUP_REPLY_WORDS, groupRepliesOn, REPLY_KEPT_DAYS } from '../active';
 import { demoLink, demoRef } from '../demos';
 import { bestFit, type Fit, type FitPlaybook } from '../fit';
 import type { GroupCheckState } from '../group-checks';
@@ -68,6 +70,7 @@ import { conversationPace } from './conversation';
 import { partnerRoom, partnerToday } from './partners';
 import {
   chatKey,
+  contactable,
   countryLetsSql,
   countryRuleOf,
   inPlay,
@@ -476,12 +479,14 @@ export const today = defineAddonQuery(outreachAddon, {
     // build drafts comments to wait in `sends` where the network's comments wait at first (`commentsWait`), and on
     // LinkedIn one from 0.99.0 (`commentSendsOn`, decision 102); an older one would take an OK'd comment for a
     // message, so it gets none.
+    // On Facebook the same goes for the day's reply in a group (decision 114, `groupRepliesOn`).
     const build =
-      kit.foundChecksPerDay !== null || kit.commentsWait === 'hold'
+      kit.foundChecksPerDay !== null || kit.commentsWait === 'hold' || input.platform === 'facebook'
         ? await workingBuild(ctx, me)
         : null;
     const byTopic = kit.foundChecksPerDay !== null && foundByTopicOn(build);
     const commentSends = kit.commentsWait === 'hold' && commentSendsOn(input.platform, build);
+    const groupReplies = input.platform === 'facebook' && groupRepliesOn(build);
 
     // People found by a search (the Instagram and Alignable plan's "people found by a search"): whoever wrote a post the
     // network's own search found, off any group, that the AI said was worth a comment. The comment, or a like, is their
@@ -1660,6 +1665,55 @@ export const today = defineAddonQuery(outreachAddon, {
         );
     }
 
+    // The day's reply in one of the person's groups (decision 114): a question there their computer kept for it, in the
+    // last few days, not answered, set aside or checked good for a comment (the comment pick has those), from someone
+    // still to write to, in a group no teammate works. Within the comments left of today.
+    const repliesLeft = Math.max(
+      0,
+      leftToday(limits, 'comment') - items.filter((i) => i.kind === 'comment').length,
+    );
+    if (groupReplies && repliesLeft) {
+      const asked = await rows<{
+        id: string;
+        url: string;
+        posted: string | null;
+        body: string;
+        profile_id: string;
+        name: string;
+        profile_url: string;
+        group_name: string | null;
+      }>(
+        ctx.tx,
+        sql`select po.id, po.url, po.posted, po.body, p.id as profile_id, p.name, p.url as profile_url,
+              g.name as group_name
+            from addon_outreach.posts po
+            join addon_outreach.profiles p on p.id = po.profile_id
+            left join addon_outreach.groups g on g.id = po.group_id
+            where po.workspace_id = ${ws} and po.user_id = ${me} and po.reply_at is not null
+              and po.reply_at >= ${ago(REPLY_KEPT_DAYS)}::timestamptz
+              and po.skipped_at is null and po.check_state <> 'good'
+              and p.friendship <> 'self' and not ${myOwnProfile(me)}
+              and ${contactable('p')} and ${notOthers(me, 'p')} and ${notOthers(me, 'g')} and ${lets}
+              and not exists (select 1 from addon_outreach.touches t
+                where t.user_id = ${me} and t.kind = 'comment' and t.post_url = po.url)
+            order by po.reply_at desc limit ${repliesLeft}`,
+      );
+      for (const po of asked)
+        items.push(
+          item({
+            kind: 'group_reply',
+            name: po.name,
+            profileId: po.profile_id,
+            profileUrl: po.profile_url,
+            postId: po.id,
+            postUrl: po.url,
+            posted: po.posted,
+            post: shownPost(po.body),
+            why: [GROUP_REPLY_WORDS.asked(po.group_name)],
+          }),
+        );
+    }
+
     // A business to recommend (the Instagram and Alignable plan's question 8), on a network with recommendations, one a
     // day and by hand only: a partner of theirs, or a customer they've done work for (a paid invoice or a job done),
     // never recommended by them before and never on Never contact. A different one each day, so one they'd rather not
@@ -1720,7 +1774,7 @@ export const today = defineAddonQuery(outreachAddon, {
       return on !== undefined && on !== i.postId;
     };
     const sentOf = (i: TodayItem) =>
-      drafted.open(i.profileId, i.kind, i.kind === 'comment' ? i.postId : null);
+      drafted.open(i.profileId, i.kind, underAPost(i.kind) ? i.postId : null);
     // Who's in Contacts already, and who the person marked as having booked a demo: the web's menu on each. And what
     // the AI read in an answer of theirs not answered yet, for a reply's why.
     const profileIds = [...new Set(items.map((i) => i.profileId).filter((id) => id !== null))];
@@ -1754,7 +1808,7 @@ export const today = defineAddonQuery(outreachAddon, {
     ]
       .filter(
         (i) =>
-          !drafted.off(i.profileId, i.kind, i.kind === 'comment' ? i.postId : null) &&
+          !drafted.off(i.profileId, i.kind, underAPost(i.kind) ? i.postId : null) &&
           !commentOpenElsewhere(i),
       )
       .map((i) => {
@@ -1803,6 +1857,8 @@ export const today = defineAddonQuery(outreachAddon, {
         ...messageKinds(settings),
         // A comment on a good post goes through `sends` too where it waits at first, for a build that drafts it.
         ...(commentSends && messageKinds(settings).length ? (['comment'] as const) : []),
+        // And the day's reply in a group on Facebook, for a build that posts it (decision 114).
+        ...(groupReplies && messageKinds(settings).length ? (['group_reply'] as const) : []),
       ].filter((k) => ready || k === 'reply' || k === 'partner_reply'),
       sending: settings.sending,
       wheels,

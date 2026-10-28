@@ -23,6 +23,7 @@ import { journeyQueries } from './ops/journey';
 import { leadCommands } from './ops/leads';
 import { likeYoursCommands, likeYoursQueries } from './ops/like-yours';
 import { eventsCommands, eventsQueries } from './ops/events-near';
+import { activeCommands, activeQueries } from './ops/active';
 import { followersCommands, followersQueries } from './ops/followers';
 import { ownerCommands } from './ops/owners';
 import { occasionCommands } from './ops/occasions';
@@ -86,6 +87,7 @@ export const outreachAddonServer: AddonServerModule = {
     ...likeYoursCommands,
     ...eventsCommands,
     ...followersCommands,
+    ...activeCommands,
   ],
   queries: [
     ...playbookQueries,
@@ -120,6 +122,7 @@ export const outreachAddonServer: AddonServerModule = {
     ...likeYoursQueries,
     ...eventsQueries,
     ...followersQueries,
+    ...activeQueries,
   ],
   // What the extension sends in: only the person's own browser can see Facebook, Instagram, LinkedIn and Alignable.
   notForTheAssistant: {
@@ -166,6 +169,8 @@ export const outreachAddonServer: AddonServerModule = {
     'outreach.events.read': EXTENSION,
     'outreach.followers.next': EXTENSION,
     'outreach.followers.save': EXTENSION,
+    'outreach.active.next': EXTENSION,
+    'outreach.active.reply': EXTENSION,
     'outreach.opener.use':
       'The screens noting which opener a copied first message was drafted with.',
   },

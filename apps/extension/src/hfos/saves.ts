@@ -39,6 +39,7 @@ import {
   type FindSaveHow,
 } from '@hfos/core/addons/outreach/finds';
 import { FOLLOWERS_SAVE_MOST } from '@hfos/core/addons/outreach/followers';
+import { REPLY_TRIES } from '@hfos/core/addons/outreach/active';
 import { POST_TEXT_MOST, POST_WORDS_MOST, POSTS_SAVE_MOST } from '@hfos/core/addons/outreach/posts';
 import { LOOKUP_LINE_MOST } from '@hfos/core/addons/outreach/today';
 import type { Answered, Reached, Step, StepGroup } from '../networks/facebook/actions';
@@ -47,6 +48,7 @@ import { runsGroup } from '../networks/facebook/people';
 import type {
   ChatPage,
   GroupLink,
+  Named,
   Person,
   ProfileRef,
   ReadResult,
@@ -60,6 +62,7 @@ import type {
 } from '../networks/linkedin/types';
 import { profileKey as linkedInKey } from '../networks/linkedin/urls';
 import type {
+  ActiveReplyInput,
   Business,
   ChatsCollectInput,
   FindsSaveInput,
@@ -348,6 +351,53 @@ export function followersSave(
     });
   }
   return parts;
+}
+
+/** A post in one of the person's groups that asks something (decision 114), with the group it's in. */
+export interface AskedInGroup {
+  readonly group: StepGroup;
+  readonly url: string | null;
+  readonly author: Named | null;
+  readonly when: string | null;
+  readonly text: string;
+  readonly comments: number | null;
+  readonly reactions: number | null;
+}
+
+/**
+ * The posts asking something in the person's groups, to offer HandsFreeOS for the day's reply (decision 114), each once
+ * and the first `REPLY_TRIES`: with nobody named, no link or no group it keeps, a post is left out.
+ */
+export function activeReplySave(
+  asked: readonly AskedInGroup[],
+  workspaceId: string,
+): Built<ActiveReplyInput> {
+  const seen = new Set<string>();
+  const posts = asked.flatMap((p) => {
+    const url = networkAddress(p.url);
+    const who = p.author?.profile ? whom({ name: p.author.name, profile: p.author.profile }) : null;
+    const group = groupRef(p.group);
+    const text = clipText(p.text, POST_TEXT_MOST);
+    if (!url || !who || !group || !text || seen.has(url)) return [];
+    seen.add(url);
+    return [
+      {
+        url,
+        author: who.profile,
+        name: who.name,
+        when: p.when ? clip(p.when, WHEN_MOST) : null,
+        text,
+        comments: p.comments,
+        reactions: p.reactions,
+        group,
+      },
+    ];
+  });
+  if (!posts.length) return { ok: false, why: 'None of the questions there named who asked.' };
+  return {
+    ok: true,
+    input: { workspaceId, platform: 'facebook', posts: posts.slice(0, REPLY_TRIES) },
+  };
 }
 
 /** A name as HandsFreeOS matches it to customers': its spaces as one, in any case. */

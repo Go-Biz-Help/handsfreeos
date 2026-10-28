@@ -7540,6 +7540,7 @@
                           "birthday",
                           "new_job",
                           "comment",
+                          "group_reply",
                           "warm_lead",
                           "partner_ask",
                           "partner_follow_up",

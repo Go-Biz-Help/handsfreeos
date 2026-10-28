@@ -1,5 +1,6 @@
 import {
   freshWords,
+  underAPost,
   wheelsWords,
   type WheelsListOutput,
 } from '@hfos/core/addons/outreach/automation';
@@ -122,10 +123,11 @@ export function useTodayProps(
     toast.show(said);
     today.reload();
   };
-  // A comment on a good post (decision 92) says it goes under the post, and that a skip puts the post aside.
+  // A comment on a good post (decision 92), or the day's reply in a group (decision 114), says it goes under the
+  // post, and that a skip puts the post aside.
   const commentOf = (sendId: string) =>
     [...(today.data?.items ?? []), ...(today.data?.partners ?? [])].some(
-      (i) => i.kind === 'comment' && i.send?.sendId === sendId,
+      (i) => underAPost(i.kind) && i.send?.sendId === sendId,
     );
   return {
     platform,
@@ -459,8 +461,9 @@ function ItemCard({
 }) {
   // Where Open goes, and its words, as the web's: the post, their chat, else their page.
   const openAt = todayOpenOf(item, platform);
-  // A comment drafted to wait (decision 92): it goes under the post; skipping it puts the post aside.
-  const comment = item.kind === 'comment' && item.send !== null;
+  // A comment or a group reply drafted to wait (decisions 92 and 114): it goes under the post; skipping it puts the
+  // post aside.
+  const comment = underAPost(item.kind) && item.send !== null;
   // It waits for an OK of its own, said under it: a comment's, another time after a no-show (decision 106), and a
   // birthday or new-job note (decision 108).
   const alone =
@@ -551,7 +554,7 @@ function ItemCard({
             </Button>
           </>
         ) : null}
-        {item.kind === 'comment' && item.postId && !comment ? (
+        {underAPost(item.kind) && item.postId && !comment ? (
           <Button
             size="md"
             variant="ghost"
