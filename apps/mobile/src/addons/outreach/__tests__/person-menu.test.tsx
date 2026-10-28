@@ -56,6 +56,7 @@ const marksOf = (over: Partial<ProfileMarksOutput> = {}): ProfileMarksOutput => 
   personId: null,
   partner: false,
   demoBooked: false,
+  laterUntil: null,
   client: { on: false, tagged: false, because: null },
   dontPitch: null,
   neverContact: null,
@@ -192,6 +193,7 @@ describe('The person menu on the phone', () => {
       'person-add-contact',
       'person-client',
       'person-demo-mark',
+      'person-later',
       'person-dont-pitch',
       'person-never-contact',
     ]);
@@ -217,13 +219,14 @@ describe('The person menu on the phone', () => {
     ]);
     expect(
       screen.getByText(
-        'Contacts, Client, Demo booked, Don’t pitch and Never contact need signal. Opening their page works now.',
+        'Contacts, Client, Demo booked, Later, Don’t pitch and Never contact need signal. Opening their page works now.',
       ),
     ).toBeTruthy();
     for (const t of [
       'person-add-contact',
       'person-client',
       'person-demo-mark',
+      'person-later',
       'person-dont-pitch',
       'person-never-contact',
     ]) {
@@ -245,7 +248,7 @@ describe('The person menu on the phone', () => {
     expect(screen.queryByTestId('person-open-page')).toBeNull();
     expect(screen.queryByTestId('person-open-chat')).toBeNull();
     expect(screen.getByTestId('person-needs-signal')).toHaveTextContent(
-      'Contacts, Client, Demo booked, Don’t pitch and Never contact need signal. Try again when you’re back online.',
+      'Contacts, Client, Demo booked, Later, Don’t pitch and Never contact need signal. Try again when you’re back online.',
     );
     expect(api.POST).not.toHaveBeenCalled();
   });
@@ -470,6 +473,40 @@ describe('The person menu on the phone', () => {
       }),
     );
     expect(toast.show).toHaveBeenCalledWith('Dana Reyes is off the Don’t pitch list.');
+  });
+
+  it('puts them on Later for 2 weeks, and takes them off it again', async () => {
+    answers(marksOf());
+    changed({ profileId: PROFILE, until: '2026-11-11T15:00:00.000Z', skipped: 1 });
+    const onChanged = await open();
+    expect(screen.getByText('Later: back in 2 weeks')).toBeTruthy();
+    await fireEvent.press(screen.getByTestId('person-later'));
+    await waitFor(() =>
+      expect(change).toHaveBeenCalledWith('outreach.later.set', {
+        workspaceId: WS,
+        profileId: PROFILE,
+        later: true,
+      }),
+    );
+    expect(toast.show).toHaveBeenCalledWith(
+      'Dana Reyes is off your Today until Nov 11. Their replies still come.',
+    );
+    expect(onChanged).toHaveBeenCalled();
+
+    answers(marksOf({ laterUntil: '2026-11-11T15:00:00.000Z' }));
+    changed({ profileId: PROFILE, until: null, skipped: 0 });
+    await fireEvent.press(screen.getByRole('button', { name: 'Dana Reyes' }));
+    await waitFor(() => expect(screen.queryByTestId('person-loading')).toBeNull());
+    expect(screen.getByText('Take off Later (back Nov 11)')).toBeTruthy();
+    await fireEvent.press(screen.getByTestId('person-later'));
+    await waitFor(() =>
+      expect(change).toHaveBeenCalledWith('outreach.later.set', {
+        workspaceId: WS,
+        profileId: PROFILE,
+        later: false,
+      }),
+    );
+    expect(toast.show).toHaveBeenCalledWith('Dana Reyes is back on your Today.');
   });
 
   it('opens them in Contacts once they’re there, and takes a demo back', async () => {

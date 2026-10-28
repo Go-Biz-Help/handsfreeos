@@ -11,7 +11,15 @@ import { upgradePlaybookDetails } from '@hfos/core/addons/outreach/playbooks';
 import { catalogAddon } from '@hfos/core/server';
 import { rows, sql } from '@hfos/db/client';
 import type { AddonDataMigration, AddonSubscriber, AddonWorkerModule } from '../types';
-import { armMorning, handOver, MORNING_JOB, morningJob, replySeen, settingsSaved } from './alerts';
+import {
+  armMorning,
+  handOver,
+  MORNING_JOB,
+  morningJob,
+  replySeen,
+  requestAccepted,
+  settingsSaved,
+} from './alerts';
 import {
   MESSAGE_REWRITE_ACTION,
   MESSAGE_SAMPLES_ACTION,
@@ -143,6 +151,8 @@ export const outreachAddonWorker: AddonWorkerModule = {
     // People found, and the country setting, have the AI work out where they live (./countries.ts, decision 61).
     'outreach.group.saved': countriesWanted,
     'outreach.friends.saved': countriesWanted,
+    // Someone accepting the person's friend request pushes to their phone, when they switched that on (./alerts.ts).
+    'outreach.friend.accepted': requestAccepted,
     'appointment.booked': appointmentBooked,
     // A Facebook warning pushes to the person's phone, and what the extension tells the app keeps the feed's
     // pruning armed (./live.ts).

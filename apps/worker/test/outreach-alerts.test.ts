@@ -2,7 +2,8 @@
  * Social Outreach's phone alerts and demo link in the worker (docs/outreach.md, decisions 22 and 24): a reply the
  * extension saw is pushed to the person, unless they were looking, and one handed over to them (decision 27); at the business's hour each person who used the
  * extension lately hears how much is on their list for today; a post asking for what the business offers pushes at
- * once when it's fresh (decision 49); and a booking through someone's demo link counts as a demo by itself.
+ * once when it's fresh (decision 49); someone accepting the person's friend request pushes when they switched that on
+ * (decision 101); and a booking through someone's demo link counts as a demo by itself.
  */
 import { randomUUID } from 'node:crypto';
 import { demoRef, partnerRef } from '@hfos/core/addons/outreach/demos';
@@ -159,6 +160,61 @@ describe('phone alerts', () => {
       path: `/app/w/${ws}/a/outreach?view=waiting`,
       user_ids: [owner.id],
     });
+  });
+
+  it('pushes who accepted the person’s friend requests only once they switch it on, in one push', async () => {
+    const s = testServices();
+    const ws = await outreachBusiness(owner, 'Outreach Accepted Co');
+    const sent = (people: { username: string; name: string }[]) =>
+      runAs(owner, ws, 'outreach.friends.save', {
+        list: 'sent',
+        people: people.map((p) => ({ profile: fb(p.username), name: p.name })),
+      });
+    const friendsNow = (people: { username: string; name: string }[]) =>
+      runAs(owner, ws, 'outreach.friends.save', {
+        list: 'friends',
+        people: people.map((p) => ({ profile: fb(p.username), name: p.name })),
+      });
+    const ana = { username: 'ana.moss.3', name: 'Ana Moss' };
+    const ben = { username: 'ben.cole.4', name: 'Ben Cole' };
+    const cy = { username: 'cy.dunn.5', name: 'Cy Dunn' };
+    const dee = { username: 'dee.fox.6', name: 'Dee Fox' };
+    // Off to start: Ana accepting pushes nothing.
+    await sent([ana, ben, cy, dee]);
+    await friendsNow([ana]);
+    await drain(s, ws);
+    expect(await pushes(ws)).toEqual([]);
+    // Switched on: Ben, then Cy and Dee together, and a friend who was never sent a request never counts.
+    await runAs(owner, ws, 'outreach.automation.save', {
+      settings: {
+        sending: 'off',
+        warmUp: true,
+        confirmRequests: true,
+        hours: { start: 9, end: 17, days: [1, 2, 3, 4, 5] },
+        acceptedPush: true,
+      },
+    });
+    await friendsNow([ben, { username: 'eli.gray.7', name: 'Eli Gray' }]);
+    await friendsNow([cy, dee, ben]);
+    await drain(s, ws);
+    const pushed = await pushes(ws);
+    expect(pushed).toHaveLength(2);
+    expect(pushed).toEqual(
+      expect.arrayContaining([
+        {
+          title: 'Ben Cole accepted your friend request',
+          body: 'On Facebook. Tap for your list for today.',
+          path: `/app/w/${ws}/a/outreach?view=today`,
+          user_ids: [owner.id],
+        },
+        {
+          title: '2 people accepted your friend requests',
+          body: 'Cy Dunn and Dee Fox. On Facebook. Tap for your list for today.',
+          path: `/app/w/${ws}/a/outreach?view=today`,
+          user_ids: [owner.id],
+        },
+      ]),
+    );
   });
 
   it('pushes a reply, unless they were looking, and the list in the morning', async () => {

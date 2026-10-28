@@ -125,8 +125,8 @@ export interface NetworkKit {
   readonly postPeoplePerDay: number | null;
   /**
    * How a comment the AI drafts for a good post goes (decision 92): `hold`, through `sends` like a message, waiting
-   * for the person's OK at first (Instagram's and Alignable's); `never`, never held as a comment there (Facebook's
-   * and LinkedIn's go as the runner's own step or the person's, by `runs.auto`).
+   * for the person's OK at first (Instagram's, Alignable's, and LinkedIn's from decision 102); `never`, never held as a
+   * comment there (Facebook's are the person's).
    */
   readonly commentsWait: 'never' | 'hold';
   /**
@@ -206,17 +206,19 @@ export const NETWORKS: Readonly<Record<Platform, NetworkKit>> = {
     requestsMessagesPerDay: null,
     followBackLooksPerDay: null,
     // People found by its post search are checked inside the 40 profiles read, found people first (decision 92), from
-    // 5 good posts' reactors and commenters a day. Its comments go on their own, as before; it joins no groups.
+    // 5 good posts' reactors and commenters a day. Its comments wait for the person's OK at first, as Instagram's and
+    // Alignable's do (decision 102, from 0.99.0: `commentSendsOn`); it joins no groups.
     foundChecksPerDay: 30,
     foundShareReads: true,
     postPeoplePerDay: 5,
-    commentsWait: 'never',
+    commentsWait: 'hold',
     joinsPerDay: null,
     // Old invitations are withdrawn after the business's wait; nobody is removed.
     tidyLimits: { cancel_request: 20, unfriend: 0 },
-    // auto/linkedin.ts: likes, invitations and comments; invitations sent to them are theirs to accept. Of the switches
-    // along the way it reads the warm-up and saving connections: it joins no groups and has no hourly look.
-    runs: { auto: ['warm_up', 'friend_request', 'comment'], ticks: ['warmUp', 'collect'] },
+    // auto/linkedin.ts: likes and invitations; invitations sent to them are theirs to accept, and comments go through
+    // `sends`. Of the switches along the way it reads the warm-up and saving connections: it joins no groups and has
+    // no hourly look.
+    runs: { auto: ['warm_up', 'friend_request'], ticks: ['warmUp', 'collect'] },
     words: {
       friend: 'connection',
       friends: 'connections',

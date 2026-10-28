@@ -1,5 +1,6 @@
 import {
   clientSetWords,
+  laterSetWords,
   personMenuItems,
   personMenuOfflineWords,
   type PersonMenuItem,
@@ -19,6 +20,7 @@ import { Pressable, View } from 'react-native';
 
 import { change, ChangeError } from '@/changes';
 import {
+  AlarmClock,
   ArrowRight,
   Ban,
   CalendarCheck,
@@ -51,7 +53,8 @@ import { NeedsSignal, Note, openOutside } from './kit';
  * **Open in {messages}** when the chat is known, which work with no signal; then **Add to Contacts** (customers with the
  * same name offered first, **It’s them** or **Add as new**) or **In Contacts**; **Mark as client** or **Not a client
  * after all** (`outreach.client.set`, the same same-name step first when they aren't in Contacts), or why they're one;
- * **Demo booked**; **Don’t pitch** and **Never contact**, or taking them off, or who put them on.
+ * **Demo booked**; **Later**, off the person's own Today for 2 weeks, or **Take off Later** (`outreach.later.set`,
+ * decision 100); **Don’t pitch** and **Never contact**, or taking them off, or who put them on.
  *
  * Where they stand is asked as the menu opens (`outreach.profile.marks`), with signal: until it comes, its switches
  * wait. With no signal only the Open items can be pressed, under a note saying the rest need signal; nothing is queued,
@@ -288,6 +291,16 @@ function NameMenu({
           await change('outreach.demo.mark', { workspaceId, profileId, booked });
           return booked ? P.demoMarked(who.name) : P.demoUnmarked;
         });
+      case 'later':
+      case 'not-later':
+        return void run(key, async () => {
+          const { output } = await change('outreach.later.set', {
+            workspaceId,
+            profileId,
+            later: key === 'later',
+          });
+          return laterSetWords(who.name, output);
+        });
       case 'dont-pitch':
       case 'not-dont-pitch':
         return void run(key, async () => {
@@ -360,6 +373,8 @@ const ICONS: Partial<Record<PersonMenuKey, LucideIcon>> = {
   'not-client': UserMinus,
   demo: CalendarCheck,
   'not-demo': CalendarCheck,
+  later: AlarmClock,
+  'not-later': Undo2,
   'dont-pitch': Ban,
   'not-dont-pitch': Undo2,
   'never-contact': UserX,

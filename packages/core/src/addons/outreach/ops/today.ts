@@ -48,7 +48,7 @@ import {
   type TodayItem,
 } from '../today';
 import { POST_FRESH_DAYS } from '../posts';
-import { ownSuggestions } from '../profile-parts';
+import { commentSendsOn, foundByTopicOn, ownSuggestions } from '../profile-parts';
 import {
   FIND_FRESH_DAYS,
   FIND_HOW_KEYS,
@@ -70,6 +70,7 @@ import {
   inPlay,
   inWorkspace,
   isClient,
+  notLater,
   notNever,
   openToMe,
   pitchable,
@@ -77,7 +78,7 @@ import {
   type Ctx,
 } from './common';
 import { knownCheck, myOwnProfile, stillToReach } from './checks';
-import { findsByTopic, foundByTopicSince } from './live';
+import { foundByTopicSince, workingBuild } from './live';
 import { playbooksInUse } from './friends';
 import { readinessFor } from './readiness';
 import { groupFitOf } from './group-checks';
@@ -463,14 +464,15 @@ export const today = defineAddonQuery(outreachAddon, {
     // A network that checks people found by topic (decision 92, the kit's `foundChecksPerDay`), for a computer whose
     // build does (`FOUND_BY_TOPIC_SINCE`): its people are those found and checked good by the AI, below. An older
     // build, or a network that weighs people by the words they show (Facebook's), keeps the pick before it. The same
-    // build drafts comments to wait in `sends` where the network's comments wait at first (`commentsWait`); an older
-    // one would take an OK'd comment for a message, so it gets none.
-    const newBuild =
+    // build drafts comments to wait in `sends` where the network's comments wait at first (`commentsWait`), and on
+    // LinkedIn one from 0.99.0 (`commentSendsOn`, decision 102); an older one would take an OK'd comment for a
+    // message, so it gets none.
+    const build =
       kit.foundChecksPerDay !== null || kit.commentsWait === 'hold'
-        ? await findsByTopic(ctx, me)
-        : false;
-    const byTopic = kit.foundChecksPerDay !== null && newBuild;
-    const commentSends = kit.commentsWait === 'hold' && newBuild;
+        ? await workingBuild(ctx, me)
+        : null;
+    const byTopic = kit.foundChecksPerDay !== null && foundByTopicOn(build);
+    const commentSends = kit.commentsWait === 'hold' && commentSendsOn(input.platform, build);
 
     // People found by a search (the Instagram and Alignable plan's "people found by a search"): whoever wrote a post the
     // network's own search found, off any group, that the AI said was worth a comment. The comment, or a like, is their
@@ -1003,7 +1005,7 @@ export const today = defineAddonQuery(outreachAddon, {
             left join addon_outreach.follow_ups f on f.profile_id = p.id and f.user_id = ${me}
             ${latestChat('p')}
             where p.workspace_id = ${ws} and p.friendship <> 'self' and ${pitchable('p')}
-              and not ${isClient('p')} and ${lets}
+              and not ${isClient('p')} and ${notLater(me, 'p')} and ${lets}
               and (c.pitch = 'ready' or s.mark = 'ready'
                 or (f.answer = 'yes' and f.stopped_at is null
                   and (f.step = 'video' or (f.step = 'first' and not ${hasVideo}))))

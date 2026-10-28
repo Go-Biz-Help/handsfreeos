@@ -12,8 +12,9 @@
  *   on a good post (decision 92): "A comment on Quinn Harper’s post waits for your OK", and a need with its network:
  *   "Dana Reyes: the extension needs you on Alignable". The bundle counts comments with the messages.
  *
- * A reply handed over pushes at once whatever the setting (./alerts.ts), and friend requests never push: Facebook
- * tells people of those itself. Every push goes to the person alone, on their add-ons switch, and opens Waiting for
+ * A reply handed over pushes at once whatever the setting (./alerts.ts), and friend requests they got never push:
+ * Facebook tells people of those itself. Someone accepting theirs pushes only when they switched that on (./alerts.ts,
+ * decision 101). Every push goes to the person alone, on their add-ons switch, and opens Waiting for
  * you. What they choose and their hours are read as their Waiting for you reads them (`outreach.waiting`, asked on
  * their behalf), so the phone and the extension's pop-ups follow one rule.
  */

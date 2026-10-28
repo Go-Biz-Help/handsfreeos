@@ -223,6 +223,11 @@ export const AutomationSettings = z.object({
   pushes: z.enum(PUSH_MODE_KEYS).default('bundled'),
   /** The day's report: a push at the end of their working hours with the day's numbers (./tracking.ts). On to start. */
   dayReport: z.boolean().default(true),
+  /**
+   * A push when someone accepts their friend request, connection or follow (decision 101, the owner's pick 31a). Off
+   * to start.
+   */
+  acceptedPush: z.boolean().default(false),
   /** How the AI writes for them (./voice.ts): plain words always, and their own short forms, acronyms and emoji. */
   voice: Voice.default(VOICE_DEFAULTS),
   /** The networks they work, and each other network's choices: Facebook on and the rest off, to start. */
@@ -265,6 +270,7 @@ export const AUTOMATION_DEFAULTS: AutomationSettings = {
   markPosts: true,
   pushes: 'bundled',
   dayReport: true,
+  acceptedPush: false,
   voice: VOICE_DEFAULTS,
   networks: NETWORKS_DEFAULTS,
 };
@@ -653,10 +659,14 @@ export const AutomationSaveInput = z.object({
   workspaceId: z.uuid(),
   /** Someone else's, for an owner or admin; the person's own when left out. */
   userId: z.uuid().optional(),
-  /** The voice, the day's report and the networks left out (a screen from before them) keep the ones kept. */
+  /**
+   * The voice, the day's report, the accept push and the networks left out (a screen from before them) keep the ones
+   * kept.
+   */
   settings: AutomationSettings.extend({
     voice: Voice.optional(),
     dayReport: z.boolean().optional(),
+    acceptedPush: z.boolean().optional(),
     networks: NetworksSettings.optional(),
   }),
 });

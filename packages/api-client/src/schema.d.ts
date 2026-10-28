@@ -7268,7 +7268,7 @@ export interface paths {
         put?: never;
         /**
          * Save a list the extension read off a social network, as far as the page had loaded: the person’s friends, the friend requests they’ve got, or the ones they’ve sent. Adds nobody to Contacts.
-         * @description Risk level 1. Requires outreach.use. Emits outreach.friends.saved, outreach.need.cleared.
+         * @description Risk level 1. Requires outreach.use. Emits outreach.friends.saved, outreach.need.cleared, outreach.friend.accepted.
          */
         post: operations["command_outreach_friends_save"];
         delete?: never;
@@ -7451,6 +7451,26 @@ export interface paths {
          * @description Risk level 1. Requires outreach.use. Emits outreach.join.noted.
          */
         post: operations["command_outreach_join_note"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/outreach.later.set": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Put someone the person reached on Later: off the person’s own Today for 2 weeks, then back on it. Their replies, and their friend request to confirm, still come, and the person’s own messages to them waiting for an OK are skipped. Or take them off Later: back on Today now.
+         * @description Risk level 0. Requires outreach.use. Emits outreach.later.marked, outreach.send.skipped.
+         */
+        post: operations["command_outreach_later_set"];
         delete?: never;
         options?: never;
         head?: never;
@@ -19167,7 +19187,7 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * Where someone the person reached stands, as their person menu shows it: in Contacts or not, a client (and why), a partner, a demo booked, on Don’t pitch or Never contact (and who put them on), and whether the person may take them off.
+         * Where someone the person reached stands, as their person menu shows it: in Contacts or not, a client (and why), a partner, a demo booked, on the person’s Later (and until when), on Don’t pitch or Never contact (and who put them on), and whether the person may take them off.
          * @description Requires outreach.use.
          */
         post: operations["query_outreach_profile_marks"];
@@ -38525,6 +38545,7 @@ export interface operations {
             content: {
                 "application/json": {
                     settings: {
+                        acceptedPush?: boolean;
                         /** @default true */
                         collect?: boolean;
                         confirmRequests: boolean;
@@ -38878,6 +38899,8 @@ export interface operations {
                         };
                         saved: boolean;
                         settings: {
+                            /** @default false */
+                            acceptedPush: boolean;
                             /** @default true */
                             collect: boolean;
                             confirmRequests: boolean;
@@ -40504,6 +40527,41 @@ export interface operations {
                         groupId: string;
                         /** @enum {string} */
                         state: "asked" | "pending" | "joined" | "failed";
+                    };
+                };
+            };
+        };
+    };
+    command_outreach_later_set: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    later: boolean;
+                    /** Format: uuid */
+                    profileId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        profileId: string;
+                        skipped: number;
+                        until: string | null;
                     };
                 };
             };
@@ -72251,6 +72309,8 @@ export interface operations {
                         };
                         saved: boolean;
                         settings: {
+                            /** @default false */
+                            acceptedPush: boolean;
                             /** @default true */
                             collect: boolean;
                             confirmRequests: boolean;
@@ -74346,6 +74406,7 @@ export interface operations {
                             by: string | null;
                             tagged: boolean;
                         } | null;
+                        laterUntil: string | null;
                         name: string;
                         neverContact: {
                             at: string | null;

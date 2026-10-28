@@ -132,11 +132,12 @@ const ONLINE_COMMANDS = [
   'outreach.ask.cancel',
   'outreach.ask.code',
   // The person menu on Today (decision 44): Add to Contacts, Demo booked and Don't pitch; and on any name, Mark as
-  // client and Not a client after all (decision 91).
+  // client and Not a client after all (decision 91), and Later (decision 100).
   'outreach.profile.contact',
   'outreach.demo.mark',
   'outreach.friend.set',
   'outreach.client.set',
+  'outreach.later.set',
   // Where someone stands, from the Pipeline screen (decision 47), and on the Partners list (decision 81).
   'outreach.stage.mark',
   'outreach.partner.mark',

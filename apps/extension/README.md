@@ -3,7 +3,7 @@
 The extension that works beside a person on Facebook, and on LinkedIn, Instagram and Alignable once they turn each on,
 for the Social Outreach add-on (docs/outreach.md). It connects to HandsFreeOS only for businesses that have that add-on on.
 
-**This is a test build (0.98.0), and a bare one** (decisions 43, 59 and 72 in docs/outreach.md). Everything is set
+**This is a test build (0.99.0), and a bare one** (decisions 43, 59 and 72 in docs/outreach.md). Everything is set
 and started in HandsFreeOS; the extension does the work on Facebook. Its side panel shows progress and activity only:
 signing in, what it does next with today's steps and **Start my day** and **Stop for today**, how many things need
 you in HandsFreeOS (with a link there), each network's line, what it did today, and a link to HandsFreeOS. Needs you
@@ -235,11 +235,13 @@ them:
 - **Their warm-up is a like on every network.** A post's writer gets it on the post it found, on that post's own page,
   and on their latest only when that post is gone or isn't one to like. Anyone else gets it on a recent post of
   theirs, or the look alone when there's none.
-- **Comments on Instagram and Alignable** (`src/auto/comments.ts`): the AI drafts one for each good post, and it waits
+- **Comments on Instagram, Alignable and, from 0.99.0, LinkedIn** (`src/auto/comments.ts`, decision 102 for
+  LinkedIn's): the AI drafts one for each good post, and it waits
   in Needs you in HandsFreeOS. Once you OK it, or once the comment hold is past (a week of comments there and 25 you
-  OK'd), it opens the post and writes only in the post's own box (Instagram) or its reply form at the top
-  (Alignable), and posts it with that box's own Post or Send. A forum answer on Alignable waits for your OK every
-  time. One that couldn't go is handed to you with its words. LinkedIn's comments go on their own, as before.
+  OK'd), it opens the post and writes only in the post's own box (Instagram and LinkedIn) or its reply form at the
+  top (Alignable), and posts it with that box's own Post or Send. A forum answer on Alignable waits for your OK every
+  time. One that couldn't go is handed to you with its words. Before 0.99.0 LinkedIn's went on their own; an older
+  build now gets none there, as it would send an OK'd one as a message.
 - **Check Instagram, Check LinkedIn and Check Alignable** look at the new pages too: a post's Likes box and its View
   all comments; someone else's post in LinkedIn's newer layout, its Like and its reactions box (the `reactors` try);
   and your Alignable groups, a search for groups, and a group you aren't in with its About, its members and its Join,
@@ -940,7 +942,8 @@ Facebook's. Your LinkedIn choices in HandsFreeOS say what it does (`settings.net
   trouble; one liked already counts), a day before the invitation, and from 0.95.0, for someone found by topic, the
   post it found them by; an invitation to connect **without a note**
   (Chris: Connect, or Connect under More, then **Send without a note**; a box that asks for more, like their email, is
-  left for you); a comment in the post's own box with the AI's draft; and the messages, drafted after a look-up of
+  left for you); a comment on a good post, from 0.99.0 drafted to wait for your OK at first and then written in the
+  post's own box (below, "Comments", decision 102); and the messages, drafted after a look-up of
   their profile and their company's page, and sent once OK'd in LinkedIn messaging, in their conversation or the window
   their profile's **Message** opens, typing only into that conversation's box (`src/networks/linkedin/auto.ts`). From
   0.94.1 a window over the page is theirs only when everyone its header, the part around its own **Close**, links to
@@ -1540,8 +1543,9 @@ networks Chrome lets it on, so HandsFreeOS can say what to press when an ask wai
 LinkedIn, part by part (HANDSFREEOS_SOCIAL_NETWORKS_IMPLEMENTATION_PLAN.md): its asks are in (0.40.0), what it does
 on its own there (0.41.0), getting and bringing in its file (0.42.0), and growing, with the helpful post on your own
 feed (0.43.0). Joining groups (decision 31; docs/outreach.md, the rest of decisions 26 to 35) is built, tidying
-on its own on every network (decisions 29 and 98, 0.97.0), and every part of your profile put in, read on its own on
-the 1st (decision 99, 0.98.0); Social Outreach's onboarding is built, in HandsFreeOS (decisions 36 and 45). Safari on Mac
+on its own on every network (decisions 29 and 98, 0.97.0), every part of your profile put in, read on its own on the
+1st (decision 99, 0.98.0), and LinkedIn's comments waiting for your OK at first (decision 102, 0.99.0); Social
+Outreach's onboarding is built, in HandsFreeOS (decisions 36 and 45). Safari on Mac
 follows in Phase 2.
 
 Finding people by topic (0.95.0, decision 92) was checked by the owner's Check Instagram, Check LinkedIn and Check
@@ -1549,5 +1553,5 @@ Alignable on 28 Oct 2026: every new step works on Instagram and Alignable. On Li
 and drew nobody, because another window had gone over the Check's and LinkedIn draws its rows only on screen. So since
 0.95.1 a Check's window comes back in front for its next page or step when another goes over it, and Who reacted
 reads each post (and your own posts' reactions) with its window in front. Still to come, as decision 92 left it:
-liking a commenter's comment, Alignable searches in nearby towns and its Groups tab, LinkedIn's comments waiting at
-first, reading further into a Likes or reactions box, and likers on Alignable.
+liking a commenter's comment, Alignable searches in nearby towns and its Groups tab, reading further into a Likes or
+reactions box, and likers on Alignable. LinkedIn's comments waiting at first came in 0.99.0 (decision 102).

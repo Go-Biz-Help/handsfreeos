@@ -577,7 +577,7 @@ export function WhenPart({
   );
 }
 
-/** How the person's phone hears what waits for them, and their numbers. */
+/** How the person's phone hears what waits for them, their numbers, and who accepted (decision 101, off to start). */
 export function PhonePart({
   value,
   onChange,
@@ -614,6 +614,14 @@ export function PhonePart({
         testID={`${testID}-dayReport`}
       />
       <Note>{W.abouts.weekReview}</Note>
+      <Tick
+        label={W.ticks.acceptedPush[0]}
+        about={W.ticks.acceptedPush[1]}
+        checked={value.acceptedPush}
+        onChange={(on) => onChange((v) => ({ ...v, acceptedPush: on }))}
+        disabled={disabled}
+        testID={`${testID}-acceptedPush`}
+      />
     </Section>
   );
 }

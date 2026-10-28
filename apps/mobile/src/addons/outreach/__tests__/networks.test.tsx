@@ -499,9 +499,10 @@ describe('A network’s page of Settings on the phone, saved as it’s changed',
     expect(screen.getByTestId('settings-networks-linkedin-saved')).toHaveTextContent(
       'LinkedIn is on. The extension picks it up in a few seconds.',
     );
+    // Its comments wait for an OK at first, as Instagram's and Alignable's do (decision 102).
     expect(
       screen.getByText(
-        'Invitations to connect, likes and comments on their own; each message waits for one tap',
+        'Invitations to connect, likes and comments on their own; each message waits for one tap. Each comment waits for your OK until you’ve OK’d 25 and a week has gone by.',
       ),
     ).toBeTruthy();
     // Only the switches LinkedIn's runner does: it never accepts invitations on its own.

@@ -717,6 +717,8 @@ export const automation = addonOutreach.table(
     pushes: text('pushes').notNull().default('bundled').$type<PushMode>(),
     /** The day's report: a push at the end of their working hours with the day's numbers (../tracking.ts). */
     dayReport: boolean('day_report').notNull().default(true),
+    /** A push when someone accepts their friend request, connection or follow (decision 101). Off to start. */
+    acceptedPush: boolean('accepted_push').notNull().default(false),
     /** How the AI writes for them (../voice.ts). */
     voiceShorthand: boolean('voice_shorthand').notNull().default(false),
     voiceAcronyms: boolean('voice_acronyms').notNull().default(false),
@@ -1272,6 +1274,8 @@ export const stages = addonOutreach.table(
     pitchedAt: ts('pitched_at'),
     /** When they first said yes: a positive reply (../conversation.ts), counted on Results. */
     positiveAt: ts('positive_at'),
+    /** Later (decision 100): off this person's Today until then, their replies aside. Null is not on Later. */
+    laterUntil: ts('later_until'),
     createdAt: ts('created_at').notNull().defaultNow(),
     updatedAt: ts('updated_at').notNull().defaultNow(),
   },

@@ -1,6 +1,7 @@
 /**
  * The person menu's own operations (../person-menu.ts, docs/outreach.md decision 91): **Mark as client** and **Not a
- * client after all** (`outreach.client.set`), and where someone stands as the menu opens (`outreach.profile.marks`).
+ * client after all** (`outreach.client.set`), **Later** and **Take off Later** (`outreach.later.set`, decision 100),
+ * and where someone stands as the menu opens (`outreach.profile.marks`).
  * A client is core's (crm/clients.ts): the Client tag on their customer in Contacts, put on and taken off through
  * core's `record.set_tags`, so Contacts, Search and Social Outreach agree. Nothing of it is kept here.
  */
@@ -11,6 +12,7 @@ import { CLIENT_TAG } from '../../../crm/record-words';
 import { HfosError } from '../../../errors';
 import { requireHuman } from '../../../kernel/actor';
 import { executeCommandWithin, scopeCan } from '../../../kernel/execute';
+import { changeMoment } from '../../../kernel/moment';
 import type { Permission } from '../../../permissions';
 import { defineAddonCommand, defineAddonQuery } from '../../server';
 import { outreachAddon } from '../manifest';
@@ -18,11 +20,15 @@ import {
   CLIENT_SKIPPED_KINDS,
   ClientSetInput,
   ClientSetOutput,
+  LATER_DAYS,
+  LATER_SKIPPED_KINDS,
+  LaterSetInput,
+  LaterSetOutput,
   mayTakeOff,
   ProfileMarksInput,
   ProfileMarksOutput,
 } from '../person-menu';
-import { profiles } from '../tables';
+import { profiles, stages } from '../tables';
 import { OUTREACH_WORDS } from '../words';
 import {
   clientOf,
@@ -168,27 +174,80 @@ export const clientSet = defineAddonCommand(outreachAddon, {
   },
 });
 
+const DAY_MS = 86_400_000;
+
+export const laterSet = defineAddonCommand(outreachAddon, {
+  name: 'outreach.later.set',
+  description:
+    'Put someone the person reached on Later: off the person’s own Today for 2 weeks, then back on it. Their replies, and their friend request to confirm, still come, and the person’s own messages to them waiting for an OK are skipped. Or take them off Later: back on Today now.',
+  risk: 0,
+  input: LaterSetInput,
+  output: LaterSetOutput,
+  permission: 'outreach.use',
+  ai: {
+    tool: 'outreach_later',
+    keywords: ['later', 'come back to', 'not now', 'two weeks', 'snooze'],
+  },
+  scope: inWorkspace,
+  emits: ['outreach.later.marked', 'outreach.send.skipped'],
+  async handler(ctx, input) {
+    const me = requireHuman(ctx).userId;
+    const ws = ctx.scope.workspaceId!;
+    const profile = await menuProfile(ctx, input.profileId);
+    const at = changeMoment(ctx.meta);
+    const until = input.later ? new Date(at.getTime() + LATER_DAYS * DAY_MS) : null;
+    await ctx.tx
+      .insert(stages)
+      .values({ workspaceId: ws, userId: me, profileId: profile.id, laterUntil: until })
+      .onConflictDoUpdate({
+        target: [stages.workspaceId, stages.userId, stages.profileId],
+        set: { laterUntil: until, updatedAt: at },
+      });
+    // What Today would have offered them waits no more: the person's own, as Later is. A reply stays.
+    const skipped = until ? await skipOutreachTo(ctx, [profile.id], LATER_SKIPPED_KINDS, me) : 0;
+    await ctx.emit({
+      type: 'outreach.later.marked',
+      entityType: 'outreach_profile',
+      entityId: profile.id,
+      payload: {
+        userId: me,
+        platform: profile.platform,
+        until: until?.toISOString() ?? null,
+        skipped,
+      },
+    });
+    return { profileId: profile.id, until: until?.toISOString() ?? null, skipped };
+  },
+});
+
 export const profileMarks = defineAddonQuery(outreachAddon, {
   name: 'outreach.profile.marks',
   description:
-    'Where someone the person reached stands, as their person menu shows it: in Contacts or not, a client (and why), a partner, a demo booked, on Don’t pitch or Never contact (and who put them on), and whether the person may take them off.',
+    'Where someone the person reached stands, as their person menu shows it: in Contacts or not, a client (and why), a partner, a demo booked, on the person’s Later (and until when), on Don’t pitch or Never contact (and who put them on), and whether the person may take them off.',
   input: ProfileMarksInput,
   output: ProfileMarksOutput,
   permission: 'outreach.use',
   ai: {
     tool: 'outreach_person_marks',
-    keywords: ['is a client', 'dont pitch', 'never contact', 'in contacts', 'demo booked'],
+    keywords: ['is a client', 'dont pitch', 'never contact', 'in contacts', 'demo booked', 'later'],
   },
   scope: inWorkspace,
   async handler(ctx, input) {
     const me = requireHuman(ctx).userId;
     const profile = await menuProfile(ctx, input.profileId);
-    const [facts] = await rows<{ name: string; partner: boolean; demo_booked: boolean }>(
+    const [facts] = await rows<{
+      name: string;
+      partner: boolean;
+      demo_booked: boolean;
+      later_until: Date | string | null;
+    }>(
       ctx.tx,
       sql`select coalesce(nullif(btrim(pp.first_name || ' ' || pp.last_name), ''), p.name) as name,
             ${partnered('p')} as partner,
             exists (select 1 from addon_outreach.demos d where d.profile_id = p.id and d.user_id = ${me}
-              and d.how = 'marked' and d.undone_at is null) as demo_booked
+              and d.how = 'marked' and d.undone_at is null) as demo_booked,
+            (select st.later_until from addon_outreach.stages st
+              where st.profile_id = p.id and st.user_id = ${me} and st.later_until > now()) as later_until
           from addon_outreach.profiles p
           left join app.people pp on pp.id = p.person_id
           where p.id = ${profile.id}`,
@@ -202,6 +261,7 @@ export const profileMarks = defineAddonQuery(outreachAddon, {
       personId: profile.personId,
       partner: facts?.partner ?? false,
       demoBooked: facts?.demo_booked ?? false,
+      laterUntil: facts?.later_until ? new Date(facts.later_until).toISOString() : null,
       client: await clientOf(ctx, profile.id),
       dontPitch: await dontPitchOf(ctx, profile),
       neverContact: await neverContactOf(ctx, profile),
@@ -215,5 +275,5 @@ export const profileMarks = defineAddonQuery(outreachAddon, {
   },
 });
 
-export const personMenuCommands = [clientSet] as const;
+export const personMenuCommands = [clientSet, laterSet] as const;
 export const personMenuQueries = [profileMarks] as const;

@@ -253,6 +253,7 @@ describe('Mark as client', () => {
       personId: expect.any(String),
       partner: false,
       demoBooked: false,
+      laterUntil: null,
       client: { on: true, tagged: false, because: 'job' },
       dontPitch: null,
       neverContact: null,

@@ -193,6 +193,24 @@ export const foundByTopicOn = (version: string | null | undefined): boolean =>
   appVersionAtLeast(version ?? null, FOUND_BY_TOPIC_SINCE);
 
 /**
+ * The first build whose LinkedIn runner sends comments through `sends`, to wait for the person's OK at first (decision
+ * 102, the owner's pick 32), as Instagram's and Alignable's do. An older one commented on its own, so on LinkedIn it
+ * gets no comments at all: it would take an OK'd one for a message.
+ */
+export const LINKEDIN_COMMENTS_WAIT_SINCE = '0.99.0';
+
+/**
+ * Whether a computer's build gets comments to send through `sends` on a network whose comments wait
+ * (`commentsWait: 'hold'`): from `FOUND_BY_TOPIC_SINCE`, and on LinkedIn from `LINKEDIN_COMMENTS_WAIT_SINCE`. One
+ * that didn't say its build, or no computer at all, is taken as older.
+ */
+export const commentSendsOn = (platform: Platform, version: string | null | undefined): boolean =>
+  appVersionAtLeast(
+    version ?? null,
+    platform === 'linkedin' ? LINKEDIN_COMMENTS_WAIT_SINCE : FOUND_BY_TOPIC_SINCE,
+  );
+
+/**
  * How a part goes in on the person's computer, by its build of the extension: a part that goes in by itself only
  * from a newer build is `steps` on an older one, as that build hands it over. With no computer known (`undefined`) it's
  * the newest build's; a computer that didn't say its build is taken as older, as `tooOldFor` takes it.

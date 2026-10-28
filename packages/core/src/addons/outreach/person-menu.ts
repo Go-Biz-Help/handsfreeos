@@ -2,9 +2,13 @@
  * The person menu on someone's name (docs/outreach.md, decision 91): wherever the app shows someone kept in Social
  * Outreach (Waiting for you, Today, the Pipeline, Chats, Friends), their name opens it. Its page on their network
  * first, which works with no signal, their chat second, then the Pipeline's moves, Contacts, **Mark as client**, Demo
- * booked, Don't pitch and Never contact, each showing where they stand now (`outreach.profile.marks`) so it can be
- * undone. `personMenuItems` decides the order, what shows, what's pressable and the words, once, for the web and the
- * phone.
+ * booked, **Later** (decision 100), Don't pitch and Never contact, each showing where they stand now
+ * (`outreach.profile.marks`) so it can be undone. `personMenuItems` decides the order, what shows, what's pressable
+ * and the words, once, for the web and the phone.
+ *
+ * Later is each person's own: it takes someone off their Today for `LATER_DAYS`, then they're back on their own.
+ * Their replies, and their friend request to confirm, still come; the person's own messages to them waiting for an OK
+ * are skipped (`outreach.later.set`).
  *
  * A client is core's (crm/clients.ts): the Client tag on their customer in Contacts, or anything else Contacts counts.
  * It ends outreach, never replies (`CLIENT_SKIPPED_KINDS`).
@@ -13,7 +17,7 @@
  */
 import { z } from 'zod';
 import { CLIENT_CAUSES, type ClientCause } from '../../crm/record-words';
-import type { MessageKind } from './automation';
+import { SEND_KINDS, type MessageKind, type SendKind } from './automation';
 import { chatUrlOn, openChatWords, openPageWords } from './network-words';
 import { PLATFORM_KEYS, type Platform } from './networks';
 import { DontPitch, NeverContact } from './saves';
@@ -46,7 +50,32 @@ export const isClientSkipped = (kind: string): kind is ClientSkippedKind =>
 export const mayTakeOff = (by: string | null, me: string, manages: boolean): boolean =>
   !by || by === me || manages;
 
+/** How long Later takes someone off the person's Today (decision 100, the owner's pick 30a): 2 weeks. */
+export const LATER_DAYS = 14;
+
+/** The person's own messages to someone that Later skips while they wait for an OK: all but a reply. */
+export const LATER_SKIPPED_KINDS: readonly SendKind[] = SEND_KINDS.filter(
+  (k) => k !== 'reply' && k !== 'partner_reply',
+);
+
 // ------------------------------------------------------------------------------------------------- shapes
+
+export const LaterSetInput = z.object({
+  workspaceId: z.uuid(),
+  profileId: z.uuid(),
+  /** Later, or Take off Later: back on Today now. */
+  later: z.boolean(),
+});
+export type LaterSetInput = z.input<typeof LaterSetInput>;
+
+export const LaterSetOutput = z.object({
+  profileId: z.uuid(),
+  /** When they're back on Today: null when they're not on Later. */
+  until: z.iso.datetime().nullable(),
+  /** How many of the person's own messages to them, waiting for an OK or OK'd and not sent, were skipped. */
+  skipped: z.number().int().min(0),
+});
+export type LaterSetOutput = z.output<typeof LaterSetOutput>;
 
 export const ClientSetInput = z.object({
   workspaceId: z.uuid(),
@@ -103,6 +132,8 @@ export const ProfileMarksOutput = z.object({
   /** The person marked them as having booked a demo (`outreach.demo.mark`). */
   demoBooked: z.boolean(),
   client: ClientStanding,
+  /** On the person's own Later until then (decision 100): null when they're not. */
+  laterUntil: z.iso.datetime().nullable(),
   dontPitch: DontPitch.nullable(),
   neverContact: NeverContact.nullable(),
   /** Whether the person asking may take them off each list here (`mayTakeOff`), from this profile's own mark. */
@@ -160,6 +191,8 @@ export type PersonMenuKey =
   | 'client-line'
   | 'demo'
   | 'not-demo'
+  | 'later'
+  | 'not-later'
   | 'dont-pitch'
   | 'not-dont-pitch'
   | 'dont-pitch-line'
@@ -193,8 +226,8 @@ export interface PersonMenuItem {
 /**
  * The person menu's items, in order: Open on {Network}; Open in {messages} when their chat is known; the Pipeline's
  * moves; In Contacts or Add to Contacts; Mark as client, Not a client after all, or why they're a client; Demo booked
- * or Not a demo after all; Don't pitch, Take off Don't pitch, or who put them on; Never contact, Take off Never
- * contact, or who put them on. A partner has no Client or Demo booked; without `contactsWrite` there's no Add to
+ * or Not a demo after all; Later or Take off Later; Don't pitch, Take off Don't pitch, or who put them on; Never
+ * contact, Take off Never contact, or who put them on. A partner has no Client or Demo booked; without `contactsWrite` there's no Add to
  * Contacts or Client to press; a row with its own switches has no Don't pitch or Never contact. The marks' toggles wait
  * for `marks`, and everything but the Open items waits for signal.
  */
@@ -306,7 +339,15 @@ export function personMenuItems(input: PersonMenuInput): PersonMenuItem[] {
     );
   }
 
-  // 7 and 8: the lists, unless the row has its own switches.
+  // 7: Later, the person's own (decision 100), on any row.
+  const laterUntil = marks?.laterUntil ?? null;
+  items.push(
+    laterUntil
+      ? press('not-later', P.notLater(laterUntil), 'person-later')
+      : press('later', P.later, 'person-later'),
+  );
+
+  // 8 and 9: the lists, unless the row has its own switches.
   if (!input.ownSwitches) {
     const dontPitch = marks?.dontPitch ?? null;
     if (!dontPitch)
@@ -363,6 +404,11 @@ export function clientSetWords(
 ): string {
   if (marked) return P.clientDone(name);
   return out.client ? P.clientStill(name, out.because) : P.clientOff(name);
+}
+
+/** What the web and the phone say after `outreach.later.set`: off Today until a day, or back on it now. */
+export function laterSetWords(name: string, out: Pick<LaterSetOutput, 'until'>): string {
+  return out.until ? P.laterDone(name, out.until) : P.laterOff(name);
 }
 
 /** The causes a client has, as `ClientCause`s, for a screen that names them. */

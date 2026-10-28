@@ -1,8 +1,8 @@
 /**
  * Comments on good posts where they go through `sends` (docs/outreach.md, decision 92: a network whose kit's
- * `commentsWait` is `hold`, Instagram's and Alignable's), as those runners (./instagram.ts, ./alignable.ts) draft and
- * send them: what's the same on both. LinkedIn's comments go on their own as its own step, and Facebook's are the
- * person's, so neither comes here.
+ * `commentsWait` is `hold`, Instagram's, Alignable's and from 0.99.0 LinkedIn's, decision 102), as those runners
+ * (./instagram.ts, ./alignable.ts, ./linkedin.ts) draft and send them: what's the same on each. Facebook's are the
+ * person's, so they never come here.
  *
  * - **Drafted from the post** (`draftComment`): the AI writes it for that post (`hfos-draft` with its `postId`), and
  *   HandsFreeOS queues it with its post (`outreach.send.queue`). It waits for the person's OK while that network's

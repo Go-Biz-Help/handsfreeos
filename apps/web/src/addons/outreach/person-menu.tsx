@@ -12,6 +12,7 @@
  * - **Mark as client** (`outreach.client.set`), through the same "Is this one of these?" when they aren't in
  *   Contacts, or **Not a client after all**, or why Contacts counts them a client;
  * - **Demo booked**, or **Not a demo after all**;
+ * - **Later**, off the person's own Today for 2 weeks, or **Take off Later** (`outreach.later.set`, decision 100);
  * - **Don't pitch** and **Never contact**, or taking them off, or who put them on: left out where the row has its own
  *   switches (Friends, Chats).
  *
@@ -21,6 +22,7 @@
 import type { Platform } from '@hfos/core/addons/outreach/networks';
 import {
   clientSetWords,
+  laterSetWords,
   personMenuItems,
   personMenuOfflineWords,
   type PersonMenuItem,
@@ -33,6 +35,7 @@ import {
   Ban,
   CalendarCheck,
   ChevronDown,
+  Clock,
   ExternalLink,
   Loader2,
   MessageCircle,
@@ -96,6 +99,8 @@ const ICONS: Partial<Record<PersonMenuKey, LucideIcon>> = {
   'client-line': BadgeCheck,
   demo: CalendarCheck,
   'not-demo': CalendarCheck,
+  later: Clock,
+  'not-later': Clock,
   'dont-pitch': Ban,
   'not-dont-pitch': Ban,
   'dont-pitch-line': Ban,
@@ -300,6 +305,16 @@ function NameMenu({
         ),
       booked ? P.demoMarked(name) : P.demoUnmarked,
     );
+  // Later is the person's own: the page drawn again leaves them off Today, or puts them back.
+  const later = (on: boolean) =>
+    void act('later', async () => {
+      const out = unwrap(
+        await apiBrowser().POST('/v1/commands/outreach.later.set', {
+          body: { workspaceId, profileId, later: on },
+        }),
+      );
+      toast.success(laterSetWords(name, out));
+    });
   const list = (change: { dontPitch: boolean } | { neverContact: boolean }, done: string) =>
     void act(
       'list',
@@ -318,6 +333,8 @@ function NameMenu({
     'not-client': notClient,
     demo: () => demo(true),
     'not-demo': () => demo(false),
+    later: () => later(true),
+    'not-later': () => later(false),
     'dont-pitch': () => list({ dontPitch: true }, P.dontPitchDone(name)),
     'not-dont-pitch': () => list({ dontPitch: false }, P.dontPitchOff(name)),
     'never-contact': () => list({ neverContact: true }, P.neverContactDone(name)),
@@ -383,7 +400,7 @@ function NameMenu({
     );
   };
 
-  // Their page and chat; the Pipeline's moves; then Contacts, Client, Demo booked and the lists.
+  // Their page and chat; the Pipeline's moves; then Contacts, Client, Demo booked, Later and the lists.
   const groups = [
     items.filter((i) => i.kind === 'open'),
     items.filter((i) => i.key === 'move-to' || i.move !== undefined),

@@ -116,7 +116,12 @@ export async function myComputers(ctx: Ctx, me: string): Promise<Computer[]> {
  * older build is never given finds it can't check. No computer, or one that didn't say its build, is taken as older.
  */
 export async function findsByTopic(ctx: Ctx, me: string): Promise<boolean> {
-  return foundByTopicOn(workingOf(await myComputers(ctx, me))?.version);
+  return foundByTopicOn(await workingBuild(ctx, me));
+}
+
+/** The build of the person's working computer: null with none, or one that didn't say its build. */
+export async function workingBuild(ctx: Ctx, me: string): Promise<string | null> {
+  return workingOf(await myComputers(ctx, me))?.version ?? null;
 }
 
 /**

@@ -51,6 +51,9 @@ const NEEDS_YOU = 'Needs you';
 const TODAY_EMPTY = 'Nothing on your list for today';
 
 const days = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`;
+/** The day someone on Later is back on Today (decision 100): "Nov 11", where the person is. */
+const laterDay = (until: string) =>
+  new Date(until).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
 const paceMessage = (n: number) =>
   n === 0
     ? 'First message the day they accept'
@@ -419,6 +422,12 @@ export const OUTREACH_WORDS = {
       }`,
     demoBooked: 'Demo booked',
     notDemo: 'Not a demo after all',
+    /** Later (decision 100): off the person's own Today for 2 weeks (`LATER_DAYS`), then back. */
+    later: 'Later: back in 2 weeks',
+    notLater: (until: string) => `Take off Later (back ${laterDay(until)})`,
+    laterDone: (name: string, until: string) =>
+      `${name} is off your Today until ${laterDay(until)}. Their replies still come.`,
+    laterOff: (name: string) => `${name} is back on your Today.`,
     dontPitch: 'Don’t pitch',
     notDontPitch: 'Take off Don’t pitch',
     neverContact: 'Never contact',
@@ -432,7 +441,7 @@ export const OUTREACH_WORDS = {
      * their page and where they stand can't be asked (`personMenuOfflineWords` in ./person-menu.ts picks).
      */
     needsSignal: (opens: 'page' | 'chat' | null) =>
-      `Contacts, Client, Demo booked, Don’t pitch and Never contact need signal. ${
+      `Contacts, Client, Demo booked, Later, Don’t pitch and Never contact need signal. ${
         opens ? `Opening their ${opens} works now.` : 'Try again when you’re back online.'
       }`,
     /** Under a chat's own Don't pitch and Never contact switches with no signal. */
@@ -732,6 +741,10 @@ export const OUTREACH_WORDS = {
     dayReport: [
       'The day’s report',
       'A push at the end of your working hours with the day’s numbers: messages sent, yeses and calls booked, and how far you are from your target. Only on a day you sent something.',
+    ],
+    acceptedPush: [
+      'When someone accepts',
+      'A push when someone accepts your friend request, accepts your invitation on LinkedIn or Alignable, or follows you back on Instagram.',
     ],
   } as const,
   /** On the Add-ons page, which points to Social Outreach's own Settings tab. */

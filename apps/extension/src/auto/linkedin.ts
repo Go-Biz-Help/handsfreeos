@@ -23,10 +23,11 @@
  *   their own feed once the AI has written it (../jobs/linkedin/helpful.ts).
  * - **Then LinkedIn's list for today** (`outreach.today` with `platform: 'linkedin'`), the kinds it does on its own
  *   (`auto`): a look at their profile and a like on a post of theirs (warm-up; for a writer a search found, the post it
- *   found, liked on its own page), an invitation to connect without a note (Chris), a comment in the post's own box,
- *   and the messages: drafted after a look-up, and sent once OK'd, in LinkedIn messaging, typing only into that
- *   conversation's box. Invitations they sent you are left for them to accept. Old invitations are withdrawn only
- *   when the person ticks them (their ask, ../asks/run.ts).
+ *   found, liked on its own page), an invitation to connect without a note (Chris), and the messages: drafted after a
+ *   look-up, and sent once OK'd, in LinkedIn messaging, typing only into that conversation's box. From 0.99.0 a comment
+ *   on a good post goes as Instagram's and Alignable's do (decision 102, ./comments.ts): drafted from the post to wait
+ *   for the person's OK at first, then written in the post's own box. Invitations they sent you are left for them to
+ *   accept. Old invitations are withdrawn only when the person ticks them (their ask, ../asks/run.ts).
  * - **At LinkedIn's pace:** a few minutes between steps, within LinkedIn's own limits, which HandsFreeOS keeps (its
  *   list holds only what they have room for, the week's 80 invitations among them).
  * - **Stops on any LinkedIn warning,** for the day, on LinkedIn alone: Facebook's runner goes on.
@@ -76,6 +77,14 @@ import type { ProfileRef, ThreadRef } from '../networks/linkedin/types';
 import { comparable, postOf, profileRefOf, sameMember } from '../networks/linkedin/urls';
 import { isWorking, statesNow } from '../networks/on';
 import { WorkTab } from '../tab';
+import {
+  commentDoing,
+  draftComment,
+  isCommentWork,
+  sendComment,
+  type CommentOutcome,
+  type CommentRunner,
+} from './comments';
 import { DAILY_CHATS } from './daily';
 import {
   beforeDay,
@@ -112,8 +121,11 @@ const NAME = NETWORKS.linkedin.name;
 
 export const LINKEDIN_ALARM = 'hfos-auto-linkedin';
 
-/** The kinds it does on its own on LinkedIn, in order: invitations they sent are theirs to accept. */
-export const LINKEDIN_AUTO: readonly TodayKind[] = ['warm_up', 'friend_request', 'comment'];
+/**
+ * The kinds it does on its own on LinkedIn, in order: invitations they sent are theirs to accept. From 0.99.0 a comment
+ * on a good post is drafted and sent through `sends` (decision 102), as Instagram's and Alignable's are, never as a step.
+ */
+export const LINKEDIN_AUTO: readonly TodayKind[] = ['warm_up', 'friend_request'];
 /**
  * The once-a-day jobs on LinkedIn, in order. From 0.97.0 it withdraws old invitations on its own after checking the
  * new ones (`tidy`, decision 98), as the person chose. From 0.95.0 (decision 92) who reacted to and commented on the good posts
@@ -487,60 +499,23 @@ async function invite(item: TodayListItem, businessId: string): Promise<Outcome>
   return { done: true, line: `Sent ${item.name} an invitation to connect` };
 }
 
-/** Writes the AI's comment under a good post LinkedIn's post search found, in the post's own box. */
-async function comment(item: TodayListItem, businessId: string): Promise<Outcome> {
-  const author = item.profileUrl ? profileRefOf(item.profileUrl) : null;
-  if (!author || !item.postUrl || !item.postId)
-    return { done: false, line: `${item.name}’s post: no link kept` };
-  const drafted = await answer({
-    type: 'hfos-draft',
-    workspaceId: businessId,
-    input: { kind: 'comment', postId: item.postId },
-  });
-  if (!drafted.ok) return { done: false, line: `${item.name}’s post: ${drafted.problem.message}` };
-  const text = (drafted.value as { drafts: readonly string[] }).drafts[0];
-  if (!text) return { done: false, line: `${item.name}’s post: the AI had nothing to say on it` };
-  await tab.open(item.postUrl);
-  await setState({ tabId: tab.tabId });
-  const stop = await warnedOn(await read(), businessId);
-  if (stop) return { stop };
-  const wrote = await tab.ask({ type: 'hfos-comment', text });
-  if (!wrote.ok) throw new Error(wrote.error);
-  if (wrote.result === 'none')
-    return {
-      done: false,
-      line: `${item.name}’s post: couldn’t find the box to comment in`,
-      need: true,
-    };
-  if (wrote.result !== 'done')
-    return {
-      done: false,
-      line: `${item.name}’s post: LinkedIn didn’t take the comment`,
-      need: true,
-    };
-  await pause(SETTLE_MS);
-  const after = await warnedOn(await read(), businessId);
-  if (after) return { stop: after };
-  await takeNote(
-    {
-      type: 'hfos-noted',
-      step: {
-        kind: 'comment',
-        to: { name: item.name, profile: author },
-        group: null,
-        postUrl: item.postUrl,
-        thread: null,
-        replying: null,
-        auto: true,
-        postText: item.post,
-        commentText: text,
-      },
-      at: now(),
-    },
-    PLATFORM,
-  );
-  return { done: true, line: `Commented on ${item.name}’s post` };
-}
+/**
+ * What a comment's send (./comments.ts, decisions 92 and 102) borrows: this window's tab, and a look at the page it
+ * opened for LinkedIn's warning. LinkedIn's pages never ask to sign in mid-run, so it never stops for now.
+ */
+const commenting: CommentRunner = {
+  platform: PLATFORM,
+  tab,
+  async onPage(businessId) {
+    await setState({ tabId: tab.tabId });
+    const stop = await warnedOn(await read(), businessId);
+    return stop ? { stop } : null;
+  },
+};
+
+/** A comment's draft or send as LinkedIn's own outcome: a stop for now (which LinkedIn never asks) is a pass. */
+const commentOutcome = (out: CommentOutcome): Outcome =>
+  'again' in out ? { done: false, line: out.again } : out;
 
 // ------------------------------------------------------------------------------------------------- messages
 
@@ -646,6 +621,7 @@ async function bringInChat(
 
 /** Drafts a message with the AI after looking them up on LinkedIn, and hands it to HandsFreeOS to wait or go. */
 async function draftMessage(item: TodayListItem, businessId: string): Promise<Outcome> {
+  if (item.kind === 'comment') return commentOutcome(await draftComment(item, businessId));
   if (item.kind === 'reply' || item.kind === 'partner_reply') {
     const stopped = await bringInChat(item, businessId);
     if (stopped) return stopped;
@@ -712,6 +688,15 @@ async function sendMessage(
   businessId: string,
   split: boolean,
 ): Promise<Outcome> {
+  if (item.kind === 'comment')
+    return commentOutcome(
+      await sendComment(
+        item,
+        item.profileUrl ? profileRefOf(item.profileUrl) : null,
+        businessId,
+        commenting,
+      ),
+    );
   const send = item.send!;
   const failed = async (line: string): Promise<Outcome> => {
     const lead = `${item.name}: `;
@@ -778,7 +763,11 @@ export function doWork(work: Work, businessId: string, split: boolean): Promise<
     case 'friend_request':
       return invite(work.item, businessId);
     default:
-      return comment(work.item, businessId);
+      // Never on its list for it (`LINKEDIN_AUTO`): comments go as sends, drafted and sent above.
+      return Promise.resolve({
+        done: false,
+        line: `${work.item.name}: that’s yours to do on LinkedIn`,
+      });
   }
 }
 
@@ -786,15 +775,15 @@ const DOING: Readonly<Partial<Record<TodayKind, string>>> = {
   warm_up: 'Looking at the profile of',
   partner_warm_up: 'Looking at the profile of',
   friend_request: 'Inviting',
-  comment: 'Commenting on a post of',
 };
 
 const doing = (work: Work) =>
-  work.do === 'step'
+  commentDoing(work) ??
+  (work.do === 'step'
     ? `${DOING[work.item.kind] ?? 'Working on'} ${work.item.name}…`
     : work.do === 'draft'
       ? `Writing a message to ${work.item.name}…`
-      : `Sending ${work.item.name} a message…`;
+      : `Sending ${work.item.name} a message…`);
 
 const doneAs = (work: Work): DoneKind =>
   work.do === 'step'
@@ -803,7 +792,9 @@ const doneAs = (work: Work): DoneKind =>
       : (work.item.kind as DoneKind)
     : work.do === 'draft'
       ? 'drafted'
-      : 'sent';
+      : isCommentWork(work)
+        ? 'comment'
+        : 'sent';
 
 /** What's left on LinkedIn's list for it today: only the kinds it does there. */
 export function linkedInWorkLeft(

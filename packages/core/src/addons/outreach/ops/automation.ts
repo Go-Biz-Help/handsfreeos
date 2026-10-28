@@ -83,6 +83,7 @@ const settingsOf = (row: Row | undefined, rules: BusinessRules): AutomationSetti
           markPosts: row.markPosts,
           pushes: row.pushes,
           dayReport: row.dayReport,
+          acceptedPush: row.acceptedPush,
           voice: {
             shorthand: row.voiceShorthand,
             acronyms: row.voiceAcronyms,
@@ -477,12 +478,13 @@ export const automationSave = defineAddonCommand(outreachAddon, {
     const at = changeMoment(ctx.meta);
     const rules = await rulesOf(ctx);
     const before = await rowOf(ctx, whose);
-    // A screen from before the voice, the day's report or the networks sends none: the ones kept stay.
+    // A screen from before the voice, the day's report, the accept push or the networks sends none: the ones kept stay.
     const kept = settingsOf(before, rules);
     const s: AutomationSettings = {
       ...input.settings,
       voice: input.settings.voice ?? kept.voice,
       dayReport: input.settings.dayReport ?? kept.dayReport,
+      acceptedPush: input.settings.acceptedPush ?? kept.acceptedPush,
       networks: input.settings.networks ?? kept.networks,
     };
     const refused = notAllowedWords(s, rules);
@@ -513,6 +515,7 @@ export const automationSave = defineAddonCommand(outreachAddon, {
       markPosts: s.markPosts,
       pushes: s.pushes,
       dayReport: s.dayReport,
+      acceptedPush: s.acceptedPush,
       voiceShorthand: s.voice.shorthand,
       voiceAcronyms: s.voice.acronyms,
       voiceEmoji: s.voice.emoji,

@@ -74,6 +74,7 @@ import { perDayFor } from './checks';
 import {
   inWorkspace,
   keptProfile,
+  notLater,
   notNever,
   once,
   partnered,
@@ -952,6 +953,7 @@ export async function partnerToday(
       ? rows<TodayRow>(
           ctx.tx,
           sql`${select}, null::text as thread_key, null::uuid as chat_id ${from} and ${where}
+                and ${notLater(me, 'p')}
               order by ${best} limit ${most}`,
         )
       : Promise.resolve([] as TodayRow[]);

@@ -1,14 +1,17 @@
 /**
  * The person menu on someone's name (src/addons/outreach/person-menu.ts, docs/outreach.md decision 91), which the web
  * and the phone both draw from `personMenuItems`: their page first, their chat second, then the Pipeline's moves,
- * Contacts, Client, Demo booked, Don't pitch and Never contact, each as where they stand says, and only the Open items
- * with no signal. Pure: no database.
+ * Contacts, Client, Demo booked, Later (decision 100), Don't pitch and Never contact, each as where they stand says,
+ * and only the Open items with no signal. Pure: no database.
  */
 import { describe, expect, it } from 'vitest';
 import {
   CLIENT_SKIPPED_KINDS,
   clientSetWords,
   isClientSkipped,
+  LATER_DAYS,
+  LATER_SKIPPED_KINDS,
+  laterSetWords,
   mayTakeOff,
   personMenuItems,
   personMenuOfflineWords,
@@ -32,6 +35,7 @@ const marks = (over: Partial<ProfileMarksOutput> = {}): ProfileMarksOutput => ({
   personId: null,
   partner: false,
   demoBooked: false,
+  laterUntil: null,
   client: { on: false, tagged: false, because: null },
   dontPitch: null,
   neverContact: null,
@@ -96,6 +100,7 @@ describe('the person menu', () => {
       'add-contact',
       'mark-client',
       'demo',
+      'later',
       'dont-pitch',
       'never-contact',
     ]);
@@ -140,7 +145,7 @@ describe('the person menu', () => {
     // Before the marks come, the row says so.
     expect(
       keys(menu({ marks: null, row: { url: null, platform: 'facebook', partner: true } })),
-    ).toEqual(['add-contact', 'dont-pitch', 'never-contact']);
+    ).toEqual(['add-contact', 'later', 'dont-pitch', 'never-contact']);
   });
 
   it('offers Add to Contacts and Client only to someone who adds and edits customers', () => {
@@ -161,6 +166,43 @@ describe('the person menu', () => {
     const items = menu({ ownSwitches: true });
     expect(keys(items)).not.toContain('dont-pitch');
     expect(keys(items)).not.toContain('never-contact');
+    // Later isn't one of those switches: it's there too.
+    expect(keys(items)).toContain('later');
+  });
+
+  it('puts someone on Later for 2 weeks, or takes them off it with the day they’d be back', () => {
+    expect(LATER_DAYS).toBe(14);
+    expect(item(menu(), 'later')).toMatchObject({
+      kind: 'action',
+      label: 'Later: back in 2 weeks',
+      danger: false,
+      enabled: true,
+      testId: 'person-later',
+    });
+    const on = menu({ marks: marks({ laterUntil: '2026-11-11T15:00:00.000Z' }) });
+    expect(keys(on)).not.toContain('later');
+    expect(item(on, 'not-later')).toMatchObject({
+      label: 'Take off Later (back Nov 11)',
+      testId: 'person-later',
+      enabled: true,
+    });
+    // Before the marks come it waits, as the other toggles do; a partner has it too.
+    expect(item(menu({ marks: null }), 'later')?.enabled).toBe(false);
+    expect(keys(menu({ marks: marks({ partner: true }) }))).toContain('later');
+  });
+
+  it('says the same thing on the web and the phone after Later and Take off Later', () => {
+    expect(laterSetWords('Dana Reyes', { until: '2026-11-11T15:00:00.000Z' })).toBe(
+      'Dana Reyes is off your Today until Nov 11. Their replies still come.',
+    );
+    expect(laterSetWords('Dana Reyes', { until: null })).toBe('Dana Reyes is back on your Today.');
+  });
+
+  it('skips the person’s own messages waiting for an OK on Later, never a reply', () => {
+    expect(LATER_SKIPPED_KINDS).not.toContain('reply');
+    expect(LATER_SKIPPED_KINDS).not.toContain('partner_reply');
+    for (const k of ['opener', 'pitch', 'follow_up', 'comment', 'partner_ask'] as const)
+      expect(LATER_SKIPPED_KINDS).toContain(k);
   });
 
   it('takes someone off a list only for whoever may, and otherwise says who put them on', () => {
@@ -207,7 +249,8 @@ describe('the person menu', () => {
   });
 
   it('says with no signal what opens now, and never promises an Open item it doesn’t show', () => {
-    const waits = 'Contacts, Client, Demo booked, Don’t pitch and Never contact need signal.';
+    const waits =
+      'Contacts, Client, Demo booked, Later, Don’t pitch and Never contact need signal.';
     const offline = (row: PersonMenuInput['row']) =>
       personMenuOfflineWords(menu({ online: false, marks: null, row }));
     expect(offline({ url: 'https://www.facebook.com/dana.reyes.7', platform: 'facebook' })).toBe(
@@ -287,6 +330,10 @@ describe('who counts as a client, in words', () => {
       P.clientNeedsContacts('Dana Reyes'),
       P.clientNoOutreach('Dana Reyes', 'job'),
       P.notDontPitch,
+      P.later,
+      P.notLater('2026-11-11T15:00:00.000Z'),
+      P.laterDone('Dana Reyes', '2026-11-11T15:00:00.000Z'),
+      P.laterOff('Dana Reyes'),
       P.putOnBy(P.neverContact, null),
       P.taggedFamily,
       P.needsSignal('page'),

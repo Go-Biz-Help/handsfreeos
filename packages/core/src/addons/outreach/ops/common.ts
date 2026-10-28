@@ -225,10 +225,21 @@ export const openToMe = (me: string, p: string) => sql`(not exists (
   and not ${reachedElsewhere(p)})`;
 
 /**
- * A profile still in play for the person `me`: open to them (`openToMe`), and not a client (`isClient`, decision
- * 91), who gets no outreach. Every pick on Today but a reply they're owed goes by it. `p` is its alias.
+ * Not on the person `me`'s Later (decision 100): Later in the person menu takes someone off their Today for 2 weeks
+ * (`LATER_DAYS`), then they're back. A reply they're owed, and their friend request to confirm, still show. `p` is its
+ * alias.
  */
-export const inPlay = (me: string, p: string) => sql`(${openToMe(me, p)} and not ${isClient(p)})`;
+export const notLater = (me: string, p: string) => sql`not exists (
+  select 1 from addon_outreach.stages sl
+  where sl.profile_id = ${sql.raw(p)}.id and sl.user_id = ${me} and sl.later_until > now())`;
+
+/**
+ * A profile still in play for the person `me`: open to them (`openToMe`), not a client (`isClient`, decision 91),
+ * who gets no outreach, and not on their Later (`notLater`, decision 100). Every pick on Today but a reply they're
+ * owed goes by it. `p` is its alias.
+ */
+export const inPlay = (me: string, p: string) =>
+  sql`(${openToMe(me, p)} and not ${isClient(p)} and ${notLater(me, p)})`;
 
 /**
  * The profiles the client rule covers for one customer (`isClient`): every profile on them, on any network, and any
@@ -288,6 +299,8 @@ export async function skipOutreachTo(
   ctx: CommandContext,
   profileIds: readonly string[],
   kinds?: readonly SendKind[],
+  /** Only this person's own (Later, decision 100): anyone's when left out. */
+  userId?: string,
 ): Promise<number> {
   if (!profileIds.length || kinds?.length === 0) return 0;
   const at = changeMoment(ctx.meta);
@@ -300,6 +313,7 @@ export async function skipOutreachTo(
         inArray(sends.profileId, [...new Set(profileIds)]),
         inArray(sends.state, ['waiting', 'approved']),
         ...(kinds ? [inArray(sends.kind, [...kinds])] : []),
+        ...(userId ? [eq(sends.userId, userId)] : []),
       ),
     )
     .returning({ kind: sends.kind, profileId: sends.profileId });

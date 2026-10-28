@@ -187,12 +187,16 @@ describe('Instagram’s kit and words', () => {
     expect(comment('alignable')).toContain(
       'add something useful, with no pitch and no link. Under 50 words.',
     );
-    // LinkedIn's comments go as the runner's own step, as before.
-    expect(comment('linkedin')).toContain('only then offer to help');
+    // LinkedIn's wait for an OK at first too, from 0.99.0 (decision 102): a helpful answer, with no pitch or link.
+    expect(comment('linkedin')).toContain(
+      'They posted this on LinkedIn. Write the owner’s public comment under it: answer what they asked or add something useful, with no pitch and no link. Under 50 words.',
+    );
+    expect(comment('facebook')).toContain('only then offer to help');
     expect(todayDraftSystem('instagram')).toContain(
       'A comment on Instagram is under 30 words, with no link, no web address, no hashtags and no pitch',
     );
     expect(todayDraftSystem('alignable')).toContain('A comment on Alignable is a helpful answer');
+    expect(todayDraftSystem('linkedin')).toContain('A comment on LinkedIn is a helpful answer');
     expect(todayDraftSystem('facebook')).not.toContain('A comment on');
     expect(fitsComment('Same here! A shared call list helped our crew.', 'instagram')).toBe(true);
     expect(fitsComment('Love this #plumbing', 'instagram')).toBe(false);
@@ -200,8 +204,9 @@ describe('Instagram’s kit and words', () => {
     expect(fitsComment('word '.repeat(31), 'instagram')).toBe(false);
     expect(fitsComment('word '.repeat(60), 'alignable')).toBe(true);
     expect(fitsComment('Details at https://bright.com', 'alignable')).toBe(false);
+    expect(fitsComment('Details at https://bright.com', 'linkedin')).toBe(false);
     // Elsewhere a draft is as the AI wrote it.
-    expect(fitsComment('Details at https://bright.com', 'linkedin')).toBe(true);
+    expect(fitsComment('Details at https://bright.com', 'facebook')).toBe(true);
   });
 });
 

@@ -67,6 +67,7 @@ import {
   runsOnItsOwn,
   WORKING_PLATFORMS,
 } from '@hfos/core/addons/outreach/networks';
+import { acceptedPushWords } from '@hfos/core/addons/outreach/alerts';
 import { dayReportWords } from '@hfos/core/addons/outreach/tracking';
 import { OUTREACH_WORDS as W } from '@hfos/core/addons/outreach/words';
 import { SETUP_WORDS } from '@hfos/core/addons/outreach/setup';
@@ -424,7 +425,10 @@ export function ExtensionTicks({
   );
 }
 
-/** How their phone and the extension tell them what waits (decision 40), and the day's report (decision 70). */
+/**
+ * How their phone and the extension tell them what waits (decision 40), the day's report (decision 70), and a push when
+ * someone accepts (decision 101, off to start).
+ */
 export function PushesPart({
   value,
   onChange,
@@ -464,6 +468,22 @@ export function PushesPart({
         />
       ) : null}
       <p className="text-[12.5px] text-text-3">{W.abouts.weekReview}</p>
+      <div className="border-t border-border pt-3">
+        <Tick
+          words={W.ticks.acceptedPush}
+          checked={value.acceptedPush}
+          onChange={(acceptedPush) => onChange({ ...value, acceptedPush })}
+          switches={switches}
+          testId={`${testId}-acceptedPush`}
+        />
+      </div>
+      {value.acceptedPush ? (
+        <PushSample
+          title={acceptedSample.title}
+          body={acceptedSample.body}
+          testId={`${testId}-accepted-sample`}
+        />
+      ) : null}
     </Part>
   );
 }
@@ -967,6 +987,7 @@ export function RulesForm({
 
 /** How the day's report reads on a phone, from a made-up day. */
 const dayReportSample = dayReportWords({ messages: 14, positive: 2, booked: 1 }, 15);
+const acceptedSample = acceptedPushWords(['Dana Reyes'], 'facebook');
 
 /** A push as it shows on a phone: the add-on's name, its title and its words. */
 function PushSample({ title, body, testId }: { title: string; body: string; testId: string }) {

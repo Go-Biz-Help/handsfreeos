@@ -2,7 +2,7 @@
  * LinkedIn's runner (src/auto/linkedin.ts), with the extension's storage, HandsFreeOS and LinkedIn's tab stood in for,
  * on hand-written pages of made-up people: it works only while LinkedIn's day is started; before LinkedIn's first day
  * it saves the person's connections first, noting it as LinkedIn's; and each step on LinkedIn's list (a look and a like,
- * an invitation without a note, a comment, a message OK'd) is pressed on its own page and noted as the extension's own,
+ * an invitation without a note, a comment or a message OK'd) is pressed on its own page and noted as the extension's own,
  * as LinkedIn's; for a writer its post search found, the like goes on that post, on its own page, and on their latest
  * when it's gone (decision 92). Invitations they got are left for them, and a LinkedIn warning stops it for the day.
  * A once-a-day job's page that showed nothing is noted with its outline, as LinkedIn's (decision 74).
@@ -22,6 +22,14 @@ const ME = { userId: 'u-chris', businessId: '9a8b7c6d-5e4f-4a3b-8c2d-1e0f9a8b7c6
 // vitest's 5 on a busy CI runner, and a step cut off goes on noting into the next test (16 Oct 2026).
 vi.setConfig({ testTimeout: 30_000 });
 const PROFILE_ID = '1b2c3d4e-5f60-4718-8293-a4b5c6d7e8f9';
+/** A send OK'd, its text to go. */
+const SEND_OKD = {
+  sendId: '6f708192-a3b4-4c5d-8e6f-708192a3b4c5',
+  state: 'approved',
+  text: '',
+  handedOver: false,
+  needsYou: null,
+} as const;
 
 const world = vi.hoisted(() => ({
   /** The made-up page each address opens, and what LinkedIn does when it's pressed. */
@@ -332,11 +340,19 @@ beforeEach(() => {
 
 describe('what it does on LinkedIn’s list', () => {
   it('does only the kinds it does there: invitations they got are theirs to accept', () => {
+    const nia = item({
+      kind: 'comment',
+      name: 'Nia Park',
+      profileId: 'p-nia',
+      postId: '3c4d5e6f-7081-4293-a4b5-c6d7e8f90a1b',
+      postUrl: POST,
+    });
     const list = {
       items: [
         item({ kind: 'confirm', name: 'Avery Lane' }),
         item({ kind: 'friend_request' }),
         item({ kind: 'warm_up', name: 'Sam Lee', profileId: 'p-sam' }),
+        nia,
       ],
       auto: ['confirm', 'warm_up', 'friend_request', 'comment'],
       messages: [],
@@ -346,6 +362,23 @@ describe('what it does on LinkedIn’s list', () => {
       'warm_up',
       'friend_request',
     ]);
+    // A comment is never a step of its own there (0.99.0, decision 102): it's drafted to wait for an OK at first, as
+    // a message is, and sent once OK'd.
+    expect(
+      linkedInWorkLeft({ ...(list as object), messages: ['comment'] } as never, []).map(
+        (w) => `${w.do}: ${w.item.kind}`,
+      ),
+    ).toEqual(['step: warm_up', 'step: friend_request', 'draft: comment']);
+    expect(
+      linkedInWorkLeft(
+        {
+          ...(list as object),
+          items: [{ ...nia, send: { ...SEND_OKD, text: 'Good reminder.' } }],
+          messages: ['comment'],
+        } as never,
+        [],
+      ).map((w) => `${w.do}: ${w.item.kind}`),
+    ).toEqual(['send: comment']);
     expect(nextLinkedInDaily({ daily: {} })).toBe('requests');
     // Old invitations withdrawn as they chose, right after the invitations they got (0.97.0, decision 98).
     expect(nextLinkedInDaily({ daily: { requests: 'x' } })).toBe('tidy');
@@ -558,9 +591,39 @@ describe('what it does on LinkedIn’s list', () => {
     });
   });
 
-  it('comments in the post’s own box, with the AI’s draft', async () => {
-    world.pages = () => ({ fixture: 'linkedin-post-commenting.html' });
+  const POST_ID = '3c4d5e6f-7081-4293-a4b5-c6d7e8f90a1b';
+
+  it('drafts a comment on a good post from the post, to wait for an OK at first (decision 102)', async () => {
     world.hfos['hfos-draft'] = () => ({ drafts: ['Good reminder. Ours went at 12 years.'] });
+    world.answers['/v1/commands/outreach.send.queue'] = () => ({ state: 'waiting' });
+    const outcome = await doWork(
+      { do: 'draft', item: item({ kind: 'comment', postId: POST_ID, postUrl: POST }) },
+      ME.businessId,
+      false,
+    );
+    expect(outcome).toEqual({
+      done: true,
+      line: 'Wrote a comment on Dana Reyes’s post: it waits for your OK',
+    });
+    expect(world.asked.find((a) => a.type === 'hfos-draft')?.input).toEqual({
+      kind: 'comment',
+      profileId: PROFILE_ID,
+      postId: POST_ID,
+    });
+    expect(
+      world.posted.find((p) => p.path === '/v1/commands/outreach.send.queue')?.body,
+    ).toMatchObject({
+      kind: 'comment',
+      postId: POST_ID,
+      text: 'Good reminder. Ours went at 12 years.',
+    });
+    // Nothing is written on LinkedIn till it's OK'd.
+    expect(world.opened).toEqual([]);
+    expect(notedAs()).toEqual([]);
+  });
+
+  it('comments OK’d in the post’s own box, and says it went', async () => {
+    world.pages = () => ({ fixture: 'linkedin-post-commenting.html' });
     let typed: Element | null = null;
     world.behave = (doc) => {
       for (const box of doc.querySelectorAll('[role="textbox"]'))
@@ -574,22 +637,51 @@ describe('what it does on LinkedIn’s list', () => {
           button.closest('form')!.querySelector('[role="textbox"]')!.textContent = '';
         });
     };
+    world.answers['/v1/commands/outreach.send.done'] = () => ({ ok: true });
     const outcome = await doWork(
       {
-        do: 'step',
+        do: 'send',
         item: item({
           kind: 'comment',
-          postId: '3c4d5e6f-7081-4293-a4b5-c6d7e8f90a1b',
+          postId: POST_ID,
           postUrl: POST,
+          send: { ...SEND_OKD, text: 'Good reminder. Ours went at 12 years.' },
         }),
       },
       ME.businessId,
       false,
     );
     expect(outcome).toEqual({ done: true, line: 'Commented on Dana Reyes’s post' });
+    expect(world.opened).toEqual([POST]);
     expect(notedAs()).toEqual([
       { kind: 'comment', auto: true, postUrl: POST, platform: 'linkedin' },
     ]);
+    expect(
+      world.posted.find((p) => p.path === '/v1/commands/outreach.send.done')?.body,
+    ).toMatchObject({ sendId: SEND_OKD.sendId, sent: true });
+  });
+
+  it('hands a comment OK’d to the person when the post shows no box to comment in', async () => {
+    world.pages = () => ({ fixture: 'linkedin-profile.html' });
+    world.answers['/v1/commands/outreach.send.done'] = () => ({ ok: true });
+    const outcome = await doWork(
+      {
+        do: 'send',
+        item: item({
+          kind: 'comment',
+          postId: POST_ID,
+          postUrl: POST,
+          send: { ...SEND_OKD, text: 'Good reminder.' },
+        }),
+      },
+      ME.businessId,
+      false,
+    );
+    expect(outcome).toMatchObject({ done: false });
+    expect(notedAs()).toEqual([]);
+    expect(
+      world.posted.find((p) => p.path === '/v1/commands/outreach.send.done')?.body,
+    ).toMatchObject({ sendId: SEND_OKD.sendId, sent: false });
   });
 
   /** Dana's follow-up, OK'd, to go in her conversation. */

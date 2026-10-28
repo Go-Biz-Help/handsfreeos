@@ -40,6 +40,7 @@ import {
 } from '../sends';
 import { PARTNER_WORDS } from '../partners';
 import { isClientSkipped, type ClientCause } from '../person-menu';
+import { commentSendsOn, LINKEDIN_COMMENTS_WAIT_SINCE } from '../profile-parts';
 import { OUTREACH_WORDS } from '../words';
 import { fileChats, openerUses, playbooks, posts, profiles, sends } from '../tables';
 import { isPartnerKind } from '../today';
@@ -55,6 +56,7 @@ import {
   type ChatRef,
   type Ctx,
 } from './common';
+import { workingBuild } from './live';
 import { openNeed } from './needs';
 import { notePartnerSent } from './partners';
 import { notePitched } from './stages';
@@ -162,6 +164,13 @@ async function commentPost(
       'outreach_comment_network',
       422,
       `Comments on ${PLATFORMS[profile.platform]} aren’t kept to wait for your OK: the extension posts them as a step on Today, or you do. Update the extension if this keeps happening.`,
+    );
+  // LinkedIn's wait only from the build that posts them (decision 102): an older one would send it as a message.
+  if (profile.platform === 'linkedin' && !commentSendsOn('linkedin', await workingBuild(ctx, me)))
+    throw HfosError.rule(
+      'outreach_comment_network',
+      422,
+      `Comments on LinkedIn wait for your OK from extension ${LINKEDIN_COMMENTS_WAIT_SINCE}, and the computer working for you has an older one or none. Update the extension on it, then try again.`,
     );
   const [post] = await rows<{
     id: string;

@@ -300,6 +300,16 @@ describe('General on the phone, saved as it’s changed', () => {
     expect(screen.getByTestId('settings-general-saved')).toBeTruthy();
   });
 
+  it('pushes who accepted only once switched on, off to start', async () => {
+    const p = partProps();
+    await render(<SettingsPartBody part="general" automation={AUTOMATION} {...p} />);
+    const tick = screen.getByTestId('settings-my-acceptedPush');
+    expect(tick).not.toBeChecked();
+    expect(screen.getByText('When someone accepts')).toBeTruthy();
+    await fireEvent.press(tick);
+    expect(p.onSaveMine).toHaveBeenLastCalledWith({ ...AUTOMATION_DEFAULTS, acceptedPush: true });
+  });
+
   it('goes back to what’s kept when a save is refused, saying why in the server’s words', async () => {
     const p = partProps();
     const refusal = 'Pick at least one day.';
@@ -365,6 +375,7 @@ describe('General on the phone, saved as it’s changed', () => {
     for (const testID of [
       'settings-my-pushes-each',
       'settings-my-dayReport',
+      'settings-my-acceptedPush',
       'settings-my-voice-emoji',
       'settings-my-day-1',
       'settings-my-start-up',

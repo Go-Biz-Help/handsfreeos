@@ -26,8 +26,9 @@ ask straight out, the video, the link, follow-ups until they answer; the short v
 with the day's report and the week's review), finding people by topic on Instagram, LinkedIn and Alignable
 (decision 92), the safety for new accounts: half limits on a network new to the person, and no new friend
 requests while 200 wait or near the cap (decisions 96 and 97), tidying up on its own on every network (decision
-98, extension 0.97.0), and every part of the profile put in for the person, with a read on its own on the 1st of each
-month (decision 99, extension 0.98.0).
+98, extension 0.97.0), every part of the profile put in for the person, with a read on its own on the 1st of each
+month (decision 99, extension 0.98.0), and Later on a person, a push when a request is accepted, and LinkedIn's
+comments waiting for an OK at first (decisions 100 to 102, extension 0.99.0).
 
 The parts below name the tabs they were built on. Since decision 59 those live here: **Today** has the Live tab's
 status, Start my day and Stop for today in a strip (the full day under its **Details**, `?view=live`), Waiting for
@@ -2264,8 +2265,8 @@ where decisions 37 and 59 put the settings; what they decided stands. Settled to
       function (`commentHoldOn`), worked out from the person's sends, so another choice changes it alone; Sending's
       words and Waiting for you say how long it lasts. Answers to posts asking for exactly what the business offers
       still wait for an OK every time (decision 79) and stay out of Approve all; every other comment follows 6a. A
-      skipped comment's post is skipped, and a writer has one comment open at a time. LinkedIn's comments stay on their
-      own.
+      skipped comment's post is skipped, and a writer has one comment open at a time. LinkedIn's stayed on their own
+      until decision 102, which holds them the same way from 0.99.0.
     - **Alignable joins up to 3 good groups a day** (10a), with Facebook's group pipeline made network-aware: its
       switch starts on, joins only while the people found in groups run low, leaders are read first and never reached.
       The person's own groups are read first, before any search or join. Alignable asks no questions before a join, so
@@ -2410,6 +2411,40 @@ where decisions 37 and 59 put the settings; what they decided stands. Settled to
 
     Built from Facebook's, LinkedIn's and Alignable's usual words, not yet tried on the owner's account: the first
     Check after it tunes them from his pages.
+
+100.  **Later, from anyone's person menu** (Chris, 28 Oct 2026, "all of your picks": 30a). **Later** takes someone off
+      the person's Today for 2 weeks (`LATER_DAYS`); then they're back on it by themselves. **Take off Later** puts them
+      back now. The menu says until when ("On Later until Nov 11"), and the Assistant can do it (`outreach_later`).
+      - **Each person's own.** It's kept on their stage (`stages.later_until`, migration 20261027015500); a teammate's
+        Today and their messages to that someone are left as they are.
+      - **What it hides:** Today's steps for them (`inPlay`, with `notLater`), the found and group picks, and a
+        partner's details, follow-ups, asks and warm-ups (`listOf` in `ops/partners.ts`).
+      - **What still shows:** a reply they're owed, a partner's reply, and their friend request to confirm, as a
+        client's do (decision 91).
+      - **What it skips:** the person's own messages to them that wait for an OK, all but replies
+        (`LATER_SKIPPED_KINDS`). Nothing skipped comes back with Take off Later.
+      - One command, `outreach.later.set` (risk 0), on the web's and the phone's person menu; `outreach.profile.marks`
+        gives `laterUntil`.
+101.  **A push when someone accepts** (Chris, 28 Oct 2026, "all of your picks": 31a). The phone gets a push when someone
+      accepts the person's friend request, accepts their invitation on LinkedIn or Alignable, or follows them back on
+      Instagram.
+      - **Off to start,** with a switch under the phone's alerts in Social Outreach's settings, on the web and the phone
+        (**When someone accepts**, `automation.accepted_push`).
+      - **Worked out from the friends list the extension saves** (`outreach.friends.save`, list `friends`): someone on
+        it whose request from the person was last seen waiting accepted it (`requestsAccepted`). Each save that finds
+        any says so once (`outreach.friend.accepted`), and the worker sends one push for them all (`acceptedPushWords`:
+        "Dana Reyes accepted your friend request", or on LinkedIn "3 people accepted your invitations to connect"),
+        opening Today.
+102.  **LinkedIn's comments wait for an OK at first** (Chris, 28 Oct 2026, "all of your picks": 32). From extension
+      0.99.0 (`LINKEDIN_COMMENTS_WAIT_SINCE`) a comment on a good post on LinkedIn goes as Instagram's and Alignable's
+      do (decision 92): the AI drafts it from the post (a helpful answer, with no pitch and no link), it waits in
+      Waiting for you under the comment hold (the first 7 days and 25 OK'd) and the training wheels, and then goes on
+      its own (`commentsWait: 'hold'`; the runner's `./comments.ts`).
+      - **Never a step of its own any more:** LinkedIn's runner likes and sends invitations on its own (`runs.auto`),
+        and drafts and sends comments as messages.
+      - **An older build gets no comments on LinkedIn:** Today leaves them off its list (`commentSendsOn`), and
+        `outreach.send.queue` refuses one (rule `outreach_comment_network`), as an older runner would send an OK'd
+        comment as a message.
 
 ## Rules worth knowing before changing anything
 
@@ -2658,7 +2693,8 @@ where decisions 37 and 59 put the settings; what they decided stands. Settled to
   `foundChecksPerDay` (30 on Instagram, LinkedIn and Alignable; null on Facebook, which weighs a group's people by
   their words), `foundShareReads` (LinkedIn's found checks come out of its 40 profiles read), `postPeoplePerDay` (5
   good posts' people a day on Instagram and LinkedIn), `commentsWait` (`hold` where comments go through `sends`:
-  Instagram and Alignable; `never` elsewhere) and `joinsPerDay` (3 on Facebook and Alignable).
+  Instagram, Alignable and, from decision 102, LinkedIn; `never` on Facebook) and `joinsPerDay` (3 on Facebook and
+  Alignable).
 - **Each network's profile in Get ready is its own.** A LinkedIn day waits on LinkedIn's profile, never on
   Facebook's (`readinessFor` and `outreach.readiness` take a `platform`; Start my day and Today ask with theirs).
   LinkedIn's checklist (`PROFILE_ITEMS_ON`) has its photo, banner, headline (the `bio`, up to 220 characters), About,

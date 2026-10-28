@@ -349,7 +349,12 @@ import { DemoMarkInput, DemoMarkOutput } from '@hfos/core/addons/outreach/demos'
 import { FriendSetInput, FriendSetOutput } from '@hfos/core/addons/outreach/friends';
 import { DayInput, DayOutput } from '@hfos/core/addons/outreach/live';
 import { PartnerMarkInput, PartnerMarkOutput } from '@hfos/core/addons/outreach/partners';
-import { ClientSetInput, ClientSetOutput } from '@hfos/core/addons/outreach/person-menu';
+import {
+  ClientSetInput,
+  ClientSetOutput,
+  LaterSetInput,
+  LaterSetOutput,
+} from '@hfos/core/addons/outreach/person-menu';
 import {
   Playbook,
   PlaybookArchiveInput,
@@ -608,6 +613,8 @@ export const PHONE_COMMANDS = {
   'outreach.helpful.ok': command(ONLINE, HelpfulOkInput, HelpfulChangeOutput),
   'outreach.helpful.posted': command(ONLINE, HelpfulPostedInput, HelpfulChangeOutput),
   'outreach.helpful.skip': command(ONLINE, HelpfulSkipInput, HelpfulChangeOutput),
+  // Later, or Take off Later, from the person menu on a name (decision 100): with signal, as Mark as client is.
+  'outreach.later.set': command(ONLINE, LaterSetInput, LaterSetOutput),
   'outreach.need.clear': command(ANYTIME, NeedClearInput, NeedClearOutput),
   // Where someone stands on the Partners list (decision 81): with signal, as the pipeline's marks are.
   'outreach.partner.mark': command(ONLINE, PartnerMarkInput, PartnerMarkOutput),

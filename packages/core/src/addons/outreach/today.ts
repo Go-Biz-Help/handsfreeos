@@ -439,7 +439,7 @@ export const todayDraftSystem = (platform: Platform = 'facebook') =>
 
 /**
  * The most words in a comment where comments go through `sends` (decision 92) and the network keeps them short
- * (Instagram's); null where a helpful answer may run longer (Alignable's) or comments don't go that way.
+ * (Instagram's); null where a helpful answer may run longer (Alignable's and LinkedIn's) or comments don't go that way.
  */
 export const COMMENT_WORDS_MOST: Readonly<Record<Platform, number | null>> = {
   facebook: null,
@@ -450,11 +450,13 @@ export const COMMENT_WORDS_MOST: Readonly<Record<Platform, number | null>> = {
 
 /**
  * How a comment is written where comments go through `sends` and the extension posts them once OK'd (decision 92):
- * Instagram's short, with no link, hashtag or pitch; Alignable's a helpful answer, with no pitch or link.
+ * Instagram's short, with no link, hashtag or pitch; Alignable's and LinkedIn's (decision 102) a helpful answer, with no
+ * pitch or link.
  */
 const COMMENT_RULES: Readonly<Record<Platform, string | null>> = {
   facebook: null,
-  linkedin: null,
+  linkedin:
+    'A comment on LinkedIn is a helpful answer to the post, from what the business knows: no pitch, no link and no web address.',
   instagram: `A comment on Instagram is under ${COMMENT_WORDS_MOST.instagram} words, with no link, no web address, no hashtags and no pitch: answer or add something useful, as a friendly local would.`,
   alignable:
     'A comment on Alignable is a helpful answer to the post, from what the business knows: no pitch, no link and no web address.',

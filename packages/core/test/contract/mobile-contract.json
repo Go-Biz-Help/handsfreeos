@@ -7959,6 +7959,9 @@
               "dayReport": {
                 "type": "boolean"
               },
+              "acceptedPush": {
+                "type": "boolean"
+              },
               "voice": {
                 "type": "object",
                 "properties": {
@@ -8491,6 +8494,26 @@
           }
         },
         "required": ["workspaceId", "helpfulId"]
+      }
+    },
+    "outreach.later.set": {
+      "offline": "online",
+      "input": {
+        "type": "object",
+        "properties": {
+          "workspaceId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "profileId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "later": {
+            "type": "boolean"
+          }
+        },
+        "required": ["workspaceId", "profileId", "later"]
       }
     },
     "outreach.need.clear": {
