@@ -377,3 +377,27 @@ export interface TeamJoin {
 export function joinVideoCall(callId: string): Promise<TeamJoin> {
   return workerPost('/v1/video-calls/join', { callId });
 }
+
+/** Video call on a customer's page or in a conversation, and Switch to video (docs/video-calls.md, part 5). */
+export interface StartedVideoCall {
+  readonly callId: string;
+  readonly personId: string;
+  readonly conversationId: string | null;
+  readonly channel: 'sms' | 'email' | 'chat' | 'portal' | 'messenger' | 'instagram';
+  /** The customer, for "Dana’s link is on its way". */
+  readonly name: string;
+}
+
+/**
+ * A call with a customer: their own link goes to them as you (on the business's own domain once one works, which
+ * is why the worker builds it), and the call is made for you to join.
+ */
+export function startVideoCall(input: {
+  workspaceId: string;
+  personId?: string;
+  conversationId?: string;
+  channel?: 'sms' | 'email';
+  acknowledgeQuietHours?: boolean;
+}): Promise<StartedVideoCall> {
+  return workerPost('/v1/video-calls/start', input);
+}

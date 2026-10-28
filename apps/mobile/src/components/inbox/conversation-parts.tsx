@@ -15,6 +15,7 @@ import {
   PRIVATE_THREAD_WORDS,
   snoozedBanner,
   snoozeOptions,
+  VIDEO_CALL_WORDS,
   whoTookOver,
   type ConversationShape,
   type HandlingView,
@@ -49,6 +50,7 @@ import {
   UserPlus,
   UserRound,
   Users,
+  Video,
   X,
 } from '@/components/icons';
 import { Avatar } from '@/components/ui/avatar';
@@ -337,7 +339,7 @@ function SheetRow({
 }
 
 /**
- * Details and actions (the "…" in the top bar), as the web's sheet at phone width: Call, Assign, Hand to the teammate,
+ * Details and actions (the "…" in the top bar), as the web's sheet at phone width: Call, Video call, Assign, Hand to the teammate,
  * Snooze and Close (or Reopen), Mark as unread, and — since the web's panel learned to change the customer from
  * inside the conversation — Edit details, Tags, the open lead's stage and next action, and Add a note. An email thread
  * also moves between the Inbox, Other mail and Spam, and someone's own mail is shared with the team from here (M19).
@@ -358,6 +360,7 @@ export function ActionsSheet({
   teammateName,
   assigneeShort,
   onCall,
+  onVideoCall = null,
   onAssign,
   onHandToAi,
   onSnooze,
@@ -384,6 +387,8 @@ export function ActionsSheet({
   teammateName: string;
   assigneeShort: string | null;
   onCall: () => void;
+  /** A video call with the customer (docs/video-calls.md, part 5); null with no customer, or no video calls here. */
+  onVideoCall?: (() => void) | null;
   /** Null for someone's own mail: it's theirs, so there's nobody else to give it to. */
   onAssign: (() => void) | null;
   onHandToAi: () => void;
@@ -437,6 +442,14 @@ export function ActionsSheet({
             label={CONVERSATION_ACTIONS.call}
             onPress={run(onCall)}
             testID="sheet-call"
+          />
+        ) : null}
+        {onVideoCall ? (
+          <SheetRow
+            icon={Video}
+            label={VIDEO_CALL_WORDS.start}
+            onPress={run(onVideoCall)}
+            testID="sheet-video-call"
           />
         ) : null}
         {onShare ? (

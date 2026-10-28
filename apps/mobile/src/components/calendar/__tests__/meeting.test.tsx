@@ -188,6 +188,22 @@ describe('a recorded call', () => {
     );
   });
 
+  it('reads a video call that wasn’t for an appointment by the call, and names it as ours', async () => {
+    const CALL = 'cccccccc-cccc-4ccc-8ccc-cccccccccccc';
+    answer({ summary: 'Dana wants the duct quote by Friday.', items: [] }, [
+      { id: 't2', provider: 'handsfree', createdAt: '2026-10-28T10:00:00Z', body: 'Dana: Hi.' },
+    ]);
+    await render(<CallRecord workspaceId={WS} videoCallId={CALL} online ours />);
+    await waitFor(() => screen.getByTestId('call-summary'));
+    expect(post).toHaveBeenCalledWith('/v1/queries/call_suggestion.list', {
+      body: { workspaceId: WS, videoCallId: CALL },
+    });
+    expect(post).toHaveBeenCalledWith('/v1/queries/appointment.transcripts', {
+      body: { workspaceId: WS, videoCallId: CALL },
+    });
+    expect(screen.getByTestId('call-transcript')).toHaveTextContent(/HandsFreeOS video call/);
+  });
+
   it('says the transcript comes after the call, and waits for the network offline', async () => {
     answer({ summary: null, items: [] });
     await render(<CallRecord workspaceId={WS} appointmentId={APPT} online />);

@@ -7,7 +7,13 @@
  */
 import { createHash, randomBytes } from 'node:crypto';
 import { and, desc, eq, inArray, ne, type SQL } from 'drizzle-orm';
-import { appointments, appointmentTranscripts, meetingConnections, users } from '@hfos/db/schema';
+import {
+  appointments,
+  appointmentTranscripts,
+  meetingConnections,
+  users,
+  videoCalls,
+} from '@hfos/db/schema';
 import { z } from 'zod';
 import { userNames } from '../calendar/load';
 import { HfosError } from '../errors';
@@ -509,7 +515,12 @@ export const meetingConnectionList = defineQuery({
   },
 });
 
-const TranscriptListInput = z.object({ workspaceId: uuid, appointmentId: uuid });
+/** An appointment's, or a HandsFreeOS video call's that isn't for an appointment (docs/video-calls.md, part 5). */
+const TranscriptListInput = z
+  .object({ workspaceId: uuid, appointmentId: uuid.optional(), videoCallId: uuid.optional() })
+  .refine((i) => !!i.appointmentId !== !!i.videoCallId, {
+    error: 'Name the appointment or the video call, not both.',
+  });
 const TranscriptListOutput = z.object({
   items: z.array(
     z.object({ id: uuid, provider: z.string(), createdAt: isoDateTime, body: z.string() }),
@@ -518,25 +529,38 @@ const TranscriptListOutput = z.object({
 
 export const appointmentTranscriptList = defineQuery({
   name: 'appointment.transcripts',
-  description: 'What was said on an appointment’s recorded calls, newest first.',
+  description:
+    'What was said on an appointment’s recorded calls, or on a HandsFreeOS video call that isn’t for an appointment, newest first.',
   input: TranscriptListInput,
   output: TranscriptListOutput,
   permission: 'workspace.read',
   scope: inWorkspace,
   async handler(ctx, input) {
-    // Row-level security shows transcripts only for appointments the person can see.
-    const [appt] = await ctx.tx
-      .select({ id: appointments.id })
-      .from(appointments)
-      .where(
-        and(
-          eq(appointments.id, input.appointmentId),
-          eq(appointments.workspaceId, input.workspaceId),
-        ),
-      );
-    if (!appt)
+    // Row-level security shows transcripts only for appointments, and calls, the person can see.
+    const [seen] = input.appointmentId
+      ? await ctx.tx
+          .select({ id: appointments.id })
+          .from(appointments)
+          .where(
+            and(
+              eq(appointments.id, input.appointmentId),
+              eq(appointments.workspaceId, input.workspaceId),
+            ),
+          )
+      : await ctx.tx
+          .select({ id: videoCalls.id })
+          .from(videoCalls)
+          .where(
+            and(
+              eq(videoCalls.id, input.videoCallId!),
+              eq(videoCalls.workspaceId, input.workspaceId),
+            ),
+          );
+    if (!seen)
       throw HfosError.notFound(
-        'That appointment isn’t there anymore. It may have been deleted. Refresh and try again.',
+        input.appointmentId
+          ? 'That appointment isn’t there anymore. It may have been deleted. Refresh and try again.'
+          : 'That video call isn’t there anymore, or isn’t one you can see. Refresh and try again.',
       );
     const list = await ctx.tx
       .select({
@@ -546,7 +570,11 @@ export const appointmentTranscriptList = defineQuery({
         body: appointmentTranscripts.body,
       })
       .from(appointmentTranscripts)
-      .where(eq(appointmentTranscripts.appointmentId, appt.id))
+      .where(
+        input.appointmentId
+          ? eq(appointmentTranscripts.appointmentId, seen.id)
+          : eq(appointmentTranscripts.videoCallId, seen.id),
+      )
       .orderBy(desc(appointmentTranscripts.createdAt));
     return { items: list.map((t) => ({ ...t, createdAt: t.createdAt.toISOString() })) };
   },

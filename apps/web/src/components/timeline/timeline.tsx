@@ -9,6 +9,7 @@ import { VoicemailPlayer } from '@/components/calls/voicemail-player';
 import { AttachmentChip } from '@/components/inbox/attachment-chip';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent } from '@/components/ui/dialog';
+import { VideoCallNotes } from '@/components/video-call/call-notes';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -207,6 +208,15 @@ export function Timeline({
                 <div className="mt-1.5 whitespace-pre-wrap rounded-control bg-card-2 px-3 py-2.5 text-[13px] text-text">
                   {body}
                 </div>
+              ) : null}
+              {e.kind === 'call' &&
+              e.subtype === 'video' &&
+              typeof e.meta.videoCallId === 'string' ? (
+                <VideoCallNotes
+                  workspaceId={workspaceId}
+                  videoCallId={e.meta.videoCallId}
+                  title={`${timelineActor(e, subjectName)} ${describeTimeline(e, recordType, myUserId, timeZone)}`}
+                />
               ) : null}
               {e.kind === 'email' &&
               Array.isArray(e.meta.attachments) &&

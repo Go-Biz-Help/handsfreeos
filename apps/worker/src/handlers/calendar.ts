@@ -93,5 +93,22 @@ export const onMeetingSettingsCheckRequested: EventHandler = async (ctx) => {
 export const onTranscriptReady: EventHandler = async (ctx) => {
   const transcriptId = ((ctx.event.payload ?? {}) as Record<string, unknown>)['transcriptId'];
   if (ctx.event.entityId && typeof transcriptId === 'string')
-    await queueCallReview(ctx.tx, tenantOf(ctx.scope), ctx.event.entityId, transcriptId);
+    await queueCallReview(
+      ctx.tx,
+      tenantOf(ctx.scope),
+      { appointmentId: ctx.event.entityId },
+      transcriptId,
+    );
+};
+
+/** A HandsFreeOS video call that isn't for an appointment kept its transcript (part 5): the AI reads it the same way. */
+export const onVideoCallTranscriptReady: EventHandler = async (ctx) => {
+  const transcriptId = ((ctx.event.payload ?? {}) as Record<string, unknown>)['transcriptId'];
+  if (ctx.event.entityId && typeof transcriptId === 'string')
+    await queueCallReview(
+      ctx.tx,
+      tenantOf(ctx.scope),
+      { videoCallId: ctx.event.entityId },
+      transcriptId,
+    );
 };

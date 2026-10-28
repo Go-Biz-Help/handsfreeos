@@ -1,4 +1,4 @@
-import { BIN_WORDS, formatDate, holds, RECORD_WORDS, telHref } from '@hfos/core';
+import { BIN_WORDS, formatDate, holds, RECORD_WORDS, telHref, VIDEO_CALL_WORDS } from '@hfos/core';
 import { router, useLocalSearchParams, type Href } from 'expo-router';
 import { useQuery } from '@powersync/react-native';
 import * as React from 'react';
@@ -25,6 +25,7 @@ import { RecordBody, nextVisitLine } from '@/components/customers/record-screen'
 import { EditSheet, RECORD_SHEET_WORDS } from '@/components/customers/sheets';
 import { useBusiness, businessHref } from '@/components/shell/business-context';
 import { Screen } from '@/components/shell/screen';
+import { Video } from '@/components/icons';
 import { Text } from '@/components/ui/text';
 import { toast } from '@/components/ui/toast';
 import { startCall } from '@/inbox/calls';
@@ -32,11 +33,13 @@ import { useGrants } from '@/lib/grants';
 import { useNetwork } from '@/lib/network';
 import { sees } from '@/view-as/state';
 import { useLens } from '@/view-as/use-lens';
+import { useCanStartVideoCall, useStartVideoCall } from '@/video-call/start-call';
 
 /**
  * A customer's own screen — the canvas's 360 view. Everything on it is read from the phone's copy, so it opens with no
  * signal: the head with what they owe and their next visit, the timeline, their leads, tasks, files and details, and
- * the buttons a truck needs (Call through the person's own cell, Text, Email, Book, Note, Photo, Task, Lead). The ads
+ * the buttons a truck needs (Call through the person's own cell, Text, Email, Book, Note, Photo, Task, Lead, and a
+ * Video call where the business has them, which sends them their own link and opens the call). The ads
  * that brought them, and their Partner card, show while there's signal.
  *
  * Editing follows the field-merge rules: only what changed is sent, with what the screen showed, so a teammate's
@@ -51,6 +54,8 @@ export default function PersonScreen() {
   const canDelete = holds(useGrants(), 'records.delete');
   const { online } = useNetwork();
   const [deleting, setDeleting] = React.useState(false);
+  const canVideo = useCanStartVideoCall(business.id);
+  const video = useStartVideoCall(business.id);
   const [tab, setTab] = React.useState<RecordTab>('timeline');
   const [sheets, setSheets] = React.useState({
     note: false,
@@ -130,6 +135,20 @@ export default function PersonScreen() {
       disabled: !person.email,
       onPress: () => openThread('email'),
     },
+    ...(canVideo && (person.phoneE164 || person.email)
+      ? [
+          {
+            key: 'video',
+            label: VIDEO_CALL_WORDS.start,
+            icon: Video,
+            disabled: video.busy,
+            onPress: () =>
+              person.phoneE164 && person.email
+                ? video.choose(personId, person.phone ?? person.phoneE164, person.email)
+                : void video.start({ personId, channel: person.phoneE164 ? 'sms' : 'email' }),
+          },
+        ]
+      : []),
     {
       key: 'book',
       label: RECORD_WORDS.actions.book,
@@ -300,6 +319,7 @@ export default function PersonScreen() {
           else router.replace(businessHref(business.id, 'customers') as Href);
         }}
       />
+      {video.sheet}
     </Screen>
   );
 }

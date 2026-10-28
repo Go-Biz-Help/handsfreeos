@@ -21,13 +21,20 @@
  * - **The Sales Coach hears it** too (part 3), while the AI notes are on: the listener makes the stretch of the call
  *   a live meeting for the person on the team it coaches (`video_call.coach`), and hands the words to the add-ons
  *   that listen, as with a Zoom meeting.
+ * - **Calls any time** (part 5): Video call on a customer's page or in a conversation, and Switch to video on a phone
+ *   call, make a call with the customer and send them their own link (`video_call.start`). On it they come in as on
+ *   a booking's Join link. The call is its own line on their timeline once it's over, with its transcript, summary
+ *   and After the call.
  */
+import { createHash, randomBytes } from 'node:crypto';
 import { and, asc, eq, inArray, lte, sql as dsql } from 'drizzle-orm';
 import {
+  activities,
   appointmentAttendees,
   appointments,
   appointmentStaff,
   appointmentTranscripts,
+  conversations,
   people,
   users,
   videoCallLines,
@@ -45,16 +52,24 @@ import type { CommandContext, QueryContext } from '../kernel/types';
 import {
   hostFirstName,
   sideOfKind,
+  VIDEO_CALL_INVITE_CHANNELS,
   VIDEO_CALL_KINDS,
+  VIDEO_CALL_LINK_KEY_LENGTH,
   VIDEO_CALL_MAX_PEOPLE,
   VIDEO_CALL_PERSON_STATES,
   VIDEO_CALL_STATES,
+  videoCallInviteChannel,
+  videoCallInviteWords,
+  videoCallLinkPath,
   videoCallTranscript,
   type VideoCallKind,
 } from '../meetings/video-calls';
+import { defaultNumber, isOptedOut, loadRegistrations, readiness } from '../messaging/store';
+import { logChannelActivity } from '../crm/activities';
 import { AppointmentLocation } from '../schemas/calendar';
 import { isoDateTime, uuid } from '../schemas/common';
 import { attendeeSetAttendance } from './attendance';
+import { messageSend } from './message';
 
 const inWorkspace = (i: { workspaceId: string }) => ({
   kind: 'workspace' as const,
@@ -77,7 +92,7 @@ const connected = (p: PersonRow) =>
 
 const notThere = () =>
   HfosError.notFound(
-    'That video call isn’t there anymore, or isn’t one you can see. Open it again from the appointment.',
+    'That video call isn’t there anymore, or isn’t one you can see. Open it again from the appointment or the customer’s page.',
   );
 
 const CallOut = z.object({
@@ -275,26 +290,87 @@ const EnterOutput = z.object({
   host: z.string().nullable(),
 });
 
+/** The customer at the door: a booking's attendee, or the customer a call that isn't for an appointment is with. */
+interface AtTheDoor {
+  readonly call: CallRow;
+  readonly attendeeId: string | null;
+  readonly personId: string | null;
+  /** What the team's push says the call is. */
+  readonly title: string;
+}
+
+/** A booking's attendee on their Join link: their appointment's call, made the first time it's asked for. */
+async function attendeeAtTheDoor(ctx: CommandContext, attendeeId: string): Promise<AtTheDoor> {
+  const ws = ctx.scope.workspaceId!;
+  const [seat] = await ctx.tx
+    .select({ a: appointmentAttendees, p: appointments })
+    .from(appointmentAttendees)
+    .innerJoin(appointments, eq(appointments.id, appointmentAttendees.appointmentId))
+    .where(and(eq(appointmentAttendees.id, attendeeId), eq(appointmentAttendees.workspaceId, ws)));
+  if (!seat)
+    throw HfosError.notFound(
+      'This Join link doesn’t open a call anymore. The booking may have been removed.',
+    );
+  if (seat.a.status === 'cancelled' || seat.p.status === 'cancelled')
+    throw HfosError.rule(
+      'booking_cancelled',
+      409,
+      'This booking was cancelled, so its video call is closed. To meet, book again with the business.',
+    );
+  const place = AppointmentLocation.safeParse(seat.p.location ?? {});
+  if (!place.success || place.data.kind !== 'virtual' || place.data.video !== 'handsfree')
+    throw HfosError.rule(
+      'not_a_video_call',
+      409,
+      'This appointment isn’t a HandsFreeOS video call. Use the link in your confirmation.',
+    );
+  if (!(await videoCallsOn(ctx.tx, ws))) throw callsOff();
+  const { call } = await callForAppointment(ctx, seat.p.id);
+  return {
+    call: await lockCall(ctx, call.id),
+    attendeeId,
+    personId: seat.a.personId,
+    title: seat.p.title,
+  };
+}
+
+/** The customer a call that isn't for an appointment is with, on the link the team sent them (part 5). */
+async function customerAtTheDoor(ctx: CommandContext, callId: string): Promise<AtTheDoor> {
+  if (!(await videoCallsOn(ctx.tx, ctx.scope.workspaceId!))) throw callsOff();
+  const call = await lockCall(ctx, callId).catch(() => null);
+  if (!call || call.appointmentId || !call.personId)
+    throw HfosError.notFound(
+      'This link doesn’t open a call anymore. Ask the business to send you a new one.',
+    );
+  return { call, attendeeId: null, personId: call.personId, title: 'Video call' };
+}
+
 /**
  * A customer opened their own Join link and pressed Join: straight in once the team is there, waiting until then.
- * Asked again while they wait, it answers again; only a new wait tells the team.
+ * Asked again while they wait, it answers again; only a new wait tells the team. Their own link is a booking's
+ * (`attendeeId`), or the one the team sent them for a call that isn't for an appointment (`callId`, part 5).
  */
 export const videoCallEnter = defineCommand({
   name: 'video_call.enter',
   description:
     'Worker: a customer on their own Join link asks to come into the video call. In once someone from the team is there, waiting until then.',
   risk: 0,
-  input: z.object({
-    workspaceId: uuid,
-    attendeeId: uuid,
-    name: z.string().trim().min(1).max(120),
-    /** Taken out by the team, they pressed Ask to come back in: this asks to be let in, with this key's hash. */
-    ask: z.boolean().default(false),
-    knockKeyHash: z
-      .string()
-      .regex(/^[0-9a-f]{64}$/)
-      .optional(),
-  }),
+  input: z
+    .object({
+      workspaceId: uuid,
+      attendeeId: uuid.optional(),
+      callId: uuid.optional(),
+      name: z.string().trim().min(1).max(120),
+      /** Taken out by the team, they pressed Ask to come back in: this asks to be let in, with this key's hash. */
+      ask: z.boolean().default(false),
+      knockKeyHash: z
+        .string()
+        .regex(/^[0-9a-f]{64}$/)
+        .optional(),
+    })
+    .refine((i) => !!i.attendeeId !== !!i.callId, {
+      error: 'Name the booking’s attendee or the call, not both.',
+    }),
   output: EnterOutput,
   permission: null,
   actors: ['system'],
@@ -302,39 +378,19 @@ export const videoCallEnter = defineCommand({
   emits: ['video_call.opened', 'video_call.waiting', 'video_call.knocked'],
   async handler(ctx, input) {
     const ws = ctx.scope.workspaceId!;
-    const [seat] = await ctx.tx
-      .select({ a: appointmentAttendees, p: appointments })
-      .from(appointmentAttendees)
-      .innerJoin(appointments, eq(appointments.id, appointmentAttendees.appointmentId))
-      .where(
-        and(
-          eq(appointmentAttendees.id, input.attendeeId),
-          eq(appointmentAttendees.workspaceId, ws),
-        ),
-      );
-    if (!seat)
-      throw HfosError.notFound(
-        'This Join link doesn’t open a call anymore. The booking may have been removed.',
-      );
-    if (seat.a.status === 'cancelled' || seat.p.status === 'cancelled')
-      throw HfosError.rule(
-        'booking_cancelled',
-        409,
-        'This booking was cancelled, so its video call is closed. To meet, book again with the business.',
-      );
-    const place = AppointmentLocation.safeParse(seat.p.location ?? {});
-    if (!place.success || place.data.kind !== 'virtual' || place.data.video !== 'handsfree')
-      throw HfosError.rule(
-        'not_a_video_call',
-        409,
-        'This appointment isn’t a HandsFreeOS video call. Use the link in your confirmation.',
-      );
-    if (!(await videoCallsOn(ctx.tx, ws))) throw callsOff();
-    const { call } = await callForAppointment(ctx, seat.p.id);
-    await lockCall(ctx, call.id);
+    const door = input.attendeeId
+      ? await attendeeAtTheDoor(ctx, input.attendeeId)
+      : await customerAtTheDoor(ctx, input.callId!);
+    const { call } = door;
     const host = hostFirstName(await userName(ctx.tx, call.hostUserId));
     const list = await peopleOf(ctx.tx, call.id);
-    const mine = list.find((p) => p.kind === 'customer' && p.attendeeId === input.attendeeId);
+    const mine = list.find(
+      (p) =>
+        p.kind === 'customer' &&
+        (door.attendeeId
+          ? p.attendeeId === door.attendeeId
+          : !p.attendeeId && p.personId === door.personId),
+    );
     const say = (status: z.infer<typeof EnterOutput>['status'], row: PersonRow | null) => ({
       status,
       callId: call.id,
@@ -353,7 +409,7 @@ export const videoCallEnter = defineCommand({
         );
       const knock = await knockRow(ctx, call, {
         name: input.name,
-        personId: seat.a.personId,
+        personId: door.personId,
         knockKeyHash: input.knockKeyHash,
       });
       return say('knocking', knock);
@@ -368,15 +424,15 @@ export const videoCallEnter = defineCommand({
           workspaceId: ws,
           videoCallId: call.id,
           kind: 'customer',
-          attendeeId: input.attendeeId,
-          personId: seat.a.personId,
+          attendeeId: door.attendeeId,
+          personId: door.personId,
           name: input.name,
           state: there ? 'admitted' : 'waiting',
           askedAt: now,
           admittedAt: there ? now : null,
         })
         .returning();
-      if (!there) await waiting(ctx, call, row!, seat.p.title);
+      if (!there) await waiting(ctx, call, row!, door.title);
       return say(there ? 'in' : 'waiting', row!);
     }
     if (there) {
@@ -401,7 +457,7 @@ export const videoCallEnter = defineCommand({
       .set({ state: 'waiting', askedAt: now, name: input.name })
       .where(eq(videoCallPeople.id, mine.id))
       .returning();
-    await waiting(ctx, call, row!, seat.p.title);
+    await waiting(ctx, call, row!, door.title);
     return say('waiting', row!);
   },
 });
@@ -694,8 +750,11 @@ export const videoCallFinished = defineCommand({
     if (input.roomSid && call.roomSid !== input.roomSid) return { changed: false, seconds: 0 };
     const at = input.at ? new Date(input.at) : new Date();
     const list = await peopleOf(ctx.tx, call.id);
+    // Everyone's time in the call so far, this stretch's included.
+    const secondsOf = new Map(list.map((p) => [p.id, p.seconds]));
     for (const p of list.filter(connected)) {
       const stay = Math.max(0, Math.round((at.getTime() - p.lastJoinedAt!.getTime()) / 1000));
+      secondsOf.set(p.id, p.seconds + stay);
       await ctx.tx
         .update(videoCallPeople)
         .set({
@@ -729,7 +788,7 @@ export const videoCallFinished = defineCommand({
         secondsBilled: Math.max(total, call.secondsBilled),
       })
       .where(eq(videoCalls.id, call.id));
-    await ctx.emit({
+    const endedEvent = await ctx.emit({
       type: 'video_call.ended',
       entityType: 'video_call',
       entityId: call.id,
@@ -746,9 +805,65 @@ export const videoCallFinished = defineCommand({
       },
       after: { state: 'ended' },
     });
+    // Only once the customer (or someone let in) was in it: the team alone in it is no call with them. How long it
+    // was is how long they were in it, over every stretch.
+    const met = list.filter((p) => p.kind !== 'team' && (p.joinedAt || connected(p)));
+    if (!call.appointmentId && call.personId && met.length)
+      await keepTimelineLine(ctx, call, {
+        at,
+        people,
+        eventId: endedEvent,
+        durationSeconds: Math.max(...met.map((p) => secondsOf.get(p.id) ?? 0)),
+      });
     return { changed: true, seconds };
   },
 });
+
+/**
+ * A call that isn't for an appointment is its own line on the customer's timeline (part 5): "Dana had a video call
+ * · 12:04", written as its first stretch ends and kept up to date by the ones after. The AI's summary goes on it
+ * later (`call_suggestion.record`), and the timeline opens its transcript and After the call from it.
+ */
+async function keepTimelineLine(
+  ctx: CommandContext,
+  call: CallRow,
+  stretch: {
+    readonly at: Date;
+    readonly people: number;
+    readonly eventId: string;
+    readonly durationSeconds: number;
+  },
+): Promise<void> {
+  const startedAt = call.startedAt ?? stretch.at;
+  const { durationSeconds } = stretch;
+  if (call.activityId) {
+    const [kept] = await ctx.tx
+      .update(activities)
+      .set({
+        meta: dsql`${activities.meta} || ${JSON.stringify({ durationSeconds, people: stretch.people })}::jsonb`,
+      })
+      .where(and(eq(activities.id, call.activityId), eq(activities.workspaceId, call.workspaceId)))
+      .returning({ id: activities.id });
+    if (kept) return;
+  }
+  const activityId = await logChannelActivity(ctx, {
+    kind: 'call',
+    subtype: 'video',
+    personId: call.personId,
+    occurredAt: startedAt,
+    eventId: stretch.eventId,
+    // The teammate who started it: "Dale had a video call".
+    authorUserId: call.hostUserId,
+    meta: {
+      videoCallId: call.id,
+      conversationId: call.conversationId,
+      durationSeconds,
+      people: stretch.people,
+    },
+  });
+  if (activityId)
+    await ctx.tx.update(videoCalls).set({ activityId }).where(eq(videoCalls.id, call.id));
+}
 
 // ---------- the team's ----------
 
@@ -821,6 +936,208 @@ export const videoCallJoin = defineCommand({
         broadcast: false,
       });
     return { call: callOut(call), personId: row.id, name: row.name };
+  },
+});
+
+// ---------- calls any time (part 5) ----------
+
+const KEY_ALPHABET = '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz';
+
+/** A customer's own link key: random letters and digits, every one equally likely. */
+function linkKey(): string {
+  let out = '';
+  while (out.length < VIDEO_CALL_LINK_KEY_LENGTH)
+    for (const b of randomBytes(48)) {
+      // 248 is 62 × 4: anything above it would make the first letters likelier.
+      if (b < 248) out += KEY_ALPHABET[b % 62];
+      if (out.length === VIDEO_CALL_LINK_KEY_LENGTH) break;
+    }
+  return out;
+}
+
+/** The hash a customer's link key is kept as. */
+export const videoCallLinkKeyHash = (key: string): string =>
+  createHash('sha256').update(key).digest('hex');
+
+function noWayToReach(
+  name: string,
+  asked: 'sms' | 'email' | undefined,
+  has: { readonly phone: boolean; readonly optedOut: boolean; readonly email: boolean },
+): HfosError {
+  const say = (message: string) => HfosError.rule('video_call_no_way', 409, message);
+  if (asked !== 'email' && has.phone && has.optedOut)
+    return say(
+      `${name} texted STOP, so the link can’t go by text. ${has.email ? 'Send it by email instead.' : 'Add their email on their page, then send it by email.'}`,
+    );
+  if (asked === 'sms')
+    return say(
+      `${name} has no phone number to text the link to. Add one on their page${has.email ? ', or send it by email' : ''}.`,
+    );
+  if (asked === 'email')
+    return say(
+      `${name} has no email address to send the link to. Add one on their page${has.phone ? ', or text it' : ''}.`,
+    );
+  return say(
+    `${name} has no phone number or email address to send the link to. Add one on their page, then try again.`,
+  );
+}
+
+/**
+ * Video call on a customer's page or in a conversation, and Switch to video during a phone call (part 5): a call
+ * with the customer, hosted by whoever pressed it, and the customer's own link sent to them as that person, in the
+ * same change. The conversation's own channel when it's started from one, otherwise a text, else an email. The
+ * screen then opens the call for them. The link is on the business's own domain once one works: the worker's route
+ * (`/v1/video-calls/start`) fills in `origin`, as it does every link a customer opens.
+ */
+export const videoCallStart = defineCommand({
+  name: 'video_call.start',
+  description:
+    'Start a HandsFreeOS video call with a customer: texts or emails them their own link, as you, and opens the call for you.',
+  risk: 2,
+  input: z
+    .object({
+      workspaceId: uuid,
+      personId: uuid.optional(),
+      /** Started in a conversation: the link goes there, on its own channel. */
+      conversationId: uuid.optional(),
+      /** How the link goes, from a customer's page. Left out: a text, else an email. */
+      channel: z.enum(['sms', 'email']).optional(),
+      /** Where the link points: the business's own domain once it works, else HandsFreeOS's. */
+      origin: z
+        .url({ protocol: /^https?$/ })
+        .max(300)
+        .transform((u) => new URL(u).origin),
+      /** They said yes to texting the link in quiet hours. */
+      acknowledgeQuietHours: z.boolean().default(false),
+    })
+    .refine((i) => !!i.personId || !!i.conversationId, {
+      path: ['personId'],
+      error: 'Pick the customer or the conversation.',
+    }),
+  output: z.object({
+    callId: uuid,
+    personId: uuid,
+    conversationId: uuid.nullable(),
+    channel: z.enum(VIDEO_CALL_INVITE_CHANNELS),
+    /** The customer, for "Dana’s link is on its way". */
+    name: z.string(),
+  }),
+  permission: 'appointments.write',
+  scope: inWorkspace,
+  emits: ['video_call.opened'],
+  async handler(ctx, input) {
+    const me = requireHuman(ctx).userId;
+    const ws = ctx.scope.workspaceId!;
+    if (!(await videoCallsOn(ctx.tx, ws))) throw callsOff();
+    const [conv] = input.conversationId
+      ? await ctx.tx
+          .select({
+            id: conversations.id,
+            channel: conversations.channel,
+            personId: conversations.personId,
+          })
+          .from(conversations)
+          .where(and(eq(conversations.id, input.conversationId), eq(conversations.workspaceId, ws)))
+      : [];
+    if (input.conversationId && !conv)
+      throw HfosError.notFound(
+        'That conversation isn’t there anymore, or isn’t one you can see. Refresh and try again.',
+      );
+    const personId = conv ? conv.personId : input.personId!;
+    if (!personId)
+      throw HfosError.rule(
+        'video_call_no_customer',
+        409,
+        'This conversation isn’t linked to a customer yet, so there’s nobody to make the call with. Link it to a customer at the top of the conversation, then try again.',
+      );
+    if (conv && input.personId && input.personId !== personId)
+      throw HfosError.validation(
+        [{ path: 'personId', message: 'That customer isn’t the one in this conversation.' }],
+        'That customer isn’t the one in this conversation. Refresh and try again.',
+      );
+    const [p] = await ctx.tx
+      .select({
+        firstName: people.firstName,
+        lastName: people.lastName,
+        email: people.email,
+        phoneE164: people.phoneE164,
+        consent: people.smsConsent,
+      })
+      .from(people)
+      .where(and(eq(people.id, personId), eq(people.workspaceId, ws)));
+    if (!p)
+      throw HfosError.notFound(
+        'That customer isn’t there anymore, or isn’t one you can see. Refresh and try again.',
+      );
+    const name = nameOf(p.firstName, p.lastName) || 'This customer';
+    const optedOut =
+      p.consent === 'opted_out' || (!!p.phoneE164 && (await isOptedOut(ctx.tx, ws, p.phoneE164)));
+    // Left to choose, a business that can't text yet emails the link when it can.
+    const canText =
+      !!input.channel ||
+      !p.email ||
+      readiness(await defaultNumber(ctx.tx, ws), await loadRegistrations(ctx.tx, ws))
+        .messagingReady;
+    const channel = videoCallInviteChannel({
+      asked: input.channel ?? null,
+      conversation: conv?.channel ?? null,
+      phone: !!p.phoneE164,
+      textsOk: !optedOut && canText,
+      email: !!p.email,
+    });
+    if (!channel)
+      throw noWayToReach(name, input.channel, {
+        phone: !!p.phoneE164,
+        optedOut,
+        email: !!p.email,
+      });
+
+    // The name customers know the business by: its booking site's, else its own.
+    const [w] = await rows<{ name: string }>(
+      ctx.tx,
+      sql`select coalesce(nullif(bs.name, ''), w.name) as name
+          from app.workspaces w left join app.booking_sites bs on bs.workspace_id = w.id
+          where w.id = ${ws}`,
+    );
+    // The link goes first, so the call knows the conversation it went in. One change: both, or neither.
+    const key = linkKey();
+    const words = videoCallInviteWords({
+      business: w?.name ?? 'us',
+      firstName: p.firstName,
+      link: `${input.origin}${videoCallLinkPath(key)}`,
+      channel,
+      // A call is made with its AI notes on.
+      aiNotes: true,
+    });
+    const inConversation = !!conv && conv.channel === channel;
+    const sent = await executeCommandWithin(ctx, messageSend, {
+      workspaceId: ws,
+      ...(inConversation ? { conversationId: conv.id } : { personId }),
+      channel,
+      body: words.body,
+      ...(words.subject ? { subject: words.subject } : {}),
+      acknowledgeQuietHours: input.acknowledgeQuietHours,
+    });
+    const conversationId =
+      (sent.output as { conversationId?: string | null }).conversationId ?? conv?.id ?? null;
+    const [call] = await ctx.tx
+      .insert(videoCalls)
+      .values({
+        workspaceId: ws,
+        personId,
+        conversationId,
+        hostUserId: me,
+        linkKeyHash: videoCallLinkKeyHash(key),
+      })
+      .returning();
+    await ctx.emit({
+      type: 'video_call.opened',
+      entityType: 'video_call',
+      entityId: call!.id,
+      payload: { appointmentId: null, personId, conversationId, hostUserId: me, channel },
+      after: { with: name },
+    });
+    return { callId: call!.id, personId, conversationId, channel, name };
   },
 });
 
@@ -1021,6 +1338,8 @@ const GetOutput = z.object({
     })
     .nullable(),
   host: z.object({ userId: uuid, name: z.string() }).nullable(),
+  /** A call that isn't for an appointment (part 5): the customer it's with, for "Video call with Dana". */
+  customer: z.object({ personId: uuid, name: z.string() }).nullable(),
   /** Everyone who has been in the call, is in it, or is asking to come in, oldest first. */
   people: z.array(PersonOut),
 });
@@ -1053,7 +1372,7 @@ export const videoCallGet = defineQuery({
       );
     if (!call) {
       if (input.callId) throw notThere();
-      return { call: null, appointment: null, host: null, people: [] };
+      return { call: null, appointment: null, host: null, customer: null, people: [] };
     }
     const [appt] = call.appointmentId
       ? await ctx.tx
@@ -1081,9 +1400,23 @@ export const videoCallGet = defineQuery({
           .orderBy(asc(appointmentAttendees.createdAt))
           .limit(20)
       : [];
+    const [withWhom] =
+      !call.appointmentId && call.personId
+        ? await ctx.tx
+            .select({ first: people.firstName, last: people.lastName })
+            .from(people)
+            .where(eq(people.id, call.personId))
+        : [];
     const list = await peopleOf(ctx.tx, call.id);
     const hostName = await userName(ctx.tx, call.hostUserId);
     return {
+      customer:
+        call.personId && withWhom
+          ? {
+              personId: call.personId,
+              name: nameOf(withWhom.first, withWhom.last) || 'Unnamed customer',
+            }
+          : null,
       call: callOut(call),
       appointment: appt
         ? {
@@ -1265,12 +1598,13 @@ export const VIDEO_CALL_TRANSCRIPT_MIN_WORDS = 15;
 /**
  * A stretch of the call is over: what the listener heard up to its end becomes the appointment's transcript, which
  * the AI's notes and suggestions start from as with Zoom's (`appointment.transcript_ready`), and the lines go. Once
- * per stretch: the same stretch again keeps nothing more.
+ * per stretch: the same stretch again keeps nothing more. A call that isn't for an appointment keeps the transcript
+ * itself (`video_call.transcript_ready`), and its summary goes on the call's own line on the customer's timeline.
  */
 export const videoCallKeepWords = defineCommand({
   name: 'video_call.keep_words',
   description:
-    'Worker: a stretch of a HandsFreeOS video call is over, so what the AI heard becomes the appointment’s transcript.',
+    'Worker: a stretch of a HandsFreeOS video call is over, so what the AI heard becomes the transcript of its appointment, or of the call.',
   risk: 0,
   input: z.object({
     workspaceId: uuid,
@@ -1284,7 +1618,7 @@ export const videoCallKeepWords = defineCommand({
   permission: null,
   actors: ['system'],
   scope: inWorkspace,
-  emits: ['appointment.transcript_ready'],
+  emits: ['appointment.transcript_ready', 'video_call.transcript_ready'],
   async handler(ctx, input) {
     const call = await lockCall(ctx, input.callId);
     const lines = await ctx.tx
@@ -1305,9 +1639,34 @@ export const videoCallKeepWords = defineCommand({
       ),
     );
     const words = lines.reduce((n, l) => n + l.body.split(/\s+/).filter(Boolean).length, 0);
-    // Calls that aren't for an appointment keep their words with the customer (part 5).
-    if (!call.appointmentId || !call.aiNotes || words < VIDEO_CALL_TRANSCRIPT_MIN_WORDS)
+    if (!call.aiNotes || words < VIDEO_CALL_TRANSCRIPT_MIN_WORDS)
       return { transcriptId: null, lines: lines.length };
+    // A call that isn't for an appointment keeps its transcript itself, for its own line on the timeline (part 5).
+    if (!call.appointmentId) {
+      const [row] = await ctx.tx
+        .insert(appointmentTranscripts)
+        .values({
+          workspaceId: call.workspaceId,
+          videoCallId: call.id,
+          provider: 'handsfree',
+          externalId: `video:${input.stretch}`,
+          body: videoCallTranscript(lines).slice(0, 2_000_000),
+        })
+        .onConflictDoNothing({
+          target: [appointmentTranscripts.videoCallId, appointmentTranscripts.externalId],
+          where: dsql`video_call_id is not null`,
+        })
+        .returning({ id: appointmentTranscripts.id });
+      if (!row) return { transcriptId: null, lines: lines.length };
+      await ctx.emit({
+        type: 'video_call.transcript_ready',
+        entityType: 'video_call',
+        entityId: call.id,
+        payload: { transcriptId: row.id, personId: call.personId },
+        after: { provider: 'handsfree' },
+      });
+      return { transcriptId: row.id, lines: lines.length };
+    }
     const [appt] = await ctx.tx
       .select({ id: appointments.id, title: appointments.title })
       .from(appointments)
@@ -1447,6 +1806,7 @@ export const videoCallCommands = [
   videoCallLeft,
   videoCallFinished,
   videoCallJoin,
+  videoCallStart,
   videoCallAdmit,
   videoCallTurnAway,
   videoCallRemove,

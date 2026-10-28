@@ -58,6 +58,7 @@ import {
   onMeetingLinkRequested,
   onMeetingSettingsCheckRequested,
   onTranscriptReady,
+  onVideoCallTranscriptReady,
   onCalendarReauthRequired,
   onCalendarRefreshWanted,
 } from './calendar';
@@ -275,6 +276,7 @@ const ownTeammateAndWorkflows: HandlerMap = withWorkflows(
       'appointment.meeting_link_requested': onMeetingLinkRequested,
       'meeting_connection.settings_check_requested': onMeetingSettingsCheckRequested,
       'appointment.transcript_ready': onTranscriptReady,
+      'video_call.transcript_ready': onVideoCallTranscriptReady,
       // HandsFreeOS video calls (video-calls/): LiveKit takes out, mutes and closes what the team asked it to, and
       // each stretch's minutes go on the balance and its words become the transcript. Who's waiting is a push
       // (push/moments.ts). AI notes turned off stop the room saying they're on.

@@ -9,14 +9,22 @@ import {
   callIdOfLink,
   callIdOfRoom,
   callLengthLabel,
+  customerCallLinkOpens,
   effectiveVideo,
   hostFirstName,
   isInAppBrowser,
   isPersonIdentity,
+  isVideoCallLinkKey,
   LISTENER_IDENTITY,
+  VIDEO_CALL_LINK_OPEN_MS,
+  VIDEO_CALL_WORDS,
   videoCallAppPath,
+  videoCallInviteChannel,
+  videoCallInviteWords,
   videoCallLinkOpens,
+  videoCallLinkPath,
   videoCallRoom,
+  videoCallTitle,
   videoCallWaitingPushWords,
 } from '../../src/meetings/video-calls';
 
@@ -186,5 +194,69 @@ describe('the words', () => {
     expect(
       videoCallWaitingPushWords({ name: 'Sam', kind: 'guest', title: 'Consultation' }).title,
     ).toBe('Sam is asking to join the video call');
+  });
+});
+
+describe('a call any time (part 5)', () => {
+  it('gives the customer a link of its own, never mistaken for a booking’s Join link', () => {
+    const key = 'a'.repeat(32);
+    expect(isVideoCallLinkKey(key)).toBe(true);
+    expect(videoCallLinkPath(key)).toBe(`/j/${key}`);
+    // A booking's Join link is 18 letters and digits.
+    expect(isVideoCallLinkKey('a'.repeat(18))).toBe(false);
+    expect(isVideoCallLinkKey(`${'a'.repeat(31)}-`)).toBe(false);
+  });
+
+  it('opens the link for a day after it was sent, and for as long as the call goes on', () => {
+    const createdAt = Date.parse('2026-10-28T15:00:00Z');
+    expect(customerCallLinkOpens({ createdAt, live: false }, createdAt + 60_000)).toBe('open');
+    const later = createdAt + VIDEO_CALL_LINK_OPEN_MS + 1;
+    expect(customerCallLinkOpens({ createdAt, live: false }, later)).toBe('over');
+    expect(customerCallLinkOpens({ createdAt, live: true }, later)).toBe('open');
+  });
+
+  it('sends the link in the conversation, else by text when they take texts, else by email', () => {
+    const them = { phone: true, textsOk: true, email: true };
+    expect(videoCallInviteChannel(them)).toBe('sms');
+    expect(videoCallInviteChannel({ ...them, conversation: 'email' })).toBe('email');
+    expect(videoCallInviteChannel({ ...them, conversation: 'chat' })).toBe('chat');
+    expect(videoCallInviteChannel({ ...them, textsOk: false })).toBe('email');
+    // A text conversation with someone who texted STOP goes on to their email.
+    expect(videoCallInviteChannel({ ...them, textsOk: false, conversation: 'sms' })).toBe('email');
+    expect(videoCallInviteChannel({ ...them, asked: 'email' })).toBe('email');
+    expect(videoCallInviteChannel({ ...them, textsOk: false, asked: 'sms' })).toBeNull();
+    expect(videoCallInviteChannel({ phone: false, textsOk: true, email: false })).toBeNull();
+  });
+
+  it('says what the link is and that nothing needs installing, and that the AI takes notes', () => {
+    const text = videoCallInviteWords({
+      business: 'Lone Star HVAC',
+      firstName: 'Dana',
+      link: 'https://book.example.com/j/abc',
+      channel: 'sms',
+      aiNotes: true,
+    });
+    expect(text.subject).toBeNull();
+    expect(text.body).toContain('https://book.example.com/j/abc');
+    expect(text.body).toContain(VIDEO_CALL_WORDS.emailNotice);
+    const mail = videoCallInviteWords({
+      business: 'Lone Star HVAC',
+      firstName: null,
+      link: 'https://book.example.com/j/abc',
+      channel: 'email',
+      aiNotes: false,
+    });
+    expect(mail.subject).toBe('Video call with Lone Star HVAC');
+    expect(mail.body).toMatch(/^Hi there,/);
+    expect(mail.body).not.toContain(VIDEO_CALL_WORDS.emailNotice);
+  });
+
+  it('names the call after the customer, and says where the link went', () => {
+    expect(videoCallTitle(' Dana Lopez ')).toBe('Video call with Dana Lopez');
+    expect(videoCallTitle(null)).toBe('Video call');
+    expect(VIDEO_CALL_WORDS.started('Dana', 'sms')).toBe(
+      'Dana’s link is on its way by text. The call opens for you now.',
+    );
+    expect(VIDEO_CALL_WORDS.started('Dana', 'chat')).toContain('in your conversation');
   });
 });

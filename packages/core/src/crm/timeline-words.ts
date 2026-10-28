@@ -311,6 +311,9 @@ function describeAppointment(
 
 /** A call through the business number (it has a call id), or one logged by hand. */
 function describeCall(e: TimelineEntry, viewerId?: string): string {
+  // A HandsFreeOS video call that wasn't for an appointment (docs/video-calls.md, part 5).
+  if (e.subtype === 'video' && e.meta.videoCallId)
+    return `had a video call · ${callClock(num(e.meta.durationSeconds))}`;
   if (!e.meta.callId) return 'logged a call';
   // A call a teammate placed through their own cell (M10), showing the business number.
   const cell = e.meta.answeredVia === 'bridge';

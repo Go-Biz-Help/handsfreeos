@@ -28,19 +28,23 @@ const FIELDS = [
 ] as const;
 const APPROVE = { task: 'Add task', follow_up: 'Send email', record_change: 'Update record' };
 
+/** An appointment's call, or a HandsFreeOS video call that isn't for one (docs/video-calls.md, part 5). */
+export type ReviewedCall = { appointmentId: string } | { videoCallId: string };
+
 /**
  * What the AI made of a recorded call: its summary (already on the customer's timeline), and the tasks, follow-up
  * and record update it suggests, each waiting for someone to approve (as they are, or edited) or dismiss.
  */
 export function CallReview({
   workspaceId,
-  appointmentId,
   version,
+  ...call
 }: {
   workspaceId: string;
-  appointmentId: string;
   version: number;
-}) {
+} & ReviewedCall) {
+  const appointmentId = 'appointmentId' in call ? call.appointmentId : undefined;
+  const videoCallId = 'videoCallId' in call ? call.videoCallId : undefined;
   const [review, setReview] = useState<Review | null>(null);
   const [edits, setEdits] = useState<Record<string, Record<string, string>>>({});
   const [busy, setBusy] = useState<string | null>(null);
@@ -50,14 +54,14 @@ export function CallReview({
       setReview(
         unwrap(
           await apiBrowser().POST('/v1/queries/call_suggestion.list', {
-            body: { workspaceId, appointmentId },
+            body: { workspaceId, ...(appointmentId ? { appointmentId } : { videoCallId }) },
           }),
         ) as Review,
       );
     } catch {
       // The transcript section still shows; the review appears on the next refresh.
     }
-  }, [workspaceId, appointmentId]);
+  }, [workspaceId, appointmentId, videoCallId]);
   useEffect(() => {
     void load();
   }, [load, version]);

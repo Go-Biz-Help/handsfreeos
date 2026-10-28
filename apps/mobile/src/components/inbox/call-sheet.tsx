@@ -6,6 +6,7 @@ import {
   CANCELLABLE_BRIDGE,
   callSheetWords,
   formatPhone,
+  VIDEO_CALL_WORDS,
   type BridgeStatus,
 } from '@hfos/core';
 import { useQuery } from '@powersync/react-native';
@@ -14,7 +15,7 @@ import type { LucideIcon } from 'lucide-react-native';
 import * as React from 'react';
 import { View } from 'react-native';
 
-import { Building, PhoneCall, PhoneMissed, Smartphone, X } from '@/components/icons';
+import { Building, PhoneCall, PhoneMissed, Smartphone, Video, X } from '@/components/icons';
 import { businessHref, useBusiness } from '@/components/shell/business-context';
 import { Button } from '@/components/ui/button';
 import { Icon } from '@/components/ui/icon';
@@ -28,6 +29,11 @@ import { useBusinessNumber, useMyCell } from '@/inbox/cell';
 import { useLock } from '@/lib/lock';
 import { networkSnapshot } from '@/lib/network';
 import { cn } from '@/lib/utils';
+import {
+  useCanStartVideoCall,
+  useStartVideoCall,
+  type VideoCallTarget,
+} from '@/video-call/start-call';
 
 /** Where the sheet is: asking HandsFreeOS for the call, following it, or why it couldn't start. */
 type SheetState =
@@ -84,9 +90,26 @@ function useCustomerName(target: CallTarget | null): string | null {
 }
 
 /**
+ * Switch to video's way to the customer (docs/video-calls.md, part 5): the text conversation the call is from, when a
+ * customer is linked to it, or the customer's own number. Null when there's no customer to send a link to.
+ */
+function useVideoTarget(target: CallTarget | null): VideoCallTarget | null {
+  const { data } = useQuery<{ person_id: string | null }>(
+    'SELECT person_id FROM conversations WHERE id = ?',
+    [target?.conversationId ?? ''],
+  );
+  if (target?.personId) return { personId: target.personId, channel: 'sms' };
+  return target?.conversationId && data[0]?.person_id
+    ? { conversationId: target.conversationId }
+    : null;
+}
+
+/**
  * The call sheet (the Calls board's "Call Mike"), mounted once in a business's layout: it takes the calls asked for
  * with `startCall`, and shows each one's way through — "Calling your cell…", "Calling Mike Johnson…", "Connected",
  * "Call ended" or why not — read from the call's own synced row. Cancel ends it while a phone is still ringing.
+ * Once they're talking, Switch to video texts the customer their own link and opens the call here; the phone call
+ * keeps going until it's hung up, so nobody is left in silence while they find the link.
  */
 export function CallSheetHost() {
   const { business } = useBusiness();
@@ -98,6 +121,11 @@ export function CallSheetHost() {
   const [cancelling, setCancelling] = React.useState(false);
   const target = state.kind === 'closed' ? null : state.target;
   const customer = useCustomerName(target);
+  const canVideo = useCanStartVideoCall(business.id);
+  const video = useStartVideoCall(business.id);
+  const videoTarget = useVideoTarget(target);
+  // Switch to video starts once this sheet is gone: the call screen can't open over it.
+  const switching = React.useRef<VideoCallTarget | null>(null);
 
   const start = React.useCallback(
     async (next: CallTarget) => {
@@ -206,57 +234,80 @@ export function CallSheetHost() {
     status === 'customer_busy' ||
     status === 'failed';
 
+  const switchToVideo = () => {
+    switching.current = videoTarget;
+    close();
+  };
+  const onClosed = () => {
+    const next = switching.current;
+    switching.current = null;
+    if (next) void video.start(next, { after: VIDEO_CALL_WORDS.switchHint });
+  };
+
   return (
-    <Sheet open={state.kind !== 'closed'} onClose={close} testID="call-sheet">
-      {state.kind === 'closed' ? null : (
-        <View className="items-center gap-1 pb-1 pt-1">
-          <CallMark icon={bad ? PhoneMissed : PhoneCall} tone={bad ? 'warning' : 'success'} />
-          <Text
-            className="mt-3 text-center text-xl font-semibold tracking-[-0.2px]"
-            testID="call-sheet-status"
-            accessibilityLiveRegion="polite"
-          >
-            {title}
-          </Text>
-          {words?.hint && state.kind !== 'refused' ? (
+    <>
+      <Sheet open={state.kind !== 'closed'} onClose={close} onClosed={onClosed} testID="call-sheet">
+        {state.kind === 'closed' ? null : (
+          <View className="items-center gap-1 pb-1 pt-1">
+            <CallMark icon={bad ? PhoneMissed : PhoneCall} tone={bad ? 'warning' : 'success'} />
             <Text
-              className="text-center text-[15px] leading-[22px] text-text-2"
-              testID="call-sheet-hint"
+              className="mt-3 text-center text-xl font-semibold tracking-[-0.2px]"
+              testID="call-sheet-status"
+              accessibilityLiveRegion="polite"
             >
-              {words.hint}
+              {title}
             </Text>
-          ) : null}
-        </View>
-      )}
-      {words && state.kind !== 'refused' && !over ? (
-        <View className="mt-4 overflow-hidden rounded-card border border-border">
-          <DetailRow icon={Smartphone} label={words.cellLabel} value={words.cell} />
-          <View className="h-px bg-border" />
-          <DetailRow icon={Building} label={words.seesLabel} value={words.sees} />
-        </View>
-      ) : null}
-      <View className="mt-4 gap-2">
-        {status !== null && CANCELLABLE_BRIDGE.has(status) && state.kind === 'calling' ? (
-          <Button
-            variant="secondary"
-            icon={X}
-            loading={cancelling}
-            onPress={() => void cancel()}
-            testID="call-sheet-cancel"
-          >
-            {CALL_SHEET_WORDS.cancel}
-          </Button>
-        ) : state.kind === 'starting' ? (
-          <Button variant="secondary" icon={X} loading disabled testID="call-sheet-starting">
-            {CALL_SHEET_WORDS.cancel}
-          </Button>
-        ) : (
-          <Button variant="secondary" onPress={close} testID="call-sheet-close">
-            {CALL_SHEET_WORDS.close}
-          </Button>
+            {words?.hint && state.kind !== 'refused' ? (
+              <Text
+                className="text-center text-[15px] leading-[22px] text-text-2"
+                testID="call-sheet-hint"
+              >
+                {words.hint}
+              </Text>
+            ) : null}
+          </View>
         )}
-      </View>
-    </Sheet>
+        {words && state.kind !== 'refused' && !over ? (
+          <View className="mt-4 overflow-hidden rounded-card border border-border">
+            <DetailRow icon={Smartphone} label={words.cellLabel} value={words.cell} />
+            <View className="h-px bg-border" />
+            <DetailRow icon={Building} label={words.seesLabel} value={words.sees} />
+          </View>
+        ) : null}
+        <View className="mt-4 gap-2">
+          {status === 'connected' && canVideo && videoTarget ? (
+            <Button
+              icon={Video}
+              loading={video.busy}
+              onPress={switchToVideo}
+              testID="call-sheet-switch-to-video"
+            >
+              {VIDEO_CALL_WORDS.switchToVideo}
+            </Button>
+          ) : null}
+          {status !== null && CANCELLABLE_BRIDGE.has(status) && state.kind === 'calling' ? (
+            <Button
+              variant="secondary"
+              icon={X}
+              loading={cancelling}
+              onPress={() => void cancel()}
+              testID="call-sheet-cancel"
+            >
+              {CALL_SHEET_WORDS.cancel}
+            </Button>
+          ) : state.kind === 'starting' ? (
+            <Button variant="secondary" icon={X} loading disabled testID="call-sheet-starting">
+              {CALL_SHEET_WORDS.cancel}
+            </Button>
+          ) : (
+            <Button variant="secondary" onPress={close} testID="call-sheet-close">
+              {CALL_SHEET_WORDS.close}
+            </Button>
+          )}
+        </View>
+      </Sheet>
+      {video.sheet}
+    </>
   );
 }
 

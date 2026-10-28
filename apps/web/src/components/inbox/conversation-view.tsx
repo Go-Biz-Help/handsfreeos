@@ -26,6 +26,7 @@ import {
   snoozeOptions,
   SOCIAL_CONTACT_NAMES,
   threadChannelLine,
+  VIDEO_CALL_WORDS,
   whoOf,
   zonedClock,
   zonedWhen,
@@ -54,6 +55,7 @@ import {
   UserPlus,
   UserRound,
   Users,
+  Video,
   X,
   type LucideIcon,
 } from 'lucide-react';
@@ -77,6 +79,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { Sheet, SheetContent } from '@/components/ui/sheet';
+import { useCanStartVideoCall, useStartVideoCall } from '@/components/video-call/start-call';
 import { apiBrowser, errorMessage, unwrap } from '@/lib/api/client';
 import { feedbackActions, feedbackOn, myFeedback, useReplyFeedback } from '@/lib/ai-team/feedback';
 import { handlingOf, type TeammateDraft } from '@/lib/ai-team/inbox-types';
@@ -316,6 +319,9 @@ export function ConversationView({
     personId: person?.id ?? null,
     conversationId: byNumber ? c.id : undefined,
   };
+  // A video call (docs/video-calls.md, part 5) with the customer this conversation is with, its link sent here.
+  const canVideo = useCanStartVideoCall() && !!person && !priv;
+  const video = useStartVideoCall(workspaceId);
   const [addPerson, setAddPerson] = useState(false);
   const [linkPerson, setLinkPerson] = useState(false);
   const [details, setDetails] = useState(false);
@@ -773,6 +779,16 @@ export function ConversationView({
                   {CONVERSATION_ACTIONS.call}
                 </DropdownMenuItem>
               ) : null}
+              {canVideo ? (
+                <DropdownMenuItem
+                  disabled={video.busy}
+                  onSelect={() => void video.start({ conversationId: c.id })}
+                  data-testid="thread-video-call"
+                >
+                  <Video className="h-3.5 w-3.5" strokeWidth={1.5} />
+                  {VIDEO_CALL_WORDS.start}
+                </DropdownMenuItem>
+              ) : null}
               {customerHref ? (
                 <DropdownMenuItem onSelect={() => router.push(customerHref)}>
                   <UserRound className="h-3.5 w-3.5" strokeWidth={1.5} />
@@ -1133,6 +1149,18 @@ export function ConversationView({
                 }}
               >
                 {CONVERSATION_ACTIONS.call}
+              </SheetAction>
+            ) : null}
+            {canVideo ? (
+              <SheetAction
+                icon={Video}
+                testId="sheet-video-call"
+                onClick={() => {
+                  setDetails(false);
+                  void video.start({ conversationId: c.id });
+                }}
+              >
+                {VIDEO_CALL_WORDS.start}
               </SheetAction>
             ) : null}
             {customerHref ? (

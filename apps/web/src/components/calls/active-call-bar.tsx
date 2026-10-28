@@ -1,10 +1,12 @@
 'use client';
-import { Grip, Mic, MicOff, Pencil, Phone } from 'lucide-react';
+import { Grip, Mic, MicOff, Pencil, Phone, Video } from 'lucide-react';
 import { useEffect, useState, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
+import { VIDEO_CALL_WORDS } from '@hfos/core';
 import { AddonSlot } from '@/components/addons/slot';
 import { LogActivitySheet } from '@/components/timeline/log-activity-sheet';
 import { Avatar } from '@/components/ui/avatar';
+import { useCanStartVideoCall, useStartVideoCall } from '@/components/video-call/start-call';
 import { useCalls, type CallView } from '@/lib/calls/call-provider';
 import { clock } from '@/lib/calls/format';
 import { cn } from '@/lib/utils';
@@ -133,6 +135,10 @@ function LiveBar({ view }: { view: LiveView }) {
   const status =
     view.phase === 'calling' ? 'Calling…' : `${clock(elapsed)}${view.muted ? ' · muted' : ''}`;
   const personId = view.party.personId;
+  // Switch to video (docs/video-calls.md, part 5): texts the customer their link and opens the call; the phone call
+  // keeps going until you hang up, so nobody is left in silence while they find the link.
+  const canVideo = useCanStartVideoCall() && !!personId;
+  const video = useStartVideoCall(calls.workspaceId);
   return (
     <>
       {keypad && connected ? <Keypad onDigit={calls.sendDigit} /> : null}
@@ -183,6 +189,18 @@ function LiveBar({ view }: { view: LiveView }) {
         >
           <Grip className="h-3.5 w-3.5" strokeWidth={1.75} />
         </BarButton>
+        {canVideo && personId ? (
+          <BarButton
+            label={VIDEO_CALL_WORDS.switchToVideo}
+            disabled={!connected || video.busy}
+            onClick={() =>
+              void video.start({ personId, channel: 'sms' }, { after: VIDEO_CALL_WORDS.switchHint })
+            }
+            testId="call-switch-to-video"
+          >
+            <Video className="h-3.5 w-3.5" strokeWidth={1.75} />
+          </BarButton>
+        ) : null}
         {personId ? (
           <BarButton label="Add a note to this call" onClick={() => setNote(true)}>
             <Pencil className="h-3.5 w-3.5" strokeWidth={1.75} />
@@ -207,7 +225,7 @@ function LiveBar({ view }: { view: LiveView }) {
 }
 
 /**
- * The call bar: who, how long, mute, keypad, a note, hang up. It lives in the workspace layout, so the
+ * The call bar: who, how long, mute, keypad, switch to video, a note, hang up. It lives in the workspace layout, so the
  * call keeps going while people move between pages.
  */
 export function ActiveCallBar() {

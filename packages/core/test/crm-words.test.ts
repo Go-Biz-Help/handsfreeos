@@ -269,6 +269,17 @@ describe('the timeline', () => {
         'person',
       ),
     ).toBe('called · 3:12 · from their cell');
+    // A HandsFreeOS video call that wasn't for an appointment (docs/video-calls.md, part 5).
+    expect(
+      describeTimeline(
+        entry({
+          kind: 'call',
+          subtype: 'video',
+          meta: { videoCallId: 'v1', durationSeconds: 724, people: 2 },
+        }),
+        'person',
+      ),
+    ).toBe('had a video call · 12:04');
   });
 
   it('words a change a later one overtook, from the merge’s own meta', () => {
