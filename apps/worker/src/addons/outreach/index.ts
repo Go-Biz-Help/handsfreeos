@@ -34,7 +34,7 @@ import { CHECK_PARTNERS_JOB, checkPartnersJob, partnerLooked } from './partners'
 import { countriesWanted, GUESS_COUNTRIES_JOB, guessCountriesJob } from './countries';
 import { downloadSaved, READ_CHATS_JOB, readChatsJob } from './chats';
 import { appointmentBooked } from './demos';
-import { leadWanted } from './leads';
+import { appointmentCompleted, leadWanted } from './leads';
 import {
   CHECK_GROUPS_JOB,
   checkGroupsJob,
@@ -176,6 +176,8 @@ export const outreachAddonWorker: AddonWorkerModule = {
     'outreach.partner.looked': partnerLooked,
     // Someone who wants a demo, or answered the playbook's questions, goes in the main pipeline (./leads.ts).
     'outreach.lead.wanted': leadWanted,
+    // Once they came to the demo, their lead moves on and waits for the person's won or lost (./leads.ts).
+    'appointment.completed': appointmentCompleted,
   },
   jobs: {
     [READ_CHATS_JOB]: readChatsJob,

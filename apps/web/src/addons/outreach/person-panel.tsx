@@ -4,23 +4,32 @@
  * (decision 103): where they stand and why, the AI's next step, the groups they were found in, the chat's summary and
  * every step either way, the latest first; and the chats saved with them, newest messages last. Drawn by <AddonSlot>
  * only while the add-on runs and for people with `outreach.use`; a customer nobody saved from a network shows nothing.
+ * Once their demo is done, their lead waits for the person's won or lost here (decision 106).
  */
 import { journeyStepWords } from '@hfos/core/addons/outreach/journey';
-import { leadWords } from '@hfos/core/addons/outreach/leads';
+import {
+  DEMO_LOST_WHY_MOST,
+  DEMO_OUTCOME_WORDS as D,
+  type DemoOutcome,
+  leadWords,
+} from '@hfos/core/addons/outreach/leads';
 import { PLATFORMS, type Platform } from '@hfos/core/addons/outreach/playbooks';
 import { STAGES } from '@hfos/core/addons/outreach/stages';
 import { OUTREACH_WORDS as W } from '@hfos/core/addons/outreach/words';
 import { Handshake } from 'lucide-react';
 import Link from 'next/link';
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
 import { apiBrowser, unwrap } from '@/lib/api/client';
 import { cn, relativeTime } from '@/lib/utils';
 import type { SlotProps } from '../registry';
 import { outreachHref } from './address';
 import { STAGE_TONE } from './pipeline-view';
 import type { PersonSocial } from './types';
+import { useAct } from './use-act';
 
 const FRIENDSHIP: Record<string, string | null> = {
   friends: 'Friends',
@@ -39,6 +48,8 @@ type Profile = PersonSocial['profiles'][number];
 
 export default function PersonPanel({ workspaceId, personId }: SlotProps<'person.panels'>) {
   const [social, setSocial] = useState<PersonSocial | null>(null);
+  const [version, setVersion] = useState(0);
+  const reload = useCallback(() => setVersion((v) => v + 1), []);
   useEffect(() => {
     let live = true;
     void apiBrowser()
@@ -49,7 +60,7 @@ export default function PersonPanel({ workspaceId, personId }: SlotProps<'person
     return () => {
       live = false;
     };
-  }, [workspaceId, personId]);
+  }, [workspaceId, personId, version]);
 
   if (!social || (social.profiles.length === 0 && social.chats.length === 0)) return null;
   return (
@@ -60,7 +71,7 @@ export default function PersonPanel({ workspaceId, personId }: SlotProps<'person
       </h3>
       <div className="space-y-3">
         {social.profiles.map((p) => (
-          <Profile key={p.id} workspaceId={workspaceId} profile={p} />
+          <Profile key={p.id} workspaceId={workspaceId} profile={p} onChange={reload} />
         ))}
         {social.chats.map((c) => (
           <Chat key={c.id} chat={c} />
@@ -70,7 +81,15 @@ export default function PersonPanel({ workspaceId, personId }: SlotProps<'person
   );
 }
 
-function Profile({ workspaceId, profile: p }: { workspaceId: string; profile: Profile }) {
+function Profile({
+  workspaceId,
+  profile: p,
+  onChange,
+}: {
+  workspaceId: string;
+  profile: Profile;
+  onChange: () => void;
+}) {
   const [all, setAll] = useState(false);
   const j = p.journey;
   const steps = all ? j.steps : j.steps.slice(0, LATEST_STEPS);
@@ -111,6 +130,9 @@ function Profile({ workspaceId, profile: p }: { workspaceId: string; profile: Pr
             {leadWords(j.lead)}
           </Link>
         </p>
+      ) : null}
+      {j.lead?.afterDemo ? (
+        <AfterDemo workspaceId={workspaceId} profileId={p.id} name={p.name} onChange={onChange} />
       ) : null}
       {p.intro.length ? (
         <ul className="mt-1 text-[13px] text-text-2">
@@ -189,6 +211,98 @@ function Profile({ workspaceId, profile: p }: { workspaceId: string; profile: Pr
           And {j.moreSteps.toLocaleString()} older {j.moreSteps === 1 ? 'step' : 'steps'}.
         </p>
       ) : null}
+    </div>
+  );
+}
+
+/** Won or lost after their demo (`outreach.demo.outcome`); lost asks why, and they can leave it blank. */
+function AfterDemo({
+  workspaceId,
+  profileId,
+  name,
+  onChange,
+}: {
+  workspaceId: string;
+  profileId: string;
+  name: string;
+  onChange: () => void;
+}) {
+  const { busy, act } = useAct(onChange);
+  const [losing, setLosing] = useState(false);
+  const [why, setWhy] = useState('');
+  const decide = (outcome: DemoOutcome) =>
+    void act(
+      outcome,
+      async () =>
+        unwrap(
+          await apiBrowser().POST('/v1/commands/outreach.demo.outcome', {
+            body: {
+              workspaceId,
+              profileId,
+              outcome,
+              why: outcome === 'lost' && why.trim() ? why.trim() : null,
+            },
+          }),
+        ),
+      D.done(name, outcome),
+    );
+  return (
+    <div className="mt-1.5 rounded-card bg-card-2 p-2.5" data-testid="outreach-panel-after-demo">
+      <p className="text-[12.5px] text-text-2">{D.ask}</p>
+      {losing ? (
+        <div className="mt-1.5 flex flex-wrap items-center gap-2">
+          <Input
+            inputSize="sm"
+            className="min-w-[12rem] flex-1"
+            value={why}
+            maxLength={DEMO_LOST_WHY_MOST}
+            placeholder={D.why}
+            aria-label={D.why}
+            onChange={(e) => setWhy(e.target.value)}
+            data-testid="outreach-panel-lost-why"
+          />
+          <Button
+            size="sm"
+            variant="danger"
+            disabled={busy !== null}
+            loading={busy === 'lost'}
+            onClick={() => decide('lost')}
+            data-testid="outreach-panel-mark-lost"
+          >
+            {D.markLost}
+          </Button>
+          <Button
+            size="sm"
+            variant="ghost"
+            disabled={busy !== null}
+            onClick={() => setLosing(false)}
+          >
+            {D.cancel}
+          </Button>
+        </div>
+      ) : (
+        <div className="mt-1.5 flex gap-2">
+          <Button
+            size="sm"
+            variant="success"
+            disabled={busy !== null}
+            loading={busy === 'won'}
+            onClick={() => decide('won')}
+            data-testid="outreach-panel-won"
+          >
+            {D.won}
+          </Button>
+          <Button
+            size="sm"
+            variant="secondary"
+            disabled={busy !== null}
+            onClick={() => setLosing(true)}
+            data-testid="outreach-panel-lost"
+          >
+            {D.lost}
+          </Button>
+        </div>
+      )}
     </div>
   );
 }

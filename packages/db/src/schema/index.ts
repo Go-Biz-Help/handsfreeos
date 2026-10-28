@@ -633,6 +633,11 @@ export const leads = app.table('leads', {
   custom: jsonb('custom').$type<Json>().notNull().default({}),
   /** In the Deleted bin with a customer, conversation or booking (20261027000400): hidden until it comes back. */
   binItemId: binItemRef(),
+  /**
+   * A person marks it won or lost themselves (`lead.wait_for_outcome`, 20261027015700): "Move deals along for you"
+   * never takes its done visit for a win.
+   */
+  wonByHand: boolean('won_by_hand').notNull().default(false),
 });
 
 export const tasks = app.table('tasks', {

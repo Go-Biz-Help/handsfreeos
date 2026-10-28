@@ -89,9 +89,20 @@ export async function journeysOf(
     title: string;
     stage: string;
     status: 'open' | 'won' | 'lost';
+    after_demo: boolean;
   }>(
     ctx.tx,
-    sql`select p.id as profile_id, l.id, l.title, s.name as stage, l.status
+    // After the demo (decision 106): they came to one booked through the link, or the person
+    // marked one by hand, and the lead still waits for won or lost.
+    sql`select p.id as profile_id, l.id, l.title, s.name as stage, l.status,
+          (l.status = 'open' and exists (
+            select 1 from addon_outreach.demos d
+            where d.profile_id = p.id and d.undone_at is null
+              and (d.how = 'marked' or exists (
+                select 1 from app.appointment_attendees aa
+                where aa.appointment_id = d.appointment_id and aa.person_id = d.person_id
+                  and aa.status = 'attended'))
+          )) as after_demo
         from addon_outreach.profiles p
         join app.leads l on l.id = p.lead_id and l.archived_at is null and l.bin_item_id is null
         join app.pipeline_stages s on s.id = l.stage_id
@@ -165,6 +176,7 @@ export async function journeysOf(
       title: l.title,
       stage: l.stage,
       status: l.status,
+      afterDemo: l.after_demo,
     };
   for (const s of steps) {
     const journey = out.get(s.profile_id)!;

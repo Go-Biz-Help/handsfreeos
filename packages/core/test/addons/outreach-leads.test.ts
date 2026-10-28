@@ -14,11 +14,12 @@ import {
   leadSourceOf,
   leadTitleOf,
   leadWords,
+  stageAfterDemo,
 } from '../../src/addons/outreach/leads';
 import { PLAYBOOK_TEMPLATES } from '../../src/addons/outreach/playbooks';
 import { leadCreate } from '../../src/commands/lead.create';
 import { executeCommand } from '../../src/server';
-import { human, outreachBusiness, runAs, runAsSystem } from './outreach-fixture';
+import { human, outreachBusiness, refused, runAs, runAsSystem } from './outreach-fixture';
 
 const admin = () => testDbs().admin.db;
 
@@ -39,6 +40,37 @@ describe('what a lead says of where they came from', () => {
     expect(leadWords({ ...lead, status: 'open' })).toBe('In your pipeline: New');
     expect(leadWords({ ...lead, status: 'won' })).toBe('Won in your pipeline');
     expect(leadWords({ ...lead, status: 'lost' })).toBe('Lost in your pipeline');
+  });
+});
+
+describe('where a lead goes once its demo is done', () => {
+  const stage = (
+    id: string,
+    name: string,
+    position: number,
+    kind: 'open' | 'won' | 'lost' = 'open',
+  ) => ({ id, name, kind, position }) as const;
+  const stages = [
+    stage('new', 'New', 0),
+    stage('demo', 'Demo booked', 1),
+    stage('proposal', 'Proposal', 2),
+    stage('won', 'Won', 3, 'won'),
+    stage('lost', 'Lost', 4, 'lost'),
+  ];
+
+  it('goes on past the stage for a visit booked, never back', () => {
+    expect(stageAfterDemo(stages, {}, 'new')?.id).toBe('proposal');
+    expect(stageAfterDemo(stages, {}, 'demo')?.id).toBe('proposal');
+    expect(stageAfterDemo(stages, {}, 'proposal')).toBeNull();
+    expect(stageAfterDemo(stages, {}, 'won')).toBeNull();
+  });
+
+  it('stops at the booked stage when it’s the last open one, and takes the next with none', () => {
+    const short = stages.filter((s) => s.id !== 'proposal');
+    expect(stageAfterDemo(short, {}, 'new')?.id).toBe('demo');
+    expect(stageAfterDemo(short, {}, 'demo')).toBeNull();
+    // The business said Demo booked means nothing: the next open stage.
+    expect(stageAfterDemo(stages, { demo: 'none' }, 'new')?.id).toBe('demo');
   });
 });
 
@@ -173,6 +205,7 @@ describe('a lead for whoever wants a demo', () => {
       leadId: got.leadId,
       title: 'Dana Reyes (Facebook)',
       status: 'open',
+      afterDemo: false,
     });
 
     // Once a profile: asked again, nothing new, and nothing asks any more.
@@ -222,6 +255,56 @@ describe('a lead for whoever wants a demo', () => {
     await runAs(owner, ws, 'outreach.friend.set', { profileId: kaiId, dontPitch: true });
     expect(await open(kaiId)).toMatchObject({ opened: false, skipped: 'not_open' });
     expect(await open(kaiId, randomUUID())).toMatchObject({ skipped: 'gone' });
+  });
+
+  it('takes the person’s won or lost after the demo, and waits for it', async () => {
+    const leeId = await idOf(lee.profile.username);
+    const [lead] = await rows<{ won_by_hand: boolean; person_id: string }>(
+      admin(),
+      sql`select l.won_by_hand, l.person_id from app.leads l join addon_outreach.profiles p on p.lead_id = l.id
+          where p.id = ${leeId}`,
+    );
+    expect(lead!.won_by_hand).toBe(true);
+    // Their demo was marked booked: the Social panel asks for won or lost, and stops once it has it.
+    const afterDemo = async () =>
+      (
+        (await runAs(owner, ws, 'outreach.person', { personId: lead!.person_id })) as {
+          profiles: { journey: { lead: { afterDemo?: boolean } | null } }[];
+        }
+      ).profiles[0]!.journey.lead?.afterDemo;
+    expect(await afterDemo()).toBe(true);
+    expect(
+      await runAs(owner, ws, 'outreach.demo.outcome', {
+        profileId: leeId,
+        outcome: 'lost',
+        why: 'Went with a cheaper one',
+      }),
+    ).toMatchObject({ outcome: 'lost' });
+    const [after] = await rows<{ status: string; lost_reason: string; mark: string; why: string }>(
+      admin(),
+      sql`select l.status::text as status, l.lost_reason, s.mark, s.why from addon_outreach.profiles p
+          join app.leads l on l.id = p.lead_id
+          join addon_outreach.stages s on s.profile_id = p.id and s.user_id = ${owner.id}
+          where p.id = ${leeId}`,
+    );
+    expect(after).toEqual({
+      status: 'lost',
+      lost_reason: 'Went with a cheaper one',
+      mark: 'lost',
+      why: 'Went with a cheaper one',
+    });
+    expect(await afterDemo()).toBe(false);
+    expect(
+      await refused(
+        runAs(owner, ws, 'outreach.demo.outcome', { profileId: leeId, outcome: 'won' }),
+      ),
+    ).toBe('outreach_lead_decided');
+    const samId = await idOf(kai.profile.username);
+    expect(
+      await refused(
+        runAs(owner, ws, 'outreach.demo.outcome', { profileId: samId, outcome: 'won' }),
+      ),
+    ).toBe('outreach_no_lead');
   });
 
   it('uses the customer’s open lead rather than a second', async () => {

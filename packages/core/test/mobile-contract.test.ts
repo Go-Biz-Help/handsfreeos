@@ -160,6 +160,8 @@ const ONLINE_COMMANDS = [
   'outreach.country.unskip',
   'outreach.messages.edit',
   'outreach.messages.forget',
+  // Won or lost after the demo, on a customer's Social card (decision 106).
+  'outreach.demo.outcome',
   // Feedback on the AI teammate's replies (HANDSFREEOS_AI_FEEDBACK_IMPLEMENTATION_PLAN.md), in a conversation and the
   // test console: a thumbs up or down, the answer to its quick question, and Not now on the rule it suggests.
   'ai_teammate.give_feedback',

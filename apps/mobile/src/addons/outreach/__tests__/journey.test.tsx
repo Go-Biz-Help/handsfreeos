@@ -8,6 +8,8 @@ import * as React from 'react';
 
 import { router } from 'expo-router';
 
+import { change } from '@/changes';
+import { toast } from '@/components/ui/toast';
 import { openWebPath } from '@/home/open';
 
 import { OutreachWorkspace } from '../frame';
@@ -18,7 +20,7 @@ import { id, WS } from './mocks';
 /**
  * How someone came along, on the phone (decision 103): a customer's Social card, with where they stand, the group
  * they were found in (opening its page), the chat's summary and their steps, and their lead in the pipeline
- * (decision 105); and a group's own page of who was found
+ * (decision 105), with won or lost once their demo is done (decision 106); and a group's own page of who was found
  * there and how each turned out, a customer opening their page.
  */
 
@@ -27,6 +29,14 @@ jest.mock('expo-router', () => ({
   useLocalSearchParams: () => ({}),
 }));
 jest.mock('@/home/open', () => ({ openWebPath: jest.fn() }));
+jest.mock('@/changes', () => ({
+  change: jest.fn(async () => ({ id: 'change-1', queued: false })),
+  ChangeError: class extends Error {},
+}));
+jest.mock('@/components/ui/toast', () => ({
+  ...jest.requireActual<object>('@/components/ui/toast'),
+  toast: { show: jest.fn(), error: jest.fn() },
+}));
 jest.mock('@/components/shell/screen', () => ({
   // eslint-disable-next-line @typescript-eslint/no-require-imports
   Screen: require('./mocks').TestScreen,
@@ -38,6 +48,7 @@ const at = (h: number) => new Date(Date.now() - h * 3_600_000).toISOString();
 beforeEach(() => {
   jest.mocked(openWebPath).mockClear();
   jest.mocked(router.push).mockClear();
+  jest.mocked(change).mockClear();
 });
 
 describe('a customer’s Social card', () => {
@@ -117,6 +128,57 @@ describe('a customer’s Social card', () => {
     expect(screen.getByTestId('outreach-social-lead')).toHaveTextContent('In your pipeline: New');
     await fireEvent.press(screen.getByLabelText('In your pipeline: New'));
     expect(router.push).toHaveBeenCalledWith(`/app/w/${WS}/leads/${id(9)}`);
+  });
+
+  it('asks for won or lost once their demo is done, lost with why', async () => {
+    const lead = {
+      leadId: id(9),
+      title: 'Dana Reyes (Facebook)',
+      stage: 'Estimate sent',
+      status: 'open' as const,
+      afterDemo: true,
+    };
+    const onChange = jest.fn();
+    await render(
+      <OutreachSocialBody
+        workspaceId={WS}
+        profiles={[{ ...profile, journey: { ...journey, lead } }]}
+        onChange={onChange}
+      />,
+    );
+    expect(screen.getByTestId('outreach-social-after-demo')).toHaveTextContent(
+      /Their demo is done\. How did it go\?/,
+    );
+    await fireEvent.press(screen.getByTestId('outreach-social-won'));
+    expect(change).toHaveBeenCalledWith('outreach.demo.outcome', {
+      workspaceId: WS,
+      profileId: id(1),
+      outcome: 'won',
+      why: null,
+    });
+    expect(toast.show).toHaveBeenCalledWith('Dana Reyes is won in your pipeline.');
+    expect(onChange).toHaveBeenCalled();
+
+    await fireEvent.press(screen.getByTestId('outreach-social-lost'));
+    await fireEvent.changeText(screen.getByTestId('outreach-social-lost-why'), ' Too dear ');
+    await fireEvent.press(screen.getByTestId('outreach-social-mark-lost'));
+    expect(change).toHaveBeenLastCalledWith('outreach.demo.outcome', {
+      workspaceId: WS,
+      profileId: id(1),
+      outcome: 'lost',
+      why: 'Too dear',
+    });
+  });
+
+  it('asks nothing before the demo', async () => {
+    const lead = { leadId: id(9), title: 'Dana', stage: 'New', status: 'open' as const };
+    await render(
+      <OutreachSocialBody
+        workspaceId={WS}
+        profiles={[{ ...profile, journey: { ...journey, lead } }]}
+      />,
+    );
+    expect(screen.queryByTestId('outreach-social-after-demo')).toBeNull();
   });
 
   it('shows nothing for a customer nobody saved from a network', async () => {

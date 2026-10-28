@@ -151,6 +151,7 @@ export const outreachAddon = defineAddon({
       'outreach.friend.accepted',
       'outreach.lead.wanted',
       'outreach.lead.opened',
+      'outreach.demo.decided',
     ],
     // The last part of a download, and chats read in Messenger, start the AI's read of the chats
     // (apps/worker/src/addons/outreach/chats.ts); group posts worth a look start its check of them (./posts.ts), and
@@ -171,7 +172,8 @@ export const outreachAddon = defineAddon({
     // partner check (decision 81, ./partners.ts). A playbook saved, a network turned on and the day started have the AI
     // write each network's own words for a customers' playbook that has none yet (decision 92, ./words.ts). Someone
     // accepting the person's friend request pushes to their phone, when they switched that on (decision 101, ./alerts.ts).
-    // Someone who wants a demo, or answered the playbook's questions, goes in the main pipeline (decision 105, ./leads.ts).
+    // Someone who wants a demo, or answered the playbook's questions, goes in the main pipeline (decision 105, ./leads.ts);
+    // once they came to the demo, their lead moves on and waits for the person's won or lost (decision 106).
     consumes: [
       'outreach.download.saved',
       'outreach.chats.collected',
@@ -200,6 +202,7 @@ export const outreachAddon = defineAddon({
       'outreach.playbook.saved',
       'outreach.friend.accepted',
       'outreach.lead.wanted',
+      'appointment.completed',
     ],
   },
   jobs: [

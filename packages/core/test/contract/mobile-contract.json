@@ -8423,6 +8423,40 @@
         "required": ["workspaceId", "booked"]
       }
     },
+    "outreach.demo.outcome": {
+      "offline": "online",
+      "input": {
+        "type": "object",
+        "properties": {
+          "workspaceId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "profileId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "outcome": {
+            "type": "string",
+            "enum": ["won", "lost"]
+          },
+          "why": {
+            "default": null,
+            "anyOf": [
+              {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 300
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": ["workspaceId", "profileId", "outcome"]
+      }
+    },
     "outreach.friend.set": {
       "offline": "online",
       "input": {

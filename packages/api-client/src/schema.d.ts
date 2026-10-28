@@ -7137,6 +7137,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/commands/outreach.demo.outcome": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * After someone’s demo, mark their lead in the pipeline won or lost. Lost marks them not a fit too, with why.
+         * @description Risk level 1. Requires outreach.use. Emits outreach.demo.decided.
+         */
+        post: operations["command_outreach_demo_outcome"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/commands/outreach.download.save": {
         parameters: {
             query?: never;
@@ -39747,6 +39767,46 @@ export interface operations {
                 content: {
                     "application/json": {
                         booked: boolean;
+                        /** Format: uuid */
+                        profileId: string;
+                    };
+                };
+            };
+        };
+    };
+    command_outreach_demo_outcome: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** @enum {string} */
+                    outcome: "won" | "lost";
+                    /** Format: uuid */
+                    profileId: string;
+                    /** @default null */
+                    why?: string | null;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        leadId: string;
+                        /** @enum {string} */
+                        outcome: "won" | "lost";
                         /** Format: uuid */
                         profileId: string;
                     };
@@ -74284,6 +74344,7 @@ export interface operations {
                                     url: string;
                                 }[];
                                 lead: {
+                                    afterDemo?: boolean;
                                     /** Format: uuid */
                                     leadId: string;
                                     stage: string;

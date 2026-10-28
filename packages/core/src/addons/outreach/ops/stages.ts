@@ -51,7 +51,7 @@ async function keptMarks(ctx: Ctx, me: string, profileId: string) {
 }
 
 /** Keeps marks for one person and profile: a row made the first time. */
-async function keepMarks(
+export async function keepMarks(
   ctx: Ctx,
   me: string,
   profileId: string,

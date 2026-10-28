@@ -5,19 +5,37 @@
  * core's `lead.create`, so it lands in the main pipeline's first stage.
  */
 import { and, asc, desc, eq, isNull } from 'drizzle-orm';
-import { leads, people, pipelines, pipelineStages } from '@hfos/db/schema';
+import { leads, people, pipelines, pipelineStages, workspaces } from '@hfos/db/schema';
 import { rows, sql } from '@hfos/db/client';
+import { automationSettingsOf } from '../../../automations/settings';
 import { leadCreate } from '../../../commands/lead.create';
+import { leadMoveStage } from '../../../commands/lead.move_stage';
+import { leadWaitForOutcome } from '../../../commands/lead.wait_for_outcome';
+import { HfosError } from '../../../errors';
+import { requireHuman } from '../../../kernel/actor';
 import { executeCommandWithin } from '../../../kernel/execute';
 import { changeMoment } from '../../../kernel/moment';
 import type { CommandContext } from '../../../kernel/types';
 import { addonTimelineLine, defineAddonCommand } from '../../server';
-import { LeadOpenInput, LeadOpenOutput, leadSourceOf, leadTitleOf, type LeadSkip } from '../leads';
+import {
+  DEMO_LOST_WHY,
+  DemoHeldInput,
+  DemoHeldOutput,
+  DemoOutcomeInput,
+  DemoOutcomeOutput,
+  LeadOpenInput,
+  LeadOpenOutput,
+  leadSourceOf,
+  leadTitleOf,
+  stageAfterDemo,
+  type LeadSkip,
+} from '../leads';
 import { outreachAddon } from '../manifest';
 import { PLATFORMS } from '../networks';
 import { demos, profiles } from '../tables';
 import { contactable, inWorkspace, isClient, pitchable, saveProfile, type Ctx } from './common';
 import { playbooksInUse } from './friends';
+import { keepMarks } from './stages';
 
 /**
  * Asks for a lead for someone the person `me` reached, when nothing has opened one for them yet: the worker looks
@@ -191,6 +209,8 @@ export const leadOpen = defineAddonCommand(outreachAddon, {
           assigneeUserId: input.userId,
         })
       ).output.leadId;
+    // After the demo, the person says won or lost: a done visit never wins it on its own (decision 106).
+    await executeCommandWithin(ctx, leadWaitForOutcome, { workspaceId: ws, leadId });
     await ctx.tx
       .update(profiles)
       .set({ leadId, leadAt: at, updatedAt: at })
@@ -212,4 +232,147 @@ export const leadOpen = defineAddonCommand(outreachAddon, {
   },
 });
 
-export const leadCommands = [leadOpen] as const;
+/** A lead's pipeline's stages, as Automations' roles read them. */
+async function stagesOf(ctx: Ctx, pipelineId: string) {
+  return (
+    await ctx.tx
+      .select({
+        id: pipelineStages.id,
+        name: pipelineStages.name,
+        kind: pipelineStages.kind,
+        position: pipelineStages.position,
+      })
+      .from(pipelineStages)
+      .where(eq(pipelineStages.pipelineId, pipelineId))
+  ).map((s) => ({ ...s, position: Number(s.position) }));
+}
+
+export const demoHeld = defineAddonCommand(outreachAddon, {
+  name: 'outreach.demo.held',
+  description:
+    'Worker: a demo booked through a person’s demo link was done and they came. Their lead in the pipeline moves on past the stage for a visit booked, and waits for the person to mark it won or lost.',
+  risk: 1,
+  input: DemoHeldInput,
+  output: DemoHeldOutput,
+  permission: 'outreach.use',
+  actors: ['system'],
+  scope: inWorkspace,
+  emits: [],
+  async handler(ctx, input) {
+    const ws = ctx.scope.workspaceId!;
+    // Each lead opened for someone who came to it: a lead still open, in a pipeline still there.
+    const held = await rows<{ lead_id: string; pipeline_id: string; stage_id: string }>(
+      ctx.tx,
+      sql`select distinct l.id as lead_id, l.pipeline_id, l.stage_id
+          from addon_outreach.demos d
+          join addon_outreach.profiles p on p.id = d.profile_id
+          join app.leads l on l.id = p.lead_id and l.status = 'open' and l.archived_at is null
+          join app.appointment_attendees aa on aa.appointment_id = d.appointment_id
+            and aa.person_id = d.person_id and aa.status = 'attended'
+          where d.workspace_id = ${ws} and d.appointment_id = ${input.appointmentId}
+            and d.how = 'link' and d.undone_at is null`,
+    );
+    if (!held.length) return { moved: [] };
+    const [w] = await ctx.tx
+      .select({ settings: workspaces.settings })
+      .from(workspaces)
+      .where(eq(workspaces.id, ws));
+    const roles = automationSettingsOf(w?.settings as Record<string, unknown> | null).pipeline
+      .roles;
+    const moved: { leadId: string; stageId: string }[] = [];
+    for (const h of held) {
+      const to = stageAfterDemo(await stagesOf(ctx, h.pipeline_id), roles, h.stage_id);
+      if (!to) continue;
+      await executeCommandWithin(ctx, leadMoveStage, {
+        workspaceId: ws,
+        leadId: h.lead_id,
+        stageId: to.id,
+        because: 'The demo is done',
+      });
+      moved.push({ leadId: h.lead_id, stageId: to.id });
+    }
+    return { moved };
+  },
+});
+
+export const demoOutcome = defineAddonCommand(outreachAddon, {
+  name: 'outreach.demo.outcome',
+  description:
+    'After someone’s demo, mark their lead in the pipeline won or lost. Lost marks them not a fit too, with why.',
+  risk: 1,
+  input: DemoOutcomeInput,
+  output: DemoOutcomeOutput,
+  permission: 'outreach.use',
+  ai: {
+    tool: 'outreach_demo_outcome',
+    keywords: ['demo went well', 'won the deal', 'lost the deal', 'how did the demo go'],
+  },
+  scope: inWorkspace,
+  emits: ['outreach.demo.decided'],
+  async handler(ctx, input) {
+    const me = requireHuman(ctx).userId;
+    const ws = ctx.scope.workspaceId!;
+    const at = changeMoment(ctx.meta);
+    const [profile] = await ctx.tx
+      .select({ id: profiles.id, name: profiles.name, leadId: profiles.leadId })
+      .from(profiles)
+      .where(and(eq(profiles.workspaceId, ws), eq(profiles.id, input.profileId)));
+    if (!profile) throw HfosError.notFound('That person isn’t kept here anymore. Reload the page.');
+    const [lead] = profile.leadId
+      ? await ctx.tx
+          .select({
+            id: leads.id,
+            pipelineId: leads.pipelineId,
+            status: leads.status,
+            archivedAt: leads.archivedAt,
+          })
+          .from(leads)
+          .where(and(eq(leads.workspaceId, ws), eq(leads.id, profile.leadId)))
+      : [];
+    if (!lead || lead.archivedAt)
+      throw HfosError.rule(
+        'outreach_no_lead',
+        409,
+        `${profile.name} has no lead in your pipeline from Social Outreach. Open their customer page to see their deals.`,
+      );
+    if (lead.status !== 'open')
+      throw HfosError.rule(
+        'outreach_lead_decided',
+        409,
+        `${profile.name}’s lead is already ${lead.status}. To change it, open the lead from their customer page.`,
+      );
+    const stage = (await stagesOf(ctx, lead.pipelineId))
+      .filter((s) => s.kind === input.outcome)
+      .sort((a, b) => a.position - b.position)[0];
+    if (!stage)
+      throw HfosError.rule(
+        'outreach_no_outcome_stage',
+        409,
+        `Your pipeline has no ${input.outcome === 'won' ? 'Won' : 'Lost'} stage. Add one in Settings → Pipelines, then try again.`,
+      );
+    const why = input.why ?? DEMO_LOST_WHY;
+    await executeCommandWithin(ctx, leadMoveStage, {
+      workspaceId: ws,
+      leadId: lead.id,
+      stageId: stage.id,
+      ...(input.outcome === 'lost' ? { lostReason: why } : {}),
+    });
+    // Lost after the demo: not a fit for the person's outreach either, in their words.
+    if (input.outcome === 'lost')
+      await keepMarks(ctx, me, profile.id, {
+        mark: 'lost',
+        markedBy: 'person',
+        why,
+        markedAt: at,
+      });
+    await ctx.emit({
+      type: 'outreach.demo.decided',
+      entityType: 'outreach_profile',
+      entityId: profile.id,
+      payload: { leadId: lead.id, outcome: input.outcome },
+    });
+    return { profileId: profile.id, leadId: lead.id, outcome: input.outcome };
+  },
+});
+
+export const leadCommands = [leadOpen, demoHeld, demoOutcome] as const;

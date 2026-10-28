@@ -1,6 +1,11 @@
 import { relativeTimeAgo } from '@hfos/core';
 import { journeyStepWords, type Journey } from '@hfos/core/addons/outreach/journey';
-import { leadWords } from '@hfos/core/addons/outreach/leads';
+import {
+  DEMO_LOST_WHY_MOST,
+  DEMO_OUTCOME_WORDS as D,
+  type DemoOutcome,
+  leadWords,
+} from '@hfos/core/addons/outreach/leads';
 import { PLATFORMS, type Platform } from '@hfos/core/addons/outreach/networks';
 import { STAGES } from '@hfos/core/addons/outreach/stages';
 import { OUTREACH_WORDS as W } from '@hfos/core/addons/outreach/words';
@@ -8,12 +13,15 @@ import { router, type Href } from 'expo-router';
 import * as React from 'react';
 import { Pressable, View } from 'react-native';
 
+import { change, ChangeError } from '@/changes';
 import { businessHref } from '@/components/shell/business-context';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
 import { Text } from '@/components/ui/text';
-import { api, unwrap } from '@/lib/api';
+import { toast } from '@/components/ui/toast';
+import { api, errorMessage, unwrap } from '@/lib/api';
 import { useNetwork } from '@/lib/network';
 
 import { Note, openOutreach, openOutside } from './kit';
@@ -23,6 +31,7 @@ import { Note, openOutreach, openOutside } from './kit';
  * for them, with where they stand and why, the AI's next step, the groups they were found in (each opens its page),
  * the chat's summary and every step either way, the latest first. None of it is in the phone's copy, so it's asked
  * for while there's signal and stays out of the way without; a customer nobody saved from a network shows nothing.
+ * Once their demo is done, their lead waits for the person's won or lost here (decision 106).
  */
 
 /** A profile shows this many of its latest steps until it's opened up. */
@@ -45,6 +54,8 @@ export function OutreachSocialCard({
 }) {
   const { online } = useNetwork();
   const [profiles, setProfiles] = React.useState<readonly SocialProfile[] | null>(null);
+  const [version, setVersion] = React.useState(0);
+  const reload = React.useCallback(() => setVersion((v) => v + 1), []);
   React.useEffect(() => {
     if (!online) return;
     let cancelled = false;
@@ -60,23 +71,26 @@ export function OutreachSocialCard({
     return () => {
       cancelled = true;
     };
-  }, [online, workspaceId, personId]);
-  return <OutreachSocialBody workspaceId={workspaceId} profiles={profiles} />;
+  }, [online, workspaceId, personId, version]);
+  return <OutreachSocialBody workspaceId={workspaceId} profiles={profiles} onChange={reload} />;
 }
 
 export function OutreachSocialBody({
   workspaceId,
   profiles,
+  onChange = () => {},
 }: {
   workspaceId: string;
   profiles: readonly SocialProfile[] | null;
+  /** A lead marked won or lost: the card is asked for again. */
+  onChange?: () => void;
 }) {
   if (!profiles?.length) return null;
   return (
     <Card className="gap-3 px-4 py-3.5" testID="outreach-social">
       <Text className="text-[15px] font-semibold">Social</Text>
       {profiles.map((p) => (
-        <SocialProfileRow key={p.id} workspaceId={workspaceId} profile={p} />
+        <SocialProfileRow key={p.id} workspaceId={workspaceId} profile={p} onChange={onChange} />
       ))}
     </Card>
   );
@@ -85,9 +99,11 @@ export function OutreachSocialBody({
 function SocialProfileRow({
   workspaceId,
   profile: p,
+  onChange,
 }: {
   workspaceId: string;
   profile: SocialProfile;
+  onChange: () => void;
 }) {
   const [all, setAll] = React.useState(false);
   const j = p.journey;
@@ -124,6 +140,9 @@ function SocialProfileRow({
         >
           <Text className="text-[13px] leading-[18px] text-accent-text">{leadWords(j.lead)}</Text>
         </Pressable>
+      ) : null}
+      {j.lead?.afterDemo ? (
+        <AfterDemo workspaceId={workspaceId} profileId={p.id} name={p.name} onChange={onChange} />
       ) : null}
       {j.groups.length ? (
         <View className="flex-row flex-wrap items-center gap-x-1" testID="outreach-social-groups">
@@ -167,6 +186,98 @@ function SocialProfileRow({
       {all && j.moreSteps ? (
         <Note>{`And ${j.moreSteps.toLocaleString()} older ${j.moreSteps === 1 ? 'step' : 'steps'}.`}</Note>
       ) : null}
+    </View>
+  );
+}
+
+/** Won or lost after their demo (`outreach.demo.outcome`), as the web's panel has it; lost asks why, or not. */
+function AfterDemo({
+  workspaceId,
+  profileId,
+  name,
+  onChange,
+}: {
+  workspaceId: string;
+  profileId: string;
+  name: string;
+  onChange: () => void;
+}) {
+  const [busy, setBusy] = React.useState<DemoOutcome | null>(null);
+  const [losing, setLosing] = React.useState(false);
+  const [why, setWhy] = React.useState('');
+  const decide = async (outcome: DemoOutcome) => {
+    setBusy(outcome);
+    try {
+      await change('outreach.demo.outcome', {
+        workspaceId,
+        profileId,
+        outcome,
+        why: outcome === 'lost' && why.trim() ? why.trim() : null,
+      });
+      toast.show(D.done(name, outcome));
+      onChange();
+    } catch (e) {
+      toast.error(e instanceof ChangeError ? e.message : errorMessage(e));
+    } finally {
+      setBusy(null);
+    }
+  };
+  return (
+    <View className="gap-1.5 rounded-card bg-card-2 p-2.5" testID="outreach-social-after-demo">
+      <Note>{D.ask}</Note>
+      {losing ? (
+        <View className="gap-1.5">
+          <Input
+            value={why}
+            onChangeText={setWhy}
+            maxLength={DEMO_LOST_WHY_MOST}
+            placeholder={D.why}
+            accessibilityLabel={D.why}
+            testID="outreach-social-lost-why"
+          />
+          <View className="flex-row gap-2">
+            <Button
+              size="sm"
+              variant="danger"
+              disabled={busy !== null}
+              loading={busy === 'lost'}
+              onPress={() => void decide('lost')}
+              testID="outreach-social-mark-lost"
+            >
+              {D.markLost}
+            </Button>
+            <Button
+              size="sm"
+              variant="ghost"
+              disabled={busy !== null}
+              onPress={() => setLosing(false)}
+            >
+              {D.cancel}
+            </Button>
+          </View>
+        </View>
+      ) : (
+        <View className="flex-row gap-2">
+          <Button
+            size="sm"
+            disabled={busy !== null}
+            loading={busy === 'won'}
+            onPress={() => void decide('won')}
+            testID="outreach-social-won"
+          >
+            {D.won}
+          </Button>
+          <Button
+            size="sm"
+            variant="secondary"
+            disabled={busy !== null}
+            onPress={() => setLosing(true)}
+            testID="outreach-social-lost"
+          >
+            {D.lost}
+          </Button>
+        </View>
+      )}
     </View>
   );
 }

@@ -352,6 +352,7 @@ import {
   CountryUnskipOutput,
 } from '@hfos/core/addons/outreach/countries';
 import { DemoMarkInput, DemoMarkOutput } from '@hfos/core/addons/outreach/demos';
+import { DemoOutcomeInput, DemoOutcomeOutput } from '@hfos/core/addons/outreach/leads';
 import { FriendSetInput, FriendSetOutput } from '@hfos/core/addons/outreach/friends';
 import {
   ComputerRemoveInput,
@@ -629,6 +630,8 @@ export const PHONE_COMMANDS = {
   'outreach.day.start': command(ANYTIME, DayInput, DayOutput),
   'outreach.day.stop': command(ANYTIME, DayInput, DayOutput),
   'outreach.demo.mark': command(ONLINE, DemoMarkInput, DemoMarkOutput),
+  // Won or lost after the demo, on a customer's Social card (decision 106): with signal, as the card is.
+  'outreach.demo.outcome': command(ONLINE, DemoOutcomeInput, DemoOutcomeOutput),
   'outreach.friend.set': command(ONLINE, FriendSetInput, FriendSetOutput),
   'outreach.helpful.ask': command(ONLINE, HelpfulAskInput, HelpfulAskOutput),
   'outreach.helpful.ok': command(ONLINE, HelpfulOkInput, HelpfulChangeOutput),

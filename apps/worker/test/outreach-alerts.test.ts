@@ -11,6 +11,7 @@ import { demoRef, partnerRef } from '@hfos/core/addons/outreach/demos';
 import { nextWeekly } from '@hfos/core/addons/outreach/results';
 import { PLAYBOOK_TEMPLATES } from '@hfos/core/addons/outreach/playbooks';
 import {
+  appointmentSetStatus,
   formCreate,
   formPublish,
   formResponseStart,
@@ -568,6 +569,25 @@ describe('the demo link', () => {
             and status = 'open'`,
     );
     expect(leads.map((l) => l.id)).toEqual([profile!.lead_id]);
+
+    // They came: the lead moves on, and waits for the person's won or lost however Automations moves deals.
+    await run(
+      appointmentSetStatus,
+      { workspaceId: t.wsId, appointmentId: booked.appointmentId, status: 'completed' },
+      t.owner,
+    );
+    await drain(s, t.wsId);
+    const leadNow = () =>
+      rows<{ status: string; stage: string; won_by_hand: boolean }>(
+        admin(),
+        sql`select l.status::text as status, st.name as stage, l.won_by_hand from app.leads l
+            join app.pipeline_stages st on st.id = l.stage_id where l.id = ${profile!.lead_id}`,
+      ).then((r) => r[0]!);
+    const after = await leadNow();
+    expect(after).toMatchObject({ status: 'open', won_by_hand: true });
+    expect(after.stage).not.toBe('New');
+    await runAs(t.owner, t.wsId, 'outreach.demo.outcome', { profileId: quinn!.id, outcome: 'won' });
+    expect(await leadNow()).toMatchObject({ status: 'won', stage: 'Won' });
   }, 90_000);
 });
 
