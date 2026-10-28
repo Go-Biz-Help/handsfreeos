@@ -344,11 +344,6 @@ export interface NotYet {
 
 export const ASSISTANT_NOT_YET: readonly NotYet[] = [
   {
-    page: 'A workflow',
-    actions: ['workflow.save_draft'],
-    why: 'The editor saves a draft as a list of step changes. The Assistant drafts workflows with draft_workflow; changing one step by step needs its own tool.',
-  },
-  {
     page: 'Agency area',
     actions: ['workflow_template.save_draft', 'workspace.join'],
     why: 'A template’s draft saves as step changes, as a workflow’s does; and joining another of the agency’s businesses acts outside the one the Assistant is in.',
@@ -443,6 +438,24 @@ export const SETTING_TOOLS: Readonly<Record<string, readonly SettingWay[]>> = {
     { tool: 'do_calendar_connection_sync_now', field: 'connectionId' },
   ],
   'my_calendar.video': [{ tool: 'do_meeting_connection_disconnect', field: 'connectionId' }],
+  // ---- Workspace ----
+  'workspace.name': [{ tool: 'update_business', field: 'name' }],
+  'workspace.time_zone': [{ tool: 'update_business', field: 'timezone' }],
+  'workspace.industry': [{ tool: 'update_business', field: 'industry' }],
+  'workspace.website': [{ tool: 'update_business', field: 'website' }],
+  'workspace.review_link': [{ tool: 'update_business', field: 'reviewLink' }],
+  'workspace.hours': [{ tool: 'update_business', field: 'openHours' }],
+  // A logo from the person's own computer is theirs to add (look.begin_upload is on the Never list).
+  'workspace.look': [
+    { tool: 'do_look_set', field: 'color' },
+    { tool: 'do_look_set', field: 'removeLogo' },
+  ],
+  'workspace.your_page': [{ tool: 'do_booking_site_set_page', field: 'on' }],
+  'workspace.getting_started': [{ tool: 'do_onboarding_set_enabled', field: 'enabled' }],
+  'workspace.branded_domain': [
+    { tool: 'manage_web_address', field: 'action', value: 'add' },
+    { tool: 'manage_web_address', field: 'action', value: 'remove' },
+  ],
 };
 
 /** Setting rows the Assistant never changes, and why. */
@@ -452,6 +465,7 @@ export const SETTINGS_NEVER: Readonly<Record<string, string>> = {
   'account.passkeys': 'signing in is the person’s own',
   'account.my_cell': 'confirming a cell by answering a call on it',
   'account.delete_account': 'deleting the person’s own account, which only they do',
+  'workspace.delete': 'deleting the whole business for good, which only its owner does',
   'phone.lock': 'a setting of the phone in their hand, set on it',
   'phone.businesses': 'a setting of the phone in their hand, set on it',
   'phone.documents_mobile_data': 'a setting of the phone in their hand, set on it',
@@ -464,7 +478,6 @@ export const SETTINGS_NEVER: Readonly<Record<string, string>> = {
  * the first, says which tool changes each of its rows (adding what's missing), and takes it off.
  */
 export const SETTINGS_NOT_YET: readonly string[] = [
-  'workspace',
   'permissions',
   'automations',
   'safety',
