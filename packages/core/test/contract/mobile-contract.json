@@ -7826,12 +7826,17 @@
                 "properties": {
                   "facebook": {
                     "default": {
-                      "on": true
+                      "on": true,
+                      "young": false
                     },
                     "type": "object",
                     "properties": {
                       "on": {
                         "default": true,
+                        "type": "boolean"
+                      },
+                      "young": {
+                        "default": false,
                         "type": "boolean"
                       }
                     }
@@ -7846,7 +7851,8 @@
                       "collect": true,
                       "joinGroups": true,
                       "watchPosts": true,
-                      "posting": "after_ok"
+                      "posting": "after_ok",
+                      "young": false
                     },
                     "type": "object",
                     "properties": {
@@ -7888,6 +7894,10 @@
                         "default": "after_ok",
                         "type": "string",
                         "enum": ["copy", "after_ok", "own"]
+                      },
+                      "young": {
+                        "default": false,
+                        "type": "boolean"
                       }
                     }
                   },
@@ -7901,7 +7911,8 @@
                       "collect": true,
                       "joinGroups": true,
                       "watchPosts": true,
-                      "posting": "after_ok"
+                      "posting": "after_ok",
+                      "young": false
                     },
                     "type": "object",
                     "properties": {
@@ -7943,6 +7954,10 @@
                         "default": "after_ok",
                         "type": "string",
                         "enum": ["copy", "after_ok", "own"]
+                      },
+                      "young": {
+                        "default": false,
+                        "type": "boolean"
                       }
                     }
                   },
@@ -7956,7 +7971,8 @@
                       "collect": true,
                       "joinGroups": true,
                       "watchPosts": true,
-                      "posting": "after_ok"
+                      "posting": "after_ok",
+                      "young": false
                     },
                     "type": "object",
                     "properties": {
@@ -7998,6 +8014,10 @@
                         "default": "after_ok",
                         "type": "string",
                         "enum": ["copy", "after_ok", "own"]
+                      },
+                      "young": {
+                        "default": false,
+                        "type": "boolean"
                       }
                     }
                   }

@@ -620,7 +620,7 @@ export const live = defineAddonQuery(outreachAddon, {
         counts.get(me) ?? NONE,
         networkLimitsNow(
           platform,
-          slowsNow(warning, now) || auto.wheels.on,
+          slowsNow(warning, now) || auto.slower,
           businessLimitsOn(auto.rules, platform),
         ),
       ),
@@ -722,10 +722,10 @@ export const liveTeam = defineAddonQuery(outreachAddon, {
             kept.find((d) => d.userId === p.user_id),
             today,
           );
-          const { settings, wheels } = auto.of(p.user_id, platform);
+          const { settings, slower: half } = auto.of(p.user_id, platform);
           const { sending } = choicesFor(settings, platform);
           const warning = warned.find((w) => w.user_id === p.user_id);
-          const slower = warning !== undefined || wheels.on;
+          const slower = warning !== undefined || half;
           return {
             userId: p.user_id,
             name: p.full_name || p.email,

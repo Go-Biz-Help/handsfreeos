@@ -36,7 +36,7 @@
  * like a message, with **OK**, **Change** and **Skip**, and Approve all takes it too, but never an answer to a post
  * asking for what the business offers.
  */
-import { wheelsWords } from '@hfos/core/addons/outreach/automation';
+import { freshWords, wheelsWords } from '@hfos/core/addons/outreach/automation';
 import { clockWords } from '@hfos/core/addons/outreach/live';
 import { OPENER_KINDS, openerShort, type DraftOpener } from '@hfos/core/addons/outreach/openers';
 import { warningNote } from '@hfos/core/addons/outreach/tidy';
@@ -61,6 +61,7 @@ import {
   findPostsWordsOn,
   helpfulOn,
   NETWORK_WORDS as NW,
+  requestsHeldWords,
   todayKindsOn,
   todayOpenOf,
 } from '@hfos/core/addons/outreach/network-words';
@@ -238,6 +239,23 @@ export function TodayView({
               className="rounded-card bg-card-2 p-3.5 text-[13px] text-text-2"
             >
               {wheelsWords(today.wheels)}
+            </p>
+          ) : null}
+          {/* None from a server before decision 96. */}
+          {today.fresh?.on ? (
+            <p
+              data-testid="today-fresh"
+              className="rounded-card bg-card-2 p-3.5 text-[13px] text-text-2"
+            >
+              {freshWords(today.fresh, platform)}
+            </p>
+          ) : null}
+          {today.requestsHeld ? (
+            <p
+              data-testid="today-requests-held"
+              className="rounded-card bg-warning-soft p-3.5 text-[13px] text-warning-text"
+            >
+              {requestsHeldWords(today.requestsHeld, platform)}
             </p>
           ) : null}
           {getReady ? (

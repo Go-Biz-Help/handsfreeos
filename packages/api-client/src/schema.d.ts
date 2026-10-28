@@ -39463,7 +39463,8 @@ export interface operations {
                              *       "collect": true,
                              *       "joinGroups": true,
                              *       "watchPosts": true,
-                             *       "posting": "after_ok"
+                             *       "posting": "after_ok",
+                             *       "young": false
                              *     }
                              */
                             alignable?: {
@@ -39494,15 +39495,20 @@ export interface operations {
                                 warmUp?: boolean;
                                 /** @default true */
                                 watchPosts?: boolean;
+                                /** @default false */
+                                young?: boolean;
                             };
                             /**
                              * @default {
-                             *       "on": true
+                             *       "on": true,
+                             *       "young": false
                              *     }
                              */
                             facebook?: {
                                 /** @default true */
                                 on?: boolean;
+                                /** @default false */
+                                young?: boolean;
                             };
                             /**
                              * @default {
@@ -39514,7 +39520,8 @@ export interface operations {
                              *       "collect": true,
                              *       "joinGroups": true,
                              *       "watchPosts": true,
-                             *       "posting": "after_ok"
+                             *       "posting": "after_ok",
+                             *       "young": false
                              *     }
                              */
                             instagram?: {
@@ -39545,6 +39552,8 @@ export interface operations {
                                 warmUp?: boolean;
                                 /** @default true */
                                 watchPosts?: boolean;
+                                /** @default false */
+                                young?: boolean;
                             };
                             /**
                              * @default {
@@ -39556,7 +39565,8 @@ export interface operations {
                              *       "collect": true,
                              *       "joinGroups": true,
                              *       "watchPosts": true,
-                             *       "posting": "after_ok"
+                             *       "posting": "after_ok",
+                             *       "young": false
                              *     }
                              */
                             linkedin?: {
@@ -39587,6 +39597,8 @@ export interface operations {
                                 warmUp?: boolean;
                                 /** @default true */
                                 watchPosts?: boolean;
+                                /** @default false */
+                                young?: boolean;
                             };
                         };
                         /** @default true */
@@ -39640,6 +39652,60 @@ export interface operations {
                 content: {
                     "application/json": {
                         changedBy: string | null;
+                        /**
+                         * @default {
+                         *       "facebook": {
+                         *         "on": false,
+                         *         "from": null,
+                         *         "until": null,
+                         *         "days": 14
+                         *       },
+                         *       "linkedin": {
+                         *         "on": false,
+                         *         "from": null,
+                         *         "until": null,
+                         *         "days": 14
+                         *       },
+                         *       "instagram": {
+                         *         "on": false,
+                         *         "from": null,
+                         *         "until": null,
+                         *         "days": 14
+                         *       },
+                         *       "alignable": {
+                         *         "on": false,
+                         *         "from": null,
+                         *         "until": null,
+                         *         "days": 14
+                         *       }
+                         *     }
+                         */
+                        fresh: {
+                            alignable: {
+                                days: number;
+                                from: string | null;
+                                on: boolean;
+                                until: string | null;
+                            };
+                            facebook: {
+                                days: number;
+                                from: string | null;
+                                on: boolean;
+                                until: string | null;
+                            };
+                            instagram: {
+                                days: number;
+                                from: string | null;
+                                on: boolean;
+                                until: string | null;
+                            };
+                            linkedin: {
+                                days: number;
+                                from: string | null;
+                                on: boolean;
+                                until: string | null;
+                            };
+                        };
                         name: string;
                         networkWheels: {
                             alignable: {
@@ -39719,7 +39785,8 @@ export interface operations {
                             /**
                              * @default {
                              *       "facebook": {
-                             *         "on": true
+                             *         "on": true,
+                             *         "young": false
                              *       },
                              *       "linkedin": {
                              *         "on": false,
@@ -39730,7 +39797,8 @@ export interface operations {
                              *         "collect": true,
                              *         "joinGroups": true,
                              *         "watchPosts": true,
-                             *         "posting": "after_ok"
+                             *         "posting": "after_ok",
+                             *         "young": false
                              *       },
                              *       "instagram": {
                              *         "on": false,
@@ -39741,7 +39809,8 @@ export interface operations {
                              *         "collect": true,
                              *         "joinGroups": true,
                              *         "watchPosts": true,
-                             *         "posting": "after_ok"
+                             *         "posting": "after_ok",
+                             *         "young": false
                              *       },
                              *       "alignable": {
                              *         "on": false,
@@ -39752,7 +39821,8 @@ export interface operations {
                              *         "collect": true,
                              *         "joinGroups": true,
                              *         "watchPosts": true,
-                             *         "posting": "after_ok"
+                             *         "posting": "after_ok",
+                             *         "young": false
                              *       }
                              *     }
                              */
@@ -39767,7 +39837,8 @@ export interface operations {
                                  *       "collect": true,
                                  *       "joinGroups": true,
                                  *       "watchPosts": true,
-                                 *       "posting": "after_ok"
+                                 *       "posting": "after_ok",
+                                 *       "young": false
                                  *     }
                                  */
                                 alignable: {
@@ -39798,15 +39869,20 @@ export interface operations {
                                     warmUp: boolean;
                                     /** @default true */
                                     watchPosts: boolean;
+                                    /** @default false */
+                                    young: boolean;
                                 };
                                 /**
                                  * @default {
-                                 *       "on": true
+                                 *       "on": true,
+                                 *       "young": false
                                  *     }
                                  */
                                 facebook: {
                                     /** @default true */
                                     on: boolean;
+                                    /** @default false */
+                                    young: boolean;
                                 };
                                 /**
                                  * @default {
@@ -39818,7 +39894,8 @@ export interface operations {
                                  *       "collect": true,
                                  *       "joinGroups": true,
                                  *       "watchPosts": true,
-                                 *       "posting": "after_ok"
+                                 *       "posting": "after_ok",
+                                 *       "young": false
                                  *     }
                                  */
                                 instagram: {
@@ -39849,6 +39926,8 @@ export interface operations {
                                     warmUp: boolean;
                                     /** @default true */
                                     watchPosts: boolean;
+                                    /** @default false */
+                                    young: boolean;
                                 };
                                 /**
                                  * @default {
@@ -39860,7 +39939,8 @@ export interface operations {
                                  *       "collect": true,
                                  *       "joinGroups": true,
                                  *       "watchPosts": true,
-                                 *       "posting": "after_ok"
+                                 *       "posting": "after_ok",
+                                 *       "young": false
                                  *     }
                                  */
                                 linkedin: {
@@ -39891,6 +39971,8 @@ export interface operations {
                                     warmUp: boolean;
                                     /** @default true */
                                     watchPosts: boolean;
+                                    /** @default false */
+                                    young: boolean;
                                 };
                             };
                             /** @default true */
@@ -73196,6 +73278,60 @@ export interface operations {
                 content: {
                     "application/json": {
                         changedBy: string | null;
+                        /**
+                         * @default {
+                         *       "facebook": {
+                         *         "on": false,
+                         *         "from": null,
+                         *         "until": null,
+                         *         "days": 14
+                         *       },
+                         *       "linkedin": {
+                         *         "on": false,
+                         *         "from": null,
+                         *         "until": null,
+                         *         "days": 14
+                         *       },
+                         *       "instagram": {
+                         *         "on": false,
+                         *         "from": null,
+                         *         "until": null,
+                         *         "days": 14
+                         *       },
+                         *       "alignable": {
+                         *         "on": false,
+                         *         "from": null,
+                         *         "until": null,
+                         *         "days": 14
+                         *       }
+                         *     }
+                         */
+                        fresh: {
+                            alignable: {
+                                days: number;
+                                from: string | null;
+                                on: boolean;
+                                until: string | null;
+                            };
+                            facebook: {
+                                days: number;
+                                from: string | null;
+                                on: boolean;
+                                until: string | null;
+                            };
+                            instagram: {
+                                days: number;
+                                from: string | null;
+                                on: boolean;
+                                until: string | null;
+                            };
+                            linkedin: {
+                                days: number;
+                                from: string | null;
+                                on: boolean;
+                                until: string | null;
+                            };
+                        };
                         name: string;
                         networkWheels: {
                             alignable: {
@@ -73275,7 +73411,8 @@ export interface operations {
                             /**
                              * @default {
                              *       "facebook": {
-                             *         "on": true
+                             *         "on": true,
+                             *         "young": false
                              *       },
                              *       "linkedin": {
                              *         "on": false,
@@ -73286,7 +73423,8 @@ export interface operations {
                              *         "collect": true,
                              *         "joinGroups": true,
                              *         "watchPosts": true,
-                             *         "posting": "after_ok"
+                             *         "posting": "after_ok",
+                             *         "young": false
                              *       },
                              *       "instagram": {
                              *         "on": false,
@@ -73297,7 +73435,8 @@ export interface operations {
                              *         "collect": true,
                              *         "joinGroups": true,
                              *         "watchPosts": true,
-                             *         "posting": "after_ok"
+                             *         "posting": "after_ok",
+                             *         "young": false
                              *       },
                              *       "alignable": {
                              *         "on": false,
@@ -73308,7 +73447,8 @@ export interface operations {
                              *         "collect": true,
                              *         "joinGroups": true,
                              *         "watchPosts": true,
-                             *         "posting": "after_ok"
+                             *         "posting": "after_ok",
+                             *         "young": false
                              *       }
                              *     }
                              */
@@ -73323,7 +73463,8 @@ export interface operations {
                                  *       "collect": true,
                                  *       "joinGroups": true,
                                  *       "watchPosts": true,
-                                 *       "posting": "after_ok"
+                                 *       "posting": "after_ok",
+                                 *       "young": false
                                  *     }
                                  */
                                 alignable: {
@@ -73354,15 +73495,20 @@ export interface operations {
                                     warmUp: boolean;
                                     /** @default true */
                                     watchPosts: boolean;
+                                    /** @default false */
+                                    young: boolean;
                                 };
                                 /**
                                  * @default {
-                                 *       "on": true
+                                 *       "on": true,
+                                 *       "young": false
                                  *     }
                                  */
                                 facebook: {
                                     /** @default true */
                                     on: boolean;
+                                    /** @default false */
+                                    young: boolean;
                                 };
                                 /**
                                  * @default {
@@ -73374,7 +73520,8 @@ export interface operations {
                                  *       "collect": true,
                                  *       "joinGroups": true,
                                  *       "watchPosts": true,
-                                 *       "posting": "after_ok"
+                                 *       "posting": "after_ok",
+                                 *       "young": false
                                  *     }
                                  */
                                 instagram: {
@@ -73405,6 +73552,8 @@ export interface operations {
                                     warmUp: boolean;
                                     /** @default true */
                                     watchPosts: boolean;
+                                    /** @default false */
+                                    young: boolean;
                                 };
                                 /**
                                  * @default {
@@ -73416,7 +73565,8 @@ export interface operations {
                                  *       "collect": true,
                                  *       "joinGroups": true,
                                  *       "watchPosts": true,
-                                 *       "posting": "after_ok"
+                                 *       "posting": "after_ok",
+                                 *       "young": false
                                  *     }
                                  */
                                 linkedin: {
@@ -73447,6 +73597,8 @@ export interface operations {
                                     warmUp: boolean;
                                     /** @default true */
                                     watchPosts: boolean;
+                                    /** @default false */
+                                    young: boolean;
                                 };
                             };
                             /** @default true */
@@ -76194,6 +76346,20 @@ export interface operations {
                 content: {
                     "application/json": {
                         auto: ("reply" | "warm_lead" | "pitch" | "video" | "opener" | "follow_up" | "check_in" | "reconnect" | "comment" | "warm_up" | "friend_request" | "confirm" | "recommend" | "partner_reply" | "partner_details" | "partner_follow_up" | "partner_ask" | "partner_warm_up")[];
+                        /**
+                         * @default {
+                         *       "on": false,
+                         *       "from": null,
+                         *       "until": null,
+                         *       "days": 14
+                         *     }
+                         */
+                        fresh: {
+                            days: number;
+                            from: string | null;
+                            on: boolean;
+                            until: string | null;
+                        };
                         hasPlaybook: boolean;
                         items: {
                             asking: boolean;
@@ -76304,6 +76470,13 @@ export interface operations {
                             url: string;
                         }[];
                         ready: boolean;
+                        /** @default null */
+                        requestsHeld: {
+                            count: number;
+                            most: number;
+                            /** @enum {string} */
+                            why: "waiting" | "cap";
+                        } | null;
                         /** @enum {string} */
                         sending: "off" | "steps" | "approve_all" | "everything";
                         warning: {

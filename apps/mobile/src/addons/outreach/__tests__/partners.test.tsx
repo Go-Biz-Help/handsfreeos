@@ -249,6 +249,8 @@ describe('a partner’s steps on Today', () => {
       wheels: { on: false, from: null, ok: 0, daysLeft: 0, edits: 0 },
       ready: true,
       week: null,
+      fresh: { on: false, from: null, until: null, days: 14 },
+      requestsHeld: null,
     };
     await render(
       <TodayBody

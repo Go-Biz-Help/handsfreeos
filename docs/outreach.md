@@ -23,8 +23,9 @@ how the AI writes, the chat so far beside a message, Start fresh and the setup's
 (decision 59: four tabs and the gear on the web and the phone, and the panel in HandsFreeOS's look), and the main
 offer's plan (decisions 62 to 70: the playbook's niche, Get ready, the profile's check, the conversation: warm up,
 ask straight out, the video, the link, follow-ups until they answer; the short video's script; and the daily numbers,
-with the day's report and the week's review), and finding people by topic on Instagram, LinkedIn and Alignable
-(decision 92).
+with the day's report and the week's review), finding people by topic on Instagram, LinkedIn and Alignable
+(decision 92), and the safety for new accounts: half limits on a network new to the person, and no new friend
+requests while 200 wait or near the cap (decisions 96 and 97).
 
 The parts below name the tabs they were built on. Since decision 59 those live here: **Today** has the Live tab's
 status, Start my day and Stop for today in a strip (the full day under its **Details**, `?view=live`), Waiting for
@@ -933,7 +934,7 @@ From the plan, not contested: it reads only pages the person opens; group admins
 (as customers: decision 81 lets a partner playbook ask them to partner, each message with the person's OK);
 "Not interested" ends outreach for good; drafts mention only what's really on someone's profile or posts; and the
 starting daily limits per Facebook account are 20 friend requests, 15 first messages, 20 follow-ups, 15 comments, 40
-likes and 1 post, half that for new or quiet accounts.
+likes and 1 post, half that for new or quiet accounts (decision 96).
 
 The owner asked on 10 Oct 2026 for every setting to live in HandsFreeOS, with the extension only doing the work,
 showing what's going on and prompting, the app and the phone live too, and answered the questions the same day
@@ -1304,7 +1305,7 @@ where decisions 37 and 59 put the settings; what they decided stands. Settled to
       off says so. While it's on: the first time's **Allow** in Chrome (every network but Facebook), its training
       wheels, what it does on its own, replies and helpful posts, along the way, on Facebook the extension's three
       switches, and **Your daily limits on** it, read only: the business's own there, halved while its training
-      wheels are on, with its cap in any 7 days and the kit's other limits (`limitsShownOn`). For owners and admins,
+      wheels are on or the person is new there (decision 96, with its "under a year old" switch), with its cap in any 7 days and the kit's other limits (`limitsShownOn`). For owners and admins,
       **For your team on** it: **Your team may use** it (Facebook is always allowed), and its daily limits for each
       person, at most its starting ones.
     - **Every change saves as it's made** (the web's `use-autosave.ts`): no Save button, but the extension's link
@@ -2324,6 +2325,24 @@ where decisions 37 and 59 put the settings; what they decided stands. Settled to
       `hours`). The extension's line for it says the same, and that Start my day starts it now
       (`networkWaitWords`).
 
+96. **Half the daily limits on a network new to the person** (Chris, 28 Oct 2026, "all of your picks": 24a). Each
+    network gets used to someone slowly:
+    - **Half for their first 2 weeks there,** from their first step there taken or noted (`network_starts`, written
+      with the step by `outreach.touch.save`; an earlier one noted later moves it back). Before any step, half.
+      People already going when it came in started at their first step then, so nobody started over.
+    - **2 weeks more for an account under a year old,** a switch on each network's page in Settings, "My Facebook
+      account is under a year old", as the extension can't see an account's age (`young` in each network's choices).
+    - **Halved the same way as training wheels** (`automationOf`'s `slower`): every limit Today, Start my day, tidying,
+      checks and Live use, on that network alone. Today and the network's settings page say so and until when, in the
+      network's name (`freshWords`); `outreach.today` and `outreach.automation` give the `fresh` state.
+97. **No new friend requests while too many wait, or near the cap** (Chris, 28 Oct 2026, "all of your picks": 25).
+    On a network whose requests wait for an answer (not Instagram's follows):
+    - **None while 200 or more of the person's wait** (`REQUESTS_WAITING_MOST`), as networks watch accounts with
+      many. They start again under 200. Tidy up's old requests bring the count down.
+    - **None once their friends there come within 100 of its cap** (`FRIENDS_CAP_ROOM`): 4,900 on Facebook.
+    - **Today says why and what to do** (`requestsHeldWords`, `requestsHeld` on `outreach.today`), on the web and the
+      phone, and leaves the requests and the likes before them off the list, as after a warning.
+
 ## Rules worth knowing before changing anything
 
 - **Nothing is saved until the person presses a button in HandsFreeOS** (an ask, below), except the four steps the
@@ -2750,6 +2769,12 @@ where decisions 37 and 59 put the settings; what they decided stands. Settled to
   change to their settings or training wheels.
 - **Training wheels halve the limits as a warning does** (`slowerFor`), on Today, the activity panel and tidying,
   and they're counted only on OKs while they're on (`countWheels`).
+- **A network new to the person halves them the same way** (decision 96): `automationOf` gives `fresh` and folds it
+  into `slower` beside the wheels, so a new caller of the limits gets it by using `slower`. A network's start is
+  `network_starts`, the person's own, written only by `outreach.touch.save`; tests start everyone 90 days back
+  (`season` in `outreach-fixture.ts`) unless the business is made with `{ newAccounts: true }`.
+- **Friend requests stop at 200 waiting or near the cap** (decision 97, `requestsHeldOn`): Today leaves them and the
+  likes before them off as after a warning, and says why with `requestsHeld`.
 - **A post is checked once, and kept for the person who saw it** (`posts`, by `user_id` and link). Seen again, it's
   only updated; the AI's answer is taken once (`outreach.post.check` changes only a `waiting` post), and an answer it
   can't use marks it `failed`. Today offers it for a week from when it was last seen (`POST_FRESH_DAYS`), never when

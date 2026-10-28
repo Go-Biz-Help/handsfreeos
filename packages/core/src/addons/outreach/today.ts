@@ -33,7 +33,9 @@
  *   from the last week, until the person comments or puts the post aside. As many as today's limit has left.
  *
  * After Facebook warns the person, the limits are halved for a week and friend requests are left off for two days
- * (decision 25).
+ * (decision 25). The limits are half too for the person's first 2 weeks on a network, 4 for an account under a year
+ * old (decision 96); and no new friend requests are listed while 200 of theirs wait for an answer, or once their
+ * friends come within 100 of the network's cap (decision 97).
  *
  * Messages and comments come with AI drafts on request (the worker's `outreach.today.draft` action): in the
  * playbook's tone and words, from what's known about the person, the chat or post so far, and what the extension
@@ -42,9 +44,9 @@
  */
 import { z } from 'zod';
 import { quoteData } from '../../knowledge/prompt';
-import { SEND_KINDS, SENDING_MODE_KEYS, WheelsState } from './automation';
+import { FreshState, NOT_FRESH, SEND_KINDS, SENDING_MODE_KEYS, WheelsState } from './automation';
 import type { DownloadMessage } from './download';
-import { type DailyStep } from './limits';
+import { FRIENDS_CAP_ROOM, REQUESTS_WAITING_MOST, type DailyStep } from './limits';
 import type { MainOfferParts } from '../../main-offer/parts';
 import {
   ANSWER_KEYS,
@@ -241,6 +243,37 @@ export const TodayItem = z.object({
 });
 export type TodayItem = z.output<typeof TodayItem>;
 
+/**
+ * Why no new friend requests are on the list (decision 97): too many of the person's wait for an answer, or their
+ * friends are near the network's cap. Likes before a request wait with them.
+ */
+export const RequestsHeld = z.object({
+  why: z.enum(['waiting', 'cap']),
+  /** How many of theirs wait for an answer, or how many friends they have there. */
+  count: n,
+  /** The line: 200 waiting, or the network's cap less 100. */
+  most: n,
+});
+export type RequestsHeld = z.output<typeof RequestsHeld>;
+
+/**
+ * Whether new friend requests wait on a network (decision 97), from the person's requests waiting for an answer there
+ * and their friends there: null while they don't. A follow network's (Instagram's) follows wait for nobody's answer
+ * and its cap is on those followed, which its own tidying keeps down, so it holds none.
+ */
+export function requestsHeldOn(
+  platform: Platform,
+  counts: { readonly waiting: number; readonly friends: number },
+): RequestsHeld | null {
+  const kit = NETWORKS[platform];
+  if (kit.requestsMessageAfterDays !== null) return null;
+  const most = kit.friendsCap - FRIENDS_CAP_ROOM;
+  if (counts.friends >= most) return { why: 'cap', count: counts.friends, most };
+  if (counts.waiting >= REQUESTS_WAITING_MOST)
+    return { why: 'waiting', count: counts.waiting, most: REQUESTS_WAITING_MOST };
+  return null;
+}
+
 export const TodayOutput = z.object({
   /** Today's steps so far against the daily limits. */
   limits: z.object({
@@ -285,6 +318,10 @@ export const TodayOutput = z.object({
    * last 7 days, and the most. Null on a network with none. Today's `friend_request` limit never goes past what's left.
    */
   week: z.object({ done: n, most: n }).nullable().default(null),
+  /** The network's half limits while the person is new there (decision 96). */
+  fresh: FreshState.default(NOT_FRESH),
+  /** Why no new friend requests are listed (decision 97): null while they are. */
+  requestsHeld: RequestsHeld.nullable().default(null),
 });
 export type TodayOutput = z.output<typeof TodayOutput>;
 

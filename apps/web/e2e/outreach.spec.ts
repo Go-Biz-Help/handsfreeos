@@ -330,10 +330,11 @@ test('the Results tab counts what the extension noted, by group and person, over
   await page.reload();
   await expect(page.getByTestId('outreach-my-dayReport')).toHaveAttribute('aria-checked', 'false');
 
-  // The owner's day against the limits is at the top of Today.
+  // The owner's day against the limits is at the top of Today, each half while Facebook is new to them (decision 96).
   await page.getByTestId('outreach-tab-today').click();
-  await expect(page.getByTestId('today-limit-friend_request')).toContainText('1 of 20');
-  await expect(page.getByTestId('today-limit-first_message')).toContainText('1 of 15');
+  await expect(page.getByTestId('today-fresh')).toContainText('your daily limits there');
+  await expect(page.getByTestId('today-limit-friend_request')).toContainText('1 of 10');
+  await expect(page.getByTestId('today-limit-first_message')).toContainText('1 of 7');
   // The old address of the activity opens Results.
   await page.goto(`/app/w/${workspaceId}/a/outreach?view=activity`);
   await expect(page.getByTestId('outreach-tab-results')).toHaveAttribute('aria-current', 'page');
@@ -778,7 +779,8 @@ test('the groups tab scores saved groups, and today waits for a group’s admins
   await expect(page.getByTestId('ready-playbook')).toHaveAttribute('data-state', 'todo');
   await expect(page.getByTestId('today-read-admins')).toContainText('Austin Small Business Owners');
   await expect(page.getByText('Friend requests need a playbook')).toBeVisible();
-  await expect(page.getByTestId('today-limits')).toContainText('Friend requests0 of 20');
+  // Half while Facebook is new to them (decision 96).
+  await expect(page.getByTestId('today-limits')).toContainText('Friend requests0 of 10');
 });
 
 test('a first-timer is sent to the setup: the main setup, then each network, each step ticked from facts', async ({
@@ -1081,16 +1083,20 @@ test('Settings opens General, LinkedIn’s page and Facebook’s from its menu, 
   );
   await page.keyboard.press('Escape');
   await expect(profileSheet).toHaveCount(0);
-  // The team's daily invitations, typed: saved once it's left, and their own limit follows.
+  // The team's daily invitations, typed: saved once it's left, and their own limit follows, half while LinkedIn is new
+  // to them (decision 96).
   const invites = page.getByTestId('outreach-rules-linkedin-limit-friend_request');
   await expect(invites).toHaveValue('15');
   const limitSaved = saved('addon.save_settings');
   await invites.fill('10');
   await invites.blur();
   expect((await limitSaved).ok()).toBe(true);
+  await expect(page.getByTestId('outreach-my-networks-linkedin-fresh')).toContainText(
+    'New on LinkedIn',
+  );
   await expect(
-    page.getByTestId('outreach-my-networks-linkedin-limit-friend_request'),
-  ).toContainText('10');
+    page.getByTestId('outreach-my-networks-linkedin-limit-friend_request').locator('div').first(),
+  ).toHaveText('5');
   await page.reload();
   await expect(invites).toHaveValue('10');
   await expect(page.getByTestId('outreach-my-networks-linkedin-on')).toHaveAttribute(

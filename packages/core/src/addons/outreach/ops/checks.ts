@@ -256,7 +256,7 @@ export async function perDayFor(
   let found: DayReads = { today: read.found, perDay: 0, room: 0 };
   let held = 0;
   if (kit.foundChecksPerDay !== null) {
-    const slower = warned || (await automationOf(ctx, me, now, platform)).wheels.on;
+    const slower = warned || (await automationOf(ctx, me, now, platform)).slower;
     const most = limitNow(kit.foundChecksPerDay, slower);
     const perDay = shared ? Math.min(most, reads) : most;
     const room = Math.max(0, perDay - read.found);

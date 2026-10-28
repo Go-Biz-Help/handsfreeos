@@ -34,7 +34,7 @@ import { outreachAddon } from '../manifest';
 import { NETWORKS } from '../networks';
 import type { Platform } from '../playbooks';
 import type { NeedStep } from '../waiting-words';
-import { groups, threads, touches } from '../tables';
+import { groups, networkStarts, threads, touches } from '../tables';
 import {
   dontPitchOf,
   neverContactOf,
@@ -322,6 +322,21 @@ export const touchSave = defineAddonCommand(outreachAddon, {
           at,
         })
         .returning({ id: touches.id });
+      // The first step on a network starts the person's 2 weeks at half limits there (decision 96): the earliest
+      // noted, as a step taken offline can arrive after a later one.
+      await ctx.tx
+        .insert(networkStarts)
+        .values({
+          workspaceId: ctx.scope.workspaceId!,
+          userId: me,
+          platform: input.platform,
+          firstAt: at,
+        })
+        .onConflictDoUpdate({
+          target: [networkStarts.workspaceId, networkStarts.userId, networkStarts.platform],
+          set: { firstAt: at },
+          setWhere: sql`${networkStarts.firstAt} > ${at.toISOString()}::timestamptz`,
+        });
       // A like or a comment on someone just found as a partner warms them up (decision 81).
       if (input.kind === 'like' || input.kind === 'comment')
         await notePartnerWarmed(ctx, me, profile.id, at);

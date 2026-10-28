@@ -37,6 +37,7 @@ import {
   RECOMMEND_PER_DAY,
   RECOMMEND_WORDS,
   REQUESTS_WHY,
+  requestsHeldOn,
   TODAY_KIND_KEYS,
   TODAY_MOST,
   TODAY_WINDOW_DAYS,
@@ -203,13 +204,19 @@ export const today = defineAddonQuery(outreachAddon, {
     const warning = await warningOf(ctx, me, input.platform, todayStart, now);
     const done = (await dayCounts(ctx, [me], input.platform, todayStart)).get(me)!;
     // The person's choices, training wheels and limits on this network: each network's are its own.
-    const { choices: settings, wheels, rules } = await automationOf(ctx, me, now, input.platform);
-    // The business's own on this network, halved after a warning there, and on training wheels there.
+    const {
+      choices: settings,
+      wheels,
+      fresh,
+      slower,
+      rules,
+    } = await automationOf(ctx, me, now, input.platform);
+    // The business's own on this network, halved after a warning there, on training wheels there, and while new there.
     const limits = todayLimits(
       done,
       networkLimitsNow(
         input.platform,
-        slowsNow(warning, now) || wheels.on,
+        slowsNow(warning, now) || slower,
         businessLimitsOn(rules, input.platform),
       ),
     );
@@ -231,7 +238,19 @@ export const today = defineAddonQuery(outreachAddon, {
     // Until they're ready (decision 63), the list keeps only replies owed to people who wrote to them, and nothing is
     // done on its own: Get ready shows in place of the rest. Their profile never holds it (decision 90).
     const ready = (await readinessFor(ctx, me, input.platform)).ready;
-    const requestsOff = warning !== null && new Date(warning.requestsFrom).getTime() > now;
+    // No new friend requests while 200 of theirs wait for an answer there, or their friends there near its cap
+    // (decision 97): nor the likes before them, as after a warning.
+    const [mine] = await rows<{ waiting: number; friends: number }>(
+      ctx.tx,
+      sql`select count(*) filter (where f.state = 'request_sent')::int as waiting,
+            count(*) filter (where f.state = 'friends')::int as friends
+          from addon_outreach.friends f
+          join addon_outreach.profiles p on p.id = f.profile_id
+          where f.workspace_id = ${ws} and f.user_id = ${me} and p.platform = ${input.platform}`,
+    );
+    const requestsHeld = requestsHeldOn(input.platform, mine ?? { waiting: 0, friends: 0 });
+    const requestsOff =
+      (warning !== null && new Date(warning.requestsFrom).getTime() > now) || requestsHeld !== null;
     const playbooks = await playbooksInUse(ctx, input.platform);
     // Who the business's country setting lets be reached (decision 61): everything new on the list but a reply owed.
     // Only this network's people: every list of the day is one network's (Chris: each network on its own).
@@ -1519,6 +1538,8 @@ export const today = defineAddonQuery(outreachAddon, {
       wheels,
       ready,
       week,
+      fresh,
+      requestsHeld,
     };
   },
 });

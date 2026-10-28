@@ -681,7 +681,7 @@ export const OUTREACH_WORDS = {
     allowed:
       'Doing everything themselves, and every reply waiting, are always allowed. Someone whose choice you stop allowing steps back to the nearest one you do.',
     limits:
-      'Up to the starting limits, which keep a Facebook account safe. Halved for a week after a warning, and on training wheels.',
+      'Up to the starting limits, which keep a Facebook account safe. Halved for someone’s first 2 weeks there, for a week after a warning, and on training wheels.',
     defaults: 'Until they save their own.',
     contacts:
       'Each chat brought in from Facebook is read for a summary and your playbooks’ tags, and shows on the Chats tab. This says who also goes in Contacts.',

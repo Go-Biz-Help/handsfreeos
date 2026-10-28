@@ -1,6 +1,8 @@
 import {
   businessLimitsOn,
   choicesFor,
+  freshWords,
+  NOT_FRESH,
   OTHER_PLATFORMS,
   wheelsWords,
   type AutomationOutput,
@@ -104,7 +106,9 @@ export function NetworkMine({
   const set = (change: Parameters<typeof withNetwork>[2]) =>
     form.change((v) => withNetwork(v, p, change));
   const wheels = wheelsOf(automation, p);
-  const limits = networkLimitsNow(p, wheels.on, businessLimitsOn(automation.rules, p));
+  // Half limits while they're new there (decision 96), none from a server before it.
+  const fresh = automation.fresh?.[p] ?? NOT_FRESH;
+  const limits = networkLimitsNow(p, wheels.on || fresh.on, businessLimitsOn(automation.rules, p));
   const words = dailyWordsOn(p);
   const disabled = !online;
   return (
@@ -131,6 +135,9 @@ export function NetworkMine({
         <>
           {wheels.on && !isLooking(p) ? (
             <Note testID={`${testID}-wheels`}>{wheelsWords(wheels)}</Note>
+          ) : null}
+          {fresh.on && !isLooking(p) ? (
+            <Note testID={`${testID}-fresh`}>{freshWords(fresh, p)}</Note>
           ) : null}
           <NetworkComputer
             platform={p}
@@ -195,6 +202,14 @@ export function NetworkMine({
                     </View>
                   ))}
                 </View>
+                <Tick
+                  label={NW.young(name)}
+                  about={NW.youngAbout(name)}
+                  checked={choices.young}
+                  onChange={(young) => set({ young })}
+                  disabled={disabled}
+                  testID={`${testID}-young`}
+                />
               </Section>
             </>
           )}

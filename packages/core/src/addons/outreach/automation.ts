@@ -16,6 +16,8 @@
  *   has OK'd 25 messages, every message waits for them anyway, and their daily limits are half. More than 3 changed
  *   of the last 10 they OK'd keeps them on. An owner or admin can end them early; a warning from Facebook puts them
  *   back on for 7 days.
+ * - **New on a network** (decision 96): its daily limits are half for the first 2 weeks after the first step taken or
+ *   noted there for the person, and 2 more weeks when they said the account is under a year old (`young`).
  * - **When** (decision 28): in the person's working hours (9 to 5, Monday to Friday, to start), in the business's time
  *   zone, at random times; and when they press **Start my day**.
  * - **Like a post first** (decision 33): someone is sent a friend request only a day or more after one of their posts
@@ -43,7 +45,13 @@
  */
 import { z } from 'zod';
 import { addDays, localDateOf, localInstant, zonedParts } from '../../calendar/engine/zoned';
-import { DAILY_LIMITS, DAILY_STEPS, type DailyStep } from './limits';
+import {
+  DAILY_LIMITS,
+  DAILY_STEPS,
+  NEW_NETWORK_DAYS,
+  YOUNG_ACCOUNT_DAYS,
+  type DailyStep,
+} from './limits';
 import { NETWORKS, PLATFORM_KEYS, PLATFORMS, runsOnItsOwn, type Platform } from './networks';
 import type { TodayKind } from './today';
 import { Voice, VOICE_DEFAULTS } from './voice';
@@ -134,6 +142,11 @@ export const NetworkChoices = z.object({
   joinGroups: z.boolean().default(true),
   watchPosts: z.boolean().default(true),
   posting: z.enum(POSTING_MODE_KEYS).default('after_ok'),
+  /**
+   * The person's account there is under a year old (decision 96): its limits stay half 2 weeks longer. The person
+   * says so, as the extension can't see an account's age. Off to start.
+   */
+  young: z.boolean().default(false),
 });
 export type NetworkChoices = z.output<typeof NetworkChoices>;
 export const NETWORK_CHOICES_DEFAULTS: NetworkChoices = NetworkChoices.parse({});
@@ -144,7 +157,9 @@ export const OTHER_PLATFORMS = PLATFORM_KEYS.filter((p) => p !== 'facebook') as 
 
 /** Which networks the person works, and each other network's choices. Facebook's choices are the ones beside it. */
 export const NetworksSettings = z.object({
-  facebook: z.object({ on: z.boolean().default(true) }).default({ on: true }),
+  facebook: z
+    .object({ on: z.boolean().default(true), young: z.boolean().default(false) })
+    .default({ on: true, young: false }),
   linkedin: NetworkChoices.default(NETWORK_CHOICES_DEFAULTS),
   instagram: NetworkChoices.default(NETWORK_CHOICES_DEFAULTS),
   alignable: NetworkChoices.default(NETWORK_CHOICES_DEFAULTS),
@@ -197,6 +212,7 @@ export function choicesFor(settings: AutomationSettings, platform: Platform): Ne
     settings;
   return {
     on: settings.networks.facebook.on,
+    young: settings.networks.facebook.young,
     sending,
     replies,
     warmUp,
@@ -494,6 +510,50 @@ export function wheelsState(kept: WheelsKept, now: number, matter = true): Wheel
   };
 }
 
+/**
+ * Where a network's half limits for someone new there stand (decision 96): from the first step the extension took or
+ * noted there for them, 2 weeks, and 2 more for an account under a year old.
+ */
+export const FreshState = z.object({
+  /** Its daily limits are half: the network is new to the extension for them, or their account there is young. */
+  on: z.boolean(),
+  /** The first step taken or noted there for them; null before there's one. */
+  from: z.iso.datetime().nullable(),
+  /** When the half limits end; null before the first step there. */
+  until: z.iso.datetime().nullable(),
+  /** How many days they last from the first step: 14, or 28 for an account under a year old. */
+  days: z.number().int().min(0),
+});
+export type FreshState = z.output<typeof FreshState>;
+/** A network long past its first weeks: what a server from before decision 96 gives. */
+export const NOT_FRESH: FreshState = { on: false, from: null, until: null, days: NEW_NETWORK_DAYS };
+
+export function freshState(first: Date | string | null, young: boolean, now: number): FreshState {
+  const days = NEW_NETWORK_DAYS + (young ? YOUNG_ACCOUNT_DAYS : 0);
+  if (first === null) return { on: true, from: null, until: null, days };
+  const from = new Date(first);
+  const until = new Date(from.getTime() + days * 86_400_000);
+  return {
+    on: now < until.getTime(),
+    from: from.toISOString(),
+    until: until.toISOString(),
+    days,
+  };
+}
+
+/** Where a network's half limits for someone new there stand, in words for the person. */
+export function freshWords(state: FreshState, platform: Platform): string {
+  const name = PLATFORMS[platform];
+  if (state.until === null)
+    return `New on ${name}: your daily limits there start at half, for your first ${Math.round(state.days / 7)} weeks, so ${name} gets used to you slowly.`;
+  const day = new Date(state.until).toLocaleDateString('en-US', {
+    weekday: 'long',
+    month: 'long',
+    day: 'numeric',
+  });
+  return `New on ${name}: your daily limits there are half until ${day}, so ${name} gets used to you slowly.`;
+}
+
 /** Where training wheels stand, in words for the person. */
 export function wheelsWords(state: WheelsState): string {
   const left = [
@@ -532,6 +592,20 @@ export const AutomationOutput = z.object({
     instagram: WheelsState,
     alignable: WheelsState,
   }),
+  /** Each network's half limits for someone new there (decision 96). */
+  fresh: z
+    .object({
+      facebook: FreshState,
+      linkedin: FreshState,
+      instagram: FreshState,
+      alignable: FreshState,
+    })
+    .default({
+      facebook: NOT_FRESH,
+      linkedin: NOT_FRESH,
+      instagram: NOT_FRESH,
+      alignable: NOT_FRESH,
+    }),
   /** Whose they are. */
   userId: z.uuid(),
   name: z.string(),
