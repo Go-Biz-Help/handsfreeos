@@ -73109,6 +73109,11 @@ export interface operations {
                             via: ("web" | "mobile" | "extension") | null;
                             why: ("person" | "warning") | null;
                         };
+                        hours?: {
+                            days: number[];
+                            end: number;
+                            start: number;
+                        };
                         limits: {
                             comment: {
                                 done: number;

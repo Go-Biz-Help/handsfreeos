@@ -43,6 +43,12 @@ const world = vi.hoisted(() => ({
   hfos: {} as Record<string, (ask: Record<string, unknown>) => unknown>,
   /** The person's Instagram choices. */
   choices: {} as Record<string, unknown>,
+  /** The person's working hours (the same on every network). */
+  hours: { start: 9, end: 17, days: [1, 2, 3, 4, 5] } as {
+    start: number;
+    end: number;
+    days: number[];
+  },
 }));
 
 vi.mock('../src/hfos/session', () => {
@@ -83,7 +89,11 @@ vi.mock('../src/hfos/follow', () => ({
   follow: async () => undefined,
   loadSettings: async () => ({
     timezone: 'America/Chicago',
-    settings: { voice: { split: true }, networks: { instagram: world.choices } },
+    settings: {
+      voice: { split: true },
+      hours: world.hours,
+      networks: { instagram: world.choices },
+    },
   }),
 }));
 vi.mock('../src/hfos/noting', async (original) => ({
@@ -288,6 +298,14 @@ const sentOn = (sent: string[]) => (doc: Document) => {
 // ------------------------------------------------------------------------------------------------- the day
 
 const today = () => new Date().toLocaleDateString('en-CA', { timeZone: 'America/Chicago' });
+/** Working hours that leave out today: nothing goes on its own unless a test says. */
+const notToday = () => {
+  const weekday = new Date(
+    new Date().toLocaleString('en-US', { timeZone: 'America/Chicago' }),
+  ).getDay();
+  return { start: 9, end: 17, days: [0, 1, 2, 3, 4, 5, 6].filter((d) => d !== weekday) };
+};
+const ALL_DAY = { start: 0, end: 24, days: [0, 1, 2, 3, 4, 5, 6] };
 const day = (state: 'none' | 'started' | 'stopped') => ({
   date: today(),
   state,
@@ -387,6 +405,7 @@ beforeEach(() => {
   world.pages = () => null;
   world.behave = () => undefined;
   world.choices = { on: true, sending: 'steps', collect: false, warmUp: true };
+  world.hours = notToday();
   store.set(NETWORKS_KEY, {
     facebook: { on: true, allowed: true },
     instagram: { on: true, allowed: true },
@@ -1386,13 +1405,24 @@ describe('its day', () => {
     expect(store.get(WARNED_KEY)).toMatchObject({ instagram: { day: expect.any(String) } });
   });
 
-  it('waits, and sets no alarm, while Instagram’s day isn’t started', async () => {
+  it('waits outside the working hours with nothing pressed, waking at their start', async () => {
     keep(day('none'));
     await instagramTick();
     expect(world.opened).toEqual([]);
-    expect(alarms.has('hfos-auto-instagram')).toBe(false);
+    expect(alarms.get('hfos-auto-instagram')).toBeGreaterThan(Date.now());
     expect((store.get(INSTAGRAM_STATE_KEY) as { line: string }).line).toBe(
-      'Waiting for you to start your day on Instagram: press Start my day for Instagram on Today in HandsFreeOS.',
+      'Starts on its own on Instagram tomorrow at 9:00 AM. To start now, press Start my day for Instagram on Today in HandsFreeOS.',
+    );
+  });
+
+  it('waits after Stop for today till the working hours of a later day', async () => {
+    keep(day('stopped'));
+    world.hours = ALL_DAY;
+    await instagramTick();
+    expect(world.opened).toEqual([]);
+    expect(alarms.get('hfos-auto-instagram')).toBeGreaterThan(Date.now());
+    expect((store.get(INSTAGRAM_STATE_KEY) as { line: string }).line).toBe(
+      'Stopped on Instagram for today. It starts again on its own tomorrow at 12:00 AM.',
     );
   });
 
@@ -1405,45 +1435,52 @@ describe('its day', () => {
     expect(alarms.has('hfos-auto-instagram')).toBe(false);
   });
 
-  it('saves the followers first on Instagram’s first day, then works out who to unfollow', async () => {
-    keep(day('started'));
-    world.pages = (url) =>
-      url === `${IG}/`
-        ? { html: `${MENU}<main><article></article></main>` }
-        : url === `${IG}/me.owner/followers/`
-          ? {
-              html: `${MENU}<div role="dialog"><h1>Followers</h1><div>
+  it.each([
+    { state: 'started', how: 'once its day is started' },
+    { state: 'none', how: 'on its own in the working hours' },
+  ] as const)(
+    'saves the followers first on Instagram’s first day $how, then works out who to unfollow',
+    async ({ state }) => {
+      keep(day(state));
+      world.hours = ALL_DAY;
+      world.pages = (url) =>
+        url === `${IG}/`
+          ? { html: `${MENU}<main><article></article></main>` }
+          : url === `${IG}/me.owner/followers/`
+            ? {
+                html: `${MENU}<div role="dialog"><h1>Followers</h1><div>
                 <div><a href="/dana.reyes/"><span dir="auto">dana.reyes</span></a><span dir="auto">Dana Reyes</span>
                   <button><div dir="auto">Remove</div></button></div></div></div>`,
-            }
-          : null;
-    let lists = NO_LISTS as Record<string, string | null>;
-    world.hfos['hfos-lists'] = () => lists;
-    world.hfos['hfos-lists-saved'] = (ask) => {
-      lists = { ...lists, [`${ask.list as string}At`]: new Date().toISOString() };
-      return lists;
-    };
-    world.hfos['hfos-save-friends'] = () => ({ added: 1 });
-    await instagramTick();
-    expect(world.opened).toEqual([`${IG}/`, `${IG}/me.owner/followers/`]);
-    expect(world.asked.find((a) => a.type === 'hfos-lists')).toMatchObject({
-      platform: 'instagram',
-    });
-    expect(world.asked.find((a) => a.type === 'hfos-save-friends')?.input).toMatchObject({
-      platform: 'instagram',
-      list: 'friends',
-      people: [{ name: 'Dana Reyes', profile: { username: 'dana.reyes' } }],
-    });
-    expect(world.asked.find((a) => a.type === 'hfos-lists-saved')).toMatchObject({
-      list: 'friends',
-      platform: 'instagram',
-    });
-    expect(alarms.has('hfos-auto-instagram')).toBe(true);
-    // Next, who to unfollow, worked out for the person to tick: nothing is unfollowed on its own.
-    const tidy = { do: 'tidy' } as const;
-    expect(beforeDayDoing(tidy, 'instagram')).toBe('Working out who to unfollow on Instagram…');
-    expect(beforeDayLine(tidy, { line: 'x', warned: false }, 'instagram')).toBe('Tidy up: x');
-  });
+              }
+            : null;
+      let lists = NO_LISTS as Record<string, string | null>;
+      world.hfos['hfos-lists'] = () => lists;
+      world.hfos['hfos-lists-saved'] = (ask) => {
+        lists = { ...lists, [`${ask.list as string}At`]: new Date().toISOString() };
+        return lists;
+      };
+      world.hfos['hfos-save-friends'] = () => ({ added: 1 });
+      await instagramTick();
+      expect(world.opened).toEqual([`${IG}/`, `${IG}/me.owner/followers/`]);
+      expect(world.asked.find((a) => a.type === 'hfos-lists')).toMatchObject({
+        platform: 'instagram',
+      });
+      expect(world.asked.find((a) => a.type === 'hfos-save-friends')?.input).toMatchObject({
+        platform: 'instagram',
+        list: 'friends',
+        people: [{ name: 'Dana Reyes', profile: { username: 'dana.reyes' } }],
+      });
+      expect(world.asked.find((a) => a.type === 'hfos-lists-saved')).toMatchObject({
+        list: 'friends',
+        platform: 'instagram',
+      });
+      expect(alarms.has('hfos-auto-instagram')).toBe(true);
+      // Next, who to unfollow, worked out for the person to tick: nothing is unfollowed on its own.
+      const tidy = { do: 'tidy' } as const;
+      expect(beforeDayDoing(tidy, 'instagram')).toBe('Working out who to unfollow on Instagram…');
+      expect(beforeDayLine(tidy, { line: 'x', warned: false }, 'instagram')).toBe('Tidy up: x');
+    },
+  );
 
   it('works its list once its day is started and its lists are saved, a step a go', async () => {
     keep(day('started'));

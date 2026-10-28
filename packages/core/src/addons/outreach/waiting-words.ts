@@ -23,8 +23,7 @@
  * Browser-safe and without zod of its own, and with nothing from ./sends.ts but its types, so the extension's pages
  * stay small: the schemas are in ./waiting.ts.
  */
-import { addDays, localDateOf, localInstant } from '../../calendar/engine/zoned';
-import { inWorkingHours, workWindow, type WorkingHours } from './automation';
+import { inWorkingHours, nextInHours, type WorkingHours } from './automation';
 import type { FitLevel } from './fit';
 import { networkOfLink, NETWORKS, PLATFORMS, withArticle, type Platform } from './networks';
 
@@ -291,20 +290,6 @@ export function newestNudgeAt(kinds: WaitingKinds): number | null {
     .filter((at): at is string => at !== null)
     .map((at) => Date.parse(at));
   return times.length ? Math.max(...times) : null;
-}
-
-/**
- * The first moment from `at` in the person's working hours, looking up to 8 days ahead: `at` itself when it's in
- * them. Null only when no day in that time is a working day, which the hours never allow.
- */
-export function nextInHours(hours: WorkingHours, timeZone: string, at: number): number | null {
-  const date = localDateOf(at, timeZone);
-  for (let d = 0; d <= 8; d++) {
-    // Noon of each day, so a change of clocks never skips a day.
-    const w = workWindow(hours, timeZone, localInstant(addDays(date, d), '12:00', timeZone));
-    if (w && w.to > at) return Math.max(at, w.from);
-  }
-  return null;
 }
 
 export interface BundleTiming {

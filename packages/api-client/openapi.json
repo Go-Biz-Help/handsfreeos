@@ -202799,6 +202799,37 @@
                       ],
                       "additionalProperties": false
                     },
+                    "hours": {
+                      "type": "object",
+                      "properties": {
+                        "start": {
+                          "type": "integer",
+                          "minimum": 0,
+                          "maximum": 23
+                        },
+                        "end": {
+                          "type": "integer",
+                          "minimum": 1,
+                          "maximum": 24
+                        },
+                        "days": {
+                          "minItems": 1,
+                          "maxItems": 7,
+                          "type": "array",
+                          "items": {
+                            "type": "integer",
+                            "minimum": 0,
+                            "maximum": 6
+                          }
+                        }
+                      },
+                      "required": [
+                        "start",
+                        "end",
+                        "days"
+                      ],
+                      "additionalProperties": false
+                    },
                     "steps": {
                       "type": "array",
                       "items": {

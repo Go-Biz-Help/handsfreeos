@@ -36,6 +36,12 @@ const world = vi.hoisted(() => ({
   hfos: {} as Record<string, (ask: Record<string, unknown>) => unknown>,
   /** The person's LinkedIn choices. */
   choices: {} as Record<string, unknown>,
+  /** The person's working hours (the same on every network). */
+  hours: { start: 9, end: 17, days: [1, 2, 3, 4, 5] } as {
+    start: number;
+    end: number;
+    days: number[];
+  },
 }));
 
 vi.mock('../src/hfos/session', () => {
@@ -78,6 +84,7 @@ vi.mock('../src/hfos/follow', () => ({
     timezone: 'America/Chicago',
     settings: {
       voice: { split: false },
+      hours: world.hours,
       networks: { linkedin: world.choices },
     },
   }),
@@ -237,6 +244,14 @@ beforeAll(() => {
 afterAll(() => vi.unstubAllGlobals());
 
 const today = () => new Date().toLocaleDateString('en-CA', { timeZone: 'America/Chicago' });
+/** Working hours that leave out today: nothing goes on its own unless a test says. */
+const notToday = () => {
+  const weekday = new Date(
+    new Date().toLocaleString('en-US', { timeZone: 'America/Chicago' }),
+  ).getDay();
+  return { start: 9, end: 17, days: [0, 1, 2, 3, 4, 5, 6].filter((d) => d !== weekday) };
+};
+const ALL_DAY = { start: 0, end: 24, days: [0, 1, 2, 3, 4, 5, 6] };
 const day = (state: 'none' | 'started' | 'stopped') => ({
   date: today(),
   state,
@@ -308,6 +323,7 @@ beforeEach(() => {
   world.hfos = {};
   world.behave = () => undefined;
   world.choices = { on: true, sending: 'steps', collect: false, posting: 'after_ok' };
+  world.hours = notToday();
   store.set(NETWORKS_KEY, {
     facebook: { on: true, allowed: true },
     linkedin: { on: true, allowed: true },
@@ -731,50 +747,68 @@ describe('what it does on LinkedIn’s list', () => {
 });
 
 describe('its day', () => {
-  it('waits, and sets no alarm, while LinkedIn’s day isn’t started', async () => {
+  it('waits outside the working hours with nothing pressed, waking at their start', async () => {
     keep(day('none'));
     await linkedInTick();
     expect(world.opened).toEqual([]);
-    expect(alarms.has('hfos-auto-linkedin')).toBe(false);
+    expect(alarms.get('hfos-auto-linkedin')).toBeGreaterThan(Date.now());
     expect((store.get(LINKEDIN_STATE_KEY) as { line: string }).line).toBe(
-      'Waiting for you to start your day on LinkedIn: press Start my day for LinkedIn on Today in HandsFreeOS.',
+      'Starts on its own on LinkedIn tomorrow at 9:00 AM. To start now, press Start my day for LinkedIn on Today in HandsFreeOS.',
     );
   });
 
-  it('saves the connections first on LinkedIn’s first day, noting them as LinkedIn’s', async () => {
-    keep(day('started'));
-    world.pages = () => ({ fixture: 'linkedin-connections.html' });
-    const lists = {
-      friendsAt: null,
-      requestsAt: null,
-      sentAt: null,
-      groupsAt: null,
-      groupChecksAt: null,
-      tidyAt: null,
-      checksAt: null,
-    };
-    world.hfos['hfos-lists'] = () => lists;
-    world.hfos['hfos-lists-saved'] = () => ({ ...lists, friendsAt: new Date().toISOString() });
-    world.hfos['hfos-save-friends'] = (ask) => ({
-      saved: (ask.input as { people: unknown[] }).people.length,
-      added: 0,
-      changed: 0,
-    });
+  it('waits after Stop for today till the working hours of a later day', async () => {
+    keep(day('stopped'));
+    world.hours = ALL_DAY;
     await linkedInTick();
-    expect(world.opened).toEqual([`${LI}/mynetwork/invite-connect/connections/`]);
-    expect(world.asked.find((a) => a.type === 'hfos-lists')).toMatchObject({
-      platform: 'linkedin',
-    });
-    expect(world.asked.find((a) => a.type === 'hfos-save-friends')?.input).toMatchObject({
-      platform: 'linkedin',
-      list: 'friends',
-    });
-    expect(world.asked.find((a) => a.type === 'hfos-lists-saved')).toMatchObject({
-      list: 'friends',
-      platform: 'linkedin',
-    });
-    expect(alarms.has('hfos-auto-linkedin')).toBe(true);
+    expect(world.opened).toEqual([]);
+    expect(alarms.get('hfos-auto-linkedin')).toBeGreaterThan(Date.now());
+    expect((store.get(LINKEDIN_STATE_KEY) as { line: string }).line).toBe(
+      'Stopped on LinkedIn for today. It starts again on its own tomorrow at 12:00 AM.',
+    );
   });
+
+  it.each([
+    { state: 'started', how: 'once its day is started' },
+    { state: 'none', how: 'on its own in the working hours' },
+  ] as const)(
+    'saves the connections first on LinkedIn’s first day $how, noting them as LinkedIn’s',
+    async ({ state }) => {
+      keep(day(state));
+      world.hours = ALL_DAY;
+      world.pages = () => ({ fixture: 'linkedin-connections.html' });
+      const lists = {
+        friendsAt: null,
+        requestsAt: null,
+        sentAt: null,
+        groupsAt: null,
+        groupChecksAt: null,
+        tidyAt: null,
+        checksAt: null,
+      };
+      world.hfos['hfos-lists'] = () => lists;
+      world.hfos['hfos-lists-saved'] = () => ({ ...lists, friendsAt: new Date().toISOString() });
+      world.hfos['hfos-save-friends'] = (ask) => ({
+        saved: (ask.input as { people: unknown[] }).people.length,
+        added: 0,
+        changed: 0,
+      });
+      await linkedInTick();
+      expect(world.opened).toEqual([`${LI}/mynetwork/invite-connect/connections/`]);
+      expect(world.asked.find((a) => a.type === 'hfos-lists')).toMatchObject({
+        platform: 'linkedin',
+      });
+      expect(world.asked.find((a) => a.type === 'hfos-save-friends')?.input).toMatchObject({
+        platform: 'linkedin',
+        list: 'friends',
+      });
+      expect(world.asked.find((a) => a.type === 'hfos-lists-saved')).toMatchObject({
+        list: 'friends',
+        platform: 'linkedin',
+      });
+      expect(alarms.has('hfos-auto-linkedin')).toBe(true);
+    },
+  );
 
   it('puts today’s helpful post up on their own feed when LinkedIn posting is its own', async () => {
     keep(day('started'));

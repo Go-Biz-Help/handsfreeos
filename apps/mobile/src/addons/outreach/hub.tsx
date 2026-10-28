@@ -1,12 +1,12 @@
 import { DAILY_STEPS } from '@hfos/core/addons/outreach/limits';
 import {
-  dayWords,
   isOffline,
   offlineWords,
   seenWords,
   SHOWN_STATES,
   shownState,
   stateTone,
+  todayWords,
   type LiveDay,
 } from '@hfos/core/addons/outreach/live';
 import { askableOn } from '@hfos/core/addons/outreach/asks';
@@ -300,7 +300,7 @@ export function LiveStrip({
   const offline = computer !== null && isOffline(computer.lastSeenAt, now);
   const words = dailyWordsOn(platform);
   const steps = DAILY_STEPS.filter((s) => live.limits[s].most > 0);
-  const said = dayWords(day, tz, live.lists, platform);
+  const said = todayWords({ ...live, day }, platform, now);
   const full = !many || shown;
   return (
     <Card

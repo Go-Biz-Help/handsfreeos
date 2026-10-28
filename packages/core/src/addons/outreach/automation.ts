@@ -42,7 +42,7 @@
  * Browser-safe: the extension, the web and the API read it.
  */
 import { z } from 'zod';
-import { localDateOf, localInstant, zonedParts } from '../../calendar/engine/zoned';
+import { addDays, localDateOf, localInstant, zonedParts } from '../../calendar/engine/zoned';
 import { DAILY_LIMITS, DAILY_STEPS, type DailyStep } from './limits';
 import { NETWORKS, PLATFORM_KEYS, PLATFORMS, runsOnItsOwn, type Platform } from './networks';
 import type { TodayKind } from './today';
@@ -640,6 +640,32 @@ export function workWindow(
     from: localInstant(date, clock(hours.start), timeZone),
     to: localInstant(date, clock(hours.end), timeZone),
   };
+}
+
+/**
+ * The first moment from `at` in the person's working hours, looking up to 8 days ahead: `at` itself when it's in
+ * them. Null only when no day in that time is a working day, which the hours never allow.
+ */
+export function nextInHours(hours: WorkingHours, timeZone: string, at: number): number | null {
+  const date = localDateOf(at, timeZone);
+  for (let d = 0; d <= 8; d++) {
+    // Noon of each day, so a change of clocks never skips a day.
+    const w = workWindow(hours, timeZone, localInstant(addDays(date, d), '12:00', timeZone));
+    if (w && w.to > at) return Math.max(at, w.from);
+  }
+  return null;
+}
+
+/**
+ * Where a day stopped for today starts again: the first moment of the person's working hours on a later day than
+ * `today` (the business's, "2026-10-09"). Null only as `nextInHours` is.
+ */
+export function startAfterToday(
+  hours: WorkingHours,
+  timeZone: string,
+  today: string,
+): number | null {
+  return nextInHours(hours, timeZone, localInstant(addDays(today, 1), '00:00', timeZone));
 }
 
 /** The business's day at a moment: "2026-10-09". */
