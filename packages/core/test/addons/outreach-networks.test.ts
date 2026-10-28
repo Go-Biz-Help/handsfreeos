@@ -1594,6 +1594,67 @@ describe('growing on LinkedIn', () => {
     expect(await today('linkedin')).toContain('warm_lead: Mo Lane');
     expect(await today()).not.toContain('warm_lead: Mo Lane');
   });
+
+  it('writes one helpful post a week on Instagram, with its picture, posted from the phone', async () => {
+    const sky = await teammate('Sky Ortiz');
+    const asked = (await runAs(sky, ws, 'outreach.helpful.ask', { platform: 'instagram' })) as {
+      helpfulId: string;
+      fresh: boolean;
+    };
+    expect(asked.fresh).toBe(true);
+    const list = async (platform: 'instagram' | 'alignable') =>
+      (await runAs(sky, ws, 'outreach.helpful', { platform })) as {
+        posts: { helpfulId: string; how: string; state: string; picture: string | null }[];
+        every: number;
+        posting: string;
+      };
+    // Whatever their posting choice, Instagram's is copied and posted from the phone.
+    expect(await list('instagram')).toMatchObject({ every: 7, posting: 'copy' });
+    await runAsSystem(ws, 'outreach.helpful.draft', {
+      helpfulId: asked.helpfulId,
+      draft: {
+        allowed: true,
+        topic: 'Following up',
+        text: 'Most jobs are won in the follow-up. #smallbusiness',
+        why: 'People ask how to follow up',
+        picture: 'Your notebook of follow-up dates on the dashboard',
+      },
+    });
+    expect((await list('instagram')).posts[0]).toMatchObject({
+      how: 'copy',
+      state: 'draft',
+      picture: 'Your notebook of follow-up dates on the dashboard',
+    });
+    expect(
+      await refused(runAs(sky, ws, 'outreach.helpful.ok', { helpfulId: asked.helpfulId })),
+    ).toBe('outreach_helpful_phone');
+    await runAs(sky, ws, 'outreach.helpful.posted', { helpfulId: asked.helpfulId, posted: true });
+    // One a week: the next waits till its week is done.
+    expect(await refused(runAs(sky, ws, 'outreach.helpful.ask', { platform: 'instagram' }))).toBe(
+      'outreach_helpful_week',
+    );
+    await admin().execute(
+      sql`update addon_outreach.helpful set asked_at = asked_at - interval '7 days'
+          where id = ${asked.helpfulId}`,
+    );
+    expect(await runAs(sky, ws, 'outreach.helpful.ask', { platform: 'instagram' })).toMatchObject({
+      fresh: true,
+    });
+
+    // Alignable's is for their own profile, OK'd for their computer, and never goes on its own.
+    const onAlignable = (await runAs(sky, ws, 'outreach.helpful.ask', {
+      platform: 'alignable',
+    })) as { helpfulId: string };
+    expect(await list('alignable')).toMatchObject({ every: 7, posting: 'after_ok' });
+    await runAsSystem(ws, 'outreach.helpful.draft', {
+      helpfulId: onAlignable.helpfulId,
+      draft: { allowed: true, topic: 'Follow-ups', text: 'A tip for local owners.', why: 'Asked' },
+    });
+    expect(
+      await runAs(sky, ws, 'outreach.helpful.ok', { helpfulId: onAlignable.helpfulId }),
+    ).toMatchObject({ state: 'approved' });
+    expect((await list('alignable')).posts[0]).toMatchObject({ how: 'after_ok', picture: null });
+  });
 });
 
 describe('LinkedIn’s data file', () => {

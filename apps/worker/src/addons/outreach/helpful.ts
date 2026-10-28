@@ -2,6 +2,8 @@
  * Helpful posts in the groups (docs/outreach.md, decision 50): when the person asks for the day's
  * (`outreach.helpful.asked`), the AI writes one for the group picked, from the playbook and what people there asked
  * lately (the posts kept from it), after reading the group's About tab and rules; or says the rules don't allow one.
+ * Off Facebook it goes on the person's own feed; on Instagram it's the week's caption and the picture to take for it
+ * (decision 109).
  * Core holds what the model is asked and what it may answer (packages/core/src/addons/outreach/helpful.ts), and
  * `outreach.helpful.draft` keeps it.
  *
@@ -12,7 +14,7 @@
 import {
   checkedHelpful,
   HELPFUL_ASKED_MOST,
-  HELPFUL_SCHEMA,
+  helpfulSchemaOn,
   helpfulSystem,
   HelpfulAnswer,
   type HelpfulDraftInput,
@@ -138,15 +140,18 @@ export async function draftHelpfulJob(ctx: AddonJobContext): Promise<JobResult> 
               platform: h.platform,
               asked: found.asked.get(h.group_id ?? `${h.user_id}:${h.platform}`) ?? [],
               emoji: h.emoji ?? false,
+              // On Instagram a few of the playbook's own hashtags may close it (decision 109).
+              hashtags:
+                h.platform === 'instagram' && read?.success ? (read.data.hashtags ?? []) : [],
             }),
           },
         ],
-        schema: HELPFUL_SCHEMA,
+        schema: helpfulSchemaOn(h.platform),
         zod: HelpfulAnswer,
         maxTokens: 700,
         usage: { source: 'addon', addonId: ctx.manifest.id },
       });
-      draft = checkedHelpful(value);
+      draft = checkedHelpful(value, h.platform);
     } catch (e) {
       if (!(e instanceof AiAskError)) throw e;
       if (e.code === 'budget_reached' || e.code === 'wallet_empty')

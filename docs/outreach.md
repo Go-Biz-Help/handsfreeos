@@ -2552,6 +2552,24 @@ where decisions 37 and 59 put the settings; what they decided stands. Settled to
         (`fitsOccasion`). A note never moves their conversation on (`noteSent`).
       - **It always waits for the person's OK**, whatever Sending says, and **Approve all** leaves it (`goesAsItIs`,
         `OCCASION_WORDS.needsYou`). There's no setting to turn notes off: **Skip** takes one away.
+109.  **A weekly helpful post on Instagram and Alignable** (Chris, 28 Oct 2026, "all of your picks": 9a). "Once a week
+      each. On Instagram the AI writes the caption and says what picture to take, and you post it from your phone. On
+      Alignable the extension posts it after your OK."
+      - **One a week on each, on the person's own account** (`HELPFUL_EVERY_DAYS`, 7; Facebook and LinkedIn stay one a
+        day). The week is the business's six days before today and today: asked again inside it, the one there is
+        comes back, or once it's up `outreach_helpful_week` says how many days till the next one.
+      - **Asked for once a day by the extension** (0.101.0, `weekly_post` after who engaged, `src/jobs/weekly-post.ts`):
+        the AI writes one only when the week's is done with, and the line says so otherwise.
+      - **Instagram's is a caption and the picture to take** (`INSTAGRAM_HELPFUL_SYSTEM`, the `picture` column,
+        20261027016000): under 100 words, up to 3 of the playbook's hashtags at the end, and one photo the person can
+        take today. An answer without the picture is dropped. Today's card shows the picture under the words. It's
+        always copied and posted from the phone (`HELPFUL_MODES_ON`): no OK (`outreach_helpful_phone`), and
+        **I posted it** notes it up.
+      - **Alignable's goes on their own profile after their OK** (`ALIGNABLE_HELPFUL_SYSTEM`): never on its own, so a
+        posting choice of On its own counts as After my OK there (`helpfulHowOn`), and Settings offers only Copy and
+        After my OK. Their OK sends their computer a `post` ask (0.101.0), which writes it in the box on their home
+        page and presses its own Post (`src/networks/alignable/compose.ts`, guessed from Alignable's words and looked
+        for by Check Alignable, `post`). Who engaged comes from their notifications, as before.
 
 ## Rules worth knowing before changing anything
 

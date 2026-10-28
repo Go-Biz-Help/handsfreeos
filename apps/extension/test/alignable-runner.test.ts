@@ -431,8 +431,10 @@ describe('what it does on Alignable’s list', () => {
     }
     // Then who engaged with them, from their notifications.
     expect(nextAlignableDaily({ daily })).toBe('helpful');
-    // Last, the businesses found by topic checked for good fits (decision 92).
-    const all = { ...daily, helpful: 'v' };
+    // Then the week's helpful post asked for (decision 109), and last the businesses found by topic checked for good
+    // fits (decision 92).
+    expect(nextAlignableDaily({ daily: { ...daily, helpful: 'v' } })).toBe('weekly_post');
+    const all = { ...daily, helpful: 'v', weekly_post: 'q' };
     expect(nextAlignableDaily({ daily: all })).toBe('found_checks');
     // And on the 1st of each month, their own profile read (decision 99).
     expect(nextAlignableDaily({ daily: { ...all, found_checks: 'u' } })).toBe('profile');

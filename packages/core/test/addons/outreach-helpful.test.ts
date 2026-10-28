@@ -10,7 +10,17 @@ import { rows, sql } from '@hfos/db/client';
 import { workspaceMemberships } from '@hfos/db/schema';
 import { closeTestDbs, createTestUser, testDbs, type TestUser } from '@hfos/db/testing';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { checkedHelpful, helpfulPrompt } from '../../src/addons/outreach/helpful';
+import { notOnNetworkWords, tooOldFor } from '../../src/addons/outreach/asks';
+import {
+  checkedHelpful,
+  HELPFUL_EVERY_DAYS,
+  HELPFUL_SCHEMA,
+  helpfulHowOn,
+  helpfulPrompt,
+  helpfulSchemaOn,
+  helpfulWhere,
+  helpfulWordsOn,
+} from '../../src/addons/outreach/helpful';
 import { PLAYBOOK_TEMPLATES } from '../../src/addons/outreach/playbooks';
 import { outreachAddonServer } from '../../src/addons/outreach/server';
 import { executeCommand, type CommandDef } from '../../src/server';
@@ -51,10 +61,82 @@ describe('what the AI is asked, and what’s kept of its answer', () => {
         text: 'A tip.\n\n\n\nAnd you?',
         why: ' Asked ',
       }),
-    ).toEqual({ allowed: true, topic: 'Quotes', text: 'A tip.\n\nAnd you?', why: 'Asked' });
+    ).toEqual({
+      allowed: true,
+      topic: 'Quotes',
+      text: 'A tip.\n\nAnd you?',
+      why: 'Asked',
+      picture: null,
+    });
     expect(
       checkedHelpful({ allowed: false, topic: 'Quotes', text: 'ignored', why: 'Only admins post' }),
-    ).toEqual({ allowed: false, topic: 'Quotes', text: '', why: 'Only admins post' });
+    ).toEqual({
+      allowed: false,
+      topic: 'Quotes',
+      text: '',
+      why: 'Only admins post',
+      picture: null,
+    });
+  });
+
+  it('writes Instagram’s week’s post with the picture to take, and Alignable’s for the profile', () => {
+    const prompt = helpfulPrompt({
+      business: 'Pine Street Bakery',
+      playbook: null,
+      group: null,
+      platform: 'instagram',
+      asked: [],
+      hashtags: ['smallbusiness', 'austinbakers'],
+    });
+    expect(prompt).toMatch(/<hashtags>\nsmallbusiness austinbakers\n<\/hashtags>/);
+    expect(prompt).toMatch(
+      /Write one helpful post for their own Instagram account, and say what picture to take for it\.$/,
+    );
+    expect(helpfulSchemaOn('instagram')).toMatchObject({
+      required: expect.arrayContaining(['picture']),
+    });
+    expect(helpfulSchemaOn('alignable')).toBe(HELPFUL_SCHEMA);
+    expect(
+      helpfulPrompt({
+        business: 'Pine Street Bakery',
+        playbook: null,
+        group: null,
+        platform: 'alignable',
+        asked: [],
+      }),
+    ).toMatch(/Write one helpful post for their own Alignable profile\.$/);
+    const answer = { allowed: true, topic: 'Quotes', text: 'A tip.', why: 'Asked' };
+    // On Instagram it's no use without the picture to take; anywhere else a picture isn't kept.
+    expect(checkedHelpful(answer, 'instagram')).toBeNull();
+    expect(checkedHelpful({ ...answer, picture: '  Your  oven at dawn ' }, 'instagram')).toEqual({
+      ...answer,
+      picture: 'Your oven at dawn',
+    });
+    expect(checkedHelpful({ ...answer, picture: 'Your oven' }, 'alignable')).toEqual({
+      ...answer,
+      picture: null,
+    });
+    // Instagram's goes up from the phone, Alignable's never on its own.
+    expect(helpfulHowOn('instagram', 'after_ok')).toBe('copy');
+    expect(helpfulHowOn('alignable', 'own')).toBe('after_ok');
+    expect(helpfulHowOn('alignable', 'copy')).toBe('copy');
+    expect(helpfulHowOn('facebook', 'own')).toBe('own');
+    expect(HELPFUL_EVERY_DAYS).toEqual({ facebook: 1, linkedin: 1, instagram: 7, alignable: 7 });
+    const instagram = helpfulWordsOn('instagram');
+    expect(instagram.limit).toBe('One helpful post a week, on your own account.');
+    expect(instagram.how('after_ok')).toBe(
+      'Take the picture on your phone, copy the words, post it on Instagram, then press I posted it.',
+    );
+    const alignable = helpfulWordsOn('alignable');
+    expect(alignable.limit).toBe('One helpful post a week, on your own profile.');
+    expect(alignable.how('after_ok')).toBe(
+      'Press OK and your computer posts it on your Alignable profile.',
+    );
+    expect(helpfulWhere({ groupName: null, platform: 'alignable' })).toBe('Your Alignable profile');
+    // Older builds aren't asked to post on Alignable.
+    expect(tooOldFor('0.100.0', 'post', 'alignable')).toBe(true);
+    expect(tooOldFor('0.101.0', 'post', 'alignable')).toBe(false);
+    expect(notOnNetworkWords('instagram', 'post')).not.toBeNull();
   });
 });
 

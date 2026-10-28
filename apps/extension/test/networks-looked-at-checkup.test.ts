@@ -135,7 +135,7 @@ const ALIGNABLE_MENU = `<header><nav>
 
 const ALIGNABLE_PAGES: Record<string, string> = {
   [`${AL}/biz`]: html(
-    `${ALIGNABLE_MENU}<main><div><button>Like</button><button>Comment</button></div></main>`,
+    `${ALIGNABLE_MENU}<main><button>Start a post</button><div><button>Like</button><button>Comment</button></div></main>`,
   ),
   [`${AL}/network`]: html(`${ALIGNABLE_MENU}<main>
     <div><a href="/austin-tx/acme-plumbing/dana-reyes">Dana Reyes</a><button>Connect</button></div></main>`),
@@ -584,6 +584,8 @@ describe('Check Alignable', () => {
       ['checkup.recommend', true],
       ['checkup.like', true],
       ['checkup.comment', true],
+      // The box to start a post on their home page (decision 109), looked for and never written in.
+      ['checkup.post', true],
       // A group's own Join, looked at on its page and never pressed.
       ['checkup.join', true],
     ]);
@@ -597,7 +599,7 @@ describe('Check Alignable', () => {
     // Their profile as the AI's check reads it: what was found, never what it says.
     expect(notes.find((n) => n.found?.about === true && n.found?.name === true)).toBeTruthy();
     expect(end.line).toBe(
-      'Read 21 Alignable pages and tried 9 steps up to their last press. Everything works.',
+      'Read 21 Alignable pages and tried 10 steps up to their last press. Everything works.',
     );
   });
 
@@ -646,7 +648,7 @@ describe('Check Alignable', () => {
       outline: false,
     });
     expect(end.line).toBe(
-      'Read 21 Alignable pages and tried 9 steps up to their last press. Not working: recommending.',
+      'Read 21 Alignable pages and tried 10 steps up to their last press. Not working: recommending.',
     );
   });
 });

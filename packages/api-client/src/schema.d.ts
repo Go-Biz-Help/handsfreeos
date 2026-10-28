@@ -7367,7 +7367,7 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * Ask the AI for today’s helpful post: one that helps the people in one of the person’s groups that fits (theirs to name, else the best not posted in this week), from the playbook and what people there ask, after reading its rules. One a day; asking again answers today’s.
+         * Ask the AI for today’s helpful post: on Facebook one that helps the people in one of the person’s groups that fits (theirs to name, else the best not posted in this week), from the playbook and what people there ask, after reading its rules; on LinkedIn one for their own feed. One a day there, and one a week on Instagram (a caption and the picture to take, posted from their phone) and Alignable (posted after their OK); asking again answers the one there is.
          * @description Risk level 1. Requires outreach.use. Emits outreach.helpful.asked.
          */
         post: operations["command_outreach_helpful_ask"];
@@ -18947,7 +18947,7 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * The person’s helpful posts: today’s (being written, waiting, OK’d, up, put aside or couldn’t go), then the last fortnight’s posted, with who engaged; and their posting choice.
+         * The person’s helpful posts: today’s (this week’s on Instagram and Alignable: being written, waiting, OK’d, up, put aside or couldn’t go), then the last fortnight’s posted, with who engaged; and their posting choice as the network lets it.
          * @description Requires outreach.use.
          */
         post: operations["query_outreach_helpful"];
@@ -73677,6 +73677,7 @@ export interface operations {
                 };
                 content: {
                     "application/json": {
+                        every: number;
                         perDay: number;
                         /** @enum {string} */
                         posting: "copy" | "after_ok" | "own";
@@ -73691,6 +73692,7 @@ export interface operations {
                             helpfulId: string;
                             /** @enum {string} */
                             how: "copy" | "after_ok" | "own";
+                            picture: string | null;
                             /** @enum {string} */
                             platform?: "facebook" | "linkedin" | "instagram" | "alignable";
                             playbookName: string | null;

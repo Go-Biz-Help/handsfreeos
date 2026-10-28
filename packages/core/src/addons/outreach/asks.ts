@@ -148,6 +148,8 @@ export const ASK_KINDS_ON: Readonly<Record<Platform, readonly AskKind[]>> = {
     'cancel',
     // Its town's posts and forum questions (part 6's first piece): whoever asks for what the business offers.
     'posts',
+    // The week's helpful post, put up on their own profile after their OK (decision 109, 0.101.0).
+    'post',
     'checkup',
     'profile_read',
     'profile_edit',
@@ -172,6 +174,7 @@ const ASK_NAMES_ON: Readonly<Partial<Record<Platform, Partial<Record<AskKind, st
     cancel: 'Withdraw old connection requests',
     profile_edit: 'Update your profile',
     posts: 'Find posts in your town',
+    post: 'Put up your helpful post on your profile',
   },
   instagram: {
     friends: 'Save my followers',
@@ -415,7 +418,7 @@ export const ASK_KIND_SINCE_ON: Readonly<
   },
   // Alignable's profile, read and its About Us put in, past the code it emails (decision 82).
   // Its connections, requests, checks, research and look-ups: its part 4. Its chats: 0.84.0. Withdrawing the old
-  // connection requests ticked: 0.97.0 (decision 98).
+  // connection requests ticked: 0.97.0 (decision 98). Putting up the week's helpful post: 0.101.0 (decision 109).
   alignable: {
     profile_read: '0.71.0',
     profile_edit: '0.71.0',
@@ -427,6 +430,7 @@ export const ASK_KIND_SINCE_ON: Readonly<
     posts: '0.74.0',
     chats: '0.84.0',
     cancel: '0.97.0',
+    post: '0.101.0',
   },
 };
 

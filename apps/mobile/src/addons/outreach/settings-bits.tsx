@@ -16,6 +16,7 @@ import {
   type ReplyMode,
   type SendingMode,
 } from '@hfos/core/addons/outreach/automation';
+import { HELPFUL_MODES_ON, helpfulHowOn } from '@hfos/core/addons/outreach/helpful';
 import {
   helpfulOn,
   noRunnerWords,
@@ -286,7 +287,9 @@ export function NetworkModes({
   const helpful = helpfulOn(platform);
   const sending = runs ? SENDING_MODE_KEYS.filter((m) => sendingAllowed.includes(m)) : [];
   const replies = REPLY_MODE_KEYS.filter((m) => repliesAllowed.includes(m));
-  const posting = POSTING_MODE_KEYS.filter((m) => postingAllowed.includes(m));
+  // Only the ways the network takes (decision 109): Instagram's goes up from the phone, Alignable's never on its own.
+  const postingOn = HELPFUL_MODES_ON[platform];
+  const posting = postingOn.filter((m) => postingAllowed.includes(m));
   const notAllowed = [
     ...(runs
       ? [
@@ -295,7 +298,7 @@ export function NetworkModes({
         ]
       : []),
     ...(helpful
-      ? POSTING_MODE_KEYS.filter((m) => !postingAllowed.includes(m)).map((m) => POSTING_MODES[m])
+      ? postingOn.filter((m) => !postingAllowed.includes(m)).map((m) => POSTING_MODES[m])
       : []),
   ];
   const starts = (next: Pick<NetworkChoices, 'sending' | 'replies'>) =>
@@ -346,7 +349,7 @@ export function NetworkModes({
               key={m}
               label={POSTING_MODES[m]}
               about={m === 'after_ok' ? W.usual : undefined}
-              selected={value.posting === m}
+              selected={helpfulHowOn(platform, value.posting) === m}
               onPress={() => onChange({ posting: m })}
               disabled={disabled}
               testID={`${testID}-posting-${m}`}

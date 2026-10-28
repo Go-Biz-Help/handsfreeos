@@ -8,6 +8,8 @@
  *
  * Each network's own (`platform`): on LinkedIn it goes on the person's own feed, so the card says "Your LinkedIn feed"
  * where a group's name would be, and **Open LinkedIn** in place of Open the group, by LinkedIn's posting choice.
+ * Instagram's and Alignable's are one a week on the person's own account (decision 109): Instagram's shows the
+ * picture to take under the words, and is copied and posted from the phone.
  */
 import {
   HELPFUL_STATES,
@@ -203,6 +205,12 @@ function Today({
           {post.text}
         </p>
       )}
+      {post.picture ? (
+        <p className="mt-2 text-[13px]" data-testid="today-helpful-picture">
+          <span className="font-medium">{H.picture}: </span>
+          {post.picture}
+        </p>
+      ) : null}
       <p className="mt-1.5 text-[12.5px] text-text-3">
         {post.state === 'approved' ? H.waitingComputer : H.how(post.how)}
       </p>

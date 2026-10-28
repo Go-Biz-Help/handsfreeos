@@ -447,9 +447,11 @@ describe('what it does on Instagram’s list', () => {
     expect(nextInstagramDaily({ daily: { ...done, chats: 'z', partners: 'w', posts: 'v' } })).toBe(
       'helpful',
     );
-    // Then who liked and commented on the good posts the hashtags found, and last the people found by topic checked
-    // for good fits (decision 92).
-    const all = { ...done, chats: 'z', partners: 'w', posts: 'v', helpful: 't' };
+    // Then the week's helpful post asked for (decision 109), who liked and commented on the good posts the hashtags
+    // found, and last the people found by topic checked for good fits (decision 92).
+    const engaged = { ...done, chats: 'z', partners: 'w', posts: 'v', helpful: 't' };
+    expect(nextInstagramDaily({ daily: engaged })).toBe('weekly_post');
+    const all = { ...engaged, weekly_post: 'q' };
     expect(nextInstagramDaily({ daily: all })).toBe('post_people');
     expect(nextInstagramDaily({ daily: { ...all, post_people: 'r' } })).toBe('found_checks');
     // And on the 1st of each month, their own profile read (decision 99).

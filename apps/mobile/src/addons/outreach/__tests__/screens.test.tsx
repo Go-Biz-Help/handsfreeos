@@ -373,6 +373,7 @@ describe('Today on the phone', () => {
           how: 'after_ok',
           topic: 'Following up on quotes',
           text: 'I follow up on every quote two days later.',
+          picture: null,
           postUrl: null,
           whyNot: null,
           askedAt: new Date(NOW).toISOString(),
@@ -383,6 +384,7 @@ describe('Today on the phone', () => {
       ],
       today: 1,
       perDay: 1,
+      every: 1,
       posting: 'after_ok',
     };
     await render(
@@ -444,6 +446,7 @@ describe('Today on the phone', () => {
           how: 'copy',
           topic: 'Following up on quotes',
           text: 'I follow up on every quote two days later.',
+          picture: null,
           postUrl: null,
           whyNot: null,
           askedAt: new Date(NOW).toISOString(),
@@ -454,6 +457,7 @@ describe('Today on the phone', () => {
       ],
       today: 1,
       perDay: 1,
+      every: 1,
       posting: 'copy',
     };
     await render(
@@ -483,6 +487,77 @@ describe('Today on the phone', () => {
     expect(within(part).queryByText(/group/i)).toBeNull();
     await fireEvent.press(screen.getByTestId('today-helpful-posted'));
     expect(actions.posted).toHaveBeenCalledWith(id(70));
+  });
+
+  it('puts the week’s Instagram post with the picture to take, posted from the phone', async () => {
+    const actions = { write: jest.fn(), ok: jest.fn(), posted: jest.fn(), skip: jest.fn() };
+    const today: TodayOutput = {
+      limits: LIVE.limits,
+      items: [],
+      partners: [],
+      readAdmins: [],
+      hasPlaybook: true,
+      warning: null,
+      auto: [],
+      messages: [],
+      sending: 'off',
+      wheels: { on: false, from: null, ok: 0, daysLeft: 0, edits: 0 },
+      ready: true,
+      week: null,
+      fresh: { on: false, from: null, until: null, days: 14 },
+      requestsHeld: null,
+      profileOwn: null,
+    };
+    const helpful: HelpfulListOutput = {
+      posts: [
+        {
+          helpfulId: id(80),
+          platform: 'instagram',
+          groupId: null,
+          groupName: null,
+          groupUrl: null,
+          playbookName: 'CRM demos',
+          state: 'draft',
+          how: 'copy',
+          topic: 'Following up on quotes',
+          text: 'I follow up on every quote two days later.',
+          picture: 'Your notebook of follow-up dates on the dashboard',
+          postUrl: null,
+          whyNot: null,
+          askedAt: new Date(NOW).toISOString(),
+          postedAt: null,
+          comments: 0,
+          reactions: 0,
+        },
+      ],
+      today: 1,
+      perDay: 1,
+      every: 7,
+      posting: 'copy',
+    };
+    await render(
+      <TodayBody
+        platform="instagram"
+        today={today}
+        helpful={helpful}
+        onHelpful={actions}
+        error={null}
+        wheels={null}
+        onRetry={jest.fn()}
+        onOk={jest.fn()}
+        onSkip={jest.fn()}
+        onNotForMe={jest.fn()}
+        onEndWheels={jest.fn()}
+      />,
+    );
+    const part = screen.getByTestId('today-helpful');
+    expect(within(part).getByText('One helpful post a week, on your own account.')).toBeTruthy();
+    expect(within(part).getByTestId('today-helpful-picture')).toHaveTextContent(
+      'The picture to take: Your notebook of follow-up dates on the dashboard',
+    );
+    expect(within(part).queryByTestId('today-helpful-ok')).toBeNull();
+    await fireEvent.press(screen.getByTestId('today-helpful-posted'));
+    expect(actions.posted).toHaveBeenCalledWith(id(80));
   });
 });
 

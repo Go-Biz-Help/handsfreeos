@@ -33,6 +33,7 @@ import {
   writeMessage,
 } from './auto';
 import { openConversation, scrollAny, showAllConnections } from './browse';
+import { postLook, writeAlignablePost } from './compose';
 import { JOIN, JOIN_ASKED, JOINED, readAlignable } from './read';
 import { readReplies } from './replies';
 import { withdrawOnPage } from './withdraw';
@@ -795,6 +796,8 @@ export const ALIGNABLE: LookingSite = {
     comment: commentOn,
     join: joinOnPage,
     answerJoin: () => Promise.resolve('none'),
+    // The week's helpful post, once OK'd (0.101.0, decision 109), on their signed-in home page.
+    post: writeAlignablePost,
   },
   // A request the person sent withdrawn, on that business's own page (0.97.0, decisions 12 and 98).
   withdraw: withdrawOnPage,
@@ -886,6 +889,8 @@ export const ALIGNABLE: LookingSite = {
     pitch: { on: ['*'], look: (doc) => pitchLook(doc, ALIGNABLE) },
     ideal: { on: ['*'], look: (doc) => idealLook(doc, ALIGNABLE) },
     about: { on: ['*'], look: (doc) => aboutLook(doc, ALIGNABLE) },
+    // The box to start a post, or what opens one (0.101.0, decision 109): looked for, never written in.
+    post: { on: ['home'], look: (doc) => postLook(doc, ALIGNABLE) },
     // A box to comment in, or the Comment that opens one: nothing is written.
     comment: {
       on: ['*'],

@@ -68,6 +68,7 @@ import {
   WORKING_PLATFORMS,
 } from '@hfos/core/addons/outreach/networks';
 import { acceptedPushWords } from '@hfos/core/addons/outreach/alerts';
+import { HELPFUL_MODES_ON, helpfulHowOn } from '@hfos/core/addons/outreach/helpful';
 import { dayReportWords } from '@hfos/core/addons/outreach/tracking';
 import { OUTREACH_WORDS as W } from '@hfos/core/addons/outreach/words';
 import { SETUP_WORDS } from '@hfos/core/addons/outreach/setup';
@@ -215,7 +216,9 @@ export function NetworkModes({
   const helpful = helpfulOn(platform);
   const sending = SENDING_MODE_KEYS.filter((m) => sendingAllowed.includes(m));
   const replies = REPLY_MODE_KEYS.filter((m) => repliesAllowed.includes(m));
-  const posting = POSTING_MODE_KEYS.filter((m) => postingAllowed.includes(m));
+  // Only the ways the network takes (decision 109): Instagram's goes up from the phone, Alignable's never on its own.
+  const postingOn = HELPFUL_MODES_ON[platform];
+  const posting = postingOn.filter((m) => postingAllowed.includes(m));
   const notAllowed = [
     ...(runs
       ? [
@@ -224,7 +227,7 @@ export function NetworkModes({
         ]
       : []),
     ...(helpful
-      ? POSTING_MODE_KEYS.filter((m) => !postingAllowed.includes(m)).map((m) => POSTING_MODES[m])
+      ? postingOn.filter((m) => !postingAllowed.includes(m)).map((m) => POSTING_MODES[m])
       : []),
   ];
   // Picking this one would start training wheels there: said beside it first.
@@ -281,7 +284,7 @@ export function NetworkModes({
             {posting.map((m) => (
               <RadioCard
                 key={m}
-                selected={value.posting === m}
+                selected={helpfulHowOn(platform, value.posting) === m}
                 onSelect={() => onChange({ posting: m })}
                 title={POSTING_MODES[m]}
                 description={m === 'after_ok' ? W.usual : undefined}

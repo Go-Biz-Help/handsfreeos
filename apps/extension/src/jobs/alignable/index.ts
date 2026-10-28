@@ -12,6 +12,7 @@
  *   who wrote last (./chats.ts, 0.84.0).
  * - `posts`: their town's posts and forum questions, a few screens, sent for the AI to check (./posts.ts).
  * - `cancel`: the old connection requests they ticked, withdrawn on each business's page (./withdraw.ts, 0.97.0).
+ * - `post`: the week's helpful post they OK'd, put up on their own Alignable (./helpful.ts, 0.101.0, decision 109).
  * - `checkup`, `profile_read` and `profile_edit`: Check Alignable, and their own profile read and its About Us put
  *   in, as before (../looking.ts).
  */
@@ -22,6 +23,7 @@ import type { Job, JobEnd } from '../job';
 import { lookingAsk } from '../looking';
 import { readAlignableChats } from './chats';
 import { checkConnections, researchOnAlignable } from './checks';
+import { postOnAlignable } from './helpful';
 import { lookupOnAlignable } from './lookup';
 import { checkRequests, saveConnections } from './people';
 import { findPostsInTown } from './posts';
@@ -54,6 +56,8 @@ export async function alignableAsk(task: AskTaken['task'], job: Job): Promise<En
       return findPostsInTown(job);
     case 'cancel':
       return withdrawTicked(job, task.profileIds);
+    case 'post':
+      return postOnAlignable(job, task.helpfulId);
     default:
       return looked(task, job);
   }

@@ -13,6 +13,7 @@ import type { ProfileRead } from '@hfos/core/addons/outreach/profile-check';
 import type { AboutResult, CodeResult } from '../alignable/own-profile';
 import type { AlignableWithdrawResult } from '../alignable/withdraw';
 import type { AutoResult, TheirPost } from '../facebook/auto';
+import type { PostResult } from '../facebook/compose';
 import type { JoinStep } from '../facebook/join';
 import type { BioResult } from '../facebook/own-profile';
 import type { ReplySighting } from '../facebook/replies';
@@ -247,6 +248,15 @@ export interface LookingSite {
       doc: Document,
       answers: readonly string[],
     ) => Promise<'done' | 'not_sent' | 'none'>;
+    /**
+     * The person's own helpful post, once they OK'd it (Alignable's, decision 109): put up on their own page with the
+     * box's own Post, only while that box is empty; its link when the page shows it.
+     */
+    readonly post?: (
+      doc: Document,
+      href: string,
+      text: string,
+    ) => Promise<{ readonly result: PostResult; readonly url: string | null }>;
   };
   /** Its own readers, run on each page read beside the links (`LookingRead.found`). */
   readonly readFound?: (doc: Document, href: string) => Readonly<Record<string, unknown>>;

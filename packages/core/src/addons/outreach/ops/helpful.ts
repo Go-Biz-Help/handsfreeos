@@ -14,8 +14,11 @@ import { defineAddonCommand, defineAddonQuery } from '../../server';
 import type { GroupCheckState } from '../group-checks';
 import {
   ENGAGED_DAYS,
+  HELPFUL_EVERY_DAYS,
   HELPFUL_GROUP_DAYS,
+  HELPFUL_MODES_ON,
   HELPFUL_PER_DAY,
+  helpfulHowOn,
   HelpfulAskInput,
   HelpfulAskOutput,
   HelpfulChangeOutput,
@@ -50,6 +53,15 @@ import { startOfToday } from './tidy';
 const DAY = 86_400_000;
 /** The day's slot is used by one that's being written, waiting, OK'd or up: not one put aside or that couldn't go. */
 const COUNTED: readonly HelpfulState[] = ['drafting', 'draft', 'approved', 'posted'];
+
+/**
+ * Where the network's one starts: today's start, or on Instagram and Alignable (decision 109) six days before it in the
+ * business's time, so one asked on a Monday leaves the slot free again the next Monday.
+ */
+async function slotFrom(ctx: Ctx, now: number, platform: Platform): Promise<Date> {
+  const todayFrom = await startOfToday(ctx, now);
+  return new Date(todayFrom.getTime() - (HELPFUL_EVERY_DAYS[platform] - 1) * DAY);
+}
 
 /** One of the person's own helpful posts, for a change: refused when it isn't theirs or isn't kept. */
 async function mine(ctx: Ctx, me: string, helpfulId: string) {
@@ -87,6 +99,7 @@ async function shownOf(
     how: HelpfulShown['how'];
     topic: string | null;
     body: string | null;
+    picture: string | null;
     post_url: string | null;
     why_not: string | null;
     asked_at: Date | string;
@@ -96,7 +109,7 @@ async function shownOf(
   }>(
     ctx.tx,
     sql`select h.id, h.platform, h.group_id, g.name as group_name, g.url as group_url, pb.name as playbook_name,
-          h.state, h.how, h.topic, h.body, h.post_url, h.why_not, h.asked_at, h.posted_at,
+          h.state, h.how, h.topic, h.body, h.picture, h.post_url, h.why_not, h.asked_at, h.posted_at,
           (select count(*)::int from addon_outreach.engagements e
             where e.helpful_id = h.id and e.kind = 'comment') as comments,
           (select count(*)::int from addon_outreach.engagements e
@@ -121,6 +134,7 @@ async function shownOf(
     how: h.how,
     topic: h.topic,
     text: h.body,
+    picture: h.picture,
     postUrl: h.post_url,
     whyNot: h.why_not,
     askedAt: iso(h.asked_at)!,
@@ -133,7 +147,7 @@ async function shownOf(
 export const helpfulAsk = defineAddonCommand(outreachAddon, {
   name: 'outreach.helpful.ask',
   description:
-    'Ask the AI for today’s helpful post: one that helps the people in one of the person’s groups that fits (theirs to name, else the best not posted in this week), from the playbook and what people there ask, after reading its rules. One a day; asking again answers today’s.',
+    'Ask the AI for today’s helpful post: on Facebook one that helps the people in one of the person’s groups that fits (theirs to name, else the best not posted in this week), from the playbook and what people there ask, after reading its rules; on LinkedIn one for their own feed. One a day there, and one a week on Instagram (a caption and the picture to take, posted from their phone) and Alignable (posted after their OK); asking again answers the one there is.',
   risk: 1,
   input: HelpfulAskInput,
   output: HelpfulAskOutput,
@@ -154,26 +168,46 @@ export const helpfulAsk = defineAddonCommand(outreachAddon, {
       await ctx.tx.execute(
         sql`select pg_advisory_xact_lock(hashtextextended(${`outreach.helpful:${ws}:${me}:${input.platform}`}, 0))`,
       );
-      const todayFrom = await startOfToday(ctx, now);
-      const today = await rows<{ id: string; state: HelpfulState; group_name: string | null }>(
+      const from = await slotFrom(ctx, now, input.platform);
+      const today = await rows<{
+        id: string;
+        state: HelpfulState;
+        group_name: string | null;
+        asked_at: Date | string;
+      }>(
         ctx.tx,
-        sql`select h.id, h.state, g.name as group_name from addon_outreach.helpful h
+        sql`select h.id, h.state, g.name as group_name, h.asked_at from addon_outreach.helpful h
             left join addon_outreach.groups g on g.id = h.group_id
             where h.workspace_id = ${ws} and h.user_id = ${me} and h.platform = ${input.platform}
-              and h.asked_at >= ${todayFrom.toISOString()}::timestamptz
+              and h.asked_at >= ${from.toISOString()}::timestamptz
             order by h.asked_at desc`,
       );
       const open = today.find((h) => (OPEN_HELPFUL_STATES as readonly string[]).includes(h.state));
       if (open) return { helpfulId: open.id, groupName: open.group_name, fresh: false };
-      if (today.filter((h) => COUNTED.includes(h.state)).length >= HELPFUL_PER_DAY)
+      const counted = today.filter((h) => COUNTED.includes(h.state));
+      if (counted.length >= HELPFUL_PER_DAY) {
+        const name = NETWORKS[input.platform].name;
+        const every = HELPFUL_EVERY_DAYS[input.platform];
+        if (every > 1) {
+          // The days left till the slot is free: the first day whose week no longer holds the last one.
+          const last = Math.max(...counted.map((h) => new Date(h.asked_at).getTime()));
+          const days = Math.floor((last - from.getTime()) / DAY) + 1;
+          throw HfosError.rule(
+            'outreach_helpful_week',
+            409,
+            `This week’s helpful post on ${name} is done. The next one comes in ${days === 1 ? 'a day' : `${days} days`}: one a week keeps your account welcome.`,
+          );
+        }
         throw HfosError.rule(
           'outreach_helpful_today',
           409,
           input.platform === 'facebook'
             ? 'Today’s helpful post is up. The next one comes tomorrow: one a day keeps Facebook and the groups happy.'
-            : `Today’s helpful post on ${NETWORKS[input.platform].name} is up. The next one comes tomorrow: one a day keeps your feed welcome.`,
+            : `Today’s helpful post on ${name} is up. The next one comes tomorrow: one a day keeps your feed welcome.`,
         );
-      // Off Facebook it goes on the person's own feed: no group to pick, the playbook in use first.
+      }
+      // Off Facebook it goes on the person's own account: no group to pick, the playbook in use first. Instagram's
+      // goes up from their phone, and Alignable's never on its own (decision 109).
       if (input.platform !== 'facebook') {
         const playbooks = await playbooksInUse(ctx, input.platform);
         const { choices } = await automationOf(ctx, me, now, input.platform);
@@ -186,7 +220,7 @@ export const helpfulAsk = defineAddonCommand(outreachAddon, {
             groupId: null,
             playbookId: playbooks[0]?.id ?? null,
             state: 'drafting',
-            how: choices.posting,
+            how: helpfulHowOn(input.platform, choices.posting),
             askedAt: at,
             updatedAt: at,
           })
@@ -336,6 +370,7 @@ export const helpfulDraft = defineAddonCommand(outreachAddon, {
               state: 'draft' as const,
               topic: d.topic || null,
               body: d.text,
+              picture: d.picture ?? null,
               draftedAt: at,
             };
     await ctx.tx
@@ -371,6 +406,13 @@ export const helpfulOk = defineAddonCommand(outreachAddon, {
     const me = requireHuman(ctx).userId;
     const at = changeMoment(ctx.meta);
     const row = await mine(ctx, me, input.helpfulId);
+    // Instagram's goes up from the person's phone, so their computer never puts it up (decision 109).
+    if (!HELPFUL_MODES_ON[row.platform].includes('after_ok'))
+      throw HfosError.rule(
+        'outreach_helpful_phone',
+        409,
+        `${NETWORKS[row.platform].name}’s helpful post goes up from your phone: copy it, post it there, then press I posted it.`,
+      );
     if (row.state === 'approved' && !input.text) return { helpfulId: row.id, state: row.state };
     if (row.state !== 'draft' && row.state !== 'approved')
       throw HfosError.rule(
@@ -559,7 +601,7 @@ export const helpfulEngaged = defineAddonCommand(outreachAddon, {
 export const helpfulList = defineAddonQuery(outreachAddon, {
   name: 'outreach.helpful',
   description:
-    'The person’s helpful posts: today’s (being written, waiting, OK’d, up, put aside or couldn’t go), then the last fortnight’s posted, with who engaged; and their posting choice.',
+    'The person’s helpful posts: today’s (this week’s on Instagram and Alignable: being written, waiting, OK’d, up, put aside or couldn’t go), then the last fortnight’s posted, with who engaged; and their posting choice as the network lets it.',
   input: HelpfulListInput,
   output: HelpfulListOutput,
   permission: 'outreach.use',
@@ -571,16 +613,17 @@ export const helpfulList = defineAddonQuery(outreachAddon, {
   async handler(ctx, input) {
     const me = requireHuman(ctx).userId;
     const now = Date.now();
-    const todayFrom = await startOfToday(ctx, now);
-    const posts = await shownOf(ctx, me, todayFrom, input.platform);
+    const from = await slotFrom(ctx, now, input.platform);
+    const posts = await shownOf(ctx, me, from, input.platform);
     const { choices: settings } = await automationOf(ctx, me, now, input.platform);
     return {
       posts,
       today: posts.filter(
-        (p) => COUNTED.includes(p.state) && Date.parse(p.askedAt) >= todayFrom.getTime(),
+        (p) => COUNTED.includes(p.state) && Date.parse(p.askedAt) >= from.getTime(),
       ).length,
       perDay: HELPFUL_PER_DAY,
-      posting: settings.posting,
+      every: HELPFUL_EVERY_DAYS[input.platform],
+      posting: helpfulHowOn(input.platform, settings.posting),
     };
   },
 });

@@ -323,6 +323,8 @@ async function checkupAlignable(job: Job): Promise<JobEnd> {
   if (home.signedOut) return signedOutEnd('alignable');
   await c.note('your Alignable', home.places.length);
   await lookHere();
+  // The box to start a post on it (0.101.0, decision 109): looked for, nothing written.
+  await c.look('post');
   const reads: LookingRead[] = [home];
 
   // Its public home page too, when the signed-in one's menus have nothing worth a look: its menu leads in.

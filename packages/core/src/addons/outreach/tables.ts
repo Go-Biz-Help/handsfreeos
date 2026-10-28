@@ -1405,7 +1405,7 @@ export const helpful = addonOutreach.table(
     userId: uuid('user_id')
       .notNull()
       .references(() => users.id, { onDelete: 'cascade' }),
-    /** The network it goes up on: on Facebook in a group, on LinkedIn on the person's own feed. */
+    /** The network it goes up on: on Facebook in a group, anywhere else on the person's own account. */
     platform: text('platform').notNull().default('facebook').$type<Platform>(),
     groupId: uuid('group_id'),
     playbookId: uuid('playbook_id'),
@@ -1414,6 +1414,8 @@ export const helpful = addonOutreach.table(
     how: text('how').notNull().$type<PostingMode>(),
     topic: text('topic'),
     body: text('body'),
+    /** On Instagram: the picture to take for it (decision 109). */
+    picture: text('picture'),
     postUrl: text('post_url'),
     whyNot: text('why_not'),
     askedAt: ts('asked_at').notNull(),

@@ -3,7 +3,7 @@
 The extension that works beside a person on Facebook, and on LinkedIn, Instagram and Alignable once they turn each on,
 for the Social Outreach add-on (docs/outreach.md). It connects to HandsFreeOS only for businesses that have that add-on on.
 
-**This is a test build (0.100.0), and a bare one** (decisions 43, 59 and 72 in docs/outreach.md). Everything is set
+**This is a test build (0.101.0), and a bare one** (decisions 43, 59 and 72 in docs/outreach.md). Everything is set
 and started in HandsFreeOS; the extension does the work on Facebook. Its side panel shows progress and activity only:
 signing in, what it does next with today's steps and **Start my day** and **Stop for today**, how many things need
 you in HandsFreeOS (with a link there), each network's line, what it did today, and a link to HandsFreeOS. Needs you
@@ -84,7 +84,7 @@ on Instagram, reading and writing your own profile (decision 80): its bio on its
 its username and name on Instagram's Accounts Center (decision 89). The Check
 reads its main pages and sends a problem report of each with its outline, and looks for each step's button, pressing
 none: Instagram's bio box and Submit, Follow, Message, Like and the box to comment in; Alignable's Connect, Message,
-Recommend, Like and a box to comment in. Check Alignable opens the places Alignable's own menu leads to by their words,
+Recommend, Like and a box to comment in (and from 0.101.0 the box to start a post). Check Alignable opens the places Alignable's own menu leads to by their words,
 never one that signs out, pays, invites, deletes or changes settings. From 0.66.0 (stage 6 of the partners plan) it
 then opens what Alignable's steps and Find partners are built from next: your town (from your business's address), a
 search for businesses, a forum question a page linked to, your connection requests (My Network's Requests) and a chat
@@ -1069,6 +1069,18 @@ shows under Instagram). Your Instagram choices in HandsFreeOS say what it does (
 Each step is noted as the extension's own (`auto`), as Instagram's. A step its page doesn't let it do goes to your
 Needs you; it never guesses.
 
+### The week's helpful post on Instagram and Alignable (0.101.0)
+
+From 0.101.0 (docs/outreach.md, decision 109) Instagram's and Alignable's once-a-day jobs ask HandsFreeOS for the
+week's helpful post after reading who engaged (`weekly_post`, `src/jobs/weekly-post.ts`). The AI writes one a week on
+each, for your own account; asked again in the week, the line says it's on Today, or when the next one comes. Nothing
+is pressed on Instagram: Today shows the caption and the picture to take, and you post it from your phone. On Alignable
+your OK sends your computer a `post` ask (`src/jobs/alignable/helpful.ts`): on your signed-in home page (/biz) it opens
+the box to write a post (Start a post, Share an update and the like), writes the post in only while the box is empty,
+and presses that box's own Post (`src/networks/alignable/compose.ts`). It never writes in a box to comment, reply,
+answer or message in. Alignable's composer wasn't in the owner's outlines, so **Check Alignable** looks for it on the
+home page (`post`), never writing in it.
+
 ### Birthdays and new jobs, once a day (0.100.0)
 
 From 0.100.0 (docs/outreach.md, decision 108) Facebook's and LinkedIn's once-a-day jobs read who has news, after
@@ -1554,8 +1566,8 @@ LinkedIn, part by part (HANDSFREEOS_SOCIAL_NETWORKS_IMPLEMENTATION_PLAN.md): its
 on its own there (0.41.0), getting and bringing in its file (0.42.0), and growing, with the helpful post on your own
 feed (0.43.0). Joining groups (decision 31; docs/outreach.md, the rest of decisions 26 to 35) is built, tidying
 on its own on every network (decisions 29 and 98, 0.97.0), every part of your profile put in, read on its own on the
-1st (decision 99, 0.98.0), LinkedIn's comments waiting for your OK at first (decision 102, 0.99.0), and birthdays and new jobs read once a
-day (decision 108, 0.100.0); Social
+1st (decision 99, 0.98.0), LinkedIn's comments waiting for your OK at first (decision 102, 0.99.0), birthdays and new jobs read once a
+day (decision 108, 0.100.0), and the week's helpful post on Instagram and Alignable (decision 109, 0.101.0); Social
 Outreach's onboarding is built, in HandsFreeOS (decisions 36 and 45). Safari on Mac
 follows in Phase 2.
 

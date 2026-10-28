@@ -1988,6 +1988,33 @@ function scriptedHelpful(message: string) {
   };
 }
 
+/**
+ * A helpful post for the person's own account (decision 109): a tip about following up, with the picture to take on
+ * Instagram and up to 3 of the hashtags given.
+ */
+function scriptedOwnHelpful(message: string) {
+  const tags = unquote(/<hashtags>\n([\s\S]*?)\n<\/hashtags>/.exec(message)?.[1] ?? '')
+    .split(/\s+/)
+    .filter((t) => t && t !== 'None' && t !== 'given.')
+    .slice(0, 3);
+  const text =
+    'One habit that won me more jobs this year: I follow up on every quote two days later with a short, friendly note.';
+  if (!/say what picture to take for it\.$/.test(message))
+    return {
+      allowed: true,
+      topic: 'Following up on quotes',
+      text,
+      why: 'People here ask how to win more jobs',
+    };
+  return {
+    allowed: true,
+    topic: 'Following up on quotes',
+    text: tags.length ? `${text}\n\n${tags.map((t) => `#${t}`).join(' ')}` : text,
+    why: 'People here ask how to win more jobs',
+    picture: 'Your notebook of follow-up dates open on the truck’s dashboard',
+  };
+}
+
 /** Social Outreach's answers to a group's questions (decision 31): one per question, saying which it answers. */
 function scriptedJoinAnswers(message: string) {
   const questions = (/<questions>\n([\s\S]*?)\n<\/questions>/.exec(message)?.[1] ?? '')
@@ -2227,6 +2254,10 @@ export const OUTREACH_RULES: readonly ScriptRule[] = [
   },
   { when: /Answer the group’s questions\.$/, json: (message) => scriptedJoinAnswers(message) },
   { when: /Write one helpful post for this group\.$/, json: (message) => scriptedHelpful(message) },
+  {
+    when: /Write one helpful post for their own [^\n]+\.$/,
+    json: (message) => scriptedOwnHelpful(message),
+  },
   {
     when: /Help write this part of the playbook\.$/,
     json: (message) => scriptedPlaybookAssist(message),

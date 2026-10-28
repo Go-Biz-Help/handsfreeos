@@ -118,8 +118,8 @@ interface MoreWords {
   /** The playbook's networks step: where it looks for people there. */
   readonly where: string;
   /**
-   * Whether Today has its helpful post (decision 50): written for one of the person's groups on Facebook, and for the
-   * person's own feed on LinkedIn.
+   * Whether Today has its helpful post (decision 50): written for one of the person's groups on Facebook, for the
+   * person's own feed on LinkedIn, and once a week for their own account on Instagram and Alignable (decision 109).
    */
   readonly helpful: boolean;
   /** Under the helpful post's choice on the network's page in Settings: what the AI writes there, and where it goes. */
@@ -245,8 +245,9 @@ const MORE: Readonly<Record<Platform, MoreWords>> = {
       ],
     },
     where: 'In hashtags, places, and the followers of accounts like yours.',
-    helpful: false,
-    postingAbout: 'Instagram has no helpful post yet.',
+    helpful: true,
+    postingAbout:
+      'Once a week the AI writes a post that helps the people you want to reach, and says what picture to take for it: never selling. You take the picture and post it from Instagram on your phone.',
     // Unfollow, slowly (the plan's question 5): people who didn't follow back in the business's wait, 20 a day at most.
     oldRequests: {
       title: 'Not following you back',
@@ -293,8 +294,9 @@ const MORE: Readonly<Record<Platform, MoreWords>> = {
       ],
     },
     where: 'In your town’s community, and the forum where owners ask for referrals.',
-    helpful: false,
-    postingAbout: 'Alignable has no helpful post yet.',
+    helpful: true,
+    postingAbout:
+      'Once a week the AI writes a post that helps the local owners you want to reach, for your own Alignable profile: never selling. Who puts it up?',
     oldRequests: {
       title: 'Old connection requests',
       button: 'Withdraw the ticked requests',

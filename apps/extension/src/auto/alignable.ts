@@ -90,6 +90,7 @@ import { alignableProfileRead } from '../jobs/looking';
 import { readProfileOnItsOwn } from '../jobs/own-read';
 import { checkPartners } from '../jobs/partners';
 import { reporter } from '../jobs/report';
+import { askWeeklyPost } from '../jobs/weekly-post';
 import { alignable } from '../networks';
 import { businessRef, discussionIdOf, idIn, urlOf } from '../networks/alignable/read';
 import type { ProfileRef, ThreadRef } from '../networks/facebook/types';
@@ -147,7 +148,8 @@ export const ALIGNABLE_AUTO: readonly TodayKind[] = ['warm_up', 'friend_request'
  * (`my_groups`), before any search or join; after the town's posts, the search for businesses like their clients
  * (`search`), the groups found and checked, joined, their members read and their posts (`group_checks`, `join`,
  * `members`, `group_posts`); and the businesses found by topic are checked last (`found_checks`). From 0.97.0 old
- * connection requests are withdrawn after the new ones are checked, as the person chose (`tidy`, decision 98).
+ * connection requests are withdrawn after the new ones are checked, as the person chose (`tidy`, decision 98). From
+ * 0.101.0 the week's helpful post is asked for after who engaged (`weekly_post`, decision 109).
  */
 export const ALIGNABLE_DAILY = [
   'my_groups',
@@ -163,6 +165,7 @@ export const ALIGNABLE_DAILY = [
   'members',
   'group_posts',
   'helpful',
+  'weekly_post',
   'found_checks',
   'profile',
 ] as const satisfies readonly (DailyJob | OwnDailyJob)[];
@@ -182,6 +185,7 @@ const DAILY_DOING: Readonly<Record<AlignableDaily, string>> = {
   members: 'Reading the members of your Alignable groups, leaders first…',
   group_posts: 'Reading the posts in your Alignable groups for the AI…',
   helpful: 'Reading your notifications for who liked, commented on or recommended you…',
+  weekly_post: 'Asking for this week’s helpful post for Alignable…',
   found_checks: 'Checking the businesses found on Alignable for good fits…',
   profile: 'Reading your Alignable profile, as it does on the 1st of each month…',
 };
@@ -199,6 +203,7 @@ const DAILY_NAMES: Readonly<Record<AlignableDaily, string>> = {
   members: 'Group members',
   group_posts: 'Posts in your groups',
   helpful: 'Who engaged with you',
+  weekly_post: 'This week’s helpful post',
   found_checks: 'Check the businesses found',
   profile: 'Read my profile',
 };
@@ -915,6 +920,8 @@ export async function runAlignableDaily(kind: AlignableDaily, job: Job): Promise
       return readGroupPosts(reporting(job, kind));
     case 'helpful':
       return readWarmLeads(job);
+    case 'weekly_post':
+      return askWeeklyPost(job, 'alignable');
     case 'found_checks':
       return checkFound(job, { platform: PLATFORM, read: readThemOnAlignable });
     case 'profile':

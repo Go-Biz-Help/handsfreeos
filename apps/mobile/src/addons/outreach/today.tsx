@@ -582,7 +582,8 @@ function ItemCard({
  * Today's helpful post (decision 50): what the AI wrote and for which group, to OK for the computer, say it's up
  * after copying it (the words can be selected), or put aside; why one was put aside; and those up lately, with who
  * engaged. With none today, Write a helpful post. It needs signal. On LinkedIn it's for the person's own feed: "Your
- * LinkedIn feed" where a group's name would be, and Open LinkedIn in place of Open the group.
+ * LinkedIn feed" where a group's name would be, and Open LinkedIn in place of Open the group. On Instagram and
+ * Alignable it's one a week on their own account (decision 109), Instagram's with the picture to take.
  */
 function HelpfulPart({
   platform,
@@ -616,6 +617,12 @@ function HelpfulPart({
               >
                 {shown.text}
               </Text>
+              {shown.picture ? (
+                <Text className="text-[14.5px]" testID="today-helpful-picture">
+                  <Text className="font-semibold">{`${H.picture}: `}</Text>
+                  {shown.picture}
+                </Text>
+              ) : null}
               <Note>{shown.state === 'approved' ? H.waitingComputer : H.how(shown.how)}</Note>
               <View className="flex-row flex-wrap gap-2">
                 {shown.how === 'after_ok' || shown.state === 'approved' ? (
