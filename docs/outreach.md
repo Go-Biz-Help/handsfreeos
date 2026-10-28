@@ -585,7 +585,9 @@ person's computers and Start fresh. The old addresses (`?view=waiting`, `?view=a
   which of its tags to use. Each has a goal, a niche inside the business's main offer with its biggest problem and its
   own proof (decision 62), an offer and link, something useful to send, who it's for, signs to look for and who to
   skip, where to look, the steps it takes and how fast, the tone, sample messages, the openers, the conversation, words
-  to avoid, a disclaimer and the tags. The first template is **CRM demos**; a blank one is always there.
+  to avoid, a disclaimer and the tags. The first template is **CRM demos**, then the ready-made **Home buyers and
+  sellers** (real estate agents), **Home service estimates** and **Coaching calls** (decision 117); a blank one is
+  always there.
 - **The playbook builder** (`/a/outreach/playbooks/new`, `/a/outreach/playbooks/<id>`): a playbook asked a step at a
   time, twelve steps from the goal to a summary, each with ideas to tap and room for the business's own words. The
   niche step shows the live main offer, offers its who and its proof to tap, and **Check it fits my main offer**; with
@@ -2726,6 +2728,27 @@ where decisions 37 and 59 put the settings; what they decided stands. Settled to
         friends, are checked like friends, last of all, the best fits by the lines under their name first
         (`membersNext`, up to 500 weighed). Today's friend requests from the groups go by what the AI made of them: a
         good fit first, a bad one left out.
+117.  **Ready-made playbooks** (Chris, 28 Oct 2026, "all of your picks": 6a). "Ready-made playbooks you pick in the
+      playbook builder (questions, openers and search words), real estate agents first, then home services, then
+      coaches."
+      - **Three more templates after CRM demos** (`PLAYBOOK_TEMPLATES` in `packages/core/src/addons/outreach/playbooks.ts`,
+        in this order): **Home buyers and sellers** for real estate agents (a consultation; Facebook, Instagram and
+        LinkedIn), **Home service estimates** for home service businesses (a free estimate; Facebook, Instagram and
+        Alignable, answering "can anyone recommend" posts too), and **Coaching calls** for coaches (a discovery call;
+        Facebook, Instagram and LinkedIn, worked online). They show wherever a new playbook starts: the web's New
+        playbook box, the setup's playbook step and the phone's new playbook sheet.
+      - **What each comes with:** its niche, problem and who it's for, signs and who to skip, words for groups, the
+        tone, three openers, a conversation of 4 or 5 questions whose answers tag people and lead on, words to avoid
+        and its tags, and the words its networks look with: hashtags for Instagram, phrases for LinkedIn's post search
+        and kinds of business for Alignable, on the networks it runs on. The area, the link and any disclaimer are
+        left for the person.
+      - **Its words are the person's from the start:** a list that isn't empty is never written by the AI
+        (`wordsDue`), so they stay as the template has them till the person changes them. A network the person adds
+        later, with its list empty, gets the AI's words as any playbook's does.
+      - **Written for anywhere:** no town in them, so the person adds local hashtags themselves. The real estate one
+        never describes who a home or a neighborhood suits (fair housing: "family-friendly", "safe neighborhood" and
+        the like are in its words to avoid); the coaching one leaves alone anyone in a crisis or asking for medical
+        help. No migration: a playbook's template is plain text.
 
 ## Rules worth knowing before changing anything
 

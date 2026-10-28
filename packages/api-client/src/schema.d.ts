@@ -42336,7 +42336,7 @@ export interface operations {
                     name: string;
                     /** Format: uuid */
                     playbookId?: string;
-                    template?: "crm_demos" | null;
+                    template?: ("crm_demos" | "real_estate" | "home_services" | "coaching") | null;
                     /** Format: uuid */
                     workspaceId: string;
                 };

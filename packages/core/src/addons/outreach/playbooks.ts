@@ -1,8 +1,9 @@
 /**
  * Social Outreach's playbooks (docs/outreach.md): what a business is after on social media, who it's for, where it
  * looks, the steps it takes, how it sounds, and which of its own tags to use. Nothing about any one business is built
- * in: the owner's own "CRM demos" playbook is the first template, and every business writes its own. Browser-safe:
- * the web's editor, the extension and the server all read it.
+ * in: the owner's own "CRM demos" playbook is the first template, ready-made ones for real estate agents, home services
+ * and coaches follow (decision 117), and every business makes one its own. Browser-safe: the web's editor, the
+ * extension and the server all read it.
  */
 import { z } from 'zod';
 import { PLATFORM_KEYS, PLATFORMS, type Platform, WORKING_PLATFORMS } from './networks';
@@ -534,10 +535,345 @@ const TEMPLATES = {
       ],
     },
   },
+  /**
+   * Ready-made playbooks (docs/outreach.md, decision 117), for the kinds of business that use the add-on most: each
+   * with its questions, openers and the words its networks look with, written for anywhere, so the person adds their
+   * area, offer and link. Their words are the person's from the start, so the AI never writes over them.
+   */
+  real_estate: {
+    name: 'Home buyers and sellers',
+    summary:
+      'For real estate agents. Find people getting ready to buy or sell, ask about their plans, and offer a consultation.',
+    details: {
+      ...blankPlaybook(),
+      goal: 'consult',
+      offer: 'A free 20-minute consultation about buying or selling',
+      niche: 'People getting ready to buy or sell a home in your area',
+      problem:
+        'Buying or selling feels risky and confusing, and they don’t know who to trust or where to start.',
+      audience: 'People in your area thinking about buying or selling a home in the next year.',
+      signs: [
+        'Posts about moving, house hunting or selling their home',
+        'Asks a group to recommend a realtor, lender, inspector or mover',
+        'Mentions a new job in the area or a move coming up',
+      ],
+      skip: [
+        'Other real estate agents and brokers',
+        'People who say they already have an agent',
+        'Group admins and moderators',
+        'Current clients',
+      ],
+      platforms: ['facebook', 'instagram', 'linkedin'],
+      worksOnline: false,
+      groupWords: ['community', 'neighbors', 'new to town', 'relocating'],
+      steps: ['connect', 'engage', 'message', 'follow_up', 'answer'],
+      tone: 'Warm and helpful, like a neighbor who knows the market. Short messages, no pressure.',
+      openerStyles: [
+        'Ask one friendly question about something real on their profile or posts, like a move, a new job or a home project.',
+        'Mention the group you’re both in, then ask how they like living in the area.',
+        'Share one useful thing about the local market that fits what they posted, then ask a light question.',
+      ],
+      questions: [
+        {
+          id: 'q1',
+          text: 'Are you thinking about buying, selling, or both?',
+          answers: [
+            { label: 'Buying', tag: 'Buyer', next: 'continue' },
+            { label: 'Selling', tag: 'Seller', next: 'q4' },
+            { label: 'Both', tag: 'Buying and selling', next: 'continue' },
+            { label: 'Just looking for now', tag: 'Just looking', next: 'later' },
+          ],
+        },
+        {
+          id: 'q2',
+          text: 'Have you talked with a lender yet?',
+          answers: [
+            { label: 'Yes, I’m pre-approved', tag: 'Pre-approved', next: 'continue' },
+            { label: 'Not yet', tag: null, next: 'continue' },
+          ],
+        },
+        {
+          id: 'q3',
+          text: 'When would you like to move?',
+          answers: [
+            { label: 'In the next 3 months', tag: 'Moving soon', next: 'q5' },
+            { label: 'Later this year', tag: null, next: 'q5' },
+            { label: 'Not sure yet', tag: null, next: 'later' },
+          ],
+        },
+        {
+          id: 'q4',
+          text: 'Would you like to know what your home might sell for?',
+          answers: [
+            { label: 'Yes, please', tag: 'Wants a home value', next: 'continue' },
+            { label: 'Not yet', tag: null, next: 'later' },
+          ],
+        },
+        {
+          id: 'q5',
+          text: 'Are you working with an agent yet?',
+          answers: [
+            { label: 'Not yet', tag: null, next: 'offer' },
+            { label: 'Yes', tag: 'Has an agent', next: 'stop' },
+          ],
+        },
+      ],
+      // Fair housing: never words about who a home or a neighborhood suits, and no promises about a sale.
+      avoid: [
+        'Family-friendly',
+        'Perfect for families',
+        'Safe neighborhood',
+        'Exclusive neighborhood',
+        'Great for young couples',
+        'Ideal for singles',
+        'Guaranteed sale',
+        'Guaranteed price',
+      ],
+      hashtags: [
+        'househunting',
+        'firsttimehomebuyer',
+        'homebuying',
+        'newhome',
+        'movingsoon',
+        'dreamhome',
+        'homesweethome',
+        'homeownership',
+        'sellingmyhome',
+        'relocating',
+        'movingday',
+        'newhomeowner',
+        'firsthome',
+        'housegoals',
+        'homegoals',
+      ],
+      postSearches: [
+        'relocating to',
+        'moving to',
+        'buying our first home',
+        'house hunting',
+        'selling our home',
+        'first time homebuyer',
+        'new job in',
+        'looking for a realtor',
+      ],
+      tags: [
+        'Buyer',
+        'Seller',
+        'Buying and selling',
+        'Just looking',
+        'Pre-approved',
+        'Moving soon',
+        'Wants a home value',
+        'Has an agent',
+        'Wants a consultation',
+        'Not a fit',
+        'Friend or family',
+      ],
+    },
+  },
+  home_services: {
+    name: 'Home service estimates',
+    summary:
+      'For home service businesses. Find homeowners with a repair or project coming up, ask about it, and offer a free estimate.',
+    details: {
+      ...blankPlaybook(),
+      goal: 'estimate',
+      offer: 'A free estimate',
+      niche: 'Homeowners in your area with a repair or project coming up',
+      problem:
+        'They put off repairs because they don’t know who to trust, what it should cost, or when someone can come.',
+      audience:
+        'Homeowners and property managers in your service area who need work done on a home.',
+      signs: [
+        'Asks a group to recommend a plumber, roofer, electrician, cleaner or handyman',
+        'Posts about a leak, a breakdown, storm damage or a project they’re planning',
+        'Just bought a home, or is getting one ready to sell',
+        'Manages rental homes',
+      ],
+      skip: [
+        'Competitors and other contractors',
+        'Group admins and moderators',
+        'Current customers',
+        'People outside your service area',
+      ],
+      platforms: ['facebook', 'instagram', 'alignable'],
+      worksOnline: false,
+      groupWords: ['community', 'neighbors', 'homeowners', 'recommendations'],
+      steps: ['connect', 'engage', 'message', 'follow_up', 'answer'],
+      tone: 'Friendly and straight to the point, like a local pro the neighbors trust. Short messages, no pressure.',
+      openerStyles: [
+        'Ask one helpful question about something real on their profile or posts, like a home project or a recent storm.',
+        'Mention the group you’re both in, then ask how things are going with their home.',
+        'Offer one quick tip that fits what they posted, then ask a light question.',
+      ],
+      questions: [
+        {
+          id: 'q1',
+          text: 'Do you have any repairs or projects coming up at home?',
+          answers: [
+            { label: 'Yes, soon', tag: 'Has a project', next: 'continue' },
+            { label: 'Maybe later this year', tag: 'Project later', next: 'later' },
+            { label: 'No, all good', tag: null, next: 'q4' },
+            { label: 'I rent', tag: 'Not a fit', next: 'stop' },
+          ],
+        },
+        { id: 'q2', text: 'What kind of work is it?', answers: [] },
+        {
+          id: 'q3',
+          text: 'When would you like it done?',
+          answers: [
+            { label: 'As soon as possible', tag: 'Needs it soon', next: 'offer' },
+            { label: 'In the next few months', tag: null, next: 'offer' },
+            { label: 'Just getting prices', tag: null, next: 'offer' },
+          ],
+        },
+        {
+          id: 'q4',
+          text: 'Do you have someone you call when something breaks?',
+          answers: [
+            { label: 'Yes', tag: 'Has a pro', next: 'later' },
+            { label: 'Not really', tag: null, next: 'offer' },
+          ],
+        },
+      ],
+      avoid: ['Cheapest', 'Lowest price guaranteed', 'Act now', 'Limited time'],
+      hashtags: [
+        'homeimprovement',
+        'homerenovation',
+        'homerepair',
+        'homemaintenance',
+        'homeproject',
+        'newhomeowner',
+        'homeowner',
+        'firsthome',
+        'fixerupper',
+        'kitchenremodel',
+        'bathroomremodel',
+        'curbappeal',
+        'diyhome',
+        'renovationlife',
+        'beforeandafter',
+      ],
+      businessKinds: [
+        'Property Management',
+        'Real Estate Agent',
+        'Real Estate Brokerage',
+        'Vacation Rental',
+        'Home Builder',
+        'Interior Designer',
+        'Home Staging',
+      ],
+      tags: [
+        'Homeowner',
+        'Has a project',
+        'Project later',
+        'Needs it soon',
+        'Has a pro',
+        'Wants an estimate',
+        'Not a fit',
+        'Friend or family',
+      ],
+    },
+  },
+  coaching: {
+    name: 'Coaching calls',
+    summary:
+      'For coaches. Find people who want a change you help with, ask about it, and offer a free discovery call.',
+    details: {
+      ...blankPlaybook(),
+      goal: 'call',
+      offer: 'A free 30-minute discovery call',
+      niche: 'People who want a change in their work or life and feel stuck on their own',
+      problem:
+        'They know what they want to change but keep putting it off, with no plan and nobody keeping them on track.',
+      audience:
+        'People who want help reaching a goal in their work, business or life, and are open to talking with a coach.',
+      signs: [
+        'Posts about feeling stuck, burned out or ready for a change',
+        'Shares a goal they’re working toward',
+        'Asks a group for advice, a mentor or a coach',
+        'Starting or growing their own business',
+      ],
+      skip: [
+        'Other coaches and consultants',
+        'People going through a crisis or asking for medical help',
+        'Group admins and moderators',
+        'Current clients',
+      ],
+      platforms: ['facebook', 'instagram', 'linkedin'],
+      worksOnline: true,
+      groupWords: ['personal growth', 'entrepreneurs', 'career change', 'self improvement'],
+      steps: ['connect', 'engage', 'message', 'follow_up'],
+      tone: 'Encouraging and curious, never pushy. Short messages that ask more than they tell.',
+      openerStyles: [
+        'Ask one curious question about a goal or a change they posted about.',
+        'Mention the group you’re both in, then ask what they’re working on this year.',
+        'Say one thing you genuinely liked in a post of theirs, then ask a light question.',
+      ],
+      questions: [
+        {
+          id: 'q1',
+          text: 'What would you most like to change in the next few months?',
+          answers: [],
+        },
+        { id: 'q2', text: 'What have you tried so far?', answers: [] },
+        {
+          id: 'q3',
+          text: 'What’s getting in the way?',
+          answers: [
+            { label: 'Time', tag: null, next: 'continue' },
+            { label: 'Not sure where to start', tag: null, next: 'continue' },
+            { label: 'Staying on track', tag: null, next: 'continue' },
+            { label: 'Nothing, I’ve got it', tag: 'Doing fine', next: 'later' },
+          ],
+        },
+        {
+          id: 'q4',
+          text: 'Would it help to talk it through with someone?',
+          answers: [
+            { label: 'Yes', tag: 'Wants a call', next: 'offer' },
+            { label: 'Maybe later', tag: null, next: 'later' },
+            { label: 'No thanks', tag: 'Not a fit', next: 'stop' },
+          ],
+        },
+      ],
+      avoid: ['Guaranteed results', 'Cure', 'Diagnose', 'Therapy', 'Get rich quick'],
+      hashtags: [
+        'personalgrowth',
+        'personaldevelopment',
+        'growthmindset',
+        'mindset',
+        'goalsetting',
+        'careerchange',
+        'careergoals',
+        'selfimprovement',
+        'entrepreneurlife',
+        'smallbusinessowner',
+        'worklifebalance',
+        'burnout',
+        'newchapter',
+        'lifegoals',
+        'motivation',
+      ],
+      postSearches: [
+        'feeling stuck',
+        'career change',
+        'burnout',
+        'next chapter',
+        'work life balance',
+        'growing my business',
+        'need accountability',
+        'new goals',
+      ],
+      tags: ['Wants a change', 'Doing fine', 'Wants a call', 'Not a fit', 'Friend or family'],
+    },
+  },
 } satisfies Record<string, PlaybookTemplate>;
 export type PlaybookTemplateKey = keyof typeof TEMPLATES;
 
-/** Where a new playbook can start. The owner's own is first; templates for other kinds of business follow. */
+/**
+ * Where a new playbook can start, in this order: the owner's own, then real estate agents, home services and coaches.
+ */
 export const PLAYBOOK_TEMPLATES: Readonly<Record<PlaybookTemplateKey, PlaybookTemplate>> =
   TEMPLATES;
 export const PLAYBOOK_TEMPLATE_KEYS = Object.keys(PLAYBOOK_TEMPLATES) as [

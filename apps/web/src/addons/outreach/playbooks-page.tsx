@@ -61,7 +61,7 @@ export function PlaybooksView({
       {inUse.length === 0 ? (
         <Card className="p-6 text-center text-[13.5px] text-text-2">
           {W.playbooksEmpty}{' '}
-          {canManage ? 'Start one from the CRM-demo template, or a blank one.' : W.readOnly}
+          {canManage ? 'Start one from a ready-made playbook, or a blank one.' : W.readOnly}
         </Card>
       ) : (
         <div className="grid gap-3 md:grid-cols-2">
@@ -266,7 +266,7 @@ function TemplateDialog({
     <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
       <DialogContent
         title={W.newPlaybook}
-        description="Start from a template and make it yours, or start blank. It asks you a step at a time."
+        description="Start from a ready-made playbook and make it yours, or start blank. It asks you a step at a time."
         className="w-[min(520px,calc(100vw-32px))]"
       >
         <div className="mt-4 space-y-2">

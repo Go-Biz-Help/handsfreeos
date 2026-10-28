@@ -84238,7 +84238,10 @@
                       {
                         "type": "string",
                         "enum": [
-                          "crm_demos"
+                          "crm_demos",
+                          "real_estate",
+                          "home_services",
+                          "coaching"
                         ]
                       },
                       {

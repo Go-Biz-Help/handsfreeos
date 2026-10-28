@@ -14,9 +14,12 @@ import {
   queries,
 } from '../../src/server';
 import { outreachAddon } from '../../src/addons/outreach/manifest';
+import { POST_SEARCH_WORDS_MOST, wordsDue } from '../../src/addons/outreach/topics';
+import { hashtagOf } from '../../src/addons/outreach/posts';
 import {
   answerNextLabel,
   blankPlaybook,
+  FIND_WORDS_PARTS,
   followUpGapsFor,
   hasWordsOn,
   paceOf,
@@ -25,6 +28,7 @@ import {
   PlaybookDetails,
   renumberQuestions,
   upgradePlaybookDetails,
+  WORDS_PLATFORM_KEYS,
   type PlaybookQuestion,
 } from '../../src/addons/outreach/playbooks';
 import {
@@ -144,6 +148,52 @@ describe('playbooks', () => {
       'Not a fit',
       'Friend or family',
     ]);
+  });
+
+  it('has ready-made playbooks after it: real estate agents, then home services, then coaches (decision 117)', () => {
+    expect(Object.keys(PLAYBOOK_TEMPLATES)).toEqual([
+      'crm_demos',
+      'real_estate',
+      'home_services',
+      'coaching',
+    ]);
+    const made = [
+      PLAYBOOK_TEMPLATES.real_estate,
+      PLAYBOOK_TEMPLATES.home_services,
+      PLAYBOOK_TEMPLATES.coaching,
+    ];
+    expect(made.map((t) => [t.details.goal, t.details.worksOnline])).toEqual([
+      ['consult', false],
+      ['estimate', false],
+      ['call', true],
+    ]);
+    for (const { name, details: d } of made) {
+      // Questions and openers to start with, and the words each of its networks looks with.
+      expect(d.questions.length, name).toBeGreaterThanOrEqual(4);
+      expect(d.openerStyles, name).toHaveLength(3);
+      for (const p of WORDS_PLATFORM_KEYS)
+        expect(d[FIND_WORDS_PARTS[p]]!.length > 0, `${name} on ${p}`).toBe(hasWordsOn(d, p));
+      // Already the person's own: the AI writes none over them, and they're as a save keeps them.
+      expect(wordsDue(d).networks, name).toEqual([]);
+      expect(
+        d.hashtags!.map((h) => hashtagOf(h)),
+        name,
+      ).toEqual(d.hashtags);
+      for (const s of d.postSearches!)
+        expect(s.split(' ').length, s).toBeLessThanOrEqual(POST_SEARCH_WORDS_MOST);
+      // Everything blank that's the person's own: where, the link, and anything they must say.
+      expect([d.area, d.link, d.disclaimer], name).toEqual([null, null, null]);
+    }
+    // A home or a neighborhood is never described by who it suits (fair housing).
+    expect(PLAYBOOK_TEMPLATES.real_estate.details.avoid).toEqual(
+      expect.arrayContaining(['Family-friendly', 'Safe neighborhood']),
+    );
+    // Selling skips the questions about buying; a coach leaves anyone in a crisis alone.
+    const selling = PLAYBOOK_TEMPLATES.real_estate.details.questions[0]!.answers[1]!;
+    expect(selling).toEqual({ label: 'Selling', tag: 'Seller', next: 'q4' });
+    expect(PLAYBOOK_TEMPLATES.coaching.details.skip).toContain(
+      'People going through a crisis or asking for medical help',
+    );
   });
 
   it('refuses a tag twice, an empty line, and a link that isn’t one', () => {
