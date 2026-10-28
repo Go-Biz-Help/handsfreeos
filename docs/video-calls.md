@@ -7,8 +7,9 @@ carries the video and sound.
 
 Part 1, the call itself on the web, is built, and so is part 2, the AI hearing it: captions, "AI notes on", the
 transcript on the appointment and today's After the call. So is part 3, the Sales Coach in the call: its cards beside
-the video, and its write-up and score after. The phone app and calls that aren't for an appointment come next ("The
-owner's decisions" and "Not yet" below). Support turns calls on per
+the video, and its write-up and score after. Part 4, the team's call screen in the phone app, is built too and reaches
+phones with the next store build ("On the phone" below). Calls that aren't for an appointment come next ("The owner's
+decisions" and "Not yet" below). Support turns calls on per
 business in /admin until every business gets them. Setting up LiveKit (the account, the worker's secrets and the
 webhook) is "Video calls: LiveKit" in `docs/operations.md`.
 
@@ -36,6 +37,9 @@ webhook) is "Video calls: LiveKit" in `docs/operations.md`.
 | The transcript, once a stretch is over      | `video_call.keep_words` (core), queued by `onVideoCallEnded` in `apps/worker/src/video-calls/handlers.ts`        |
 | The coach in the call                       | `apps/worker/src/video-calls/coach.ts` (`CallCoach`, `finishCoaching`); `video_call.coach` (core)                |
 | The coach's cards beside the video          | `apps/web/src/components/video-call/call-coach.tsx` (the `call.panels` slot), placed by `call-room.tsx`          |
+| The phone's call screen                     | `apps/mobile/src/video-call/` (`phone-call.tsx`, `room.tsx`, `team-call.ts`), at `app/app/w/[workspaceId]/call/` |
+| The coach's card on the phone               | `apps/mobile/src/addons/salescoach/call-card.tsx`, the phone registry's `CallCard`                               |
+| LiveKit in the phone's build                | `apps/mobile/app.json` (its plugins and the camera and microphone words), `app.config.ts` (no screen share)      |
 
 ## How a call goes
 
@@ -50,8 +54,10 @@ webhook) is "Video calls: LiveKit" in `docs/operations.md`.
    the call. Until then they see "Dana will be right with you", their page asks again every few seconds, and the
    people on the appointment get a push. Anyone else on the call's link asks to be let in, and the team lets them in
    or turns them away.
-4. **The team joins** with **Join video call** on the appointment, which opens `/call/<id>` in a tab of its own.
-   Someone signed in who can't see the appointment asks to be let in like anyone else.
+4. **The team joins** with **Join video call** on the appointment, which opens `/call/<id>` in a tab of its own, or
+   with **Join** on the appointment in the phone app, which opens the call screen there (part 4). The push about
+   someone waiting opens the call too. Someone signed in who can't see the appointment asks to be let in like anyone
+   else.
 5. **In the call:** camera, microphone, screen share from a computer, chat, background blur, reactions and raise
    hand. The team can let people in, turn them away, mute or remove someone, and end the call for everyone. A
    dropped connection reconnects on its own; a second tab or phone takes over from the first.
@@ -190,6 +196,35 @@ joining by phone, team-only meetings.
   call's page sits outside the business's pages, so it brings the business's add-ons, the person's permissions and
   the live updates along itself (`call-coach.tsx`). Only the team sees it.
 
+### On the phone (part 4)
+
+- **Only the team joins in the app.** Customers and anyone else join on their links in a browser; the phones claim
+  neither `/j` nor `/call` (`app.json`), so those links never open the app.
+- **The same doors as the web's.** Join asks the worker for a ticket (`/v1/video-calls/join`, which runs
+  `video_call.join`), the screen reads `video_call.get` every few seconds, and Let in, Turn away, Mute, Remove, End for
+  everyone and AI notes off or on are the same commands. Nothing is kept on the phone, so
+  `apps/sync/sync-config.yaml` is unchanged and a call needs signal.
+- **Where it opens:** `videoCallAppPath`, `/app/w/<business>/call/<id>`. Join on the appointment opens it for a
+  HandsFreeOS call (`callIdOfLink` reads the call from the appointment's link); Zoom and Meet still open their own
+  apps. The push about someone waiting opens it too. On the web that path is a page that goes on to `/call/<id>`, so
+  an older phone build, which doesn't know it, opens the browser and lands in the same call.
+- **Before joining**, the screen says what the call is, who's waiting or in it already, and that AI takes notes when
+  it does, with the microphone and camera to start with. Nothing turns on until Join; the phone asks for the camera
+  and microphone the first time, and someone who said no is sent to Settings (`media.ts`).
+- **In the call:** the person you're talking to fills the screen with you in the corner, more people share a grid,
+  and a screen shared from a computer goes big. Microphone, camera, Flip, where the sound comes out (the iPhone's
+  own picker; on Android speaker, phone or headphones), captions, People, Chat, and Leave or End for everyone. The
+  screen stays awake while the call is open.
+- **The coach's newest card sits over the top of the video** for someone with `salescoach.use`: the phone registry's
+  `CallCard`, read from `salescoach.live` every 3 seconds, as the Live call screen does.
+- **LiveKit loads with the first call** (`load-room.ts`), so the app doesn't start it, or its WebRTC, at launch.
+- **While the app is open.** There's no background sound on an iPhone (no `audio` background mode) and no foreground
+  service on Android, so the camera and microphone stop when the person leaves the app, and the call carries on when
+  they come back. A call is something the phone is in front of you for.
+- **A new store build,** because LiveKit's WebRTC is native code: the release run's fingerprint makes one rather than
+  an over-the-air update. Until people update, Join on their phone opens the browser as before. The camera and
+  microphone words, and what each Android permission is for, are in `apps/mobile/store/permissions.md`.
+
 ## Running it locally
 
 Without LiveKit the worker uses its stand-in: tickets connect to nothing and the call screen shows a stand-in for
@@ -203,7 +238,11 @@ enough to see captions and lines arrive. With `DEEPGRAM_API_KEY` and `VOICE_AGEN
 
 ## Not yet
 
-- The phone app's call screen (part 4). Until then the team's Join on the phone opens the call in the browser.
+- From the phone app: sharing the phone's screen (Android's screen share service is taken out of the manifest),
+  background blur, reactions and raising a hand. A hand raised on a computer still shows on the phone as a note.
+- Bluetooth earbuds for a call on Android 12 and later, which needs the "Nearby devices" permission; the phone's
+  speaker, earpiece and wired headphones work, and on an iPhone AirPods too, from its own picker.
+- A call that keeps going with the phone app in the background, or locked.
 - Calls that aren't for an appointment (part 5).
 - Screen share from a phone's browser, which phones don't allow; they can watch someone else's.
 - Joining by phone, recordings, big sessions, breakout rooms and picture backgrounds.

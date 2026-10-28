@@ -101,20 +101,18 @@ export function AfterCall({
           testId="call-ended"
           action={team ? again('Start it again') : undefined}
         >
-          {team
-            ? 'Everyone has left. Starting it again lets customers back in on their own link.'
-            : 'Thanks for joining.'}
+          {team ? VIDEO_CALL_WORDS.endedTeam : 'Thanks for joining.'}
         </PublicState>
       );
     case 'elsewhere':
       return (
         <PublicState
           icon={<Video size={20} />}
-          title="You’re in this call somewhere else"
+          title={VIDEO_CALL_WORDS.elsewhereTitle}
           testId="call-elsewhere"
           action={again('Join here instead')}
         >
-          You joined from another tab or device, so this one stepped out.
+          {VIDEO_CALL_WORDS.elsewhere}
         </PublicState>
       );
     case 'lost':
@@ -122,11 +120,11 @@ export function AfterCall({
         <PublicState
           tone="warning"
           icon={<WifiOff size={20} />}
-          title="Your connection to the call dropped"
+          title={VIDEO_CALL_WORDS.lostTitle}
           testId="call-lost"
           action={again('Join again')}
         >
-          Check your internet connection, then join again.
+          {VIDEO_CALL_WORDS.lost}
         </PublicState>
       );
     case 'turned_away':

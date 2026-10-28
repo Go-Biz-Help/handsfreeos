@@ -6,6 +6,7 @@ import type { CopyDb, PhoneAddonSearch } from '@/search/copy-sql';
 import { OutreachMore } from './outreach/more';
 import { RealestateMore } from './realestate/more';
 import { RE_COPY_KINDS, searchRealestateCopy } from './realestate/search';
+import { SalescoachCallCard } from './salescoach/call-card';
 import { SalescoachMore } from './salescoach/more';
 
 /**
@@ -30,6 +31,11 @@ export interface PhoneAddon {
    * signal with none, rather than that nothing matched.
    */
   readonly searchKinds?: readonly string[];
+  /**
+   * What it shows the team over the top of a HandsFreeOS video call (the web's `call.panels`): the Sales Coach's newest
+   * card. Drawn only for someone holding `permission`; nothing while it has nothing to say.
+   */
+  readonly CallCard?: React.ComponentType<{ workspaceId: string }>;
 }
 
 export const PHONE_ADDONS: readonly PhoneAddon[] = [
@@ -41,5 +47,10 @@ export const PHONE_ADDONS: readonly PhoneAddon[] = [
     searchKinds: RE_COPY_KINDS,
   },
   { addonId: 'outreach', permission: 'outreach.use', More: OutreachMore },
-  { addonId: 'salescoach', permission: 'salescoach.use', More: SalescoachMore },
+  {
+    addonId: 'salescoach',
+    permission: 'salescoach.use',
+    More: SalescoachMore,
+    CallCard: SalescoachCallCard,
+  },
 ];

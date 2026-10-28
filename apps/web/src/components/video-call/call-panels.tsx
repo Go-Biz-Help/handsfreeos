@@ -143,11 +143,7 @@ export function ChatPanel({
   );
 }
 
-const KIND_LABEL: Record<VideoCallPerson['kind'], string> = {
-  team: 'Team',
-  customer: 'Customer',
-  guest: 'Guest',
-};
+const KIND_LABEL: Record<VideoCallPerson['kind'], string> = VIDEO_CALL_WORDS.kinds;
 
 export function PeoplePanel({
   team,

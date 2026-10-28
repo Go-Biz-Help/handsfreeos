@@ -161,7 +161,7 @@ export function LinkCall({
     <CallFrame business={business}>
       {step.kind === 'loading' ? (
         <div className="flex flex-1 items-center justify-center text-[13px] text-text-3">
-          Opening the call…
+          {VIDEO_CALL_WORDS.opening}
         </div>
       ) : step.kind === 'problem' ? (
         <CallProblem message={step.message} />

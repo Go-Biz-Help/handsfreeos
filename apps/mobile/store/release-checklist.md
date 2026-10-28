@@ -66,8 +66,8 @@ In order, because some need the one before.
    up; Expo Parts 4.2 and 4.3 in `docs/operations.md` say how. The worker already holds its `EXPO_ACCESS_TOKEN` and
    reports `"push":"expo"`, so the server half is ready and waiting.
 7. **Check the merged manifest** of an Android build against [`permissions.md`](permissions.md) — not checked here.
-   Two things especially: `SYSTEM_ALERT_WINDOW` must be gone, and `usesCleartextTraffic` must be absent (it is only
-   for the Maestro test builds).
+   Three things especially: `SYSTEM_ALERT_WINDOW` must be gone, `usesCleartextTraffic` must be absent (it is only
+   for the Maestro test builds), and so must LiveKit's `MediaProjectionService` (no screen share from a phone).
 8. **Fill both consoles** from the files here: listing text, icons, feature graphic, screenshots, privacy answers,
    age rating, app access, data deletion. Not checked here.
 9. **Answer Apple's messaging and moderation question** — see [`age-rating.md`](age-rating.md). Not a technical
@@ -82,6 +82,13 @@ the App Store and to a Play production release is a separate decision, and neith
 Connect you submit a TestFlight build for review, and in Play Console you promote the internal testing release.
 
 ## Things worth knowing before a build
+
+- **The first build with HandsFreeOS video calls** (docs/video-calls.md, "On the phone") is a store build, not an
+  over-the-air update: LiveKit's WebRTC is native code. Before it goes to review, Play Console's Data safety form
+  needs the new **Photos and videos → Videos** row and the longer voice recordings line from
+  [`privacy-play.md`](privacy-play.md); the App Store answers don't change ([`privacy-app-store.md`](privacy-app-store.md)
+  says why). On iOS, CocoaPods fetches LiveKit's WebRTC from `github.com/livekit/podspecs`, which its plugin adds to
+  the Podfile.
 
 - **Build from `apps/mobile`, never the repository root.** From the root, `eas build` decides the root is an
   unconfigured Expo app, writes a stub `eas.json` and `app.json` there and asks for a bundle identifier before it

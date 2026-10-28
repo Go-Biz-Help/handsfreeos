@@ -36,10 +36,11 @@ const KIND_ICON: Record<CardKind, typeof Sparkles> = {
 type Live = Awaited<ReturnType<typeof readLive>>;
 type Call = NonNullable<Live['call']>;
 
-const readLive = async (workspaceId: string) =>
+export const readLive = async (workspaceId: string) =>
   unwrap(await api.POST('/v1/queries/salescoach.live', { body: { workspaceId } }));
 
-function CoachCard({
+/** One of the coach's cards; the newest (`top`) in big type, with what was heard. */
+export function CoachCard({
   workspaceId,
   card,
   top,

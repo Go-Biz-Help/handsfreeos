@@ -122,7 +122,32 @@ const BLOCKED_PERMISSIONS = [
 const withOnlyThePermissionsWeUse: ConfigPlugin = (config) =>
   AndroidConfig.Permissions.withBlockedPermissions(config, BLOCKED_PERMISSIONS);
 
+/**
+ * LiveKit's WebRTC library brings a foreground service for sharing the phone's screen in a call. The app's video calls
+ * share no screen from a phone (docs/video-calls.md, "Not yet"), so the service is taken out of the merged manifest,
+ * and with it a foreground service type Play would ask about.
+ */
+const SCREEN_SHARE_SERVICE = 'com.oney.WebRTCModule.MediaProjectionService';
+const withNoScreenShareService: ConfigPlugin = (config) =>
+  withAndroidManifest(config, (mod) => {
+    const manifest = mod.modResults.manifest;
+    manifest.$['xmlns:tools'] = 'http://schemas.android.com/tools';
+    const application = manifest.application?.[0];
+    if (application) {
+      const services = (application.service ?? []).filter(
+        (s) => s.$['android:name'] !== SCREEN_SHARE_SERVICE,
+      );
+      application.service = [
+        ...services,
+        { $: { 'android:name': SCREEN_SHARE_SERVICE, 'tools:node': 'remove' } },
+      ] as typeof application.service;
+    }
+    return mod;
+  });
+
 export default ({ config }: ConfigContext): ExpoConfig => {
-  const base = withOnlyThePermissionsWeUse(withNoBackups(config as ExpoConfig));
+  const base = withNoScreenShareService(
+    withOnlyThePermissionsWeUse(withNoBackups(config as ExpoConfig)),
+  );
   return process.env.EXPO_PUBLIC_E2E === '1' ? withPlainHttpForTests(base) : base;
 };

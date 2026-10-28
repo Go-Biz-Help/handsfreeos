@@ -120,6 +120,9 @@ export const ROUTES: readonly Rule[] = [
   { web: 'search', phone: 'search', fragment: ['q', 'kind'] },
   // The Calendar tab opens the appointment itself when the link names one (?appt=<id>).
   { web: 'calendar', phone: 'calendar', query: ['appt', 'date'] },
+  // A HandsFreeOS video call (docs/video-calls.md): the push about someone waiting opens the call screen. The web's
+  // page goes on to the call's own link.
+  { web: 'call/:callId', phone: 'call/:callId' },
   { web: 'money', phone: 'money' },
   { web: 'money/invoices', phone: 'money' },
   { web: 'money/invoices/:invoiceId', phone: 'money/invoices/:invoiceId' },
