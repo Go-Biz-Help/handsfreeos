@@ -133,6 +133,37 @@ describe('Today’s strip, a row for each network', () => {
     expect(onShow).toHaveBeenCalled();
   });
 
+  it('has Stop for today on a network going on its own in the working hours, and Start my day before them', async () => {
+    // The owner, 28 Oct 2026: "why are they still saying Start My day?" 10 AM in Chicago, every day.
+    const every = [0, 1, 2, 3, 4, 5, 6];
+    const strip = (start: number, h: ReturnType<typeof handlers>) => (
+      <LiveStrip
+        platform="instagram"
+        live={{ ...LIVE, hours: { start, end: 22, days: every } }}
+        error={null}
+        online
+        now={NOW}
+        pressed={null}
+        many
+        shown={false}
+        onShow={jest.fn()}
+        {...h}
+      />
+    );
+    const going = handlers();
+    await render(strip(9, going));
+    expect(screen.getByText('Going on its own until 10:00 PM.')).toBeTruthy();
+    expect(screen.queryByTestId('live-start')).toBeNull();
+    await fireEvent.press(screen.getByTestId('live-stop'));
+    expect(going.onStop).toHaveBeenCalled();
+    const early = handlers();
+    await render(strip(11, early));
+    expect(screen.getByText('Starts on its own at 11:00 AM.')).toBeTruthy();
+    expect(screen.queryByTestId('live-stop')).toBeNull();
+    await fireEvent.press(screen.getByTestId('live-start'));
+    expect(early.onStart).toHaveBeenCalled();
+  });
+
   it('says beside each held Start my day what holds it and where it’s done, on every row', async () => {
     const held =
       'None of your playbooks runs on LinkedIn yet. Turn LinkedIn on under Where in one on the Playbooks tab, or write one for it.';
