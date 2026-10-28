@@ -1,4 +1,10 @@
-import { executeCommand, plainSpaces, registry, type AssistantCard } from '@hfos/core/server';
+import {
+  executeCommand,
+  plainSpaces,
+  registry,
+  rehearseCommand,
+  type AssistantCard,
+} from '@hfos/core/server';
 import type { Db } from '@hfos/db/client';
 import { personQuery } from './context';
 import type { ToolContext, ToolOutcome } from './runtime';
@@ -91,6 +97,24 @@ export async function command<T>(
     },
   );
   return done.output as T;
+}
+
+/**
+ * A command tried as the person and rolled back whole, so a card is drawn only for a change its own rules would
+ * take now: one that doesn't fit, or a record someone changed since, is refused before anyone presses Confirm.
+ */
+export async function rehearse(
+  db: Db,
+  ctx: ToolContext,
+  name: string,
+  input: Record<string, unknown>,
+): Promise<void> {
+  const def = registry.command(name);
+  if (!def) throw new Error(`Unknown command ${name}`);
+  await rehearseCommand(db, def, { ...input, workspaceId: ctx.workspaceId }, ctx.actor, {
+    correlationId: ctx.correlationId,
+    channel: 'assistant',
+  });
 }
 
 type Ref = { id: string; fullName: string } | null;

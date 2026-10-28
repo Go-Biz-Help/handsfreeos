@@ -270,8 +270,8 @@ p {
   animation-play-state: paused;
 }
 
-/* "A normal CRM waits for you to": each chore is crossed out as it comes into view, then the jobs it does
-   instead tick in. The page reads the same without it; the strike is the explanation, not the content. */
+/* The home page's bill: each app's price is crossed out as it comes into view, then the one plan that does
+   their work ticks in. The page reads the same without it; the strike is the explanation, not the content. */
 .chore-strike {
   clip-path: inset(0 100% 0 0);
 }

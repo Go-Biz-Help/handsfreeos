@@ -6,7 +6,7 @@ import { ImageResponse } from 'next/og';
  * Drawn here rather than shipped as a PNG so the wording only lives in one place. It uses the
  * system font on purpose: nothing is fetched at build time, so the build cannot fail for it.
  */
-export const alt = 'HandsFreeOS — the CRM that doesn’t want you to use it';
+export const alt = 'HandsFreeOS — answer every lead in seconds and get your evenings back';
 export const size = { width: 1200, height: 630 };
 export const contentType = 'image/png';
 
@@ -47,7 +47,7 @@ export default function OpengraphImage() {
       <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
         <div
           style={{
-            fontSize: 68,
+            fontSize: 64,
             fontWeight: 700,
             color: '#191d25',
             lineHeight: 1.08,
@@ -55,11 +55,11 @@ export default function OpengraphImage() {
             maxWidth: 940,
           }}
         >
-          The CRM that doesn’t want you to use it.
+          Answer every lead in seconds. Get your evenings back.
         </div>
         <div style={{ fontSize: 30, color: '#5b616a', maxWidth: 900, lineHeight: 1.35 }}>
-          It answers the lead, books the job and chases the invoice on its own. The less you use it,
-          the better it’s working.
+          It picks up your calls, answers your texts, books the job and chases the invoice. One app,
+          one bill, your whole crew.
         </div>
       </div>
 
@@ -75,7 +75,7 @@ export default function OpengraphImage() {
         >
           Sign up
         </div>
-        <div style={{ color: '#676c75' }}>handsfreeos.com</div>
+        <div style={{ color: '#676c75' }}>30-day money back · handsfreeos.com</div>
       </div>
     </div>,
     size,

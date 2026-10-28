@@ -3,7 +3,15 @@ import { FoundingCounter } from '@/components/founding-counter';
 import { FaqJsonLd } from '@/components/json-ld';
 import { Button, Card, Check, Container, Section, SectionHeading } from '@/components/ui';
 import { pricingFaqs } from '@/content/faqs';
-import { noSpotsNote, plan, signUpFor, spotPrices, urls, usageNote } from '@/content/site';
+import {
+  moneyBack,
+  noSpotsNote,
+  plan,
+  signUpFor,
+  spotPrices,
+  urls,
+  usageNote,
+} from '@/content/site';
 import { foundingCounts, foundingSpotsOnSale, hasRoom } from '@/lib/founding';
 
 /**
@@ -35,7 +43,7 @@ export default async function PricingPage() {
       <Container className="py-16 sm:py-20">
         {open.length > 0 ? (
           <SectionHeading
-            sub="Sign up, pick your spot and pay, first come, first served. Every feature, one business, as many people as work there: most CRMs charge for every person who logs in, and this one does not. The counts below are live."
+            sub={`Sign up, pick your spot and pay, first come, first served. Every feature, one business, as many people as work there: most CRMs charge for every person who logs in, and this one does not. And if it isn’t for you within ${moneyBack.days} days, you get your money back. The counts below are live.`}
             as="h1"
           >
             Founding spots are open.
@@ -72,7 +80,7 @@ export default async function PricingPage() {
 
                 {room ? (
                   <Button href={signUpFor(content)} className="mt-6 w-full" size="lg">
-                    Sign up for {content.priceLabel} {content.per}
+                    Claim my {content.priceLabel} spot
                   </Button>
                 ) : (
                   <p className="text-text-3 mt-6 text-sm">
@@ -114,9 +122,16 @@ export default async function PricingPage() {
           </ul>
         </div>
 
-        <div className="border-border bg-card-2 mt-6 rounded-[var(--radius-card)] border p-6">
-          <h3 className="font-semibold">Texts, calls and AI</h3>
-          <p className="text-text-2 mt-2 text-base">{usageNote}</p>
+        <div className="mt-6 grid gap-6 md:grid-cols-2">
+          <div className="border-border bg-card-2 rounded-[var(--radius-card)] border p-6">
+            <h3 className="font-semibold">Texts, calls and AI</h3>
+            <p className="text-text-2 mt-2 text-base">{usageNote}</p>
+          </div>
+          {/* The owner's money-back promise (2026-10-28), in the same words as the home page and the terms. */}
+          <div className="border-border bg-card-2 rounded-[var(--radius-card)] border p-6">
+            <h3 className="font-semibold">{moneyBack.days} days, or your money back</h3>
+            <p className="text-text-2 mt-2 text-base">{moneyBack.line}</p>
+          </div>
         </div>
       </Container>
 
