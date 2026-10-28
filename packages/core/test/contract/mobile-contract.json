@@ -3776,6 +3776,10 @@
           "smsConsent": {
             "default": false,
             "type": "boolean"
+          },
+          "callConsent": {
+            "default": false,
+            "type": "boolean"
           }
         },
         "required": ["workspaceId", "formId", "answers"]
