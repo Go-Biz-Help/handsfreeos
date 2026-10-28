@@ -14,6 +14,7 @@ import { PLATFORMS, type Platform } from '@hfos/core/addons/outreach/networks';
 import { PARTNER_WORDS as PW } from '@hfos/core/addons/outreach/partners';
 import {
   doneOnItsOwn,
+  isOccasionKind,
   TODAY_KIND_KEYS,
   TODAY_LIMIT,
   type TodayItem,
@@ -460,9 +461,11 @@ function ItemCard({
   const openAt = todayOpenOf(item, platform);
   // A comment drafted to wait (decision 92): it goes under the post; skipping it puts the post aside.
   const comment = item.kind === 'comment' && item.send !== null;
-  // It waits for an OK of its own, said under it: a comment's, and another time after a no-show (decision 106).
+  // It waits for an OK of its own, said under it: a comment's, another time after a no-show (decision 106), and a
+  // birthday or new-job note (decision 108).
   const alone =
-    (comment || item.kind === 'rebook') && item.send?.state === 'waiting'
+    (comment || item.kind === 'rebook' || isOccasionKind(item.kind)) &&
+    item.send?.state === 'waiting'
       ? oneByOneWords(item.send)
       : null;
   return (

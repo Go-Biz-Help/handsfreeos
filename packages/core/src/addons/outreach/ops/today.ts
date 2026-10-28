@@ -49,6 +49,7 @@ import {
   type TodayItem,
 } from '../today';
 import { POST_FRESH_DAYS } from '../posts';
+import { NEW_JOB_DAYS, OCCASION_WORDS, type OccasionKind } from '../occasions';
 import { commentSendsOn, foundByTopicOn, ownSuggestions } from '../profile-parts';
 import {
   FIND_FRESH_DAYS,
@@ -1054,6 +1055,75 @@ export const today = defineAddonQuery(outreachAddon, {
         );
       }
       followLeft -= Math.min(demoed.length, followLeft);
+    }
+
+    // A birthday today, or a new job lately (decision 108, ../occasions.ts): what the person's computer read on
+    // Facebook's Birthdays page or LinkedIn's Catch up, for someone they've chatted with or the AI found a fit for a
+    // playbook. Not for a client, Don't pitch, Never contact or Not a fit, nor once the person wrote to them since it
+    // was seen, or skipped its note. No link: it waits for the person's OK. Birthdays first, on the follow-ups' limit.
+    if (followLeft > 0) {
+      const zone = await workspaceTimezone(ctx.tx, ws);
+      const today = sql`(${nowAt}::timestamptz at time zone ${zone})::date`;
+      const listedNow = new Set(items.map((i) => i.profileId).filter(Boolean));
+      const noted = await rows<{
+        id: string;
+        name: string;
+        url: string;
+        chat_id: string | null;
+        thread_key: string | null;
+        summary: string | null;
+        next_step: string | null;
+        kind: OccasionKind;
+        detail: string | null;
+      }>(
+        ctx.tx,
+        sql`select distinct on (p.id) p.id, p.name, p.url, c.id as chat_id, c.thread_key, c.summary, c.next_step,
+              o.kind, o.detail
+            from (
+              select o.profile_id, o.kind, min(o.seen_at) as since,
+                (array_agg(o.detail order by o.seen_at desc) filter (where o.detail is not null))[1] as detail
+              from addon_outreach.occasions o
+              where o.workspace_id = ${ws} and o.user_id = ${me}
+                and ((o.kind = 'birthday' and o.on_day = ${today})
+                  or (o.kind = 'new_job' and o.on_day > ${today} - ${NEW_JOB_DAYS}::int))
+              group by o.profile_id, o.kind
+            ) o
+            join addon_outreach.profiles p on p.id = o.profile_id
+            ${latestChat('p')}
+            where p.friendship <> 'self' and ${notNever('p')} and ${inPlay(me, 'p')} and ${lets}
+              and (c.id is not null or exists (select 1 from addon_outreach.checks ch
+                where ch.profile_id = p.id and ch.user_id = ${me} and ch.verdict = 'good'))
+              and not exists (select 1 from addon_outreach.touches t
+                where t.profile_id = p.id and t.user_id = ${me} and t.kind = 'message'
+                  and t.at >= o.since - interval '12 hours')
+              and not exists (select 1 from addon_outreach.sends s
+                where s.profile_id = p.id and s.user_id = ${me} and s.kind = o.kind and s.state = 'skipped'
+                  and s.done_at >= o.since - interval '12 hours')
+            order by p.id, (o.kind = 'birthday') desc, o.since desc`,
+      );
+      const due = noted
+        .filter((p) => !listedNow.has(p.id))
+        .sort((a, b) => Number(b.kind === 'birthday') - Number(a.kind === 'birthday'))
+        .slice(0, followLeft);
+      for (const p of due)
+        items.push(
+          item({
+            kind: p.kind,
+            name: p.name,
+            profileId: p.id,
+            profileUrl: p.url,
+            chatId: p.chat_id,
+            threadKey: p.thread_key,
+            why: [
+              p.kind === 'birthday'
+                ? OCCASION_WORDS.birthdayWhy
+                : OCCASION_WORDS.newJobWhy(p.detail),
+            ],
+            summary: p.summary,
+            nextStep: p.next_step,
+          }),
+        );
+      followLeft -= due.length;
     }
 
     // Send the link (decisions 47 and 66): someone who said yes to the video, or to the first message when there's no

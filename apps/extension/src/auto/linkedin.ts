@@ -62,6 +62,7 @@ import { checkConnections, isThem, readThemOnLinkedIn } from '../jobs/linkedin/c
 import { checkFound } from '../jobs/found-checks';
 import { checkPartners } from '../jobs/partners';
 import { linkedInProfileRead } from '../jobs/linkedin/profile';
+import { linkedInOccasions } from '../jobs/occasions';
 import { readProfileOnItsOwn } from '../jobs/own-read';
 import { PARTNER_CHECKS_PER_DAY } from '@hfos/core/addons/outreach/partners';
 import { lookUpOnLinkedIn } from '../jobs/linkedin/lookup';
@@ -128,13 +129,15 @@ export const LINKEDIN_ALARM = 'hfos-auto-linkedin';
 export const LINKEDIN_AUTO: readonly TodayKind[] = ['warm_up', 'friend_request'];
 /**
  * The once-a-day jobs on LinkedIn, in order. From 0.97.0 it withdraws old invitations on its own after checking the
- * new ones (`tidy`, decision 98), as the person chose. From 0.95.0 (decision 92) who reacted to and commented on the good posts
+ * new ones (`tidy`, decision 98), as the person chose; from 0.100.0 it then reads Catch up for birthdays and new jobs
+ * (`occasions`, decision 108), for a note on Today that waits for the person's OK. From 0.95.0 (decision 92) who reacted to and commented on the good posts
  * its search found is read after the helpful post (`post_people`), and the people found are checked last
  * (`found_checks`), inside its 40 profiles read, found people first.
  */
 export const LINKEDIN_DAILY = [
   'requests',
   'tidy',
+  'occasions',
   'checks',
   'chats',
   'posts',
@@ -148,6 +151,7 @@ type LinkedInDaily = (typeof LINKEDIN_DAILY)[number];
 
 const DAILY_DOING: Readonly<Record<LinkedInDaily, string>> = {
   requests: 'Checking your invitations on LinkedIn…',
+  occasions: 'Reading Catch up on LinkedIn for birthdays and new jobs…',
   tidy: 'Withdrawing your old invitations on LinkedIn…',
   checks: 'Checking your connections for good fits…',
   chats: 'Reading your LinkedIn chats for the AI…',
@@ -160,6 +164,7 @@ const DAILY_DOING: Readonly<Record<LinkedInDaily, string>> = {
 };
 const DAILY_NAMES: Readonly<Record<LinkedInDaily, string>> = {
   requests: 'Invitations',
+  occasions: 'Birthdays and new jobs',
   tidy: 'Tidy up',
   checks: 'Check my connections',
   chats: 'Read my chats',
@@ -830,6 +835,8 @@ export async function runLinkedInDaily(kind: LinkedInDaily, job: Job): Promise<J
   switch (kind) {
     case 'requests':
       return checkInvitations(job);
+    case 'occasions':
+      return linkedInOccasions(job);
     case 'tidy':
       return withdrawOnItsOwn(job);
     case 'checks':

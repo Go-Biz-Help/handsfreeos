@@ -28,6 +28,7 @@ import {
 } from '../src/networks/linkedin/own-profile';
 import { linkedin } from '../src/networks';
 import { DATA_PAGE } from '../src/networks/linkedin/data';
+import { CATCH_UP_PAGE } from '../src/jobs/occasions';
 import { readPage } from '../src/networks/linkedin/page';
 import type { StepTry, TryStep } from '../src/networks/linkedin/tries';
 import type { ProfileRef } from '../src/networks/linkedin/types';
@@ -918,6 +919,7 @@ describe('notes of what it saw, and Check LinkedIn', () => {
       [CONNECTIONS]: 'linkedin-connections.html',
       [POST]: 'linkedin-post.html',
       [MESSAGING]: 'linkedin-chat.html',
+      [CATCH_UP_PAGE]: 'linkedin-catch-up-2026-10.html',
       // Dana is the first of the search you're not connected with, and the first of your connections.
       [DANA]: 'linkedin-profile.html',
       [ACTIVITY]: 'linkedin-activity.html',
@@ -959,6 +961,7 @@ describe('notes of what it saw, and Check LinkedIn', () => {
         expect.stringContaining(`${LI}/search/results/content/?keywords=small%20business`),
         POST,
         MESSAGING,
+        CATCH_UP_PAGE,
         DANA,
         ACTIVITY,
         SENT,
@@ -997,6 +1000,7 @@ describe('notes of what it saw, and Check LinkedIn', () => {
         'checkup.reactors',
         'page',
         'page',
+        'page',
         'checkup.message',
         'checkup.like',
         'checkup.withdraw',
@@ -1008,9 +1012,9 @@ describe('notes of what it saw, and Check LinkedIn', () => {
         true,
       );
       expect(notes.filter((n) => !n.job).every((n) => n.outline)).toBe(true);
-      expect(notes.at(-1)!.found).toEqual({ pages: 12, steps: 10, working: 10 });
+      expect(notes.at(-1)!.found).toEqual({ pages: 13, steps: 10, working: 10 });
       expect(end).toEqual({
-        line: 'Read 12 LinkedIn pages and tried 10 steps up to their last press. Everything works.',
+        line: 'Read 13 LinkedIn pages and tried 10 steps up to their last press. Everything works.',
         warned: false,
       });
     });
@@ -1052,14 +1056,14 @@ describe('notes of what it saw, and Check LinkedIn', () => {
         outline: true,
       });
       expect(notes.at(-1)!.found).toEqual({
-        pages: 12,
+        pages: 13,
         steps: 10,
         working: 8,
         notWorking: ['headline'],
         nothingToTry: ['like'],
       });
       expect(end.line).toBe(
-        'Read 12 LinkedIn pages and tried 10 steps up to their last press. Not working: your headline. Nothing to try on: liking.',
+        'Read 13 LinkedIn pages and tried 10 steps up to their last press. Not working: your headline. Nothing to try on: liking.',
       );
     });
 
@@ -1080,7 +1084,7 @@ describe('notes of what it saw, and Check LinkedIn', () => {
             { step: 'message', tried: true, works: true, found: { page: true }, missing: [] },
           ],
         });
-        expect(opened.slice(8, 11)).toEqual([DANA, COMPOSE, ACTIVITY]);
+        expect(opened.slice(9, 12)).toEqual([DANA, COMPOSE, ACTIVITY]);
         expect(tried.filter(([step]) => step === 'message')).toEqual([
           ['message', DANA],
           ['message', COMPOSE],
@@ -1092,9 +1096,9 @@ describe('notes of what it saw, and Check LinkedIn', () => {
         ]);
         // The address it was handed is the job's alone: never in a note.
         expect(JSON.stringify(notes)).not.toContain('compose');
-        expect(notes.at(-1)!.found).toEqual({ pages: 13, steps: 10, working: 10 });
+        expect(notes.at(-1)!.found).toEqual({ pages: 14, steps: 10, working: 10 });
         expect(end.line).toBe(
-          'Read 13 LinkedIn pages and tried 10 steps up to their last press. Everything works.',
+          'Read 14 LinkedIn pages and tried 10 steps up to their last press. Everything works.',
         );
       } finally {
         delete pages[COMPOSE];

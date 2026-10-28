@@ -120,6 +120,8 @@ const COUNTED: Record<TodayKind, readonly [string, string]> = {
   reply: ['reply', 'replies'],
   demo_reminder: ['demo to remind them of', 'demos to remind them of'],
   rebook: ['missed demo to offer another time for', 'missed demos to offer another time for'],
+  birthday: ['birthday note', 'birthday notes'],
+  new_job: ['note on a new job', 'notes on new jobs'],
   comment: ['post to comment on', 'posts to comment on'],
   warm_lead: ['comment to answer', 'comments to answer'],
   recommend: ['business to recommend', 'businesses to recommend'],

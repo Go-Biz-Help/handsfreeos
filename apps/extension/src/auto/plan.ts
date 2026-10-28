@@ -44,6 +44,7 @@ export type DoneKind = AutoKind | 'drafted' | 'sent';
 export const DAILY_JOBS = [
   'requests',
   'tidy',
+  'occasions',
   'group_checks',
   'join',
   'members',

@@ -22,6 +22,7 @@ import { groupCommands, groupQueries } from './ops/groups';
 import { journeyQueries } from './ops/journey';
 import { leadCommands } from './ops/leads';
 import { ownerCommands } from './ops/owners';
+import { occasionCommands } from './ops/occasions';
 import { listCommands, listQueries } from './ops/lists';
 import { liveCommands, liveQueries } from './ops/live';
 import { openerCommands, openerQueries } from './ops/openers';
@@ -78,6 +79,7 @@ export const outreachAddonServer: AddonServerModule = {
     ...findCommands,
     ...leadCommands,
     ...ownerCommands,
+    ...occasionCommands,
   ],
   queries: [
     ...playbookQueries,
@@ -147,6 +149,7 @@ export const outreachAddonServer: AddonServerModule = {
     'outreach.finds.save': EXTENSION,
     'outreach.finds.next': EXTENSION,
     'outreach.finds.searches': EXTENSION,
+    'outreach.occasions.save': EXTENSION,
     'outreach.opener.use':
       'The screens noting which opener a copied first message was drafted with.',
   },

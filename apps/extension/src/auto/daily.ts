@@ -7,7 +7,8 @@
  * then works from: requests to confirm, people to send friend requests to, posts to comment on, chats for the AI, and
  * friends to reconnect with. Then it searches for people who could partner with the business and reads them for the
  * AI's partner check (decision 81). Last, it asks for today's helpful post and reads who engaged with those up lately
- * (decision 50); and on the 1st of each month it reads their profile for the AI's check (decision 99). Nothing is pressed or sent on Facebook but Join group and its questions' answers, and
+ * (decision 50); and on the 1st of each month it reads their profile for the AI's check (decision 99). From 0.100.0 it
+ * reads their friends' birthdays after tidying, for a note on Today that waits for their OK (decision 108). Nothing is pressed or sent on Facebook but Join group and its questions' answers, and
  * only while the person lets it join on its own; and on the person's own posts, See who reacted to this. They run while the person lets it work on its own and leaves **Once
  * a day** ticked.
  */
@@ -24,6 +25,7 @@ import { joinGroups } from '../jobs/join';
 import type { Job, JobEnd } from '../jobs/job';
 import { checkRequests, saveMembers } from '../jobs/people';
 import { findPosts, groupsToWork, RUN_GROUPS } from '../jobs/posts';
+import { facebookOccasions } from '../jobs/occasions';
 import { readProfileOnItsOwn } from '../jobs/own-read';
 import { profileRead } from '../jobs/profile';
 import { tidyOnItsOwn } from '../jobs/tidy';
@@ -37,6 +39,7 @@ export const DAILY_CHATS = 60;
 export const DAILY_DOING: Readonly<Record<DailyJob, string>> = {
   requests: 'Checking your friend requests…',
   tidy: 'Tidying up your old friend requests…',
+  occasions: 'Reading your friends’ birthdays…',
   group_checks: 'Checking your groups for your people…',
   join: 'Looking for good groups to join…',
   members: 'Saving your groups’ members…',
@@ -52,6 +55,7 @@ export const DAILY_DOING: Readonly<Record<DailyJob, string>> = {
 export const DAILY_NAMES: Readonly<Record<DailyJob, string>> = {
   requests: 'Friend requests',
   tidy: 'Tidy up',
+  occasions: 'Birthdays',
   group_checks: 'Check my groups',
   join: 'Join groups',
   members: 'Group members',
@@ -89,6 +93,8 @@ export async function runDaily(kind: DailyJob, job: Job): Promise<JobEnd> {
   switch (kind) {
     case 'requests':
       return checkRequests(job);
+    case 'occasions':
+      return facebookOccasions(job);
     case 'tidy':
       return tidyOnItsOwn(job);
     case 'group_checks':

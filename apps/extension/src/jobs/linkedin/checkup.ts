@@ -1,7 +1,7 @@
 /**
  * Check LinkedIn (`checkup`, docs/outreach.md decisions 74 and 76): one press when something on LinkedIn isn't working.
  * It opens the person's main LinkedIn pages one at a time and reads each as the other jobs do (their profile, their
- * feed, their connections, a people search, a posts search, their messages and one connection's profile), and on the
+ * feed, their connections, a people search, a posts search, their messages, Catch up and one connection's profile), and on the
  * way tries each of the extension's steps up to its last press (src/networks/linkedin/tries.ts): putting the headline
  * in, posting, commenting, connecting, messaging, liking, withdrawing and the data file; and on someone else's post on
  * its own page (decision 92), liking it there and the box of who reacted, opened from its reactions count and closed
@@ -19,6 +19,7 @@ import type { Post } from '../../networks/linkedin/types';
 import { sameMember } from '../../networks/linkedin/urls';
 import { Checkup, isEnd, SEARCH_WORDS, wholeProfile } from '../checkup';
 import type { Job, JobEnd } from '../job';
+import { CATCH_UP_PAGE } from '../occasions';
 import {
   CONNECTIONS,
   INVITATIONS_SENT,
@@ -100,6 +101,12 @@ async function checkup(job: Job): Promise<JobEnd> {
   const messages = await c.open(`${LINKEDIN}/messaging/`, 'your messages');
   if (isEnd(messages)) return messages;
   await c.note('your messages', messages.chats?.length ?? 0);
+
+  // Catch up: your connections' birthdays and new jobs (decision 108).
+  if (stopped()) return stopped()!;
+  const catchUp = await c.open(CATCH_UP_PAGE, 'Catch up');
+  if (isEnd(catchUp)) return catchUp;
+  await c.note('Catch up', catchUp.catchUp?.length ?? 0);
 
   // One connection: their profile read whole and messaging tried; their activity, and liking tried.
   if (stopped()) return stopped()!;

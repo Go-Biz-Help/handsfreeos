@@ -45,7 +45,8 @@ import { commentSendsOn, LINKEDIN_COMMENTS_WAIT_SINCE } from '../profile-parts';
 import { OUTREACH_WORDS } from '../words';
 import { heldForOthers } from '../owners';
 import { fileChats, openerUses, playbooks, posts, profiles, sends } from '../tables';
-import { isPartnerKind } from '../today';
+import { OCCASION_WORDS } from '../occasions';
+import { isOccasionKind, isPartnerKind } from '../today';
 import { automationOf, countWheels } from './automation';
 import { noteSent, offerVersionFor } from './conversation';
 import {
@@ -222,7 +223,7 @@ async function setPostAside(ctx: CommandContext, row: Row, at: Date): Promise<vo
 export const sendQueue = defineAddonCommand(outreachAddon, {
   name: 'outreach.send.queue',
   description:
-    'The extension drafted a message to someone on the person’s list for today: a first message, a follow-up or a reply; or, on Instagram and Alignable, a comment on a good post of theirs. It waits for the person’s OK, or, when they chose for messages to go on their own and their training wheels are off, goes as it is; a comment goes on its own once the person has OK’d 25 there and a week has gone by, and an answer to an Alignable post asking for what the business offers always waits, as does a message offering another time after a missed demo. A message already drafted for them comes back instead. A client in Contacts gets only replies.',
+    'The extension drafted a message to someone on the person’s list for today: a first message, a follow-up or a reply; or, on Instagram and Alignable, a comment on a good post of theirs. It waits for the person’s OK, or, when they chose for messages to go on their own and their training wheels are off, goes as it is; a comment goes on its own once the person has OK’d 25 there and a week has gone by, and an answer to an Alignable post asking for what the business offers always waits, as do a message offering another time after a missed demo and a birthday or new-job note. A message already drafted for them comes back instead. A client in Contacts gets only replies.',
   risk: 0,
   input: SendQueueInput,
   output: SendQueueOutput,
@@ -310,21 +311,23 @@ export const sendQueue = defineAddonCommand(outreachAddon, {
         : null;
     const partner = isPartnerKind(input.kind);
     // A partner's message waits for an OK of its own, never Approve all (decision 81), and so does an answer to a post
-    // asking for what the business offers where the network keeps those apart (Alignable's forum, decision 79), and
-    // another time after a no-show (decision 106).
+    // asking for what the business offers where the network keeps those apart (Alignable's forum, decision 79),
+    // another time after a no-show (decision 106), and a birthday or new-job note (decision 108).
     const needsYou = partner
       ? PARTNER_WORDS.needsYou
       : input.kind === 'rebook'
         ? REBOOK_NEEDS_YOU
-        : post
-          ? post.strong && NETWORKS[profile.platform].forumAnswersPerDay !== null
-            ? COMMENT_NEEDS_YOU.answer
-            : null
-          : input.kind !== 'reply'
-            ? null
-            : theirs === null
-              ? 'HandsFreeOS hasn’t seen what they wrote'
-              : replyNeedsYou(theirs);
+        : isOccasionKind(input.kind)
+          ? OCCASION_WORDS.needsYou
+          : post
+            ? post.strong && NETWORKS[profile.platform].forumAnswersPerDay !== null
+              ? COMMENT_NEEDS_YOU.answer
+              : null
+            : input.kind !== 'reply'
+              ? null
+              : theirs === null
+                ? 'HandsFreeOS hasn’t seen what they wrote'
+                : replyNeedsYou(theirs);
     const goes = goesAsItIs({
       sending: settings.sending,
       replies: settings.replies,

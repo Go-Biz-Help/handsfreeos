@@ -102,7 +102,7 @@ async function kept(ctx: Ctx, me: string, profileId: string) {
  * at it, with follow-ups to come; a follow-up counts one more; a check-in waits a month; a reply after their answer
  * starts the follow-ups again, or a check-in a month on when they said not now. A step, or a reply to anything but a
  * no, goes on with a conversation the person stopped (`outreach.conversation.stop`). Reconnect leaves it be: its
- * messages carry no pitch; and so do a demo's reminder and another time after a no-show.
+ * messages carry no pitch; and so do a demo's reminder, another time after a no-show and a birthday or new-job note.
  */
 export async function noteSent(
   ctx: Ctx,
@@ -115,11 +115,14 @@ export async function noteSent(
   },
 ): Promise<void> {
   // A partner's messages are the Partners list's (./partners.ts), never a customer conversation; a demo's reminder and
-  // another time after a no-show (decision 106) are about the booking, and leave it be too.
+  // another time after a no-show (decision 106) are about the booking, and a birthday or new-job note (decision 108)
+  // about them, and leave it be too.
   if (
     sent.kind === 'reconnect' ||
     sent.kind === 'demo_reminder' ||
     sent.kind === 'rebook' ||
+    sent.kind === 'birthday' ||
+    sent.kind === 'new_job' ||
     sent.kind.startsWith('partner_')
   )
     return;

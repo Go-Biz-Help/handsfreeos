@@ -133,6 +133,8 @@ const KIND_BADGE = {
   reply: 'pending',
   demo_reminder: 'accent',
   rebook: 'pending',
+  birthday: 'accent',
+  new_job: 'accent',
   comment: 'accent',
   warm_lead: 'ok',
   recommend: 'ok',

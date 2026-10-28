@@ -266,6 +266,9 @@ describe('messages on their own', () => {
       // After a demo (decision 106): the reminder the day before, and another time after a no-show.
       'demo_reminder',
       'rebook',
+      // A birthday or a new job (decision 108), which always waits for an OK.
+      'birthday',
+      'new_job',
       // A partner's (decision 81), which always wait for an OK of their own.
       'partner_ask',
       'partner_follow_up',

@@ -6,6 +6,7 @@
  */
 import type { ChatOptions } from '../facebook/chat';
 import { sameName } from '../facebook/people';
+import { readCatchUp } from './catch-up';
 import { readChat } from './chat';
 import { readChats } from './chats';
 import { readCompany } from './company';
@@ -141,6 +142,9 @@ export function readPage(
       break;
     case 'notifications':
       found = { notices: readNotices(main, base) };
+      break;
+    case 'catch-up':
+      found = { catchUp: readCatchUp(main, base) };
       break;
     case 'company': {
       const company = readCompany(main, base);

@@ -3,6 +3,7 @@
  * and says what the person should know about the result. Each kind checks itself: when it finds nothing where
  * something should be, the result says so and suggests sending the page outline.
  */
+import { readBirthdays } from './birthdays';
 import { readChat, type ChatOptions } from './chat';
 import { readChats } from './chats';
 import { inTopBar, tabsIn } from './dom';
@@ -129,6 +130,9 @@ export function readPage(
       break;
     case 'notifications':
       found = { notices: readNotices(main, base) };
+      break;
+    case 'birthdays':
+      found = { people: readBirthdays(main, base) };
       break;
     case 'post':
     case 'feed':

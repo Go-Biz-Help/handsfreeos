@@ -32,6 +32,10 @@
  * - **Remind them of the demo** and **Offer another time** (decision 106): a short reminder in the chat the day before a
  *   demo booked through the person's link, and after a no-show a message asking whether they'd like another time,
  *   which always waits for the person's OK. Both count against the follow-ups.
+ * - **Wish them a happy birthday** and **Congratulate them** (decision 108): a short note on the day of a birthday, and
+ *   for two weeks after a new job, read on Facebook's Birthdays page or LinkedIn's Catch up (./occasions.ts), only for
+ *   someone the person has chatted with or who fits a playbook. No pitch and no link, and it always waits for the
+ *   person's OK. They count against the follow-ups too.
  * - **Comment on a post**: posts in the business's groups the AI checked as good (./posts.ts, decisions 18 to 20),
  *   from the last week, until the person comments or puts the post aside. As many as today's limit has left.
  *
@@ -46,6 +50,7 @@
  * draw it.
  */
 import { z } from 'zod';
+import { OCCASION_KINDS, type OccasionKind } from './occasions';
 import { quoteData } from '../../knowledge/prompt';
 import { FreshState, NOT_FRESH, SEND_KINDS, SENDING_MODE_KEYS, WheelsState } from './automation';
 import type { DownloadMessage } from './download';
@@ -84,6 +89,9 @@ export const TODAY_KINDS = {
   // After a demo is booked through the person's link (decision 106): the day before, and after a no-show.
   demo_reminder: 'Remind them of the demo',
   rebook: 'Offer another time',
+  // A birthday or a new job read on the person's computer (decision 108): a short note, which waits for their OK.
+  birthday: 'Wish them a happy birthday',
+  new_job: 'Congratulate them',
   warm_lead: 'Answer their comment',
   pitch: 'Send the link',
   video: 'Send the video',
@@ -164,6 +172,8 @@ export const TODAY_LIMIT: Readonly<Record<TodayKind, DailyStep | null>> = {
   check_in: 'follow_up',
   demo_reminder: 'follow_up',
   rebook: 'follow_up',
+  birthday: 'follow_up',
+  new_job: 'follow_up',
   reply: null,
   comment: 'comment',
   warm_lead: 'comment',
@@ -379,6 +389,8 @@ export const DRAFT_KINDS = [
   'reply',
   'demo_reminder',
   'rebook',
+  'birthday',
+  'new_job',
   'comment',
   'warm_lead',
   ...PARTNER_MESSAGE_KINDS,
@@ -401,6 +413,8 @@ export const DRAFTS_FOR: Readonly<Record<DraftKind, number>> = {
   reply: DRAFTS_MOST,
   demo_reminder: DRAFTS_MOST,
   rebook: DRAFTS_MOST,
+  birthday: DRAFTS_MOST,
+  new_job: DRAFTS_MOST,
   comment: COMMENT_DRAFTS,
   warm_lead: COMMENT_DRAFTS,
   partner_ask: DRAFTS_MOST,
@@ -552,6 +566,10 @@ const TASK: Record<CustomerDraftKind, string> = {
     'They booked a call with the owner through the owner’s link, and it’s tomorrow, at the time below. Write a short, friendly reminder, one or two lines: the day and time, that the owner is looking forward to it, and that if the time no longer works they can just say. No pitch, no price, no link.',
   rebook:
     'They booked a call with the owner through the owner’s link but didn’t make it. Write a short, kind message, one or two lines: no problem, things come up, and would they like to pick another time, with the link to book again. Never make them feel bad about it. No pitch, no price.',
+  birthday:
+    'It’s their birthday today. Write the owner’s short, warm happy birthday, one or two lines, in the owner’s own voice, picking up something real from the chat or their pages when there is one. Nothing about the business: no pitch, no offer, no price, no link, no ask.',
+  new_job:
+    'They just started a new job, as the line below says. Write the owner’s short, warm congratulations, one or two lines, naming the new role or place when the line says it, and wishing them well in it. Nothing about the business: no pitch, no offer, no price, no link, no ask.',
   comment:
     'They posted this in a Facebook group. Write the owner’s public comment under it: answer what they asked or add something useful first, and only then offer to help, without a hard pitch or a link unless they asked for one. Under 50 words. No questions about things the post already says.',
   warm_lead:
@@ -576,6 +594,13 @@ const LINKED =
 /** Whether a message can go to someone's Requests: one short text, with no link. */
 export const fitsRequests = (text: string): boolean =>
   text.trim().length <= REQUESTS_MESSAGE_MOST && !LINKED.test(text) && !/\n\s*\n/.test(text.trim());
+
+/** A birthday or a new-job note (decision 108, ./occasions.ts): nothing about the business, and it waits for an OK. */
+export const isOccasionKind = (kind: string): kind is OccasionKind =>
+  (OCCASION_KINDS as readonly string[]).includes(kind);
+
+/** Whether a drafted birthday or new-job note can go: never with a link or a web address. */
+export const fitsOccasion = (text: string): boolean => !LINKED.test(text);
 
 /**
  * Whether a drafted comment can wait to be posted where comments go through `sends` (decision 92): never with a link
@@ -696,28 +721,32 @@ export function todayDraftPrompt(input: {
   readonly own?: OwnWords | null;
   /** For a demo reminder or another time after a no-show (decision 106): when it is, or was, in words (`demoWhen`). */
   readonly demoWhen?: string | null;
+  /** For a new-job note (decision 108): what the page said of it, "Started a new position as Owner at Reyes Plumbing". */
+  readonly occasion?: string | null;
 }): string {
   const p = input.playbook;
   const voice = input.voice ?? VOICE_DEFAULTS;
   const requests = input.requests === true && input.kind === 'opener';
+  // A birthday or a new-job note (decision 108) is nothing about the business: the playbook gives only its voice.
+  const note = isOccasionKind(input.kind);
   // A message in Messenger can go as a few texts; a comment is one, in public, and so is a message to their Requests.
   const texts = isMessageKind(input.kind) && !requests;
   const playbook = p
     ? [
         `Name: ${p.name}`,
-        p.offer ? `Offer: ${p.offer}` : null,
-        // A message to their Requests carries no link (`REQUESTS_TASK`).
-        p.link && !requests ? `Link: ${p.link}` : null,
-        p.audience ? `For: ${p.audience}` : null,
-        p.niche ? `Niche: ${p.niche}` : null,
-        p.proof?.length
+        p.offer && !note ? `Offer: ${p.offer}` : null,
+        // A message to their Requests carries no link (`REQUESTS_TASK`), and nor does a note.
+        p.link && !requests && !note ? `Link: ${p.link}` : null,
+        p.audience && !note ? `For: ${p.audience}` : null,
+        p.niche && !note ? `Niche: ${p.niche}` : null,
+        p.proof?.length && !note
           ? `Proof for this niche:\n${p.proof.map((r) => `- ${r}`).join('\n')}`
           : null,
         p.tone ? `Tone: ${p.tone}` : null,
         p.samples.length ? `Sample messages:\n${p.samples.map((s) => `- ${s}`).join('\n')}` : null,
         p.avoid.length ? `Words to avoid: ${p.avoid.join(', ')}` : null,
         p.disclaimer ? `Every message must say: ${p.disclaimer}` : null,
-        p.questions.length
+        p.questions.length && !note
           ? `Conversation:\n${p.questions.map((q, i) => `${i + 1}. ${q.text}`).join('\n')}`
           : null,
       ]
@@ -780,6 +809,9 @@ export function todayDraftPrompt(input: {
       : null,
     input.demoWhen && (input.kind === 'demo_reminder' || input.kind === 'rebook')
       ? `${input.kind === 'rebook' ? 'When the call was' : 'When the call is'}: ${quoteData(input.demoWhen)}`
+      : null,
+    input.occasion && input.kind === 'new_job'
+      ? `What the page said: ${quoteData(input.occasion)}`
       : null,
     input.kind === 'video' && p?.videoLink
       ? `Put this video link in every draft, exactly as written: ${quoteData(p.videoLink)}`

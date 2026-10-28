@@ -133,6 +133,9 @@ export type PostsPeopleNextInput = Body<'/v1/queries/outreach.posts.people_next'
 export type PostsPeopleNext = Ok<'/v1/queries/outreach.posts.people_next'>;
 export type FindsSaveInput = Body<'/v1/commands/outreach.finds.save'>;
 export type FindsSaved = Ok<'/v1/commands/outreach.finds.save'>;
+/** Birthdays and new jobs read once a day (decision 108). */
+export type OccasionsSaveInput = Body<'/v1/commands/outreach.occasions.save'>;
+export type OccasionsSaved = Ok<'/v1/commands/outreach.occasions.save'>;
 export type FindsNextInput = Body<'/v1/queries/outreach.finds.next'>;
 export type FindsNext = Ok<'/v1/queries/outreach.finds.next'>;
 export type FindsSearchesInput = Body<'/v1/queries/outreach.finds.searches'>;
@@ -321,6 +324,7 @@ export type HfosAsk =
    */
   | { readonly type: 'hfos-posts-people-next'; readonly input: PostsPeopleNextInput }
   | { readonly type: 'hfos-finds-save'; readonly input: FindsSaveInput }
+  | { readonly type: 'hfos-occasions-save'; readonly input: OccasionsSaveInput }
   | { readonly type: 'hfos-finds-next'; readonly input: FindsNextInput }
   | { readonly type: 'hfos-finds-searches'; readonly input: FindsSearchesInput }
   /**
@@ -395,6 +399,7 @@ export interface HfosValues {
   readonly 'hfos-partner-leads': PartnerLeadsKept;
   readonly 'hfos-posts-people-next': PostsPeopleNext;
   readonly 'hfos-finds-save': FindsSaved;
+  readonly 'hfos-occasions-save': OccasionsSaved;
   readonly 'hfos-finds-next': FindsNext;
   readonly 'hfos-finds-searches': FindsSearches;
   readonly 'hfos-groups-to-check': GroupsToCheck;

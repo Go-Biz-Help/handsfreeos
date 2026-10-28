@@ -1792,6 +1792,28 @@ function scriptedTodayDraft(message: string) {
       answer: last === 'Them' ? scriptedAnswer(theirs) : 'none',
       drafts: [`Thanks for getting back to me, ${first}.`],
     };
+  // A birthday or a new-job note (decision 108): short and warm, the new job in the page's words; one with a link,
+  // for the checks to drop.
+  if (message.includes('Write the owner’s short, warm happy birthday'))
+    return {
+      simple: false,
+      answer: 'none',
+      drafts: [
+        `Happy birthday, ${first}! Hope it’s a great one.`,
+        `Happy birthday, ${first}! Book a call: https://example.com/book`,
+      ],
+    };
+  if (message.includes('Write the owner’s short, warm congratulations')) {
+    const said = unquote(/^What the page said: (.*)$/m.exec(message)?.[1] ?? '');
+    return {
+      simple: false,
+      answer: 'none',
+      drafts: [
+        said ? `Congratulations, ${first}! Saw this: ${said}.` : `Congratulations, ${first}!`,
+        `Congrats, ${first}! See www.example.com/demo`,
+      ],
+    };
+  }
   // A first message to someone's Requests on Instagram: one short text; a link is for the checks to drop, and a second
   // text for them to join to the first.
   if (message.includes('this message lands in their message Requests'))

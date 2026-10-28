@@ -2532,6 +2532,26 @@ where decisions 37 and 59 put the settings; what they decided stands. Settled to
       - **A teammate who no longer uses Social Outreach holds nothing:** their groups and people go to the next to work
         them. A group's page says who works it, and a customer's Social panel and the person menu who reached them
         first.
+108.  **Birthdays and new jobs** (Chris, 28 Oct 2026, "all of your picks": 5a). "Only for people you've chatted with or
+      who fit a playbook. The AI drafts the note and it waits for your OK."
+      - **Read once a day on the person's computer** (extension 0.100.0, `src/jobs/occasions.ts`), after tidying:
+        Facebook's Birthdays page for whose birthday it is today (`readBirthdays`), and a few screens of LinkedIn's
+        Catch up for birthdays and new jobs (`readCatchUp`), the new job in LinkedIn's words. Instagram and Alignable
+        show neither. Nothing is pressed or written there, and a warning stops it. Check Facebook and Check LinkedIn
+        open both pages too.
+      - **Kept only for people already kept** (`outreach.occasions.save`, risk 0, `addon_outreach.occasions`,
+        20261027015900): nobody new is added, and a kind the network doesn't show is left. Each person's own, by the
+        business's day.
+      - **Today offers a note** (`birthday`, **Wish them a happy birthday**; `new_job`, **Congratulate them**) only to
+        someone the person has chatted with or the AI found a good fit, and who is in play for them: never a client,
+        Don't pitch, Never contact, Not a fit, Later or another teammate's person. A birthday on the day only, a new job
+        for 14 days (`NEW_JOB_DAYS`). Both count against the follow-ups, after a demo's messages, birthdays first. Gone
+        once the person writes to them, or skips the note.
+      - **The AI writes one or two warm lines** with nothing about the business: no pitch, offer, price, link or ask;
+        the playbook gives only its voice (`todayDraftPrompt`). A draft with a link or a web address is dropped
+        (`fitsOccasion`). A note never moves their conversation on (`noteSent`).
+      - **It always waits for the person's OK**, whatever Sending says, and **Approve all** leaves it (`goesAsItIs`,
+        `OCCASION_WORDS.needsYou`). There's no setting to turn notes off: **Skip** takes one away.
 
 ## Rules worth knowing before changing anything
 

@@ -56,6 +56,7 @@ import type { ProfileTicks } from './readiness';
 import type { ListMark } from './lists';
 import type { PartnerFit, PartnerKind, PartnerSearchKind, PartnerStage } from './partners';
 import type { DownloadCounts, DownloadList, DownloadMessage } from './download';
+import type { OccasionKind } from './occasions';
 import type { FriendState, TidyKind } from './limits';
 import type { DraftOpener, OpenerKind } from './openers';
 import type { PlaybookDetails } from './playbooks';
@@ -1516,6 +1517,37 @@ export const networkStarts = addonOutreach.table(
   (t) => [unique().on(t.workspaceId, t.id), unique().on(t.workspaceId, t.userId, t.platform)],
 );
 
+/**
+ * A birthday or a new job the person's computer read for someone already kept (./occasions.ts, decision 108): on
+ * Facebook's Birthdays page or LinkedIn's Catch up, once a day. Each person's own. `onDay` is the business's day it was
+ * read for.
+ */
+export const occasions = addonOutreach.table(
+  'occasions',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    workspaceId: workspaceRef(),
+    userId: uuid('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    profileId: uuid('profile_id').notNull(),
+    kind: text('kind').notNull().$type<OccasionKind>(),
+    onDay: date('on_day', { mode: 'string' }).notNull(),
+    /** For a new job, what the page said of it. */
+    detail: text('detail'),
+    seenAt: ts('seen_at').notNull(),
+    createdAt: ts('created_at').notNull().defaultNow(),
+  },
+  (t) => [
+    unique().on(t.workspaceId, t.id),
+    unique().on(t.workspaceId, t.userId, t.profileId, t.kind, t.onDay),
+    foreignKey({
+      columns: [t.workspaceId, t.profileId],
+      foreignColumns: [profiles.workspaceId, profiles.id],
+    }).onDelete('cascade'),
+  ],
+);
+
 /** Every table above, for the test that holds the mirror to the live columns. */
 export const OUTREACH_TABLES = {
   asks,
@@ -1540,6 +1572,7 @@ export const OUTREACH_TABLES = {
   liveSteps,
   needs,
   networkStarts,
+  occasions,
   openerUses,
   partnerLeads,
   partnerSearches,

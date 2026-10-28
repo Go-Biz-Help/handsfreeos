@@ -235,6 +235,7 @@ export function classifyUrl(href: string): PageAddress {
   if (first === 'mynetwork') {
     if (second === 'invite-connect' && third === 'connections')
       return { kind: 'connections', ...none };
+    if (second === 'catch-up') return { kind: 'catch-up', ...none };
     if (second === 'invitation-manager') {
       const invitations: Direction = third === 'sent' ? 'sent' : 'received';
       return { kind: 'invitations', ...none, invitations };
