@@ -58,7 +58,7 @@ import {
  *   1. "Stop losing jobs to whoever answers first."            (the fear of losing work)
  *   2. "Cancel ten apps. Keep the one that does the work."     (the money)
  *   3. "You can't answer the phone and do the job at the same time." (the owners' own words)
- *   4. "The CRM that doesn't want you to use it."              (the previous headline)
+ *   4. "The CRM that doesn't want you to use it."              (the previous headline, now the footer's tagline)
  *
  * There are no customers yet, so nothing here quotes one. Trust comes from what can be checked: the competitors'
  * prices, each linked; the AI asking first; and the 30-day money back. The wording leans on the owner's

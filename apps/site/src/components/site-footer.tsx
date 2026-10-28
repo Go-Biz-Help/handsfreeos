@@ -55,9 +55,17 @@ export function SiteFooter() {
                 HandsFreeOS
               </span>
             </Link>
-            <p className="text-text-2 mt-4 max-w-xs text-base">
-              One place for the calls, texts, email, calendar and money of a small service business
-              — with an AI teammate that keeps it moving while you work.
+            {/*
+             * The owner's tagline, kept on every page since the home page's headline changed on
+             * 28 October 2026. The line under it answers the puzzle.
+             */}
+            <p className="text-text mt-4 max-w-xs text-lg leading-snug font-semibold">
+              The CRM that doesn&rsquo;t want you to use it.
+            </p>
+            <p className="text-text-2 mt-2 max-w-xs text-base">
+              One place for the calls, texts, email, calendar and money of a small service business.
+              It does the busywork on its own, so the less you use it, the better it&rsquo;s
+              working.
             </p>
           </div>
           {columns.map((column) => (
