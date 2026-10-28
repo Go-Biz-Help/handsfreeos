@@ -5,7 +5,7 @@
  * tagged whatever it says; someone new is added only when the setting takes them, never from the Don't pitch list
  * unless it takes everyone.
  */
-import { and, eq, sql } from 'drizzle-orm';
+import { and, eq, or, sql } from 'drizzle-orm';
 import { rows } from '@hfos/db/client';
 import { personCreate } from '../../../commands/person.create';
 import { recordSetTags } from '../../../commands/record.set_tags';
@@ -29,7 +29,7 @@ import {
   type ContactsFromChats,
 } from '../chat-read';
 import { ChatsCollectInput, ChatsCollectOutput, mergeRecent } from '../chat-collect';
-import { nameKey } from '../download';
+import { nameKey, type DownloadMessage } from '../download';
 import { outreachAddon } from '../manifest';
 import { PLATFORMS, type Platform } from '../playbooks';
 import { fileChats, profiles } from '../tables';
@@ -297,6 +297,28 @@ export const chatsList = defineAddonQuery(outreachAddon, {
   },
 });
 
+/** Between a name and a chat's number, in the key of a second person with a name already kept. */
+export const SAME_NAME = '#t:';
+
+/**
+ * Whether a chat kept under this name is the same person's as the one just read. Their profiles, when both are known,
+ * say. Else two different chat numbers are two people, unless the messages just read are ones kept (Facebook gives a
+ * chat a new number when it's encrypted). A chat with no number yet (from the file) is theirs by name.
+ */
+function samePerson(
+  r: typeof fileChats.$inferSelect,
+  thread: string,
+  profileId: string | null,
+  read: readonly DownloadMessage[],
+): boolean {
+  if (profileId && r.profileId) return r.profileId === profileId;
+  if (r.threadKey && r.threadKey !== thread)
+    return read.some((m) =>
+      r.recent.some((k) => k.fromMe === m.fromMe && k.text === m.text && k.at === m.at),
+    );
+  return true;
+}
+
 export const chatsCollect = defineAddonCommand(outreachAddon, {
   name: 'outreach.chats.collect',
   description:
@@ -332,7 +354,9 @@ export const chatsCollect = defineAddonCommand(outreachAddon, {
               now,
             )
           : null;
-        const [had] = await ctx.tx
+        // This chat's row: the one with its number, or else one under its name that is the same person. Two people
+        // with the same name are two chats, never one (docs/outreach.md, decision 93).
+        const kept = await ctx.tx
           .select()
           .from(fileChats)
           .where(
@@ -340,11 +364,26 @@ export const chatsCollect = defineAddonCommand(outreachAddon, {
               eq(fileChats.workspaceId, ws),
               eq(fileChats.userId, me),
               eq(fileChats.platform, input.platform),
-              eq(fileChats.nameKey, key),
+              or(
+                eq(fileChats.threadKey, c.thread.id),
+                eq(fileChats.nameKey, key),
+                sql`starts_with(${fileChats.nameKey}, ${key + SAME_NAME})`,
+              ),
             ),
           )
           .for('update');
         const read = mergeRecent([], c.messages);
+        const theirs = (r: (typeof kept)[number]) =>
+          !profile || !r.profileId || r.profileId === profile.id;
+        const had =
+          kept.find((r) => r.threadKey === c.thread.id && theirs(r)) ??
+          kept.find(
+            (r) =>
+              (r.nameKey === key || r.nameKey.startsWith(key + SAME_NAME)) &&
+              samePerson(r, c.thread.id, profile?.id ?? null, read),
+          );
+        // Someone else already has the name: this one's row carries their chat's number too.
+        const ownKey = kept.some((r) => r.nameKey === key) ? key + SAME_NAME + c.thread.id : key;
         const recent = mergeRecent(had?.recent ?? [], read);
         const first = read[0]!;
         const last = recent[recent.length - 1]!;
@@ -358,7 +397,7 @@ export const chatsCollect = defineAddonCommand(outreachAddon, {
             userId: me,
             platform: input.platform,
             name: c.name,
-            nameKey: key,
+            nameKey: ownKey,
             firstAt: new Date(first.at),
             lastAt: new Date(last.at),
             messages: recent.length,

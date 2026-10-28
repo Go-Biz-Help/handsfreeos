@@ -85,6 +85,10 @@ describe('a window of its own, in front while a page is read', () => {
           return { tabs: [{ id: 4 }] };
         },
       },
+      // The page Chrome draws only while its window (9) is in front.
+      scripting: {
+        executeScript: async () => [{ result: front === 9 ? 'visible' : 'hidden' }],
+      },
     });
     return { goTo: (id: number) => void (front = id) };
   };
@@ -128,6 +132,28 @@ describe('a window of its own, in front while a page is read', () => {
     await tab.inFront(async () => chrome.goTo(2));
     // Its own window (9) only: window 1 never jumps over window 2.
     expect(focused).toEqual([9]);
+  });
+
+  it('comes back in front for its next page when the person put another window over it', async () => {
+    const focused: number[] = [];
+    const chrome = stub(focused);
+    const tab = new WorkTab('window');
+    await tab.adopt(4);
+    const reading = tab.inFront(async () => {
+      chrome.goTo(2);
+      await tab.open('https://www.facebook.com/friends/requests');
+      // In front already: not asked again.
+      await tab.keepInFront();
+      return 'read';
+    });
+    await vi.runAllTimersAsync();
+    await expect(reading).resolves.toBe('read');
+    // Its own (9), again once window 2 went over it, then window 2 back: the one they went on to.
+    expect(focused).toEqual([9, 9, 2]);
+    // Outside a read, it never comes forward.
+    chrome.goTo(2);
+    await tab.keepInFront();
+    expect(focused).toEqual([9, 9, 2]);
   });
 
   it('leaves a tab in the person’s own window as it is', async () => {

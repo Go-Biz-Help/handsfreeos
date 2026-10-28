@@ -88,11 +88,16 @@ const EACH = LAYOUTS.flatMap((layout) =>
   SHAPES.map(([shape, boxed]) => [layout.layout, shape, layout, boxed] as const),
 );
 
-/** How the post's page differs from its fixture: no reactions count, or a box of who reacted whose rows name nobody. */
+/**
+ * How the post's page differs from its fixture: no reactions count, a box of who reacted whose rows name nobody, or
+ * one that drew no row yet (`empty`: in a window hidden behind another, LinkedIn draws none, `hidden`).
+ */
 interface PageAs {
   readonly closes?: boolean;
   readonly count?: false;
   readonly nobody?: true;
+  readonly empty?: true;
+  readonly hidden?: true;
 }
 
 /**
@@ -102,6 +107,7 @@ interface PageAs {
 function postPage(layout: Layout, boxed: boolean, more: PageAs = {}) {
   const doc = load(layout.fixture, layout.url);
   if (boxed) boxEverything(doc);
+  if (more.hidden) Object.defineProperty(doc, 'visibilityState', { value: 'hidden' });
   const pressed: string[] = [];
   doc.addEventListener(
     'click',
@@ -123,6 +129,9 @@ function postPage(layout: Layout, boxed: boolean, more: PageAs = {}) {
     if (more.nobody)
       for (const a of outlet.querySelectorAll('a[href*="/in/"]'))
         a.replaceChildren(doc.createElement('figure'));
+    // Each row is the box around a link to someone.
+    if (more.empty)
+      for (const a of outlet.querySelectorAll('a[href*="/in/"]')) a.parentElement!.remove();
     doc.body.append(outlet);
     if (more.closes !== false)
       outlet
@@ -258,6 +267,35 @@ describe('a good post’s people, when the page isn’t as hoped', () => {
     expect(read).toMatchObject({ count: true, opened: true, rows: 0, people: [], closed: true });
     expect(read.outline).toMatch(/role="dialog"/);
     expect(doc.querySelector('[role="dialog"]')).toBeNull();
+  });
+
+  it('closes a box that drew no row, and says when its window was behind another', async () => {
+    for (const hidden of [false, true] as const) {
+      const { doc } = postPage(newer, false, { empty: true, ...(hidden ? { hidden } : {}) });
+      const read = await readReactors(doc, NEWER, { skip: [PRIYA] });
+      expect(read).toMatchObject({ count: true, opened: true, rows: 0, people: [], closed: true });
+      expect(read.hidden).toBe(hidden || undefined);
+      expect(read.outline).toMatch(/role="dialog"/);
+      expect(doc.querySelector('[role="dialog"]')).toBeNull();
+    }
+  });
+
+  it('never takes something else over the page for the box, nor closes it', async () => {
+    const { doc } = postPage(newer, false);
+    // Its count opens a box LinkedIn put up for something else: one with only a heading and a Dismiss.
+    const shown = newer.count(doc)!;
+    const count = shown.cloneNode(true) as Element;
+    shown.replaceWith(count);
+    count.addEventListener('click', (event) => {
+      event.preventDefault();
+      doc.body.insertAdjacentHTML(
+        'beforeend',
+        '<div role="dialog"><h2>Let’s do a quick check</h2><button type="button" aria-label="Dismiss"></button></div>',
+      );
+    });
+    const read = await readReactors(doc, NEWER, { skip: [PRIYA] });
+    expect(read).toMatchObject({ count: true, opened: false, rows: 0 });
+    expect(doc.querySelector('[role="dialog"]')).not.toBeNull();
   });
 
   it('reads nobody, and opens nothing, when the post shows no reactions count', async () => {
@@ -602,6 +640,35 @@ describe('noting what a good post’s page didn’t show on LinkedIn (decision 7
     ]);
     // Closed again by its Dismiss, and its commenters sent.
     expect(page().querySelector('[role="dialog"]')).toBeNull();
+    expect(saves(sent).map((s) => s.how)).toEqual(['commented']);
+  });
+
+  it('reads each post with its window in front, and says when the box drew nobody behind another window', async () => {
+    const { tab } = fakeTab({ [NEWER]: { layout: LAYOUTS[1], empty: true, hidden: true } });
+    const seen: string[] = [];
+    const open = tab.open.bind(tab);
+    tab.open = async (url: string) => (seen.push('open'), open(url));
+    tab.inFront = async <T>(work: () => Promise<T>) => {
+      seen.push('front');
+      try {
+        return await work();
+      } finally {
+        seen.push('back');
+      }
+    };
+    const { hfos, sent } = fakeHfos({ posts: [good(1, NEWER, 'Priya Dalton', PRIYA.url)] });
+    const notes: ReportNote[] = [];
+    await readPostPeople(jobWith(tab, hfos, [], notes));
+    expect(seen).toEqual(['front', 'open', 'back']);
+    expect(notes).toEqual([
+      {
+        job: 'post_people.reactors',
+        note: 'Nobody read in the box of who reacted: its window was behind another, and LinkedIn draws its rows only on screen.',
+        found: { count: true, box: true, rows: 0, shown: false },
+        outline: true,
+        outlineText: expect.stringMatching(/role="dialog"/),
+      },
+    ]);
     expect(saves(sent).map((s) => s.how)).toEqual(['commented']);
   });
 

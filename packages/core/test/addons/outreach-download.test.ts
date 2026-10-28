@@ -616,4 +616,44 @@ describe('bringing the file in', () => {
       await setOutreach(ws, 'enabled');
     }
   });
+
+  it('matches a profile saved after the file came in, without waiting for a newer file', async () => {
+    // In the file, but saved here only now: Blake's deleted request, a chat with Nobody Saved, and a follower.
+    const like = (u: TestUser, who: ReturnType<typeof someone>, n: number) =>
+      runAs(u, ws, 'outreach.touch.save', {
+        kind: 'like',
+        ...who,
+        postUrl: `https://www.facebook.com/groups/1111222233334444/posts/${n}/`,
+      });
+    // A teammate's profile never links the owner's own file.
+    await like(member, someone('drew.kim', 'Drew Kim'), 1);
+    await like(owner, someone('blake.novak', 'Blake Novak'), 2);
+    await like(owner, someone('nobody.saved', 'Nobody Saved'), 3);
+
+    expect(await stateOf('blake.novak')).toMatchObject({
+      state: 'declined',
+      since: new Date('2022-02-02T00:00:00Z'),
+      seen_at: made,
+    });
+    const linked = await rows<{ name: string; linked: boolean }>(
+      admin(),
+      sql`select name, profile_id is not null as linked from addon_outreach.file_people
+            where workspace_id = ${ws} and name in ('Blake Novak', 'Drew Kim')
+          union all
+          select name, profile_id is not null from addon_outreach.file_chats
+            where workspace_id = ${ws} and name = 'Nobody Saved'
+          order by name`,
+    );
+    expect(linked).toEqual([
+      { name: 'Blake Novak', linked: true },
+      { name: 'Drew Kim', linked: false },
+      { name: 'Nobody Saved', linked: true },
+    ]);
+    expect((await friendsTab(owner)).download.counts).toMatchObject({ linked: 12, notLinked: 3 });
+
+    // Two people under one name: a second Avery Lane saved now leaves the file as it was.
+    await like(owner, someone('avery.lane.other', 'Avery Lane'), 4);
+    expect((await friendsTab(owner)).download.counts).toMatchObject({ linked: 12, notLinked: 3 });
+    expect(await stateOf('avery.lane.other')).toBeNull();
+  });
 });

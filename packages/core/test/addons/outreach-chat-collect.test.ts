@@ -142,6 +142,87 @@ describe('chats read in Messenger', () => {
     expect(q!.recent.map((m) => m.text)).toEqual(['See you then', 'Are you around?']);
   });
 
+  describe('two people with the same name', () => {
+    const chatsOf = (name: string) =>
+      rows<{ thread_key: string | null; profile_id: string | null; recent: { text: string }[] }>(
+        admin(),
+        sql`select thread_key, profile_id, recent from addon_outreach.file_chats
+            where workspace_id = ${ws} and name = ${name} order by created_at`,
+      );
+    const jordan = (n: number, thread: string, text: string) => ({
+      name: 'Jordan Reyes',
+      thread: { id: thread, encrypted: false },
+      profile: {
+        id: null,
+        username: `jordan.reyes.${n}`,
+        url: `https://www.facebook.com/jordan.reyes.${n}`,
+      },
+      messages: [them(text, daysAgo(2))],
+    });
+
+    it('keeps each one’s chat apart, by their own profiles', async () => {
+      await collect([jordan(1, '2000111', 'Hi from the first')]);
+      await collect([jordan(2, '2000222', 'Hi from the second')]);
+      // Each read again lands on their own chat, never the other's.
+      await collect([
+        { ...jordan(1, '2000111', 'More from the first'), messages: [them('More', daysAgo(1))] },
+      ]);
+      const both = await chatsOf('Jordan Reyes');
+      expect(both).toHaveLength(2);
+      expect(both.map((c) => c.thread_key)).toEqual(['2000111', '2000222']);
+      expect(both[0]!.profile_id).not.toBe(both[1]!.profile_id);
+      expect(both[0]!.recent.map((m) => m.text)).toEqual(['Hi from the first', 'More']);
+      expect(both[1]!.recent.map((m) => m.text)).toEqual(['Hi from the second']);
+    });
+
+    it('tells them apart by their chats when no profile shows', async () => {
+      const casey = (thread: string, text: string, at = daysAgo(2)) => ({
+        name: 'Casey Moore',
+        thread: { id: thread, encrypted: false },
+        profile: null,
+        messages: [them(text, at)],
+      });
+      const said = daysAgo(3);
+      await collect([casey('3000111', 'One Casey', said)]);
+      await collect([casey('3000222', 'Another Casey')]);
+      expect(await chatsOf('Casey Moore')).toHaveLength(2);
+      // The first one's chat under a new number (it was encrypted) still shows their messages: it's them.
+      await collect([
+        {
+          ...casey('3000999', 'One Casey', said),
+          thread: { id: '3000999', encrypted: true },
+          messages: [them('One Casey', said), them('Still me', daysAgo(1))],
+        },
+      ]);
+      const two = await chatsOf('Casey Moore');
+      expect(two).toHaveLength(2);
+      expect(two[0]).toMatchObject({ thread_key: '3000999' });
+      expect(two[0]!.recent.map((m) => m.text)).toEqual(['One Casey', 'Still me']);
+      expect(two[1]!.recent.map((m) => m.text)).toEqual(['Another Casey']);
+    });
+
+    it('keeps the profile their chat named when the file comes in', async () => {
+      // The file names Jordan Reyes once; two saved profiles share that name, so the name alone matches nobody.
+      await runAs(owner, ws, 'outreach.download.save', {
+        madeAt: daysAgo(1),
+        last: true,
+        chats: [
+          {
+            name: 'Jordan Reyes',
+            firstAt: daysAgo(300),
+            lastAt: daysAgo(30),
+            messages: 12,
+            lastFromMe: true,
+            recent: [me('Long time', daysAgo(30))],
+          },
+        ],
+      });
+      const both = await chatsOf('Jordan Reyes');
+      expect(both).toHaveLength(2);
+      expect(both.every((c) => c.profile_id !== null)).toBe(true);
+    });
+  });
+
   it('refuses messages from after today', async () => {
     const tomorrow = new Date(Date.now() + 3 * DAY).toISOString();
     expect(

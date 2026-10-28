@@ -8,8 +8,8 @@
  *   takes its link from LinkedIn's View post (else finds it among their own posts by its first words), and notes how
  *   it went with `outreach.helpful.posted`: up, or couldn't, with why.
  * - **Who engaged:** once a day, each of their LinkedIn posts up in the last fortnight: it opens it, reads who
- *   commented (and what) and who reacted, and sends them (`outreach.helpful.engaged`); each is a warm lead on
- *   LinkedIn's Today.
+ *   commented (and what) and who reacted (with its window in front, as LinkedIn draws that box's rows only on screen),
+ *   and sends them (`outreach.helpful.engaged`); each is a warm lead on LinkedIn's Today.
  *
  * Every call says LinkedIn (`platform: 'linkedin'`), so Facebook's helpful posts are never touched. It stops on any
  * LinkedIn warning.
@@ -140,7 +140,9 @@ export async function readLinkedInEngaged(job: Job): Promise<JobEnd> {
     const page = await readLinkedIn(job.tab);
     const warned = await warnedOn(job, page);
     if (warned) return warned;
-    const answer = await job.tab.ask({ type: 'hfos-engaged' });
+    // With its window in front: LinkedIn draws the box of who reacted only on screen.
+    const engaged = () => job.tab.ask({ type: 'hfos-engaged' });
+    const answer = await (job.tab.inFront ? job.tab.inFront(engaged) : engaged());
     if (!answer.ok || !('comments' in answer)) continue;
     const saved = valueOf(
       await job.hfos({

@@ -782,8 +782,8 @@ Permissions: **Use Social Outreach** (`outreach.use`, owners, admins and members
 (`outreach.manage`, owners and admins, which needs `outreach.use`).
 
 The extension calls these like the phone app calls core's: `x-hfos-client: extension`, its build in
-`x-hfos-app-version` (held to `MIN_EXTENSION_VERSION` on the API when that's set), and a command id and moment on
-every save, so a repeat gets the first answer and the audit log says "via browser extension".
+`x-hfos-app-version` (held to `MIN_EXTENSION_VERSION` on the API, never below `OLDEST_EXTENSION`), and a command id
+and moment on every save, so a repeat gets the first answer and the audit log says "via browser extension".
 
 ## The owner's decisions
 
@@ -2278,8 +2278,34 @@ where decisions 37 and 59 put the settings; what they decided stands. Settled to
     Built in one pull request, in this order: the migration, the playbook's data version 8, the words writer, the kit
     and Alignable's groups by network, finds and found checks, Today, comments through `sends`, then the extension
     (0.95.0) and the screens. Instagram's Likes box, LinkedIn's newer reactions box, every Alignable group page, the
-    person's groups and Alignable's search for groups are read from guessed markup till the owner's next Check
-    Instagram, Check LinkedIn and Check Alignable.
+    person's groups and Alignable's search for groups were read from guessed markup till Chris's Check Instagram,
+    Check LinkedIn and Check Alignable of 28 Oct 2026, which found them working but for one: LinkedIn's box of who
+    reacted opened and drew nobody, as another window had gone over the Check's and LinkedIn draws its rows only on
+    screen. From 0.95.1 a Check's window comes back in front for its next page or step when another goes over it, and
+    LinkedIn's Who reacted reads each post with its window in front; a box that drew nobody is closed again, and noted
+    with whether its window was behind another.
+
+93. **Two people with the same name are two chats** (Chris, 28 Oct 2026, "build it first", on the list of what was
+    left). A chat read in the person's browser joins the chat kept with its number. Failing that, it joins one kept
+    under the same name only when that is the same person:
+    - their profiles agree, when both are known;
+    - with no profile to go by, a kept chat under another number is someone else's, unless the messages just read
+      are ones it kept (Facebook gives a chat a new number when it's encrypted);
+    - a chat with no number yet, from the file, is theirs by name.
+
+    Anyone else with that name gets a chat of their own: the key of its row is the name, then `#t:`, then the chat's
+    number (`SAME_NAME` in `ops/chats.ts`). A file that comes in later never takes away the profile that a chat's own
+    link named. A name alone can't tell two people apart, so only a chat with no link gets its profile from the
+    file's names.
+
+    Facebook's file still joins two same-named people's chats from inside the file into one, because it carries
+    names only. Chats that were joined before this change stay joined. Each person's next read goes to their own
+    chat when their profile shows on it.
+
+94. **Old extension builds are refused** (Chris, 28 Oct 2026, "A. yes"). After the wrong-chat fix (0.94.1), the API
+    takes no extension build older than it: an older one gets an ask to update (426), and the extension says to update
+    it. `OLDEST_EXTENSION` in `packages/core/src/mobile.ts` sets that, in the code, so the owner sets nothing. The
+    API's `MIN_EXTENSION_VERSION` can only raise it.
 
 ## Rules worth knowing before changing anything
 
@@ -2823,7 +2849,10 @@ where decisions 37 and 59 put the settings; what they decided stands. Settled to
 - **The file has no links, so it's kept by name** (`file_people`, `file_chats`, each person's own). With the last
   part, a name is matched to the one profile saved here by it (`nameKey`: lower case, spaces closed up), or among
   several, the one the person's own Facebook has a say on. A name twice in one of the file's lists is two people,
-  and neither is matched. A newer file updates the same rows and matches again.
+  and neither is matched. A newer file updates the same rows and matches again. A profile saved after the file came
+  in is matched to the person's own file there and then, by the same rule, to names still matched to nobody, and
+  what the file says about them goes in place (`matchFileLater` in `ops/file-match.ts`, from 28 Oct 2026). A
+  teammate's file waits for their next file, as friends are each person's own.
 - **What the file says goes in place as of when Facebook made it** (`madeAt`, the zip's own date, never before the
   latest moment in it). Where things stood then (friends, a request either way) beats what happened before (a friend
   removed, a request deleted). Newer news wins: something the extension saw after the file was made stays, and only
@@ -3011,10 +3040,9 @@ groups and their members, Read my chats, tidying and the look-up) do what the pa
 the owner's account from the app.
 
 `outreach.profile.save` and `outreach.chat.save` (and `outreach.lookup`'s profiles and chats) are kept only for
-extension builds from before the bare-bones one (0.19.0, settings part 4), which saved from the panel. Once every
-computer has that build or newer, raise the API's `MIN_EXTENSION_VERSION` to it (apps/extension/README.md, "Load it
-in Chrome"), and the two commands can be retired; Add to Contacts is `outreach.profile.contact` and Save to their card
-`outreach.chat.keep`.
+extension builds from before the bare-bones one (0.19.0, settings part 4), which saved from the panel. The API now
+refuses every build older than 0.94.1 (decision 94), so the two commands can be retired; Add to Contacts is
+`outreach.profile.contact` and Save to their card `outreach.chat.keep`.
 
 From the main offer's plan (decisions 62 to 70), still to come: each person's own short video, after one a playbook;
 the profile's read, and putting in its bio, name, username and links (decisions 64 and 89), follow page outlines, not
@@ -3032,8 +3060,7 @@ comments waiting at first, the AI's check of Facebook's group members, reading f
 reading likers on Alignable, a business setting for the 30 found checks a day, results by hashtag, phrase and kind of
 business, and tidying away finds never checked after two weeks (what they said is gone already).
 
-Next: the AI suggesting a conversation from the rest of the playbook, with AI drafting. A profile saved after the file
-came in is matched to it when a newer file comes in. Then leads. Then the rest of decisions 26 to 35 (the onboarding,
+Next: the AI suggesting a conversation from the rest of the playbook, with AI drafting. Then leads. Then the rest of decisions 26 to 35 (the onboarding,
 decision 36, and joining groups, decision 48, are built), in the order above: tidying on its own, then team sharing, the after-demo workflow, birthday notes and
 templates, then LinkedIn and Instagram. LinkedIn and the networks after it are planned in
 HANDSFREEOS_SOCIAL_NETWORKS_IMPLEMENTATION_PLAN.md: one add-on, a kit per network, and each network on its own, so a

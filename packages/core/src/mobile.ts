@@ -29,6 +29,11 @@ export const APP_CLIENT = 'mobile';
  * sends the same headers as the app, its own build in `x-hfos-app-version`, and gets the same repeat protection.
  */
 export const EXTENSION_CLIENT = 'extension';
+/**
+ * The oldest extension build the API ever takes, whatever `MIN_EXTENSION_VERSION` says: older ones could type a
+ * message into the chat of the person messaged before (docs/outreach.md, decision 94).
+ */
+export const OLDEST_EXTENSION = '0.94.1';
 /** The clients that say which command a request is and when it was done. */
 export type AppClient = typeof APP_CLIENT | typeof EXTENSION_CLIENT;
 

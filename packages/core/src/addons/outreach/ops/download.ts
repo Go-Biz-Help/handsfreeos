@@ -6,8 +6,7 @@
  * messages come, for the AI to read (../chat-read.ts, apps/worker/src/addons/outreach/chats.ts); it's the reading
  * that may put someone in Contacts, under the business's setting, never the file itself.
  */
-import { and, eq, inArray, sql } from 'drizzle-orm';
-import { rows } from '@hfos/db/client';
+import { and, eq, sql } from 'drizzle-orm';
 import { HfosError } from '../../../errors';
 import { requireHuman } from '../../../kernel/actor';
 import { changeMoment } from '../../../kernel/moment';
@@ -23,38 +22,16 @@ import {
   type DownloadList,
   type DownloadMessage,
 } from '../download';
-import { RECENT_MESSAGES, type FriendState } from '../limits';
+import { RECENT_MESSAGES } from '../limits';
 import { outreachAddon } from '../manifest';
 import type { Platform } from '../playbooks';
-import { fileChats, filePeople, friends, imports } from '../tables';
+import { fileChats, filePeople, imports } from '../tables';
 import { inWorkspace, once } from './common';
+import { inChunks, matchNames, putInPlace, uuids, verdicts } from './file-match';
 
 const DAY = 86_400_000;
 /** Facebook's own start: nothing in a download is older. */
 const FIRST_DAY = Date.UTC(2004, 0, 1);
-
-/** The most rows one statement writes, well under Postgres's limit on a statement's values. */
-const WRITE_MOST = 1000;
-
-const inChunks = <T>(list: readonly T[]): T[][] =>
-  Array.from({ length: Math.ceil(list.length / WRITE_MOST) }, (_, i) =>
-    list.slice(i * WRITE_MOST, (i + 1) * WRITE_MOST),
-  );
-
-/** A uuid[] in one parameter; null stays null. */
-const uuids = (ids: readonly (string | null)[]) =>
-  sql`${`{${ids.map((id) => id ?? 'NULL').join(',')}}`}::uuid[]`;
-
-/** What each list says about where the person's Facebook stands with someone. Followers and following say nothing. */
-const LIST_STATE: Partial<Record<DownloadList, FriendState>> = {
-  friends: 'friends',
-  request_received: 'request_received',
-  request_sent: 'request_sent',
-  removed: 'not_friends',
-  declined: 'declined',
-};
-/** Where things stand now, as the file was made, the strongest first; the rest are what happened before. */
-const NOW_LISTS: readonly DownloadList[] = ['friends', 'request_received', 'request_sent'];
 
 /** The bringing-in a later part belongs to: the person's own, and not finished. */
 async function openImport(
@@ -191,147 +168,6 @@ function chatRows(
   return [...byKey.values()].map((c) => ({ ...c, readState: readStateOf(c.recent ?? []) }));
 }
 
-/**
- * The profile each name in the file is: the one saved here by that name, or among several, the one the person's own
- * Facebook has a say on. A name twice in one of the file's lists is two people, and neither is matched.
- */
-async function matchNames(
-  ctx: CommandContext,
-  me: string,
-  platform: Platform,
-  people: readonly { readonly list: DownloadList; readonly nameKey: string }[],
-): Promise<Map<string, string>> {
-  const ws = ctx.scope.workspaceId!;
-  const twice = new Set<string>();
-  const inList = new Set<string>();
-  for (const p of people) {
-    const key = `${p.list}\n${p.nameKey}`;
-    if (inList.has(key)) twice.add(p.nameKey);
-    inList.add(key);
-  }
-  const saved = await rows<{ id: string; name: string; mine: boolean }>(
-    ctx.tx,
-    sql`select p.id, p.name, exists (select 1 from addon_outreach.friends f
-          where f.profile_id = p.id and f.user_id = ${me}) as mine
-        from addon_outreach.profiles p where p.workspace_id = ${ws} and p.platform = ${platform}`,
-  );
-  const byName = new Map<string, { id: string; mine: boolean }[]>();
-  for (const p of saved) {
-    const key = nameKey(p.name);
-    byName.set(key, [...(byName.get(key) ?? []), { id: p.id, mine: p.mine }]);
-  }
-  const matched = new Map<string, string>();
-  for (const [key, found] of byName) {
-    if (twice.has(key)) continue;
-    const mine = found.filter((p) => p.mine);
-    const one = mine.length ? mine : found;
-    if (one.length === 1) matched.set(key, one[0]!.id);
-  }
-  return matched;
-}
-
-/** What the file says about each profile: where things stood when it was made, or else the latest thing that happened. */
-function verdicts(
-  people: readonly {
-    readonly list: DownloadList;
-    readonly at: Date | null;
-    readonly profileId: string | null;
-  }[],
-): Map<string, { state: FriendState; at: Date | null }> {
-  const byProfile = new Map<string, typeof people>();
-  for (const p of people)
-    if (p.profileId && LIST_STATE[p.list])
-      byProfile.set(p.profileId, [...(byProfile.get(p.profileId) ?? []), p]);
-  const out = new Map<string, { state: FriendState; at: Date | null }>();
-  const latest = (list: typeof people) =>
-    list.reduce<Date | null>((a, p) => (p.at && (!a || p.at > a) ? p.at : a), null);
-  for (const [profileId, said] of byProfile) {
-    const now = NOW_LISTS.find((l) => said.some((p) => p.list === l));
-    if (now) {
-      out.set(profileId, {
-        state: LIST_STATE[now]!,
-        at: latest(said.filter((p) => p.list === now)),
-      });
-      continue;
-    }
-    // Removed and deleted both: the later one, and a deleted request when they're as late.
-    const removed = latest(said.filter((p) => p.list === 'removed'));
-    const declined = latest(said.filter((p) => p.list === 'declined'));
-    const hadDeclined = said.some((p) => p.list === 'declined');
-    out.set(
-      profileId,
-      hadDeclined && (!removed || (declined !== null && declined >= removed))
-        ? { state: 'declined', at: declined }
-        : { state: 'not_friends', at: removed },
-    );
-  }
-  return out;
-}
-
-/**
- * Puts what the file says in place in the person's own friends, as of when it was made. Newer news wins: something
- * seen since only moves its start earlier when it's the same; "not friends" never replaces a request they deleted;
- * Keep stays. How many changed.
- */
-async function putInPlace(
-  ctx: CommandContext,
-  me: string,
-  said: Map<string, { state: FriendState; at: Date | null }>,
-  madeAt: Date,
-): Promise<number> {
-  if (!said.size) return 0;
-  const ws = ctx.scope.workspaceId!;
-  const had = new Map<string, typeof friends.$inferSelect>();
-  for (const chunk of inChunks([...said.keys()]))
-    for (const f of await ctx.tx
-      .select()
-      .from(friends)
-      .where(
-        and(eq(friends.workspaceId, ws), eq(friends.userId, me), inArray(friends.profileId, chunk)),
-      ))
-      had.set(f.profileId, f);
-
-  const write: { profileId: string; state: FriendState; since: Date; seenAt: Date }[] = [];
-  for (const [profileId, { state: fileState, at }] of said) {
-    const was = had.get(profileId);
-    if (!was) {
-      write.push({ profileId, state: fileState, since: at ?? madeAt, seenAt: madeAt });
-      continue;
-    }
-    if (was.seenAt > madeAt) {
-      // Seen since the file was made: only a start the file knows was earlier.
-      if (was.state === fileState && at && at < was.since)
-        write.push({ profileId, state: was.state, since: at, seenAt: was.seenAt });
-      continue;
-    }
-    // A request they deleted says more than not being friends.
-    if (was.state === 'declined' && fileState === 'not_friends') continue;
-    if (fileState !== was.state) {
-      write.push({ profileId, state: fileState, since: at ?? madeAt, seenAt: madeAt });
-      continue;
-    }
-    const earlier = at !== null && at < was.since;
-    if (earlier || madeAt > was.seenAt)
-      write.push({ profileId, state: fileState, since: earlier ? at : was.since, seenAt: madeAt });
-  }
-  for (const chunk of inChunks(write))
-    await ctx.tx
-      .insert(friends)
-      .values(chunk.map((w) => ({ workspaceId: ws, userId: me, ...w })))
-      .onConflictDoUpdate({
-        target: [friends.workspaceId, friends.userId, friends.profileId],
-        set: {
-          state: sql`excluded.state`,
-          since: sql`excluded.since`,
-          seenAt: sql`excluded.seen_at`,
-        },
-      });
-  return write.filter((w) => {
-    const was = had.get(w.profileId);
-    return !was || was.state !== w.state || was.since.getTime() !== w.since.getTime();
-  }).length;
-}
-
 /** The last part: names matched to profiles, what the file says put in place, and what it held counted. */
 async function finish(
   ctx: CommandContext,
@@ -349,12 +185,20 @@ async function finish(
     .from(filePeople)
     .where(eq(filePeople.importId, done.id));
   const chats = await ctx.tx
-    .select({ id: fileChats.id, nameKey: fileChats.nameKey, profileId: fileChats.profileId })
+    .select({
+      id: fileChats.id,
+      nameKey: fileChats.nameKey,
+      profileId: fileChats.profileId,
+      threadKey: fileChats.threadKey,
+    })
     .from(fileChats)
     .where(eq(fileChats.importId, done.id));
 
   const matched = await matchNames(ctx, me, done.platform, people);
-  const link = async (table: 'file_people' | 'file_chats', list: typeof chats) => {
+  const link = async (
+    table: 'file_people' | 'file_chats',
+    list: readonly { id: string; nameKey: string; profileId: string | null }[],
+  ) => {
     const moved = list.filter((r) => (matched.get(r.nameKey) ?? null) !== r.profileId);
     for (const chunk of inChunks(moved))
       await ctx.tx.execute(
@@ -365,7 +209,12 @@ async function finish(
       );
   };
   await link('file_people', people);
-  await link('file_chats', chats);
+  // A chat read in the person's browser keeps the profile its own link named: a name in the file can't tell two
+  // people with the same name apart (decision 93).
+  await link(
+    'file_chats',
+    chats.filter((c) => !(c.threadKey && c.profileId)),
+  );
 
   const changed = await putInPlace(
     ctx,

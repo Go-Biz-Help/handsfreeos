@@ -594,6 +594,45 @@ describe('who reacted', () => {
     expect(tried.outline).toBeTruthy();
   });
 
+  /**
+   * The box as LinkedIn drew it in the owner's Check (28 Oct 2026), by hand: a dialog headed Reactions, a tab for each
+   * kind, and the column its rows go in, still empty, as LinkedIn draws them only in a window Chrome shows.
+   */
+  const UNDRAWN = `<dialog open><button type="button" aria-label="Dismiss"></button><div><header><h2>Reactions</h2></header>
+    <div><div><nav><ul><li><button type="button" aria-label="All reactions 7" aria-current="true"><span>All 7</span></button></li>
+    <li><button type="button" aria-label="Like reactions 5"><span>5</span></button></li></ul></nav>
+    <hr role="presentation" /><div data-testid="lazy-column"></div></div></div></div></dialog>`;
+
+  it.each([
+    ['in a window Chrome shows', false, 'the box its reactions count opened shows nobody'],
+    [
+      'in a window behind another',
+      true,
+      'the box its reactions count opened drew nobody, as its window was behind another',
+    ],
+  ] as const)(
+    'closes a box that drew no row %s, saying so',
+    { timeout: 15_000 },
+    async (_, hidden, words) => {
+      const { doc } = theirPost(false, { opens: false });
+      if (hidden) Object.defineProperty(doc, 'visibilityState', { value: 'hidden' });
+      countOf(doc).addEventListener('click', () => {
+        doc.body.insertAdjacentHTML('beforeend', UNDRAWN);
+        const box = doc.body.lastElementChild!;
+        box.querySelector('[aria-label="Dismiss"]')!.addEventListener('click', () => box.remove());
+      });
+      const tried = await tryReactors(doc, THEIR_POST);
+      expect(tried).toMatchObject({
+        works: false,
+        found: { count: true, box: false, other: true },
+        missing: [words],
+      });
+      expect(tried.found.shown).toBe(hidden ? false : undefined);
+      expect(tried.outline).toMatch(/lazy-column/);
+      expect(doc.querySelector('dialog')).toBeNull();
+    },
+  );
+
   it('says so when the box doesn’t close again', async () => {
     const { doc } = theirPost(false, { closes: false });
     expect(await tryReactors(doc, THEIR_POST)).toMatchObject({

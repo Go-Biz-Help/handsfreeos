@@ -59,6 +59,8 @@ export interface JobTab {
    * screen.
    */
   inFront?<T>(work: () => Promise<T>): Promise<T>;
+  /** While `inFront` runs, brings it back in front when the person put another window over it. */
+  keepInFront?(): Promise<void>;
   /** Closes it, and its window when it has one of its own: done with the network's pages before the job ends. */
   close?(): Promise<void>;
   ask(message: Ask): Promise<Answer>;

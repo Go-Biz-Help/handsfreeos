@@ -60,6 +60,7 @@ import {
   type ProfileKey,
 } from './common';
 import { checksSummary, knownCheck } from './checks';
+import { matchFileLater } from './file-match';
 import { clearNeeds, doneNeeds } from './needs';
 
 /** What a list says about everyone in it: where the person's own Facebook stands with them, and so their profile. */
@@ -241,6 +242,8 @@ export const friendsSave = defineAddonCommand(outreachAddon, {
         })),
         at,
       );
+      // New here since the person's file came in: the file's word on them now, where this list doesn't say otherwise.
+      await matchFileLater(ctx, me, input.platform, added);
       // Friends (connections) now: a friend request the extension handed to the person is done, however it was sent
       // (an Alignable business whose page says Remove Connection), and leaves Waiting for you.
       if (input.list === 'friends')

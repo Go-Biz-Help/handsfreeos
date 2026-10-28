@@ -32,6 +32,7 @@ import { PARTNER_GOAL, PLATFORMS, type Platform } from '../playbooks';
 import type { Friendship } from '../saves';
 import { RECENT_SHOWN, type RecentMessage } from '../sends';
 import { friends, profiles, sends } from '../tables';
+import { matchFileLater } from './file-match';
 
 export type Ctx = CommandContext | QueryContext;
 
@@ -620,6 +621,8 @@ export async function saveProfile(
       })
       .returning({ id: profiles.id });
     profileId = row!.id;
+    // Saved after the person's file came in: the file's word on them now, not at the next file.
+    if (me) await matchFileLater(ctx, me, input.platform, [{ name: input.name }]);
   }
 
   // A "Lives in" or a "From" among their lines says where they live (decision 86).
@@ -685,6 +688,7 @@ export async function keptProfile(
         lastSeenAt: at,
       })
       .returning();
+    await matchFileLater(ctx, me, input.platform, [row!]);
     return row!;
   }
   const only = found.length === 1;

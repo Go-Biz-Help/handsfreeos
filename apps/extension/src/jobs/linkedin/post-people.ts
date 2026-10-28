@@ -5,12 +5,13 @@
  * none while 3 days of found people wait for their checks). On each post's own page it reads who commented, never the
  * post's writer or the person, and opens the box its reactions count opens, reads its first rows (about 25, never
  * scrolled) with each one's headline and how far they are, leaves out 1st-degree connections, and closes it with its
- * Dismiss. Everyone read goes to HandsFreeOS as found (`outreach.finds.save`): nobody is liked, invited or reached
- * until the AI has checked their own profile (`found_checks`, ../found-checks.ts). A post with nobody new, or one
- * LinkedIn no longer shows, still counts as read. Nothing else is pressed: never "Load more comments", a Like or a
- * profile. It goes at a person's pace and stops on any LinkedIn warning. A post it couldn't read, one with no reactions
- * count to open, and a box of who reacted that didn't open or read nobody are noted with the page's outline (decision
- * 74), once a day each, and the day goes on.
+ * Dismiss, with its window in front while it does (LinkedIn draws that box's rows only on screen, and Chrome draws
+ * nothing in a window hidden behind another). Everyone read goes to HandsFreeOS as found (`outreach.finds.save`):
+ * nobody is liked, invited or reached until the AI has checked their own profile (`found_checks`, ../found-checks.ts).
+ * A post with nobody new, or one LinkedIn no longer shows, still counts as read. Nothing else is pressed: never "Load
+ * more comments", a Like or a profile. It goes at a person's pace and stops on any LinkedIn warning. A post it couldn't
+ * read, one with no reactions count to open, and a box of who reacted that didn't open or read nobody are noted with
+ * the page's outline (decision 74), once a day each, and the day goes on.
  */
 import type { Platform } from '@hfos/core/addons/outreach/networks';
 import type { PostsPeopleNext } from '../../hfos/messages';
@@ -108,10 +109,45 @@ async function noteReactors(
   else if (!reactors.rows)
     await note(
       'reactors',
-      'Nobody read in the box of who reacted.',
-      { count: true, box: true, rows: 0 },
+      reactors.hidden
+        ? 'Nobody read in the box of who reacted: its window was behind another, and LinkedIn draws its rows only on screen.'
+        : 'Nobody read in the box of who reacted.',
+      { count: true, box: true, rows: 0, ...(reactors.hidden ? { shown: false } : {}) },
       reactors.outline,
     );
+}
+
+/** A post's page read: who commented and who reacted, or nothing shown there, or the end a LinkedIn warning made. */
+type PostRead =
+  | {
+      readonly page: 'shown';
+      readonly commenters: readonly PostPerson[];
+      readonly reactors: ReactorsRead;
+    }
+  | { readonly page: 'unread' | 'gone' }
+  | { readonly page: 'warned'; readonly end: JobEnd };
+
+/**
+ * Opens a good post and reads its people, with its window in front: LinkedIn draws the box of who reacted only on
+ * screen, and Chrome draws nothing in a window hidden behind another.
+ */
+async function readPostPage(job: Job, post: PostsPeopleNext['posts'][number]): Promise<PostRead> {
+  await job.tab.open(postOf(post.url) ?? post.url);
+  const page = await readLinkedIn(job.tab);
+  const warned = await warnedOn(job, page);
+  if (warned) return { page: 'warned', end: warned };
+  // Its own page, but no post read on it: the reader's to look at. Any other page means LinkedIn took it away.
+  if (page.kind !== 'post') return { page: 'gone' };
+  if (!page.posts?.length) return { page: 'unread' };
+  const people = await job.tab.ask({
+    type: 'hfos-post-people',
+    writer: profileRefOf(post.profileUrl),
+  });
+  if (!people.ok) throw new Error(people.error);
+  // The box it opened and closed again: any warning LinkedIn showed meanwhile stops the day, nothing sent.
+  const after = await warnedOn(job, await readLinkedIn(job.tab));
+  if (after) return { page: 'warned', end: after };
+  return { page: 'shown', commenters: people.commenters, reactors: people.reactors };
 }
 
 /** Reads who reacted to and commented on today's good posts on LinkedIn, and sends them to HandsFreeOS as found. */
@@ -144,28 +180,19 @@ export async function readPostPeople(job: Job): Promise<JobEnd> {
     job.progress(
       `${i + 1} of ${next.posts.length}: reading who reacted to and commented on ${post.name}’s post…`,
     );
-    await job.tab.open(postOf(post.url) ?? post.url);
-    const page = await readLinkedIn(job.tab);
-    const warned = await warnedOn(job, page);
-    if (warned) return { ...warned, line: `${warned.line} ${summary(read, added, gone)}` };
+    const look = () => readPostPage(job, post);
+    const got = await (job.tab.inFront ? job.tab.inFront(look) : look());
+    if (got.page === 'warned')
+      return { ...got.end, line: `${got.end.line} ${summary(read, added, gone)}` };
     let commenters: readonly PostPerson[] = [];
     let reactors: readonly PostPerson[] = [];
-    const shown = page.kind === 'post' && Boolean(page.posts?.length);
-    if (shown) {
-      const people = await job.tab.ask({
-        type: 'hfos-post-people',
-        writer: profileRefOf(post.profileUrl),
-      });
-      if (!people.ok) throw new Error(people.error);
-      // The box it opened and closed again: any warning LinkedIn showed meanwhile stops the day, nothing sent.
-      const after = await warnedOn(job, await readLinkedIn(job.tab));
-      if (after) return { ...after, line: `${after.line} ${summary(read, added, gone)}` };
-      await noteReactors(people.reactors, post.reactions, note);
-      commenters = people.commenters;
-      reactors = people.reactors.people;
+    const shown = got.page === 'shown';
+    if (got.page === 'shown') {
+      await noteReactors(got.reactors, post.reactions, note);
+      commenters = got.commenters;
+      reactors = got.reactors.people;
     } else {
-      // Its own page, but no post read on it: the reader's to look at. Any other page means LinkedIn took it away.
-      if (page.kind === 'post') await note('post', 'Couldn’t read the post.', { post: 0 });
+      if (got.page === 'unread') await note('post', 'Couldn’t read the post.', { post: 0 });
       gone++;
     }
     const saved = await savePeople(job, post.postId, commenters, reactors);
