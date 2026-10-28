@@ -247,7 +247,6 @@ export const outreachAddon = defineAddon({
     'posts',
     'profiles',
     'replies',
-    'reports',
     'reviews',
     'sends',
     'setup',

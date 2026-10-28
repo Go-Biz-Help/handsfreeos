@@ -1349,7 +1349,7 @@ where decisions 37 and 59 put the settings; what they decided stands. Settled to
     on the web, the desk's Problem reports on the phone): open or handled, by area, each with its outline, **Copy
     for Claude** (the phone shares it) and **Mark handled**. The person who sent one reads only their own; they go
     after 30 days, handled or not. The add-on's own `outreach.report.save` is gone; the notes 0.48.0 saved were
-    copied across, and its table `reports` is dropped in a later migration.
+    copied across, and its table `reports` was dropped in 20261027014800.
 
 76. **Check LinkedIn tries every step up to its last press** (Chris, 17 Oct 2026: "Lets try to have linkedin do all
     of the actions it needs to do and give feedback on issues instead of one thing at a time"). From extension 0.52.0
@@ -3040,8 +3040,8 @@ the owner's account from the app.
 `outreach.profile.save` and `outreach.chat.save`, kept for extension builds from before the bare-bones one (0.19.0,
 settings part 4), which saved from the panel, are retired: the API refuses every build older than 0.94.1 (decision
 94). Add to Contacts is `outreach.profile.contact` and Save to their card `outreach.chat.keep`. `outreach.lookup`
-still answers for profiles and chats, though the apps ask it only for names. The worker no longer empties the old
-table `reports` (decision 74), which nothing reads or writes, and a later migration drops it.
+still answers for profiles and chats, though the apps ask it only for names. The old table `reports` (decision 74),
+which nothing read or wrote, was dropped in 20261027014800.
 
 From the main offer's plan (decisions 62 to 70), still to come: each person's own short video, after one a playbook;
 the profile's read, and putting in its bio, name, username and links (decisions 64 and 89), follow page outlines, not
