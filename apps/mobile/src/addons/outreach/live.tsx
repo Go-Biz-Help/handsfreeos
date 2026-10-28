@@ -32,7 +32,7 @@ import type { AsksOutput } from '@hfos/core/addons/outreach/asks';
 import * as React from 'react';
 import { View } from 'react-native';
 
-import { ChangeError } from '@/changes';
+import { change, ChangeError } from '@/changes';
 import { useChange } from '@/changes/hooks';
 import type { OutboxRow } from '@/changes/outbox';
 import type { ChangeState } from '@/changes/rules';
@@ -48,6 +48,7 @@ import { api, errorMessage, unwrap } from '@/lib/api';
 
 import { startDay, stopDay } from './actions';
 import { AskedPart, useAskActions, useAsks, type AskActions } from './asks';
+import { ComputersPart, type ComputerActions } from './computers';
 import {
   NeedsSignal,
   Note,
@@ -59,12 +60,14 @@ import {
   useOutreachContext,
 } from './kit';
 import { useNetworksOn } from './networks';
+import { PHONE_WORDS } from './phone-words';
 
 /**
  * The live view on the phone (decision 44): what the person's extension is doing now, asked again every minute while
  * the screen is open (`LIVE_REFETCH_SECONDS`), Start my day and Stop for today, today's counts against the daily
- * limits, what the person asked their computer (decision 43, with **Carry on**, **Skip** and **Stop**), and today's
- * steps; for owners and admins, each person's state. Start and Stop wait on the phone with no
+ * limits, what the person asked their computer (decision 43, with **Carry on**, **Skip** and **Stop**), today's
+ * steps, and their computers to rename or remove (./computers.tsx, where Settings → Your computer opens); for owners
+ * and admins, each person's state. Start and Stop wait on the phone with no
  * signal and go when it's back; the rest needs signal, and with none the last answer stays, "As of" when it came.
  * The day, its warning, its limits and its first lists are one network's (`outreach.live`'s `platform`, Facebook's
  * when left out): Today's strip asks for each network the person works (./hub.tsx).
@@ -277,6 +280,33 @@ export function useLiveProps(
     if (announce.current) toast.show(announce.current);
     announce.current = null;
   }, [sent, reload]);
+  // Renaming and removing the person's computers, with signal: the list is asked again once it's kept.
+  const computerActions: ComputerActions = {
+    rename: async (computerId, name) => {
+      try {
+        await change('outreach.computer.rename', { workspaceId: ws, computerId, name });
+        toast.show(PHONE_WORDS.computers.renamed);
+        reload();
+        return null;
+      } catch (e) {
+        return e instanceof ChangeError ? e.message : errorMessage(e);
+      }
+    },
+    remove: async (computerIds, done) => {
+      try {
+        await change('outreach.computer.remove', {
+          workspaceId: ws,
+          computerIds: [...computerIds],
+        });
+        toast.show(done);
+        reload();
+        return true;
+      } catch (e) {
+        toast.error(e instanceof ChangeError ? e.message : errorMessage(e));
+        return false;
+      }
+    },
+  };
   const press = async (state: 'started' | 'stopped') => {
     setRefused(null);
     announce.current = null;
@@ -313,6 +343,7 @@ export function useLiveProps(
     onGeneral: () => openSettingsPart(ws, 'general'),
     asks: asks.data,
     askActions,
+    computerActions,
   };
 }
 
@@ -337,6 +368,7 @@ export function LiveBody({
   onGeneral,
   asks = null,
   askActions,
+  computerActions,
   networks = [platform],
   onNetwork,
 }: {
@@ -372,6 +404,8 @@ export function LiveBody({
   /** What the person asked their computer, with signal. */
   asks?: AsksOutput | null;
   askActions?: AskActions;
+  /** Renaming and removing their computers, with signal; left out, the list isn't shown. */
+  computerActions?: ComputerActions;
 }) {
   if (!live)
     return (
@@ -452,7 +486,6 @@ export function LiveBody({
               {W.otherComputer(c.name, c.state === 'signed_out', seenWords(c.lastSeenAt, tz, now))}
             </Note>
           ))}
-          {computer ? <Note>{W.renameOnTheWeb}</Note> : null}
         </Card>
         {live.warning ? (
           <Card className="border-danger px-4 py-3" testID="live-warning">
@@ -557,6 +590,16 @@ export function LiveBody({
           )}
         </Card>
       </Part>
+
+      {computerActions ? (
+        <ComputersPart
+          computers={live.computers}
+          timeZone={tz}
+          now={now}
+          online={online}
+          actions={computerActions}
+        />
+      ) : null}
 
       {team ? <TeamPart team={team} now={now} /> : null}
     </Screen>

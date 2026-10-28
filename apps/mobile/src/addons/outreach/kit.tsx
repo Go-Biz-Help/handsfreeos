@@ -43,7 +43,9 @@ export type OutreachTab =
   | 'playbooks'
   | 'settings'
   // A code a network emailed, on its own screen (`&ask=`, decision 82).
-  | 'code';
+  | 'code'
+  // The lists the business's country setting makes (`&show=unsure|skipped`, decisions 61 and 86).
+  | 'countries';
 /** The tabs the phone leaves to the web: they have a lot to look through (the manifest's `ui.phone` `web`). */
 export type WebTab = 'activity' | 'friends';
 

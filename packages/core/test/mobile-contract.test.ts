@@ -152,6 +152,14 @@ const ONLINE_COMMANDS = [
   'outreach.readiness.profile',
   'outreach.readiness.numbers',
   'outreach.readiness.messages',
+  // The rest of Social Outreach's settings on the phone (decision 104): a computer renamed or removed, a country call
+  // kept or taken back, and the sample messages changed or a kept note forgotten.
+  'outreach.computer.rename',
+  'outreach.computer.remove',
+  'outreach.country.decide',
+  'outreach.country.unskip',
+  'outreach.messages.edit',
+  'outreach.messages.forget',
   // Feedback on the AI teammate's replies (HANDSFREEOS_AI_FEEDBACK_IMPLEMENTATION_PLAN.md), in a conversation and the
   // test console: a thumbs up or down, the answer to its quick question, and Not now on the rule it suggests.
   'ai_teammate.give_feedback',
@@ -272,6 +280,8 @@ const QUERIES = [
   'outreach.helpful',
   // Get ready on Today: what's left before the extension reaches anyone (decision 63).
   'outreach.readiness',
+  // Not sure where they live and Skipped for country, from General on the phone (decision 104).
+  'outreach.countries.skipped',
   // The extension's sign-ins waiting for the person's number, for the screen its push opens (20261027002910).
   'extension_sign_in.pending',
   // The feedback on the AI teammate's replies on a screen, and what came of it, asked again while it's being read.

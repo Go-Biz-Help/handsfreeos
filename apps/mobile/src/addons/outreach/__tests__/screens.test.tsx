@@ -1015,9 +1015,9 @@ describe('A playbook on the phone', () => {
     expect(sectionWords(PLAYBOOK.details, 'offer')).toBe('A 20-minute demo');
     expect(sectionWords(PLAYBOOK.details, 'signs')).toBe('Nothing yet.');
     expect(sectionWords(PLAYBOOK.details, 'goal')).toBe('Book a demo');
-    // The short video: its link, and the script written on the computer, part by part.
+    // The short video: its link, and the script the AI writes, part by part.
     expect(sectionWords(PLAYBOOK.details, 'video')).toBe(
-      'No video yet\n\nWrite the script on your computer, under Playbooks in HandsFreeOS.',
+      'No video yet\n\nNo script yet. The AI writes one from your main offer and this playbook’s niche.',
     );
     const scripted = sectionWords(
       {

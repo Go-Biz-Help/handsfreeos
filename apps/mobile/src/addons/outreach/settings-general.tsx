@@ -19,6 +19,7 @@ import {
   outreachSettings,
   type OutreachSettings,
 } from '@hfos/core/addons/outreach/chat-read';
+import type { CountryRule } from '@hfos/core/addons/outreach/countries';
 import { withNetwork } from '@hfos/core/addons/outreach/network-words';
 import { SETTINGS_WORDS } from '@hfos/core/addons/outreach/settings-parts';
 import { SETUP_WORDS } from '@hfos/core/addons/outreach/setup';
@@ -34,6 +35,7 @@ import { Input } from '@/components/ui/input';
 import { Text } from '@/components/ui/text';
 
 import { useAutosave, type Autosave, type Edit, type SaveState } from './autosave';
+import { countriesProblem, CountrySetting } from './country-setting';
 import { Note, Part } from './kit';
 import {
   Choice,
@@ -53,8 +55,9 @@ import {
  * General, the first page of Settings on the phone (Chris, 2026-10-16): the person's own on every network (how the AI
  * writes for them, their working hours, how their phone hears what waits), and for owners and admins, For your team:
  * what people may pick, where a new person starts, who from chats goes in Contacts, when friend requests are suggested
- * for cancelling, the morning push, the weekly report, and where the team gets the extension. Each network's own, and
- * its daily limits, are on that network's page. Everything saves as it's made, but the link, which has its own button.
+ * for cancelling, the morning push, the weekly report, which countries it reaches (decisions 61 and 86), and where the
+ * team gets the extension. Each network's own, and its daily limits, are on that network's page. Everything saves as
+ * it's made, but the link, which has its own button; Only these countries waits for a country to be picked.
  */
 
 const L = SETUP_WORDS.link;
@@ -111,6 +114,7 @@ export interface TeamDraft {
   readonly cancelRequestsAfterWeeks: number;
   readonly morningPushHour: number | null;
   readonly weeklyReport: boolean;
+  readonly countries: CountryRule;
 }
 
 export const teamDraftOf = (saved: unknown): TeamDraft => {
@@ -124,6 +128,7 @@ export const teamDraftOf = (saved: unknown): TeamDraft => {
     cancelRequestsAfterWeeks: s.cancelRequestsAfterWeeks,
     morningPushHour: s.morningPushHour,
     weeklyReport: s.weeklyReport,
+    countries: s.countries,
   };
 };
 
@@ -138,6 +143,7 @@ export const withTeam =
     cancelRequestsAfterWeeks: draft.cancelRequestsAfterWeeks,
     morningPushHour: draft.morningPushHour,
     weeklyReport: draft.weeklyReport,
+    countries: draft.countries,
     rules: {
       ...now.rules,
       sendingAllowed: draft.sendingAllowed,
@@ -157,6 +163,7 @@ export function GeneralTeam({
   online,
   onSave,
   onState,
+  countryLists,
 }: {
   business: Readonly<Record<string, unknown>>;
   timezone: string;
@@ -164,8 +171,16 @@ export function GeneralTeam({
   onSave: (edit: (now: OutreachSettings) => Partial<OutreachSettings>) => Promise<string | null>;
   /** Where its saving stands, for the page's line. */
   onState: (state: SaveState) => void;
+  /** Under the country setting: the rows to the lists it makes. */
+  countryLists?: React.ReactNode;
 }) {
-  const team = useAutosave(teamDraftOf(business), (draft) => onSave(withTeam(draft)), onState);
+  const team = useAutosave(
+    teamDraftOf(business),
+    (draft) => onSave(withTeam(draft)),
+    onState,
+    // Only these countries, with none picked yet, waits for one.
+    (draft) => countriesProblem(draft.countries) !== null,
+  );
   const d = team.value;
   const set = (part: Partial<TeamDraft>, later = false) =>
     team.change((v) => ({ ...v, ...part }), { later });
@@ -294,6 +309,13 @@ export function GeneralTeam({
           testID="settings-weekly"
         />
       </Card>
+      <CountrySetting
+        value={d.countries}
+        onChange={(countries) => set({ countries })}
+        disabled={disabled}
+      >
+        {countryLists}
+      </CountrySetting>
       <Part title={L.title} about={L.about} testID="settings-extension-link">
         <ExtensionLink
           saved={link}

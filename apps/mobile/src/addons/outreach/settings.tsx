@@ -9,6 +9,7 @@ import {
   settingsToSave,
   type OutreachSettings,
 } from '@hfos/core/addons/outreach/chat-read';
+import type { CountriesSkippedOutput, CountryList } from '@hfos/core/addons/outreach/countries';
 import { networksOn } from '@hfos/core/addons/outreach/network-words';
 import { PLATFORM_KEYS, PLATFORMS, type Platform } from '@hfos/core/addons/outreach/networks';
 import {
@@ -39,6 +40,7 @@ import { Text } from '@/components/ui/text';
 import { api, errorMessage, unwrap } from '@/lib/api';
 
 import { useAutosave, type SaveState } from './autosave';
+import { CountryListRows, CountryListsPart } from './countries';
 import {
   NeedsSignal,
   Note,
@@ -62,7 +64,7 @@ import { useProfileProps, type ProfileProps } from './ready';
  * menu (`?part=`, ./kit.tsx's `openSettingsPart`); an address with no part, as every link before the parts, opens the
  * menu. Every change saves as it's made (./autosave.ts), with no Save button: the person's through
  * `outreach.automation.save`, the business's through `addon.save_settings`. The extension follows within seconds. It
- * all needs signal.
+ * all needs signal. General also leads to the lists the country setting makes, for everyone (./countries.tsx).
  */
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -121,6 +123,19 @@ export function SettingsScreen({ whose, part: raw }: { whose?: string; part?: st
     `outreach-business:${ws}`,
     W.rows.settings,
   );
+  // On General: how many the country setting holds back, for its lists (decisions 61 and 86).
+  const countries = useOutreachAnswer(
+    part === 'general'
+      ? async () =>
+          unwrap(
+            await api.POST('/v1/queries/outreach.countries.skipped', {
+              body: { workspaceId: ws, list: 'skipped', page: 1 },
+            }),
+          )
+      : null,
+    `countries-count:${ws}`,
+    W.rows.settings,
+  );
   // A network's page, the person's own: Check LinkedIn's ask, and their computer (decision 74).
   const networkPart = part !== null && part !== 'general' && mine;
   const asks = useAsks('settings', W.rows.settings, networkPart);
@@ -131,14 +146,17 @@ export function SettingsScreen({ whose, part: raw }: { whose?: string; part?: st
   const shown = React.useRef(false);
   const { reload: reloadAutomation } = automation;
   const { reload: reloadPeople } = people;
+  const { reload: reloadCountries } = countries;
   useFocusEffect(
     React.useCallback(() => {
       if (shown.current && !part) {
         reloadAutomation();
         reloadPeople();
       }
+      // Back on General from a country list: its counts as they are now.
+      if (shown.current && part === 'general') reloadCountries();
       shown.current = true;
-    }, [part, reloadAutomation, reloadPeople]),
+    }, [part, reloadAutomation, reloadPeople, reloadCountries]),
   );
   // The business's saves go one at a time, each on what's kept as it goes, so two parts saving together never undo
   // each other.
@@ -170,6 +188,8 @@ export function SettingsScreen({ whose, part: raw }: { whose?: string; part?: st
       business={ctx.manages ? business.data : null}
       manages={ctx.manages}
       online={ctx.online}
+      countries={countries.data}
+      onCountries={(list) => openOutreach(ws, 'countries', `show=${list}`)}
       onRetry={automation.reload}
       onSaveMine={async (settings) => {
         try {
@@ -202,6 +222,7 @@ export function SettingsScreen({ whose, part: raw }: { whose?: string; part?: st
             });
             business.reload();
             automation.reload();
+            countries.reload();
             return null;
           } catch (e) {
             return failed(e);
@@ -365,6 +386,9 @@ interface PartProps {
   askActions?: AskActions | null;
   /** On a network's page, the person's own profile there, read and checked (decision 80). */
   profile?: ProfileProps | null;
+  /** On General: how many the country setting holds back, and opening its lists. */
+  countries?: CountriesSkippedOutput | null;
+  onCountries?: (list: CountryList) => void;
 }
 
 /** A part's page: General, or a network's. */
@@ -397,6 +421,8 @@ function PartPage({
   asks = null,
   askActions = null,
   profile = null,
+  countries = null,
+  onCountries,
 }: Omit<PartProps, 'automation' | 'error'> & { title: string; automation: AutomationOutput }) {
   const mineID = part === 'general' ? 'settings-general' : `settings-networks-${part}`;
   // One line for the page, fixed under its title so it shows wherever the change was made: how the latest save went,
@@ -443,9 +469,15 @@ function PartPage({
                 online={online}
                 onSave={onSaveBusiness}
                 onState={report('settings-team')}
+                countryLists={
+                  onCountries ? <CountryListRows got={countries} onOpen={onCountries} /> : null
+                }
               />
             ) : !manages ? (
-              <Note>{W.abouts.notOwner}</Note>
+              <>
+                {onCountries ? <CountryListsPart got={countries} onOpen={onCountries} /> : null}
+                <Note>{W.abouts.notOwner}</Note>
+              </>
             ) : null}
           </>
         ) : (

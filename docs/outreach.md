@@ -542,7 +542,7 @@ person's computers and Start fresh. The old addresses (`?view=waiting`, `?view=a
   for (owners and admins), every change saved as it's made, and no Start fresh; **Where your team gets the
   extension** is checked as the web's box checks it (`extensionLinkProblem`). Activity and Friends have a lot to look through, so they stay on the web (the manifest's `ui.phone`
   `web`), and so do their asks (the file, friend requests, friends, tidying), drafting a message with its look-up,
-  copying an opener and the AI's playbook help. What the phone shows, but for Waiting for you's messages, needs
+  and copying an opener; the AI's playbook help came to the phone later (decision 104). What the phone shows, but for Waiting for you's messages, needs
   signal, and says so plainly without it. What waits on the phone with no signal and goes when it's back
   (`apps/mobile/src/changes/commands.ts`): OK, change and Approve all on a message (`outreach.send.approve`, held to
   30 minutes, then "Still send?"); Skip on a message, Start my day and Stop for today, **I did it** and **Let it go**
@@ -2458,6 +2458,23 @@ where decisions 37 and 59 put the settings; what they decided stands. Settled to
       - **Each person's own, as the pipeline:** where someone stands and the chat are the person's; the steps are too,
         but an owner's or admin's are everyone's, a teammate's named, as Results' are (`seesEveryone`).
       - **The 50 latest steps** (`JOURNEY_STEPS_MOST`), with how many older ones are left out.
+104.  **The rest of the settings on the phone** (Chris, 28 Oct 2026, "all of your picks": 22; and before that, "all the
+      settings and prompts should be available on the phone app as well"). What the phone used to send to the web or
+      the computer now works there the way the web's does, all of it needing signal:
+      - **Countries:** General → For your team has Anywhere, Only these countries or Not these countries, with a
+        picker and When we can't tell; Only these countries with none picked waits to save and says why. **Not sure
+        where they live** and **Skipped for country** open from there on their own screen (`?view=countries&show=`),
+        with Let through, Skip, Undo and Unskip (`outreach.country.decide`, `.unskip`, `outreach.countries.skipped`).
+        The web keeps them on its Friends tab, which stays on the web.
+      - **The AI's help on a playbook's parts:** Improve, Suggest more, Write it for me and Suggest questions, in the
+        part's sheet, saved with the sheet's Save.
+      - **The video's script and the sample messages:** Write the script, Write it again and Improve on each part;
+        under Get ready, Write samples, Change, Not quite right?, Forget on a kept note, and They read right
+        (`outreach.messages.edit`, `.forget`). The AI's writing is the worker's add-on actions, as on the web.
+      - **Your computers,** on the Live screen: rename one, or remove one that isn't working, or all those standing by
+        (`outreach.computer.rename`, `.remove`).
+      - **Still on the web:** niche, problem and proof have no part on the phone, so no AI help there; sample
+        messages and own openers are changed one a line, as before.
 
 ## Rules worth knowing before changing anything
 

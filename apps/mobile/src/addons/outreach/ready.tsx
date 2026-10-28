@@ -1,6 +1,6 @@
 import { bioEditShown, type AsksOutput } from '@hfos/core/addons/outreach/asks';
 import { WEEKDAY_WORDS } from '@hfos/core/addons/outreach/automation';
-import { isMine, slotKey, type SampleSlot } from '@hfos/core/addons/outreach/conversation';
+import type { MessageSamples } from '@hfos/core/addons/outreach/conversation';
 import { seenWords } from '@hfos/core/addons/outreach/live';
 import type { Platform } from '@hfos/core/addons/outreach/networks';
 import {
@@ -39,15 +39,17 @@ import { Text } from '@/components/ui/text';
 import { toast } from '@/components/ui/toast';
 import { api, errorMessage, unwrap } from '@/lib/api';
 import { cn } from '@/lib/utils';
+import { workerPost } from '@/lib/worker';
 
 import { AskButton, AskLine, useAskActions, useAsks, useDoneReload, type AskActions } from './asks';
-import { Note, openOutside, useOutreachAnswer, useOutreachContext } from './kit';
+import { Note, openOutreach, openOutside, useOutreachAnswer, useOutreachContext } from './kit';
 import {
   checkDue,
   partHowFor,
   PROFILE_PART_WORDS as PW,
 } from '@hfos/core/addons/outreach/profile-parts';
 import { ProfileLook, ProfilePicturesNote, ProfileRestList } from './profile-whole';
+import { MessagesList, type MessageActions } from './ready-messages';
 
 /**
  * Get ready on the phone (docs/outreach.md, decisions 63, 64 and 90; packages/core/src/addons/outreach/readiness.ts):
@@ -55,7 +57,8 @@ import { ProfileLook, ProfilePicturesNote, ProfileRestList } from './profile-who
  * that never holds the day, so the card then says they can start, its count leaves the profile out, and the profile's
  * line says it can wait. Their own three are done right here: the profile, read by their computer and checked by the AI
  * (**Read my profile**, then **Put this one in** for a bio), with a tick for what the AI can't see; their messages, the
- * samples written on their computer, to read and OK; and their goal with the math as it changes. The main offer is
+ * samples the AI writes for their playbook, to change, have written again and OK (./ready-messages.tsx); and their
+ * goal with the math as it changes. The main offer is
  * built on a computer (core's Settings → Main offer reviews it here), and the playbooks are written there too. It
  * needs signal.
  *
@@ -201,6 +204,67 @@ export function useReadyProps(
         return false;
       }
     },
+    messageActions: {
+      write: async () => {
+        if (!readiness) return false;
+        try {
+          const samples = await workerPost<MessageSamples>(
+            '/v1/addons/outreach/actions/outreach.messages.samples',
+            { workspaceId: ws, input: {} },
+          );
+          took({ ...readiness, messages: { ...readiness.messages, samples } });
+          return true;
+        } catch (e) {
+          failed(e);
+          return false;
+        }
+      },
+      edit: async (slot, text) => {
+        try {
+          took(
+            (
+              await change('outreach.messages.edit', {
+                workspaceId: ws,
+                part: slot.part,
+                index: slot.index,
+                text,
+              })
+            ).output,
+          );
+          toast.show(R.messages.saved);
+          return true;
+        } catch (e) {
+          failed(e);
+          return false;
+        }
+      },
+      rewrite: async (slot, chips, note) => {
+        try {
+          took(
+            await workerPost<ReadinessOutput>(
+              '/v1/addons/outreach/actions/outreach.messages.rewrite',
+              {
+                workspaceId: ws,
+                input: { part: slot.part, index: slot.index, chips: [...chips], note },
+              },
+            ),
+          );
+          return true;
+        } catch (e) {
+          failed(e);
+          return false;
+        }
+      },
+      forget: async (part, note) => {
+        try {
+          took((await change('outreach.messages.forget', { workspaceId: ws, part, note })).output);
+          toast.show(R.messages.forgot);
+        } catch (e) {
+          failed(e);
+        }
+      },
+      playbooks: () => openOutreach(ws, 'playbooks'),
+    },
     onNumbers: async (goal, days) => {
       try {
         took((await change('outreach.readiness.numbers', { workspaceId: ws, goal, days })).output);
@@ -220,6 +284,7 @@ export function GetReadyCard({
   actions = null,
   onTick,
   onMessages,
+  messageActions = null,
   onNumbers,
 }: {
   readiness: ReadinessOutput | null;
@@ -229,6 +294,8 @@ export function GetReadyCard({
   onTick: (item: AnyProfileItem, done: boolean) => Promise<void>;
   /** They read right: OKs the samples against the live version. Left out where they can't be OK'd. */
   onMessages?: () => Promise<boolean>;
+  /** Writing the samples and changing them (./ready-messages.tsx); null where the phone can't, which says where. */
+  messageActions?: MessageActions | null;
   onNumbers: (goal: number, days: number[]) => Promise<boolean>;
 }) {
   const [open, setOpen] = React.useState<Mine | null>(null);
@@ -297,6 +364,7 @@ export function GetReadyCard({
               {open === 'messages' && i.item === 'messages' ? (
                 <MessagesList
                   readiness={readiness}
+                  actions={messageActions}
                   onOk={
                     onMessages
                       ? async () => {
@@ -319,105 +387,6 @@ export function GetReadyCard({
         );
       })}
     </Card>
-  );
-}
-
-/**
- * Your messages: the samples the AI wrote on the person's computer, as they'd read in Messenger, to OK, with the ones
- * they wrote themselves marked (decision 87). Writing them asks the AI, which the phone doesn't: with none for the live
- * version, it says where.
- */
-function MessagesList({
-  readiness,
-  onOk,
-}: {
-  readiness: ReadinessOutput;
-  onOk: (() => Promise<void>) | null;
-}) {
-  const M = R.messages;
-  const [busy, setBusy] = React.useState(false);
-  const samples = readiness.messages.samples;
-  const live = readiness.offer?.version ?? null;
-  const fresh = samples !== null && live !== null && samples.version === live;
-  const bubble = (text: string, slot: SampleSlot) => (
-    <View key={slotKey(slot)} className="max-w-[92%] gap-0.5 self-start">
-      <Text
-        selectable
-        className="rounded-[14px] bg-accent-soft px-3 py-2 text-[14px] leading-[20px]"
-        testID="ready-message-sample"
-      >
-        {text}
-      </Text>
-      {samples && isMine(samples, slot) ? (
-        <Text className="text-[12px] text-text-3" testID="ready-message-mine">
-          {M.yours}
-        </Text>
-      ) : null}
-    </View>
-  );
-  const part = (title: string, children: React.ReactNode) => (
-    <View className="gap-1.5">
-      <Text className="text-[14px] font-semibold">{title}</Text>
-      {children}
-    </View>
-  );
-  return (
-    <View className="mt-1 gap-3" testID="ready-messages-list">
-      {!samples ? <Note>{M.onComputer}</Note> : null}
-      {samples && !fresh ? <Note>{`${M.older} ${M.onComputer}`}</Note> : null}
-      {samples ? (
-        <>
-          <Note>{M.about(samples.playbookName, samples.version)}</Note>
-          {part(
-            M.first,
-            samples.first.map((t, index) => bubble(t, { part: 'first', index })),
-          )}
-          {part(
-            M.video,
-            samples.video ? (
-              bubble(samples.video, { part: 'video', index: 0 })
-            ) : (
-              <Note>{M.noVideo}</Note>
-            ),
-          )}
-          {samples.link ? part(M.link, bubble(samples.link, { part: 'link', index: 0 })) : null}
-          {samples.followUps.length
-            ? part(
-                M.followUps(samples.followUps.length),
-                samples.followUps.map((t, index) => (
-                  <View key={index} className="gap-0.5">
-                    <Text className="text-[12px] text-text-3">
-                      {M.later(samples.followUpGaps[index] ?? 1)}
-                    </Text>
-                    {bubble(t, { part: 'followUps', index })}
-                  </View>
-                )),
-              )
-            : null}
-          {samples.checkIn
-            ? part(M.checkIn, bubble(samples.checkIn, { part: 'checkIn', index: 0 }))
-            : null}
-        </>
-      ) : null}
-      {fresh && onOk ? (
-        <Button
-          size="md"
-          className="self-start"
-          loading={busy}
-          onPress={async () => {
-            setBusy(true);
-            try {
-              await onOk();
-            } finally {
-              setBusy(false);
-            }
-          }}
-          testID="ready-messages-ok"
-        >
-          {M.ok}
-        </Button>
-      ) : null}
-    </View>
   );
 }
 

@@ -345,9 +345,22 @@ import {
   WheelsEndInput,
   WheelsEndOutput,
 } from '@hfos/core/addons/outreach/automation';
+import {
+  CountryDecideInput,
+  CountryDecideOutput,
+  CountryUnskipInput,
+  CountryUnskipOutput,
+} from '@hfos/core/addons/outreach/countries';
 import { DemoMarkInput, DemoMarkOutput } from '@hfos/core/addons/outreach/demos';
 import { FriendSetInput, FriendSetOutput } from '@hfos/core/addons/outreach/friends';
-import { DayInput, DayOutput } from '@hfos/core/addons/outreach/live';
+import {
+  ComputerRemoveInput,
+  ComputerRemoveOutput,
+  ComputerRenameInput,
+  ComputerRenameOutput,
+  DayInput,
+  DayOutput,
+} from '@hfos/core/addons/outreach/live';
 import { PartnerMarkInput, PartnerMarkOutput } from '@hfos/core/addons/outreach/partners';
 import {
   ClientSetInput,
@@ -362,6 +375,8 @@ import {
 } from '@hfos/core/addons/outreach/playbooks';
 import { PostSkipInput, PostSkipOutput } from '@hfos/core/addons/outreach/posts';
 import {
+  MessageEditInput,
+  MessageForgetInput,
   MessagesOkInput,
   NumbersInput,
   ProfileTickInput,
@@ -605,6 +620,12 @@ export const PHONE_COMMANDS = {
   'outreach.automation.save': command(ONLINE, AutomationSaveInput, AutomationSaveOutput),
   // Mark as client, or Not a client after all, from the person menu on a name (decision 91): with signal.
   'outreach.client.set': command(ONLINE, ClientSetInput, ClientSetOutput),
+  // The person's computers, under Settings → Your computer (the Live screen): renamed or removed, with signal.
+  'outreach.computer.remove': command(ONLINE, ComputerRemoveInput, ComputerRemoveOutput),
+  'outreach.computer.rename': command(ONLINE, ComputerRenameInput, ComputerRenameOutput),
+  // The country setting's lists (decision 86): Let through, Skip, Undo and Unskip, with signal, as the web's are.
+  'outreach.country.decide': command(ONLINE, CountryDecideInput, CountryDecideOutput),
+  'outreach.country.unskip': command(ONLINE, CountryUnskipInput, CountryUnskipOutput),
   'outreach.day.start': command(ANYTIME, DayInput, DayOutput),
   'outreach.day.stop': command(ANYTIME, DayInput, DayOutput),
   'outreach.demo.mark': command(ONLINE, DemoMarkInput, DemoMarkOutput),
@@ -615,6 +636,9 @@ export const PHONE_COMMANDS = {
   'outreach.helpful.skip': command(ONLINE, HelpfulSkipInput, HelpfulChangeOutput),
   // Later, or Take off Later, from the person menu on a name (decision 100): with signal, as Mark as client is.
   'outreach.later.set': command(ONLINE, LaterSetInput, LaterSetOutput),
+  // A sample message changed by hand, or a note the AI keeps forgotten, on Get ready (decision 63): with signal.
+  'outreach.messages.edit': command(ONLINE, MessageEditInput, ReadinessOutput),
+  'outreach.messages.forget': command(ONLINE, MessageForgetInput, ReadinessOutput),
   'outreach.need.clear': command(ANYTIME, NeedClearInput, NeedClearOutput),
   // Where someone stands on the Partners list (decision 81): with signal, as the pipeline's marks are.
   'outreach.partner.mark': command(ONLINE, PartnerMarkInput, PartnerMarkOutput),
