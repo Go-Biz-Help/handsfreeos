@@ -53515,6 +53515,10 @@
                           "type": "string",
                           "format": "uuid",
                           "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                        },
+                        "inPerson": {
+                          "default": false,
+                          "type": "boolean"
                         }
                       },
                       "required": [
@@ -53903,7 +53907,7 @@
     "/v1/commands/document.remind": {
       "post": {
         "operationId": "command_document_remind",
-        "summary": "Remind whoever still has to sign a document now: their link goes again by email and text.",
+        "summary": "Remind whoever still has to sign a document now: their link goes again by email and text. Someone who was to sign in person gets their link for the first time.",
         "tags": [
           "commands"
         ],
@@ -54021,6 +54025,75 @@
                   "required": [
                     "documentId",
                     "changed"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/commands/document.sign_now": {
+      "post": {
+        "operationId": "command_document_sign_now",
+        "summary": "Sign now in person: hand this device to someone whose turn it is to sign, so they sign it here. Their code isn’t asked: whoever hands it over says it’s them.",
+        "tags": [
+          "commands"
+        ],
+        "description": "Risk level 2. Requires documents.send. Emits document.handed_over.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "workspaceId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  },
+                  "signerId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  }
+                },
+                "required": [
+                  "workspaceId",
+                  "signerId"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "documentId": {
+                      "type": "string",
+                      "format": "uuid",
+                      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                    },
+                    "signerId": {
+                      "type": "string",
+                      "format": "uuid",
+                      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                    },
+                    "codeChecked": {
+                      "type": "boolean"
+                    }
+                  },
+                  "required": [
+                    "documentId",
+                    "signerId",
+                    "codeChecked"
                   ],
                   "additionalProperties": false
                 }
@@ -167430,6 +167503,9 @@
                                   "type": "integer",
                                   "minimum": -9007199254740991,
                                   "maximum": 9007199254740991
+                                },
+                                "inPerson": {
+                                  "type": "boolean"
                                 }
                               },
                               "required": [
@@ -167438,7 +167514,8 @@
                                 "name",
                                 "roleLabel",
                                 "status",
-                                "position"
+                                "position",
+                                "inPerson"
                               ],
                               "additionalProperties": false
                             }
@@ -167674,6 +167751,9 @@
                             "minimum": -9007199254740991,
                             "maximum": 9007199254740991
                           },
+                          "inPerson": {
+                            "type": "boolean"
+                          },
                           "roleKey": {
                             "type": [
                               "string",
@@ -167840,6 +167920,7 @@
                           "roleLabel",
                           "status",
                           "position",
+                          "inPerson",
                           "roleKey",
                           "personId",
                           "userId",
@@ -168067,6 +168148,7 @@
                               "prepared",
                               "sent",
                               "reminded",
+                              "in_person",
                               "opened",
                               "code_sent",
                               "code_checked",
@@ -168336,6 +168418,9 @@
                               "string",
                               "null"
                             ]
+                          },
+                          "inPerson": {
+                            "type": "boolean"
                           }
                         },
                         "required": [
@@ -168344,7 +168429,8 @@
                           "userId",
                           "name",
                           "email",
-                          "phone"
+                          "phone",
+                          "inPerson"
                         ],
                         "additionalProperties": false
                       }

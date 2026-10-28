@@ -19,6 +19,8 @@ export interface PortalHome {
   }[];
   /** They're a partner of the business: their page is `partner`. */
   readonly partner: boolean;
+  /** The documents they sign or get a copy of, and how many wait for them to sign: their page is `documents`. */
+  readonly documents: { readonly total: number; readonly toSign: number };
 }
 
 export interface Portal {
@@ -35,6 +37,8 @@ export interface Portal {
   ) => Promise<{ fileId: string; accepted: boolean; refusal: string | null }>;
   /** Opens one of the files in their portal in a new tab. */
   readonly openFile: (fileId: string) => Promise<void>;
+  /** Opens a document they're on at its signing page, with a way back to their Documents. */
+  readonly openDocument: (signerId: string) => Promise<void>;
   /** A partner's bank at Stripe (partners stage 3): Stripe's form or page to go to, or whether it's ready. */
   readonly partnerPayouts: (
     action: 'start' | 'check' | 'stripe',

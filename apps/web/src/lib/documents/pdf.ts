@@ -114,24 +114,22 @@ function fontOf(family: string, name: string): DocumentFont {
   return 'sans';
 }
 
-/**
- * The words of one page as lines that can be typed over (answer 26c): pieces on one line, close together and the
- * same size, become one. Words set at an angle are left out.
- */
-export async function textRuns(page: PdfPage): Promise<TextRun[]> {
+type Piece = {
+  text: string;
+  left: number;
+  right: number;
+  top: number;
+  bottom: number;
+  size: number;
+  font: DocumentFont;
+  bold: boolean;
+};
+
+/** The words of one page as the PDF wrote them, in points. Words set at an angle are left out. */
+async function piecesOf(page: PdfPage): Promise<Piece[]> {
   const pdfjs = await loadPdfJs();
   const viewport = page.getViewport({ scale: 1 });
   const content = await page.getTextContent();
-  type Piece = {
-    text: string;
-    left: number;
-    right: number;
-    top: number;
-    bottom: number;
-    size: number;
-    font: DocumentFont;
-    bold: boolean;
-  };
   const pieces: Piece[] = [];
   for (const item of content.items) {
     if (!('str' in item) || !item.str.trim()) continue;
@@ -165,6 +163,34 @@ export async function textRuns(page: PdfPage): Promise<TextRun[]> {
       bold: /bold|black|heavy|semibold|demi/i.test(fontName),
     });
   }
+  return pieces;
+}
+
+/** The words of one page as the PDF wrote them, in pieces, where each sits (fractions of the page). */
+export async function textPieces(
+  page: PdfPage,
+): Promise<{ text: string; x: number; y: number; w: number; h: number }[]> {
+  const viewport = page.getViewport({ scale: 1 });
+  return (await piecesOf(page)).map((p) => {
+    const x = clamp01(p.left / viewport.width);
+    const y = clamp01(p.top / viewport.height);
+    return {
+      text: p.text,
+      x,
+      y,
+      w: Math.max(0.001, Math.min(1 - x, (p.right - p.left) / viewport.width)),
+      h: Math.max(0.001, Math.min(1 - y, (p.bottom - p.top) / viewport.height)),
+    };
+  });
+}
+
+/**
+ * The words of one page as lines that can be typed over (answer 26c): pieces on one line, close together and the
+ * same size, become one. Words set at an angle are left out.
+ */
+export async function textRuns(page: PdfPage): Promise<TextRun[]> {
+  const viewport = page.getViewport({ scale: 1 });
+  const pieces = await piecesOf(page);
   pieces.sort((p, q) => Math.round(p.bottom - q.bottom) || p.left - q.left);
   const lines: Piece[] = [];
   for (const p of pieces) {

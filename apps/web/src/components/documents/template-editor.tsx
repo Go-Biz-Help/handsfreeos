@@ -4,7 +4,13 @@
  * typed over (answer 26c), and how it goes out. Saves itself a moment after each change, sending the whole
  * definition with the revision it started from, so two people never quietly write over each other.
  */
-import { DocumentDefinition, SENDER_ROLE, type DocumentDefinition as Definition } from '@hfos/core';
+import {
+  addPlacedFields,
+  DocumentDefinition,
+  SENDER_ROLE,
+  type DocumentDefinition as Definition,
+  type DocumentField,
+} from '@hfos/core';
 import {
   ArrowLeft,
   Archive,
@@ -16,6 +22,7 @@ import {
   Pencil,
   RotateCcw,
   Send,
+  Sparkles,
   Undo2,
 } from 'lucide-react';
 import Link from 'next/link';
@@ -34,6 +41,7 @@ import {
 import { Input } from '@/components/ui/input';
 import { ApiError, apiBrowser, errorMessage, unwrap } from '@/lib/api/client';
 import type { DocumentIssueRow, DocumentTemplateGetOut } from '@/lib/api/types';
+import { workerPost } from '@/lib/api/worker';
 import { documentFileUrl, uploadTemplatePdf } from '@/lib/documents/files';
 import { useMatches } from '@/lib/use-media';
 import { cn } from '@/lib/utils';
@@ -86,6 +94,7 @@ export function TemplateEditor({
   const [problem, setProblem] = useState<string | null>(null);
   const [conflict, setConflict] = useState(false);
   const [uploading, setUploading] = useState(false);
+  const [placing, setPlacing] = useState(false);
   const [selected, setSelected] = useState<Selected>(null);
   const [tool, setTool] = useState<Tool>(null);
   const [role, setRole] = useState<string>(d.roles[0]?.key ?? SENDER_ROLE);
@@ -254,6 +263,57 @@ export function TemplateEditor({
     }
   }
 
+  /**
+   * "Place fields for me" (answer 4a): the lines, boxes and labels on the PDF are found here, the AI says which are
+   * fields and whose, and they go on as one change Undo takes back. Fields already there stay as they are.
+   */
+  async function placeForMe() {
+    if (!source || placing) return;
+    setPlacing(true);
+    try {
+      const [{ openPdf }, { findSpotsInPdf }] = await Promise.all([
+        import('@/lib/documents/pdf'),
+        import('@/lib/documents/spots'),
+      ]);
+      const pdf = await openPdf(await documentFileUrl(source));
+      const find = await findSpotsInPdf(pdf).finally(() => void pdf.loadingTask.destroy());
+      if (!find.spots.length) {
+        toast.info(
+          'Nothing on this PDF looks like a field: no lines to write on, boxes to tick or labels like “Signature:”. Place them from the left.',
+        );
+        return;
+      }
+      const out = await workerPost<{ fields: DocumentField[] }>('/v1/documents/place-fields', {
+        workspaceId,
+        templateId,
+        roles: editor.definition.roles,
+        start: find.start,
+        spots: find.spots,
+      });
+      let placed = { added: 0, skipped: 0 };
+      editor.change((def) => {
+        const r = addPlacedFields(def, out.fields);
+        placed = { added: r.added, skipped: r.skipped };
+        return r.definition;
+      });
+      if (placed.added)
+        toast.success(
+          `Placed ${placed.added === 1 ? 'one field' : `${placed.added} fields`}. Check each one and who it’s for.`,
+          { action: { label: 'Undo', onClick: () => editor.undo() } },
+        );
+      else
+        toast.info(
+          placed.skipped
+            ? 'The fields the AI found are already there.'
+            : 'The AI didn’t find any fields to place. Place them from the left.',
+        );
+    } catch (e) {
+      toast.error(errorMessage(e));
+    } finally {
+      setPlacing(false);
+    }
+  }
+
   async function run(path: 'archive' | 'restore' | 'duplicate') {
     try {
       if (path === 'duplicate') {
@@ -412,6 +472,22 @@ export function TemplateEditor({
             )}
           </span>
           <div className="ml-auto flex items-center gap-2">
+            {editable && source ? (
+              <Button
+                variant="secondary"
+                size="sm"
+                onClick={() => void placeForMe()}
+                disabled={placing || conflict}
+                data-testid="template-place-fields"
+              >
+                {placing ? (
+                  <Loader2 className="h-4 w-4 animate-spin" strokeWidth={1.75} />
+                ) : (
+                  <Sparkles className="h-4 w-4" strokeWidth={1.75} />
+                )}
+                {placing ? 'Placing fields' : 'Place fields for me'}
+              </Button>
+            ) : null}
             {editable ? (
               <Button
                 variant="ghost"

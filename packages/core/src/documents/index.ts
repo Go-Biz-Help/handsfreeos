@@ -2,3 +2,4 @@
 export * from './definition';
 export * from './check';
 export * from './words';
+export * from './place';

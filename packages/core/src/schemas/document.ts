@@ -177,6 +177,8 @@ export const DocumentSignerInput = z
     roleKey: DocumentRoleKey,
     personId: uuid.optional(),
     userId: uuid.optional(),
+    /** With the team now (answer 13a): no link at their turn; they sign on the team's device with Sign now. */
+    inPerson: z.boolean().default(false),
   })
   .refine((s) => !!s.personId !== !!s.userId, {
     error: 'Pick the customer, or the person from your team, who signs.',
@@ -253,6 +255,7 @@ export const DocumentPrefillOutput = z.object({
       name: z.string(),
       email: z.string().nullable(),
       phone: z.string().nullable(),
+      inPerson: z.boolean(),
     }),
   ),
   copies: z.array(
@@ -264,6 +267,14 @@ export const DocumentPrefillOutput = z.object({
 });
 
 export const DocumentRefInput = z.object({ workspaceId: uuid, documentId: uuid });
+/** Sign now: the signer the team hands this device to. */
+export const DocumentSignNowInput = z.object({ workspaceId: uuid, signerId: uuid });
+export const DocumentSignNowOutput = z.object({
+  documentId: uuid,
+  signerId: uuid,
+  /** Their code was checked by handing it over, when the template asks for one. */
+  codeChecked: z.boolean(),
+});
 export const DocumentVoidInput = z.object({
   workspaceId: uuid,
   documentId: uuid,
@@ -292,6 +303,8 @@ export const DocumentSignerSummaryOut = z.object({
   roleLabel: z.string().nullable(),
   status: SignerStatusValue,
   position: z.int(),
+  /** Signs on the team's device (Sign now): no link goes at their turn. */
+  inPerson: z.boolean(),
 });
 export const DocumentSummaryOut = z.object({
   id: uuid,
@@ -383,7 +396,17 @@ export const DocumentLinkSentInput = z.object({
 });
 export const DocumentLinkSentOutput = z.object({ signerId: uuid, changed: z.boolean() });
 
-export const DocumentOpenInput = z.object({ workspaceId: uuid, signerId: uuid, ip, device });
+export const DocumentOpenInput = z.object({
+  workspaceId: uuid,
+  signerId: uuid,
+  ip,
+  device,
+  /**
+   * portal: from their portal, once the worker has seen it's theirs. Signing in there was a code to them, so a code
+   * the template asks for is checked by it.
+   */
+  channel: z.enum(['page', 'portal']).default('page'),
+});
 export const DocumentOpenOutput = z.object({ signerId: uuid, first: z.boolean() });
 
 export const DocumentCodeSentInput = z.object({

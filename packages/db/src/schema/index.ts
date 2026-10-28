@@ -2914,6 +2914,8 @@ export const aiUsageSource = app.enum('ai_usage_source', [
   'funnel',
   // The Assistant reading its instructions ahead of a question, while the person types (20261027012400).
   'assistant',
+  // The AI placing the fields on a document template's PDF (20261027017000).
+  'documents',
 ]);
 export const knowledgeItemKind = app.enum('knowledge_item_kind', [
   'faq',
@@ -6616,6 +6618,8 @@ export const documentSigners = app.table('document_signers', {
   declineReason: text('decline_reason'),
   ip: text('ip'),
   device: text('device'),
+  /** Marked "with you" when it was sent: no link at their turn, they sign on the team's device. */
+  inPerson: boolean('in_person').notNull().default(false),
   ...timestamps(),
 });
 

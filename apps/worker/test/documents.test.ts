@@ -10,18 +10,25 @@
  *     it's filed on the customer, locked, and its fingerprints are kept (16a, 17a);
  *   - everyone gets the signed copy, attached; the signing page downloads it;
  *   - a reminder after the document's days, and a document past its day stops (14a); taking it back tells everyone
- *     who had a link (15a).
+ *     who had a link (15a);
+ *   - someone signing in person gets no link at their turn, until Remind sends their first (13a);
+ *   - from their portal, a customer opens their own document at its signing page with no code to type (10b).
  */
-import { randomInt, randomUUID } from 'node:crypto';
+import { createHash, randomBytes, randomInt, randomUUID } from 'node:crypto';
 import {
+  documentRemind,
   documentSend,
   documentTemplateBeginUpload,
   documentTemplateCreate,
   documentTemplateSave,
   documentTemplateSetSource,
   documentVoid,
+  executeCommand,
   fileConfirm,
   personCreate,
+  portalAccessGive,
+  portalCheckCode,
+  portalSendCode,
   type DocumentDefinitionInput,
 } from '@hfos/core/server';
 import { rows, sql } from '@hfos/db/client';
@@ -580,5 +587,107 @@ describe('reminders, running out of time, and taking it back', () => {
     expect((res.json() as { document: { status: string } }).document.status).toBe('declined');
     expect((await docRow(documentId)).status).toBe('declined');
     await drain(w);
+  });
+});
+
+/** Lets them in to their portal and signs a device in, as the worker does; the device's bearer. */
+async function portalBearer(personId: string): Promise<string> {
+  const given = (await run(w, portalAccessGive, { workspaceId: w.workspaceId, personId })) as {
+    accessId: string;
+  };
+  const system = {
+    type: 'system' as const,
+    workspaceId: w.workspaceId,
+    organizationId: w.organizationId,
+  };
+  const meta = () => ({ correlationId: randomUUID(), channel: 'test' as const });
+  const { output: sent } = await executeCommand(
+    testDbs().worker.db,
+    portalSendCode,
+    { workspaceId: w.workspaceId, accessId: given.accessId },
+    system,
+    meta(),
+  );
+  const bearer = randomBytes(32).toString('base64url');
+  await executeCommand(
+    testDbs().worker.db,
+    portalCheckCode,
+    {
+      workspaceId: w.workspaceId,
+      accessId: given.accessId,
+      code: sent.code,
+      tokenHash: createHash('sha256').update(bearer).digest('hex'),
+    },
+    system,
+    meta(),
+  );
+  return bearer;
+}
+
+describe('in person, and from the portal', () => {
+  it('sends no link to someone signing in person, until Remind sends their first', async () => {
+    const ned = await customer('Ned');
+    const { documentId } = (await run(w, documentSend, {
+      workspaceId: w.workspaceId,
+      templateId,
+      about: { personId: ned.id },
+      signers: [
+        { roleKey: 'customer', personId: ned.id, inPerson: true },
+        { roleKey: 'us', userId: w.owner.id },
+      ],
+    })) as { documentId: string };
+    await drain(w);
+    expect(textsTo(w, ned.phone)).toEqual([]);
+    expect(await emailsTo(w, ned.email)).toEqual([]);
+    expect((await signerOf(documentId, 'customer')).status).toBe('waiting');
+
+    await run(w, documentRemind, { workspaceId: w.workspaceId, documentId });
+    await drain(w);
+    const texts = textsTo(w, ned.phone).map((t) => t.body);
+    expect(texts.join('\n')).toContain('is ready for you to sign');
+    expect(texts.join('\n')).not.toContain('a reminder that');
+    expect(await signerOf(documentId, 'customer')).toMatchObject({ status: 'sent', reminders: 0 });
+  });
+
+  it('opens their own document from their portal, with no code to type', async () => {
+    const ola = await customer('Ola');
+    const ray = await customer('Ray');
+    const { documentId } = await send(ola.id, { askCode: true });
+    await drain(w);
+    const s = await signerOf(documentId, 'customer');
+    const open = (bearer: string | null, signerId = s.id) =>
+      w.app.inject({
+        method: 'POST',
+        url: `/public/portal/documents/${signerId}/open`,
+        headers: {
+          'content-type': 'application/json',
+          'x-forwarded-for': ip(),
+          ...(bearer ? { authorization: `Bearer ${bearer}` } : {}),
+        },
+        payload: '{}',
+      });
+    expect((await open(null)).statusCode).toBe(401);
+    // Someone else's isn't there for them.
+    expect((await open(await portalBearer(ray.id))).statusCode).toBe(404);
+
+    const res = await open(await portalBearer(ola.id));
+    expect(res.statusCode, res.body).toBe(200);
+    const token = tokenIn((res.json() as { url: string }).url);
+    const page = (await get(`/public/sign/${token}`)).json() as {
+      signer: { codeChecked: boolean; yourTurn: boolean };
+      content: unknown;
+    };
+    expect(page.signer).toMatchObject({ codeChecked: true, yourTurn: true });
+    expect(page.content).not.toBeNull();
+    const steps = await rows<{ kind: string; channel: string | null }>(
+      admin(),
+      sql`select kind, channel from app.document_steps where signer_id = ${s.id} order by at, id`,
+    );
+    expect(steps).toEqual(
+      expect.arrayContaining([
+        { kind: 'code_checked', channel: 'portal' },
+        { kind: 'opened', channel: 'portal' },
+      ]),
+    );
   });
 });

@@ -695,6 +695,7 @@ describe('registry', () => {
       'document.send',
       'document.remind',
       'document.void',
+      'document.sign_now',
       'document.link_sent',
       'document.open',
       'document.code_sent',
@@ -897,6 +898,7 @@ describe('registry', () => {
       // A client's portal (Real Estate round two): who's in it, and what a client reads.
       'portal_access.get',
       'portal.home',
+      'portal.documents',
       'portal.files',
       'portal.messages',
       'video_call.get',

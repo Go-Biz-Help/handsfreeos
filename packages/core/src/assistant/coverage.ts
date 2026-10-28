@@ -314,6 +314,8 @@ export const NEVER_FOR_THE_ASSISTANT: Readonly<Record<string, string>> = {
     'uploading a template’s PDF, a file from the person’s own computer; they add it on the template',
   'document_template.set_source':
     'reading in the pages of a PDF the person just uploaded, which goes with the upload',
+  'document.sign_now':
+    'handing the person’s own phone or computer to a customer who’s with them, to sign on it there',
   'user_phone.start_verification': 'confirming a cell by answering a call on it',
   'call.start': 'a call from the browser, on the person’s own microphone',
   'founding.buy': 'paying on Stripe’s page, which only the person can do',

@@ -2,12 +2,17 @@
  * The customer's own look-ups in their portal (Real Estate round two, core). Each runs as `portal_actor`, so row
  * security alone decides what it reads: the customer, their business's name, and the records they're on.
  */
-import { rows, sql } from '@hfos/db/client';
+import { rows, sql, type Tx } from '@hfos/db/client';
 import { BUILT_ADDONS } from '../addons/catalog';
 import { HfosError } from '../errors';
 import { requireCustomer } from '../kernel/actor';
 import { defineQuery } from '../kernel/define';
-import { PortalHomeInput, PortalHomeOutput } from '../schemas/portal';
+import {
+  PortalDocumentsInput,
+  PortalDocumentsOutput,
+  PortalHomeInput,
+  PortalHomeOutput,
+} from '../schemas/portal';
 import { isPortalPartner } from './partners';
 
 /** The portal's first screen: whose business, who they are, and the add-ons that have pages for them. */
@@ -52,8 +57,84 @@ export const portalHome = defineQuery({
         }),
       ),
       partner: await isPortalPartner(ctx),
+      documents: await documentCounts(ctx.tx),
     };
   },
 });
 
-export const portalQueries = [portalHome] as const;
+type PortalDocumentRow = {
+  signer_id: string;
+  document_id: string;
+  name: string;
+  kind: 'signer' | 'copy';
+  status: 'out' | 'completed' | 'declined' | 'expired';
+  signer_status: 'waiting' | 'sent' | 'opened' | 'signed' | 'declined';
+  your_turn: boolean;
+  sent_at: Date | string;
+  expires_at: Date | string;
+  completed_at: Date | string | null;
+  signed_copy: boolean;
+};
+
+/**
+ * Their documents, newest first, under row security: their own place on each, and whether it's their turn (core's
+ * `signersUp`: still to sign, at the lowest position of those who are, on a document still out and in time). Voided
+ * ones aren't shown; one past its day reads as out of time before the sweep marks it.
+ */
+const portalDocumentRows = (tx: Tx) =>
+  rows<PortalDocumentRow>(
+    tx,
+    sql`select s.id as signer_id, d.id as document_id, d.name, s.kind,
+          case when d.status = 'out' and d.expires_at <= now() then 'expired' else d.status end as status,
+          s.status as signer_status,
+          (s.kind = 'signer' and s.status not in ('signed', 'declined') and d.status = 'out'
+            and d.all_signed_at is null and d.expires_at > now()
+            and s.position = (select min(o.position) from app.document_signers o
+              where o.document_id = s.document_id and o.kind = 'signer' and o.status <> 'signed')) as your_turn,
+          d.sent_at, d.expires_at, d.completed_at,
+          (d.status = 'completed' and d.signed_file_id is not null) as signed_copy
+        from app.document_signers s join app.documents d on d.id = s.document_id
+        where s.id in (select portal.document_signer_ids())
+        order by d.sent_at desc, s.id
+        limit 100`,
+  );
+
+async function documentCounts(tx: Tx): Promise<{ total: number; toSign: number }> {
+  const list = await portalDocumentRows(tx);
+  return { total: list.length, toSign: list.filter((d) => d.your_turn).length };
+}
+
+const isoOf = (v: Date | string) => new Date(v).toISOString();
+
+/** The documents a customer signs or gets a copy of, in their portal (answer 10b). */
+export const portalDocuments = defineQuery({
+  name: 'portal.documents',
+  description:
+    'The documents in a customer’s portal: those they sign or get a copy of, whose turn it is, and which are signed by everyone.',
+  input: PortalDocumentsInput,
+  output: PortalDocumentsOutput,
+  permission: null,
+  actors: ['customer'],
+  scope: (i) => ({ kind: 'workspace', workspaceId: i.workspaceId }),
+  async handler(ctx) {
+    requireCustomer(ctx);
+    const list = await portalDocumentRows(ctx.tx);
+    return {
+      documents: list.map((d) => ({
+        signerId: d.signer_id,
+        documentId: d.document_id,
+        name: d.name,
+        kind: d.kind,
+        status: d.status,
+        signerStatus: d.signer_status,
+        yourTurn: d.your_turn,
+        sentAt: isoOf(d.sent_at),
+        expiresAt: isoOf(d.expires_at),
+        completedAt: d.completed_at ? isoOf(d.completed_at) : null,
+        signedCopy: d.signed_copy,
+      })),
+    };
+  },
+});
+
+export const portalQueries = [portalHome, portalDocuments] as const;
