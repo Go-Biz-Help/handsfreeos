@@ -19,6 +19,8 @@ export const FIELD_LABELS: Record<string, string> = {
   tags: 'Tags (comma separated)',
   notes: 'Notes',
   source: 'Source',
+  call_consent: 'Agreed to calls (yes or no)',
+  call_consent_source: 'Where they agreed to calls',
   [SKIP]: 'Skip this column',
 };
 

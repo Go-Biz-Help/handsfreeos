@@ -18,7 +18,15 @@ export const ImportCreateOutput = z.object({
   objectPath: z.string(),
 });
 
-export const ImportOptions = z.object({ onMatch: z.enum(['skip', 'update']).default('skip') });
+export const ImportOptions = z.object({
+  onMatch: z.enum(['skip', 'update']).default('skip'),
+  /**
+   * Where the people the file marks "Agreed to calls" agreed in writing ("Website form, Oct 2026"), for rows
+   * without their own "Where they agreed to calls". Needed when a column is mapped to "Agreed to calls" and none
+   * to where.
+   */
+  callConsentSource: z.string().trim().min(1).max(120).optional(),
+});
 export const ImportStartInput = z.object({
   workspaceId: uuid,
   importId: uuid,

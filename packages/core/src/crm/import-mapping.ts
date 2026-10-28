@@ -19,6 +19,8 @@ export const PERSON_FIELDS = [
   'tags',
   'notes',
   'source',
+  'call_consent',
+  'call_consent_source',
 ] as const;
 export const COMPANY_FIELDS = [
   'name',
@@ -81,6 +83,25 @@ const GUESSES: Record<string, string[]> = {
   tags: ['tags', 'labels', 'groups', 'type'],
   notes: ['notes', 'note', 'comments', 'description', 'referred by'],
   source: ['source', 'lead source', 'how did you hear'],
+  // Only headers that are plainly about calls: a bare "consent" may be about texts.
+  call_consent: [
+    'agreed to calls',
+    'call consent',
+    'calls consent',
+    'consent to call',
+    'ok to call',
+    'okay to call',
+    'calls ok',
+    'tcpa consent',
+  ],
+  call_consent_source: [
+    'where they agreed to calls',
+    'where they agreed',
+    'call consent source',
+    'consent source',
+    'tcpa consent source',
+    'opt in source',
+  ],
 };
 
 const norm = (s: string) => s.trim().toLowerCase().replace(/[_-]+/g, ' ').replace(/\s+/g, ' ');
@@ -129,6 +150,8 @@ export interface MappedPerson {
   tags: string[];
   notes: string | null;
   source: string | null;
+  /** The "Agreed to calls" cell as read (null when there's none), and the row's own "where they agreed". */
+  callConsent: (CallConsentRead & { where: string | null }) | null;
 }
 export interface MappedCompany {
   name: string;
@@ -186,6 +209,72 @@ const splitTags = (v: string | null): string[] =>
       ].slice(0, 20)
     : [];
 
+/**
+ * How an "Agreed to calls" cell reads: a yes, a no, or neither. A date counts as a yes given that day (lists often
+ * keep the day someone agreed), and is kept as `on`. Anything else is `unclear`, and the import refuses the row
+ * rather than guess: a wrong yes would let the AI call someone who never agreed.
+ */
+export interface CallConsentRead {
+  readonly answer: 'opted_in' | 'opted_out' | 'unclear';
+  readonly value: string;
+  readonly on: string | null;
+}
+const CALL_YES = new Set([
+  'yes',
+  'y',
+  'true',
+  't',
+  '1',
+  'x',
+  '✓',
+  '✔',
+  'agreed',
+  'agree',
+  'opted in',
+  'opt in',
+  'optin',
+  'consented',
+  'consent given',
+  'ok',
+  'okay',
+  'approved',
+  'granted',
+  'signed',
+]);
+const CALL_NO = new Set([
+  'no',
+  'n',
+  'false',
+  'f',
+  '0',
+  'opted out',
+  'opt out',
+  'optout',
+  'unsubscribed',
+  'dnc',
+  'do not call',
+  'dont call',
+  "don't call",
+  'no calls',
+  'declined',
+  'refused',
+  'revoked',
+  'withdrawn',
+  'stop',
+]);
+const DATE_LIKE =
+  /^(\d{4}-\d{1,2}-\d{1,2}|\d{1,2}[/.-]\d{1,2}[/.-]\d{2,4}|[a-z]{3,9}\.? \d{1,2},? \d{4}|\d{1,2} [a-z]{3,9}\.? \d{4})([ t]\d{1,2}:\d{2}.*)?$/;
+
+export function readCallConsent(cellValue: string | null): CallConsentRead | null {
+  const value = cellValue?.trim() ?? '';
+  if (!value) return null;
+  const v = norm(value).replace(/[’‘]/g, "'");
+  if (CALL_YES.has(v)) return { answer: 'opted_in', value, on: null };
+  if (CALL_NO.has(v)) return { answer: 'opted_out', value, on: null };
+  if (DATE_LIKE.test(value.toLowerCase())) return { answer: 'opted_in', value, on: value };
+  return { answer: 'unclear', value, on: null };
+}
+
 /** Maps one CSV row to the shape person.create wants (phones and emails are validated by the command). */
 export function mapPersonRow(
   row: Record<string, string>,
@@ -213,7 +302,16 @@ export function mapPersonRow(
     tags: splitTags(cell(row, mapping, 'tags')),
     notes: cell(row, mapping, 'notes'),
     source: cell(row, mapping, 'source'),
+    callConsent: callConsentOf(row, mapping),
   };
+}
+
+function callConsentOf(
+  row: Record<string, string>,
+  mapping: Record<string, string>,
+): MappedPerson['callConsent'] {
+  const read = readCallConsent(cell(row, mapping, 'call_consent'));
+  return read ? { ...read, where: cell(row, mapping, 'call_consent_source') } : null;
 }
 
 export function mapCompanyRow(

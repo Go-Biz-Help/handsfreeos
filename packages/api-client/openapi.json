@@ -7450,6 +7450,11 @@
                           "skip",
                           "update"
                         ]
+                      },
+                      "callConsentSource": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 120
                       }
                     }
                   }
@@ -122769,6 +122774,11 @@
                                 "skip",
                                 "update"
                               ]
+                            },
+                            "callConsentSource": {
+                              "type": "string",
+                              "minLength": 1,
+                              "maxLength": 120
                             }
                           },
                           "required": [
@@ -123022,6 +123032,11 @@
                                   "skip",
                                   "update"
                                 ]
+                              },
+                              "callConsentSource": {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 120
                               }
                             },
                             "required": [
