@@ -5,12 +5,14 @@
  *
  * - `affiliate.mine` is the signed-in person's own standing, for their page: what they applied with, their link
  *   code, their share, their link's clicks, how many signed up, the businesses that paid by name, and what they've
- *   earned (20261027014200), and their codes (20261027014300). Read through their own rows' policies and two functions
- *   that answer only for them, so it can only ever be theirs.
+ *   earned (20261027014200), their codes (20261027014300), their bank at Stripe and payouts (20261027014400), and
+ *   whether they agreed to the terms (20261027014500). Read through their own rows' policies and two functions that answer only for them, so it can only ever be theirs.
  * - `platform.affiliates`, `platform.affiliate` and `platform.affiliate_of_business` are staff's, for Admin →
  *   Affiliates and a business's page under Admin → Businesses (`platform.affiliates.manage`).
  */
 import { rows, sql, type Tx } from '@hfos/db/client';
+import { affiliateBankState, type AffiliatePayoutStatus } from '../affiliates/payouts';
+import { affiliateTermsCurrent } from '../affiliates/terms';
 import { HfosError } from '../errors';
 import { requireHuman } from '../kernel/actor';
 import { defineQuery } from '../kernel/define';
@@ -56,6 +58,8 @@ type Row = {
   clicks_all: number | string;
   businesses: number | string;
   earned: number | string;
+  terms_version: string | null;
+  terms_accepted_at: Date | string | null;
 };
 
 /** Each affiliate with their share, clicks and how many businesses they sent. `where` narrows it. */
@@ -65,7 +69,7 @@ const rowsWhere = (tx: Tx, where: ReturnType<typeof sql>, limit = 500) =>
     sql`select a.id, a.user_id, a.name, u.email::text as email, a.code, a.status, a.pitch, a.links,
           a.rate_bp as own_rate_bp, coalesce(a.rate_bp, s.rate_bp) as rate_bp,
           a.max_discount_bp as own_max_discount_bp, coalesce(a.max_discount_bp, s.max_discount_bp) as max_discount_bp,
-          a.applied_at, a.decided_at,
+          a.applied_at, a.decided_at, a.terms_version, a.terms_accepted_at,
           coalesce(nullif(btrim(st.display_name), ''), nullif(btrim(du.full_name), ''), du.email::text)
             as decided_by_name,
           coalesce((select sum(c.clicks) from platform.affiliate_clicks c
@@ -105,6 +109,8 @@ const rowOut = (r: Row) => ({
   earnedCents: Number(r.earned),
   ownMaxDiscountBp: r.own_max_discount_bp,
   maxDiscountBp: r.max_discount_bp,
+  termsVersion: r.terms_version,
+  termsAcceptedAt: isoOrNull(r.terms_accepted_at),
 });
 
 type CodeRow = {
@@ -179,25 +185,85 @@ const codePlans = async (tx: Tx) =>
   }));
 
 /**
- * What an affiliate has earned, waiting and ready (20261027014200), read through whatever the reader may see of
- * their commissions. Nothing is paid out until part 4.
+ * What an affiliate has earned, waiting, ready, on its way and paid (20261027014200, 20261027014400), read through
+ * whatever the reader may see of their commissions and payouts.
  */
 async function earningsOf(tx: Tx, affiliateId: string) {
-  const [e] = await rows<{ earned: string | number; waiting: string | number }>(
+  const [e] = await rows<{
+    earned: string | number;
+    waiting: string | number;
+    ready: string | number;
+    on_its_way: string | number;
+    paid: string | number;
+  }>(
     tx,
-    sql`select coalesce(sum(amount_cents), 0) as earned,
-          coalesce(sum(amount_cents) filter (where payable_at > now()), 0) as waiting
-        from platform.affiliate_commissions where affiliate_id = ${affiliateId}`,
+    sql`select coalesce(sum(c.amount_cents), 0) as earned,
+          coalesce(sum(c.amount_cents) filter (where c.payout_id is null and c.payable_at > now()), 0) as waiting,
+          coalesce(sum(c.amount_cents) filter (where c.payout_id is null and c.payable_at <= now()), 0) as ready,
+          coalesce(sum(c.amount_cents) filter (where p.status in ('sending', 'held')), 0) as on_its_way,
+          coalesce(sum(c.amount_cents) filter (where p.status = 'paid'), 0) as paid
+        from platform.affiliate_commissions c
+        left join platform.affiliate_payouts p on p.id = c.payout_id
+        where c.affiliate_id = ${affiliateId}`,
   );
-  const earnedCents = Number(e?.earned ?? 0);
-  const waitingCents = Number(e?.waiting ?? 0);
-  const paidCents = 0;
   return {
-    earnedCents,
-    waitingCents,
-    readyCents: earnedCents - waitingCents - paidCents,
-    paidCents,
+    earnedCents: Number(e?.earned ?? 0),
+    waitingCents: Number(e?.waiting ?? 0),
+    readyCents: Number(e?.ready ?? 0),
+    onItsWayCents: Number(e?.on_its_way ?? 0),
+    paidCents: Number(e?.paid ?? 0),
   };
+}
+
+/** Their bank at Stripe (20261027014400), as the page says it. */
+async function bankOf(tx: Tx, affiliateId: string) {
+  const [a] = await rows<{
+    details_submitted: boolean;
+    payouts_enabled: boolean;
+    transfers_active: boolean;
+    due: string[] | null;
+    livemode: boolean;
+  }>(
+    tx,
+    sql`select details_submitted, payouts_enabled, transfers_active, due, livemode
+        from platform.affiliate_payout_accounts where affiliate_id = ${affiliateId}`,
+  );
+  const state = affiliateBankState(
+    a
+      ? {
+          detailsSubmitted: a.details_submitted,
+          payoutsEnabled: a.payouts_enabled,
+          transfersActive: a.transfers_active,
+        }
+      : null,
+  );
+  return { state, due: state === 'ready' ? [] : (a?.due ?? []), test: a ? !a.livemode : false };
+}
+
+/** Their payouts, newest first: the last two years'. */
+async function payoutsOf(tx: Tx, affiliateId: string) {
+  return (
+    await rows<{
+      id: string;
+      month: string;
+      amount_cents: number;
+      status: AffiliatePayoutStatus;
+      paid_at: Date | string | null;
+      livemode: boolean;
+    }>(
+      tx,
+      sql`select id, month::text as month, amount_cents, status, paid_at, livemode
+          from platform.affiliate_payouts where affiliate_id = ${affiliateId}
+          order by month desc limit 24`,
+    )
+  ).map((p) => ({
+    payoutId: p.id,
+    month: p.month,
+    amountCents: Number(p.amount_cents),
+    status: p.status,
+    paidAt: isoOrNull(p.paid_at),
+    test: !p.livemode,
+  }));
 }
 
 /** One affiliate as staff see them, or null. */
@@ -237,18 +303,24 @@ export async function affiliateOfBusiness(tx: Tx, organizationId: string) {
     : null;
 }
 
-async function settingsOf(tx: Tx): Promise<{ rateBp: number; maxDiscountBp: number }> {
-  const [s] = await rows<{ rate_bp: number; max_discount_bp: number }>(
+async function settingsOf(
+  tx: Tx,
+): Promise<{ rateBp: number; maxDiscountBp: number; payoutsOn: boolean }> {
+  const [s] = await rows<{ rate_bp: number; max_discount_bp: number; payouts_on: boolean }>(
     tx,
-    sql`select rate_bp, max_discount_bp from platform.affiliate_settings where id`,
+    sql`select rate_bp, max_discount_bp, payouts_on from platform.affiliate_settings where id`,
   );
-  return { rateBp: s?.rate_bp ?? 4000, maxDiscountBp: s?.max_discount_bp ?? 5000 };
+  return {
+    rateBp: s?.rate_bp ?? 4000,
+    maxDiscountBp: s?.max_discount_bp ?? 5000,
+    payoutsOn: s?.payouts_on ?? false,
+  };
 }
 
 export const affiliateMine = defineQuery({
   name: 'affiliate.mine',
   description:
-    'Your own place in the HandsFreeOS affiliate program: whether you’ve applied and where it stands, your link code, your share, your link’s clicks, how many signed up, the businesses that pay, what you’ve earned, and your discount and trial codes with the most they may take off.',
+    'Your own place in the HandsFreeOS affiliate program: whether you’ve applied and where it stands, your link code, your share, your link’s clicks, how many signed up, the businesses that pay, what you’ve earned, waiting, ready, on its way and paid, your discount and trial codes with the most they may take off, whether your bank is set up with Stripe for payouts, your monthly payouts, and whether you’ve agreed to the affiliate terms that count now.',
   input: AffiliateMineInput,
   output: AffiliateMineOutput,
   permission: null,
@@ -267,6 +339,7 @@ export const affiliateMine = defineQuery({
       sql`select a.id, a.user_id, a.name, a.code, a.status, a.pitch, a.links,
             a.rate_bp as own_rate_bp, coalesce(a.rate_bp, s.rate_bp) as rate_bp,
             coalesce(a.max_discount_bp, s.max_discount_bp) as max_discount_bp, a.applied_at, a.decided_at,
+            a.terms_version, a.terms_accepted_at,
             coalesce((select sum(c.clicks) from platform.affiliate_clicks c
                       where c.affiliate_id = a.id and c.day > (now() at time zone 'UTC')::date - 30), 0)
               as clicks30,
@@ -275,9 +348,9 @@ export const affiliateMine = defineQuery({
           from platform.affiliates a cross join platform.affiliate_settings s
           where a.user_id = ${me}`,
     );
-    const defaultRateBp = (await settingsOf(ctx.tx)).rateBp;
+    const { rateBp: defaultRateBp, payoutsOn } = await settingsOf(ctx.tx);
     const plans = await codePlans(ctx.tx);
-    if (!mine) return { affiliate: null, defaultRateBp, plans };
+    if (!mine) return { affiliate: null, defaultRateBp, payoutsOn, plans };
     const decidedAt = isoOrNull(mine.decided_at);
     const [signUps] = await rows<{ n: number }>(
       ctx.tx,
@@ -317,8 +390,13 @@ export const affiliateMine = defineQuery({
           earnedCents: Number(b.earned_cents),
         })),
         earnings: await earningsOf(ctx.tx, mine.id),
+        bank: await bankOf(ctx.tx, mine.id),
+        payouts: await payoutsOf(ctx.tx, mine.id),
+        termsAccepted: affiliateTermsCurrent(mine.terms_version),
+        termsAcceptedAt: isoOrNull(mine.terms_accepted_at),
       },
       defaultRateBp,
+      payoutsOn,
       plans,
     };
   },
@@ -369,7 +447,7 @@ type CommissionRow = {
 export const platformAffiliate = defineQuery({
   name: 'platform.affiliate',
   description:
-    'One affiliate for Admin → Affiliates: what they applied with, their share, their codes and the most those take off, the businesses they sent and what each earned them, what they’ve earned, waiting and ready, each share earned or taken back, and their link’s clicks a day.',
+    'One affiliate for Admin → Affiliates: what they applied with, their share, their codes and the most those take off, the businesses they sent and what each earned them, what they’ve earned, waiting, ready, on its way and paid, each share earned or taken back, their bank at Stripe and their payouts, and their link’s clicks a day.',
   input: PlatformAffiliateInput,
   output: PlatformAffiliateOutput,
   permission: 'platform.affiliates.manage',
@@ -438,6 +516,8 @@ export const platformAffiliate = defineQuery({
       })),
       codes: await codesWhere(ctx.tx, sql`c.affiliate_id = ${input.affiliateId}`),
       plans: await codePlans(ctx.tx),
+      bank: await bankOf(ctx.tx, input.affiliateId),
+      payouts: await payoutsOf(ctx.tx, input.affiliateId),
       clicks: clicks.map((c) => ({ day: c.day, clicks: Number(c.clicks) })),
     };
   },

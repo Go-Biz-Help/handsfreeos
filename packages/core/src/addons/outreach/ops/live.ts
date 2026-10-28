@@ -627,6 +627,7 @@ export const live = defineAddonQuery(outreachAddon, {
       waiting: waiting.get(me) ?? 0,
       warning,
       lists,
+      hours: auto.settings.hours,
       steps: steps.map((s) => ({ at: s.at.toISOString(), kind: s.kind, line: s.line })),
     };
   },

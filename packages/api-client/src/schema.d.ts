@@ -477,6 +477,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/commands/affiliate.accept_terms": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Agree to the affiliate terms that count now, as an affiliate or while your application waits. They say what you earn, how you’re paid and how to tell people about HandsFreeOS. Your link and codes show on your page once you have.
+         * @description Risk level 1. Emits platform.affiliate_terms_accepted.
+         */
+        post: operations["command_affiliate_accept_terms"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/commands/affiliate.apply": {
         parameters: {
             query?: never;
@@ -687,7 +707,7 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * Set the share every affiliate earns of each plan payment, and the most any affiliate’s code may take off, unless they have their own. The share counts for payments from now on; the limit at once, on codes already made too, but never on what a business already bought.
+         * Set the share every affiliate earns of each plan payment, the most any affiliate’s code may take off unless they have their own, and whether affiliates are paid each month. The share counts for payments from now on; the limit at once, on codes already made too, but never on what a business already bought. Paying starts from the next hourly look, from HandsFreeOS’s Stripe balance; turning it off stops what isn’t on its way.
          * @description Risk level 3. Requires platform.affiliates.manage. Emits platform.affiliate_settings_saved.
          */
         post: operations["command_affiliates_save_settings"];
@@ -16027,7 +16047,7 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * Your own place in the HandsFreeOS affiliate program: whether you’ve applied and where it stands, your link code, your share, your link’s clicks, how many signed up, the businesses that pay, what you’ve earned, and your discount and trial codes with the most they may take off.
+         * Your own place in the HandsFreeOS affiliate program: whether you’ve applied and where it stands, your link code, your share, your link’s clicks, how many signed up, the businesses that pay, what you’ve earned, waiting, ready, on its way and paid, your discount and trial codes with the most they may take off, whether your bank is set up with Stripe for payouts, your monthly payouts, and whether you’ve agreed to the affiliate terms that count now.
          * @description Any signed-in user.
          */
         post: operations["query_affiliate_mine"];
@@ -19627,7 +19647,7 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * One affiliate for Admin → Affiliates: what they applied with, their share, their codes and the most those take off, the businesses they sent and what each earned them, what they’ve earned, waiting and ready, each share earned or taken back, and their link’s clicks a day.
+         * One affiliate for Admin → Affiliates: what they applied with, their share, their codes and the most those take off, the businesses they sent and what each earned them, what they’ve earned, waiting, ready, on its way and paid, each share earned or taken back, their bank at Stripe and their payouts, and their link’s clicks a day.
          * @description Requires platform.affiliates.manage.
          */
         post: operations["query_platform_affiliate"];
@@ -23017,6 +23037,34 @@ export interface operations {
             };
         };
     };
+    command_affiliate_accept_terms: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    version: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        changed: boolean;
+                    };
+                };
+            };
+        };
+    };
     command_affiliate_apply: {
         parameters: {
             query?: never;
@@ -23027,6 +23075,7 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": {
+                    acceptTerms?: boolean;
                     code: string;
                     /** @default  */
                     links?: string;
@@ -23100,6 +23149,8 @@ export interface operations {
                             rateBp: number;
                             /** @enum {string} */
                             status: "applied" | "approved" | "turned_down" | "paused" | "ended";
+                            termsAcceptedAt: string | null;
+                            termsVersion: string | null;
                             /** Format: uuid */
                             userId: string;
                         };
@@ -23252,6 +23303,8 @@ export interface operations {
                             rateBp: number;
                             /** @enum {string} */
                             status: "applied" | "approved" | "turned_down" | "paused" | "ended";
+                            termsAcceptedAt: string | null;
+                            termsVersion: string | null;
                             /** Format: uuid */
                             userId: string;
                         };
@@ -23306,6 +23359,8 @@ export interface operations {
                             rateBp: number;
                             /** @enum {string} */
                             status: "applied" | "approved" | "turned_down" | "paused" | "ended";
+                            termsAcceptedAt: string | null;
+                            termsVersion: string | null;
                             /** Format: uuid */
                             userId: string;
                         };
@@ -23360,6 +23415,8 @@ export interface operations {
                             rateBp: number;
                             /** @enum {string} */
                             status: "applied" | "approved" | "turned_down" | "paused" | "ended";
+                            termsAcceptedAt: string | null;
+                            termsVersion: string | null;
                             /** Format: uuid */
                             userId: string;
                         };
@@ -23415,6 +23472,8 @@ export interface operations {
                             rateBp: number;
                             /** @enum {string} */
                             status: "applied" | "approved" | "turned_down" | "paused" | "ended";
+                            termsAcceptedAt: string | null;
+                            termsVersion: string | null;
                             /** Format: uuid */
                             userId: string;
                         };
@@ -23535,6 +23594,7 @@ export interface operations {
             content: {
                 "application/json": {
                     maxDiscountBp?: number;
+                    payoutsOn?: boolean;
                     rateBp: number;
                 };
             };
@@ -23548,6 +23608,7 @@ export interface operations {
                 content: {
                     "application/json": {
                         maxDiscountBp: number;
+                        payoutsOn: boolean;
                         rateBp: number;
                     };
                 };
@@ -59569,6 +59630,12 @@ export interface operations {
                             /** Format: date-time */
                             appliedAt: string;
                             applyAgainFrom: string | null;
+                            bank: {
+                                due: string[];
+                                /** @enum {string} */
+                                state: "none" | "unfinished" | "ready" | "stopped";
+                                test: boolean;
+                            };
                             clicks30: number;
                             clicksAll: number;
                             code: string;
@@ -59592,6 +59659,7 @@ export interface operations {
                             decidedAt: string | null;
                             earnings: {
                                 earnedCents: number;
+                                onItsWayCents: number;
                                 paidCents: number;
                                 readyCents: number;
                                 waitingCents: number;
@@ -59604,13 +59672,27 @@ export interface operations {
                                 firstPaidAt: string | null;
                                 name: string | null;
                             }[];
+                            payouts: {
+                                amountCents: number;
+                                /** Format: date */
+                                month: string;
+                                paidAt: string | null;
+                                /** Format: uuid */
+                                payoutId: string;
+                                /** @enum {string} */
+                                status: "sending" | "held" | "paid";
+                                test: boolean;
+                            }[];
                             pitch: string;
                             rateBp: number;
                             signUps: number;
                             /** @enum {string} */
                             status: "applied" | "approved" | "turned_down" | "paused" | "ended";
+                            termsAccepted: boolean;
+                            termsAcceptedAt: string | null;
                         } | null;
                         defaultRateBp: number;
+                        payoutsOn: boolean;
                         plans: {
                             /** @enum {string} */
                             billing: "once" | "yearly" | "monthly";
@@ -73027,6 +73109,11 @@ export interface operations {
                             via: ("web" | "mobile" | "extension") | null;
                             why: ("person" | "warning") | null;
                         };
+                        hours?: {
+                            days: number[];
+                            end: number;
+                            start: number;
+                        };
                         limits: {
                             comment: {
                                 done: number;
@@ -76445,8 +76532,16 @@ export interface operations {
                             rateBp: number;
                             /** @enum {string} */
                             status: "applied" | "approved" | "turned_down" | "paused" | "ended";
+                            termsAcceptedAt: string | null;
+                            termsVersion: string | null;
                             /** Format: uuid */
                             userId: string;
+                        };
+                        bank: {
+                            due: string[];
+                            /** @enum {string} */
+                            state: "none" | "unfinished" | "ready" | "stopped";
+                            test: boolean;
                         };
                         businesses: {
                             clickedAt: string | null;
@@ -76499,10 +76594,22 @@ export interface operations {
                         }[];
                         earnings: {
                             earnedCents: number;
+                            onItsWayCents: number;
                             paidCents: number;
                             readyCents: number;
                             waitingCents: number;
                         };
+                        payouts: {
+                            amountCents: number;
+                            /** Format: date */
+                            month: string;
+                            paidAt: string | null;
+                            /** Format: uuid */
+                            payoutId: string;
+                            /** @enum {string} */
+                            status: "sending" | "held" | "paid";
+                            test: boolean;
+                        }[];
                         plans: {
                             /** @enum {string} */
                             billing: "once" | "yearly" | "monthly";
@@ -76609,6 +76716,8 @@ export interface operations {
                             rateBp: number;
                             /** @enum {string} */
                             status: "applied" | "approved" | "turned_down" | "paused" | "ended";
+                            termsAcceptedAt: string | null;
+                            termsVersion: string | null;
                             /** Format: uuid */
                             userId: string;
                         }[];
@@ -76634,6 +76743,8 @@ export interface operations {
                             rateBp: number;
                             /** @enum {string} */
                             status: "applied" | "approved" | "turned_down" | "paused" | "ended";
+                            termsAcceptedAt: string | null;
+                            termsVersion: string | null;
                             /** Format: uuid */
                             userId: string;
                         }[];
@@ -76663,6 +76774,7 @@ export interface operations {
                         }[];
                         settings: {
                             maxDiscountBp: number;
+                            payoutsOn: boolean;
                             rateBp: number;
                         };
                     };

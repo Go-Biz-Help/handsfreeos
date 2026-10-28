@@ -25,6 +25,7 @@ import {
   numberedName,
   OFFLINE_MINUTES,
   offlineWords,
+  ownDayWords,
   preDayNow,
   removeWorkingWords,
   replacedComputer,
@@ -32,6 +33,8 @@ import {
   sendingOffWords,
   shownState,
   standDownWords,
+  startWords,
+  todayWords,
   warningLine,
   warningPushWords,
 } from '../../src/addons/outreach/live';
@@ -201,6 +204,37 @@ describe('the live view’s words', () => {
     expect(networkOffWords('linkedin', false, true)).toContain(
       'Allow it for your team under Social Outreach → Settings → LinkedIn',
     );
+  });
+
+  it('say when a day nobody pressed starts on its own, from the working hours', () => {
+    // Wednesday 28 October 2026, with hours of 10 to 6 on weekdays: Chicago is five hours behind UTC.
+    const hours = { start: 10, end: 18, days: [1, 2, 3, 4, 5] };
+    const none = { date: '2026-10-28', state: 'none' as const, why: null, via: null, at: null };
+    const live = { day: none, timezone: tz, sending: 'steps' as const, hours };
+    const early = Date.UTC(2026, 9, 28, 13);
+    expect(todayWords(live, 'linkedin', early)).toBe('Starts on its own at 10:00 AM.');
+    expect(todayWords(live, 'linkedin', Date.UTC(2026, 9, 28, 17))).toBe(
+      'Going on its own until 6:00 PM.',
+    );
+    expect(todayWords(live, 'instagram', Date.UTC(2026, 9, 29))).toBe(
+      'Starts on its own tomorrow at 10:00 AM.',
+    );
+    expect(todayWords(live, 'alignable', Date.UTC(2026, 9, 31))).toBe(
+      'Starts on its own on Mon, Nov 2 at 10:00 AM.',
+    );
+    // A day pressed says so; nothing's said while Sending is Off, or before the hours are known.
+    const started = {
+      ...none,
+      state: 'started' as const,
+      via: 'web' as const,
+      at: new Date(early).toISOString(),
+    };
+    expect(todayWords({ ...live, day: started }, 'linkedin', early)).toBe(
+      'Started at 8:00 AM in HandsFreeOS.',
+    );
+    expect(ownDayWords({ ...live, sending: 'off', now: early, platform: 'linkedin' })).toBe('');
+    expect(ownDayWords({ ...live, hours: undefined, now: early, platform: 'linkedin' })).toBe('');
+    expect(startWords(Date.UTC(2026, 9, 28, 15), tz, early)).toBe('at 10:00 AM');
   });
 
   it('cut long lines and names short rather than refuse them', () => {

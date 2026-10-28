@@ -7364,6 +7364,8 @@ export const affiliateSettings = platform.table('affiliate_settings', {
   rateBp: integer('rate_bp').notNull().default(4000),
   /** The most an affiliate's code takes off, in basis points (20261027014300). */
   maxDiscountBp: integer('max_discount_bp').notNull().default(5000),
+  /** Staff turn payouts on once the terms are read (20261027014400). */
+  payoutsOn: boolean('payouts_on').notNull().default(false),
   updatedBy: uuid('updated_by').references(() => users.id, { onDelete: 'set null' }),
   updatedAt: ts('updated_at').notNull().defaultNow(),
 });
@@ -7390,6 +7392,9 @@ export const affiliates = platform.table('affiliates', {
   decidedBy: uuid('decided_by').references(() => users.id, { onDelete: 'set null' }),
   /** The most their codes take off, in basis points; null for everyone's. */
   maxDiscountBp: integer('max_discount_bp'),
+  /** The affiliate terms they agreed to, by version, and when (20261027014500). */
+  termsVersion: text('terms_version'),
+  termsAcceptedAt: ts('terms_accepted_at'),
   ...timestamps(),
 });
 
@@ -7506,8 +7511,54 @@ export const affiliateCommissions = platform.table('affiliate_commissions', {
   amountCents: bigint('amount_cents', { mode: 'number' }).notNull(),
   earnedAt: ts('earned_at').notNull(),
   payableAt: ts('payable_at').notNull(),
+  /** The payout that paid it out, once one has (20261027014400). */
+  payoutId: uuid('payout_id').references(() => affiliatePayouts.id, { onDelete: 'set null' }),
   createdAt: ts('created_at').notNull().defaultNow(),
 });
+
+/** An affiliate's Stripe Express account, and what Stripe says of it (20261027014400). Only the worker writes it. */
+export const affiliatePayoutAccounts = platform.table('affiliate_payout_accounts', {
+  affiliateId: uuid('affiliate_id')
+    .primaryKey()
+    .references(() => affiliates.id, { onDelete: 'cascade' }),
+  accountRef: text('account_ref').notNull().unique(),
+  livemode: boolean('livemode').notNull(),
+  detailsSubmitted: boolean('details_submitted').notNull().default(false),
+  payoutsEnabled: boolean('payouts_enabled').notNull().default(false),
+  transfersActive: boolean('transfers_active').notNull().default(false),
+  disabledReason: text('disabled_reason'),
+  due: text('due')
+    .array()
+    .notNull()
+    .default(sql`'{}'`),
+  checkedAt: ts('checked_at').notNull().defaultNow(),
+  createdAt: ts('created_at').notNull().defaultNow(),
+  updatedAt: ts('updated_at').notNull().defaultNow(),
+});
+
+/** One affiliate's payout for a month (20261027014400). Only the worker writes it. */
+export const affiliatePayouts = platform.table(
+  'affiliate_payouts',
+  {
+    id: id(),
+    affiliateId: uuid('affiliate_id')
+      .notNull()
+      .references(() => affiliates.id, { onDelete: 'cascade' }),
+    /** The first of the month it's for, UTC. */
+    month: date('month').notNull(),
+    amountCents: integer('amount_cents').notNull(),
+    livemode: boolean('livemode').notNull(),
+    /** sending, held or paid. */
+    status: text('status').notNull().default('sending'),
+    accountRef: text('account_ref').notNull(),
+    transferRef: text('transfer_ref').unique(),
+    paidAt: ts('paid_at'),
+    emailedAt: ts('emailed_at'),
+    createdAt: ts('created_at').notNull().defaultNow(),
+    updatedAt: ts('updated_at').notNull().defaultNow(),
+  },
+  (t) => [unique().on(t.affiliateId, t.month)],
+);
 
 /**
  * Automations' "Thank-you after the job" (0094): which way each customer's thank-you went, one per attendee. A

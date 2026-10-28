@@ -5,7 +5,8 @@
  * they sent and their link's clicks a day. Pausing and ending ask first, since each changes what their link does.
  * And what they've earned (20261027014200): waiting and ready, what each business earned them, and each share earned
  * or taken back by a refund. And their codes (20261027014300): made for them, turned off or on, and their own limit on
- * what a code takes off.
+ * what a code takes off. And getting paid (20261027014400): their bank as Stripe last said, and their payouts. And
+ * whether they agreed to the terms that count now (20261027014500).
  */
 import {
   AFFILIATE_ADMIN_WORDS,
@@ -13,10 +14,14 @@ import {
   AFFILIATE_CODE_WORDS,
   AFFILIATE_COMMISSION_WORDS,
   AFFILIATE_HOW_WORDS,
+  AFFILIATE_PAYOUT_ADMIN_WORDS as P,
+  AFFILIATE_PAYOUT_WORDS,
   AFFILIATE_STATUS_WORDS,
+  AFFILIATE_TERMS_WORDS as T,
   affiliateLink,
   affiliatePercentToBp,
   affiliateRateWords,
+  affiliateTermsCurrent,
   money,
 } from '@hfos/core';
 import Link from 'next/link';
@@ -26,6 +31,7 @@ import { AFFILIATE_BADGE } from '@/components/admin/affiliates-page';
 import { whenWords } from '@/components/admin/ticket-bits';
 import { AffiliateCodeList, MakeCodeForm } from '@/components/affiliate/affiliate-codes';
 import { AffiliateEarningsTiles } from '@/components/affiliate/affiliate-earnings';
+import { AffiliatePayoutList } from '@/components/affiliate/affiliate-payouts';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { CopyField } from '@/components/ui/copy-field';
@@ -106,6 +112,13 @@ export function AffiliateDetail({ page }: { page: Page }) {
           <p className="mt-1 text-[13px] text-text-3">
             {a.email} · {W.applied(whenWords(a.appliedAt))}
             {a.decidedAt ? ` · ${W.decided(whenWords(a.decidedAt), a.decidedByName)}` : ''}
+          </p>
+          <p className="mt-0.5 text-[13px] text-text-3" data-testid="affiliate-terms-line">
+            {!a.termsAcceptedAt
+              ? T.notAgreed
+              : affiliateTermsCurrent(a.termsVersion)
+                ? T.agreedOn(whenWords(a.termsAcceptedAt))
+                : T.agreedOld(whenWords(a.termsAcceptedAt))}
           </p>
         </div>
         <Badge variant={AFFILIATE_BADGE[a.status]} data-testid="affiliate-status">
@@ -313,6 +326,30 @@ export function AffiliateDetail({ page }: { page: Page }) {
         <h2 className="mb-2 text-sm font-semibold">{W.earnings}</h2>
         <AffiliateEarningsTiles earnings={page.earnings} />
       </section>
+
+      <div className="mt-5 grid items-start gap-5 md:grid-cols-2">
+        <section
+          className="rounded-card border border-border bg-card p-4"
+          data-testid="affiliate-bank-admin"
+        >
+          <h2 className="text-sm font-semibold">{P.bank}</h2>
+          <p className="mt-2 text-[13px] text-text-2">
+            {P.bankState[page.bank.state]}
+            {page.bank.test ? (
+              <span className="text-text-3"> · {AFFILIATE_PAYOUT_WORDS.test}</span>
+            ) : null}
+          </p>
+          {page.bank.due.length ? (
+            <p className="mt-1 break-words text-[12.5px] text-text-3">
+              {P.due(page.bank.due.join(', '))}
+            </p>
+          ) : null}
+        </section>
+        <section className="rounded-card border border-border bg-card p-4">
+          <h2 className="text-sm font-semibold">{P.payouts}</h2>
+          <AffiliatePayoutList payouts={page.payouts} staff />
+        </section>
+      </div>
 
       {a.pitch || a.links ? (
         <section className="mt-5 rounded-card border border-border bg-card p-4">

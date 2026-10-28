@@ -16,7 +16,6 @@ import { DAILY_STEPS, DAILY_WORDS } from '@hfos/core/addons/outreach/limits';
 import {
   clockWords,
   COMPUTER_NAME_MOST,
-  dayWords,
   isOffline,
   LIVE_REFETCH_SECONDS,
   offlineWords,
@@ -24,6 +23,7 @@ import {
   SHOWN_STATES,
   shownState,
   stateTone,
+  todayWords,
   type ShownState,
 } from '@hfos/core/addons/outreach/live';
 import {
@@ -207,7 +207,7 @@ function RightNow({
   const sendingOff = live.sending === 'off';
   const started = live.day.state === 'started';
   const stopped = live.day.state === 'stopped';
-  const said = dayWords(live.day, tz, live.lists, platform);
+  const said = todayWords(live, platform, now);
   const press = (kind: 'start' | 'stop') => {
     setRefused(null);
     void act(

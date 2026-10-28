@@ -605,6 +605,7 @@ describe('registry', () => {
       'founding.set_cap',
       'founding.set_status',
       'affiliate.apply',
+      'affiliate.accept_terms',
       'affiliates.save_settings',
       'affiliate.decide',
       'affiliate.set_status',

@@ -889,7 +889,7 @@ than a store extension, and for more features, and answered the questions the sa
     sounding upset or an emergency; so does one to a chat HandsFreeOS hasn't seen. With (b) or (c), one that waits
     is handed over: their phone hears "Dana Reyes needs you", and why. Replies go only while Sending isn't off.
 28. **When:** on its own in the person's working hours (9 to 5 to start), at random times, plus a **Start my day**
-    button. Built.
+    button. Built, on every network from extension 0.96.0 (decision 95).
 29. **Tidying on its own is a setting:** off, cancelling old requests on their own, or cancelling and unfriending on
     their own. Automation part 5.
 30. **Friend requests from people who fit a playbook are confirmed on their own;** the rest wait. Built: those who
@@ -1518,11 +1518,12 @@ where decisions 37 and 59 put the settings; what they decided stands. Settled to
       descriptions for these.
     - **Instagram's runner from part 14** (extension 0.82.0, `src/auto/instagram.ts`; its kit's `runs`, no migration):
       Instagram works on its own as LinkedIn and Alignable do, so its Sending choices open on its page in Settings
-      ("Follows and likes on their own; each message waits for one tap, and you post each comment"). It goes only while
-      its day is started and its Sending isn't Off, and stops for the day on any Instagram warning ("Action blocked",
-      "Try again later"), there alone; HandsFreeOS halves Instagram's limits for a week after one and takes follows off
-      its list for two days, as on every network (`warningOf`, `dailyLimitsNow`). Before its first day it saves the
-      newest followers, works out who to unfollow and checks the followers once (`LIST_SAVES_ON`, `LIST_MARKS_ON`).
+      ("Follows and likes on their own; each message waits for one tap, and you post each comment"). It goes in the
+      working hours, or once its day is started (decision 95), while its Sending isn't Off, and stops for the day on
+      any Instagram warning ("Action blocked", "Try again later"), there alone; HandsFreeOS halves Instagram's limits
+      for a week after one and takes follows off its list for two days, as on every network (`warningOf`,
+      `dailyLimitsNow`). Before its first day it saves the newest followers, works out who to unfollow and checks the
+      followers once (`LIST_SAVES_ON`, `LIST_MARKS_ON`).
       Then, once a day: the newest followers (a follow-back is its accepting), from 0.85.0 the accounts it followed
       looked at for who follows back, the followers checked (20 accounts), its chats read with who wrote last noted,
       and Find partners with Instagram's search (whoever posted what it shows for creators,
@@ -1656,25 +1657,24 @@ where decisions 37 and 59 put the settings; what they decided stands. Settled to
       and the note to copy into Alignable's Ask for Recommendations, which it opens. It's a tip: it doesn't hold the
       list back.
     - **Its runner from part 5** (extension 0.77.0, `src/auto/alignable.ts`; its kit's `runs`): Alignable works on its
-      own as LinkedIn does, so its Sending choices open on its page in Settings. It goes only while its day is started
-      and its Sending isn't Off, and stops for the day on an Alignable warning, there alone. Before its first day it
-      saves the connections and the connection requests they've got, then checks the connections once. Then, once a
-      day: the requests, the connections checked (30 business pages), Find partners, and the town's posts (so Today's
-      Find posts card goes). Find partners searches its businesses (`/biz/search`) and reads those found for the
-      partner check; businesses alone, as it has no creators (`PARTNER_SEARCH_KINDS_ON`). On Today's list it does the
-      warm-ups (a look at their business page and a like on a recent post of theirs, or the look alone when there's
-      none) and the connection requests (their page's own Connect, by Alignable's id for the business, then their
-      page again to see it went; from extension 0.94.0, never to a business whose page shows its own Remove
-      Connection, `/biz/connections/<their id>`: that's "you’re connected already", kept as one of the person's
-      connections with `outreach.friends.save`, never handed to them). It sends messages once OK'd, typed only into
-      that conversation's box. **Comments and forum answers stay by hand:** each waits for the person's OK, as it's
+      own as LinkedIn does, so its Sending choices open on its page in Settings. It goes in the working hours, or once
+      its day is started (decision 95), while its Sending isn't Off, and stops for the day on an Alignable warning,
+      there alone. Before its first day it saves the connections and the connection requests they've got, then checks
+      the connections once. Then, once a day: the requests, the connections checked (30 business pages), Find partners,
+      and the town's posts (so Today's Find posts card goes). Find partners searches its businesses (`/biz/search`) and
+      reads those found for the partner check; businesses alone, as it has no creators (`PARTNER_SEARCH_KINDS_ON`). On
+      Today's list it does the warm-ups (a look at their business page and a like on a recent post of theirs, or the
+      look alone when there's none) and the connection requests (their page's own Connect, by Alignable's id for the
+      business, then their page again to see it went; from extension 0.94.0, never to a business whose page shows its
+      own Remove Connection, `/biz/connections/<their id>`: that's "you’re connected already", kept as one of the
+      person's connections with `outreach.friends.save`, never handed to them). It sends messages once OK'd, typed only
+      into that conversation's box. **Comments and forum answers stay by hand:** each waits for the person's OK, as it's
       public writing (the plan's question 9), so `comment` isn't in its `runs.auto`, and Sending's choices say so.
       (Decision 92 changes this from extension 0.95.0: comments go through Waiting for you, waiting for an OK under a
-      comment hold of their own, then on their own; a forum answer still waits for an OK every time.)
-      **Recommendations stay by hand only.**
-      Withdrawing old requests stays the person's too: no reader of the requests they've sent is built, as their
-      markup isn't known, so nothing works out which to withdraw. A reply is drafted from what HandsFreeOS knows: from
-      0.84.0, their conversation as the day's Read my chats last brought it in.
+      comment hold of their own, then on their own; a forum answer still waits for an OK every time.) **Recommendations
+      stay by hand only.** Withdrawing old requests stays the person's too: no reader of the requests they've sent is
+      built, as their markup isn't known, so nothing works out which to withdraw. A reply is drafted from what
+      HandsFreeOS knows: from 0.84.0, their conversation as the day's Read my chats last brought it in.
     - **Warm leads from Alignable's notifications** (the plan's "whoever likes, comments on or recommends you";
       extension 0.78.0, a migration: `engagements.helpful_id` may be empty and `kind` takes `recommend`): the
       extension reads Notifications once a day for who liked or commented on the person's posts and answers and who
@@ -2304,6 +2304,22 @@ where decisions 37 and 59 put the settings; what they decided stands. Settled to
     takes no extension build older than it: an older one gets an ask to update (426), and the extension says to update
     it. `OLDEST_EXTENSION` in `packages/core/src/mobile.ts` sets that, in the code, so the owner sets nothing. The
     API's `MIN_EXTENSION_VERSION` can only raise it.
+
+95. **Every network starts on its own at the working hours' start** (Chris, 28 Oct 2026: "we shouldn't have to start
+    the day for each platform manually, they should just start at the time selected in our settings. so for me
+    10am"; then, of the choices put to them, spread out as Facebook is, and Today saying when each starts). From
+    extension 0.96.0 LinkedIn, Instagram and Alignable go as Facebook does (decision 28):
+    - **On their own in the working hours,** the person's, the same on every network, on the business's clock: each
+      starts at a random time in the hours' first minutes and spreads its steps over them (`networkDay` and
+      `gapAfter` in `apps/extension/src/auto/plan.ts`).
+    - **Start my day still starts one early,** straight away at a person's pace, hours or not.
+    - **Stop for today holds it for the rest of the business's day,** till the working hours of a later one. A press
+      from another day changes nothing.
+    - **Before the hours, Today says when.** Beside Start my day, on the web and the phone, a network whose day
+      nobody pressed says "Starts on its own at 10:00 AM." ("tomorrow at", or the day, after the hours), and "Going
+      on its own until 6:00 PM." in them (`todayWords` and `ownDayWords` in `live.ts`; `outreach.live` gives the
+      `hours`). The extension's line for it says the same, and that Start my day starts it now
+      (`networkWaitWords`).
 
 ## Rules worth knowing before changing anything
 

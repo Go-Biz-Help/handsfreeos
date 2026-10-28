@@ -3,14 +3,21 @@
 /**
  * The person's own affiliate page (20261027014000). Somebody who hasn't applied, or may apply again, sees what the
  * program pays and the form. An application waiting can still be changed. Once approved, it's their link, their share,
- * their link's clicks, how many signed up, and what they've earned and from which businesses (20261027014200), and
- * their discount and trial codes (20261027014300). A paused or ended affiliate still sees what they earned.
+ * their link's clicks, how many signed up, and what they've earned and from which businesses (20261027014200),
+ * their discount and trial codes (20261027014300), and getting paid (20261027014400). A paused or ended affiliate
+ * still sees what they earned, and is paid it.
+ *
+ * The affiliate terms (20261027014500) are agreed to with the application. An approved affiliate who hasn't agreed to
+ * the ones that count now is asked first: their link, codes and payouts show once they have.
  */
 import {
   AFFILIATE_CODE_WORDS,
   AFFILIATE_CLOSED_BUSINESS,
   AFFILIATE_MINE_WORDS,
   AFFILIATE_PAGE_WORDS as W,
+  AFFILIATE_TERMS_URL,
+  AFFILIATE_TERMS_VERSION,
+  AFFILIATE_TERMS_WORDS as T,
   affiliateLink,
   affiliateRateWords,
   money,
@@ -20,6 +27,7 @@ import { useState, type FormEvent } from 'react';
 import { toast } from 'sonner';
 import { AffiliateCodeList, MakeCodeForm } from '@/components/affiliate/affiliate-codes';
 import { AffiliateEarningsTiles } from '@/components/affiliate/affiliate-earnings';
+import { AffiliateGettingPaid } from '@/components/affiliate/affiliate-payouts';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { CopyField } from '@/components/ui/copy-field';
@@ -57,13 +65,21 @@ export function AffiliateSelf({ mine, name }: { mine: Mine; name: string }) {
         <p className="mt-2 leading-relaxed text-text-2">{W.intro(rate)}</p>
       )}
 
-      {a?.status === 'approved' ? <Approved affiliate={a} /> : null}
-      {a?.status === 'approved' || a?.codes.length ? (
+      {a?.status === 'approved' && !a.termsAccepted ? <AgreeToTerms affiliate={a} /> : null}
+      {a?.status === 'approved' && a.termsAccepted ? <Approved affiliate={a} /> : null}
+      {(a?.status === 'approved' && a.termsAccepted) ||
+      (a && a.status !== 'approved' && a.codes.length > 0) ? (
         <Codes affiliate={a} plans={mine.plans} />
       ) : null}
       {a &&
       (a.status === 'approved' || a.earnings.earnedCents !== 0 || a.payingBusinesses.length) ? (
         <Earned affiliate={a} />
+      ) : null}
+      {a &&
+      ((a.status === 'approved' && a.termsAccepted) ||
+        ((a.status === 'paused' || a.status === 'ended') &&
+          (a.earnings.earnedCents !== 0 || a.bank.state !== 'none' || a.payouts.length))) ? (
+        <AffiliateGettingPaid affiliate={a} payoutsOn={mine.payoutsOn} />
       ) : null}
       {!a || mayApplyAgain ? (
         <ApplyForm affiliate={null} name={a?.name ?? name} code={a?.code ?? ''} />
@@ -74,6 +90,56 @@ export function AffiliateSelf({ mine, name }: { mine: Mine; name: string }) {
           <ApplyForm affiliate={a} name={a.name} code={a.code} />
         </>
       ) : null}
+    </div>
+  );
+}
+
+/** The terms, read on the website and agreed to here, before their link: the first time, or since they changed. */
+function AgreeToTerms({ affiliate: a }: { affiliate: Affiliate }) {
+  const router = useRouter();
+  const [busy, setBusy] = useState(false);
+  return (
+    <div
+      className="mt-6 rounded-menu border border-border bg-card-2 p-4"
+      data-testid="affiliate-terms"
+    >
+      <h2 className="text-sm font-semibold">{T.title}</h2>
+      <p className="mt-1 text-[14px] leading-relaxed text-text-2">
+        {a.termsAcceptedAt ? T.changed : T.first}
+      </p>
+      <div className="mt-3 flex flex-wrap items-center gap-3">
+        <Button
+          loading={busy}
+          disabled={busy}
+          data-testid="affiliate-terms-accept"
+          onClick={async () => {
+            setBusy(true);
+            try {
+              unwrap(
+                await apiBrowser().POST('/v1/commands/affiliate.accept_terms', {
+                  body: { version: AFFILIATE_TERMS_VERSION },
+                }),
+              );
+              toast.success(T.accepted);
+              router.refresh();
+            } catch (e) {
+              toast.error(errorMessage(e));
+            } finally {
+              setBusy(false);
+            }
+          }}
+        >
+          {T.accept}
+        </Button>
+        <a
+          href={AFFILIATE_TERMS_URL}
+          target="_blank"
+          rel="noreferrer"
+          className="text-[14px] font-medium text-accent-text hover:underline"
+        >
+          {T.read}
+        </a>
+      </div>
     </div>
   );
 }
@@ -216,6 +282,7 @@ function ApplyForm({
   const [links, setLinks] = useState(affiliate?.links ?? '');
   // Somebody already applied said so then.
   const [livesInUs, setLivesInUs] = useState(affiliate !== null);
+  const [agrees, setAgrees] = useState(affiliate?.termsAccepted ?? false);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -229,7 +296,7 @@ function ApplyForm({
     try {
       unwrap(
         await apiBrowser().POST('/v1/commands/affiliate.apply', {
-          body: { name, code, pitch, links, livesInUs },
+          body: { name, code, pitch, links, livesInUs, acceptTerms: agrees },
         }),
       );
       toast.success(affiliate ? W.saved : W.sent);
@@ -302,6 +369,22 @@ function ApplyForm({
         />
         <p className="mt-1.5 text-[12.5px] text-text-3">{W.usOnly}</p>
       </div>
+      <div>
+        <Checkbox
+          label={T.agree}
+          checked={agrees}
+          onChange={(e) => setAgrees(e.target.checked)}
+          data-testid="affiliate-apply-terms"
+        />
+        <a
+          href={AFFILIATE_TERMS_URL}
+          target="_blank"
+          rel="noreferrer"
+          className="mt-1.5 inline-block text-[13px] font-medium text-accent-text hover:underline"
+        >
+          {T.read}
+        </a>
+      </div>
       {error ? (
         <p role="alert" className="text-[13px] text-danger-text">
           {error}
@@ -311,7 +394,7 @@ function ApplyForm({
         type="submit"
         size="lg"
         loading={busy}
-        disabled={!livesInUs}
+        disabled={!livesInUs || !agrees}
         data-testid="affiliate-apply-send"
       >
         {affiliate ? W.saveChanges : W.apply}

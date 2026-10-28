@@ -36,6 +36,7 @@ A plain "step 5" means step 5 of the list you are reading, or of the part named 
 - [Money: Stripe and Square](#money-stripe-and-square)
 - [Usage balances: what businesses pay us](#usage-balances-what-businesses-pay-us)
 - [Paying partners: Stripe Express](#paying-partners-stripe-express)
+- [Paying affiliates: Stripe Express](#paying-affiliates-stripe-express)
 - [A business's own web address](#a-businesss-own-web-address)
 - [Moving a business here from another CRM](#moving-a-business-here-from-another-crm)
 - [Support and the admin side](#support-and-the-admin-side)
@@ -10290,6 +10291,82 @@ pays its partners.
   (Stripe's `refund.failed`). The refund shows as failed, the invoice counts the money as the business's again, and
   the partner's share it took back is given back to them as a commission of its own, paid with the next payout.
   The business sorts out the refund with the client.
+
+## Paying affiliates: Stripe Express
+
+People who sell HandsFreeOS earn a share of each plan payment from the businesses they send
+(`HANDSFREEOS_AFFILIATES_IMPLEMENTATION_PLAN.md`). Once a month, the worker sends each affiliate what's ready (each
+share 30 days after it was earned, less what refunds took back) to their bank: a transfer from **HandsFreeOS's own
+Stripe balance** to their Stripe Express account. It's $25 at least; less waits for the next month. HandsFreeOS pays
+Stripe's fees, so they get all of it, and they get an email saying how much.
+
+It runs on the same Stripe account and keys as "Paying partners: Stripe Express", and needs the migration
+`20261027014400_affiliate_payouts.sql`. **Nothing is sent until you turn on Pay affiliates** in /admin →
+Affiliates. Until then affiliates can set up their bank, and what they're owed keeps.
+
+### Before you turn it on
+
+- **The terms are read** by your accountant or lawyer (the plan's "Before payouts go live").
+- **1099s.** HandsFreeOS pays affiliates itself, so each one paid $2,000 or more in a year (from 2026) gets a
+  1099-NEC. Stripe files them when tax forms are on ("Paying partners" Part 2). Stripe's fee for each form is
+  HandsFreeOS's.
+- **US affiliates only for now** (decision 7). Stripe's form asks for a US bank and a US tax id.
+- **Money in the balance.** Payouts come out of HandsFreeOS's available Stripe balance, where plan payments land.
+  If it's short, a payout waits and is tried each hour (see "When something goes wrong").
+
+### Part 1: Stripe
+
+Nothing new once "Paying partners" Parts 1 and 2 are done: **Express** turned on under **Settings** → **Connect**,
+the branding saying HandsFreeOS, and **1099-NEC** on under **Connect** → **Tax forms**.
+
+There's no webhook to add. An affiliate's account is read from Stripe when they come back to their page from
+Stripe's form, and the hourly look asks again, every six hours, about one that can't be paid yet while they're owed
+money. Stripe's `account.updated` for an affiliate's account reaches the Connect endpoint and is taken and dropped.
+
+### Part 2: Try it in test mode
+
+On your laptop, with the worker running on the "Stripe test keys" (a test key pays only accounts made with a test
+key):
+
+1. In /admin → Affiliates, approve a test affiliate, and turn on **Pay affiliates**.
+2. Sign in as them, open `/affiliate`, and press **Set up payouts**. On Stripe's test form, use its test data: phone
+   `000 000 0000`, code `000 000`, SSN `000-00-0000`, routing number `110000000` and account number `000123456789`.
+   Back on their page, Getting paid says the bank is set up.
+3. Give them some shares free to pay. On your laptop only, never on the hosted project:
+
+   ```sql
+   update platform.affiliate_commissions set payable_at = now() - interval '1 day'
+     where affiliate_id = (select id from platform.affiliates where code = 'their-code');
+   ```
+
+4. Test mode's balance starts empty. In Stripe's test dashboard, add to it: **Balances** → **Add to balance**, or
+   take a test payment with the card `4000 0000 0000 0077`, which lands in the available balance at once.
+5. Within the hour (the worker's `affiliate_payouts.plan`), the payout is made and sent. Their page shows it under
+   Payouts with "Test", the email arrives, and the transfer is in Stripe's test dashboard under **Connect** →
+   **Transfers**.
+
+### Part 3: Turn it on for real
+
+1. Make sure the terms are read, and there's money in the live balance.
+2. In /admin → Affiliates, press **Start paying** under **Pay affiliates**, and confirm.
+
+From the next hour, each affiliate owed at least $25 with their bank set up is paid, this month and on the 1st of
+each month after (UTC). **Stop paying** stops anything not yet sent; a payout already on its way still goes.
+
+### When something goes wrong
+
+- **"an affiliate payout waits: HandsFreeOS’s Stripe balance can’t cover it"** in the worker log. The available
+  balance is short. The payout shows "On its way" and is tried each hour with the same key, so it's sent once, as
+  soon as the balance covers it. Add to the balance, or wait for plan payments to become available.
+- **A payout says Waiting on Stripe.** Stripe won't send to their account: it needs something from them. They open
+  Stripe from their affiliate page and finish it; the next look after Stripe says they can be paid sends it. Their
+  page under /admin → Affiliates shows what Stripe asks for. The money stays in HandsFreeOS's balance meanwhile.
+- **An affiliate never set up payouts.** Nothing is sent: what they're owed waits, and the first payout after they
+  finish Stripe's form includes it.
+- **A refund after a payout.** The share it takes back comes off their next payout. If they're never owed $25
+  again, it stays owed by them; nothing is asked back.
+- **Going live after testing.** An account made with a test key is never paid with a live one. Each affiliate who
+  set up payouts in test mode presses Set up payouts again, and gets a live account.
 
 ## A business's own web address
 

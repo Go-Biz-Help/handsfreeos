@@ -2169,3 +2169,32 @@ export function affiliateAppliedEmail(input: {
   );
   return { subject, text, html };
 }
+
+/** A month's payout sent (20261027014400): how much, for which month, and where to see it. */
+export function affiliatePaidEmail(input: {
+  firstName: string;
+  amount: string;
+  month: string;
+  pageLink: string;
+  /** Made with Stripe's test keys: no real money moved. */
+  test: boolean;
+}): EmailContent {
+  const subject = `${input.test ? 'Test: ' : ''}Your HandsFreeOS affiliate payout: ${input.amount}`;
+  const hello = input.firstName ? `Hi ${input.firstName},` : 'Hi,';
+  const lines = [
+    `We sent you ${input.amount}, your ${input.month} affiliate payout, for the businesses you sent us.`,
+    input.test
+      ? 'This was a test, so no real money moved.'
+      : 'Stripe sends it on to your bank, usually within a few business days. Your affiliate page shows each payout, and your Stripe page shows when it reaches your bank.',
+    'Thank you for sharing HandsFreeOS.',
+  ];
+  const text = [hello, '', ...lines, '', `Your affiliate page: ${input.pageLink}`].join('\n');
+  const html = shell(
+    preheader(lines[0]!) +
+      wordmark +
+      para(escapeHtml(hello)) +
+      lines.map((l) => para(escapeHtml(l))).join('') +
+      button(input.pageLink, 'Open your affiliate page'),
+  );
+  return { subject, text, html };
+}

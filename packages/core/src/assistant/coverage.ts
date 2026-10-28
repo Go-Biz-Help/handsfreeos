@@ -245,7 +245,7 @@ export const SCREEN_ACTIONS: Readonly<Record<string, ScreenAction>> = {
   'wallet.set_stage': { warning: 'This changes what happens when their balance runs out.' },
   'affiliates.save_settings': {
     warning:
-      'This changes every affiliate’s share and code limit without one of their own: the share for payments from now on, the limit at once.',
+      'This changes every affiliate’s share and code limit without one of their own, or whether affiliates are paid: the share for payments from now on, the limit at once, and paying from the next hour, with real money from HandsFreeOS’s Stripe balance.',
   },
   'affiliate.decide': { warning: 'They get an email saying what was decided.' },
   'affiliate.set_status': { warning: 'This changes whether their link credits new businesses.' },
@@ -262,7 +262,8 @@ export const SCREEN_ACTIONS: Readonly<Record<string, ScreenAction>> = {
   // ---- Selling HandsFreeOS (/affiliate): anyone signed in ----
   'affiliate.apply': {
     offeredTo: 'assistant.use',
-    warning: 'It goes to HandsFreeOS to decide, and says you live in the US.',
+    warning:
+      'It goes to HandsFreeOS to decide, and says you live in the US. You agree to the affiliate terms yourself, on your affiliate page.',
   },
   'affiliate.make_code': {
     offeredTo: 'assistant.use',
@@ -294,6 +295,8 @@ export const NEVER_FOR_THE_ASSISTANT: Readonly<Record<string, string>> = {
   'migration.connect':
     'signing in at the CRM the business is leaving, which only the person can do',
   'invitation.accept': 'accepting an invitation, which is the person’s own',
+  'affiliate.accept_terms':
+    'agreeing to the affiliate terms, which the person reads and agrees to themselves',
   'support.staff.accept': 'accepting a support invitation, which is the person’s own',
   'extension_sign_in.answer': 'letting the browser extension in, which is the person’s own',
   'live_meeting.claim': 'done from HandsFreeOS’s app inside Zoom',

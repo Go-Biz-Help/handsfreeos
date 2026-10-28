@@ -11,6 +11,8 @@ import {
   GAP_MS,
   itemKey,
   itemsLeft,
+  networkDay,
+  networkWaitWords,
   nextStart,
   nextWatch,
   STARTED_GAP_MS,
@@ -215,6 +217,54 @@ describe('what it does next', () => {
     const at = nextStart(hours, 'America/Chicago', early, 1)!;
     expect(at - Date.UTC(2026, 9, 8, 14)).toBeGreaterThan(0);
     expect(at - Date.UTC(2026, 9, 8, 14)).toBeLessThanOrEqual(20 * 60_000);
+  });
+
+  // Wednesday 28 October 2026 in Chicago, five hours behind UTC, with hours of 10 to 6 on weekdays.
+  const hours = { start: 10, end: 18, days: [1, 2, 3, 4, 5] };
+  const zone = 'America/Chicago';
+  const today = '2026-10-28';
+  const early = Date.UTC(2026, 9, 28, 13);
+  const noon = Date.UTC(2026, 9, 28, 17);
+
+  it('starts LinkedIn, Instagram and Alignable on their own in the working hours, or now after Start my day', () => {
+    const none = { date: today, state: 'none', why: null } as const;
+    const at = (now: number, day: Parameters<typeof networkDay>[0]['day'] = none) =>
+      networkDay({ day, today, hours, timeZone: zone, now, random: 0 });
+    expect(at(early)).toEqual({ go: false, stopped: null, next: Date.UTC(2026, 9, 28, 15) });
+    expect(at(noon)).toEqual({ go: true, started: false, until: Date.UTC(2026, 9, 28, 23) });
+    // Start my day: now, at a person's pace, hours or not.
+    expect(at(early, { date: today, state: 'started', why: 'person' })).toEqual({
+      go: true,
+      started: true,
+      until: null,
+    });
+    // Stop for today: the rest of today, till tomorrow's hours.
+    expect(at(noon, { date: today, state: 'stopped', why: 'person' })).toEqual({
+      go: false,
+      stopped: 'person',
+      next: Date.UTC(2026, 9, 29, 15),
+    });
+    // A press from another day changes nothing.
+    expect(at(noon, { date: '2026-10-27', state: 'stopped', why: 'person' })).toEqual(at(noon));
+  });
+
+  it('says when a network starts on its own, at the hours’ start on the business’s clock', () => {
+    const press = (name: string) =>
+      `To start now, press Start my day for ${name} on Today in HandsFreeOS.`;
+    expect(networkWaitWords('LinkedIn', { stopped: null }, hours, zone, early)).toBe(
+      `Starts on its own on LinkedIn at 10:00 AM. ${press('LinkedIn')}`,
+    );
+    // 7 PM: tomorrow's.
+    expect(
+      networkWaitWords('Instagram', { stopped: null }, hours, zone, Date.UTC(2026, 9, 29)),
+    ).toBe(`Starts on its own on Instagram tomorrow at 10:00 AM. ${press('Instagram')}`);
+    // Friday at 7 PM: Monday's, once the clocks have gone back.
+    expect(
+      networkWaitWords('Alignable', { stopped: null }, hours, zone, Date.UTC(2026, 9, 31)),
+    ).toBe(`Starts on its own on Alignable on Mon, Nov 2 at 10:00 AM. ${press('Alignable')}`);
+    expect(networkWaitWords('LinkedIn', { stopped: 'person' }, hours, zone, noon)).toBe(
+      'Stopped on LinkedIn for today. It starts again on its own tomorrow at 10:00 AM.',
+    );
   });
 });
 

@@ -17,13 +17,13 @@
  */
 import { DAILY_STEPS } from '@hfos/core/addons/outreach/limits';
 import {
-  dayWords,
   isOffline,
   offlineWords,
   seenWords,
   SHOWN_STATES,
   shownState,
   stateTone,
+  todayWords,
 } from '@hfos/core/addons/outreach/live';
 import {
   dailyWordsOn,
@@ -240,7 +240,7 @@ export function StatusStrip({
     );
   const words = dailyWordsOn(shown.platform);
   const steps = DAILY_STEPS.filter((s) => live.limits[s].most > 0);
-  const said = many ? '' : dayWords(live.day, tz, live.lists, shown.platform);
+  const said = many ? '' : todayWords(live, shown.platform, now);
   return (
     <Card className="mb-5 grid gap-4 p-5" data-testid="today-status">
       <div className="flex flex-wrap items-center justify-between gap-3">
@@ -341,7 +341,7 @@ export function StatusStrip({
                       {name}
                     </Link>
                     <p className="text-[12.5px] text-text-2" data-testid="live-day">
-                      {dayWords(n.live.day, tz, n.live.lists, n.platform) || NW.notStarted}
+                      {todayWords(n.live, n.platform, now) || NW.notStarted}
                     </p>
                   </div>
                   {dayButton(n, `live-{}-${n.platform}`)}
