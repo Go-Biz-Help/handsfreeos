@@ -160,6 +160,9 @@ const ONLINE_COMMANDS = [
   'outreach.country.unskip',
   'outreach.messages.edit',
   'outreach.messages.forget',
+  // Instagram accounts like yours, added or taken off in the settings (decision 110).
+  'outreach.like_yours.add',
+  'outreach.like_yours.remove',
   // Won or lost after the demo, on a customer's Social card (decision 106).
   'outreach.demo.outcome',
   // A group or a person given to a teammate, on a group's page and the person menu (decision 107).

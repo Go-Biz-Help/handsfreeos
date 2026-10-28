@@ -8641,6 +8641,41 @@
         "required": ["workspaceId", "profileId", "later"]
       }
     },
+    "outreach.like_yours.add": {
+      "offline": "online",
+      "input": {
+        "type": "object",
+        "properties": {
+          "workspaceId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "account": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200
+          }
+        },
+        "required": ["workspaceId", "account"]
+      }
+    },
+    "outreach.like_yours.remove": {
+      "offline": "online",
+      "input": {
+        "type": "object",
+        "properties": {
+          "workspaceId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        "required": ["workspaceId", "id"]
+      }
+    },
     "outreach.messages.edit": {
       "offline": "online",
       "input": {
@@ -8800,7 +8835,7 @@
             "anyOf": [
               {
                 "type": "string",
-                "enum": ["crm_demos"]
+                "enum": ["crm_demos", "real_estate", "home_services", "coaching"]
               },
               {
                 "type": "null"
