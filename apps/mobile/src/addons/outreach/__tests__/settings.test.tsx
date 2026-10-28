@@ -62,6 +62,12 @@ const AUTOMATION: AutomationOutput = {
     instagram: { on: false, from: null, ok: 0, daysLeft: 7, edits: 0 },
     alignable: { on: false, from: null, ok: 0, daysLeft: 7, edits: 0 },
   },
+  fresh: {
+    facebook: { on: false, from: null, until: null, days: 14 },
+    linkedin: { on: false, from: null, until: null, days: 14 },
+    instagram: { on: false, from: null, until: null, days: 14 },
+    alignable: { on: false, from: null, until: null, days: 14 },
+  },
   userId: ME,
   name: 'Dana Reyes',
   changedBy: null,

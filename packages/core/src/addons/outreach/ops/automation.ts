@@ -1,9 +1,10 @@
 /**
  * The extension on its own (../automation.ts, docs/outreach.md decisions 26 to 40): each person's own choices, set on
  * Social Outreach's Settings tab and read by the extension before it does anything for them, inside the business's
- * rules; their training wheels; and a profile it found no post to like on before a friend request (decision 33).
+ * rules; their training wheels; their half limits while new on a network (decision 96); and a profile it found no post
+ * to like on before a friend request (decision 33).
  */
-import { and, eq, isNotNull, sql } from 'drizzle-orm';
+import { and, eq, inArray, isNotNull, sql } from 'drizzle-orm';
 import { rows, type Tx } from '@hfos/db/client';
 import { users } from '@hfos/db/schema';
 import { workspaceTimezone } from '../../../crm/records';
@@ -23,6 +24,7 @@ import {
   businessLimitsOn,
   choicesFor,
   dayList,
+  freshState,
   NETWORKS_DEFAULTS,
   NetworksSettings,
   notAllowedWords,
@@ -41,6 +43,7 @@ import {
   withinRules,
   type AutomationSettings,
   type BusinessRules,
+  type FreshState,
   type NetworkChoices,
   type OtherPlatform,
   type WheelsKept,
@@ -49,8 +52,8 @@ import {
 import { outreachSettings } from '../chat-read';
 import type { Voice } from '../voice';
 import { outreachAddon } from '../manifest';
-import { networkLimitsNow, type Platform } from '../networks';
-import { automation, profiles, setup, type NetworkWheelKept } from '../tables';
+import { networkLimitsNow, PLATFORM_KEYS, type Platform } from '../networks';
+import { automation, networkStarts, profiles, setup, type NetworkWheelKept } from '../tables';
 import { inWorkspace, type Ctx } from './common';
 
 type Row = typeof automation.$inferSelect;
@@ -142,6 +145,39 @@ const withWheels = (row: Row, platform: OtherPlatform, kept: NetworkWheelKept) =
 
 const iso = (at: Date | string | null) => (at === null ? null : new Date(at).toISOString());
 
+/** The first step the extension took or noted for each person on each network, as kept (decision 96). */
+type FirstSteps = ReadonlyMap<string, Partial<Record<Platform, Date | string>>>;
+
+/** When each person started on each network (decision 96): for these people, or everyone in the business when left out. */
+async function firstStepsOf(ctx: Ctx, userIds?: readonly string[]): Promise<FirstSteps> {
+  const found = await ctx.tx
+    .select({
+      userId: networkStarts.userId,
+      platform: networkStarts.platform,
+      firstAt: networkStarts.firstAt,
+    })
+    .from(networkStarts)
+    .where(
+      and(
+        eq(networkStarts.workspaceId, ctx.scope.workspaceId!),
+        userIds ? inArray(networkStarts.userId, [...userIds]) : undefined,
+      ),
+    );
+  const steps = new Map<string, Partial<Record<Platform, Date | string>>>();
+  for (const f of found) steps.set(f.userId, { ...steps.get(f.userId), [f.platform]: f.firstAt });
+  return steps;
+}
+
+/** A person's half limits while new on a network, from their first step there and their account's age. */
+const freshOn = (
+  steps: FirstSteps,
+  userId: string,
+  settings: AutomationSettings,
+  now: number,
+  platform: Platform,
+): FreshState =>
+  freshState(steps.get(userId)?.[platform] ?? null, choicesFor(settings, platform).young, now);
+
 async function rowOf(ctx: Ctx, userId: string): Promise<Row | undefined> {
   const [row] = await ctx.tx
     .select()
@@ -164,15 +200,27 @@ export async function automationOf(
   choices: NetworkChoices;
   saved: boolean;
   wheels: WheelsState;
+  /** Their half limits while new there (decision 96). */
+  fresh: FreshState;
+  /** Their daily limits there are half: on training wheels, or new there. A warning halves them too, for callers. */
+  slower: boolean;
   rules: BusinessRules;
 }> {
-  const [row, rules] = await Promise.all([rowOf(ctx, userId), rulesOf(ctx)]);
+  const [row, rules, steps] = await Promise.all([
+    rowOf(ctx, userId),
+    rulesOf(ctx),
+    firstStepsOf(ctx, [userId]),
+  ]);
   const settings = settingsOf(row, rules);
+  const wheels = stateOf(row, rules, now, platform);
+  const fresh = freshOn(steps, userId, settings, now, platform);
   return {
     settings,
     choices: choicesFor(settings, platform),
     saved: row !== undefined,
-    wheels: stateOf(row, rules, now, platform),
+    wheels,
+    fresh,
+    slower: wheels.on || fresh.on,
     rules,
   };
 }
@@ -203,25 +251,29 @@ export async function voiceFor(tx: Tx, workspaceId: string, userId: string): Pro
 
 /** Everyone's choices and training wheels in the business at once, for the team's live view (./live.ts). */
 export async function everyoneAutomation(ctx: Ctx, now = Date.now()) {
-  const [rules, kept] = await Promise.all([
+  const [rules, kept, steps] = await Promise.all([
     rulesOf(ctx),
     ctx.tx.select().from(automation).where(eq(automation.workspaceId, ctx.scope.workspaceId!)),
+    firstStepsOf(ctx),
   ]);
   return {
     rules,
     of(
       userId: string,
       platform: Platform = 'facebook',
-    ): { settings: AutomationSettings; wheels: WheelsState } {
+    ): { settings: AutomationSettings; wheels: WheelsState; fresh: FreshState; slower: boolean } {
       const row = kept.find((k) => k.userId === userId);
-      return { settings: settingsOf(row, rules), wheels: stateOf(row, rules, now, platform) };
+      const settings = settingsOf(row, rules);
+      const wheels = stateOf(row, rules, now, platform);
+      const fresh = freshOn(steps, userId, settings, now, platform);
+      return { settings, wheels, fresh, slower: wheels.on || fresh.on };
     },
   };
 }
 
 /**
- * Whether the person's daily limits on a network are half now: after a warning there (decision 25), or on training
- * wheels there.
+ * Whether the person's daily limits on a network are half now: after a warning there (decision 25), on training
+ * wheels there, or new there (decision 96).
  */
 export async function slowerFor(
   ctx: Ctx,
@@ -230,10 +282,13 @@ export async function slowerFor(
   now = Date.now(),
   platform: Platform = 'facebook',
 ) {
-  return warned || (await automationOf(ctx, userId, now, platform)).wheels.on;
+  return warned || (await automationOf(ctx, userId, now, platform)).slower;
 }
 
-/** The person's daily limits on a network now: the business's own there, halved after a warning or on training wheels. */
+/**
+ * The person's daily limits on a network now: the business's own there, halved after a warning, on training wheels or
+ * new there.
+ */
 export async function limitsFor(
   ctx: Ctx,
   userId: string,
@@ -241,8 +296,8 @@ export async function limitsFor(
   now = Date.now(),
   platform: Platform = 'facebook',
 ) {
-  const { wheels, rules } = await automationOf(ctx, userId, now, platform);
-  return networkLimitsNow(platform, warned || wheels.on, businessLimitsOn(rules, platform));
+  const { slower, rules } = await automationOf(ctx, userId, now, platform);
+  return networkLimitsNow(platform, warned || slower, businessLimitsOn(rules, platform));
 }
 
 /**
@@ -367,11 +422,16 @@ async function shown(ctx: Ctx, whose: string, row: Row | undefined, rules: Busin
         where workspace_id = ${ctx.scope.workspaceId!} and addon_id = ${outreachAddon.id}`,
   );
   const now = Date.now();
+  const settings = settingsOf(row, rules);
+  const steps = await firstStepsOf(ctx, [whose]);
   return {
-    settings: settingsOf(row, rules),
+    settings,
     saved: row !== undefined,
     wheels: stateOf(row, rules, now),
     networkWheels: networkWheelsOf(row, rules, now),
+    fresh: Object.fromEntries(
+      PLATFORM_KEYS.map((p) => [p, freshOn(steps, whose, settings, now, p)]),
+    ) as Record<Platform, FreshState>,
     timezone: await workspaceTimezone(ctx.tx, ctx.scope.workspaceId!),
     startedAt: installed ? new Date(installed.at).toISOString() : null,
     userId: whose,

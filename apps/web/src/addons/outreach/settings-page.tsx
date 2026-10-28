@@ -21,7 +21,9 @@
  */
 import {
   choicesFor,
+  freshWords,
   hoursProblem,
+  NOT_FRESH,
   OTHER_PLATFORMS,
   wheelsWords,
   type AutomationSettings,
@@ -81,6 +83,7 @@ import {
   Part,
   PushesPart,
   select,
+  Tick,
   VoicePart,
   wheelsOf,
 } from './settings-view';
@@ -458,6 +461,8 @@ function NetworkPage({
   const set = (change: Partial<NetworkChoices>) =>
     person.set((v) => withNetwork(v, platform, change));
   const wheels = wheelsOf(me, platform);
+  // Half limits while they're new there (decision 96): its own on each network. None from a server before it.
+  const fresh = me.fresh?.[platform] ?? NOT_FRESH;
   // Facebook's choices are the settings' own fields, and its extension's switches are the person's.
   const facebook = !OTHER_PLATFORMS.includes(platform as OtherPlatform);
   // A network still looked at (decision 78) has nothing to choose yet: only Chrome's say and its Check.
@@ -571,6 +576,14 @@ function NetworkPage({
                   {wheelsWords(wheels)}
                 </p>
               ) : null}
+              {fresh.on ? (
+                <p
+                  className="rounded-menu bg-card-2 px-3.5 py-2.5 text-[13px] text-text-2"
+                  data-testid={`${testId}-fresh`}
+                >
+                  {freshWords(fresh, platform)}
+                </p>
+              ) : null}
               <NetworkModes
                 card
                 platform={platform}
@@ -605,7 +618,7 @@ function NetworkPage({
                 testId={`${testId}-limits`}
               >
                 <ul className="grid grid-cols-2 gap-2.5 sm:grid-cols-4">
-                  {limitsShownOn(platform, rules, wheels.on).map((l) => (
+                  {limitsShownOn(platform, rules, wheels.on || fresh.on).map((l) => (
                     <li
                       key={l.key}
                       className="min-w-0 rounded-[10px] bg-card-2 p-3"
@@ -619,6 +632,15 @@ function NetworkPage({
                     </li>
                   ))}
                 </ul>
+                <div className="mt-4 border-t border-border pt-4">
+                  <Tick
+                    switches
+                    words={[NW.young(name), NW.youngAbout(name)]}
+                    checked={choices.young}
+                    onChange={(young) => set({ young })}
+                    testId={`${testId}-young`}
+                  />
+                </div>
               </Part>
             </>
           )}

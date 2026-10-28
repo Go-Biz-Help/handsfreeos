@@ -1481,6 +1481,25 @@ export const listSaves = addonOutreach.table(
   (t) => [unique().on(t.workspaceId, t.id), unique().on(t.workspaceId, t.userId)],
 );
 
+/**
+ * When each person started on each network: their first step there (decision 96). A network's daily limits are half
+ * for their first 2 weeks after it. Written with that first step, and moved only to an earlier one noted later.
+ */
+export const networkStarts = addonOutreach.table(
+  'network_starts',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    workspaceId: workspaceRef(),
+    userId: uuid('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    platform: text('platform').notNull().$type<Platform>(),
+    firstAt: ts('first_at').notNull(),
+    createdAt: ts('created_at').notNull().defaultNow(),
+  },
+  (t) => [unique().on(t.workspaceId, t.id), unique().on(t.workspaceId, t.userId, t.platform)],
+);
+
 /** Every table above, for the test that holds the mirror to the live columns. */
 export const OUTREACH_TABLES = {
   asks,
@@ -1504,6 +1523,7 @@ export const OUTREACH_TABLES = {
   listSaves,
   liveSteps,
   needs,
+  networkStarts,
   openerUses,
   partnerLeads,
   partnerSearches,

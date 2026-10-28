@@ -88766,12 +88766,17 @@
                         "properties": {
                           "facebook": {
                             "default": {
-                              "on": true
+                              "on": true,
+                              "young": false
                             },
                             "type": "object",
                             "properties": {
                               "on": {
                                 "default": true,
+                                "type": "boolean"
+                              },
+                              "young": {
+                                "default": false,
                                 "type": "boolean"
                               }
                             }
@@ -88786,7 +88791,8 @@
                               "collect": true,
                               "joinGroups": true,
                               "watchPosts": true,
-                              "posting": "after_ok"
+                              "posting": "after_ok",
+                              "young": false
                             },
                             "type": "object",
                             "properties": {
@@ -88841,6 +88847,10 @@
                                   "after_ok",
                                   "own"
                                 ]
+                              },
+                              "young": {
+                                "default": false,
+                                "type": "boolean"
                               }
                             }
                           },
@@ -88854,7 +88864,8 @@
                               "collect": true,
                               "joinGroups": true,
                               "watchPosts": true,
-                              "posting": "after_ok"
+                              "posting": "after_ok",
+                              "young": false
                             },
                             "type": "object",
                             "properties": {
@@ -88909,6 +88920,10 @@
                                   "after_ok",
                                   "own"
                                 ]
+                              },
+                              "young": {
+                                "default": false,
+                                "type": "boolean"
                               }
                             }
                           },
@@ -88922,7 +88937,8 @@
                               "collect": true,
                               "joinGroups": true,
                               "watchPosts": true,
-                              "posting": "after_ok"
+                              "posting": "after_ok",
+                              "young": false
                             },
                             "type": "object",
                             "properties": {
@@ -88977,6 +88993,10 @@
                                   "after_ok",
                                   "own"
                                 ]
+                              },
+                              "young": {
+                                "default": false,
+                                "type": "boolean"
                               }
                             }
                           }
@@ -89147,7 +89167,8 @@
                         "networks": {
                           "default": {
                             "facebook": {
-                              "on": true
+                              "on": true,
+                              "young": false
                             },
                             "linkedin": {
                               "on": false,
@@ -89158,7 +89179,8 @@
                               "collect": true,
                               "joinGroups": true,
                               "watchPosts": true,
-                              "posting": "after_ok"
+                              "posting": "after_ok",
+                              "young": false
                             },
                             "instagram": {
                               "on": false,
@@ -89169,7 +89191,8 @@
                               "collect": true,
                               "joinGroups": true,
                               "watchPosts": true,
-                              "posting": "after_ok"
+                              "posting": "after_ok",
+                              "young": false
                             },
                             "alignable": {
                               "on": false,
@@ -89180,24 +89203,31 @@
                               "collect": true,
                               "joinGroups": true,
                               "watchPosts": true,
-                              "posting": "after_ok"
+                              "posting": "after_ok",
+                              "young": false
                             }
                           },
                           "type": "object",
                           "properties": {
                             "facebook": {
                               "default": {
-                                "on": true
+                                "on": true,
+                                "young": false
                               },
                               "type": "object",
                               "properties": {
                                 "on": {
                                   "default": true,
                                   "type": "boolean"
+                                },
+                                "young": {
+                                  "default": false,
+                                  "type": "boolean"
                                 }
                               },
                               "required": [
-                                "on"
+                                "on",
+                                "young"
                               ],
                               "additionalProperties": false
                             },
@@ -89211,7 +89241,8 @@
                                 "collect": true,
                                 "joinGroups": true,
                                 "watchPosts": true,
-                                "posting": "after_ok"
+                                "posting": "after_ok",
+                                "young": false
                               },
                               "type": "object",
                               "properties": {
@@ -89266,6 +89297,10 @@
                                     "after_ok",
                                     "own"
                                   ]
+                                },
+                                "young": {
+                                  "default": false,
+                                  "type": "boolean"
                                 }
                               },
                               "required": [
@@ -89277,7 +89312,8 @@
                                 "collect",
                                 "joinGroups",
                                 "watchPosts",
-                                "posting"
+                                "posting",
+                                "young"
                               ],
                               "additionalProperties": false
                             },
@@ -89291,7 +89327,8 @@
                                 "collect": true,
                                 "joinGroups": true,
                                 "watchPosts": true,
-                                "posting": "after_ok"
+                                "posting": "after_ok",
+                                "young": false
                               },
                               "type": "object",
                               "properties": {
@@ -89346,6 +89383,10 @@
                                     "after_ok",
                                     "own"
                                   ]
+                                },
+                                "young": {
+                                  "default": false,
+                                  "type": "boolean"
                                 }
                               },
                               "required": [
@@ -89357,7 +89398,8 @@
                                 "collect",
                                 "joinGroups",
                                 "watchPosts",
-                                "posting"
+                                "posting",
+                                "young"
                               ],
                               "additionalProperties": false
                             },
@@ -89371,7 +89413,8 @@
                                 "collect": true,
                                 "joinGroups": true,
                                 "watchPosts": true,
-                                "posting": "after_ok"
+                                "posting": "after_ok",
+                                "young": false
                               },
                               "type": "object",
                               "properties": {
@@ -89426,6 +89469,10 @@
                                     "after_ok",
                                     "own"
                                   ]
+                                },
+                                "young": {
+                                  "default": false,
+                                  "type": "boolean"
                                 }
                               },
                               "required": [
@@ -89437,7 +89484,8 @@
                                 "collect",
                                 "joinGroups",
                                 "watchPosts",
-                                "posting"
+                                "posting",
+                                "young"
                               ],
                               "additionalProperties": false
                             }
@@ -89673,6 +89721,220 @@
                       ],
                       "additionalProperties": false
                     },
+                    "fresh": {
+                      "default": {
+                        "facebook": {
+                          "on": false,
+                          "from": null,
+                          "until": null,
+                          "days": 14
+                        },
+                        "linkedin": {
+                          "on": false,
+                          "from": null,
+                          "until": null,
+                          "days": 14
+                        },
+                        "instagram": {
+                          "on": false,
+                          "from": null,
+                          "until": null,
+                          "days": 14
+                        },
+                        "alignable": {
+                          "on": false,
+                          "from": null,
+                          "until": null,
+                          "days": 14
+                        }
+                      },
+                      "type": "object",
+                      "properties": {
+                        "facebook": {
+                          "type": "object",
+                          "properties": {
+                            "on": {
+                              "type": "boolean"
+                            },
+                            "from": {
+                              "anyOf": [
+                                {
+                                  "type": "string",
+                                  "format": "date-time",
+                                  "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
+                            },
+                            "until": {
+                              "anyOf": [
+                                {
+                                  "type": "string",
+                                  "format": "date-time",
+                                  "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
+                            },
+                            "days": {
+                              "type": "integer",
+                              "minimum": 0,
+                              "maximum": 9007199254740991
+                            }
+                          },
+                          "required": [
+                            "on",
+                            "from",
+                            "until",
+                            "days"
+                          ],
+                          "additionalProperties": false
+                        },
+                        "linkedin": {
+                          "type": "object",
+                          "properties": {
+                            "on": {
+                              "type": "boolean"
+                            },
+                            "from": {
+                              "anyOf": [
+                                {
+                                  "type": "string",
+                                  "format": "date-time",
+                                  "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
+                            },
+                            "until": {
+                              "anyOf": [
+                                {
+                                  "type": "string",
+                                  "format": "date-time",
+                                  "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
+                            },
+                            "days": {
+                              "type": "integer",
+                              "minimum": 0,
+                              "maximum": 9007199254740991
+                            }
+                          },
+                          "required": [
+                            "on",
+                            "from",
+                            "until",
+                            "days"
+                          ],
+                          "additionalProperties": false
+                        },
+                        "instagram": {
+                          "type": "object",
+                          "properties": {
+                            "on": {
+                              "type": "boolean"
+                            },
+                            "from": {
+                              "anyOf": [
+                                {
+                                  "type": "string",
+                                  "format": "date-time",
+                                  "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
+                            },
+                            "until": {
+                              "anyOf": [
+                                {
+                                  "type": "string",
+                                  "format": "date-time",
+                                  "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
+                            },
+                            "days": {
+                              "type": "integer",
+                              "minimum": 0,
+                              "maximum": 9007199254740991
+                            }
+                          },
+                          "required": [
+                            "on",
+                            "from",
+                            "until",
+                            "days"
+                          ],
+                          "additionalProperties": false
+                        },
+                        "alignable": {
+                          "type": "object",
+                          "properties": {
+                            "on": {
+                              "type": "boolean"
+                            },
+                            "from": {
+                              "anyOf": [
+                                {
+                                  "type": "string",
+                                  "format": "date-time",
+                                  "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
+                            },
+                            "until": {
+                              "anyOf": [
+                                {
+                                  "type": "string",
+                                  "format": "date-time",
+                                  "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
+                            },
+                            "days": {
+                              "type": "integer",
+                              "minimum": 0,
+                              "maximum": 9007199254740991
+                            }
+                          },
+                          "required": [
+                            "on",
+                            "from",
+                            "until",
+                            "days"
+                          ],
+                          "additionalProperties": false
+                        }
+                      },
+                      "required": [
+                        "facebook",
+                        "linkedin",
+                        "instagram",
+                        "alignable"
+                      ],
+                      "additionalProperties": false
+                    },
                     "userId": {
                       "type": "string",
                       "format": "uuid",
@@ -89885,6 +90147,7 @@
                     "saved",
                     "wheels",
                     "networkWheels",
+                    "fresh",
                     "userId",
                     "name",
                     "changedBy",
@@ -200009,6 +200272,92 @@
                           "type": "null"
                         }
                       ]
+                    },
+                    "fresh": {
+                      "default": {
+                        "on": false,
+                        "from": null,
+                        "until": null,
+                        "days": 14
+                      },
+                      "type": "object",
+                      "properties": {
+                        "on": {
+                          "type": "boolean"
+                        },
+                        "from": {
+                          "anyOf": [
+                            {
+                              "type": "string",
+                              "format": "date-time",
+                              "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "until": {
+                          "anyOf": [
+                            {
+                              "type": "string",
+                              "format": "date-time",
+                              "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "days": {
+                          "type": "integer",
+                          "minimum": 0,
+                          "maximum": 9007199254740991
+                        }
+                      },
+                      "required": [
+                        "on",
+                        "from",
+                        "until",
+                        "days"
+                      ],
+                      "additionalProperties": false
+                    },
+                    "requestsHeld": {
+                      "default": null,
+                      "anyOf": [
+                        {
+                          "type": "object",
+                          "properties": {
+                            "why": {
+                              "type": "string",
+                              "enum": [
+                                "waiting",
+                                "cap"
+                              ]
+                            },
+                            "count": {
+                              "type": "integer",
+                              "minimum": 0,
+                              "maximum": 9007199254740991
+                            },
+                            "most": {
+                              "type": "integer",
+                              "minimum": 0,
+                              "maximum": 9007199254740991
+                            }
+                          },
+                          "required": [
+                            "why",
+                            "count",
+                            "most"
+                          ],
+                          "additionalProperties": false
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
                     }
                   },
                   "required": [
@@ -200023,7 +200372,9 @@
                     "sending",
                     "wheels",
                     "ready",
-                    "week"
+                    "week",
+                    "fresh",
+                    "requestsHeld"
                   ],
                   "additionalProperties": false
                 }
@@ -200884,7 +201235,8 @@
                         "networks": {
                           "default": {
                             "facebook": {
-                              "on": true
+                              "on": true,
+                              "young": false
                             },
                             "linkedin": {
                               "on": false,
@@ -200895,7 +201247,8 @@
                               "collect": true,
                               "joinGroups": true,
                               "watchPosts": true,
-                              "posting": "after_ok"
+                              "posting": "after_ok",
+                              "young": false
                             },
                             "instagram": {
                               "on": false,
@@ -200906,7 +201259,8 @@
                               "collect": true,
                               "joinGroups": true,
                               "watchPosts": true,
-                              "posting": "after_ok"
+                              "posting": "after_ok",
+                              "young": false
                             },
                             "alignable": {
                               "on": false,
@@ -200917,24 +201271,31 @@
                               "collect": true,
                               "joinGroups": true,
                               "watchPosts": true,
-                              "posting": "after_ok"
+                              "posting": "after_ok",
+                              "young": false
                             }
                           },
                           "type": "object",
                           "properties": {
                             "facebook": {
                               "default": {
-                                "on": true
+                                "on": true,
+                                "young": false
                               },
                               "type": "object",
                               "properties": {
                                 "on": {
                                   "default": true,
                                   "type": "boolean"
+                                },
+                                "young": {
+                                  "default": false,
+                                  "type": "boolean"
                                 }
                               },
                               "required": [
-                                "on"
+                                "on",
+                                "young"
                               ],
                               "additionalProperties": false
                             },
@@ -200948,7 +201309,8 @@
                                 "collect": true,
                                 "joinGroups": true,
                                 "watchPosts": true,
-                                "posting": "after_ok"
+                                "posting": "after_ok",
+                                "young": false
                               },
                               "type": "object",
                               "properties": {
@@ -201003,6 +201365,10 @@
                                     "after_ok",
                                     "own"
                                   ]
+                                },
+                                "young": {
+                                  "default": false,
+                                  "type": "boolean"
                                 }
                               },
                               "required": [
@@ -201014,7 +201380,8 @@
                                 "collect",
                                 "joinGroups",
                                 "watchPosts",
-                                "posting"
+                                "posting",
+                                "young"
                               ],
                               "additionalProperties": false
                             },
@@ -201028,7 +201395,8 @@
                                 "collect": true,
                                 "joinGroups": true,
                                 "watchPosts": true,
-                                "posting": "after_ok"
+                                "posting": "after_ok",
+                                "young": false
                               },
                               "type": "object",
                               "properties": {
@@ -201083,6 +201451,10 @@
                                     "after_ok",
                                     "own"
                                   ]
+                                },
+                                "young": {
+                                  "default": false,
+                                  "type": "boolean"
                                 }
                               },
                               "required": [
@@ -201094,7 +201466,8 @@
                                 "collect",
                                 "joinGroups",
                                 "watchPosts",
-                                "posting"
+                                "posting",
+                                "young"
                               ],
                               "additionalProperties": false
                             },
@@ -201108,7 +201481,8 @@
                                 "collect": true,
                                 "joinGroups": true,
                                 "watchPosts": true,
-                                "posting": "after_ok"
+                                "posting": "after_ok",
+                                "young": false
                               },
                               "type": "object",
                               "properties": {
@@ -201163,6 +201537,10 @@
                                     "after_ok",
                                     "own"
                                   ]
+                                },
+                                "young": {
+                                  "default": false,
+                                  "type": "boolean"
                                 }
                               },
                               "required": [
@@ -201174,7 +201552,8 @@
                                 "collect",
                                 "joinGroups",
                                 "watchPosts",
-                                "posting"
+                                "posting",
+                                "young"
                               ],
                               "additionalProperties": false
                             }
@@ -201410,6 +201789,220 @@
                       ],
                       "additionalProperties": false
                     },
+                    "fresh": {
+                      "default": {
+                        "facebook": {
+                          "on": false,
+                          "from": null,
+                          "until": null,
+                          "days": 14
+                        },
+                        "linkedin": {
+                          "on": false,
+                          "from": null,
+                          "until": null,
+                          "days": 14
+                        },
+                        "instagram": {
+                          "on": false,
+                          "from": null,
+                          "until": null,
+                          "days": 14
+                        },
+                        "alignable": {
+                          "on": false,
+                          "from": null,
+                          "until": null,
+                          "days": 14
+                        }
+                      },
+                      "type": "object",
+                      "properties": {
+                        "facebook": {
+                          "type": "object",
+                          "properties": {
+                            "on": {
+                              "type": "boolean"
+                            },
+                            "from": {
+                              "anyOf": [
+                                {
+                                  "type": "string",
+                                  "format": "date-time",
+                                  "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
+                            },
+                            "until": {
+                              "anyOf": [
+                                {
+                                  "type": "string",
+                                  "format": "date-time",
+                                  "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
+                            },
+                            "days": {
+                              "type": "integer",
+                              "minimum": 0,
+                              "maximum": 9007199254740991
+                            }
+                          },
+                          "required": [
+                            "on",
+                            "from",
+                            "until",
+                            "days"
+                          ],
+                          "additionalProperties": false
+                        },
+                        "linkedin": {
+                          "type": "object",
+                          "properties": {
+                            "on": {
+                              "type": "boolean"
+                            },
+                            "from": {
+                              "anyOf": [
+                                {
+                                  "type": "string",
+                                  "format": "date-time",
+                                  "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
+                            },
+                            "until": {
+                              "anyOf": [
+                                {
+                                  "type": "string",
+                                  "format": "date-time",
+                                  "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
+                            },
+                            "days": {
+                              "type": "integer",
+                              "minimum": 0,
+                              "maximum": 9007199254740991
+                            }
+                          },
+                          "required": [
+                            "on",
+                            "from",
+                            "until",
+                            "days"
+                          ],
+                          "additionalProperties": false
+                        },
+                        "instagram": {
+                          "type": "object",
+                          "properties": {
+                            "on": {
+                              "type": "boolean"
+                            },
+                            "from": {
+                              "anyOf": [
+                                {
+                                  "type": "string",
+                                  "format": "date-time",
+                                  "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
+                            },
+                            "until": {
+                              "anyOf": [
+                                {
+                                  "type": "string",
+                                  "format": "date-time",
+                                  "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
+                            },
+                            "days": {
+                              "type": "integer",
+                              "minimum": 0,
+                              "maximum": 9007199254740991
+                            }
+                          },
+                          "required": [
+                            "on",
+                            "from",
+                            "until",
+                            "days"
+                          ],
+                          "additionalProperties": false
+                        },
+                        "alignable": {
+                          "type": "object",
+                          "properties": {
+                            "on": {
+                              "type": "boolean"
+                            },
+                            "from": {
+                              "anyOf": [
+                                {
+                                  "type": "string",
+                                  "format": "date-time",
+                                  "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
+                            },
+                            "until": {
+                              "anyOf": [
+                                {
+                                  "type": "string",
+                                  "format": "date-time",
+                                  "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
+                            },
+                            "days": {
+                              "type": "integer",
+                              "minimum": 0,
+                              "maximum": 9007199254740991
+                            }
+                          },
+                          "required": [
+                            "on",
+                            "from",
+                            "until",
+                            "days"
+                          ],
+                          "additionalProperties": false
+                        }
+                      },
+                      "required": [
+                        "facebook",
+                        "linkedin",
+                        "instagram",
+                        "alignable"
+                      ],
+                      "additionalProperties": false
+                    },
                     "userId": {
                       "type": "string",
                       "format": "uuid",
@@ -201622,6 +202215,7 @@
                     "saved",
                     "wheels",
                     "networkWheels",
+                    "fresh",
                     "userId",
                     "name",
                     "changedBy",

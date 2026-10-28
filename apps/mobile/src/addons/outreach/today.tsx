@@ -1,6 +1,15 @@
-import { wheelsWords, type WheelsListOutput } from '@hfos/core/addons/outreach/automation';
+import {
+  freshWords,
+  wheelsWords,
+  type WheelsListOutput,
+} from '@hfos/core/addons/outreach/automation';
 import { OUTREACH_WORDS as W } from '@hfos/core/addons/outreach/words';
-import { helpfulOn, todayKindsOn, todayOpenOf } from '@hfos/core/addons/outreach/network-words';
+import {
+  helpfulOn,
+  requestsHeldWords,
+  todayKindsOn,
+  todayOpenOf,
+} from '@hfos/core/addons/outreach/network-words';
 import { PLATFORMS, type Platform } from '@hfos/core/addons/outreach/networks';
 import { PARTNER_WORDS as PW } from '@hfos/core/addons/outreach/partners';
 import {
@@ -254,6 +263,15 @@ export function TodayBody({
         </Card>
       ) : null}
       {list.wheels.on ? <Note testID="today-wheels">{wheelsWords(list.wheels)}</Note> : null}
+      {/* None from a server before decisions 96 and 97. */}
+      {list.fresh?.on ? <Note testID="today-fresh">{freshWords(list.fresh, platform)}</Note> : null}
+      {list.requestsHeld ? (
+        <View className="rounded-menu bg-warning-soft px-3 py-2.5" testID="today-requests-held">
+          <Text className="text-[13px] leading-[18px] text-warning-text">
+            {requestsHeldWords(list.requestsHeld, platform)}
+          </Text>
+        </View>
+      ) : null}
       {helpful && onHelpful && helpfulOn(platform) ? (
         <HelpfulPart platform={platform} helpful={helpful} on={onHelpful} />
       ) : null}

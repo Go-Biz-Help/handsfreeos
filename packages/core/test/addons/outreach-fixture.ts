@@ -46,11 +46,36 @@ export const fromExtension = () => ({
 const gettingReady = new Set<string>();
 const GATED = new Set(['outreach.today', 'outreach.day.start', 'outreach.helpful.next']);
 
+/**
+ * Businesses whose people the fixture takes past their first weeks on every network (decision 96) before anything
+ * they do: started there 90 days ago, so their daily limits are whole, as the add-on's tests were written for. A
+ * business made with `{ newAccounts: true }` isn't, for the tests of a network new to them.
+ */
+const seasonedIn = new Set<string>();
+const seasoned = new Set<string>();
+
+/** `userId` started on every network in `ws` 90 days ago, once. */
+export async function season(ws: string, userId: string): Promise<void> {
+  if (seasoned.has(`${ws}:${userId}`)) return;
+  seasoned.add(`${ws}:${userId}`);
+  await rows(
+    admin(),
+    sql`insert into addon_outreach.network_starts (workspace_id, user_id, platform, first_at)
+        select ${ws}, ${userId}, n.platform, now() - interval '90 days'
+        from unnest(array['facebook', 'linkedin', 'instagram', 'alignable']) n (platform)
+        on conflict (workspace_id, user_id, platform) do nothing`,
+  );
+}
+
 /** A new business owned by `u`, with the add-on on, in Chicago unless given its time zone. Its id. */
 export async function outreachBusiness(
   u: TestUser,
   name: string,
-  opts: { readonly ready?: boolean; readonly timezone?: string } = {},
+  opts: {
+    readonly ready?: boolean;
+    readonly timezone?: string;
+    readonly newAccounts?: boolean;
+  } = {},
 ): Promise<string> {
   const made = await executeCommand(
     api(),
@@ -66,6 +91,7 @@ export async function outreachBusiness(
         values (${id}, 'outreach', 'enabled', ${outreachAddon.version})`,
   );
   if (opts.ready !== false) gettingReady.add(id);
+  if (!opts.newAccounts) seasonedIn.add(id);
   return id;
 }
 
@@ -195,6 +221,7 @@ export async function runAs(
   at?: Date,
 ): Promise<Any> {
   const found = op(name);
+  if (seasonedIn.has(ws)) await season(ws, u.id);
   if (GATED.has(name) && gettingReady.has(ws)) await getReady(ws, [u.id]);
   return found.kind === 'command'
     ? executeCommand(api(), found as CommandDef, { workspaceId: ws, ...input }, human(u), {
@@ -218,6 +245,7 @@ export async function runWith(
   input: Record<string, unknown>,
   meta: Partial<RequestMeta> & Pick<RequestMeta, 'channel'>,
 ): Promise<Any> {
+  if (seasonedIn.has(ws)) await season(ws, u.id);
   if (GATED.has(name) && gettingReady.has(ws)) await getReady(ws, [u.id]);
   return executeCommand(api(), op(name) as CommandDef, { workspaceId: ws, ...input }, human(u), {
     correlationId: randomUUID(),

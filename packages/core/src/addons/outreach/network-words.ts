@@ -80,14 +80,15 @@ export function withNetwork(
   platform: Platform,
   change: Partial<NetworkChoices>,
 ): AutomationSettings {
-  const { on, ...choices } = change;
-  // As `choicesFor` reads them: Facebook's are the settings' own fields.
+  const { on, young, ...choices } = change;
+  // As `choicesFor` reads them: Facebook's are the settings' own fields, but for its switch and its account's age.
   const own = platform === 'facebook';
   const networks = {
     ...settings.networks,
     [platform]: {
       ...settings.networks[platform],
       ...(on === undefined ? {} : { on }),
+      ...(young === undefined ? {} : { young }),
       ...(own ? {} : choices),
     },
   } as AutomationSettings['networks'];
@@ -409,6 +410,26 @@ export function tidyWordsOn(platform: Platform) {
 }
 
 /**
+ * Why no new friend requests are on Today's list (decision 97), and what lets them start again, in a network's words:
+ * on the web and the phone.
+ */
+export function requestsHeldWords(
+  held: { readonly why: 'waiting' | 'cap'; readonly count: number; readonly most: number },
+  platform: Platform,
+): string {
+  const kit = NETWORKS[platform];
+  const { friendRequests, friends } = kit.words;
+  const count = held.count.toLocaleString('en-US');
+  if (held.why === 'cap')
+    return `No new ${friendRequests} for now: you have ${count} ${friends} on ${kit.name}, close to its cap of ${kit.friendsCap.toLocaleString('en-US')}. ${
+      kit.tidyLimits.unfriend > 0
+        ? `To make room, unfriend some under Tidy up on the Friends tab.`
+        : `To make room, remove some ${friends} on ${kit.name}.`
+    }`;
+  return `No new ${friendRequests} for now: ${count} of yours are still waiting for an answer, and ${kit.name} watches accounts with many. They start again under ${held.most.toLocaleString('en-US')}. Tick some under ${MORE[platform].oldRequests.title} in Tidy up on the Friends tab.`;
+}
+
+/**
  * The network something on a list is on, from its link: a message's, a step's or a request's profile. Facebook's when
  * the link is on none the add-on knows.
  */
@@ -499,7 +520,11 @@ export const NETWORK_WORDS = {
   alwaysAllowed: 'Always allowed',
   limitsOn: (name: string) => `Daily limits on ${name}`,
   limitsAbout: (name: string) =>
-    `Up to ${name}’s starting limits, which keep an account there safe. Halved for a week after a warning there, and on training wheels there.`,
+    `Up to ${name}’s starting limits, which keep an account there safe. Halved for your first 2 weeks there, for a week after a warning there, and on training wheels there.`,
+  /** The switch for a young account (decision 96), on the network's page under its limits. */
+  young: (name: string) => `My ${name} account is under a year old`,
+  youngAbout: (name: string) =>
+    `A newer account gets 2 more weeks at half limits, as ${name} watches new accounts most. The extension can’t see how old yours is.`,
   /** Today's strip. */
   stripTitle: 'Your networks',
   listOn: (name: string) => `Your list for today on ${name}`,

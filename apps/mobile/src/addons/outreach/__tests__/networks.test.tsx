@@ -295,6 +295,8 @@ const todayOf = (items: TodayItem[]): TodayOutput => ({
   wheels: { on: false, from: null, ok: 0, daysLeft: 0, edits: 0 },
   ready: true,
   week: null,
+  fresh: { on: false, from: null, until: null, days: 14 },
+  requestsHeld: null,
 });
 
 describe('A network’s list for today', () => {
@@ -439,6 +441,12 @@ const AUTOMATION: AutomationOutput = {
     linkedin: { on: false, from: null, ok: 0, daysLeft: 7, edits: 0 },
     instagram: { on: false, from: null, ok: 0, daysLeft: 7, edits: 0 },
     alignable: { on: false, from: null, ok: 0, daysLeft: 7, edits: 0 },
+  },
+  fresh: {
+    facebook: { on: false, from: null, until: null, days: 14 },
+    linkedin: { on: false, from: null, until: null, days: 14 },
+    instagram: { on: false, from: null, until: null, days: 14 },
+    alignable: { on: false, from: null, until: null, days: 14 },
   },
   userId: ME,
   name: 'Dana Reyes',

@@ -94,11 +94,30 @@ export const TIDY_KIND_KEYS = Object.keys(TIDY_LIMITS) as [TidyKind, ...TidyKind
 export const WARNING_SLOWER_DAYS = 7;
 export const WARNING_NO_REQUESTS_DAYS = 2;
 
+/**
+ * A network new to the extension (decision 96): every daily limit there is half for the first 2 weeks after the first
+ * step it took or noted there for the person, and for 2 more weeks when they said the account is under a year old.
+ * Before its first step there, it's new: its first day there starts at half.
+ */
+export const NEW_NETWORK_DAYS = 14;
+export const YOUNG_ACCOUNT_DAYS = 14;
+
+/**
+ * No new friend requests (decision 97): while this many of the person's sent requests wait for an answer, on a network
+ * where a request waits (not a follow network); or once their friends come within `FRIENDS_CAP_ROOM` of the
+ * network's cap, 4,900 on Facebook.
+ */
+export const REQUESTS_WAITING_MOST = 200;
+export const FRIENDS_CAP_ROOM = 100;
+
 /** A limit as it stands: halved, but never below one, while a warning slows things down. */
 export const limitNow = (most: number, slower: boolean): number =>
   slower ? Math.max(1, Math.floor(most / 2)) : most;
 
-/** The daily limits as they stand for the person: the business's, halved after a warning or on training wheels. */
+/**
+ * The daily limits as they stand for the person: the business's, halved after a warning, on training wheels or new on
+ * the network.
+ */
 export function dailyLimitsNow(
   slower: boolean,
   /** The business's own, each at most the starting one (decision 38). */

@@ -239,6 +239,7 @@ export const outreachAddon = defineAddon({
     'live_steps',
     'my_groups',
     'needs',
+    'network_starts',
     'opener_uses',
     'partner_leads',
     'partner_searches',
