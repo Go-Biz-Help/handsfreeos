@@ -7128,7 +7128,7 @@ export interface paths {
         put?: never;
         /**
          * The person says someone they reached booked a demo some other way than the demo link, or takes that back. It counts toward which openers work.
-         * @description Risk level 0. Requires outreach.use. Emits outreach.demo.marked.
+         * @description Risk level 0. Requires outreach.use. Emits outreach.demo.marked, outreach.lead.wanted.
          */
         post: operations["command_outreach_demo_mark"];
         delete?: never;
@@ -8008,7 +8008,7 @@ export interface paths {
         put?: never;
         /**
          * Say where someone the person reached stands, when they know better than what’s worked out: ready to pitch (Today offers Pitch), pitched, not a fit (nothing on Today reaches them again but a reply), or back in play.
-         * @description Risk level 0. Requires outreach.use. Emits outreach.stage.marked.
+         * @description Risk level 0. Requires outreach.use. Emits outreach.stage.marked, outreach.lead.wanted.
          */
         post: operations["command_outreach_stage_mark"];
         delete?: never;
@@ -74283,6 +74283,14 @@ export interface operations {
                                     name: string | null;
                                     url: string;
                                 }[];
+                                lead: {
+                                    /** Format: uuid */
+                                    leadId: string;
+                                    stage: string;
+                                    /** @enum {string} */
+                                    status: "open" | "won" | "lost";
+                                    title: string;
+                                } | null;
                                 moreSteps: number;
                                 nextStep: string | null;
                                 stage: ("found" | "warming" | "friends" | "talking" | "ready" | "pitched" | "booked" | "client" | "lost") | null;

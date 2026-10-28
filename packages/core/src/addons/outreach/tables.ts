@@ -24,7 +24,7 @@ import {
   unique,
   uuid,
 } from 'drizzle-orm/pg-core';
-import { people, users, workspaces } from '@hfos/db/schema';
+import { leads, people, users, workspaces } from '@hfos/db/schema';
 import type { TouchKind, TouchStep } from './activity';
 import type { AskKind, AskReply, AskResult, AskState, AskTask, AskVia } from './asks';
 import type {
@@ -212,6 +212,12 @@ export const profiles = addonOutreach.table(
     followersAt: ts('followers_at'),
     /** When they were found as a partner (decision 81): never pitched as a customer since, nor are their twins. */
     partnerFoundAt: ts('partner_found_at'),
+    /**
+     * The lead it put in the pipeline when they wanted a demo (decision 105), or the customer's open lead it found, and
+     * when: one lead a profile, once, so `leadAt` stays when the lead is deleted for good.
+     */
+    leadId: uuid('lead_id').references(() => leads.id, { onDelete: 'set null' }),
+    leadAt: ts('lead_at'),
     savedBy: userRef('saved_by'),
     lastSeenBy: userRef('last_seen_by'),
     lastSeenAt: ts('last_seen_at').notNull().defaultNow(),

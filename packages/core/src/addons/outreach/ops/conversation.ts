@@ -32,6 +32,7 @@ import { PARTNER_GOAL, paceOf, type Pace } from '../playbooks';
 import { followUps, playbooks, profiles, stages } from '../tables';
 import { EVER } from './activity';
 import { inWorkspace, type Ctx } from './common';
+import { wantLead } from './leads';
 import { notePartnerSent } from './partners';
 import { numbersIn } from './tracking';
 
@@ -336,7 +337,7 @@ export const answerNote = defineAddonCommand(outreachAddon, {
   permission: 'outreach.use',
   actors: ['system'],
   scope: inWorkspace,
-  emits: [],
+  emits: ['outreach.lead.wanted'],
   async handler(ctx, input) {
     const [profile] = await ctx.tx
       .select({ id: profiles.id })
@@ -351,6 +352,8 @@ export const answerNote = defineAddonCommand(outreachAddon, {
       at: changeMoment(ctx.meta),
       writtenAt: input.writtenAt ? new Date(input.writtenAt) : null,
     });
+    // The yes before the link puts them in the pipeline (decision 105).
+    if (input.answer === 'yes') await wantLead(ctx, input.userId, profile.id);
     return { noted: true };
   },
 });

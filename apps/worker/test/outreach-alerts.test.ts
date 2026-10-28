@@ -3,7 +3,8 @@
  * extension saw is pushed to the person, unless they were looking, and one handed over to them (decision 27); at the business's hour each person who used the
  * extension lately hears how much is on their list for today; a post asking for what the business offers pushes at
  * once when it's fresh (decision 49); someone accepting the person's friend request pushes when they switched that on
- * (decision 101); and a booking through someone's demo link counts as a demo by itself.
+ * (decision 101); and a booking through someone's demo link counts as a demo by itself, and puts them in the pipeline
+ * (decision 105).
  */
 import { randomUUID } from 'node:crypto';
 import { demoRef, partnerRef } from '@hfos/core/addons/outreach/demos';
@@ -555,6 +556,18 @@ describe('the demo link', () => {
         person_id: booked.personId,
       },
     ]);
+    // They want a demo: the booking's customer is in the pipeline, on one lead (decision 105).
+    const [profile] = await rows<{ person_id: string; lead_id: string | null }>(
+      admin(),
+      sql`select person_id, lead_id from addon_outreach.profiles where id = ${quinn!.id}`,
+    );
+    expect(profile!.person_id).toBe(booked.personId);
+    const leads = await rows<{ id: string }>(
+      admin(),
+      sql`select id from app.leads where workspace_id = ${t.wsId} and person_id = ${booked.personId}
+            and status = 'open'`,
+    );
+    expect(leads.map((l) => l.id)).toEqual([profile!.lead_id]);
   }, 90_000);
 });
 

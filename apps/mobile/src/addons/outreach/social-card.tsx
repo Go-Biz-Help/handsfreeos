@@ -1,11 +1,14 @@
 import { relativeTimeAgo } from '@hfos/core';
 import { journeyStepWords, type Journey } from '@hfos/core/addons/outreach/journey';
+import { leadWords } from '@hfos/core/addons/outreach/leads';
 import { PLATFORMS, type Platform } from '@hfos/core/addons/outreach/networks';
 import { STAGES } from '@hfos/core/addons/outreach/stages';
 import { OUTREACH_WORDS as W } from '@hfos/core/addons/outreach/words';
+import { router, type Href } from 'expo-router';
 import * as React from 'react';
 import { Pressable, View } from 'react-native';
 
+import { businessHref } from '@/components/shell/business-context';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
@@ -112,6 +115,16 @@ function SocialProfileRow({
       </View>
       {j.why.length ? <Note testID="outreach-social-why">{j.why.join(' · ')}</Note> : null}
       {j.nextStep ? <Note>{`${W.nextStepLabel}: ${j.nextStep}`}</Note> : null}
+      {j.lead ? (
+        <Pressable
+          role="link"
+          accessibilityLabel={leadWords(j.lead)}
+          onPress={() => router.push(businessHref(workspaceId, `leads/${j.lead!.leadId}`) as Href)}
+          testID="outreach-social-lead"
+        >
+          <Text className="text-[13px] leading-[18px] text-accent-text">{leadWords(j.lead)}</Text>
+        </Pressable>
+      ) : null}
       {j.groups.length ? (
         <View className="flex-row flex-wrap items-center gap-x-1" testID="outreach-social-groups">
           <Note>Found in</Note>

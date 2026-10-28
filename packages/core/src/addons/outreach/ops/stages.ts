@@ -29,6 +29,7 @@ import { OUTREACH_WORDS } from '../words';
 import { knownCheck } from './checks';
 import { clientCauseOf, inWorkspace, isClient, pitchable, type Ctx } from './common';
 import { noteSent, offerVersionFor, restartConversation } from './conversation';
+import { wantLead } from './leads';
 import type { CheckVerdict } from '../checks';
 
 const DAY = 86_400_000;
@@ -101,7 +102,6 @@ export async function noteChatRead(
     await keepMarks(ctx, me, profileId, { mark: null, markedBy: null, why: null, markedAt: null });
 }
 
-/** What's known about each person reached, and the stage it comes to. `which` narrows the profiles. */
 /**
  * Everyone the person reached among the profiles `which` picks (`p`), each with their stage worked out: a query to
  * select from, as the pipeline, a customer's Social panel and a group's page (../journey.ts) do.
@@ -293,7 +293,7 @@ export const stageMark = defineAddonCommand(outreachAddon, {
     keywords: ['ready to pitch', 'pitched', 'not a fit', 'back in play'],
   },
   scope: inWorkspace,
-  emits: ['outreach.stage.marked'],
+  emits: ['outreach.stage.marked', 'outreach.lead.wanted'],
   async handler(ctx, input) {
     const me = requireHuman(ctx).userId;
     const ws = ctx.scope.workspaceId!;
@@ -311,6 +311,7 @@ export const stageMark = defineAddonCommand(outreachAddon, {
           why: null,
           markedAt: at,
         });
+        await wantLead(ctx, me, profile.id);
         break;
       case 'pitched':
         await keepMarks(ctx, me, profile.id, { pitchedAt: at });

@@ -34,6 +34,7 @@ import { CHECK_PARTNERS_JOB, checkPartnersJob, partnerLooked } from './partners'
 import { countriesWanted, GUESS_COUNTRIES_JOB, guessCountriesJob } from './countries';
 import { downloadSaved, READ_CHATS_JOB, readChatsJob } from './chats';
 import { appointmentBooked } from './demos';
+import { leadWanted } from './leads';
 import {
   CHECK_GROUPS_JOB,
   checkGroupsJob,
@@ -173,6 +174,8 @@ export const outreachAddonWorker: AddonWorkerModule = {
     'main_offer.published': offerPublished,
     // Someone who could partner, read off their profile, waits for the AI's partner check (./partners.ts).
     'outreach.partner.looked': partnerLooked,
+    // Someone who wants a demo, or answered the playbook's questions, goes in the main pipeline (./leads.ts).
+    'outreach.lead.wanted': leadWanted,
   },
   jobs: {
     [READ_CHATS_JOB]: readChatsJob,

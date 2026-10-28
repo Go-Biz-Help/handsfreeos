@@ -2475,6 +2475,21 @@ where decisions 37 and 59 put the settings; what they decided stands. Settled to
         (`outreach.computer.rename`, `.remove`).
       - **Still on the web:** niche, problem and proof have no part on the phone, so no AI help there; sample
         messages and own openers are changed one a line, as before.
+105.  **A lead in your pipeline for whoever wants a demo** (Chris, 28 Oct 2026, "all of your picks": 2a). Once someone
+      the person reached wants a demo or has answered the playbook's questions, they go in Contacts and a lead goes in
+      the main pipeline's first stage (core's `lead.create`, as the system), titled "Dana Reyes (Facebook)", its
+      source the network and the group they were found in ("Facebook · Round Rock Contractors"), assigned to whoever
+      reached them, with a line on the lead's timeline. A customer's Social panel, on the web and the phone, says where
+      the lead is now and opens it.
+      - **What counts,** as Today's Pitch reads it: the AI's read of their chat says they're ready for the offer, they
+        said yes to the step before the link (the video, or the first message when the playbooks have no video; a yes
+        to the opener alone doesn't count while there's a video), the person marked them ready, or a demo was booked
+        or marked. Each asks for the lead (`outreach.lead.wanted`); the worker has `outreach.lead.open` look again
+        (`apps/worker/src/addons/outreach/leads.ts`).
+      - **Once a profile** (`profiles.lead_id`, `lead_at`): a lead won, lost or deleted is never opened again. A customer
+        with an open lead keeps it, with the line on it; one booked through the demo link is the booking's customer.
+      - **None** for Never contact, Don't pitch, a partner or a client, for a deleted customer, for someone whoever
+        reached them no longer works here, or when the business has no pipeline with an open stage.
 
 ## Rules worth knowing before changing anything
 

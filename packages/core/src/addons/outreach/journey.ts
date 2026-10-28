@@ -8,6 +8,7 @@
  * Browser-safe: the web and the phone read these shapes and words.
  */
 import { z } from 'zod';
+import { JourneyLead } from './leads';
 import { TOUCH_KIND_KEYS, TOUCH_STEPS, type TouchKind } from './limits';
 import { inNetworkWords, PLATFORM_KEYS, type Platform } from './networks';
 import { STAGE_KEYS, STAGES, type Stage } from './stages';
@@ -62,6 +63,8 @@ export const Journey = z.object({
   steps: z.array(JourneyStep),
   /** Steps left out past `JOURNEY_STEPS_MOST`. */
   moreSteps: z.number().int().min(0),
+  /** The lead they went in the pipeline with when they wanted a demo (decision 105), while it's there. */
+  lead: JourneyLead.nullable(),
 });
 export type Journey = z.output<typeof Journey>;
 
@@ -74,6 +77,7 @@ export const NO_JOURNEY: Journey = {
   chat: null,
   steps: [],
   moreSteps: 0,
+  lead: null,
 };
 
 /** What a step says, in its network's words: "Sent a friend request", "Followed up", "They wrote back". */

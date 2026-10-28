@@ -82,6 +82,21 @@ export async function journeysOf(
         where c.user_id = ${me} and c.profile_id = any (${list}::uuid[])
         order by c.profile_id, c.last_at desc`,
   );
+  // The business's lead for them, as the pipeline has it now: one archived or deleted is left out.
+  const leads = await rows<{
+    profile_id: string;
+    id: string;
+    title: string;
+    stage: string;
+    status: 'open' | 'won' | 'lost';
+  }>(
+    ctx.tx,
+    sql`select p.id as profile_id, l.id, l.title, s.name as stage, l.status
+        from addon_outreach.profiles p
+        join app.leads l on l.id = p.lead_id and l.archived_at is null and l.bin_item_id is null
+        join app.pipeline_stages s on s.id = l.stage_id
+        where p.id = any (${list}::uuid[])`,
+  );
   const everyone = await seesEveryone(ctx, me);
   const whose = (column: string) => (everyone ? sql`true` : sql`${sql.raw(column)} = ${me}`);
   const steps = await rows<{
@@ -144,6 +159,13 @@ export async function journeysOf(
         lastFromMe: c.last_from_me,
       },
     });
+  for (const l of leads)
+    out.get(l.profile_id)!.lead = {
+      leadId: l.id,
+      title: l.title,
+      stage: l.stage,
+      status: l.status,
+    };
   for (const s of steps) {
     const journey = out.get(s.profile_id)!;
     const step: JourneyStep = {

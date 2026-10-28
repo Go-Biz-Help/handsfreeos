@@ -17,7 +17,8 @@ import { id, WS } from './mocks';
 
 /**
  * How someone came along, on the phone (decision 103): a customer's Social card, with where they stand, the group
- * they were found in (opening its page), the chat's summary and their steps; and a group's own page of who was found
+ * they were found in (opening its page), the chat's summary and their steps, and their lead in the pipeline
+ * (decision 105); and a group's own page of who was found
  * there and how each turned out, a customer opening their page.
  */
 
@@ -98,6 +99,24 @@ describe('a customer’s Social card', () => {
     await render(<OutreachSocialBody workspaceId={WS} profiles={[profile]} />);
     await fireEvent.press(screen.getByLabelText('Round Rock Contractors'));
     expect(openWebPath).toHaveBeenCalledWith(`/app/w/${WS}/a/outreach?view=groups&group=${GROUP}`);
+  });
+
+  it('says where their lead is in the pipeline, and opens it', async () => {
+    const lead = {
+      leadId: id(9),
+      title: 'Dana Reyes (Facebook)',
+      stage: 'New',
+      status: 'open' as const,
+    };
+    await render(
+      <OutreachSocialBody
+        workspaceId={WS}
+        profiles={[{ ...profile, journey: { ...journey, lead } }]}
+      />,
+    );
+    expect(screen.getByTestId('outreach-social-lead')).toHaveTextContent('In your pipeline: New');
+    await fireEvent.press(screen.getByLabelText('In your pipeline: New'));
+    expect(router.push).toHaveBeenCalledWith(`/app/w/${WS}/leads/${id(9)}`);
   });
 
   it('shows nothing for a customer nobody saved from a network', async () => {

@@ -6,6 +6,7 @@
  * only while the add-on runs and for people with `outreach.use`; a customer nobody saved from a network shows nothing.
  */
 import { journeyStepWords } from '@hfos/core/addons/outreach/journey';
+import { leadWords } from '@hfos/core/addons/outreach/leads';
 import { PLATFORMS, type Platform } from '@hfos/core/addons/outreach/playbooks';
 import { STAGES } from '@hfos/core/addons/outreach/stages';
 import { OUTREACH_WORDS as W } from '@hfos/core/addons/outreach/words';
@@ -99,6 +100,16 @@ function Profile({ workspaceId, profile: p }: { workspaceId: string; profile: Pr
       {j.nextStep ? (
         <p className="mt-1 text-[12.5px] text-text-2" data-testid="outreach-panel-next">
           {W.nextStepLabel}: {j.nextStep}
+        </p>
+      ) : null}
+      {j.lead ? (
+        <p className="mt-1 text-[12.5px]" data-testid="outreach-panel-lead">
+          <Link
+            href={`/app/w/${workspaceId}/leads/${j.lead.leadId}`}
+            className="text-accent-text hover:underline"
+          >
+            {leadWords(j.lead)}
+          </Link>
         </p>
       ) : null}
       {p.intro.length ? (
