@@ -340,3 +340,55 @@ describe('Get ready, with your profile as advice (decision 90)', () => {
     expect(box.querySelector('[data-testid="panel-advice"]')).toBeNull();
   });
 });
+
+describe('the day’s buttons (decision 95)', () => {
+  /** 10 AM to 10 PM on weekdays, on Chicago's clock. */
+  const automation = {
+    settings: { sending: 'steps', hours: { start: 10, end: 22, days: [1, 2, 3, 4, 5] } },
+    timezone: 'America/Chicago',
+  } as unknown as AutoStatus['automation'];
+
+  /** The panel's buttons at `now`, with the day as the runner keeps it. */
+  async function buttons(now: number, state = freshState('2026-10-28')): Promise<string[]> {
+    vi.setSystemTime(now);
+    const status = {
+      automation,
+      trouble: null,
+      businessId: 'b-one',
+      noting: true,
+      state,
+      webUrl: WEB,
+      live: null,
+      warned: null,
+      pastLimit: null,
+    } satisfies AutoStatus;
+    const p = panel({}, { 'hfos-auto': { ok: true, value: status } });
+    const { startStatus } = await import('../src/panel/status');
+    const box = p.document.createElement('section');
+    p.document.body.append(box);
+    startStatus(box);
+    await settle();
+    return [...box.querySelectorAll('button')].map((b) => b.textContent ?? '');
+  }
+
+  // Wednesday 28 Oct 2026: 4:50 PM in Chicago, in the hours; 8 AM, before them.
+  const inHours = Date.UTC(2026, 9, 28, 21, 50);
+  const early = Date.UTC(2026, 9, 28, 13);
+
+  it('has only Stop for today while the day goes on its own in the working hours', async () => {
+    expect(await buttons(inHours)).toEqual(['Stop for today']);
+  });
+
+  it('has Start my day before the hours, and only Stop for today once started', async () => {
+    expect(await buttons(early)).toEqual(['Start my day', 'Stop for today']);
+    expect(await buttons(early, { ...freshState('2026-10-28'), started: true })).toEqual([
+      'Stop for today',
+    ]);
+  });
+
+  it('has only Start my day once stopped for today, in the hours too', async () => {
+    expect(await buttons(inHours, { ...freshState('2026-10-28'), stopped: 'person' })).toEqual([
+      'Start my day',
+    ]);
+  });
+});
