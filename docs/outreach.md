@@ -2849,7 +2849,10 @@ where decisions 37 and 59 put the settings; what they decided stands. Settled to
 - **The file has no links, so it's kept by name** (`file_people`, `file_chats`, each person's own). With the last
   part, a name is matched to the one profile saved here by it (`nameKey`: lower case, spaces closed up), or among
   several, the one the person's own Facebook has a say on. A name twice in one of the file's lists is two people,
-  and neither is matched. A newer file updates the same rows and matches again.
+  and neither is matched. A newer file updates the same rows and matches again. A profile saved after the file came
+  in is matched to the person's own file there and then, by the same rule, to names still matched to nobody, and
+  what the file says about them goes in place (`matchFileLater` in `ops/file-match.ts`, from 28 Oct 2026). A
+  teammate's file waits for their next file, as friends are each person's own.
 - **What the file says goes in place as of when Facebook made it** (`madeAt`, the zip's own date, never before the
   latest moment in it). Where things stood then (friends, a request either way) beats what happened before (a friend
   removed, a request deleted). Newer news wins: something the extension saw after the file was made stays, and only
@@ -3057,8 +3060,7 @@ comments waiting at first, the AI's check of Facebook's group members, reading f
 reading likers on Alignable, a business setting for the 30 found checks a day, results by hashtag, phrase and kind of
 business, and tidying away finds never checked after two weeks (what they said is gone already).
 
-Next: the AI suggesting a conversation from the rest of the playbook, with AI drafting. A profile saved after the file
-came in is matched to it when a newer file comes in. Then leads. Then the rest of decisions 26 to 35 (the onboarding,
+Next: the AI suggesting a conversation from the rest of the playbook, with AI drafting. Then leads. Then the rest of decisions 26 to 35 (the onboarding,
 decision 36, and joining groups, decision 48, are built), in the order above: tidying on its own, then team sharing, the after-demo workflow, birthday notes and
 templates, then LinkedIn and Instagram. LinkedIn and the networks after it are planned in
 HANDSFREEOS_SOCIAL_NETWORKS_IMPLEMENTATION_PLAN.md: one add-on, a kit per network, and each network on its own, so a
