@@ -8,7 +8,8 @@ codes, on 28 Oct at 00:12 UTC ("move forward with all of your picks"). Part 1 is
 carried through sign-up, applying, and the Admin area's Affiliates page (migration `20261027014000_affiliates.sql`).
 Part 2 is built: plan payments and their refunds are kept, and affiliates earn their share
 (`20261027014200_affiliate_commissions.sql`). Part 3 is built: discount and trial codes
-(`20261027014300_affiliate_codes.sql`). Part 4, payouts, is next.
+(`20261027014300_affiliate_codes.sql`). Part 4 is built: monthly payouts through Stripe Express, off until staff turn
+them on (`20261027014400_affiliate_payouts.sql`). Part 5, the website's page and the terms, is next.
 
 This is about selling **HandsFreeOS itself**. It's separate from Partners (`HANDSFREEOS_PARTNERS_IMPLEMENTATION_PLAN.md`),
 where a business pays its own partners for its own customers. It's called **Affiliates** so the two never get mixed
@@ -78,8 +79,12 @@ The questions and the follow-ups on codes are in the project files, `affiliates/
    turns on with its first month or year starting when the trial ends, and the hourly sweep charges the card then,
    the way it renews any month or year. Stopping it renewing during the trial gives the spot back when the trial ends.
    A card refused then is a renewal refused: the business is asked to pay with another card, and the spot stays on.
-9. **Getting paid** (part 4). Once a month, through Stripe Express, for payments at least 30 days old; under $25
-   waits.
+9. **Getting paid** (part 4). An approved affiliate sets up their bank from their page, on Stripe's own form: a Stripe
+   Express account of HandsFreeOS's platform, US only. Once a month, the worker's hourly `affiliate_payouts.plan`
+   makes one payout for each affiliate owed at least $25 whose bank can take it, of every share free to pay (30 days
+   after it was earned) less what refunds took back, and sends it from HandsFreeOS's own Stripe balance. They get an
+   email saying how much. Under $25 waits for the next month. HandsFreeOS pays Stripe's fees. **Nothing is sent
+   until staff turn on Pay affiliates** under Admin → Affiliates.
 
 ## Rules worth knowing before changing anything
 
@@ -127,6 +132,22 @@ The questions and the follow-ups on codes are in the project files, `affiliates/
   paid for a plan before (`private.founding_checkout_paid`, how `code`). A business already credited stays with its
   affiliate. Nobody uses their own code, nor a code on a business they made.
 - **Changing the code before paying** closes the page under way and makes a new one; the hold on the spot stays.
+- **Payouts are off until staff turn them on** (`affiliate_settings.payouts_on`), once the terms are read. Until
+  then affiliates can set up their bank, and what they're owed keeps.
+- **One payout an affiliate a month,** from the 1st (UTC). Its shares are tied to it
+  (`affiliate_commissions.payout_id`), so a share is paid once. A share taken back after it was paid comes off the
+  next one. Paused and ended affiliates are paid what they earned.
+- **From our own balance, with no source charge.** Plan payments are many and small, so a payout isn't tied to one;
+  it needs HandsFreeOS's available balance to cover it. One the balance can't cover stays on its way and is tried
+  each hour; the worker logs it as an error. One Stripe won't take for the affiliate is held, and sent once their
+  account can take it. Each transfer's key is the payout and the account, so a retry never pays twice.
+- **The worker does the payouts' bookkeeping through `private.affiliate_payout*` functions,** not commands: there's
+  no business to run a command in, as with counting clicks. People read their own account and payouts; staff read
+  everyone's; nobody but the worker writes them.
+- **A key pays only accounts of its own mode.** An account made with a test key takes only test money; going live
+  makes the affiliate a new account when they next press Set up payouts.
+- **No webhook for an affiliate's account.** Stripe's word is read when they come back to their page from Stripe's
+  form, and every six hours for an account that can't be paid yet while they're owed money or have a payout held.
 
 ## Build order
 
@@ -149,8 +170,13 @@ The questions and the follow-ups on codes are in the project files, `affiliates/
    on the plan page; the trial's setup page at Stripe; renewals charged with the discount; the code's link on the
    website and through sign-up. `private.founding_buy(uuid, text)`, without a code, is kept so the API running
    before the deploy still buys; a later migration drops it.
-4. **Monthly payouts** through Stripe Express, from HandsFreeOS's own balance, reusing Partners' Express accounts
-   (`apps/worker/src/payments/stripe.ts`).
+4. **Monthly payouts** (built, `20261027014400`; decisions 7 to 10). The tables `platform.affiliate_payout_accounts`
+   and `affiliate_payouts`, `affiliate_commissions.payout_id`, and `affiliate_settings.payouts_on` on
+   `affiliates.save_settings`; the worker's `POST /v1/affiliate/payouts` (Stripe's form, the check on the way back,
+   their Stripe page) and hourly `affiliate_payouts.plan`, reusing Partners' Express accounts
+   (`apps/worker/src/payments/stripe.ts`); the payout email; "Getting paid" on the affiliate's page; the Pay
+   affiliates switch, and their bank and payouts, under Admin → Affiliates. Setting it up is "Paying affiliates:
+   Stripe Express" in `docs/operations.md`.
 5. **The website's Affiliates page** with Apply, the **terms** affiliates accept before they get their link, and a
    link from the account menu.
 

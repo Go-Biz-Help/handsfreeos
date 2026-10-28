@@ -245,7 +245,7 @@ export const SCREEN_ACTIONS: Readonly<Record<string, ScreenAction>> = {
   'wallet.set_stage': { warning: 'This changes what happens when their balance runs out.' },
   'affiliates.save_settings': {
     warning:
-      'This changes every affiliate’s share and code limit without one of their own: the share for payments from now on, the limit at once.',
+      'This changes every affiliate’s share and code limit without one of their own, or whether affiliates are paid: the share for payments from now on, the limit at once, and paying from the next hour, with real money from HandsFreeOS’s Stripe balance.',
   },
   'affiliate.decide': { warning: 'They get an email saying what was decided.' },
   'affiliate.set_status': { warning: 'This changes whether their link credits new businesses.' },

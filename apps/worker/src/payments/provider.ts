@@ -553,12 +553,18 @@ export interface PayoutAccountState {
   readonly due: readonly string[];
 }
 
-/** Money from our balance to a partner's, once the charge that brought it in has landed. */
+/**
+ * Money from our balance to a partner's, once the charge that brought it in has landed; or to an affiliate's
+ * (20261027014400), from what's in our balance now.
+ */
 export interface PayoutTransferInput {
   readonly accountRef: string;
   readonly amountCents: number;
-  /** The business's charge (`ch_…`) the money came in on: Stripe sends it once that charge's money is ours. */
-  readonly sourceChargeRef: string;
+  /**
+   * The business's charge (`ch_…`) the money came in on: Stripe sends it once that charge's money is ours. Null for
+   * an affiliate's payout, which comes from HandsFreeOS's own balance.
+   */
+  readonly sourceChargeRef: string | null;
   /** Every transfer of one month's payout, and its charge, under one name in Stripe's dashboard. */
   readonly transferGroup: string;
   readonly description: string;

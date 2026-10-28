@@ -43842,7 +43842,7 @@
     "/v1/commands/affiliates.save_settings": {
       "post": {
         "operationId": "command_affiliates_save_settings",
-        "summary": "Set the share every affiliate earns of each plan payment, and the most any affiliate’s code may take off, unless they have their own. The share counts for payments from now on; the limit at once, on codes already made too, but never on what a business already bought.",
+        "summary": "Set the share every affiliate earns of each plan payment, the most any affiliate’s code may take off unless they have their own, and whether affiliates are paid each month. The share counts for payments from now on; the limit at once, on codes already made too, but never on what a business already bought. Paying starts from the next hourly look, from HandsFreeOS’s Stripe balance; turning it off stops what isn’t on its way.",
         "tags": [
           "commands"
         ],
@@ -43863,6 +43863,9 @@
                     "type": "integer",
                     "minimum": 100,
                     "maximum": 9000
+                  },
+                  "payoutsOn": {
+                    "type": "boolean"
                   }
                 },
                 "required": [
@@ -43890,11 +43893,15 @@
                       "type": "integer",
                       "minimum": -9007199254740991,
                       "maximum": 9007199254740991
+                    },
+                    "payoutsOn": {
+                      "type": "boolean"
                     }
                   },
                   "required": [
                     "rateBp",
-                    "maxDiscountBp"
+                    "maxDiscountBp",
+                    "payoutsOn"
                   ],
                   "additionalProperties": false
                 }
@@ -112551,7 +112558,7 @@
     "/v1/queries/affiliate.mine": {
       "post": {
         "operationId": "query_affiliate_mine",
-        "summary": "Your own place in the HandsFreeOS affiliate program: whether you’ve applied and where it stands, your link code, your share, your link’s clicks, how many signed up, the businesses that pay, what you’ve earned, and your discount and trial codes with the most they may take off.",
+        "summary": "Your own place in the HandsFreeOS affiliate program: whether you’ve applied and where it stands, your link code, your share, your link’s clicks, how many signed up, the businesses that pay, what you’ve earned, waiting, ready, on its way and paid, your discount and trial codes with the most they may take off, whether your bank is set up with Stripe for payouts, and your monthly payouts.",
         "tags": [
           "queries"
         ],
@@ -112834,6 +112841,11 @@
                                   "minimum": -9007199254740991,
                                   "maximum": 9007199254740991
                                 },
+                                "onItsWayCents": {
+                                  "type": "integer",
+                                  "minimum": -9007199254740991,
+                                  "maximum": 9007199254740991
+                                },
                                 "paidCents": {
                                   "type": "integer",
                                   "minimum": -9007199254740991,
@@ -112844,9 +112856,94 @@
                                 "earnedCents",
                                 "waitingCents",
                                 "readyCents",
+                                "onItsWayCents",
                                 "paidCents"
                               ],
                               "additionalProperties": false
+                            },
+                            "bank": {
+                              "type": "object",
+                              "properties": {
+                                "state": {
+                                  "type": "string",
+                                  "enum": [
+                                    "none",
+                                    "unfinished",
+                                    "ready",
+                                    "stopped"
+                                  ]
+                                },
+                                "due": {
+                                  "type": "array",
+                                  "items": {
+                                    "type": "string"
+                                  }
+                                },
+                                "test": {
+                                  "type": "boolean"
+                                }
+                              },
+                              "required": [
+                                "state",
+                                "due",
+                                "test"
+                              ],
+                              "additionalProperties": false
+                            },
+                            "payouts": {
+                              "type": "array",
+                              "items": {
+                                "type": "object",
+                                "properties": {
+                                  "payoutId": {
+                                    "type": "string",
+                                    "format": "uuid",
+                                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                                  },
+                                  "month": {
+                                    "type": "string",
+                                    "format": "date",
+                                    "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$"
+                                  },
+                                  "amountCents": {
+                                    "type": "integer",
+                                    "minimum": -9007199254740991,
+                                    "maximum": 9007199254740991
+                                  },
+                                  "status": {
+                                    "type": "string",
+                                    "enum": [
+                                      "sending",
+                                      "held",
+                                      "paid"
+                                    ]
+                                  },
+                                  "paidAt": {
+                                    "anyOf": [
+                                      {
+                                        "type": "string",
+                                        "format": "date-time",
+                                        "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+                                      },
+                                      {
+                                        "type": "null"
+                                      }
+                                    ]
+                                  },
+                                  "test": {
+                                    "type": "boolean"
+                                  }
+                                },
+                                "required": [
+                                  "payoutId",
+                                  "month",
+                                  "amountCents",
+                                  "status",
+                                  "paidAt",
+                                  "test"
+                                ],
+                                "additionalProperties": false
+                              }
                             }
                           },
                           "required": [
@@ -112866,7 +112963,9 @@
                             "maxDiscountBp",
                             "signUps",
                             "payingBusinesses",
-                            "earnings"
+                            "earnings",
+                            "bank",
+                            "payouts"
                           ],
                           "additionalProperties": false
                         },
@@ -112879,6 +112978,9 @@
                       "type": "integer",
                       "minimum": -9007199254740991,
                       "maximum": 9007199254740991
+                    },
+                    "payoutsOn": {
+                      "type": "boolean"
                     },
                     "plans": {
                       "type": "array",
@@ -112918,6 +113020,7 @@
                   "required": [
                     "affiliate",
                     "defaultRateBp",
+                    "payoutsOn",
                     "plans"
                   ],
                   "additionalProperties": false
@@ -112975,11 +113078,15 @@
                           "type": "integer",
                           "minimum": -9007199254740991,
                           "maximum": 9007199254740991
+                        },
+                        "payoutsOn": {
+                          "type": "boolean"
                         }
                       },
                       "required": [
                         "rateBp",
-                        "maxDiscountBp"
+                        "maxDiscountBp",
+                        "payoutsOn"
                       ],
                       "additionalProperties": false
                     },
@@ -113437,7 +113544,7 @@
     "/v1/queries/platform.affiliate": {
       "post": {
         "operationId": "query_platform_affiliate",
-        "summary": "One affiliate for Admin → Affiliates: what they applied with, their share, their codes and the most those take off, the businesses they sent and what each earned them, what they’ve earned, waiting and ready, each share earned or taken back, and their link’s clicks a day.",
+        "summary": "One affiliate for Admin → Affiliates: what they applied with, their share, their codes and the most those take off, the businesses they sent and what each earned them, what they’ve earned, waiting, ready, on its way and paid, each share earned or taken back, their bank at Stripe and their payouts, and their link’s clicks a day.",
         "tags": [
           "queries"
         ],
@@ -113703,6 +113810,11 @@
                           "minimum": -9007199254740991,
                           "maximum": 9007199254740991
                         },
+                        "onItsWayCents": {
+                          "type": "integer",
+                          "minimum": -9007199254740991,
+                          "maximum": 9007199254740991
+                        },
                         "paidCents": {
                           "type": "integer",
                           "minimum": -9007199254740991,
@@ -113713,6 +113825,7 @@
                         "earnedCents",
                         "waitingCents",
                         "readyCents",
+                        "onItsWayCents",
                         "paidCents"
                       ],
                       "additionalProperties": false
@@ -113931,6 +114044,90 @@
                         "additionalProperties": false
                       }
                     },
+                    "bank": {
+                      "type": "object",
+                      "properties": {
+                        "state": {
+                          "type": "string",
+                          "enum": [
+                            "none",
+                            "unfinished",
+                            "ready",
+                            "stopped"
+                          ]
+                        },
+                        "due": {
+                          "type": "array",
+                          "items": {
+                            "type": "string"
+                          }
+                        },
+                        "test": {
+                          "type": "boolean"
+                        }
+                      },
+                      "required": [
+                        "state",
+                        "due",
+                        "test"
+                      ],
+                      "additionalProperties": false
+                    },
+                    "payouts": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "payoutId": {
+                            "type": "string",
+                            "format": "uuid",
+                            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                          },
+                          "month": {
+                            "type": "string",
+                            "format": "date",
+                            "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$"
+                          },
+                          "amountCents": {
+                            "type": "integer",
+                            "minimum": -9007199254740991,
+                            "maximum": 9007199254740991
+                          },
+                          "status": {
+                            "type": "string",
+                            "enum": [
+                              "sending",
+                              "held",
+                              "paid"
+                            ]
+                          },
+                          "paidAt": {
+                            "anyOf": [
+                              {
+                                "type": "string",
+                                "format": "date-time",
+                                "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "test": {
+                            "type": "boolean"
+                          }
+                        },
+                        "required": [
+                          "payoutId",
+                          "month",
+                          "amountCents",
+                          "status",
+                          "paidAt",
+                          "test"
+                        ],
+                        "additionalProperties": false
+                      }
+                    },
                     "clicks": {
                       "type": "array",
                       "items": {
@@ -113962,6 +114159,8 @@
                     "commissions",
                     "codes",
                     "plans",
+                    "bank",
+                    "payouts",
                     "clicks"
                   ],
                   "additionalProperties": false

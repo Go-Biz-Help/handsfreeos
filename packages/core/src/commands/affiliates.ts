@@ -150,7 +150,7 @@ export const affiliateApply = defineCommand({
 export const affiliatesSaveSettings = defineCommand({
   name: 'affiliates.save_settings',
   description:
-    'Set the share every affiliate earns of each plan payment, and the most any affiliate’s code may take off, unless they have their own. The share counts for payments from now on; the limit at once, on codes already made too, but never on what a business already bought.',
+    'Set the share every affiliate earns of each plan payment, the most any affiliate’s code may take off unless they have their own, and whether affiliates are paid each month. The share counts for payments from now on; the limit at once, on codes already made too, but never on what a business already bought. Paying starts from the next hourly look, from HandsFreeOS’s Stripe balance; turning it off stops what isn’t on its way.',
   risk: 3,
   input: AffiliatesSaveSettingsInput,
   output: AffiliatesSettingsOutput,
@@ -159,29 +159,43 @@ export const affiliatesSaveSettings = defineCommand({
   emits: ['platform.affiliate_settings_saved'],
   async handler(ctx, input) {
     const me = requireHuman(ctx).userId;
-    const [before] = await rows<{ rate_bp: number; max_discount_bp: number }>(
+    const [before] = await rows<{ rate_bp: number; max_discount_bp: number; payouts_on: boolean }>(
       ctx.tx,
-      sql`select rate_bp, max_discount_bp from platform.affiliate_settings where id`,
+      sql`select rate_bp, max_discount_bp, payouts_on from platform.affiliate_settings where id`,
     );
     const maxDiscountBp = input.maxDiscountBp ?? before?.max_discount_bp ?? 5000;
-    if (before?.rate_bp === input.rateBp && before.max_discount_bp === maxDiscountBp)
-      return { rateBp: input.rateBp, maxDiscountBp };
-    const [after] = await rows<{ rate_bp: number; max_discount_bp: number }>(
+    const payoutsOn = input.payoutsOn ?? before?.payouts_on ?? false;
+    if (
+      before?.rate_bp === input.rateBp &&
+      before.max_discount_bp === maxDiscountBp &&
+      before.payouts_on === payoutsOn
+    )
+      return { rateBp: input.rateBp, maxDiscountBp, payoutsOn };
+    const [after] = await rows<{ rate_bp: number; max_discount_bp: number; payouts_on: boolean }>(
       ctx.tx,
       sql`update platform.affiliate_settings set rate_bp = ${input.rateBp}, max_discount_bp = ${maxDiscountBp},
-            updated_by = ${me}, updated_at = now()
-          where id returning rate_bp, max_discount_bp`,
+            payouts_on = ${payoutsOn}, updated_by = ${me}, updated_at = now()
+          where id returning rate_bp, max_discount_bp, payouts_on`,
     );
     if (!after) throw HfosError.forbidden();
+    const saved = {
+      rateBp: after.rate_bp,
+      maxDiscountBp: after.max_discount_bp,
+      payoutsOn: after.payouts_on,
+    };
     await ctx.emit({
       type: 'platform.affiliate_settings_saved',
       entityType: 'affiliate_settings',
       entityId: null,
-      payload: { rateBp: after.rate_bp, maxDiscountBp: after.max_discount_bp },
-      before: { rateBp: before?.rate_bp ?? null, maxDiscountBp: before?.max_discount_bp ?? null },
-      after: { rateBp: after.rate_bp, maxDiscountBp: after.max_discount_bp },
+      payload: saved,
+      before: {
+        rateBp: before?.rate_bp ?? null,
+        maxDiscountBp: before?.max_discount_bp ?? null,
+        payoutsOn: before?.payouts_on ?? null,
+      },
+      after: saved,
     });
-    return { rateBp: after.rate_bp, maxDiscountBp: after.max_discount_bp };
+    return saved;
   },
 });
 

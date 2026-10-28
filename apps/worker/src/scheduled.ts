@@ -129,6 +129,11 @@ import {
 import { RCS_BILLING_JOBS, RCS_RENEWALS_KEY, rcsBillingJobs } from './telephony/rcs-billing';
 import { TEXTING_FEE_JOBS, TEXTING_MONTHS_KEY, textingFeeJobs } from './telephony/texting-fees';
 import { PAYOUT_JOBS, PAYOUT_PLAN_KEY, partnerPayoutJobs } from './partners/payouts';
+import {
+  AFFILIATE_PAYOUT_JOBS,
+  AFFILIATE_PAYOUT_PLAN_KEY,
+  affiliatePayoutJobs,
+} from './affiliates/payouts';
 import { opinlyJobs } from './opinly';
 import { planJobs } from './money/subscriptions';
 import { pushJobs } from './push/send';
@@ -619,6 +624,8 @@ export const jobs: JobMap = {
   ...RECHARGE_JOB_HANDLERS,
   // Paying partners (the partners plan's stage 3): each business's month, its charge and its transfers.
   ...partnerPayoutJobs,
+  // Paying affiliates (20261027014400): the hourly look that makes each month's payouts and sends them.
+  ...affiliatePayoutJobs,
   // The AI's hearing and voice, billed from its running totals every quarter of an hour.
   [SPEECH_JOBS.charge]: runSpeechCharge,
   // Retired: the campaign's month went on the balance before the card paid it (telephony/texting-fees.ts). A row
@@ -848,6 +855,16 @@ export async function ensureRecurringJobs(services: WorkerServices): Promise<voi
     await scheduleJob(tx, {
       kind: PAYOUT_JOBS.plan,
       dedupeKey: PAYOUT_PLAN_KEY,
+      runAt,
+      payload: {},
+      workspaceId: null,
+      organizationId: null,
+    });
+    // Affiliate payouts (20261027014400), hourly: each month's, once staff turn payouts on, sent from our own
+    // Stripe balance to each affiliate owed at least $25 whose bank is set up; held ones once their bank can take it.
+    await scheduleJob(tx, {
+      kind: AFFILIATE_PAYOUT_JOBS.plan,
+      dedupeKey: AFFILIATE_PAYOUT_PLAN_KEY,
       runAt,
       payload: {},
       workspaceId: null,

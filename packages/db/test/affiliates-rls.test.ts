@@ -10,6 +10,9 @@
  *   5. Codes (20261027014300): an approved affiliate makes their own, up to their limit, and reads only their own;
  *      nobody writes one directly, a code staff turned off stays off until staff turn it on, and what a code takes
  *      off is held to the limit again when it's used. Nobody uses their own.
+ *   6. Payouts (20261027014400): an affiliate reads their own bank and payouts, staff read everyone's, and nobody but
+ *      the worker writes them. A payout is built once a month, of what's free to pay, only while staff have payouts
+ *      on and only to a bank made with the same mode; a sent one stays sent, and is told of once.
  */
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { rows, sql } from '../src/client';
@@ -467,5 +470,170 @@ describe('codes', () => {
   it('nobody uses their own code', async () => {
     const { wsId } = await bootstrapOrganization(seller, 'Seller Own Co', 'Seller Own Co');
     expect((await preview(seller, wsId, theCode))[0]!.refusal).toBe('affiliate_code_own');
+  });
+});
+
+describe('payouts', () => {
+  let payee: TestUser;
+  let payeeId: string;
+  let orgId: string;
+  let wasOn: boolean;
+  const build = (livemode = false) =>
+    asService({})((tx) =>
+      rows<{ payout_id: string; affiliate_id: string; amount_cents: number }>(
+        tx,
+        sql`select * from private.affiliate_payouts_build(2500, ${livemode})`,
+      ),
+    ).then((r) => r.filter((p) => p.affiliate_id === payeeId));
+  const toSend = (livemode = false) =>
+    asService({})((tx) =>
+      rows<{ payout_id: string; affiliate_id: string; ready: boolean }>(
+        tx,
+        sql`select * from private.affiliate_payouts_to_send(${livemode}, 500)`,
+      ),
+    ).then((r) => r.filter((p) => p.affiliate_id === payeeId));
+  const payoutsOn = (on: boolean) =>
+    dbs.admin.db.execute(sql`update platform.affiliate_settings set payouts_on = ${on} where id`);
+  /** A share of this much, free to pay out now. */
+  const share = async (cents: number) => {
+    const [p] = await rows<{ id: string }>(
+      dbs.admin.db,
+      sql`insert into platform.plan_payments (organization_id, how, payment_ref, amount_cents, period_from, paid_at)
+          values (${orgId}, 'checkout', ${`pi_rls_${uniq()}`}, 9700, now(), now()) returning id`,
+    );
+    await dbs.admin.db.execute(
+      sql`insert into platform.affiliate_commissions
+            (affiliate_id, organization_id, payment_id, kind, base_cents, rate_bp, amount_cents, earned_at, payable_at)
+          values (${payeeId}, ${orgId}, ${p!.id}, 'earned', 9700, 4000, ${cents}, now() - interval '31 days',
+            now() - interval '1 day')`,
+    );
+  };
+
+  beforeAll(async () => {
+    payee = await createTestUser('affiliates-rls-payee');
+    payeeId = (await apply(payee, `pay-${uniq()}`))[0]!.affiliate_id;
+    await dbs.admin.db.execute(
+      sql`update platform.affiliates set status = 'approved' where id = ${payeeId}`,
+    );
+    ({ orgId } = await bootstrapOrganization(maker, 'Payout Co', 'Payout Co'));
+    const [s] = await rows<{ payouts_on: boolean }>(
+      dbs.admin.db,
+      sql`select payouts_on from platform.affiliate_settings where id`,
+    );
+    wasOn = s!.payouts_on;
+    // Their bank, made with a test key, and ready.
+    await asService({})((tx) =>
+      tx.execute(
+        sql`select private.affiliate_payout_account_record(${payeeId}::uuid, ${`acct_rls_${uniq()}`}, false, true,
+              true, true, null, '{}'::text[])`,
+      ),
+    );
+    await share(3880);
+  });
+
+  afterAll(async () => {
+    await payoutsOn(wasOn);
+    await dbs.admin.db.execute(sql`delete from platform.affiliates where id = ${payeeId}`);
+  });
+
+  it('builds nothing while staff have payouts off, or for a bank of the other mode', async () => {
+    await payoutsOn(false);
+    expect(await build()).toEqual([]);
+    await payoutsOn(true);
+    expect(await build(true)).toEqual([]);
+  });
+
+  it('builds one a month of what’s free to pay, and ties the shares to it', async () => {
+    await payoutsOn(true);
+    const [built] = await build();
+    expect(built).toMatchObject({ amount_cents: 3880 });
+    await share(5000);
+    expect(await build()).toEqual([]);
+    const tied = await rows<{ payout_id: string | null }>(
+      dbs.admin.db,
+      sql`select payout_id from platform.affiliate_commissions where affiliate_id = ${payeeId}
+          order by amount_cents`,
+    );
+    expect(tied.map((c) => c.payout_id)).toEqual([built!.payout_id, null]);
+    expect((await toSend()).map((p) => [p.payout_id, p.ready])).toEqual([[built!.payout_id, true]]);
+    await payoutsOn(false);
+    expect(await toSend()).toEqual([]);
+  });
+
+  it('a sent payout stays sent, and is told of once', async () => {
+    const [p] = await rows<{ id: string }>(
+      dbs.admin.db,
+      sql`select id from platform.affiliate_payouts where affiliate_id = ${payeeId}`,
+    );
+    const record = (transfer: string | null) =>
+      asService({})((tx) =>
+        rows<{ changed: boolean }>(
+          tx,
+          sql`select private.affiliate_payout_record(${p!.id}::uuid, ${transfer}, null) as changed`,
+        ),
+      ).then((r) => r[0]!.changed);
+    const claim = () =>
+      asService({})((tx) =>
+        rows<{ ok: boolean }>(
+          tx,
+          sql`select private.affiliate_payout_claim_email(${p!.id}::uuid) as ok`,
+        ),
+      ).then((r) => r[0]!.ok);
+    expect(await claim()).toBe(false);
+    expect(await record(`tr_rls_${uniq()}`)).toBe(true);
+    expect(await record(null)).toBe(false);
+    expect(await record(`tr_rls_${uniq()}`)).toBe(false);
+    expect(await claim()).toBe(true);
+    expect(await claim()).toBe(false);
+    const [after] = await rows<{ status: string }>(
+      dbs.admin.db,
+      sql`select status from platform.affiliate_payouts where id = ${p!.id}`,
+    );
+    expect(after!.status).toBe('paid');
+  });
+
+  it('an affiliate reads their own bank and payouts; staff read everyone’s; nobody else does', async () => {
+    const seen = (u: TestUser) =>
+      as(u)(async (tx) => ({
+        bank: (
+          await rows(
+            tx,
+            sql`select 1 from platform.affiliate_payout_accounts where affiliate_id = ${payeeId}`,
+          )
+        ).length,
+        payouts: (
+          await rows(
+            tx,
+            sql`select 1 from platform.affiliate_payouts where affiliate_id = ${payeeId}`,
+          )
+        ).length,
+      }));
+    expect(await seen(payee)).toEqual({ bank: 1, payouts: 1 });
+    expect(await seen(staff)).toEqual({ bank: 1, payouts: 1 });
+    expect(await seen(other)).toEqual({ bank: 0, payouts: 0 });
+    expect(await seen(seller)).toEqual({ bank: 0, payouts: 0 });
+  });
+
+  it('nobody but the worker writes them, staff included', async () => {
+    for (const u of [payee, staff]) {
+      for (const write of [
+        sql`update platform.affiliate_payouts set amount_cents = 100000 where affiliate_id = ${payeeId}`,
+        sql`insert into platform.affiliate_payouts (affiliate_id, month, amount_cents, livemode, account_ref)
+            values (${payeeId}, '2000-01-01', 100000, false, 'acct_x')`,
+        sql`update platform.affiliate_payout_accounts set account_ref = 'acct_mine' where affiliate_id = ${payeeId}`,
+        sql`select private.affiliate_payouts_build(1, false)`,
+        sql`select private.affiliate_payout_account_record(${payeeId}::uuid, 'acct_mine', false, true, true, true,
+              null, '{}'::text[])`,
+        sql`select private.affiliate_payout_record(gen_random_uuid(), 'tr_x', null)`,
+      ]) {
+        const e = await expectPgError(() => as(u)((tx) => tx.execute(write)));
+        expect(e.code).toBe('42501');
+      }
+    }
+    // Staff turn payouts on and off; nobody else does.
+    const changed = await as(other)((tx) =>
+      rows(tx, sql`update platform.affiliate_settings set payouts_on = true returning 1`),
+    );
+    expect(changed).toEqual([]);
   });
 });

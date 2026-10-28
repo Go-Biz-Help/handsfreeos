@@ -800,7 +800,7 @@ export function createStripePayments(opts: {
               amount: requireAmount(input.amountCents),
               currency: 'usd',
               destination: input.accountRef,
-              source_transaction: input.sourceChargeRef,
+              ...(input.sourceChargeRef ? { source_transaction: input.sourceChargeRef } : {}),
               transfer_group: input.transferGroup,
               description: input.description.slice(0, 200),
               metadata: cleanMetadata(input.metadata),

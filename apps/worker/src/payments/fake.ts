@@ -195,7 +195,8 @@ export interface FakeTransfer {
   readonly id: string;
   readonly accountRef: string;
   readonly amountCents: number;
-  readonly sourceChargeRef: string;
+  /** Null when it came from our own balance: an affiliate's payout (20261027014400). */
+  readonly sourceChargeRef: string | null;
   readonly transferGroup: string;
   readonly idempotencyKey: string;
   readonly metadata: Readonly<Record<string, string>>;
@@ -271,8 +272,10 @@ export interface FakePayments {
   setDeliver(deliver: WebhookDeliver): void;
   /** Partners' Express accounts on our own platform, oldest first. */
   payoutAccounts(): readonly FakePayoutAccount[];
-  /** What we sent partners, oldest first. */
+  /** What we sent partners and affiliates, oldest first. */
   transfers(): readonly FakeTransfer[];
+  /** Our own Stripe balance runs short, or has enough again: a transfer from it is refused while it's short. */
+  setBalanceShort(short: boolean): void;
   /** What we refunded businesses from their payout charges, oldest first. */
   givenBack(): readonly FakeGiveBack[];
   /**
@@ -416,6 +419,8 @@ export function createFakePayments(opts: {
   const charges = new Map<string, FakeCharge>();
   const payoutAccounts = new Map<string, FakePayoutAccount>();
   const transfers: FakeTransfer[] = [];
+  /** Our own balance has run short: a transfer from it is refused, as Stripe refuses one (`setBalanceShort`). */
+  let balanceShort = false;
   const givenBack: FakeGiveBack[] = [];
   const refundRows: FakeRefund[] = [];
   const subs = new Map<string, FakeSubscription>();
@@ -1196,11 +1201,23 @@ export function createFakePayments(opts: {
                 null,
                 'insufficient_capabilities_for_transfer',
               );
-            const source = [...charges.values()].find(
-              (c) => c.accountId === '' && chargeRefOf(c) === input.sourceChargeRef,
-            );
-            if (source?.status !== 'succeeded')
-              throw new PaymentError('No such charge.', 400, true, null, 'resource_missing');
+            // From a charge of ours, once it landed; or, with none, from our own balance, which the stand-in
+            // never runs short of unless a test says so.
+            if (input.sourceChargeRef) {
+              const source = [...charges.values()].find(
+                (c) => c.accountId === '' && chargeRefOf(c) === input.sourceChargeRef,
+              );
+              if (source?.status !== 'succeeded')
+                throw new PaymentError('No such charge.', 400, true, null, 'resource_missing');
+            } else if (balanceShort) {
+              throw new PaymentError(
+                'You have insufficient available funds in your Stripe account.',
+                400,
+                true,
+                null,
+                'balance_insufficient',
+              );
+            }
             const t: FakeTransfer = {
               id: nextId('tr'),
               accountRef: input.accountRef,
@@ -1712,6 +1729,9 @@ export function createFakePayments(opts: {
 
     payoutAccounts: () => [...payoutAccounts.values()],
     transfers: () => [...transfers],
+    setBalanceShort(short) {
+      balanceShort = short;
+    },
     givenBack: () => [...givenBack],
 
     async finishPayoutAccount(accountRef, finishOpts = {}) {

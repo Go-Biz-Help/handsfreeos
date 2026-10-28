@@ -1,8 +1,9 @@
 'use client';
 
 /**
- * Admin → Affiliates (20261027014000): the share everyone earns and the most a code takes off (20261027014300), the
- * house codes, the applications waiting, and every affiliate.
+ * Admin → Affiliates (20261027014000): the share everyone earns and the most a code takes off (20261027014300),
+ * whether affiliates are paid each month (20261027014400), the house codes, the applications waiting, and every
+ * affiliate. Turning paying on or off asks first: it moves HandsFreeOS's own money.
  *
  * Approving turns their link on and emails them it; turning down asks first, since it emails them too. Everything
  * else about one affiliate (their own share, pausing, ending, their link code and the businesses they sent) is on
@@ -11,6 +12,7 @@
 import {
   AFFILIATE_ADMIN_WORDS,
   AFFILIATE_CODE_WORDS,
+  AFFILIATE_PAYOUT_ADMIN_WORDS as P,
   AFFILIATE_STATUS_WORDS,
   affiliateLink,
   affiliatePercentToBp,
@@ -50,6 +52,7 @@ export function AffiliatesPage({ program }: { program: Program }) {
   const [rate, setRate] = useState(String(program.settings.rateBp / 100));
   const [limit, setLimit] = useState(String(program.settings.maxDiscountBp / 100));
   const [turningDown, setTurningDown] = useState<Affiliate | null>(null);
+  const [paying, setPaying] = useState<boolean | null>(null);
 
   const run = async (what: string, fn: () => Promise<unknown>) => {
     setBusy(what);
@@ -89,6 +92,15 @@ export function AffiliatesPage({ program }: { program: Program }) {
       ),
     );
   };
+
+  const savePayoutsOn = (payoutsOn: boolean) =>
+    run('payouts', async () =>
+      unwrap(
+        await apiBrowser().POST('/v1/commands/affiliates.save_settings', {
+          body: { rateBp: program.settings.rateBp, payoutsOn },
+        }),
+      ),
+    ).then((ok) => ok && setPaying(null));
 
   return (
     <div className="mx-auto w-full max-w-5xl" data-testid="admin-affiliates">
@@ -134,6 +146,30 @@ export function AffiliatesPage({ program }: { program: Program }) {
         <p className="mt-2 max-w-[560px] text-[12.5px] text-text-3">
           {AFFILIATE_CODE_WORDS.limitHelp}
         </p>
+      </section>
+
+      <section
+        className="mt-5 rounded-card border border-border bg-card p-4"
+        data-testid="affiliate-payouts-switch"
+      >
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <h2 className="flex items-center gap-2 text-sm font-semibold">
+            {P.switch}
+            <Badge variant={program.settings.payoutsOn ? 'ok' : 'gray'}>
+              {program.settings.payoutsOn ? P.on : P.off}
+            </Badge>
+          </h2>
+          <Button
+            variant={program.settings.payoutsOn ? 'secondary' : 'primary'}
+            size="sm"
+            disabled={busy !== null}
+            onClick={() => setPaying(!program.settings.payoutsOn)}
+            data-testid="affiliate-payouts-toggle"
+          >
+            {program.settings.payoutsOn ? P.turnOff : P.turnOn}
+          </Button>
+        </div>
+        <p className="mt-1 max-w-[560px] text-[13px] text-text-3">{P.help}</p>
       </section>
 
       <section
@@ -269,6 +305,27 @@ export function AffiliatesPage({ program }: { program: Program }) {
           ))}
         </ul>
       )}
+
+      <Dialog open={paying !== null} onOpenChange={(o) => (o ? null : setPaying(null))}>
+        <DialogContent
+          title={paying ? P.turnOnTitle : P.turnOffTitle}
+          description={paying ? P.turnOnBody : P.turnOffBody}
+        >
+          <div className="mt-4 flex gap-2">
+            <Button
+              variant={paying ? 'primary' : 'danger'}
+              disabled={busy !== null}
+              onClick={() => paying !== null && void savePayoutsOn(paying)}
+              data-testid="affiliate-payouts-confirm"
+            >
+              {paying ? P.turnOn : P.turnOff}
+            </Button>
+            <Button variant="ghost" onClick={() => setPaying(null)}>
+              {W.cancel}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       <Dialog open={turningDown !== null} onOpenChange={(o) => (o ? null : setTurningDown(null))}>
         <DialogContent

@@ -206,10 +206,34 @@ export const AffiliateEarnings = z.strictObject({
   earnedCents: z.int(),
   /** Still in its 30 days. */
   waitingCents: z.int(),
-  /** Past its 30 days and not paid yet. */
+  /** Past its 30 days and in no payout yet. */
   readyCents: z.int(),
-  /** Paid out to them. Payouts come in part 4, so nothing yet. */
+  /** In a payout being sent, or waiting on Stripe (20261027014400). */
+  onItsWayCents: z.int(),
+  /** Sent to their bank. */
   paidCents: z.int(),
+});
+
+/** Where an affiliate's bank at Stripe stands (20261027014400), for their page and staff's. */
+export const AffiliateBank = z.strictObject({
+  state: z.enum(['none', 'unfinished', 'ready', 'stopped']),
+  /** What Stripe still asks them for, by its own field names. */
+  due: z.array(z.string()),
+  /** Made with Stripe's test keys: it only ever takes test money. */
+  test: z.boolean(),
+});
+
+/** One month's payout to an affiliate (20261027014400). */
+export const AffiliatePayoutRow = z.strictObject({
+  payoutId: uuid,
+  /** The first of the month it's for. */
+  month: z.iso.date(),
+  amountCents: z.int(),
+  /** sending: on its way. held: Stripe won't take it for them yet. paid: sent. */
+  status: z.enum(['sending', 'held', 'paid']),
+  paidAt: isoDateTime.nullable(),
+  /** Made with Stripe's test keys: no real money moved. */
+  test: z.boolean(),
 });
 
 /** A business that earned an affiliate something, as their own page shows it: the name, and nothing else of it. */
@@ -247,11 +271,16 @@ export const AffiliateMine = z.strictObject({
   /** The ones that paid, newest first. */
   payingBusinesses: z.array(AffiliatePayingBusiness),
   earnings: AffiliateEarnings,
+  /** Their bank at Stripe, and their payouts, newest first (20261027014400). */
+  bank: AffiliateBank,
+  payouts: z.array(AffiliatePayoutRow),
 });
 export const AffiliateMineOutput = z.strictObject({
   affiliate: AffiliateMine.nullable(),
   /** Everyone's share, for the page that asks them to apply. */
   defaultRateBp: z.int(),
+  /** Whether staff have turned payouts on (20261027014400). */
+  payoutsOn: z.boolean(),
   /** The plans on sale, for making a code. */
   plans: z.array(AffiliateCodePlan),
 });
@@ -262,10 +291,13 @@ export const AffiliatesSaveSettingsInput = z.strictObject({
   rateBp: affiliateRateBp,
   /** The most any affiliate's code takes off (decision 19). Left out, it stays as it is. */
   maxDiscountBp: affiliateMaxDiscountBp.optional(),
+  /** Whether affiliates are paid each month (20261027014400). Left out, it stays as it is. */
+  payoutsOn: z.boolean().optional(),
 });
 export const AffiliatesSettingsOutput = z.strictObject({
   rateBp: z.int(),
   maxDiscountBp: z.int(),
+  payoutsOn: z.boolean(),
 });
 
 export const AffiliateDecideInput = z.strictObject({
@@ -372,6 +404,9 @@ export const PlatformAffiliateOutput = z.strictObject({
   /** Their codes, newest first, and the plans a code can be for. */
   codes: z.array(AffiliateCodeRow),
   plans: z.array(AffiliateCodePlan),
+  /** Their bank at Stripe, and their payouts, newest first. */
+  bank: AffiliateBank,
+  payouts: z.array(AffiliatePayoutRow),
   /** Their link's clicks a day, the last 30 days that had any, newest first. */
   clicks: z.array(z.strictObject({ day: z.iso.date(), clicks: z.int() })),
 });

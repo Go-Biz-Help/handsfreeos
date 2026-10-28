@@ -185,6 +185,19 @@ export function partnerPayoutCard(input: {
 }
 
 /**
+ * Getting paid as an affiliate (20261027014400): Stripe's own form for their bank (`start`, which makes their account
+ * the first time), whether it's done once they're back (`check`), and their Stripe page once it is (`stripe`). The
+ * worker does it because it holds HandsFreeOS's own Stripe key, which the API is refused on purpose.
+ */
+export function affiliatePayouts(action: 'start' | 'stripe'): Promise<{ url: string }>;
+export function affiliatePayouts(action: 'check'): Promise<{ ready: boolean }>;
+export function affiliatePayouts(
+  action: 'start' | 'check' | 'stripe',
+): Promise<{ url: string } | { ready: boolean }> {
+  return workerPost('/v1/affiliate/payouts', { action });
+}
+
+/**
  * Goes and looks at what a carrier's reviewer would look at, before the registration is sent (owners and
  * admins; the worker checks). The worker does it rather than the browser because these are a business's
  * own addresses and fetching them from here would be blocked, unauthenticated and unsafe by turns.
