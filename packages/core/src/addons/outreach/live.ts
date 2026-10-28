@@ -492,6 +492,19 @@ export function ownDayWords(input: {
   return window ? `Going on its own until ${clockWords(window.to, timezone)}.` : '';
 }
 
+/**
+ * Whether a network's day is going now: started with Start my day, or going on its own in the working hours with
+ * nothing pressed there today (decision 95). While it goes, its button is Stop for today, never Start my day (the
+ * owner, 28 Oct 2026: "why are they still saying Start My day?"), and Start all and Stop all count it as going.
+ */
+export function dayGoing(input: Parameters<typeof ownDayWords>[0]): boolean {
+  if (input.day.state === 'started') return true;
+  if (input.day.state !== 'none' || input.sending === 'off' || !input.hours) return false;
+  if (!runsOnItsOwn(input.platform ?? 'facebook')) return false;
+  const next = nextInHours(input.hours, input.timezone || 'UTC', input.now);
+  return next !== null && next <= input.now;
+}
+
 /** A network's day in a line on Today: what was pressed there today, or when it goes on its own. */
 export const todayWords = (
   live: Pick<LiveOutput, 'day' | 'timezone' | 'lists' | 'sending' | 'hours'>,
