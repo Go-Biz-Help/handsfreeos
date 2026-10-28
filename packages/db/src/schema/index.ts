@@ -2706,7 +2706,7 @@ export const appointmentTranscripts = app.table('appointment_transcripts', {
   id: id(),
   workspaceId: workspaceRef(),
   appointmentId: uuid('appointment_id').references(() => appointments.id, { onDelete: 'cascade' }),
-  /** A call that isn't for an appointment, which keeps its transcript here instead (20261027014300). */
+  /** A call that isn't for an appointment, which keeps its transcript here instead (20261027014600). */
   videoCallId: uuid('video_call_id'),
   provider: text('provider').notNull(),
   // Unique with appointmentId in the database: a repeated webhook keeps one copy.
@@ -2722,7 +2722,7 @@ export const callSuggestions = app.table('call_suggestions', {
   id: id(),
   workspaceId: workspaceRef(),
   appointmentId: uuid('appointment_id').references(() => appointments.id, { onDelete: 'cascade' }),
-  /** Or a call that isn't for an appointment (20261027014300). */
+  /** Or a call that isn't for an appointment (20261027014600). */
   videoCallId: uuid('video_call_id'),
   transcriptId: uuid('transcript_id')
     .notNull()
@@ -2759,7 +2759,7 @@ export const liveMeetings = app.table('live_meetings', {
 
 /**
  * A HandsFreeOS video call (20261027013000): one appointment's call, or one with a customer the team started from
- * their page, a conversation or a phone call (20261027014300); open, live or over. LiveKit carries it; the worker
+ * their page, a conversation or a phone call (20261027014600); open, live or over. LiveKit carries it; the worker
  * hands out its tickets and hears who came and went.
  */
 export const videoCalls = app.table('video_calls', {
@@ -2778,7 +2778,7 @@ export const videoCalls = app.table('video_calls', {
   endedAt: ts('ended_at'),
   secondsBilled: integer('seconds_billed').notNull().default(0),
   ...timestamps(),
-  /** A call that isn't for an appointment: the hash of the key in the customer's own link (20261027014300). */
+  /** A call that isn't for an appointment: the hash of the key in the customer's own link (20261027014600). */
   linkKeyHash: text('link_key_hash'),
   /** A call that isn't for an appointment: its own line on the customer's timeline. */
   activityId: uuid('activity_id').references(() => activities.id, { onDelete: 'set null' }),

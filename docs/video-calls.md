@@ -1,4 +1,4 @@
-# HandsFreeOS video calls (20261027013000, 20261027013300, 20261027013500, 20261027014300)
+# HandsFreeOS video calls (20261027013000, 20261027013300, 20261027013500, 20261027014600)
 
 HandsFreeOS's own Zoom-like calls. A calendar's Online place (or one service on it) can say **HandsFreeOS video
 call**, and each appointment booked there gets its own call, with nothing for the business to connect. Customers
@@ -40,7 +40,7 @@ webhook) is "Video calls: LiveKit" in `docs/operations.md`.
 | The phone's call screen                      | `apps/mobile/src/video-call/` (`phone-call.tsx`, `room.tsx`, `team-call.ts`), at `app/app/w/[workspaceId]/call/`                  |
 | The coach's card on the phone                | `apps/mobile/src/addons/salescoach/call-card.tsx`, the phone registry's `CallCard`                                                |
 | LiveKit in the phone's build                 | `apps/mobile/app.json` (its plugins and the camera and microphone words), `app.config.ts` (no screen share)                       |
-| Calls any time: the link and the line        | `supabase/migrations/20261027014300_video_calls_any_time.sql`; `video_call.start` and `keepTimelineLine` (core)                   |
+| Calls any time: the link and the line        | `supabase/migrations/20261027014600_video_calls_any_time.sql`; `video_call.start` and `keepTimelineLine` (core)                   |
 | Which call a customer's `/j/` link opens     | `apps/worker/src/video-calls/links.ts` (`resolveCustomerLink`); the start route in `video-calls/routes.ts`                        |
 | Video call and Switch to video, on the web   | `apps/web/src/components/video-call/start-call.tsx`, used by `record-page.tsx`, `conversation-view.tsx` and `active-call-bar.tsx` |
 | Video call and Switch to video, on the phone | `apps/mobile/src/video-call/start-call.tsx`, used by the customer's screen, the conversation and `call-sheet.tsx`                 |
