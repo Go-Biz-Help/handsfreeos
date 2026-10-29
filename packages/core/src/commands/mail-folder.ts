@@ -10,16 +10,19 @@ import { fullName } from '../crm/records';
 import { HfosError } from '../errors';
 import { requireHuman, userIdOf } from '../kernel/actor';
 import { defineCommand } from '../kernel/define';
+import { executeCommandWithin } from '../kernel/execute';
 import { matchPersonByEmail } from '../messaging/email';
 import { loadConversation } from '../messaging/store';
 import {
   ConversationMoveInput,
   ConversationMoveOutput,
-  ConversationRefInput,
+  ConversationShareInput,
   ConversationShareOutput,
   EmailSenderRuleRemoveInput,
   EmailSenderRuleRemoveOutput,
 } from '../schemas/conversation';
+import { linkConversation } from './conversation';
+import { personCreate } from './person.create';
 
 const inWorkspace = (i: { workspaceId: string }) => ({
   kind: 'workspace' as const,
@@ -125,13 +128,19 @@ export const emailSenderRuleRemove = defineCommand({
  * Sharing a thread from someone's own mailbox with the team (M19): only its person does it, and from then on it is a
  * team thread, linked to the customer when their address is on one (their timeline then gets its mail), and mail
  * from them to that address comes to the team too.
+ *
+ * With a personId it is shared straight onto that customer, the one somebody picked to link it to or just added from
+ * the thread, and they gain the address as `conversation.link_person` gives it; with newPerson the sender is added
+ * as a customer first, with this address, through `person.create` (the phone's way, which can't wait for its own
+ * queue to send them first). Own mail is never on a customer while it is private, so adding the sender from it is
+ * one step that does both, and says so on its button.
  */
 export const conversationShare = defineCommand({
   name: 'conversation.share',
   description:
-    'Share a thread from your own mailbox with the team. It becomes a team thread, linked to the customer whose address it is.',
+    'Share a thread from your own mailbox with the team. It becomes a team thread, linked to the customer whose address it is, or to the customer you name.',
   risk: 2,
-  input: ConversationRefInput,
+  input: ConversationShareInput,
   output: ConversationShareOutput,
   permission: 'inbox.use',
   scope: inWorkspace,
@@ -146,10 +155,19 @@ export const conversationShare = defineCommand({
         'This thread is the team’s already, so there’s nothing to share.',
       );
     if (c.privateTo !== me) throw HfosError.forbidden();
-    const personId = await matchPersonByEmail(ctx.tx, c.workspaceId, c.counterpart);
+    const chosen = input.newPerson
+      ? (
+          await executeCommandWithin(ctx, personCreate, {
+            workspaceId: c.workspaceId,
+            ...input.newPerson,
+            email: c.counterpart,
+          })
+        ).output.personId
+      : (input.personId ?? null);
+    const personId = chosen ?? (await matchPersonByEmail(ctx.tx, c.workspaceId, c.counterpart));
     await ctx.tx
       .update(conversations)
-      .set({ privateTo: null, ...(personId ? { personId } : {}) })
+      .set({ privateTo: null, ...(personId && !chosen ? { personId } : {}) })
       .where(eq(conversations.id, c.id));
     await ctx.emit({
       type: 'conversation.shared',
@@ -159,7 +177,8 @@ export const conversationShare = defineCommand({
       before: { mailbox: 'their own' },
       after: { mailbox: 'the team’s', with: c.counterpart },
     });
-    if (personId) {
+    if (chosen) await linkConversation(ctx, { ...c, privateTo: null }, chosen);
+    else if (personId) {
       const [p] = await ctx.tx
         .select({ firstName: people.firstName, lastName: people.lastName })
         .from(people)

@@ -547,12 +547,19 @@ export function useConversationActions(
         return false;
       }
     },
-    /** Out of the person's own mail and into the team's Inbox (M19). */
-    share: () =>
+    /**
+     * Out of the person's own mail and into the team's Inbox (M19); with a personId, straight onto that customer: the
+     * one picked to link it to, or just added from the thread.
+     */
+    share: (personId?: string, success: string = CONVERSATION_DONE.shared) =>
       attempt(
         async () =>
-          unwrap(await apiBrowser().POST('/v1/commands/conversation.share', { body: ref })),
-        CONVERSATION_DONE.shared,
+          unwrap(
+            await apiBrowser().POST('/v1/commands/conversation.share', {
+              body: { ...ref, ...(personId ? { personId } : {}) },
+            }),
+          ),
+        success,
       ),
     archive: () =>
       attempt(

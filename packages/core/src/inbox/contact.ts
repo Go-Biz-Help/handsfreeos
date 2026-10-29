@@ -32,6 +32,20 @@ export function splitName(full: string): NameParts {
     : { firstName: trimmed.slice(0, cut), lastName: trimmed.slice(cut + 1) };
 }
 
+/**
+ * The name an email's From line gave, as a new contact's name, or nothing: what's between quotes is kept, and a "name"
+ * that is only the address again, or has no letter in it, is no name.
+ */
+export function nameFromSender(raw: string | null | undefined): string | null {
+  const name = (raw ?? '')
+    .trim()
+    .replace(/^["'“‘]+|["'”’]+$/g, '')
+    .trim()
+    .replace(/\s+/g, ' ');
+  if (!name || name.includes('@') || !/\p{L}/u.test(name)) return null;
+  return name.slice(0, 160);
+}
+
 /** The two halves back into one line, for showing what was saved. */
 export const joinName = (name: NameParts): string =>
   `${name.firstName} ${name.lastName}`.trim().replace(/\s+/g, ' ');
@@ -103,4 +117,31 @@ export const CONTACT_EDIT_WORDS = {
   duplicate: 'Somebody already has this number. Link the conversation to them instead.',
   /** Out to the full form, for the times you have the address and the company too. */
   moreDetails: 'Add more details instead',
+} as const;
+
+/**
+ * Adding or linking whoever wrote, from their conversation (the owner, 2026-10-29: "quickly create a new contact from
+ * it or assign that email to an existing contact"), on both apps.
+ */
+export const SENDER_WORDS = {
+  add: 'Add to Contacts',
+  link: 'Link to a contact',
+  linkTo: (name: string) => `Link to ${name}`,
+  /** Somebody already has the address: linking them is what's wanted, not adding a second one. */
+  known: (name: string) => `${name} already has this email address.`,
+  linkSomeoneElse: 'Link to someone else',
+  /**
+   * Someone's own mail (M19) is never on a customer while it's theirs, so adding or linking its sender shares it with
+   * the team in the same step. The buttons say so before they're pressed.
+   */
+  sharesToo: 'Adding or linking them shares this email with the team.',
+  /** The phone's sheet for picking who it is. */
+  linkTitle: 'Link to a contact',
+  linkDescription: (counterpart: string) => `${counterpart} joins their record and timeline.`,
+  search: 'Search by name, number or email',
+  nobody: (typed: string) => `No one matches “${typed}”.`,
+  /** Done. */
+  linked: (name: string) => `Linked to ${name}.`,
+  linkedShared: (name: string) => `Linked to ${name}, and shared with the team.`,
+  addedShared: (name: string) => `${name} added, and this email is shared with the team.`,
 } as const;

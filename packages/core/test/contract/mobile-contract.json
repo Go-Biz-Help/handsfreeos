@@ -3184,6 +3184,29 @@
           "conversationId": {
             "type": "string",
             "format": "uuid"
+          },
+          "personId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "newPerson": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string",
+                "format": "uuid"
+              },
+              "firstName": {
+                "default": "",
+                "type": "string",
+                "maxLength": 80
+              },
+              "lastName": {
+                "default": "",
+                "type": "string",
+                "maxLength": 80
+              }
+            }
           }
         },
         "required": ["workspaceId", "conversationId"]

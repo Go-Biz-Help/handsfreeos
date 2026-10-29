@@ -24,6 +24,7 @@ import { useLens } from '@/view-as/use-lens';
 import { useConversationNumber, type BusinessNumber } from './cell';
 import {
   cancelledHere,
+  movedPersonOf,
   pendingReplies,
   withMovedHere,
   withOwnChanges,
@@ -124,7 +125,7 @@ export function useConversation(conversationId: string): {
     state: string | null;
     postal_code: string | null;
     notes: string | null;
-  }>(PERSON_SQL, [row?.person_id ?? '']);
+  }>(PERSON_SQL, [row?.person_id ?? movedPersonOf(conversationId) ?? '']);
   const { data: optOuts } = useQuery<{ opted_out: number | null }>(OPTED_OUT_SQL, [
     business.id,
     row?.channel === 'sms' ? row.counterpart : '',

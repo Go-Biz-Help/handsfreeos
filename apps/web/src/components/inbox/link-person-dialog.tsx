@@ -1,4 +1,5 @@
 'use client';
+import { SENDER_WORDS } from '@hfos/core';
 import { Link as LinkIcon } from 'lucide-react';
 import { useState } from 'react';
 import { toast } from 'sonner';
@@ -8,11 +9,15 @@ import { Dialog, DialogContent } from '@/components/ui/dialog';
 import { FieldError, Label } from '@/components/ui/field';
 import { apiBrowser, errorMessage, unwrap } from '@/lib/api/client';
 
-/** Tie a number nobody has linked to a customer who already exists; they gain the number. */
+/**
+ * Tie a number or address nobody has linked to a customer who already exists; they gain it. Someone's own mail is
+ * never a customer's while it's theirs (M19), so linking it shares it with the team in the same step.
+ */
 export function LinkPersonDialog({
   workspaceId,
   conversationId,
   number,
+  privateMail = false,
   open,
   onOpenChange,
   onLinked,
@@ -20,6 +25,8 @@ export function LinkPersonDialog({
   workspaceId: string;
   conversationId: string;
   number: string;
+  /** Someone's own mail (M19): linked by sharing it onto the customer. */
+  privateMail?: boolean;
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onLinked: () => void;
@@ -42,16 +49,25 @@ export function LinkPersonDialog({
     setBusy(true);
     setError(null);
     try {
-      const out = unwrap(
-        await apiBrowser().POST('/v1/commands/conversation.link_person', {
-          body: { workspaceId, conversationId, personId: picked.id },
-        }),
-      );
-      toast.success(
-        out.phoneAdded
-          ? `Linked to ${picked.name}, who gained ${number}`
-          : `Linked to ${picked.name}`,
-      );
+      if (privateMail) {
+        unwrap(
+          await apiBrowser().POST('/v1/commands/conversation.share', {
+            body: { workspaceId, conversationId, personId: picked.id },
+          }),
+        );
+        toast.success(SENDER_WORDS.linkedShared(picked.name));
+      } else {
+        const out = unwrap(
+          await apiBrowser().POST('/v1/commands/conversation.link_person', {
+            body: { workspaceId, conversationId, personId: picked.id },
+          }),
+        );
+        toast.success(
+          out.phoneAdded
+            ? `Linked to ${picked.name}, who gained ${number}`
+            : `Linked to ${picked.name}`,
+        );
+      }
       close(false);
       onLinked();
     } catch (e) {
@@ -65,7 +81,9 @@ export function LinkPersonDialog({
     <Dialog open={open} onOpenChange={close}>
       <DialogContent
         title="Link to an existing customer"
-        description={`This conversation and ${number} join their record and timeline.`}
+        description={`This conversation and ${number} join their record and timeline.${
+          privateMail ? ` ${SENDER_WORDS.sharesToo}` : ''
+        }`}
       >
         <Label htmlFor="link-person">Customer</Label>
         <RecordPicker

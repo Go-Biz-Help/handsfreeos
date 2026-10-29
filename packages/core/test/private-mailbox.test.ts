@@ -18,6 +18,7 @@ import type {
   SystemActor,
 } from '../src/kernel/types';
 import {
+  conversationGet,
   conversationLinkPerson,
   conversationShare,
   emailAddressCreate,
@@ -29,6 +30,7 @@ import {
   inboxSummary,
   messageSend,
   organizationCreate,
+  personArchive,
   personCreate,
 } from '../src/server';
 
@@ -369,6 +371,163 @@ describe('sharing with the team', () => {
     });
     const events = (await eventsOf(got.conversationId!)).map((e) => e.event_type);
     expect(events).toEqual(expect.arrayContaining(['conversation.shared', 'conversation.linked']));
+  });
+});
+
+describe('adding or linking the sender from someone’s own mail', () => {
+  // The owner, 2026-10-29: "quickly create a new contact from it or assign that email to an existing contact".
+  const fromGreg = () => {
+    const address = `greg-${token()}@example.com`;
+    return receive(address, chrisAddress, {
+      from: { address, name: '"Gregory Lyons"' },
+      subject: 'Zoom meeting with Gregory Lyons',
+    });
+  };
+  const senderOf = async (conversationId: string, u: TestUser = chris) =>
+    (await ask(conversationGet, { workspaceId: wsId, conversationId }, u)).sender;
+  const personRow = async (id: string) =>
+    (
+      await rows<{
+        first_name: string;
+        last_name: string;
+        email: string | null;
+        other_emails: { email: string }[];
+      }>(
+        admin$(),
+        sql`select first_name, last_name, email, other_emails from app.people where id = ${id}`,
+      )
+    )[0]!;
+
+  it('keeps the name the email came from, and offers it for the new contact', async () => {
+    const got = await fromGreg();
+    const [m] = await rows<{ from_name: string | null }>(
+      admin$(),
+      sql`select from_name from app.messages where id = ${got.messageId}`,
+    );
+    expect(m!.from_name).toBe('"Gregory Lyons"');
+    expect(await senderOf(got.conversationId!)).toEqual({ name: 'Gregory Lyons', customer: null });
+  });
+
+  it('adds them as a customer with the address, as it shares the thread with the team', async () => {
+    const got = await fromGreg();
+    const counterpart = (
+      await rows<{ counterpart: string }>(
+        admin$(),
+        sql`select counterpart from app.conversations where id = ${got.conversationId}`,
+      )
+    )[0]!.counterpart;
+    const id = randomUUID();
+    const input = {
+      workspaceId: wsId,
+      conversationId: got.conversationId,
+      newPerson: { id, firstName: 'Gregory', lastName: 'Lyons' },
+    };
+    expect(await run(conversationShare, input, chris)).toEqual({
+      conversationId: got.conversationId,
+      personId: id,
+    });
+    expect(await thread(got.conversationId!)).toMatchObject({ private_to: null, person_id: id });
+    expect(await personRow(id)).toMatchObject({
+      first_name: 'Gregory',
+      last_name: 'Lyons',
+      email: counterpart,
+    });
+    const events = (await eventsOf(got.conversationId!)).map((e) => e.event_type);
+    expect(events).toEqual(expect.arrayContaining(['conversation.shared', 'conversation.linked']));
+    // A thread that's the team's now has nothing left to share.
+    await expectHfos(
+      () => run(conversationShare, input, chris),
+      'rule_violation',
+      'conversation_not_private',
+    );
+  });
+
+  it('shares it onto the customer picked, who gains the address', async () => {
+    const got = await fromGreg();
+    const greg = await run(
+      personCreate,
+      {
+        workspaceId: wsId,
+        firstName: 'Greg',
+        lastName: 'Lyons',
+        email: `gl-${token()}@example.com`,
+      },
+      owner,
+    );
+    await run(
+      conversationShare,
+      { workspaceId: wsId, conversationId: got.conversationId, personId: greg.personId },
+      chris,
+    );
+    expect(await thread(got.conversationId!)).toMatchObject({
+      private_to: null,
+      person_id: greg.personId,
+    });
+    const [c] = await rows<{ counterpart: string; folder: string }>(
+      admin$(),
+      sql`select counterpart, folder from app.conversations where id = ${got.conversationId}`,
+    );
+    expect(c!.folder).toBe('inbox');
+    expect((await personRow(greg.personId)).other_emails.map((e) => e.email)).toContain(
+      c!.counterpart,
+    );
+  });
+
+  it('says who already has the address, and still links nobody while it’s theirs', async () => {
+    const ann = `ann-${token()}@example.com`;
+    const p = await run(
+      personCreate,
+      { workspaceId: wsId, firstName: 'Ann', lastName: 'Ruiz', email: ann },
+      owner,
+    );
+    const got = await receive(ann, chrisAddress, { subject: 'One more thing' });
+    expect(await senderOf(got.conversationId!)).toEqual({
+      name: null,
+      customer: { id: p.personId, fullName: 'Ann Ruiz' },
+    });
+    expect(await thread(got.conversationId!)).toMatchObject({
+      private_to: chris.id,
+      person_id: null,
+    });
+  });
+
+  it('is refused for a customer who is archived, or with someone picked and someone new at once', async () => {
+    const got = await fromGreg();
+    const gone = await run(
+      personCreate,
+      { workspaceId: wsId, firstName: 'Old', lastName: 'Lyons' },
+      owner,
+    );
+    await run(personArchive, { workspaceId: wsId, personId: gone.personId }, owner);
+    await expectHfos(
+      () =>
+        run(
+          conversationShare,
+          { workspaceId: wsId, conversationId: got.conversationId, personId: gone.personId },
+          chris,
+        ),
+      'rule_violation',
+      'person_archived',
+    );
+    // Refused as a whole: the thread is still Chris's own.
+    expect(await thread(got.conversationId!)).toMatchObject({
+      private_to: chris.id,
+      person_id: null,
+    });
+    await expectHfos(
+      () =>
+        run(
+          conversationShare,
+          {
+            workspaceId: wsId,
+            conversationId: got.conversationId,
+            personId: bobId,
+            newPerson: { firstName: 'Gregory' },
+          },
+          chris,
+        ),
+      'validation',
+    );
   });
 });
 

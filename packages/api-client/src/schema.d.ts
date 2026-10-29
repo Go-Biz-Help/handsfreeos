@@ -2647,7 +2647,7 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * Share a thread from your own mailbox with the team. It becomes a team thread, linked to the customer whose address it is.
+         * Share a thread from your own mailbox with the team. It becomes a team thread, linked to the customer whose address it is, or to the customer you name.
          * @description Risk level 2. Requires inbox.use. Emits conversation.shared, conversation.linked.
          */
         post: operations["command_conversation_share"];
@@ -29359,6 +29359,16 @@ export interface operations {
                 "application/json": {
                     /** Format: uuid */
                     conversationId: string;
+                    newPerson?: {
+                        /** @default  */
+                        firstName?: string;
+                        /** Format: uuid */
+                        id?: string;
+                        /** @default  */
+                        lastName?: string;
+                    };
+                    /** Format: uuid */
+                    personId?: string;
                     /** Format: uuid */
                     workspaceId: string;
                 };
@@ -66593,6 +66603,14 @@ export interface operations {
                             quiet: boolean;
                         };
                         rcs: boolean;
+                        sender: {
+                            customer: {
+                                fullName: string;
+                                /** Format: uuid */
+                                id: string;
+                            } | null;
+                            name: string | null;
+                        } | null;
                         social: {
                             account: {
                                 /** Format: uuid */

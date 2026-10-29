@@ -109,7 +109,7 @@ export function notCustomerBanner(
   return {
     parts: [
       { strong: `${counterpartDisplay} isn’t a customer yet.` },
-      ` Add them, or link the ${channel === 'chat' ? 'chat' : isSocialChannel(channel) ? 'conversation' : 'number'} to someone you already have.`,
+      ` Add them, or link the ${channel === 'chat' ? 'chat' : isSocialChannel(channel) ? 'conversation' : channel === 'email' ? 'address' : 'number'} to someone you already have.`,
     ],
     short: 'Not in Contacts yet.',
     action: 'Add person',
@@ -241,9 +241,9 @@ export const PRIVATE_THREAD_WORDS = {
   /** Beside My mail in the inbox. */
   onlyYou: 'only you see it',
   back: 'Team inbox',
-  /** Where a customer's details would be. */
+  /** Where a customer's details would be, above Add to Contacts and Link to a contact. */
   panel:
-    'Mail to your own address stays out of Contacts while it’s yours. Share it with the team to add them as a customer.',
+    'Mail to your own address stays off every customer’s record while it’s yours. Adding or linking the sender shares it with the team.',
 } as const;
 
 /** The details sheet's line under the name: "(713) 555-0142 · Customer since 2021", or "Not in Contacts yet". */

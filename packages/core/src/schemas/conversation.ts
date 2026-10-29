@@ -246,6 +246,17 @@ export const ConversationGetOutput = z.object({
       overdue: z.boolean(),
     }),
   ),
+  /**
+   * An email thread nobody has linked to a customer yet: the name its sender's newest email gave (`nameFromSender`),
+   * so adding them starts with it, and the customer who already has the address, so linking is one tap. Someone's own
+   * mail is never linked while it's theirs (M19), so this is how it says the sender is somebody the business knows.
+   */
+  sender: z
+    .object({
+      name: z.string().nullable(),
+      customer: z.object({ id: uuid, fullName: z.string() }).nullable(),
+    })
+    .nullable(),
   canText: z.object({ ok: z.boolean(), reason: canTextReason.nullable() }),
   /**
    * Messenger and Instagram threads only: the Page or account it's on and whether it still works, who the customer
@@ -342,9 +353,34 @@ export const ConversationMoveOutput = z.object({
   changed: z.boolean(),
 });
 /** Sharing a thread from a person's own mailbox with the team (M19). */
+/**
+ * Sharing one's own mail with the team (M19), and straight onto a customer: personId, the one picked to link it to or
+ * just added from the thread; or newPerson, the sender added as a customer with this address on the way.
+ */
+export const ConversationShareInput = z
+  .object({
+    ...conversationRef,
+    personId: uuid.optional(),
+    newPerson: z
+      .object({
+        /** The id the phone made for them, as person.create takes it. */
+        id: uuid.optional(),
+        firstName: z.string().trim().max(80).default(''),
+        lastName: z.string().trim().max(80).default(''),
+      })
+      .refine((v) => (v.firstName + v.lastName).trim().length > 0, {
+        path: ['firstName'],
+        error: 'Enter a first or last name.',
+      })
+      .optional(),
+  })
+  .refine((v) => !(v.personId && v.newPerson), {
+    path: ['newPerson'],
+    error: 'Link them to the customer you picked, or add them as a new one, not both.',
+  });
 export const ConversationShareOutput = z.object({
   conversationId: uuid,
-  /** The customer it is now linked to, when their address is on one. */
+  /** The customer it is now linked to: the one named, or else the one whose address it is. */
   personId: uuid.nullable(),
 });
 export const EmailSenderRuleRemoveInput = z.object({

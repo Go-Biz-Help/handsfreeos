@@ -13,6 +13,7 @@ import {
   NEEDS_A_PERSON,
   notCustomerBanner,
   PRIVATE_THREAD_WORDS,
+  SENDER_WORDS,
   snoozedBanner,
   snoozeOptions,
   VIDEO_CALL_WORDS,
@@ -37,6 +38,7 @@ import {
   CircleCheck,
   Clock,
   Inbox,
+  Link2,
   Lock,
   MailOpen,
   Phone,
@@ -180,17 +182,74 @@ export function HandlingBanner({
   return null;
 }
 
-/** Not a customer yet, snoozed, or closed, with its one action. */
+/**
+ * Adding or linking whoever wrote, from their conversation (2026-10-29): Add to Contacts and Link to a contact, or one
+ * tap to link the customer who already has the address.
+ */
+export interface SenderActions {
+  readonly known: { readonly id: string; readonly name: string } | null;
+  readonly onAdd: () => void;
+  readonly onLink: () => void;
+  readonly onLinkKnown: (known: { readonly id: string; readonly name: string }) => void;
+}
+
+function SenderButtons({ sender }: { sender: SenderActions }) {
+  const known = sender.known;
+  return (
+    <View className="flex-row flex-wrap gap-2">
+      {known ? (
+        <Button
+          variant="secondary"
+          size="md"
+          icon={Link2}
+          className="max-w-full"
+          onPress={() => sender.onLinkKnown(known)}
+          testID="sender-link-known"
+        >
+          <Text numberOfLines={1} className="shrink">
+            {SENDER_WORDS.linkTo(known.name)}
+          </Text>
+        </Button>
+      ) : (
+        <>
+          <Button
+            variant="secondary"
+            size="md"
+            icon={UserPlus}
+            onPress={sender.onAdd}
+            testID="sender-add"
+          >
+            {SENDER_WORDS.add}
+          </Button>
+          <Button
+            variant="secondary"
+            size="md"
+            icon={Link2}
+            onPress={sender.onLink}
+            testID="sender-link"
+          >
+            {SENDER_WORDS.link}
+          </Button>
+        </>
+      )}
+    </View>
+  );
+}
+
+/** Not a customer yet, with Add and Link, or snoozed, or closed, with its one action. */
 export function StatusBanner({
   c,
   who,
   timeZone,
   onReopen,
+  sender = null,
 }: {
   c: ConversationShape;
   who: string;
   timeZone: string;
   onReopen: () => void;
+  /** Adding or linking whoever wrote; null where nothing can be done here (all lines at once). */
+  sender?: SenderActions | null;
 }) {
   if (c.status === 'snoozed' && c.snoozedUntil) {
     const b = snoozedBanner(c.snoozedUntil, who, timeZone);
@@ -212,19 +271,39 @@ export function StatusBanner({
   if (!c.person && c.channel !== 'chat' && c.channel !== 'portal' && !c.private) {
     const b = notCustomerBanner(c.counterpartDisplay, c.channel);
     return (
-      <Strip testID="not-customer-banner">
-        <Words parts={b.parts} className="text-[13.5px] leading-[19px] text-text-2" />
-      </Strip>
+      <View
+        className="mx-3 mt-2.5 gap-2 rounded-menu bg-card-2 py-2.5 pl-3 pr-2"
+        testID="not-customer-banner"
+      >
+        {sender?.known ? (
+          <Text className="text-[13.5px] leading-[19px] text-text-2">
+            {SENDER_WORDS.known(sender.known.name)}
+          </Text>
+        ) : (
+          <Words parts={b.parts} className="text-[13.5px] leading-[19px] text-text-2" />
+        )}
+        {sender ? <SenderButtons sender={sender} /> : null}
+      </View>
     );
   }
   return null;
 }
 
 /**
- * Someone's own mail (M19): only they see it, until they share it with the team, which this offers. Shown whatever the
- * thread's status, above the snoozed or closed strip.
+ * Someone's own mail (M19): only they see it, until they share it with the team, which this offers, as it is or with
+ * its sender added to Contacts or linked to one, which shares it too and says so. Shown whatever the thread's status,
+ * above the snoozed or closed strip.
  */
-export function PrivateBanner({ onShare, busy }: { onShare: () => void; busy: boolean }) {
+export function PrivateBanner({
+  onShare,
+  busy,
+  sender = null,
+}: {
+  onShare: () => void;
+  busy: boolean;
+  /** Adding or linking whoever wrote; null where nothing can be done here (all lines at once). */
+  sender?: SenderActions | null;
+}) {
   return (
     <View
       role="note"
@@ -239,19 +318,25 @@ export function PrivateBanner({ onShare, busy }: { onShare: () => void; busy: bo
           </Text>
           <Text className="text-[13.5px] leading-[19px] text-text-2">
             {PRIVATE_THREAD_WORDS.banner}
+            {sender
+              ? ` ${sender.known ? SENDER_WORDS.known(sender.known.name) : SENDER_WORDS.sharesToo}`
+              : ''}
           </Text>
         </View>
       </View>
-      <Button
-        variant="secondary"
-        size="md"
-        className="ml-[26px] self-start"
-        loading={busy}
-        onPress={onShare}
-        testID="banner-share"
-      >
-        {CONVERSATION_ACTIONS.share}
-      </Button>
+      <View className="ml-[26px] gap-2">
+        <Button
+          variant="secondary"
+          size="md"
+          className="self-start"
+          loading={busy}
+          onPress={onShare}
+          testID="banner-share"
+        >
+          {CONVERSATION_ACTIONS.share}
+        </Button>
+        {sender ? <SenderButtons sender={sender} /> : null}
+      </View>
     </View>
   );
 }
@@ -373,6 +458,7 @@ export function ActionsSheet({
   onStage,
   onNextAction,
   onAddPerson,
+  onLinkPerson = null,
   stageName,
   moves = [],
   onMove,
@@ -404,6 +490,8 @@ export function ActionsSheet({
   onNextAction: (() => void) | null;
   /** Naming a number nobody has linked. Null once there is a customer. */
   onAddPerson: (() => void) | null;
+  /** Linking it to a customer who already exists. Null once there is one. */
+  onLinkPerson?: (() => void) | null;
   /** Where the open lead stands, shown beside its row the way the assignee is. */
   stageName: string | null;
   /** An email thread's other folders (core's `mailMoves`); none for texts and chats. */
@@ -550,9 +638,17 @@ export function ActionsSheet({
         {onAddPerson ? (
           <SheetRow
             icon={UserPlus}
-            label={CONTACT_EDIT_WORDS.addTitle}
+            label={c.private ? SENDER_WORDS.add : CONTACT_EDIT_WORDS.addTitle}
             onPress={run(onAddPerson)}
             testID="sheet-add-person"
+          />
+        ) : null}
+        {onLinkPerson ? (
+          <SheetRow
+            icon={Link2}
+            label={SENDER_WORDS.link}
+            onPress={run(onLinkPerson)}
+            testID="sheet-link-person"
           />
         ) : null}
         {onMove
@@ -806,26 +902,32 @@ export function AddPersonSheet({
   open,
   onClose,
   counterpart,
+  defaultName = null,
+  note = null,
   onSave,
 }: {
   open: boolean;
   onClose: () => void;
   /** The number or address this conversation is with, shown so it is clear what gets attached. */
   counterpart: string;
+  /** The name their email gave, to start with. */
+  defaultName?: string | null;
+  /** What else adding them does: someone's own mail is shared with the team too (M19). */
+  note?: string | null;
   onSave: (name: string) => Promise<boolean>;
 }) {
   const colors = useColors();
   const [name, setName] = React.useState('');
   const [busy, setBusy] = React.useState(false);
   React.useEffect(() => {
-    if (open) setName('');
+    if (open) setName(defaultName ?? '');
   }, [open]);
   return (
     <Sheet
       open={open}
       onClose={onClose}
       title={CONTACT_EDIT_WORDS.addTitle}
-      description={counterpart}
+      description={note ? `${counterpart}. ${note}` : counterpart}
       testID="add-person-sheet"
     >
       <TextInput

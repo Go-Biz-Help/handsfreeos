@@ -11908,7 +11908,7 @@
     "/v1/commands/conversation.share": {
       "post": {
         "operationId": "command_conversation_share",
-        "summary": "Share a thread from your own mailbox with the team. It becomes a team thread, linked to the customer whose address it is.",
+        "summary": "Share a thread from your own mailbox with the team. It becomes a team thread, linked to the customer whose address it is, or to the customer you name.",
         "tags": [
           "commands"
         ],
@@ -11929,6 +11929,31 @@
                     "type": "string",
                     "format": "uuid",
                     "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  },
+                  "personId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  },
+                  "newPerson": {
+                    "type": "object",
+                    "properties": {
+                      "id": {
+                        "type": "string",
+                        "format": "uuid",
+                        "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                      },
+                      "firstName": {
+                        "default": "",
+                        "type": "string",
+                        "maxLength": 80
+                      },
+                      "lastName": {
+                        "default": "",
+                        "type": "string",
+                        "maxLength": 80
+                      }
+                    }
                   }
                 },
                 "required": [
@@ -130708,6 +130733,54 @@
                         "additionalProperties": false
                       }
                     },
+                    "sender": {
+                      "anyOf": [
+                        {
+                          "type": "object",
+                          "properties": {
+                            "name": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
+                            "customer": {
+                              "anyOf": [
+                                {
+                                  "type": "object",
+                                  "properties": {
+                                    "id": {
+                                      "type": "string",
+                                      "format": "uuid",
+                                      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                                    },
+                                    "fullName": {
+                                      "type": "string"
+                                    }
+                                  },
+                                  "required": [
+                                    "id",
+                                    "fullName"
+                                  ],
+                                  "additionalProperties": false
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
+                            }
+                          },
+                          "required": [
+                            "name",
+                            "customer"
+                          ],
+                          "additionalProperties": false
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
                     "canText": {
                       "type": "object",
                       "properties": {
@@ -130927,6 +131000,7 @@
                     "chat",
                     "person",
                     "openTasks",
+                    "sender",
                     "canText",
                     "social",
                     "fromNumber",

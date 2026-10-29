@@ -462,6 +462,7 @@ export const emailReceive = defineCommand({
       direction: input.direction,
       status: inbound ? 'received' : 'sent',
       fromAddress: input.from.address,
+      fromName: input.from.name || null,
       toAddresses: input.to.map((t) => t.address),
       ccAddresses: input.cc.map((c) => c.address),
       subject: input.subject ?? null,

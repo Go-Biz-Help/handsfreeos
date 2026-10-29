@@ -116,11 +116,13 @@ export function withOwnChanges(
  * Email threads moved between the Inbox, Other mail and Spam, or shared with the team, on this phone (M19). Both are
  * online commands, so no change waits in the outbox to stand in for the server's row, and a thread just moved to Spam
  * would stay in the Inbox for the moment the synced row takes to arrive. Each stands until the synced row agrees, or
- * for a minute at most, since someone may have moved it again since.
+ * for a minute at most, since someone may have moved it again since. One shared straight onto a customer (its sender
+ * added or linked from it) is theirs at once too.
  */
 interface MovedHere {
   readonly folder?: ConversationFolderValue;
   readonly shared?: boolean;
+  readonly person?: { readonly id: string; readonly fullName: string };
   readonly at: number;
 }
 const movedHere = new Map<string, MovedHere>();
@@ -131,7 +133,7 @@ const MOVED_STANDS_MS = 60_000;
 /** A thread moved or shared here: the list and the thread show it so at once. */
 export function markMovedHere(
   conversationId: string,
-  moved: { readonly folder?: ConversationFolderValue; readonly shared?: boolean },
+  moved: Omit<MovedHere, 'at'>,
   now = Date.now(),
 ): void {
   movedHere.set(conversationId, { ...movedHere.get(conversationId), ...moved, at: now });
@@ -159,7 +161,9 @@ export function withMovedHere(c: ConversationShape, now = Date.now()): Conversat
   const moved = movedHere.get(c.id);
   if (!moved) return c;
   const agrees =
-    (!moved.folder || c.folder === moved.folder) && (!moved.shared || c.privateTo === null);
+    (!moved.folder || c.folder === moved.folder) &&
+    (!moved.shared || c.privateTo === null) &&
+    (!moved.person || c.person?.id === moved.person.id);
   if (agrees || now - moved.at > MOVED_STANDS_MS) {
     movedHere.delete(c.id);
     return c;
@@ -168,7 +172,14 @@ export function withMovedHere(c: ConversationShape, now = Date.now()): Conversat
     ...c,
     ...(moved.folder ? { folder: moved.folder } : {}),
     ...(moved.shared ? { privateTo: null, private: false } : {}),
+    ...(moved.person ? { person: moved.person } : {}),
   };
+}
+
+/** The customer a thread was just shared onto here, until the synced row says so: whose details the thread shows. */
+export function movedPersonOf(conversationId: string, now = Date.now()): string | null {
+  const moved = movedHere.get(conversationId);
+  return moved?.person && now - moved.at <= MOVED_STANDS_MS ? moved.person.id : null;
 }
 
 /** Where a reply written on this phone stands, for the words under it. */

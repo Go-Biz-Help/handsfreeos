@@ -21,6 +21,7 @@ import {
   PENDING_REPLY_WORDS,
   replySubject,
   rowName,
+  SENDER_WORDS,
   SENT_WORDS,
   SOCIAL_CHANNEL_NAMES,
   SOCIAL_MAX_ATTACHMENTS,
@@ -74,7 +75,9 @@ import {
   PrivateBanner,
   SnoozeSheet,
   StatusBanner,
+  type SenderActions,
 } from '@/components/inbox/conversation-parts';
+import { LinkPersonSheet } from '@/components/inbox/link-person-sheet';
 import { LaneSwitcher } from '@/components/inbox/lane-switcher';
 import { PendingReplyBubble } from '@/components/inbox/pending-reply';
 import { CallCard, DayDivider, EmailCard, MessageBubble } from '@/components/inbox/thread-items';
@@ -105,6 +108,7 @@ import { dropReplyPhoto, sendReply, takeReplyPhoto, type TrayPhoto } from '@/inb
 import { threadEntries, type ThreadEntry } from '@/inbox/thread-entries';
 import { useConversation, useThread } from '@/inbox/use-conversation';
 import { useEmailFacts } from '@/inbox/use-email';
+import { useSender } from '@/inbox/use-sender';
 import { useLanes, useMembers, useNow } from '@/inbox/use-inbox';
 import { api, errorMessage, unwrap } from '@/lib/api';
 import { config } from '@/lib/config';
@@ -221,6 +225,7 @@ function Thread() {
     | 'stage'
     | 'next-action'
     | 'add-person'
+    | 'link-person'
     | 'delete'
     | null
   >(null);
@@ -248,6 +253,12 @@ function Thread() {
   const phoneDisplay = person?.phone ?? (channel === 'sms' ? (c?.counterpartDisplay ?? '') : '');
   const emailTo = channel === 'email' ? (c?.counterpart ?? null) : (person?.email ?? null);
   const email = useEmailFacts(conversationId, current === 'email' ? emailTo : null);
+  // Email from somebody not linked yet: who already has the address, and the name their mail gave (2026-10-29).
+  const sender = useSender(
+    business.id,
+    conversationId,
+    channel === 'email' && !c?.person ? (c?.counterpart ?? null) : null,
+  );
 
   // Opening a conversation reads it, as on the web.
   const readOnce = React.useRef(false);
@@ -651,8 +662,14 @@ function Thread() {
       toast.error(problem);
       return false;
     }
+    const parts = splitName(name);
+    // Someone's own mail is never a customer's while it's theirs (M19): they're added as it's shared, in one go.
+    if (c?.private)
+      return actions.shareOnto(
+        { newPerson: { id: newId(), ...parts } },
+        SENDER_WORDS.addedShared(joinName(parts)),
+      );
     try {
-      const parts = splitName(name);
       const personId = newId();
       await change(
         'person.create',
@@ -702,6 +719,15 @@ function Thread() {
     }
   };
 
+  /** The conversation onto a customer who already exists; someone's own mail is shared with the team as it goes. */
+  const linkPerson = (to: { readonly id: string; readonly name: string }): Promise<boolean> =>
+    c?.private
+      ? actions.shareOnto(
+          { personId: to.id, fullName: to.name },
+          SENDER_WORDS.linkedShared(to.name),
+        )
+      : actions.link(to.id, SENDER_WORDS.linked(to.name));
+
   const addNote = async (text: string): Promise<boolean> => {
     if (!person) return false;
     try {
@@ -725,6 +751,13 @@ function Thread() {
       toast.error(error instanceof Error ? error.message : String(error));
       return false;
     }
+  };
+
+  const senderActions: SenderActions = {
+    known: sender.known,
+    onAdd: () => setSheet('add-person'),
+    onLink: () => setSheet('link-person'),
+    onLinkKnown: (known) => void linkPerson(known),
   };
 
   const backToList = () => {
@@ -897,12 +930,19 @@ function Thread() {
           onTakeOver={() => void takeOver()}
           onHandBack={() => setSheet('hand-back')}
         />
-        {priv ? <PrivateBanner onShare={() => void share()} busy={sharing} /> : null}
+        {priv ? (
+          <PrivateBanner
+            onShare={() => void share()}
+            busy={sharing}
+            sender={c.person ? null : senderActions}
+          />
+        ) : null}
         <StatusBanner
           c={c}
           who={who}
           timeZone={data.timeZone}
           onReopen={() => void actions.reopen()}
+          sender={all ? null : senderActions}
         />
         {social && !all ? (
           <AttributionStrip workspaceId={business.id} conversationId={conversationId} />
@@ -1042,7 +1082,8 @@ function Thread() {
         onTags={person ? () => setSheet('tags') : null}
         onStage={lead && stages.length > 1 ? () => setSheet('stage') : null}
         onNextAction={lead ? () => setSheet('next-action') : null}
-        onAddPerson={person || priv ? null : () => setSheet('add-person')}
+        onAddPerson={c.person ? null : () => setSheet('add-person')}
+        onLinkPerson={c.person || all ? null : () => setSheet('link-person')}
         stageName={lead?.stageName ?? null}
         moves={moves}
         onMove={(m) => void moveTo(m)}
@@ -1133,7 +1174,16 @@ function Thread() {
         open={sheet === 'add-person'}
         onClose={() => setSheet(null)}
         counterpart={c.counterpartDisplay}
+        defaultName={sender.name}
+        note={priv ? SENDER_WORDS.sharesToo : null}
         onSave={addPerson}
+      />
+      <LinkPersonSheet
+        open={sheet === 'link-person'}
+        onClose={() => setSheet(null)}
+        counterpart={c.counterpartDisplay}
+        note={priv ? SENDER_WORDS.sharesToo : null}
+        onPick={(customer) => linkPerson(customer)}
       />
       <DeleteSheet
         open={sheet === 'delete'}
