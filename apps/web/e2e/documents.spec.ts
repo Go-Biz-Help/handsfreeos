@@ -270,3 +270,35 @@ test('the AI places the fields, and the customer signs in person, then from thei
   await expect(rosa.getByTestId('portal-document-sign')).toHaveCount(0);
   await phone.close();
 });
+
+test('in Safari, where a stream can’t be looped over, the AI still places the fields and the words can be typed over', async ({
+  page,
+}) => {
+  test.setTimeout(120_000);
+  // Safari has no `for await` over a stream yet, which pdf.js reads a page's words with.
+  await page.addInitScript(() => {
+    const proto = ReadableStream.prototype as unknown as Record<PropertyKey, unknown>;
+    delete proto[Symbol.asyncIterator];
+    delete proto.values;
+  });
+  const { workspaceId } = await ownerWithSite(page, 'docs3', 'Lone Star Leasing');
+
+  await page.goto(`/app/w/${workspaceId}/documents?tab=templates`);
+  await page.getByTestId('template-new').click();
+  await page.getByTestId('template-new-file').setInputFiles({
+    name: 'Service agreement.pdf',
+    mimeType: 'application/pdf',
+    buffer: await agreementPdf(),
+  });
+  await page.getByTestId('template-new-create').click();
+  await expect(page).toHaveURL(/\/documents\/templates\/[0-9a-f-]{36}$/);
+  await expect(page.getByTestId('document-page-0')).toBeVisible();
+  expect(await page.evaluate(() => Symbol.asyncIterator in ReadableStream.prototype)).toBe(true);
+
+  await page.getByTestId('template-place-fields').click();
+  await expect(page.getByText('Placed 2 fields')).toBeVisible({ timeout: 30_000 });
+
+  await page.getByTestId('tool-words').click();
+  await page.locator('[data-testid="word-run"][title*="SERVICE AGREEMENT"]').first().click();
+  await expect(page.getByTestId('edit-text')).toHaveValue('SERVICE AGREEMENT');
+});
