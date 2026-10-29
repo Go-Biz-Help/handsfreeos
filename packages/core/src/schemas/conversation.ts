@@ -246,6 +246,17 @@ export const ConversationGetOutput = z.object({
       overdue: z.boolean(),
     }),
   ),
+  /**
+   * A team email thread nobody has linked to a customer yet: the name its sender's newest email gave
+   * (`nameFromSender`), so adding them starts with it, and the customer who already has the address, so linking is one
+   * tap. Null for someone's own mail until they share it (M19).
+   */
+  sender: z
+    .object({
+      name: z.string().nullable(),
+      customer: z.object({ id: uuid, fullName: z.string() }).nullable(),
+    })
+    .nullable(),
   canText: z.object({ ok: z.boolean(), reason: canTextReason.nullable() }),
   /**
    * Messenger and Instagram threads only: the Page or account it's on and whether it still works, who the customer

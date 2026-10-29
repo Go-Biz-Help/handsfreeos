@@ -6,7 +6,14 @@ import * as React from 'react';
 import Inbox from '@/app/app/w/[workspaceId]/(tabs)/inbox';
 import MyCell from '@/app/app/w/[workspaceId]/(tabs)/(more)/settings/my-cell';
 import { Composer } from '@/components/inbox/composer';
-import { ActionsSheet, PrivateBanner } from '@/components/inbox/conversation-parts';
+import {
+  ActionsSheet,
+  PrivateBanner,
+  StatusBanner,
+  type SenderActions,
+} from '@/components/inbox/conversation-parts';
+import { LinkPersonSheet } from '@/components/inbox/link-person-sheet';
+import { PEOPLE_SQL } from '@/calendar/queries';
 import { ConversationRow } from '@/components/inbox/conversation-row';
 import { LaneSwitcher } from '@/components/inbox/lane-switcher';
 import { BusinessProvider } from '@/components/shell/business-context';
@@ -569,6 +576,138 @@ describe('Details and actions', () => {
     await act(async () => jest.advanceTimersByTime(1_000));
     await act(async () => dismiss());
     expect(onAssign).not.toHaveBeenCalled();
+  });
+});
+
+describe('adding or linking whoever emailed (2026-10-29)', () => {
+  const email: ConversationListRow = {
+    id: 'c-greg',
+    channel: 'email',
+    counterpart: 'grlyons1010@gmail.com',
+    status: 'open',
+    person_id: null,
+    assignee_user_id: null,
+    unread_count: 0,
+    last_message_at: '2026-10-28T00:39:00.000Z',
+    last_preview: 'Click on the link to join the meeting.',
+    last_direction: 'inbound',
+    awaiting_reply_since: null,
+    snoozed_until: null,
+    created_at: '2026-10-28T00:17:00.000Z',
+    handled_by: 'none',
+    ai_teammate_id: null,
+    teammate_name: null,
+    needs_person_since: null,
+    handoff_reason: null,
+    handoff_note: null,
+    taken_over_by: null,
+  };
+  const sender = (known: SenderActions['known'] = null): SenderActions => ({
+    known,
+    onAdd: jest.fn(),
+    onLink: jest.fn(),
+    onLinkKnown: jest.fn(),
+  });
+
+  it('offers Add to Contacts and Link right on their email', async () => {
+    const s = sender();
+    await render(
+      <StatusBanner
+        c={conversationOf(email)}
+        who="them"
+        timeZone="America/Chicago"
+        onReopen={jest.fn()}
+        sender={s}
+      />,
+    );
+    expect(screen.getByTestId('not-customer-banner')).toHaveTextContent(
+      /grlyons1010@gmail\.com isn’t a customer yet\. Add them, or link the address to someone you already have\./,
+    );
+    await fireEvent.press(screen.getByTestId('sender-add'));
+    expect(s.onAdd).toHaveBeenCalledTimes(1);
+    await fireEvent.press(screen.getByTestId('sender-link'));
+    expect(s.onLink).toHaveBeenCalledTimes(1);
+  });
+
+  it('links the customer who already has the address in one tap', async () => {
+    const s = sender({ id: 'p-greg', name: 'Gregory Lyons' });
+    await render(
+      <StatusBanner
+        c={conversationOf(email)}
+        who="them"
+        timeZone="America/Chicago"
+        onReopen={jest.fn()}
+        sender={s}
+      />,
+    );
+    expect(screen.getByTestId('not-customer-banner')).toHaveTextContent(
+      /^Gregory Lyons already has this email address\.Link to Gregory Lyons$/,
+    );
+    expect(screen.queryByTestId('sender-add')).toBeNull();
+    await fireEvent.press(screen.getByTestId('sender-link-known'));
+    expect(s.onLinkKnown).toHaveBeenCalledWith({ id: 'p-greg', name: 'Gregory Lyons' });
+  });
+
+  it('keeps your own mail to Share first: Add and Link come once it’s the team’s', async () => {
+    const share = jest.fn();
+    await render(<PrivateBanner onShare={share} busy={false} />);
+    expect(screen.queryByTestId('sender-add')).toBeNull();
+    expect(screen.queryByTestId('sender-link')).toBeNull();
+    await fireEvent.press(screen.getByTestId('banner-share'));
+    expect(share).toHaveBeenCalledTimes(1);
+    // Shared, it's a team thread nobody has linked, and the strip offers both.
+    await render(
+      <StatusBanner
+        c={conversationOf(email)}
+        who="them"
+        timeZone="America/Chicago"
+        onReopen={jest.fn()}
+        sender={sender()}
+      />,
+    );
+    expect(screen.getByTestId('sender-add')).toBeTruthy();
+    expect(screen.getByTestId('sender-link')).toBeTruthy();
+  });
+
+  it('finds the customer to link by name, with whoever has the address first', async () => {
+    jest.mocked(useQuery).mockImplementation(((sql: string) => ({
+      data:
+        sql === PEOPLE_SQL
+          ? [
+              { id: 'p-amy', first_name: 'Amy', last_name: 'Adams', email: 'amy@example.com' },
+              {
+                id: 'p-greg',
+                first_name: 'Greg',
+                last_name: 'Lyons',
+                email: 'greg@lyons.example',
+                other_emails: JSON.stringify([{ email: 'grlyons1010@gmail.com' }]),
+              },
+            ]
+          : [],
+      isLoading: false,
+    })) as never);
+    const onPick = jest.fn(async () => true);
+    const onClose = jest.fn();
+    await render(
+      wrap(
+        <LinkPersonSheet
+          open
+          onClose={onClose}
+          counterpart="grlyons1010@gmail.com"
+          onPick={onPick}
+        />,
+      ),
+    );
+    const rows = screen.getAllByTestId(/^link-person-p-/);
+    expect(rows.map((r) => r.props.testID)).toEqual(['link-person-p-greg', 'link-person-p-amy']);
+    await fireEvent.changeText(screen.getByTestId('link-person-search'), 'amy');
+    expect(screen.queryByTestId('link-person-p-greg')).toBeNull();
+    await fireEvent.press(screen.getByTestId('link-person-p-amy'));
+    expect(onPick).toHaveBeenCalledWith(
+      expect.objectContaining({ id: 'p-amy', name: 'Amy Adams' }),
+    );
+    await fireEvent.changeText(screen.getByTestId('link-person-search'), 'zed');
+    expect(screen.getByTestId('link-person-nobody')).toHaveTextContent('No one matches “zed”.');
   });
 });
 

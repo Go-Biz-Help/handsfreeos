@@ -8,11 +8,13 @@ import { chatWidgetName } from '../chat/origins';
 import { formatPhone } from '../crm/phone';
 import { addressOut, fullName, tagsOf } from '../crm/records';
 import { HfosError } from '../errors';
+import { nameFromSender } from '../inbox/contact';
 import { lineDisplayOf } from '../inbox/rows';
 import { requireHuman } from '../kernel/actor';
 import { defineQuery } from '../kernel/define';
 import { decodeCursor, decodeTimeCursor, page } from '../kernel/pagination';
 import type { QueryContext } from '../kernel/types';
+import { matchPersonByEmail } from '../messaging/email';
 import { CANCELLED_TEXT, quietHoursState, SCHEDULED_TEXT } from '../messaging/quiet-hours';
 import {
   isSocialChannel,
@@ -772,6 +774,10 @@ export const conversationGet = defineQuery({
       chat: row.channel === 'chat' ? await chatOf(ctx, input.workspaceId, row.id, person) : null,
       person,
       openTasks,
+      sender:
+        row.channel === 'email' && !person && !row.private
+          ? await senderOf(ctx, input.workspaceId, row.id, row.counterpart)
+          : null,
       canText,
       social: isSocialChannel(row.channel) ? await socialOf(ctx, row, row.channel) : null,
       fromNumber: number ? formatPhone(number.e164) : null,
@@ -781,6 +787,36 @@ export const conversationGet = defineQuery({
     };
   },
 });
+
+/**
+ * Who a team email thread nobody has linked is from: the name their mail gave, and the customer with the address.
+ * Someone's own mail has neither until it's shared, since adding or linking its sender waits for that (2026-10-29).
+ */
+async function senderOf(
+  ctx: QueryContext,
+  workspaceId: string,
+  conversationId: string,
+  address: string,
+): Promise<ConversationGetOutputShape['sender']> {
+  const names = await rows<{ from_name: string }>(
+    ctx.tx,
+    sql`select from_name from app.messages
+        where conversation_id = ${conversationId} and direction = 'inbound' and from_name is not null
+        order by occurred_at desc
+        limit 5`,
+  );
+  const personId = await matchPersonByEmail(ctx.tx, workspaceId, address);
+  const [p] = personId
+    ? await ctx.tx
+        .select({ firstName: people.firstName, lastName: people.lastName })
+        .from(people)
+        .where(eq(people.id, personId))
+    : [];
+  return {
+    name: names.map((n) => nameFromSender(n.from_name)).find(Boolean) ?? null,
+    customer: personId && p ? { id: personId, fullName: fullName(p.firstName, p.lastName) } : null,
+  };
+}
 
 /**
  * A Messenger or Instagram thread's own facts (20261025000200): the Page or account it's on and whether it still

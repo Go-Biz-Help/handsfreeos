@@ -1534,6 +1534,8 @@ export const messages = app.table('messages', {
   direction: direction('direction').notNull(),
   status: messageStatus('status').notNull(),
   fromAddress: text('from_address'),
+  /** Email: the name on its From line, so its sender can be added to Contacts as who they said they were. */
+  fromName: text('from_name'),
   toAddresses: text('to_addresses')
     .array()
     .notNull()

@@ -678,6 +678,20 @@ describe('email’s folders and someone’s own mail (M19)', () => {
     expect(withMovedHere({ ...own, id: OTHER }).folder).toBe('inbox');
     show.mockRestore();
   });
+
+  it('links the team’s email to a customer already here, theirs at once (2026-10-29)', async () => {
+    const show = jest.spyOn(toast, 'show').mockImplementation(() => 1);
+    const actions = conversationActions({ workspaceId: WS, conversationId: CONV, myUserId: ME });
+    // Any time, like the web's Link: the thread is theirs on this phone at once.
+    await actions.link('p-amy', 'Linked to Amy Adams.');
+    expect(change).toHaveBeenLastCalledWith(
+      'conversation.link_person',
+      { workspaceId: WS, conversationId: CONV, personId: 'p-amy' },
+      expect.objectContaining({ optimistic: expect.any(Function) }),
+    );
+    expect(show).toHaveBeenLastCalledWith('Linked to Amy Adams.');
+    show.mockRestore();
+  });
 });
 
 describe('a client’s portal thread (round six)', () => {

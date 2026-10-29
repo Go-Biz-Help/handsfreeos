@@ -66593,6 +66593,14 @@ export interface operations {
                             quiet: boolean;
                         };
                         rcs: boolean;
+                        sender: {
+                            customer: {
+                                fullName: string;
+                                /** Format: uuid */
+                                id: string;
+                            } | null;
+                            name: string | null;
+                        } | null;
                         social: {
                             account: {
                                 /** Format: uuid */
