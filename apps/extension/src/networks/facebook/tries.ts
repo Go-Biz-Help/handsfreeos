@@ -50,16 +50,18 @@ import { composer, POST, startButton } from './compose';
 import { clean, labelOf } from './dom';
 import { cancelBy, gone, newBoxAfter, saveBy, textOf as boxText } from './editors';
 import { FETCH_PLANS, findStep, shown, visible, waitingForPerson } from './fetch';
-import { CONFIRM } from './friends';
+import { CONFIRM, requestRows, requestsPage } from './friends';
 import { joinState, typeInto } from './join';
 import { ADD_LINK } from './links';
 import { maskText, outlinePage } from './outline';
 import { bioBox, bioBoxFits, bioButton, bioRow, ownEditorsOf } from './own-profile';
 import { readPage } from './page';
 import { readProfile } from './profile';
+import { cancelIn, sentList } from './sent';
 import { TIDY_PLANS } from './tidy';
 import type { ProfilePage, ProfileRef } from './types';
 import { classifyUrl } from './urls';
+import { parseCount } from './vocabulary';
 import {
   askingHere,
   doneButtons,
@@ -690,8 +692,28 @@ export function tryConfirm(doc: Document, href: string): StepTry {
   );
 }
 
-/** Cancelling, on the profile of someone they sent a request to: Cancel request found, never pressed. */
+/** What Sent requests says it has: "208 Sent requests". */
+const SENT_COUNT = /([\d.,]+\s*[km]?)\s+sent requests?\b/i;
+
+/**
+ * Cancelling: from 0.110.1 under Sent requests, which View sent requests opens on their friend requests, where the
+ * job cancels (./sent.ts): a Cancel request beside someone found, never pressed. On the profile of someone they sent a
+ * request to, as before, for the one the list doesn't show.
+ */
 export function tryCancel(doc: Document, href: string): StepTry {
+  if (requestsPage(href)) {
+    const list = sentList(doc, href);
+    const rows = list ? [...requestRows(list, href).values()].filter((r) => cancelIn(r)) : [];
+    if (rows.length) return went('cancel', { sent: rows.length, cancel: true }, []);
+    // None to read: none sent, or a list that says it has some ("208 Sent requests") but no Cancel request beside them.
+    const box = [...doc.querySelectorAll('[role="dialog"]')].filter((d) => shown(d)).at(-1);
+    const says = SENT_COUNT.exec(clean(box?.textContent));
+    return says?.[1] && parseCount(says[1])
+      ? went('cancel', { sent: 0, cancel: false }, [
+          'no Cancel request beside anyone under Sent requests',
+        ])
+      : untried('cancel', 'no friend requests you’ve sent');
+  }
   const profile = profileOn(doc, href);
   const standing = profile.friendship;
   if (standing !== 'request_sent' && standing !== 'unknown')

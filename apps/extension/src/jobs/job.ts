@@ -20,6 +20,8 @@ import type {
   Ask,
   BrowseAnswer,
   BrowseAsk,
+  CancelSentAnswer,
+  CancelSentAsk,
   FetchAnswer,
   FetchAsk,
   FeedPostAnswer,
@@ -85,6 +87,7 @@ export interface JobTab {
   ask(message: CodeAsk): Promise<CodeAnswer>;
   ask(message: TryAsk): Promise<TryAnswer>;
   ask(message: WithdrawAsk): Promise<WithdrawAnswer>;
+  ask(message: CancelSentAsk): Promise<CancelSentAnswer>;
   ask(message: UnfollowAsk): Promise<UnfollowAnswer>;
 }
 

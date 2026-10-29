@@ -10,16 +10,24 @@
  * From 0.110.0 on its own too (decision 121): the requests nobody answered that Cancel all is cancelling, however new,
  * and the requests the person got that HandsFreeOS picked to delete as they chose for those, Respond then Delete
  * request, each noted as their answer.
+ *
+ * From 0.110.1 a request the person sent is cancelled from their friend requests instead (the owner's report of 29 Oct
+ * 2026, where a profile's Cancel request couldn't be found): View sent requests, then each one's row found by the link
+ * to their profile, scrolling the list for it, and its own Cancel request pressed (src/networks/facebook/sent.ts). Only
+ * someone the list, read to its end, doesn't show has their profile opened, to see where things stand.
  */
 import { TIDY_PACE_SECONDS } from '@hfos/core/addons/outreach/asks';
 import { withTheirName } from '../networks/facebook/auto';
 import { FRIENDSHIP_WORDS, TIDY_PLANS, sameProfile, type TidyJob } from '../networks/facebook/tidy';
 import type { FetchStep } from '../networks/facebook/fetch';
 import { facebook } from '../networks/facebook/kit';
+import type { ProfileRef, ReadResult } from '../networks/facebook/types';
 import type { Tidy, TidyCandidate } from '../hfos/messages';
+import { listOnPage } from '../hfos/saves';
 import { counted } from '../words';
 import { paced, pause, readIn, valueOf, warnedOn, type Job, type JobEnd } from './job';
 import { ownTidy } from './own-tidy';
+import { FRIEND_REQUESTS, VIEW_SENT } from './people';
 
 /** Between people, a steady pace like a person's: never the same twice. */
 const PACE_MS = [TIDY_PACE_SECONDS[0] * 1000, TIDY_PACE_SECONDS[1] * 1000] as const;
@@ -28,6 +36,10 @@ const SETTLE_MS = 1_500;
 /** How long a step is looked for before it's handed to the person; the box asking to be sure, less. */
 const WAIT_MS = 8_000;
 const WAIT_OPTIONAL_MS = 3_000;
+/** Sent requests: the most screens it scrolls looking for one person, how fast, and how long it lets more load. */
+export const LOOK_SCROLLS = 60;
+const SCROLL_PACE_MS = [4_000, 9_000] as const;
+const LOAD_MS = 3_000;
 
 const WORDS: Record<TidyJob, { doing: string; done: string }> = {
   cancel_request: { doing: 'Cancelling the request to', done: 'Requests cancelled' },
@@ -42,8 +54,11 @@ const YOURSELF: Record<TidyJob, string> = {
   decline: 'Press “Respond”, then “Delete request”, yourself.',
 };
 
-/** What became of someone ticked: done, done already, skipped, or the job's end (a warning, a stop). */
-type Outcome = 'done' | 'already' | 'skipped' | JobEnd | 'stopped';
+/**
+ * What became of someone ticked: done, done already, skipped, or the job's end (a warning, a stop); or, not under
+ * Sent requests, left for their profile.
+ */
+type Outcome = 'done' | 'already' | 'skipped' | 'later' | JobEnd | 'stopped';
 
 /** Hands a step to the person; brings their tab to the front first (the runner of asks does). */
 async function handOver(
@@ -101,6 +116,53 @@ async function sure(job: Job, steps: readonly FetchStep[]): Promise<void> {
   }
 }
 
+/** Their profile, as HandsFreeOS keeps it. */
+const profileOf = (who: TidyCandidate): ProfileRef => ({
+  id: who.platformId,
+  username: who.username,
+  url: who.url,
+});
+
+/** Notes it in HandsFreeOS: a request or friend ended, or a request they got deleted, as their answer. */
+async function noteEnd(
+  job: Job,
+  which: TidyJob,
+  who: TidyCandidate,
+  already: boolean,
+  mutualFriends: number | null,
+): Promise<void> {
+  // A request they got, deleted (or gone already): noted as their answer, so it isn't picked again.
+  if (which === 'decline') {
+    valueOf(
+      await job.hfos({
+        type: 'hfos-friend-note',
+        input: {
+          workspaceId: job.businessId,
+          platform: facebook.platform,
+          answer: 'delete',
+          profile: profileOf(who),
+          name: who.name,
+          mutualFriends,
+        },
+      }),
+    );
+    return;
+  }
+  valueOf(
+    await job.hfos({
+      type: 'hfos-friend-end',
+      input: {
+        workspaceId: job.businessId,
+        platform: facebook.platform,
+        kind: which,
+        profile: profileOf(who),
+        name: who.name,
+        already,
+      },
+    }),
+  );
+}
+
 /** One person: open, check, press, check again, note. */
 async function one(job: Job, which: TidyJob, who: TidyCandidate): Promise<Outcome> {
   const plan = TIDY_PLANS[which];
@@ -109,38 +171,8 @@ async function one(job: Job, which: TidyJob, who: TidyCandidate): Promise<Outcom
   const warned = await warnedOn(job, page);
   if (warned) return warned;
   if (!page.profile || !sameProfile(page.profile.profile, who)) return 'skipped';
-  const end = async (already: boolean) => {
-    // A request they got, deleted (or gone already): noted as their answer, so it isn't picked again.
-    if (which === 'decline') {
-      valueOf(
-        await job.hfos({
-          type: 'hfos-friend-note',
-          input: {
-            workspaceId: job.businessId,
-            platform: facebook.platform,
-            answer: 'delete',
-            profile: { id: who.platformId, username: who.username, url: who.url },
-            name: who.name,
-            mutualFriends: page.profile?.mutualFriends ?? null,
-          },
-        }),
-      );
-      return;
-    }
-    valueOf(
-      await job.hfos({
-        type: 'hfos-friend-end',
-        input: {
-          workspaceId: job.businessId,
-          platform: facebook.platform,
-          kind: which,
-          profile: { id: who.platformId, username: who.username, url: who.url },
-          name: who.name,
-          already,
-        },
-      }),
-    );
-  };
+  const end = (already: boolean) =>
+    noteEnd(job, which, who, already, page.profile?.mutualFriends ?? null);
   if (page.profile.friendship === 'not_friends') {
     await end(true);
     return 'already';
@@ -173,6 +205,116 @@ async function one(job: Job, which: TidyJob, who: TidyCandidate): Promise<Outcom
   return 'done';
 }
 
+// ------------------------------------------------------------------------------------------- Sent requests
+
+/** Whether Sent requests, as far as it has loaded, lists a request to them: by their profile, never their name alone. */
+function listed(page: ReadResult, who: TidyCandidate): boolean {
+  const mine = listOnPage(page);
+  return mine?.list === 'sent' && mine.people.some((p) => sameProfile(p.profile, who));
+}
+
+/**
+ * Opens Sent requests: the person's friend requests, then View sent requests. Null once it's open; `missing` when
+ * View sent requests isn't there; or the job's end on a warning.
+ */
+async function openSent(job: Job): Promise<null | 'missing' | JobEnd> {
+  job.progress('Opening the friend requests you’ve sent…');
+  await job.tab.open(FRIEND_REQUESTS);
+  const warned = await warnedOn(job, await readIn(job.tab));
+  if (warned) return warned;
+  const pressed = await job.tab.ask({
+    type: 'hfos-fetch-step',
+    step: VIEW_SENT,
+    waitMs: WAIT_MS,
+    lists: true,
+  });
+  if (!pressed.ok) throw new Error(pressed.error);
+  if (pressed.result !== 'done' && pressed.result !== 'already') return 'missing';
+  await pause(SETTLE_MS);
+  return null;
+}
+
+/**
+ * Finds their row under Sent requests, scrolling the list for it: `found`; `gone` when the list ended without them;
+ * `lost` when it scrolled as far as it goes without getting to the end, or read no sent request at all (a list it
+ * can't read is never taken for one without them). At the bottom it lets Facebook load more once before calling it
+ * the end. A list that isn't open any more (shut, or the tab gone elsewhere while the person had a step) is opened
+ * again once. A warning ends it.
+ */
+async function find(job: Job, who: TidyCandidate): Promise<'found' | 'gone' | 'lost' | JobEnd> {
+  let seen = false;
+  let waited = false;
+  let reopened = false;
+  for (let screen = 0; ;) {
+    const page = await readIn(job.tab);
+    const warned = await warnedOn(job, page);
+    if (warned) return warned;
+    if (listed(page, who)) return 'found';
+    seen ||= listOnPage(page)?.list === 'sent';
+    if (!seen && !reopened) {
+      reopened = true;
+      const opened = await openSent(job);
+      if (opened === 'missing') return 'lost';
+      if (opened) return opened;
+      continue;
+    }
+    if (screen >= LOOK_SCROLLS || job.stopped()) return 'lost';
+    if ((await job.tab.ask({ type: 'hfos-scroll-list' })).ok) {
+      screen++;
+      waited = false;
+      await pause(paced(SCROLL_PACE_MS));
+      continue;
+    }
+    if (waited) return seen ? 'gone' : 'lost';
+    waited = true;
+    await pause(LOAD_MS);
+  }
+}
+
+/** Hands a request in Sent requests to the person, with what to press. */
+function handOverSent(job: Job, name: string): Promise<'carry_on' | 'skip' | 'stop'> {
+  if (!job.handOver) return Promise.resolve('skip');
+  return job.handOver(
+    `Couldn’t cancel the request to ${name}. Under Sent requests, press “Cancel request” beside their name. Then press Carry on, or Skip.`,
+  );
+}
+
+/** One request, under Sent requests: find, press, check again, note. Someone the whole list doesn't show, `later`. */
+async function cancelOnList(job: Job, who: TidyCandidate): Promise<Outcome> {
+  const found = await find(job, who);
+  if (typeof found === 'object') return found;
+  if (job.stopped()) return 'stopped';
+  if (found === 'gone') return 'later';
+  if (found === 'lost') {
+    job.progress(`Skipped ${who.name}: couldn’t find their request under Sent requests.`);
+    return 'skipped';
+  }
+  const pressed = await job.tab.ask({ type: 'hfos-cancel-sent', profile: profileOf(who) });
+  if (!pressed.ok) throw new Error(pressed.error);
+  if (job.stopped()) return 'stopped';
+  await pause(SETTLE_MS);
+  let page = await readIn(job.tab);
+  const warned = await warnedOn(job, page);
+  if (warned) return warned;
+  // Their row went before anything was pressed (Facebook drew the list again): nothing to finish, so it's left as it is.
+  if (pressed.result === 'not_found' && !listed(page, who)) {
+    job.progress(`Skipped ${who.name}: their request went from the list before it was cancelled.`);
+    return 'skipped';
+  }
+  if (pressed.result !== 'done' || listed(page, who)) {
+    // Not cancelled yet: the person finishes it, or skips them.
+    const reply = await handOverSent(job, who.name);
+    if (reply === 'stop' || job.stopped()) return 'stopped';
+    if (reply === 'skip') return 'skipped';
+    page = await readIn(job.tab);
+    if (listed(page, who)) return 'skipped';
+  }
+  await noteEnd(job, 'cancel_request', who, false, null);
+  return 'done';
+}
+
+// ------------------------------------------------------------------------------------------- the people picked
+
 /** How it went, in words for the person. */
 function summary(which: TidyJob, done: number, skipped: number, gone: number): string {
   const parts = [`${WORDS[which].done}: ${counted(done, 'person', 'people')}.`];
@@ -181,7 +323,10 @@ function summary(which: TidyJob, done: number, skipped: number, gone: number): s
   return parts.join(' ');
 }
 
-/** Goes through those picked, a person at a time, up to today's limit. */
+/**
+ * Goes through those picked, a person at a time, up to today's limit. Requests the person sent go from Sent requests
+ * first; anyone it doesn't show, and everyone else, by their profile.
+ */
 async function tidyThese(
   job: Job,
   which: TidyJob,
@@ -192,32 +337,56 @@ async function tidyThese(
   let room = Math.max(0, lists.limits[which].most - lists.limits[which].done);
   let done = 0;
   let skipped = 0;
-  if (!picks.length) return { line: summary(which, 0, 0, gone), warned: false };
-  for (const [i, who] of picks.entries()) {
-    if (job.stopped())
-      return { line: `Stopped. ${summary(which, done, skipped, gone)}`, warned: false };
-    if (room <= 0)
-      return {
-        line: `That’s today’s limit of ${lists.limits[which].most}. ${summary(which, done, skipped, gone)} Ask again tomorrow for the rest.`,
-        warned: false,
-      };
-    job.progress(`${i + 1} of ${picks.length}: ${WORDS[which].doing} ${who.name}…`);
-    const outcome = await one(job, which, who);
-    if (outcome === 'stopped')
-      return { line: `Stopped. ${summary(which, done, skipped, gone)}`, warned: false };
-    if (typeof outcome === 'object') return outcome;
-    if (outcome === 'done') {
-      done++;
-      room--;
-    } else if (outcome === 'skipped') skipped++;
-    if (i < picks.length - 1 && !job.stopped()) {
-      job.progress(
-        `${WORDS[which].done}: ${counted(done, 'person', 'people')}. Waiting a moment before the next…`,
-      );
-      await pause(paced(PACE_MS));
+  let at = 0;
+  const said = () => summary(which, done, skipped, gone);
+  if (!picks.length) return { line: said(), warned: false };
+  /** Each of `these` with `per`: the job's end when it ends early, else those left for their profile. */
+  const each = async (
+    these: readonly TidyCandidate[],
+    per: (who: TidyCandidate) => Promise<Outcome>,
+  ): Promise<JobEnd | TidyCandidate[]> => {
+    const later: TidyCandidate[] = [];
+    for (const who of these) {
+      if (job.stopped()) return { line: `Stopped. ${said()}`, warned: false };
+      if (room <= 0)
+        return {
+          line: `That’s today’s limit of ${lists.limits[which].most}. ${said()} Ask again tomorrow for the rest.`,
+          warned: false,
+        };
+      job.progress(`${at + 1} of ${picks.length}: ${WORDS[which].doing} ${who.name}…`);
+      const outcome = await per(who);
+      if (outcome === 'stopped') return { line: `Stopped. ${said()}`, warned: false };
+      if (typeof outcome === 'object') return outcome;
+      if (outcome === 'later') {
+        later.push(who);
+        continue;
+      }
+      at++;
+      if (outcome === 'done') {
+        done++;
+        room--;
+      } else if (outcome === 'skipped') skipped++;
+      if (at < picks.length && !job.stopped()) {
+        job.progress(
+          `${WORDS[which].done}: ${counted(done, 'person', 'people')}. Waiting a moment before the next…`,
+        );
+        await pause(paced(PACE_MS));
+      }
+    }
+    return later;
+  };
+  let rest: readonly TidyCandidate[] = picks;
+  if (which === 'cancel_request') {
+    const opened = await openSent(job);
+    if (opened && opened !== 'missing') return opened;
+    if (!opened) {
+      const left = await each(picks, (who) => cancelOnList(job, who));
+      if (!Array.isArray(left)) return left;
+      rest = left;
     }
   }
-  return { line: `Done. ${summary(which, done, skipped, gone)}`, warned: false };
+  const ended = await each(rest, (who) => one(job, which, who));
+  return Array.isArray(ended) ? { line: `Done. ${said()}`, warned: false } : ended;
 }
 
 /**
