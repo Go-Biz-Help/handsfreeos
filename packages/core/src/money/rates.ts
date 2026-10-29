@@ -70,7 +70,7 @@ export const USAGE_KEYS = [
   /** The AI speaking, per thousand characters it says: on calls, and when talking out loud. Deepgram's voices. */
   'speech.voice.kchar',
   /**
-   * The same in a Rime voice (20261027019000): Coda, its most natural, costs more than Deepgram; Mist v3, its
+   * The same in a Rime voice (20261027019100): Coda, its most natural, costs more than Deepgram; Mist v3, its
    * fastest, about the same. Each model has its own line so the card can be checked against Rime's invoice.
    */
   'speech.voice.coda.kchar',

@@ -9282,7 +9282,7 @@ Its voice**, with **Hear it** to hear the greeting in one:
 A minute of the AI talking is about 1,000 characters. Each voice has a Spanish speaker, so a caller speaking
 Spanish is answered in Spanish; the list is `PHONE_VOICE_INFO` in `packages/core/src/ai-team/voices.ts`. Rime
 only speaks: Deepgram still hears every caller. The prices need
-`20261027019000_rime_voices_on_the_wallet.sql`; see "Apply new migrations". If Rime's prices change, change the two
+`20261027019100_rime_voices_on_the_wallet.sql`; see "Apply new migrations". If Rime's prices change, change the two
 lines' cost on the card the usual way.
 
 **Setting it up.** HandsFreeOS uses one Rime account, pay as you go:

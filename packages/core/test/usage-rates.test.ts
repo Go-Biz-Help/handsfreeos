@@ -182,7 +182,7 @@ describe('the seeded card', () => {
       'speech.live.minute': 2,
       'speech.recording.minute': 1,
       'speech.voice.kchar': 5,
-      // Rime's voices, each at 1.5× its own price (20261027019000): Coda 7.5¢ and Mist 4.5¢ a thousand characters.
+      // Rime's voices, each at 1.5× its own price (20261027019100): Coda 7.5¢ and Mist 4.5¢ a thousand characters.
       'speech.voice.coda.kchar': 8,
       'speech.voice.mist.kchar': 5,
       // Zoom's transcript of a coached meeting, at 1.5× its Developer Pack credits.
