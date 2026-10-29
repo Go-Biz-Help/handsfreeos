@@ -837,10 +837,25 @@ const ADJUST_FIELDS = {
     label: 'When a voicemail box answers',
     words: ['leave a voicemail', 'ai calls voicemail'],
   },
+  'adjust.calling_hours': {
+    automation: 'call_back_missed',
+    label: 'Calling hours for leads',
+    words: ['legal calling hours', 'call hours', 'when calls go', 'calls at weekends'],
+  },
+  'adjust.call_tries': {
+    automation: 'call_back_missed',
+    label: 'When a lead doesn’t answer',
+    words: ['call again', 'retry calls', 'call attempts', 'no answer'],
+  },
   'adjust.ok_to_call': {
     automation: 'call_back_missed',
     label: 'Ask for an OK to call',
     words: ['call consent', 'consent to calls', 'permission to call', 'ok to call box'],
+  },
+  'adjust.business_landlines': {
+    automation: 'call_back_missed',
+    label: 'Business landlines',
+    words: ['call business numbers', 'landline check', 'calls without consent', 'office phones'],
   },
   'adjust.how_you_tag': {
     automation: 'ai_tags',

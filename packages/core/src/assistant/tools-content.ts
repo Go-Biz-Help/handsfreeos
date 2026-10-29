@@ -55,7 +55,7 @@ export const contentTools: readonly AssistantTool[] = [
   define({
     name: 'start_campaign',
     description:
-      'Start an outreach campaign to everyone with one of the tags, or an open deal in one of the pipeline stages: texts (the AI writes one for each person from the goal), one email to them all, or AI calls to people who agreed to calls in writing. Tag ids come from get_settings (tags), stage ids from get_settings (pipelines; open stages only), offer ids from list_offers. Nothing goes out when it starts: the AI writes first, and the person approves everything with manage_campaign.',
+      'Start an outreach campaign to everyone with one of the tags, or an open deal in one of the pipeline stages: texts (the AI writes one for each person from the goal), one email to them all, or AI calls to people who agreed to calls in writing. Tag ids come from get_settings (tags), stage ids from get_settings (pipelines; open stages only), offer ids from list_offers. Nothing goes out when it starts: the AI writes first, and the person approves everything with manage_campaign. A call campaign can keep adding people: anyone who later gets one of the tags or reaches one of the stages, and agrees to calls in writing, joins and is called at its pace until it’s stopped; it may start with nobody yet.',
     input: z.object({
       channel: z
         .enum(['sms', 'email', 'call'])
@@ -67,6 +67,10 @@ export const contentTools: readonly AssistantTool[] = [
       stageIds: z.array(uuid).max(20).default([]).describe('Open pipeline stages'),
       perHour: perHour.default(CAMPAIGN_PER_HOUR_DEFAULT),
       offerId: uuid.optional().describe('A promotion from list_offers it is about'),
+      keepAdding: z
+        .boolean()
+        .default(false)
+        .describe('Calls only: keep adding anyone who comes to fit, until it’s stopped'),
     }),
     autonomy: 'confirm',
     permission: 'workflows.manage',
@@ -74,10 +78,18 @@ export const contentTools: readonly AssistantTool[] = [
   define({
     name: 'manage_campaign',
     description:
-      'Run a campaign: approve_and_send approves every message waiting in review and starts sending (it reaches many customers, so the card says how many), pause and resume while it sends, stop ends it for good (what hasn’t gone never goes), change_pace sets how many go an hour. Campaign ids come from list_campaigns.',
+      'Run a campaign: approve_and_send approves every message waiting in review and starts sending (it reaches many customers, so the card says how many), pause and resume while it sends, stop ends it for good (what hasn’t gone never goes), change_pace sets how many go an hour, keep_adding and stop_adding turn on or off whether a call campaign takes in anyone who later gets its tags or reaches its stages and agrees to calls. Campaign ids come from list_campaigns.',
     input: z.object({
       campaignId: uuid,
-      action: z.enum(['approve_and_send', 'pause', 'resume', 'stop', 'change_pace']),
+      action: z.enum([
+        'approve_and_send',
+        'pause',
+        'resume',
+        'stop',
+        'change_pace',
+        'keep_adding',
+        'stop_adding',
+      ]),
       perHour: perHour.optional().describe('change_pace: the new pace'),
     }),
     autonomy: 'confirm',

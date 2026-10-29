@@ -8254,7 +8254,7 @@ When a text can't go, the workflow's **If they haven’t agreed to texts** setti
 
 The phone app keeps working without signal and sends what was done when it reconnects, so something can reach HandsFreeOS hours after it happened. A lead added in a basement at 2 PM may arrive at 5 PM. When whatever started a run happened more than 30 minutes before it reached HandsFreeOS:
 
-- Steps that would text or email the customer, or hand them to the AI teammate to write first, are skipped. The step log says, for example, "Not sent: what started this happened 3 hours before it reached HandsFreeOS, so a message now could be out of date."
+- Steps that would text, email or call the customer, or hand them to the AI teammate to write first, are skipped. The step log says, for example, "Not sent: what started this happened 3 hours before it reached HandsFreeOS, so a message now could be out of date."
 - The rest of the run still happens: notes, tasks, tags, stages and notices to the team.
 - Waits count from when it really happened. A 1-hour wait after that lead is already over when it arrives, so the run carries on at once and is still late. A wait that ends in the future brings the run back on time, and its texts go as usual.
 - A waiting run woken by something that itself arrived late is late in the same way.
@@ -9174,8 +9174,25 @@ Needs `20261006000700_email_campaigns.sql`. See "Apply new migrations".
 - **Approve all and start calling** is the approval for every call on the list, so the calls don't wait for a person again, even while the teammate is training.
 - The same pace (calls an hour), open hours, quiet hours, **Pause**, **Resume** and **Stop** as texts. Each call is an AI call like the others (see "AI calls" below): recorded, the business's voicemail choice, "don't call me again" respected. Each person's row shows how their call went: **Calling soon**, **Talked** (with the summary), **Voicemail**, **No answer**, **Busy**, **Not called**.
 - It pauses itself, saying why, when the AI teammate isn't taking calls (off, or its phone off).
+- **Keep adding people** (a box under the pace, calls only; `campaigns.keep_adding`): anyone who later gets one of
+  its tags or reaches one of its stages, and agrees to calls in writing, joins and is called at its pace. It may
+  start, and be approved, with nobody yet ("Nobody to call yet. Anyone who comes to fit joins and is called."). The
+  first approval covers everyone who joins later. While it's on it never finishes by itself; the list shows **Keeps
+  adding**, and the progress screen has a switch to turn it off, after which it finishes once everyone it has is
+  called.
+  - The worker looks at once when a lead comes in, a deal changes stage, a tag changes or someone says yes to calls
+    (`campaign.keep_adding_changed`, `lead.created`, `lead.stage_changed`, `record.tags_changed`,
+    `person.call_consent_changed`), keeping to the pace. Otherwise it looks every hour, which also catches people
+    tagged by an import. Up to 50 join at each look.
+  - A joiner is anyone the campaign picks and doesn't have yet, or left out for a reason that has changed since (no
+    phone, no written yes, called lately, mid-conversation, booked). Someone already called by it isn't called
+    again, and the same checks run again just before each call.
+  - The Assistant starts one with `start_campaign` (`keepAdding`) and turns it on or off with `manage_campaign`
+    (`keep_adding`, `stop_adding`), on a Confirm card. The command is `campaign.set_keep_adding` (risk 2,
+    `workflows.manage`), refused for texts and email, and for a campaign that's done or stopped.
 
-Needs `20261008000200_quote_and_campaign_calls.sql` (`campaigns.channel` `call`, `campaigns.call_opening`). See "Apply new migrations".
+Needs `20261008000200_quote_and_campaign_calls.sql` (`campaigns.channel` `call`, `campaigns.call_opening`), and for
+**Keep adding people** `20261027018300_campaign_keep_adding.sql`. See "Apply new migrations".
 
 **About a promotion**: a campaign can be about one of the business's promotions (Knowledge → Promotions, live or upcoming; `app.offers` underneath). Picking one fills in the goal if it's empty, and the AI writes each text from the promotion's own words and says when it ends. An archived promotion can't be picked.
 
@@ -9295,7 +9312,7 @@ loud (`source = 'talk'` in `app.speech_usage`), and their AI tokens like any oth
 ### AI calls
 
 The AI teammate can ring a customer itself. Three reasons, each a row on **Settings → Automations**, off to begin
-with, and call campaigns (see "Outreach campaigns" above):
+with, plus call campaigns (see "Outreach campaigns" above) and a workflow's **AI teammate calls them** step (below):
 
 | Row                                   | What it does                                                                                                                                                                                                                        | On to begin with |
 | ------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------- |
@@ -9308,13 +9325,14 @@ The quote call comes after the quote's reminder text (Settings → Payments, "Nu
 reminder set, there's no call either.
 
 - **Every call** comes from the business number, in open hours only and never in quiet hours (it waits for the next
-  good moment). It starts: "Hi Ann, this is Ava, an AI assistant for Lone Star HVAC. This call is recorded. I'm
+  good moment), and a call to a lead within the calling hours where they are too (below). It starts: "Hi Ann, this is Ava, an AI assistant for Lone Star HVAC. This call is recorded. I'm
   calling about …". The call is recorded (both sides), and its words are on the customer's timeline like any call.
 - **While the teammate is training,** each call waits for a person: a card on **Workflows → Approvals** ("Ava asks
   to call Ann") and Home's "Drafts awaiting review". **Approve the call** places it at the next good moment; **Reject**
   means no call. One nobody decides before it expires isn't made.
 - **When a voicemail box answers** (the carrier can tell): what the business chose in the row's **Adjust** — hang
-  up and send a text instead (the default), leave a short message, or just hang up.
+  up and send a text instead (the default), leave a short message, or just hang up. For a call to a lead with tries
+  left, it only hangs up and tries again tomorrow (below).
 - **"Don't call me again"** on a call: the AI records it, and no AI call goes to them after that. The customer page's
   Details has **Calls from us** ("Agreed in writing (Signed service agreement)", "Doesn't want calls", "Not asked"),
   where a person can change it. A yes needs where it's written; campaign calls only go to a yes.
@@ -9341,6 +9359,64 @@ reminder set, there's no call either.
   number, never over a "Doesn't want calls", and never while the switch is off (the command checks it again, so a
   page loaded before it went off keeps nothing). The Assistant turns it on or off with `update_automations`
   (`askForOkToCall`).
+- **From a workflow, to a new lead:** the workflow step **AI teammate calls them** (under **Message the customer**
+  in the step menu) rings them with the step's own **call playbook**: **Why it's calling** (it finishes "I'm calling
+  …", and can use the details, like "about the {{lead.title}} request you just sent us"), **What to find out** (the
+  questions to ask), **What it may offer** (and nothing more), and **Booking**: when they want to (the default), ask
+  to book a visit, or leave it to the team. It calls only someone who agreed to calls in writing (the customer page,
+  an import or the "OK to call" box); anyone else is skipped, saying why (`no_call_consent`, `no_calls` for "Doesn't
+  want calls", `no_phone`, and `no_teammate` while the teammate is off). Every rule above holds: open hours, never
+  quiet hours, the same opening and, while training, an OK first. A call that waited (an OK, open hours) isn't made
+  once they've booked (`booked_since`) or written or called in (`in_touch_since`) since the step ran. The recipe
+  **Speed to lead by phone** (Workflows → New workflow) is a new lead → this call → a day's wait → a task for the
+  lead's assignee, and a booking stops it. The step queues one `ai_calls` row of reason `workflow`, keeping the
+  playbook in its `playbook` column, and a test run only says it would call. Needs
+  `20261027018100_workflow_ai_calls.sql`.
+- **Calls to leads (a campaign's and a workflow's) keep to the legal calling hours where the lead is:** 8 AM to 9 PM
+  in their own time, stricter where the state is (8 PM in Florida, Oklahoma, Maryland, Massachusetts, Washington and
+  a few more; 9 AM in Texas, and noon on its Sundays; no Sundays in Alabama, Georgia, Indiana, Louisiana, Minnesota,
+  Mississippi, Rhode Island, Tennessee and Utah, and no holidays where the state says so), and Canada's (9 AM to
+  9:30 PM on weekdays, 10 AM to 6 PM at weekends). Where they are comes from their number's area code and their
+  address; a lead who could be in two zones is called only when it's fine in both, and a call starts no later than
+  15 minutes before the hours end. The rules are core's `call-hours.ts` and the area codes `call-places.ts`
+  (`packages/core/src/automations`), gathered 2026-10-28 from public summaries for the owner's lawyer to confirm, so
+  one change there is every call. **Calling hours for leads** in the same **Adjust** narrows them (a start, an end,
+  and weekends or not), never widens: the command refuses a start before 8 AM or an end after 9 PM. Open hours and
+  quiet hours still hold too. Hours that leave no time in the next two weeks skip the call (`no_calling_hours`).
+- **When a lead doesn't answer** (nobody picks up, the line's busy, or a voicemail box answers), a campaign's or a
+  workflow's call rings again the next day at the next good moment, up to 3 times to begin with (**When a lead
+  doesn't answer** in the same **Adjust**: once, twice or 3 times). The row says "Nobody answered; it tries again
+  tomorrow" meanwhile, and a campaign's list says "No answer, trying again". A try isn't made once they've booked
+  or written or called in since (`booked_since`, `in_touch_since`). The voicemail choice is the last try's, so nobody
+  gets three messages: after a last try nobody answered, the text goes when the business chose texting instead. One
+  `ai_calls` row keeps the count (`tries`); the Assistant changes both settings with `update_automations`
+  (`callLeadsFrom`, `callLeadsUntil`, `callLeadsAtWeekends`, `callTries`). Needs `20261027018200_ai_call_tries.sql`.
+- **Business landlines without a yes:** **Call business landlines without a yes** in the same **Adjust** (off to
+  begin with; the Assistant's `callBusinessLandlines`) lets a campaign's or a workflow's call go to someone who never
+  said yes or no, when their number is a business landline. The federal rule that needs a written yes for an AI
+  voice covers home lines and cell phones, and the Do Not Call list covers people, not businesses; some states don't
+  make the exception, so the row says to ask a lawyer first. "Doesn't want calls" is never called.
+  - Just before such a call (once everything else says it can go), the worker asks Twilio Lookup on the business's
+    subaccount what the number is (`ai-calls/line-check.ts`): the line type first, and for a landline that isn't a
+    company's number in HandsFreeOS, who it's registered to. It's called only when it's a landline and the business's:
+    registered to a business, or a company's number here (main or another). A mobile, even a work cell, an internet
+    number, a toll-free one, a home landline, or one Twilio can't place, still needs the yes. The rule is core's
+    `business-line.ts`.
+  - What Twilio said is kept for 90 days in `app.phone_line_checks` (by number, not by customer) and used for every
+    call to that number meanwhile; older ones are cleared as the next is kept. A company's number is read fresh each
+    time.
+  - Each ask is on the wallet: `lookup.line_type` (Twilio's $0.008, charged 2¢, the floor, since 1.2¢ would round
+    under 1.5×) and `lookup.caller_name` ($0.01, charged 2¢). The nightly true-up compares them with Twilio's
+    `enhanced-line-type-lookups` and `calleridlookups`.
+  - The price is shown before anything is paid, read from the live rate card (to someone with `money.read`): under
+    the switch, on the Assistant's Confirm card that turns it on, and in Settings → Usage's price list. A new call
+    campaign's preview (`landlineCheckCents`) and its Confirm card add the most its checks could come to, counting
+    only what's still to ask: a number checked lately costs nothing, and a company's number skips the second check.
+  - A campaign's preview says how many it would call only if their number turns out to be a business landline. One
+    that isn't is left out, saying "No yes to calls, and not a business landline" (`not_business_landline`), which a
+    yes given later changes for a campaign that keeps adding people; a workflow's step is skipped the same way. A
+    call that goes keeps why in `ai_calls.consent_basis`: `written` or `business_landline`.
+  - Needs `20261027018400_business_landlines.sql`.
 - **On a quote call** the AI knows the quote's name, total and last day. It answers questions from those and what
   the business knows, never changes a price or the terms, and for going ahead points to the link in the text they
   got (the team can text it again).
@@ -9356,7 +9432,9 @@ it's answered. Needs `20261008000100_ai_calls.sql` and, for quote and campaign c
 - **No calls go out:** check the row is on, the teammate is on with its phone on, the business has a live number,
   and the balance has room. An `ai_calls` row says why a call was left alone (`reason`: `already_confirmed`,
   `in_touch_since`, `no_calls`, `switched_off`, `no_voice`, `balance`, `no_number`, `too_late`, and for campaign
-  calls `no_call_consent` and `campaign_stopped`).
+  calls `no_call_consent` and `campaign_stopped`; for a workflow's call `no_call_consent`, `booked_since` and
+  `in_touch_since`; for either, `no_calling_hours` when the business's calling hours fit no time where the lead may
+  be in the next two weeks).
 - **A call rings but the AI says nothing:** the voice agent isn't set up (`VOICE_AGENT` on the worker); the call
   hangs up by itself.
 

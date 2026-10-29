@@ -7,7 +7,9 @@
  *
  * Or calls (AI outbound calls): the AI teammate rings each person who agreed to calls in writing. The AI writes
  * one opening line for them all ("about our fall tune-up, which is $89 this month"), the owner changes it, and it
- * finishes "I'm calling …" on every call.
+ * finishes "I'm calling …" on every call. A call campaign can keep adding people (AI calls, part 4): anyone who later
+ * gets one of its tags or reaches one of its stages, and agrees to calls in writing, joins and is called at its
+ * pace, until it's stopped.
  */
 import { z } from 'zod';
 import { aiCallOutcome, aiCallStatus } from './ai-call';
@@ -58,6 +60,8 @@ export const SKIP_REASONS = [
   // Call campaigns.
   'no_call_consent',
   'called_recently',
+  // No yes, and the phone company says the number isn't a business landline (AI calls, part 5).
+  'not_business_landline',
 ] as const;
 export const skipReason = z.enum(SKIP_REASONS);
 export type SkipReason = z.infer<typeof skipReason>;
@@ -118,6 +122,11 @@ export const CampaignCreateInput = z.object({
     })
     .nullable()
     .default(null),
+  /**
+   * A call campaign only: keep adding anyone who later gets one of the tags or reaches one of the stages and agrees
+   * to calls in writing, until it's stopped. It may start with nobody to call yet.
+   */
+  keepAdding: z.boolean().default(false),
 });
 export const CampaignCreateOutput = z.object({
   campaignId: uuid,
@@ -157,6 +166,12 @@ export const CampaignSetPaceInput = z.object({
   campaignId: uuid,
   perHour,
 });
+export const CampaignSetKeepAddingInput = z.object({
+  workspaceId: uuid,
+  campaignId: uuid,
+  /** On: anyone who later fits and agrees to calls joins. Off: it finishes once everyone it has is called. */
+  on: z.boolean(),
+});
 
 /** Worker: someone asked for no more campaign email (the page's button, their mail app's, or Postmark's). */
 export const EMAIL_UNSUBSCRIBE_SOURCES = ['link', 'one_click', 'postmark'] as const;
@@ -185,6 +200,20 @@ export const CampaignPreviewOutput = z.object({
   skipped: z.record(z.string(), z.number().int()),
   /** Email: the address every email shows, or null when the business hasn't given one (it can't send then). */
   postalAddress: z.string().nullable(),
+  /**
+   * Calls: of those it would call, how many have no yes and are called only if the phone company says their number
+   * is a business landline (with Call business landlines without a yes on).
+   */
+  landlineChecks: z.number().int().default(0),
+  /**
+   * Calls: what asking the phone company costs, in cents: `line` to check what kind of line a number is, `owner`
+   * more to check who a landline belongs to, and `upTo` the most these people's numbers could come to (numbers
+   * checked lately aren't asked again). Null when there's nothing to check, or to someone who can't see prices.
+   */
+  landlineCheckCents: z
+    .object({ line: z.number().int(), owner: z.number().int(), upTo: z.number().int() })
+    .nullable()
+    .default(null),
 });
 
 export const CampaignCounts = z.object({
@@ -207,6 +236,8 @@ export const CampaignSummary = z.object({
   /** Why HandsFreeOS paused it (`email_campaigns_not_ready`, `texting_not_ready`, …); null when a person did. */
   pausedReason: z.string().nullable(),
   perHour: z.number().int(),
+  /** A call campaign that keeps adding anyone who later fits and agrees to calls (false for the others). */
+  keepAdding: z.boolean(),
   counts: CampaignCounts,
   /** The offer it's about, if any. */
   offer: z.object({ id: uuid, name: z.string() }).nullable(),

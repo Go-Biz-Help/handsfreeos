@@ -21,6 +21,7 @@ import {
   QUOTE_MODES,
 } from '../ai-team/config';
 import { AUTOMATION_GROUPS, AUTOMATIONS, type AutomationId } from '../automations/catalog';
+import { CALL_TRIES_MAX } from '../automations/call-hours';
 import { CALL_VOICEMAIL_CHOICES } from '../automations/settings';
 import { IDEA_MINE, IDEA_SORTS, IDEA_STATUSES } from '../ideas/words';
 import { PUSH_SWITCHES } from '../push';
@@ -216,7 +217,7 @@ export const extraTools: readonly AssistantTool[] = [
   define({
     name: 'update_automations',
     description:
-      'Turn automations on or off by their id from list_automations — any row on Settings → Automations, whether its switch lives there, in what Home watches for, or in the AI teammate — and change re-engaging dead leads’ timing and message, which form Intake questions sends, when the end-of-day email goes, what the AI does when a voicemail box answers its call, and whether its pages ask for an OK to call. Re-engaging dead leads can only be turned on from the screen, where its message is read first. new_lead_greeting is only the AI teammate’s first message to a brand-new lead, and it goes out only while the teammate’s Respond switch is on too (manage_ai_teammate’s repliesToLeads, which is the whole section).',
+      'Turn automations on or off by their id from list_automations — any row on Settings → Automations, whether its switch lives there, in what Home watches for, or in the AI teammate — and change re-engaging dead leads’ timing and message, which form Intake questions sends, when the end-of-day email goes, what the AI does when a voicemail box answers its call, the calling hours and tries for campaign and workflow calls to leads, and whether its pages ask for an OK to call. Re-engaging dead leads can only be turned on from the screen, where its message is read first. new_lead_greeting is only the AI teammate’s first message to a brand-new lead, and it goes out only while the teammate’s Respond switch is on too (manage_ai_teammate’s repliesToLeads, which is the whole section).',
     input: z.object({
       turnOn: z.array(z.enum(AUTOMATION_IDS)).max(49).optional(),
       turnOff: z.array(z.enum(AUTOMATION_IDS)).max(49).optional(),
@@ -244,11 +245,39 @@ export const extraTools: readonly AssistantTool[] = [
         .enum(CALL_VOICEMAIL_CHOICES)
         .optional()
         .describe('text: hang up and text instead; message: leave a short one; hang_up'),
+      callLeadsFrom: clock
+        .optional()
+        .describe(
+          'Campaign and workflow calls start no earlier than this, 24-hour, in each lead’s own time: 08:00 or later (the law’s earliest; stricter states keep theirs)',
+        ),
+      callLeadsUntil: clock
+        .optional()
+        .describe(
+          'And end by this, 24-hour: 21:00 at the latest, at least an hour after the start',
+        ),
+      callLeadsAtWeekends: z
+        .boolean()
+        .optional()
+        .describe('Saturdays and Sundays too, where the law allows them'),
+      callTries: z
+        .int()
+        .min(1)
+        .max(CALL_TRIES_MAX)
+        .optional()
+        .describe(
+          'How many times a campaign’s or workflow’s call rings a lead who doesn’t answer, a day apart. What it does for a voicemail box comes after the last',
+        ),
       askForOkToCall: z
         .boolean()
         .optional()
         .describe(
           'Show an “OK to call me, including with an AI assistant” box under the text box on the business’s forms, booking page, waitlist and website chat. A tick counts as agreed in writing to calls',
+        ),
+      callBusinessLandlines: z
+        .boolean()
+        .optional()
+        .describe(
+          'Let a campaign’s or workflow’s call go to someone with no written yes when their number is a business landline (checked with the phone company first, charged per number to the balance: get_settings prices lists what each check costs). Mobiles, home lines and internet numbers still need the yes',
         ),
     }),
     autonomy: 'confirm',

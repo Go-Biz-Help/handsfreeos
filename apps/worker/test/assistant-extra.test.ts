@@ -324,9 +324,16 @@ describe('Settings → Automations', () => {
       endOfDayEmailAt: '19:30',
       whenVoicemailAnswers: 'hang_up',
       askForOkToCall: true,
+      callLeadsFrom: '10:00',
+      callLeadsUntil: '18:00',
+      callTries: 2,
     });
     expect(card.title).toBe('Change your automations');
     expect(field(card, 'Ask for an OK to call')!.value).toBe('On');
+    expect(field(card, 'Calling hours for leads')!.value).toBe(
+      '10:00 AM to 6:00 PM, in each lead’s own time',
+    );
+    expect(field(card, 'When a lead doesn’t answer')!.value).toBe('Try up to 2 times, a day apart');
     expect(field(card, 'Day-before confirmation')!.value).toBe('Off');
     expect(field(card, 'Hot lead alert')!.value).toBe('Off');
     expect(field(card, 'End-of-day email at')!.value).toBe('19:30');
@@ -342,10 +349,34 @@ describe('Settings → Automations', () => {
       dayOf: true,
     });
     expect(s['automations'].briefings.eveningAt).toBe('19:30');
-    expect(s['automations'].calls).toMatchObject({ voicemail: 'hang_up', askConsent: true });
+    expect(s['automations'].calls).toMatchObject({
+      voicemail: 'hang_up',
+      askConsent: true,
+      hours: { start: '10:00', end: '18:00', weekends: true },
+      tries: 2,
+      businessLandlines: false,
+    });
+    // Never wider than the law allows.
+    await expect(prepare('update_automations', { callLeadsFrom: '07:00' })).rejects.toThrow(
+      'Calls can’t start before 8 AM',
+    );
     expect(s['attention'].kinds.hot_lead).toBe(false);
     expect(s['attention'].kinds.unanswered_lead).toBe(true);
     expect((await teammate()).config['followUp'].neverReplied).toBe(false);
+  });
+
+  it('turns on calling business landlines with what each check costs on the card', async () => {
+    const { card, parsed } = await prepare('update_automations', { callBusinessLandlines: true });
+    // As Settings → Automations shows it, from the live prices.
+    expect(card.fields).toEqual([
+      {
+        label: 'Call business landlines without a yes',
+        value:
+          'On. Each check is charged to your balance: $0.02 to check what kind of line a number is, and $0.02 more to check who a landline belongs to',
+      },
+    ]);
+    await confirm('update_automations', parsed);
+    expect((await settings())['automations'].calls.businessLandlines).toBe(true);
   });
 
   it('says so when turning one on reaches customers, and what it still needs', async () => {

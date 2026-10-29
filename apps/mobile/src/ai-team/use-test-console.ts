@@ -1,5 +1,6 @@
 import {
   restToSay,
+  testCallGoalAsk,
   testSamples,
   TEST_MESSAGES_MAX,
   type AiCallPurpose,
@@ -59,11 +60,13 @@ export function useTestConsole(workspaceId: string, name: string) {
 
   const phone = channel === 'phone';
   const outbound = phone && direction === 'outbound';
+  /** The box for what the call is about: a campaign's call and a workflow's need one. */
+  const goalAsk = outbound ? testCallGoalAsk(purpose) : null;
   const call: TestCall | null = phone
     ? {
         direction,
         purpose: outbound ? purpose : null,
-        goal: outbound && purpose === 'campaign' ? goal.trim() || null : null,
+        goal: goalAsk ? goal.trim() || null : null,
       }
     : null;
   const who = person
@@ -82,8 +85,8 @@ export function useTestConsole(workspaceId: string, name: string) {
     ? null
     : !person
       ? `Pick a customer for ${name} to call.`
-      : purpose === 'campaign' && !goal.trim()
-        ? 'Say what the campaign call is about.'
+      : goalAsk && !goal.trim()
+        ? goalAsk.missing
         : null;
 
   React.useEffect(() => () => abort.current?.abort(), []);
@@ -298,6 +301,7 @@ export function useTestConsole(workspaceId: string, name: string) {
     setPurpose: restarting(setPurposeRaw),
     goal,
     setGoal: restarting(setGoalRaw),
+    goalAsk,
     at,
     setAt,
     text,

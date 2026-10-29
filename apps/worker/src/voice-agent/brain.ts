@@ -32,6 +32,7 @@ import {
   TEAMMATE_TURN_ENDERS,
   teammateTools,
   walletRoom,
+  type AiCallPurpose,
   type AiEmployeeActor,
   type ConversationHandoffReason,
   type RequestMeta,
@@ -145,13 +146,13 @@ export interface PreparedCall {
 /** A call the teammate placed (app.ai_calls). */
 export interface OutboundCall {
   readonly aiCallId: string;
-  readonly purpose: 'confirm_visit' | 'missed_call' | 'quote' | 'campaign';
+  readonly purpose: AiCallPurpose;
   /** What it says it's calling about: it finishes "I'm calling …". */
   readonly goal: string;
   readonly personId: string;
   readonly attendeeId: string | null;
   readonly firstName: string | null;
-  /** A quote's or a campaign's facts, for the AI (data); null for the other reasons. */
+  /** A quote's or a campaign's facts, or a workflow's playbook, for the AI (data); null for the other reasons. */
   readonly brief: string | null;
 }
 

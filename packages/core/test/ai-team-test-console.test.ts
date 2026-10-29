@@ -4,6 +4,7 @@ import {
   readTestEvents,
   restToSay,
   stepsLine,
+  testCallGoalAsk,
   TestConsoleInput,
   testSamples,
   testVerb,
@@ -57,6 +58,17 @@ describe('what a test asks for', () => {
         messages: [],
       }),
     ).toEqual(['call.goal: Say what the campaign call is about.']);
+    expect(
+      issues({
+        workspaceId: WS,
+        personId: PERSON,
+        channel: 'phone',
+        call: { direction: 'outbound', purpose: 'workflow' },
+        messages: [],
+      }),
+    ).toEqual(['call.goal: Say what the call is about.']);
+    expect(testCallGoalAsk('workflow')?.label).toBe('Why it’s calling');
+    expect(testCallGoalAsk('quote')).toBeNull();
     expect(
       issues({
         workspaceId: WS,

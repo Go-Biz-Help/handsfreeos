@@ -169,6 +169,30 @@ export const HandToAiTeammateConfig = z.object({
   note: z.string().trim().max(500, 'Keep it under 500 characters.').default(''),
 });
 
+/** When the AI on a workflow's call offers a time: once they want one, on every call it can, or never. */
+export const AI_CALL_BOOKING = ['when_ready', 'always', 'never'] as const;
+export type AiCallBooking = (typeof AI_CALL_BOOKING)[number];
+const playbookLine = (what: string) =>
+  z.string().trim().max(1000, `Keep ${what} under 1,000 characters.`).default('');
+
+/**
+ * The AI teammate calls them (AI calls, part 2), with the step's own call playbook. It calls only someone who agreed
+ * to calls in writing (the customer page's "Agreed in writing", an import's column, the "OK to call" box); anyone
+ * else is skipped, saying why. Every AI call's rules hold: open hours and never quiet hours, it says who it is, that
+ * it's an AI and that the call is recorded, and while the teammate is training a person approves each call first.
+ */
+export const CallWithAiConfig = z.object({
+  /** It finishes "I'm calling …": "about the quote you asked for on our website" (a template). */
+  opening: template(300, 'Say what it’s calling about.'),
+  /** What to find out on the call: the questions to ask. */
+  findOut: playbookLine('what to find out'),
+  /** What it may offer, and nothing more: a free estimate, this month's price. */
+  offer: playbookLine('what to offer'),
+  /** when_ready: offer times once they want to book; always: ask to book a visit; never: the team follows up. */
+  book: z.enum(AI_CALL_BOOKING).default('when_ready'),
+});
+export type CallWithAiConfig = z.infer<typeof CallWithAiConfig>;
+
 export const ACTION_CONFIGS = {
   send_text: SendTextConfig,
   send_email: SendEmailConfig,
@@ -190,6 +214,7 @@ export const ACTION_CONFIGS = {
   remove_from_workflow: WorkflowRefConfig,
   hand_to_ai_teammate: HandToAiTeammateConfig,
   send_form: SendFormConfig,
+  call_with_ai: CallWithAiConfig,
 } as const;
 export type ActionKey = keyof typeof ACTION_CONFIGS;
 export const ACTION_KEYS = Object.keys(ACTION_CONFIGS) as [ActionKey, ...ActionKey[]];
@@ -216,6 +241,7 @@ export const ACTION_LABELS: Readonly<Record<ActionKey, string>> = {
   remove_from_workflow: 'Remove from a workflow',
   hand_to_ai_teammate: 'Hand to the AI teammate',
   send_form: 'Send a form',
+  call_with_ai: 'AI teammate calls them',
 };
 
 /** Actions that reach the customer (consent and quiet hours apply to texts). */
@@ -223,4 +249,5 @@ export const CUSTOMER_ACTIONS: ReadonlySet<ActionKey> = new Set([
   'send_text',
   'send_email',
   'send_form',
+  'call_with_ai',
 ]);

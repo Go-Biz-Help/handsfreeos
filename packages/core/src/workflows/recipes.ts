@@ -173,6 +173,7 @@ export const RECIPE_KEYS = [
   'no_show_rebook',
   'speed_to_lead_ai',
   'missed_call_text_back_ai',
+  'speed_to_lead_phone',
 ] as const;
 export type RecipeKey = (typeof RECIPE_KEYS)[number];
 
@@ -215,6 +216,12 @@ const handToTeammate = (id: string, config: Record<string, unknown>) => ({
   id,
   type: 'action' as const,
   action: 'hand_to_ai_teammate' as const,
+  config: config as never,
+});
+const callWithAi = (id: string, config: Record<string, unknown>) => ({
+  id,
+  type: 'action' as const,
+  action: 'call_with_ai' as const,
   config: config as never,
 });
 /** "If nothing happened before the wait ran out, …; otherwise nothing." */
@@ -575,6 +582,31 @@ export const WORKFLOW_RECIPES: readonly WorkflowRecipe[] = [
           ['b_mctainor', 'b_mctairep'],
           [task('s_mctaitsk', `Call ${first('the caller')} back`, { kind: 'person_owner' })],
         ),
+      ],
+      settings: { stopOn: ['booking'] },
+    },
+  },
+  {
+    key: 'speed_to_lead_phone',
+    name: 'Speed to lead by phone',
+    description:
+      'Your AI teammate calls every new lead who agreed to calls, within a minute in your open hours, asks what they need and offers to book. If they haven’t booked within a day, their assignee gets a task.',
+    placeholders: [],
+    definition: {
+      version: 1,
+      trigger: { kind: 'event', event: 'lead.created' },
+      steps: [
+        callWithAi('s_stlpcall', {
+          opening: 'about the request you just sent us',
+          findOut: 'What they need done, where, and how soon.',
+          offer: '',
+          book: 'when_ready',
+        }),
+        // A booking stops the run (stopOn), so a day on, only someone who hasn't booked gets the task.
+        wait('s_stlpwt01', 1, 'days'),
+        task('s_stlptsk1', `Follow up with ${first('the new lead')} about {{lead.title}}`, {
+          kind: 'lead_assignee',
+        }),
       ],
       settings: { stopOn: ['booking'] },
     },

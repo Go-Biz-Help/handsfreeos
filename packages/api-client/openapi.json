@@ -19283,7 +19283,8 @@
                       "estimate_follow_up",
                       "no_show_rebook",
                       "speed_to_lead_ai",
-                      "missed_call_text_back_ai"
+                      "missed_call_text_back_ai",
+                      "speed_to_lead_phone"
                     ]
                   },
                   "mapping": {
@@ -32851,6 +32852,34 @@
                           "askConsent": {
                             "default": false,
                             "type": "boolean"
+                          },
+                          "hours": {
+                            "default": {},
+                            "type": "object",
+                            "properties": {
+                              "start": {
+                                "default": "08:00",
+                                "type": "string"
+                              },
+                              "end": {
+                                "default": "21:00",
+                                "type": "string"
+                              },
+                              "weekends": {
+                                "default": true,
+                                "type": "boolean"
+                              }
+                            }
+                          },
+                          "tries": {
+                            "default": 3,
+                            "type": "integer",
+                            "minimum": 1,
+                            "maximum": 3
+                          },
+                          "businessLandlines": {
+                            "default": false,
+                            "type": "boolean"
                           }
                         }
                       },
@@ -33173,11 +33202,47 @@
                             "askConsent": {
                               "default": false,
                               "type": "boolean"
+                            },
+                            "hours": {
+                              "type": "object",
+                              "properties": {
+                                "start": {
+                                  "default": "08:00",
+                                  "type": "string"
+                                },
+                                "end": {
+                                  "default": "21:00",
+                                  "type": "string"
+                                },
+                                "weekends": {
+                                  "default": true,
+                                  "type": "boolean"
+                                }
+                              },
+                              "required": [
+                                "start",
+                                "end",
+                                "weekends"
+                              ],
+                              "additionalProperties": false
+                            },
+                            "tries": {
+                              "default": 3,
+                              "type": "integer",
+                              "minimum": 1,
+                              "maximum": 3
+                            },
+                            "businessLandlines": {
+                              "default": false,
+                              "type": "boolean"
                             }
                           },
                           "required": [
                             "voicemail",
-                            "askConsent"
+                            "askConsent",
+                            "hours",
+                            "tries",
+                            "businessLandlines"
                           ],
                           "additionalProperties": false
                         },
@@ -36198,6 +36263,10 @@
                         "type": "null"
                       }
                     ]
+                  },
+                  "keepAdding": {
+                    "default": false,
+                    "type": "boolean"
                   }
                 },
                 "required": [
@@ -36876,6 +36945,81 @@
                   "workspaceId",
                   "campaignId",
                   "perHour"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "campaignId": {
+                      "type": "string",
+                      "format": "uuid",
+                      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                    },
+                    "status": {
+                      "type": "string",
+                      "enum": [
+                        "drafting",
+                        "review",
+                        "sending",
+                        "paused",
+                        "done",
+                        "cancelled"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "campaignId",
+                    "status"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/commands/campaign.set_keep_adding": {
+      "post": {
+        "operationId": "command_campaign_set_keep_adding",
+        "summary": "Turn on or off whether a call campaign keeps adding people: on, anyone who later gets one of its tags or reaches one of its stages, and agrees to calls in writing, joins and is called at its pace; off, it finishes once everyone it has is called.",
+        "tags": [
+          "commands"
+        ],
+        "description": "Risk level 2. Requires workflows.manage. Emits campaign.keep_adding_changed.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "workspaceId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  },
+                  "campaignId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  },
+                  "on": {
+                    "type": "boolean"
+                  }
+                },
+                "required": [
+                  "workspaceId",
+                  "campaignId",
+                  "on"
                 ]
               }
             }
@@ -152877,7 +153021,8 @@
                                           "confirm_visit",
                                           "missed_call",
                                           "quote",
-                                          "campaign"
+                                          "campaign",
+                                          "workflow"
                                         ]
                                       },
                                       "to": {
@@ -171889,6 +172034,9 @@
                             "minimum": -9007199254740991,
                             "maximum": 9007199254740991
                           },
+                          "keepAdding": {
+                            "type": "boolean"
+                          },
                           "counts": {
                             "type": "object",
                             "properties": {
@@ -172008,6 +172156,7 @@
                           "status",
                           "pausedReason",
                           "perHour",
+                          "keepAdding",
                           "counts",
                           "offer",
                           "createdAt",
@@ -172114,6 +172263,9 @@
                           "type": "integer",
                           "minimum": -9007199254740991,
                           "maximum": 9007199254740991
+                        },
+                        "keepAdding": {
+                          "type": "boolean"
                         },
                         "counts": {
                           "type": "object",
@@ -172326,6 +172478,7 @@
                         "status",
                         "pausedReason",
                         "perHour",
+                        "keepAdding",
                         "counts",
                         "offer",
                         "createdAt",
@@ -172601,12 +172754,54 @@
                         "string",
                         "null"
                       ]
+                    },
+                    "landlineChecks": {
+                      "default": 0,
+                      "type": "integer",
+                      "minimum": -9007199254740991,
+                      "maximum": 9007199254740991
+                    },
+                    "landlineCheckCents": {
+                      "default": null,
+                      "anyOf": [
+                        {
+                          "type": "object",
+                          "properties": {
+                            "line": {
+                              "type": "integer",
+                              "minimum": -9007199254740991,
+                              "maximum": 9007199254740991
+                            },
+                            "owner": {
+                              "type": "integer",
+                              "minimum": -9007199254740991,
+                              "maximum": 9007199254740991
+                            },
+                            "upTo": {
+                              "type": "integer",
+                              "minimum": -9007199254740991,
+                              "maximum": 9007199254740991
+                            }
+                          },
+                          "required": [
+                            "line",
+                            "owner",
+                            "upTo"
+                          ],
+                          "additionalProperties": false
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
                     }
                   },
                   "required": [
                     "recipients",
                     "skipped",
-                    "postalAddress"
+                    "postalAddress",
+                    "landlineChecks",
+                    "landlineCheckCents"
                   ],
                   "additionalProperties": false
                 }

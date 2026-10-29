@@ -2017,6 +2017,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/commands/campaign.set_keep_adding": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Turn on or off whether a call campaign keeps adding people: on, anyone who later gets one of its tags or reaches one of its stages, and agrees to calls in writing, joins and is called at its pace; off, it finishes once everyone it has is called.
+         * @description Risk level 2. Requires workflows.manage. Emits campaign.keep_adding_changed.
+         */
+        post: operations["command_campaign_set_keep_adding"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/commands/campaign.set_pace": {
         parameters: {
             query?: never;
@@ -26623,6 +26643,19 @@ export interface operations {
                         calls?: {
                             /** @default false */
                             askConsent?: boolean;
+                            /** @default false */
+                            businessLandlines?: boolean;
+                            /** @default {} */
+                            hours?: {
+                                /** @default 21:00 */
+                                end?: string;
+                                /** @default 08:00 */
+                                start?: string;
+                                /** @default true */
+                                weekends?: boolean;
+                            };
+                            /** @default 3 */
+                            tries?: number;
                             /**
                              * @default text
                              * @enum {string}
@@ -26738,6 +26771,18 @@ export interface operations {
                             calls: {
                                 /** @default false */
                                 askConsent: boolean;
+                                /** @default false */
+                                businessLandlines: boolean;
+                                hours: {
+                                    /** @default 21:00 */
+                                    end: string;
+                                    /** @default 08:00 */
+                                    start: string;
+                                    /** @default true */
+                                    weekends: boolean;
+                                };
+                                /** @default 3 */
+                                tries: number;
                                 /**
                                  * @default text
                                  * @enum {string}
@@ -27993,6 +28038,8 @@ export interface operations {
                      */
                     channel?: "sms" | "email" | "call";
                     goal: string;
+                    /** @default false */
+                    keepAdding?: boolean;
                     name: string;
                     /** @default null */
                     offerId?: string | null;
@@ -28106,6 +28153,41 @@ export interface operations {
                 "application/json": {
                     /** Format: uuid */
                     campaignId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        campaignId: string;
+                        /** @enum {string} */
+                        status: "drafting" | "review" | "sending" | "paused" | "done" | "cancelled";
+                    };
+                };
+            };
+        };
+    };
+    command_campaign_set_keep_adding: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    campaignId: string;
+                    on: boolean;
                     /** Format: uuid */
                     workspaceId: string;
                 };
@@ -60267,7 +60349,7 @@ export interface operations {
                     /** Format: uuid */
                     proposalId?: string;
                     /** @enum {string} */
-                    recipeKey?: "speed_to_lead" | "missed_call_text_back" | "appointment_follow_up_review" | "estimate_follow_up" | "no_show_rebook" | "speed_to_lead_ai" | "missed_call_text_back_ai";
+                    recipeKey?: "speed_to_lead" | "missed_call_text_back" | "appointment_follow_up_review" | "estimate_follow_up" | "no_show_rebook" | "speed_to_lead_ai" | "missed_call_text_back_ai" | "speed_to_lead_phone";
                     trigger?: {
                         /** @enum {string} */
                         event: "person.created" | "person.updated" | "record.tags_changed" | "lead.created" | "lead.stage_changed" | "lead.assigned" | "lead.qualified" | "appointment.booked" | "appointment.rescheduled" | "appointment.cancelled" | "appointment.completed" | "appointment.no_show" | "attendee.joined" | "attendee.attended" | "attendee.no_show" | "message.received" | "call.missed" | "call.voicemail_left" | "call.completed" | "task.completed" | "ai_teammate.handed_off" | "estimate.sent" | "estimate.accepted" | "estimate.declined" | "invoice.paid" | "form.submitted" | "form.stopped" | "invoice.overdue";
@@ -62866,7 +62948,7 @@ export interface operations {
                                     aiCallId: string;
                                     goal: string;
                                     /** @enum {string} */
-                                    purpose: "confirm_visit" | "missed_call" | "quote" | "campaign";
+                                    purpose: "confirm_visit" | "missed_call" | "quote" | "campaign" | "workflow";
                                     to: string;
                                     toDisplay: string;
                                 } | null;
@@ -65691,6 +65773,7 @@ export interface operations {
                             goal: string;
                             /** Format: uuid */
                             id: string;
+                            keepAdding: boolean;
                             name: string;
                             offer: {
                                 /** Format: uuid */
@@ -65773,6 +65856,7 @@ export interface operations {
                             goal: string;
                             /** Format: uuid */
                             id: string;
+                            keepAdding: boolean;
                             name: string;
                             offer: {
                                 /** Format: uuid */
@@ -65823,6 +65907,14 @@ export interface operations {
                 };
                 content: {
                     "application/json": {
+                        /** @default null */
+                        landlineCheckCents: {
+                            line: number;
+                            owner: number;
+                            upTo: number;
+                        } | null;
+                        /** @default 0 */
+                        landlineChecks: number;
                         postalAddress: string | null;
                         recipients: number;
                         skipped: {

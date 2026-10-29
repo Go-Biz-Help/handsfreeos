@@ -26,12 +26,14 @@ import {
   automationSettingsOf,
   DEFAULT_MENU,
   diffTeammateConfigs,
+  formatClock,
   GET_HELP_WORDS,
   HfosError,
   IDEA_STATUS_WORDS,
   ideaUpdateLine,
   IDEAS_WORDS,
   isValidTimeZone,
+  lineCheckPriceWords,
   MENU_ALWAYS_SHOWN,
   MENU_WORDS,
   menuOf,
@@ -53,6 +55,7 @@ import {
   type AutomationPatch,
   type AutomationSettings,
   type IdeaStatus,
+  type LineCheckCents,
   type Menu,
   type MenuKey,
   type NotifyWho,
@@ -532,11 +535,13 @@ interface AutomationState {
   readonly canManageTeammate: boolean;
   /** For Intake questions: the forms it could send (null when they couldn't be read). */
   readonly forms: { formId: string; name: string; status: string }[] | null;
+  /** For Business landlines: what checking a number costs, as the page shows it (null when it can't see prices). */
+  readonly lineCheckCents: LineCheckCents | null;
 }
 
 /** Everything the page reads to draw its rows, read the way the page reads it. */
 async function automationState(db: Db, ctx: ToolContext): Promise<AutomationState> {
-  const [{ workspace }, team, services, plans, forms] = await Promise.all([
+  const [{ workspace }, team, services, plans, forms, prices] = await Promise.all([
     query<{ workspace: { settings: Record<string, unknown> } }>(db, ctx, 'workspace.get'),
     teammateOf(db, ctx).catch(() => null),
     query<{ items: { repeatMonths: number | null }[] }>(db, ctx, 'service.list').catch(() => null),
@@ -550,8 +555,14 @@ async function automationState(db: Db, ctx: ToolContext): Promise<AutomationStat
       ctx,
       'form.list',
     ).catch(() => null),
+    query<{ items: { key: string | null; cents: number }[] }>(db, ctx, 'usage.prices').catch(
+      () => null,
+    ),
   ]);
   const teammate = team?.teammate ?? null;
+  const priced = (key: string) => prices?.items.find((p) => p.key === key)?.cents;
+  const line = priced('lookup.line_type');
+  const owner = priced('lookup.caller_name');
   return {
     ctx: {
       attention: attentionSettingsOf(workspace.settings),
@@ -571,6 +582,7 @@ async function automationState(db: Db, ctx: ToolContext): Promise<AutomationStat
     teammate,
     canManageTeammate: team?.canManage ?? false,
     forms: forms?.items ?? null,
+    lineCheckCents: line !== undefined && owner !== undefined ? { line, owner } : null,
   };
 }
 
@@ -613,6 +625,12 @@ async function listAutomations(db: Db, ctx: ToolContext, args: Args): Promise<To
         : null,
       endOfDayEmailAt: a.briefings.eveningAt,
       whenVoicemailAnswers: a.calls.voicemail,
+      callsToLeads: {
+        from: a.calls.hours.start,
+        until: a.calls.hours.end,
+        atWeekends: a.calls.hours.weekends,
+        tries: a.calls.tries,
+      },
       asksForOkToCall: a.calls.askConsent,
     },
   };
@@ -778,11 +796,24 @@ function planAutomations(state: AutomationState, args: Args): AutomationPlan {
     now.calls.voicemail) as AutomationSettings['calls']['voicemail'];
   const askConsent =
     typeof args['askForOkToCall'] === 'boolean' ? args['askForOkToCall'] : now.calls.askConsent;
+  const hours = {
+    start: str(args['callLeadsFrom']) ?? now.calls.hours.start,
+    end: str(args['callLeadsUntil']) ?? now.calls.hours.end,
+    weekends:
+      typeof args['callLeadsAtWeekends'] === 'boolean'
+        ? args['callLeadsAtWeekends']
+        : now.calls.hours.weekends,
+  };
+  const tries = num(args['callTries']) ?? now.calls.tries;
+  const businessLandlines =
+    typeof args['callBusinessLandlines'] === 'boolean'
+      ? args['callBusinessLandlines']
+      : now.calls.businessLandlines;
   const next: AutomationSettings = {
     ...now,
     reengage: { ...now.reengage, ...reengage },
     briefings: { ...now.briefings, eveningAt },
-    calls: { ...now.calls, voicemail, askConsent },
+    calls: { ...now.calls, voicemail, askConsent, hours, tries, businessLandlines },
   };
   if (reengage.afterDays !== now.reengage.afterDays)
     fields.push({ label: 'Re-engage: gone cold after', value: plural(reengage.afterDays, 'day') });
@@ -804,8 +835,30 @@ function planAutomations(state: AutomationState, args: Args): AutomationPlan {
     fields.push({ label: 'End-of-day email at', value: eveningAt });
   if (voicemail !== now.calls.voicemail)
     fields.push({ label: 'When a voicemail box answers', value: VOICEMAIL_WORDS[voicemail]! });
+  if (hours.start !== now.calls.hours.start || hours.end !== now.calls.hours.end)
+    fields.push({
+      label: 'Calling hours for leads',
+      value: `${formatClock(hours.start)} to ${formatClock(hours.end)}, in each lead’s own time`,
+    });
+  if (hours.weekends !== now.calls.hours.weekends)
+    fields.push({ label: 'Calls to leads at weekends', value: hours.weekends ? 'Yes' : 'No' });
+  if (tries !== now.calls.tries)
+    fields.push({
+      label: 'When a lead doesn’t answer',
+      value: tries === 1 ? 'Call once' : `Try up to ${tries} times, a day apart`,
+    });
   if (askConsent !== now.calls.askConsent)
     fields.push({ label: 'Ask for an OK to call', value: askConsent ? 'On' : 'Off' });
+  if (businessLandlines !== now.calls.businessLandlines)
+    fields.push({
+      label: 'Call business landlines without a yes',
+      value:
+        businessLandlines && state.lineCheckCents
+          ? `On. Each check is charged to your balance: ${lineCheckPriceWords(state.lineCheckCents)}`
+          : businessLandlines
+            ? 'On. Each check is charged to your balance'
+            : 'Off',
+    });
   if (JSON.stringify(next) !== JSON.stringify(now)) {
     try {
       parseAutomationSettings(next);

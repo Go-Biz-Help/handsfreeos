@@ -7860,6 +7860,8 @@ export const campaigns = app.table('campaigns', {
   /** AI outbound calls: a call campaign's one opening line ("about our fall tune-up …"), and whether a person changed it. */
   callOpening: text('call_opening'),
   callEdited: boolean('call_edited').notNull().default(false),
+  /** AI calls, part 4: a call campaign that keeps adding anyone who later fits and agrees to calls, until stopped. */
+  keepAdding: boolean('keep_adding').notNull().default(false),
   /** Why the worker paused it; null when a person did. */
   pausedReason: text('paused_reason'),
   ...timestamps(),
@@ -7894,7 +7896,7 @@ export const aiCalls = app.table('ai_calls', {
   personId: uuid('person_id')
     .notNull()
     .references(() => people.id, { onDelete: 'cascade' }),
-  /** confirm_visit, missed_call, quote or campaign. */
+  /** confirm_visit, missed_call, quote, campaign or workflow. */
   purpose: text('purpose').notNull(),
   attendeeId: uuid('attendee_id').references(() => appointmentAttendees.id, {
     onDelete: 'cascade',
@@ -7904,6 +7906,8 @@ export const aiCalls = app.table('ai_calls', {
   campaignRecipientId: uuid('campaign_recipient_id').references(() => campaignRecipients.id, {
     onDelete: 'cascade',
   }),
+  /** A workflow's call: the step's playbook (what to find out, what to offer, when to book). */
+  playbook: jsonb('playbook'),
   toE164: text('to_e164').notNull(),
   goal: text('goal').notNull(),
   /** awaiting_approval, queued, calling, done, skipped, cancelled or failed. */
@@ -7915,10 +7919,34 @@ export const aiCalls = app.table('ai_calls', {
   outcome: text('outcome'),
   summary: text('summary'),
   dedupeKey: text('dedupe_key').notNull(),
+  /** How many times it has rung: a campaign's or a workflow's call tries again the next day, up to 3. */
+  tries: smallint('tries').notNull().default(0),
+  /** A call to a lead: why it could go, `written` (a yes) or `business_landline` (AI calls, part 5). */
+  consentBasis: text('consent_basis'),
   placedAt: ts('placed_at'),
   finishedAt: ts('finished_at'),
   ...timestamps(),
 });
+
+/**
+ * What the phone company said about a number (AI calls, part 5): its line type and, for a landline, who it's
+ * registered to. Used for 90 days, then asked again (core's business-line.ts).
+ */
+export const phoneLineChecks = app.table(
+  'phone_line_checks',
+  {
+    id: id(),
+    workspaceId: workspaceRef(),
+    phoneE164: text('phone_e164').notNull(),
+    /** landline, mobile, voip, toll_free, other or unknown. */
+    lineType: text('line_type').notNull(),
+    /** business, consumer or unknown; null when it wasn't asked. */
+    callerType: text('caller_type'),
+    checkedAt: ts('checked_at').notNull().defaultNow(),
+    ...timestamps(),
+  },
+  (t) => [unique().on(t.workspaceId, t.phoneE164)],
+);
 
 /** Email campaigns: an address that asked for no more campaign email from this business. */
 export const emailUnsubscribes = app.table('email_unsubscribes', {

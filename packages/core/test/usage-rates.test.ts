@@ -192,6 +192,9 @@ describe('the seeded card', () => {
       'a2p.brand.vetting': 4150,
       'a2p.campaign.vetting': 1500,
       'a2p.campaign.month': 1000,
+      // Asking the phone company about a number before an AI call with no yes, at 1.5× Twilio Lookup's price.
+      'lookup.line_type': 2,
+      'lookup.caller_name': 2,
     });
   });
 
@@ -232,6 +235,16 @@ describe('the seeded card', () => {
     expect(priceOf(SEED_CARD, 'video.minute', 120).amountCents).toBe(36);
     expect(SEED_CARD.rates['video.minute'].markupBp).toBe(15_000);
     expect(SEED_CARD.rates['video.minute'].unit).toBe('minute');
+  });
+
+  it('charges each phone company check one and a half times what Twilio Lookup charges', () => {
+    // A hundred numbers checked, every one a landline that isn't a company's: $1.20 and $1.50.
+    expect(priceOf(SEED_CARD, 'lookup.line_type', 100).amountCents).toBe(120);
+    expect(priceOf(SEED_CARD, 'lookup.caller_name', 100).amountCents).toBe(150);
+    for (const key of ['lookup.line_type', 'lookup.caller_name'] as const) {
+      expect(SEED_CARD.rates[key].markupBp, key).toBe(15_000);
+      expect(SEED_CARD.rates[key].unit, key).toBe('fee');
+    }
   });
 
   it('charges the half-cent lines their half cent once there is more than one of them', () => {

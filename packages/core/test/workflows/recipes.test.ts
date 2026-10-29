@@ -74,6 +74,21 @@ describe('recipes', () => {
     });
   });
 
+  it('has speed to lead by phone: the AI calls, then a task a day on for whoever hasn’t booked', () => {
+    const d = recipeDefinition('speed_to_lead_phone');
+    expect(recipeByKey('speed_to_lead_phone')?.name).toBe('Speed to lead by phone');
+    expect(d.trigger).toMatchObject({ event: 'lead.created' });
+    expect(d.settings.stopOn).toEqual(['booking']);
+    expect(d.steps.map((s) => (s.type === 'action' ? s.action : s.type))).toEqual([
+      'call_with_ai',
+      'wait',
+      'create_task',
+    ]);
+    expect(d.steps[0]).toMatchObject({
+      config: { opening: 'about the request you just sent us', book: 'when_ready' },
+    });
+  });
+
   it('keeps unmapped placeholders when resolving', () => {
     const d = recipeDefinition('missed_call_text_back');
     const partly = resolvePlaceholders(d, { on_call_user: DALE });

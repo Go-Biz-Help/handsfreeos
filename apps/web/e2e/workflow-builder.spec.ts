@@ -811,8 +811,9 @@ test('workflow builder: the same workflow in Steps, Canvas and Describe', async 
 /**
  * The AI teammate in workflows: New workflow offers the two teammate recipes; "Hand to the AI teammate" comes
  * from the add-step menu with its panel (the teammate's status, and that nothing happens while there's none or
- * it's off; what it works toward; the first message; the conversation); and Checks warns about double texting
- * once a workflow texts new leads while the teammate's Respond skill does too.
+ * it's off; what it works toward; the first message; the conversation); Checks warns about double texting
+ * once a workflow texts new leads while the teammate's Respond skill does too; and "AI teammate calls them"
+ * keeps its call playbook, with the speed-to-lead-by-phone recipe beside the others.
  */
 test('workflow builder: hand to the AI teammate, its recipes and the double-texting warning', async ({
   page,
@@ -835,6 +836,9 @@ test('workflow builder: hand to the AI teammate, its recipes and the double-text
   );
   await expect(page.getByTestId('recipe-missed_call_text_back_ai')).toContainText(
     'Missed-call text back with your AI teammate',
+  );
+  await expect(page.getByTestId('recipe-speed_to_lead_phone')).toContainText(
+    'Speed to lead by phone',
   );
 
   // "Speed to lead" texts new leads; with no teammate there's nothing to warn about.
@@ -884,4 +888,26 @@ test('workflow builder: hand to the AI teammate, its recipes and the double-text
   await expect(page.getByTestId('issue-double_texting')).toContainText(
     'Ava (AI) also texts new leads',
   );
+
+  // "AI teammate calls them", from the same menu: its own playbook, and only people who agreed to calls.
+  await page.getByTestId(`add-after-${handId}`).click();
+  await page.getByTestId('add-step-call_with_ai').click();
+  await expect(page.getByTestId('panel-title')).toHaveText('AI teammate calls them');
+  const callId = selectedStep(page)!;
+  await expect(page.getByTestId('call-with-ai-rules')).toContainText(
+    'Ava calls only people who agreed to calls in writing',
+  );
+  await page.getByTestId('call-with-ai-opening').fill('about the quote you asked for');
+  await page.getByTestId('call-with-ai-find-out').fill('Which rooms, and how soon.');
+  await page.getByTestId('call-with-ai-book-never').click();
+  await saved(page);
+  await expect(page.getByTestId(`step-${callId}`)).toContainText(
+    '“about the quote you asked for”; leaves booking to the team',
+  );
+  const after = await api<WorkflowGet>('queries/workflow.get', { workspaceId, workflowId });
+  expect(stepIn(after.workflow.definition, callId)?.config).toMatchObject({
+    opening: 'about the quote you asked for',
+    findOut: 'Which rooms, and how soon.',
+    book: 'never',
+  });
 });

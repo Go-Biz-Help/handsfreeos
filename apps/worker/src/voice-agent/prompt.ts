@@ -110,6 +110,11 @@ function outboundLines(o: OutboundWhy): string[] {
           'This is a marketing call they agreed to in writing. Tell them about it in a sentence or two from the facts above, never more than the facts say, and ask if they’d like to book or hear more. If they’re not interested, thank them and end_call; don’t push.',
         ]
       : []),
+    ...(o.purpose === 'workflow'
+      ? [
+          'The business’s workflow placed this call, and they agreed to calls in writing. Work from the playbook in the facts above: ask what it says to find out, one question at a time; offer only what it says, never more; and book as it says. If they’re not interested, thank them and end_call; don’t push.',
+        ]
+      : []),
     'If they ask not to be called again, use no_more_calls, say sorry for the trouble and end_call. If it’s a bad time, offer that they can call back or text, and end_call.',
   ];
 }
@@ -137,6 +142,7 @@ export const CALL_QUESTION: Readonly<Record<string, string>> = {
   missed_call: 'How can I help?',
   quote: 'Do you have any questions about it?',
   campaign: 'Is now a good time?',
+  workflow: 'Is now a good time?',
 };
 
 /**

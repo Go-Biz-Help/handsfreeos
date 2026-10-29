@@ -62,7 +62,12 @@ import {
   onCalendarReauthRequired,
   onCalendarRefreshWanted,
 } from './calendar';
-import { onCampaignCreated, onCampaignPace, onCampaignSending } from '../automations/campaigns';
+import {
+  onCampaignCreated,
+  onCampaignPace,
+  onCampaignSending,
+  onMayJoinCampaign,
+} from '../automations/campaigns';
 import { onAiCallEnded, onMissedCallForAi, onQuoteNudgedForAi } from '../ai-calls/index';
 import { onExpiringArm } from '../automations/expiring';
 import { onHandoffNudge } from '../automations/handoff';
@@ -421,6 +426,12 @@ const ownTeammateAndWorkflows: HandlerMap = withWorkflows(
       'campaign.approved': onCampaignSending,
       'campaign.resumed': onCampaignSending,
       'campaign.pace_changed': onCampaignPace,
+      // …and a call campaign that keeps adding people looks again when someone may have come to fit it.
+      'campaign.keep_adding_changed': onMayJoinCampaign,
+      'lead.created': onMayJoinCampaign,
+      'lead.stage_changed': onMayJoinCampaign,
+      'record.tags_changed': onMayJoinCampaign,
+      'person.call_consent_changed': onMayJoinCampaign,
       'call.completed': [onPipelineEvidence, onEngaged, onAiCallEnded],
       // AI outbound calls: a missed call rung back, and how a call the AI placed ended (ai-calls/index.ts).
       'call.missed': [onMissedCallForAi, onAiCallEnded],

@@ -1,7 +1,8 @@
 /**
  * Call campaigns on the local database (AI outbound calls, piece 4b): a call campaign goes only to people who
  * agreed to calls in writing (Chris, 2026-09-23), and leaves out anyone another campaign called lately; its one
- * opening line changes before approval (never a text's draft); and it can't be approved without that line.
+ * opening line changes before approval (never a text's draft); and it can't be approved without that line. One can
+ * keep adding people (AI calls, part 4): it may start and be approved with nobody yet, and only calls do it.
  */
 import { rows, sql } from '@hfos/db/client';
 import { closeTestDbs } from '@hfos/db/testing';
@@ -12,6 +13,7 @@ import {
   campaignCreate,
   campaignGet,
   campaignPreviewAudience,
+  campaignSetKeepAdding,
   campaignUpdateCall,
   campaignUpdateDraft,
   campaignUpdateEmail,
@@ -187,6 +189,95 @@ describe('call campaigns', () => {
         run(
           campaignUpdateCall,
           { workspaceId: t.wsId, campaignId: made.campaignId, opening: 'about something else.' },
+          t.owner,
+        ),
+      'campaign_state',
+    );
+  });
+
+  it('keeps adding people: it may start and go with nobody yet, and only calls do it', async () => {
+    const { tagId: empty } = await run(
+      tagCreate,
+      { workspaceId: t.wsId, name: 'New leads' },
+      t.owner,
+    );
+    const always = {
+      ...input(),
+      name: 'Every new lead',
+      audience: { tagIds: [empty], stageIds: [] },
+    };
+    await expectHfos(() => run(campaignCreate, always, t.owner), 'campaign_empty');
+    await expectHfos(
+      () => run(campaignCreate, { ...always, channel: 'sms', keepAdding: true }, t.owner),
+      'validation',
+    );
+
+    const made = await run(campaignCreate, { ...always, keepAdding: true }, t.owner);
+    expect(made).toMatchObject({ recipients: 0, skipped: 0 });
+    const got = await ask(
+      campaignGet,
+      { workspaceId: t.wsId, campaignId: made.campaignId },
+      t.owner,
+    );
+    expect(got.campaign.keepAdding).toBe(true);
+    expect(got.recipients).toEqual([]);
+
+    await rows(
+      admin(),
+      sql`update app.campaigns set status = 'review' where id = ${made.campaignId}`,
+    );
+    await run(
+      campaignUpdateCall,
+      {
+        workspaceId: t.wsId,
+        campaignId: made.campaignId,
+        opening: 'about the quote you asked us for.',
+      },
+      t.owner,
+    );
+    const approved = await run(
+      campaignApprove,
+      { workspaceId: t.wsId, campaignId: made.campaignId },
+      t.owner,
+    );
+    expect(approved.status).toBe('sending');
+
+    // Turning it off is kept; a finished one can't start adding again.
+    await run(
+      campaignSetKeepAdding,
+      { workspaceId: t.wsId, campaignId: made.campaignId, on: false },
+      t.owner,
+    );
+    const off = await ask(
+      campaignGet,
+      { workspaceId: t.wsId, campaignId: made.campaignId },
+      t.owner,
+    );
+    expect(off.campaign.keepAdding).toBe(false);
+    // Texts never keep adding (a campaign's channel never changes, so this one is made as texts).
+    const [texts] = await rows<{ id: string }>(
+      admin(),
+      sql`insert into app.campaigns (workspace_id, name, goal, status, channel)
+          values (${t.wsId}, 'Fall texts', 'Our fall tune-up', 'sending', 'sms') returning id`,
+    );
+    await expectHfos(
+      () =>
+        run(
+          campaignSetKeepAdding,
+          { workspaceId: t.wsId, campaignId: texts!.id, on: true },
+          t.owner,
+        ),
+      'campaign_channel',
+    );
+    await rows(
+      admin(),
+      sql`update app.campaigns set status = 'done' where id = ${made.campaignId}`,
+    );
+    await expectHfos(
+      () =>
+        run(
+          campaignSetKeepAdding,
+          { workspaceId: t.wsId, campaignId: made.campaignId, on: true },
           t.owner,
         ),
       'campaign_state',

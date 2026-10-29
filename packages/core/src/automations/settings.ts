@@ -10,6 +10,7 @@
 import { z } from 'zod';
 import { nudgePlaceholderProblem } from '../attention/nudge';
 import { isoDateTime } from '../schemas/common';
+import { CALL_TRIES_MAX, CallHours } from './call-hours';
 import { DEFAULT_INTAKE_MESSAGE, intakeMessageProblem } from './intake';
 import {
   DEFAULT_MAINTENANCE_PLAN_TEMPLATE,
@@ -180,6 +181,23 @@ const Calls = z.object({
    * on is the business's choice, not something that appears on its pages overnight (Chris, 2026-10-28).
    */
   askConsent: z.boolean().default(false),
+  /**
+   * Campaign and workflow calls: the hours they may go in each lead's own time, inside the legal hours where the
+   * lead is (call-hours.ts), which these only narrow (AI calls, part 3; Chris, 2026-10-28).
+   */
+  hours: CallHours.prefault({}),
+  /**
+   * Campaign and workflow calls: how many times it rings someone who doesn't answer, is busy or whose voicemail
+   * box picks up, once a day; the voicemail choice above comes after the last.
+   */
+  tries: z.number().int().min(1).max(CALL_TRIES_MAX).default(CALL_TRIES_MAX),
+  /**
+   * Campaign and workflow calls to someone with no written yes, when their number is a business landline: Twilio
+   * says it's a landline, and its registered owner is a business or it's a company's number in HandsFreeOS
+   * (business-line.ts). A home landline, a mobile or an internet number still needs the yes. Off to begin with
+   * (AI calls, part 5; Chris, 2026-10-28).
+   */
+  businessLandlines: z.boolean().default(false),
 });
 
 export const AutomationSettings = z

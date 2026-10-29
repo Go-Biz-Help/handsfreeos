@@ -16,6 +16,7 @@
  */
 import { z } from 'zod';
 import { isLocalDate } from '../calendar/engine/zoned';
+import type { AiCallPurpose } from '../schemas/ai-call';
 import { REPEAT_EVERY } from '../schemas/ai-team';
 import type { TeammateConfig, TeammateSkill } from './config';
 
@@ -770,7 +771,7 @@ export interface TeammateToolOptions {
   /** It's answering a live phone call (M18 step 5). */
   readonly phone?: boolean;
   /** It placed this call itself, and why (AI outbound calls). */
-  readonly outbound?: 'confirm_visit' | 'missed_call' | 'quote' | 'campaign' | null;
+  readonly outbound?: AiCallPurpose | null;
   /** The customer is in a funnel with moves the teammate judges from what they write (teammate funnels). */
   readonly funnel?: boolean;
   /** The customer is in no funnel, and some take the teammate's suggestions (teammate funnels). */

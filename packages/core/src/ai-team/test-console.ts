@@ -79,10 +79,35 @@ const TestCall = z.object({
   direction: z.enum(TEST_CALL_DIRECTIONS),
   /** Why it calls them; an outgoing call only. */
   purpose: aiCallPurpose.nullable().default(null),
-  /** A campaign call: what the owner wants from these calls. */
+  /** A campaign call: what the owner wants from these calls. A workflow's call: what it's calling about. */
   goal: z.string().trim().max(TEST_CALL_GOAL_MAX).nullable().default(null),
 });
 export type TestCall = z.infer<typeof TestCall>;
+
+/**
+ * The console's box for what an outgoing call is about, for the reasons that need one (a campaign's call and a
+ * workflow's): its label, its example and what's said while it's empty. Null for the others.
+ */
+export function testCallGoalAsk(
+  purpose: AiCallPurpose | null,
+): { label: string; placeholder: string; missing: string } | null {
+  switch (purpose) {
+    case 'campaign':
+      return {
+        label: 'What the campaign call is about',
+        placeholder: 'What the calls are about, like our spring tune-up special',
+        missing: 'Say what the campaign call is about.',
+      };
+    case 'workflow':
+      return {
+        label: 'Why it’s calling',
+        placeholder: 'It finishes “I’m calling …”, like about the request you just sent us',
+        missing: 'Say what the call is about.',
+      };
+    default:
+      return null;
+  }
+}
 
 /** The request (the worker reads it; the web and the phone send it). */
 export const TestConsoleInput = z
@@ -128,12 +153,9 @@ export const TestConsoleInput = z
         path: ['personId'],
         message: 'Pick a customer for it to call.',
       });
-    if (v.call.purpose === 'campaign' && !v.call.goal)
-      ctx.addIssue({
-        code: 'custom',
-        path: ['call', 'goal'],
-        message: 'Say what the campaign call is about.',
-      });
+    const ask = testCallGoalAsk(v.call.purpose);
+    if (ask && !v.call.goal)
+      ctx.addIssue({ code: 'custom', path: ['call', 'goal'], message: ask.missing });
   });
 export type TestConsoleInput = z.infer<typeof TestConsoleInput>;
 /** What the web and the phone send: the fields with defaults may be left out. */
@@ -418,6 +440,7 @@ export const TEST_CALL_REASONS: Readonly<Record<AiCallPurpose, string>> = {
   missed_call: 'Call back a missed call',
   quote: 'Follow up a quote',
   campaign: 'Campaign call',
+  workflow: 'A workflow’s call',
 };
 
 /** What each channel is called in the console. */
@@ -451,6 +474,8 @@ export function testSamples(channel: TestConsoleChannel, call: TestCall | null):
       return ['What does the quote include?', 'I’d like to go ahead', 'Please don’t call me again'];
     case 'campaign':
       return ['Sure, tell me more', 'Not interested, thanks. Bye!', 'Please don’t call me again'];
+    case 'workflow':
+      return ['Yes, I have a minute', 'Can I book a visit?', 'Please don’t call me again'];
     default:
       return ['I wanted to book a visit', 'How much does a visit cost?', 'That’s all, bye!'];
   }

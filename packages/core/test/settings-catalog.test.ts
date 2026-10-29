@@ -125,8 +125,14 @@ const NOT_SEARCHABLE: Readonly<Record<string, string>> = {
   'automations/panels.tsx: Who and how many': 'A heading over Gone cold after, which is found',
   'automations/panels.tsx: Not again for': 'A detail of Re-engage dead leads',
   'automations/panels.tsx: What it does': 'The choice inside When a voicemail box answers',
+  'automations/panels.tsx: Start': 'A detail of Calling hours for leads, which is found',
+  'automations/panels.tsx: End': 'A detail of Calling hours for leads, which is found',
+  'automations/panels.tsx: Weekends': 'A detail of Calling hours for leads, which is found',
+  'automations/panels.tsx: Tries': 'The choice inside When a lead doesn’t answer, which is found',
   'automations/panels.tsx: Show the box on your pages':
     'The switch inside Ask for an OK to call, which is found',
+  'automations/panels.tsx: Call business landlines without a yes':
+    'The switch inside Business landlines, which is found',
 };
 
 /** Every literal SetRow and Block title on the Settings pages, with whether it carries `setting=`. */

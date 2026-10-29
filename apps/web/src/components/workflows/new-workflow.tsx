@@ -69,6 +69,11 @@ const RECIPE_META: Record<RecipeKey, { category: Category; short: string; note: 
     short: 'Your AI teammate texts back and offers to book.',
     note: 'If they don’t reply within a day, their owner gets a task to call.',
   },
+  speed_to_lead_phone: {
+    category: 'Leads',
+    short: 'Your AI teammate calls new leads right away.',
+    note: 'Only leads who agreed to calls. A task goes out if they haven’t booked in a day.',
+  },
 };
 
 type BlankKind = 'event' | 'schedule' | 'date' | 'webhook' | 'manual';
