@@ -115,6 +115,8 @@ export const SCREEN_ACTIONS: Readonly<Record<string, ScreenAction>> = {
   'workflow_template.create_from_workflow': { offeredTo: 'workspace.update' },
   'workflow_template.publish': { offeredTo: 'workspace.update' },
   'workflow_template.rename': { offeredTo: 'workspace.update' },
+  // Putting yourself on this business, from its Team page, as one of the agency's owners and admins who reach it.
+  'workspace.join': { offeredTo: 'workspace.update' },
   // ---- Settings → Account and My calendar ----
   'calendar_connection.disconnect': {},
   'calendar_connection.sync_now': {},
@@ -360,11 +362,6 @@ export interface NotYet {
 
 export const ASSISTANT_NOT_YET: readonly NotYet[] = [
   {
-    page: 'Agency area',
-    actions: ['workflow_template.save_draft', 'workspace.join'],
-    why: 'A template’s draft saves as step changes, as a workflow’s does; and joining another of the agency’s businesses acts outside the one the Assistant is in.',
-  },
-  {
     page: 'Settings → Migrations',
     actions: [
       'migration.create',
@@ -473,6 +470,13 @@ export const SETTING_TOOLS: Readonly<Record<string, readonly SettingWay[]>> = {
     { tool: 'manage_web_address', field: 'action', value: 'add' },
     { tool: 'manage_web_address', field: 'action', value: 'remove' },
   ],
+  // ---- Permissions ----
+  'permissions.who_can': [{ tool: 'manage_permissions', field: 'action', value: 'set_role' }],
+  'permissions.defaults': [{ tool: 'manage_permissions', field: 'action', value: 'reset_role' }],
+  'permissions.people': [
+    { tool: 'manage_permissions', field: 'action', value: 'set_person' },
+    { tool: 'manage_permissions', field: 'action', value: 'reset_person' },
+  ],
   // ---- Automations ----
   'adjust.ok_to_call': [{ tool: 'update_automations', field: 'askForOkToCall' }],
 };
@@ -497,7 +501,6 @@ export const SETTINGS_NEVER: Readonly<Record<string, string>> = {
  * the first, says which tool changes each of its rows (adding what's missing), and takes it off.
  */
 export const SETTINGS_NOT_YET: readonly string[] = [
-  'permissions',
   'automations',
   'safety',
   'usage',

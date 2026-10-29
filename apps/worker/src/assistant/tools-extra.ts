@@ -9,8 +9,9 @@
  *   watches for, or the AI teammate), exactly as the page's switches do (`automationPatch`). Re-engaging dead leads
  *   stays off until someone reads its message on the screen, so the card for it can't be confirmed.
  * - The person's own phone alerts and side menu, and taking part in Ideas and Get help: theirs alone.
- * - Adding a business and pushing to client businesses, which only the organization's owners and admins may do. The
- *   commands check that on the organization; the cards say so first rather than failing on Confirm.
+ * - Adding a business, changing a template's steps and pushing to client businesses, which only the organization's
+ *   owners and admins may do. The commands check that on the organization; the cards say so first rather than
+ *   failing on Confirm. A template's steps change op by op against its draft, as a workflow's do (tools-content.ts).
  */
 import { randomUUID } from 'node:crypto';
 import {
@@ -37,12 +38,14 @@ import {
   menuSummary,
   moveKey,
   parseAutomationSettings,
+  parseDefinition,
   pushSwitchesOf,
   PUSH_SWITCHES,
   reengageOn,
   sameMenu,
   storedMenu,
   SUGGESTED_MENU,
+  templateIssues,
   validateTeammate,
   type AttentionSettings,
   type AutomationContext,
@@ -61,10 +64,12 @@ import {
   type TeammateCatalogs,
   type TeammateConfig,
   type TeammatePatch,
+  type WorkflowOp,
 } from '@hfos/core/server';
 import type { Db } from '@hfos/db/client';
 import type { ToolContext, ToolOutcome } from './runtime';
-import { command, query } from './tools-read';
+import { draftChanges, draftSaved, draftToRead } from './tools-content';
+import { command, query, rehearse } from './tools-read';
 import { settingsCard, type SettingsConfirmTool } from './tools-settings-calendar';
 
 type Args = Record<string, unknown>;
@@ -1590,7 +1595,13 @@ interface TemplateSummary {
   installs: { total: number; installed: number; pending: number; failed: number; behind: number };
 }
 interface TemplateGet {
-  template: TemplateSummary & { placeholders: { key: string; label: string }[] };
+  template: TemplateSummary & {
+    /** The draft's: a save is made against it. */
+    revision: number;
+    /** The draft as written. */
+    definition: Record<string, unknown>;
+    placeholders: { key: string; label: string }[];
+  };
   installs: {
     workspaceId: string;
     workspaceName: string;
@@ -1624,13 +1635,19 @@ async function getAgencyArea(db: Db, ctx: ToolContext, args: Args): Promise<Tool
     if (templateId) {
       const got = await templateOf(db, ctx, templateId);
       const keys = got.template.placeholders;
+      const def = parseDefinition(got.template.definition);
       return {
         result: {
           template: {
             id: got.template.id,
             name: got.template.name,
             version: got.template.latestVersion,
-            detailsEachBusinessPicks: keys.map((p) => p.label),
+            detailsEachBusinessPicks: keys.map((p) => ({ key: p.key, label: p.label })),
+            checksToFix: templateIssues(def)
+              .filter((i) => i.severity === 'error')
+              .map((i) => i.message),
+            // A template names no business's stages or people, so there are no names to look up.
+            ...draftToRead(got.template.definition, def, {}, got.template.revision),
           },
           businesses: got.installs.map((i) => ({
             id: i.workspaceId,
@@ -1670,6 +1687,73 @@ async function getAgencyArea(db: Db, ctx: ToolContext, args: Args): Promise<Tool
     throw e;
   }
 }
+
+const templatePath = (organizationId: string, templateId: unknown) =>
+  `/app/org/${organizationId}/templates/${String(templateId)}`;
+
+const editTemplateSteps: SettingsConfirmTool = {
+  async prepare(db, ctx, args, toolCallId) {
+    const { org, name: orgName } = await agencyOf(db, ctx);
+    if (!org)
+      return {
+        card: settingsCard(toolCallId, 'edit_template_steps', {
+          title: 'Change a template',
+          fields: [],
+          confirmLabel: '',
+          warnings: [{ kind: 'blocked', text: notAgencyAdmin(orgName) }],
+        }),
+        result: { blocked: true, why: notAgencyAdmin(orgName) },
+      };
+    const ops = args['ops'] as WorkflowOp[];
+    const { template: t } = await templateOf(db, ctx, args['templateId']);
+    await rehearse(db, ctx, 'workflow_template.save_draft', {
+      organizationId: ctx.organizationId,
+      templateId: t.id,
+      baseRevision: args['baseRevision'],
+      ops,
+    });
+    const { lines, fields } = draftChanges(
+      parseDefinition(t.definition),
+      ops,
+      {},
+      `The template “${t.name}”’s draft is that way already.`,
+    );
+    return {
+      card: settingsCard(toolCallId, 'edit_template_steps', {
+        title: `Change the template “${t.name}”?`,
+        fields: [{ label: 'Template', value: t.name }, ...fields],
+        confirmLabel: 'Save draft',
+        warnings: [
+          {
+            kind: 'note',
+            text: t.latestVersion
+              ? `Only the draft changes. Businesses keep version ${t.latestVersion} until it’s published and pushed to them.`
+              : 'Only the draft changes. No business gets it until it’s published and pushed to them.',
+          },
+        ],
+      }),
+      result: { template: t.name, changes: lines },
+    };
+  },
+  async commit(db, ctx, args) {
+    const out = await command<{ issues: { severity: string; message: string }[] }>(
+      db,
+      ctx,
+      'workflow_template.save_draft',
+      {
+        organizationId: ctx.organizationId,
+        templateId: args['templateId'],
+        baseRevision: args['baseRevision'],
+        ops: args['ops'],
+      },
+    );
+    return {
+      outcome: draftSaved(out.issues),
+      href: templatePath(ctx.organizationId, args['templateId']),
+      command: 'workflow_template.save_draft',
+    };
+  },
+};
 
 const pushToClientBusinesses: SettingsConfirmTool = {
   async prepare(db, ctx, args, toolCallId) {
@@ -1806,7 +1890,7 @@ const pushToClientBusinesses: SettingsConfirmTool = {
       });
       return {
         outcome: `Pushed to ${n}. Each gets a draft to test and publish.`,
-        href: `/app/org/${organizationId}/templates/${String(args['templateId'])}`,
+        href: templatePath(organizationId, args['templateId']),
         command: 'workflow_template.push',
       };
     }
@@ -1840,6 +1924,7 @@ export const extraConfirmTools: Record<string, SettingsConfirmTool> = {
   manage_idea: manageIdea,
   contact_support: contactSupport,
   add_business: addBusiness,
+  edit_template_steps: editTemplateSteps,
   push_to_client_businesses: pushToClientBusinesses,
 };
 
@@ -1855,5 +1940,6 @@ export const extraStepLabels: Record<string, string> = {
   contact_support: 'Writing to support',
   add_business: 'Adding the business',
   get_agency_area: 'Looking at the agency area',
+  edit_template_steps: 'Getting the template’s steps ready',
   push_to_client_businesses: 'Getting the push ready',
 };
