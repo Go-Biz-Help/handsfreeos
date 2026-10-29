@@ -9,7 +9,8 @@
  * - **Goes as it is** with Sending (b) once the training wheels are off.
  * - **A reply** follows the person's Replies instead (decision 27): with (b) it goes as it is when the AI found it
  *   simple; with (c) it always does; with (a) it waits. Whatever they chose, a reply to someone who needs the person
- *   (`replyNeedsYou`) waits, and with (b) or (c) one that waits is **handed over**: their phone hears it.
+ *   (`replyNeedsYou`) waits, and so does one to something the business's Knowledge doesn't answer (decision 122,
+ *   ./knows.ts); with (b) or (c) one that waits is **handed over**: their phone hears it.
  * - The extension sends what's OK'd in Messenger, in working hours, at a person's pace, and notes it as sent, or not
  *   sent and why.
  *
@@ -43,6 +44,7 @@ import {
   type SendKind,
   underAPost,
 } from './automation';
+import { UNANSWERED_MOST } from './knows';
 import { MESSAGE_MOST } from './limits';
 import { DraftOpener } from './openers';
 import { gapWords } from './voice';
@@ -167,6 +169,11 @@ export const SendQueueInput = z
     opener: DraftOpener.nullable().default(null),
     /** For a reply: the AI found it simple, so with Replies (b) it goes as it is. */
     simple: z.boolean().default(false),
+    /**
+     * For a reply: what they asked that the business's Knowledge doesn't answer, as the AI said (decision 122,
+     * ./knows.ts), so it waits for the person whatever their Replies say. From the extension's 0.111.0.
+     */
+    unanswered: z.string().trim().max(UNANSWERED_MOST).nullable().default(null),
     /**
      * For a comment (decision 92) or a reply in a group (decision 114), and only for one: the post on Today it goes
      * under.

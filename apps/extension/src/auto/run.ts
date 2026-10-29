@@ -627,7 +627,7 @@ async function draftMessage(item: TodayListItem, businessId: string): Promise<Ou
     },
   });
   if (!drafted.ok) return { done: false, line: `${item.name}: ${drafted.problem.message}` };
-  const { drafts, opener, simple, kind: draftedKind } = drafted.value as Drafts;
+  const { drafts, opener, simple, unanswered, kind: draftedKind } = drafted.value as Drafts;
   // What the drafts are for: the kind asked for, or after a yes, the next step.
   const kind = (draftedKind ?? item.kind) as MessageKind;
   const text = drafts[0];
@@ -643,6 +643,8 @@ async function draftMessage(item: TodayListItem, businessId: string): Promise<Ou
         text,
         opener: kind === 'opener' ? opener : null,
         simple: kind === 'reply' && simple,
+        // Something Knowledge doesn't answer: it waits for the person (decision 122).
+        unanswered: kind === 'reply' ? (unanswered ?? null) : null,
       },
     }),
     businessId,

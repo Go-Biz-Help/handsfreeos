@@ -50,6 +50,7 @@
  * draw it.
  */
 import { z } from 'zod';
+import { knowsBlocks, UNANSWERED_ASK, unansweredLine, type DraftKnows } from './knows';
 import { OCCASION_KINDS, type OccasionKind } from './occasions';
 import { quoteData } from '../../knowledge/prompt';
 import { intlTimeZone } from '../../intl/engine-zones';
@@ -473,6 +474,11 @@ export const TodayDraftOutput = z.object({
   opener: DraftOpener.nullable(),
   /** For a reply: the AI found it simple, so with Replies (b) it can go on its own (decision 27). */
   simple: z.boolean().default(false),
+  /**
+   * For a reply: what they asked that the business's profile, Knowledge, playbook and offer don't answer, in a few
+   * words (decision 122, ./knows.ts). The reply says the owner will check on it, and waits for the person.
+   */
+  unanswered: z.string().nullable().default(null),
 });
 export type TodayDraftOutput = z.output<typeof TodayDraftOutput>;
 
@@ -699,6 +705,26 @@ export const lastOf = (recent: readonly DownloadMessage[]): string | null =>
 const isMessageKind = (kind: DraftKind) =>
   kind !== 'comment' && kind !== 'group_reply' && kind !== 'warm_lead';
 
+/**
+ * The kinds a draft is told what the business knows for (decision 122, ./knows.ts): all but a birthday or new-job
+ * note, a demo's reminder and another time after a no-show, which say nothing about the business.
+ */
+const KNOWS_KINDS: ReadonlySet<DraftKind> = new Set([
+  'opener',
+  'reconnect',
+  'pitch',
+  'video',
+  'follow_up',
+  'check_in',
+  'reply',
+  'comment',
+  'warm_lead',
+  'group_reply',
+]);
+
+/** Whether a kind of draft is told what the business knows. */
+export const knowsFor = (kind: DraftKind): boolean => KNOWS_KINDS.has(kind);
+
 /** The kinds a draft is told the main offer for: the conversation's. Reconnect's drafts stay without a pitch. */
 const OFFER_KINDS: ReadonlySet<DraftKind> = new Set([
   'opener',
@@ -745,6 +771,11 @@ export function todayDraftPrompt(input: {
   readonly demoWhen?: string | null;
   /** For a new-job note (decision 108): what the page said of it, "Started a new position as Owner at Reyes Plumbing". */
   readonly occasion?: string | null;
+  /**
+   * What the business knows (decision 122, ./knows.ts): its profile and Knowledge, for the kinds that say something
+   * about it (`knowsFor`). Null when it couldn't be read; left out, it isn't told.
+   */
+  readonly knows?: DraftKnows | null;
 }): string {
   const p = input.playbook;
   const voice = input.voice ?? VOICE_DEFAULTS;
@@ -816,6 +847,7 @@ export function todayDraftPrompt(input: {
     `<business>${quoteData(input.business)}</business>`,
     `<playbook>\n${quoteData(playbook)}\n</playbook>`,
     offer ? `<offer>\n${quoteData(offer)}\n</offer>` : null,
+    ...(input.knows !== undefined && knowsFor(input.kind) ? knowsBlocks(input.knows) : []),
     `<person>${quoteData(input.name)}</person>`,
     input.facts.length ? `<facts>\n${quoteData(input.facts.join('\n'))}\n</facts>` : null,
     input.lookup?.length
@@ -854,6 +886,7 @@ export function todayDraftPrompt(input: {
       : null,
     `Give ${DRAFTS_FOR[input.kind]} different drafts to pick from.`,
     input.kind === 'reply' ? REPLY_SIMPLE_ASK : null,
+    input.kind === 'reply' ? UNANSWERED_ASK : null,
     ANSWER_ASK,
     TODAY_DRAFT_ASK,
   ]
@@ -887,7 +920,7 @@ function ownLines(own: OwnWords | null, requests: boolean): string[] {
 
 /** For a reply: whether it's simple enough to go on its own with Replies (b) (decision 27). */
 export const REPLY_SIMPLE_ASK =
-  'Also say whether the reply is simple: true only when answering their last message needs nothing that only the owner knows or decides (no price, date, time, promise, offer, or fact about the business beyond the playbook) and nothing in it is personal, upset or sensitive: thanks, a hello, small talk, or a yes to what was already offered. Otherwise false.';
+  'Also say whether the reply is simple: true only when answering their last message needs nothing that only the owner knows or decides (no price, date, time, promise, offer, or fact about the business beyond the playbook and the knowledge, and nothing the knowledge doesn’t answer) and nothing in it is personal, upset or sensitive: thanks, a hello, small talk, or a yes to what was already offered. Otherwise false.';
 
 /**
  * What the AI reads in their last message, as an answer to the owner's last step (./conversation.ts): asked of every
@@ -902,17 +935,20 @@ export const TodayDraftAnswer = z.object({
   drafts: z.array(z.string()).max(10),
   simple: z.boolean().default(false),
   answer: z.enum(DRAFT_ANSWERS).catch('none').default('none'),
+  /** For a reply: what nothing given answers (`UNANSWERED_ASK`), empty when nothing. */
+  unanswered: z.string().catch('').default(''),
 });
 export type TodayDraftAnswer = z.output<typeof TodayDraftAnswer>;
 
 export const TODAY_DRAFT_SCHEMA: Record<string, unknown> = {
   type: 'object',
   additionalProperties: false,
-  required: ['drafts', 'simple', 'answer'],
+  required: ['drafts', 'simple', 'answer', 'unanswered'],
   properties: {
     drafts: { type: 'array', items: { type: 'string' } },
     simple: { type: 'boolean' },
     answer: { type: 'string', enum: [...DRAFT_ANSWERS] },
+    unanswered: { type: 'string' },
   },
 };
 
@@ -926,6 +962,19 @@ export function answerOf(
   // Only an answer they wrote: with no chat, or the owner's last, there's nothing of theirs to read.
   if (recent.at(-1)?.fromMe !== false) return null;
   return answer.answer;
+}
+
+/**
+ * What a reply's AI said nothing given answers (decision 122), for a reply to something they wrote: null for any other
+ * draft, or when everything they asked is answered.
+ */
+export function unansweredOf(
+  kind: DraftKind,
+  answer: Pick<TodayDraftAnswer, 'unanswered'>,
+  recent: readonly DownloadMessage[],
+): string | null {
+  if (kind !== 'reply' || recent.at(-1)?.fromMe !== false) return null;
+  return unansweredLine(answer.unanswered);
 }
 
 /**

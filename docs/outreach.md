@@ -896,7 +896,8 @@ than a store extension, and for more features, and answered the questions the sa
     with (a) each waits. Whatever the choice, a reply to someone who needs the person waits, as the AI teammate
     hands over (decision 1): asking to stop, a refund, a complaint, a legal threat, cancelling, asking for them,
     sounding upset or an emergency; so does one to a chat HandsFreeOS hasn't seen. With (b) or (c), one that waits
-    is handed over: their phone hears "Dana Reyes needs you", and why. Replies go only while Sending isn't off.
+    is handed over: their phone hears "Dana Reyes needs you", and why. Replies go only while Sending isn't off. From
+    decision 122, so does one to something the business's Knowledge doesn't answer.
 28. **When:** on its own in the person's working hours (9 to 5 to start), at random times, plus a **Start my day**
     button. Built, on every network from extension 0.96.0 (decision 95).
 29. **Tidying on its own is a setting:** off, cancelling old requests on their own, or cancelling and unfriending on
@@ -2860,6 +2861,30 @@ where decisions 37 and 59 put the settings; what they decided stands. Settled to
         one's row by the link to their profile, scrolling for it, and presses the Cancel request beside them; only
         someone the whole list doesn't show has their profile opened, to see where things stand. The ticked ones,
         Cancel all's and tidying on its own all go this way, and Check Facebook tries it there.
+122.  **The AI knows what the business's Knowledge says** (Chris, 29 Oct 2026, "Wait for me"). "is the ai in the
+      social outreach tool connected to the business’ ai knowledge base the ai teammate uses? if not it should be so
+      that common questions and business information is known by that ai". It wasn't: what it wrote read the playbook,
+      the main offer, what's known of the person and the chat, but none of Knowledge (side menu), which the AI
+      Teammate and the Sales Coach answer from.
+      - **Every message, comment and helpful post that speaks for the business reads it** (`knows.ts` in core, the
+        worker's `addons/outreach/knows.ts`): openers, reconnects, pitches, videos, follow-ups, check-ins, replies,
+        warm leads, comments, replies in groups, a partner's messages and the weekly helpful posts. It's told the
+        business profile in a few lines (`briefFromProfile`: what it does, its services, area, hours and policies) and
+        its published short answers and facts, and for a reply or a comment the longer items that match what they
+        wrote, found as the teammate finds them (`findKnowledge`). A birthday, a new job, a demo's reminder and a
+        rebook don't need it.
+      - **It says nothing about the business that none of them says,** in their words: the playbook, the offer, the
+        profile or Knowledge. The playbook's tone still decides how it reads. The profile's words to avoid are left out
+        like the playbook's. A price from the profile or Knowledge goes only when they ask and the profile allows it
+        (AI may quote prices); the main offer's price goes as before, when they ask.
+      - **A reply to something none of it answers waits for the person,** whatever Replies says (decision 27): the AI
+        names what wasn't answered (`unanswered`), its drafts say the person will check and answer the rest, and the
+        reply is handed over under Waiting for you with "Knowledge has no answer to …" (`KNOWS_WORDS.needsYou`).
+        Today's drafts on the web say so too, with how to fix it: answer it, or add it under Knowledge so the AI knows
+        next time. The extension hands it on with the reply (`unanswered` on `outreach.send.queue`) from **0.111.0**;
+        a build before it holds only what Replies holds.
+      - **Knowledge is the business's own,** so each business fills its own (Knowledge → Website scans its site).
+        With none, most questions wait. No migration.
 
 ## Rules worth knowing before changing anything
 

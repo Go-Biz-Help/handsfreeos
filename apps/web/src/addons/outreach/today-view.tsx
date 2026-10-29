@@ -37,6 +37,7 @@
  * asking for what the business offers.
  */
 import { freshWords, underAPost, wheelsWords } from '@hfos/core/addons/outreach/automation';
+import { KNOWS_WORDS } from '@hfos/core/addons/outreach/knows';
 import { clockWords } from '@hfos/core/addons/outreach/live';
 import { OPENER_KINDS, openerShort, type DraftOpener } from '@hfos/core/addons/outreach/openers';
 import { warningNote } from '@hfos/core/addons/outreach/tidy';
@@ -812,6 +813,8 @@ function Drafts({
   const [draftedOpener, setOpener] = useState<DraftOpener | null>(null);
   /** What they were written as: a reply to a yes comes back as Send the video or Send the link. */
   const [draftedAs, setDraftedAs] = useState<DraftKind | null>(null);
+  /** For a reply: what they asked that Knowledge doesn't answer (decision 122). */
+  const [draftedUnanswered, setUnanswered] = useState<string | null>(null);
   // Looked up on its network first, while the computer is online and can be asked there.
   const lookup = {
     kind: 'lookup' as const,
@@ -829,6 +832,7 @@ function Drafts({
   const drafts = fromLookup?.drafts ?? drafted;
   const opener = fromLookup ? fromLookup.opener : draftedOpener;
   const as = (fromLookup ? fromLookup.kind : draftedAs) ?? kind;
+  const unanswered = fromLookup ? fromLookup.unanswered : draftedUnanswered;
   const lookingUp = looked !== null && askOpen(looked.state);
   const skipping = useAct();
   const skip = (postId: string) =>
@@ -856,6 +860,7 @@ function Drafts({
       setDrafted(out.drafts);
       setOpener(out.opener);
       setDraftedAs(out.kind);
+      setUnanswered(out.unanswered);
     } catch (e) {
       toast.error(errorMessage(e));
     } finally {
@@ -937,6 +942,11 @@ function Drafts({
       {drafts.length && opener ? (
         <p className="mb-1 text-[12px] text-text-3" data-testid="today-opener">
           Opens with {OPENER_KINDS[opener.kind].toLowerCase()}: “{openerShort(opener.text, 70)}”
+        </p>
+      ) : null}
+      {drafts.length && unanswered ? (
+        <p className="mb-1 text-[12px] text-text-3" data-testid="today-unanswered">
+          {KNOWS_WORDS.draftNote(unanswered)}
         </p>
       ) : null}
       {drafts.length ? (
