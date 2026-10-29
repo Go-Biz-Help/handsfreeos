@@ -136,7 +136,7 @@ export function GroupsBody({
   const workspaceId = React.useContext(OutreachWorkspace);
   const empty = search.trim() ? W.groupsNoMatch : W.groupsEmpty[view];
   return (
-    <OutreachFrame tab="groups" testID="outreach-groups">
+    <OutreachFrame page="groups" testID="outreach-groups">
       {groups ? (
         <Card className="gap-1.5 px-4 py-3.5" testID="groups-prospects">
           <Text className="text-[15px] font-semibold">{GROUP_CHECK_WORDS.prospectsTitle}</Text>

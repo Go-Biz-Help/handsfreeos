@@ -579,20 +579,7 @@ export function LiveBody({
         </List>
       </Part>
 
-      <Part title={W.todaySteps} testID="live-steps">
-        <Card className="gap-2 px-4 py-3.5">
-          {live.steps.length ? (
-            live.steps.map((step, i) => (
-              <View key={`${step.at}:${i}`} className="flex-row gap-3">
-                <Text className="w-[64px] text-[13px] text-text-3">{clockWords(step.at, tz)}</Text>
-                <Text className="flex-1 text-[14px] leading-[20px]">{step.line}</Text>
-              </View>
-            ))
-          ) : (
-            <Note>{W.noSteps}</Note>
-          )}
-        </Card>
-      </Part>
+      <StepsPart live={live} title={W.todaySteps} testID="live-steps" />
 
       {computerActions ? (
         <ComputersPart
@@ -609,7 +596,40 @@ export function LiveBody({
   );
 }
 
-function TeamPart({ team, now }: { team: LiveTeamOutput; now: number }) {
+/** Today's steps on every network, newest first: on this screen, and as Done today on Today (./hub.tsx). */
+export function StepsPart({
+  live,
+  title,
+  about,
+  testID,
+}: {
+  live: Pick<LiveOutput, 'steps' | 'timezone'>;
+  title: string;
+  about?: string;
+  testID: string;
+}) {
+  return (
+    <Part title={title} about={about} testID={testID}>
+      <Card className="gap-2 px-4 py-3.5">
+        {live.steps.length ? (
+          live.steps.map((step, i) => (
+            <View key={`${step.at}:${i}`} className="flex-row gap-3">
+              <Text className="w-[64px] text-[13px] text-text-3">
+                {clockWords(step.at, live.timezone)}
+              </Text>
+              <Text className="flex-1 text-[14px] leading-[20px]">{step.line}</Text>
+            </View>
+          ))
+        ) : (
+          <Note>{W.noSteps}</Note>
+        )}
+      </Card>
+    </Part>
+  );
+}
+
+/** How each person's extension is doing on one network, for owners and admins: here, and on Today (./hub.tsx). */
+export function TeamPart({ team, now }: { team: LiveTeamOutput; now: number }) {
   return (
     <Part title={teamWordsOn(team.platform).title} testID="live-team">
       {team.people.length ? (

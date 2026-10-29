@@ -272,24 +272,13 @@ export const OUTREACH_WORDS = {
   sentWaiting: 'I’d send this. Change it if you like; your changes teach the AI.',
   sentOkd: 'OK’d: the extension sends it soon.',
 
-  // ---- The page's tabs (decision 59) ----
-  /** The line under the page's title. */
-  pageAbout:
-    'Finds people who fit on your networks, connects with them and starts real chats for you.',
-  /** The four tabs and the gear, in order. */
+  // ---- Names a screen says in passing: a link to Settings, Results' heading (the pages are ./pages.ts) ----
   tabs: {
     today: 'Today',
     people: 'People',
     groups: 'Groups',
     results: 'Results',
     settings: 'Settings',
-  },
-  tabDetails: {
-    today: 'What needs you, and your list',
-    people: 'Everyone you reached, your friends, chats and partners',
-    groups: 'Groups to work, and why',
-    results: 'Friends made, chats and demos booked',
-    settings: 'Your settings, playbooks and computer',
   },
   /** People's lists. */
   peopleParts: {
@@ -338,8 +327,16 @@ export const OUTREACH_WORDS = {
   /** Nothing waits: said in a line on Today. */
   needsYouNone: 'Nothing needs you right now.',
   doneToday: 'Done today',
-  seeAllToday: 'See everything it did today',
-  computerDetails: 'Details',
+  /** Under Done today: its feed is every network's (decision 126). */
+  doneTodayAbout: 'On every network, newest first.',
+  /** Done today shows its first steps, then the rest in place. */
+  doneTodayMore: (n: number) => `Show ${things(n, 'more step', 'more steps')}`,
+  /** Today's one card for what to know: warnings, holds and notes, each a line (decision 126). */
+  headsUp: 'Heads up',
+  /** Today's line to Needs you, which has its own page (decision 126). */
+  needsYouCount: (n: number) =>
+    n === 1 ? '1 thing needs you.' : `${n.toLocaleString('en-US')} things need you.`,
+  openNeedsYou: 'Open Needs you',
   /** Today's fold-out, in place of the notes that sat beside each tab. */
   howItWorks: 'How Social Outreach works',
   howItWorksSteps: [

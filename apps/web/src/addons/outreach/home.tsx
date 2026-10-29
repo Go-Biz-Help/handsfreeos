@@ -1,21 +1,25 @@
 'use client';
 /**
- * Social Outreach's page (docs/outreach.md): four tabs and the gear (decision 59), each view with its own address
- * (./address.ts), so a link, a push or the builder's way back opens the one it's about.
+ * Social Outreach's pages (docs/outreach.md, decision 126): each its own address (./address.ts) and one of the side
+ * menu's pages, which pop out from the add-on's one row there, so a link, a push or the builder's way back opens the
+ * one it's about. Each has its name and what it's for at the top.
  *
- * - **Today**: what the person's computer is doing with Start my day and Stop for today, everything that needs them
- *   (decision 42's list), and their list for the day; `?view=live` is the full detail of their computer's day.
+ * - **Needs you**: everything waiting on the person (decision 42's list), on every network, never narrowed.
+ * - **Today**: what the person's computer is doing, a card for each network with Start my day and Stop for today,
+ *   one Heads up for what to know, the feed of today's steps and the team's, and their list for the day.
  * - **People**: everyone reached by where they stand (the board, or one stage), their friends and the Don't pitch list,
  *   their chats as the AI read them, and their Partners list (decision 81).
  * - **Groups**: the groups saved and how they fit.
  * - **Results**: from reached to booked, by group and by person.
+ * - **Playbooks**: the business's playbooks, with how each opener did.
  * - **Settings**: a menu beside a page for each part (decision 73): General, then each network (its On or Off for the
- *   person shown, and the networks still to come), then the business's playbooks, the person's computer, and Start
- *   fresh for owners. On a phone the menu is a list to pick from, above the page.
+ *   person shown, and the networks still to come), then the person's computer, and Start fresh for owners. On a phone
+ *   the menu is a list to pick from, above the page.
  *
- * The page asks HandsFreeOS for what the view shows (`app/w/[workspaceId]/a/outreach/page.tsx`), with what the person
- * asked their computer to do on it: the buttons on People, Groups and Today ask the computer (./asks.tsx), and why
- * they wait is said once, under the tabs.
+ * Today and People's lists have the network picker at the top: the one picked is kept for the next page (a cookie,
+ * `netCookie`), so the person picks it once. The page asks HandsFreeOS for what it shows
+ * (`app/w/[workspaceId]/a/outreach/show.tsx`), with what the person asked their computer to do on it: the buttons on
+ * People, Groups and Today ask the computer (./asks.tsx), and why they wait is said once, under the title.
  */
 import type { ActivityPeriod } from '@hfos/core/addons/outreach/activity';
 import type { ChatView } from '@hfos/core/addons/outreach/chat-read';
@@ -23,7 +27,13 @@ import type { FriendView } from '@hfos/core/addons/outreach/friends';
 import type { GroupView } from '@hfos/core/addons/outreach/groups';
 import type { GroupPeopleView } from '@hfos/core/addons/outreach/journey';
 import { networksOn } from '@hfos/core/addons/outreach/network-words';
-import { PLATFORM_KEYS, PLATFORMS, type Platform } from '@hfos/core/addons/outreach/networks';
+import {
+  PLATFORM_KEYS,
+  PLATFORMS,
+  WORKING_PLATFORMS,
+  type Platform,
+} from '@hfos/core/addons/outreach/networks';
+import { OUTREACH_PAGE_ABOUT, OUTREACH_PAGES } from '@hfos/core/addons/outreach/pages';
 import type { PartnerView } from '@hfos/core/addons/outreach/partners';
 import {
   NEXT_NETWORKS,
@@ -32,31 +42,23 @@ import {
 } from '@hfos/core/addons/outreach/settings-parts';
 import type { StageView } from '@hfos/core/addons/outreach/stages';
 import { OUTREACH_WORDS as W } from '@hfos/core/addons/outreach/words';
-import {
-  BookOpen,
-  CircleDashed,
-  Globe,
-  Laptop,
-  RotateCcw,
-  Settings,
-  SlidersHorizontal,
-} from 'lucide-react';
+import { CircleDashed, Globe, Laptop, RotateCcw, SlidersHorizontal } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import type { ComponentType } from 'react';
+import type { ComponentProps, ComponentType } from 'react';
 import { PageHeader } from '@/components/shell/page-header';
 import { Badge } from '@/components/ui/badge';
 import { Select } from '@/components/ui/input';
 import { cn } from '@/lib/utils';
 import { ActivityView } from './activity-view';
-import { OUTREACH_TABS, outreachHref, TAB_VIEW, tabOf, type OutreachView } from './address';
+import { outreachHref, pageOf, type OutreachView } from './address';
 import { ComputerNote } from './asks';
 import { ChatsView } from './chats-view';
 import { FriendsView } from './friends-view';
 import { GroupPage } from './group-page';
 import { GroupsView } from './groups-view';
-import { LiveView } from './live-view';
 import type { Board } from './board';
+import { NetworkPicker } from './network-ui';
 import { PartnersView } from './partners-view';
 import { PipelineView } from './pipeline-view';
 import { PlaybooksView } from './playbooks-page';
@@ -64,6 +66,7 @@ import { SettingsView } from './settings-page';
 import { SetupBanner } from './setup-view';
 import type { NetworkLive } from './status-strip';
 import { TodayView } from './today-view';
+import { NeedsYou } from './waiting-view';
 import type {
   Activity,
   Asks,
@@ -98,6 +101,8 @@ export type OutreachShown =
       readonly today: TodayList;
       readonly helpful: HelpfulList;
       readonly wheels: WheelsList | null;
+      /** How each person's extension is doing on the network shown, for owners and admins: else null. */
+      readonly team: LiveTeam | null;
       readonly asks: Asks;
       /** Everything that needs the person: null when it couldn't be had. */
       readonly waiting: Waiting | null;
@@ -108,13 +113,9 @@ export type OutreachShown =
       readonly readiness: Readiness | null;
     }
   | {
-      readonly view: 'live';
-      readonly live: Live;
-      readonly team: LiveTeam | null;
-      readonly asks: Asks;
-      /** The network whose day it shows, of those the person works. */
-      readonly platform: Platform;
-      readonly networks: readonly Platform[];
+      /** Everything waiting on the person, on every network. */
+      readonly view: 'needs';
+      readonly waiting: Waiting;
     }
   | {
       readonly view: 'results';
@@ -251,14 +252,13 @@ interface MenuRow {
 }
 
 /**
- * The Settings tab's menu (decision 73, the "Social Outreach settings by platform" design): Settings with General;
- * Networks, each with whether it's on for the person shown (left out when the page doesn't know, as on Playbooks),
- * then the networks still to come; and More: Playbooks, Your computer (their own) and Start fresh (an owner's). A part
- * keeps whose settings an owner or admin is looking at. On a phone it's a list to pick from, above the page.
+ * Settings' menu (decision 73, the "Social Outreach settings by platform" design): Settings with General; Networks,
+ * each with whether it's on for the person shown, then the networks still to come; and More: Your computer (their
+ * own) and Start fresh (an owner's). Playbooks have their own page in the side menu (decision 126). A part keeps whose
+ * settings an owner or admin is looking at. On a phone it's a list to pick from, above the page.
  */
 function SettingsMenu({
   workspaceId,
-  view,
   part,
   whose,
   mine,
@@ -266,15 +266,14 @@ function SettingsMenu({
   networks,
 }: {
   workspaceId: string;
-  view: OutreachView;
-  /** The part shown, on the settings view. */
-  part: SettingsPart | null;
+  /** The part shown. */
+  part: SettingsPart;
   /** Someone else's id, when an owner or admin is looking at theirs. */
   whose: string | null;
   mine: boolean;
   canStartFresh: boolean;
-  /** The networks on for the person shown: null when it isn't known here. */
-  networks: readonly Platform[] | null;
+  /** The networks on for the person shown. */
+  networks: readonly Platform[];
 }) {
   const router = useRouter();
   const P = W.settingsParts;
@@ -306,11 +305,7 @@ function SettingsMenu({
           icon: Globe,
           href: partHref(p),
           active: part === p,
-          badge: networks
-            ? networks.includes(p)
-              ? { words: S.on, on: true }
-              : { words: S.off, on: false }
-            : null,
+          badge: networks.includes(p) ? { words: S.on, on: true } : { words: S.off, on: false },
         })),
         ...NEXT_NETWORKS.map((name) => ({
           key: name.toLowerCase(),
@@ -324,13 +319,6 @@ function SettingsMenu({
     {
       label: S.menu.more,
       rows: [
-        {
-          key: 'playbooks',
-          label: P.playbooks,
-          icon: BookOpen,
-          href: outreachHref(workspaceId, { view: 'playbooks' }),
-          active: view === 'playbooks',
-        },
         ...(mine
           ? [
               {
@@ -449,76 +437,94 @@ function SettingsMenu({
   );
 }
 
+/**
+ * The network picker at the top of Today and People's lists (decision 126): on Today, the networks the person works,
+ * whose list shows; on a list, every network or one. Each choice keeps what else the page shows, from its first page.
+ * Null on the pages it doesn't narrow: Needs you never hides what waits.
+ */
+function networkPickerOf(
+  workspaceId: string,
+  shown: OutreachShown,
+): Omit<ComponentProps<typeof NetworkPicker>, 'workspaceId'> | null {
+  const at = (to: Parameters<typeof outreachHref>[1]) => (net: Platform | null) =>
+    outreachHref(workspaceId, { ...to, ...(net ? { net } : {}) });
+  switch (shown.view) {
+    case 'today':
+      return shown.networks.length > 1
+        ? {
+            value: shown.platform,
+            networks: shown.networks.map((n) => n.platform),
+            every: false,
+            hrefOf: at({ view: 'today' }),
+          }
+        : null;
+    case 'pipeline':
+      return {
+        value: shown.net,
+        networks: WORKING_PLATFORMS,
+        every: true,
+        hrefOf: at({ view: 'pipeline', stages: shown.show, search: shown.search }),
+      };
+    case 'friends':
+      return {
+        value: shown.net,
+        networks: WORKING_PLATFORMS,
+        every: true,
+        hrefOf: at({ view: 'friends', show: shown.show, search: shown.search }),
+      };
+    case 'chats':
+      return {
+        value: shown.net,
+        networks: WORKING_PLATFORMS,
+        every: true,
+        hrefOf: at({ view: 'chats', chats: shown.show, tag: shown.tag, search: shown.search }),
+      };
+    case 'partners':
+      return {
+        value: shown.net,
+        networks: WORKING_PLATFORMS,
+        every: true,
+        hrefOf: at({ view: 'partners', partners: shown.show }),
+      };
+    default:
+      return null;
+  }
+}
+
 export function OutreachHome({
   workspaceId,
   businessName,
   shown,
   canManage,
   canStartFresh = false,
-  waitingCount = null,
 }: {
   workspaceId: string;
   businessName: string;
   shown: OutreachShown;
   /** Owners and admins write the playbooks and see everyone's activity. */
   canManage: boolean;
-  /** An owner, who may erase everything and start fresh: for the Settings tab's menu. */
+  /** An owner, who may erase everything and start fresh: for Settings' menu. */
   canStartFresh?: boolean;
-  /** How many things need the person, on the Today tab: null when it couldn't be had. */
-  waitingCount?: number | null;
 }) {
-  // A group's own page sits under the Groups tab.
+  // A group's own page sits under Groups.
   const view: OutreachView = shown.view === 'group' ? 'groups' : shown.view;
-  const tab = tabOf(view);
-  const count = shown.view === 'today' && shown.waiting ? shown.waiting.count : waitingCount;
+  const page = pageOf(view);
   const asks =
-    'asks' in shown && shown.view !== 'today' && shown.view !== 'live' && shown.view !== 'pipeline'
-      ? shown.asks
-      : null;
+    'asks' in shown && shown.view !== 'today' && shown.view !== 'pipeline' ? shown.asks : null;
+  const picker = networkPickerOf(workspaceId, shown);
   return (
-    <div data-testid="outreach-home">
-      <PageHeader title={W.title} description={W.pageAbout} />
-      <nav
-        aria-label={W.title}
-        className="mb-5 flex gap-0.5 overflow-x-auto border-b border-border [scrollbar-width:none]"
-      >
-        {OUTREACH_TABS.map((t) => {
-          const active = t === tab;
-          return (
-            <Link
-              key={t}
-              href={outreachHref(workspaceId, { view: TAB_VIEW[t] })}
-              aria-current={active ? 'page' : undefined}
-              data-testid={`outreach-tab-${t}`}
-              className={cn(
-                '-mb-px flex h-10 flex-none items-center gap-1.5 whitespace-nowrap border-b-2 px-3 text-sm font-medium transition-colors max-md:h-11',
-                t === 'settings' && 'ml-auto',
-                active
-                  ? 'border-accent text-accent-text'
-                  : 'border-transparent text-text-2 hover:text-text',
-              )}
-            >
-              {t === 'settings' ? (
-                <Settings className="h-4 w-4" strokeWidth={1.5} aria-hidden="true" />
-              ) : null}
-              <span className={cn(t === 'settings' && 'max-md:sr-only')}>{W.tabs[t]}</span>
-              {t === 'today' && count ? (
-                <span
-                  className="inline-flex h-[18px] min-w-[18px] items-center justify-center rounded-full bg-accent px-1.5 text-[11px] font-semibold tabular-nums text-white"
-                  data-testid="outreach-tab-today-count"
-                >
-                  {count.toLocaleString()}
-                </span>
-              ) : null}
-            </Link>
-          );
-        })}
-      </nav>
+    <div data-testid="outreach-home" data-page={page}>
+      <p className="mb-1 text-[12.5px] font-medium text-text-3">{W.title}</p>
+      <PageHeader
+        title={OUTREACH_PAGES[page]}
+        description={OUTREACH_PAGE_ABOUT[page]}
+        actions={picker ? <NetworkPicker workspaceId={workspaceId} {...picker} /> : undefined}
+      />
       <SetupBanner workspaceId={workspaceId} />
-      {tab === 'people' ? (
+      {page === 'people' ? (
         <div className="mb-4">
           <LinkSegments
-            label={W.tabs.people}
+            label={OUTREACH_PAGES.people}
             items={(['pipeline', 'friends', 'chats', 'partners'] as const).map((v) => ({
               href: outreachHref(workspaceId, { view: v }),
               label: W.peopleParts[v],
@@ -530,54 +536,43 @@ export function OutreachHome({
       ) : null}
       {/* Why the buttons that ask the computer wait: once, not on every card. */}
       {asks ? <ComputerNote asks={asks} className="mb-4" /> : null}
-      {tab === 'settings' ? (
+      {shown.view === 'settings' ? (
         <div className="grid gap-x-8 gap-y-5 md:grid-cols-[220px_minmax(0,1fr)]">
-          {shown.view === 'settings' ? (
-            <SettingsMenu
-              workspaceId={workspaceId}
-              view={shown.view}
-              part={shown.part}
-              whose={shown.mine ? null : shown.me.userId}
-              mine={shown.mine}
-              canStartFresh={canStartFresh}
-              networks={networksOn(shown.me.settings, shown.me.rules.networksAllowed)}
-            />
-          ) : (
-            <SettingsMenu
-              workspaceId={workspaceId}
-              view={view}
-              part={null}
-              whose={null}
-              mine
-              canStartFresh={canStartFresh}
-              networks={null}
-            />
-          )}
+          <SettingsMenu
+            workspaceId={workspaceId}
+            part={shown.part}
+            whose={shown.mine ? null : shown.me.userId}
+            mine={shown.mine}
+            canStartFresh={canStartFresh}
+            networks={networksOn(shown.me.settings, shown.me.rules.networksAllowed)}
+          />
           <div className="min-w-0 max-w-3xl">
-            {shown.view === 'settings' ? (
-              <SettingsView
-                workspaceId={workspaceId}
-                part={shown.part}
-                me={shown.me}
-                mine={shown.mine}
-                people={shown.people}
-                business={shown.business}
-                canStartFresh={shown.canStartFresh}
-                live={shown.live}
-                extensionLink={shown.extensionLink}
-                asks={shown.asks ?? null}
-                readiness={shown.readiness ?? null}
-              />
-            ) : shown.view === 'playbooks' ? (
-              <PlaybooksView
-                workspaceId={workspaceId}
-                list={shown.list}
-                openers={shown.openers}
-                canManage={canManage}
-              />
-            ) : null}
+            <SettingsView
+              workspaceId={workspaceId}
+              part={shown.part}
+              me={shown.me}
+              mine={shown.mine}
+              people={shown.people}
+              business={shown.business}
+              canStartFresh={shown.canStartFresh}
+              live={shown.live}
+              extensionLink={shown.extensionLink}
+              asks={shown.asks ?? null}
+              readiness={shown.readiness ?? null}
+            />
           </div>
         </div>
+      ) : shown.view === 'playbooks' ? (
+        <div className="max-w-3xl">
+          <PlaybooksView
+            workspaceId={workspaceId}
+            list={shown.list}
+            openers={shown.openers}
+            canManage={canManage}
+          />
+        </div>
+      ) : shown.view === 'needs' ? (
+        <NeedsYou workspaceId={workspaceId} waiting={shown.waiting} />
       ) : shown.view === 'today' ? (
         <TodayView
           workspaceId={workspaceId}
@@ -586,19 +581,11 @@ export function OutreachHome({
           today={shown.today}
           helpful={shown.helpful}
           wheels={shown.wheels}
+          team={shown.team}
           asks={shown.asks}
           waiting={shown.waiting}
           readiness={shown.readiness}
           canManage={canManage}
-        />
-      ) : shown.view === 'live' ? (
-        <LiveView
-          workspaceId={workspaceId}
-          live={shown.live}
-          team={shown.team}
-          asks={shown.asks}
-          platform={shown.platform}
-          networks={shown.networks}
         />
       ) : shown.view === 'results' ? (
         <ActivityView

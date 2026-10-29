@@ -24,14 +24,7 @@ import * as React from 'react';
 import { ScrollView, View } from 'react-native';
 
 import { change, ChangeError } from '@/changes';
-import {
-  BookOpen,
-  Check,
-  CircleDashed,
-  Globe,
-  Laptop,
-  SlidersHorizontal,
-} from '@/components/icons';
+import { Check, CircleDashed, Globe, Laptop, SlidersHorizontal } from '@/components/icons';
 import { List, ListLabel, ListRow } from '@/components/shell/list';
 import { Screen } from '@/components/shell/screen';
 import { Badge } from '@/components/ui/badge';
@@ -60,7 +53,8 @@ import { useProfileProps, type ProfileProps } from './ready';
 /**
  * Social Outreach's Settings on the phone (decision 44), a page for each part as on the web (Chris, 2026-10-16: "a
  * settings menu with general settings and then all the platforms"). The Settings screen is the menu: General, each
- * network with whether it's on for the person shown, the networks still to come, then Playbooks and Your computer.
+ * network with whether it's on for the person shown, the networks still to come, then Your computer (Playbooks are a
+ * page of their own since decision 126).
  * Owners and admins pick whose under Settings for, and each part opens for them. A part is its own screen over the
  * menu (`?part=`, ./kit.tsx's `openSettingsPart`); an address with no part, as every link before the parts, opens the
  * menu. Every change saves as it's made (./autosave.ts), with no Save button: the person's through
@@ -294,8 +288,8 @@ export function SettingsMenuBody({
   onRetry: () => void;
   onWhose: (userId: string) => void;
   onPart: (part: PhonePart) => void;
-  /** Playbooks and the person's computer, beside the settings since the tabs went to four (decision 59). */
-  onOpen: (view: 'playbooks' | 'live') => void;
+  /** The person's computer, beside the settings; Playbooks are a page of their own (decision 126). */
+  onOpen: (view: 'live') => void;
 }) {
   if (!automation)
     return (
@@ -382,13 +376,6 @@ export function SettingsMenuBody({
       <View className="gap-1.5">
         <ListLabel>{SETTINGS_WORDS.menu.more}</ListLabel>
         <List>
-          <ListRow
-            icon={BookOpen}
-            label={W.settingsParts.playbooks}
-            detail={W.rowDetails.playbooks}
-            onPress={() => onOpen('playbooks')}
-            testID="settings-open-playbooks"
-          />
           <ListRow
             icon={Laptop}
             label={W.settingsParts.computer}

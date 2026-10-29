@@ -35,6 +35,21 @@ import { madeUpDownload, makeZip } from './outreach-download';
  * - The business sets how partners are paid and their terms in Settings → Partners, makes a customer a partner and
  *   marks who sent a client from their pages, and sees each partner's link, clients and what they earned (stage 2d).
  */
+/**
+ * Opens one of Social Outreach's pages from its one row in the side menu, where they pop out (decision 126): Needs
+ * you, Today, People, Groups, Results, Playbooks and Settings.
+ */
+async function openOutreachPage(page: Page, name: string) {
+  await page
+    .getByRole('navigation', { name: 'Workspace' })
+    .getByTestId('menu-addon-outreach')
+    .click();
+  await page
+    .getByTestId('menu-addon-panel-outreach')
+    .getByRole('link', { name: new RegExp(`^${name}`) })
+    .click();
+}
+
 async function turnOnOutreach(page: Page, email: string, workspaceId: string) {
   const made = await page.request.post(`${WORKER}/test/staff/make-admin`, { data: { email } });
   expect(((await made.json()) as { made: number }).made).toBe(1);
@@ -67,10 +82,24 @@ test('an owner builds a playbook a step at a time, with answers that tag people 
 
   await page.goto(`/app/w/${workspaceId}/a/outreach`);
   await expect(page.getByTestId('outreach-home')).toBeVisible();
-  // Playbooks sit under the gear, beside the settings (decision 59).
-  await page.getByTestId('outreach-tab-settings').click();
-  await page.getByTestId('outreach-settings-part-playbooks').click();
-  await expect(page).toHaveURL(new RegExp(`/a/outreach\\?view=playbooks$`));
+  // Its pages pop out from its one row in the side menu, Playbooks among them (decision 126).
+  await page
+    .getByRole('navigation', { name: 'Workspace' })
+    .getByTestId('menu-addon-outreach')
+    .click();
+  await expect(page.getByTestId('menu-addon-panel-outreach').getByRole('link')).toHaveText([
+    /^Needs you/,
+    'Today',
+    'People',
+    'Groups',
+    'Results',
+    'Playbooks',
+    'Settings',
+  ]);
+  await page.keyboard.press('Escape');
+  await openOutreachPage(page, 'Playbooks');
+  await expect(page).toHaveURL(new RegExp(`/a/outreach/playbooks$`));
+  await expect(page.getByTestId('outreach-home')).toHaveAttribute('data-page', 'playbooks');
   await page.getByTestId('playbook-new').click();
   await page.getByTestId('template-blank').click();
   await expect(page).toHaveURL(new RegExp(`/a/outreach/playbooks/new$`));
@@ -180,7 +209,7 @@ test('an owner builds a playbook a step at a time, with answers that tag people 
   await expect(builder.getByTestId('review-openers')).toContainText('1 opener of your own');
   await builder.getByTestId('playbook-save').click();
   await expect(page.getByText('Office orders is ready.')).toBeVisible();
-  await expect(page).toHaveURL(new RegExp(`/a/outreach\\?view=playbooks$`));
+  await expect(page).toHaveURL(new RegExp(`/a/outreach/playbooks$`));
   const card = page.getByTestId('playbook-Office orders');
   await expect(card.getByTestId('playbook-questions')).toHaveText(
     'Asks 2 questions, starting with “Do you order food for the office?”',
@@ -196,7 +225,7 @@ test('an owner builds a playbook a step at a time, with answers that tag people 
   await expect(script).toContainText('“Yes”, then make the offer');
   await builder.getByTestId('playbook-save').click();
   await expect(page.getByText('Office orders is saved.')).toBeVisible();
-  await expect(page).toHaveURL(new RegExp(`/a/outreach\\?view=playbooks$`));
+  await expect(page).toHaveURL(new RegExp(`/a/outreach/playbooks$`));
 
   // A template's conversation comes with it, and answers lead further down.
   await page.getByTestId('playbook-new').click();
@@ -221,8 +250,8 @@ test('the Results tab counts what the extension noted, by group and person, over
   await turnOnOutreach(page, email, workspaceId);
 
   await page.goto(`/app/w/${workspaceId}/a/outreach`);
-  await page.getByTestId('outreach-tab-results').click();
-  await expect(page).toHaveURL(new RegExp(`/a/outreach\\?view=results$`));
+  await openOutreachPage(page, 'Results');
+  await expect(page).toHaveURL(new RegExp(`/a/outreach/results$`));
   await expect(page.getByTestId('activity-empty')).toContainText(
     'Nothing noted in the last 7 days',
   );
@@ -303,17 +332,17 @@ test('the Results tab counts what the extension noted, by group and person, over
 
   // Another stretch, and everyone's steps for the owner, each in the address.
   await page.getByTestId('activity-period-today').click();
-  await expect(page).toHaveURL(new RegExp(`/a/outreach\\?view=results&period=today$`));
+  await expect(page).toHaveURL(new RegExp(`/a/outreach/results\\?period=today$`));
   await expect(numbers.getByTestId('activity-number-people')).toContainText('3');
   await page.getByTestId('activity-who-everyone').click();
-  await expect(page).toHaveURL(new RegExp(`/a/outreach\\?view=results&period=today&who=everyone$`));
+  await expect(page).toHaveURL(new RegExp(`/a/outreach/results\\?period=today&who=everyone$`));
   await expect(page.getByTestId('activity-who-everyone')).toHaveAttribute('aria-selected', 'true');
   await expect(people).toHaveCount(3);
   await expect(page.getByTestId('tracking-numbers')).toContainText('The team’s numbers');
   await expect(page.getByTestId('tracking-review-none')).toHaveCount(0);
 
   // The day's report is on to start; turned off on Settings → General, it saves by itself and stays off.
-  await page.goto(`/app/w/${workspaceId}/a/outreach?view=settings`);
+  await page.goto(`/app/w/${workspaceId}/a/outreach/settings`);
   const dayReport = page.getByTestId('outreach-my-dayReport');
   await expect(dayReport).toHaveAttribute('aria-checked', 'true');
   await expect(page.getByTestId('outreach-my-day-report-sample')).toContainText(
@@ -330,14 +359,24 @@ test('the Results tab counts what the extension noted, by group and person, over
   await page.reload();
   await expect(page.getByTestId('outreach-my-dayReport')).toHaveAttribute('aria-checked', 'false');
 
-  // The owner's day against the limits is at the top of Today, each half while Facebook is new to them (decision 96).
-  await page.getByTestId('outreach-tab-today').click();
-  await expect(page.getByTestId('today-fresh')).toContainText('your daily limits there');
+  // The owner's day against the limits is at the top of Today, each half while Facebook is new to them (decision 96),
+  // said under Heads up.
+  await openOutreachPage(page, 'Today');
+  await expect(page.getByTestId('today-heads-up').getByTestId('today-fresh')).toContainText(
+    'your daily limits there',
+  );
   await expect(page.getByTestId('today-limit-friend_request')).toContainText('1 of 10');
   await expect(page.getByTestId('today-limit-first_message')).toContainText('1 of 7');
-  // The old address of the activity opens Results.
-  await page.goto(`/app/w/${workspaceId}/a/outreach?view=activity`);
-  await expect(page.getByTestId('outreach-tab-results')).toHaveAttribute('aria-current', 'page');
+  // The old addresses still open the page they became (decision 126): the activity's Results, a network's settings
+  // its page there, and the extension's Needs you link, on Today, Needs you.
+  await page.goto(`/app/w/${workspaceId}/a/outreach?view=activity&period=today`);
+  await expect(page).toHaveURL(new RegExp(`/a/outreach/results\\?period=today$`));
+  await expect(page.getByTestId('outreach-home')).toHaveAttribute('data-page', 'results');
+  await page.goto(`/app/w/${workspaceId}/a/outreach?view=settings&part=linkedin`);
+  await expect(page).toHaveURL(new RegExp(`/a/outreach/settings/linkedin$`));
+  await page.goto(`/app/w/${workspaceId}/a/outreach?view=today#needs-you`);
+  await expect(page).toHaveURL(new RegExp(`/a/outreach/needs-you$`));
+  await expect(page.getByTestId('outreach-waiting')).toBeVisible();
 });
 
 test('the friends tab lists what the extension saved a page at a time, keeps a friend, and puts someone on the Don’t pitch list', async ({
@@ -379,10 +418,10 @@ test('the friends tab lists what the extension saved a page at a time, keeps a f
   });
 
   await page.goto(`/app/w/${workspaceId}/a/outreach`);
-  // Friends sit under People (decision 59).
-  await page.getByTestId('outreach-tab-people').click();
+  // Friends sit under People (decisions 59 and 126).
+  await openOutreachPage(page, 'People');
   await page.getByTestId('outreach-people-friends').click();
-  await expect(page).toHaveURL(new RegExp(`/a/outreach\\?view=friends$`));
+  await expect(page).toHaveURL(new RegExp(`/a/outreach/people/friends$`));
   const people = page.getByTestId('friend');
   await expect(people).toHaveText([/Parker Reed/, /Quinn Harper/, /Sky Patel/]);
   await expect(page.getByTestId('friends-show-friends')).toContainText('3');
@@ -391,7 +430,7 @@ test('the friends tab lists what the extension saved a page at a time, keeps a f
 
   // Found by part of a name as it's typed, with no Enter, in the address; an empty box shows everyone again.
   await page.getByTestId('friends-search').pressSequentially('sky', { delay: 50 });
-  await expect(page).toHaveURL(new RegExp(`/a/outreach\\?view=friends&q=sky$`));
+  await expect(page).toHaveURL(new RegExp(`/a/outreach/people/friends\\?q=sky$`));
   await expect(people).toHaveText([/Sky Patel/]);
   await expect(page.getByTestId('friends-search')).toHaveValue('sky');
   await page.getByTestId('friends-search').fill('');
@@ -426,7 +465,7 @@ test('the friends tab lists what the extension saved a page at a time, keeps a f
 
   // The request still waiting, by fit: mutual friends alone until a playbook says what to look for.
   await page.getByTestId('friends-show-requests').click();
-  await expect(page).toHaveURL(new RegExp(`/a/outreach\\?view=friends&show=requests$`));
+  await expect(page).toHaveURL(new RegExp(`/a/outreach/people/friends\\?show=requests$`));
   await expect(people).toHaveText([/Avery Lane/]);
   await expect(people.getByTestId('friend-fit')).toHaveText('Might fit');
   await expect(people.getByTestId('friend-fit-reasons')).toHaveText('12 mutual friends');
@@ -465,14 +504,14 @@ test('the friends tab lists what the extension saved a page at a time, keeps a f
   await expect(page.getByTestId('friends-page')).toHaveText('Page 1 of 2');
   await expect(page.getByTestId('friends-page-previous')).toBeDisabled();
   await page.getByTestId('friends-page-next').click();
-  await expect(page).toHaveURL(new RegExp(`/a/outreach\\?view=friends&page=2$`));
+  await expect(page).toHaveURL(new RegExp(`/a/outreach/people/friends\\?page=2$`));
   await expect(people).toHaveText([/Zoe Friend 98/]);
   await expect(page.getByTestId('friends-page')).toHaveText('Page 2 of 2');
   await expect(page.getByTestId('friends-page-next')).toBeDisabled();
   // A search starts again at its first page: Zoe Friend 9, and 90 to 98.
   await page.getByTestId('friends-search').fill('zoe friend 9');
   await expect(page).toHaveURL(
-    new RegExp(`/a/outreach\\?view=friends&q=zoe(\\+|%20)friend(\\+|%20)9$`),
+    new RegExp(`/a/outreach/people/friends\\?q=zoe(\\+|%20)friend(\\+|%20)9$`),
   );
   await expect(people).toHaveCount(10);
   await expect(page.getByTestId('friends-pages')).toHaveCount(0);
@@ -535,8 +574,8 @@ test('a name opens the person menu, their page first; Mark as client ends outrea
     text: 'Hi Rowan! How is the spring rush treating you?',
   });
 
-  // Waiting for you: the name is a button that opens the person menu, and the card keeps its own Open.
-  await page.goto(`/app/w/${workspaceId}/a/outreach`);
+  // Needs you: the name is a button that opens the person menu, and the card keeps its own Open.
+  await page.goto(`/app/w/${workspaceId}/a/outreach/needs-you`);
   const card = page
     .getByTestId('waiting-message')
     .getByTestId('waiting-item')
@@ -576,12 +615,12 @@ test('a name opens the person menu, their page first; Mark as client ends outrea
 
   // The Pipeline: clients are left off the board, with a link to them beside Not a fit's, and have a stage of their
   // own with why, and no moves.
-  await page.goto(`/app/w/${workspaceId}/a/outreach?view=pipeline`);
+  await page.goto(`/app/w/${workspaceId}/a/outreach/people`);
   await expect(page.getByTestId('pipeline-board')).toContainText(sage.name);
   await expect(page.getByTestId('pipeline-board')).not.toContainText(rowan.name);
   await expect(page.getByTestId('pipeline-show-client')).toContainText(/Client\s*1/);
   await page.getByTestId('pipeline-clients').click();
-  await expect(page).toHaveURL(new RegExp(`/a/outreach\\?view=pipeline&show=client$`));
+  await expect(page).toHaveURL(new RegExp(`/a/outreach/people\\?show=client$`));
   await expect(page.getByTestId('pipeline-note')).toContainText('A client gets no outreach');
   const listed = page.getByTestId('pipeline-person').filter({ hasText: rowan.name });
   await expect(listed.getByTestId('pipeline-stage')).toHaveText('Client');
@@ -650,7 +689,7 @@ test('the friends tab brings in Facebook’s download file: since when they’ve
       ...(d.getFullYear() === new Date().getFullYear() ? {} : { year: 'numeric' }),
     });
 
-  await page.goto(`/app/w/${workspaceId}/a/outreach?view=friends`);
+  await page.goto(`/app/w/${workspaceId}/a/outreach/people/friends`);
   const card = page.getByTestId('download-card');
   await expect(card).toContainText('Only names and dates are sent');
   await card
@@ -684,7 +723,7 @@ test('the friends tab brings in Facebook’s download file: since when they’ve
   // Sky's chat waits for the AI's read, or is read already where the worker has one.
   const sky = page.getByTestId('chat').filter({ hasText: 'Sky Patel' });
   for (const show of ['waiting', 'read']) {
-    await page.goto(`/app/w/${workspaceId}/a/outreach?view=chats&show=${show}`);
+    await page.goto(`/app/w/${workspaceId}/a/outreach/people/chats?show=${show}`);
     await expect(page.getByTestId('chats-list').or(page.getByTestId('chats-empty'))).toBeVisible();
     if (await sky.count()) break;
   }
@@ -695,7 +734,7 @@ test('the friends tab brings in Facebook’s download file: since when they’ve
   // The AI may read the chat meanwhile, which moves it from Not read yet to All read: look wherever it is now.
   await expect(async () => {
     for (const show of ['read', 'waiting']) {
-      await page.goto(`/app/w/${workspaceId}/a/outreach?view=chats&show=${show}`);
+      await page.goto(`/app/w/${workspaceId}/a/outreach/people/chats?show=${show}`);
       await expect(
         page.getByTestId('chats-list').or(page.getByTestId('chats-empty')),
       ).toBeVisible();
@@ -760,8 +799,8 @@ test('the groups tab scores saved groups, and today waits for a group’s admins
   });
 
   await page.goto(`/app/w/${workspaceId}/a/outreach`);
-  await page.getByTestId('outreach-tab-groups').click();
-  await expect(page).toHaveURL(new RegExp(`/a/outreach\\?view=groups$`));
+  await openOutreachPage(page, 'Groups');
+  await expect(page).toHaveURL(new RegExp(`/a/outreach/groups$`));
   // Without a playbook, nothing says a group is worth working: being big and being in it make a maybe.
   await expect(page.getByTestId('groups-empty')).toBeVisible();
   await page.getByTestId('groups-show-all').click();
@@ -777,10 +816,10 @@ test('the groups tab scores saved groups, and today waits for a group’s admins
   await expect(page.getByTestId('group-page-person')).toHaveText([/Rowan Ellis/]);
   await expect(page.getByTestId('group-page-stage')).toHaveText('Not reached yet');
   await page.getByTestId('group-page-back').click();
-  await expect(page).toHaveURL(new RegExp(`/a/outreach\\?view=groups$`));
+  await expect(page).toHaveURL(new RegExp(`/a/outreach/groups$`));
 
-  await page.getByTestId('outreach-tab-today').click();
-  await expect(page).toHaveURL(new RegExp(`/a/outreach\\?view=today$`));
+  await openOutreachPage(page, 'Today');
+  await expect(page).toHaveURL(new RegExp(`/a/outreach/today$`));
   // Not ready yet (decision 63): Get ready in place of the list, its playbook still to write.
   await expect(page.getByTestId('get-ready')).toBeVisible();
   await expect(page.getByTestId('ready-playbook')).toHaveAttribute('data-state', 'todo');
@@ -923,7 +962,7 @@ test('a first-timer is sent to the setup: the main setup, then each network, eac
 
   // Left for later: the line says what's next, and Carry on opens there, saying where they left off.
   await page.getByTestId('outreach-setup-later').click();
-  await page.getByTestId('outreach-tab-today').click();
+  await openOutreachPage(page, 'Today');
   await expect(page.getByTestId('outreach-setup-banner')).toContainText(
     'Next: Main offer · 5 of 8 done.',
   );
@@ -931,7 +970,7 @@ test('a first-timer is sent to the setup: the main setup, then each network, eac
   await expect(setup).toHaveAttribute('data-screen', 'offer');
 
   // Set up again on Settings opens the first step.
-  await page.goto(`/app/w/${workspaceId}/a/outreach?view=settings`);
+  await page.goto(`/app/w/${workspaceId}/a/outreach/settings`);
   await page.getByTestId('outreach-setup-again-open').click();
   await expect(setup).toHaveAttribute('data-screen', 'offer');
 });
@@ -951,7 +990,7 @@ test('a network’s On for you saves at once on its page, with a line beside it,
   const isSave = (url: string, method: string) =>
     method === 'POST' && url.endsWith('/v1/commands/outreach.automation.save');
 
-  await page.goto(`/app/w/${workspaceId}/a/outreach?view=settings&part=linkedin`);
+  await page.goto(`/app/w/${workspaceId}/a/outreach/settings/linkedin`);
   const linkedIn = page.getByTestId('outreach-my-networks-linkedin-on');
   await expect(linkedIn).toHaveAttribute('aria-checked', 'false');
   await expect(page.getByTestId('outreach-my-networks-linkedin-off')).toBeVisible();
@@ -1030,9 +1069,10 @@ test('Settings opens General, LinkedIn’s page and Facebook’s from its menu, 
   const title = page.getByTestId('outreach-settings-title');
   const status = page.getByTestId('outreach-settings-status');
 
-  // The gear opens General: the person's own on every network, and the team's say for an owner. No Save buttons but
+  // Settings opens on General: the person's own on every network, and the team's say for an owner. No Save buttons but
   // the extension's link box's own.
-  await page.getByTestId('outreach-tab-settings').click();
+  await openOutreachPage(page, 'Settings');
+  await expect(page).toHaveURL(new RegExp(`/a/outreach/settings$`));
   await expect(view).toHaveAttribute('data-part', 'general');
   await expect(title).toHaveText('General');
   await expect(status).toHaveText('Changes save as you make them.');
@@ -1061,7 +1101,7 @@ test('Settings opens General, LinkedIn’s page and Facebook’s from its menu, 
 
   // LinkedIn's page, from the menu: off for them, with the team's say on it for an owner.
   await page.getByTestId('outreach-settings-part-linkedin').click();
-  await expect(page).toHaveURL(new RegExp(`/a/outreach\\?view=settings&part=linkedin$`));
+  await expect(page).toHaveURL(new RegExp(`/a/outreach/settings/linkedin$`));
   await expect(view).toHaveAttribute('data-part', 'linkedin');
   await expect(title).toHaveText('LinkedIn');
   await expect(page.getByTestId('outreach-my-networks-linkedin-off')).toBeVisible();
@@ -1113,7 +1153,7 @@ test('Settings opens General, LinkedIn’s page and Facebook’s from its menu, 
 
   // Facebook's page: no Chrome step, and the extension's switches are here. One turned off saves by itself.
   await page.getByTestId('outreach-settings-part-facebook').click();
-  await expect(page).toHaveURL(new RegExp(`/a/outreach\\?view=settings&part=facebook$`));
+  await expect(page).toHaveURL(new RegExp(`/a/outreach/settings/facebook$`));
   await expect(title).toHaveText('Facebook');
   await expect(page.getByTestId('outreach-my-networks-facebook-chrome')).toHaveCount(0);
   await expect(page.getByTestId('outreach-team-facebook')).toContainText('Always allowed');
@@ -1191,9 +1231,9 @@ test('the Partners list has who could send the business customers, by stage, and
     )
     .toBe(1);
 
-  await page.goto(`/app/w/${workspaceId}/a/outreach?view=pipeline`);
+  await page.goto(`/app/w/${workspaceId}/a/outreach/people`);
   await page.getByTestId('outreach-people-partners').click();
-  await expect(page).toHaveURL(new RegExp(`/a/outreach\\?view=partners$`));
+  await expect(page).toHaveURL(new RegExp(`/a/outreach/people/partners$`));
   await expect(page.getByTestId('partners-show-all')).toContainText(/Everyone\s*1/);
   const row = page.getByTestId('partner');
   await expect(row).toContainText('Dana Reyes');
@@ -1208,7 +1248,7 @@ test('the Partners list has who could send the business customers, by stage, and
   await expect(row.getByTestId('partner-mark-interested')).toHaveCount(0);
   await expect(row.getByTestId('partner-mark-partner')).toBeVisible();
   await page.getByTestId('partners-show-asked').click();
-  await expect(page).toHaveURL(new RegExp(`/a/outreach\\?view=partners&show=asked$`));
+  await expect(page).toHaveURL(new RegExp(`/a/outreach/people/partners\\?show=asked$`));
   await expect(page.getByTestId('partners-empty')).toContainText('Nobody is at Asked yet.');
 });
 

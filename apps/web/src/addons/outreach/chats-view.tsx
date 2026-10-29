@@ -35,7 +35,7 @@ import { outreachHref } from './address';
 import { AskButton } from './asks';
 import { KeepChatButton } from './chat-keep';
 import { dayWords, Pager, SearchBox } from './friends-view';
-import { NetworkFilterControl, NetworkName } from './network-ui';
+import { NetworkName } from './network-ui';
 import { PersonName } from './person-menu';
 import type { Asks, Chat, Chats } from './types';
 
@@ -74,18 +74,12 @@ export function ChatsView({
   useEffect(() => {
     asked.current = { chats: show, tag, search, net };
   }, [show, tag, search, net]);
-  const go = (to: {
-    chats?: ChatView;
-    tag?: string;
-    search?: string;
-    page?: number;
-    net?: Platform | null;
-  }) => {
+  const go = (to: { chats?: ChatView; tag?: string; search?: string; page?: number }) => {
     asked.current = {
       chats: to.chats ?? asked.current.chats,
       tag: to.tag ?? asked.current.tag,
       search: to.search ?? asked.current.search,
-      net: to.net === undefined ? asked.current.net : to.net,
+      net: asked.current.net,
     };
     const href = outreachHref(workspaceId, { view: 'chats', ...asked.current, page: to.page ?? 1 });
     startTransition(() => router.replace(href, { scroll: false }));
@@ -113,7 +107,6 @@ export function ChatsView({
             }))}
           />
         </div>
-        <NetworkFilterControl value={net} onChange={(n) => go({ net: n })} />
         <SearchBox search={search} onSearch={(s) => go({ search: s })} />
       </div>
       <Card className="mb-4 p-4" data-testid="chats-asks">

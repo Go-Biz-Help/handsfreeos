@@ -63,7 +63,7 @@ import { AskLine, useAskActions, type AskActions } from './asks';
 import { ChatBubbles } from './chat-bubbles';
 import { useOutreachWaiting } from './copy';
 import { NetworkName } from './networks';
-import { PersonName } from './person-menu';
+import { PersonMenuScope, PersonName } from './person-menu';
 import {
   NeedsSignal,
   Note,
@@ -74,13 +74,14 @@ import {
 } from './kit';
 
 /**
- * Waiting for you on the phone (decision 44, owner answer 19b): the person's messages waiting for their OK come from
+ * Needs you on the phone (decision 44, owner answer 19b), its own page since decision 126, second on the add-on's
+ * first screen (./home.tsx) and where Today's count leads: the person's messages waiting for their OK come from
  * the phone's own copy, so they read, OK, change, skip and Approve all with no signal; each goes to HandsFreeOS when
  * the phone's back online. What they asked their computer that needs them there (decision 43, with **Carry on**,
  * **Skip** and **Stop**), the steps it needs them for and the friend requests to decide come from HandsFreeOS, with
  * signal, and the screen says so plainly without.
  *
- * Each card's name opens the person menu (decision 91, ./person-menu.tsx) inside the `PersonMenuScope` Today's tab puts
+ * Each card's name opens the person menu (decision 91, ./person-menu.tsx) inside the `PersonMenuScope` its screen puts
  * around it: their page first, then Contacts, Mark as client, Don't pitch, Never contact and the rest. Each card keeps
  * its own Open button.
  *
@@ -157,7 +158,23 @@ function failed(e: unknown) {
   toast.error(e instanceof ChangeError ? e.message : errorMessage(e));
 }
 
-/** What needs the person and what its buttons do: for its own screen, and for Today's tab (./hub.tsx). */
+/** Needs you's screen (`?view=waiting`): everything waiting on the person, a change in a person menu reloading it. */
+export function NeedsYouScreen() {
+  const ctx = useOutreachContext();
+  const waiting = useWaitingProps();
+  return (
+    <PersonMenuScope
+      workspaceId={ctx.workspaceId}
+      online={ctx.online}
+      writesContacts={ctx.writesContacts}
+      onChanged={waiting.onRetry}
+    >
+      <WaitingBody {...waiting} />
+    </PersonMenuScope>
+  );
+}
+
+/** What needs the person and what its buttons do: for its own screen, and Today's count (./hub.tsx). */
 export function useWaitingProps(): React.ComponentProps<typeof WaitingBody> {
   const ctx = useOutreachContext();
   const phone = useOutreachWaiting(ctx.workspaceId, ctx.userId);
@@ -251,7 +268,6 @@ export function WaitingBody({
   onLeave,
   onSettings,
   askActions,
-  embedded = false,
 }: {
   phone: PhoneWaiting;
   server: WaitingFromServer | null;
@@ -268,8 +284,6 @@ export function WaitingBody({
   onSettings: () => void;
   /** Carry on, Skip and Stop, on what the computer needs them for. */
   askActions?: AskActions;
-  /** Inside Today's tab, as Needs you (./hub.tsx): no screen of its own, and a line when nothing waits. */
-  embedded?: boolean;
 }) {
   const [changing, setChanging] = React.useState<PhoneSend | null>(null);
   const all = approveAllFromPhone(phone);
@@ -294,24 +308,13 @@ export function WaitingBody({
       onSkip={() => onSkip(send)}
     />
   );
-  // Its own screen, or a part of Today's tab: a plain function, so the screen is never drawn anew.
-  const frame = (children: React.ReactNode) =>
-    embedded ? (
-      <View className="gap-3" testID="outreach-waiting">
-        {children}
-      </View>
-    ) : (
-      <Screen
-        title={W.rows.waiting}
-        subtitle={server ? waitingWords(count) : W.waitingMore(count)}
-        leading="back"
-        testID="outreach-waiting"
-      >
-        {children}
-      </Screen>
-    );
-  return frame(
-    <>
+  return (
+    <Screen
+      title={W.rows.waiting}
+      subtitle={server ? waitingWords(count) : W.waitingMore(count)}
+      leading="back"
+      testID="outreach-waiting"
+    >
       {!online ? (
         <Card className="px-4 py-3" testID="waiting-offline">
           <Note>{W.waitingOffline}</Note>
@@ -427,11 +430,7 @@ export function WaitingBody({
         <NeedsSignal words={serverError} onRetry={onRetry} testID="waiting-server-error" />
       ) : null}
 
-      {count === 0 && embedded && (server || !online) ? (
-        <Card className="border-dashed px-4 py-3.5" testID="waiting-empty">
-          <Note>{server ? W.needsYouNone : W.waitingMore(0)}</Note>
-        </Card>
-      ) : count === 0 && (server || !online) ? (
+      {count === 0 && (server || !online) ? (
         <Card className="gap-1.5 px-5 py-6" testID="waiting-empty">
           {/* With no word from HandsFreeOS, only the phone's messages are known: steps and requests may wait. */}
           <Text className="text-[16px] font-semibold">
@@ -441,7 +440,7 @@ export function WaitingBody({
         </Card>
       ) : null}
 
-      {server && !embedded ? (
+      {server ? (
         <Card className="gap-2 px-4 py-3.5" testID="waiting-hear">
           <Text className="text-[15px] font-semibold">{W.hearTitle}</Text>
           <Note>{W.hearOfIt(server.pushes)}</Note>
@@ -465,7 +464,7 @@ export function WaitingBody({
           onOk(send, text);
         }}
       />
-    </>,
+    </Screen>
   );
 }
 

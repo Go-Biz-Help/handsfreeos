@@ -167,7 +167,7 @@ export function ChatsBody({
 }) {
   const empty = search.trim() || tag ? W.chatsNoMatch : W.chatsEmpty[view];
   return (
-    <OutreachFrame tab="people" people="chats" testID="outreach-chats">
+    <OutreachFrame page="people" people="chats" testID="outreach-chats">
       {asks && actions ? (
         <Card className="gap-2 px-4 py-3.5" testID="chats-asks">
           <ComputerNote asks={asks} />

@@ -13,6 +13,7 @@ import { router } from 'expo-router';
 import { openWebPath } from '@/home/open';
 
 import { OutreachFrame, OutreachWorkspace } from '../frame';
+import { OutreachHomeBody } from '../home';
 import { LiveStrip } from '../hub';
 import { LiveBody, pressShown, startRefusedOf } from '../live';
 import { OutreachMoreRow } from '../more';
@@ -24,8 +25,9 @@ import { TodayBody } from '../today';
 import { id, TZ, WS } from './mocks';
 
 /**
- * Social Outreach's other screens on the phone (decisions 44 and 59): its one row in More, its four tabs and the gear,
- * the tabs left to the web, Today's strip and the live view with Start my day and Stop for today, Today with posts
+ * Social Outreach's other screens on the phone (decisions 44, 59 and 126): its one row in More, its first screen
+ * listing its pages, People's lists, the tabs left to the web, Today's cards and the live view with Start my day and
+ * Stop for today, Today with posts
  * asking for what the business offers first, comments drafted to wait on Instagram and Alignable (decision 92), each
  * name opening the person menu, the Pipeline's Client stage, and a playbook changed a part at a time on what's there
  * now. Settings have their own file (./settings.test.tsx).
@@ -71,28 +73,54 @@ describe('Social Outreach in More and its first screen', () => {
     expect(openWebPath).toHaveBeenCalledWith(`/app/w/${WS}/a/outreach`);
   });
 
-  it('moves between its four tabs in place, and opens Settings and Friends', async () => {
+  it('lists its pages in the web’s side-menu order, Needs you saying what waits, each opening its screen', async () => {
+    await render(<OutreachHomeBody workspaceId={WS} messages={3} />);
+    expect(screen.getByTestId('screen-title')).toHaveTextContent('Social Outreach');
+    const pages = ['needs-you', 'today', 'people', 'groups', 'results', 'playbooks', 'gear'];
+    expect(
+      within(screen.getByTestId('outreach-pages'))
+        .getAllByTestId(/^outreach-page-/)
+        .map((row) => row.props.testID),
+    ).toEqual(pages.map((p) => `outreach-page-${p}`));
+    expect(screen.getByTestId('outreach-page-needs-you')).toHaveTextContent(
+      /Needs you3 messages wait for your OK/,
+    );
+    expect(screen.getByTestId('outreach-page-gear')).toHaveTextContent(/^Settings/);
+    expect(screen.queryByTestId('outreach-set-up-on-computer')).toBeNull();
+    for (const page of pages) await fireEvent.press(screen.getByTestId(`outreach-page-${page}`));
+    expect(jest.mocked(openWebPath).mock.calls.map(([p]) => p)).toEqual(
+      ['waiting', 'today', 'pipeline', 'groups', 'results', 'playbooks', 'settings'].map(
+        (v) => `/app/w/${WS}/a/outreach?view=${v}`,
+      ),
+    );
+  });
+
+  it('says to finish setting up on a computer until it’s done', async () => {
+    await render(<OutreachHomeBody workspaceId={WS} messages={0} setUp={false} />);
+    expect(screen.getByTestId('outreach-set-up-on-computer')).toBeTruthy();
+    expect(screen.getByTestId('outreach-page-needs-you')).toHaveTextContent(
+      /Messages and comments to OK/,
+    );
+  });
+
+  it('titles a page by its name, and moves between People’s lists in place, Friends on the web', async () => {
     await render(
       <OutreachWorkspace.Provider value={WS}>
-        <OutreachFrame tab="people" people="pipeline" testID="framed" />
+        <OutreachFrame page="people" people="pipeline" testID="framed" />
       </OutreachWorkspace.Provider>,
     );
-    expect(screen.getByTestId('screen-title')).toHaveTextContent('Social Outreach');
-    for (const tab of ['today', 'groups', 'results'])
-      await fireEvent.press(screen.getByTestId(`outreach-tab-${tab}`));
+    expect(screen.getByTestId('screen-title')).toHaveTextContent('People');
+    expect(screen.queryByTestId('outreach-tabs')).toBeNull();
     await fireEvent.press(screen.getByTestId('outreach-people-chats'));
-    // Each tab replaces the screen, rather than stacking another on it.
+    await fireEvent.press(screen.getByTestId('outreach-people-pipeline'));
+    // A list replaces the screen, rather than stacking another on it; the one shown isn't pressed again.
     expect(jest.mocked(router.replace).mock.calls.map(([href]) => String(href))).toEqual([
-      expect.stringContaining('view=today'),
-      expect.stringContaining('view=groups'),
-      expect.stringContaining('view=results'),
       expect.stringContaining('view=chats'),
     ]);
-    await fireEvent.press(screen.getByTestId('outreach-open-settings'));
     await fireEvent.press(screen.getByTestId('outreach-people-friends'));
-    expect(jest.mocked(openWebPath).mock.calls.map(([p]) => p)).toEqual(
-      ['settings', 'friends'].map((v) => `/app/w/${WS}/a/outreach?view=${v}`),
-    );
+    expect(jest.mocked(openWebPath).mock.calls.map(([p]) => p)).toEqual([
+      `/app/w/${WS}/a/outreach?view=friends`,
+    ]);
   });
 
   it('counts the setup as done only once it’s finished, whether the web’s line was hidden or not', () => {
@@ -769,27 +797,16 @@ describe('The live view on the phone', () => {
     expect(screen.getByTestId('live-pre-day-checks')).toHaveTextContent(/To come/);
   });
 
-  it('sums the computer up at the top of Today: its state, today’s steps, Start my day and Details', async () => {
+  it('sums the computer up at the top of Today: its state, today’s steps and Start my day', async () => {
     const h = liveHandlers();
-    const onDetails = jest.fn();
-    await render(
-      <LiveStrip
-        live={LIVE}
-        error={null}
-        online
-        now={NOW}
-        pressed={null}
-        onDetails={onDetails}
-        {...h}
-      />,
-    );
+    await render(<LiveStrip live={LIVE} error={null} online now={NOW} pressed={null} {...h} />);
     expect(screen.getByTestId('live-state')).toHaveTextContent('Working');
     expect(screen.getByText('Liking a post of Dana Reyes’s')).toBeTruthy();
     expect(screen.getByTestId('today-limit-like')).toHaveTextContent(/^Likes7 \/ 40$/);
+    // Its whole day is Settings → Your computer now, not a Details button here (decision 126).
+    expect(screen.queryByTestId('today-status-details')).toBeNull();
     await fireEvent.press(screen.getByTestId('live-start'));
     expect(h.onStart).toHaveBeenCalled();
-    await fireEvent.press(screen.getByTestId('today-status-details'));
-    expect(onDetails).toHaveBeenCalled();
   });
 
   it('with no signal, keeps the last answer as of when it came, and a press waits on the phone', async () => {
@@ -931,7 +948,6 @@ describe('The live view on the phone', () => {
         now={NOW}
         pressed={null}
         refused={{ words, fix }}
-        onDetails={jest.fn()}
         {...liveHandlers()}
       />,
     );
