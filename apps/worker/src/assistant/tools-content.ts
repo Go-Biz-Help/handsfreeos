@@ -27,6 +27,8 @@ import {
   plainSpaces,
   type AssistantCard,
   type WorkflowCatalogs,
+  type WorkflowDefinition,
+  type WorkflowNames,
   type WorkflowOp,
 } from '@hfos/core/server';
 import type { Db } from '@hfos/db/client';
@@ -2270,12 +2272,74 @@ async function workflowDraft(db: Db, ctx: ToolContext, workflowId: unknown) {
   return { wf, def: parseDefinition(wf.definition), names: names?.catalogs ?? {} };
 }
 
+/**
+ * A draft as the model reads it to change it: each step, paths inside branches too, with the id a change names it
+ * by, and the draft as written with its revision, unless it's too long to read whole. A workflow's and an agency
+ * template's alike.
+ */
+export function draftToRead(
+  raw: Record<string, unknown>,
+  def: WorkflowDefinition,
+  names: WorkflowNames,
+  revision: number,
+) {
+  return {
+    steps: allSteps(def).map((l) => ({
+      id: l.step.id,
+      depth: l.depth,
+      says: describeStep(l.step, names, def),
+    })),
+    draftRevision: revision,
+    ...(JSON.stringify(raw).length <= DRAFT_MOST
+      ? { draft: raw }
+      : {
+          draftCutShort: true,
+          note: 'Its draft is too long to read whole here, so change it on its page.',
+        }),
+  };
+}
+
+/**
+ * What step changes to a draft come to, in its editor's words: every line, and the card's fields (Change, then Then,
+ * eight at most). Changes that leave the draft as it is are refused with `already`.
+ */
+export function draftChanges(
+  def: WorkflowDefinition,
+  ops: readonly WorkflowOp[],
+  names: WorkflowNames,
+  already: string,
+) {
+  let after: unknown = null;
+  try {
+    after = applyWorkflowOps(def, ops).definition;
+  } catch {
+    // The command took them; its own way of applying them is the one that counts.
+  }
+  if (after && JSON.stringify(after) === JSON.stringify(def)) throw nothingChanges(already);
+  const lines = describeOps(ops, def, names);
+  const shown =
+    lines.length > 8
+      ? [...lines.slice(0, 7), `And ${plural(lines.length - 7, 'more change')}`]
+      : lines;
+  return {
+    lines,
+    fields: shown.map((value, i) => ({ label: i === 0 ? 'Change' : 'Then', value })),
+  };
+}
+
+/** What saving a draft says, with the first check still to fix before it can be published. */
+export function draftSaved(issues: readonly { severity: string; message: string }[]): string {
+  const errors = issues.filter((i) => i.severity === 'error');
+  return errors.length
+    ? `Saved the draft. Fix ${errors.length === 1 ? 'this' : `${plural(errors.length, 'check')}, starting with this,`} before it can be published: ${errors[0]!.message}`
+    : 'Saved the draft.';
+}
+
 async function getWorkflow(db: Db, ctx: ToolContext, args: Args): Promise<ToolOutcome> {
   const { wf, def, names } = await workflowDraft(db, ctx, args['workflowId']);
   const startsWhen = describeTrigger(def.trigger, names);
   const errors = wf.issues.filter((i) => i.severity === 'error');
   const main = def.steps.map((s) => describeStep(s, names, def));
-  const whole = JSON.stringify(wf.definition).length <= DRAFT_MOST;
   return {
     result: {
       id: wf.id,
@@ -2283,20 +2347,8 @@ async function getWorkflow(db: Db, ctx: ToolContext, args: Args): Promise<ToolOu
       status: wf.status,
       startsWhen,
       liveVersion: wf.activeVersion?.version ?? null,
-      // Each step, paths inside branches too, with the id a change names it by.
-      steps: allSteps(def).map((l) => ({
-        id: l.step.id,
-        depth: l.depth,
-        says: describeStep(l.step, names, def),
-      })),
       checksToFix: errors.map((i) => i.message),
-      draftRevision: wf.revision,
-      ...(whole
-        ? { draft: wf.definition }
-        : {
-            draftCutShort: true,
-            note: 'Its draft is too long to read whole here, so change it on its page.',
-          }),
+      ...draftToRead(wf.definition, def, names, wf.revision),
     },
     card: {
       type: 'workflow',
@@ -2325,26 +2377,16 @@ const editWorkflowSteps: SettingsConfirmTool = {
       baseRevision: args['baseRevision'],
       ops,
     });
-    let after: unknown = null;
-    try {
-      after = applyWorkflowOps(def, ops).definition;
-    } catch {
-      // The command took them; its own way of applying them is the one that counts.
-    }
-    if (after && JSON.stringify(after) === JSON.stringify(def))
-      throw nothingChanges(`“${wf.name}”’s draft is that way already.`);
-    const lines = describeOps(ops, def, names);
-    const shown =
-      lines.length > 8
-        ? [...lines.slice(0, 7), `And ${plural(lines.length - 7, 'more change')}`]
-        : lines;
+    const { lines, fields } = draftChanges(
+      def,
+      ops,
+      names,
+      `“${wf.name}”’s draft is that way already.`,
+    );
     return {
       card: card(toolCallId, 'edit_workflow_steps', {
         title: `Change “${wf.name}”?`,
-        fields: [
-          { label: 'Workflow', value: wf.name },
-          ...shown.map((value, i) => ({ label: i === 0 ? 'Change' : 'Then', value })),
-        ],
+        fields: [{ label: 'Workflow', value: wf.name }, ...fields],
         confirmLabel: 'Save draft',
         warnings: [
           {
@@ -2366,11 +2408,8 @@ const editWorkflowSteps: SettingsConfirmTool = {
       'workflow.save_draft',
       { workflowId, baseRevision: args['baseRevision'], ops: args['ops'] },
     );
-    const errors = out.issues.filter((i) => i.severity === 'error');
     return {
-      outcome: errors.length
-        ? `Saved the draft. Fix ${errors.length === 1 ? 'this' : `${plural(errors.length, 'check')}, starting with this,`} before it can be published: ${errors[0]!.message}`
-        : 'Saved the draft.',
+      outcome: draftSaved(out.issues),
       href: contentPaths(ctx.workspaceId).workflow(workflowId),
       command: 'workflow.save_draft',
     };

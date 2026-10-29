@@ -28,6 +28,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { toolsFor } from '../src/assistant/context';
 import type { ToolContext } from '../src/assistant/runtime';
 import { extraAutoTools, extraConfirmTools, extraStepLabels } from '../src/assistant/tools-extra';
+import { allScreenActionTools } from '../src/assistant/tools-screen-actions';
 import { createToolExecutor } from '../src/assistant/tools-write';
 
 /**
@@ -157,6 +158,7 @@ describe('the extra tools', () => {
       'update_automations',
       'add_business',
       'get_agency_area',
+      'edit_template_steps',
       'push_to_client_businesses',
     ])
       expect(member, name).not.toContain(name);
@@ -696,6 +698,63 @@ describe('adding a business, and the agency area', () => {
     expect(await installs()).toEqual([expect.objectContaining({ workspaceId: newId })]);
   });
 
+  it('reads a template’s steps and changes its draft step by step on Confirm', async () => {
+    const look = async () =>
+      (await read('get_agency_area', { templateId })).result['template'] as Record<string, unknown>;
+    const before = await look();
+    expect(before['steps']).toEqual([]);
+    const args = {
+      templateId,
+      baseRevision: before['draftRevision'],
+      ops: [
+        {
+          op: 'add_step',
+          parentId: null,
+          branchId: null,
+          index: null,
+          step: {
+            id: 's_tpltask1',
+            type: 'action',
+            action: 'create_task',
+            config: { title: 'Call them back' },
+          },
+        },
+      ],
+    };
+    const { card, parsed } = await prepare('edit_template_steps', args);
+    expect(card.title).toBe(`Change the template “Follow-up ${mark}”?`);
+    expect(field(card, 'Change')!.value).toContain('Call them back');
+    expect(card.confirmLabel).toBe('Save draft');
+    expect(card.warnings[0]!.text).toContain('Businesses keep version 1');
+    expect((await look())['steps']).toEqual([]);
+    const done = await confirm('edit_template_steps', parsed);
+    expect(done.outcome).toMatch(/^Saved the draft/);
+    expect(done.href).toBe(`/app/org/${organizationId}/templates/${templateId}`);
+    const after = await look();
+    expect(after['steps']).toEqual([
+      { id: 's_tpltask1', depth: 0, says: expect.stringContaining('Call them back') },
+    ]);
+    expect(after['draftRevision']).toBe((before['draftRevision'] as number) + 1);
+
+    // A card drawn on the old draft is refused, and so is a change the draft already has.
+    await expect(prepare('edit_template_steps', args)).rejects.toMatchObject({
+      rule: 'revision_conflict',
+    });
+    await expect(
+      prepare('edit_template_steps', {
+        templateId,
+        baseRevision: after['draftRevision'],
+        ops: [
+          {
+            op: 'update_step',
+            stepId: 's_tpltask1',
+            patch: { config: { title: 'Call them back' } },
+          },
+        ],
+      }),
+    ).rejects.toThrow('Nothing would change');
+  });
+
   it('pushes a knowledge pack as suggestions on Confirm', async () => {
     const pushed = async () =>
       (
@@ -752,5 +811,31 @@ describe('adding a business, and the agency area', () => {
       priya,
     );
     expect(push.card.confirmLabel).toBe('');
+    const edit = await prepare(
+      'edit_template_steps',
+      { templateId, baseRevision: 1, ops: [{ op: 'delete_step', stepId: 's_tpltask1' }] },
+      priya,
+    );
+    expect(edit.card.confirmLabel).toBe('');
+    expect(edit.card.warnings[0]!.kind).toBe('blocked');
+  });
+
+  it('puts an agency owner on a client’s business, from that business, on Confirm', async () => {
+    const join = allScreenActionTools().find((t) => t.name === 'do_workspace_join')!;
+    expect(join.permission).toBe('workspace.update');
+    const there = { ...ctxFor(owner), workspaceId: newId };
+    const tools = createToolExecutor(api());
+    const onIt = async () =>
+      (
+        await rows<{ n: number }>(
+          admin(),
+          sql`select count(*)::int as n from app.workspace_memberships
+              where workspace_id = ${newId} and user_id = ${owner.id}`,
+        )
+      )[0]!.n;
+    await tools.prepare(join, {}, there, randomUUID());
+    expect(await onIt()).toBe(0);
+    await tools.commit(join, {}, there, { toolCallId: randomUUID() });
+    expect(await onIt()).toBe(1);
   });
 });

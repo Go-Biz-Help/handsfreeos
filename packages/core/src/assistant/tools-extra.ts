@@ -5,7 +5,8 @@
  * person can, with the same rules, events and audit. Anything that reaches a customer or changes a record waits
  * for the person's OK ("confirm").
  *
- * Three of these act above one business — adding a business, and pushing templates and packs to client businesses.
+ * Four of these act above one business: adding a business, changing a template's steps, and pushing templates and
+ * packs to client businesses.
  * Their commands check the organization's own permission; the tool is offered on `workspace.update`, which every
  * agency owner and admin holds in each of its businesses, and the card says when the person isn't one.
  */
@@ -24,6 +25,7 @@ import { CALL_VOICEMAIL_CHOICES } from '../automations/settings';
 import { IDEA_MINE, IDEA_SORTS, IDEA_STATUSES } from '../ideas/words';
 import { PUSH_SWITCHES } from '../push';
 import { uuid } from '../schemas/common';
+import { WorkflowOpSchema } from '../workflows/ops';
 import { clock, define, text, type AssistantTool } from './tool-kit';
 
 const AUTOMATION_IDS = AUTOMATIONS.map((a) => a.id) as [AutomationId, ...AutomationId[]];
@@ -361,9 +363,26 @@ export const extraTools: readonly AssistantTool[] = [
   define({
     name: 'get_agency_area',
     description:
-      'The agency area of this business’s organization: its client businesses, workflow templates and knowledge packs, with the ids push_to_client_businesses needs. With a templateId, what that template’s details are and which businesses have it. Agency owners and admins only.',
+      'The agency area of this business’s organization: its client businesses, workflow templates and knowledge packs, with the ids push_to_client_businesses needs. With a templateId, that template as its editor shows it: each step in plain words with its id, the checks to fix, its draft as written with the draft’s revision (for edit_template_steps), the details each business picks, and which businesses have it. Agency owners and admins only.',
     input: z.object({ templateId: uuid.optional() }),
     autonomy: 'auto',
+    permission: 'workspace.update',
+  }),
+  define({
+    name: 'edit_template_steps',
+    description:
+      'Change an agency workflow template’s draft step by step, as its editor does: add, change, move or delete a step, add or delete a branch’s path, point a go-to, or change what starts it or its settings. Read it with get_agency_area (with its templateId) first, and write each change against its draft as written there; a new step’s id is s_ and 8 lowercase letters or digits. Where a step names something each business has of its own (a stage, a tag, a person, a calendar), the template names a detail each business picks instead, as {"$ph": "office_user"}. The changes apply in order, all or none. Only the draft changes: businesses keep what they have until it’s published and pushed to them. Agency owners and admins only.',
+    input: z.object({
+      templateId: uuid,
+      baseRevision: z
+        .int()
+        .min(1)
+        .describe(
+          'The draft’s revision from get_agency_area. If someone saves in between, it’s refused: read it again',
+        ),
+      ops: z.array(WorkflowOpSchema).min(1).max(50),
+    }),
+    autonomy: 'confirm',
     permission: 'workspace.update',
   }),
   define({
