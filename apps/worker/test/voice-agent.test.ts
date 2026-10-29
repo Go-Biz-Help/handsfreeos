@@ -393,6 +393,58 @@ describe('a call', () => {
     expect(Number(used[0]!.quantity)).toBeGreaterThan(0);
   });
 
+  it('speaks in a Rime voice, and the rest of the call in its Deepgram voice once Rime has trouble', async () => {
+    const speech = w.s.speech as ReturnType<typeof createFakeSpeech>;
+    await saveTeammate(w, { phone: { voice: 'rime_eyre' } });
+    try {
+      const { xml, callSid } = await callIn();
+      const call = await dial(callSid, ticketIn(xml)!.replace(/&amp;/g, '&'));
+      await waitFor('the greeting to be heard', () => call.events.includes('mark'));
+      const greeting = call.said.join('');
+      expect(speech.voiced.filter((v) => greeting.includes(v.text)).map((v) => v.voice)).toContain(
+        'rime_eyre',
+      );
+      // Rime stops answering: the reply is said all the same, in Calm, Eyre's closest Deepgram voice.
+      speech.failing.add('rime_eyre');
+      const before = call.said.length;
+      call.speak('Are you open on Saturdays?');
+      await waitFor('the reply', () =>
+        call.said.slice(before).includes('We open at nine on Saturdays.'),
+      );
+      expect(speech.voiced.findLast((v) => v.text === 'Yes, we are.')?.voice).toBe('calm');
+      expect(speech.voiced.findLast((v) => v.text === 'We open at nine on Saturdays.')?.voice).toBe(
+        'calm',
+      );
+      call.speak('No thanks, that is all, bye');
+      await waitFor('the hang-up', () => telephony().ended.includes(callSid));
+      // Each part is billed on the line of the voice that said it.
+      const deadline = Date.now() + 8_000;
+      let used: { rate_key: string; quantity: string }[] = [];
+      while (used.length < 3 && Date.now() < deadline) {
+        used = await rows(
+          admin(),
+          sql`select rate_key, quantity::text from app.speech_usage where ref = ${callSid}
+              order by rate_key`,
+        );
+        if (used.length < 3) await new Promise((r) => setTimeout(r, 25));
+      }
+      expect(used.map((u) => u.rate_key)).toEqual([
+        'speech.live.minute',
+        'speech.voice.coda.kchar',
+        'speech.voice.kchar',
+      ]);
+      const chars = (key: string) =>
+        Math.round(Number(used.find((u) => u.rate_key === key)!.quantity) * 1000);
+      expect(chars('speech.voice.coda.kchar')).toBe(greeting.length);
+      expect(chars('speech.voice.coda.kchar') + chars('speech.voice.kchar')).toBe(
+        call.said.join('').length,
+      );
+    } finally {
+      speech.failing.clear();
+      await saveTeammate(w, { phone: { voice: 'warm' } });
+    }
+  });
+
   it('starts saying a reply while the model is still on it, and says it once', async () => {
     const { xml, callSid } = await callIn();
     const call = await dial(callSid, ticketIn(xml)!.replace(/&amp;/g, '&'));
@@ -781,6 +833,10 @@ describe('the pieces', () => {
     expect(voiceModel('warm', 'en')).toBe('aura-2-thalia-en');
     expect(voiceModel('warm', 'es-419')).toBe('aura-2-celeste-es');
     expect(voiceModel('deep', null)).toBe('aura-2-apollo-en');
+    // A Rime voice is its speaker with its model, so a call's open voice changes with either.
+    expect(voiceModel('rime_eyre', 'en')).toBe('rime-coda:eyre');
+    expect(voiceModel('rime_eyre', 'es')).toBe('rime-coda:brisa');
+    expect(voiceModel('rime_cove', null)).toBe('rime-mistv3:cove');
   });
 
   it('knows its own voice coming back from the caller’s words', () => {

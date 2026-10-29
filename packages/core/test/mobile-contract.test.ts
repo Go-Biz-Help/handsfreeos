@@ -104,6 +104,8 @@ const ONLINE_COMMANDS = [
   'ai_setup.finish',
   'knowledge_item.create',
   'ai_teammate.set_status',
+  // Use this voice on the test console (the Rime voices, 28 Oct 2026): the saved settings with the voice it tried.
+  'ai_teammate.save_config',
   // The onboarding setup (HANDSFREEOS_ONBOARDING_QUICK_SETUP_IMPLEMENTATION_PLAN.md §8): making the business after
   // signing up, each screen's answers kept as it's finished, Stay in the loop, and what a stop does in place: a
   // business number bought, and the payment provider's sign-in started.

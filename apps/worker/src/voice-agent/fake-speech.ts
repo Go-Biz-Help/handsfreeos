@@ -14,8 +14,11 @@
  * Voice mode's clips: a recording sent as text/plain is those words (how tests talk); a real recording (a browser
  * or a phone on a developer's computer) is heard as FAKE_HEARD, since there's nobody to listen. A clip it says is
  * a quiet WAV about as long as the words would take, so the app plays something and moves on.
+ *
+ * It speaks every voice, Rime's too (`voiced` notes which); a voice in `failing` throws before any audio, which is
+ * how tests play a provider in trouble.
  */
-import { linearOf, type PhoneListener } from '@hfos/core/server';
+import { linearOf, type PhoneListener, type PhoneVoice } from '@hfos/core/server';
 import {
   voiceModel,
   type HeardClip,
@@ -115,19 +118,35 @@ export function createFakeSpeech(): SpeechServices & {
   readonly lined: string[];
   /** Who each call asked to hear it (ListenOptions), in order: null is the worker's own. */
   readonly listeners: (PhoneListener | null)[];
+  /** Everything said, with the voice it was said in. */
+  readonly voiced: { readonly text: string; readonly voice: PhoneVoice }[];
+  /** Voices that can't speak (a provider in trouble): saying anything in one throws before any audio. */
+  readonly failing: Set<PhoneVoice>;
 } {
   const spoken: string[] = [];
   const heard: string[] = [];
   const lined: string[] = [];
   const listeners: (PhoneListener | null)[] = [];
+  const voiced: { text: string; voice: PhoneVoice }[] = [];
+  const failing = new Set<PhoneVoice>();
+  const check = (voice: PhoneVoice) => {
+    if (failing.has(voice)) throw new Error(`The ${voice} voice can’t speak right now`);
+  };
+  const say = (text: string, voice: PhoneVoice) => {
+    spoken.push(text);
+    voiced.push({ text, voice });
+  };
   return {
     name: 'fake',
     spoken,
     heard,
     lined,
     listeners,
+    voiced,
+    failing,
 
     async openVoice(options): Promise<VoiceLine> {
+      check(options.voice);
       let open = true;
       return {
         model: voiceModel(options.voice, options.language),
@@ -137,7 +156,8 @@ export function createFakeSpeech(): SpeechServices & {
         async *say(text: string, signal?: AbortSignal): AsyncIterable<Buffer> {
           if (!open) throw new Error('closed');
           if (signal?.aborted) return;
-          spoken.push(text);
+          check(options.voice);
+          say(text, options.voice);
           lined.push(text);
           yield Buffer.from(text, 'utf8');
         },
@@ -187,7 +207,8 @@ export function createFakeSpeech(): SpeechServices & {
 
     async *speak(text: string, options: SpeakOptions): AsyncIterable<Buffer> {
       if (options.signal?.aborted) return;
-      spoken.push(text);
+      check(options.voice);
+      say(text, options.voice);
       yield Buffer.from(text, 'utf8');
     },
 
@@ -207,7 +228,8 @@ export function createFakeSpeech(): SpeechServices & {
 
     async voiceClip(text, options): Promise<VoiceClip> {
       if (options.signal?.aborted) throw new Error('stopped');
-      spoken.push(text);
+      check(options.voice);
+      say(text, options.voice);
       const words = text.split(/\s+/).filter(Boolean).length;
       return { contentType: 'audio/wav', audio: silentWav(Math.min(6, 0.3 + words * 0.25)) };
     },

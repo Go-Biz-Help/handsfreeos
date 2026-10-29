@@ -1,5 +1,10 @@
 'use client';
-import { AI_SETUP_WORDS, type TeammateCatalogs } from '@hfos/core';
+import {
+  AI_SETUP_WORDS,
+  PHONE_VOICE_PICK_WORDS,
+  phoneVoiceInfo,
+  type TeammateCatalogs,
+} from '@hfos/core';
 import {
   AlertTriangle,
   BookOpen,
@@ -624,6 +629,11 @@ export function TeammateBuilder(props: TeammateBuilderProps) {
           timeZone={tz}
           config={config}
           unsaved={draft.dirty}
+          onUseVoice={(v) => {
+            // Saved like any other change, with Undo.
+            if (draft.patch({ phone: { voice: v } }, 'Change its voice') === null)
+              toast.success(PHONE_VOICE_PICK_WORDS.saved(phoneVoiceInfo(v).name));
+          }}
         />
       ) : null}
     </div>

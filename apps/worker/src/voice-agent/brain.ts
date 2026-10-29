@@ -69,7 +69,7 @@ import type { WorkerServices } from '../services';
 import { systemActor, workerMeta, type TenantScope } from '../services';
 import { loadAccount } from '../telephony/accounts';
 import type { ProviderAccount } from '../telephony/provider';
-import { noteSpeech, speechKchars, speechMinutes } from '../money/speech-usage';
+import { noteSpeech, speechMinutes, voiceUses } from '../money/speech-usage';
 import { offerOpenTimes, readCallBrief, turnMatches, type CallBrief } from './call-knowledge';
 import { EarlySpeech, streamSpoken } from './early-speech';
 import type { TurnClock } from './turn-clock';
@@ -814,12 +814,7 @@ export function realCall(deps: RealCallDeps, ticket: StreamTicket): CallMind {
               source: 'call',
               ref: ticket.callSid,
             },
-            {
-              key: 'speech.voice.kchar',
-              quantity: speechKchars(said),
-              source: 'call',
-              ref: ticket.callSid,
-            },
+            ...voiceUses(said, 'call', ticket.callSid),
           ])
         : Promise.resolve(),
   };

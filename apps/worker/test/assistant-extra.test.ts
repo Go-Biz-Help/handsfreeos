@@ -269,7 +269,7 @@ describe('the AI teammate’s finer rules', () => {
     expect(card.fields).toEqual([
       { label: 'Phone calls', value: 'on → off' },
       { label: 'Answers calls', value: 'when nobody picks up → every call' },
-      { label: 'Phone voice', value: 'calm → bright' },
+      { label: 'Phone voice', value: 'Calm → Bright' },
       { label: 'Phone greeting', value: 'Thanks for calling Extra HVAC!' },
     ]);
   });

@@ -5,7 +5,10 @@
  * - POST /v1/speech/hear?workspaceId=… takes one recording the app made (its body is the audio) and answers the
  *   words in it.
  * - POST /v1/speech/say takes words and answers a clip to play, in one of the AI teammate's phone voices: the
- *   one asked for, or the teammate's own saved voice, so a test call sounds like a real one.
+ *   one asked for, or the teammate's own saved voice, so a test call sounds like a real one. A Rime voice that
+ *   can't speak (not set up, or in trouble) is said in its closest Deepgram voice, which the answer's
+ *   SPOKEN_VOICE_HEADER names.
+ * - GET /v1/speech/voices answers which providers can speak, for the voice pickers.
  *
  * Both need assistant.use or ai_team.manage in the workspace, and both use the same speech services as the live
  * calls (deps.speech): with none (production without a Deepgram key) they answer 503 `speech_not_configured`,
@@ -25,7 +28,12 @@ import {
   walletRoom,
   SPEECH_CLIP_MAX_BYTES,
   SpeechSayInput,
+  SPOKEN_VOICE_HEADER,
+  voiceFallback,
+  voiceRateKey,
+  voiceReady,
   type PhoneVoice,
+  type VoiceReadiness,
 } from '@hfos/core/server';
 import { asWorker, rows, sql } from '@hfos/db/client';
 import type { FastifyInstance } from 'fastify';
@@ -185,17 +193,36 @@ export async function registerSpeechRoutes(app: FastifyInstance, deps: HttpDeps)
       allow('say', actor.userId);
       const scope = await scopeOf(deps, input.workspaceId);
       await requireBalance(deps, scope);
-      const voice = input.voice ?? (await teammateVoice(deps, scope));
-      try {
-        const clip = await speech.voiceClip(input.text, {
-          voice,
+      const asked = input.voice ?? (await teammateVoice(deps, scope));
+      // A Rime voice speaks in its Deepgram one while Rime isn't set up here.
+      const providers = speech.voices?.();
+      let voice = !providers || voiceReady(asked, providers) ? asked : voiceFallback(asked);
+      const clipIn = (v: PhoneVoice) =>
+        speech.voiceClip(input.text, {
+          voice: v,
           language: input.language,
           signal: AbortSignal.timeout(CLIP_TIMEOUT_MS),
         });
+      try {
+        let clip;
+        try {
+          clip = await clipIn(voice);
+        } catch (e) {
+          // A Rime voice in trouble: said again in its Deepgram voice, and support is told (the owner's 8a).
+          const fallback = voiceFallback(voice);
+          if (fallback === voice) throw e;
+          speech.trouble?.(voice, fallback, 'clip', e);
+          voice = fallback;
+          clip = await clipIn(voice);
+        }
         await noteSpeech({ db: deps.httpDb, log: deps.log }, scope, [
-          { key: 'speech.voice.kchar', quantity: speechKchars(input.text), source: 'talk' },
+          { key: voiceRateKey(voice), quantity: speechKchars(input.text), source: 'talk' },
         ]);
-        return reply.header('cache-control', 'no-store').type(clip.contentType).send(clip.audio);
+        return reply
+          .header('cache-control', 'no-store')
+          .header(SPOKEN_VOICE_HEADER, voice)
+          .type(clip.contentType)
+          .send(clip.audio);
       } catch (e) {
         deps.log.warn({ err: e, voice }, 'couldn’t say a clip');
         throw HfosError.rule(
@@ -206,4 +233,16 @@ export async function registerSpeechRoutes(app: FastifyInstance, deps: HttpDeps)
       }
     });
   });
+
+  // Which providers can speak, for the voice pickers: a Rime voice says "not ready yet" until RIME_API_KEY is here.
+  app.get('/v1/speech/voices', async (req) => {
+    await authenticate(deps, req);
+    const speech = deps.speech;
+    return {
+      providers: speech ? (speech.voices?.() ?? { deepgram: true, rime: false }) : NO_VOICES,
+    };
+  });
 }
+
+/** No speech at all (production without a Deepgram key): no voice can speak. */
+const NO_VOICES: VoiceReadiness = { deepgram: false, rime: false };
