@@ -316,6 +316,8 @@ export const friends = addonOutreach.table(
     keep: boolean('keep').notNull().default(false),
     /** When the person set a request they got aside (Waiting for you's Leave it): it counts while it's since `since`. */
     setAsideAt: ts('set_aside_at'),
+    /** When Cancel all marked a sent request to cancel (decision 121): it counts while it's since `since`. */
+    cancelAt: ts('cancel_at'),
     createdAt: ts('created_at').notNull().defaultNow(),
     updatedAt: ts('updated_at').notNull().defaultNow(),
   },

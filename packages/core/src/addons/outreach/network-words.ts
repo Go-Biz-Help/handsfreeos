@@ -13,16 +13,26 @@
 import { TOUCHED_POSTS_WORDS } from './activity';
 import { askNameOn, TIDY_ASK_KINDS, TIDY_PACE_WORDS } from './asks';
 import {
+  REQUEST_MODE_KEYS,
+  REQUEST_MODES,
   SENDING_MODES,
   TIDY_MODE_KEYS,
   tidyModeOn,
   type AutomationSettings,
   type NetworkChoices,
+  type RequestMode,
   type SendingMode,
   type TidyMode,
 } from './automation';
-import { DAILY_WORDS, OWN_TIDY_LIMITS, type DailyStep, type TidyKind } from './limits';
 import {
+  DAILY_WORDS,
+  DECLINES_PER_DAY,
+  OWN_TIDY_LIMITS,
+  type DailyStep,
+  type TidyKind,
+} from './limits';
+import {
+  answersRequests,
   inNetworkWords,
   isLooking,
   networkOfLink,
@@ -83,9 +93,9 @@ export function withNetwork(
   platform: Platform,
   change: Partial<NetworkChoices>,
 ): AutomationSettings {
-  const { on, young, tidy, ...choices } = change;
-  // As `choicesFor` reads them: Facebook's are the settings' own fields, but for its switch, its account's age and its
-  // tidying, kept beside them.
+  const { on, young, tidy, requests, ...choices } = change;
+  // As `choicesFor` reads them: Facebook's are the settings' own fields, but for its switch, its account's age, its
+  // tidying and how the requests it gets are answered, kept beside them.
   const own = platform === 'facebook';
   const networks = {
     ...settings.networks,
@@ -94,6 +104,7 @@ export function withNetwork(
       ...(on === undefined ? {} : { on }),
       ...(young === undefined ? {} : { young }),
       ...(tidy === undefined ? {} : { tidy }),
+      ...(requests === undefined ? {} : { requests }),
       ...(own ? {} : choices),
     },
   } as AutomationSettings['networks'];
@@ -138,6 +149,11 @@ interface MoreWords {
     readonly about?: (weeks: string) => string;
     /** Tidying them on its own (decision 98): the choice that does it, and what it does once a day. */
     readonly own: { readonly pick: string; readonly does: string; readonly never?: string };
+    /**
+     * Cancel all (decision 121): its button, and what it does in words, "cancels" and "cancelling". None on a follow
+     * network, whose follows wait for nobody's answer.
+     */
+    readonly all?: { readonly button: string; readonly does: string; readonly doing: string };
   };
 }
 
@@ -174,6 +190,7 @@ const MORE: Readonly<Record<Platform, MoreWords>> = {
         pick: 'Cancel old friend requests',
         does: 'cancels friend requests nobody answered in your business’s wait',
       },
+      all: { button: 'Cancel all', does: 'cancels', doing: 'cancelling' },
     },
   },
   linkedin: {
@@ -216,6 +233,7 @@ const MORE: Readonly<Record<Platform, MoreWords>> = {
         pick: 'Withdraw old invitations',
         does: 'withdraws invitations nobody answered in your business’s wait',
       },
+      all: { button: 'Withdraw all', does: 'withdraws', doing: 'withdrawing' },
     },
   },
   // A follow network: a follow goes at once, a follow-back is the accepting, and tidying unfollows (the Instagram and
@@ -306,6 +324,7 @@ const MORE: Readonly<Record<Platform, MoreWords>> = {
         pick: 'Withdraw old connection requests',
         does: 'withdraws connection requests nobody answered in your business’s wait',
       },
+      all: { button: 'Withdraw all', does: 'withdraws', doing: 'withdrawing' },
     },
   },
 };
@@ -424,6 +443,11 @@ export function tidyWordsOn(platform: Platform) {
       about: (after: number) =>
         `${old.about ? old.about(weeks(after)) : `Sent more than ${weeks(after)} ago and not answered.`} ${old.why}`,
     },
+    /**
+     * Cancel all (decision 121): every request waiting for an answer, however new, the oldest first, at the day's
+     * limit, leaving out the ones the extension sent unless the person says. Null on a follow network.
+     */
+    all: old.all ? cancelAllWords(platform, old.all) : null,
     unfriend: {
       title: `${cap(w.friends)} to unfriend`,
       button: 'Unfriend the ticked',
@@ -435,12 +459,51 @@ export function tidyWordsOn(platform: Platform) {
   };
 }
 
+/** Cancel all's words on a network (decision 121), on the Friends tab's Tidy up and under Today's note. */
+function cancelAllWords(platform: Platform, all: NonNullable<MoreWords['oldRequests']['all']>) {
+  const { friendRequest, friendRequests } = NETWORKS[platform].words;
+  const yours = (n: number) =>
+    n === 1
+      ? `your ${friendRequest}`
+      : `all ${n.toLocaleString('en-US')} of your ${friendRequests}`;
+  return {
+    button: all.button,
+    about: (waiting: number, most: number) =>
+      `${cap(all.does)} ${yours(waiting)} waiting for an answer, however new, the oldest first, ${most.toLocaleString('en-US')} a day.`,
+    /** The box beside it, ticked to start. */
+    leaveOut: (sent: number) =>
+      sent === 0
+        ? 'Leave out any the extension sent'
+        : sent === 1
+          ? 'Leave out the one the extension sent'
+          : `Leave out the ${sent.toLocaleString('en-US')} the extension sent`,
+    /** Under Today's note: the two ways, with the extension's left out first. */
+    leavingOut: (sent: number) =>
+      `${all.button} but the extension’s ${sent.toLocaleString('en-US')}`,
+    every: (waiting: number) => `${all.button} ${waiting.toLocaleString('en-US')}`,
+    going: (left: number, most: number) =>
+      `${cap(all.doing)} all of them: ${left.toLocaleString('en-US')} left, ${most.toLocaleString('en-US')} a day. Any sent since wait as usual.`,
+    stop: 'Stop',
+    /** Beside one it's cancelling, on the list of old ones. */
+    marked: `${all.doing} with ${all.button}`,
+    started: (marked: number) =>
+      `${cap(all.doing)} ${marked === 1 ? 'it' : `all ${marked.toLocaleString('en-US')}`}, the oldest first.`,
+    stopped: `Stopped ${all.doing} them. The ones left wait as usual.`,
+  };
+}
+
 /**
  * Why no new friend requests are on Today's list (decision 97), and what lets them start again, in a network's words:
  * on the web and the phone.
  */
 export function requestsHeldWords(
-  held: { readonly why: 'waiting' | 'cap'; readonly count: number; readonly most: number },
+  held: {
+    readonly why: 'waiting' | 'cap';
+    readonly count: number;
+    readonly most: number;
+    /** Left for Cancel all (decision 121): none from a server before it. */
+    readonly cancelling?: number;
+  },
   platform: Platform,
 ): string {
   const kit = NETWORKS[platform];
@@ -452,7 +515,36 @@ export function requestsHeldWords(
         ? `To make room, unfriend some under Tidy up on the Friends tab.`
         : `To make room, remove some ${friends} on ${kit.name}.`
     }`;
-  return `No new ${friendRequests} for now: ${count} of yours are still waiting for an answer, and ${kit.name} watches accounts with many. They start again under ${held.most.toLocaleString('en-US')}. Tick some under ${MORE[platform].oldRequests.title} in Tidy up on the Friends tab.`;
+  const start = `No new ${friendRequests} for now: ${count} of yours are still waiting for an answer, and ${kit.name} watches accounts with many. They start again under ${held.most.toLocaleString('en-US')}.`;
+  // Cancel all (decision 121): going already, or offered beneath, with the old list's ticks still there.
+  const { all, title } = MORE[platform].oldRequests;
+  if (!all) return `${start} Tick some under ${title} in Tidy up on the Friends tab.`;
+  if (held.cancelling)
+    return `${start} ${cap(all.doing)} all of them: ${held.cancelling.toLocaleString('en-US')} left, ${kit.tidyLimits.cancel_request} a day.`;
+  return `${start} ${all.button} ${all.does} them however new, ${kit.tidyLimits.cancel_request} a day, or tick some under ${title} in Tidy up on the Friends tab.`;
+}
+
+/**
+ * How the requests the person gets are answered (decision 121), on a network's page in Settings where the extension
+ * answers them (Facebook's): the choice, what it never does, and its picks. Null where they're the person's.
+ */
+export function requestsChoiceOn(platform: Platform) {
+  if (!answersRequests(platform)) return null;
+  const { friendRequests } = NETWORKS[platform].words;
+  const notes: Readonly<Partial<Record<RequestMode, string>>> = {
+    mine: 'They wait for you under Waiting for you.',
+    fits: 'As it starts. The rest wait for you under Waiting for you.',
+    fits_delete: 'With no playbook in use, nobody fits, so nobody is deleted.',
+  };
+  return {
+    label: `${cap(friendRequests)} you get`,
+    about: `It confirms them as it works through your day, and deletes them once a day, up to ${DECLINES_PER_DAY} a day. It never deletes someone in Contacts, someone you’ve chatted with, a partner, or anyone on Don’t pitch, and never answers anyone on Never contact.`,
+    options: REQUEST_MODE_KEYS.map((key) => ({
+      key,
+      label: REQUEST_MODES[key],
+      note: notes[key] ?? null,
+    })),
+  };
 }
 
 /**
@@ -500,7 +592,12 @@ export const ticksOn = (
 
 /** The switches along the way Settings show on a network: only those its runner reads (its kit's `runs`). */
 export const ticksShownOn = (platform: Platform): readonly AlongTick[] =>
-  ALONG_TICKS.filter((tick) => NETWORKS[platform].runs.ticks.includes(tick));
+  ALONG_TICKS.filter(
+    (tick) =>
+      NETWORKS[platform].runs.ticks.includes(tick) &&
+      // Where the extension answers requests, the choice of how stands in its place (`requestsChoiceOn`).
+      !(tick === 'confirmRequests' && answersRequests(platform)),
+  );
 
 /** A chat's page on its network, from its id: Messenger's on Facebook, LinkedIn messaging's on LinkedIn. */
 export const chatUrlOn = (platform: Platform, threadKey: string | null): string | null =>

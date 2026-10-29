@@ -138,6 +138,8 @@ const ONLINE_COMMANDS = [
   'outreach.friend.set',
   'outreach.client.set',
   'outreach.later.set',
+  // Cancel all, under Today's note when no new requests go for now (decision 121).
+  'outreach.friends.cancel_all',
   // Where someone stands, from the Pipeline screen (decision 47), and on the Partners list (decision 81).
   'outreach.stage.mark',
   'outreach.partner.mark',

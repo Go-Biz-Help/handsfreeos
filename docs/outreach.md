@@ -900,9 +900,9 @@ than a store extension, and for more features, and answered the questions the sa
 28. **When:** on its own in the person's working hours (9 to 5 to start), at random times, plus a **Start my day**
     button. Built, on every network from extension 0.96.0 (decision 95).
 29. **Tidying on its own is a setting:** off, cancelling old requests on their own, or cancelling and unfriending on
-    their own. Built on every network from extension 0.97.0 (decision 98).
+    their own. Built on every network from extension 0.97.0 (decision 98). Cancel all skips the wait (decision 121).
 30. **Friend requests from people who fit a playbook are confirmed on their own;** the rest wait. Built: those who
-    fit well.
+    fit well. From decision 121 it's one of five choices on Facebook, which can confirm them all or delete some.
 31. **It asks to join good groups, up to 3 a day,** and the AI answers the join questions from the playbook. Automation part 5.
 32. **Find posts, Read my chats, saving group members and checking friend requests run once a day on their own.**
     Built: first thing in the working day (or after Start my day), before the list, while the extension works on its
@@ -2355,7 +2355,9 @@ where decisions 37 and 59 put the settings; what they decided stands. Settled to
       many. They start again under 200. Tidy up's old requests bring the count down.
     - **None once their friends there come within 100 of its cap** (`FRIENDS_CAP_ROOM`): 4,900 on Facebook.
     - **Today says why and what to do** (`requestsHeldWords`, `requestsHeld` on `outreach.today`), on the web and the
-      phone, and leaves the requests and the likes before them off the list, as after a warning.
+      phone, and leaves the requests and the likes before them off the list, as after a warning. From decision 121 it
+      offers Cancel all beneath, since requests read off a network's sent list count from when they were first seen
+      and so take the whole wait to reach Old friend requests.
 98. **Tidying up on its own** (Chris, 28 Oct 2026, "all of your picks": 1a and 12; decision 29's setting). Each
     network's once-a-day jobs tidy up as the person picks under that network in Settings, **Tidy up on its own**
     (`tidy` in its choices; Facebook's in `networks.facebook`): **Off** (only the ones they tick), the old requests
@@ -2822,6 +2824,35 @@ where decisions 37 and 59 put the settings; what they decided stands. Settled to
         comes in front.
       - **Its window opens beside theirs,** at the right of the person's window and the same height, without taking
         their attention, not in the middle of the screen.
+121.  **Cancel all, and the friend requests the person gets** (Chris, 29 Oct 2026, "Build it"). "need a way to remove
+      all friend requests that have not been answered and be able to exclude ones the add on extension created. Need
+      to be able to have the AI accept any received friend requests that would match the playbook or deny them all or
+      accept them all". Today had said no new requests go while 207 waited, and pointed to Old friend requests, which
+      was empty: the requests read off Facebook's sent list count from when they were first seen (`friends.since`), so
+      none had waited the 3 weeks.
+      - **Cancel all,** under Old friend requests in Tidy up on the Friends tab, and under Today's note
+        (`outreach.friends.cancel_all`, the Assistant's too, on a Confirm card): every sent request waiting there when
+        it's pressed, however new, is marked (`friends.cancel_at`), with a box ticked to start that leaves out the ones
+        the extension sent (`touches` of kind `friend_request` and `auto`). On Facebook it's **Cancel all**, on
+        LinkedIn and Alignable **Withdraw all**; none on Instagram, whose follows wait for nobody.
+      - **The extension cancels them on its own,** the oldest first, inside what's left of the day's tidy limit (30 a
+        day on Facebook), whatever the person picked for tidying on its own: the oldest at once (the command's `first`,
+        an ask of kind `cancel`, when the computer can take one), the rest with the once-a-day jobs (`own.cancel` on
+        `outreach.friends.tidy`, whose `mode` says at least `cancel` so a build before 0.110.0 cancels them too).
+        Tidy up shows how many are left with **Stop**, which clears the marks; the ones left wait as usual. A mark
+        counts while the request it was put on waits (`cancel_at >= since`): one sent again later starts afresh.
+      - **The requests the person gets, on Facebook,** go as they pick on Facebook's page in Settings
+        (`requestsChoiceOn`, in place of the Confirm tick): leave them all to me; confirm who fits a playbook and leave
+        the rest (decision 30, to start); confirm who fits and delete the rest; confirm them all; or delete them all.
+        Kept as `confirmRequests` (off for the first) and `networks.facebook.requests`.
+      - **Confirming goes through the day** as Today's `confirm` items, as before: everyone's when they confirm them
+        all, nobody's when they delete them all. **Deleting goes once a day,** up to 30 (`DECLINES_PER_DAY`, halved
+        when the limits are), counting any the person deleted themselves: HandsFreeOS picks who (`own.decline`), and
+        the extension presses Respond, then Delete request on their profile (from 0.110.0) and notes it as their
+        answer (`outreach.friend.note`), even while noting is off.
+      - **It never deletes** someone in Contacts, kept, chatted with (a chat in the file, a reply, a message noted), a
+        partner, or anyone on Don't pitch, and never answers anyone on Never contact. For not fitting, only with a
+        playbook in use: with none, nobody fits, so nobody is deleted. Those it never deletes wait in Waiting for you.
 
 ## Rules worth knowing before changing anything
 

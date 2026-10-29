@@ -66,7 +66,12 @@ describe('half limits on a network new to the person', () => {
 
   it('keep the account’s age with each network, Facebook’s too', () => {
     const young = withNetwork(AUTOMATION_DEFAULTS, 'facebook', { young: true });
-    expect(young.networks.facebook).toEqual({ on: true, young: true, tidy: 'cancel' });
+    expect(young.networks.facebook).toEqual({
+      on: true,
+      young: true,
+      tidy: 'cancel',
+      requests: 'fits',
+    });
     expect(choicesFor(young, 'facebook').young).toBe(true);
     expect(choicesFor(young, 'linkedin').young).toBe(false);
     // Facebook's own choices stay the settings' fields: the account's age isn't one.
@@ -84,7 +89,13 @@ describe('no new friend requests', () => {
       why: 'waiting',
       count: 200,
       most: 200,
+      extension: 0,
+      cancelling: 0,
     });
+    // How many the extension sent, and Cancel all's left (decision 121), for the note's buttons.
+    expect(
+      requestsHeldOn('facebook', { waiting: 207, friends: 1_489, extension: 7, cancelling: 0 }),
+    ).toMatchObject({ count: 207, extension: 7, cancelling: 0 });
     expect(requestsHeldOn('linkedin', { waiting: 212, friends: 300 })).toMatchObject({
       why: 'waiting',
     });
@@ -96,6 +107,8 @@ describe('no new friend requests', () => {
       why: 'cap',
       count: 4_900,
       most: 4_900,
+      extension: 0,
+      cancelling: 0,
     });
     expect(requestsHeldOn('alignable', { waiting: 0, friends: 9_900 })).toMatchObject({
       why: 'cap',
@@ -109,8 +122,12 @@ describe('no new friend requests', () => {
 
   it('says why, and what lets them start again, in the network’s words', () => {
     expect(requestsHeldWords({ why: 'waiting', count: 201, most: 200 }, 'facebook')).toBe(
-      'No new friend requests for now: 201 of yours are still waiting for an answer, and Facebook watches accounts with many. They start again under 200. Tick some under Old friend requests in Tidy up on the Friends tab.',
+      'No new friend requests for now: 201 of yours are still waiting for an answer, and Facebook watches accounts with many. They start again under 200. Cancel all cancels them however new, 30 a day, or tick some under Old friend requests in Tidy up on the Friends tab.',
     );
+    // While Cancel all is going (decision 121), how many it has left.
+    expect(
+      requestsHeldWords({ why: 'waiting', count: 207, most: 200, cancelling: 199 }, 'facebook'),
+    ).toMatch(/They start again under 200\. Cancelling all of them: 199 left, 30 a day\.$/);
     expect(requestsHeldWords({ why: 'waiting', count: 230, most: 200 }, 'linkedin')).toMatch(
       /^No new invitations to connect for now: 230 of yours .* under Old invitations in Tidy up/,
     );
@@ -257,6 +274,8 @@ describe('no new friend requests, in the business', () => {
       why: 'waiting',
       count: 200,
       most: 200,
+      extension: 0,
+      cancelling: 0,
     });
     // LinkedIn's invitations are their own.
     expect(

@@ -10,6 +10,11 @@
  * requests, up to 20 a day; and on Facebook, if they pick it too, friends to unfriend the AI found aren't a fit and
  * they never chatted with, up to 10 a day.
  *
+ * Cancel all (decision 121): every request waiting for an answer when the person pressed it, however new, leaving out
+ * the ones the extension sent unless they say, cancelled on its own the oldest first at the day's limit (30 on
+ * Facebook) until none is left or they press Stop. And on Facebook, the requests they got that the extension deletes
+ * as they picked for those (`requests`, ./automation.ts), up to 30 a day.
+ *
  * And Facebook's warnings (decision 25): the extension notes each one it sees, which halves the person's daily limits
  * for a week, leaves friend requests off Today's list for two days, and stops what it does for them for the day.
  *
@@ -131,11 +136,15 @@ const Candidate = z.object({
   lastContact: moment.nullable(),
   /** For a request: how they fit the playbooks. A good fit is still suggested; the person decides. */
   fit: z.enum(FIT_LEVEL_KEYS).nullable(),
+  /** A sent request Cancel all is cancelling (decision 121), however new. */
+  going: z.boolean().default(false),
 });
 export type TidyCandidate = z.output<typeof Candidate>;
 
+const limit = z.object({ done: n, most: n });
+
 export const TidyOutput = z.object({
-  /** Sent requests waiting longer than the business's wait, the oldest first. */
+  /** Sent requests waiting longer than the business's wait, or that Cancel all is cancelling, the oldest first. */
   cancel: z.array(Candidate),
   /** Friends suggested for unfriending, the longest quiet first. */
   unfriend: z.array(Candidate),
@@ -145,11 +154,20 @@ export const TidyOutput = z.object({
   cancelAfterWeeks: n,
   /** Unfriending needs the person's download file in, which says when they last talked to each friend. */
   needsFile: z.boolean(),
-  /** How many of each today, and the most today. */
+  /**
+   * How many of each today, and the most today; with the requests the person got deleted today, theirs and the
+   * extension's, against what it deletes on its own (decision 121).
+   */
   limits: z.object({
-    cancel_request: z.object({ done: n, most: n }),
-    unfriend: z.object({ done: n, most: n }),
+    cancel_request: limit,
+    unfriend: limit,
+    decline: limit.default({ done: 0, most: 0 }),
   }),
+  /** Every sent request waiting for an answer there, however new, and how many of them the extension sent. */
+  waiting: n.default(0),
+  extension: n.default(0),
+  /** Cancel all, while it's going (decision 121): how many it has left, and when the person pressed it. */
+  all: z.object({ left: n, at: moment }).nullable().default(null),
   friends: n,
   /** Facebook's cap on friends. */
   cap: n,
@@ -158,16 +176,46 @@ export const TidyOutput = z.object({
    * What the extension tidies on its own today (decision 98), from the person's choice on this network: the oldest of
    * `cancel`, and friends to unfriend the AI found aren't a fit and they never chatted with; each within what's left of
    * today's limit, and of its own limit on its own. Empty while they pick only who they tick, or a warning stops it.
+   *
+   * While Cancel all is going (decision 121), the ones it's cancelling come first, within what's left of today's limit
+   * itself, whatever the person picked: `mode` says at least `cancel`, so an extension from before it cancels them
+   * too. And on Facebook, the requests the person got that it deletes today as they picked for those (`decline`).
    */
   own: z
     .object({
       mode: z.enum(TIDY_MODE_KEYS),
       cancel: z.array(Candidate),
       unfriend: z.array(Candidate),
+      decline: z.array(Candidate).default([]),
     })
-    .default({ mode: 'off', cancel: [], unfriend: [] }),
+    .default({ mode: 'off', cancel: [], unfriend: [], decline: [] }),
 });
 export type TidyOutput = z.output<typeof TidyOutput>;
+
+/**
+ * Cancel all (decision 121): start it on a network for every sent request waiting for an answer there, however new,
+ * leaving out the ones the extension sent unless the person says; or stop it, and the ones left wait as usual.
+ */
+export const CancelAllInput = z.object({
+  workspaceId: z.uuid(),
+  platform: z.enum(PLATFORM_KEYS).default('facebook'),
+  on: z.boolean(),
+  leaveOutOwn: z.boolean().default(true),
+});
+export type CancelAllInput = z.input<typeof CancelAllInput>;
+
+export const CancelAllOutput = z.object({
+  /** How many it's cancelling now: none once it's stopped. */
+  marked: n,
+  /** How many of those waiting were left out, as the extension sent them. */
+  leftOut: n,
+  /**
+   * The oldest of them, as many as today's limit has room for (at most an ask's): for the person's computer to start
+   * on now (`outreach.ask.make`, kind `cancel`). The rest go once a day with the once-a-day jobs.
+   */
+  first: z.array(z.uuid()),
+});
+export type CancelAllOutput = z.output<typeof CancelAllOutput>;
 
 /** How many more of a kind the extension may do today. */
 export const tidyLeft = (out: Pick<TidyOutput, 'limits'>, kind: TidyKind): number =>
@@ -213,7 +261,9 @@ export type WarningNoteOutput = z.output<typeof WarningNoteOutput>;
 export const tidyLimits = (
   done: Readonly<Record<TidyKind, number>>,
   most: Readonly<Record<TidyKind, number>>,
+  decline: { readonly done: number; readonly most: number } = { done: 0, most: 0 },
 ) => ({
   cancel_request: { done: done.cancel_request, most: most.cancel_request },
   unfriend: { done: done.unfriend, most: most.unfriend },
+  decline: { done: decline.done, most: decline.most },
 });

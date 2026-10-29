@@ -94,6 +94,11 @@ export const OWN_TIDY_LIMITS: Readonly<Record<TidyKind, number>> = {
   cancel_request: 20,
   unfriend: 10,
 };
+/**
+ * Friend requests the person got that the extension deletes on its own in a day (decision 121), as they chose for the
+ * ones they get, halved as the rest are; with any they deleted themselves that day.
+ */
+export const DECLINES_PER_DAY = 30;
 
 /**
  * After Facebook warns the person (decision 25): every daily limit is halved for a week, and friend requests are left

@@ -1,15 +1,24 @@
 /**
- * Cancelling old requests and unfriending (src/networks/facebook/tidy.ts): on a made-up 2026 profile whose buttons behave like
+ * Cancelling old requests, unfriending and deleting a request they got (src/networks/facebook/tidy.ts): on a made-up 2026 profile whose buttons behave like
  * Facebook's (Friends opens a menu with Unfriend, which asks to be sure), the extension presses only the profile's
  * button, never its Friends tab; presses in the box on top, never behind it; and the profile reads as not friends
  * after. Plain and with a bare box around everything.
  */
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
+import type { HfosAsk, Tidy } from '../src/hfos/messages';
+import type { Hfos, Job, JobTab } from '../src/jobs/job';
+import { tidyOnItsOwn } from '../src/jobs/tidy';
 import { doPath, doStep, type FetchStep } from '../src/networks/facebook/fetch';
 import { readPage } from '../src/networks/facebook/page';
 import { withTheirName } from '../src/networks/facebook/auto';
 import { sameProfile, TIDY_PLANS, tidyPage } from '../src/networks/facebook/tidy';
 import { boxEverything, load } from './load';
+
+// A person's pace, and Facebook drawing what a press opened, without the waits.
+vi.mock('../src/jobs/job', async (original) => ({
+  ...(await original<object>()),
+  pause: () => Promise.resolve(),
+}));
 
 const URL = 'https://www.facebook.com/dana.reyes.12';
 
@@ -107,6 +116,146 @@ describe('unfriending', () => {
     doc.querySelector('[role="main"]')!.append(pageConfirm);
     expect(doStep(doc, TIDY_PLANS.unfriend.then[0]!)).toBe('missing');
     expect(pressed).toBe(false);
+  });
+});
+
+describe('deleting a request they got (decision 121)', () => {
+  for (const boxed of [false, true])
+    it(`presses Respond, then Delete request in its menu, never Confirm, and the profile reads as not friends after${boxed ? ', boxed' : ''}`, () => {
+      const doc = load('profile-2026.html', URL);
+      if (boxed) boxEverything(doc);
+      const button = standing(doc)!;
+      relabel(button, 'Respond');
+      let confirmed = false;
+      button.addEventListener('click', () =>
+        overlay(doc, 'menu', {
+          Confirm: () => {
+            confirmed = true;
+            relabel(button, 'Friends');
+          },
+          'Delete request': () => relabel(button, 'Add friend'),
+        }),
+      );
+      expect(readPage(doc, URL).profile?.friendship).toBe(TIDY_PLANS.decline.before);
+      walk(doc, TIDY_PLANS.decline.path, TIDY_PLANS.decline.then);
+      expect(confirmed).toBe(false);
+      expect(readPage(doc, URL).profile?.friendship).toBe('not_friends');
+    });
+
+  it('presses Delete request straight away where the profile shows it, and Delete in the box asking to be sure', () => {
+    const doc = load('profile-2026.html', URL);
+    const button = standing(doc)!;
+    relabel(button, 'Confirm request');
+    const remove = doc.createElement('div');
+    remove.setAttribute('role', 'button');
+    remove.tabIndex = 0;
+    remove.innerHTML = '<span>Delete request</span>';
+    remove.addEventListener('click', () =>
+      overlay(doc, 'dialog', {
+        Cancel: () => undefined,
+        Delete: () => {
+          remove.remove();
+          relabel(button, 'Add friend');
+        },
+      }),
+    );
+    button.after(remove);
+    walk(doc, TIDY_PLANS.decline.path, TIDY_PLANS.decline.then);
+    expect(readPage(doc, URL).profile?.friendship).toBe('not_friends');
+  });
+});
+
+describe('deleting requests on its own (decision 121)', () => {
+  /** A request Dana sent, whose Respond menu deletes it, in a tab doing each step at once. */
+  function requestTab() {
+    const doc = load('profile-2026.html', URL);
+    const button = standing(doc)!;
+    relabel(button, 'Respond');
+    button.addEventListener('click', () =>
+      overlay(doc, 'menu', {
+        Confirm: () => relabel(button, 'Friends'),
+        'Delete request': () => relabel(button, 'Add friend'),
+      }),
+    );
+    const opened: string[] = [];
+    const tab = {
+      async open(url: string) {
+        opened.push(url);
+        return 1;
+      },
+      async ask(message: Record<string, unknown> & { readonly type: string }) {
+        if (message.type === 'hfos-read') return { ok: true, result: readPage(doc, URL) };
+        if (message.type === 'hfos-fetch-path') {
+          const went = doPath(doc, message.steps as FetchStep[], message.from as number);
+          return {
+            ok: true,
+            result: 'at' in went ? 'done' : went.result,
+            at: 'at' in went ? went.at : undefined,
+          };
+        }
+        if (message.type === 'hfos-fetch-step')
+          return { ok: true, result: doStep(doc, message.step as FetchStep) };
+        throw new Error(`Not expected: ${message.type}`);
+      },
+    } as unknown as JobTab;
+    return { tab, opened, doc };
+  }
+
+  it('presses Respond, then Delete request, and notes it as the person’s answer', async () => {
+    const { tab, opened, doc } = requestTab();
+    const dana = {
+      profileId: '7b6f5c4d-3e2a-4b1c-8d9e-0f1a2b3c4d5e',
+      platformId: null,
+      username: 'dana.reyes.12',
+      url: URL,
+      name: 'Dana Reyes',
+      since: '2026-10-20T15:00:00.000Z',
+      lastContact: null,
+      fit: 'skip' as const,
+      going: false,
+    };
+    const lists = {
+      cancel: [],
+      unfriend: [],
+      limits: {
+        cancel_request: { done: 0, most: 30 },
+        unfriend: { done: 0, most: 20 },
+        decline: { done: 0, most: 30 },
+      },
+      own: { mode: 'off', cancel: [], unfriend: [], decline: [dana] },
+    } as unknown as Tidy;
+    const sent: HfosAsk[] = [];
+    const hfos = (async (ask: HfosAsk) => {
+      sent.push(ask);
+      if (ask.type === 'hfos-tidy') return { ok: true, value: lists };
+      if (ask.type === 'hfos-friend-note')
+        return {
+          ok: true,
+          value: { profileId: dana.profileId, personId: null, state: 'declined' },
+        };
+      throw new Error(`Not expected: ${ask.type}`);
+    }) as unknown as Hfos;
+    const job: Job = {
+      tab,
+      hfos,
+      businessId: '9a8b7c6d-5e4f-4a3b-8c2d-1e0f9a8b7c6d',
+      stopped: () => false,
+      progress: () => undefined,
+      warn: async () => undefined,
+    };
+    const end = await tidyOnItsOwn(job);
+    expect(end).toEqual({ line: 'Done. Requests deleted: 1 person.', warned: false });
+    expect(opened).toEqual([URL]);
+    expect(readPage(doc, URL).profile?.friendship).toBe('not_friends');
+    expect(sent.find((a) => a.type === 'hfos-friend-note')).toMatchObject({
+      input: {
+        platform: 'facebook',
+        answer: 'delete',
+        name: 'Dana Reyes',
+        profile: { username: 'dana.reyes.12', url: URL },
+      },
+    });
+    expect(sent.some((a) => a.type === 'hfos-friend-end')).toBe(false);
   });
 });
 

@@ -133,7 +133,7 @@ describe('tidying on its own', () => {
   it('picks nobody while the person only ticks', async () => {
     await pick('off');
     const out = await tidy();
-    expect(out.own).toEqual({ mode: 'off', cancel: [], unfriend: [] });
+    expect(out.own).toEqual({ mode: 'off', cancel: [], unfriend: [], decline: [] });
     expect(names(out.cancel)).toEqual(['Quinn Harper']);
   });
 

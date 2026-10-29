@@ -53,6 +53,7 @@ import { useLiveRefresh } from '@/lib/realtime/live-provider';
 import { cn, relativeTime } from '@/lib/utils';
 import { outreachHref } from './address';
 import { AskButton, AskLine, latestAskOn } from './asks';
+import { CancelAllBox } from './cancel-all';
 import { SkippedCountryCard } from './country-skipped';
 import { DownloadCard } from './download-card';
 import { FileAsksCard } from './file-asks';
@@ -859,6 +860,7 @@ type TidyAsk = (typeof TIDY_ASK_KINDS)[number];
  * and friends suggested for unfriending, where the network has each (LinkedIn withdraws old invitations, and never
  * removes a connection). They tick the ones to go, and their computer presses Cancel request, Withdraw or Unfriend on
  * each profile, slowly, in a tab they can see, stopping at today's limit there and on any warning from that network.
+ * Or Cancel all, for every request waiting however new (decision 121, ./cancel-all.tsx).
  */
 function TidyCard({
   workspaceId,
@@ -950,6 +952,15 @@ function TidyList({
           ? T.cancel.about(tidy.cancelAfterWeeks)
           : T.unfriend.about(tidy.friends, tidy.cap)}
       </p>
+      {kind === 'cancel' ? (
+        <CancelAllBox
+          workspaceId={workspaceId}
+          platform={platform}
+          tidy={tidy}
+          asks={asks}
+          warned={warned}
+        />
+      ) : null}
       {kind === 'unfriend' && tidy.needsFile ? (
         <p className="mt-2 text-[12.5px] text-text-2" data-testid="tidy-needs-file">
           {T.unfriend.needsFile}
@@ -986,6 +997,7 @@ function TidyList({
                           ? `last contact ${dateWords(p.lastContact)}`
                           : 'no contact on record'}
                       {p.fit === 'good' ? ' · fits a playbook' : ''}
+                      {p.going && T.all ? ` · ${T.all.marked}` : ''}
                     </span>
                   </span>
                 </label>

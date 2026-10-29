@@ -89701,6 +89701,92 @@
         }
       }
     },
+    "/v1/commands/outreach.friends.cancel_all": {
+      "post": {
+        "operationId": "command_outreach_friends_cancel_all",
+        "summary": "The person starts Cancel all on a social network: every sent friend request (LinkedIn’s invitations, Alignable’s connection requests) waiting for an answer there, however new, is cancelled by the browser extension on its own, the oldest first, at the day’s limit, leaving out the ones the extension sent unless they say. Or they stop it, and the ones left wait as usual. Not on Instagram, whose follows wait for nobody.",
+        "tags": [
+          "commands"
+        ],
+        "description": "Risk level 2. Requires outreach.use. Emits outreach.friends.cancel_all.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "workspaceId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  },
+                  "platform": {
+                    "default": "facebook",
+                    "type": "string",
+                    "enum": [
+                      "facebook",
+                      "linkedin",
+                      "instagram",
+                      "alignable"
+                    ]
+                  },
+                  "on": {
+                    "type": "boolean"
+                  },
+                  "leaveOutOwn": {
+                    "default": true,
+                    "type": "boolean"
+                  }
+                },
+                "required": [
+                  "workspaceId",
+                  "on"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "marked": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 9007199254740991
+                    },
+                    "leftOut": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 9007199254740991
+                    },
+                    "first": {
+                      "type": "array",
+                      "items": {
+                        "type": "string",
+                        "format": "uuid",
+                        "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                      }
+                    }
+                  },
+                  "required": [
+                    "marked",
+                    "leftOut",
+                    "first"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/v1/commands/outreach.posts.save": {
       "post": {
         "operationId": "command_outreach_posts_save",
@@ -90549,7 +90635,8 @@
                             "default": {
                               "on": true,
                               "young": false,
-                              "tidy": "cancel"
+                              "tidy": "cancel",
+                              "requests": "fits"
                             },
                             "type": "object",
                             "properties": {
@@ -90568,6 +90655,16 @@
                                   "off",
                                   "cancel",
                                   "unfriend"
+                                ]
+                              },
+                              "requests": {
+                                "default": "fits",
+                                "type": "string",
+                                "enum": [
+                                  "fits",
+                                  "fits_delete",
+                                  "all",
+                                  "delete"
                                 ]
                               }
                             }
@@ -90584,7 +90681,8 @@
                               "watchPosts": true,
                               "posting": "after_ok",
                               "young": false,
-                              "tidy": "cancel"
+                              "tidy": "cancel",
+                              "requests": "fits"
                             },
                             "type": "object",
                             "properties": {
@@ -90651,6 +90749,16 @@
                                   "off",
                                   "cancel",
                                   "unfriend"
+                                ]
+                              },
+                              "requests": {
+                                "default": "fits",
+                                "type": "string",
+                                "enum": [
+                                  "fits",
+                                  "fits_delete",
+                                  "all",
+                                  "delete"
                                 ]
                               }
                             }
@@ -90667,7 +90775,8 @@
                               "watchPosts": true,
                               "posting": "after_ok",
                               "young": false,
-                              "tidy": "cancel"
+                              "tidy": "cancel",
+                              "requests": "fits"
                             },
                             "type": "object",
                             "properties": {
@@ -90734,6 +90843,16 @@
                                   "off",
                                   "cancel",
                                   "unfriend"
+                                ]
+                              },
+                              "requests": {
+                                "default": "fits",
+                                "type": "string",
+                                "enum": [
+                                  "fits",
+                                  "fits_delete",
+                                  "all",
+                                  "delete"
                                 ]
                               }
                             }
@@ -90750,7 +90869,8 @@
                               "watchPosts": true,
                               "posting": "after_ok",
                               "young": false,
-                              "tidy": "cancel"
+                              "tidy": "cancel",
+                              "requests": "fits"
                             },
                             "type": "object",
                             "properties": {
@@ -90817,6 +90937,16 @@
                                   "off",
                                   "cancel",
                                   "unfriend"
+                                ]
+                              },
+                              "requests": {
+                                "default": "fits",
+                                "type": "string",
+                                "enum": [
+                                  "fits",
+                                  "fits_delete",
+                                  "all",
+                                  "delete"
                                 ]
                               }
                             }
@@ -90994,7 +91124,8 @@
                             "facebook": {
                               "on": true,
                               "young": false,
-                              "tidy": "cancel"
+                              "tidy": "cancel",
+                              "requests": "fits"
                             },
                             "linkedin": {
                               "on": false,
@@ -91007,7 +91138,8 @@
                               "watchPosts": true,
                               "posting": "after_ok",
                               "young": false,
-                              "tidy": "cancel"
+                              "tidy": "cancel",
+                              "requests": "fits"
                             },
                             "instagram": {
                               "on": false,
@@ -91020,7 +91152,8 @@
                               "watchPosts": true,
                               "posting": "after_ok",
                               "young": false,
-                              "tidy": "cancel"
+                              "tidy": "cancel",
+                              "requests": "fits"
                             },
                             "alignable": {
                               "on": false,
@@ -91033,7 +91166,8 @@
                               "watchPosts": true,
                               "posting": "after_ok",
                               "young": false,
-                              "tidy": "cancel"
+                              "tidy": "cancel",
+                              "requests": "fits"
                             }
                           },
                           "type": "object",
@@ -91042,7 +91176,8 @@
                               "default": {
                                 "on": true,
                                 "young": false,
-                                "tidy": "cancel"
+                                "tidy": "cancel",
+                                "requests": "fits"
                               },
                               "type": "object",
                               "properties": {
@@ -91062,12 +91197,23 @@
                                     "cancel",
                                     "unfriend"
                                   ]
+                                },
+                                "requests": {
+                                  "default": "fits",
+                                  "type": "string",
+                                  "enum": [
+                                    "fits",
+                                    "fits_delete",
+                                    "all",
+                                    "delete"
+                                  ]
                                 }
                               },
                               "required": [
                                 "on",
                                 "young",
-                                "tidy"
+                                "tidy",
+                                "requests"
                               ],
                               "additionalProperties": false
                             },
@@ -91083,7 +91229,8 @@
                                 "watchPosts": true,
                                 "posting": "after_ok",
                                 "young": false,
-                                "tidy": "cancel"
+                                "tidy": "cancel",
+                                "requests": "fits"
                               },
                               "type": "object",
                               "properties": {
@@ -91151,6 +91298,16 @@
                                     "cancel",
                                     "unfriend"
                                   ]
+                                },
+                                "requests": {
+                                  "default": "fits",
+                                  "type": "string",
+                                  "enum": [
+                                    "fits",
+                                    "fits_delete",
+                                    "all",
+                                    "delete"
+                                  ]
                                 }
                               },
                               "required": [
@@ -91164,7 +91321,8 @@
                                 "watchPosts",
                                 "posting",
                                 "young",
-                                "tidy"
+                                "tidy",
+                                "requests"
                               ],
                               "additionalProperties": false
                             },
@@ -91180,7 +91338,8 @@
                                 "watchPosts": true,
                                 "posting": "after_ok",
                                 "young": false,
-                                "tidy": "cancel"
+                                "tidy": "cancel",
+                                "requests": "fits"
                               },
                               "type": "object",
                               "properties": {
@@ -91248,6 +91407,16 @@
                                     "cancel",
                                     "unfriend"
                                   ]
+                                },
+                                "requests": {
+                                  "default": "fits",
+                                  "type": "string",
+                                  "enum": [
+                                    "fits",
+                                    "fits_delete",
+                                    "all",
+                                    "delete"
+                                  ]
                                 }
                               },
                               "required": [
@@ -91261,7 +91430,8 @@
                                 "watchPosts",
                                 "posting",
                                 "young",
-                                "tidy"
+                                "tidy",
+                                "requests"
                               ],
                               "additionalProperties": false
                             },
@@ -91277,7 +91447,8 @@
                                 "watchPosts": true,
                                 "posting": "after_ok",
                                 "young": false,
-                                "tidy": "cancel"
+                                "tidy": "cancel",
+                                "requests": "fits"
                               },
                               "type": "object",
                               "properties": {
@@ -91345,6 +91516,16 @@
                                     "cancel",
                                     "unfriend"
                                   ]
+                                },
+                                "requests": {
+                                  "default": "fits",
+                                  "type": "string",
+                                  "enum": [
+                                    "fits",
+                                    "fits_delete",
+                                    "all",
+                                    "delete"
+                                  ]
                                 }
                               },
                               "required": [
@@ -91358,7 +91539,8 @@
                                 "watchPosts",
                                 "posting",
                                 "young",
-                                "tidy"
+                                "tidy",
+                                "requests"
                               ],
                               "additionalProperties": false
                             }
@@ -206749,12 +206931,26 @@
                               "type": "integer",
                               "minimum": 0,
                               "maximum": 9007199254740991
+                            },
+                            "extension": {
+                              "default": 0,
+                              "type": "integer",
+                              "minimum": 0,
+                              "maximum": 9007199254740991
+                            },
+                            "cancelling": {
+                              "default": 0,
+                              "type": "integer",
+                              "minimum": 0,
+                              "maximum": 9007199254740991
                             }
                           },
                           "required": [
                             "why",
                             "count",
-                            "most"
+                            "most",
+                            "extension",
+                            "cancelling"
                           ],
                           "additionalProperties": false
                         },
@@ -206923,6 +207119,10 @@
                                 "type": "null"
                               }
                             ]
+                          },
+                          "going": {
+                            "default": false,
+                            "type": "boolean"
                           }
                         },
                         "required": [
@@ -206933,7 +207133,8 @@
                           "username",
                           "since",
                           "lastContact",
-                          "fit"
+                          "fit",
+                          "going"
                         ],
                         "additionalProperties": false
                       }
@@ -206998,6 +207199,10 @@
                                 "type": "null"
                               }
                             ]
+                          },
+                          "going": {
+                            "default": false,
+                            "type": "boolean"
                           }
                         },
                         "required": [
@@ -207008,7 +207213,8 @@
                           "username",
                           "since",
                           "lastContact",
-                          "fit"
+                          "fit",
+                          "going"
                         ],
                         "additionalProperties": false
                       }
@@ -207083,13 +207289,78 @@
                             "most"
                           ],
                           "additionalProperties": false
+                        },
+                        "decline": {
+                          "default": {
+                            "done": 0,
+                            "most": 0
+                          },
+                          "type": "object",
+                          "properties": {
+                            "done": {
+                              "type": "integer",
+                              "minimum": 0,
+                              "maximum": 9007199254740991
+                            },
+                            "most": {
+                              "type": "integer",
+                              "minimum": 0,
+                              "maximum": 9007199254740991
+                            }
+                          },
+                          "required": [
+                            "done",
+                            "most"
+                          ],
+                          "additionalProperties": false
                         }
                       },
                       "required": [
                         "cancel_request",
-                        "unfriend"
+                        "unfriend",
+                        "decline"
                       ],
                       "additionalProperties": false
+                    },
+                    "waiting": {
+                      "default": 0,
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 9007199254740991
+                    },
+                    "extension": {
+                      "default": 0,
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 9007199254740991
+                    },
+                    "all": {
+                      "default": null,
+                      "anyOf": [
+                        {
+                          "type": "object",
+                          "properties": {
+                            "left": {
+                              "type": "integer",
+                              "minimum": 0,
+                              "maximum": 9007199254740991
+                            },
+                            "at": {
+                              "type": "string",
+                              "format": "date-time",
+                              "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+                            }
+                          },
+                          "required": [
+                            "left",
+                            "at"
+                          ],
+                          "additionalProperties": false
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
                     },
                     "friends": {
                       "type": "integer",
@@ -207146,7 +207417,8 @@
                       "default": {
                         "mode": "off",
                         "cancel": [],
-                        "unfriend": []
+                        "unfriend": [],
+                        "decline": []
                       },
                       "type": "object",
                       "properties": {
@@ -207218,6 +207490,10 @@
                                     "type": "null"
                                   }
                                 ]
+                              },
+                              "going": {
+                                "default": false,
+                                "type": "boolean"
                               }
                             },
                             "required": [
@@ -207228,7 +207504,8 @@
                               "username",
                               "since",
                               "lastContact",
-                              "fit"
+                              "fit",
+                              "going"
                             ],
                             "additionalProperties": false
                           }
@@ -207293,6 +207570,10 @@
                                     "type": "null"
                                   }
                                 ]
+                              },
+                              "going": {
+                                "default": false,
+                                "type": "boolean"
                               }
                             },
                             "required": [
@@ -207303,7 +207584,89 @@
                               "username",
                               "since",
                               "lastContact",
-                              "fit"
+                              "fit",
+                              "going"
+                            ],
+                            "additionalProperties": false
+                          }
+                        },
+                        "decline": {
+                          "default": [],
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "profileId": {
+                                "type": "string",
+                                "format": "uuid",
+                                "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                              },
+                              "name": {
+                                "type": "string"
+                              },
+                              "url": {
+                                "type": "string"
+                              },
+                              "platformId": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              },
+                              "username": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              },
+                              "since": {
+                                "type": "string",
+                                "format": "date-time",
+                                "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+                              },
+                              "lastContact": {
+                                "anyOf": [
+                                  {
+                                    "type": "string",
+                                    "format": "date-time",
+                                    "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+                                  },
+                                  {
+                                    "type": "null"
+                                  }
+                                ]
+                              },
+                              "fit": {
+                                "anyOf": [
+                                  {
+                                    "type": "string",
+                                    "enum": [
+                                      "good",
+                                      "maybe",
+                                      "unknown",
+                                      "skip"
+                                    ]
+                                  },
+                                  {
+                                    "type": "null"
+                                  }
+                                ]
+                              },
+                              "going": {
+                                "default": false,
+                                "type": "boolean"
+                              }
+                            },
+                            "required": [
+                              "profileId",
+                              "name",
+                              "url",
+                              "platformId",
+                              "username",
+                              "since",
+                              "lastContact",
+                              "fit",
+                              "going"
                             ],
                             "additionalProperties": false
                           }
@@ -207312,7 +207675,8 @@
                       "required": [
                         "mode",
                         "cancel",
-                        "unfriend"
+                        "unfriend",
+                        "decline"
                       ],
                       "additionalProperties": false
                     }
@@ -207324,6 +207688,9 @@
                     "cancelAfterWeeks",
                     "needsFile",
                     "limits",
+                    "waiting",
+                    "extension",
+                    "all",
                     "friends",
                     "cap",
                     "warning",
@@ -207849,7 +208216,8 @@
                             "facebook": {
                               "on": true,
                               "young": false,
-                              "tidy": "cancel"
+                              "tidy": "cancel",
+                              "requests": "fits"
                             },
                             "linkedin": {
                               "on": false,
@@ -207862,7 +208230,8 @@
                               "watchPosts": true,
                               "posting": "after_ok",
                               "young": false,
-                              "tidy": "cancel"
+                              "tidy": "cancel",
+                              "requests": "fits"
                             },
                             "instagram": {
                               "on": false,
@@ -207875,7 +208244,8 @@
                               "watchPosts": true,
                               "posting": "after_ok",
                               "young": false,
-                              "tidy": "cancel"
+                              "tidy": "cancel",
+                              "requests": "fits"
                             },
                             "alignable": {
                               "on": false,
@@ -207888,7 +208258,8 @@
                               "watchPosts": true,
                               "posting": "after_ok",
                               "young": false,
-                              "tidy": "cancel"
+                              "tidy": "cancel",
+                              "requests": "fits"
                             }
                           },
                           "type": "object",
@@ -207897,7 +208268,8 @@
                               "default": {
                                 "on": true,
                                 "young": false,
-                                "tidy": "cancel"
+                                "tidy": "cancel",
+                                "requests": "fits"
                               },
                               "type": "object",
                               "properties": {
@@ -207917,12 +208289,23 @@
                                     "cancel",
                                     "unfriend"
                                   ]
+                                },
+                                "requests": {
+                                  "default": "fits",
+                                  "type": "string",
+                                  "enum": [
+                                    "fits",
+                                    "fits_delete",
+                                    "all",
+                                    "delete"
+                                  ]
                                 }
                               },
                               "required": [
                                 "on",
                                 "young",
-                                "tidy"
+                                "tidy",
+                                "requests"
                               ],
                               "additionalProperties": false
                             },
@@ -207938,7 +208321,8 @@
                                 "watchPosts": true,
                                 "posting": "after_ok",
                                 "young": false,
-                                "tidy": "cancel"
+                                "tidy": "cancel",
+                                "requests": "fits"
                               },
                               "type": "object",
                               "properties": {
@@ -208006,6 +208390,16 @@
                                     "cancel",
                                     "unfriend"
                                   ]
+                                },
+                                "requests": {
+                                  "default": "fits",
+                                  "type": "string",
+                                  "enum": [
+                                    "fits",
+                                    "fits_delete",
+                                    "all",
+                                    "delete"
+                                  ]
                                 }
                               },
                               "required": [
@@ -208019,7 +208413,8 @@
                                 "watchPosts",
                                 "posting",
                                 "young",
-                                "tidy"
+                                "tidy",
+                                "requests"
                               ],
                               "additionalProperties": false
                             },
@@ -208035,7 +208430,8 @@
                                 "watchPosts": true,
                                 "posting": "after_ok",
                                 "young": false,
-                                "tidy": "cancel"
+                                "tidy": "cancel",
+                                "requests": "fits"
                               },
                               "type": "object",
                               "properties": {
@@ -208103,6 +208499,16 @@
                                     "cancel",
                                     "unfriend"
                                   ]
+                                },
+                                "requests": {
+                                  "default": "fits",
+                                  "type": "string",
+                                  "enum": [
+                                    "fits",
+                                    "fits_delete",
+                                    "all",
+                                    "delete"
+                                  ]
                                 }
                               },
                               "required": [
@@ -208116,7 +208522,8 @@
                                 "watchPosts",
                                 "posting",
                                 "young",
-                                "tidy"
+                                "tidy",
+                                "requests"
                               ],
                               "additionalProperties": false
                             },
@@ -208132,7 +208539,8 @@
                                 "watchPosts": true,
                                 "posting": "after_ok",
                                 "young": false,
-                                "tidy": "cancel"
+                                "tidy": "cancel",
+                                "requests": "fits"
                               },
                               "type": "object",
                               "properties": {
@@ -208200,6 +208608,16 @@
                                     "cancel",
                                     "unfriend"
                                   ]
+                                },
+                                "requests": {
+                                  "default": "fits",
+                                  "type": "string",
+                                  "enum": [
+                                    "fits",
+                                    "fits_delete",
+                                    "all",
+                                    "delete"
+                                  ]
                                 }
                               },
                               "required": [
@@ -208213,7 +208631,8 @@
                                 "watchPosts",
                                 "posting",
                                 "young",
-                                "tidy"
+                                "tidy",
+                                "requests"
                               ],
                               "additionalProperties": false
                             }

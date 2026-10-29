@@ -4,19 +4,29 @@
  * them. Each person's are their own, and a warning is its network's alone: the others go on. With them, who the
  * extension tidies on its own today (decision 98), as the person picks for the network. On a follow network
  * (Instagram's), who the extension looks at to see whether they followed back (`outreach.follow_backs.next`), so
- * nobody who did is suggested for unfollowing.
+ * nobody who did is suggested for unfollowing. And Cancel all (decision 121), and on Facebook the requests the person
+ * got that the extension deletes as they picked.
  */
 import { and, desc, eq, gte, sql } from 'drizzle-orm';
 import { rows } from '@hfos/db/client';
 import { localDateOf, startOfLocalDay } from '../../../calendar/engine/zoned';
 import { workspaceTimezone } from '../../../crm/records';
+import { HfosError } from '../../../errors';
 import { requireHuman } from '../../../kernel/actor';
 import { changeMoment } from '../../../kernel/moment';
 import { defineAddonCommand, defineAddonQuery } from '../../server';
-import { tidyModeOn } from '../automation';
+import { ASK_TIDY_MOST } from '../asks';
+import { deletesRequests, requestModeOf, tidyModeOn } from '../automation';
 import { outreachSettings } from '../chat-read';
 import { bestFit } from '../fit';
-import { limitNow, OWN_TIDY_LIMITS, WARNING_SLOWER_DAYS, type TidyKind } from '../limits';
+import {
+  DECLINES_PER_DAY,
+  limitNow,
+  OWN_TIDY_LIMITS,
+  WARNING_SLOWER_DAYS,
+  type TidyKind,
+} from '../limits';
+import { networkOffWords } from '../live';
 import {
   FOLLOW_BACK_AFTER_DAYS,
   FOLLOW_BACK_AGAIN_HOURS,
@@ -24,9 +34,11 @@ import {
   FollowBacksNextOutput,
 } from '../friends';
 import { outreachAddon } from '../manifest';
-import { NETWORKS, type Platform } from '../networks';
+import { answersRequests, NETWORKS, type Platform } from '../networks';
 import { friendEnds, warnings } from '../tables';
 import {
+  CancelAllInput,
+  CancelAllOutput,
   FriendEndInput,
   FriendEndOutput,
   TIDY_MOST,
@@ -128,6 +140,8 @@ type Found = {
   readonly mutual_friends: number | null;
   readonly group_name: string | null;
   readonly total: number;
+  /** A sent request Cancel all is cancelling (decision 121). */
+  readonly going?: boolean;
   /** A friend: any chat with them either way, kept or noted (decision 98). */
   readonly chatted?: boolean;
   /** A friend: the AI's check found they aren't a fit. */
@@ -135,6 +149,20 @@ type Found = {
 };
 
 const iso = (at: Date | string) => new Date(at).toISOString();
+
+/** A sent request Cancel all marked while it waited (decision 121): one sent again since starts afresh. `f` is its row. */
+const marked = sql`(f.cancel_at is not null and f.cancel_at >= f.since)`;
+
+/** A request the extension sent on its own (decision 26), to `p`, by the person `me`. */
+const sentByExtension = (me: string) => sql`exists (select 1 from addon_outreach.touches t
+  where t.profile_id = p.id and t.user_id = ${me} and t.kind = 'friend_request' and t.auto)`;
+
+/** Any chat with someone either way, kept or noted: never deleted for not fitting (decision 121). `p` is the profile. */
+const chattedWith = (me: string) => sql`(exists (select 1 from addon_outreach.file_chats c
+    where c.profile_id = p.id and c.user_id = ${me})
+  or exists (select 1 from addon_outreach.replies r where r.profile_id = p.id and r.user_id = ${me})
+  or exists (select 1 from addon_outreach.touches t
+    where t.profile_id = p.id and t.user_id = ${me} and t.kind = 'message'))`;
 
 export const friendsTidy = defineAddonQuery(outreachAddon, {
   name: 'outreach.friends.tidy',
@@ -177,19 +205,38 @@ export const friendsTidy = defineAddonQuery(outreachAddon, {
               where c.profile_id = p.id and c.user_id = ${me} and not c.last_from_me)`
         : sql``;
 
+    // Past the business's wait, or marked by Cancel all however new (decision 121).
     const cancel = await rows<Found>(
       ctx.tx,
       sql`select p.id, p.name, p.url, p.platform_id, p.username, f.since, null as last_contact, p.intro,
-            p.mutual_friends, g.name as group_name, count(*) over ()::int as total
+            p.mutual_friends, g.name as group_name, count(*) over ()::int as total, ${marked} as going
           from addon_outreach.friends f
           join addon_outreach.profiles p on p.id = f.profile_id
           left join addon_outreach.groups g on g.id = p.group_id
           where f.workspace_id = ${ws} and f.user_id = ${me} and p.platform = ${input.platform}
             and f.state = 'request_sent'
-            and f.since <= ${new Date(now - weeks * 7 * DAY).toISOString()}::timestamptz
+            and (f.since <= ${new Date(now - weeks * 7 * DAY).toISOString()}::timestamptz or ${marked})
             ${unfollowing}
           order by f.since, p.id limit ${TIDY_MOST}`,
     );
+    // Every one waiting however new, how many the extension sent, and Cancel all's left, when it's going.
+    const [sent] = await rows<{
+      waiting: number;
+      extension: number;
+      left: number;
+      at: Date | null;
+    }>(
+      ctx.tx,
+      sql`select count(*)::int as waiting,
+            count(*) filter (where ${sentByExtension(me)})::int as extension,
+            count(*) filter (where ${marked})::int as left,
+            max(f.cancel_at) filter (where ${marked}) as at
+          from addon_outreach.friends f
+          join addon_outreach.profiles p on p.id = f.profile_id
+          where f.workspace_id = ${ws} and f.user_id = ${me} and p.platform = ${input.platform}
+            and f.state = 'request_sent'`,
+    );
+    const all = sent && sent.left > 0 && sent.at ? { left: sent.left, at: iso(sent.at) } : null;
 
     const [file] = await rows<{ any: boolean }>(
       ctx.tx,
@@ -240,7 +287,41 @@ export const friendsTidy = defineAddonQuery(outreachAddon, {
         a.name.localeCompare(b.name),
     );
 
-    const playbooks = cancel.length ? await playbooksInUse(ctx) : [];
+    // On Facebook, the requests the person got that it deletes as they picked (decision 121): never anyone in Contacts,
+    // kept, chatted with, a partner, on Don't pitch or Never contact; and for not fitting, only with a playbook in use.
+    const answering = requestModeOf(auto.choices);
+    const deleting = answersRequests(input.platform) && deletesRequests(answering);
+    const got = deleting
+      ? await rows<Found>(
+          ctx.tx,
+          sql`select p.id, p.name, p.url, p.platform_id, p.username, f.since, null as last_contact, p.intro,
+                p.mutual_friends, g.name as group_name, count(*) over ()::int as total
+              from addon_outreach.friends f
+              join addon_outreach.profiles p on p.id = f.profile_id
+              left join addon_outreach.groups g on g.id = p.group_id
+              where f.workspace_id = ${ws} and f.user_id = ${me} and p.platform = ${input.platform}
+                and f.state = 'request_received' and not f.keep and p.person_id is null
+                and ${pitchable('p')} and not ${chattedWith(me)}
+              order by f.since, p.id limit ${TIDY_MOST}`,
+        )
+      : [];
+    const [declined] = await rows<{ n: number }>(
+      ctx.tx,
+      sql`select count(*)::int as n from addon_outreach.friends f
+          join addon_outreach.profiles p on p.id = f.profile_id
+          where f.workspace_id = ${ws} and f.user_id = ${me} and p.platform = ${input.platform}
+            and f.state = 'declined' and f.since >= ${todayFrom.toISOString()}::timestamptz`,
+    );
+    const playbooks = cancel.length || got.length ? await playbooksInUse(ctx) : [];
+    const fits = (f: Found) =>
+      playbooks.length > 0 &&
+      bestFit(playbooks, {
+        lines: f.intro,
+        mutualFriends: f.mutual_friends,
+        groupName: f.group_name,
+      }).level === 'good';
+    const toDecline =
+      answering === 'delete' ? got : playbooks.length ? got.filter((f) => !fits(f)) : [];
     const candidate = (f: Found, fitted: boolean): TidyCandidate => ({
       profileId: f.id,
       name: f.name,
@@ -257,6 +338,7 @@ export const friendsTidy = defineAddonQuery(outreachAddon, {
               groupName: f.group_name,
             }).level
           : null,
+      going: f.going === true,
     });
     const [counted] = await rows<{ friends: number }>(
       ctx.tx,
@@ -265,10 +347,17 @@ export const friendsTidy = defineAddonQuery(outreachAddon, {
           where f.workspace_id = ${ws} and f.user_id = ${me} and f.state = 'friends'
             and p.platform = ${input.platform}`,
     );
-    const limits = tidyLimits(done, {
-      cancel_request: limitNow(kit.tidyLimits.cancel_request, slower),
-      unfriend: limitNow(kit.tidyLimits.unfriend, slower),
-    });
+    const limits = tidyLimits(
+      done,
+      {
+        cancel_request: limitNow(kit.tidyLimits.cancel_request, slower),
+        unfriend: limitNow(kit.tidyLimits.unfriend, slower),
+      },
+      {
+        done: declined?.n ?? 0,
+        most: answersRequests(input.platform) ? limitNow(DECLINES_PER_DAY, slower) : 0,
+      },
+    );
     // On its own (decision 98): within the day's limit, what's left of it after any done by hand, and its own limit,
     // halved as the rest are. Nothing while a warning today stops the extension there.
     const ownRoom = (kind: TidyKind) =>
@@ -279,11 +368,21 @@ export const friendsTidy = defineAddonQuery(outreachAddon, {
             Math.min(limits[kind].most, limitNow(OWN_TIDY_LIMITS[kind], slower)) -
               limits[kind].done,
           );
-    const mode = tidyModeOn(input.platform, auto.choices.tidy);
+    const picked = tidyModeOn(input.platform, auto.choices.tidy);
+    // Cancel all (decision 121): within what's left of today's limit itself, whatever the person picked, with the old
+    // ones too while they pick those; an extension from before it reads `mode` and cancels them.
+    const mode = all && picked === 'off' ? 'cancel' : picked;
+    const cancelRoom = warning?.today
+      ? 0
+      : Math.max(0, limits.cancel_request.most - limits.cancel_request.done);
+    const declineRoom = warning?.today ? 0 : Math.max(0, limits.decline.most - limits.decline.done);
     const own = {
       mode,
-      cancel:
-        mode === 'off'
+      cancel: all
+        ? (picked === 'off' ? cancel.filter((f) => f.going) : cancel)
+            .slice(0, cancelRoom)
+            .map((f) => candidate(f, true))
+        : mode === 'off'
           ? []
           : cancel.slice(0, ownRoom('cancel_request')).map((f) => candidate(f, true)),
       // Only friends the AI found aren't a fit and the person never chatted with, the longest quiet first.
@@ -294,11 +393,15 @@ export const friendsTidy = defineAddonQuery(outreachAddon, {
               .slice(0, ownRoom('unfriend'))
               .map((f) => candidate(f, false))
           : [],
+      decline: toDecline.slice(0, declineRoom).map((f) => candidate(f, false)),
     };
     return {
       cancel: cancel.map((f) => candidate(f, true)),
       unfriend: unfriend.slice(0, TIDY_MOST).map((f) => candidate(f, false)),
       totals: { cancel_request: cancel[0]?.total ?? 0, unfriend: unfriend.length },
+      waiting: sent?.waiting ?? 0,
+      extension: sent?.extension ?? 0,
+      all,
       cancelAfterWeeks: weeks,
       needsFile,
       limits,
@@ -463,5 +566,128 @@ export const followBacksNext = defineAddonQuery(outreachAddon, {
   },
 });
 
-export const tidyCommands = [friendEnd, warningNote] as const;
+/**
+ * Cancel all (decision 121): marks every sent request waiting on the network, however new, leaving out the ones the
+ * extension sent unless the person says, for the extension to cancel on its own, the oldest first, at the day's limit
+ * (`own.cancel` above); or clears the marks. Pressed again, it starts afresh with what's waiting then.
+ */
+export const friendsCancelAll = defineAddonCommand(outreachAddon, {
+  name: 'outreach.friends.cancel_all',
+  description:
+    'The person starts Cancel all on a social network: every sent friend request (LinkedIn’s invitations, Alignable’s connection requests) waiting for an answer there, however new, is cancelled by the browser extension on its own, the oldest first, at the day’s limit, leaving out the ones the extension sent unless they say. Or they stop it, and the ones left wait as usual. Not on Instagram, whose follows wait for nobody.',
+  risk: 2,
+  input: CancelAllInput,
+  output: CancelAllOutput,
+  permission: 'outreach.use',
+  ai: {
+    tool: 'outreach_cancel_all_requests',
+    autonomy: 'confirm',
+    keywords: [
+      'cancel all friend requests',
+      'remove unanswered friend requests',
+      'withdraw all invitations',
+      'stop cancelling requests',
+    ],
+  },
+  scope: inWorkspace,
+  emits: ['outreach.friends.cancel_all'],
+  async handler(ctx, input) {
+    const me = requireHuman(ctx).userId;
+    const ws = ctx.scope.workspaceId!;
+    const at = changeMoment(ctx.meta);
+    const now = at.getTime();
+    const kit = NETWORKS[input.platform];
+    const { friendRequests } = kit.words;
+    if (kit.requestsMessageAfterDays !== null)
+      throw HfosError.rule(
+        'outreach_cancel_all_follows',
+        409,
+        `${kit.name} has nothing waiting to cancel: a follow goes at once. To unfollow who didn’t follow you back, tick them under Tidy up on the Friends tab.`,
+      );
+    const auto = await automationOf(ctx, me, now, input.platform);
+    if (input.on && !auto.choices.on)
+      throw HfosError.rule('outreach_network_off', 409, networkOffWords(input.platform));
+    // Pressed again, it starts afresh; Stop leaves nothing marked.
+    await rows(
+      ctx.tx,
+      sql`update addon_outreach.friends f set cancel_at = null, updated_at = ${at.toISOString()}::timestamptz
+          from addon_outreach.profiles p
+          where p.id = f.profile_id and f.workspace_id = ${ws} and f.user_id = ${me}
+            and p.platform = ${input.platform} and f.cancel_at is not null
+          returning f.profile_id`,
+    );
+    const payload = { platform: input.platform, on: input.on, leaveOutOwn: input.leaveOutOwn };
+    if (!input.on) {
+      await ctx.emit({
+        type: 'outreach.friends.cancel_all',
+        entityType: 'workspace',
+        entityId: ws,
+        payload: { ...payload, marked: 0 },
+      });
+      return { marked: 0, leftOut: 0, first: [] };
+    }
+    const [counted] = await rows<{ waiting: number; extension: number }>(
+      ctx.tx,
+      sql`select count(*)::int as waiting, count(*) filter (where ${sentByExtension(me)})::int as extension
+          from addon_outreach.friends f
+          join addon_outreach.profiles p on p.id = f.profile_id
+          where f.workspace_id = ${ws} and f.user_id = ${me} and p.platform = ${input.platform}
+            and f.state = 'request_sent'`,
+    );
+    const waiting = counted?.waiting ?? 0;
+    const extension = counted?.extension ?? 0;
+    if (!waiting)
+      throw HfosError.rule(
+        'outreach_cancel_all_none',
+        409,
+        `None of your ${friendRequests} on ${kit.name} are waiting for an answer, so there’s nothing to cancel.`,
+      );
+    if (input.leaveOutOwn && extension >= waiting)
+      throw HfosError.rule(
+        'outreach_cancel_all_only_own',
+        409,
+        `The extension sent all ${waiting.toLocaleString('en-US')} of your ${friendRequests} waiting on ${kit.name}. Untick Leave out the ones the extension sent to cancel them too.`,
+      );
+    const markedNow = await rows<{ profile_id: string; since: Date | string }>(
+      ctx.tx,
+      sql`update addon_outreach.friends f set cancel_at = ${at.toISOString()}::timestamptz,
+            updated_at = ${at.toISOString()}::timestamptz
+          from addon_outreach.profiles p
+          where p.id = f.profile_id and f.workspace_id = ${ws} and f.user_id = ${me}
+            and p.platform = ${input.platform} and f.state = 'request_sent'
+            and f.since <= ${at.toISOString()}::timestamptz
+            ${input.leaveOutOwn ? sql`and not ${sentByExtension(me)}` : sql``}
+          returning f.profile_id, f.since`,
+    );
+    // The oldest, as many as today's limit there has room for: none on a day a warning stopped it.
+    const todayFrom = await startOfToday(ctx, now);
+    const warning = await warningOf(ctx, me, input.platform, todayFrom, now);
+    const done = await endsToday(ctx, me, todayFrom, input.platform);
+    const most = limitNow(kit.tidyLimits.cancel_request, slowsNow(warning, now) || auto.slower);
+    const room = warning?.today
+      ? 0
+      : Math.max(0, Math.min(most - done.cancel_request, ASK_TIDY_MOST));
+    const first = [...markedNow]
+      .sort(
+        (a, b) =>
+          new Date(a.since).getTime() - new Date(b.since).getTime() ||
+          a.profile_id.localeCompare(b.profile_id),
+      )
+      .slice(0, room)
+      .map((r) => r.profile_id);
+    await ctx.emit({
+      type: 'outreach.friends.cancel_all',
+      entityType: 'workspace',
+      entityId: ws,
+      payload: { ...payload, marked: markedNow.length },
+    });
+    return {
+      marked: markedNow.length,
+      leftOut: input.leaveOutOwn ? extension : 0,
+      first,
+    };
+  },
+});
+
+export const tidyCommands = [friendEnd, warningNote, friendsCancelAll] as const;
 export const tidyQueries = [friendsTidy, followBacksNext] as const;

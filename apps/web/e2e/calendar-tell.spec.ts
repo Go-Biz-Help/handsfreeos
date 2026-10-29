@@ -123,9 +123,12 @@ test('Tell on a staff booking: unticked sends nothing, ticked texts once, and th
   const ann = await customer('Ann');
   const ben = await customer('Ben');
 
-  // Ann first, with Tell unticked; then Ben, told.
-  await bookFromTheirPage(page, owner, ann, 'Ann', chicagoDate(Date.now() + 3 * DAY), false);
-  await bookFromTheirPage(page, owner, ben, 'Ben', chicagoDate(Date.now() + 4 * DAY), true);
+  // Ann first, with Tell unticked; then Ben, told. Whole days on the calendar, not 24-hour steps, so the
+  // 25-hour day clocks go back on can't give them the same date.
+  const [y, m, d] = chicagoDate(Date.now()).split('-').map(Number);
+  const day = (n: number) => new Date(Date.UTC(y!, m! - 1, d! + n)).toISOString().slice(0, 10);
+  await bookFromTheirPage(page, owner, ann, 'Ann', day(3), false);
+  await bookFromTheirPage(page, owner, ben, 'Ben', day(4), true);
 
   // Ben's confirmation went by text, and the fake carrier delivered it.
   await expect
