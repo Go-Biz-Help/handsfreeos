@@ -43,6 +43,8 @@ const world = vi.hoisted(() => ({
   hfos: {} as Record<string, (ask: Record<string, unknown>) => unknown>,
   /** The person's Instagram choices. */
   choices: {} as Record<string, unknown>,
+  /** Whether the person is away from their computer (decision 120). */
+  away: true,
   /** The person's working hours (the same on every network). */
   hours: { start: 9, end: 17, days: [1, 2, 3, 4, 5] } as {
     start: number;
@@ -109,14 +111,20 @@ vi.mock('../src/hfos/waiting', () => ({
 }));
 vi.mock('../src/hfos/looked', () => ({ noteWarnings: async () => undefined }));
 vi.mock('../src/auto/run', () => ({ tick: async () => undefined }));
+vi.mock('../src/away', async (original) => ({
+  ...(await original<object>()),
+  awayNow: async () => world.away,
+}));
 // A person's pace is minutes; here, none.
 vi.mock('../src/jobs/job', async (original) => ({
   ...(await original<object>()),
   pause: () => Promise.resolve(),
 }));
-// Instagram's tab: each address opens its page, which its kit reads and presses on as the tab's script does.
+// Instagram's tab: each address opens its page, which its kit reads and presses on as the tab's script does. A read
+// that needs the screen is put off while the person is at their computer, as the runner's window is (decision 120).
 vi.mock('../src/tab', async () => {
   const { JSDOM: Dom } = await import('jsdom');
+  const { NotAway } = await import('../src/away');
   const { KITS } = await import('../src/networks');
   const kit = KITS.instagram;
   return {
@@ -131,6 +139,10 @@ vi.mock('../src/tab', async () => {
       async loaded() {}
       async close() {
         this.doc = null;
+      }
+      async inFront<T>(work: () => Promise<T>) {
+        if (!world.away) throw new NotAway();
+        return work();
       }
       async open(url: string) {
         world.opened.push(url);
@@ -178,6 +190,7 @@ const { LIVE_KEY } = await import('../src/hfos/live');
 const { NETWORKS_KEY } = await import('../src/networks/on');
 const { freshState, INSTAGRAM_STATE_KEY } = await import('../src/auto/plan');
 const { WARNED_KEY } = await import('../src/hfos/warned');
+const { AWAY_WAIT_LINE } = await import('../src/away');
 const { beforeDayDoing, beforeDayLine } = await import('../src/auto/lists');
 const { chatBoxFor } = await import('../src/networks/instagram/auto');
 const { readInstagram } = await import('../src/networks/instagram/read');
@@ -420,6 +433,7 @@ beforeEach(() => {
   world.pages = () => null;
   world.behave = () => undefined;
   world.choices = { on: true, sending: 'steps', collect: false, warmUp: true };
+  world.away = true;
   world.hours = notToday();
   store.set(NETWORKS_KEY, {
     facebook: { on: true, allowed: true },
@@ -1711,6 +1725,82 @@ describe('its day', () => {
     expect((store.get(INSTAGRAM_STATE_KEY) as { line: string }).line).toContain(
       'Instagram warned you today (“Action blocked”)',
     );
+  });
+
+  it('waits to save the followers on its first day till the person is away from their computer (decision 120)', async () => {
+    keep(day('started'));
+    world.hours = ALL_DAY;
+    world.away = false;
+    world.hfos['hfos-lists'] = () => NO_LISTS;
+    await instagramTick();
+    expect(world.opened).toEqual([]);
+    expect((store.get(INSTAGRAM_STATE_KEY) as { line: string }).line).toBe(
+      'Your first day on Instagram starts once your followers are saved. That needs its window on screen, so it waits till you’ve been away from your computer for 2 minutes.',
+    );
+    // Looked at again in 10 minutes, or sooner once they're away.
+    expect(alarms.get('hfos-auto-instagram')).toBeGreaterThan(Date.now() + 9 * 60_000);
+  });
+
+  it('puts off a once-a-day read that needs the screen while the person is at their computer, and does it once they’re away', async () => {
+    keep(day('started'));
+    world.hours = ALL_DAY;
+    world.choices = { on: true, sending: 'steps', collect: true, warmUp: true };
+    world.hfos['hfos-lists'] = saved;
+    // Everything else done today: only their newest followers, read in its box on screen, is left.
+    const others = Object.fromEntries(
+      [
+        'follow_backs',
+        'tidy',
+        'checks',
+        'chats',
+        'partners',
+        'posts',
+        'like_yours',
+        'helpful',
+        'weekly_post',
+        'post_people',
+        'found_checks',
+        'profile',
+      ].map((job) => [job, 'Done.']),
+    );
+    store.set(INSTAGRAM_STATE_KEY, { ...freshState(today()), daily: others });
+    world.answers['/v1/queries/outreach.today'] = () => ({
+      items: [],
+      auto: ['warm_up', 'friend_request'],
+      messages: [],
+      sending: 'steps',
+      partners: [],
+      limits: { like: { done: 0, most: 30 } },
+    });
+    world.pages = (url) =>
+      url === `${IG}/`
+        ? { html: `${MENU}<main><article></article></main>` }
+        : url === `${IG}/me.owner/followers/`
+          ? {
+              html: `${MENU}<div role="dialog"><h1>Followers</h1><div>
+              <div><a href="/dana.reyes/"><span dir="auto">dana.reyes</span></a><span dir="auto">Dana Reyes</span>
+                <button><div dir="auto">Remove</div></button></div></div></div>`,
+            }
+          : null;
+    world.hfos['hfos-save-friends'] = () => ({ added: 1 });
+    world.away = false;
+    await instagramTick();
+    const state = () => store.get(INSTAGRAM_STATE_KEY) as { line: string; daily: object };
+    // Not done for the day, and their followers' box never opened: its window opens behind theirs, never over it.
+    expect(world.opened).not.toContain(`${IG}/me.owner/followers/`);
+    expect(state().daily).not.toHaveProperty('requests');
+    expect(state().line).toBe(`Your newest followers: ${AWAY_WAIT_LINE}`);
+    // The rest of the day goes on: here, nothing on the list, so the last line says what waits.
+    await instagramTick();
+    expect(state().line).toBe(
+      'Nothing on your Instagram list for it to do yet. One part waits till you’ve been away from your computer for 2 minutes, as it needs its window on screen: Your newest followers.',
+    );
+    expect(alarms.get('hfos-auto-instagram')).toBeLessThan(Date.now() + 11 * 60_000);
+    // Once they're away, it's read.
+    world.away = true;
+    await instagramTick();
+    expect(world.opened).toContain(`${IG}/me.owner/followers/`);
+    expect(state().daily).toHaveProperty('requests');
   });
 });
 

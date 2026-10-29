@@ -1594,7 +1594,8 @@ where decisions 37 and 59 put the settings; what they decided stands. Settled to
       - **It reads with its window in front, a screen at a time to the box's end** (0.89.0). Instagram draws more of
         the box only as it's scrolled on screen, and Chrome draws nothing in a window hidden behind another: Chris's
         save of 23 Oct 2026 read 87 in twelve minutes. Each screen, still 8 to 15 seconds apart, goes to the box's
-        end, which keeps every row it drew, so the newest 200 take a few minutes.
+        end, which keeps every row it drew, so the newest 200 take a few minutes. From 0.109.0 it comes in front only
+        while the person is away from their computer (decision 120).
       - **A partial list never marks anyone gone.** `outreach.friends.save` only adds and updates the people it's given
         (nothing in core takes a list for whole), so a capped or incremental save leaves everyone it didn't read as
         they were: followers stay followers, and a follow still waiting keeps when it went. The reader of the box reads
@@ -2775,6 +2776,53 @@ where decisions 37 and 59 put the settings; what they decided stands. Settled to
       - **The business sees where their bank is** on the partner's page, web and phone ("Their bank is in Canada.").
       - **Affiliates** (HandsFreeOS's own sellers) stay in the US: not part of this pick.
 
+119.  **Drafts name each of someone's businesses** (Chris, 29 Oct 2026, "Build it"). "They are also a photographer
+      which was also their page as well as the solar. So it should be able to identify both and mention them smartly."
+      An Instagram draft named only someone's solar work, though their page was a photographer's too: the reader
+      dropped the bio's links, so the @mention of the other business and the website never reached the AI, and the
+      check's one line about them named the first business only.
+      - **What Instagram's reader keeps** (`profileOn` in `src/networks/instagram/read.ts`, 0.109.0): each line of the
+        bio on its own (they came glued together), with the @mentions in it ("Solar with @…"), then the words of up to
+        3 of its links off Instagram as "Link: …", their website often being where a second business shows
+        (`isBioLink` in `urls.ts`: through `l.instagram.com`, never their Threads badge). Up to 8 bio lines, as before.
+        The check reads 8 of their latest posts' lines, not 4 (`POST_LINES`).
+      - **On the other networks:** Facebook's check and look-up read 4 of their latest posts, and the business's, not 2
+        (`POSTS_READ`); LinkedIn's read 6 lines of their About, not 3 (`ABOUT_LINES`). Alignable's read was already
+        their whole business page.
+      - **The check names each** (`CHECK_SYSTEM`, `FOUND_CHECK_SYSTEM`, and `about` in `CHECK_SCHEMA`): when their bio,
+        links or posts show more than one business or line of work, its line about them names each ("Sells solar, and
+        photographs weddings"), never only the first. That line is one of a draft's facts.
+      - **A draft mentions each naturally** (`DRAFT_RULES` in `today.ts`, every network): when a message says what they
+        do and the facts show more than one, it never writes as if one were all they do. It mentions each briefly, or
+        leads with the one that fits the message best and nods to the other. Nothing is invented: only what the facts
+        say. No migration.
+
+120.  **The work window waits till the person is away** (Chris, 29 Oct 2026, "When I'm away"). "The extension is
+      bringing the window its working with to the front and center of the computer. interrupting everything the user
+      is currently doing. is there a way it could work in the background instead of making that window the focus?"
+      Chrome draws nothing in a window that's covered or minimized, and some reads only load what's drawn (Instagram's
+      boxes of followers and likes, LinkedIn's box of who reacted, a profile's sections), so those reads brought their
+      window in front (from 0.89.0). Chrome can't make a window see-through, so in front or not drawn are the only two.
+      - **Only once they're away** (`src/away.ts`, 0.109.0): a read that needs the screen comes in front once Chrome
+        says no key was pressed and the mouse didn't move for 2 minutes (`chrome.idle`, the new `idle` permission,
+        which shows no warning). A locked screen isn't away for this, and nor is one that stayed dark when the window
+        came in front, till the person has been back.
+      - **It steps back the moment they're back:** a key or the mouse gives them their window again at once
+        (`onBack`). What was being read goes on unseen till its next page or step, which then waits again. If they
+        weren't in Chrome, the work window is just put behind, so nothing of Chrome's comes over their other app. Only
+        one network's window is in front at a time.
+      - **The runners pass over what waits** (`PutOff` in `src/auto/on-screen.ts`): a once-a-day job whose read met the
+        screen while the person was there is put off (`NotAway`), never kept as done, and tried again once they're
+        away, or 10 minutes on. Likes, follows, requests and messages go on unseen meanwhile, and the day's last line
+        names what waits. Instagram's first day waits for its followers to be saved, which needs the screen. LinkedIn's
+        helpful post is asked for as ever, and who engaged with it is read as a job of its own (`engaged`).
+      - **An ask waits too,** saying so on its line in HandsFreeOS ("Waiting till you've been away from your computer
+        for 2 minutes…"), and Stop ends it. **A Check comes in front right away,** as the person pressed it to watch,
+        and **a step handed to the person** still comes to the front in its tab. Facebook's runner had nothing that
+        comes in front.
+      - **Its window opens beside theirs,** at the right of the person's window and the same height, without taking
+        their attention, not in the middle of the screen.
+
 ## Rules worth knowing before changing anything
 
 - **Nothing is saved until the person presses a button in HandsFreeOS** (an ask, below), except the four steps the
@@ -3514,7 +3562,8 @@ Alignable's withdraw goes by Alignable's words for a request that waits, which n
 The runner's presses (Add friend, Respond and Confirm, Like on the latest post, the comment box and its button) follow
 Facebook's usual 2026 pages, not yet tried on the owner's account; one it can't find is passed over for the day, and
 its line on the Live tab and in the panel says so. Chrome must be open for it to work; a window it opens unfocused may still show in front
-on some computers.
+on some computers. Coming in front only while the person is away (decision 120) goes by Chrome's idle state, not yet
+tried on the owner's computer; Safari may not have it, and there every read comes in front as before.
 
 Spotting replies reads chats the way the chat readers do now, not yet tried on the owner's account; a chat's line in
 Messenger's list counts when it doesn't start "You", so a group chat's line counts too, though only a chat with

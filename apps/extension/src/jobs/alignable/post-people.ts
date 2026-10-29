@@ -26,7 +26,7 @@ import { findsSave, type FoundPerson } from '../../hfos/saves';
 import { ALIGNABLE_LIKERS_MOST } from '../../networks/alignable/likers';
 import type { Named } from '../../networks/facebook/types';
 import { counted } from '../../words';
-import { paced, pause, valueOf, warnedOn, type Job, type JobEnd } from '../job';
+import { onScreen, paced, pause, valueOf, warnedOn, type Job, type JobEnd } from '../job';
 import { DRAWN_MS } from './posts';
 import {
   ended,
@@ -168,7 +168,7 @@ export async function readAlignablePostPeople(job: Job): Promise<JobEnd> {
       `${i + 1} of ${next.posts.length}: reading who liked and answered ${post.name}’s post…`,
     );
     const look = () => readPost(job, post, someoneElse, note);
-    const people = await (job.tab.inFront ? job.tab.inFront(look) : look());
+    const people = await onScreen(job, look);
     if (ended(people)) return { ...people, line: `${people.line} ${summary(read, added)}` };
     const kept = await savePeople(job, post, people);
     if (kept === null) continue;

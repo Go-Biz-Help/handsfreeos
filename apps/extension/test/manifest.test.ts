@@ -67,6 +67,11 @@ describe('the manifest', () => {
     expect(manifest.permissions).toContain('scripting');
   });
 
+  it('asks to know when the person is away from their computer, so a read that needs the screen waits for it', () => {
+    // Decision 120: chrome.idle, which shows no warning when it's installed.
+    expect(manifest.permissions).toContain('idle');
+  });
+
   it('has its own key, so Chrome gives it the same id from whatever folder it’s loaded from', () => {
     // Chrome's id: the first 32 hex digits of the key's SHA-256, each as a letter from a to p.
     const id = [

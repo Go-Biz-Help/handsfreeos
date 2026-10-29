@@ -22,7 +22,7 @@
  */
 import { instagramListSave, type InstagramListed } from '../../hfos/saves';
 import { counted } from '../../words';
-import { pause, valueOf, type Job, type JobEnd } from '../job';
+import { onScreen, pause, valueOf, type Job, type JobEnd } from '../job';
 import { lookForFollowBacks } from './follow-backs';
 import { ended, gather, INSTAGRAM, readInstagramIn, SIGNED_IN, signedOutEnd } from './read';
 
@@ -59,7 +59,7 @@ export async function saveFollowers(job: Job): Promise<JobEnd> {
   // Instagram draws more of the box only as it's scrolled on screen, and Chrome draws nothing in a window hidden behind
   // another (0.89.0: a save behind the person's window read 87 in twelve minutes): its window is in front while it
   // reads, then theirs is put back.
-  return job.tab.inFront ? job.tab.inFront(() => followersSaved(job)) : followersSaved(job);
+  return onScreen(job, () => followersSaved(job));
 }
 
 async function followersSaved(job: Job): Promise<JobEnd> {

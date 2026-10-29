@@ -46,6 +46,7 @@ import { nameOf } from '../looking/read';
 import {
   accountOf,
   instagramUrl,
+  isBioLink,
   isCommentLink,
   kindOf,
   partsOf,
@@ -73,8 +74,10 @@ const MESSAGES_MOST = 20;
 const TEXT_MOST = 2_000;
 /** A profile's latest posts. */
 const POSTS_MOST = 12;
-/** The lines under a profile's name: what they do, their bio. */
+/** The lines under a profile's name: what they do, their bio, a line for each of its own. */
 const BIO_LINES = 8;
+/** The links in their bio off Instagram: their website, a page of links. */
+const LINKS_MOST = 3;
 
 const LOCATION = /^\/explore\/locations\/[^/]+(\/[^/]+)?\/?$/i;
 const TAG = /^\/explore\/tags\/[^/]+\/?$/i;
@@ -132,8 +135,9 @@ export interface InstagramProfile extends Account {
   /** Their latest posts' links, as their grid shows them. */
   readonly posts: readonly string[];
   /**
-   * The lines under their name, as shown (part 13, for the checks and the look-up): what they do, their bio and its
-   * link's words; never a count, "Followed by …" or Instagram's own words.
+   * The lines under their name, as shown (part 13, for the checks and the look-up): what they do, their bio a line at a
+   * time with the @mentions in it, and its links' words ("Link: …"); never a count, "Followed by …", their Threads
+   * badge or Instagram's own words.
    */
   readonly bio: readonly string[];
   /**
@@ -336,6 +340,24 @@ export function leafLines(root: Element): { el: Element; text: string }[] {
     .map((el) => ({ el, text: clean(el.textContent) }));
 }
 
+/**
+ * A bio's piece of writing as a person reads it: a line for each of its own, as Instagram breaks them with `br`, and
+ * the account or tag a link in it names (@brightsun.co) kept apart from the words beside it.
+ */
+function bioLinesOf(el: Element): string[] {
+  const copy = el.cloneNode(true) as Element;
+  for (const a of copy.querySelectorAll('a')) {
+    const before = /\S$/.test(a.previousSibling?.textContent ?? '') ? ' ' : '';
+    const after = /^[\p{L}\p{N}@#]/u.test(a.nextSibling?.textContent ?? '') ? ' ' : '';
+    a.replaceWith(`${before}${a.textContent ?? ''}${after}`);
+  }
+  for (const br of copy.querySelectorAll('br')) br.replaceWith('\n');
+  return (copy.textContent ?? '')
+    .split('\n')
+    .map((line) => clean(line))
+    .filter(Boolean);
+}
+
 // ------------------------------------------------------------------------------------------------ a profile
 
 /** Where the person stands with the account whose header this is, by its own buttons. */
@@ -419,24 +441,30 @@ export function profileOn(doc: Document, base: string): InstagramProfile | null 
   }
   const shownName = name && name.toLowerCase() !== account.username.toLowerCase() ? name : null;
   // The lines under their name: what they do and their bio. Instagram draws a long bio in a part to press for more,
-  // so only links, buttons and headings are left out, with its own words, counts and who they share.
-  const bio = [
-    ...new Set(
-      leafLines(header)
-        .filter(
-          ({ el, text }) =>
-            !el.closest('a, button, h1, h2') &&
-            text !== shownName &&
-            text.toLowerCase() !== account.username.toLowerCase() &&
-            !OWN_WORDS.test(text) &&
-            !COUNTED.test(text) &&
-            countOf(text) === null &&
-            !FOLLOWS_YOU.test(text) &&
-            !FOLLOWED_BY.test(text),
-        )
-        .map(({ text }) => text.slice(0, TEXT_MOST)),
-    ),
-  ].slice(0, BIO_LINES);
+  // so only links, buttons and headings are left out, with its own words, counts and who they share. Each of the bio's
+  // own lines is one (the owner, 29 Oct 2026: their lines came glued together), the @mentions in it kept, and then
+  // the words of their links off Instagram, their website: where a second business often shows.
+  const said = (text: string) =>
+    text !== shownName &&
+    text.toLowerCase() !== account.username.toLowerCase() &&
+    !OWN_WORDS.test(text) &&
+    !COUNTED.test(text) &&
+    countOf(text) === null &&
+    !FOLLOWS_YOU.test(text) &&
+    !FOLLOWED_BY.test(text);
+  const lines = leafLines(header)
+    .filter(({ el }) => !el.closest('a, button, h1, h2'))
+    .flatMap(({ el }) => bioLinesOf(el))
+    .filter(said);
+  const links = [...header.querySelectorAll('a[href]')]
+    .filter(isBioLink)
+    .map((a) => clean(a.textContent))
+    .filter((words) => words && !OWN_WORDS.test(words))
+    .map((words) => `Link: ${words}`);
+  const bio = [...new Set(lines)]
+    .slice(0, BIO_LINES)
+    .concat([...new Set(links)].slice(0, LINKS_MOST))
+    .map((text) => text.slice(0, TEXT_MOST));
   return {
     username: account.username,
     url: account.url,

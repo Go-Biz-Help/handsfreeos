@@ -71,7 +71,9 @@ export type DailyJob = (typeof DAILY_JOBS)[number];
  * `group_checks`, `join` and `members`; from 0.101.0 the week's helpful post asked for on Instagram and Alignable
  * (`weekly_post`, decision 109); from 0.102.0 Instagram's accounts like the business's (`like_yours`, decision
  * 110, ../jobs/instagram/like-yours.ts); and from 0.104.0 the events near the person on Alignable, once a week
- * (`events`, decision 112, ../jobs/alignable/events.ts).
+ * (`events`, decision 112, ../jobs/alignable/events.ts); and from 0.109.0 who engaged with the person's helpful posts
+ * on LinkedIn on its own (`engaged`, after the day's post is asked for), as it reads with its window in front only
+ * while they're away from their computer (decision 120).
  */
 export type OwnDailyJob =
   | 'follow_backs'
@@ -82,7 +84,8 @@ export type OwnDailyJob =
   | 'group_posts'
   | 'weekly_post'
   | 'like_yours'
-  | 'events';
+  | 'events'
+  | 'engaged';
 
 /** The shortest and longest wait between two steps in the working hours. */
 export const GAP_MS = { least: 60_000, most: 45 * 60_000 } as const;

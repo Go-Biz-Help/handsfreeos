@@ -7,8 +7,8 @@
 import { line } from '../facebook/lookup';
 import type { CompanyPage, ProfilePage } from './types';
 
-/** The most lines of their About read. */
-const ABOUT_LINES = 3;
+/** The most lines of their About read: enough for a second business it names further down (the owner, 29 Oct 2026). */
+const ABOUT_LINES = 6;
 
 /** Words on their headline or role that say the company is theirs: "Owner", "Founder & CEO". */
 const OWNS =
