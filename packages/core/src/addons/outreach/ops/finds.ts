@@ -6,7 +6,8 @@
  *
  * - **Only from good posts** (`outreach.posts.people_next`): the person's own, the AI called good, seen in the last
  *   week; those asking for what the business offers first, then the busiest, then the newest. A good post's writer is
- *   found by the AI's check of the post itself (`findWriter`, from ./posts.ts).
+ *   found by the AI's check of the post itself (`findWriter`, from ./posts.ts), and so is a writer the business is
+ *   for whose post isn't good, as found by the search (decision 123).
  * - **Nobody known or reached already is kept** (`keepFind`): the person, a post's writer among its people, a friend or
  *   anyone asked either way, a customer or client, anyone left alone or running a group, anyone who says a playbook's
  *   skip word, and anyone the country setting skips by where they are.
@@ -165,12 +166,15 @@ export async function keepFind(
  * the post's own find (`posted`, with its hashtag or phrase and its group), with the same leave-outs as anyone found.
  * The best of the finds, so the cap on finds waiting never holds a writer back. Null on a network that weighs people
  * by the words they show (Facebook's), and for someone whose computer runs an older build (`findsByTopic`): it never
- * checks them, so they stay the old search pick's, as decision 92's 18 keeps it.
+ * checks them, so they stay the old search pick's, as decision 92's 18 keeps it. A writer the business is for whose
+ * post isn't one to comment on is found by the search that showed it (`searched`, decision 123), the post kept, and
+ * only while the finds waiting for a check are under the cap, as anyone a search shows.
  */
 export async function findWriter(
   ctx: CommandContext,
   post: typeof posts.$inferSelect,
   at: Date,
+  how: Extract<FindHow, 'posted' | 'searched'> = 'posted',
 ): Promise<FindKept | null> {
   // An account like the business's (decision 110) is read for its people, never found itself.
   if (post.found === 'account') return null;
@@ -184,7 +188,7 @@ export async function findWriter(
       me: post.userId,
       profileId: author.id,
       platform: author.platform,
-      how: 'posted',
+      how,
       postId: post.id,
       groupId: post.groupId,
       words: post.words,
@@ -193,7 +197,7 @@ export async function findWriter(
       at,
     },
     await countryRuleOf(ctx),
-    true,
+    how === 'posted' || !(await findsFull(ctx, post.userId, author.platform, at.getTime())),
   );
 }
 

@@ -285,6 +285,36 @@ describe('the AI’s words for finding people by topic', () => {
     });
   });
 
+  it('writes for a playbook from before its words once the extension saves the morning’s first list (decision 123)', async () => {
+    const ai = counting();
+    const s = testServices({ ai: { provider: ai.provider } });
+    const ws = await everywhere('Outreach Words Morning Co');
+    await drain(s, ws);
+    // Kept before the AI wrote words, and never saved since; the days start on their own, so nobody presses anything.
+    const [kept] = await rows<{ id: string }>(
+      admin(),
+      sql`insert into addon_outreach.playbooks (workspace_id, name, details, created_by, updated_by)
+          values (${ws}, 'Austin roofers', ${JSON.stringify(roofers())}::jsonb, ${owner.id}, ${owner.id})
+          returning id`,
+    );
+    await drain(s, ws);
+    expect(ai.asks()).toBe(0);
+
+    await runAs(owner, ws, 'outreach.lists.saved', { list: 'requests' });
+    await drain(s, ws);
+    expect(ai.asks()).toBe(1);
+    expect(await detailsOf(kept!.id)).toMatchObject({
+      postSearches: ['missed calls', 'roofers tips', 'hiring help'],
+      businessKinds: ['Roofers', 'Property Management'],
+      wordsWritten: ['instagram', 'linkedin', 'alignable'],
+    });
+
+    // Written: the next morning's lists ask nothing more.
+    await runAs(owner, ws, 'outreach.lists.saved', { platform: 'linkedin', list: 'requests' });
+    await drain(s, ws);
+    expect(ai.asks()).toBe(1);
+  });
+
   it('passes over an answer it can’t use for the playbooks after it, and never asks again and again', async () => {
     const ai = counting(unusable());
     const s = testServices({ ai: { provider: ai.provider } });

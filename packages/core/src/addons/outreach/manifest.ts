@@ -174,8 +174,9 @@ export const outreachAddon = defineAddon({
     // work out where they live when the setting skips anyone (decision 61, ./countries.ts). Starting the day, or
     // saving one's settings, arms the day's report, and a new main offer tells whoever OK'd their messages against an
     // older one (decision 70, ./tracking.ts). Someone who could partner, read off their profile, waits for the AI's
-    // partner check (decision 81, ./partners.ts). A playbook saved, a network turned on and the day started have the AI
-    // write each network's own words for a customers' playbook that has none yet (decision 92, ./words.ts). Someone
+    // partner check (decision 81, ./partners.ts). A playbook saved, a network turned on, the day started and the
+    // morning's first list saved (decision 123) have the AI write each network's own words for a customers' playbook
+    // that has none yet (decision 92, ./words.ts). Someone
     // accepting the person's friend request pushes to their phone, when they switched that on (decision 101, ./alerts.ts).
     // Someone who wants a demo, or answered the playbook's questions, goes in the main pipeline (decision 105, ./leads.ts);
     // once they came to the demo, their lead moves on and waits for the person's won or lost (decision 106). Accounts
@@ -206,6 +207,7 @@ export const outreachAddon = defineAddon({
       'main_offer.published',
       'outreach.partner.looked',
       'outreach.playbook.saved',
+      'outreach.lists.saved',
       'outreach.friend.accepted',
       'outreach.lead.wanted',
       'appointment.completed',

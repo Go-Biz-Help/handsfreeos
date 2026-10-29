@@ -105,7 +105,7 @@ export async function checkPostsJob(ctx: AddonJobContext): Promise<JobResult> {
       }));
 
   for (const post of found.posts.slice(0, CHECK_POSTS_BATCH)) {
-    let check: { good: boolean; strong: boolean; why: string | null } | null;
+    let check: { good: boolean; strong: boolean; fits: boolean; why: string | null } | null;
     try {
       const { value } = await askStructured(ctx, ctx.scope, {
         system: postCheckSystem(post.platform),
@@ -125,7 +125,12 @@ export async function checkPostsJob(ctx: AddonJobContext): Promise<JobResult> {
         maxTokens: 200,
         usage: { source: 'addon', addonId: ctx.manifest.id },
       });
-      check = { good: value.good, strong: value.strong, why: checkedPostWhy(value.why) };
+      check = {
+        good: value.good,
+        strong: value.strong,
+        fits: value.fits,
+        why: checkedPostWhy(value.why),
+      };
     } catch (e) {
       if (!(e instanceof AiAskError)) throw e;
       // The day's limit or an empty balance: the rest wait a few hours. Not set up: they wait for the next save.

@@ -10,6 +10,7 @@
  * computer (decision 120, ./away.ts), stepping back the moment they're back.
  */
 import { awayNow, type Hold, markDark, NotAway, onBack } from './away';
+import { catchCopiesIn } from './networks/copies';
 import { facebook, type Kit } from './networks';
 import type {
   Answer,
@@ -39,6 +40,8 @@ import type {
   FetchAsk,
   GroupPostAnswer,
   GroupPostAsk,
+  PostLinksAnswer,
+  PostLinksAsk,
   JoinAnswer,
   JoinAsk,
   CodeAnswer,
@@ -340,8 +343,27 @@ export class WorkTab {
     await chrome.tabs.remove(id).catch(() => undefined);
   }
 
+  /**
+   * Has the page catch what it copies while its tab's script says to (./networks/copies.ts): run in the page's own
+   * world, as only that changes what the page's own code copies with. Whether it could.
+   */
+  async catchCopies(): Promise<boolean> {
+    if (this.id === null) return false;
+    try {
+      const [ran] = await chrome.scripting.executeScript({
+        target: { tabId: this.id },
+        world: 'MAIN',
+        func: catchCopiesIn,
+      });
+      return ran?.result === true;
+    } catch {
+      return false;
+    }
+  }
+
   /** Asks the tab's script, loading it first into a tab opened before the extension was. */
   async ask(message: FetchAsk): Promise<FetchAnswer>;
+  async ask(message: PostLinksAsk): Promise<PostLinksAnswer>;
   async ask(message: PostsAsk): Promise<PostsAnswer>;
   async ask(message: AutoAsk): Promise<AutoAnswer>;
   async ask(message: ConnectAsk): Promise<AutoAnswer>;
@@ -373,6 +395,7 @@ export class WorkTab {
       | OpenMessageAsk
       | JoinAsk
       | GroupPostAsk
+      | PostLinksAsk
       | FeedPostAsk
       | StoryAsk
       | TheirCommentAsk
@@ -395,6 +418,7 @@ export class WorkTab {
     | AutoAnswer
     | JoinAnswer
     | GroupPostAnswer
+    | PostLinksAnswer
     | FeedPostAnswer
     | StoryAnswer
     | TheirCommentAnswer

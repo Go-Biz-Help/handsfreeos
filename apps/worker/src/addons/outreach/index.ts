@@ -167,11 +167,14 @@ export const outreachAddonWorker: AddonWorkerModule = {
     'outreach.ask.ended': askSettled,
     'outreach.ask.cancelled': askSettled,
     // Starting the day, or saving one's settings, arms the day's report; a new main offer tells whoever OK'd their
-    // messages against an older one (./tracking.ts). A playbook saved, a network turned on and the day started (a
-    // safety net) have the AI write each network's own words for a customers' playbook with none (./words.ts).
+    // messages against an older one (./tracking.ts). A playbook saved, a network turned on and the day started have
+    // the AI write each network's own words for a customers' playbook with none (./words.ts); and, as days start on
+    // their own (decision 95) with nobody pressing anything, so does the morning's first list the extension saves (a
+    // safety net, decision 123).
     'outreach.day.started': both(armDayReportFor, wordsWanted),
     'outreach.automation.saved': both(armDayReportFor, wordsWanted),
     'outreach.playbook.saved': wordsWanted,
+    'outreach.lists.saved': wordsWanted,
     'main_offer.published': offerPublished,
     // Someone who could partner, read off their profile, waits for the AI's partner check (./partners.ts).
     'outreach.partner.looked': partnerLooked,

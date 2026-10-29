@@ -30,6 +30,8 @@ import { linkedin } from '../src/networks';
 import { DATA_PAGE } from '../src/networks/linkedin/data';
 import { CATCH_UP_PAGE } from '../src/jobs/occasions';
 import { readPage } from '../src/networks/linkedin/page';
+import { postKey } from '../src/networks/linkedin/post-links';
+import { LINKS_PER_SCREEN } from '../src/jobs/linkedin/posts';
 import type { StepTry, TryStep } from '../src/networks/linkedin/tries';
 import type { ProfileRef } from '../src/networks/linkedin/types';
 import { withdraw } from '../src/networks/linkedin/withdraw';
@@ -394,6 +396,8 @@ function fakeTab(
     /** What each step's try says, or each of its tries in turn. */
     tries?: Partial<Record<TryStep, StepTry | StepTry[]>>;
     onOpen?: (doc: Document, url: string) => void;
+    /** What its post search's menus copy (decision 123): the tab catches copies, and answers each ask for links so. */
+    links?: (ask: { readonly most: number; readonly skip: readonly string[] }) => unknown;
   } = {},
 ) {
   let at: string | null = null;
@@ -417,6 +421,14 @@ function fakeTab(
       open(url);
       return 1;
     },
+    ...(more.links
+      ? {
+          async catchCopies() {
+            asked.push('catch-copies');
+            return true;
+          },
+        }
+      : {}),
     async close() {
       closed++;
     },
@@ -442,6 +454,10 @@ function fakeTab(
           return { ok: true, result: more.headline ?? 'done', steps: more.headlineSteps };
         case 'hfos-withdraw':
           return { ok: true, result: await withdraw(doc, reading, message.profile as ProfileRef) };
+        case 'hfos-post-links':
+          return more.links
+            ? more.links(message as unknown as { most: number; skip: string[] })
+            : { ok: false, error: 'Not asked for.' };
         case 'hfos-try': {
           // Check LinkedIn's tries are the tab's (test/linkedin-tries.test.ts): here, the page each was tried on.
           const step = message.step as TryStep;
@@ -1274,6 +1290,98 @@ describe('finding posts with LinkedIn’s post search', () => {
     expect(end.line).toBe(
       'Searched LinkedIn’s posts for 2 phrases: 2 posts sent for the AI to check. The good ones go on your list for today.',
     );
+  });
+
+  it('gets each person’s post its link from its menu where the newer page shows none (decision 123)', async () => {
+    const posts = (doc: Document) =>
+      readPage(doc, `${LI}/search/results/content/?keywords=x`, NOW, { sideOf: () => null }).posts!;
+    const key = (doc: Document, name: string) =>
+      postKey(posts(doc).find((p) => p.author?.name === name)!);
+    let page: Document | null = null;
+    const skips: string[][] = [];
+    const { tab, asked } = fakeTab(() => 'linkedin-search-posts-2026-10.html', {
+      onOpen: (doc) => void (page = doc),
+      scrolls: { 'hfos-scroll-list': [true, false] },
+      links: ({ most, skip }) => {
+        skips.push([...skip]);
+        expect(most).toBe(LINKS_PER_SCREEN);
+        // Maya Ortiz’s menu gave no link: her post can't be kept.
+        const tried = ['Nora Vance', 'Eli Brooks', 'Maya Ortiz']
+          .map((name) => key(page!, name))
+          .filter((k) => !skip.includes(k));
+        return {
+          ok: true,
+          links: [
+            {
+              key: key(page!, 'Nora Vance'),
+              url: `${LI}/feed/update/urn:li:activity:7390000000000000101/`,
+            },
+            {
+              key: key(page!, 'Eli Brooks'),
+              url: `${LI}/feed/update/urn:li:activity:7390000000000000102/`,
+            },
+          ].filter((l) => tried.includes(l.key)),
+          tried,
+          found: { posts: tried.length, menus: tried.length, items: tried.length, copied: 2 },
+        };
+      },
+    });
+    const { hfos, sent } = fakeHfos();
+    const report = vi.fn(async (_note?: ReportNote) => undefined);
+    const end = await onLinkedIn(
+      { kind: 'posts', groups: null, words: ['missed calls'] },
+      jobWith(tab, hfos, { report }).job,
+    );
+    // The page catches copies before any menu is pressed.
+    expect(asked.indexOf('catch-copies')).toBeLessThan(asked.indexOf('hfos-post-links'));
+    const saves = sentOf(sent, 'hfos-save-posts').map((a) => a.input);
+    expect(saves).toHaveLength(1);
+    expect(saves[0]!.posts.map((p) => [p.name, p.url])).toEqual([
+      ['Nora Vance', `${LI}/feed/update/urn:li:activity:7390000000000000101/`],
+      ['Eli Brooks', `${LI}/feed/update/urn:li:activity:7390000000000000102/`],
+    ]);
+    // The next screen presses no post's menu twice, Maya Ortiz's either; with every post tried, it asks no more.
+    expect(skips).toEqual([[]]);
+    expect(report).not.toHaveBeenCalled();
+    expect(end.line).toContain('2 posts sent for the AI to check');
+  });
+
+  it('notes the page, its menu open, once, when no post’s menu gives its link', async () => {
+    const { tab } = fakeTab(() => 'linkedin-search-posts-2026-10.html', {
+      links: () => ({
+        ok: true,
+        links: [],
+        tried: [],
+        found: { posts: 2, menus: 2, items: 0, copied: 0 },
+        outline: 'HandsFreeOS Social · page outline\n  div role="menu"',
+      }),
+    });
+    const { hfos, sent } = fakeHfos();
+    const report = vi.fn(async (_note?: ReportNote) => undefined);
+    const end = await onLinkedIn(
+      { kind: 'posts', groups: null, words: ['missed calls', 'follow-ups'] },
+      jobWith(tab, hfos, { report }).job,
+    );
+    expect(report.mock.calls.map(([note]) => note)).toEqual([
+      {
+        job: 'posts.links',
+        note: 'No Copy link to post in a post’s menu on LinkedIn’s post search.',
+        found: { posts: 2, menus: 2, items: 0, copied: 0 },
+        outline: true,
+        outlineText: 'HandsFreeOS Social · page outline\n  div role="menu"',
+      },
+    ]);
+    expect(sentOf(sent, 'hfos-save-posts')).toEqual([]);
+    expect(end.line).toContain('0 posts sent for the AI to check');
+  });
+
+  it('presses no menu on a tab that can’t catch copies', async () => {
+    const { tab, asked } = fakeTab(() => 'linkedin-search-posts-2026-10.html');
+    await onLinkedIn(
+      { kind: 'posts', groups: null, words: ['missed calls'] },
+      jobWith(tab, fakeHfos().hfos).job,
+    );
+    expect(asked).not.toContain('hfos-post-links');
   });
 
   it('says what to add when the playbooks have no words to search with', async () => {

@@ -23,17 +23,18 @@
  *   and from part 15 the day's hashtags and places, made from the playbooks' area and words, whose posts go for the
  *   AI's check (a good one's author gets a like, then a follow), and their notifications' warm leads (whoever followed
  *   them is followed back; whoever liked or commented gets a like back, then a follow).
- * - **Then Instagram's list for today** (`outreach.today` with `platform: 'instagram'`), the kinds it does on its own
- *   (`auto`): a look at their account and a like on one or two of their recent posts (the warm-up), the first that
- *   nothing rules out (never one about grief, illness or trouble), a second only while the day's likes have room past
- *   the warm-ups still to come; from 0.103.0 their story, when their account shows one, watched and liked as one of
- *   those likes, up to 20 a day (decision 111); a follow a day after, with their account's own Follow; and the messages: drafted after
- *   a look-up of their account, and sent once OK'd in their chat, typing only into its own box. The first message
- *   goes once they follow back; the one to their Requests (part 12's rule) as one text, never split; follow-ups only in
- *   a chat they've answered or accepted, as HandsFreeOS lists them. From 0.95.0 a comment on a good post is drafted
- *   by the AI and goes through Waiting for you as messages do (decision 92, ./comments.ts): it waits for the person's
- *   OK while the comment hold or training wheels are on, then goes on its own, only in the post's own box.
- *   Unfollowing stays the person's ticks, as withdrawing old requests does on the other networks.
+ * - **Then Instagram's list for today,** a step after each part of the reading above while it's left (decision 123)
+ *   (`outreach.today` with `platform: 'instagram'`), the kinds it does on its own (`auto`): a look at their account and
+ *   a like on one or two of their recent posts (the warm-up), the first that nothing rules out (never one about grief,
+ *   illness or trouble), a second only while the day's likes have room past the warm-ups still to come; from 0.103.0
+ *   their story, when their account shows one, watched and liked as one of those likes, up to 20 a day (decision 111);
+ *   a follow a day after, with their account's own Follow; and the messages: drafted after a look-up of their account,
+ *   and sent once OK'd in their chat, typing only into its own box. The first message goes once they follow back; the
+ *   one to their Requests (part 12's rule) as one text, never split; follow-ups only in a chat they've answered or
+ *   accepted, as HandsFreeOS lists them. From 0.95.0 a comment on a good post is drafted by the AI and goes through
+ *   Waiting for you as messages do (decision 92, ./comments.ts): it waits for the person's OK while the comment hold or
+ *   training wheels are on, then goes on its own, only in the post's own box. Unfollowing stays the person's ticks, as
+ *   withdrawing old requests does on the other networks.
  * - **At Instagram's pace:** a few minutes between steps, slower than LinkedIn's, within Instagram's low limits, which
  *   HandsFreeOS keeps (its list holds only what they have room for).
  * - **Stops on any Instagram warning** ("Action blocked", "Try again later"), for the day, on Instagram alone: the
@@ -100,6 +101,7 @@ import {
   beforeDayDoing,
   beforeDayLine,
   doBeforeDay,
+  holdsTheDay,
   markOf,
   type BeforeDay,
 } from './lists';
@@ -108,6 +110,7 @@ import {
   gapAfter,
   INSTAGRAM_STATE_KEY,
   isState,
+  listTurn,
   needOf,
   networkDay,
   networkWaitWords,
@@ -117,6 +120,7 @@ import {
   type AutoState,
   type DailyJob,
   type DoneKind,
+  type NetworkDay,
   type OwnDailyJob,
   type Work,
 } from './plan';
@@ -1204,6 +1208,23 @@ async function go(): Promise<void> {
     );
     return goAt(Date.now() + AWAY_AGAIN_MS);
   }
+  const passOver = putOff.passOver(away);
+  const daily = choices.collect ? nextInstagramDaily(state, passOver) : null;
+  const reading = (before !== null && (away || before.do !== 'save')) || daily !== null;
+  // The morning's reading and the list take turns (decision 123): a step on the list now, when there's one, after a
+  // part of the reading went last.
+  if (listTurn(state, reading, holdsTheDay(before))) {
+    const { list, left } = await listNow(to.businessId, state.tried);
+    if (left[0])
+      return workNext(left, list, {
+        businessId: to.businessId,
+        settings,
+        timezone,
+        own,
+        reading,
+        random,
+      });
+  }
   if (before && (away || before.do !== 'save')) {
     const end = await inTurn('runner', () => beforeTheDay(before, to.businessId), PLATFORM);
     const line = beforeDayLine(before, end, PLATFORM);
@@ -1212,10 +1233,12 @@ async function go(): Promise<void> {
       await say(end.line, { stopped: 'warning' });
       return goAt(tomorrow());
     }
+    // Put off till they're away, or done: the list has its turn next either way (decision 123).
     if (end.away) {
-      await say(line);
+      await say(line, { readLast: true });
       return soon();
     }
+    await setState({ readLast: true });
     void feed('job', `${NAME}: ${line}`);
     if (before.do === 'save' && before.first && end.failed) {
       await closeWindow();
@@ -1229,8 +1252,6 @@ async function go(): Promise<void> {
     return soon();
   }
 
-  const passOver = putOff.passOver(away);
-  const daily = choices.collect ? nextInstagramDaily(state, passOver) : null;
   if (daily) {
     const end = await inTurn('runner', () => collect(daily, to.businessId), PLATFORM);
     if (end.warned) {
@@ -1239,21 +1260,14 @@ async function go(): Promise<void> {
       return goAt(tomorrow());
     }
     const line = `${DAILY_NAMES[daily]}: ${end.line}`;
-    await say(line);
+    await say(line, { readLast: true });
     if (end.away) putOff.off(daily);
     else void feed('job', `${NAME}: ${line}`);
     return soon();
   }
 
-  const list: TodayList = await call(
-    api().POST('/v1/queries/outreach.today', {
-      body: { workspaceId: to.businessId, platform: PLATFORM },
-    }),
-    to.businessId,
-  );
-  const left = instagramWorkLeft(list, state.tried);
-  const work = left[0];
-  if (!work) {
+  const { list, left } = await listNow(to.businessId, state.tried);
+  if (!left[0]) {
     await closeWindow();
     // What waits for them to be away is looked at again sooner.
     const waiting = choices.collect
@@ -1268,13 +1282,58 @@ async function go(): Promise<void> {
     );
     return goAt(at + (waiting ? AWAY_AGAIN_MS : 60 * 60_000));
   }
+  return workNext(left, list, {
+    businessId: to.businessId,
+    settings,
+    timezone,
+    own,
+    reading,
+    random,
+  });
+}
+
+/** Instagram's list for today, and what's left on it for its runner, in its order. */
+async function listNow(
+  businessId: string,
+  tried: readonly string[],
+): Promise<{ readonly list: TodayList; readonly left: Work[] }> {
+  const list: TodayList = await call(
+    api().POST('/v1/queries/outreach.today', {
+      body: { workspaceId: businessId, platform: PLATFORM },
+    }),
+    businessId,
+  );
+  return { list, left: instagramWorkLeft(list, tried) };
+}
+
+/**
+ * Does the first of what's left on Instagram's list, notes how it went, and sets when to go next: at Instagram's
+ * pace, the day's steps spread out over what's left of the hours, or a person's pace while the morning's reading is
+ * left (decision 123) or after Start my day.
+ */
+async function workNext(
+  left: readonly Work[],
+  list: TodayList,
+  at: {
+    readonly businessId: string;
+    readonly settings: NonNullable<Awaited<ReturnType<typeof loadSettings>>>['settings'];
+    readonly timezone: string;
+    readonly own: Extract<NetworkDay, { go: true }>;
+    /** Some of the morning's reading is left: the list's turn goes back to it. */
+    readonly reading: boolean;
+    readonly random: number;
+  },
+): Promise<void> {
+  const work = left[0]!;
+  const { businessId, settings, own } = at;
+  const tomorrow = () => nextStart(settings.hours, at.timezone, Date.now(), at.random);
   const { item } = work;
-  await say(doing(work), { working: true });
+  await say(doing(work), { working: true, readLast: false });
   let outcome: Outcome;
   try {
     outcome = await inTurn(
       'runner',
-      () => doWork(work, to.businessId, settings.voice?.split ?? true, spareLikes(list, left)),
+      () => doWork(work, businessId, settings.voice?.split ?? true, spareLikes(list, left)),
       PLATFORM,
     );
   } catch (error) {
@@ -1295,12 +1354,12 @@ async function go(): Promise<void> {
   // A step that didn't go: the page it ended on, outline and all, noted while the window still shows it (decision 74).
   if ('done' in outcome && !outcome.done)
     await reporter(tab, answer as Hfos, {
-      businessId: to.businessId,
+      businessId,
       platform: PLATFORM,
       askId: null,
       job: work.do === 'step' ? work.item.kind : work.do,
     })({ note: 'The step didn’t go.', outline: true });
-  state = await stateNow();
+  const state = await stateNow();
   const kind = doneAs(work);
   const done =
     'done' in outcome && outcome.done
@@ -1314,7 +1373,7 @@ async function go(): Promise<void> {
   }
   await say(outcome.line);
   const need =
-    'need' in outcome && work.do === 'step' ? needOf(item, outcome.line, to.businessId) : null;
+    'need' in outcome && work.do === 'step' ? needOf(item, outcome.line, businessId) : null;
   if (need) void noteNeed(need);
   void feed(outcome.done ? 'done' : 'passed', `${NAME}: ${outcome.line}`);
   if (stopAsked) {
@@ -1327,8 +1386,9 @@ async function go(): Promise<void> {
       now: Date.now(),
       until: own.until,
       left: left.length - 1,
-      started: own.started,
-      random,
+      // A person's pace while the morning's reading is left: the list's turn and the reading's go by turns.
+      started: own.started || at.reading,
+      random: at.random,
     }),
   );
   if (gap > KEEP_WINDOW_MS) await closeWindow();

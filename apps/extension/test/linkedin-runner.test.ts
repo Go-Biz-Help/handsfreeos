@@ -232,7 +232,7 @@ const { WorkTab } = await import('../src/tab');
 const { answer } = await import('../src/hfos/session');
 const { LIVE_KEY } = await import('../src/hfos/live');
 const { NETWORKS_KEY } = await import('../src/networks/on');
-const { LINKEDIN_STATE_KEY } = await import('../src/auto/plan');
+const { freshState, LINKEDIN_STATE_KEY } = await import('../src/auto/plan');
 const { WARNED_KEY } = await import('../src/hfos/warned');
 
 const store = new Map<string, unknown>();
@@ -1084,6 +1084,61 @@ describe('its day', () => {
     expect(store.get(LINKEDIN_STATE_KEY)).toMatchObject({
       line: 'Helpful post: Put your helpful post up on your LinkedIn feed.',
       helpfulUp: true,
+    });
+  });
+
+  it('takes turns: a part of the morning’s reading, then a step on the list (decision 123)', async () => {
+    keep(day('started'));
+    world.hours = ALL_DAY;
+    world.choices = { on: true, sending: 'steps', collect: true, posting: 'after_ok' };
+    const saved = new Date().toISOString();
+    world.hfos['hfos-lists'] = () => ({
+      friendsAt: saved,
+      requestsAt: saved,
+      sentAt: saved,
+      groupsAt: null,
+      groupChecksAt: null,
+      tidyAt: saved,
+      checksAt: saved,
+    });
+    world.answers['/v1/queries/outreach.today'] = () => ({
+      items: [item({})],
+      auto: ['friend_request'],
+      messages: [],
+      sending: 'steps',
+    });
+    world.pages = () => ({ fixture: 'linkedin-profile.html' });
+    world.behave = (doc) => {
+      const connect = doc.querySelector('[aria-label="Invite Dana Reyes to connect"]');
+      connect?.addEventListener('click', () => {
+        connect.insertAdjacentHTML(
+          'beforebegin',
+          '<button aria-label="Pending, click to withdraw invitation sent to Dana Reyes"><span>Pending</span></button>',
+        );
+        connect.remove();
+      });
+    };
+    // A part of the reading went last, and the once-a-day jobs are all still to do: the invitation goes now.
+    store.set(LINKEDIN_STATE_KEY, { ...freshState(today()), started: true, readLast: true });
+    const before = Date.now();
+    await linkedInTick();
+    expect(world.opened).toEqual([DANA]);
+    expect(notedAs()).toEqual([
+      { kind: 'friend_request', auto: true, postUrl: null, platform: 'linkedin' },
+    ]);
+    expect(store.get(LINKEDIN_STATE_KEY)).toMatchObject({ readLast: false, daily: {} });
+    // At a person's pace while the reading's left: within LinkedIn's few minutes, never spread over the day.
+    expect(alarms.get('hfos-auto-linkedin')! - before).toBeLessThanOrEqual(7 * 60_000);
+
+    // Next go, the reading's turn: the first once-a-day job, and nothing on the list.
+    world.opened.length = 0;
+    world.noted.length = 0;
+    await linkedInTick();
+    expect(world.opened).not.toContain(DANA);
+    expect(notedAs()).toEqual([]);
+    expect(store.get(LINKEDIN_STATE_KEY)).toMatchObject({
+      readLast: true,
+      daily: { requests: expect.any(String) },
     });
   });
 

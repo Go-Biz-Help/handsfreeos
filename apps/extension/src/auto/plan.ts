@@ -5,11 +5,12 @@
  * (packages/core/src/addons/outreach/sends.ts) come around those: the ones OK'd go first, then it drafts the rest,
  * which wait for the person or go as they are; with Approve all, it drafts them all before anything else, so they're
  * ready first thing. Within the working hours it spreads the day's steps out, at random times; after **Start my day** it goes at
- * a person's pace, a minute or few apart. Before any of it, once a day, it checks the person's friend requests, checks
- * their groups for their people and joins good ones when people left to reach run low (decision 48), saves their
- * groups' members, finds posts, reads their chats (decision 32) and checks their friends for good fits (decision 46),
- * which fill that list. In the working hours, every hour or two, it looks at the newest posts in their best groups
- * (decision 49), so one asking for what they offer is answered fast.
+ * a person's pace, a minute or few apart. Once a day, it checks the person's friend requests, checks their groups for
+ * their people and joins good ones when people left to reach run low (decision 48), saves their groups' members, finds
+ * posts, reads their chats (decision 32) and checks their friends for good fits (decision 46), which fill that list;
+ * from 0.112.0 that reading and the list take turns at a person's pace till the reading's done (decision 123,
+ * `listTurn`), so nothing on the list waits for all of it. In the working hours, every hour or two, it looks at the
+ * newest posts in their best groups (decision 49), so one asking for what they offer is answered fast.
  */
 import {
   businessDay,
@@ -44,7 +45,7 @@ export type AutoKind = (typeof AUTO_KINDS)[number];
  */
 export type DoneKind = AutoKind | 'drafted' | 'sent' | 'story_like';
 
-/** The jobs it does once a day before the list, in the order it does them (./daily.ts, decision 32). */
+/** The jobs it does once a day, in order (./daily.ts, decision 32), by turns with the list (decision 123). */
 export const DAILY_JOBS = [
   'requests',
   'tidy',
@@ -115,6 +116,11 @@ export interface AutoState {
   /** What it did before the day today (./lists.ts), each with how it went in words. Missing in a state kept by 0.26. */
   readonly before?: TriedBefore;
   /**
+   * The last go did a part of the morning's reading: the next does a step on the list, when there's one (decision 123,
+   * `listTurn`). Missing in a state kept by 0.111.
+   */
+  readonly readLast?: boolean;
+  /**
    * The person's lists as HandsFreeOS last said, and the step before the day under way now: for the panel's live
    * checklist. Missing in a state kept by 0.27.
    */
@@ -153,6 +159,7 @@ export function freshState(day: string | null, tabId: number | null = null): Aut
     done: {},
     daily: {},
     before: {},
+    readLast: false,
     watchAt: null,
     helpfulAt: null,
     helpfulUp: false,
@@ -202,6 +209,20 @@ export const watchDue = (state: Pick<AutoState, 'watchAt'>, now: number): boolea
 /** Someone on the list, by what they're on it for. */
 export const itemKey = (item: Pick<TodayListItem, 'kind' | 'postId' | 'profileId' | 'name'>) =>
   `${item.kind}:${item.postId ?? item.profileId ?? item.name}`;
+
+/**
+ * Whether the list goes before the morning's reading this go (decision 123; the owner, 29 Oct 2026, an hour into a
+ * day: "all it has done is 4 likes on facebook and nothing else on any of the platforms"). While reading is left today
+ * (the lists before the day and the once-a-day jobs), a step on the list and a part of the reading take turns, at a
+ * person's pace, so the day's likes, requests and the messages OK'd never wait the hour or two the reading takes. The
+ * first go of a day reads; a first save of the person's lists still holds the day (`held`, ./lists.ts `holdsTheDay`);
+ * a list with nothing left on it reads on.
+ */
+export const listTurn = (
+  state: Pick<AutoState, 'readLast'>,
+  reading: boolean,
+  held: boolean,
+): boolean => reading && !held && state.readLast === true;
 
 /**
  * What's left for it to do today, in its order: the kinds it does for the person (the list's `auto`), not tried

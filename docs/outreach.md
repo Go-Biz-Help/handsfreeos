@@ -907,7 +907,8 @@ than a store extension, and for more features, and answered the questions the sa
 31. **It asks to join good groups, up to 3 a day,** and the AI answers the join questions from the playbook. Automation part 5.
 32. **Find posts, Read my chats, saving group members and checking friend requests run once a day on their own.**
     Built: first thing in the working day (or after Start my day), before the list, while the extension works on its
-    own and **Once a day** is ticked (on to start).
+    own and **Once a day** is ticked (on to start). From decision 123 (extension 0.112.0) the list takes turns with
+    them instead of waiting for them all.
 33. **A like on one of their recent posts a day or two before the friend request.** Built: the request waits 20
     hours after the like; a like over 14 days old doesn't count; no post to like, no wait. The post is picked by the
     AI from their latest few, business first, then personal, never a sensitive one ("Which post gets the like").
@@ -2246,12 +2247,14 @@ where decisions 37 and 59 put the settings; what they decided stands. Settled to
       LinkedIn use the old made-up words and Alignable doesn't search. Partner playbooks get none, and partner searches
       (decision 81) keep their words. Found while building: it writes only for the networks somebody in the business
       works (their own choice, or the business's starting one, inside the networks it allows), so a Facebook-only
-      business spends no AI on them, and turning a network on asks for its words then.
+      business spends no AI on them, and turning a network on asks for its words then. From decision 123 the morning's
+      first list saved asks too, as days start on their own with nothing pressed.
     - **Where it looks:** Instagram 5 hashtags a day in turn, about 10 posts each (2a; places stay 4); LinkedIn 5
       phrases a day in turn; Alignable 3 kinds of business a day in the person's own town and those within 25 miles
       (decision 115), or anywhere when that playbook works online (9), and the person's own groups, then groups it finds by niche and area (10a).
     - **Who it finds** (`finds`, each person's own): writers of posts the AI calls good, who liked or reacted to them
-      and who commented (3a, read only from good posts), Alignable search results and group members. Never the person,
+      and who commented (3a, read only from good posts), Alignable search results and group members. From decision
+      123 also the writer of a post that isn't good when the writer fits a playbook, found by the search. Never the person,
       a friend or connection, a customer or client, Don't pitch or Never contact, or a place outside the business's
       countries. What a commenter said goes once the AI reads it, or after 14 days.
     - **Each one is checked by the AI from their own page before anything else** (4a): a check marked `via = 'found'`,
@@ -2885,6 +2888,42 @@ where decisions 37 and 59 put the settings; what they decided stands. Settled to
         a build before it holds only what Replies holds.
       - **Knowledge is the business's own,** so each business fills its own (Knowledge → Website scans its site).
         With none, most questions wait. No migration.
+123.  **The first hour does more than read** (Chris, 29 Oct 2026, on extension 0.111.0, then "Both" on the card). "I don't understand why the
+      activity for basically everything on all the platforms except likes on facebook are empty? It's been working for
+      an hour (at least it should) and all it has done is 4 likes on facebook and nothing else on any of the
+      platforms?" The day's own records showed four causes, and these fix them. The second and third change decisions
+      32 and 92, as Chris chose.
+      - **The AI writes the search words when the day starts on its own** (a bug). Decision 92's words writer
+        (`outreach.write_words`) ran when a playbook was saved, a network turned on or the day started. Since decision
+        95 a day starts with nothing pressed, so a playbook from before decision 92 never got its words: Instagram
+        looked at the old made-up hashtags, LinkedIn at the old phrases, and Alignable searched for nobody. The
+        morning's first list the extension saves (`outreach.lists.saved`) asks for them too, once, for a customers'
+        playbook with none, on the networks somebody works.
+      - **A writer who fits is found even when their post isn't one to comment on.** The AI checks a post for whether
+        it's worth a comment, so a business owner's ad about their own work was "not good", and its writer never
+        found: on Instagram every post the hashtags showed was. The post check now also says whether the writer
+        themselves is someone a playbook is for (`fits`: an owner of such a business posting about their own work, even
+        an ad, fits; a competitor or anything a playbook says to skip never does). A writer who fits is found by the
+        search that showed the post (`searched`, "Found by your Instagram search for “…”"), the post kept, and checked
+        from their own page as anyone found is (decision 92's 4a). Only while the finds waiting for a check are under
+        the cap, as anyone a search shows; a good post's writer is found as before. No migration.
+      - **The list takes turns with the morning's reading** (extension **0.112.0**). Every network did all of its
+        once-a-day reading (decision 32) and its saves before the day (decision 60) before the first step on its list,
+        and on Facebook that took over an hour, so the day's likes, requests and three messages Chris had OK'd waited.
+        Now, while reading is left, a part of it and a step on the list go by turns, at a person's pace (`listTurn`,
+        `readLast` in the runner's state, on all four networks). A day's first go reads. The first full save of the
+        person's lists and the first check of their groups still hold the whole day (`holdsTheDay`), as the list can't
+        be worked out without them. A read put off till the person is away (decision 120) counts as the reading's turn.
+        With nothing on the list, the reading goes on. Once it's done, the day's steps spread out as before (decision
+        28).
+      - **LinkedIn's post search gets each post's link from its menu** (extension **0.112.0**, a bug). It saved no
+        posts from 27 Oct 2026: Chris's Check LinkedIn that day showed its newer search page links no post (six posts
+        read, the time plain words, every link to a writer or a hashtag), and a post with no link can't be kept. Now,
+        for each person's post with none, up to 8 a screen, the extension presses the post's menu, then **Copy link to
+        post**, and catches the link on the page before it reaches the person's clipboard; nothing is pressed unless
+        the page catches copies, and no post's menu twice. When two posts in a row give no link, it stops and notes the
+        page with its outline, the menu open (decision 74), once a search. Check LinkedIn does it for one post. No
+        migration.
 
 ## Rules worth knowing before changing anything
 
