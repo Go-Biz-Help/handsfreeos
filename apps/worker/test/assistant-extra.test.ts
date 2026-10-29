@@ -322,9 +322,16 @@ describe('Settings → Automations', () => {
       endOfDayEmailAt: '19:30',
       whenVoicemailAnswers: 'hang_up',
       askForOkToCall: true,
+      callLeadsFrom: '10:00',
+      callLeadsUntil: '18:00',
+      callTries: 2,
     });
     expect(card.title).toBe('Change your automations');
     expect(field(card, 'Ask for an OK to call')!.value).toBe('On');
+    expect(field(card, 'Calling hours for leads')!.value).toBe(
+      '10:00 AM to 6:00 PM, in each lead’s own time',
+    );
+    expect(field(card, 'When a lead doesn’t answer')!.value).toBe('Try up to 2 times, a day apart');
     expect(field(card, 'Day-before confirmation')!.value).toBe('Off');
     expect(field(card, 'Hot lead alert')!.value).toBe('Off');
     expect(field(card, 'End-of-day email at')!.value).toBe('19:30');
@@ -340,7 +347,16 @@ describe('Settings → Automations', () => {
       dayOf: true,
     });
     expect(s['automations'].briefings.eveningAt).toBe('19:30');
-    expect(s['automations'].calls).toMatchObject({ voicemail: 'hang_up', askConsent: true });
+    expect(s['automations'].calls).toMatchObject({
+      voicemail: 'hang_up',
+      askConsent: true,
+      hours: { start: '10:00', end: '18:00', weekends: true },
+      tries: 2,
+    });
+    // Never wider than the law allows.
+    await expect(prepare('update_automations', { callLeadsFrom: '07:00' })).rejects.toThrow(
+      'Calls can’t start before 8 AM',
+    );
     expect(s['attention'].kinds.hot_lead).toBe(false);
     expect(s['attention'].kinds.unanswered_lead).toBe(true);
     expect((await teammate()).config['followUp'].neverReplied).toBe(false);

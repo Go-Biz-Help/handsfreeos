@@ -21,16 +21,23 @@
  *    recorded and why it's calling; a voicemail box gets what the business chose (a text instead, a short message,
  *    or nothing).
  * 4. How it went lands on the call's row: talked (and the summary), voicemail, no answer, busy or failed.
+ *
+ * A campaign's call and a workflow's (calls to leads, AI calls part 3) also wait for the calling hours where the lead
+ * is (core's call-hours.ts: the legal hours there, narrowed by the business's own), and ring again the next day when
+ * nobody answers, the line's busy or a voicemail box picks up, up to the business's tries (3 to begin with). The
+ * voicemail choice comes after the last try: before it, a voicemail box just gets hung up on.
  */
 import {
   automationOn,
   automationSettingsOf,
+  callPlacesOf,
   callRecord,
   defaultNumber,
   executeCommand,
   formatPhone,
   loadTeammate,
   money,
+  nextCallMoment,
   openHoursOf,
   scheduleJob,
   walletRoom,
@@ -38,6 +45,7 @@ import {
   type AiCallBooking,
   type AiCallPurpose,
   type AutomationSwitch,
+  type CallHours,
   type CallVoicemailChoice,
 } from '@hfos/core/server';
 import { asWorker, rows, sql, type Tx } from '@hfos/db/client';
@@ -74,6 +82,11 @@ export const QUOTE_CALL_AFTER_MS = 2 * 24 * 60 * 60_000;
 const MISSED_CALL_STALE_MS = 24 * 60 * 60_000;
 /** How long the customer's phone rings. */
 const RING_SECONDS = 25;
+/** How long after a try nobody answered the next one goes (then at the next good moment). */
+export const RETRY_AFTER_MS = 24 * 60 * 60_000;
+
+/** The reasons that ring again when nobody answers, and keep to the lead's calling hours: calls to leads. */
+const TO_LEADS: ReadonlySet<AiCallPurpose> = new Set(['campaign', 'workflow']);
 
 const SWITCH_OF: Readonly<Record<AiCallPurpose, AutomationSwitch | null>> = {
   confirm_visit: 'callConfirmVisits',
@@ -516,10 +529,10 @@ export const aiCallConsiderJob: JobHandler = async (ctx) => {
 };
 
 /**
- * Why a workflow's call that waited isn't wanted any more: they booked, or they texted, emailed or called the business,
- * since it was written down. Null when neither.
+ * Why a call to a lead that waited (an approval, the hours, tomorrow's try) isn't wanted any more: they booked, or
+ * they texted, emailed or called the business, since it was written down. Null when neither.
  */
-async function sinceWorkflowCall(
+async function sinceCallQueued(
   tx: Tx,
   personId: string,
   since: Date,
@@ -684,6 +697,29 @@ const skip = async (tx: Tx, id: string, reason: string) => {
   await recipientFailed(tx, id, reason);
 };
 
+/**
+ * The next moment a call to a lead may go: the business open and not in quiet hours, and the calling hours where
+ * the lead may be. Null when the lead's calling hours have no time in the next two weeks.
+ */
+function goodMomentForLead(
+  m: Awaited<ReturnType<typeof workspaceMessaging>>,
+  tz: string,
+  places: Parameters<typeof nextCallMoment>[0],
+  hours: CallHours,
+  now: number,
+): number | null {
+  let t = now;
+  // Each is a moment the other may move on from; a few rounds settle on one both allow (a later run checks again).
+  for (let i = 0; i < 8; i++) {
+    const open = nextSendMoment(openHoursOf(m.rawSettings), m.settings.quietHours, tz, t);
+    const lead = nextCallMoment(places, hours, open);
+    if (lead === null) return null;
+    if (lead === open) return open;
+    t = lead;
+  }
+  return t;
+}
+
 /** `ai_calls.place`: checked once more, then rung. */
 export const aiCallPlaceJob: JobHandler = async (ctx) => {
   const scope = tenantOf(ctx.scope);
@@ -707,10 +743,14 @@ export const aiCallPlaceJob: JobHandler = async (ctx) => {
         deleted: boolean;
         person_id: string;
         created_at: Date;
+        tries: number;
+        state: string | null;
+        postal_code: string | null;
+        country: string | null;
       }>(
         tx,
         sql`select c.id, c.purpose, c.status, c.to_e164, c.attendee_id, c.missed_call_id, c.estimate_id,
-              c.person_id, c.created_at,
+              c.person_id, c.created_at, c.tries, p.state, p.postal_code, p.country,
               (select k.status from app.campaign_recipients r join app.campaigns k on k.id = r.campaign_id
                where r.id = c.campaign_recipient_id) as campaign_status,
               p.call_consent::text as call_consent,
@@ -728,7 +768,7 @@ export const aiCallPlaceJob: JobHandler = async (ctx) => {
         if (c.call_consent !== 'opted_in')
           return skip(tx, c.id, 'no_call_consent').then(() => null);
         // A call that waited (an approval, open hours) isn't wanted once they've booked or been in touch.
-        const since = await sinceWorkflowCall(tx, c.person_id, new Date(c.created_at));
+        const since = await sinceCallQueued(tx, c.person_id, new Date(c.created_at));
         if (since) return skip(tx, c.id, since).then(() => null);
       }
       if (c.purpose === 'campaign') {
@@ -737,6 +777,11 @@ export const aiCallPlaceJob: JobHandler = async (ctx) => {
           return skip(tx, c.id, 'no_call_consent').then(() => null);
         if (c.campaign_status !== 'sending' && c.campaign_status !== 'done')
           return skip(tx, c.id, 'campaign_stopped').then(() => null);
+        // Tomorrow's try isn't wanted once they've booked or been in touch since the first.
+        if (c.tries > 0) {
+          const since = await sinceCallQueued(tx, c.person_id, new Date(c.created_at));
+          if (since) return skip(tx, c.id, since).then(() => null);
+        }
       }
       // Still wanted? A reply, a confirmation or a call since the approval leaves it alone.
       const again =
@@ -760,15 +805,33 @@ export const aiCallPlaceJob: JobHandler = async (ctx) => {
         );
         if (!room.allowed) return skip(tx, c.id, 'balance').then(() => null);
       }
-      // Open hours only, never quiet hours: it waits for the next good moment.
+      // Open hours only, never quiet hours: it waits for the next good moment. A call to a lead waits for the
+      // calling hours where they are too.
       const tz = m.timezone || 'UTC';
-      const at = nextSendMoment(openHoursOf(m.rawSettings), m.settings.quietHours, tz, now);
+      const calls = automationSettingsOf(m.rawSettings).calls;
+      const at = TO_LEADS.has(c.purpose)
+        ? goodMomentForLead(
+            m,
+            tz,
+            callPlacesOf(
+              c.to_e164,
+              { state: c.state, postalCode: c.postal_code, country: c.country },
+              tz,
+            ),
+            calls.hours,
+            now,
+          )
+        : nextSendMoment(openHoursOf(m.rawSettings), m.settings.quietHours, tz, now);
+      if (at === null) return skip(tx, c.id, 'no_calling_hours').then(() => null);
       if (at > now) return { wait: at };
       const number = await defaultNumber(tx, scope.workspaceId);
       if (!number || number.status !== 'active')
         return skip(tx, c.id, 'no_number').then(() => null);
       await tx.execute(
-        sql`update app.ai_calls set status = 'calling', placed_at = now() where id = ${c.id}`,
+        // Another try starts clean: the last one's "tries again tomorrow" is over.
+        sql`update app.ai_calls set status = 'calling', placed_at = now(), tries = tries + 1,
+              outcome = null, summary = null
+            where id = ${c.id}`,
       );
       return {
         place: {
@@ -849,7 +912,60 @@ const OUTCOME_OF: Readonly<Record<string, string>> = {
   completed: 'talked',
 };
 
-/** `call.completed` / `call.missed`: a call it placed ended. Whatever didn't say how it went, the carrier does. */
+/** What the call's row says while it waits for tomorrow's try. */
+const RETRY_SUMMARY: Readonly<Record<string, string>> = {
+  no_answer: 'Nobody answered; it tries again tomorrow.',
+  busy: 'The line was busy; it tries again tomorrow.',
+  voicemail: 'A voicemail box answered; it hung up and tries again tomorrow.',
+};
+
+/**
+ * A call to a lead nobody answered (no answer, busy, a voicemail box): with tries left, it waits to ring again
+ * tomorrow and says so. Whether it will; the last try is left to the caller to finish.
+ */
+export async function tryAgainTomorrow(
+  tx: Tx,
+  scope: TenantScope,
+  aiCallId: string,
+  outcome: 'no_answer' | 'busy' | 'voicemail',
+): Promise<boolean> {
+  const [c] = await rows<{ purpose: AiCallPurpose; tries: number; settings: unknown }>(
+    tx,
+    sql`select c.purpose, c.tries, w.settings from app.ai_calls c join app.workspaces w on w.id = c.workspace_id
+        where c.id = ${aiCallId} and c.status = 'calling'`,
+  );
+  if (!c || !TO_LEADS.has(c.purpose)) return false;
+  if (c.tries >= automationSettingsOf(c.settings as Record<string, unknown> | null).calls.tries)
+    return false;
+  await tx.execute(
+    sql`update app.ai_calls set status = 'queued', outcome = ${outcome}, summary = ${RETRY_SUMMARY[outcome]!}
+        where id = ${aiCallId} and status = 'calling'`,
+  );
+  await schedulePlace(tx, scope, aiCallId, new Date(Date.now() + RETRY_AFTER_MS));
+  return true;
+}
+
+/** After a call to a lead's last try nobody answered, the usual text when the business chose texting instead. */
+export async function textAfterLastTry(
+  tx: Tx,
+  scope: TenantScope,
+  aiCallId: string,
+): Promise<void> {
+  await scheduleJob(tx, {
+    kind: AI_CALL_JOBS.voicemailText,
+    dedupeKey: `ai-call-vm:${aiCallId}`,
+    runAt: new Date(),
+    payload: { aiCallId },
+    workspaceId: scope.workspaceId,
+    organizationId: scope.organizationId,
+  });
+}
+
+/**
+ * `call.completed` / `call.missed`: a call it placed ended. Whatever didn't say how it went, the carrier does. A call
+ * to a lead nobody answered rings again tomorrow while it has tries left, and after the last, the usual text goes
+ * when the business chose that for voicemail boxes.
+ */
 export const onAiCallEnded: EventHandler = async (ctx) => {
   const e = ctx.event;
   if (!e.entityId || e.entityType !== 'call') return;
@@ -858,14 +974,33 @@ export const onAiCallEnded: EventHandler = async (ctx) => {
     sql`select status::text as status from app.calls where id = ${e.entityId}`,
   );
   if (!c) return;
-  await ctx.tx.execute(
-    sql`update app.ai_calls set status = 'done', outcome = ${OUTCOME_OF[c.status] ?? 'failed'},
-          finished_at = now()
-        where call_id = ${e.entityId} and status = 'calling'`,
+  const outcome = OUTCOME_OF[c.status] ?? 'failed';
+  const [ai] = await rows<{ id: string; purpose: AiCallPurpose; tries: number; settings: unknown }>(
+    ctx.tx,
+    sql`select a.id, a.purpose, a.tries, w.settings from app.ai_calls a join app.workspaces w on w.id = a.workspace_id
+        where a.call_id = ${e.entityId} and a.status = 'calling'`,
   );
+  if (!ai) return;
+  const scope = tenantOf(ctx.scope);
+  const unanswered = outcome === 'no_answer' || outcome === 'busy';
+  if (unanswered && (await tryAgainTomorrow(ctx.tx, scope, ai.id, outcome))) return;
+  const summary =
+    unanswered && ai.tries > 1 ? `Nobody picked up on any of its ${ai.tries} tries.` : null;
+  await ctx.tx.execute(
+    sql`update app.ai_calls set status = 'done', outcome = ${outcome}, finished_at = now(),
+          summary = coalesce(${summary}, summary)
+        where id = ${ai.id} and status = 'calling'`,
+  );
+  const voicemail = automationSettingsOf(ai.settings as Record<string, unknown> | null).calls
+    .voicemail;
+  if (unanswered && TO_LEADS.has(ai.purpose) && voicemail === 'text')
+    await textAfterLastTry(ctx.tx, scope, ai.id);
 };
 
-/** `ai_calls.voicemail_text`: a voicemail box answered and the business chose a text instead. */
+/**
+ * `ai_calls.voicemail_text`: a voicemail box answered, or a call to a lead went unanswered on its last try, and the
+ * business chose a text instead.
+ */
 export const aiCallVoicemailTextJob: JobHandler = async (ctx) => {
   const scope = tenantOf(ctx.scope);
   const aiCallId = str(ctx.job.payload['aiCallId']);

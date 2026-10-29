@@ -50,12 +50,23 @@ export const SKIP_REASON_WORDS: Record<string, string> = {
   called_recently: 'Called by another campaign in the last 14 days',
 };
 
+/** A try nobody answered, while the next waits for tomorrow. */
+const RETRY_WORDS: Readonly<Record<string, string>> = {
+  no_answer: 'No answer, trying again',
+  busy: 'Busy, trying again',
+  voicemail: 'Voicemail, trying again',
+};
+
 /** How one person's campaign call went. */
 export function callWords(
   call: { status: string; outcome: string | null } | null,
 ): { text: string; tone: 'ok' | 'gray' | 'pending' | 'danger' } | null {
   if (!call) return null;
-  if (call.status === 'queued') return { text: 'Calling soon', tone: 'pending' };
+  if (call.status === 'queued') {
+    // Nobody answered a try: it rings again tomorrow.
+    const missed = call.outcome ? RETRY_WORDS[call.outcome] : undefined;
+    return { text: missed ?? 'Calling soon', tone: 'pending' };
+  }
   if (call.status === 'calling') return { text: 'Calling now', tone: 'pending' };
   if (call.status === 'skipped' || call.status === 'cancelled')
     return { text: 'Not called', tone: 'gray' };

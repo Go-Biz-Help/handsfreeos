@@ -9308,13 +9308,14 @@ The quote call comes after the quote's reminder text (Settings → Payments, "Nu
 reminder set, there's no call either.
 
 - **Every call** comes from the business number, in open hours only and never in quiet hours (it waits for the next
-  good moment). It starts: "Hi Ann, this is Ava, an AI assistant for Lone Star HVAC. This call is recorded. I'm
+  good moment), and a call to a lead within the calling hours where they are too (below). It starts: "Hi Ann, this is Ava, an AI assistant for Lone Star HVAC. This call is recorded. I'm
   calling about …". The call is recorded (both sides), and its words are on the customer's timeline like any call.
 - **While the teammate is training,** each call waits for a person: a card on **Workflows → Approvals** ("Ava asks
   to call Ann") and Home's "Drafts awaiting review". **Approve the call** places it at the next good moment; **Reject**
   means no call. One nobody decides before it expires isn't made.
 - **When a voicemail box answers** (the carrier can tell): what the business chose in the row's **Adjust** — hang
-  up and send a text instead (the default), leave a short message, or just hang up.
+  up and send a text instead (the default), leave a short message, or just hang up. For a call to a lead with tries
+  left, it only hangs up and tries again tomorrow (below).
 - **"Don't call me again"** on a call: the AI records it, and no AI call goes to them after that. The customer page's
   Details has **Calls from us** ("Agreed in writing (Signed service agreement)", "Doesn't want calls", "Not asked"),
   where a person can change it. A yes needs where it's written; campaign calls only go to a yes.
@@ -9354,6 +9355,25 @@ reminder set, there's no call either.
   lead's assignee, and a booking stops it. The step queues one `ai_calls` row of reason `workflow`, keeping the
   playbook in its `playbook` column, and a test run only says it would call. Needs
   `20261027018100_workflow_ai_calls.sql`.
+- **Calls to leads (a campaign's and a workflow's) keep to the legal calling hours where the lead is:** 8 AM to 9 PM
+  in their own time, stricter where the state is (8 PM in Florida, Oklahoma, Maryland, Massachusetts, Washington and
+  a few more; 9 AM in Texas, and noon on its Sundays; no Sundays in Alabama, Georgia, Indiana, Louisiana, Minnesota,
+  Mississippi, Rhode Island, Tennessee and Utah, and no holidays where the state says so), and Canada's (9 AM to
+  9:30 PM on weekdays, 10 AM to 6 PM at weekends). Where they are comes from their number's area code and their
+  address; a lead who could be in two zones is called only when it's fine in both, and a call starts no later than
+  15 minutes before the hours end. The rules are core's `call-hours.ts` and the area codes `call-places.ts`
+  (`packages/core/src/automations`), gathered 2026-10-28 from public summaries for the owner's lawyer to confirm, so
+  one change there is every call. **Calling hours for leads** in the same **Adjust** narrows them (a start, an end,
+  and weekends or not), never widens: the command refuses a start before 8 AM or an end after 9 PM. Open hours and
+  quiet hours still hold too. Hours that leave no time in the next two weeks skip the call (`no_calling_hours`).
+- **When a lead doesn't answer** (nobody picks up, the line's busy, or a voicemail box answers), a campaign's or a
+  workflow's call rings again the next day at the next good moment, up to 3 times to begin with (**When a lead
+  doesn't answer** in the same **Adjust**: once, twice or 3 times). The row says "Nobody answered; it tries again
+  tomorrow" meanwhile, and a campaign's list says "No answer, trying again". A try isn't made once they've booked
+  or written or called in since (`booked_since`, `in_touch_since`). The voicemail choice is the last try's, so nobody
+  gets three messages: after a last try nobody answered, the text goes when the business chose texting instead. One
+  `ai_calls` row keeps the count (`tries`); the Assistant changes both settings with `update_automations`
+  (`callLeadsFrom`, `callLeadsUntil`, `callLeadsAtWeekends`, `callTries`). Needs `20261027018200_ai_call_tries.sql`.
 - **On a quote call** the AI knows the quote's name, total and last day. It answers questions from those and what
   the business knows, never changes a price or the terms, and for going ahead points to the link in the text they
   got (the team can text it again).
@@ -9370,7 +9390,8 @@ it's answered. Needs `20261008000100_ai_calls.sql` and, for quote and campaign c
   and the balance has room. An `ai_calls` row says why a call was left alone (`reason`: `already_confirmed`,
   `in_touch_since`, `no_calls`, `switched_off`, `no_voice`, `balance`, `no_number`, `too_late`, and for campaign
   calls `no_call_consent` and `campaign_stopped`; for a workflow's call `no_call_consent`, `booked_since` and
-  `in_touch_since`).
+  `in_touch_since`; for either, `no_calling_hours` when the business's calling hours fit no time where the lead may
+  be in the next two weeks).
 - **A call rings but the AI says nothing:** the voice agent isn't set up (`VOICE_AGENT` on the worker); the call
   hangs up by itself.
 

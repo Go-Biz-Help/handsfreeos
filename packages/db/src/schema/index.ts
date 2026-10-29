@@ -7915,6 +7915,8 @@ export const aiCalls = app.table('ai_calls', {
   outcome: text('outcome'),
   summary: text('summary'),
   dedupeKey: text('dedupe_key').notNull(),
+  /** How many times it has rung: a campaign's or a workflow's call tries again the next day, up to 3. */
+  tries: smallint('tries').notNull().default(0),
   placedAt: ts('placed_at'),
   finishedAt: ts('finished_at'),
   ...timestamps(),

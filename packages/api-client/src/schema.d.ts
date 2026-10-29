@@ -26603,6 +26603,17 @@ export interface operations {
                         calls?: {
                             /** @default false */
                             askConsent?: boolean;
+                            /** @default {} */
+                            hours?: {
+                                /** @default 21:00 */
+                                end?: string;
+                                /** @default 08:00 */
+                                start?: string;
+                                /** @default true */
+                                weekends?: boolean;
+                            };
+                            /** @default 3 */
+                            tries?: number;
                             /**
                              * @default text
                              * @enum {string}
@@ -26718,6 +26729,16 @@ export interface operations {
                             calls: {
                                 /** @default false */
                                 askConsent: boolean;
+                                hours: {
+                                    /** @default 21:00 */
+                                    end: string;
+                                    /** @default 08:00 */
+                                    start: string;
+                                    /** @default true */
+                                    weekends: boolean;
+                                };
+                                /** @default 3 */
+                                tries: number;
                                 /**
                                  * @default text
                                  * @enum {string}

@@ -12,7 +12,9 @@
  * - a call campaign (piece 4b): only people who agreed to calls in writing, the AI's opening line, and approved
  *   once, each call goes without a draft, even while the teammate trains;
  * - a workflow's "AI teammate calls them" (part 2): only someone who agreed in writing, with the step's opening and
- *   playbook, and a call still waiting for an OK isn't made once they've written in since.
+ *   playbook, and a call still waiting for an OK isn't made once they've written in since;
+ * - a call to a lead (part 3) waits for the calling hours where they are, and rings again the next day when nobody
+ *   answers or a voicemail box does, up to 3 times, then texts as the business chose.
  */
 import type { AddressInfo } from 'node:net';
 import {
@@ -31,6 +33,7 @@ import {
   leadCreate,
   personSetCallConsent,
   tagCreate,
+  type AutomationSettings,
 } from '@hfos/core/server';
 import { asWorker, rows, sql } from '@hfos/db/client';
 import { closeTestDbs, testDbs } from '@hfos/db/testing';
@@ -44,6 +47,8 @@ import {
   callBrief,
   CONFIRM_CALL_AFTER_MS,
   QUOTE_CALL_AFTER_MS,
+  queueAiCall,
+  RETRY_AFTER_MS,
   spokenWhen,
   voicemailText,
 } from '../src/ai-calls/index';
@@ -52,6 +57,8 @@ import { recordSystemEvent } from '../src/system-event';
 import { scriptedAi } from '../src/ai/scripted';
 import { answeredByMachine, voicemailMessage } from '../src/http/ai-calls';
 import { buildHttpServer } from '../src/http/server';
+import { processJobs } from '../src/jobs';
+import { jobs } from '../src/scheduled';
 import { systemActor, workerMeta } from '../src/services';
 import { FAKE_AUTH_TOKEN, fakeSid, type FakeTelephony } from '../src/telephony/fake';
 import { twilioSignature } from '../src/telephony/signature';
@@ -126,7 +133,7 @@ beforeAll(async () => {
         where id = ${w.workspaceId}`,
   );
   await setQuietHours(w, null);
-  await saveAutomations({ callConfirmVisits: true, callBackMissed: true, callQuotes: true });
+  await saveAutomations();
   const [a] = await rows<{ account_sid: string }>(
     admin(),
     sql`select account_sid from app.telephony_accounts where workspace_id = ${w.workspaceId}`,
@@ -149,11 +156,10 @@ afterAll(async () => {
   await closeTestDbs();
 });
 
-async function saveAutomations(
-  switches: Record<string, boolean>,
-  calls: { voicemail?: 'text' | 'message' | 'hang_up' } = {},
-) {
+/** The suite's automations: every AI call switched on, and the calls settings as given (the defaults otherwise). */
+async function saveAutomations(calls: Partial<AutomationSettings['calls']> = {}) {
   const s = defaultAutomationSettings();
+  const switches = { callConfirmVisits: true, callBackMissed: true, callQuotes: true };
   await run(w, automationsSaveSettings, {
     workspaceId: w.workspaceId,
     settings: { ...s, switches: { ...s.switches, ...switches }, calls: { ...s.calls, ...calls } },
@@ -243,6 +249,39 @@ const aiCallsOf = (personId: string) =>
 
 /** The call the carrier was asked to place to this number. */
 const placedTo = (to: string) => telephony().calls.find((c) => c.to === to);
+/** Every call the carrier was asked to place to this number, in order. */
+const allPlacedTo = (to: string) => telephony().calls.filter((c) => c.to === to);
+
+/**
+ * Runs a call's place job as of `asOf` (default: when it's due). A call to a lead waits for the calling hours where
+ * the lead is (Houston's, for these numbers), which the hour the suite runs at may not be in. Nothing when no place
+ * job waits.
+ */
+async function placeAt(aiCallId: string, asOf?: number) {
+  const key = aiCallPlaceKey(aiCallId);
+  const [job] = await rows<{ run_at: Date }>(
+    admin(),
+    sql`select run_at from app.scheduled_jobs
+        where dedupe_key = ${key} and workspace_id = ${w.workspaceId} and status = 'pending'`,
+  );
+  if (!job) return;
+  const due = asOf ?? Math.max(Date.now(), new Date(job.run_at).getTime());
+  const runner = `place-${w.workerId}`;
+  await rows(
+    admin(),
+    sql`update app.scheduled_jobs set run_at = now(), locked_at = now(), locked_by = ${runner}
+        where dedupe_key = ${key} and workspace_id = ${w.workspaceId} and status = 'pending'`,
+  );
+  await processJobs({
+    ...w.s,
+    jobs,
+    workerId: runner,
+    batchSize: 5,
+    reservedOnly: true,
+    clock: () => due,
+  });
+  await drain(w);
+}
 
 let slotDay = 1;
 async function tomorrowsVisit(personId: string) {
@@ -649,6 +688,7 @@ describe('a call campaign', () => {
     try {
       await run(w, campaignApprove, { workspaceId: w.workspaceId, campaignId: made.campaignId });
       await drain(w);
+      await placeAt((await aiCallsOf(jo.id))[0]!.id);
       const [call] = await aiCallsOf(jo.id);
       expect(call).toMatchObject({ status: 'calling', draft_id: null });
       expect(await aiCallsOf(kim.id)).toEqual([]);
@@ -733,6 +773,7 @@ describe('a workflow’s call (AI calls, part 2)', () => {
     const ann = await newCustomer(w, 'Ann');
     await agreed(ann.id);
     const step = await newLead(ann.id, 'carpet cleaning');
+    await placeAt((await aiCallsOf(ann.id))[0]!.id);
     const [call] = await aiCallsOf(ann.id);
     expect(step).toMatchObject({
       status: 'done',
@@ -791,6 +832,182 @@ describe('a workflow’s call (AI calls, part 2)', () => {
     } finally {
       await setStatus(w, 'automatic');
     }
+  });
+});
+
+// ---------- calls to leads: their hours, and trying again (part 3) ----------
+
+describe('a call to a lead (AI calls, part 3)', () => {
+  const utc = (when: string) => new Date(when).getTime();
+  // These numbers are Houston's: Texas calls from 9 AM, and from noon on Sundays, Central time.
+  const WEDNESDAY_NOON = utc('2026-11-04T18:00:00Z');
+  const SUNDAY_10AM = utc('2026-11-08T16:00:00Z');
+  const day = (n: number) => WEDNESDAY_NOON + n * RETRY_AFTER_MS;
+
+  /** A lead who agreed to calls and texts in writing, and the workflow's call to them, queued. */
+  async function queuedCall(first: string) {
+    const lead = await newCustomer(w, first);
+    await run(w, personSetCallConsent, {
+      workspaceId: w.workspaceId,
+      personId: lead.id,
+      consent: 'opted_in',
+      source: 'Form: Get a quote',
+    });
+    await rows(
+      admin(),
+      sql`update app.people set sms_consent = 'opted_in'::app.sms_consent where id = ${lead.id}`,
+    );
+    const made = await asWorker(testDbs().worker.db, scope(), (tx) =>
+      queueAiCall(
+        tx,
+        scope(),
+        {
+          purpose: 'workflow',
+          personId: lead.id,
+          to: lead.phone,
+          goal: 'about the window cleaning request you just sent us.',
+          playbook: { findOut: '', offer: '', book: 'never' },
+          dedupeKey: `part3:${lead.id}`,
+        },
+        crypto.randomUUID(),
+      ),
+    );
+    return { ...lead, aiCallId: made!.id };
+  }
+
+  const placeJobAt = async (aiCallId: string) => {
+    const [job] = await rows<{ run_at: Date }>(
+      admin(),
+      sql`select run_at from app.scheduled_jobs
+          where dedupe_key = ${aiCallPlaceKey(aiCallId)} and status = 'pending'`,
+    );
+    return job ? new Date(job.run_at).getTime() : null;
+  };
+  const tries = async (aiCallId: string) => {
+    const [c] = await rows<{ tries: number }>(
+      admin(),
+      sql`select tries from app.ai_calls where id = ${aiCallId}`,
+    );
+    return c!.tries;
+  };
+
+  /** The carrier says nobody picked up the call it's ringing now. */
+  async function noAnswer(personId: string) {
+    const [c] = await aiCallsOf(personId);
+    await executeCommand(
+      testDbs().worker.db,
+      callUpdateStatus,
+      { workspaceId: w.workspaceId, callId: c!.call_id!, status: 'no_answer' },
+      systemActor(scope()),
+      workerMeta(),
+    );
+    await drain(w);
+  }
+
+  it('waits for the calling hours where the lead is, narrowed by the business’s own', async () => {
+    const dot = await queuedCall('Dot');
+    // Sunday 10 AM in Houston: Texas calls from noon.
+    await placeAt(dot.aiCallId, SUNDAY_10AM);
+    expect((await aiCallsOf(dot.id))[0]).toMatchObject({ status: 'queued' });
+    expect(new Date((await placeJobAt(dot.aiCallId))!).toISOString()).toBe(
+      '2026-11-08T18:00:00.000Z',
+    );
+    expect(placedTo(dot.phone)).toBeUndefined();
+
+    // Weekdays only: Monday at 9 AM, Houston time.
+    await saveAutomations({ hours: { start: '08:00', end: '21:00', weekends: false } });
+    try {
+      await placeAt(dot.aiCallId, utc('2026-11-08T18:00:00Z'));
+      expect(new Date((await placeJobAt(dot.aiCallId))!).toISOString()).toBe(
+        '2026-11-09T15:00:00.000Z',
+      );
+      expect(placedTo(dot.phone)).toBeUndefined();
+    } finally {
+      await saveAutomations();
+    }
+    await placeAt(dot.aiCallId, utc('2026-11-09T15:00:00Z'));
+    expect((await aiCallsOf(dot.id))[0]).toMatchObject({ status: 'calling' });
+    expect(placedTo(dot.phone)).toBeDefined();
+  });
+
+  it('rings again the next day when nobody answers, hangs up on a voicemail box before the last try, then texts', async () => {
+    const eli = await queuedCall('Eli');
+    await placeAt(eli.aiCallId, WEDNESDAY_NOON);
+    expect(await tries(eli.aiCallId)).toBe(1);
+
+    // Nobody answers: it tries again tomorrow, and says so.
+    const before = Date.now();
+    await noAnswer(eli.id);
+    expect((await aiCallsOf(eli.id))[0]).toMatchObject({
+      status: 'queued',
+      outcome: 'no_answer',
+      summary: 'Nobody answered; it tries again tomorrow.',
+    });
+    const next = (await placeJobAt(eli.aiCallId))!;
+    expect(next).toBeGreaterThanOrEqual(before + RETRY_AFTER_MS);
+    expect(next).toBeLessThanOrEqual(Date.now() + RETRY_AFTER_MS);
+
+    // The second try: a voicemail box answers, and it just hangs up. No text yet.
+    await placeAt(eli.aiCallId, day(1));
+    expect((await aiCallsOf(eli.id))[0]).toMatchObject({
+      status: 'calling',
+      outcome: null,
+      summary: null,
+    });
+    const second = allPlacedTo(eli.phone);
+    expect(second).toHaveLength(2);
+    const answered = await post(`${V}/ai-call?aiCall=${eli.aiCallId}`, {
+      CallSid: second[1]!.sid,
+      From: w.number!,
+      To: eli.phone,
+      AnsweredBy: 'machine_end_beep',
+    });
+    expect(answered.body).toContain('<Hangup/>');
+    expect(answered.body).not.toContain('<Say');
+    await drain(w);
+    expect((await aiCallsOf(eli.id))[0]).toMatchObject({ status: 'queued', outcome: 'voicemail' });
+    expect(textsTo(w, eli.phone)).toEqual([]);
+
+    // The last try: nobody answers, so it's done, and the text the business chose goes.
+    await placeAt(eli.aiCallId, day(2));
+    expect(allPlacedTo(eli.phone)).toHaveLength(3);
+    await noAnswer(eli.id);
+    expect((await aiCallsOf(eli.id))[0]).toMatchObject({
+      status: 'done',
+      outcome: 'no_answer',
+      summary: 'Nobody picked up on any of its 3 tries.',
+    });
+    expect(await placeJobAt(eli.aiCallId)).toBeNull();
+    expect(textsTo(w, eli.phone).map((t) => t.body)).toEqual([
+      expect.stringContaining(
+        'We tried to call you about the window cleaning request you just sent us. Just reply here',
+      ),
+    ]);
+  });
+
+  it('tries once when the business says so, and not again once they’ve been in touch', async () => {
+    await saveAutomations({ tries: 1, voicemail: 'hang_up' });
+    try {
+      const fin = await queuedCall('Fin');
+      await placeAt(fin.aiCallId, WEDNESDAY_NOON);
+      await noAnswer(fin.id);
+      expect((await aiCallsOf(fin.id))[0]).toMatchObject({ status: 'done', outcome: 'no_answer' });
+      expect(textsTo(w, fin.phone)).toEqual([]);
+    } finally {
+      await saveAutomations();
+    }
+
+    const flo = await queuedCall('Flo');
+    await placeAt(flo.aiCallId, WEDNESDAY_NOON);
+    await noAnswer(flo.id);
+    await textIn(w, flo.phone, 'Sorry I missed you, can you call after 5?');
+    await drain(w);
+    await placeAt(flo.aiCallId, day(1));
+    expect((await aiCallsOf(flo.id))[0]).toMatchObject({
+      status: 'skipped',
+      reason: 'in_touch_since',
+    });
+    expect(allPlacedTo(flo.phone)).toHaveLength(1);
   });
 });
 

@@ -474,6 +474,12 @@ export const SETTING_TOOLS: Readonly<Record<string, readonly SettingWay[]>> = {
     { tool: 'manage_web_address', field: 'action', value: 'remove' },
   ],
   // ---- Automations ----
+  'adjust.calling_hours': [
+    { tool: 'update_automations', field: 'callLeadsFrom' },
+    { tool: 'update_automations', field: 'callLeadsUntil' },
+    { tool: 'update_automations', field: 'callLeadsAtWeekends' },
+  ],
+  'adjust.call_tries': [{ tool: 'update_automations', field: 'callTries' }],
   'adjust.ok_to_call': [{ tool: 'update_automations', field: 'askForOkToCall' }],
 };
 

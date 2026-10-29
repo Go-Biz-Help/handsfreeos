@@ -32852,6 +32852,30 @@
                           "askConsent": {
                             "default": false,
                             "type": "boolean"
+                          },
+                          "hours": {
+                            "default": {},
+                            "type": "object",
+                            "properties": {
+                              "start": {
+                                "default": "08:00",
+                                "type": "string"
+                              },
+                              "end": {
+                                "default": "21:00",
+                                "type": "string"
+                              },
+                              "weekends": {
+                                "default": true,
+                                "type": "boolean"
+                              }
+                            }
+                          },
+                          "tries": {
+                            "default": 3,
+                            "type": "integer",
+                            "minimum": 1,
+                            "maximum": 3
                           }
                         }
                       },
@@ -33174,11 +33198,42 @@
                             "askConsent": {
                               "default": false,
                               "type": "boolean"
+                            },
+                            "hours": {
+                              "type": "object",
+                              "properties": {
+                                "start": {
+                                  "default": "08:00",
+                                  "type": "string"
+                                },
+                                "end": {
+                                  "default": "21:00",
+                                  "type": "string"
+                                },
+                                "weekends": {
+                                  "default": true,
+                                  "type": "boolean"
+                                }
+                              },
+                              "required": [
+                                "start",
+                                "end",
+                                "weekends"
+                              ],
+                              "additionalProperties": false
+                            },
+                            "tries": {
+                              "default": 3,
+                              "type": "integer",
+                              "minimum": 1,
+                              "maximum": 3
                             }
                           },
                           "required": [
                             "voicemail",
-                            "askConsent"
+                            "askConsent",
+                            "hours",
+                            "tries"
                           ],
                           "additionalProperties": false
                         },

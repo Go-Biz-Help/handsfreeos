@@ -25,6 +25,7 @@ import {
   automationSettingsOf,
   DEFAULT_MENU,
   diffTeammateConfigs,
+  formatClock,
   GET_HELP_WORDS,
   HfosError,
   IDEA_STATUS_WORDS,
@@ -608,6 +609,12 @@ async function listAutomations(db: Db, ctx: ToolContext, args: Args): Promise<To
         : null,
       endOfDayEmailAt: a.briefings.eveningAt,
       whenVoicemailAnswers: a.calls.voicemail,
+      callsToLeads: {
+        from: a.calls.hours.start,
+        until: a.calls.hours.end,
+        atWeekends: a.calls.hours.weekends,
+        tries: a.calls.tries,
+      },
       asksForOkToCall: a.calls.askConsent,
     },
   };
@@ -773,11 +780,20 @@ function planAutomations(state: AutomationState, args: Args): AutomationPlan {
     now.calls.voicemail) as AutomationSettings['calls']['voicemail'];
   const askConsent =
     typeof args['askForOkToCall'] === 'boolean' ? args['askForOkToCall'] : now.calls.askConsent;
+  const hours = {
+    start: str(args['callLeadsFrom']) ?? now.calls.hours.start,
+    end: str(args['callLeadsUntil']) ?? now.calls.hours.end,
+    weekends:
+      typeof args['callLeadsAtWeekends'] === 'boolean'
+        ? args['callLeadsAtWeekends']
+        : now.calls.hours.weekends,
+  };
+  const tries = num(args['callTries']) ?? now.calls.tries;
   const next: AutomationSettings = {
     ...now,
     reengage: { ...now.reengage, ...reengage },
     briefings: { ...now.briefings, eveningAt },
-    calls: { ...now.calls, voicemail, askConsent },
+    calls: { ...now.calls, voicemail, askConsent, hours, tries },
   };
   if (reengage.afterDays !== now.reengage.afterDays)
     fields.push({ label: 'Re-engage: gone cold after', value: plural(reengage.afterDays, 'day') });
@@ -799,6 +815,18 @@ function planAutomations(state: AutomationState, args: Args): AutomationPlan {
     fields.push({ label: 'End-of-day email at', value: eveningAt });
   if (voicemail !== now.calls.voicemail)
     fields.push({ label: 'When a voicemail box answers', value: VOICEMAIL_WORDS[voicemail]! });
+  if (hours.start !== now.calls.hours.start || hours.end !== now.calls.hours.end)
+    fields.push({
+      label: 'Calling hours for leads',
+      value: `${formatClock(hours.start)} to ${formatClock(hours.end)}, in each lead’s own time`,
+    });
+  if (hours.weekends !== now.calls.hours.weekends)
+    fields.push({ label: 'Calls to leads at weekends', value: hours.weekends ? 'Yes' : 'No' });
+  if (tries !== now.calls.tries)
+    fields.push({
+      label: 'When a lead doesn’t answer',
+      value: tries === 1 ? 'Call once' : `Try up to ${tries} times, a day apart`,
+    });
   if (askConsent !== now.calls.askConsent)
     fields.push({ label: 'Ask for an OK to call', value: askConsent ? 'On' : 'Off' });
   if (JSON.stringify(next) !== JSON.stringify(now)) {

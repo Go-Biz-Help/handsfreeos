@@ -9,6 +9,7 @@
 import {
   AUTO_CANCEL_WINDOW_MINUTES,
   AUTO_RECENT_PERSON_HOURS,
+  CALL_TRIES_MAX,
   callConsentWords,
   checkNudgeTemplate,
   CONTACT_AI_GUIDE_MAX,
@@ -26,6 +27,7 @@ import {
   followUpLadderWords,
   followUpStepMinutes,
   followUpStepWords,
+  formatClock,
   guessStageRole,
   intakeMessageProblem,
   maintenanceTemplateProblem,
@@ -1855,6 +1857,14 @@ function ReengagePanel({ env }: { env: PanelEnv }) {
   );
 }
 
+/** The calling hours a business can pick, on the hour: inside the legal 8 AM to 9 PM. */
+const CALL_CLOCKS = Array.from({ length: 14 }, (_, i) => `${String(8 + i).padStart(2, '0')}:00`);
+const TRY_CHOICES: readonly { value: number; label: string }[] = [
+  { value: 1, label: 'Once' },
+  { value: 2, label: 'Twice, a day apart' },
+  { value: 3, label: '3 times over 3 days' },
+];
+
 const VOICEMAIL_CHOICES: readonly { value: CallVoicemailChoice; label: string }[] = [
   { value: 'text', label: 'Hang up and send a text instead' },
   { value: 'message', label: 'Leave a short message' },
@@ -1866,7 +1876,11 @@ function AiCallsPanel({ env }: { env: PanelEnv }) {
   const ai = env.teammateName ?? 'Your AI teammate';
   const choice = env.automations.calls.voicemail;
   const askConsent = env.automations.calls.askConsent;
+  const hours = env.automations.calls.hours;
+  const tries = env.automations.calls.tries;
   const callWords = callConsentWords(env.businessName);
+  const saveHours = (next: typeof hours, done: string) =>
+    void env.saveAutomations((s) => ({ ...s, calls: { ...s.calls, hours: next } }), done);
   return (
     <>
       <Block>
@@ -1902,6 +1916,98 @@ function AiCallsPanel({ env }: { env: PanelEnv }) {
           >
             {VOICEMAIL_CHOICES.map((c) => (
               <option key={c.value} value={c.value}>
+                {c.label}
+              </option>
+            ))}
+          </Select>
+        </SetRow>
+      </Block>
+      <Block title="Calling hours for leads" setting="adjust.calling_hours">
+        <p className="mb-2 text-[12.5px] text-text-3" data-testid="ai-calls-hours-note">
+          Campaign and workflow calls go only in these hours, in each lead’s own time, and never
+          outside the legal hours where they are: 8 AM to 9 PM, or stricter where a state is (8 PM
+          in Florida, Oklahoma and Maryland, 9 AM and noon on Sundays in Texas, no Sundays or
+          holidays in Alabama, Louisiana, Mississippi, Rhode Island and Utah). They stay in your
+          open hours and out of quiet hours too.
+        </p>
+        <SetRow first title="Start" description="The earliest a call goes.">
+          <Select
+            selectSize="sm"
+            aria-label="Calls start"
+            value={hours.start}
+            data-testid="ai-calls-hours-start"
+            onChange={(e) => {
+              const start = e.target.value;
+              // An end less than an hour on moves with it.
+              const hourOn = CALL_CLOCKS[CALL_CLOCKS.indexOf(start) + 1]!;
+              const end = hours.end >= hourOn ? hours.end : hourOn;
+              saveHours({ ...hours, start, end }, `Calls to leads start at ${formatClock(start)}.`);
+            }}
+          >
+            {CALL_CLOCKS.slice(0, -1).map((c) => (
+              <option key={c} value={c}>
+                {formatClock(c)}
+              </option>
+            ))}
+          </Select>
+        </SetRow>
+        <SetRow title="End" description="The last call starts 15 minutes before.">
+          <Select
+            selectSize="sm"
+            aria-label="Calls end"
+            value={hours.end}
+            data-testid="ai-calls-hours-end"
+            onChange={(e) =>
+              saveHours(
+                { ...hours, end: e.target.value },
+                `Calls to leads end at ${formatClock(e.target.value)}.`,
+              )
+            }
+          >
+            {CALL_CLOCKS.filter((c) => c > hours.start).map((c) => (
+              <option key={c} value={c}>
+                {formatClock(c)}
+              </option>
+            ))}
+          </Select>
+        </SetRow>
+        <SetRow title="Weekends" description="Saturdays and Sundays, where the law allows them.">
+          <Switch
+            checked={hours.weekends}
+            label="Call at weekends"
+            onChange={(on) =>
+              saveHours(
+                { ...hours, weekends: on },
+                on ? 'Calls to leads go at weekends too.' : 'Calls to leads go on weekdays only.',
+              )
+            }
+            testId="ai-calls-hours-weekends"
+          />
+        </SetRow>
+      </Block>
+      <Block title="When a lead doesn’t answer" setting="adjust.call_tries">
+        <SetRow
+          first
+          title="Tries"
+          description="For campaign and workflow calls, when nobody answers, the line’s busy or a voicemail box picks up. What it does for a voicemail box comes after the last try."
+        >
+          <Select
+            selectSize="sm"
+            aria-label="Tries when a lead doesn’t answer"
+            value={String(tries)}
+            data-testid="ai-calls-tries"
+            onChange={(e) => {
+              const next = Math.min(CALL_TRIES_MAX, Math.max(1, Number(e.target.value)));
+              void env.saveAutomations(
+                (s) => ({ ...s, calls: { ...s.calls, tries: next } }),
+                next === 1
+                  ? 'It calls each lead once.'
+                  : `It tries each lead up to ${next} times, a day apart.`,
+              );
+            }}
+          >
+            {TRY_CHOICES.map((c) => (
+              <option key={c.value} value={String(c.value)}>
                 {c.label}
               </option>
             ))}
