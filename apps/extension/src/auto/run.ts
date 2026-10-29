@@ -23,9 +23,10 @@
  *
  * Once a day, at the start of the working day or after Start my day, it first does the jobs that fill that list
  * (./daily.ts, decision 32): it checks their friend requests, saves their groups' members, finds posts and reads their
- * chats, one job a go, a few minutes apart. Then, in the working hours, every hour or two, it looks at the newest
- * posts at the top of their best groups (decision 49), between the day's steps; and when the person lets it post on
- * its own, it puts up today's helpful post once the AI has written it (decision 50).
+ * chats, one job a go, a few minutes apart; from 0.112.0 a step on the list goes after each (decision 123), so the
+ * day's likes, requests and messages OK'd don't wait for the reading to finish. Then, in the working hours, every hour
+ * or two, it looks at the newest posts at the top of their best groups (decision 49), between the day's steps; and when
+ * the person lets it post on its own, it puts up today's helpful post once the AI has written it (decision 50).
  *
  * It tells HandsFreeOS what it's doing and each step it takes (../hfos/live.ts, decision 41), and follows the day
  * HandsFreeOS keeps: Start my day and Stop for today pressed in the app, on the phone or here. Only the person's most
@@ -107,6 +108,7 @@ import {
   beforeDayDoing,
   beforeDayLine,
   doBeforeDay,
+  holdsTheDay,
   markOf,
   type BeforeDay,
 } from './lists';
@@ -119,6 +121,7 @@ import {
   helpfulDue,
   IDLE_MS,
   isState,
+  listTurn,
   needOf,
   nextDaily,
   nextStart,
@@ -1091,6 +1094,22 @@ async function go(): Promise<void> {
   const lists = valueOf(await (answer as Hfos)({ type: 'hfos-lists', workspaceId: to.businessId }));
   if (JSON.stringify(state.lists) !== JSON.stringify(lists)) state = await setState({ lists });
   const before = beforeDay(lists, state.before ?? {}, at, timezone);
+  const daily = settings.collect ? nextDaily(state) : null;
+  const reading = before !== null || daily !== null;
+  // The morning's reading and the list take turns (decision 123): a step on the list now, when there's one, after a
+  // part of the reading went last.
+  if (listTurn(state, reading, holdsTheDay(before))) {
+    const { list, left } = await listNow(to.businessId, state.tried);
+    if (left[0])
+      return workNext(left, list, {
+        businessId: to.businessId,
+        settings,
+        timezone,
+        inHours,
+        window,
+        reading,
+      });
+  }
   if (before) {
     const end = await inTurn('runner', () => beforeTheDay(before, to.businessId));
     if (end.warned) {
@@ -1109,7 +1128,7 @@ async function go(): Promise<void> {
       );
       return goAt(Date.now() + AGAIN_MS);
     }
-    await say(line);
+    await say(line, { readLast: true });
     if ((await stateNow()).stopped) {
       await closeWindow();
       return goAt(tomorrow());
@@ -1119,7 +1138,6 @@ async function go(): Promise<void> {
     );
   }
 
-  const daily = settings.collect ? nextDaily(state) : null;
   if (daily) {
     const end = await inTurn('runner', () => collect(daily, to.businessId));
     if (end.warned) {
@@ -1127,7 +1145,7 @@ async function go(): Promise<void> {
       await say(end.line, { stopped: 'warning' });
       return goAt(tomorrow());
     }
-    await say(`${DAILY_NAMES[daily]}: ${end.line}`);
+    await say(`${DAILY_NAMES[daily]}: ${end.line}`, { readLast: true });
     void feed('job', `${DAILY_NAMES[daily]}: ${end.line}`);
     if ((await stateNow()).stopped) {
       await closeWindow();
@@ -1192,14 +1210,8 @@ async function go(): Promise<void> {
     );
   }
 
-  const list: TodayList = await call(
-    api().POST('/v1/queries/outreach.today', { body: { workspaceId: to.businessId } }),
-    to.businessId,
-  );
-  const left = workLeft(list, state.tried);
-  const work = left[0];
-  commentsLeft = Math.max(0, list.limits.comment.most - list.limits.comment.done);
-  if (!work) {
+  const { list, left } = await listNow(to.businessId, state.tried);
+  if (!left[0]) {
     await closeWindow();
     await say(
       state.tried.length
@@ -1215,14 +1227,56 @@ async function go(): Promise<void> {
     );
   }
 
+  return workNext(left, list, {
+    businessId: to.businessId,
+    settings,
+    timezone,
+    inHours,
+    window,
+    reading,
+  });
+}
+
+/** The list for today on Facebook, and what's left on it for the runner, in its order. */
+async function listNow(
+  businessId: string,
+  tried: readonly string[],
+): Promise<{ readonly list: TodayList; readonly left: Work[] }> {
+  const list: TodayList = await call(
+    api().POST('/v1/queries/outreach.today', { body: { workspaceId: businessId } }),
+    businessId,
+  );
+  return { list, left: workLeft(list, tried) };
+}
+
+/**
+ * Does the first of what's left on the list, notes how it went, and sets when to go next: in the hours, the day's
+ * steps spread out over what's left of them; at a person's pace while the morning's reading is left (decision 123),
+ * or after Start my day.
+ */
+async function workNext(
+  left: readonly Work[],
+  list: TodayList,
+  at: {
+    readonly businessId: string;
+    readonly settings: Awaited<ReturnType<typeof automationOf>>['settings'];
+    readonly timezone: string;
+    readonly inHours: boolean;
+    readonly window: ReturnType<typeof workWindow>;
+    /** Some of the morning's reading is left: the list's turn goes back to it. */
+    readonly reading: boolean;
+  },
+): Promise<void> {
+  const work = left[0]!;
+  const { businessId, settings, inHours, window } = at;
+  const tomorrow = () => nextStart(settings.hours, at.timezone, Date.now(), Math.random());
+  commentsLeft = Math.max(0, list.limits.comment.most - list.limits.comment.done);
   const { item } = work;
-  await say(doing(work), { working: true });
+  await say(doing(work), { working: true, readLast: false });
   let outcome: Outcome;
   try {
     // A few texts unless they said otherwise; one HandsFreeOS from before the voice says nothing of it.
-    outcome = await inTurn('runner', () =>
-      doWork(work, to.businessId, settings.voice?.split ?? true),
-    );
+    outcome = await inTurn('runner', () => doWork(work, businessId, settings.voice?.split ?? true));
   } catch (error) {
     // The page went somewhere else, or the window was closed: passed over for today, not tried again and again.
     if (error instanceof Refused) throw error;
@@ -1236,12 +1290,12 @@ async function go(): Promise<void> {
   // A step that didn't go: the page it ended on, outline and all, noted while the window still shows it (decision 74).
   if ('done' in outcome && !outcome.done)
     await reporter(tab, answer as Hfos, {
-      businessId: to.businessId,
+      businessId,
       platform: facebook.platform,
       askId: null,
       job: work.do === 'step' ? work.item.kind : work.do,
     })({ note: 'The step didn’t go.', outline: true });
-  state = await stateNow();
+  const state = await stateNow();
   const kind = doneAs(work);
   const done =
     'done' in outcome && outcome.done
@@ -1256,12 +1310,12 @@ async function go(): Promise<void> {
   await say(outcome.line);
   // One the person can do themselves goes to their Waiting for you; done another day, or by them, it clears.
   const need =
-    'need' in outcome && work.do === 'step' ? needOf(item, outcome.line, to.businessId) : null;
+    'need' in outcome && work.do === 'step' ? needOf(item, outcome.line, businessId) : null;
   if (need) void noteNeed(need);
   // The feed of today's steps in HandsFreeOS. A stop on a warning isn't one: HandsFreeOS writes that line itself.
   void feed(outcome.done ? 'done' : 'passed', outcome.line);
   // Stop for today, pressed while that step went.
-  if (state.stopped) {
+  if ((await stateNow()).stopped) {
     await closeWindow();
     return goAt(tomorrow());
   }
@@ -1269,7 +1323,8 @@ async function go(): Promise<void> {
     now: Date.now(),
     until: inHours ? window!.to : null,
     left: left.length - 1,
-    started: state.started,
+    // A person's pace while the morning's reading is left: the list's turn and the reading's go by turns.
+    started: state.started || at.reading,
     random: Math.random(),
   });
   if (gap > KEEP_WINDOW_MS) await closeWindow();

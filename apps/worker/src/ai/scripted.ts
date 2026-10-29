@@ -1900,7 +1900,7 @@ function scriptedTodayDraft(message: string) {
 
 /**
  * Social Outreach's check of a group post: good when it asks for a recommendation, strong when it's looking for a CRM
- * (decision 49), and why says which way.
+ * (decision 49), its writer fits when they speak of their own business (decision 123), and why says which way.
  */
 function scriptedPostCheck(message: string) {
   const post = /<post>\n([\s\S]*?)\n<\/post>/.exec(message)?.[1] ?? '';
@@ -1909,6 +1909,7 @@ function scriptedPostCheck(message: string) {
   return {
     good,
     strong,
+    fits: /\b(my|our) (business|company|shop|crew)\b/i.test(post),
     why: strong
       ? 'Looking for a CRM now'
       : good

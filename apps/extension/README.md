@@ -3,7 +3,7 @@
 The extension that works beside a person on Facebook, and on LinkedIn, Instagram and Alignable once they turn each on,
 for the Social Outreach add-on (docs/outreach.md). It connects to HandsFreeOS only for businesses that have that add-on on.
 
-**This is a test build (0.111.0), and a bare one** (decisions 43, 59 and 72 in docs/outreach.md). Everything is set
+**This is a test build (0.112.0), and a bare one** (decisions 43, 59 and 72 in docs/outreach.md). Everything is set
 and started in HandsFreeOS; the extension does the work on Facebook. Its side panel shows progress and activity only:
 signing in, what it does next with today's steps and **Start my day** and **Stop for today**, how many things need
 you in HandsFreeOS (with a link there), each network's line, what it did today, and a link to HandsFreeOS. Needs you
@@ -849,7 +849,8 @@ to 33 in docs/outreach.md). Your choices are your own, set on Social Outreach's 
 - **Once a day, first** (on to start): checking your friend requests, saving your groups' members, Find posts, Read
   my chats and checking your friends for good fits, which fill your list, and checking your groups and joining good ones
   when they run low (decisions 32, 46 and 48). From 0.97.0, right after the friend requests, it tidies up as you chose
-  for each network (below, "Tidying up on its own").
+  for each network (below, "Tidying up on its own"). From 0.112.0 a step on your list goes between them (below, "The
+  list between the morning's reading").
 - **When:** your working hours and days, on your business's clock (9 AM to 5 PM, Monday to Friday, to start).
 
 Before anything else in your day, it saves your own lists (`src/auto/lists.ts`; docs/outreach.md, decision 60): your
@@ -1072,6 +1073,19 @@ shows under Instagram). Your Instagram choices in HandsFreeOS say what it does (
 
 Each step is noted as the extension's own (`auto`), as Instagram's. A step its page doesn't let it do goes to your
 Needs you; it never guesses.
+
+### The list between the morning's reading (0.112.0)
+
+Before 0.112.0 each network did all of its once-a-day reading, and the saves before the day, before the first step on
+its list. That reading takes an hour or two on Facebook, so the day's likes, requests and the messages you OK'd waited
+behind it (the owner's report of 29 Oct 2026: an hour in, 4 likes and nothing else). From 0.112.0 (docs/outreach.md,
+decision 123) a part of the reading and a step on the list take turns, on every network: after each once-a-day job, or
+a save before the day, the next go does the first step left on that network's list, then the next go reads again, a
+person's few minutes apart till the reading is done (`listTurn` in `src/auto/plan.ts`, `readLast` in the runner's
+state). A day's first go reads. The first full save of your lists and the first check of your groups still hold the
+whole day, as the list can't be worked out without them (`holdsTheDay` in `src/auto/lists.ts`). On Instagram, LinkedIn
+and Alignable a read put off till you're away counts as the reading's turn, so the list goes next. With nothing on the
+list, the reading goes on. Nothing in HandsFreeOS changes for it.
 
 ### Replies Knowledge doesn't answer (0.111.0)
 
@@ -1743,7 +1757,7 @@ towns within 25 miles of yours (decision 115, 0.107.0), and liking a commenter's
 Alignable's likers (decision 116, 0.108.0), and drafts naming each of someone's businesses and its window waiting
 till you're away (decisions 119 and 120, 0.109.0), and Cancel all and deleting requests you get (decision 121,
 0.110.0), and cancelling from Sent requests (0.110.1), and replies Knowledge doesn't answer waiting for you
-(decision 122, 0.111.0); Social
+(decision 122, 0.111.0), and the list taking turns with the morning's reading (decision 123, 0.112.0); Social
 Outreach's onboarding is built, in HandsFreeOS (decisions 36 and 45). Safari on Mac
 follows in Phase 2.
 

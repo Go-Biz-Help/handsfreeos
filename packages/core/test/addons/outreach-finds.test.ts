@@ -574,6 +574,43 @@ describe('people found by topic', () => {
     expect(await kept(lee)).toEqual([]);
   });
 
+  it('finds a writer the business is for whose post isn’t one to comment on, by the search, under the cap (decision 123)', async () => {
+    const tess = await teammate('Tess Finder');
+    await computerOn(tess, ws, '0.95.0');
+    const ad = post(
+      8,
+      'harper-roofs-8',
+      'Harper Roofs',
+      'Our crew does roofs right. Call us.',
+      0,
+      3,
+    );
+    const other = post(9, 'nova-crm-9', 'Nova Sales', 'Book a demo of our CRM today.', 0, 1);
+    const late = post(10, 'vale-roofs-10', 'Vale Roofs', 'Spring roof checks, book now.', 0, 0);
+    await runAs(tess, ws, 'outreach.posts.save', {
+      platform: 'linkedin',
+      group: null,
+      found: 'search',
+      words: 'missed calls',
+      posts: [ad, other, late],
+    });
+    const notGood = async (url: string, fits: boolean) =>
+      runAsSystem(ws, 'outreach.post.check', {
+        postId: await postId(url, tess),
+        check: { good: false, strong: false, fits, why: 'An ad, nothing to answer' },
+      });
+    await notGood(ad.url, true);
+    await notGood(other.url, false);
+    // The ad's writer is someone the business is for: found by the search, for the AI's check of them.
+    expect(await kept(tess)).toEqual([
+      { name: 'Harper Roofs', how: 'searched', said: null, words: 'missed calls' },
+    ]);
+    // With 3 days of checks waiting, nobody new comes of a search, writers who fit included.
+    await madeUp(tess, 'linkedin', 1, findsWaitingMost(NETWORKS.linkedin.foundChecksPerDay!));
+    await notGood(late.url, true);
+    expect((await kept(tess)).map((f) => f.name)).not.toContain('Vale Roofs');
+  });
+
   it('holds LinkedIn’s profiles read for found people only on a computer that checks them, and never while likes are behind', async () => {
     /**
      * How many people `u` knows the day's checks have room for, with 35 found waiting and 40 connections to check; with

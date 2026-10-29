@@ -23,18 +23,18 @@
  *   niche and area and checked by the AI, the good ones joined while their groups run low, their members read leaders
  *   first, and their posts read (`group_checks`, `join`, `members`, `group_posts`, ../jobs/alignable/groups.ts); and
  *   the businesses found, checked by the AI from their pages, last (`found_checks`).
- * - **Then Alignable's list for today** (`outreach.today` with `platform: 'alignable'`), the kinds it does on its own
- *   (`auto`): a look at their business page and a like on a recent post of theirs when the page shows one, or the
- *   look alone when it doesn't (warm-up; for a writer found by their post, the post it found, liked on its own page);
- *   a connection request with their page's own Connect, the business checked by
- *   Alignable's id first, never to one their page shows they're connected with already (0.94.0), who's kept as a
- *   connection instead; and the messages: drafted after a look-up of their page, and sent once OK'd in Alignable's
- *   messages, typing only into that conversation's box. From 0.95.0 a comment on a good post is drafted by the AI and
- *   goes through Waiting for you as messages do (decision 92, ./comments.ts): it waits for the person's OK while the
- *   comment hold or training wheels are on, then goes on its own, only in the post's own reply form; an answer to a
- *   post asking for what the business offers waits for their OK every time. Recommend is only ever theirs. Requests
- *   they got are left for them to accept, and old requests to withdraw are theirs too: no reader of the ones they've
- *   sent is built.
+ * - **Then Alignable's list for today,** a step after each part of the reading above while it's left (decision 123)
+ *   (`outreach.today` with `platform: 'alignable'`), the kinds it does on its own (`auto`): a look at their business
+ *   page and a like on a recent post of theirs when the page shows one, or the look alone when it doesn't (warm-up; for
+ *   a writer found by their post, the post it found, liked on its own page); a connection request with their page's own
+ *   Connect, the business checked by Alignable's id first, never to one their page shows they're connected with already
+ *   (0.94.0), who's kept as a connection instead; and the messages: drafted after a look-up of their page, and sent
+ *   once OK'd in Alignable's messages, typing only into that conversation's box. From 0.95.0 a comment on a good post
+ *   is drafted by the AI and goes through Waiting for you as messages do (decision 92, ./comments.ts): it waits for the
+ *   person's OK while the comment hold or training wheels are on, then goes on its own, only in the post's own reply
+ *   form; an answer to a post asking for what the business offers waits for their OK every time. Recommend is only ever
+ *   theirs. Requests they got are left for them to accept, and old requests to withdraw are theirs too: no reader of
+ *   the ones they've sent is built.
  * - **At Alignable's pace:** a few minutes between steps, within Alignable's limits, which HandsFreeOS keeps (its list
  *   holds only what they have room for).
  * - **Stops on any Alignable warning,** for the day, on Alignable alone: the other networks go on.
@@ -113,6 +113,7 @@ import {
   beforeDayDoing,
   beforeDayLine,
   doBeforeDay,
+  holdsTheDay,
   markOf,
   type BeforeDay,
 } from './lists';
@@ -121,6 +122,7 @@ import {
   freshState,
   gapAfter,
   isState,
+  listTurn,
   needOf,
   networkDay,
   networkWaitWords,
@@ -130,6 +132,7 @@ import {
   type AutoState,
   type DailyJob,
   type DoneKind,
+  type NetworkDay,
   type OwnDailyJob,
   type Work,
 } from './plan';
@@ -1123,6 +1126,25 @@ async function go(): Promise<void> {
   );
   if (JSON.stringify(state.lists) !== JSON.stringify(lists)) state = await setState({ lists });
   const before = beforeDay(lists, state.before ?? {}, at, timezone, PLATFORM);
+  // Reads that need the screen wait till the person is away from their computer (decision 120).
+  const away = await awayNow();
+  const passOver = putOff.passOver(away);
+  const daily = choices.collect ? nextAlignableDaily(state, passOver) : null;
+  const reading = before !== null || daily !== null;
+  // The morning's reading and the list take turns (decision 123): a step on the list now, when there's one, after a
+  // part of the reading went last.
+  if (listTurn(state, reading, holdsTheDay(before))) {
+    const left = await listNow(to.businessId, state.tried);
+    if (left[0])
+      return workNext(left, {
+        businessId: to.businessId,
+        settings,
+        timezone,
+        own,
+        reading,
+        random,
+      });
+  }
   if (before) {
     const end = await inTurn('runner', () => beforeTheDay(before, to.businessId), PLATFORM);
     const line = beforeDayLine(before, end, PLATFORM);
@@ -1131,10 +1153,12 @@ async function go(): Promise<void> {
       await say(end.line, { stopped: 'warning' });
       return goAt(tomorrow());
     }
+    // Put off till they're away, or done: the list has its turn next either way (decision 123).
     if (end.away) {
-      await say(line);
+      await say(line, { readLast: true });
       return soon();
     }
+    await setState({ readLast: true });
     void feed('job', `${NAME}: ${line}`);
     if (before.do === 'save' && before.first && end.failed) {
       await closeWindow();
@@ -1148,10 +1172,6 @@ async function go(): Promise<void> {
     return soon();
   }
 
-  // Reads that need the screen wait till the person is away from their computer (decision 120).
-  const away = await awayNow();
-  const passOver = putOff.passOver(away);
-  const daily = choices.collect ? nextAlignableDaily(state, passOver) : null;
   if (daily) {
     const end = await inTurn('runner', () => collect(daily, to.businessId), PLATFORM);
     if (end.warned) {
@@ -1160,21 +1180,14 @@ async function go(): Promise<void> {
       return goAt(tomorrow());
     }
     const line = `${DAILY_NAMES[daily]}: ${end.line}`;
-    await say(line);
+    await say(line, { readLast: true });
     if (end.away) putOff.off(daily);
     else void feed('job', `${NAME}: ${line}`);
     return soon();
   }
 
-  const list: TodayList = await call(
-    api().POST('/v1/queries/outreach.today', {
-      body: { workspaceId: to.businessId, platform: PLATFORM },
-    }),
-    to.businessId,
-  );
-  const left = alignableWorkLeft(list, state.tried);
-  const work = left[0];
-  if (!work) {
+  const left = await listNow(to.businessId, state.tried);
+  if (!left[0]) {
     await closeWindow();
     // What waits for them to be away is looked at again sooner.
     const waiting = choices.collect
@@ -1189,13 +1202,54 @@ async function go(): Promise<void> {
     );
     return goAt(at + (waiting ? AWAY_AGAIN_MS : 60 * 60_000));
   }
+  return workNext(left, {
+    businessId: to.businessId,
+    settings,
+    timezone,
+    own,
+    reading,
+    random,
+  });
+}
+
+/** Asks for Alignable's list for today, and gives what's left on it for its runner (`alignableWorkLeft`). */
+async function listNow(businessId: string, tried: readonly string[]): Promise<Work[]> {
+  const list: TodayList = await call(
+    api().POST('/v1/queries/outreach.today', {
+      body: { workspaceId: businessId, platform: PLATFORM },
+    }),
+    businessId,
+  );
+  return alignableWorkLeft(list, tried);
+}
+
+/**
+ * Does the first of what's left on Alignable's list, notes how it went, and sets when to go next: at Alignable's pace,
+ * the day's steps spread out over what's left of the hours, or a person's pace while the morning's reading is left
+ * (decision 123) or after Start my day.
+ */
+async function workNext(
+  left: readonly Work[],
+  at: {
+    readonly businessId: string;
+    readonly settings: NonNullable<Awaited<ReturnType<typeof loadSettings>>>['settings'];
+    readonly timezone: string;
+    readonly own: Extract<NetworkDay, { go: true }>;
+    /** Some of the morning's reading is left: the list's turn goes back to it. */
+    readonly reading: boolean;
+    readonly random: number;
+  },
+): Promise<void> {
+  const work = left[0]!;
+  const { businessId, settings, own } = at;
+  const tomorrow = () => nextStart(settings.hours, at.timezone, Date.now(), at.random);
   const { item } = work;
-  await say(doing(work), { working: true });
+  await say(doing(work), { working: true, readLast: false });
   let outcome: Outcome;
   try {
     outcome = await inTurn(
       'runner',
-      () => doWork(work, to.businessId, settings.voice?.split ?? true),
+      () => doWork(work, businessId, settings.voice?.split ?? true),
       PLATFORM,
     );
   } catch (error) {
@@ -1216,12 +1270,12 @@ async function go(): Promise<void> {
   // A step that didn't go: the page it ended on, outline and all, noted while the window still shows it (decision 74).
   if ('done' in outcome && !outcome.done)
     await reporter(tab, answer as Hfos, {
-      businessId: to.businessId,
+      businessId,
       platform: PLATFORM,
       askId: null,
       job: work.do === 'step' ? work.item.kind : work.do,
     })({ note: 'The step didn’t go.', outline: true });
-  state = await stateNow();
+  const state = await stateNow();
   const kind = doneAs(work);
   const done =
     'done' in outcome && outcome.done
@@ -1235,7 +1289,7 @@ async function go(): Promise<void> {
   }
   await say(outcome.line);
   const need =
-    'need' in outcome && work.do === 'step' ? needOf(item, outcome.line, to.businessId) : null;
+    'need' in outcome && work.do === 'step' ? needOf(item, outcome.line, businessId) : null;
   if (need) void noteNeed(need);
   void feed(outcome.done ? 'done' : 'passed', `${NAME}: ${outcome.line}`);
   if (stopAsked) {
@@ -1248,8 +1302,9 @@ async function go(): Promise<void> {
       now: Date.now(),
       until: own.until,
       left: left.length - 1,
-      started: own.started,
-      random,
+      // A person's pace while the morning's reading is left: the list's turn and the reading's go by turns.
+      started: own.started || at.reading,
+      random: at.random,
     }),
   );
   if (gap > KEEP_WINDOW_MS) await closeWindow();
