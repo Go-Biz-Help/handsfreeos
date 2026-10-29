@@ -48,38 +48,28 @@ alter table app.ai_calls add column if not exists consent_basis text
 
 -- ---------- the card: what a check costs ----------
 -- Mirrors core's USAGE_KEYS; packages/db/test/parity.test.ts asserts the two lists are identical.
-alter table platform.usage_rates drop constraint usage_rates_key_check;
-alter table platform.usage_rates add constraint usage_rates_key_check check (key in (
-  'number.local.month',
-  'number.tollfree.month',
-  'sms.outbound.segment',
-  'sms.inbound.segment',
-  'mms.outbound.message',
-  'mms.inbound.message',
-  'voice.outbound.minute',
-  'voice.inbound.local.minute',
-  'voice.inbound.tollfree.minute',
-  'ai.input.mtok',
-  'ai.output.mtok',
-  'ai.cache_read.mtok',
-  'ai.cache_write.mtok',
-  'ai.opus.input.mtok',
-  'ai.opus.output.mtok',
-  'ai.opus.cache_read.mtok',
-  'ai.opus.cache_write.mtok',
-  'speech.live.minute',
-  'speech.recording.minute',
-  'speech.voice.kchar',
-  'speech.meeting.minute',
-  'video.minute',
-  'ai.unknown.mtok',
-  'a2p.brand.registration',
-  'a2p.brand.vetting',
-  'a2p.campaign.vetting',
-  'a2p.campaign.month',
-  'lookup.line_type',
-  'lookup.caller_name'
-));
+-- Adds the two lookups to whatever the check allows now, rather than writing the list out, so a migration adding other
+-- keys keeps them whichever of the two goes live first.
+do $$
+declare
+  allowed text[];
+begin
+  select array_agg(t.m[1] order by t.n) into allowed
+  from pg_constraint c
+  cross join lateral regexp_matches(pg_get_constraintdef(c.oid), '''([^'']+)''', 'g') with ordinality as t(m, n)
+  where c.conrelid = 'platform.usage_rates'::regclass and c.conname = 'usage_rates_key_check';
+  if allowed is null then
+    raise exception 'platform.usage_rates has no usage_rates_key_check to add the lookups to';
+  end if;
+  allowed := allowed || array(
+    select k from unnest(array['lookup.line_type', 'lookup.caller_name']) as k where k <> all (allowed)
+  );
+  alter table platform.usage_rates drop constraint usage_rates_key_check;
+  execute format(
+    'alter table platform.usage_rates add constraint usage_rates_key_check check (key in (%s))',
+    (select string_agg(quote_literal(k), ', ' order by i) from unnest(allowed) with ordinality as u(k, i))
+  );
+end $$;
 
 -- Kept in step with core's SEED_RATES: Twilio Lookup's prices, at 1.5×. Each request is billed, so each is charged.
 insert into platform.usage_rates (version, key, unit, cost_micros, markup_bp, min_charge_cents, round_up_to, notes)
