@@ -241,9 +241,9 @@ export const PRIVATE_THREAD_WORDS = {
   /** Beside My mail in the inbox. */
   onlyYou: 'only you see it',
   back: 'Team inbox',
-  /** Where a customer's details would be, above Add to Contacts and Link to a contact. */
+  /** Where a customer's details would be. */
   panel:
-    'Mail to your own address stays off every customer’s record while it’s yours. Adding or linking the sender shares it with the team.',
+    'Mail to your own address stays out of Contacts while it’s yours. Share it with the team to add them as a customer.',
 } as const;
 
 /** The details sheet's line under the name: "(713) 555-0142 · Customer since 2021", or "Not in Contacts yet". */

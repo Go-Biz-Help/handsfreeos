@@ -409,15 +409,8 @@ export function ConversationView({
   }
 
   const notCustomer = notCustomerBanner(c.counterpartDisplay, c.channel);
-  /**
-   * The conversation onto a customer: one just added from it, or one picked to link it to. Someone's own mail is
-   * never a customer's while it's theirs (M19), so it is shared with the team in the same step, as its buttons say.
-   */
-  async function linkTo(personId: string, done: string, sharedDone: string) {
-    if (priv) {
-      await actions.share(personId, sharedDone);
-      return;
-    }
+  /** The conversation onto a customer: one just added from it, or the one who already has its address. */
+  async function linkTo(personId: string, done: string) {
     try {
       unwrap(
         await apiBrowser().POST('/v1/commands/conversation.link_person', {
@@ -430,12 +423,10 @@ export function ConversationView({
       toast.error(errorMessage(e));
     }
   }
-  const linkNewPerson = (personId: string) =>
-    linkTo(personId, CONVERSATION_DONE.linked, CONVERSATION_DONE.shared);
-  // Email from an address somebody in Contacts already has: one tap links them (and shares one's own mail).
+  const linkNewPerson = (personId: string) => linkTo(personId, CONVERSATION_DONE.linked);
+  // Email from an address somebody in Contacts already has: one tap links them.
   const known = data.sender?.customer ?? null;
-  const linkKnown = (id: string, name: string) =>
-    linkTo(id, SENDER_WORDS.linked(name), SENDER_WORDS.linkedShared(name));
+  const linkKnown = (id: string, name: string) => linkTo(id, SENDER_WORDS.linked(name));
   const senderButtons = known ? (
     <Button
       variant="secondary"
@@ -456,7 +447,7 @@ export function ConversationView({
         onClick={() => setAddPerson(true)}
         data-testid="banner-add-person"
       >
-        {priv ? SENDER_WORDS.add : notCustomer.action}
+        {notCustomer.action}
       </Button>
       <Button
         variant="ghost"
@@ -845,36 +836,28 @@ export function ConversationView({
                   <UserRound className="h-3.5 w-3.5" strokeWidth={1.5} />
                   {CONVERSATION_ACTIONS.openCustomer}
                 </DropdownMenuItem>
+              ) : priv ? (
+                // Someone's own mail is shared first, then its sender can be added or linked (owner, 2026-10-29).
+                <DropdownMenuItem onSelect={() => void actions.share()} data-testid="thread-share">
+                  <Share2 className="h-3.5 w-3.5" strokeWidth={1.5} />
+                  {CONVERSATION_ACTIONS.share}
+                </DropdownMenuItem>
               ) : (
                 <>
-                  {priv ? (
-                    <DropdownMenuItem
-                      onSelect={() => void actions.share()}
-                      data-testid="thread-share"
-                    >
-                      <Share2 className="h-3.5 w-3.5" strokeWidth={1.5} />
-                      {CONVERSATION_ACTIONS.share}
-                    </DropdownMenuItem>
-                  ) : null}
-                  {/* Someone's own mail only ever comes by email; adding or linking its sender shares it (M19). */}
-                  {!priv || email ? (
-                    <>
-                      <DropdownMenuItem
-                        onSelect={() => setAddPerson(true)}
-                        data-testid="thread-add-person"
-                      >
-                        <UserPlus className="h-3.5 w-3.5" strokeWidth={1.5} />
-                        {priv ? SENDER_WORDS.add : CONVERSATION_ACTIONS.addPerson}
-                      </DropdownMenuItem>
-                      <DropdownMenuItem
-                        onSelect={() => setLinkPerson(true)}
-                        data-testid="thread-link-person"
-                      >
-                        <LinkIcon className="h-3.5 w-3.5" strokeWidth={1.5} />
-                        {SENDER_WORDS.link}
-                      </DropdownMenuItem>
-                    </>
-                  ) : null}
+                  <DropdownMenuItem
+                    onSelect={() => setAddPerson(true)}
+                    data-testid="thread-add-person"
+                  >
+                    <UserPlus className="h-3.5 w-3.5" strokeWidth={1.5} />
+                    {CONVERSATION_ACTIONS.addPerson}
+                  </DropdownMenuItem>
+                  <DropdownMenuItem
+                    onSelect={() => setLinkPerson(true)}
+                    data-testid="thread-link-person"
+                  >
+                    <LinkIcon className="h-3.5 w-3.5" strokeWidth={1.5} />
+                    {SENDER_WORDS.link}
+                  </DropdownMenuItem>
                 </>
               )}
               {canHandToAi ? (
@@ -1022,15 +1005,11 @@ export function ConversationView({
         </header>
 
         {person ? null : priv ? (
-          // Someone's own mail (M19): shared as it is, or with its sender added or linked on the way.
-          <Callout tone="info" icon={Lock} className={bannerClass}>
-            <p>
-              {PRIVATE_THREAD_WORDS.banner}
-              {email
-                ? ` ${known ? SENDER_WORDS.known(known.fullName) : SENDER_WORDS.sharesToo}`
-                : ''}
-            </p>
-            <div className="mt-2 flex flex-wrap gap-2">
+          <Callout
+            tone="info"
+            icon={Lock}
+            className={bannerClass}
+            action={
               <Button
                 variant="secondary"
                 size="sm"
@@ -1040,8 +1019,9 @@ export function ConversationView({
               >
                 {CONVERSATION_ACTIONS.share}
               </Button>
-              {email ? senderButtons : null}
-            </div>
+            }
+          >
+            {PRIVATE_THREAD_WORDS.banner}
           </Callout>
         ) : (
           <Callout
@@ -1238,44 +1218,39 @@ export function ConversationView({
               <SheetAction icon={UserRound} onClick={() => router.push(customerHref)}>
                 {CONVERSATION_ACTIONS.openCustomer}
               </SheetAction>
+            ) : priv ? (
+              <SheetAction
+                icon={Share2}
+                testId="sheet-share"
+                onClick={() => {
+                  setDetails(false);
+                  void actions.share();
+                }}
+              >
+                {CONVERSATION_ACTIONS.share}
+              </SheetAction>
             ) : (
               <>
-                {priv ? (
-                  <SheetAction
-                    icon={Share2}
-                    testId="sheet-share"
-                    onClick={() => {
-                      setDetails(false);
-                      void actions.share();
-                    }}
-                  >
-                    {CONVERSATION_ACTIONS.share}
-                  </SheetAction>
-                ) : null}
-                {!priv || email ? (
-                  <>
-                    <SheetAction
-                      icon={UserPlus}
-                      testId="sheet-add-person"
-                      onClick={() => {
-                        setDetails(false);
-                        setAddPerson(true);
-                      }}
-                    >
-                      {priv ? SENDER_WORDS.add : CONVERSATION_ACTIONS.addPerson}
-                    </SheetAction>
-                    <SheetAction
-                      icon={LinkIcon}
-                      testId="sheet-link-person"
-                      onClick={() => {
-                        setDetails(false);
-                        setLinkPerson(true);
-                      }}
-                    >
-                      {SENDER_WORDS.link}
-                    </SheetAction>
-                  </>
-                ) : null}
+                <SheetAction
+                  icon={UserPlus}
+                  testId="sheet-add-person"
+                  onClick={() => {
+                    setDetails(false);
+                    setAddPerson(true);
+                  }}
+                >
+                  {CONVERSATION_ACTIONS.addPerson}
+                </SheetAction>
+                <SheetAction
+                  icon={LinkIcon}
+                  testId="sheet-link-person"
+                  onClick={() => {
+                    setDetails(false);
+                    setLinkPerson(true);
+                  }}
+                >
+                  {SENDER_WORDS.link}
+                </SheetAction>
               </>
             )}
             {priv ? null : (
@@ -1407,7 +1382,6 @@ export function ConversationView({
         workspaceId={workspaceId}
         conversationId={c.id}
         number={c.counterpartDisplay}
-        privateMail={priv}
         open={linkPerson}
         onOpenChange={setLinkPerson}
         onLinked={after}

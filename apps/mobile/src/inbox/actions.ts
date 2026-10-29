@@ -1,11 +1,9 @@
 import {
   CONVERSATION_DONE,
   handBackToast,
-  joinName,
   SENT_WORDS,
   takeOverToast,
   type ConversationFolderValue,
-  type NameParts,
 } from '@hfos/core';
 
 import { toast } from '@/components/ui/toast';
@@ -158,31 +156,6 @@ export function conversationActions(ref: ConversationRef) {
         await change('conversation.share', input);
         markMovedHere(ref.conversationId, { shared: true });
       }, CONVERSATION_DONE.shared),
-    /**
-     * Someone's own mail shared straight onto a customer (M19), since it is never a customer's while it's theirs: the
-     * one picked to link it to, or its sender added as a new one with the phone's id for them. Online only, like
-     * sharing it as it is, and the thread is theirs at once, as the synced row will say.
-     */
-    shareOnto: (
-      to:
-        | { readonly personId: string; readonly fullName: string }
-        | { readonly newPerson: NameParts & { readonly id: string } },
-      done: string,
-    ) =>
-      run(async () => {
-        await change('conversation.share', {
-          ...input,
-          ...('personId' in to ? { personId: to.personId } : { newPerson: to.newPerson }),
-        });
-        markMovedHere(ref.conversationId, {
-          shared: true,
-          folder: 'inbox',
-          person:
-            'personId' in to
-              ? { id: to.personId, fullName: to.fullName }
-              : { id: to.newPerson.id, fullName: joinName(to.newPerson) },
-        });
-      }, done),
     /**
      * The team's thread onto a customer who already exists; they gain its number or address. Any time, like the web's
      * Link: the thread is theirs on this phone at once.

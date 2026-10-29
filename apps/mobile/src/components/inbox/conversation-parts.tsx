@@ -290,20 +290,10 @@ export function StatusBanner({
 }
 
 /**
- * Someone's own mail (M19): only they see it, until they share it with the team, which this offers, as it is or with
- * its sender added to Contacts or linked to one, which shares it too and says so. Shown whatever the thread's status,
- * above the snoozed or closed strip.
+ * Someone's own mail (M19): only they see it, until they share it with the team, which this offers. Shown whatever the
+ * thread's status, above the snoozed or closed strip.
  */
-export function PrivateBanner({
-  onShare,
-  busy,
-  sender = null,
-}: {
-  onShare: () => void;
-  busy: boolean;
-  /** Adding or linking whoever wrote; null where nothing can be done here (all lines at once). */
-  sender?: SenderActions | null;
-}) {
+export function PrivateBanner({ onShare, busy }: { onShare: () => void; busy: boolean }) {
   return (
     <View
       role="note"
@@ -318,25 +308,19 @@ export function PrivateBanner({
           </Text>
           <Text className="text-[13.5px] leading-[19px] text-text-2">
             {PRIVATE_THREAD_WORDS.banner}
-            {sender
-              ? ` ${sender.known ? SENDER_WORDS.known(sender.known.name) : SENDER_WORDS.sharesToo}`
-              : ''}
           </Text>
         </View>
       </View>
-      <View className="ml-[26px] gap-2">
-        <Button
-          variant="secondary"
-          size="md"
-          className="self-start"
-          loading={busy}
-          onPress={onShare}
-          testID="banner-share"
-        >
-          {CONVERSATION_ACTIONS.share}
-        </Button>
-        {sender ? <SenderButtons sender={sender} /> : null}
-      </View>
+      <Button
+        variant="secondary"
+        size="md"
+        className="ml-[26px] self-start"
+        loading={busy}
+        onPress={onShare}
+        testID="banner-share"
+      >
+        {CONVERSATION_ACTIONS.share}
+      </Button>
     </View>
   );
 }
@@ -638,7 +622,7 @@ export function ActionsSheet({
         {onAddPerson ? (
           <SheetRow
             icon={UserPlus}
-            label={c.private ? SENDER_WORDS.add : CONTACT_EDIT_WORDS.addTitle}
+            label={CONTACT_EDIT_WORDS.addTitle}
             onPress={run(onAddPerson)}
             testID="sheet-add-person"
           />
@@ -903,7 +887,6 @@ export function AddPersonSheet({
   onClose,
   counterpart,
   defaultName = null,
-  note = null,
   onSave,
 }: {
   open: boolean;
@@ -912,8 +895,6 @@ export function AddPersonSheet({
   counterpart: string;
   /** The name their email gave, to start with. */
   defaultName?: string | null;
-  /** What else adding them does: someone's own mail is shared with the team too (M19). */
-  note?: string | null;
   onSave: (name: string) => Promise<boolean>;
 }) {
   const colors = useColors();
@@ -927,7 +908,7 @@ export function AddPersonSheet({
       open={open}
       onClose={onClose}
       title={CONTACT_EDIT_WORDS.addTitle}
-      description={note ? `${counterpart}. ${note}` : counterpart}
+      description={counterpart}
       testID="add-person-sheet"
     >
       <TextInput

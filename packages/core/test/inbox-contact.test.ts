@@ -87,13 +87,11 @@ describe('adding whoever emailed (2026-10-29)', () => {
     ]);
   });
 
-  it('says first that adding or linking from your own mail shares it', () => {
-    expect(SENDER_WORDS.sharesToo).toBe('Adding or linking them shares this email with the team.');
+  it('names who already has the address, so linking them is one tap', () => {
     expect(SENDER_WORDS.known('Gregory Lyons')).toBe(
       'Gregory Lyons already has this email address.',
     );
-    expect(SENDER_WORDS.linkedShared('Gregory Lyons')).toBe(
-      'Linked to Gregory Lyons, and shared with the team.',
-    );
+    expect(SENDER_WORDS.linkTo('Gregory Lyons')).toBe('Link to Gregory Lyons');
+    expect(SENDER_WORDS.linked('Gregory Lyons')).toBe('Linked to Gregory Lyons.');
   });
 });

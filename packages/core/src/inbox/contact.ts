@@ -130,11 +130,6 @@ export const SENDER_WORDS = {
   /** Somebody already has the address: linking them is what's wanted, not adding a second one. */
   known: (name: string) => `${name} already has this email address.`,
   linkSomeoneElse: 'Link to someone else',
-  /**
-   * Someone's own mail (M19) is never on a customer while it's theirs, so adding or linking its sender shares it with
-   * the team in the same step. The buttons say so before they're pressed.
-   */
-  sharesToo: 'Adding or linking them shares this email with the team.',
   /** The phone's sheet for picking who it is. */
   linkTitle: 'Link to a contact',
   linkDescription: (counterpart: string) => `${counterpart} joins their record and timeline.`,
@@ -142,6 +137,4 @@ export const SENDER_WORDS = {
   nobody: (typed: string) => `No one matches “${typed}”.`,
   /** Done. */
   linked: (name: string) => `Linked to ${name}.`,
-  linkedShared: (name: string) => `Linked to ${name}, and shared with the team.`,
-  addedShared: (name: string) => `${name} added, and this email is shared with the team.`,
 } as const;

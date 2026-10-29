@@ -775,7 +775,7 @@ export const conversationGet = defineQuery({
       person,
       openTasks,
       sender:
-        row.channel === 'email' && !person
+        row.channel === 'email' && !person && !row.private
           ? await senderOf(ctx, input.workspaceId, row.id, row.counterpart)
           : null,
       canText,
@@ -788,7 +788,10 @@ export const conversationGet = defineQuery({
   },
 });
 
-/** Who an email thread nobody has linked is from: the name their mail gave, and the customer with the address. */
+/**
+ * Who a team email thread nobody has linked is from: the name their mail gave, and the customer with the address.
+ * Someone's own mail has neither until it's shared, since adding or linking its sender waits for that (2026-10-29).
+ */
 async function senderOf(
   ctx: QueryContext,
   workspaceId: string,

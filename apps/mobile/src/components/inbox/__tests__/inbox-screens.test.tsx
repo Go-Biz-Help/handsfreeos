@@ -648,16 +648,25 @@ describe('adding or linking whoever emailed (2026-10-29)', () => {
     expect(s.onLinkKnown).toHaveBeenCalledWith({ id: 'p-greg', name: 'Gregory Lyons' });
   });
 
-  it('says on your own mail that adding or linking them shares it', async () => {
-    const s = sender();
+  it('keeps your own mail to Share first: Add and Link come once it’s the team’s', async () => {
     const share = jest.fn();
-    await render(<PrivateBanner onShare={share} busy={false} sender={s} />);
-    expect(screen.getByTestId('thread-private')).toHaveTextContent(
-      /Share it with the team to hand it to them\. Adding or linking them shares this email with the team\./,
+    await render(<PrivateBanner onShare={share} busy={false} />);
+    expect(screen.queryByTestId('sender-add')).toBeNull();
+    expect(screen.queryByTestId('sender-link')).toBeNull();
+    await fireEvent.press(screen.getByTestId('banner-share'));
+    expect(share).toHaveBeenCalledTimes(1);
+    // Shared, it's a team thread nobody has linked, and the strip offers both.
+    await render(
+      <StatusBanner
+        c={conversationOf(email)}
+        who="them"
+        timeZone="America/Chicago"
+        onReopen={jest.fn()}
+        sender={sender()}
+      />,
     );
-    await fireEvent.press(screen.getByTestId('sender-add'));
-    expect(s.onAdd).toHaveBeenCalledTimes(1);
-    expect(share).not.toHaveBeenCalled();
+    expect(screen.getByTestId('sender-add')).toBeTruthy();
+    expect(screen.getByTestId('sender-link')).toBeTruthy();
   });
 
   it('finds the customer to link by name, with whoever has the address first', async () => {
@@ -685,7 +694,6 @@ describe('adding or linking whoever emailed (2026-10-29)', () => {
           open
           onClose={onClose}
           counterpart="grlyons1010@gmail.com"
-          note="Adding or linking them shares this email with the team."
           onPick={onPick}
         />,
       ),

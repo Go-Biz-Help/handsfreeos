@@ -21,7 +21,6 @@ import {
   cancelledHere,
   forgetMovedHere,
   markMovedHere,
-  movedPersonOf,
   pendingReplies,
   replyStage,
   withMovedHere,
@@ -680,51 +679,10 @@ describe('email’s folders and someone’s own mail (M19)', () => {
     show.mockRestore();
   });
 
-  it('shares someone’s own mail straight onto the customer it’s from, theirs at once (2026-10-29)', async () => {
+  it('links the team’s email to a customer already here, theirs at once (2026-10-29)', async () => {
     const show = jest.spyOn(toast, 'show').mockImplementation(() => 1);
     const actions = conversationActions({ workspaceId: WS, conversationId: CONV, myUserId: ME });
-    const own = conversationOf({ ...base, channel: 'email', person_id: null, private_to: ME });
-    jest.mocked(change).mockResolvedValueOnce({
-      id: 'x',
-      queued: false,
-      output: { conversationId: CONV, personId: 'p-greg' },
-    } as never);
-    expect(
-      await actions.shareOnto(
-        { newPerson: { id: 'p-greg', firstName: 'Gregory', lastName: 'Lyons' } },
-        'Gregory Lyons added, and this email is shared with the team.',
-      ),
-    ).toBe(true);
-    expect(change).toHaveBeenLastCalledWith('conversation.share', {
-      workspaceId: WS,
-      conversationId: CONV,
-      newPerson: { id: 'p-greg', firstName: 'Gregory', lastName: 'Lyons' },
-    });
-    expect(show).toHaveBeenLastCalledWith(
-      'Gregory Lyons added, and this email is shared with the team.',
-    );
-    expect(movedPersonOf(CONV)).toBe('p-greg');
-    expect(withMovedHere(own)).toMatchObject({
-      privateTo: null,
-      private: false,
-      person: { id: 'p-greg', fullName: 'Gregory Lyons' },
-    });
-    // The synced row says the same: the stand-in goes.
-    expect(
-      withMovedHere(
-        conversationOf({
-          ...base,
-          channel: 'email',
-          person_id: 'p-greg',
-          first_name: 'Gregory',
-          last_name: 'Lyons',
-          private_to: null,
-        }),
-      ).person,
-    ).toEqual({ id: 'p-greg', fullName: 'Gregory Lyons' });
-    expect(movedPersonOf(CONV)).toBeNull();
-
-    // Linked to a customer already here: the team's thread, any time, with them on it at once.
+    // Any time, like the web's Link: the thread is theirs on this phone at once.
     await actions.link('p-amy', 'Linked to Amy Adams.');
     expect(change).toHaveBeenLastCalledWith(
       'conversation.link_person',

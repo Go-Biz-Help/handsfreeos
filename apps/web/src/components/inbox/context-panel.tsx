@@ -181,7 +181,7 @@ export function ContextPanel({
     social && data.social && data.social.contact.name !== SOCIAL_CONTACT_NAMES[social]
       ? data.social.contact.name
       : null;
-  // Email from an address somebody in Contacts already has (their own mail is never linked while it's private).
+  // Email from an address somebody in Contacts already has.
   const known = data.sender?.customer ?? null;
   const cameFrom = social ? (
     <AttributionSection workspaceId={workspaceId} conversationId={c.id} />
@@ -272,7 +272,7 @@ export function ContextPanel({
         </div>
         <p className="text-[13px] text-text-2">
           {c.private
-            ? // Someone's own mail is never a customer's while it's theirs (M19): naming the sender shares it too.
+            ? // Someone's own mail is never a customer's while it's theirs (M19): it's shared first.
               PRIVATE_THREAD_WORDS.panel
             : c.channel === 'chat'
               ? 'This visitor doesn’t match anyone in Contacts. Once you add or link them, this chat shows on their timeline.'
@@ -282,7 +282,7 @@ export function ContextPanel({
                   ? 'This address doesn’t match anyone in Contacts. Once you add or link them, this conversation shows on their timeline.'
                   : 'This number doesn’t match anyone in Contacts. Once you add or link them, this conversation and any calls show on their timeline.'}
         </p>
-        {known ? (
+        {c.private ? null : known ? (
           // Somebody already has the address: linking them is what's wanted, not a second of them.
           <>
             <p className="text-[13px] text-text-2" data-testid="context-sender-known">

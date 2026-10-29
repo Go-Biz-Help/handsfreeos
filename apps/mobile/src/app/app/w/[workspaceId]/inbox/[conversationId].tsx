@@ -253,11 +253,12 @@ function Thread() {
   const phoneDisplay = person?.phone ?? (channel === 'sms' ? (c?.counterpartDisplay ?? '') : '');
   const emailTo = channel === 'email' ? (c?.counterpart ?? null) : (person?.email ?? null);
   const email = useEmailFacts(conversationId, current === 'email' ? emailTo : null);
-  // Email from somebody not linked yet: who already has the address, and the name their mail gave (2026-10-29).
+  // Team email from somebody not linked yet: who already has the address, and the name their mail gave (2026-10-29).
+  // Someone's own mail is shared first (the owner's pick), so it asks nothing until then.
   const sender = useSender(
     business.id,
     conversationId,
-    channel === 'email' && !c?.person ? (c?.counterpart ?? null) : null,
+    channel === 'email' && !c?.person && !c?.private ? (c?.counterpart ?? null) : null,
   );
 
   // Opening a conversation reads it, as on the web.
@@ -662,14 +663,8 @@ function Thread() {
       toast.error(problem);
       return false;
     }
-    const parts = splitName(name);
-    // Someone's own mail is never a customer's while it's theirs (M19): they're added as it's shared, in one go.
-    if (c?.private)
-      return actions.shareOnto(
-        { newPerson: { id: newId(), ...parts } },
-        SENDER_WORDS.addedShared(joinName(parts)),
-      );
     try {
+      const parts = splitName(name);
       const personId = newId();
       await change(
         'person.create',
@@ -719,14 +714,9 @@ function Thread() {
     }
   };
 
-  /** The conversation onto a customer who already exists; someone's own mail is shared with the team as it goes. */
+  /** The conversation onto a customer who already exists, who gains its number or address. */
   const linkPerson = (to: { readonly id: string; readonly name: string }): Promise<boolean> =>
-    c?.private
-      ? actions.shareOnto(
-          { personId: to.id, fullName: to.name },
-          SENDER_WORDS.linkedShared(to.name),
-        )
-      : actions.link(to.id, SENDER_WORDS.linked(to.name));
+    actions.link(to.id, SENDER_WORDS.linked(to.name));
 
   const addNote = async (text: string): Promise<boolean> => {
     if (!person) return false;
@@ -930,13 +920,7 @@ function Thread() {
           onTakeOver={() => void takeOver()}
           onHandBack={() => setSheet('hand-back')}
         />
-        {priv ? (
-          <PrivateBanner
-            onShare={() => void share()}
-            busy={sharing}
-            sender={c.person ? null : senderActions}
-          />
-        ) : null}
+        {priv ? <PrivateBanner onShare={() => void share()} busy={sharing} /> : null}
         <StatusBanner
           c={c}
           who={who}
@@ -1082,8 +1066,8 @@ function Thread() {
         onTags={person ? () => setSheet('tags') : null}
         onStage={lead && stages.length > 1 ? () => setSheet('stage') : null}
         onNextAction={lead ? () => setSheet('next-action') : null}
-        onAddPerson={c.person ? null : () => setSheet('add-person')}
-        onLinkPerson={c.person || all ? null : () => setSheet('link-person')}
+        onAddPerson={person || priv ? null : () => setSheet('add-person')}
+        onLinkPerson={person || priv || all ? null : () => setSheet('link-person')}
         stageName={lead?.stageName ?? null}
         moves={moves}
         onMove={(m) => void moveTo(m)}
@@ -1175,14 +1159,12 @@ function Thread() {
         onClose={() => setSheet(null)}
         counterpart={c.counterpartDisplay}
         defaultName={sender.name}
-        note={priv ? SENDER_WORDS.sharesToo : null}
         onSave={addPerson}
       />
       <LinkPersonSheet
         open={sheet === 'link-person'}
         onClose={() => setSheet(null)}
         counterpart={c.counterpartDisplay}
-        note={priv ? SENDER_WORDS.sharesToo : null}
         onPick={(customer) => linkPerson(customer)}
       />
       <DeleteSheet

@@ -20,15 +20,12 @@ export function LinkPersonSheet({
   open,
   onClose,
   counterpart,
-  note = null,
   onPick,
 }: {
   open: boolean;
   onClose: () => void;
   /** The number or address this conversation is with, which joins their record. */
   counterpart: string;
-  /** What else linking them does: someone's own mail is shared with the team too (M19). */
-  note?: string | null;
   onPick: (customer: CustomerChoice) => Promise<boolean>;
 }) {
   const customers = useCustomers();
@@ -50,13 +47,12 @@ export function LinkPersonSheet({
       .then((ok) => ok && onClose())
       .finally(() => setBusy(null));
   };
-  const description = SENDER_WORDS.linkDescription(counterpart);
   return (
     <Sheet
       open={open}
       onClose={onClose}
       title={SENDER_WORDS.linkTitle}
-      description={note ? `${description} ${note}` : description}
+      description={SENDER_WORDS.linkDescription(counterpart)}
       scroll
       testID="link-person-sheet"
     >

@@ -520,125 +520,6 @@ export const conversationReopen = defineCommand({
   },
 });
 
-/**
- * Ties a team thread to a customer, who gains its number or address. `conversation.link_person` and sharing
- * someone's own mail straight onto a customer (`conversation.share` with a personId) both end here; each says
- * first why the thread may be linked at all. True when the customer gained the number or address.
- */
-export async function linkConversation(
-  ctx: CommandContext,
-  c: Conversation,
-  personId: string,
-): Promise<boolean> {
-  const workspaceId = ctx.scope.workspaceId!;
-  const person = await requirePerson(ctx.tx, workspaceId, personId);
-  if (person.archivedAt)
-    throw HfosError.rule(
-      'person_archived',
-      409,
-      `${capitalized(customerName(person))} is archived. Restore them from their page first, then link this conversation.`,
-    );
-  if (c.personId === person.id) return false;
-  let phoneAdded = false;
-  if (c.channel === 'sms' && !person.phoneE164) {
-    await ctx.tx
-      .update(people)
-      .set({
-        phoneE164: c.counterpart,
-        phone: formatPhone(c.counterpart),
-        fieldTimes: stampSql(['phone_e164'], changeMoment(ctx.meta)),
-      })
-      .where(eq(people.id, person.id));
-    phoneAdded = true;
-  } else if (c.channel === 'email' && !person.email) {
-    await ctx.tx
-      .update(people)
-      .set({ email: c.counterpart, fieldTimes: stampSql(['email'], changeMoment(ctx.meta)) })
-      .where(eq(people.id, person.id));
-    phoneAdded = true;
-  } else if (c.channel === 'sms' || c.channel === 'email') {
-    // They already have a main one: this number or address joins their others (0103), so the next text from
-    // it finds them on its own.
-    const column = c.channel === 'sms' ? 'other_phones' : 'other_emails';
-    const theirs =
-      c.channel === 'sms'
-        ? [person.phoneE164, ...otherPhonesOf(person.otherPhones).map((p) => p.phone)]
-        : [person.email?.toLowerCase(), ...otherEmailsOf(person.otherEmails).map((e) => e.email)];
-    // A customer with a full list keeps it as it is: the link still stands, the number just isn't added.
-    const full =
-      (c.channel === 'sms'
-        ? otherPhonesOf(person.otherPhones).length
-        : otherEmailsOf(person.otherEmails).length) >= MAX_OTHER_CONTACTS;
-    if (!theirs.includes(c.counterpart) && !full) {
-      await ctx.tx
-        .update(people)
-        .set(
-          c.channel === 'sms'
-            ? {
-                otherPhones: tidyOtherPhones(
-                  [...otherPhonesOf(person.otherPhones), { phone: c.counterpart }],
-                  person.phoneE164,
-                ),
-                fieldTimes: stampSql([column], changeMoment(ctx.meta)),
-              }
-            : {
-                otherEmails: tidyOtherEmails(
-                  [...otherEmailsOf(person.otherEmails), { email: c.counterpart }],
-                  person.email,
-                ),
-                fieldTimes: stampSql([column], changeMoment(ctx.meta)),
-              },
-        )
-        .where(eq(people.id, person.id));
-      phoneAdded = true;
-    }
-  }
-  /**
-   * Every unlinked lane on this address, not only the one somebody clicked (0089).
-   *
-   * The inbox groups an unlinked thread under its address and a linked one under its customer, so linking
-   * one of two text lanes would split the customer in two: one row under their name, one still under their
-   * number, and both of them the same person. The lanes share a counterpart, so this is the identification
-   * the click already made, applied to all of it.
-   *
-   * The lane that was clicked moves whoever it was linked to before, because re-linking a thread put on the
-   * wrong customer is exactly what this command is for. A *sibling* already linked to somebody else is left
-   * alone: that was a separate decision and this click did not overrule it. So is the linker's own mail from the
-   * same address (M19): it stays theirs, and off the customer, until they share it.
-   *
-   * Email from someone now a customer is the Inbox's (M19): linking is how a thread in Other mail or Spam is
-   * claimed, so it moves there, and their next mail wakes the teammate, workflows and push as a customer's does.
-   */
-  await ctx.tx
-    .update(conversations)
-    .set({ personId: person.id, ...(c.channel === 'email' ? { folder: 'inbox' as const } : {}) })
-    .where(
-      and(
-        eq(conversations.workspaceId, workspaceId),
-        eq(conversations.channel, c.channel),
-        eq(conversations.counterpart, c.counterpart),
-        isNull(conversations.privateTo),
-        or(eq(conversations.id, c.id), isNull(conversations.personId)),
-      ),
-    );
-  const previous = await personLabel(ctx, c.personId);
-  const name = fullName(person.firstName, person.lastName);
-  await ctx.emit({
-    type: 'conversation.linked',
-    entityType: 'conversation',
-    entityId: c.id,
-    payload: { personId: person.id, previousPersonId: c.personId, phoneAdded },
-    before: { person: previous },
-    after: {
-      person: name,
-      with: withWho(c),
-      contactAdded: phoneAdded,
-      ...(c.channel === 'email' && c.folder !== 'inbox' ? { folder: 'the Inbox' } : {}),
-    },
-  });
-  return phoneAdded;
-}
-
 export const conversationLinkPerson = defineCommand({
   name: 'conversation.link_person',
   description:
@@ -651,6 +532,7 @@ export const conversationLinkPerson = defineCommand({
   emits: ['conversation.linked'],
   offline: 'anytime',
   async handler(ctx, input) {
+    const workspaceId = ctx.scope.workspaceId!;
     const c = await loadConversation(ctx, input.conversationId);
     // A person's own mail stays off every customer's record until they share it with the team (M19).
     if (c.privateTo)
@@ -666,8 +548,113 @@ export const conversationLinkPerson = defineCommand({
         409,
         'This thread is from the client’s own portal, so it stays with them. Write to the other customer separately.',
       );
-    const phoneAdded = await linkConversation(ctx, c, input.personId);
-    return { conversationId: c.id, personId: input.personId, phoneAdded };
+    const person = await requirePerson(ctx.tx, workspaceId, input.personId);
+    if (person.archivedAt)
+      throw HfosError.rule(
+        'person_archived',
+        409,
+        `${capitalized(customerName(person))} is archived. Restore them from their page first, then link this conversation.`,
+      );
+    if (c.personId === person.id)
+      return { conversationId: c.id, personId: person.id, phoneAdded: false };
+    let phoneAdded = false;
+    if (c.channel === 'sms' && !person.phoneE164) {
+      await ctx.tx
+        .update(people)
+        .set({
+          phoneE164: c.counterpart,
+          phone: formatPhone(c.counterpart),
+          fieldTimes: stampSql(['phone_e164'], changeMoment(ctx.meta)),
+        })
+        .where(eq(people.id, person.id));
+      phoneAdded = true;
+    } else if (c.channel === 'email' && !person.email) {
+      await ctx.tx
+        .update(people)
+        .set({ email: c.counterpart, fieldTimes: stampSql(['email'], changeMoment(ctx.meta)) })
+        .where(eq(people.id, person.id));
+      phoneAdded = true;
+    } else if (c.channel === 'sms' || c.channel === 'email') {
+      // They already have a main one: this number or address joins their others (0103), so the next text from
+      // it finds them on its own.
+      const column = c.channel === 'sms' ? 'other_phones' : 'other_emails';
+      const theirs =
+        c.channel === 'sms'
+          ? [person.phoneE164, ...otherPhonesOf(person.otherPhones).map((p) => p.phone)]
+          : [person.email?.toLowerCase(), ...otherEmailsOf(person.otherEmails).map((e) => e.email)];
+      // A customer with a full list keeps it as it is: the link still stands, the number just isn't added.
+      const full =
+        (c.channel === 'sms'
+          ? otherPhonesOf(person.otherPhones).length
+          : otherEmailsOf(person.otherEmails).length) >= MAX_OTHER_CONTACTS;
+      if (!theirs.includes(c.counterpart) && !full) {
+        await ctx.tx
+          .update(people)
+          .set(
+            c.channel === 'sms'
+              ? {
+                  otherPhones: tidyOtherPhones(
+                    [...otherPhonesOf(person.otherPhones), { phone: c.counterpart }],
+                    person.phoneE164,
+                  ),
+                  fieldTimes: stampSql([column], changeMoment(ctx.meta)),
+                }
+              : {
+                  otherEmails: tidyOtherEmails(
+                    [...otherEmailsOf(person.otherEmails), { email: c.counterpart }],
+                    person.email,
+                  ),
+                  fieldTimes: stampSql([column], changeMoment(ctx.meta)),
+                },
+          )
+          .where(eq(people.id, person.id));
+        phoneAdded = true;
+      }
+    }
+    /**
+     * Every unlinked lane on this address, not only the one somebody clicked (0089).
+     *
+     * The inbox groups an unlinked thread under its address and a linked one under its customer, so linking
+     * one of two text lanes would split the customer in two: one row under their name, one still under their
+     * number, and both of them the same person. The lanes share a counterpart, so this is the identification
+     * the click already made, applied to all of it.
+     *
+     * The lane that was clicked moves whoever it was linked to before, because re-linking a thread put on the
+     * wrong customer is exactly what this command is for. A *sibling* already linked to somebody else is left
+     * alone: that was a separate decision and this click did not overrule it. So is the linker's own mail from the
+     * same address (M19): it stays theirs, and off the customer, until they share it.
+     *
+     * Email from someone now a customer is the Inbox's (M19): linking is how a thread in Other mail or Spam is
+     * claimed, so it moves there, and their next mail wakes the teammate, workflows and push as a customer's does.
+     */
+    await ctx.tx
+      .update(conversations)
+      .set({ personId: person.id, ...(c.channel === 'email' ? { folder: 'inbox' as const } : {}) })
+      .where(
+        and(
+          eq(conversations.workspaceId, workspaceId),
+          eq(conversations.channel, c.channel),
+          eq(conversations.counterpart, c.counterpart),
+          isNull(conversations.privateTo),
+          or(eq(conversations.id, c.id), isNull(conversations.personId)),
+        ),
+      );
+    const previous = await personLabel(ctx, c.personId);
+    const name = fullName(person.firstName, person.lastName);
+    await ctx.emit({
+      type: 'conversation.linked',
+      entityType: 'conversation',
+      entityId: c.id,
+      payload: { personId: person.id, previousPersonId: c.personId, phoneAdded },
+      before: { person: previous },
+      after: {
+        person: name,
+        with: withWho(c),
+        contactAdded: phoneAdded,
+        ...(c.channel === 'email' && c.folder !== 'inbox' ? { folder: 'the Inbox' } : {}),
+      },
+    });
+    return { conversationId: c.id, personId: person.id, phoneAdded };
   },
 });
 
