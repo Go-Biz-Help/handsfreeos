@@ -9408,6 +9408,10 @@ reminder set, there's no call either.
   - Each ask is on the wallet: `lookup.line_type` (Twilio's $0.008, charged 2¢, the floor, since 1.2¢ would round
     under 1.5×) and `lookup.caller_name` ($0.01, charged 2¢). The nightly true-up compares them with Twilio's
     `enhanced-line-type-lookups` and `calleridlookups`.
+  - The price is shown before anything is paid, read from the live rate card (to someone with `money.read`): under
+    the switch, on the Assistant's Confirm card that turns it on, and in Settings → Usage's price list. A new call
+    campaign's preview (`landlineCheckCents`) and its Confirm card add the most its checks could come to, counting
+    only what's still to ask: a number checked lately costs nothing, and a company's number skips the second check.
   - A campaign's preview says how many it would call only if their number turns out to be a business landline. One
     that isn't is left out, saying "No yes to calls, and not a business landline" (`not_business_landline`), which a
     yes given later changes for a campaign that keeps adding people; a workflow's step is skipped the same way. A

@@ -32,6 +32,7 @@ import {
   ideaUpdateLine,
   IDEAS_WORDS,
   isValidTimeZone,
+  lineCheckPriceWords,
   MENU_ALWAYS_SHOWN,
   MENU_WORDS,
   menuOf,
@@ -51,6 +52,7 @@ import {
   type AutomationPatch,
   type AutomationSettings,
   type IdeaStatus,
+  type LineCheckCents,
   type Menu,
   type MenuKey,
   type NotifyWho,
@@ -528,11 +530,13 @@ interface AutomationState {
   readonly canManageTeammate: boolean;
   /** For Intake questions: the forms it could send (null when they couldn't be read). */
   readonly forms: { formId: string; name: string; status: string }[] | null;
+  /** For Business landlines: what checking a number costs, as the page shows it (null when it can't see prices). */
+  readonly lineCheckCents: LineCheckCents | null;
 }
 
 /** Everything the page reads to draw its rows, read the way the page reads it. */
 async function automationState(db: Db, ctx: ToolContext): Promise<AutomationState> {
-  const [{ workspace }, team, services, plans, forms] = await Promise.all([
+  const [{ workspace }, team, services, plans, forms, prices] = await Promise.all([
     query<{ workspace: { settings: Record<string, unknown> } }>(db, ctx, 'workspace.get'),
     teammateOf(db, ctx).catch(() => null),
     query<{ items: { repeatMonths: number | null }[] }>(db, ctx, 'service.list').catch(() => null),
@@ -546,8 +550,14 @@ async function automationState(db: Db, ctx: ToolContext): Promise<AutomationStat
       ctx,
       'form.list',
     ).catch(() => null),
+    query<{ items: { key: string | null; cents: number }[] }>(db, ctx, 'usage.prices').catch(
+      () => null,
+    ),
   ]);
   const teammate = team?.teammate ?? null;
+  const priced = (key: string) => prices?.items.find((p) => p.key === key)?.cents;
+  const line = priced('lookup.line_type');
+  const owner = priced('lookup.caller_name');
   return {
     ctx: {
       attention: attentionSettingsOf(workspace.settings),
@@ -567,6 +577,7 @@ async function automationState(db: Db, ctx: ToolContext): Promise<AutomationStat
     teammate,
     canManageTeammate: team?.canManage ?? false,
     forms: forms?.items ?? null,
+    lineCheckCents: line !== undefined && owner !== undefined ? { line, owner } : null,
   };
 }
 
@@ -836,7 +847,12 @@ function planAutomations(state: AutomationState, args: Args): AutomationPlan {
   if (businessLandlines !== now.calls.businessLandlines)
     fields.push({
       label: 'Call business landlines without a yes',
-      value: businessLandlines ? 'On' : 'Off',
+      value:
+        businessLandlines && state.lineCheckCents
+          ? `On. Each check is charged to your balance: ${lineCheckPriceWords(state.lineCheckCents)}`
+          : businessLandlines
+            ? 'On. Each check is charged to your balance'
+            : 'Off',
     });
   if (JSON.stringify(next) !== JSON.stringify(now)) {
     try {

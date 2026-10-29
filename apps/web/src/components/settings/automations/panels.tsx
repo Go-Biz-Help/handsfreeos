@@ -30,6 +30,8 @@ import {
   formatClock,
   guessStageRole,
   intakeMessageProblem,
+  LINE_CHECK_DAYS,
+  lineCheckPriceWords,
   maintenanceTemplateProblem,
   NUDGE_SAMPLE,
   QUIET_FOLLOW_UP_MINUTES,
@@ -47,6 +49,7 @@ import {
   type CallVoicemailChoice,
   type FollowUpStep,
   type FollowUpUnit,
+  type LineCheckCents,
   type NudgeCheckContext,
   type NudgePlaceholder,
   type NudgeProblemCode,
@@ -111,6 +114,8 @@ export interface PanelEnv {
   readonly teammateName: string | null;
   /** The business's forms (not archived), for "Intake questions". */
   readonly forms: readonly IntakeFormOption[];
+  /** What checking a number costs ("Business landlines"), or null to someone who can't see prices. */
+  readonly lineCheckCents: LineCheckCents | null;
 }
 
 /** A form "Intake questions" may send. Only a live one goes out. */
@@ -2051,7 +2056,7 @@ function AiCallsPanel({ env }: { env: PanelEnv }) {
         <SetRow
           first
           title="Call business landlines without a yes"
-          description="For campaign and workflow calls to someone who hasn’t agreed in writing. Just before the call, the phone company is asked what the number is, about a cent each, kept for 90 days. It’s called only when it’s a landline and a business’s: registered to one, or a company’s number here. Mobiles, home lines and internet numbers still need the yes, even when used for work."
+          description={`For campaign and workflow calls to someone who hasn’t agreed in writing. Just before the call, the phone company is asked what the number is, and the answer is kept for ${LINE_CHECK_DAYS} days. It’s called only when it’s a landline and a business’s: registered to one, or a company’s number here. Mobiles, home lines and internet numbers still need the yes, even when used for work.`}
         >
           <Switch
             checked={landlines}
@@ -2067,6 +2072,11 @@ function AiCallsPanel({ env }: { env: PanelEnv }) {
             testId="ai-calls-business-landlines"
           />
         </SetRow>
+        <p className="mt-1.5 text-[12.5px] text-text-2" data-testid="ai-calls-landline-price">
+          {env.lineCheckCents
+            ? `Each check is charged to your balance: ${lineCheckPriceWords(env.lineCheckCents)}. A new campaign shows the most its checks could cost before it starts.`
+            : 'Each check is charged to your balance. Settings → Usage shows the price.'}
+        </p>
         <p className="mt-1.5 text-[12.5px] text-text-3">
           The AI still says who it is, that it’s an AI and that the call is recorded, and “don’t
           call me again” is kept. Some states don’t make an exception for business numbers, so ask

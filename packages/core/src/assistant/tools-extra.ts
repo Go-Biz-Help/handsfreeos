@@ -275,7 +275,7 @@ export const extraTools: readonly AssistantTool[] = [
         .boolean()
         .optional()
         .describe(
-          'Let a campaign’s or workflow’s call go to someone with no written yes when their number is a business landline (checked with the phone company first, about a cent each). Mobiles, home lines and internet numbers still need the yes',
+          'Let a campaign’s or workflow’s call go to someone with no written yes when their number is a business landline (checked with the phone company first, charged per number to the balance: get_settings prices lists what each check costs). Mobiles, home lines and internet numbers still need the yes',
         ),
     }),
     autonomy: 'confirm',

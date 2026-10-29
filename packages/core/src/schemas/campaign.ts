@@ -205,6 +205,15 @@ export const CampaignPreviewOutput = z.object({
    * is a business landline (with Call business landlines without a yes on).
    */
   landlineChecks: z.number().int().default(0),
+  /**
+   * Calls: what asking the phone company costs, in cents: `line` to check what kind of line a number is, `owner`
+   * more to check who a landline belongs to, and `upTo` the most these people's numbers could come to (numbers
+   * checked lately aren't asked again). Null when there's nothing to check, or to someone who can't see prices.
+   */
+  landlineCheckCents: z
+    .object({ line: z.number().int(), owner: z.number().int(), upTo: z.number().int() })
+    .nullable()
+    .default(null),
 });
 
 export const CampaignCounts = z.object({

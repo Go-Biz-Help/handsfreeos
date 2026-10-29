@@ -1,5 +1,5 @@
 'use client';
-import { CAMPAIGN_PER_HOUR_DEFAULT, CAMPAIGN_PER_HOUR_MAX } from '@hfos/core';
+import { CAMPAIGN_PER_HOUR_DEFAULT, CAMPAIGN_PER_HOUR_MAX, lineCheckCostWords } from '@hfos/core';
 import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { toast } from 'sonner';
@@ -230,6 +230,11 @@ export function NewCampaign({
             {calls && preview.landlineChecks > 0 ? (
               <p className="mt-1 text-[12.5px] text-text-2" data-testid="campaign-landline-checks">
                 {`${people(preview.landlineChecks)} with no yes to calls ${preview.landlineChecks === 1 ? 'is' : 'are'} called only if the phone company says their number is a business landline, checked just before the call.`}
+                {preview.landlineCheckCents ? (
+                  <span data-testid="campaign-landline-cost">
+                    {` ${lineCheckCostWords(preview.landlineCheckCents)}`}
+                  </span>
+                ) : null}
               </p>
             ) : null}
             {skipped.length ? (

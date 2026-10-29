@@ -29,8 +29,10 @@ import type { SQL } from 'drizzle-orm';
 import { rows, sql, type Tx } from '@hfos/db/client';
 import {
   businessLineOf,
+  checksLeftOf,
   LINE_CHECK_DAYS,
   type BusinessLine,
+  type ChecksLeft,
   type CallerType,
   type LineFacts,
   type LineType,
@@ -77,6 +79,8 @@ export interface AudienceMember {
   readonly skipReason: SkipReason | null;
   /** A call that goes only once the phone company says their number is a business landline (no yes). */
   readonly landlineCheck?: boolean;
+  /** What the phone company may still be asked about their number before it, at most. */
+  readonly checksLeft?: ChecksLeft;
 }
 
 type Pick = { readonly audience: CampaignAudience } | { readonly personIds: readonly string[] };
@@ -236,6 +240,8 @@ export interface CallAudienceFacts {
    * one (`unchecked` until the phone company is asked). Null otherwise: a yes, a no, or the switch off.
    */
   readonly line?: BusinessLine | null;
+  /** While `line` is `unchecked`: what the phone company may still be asked, at most. */
+  readonly checksLeft?: ChecksLeft;
 }
 
 /** Why someone left out of a call campaign may still join one that keeps adding people: these can change. */
@@ -334,24 +340,26 @@ export async function callAudienceFacts(
         limit ${CAMPAIGN_MAX_RECIPIENTS}`,
   );
   return new Map(
-    list.map((r) => [
-      r.id,
-      {
-        hasPhone: r.has_phone,
-        callConsent: r.call_consent,
-        calledRecently: r.called_recently,
-        inConversation: r.in_conversation,
-        bookedSoon: r.booked_soon,
-        line:
-          landlines && r.no_answer_yet && r.has_phone
-            ? businessLineOf({
-                lineType: r.line_type,
-                callerType: r.caller_type,
-                companyNumber: r.company_number,
-              })
-            : null,
-      },
-    ]),
+    list.map((r) => {
+      const facts: LineFacts = {
+        lineType: r.line_type,
+        callerType: r.caller_type,
+        companyNumber: r.company_number,
+      };
+      const line = landlines && r.no_answer_yet && r.has_phone ? businessLineOf(facts) : null;
+      return [
+        r.id,
+        {
+          hasPhone: r.has_phone,
+          callConsent: r.call_consent,
+          calledRecently: r.called_recently,
+          inConversation: r.in_conversation,
+          bookedSoon: r.booked_soon,
+          line,
+          ...(line === 'unchecked' ? { checksLeft: checksLeftOf(facts) } : {}),
+        },
+      ];
+    }),
   );
 }
 
@@ -371,6 +379,7 @@ export async function campaignAudience(
         personId,
         skipReason,
         ...(!skipReason && !f.callConsent ? { landlineCheck: true } : {}),
+        ...(!skipReason && f.checksLeft ? { checksLeft: f.checksLeft } : {}),
       };
     });
   }

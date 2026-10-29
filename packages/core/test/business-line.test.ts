@@ -6,6 +6,9 @@ import { describe, expect, it } from 'vitest';
 import {
   businessLineOf,
   callerTypeOf,
+  checksLeftOf,
+  lineCheckCostWords,
+  lineCheckPriceWords,
   lineTypeOf,
   needsCallerName,
   type LineFacts,
@@ -63,6 +66,33 @@ describe('a business landline', () => {
     expect(needsCallerName(facts({ lineType: 'landline', companyNumber: true }))).toBe(false);
     expect(needsCallerName(facts({ lineType: 'mobile' }))).toBe(false);
     expect(needsCallerName(facts({ lineType: 'landline', callerType: 'consumer' }))).toBe(false);
+  });
+
+  it('knows the most that could still be asked (and paid for) about a number', () => {
+    expect(checksLeftOf(facts())).toEqual({ lineType: true, callerName: true });
+    expect(checksLeftOf(facts({ companyNumber: true }))).toEqual({
+      lineType: true,
+      callerName: false,
+    });
+    expect(checksLeftOf(facts({ lineType: 'landline' }))).toEqual({
+      lineType: false,
+      callerName: true,
+    });
+    expect(checksLeftOf(facts({ lineType: 'mobile' }))).toEqual({
+      lineType: false,
+      callerName: false,
+    });
+  });
+});
+
+describe('what checking costs, in words', () => {
+  it('names both prices, and the most a campaign’s checks could come to', () => {
+    expect(lineCheckPriceWords({ line: 2, owner: 2 })).toBe(
+      '$0.02 to check what kind of line a number is, and $0.02 more to check who a landline belongs to',
+    );
+    expect(lineCheckCostWords({ line: 2, owner: 2, upTo: 1150 })).toBe(
+      'Checking costs $0.02 a number, and $0.02 more for a landline: up to $11.50 for these.',
+    );
   });
 });
 

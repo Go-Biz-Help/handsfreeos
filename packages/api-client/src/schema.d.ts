@@ -65784,6 +65784,12 @@ export interface operations {
                 };
                 content: {
                     "application/json": {
+                        /** @default null */
+                        landlineCheckCents: {
+                            line: number;
+                            owner: number;
+                            upTo: number;
+                        } | null;
                         /** @default 0 */
                         landlineChecks: number;
                         postalAddress: string | null;

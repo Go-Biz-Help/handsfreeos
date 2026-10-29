@@ -328,7 +328,10 @@ describe('Settings → Automations', () => {
       callBusinessLandlines: true,
     });
     expect(card.title).toBe('Change your automations');
-    expect(field(card, 'Call business landlines without a yes')!.value).toBe('On');
+    // What each check costs is on the card, as Settings → Automations shows it.
+    expect(field(card, 'Call business landlines without a yes')!.value).toBe(
+      'On. Each check is charged to your balance: $0.02 to check what kind of line a number is, and $0.02 more to check who a landline belongs to',
+    );
     expect(field(card, 'Ask for an OK to call')!.value).toBe('On');
     expect(field(card, 'Calling hours for leads')!.value).toBe(
       '10:00 AM to 6:00 PM, in each lead’s own time',

@@ -1245,9 +1245,11 @@ describe('a business landline with no yes (AI calls, part 5)', () => {
       audience,
       channel: 'call',
     });
+    // What checking Kay's number could cost, before it starts: the line, and who owns it if it's a landline.
     expect(preview).toMatchObject({
       recipients: 1,
       landlineChecks: 1,
+      landlineCheckCents: { line: 2, owner: 2, upTo: 4 },
       skipped: { not_business_landline: 1 },
     });
 

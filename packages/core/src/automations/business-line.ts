@@ -12,6 +12,7 @@
  * that isn't a company's number here, since each is paid for. What Twilio said is kept for `LINE_CHECK_DAYS`
  * (`app.phone_line_checks`), then asked again. Pure and browser-safe.
  */
+import { money } from '../money/format';
 
 /** How long what the phone company said about a number is used before it's asked again. */
 export const LINE_CHECK_DAYS = 90;
@@ -77,3 +78,32 @@ export function businessLineOf(f: LineFacts): BusinessLine {
 /** Whether the caller name is worth paying for: a landline that isn't a company's number here, not asked yet. */
 export const needsCallerName = (f: LineFacts): boolean =>
   f.lineType === 'landline' && !f.companyNumber && f.callerType === null;
+
+/** What may still be asked (and paid for) about a number, at most: the caller name only if it's a landline. */
+export interface ChecksLeft {
+  readonly lineType: boolean;
+  readonly callerName: boolean;
+}
+
+export function checksLeftOf(f: LineFacts): ChecksLeft {
+  if (f.lineType === null) return { lineType: true, callerName: !f.companyNumber };
+  return { lineType: false, callerName: needsCallerName(f) };
+}
+
+/** What a check costs, in cents, from the live rate card (`lookup.line_type`, `lookup.caller_name`). */
+export interface LineCheckCents {
+  readonly line: number;
+  readonly owner: number;
+}
+
+/**
+ * The switch's price, in words: "$0.02 to check what kind of line a number is, and $0.02 more to check who a
+ * landline belongs to". One copy for Settings → Automations and the Assistant.
+ */
+export const lineCheckPriceWords = (c: LineCheckCents): string =>
+  `${money(c.line)} to check what kind of line a number is, and ${money(c.owner)} more to check who a landline belongs to`;
+
+/** A campaign's cost of checking, before it starts: the prices, and the most its numbers could come to. */
+export function lineCheckCostWords(c: LineCheckCents & { readonly upTo: number }): string {
+  return `Checking costs ${money(c.line)} a number, and ${money(c.owner)} more for a landline: up to ${money(c.upTo)} for these.`;
+}

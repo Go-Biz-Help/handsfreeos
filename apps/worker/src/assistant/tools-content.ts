@@ -21,6 +21,7 @@ import {
   findStep,
   HfosError,
   KnowledgeEditableContent,
+  lineCheckCostWords,
   MONEY_DRAFT_ACTIONS,
   normalizeSiteUrl,
   parseDefinition,
@@ -437,6 +438,8 @@ const startCampaign: SettingsConfirmTool = {
       recipients: number;
       skipped: Record<string, number>;
       postalAddress: string | null;
+      landlineChecks: number;
+      landlineCheckCents: { line: number; owner: number; upTo: number } | null;
     }>(db, ctx, 'campaign.preview_audience', { audience: { tagIds, stageIds }, channel });
     const [, many] = NOUN[channel];
     const blocked =
@@ -466,6 +469,13 @@ const startCampaign: SettingsConfirmTool = {
           { label: 'Who it picks', value: whoLine(who) },
           { label: 'Reaches', value: peopleOf(preview.recipients) },
           { label: 'Left out', value: leftOutLine(preview.skipped) },
+          {
+            label: 'Business landlines',
+            value:
+              channel === 'call' && preview.landlineChecks > 0
+                ? `${peopleOf(preview.landlineChecks)} with no yes to calls, called only if the phone company says their number is a business landline.${preview.landlineCheckCents ? ` ${lineCheckCostWords(preview.landlineCheckCents)}` : ''}`
+                : '',
+          },
           { label: 'About the promotion', value: offer?.name ?? '' },
           { label: 'Pace', value: paceLine({ channel, perHour: Number(args['perHour'] ?? 20) }) },
           {
