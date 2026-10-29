@@ -52,6 +52,7 @@
 import { z } from 'zod';
 import { OCCASION_KINDS, type OccasionKind } from './occasions';
 import { quoteData } from '../../knowledge/prompt';
+import { intlTimeZone } from '../../intl/engine-zones';
 import { FreshState, NOT_FRESH, SEND_KINDS, SENDING_MODE_KEYS, WheelsState } from './automation';
 import type { DownloadMessage } from './download';
 import { FRIENDS_CAP_ROOM, REQUESTS_WAITING_MOST, type DailyStep } from './limits';
@@ -669,21 +670,15 @@ export const chatLines = (recent: readonly DownloadMessage[]) =>
  * October 29 at 2:00 PM CDT". A zone this engine doesn't know is read as UTC.
  */
 export function demoWhen(at: Date | string, timeZone: string): string {
-  const words = (zone: string) =>
-    new Date(at).toLocaleString('en-US', {
-      weekday: 'long',
-      month: 'long',
-      day: 'numeric',
-      hour: 'numeric',
-      minute: '2-digit',
-      timeZone: zone,
-      timeZoneName: 'short',
-    });
-  try {
-    return words(timeZone);
-  } catch {
-    return words('UTC');
-  }
+  return new Date(at).toLocaleString('en-US', {
+    weekday: 'long',
+    month: 'long',
+    day: 'numeric',
+    hour: 'numeric',
+    minute: '2-digit',
+    timeZone: intlTimeZone(timeZone),
+    timeZoneName: 'short',
+  });
 }
 
 /** When the latest message in a chat was, either way. */
