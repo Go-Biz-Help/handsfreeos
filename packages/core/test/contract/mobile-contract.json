@@ -7999,7 +7999,8 @@
                     "default": {
                       "on": true,
                       "young": false,
-                      "tidy": "cancel"
+                      "tidy": "cancel",
+                      "requests": "fits"
                     },
                     "type": "object",
                     "properties": {
@@ -8015,6 +8016,11 @@
                         "default": "cancel",
                         "type": "string",
                         "enum": ["off", "cancel", "unfriend"]
+                      },
+                      "requests": {
+                        "default": "fits",
+                        "type": "string",
+                        "enum": ["fits", "fits_delete", "all", "delete"]
                       }
                     }
                   },
@@ -8030,7 +8036,8 @@
                       "watchPosts": true,
                       "posting": "after_ok",
                       "young": false,
-                      "tidy": "cancel"
+                      "tidy": "cancel",
+                      "requests": "fits"
                     },
                     "type": "object",
                     "properties": {
@@ -8081,6 +8088,11 @@
                         "default": "cancel",
                         "type": "string",
                         "enum": ["off", "cancel", "unfriend"]
+                      },
+                      "requests": {
+                        "default": "fits",
+                        "type": "string",
+                        "enum": ["fits", "fits_delete", "all", "delete"]
                       }
                     }
                   },
@@ -8096,7 +8108,8 @@
                       "watchPosts": true,
                       "posting": "after_ok",
                       "young": false,
-                      "tidy": "cancel"
+                      "tidy": "cancel",
+                      "requests": "fits"
                     },
                     "type": "object",
                     "properties": {
@@ -8147,6 +8160,11 @@
                         "default": "cancel",
                         "type": "string",
                         "enum": ["off", "cancel", "unfriend"]
+                      },
+                      "requests": {
+                        "default": "fits",
+                        "type": "string",
+                        "enum": ["fits", "fits_delete", "all", "delete"]
                       }
                     }
                   },
@@ -8162,7 +8180,8 @@
                       "watchPosts": true,
                       "posting": "after_ok",
                       "young": false,
-                      "tidy": "cancel"
+                      "tidy": "cancel",
+                      "requests": "fits"
                     },
                     "type": "object",
                     "properties": {
@@ -8213,6 +8232,11 @@
                         "default": "cancel",
                         "type": "string",
                         "enum": ["off", "cancel", "unfriend"]
+                      },
+                      "requests": {
+                        "default": "fits",
+                        "type": "string",
+                        "enum": ["fits", "fits_delete", "all", "delete"]
                       }
                     }
                   }
