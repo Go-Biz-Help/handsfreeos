@@ -481,6 +481,31 @@ describe('trying the steps on someone’s profile', () => {
     });
   });
 
+  it('finds Cancel request beside the ones you’ve sent under Sent requests, never pressing it (from 0.110.1)', () => {
+    const doc = load('friend-requests-sent-2026.html', REQUESTS);
+    let pressed = 0;
+    for (const button of doc.querySelectorAll('[aria-label="Cancel request"]'))
+      button.addEventListener('click', () => pressed++);
+    // Jesse Moore's row links to nobody, so three of the four.
+    expect(tryCancel(doc, REQUESTS)).toMatchObject({
+      works: true,
+      found: { sent: 3, cancel: true },
+    });
+    expect(pressed).toBe(0);
+    // A list that says it has some, with no Cancel request beside them, doesn't work.
+    for (const button of [...doc.querySelectorAll('[role="dialog"] [aria-label="Cancel request"]')])
+      button.remove();
+    expect(tryCancel(doc, REQUESTS)).toMatchObject({
+      works: false,
+      missing: ['no Cancel request beside anyone under Sent requests'],
+    });
+    // None sent: nothing to try it on.
+    expect(tryCancel(load('friend-requests-2026.html', REQUESTS), REQUESTS)).toMatchObject({
+      tried: false,
+      missing: ['no friend requests you’ve sent'],
+    });
+  });
+
   it('finds Add friend and Cancel request when their labels have the person’s name after them', () => {
     const doc = load('profile-2026.html', DANA);
     const button = standing(doc);

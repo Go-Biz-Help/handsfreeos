@@ -253,8 +253,9 @@ describe('the jobs an ask does', () => {
       { kind: 'cancel', profileIds: [listed.profileId, '00000000-0000-4000-8000-000000000009'] },
       job,
     );
-    // Dana's profile shows something other than a request sent, or the step is handed over and skipped.
-    expect(opened).toEqual([profile]);
+    // Facebook shows no View sent requests either, so it goes by her profile (from 0.110.1 Sent requests comes first),
+    // which shows something other than a request sent, or the step is handed over and skipped.
+    expect(opened).toEqual(['https://www.facebook.com/friends/requests', profile]);
     expect(sent.some((a) => a.type === 'hfos-friend-end')).toBe(false);
     expect(end.line).toMatch(/^Done\. Requests cancelled: 0 people\./);
     expect(end.line).toContain('No longer on the list: 1.');

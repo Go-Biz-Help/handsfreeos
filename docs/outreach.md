@@ -2853,6 +2853,13 @@ where decisions 37 and 59 put the settings; what they decided stands. Settled to
       - **It never deletes** someone in Contacts, kept, chatted with (a chat in the file, a reply, a message noted), a
         partner, or anyone on Don't pitch, and never answers anyone on Never contact. For not fitting, only with a
         playbook in use: with none, nobody fits, so nobody is deleted. Those it never deletes wait in Waiting for you.
+      - **From 0.110.1 a request the person sent is cancelled from Sent requests** (the owner's report of 29 Oct 2026,
+        where a profile's Cancel request couldn't be found and each one came to Needs you; the owner's words: "it
+        should be trying to unfriend them from https://www.facebook.com/friends/requests click sent friend requests
+        and then it can click them"). The extension opens the friend requests, presses View sent requests, finds each
+        one's row by the link to their profile, scrolling for it, and presses the Cancel request beside them; only
+        someone the whole list doesn't show has their profile opened, to see where things stand. The ticked ones,
+        Cancel all's and tidying on its own all go this way, and Check Facebook tries it there.
 
 ## Rules worth knowing before changing anything
 

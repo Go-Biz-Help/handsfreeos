@@ -3,8 +3,8 @@
  * the person asked of the extension from HandsFreeOS, or let it do on its own (README.md, "Rules worth knowing").
  *
  * - On Facebook's own download pages, the buttons that ask for their file and download it, one step at a time
- *   (./fetch.ts); on the profiles of people they ticked, Cancel request or Unfriend (./tidy.ts); on their friend
- *   requests, View sent requests (./friends.ts).
+ *   (./fetch.ts); on the profiles of people they ticked, Unfriend (./tidy.ts); on their friend requests, View sent
+ *   requests (./friends.ts), and from 0.110.1 the Cancel request beside each one they ticked there (./sent.ts).
  * - In Messenger, for Read my chats, a chat opened from the list beside it, and that list scrolled for more; a group's
  *   feed, a list of people and a list of groups scrolled for more (./browse.ts).
  * - Working on its own (../../auto/run.ts): Add friend, Confirm and Like on the profiles of people on their list for
@@ -28,6 +28,8 @@ import type {
   AutoAsk,
   BrowseAnswer,
   BrowseAsk,
+  CancelSentAnswer,
+  CancelSentAsk,
   FetchAnswer,
   FetchAsk,
   GroupFeedAnswer,
@@ -71,6 +73,7 @@ import { linksPage, writeLink } from './links';
 import { ownEditorsOf, readOwnProfile, writeBioSteps } from './own-profile';
 import { writeFacebookPart } from './parts';
 import { readProfile } from './profile';
+import { cancelSent } from './sent';
 import { tidyPage } from './tidy';
 import {
   tryBio,
@@ -108,6 +111,13 @@ async function fetchStep(ask: FetchAsk): Promise<FetchAnswer> {
           : 'This isn’t one of Facebook’s download pages.',
     };
   return { ok: true, ...(await stepOnPage(document, ask)) };
+}
+
+/** Cancel request beside someone in Sent requests (./sent.ts): only on the person's own friend requests. */
+async function cancelSentStep(ask: CancelSentAsk): Promise<CancelSentAnswer> {
+  if (!requestsPage(location.href))
+    return { ok: false, error: 'Facebook didn’t open your friend requests.' };
+  return { ok: true, result: await cancelSent(document, location.href, ask.profile) };
 }
 
 /** One of the runner's steps (./auto.ts): a like on someone's profile, a comment on a post, or a message. */
@@ -297,9 +307,9 @@ async function tryStep(ask: TryAsk): Promise<TryAnswer> {
         ? tried(tryMessage(document, location.href))
         : wrong('their profile');
     case 'cancel':
-      return kind === 'profile'
+      return kind === 'profile' || requestsPage(location.href)
         ? tried(tryCancel(document, location.href))
-        : wrong('their profile');
+        : wrong('Sent requests');
     case 'links':
       return ownLinksHere() ? tried(tryLinks(document)) : wrong('where your links are changed');
     case 'username':
@@ -335,6 +345,7 @@ function browseStep(ask: BrowseAsk): BrowseAnswer {
 export const WORK_ASKS: ReadonlySet<string> = new Set([
   'hfos-fetch-step',
   'hfos-fetch-path',
+  'hfos-cancel-sent',
   'hfos-open-chat',
   'hfos-scroll-chats',
   'hfos-scroll-feed',
@@ -362,6 +373,7 @@ export const WORK_ASKS: ReadonlySet<string> = new Set([
 
 type WorkAsk =
   | FetchAsk
+  | CancelSentAsk
   | BrowseAsk
   | AutoAsk
   | GroupFeedAsk
@@ -430,6 +442,8 @@ export function work(ask: { readonly type: string }): Promise<unknown> | null {
     case 'hfos-fetch-step':
     case 'hfos-fetch-path':
       return fetchStep(known);
+    case 'hfos-cancel-sent':
+      return cancelSentStep(known);
     case 'hfos-try':
       return tryStep(known);
   }
