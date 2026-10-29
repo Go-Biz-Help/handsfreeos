@@ -3,7 +3,7 @@
 The extension that works beside a person on Facebook, and on LinkedIn, Instagram and Alignable once they turn each on,
 for the Social Outreach add-on (docs/outreach.md). It connects to HandsFreeOS only for businesses that have that add-on on.
 
-**This is a test build (0.108.0), and a bare one** (decisions 43, 59 and 72 in docs/outreach.md). Everything is set
+**This is a test build (0.110.1), and a bare one** (decisions 43, 59 and 72 in docs/outreach.md). Everything is set
 and started in HandsFreeOS; the extension does the work on Facebook. Its side panel shows progress and activity only:
 signing in, what it does next with today's steps and **Start my day** and **Stop for today**, how many things need
 you in HandsFreeOS (with a link there), each network's line, what it did today, and a link to HandsFreeOS. Needs you
@@ -377,7 +377,8 @@ to put in (from 0.93.0 it goes in by the About tab's editor, above).
 From 0.89.0 (the owner's save of 23 Oct 2026 read 87 followers in twelve minutes, and started over from the top):
 
 - **Its window is in front while it reads your followers,** then yours is put back: Instagram draws more of the box
-  only as it's scrolled on screen, and Chrome draws nothing in a window hidden behind another.
+  only as it's scrolled on screen, and Chrome draws nothing in a window hidden behind another. From 0.109.0 only
+  while you're away from your computer (decision 120).
 - **It scrolls the box to its end each screen,** still 8 to 15 seconds apart, so each screen draws the next rows
   whatever the box's height: the newest 200 take a few minutes. The box keeps every row it drew, so none is skipped.
 - **HandsFreeOS says where the last save got to,** not this computer. Each screen is saved as it's read, and a later
@@ -724,7 +725,7 @@ and how. A build that's handed a kind it doesn't know ends it saying so, and goe
 | **Check my groups** (Groups)                                                               | Asks HandsFreeOS which groups are next (yours first, then ones that fit by name), opens each, reads its latest posts, then its About tab (what it's for and its rules), and sends them for the AI (`src/jobs/groups-check.ts`, decision 48)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               | A window of its own, one group every 8 to 16 seconds, up to 8 (4 a day on its own)                    |
 | **Find and join more groups**, **Ask to join** (Groups)                                    | Asks HandsFreeOS which groups to join (with none, searches with your playbook's words and checks the best 3 first), presses **Join group**, writes in the AI's answers to its questions, ticks that you agree to the rules, submits, and notes how it went (`src/jobs/join.ts`, `src/networks/facebook/join.ts`)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          | A window of its own, one group every 20 to 40 seconds, up to 3 a day                                  |
 | **OK, post it** (Today, a helpful post)                                                    | Opens the group, presses **Write something…**, types the post you OK'd into the box Facebook opens, presses **Post**, finds it at the top of the newest posts for its link, and notes it (`src/jobs/helpful.ts`, `src/networks/facebook/compose.ts`, decision 50)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         | A window of its own, one post                                                                         |
-| **Cancel the ticked requests**, **Unfriend the ticked** (Friends)                          | Opens each profile you ticked that's still on the lists, checks it's them and where you stand, presses **Cancel request** (or **Friends**, **Unfriend** and **Confirm**), checks it says **Add friend** after, and notes it (`src/jobs/tidy.ts`)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          | A tab you can see, one person every 20 to 40 seconds, up to 30 and 20 a day                           |
+| **Cancel the ticked requests**, **Unfriend the ticked** (Friends)                          | Requests: from 0.110.1 opens your friend requests, presses **View sent requests**, and presses the **Cancel request** beside each one you ticked that's still on the lists, found by the link to their profile, then checks it's gone. Friends: opens each profile, checks it's them and where you stand, presses **Friends**, **Unfriend** and **Confirm**, and checks it says **Add friend** after. Each is noted (`src/jobs/tidy.ts`)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  | A tab you can see, one person every 20 to 40 seconds, up to 30 and 20 a day                           |
 | **Save my groups**, **Find groups** (Groups)                                               | Your groups, or a search for groups with the words you gave, scrolled and saved with how each fits your playbooks (`src/jobs/groups.ts`)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  | A window of its own, 4 to 9 seconds a screen, 8 screens                                               |
 | **Save a group**, **Save its members**, **Save members of my best groups** (Groups, Today) | A group's admins and moderators read to the end first, then a few screens of its members; the best groups are up to 3 of your Work these, those with fewest saved first                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   | A window of its own                                                                                   |
 | **Find posts** (Groups)                                                                    | Your Work these groups (or Maybe, with none), up to 5, each feed scrolled a screen at a time; the posts worth a look go to the AI, and the good ones on Today (`src/jobs/posts.ts`)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       | The same, 6 to 12 seconds a screen, 8 screens a group                                                 |
@@ -1072,6 +1073,73 @@ shows under Instagram). Your Instagram choices in HandsFreeOS say what it does (
 Each step is noted as the extension's own (`auto`), as Instagram's. A step its page doesn't let it do goes to your
 Needs you; it never guesses.
 
+### Cancelling from Sent requests (0.110.1)
+
+From 0.110.1 a request you sent is cancelled from your friend requests, not from the person's profile (the owner's
+report of 29 Oct 2026: on a profile, Cancel request couldn't always be found, so each one came to Needs you). The
+ticked ones, Cancel all's and tidying on its own all go this way (`src/jobs/tidy.ts`):
+
+- It opens your friend requests and presses **View sent requests**, as saving the ones you've sent does.
+- For each one, it finds their row by the link to their profile, never by a name alone, scrolling the list for it
+  (up to 60 screens, letting Facebook load more at the bottom once), and presses the **Cancel request** beside them
+  (`src/networks/facebook/sent.ts`). When Facebook opens a box to be sure, it presses that box's **Cancel request**
+  (or **Confirm**), never its **Cancel**.
+- It checks their row no longer says Cancel request, and notes it in HandsFreeOS as before.
+- Someone the whole list doesn't show has their profile opened instead, to see where things stand: friends now, or no
+  request waiting.
+- One it can't cancel comes to Needs you with "Under Sent requests, press “Cancel request” beside their name", or is
+  passed over when it's working on its own.
+
+**Check Facebook** tries cancelling there too, after View sent requests: a Cancel request beside someone, never
+pressed.
+
+Not yet tried on the owner's computer.
+
+### Cancel all, and deleting requests you get (0.110.0)
+
+From 0.110.0 (docs/outreach.md, decision 121):
+
+- **Cancel all** under Old friend requests in HandsFreeOS marks every request of yours still waiting, however new,
+  leaving out the ones the extension sent unless you untick that. The extension cancels the oldest of them straight
+  away, up to the day's limit (30 on Facebook), and the rest once a day with the other once-a-day jobs, the way
+  tidying on its own goes (`src/jobs/own-tidy.ts`), whatever you picked for tidying. LinkedIn's and Alignable's
+  withdraw them the same way. Stop in HandsFreeOS clears the marks.
+- **Requests you get, on Facebook,** go as you pick in Settings: confirm who fits (as before), confirm them all,
+  delete them all, or confirm who fits and delete the rest. Confirming goes through your day as before. Deleting goes
+  once a day, up to 30: on their profile it presses Respond, then Delete request (`decline` in
+  `src/networks/facebook/tidy.ts`), checks the profile says Add friend after, and notes it as your answer
+  (`hfos-friend-note`), even while noting is off. HandsFreeOS never picks someone in Contacts, someone you've chatted
+  with, a partner, or anyone on Don't pitch or Never contact.
+
+Not yet tried on the owner's computer. Builds before 0.110.0 still cancel Cancel all's requests, as tidying on its
+own, but never delete a request.
+
+### Its window waits till you're away (0.109.0)
+
+From 0.109.0 (docs/outreach.md, decision 120) a read that needs the screen no longer pulls its window over your work.
+Chrome draws nothing in a covered or minimized window, and some pages load only what's drawn: Instagram's boxes of
+followers and likes, LinkedIn's box of who reacted, your profile's sections.
+
+- **It comes in front only once you're away:** no key pressed and the mouse not moved for 2 minutes, as Chrome's idle
+  state says (`src/away.ts`, the `idle` permission, which shows no warning). A locked or dark screen doesn't count.
+- **It steps back the moment you're back,** giving you your window again (or just going behind, when you weren't in
+  Chrome). What it was reading goes on unseen till its next page or step, which then waits again.
+- **The runners on Instagram, LinkedIn and Alignable pass over what waits** (`src/auto/on-screen.ts`): a once-a-day
+  job that met the screen while you were there is put off, never kept as done, and tried again once you're away, or
+  10 minutes on. Likes, follows, requests and messages go on unseen meanwhile, and the day's last line says what waits.
+  LinkedIn's helpful post is asked for as before; who engaged with it is its own job now (`engaged`).
+- **An ask waits too,** saying so on its line in HandsFreeOS, and Stop ends it. **A Check comes in front right away,**
+  as you pressed it to watch, and a step handed to you still comes to the front in its tab.
+- **Its window opens beside yours,** at your window's right and the same height, without taking your attention.
+
+Not yet tried on the owner's computer. A browser without Chrome's idle state (Safari may not have it) reads in front
+as before.
+
+Also from 0.109.0 (decision 119), so a draft can name each of someone's businesses: Instagram's reader keeps each line
+of a bio, the @mentions in it and up to 3 of its links off Instagram ("Link: …", never the Threads badge), and their
+check reads 8 of their posts, not 4; Facebook's check and look-up read 4 posts, not 2, and LinkedIn's 6 lines of the
+About, not 3.
+
 ### More from finding people by topic (0.108.0)
 
 From 0.108.0 (docs/outreach.md, decision 116):
@@ -1202,7 +1270,8 @@ to 10 a day; each inside today's limit with the ones you ticked, halved while a 
 warned you. The extension goes through them with the same job as your ticks (`src/jobs/own-tidy.ts`), but hands
 nobody to you: a step it can't do, it passes over. On each network:
 
-- **Facebook** (after Friend requests): Cancel request, then Unfriend, on each profile (`src/jobs/tidy.ts`).
+- **Facebook** (after Friend requests): Cancel request under Sent requests (from 0.110.1), then Unfriend on each
+  profile (`src/jobs/tidy.ts`).
 - **LinkedIn** (after Invitations): Withdraw on Sent invitations (`src/jobs/linkedin/withdraw.ts`).
 - **Instagram** (after Who followed you back, so nobody who followed back goes): Unfollow, never anyone who wrote
   back or a customer (`src/jobs/instagram/unfollow.ts`).
@@ -1646,7 +1715,7 @@ networks Chrome lets it on, so HandsFreeOS can say what to press when an ask wai
 | `src/hfos/setup.ts`                         | The first run: telling HandsFreeOS it's signed in, and opening HandsFreeOS's setup for a first-timer                                                                                                                                                                                                                                                                     |
 | `src/hfos/live.ts`                          | What it tells HandsFreeOS: this computer, the beat, the feed of steps, Start my day and Stop for today, and which computer works                                                                                                                                                                                                                                         |
 | `src/hfos/waiting.ts`                       | What needs you: the number on the icon and Chrome's pop-ups, which open Needs you in HandsFreeOS (its address and words in `src/hfos/needs-you.ts`)                                                                                                                                                                                                                      |
-| `src/tab.ts`                                | The tab a job works in, in view or in a window of its own                                                                                                                                                                                                                                                                                                                |
+| `src/tab.ts`, `src/away.ts`                 | The tab a job works in, in view or in a window of its own, and whether you're away, for a read that needs the screen (decision 120)                                                                                                                                                                                                                                      |
 | `src/background.ts`                         | Opens the side panel, answers its asks, notes the steps the tabs tell it, follows your settings and your day, beats, and wakes the runner and the asks                                                                                                                                                                                                                   |
 | `scripts/build.mjs`                         | Bundles with esbuild and writes `manifest.json`, with the version from `package.json` and LinkedIn's site as optional                                                                                                                                                                                                                                                    |
 | `test/`                                     | The readers and steps on the hand-written pages, the addresses, the outline's hiding, the saves, the jobs and the asks                                                                                                                                                                                                                                                   |
@@ -1663,7 +1732,9 @@ day (decision 108, 0.100.0), the week's helpful post on Instagram and Alignable 
 you on Alignable read once a week (decision 112, 0.104.0), and your Facebook followers checked like friends once a
 week (decision 113, 0.105.0), staying active in your groups (decision 114, 0.106.0), and Alignable's search in the
 towns within 25 miles of yours (decision 115, 0.107.0), and liking a commenter's comment, 3 screens of a Likes box and
-Alignable's likers (decision 116, 0.108.0); Social
+Alignable's likers (decision 116, 0.108.0), and drafts naming each of someone's businesses and its window waiting
+till you're away (decisions 119 and 120, 0.109.0), and Cancel all and deleting requests you get (decision 121,
+0.110.0), and cancelling from Sent requests (0.110.1); Social
 Outreach's onboarding is built, in HandsFreeOS (decisions 36 and 45). Safari on Mac
 follows in Phase 2.
 

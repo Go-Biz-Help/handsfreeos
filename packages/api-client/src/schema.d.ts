@@ -7597,6 +7597,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/commands/outreach.friends.cancel_all": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * The person starts Cancel all on a social network: every sent friend request (LinkedIn’s invitations, Alignable’s connection requests) waiting for an answer there, however new, is cancelled by the browser extension on its own, the oldest first, at the day’s limit, leaving out the ones the extension sent unless they say. Or they stop it, and the ones left wait as usual. Not on Instagram, whose follows wait for nobody.
+         * @description Risk level 2. Requires outreach.use. Emits outreach.friends.cancel_all.
+         */
+        post: operations["command_outreach_friends_cancel_all"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/commands/outreach.friends.save": {
         parameters: {
             query?: never;
@@ -40038,7 +40058,8 @@ export interface operations {
                              *       "watchPosts": true,
                              *       "posting": "after_ok",
                              *       "young": false,
-                             *       "tidy": "cancel"
+                             *       "tidy": "cancel",
+                             *       "requests": "fits"
                              *     }
                              */
                             alignable?: {
@@ -40061,6 +40082,11 @@ export interface operations {
                                  */
                                 replies?: "draft" | "simple" | "everything";
                                 /**
+                                 * @default fits
+                                 * @enum {string}
+                                 */
+                                requests?: "fits" | "fits_delete" | "all" | "delete";
+                                /**
                                  * @default off
                                  * @enum {string}
                                  */
@@ -40081,12 +40107,18 @@ export interface operations {
                              * @default {
                              *       "on": true,
                              *       "young": false,
-                             *       "tidy": "cancel"
+                             *       "tidy": "cancel",
+                             *       "requests": "fits"
                              *     }
                              */
                             facebook?: {
                                 /** @default true */
                                 on?: boolean;
+                                /**
+                                 * @default fits
+                                 * @enum {string}
+                                 */
+                                requests?: "fits" | "fits_delete" | "all" | "delete";
                                 /**
                                  * @default cancel
                                  * @enum {string}
@@ -40107,7 +40139,8 @@ export interface operations {
                              *       "watchPosts": true,
                              *       "posting": "after_ok",
                              *       "young": false,
-                             *       "tidy": "cancel"
+                             *       "tidy": "cancel",
+                             *       "requests": "fits"
                              *     }
                              */
                             instagram?: {
@@ -40130,6 +40163,11 @@ export interface operations {
                                  */
                                 replies?: "draft" | "simple" | "everything";
                                 /**
+                                 * @default fits
+                                 * @enum {string}
+                                 */
+                                requests?: "fits" | "fits_delete" | "all" | "delete";
+                                /**
                                  * @default off
                                  * @enum {string}
                                  */
@@ -40158,7 +40196,8 @@ export interface operations {
                              *       "watchPosts": true,
                              *       "posting": "after_ok",
                              *       "young": false,
-                             *       "tidy": "cancel"
+                             *       "tidy": "cancel",
+                             *       "requests": "fits"
                              *     }
                              */
                             linkedin?: {
@@ -40180,6 +40219,11 @@ export interface operations {
                                  * @enum {string}
                                  */
                                 replies?: "draft" | "simple" | "everything";
+                                /**
+                                 * @default fits
+                                 * @enum {string}
+                                 */
+                                requests?: "fits" | "fits_delete" | "all" | "delete";
                                 /**
                                  * @default off
                                  * @enum {string}
@@ -40386,7 +40430,8 @@ export interface operations {
                              *       "facebook": {
                              *         "on": true,
                              *         "young": false,
-                             *         "tidy": "cancel"
+                             *         "tidy": "cancel",
+                             *         "requests": "fits"
                              *       },
                              *       "linkedin": {
                              *         "on": false,
@@ -40399,7 +40444,8 @@ export interface operations {
                              *         "watchPosts": true,
                              *         "posting": "after_ok",
                              *         "young": false,
-                             *         "tidy": "cancel"
+                             *         "tidy": "cancel",
+                             *         "requests": "fits"
                              *       },
                              *       "instagram": {
                              *         "on": false,
@@ -40412,7 +40458,8 @@ export interface operations {
                              *         "watchPosts": true,
                              *         "posting": "after_ok",
                              *         "young": false,
-                             *         "tidy": "cancel"
+                             *         "tidy": "cancel",
+                             *         "requests": "fits"
                              *       },
                              *       "alignable": {
                              *         "on": false,
@@ -40425,7 +40472,8 @@ export interface operations {
                              *         "watchPosts": true,
                              *         "posting": "after_ok",
                              *         "young": false,
-                             *         "tidy": "cancel"
+                             *         "tidy": "cancel",
+                             *         "requests": "fits"
                              *       }
                              *     }
                              */
@@ -40442,7 +40490,8 @@ export interface operations {
                                  *       "watchPosts": true,
                                  *       "posting": "after_ok",
                                  *       "young": false,
-                                 *       "tidy": "cancel"
+                                 *       "tidy": "cancel",
+                                 *       "requests": "fits"
                                  *     }
                                  */
                                 alignable: {
@@ -40465,6 +40514,11 @@ export interface operations {
                                      */
                                     replies: "draft" | "simple" | "everything";
                                     /**
+                                     * @default fits
+                                     * @enum {string}
+                                     */
+                                    requests: "fits" | "fits_delete" | "all" | "delete";
+                                    /**
                                      * @default off
                                      * @enum {string}
                                      */
@@ -40485,12 +40539,18 @@ export interface operations {
                                  * @default {
                                  *       "on": true,
                                  *       "young": false,
-                                 *       "tidy": "cancel"
+                                 *       "tidy": "cancel",
+                                 *       "requests": "fits"
                                  *     }
                                  */
                                 facebook: {
                                     /** @default true */
                                     on: boolean;
+                                    /**
+                                     * @default fits
+                                     * @enum {string}
+                                     */
+                                    requests: "fits" | "fits_delete" | "all" | "delete";
                                     /**
                                      * @default cancel
                                      * @enum {string}
@@ -40511,7 +40571,8 @@ export interface operations {
                                  *       "watchPosts": true,
                                  *       "posting": "after_ok",
                                  *       "young": false,
-                                 *       "tidy": "cancel"
+                                 *       "tidy": "cancel",
+                                 *       "requests": "fits"
                                  *     }
                                  */
                                 instagram: {
@@ -40534,6 +40595,11 @@ export interface operations {
                                      */
                                     replies: "draft" | "simple" | "everything";
                                     /**
+                                     * @default fits
+                                     * @enum {string}
+                                     */
+                                    requests: "fits" | "fits_delete" | "all" | "delete";
+                                    /**
                                      * @default off
                                      * @enum {string}
                                      */
@@ -40562,7 +40628,8 @@ export interface operations {
                                  *       "watchPosts": true,
                                  *       "posting": "after_ok",
                                  *       "young": false,
-                                 *       "tidy": "cancel"
+                                 *       "tidy": "cancel",
+                                 *       "requests": "fits"
                                  *     }
                                  */
                                 linkedin: {
@@ -40584,6 +40651,11 @@ export interface operations {
                                      * @enum {string}
                                      */
                                     replies: "draft" | "simple" | "everything";
+                                    /**
+                                     * @default fits
+                                     * @enum {string}
+                                     */
+                                    requests: "fits" | "fits_delete" | "all" | "delete";
                                     /**
                                      * @default off
                                      * @enum {string}
@@ -41654,6 +41726,45 @@ export interface operations {
                         } | null;
                         /** Format: uuid */
                         profileId: string;
+                    };
+                };
+            };
+        };
+    };
+    command_outreach_friends_cancel_all: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** @default true */
+                    leaveOutOwn?: boolean;
+                    on: boolean;
+                    /**
+                     * @default facebook
+                     * @enum {string}
+                     */
+                    platform?: "facebook" | "linkedin" | "instagram" | "alignable";
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        first: string[];
+                        leftOut: number;
+                        marked: number;
                     };
                 };
             };
@@ -74628,7 +74739,8 @@ export interface operations {
                              *       "facebook": {
                              *         "on": true,
                              *         "young": false,
-                             *         "tidy": "cancel"
+                             *         "tidy": "cancel",
+                             *         "requests": "fits"
                              *       },
                              *       "linkedin": {
                              *         "on": false,
@@ -74641,7 +74753,8 @@ export interface operations {
                              *         "watchPosts": true,
                              *         "posting": "after_ok",
                              *         "young": false,
-                             *         "tidy": "cancel"
+                             *         "tidy": "cancel",
+                             *         "requests": "fits"
                              *       },
                              *       "instagram": {
                              *         "on": false,
@@ -74654,7 +74767,8 @@ export interface operations {
                              *         "watchPosts": true,
                              *         "posting": "after_ok",
                              *         "young": false,
-                             *         "tidy": "cancel"
+                             *         "tidy": "cancel",
+                             *         "requests": "fits"
                              *       },
                              *       "alignable": {
                              *         "on": false,
@@ -74667,7 +74781,8 @@ export interface operations {
                              *         "watchPosts": true,
                              *         "posting": "after_ok",
                              *         "young": false,
-                             *         "tidy": "cancel"
+                             *         "tidy": "cancel",
+                             *         "requests": "fits"
                              *       }
                              *     }
                              */
@@ -74684,7 +74799,8 @@ export interface operations {
                                  *       "watchPosts": true,
                                  *       "posting": "after_ok",
                                  *       "young": false,
-                                 *       "tidy": "cancel"
+                                 *       "tidy": "cancel",
+                                 *       "requests": "fits"
                                  *     }
                                  */
                                 alignable: {
@@ -74707,6 +74823,11 @@ export interface operations {
                                      */
                                     replies: "draft" | "simple" | "everything";
                                     /**
+                                     * @default fits
+                                     * @enum {string}
+                                     */
+                                    requests: "fits" | "fits_delete" | "all" | "delete";
+                                    /**
                                      * @default off
                                      * @enum {string}
                                      */
@@ -74727,12 +74848,18 @@ export interface operations {
                                  * @default {
                                  *       "on": true,
                                  *       "young": false,
-                                 *       "tidy": "cancel"
+                                 *       "tidy": "cancel",
+                                 *       "requests": "fits"
                                  *     }
                                  */
                                 facebook: {
                                     /** @default true */
                                     on: boolean;
+                                    /**
+                                     * @default fits
+                                     * @enum {string}
+                                     */
+                                    requests: "fits" | "fits_delete" | "all" | "delete";
                                     /**
                                      * @default cancel
                                      * @enum {string}
@@ -74753,7 +74880,8 @@ export interface operations {
                                  *       "watchPosts": true,
                                  *       "posting": "after_ok",
                                  *       "young": false,
-                                 *       "tidy": "cancel"
+                                 *       "tidy": "cancel",
+                                 *       "requests": "fits"
                                  *     }
                                  */
                                 instagram: {
@@ -74776,6 +74904,11 @@ export interface operations {
                                      */
                                     replies: "draft" | "simple" | "everything";
                                     /**
+                                     * @default fits
+                                     * @enum {string}
+                                     */
+                                    requests: "fits" | "fits_delete" | "all" | "delete";
+                                    /**
                                      * @default off
                                      * @enum {string}
                                      */
@@ -74804,7 +74937,8 @@ export interface operations {
                                  *       "watchPosts": true,
                                  *       "posting": "after_ok",
                                  *       "young": false,
-                                 *       "tidy": "cancel"
+                                 *       "tidy": "cancel",
+                                 *       "requests": "fits"
                                  *     }
                                  */
                                 linkedin: {
@@ -74826,6 +74960,11 @@ export interface operations {
                                      * @enum {string}
                                      */
                                     replies: "draft" | "simple" | "everything";
+                                    /**
+                                     * @default fits
+                                     * @enum {string}
+                                     */
+                                    requests: "fits" | "fits_delete" | "all" | "delete";
                                     /**
                                      * @default off
                                      * @enum {string}
@@ -75521,8 +75660,16 @@ export interface operations {
                 };
                 content: {
                     "application/json": {
+                        /** @default null */
+                        all: {
+                            /** Format: date-time */
+                            at: string;
+                            left: number;
+                        } | null;
                         cancel: {
                             fit: ("good" | "maybe" | "unknown" | "skip") | null;
+                            /** @default false */
+                            going: boolean;
                             lastContact: string | null;
                             name: string;
                             platformId: string | null;
@@ -75535,9 +75682,21 @@ export interface operations {
                         }[];
                         cancelAfterWeeks: number;
                         cap: number;
+                        /** @default 0 */
+                        extension: number;
                         friends: number;
                         limits: {
                             cancel_request: {
+                                done: number;
+                                most: number;
+                            };
+                            /**
+                             * @default {
+                             *       "done": 0,
+                             *       "most": 0
+                             *     }
+                             */
+                            decline: {
                                 done: number;
                                 most: number;
                             };
@@ -75551,12 +75710,30 @@ export interface operations {
                          * @default {
                          *       "mode": "off",
                          *       "cancel": [],
-                         *       "unfriend": []
+                         *       "unfriend": [],
+                         *       "decline": []
                          *     }
                          */
                         own: {
                             cancel: {
                                 fit: ("good" | "maybe" | "unknown" | "skip") | null;
+                                /** @default false */
+                                going: boolean;
+                                lastContact: string | null;
+                                name: string;
+                                platformId: string | null;
+                                /** Format: uuid */
+                                profileId: string;
+                                /** Format: date-time */
+                                since: string;
+                                url: string;
+                                username: string | null;
+                            }[];
+                            /** @default [] */
+                            decline: {
+                                fit: ("good" | "maybe" | "unknown" | "skip") | null;
+                                /** @default false */
+                                going: boolean;
                                 lastContact: string | null;
                                 name: string;
                                 platformId: string | null;
@@ -75571,6 +75748,8 @@ export interface operations {
                             mode: "off" | "cancel" | "unfriend";
                             unfriend: {
                                 fit: ("good" | "maybe" | "unknown" | "skip") | null;
+                                /** @default false */
+                                going: boolean;
                                 lastContact: string | null;
                                 name: string;
                                 platformId: string | null;
@@ -75588,6 +75767,8 @@ export interface operations {
                         };
                         unfriend: {
                             fit: ("good" | "maybe" | "unknown" | "skip") | null;
+                            /** @default false */
+                            going: boolean;
                             lastContact: string | null;
                             name: string;
                             platformId: string | null;
@@ -75598,6 +75779,8 @@ export interface operations {
                             url: string;
                             username: string | null;
                         }[];
+                        /** @default 0 */
+                        waiting: number;
                         warning: {
                             /** Format: date-time */
                             at: string;
@@ -78190,7 +78373,11 @@ export interface operations {
                         ready: boolean;
                         /** @default null */
                         requestsHeld: {
+                            /** @default 0 */
+                            cancelling: number;
                             count: number;
+                            /** @default 0 */
+                            extension: number;
                             most: number;
                             /** @enum {string} */
                             why: "waiting" | "cap";

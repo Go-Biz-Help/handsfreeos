@@ -27,7 +27,7 @@ import type { LikeYoursNext } from '../../hfos/messages';
 import { findsSave, instagramPostsSave, type FoundPerson } from '../../hfos/saves';
 import type { InstagramPost } from '../../networks/instagram/read';
 import { counted } from '../../words';
-import { paced, pause, valueOf, warnedOn, type Job, type JobEnd } from '../job';
+import { onScreen, paced, pause, valueOf, warnedOn, type Job, type JobEnd } from '../job';
 import { accountIn } from './checks';
 import { accountsFound, SEARCH_SCREENS, searchUrl } from './partner-search';
 import {
@@ -239,7 +239,7 @@ export async function readLikeYours(job: Job): Promise<JobEnd> {
     if (next.searches.length) await pause(paced(STEP_PACE_MS));
     job.progress(`Reading @${account.username}, an account like yours on Instagram…`);
     const look = () => readAccount(job, account, note);
-    const read = await (job.tab.inFront ? job.tab.inFront(look) : look());
+    const read = await onScreen(job, look);
     if (ended(read)) return { ...read, line: [read.line, ...lines].join(' ') };
     lines.push(
       `Read @${account.username}: ${counted(read.posts, 'post')} sent to check, ${counted(read.people, 'new person', 'new people')} from its followers to check for good fits.`,

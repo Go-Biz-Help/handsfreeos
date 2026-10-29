@@ -43,16 +43,27 @@ const candidate = (id: string, name = `Business ${id}`): TidyCandidate => ({
   since: '2026-09-01T12:00:00.000Z',
   lastContact: null,
   fit: null,
+  going: false,
 });
 
-const lists = (own: Tidy['own'] | undefined, done = 0): Tidy =>
+/** HandsFreeOS's picks; a server from before 0.110.0 sends no `decline`. */
+type Own = Omit<Tidy['own'], 'decline'> & { readonly decline?: Tidy['own']['decline'] };
+
+const lists = (own: Own | undefined, done = 0): Tidy =>
   ({
     cancel: [candidate('1', 'Dana Reyes')],
     unfriend: [],
     totals: { cancel_request: 1, unfriend: 0 },
+    waiting: 1,
+    extension: 0,
+    all: null,
     cancelAfterWeeks: 3,
     needsFile: false,
-    limits: { cancel_request: { done, most: 20 }, unfriend: { done: 0, most: 0 } },
+    limits: {
+      cancel_request: { done, most: 20 },
+      unfriend: { done: 0, most: 0 },
+      decline: { done: 0, most: 0 },
+    },
     friends: 10,
     cap: 30_000,
     warning: null,
@@ -95,6 +106,27 @@ describe('tidying on its own, from HandsFreeOS’s picks', () => {
     expect(
       (await ownTidy(job, lists({ mode: 'cancel', cancel: [], unfriend: [] }), run)).line,
     ).toBe('Nothing to tidy up today.');
+  });
+
+  it('deletes the requests picked after the rest, even while the person only ticks (decision 121)', async () => {
+    const run = vi.fn(async (which: string) => ({ line: `${which} done.`, warned: false }));
+    const decline = vi.fn(async () => ({ line: 'decline done.', warned: false }));
+    const picked = lists({
+      mode: 'off',
+      cancel: [],
+      unfriend: [],
+      decline: [candidate('3')],
+    });
+    expect(await ownTidy(job, picked, run, decline)).toEqual({
+      line: 'decline done.',
+      warned: false,
+    });
+    expect(run).not.toHaveBeenCalled();
+    // A network with no way to delete one leaves them; so does a server from before, which sends none.
+    expect((await ownTidy(job, picked, run)).line).toMatch(/^Off:/);
+    const both = lists({ mode: 'cancel', cancel: [candidate('1')], unfriend: [] });
+    expect((await ownTidy(job, both, run, decline)).line).toBe('cancel_request done.');
+    expect(decline).toHaveBeenCalledTimes(1);
   });
 
   it('comes right after the day’s requests on each network, and after who followed back on Instagram', () => {

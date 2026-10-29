@@ -22,8 +22,11 @@ import { readInstagramIn, signedOutEnd } from './read';
 
 /** Between people, a steady pace like a person's: never the same twice. */
 const PACE_MS = [CHECK_PACE_SECONDS[0] * 1000, CHECK_PACE_SECONDS[1] * 1000] as const;
-/** What their latest posts show, as lines: a few. */
-const POST_LINES = 4;
+/**
+ * What their latest posts show, as lines: enough that a second business or interest among them shows too (the owner,
+ * 29 Oct 2026: four were all one business's).
+ */
+const POST_LINES = 8;
 
 /** The account a link kept in HandsFreeOS is, by the name in its address; null for any other link. */
 export function accountIn(url: string | null): Account | null {

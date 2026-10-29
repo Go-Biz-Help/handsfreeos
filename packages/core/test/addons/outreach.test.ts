@@ -101,6 +101,7 @@ describe('Social Outreach', () => {
         'outreach.day.start',
         'outreach.messages.edit',
         'outreach.friend.set',
+        'outreach.friends.cancel_all',
         'outreach.helpful.ok',
         'outreach.partner.mark',
         'outreach.playbook.archive',

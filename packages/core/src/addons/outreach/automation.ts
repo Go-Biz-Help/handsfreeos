@@ -112,6 +112,46 @@ export const TIDY_MODES = {
 export type TidyMode = keyof typeof TIDY_MODES;
 export const TIDY_MODE_KEYS = Object.keys(TIDY_MODES) as [TidyMode, ...TidyMode[]];
 
+/**
+ * The friend requests the person gets (decision 121), where the extension answers them (Facebook's runner): left to
+ * them; confirmed when they fit a playbook, the rest left to them (decision 30, as it starts); those confirmed and the
+ * rest deleted; all confirmed; or all deleted. Kept as `confirmRequests`, off when they're left to the person, and,
+ * while it's on, `requests`.
+ */
+export const REQUEST_MODES = {
+  mine: 'Leave them all to me',
+  fits: 'Confirm who fits a playbook, and leave the rest to me',
+  fits_delete: 'Confirm who fits a playbook, and delete the rest',
+  all: 'Confirm them all',
+  delete: 'Delete them all',
+} as const;
+export type RequestMode = keyof typeof REQUEST_MODES;
+export const REQUEST_MODE_KEYS = Object.keys(REQUEST_MODES) as [RequestMode, ...RequestMode[]];
+/** What `requests` keeps: every mode but leaving them to the person, which is `confirmRequests` off. */
+export const ANSWER_MODE_KEYS = [
+  'fits',
+  'fits_delete',
+  'all',
+  'delete',
+] as const satisfies readonly [RequestMode, ...RequestMode[]];
+export type AnswerMode = (typeof ANSWER_MODE_KEYS)[number];
+
+/** The requests the person gets, as they picked: from `confirmRequests` and `requests`. */
+export const requestModeOf = (choices: {
+  readonly confirmRequests: boolean;
+  readonly requests?: AnswerMode;
+}): RequestMode => (choices.confirmRequests ? (choices.requests ?? 'fits') : 'mine');
+
+/** A pick of how requests are answered, as the choices keep it. */
+export const requestModeChange = (
+  mode: RequestMode,
+): { confirmRequests: boolean; requests?: AnswerMode } =>
+  mode === 'mine' ? { confirmRequests: false } : { confirmRequests: true, requests: mode };
+
+/** Whether a pick deletes some of the requests the person gets. */
+export const deletesRequests = (mode: RequestMode): boolean =>
+  mode === 'fits_delete' || mode === 'delete';
+
 /** A network's tidying as it goes there: unfriending only where the network has it, else just the old requests. */
 export const tidyModeOn = (platform: Platform, mode: TidyMode): TidyMode =>
   mode === 'unfriend' && NETWORKS[platform].tidyLimits.unfriend === 0 ? 'cancel' : mode;
@@ -168,6 +208,11 @@ export const NetworkChoices = z.object({
   young: z.boolean().default(false),
   /** Tidying up on its own there (decision 98): old requests to start. */
   tidy: z.enum(TIDY_MODE_KEYS).default('cancel'),
+  /**
+   * How the requests the person gets there are answered while `confirmRequests` is on (decision 121): those who fit
+   * confirmed, to start. Only where the runner answers them (`NETWORKS[p].runs.auto` has `confirm`).
+   */
+  requests: z.enum(ANSWER_MODE_KEYS).default('fits'),
 });
 export type NetworkChoices = z.output<typeof NetworkChoices>;
 export const NETWORK_CHOICES_DEFAULTS: NetworkChoices = NetworkChoices.parse({});
@@ -183,8 +228,10 @@ export const NetworksSettings = z.object({
       on: z.boolean().default(true),
       young: z.boolean().default(false),
       tidy: z.enum(TIDY_MODE_KEYS).default('cancel'),
+      /** How the requests they get are answered while `confirmRequests` (a column) is on (decision 121). */
+      requests: z.enum(ANSWER_MODE_KEYS).default('fits'),
     })
-    .default({ on: true, young: false, tidy: 'cancel' }),
+    .default({ on: true, young: false, tidy: 'cancel', requests: 'fits' }),
   linkedin: NetworkChoices.default(NETWORK_CHOICES_DEFAULTS),
   instagram: NetworkChoices.default(NETWORK_CHOICES_DEFAULTS),
   alignable: NetworkChoices.default(NETWORK_CHOICES_DEFAULTS),
@@ -244,6 +291,7 @@ export function choicesFor(settings: AutomationSettings, platform: Platform): Ne
     on: settings.networks.facebook.on,
     young: settings.networks.facebook.young,
     tidy: settings.networks.facebook.tidy,
+    requests: settings.networks.facebook.requests,
     sending,
     replies,
     warmUp,

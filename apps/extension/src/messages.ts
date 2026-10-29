@@ -26,6 +26,7 @@ import type { Engaged, PostResult } from './networks/facebook/compose';
 import type { JoinStep } from './networks/facebook/join';
 import type { ProfileRef, ReadResult } from './networks/facebook/types';
 import type { AlignableWithdrawResult } from './networks/alignable/withdraw';
+import type { CancelSentResult } from './networks/facebook/sent';
 import type { PostPerson, ReactorsRead } from './networks/linkedin/compose';
 import type { Answered, PageRead, ReplySighting, Seen, Step } from './networks/kit';
 
@@ -430,6 +431,17 @@ export type WithdrawAsk = { readonly type: 'hfos-withdraw'; readonly profile: Pr
 
 export type WithdrawAnswer =
   | { readonly ok: true; readonly result: AlignableWithdrawResult }
+  | { readonly ok: false; readonly error: string };
+
+/**
+ * On Facebook's friend requests, once View sent requests has opened the list, cancel the request to this person
+ * (src/networks/facebook/sent.ts, from 0.110.1): its row is found by their profile link, and nothing else is pressed
+ * but the box Facebook opens to be sure.
+ */
+export type CancelSentAsk = { readonly type: 'hfos-cancel-sent'; readonly profile: ProfileRef };
+
+export type CancelSentAnswer =
+  | { readonly ok: true; readonly result: CancelSentResult }
   | { readonly ok: false; readonly error: string };
 
 /**

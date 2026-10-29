@@ -1,5 +1,6 @@
 import {
   AUTOMATION_DEFAULTS,
+  choicesFor,
   NETWORKS_DEFAULTS,
   type AutomationOutput,
   type AutomationSettings,
@@ -391,6 +392,40 @@ describe('A network’s list for today', () => {
     await fireEvent.press(message);
     expect(opened).toHaveBeenLastCalledWith('https://www.linkedin.com/messaging/thread/2-abc%3D/');
     opened.mockRestore();
+  });
+
+  it('offers Cancel all under the note that no new requests go, the extension’s left out first (decision 121)', async () => {
+    const onCancelAll = jest.fn();
+    const held = { why: 'waiting', count: 207, most: 200, extension: 7, cancelling: 0 } as const;
+    const body = (requestsHeld: TodayOutput['requestsHeld']) => (
+      <TodayBody
+        platform="facebook"
+        today={{ ...todayOf([]), requestsHeld }}
+        error={null}
+        wheels={null}
+        onRetry={jest.fn()}
+        onOk={jest.fn()}
+        onSkip={jest.fn()}
+        onNotForMe={jest.fn()}
+        onEndWheels={jest.fn()}
+        onCancelAll={onCancelAll}
+      />
+    );
+    await render(body(held));
+    const leavingOut = screen.getByTestId('today-cancel-all-leaving-out');
+    expect(leavingOut).toHaveTextContent('Cancel all but the extension’s 7');
+    await fireEvent.press(leavingOut);
+    expect(onCancelAll).toHaveBeenLastCalledWith(true);
+    const every = screen.getByTestId('today-cancel-all-every');
+    expect(every).toHaveTextContent('Cancel all 207');
+    await fireEvent.press(every);
+    expect(onCancelAll).toHaveBeenLastCalledWith(false);
+    // None while it's going, and only the one when the extension sent none.
+    await render(body({ ...held, cancelling: 207 }));
+    expect(screen.queryByTestId('today-cancel-all')).toBeNull();
+    await render(body({ ...held, extension: 0 }));
+    expect(screen.queryByTestId('today-cancel-all-leaving-out')).toBeNull();
+    expect(screen.getByTestId('today-cancel-all-every')).toBeTruthy();
   });
 });
 
@@ -1094,4 +1129,30 @@ describe('a network with no runner yet', () => {
       expect(screen.queryByTestId('modes-posting-after_ok')).toBeNull();
       expect(screen.queryByText(W_ALONG)).toBeNull();
     }));
+});
+
+describe('The friend requests the person gets, on Facebook (decision 121)', () => {
+  it('has the five choices in place of the confirming tick, saved as the choices keep them', async () => {
+    const onChange = jest.fn();
+    const value = choicesFor(AUTOMATION_DEFAULTS, 'facebook');
+    await render(
+      <NetworkTicks
+        platform="facebook"
+        value={value}
+        onChange={onChange}
+        boxed={false}
+        disabled={false}
+        testID="ticks"
+      />,
+    );
+    expect(screen.queryByTestId('ticks-confirmRequests')).toBeNull();
+    expect(screen.getByTestId('ticks-requests')).toHaveTextContent(
+      /never deletes someone in Contacts/,
+    );
+    expect(screen.getByTestId('ticks-requests-fits')).toBeChecked();
+    await fireEvent.press(screen.getByTestId('ticks-requests-fits_delete'));
+    expect(onChange).toHaveBeenLastCalledWith({ confirmRequests: true, requests: 'fits_delete' });
+    await fireEvent.press(screen.getByTestId('ticks-requests-mine'));
+    expect(onChange).toHaveBeenLastCalledWith({ confirmRequests: false });
+  });
 });

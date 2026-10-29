@@ -20,7 +20,7 @@ import type { HelpfulNext } from '../../hfos/messages';
 import { line } from '../../networks/facebook/lookup';
 import { counted } from '../../words';
 import { foundPost, type HelpfulEnd } from '../helpful';
-import { paced, pause, valueOf, warnedOn, type Job, type JobEnd } from '../job';
+import { onScreen, paced, pause, valueOf, warnedOn, type Job, type JobEnd } from '../job';
 import { LINKEDIN, readLinkedIn } from './read';
 
 const PLATFORM: Platform = 'linkedin';
@@ -142,7 +142,7 @@ export async function readLinkedInEngaged(job: Job): Promise<JobEnd> {
     if (warned) return warned;
     // With its window in front: LinkedIn draws the box of who reacted only on screen.
     const engaged = () => job.tab.ask({ type: 'hfos-engaged' });
-    const answer = await (job.tab.inFront ? job.tab.inFront(engaged) : engaged());
+    const answer = await onScreen(job, engaged);
     if (!answer.ok || !('comments' in answer)) continue;
     const saved = valueOf(
       await job.hfos({
@@ -171,20 +171,27 @@ export async function readLinkedInEngaged(job: Job): Promise<JobEnd> {
 }
 
 /**
- * LinkedIn's once-a-day part (../../auto/linkedin.ts): asks for today's helpful post for the person's feed, which the
- * AI writes for them to OK, copy, or let go on its own; then reads who engaged with those up lately.
+ * Asks for today's helpful post for the person's LinkedIn feed, which the AI writes for them to OK, copy, or let go on
+ * its own. LinkedIn's runner's once-a-day part (../../auto/linkedin.ts), before who engaged is read on its own once
+ * they're away from their computer (decision 120).
  */
-export async function linkedInHelpfulDaily(job: Job): Promise<JobEnd> {
+export async function linkedInHelpfulAsk(job: Job): Promise<JobEnd> {
   job.progress('Asking for today’s helpful post for your LinkedIn feed…');
   const asked = await job.hfos({
     type: 'hfos-helpful-ask',
     input: { workspaceId: job.businessId, platform: PLATFORM },
   });
-  const first = asked.ok
+  const line = asked.ok
     ? asked.value.fresh
       ? 'The AI is writing today’s helpful post for your LinkedIn feed.'
       : 'Today’s helpful post for LinkedIn is asked for already.'
     : asked.problem.message;
+  return { line, warned: false };
+}
+
+/** Asks for today's helpful post for the person's LinkedIn feed, then reads who engaged with those up lately. */
+export async function linkedInHelpfulDaily(job: Job): Promise<JobEnd> {
+  const first = (await linkedInHelpfulAsk(job)).line;
   if (job.stopped()) return { line: first, warned: false };
   const read = await readLinkedInEngaged(job);
   return { line: `${first} ${read.line}`, warned: read.warned };

@@ -18,7 +18,7 @@ import { DATA_PAGE } from '../../networks/linkedin/data';
 import type { Post } from '../../networks/linkedin/types';
 import { sameMember } from '../../networks/linkedin/urls';
 import { Checkup, isEnd, SEARCH_WORDS, wholeProfile } from '../checkup';
-import type { Job, JobEnd } from '../job';
+import { onScreen, type Job, type JobEnd } from '../job';
 import { CATCH_UP_PAGE } from '../occasions';
 import {
   CONNECTIONS,
@@ -165,5 +165,5 @@ async function checkup(job: Job): Promise<JobEnd> {
 
 /** Check LinkedIn: with its window in front the whole time, then the person's own back. */
 export async function checkLinkedIn(job: Job): Promise<JobEnd> {
-  return job.tab.inFront ? job.tab.inFront(() => checkup(job)) : checkup(job);
+  return onScreen(job, () => checkup(job));
 }

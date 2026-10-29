@@ -900,9 +900,9 @@ than a store extension, and for more features, and answered the questions the sa
 28. **When:** on its own in the person's working hours (9 to 5 to start), at random times, plus a **Start my day**
     button. Built, on every network from extension 0.96.0 (decision 95).
 29. **Tidying on its own is a setting:** off, cancelling old requests on their own, or cancelling and unfriending on
-    their own. Built on every network from extension 0.97.0 (decision 98).
+    their own. Built on every network from extension 0.97.0 (decision 98). Cancel all skips the wait (decision 121).
 30. **Friend requests from people who fit a playbook are confirmed on their own;** the rest wait. Built: those who
-    fit well.
+    fit well. From decision 121 it's one of five choices on Facebook, which can confirm them all or delete some.
 31. **It asks to join good groups, up to 3 a day,** and the AI answers the join questions from the playbook. Automation part 5.
 32. **Find posts, Read my chats, saving group members and checking friend requests run once a day on their own.**
     Built: first thing in the working day (or after Start my day), before the list, while the extension works on its
@@ -1594,7 +1594,8 @@ where decisions 37 and 59 put the settings; what they decided stands. Settled to
       - **It reads with its window in front, a screen at a time to the box's end** (0.89.0). Instagram draws more of
         the box only as it's scrolled on screen, and Chrome draws nothing in a window hidden behind another: Chris's
         save of 23 Oct 2026 read 87 in twelve minutes. Each screen, still 8 to 15 seconds apart, goes to the box's
-        end, which keeps every row it drew, so the newest 200 take a few minutes.
+        end, which keeps every row it drew, so the newest 200 take a few minutes. From 0.109.0 it comes in front only
+        while the person is away from their computer (decision 120).
       - **A partial list never marks anyone gone.** `outreach.friends.save` only adds and updates the people it's given
         (nothing in core takes a list for whole), so a capped or incremental save leaves everyone it didn't read as
         they were: followers stay followers, and a follow still waiting keeps when it went. The reader of the box reads
@@ -2354,7 +2355,9 @@ where decisions 37 and 59 put the settings; what they decided stands. Settled to
       many. They start again under 200. Tidy up's old requests bring the count down.
     - **None once their friends there come within 100 of its cap** (`FRIENDS_CAP_ROOM`): 4,900 on Facebook.
     - **Today says why and what to do** (`requestsHeldWords`, `requestsHeld` on `outreach.today`), on the web and the
-      phone, and leaves the requests and the likes before them off the list, as after a warning.
+      phone, and leaves the requests and the likes before them off the list, as after a warning. From decision 121 it
+      offers Cancel all beneath, since requests read off a network's sent list count from when they were first seen
+      and so take the whole wait to reach Old friend requests.
 98. **Tidying up on its own** (Chris, 28 Oct 2026, "all of your picks": 1a and 12; decision 29's setting). Each
     network's once-a-day jobs tidy up as the person picks under that network in Settings, **Tidy up on its own**
     (`tidy` in its choices; Facebook's in `networks.facebook`): **Off** (only the ones they tick), the old requests
@@ -2774,6 +2777,89 @@ where decisions 37 and 59 put the settings; what they decided stands. Settled to
         their own currency. **No 1099** for an account outside the US (`taxFormsDue`), and no tax form fee.
       - **The business sees where their bank is** on the partner's page, web and phone ("Their bank is in Canada.").
       - **Affiliates** (HandsFreeOS's own sellers) stay in the US: not part of this pick.
+
+119.  **Drafts name each of someone's businesses** (Chris, 29 Oct 2026, "Build it"). "They are also a photographer
+      which was also their page as well as the solar. So it should be able to identify both and mention them smartly."
+      An Instagram draft named only someone's solar work, though their page was a photographer's too: the reader
+      dropped the bio's links, so the @mention of the other business and the website never reached the AI, and the
+      check's one line about them named the first business only.
+      - **What Instagram's reader keeps** (`profileOn` in `src/networks/instagram/read.ts`, 0.109.0): each line of the
+        bio on its own (they came glued together), with the @mentions in it ("Solar with @…"), then the words of up to
+        3 of its links off Instagram as "Link: …", their website often being where a second business shows
+        (`isBioLink` in `urls.ts`: through `l.instagram.com`, never their Threads badge). Up to 8 bio lines, as before.
+        The check reads 8 of their latest posts' lines, not 4 (`POST_LINES`).
+      - **On the other networks:** Facebook's check and look-up read 4 of their latest posts, and the business's, not 2
+        (`POSTS_READ`); LinkedIn's read 6 lines of their About, not 3 (`ABOUT_LINES`). Alignable's read was already
+        their whole business page.
+      - **The check names each** (`CHECK_SYSTEM`, `FOUND_CHECK_SYSTEM`, and `about` in `CHECK_SCHEMA`): when their bio,
+        links or posts show more than one business or line of work, its line about them names each ("Sells solar, and
+        photographs weddings"), never only the first. That line is one of a draft's facts.
+      - **A draft mentions each naturally** (`DRAFT_RULES` in `today.ts`, every network): when a message says what they
+        do and the facts show more than one, it never writes as if one were all they do. It mentions each briefly, or
+        leads with the one that fits the message best and nods to the other. Nothing is invented: only what the facts
+        say. No migration.
+
+120.  **The work window waits till the person is away** (Chris, 29 Oct 2026, "When I'm away"). "The extension is
+      bringing the window its working with to the front and center of the computer. interrupting everything the user
+      is currently doing. is there a way it could work in the background instead of making that window the focus?"
+      Chrome draws nothing in a window that's covered or minimized, and some reads only load what's drawn (Instagram's
+      boxes of followers and likes, LinkedIn's box of who reacted, a profile's sections), so those reads brought their
+      window in front (from 0.89.0). Chrome can't make a window see-through, so in front or not drawn are the only two.
+      - **Only once they're away** (`src/away.ts`, 0.109.0): a read that needs the screen comes in front once Chrome
+        says no key was pressed and the mouse didn't move for 2 minutes (`chrome.idle`, the new `idle` permission,
+        which shows no warning). A locked screen isn't away for this, and nor is one that stayed dark when the window
+        came in front, till the person has been back.
+      - **It steps back the moment they're back:** a key or the mouse gives them their window again at once
+        (`onBack`). What was being read goes on unseen till its next page or step, which then waits again. If they
+        weren't in Chrome, the work window is just put behind, so nothing of Chrome's comes over their other app. Only
+        one network's window is in front at a time.
+      - **The runners pass over what waits** (`PutOff` in `src/auto/on-screen.ts`): a once-a-day job whose read met the
+        screen while the person was there is put off (`NotAway`), never kept as done, and tried again once they're
+        away, or 10 minutes on. Likes, follows, requests and messages go on unseen meanwhile, and the day's last line
+        names what waits. Instagram's first day waits for its followers to be saved, which needs the screen. LinkedIn's
+        helpful post is asked for as ever, and who engaged with it is read as a job of its own (`engaged`).
+      - **An ask waits too,** saying so on its line in HandsFreeOS ("Waiting till you've been away from your computer
+        for 2 minutes…"), and Stop ends it. **A Check comes in front right away,** as the person pressed it to watch,
+        and **a step handed to the person** still comes to the front in its tab. Facebook's runner had nothing that
+        comes in front.
+      - **Its window opens beside theirs,** at the right of the person's window and the same height, without taking
+        their attention, not in the middle of the screen.
+121.  **Cancel all, and the friend requests the person gets** (Chris, 29 Oct 2026, "Build it"). "need a way to remove
+      all friend requests that have not been answered and be able to exclude ones the add on extension created. Need
+      to be able to have the AI accept any received friend requests that would match the playbook or deny them all or
+      accept them all". Today had said no new requests go while 207 waited, and pointed to Old friend requests, which
+      was empty: the requests read off Facebook's sent list count from when they were first seen (`friends.since`), so
+      none had waited the 3 weeks.
+      - **Cancel all,** under Old friend requests in Tidy up on the Friends tab, and under Today's note
+        (`outreach.friends.cancel_all`, the Assistant's too, on a Confirm card): every sent request waiting there when
+        it's pressed, however new, is marked (`friends.cancel_at`), with a box ticked to start that leaves out the ones
+        the extension sent (`touches` of kind `friend_request` and `auto`). On Facebook it's **Cancel all**, on
+        LinkedIn and Alignable **Withdraw all**; none on Instagram, whose follows wait for nobody.
+      - **The extension cancels them on its own,** the oldest first, inside what's left of the day's tidy limit (30 a
+        day on Facebook), whatever the person picked for tidying on its own: the oldest at once (the command's `first`,
+        an ask of kind `cancel`, when the computer can take one), the rest with the once-a-day jobs (`own.cancel` on
+        `outreach.friends.tidy`, whose `mode` says at least `cancel` so a build before 0.110.0 cancels them too).
+        Tidy up shows how many are left with **Stop**, which clears the marks; the ones left wait as usual. A mark
+        counts while the request it was put on waits (`cancel_at >= since`): one sent again later starts afresh.
+      - **The requests the person gets, on Facebook,** go as they pick on Facebook's page in Settings
+        (`requestsChoiceOn`, in place of the Confirm tick): leave them all to me; confirm who fits a playbook and leave
+        the rest (decision 30, to start); confirm who fits and delete the rest; confirm them all; or delete them all.
+        Kept as `confirmRequests` (off for the first) and `networks.facebook.requests`.
+      - **Confirming goes through the day** as Today's `confirm` items, as before: everyone's when they confirm them
+        all, nobody's when they delete them all. **Deleting goes once a day,** up to 30 (`DECLINES_PER_DAY`, halved
+        when the limits are), counting any the person deleted themselves: HandsFreeOS picks who (`own.decline`), and
+        the extension presses Respond, then Delete request on their profile (from 0.110.0) and notes it as their
+        answer (`outreach.friend.note`), even while noting is off.
+      - **It never deletes** someone in Contacts, kept, chatted with (a chat in the file, a reply, a message noted), a
+        partner, or anyone on Don't pitch, and never answers anyone on Never contact. For not fitting, only with a
+        playbook in use: with none, nobody fits, so nobody is deleted. Those it never deletes wait in Waiting for you.
+      - **From 0.110.1 a request the person sent is cancelled from Sent requests** (the owner's report of 29 Oct 2026,
+        where a profile's Cancel request couldn't be found and each one came to Needs you; the owner's words: "it
+        should be trying to unfriend them from https://www.facebook.com/friends/requests click sent friend requests
+        and then it can click them"). The extension opens the friend requests, presses View sent requests, finds each
+        one's row by the link to their profile, scrolling for it, and presses the Cancel request beside them; only
+        someone the whole list doesn't show has their profile opened, to see where things stand. The ticked ones,
+        Cancel all's and tidying on its own all go this way, and Check Facebook tries it there.
 
 ## Rules worth knowing before changing anything
 
@@ -3514,7 +3600,8 @@ Alignable's withdraw goes by Alignable's words for a request that waits, which n
 The runner's presses (Add friend, Respond and Confirm, Like on the latest post, the comment box and its button) follow
 Facebook's usual 2026 pages, not yet tried on the owner's account; one it can't find is passed over for the day, and
 its line on the Live tab and in the panel says so. Chrome must be open for it to work; a window it opens unfocused may still show in front
-on some computers.
+on some computers. Coming in front only while the person is away (decision 120) goes by Chrome's idle state, not yet
+tried on the owner's computer; Safari may not have it, and there every read comes in front as before.
 
 Spotting replies reads chats the way the chat readers do now, not yet tried on the owner's account; a chat's line in
 Messenger's list counts when it doesn't start "You", so a group chat's line counts too, though only a chat with

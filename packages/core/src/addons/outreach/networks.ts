@@ -353,6 +353,13 @@ export const runsOnItsOwn = (platform: Platform): boolean =>
   NETWORKS[platform].runs.auto.length > 0;
 
 /**
+ * Whether the extension answers the requests the person gets there on its own (decisions 30 and 121): Facebook's
+ * runner confirms them, and deletes them as the person picks; elsewhere they're the person's.
+ */
+export const answersRequests = (platform: Platform): boolean =>
+  NETWORKS[platform].runs.auto.includes('confirm');
+
+/**
  * A network's daily limits as they stand for the person: the business's own on that network, each at most the
  * network's starting one, halved (never below one) after a warning there or on training wheels there.
  */

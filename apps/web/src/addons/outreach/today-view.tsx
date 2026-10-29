@@ -101,6 +101,7 @@ import { useLiveRefresh } from '@/lib/realtime/live-provider';
 import { cn } from '@/lib/utils';
 import { outreachHref } from './address';
 import { AskButton, AskLine, latestAskOn, targetOf } from './asks';
+import { CancelAllButtons } from './cancel-all';
 import { ChatSoFar } from './chat-bubbles';
 import { Drafted } from './drafted';
 import { HelpfulCard } from './helpful-card';
@@ -257,12 +258,22 @@ export function TodayView({
             </p>
           ) : null}
           {today.requestsHeld ? (
-            <p
+            <div
               data-testid="today-requests-held"
               className="rounded-card bg-warning-soft p-3.5 text-[13px] text-warning-text"
             >
-              {requestsHeldWords(today.requestsHeld, platform)}
-            </p>
+              <p>{requestsHeldWords(today.requestsHeld, platform)}</p>
+              {/* Cancel all (decision 121), while it isn't going: none from a server before it. */}
+              {today.requestsHeld.why === 'waiting' && !today.requestsHeld.cancelling ? (
+                <CancelAllButtons
+                  workspaceId={workspaceId}
+                  platform={platform}
+                  asks={asks}
+                  waiting={today.requestsHeld.count}
+                  extension={today.requestsHeld.extension ?? 0}
+                />
+              ) : null}
+            </div>
           ) : null}
           {/* Their profile, read on its own on the 1st: what the AI suggests waits for their OK (decision 99). */}
           {today.profileOwn ? (

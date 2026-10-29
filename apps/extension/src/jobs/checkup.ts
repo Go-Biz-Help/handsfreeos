@@ -11,10 +11,10 @@
  *
  * On Facebook: their profile (the bio; with no Edit bio, on the About tab's editor Edit profile leads to), Contact and
  * basic info (adding a link), their feed, their friend requests (confirming; then View sent requests, as
- * Check your friend requests presses it, for someone to try cancelling on), their friends, their followers, their groups and one of them
+ * Check your friend requests presses it, and cancelling there), their friends, their followers, their groups and one of them
  * (posting, and commenting on one of its posts), a people search (a friend request on someone they aren't friends
  * with), a groups search (joining one they aren't in), their chats, one friend's profile (liking, unfriending and
- * messaging, the last as it may open Messenger), the profile of someone they sent a request to (cancelling), their
+ * messaging, the last as it may open Messenger), their
  * notifications, their friends' birthdays, Accounts Center's username page for their Facebook profile (the username: no warning is read there
  * while Facebook asks them for something, as its "Confirm it's you" is none), and Download your information (the
  * file).
@@ -32,10 +32,10 @@ import {
 } from '../networks/accounts-center/username';
 import type { ReadResult } from '../networks/facebook/types';
 import type { StepTry, TryStep } from '../networks/tries';
-import { listOnPage } from '../hfos/saves';
 import { MESSENGER } from './chats';
 import { groupSearch, YOUR_GROUPS } from './groups';
 import {
+  onScreen,
   pause,
   paced,
   readIn,
@@ -319,13 +319,12 @@ async function checkup(job: Job): Promise<JobEnd> {
   await c.note('your feed', feed.posts?.length ?? 0);
 
   // Your friend requests: confirming tried; then View sent requests, as Check your friend requests presses it, and
-  // someone you sent one to kept to try cancelling.
+  // cancelling tried there, where the job cancels from 0.110.1.
   if (stopped()) return stopped()!;
   const requests = await c.open(FRIEND_REQUESTS, 'your friend requests');
   if (isEnd(requests)) return requests;
   await c.note('your friend requests', null);
   await c.tryHere('confirm');
-  let sentTo: ProfileRef | null = null;
   const viewed = await job.tab.ask({
     type: 'hfos-fetch-step',
     step: VIEW_SENT,
@@ -337,8 +336,7 @@ async function checkup(job: Job): Promise<JobEnd> {
     const sent = await c.readHere();
     if (isEnd(sent)) return sent;
     await c.note('the friend requests you’ve sent', null);
-    const mine = listOnPage(sent);
-    sentTo = mine?.list === 'sent' ? (mine.people.find((p) => p.profile)?.profile ?? null) : null;
+    await c.tryHere('cancel');
   } else
     await c.failed('cancel', 'no View sent requests on your friend requests page', {
       viewSent: false,
@@ -441,14 +439,6 @@ async function checkup(job: Job): Promise<JobEnd> {
     await c.nothingFor('message', why);
   }
 
-  // Someone you sent a request to: cancelling tried on their profile.
-  if (sentTo) {
-    if (stopped()) return stopped()!;
-    const theirs = await c.open(sentTo.url, 'someone you sent a request to');
-    if (isEnd(theirs)) return theirs;
-    await c.tryHere('cancel');
-  } else if (!c.has('cancel')) await c.nothingFor('cancel', 'no friend requests you’ve sent');
-
   // Your notifications, your friends' birthdays, your username in Accounts Center, and Download your information.
   if (stopped()) return stopped()!;
   const notices = await c.open(`${FACEBOOK}/notifications`, 'your notifications');
@@ -529,5 +519,5 @@ async function tryUsername(
 
 /** Check Facebook: with its window in front the whole time, then the person's own back. */
 export async function checkFacebook(job: Job): Promise<JobEnd> {
-  return job.tab.inFront ? job.tab.inFront(() => checkup(job)) : checkup(job);
+  return onScreen(job, () => checkup(job));
 }
