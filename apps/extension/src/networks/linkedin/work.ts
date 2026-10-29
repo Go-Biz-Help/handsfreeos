@@ -11,6 +11,8 @@
  * - Their helpful post put up on their own feed, and who engaged with one of theirs read (./compose.ts).
  * - On a good post its search found (decision 92), who commented and who reacted, from the box its reactions count
  *   opens, which it closes again (./compose.ts).
+ * - On the post search, each post's own link from its menu's Copy link to post, caught before it reaches the person's
+ *   clipboard (decision 123, ./post-links.ts).
  * - Once the person lets LinkedIn's runner work on its own (src/auto/linkedin.ts), on the pages of people on their
  *   list for today: their posts read and one liked (on their activity, or the post a search found on its own page),
  *   Connect without a note, the comment the AI drafted, and the messages they OK'd (./auto.ts).
@@ -36,6 +38,8 @@ import type {
   OpenMessageAsk,
   OwnProfileAnswer,
   OwnProfileAsk,
+  PostLinksAnswer,
+  PostLinksAsk,
   PostPeopleAnswer,
   PostPeopleAsk,
   WriteNameAsk,
@@ -67,6 +71,7 @@ import {
   writeFeedPost,
 } from './compose';
 import { dataPage } from './data';
+import { postLinksOn } from './post-links';
 import {
   loadWholeProfile,
   readOwnProfile,
@@ -114,6 +119,7 @@ export const WORK_ASKS: ReadonlySet<string> = new Set([
   'hfos-feed-post',
   'hfos-engaged',
   'hfos-post-people',
+  'hfos-post-links',
   'hfos-try',
 ]);
 
@@ -131,6 +137,7 @@ type WorkAsk =
   | FeedPostAsk
   | Extract<GroupPostAsk, { type: 'hfos-engaged' }>
   | PostPeopleAsk
+  | PostLinksAsk
   | TheirCommentAsk
   | CommentLikeAsk;
 
@@ -262,6 +269,13 @@ async function postStep(
   };
 }
 
+/** Each post's own link on the post search, from its menu (decision 123, ./post-links.ts): only on the search. */
+async function linksStep(ask: PostLinksAsk): Promise<PostLinksAnswer> {
+  if (classifyUrl(location.href).kind !== 'search-posts')
+    return { ok: false, error: 'LinkedIn didn’t open the post search.' };
+  return postLinksOn(document, location.href, ask.most, ask.skip);
+}
+
 /** Their comment on a good post (decision 116), read then liked, only on the post's own page (./compose.ts). */
 async function commentStep(
   ask: TheirCommentAsk | CommentLikeAsk,
@@ -353,6 +367,8 @@ export function work(ask: { readonly type: string }): Promise<unknown> | null {
     case 'hfos-engaged':
     case 'hfos-post-people':
       return postStep(known);
+    case 'hfos-post-links':
+      return linksStep(known);
     case 'hfos-try':
       return tryStep(known);
   }

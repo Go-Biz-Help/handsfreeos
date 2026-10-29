@@ -1,0 +1,412 @@
+<!doctype html>
+<!--
+  LinkedIn's post search (/search/results/content/?keywords=…&sortBy="date_posted") as it drew it for the owner's
+  Check LinkedIn of 29 Oct 2026: rebuilt by hand from that page outline (its elements, nesting, attributes, data-testids
+  and LinkedIn's own words), with made-up people, words and links in place of the hidden ones, and 4 of its 6 posts.
+  Not a saved LinkedIn page, and nobody real. The newer layout: each post a div role="listitem" in a lazy column under
+  an h2 for screen readers ("Feed post"); its header with the author's /in/ or /company/ link, their headline line and
+  the time as plain words ("Just now"), and Follow and "Open control menu for post by …"; its words in a box named
+  "expandable-text-box"; and its bar: the reaction button, the reactions menu, Comment, Repost and a Send link to "/".
+  Nothing on it links to a post: no /feed/update/ link, no urn. The second post is a company's. What the menu opens
+  isn't in the outline, so a test draws it.
+-->
+<html lang="en">
+  <head>
+    <title>Search | LinkedIn</title>
+  </head>
+  <body>
+    <div>
+      <section>
+        <h2 data-testid="toasts-title">Toast messages</h2>
+      </section>
+      <div>
+        <header>
+          <nav aria-label="Primary Navigation">
+            <a href="https://www.linkedin.com/feed/"><span>Home</span></a>
+            <a href="https://www.linkedin.com/mynetwork/"><span>My Network</span></a>
+            <button type="button" aria-expanded="false">
+              <img
+                alt="Chris Gee"
+                src="https://media.licdn.com/dms/image/v2/MadeUpMe/me.jpg"
+              /><span>Me</span>
+            </button>
+          </nav>
+        </header>
+        <div>
+          <main>
+            <section aria-label="Search results">
+              <div>
+                <div data-testid="lazy-column">
+                  <div role="listitem">
+                    <div>
+                      <h2>
+                        <span>Feed post</span>
+                        <span aria-hidden="true"></span>
+                      </h2>
+                      <div>
+                        <a aria-expanded="false" href="/in/nora-vance-hvac/">
+                          <figure>
+                            <svg
+                              role="img"
+                              aria-label="View Nora Vance’s profile"
+                              aria-hidden="false"
+                            ></svg>
+                            <img alt="View Nora Vance’s profile" />
+                          </figure>
+                        </a>
+                        <div>
+                          <a href="/in/nora-vance-hvac/">
+                            <div aria-label="Nora Vance • 3rd+">
+                              <p>
+                                <span>Nora Vance</span>
+                              </p>
+                              <p>
+                                <span>• 3rd+</span>
+                              </p>
+                            </div>
+                          </a>
+                          <p>
+                            <span>Owner at Vance Heating and Air</span>
+                          </p>
+                          <p>
+                            <span>Just now</span>
+                          </p>
+                          <a href="/in/nora-vance-hvac/">
+                            <div aria-label="Nora Vance • 3rd+"></div>
+                          </a>
+                        </div>
+                        <button aria-label="Follow Nora Vance" type="button">
+                          <span>
+                            <svg aria-hidden="true"></svg>
+                            <span>Follow</span>
+                          </span>
+                        </button>
+                        <button
+                          aria-label="Open control menu for post by Nora Vance"
+                          aria-expanded="false"
+                          type="button"
+                        >
+                          <svg aria-hidden="true"></svg>
+                        </button>
+                      </div>
+                      <p>
+                        <span data-testid="expandable-text-box">
+                          Missed calls cost us three jobs last month before we fixed it.
+                          <br />
+                          <br />
+                          Now every call that we miss gets a text back within a minute, and the job
+                          books itself.
+                        </span>
+                      </p>
+                      <div>
+                        <div>
+                          <button aria-label="Reaction button state: no reaction" type="button">
+                            <span>
+                              <svg aria-hidden="true"></svg>
+                            </span>
+                          </button>
+                          <button
+                            aria-label="Open reactions menu"
+                            aria-expanded="false"
+                            type="button"
+                          >
+                            <svg aria-hidden="true"></svg>
+                          </button>
+                        </div>
+                        <button aria-label="Comment" type="button">
+                          <span>
+                            <svg aria-hidden="true"></svg>
+                          </span>
+                        </button>
+                        <button aria-label="Repost" aria-expanded="false" type="button">
+                          <span>
+                            <svg aria-hidden="true"></svg>
+                          </span>
+                        </button>
+                        <a aria-label="Send" href="/">
+                          <span>
+                            <svg aria-hidden="true"></svg>
+                          </span>
+                        </a>
+                      </div>
+                    </div>
+                  </div>
+                  <div role="listitem">
+                    <div>
+                      <h2>
+                        <span>Feed post</span>
+                        <span aria-hidden="true"></span>
+                      </h2>
+                      <div>
+                        <a aria-expanded="false" href="/company/brightline-roofing/">
+                          <figure>
+                            <svg
+                              role="img"
+                              aria-label="Brightline Roofing logo"
+                              aria-hidden="false"
+                            ></svg>
+                            <img alt="Brightline Roofing logo" />
+                          </figure>
+                        </a>
+                        <div>
+                          <a href="/company/brightline-roofing/">
+                            <div aria-label="Brightline Roofing">
+                              <p>
+                                <span>Brightline Roofing</span>
+                              </p>
+                            </div>
+                          </a>
+                          <p>
+                            <span>Just now</span>
+                          </p>
+                          <a href="/company/brightline-roofing/">
+                            <div aria-label="Brightline Roofing"></div>
+                          </a>
+                        </div>
+                        <button aria-label="Follow Brightline Roofing" type="button">
+                          <span>
+                            <svg aria-hidden="true"></svg>
+                            <span>Follow</span>
+                          </span>
+                        </button>
+                        <button
+                          aria-label="Open control menu for post by Brightline Roofing"
+                          aria-expanded="false"
+                          type="button"
+                        >
+                          <svg aria-hidden="true"></svg>
+                        </button>
+                      </div>
+                      <p>
+                        <span data-testid="expandable-text-box">
+                          Spring roof checks are open. Book yours this week.
+                        </span>
+                      </p>
+                      <div>
+                        <div>
+                          <button aria-label="Reaction button state: no reaction" type="button">
+                            <span>
+                              <svg aria-hidden="true"></svg>
+                            </span>
+                          </button>
+                          <button
+                            aria-label="Open reactions menu"
+                            aria-expanded="false"
+                            type="button"
+                          >
+                            <svg aria-hidden="true"></svg>
+                          </button>
+                        </div>
+                        <button aria-label="Comment" type="button">
+                          <span>
+                            <svg aria-hidden="true"></svg>
+                          </span>
+                        </button>
+                        <button aria-label="Repost" aria-expanded="false" type="button">
+                          <span>
+                            <svg aria-hidden="true"></svg>
+                          </span>
+                        </button>
+                        <a aria-label="Send" href="/">
+                          <span>
+                            <svg aria-hidden="true"></svg>
+                          </span>
+                        </a>
+                      </div>
+                    </div>
+                  </div>
+                  <div role="listitem">
+                    <div>
+                      <h2>
+                        <span>Feed post</span>
+                        <span aria-hidden="true"></span>
+                      </h2>
+                      <div>
+                        <a aria-expanded="false" href="/in/eli-brooks-plumbing/">
+                          <figure>
+                            <svg
+                              role="img"
+                              aria-label="View Eli Brooks’s profile"
+                              aria-hidden="false"
+                            ></svg>
+                            <img alt="View Eli Brooks’s profile" />
+                          </figure>
+                        </a>
+                        <div>
+                          <a href="/in/eli-brooks-plumbing/">
+                            <div aria-label="Eli Brooks • 2nd">
+                              <p>
+                                <span>Eli Brooks</span>
+                              </p>
+                              <p>
+                                <span>• 2nd</span>
+                              </p>
+                            </div>
+                          </a>
+                          <p>
+                            <span>Founder, Brooks Plumbing Co.</span>
+                          </p>
+                          <p>
+                            <span>2m</span>
+                          </p>
+                          <a href="/in/eli-brooks-plumbing/">
+                            <div aria-label="Eli Brooks • 2nd"></div>
+                          </a>
+                        </div>
+                        <button aria-label="Follow Eli Brooks" type="button">
+                          <span>
+                            <svg aria-hidden="true"></svg>
+                            <span>Follow</span>
+                          </span>
+                        </button>
+                        <button
+                          aria-label="Open control menu for post by Eli Brooks"
+                          aria-expanded="false"
+                          type="button"
+                        >
+                          <svg aria-hidden="true"></svg>
+                        </button>
+                      </div>
+                      <p>
+                        <span data-testid="expandable-text-box">
+                          How do you all keep up with follow-ups after an estimate?
+                          <br />
+                          <br />
+                          Mine live in a notebook and I lose half of them.
+                        </span>
+                      </p>
+                      <div>
+                        <div>
+                          <button aria-label="Reaction button state: no reaction" type="button">
+                            <span>
+                              <svg aria-hidden="true"></svg>
+                            </span>
+                          </button>
+                          <button
+                            aria-label="Open reactions menu"
+                            aria-expanded="false"
+                            type="button"
+                          >
+                            <svg aria-hidden="true"></svg>
+                          </button>
+                        </div>
+                        <button aria-label="Comment" type="button">
+                          <span>
+                            <svg aria-hidden="true"></svg>
+                          </span>
+                        </button>
+                        <button aria-label="Repost" aria-expanded="false" type="button">
+                          <span>
+                            <svg aria-hidden="true"></svg>
+                          </span>
+                        </button>
+                        <a aria-label="Send" href="/">
+                          <span>
+                            <svg aria-hidden="true"></svg>
+                          </span>
+                        </a>
+                      </div>
+                    </div>
+                  </div>
+                  <div role="listitem">
+                    <div>
+                      <h2>
+                        <span>Feed post</span>
+                        <span aria-hidden="true"></span>
+                      </h2>
+                      <div>
+                        <a aria-expanded="false" href="/in/maya-ortiz-cleaning/">
+                          <figure>
+                            <svg
+                              role="img"
+                              aria-label="View Maya Ortiz’s profile"
+                              aria-hidden="false"
+                            ></svg>
+                            <img alt="View Maya Ortiz’s profile" />
+                          </figure>
+                        </a>
+                        <div>
+                          <a href="/in/maya-ortiz-cleaning/">
+                            <div aria-label="Maya Ortiz • 3rd+">
+                              <p>
+                                <span>Maya Ortiz</span>
+                              </p>
+                              <p>
+                                <span>• 3rd+</span>
+                              </p>
+                            </div>
+                          </a>
+                          <p>
+                            <span>Owner, Ortiz Home Cleaning</span>
+                          </p>
+                          <p>
+                            <span>5m</span>
+                          </p>
+                          <a href="/in/maya-ortiz-cleaning/">
+                            <div aria-label="Maya Ortiz • 3rd+"></div>
+                          </a>
+                        </div>
+                        <button aria-label="Follow Maya Ortiz" type="button">
+                          <span>
+                            <svg aria-hidden="true"></svg>
+                            <span>Follow</span>
+                          </span>
+                        </button>
+                        <button
+                          aria-label="Open control menu for post by Maya Ortiz"
+                          aria-expanded="false"
+                          type="button"
+                        >
+                          <svg aria-hidden="true"></svg>
+                        </button>
+                      </div>
+                      <p>
+                        <span data-testid="expandable-text-box">
+                          We answer every missed call with a text now.
+                          <br />
+                          <br />
+                          Best change we made all year.
+                        </span>
+                      </p>
+                      <div>
+                        <div>
+                          <button aria-label="Reaction button state: no reaction" type="button">
+                            <span>
+                              <svg aria-hidden="true"></svg>
+                            </span>
+                          </button>
+                          <button
+                            aria-label="Open reactions menu"
+                            aria-expanded="false"
+                            type="button"
+                          >
+                            <svg aria-hidden="true"></svg>
+                          </button>
+                        </div>
+                        <button aria-label="Comment" type="button">
+                          <span>
+                            <svg aria-hidden="true"></svg>
+                          </span>
+                        </button>
+                        <button aria-label="Repost" aria-expanded="false" type="button">
+                          <span>
+                            <svg aria-hidden="true"></svg>
+                          </span>
+                        </button>
+                        <a aria-label="Send" href="/">
+                          <span>
+                            <svg aria-hidden="true"></svg>
+                          </span>
+                        </a>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </section>
+          </main>
+        </div>
+      </div>
+    </div>
+  </body>
+</html>

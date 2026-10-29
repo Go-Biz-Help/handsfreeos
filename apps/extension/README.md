@@ -1087,6 +1087,22 @@ whole day, as the list can't be worked out without them (`holdsTheDay` in `src/a
 and Alignable a read put off till you're away counts as the reading's turn, so the list goes next. With nothing on the
 list, the reading goes on. Nothing in HandsFreeOS changes for it.
 
+### A post's link from its menu on LinkedIn's post search (0.112.0)
+
+LinkedIn's newer post search links no post (the owner's Check LinkedIn of 29 Oct 2026), and a post with no link can't be
+kept, so from 27 Oct its post search saved nothing. From 0.112.0 (docs/outreach.md, decision 123), on each screen of the
+search, each person's post with no link, up to 8, gets its own from its menu: it presses the post's **Open control menu
+for post by …**, then **Copy link to post**, then reads the link the page copied (`src/networks/linkedin/post-links.ts`,
+`withLinks` in `src/jobs/linkedin/posts.ts`). That's all it presses.
+
+- **Your clipboard is never written to.** Before any press it runs a small piece in the page's own world (`catchCopies`
+  in `src/tab.ts`, `src/networks/copies.ts`) that keeps what the page copies on the page while the extension waits for
+  it, and passes every other copy through as always. When that can't run, nothing is pressed.
+- **No post's menu is pressed twice** in a search, link or not. A company's post is passed over, as before.
+- **When it doesn't work,** after two posts in a row whose menu had no Copy link to post, or gave no link, it stops and
+  notes the page in HandsFreeOS with its outline, taken while the menu was open (decision 74), once a search. Check
+  LinkedIn does it for one post, so a Check shows whether it works.
+
 ### Replies Knowledge doesn't answer (0.111.0)
 
 From 0.111.0 (docs/outreach.md, decision 122) what the AI writes reads the business's Knowledge and profile, as the AI
@@ -1757,7 +1773,8 @@ towns within 25 miles of yours (decision 115, 0.107.0), and liking a commenter's
 Alignable's likers (decision 116, 0.108.0), and drafts naming each of someone's businesses and its window waiting
 till you're away (decisions 119 and 120, 0.109.0), and Cancel all and deleting requests you get (decision 121,
 0.110.0), and cancelling from Sent requests (0.110.1), and replies Knowledge doesn't answer waiting for you
-(decision 122, 0.111.0), and the list taking turns with the morning's reading (decision 123, 0.112.0); Social
+(decision 122, 0.111.0), and the list taking turns with the morning's reading and a post's link on LinkedIn's
+post search from its menu (decision 123, 0.112.0); Social
 Outreach's onboarding is built, in HandsFreeOS (decisions 36 and 45). Safari on Mac
 follows in Phase 2.
 

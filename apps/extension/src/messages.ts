@@ -243,6 +243,30 @@ export type PostPeopleAnswer =
   | { readonly ok: false; readonly error: string };
 
 /**
+ * On LinkedIn's post search (decision 123), whose newer layout links no post: each person's post's own link, from its
+ * menu's Copy link to post, caught before it reaches the person's clipboard (./networks/copies.ts), for up to `most`
+ * of the posts it shows with none. Each link goes with its post's key (`postKey`), as read from the page.
+ */
+export type PostLinksAsk = {
+  readonly type: 'hfos-post-links';
+  readonly most: number;
+  /** The keys of posts it has links for already, or sent: passed over. */
+  readonly skip: readonly string[];
+};
+export type PostLinksAnswer =
+  | {
+      readonly ok: true;
+      readonly links: readonly { readonly key: string; readonly url: string }[];
+      /** Every post it pressed the menu of, or looked for one on, link or not: none is pressed twice. */
+      readonly tried: readonly string[];
+      /** How it went, for the note when no link came: posts tried, menus opened, Copy link found, links caught. */
+      readonly found: Readonly<Record<string, number>>;
+      /** The page's outline when a menu had no Copy link to post, or it gave no link, taken while the menu was open. */
+      readonly outline?: string;
+    }
+  | { readonly ok: false; readonly error: string };
+
+/**
  * The person's own profile (decision 64): read what a stranger sees first, or put the bio they picked in, which on
  * LinkedIn is their headline, or LinkedIn's About or Alignable's About Us (decision 80; src/networks/facebook/own-profile.ts,
  * src/networks/linkedin/own-profile.ts, src/networks/instagram/own-profile.ts, src/networks/alignable/own-profile.ts).

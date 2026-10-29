@@ -30,6 +30,8 @@ import type {
   GroupFeedAnswer,
   GroupFeedAsk,
   GroupLikeAsk,
+  PostLinksAnswer,
+  PostLinksAsk,
   PostPeopleAnswer,
   PostPeopleAsk,
   GroupPostAnswer,
@@ -71,6 +73,8 @@ export interface JobTab {
   keepInFront?(): Promise<void>;
   /** Closes it, and its window when it has one of its own: done with the network's pages before the job ends. */
   close?(): Promise<void>;
+  /** Has the page catch what it copies while its script says to (../networks/copies.ts): whether it could. */
+  catchCopies?(): Promise<boolean>;
   ask(message: Ask): Promise<Answer>;
   ask(message: BrowseAsk): Promise<BrowseAnswer | Answer>;
   ask(message: FetchAsk): Promise<FetchAnswer>;
@@ -80,6 +84,7 @@ export interface JobTab {
   ask(message: GroupFeedAsk): Promise<GroupFeedAnswer>;
   ask(message: GroupLikeAsk): Promise<AutoAnswer>;
   ask(message: PostPeopleAsk): Promise<PostPeopleAnswer>;
+  ask(message: PostLinksAsk): Promise<PostLinksAnswer>;
   ask(message: OwnProfileAsk): Promise<OwnProfileAnswer>;
   ask(message: PageThereAsk): Promise<PageThereAnswer>;
   ask(message: WriteNameAsk): Promise<OwnProfileAnswer>;

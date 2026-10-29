@@ -963,7 +963,8 @@ export async function runLinkedInDaily(kind: LinkedInDaily, job: Job): Promise<J
           platform: PLATFORM,
         }),
       ).words;
-      return findPostsBySearch(job, words);
+      // A search that gives no post its link is noted with the page (decision 123).
+      return findPostsBySearch(reporting(job, kind), words);
     }
     case 'helpful':
       return linkedInHelpfulAsk(job);

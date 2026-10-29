@@ -2891,7 +2891,7 @@ where decisions 37 and 59 put the settings; what they decided stands. Settled to
 123.  **The first hour does more than read** (Chris, 29 Oct 2026, on extension 0.111.0, then "Both" on the card). "I don't understand why the
       activity for basically everything on all the platforms except likes on facebook are empty? It's been working for
       an hour (at least it should) and all it has done is 4 likes on facebook and nothing else on any of the
-      platforms?" The day's own records showed three causes, and these fix them. The second and third change decisions
+      platforms?" The day's own records showed four causes, and these fix them. The second and third change decisions
       32 and 92, as Chris chose.
       - **The AI writes the search words when the day starts on its own** (a bug). Decision 92's words writer
         (`outreach.write_words`) ran when a playbook was saved, a network turned on or the day started. Since decision
@@ -2916,8 +2916,14 @@ where decisions 37 and 59 put the settings; what they decided stands. Settled to
         be worked out without them. A read put off till the person is away (decision 120) counts as the reading's turn.
         With nothing on the list, the reading goes on. Once it's done, the day's steps spread out as before (decision
         28).
-      - **Not fixed yet:** LinkedIn's post search saved no posts since 27 Oct 2026. Its newer search page seems to show
-        no link to each post, and a post with no link is dropped. That needs a Check LinkedIn on the search page first.
+      - **LinkedIn's post search gets each post's link from its menu** (extension **0.112.0**, a bug). It saved no
+        posts from 27 Oct 2026: Chris's Check LinkedIn that day showed its newer search page links no post (six posts
+        read, the time plain words, every link to a writer or a hashtag), and a post with no link can't be kept. Now,
+        for each person's post with none, up to 8 a screen, the extension presses the post's menu, then **Copy link to
+        post**, and catches the link on the page before it reaches the person's clipboard; nothing is pressed unless
+        the page catches copies, and no post's menu twice. When two posts in a row give no link, it stops and notes the
+        page with its outline, the menu open (decision 74), once a search. Check LinkedIn does it for one post. No
+        migration.
 
 ## Rules worth knowing before changing anything
 
