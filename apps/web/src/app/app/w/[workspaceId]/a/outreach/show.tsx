@@ -3,9 +3,7 @@ import { networkShown, networksShown } from '@hfos/core/addons/outreach/network-
 import type { Platform } from '@hfos/core/addons/outreach/networks';
 import { notReadyWords } from '@hfos/core/addons/outreach/readiness';
 import { isNetworkPart } from '@hfos/core/addons/outreach/settings-parts';
-import { outreachSetupPath } from '@hfos/core/addons/outreach/setup';
 import { cookies } from 'next/headers';
-import { redirect } from 'next/navigation';
 import { netCookie, readOutreachAddress, type OutreachView } from '@/addons/outreach/address';
 import { OutreachHome } from '@/addons/outreach/home';
 import { BOARD_STAGES, type Board } from '@/addons/outreach/board';
@@ -35,9 +33,9 @@ function searchWordsOf(list: PlaybookList | null): string {
  * follows, a page for each part (`/settings/<part>`, decision 73), with anyone's for owners and admins (`?for=`). Each
  * route draws this inside the gate (`addonPage`): "not available here" while the add-on is off, and not found for
  * someone without `outreach.use`. Owners and admins (`outreach.manage`) write the playbooks and see everyone's
- * results (`?who=everyone`); anyone else asking for that sees their own. Someone who never saved their own settings and never
- * started Social Outreach's setup is sent there from Today with nothing in its address, as the side menu opens it
- * (`./setup`).
+ * results (`?who=everyone`); anyone else asking for that sees their own. A first-timer is sent to the setup from the
+ * bare address, as the side menu's row opens it (`./page.tsx`), never from a page: an old link forwarded here opens
+ * the page it asked for.
  *
  * Each network the person works has its own day, list and lists first (Chris: each network on its own): Today asks
  * for each one's live view, for its card, and for the list of the one shown. People's lists are every network's, each
@@ -51,8 +49,6 @@ export async function showOutreach(
   const sp = await searchParams;
   const remembered = (await cookies()).get(netCookie(workspaceId))?.value ?? null;
   const shown = readOutreachAddress(view, sp, { part, remembered });
-  // Today with nothing in its address, as the side menu opens it: a first-timer is sent to the setup.
-  const bare = Object.keys(sp).length === 0;
   const { api } = await apiServer();
   const workspace = api
     .POST('/v1/queries/workspace.get', { body: { workspaceId } })
@@ -417,12 +413,9 @@ export async function showOutreach(
       />
     );
   }
-  // Today. Opened from the side menu, with nothing in its address, a first-timer is sent to the setup first.
-  const [got, setup, mine, asks, waiting] = await Promise.all([
+  // Today.
+  const [got, mine, asks, waiting] = await Promise.all([
     workspace,
-    bare
-      ? api.POST('/v1/queries/outreach.setup', { body: { workspaceId } }).then(unwrapPage)
-      : null,
     // The networks the person works, for their cards and the list shown: Facebook's alone when they can't be had.
     api
       .POST('/v1/queries/outreach.automation', { body: { workspaceId } })
@@ -435,7 +428,6 @@ export async function showOutreach(
       .then((r) => r.data ?? null)
       .catch(() => null),
   ]);
-  if (setup?.firstTime) redirect(outreachSetupPath(workspaceId));
   const nets: readonly Platform[] = mine
     ? networksShown(mine.settings, mine.rules.networksAllowed)
     : ['facebook'];
