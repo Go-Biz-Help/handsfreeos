@@ -397,8 +397,11 @@ describe('who an email nobody has linked is from (2026-10-29)', () => {
   });
 
   it('says who already has the address, until the thread is linked to them', async () => {
+    // Chris shares mail from somebody nobody has yet: the team's now, and still nobody's. (Mail to the team's own
+    // address from a stranger is usually made a customer by lead intake as it comes in.)
     const ann = `ann-${token()}@example.com`;
-    const got = await receive(ann, team.id, { subject: 'One more thing' });
+    const got = await receive(ann, chrisAddress, { subject: 'One more thing' });
+    await run(conversationShare, { workspaceId: wsId, conversationId: got.conversationId }, chris);
     expect(await thread(got.conversationId!)).toMatchObject({ private_to: null, person_id: null });
     expect(await senderOf(got.conversationId!, member)).toEqual({ name: null, customer: null });
     // Somebody adds her from elsewhere: the thread is still nobody's, and now says whose address it is.
