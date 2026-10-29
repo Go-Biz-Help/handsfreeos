@@ -4,7 +4,8 @@
  * and tells their phone. Only
  * chats from the last two days go, so an old chat never buzzes anyone; and a chat sent lately isn't sent again until a
  * few minutes have passed, while the tab keeps seeing it. Nothing is kept waiting: a reply HandsFreeOS couldn't hear
- * of now is seen again the next time the chat is on screen. Nothing goes while the switch in the panel is off.
+ * of now is seen again the next time the chat is on screen. Nothing goes while the switch in the panel is off. A reply
+ * HandsFreeOS keeps as new has that network's runner draft the answer next (decision 125, `onReplied`).
  */
 import { REPLIES_MOST } from '@hfos/core/addons/outreach/alerts';
 import type { Platform } from '@hfos/core/addons/outreach/networks';
@@ -21,6 +22,14 @@ export const REPLY_FRESH_MS = 2 * 24 * 3_600_000;
 export const REPLY_AGAIN_MS = 3 * 60_000;
 /** The chats sent lately, while the browser is open. */
 const SENT_KEY = 'hfos.replies';
+
+/** Who hears of the replies HandsFreeOS kept as new, by network and profile: the background, for the runners. */
+let replied: (platform: Platform, profileIds: readonly string[]) => void = () => undefined;
+
+/** Says who hears of the replies HandsFreeOS keeps as new (decision 125): one listener, the background's. */
+export function onReplied(heard: (platform: Platform, profileIds: readonly string[]) => void) {
+  replied = heard;
+}
 
 /**
  * Who a sighting is about, to send each chat once in a while: Facebook's as they always were, another network's
@@ -119,9 +128,15 @@ export async function noteReplies(
   for (const s of fresh) kept[sightingKey(s, platform)] = now.getTime();
   await chrome.storage.session.set({ [SENT_KEY]: kept });
   try {
-    await api().POST('/v1/commands/outreach.replies.note', {
+    const { data } = await api().POST('/v1/commands/outreach.replies.note', {
       body: repliesInput(to.businessId, fresh, note.looking, platform),
     });
+    const kept = data?.replies ?? [];
+    if (kept.length)
+      replied(
+        platform,
+        kept.map((r) => r.profileId),
+      );
   } catch {
     // No connection: seen again later.
   }

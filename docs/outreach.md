@@ -2937,6 +2937,32 @@ where decisions 37 and 59 put the settings; what they decided stands. Settled to
         over the words being typed. That sheet, and the phone's other outreach sheets with a box to type in (renaming a
         computer, a new playbook, a playbook's section), now lift by the keyboard's height (`useKeyboardHeight`).
 
+125.  **Each network's messages kept open and read every minute, and a reply drafted first** (Chris, 29 Oct 2026,
+      "Every minute" on the card; extension **0.113.0**). "is the social outreach tool supposed to reply to people as
+      well? … i think the system should keep a page of each platform open at all times and check for messages sent to
+      use each minute locally so that we can reply quickly." A prospect's Instagram reply was seen an hour late, by the
+      once-a-day chats read, and its draft then waited behind the day's steps (drafts came after every step unless
+      Approve all was on).
+      - **The messages kept open** (`src/auto/watch.ts`). While Chrome is open, someone's signed in, this is the
+        computer that works and noting is on, a window of the extension's own, minimized, holds one tab for each
+        network that's on and works on its own (not Off) and wasn't warned today: Messenger, LinkedIn's messaging,
+        Instagram's messages and Alignable's. Every minute each page is read where it stands, never pressed, scrolled
+        or typed in. On Facebook, LinkedIn and Instagram its script says who wrote last (`hfos-replies-now`, decision
+        22's readers), sent as that network's `outreach.replies.note`, so the phone hears who wrote back. Alignable's
+        list doesn't say who wrote last, so a conversation whose last line changed has Alignable's runner read its chats
+        again at their next turn (only the changed ones are opened). A page is loaded afresh every 20 minutes
+        (Alignable's every 5), and when it went elsewhere or doesn't answer, at most every 5 minutes. A tab the person
+        closes stays closed for an hour, and every tab does when they close the window. The phone's push names the
+        network they wrote on (`replyPushWords`; it said Facebook for every network). No migration.
+      - **A reply is drafted next** (`plan.ts`). A reply (`reply`, `partner_reply`) now comes first on every network's
+        list, before the messages OK'd and the steps, Approve all or not. When `outreach.replies.note` keeps a reply as
+        new, from the window above or any tab of the person's, that network's runner goes at once rather than at its
+        next step's time (`onReplied`), and while the morning's reading is left the list has the next turn (`replied` in
+        the runner's state, `listTurn`). Someone who writes back again the same day has their reply drafted again,
+        though it was tried. The Replies choice still decides whether it waits for an OK, and the network's day and
+        limits still decide whether the runner works at all: a reply seen outside the working hours buzzes the phone
+        and is drafted when the day starts.
+
 ## Rules worth knowing before changing anything
 
 - **Nothing is saved until the person presses a button in HandsFreeOS** (an ask, below), except the four steps the
@@ -2948,7 +2974,8 @@ where decisions 37 and 59 put the settings; what they decided stands. Settled to
   Alignable's groups and their members (decision 92); and what two switches send as the person goes, in the Facebook tab in front of them,
   panel open or not, each on by default and turned off in their settings in HandsFreeOS (decision 37): the chats they
   open in Messenger (**Read chats as I open them**), and the posts worth a look in a group's feed (**Look for posts
-  as I scroll a group**). Facebook's warnings are read there always. The extension's own work tabs are never read this way.
+  as I scroll a group**). Facebook's warnings are read there always. The extension's own work tabs are never read this way,
+  but for who wrote last on the messages pages it keeps open (decision 125).
   While noting is on, it also tells HandsFreeOS who wrote last in the chats on the page (decision 22), and the runner
   hands over a step it couldn't do (`outreach.need.note`, decision 42). Reading any other page only looks things up.
 - **Settings live in HandsFreeOS, never in the extension** (decision 37). A new choice for what the extension does

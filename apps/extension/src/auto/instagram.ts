@@ -115,6 +115,9 @@ import {
   networkDay,
   networkWaitWords,
   nextStart,
+  repliedAfter,
+  stillReplied,
+  withReplied,
   workKey,
   workLeft,
   type AutoState,
@@ -1024,8 +1027,13 @@ export function instagramWorkLeft(
     readonly partners?: readonly TodayListItem[];
   },
   tried: readonly string[],
+  replied: readonly string[] = [],
 ): Work[] {
-  return workLeft({ ...list, auto: list.auto.filter((k) => INSTAGRAM_AUTO.includes(k)) }, tried);
+  return workLeft(
+    { ...list, auto: list.auto.filter((k) => INSTAGRAM_AUTO.includes(k)) },
+    tried,
+    replied,
+  );
 }
 
 /** The likes the day has room for past one each for the warm-ups still to do: a warm-up's second like takes one. */
@@ -1214,7 +1222,10 @@ async function go(): Promise<void> {
   // The morning's reading and the list take turns (decision 123): a step on the list now, when there's one, after a
   // part of the reading went last.
   if (listTurn(state, reading, holdsTheDay(before))) {
-    const { list, left } = await listNow(to.businessId, state.tried);
+    const { list, left } = await listNow(to.businessId, state.tried, state.replied);
+    // Who wrote back and isn't on what's left gives the reading its turn back (decision 125).
+    const replied = stillReplied(state.replied ?? [], left);
+    if (replied.length !== (state.replied ?? []).length) state = await setState({ replied });
     if (left[0])
       return workNext(left, list, {
         businessId: to.businessId,
@@ -1266,7 +1277,7 @@ async function go(): Promise<void> {
     return soon();
   }
 
-  const { list, left } = await listNow(to.businessId, state.tried);
+  const { list, left } = await listNow(to.businessId, state.tried, state.replied);
   if (!left[0]) {
     await closeWindow();
     // What waits for them to be away is looked at again sooner.
@@ -1296,6 +1307,7 @@ async function go(): Promise<void> {
 async function listNow(
   businessId: string,
   tried: readonly string[],
+  replied: readonly string[] = [],
 ): Promise<{ readonly list: TodayList; readonly left: Work[] }> {
   const list: TodayList = await call(
     api().POST('/v1/queries/outreach.today', {
@@ -1303,7 +1315,7 @@ async function listNow(
     }),
     businessId,
   );
-  return { list, left: instagramWorkLeft(list, tried) };
+  return { list, left: instagramWorkLeft(list, tried, replied) };
 }
 
 /**
@@ -1365,7 +1377,11 @@ async function workNext(
     'done' in outcome && outcome.done
       ? { ...state.done, [kind]: (state.done[kind] ?? 0) + 1 }
       : state.done;
-  await setState({ tried: [...state.tried, workKey(work)], done });
+  await setState({
+    tried: [...state.tried, workKey(work)],
+    done,
+    replied: repliedAfter(state.replied ?? [], work),
+  });
   if ('stop' in outcome) {
     await closeWindow();
     await say(outcome.stop, { stopped: 'warning' });
@@ -1479,6 +1495,16 @@ export async function instagramTick(): Promise<void> {
 }
 
 const tick = instagramTick;
+
+/**
+ * Someone wrote back on Instagram (decision 125, ../hfos/replies.ts): their reply is drafted next, now, before the next
+ * step's time, or as soon as the go under way ends. The day's own rules still say whether it goes at all.
+ */
+export async function instagramReplied(profileIds: readonly string[]): Promise<void> {
+  const state = await stateNow();
+  await setState({ replied: withReplied(state.replied ?? [], profileIds) });
+  void tick();
+}
 
 /** When the background starts: it looks once, and the beat wakes it after. */
 export async function wakeInstagram(): Promise<void> {

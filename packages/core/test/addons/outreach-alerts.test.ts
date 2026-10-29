@@ -142,6 +142,10 @@ describe('the demo link', () => {
 describe('the pushes', () => {
   it('say who wrote back, and how much is on today’s list', () => {
     expect(replyPushWords('Dana Reyes').title).toBe('Dana Reyes wrote back');
+    // On the network they wrote on (decision 125: Instagram's and LinkedIn's replies are seen within a minute too).
+    expect(replyPushWords('Dana Reyes', 'instagram').body).toBe(
+      'On Instagram. Your list for today has them, with drafts for your reply.',
+    );
     expect(morningPushWords([])).toBeNull();
     expect(
       morningPushWords([{ kind: 'friend_request' }, { kind: 'friend_request' }, { kind: 'reply' }]),

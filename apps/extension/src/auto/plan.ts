@@ -2,9 +2,9 @@
  * What the runner that works on its own (./run.ts) does next, and when: plain workings, kept apart so they can be
  * tested. It goes down the list for today (packages/core/src/addons/outreach/today.ts) in its own order: requests to
  * confirm, then posts to like, then friend requests, then comments (decisions 26, 30 and 33). Messages
- * (packages/core/src/addons/outreach/sends.ts) come around those: the ones OK'd go first, then it drafts the rest,
- * which wait for the person or go as they are; with Approve all, it drafts them all before anything else, so they're
- * ready first thing. Within the working hours it spreads the day's steps out, at random times; after **Start my day** it goes at
+ * (packages/core/src/addons/outreach/sends.ts) come around those: a reply to someone who wrote back is drafted
+ * before anything else (decision 125), then the ones OK'd go, then it drafts the rest, which wait for the person or go
+ * as they are; with Approve all, it drafts them all before the steps, so they're ready first thing. Within the working hours it spreads the day's steps out, at random times; after **Start my day** it goes at
  * a person's pace, a minute or few apart. Once a day, it checks the person's friend requests, checks their groups for
  * their people and joins good ones when people left to reach run low (decision 48), saves their groups' members, finds
  * posts, reads their chats (decision 32) and checks their friends for good fits (decision 46), which fill that list;
@@ -121,6 +121,11 @@ export interface AutoState {
    */
   readonly readLast?: boolean;
   /**
+   * Who wrote back since their reply was last drafted today, by profile (decision 125): their reply is drafted next,
+   * though it was tried before today, and the next go is the list's. Missing in a state kept by 0.112.
+   */
+  readonly replied?: readonly string[];
+  /**
    * The person's lists as HandsFreeOS last said, and the step before the day under way now: for the panel's live
    * checklist. Missing in a state kept by 0.27.
    */
@@ -219,10 +224,35 @@ export const itemKey = (item: Pick<TodayListItem, 'kind' | 'postId' | 'profileId
  * a list with nothing left on it reads on.
  */
 export const listTurn = (
-  state: Pick<AutoState, 'readLast'>,
+  state: Pick<AutoState, 'readLast' | 'replied'>,
   reading: boolean,
   held: boolean,
-): boolean => reading && !held && state.readLast === true;
+): boolean => reading && !held && (state.readLast === true || (state.replied?.length ?? 0) > 0);
+
+/** The kinds that answer someone who wrote back (decision 125): drafted first, as soon as they're seen. */
+export const REPLY_KINDS: readonly TodayKind[] = ['reply', 'partner_reply'];
+export const isReplyKind = (kind: TodayKind) => REPLY_KINDS.includes(kind);
+
+/** Whether a piece of work drafts the reply to someone who wrote back. */
+const isReplyDraft = (work: Work): boolean => work.do === 'draft' && isReplyKind(work.item.kind);
+
+/** The most kept as having written back: a day's worth, far more than a list carries. */
+const REPLIED_MOST = 50;
+
+/** Who wrote back, with those just seen (decision 125). */
+export const withReplied = (replied: readonly string[], profileIds: readonly string[]): string[] =>
+  [...new Set([...replied, ...profileIds])].slice(-REPLIED_MOST);
+
+/** Who wrote back still to answer after a piece of work: a reply drafted is theirs answered. */
+export const repliedAfter = (replied: readonly string[], work: Work): string[] =>
+  isReplyDraft(work) ? replied.filter((id) => id !== work.item.profileId) : [...replied];
+
+/**
+ * Who wrote back whose reply is still on what's left: the rest (not on today's list, or answered from the person's own
+ * tab) are let go, so they never keep the list's turn.
+ */
+export const stillReplied = (replied: readonly string[], left: readonly Work[]): string[] =>
+  replied.filter((id) => left.some((work) => isReplyDraft(work) && work.item.profileId === id));
 
 /**
  * What's left for it to do today, in its order: the kinds it does for the person (the list's `auto`), not tried
@@ -277,18 +307,21 @@ const messagesOn = (items: readonly TodayListItem[], kinds: readonly string[]) =
   );
 
 /**
- * What's left for it to do today, in its order: messages OK'd first; then, with Approve all, every message to draft
- * before the steps, else the steps before them. A message needs the person kept, and their chat or profile to send in.
- * A partner's steps (decision 81) come after the customers' of each sort: a like while it may like on its own, and
- * messages that each wait for an OK of their own.
+ * What's left for it to do today, in its order: replies to those who wrote back first (decision 125), then messages
+ * OK'd; then, with Approve all, every other message to draft before the steps, else the steps before them. A message
+ * needs the person kept, and their chat or profile to send in. A partner's steps (decision 81) come after the
+ * customers' of each sort: a like while it may like on its own, and messages that each wait for an OK of their own.
+ * Someone who wrote back again since (`replied`) has their reply drafted again, though it was tried today.
  */
 export function workLeft(
   list: Pick<TodayList, 'items' | 'auto' | 'messages' | 'sending'> & {
     readonly partners?: readonly TodayListItem[];
   },
   tried: readonly string[],
+  replied: readonly string[] = [],
 ): Work[] {
   const done = new Set(tried);
+  const again = new Set(replied);
   const steps = itemsLeft(list.items, list.auto, tried).map(
     (item) => ({ do: 'step', item }) as const,
   );
@@ -308,11 +341,17 @@ export function workLeft(
   const drafts = messages
     .filter((item) => item.send === null)
     .map((item) => ({ do: 'draft', item }) as const);
+  const replies = drafts.filter(isReplyDraft);
+  const others = drafts.filter((work) => !isReplyDraft(work));
   const all: Work[] =
     list.sending === 'approve_all'
-      ? [...sends, ...drafts, ...steps, ...partnerSteps]
-      : [...sends, ...steps, ...partnerSteps, ...drafts];
-  return all.filter((work) => !done.has(workKey(work)));
+      ? [...replies, ...sends, ...others, ...steps, ...partnerSteps]
+      : [...replies, ...sends, ...steps, ...partnerSteps, ...others];
+  return all.filter(
+    (work) =>
+      !done.has(workKey(work)) ||
+      (isReplyDraft(work) && work.item.profileId !== null && again.has(work.item.profileId)),
+  );
 }
 
 /**

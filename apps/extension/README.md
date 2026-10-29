@@ -1074,6 +1074,32 @@ shows under Instagram). Your Instagram choices in HandsFreeOS say what it does (
 Each step is noted as the extension's own (`auto`), as Instagram's. A step its page doesn't let it do goes to your
 Needs you; it never guesses.
 
+### Your messages, kept open and read every minute (0.113.0)
+
+Before 0.113.0 a reply was seen when the once-a-day chats read came round, or when you had a chat page on screen, and
+its draft waited behind every step on the list (the owner's report of 29 Oct 2026: a prospect's Instagram reply seen an
+hour late). From 0.113.0 (docs/outreach.md, decision 125, `src/auto/watch.ts`):
+
+- **A window of its own keeps your messages open.** While Chrome is open, you're signed in, this is the computer that
+  works and noting is on, a window opens beside yours and minimizes itself, with one tab for each network that's on and
+  works on its own (not Off): Messenger, LinkedIn's messaging, Instagram's messages and Alignable's. Its tabs are kept
+  from being put to sleep (`autoDiscardable`).
+- **Read every minute, where it stands.** Nothing is pressed, scrolled or typed there. On Facebook, LinkedIn and
+  Instagram the tab's script says who wrote last (`hfos-replies-now`, the same reader as any tab's, decision 22), and
+  the background sends it to HandsFreeOS as that network's (`src/hfos/replies.ts`), so your phone hears who wrote back.
+  Alignable's list doesn't say who wrote last, so when a conversation's last line changes, Alignable's runner reads
+  its chats again at their next turn, opening only the ones that changed (`alignableChatsAgain`).
+- **A reply is drafted next.** When HandsFreeOS keeps a reply as new (it answers a message of yours), that network's
+  runner goes now, not at its next step's time, and drafts the reply before anything else (`onReplied`, `replied` in
+  the runner's state, `REPLY_KINDS` in `src/auto/plan.ts`). A reply always comes first on the list now, before the
+  messages you OK'd and the steps, and someone who writes back again the same day gets their reply drafted again. Your
+  Replies choice still says whether it waits for your OK, and the network's day still says whether the runner works.
+- **Loaded afresh now and then:** every 20 minutes (Alignable's every 5), when a page went elsewhere (a sign-in page
+  is left be for 5 minutes), and when a page doesn't answer.
+- **Closing it is yours.** A tab you close stays closed for an hour, and every tab does when you close the window. A
+  network turned off, Off, or warned today has its tab closed; noting off, signing out or another computer working
+  closes the window.
+
 ### The list between the morning's reading (0.112.0)
 
 Before 0.112.0 each network did all of its once-a-day reading, and the saves before the day, before the first step on
@@ -1560,6 +1586,10 @@ networks Chrome lets it on, so HandsFreeOS can say what to press when an ask wai
   around them whether one was a step and who to (`src/networks/facebook/actions.ts`), and tells the background. It never reads
   what was written, writes to the page, clicks, scrolls or sends anything, but for the next rules. What it does on its
   own keeps the owner's decisions: off by default, the daily limits, and a stop for the day on any Facebook warning.
+- **The messages kept open are only read** (decision 125, `src/auto/watch.ts`). Their window stays minimized, and
+  nothing on their pages is pressed, scrolled or typed; each is read where it stands once a minute, and loaded afresh
+  at most every few minutes. A tab the person closed stays closed for an hour. A reply goes like every other message:
+  drafted by the network's runner, inside its day, waiting for an OK as the person's Replies choice says.
 - **Scrolling groups only when asked, slowly.** **Find posts** (`src/jobs/posts.ts`) only scrolls a group's own
   feed (`scrollFeed`, `groupFeedPage`), a screen at a time, 6 to 12 seconds apart: it opens nothing and presses
   nothing. Once a day, on its own, it also scrolls your friend requests and a group's members the same way
@@ -1774,7 +1804,8 @@ Alignable's likers (decision 116, 0.108.0), and drafts naming each of someone's 
 till you're away (decisions 119 and 120, 0.109.0), and Cancel all and deleting requests you get (decision 121,
 0.110.0), and cancelling from Sent requests (0.110.1), and replies Knowledge doesn't answer waiting for you
 (decision 122, 0.111.0), and the list taking turns with the morning's reading and a post's link on LinkedIn's
-post search from its menu (decision 123, 0.112.0); Social
+post search from its menu (decision 123, 0.112.0), and your messages kept open and read every minute, a reply drafted
+first (decision 125, 0.113.0); Social
 Outreach's onboarding is built, in HandsFreeOS (decisions 36 and 45). Safari on Mac
 follows in Phase 2.
 
