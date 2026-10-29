@@ -52,6 +52,7 @@ describe('what a row shows for Research', () => {
       kind: null,
       opener: null,
       simple: false,
+      unanswered: null,
       lookedUp: false,
       queued,
     });

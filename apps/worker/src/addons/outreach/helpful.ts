@@ -4,6 +4,7 @@
  * lately (the posts kept from it), after reading the group's About tab and rules; or says the rules don't allow one.
  * Off Facebook it goes on the person's own feed; on Instagram it's the week's caption and the picture to take for it
  * (decision 109).
+ * It writes from what the business knows too: its profile and Knowledge (decision 122, ./knows.ts).
  * Core holds what the model is asked and what it may answer (packages/core/src/addons/outreach/helpful.ts), and
  * `outreach.helpful.draft` keeps it.
  *
@@ -29,6 +30,7 @@ import type { JobResult } from '../../jobs';
 import { AiAskError, askStructured } from '../../ai/ask';
 import { scheduleAddonJob } from '../queue';
 import type { AddonEventContext, AddonJobContext } from '../types';
+import { businessKnows } from './knows';
 
 export const DRAFT_HELPFUL_JOB = 'outreach.draft_helpful';
 /** How many one job writes before it comes back for the rest. */
@@ -114,6 +116,8 @@ export async function draftHelpfulJob(ctx: AddonJobContext): Promise<JobResult> 
         );
     return { business: business?.name ?? 'the business', waiting, asked };
   });
+  // What the business knows (decision 122): its profile and Knowledge, read once for every post in the batch.
+  const knows = found.waiting.length ? await businessKnows(ctx) : null;
   for (const h of found.waiting.slice(0, DRAFT_BATCH)) {
     const read = h.details ? PlaybookDetails.safeParse(upgradePlaybookDetails(h.details)) : null;
     let draft: HelpfulDraftInput['draft'];
@@ -143,6 +147,7 @@ export async function draftHelpfulJob(ctx: AddonJobContext): Promise<JobResult> 
               // On Instagram a few of the playbook's own hashtags may close it (decision 109).
               hashtags:
                 h.platform === 'instagram' && read?.success ? (read.data.hashtags ?? []) : [],
+              knows,
             }),
           },
         ],

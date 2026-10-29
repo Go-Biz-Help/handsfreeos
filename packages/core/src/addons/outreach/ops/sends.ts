@@ -42,6 +42,7 @@ import {
   type Send,
 } from '../sends';
 import { PARTNER_WORDS } from '../partners';
+import { KNOWS_WORDS } from '../knows';
 import { isClientSkipped, type ClientCause } from '../person-menu';
 import { commentSendsOn, LINKEDIN_COMMENTS_WAIT_SINCE } from '../profile-parts';
 import { OUTREACH_WORDS } from '../words';
@@ -255,7 +256,7 @@ async function setPostAside(ctx: CommandContext, row: Row, at: Date): Promise<vo
 export const sendQueue = defineAddonCommand(outreachAddon, {
   name: 'outreach.send.queue',
   description:
-    'The extension drafted a message to someone on the person’s list for today: a first message, a follow-up or a reply; or, on Instagram, LinkedIn and Alignable, a comment on a good post of theirs; or, on Facebook, the day’s reply to a question asked in one of the person’s groups. It waits for the person’s OK, or, when they chose for messages to go on their own and their training wheels are off, goes as it is; a comment or a reply in a group goes on its own once the person has OK’d 25 there and a week has gone by, and an answer to an Alignable post asking for what the business offers always waits, as do a message offering another time after a missed demo and a birthday or new-job note. A message already drafted for them comes back instead. A client in Contacts gets only replies.',
+    'The extension drafted a message to someone on the person’s list for today: a first message, a follow-up or a reply; or, on Instagram, LinkedIn and Alignable, a comment on a good post of theirs; or, on Facebook, the day’s reply to a question asked in one of the person’s groups. It waits for the person’s OK, or, when they chose for messages to go on their own and their training wheels are off, goes as it is; a comment or a reply in a group goes on its own once the person has OK’d 25 there and a week has gone by, and an answer to an Alignable post asking for what the business offers always waits, as do a message offering another time after a missed demo, a birthday or new-job note, and a reply to something the business’s Knowledge doesn’t answer. A message already drafted for them comes back instead. A client in Contacts gets only replies.',
   risk: 0,
   input: SendQueueInput,
   output: SendQueueOutput,
@@ -360,7 +361,9 @@ export const sendQueue = defineAddonCommand(outreachAddon, {
               ? null
               : theirs === null
                 ? 'HandsFreeOS hasn’t seen what they wrote'
-                : replyNeedsYou(theirs);
+                : // Something they asked that the business's Knowledge doesn't answer (decision 122): the person's.
+                  (replyNeedsYou(theirs) ??
+                  (input.unanswered ? KNOWS_WORDS.needsYou(input.unanswered) : null));
     const goes = goesAsItIs({
       sending: settings.sending,
       replies: settings.replies,

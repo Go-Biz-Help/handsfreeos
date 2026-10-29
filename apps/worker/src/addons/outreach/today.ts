@@ -61,11 +61,13 @@ import {
   fitsRequests,
   isOccasionKind,
   isPartnerKind,
+  knowsFor,
   TODAY_DRAFT_SCHEMA,
   todayDraftSystem,
   TodayDraftAnswer,
   TodayDraftInput,
   todayDraftPrompt,
+  unansweredOf,
   type CustomerDraftKind,
   type DraftOffer,
   type TodayDraftOutput,
@@ -81,6 +83,7 @@ import {
   askStructured,
 } from '../../ai/ask';
 import type { AddonWorkerAction } from '../types';
+import { businessKnows } from './knows';
 import { partnerDraft } from './partner-drafts';
 
 export const TODAY_DRAFT_ACTION = 'outreach.today.draft';
@@ -342,6 +345,7 @@ export const todayDraft: AddonWorkerAction<TodayDraftInput> = {
         drafts: [ownOpenerText(opener.text, name, offer)],
         opener: drafted,
         simple: false,
+        unanswered: null,
       };
     // A client in Contacts (decision 91): written to as a client, never pitched.
     const client = found.profile?.client ?? false;
@@ -369,6 +373,18 @@ export const todayDraft: AddonWorkerAction<TodayDraftInput> = {
       : null;
     // The network the message goes on: the profile's.
     const platform = found.profile?.platform ?? 'facebook';
+    // What the business knows (decision 122): its profile and Knowledge, with what matches their latest words, their
+    // post or their comment first. Read once, for the reply and the step after a yes alike.
+    const knows = knowsFor(input.kind)
+      ? await businessKnows(ctx, [
+          ...recent
+            .filter((m) => !m.fromMe)
+            .slice(-2)
+            .map((m) => m.text),
+          found.engaged?.comment,
+          found.post?.body,
+        ])
+      : undefined;
     const draft = async (kind: CustomerDraftKind) => {
       const { value } = await askStructured(ctx, ctx.scope, {
         system: todayDraftSystem(platform),
@@ -404,6 +420,7 @@ export const todayDraft: AddonWorkerAction<TodayDraftInput> = {
                 ? demoWhen(found.demoAt, found.business?.timezone ?? 'America/Chicago')
                 : null,
               occasion: found.occasion,
+              knows,
               own: ownWordsFor(
                 kind,
                 found.samples,
@@ -421,7 +438,7 @@ export const todayDraft: AddonWorkerAction<TodayDraftInput> = {
       });
       const checked = checkedDrafts(
         value,
-        playbook?.details.avoid ?? [],
+        [...(playbook?.details.avoid ?? []), ...(knows?.avoid ?? [])],
         DRAFTS_FOR[kind],
         found.voice.split && !underAPost(kind) && kind !== 'warm_lead' && !toRequests,
       );
@@ -477,12 +494,20 @@ export const todayDraft: AddonWorkerAction<TodayDraftInput> = {
         }
       }
       const theirs = [...recent].reverse().find((m) => !m.fromMe)?.text ?? null;
+      // Something they asked that nothing given answers (decision 122): the reply says the owner will check, and waits.
+      const unanswered = unansweredOf(kind, made.value, recent);
       return {
         kind,
         answer,
         drafts: made.drafts,
         opener: drafted,
-        simple: kind === 'reply' && made.value.simple && theirs !== null && !replyNeedsYou(theirs),
+        simple:
+          kind === 'reply' &&
+          made.value.simple &&
+          theirs !== null &&
+          !replyNeedsYou(theirs) &&
+          unanswered === null,
+        unanswered,
       };
     } catch (e) {
       throw draftRefusal(e);

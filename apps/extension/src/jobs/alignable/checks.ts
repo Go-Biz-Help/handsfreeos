@@ -111,6 +111,7 @@ export async function researchOnAlignable(
             kind: null,
             opener: null,
             simple: false,
+            unanswered: null,
             lookedUp: false,
             queued: true,
           },

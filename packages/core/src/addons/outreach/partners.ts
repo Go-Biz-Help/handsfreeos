@@ -18,6 +18,7 @@
 import { z } from 'zod';
 import { quoteData } from '../../knowledge/prompt';
 import { checkedCountry, COUNTRY_WHY_MOST, type WhereAnswer } from './countries';
+import { knowsBlocks, type DraftKnows } from './knows';
 import { relativeTimeAgo } from '../../workflows/approval-words';
 import { inNetworkWords, NETWORKS, PLATFORM_KEYS, type Platform } from './networks';
 import {
@@ -644,6 +645,8 @@ export function partnerDraftPrompt(input: {
   readonly lastAt?: Date | string | null;
   readonly now?: number;
   readonly platform?: Platform;
+  /** What the business knows (decision 122, ./knows.ts): its profile and Knowledge. Left out, it isn't told. */
+  readonly knows?: DraftKnows | null;
 }): string {
   const p = input.playbook;
   const voice = input.voice ?? VOICE_DEFAULTS;
@@ -677,6 +680,7 @@ export function partnerDraftPrompt(input: {
     `<business>${quoteData(input.business)}</business>`,
     input.helps ? `<who_it_helps>${quoteData(input.helps)}</who_it_helps>` : null,
     `<partner_playbook>\n${quoteData(playbook)}\n</partner_playbook>`,
+    ...(input.knows !== undefined ? knowsBlocks(input.knows) : []),
     `<person>${quoteData(input.name)}</person>`,
     `<their_audience>\n${quoteData(audience)}\n</their_audience>`,
     input.facts.length ? `<facts>\n${quoteData(input.facts.join('\n'))}\n</facts>` : null,

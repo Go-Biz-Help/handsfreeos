@@ -904,6 +904,22 @@ describe('a message on Alignable', () => {
     expect(drafted.input?.lookup).toContain('About Us: Family plumbers in Austin since 1990.');
     expect(world.noted).toEqual([]);
   });
+
+  it('hands on what Knowledge doesn’t answer with a reply, so it waits for the person (decision 122)', async () => {
+    world.pages = (url) => (url === DANA ? { html: businessHtml(), at: DANA_PAGE } : null);
+    world.hfos['hfos-draft'] = () => ({
+      drafts: ['Good question, Dana. Let me check on that and get back to you.'],
+      kind: 'reply',
+      opener: null,
+      simple: false,
+      unanswered: 'whether you come out to Dallas',
+    });
+    world.answers['/v1/commands/outreach.send.queue'] = () => ({ state: 'waiting' });
+    await doWork({ do: 'draft', item: item({ kind: 'reply' }) }, ME.businessId, false);
+    expect(
+      world.posted.find((p) => p.path === '/v1/commands/outreach.send.queue')?.body,
+    ).toMatchObject({ kind: 'reply', simple: false, unanswered: 'whether you come out to Dallas' });
+  });
 });
 
 describe('Find partners on Alignable', () => {

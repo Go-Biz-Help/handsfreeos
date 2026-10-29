@@ -554,13 +554,28 @@ describe('messages on their own', () => {
         'they asked for you',
         'HandsFreeOS hasn’t seen what they wrote',
       ]);
+      // Something they asked that the business's Knowledge doesn't answer waits too (decision 122).
+      await chat('max.dale.3', 'Max Dale', '2000777', 'Do you come out to Dallas?');
+      const max = await chatOf('Max Dale');
+      const asked = await runAs(member, ws, 'outreach.send.queue', {
+        profileId: max.profile_id,
+        kind: 'reply',
+        chatId: max.id,
+        text: 'Good question. Let me check on that and get back to you.',
+        simple: false,
+        unanswered: 'whether you come out to Dallas',
+      });
+      expect(asked.state).toBe('waiting');
+      expect((await handOvers()).at(-1)?.why).toBe(
+        'Knowledge has no answer to whether you come out to Dallas',
+      );
     });
 
     it('with (a), every reply waits, and nobody is buzzed', async () => {
       await automation(member, 'steps', 'draft');
       await chat('mo.lane.4', 'Mo Lane', '2000666', 'Thanks!');
       expect((await reply(await chatOf('Mo Lane'), true)).state).toBe('waiting');
-      expect(await handOvers()).toHaveLength(4);
+      expect(await handOvers()).toHaveLength(5);
     });
 
     it('shows the chat so far beside a message waiting for an OK', async () => {

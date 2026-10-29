@@ -1754,7 +1754,9 @@ function scriptedPlaybookAssist(message: string) {
 /**
  * Drafts for Today by their first name: one twice and one with “free trial”, for the checks to drop. A reply is
  * simple when their last message asks nothing, and says what they answered; the video and the link say which they
- * are, for the checks to find their links on the end.
+ * are, for the checks to find their links on the end. A reply to a question none of whose words the business
+ * profile or the knowledge has says it's unanswered, in their words (decision 122); one they have answers from the
+ * knowledge.
  */
 function scriptedTodayDraft(message: string) {
   const name = /<person>([\s\S]*?)<\/person>/.exec(message)?.[1] ?? 'there';
@@ -1763,6 +1765,18 @@ function scriptedTodayDraft(message: string) {
   const last = [...message.matchAll(/^(Owner|Them): /gm)].at(-1)?.[1];
   const reply = message.includes('They wrote last. Write the owner’s reply');
   const answer = reply && last === 'Them' ? scriptedAnswer(theirs) : 'none';
+  // A question in a reply (decision 122): answered from the first item of the knowledge sharing a word with it, or
+  // unanswered, in their words, when the business profile has none of its words either.
+  const asked = reply && last === 'Them' && theirs.includes('?') ? unquote(theirs) : '';
+  const askedWords = asked.toLowerCase().match(/[a-z]{4,}/g) ?? [];
+  const fromKnowledge = [...message.matchAll(/^Q: (.*)\nA: (.*)$/gm)].find((m) =>
+    askedWords.some((w) => m[1]!.toLowerCase().includes(w)),
+  )?.[2];
+  const profile = (quotedBlock(message, 'business_profile') ?? '').toLowerCase();
+  const unanswered =
+    asked && !fromKnowledge && !askedWords.some((w) => profile.includes(w))
+      ? asked.replace(/[?.!\s]+$/, '').toLowerCase()
+      : '';
   // A partner's messages (decision 81): the ask, a nudge, the details, and a reply that reads their answer.
   if (message.includes('Write the first message about partnering'))
     return {
@@ -1857,9 +1871,24 @@ function scriptedTodayDraft(message: string) {
       answer,
       drafts: [`${example} (for ${first})`],
     };
+  if (fromKnowledge)
+    return {
+      simple: false,
+      answer,
+      unanswered: '',
+      drafts: [`Good question, ${first}! ${unquote(fromKnowledge)}`],
+    };
+  if (unanswered)
+    return {
+      simple: false,
+      answer,
+      unanswered,
+      drafts: [`Good question, ${first}. Let me check on that and get back to you.`],
+    };
   return {
     simple: theirs !== '' && !theirs.includes('?'),
     answer,
+    unanswered: '',
     drafts: [
       `Hi ${first}, thanks for adding me! How’s business going?`,
       `Hey ${first}, good to connect. What keeps you busiest these days?`,

@@ -92352,7 +92352,7 @@
     "/v1/commands/outreach.send.queue": {
       "post": {
         "operationId": "command_outreach_send_queue",
-        "summary": "The extension drafted a message to someone on the person’s list for today: a first message, a follow-up or a reply; or, on Instagram, LinkedIn and Alignable, a comment on a good post of theirs; or, on Facebook, the day’s reply to a question asked in one of the person’s groups. It waits for the person’s OK, or, when they chose for messages to go on their own and their training wheels are off, goes as it is; a comment or a reply in a group goes on its own once the person has OK’d 25 there and a week has gone by, and an answer to an Alignable post asking for what the business offers always waits, as do a message offering another time after a missed demo and a birthday or new-job note. A message already drafted for them comes back instead. A client in Contacts gets only replies.",
+        "summary": "The extension drafted a message to someone on the person’s list for today: a first message, a follow-up or a reply; or, on Instagram, LinkedIn and Alignable, a comment on a good post of theirs; or, on Facebook, the day’s reply to a question asked in one of the person’s groups. It waits for the person’s OK, or, when they chose for messages to go on their own and their training wheels are off, goes as it is; a comment or a reply in a group goes on its own once the person has OK’d 25 there and a week has gone by, and an answer to an Alignable post asking for what the business offers always waits, as do a message offering another time after a missed demo, a birthday or new-job note, and a reply to something the business’s Knowledge doesn’t answer. A message already drafted for them comes back instead. A client in Contacts gets only replies.",
         "tags": [
           "commands"
         ],
@@ -92464,6 +92464,18 @@
                   "simple": {
                     "default": false,
                     "type": "boolean"
+                  },
+                  "unanswered": {
+                    "default": null,
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "maxLength": 160
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
                   },
                   "postId": {
                     "default": null,
@@ -95179,6 +95191,18 @@
                                   "default": false,
                                   "type": "boolean"
                                 },
+                                "unanswered": {
+                                  "default": null,
+                                  "anyOf": [
+                                    {
+                                      "type": "string",
+                                      "maxLength": 160
+                                    },
+                                    {
+                                      "type": "null"
+                                    }
+                                  ]
+                                },
                                 "lookedUp": {
                                   "default": false,
                                   "type": "boolean"
@@ -95193,6 +95217,7 @@
                                 "kind",
                                 "opener",
                                 "simple",
+                                "unanswered",
                                 "lookedUp",
                                 "queued"
                               ],
@@ -96514,6 +96539,18 @@
                             "default": false,
                             "type": "boolean"
                           },
+                          "unanswered": {
+                            "default": null,
+                            "anyOf": [
+                              {
+                                "type": "string",
+                                "maxLength": 160
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
                           "lookedUp": {
                             "default": false,
                             "type": "boolean"
@@ -96794,6 +96831,18 @@
                                   "default": false,
                                   "type": "boolean"
                                 },
+                                "unanswered": {
+                                  "default": null,
+                                  "anyOf": [
+                                    {
+                                      "type": "string",
+                                      "maxLength": 160
+                                    },
+                                    {
+                                      "type": "null"
+                                    }
+                                  ]
+                                },
                                 "lookedUp": {
                                   "default": false,
                                   "type": "boolean"
@@ -96808,6 +96857,7 @@
                                 "kind",
                                 "opener",
                                 "simple",
+                                "unanswered",
                                 "lookedUp",
                                 "queued"
                               ],
@@ -97112,6 +97162,18 @@
                                   "default": false,
                                   "type": "boolean"
                                 },
+                                "unanswered": {
+                                  "default": null,
+                                  "anyOf": [
+                                    {
+                                      "type": "string",
+                                      "maxLength": 160
+                                    },
+                                    {
+                                      "type": "null"
+                                    }
+                                  ]
+                                },
                                 "lookedUp": {
                                   "default": false,
                                   "type": "boolean"
@@ -97126,6 +97188,7 @@
                                 "kind",
                                 "opener",
                                 "simple",
+                                "unanswered",
                                 "lookedUp",
                                 "queued"
                               ],
@@ -97426,6 +97489,18 @@
                                   "default": false,
                                   "type": "boolean"
                                 },
+                                "unanswered": {
+                                  "default": null,
+                                  "anyOf": [
+                                    {
+                                      "type": "string",
+                                      "maxLength": 160
+                                    },
+                                    {
+                                      "type": "null"
+                                    }
+                                  ]
+                                },
                                 "lookedUp": {
                                   "default": false,
                                   "type": "boolean"
@@ -97440,6 +97515,7 @@
                                 "kind",
                                 "opener",
                                 "simple",
+                                "unanswered",
                                 "lookedUp",
                                 "queued"
                               ],
@@ -211448,6 +211524,18 @@
                                             "default": false,
                                             "type": "boolean"
                                           },
+                                          "unanswered": {
+                                            "default": null,
+                                            "anyOf": [
+                                              {
+                                                "type": "string",
+                                                "maxLength": 160
+                                              },
+                                              {
+                                                "type": "null"
+                                              }
+                                            ]
+                                          },
                                           "lookedUp": {
                                             "default": false,
                                             "type": "boolean"
@@ -211462,6 +211550,7 @@
                                           "kind",
                                           "opener",
                                           "simple",
+                                          "unanswered",
                                           "lookedUp",
                                           "queued"
                                         ],
@@ -212649,6 +212738,18 @@
                                     "default": false,
                                     "type": "boolean"
                                   },
+                                  "unanswered": {
+                                    "default": null,
+                                    "anyOf": [
+                                      {
+                                        "type": "string",
+                                        "maxLength": 160
+                                      },
+                                      {
+                                        "type": "null"
+                                      }
+                                    ]
+                                  },
                                   "lookedUp": {
                                     "default": false,
                                     "type": "boolean"
@@ -212663,6 +212764,7 @@
                                   "kind",
                                   "opener",
                                   "simple",
+                                  "unanswered",
                                   "lookedUp",
                                   "queued"
                                 ],

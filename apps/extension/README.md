@@ -3,7 +3,7 @@
 The extension that works beside a person on Facebook, and on LinkedIn, Instagram and Alignable once they turn each on,
 for the Social Outreach add-on (docs/outreach.md). It connects to HandsFreeOS only for businesses that have that add-on on.
 
-**This is a test build (0.110.1), and a bare one** (decisions 43, 59 and 72 in docs/outreach.md). Everything is set
+**This is a test build (0.111.0), and a bare one** (decisions 43, 59 and 72 in docs/outreach.md). Everything is set
 and started in HandsFreeOS; the extension does the work on Facebook. Its side panel shows progress and activity only:
 signing in, what it does next with today's steps and **Start my day** and **Stop for today**, how many things need
 you in HandsFreeOS (with a link there), each network's line, what it did today, and a link to HandsFreeOS. Needs you
@@ -1073,6 +1073,14 @@ shows under Instagram). Your Instagram choices in HandsFreeOS say what it does (
 Each step is noted as the extension's own (`auto`), as Instagram's. A step its page doesn't let it do goes to your
 Needs you; it never guesses.
 
+### Replies Knowledge doesn't answer (0.111.0)
+
+From 0.111.0 (docs/outreach.md, decision 122) what the AI writes reads the business's Knowledge and profile, as the AI
+Teammate does. When someone asks something none of it answers, the AI says what (`unanswered` on the draft), its
+draft says you'll check, and the extension hands that on with the reply (`outreach.send.queue`), so the reply waits
+for you under Waiting for you with "Knowledge has no answer to …", whatever your Replies setting. The extension does
+nothing else differently. A build before 0.111.0 sends none, so only what Replies holds waits.
+
 ### Cancelling from Sent requests (0.110.1)
 
 From 0.110.1 a request you sent is cancelled from your friend requests, not from the person's profile (the owner's
@@ -1734,7 +1742,8 @@ week (decision 113, 0.105.0), staying active in your groups (decision 114, 0.106
 towns within 25 miles of yours (decision 115, 0.107.0), and liking a commenter's comment, 3 screens of a Likes box and
 Alignable's likers (decision 116, 0.108.0), and drafts naming each of someone's businesses and its window waiting
 till you're away (decisions 119 and 120, 0.109.0), and Cancel all and deleting requests you get (decision 121,
-0.110.0), and cancelling from Sent requests (0.110.1); Social
+0.110.0), and cancelling from Sent requests (0.110.1), and replies Knowledge doesn't answer waiting for you
+(decision 122, 0.111.0); Social
 Outreach's onboarding is built, in HandsFreeOS (decisions 36 and 45). Safari on Mac
 follows in Phase 2.
 

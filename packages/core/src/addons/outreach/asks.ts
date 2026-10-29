@@ -17,6 +17,7 @@
 import { z } from 'zod';
 import { clipLine, isOffline, offlineWords } from './live';
 import { JOINS_PER_DAY } from './group-checks';
+import { UNANSWERED_MOST } from './knows';
 import { DraftOpener } from './openers';
 import { DRAFT_KINDS } from './today';
 import { appVersionAtLeast } from '../../mobile';
@@ -818,6 +819,11 @@ export const AskResult = z.object({
   kind: z.enum(DRAFT_KINDS).nullable().default(null),
   opener: DraftOpener.nullable().default(null),
   simple: z.boolean().default(false),
+  /**
+   * For a reply: what they asked that the business's Knowledge doesn't answer (decision 122,
+   * `TodayDraftOutput.unanswered`), said under the drafts. Null from extensions before 0.111.0.
+   */
+  unanswered: z.string().max(UNANSWERED_MOST).nullable().default(null),
   lookedUp: z.boolean().default(false),
   /** Research with the day's checks used up: the person goes first in tomorrow's checks. */
   queued: z.boolean().default(false),

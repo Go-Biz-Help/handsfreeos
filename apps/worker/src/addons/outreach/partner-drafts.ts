@@ -38,6 +38,7 @@ import { executeCommand, HfosError, MainOfferParts } from '@hfos/core/server';
 import { asWorker, rows, sql } from '@hfos/db/client';
 import { askStructured } from '../../ai/ask';
 import type { AddonScopeContext } from '../types';
+import { businessKnows } from './knows';
 
 /** A partner's message: the drafts, and for a reply what they answered, a yes drafted as the details. */
 export async function partnerDraft(
@@ -117,6 +118,14 @@ export async function partnerDraft(
   const link = book ? demoLink(book.link, partnerRef(ctx.userId, profileId)) : null;
   const parts = found.offer ? MainOfferParts.safeParse(found.offer.parts) : null;
   const helps = parts?.success ? parts.data.line?.trim() || null : null;
+  // What the business knows (decision 122), with what matches their latest words first.
+  const knows = await businessKnows(
+    ctx,
+    found.recent
+      .filter((m) => !m.fromMe)
+      .slice(-2)
+      .map((m) => m.text),
+  );
   const draft = async (kind: PartnerMessageKind) => {
     const { value } = await askStructured(ctx, ctx.scope, {
       system: todayDraftSystem(partner.platform),
@@ -148,6 +157,7 @@ export async function partnerDraft(
             voice: found.voice,
             lastAt: found.lastAt,
             platform: partner.platform,
+            knows,
           }),
         },
       ],
@@ -156,7 +166,12 @@ export async function partnerDraft(
       maxTokens: 800,
       usage: { source: 'addon', addonId: ctx.manifest.id },
     });
-    const drafts = checkedDrafts(value, book?.avoid ?? [], DRAFTS_FOR[kind], found.voice.split);
+    const drafts = checkedDrafts(
+      value,
+      [...(book?.avoid ?? []), ...(knows?.avoid ?? [])],
+      DRAFTS_FOR[kind],
+      found.voice.split,
+    );
     // The details always carry the partner link: one the AI left out goes on the end.
     return {
       value,
@@ -183,5 +198,5 @@ export async function partnerDraft(
       made = await draft(kind);
     }
   }
-  return { kind, answer, drafts: made.drafts, opener: null, simple: false };
+  return { kind, answer, drafts: made.drafts, opener: null, simple: false, unanswered: null };
 }
