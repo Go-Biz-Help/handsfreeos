@@ -7,6 +7,7 @@
 import { z } from 'zod';
 import { relativeTimeAgo } from '../../workflows/approval-words';
 import { GROUP_ID, GROUP_SLUG, NAME_MOST, TOUCH_KIND_KEYS, TOUCH_STEPS } from './limits';
+import { NETWORKS } from './networks';
 import { PLATFORM_KEYS } from './playbooks';
 import { NetworkUrl, PersonName, ProfileRef, ThreadKey } from './saves';
 import { WarningState } from './tidy';
@@ -173,6 +174,23 @@ export const ActivityOutput = z.object({
     }),
   ),
   /**
+   * The people below by the hashtag, phrase or kind of business they were found with on Instagram, LinkedIn or
+   * Alignable (decision 116), the ones that brought demos and replies first: which words bring replies. The same
+   * counts as the groups'.
+   */
+  topics: z.array(
+    z.object({
+      platform: z.enum(PLATFORM_KEYS),
+      words: z.string(),
+      people: count,
+      friendRequests: count,
+      warmedUp: count,
+      chatsStarted: count,
+      replies: count,
+      demos: count,
+    }),
+  ),
+  /**
    * The people reached or who wrote back in the stretch, the latest first, with the last time of each step (in any
    * stretch): how far each has come.
    */
@@ -196,6 +214,11 @@ export const ActivityOutput = z.object({
   morePeople: count,
 });
 export type ActivityOutput = z.output<typeof ActivityOutput>;
+export type ActivityTopic = ActivityOutput['topics'][number];
+
+/** What a row of Activity's words says: "“sourdough” on Instagram". */
+export const topicName = (t: Pick<ActivityTopic, 'platform' | 'words'>): string =>
+  `“${t.words}” on ${NETWORKS[t.platform].name}`;
 
 /** Which steps the list of posts shows: likes and comments, or one of them. */
 export const TOUCHED_POST_KINDS = ['all', 'like', 'comment'] as const;

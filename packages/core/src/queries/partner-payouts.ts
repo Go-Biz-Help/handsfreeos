@@ -161,10 +161,12 @@ export const payoutAccountOut = (a: {
   transfers_active: boolean;
   disabled_reason: string | null;
   due_count: number;
+  country: string;
 }) => ({
   ready: a.payouts_enabled && a.transfers_active,
   detailsSubmitted: a.details_submitted,
   needsMore: a.due_count > 0 || (!!a.disabled_reason && !(a.payouts_enabled && a.transfers_active)),
+  country: a.country,
 });
 
 /** A partner's bank and their part of each payout, for their page under Settings → Partners. */
@@ -179,10 +181,11 @@ export async function payoutsOfPartner(
     transfers_active: boolean;
     disabled_reason: string | null;
     due_count: number;
+    country: string;
   }>(
     ctx.tx,
     sql`select details_submitted, payouts_enabled, transfers_active, disabled_reason,
-          cardinality(due) as due_count
+          cardinality(due) as due_count, country
         from app.partner_payout_accounts where workspace_id = ${ws} and partner_id = ${partnerId}`,
   );
   const lines = await rows<LineRow & { payout_id: string; month: string; livemode: boolean }>(
@@ -214,10 +217,12 @@ async function nextPayoutOf(ctx: QueryContext, billing: BillingRow | null) {
     name: string;
     owed: string | number;
     ready: boolean;
+    abroad: boolean;
   }>(
     ctx.tx,
     sql`select c.partner_id, ${PERSON_NAME} as name, sum(c.amount_cents) as owed,
-          coalesce(bool_or(a.payouts_enabled and a.transfers_active and a.livemode), false) as ready
+          coalesce(bool_or(a.payouts_enabled and a.transfers_active and a.livemode), false) as ready,
+          coalesce(bool_or(a.country <> 'US'), false) as abroad
         from app.partner_commissions c
         join app.partners pa on pa.id = c.partner_id
         join app.people pp on pp.id = pa.person_id
@@ -228,6 +233,7 @@ async function nextPayoutOf(ctx: QueryContext, billing: BillingRow | null) {
         order by sum(c.amount_cents) desc, c.partner_id`,
   );
   const names = new Map(owed.map((o) => [o.partner_id, o.name]));
+  const abroad = new Set(owed.filter((o) => o.abroad).map((o) => o.partner_id));
   const plan = planPayout({
     partners: owed.map((o) => ({
       partnerId: o.partner_id,
@@ -252,7 +258,7 @@ async function nextPayoutOf(ctx: QueryContext, billing: BillingRow | null) {
     forms.map((f) => f.partnerId),
   );
   const totals = payoutTotals(
-    plan.paid.map((p) => p.owedCents),
+    plan.paid.map((p) => ({ amountCents: p.owedCents, abroad: abroad.has(p.partnerId) })),
     forms.length,
   );
   return {

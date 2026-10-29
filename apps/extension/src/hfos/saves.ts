@@ -38,6 +38,8 @@ import {
   FINDS_SAVE_MOST,
   type FindSaveHow,
 } from '@hfos/core/addons/outreach/finds';
+import { FOLLOWERS_SAVE_MOST } from '@hfos/core/addons/outreach/followers';
+import { REPLY_TRIES } from '@hfos/core/addons/outreach/active';
 import { POST_TEXT_MOST, POST_WORDS_MOST, POSTS_SAVE_MOST } from '@hfos/core/addons/outreach/posts';
 import { LOOKUP_LINE_MOST } from '@hfos/core/addons/outreach/today';
 import type { Answered, Reached, Step, StepGroup } from '../networks/facebook/actions';
@@ -46,6 +48,7 @@ import { runsGroup } from '../networks/facebook/people';
 import type {
   ChatPage,
   GroupLink,
+  Named,
   Person,
   ProfileRef,
   ReadResult,
@@ -59,9 +62,11 @@ import type {
 } from '../networks/linkedin/types';
 import { profileKey as linkedInKey } from '../networks/linkedin/urls';
 import type {
+  ActiveReplyInput,
   Business,
   ChatsCollectInput,
   FindsSaveInput,
+  FollowersSaveInput,
   FriendNoteInput,
   FriendsSaveInput,
   GroupSaveInput,
@@ -315,6 +320,84 @@ export function friendsSave(
       people: kept.slice(at, at + FRIENDS_SAVE_MOST),
     });
   return { ok: true, input: parts };
+}
+
+/**
+ * The person's own followers on Facebook (decision 113), in parts to save, each follower once. The last part notes the
+ * week's read done when it is (`done`): with nobody read, it's a part of none.
+ */
+export function followersSave(
+  people: readonly Person[],
+  workspaceId: string,
+  done: boolean,
+): FollowersSaveInput[] {
+  const seen = new Set<string>();
+  const kept: NonNullable<FollowersSaveInput['people']> = [];
+  for (const person of people) {
+    if (!person.profile || seen.has(profileKey(person.profile))) continue;
+    const who = whom({ name: person.name, profile: person.profile });
+    if (!who) continue;
+    seen.add(profileKey(person.profile));
+    kept.push(who);
+  }
+  const parts: FollowersSaveInput[] = [];
+  for (let at = 0; at < kept.length || !parts.length; at += FOLLOWERS_SAVE_MOST) {
+    const people = kept.slice(at, at + FOLLOWERS_SAVE_MOST);
+    parts.push({
+      workspaceId,
+      platform: 'facebook',
+      people,
+      done: done && at + FOLLOWERS_SAVE_MOST >= kept.length,
+    });
+  }
+  return parts;
+}
+
+/** A post in one of the person's groups that asks something (decision 114), with the group it's in. */
+export interface AskedInGroup {
+  readonly group: StepGroup;
+  readonly url: string | null;
+  readonly author: Named | null;
+  readonly when: string | null;
+  readonly text: string;
+  readonly comments: number | null;
+  readonly reactions: number | null;
+}
+
+/**
+ * The posts asking something in the person's groups, to offer HandsFreeOS for the day's reply (decision 114), each once
+ * and the first `REPLY_TRIES`: with nobody named, no link or no group it keeps, a post is left out.
+ */
+export function activeReplySave(
+  asked: readonly AskedInGroup[],
+  workspaceId: string,
+): Built<ActiveReplyInput> {
+  const seen = new Set<string>();
+  const posts = asked.flatMap((p) => {
+    const url = networkAddress(p.url);
+    const who = p.author?.profile ? whom({ name: p.author.name, profile: p.author.profile }) : null;
+    const group = groupRef(p.group);
+    const text = clipText(p.text, POST_TEXT_MOST);
+    if (!url || !who || !group || !text || seen.has(url)) return [];
+    seen.add(url);
+    return [
+      {
+        url,
+        author: who.profile,
+        name: who.name,
+        when: p.when ? clip(p.when, WHEN_MOST) : null,
+        text,
+        comments: p.comments,
+        reactions: p.reactions,
+        group,
+      },
+    ];
+  });
+  if (!posts.length) return { ok: false, why: 'None of the questions there named who asked.' };
+  return {
+    ok: true,
+    input: { workspaceId, platform: 'facebook', posts: posts.slice(0, REPLY_TRIES) },
+  };
 }
 
 /** A name as HandsFreeOS matches it to customers': its spaces as one, in any case. */
@@ -931,12 +1014,15 @@ export interface InstagramPostRead {
  * posted it, by their account's name, and its caption, in no group, as a network's search finds are. A post with
  * nobody named, or no caption to read, is left out. From 0.95.0 each hashtag's posts go as a save of their own with the
  * hashtag (`words`, without its #, decision 92), so a post under a playbook's own is worth the AI's check whatever its
- * caption says; a place's go with none.
+ * caption says; a place's go with none. From 0.102.0 an account like the business's posts go as found by it
+ * (`account`, decision 110), with its username and its @ (`@austinchamber`), so their people are read whatever the AI
+ * says of the post.
  */
 export function instagramPostsSave(
   posts: readonly InstagramPostRead[],
   workspaceId: string,
   words: string | null = null,
+  found: 'search' | 'account' = 'search',
 ): Built<PostsSaveInput> {
   const seen = new Set<string>();
   const kept = posts.flatMap((post) => {
@@ -972,7 +1058,7 @@ export function instagramPostsSave(
       platform: INSTAGRAM,
       group: null,
       posts: kept.slice(0, POSTS_SAVE_MOST),
-      found: 'search',
+      found,
       words: foundWith(words),
     },
   };
@@ -999,9 +1085,9 @@ export interface FoundOn {
   readonly postId?: string | null;
   /** The group whose members they are. */
   readonly group?: AlignableGroupLink | null;
-  /** The kind of business a search went with (`outreach.finds.searches`). */
+  /** The kind of business a search went with (`outreach.finds.searches`), or the event's name. */
   readonly words?: string | null;
-  /** The town a search looked in: none when it looked anywhere. */
+  /** The town a search looked in (none when it looked anywhere), or the event is in. */
   readonly place?: string | null;
 }
 
@@ -1024,6 +1110,8 @@ export function findsSave(
     return { ok: false, why: 'Couldn’t tell which post they’re the people of.' };
   const group = on.group ? groupRef(on.group, platform) : null;
   if (how === 'member' && !group) return { ok: false, why: NOT_WHICH_GROUP };
+  if (how === 'event' && !words(on.words, FIND_WORDS_MOST))
+    return { ok: false, why: 'Couldn’t tell which event they’re hosting or going to.' };
   const seen = new Set<string>();
   const people = found.flatMap((person) => {
     const who = whom({ name: person.name, profile: person.profile }, platform);
@@ -1051,7 +1139,7 @@ export function findsSave(
     group,
     // A post's people take their words from the post itself (its hashtag or phrase).
     words: onPost ? null : words(on.words, FIND_WORDS_MOST),
-    place: how === 'searched' ? words(on.place, FIND_PLACE_MOST) : null,
+    place: how === 'searched' || how === 'event' ? words(on.place, FIND_PLACE_MOST) : null,
   };
   if (!people.length) return { ok: true, input: [{ ...facts, people: [] }] };
   const parts: FindsSaveInput[] = [];

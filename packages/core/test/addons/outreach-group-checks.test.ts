@@ -146,11 +146,13 @@ describe('each network’s groups (decision 92)', () => {
     };
     // Facebook as it was: group members weighed by their words, 3 joins a day.
     expect(kit('facebook')).toEqual([null, false, null, 'never', 3, true]);
-    // LinkedIn's found checks come out of its 40 profiles read; it joins no groups.
-    expect(kit('linkedin')).toEqual([30, true, 5, 'never', null, false]);
+    // LinkedIn's found checks come out of its 40 profiles read, and its comments wait for an OK at first (decision 102);
+    // it joins no groups.
+    expect(kit('linkedin')).toEqual([30, true, 5, 'hold', null, false]);
     expect(kit('instagram')).toEqual([30, false, 5, 'hold', null, false]);
-    // Alignable reads no likers, holds comments at first, and joins up to 3 good groups a day.
-    expect(kit('alignable')).toEqual([30, false, null, 'hold', 3, true]);
+    // Alignable reads who liked and answered 5 good posts a day (decision 116), holds comments at first, and joins up to
+    // 3 good groups a day.
+    expect(kit('alignable')).toEqual([30, false, 5, 'hold', 3, true]);
     expect(JOINS_PER_DAY).toBe(3);
     expect(PLATFORM_KEYS.filter(groupsByCheck)).toEqual(['linkedin', 'instagram', 'alignable']);
   });

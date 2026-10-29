@@ -112,8 +112,10 @@ export interface NetworkKit {
   /**
    * How many people found by topic (decision 92, ./finds.ts: a good post's writer, likers and commenters, search
    * results and group members) the person's computer reads a day for the AI's check, before anything is done for them;
-   * halved on training wheels and for a week after a warning there. Only a good check puts them on Today. Null where
-   * people found are weighed by the words they show (Facebook's group members, `bestFit`).
+   * halved on training wheels and for a week after a warning there. Only a good check puts them on Today. The number
+   * here is where a business starts: its own setting, 10 to 100, takes its place (decision 116, `FOUND_CHECKS`,
+   * ./ops/common.ts `foundChecksOf`). Null where people found are weighed by the words they show (Facebook's group
+   * members, `bestFit`).
    */
   readonly foundChecksPerDay: number | null;
   /**
@@ -124,9 +126,14 @@ export interface NetworkKit {
   /** How many good posts a day have who liked and commented on them read (decision 92); null where none do. */
   readonly postPeoplePerDay: number | null;
   /**
+   * How many warm-ups a day view someone's story and like it, where the network has stories (Instagram's, decision
+   * 111): each counts as one of the warm-up's likes; null where none do.
+   */
+  readonly storyLikesPerDay: number | null;
+  /**
    * How a comment the AI drafts for a good post goes (decision 92): `hold`, through `sends` like a message, waiting
-   * for the person's OK at first (Instagram's and Alignable's); `never`, never held as a comment there (Facebook's
-   * and LinkedIn's go as the runner's own step or the person's, by `runs.auto`).
+   * for the person's OK at first (Instagram's, Alignable's, and LinkedIn's from decision 102); `never`, never held as a
+   * comment there (Facebook's are the person's).
    */
   readonly commentsWait: 'never' | 'hold';
   /**
@@ -167,6 +174,7 @@ export const NETWORKS: Readonly<Record<Platform, NetworkKit>> = {
     foundChecksPerDay: null,
     foundShareReads: false,
     postPeoplePerDay: null,
+    storyLikesPerDay: null,
     commentsWait: 'never',
     joinsPerDay: 3,
     tidyLimits: TIDY_LIMITS,
@@ -206,17 +214,20 @@ export const NETWORKS: Readonly<Record<Platform, NetworkKit>> = {
     requestsMessagesPerDay: null,
     followBackLooksPerDay: null,
     // People found by its post search are checked inside the 40 profiles read, found people first (decision 92), from
-    // 5 good posts' reactors and commenters a day. Its comments go on their own, as before; it joins no groups.
+    // 5 good posts' reactors and commenters a day. Its comments wait for the person's OK at first, as Instagram's and
+    // Alignable's do (decision 102, from 0.99.0: `commentSendsOn`); it joins no groups.
     foundChecksPerDay: 30,
     foundShareReads: true,
     postPeoplePerDay: 5,
-    commentsWait: 'never',
+    storyLikesPerDay: null,
+    commentsWait: 'hold',
     joinsPerDay: null,
     // Old invitations are withdrawn after the business's wait; nobody is removed.
     tidyLimits: { cancel_request: 20, unfriend: 0 },
-    // auto/linkedin.ts: likes, invitations and comments; invitations sent to them are theirs to accept. Of the switches
-    // along the way it reads the warm-up and saving connections: it joins no groups and has no hourly look.
-    runs: { auto: ['warm_up', 'friend_request', 'comment'], ticks: ['warmUp', 'collect'] },
+    // auto/linkedin.ts: likes and invitations; invitations sent to them are theirs to accept, and comments go through
+    // `sends`. Of the switches along the way it reads the warm-up and saving connections: it joins no groups and has
+    // no hourly look.
+    runs: { auto: ['warm_up', 'friend_request'], ticks: ['warmUp', 'collect'] },
     words: {
       friend: 'connection',
       friends: 'connections',
@@ -257,6 +268,8 @@ export const NETWORKS: Readonly<Record<Platform, NetworkKit>> = {
     foundChecksPerDay: 30,
     foundShareReads: false,
     postPeoplePerDay: 5,
+    // A look at their story and a like on it, as one of the warm-up's likes, 20 a day at most (decision 111).
+    storyLikesPerDay: 20,
     commentsWait: 'hold',
     joinsPerDay: null,
     // Unfollowing those who didn't follow back in the business's wait (3 weeks to start), 20 a day at most; nobody
@@ -297,11 +310,13 @@ export const NETWORKS: Readonly<Record<Platform, NetworkKit>> = {
     requestsMessageAfterDays: null,
     requestsMessagesPerDay: null,
     followBackLooksPerDay: null,
-    // Businesses its search and its groups found, 30 a day beside its 30 reads (the build's choice, decision 92); no
-    // likers are read there. Comments wait for an OK at first, and it joins up to 3 good groups a day.
+    // Businesses its search and its groups found, 30 a day beside its 30 reads (the build's choice, decision 92), and
+    // from 0.108.0 who liked and answered 5 good posts a day (decision 116). Comments wait for an OK at first, and it
+    // joins up to 3 good groups a day.
     foundChecksPerDay: 30,
     foundShareReads: false,
-    postPeoplePerDay: null,
+    postPeoplePerDay: 5,
+    storyLikesPerDay: null,
     commentsWait: 'hold',
     joinsPerDay: 3,
     tidyLimits: { cancel_request: 20, unfriend: 0 },

@@ -114,8 +114,13 @@ export const portalPartnerPayouts = (
   token: string,
   bearer: string,
   action: 'start' | 'check' | 'stripe',
+  country?: string,
 ) =>
-  post<{ url?: string; ready?: boolean }>(`${linkPath(token)}/partner/payouts`, { action }, bearer);
+  post<{ url?: string; ready?: boolean }>(
+    `${linkPath(token)}/partner/payouts`,
+    { action, ...(country ? { country } : {}) },
+    bearer,
+  );
 
 /** A file of theirs, kept on one of their records (or on them): reserved, put in place, then checked. */
 export async function uploadPortalFile(

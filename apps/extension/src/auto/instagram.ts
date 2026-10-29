@@ -26,7 +26,8 @@
  * - **Then Instagram's list for today** (`outreach.today` with `platform: 'instagram'`), the kinds it does on its own
  *   (`auto`): a look at their account and a like on one or two of their recent posts (the warm-up), the first that
  *   nothing rules out (never one about grief, illness or trouble), a second only while the day's likes have room past
- *   the warm-ups still to come; a follow a day after, with their account's own Follow; and the messages: drafted after
+ *   the warm-ups still to come; from 0.103.0 their story, when their account shows one, watched and liked as one of
+ *   those likes, up to 20 a day (decision 111); a follow a day after, with their account's own Follow; and the messages: drafted after
  *   a look-up of their account, and sent once OK'd in their chat, typing only into its own box. The first message
  *   goes once they follow back; the one to their Requests (part 12's rule) as one text, never split; follow-ups only in
  *   a chat they've answered or accepted, as HandsFreeOS lists them. From 0.95.0 a comment on a good post is drafted
@@ -67,16 +68,20 @@ import { lookUpOnInstagram } from '../jobs/instagram/lookup';
 import { searchInstagram } from '../jobs/instagram/partner-search';
 import { lookForFollowBacks } from '../jobs/instagram/follow-backs';
 import { saveFollowers } from '../jobs/instagram/people';
+import { readLikeYours } from '../jobs/instagram/like-yours';
 import { readPostPeople } from '../jobs/instagram/post-people';
 import { lookAtTagsAndPlaces } from '../jobs/instagram/posts';
 import { unfollowOnItsOwn } from '../jobs/instagram/unfollow';
 import { readInstagramIn, type InstagramPage } from '../jobs/instagram/read';
 import { valueOf, warnedLine, type Hfos, type Job, type JobEnd } from '../jobs/job';
 import { checkFound } from '../jobs/found-checks';
+import { instagramProfileRead } from '../jobs/looking';
+import { readProfileOnItsOwn } from '../jobs/own-read';
 import { checkPartners } from '../jobs/partners';
 import { reporter } from '../jobs/report';
+import { askWeeklyPost } from '../jobs/weekly-post';
 import { instagram } from '../networks';
-import { instagramUrl, postOf } from '../networks/instagram/urls';
+import { instagramUrl, postOf, storyUrl } from '../networks/instagram/urls';
 import type { ProfileRef, ThreadRef } from '../networks/facebook/types';
 import { isWorking, statesNow } from '../networks/on';
 import { WorkTab } from '../tab';
@@ -131,7 +136,9 @@ export const INSTAGRAM_AUTO: readonly TodayKind[] = ['warm_up', 'friend_request'
  * didn't follow back as the person chose (`tidy`, decision 98), the checks, the chats, Find
  * partners, and from part 15 the day's hashtags and places (`posts`) and the notifications' warm leads (`helpful`, as
  * Alignable's are). From 0.95.0 (decision 92) who liked and commented on the good posts the hashtags found
- * (`post_people`), and last the people found by topic checked for good fits (`found_checks`).
+ * (`post_people`), and last the people found by topic checked for good fits (`found_checks`). From 0.101.0 the week's
+ * helpful post asked for after the warm leads (`weekly_post`, decision 109). From 0.102.0 accounts like the business's
+ * after the hashtags (`like_yours`, decision 110): searched for, and one read, its posts and its followers.
  */
 export const INSTAGRAM_DAILY = [
   'requests',
@@ -141,9 +148,12 @@ export const INSTAGRAM_DAILY = [
   'chats',
   'partners',
   'posts',
+  'like_yours',
   'helpful',
+  'weekly_post',
   'post_people',
   'found_checks',
+  'profile',
 ] as const satisfies readonly (DailyJob | OwnDailyJob)[];
 type InstagramDaily = (typeof INSTAGRAM_DAILY)[number];
 
@@ -155,9 +165,12 @@ const DAILY_DOING: Readonly<Record<InstagramDaily, string>> = {
   chats: 'Reading your Instagram chats for the AI…',
   partners: 'Searching Instagram for people who could partner with you, then reading them…',
   posts: 'Looking at your hashtags and your area’s places on Instagram for the AI…',
+  like_yours: 'Reading an account like yours on Instagram, its posts and its followers…',
   helpful: 'Reading your notifications for who followed you, or liked or commented on your posts…',
+  weekly_post: 'Asking for this week’s helpful post for Instagram…',
   post_people: 'Reading who liked and commented on good posts on Instagram…',
   found_checks: 'Checking the people found on Instagram for good fits…',
+  profile: 'Reading your Instagram profile, as it does on the 1st of each month…',
 };
 const DAILY_NAMES: Readonly<Record<InstagramDaily, string>> = {
   requests: 'Your newest followers',
@@ -167,9 +180,12 @@ const DAILY_NAMES: Readonly<Record<InstagramDaily, string>> = {
   chats: 'Read my chats',
   partners: 'Find partners',
   posts: 'Your hashtags and places',
+  like_yours: 'Accounts like yours',
   helpful: 'Who engaged with you',
+  weekly_post: 'This week’s helpful post',
   post_people: 'Who liked and commented',
   found_checks: 'Check the people found',
+  profile: 'Read my profile',
 };
 
 /** Instagram's pace between steps: slower than LinkedIn's, as Instagram blocks fast (the plan's "The risk"). */
@@ -186,6 +202,8 @@ const LOOK_AGAIN_MS = 30 * 60_000;
 const ASK_FIRST_MS = 2 * 60_000;
 /** Of their latest posts, the most a warm-up likes: one, or two while the day's likes have room. */
 const LIKES_MOST = 2;
+/** The stories its warm-ups like in a day (decision 111): the kit's. */
+const STORY_LIKES_MOST = NETWORKS.instagram.storyLikesPerDay ?? 0;
 
 const tab = new WorkTab('window', instagram);
 /** Instagram's runner's window's tab, while it's open: what the person sees there isn't theirs to note. */
@@ -407,22 +425,190 @@ async function likeFoundPost(
   return went === 'not' ? null : went;
 }
 
-/** What a warm-up's likes came to, in words: the post it found first, then any of their latest. */
+/** The day a comment that couldn't be liked was last noted with its page's outline (decision 74): once a day at most. */
+let commentNotedOn: string | null = null;
+
+/**
+ * Their comment on the good post they were found by (decision 116), liked first, on that post's own page, found again
+ * by who wrote it (its View all comments pressed once when the page doesn't show it yet): `liked`, `already`, or null
+ * when there's none to like there (gone, about grief, illness or trouble, or no Like on it: the page is noted with its
+ * outline once a day), so their latest is liked in its place, as anyone's is. Noted as a like with the comment's own
+ * link, so the follow waits a day as for a post.
+ */
+async function likeFoundComment(
+  item: TodayListItem,
+  businessId: string,
+): Promise<'liked' | 'already' | null | { readonly stop: string } | { readonly again: string }> {
+  const them = wantOf(item.profileUrl);
+  const postUrl = item.postUrl;
+  if (!postUrl || !them) return null;
+  await tab.open(postUrl);
+  await setState({ tabId: tab.tabId });
+  const page = await read();
+  const stop = await warnedOn(page, businessId);
+  if (stop) return { stop };
+  if (page.signedOut) return { again: SIGNED_OUT };
+  const look = async () => {
+    const seen = await tab.ask({ type: 'hfos-their-comment', profile: them, postUrl });
+    if (!seen.ok) throw new Error(seen.error);
+    return seen.comment;
+  };
+  let theirs = await look();
+  // Theirs may be past the comments the post shows first: more of them, once, as a person would look.
+  if (!theirs && (await tab.ask({ type: 'hfos-more-comments' })).ok) {
+    await pause(SETTLE_MS);
+    theirs = await look();
+  }
+  const noteMissed = async () => {
+    const state = await stateNow();
+    if (commentNotedOn === state.day) return;
+    commentNotedOn = state.day;
+    await reporter(tab, answer as Hfos, {
+      businessId,
+      platform: PLATFORM,
+      askId: null,
+      job: 'warm_up.comment',
+    })({ note: 'Couldn’t like their comment.', outline: true });
+  };
+  if (!theirs || theirs.liked === null) {
+    await noteMissed();
+    return null;
+  }
+  // Never one about grief, illness or trouble, nor on a post that is.
+  if (neverLike({ text: `${item.post ?? ''}\n${theirs.text ?? ''}`, pictures: [] })) return null;
+  let went: 'liked' | 'already' = 'already';
+  if (!theirs.liked) {
+    const liked = await tab.ask({ type: 'hfos-like-comment', profile: them, postUrl });
+    if (!liked.ok) throw new Error(liked.error);
+    if (liked.result === 'none' || liked.result === 'not_sent') {
+      await noteMissed();
+      return null;
+    }
+    if (liked.result === 'done') {
+      await pause(SETTLE_MS);
+      const after = await warnedOn(await read(), businessId);
+      if (after) return { stop: after };
+      went = 'liked';
+    }
+  }
+  await takeNote(
+    {
+      type: 'hfos-noted',
+      step: {
+        kind: 'like',
+        to: { name: item.name, profile: them },
+        group: null,
+        postUrl: theirs.commentUrl ?? postUrl,
+        thread: null,
+        replying: null,
+        auto: true,
+        postText: likedText({ text: `Their comment: ${theirs.text ?? ''}`, pictures: [] }),
+      },
+      at: now(),
+    },
+    PLATFORM,
+  );
+  return went;
+}
+
+/**
+ * What a warm-up's likes came to, in words: the post it found first (or their comment on it, decision 116), their
+ * story, then any of their latest.
+ */
 function warmedLine(
   item: TodayListItem,
   found: 'liked' | 'already' | null,
   liked: number,
   next: string,
+  story: 'liked' | 'already' | null = null,
 ): string {
+  const what = item.likeComment ? 'comment' : 'post';
+  if (story) {
+    // Their story first (decision 111), then whatever else it liked.
+    const more = [
+      found === 'liked' ? `the ${what} it found` : null,
+      liked ? (found || liked === 1 ? 'a post of theirs' : `${liked} posts of theirs`) : null,
+    ].filter((part): part is string => part !== null);
+    const others = more.join(' and ');
+    const watched =
+      story === 'liked'
+        ? `Watched ${item.name}’s story and liked it${others ? `, and ${others} too` : ''}`
+        : `Watched ${item.name}’s story, liked already${others ? `, and liked ${others}` : ''}`;
+    return `${watched}${found === 'already' ? `, the ${what} it found liked already` : ''}: ${next}`;
+  }
   if (found === 'liked')
-    return `Liked ${item.name}’s post it found${liked ? ' and another of theirs' : ''}: ${next}`;
+    return `Liked ${item.name}’s ${what} it found${liked ? (item.likeComment ? ' and a post of theirs' : ' and another of theirs') : ''}: ${next}`;
   if (found === 'already')
     return liked
-      ? `Liked another of ${item.name}’s posts, the one it found liked already: ${next}`
-      : `${item.name}’s post it found was liked already: ${next}`;
+      ? item.likeComment
+        ? `Liked a post of ${item.name}’s, their comment it found liked already: ${next}`
+        : `Liked another of ${item.name}’s posts, the one it found liked already: ${next}`
+      : `${item.name}’s ${what} it found was liked already: ${next}`;
   return !liked
     ? `${item.name}’s post was liked already: ${next}`
     : `Looked at ${item.name}’s Instagram and liked ${liked === 1 ? 'a post' : `${liked} posts`} of theirs: ${next}`;
+}
+
+/** The day a story that couldn't be liked was last noted with its page's outline (decision 74): once a day at most. */
+let storyNotedOn: string | null = null;
+
+/**
+ * Their story (decision 111), while the day's story likes have room: opened at its own address, watched a few seconds
+ * and liked with the viewer's own Like, then closed, and noted as a like with the story's address, so what comes after
+ * the warm-up waits a day as for a post. `liked`, `already`, or null when it couldn't be (gone, or no Like: the page is
+ * noted with its outline once a day); a stop for the day on Instagram's warning.
+ */
+async function likeStory(
+  item: TodayListItem,
+  businessId: string,
+  them: ProfileRef,
+): Promise<'liked' | 'already' | null | { readonly stop: string } | { readonly again: string }> {
+  const state = await stateNow();
+  if (!them.username || (state.done.story_like ?? 0) >= STORY_LIKES_MOST) return null;
+  await tab.open(storyUrl(them.username));
+  await setState({ tabId: tab.tabId });
+  const page = await read();
+  const stop = await warnedOn(page, businessId);
+  if (stop) return { stop };
+  if (page.signedOut) return { again: SIGNED_OUT };
+  const went = await tab.ask({ type: 'hfos-like-story', profile: them });
+  if (!went.ok || went.result === 'none' || went.result === 'not_sent') {
+    if (storyNotedOn !== state.day) {
+      storyNotedOn = state.day;
+      await reporter(tab, answer as Hfos, {
+        businessId,
+        platform: PLATFORM,
+        askId: null,
+        job: 'warm_up.story',
+      })({ note: 'Couldn’t like their story.', outline: true });
+    }
+    return null;
+  }
+  if (went.result === 'done') {
+    await pause(SETTLE_MS);
+    const after = await warnedOn(await read(), businessId);
+    if (after) return { stop: after };
+    const now = await stateNow();
+    await setState({ done: { ...now.done, story_like: (now.done.story_like ?? 0) + 1 } });
+  }
+  await takeNote(
+    {
+      type: 'hfos-noted',
+      step: {
+        kind: 'like',
+        to: { name: item.name, profile: them },
+        group: null,
+        postUrl: went.storyUrl,
+        thread: null,
+        replying: null,
+        auto: true,
+        postText: 'Their story',
+      },
+      at: now(),
+    },
+    PLATFORM,
+  );
+  return went.result === 'done' ? 'liked' : 'already';
 }
 
 /**
@@ -432,22 +618,29 @@ function warmedLine(
  * yet), or none right to like, the look alone is the warm-up, and HandsFreeOS hears there was nothing to like, so the
  * follow needn't wait. From 0.95.0 (decision 92) someone found by a post they wrote gets the like on that post first,
  * on its own page (`postUrl`), and one of their latest beside it only while the day's likes have room; when that post
- * is gone, or isn't right to like, their latest is liked in its place.
+ * is gone, or isn't right to like, their latest is liked in its place. From 0.103.0 (decision 111), when their account
+ * shows a story and the day's story likes have room, their story is watched and liked first, as one of those likes.
+ * From 0.108.0 (decision 116) someone found by their comment on a good post gets the like on that comment first, on
+ * the post's own page, in the same way: their latest in its place when it's gone or not right to like.
  */
 async function warmUp(item: TodayListItem, businessId: string, spare: number): Promise<Outcome> {
   const after = afterWarmUp(item);
-  const found = await likeFoundPost(item, businessId);
+  const found = item.likeComment
+    ? await likeFoundComment(item, businessId)
+    : await likeFoundPost(item, businessId);
   if (typeof found === 'object' && found !== null) return found;
+  let story: 'liked' | 'already' | null = null;
   const done = (liked: number): Outcome => ({
     done: true,
-    line: warmedLine(item, found, liked, after.next),
+    line: warmedLine(item, found, liked, after.next, story),
   });
-  // The post it found, liked: a second of theirs only while the day's likes have room.
-  if (found && spare <= 0) return done(0);
+  // The warm-up's likes: one, or two while the day's likes have room; the post it found is one of them.
+  const room = (spare > 0 ? LIKES_MOST : 1) - (found ? 1 : 0);
+  if (room <= 0) return done(0);
   const opened = await openAccount(item, businessId);
   if ('outcome' in opened) return found && 'done' in opened.outcome ? done(0) : opened.outcome;
   const lookOnly = async (why: string): Promise<Outcome> => {
-    if (found) return done(0);
+    if (found || story) return done(0);
     await missed(item, businessId);
     return {
       done: true,
@@ -460,6 +653,14 @@ async function warmUp(item: TodayListItem, businessId: string, spare: number): P
     most: LIKE_POSTS_READ,
   });
   if (!theirs.ok) throw new Error(theirs.error);
+  // Their story first, while their account shows one: it opens a page of its own, so their posts are read before it.
+  if (opened.page.found.profile?.story) {
+    const went = await likeStory(item, businessId, opened.noted);
+    if (typeof went === 'object' && went !== null) return went;
+    story = went;
+  }
+  const most = room - (story ? 1 : 0);
+  if (most <= 0) return done(0);
   // Never the post it found again.
   const posts = theirs.posts.flatMap((p) =>
     p.url && !(item.postUrl && samePost(p.url, item.postUrl)) ? [{ url: p.url, text: p.text }] : [],
@@ -468,9 +669,8 @@ async function warmUp(item: TodayListItem, businessId: string, spare: number): P
   // The first that nothing rules out, then the next after it that nothing rules out either.
   const safe = posts.filter((post) => !neverLike({ text: post.text, pictures: [] }));
   if (!safe.length) return lookOnly('and none of their posts were right to like');
-  const most = found ? 1 : spare > 0 ? LIKES_MOST : 1;
   let liked = 0;
-  let already = found ? 1 : 0;
+  let already = (found ? 1 : 0) + (story ? 1 : 0);
   for (const post of safe.slice(0, most)) {
     if (liked + already > 0) await pause(SETTLE_MS);
     const went = await likeOne(item, businessId, opened.noted, post);
@@ -879,13 +1079,20 @@ export async function runInstagramDaily(kind: InstagramDaily, job: Job): Promise
           }),
         ),
       );
+    case 'like_yours':
+      // An account whose followers' box didn't open is noted with its outline (decision 74).
+      return readLikeYours(reporting(job, kind));
     case 'helpful':
       return readInstagramWarmLeads(job);
+    case 'weekly_post':
+      return askWeeklyPost(job, 'instagram');
     case 'post_people':
       // A post it couldn't read, or whose Likes box didn't open, is noted with its outline (decision 74).
       return readPostPeople(reporting(job, kind));
     case 'found_checks':
       return checkFound(job, { platform: PLATFORM, read: readThemOnInstagram });
+    case 'profile':
+      return readProfileOnItsOwn(job, PLATFORM, (j) => instagramProfileRead(j));
   }
 }
 

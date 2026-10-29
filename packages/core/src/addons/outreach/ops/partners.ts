@@ -69,12 +69,19 @@ import {
   type PartnerTodayKind,
   type TodayItem,
 } from '../today';
+import { linesCountry, lookedCountry } from '../countries';
 import { partnerLeads, partners, partnerSearches, playbooks, profiles } from '../tables';
 import { perDayFor } from './checks';
 import {
+  countryFateSql,
+  countryLetsSql,
+  countryRuleOf,
   inWorkspace,
+  keepCountry,
   keptProfile,
+  notLater,
   notNever,
+  notOthers,
   once,
   partnered,
   saveProfile,
@@ -126,6 +133,9 @@ export const partnersNext = defineAddonQuery(outreachAddon, {
     if (!kinds.size) return { people: [], today, perDay };
     const ago = (days: number) => new Date(now - days * DAY).toISOString();
     const looks = (kind: PartnerKind) => sql`${kinds.has(kind)}::boolean`;
+    // Partners come from the countries the business reaches (decision 118): anyone it skips is never read, and
+    // someone it can't place yet is, since the partner read says where they live.
+    const rule = await countryRuleOf(ctx);
     const found = await rows<{ id: string; name: string; url: string; kind: PartnerKind }>(
       ctx.tx,
       sql`select x.id, x.name, x.url, x.kind from (
@@ -161,7 +171,7 @@ export const partnersNext = defineAddonQuery(outreachAddon, {
                 and g.check_state is distinct from 'not'
             ) gr on true
             where p.workspace_id = ${ws} and p.platform = ${input.platform} and p.friendship <> 'self'
-              and ${notNever('p')} and not ${partnered('p')}
+              and ${notNever('p')} and not ${partnered('p')} and ${countryFateSql(rule, 'p')} <> 'skip'
               and (pa.id is null
                 or (pa.fit = 'not' and pa.checked_at < ${ago(PARTNER_AGAIN_DAYS)}::timestamptz)
                 or (pa.fit = 'failed' and pa.looked_at < ${ago(PARTNER_RETRY_DAYS)}::timestamptz))
@@ -473,6 +483,27 @@ export const partnerSave = defineAddonCommand(outreachAddon, {
     const a = input.answer;
     const fit: PartnerFit = a ? a.fit : 'failed';
     const found = fit === 'good' || fit === 'maybe';
+    // Where they live (decision 118), as a customer check keeps it: the read's lines and the AI's word. With no word,
+    // the lines alone count, and never undo a stronger one.
+    if (a?.country) {
+      const looked = lookedCountry(row.lines, a.country);
+      await ctx.tx
+        .update(profiles)
+        .set({
+          country: looked.country,
+          countryHow: looked.how,
+          countryAt: at,
+          countryFrom: looked.from,
+          countryAlt: looked.alt,
+          countryWhy: looked.why,
+          countryUnsure: looked.unsure,
+          countryLookedAt: at,
+        })
+        .where(and(eq(profiles.workspaceId, ws), eq(profiles.id, row.profileId)));
+    } else {
+      const lined = linesCountry(row.lines);
+      if (lined) await keepCountry(ctx, row.profileId, lined);
+    }
     await ctx.tx
       .update(partners)
       .set({
@@ -947,11 +978,15 @@ export async function partnerToday(
   const from = sql`from addon_outreach.partners pa join addon_outreach.profiles p on p.id = pa.profile_id
       where pa.workspace_id = ${ws} and pa.user_id = ${me} and p.platform = ${o.platform} and ${notNever('p')}`;
   const best = sql`pa.fit = 'maybe', coalesce(pa.audience_size, p.followers) desc nulls last, pa.id`;
-  const listOf = (where: ReturnType<typeof sql>, most: number) =>
+  // Partners come from the countries the business reaches (decision 118): a warm-up, an ask or a follow-up only for
+  // someone it lets through. A reply, and the details someone said yes to, are answered wherever they are.
+  const lets = countryLetsSql(await countryRuleOf(ctx), 'p');
+  const listOf = (where: ReturnType<typeof sql>, most: number, reach = true) =>
     most > 0
       ? rows<TodayRow>(
           ctx.tx,
           sql`${select}, null::text as thread_key, null::uuid as chat_id ${from} and ${where}
+                and ${notLater(me, 'p')} and ${notOthers(me, 'p')} and (${!reach}::boolean or ${lets})
               order by ${best} limit ${most}`,
         )
       : Promise.resolve([] as TodayRow[]);
@@ -980,7 +1015,11 @@ export async function partnerToday(
           and ${lastTheirs} > coalesce(${lastMine}, '-infinity'::timestamptz)
         order by ${lastTheirs} desc limit ${TODAY_MOST}`,
   );
-  const details = await listOf(sql`pa.stage = 'interested' and pa.details_at is null`, follows);
+  const details = await listOf(
+    sql`pa.stage = 'interested' and pa.details_at is null`,
+    follows,
+    false,
+  );
   const followUps = await listOf(
     sql`pa.stage = 'asked' and pa.follow_ups < ${PARTNER_FOLLOW_UPS}
       and coalesce(pa.followed_at, pa.asked_at) <= ${ago(PARTNER_FOLLOW_UP_DAYS)}::timestamptz

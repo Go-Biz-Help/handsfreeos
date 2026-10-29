@@ -96,6 +96,14 @@ export const LeadMoveStageInput = z.object({
   funnelId: uuid.optional(),
 });
 /** The "Deal in the wrong stage" card's one press: move the deal to the stage what happened to it says. */
+/** A deal a person marks won or lost themselves: a done visit never wins it (lead.wait_for_outcome). */
+export const LeadWaitForOutcomeInput = z.object({
+  workspaceId: uuid,
+  leadId: uuid,
+  waits: z.boolean().default(true),
+});
+export const LeadWaitForOutcomeOutput = z.object({ leadId: uuid, waits: z.boolean() });
+
 export const LeadCatchUpInput = z.object({ workspaceId: uuid, leadId: uuid });
 export const LeadCatchUpOutput = z.object({
   leadId: uuid,

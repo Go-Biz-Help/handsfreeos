@@ -345,11 +345,31 @@ import {
   WheelsEndInput,
   WheelsEndOutput,
 } from '@hfos/core/addons/outreach/automation';
+import {
+  CountryDecideInput,
+  CountryDecideOutput,
+  CountryUnskipInput,
+  CountryUnskipOutput,
+} from '@hfos/core/addons/outreach/countries';
 import { DemoMarkInput, DemoMarkOutput } from '@hfos/core/addons/outreach/demos';
+import { DemoOutcomeInput, DemoOutcomeOutput } from '@hfos/core/addons/outreach/leads';
 import { FriendSetInput, FriendSetOutput } from '@hfos/core/addons/outreach/friends';
-import { DayInput, DayOutput } from '@hfos/core/addons/outreach/live';
+import {
+  ComputerRemoveInput,
+  ComputerRemoveOutput,
+  ComputerRenameInput,
+  ComputerRenameOutput,
+  DayInput,
+  DayOutput,
+} from '@hfos/core/addons/outreach/live';
+import { OwnerMoveInput, OwnerMoveOutput } from '@hfos/core/addons/outreach/owners';
 import { PartnerMarkInput, PartnerMarkOutput } from '@hfos/core/addons/outreach/partners';
-import { ClientSetInput, ClientSetOutput } from '@hfos/core/addons/outreach/person-menu';
+import {
+  ClientSetInput,
+  ClientSetOutput,
+  LaterSetInput,
+  LaterSetOutput,
+} from '@hfos/core/addons/outreach/person-menu';
 import {
   Playbook,
   PlaybookArchiveInput,
@@ -357,6 +377,8 @@ import {
 } from '@hfos/core/addons/outreach/playbooks';
 import { PostSkipInput, PostSkipOutput } from '@hfos/core/addons/outreach/posts';
 import {
+  MessageEditInput,
+  MessageForgetInput,
   MessagesOkInput,
   NumbersInput,
   ProfileTickInput,
@@ -378,6 +400,11 @@ import {
   HelpfulPostedInput,
   HelpfulSkipInput,
 } from '@hfos/core/addons/outreach/helpful';
+import {
+  LikeYoursAddInput,
+  LikeYoursChangeOutput,
+  LikeYoursRemoveInput,
+} from '@hfos/core/addons/outreach/like-yours';
 import {
   NeedClearInput,
   NeedClearOutput,
@@ -600,16 +627,34 @@ export const PHONE_COMMANDS = {
   'outreach.automation.save': command(ONLINE, AutomationSaveInput, AutomationSaveOutput),
   // Mark as client, or Not a client after all, from the person menu on a name (decision 91): with signal.
   'outreach.client.set': command(ONLINE, ClientSetInput, ClientSetOutput),
+  // The person's computers, under Settings → Your computer (the Live screen): renamed or removed, with signal.
+  'outreach.computer.remove': command(ONLINE, ComputerRemoveInput, ComputerRemoveOutput),
+  'outreach.computer.rename': command(ONLINE, ComputerRenameInput, ComputerRenameOutput),
+  // The country setting's lists (decision 86): Let through, Skip, Undo and Unskip, with signal, as the web's are.
+  'outreach.country.decide': command(ONLINE, CountryDecideInput, CountryDecideOutput),
+  'outreach.country.unskip': command(ONLINE, CountryUnskipInput, CountryUnskipOutput),
   'outreach.day.start': command(ANYTIME, DayInput, DayOutput),
   'outreach.day.stop': command(ANYTIME, DayInput, DayOutput),
   'outreach.demo.mark': command(ONLINE, DemoMarkInput, DemoMarkOutput),
+  // Won or lost after the demo, on a customer's Social card (decision 106): with signal, as the card is.
+  'outreach.demo.outcome': command(ONLINE, DemoOutcomeInput, DemoOutcomeOutput),
   'outreach.friend.set': command(ONLINE, FriendSetInput, FriendSetOutput),
   'outreach.helpful.ask': command(ONLINE, HelpfulAskInput, HelpfulAskOutput),
   'outreach.helpful.ok': command(ONLINE, HelpfulOkInput, HelpfulChangeOutput),
   'outreach.helpful.posted': command(ONLINE, HelpfulPostedInput, HelpfulChangeOutput),
   'outreach.helpful.skip': command(ONLINE, HelpfulSkipInput, HelpfulChangeOutput),
+  // Later, or Take off Later, from the person menu on a name (decision 100): with signal, as Mark as client is.
+  'outreach.later.set': command(ONLINE, LaterSetInput, LaterSetOutput),
+  // Settings → Instagram's accounts like yours (decision 110): added or removed by an owner or admin, with signal.
+  'outreach.like_yours.add': command(ONLINE, LikeYoursAddInput, LikeYoursChangeOutput),
+  'outreach.like_yours.remove': command(ONLINE, LikeYoursRemoveInput, LikeYoursChangeOutput),
+  // A sample message changed by hand, or a note the AI keeps forgotten, on Get ready (decision 63): with signal.
+  'outreach.messages.edit': command(ONLINE, MessageEditInput, ReadinessOutput),
+  'outreach.messages.forget': command(ONLINE, MessageForgetInput, ReadinessOutput),
   'outreach.need.clear': command(ANYTIME, NeedClearInput, NeedClearOutput),
   // Where someone stands on the Partners list (decision 81): with signal, as the pipeline's marks are.
+  // An owner or admin gives a group or a person to a teammate (decision 107): with signal, as the person menu is.
+  'outreach.owner.move': command(ONLINE, OwnerMoveInput, OwnerMoveOutput),
   'outreach.partner.mark': command(ONLINE, PartnerMarkInput, PartnerMarkOutput),
   'outreach.playbook.archive': command(ONLINE, PlaybookArchiveInput, Playbook),
   'outreach.playbook.save': command(ONLINE, PlaybookSaveInput, Playbook),

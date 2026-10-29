@@ -20,6 +20,7 @@ import { readPage } from '../src/networks/facebook/page';
 import { classifyUrl } from '../src/networks/facebook/urls';
 import type { StepTry, TryStep } from '../src/networks/tries';
 import type { Hfos, Job, JobTab } from '../src/jobs/job';
+import { BIRTHDAYS_PAGE } from '../src/jobs/occasions';
 import type { ReportNote } from '../src/jobs/report';
 import { load } from './load';
 
@@ -66,6 +67,8 @@ function facebookPage(
       at: url,
     };
   if (url === `${FB}/me/friends`) return { fixture: 'friends-list.html', at: `${FB}/friends/list` };
+  if (url === `${FB}/me/followers`)
+    return { fixture: 'followers-2026-10.html', at: `${OWN}/followers` };
   if (url === `${FB}/groups/joins/`) return { fixture: 'groups-joined.html', at: url };
   if (url.startsWith(`${FB}/search/people/`))
     return { fixture: 'group-members-2026.html', at: url };
@@ -75,6 +78,7 @@ function facebookPage(
   if (classifyUrl(url).kind === 'post') return { fixture: 'group-post-2026.html', at: url };
   if (url === MESSENGER) return { fixture: 'chat-2026.html', at: url };
   if (url === `${FB}/notifications`) return { fixture: 'notifications.html', at: url };
+  if (url === BIRTHDAYS_PAGE) return { fixture: 'birthdays-2026-10.html', at: url };
   if (url === DOWNLOAD_PAGE) return { html: PAGES_HERE.file! };
   if (classifyUrl(url).kind === 'profile') return { fixture: 'profile-2026.html', at: url };
   throw new Error(`Not expected: ${url}`);
@@ -239,20 +243,23 @@ describe('Check Facebook', () => {
       'username',
       'file',
     ]);
-    expect(opened.slice(0, 6)).toEqual([
+    expect(opened.slice(0, 7)).toEqual([
       `${FB}/me`,
       CONTACT,
       `${FB}/`,
       REQUESTS,
       `${FB}/me/friends`,
+      // Their followers (decision 113).
+      `${FB}/me/followers`,
       `${FB}/groups/joins/`,
     ]);
     expect(opened).toContain(`${FB}/search/people/?q=small%20business`);
     expect(opened).toContain(`${FB}/search/groups/?q=small%20business`);
     expect(opened).toContain(`${FB}/groups/plumbersofaustin/`);
-    expect(opened.slice(-4)).toEqual([
+    expect(opened.slice(-5)).toEqual([
       expect.any(String),
       `${FB}/notifications`,
+      BIRTHDAYS_PAGE,
       USERNAME_PAGE,
       DOWNLOAD_PAGE,
     ]);

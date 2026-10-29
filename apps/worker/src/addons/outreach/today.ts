@@ -13,6 +13,11 @@
  * the link, and said so (`kind`), but never for a client in Contacts (decision 91), whose drafts carry no link. It also says whether a reply is simple (decision 27), never for someone who needs the
  * person (`replyNeedsYou`). Nothing else is saved or sent here: the person copies the one they like, or the extension
  * hands it to `outreach.send.queue`.
+ *
+ * After a demo booked through the person's link (decision 106): a short reminder the day before, with its day and time
+ * on the business's calendar, and after a no-show a kind message offering another time, with the link to book again.
+ * A birthday or a new job read on the person's computer (decision 108): a short, warm note with nothing about the
+ * business and no link, the new job in the page's words.
  */
 import {
   messageNotesOf,
@@ -42,14 +47,19 @@ import {
   runsOn,
   upgradePlaybookDetails,
 } from '@hfos/core/addons/outreach/playbooks';
+import { underAPost } from '@hfos/core/addons/outreach/automation';
 import { replyNeedsYou } from '@hfos/core/addons/outreach/sends';
 import {
   answerOf,
   checkedDrafts,
   draftOfferOf,
+  demoWhen,
   DRAFTS_FOR,
   fitsComment,
+  fitsGroupReply,
+  fitsOccasion,
   fitsRequests,
+  isOccasionKind,
   isPartnerKind,
   TODAY_DRAFT_SCHEMA,
   todayDraftSystem,
@@ -80,7 +90,7 @@ export const todayDraft: AddonWorkerAction<TodayDraftInput> = {
   ai: {
     tool: 'outreach_draft_message',
     description:
-      "Draft a message for someone the person reached, as Draft a message on Today does: up to three drafts from the AI in the playbook's tone, for a first message, a reconnect, a pitch, a follow-up, a reply (with the chat) or a comment (with the post). Nothing is sent: the person copies one and sends it, then outreach_note_sent notes it.",
+      "Draft a message for someone the person reached, as Draft a message on Today does: up to three drafts from the AI in the playbook's tone, for a first message, a reconnect, a pitch, a follow-up, a reply (with the chat), a demo's reminder, another time after a missed demo, a birthday or new-job note, a comment (with the post), or a reply to a question asked in one of the person’s Facebook groups (with the post). Nothing is sent: the person copies one and sends it, then outreach_note_sent notes it.",
     autonomy: 'auto',
     keywords: ['draft a message', 'write a first message', 'draft a reply', 'draft a comment'],
   },
@@ -96,9 +106,9 @@ export const todayDraft: AddonWorkerAction<TodayDraftInput> = {
       }
     const ws = ctx.scope.workspaceId!;
     const found = await asWorker(ctx.db, ctx.scope, async (tx) => {
-      const [business] = await rows<{ name: string }>(
+      const [business] = await rows<{ name: string; timezone: string | null }>(
         tx,
-        sql`select name from app.workspaces where id = ${ws}`,
+        sql`select name, timezone from app.workspaces where id = ${ws}`,
       );
       const [chat] = input.chatId
         ? await rows<{ name: string; profile_id: string | null; recent: DownloadMessage[] }>(
@@ -107,7 +117,7 @@ export const todayDraft: AddonWorkerAction<TodayDraftInput> = {
             sql`select name, profile_id, recent from addon_outreach.file_chats
                 where workspace_id = ${ws} and id = ${input.chatId} and user_id = ${ctx.userId}`,
           )
-        : input.profileId && input.kind !== 'comment' && input.kind !== 'warm_lead'
+        : input.profileId && !underAPost(input.kind) && input.kind !== 'warm_lead'
           ? // No chat named: their latest with the person, as the extension just brought it in for a reply.
             await rows<{ name: string; profile_id: string | null; recent: DownloadMessage[] }>(
               tx,
@@ -211,6 +221,29 @@ export const todayDraft: AddonWorkerAction<TodayDraftInput> = {
             where v.workspace_id = ${ws} and v.version = coalesce(${conversation?.offer_version ?? null}::int,
               (select live_version from app.main_offers where workspace_id = ${ws}))`,
       );
+      // A demo's reminder, or another time after a no-show (decision 106): when their latest booked through the link
+      // is, or was.
+      const [demo] =
+        profileId && (input.kind === 'demo_reminder' || input.kind === 'rebook')
+          ? await rows<{ starts_at: Date | string }>(
+              tx,
+              sql`select a.starts_at from addon_outreach.demos d join app.appointments a on a.id = d.appointment_id
+                  where d.workspace_id = ${ws} and d.user_id = ${ctx.userId} and d.profile_id = ${profileId}
+                    and d.how = 'link' and d.undone_at is null
+                  order by d.at desc limit 1`,
+            )
+          : [];
+      // A new job (decision 108): what LinkedIn's Catch up said of it, the latest seen.
+      const [occasion] =
+        profileId && input.kind === 'new_job'
+          ? await rows<{ detail: string | null }>(
+              tx,
+              sql`select o.detail from addon_outreach.occasions o
+                  where o.workspace_id = ${ws} and o.user_id = ${ctx.userId} and o.profile_id = ${profileId}
+                    and o.kind = 'new_job' and o.detail is not null
+                  order by o.seen_at desc limit 1`,
+            )
+          : [];
       // What the person told the AI of their messages, and the ones they wrote themselves (decision 87).
       const [said] = await rows<{ message_samples: unknown; message_notes: unknown }>(
         tx,
@@ -231,12 +264,14 @@ export const todayDraft: AddonWorkerAction<TodayDraftInput> = {
         conversation: conversation ?? null,
         offer: offer ?? null,
         friendState: friend?.state ?? null,
+        demoAt: demo?.starts_at ?? null,
+        occasion: occasion?.detail ?? null,
         samples: MessageSamples.safeParse(said?.message_samples ?? null).data ?? null,
         notes: messageNotesOf(said?.message_notes),
       };
     });
     const name = found.profile?.name ?? found.chat?.name;
-    if (input.kind === 'comment' && !found.post)
+    if (underAPost(input.kind) && !found.post)
       throw HfosError.notFound('That post isn’t on your list anymore. Reload Today.');
     if (input.kind === 'warm_lead' && !found.engaged)
       throw HfosError.notFound('Their comment isn’t on your list anymore. Reload Today.');
@@ -365,6 +400,10 @@ export const todayDraft: AddonWorkerAction<TodayDraftInput> = {
               lastAt: found.lastAt,
               platform,
               requests: toRequests,
+              demoWhen: found.demoAt
+                ? demoWhen(found.demoAt, found.business?.timezone ?? 'America/Chicago')
+                : null,
+              occasion: found.occasion,
               own: ownWordsFor(
                 kind,
                 found.samples,
@@ -384,19 +423,25 @@ export const todayDraft: AddonWorkerAction<TodayDraftInput> = {
         value,
         playbook?.details.avoid ?? [],
         DRAFTS_FOR[kind],
-        found.voice.split && kind !== 'comment' && kind !== 'warm_lead' && !toRequests,
+        found.voice.split && !underAPost(kind) && kind !== 'warm_lead' && !toRequests,
       );
       // To their Requests: only one short text with no link goes. A comment that waits to be posted (Instagram's and
-      // Alignable's, decision 92) never carries a link, and on Instagram no hashtag, within its 30 words.
+      // Alignable's, decision 92) never carries a link, and on Instagram no hashtag, within its 30 words; nor does a
+      // birthday or new-job note (decision 108), nor a reply in a group (decision 114).
       const drafts =
         toRequests && kind === 'opener'
           ? checked.filter(fitsRequests)
           : kind === 'comment'
             ? checked.filter((d) => fitsComment(d, platform))
-            : checked;
-      // The link always goes with the link and the video with the video (decisions 47 and 66): one the AI left out
-      // goes on the end.
-      const must = kind === 'pitch' ? link : kind === 'video' ? videoLink : null;
+            : kind === 'group_reply'
+              ? checked.filter(fitsGroupReply)
+              : isOccasionKind(kind)
+                ? checked.filter(fitsOccasion)
+                : checked;
+      // The link always goes with the link and the video with the video (decisions 47 and 66), and the link with
+      // another time after a no-show (decision 106): one the AI left out goes on the end.
+      const must =
+        kind === 'pitch' || kind === 'rebook' ? link : kind === 'video' ? videoLink : null;
       return {
         value,
         drafts: must ? drafts.map((d) => (d.includes(must) ? d : `${d}\n\n${must}`)) : drafts,

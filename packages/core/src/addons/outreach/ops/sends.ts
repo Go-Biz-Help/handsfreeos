@@ -1,7 +1,8 @@
 /**
- * Messages the extension sends on its own (../sends.ts, docs/outreach.md decisions 26 and 27), and comments on good
- * posts where a network's comments wait at first (decision 92): each drafted one waits for the person's OK or goes as
- * it is, and the extension says when it went. Each person's are their own.
+ * Messages the extension sends on its own (../sends.ts, docs/outreach.md decisions 26 and 27), comments on good posts
+ * where a network's comments wait at first (decision 92), and on Facebook the day's reply to a question in one of the
+ * person's groups (decision 114): each drafted one waits for the person's OK or goes as it is, and the extension says
+ * when it went. Each person's are their own.
  */
 import { and, eq, inArray, isNotNull, isNull, or, sql } from 'drizzle-orm';
 import { rows } from '@hfos/db/client';
@@ -12,7 +13,8 @@ import { changeMoment } from '../../../kernel/moment';
 import { FRESH_MINUTES } from '../../../mobile';
 import { defineAddonCommand, defineAddonQuery } from '../../server';
 import { outreachAddon } from '../manifest';
-import type { SendKind } from '../automation';
+import { GROUP_REPLIES_SINCE, groupRepliesOn } from '../active';
+import { underAPost, type PostSendKind, type SendKind } from '../automation';
 import { chatUrlOn } from '../network-words';
 import { NETWORKS, PLATFORMS, type Platform } from '../networks';
 import type { DraftOpener } from '../openers';
@@ -23,6 +25,7 @@ import {
   goesAsItIs,
   handedOver,
   postStartOf,
+  REBOOK_NEEDS_YOU,
   replyNeedsYou,
   SendApproveInput,
   SendApproveOutput,
@@ -40,9 +43,12 @@ import {
 } from '../sends';
 import { PARTNER_WORDS } from '../partners';
 import { isClientSkipped, type ClientCause } from '../person-menu';
+import { commentSendsOn, LINKEDIN_COMMENTS_WAIT_SINCE } from '../profile-parts';
 import { OUTREACH_WORDS } from '../words';
+import { heldForOthers } from '../owners';
 import { fileChats, openerUses, playbooks, posts, profiles, sends } from '../tables';
-import { isPartnerKind } from '../today';
+import { OCCASION_WORDS } from '../occasions';
+import { isOccasionKind, isPartnerKind } from '../today';
 import { automationOf, countWheels } from './automation';
 import { noteSent, offerVersionFor } from './conversation';
 import {
@@ -55,7 +61,9 @@ import {
   type ChatRef,
   type Ctx,
 } from './common';
+import { workingBuild } from './live';
 import { openNeed } from './needs';
+import { someoneElses } from './owners';
 import { notePartnerSent } from './partners';
 import { notePitched } from './stages';
 
@@ -106,8 +114,8 @@ export async function listed(ctx: Ctx, where: ReturnType<typeof and>): Promise<S
     handedOver: s.handedOver,
     needsYou: s.needsYou,
     createdAt: s.createdAt.toISOString(),
-    // A comment has no chat: its post shows above it instead.
-    recent: s.kind === 'comment' ? [] : (recent.get(`${s.userId}/${chatKey(refOf(s))}`) ?? []),
+    // A comment, or a reply in a group, has no chat: its post shows above it instead.
+    recent: underAPost(s.kind) ? [] : (recent.get(`${s.userId}/${chatKey(refOf(s))}`) ?? []),
     postId: s.postId,
     postUrl: s.postId ? postUrl : null,
     post: s.postId && postBody !== null ? postStartOf(postBody) : null,
@@ -125,19 +133,20 @@ export const mine = (ctx: Ctx, me: string) =>
 /**
  * Whether a comment of the person's on a network waits for their OK under the comments-only hold (../sends.ts
  * `commentHoldOn`, decision 92's 13), from their own sends there: when the first comment was drafted, and how many
- * they OK'd themselves (one that went on its own was OK'd as it was queued). Never on a network whose comments don't
- * go through `sends`.
+ * they OK'd themselves (one that went on its own was OK'd as it was queued). On Facebook, whose comments on good posts
+ * are steps of their own, the hold is the replies' in groups (decision 114), from those alone. Never on a network
+ * whose comments don't go through `sends`.
  */
 export async function commentHoldOf(ctx: Ctx, me: string, platform: Platform): Promise<boolean> {
-  if (NETWORKS[platform].commentsWait !== 'hold') return false;
+  if (NETWORKS[platform].commentsWait !== 'hold' && platform !== 'facebook') return false;
   const [kept] = await rows<{ first_at: Date | string | null; okd: number }>(
     ctx.tx,
     sql`select min(s.created_at) as first_at,
           (count(*) filter (where s.approved_at > s.created_at))::int as okd
         from addon_outreach.sends s
         join addon_outreach.profiles p on p.id = s.profile_id
-        where s.workspace_id = ${ctx.scope.workspaceId!} and s.user_id = ${me} and s.kind = 'comment'
-          and p.platform = ${platform}`,
+        where s.workspace_id = ${ctx.scope.workspaceId!} and s.user_id = ${me}
+          and s.kind in ('comment', 'group_reply') and p.platform = ${platform}`,
   );
   return commentHoldOn({
     firstAt: kept?.first_at ? new Date(kept.first_at).getTime() : null,
@@ -147,52 +156,88 @@ export async function commentHoldOf(ctx: Ctx, me: string, platform: Platform): P
 }
 
 /**
- * A comment's post, as `outreach.send.queue` takes it (decision 92): a good post of the person's, by that profile, on
- * a network whose comments go through `sends`, not commented on and not skipped. Refused otherwise, saying which.
+ * The post a comment or a reply in a group goes under, as `outreach.send.queue` takes it. A comment's (decision 92): a
+ * good post of the person's, by that profile, on a network whose comments go through `sends`. A reply's in a group
+ * (decision 114): a question of theirs on Facebook the person's computer kept for the day's reply, while that computer
+ * posts replies. Neither commented on nor skipped. Refused otherwise, saying which.
  */
-async function commentPost(
+async function postOf(
   ctx: Ctx,
   me: string,
   profile: { readonly id: string; readonly name: string; readonly platform: Platform },
   postId: string,
+  kind: PostSendKind,
 ): Promise<{ readonly id: string; readonly strong: boolean }> {
+  const reply = kind === 'group_reply';
+  if (reply && profile.platform !== 'facebook')
+    throw HfosError.rule(
+      'outreach_group_reply_post',
+      422,
+      `Replies in your groups are only on Facebook, and ${profile.name} is on ${PLATFORMS[profile.platform]}. Refresh your list for today.`,
+    );
+  if (reply && !groupRepliesOn(await workingBuild(ctx, me)))
+    throw HfosError.rule(
+      'outreach_group_reply_build',
+      422,
+      `Replies in your groups wait for your OK from extension ${GROUP_REPLIES_SINCE}, and the computer working for you has an older one or none. Update the extension on it, then try again.`,
+    );
   const kit = NETWORKS[profile.platform];
-  if (kit.commentsWait !== 'hold')
+  if (!reply && kit.commentsWait !== 'hold')
     throw HfosError.rule(
       'outreach_comment_network',
       422,
       `Comments on ${PLATFORMS[profile.platform]} aren’t kept to wait for your OK: the extension posts them as a step on Today, or you do. Update the extension if this keeps happening.`,
     );
+  // LinkedIn's wait only from the build that posts them (decision 102): an older one would send it as a message.
+  if (
+    !reply &&
+    profile.platform === 'linkedin' &&
+    !commentSendsOn('linkedin', await workingBuild(ctx, me))
+  )
+    throw HfosError.rule(
+      'outreach_comment_network',
+      422,
+      `Comments on LinkedIn wait for your OK from extension ${LINKEDIN_COMMENTS_WAIT_SINCE}, and the computer working for you has an older one or none. Update the extension on it, then try again.`,
+    );
   const [post] = await rows<{
     id: string;
     profile_id: string;
     check_state: string;
+    kept: boolean;
     skipped: boolean;
     commented: boolean;
     strong: boolean;
   }>(
     ctx.tx,
-    sql`select po.id, po.profile_id, po.check_state, po.skipped_at is not null as skipped, po.strong,
+    sql`select po.id, po.profile_id, po.check_state, po.reply_at is not null as kept,
+          po.skipped_at is not null as skipped, po.strong,
           exists (select 1 from addon_outreach.touches t
             where t.user_id = ${me} and t.kind = 'comment' and t.post_url = po.url) as commented
         from addon_outreach.posts po
         where po.workspace_id = ${ctx.scope.workspaceId!} and po.id = ${postId} and po.user_id = ${me}`,
   );
-  if (!post || post.profile_id !== profile.id || post.check_state !== 'good')
-    throw HfosError.rule(
-      'outreach_comment_post',
-      422,
-      `That post isn’t a good post of ${profile.name}’s that HandsFreeOS kept for you to comment on. Refresh your list for today.`,
-    );
+  if (!post || post.profile_id !== profile.id || (reply ? !post.kept : post.check_state !== 'good'))
+    throw reply
+      ? HfosError.rule(
+          'outreach_group_reply_post',
+          422,
+          `That post isn’t a question of ${profile.name}’s that HandsFreeOS kept for you to answer. Refresh your list for today.`,
+        )
+      : HfosError.rule(
+          'outreach_comment_post',
+          422,
+          `That post isn’t a good post of ${profile.name}’s that HandsFreeOS kept for you to comment on. Refresh your list for today.`,
+        );
   if (post.skipped || post.commented)
     throw HfosError.rule(
       'outreach_comment_done',
       409,
       post.commented
-        ? `You commented on ${profile.name}’s post already, so no other comment goes there. Refresh your list for today.`
-        : `You skipped ${profile.name}’s post, so no comment goes there. Refresh your list for today.`,
+        ? `You commented on ${profile.name}’s post already, so no other ${reply ? 'reply' : 'comment'} goes there. Refresh your list for today.`
+        : `You skipped ${profile.name}’s post, so no ${reply ? 'reply' : 'comment'} goes there. Refresh your list for today.`,
     );
-  return { id: post.id, strong: post.strong };
+  // A reply in a group is help, never an answer to someone asking for what the business offers.
+  return { id: post.id, strong: !reply && post.strong };
 }
 
 /**
@@ -200,7 +245,7 @@ async function commentPost(
  * (decision 92's 16).
  */
 async function setPostAside(ctx: CommandContext, row: Row, at: Date): Promise<void> {
-  if (row.kind !== 'comment' || !row.postId) return;
+  if (!underAPost(row.kind) || !row.postId) return;
   await ctx.tx
     .update(posts)
     .set({ skippedAt: at })
@@ -210,7 +255,7 @@ async function setPostAside(ctx: CommandContext, row: Row, at: Date): Promise<vo
 export const sendQueue = defineAddonCommand(outreachAddon, {
   name: 'outreach.send.queue',
   description:
-    'The extension drafted a message to someone on the person’s list for today: a first message, a follow-up or a reply; or, on Instagram and Alignable, a comment on a good post of theirs. It waits for the person’s OK, or, when they chose for messages to go on their own and their training wheels are off, goes as it is; a comment goes on its own once the person has OK’d 25 there and a week has gone by, and an answer to an Alignable post asking for what the business offers always waits. A message already drafted for them comes back instead. A client in Contacts gets only replies.',
+    'The extension drafted a message to someone on the person’s list for today: a first message, a follow-up or a reply; or, on Instagram, LinkedIn and Alignable, a comment on a good post of theirs; or, on Facebook, the day’s reply to a question asked in one of the person’s groups. It waits for the person’s OK, or, when they chose for messages to go on their own and their training wheels are off, goes as it is; a comment or a reply in a group goes on its own once the person has OK’d 25 there and a week has gone by, and an answer to an Alignable post asking for what the business offers always waits, as do a message offering another time after a missed demo and a birthday or new-job note. A message already drafted for them comes back instead. A client in Contacts gets only replies.',
   risk: 0,
   input: SendQueueInput,
   output: SendQueueOutput,
@@ -267,10 +312,20 @@ export const sendQueue = defineAddonCommand(outreachAddon, {
         422,
         OUTREACH_WORDS.person.clientNoOutreach(profile.name, profile.client_cause),
       );
-    // A comment needs its post: a good one of theirs, kept for the person, on a network whose comments wait at first.
+    // Someone another teammate reached first (decision 107) gets no outreach from the person: a reply they're owed
+    // still goes, and so do a booked demo's messages.
+    const reachedBy = heldForOthers(input.kind) ? await someoneElses(ctx, me, profile.id) : null;
+    if (reachedBy)
+      throw HfosError.rule(
+        'outreach_someone_elses',
+        409,
+        `${reachedBy.name} reached ${profile.name} first, so no message goes to them from you. Only your replies to them do. To work with them yourself, ask an owner of this business to give them to you from the menu on their name in Social Outreach.`,
+      );
+    // A comment needs its post: a good one of theirs, kept for the person, on a network whose comments wait at first; a
+    // reply in a group, the question kept for it.
     const post =
-      input.kind === 'comment' && input.postId
-        ? await commentPost(ctx, me, profile, input.postId)
+      underAPost(input.kind) && input.postId
+        ? await postOf(ctx, me, profile, input.postId, input.kind)
         : null;
     const [chat] =
       input.chatId && !post
@@ -289,18 +344,23 @@ export const sendQueue = defineAddonCommand(outreachAddon, {
         : null;
     const partner = isPartnerKind(input.kind);
     // A partner's message waits for an OK of its own, never Approve all (decision 81), and so does an answer to a post
-    // asking for what the business offers where the network keeps those apart (Alignable's forum, decision 79).
+    // asking for what the business offers where the network keeps those apart (Alignable's forum, decision 79),
+    // another time after a no-show (decision 106), and a birthday or new-job note (decision 108).
     const needsYou = partner
       ? PARTNER_WORDS.needsYou
-      : post
-        ? post.strong && NETWORKS[profile.platform].forumAnswersPerDay !== null
-          ? COMMENT_NEEDS_YOU.answer
-          : null
-        : input.kind !== 'reply'
-          ? null
-          : theirs === null
-            ? 'HandsFreeOS hasn’t seen what they wrote'
-            : replyNeedsYou(theirs);
+      : input.kind === 'rebook'
+        ? REBOOK_NEEDS_YOU
+        : isOccasionKind(input.kind)
+          ? OCCASION_WORDS.needsYou
+          : post
+            ? post.strong && NETWORKS[profile.platform].forumAnswersPerDay !== null
+              ? COMMENT_NEEDS_YOU.answer
+              : null
+            : input.kind !== 'reply'
+              ? null
+              : theirs === null
+                ? 'HandsFreeOS hasn’t seen what they wrote'
+                : replyNeedsYou(theirs);
     const goes = goesAsItIs({
       sending: settings.sending,
       replies: settings.replies,
@@ -455,7 +515,7 @@ export const sendApprove = defineAddonCommand(outreachAddon, {
     const platformOf = new Map(platforms.map((p) => [p.id, p.platform]));
     const byNetwork = new Map<Platform, boolean[]>();
     waiting.forEach((s, i) => {
-      if (s.kind === 'comment') return;
+      if (underAPost(s.kind)) return;
       const platform = platformOf.get(s.profileId) ?? 'facebook';
       byNetwork.set(platform, [...(byNetwork.get(platform) ?? []), edits[i]!]);
     });
@@ -568,7 +628,7 @@ export const sendDone = defineAddonCommand(outreachAddon, {
       .where(and(mine(ctx, me), eq(sends.id, input.sendId), eq(sends.state, 'approved')))
       .returning();
     if (!row) throw gone();
-    if (row.kind === 'comment') {
+    if (underAPost(row.kind)) {
       await commentDone(ctx, me, row, input, at);
       return { sendId: row.id, state };
     }
@@ -712,9 +772,9 @@ export async function sendsToday(ctx: Ctx, me: string, todayFrom: string) {
           and (state in ('waiting', 'approved')
             or (state in ('skipped', 'failed') and done_at >= ${todayFrom}::timestamptz))`,
   );
-  // A comment is its post's; anything else is its person's and kind's.
+  // A comment or a reply in a group is its post's; anything else is its person's and kind's.
   const key = (profileId: string, kind: string, postId: string | null) =>
-    kind === 'comment' ? `comment:${postId}` : `${profileId}:${kind}`;
+    underAPost(kind) ? `${kind}:${postId}` : `${profileId}:${kind}`;
   const open = new Map<
     string,
     {

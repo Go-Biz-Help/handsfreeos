@@ -124,7 +124,7 @@ export function PortalShell({ token, children }: { token: string; children: Reac
         const back = new URLSearchParams({ back: `${base}/documents` });
         window.location.assign(`${new URL(url).pathname}#${back.toString()}`);
       },
-      partnerPayouts: (action) => portalPartnerPayouts(token, bearer, action),
+      partnerPayouts: (action, country) => portalPartnerPayouts(token, bearer, action, country),
     };
   }, [state, token, enter]);
 

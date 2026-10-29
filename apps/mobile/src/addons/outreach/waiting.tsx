@@ -1,5 +1,5 @@
 import { TOUCHED_POSTS_WORDS } from '@hfos/core/addons/outreach/activity';
-import { wheelsWords } from '@hfos/core/addons/outreach/automation';
+import { underAPost, wheelsWords } from '@hfos/core/addons/outreach/automation';
 import { OUTREACH_WORDS as W } from '@hfos/core/addons/outreach/words';
 import {
   chatUrlOn,
@@ -131,7 +131,7 @@ export function serverPart(answer: WaitingOutput): WaitingFromServer {
     ),
     posts: new Map(
       answer.items.flatMap((i) =>
-        i.kind === 'message' && i.send.kind === 'comment'
+        i.kind === 'message' && underAPost(i.send.kind)
           ? [[i.send.sendId, { post: i.send.post, postUrl: i.send.postUrl }] as const]
           : [],
       ),
@@ -151,7 +151,7 @@ const saidOf = (online: boolean, now: string, queued: string) => (online ? now :
 
 /** An OK, said: a message goes in its chat, a comment under its post on its network (decision 92). */
 const okdWords = (send: Pick<PhoneSend, 'kind' | 'profileUrl'>) =>
-  send.kind === 'comment' ? W.okdComment(PLATFORMS[networkOfUrl(send.profileUrl)]) : W.okd;
+  underAPost(send.kind) ? W.okdComment(PLATFORMS[networkOfUrl(send.profileUrl)]) : W.okd;
 
 function failed(e: unknown) {
   toast.error(e instanceof ChangeError ? e.message : errorMessage(e));
@@ -195,11 +195,7 @@ export function useWaitingProps(): React.ComponentProps<typeof WaitingBody> {
       try {
         await skipSend(ws, send.sendId);
         toast.show(
-          saidOf(
-            ctx.online,
-            send.kind === 'comment' ? W.commentSkipped : W.skipped,
-            W.skippedQueued,
-          ),
+          saidOf(ctx.online, underAPost(send.kind) ? W.commentSkipped : W.skipped, W.skippedQueued),
         );
       } catch (e) {
         failed(e);
@@ -209,7 +205,7 @@ export function useWaitingProps(): React.ComponentProps<typeof WaitingBody> {
       try {
         await okAll(ws, sends);
         const comments = phone.messages.some(
-          (m) => m.kind === 'comment' && sends.some((s) => s.sendId === m.sendId),
+          (m) => underAPost(m.kind) && sends.some((s) => s.sendId === m.sendId),
         );
         toast.show(saidOf(ctx.online, W.okdAll(sends.length, comments), W.okdQueued));
       } catch (e) {
@@ -278,7 +274,7 @@ export function WaitingBody({
   const [changing, setChanging] = React.useState<PhoneSend | null>(null);
   const all = approveAllFromPhone(phone);
   // Comments wait among the messages (decision 92): the heading says so, and Approve all leaves forum answers.
-  const comments = phone.messages.filter((s) => s.kind === 'comment');
+  const comments = phone.messages.filter((s) => underAPost(s.kind));
   const answers = comments.filter(forumAnswer).length;
   // A comment Approve all takes, on a network whose comments-only hold is on: the hold's note says what it is.
   const held = server ? commentHoldShown(comments, server.commentHolds) : false;
@@ -528,7 +524,7 @@ function SendCard({
 }) {
   // Each on its own network, as its profile's link says (the phone's copy keeps no more).
   const platform = networkOfUrl(send.profileUrl);
-  const comment = send.kind === 'comment';
+  const comment = underAPost(send.kind);
   const open = comment
     ? (post?.postUrl ?? send.profileUrl)
     : (chatUrlOn(platform, send.threadKey) ?? send.profileUrl);
@@ -558,7 +554,7 @@ function SendCard({
       {comment ? (
         // "Comment on Dana Reyes’s post", then the post's first words above the comment (decision 92).
         <Text className="text-[14.5px] leading-[21px]" testID="waiting-comment-title">
-          {commentTitle(send.name)}
+          {commentTitle(send.name, send.kind)}
         </Text>
       ) : null}
       {comment && post?.post ? (
@@ -654,8 +650,8 @@ function ChangeSheet({
       onClose={onClose}
       title={
         send
-          ? send.kind === 'comment'
-            ? commentTitle(send.name)
+          ? underAPost(send.kind)
+            ? commentTitle(send.name, send.kind)
             : W.changeTitle(send.name)
           : undefined
       }
@@ -680,7 +676,7 @@ function ChangeSheet({
           </Text>
         ) : null}
         <Button disabled={!trimmed} onPress={ok} testID="waiting-change-ok">
-          {send?.kind === 'comment' ? W.ok : W.okChanged}
+          {send && underAPost(send.kind) ? W.ok : W.okChanged}
         </Button>
       </View>
     </Sheet>

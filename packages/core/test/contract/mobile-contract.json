@@ -7535,7 +7535,12 @@
                           "follow_up",
                           "check_in",
                           "reply",
+                          "demo_reminder",
+                          "rebook",
+                          "birthday",
+                          "new_job",
                           "comment",
+                          "group_reply",
                           "warm_lead",
                           "partner_ask",
                           "partner_follow_up",
@@ -7644,6 +7649,165 @@
                       "type": "string",
                       "minLength": 1,
                       "maxLength": 500
+                    }
+                  },
+                  "work": {
+                    "type": "object",
+                    "properties": {
+                      "title": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 100
+                      },
+                      "company": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 100
+                      },
+                      "words": {
+                        "default": null,
+                        "anyOf": [
+                          {
+                            "type": "string",
+                            "maxLength": 600
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      },
+                      "since": {
+                        "default": null,
+                        "anyOf": [
+                          {
+                            "type": "string",
+                            "pattern": "^\\d{4}-(0[1-9]|1[0-2])$"
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      }
+                    },
+                    "required": ["title", "company"]
+                  },
+                  "featured": {
+                    "type": "object",
+                    "properties": {
+                      "post": {
+                        "default": null,
+                        "anyOf": [
+                          {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 300
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      },
+                      "link": {
+                        "default": null,
+                        "anyOf": [
+                          {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 500
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      }
+                    }
+                  },
+                  "ideal": {
+                    "type": "object",
+                    "properties": {
+                      "customer": {
+                        "default": null,
+                        "anyOf": [
+                          {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 300
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      },
+                      "partner": {
+                        "default": null,
+                        "anyOf": [
+                          {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 300
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      }
+                    }
+                  },
+                  "services": {
+                    "minItems": 1,
+                    "maxItems": 3,
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "name": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 80
+                        },
+                        "words": {
+                          "default": null,
+                          "anyOf": [
+                            {
+                              "type": "string",
+                              "maxLength": 300
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        }
+                      },
+                      "required": ["name"]
+                    }
+                  },
+                  "linkChanges": {
+                    "minItems": 1,
+                    "maxItems": 3,
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "from": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 500
+                        },
+                        "to": {
+                          "default": null,
+                          "anyOf": [
+                            {
+                              "type": "string",
+                              "minLength": 1,
+                              "maxLength": 500
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        }
+                      },
+                      "required": ["from"]
                     }
                   }
                 },
@@ -7798,6 +7962,9 @@
                 "enum": ["bundled", "each"]
               },
               "dayReport": {
+                "type": "boolean"
+              },
+              "acceptedPush": {
                 "type": "boolean"
               },
               "voice": {
@@ -8085,6 +8252,92 @@
         "required": ["workspaceId", "profileId", "client"]
       }
     },
+    "outreach.computer.remove": {
+      "offline": "online",
+      "input": {
+        "type": "object",
+        "properties": {
+          "workspaceId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "computerIds": {
+            "minItems": 1,
+            "maxItems": 200,
+            "type": "array",
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        },
+        "required": ["workspaceId", "computerIds"]
+      }
+    },
+    "outreach.computer.rename": {
+      "offline": "online",
+      "input": {
+        "type": "object",
+        "properties": {
+          "workspaceId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "computerId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 40
+          }
+        },
+        "required": ["workspaceId", "computerId", "name"]
+      }
+    },
+    "outreach.country.decide": {
+      "offline": "online",
+      "input": {
+        "type": "object",
+        "properties": {
+          "workspaceId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "profileId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "choice": {
+            "type": "string",
+            "enum": ["through", "skip", "setting"]
+          }
+        },
+        "required": ["workspaceId", "profileId", "choice"]
+      }
+    },
+    "outreach.country.unskip": {
+      "offline": "online",
+      "input": {
+        "type": "object",
+        "properties": {
+          "workspaceId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "profileId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "through": {
+            "default": true,
+            "type": "boolean"
+          }
+        },
+        "required": ["workspaceId", "profileId"]
+      }
+    },
     "outreach.day.start": {
       "offline": "anytime",
       "input": {
@@ -8173,6 +8426,40 @@
           }
         },
         "required": ["workspaceId", "booked"]
+      }
+    },
+    "outreach.demo.outcome": {
+      "offline": "online",
+      "input": {
+        "type": "object",
+        "properties": {
+          "workspaceId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "profileId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "outcome": {
+            "type": "string",
+            "enum": ["won", "lost"]
+          },
+          "why": {
+            "default": null,
+            "anyOf": [
+              {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 300
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": ["workspaceId", "profileId", "outcome"]
       }
     },
     "outreach.friend.set": {
@@ -8334,6 +8621,111 @@
         "required": ["workspaceId", "helpfulId"]
       }
     },
+    "outreach.later.set": {
+      "offline": "online",
+      "input": {
+        "type": "object",
+        "properties": {
+          "workspaceId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "profileId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "later": {
+            "type": "boolean"
+          }
+        },
+        "required": ["workspaceId", "profileId", "later"]
+      }
+    },
+    "outreach.like_yours.add": {
+      "offline": "online",
+      "input": {
+        "type": "object",
+        "properties": {
+          "workspaceId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "account": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200
+          }
+        },
+        "required": ["workspaceId", "account"]
+      }
+    },
+    "outreach.like_yours.remove": {
+      "offline": "online",
+      "input": {
+        "type": "object",
+        "properties": {
+          "workspaceId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        "required": ["workspaceId", "id"]
+      }
+    },
+    "outreach.messages.edit": {
+      "offline": "online",
+      "input": {
+        "type": "object",
+        "properties": {
+          "workspaceId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "part": {
+            "type": "string",
+            "enum": ["first", "video", "link", "followUps", "checkIn"]
+          },
+          "index": {
+            "default": 0,
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 6
+          },
+          "text": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 600
+          }
+        },
+        "required": ["workspaceId", "part", "text"]
+      }
+    },
+    "outreach.messages.forget": {
+      "offline": "online",
+      "input": {
+        "type": "object",
+        "properties": {
+          "workspaceId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "part": {
+            "type": "string",
+            "enum": ["first", "video", "link", "followUps", "checkIn"]
+          },
+          "note": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 300
+          }
+        },
+        "required": ["workspaceId", "part", "note"]
+      }
+    },
     "outreach.need.clear": {
       "offline": "anytime",
       "input": {
@@ -8353,6 +8745,31 @@
           }
         },
         "required": ["workspaceId", "needId", "how"]
+      }
+    },
+    "outreach.owner.move": {
+      "offline": "online",
+      "input": {
+        "type": "object",
+        "properties": {
+          "workspaceId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "kind": {
+            "type": "string",
+            "enum": ["group", "person"]
+          },
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "userId": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        "required": ["workspaceId", "kind", "id", "userId"]
       }
     },
     "outreach.partner.mark": {
@@ -8418,7 +8835,7 @@
             "anyOf": [
               {
                 "type": "string",
-                "enum": ["crm_demos"]
+                "enum": ["crm_demos", "real_estate", "home_services", "coaching"]
               },
               {
                 "type": "null"
@@ -14668,6 +15085,72 @@
         "required": ["workspaceId"]
       }
     },
+    "outreach.countries.skipped": {
+      "input": {
+        "type": "object",
+        "properties": {
+          "workspaceId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "list": {
+            "default": "skipped",
+            "type": "string",
+            "enum": ["skipped", "unsure"]
+          },
+          "search": {
+            "type": "string",
+            "maxLength": 100
+          },
+          "page": {
+            "default": 1,
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 100000
+          }
+        },
+        "required": ["workspaceId"]
+      }
+    },
+    "outreach.group.people": {
+      "input": {
+        "type": "object",
+        "properties": {
+          "workspaceId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "groupId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "view": {
+            "default": "all",
+            "type": "string",
+            "enum": [
+              "all",
+              "not_reached",
+              "found",
+              "warming",
+              "friends",
+              "talking",
+              "ready",
+              "pitched",
+              "booked",
+              "client",
+              "lost"
+            ]
+          },
+          "page": {
+            "default": 1,
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 100000
+          }
+        },
+        "required": ["workspaceId", "groupId"]
+      }
+    },
     "outreach.groups": {
       "input": {
         "type": "object",
@@ -14801,6 +15284,22 @@
           }
         },
         "required": ["workspaceId"]
+      }
+    },
+    "outreach.person": {
+      "input": {
+        "type": "object",
+        "properties": {
+          "workspaceId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "personId": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        "required": ["workspaceId", "personId"]
       }
     },
     "outreach.playbook.list": {

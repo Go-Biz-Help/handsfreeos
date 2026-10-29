@@ -226,6 +226,11 @@ const TASK: Extract<AskTask, { kind: 'profile_edit' }> = {
   name: 'Casey | Columbus Roofs',
   username: 'casey.roofs',
   links: [CAL],
+  work: null,
+  featured: null,
+  ideal: null,
+  services: [],
+  linkChanges: [],
 };
 
 async function putIn(
@@ -462,7 +467,16 @@ describe('Put these in, on Instagram', () => {
 
 describe('the bio, on Instagram’s form', () => {
   it('waits for Submit to come on, presses it once, and reads the form again to be sure it’s kept', async () => {
-    const { end, now, opened } = await putIn({ name: null, username: null, links: [] });
+    const { end, now, opened } = await putIn({
+      name: null,
+      username: null,
+      links: [],
+      work: null,
+      featured: null,
+      ideal: null,
+      services: [],
+      linkChanges: [],
+    });
     expect(now().bio).toBe(TASK.bio);
     expect(opened).toEqual([FORM, `${IG}/`, `${IG}/casey.owner/`, FORM]);
     expect(end).toEqual({ line: `Your bio now says “${TASK.bio}”.`, warned: false });
@@ -470,7 +484,16 @@ describe('the bio, on Instagram’s form', () => {
 
   it('hands over the step it stopped at when Submit never comes on, with a note of which', async () => {
     const { end, said } = await putIn(
-      { name: null, username: null, links: [] },
+      {
+        name: null,
+        username: null,
+        links: [],
+        work: null,
+        featured: null,
+        ideal: null,
+        services: [],
+        linkChanges: [],
+      },
       { submitStuck: true },
       (_says, tab) => {
         tab.submitted();
@@ -491,7 +514,16 @@ describe('the bio, on Instagram’s form', () => {
 
   it('stops for the day on Instagram’s block at Submit, handing nothing over', async () => {
     const { end, said, warned } = await putIn(
-      { name: null, username: null, links: [] },
+      {
+        name: null,
+        username: null,
+        links: [],
+        work: null,
+        featured: null,
+        ideal: null,
+        services: [],
+        linkChanges: [],
+      },
       { blockedOnForm: true },
     );
     expect(said).toEqual([]);
@@ -500,7 +532,19 @@ describe('the bio, on Instagram’s form', () => {
   });
 
   it('never says the bio is in when the form doesn’t show it after', async () => {
-    const { end } = await putIn({ name: null, username: null, links: [] }, { formForgets: true });
+    const { end } = await putIn(
+      {
+        name: null,
+        username: null,
+        links: [],
+        work: null,
+        featured: null,
+        ideal: null,
+        services: [],
+        linkChanges: [],
+      },
+      { formForgets: true },
+    );
     expect(end).toEqual({
       line: `Instagram hasn’t shown your new bio on your profile yet. Check it there, and if it isn’t, press Edit profile, write “${TASK.bio}” under Bio, and press Submit.`,
       warned: false,

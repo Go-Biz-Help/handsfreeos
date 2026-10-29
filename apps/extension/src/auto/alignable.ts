@@ -69,6 +69,7 @@ import { keepWarning, warnedNow, warningInput } from '../hfos/warned';
 import { readAlignableChats } from '../jobs/alignable/chats';
 import { checkConnections, isTheirs, readThemOnAlignable } from '../jobs/alignable/checks';
 import { searchForCustomers } from '../jobs/alignable/customer-search';
+import { readEventsNear } from '../jobs/alignable/events';
 import {
   checkGroupsOn,
   joinGroupsOn,
@@ -76,6 +77,7 @@ import {
   readMembers,
   readMyGroups,
 } from '../jobs/alignable/groups';
+import { readAlignablePostPeople } from '../jobs/alignable/post-people';
 import { lookUpOnAlignable } from '../jobs/alignable/lookup';
 import { searchAlignable } from '../jobs/alignable/partner-search';
 import { checkRequests } from '../jobs/alignable/people';
@@ -86,8 +88,11 @@ import { withdrawOnItsOwn } from '../jobs/alignable/withdraw';
 import { valueOf, warnedLine, type Hfos, type Job, type JobEnd } from '../jobs/job';
 import { chatMemory } from '../jobs/chats';
 import { checkFound } from '../jobs/found-checks';
+import { alignableProfileRead } from '../jobs/looking';
+import { readProfileOnItsOwn } from '../jobs/own-read';
 import { checkPartners } from '../jobs/partners';
 import { reporter } from '../jobs/report';
+import { askWeeklyPost } from '../jobs/weekly-post';
 import { alignable } from '../networks';
 import { businessRef, discussionIdOf, idIn, urlOf } from '../networks/alignable/read';
 import type { ProfileRef, ThreadRef } from '../networks/facebook/types';
@@ -145,7 +150,10 @@ export const ALIGNABLE_AUTO: readonly TodayKind[] = ['warm_up', 'friend_request'
  * (`my_groups`), before any search or join; after the town's posts, the search for businesses like their clients
  * (`search`), the groups found and checked, joined, their members read and their posts (`group_checks`, `join`,
  * `members`, `group_posts`); and the businesses found by topic are checked last (`found_checks`). From 0.97.0 old
- * connection requests are withdrawn after the new ones are checked, as the person chose (`tidy`, decision 98).
+ * connection requests are withdrawn after the new ones are checked, as the person chose (`tidy`, decision 98). From
+ * 0.101.0 the week's helpful post is asked for after who engaged (`weekly_post`, decision 109), and from 0.104.0 the
+ * events near them are read once a week before the businesses found are checked (`events`, decision 112). From
+ * 0.108.0 who liked and answered the good posts found is read after the groups' posts (`post_people`, decision 116).
  */
 export const ALIGNABLE_DAILY = [
   'my_groups',
@@ -160,8 +168,12 @@ export const ALIGNABLE_DAILY = [
   'join',
   'members',
   'group_posts',
+  'post_people',
   'helpful',
+  'weekly_post',
+  'events',
   'found_checks',
+  'profile',
 ] as const satisfies readonly (DailyJob | OwnDailyJob)[];
 type AlignableDaily = (typeof ALIGNABLE_DAILY)[number];
 
@@ -178,8 +190,12 @@ const DAILY_DOING: Readonly<Record<AlignableDaily, string>> = {
   join: 'Joining good Alignable groups, as your groups run low on people to reach…',
   members: 'Reading the members of your Alignable groups, leaders first…',
   group_posts: 'Reading the posts in your Alignable groups for the AI…',
+  post_people: 'Reading who liked and answered good posts on Alignable…',
   helpful: 'Reading your notifications for who liked, commented on or recommended you…',
+  weekly_post: 'Asking for this week’s helpful post for Alignable…',
+  events: 'Reading the events near you on Alignable, as it does once a week…',
   found_checks: 'Checking the businesses found on Alignable for good fits…',
+  profile: 'Reading your Alignable profile, as it does on the 1st of each month…',
 };
 const DAILY_NAMES: Readonly<Record<AlignableDaily, string>> = {
   my_groups: 'Your groups',
@@ -194,8 +210,12 @@ const DAILY_NAMES: Readonly<Record<AlignableDaily, string>> = {
   join: 'Join groups',
   members: 'Group members',
   group_posts: 'Posts in your groups',
+  post_people: 'Who liked and answered',
   helpful: 'Who engaged with you',
+  weekly_post: 'This week’s helpful post',
+  events: 'Events near you',
   found_checks: 'Check the businesses found',
+  profile: 'Read my profile',
 };
 
 /** Alignable's pace between steps: LinkedIn's, a person's (the plan's "The risk, said plainly"). */
@@ -441,17 +461,99 @@ async function likeFoundPost(
   };
 }
 
+/** The day an answer that couldn't be liked was last noted with its page's outline (decision 74): once a day at most. */
+let answerNotedOn: string | null = null;
+
+/**
+ * The like on their answer on the good post they were found by (decision 116), on that post's own page, by its
+ * discussion's id, found again by its business, when nothing rules it out (never one about grief, illness or trouble,
+ * nor on a post that is). One liked already counts. Null when the page shows no answer of theirs or no Like on it,
+ * noted with the page's outline once a day: then their business page's warm-up goes instead.
+ */
+async function likeFoundAnswer(
+  item: TodayListItem,
+  businessId: string,
+  after: After,
+): Promise<Outcome | null> {
+  const want = wantOf(item.profileUrl);
+  const id = discussionIdOf(item.postUrl);
+  if (!want || !id) return null;
+  const url = `${ALIGNABLE}/biz/discussions/${id}`;
+  await tab.open(url);
+  await setState({ tabId: tab.tabId });
+  const page = await read();
+  const stop = await warnedOn(page, businessId);
+  if (stop) return { stop };
+  if (page.signedOut) return { again: SIGNED_OUT };
+  const noteMissed = async () => {
+    const state = await stateNow();
+    if (answerNotedOn === state.day) return;
+    answerNotedOn = state.day;
+    await reporter(tab, answer as Hfos, {
+      businessId,
+      platform: PLATFORM,
+      askId: null,
+      job: 'warm_up.comment',
+    })({ note: 'Couldn’t like their answer.', outline: true });
+  };
+  const seen = await tab.ask({ type: 'hfos-their-comment', profile: want, postUrl: url });
+  if (!seen.ok) throw new Error(seen.error);
+  const theirs = seen.comment;
+  if (!theirs || theirs.liked === null) {
+    await noteMissed();
+    return null;
+  }
+  if (neverLike({ text: `${item.post ?? ''}\n${theirs.text ?? ''}`, pictures: [] })) return null;
+  if (!theirs.liked) {
+    const liked = await tab.ask({ type: 'hfos-like-comment', profile: want, postUrl: url });
+    if (!liked.ok) throw new Error(liked.error);
+    if (liked.result === 'none' || liked.result === 'not_sent') {
+      await noteMissed();
+      return null;
+    }
+    await pause(SETTLE_MS);
+    const warned = await warnedOn(await read(), businessId);
+    if (warned) return { stop: warned };
+  }
+  await takeNote(
+    {
+      type: 'hfos-noted',
+      step: {
+        kind: 'like',
+        to: { name: item.name, profile: want },
+        group: null,
+        postUrl: theirs.commentUrl ?? url,
+        thread: null,
+        replying: null,
+        auto: true,
+        postText: likedText({ text: `Their answer: ${theirs.text ?? ''}`, pictures: [] }),
+      },
+      at: now(),
+    },
+    PLATFORM,
+  );
+  return {
+    done: true,
+    line: theirs.liked
+      ? `${item.name}’s answer was liked already: ${after.next}`
+      : `Liked ${item.name}’s answer on a post that was found for you: ${after.next}`,
+  };
+}
+
 /**
  * A look at their business page, and a like on a recent post of theirs when the page shows one, a day before the
  * request: the first that nothing rules out (never one about grief, illness or trouble), not liked yet. One liked
  * already counts. With no recent post of theirs, or none right to like, the look alone is the warm-up, and HandsFreeOS
  * hears there was nothing to like, so the request needn't wait. For a writer found by their post (decision 92), the
- * like goes on that post, on its own page, and their business page's warm-up only when that post's gone.
+ * like goes on that post, on its own page, and their business page's warm-up only when that post's gone. From 0.108.0
+ * (decision 116) a business found by its answer on a good post gets the like on that answer, in the same way.
  */
 async function warmUp(item: TodayListItem, businessId: string): Promise<Outcome> {
   const after = afterWarmUp(item);
   if (item.postUrl) {
-    const found = await likeFoundPost(item, businessId, after);
+    const found = item.likeComment
+      ? await likeFoundAnswer(item, businessId, after)
+      : await likeFoundPost(item, businessId, after);
     if (found) return found;
     await pause(SETTLE_MS);
   }
@@ -908,10 +1010,18 @@ export async function runAlignableDaily(kind: AlignableDaily, job: Job): Promise
       return readMembers(reporting(job, kind));
     case 'group_posts':
       return readGroupPosts(reporting(job, kind));
+    case 'post_people':
+      return readAlignablePostPeople(reporting(job, kind));
     case 'helpful':
       return readWarmLeads(job);
+    case 'weekly_post':
+      return askWeeklyPost(job, 'alignable');
+    case 'events':
+      return readEventsNear(reporting(job, kind));
     case 'found_checks':
       return checkFound(job, { platform: PLATFORM, read: readThemOnAlignable });
+    case 'profile':
+      return readProfileOnItsOwn(job, PLATFORM, (j) => alignableProfileRead(j));
   }
 }
 

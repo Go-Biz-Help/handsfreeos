@@ -24,19 +24,17 @@ const LISTS: ReadonlySet<PageKind> = new Set([
   'chat',
 ]);
 /** LinkedIn's own button at the foot of a list, for more of it. */
-const SHOW_MORE = /^(show more results|load more|see more results|show more)$/i;
+export const SHOW_MORE = /^(show more results|load more|see more results|show more)$/i;
 /** How far one scroll goes: most of a screen, so nothing is skipped past unread. */
 const SCROLL = 0.8;
 
 const kindOf = (href: string) => classifyUrl(href).kind;
 
 /** Whether an element scrolls up and down by itself. */
-function scrolls(element: Element): boolean {
+export function scrolls(element: Element): boolean {
+  if (element.scrollHeight <= element.clientHeight + 4) return false;
   const style = getComputedStyle(element);
-  return (
-    element.scrollHeight > element.clientHeight + 4 &&
-    (style.overflowY === 'auto' || style.overflowY === 'scroll')
-  );
+  return style.overflowY === 'auto' || style.overflowY === 'scroll';
 }
 
 /** The last link to someone, a post or a conversation in the main column: where the list ends for now. */

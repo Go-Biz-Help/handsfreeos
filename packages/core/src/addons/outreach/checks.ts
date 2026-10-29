@@ -64,9 +64,22 @@ export const CHECK_REASONS = {
   chat_only: 'You’ve chatted, though you’re not friends',
   group: 'Found in one of your groups',
   friend: 'A friend',
+  /** Follows them on Facebook, though they aren't friends (decision 113): after the friends. */
+  follower: 'Follows you, though you’re not friends',
+  /** In one of the business's Facebook groups, though they aren't friends (decision 116): last of all. */
+  member: 'In one of your groups, though you’re not friends',
 } as const;
 export type CheckReason = keyof typeof CHECK_REASONS;
 export const CHECK_REASON_KEYS = Object.keys(CHECK_REASONS) as [CheckReason, ...CheckReason[]];
+
+/**
+ * What the AI's check is told of someone in one of the business's Facebook groups who isn't a friend (decision 116),
+ * among what's known of them: the group they were seen in last, when it's known.
+ */
+export const memberFact = (group: string | null) =>
+  group
+    ? `In ${group}, one of the owner’s groups on Facebook, though they aren’t friends`
+    : 'In one of the owner’s groups on Facebook, though they aren’t friends';
 
 // ------------------------------------------------------------------------------------------------- the extension
 

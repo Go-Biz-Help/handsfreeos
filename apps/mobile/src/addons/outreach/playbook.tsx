@@ -1,6 +1,21 @@
 import { NETWORK_WORDS as NW } from '@hfos/core/addons/outreach/network-words';
 import { PLATFORM_KEYS, PLATFORMS, WORKING_PLATFORMS } from '@hfos/core/addons/outreach/networks';
-import { scriptMinutes, VIDEO_PARTS, VIDEO_WORDS as V } from '@hfos/core/addons/outreach/video';
+import type {
+  AssistQuestion,
+  PlaybookAssistOutput,
+} from '@hfos/core/addons/outreach/playbook-assist';
+import {
+  scriptMinutes,
+  VIDEO_LIMITS,
+  VIDEO_PARTS,
+  VIDEO_SHOWS,
+  VIDEO_TIPS,
+  VIDEO_WORDS as V,
+  type VideoDraft,
+  type VideoPart,
+  type VideoScript,
+  type VideoScriptInput,
+} from '@hfos/core/addons/outreach/video';
 import {
   findWordsHint,
   OUTREACH_WORDS as W,
@@ -15,6 +30,7 @@ import {
   PACE_LIMITS,
   paceOf,
   PLAYBOOK_GOAL_KEYS,
+  PLAYBOOK_LIMITS,
   PLAYBOOK_GOALS,
   PLAYBOOK_STEP_KEYS,
   PLAYBOOK_STEPS,
@@ -28,7 +44,7 @@ import * as React from 'react';
 import { ActivityIndicator, View } from 'react-native';
 
 import { change, ChangeError } from '@/changes';
-import { Archive, Check, Plus, RotateCcw, Trash } from '@/components/icons';
+import { Archive, Check, Plus, RotateCcw, Sparkles, Trash } from '@/components/icons';
 import { List, ListRow } from '@/components/shell/list';
 import { Screen } from '@/components/shell/screen';
 import { Badge } from '@/components/ui/badge';
@@ -41,7 +57,9 @@ import { Switch } from '@/components/ui/switch';
 import { Text } from '@/components/ui/text';
 import { toast } from '@/components/ui/toast';
 import { api, errorMessage, unwrap } from '@/lib/api';
+import { workerPost } from '@/lib/worker';
 
+import { AiHelp, assistDraftOf, type AskAssist } from './ai-help';
 import {
   NeedsSignal,
   Note,
@@ -50,16 +68,21 @@ import {
   useOutreachAnswer,
   useOutreachContext,
 } from './kit';
+import { PHONE_WORDS } from './phone-words';
 
 /**
  * One playbook on the phone (decision 44): each part of it, and for owners and admins, changing it a part at a time
  * in a sheet. Before each save the phone asks for the playbook again and puts only the part changed on what it finds,
- * so a change made meanwhile on the web isn't undone. The AI's help (Improve, Suggest more) is on the web. It needs
- * signal. Its networks are one part: one playbook for every network (Chris), at least one picked. Each network's own
- * words, and whether its clients are online, show on a customers' playbook while that network is ticked (decision 92).
+ * so a change made meanwhile on the web isn't undone. The AI helps in the sheet as on the web (./ai-help.tsx: Improve,
+ * Suggest more, Write it for me), and writes the short video's script there, part by part (`outreach.video.script`);
+ * what it writes is only offered, and saved with the part. It needs signal. Its networks are one part: one playbook
+ * for every network (Chris), at least one picked. Each network's own words, and whether its clients are online, show
+ * on a customers' playbook while that network is ticked (decision 92).
  */
 
 export type Section = keyof typeof W.playbookSections | 'name';
+
+const A = PHONE_WORDS.aiHelp;
 
 /** The fields of the details each part changes. */
 export const SECTION_FIELDS: Readonly<
@@ -75,8 +98,8 @@ export const SECTION_FIELDS: Readonly<
   groupWords: ['groupWords'],
   steps: ['steps'],
   pace: ['pace'],
-  // The short video's link (decision 69): its script is written on the web, with the AI.
-  video: ['videoLink'],
+  // The short video (decision 69): its link, and its script, written by the AI and changed as the business likes.
+  video: ['videoLink', 'videoScript'],
   tone: ['tone'],
   samples: ['samples'],
   openers: ['openerStyles', 'ownOpeners'],
@@ -160,7 +183,7 @@ export function sectionWords(details: PlaybookDetails, section: Exclude<Section,
                 (p, i) => `${i + 1} · ${VIDEO_PARTS[p.part].title}\n${p.say}\n${V.show}: ${p.show}`,
               ),
             ].join('\n\n')
-          : V.onComputer,
+          : V.none,
       ].join('\n\n');
     }
     case 'openers':
@@ -216,6 +239,16 @@ export function PlaybookScreen({ playbookId }: { playbookId: string }) {
     `playbook:${ws}:${playbookId}`,
     W.rows.playbooks,
   );
+  // The live main offer's version, as the web's builder has it: a script written for another one says so.
+  const offer = useOutreachAnswer(
+    ctx.manages
+      ? async () =>
+          unwrap(await api.POST('/v1/queries/main_offer.get', { body: { workspaceId: ws } })).live
+            ?.version ?? null
+      : null,
+    `playbook-offer:${ws}`,
+    W.rows.playbooks,
+  );
   return (
     <PlaybookBody
       playbook={answer.data}
@@ -225,6 +258,19 @@ export function PlaybookScreen({ playbookId }: { playbookId: string }) {
       online={ctx.online}
       onRetry={answer.reload}
       onPlaybooks={() => openOutreach(ws, 'playbooks')}
+      onAssist={(part, mode, draft) =>
+        workerPost<PlaybookAssistOutput>('/v1/addons/outreach/actions/outreach.playbook.assist', {
+          workspaceId: ws,
+          input: { part, mode, draft },
+        })
+      }
+      onScript={(input) =>
+        workerPost<VideoScript>('/v1/addons/outreach/actions/outreach.video.script', {
+          workspaceId: ws,
+          input,
+        })
+      }
+      liveVersion={offer.data ?? null}
       onSave={async (loaded, draft, section) => {
         try {
           // What's there now: someone may have changed it on the web meanwhile.
@@ -268,6 +314,9 @@ export function PlaybookBody({
   onPlaybooks,
   onSave,
   onArchive,
+  onAssist,
+  onScript,
+  liveVersion = null,
 }: {
   playbook: Playbook | null;
   /** The first answer is on its way. */
@@ -285,6 +334,12 @@ export function PlaybookBody({
     section: Section,
   ) => Promise<string | null>;
   onArchive: (archived: boolean) => void;
+  /** Asks the AI for help on a part (./ai-help.tsx). Without it, the sheet has none and says it's on the web. */
+  onAssist?: AskAssist;
+  /** Asks the AI to write the short video's script, or one part of it again. */
+  onScript?: (input: VideoScriptInput) => Promise<VideoScript>;
+  /** The live main offer's version: a script written for another one says so. */
+  liveVersion?: number | null;
 }) {
   const [editing, setEditing] = React.useState<Section | null>(null);
   if (!playbook)
@@ -314,7 +369,7 @@ export function PlaybookBody({
       leading="back"
       testID="outreach-playbook"
     >
-      {manages ? <Note>{W.aiOnTheWeb}</Note> : <Note>{W.readOnly}</Note>}
+      {manages ? onAssist ? null : <Note>{W.aiOnTheWeb}</Note> : <Note>{W.readOnly}</Note>}
       {manages && !online ? <NeedsSignal words={W.needsSignal(W.rows.playbooks)} /> : null}
       <List>
         <ListRow
@@ -365,9 +420,19 @@ export function PlaybookBody({
         section={editing}
         onClose={() => setEditing(null)}
         onSave={onSave}
+        onAssist={onAssist}
+        onScript={onScript}
+        liveVersion={liveVersion}
       />
     </Screen>
   );
+}
+
+/** What the AI does in the sheet: help on a part, and the short video's script. */
+interface SheetAi {
+  onAssist?: AskAssist;
+  onScript?: (input: VideoScriptInput) => Promise<VideoScript>;
+  liveVersion: number | null;
 }
 
 function SectionSheet({
@@ -375,6 +440,7 @@ function SectionSheet({
   section,
   onClose,
   onSave,
+  ...ai
 }: {
   playbook: Playbook;
   section: Section | null;
@@ -384,7 +450,7 @@ function SectionSheet({
     draft: Pick<Playbook, 'name' | 'details'>,
     section: Section,
   ) => Promise<string | null>;
-}) {
+} & SheetAi) {
   const [draft, setDraft] = React.useState<Pick<Playbook, 'name' | 'details'>>(playbook);
   const [problem, setProblem] = React.useState<string | null>(null);
   const [busy, setBusy] = React.useState(false);
@@ -413,7 +479,7 @@ function SectionSheet({
     <Sheet open={section !== null} onClose={onClose} title={title} scroll testID="playbook-sheet">
       <View className="gap-3">
         {section ? (
-          <SectionEditor section={section} draft={draft} set={set} setDraft={setDraft} />
+          <SectionEditor section={section} draft={draft} set={set} setDraft={setDraft} {...ai} />
         ) : null}
         {problem ? (
           <Text className="text-[13.5px] text-danger" testID="playbook-problem">
@@ -438,6 +504,12 @@ function LinesInput({
   testID?: string;
 }) {
   const [text, setText] = React.useState(value.join('\n'));
+  // Changed from outside, by the AI's lines: the box follows them. What's typed stays as typed.
+  const [seen, setSeen] = React.useState(value);
+  if (value !== seen) {
+    setSeen(value);
+    if (linesOf(text).join('\n') !== value.join('\n')) setText(value.join('\n'));
+  }
   return (
     <View className="gap-1">
       <Input
@@ -480,18 +552,94 @@ function WordsInput({
   );
 }
 
+/** The words parts the AI writes, or writes better. */
+type WordsKey = 'offer' | 'audience' | 'area' | 'tone' | 'disclaimer';
+/** The lists the AI adds lines to, or rewrites. */
+type ListKey =
+  | 'signs'
+  | 'skip'
+  | 'groupWords'
+  | 'tags'
+  | 'samples'
+  | 'avoid'
+  | 'hashtags'
+  | 'postSearches'
+  | 'businessKinds'
+  | 'openerStyles'
+  | 'ownOpeners';
+
 function SectionEditor({
   section,
   draft,
   set,
   setDraft,
+  onAssist,
+  onScript,
+  liveVersion,
 }: {
   section: Section;
   draft: Pick<Playbook, 'name' | 'details'>;
   set: (part: Partial<PlaybookDetails>) => void;
   setDraft: React.Dispatch<React.SetStateAction<Pick<Playbook, 'name' | 'details'>>>;
-}) {
+} & SheetAi) {
   const d = draft.details;
+  // The playbook as it stands in the sheet, so the AI's help fits the rest of it.
+  const assistDraft = assistDraftOf(draft);
+  /** AI help on words: what's picked goes in place of what's there. */
+  const help = (part: WordsKey) =>
+    onAssist ? (
+      <AiHelp
+        part={part}
+        draft={assistDraft}
+        written={Boolean(d[part]?.trim())}
+        onAsk={onAssist}
+        onWords={(words) => set({ [part]: words })}
+      />
+    ) : null;
+  /** Adds a line the AI suggested to a list, unless it's there already or the list is full. */
+  const addLine = (k: ListKey, line: string): boolean => {
+    const lines = (d[k] ?? []).filter((x) => x.trim());
+    if (lines.some((x) => x.toLowerCase() === line.toLowerCase())) return true;
+    const { most } = PLAYBOOK_LIMITS[k];
+    if (lines.length >= most) {
+      toast.error(A.full(most));
+      return false;
+    }
+    set({ [k]: [...lines, line] });
+    return true;
+  };
+  /** AI help on a list: lines to add one by one, or the list rewritten to use instead. */
+  const listHelp = (k: ListKey) =>
+    onAssist ? (
+      <AiHelp
+        part={k}
+        draft={assistDraft}
+        written={assistDraft[k].length > 0}
+        onAsk={onAssist}
+        onAdd={(line) => addLine(k, line)}
+        onReplace={(lines) => set({ [k]: lines })}
+      />
+    ) : null;
+  /** Adds a question the AI suggested, while there's room for one. */
+  const addQuestion = (q: AssistQuestion) =>
+    setDraft((x) =>
+      x.details.questions.length >= PLAYBOOK_LIMITS.questions.most
+        ? x
+        : {
+            ...x,
+            details: {
+              ...x.details,
+              questions: [
+                ...x.details.questions,
+                {
+                  id: nextQuestionId(x.details.questions),
+                  text: q.text,
+                  answers: q.answers.map((a) => ({ ...a })),
+                },
+              ],
+            },
+          },
+    );
   switch (section) {
     case 'name':
       return (
@@ -530,32 +678,24 @@ function SectionEditor({
             placeholder={W.linkLabel}
             multiline={false}
           />
+          {help('offer')}
         </>
       );
     case 'video':
-      return (
-        <>
-          <WordsInput
-            value={d.videoLink ?? null}
-            onChange={(link) => set({ videoLink: link?.trim() || null })}
-            placeholder={V.linkPlaceholder}
-            multiline={false}
-            testID="playbook-video-link"
-          />
-          <Note>{V.linkHint}</Note>
-          <Note>{V.onComputer}</Note>
-        </>
-      );
+      return <VideoEditor draft={draft} set={set} onScript={onScript} liveVersion={liveVersion} />;
     case 'audience':
     case 'area':
     case 'tone':
     case 'disclaimer':
       return (
-        <WordsInput
-          value={d[section]}
-          onChange={(v) => set({ [section]: v })}
-          testID="playbook-words"
-        />
+        <>
+          <WordsInput
+            value={d[section]}
+            onChange={(v) => set({ [section]: v })}
+            testID="playbook-words"
+          />
+          {help(section)}
+        </>
       );
     case 'networks':
       return (
@@ -665,17 +805,30 @@ function SectionEditor({
         <>
           <Text className="text-[14px] font-medium">{W.openerStyles}</Text>
           <LinesInput value={d.openerStyles} onChange={(openerStyles) => set({ openerStyles })} />
+          {listHelp('openerStyles')}
           <Text className="text-[14px] font-medium">{W.ownOpeners}</Text>
           <LinesInput value={d.ownOpeners} onChange={(ownOpeners) => set({ ownOpeners })} />
+          {listHelp('ownOpeners')}
         </>
       );
     case 'questions':
       return (
-        <QuestionsEditor
-          questions={d.questions}
-          tags={d.tags}
-          onChange={(questions) => set({ questions })}
-        />
+        <>
+          <QuestionsEditor
+            questions={d.questions}
+            tags={d.tags}
+            onChange={(questions) => set({ questions })}
+          />
+          {onAssist ? (
+            <AiHelp
+              part="questions"
+              draft={assistDraft}
+              written={d.questions.length > 0}
+              onAsk={onAssist}
+              onQuestion={addQuestion}
+            />
+          ) : null}
+        </>
       );
     case 'hashtags':
     case 'postSearches':
@@ -690,6 +843,7 @@ function SectionEditor({
           />
           <Note testID="playbook-words-hint">{findWordsHint(d, platform)}</Note>
           {section === 'hashtags' ? <Note>{W.findWords.hashtagHint}</Note> : null}
+          {listHelp(section)}
         </>
       );
     }
@@ -710,13 +864,199 @@ function SectionEditor({
       );
     default:
       return (
-        <LinesInput
-          value={d[section]}
-          onChange={(lines) => set({ [section]: lines })}
-          testID="playbook-lines"
-        />
+        <>
+          <LinesInput
+            value={d[section]}
+            onChange={(lines) => set({ [section]: lines })}
+            testID="playbook-lines"
+          />
+          {listHelp(section)}
+        </>
       );
   }
+}
+
+/**
+ * The playbook's short video (decision 69), as the web's builder has it: its link, and its script, which the AI writes
+ * from the main offer and the niche, part by part, each with what to say and what to show, and writes one part again
+ * on Improve. The business changes the words as it likes; all of it is saved with the part.
+ */
+function VideoEditor({
+  draft,
+  set,
+  onScript,
+  liveVersion,
+}: {
+  draft: Pick<Playbook, 'name' | 'details'>;
+  set: (part: Partial<PlaybookDetails>) => void;
+} & Omit<SheetAi, 'onAssist'>) {
+  const d = draft.details;
+  const [busy, setBusy] = React.useState<'write' | VideoPart | null>(null);
+  const script = d.videoScript ?? null;
+  const older =
+    script !== null &&
+    script.version !== null &&
+    liveVersion !== null &&
+    script.version !== liveVersion;
+  const ask = async (part: VideoPart | null) => {
+    if (!onScript) return;
+    const videoDraft: VideoDraft = {
+      name: draft.name,
+      niche: d.niche ?? '',
+      problem: d.problem ?? '',
+      proof: d.proof ?? [],
+      offer: d.offer ?? '',
+      tone: d.tone ?? '',
+      avoid: d.avoid,
+      disclaimer: d.disclaimer ?? '',
+    };
+    setBusy(part ?? 'write');
+    try {
+      set({
+        videoScript: await onScript(
+          part && script
+            ? { draft: videoDraft, mode: 'improve', part, script }
+            : { draft: videoDraft, mode: 'write' },
+        ),
+      });
+    } catch (e) {
+      toast.error(errorMessage(e));
+    } finally {
+      setBusy(null);
+    }
+  };
+  const put = (part: VideoPart, key: 'say' | 'show', value: string) => {
+    if (!script) return;
+    set({
+      videoScript: {
+        ...script,
+        parts: script.parts.map((p) => (p.part === part ? { ...p, [key]: value } : p)),
+      },
+    });
+  };
+  return (
+    <View className="gap-3" testID="playbook-video">
+      <Text className="text-[14px] font-medium">{V.link}</Text>
+      <WordsInput
+        value={d.videoLink ?? null}
+        onChange={(link) => set({ videoLink: link?.trim() || null })}
+        placeholder={V.linkPlaceholder}
+        multiline={false}
+        testID="playbook-video-link"
+      />
+      <Note>{V.linkHint}</Note>
+      {script ? (
+        <>
+          <View className="flex-row flex-wrap items-center justify-between gap-2">
+            <Text className="shrink text-[13px] text-text-2" testID="playbook-video-runs">
+              {[
+                V.runs(scriptMinutes(script)),
+                script.version ? PHONE_WORDS.writtenFor(script.version) : null,
+              ]
+                .filter(Boolean)
+                .join(' · ')}
+            </Text>
+            {onScript ? (
+              <Button
+                size="sm"
+                variant="secondary"
+                icon={Sparkles}
+                loading={busy === 'write'}
+                disabled={busy !== null}
+                onPress={() => void ask(null)}
+                testID="playbook-video-again"
+              >
+                {V.again}
+              </Button>
+            ) : null}
+          </View>
+          {older ? (
+            <Text
+              className="rounded-menu bg-warning-soft px-3 py-2.5 text-[13px] leading-[18px] text-warning-text"
+              testID="playbook-video-older"
+            >
+              {V.older(script.version!)}
+            </Text>
+          ) : null}
+          {script.parts.map((p, i) => {
+            const { title, shows } = VIDEO_PARTS[p.part];
+            return (
+              <Card
+                key={p.part}
+                className="gap-2 px-3 py-3"
+                testID={`playbook-video-part-${p.part}`}
+              >
+                <View className="flex-row flex-wrap items-center justify-between gap-2">
+                  <View className="shrink flex-row flex-wrap items-center gap-2">
+                    <Text className="text-[14.5px] font-semibold">{`${i + 1} · ${title}`}</Text>
+                    <Badge variant="gray">
+                      <Text>{VIDEO_SHOWS[shows]}</Text>
+                    </Badge>
+                  </View>
+                  {onScript ? (
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      icon={Sparkles}
+                      loading={busy === p.part}
+                      disabled={busy !== null}
+                      onPress={() => void ask(p.part)}
+                      accessibilityLabel={`${V.improve}: ${title}`}
+                      testID={`playbook-video-improve-${p.part}`}
+                    >
+                      {V.improve}
+                    </Button>
+                  ) : null}
+                </View>
+                <Text className="text-[13px] font-medium text-text-2">{V.say}</Text>
+                <Input
+                  value={p.say}
+                  multiline
+                  maxLength={VIDEO_LIMITS.say}
+                  accessibilityLabel={`${V.say}: ${title}`}
+                  onChangeText={(t) => put(p.part, 'say', t)}
+                  className="h-28 py-3"
+                  testID={`playbook-video-say-${p.part}`}
+                />
+                <Text className="text-[13px] font-medium text-text-2">{V.show}</Text>
+                <Input
+                  value={p.show}
+                  maxLength={VIDEO_LIMITS.show}
+                  accessibilityLabel={`${V.show}: ${title}`}
+                  onChangeText={(t) => put(p.part, 'show', t)}
+                  testID={`playbook-video-show-${p.part}`}
+                />
+              </Card>
+            );
+          })}
+        </>
+      ) : (
+        <Card className="items-start gap-3 border-dashed bg-card-2 px-4 py-4">
+          <Note>{onScript ? V.none : V.onComputer}</Note>
+          {onScript ? (
+            <Button
+              icon={Sparkles}
+              loading={busy === 'write'}
+              onPress={() => void ask(null)}
+              testID="playbook-video-write"
+            >
+              {V.write}
+            </Button>
+          ) : null}
+        </Card>
+      )}
+      {busy ? <Note testID="playbook-video-writing">{V.writing}</Note> : null}
+      <Text className="text-[14px] font-medium">{V.tips}</Text>
+      <View className="gap-1.5">
+        {VIDEO_TIPS.map((tip) => (
+          <View key={tip} className="flex-row gap-2">
+            <Icon as={Check} className="mt-0.5 size-4 text-accent-text" />
+            <Text className="flex-1 text-[13px] leading-[18px] text-text-2">{tip}</Text>
+          </View>
+        ))}
+      </View>
+    </View>
+  );
 }
 
 function DaysInput({

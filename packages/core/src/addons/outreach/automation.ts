@@ -223,6 +223,11 @@ export const AutomationSettings = z.object({
   pushes: z.enum(PUSH_MODE_KEYS).default('bundled'),
   /** The day's report: a push at the end of their working hours with the day's numbers (./tracking.ts). On to start. */
   dayReport: z.boolean().default(true),
+  /**
+   * A push when someone accepts their friend request, connection or follow (decision 101, the owner's pick 31a). Off
+   * to start.
+   */
+  acceptedPush: z.boolean().default(false),
   /** How the AI writes for them (./voice.ts): plain words always, and their own short forms, acronyms and emoji. */
   voice: Voice.default(VOICE_DEFAULTS),
   /** The networks they work, and each other network's choices: Facebook on and the rest off, to start. */
@@ -265,6 +270,7 @@ export const AUTOMATION_DEFAULTS: AutomationSettings = {
   markPosts: true,
   pushes: 'bundled',
   dayReport: true,
+  acceptedPush: false,
   voice: VOICE_DEFAULTS,
   networks: NETWORKS_DEFAULTS,
 };
@@ -441,7 +447,8 @@ export function autoKinds(settings: DoesChoices, platform: Platform = 'facebook'
 
 /**
  * The kinds on the list that are messages: the extension drafts each, and sends it once it's OK'd (./sends.ts). A
- * partner's (decision 81) always wait for an OK of their own.
+ * partner's (decision 81) always wait for an OK of their own, and so do another time after a no-show (decision 106) and a
+ * birthday or new-job note (decision 108).
  */
 export const MESSAGE_KINDS = [
   'opener',
@@ -451,6 +458,10 @@ export const MESSAGE_KINDS = [
   'follow_up',
   'check_in',
   'reply',
+  'demo_reminder',
+  'rebook',
+  'birthday',
+  'new_job',
   'partner_ask',
   'partner_follow_up',
   'partner_details',
@@ -459,11 +470,25 @@ export const MESSAGE_KINDS = [
 export type MessageKind = (typeof MESSAGE_KINDS)[number];
 
 /**
- * What goes through `sends` (./sends.ts): the messages, and a comment on a good post on a network whose comments wait
- * for the person at first (the kit's `commentsWait: 'hold'`, decision 92). `MESSAGE_KINDS` keeps meaning messages.
+ * What goes through `sends` (./sends.ts): the messages; a comment on a good post on a network whose comments wait for
+ * the person at first (the kit's `commentsWait: 'hold'`, decision 92); and on Facebook the day's reply to a question in
+ * one of their groups (decision 114, ./active.ts). `MESSAGE_KINDS` keeps meaning messages.
  */
-export const SEND_KINDS = [...MESSAGE_KINDS, 'comment'] as const satisfies readonly TodayKind[];
+export const SEND_KINDS = [
+  ...MESSAGE_KINDS,
+  'comment',
+  'group_reply',
+] as const satisfies readonly TodayKind[];
 export type SendKind = (typeof SEND_KINDS)[number];
+
+/**
+ * The sends that go under a post rather than in a chat, each with its post: a comment (decision 92), and a reply to a
+ * question in a group (decision 114). Neither has a chat, a pitch or a link, and each waits under the comments' hold.
+ */
+export const POST_SEND_KINDS = ['comment', 'group_reply'] as const satisfies readonly SendKind[];
+export type PostSendKind = (typeof POST_SEND_KINDS)[number];
+export const underAPost = (kind: string): kind is PostSendKind =>
+  (POST_SEND_KINDS as readonly string[]).includes(kind);
 
 /** The messages the extension drafts for the person: none while it's off, or on a network they don't work. */
 export const messageKinds = (settings: Pick<DoesChoices, 'sending' | 'on'>): MessageKind[] =>
@@ -653,10 +678,14 @@ export const AutomationSaveInput = z.object({
   workspaceId: z.uuid(),
   /** Someone else's, for an owner or admin; the person's own when left out. */
   userId: z.uuid().optional(),
-  /** The voice, the day's report and the networks left out (a screen from before them) keep the ones kept. */
+  /**
+   * The voice, the day's report, the accept push and the networks left out (a screen from before them) keep the ones
+   * kept.
+   */
   settings: AutomationSettings.extend({
     voice: Voice.optional(),
     dayReport: z.boolean().optional(),
+    acceptedPush: z.boolean().optional(),
     networks: NetworksSettings.optional(),
   }),
 });

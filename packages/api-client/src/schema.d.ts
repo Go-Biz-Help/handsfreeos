@@ -6937,6 +6937,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/commands/outreach.active.reply": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Keep one recent post that asks something, in one of the person’s Facebook groups, for the day’s reply: the first of those sent that isn’t theirs, answered or put aside already, another teammate’s person’s, or one the AI checks for a comment instead. Today lists it, and the AI writes the reply, which waits for the person’s OK at first. One a day. Nobody goes in Contacts.
+         * @description Risk level 1. Requires outreach.use. Emits .
+         */
+        post: operations["command_outreach_active_reply"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/commands/outreach.ask.cancel": {
         parameters: {
             query?: never;
@@ -7368,9 +7388,29 @@ export interface paths {
         put?: never;
         /**
          * The person says someone they reached booked a demo some other way than the demo link, or takes that back. It counts toward which openers work.
-         * @description Risk level 0. Requires outreach.use. Emits outreach.demo.marked.
+         * @description Risk level 0. Requires outreach.use. Emits outreach.demo.marked, outreach.lead.wanted.
          */
         post: operations["command_outreach_demo_mark"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/outreach.demo.outcome": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * After someone’s demo, mark their lead in the pipeline won or lost. Lost marks them not a fit too, with why.
+         * @description Risk level 1. Requires outreach.use. Emits outreach.demo.decided.
+         */
+        post: operations["command_outreach_demo_outcome"];
         delete?: never;
         options?: never;
         head?: never;
@@ -7417,6 +7457,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/commands/outreach.events.read": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * The person’s computer read the events in their town on Alignable this week: up to 5 not read before, whose hosts and guests went to the AI to check. Nothing on an event was pressed. The next read is a week on.
+         * @description Risk level 0. Requires outreach.use. Emits .
+         */
+        post: operations["command_outreach_events_read"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/commands/outreach.finds.save": {
         parameters: {
             query?: never;
@@ -7427,10 +7487,30 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * People found by topic on Instagram, LinkedIn or Alignable, as the person’s computer read them: who liked or commented on a good post its search found (that post’s people are then read), the businesses a search of Alignable showed, or a group’s members. Each one new is kept, the person’s own, for the AI to check from their own page; nobody goes in Contacts. Leaves out the person, the post’s writer, friends and anyone asked either way, customers and clients, anyone on Don’t pitch or Never contact or running a group, anyone who says a playbook’s skip word, and anyone the country setting skips by where they are; and stops once 3 days of checks wait.
+         * People found by topic on Instagram, LinkedIn or Alignable, as the person’s computer read them: who liked or commented on a good post its search found, or on an Instagram account like yours’s post (that post’s people are then read), the businesses a search of Alignable showed, a group’s members, the hosts and guests of an Alignable event near them, or an account like yours’s followers. Each one new is kept, the person’s own, for the AI to check from their own page; nobody goes in Contacts. Leaves out the person, the post’s writer, friends and anyone asked either way, customers and clients, anyone on Don’t pitch or Never contact or running a group, anyone who says a playbook’s skip word, and anyone the country setting skips by where they are; and stops once 3 days of checks wait.
          * @description Risk level 1. Requires outreach.use. Emits outreach.finds.saved.
          */
         post: operations["command_outreach_finds_save"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/outreach.followers.save": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Who follows the person on Facebook, as their computer just read their followers list, in parts: each kept as theirs, as a profile with no customer. Those who aren’t their friends are checked by the AI like friends, and the good fits go on Today for a friend request. The last part notes the week’s read done. Adds nobody to Contacts.
+         * @description Risk level 1. Requires outreach.use. Emits .
+         */
+        post: operations["command_outreach_followers_save"];
         delete?: never;
         options?: never;
         head?: never;
@@ -7508,7 +7588,7 @@ export interface paths {
         put?: never;
         /**
          * Save a list the extension read off a social network, as far as the page had loaded: the person’s friends, the friend requests they’ve got, or the ones they’ve sent. Adds nobody to Contacts.
-         * @description Risk level 1. Requires outreach.use. Emits outreach.friends.saved, outreach.need.cleared.
+         * @description Risk level 1. Requires outreach.use. Emits outreach.friends.saved, outreach.need.cleared, outreach.friend.accepted.
          */
         post: operations["command_outreach_friends_save"];
         delete?: never;
@@ -7587,7 +7667,7 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * Ask the AI for today’s helpful post: one that helps the people in one of the person’s groups that fits (theirs to name, else the best not posted in this week), from the playbook and what people there ask, after reading its rules. One a day; asking again answers today’s.
+         * Ask the AI for today’s helpful post: on Facebook one that helps the people in one of the person’s groups that fits (theirs to name, else the best not posted in this week), from the playbook and what people there ask, after reading its rules; on LinkedIn one for their own feed. One a day there, and one a week on Instagram (a caption and the picture to take, posted from their phone) and Alignable (posted after their OK); asking again answers the one there is.
          * @description Risk level 1. Requires outreach.use. Emits outreach.helpful.asked.
          */
         post: operations["command_outreach_helpful_ask"];
@@ -7691,6 +7771,106 @@ export interface paths {
          * @description Risk level 1. Requires outreach.use. Emits outreach.join.noted.
          */
         post: operations["command_outreach_join_note"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/outreach.later.set": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Put someone the person reached on Later: off the person’s own Today for 2 weeks, then back on it. Their replies, and their friend request to confirm, still come, and the person’s own messages to them waiting for an OK are skipped. Or take them off Later: back on Today now.
+         * @description Risk level 0. Requires outreach.use. Emits outreach.later.marked, outreach.send.skipped.
+         */
+        post: operations["command_outreach_later_set"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/outreach.like_yours.add": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Add an Instagram account like yours, by its username or address: one whose followers are the business’s kind of customer (its chamber of commerce, a venue, a business with the same customers). Up to 5; one removed before comes back. Owners and admins.
+         * @description Risk level 1. Requires outreach.manage. Emits outreach.like_yours.changed.
+         */
+        post: operations["command_outreach_like_yours_add"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/outreach.like_yours.found": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * The accounts the person’s computer found with Instagram’s search for accounts like yours: each new one waits for the AI to pick the best, up to 5 kept. Never the person’s own account, and never one kept, passed over or removed already.
+         * @description Risk level 0. Requires outreach.use. Emits outreach.like_yours.found.
+         */
+        post: operations["command_outreach_like_yours_found"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/outreach.like_yours.read": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * The person’s computer read an Instagram account like yours today: its latest posts and a screen of its followers. The next one is read tomorrow.
+         * @description Risk level 0. Requires outreach.use. Emits .
+         */
+        post: operations["command_outreach_like_yours_read"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/outreach.like_yours.remove": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Remove an Instagram account like yours from the list, so it isn’t read any more and the AI never picks it again. The people already found from it stay. Owners and admins.
+         * @description Risk level 1. Requires outreach.manage. Emits outreach.like_yours.changed.
+         */
+        post: operations["command_outreach_like_yours_remove"];
         delete?: never;
         options?: never;
         head?: never;
@@ -7817,6 +7997,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/commands/outreach.occasions.save": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * The person’s computer read Facebook’s Birthdays page or LinkedIn’s Catch up, once a day: whose birthday it is today, or who started a new job. Those among the people already kept are kept for today, the person’s own; nobody new is added. Today offers a note to the ones they’ve chatted with or who fit a playbook, and it always waits for their OK.
+         * @description Risk level 0. Requires outreach.use. Emits outreach.occasions.saved.
+         */
+        post: operations["command_outreach_occasions_save"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/commands/outreach.opener.use": {
         parameters: {
             query?: never;
@@ -7831,6 +8031,26 @@ export interface paths {
          * @description Risk level 0. Requires outreach.use. Emits outreach.opener.used.
          */
         post: operations["command_outreach_opener_use"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/outreach.owner.move": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * For owners and admins: give a group, or a person reached on a social network, to another teammate who uses Social Outreach (decision 107). Their Today then has the group’s people, or the person; the teammate before no longer does, and a person’s messages from them still waiting for an OK, or OK’d and not sent, are skipped, but a reply.
+         * @description Risk level 1. Requires outreach.manage. Emits outreach.owner.moved, outreach.send.skipped.
+         */
+        post: operations["command_outreach_owner_move"];
         delete?: never;
         options?: never;
         head?: never;
@@ -8167,7 +8387,7 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * The extension drafted a message to someone on the person’s list for today: a first message, a follow-up or a reply; or, on Instagram and Alignable, a comment on a good post of theirs. It waits for the person’s OK, or, when they chose for messages to go on their own and their training wheels are off, goes as it is; a comment goes on its own once the person has OK’d 25 there and a week has gone by, and an answer to an Alignable post asking for what the business offers always waits. A message already drafted for them comes back instead. A client in Contacts gets only replies.
+         * The extension drafted a message to someone on the person’s list for today: a first message, a follow-up or a reply; or, on Instagram, LinkedIn and Alignable, a comment on a good post of theirs; or, on Facebook, the day’s reply to a question asked in one of the person’s groups. It waits for the person’s OK, or, when they chose for messages to go on their own and their training wheels are off, goes as it is; a comment or a reply in a group goes on its own once the person has OK’d 25 there and a week has gone by, and an answer to an Alignable post asking for what the business offers always waits, as do a message offering another time after a missed demo and a birthday or new-job note. A message already drafted for them comes back instead. A client in Contacts gets only replies.
          * @description Risk level 0. Requires outreach.use. Emits outreach.send.queued.
          */
         post: operations["command_outreach_send_queue"];
@@ -8228,7 +8448,7 @@ export interface paths {
         put?: never;
         /**
          * Say where someone the person reached stands, when they know better than what’s worked out: ready to pitch (Today offers Pitch), pitched, not a fit (nothing on Today reaches them again but a reply), or back in play.
-         * @description Risk level 0. Requires outreach.use. Emits outreach.stage.marked.
+         * @description Risk level 0. Requires outreach.use. Emits outreach.stage.marked, outreach.lead.wanted.
          */
         post: operations["command_outreach_stage_mark"];
         delete?: never;
@@ -18877,6 +19097,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/queries/outreach.active.next": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * What the person’s computer does today to stay active in their Facebook groups: how many recent posts to like there (3 to 5, within the day’s likes), in which of their groups (up to 3 that fit and that no teammate works, a different few each day), and whether a question there is still to keep for the day’s reply. Nothing before the person is ready, nor with Sending off.
+         * @description Requires outreach.use.
+         */
+        post: operations["query_outreach_active_next"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/queries/outreach.activity": {
         parameters: {
             query?: never;
@@ -19007,7 +19247,7 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * Who the person’s computer checks next for whether they fit a playbook, in order and no more than today has room for: anyone they pressed Research on, anyone waiting for a look at where they live (those asking to be friends first), friends whose chat looks like a prospect, then friends with any chat, others they’ve chatted with, friends from the groups, then the rest. Never anyone on Don’t pitch, nor anyone checked lately unless the person asked to check everyone again or they wait for a look.
+         * Who the person’s computer checks next for whether they fit a playbook, in order and no more than today has room for: anyone they pressed Research on, anyone waiting for a look at where they live (those asking to be friends first), friends whose chat looks like a prospect, then friends with any chat, others they’ve chatted with, friends from the groups, the rest of their friends, their followers on Facebook who aren’t friends yet, then people in the business’s Facebook groups who aren’t friends, the best fit first. Never anyone on Don’t pitch, nor anyone checked lately unless the person asked to check everyone again or they wait for a look.
          * @description Requires outreach.use.
          */
         post: operations["query_outreach_checks_next"];
@@ -19031,6 +19271,26 @@ export interface paths {
          * @description Requires outreach.use.
          */
         post: operations["query_outreach_countries_skipped"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/queries/outreach.events.next": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Whether the person’s computer reads the events in their town on Alignable today: once a week, the first time and then a week after the last read. With the events it read lately, which it never reads again.
+         * @description Requires outreach.use.
+         */
+        post: operations["query_outreach_events_next"];
         delete?: never;
         options?: never;
         head?: never;
@@ -19077,6 +19337,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/queries/outreach.finds.towns": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * The towns within 25 miles of the person’s own town on Alignable, the closest first, which the person’s computer keeps the businesses its search shows in, and today’s one of them to search in too, each in turn from the closest. None for a town HandsFreeOS doesn’t know the place of (outside the US).
+         * @description Requires outreach.use.
+         */
+        post: operations["query_outreach_finds_towns"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/queries/outreach.follow_backs.next": {
         parameters: {
             query?: never;
@@ -19091,6 +19371,26 @@ export interface paths {
          * @description Requires outreach.use.
          */
         post: operations["query_outreach_follow_backs_next"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/queries/outreach.followers.next": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Whether the person’s computer reads who follows them on Facebook today: once a week, the first time and then a week after the last read.
+         * @description Requires outreach.use.
+         */
+        post: operations["query_outreach_followers_next"];
         delete?: never;
         options?: never;
         head?: never;
@@ -19131,6 +19431,26 @@ export interface paths {
          * @description Requires outreach.use.
          */
         post: operations["query_outreach_friends_tidy"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/queries/outreach.group.people": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * One group’s page: the group, everyone the extension found in it (its admins and moderators marked), and how each turned out for the person: where they stand (found, warming up, friends, talking, ready to pitch, pitched, booked, a client, not a fit) with why and the AI’s next step, or not reached yet; counted by outcome, the furthest first, one outcome at a time.
+         * @description Requires outreach.use.
+         */
+        post: operations["query_outreach_group_people"];
         delete?: never;
         options?: never;
         head?: never;
@@ -19187,7 +19507,7 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * The person’s helpful posts: today’s (being written, waiting, OK’d, up, put aside or couldn’t go), then the last fortnight’s posted, with who engaged; and their posting choice.
+         * The person’s helpful posts: today’s (this week’s on Instagram and Alignable: being written, waiting, OK’d, up, put aside or couldn’t go), then the last fortnight’s posted, with who engaged; and their posting choice as the network lets it.
          * @description Requires outreach.use.
          */
         post: operations["query_outreach_helpful"];
@@ -19231,6 +19551,46 @@ export interface paths {
          * @description Requires outreach.use.
          */
         post: operations["query_outreach_joins_next"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/queries/outreach.like_yours.list": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * The business’s Instagram accounts like yours (up to 5): accounts whose followers are its kind of customer, like the chamber of commerce, a venue or a business with the same customers, each with who added it (the AI or the team), why, and when the person’s computer last read it. Each day one is read: who commented on its latest posts and some of its followers, each checked by the AI before anything is done.
+         * @description Requires outreach.use.
+         */
+        post: operations["query_outreach_like_yours_list"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/queries/outreach.like_yours.next": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * What the person’s computer does next for the business’s Instagram accounts like yours: the words to search Instagram’s accounts with (from the playbooks’ area, niche and kinds of business), while fewer than 5 are kept and none were looked for this week; and the kept account to read today, the one read longest ago first.
+         * @description Requires outreach.use.
+         */
+        post: operations["query_outreach_like_yours_next"];
         delete?: never;
         options?: never;
         head?: never;
@@ -19427,7 +19787,7 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * A customer’s social profiles and the chats saved with them, newest first.
+         * A customer’s social profiles, each with where they stand for the person (found, warming up, friends, talking, ready to pitch, pitched, booked, a client or not a fit) and why, the AI’s next step, the groups they were found in, the person’s chat with them as the AI summed it up, and every step either way (friend requests, likes, comments, messages, their replies, a demo booked); and the chats saved with them, newest first.
          * @description Requires outreach.use.
          */
         post: operations["query_outreach_person"];
@@ -19467,7 +19827,7 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * Which good posts the person’s computer reads next for who liked and commented on them, on a network that reads them (Instagram’s and LinkedIn’s): their own, the AI called good, seen in the last week, not put aside, not read yet and not showing none; those asking for what the business offers first, then the busiest, then the newest; no more than the day’s, and none while 3 days of checks of people found wait.
+         * Which good posts the person’s computer reads next for who liked and commented on them, on a network that reads them (Instagram’s, LinkedIn’s and Alignable’s): their own, the AI called good or by an Instagram account like yours, seen in the last week, not put aside, not read yet and not showing none; those asking for what the business offers first, then the busiest, then the newest; no more than the day’s, and none while 3 days of checks of people found wait.
          * @description Requires outreach.use.
          */
         post: operations["query_outreach_posts_people_next"];
@@ -19507,7 +19867,7 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * Where someone the person reached stands, as their person menu shows it: in Contacts or not, a client (and why), a partner, a demo booked, on Don’t pitch or Never contact (and who put them on), and whether the person may take them off.
+         * Where someone the person reached stands, as their person menu shows it: in Contacts or not, a client (and why), a partner, a demo booked, on the person’s Later (and until when), on Don’t pitch or Never contact (and who put them on), and whether the person may take them off; who reached them first, and for an owner or admin, the teammates they can be given to.
          * @description Requires outreach.use.
          */
         post: operations["query_outreach_profile_marks"];
@@ -38776,6 +39136,65 @@ export interface operations {
             };
         };
     };
+    command_outreach_active_reply: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /**
+                     * @default facebook
+                     * @enum {string}
+                     */
+                    platform?: "facebook";
+                    posts: {
+                        author: {
+                            id: string | null;
+                            url: string;
+                            username: string | null;
+                        };
+                        /** @default null */
+                        comments?: number | null;
+                        group: {
+                            id: string | null;
+                            /** @default null */
+                            name?: string | null;
+                            slug: string | null;
+                            url: string;
+                        };
+                        name: string;
+                        /** @default null */
+                        reactions?: number | null;
+                        text: string;
+                        url: string;
+                        /** @default null */
+                        when?: string | null;
+                    }[];
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        postId: string | null;
+                        url: string | null;
+                        why: string | null;
+                    };
+                };
+            };
+        };
+    };
     command_outreach_ask_cancel: {
         parameters: {
             query?: never;
@@ -38821,7 +39240,7 @@ export interface operations {
                             result: {
                                 drafts: string[];
                                 /** @default null */
-                                kind: ("opener" | "reconnect" | "pitch" | "video" | "follow_up" | "check_in" | "reply" | "comment" | "warm_lead" | "partner_ask" | "partner_follow_up" | "partner_details" | "partner_reply") | null;
+                                kind: ("opener" | "reconnect" | "pitch" | "video" | "follow_up" | "check_in" | "reply" | "demo_reminder" | "rebook" | "birthday" | "new_job" | "comment" | "group_reply" | "warm_lead" | "partner_ask" | "partner_follow_up" | "partner_details" | "partner_reply") | null;
                                 /** @default false */
                                 lookedUp: boolean;
                                 /** @default null */
@@ -38895,7 +39314,7 @@ export interface operations {
                             result: {
                                 drafts: string[];
                                 /** @default null */
-                                kind: ("opener" | "reconnect" | "pitch" | "video" | "follow_up" | "check_in" | "reply" | "comment" | "warm_lead" | "partner_ask" | "partner_follow_up" | "partner_details" | "partner_reply") | null;
+                                kind: ("opener" | "reconnect" | "pitch" | "video" | "follow_up" | "check_in" | "reply" | "demo_reminder" | "rebook" | "birthday" | "new_job" | "comment" | "group_reply" | "warm_lead" | "partner_ask" | "partner_follow_up" | "partner_details" | "partner_reply") | null;
                                 /** @default false */
                                 lookedUp: boolean;
                                 /** @default null */
@@ -38940,7 +39359,7 @@ export interface operations {
                     result?: {
                         drafts: string[];
                         /** @default null */
-                        kind?: ("opener" | "reconnect" | "pitch" | "video" | "follow_up" | "check_in" | "reply" | "comment" | "warm_lead" | "partner_ask" | "partner_follow_up" | "partner_details" | "partner_reply") | null;
+                        kind?: ("opener" | "reconnect" | "pitch" | "video" | "follow_up" | "check_in" | "reply" | "demo_reminder" | "rebook" | "birthday" | "new_job" | "comment" | "group_reply" | "warm_lead" | "partner_ask" | "partner_follow_up" | "partner_details" | "partner_reply") | null;
                         /** @default false */
                         lookedUp?: boolean;
                         /** @default null */
@@ -39053,7 +39472,7 @@ export interface operations {
                             /** @default null */
                             chatId?: string | null;
                             /** @enum {string} */
-                            kind: "opener" | "reconnect" | "pitch" | "video" | "follow_up" | "check_in" | "reply" | "comment" | "warm_lead" | "partner_ask" | "partner_follow_up" | "partner_details" | "partner_reply";
+                            kind: "opener" | "reconnect" | "pitch" | "video" | "follow_up" | "check_in" | "reply" | "demo_reminder" | "rebook" | "birthday" | "new_job" | "comment" | "group_reply" | "warm_lead" | "partner_ask" | "partner_follow_up" | "partner_details" | "partner_reply";
                             /** @default null */
                             postId?: string | null;
                             /** @default null */
@@ -39072,11 +39491,41 @@ export interface operations {
                     } | {
                         about?: string;
                         bio?: string;
+                        featured?: {
+                            /** @default null */
+                            link?: string | null;
+                            /** @default null */
+                            post?: string | null;
+                        };
+                        ideal?: {
+                            /** @default null */
+                            customer?: string | null;
+                            /** @default null */
+                            partner?: string | null;
+                        };
                         /** @enum {string} */
                         kind: "profile_edit";
+                        linkChanges?: {
+                            from: string;
+                            /** @default null */
+                            to?: string | null;
+                        }[];
                         links?: string[];
                         name?: string;
+                        services?: {
+                            name: string;
+                            /** @default null */
+                            words?: string | null;
+                        }[];
                         username?: string;
+                        work?: {
+                            company: string;
+                            /** @default null */
+                            since?: string | null;
+                            title: string;
+                            /** @default null */
+                            words?: string | null;
+                        };
                     } | {
                         /** @enum {string} */
                         kind: "username_check";
@@ -39123,7 +39572,7 @@ export interface operations {
                             result: {
                                 drafts: string[];
                                 /** @default null */
-                                kind: ("opener" | "reconnect" | "pitch" | "video" | "follow_up" | "check_in" | "reply" | "comment" | "warm_lead" | "partner_ask" | "partner_follow_up" | "partner_details" | "partner_reply") | null;
+                                kind: ("opener" | "reconnect" | "pitch" | "video" | "follow_up" | "check_in" | "reply" | "demo_reminder" | "rebook" | "birthday" | "new_job" | "comment" | "group_reply" | "warm_lead" | "partner_ask" | "partner_follow_up" | "partner_details" | "partner_reply") | null;
                                 /** @default false */
                                 lookedUp: boolean;
                                 /** @default null */
@@ -39236,7 +39685,7 @@ export interface operations {
                             result: {
                                 drafts: string[];
                                 /** @default null */
-                                kind: ("opener" | "reconnect" | "pitch" | "video" | "follow_up" | "check_in" | "reply" | "comment" | "warm_lead" | "partner_ask" | "partner_follow_up" | "partner_details" | "partner_reply") | null;
+                                kind: ("opener" | "reconnect" | "pitch" | "video" | "follow_up" | "check_in" | "reply" | "demo_reminder" | "rebook" | "birthday" | "new_job" | "comment" | "group_reply" | "warm_lead" | "partner_ask" | "partner_follow_up" | "partner_details" | "partner_reply") | null;
                                 /** @default false */
                                 lookedUp: boolean;
                                 /** @default null */
@@ -39383,7 +39832,7 @@ export interface operations {
                                 draft: {
                                     chatId: string | null;
                                     /** @enum {string} */
-                                    kind: "opener" | "reconnect" | "pitch" | "video" | "follow_up" | "check_in" | "reply" | "comment" | "warm_lead" | "partner_ask" | "partner_follow_up" | "partner_details" | "partner_reply";
+                                    kind: "opener" | "reconnect" | "pitch" | "video" | "follow_up" | "check_in" | "reply" | "demo_reminder" | "rebook" | "birthday" | "new_job" | "comment" | "group_reply" | "warm_lead" | "partner_ask" | "partner_follow_up" | "partner_details" | "partner_reply";
                                     postId: string | null;
                                     profileId: string | null;
                                 };
@@ -39405,14 +39854,49 @@ export interface operations {
                                 about: string | null;
                                 /** @default null */
                                 bio: string | null;
+                                /** @default null */
+                                featured: {
+                                    /** @default null */
+                                    link: string | null;
+                                    /** @default null */
+                                    post: string | null;
+                                } | null;
+                                /** @default null */
+                                ideal: {
+                                    /** @default null */
+                                    customer: string | null;
+                                    /** @default null */
+                                    partner: string | null;
+                                } | null;
                                 /** @enum {string} */
                                 kind: "profile_edit";
+                                /** @default [] */
+                                linkChanges: {
+                                    from: string;
+                                    /** @default null */
+                                    to: string | null;
+                                }[];
                                 /** @default [] */
                                 links: string[];
                                 /** @default null */
                                 name: string | null;
+                                /** @default [] */
+                                services: {
+                                    name: string;
+                                    /** @default null */
+                                    words: string | null;
+                                }[];
                                 /** @default null */
                                 username: string | null;
+                                /** @default null */
+                                work: {
+                                    company: string;
+                                    /** @default null */
+                                    since: string | null;
+                                    title: string;
+                                    /** @default null */
+                                    words: string | null;
+                                } | null;
                             } | {
                                 /** @enum {string} */
                                 kind: "username_check";
@@ -39439,6 +39923,7 @@ export interface operations {
             content: {
                 "application/json": {
                     settings: {
+                        acceptedPush?: boolean;
                         /** @default true */
                         collect?: boolean;
                         confirmRequests: boolean;
@@ -39792,6 +40277,8 @@ export interface operations {
                         };
                         saved: boolean;
                         settings: {
+                            /** @default false */
+                            acceptedPush: boolean;
                             /** @default true */
                             collect: boolean;
                             confirmRequests: boolean;
@@ -40625,6 +41112,46 @@ export interface operations {
             };
         };
     };
+    command_outreach_demo_outcome: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** @enum {string} */
+                    outcome: "won" | "lost";
+                    /** Format: uuid */
+                    profileId: string;
+                    /** @default null */
+                    why?: string | null;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        leadId: string;
+                        /** @enum {string} */
+                        outcome: "won" | "lost";
+                        /** Format: uuid */
+                        profileId: string;
+                    };
+                };
+            };
+        };
+    };
     command_outreach_download_save: {
         parameters: {
             query?: never;
@@ -40749,6 +41276,42 @@ export interface operations {
             };
         };
     };
+    command_outreach_events_read: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /**
+                     * @default alignable
+                     * @enum {string}
+                     */
+                    platform?: "alignable";
+                    /** @default [] */
+                    urls?: string[];
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        readAt: string;
+                    };
+                };
+            };
+        };
+    };
     command_outreach_finds_save: {
         parameters: {
             query?: never;
@@ -40768,7 +41331,7 @@ export interface operations {
                         url: string;
                     } | null;
                     /** @enum {string} */
-                    how: "liked" | "commented" | "searched" | "member";
+                    how: "liked" | "commented" | "searched" | "member" | "event" | "follows";
                     people?: {
                         /** @default [] */
                         lines?: string[];
@@ -40805,6 +41368,53 @@ export interface operations {
                     "application/json": {
                         added: number;
                         skipped: number;
+                    };
+                };
+            };
+        };
+    };
+    command_outreach_followers_save: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** @default false */
+                    done?: boolean;
+                    /** @default [] */
+                    people?: {
+                        name: string;
+                        profile: {
+                            id: string | null;
+                            url: string;
+                            username: string | null;
+                        };
+                    }[];
+                    /**
+                     * @default facebook
+                     * @enum {string}
+                     */
+                    platform?: "facebook";
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        added: number;
+                        readAt: string | null;
+                        saved: number;
                     };
                 };
             };
@@ -41423,6 +42033,194 @@ export interface operations {
             };
         };
     };
+    command_outreach_later_set: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    later: boolean;
+                    /** Format: uuid */
+                    profileId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        profileId: string;
+                        skipped: number;
+                        until: string | null;
+                    };
+                };
+            };
+        };
+    };
+    command_outreach_like_yours_add: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    account: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        accounts: {
+                            /** @enum {string} */
+                            addedBy: "ai" | "person";
+                            /** Format: uuid */
+                            id: string;
+                            name: string | null;
+                            readAt: string | null;
+                            url: string;
+                            username: string;
+                            why: string | null;
+                        }[];
+                    };
+                };
+            };
+        };
+    };
+    command_outreach_like_yours_found: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    accounts: {
+                        /** @default null */
+                        name?: string | null;
+                        username: string;
+                        words: string;
+                    }[];
+                    /**
+                     * @default instagram
+                     * @enum {string}
+                     */
+                    platform?: "instagram";
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        candidates: number;
+                    };
+                };
+            };
+        };
+    };
+    command_outreach_like_yours_read: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    id: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        id: string;
+                    };
+                };
+            };
+        };
+    };
+    command_outreach_like_yours_remove: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    id: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        accounts: {
+                            /** @enum {string} */
+                            addedBy: "ai" | "person";
+                            /** Format: uuid */
+                            id: string;
+                            name: string | null;
+                            readAt: string | null;
+                            url: string;
+                            username: string;
+                            why: string | null;
+                        }[];
+                    };
+                };
+            };
+        };
+    };
     command_outreach_lists_saved: {
         parameters: {
             query?: never;
@@ -41683,6 +42481,11 @@ export interface operations {
                                 name?: string[];
                             };
                             feature: string[];
+                            featurePost?: string | null;
+                            idealDraft?: {
+                                customer: string | null;
+                                partner: string | null;
+                            } | null;
                             items: {
                                 about?: {
                                     fix: string | null;
@@ -41730,6 +42533,11 @@ export interface operations {
                                     why: string;
                                 };
                             };
+                            linkChanges?: {
+                                link: string;
+                                to: string | null;
+                                why: string;
+                            }[];
                             look?: {
                                 clashes: string[];
                                 ok: boolean;
@@ -41751,6 +42559,7 @@ export interface operations {
                                 name?: string[];
                                 username?: string[];
                             };
+                            own?: boolean;
                             recommendations?: number | null;
                             recommendNote?: string | null;
                             seen?: {
@@ -41760,11 +42569,20 @@ export interface operations {
                                 url: string | null;
                                 username: string | null;
                             } | null;
+                            services?: {
+                                name: string;
+                                words: string | null;
+                            }[];
                             usernames?: {
                                 free: boolean | null;
                                 value: string;
                             }[];
                             version: number | null;
+                            workDraft?: {
+                                company: string;
+                                title: string;
+                                words: string | null;
+                            } | null;
                         } | null;
                         ready: boolean;
                     };
@@ -41883,6 +42701,11 @@ export interface operations {
                                 name?: string[];
                             };
                             feature: string[];
+                            featurePost?: string | null;
+                            idealDraft?: {
+                                customer: string | null;
+                                partner: string | null;
+                            } | null;
                             items: {
                                 about?: {
                                     fix: string | null;
@@ -41930,6 +42753,11 @@ export interface operations {
                                     why: string;
                                 };
                             };
+                            linkChanges?: {
+                                link: string;
+                                to: string | null;
+                                why: string;
+                            }[];
                             look?: {
                                 clashes: string[];
                                 ok: boolean;
@@ -41951,6 +42779,7 @@ export interface operations {
                                 name?: string[];
                                 username?: string[];
                             };
+                            own?: boolean;
                             recommendations?: number | null;
                             recommendNote?: string | null;
                             seen?: {
@@ -41960,11 +42789,20 @@ export interface operations {
                                 url: string | null;
                                 username: string | null;
                             } | null;
+                            services?: {
+                                name: string;
+                                words: string | null;
+                            }[];
                             usernames?: {
                                 free: boolean | null;
                                 value: string;
                             }[];
                             version: number | null;
+                            workDraft?: {
+                                company: string;
+                                title: string;
+                                words: string | null;
+                            } | null;
                         } | null;
                         ready: boolean;
                     };
@@ -42048,6 +42886,50 @@ export interface operations {
             };
         };
     };
+    command_outreach_occasions_save: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    occasions: {
+                        /** @default null */
+                        detail?: string | null;
+                        /** @enum {string} */
+                        kind: "birthday" | "new_job";
+                        name: string;
+                        profile: {
+                            id: string | null;
+                            url: string;
+                            username: string | null;
+                        };
+                    }[];
+                    /** @enum {string} */
+                    platform: "facebook" | "linkedin" | "instagram" | "alignable";
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        kept: number;
+                        left: number;
+                    };
+                };
+            };
+        };
+    };
     command_outreach_opener_use: {
         parameters: {
             query?: never;
@@ -42081,6 +42963,51 @@ export interface operations {
                 content: {
                     "application/json": {
                         noted: boolean;
+                    };
+                };
+            };
+        };
+    };
+    command_outreach_owner_move: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    id: string;
+                    /** @enum {string} */
+                    kind: "group" | "person";
+                    /** Format: uuid */
+                    userId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        id: string;
+                        /** @enum {string} */
+                        kind: "group" | "person";
+                        owner: {
+                            name: string;
+                            /** Format: uuid */
+                            userId: string;
+                            you: boolean;
+                        };
+                        skipped: number;
                     };
                 };
             };
@@ -42388,7 +43315,7 @@ export interface operations {
                     name: string;
                     /** Format: uuid */
                     playbookId?: string;
-                    template?: "crm_demos" | null;
+                    template?: ("crm_demos" | "real_estate" | "home_services" | "coaching") | null;
                     /** Format: uuid */
                     workspaceId: string;
                 };
@@ -42524,7 +43451,7 @@ export interface operations {
                      * @default scroll
                      * @enum {string}
                      */
-                    found?: "scroll" | "find" | "watch" | "search";
+                    found?: "scroll" | "find" | "watch" | "search" | "account";
                     /** @default null */
                     group?: {
                         id: string | null;
@@ -42665,6 +43592,11 @@ export interface operations {
                             name?: string[];
                         };
                         feature: string[];
+                        featurePost?: string | null;
+                        idealDraft?: {
+                            customer: string | null;
+                            partner: string | null;
+                        } | null;
                         items: {
                             about?: {
                                 fix: string | null;
@@ -42712,6 +43644,11 @@ export interface operations {
                                 why: string;
                             };
                         };
+                        linkChanges?: {
+                            link: string;
+                            to: string | null;
+                            why: string;
+                        }[];
                         look?: {
                             clashes: string[];
                             ok: boolean;
@@ -42733,6 +43670,7 @@ export interface operations {
                             name?: string[];
                             username?: string[];
                         };
+                        own?: boolean;
                         recommendations?: number | null;
                         recommendNote?: string | null;
                         seen?: {
@@ -42742,11 +43680,20 @@ export interface operations {
                             url: string | null;
                             username: string | null;
                         } | null;
+                        services?: {
+                            name: string;
+                            words: string | null;
+                        }[];
                         usernames?: {
                             free: boolean | null;
                             value: string;
                         }[];
                         version: number | null;
+                        workDraft?: {
+                            company: string;
+                            title: string;
+                            words: string | null;
+                        } | null;
                     };
                 };
             };
@@ -42860,6 +43807,11 @@ export interface operations {
                                 name?: string[];
                             };
                             feature: string[];
+                            featurePost?: string | null;
+                            idealDraft?: {
+                                customer: string | null;
+                                partner: string | null;
+                            } | null;
                             items: {
                                 about?: {
                                     fix: string | null;
@@ -42907,6 +43859,11 @@ export interface operations {
                                     why: string;
                                 };
                             };
+                            linkChanges?: {
+                                link: string;
+                                to: string | null;
+                                why: string;
+                            }[];
                             look?: {
                                 clashes: string[];
                                 ok: boolean;
@@ -42928,6 +43885,7 @@ export interface operations {
                                 name?: string[];
                                 username?: string[];
                             };
+                            own?: boolean;
                             recommendations?: number | null;
                             recommendNote?: string | null;
                             seen?: {
@@ -42937,11 +43895,20 @@ export interface operations {
                                 url: string | null;
                                 username: string | null;
                             } | null;
+                            services?: {
+                                name: string;
+                                words: string | null;
+                            }[];
                             usernames?: {
                                 free: boolean | null;
                                 value: string;
                             }[];
                             version: number | null;
+                            workDraft?: {
+                                company: string;
+                                title: string;
+                                words: string | null;
+                            } | null;
                         } | null;
                         ready: boolean;
                     };
@@ -43059,6 +44026,11 @@ export interface operations {
                                 name?: string[];
                             };
                             feature: string[];
+                            featurePost?: string | null;
+                            idealDraft?: {
+                                customer: string | null;
+                                partner: string | null;
+                            } | null;
                             items: {
                                 about?: {
                                     fix: string | null;
@@ -43106,6 +44078,11 @@ export interface operations {
                                     why: string;
                                 };
                             };
+                            linkChanges?: {
+                                link: string;
+                                to: string | null;
+                                why: string;
+                            }[];
                             look?: {
                                 clashes: string[];
                                 ok: boolean;
@@ -43127,6 +44104,7 @@ export interface operations {
                                 name?: string[];
                                 username?: string[];
                             };
+                            own?: boolean;
                             recommendations?: number | null;
                             recommendNote?: string | null;
                             seen?: {
@@ -43136,11 +44114,20 @@ export interface operations {
                                 url: string | null;
                                 username: string | null;
                             } | null;
+                            services?: {
+                                name: string;
+                                words: string | null;
+                            }[];
                             usernames?: {
                                 free: boolean | null;
                                 value: string;
                             }[];
                             version: number | null;
+                            workDraft?: {
+                                company: string;
+                                title: string;
+                                words: string | null;
+                            } | null;
                         } | null;
                         ready: boolean;
                     };
@@ -43264,6 +44251,11 @@ export interface operations {
                                 name?: string[];
                             };
                             feature: string[];
+                            featurePost?: string | null;
+                            idealDraft?: {
+                                customer: string | null;
+                                partner: string | null;
+                            } | null;
                             items: {
                                 about?: {
                                     fix: string | null;
@@ -43311,6 +44303,11 @@ export interface operations {
                                     why: string;
                                 };
                             };
+                            linkChanges?: {
+                                link: string;
+                                to: string | null;
+                                why: string;
+                            }[];
                             look?: {
                                 clashes: string[];
                                 ok: boolean;
@@ -43332,6 +44329,7 @@ export interface operations {
                                 name?: string[];
                                 username?: string[];
                             };
+                            own?: boolean;
                             recommendations?: number | null;
                             recommendNote?: string | null;
                             seen?: {
@@ -43341,11 +44339,20 @@ export interface operations {
                                 url: string | null;
                                 username: string | null;
                             } | null;
+                            services?: {
+                                name: string;
+                                words: string | null;
+                            }[];
                             usernames?: {
                                 free: boolean | null;
                                 value: string;
                             }[];
                             version: number | null;
+                            workDraft?: {
+                                company: string;
+                                title: string;
+                                words: string | null;
+                            } | null;
                         } | null;
                         ready: boolean;
                     };
@@ -43529,7 +44536,7 @@ export interface operations {
                     /** @default null */
                     chatId?: string | null;
                     /** @enum {string} */
-                    kind: "opener" | "reconnect" | "pitch" | "video" | "follow_up" | "check_in" | "reply" | "partner_ask" | "partner_follow_up" | "partner_details" | "partner_reply" | "comment";
+                    kind: "opener" | "reconnect" | "pitch" | "video" | "follow_up" | "check_in" | "reply" | "demo_reminder" | "rebook" | "birthday" | "new_job" | "partner_ask" | "partner_follow_up" | "partner_details" | "partner_reply" | "comment" | "group_reply";
                     /** @default null */
                     opener?: {
                         /** @enum {string} */
@@ -43565,7 +44572,7 @@ export interface operations {
                         createdAt: string;
                         handedOver: boolean;
                         /** @enum {string} */
-                        kind: "opener" | "reconnect" | "pitch" | "video" | "follow_up" | "check_in" | "reply" | "partner_ask" | "partner_follow_up" | "partner_details" | "partner_reply" | "comment";
+                        kind: "opener" | "reconnect" | "pitch" | "video" | "follow_up" | "check_in" | "reply" | "demo_reminder" | "rebook" | "birthday" | "new_job" | "partner_ask" | "partner_follow_up" | "partner_details" | "partner_reply" | "comment" | "group_reply";
                         name: string;
                         needsYou: string | null;
                         opener: {
@@ -73033,6 +74040,51 @@ export interface operations {
             };
         };
     };
+    query_outreach_active_next: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /**
+                     * @default facebook
+                     * @enum {string}
+                     */
+                    platform?: "facebook";
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        groups: {
+                            /** Format: uuid */
+                            groupId: string;
+                            name: string | null;
+                            url: string;
+                        }[];
+                        likes: number;
+                        own: {
+                            url: string | null;
+                            username: string | null;
+                        } | null;
+                        reply: boolean;
+                    };
+                };
+            };
+        };
+    };
     query_outreach_activity: {
         parameters: {
             query?: never;
@@ -73133,6 +74185,17 @@ export interface operations {
                             friend_request: number;
                             like: number;
                         };
+                        topics: {
+                            chatsStarted: number;
+                            demos: number;
+                            friendRequests: number;
+                            people: number;
+                            /** @enum {string} */
+                            platform: "facebook" | "linkedin" | "instagram" | "alignable";
+                            replies: number;
+                            warmedUp: number;
+                            words: string;
+                        }[];
                         warning: {
                             /** Format: date-time */
                             at: string;
@@ -73261,7 +74324,7 @@ export interface operations {
                             result: {
                                 drafts: string[];
                                 /** @default null */
-                                kind: ("opener" | "reconnect" | "pitch" | "video" | "follow_up" | "check_in" | "reply" | "comment" | "warm_lead" | "partner_ask" | "partner_follow_up" | "partner_details" | "partner_reply") | null;
+                                kind: ("opener" | "reconnect" | "pitch" | "video" | "follow_up" | "check_in" | "reply" | "demo_reminder" | "rebook" | "birthday" | "new_job" | "comment" | "group_reply" | "warm_lead" | "partner_ask" | "partner_follow_up" | "partner_details" | "partner_reply") | null;
                                 /** @default false */
                                 lookedUp: boolean;
                                 /** @default null */
@@ -73446,6 +74509,8 @@ export interface operations {
                         };
                         saved: boolean;
                         settings: {
+                            /** @default false */
+                            acceptedPush: boolean;
                             /** @default true */
                             collect: boolean;
                             confirmRequests: boolean;
@@ -73899,7 +74964,7 @@ export interface operations {
                             /** Format: uuid */
                             profileId: string;
                             /** @enum {string} */
-                            reason: "asked" | "country" | "prospect" | "chat" | "chat_only" | "group" | "friend";
+                            reason: "asked" | "country" | "prospect" | "chat" | "chat_only" | "group" | "friend" | "follower" | "member";
                             url: string;
                         }[];
                         perDay: number;
@@ -73971,6 +75036,41 @@ export interface operations {
             };
         };
     };
+    query_outreach_events_next: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /**
+                     * @default alignable
+                     * @enum {string}
+                     */
+                    platform?: "alignable";
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        due: boolean;
+                        read: string[];
+                    };
+                };
+            };
+        };
+    };
     query_outreach_finds_next: {
         parameters: {
             query?: never;
@@ -74000,7 +75100,7 @@ export interface operations {
                     "application/json": {
                         people: {
                             /** @enum {string} */
-                            how: "posted" | "commented" | "liked" | "member" | "searched";
+                            how: "posted" | "commented" | "liked" | "member" | "event" | "follows" | "searched";
                             name: string;
                             postUrl: string | null;
                             /** Format: uuid */
@@ -74052,6 +75152,37 @@ export interface operations {
             };
         };
     };
+    query_outreach_finds_towns: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    town: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        near: string[];
+                        today: string | null;
+                    };
+                };
+            };
+        };
+    };
     query_outreach_follow_backs_next: {
         parameters: {
             query?: never;
@@ -74093,6 +75224,40 @@ export interface operations {
                             username: string | null;
                         }[];
                         perDay: number;
+                    };
+                };
+            };
+        };
+    };
+    query_outreach_followers_next: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /**
+                     * @default facebook
+                     * @enum {string}
+                     */
+                    platform?: "facebook";
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        due: boolean;
                     };
                 };
             };
@@ -74350,6 +75515,94 @@ export interface operations {
             };
         };
     };
+    query_outreach_group_people: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    groupId: string;
+                    /** @default 1 */
+                    page?: number;
+                    /**
+                     * @default all
+                     * @enum {string}
+                     */
+                    view?: "all" | "not_reached" | "found" | "warming" | "friends" | "talking" | "ready" | "pitched" | "booked" | "client" | "lost";
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        counts: {
+                            all: number;
+                            booked: number;
+                            client: number;
+                            found: number;
+                            friends: number;
+                            lost: number;
+                            not_reached: number;
+                            pitched: number;
+                            ready: number;
+                            talking: number;
+                            warming: number;
+                        };
+                        group: {
+                            /** Format: uuid */
+                            groupId: string;
+                            joined: boolean | null;
+                            members: number | null;
+                            name: string | null;
+                            owner: {
+                                name: string;
+                                /** Format: uuid */
+                                userId: string;
+                                you: boolean;
+                            } | null;
+                            /** @enum {string} */
+                            platform: "facebook" | "linkedin" | "instagram" | "alignable";
+                            url: string;
+                        };
+                        moveTo: {
+                            name: string;
+                            /** Format: uuid */
+                            userId: string;
+                            you: boolean;
+                        }[];
+                        page: number;
+                        pages: number;
+                        people: {
+                            lastAt: string | null;
+                            name: string;
+                            nextStep: string | null;
+                            part: string | null;
+                            personId: string | null;
+                            /** Format: uuid */
+                            profileId: string;
+                            runsGroup: boolean;
+                            stage: ("found" | "warming" | "friends" | "talking" | "ready" | "pitched" | "booked" | "client" | "lost") | null;
+                            url: string;
+                            why: string[];
+                        }[];
+                        total: number;
+                    };
+                };
+            };
+        };
+    };
     query_outreach_groups: {
         parameters: {
             query?: never;
@@ -74515,6 +75768,7 @@ export interface operations {
                 };
                 content: {
                     "application/json": {
+                        every: number;
                         perDay: number;
                         /** @enum {string} */
                         posting: "copy" | "after_ok" | "own";
@@ -74529,6 +75783,7 @@ export interface operations {
                             helpfulId: string;
                             /** @enum {string} */
                             how: "copy" | "after_ok" | "own";
+                            picture: string | null;
                             /** @enum {string} */
                             platform?: "facebook" | "linkedin" | "instagram" | "alignable";
                             playbookName: string | null;
@@ -74646,6 +75901,87 @@ export interface operations {
                         };
                         today: number;
                         words: string | null;
+                    };
+                };
+            };
+        };
+    };
+    query_outreach_like_yours_list: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        accounts: {
+                            /** @enum {string} */
+                            addedBy: "ai" | "person";
+                            /** Format: uuid */
+                            id: string;
+                            name: string | null;
+                            readAt: string | null;
+                            url: string;
+                            username: string;
+                            why: string | null;
+                        }[];
+                        canManage: boolean;
+                        most: number;
+                    };
+                };
+            };
+        };
+    };
+    query_outreach_like_yours_next: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /**
+                     * @default instagram
+                     * @enum {string}
+                     */
+                    platform?: "instagram";
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        account: {
+                            /** Format: uuid */
+                            id: string;
+                            url: string;
+                            username: string;
+                        } | null;
+                        searches: string[];
                     };
                 };
             };
@@ -75308,10 +76644,58 @@ export interface operations {
                             /** Format: uuid */
                             id: string;
                             intro: string[];
+                            journey: {
+                                chat: {
+                                    /** Format: date-time */
+                                    lastAt: string;
+                                    lastFromMe: boolean;
+                                    nextStep: string | null;
+                                    summary: string | null;
+                                } | null;
+                                groups: {
+                                    /** Format: uuid */
+                                    groupId: string;
+                                    name: string | null;
+                                    url: string;
+                                }[];
+                                lead: {
+                                    afterDemo?: boolean;
+                                    /** Format: uuid */
+                                    leadId: string;
+                                    stage: string;
+                                    /** @enum {string} */
+                                    status: "open" | "won" | "lost";
+                                    title: string;
+                                } | null;
+                                moreSteps: number;
+                                nextStep: string | null;
+                                stage: ("found" | "warming" | "friends" | "talking" | "ready" | "pitched" | "booked" | "client" | "lost") | null;
+                                steps: {
+                                    /** Format: date-time */
+                                    at: string;
+                                    auto: boolean;
+                                    by: string | null;
+                                    group: {
+                                        name: string | null;
+                                        url: string;
+                                    } | null;
+                                    /** @enum {string} */
+                                    kind: "friend_request" | "like" | "comment" | "message" | "recommend" | "reply" | "demo";
+                                    postUrl: string | null;
+                                    step: ("first_message" | "follow_up") | null;
+                                }[];
+                                why: string[];
+                            };
                             /** Format: date-time */
                             lastSeenAt: string;
                             mutualFriends: number | null;
                             name: string;
+                            owner: {
+                                name: string;
+                                /** Format: uuid */
+                                userId: string;
+                                you: boolean;
+                            } | null;
                             /** @enum {string} */
                             platform: "facebook" | "linkedin" | "instagram" | "alignable";
                             url: string;
@@ -75541,10 +76925,23 @@ export interface operations {
                             by: string | null;
                             tagged: boolean;
                         } | null;
+                        laterUntil: string | null;
+                        moveTo?: {
+                            name: string;
+                            /** Format: uuid */
+                            userId: string;
+                            you: boolean;
+                        }[];
                         name: string;
                         neverContact: {
                             at: string | null;
                             by: string | null;
+                        } | null;
+                        owner?: {
+                            name: string;
+                            /** Format: uuid */
+                            userId: string;
+                            you: boolean;
                         } | null;
                         partner: boolean;
                         personId: string | null;
@@ -75602,6 +76999,11 @@ export interface operations {
                                     name?: string[];
                                 };
                                 feature: string[];
+                                featurePost?: string | null;
+                                idealDraft?: {
+                                    customer: string | null;
+                                    partner: string | null;
+                                } | null;
                                 items: {
                                     about?: {
                                         fix: string | null;
@@ -75649,6 +77051,11 @@ export interface operations {
                                         why: string;
                                     };
                                 };
+                                linkChanges?: {
+                                    link: string;
+                                    to: string | null;
+                                    why: string;
+                                }[];
                                 look?: {
                                     clashes: string[];
                                     ok: boolean;
@@ -75670,6 +77077,7 @@ export interface operations {
                                     name?: string[];
                                     username?: string[];
                                 };
+                                own?: boolean;
                                 recommendations?: number | null;
                                 recommendNote?: string | null;
                                 seen?: {
@@ -75679,11 +77087,20 @@ export interface operations {
                                     url: string | null;
                                     username: string | null;
                                 } | null;
+                                services?: {
+                                    name: string;
+                                    words: string | null;
+                                }[];
                                 usernames?: {
                                     free: boolean | null;
                                     value: string;
                                 }[];
                                 version: number | null;
+                                workDraft?: {
+                                    company: string;
+                                    title: string;
+                                    words: string | null;
+                                } | null;
                             } | null;
                             facebook: {
                                 aboutDraft?: string | null;
@@ -75699,6 +77116,11 @@ export interface operations {
                                     name?: string[];
                                 };
                                 feature: string[];
+                                featurePost?: string | null;
+                                idealDraft?: {
+                                    customer: string | null;
+                                    partner: string | null;
+                                } | null;
                                 items: {
                                     about?: {
                                         fix: string | null;
@@ -75746,6 +77168,11 @@ export interface operations {
                                         why: string;
                                     };
                                 };
+                                linkChanges?: {
+                                    link: string;
+                                    to: string | null;
+                                    why: string;
+                                }[];
                                 look?: {
                                     clashes: string[];
                                     ok: boolean;
@@ -75767,6 +77194,7 @@ export interface operations {
                                     name?: string[];
                                     username?: string[];
                                 };
+                                own?: boolean;
                                 recommendations?: number | null;
                                 recommendNote?: string | null;
                                 seen?: {
@@ -75776,11 +77204,20 @@ export interface operations {
                                     url: string | null;
                                     username: string | null;
                                 } | null;
+                                services?: {
+                                    name: string;
+                                    words: string | null;
+                                }[];
                                 usernames?: {
                                     free: boolean | null;
                                     value: string;
                                 }[];
                                 version: number | null;
+                                workDraft?: {
+                                    company: string;
+                                    title: string;
+                                    words: string | null;
+                                } | null;
                             } | null;
                             instagram: {
                                 aboutDraft?: string | null;
@@ -75796,6 +77233,11 @@ export interface operations {
                                     name?: string[];
                                 };
                                 feature: string[];
+                                featurePost?: string | null;
+                                idealDraft?: {
+                                    customer: string | null;
+                                    partner: string | null;
+                                } | null;
                                 items: {
                                     about?: {
                                         fix: string | null;
@@ -75843,6 +77285,11 @@ export interface operations {
                                         why: string;
                                     };
                                 };
+                                linkChanges?: {
+                                    link: string;
+                                    to: string | null;
+                                    why: string;
+                                }[];
                                 look?: {
                                     clashes: string[];
                                     ok: boolean;
@@ -75864,6 +77311,7 @@ export interface operations {
                                     name?: string[];
                                     username?: string[];
                                 };
+                                own?: boolean;
                                 recommendations?: number | null;
                                 recommendNote?: string | null;
                                 seen?: {
@@ -75873,11 +77321,20 @@ export interface operations {
                                     url: string | null;
                                     username: string | null;
                                 } | null;
+                                services?: {
+                                    name: string;
+                                    words: string | null;
+                                }[];
                                 usernames?: {
                                     free: boolean | null;
                                     value: string;
                                 }[];
                                 version: number | null;
+                                workDraft?: {
+                                    company: string;
+                                    title: string;
+                                    words: string | null;
+                                } | null;
                             } | null;
                             linkedin: {
                                 aboutDraft?: string | null;
@@ -75893,6 +77350,11 @@ export interface operations {
                                     name?: string[];
                                 };
                                 feature: string[];
+                                featurePost?: string | null;
+                                idealDraft?: {
+                                    customer: string | null;
+                                    partner: string | null;
+                                } | null;
                                 items: {
                                     about?: {
                                         fix: string | null;
@@ -75940,6 +77402,11 @@ export interface operations {
                                         why: string;
                                     };
                                 };
+                                linkChanges?: {
+                                    link: string;
+                                    to: string | null;
+                                    why: string;
+                                }[];
                                 look?: {
                                     clashes: string[];
                                     ok: boolean;
@@ -75961,6 +77428,7 @@ export interface operations {
                                     name?: string[];
                                     username?: string[];
                                 };
+                                own?: boolean;
                                 recommendations?: number | null;
                                 recommendNote?: string | null;
                                 seen?: {
@@ -75970,11 +77438,20 @@ export interface operations {
                                     url: string | null;
                                     username: string | null;
                                 } | null;
+                                services?: {
+                                    name: string;
+                                    words: string | null;
+                                }[];
                                 usernames?: {
                                     free: boolean | null;
                                     value: string;
                                 }[];
                                 version: number | null;
+                                workDraft?: {
+                                    company: string;
+                                    title: string;
+                                    words: string | null;
+                                } | null;
                             } | null;
                         };
                         website: string | null;
@@ -76096,6 +77573,11 @@ export interface operations {
                                 name?: string[];
                             };
                             feature: string[];
+                            featurePost?: string | null;
+                            idealDraft?: {
+                                customer: string | null;
+                                partner: string | null;
+                            } | null;
                             items: {
                                 about?: {
                                     fix: string | null;
@@ -76143,6 +77625,11 @@ export interface operations {
                                     why: string;
                                 };
                             };
+                            linkChanges?: {
+                                link: string;
+                                to: string | null;
+                                why: string;
+                            }[];
                             look?: {
                                 clashes: string[];
                                 ok: boolean;
@@ -76164,6 +77651,7 @@ export interface operations {
                                 name?: string[];
                                 username?: string[];
                             };
+                            own?: boolean;
                             recommendations?: number | null;
                             recommendNote?: string | null;
                             seen?: {
@@ -76173,11 +77661,20 @@ export interface operations {
                                 url: string | null;
                                 username: string | null;
                             } | null;
+                            services?: {
+                                name: string;
+                                words: string | null;
+                            }[];
                             usernames?: {
                                 free: boolean | null;
                                 value: string;
                             }[];
                             version: number | null;
+                            workDraft?: {
+                                company: string;
+                                title: string;
+                                words: string | null;
+                            } | null;
                         } | null;
                         ready: boolean;
                     };
@@ -76214,7 +77711,7 @@ export interface operations {
                             createdAt: string;
                             handedOver: boolean;
                             /** @enum {string} */
-                            kind: "opener" | "reconnect" | "pitch" | "video" | "follow_up" | "check_in" | "reply" | "partner_ask" | "partner_follow_up" | "partner_details" | "partner_reply" | "comment";
+                            kind: "opener" | "reconnect" | "pitch" | "video" | "follow_up" | "check_in" | "reply" | "demo_reminder" | "rebook" | "birthday" | "new_job" | "partner_ask" | "partner_follow_up" | "partner_details" | "partner_reply" | "comment" | "group_reply";
                             name: string;
                             needsYou: string | null;
                             opener: {
@@ -76460,7 +77957,7 @@ export interface operations {
                 };
                 content: {
                     "application/json": {
-                        auto: ("reply" | "warm_lead" | "pitch" | "video" | "opener" | "follow_up" | "check_in" | "reconnect" | "comment" | "warm_up" | "friend_request" | "confirm" | "recommend" | "partner_reply" | "partner_details" | "partner_follow_up" | "partner_ask" | "partner_warm_up")[];
+                        auto: ("reply" | "demo_reminder" | "rebook" | "birthday" | "new_job" | "warm_lead" | "pitch" | "video" | "opener" | "follow_up" | "check_in" | "reconnect" | "comment" | "group_reply" | "warm_up" | "friend_request" | "confirm" | "recommend" | "partner_reply" | "partner_details" | "partner_follow_up" | "partner_ask" | "partner_warm_up")[];
                         /**
                          * @default {
                          *       "on": false,
@@ -76482,7 +77979,8 @@ export interface operations {
                             demoBooked: boolean;
                             demoLink: string | null;
                             /** @enum {string} */
-                            kind: "reply" | "warm_lead" | "pitch" | "video" | "opener" | "follow_up" | "check_in" | "reconnect" | "comment" | "warm_up" | "friend_request" | "confirm" | "recommend" | "partner_reply" | "partner_details" | "partner_follow_up" | "partner_ask" | "partner_warm_up";
+                            kind: "reply" | "demo_reminder" | "rebook" | "birthday" | "new_job" | "warm_lead" | "pitch" | "video" | "opener" | "follow_up" | "check_in" | "reconnect" | "comment" | "group_reply" | "warm_up" | "friend_request" | "confirm" | "recommend" | "partner_reply" | "partner_details" | "partner_follow_up" | "partner_ask" | "partner_warm_up";
+                            likeComment?: boolean;
                             name: string;
                             nextStep: string | null;
                             partnerId?: string | null;
@@ -76537,7 +78035,7 @@ export interface operations {
                                 most: number;
                             };
                         };
-                        messages: ("opener" | "reconnect" | "pitch" | "video" | "follow_up" | "check_in" | "reply" | "partner_ask" | "partner_follow_up" | "partner_details" | "partner_reply" | "comment")[];
+                        messages: ("opener" | "reconnect" | "pitch" | "video" | "follow_up" | "check_in" | "reply" | "demo_reminder" | "rebook" | "birthday" | "new_job" | "partner_ask" | "partner_follow_up" | "partner_details" | "partner_reply" | "comment" | "group_reply")[];
                         /** @default [] */
                         partners: {
                             asking: boolean;
@@ -76545,7 +78043,8 @@ export interface operations {
                             demoBooked: boolean;
                             demoLink: string | null;
                             /** @enum {string} */
-                            kind: "reply" | "warm_lead" | "pitch" | "video" | "opener" | "follow_up" | "check_in" | "reconnect" | "comment" | "warm_up" | "friend_request" | "confirm" | "recommend" | "partner_reply" | "partner_details" | "partner_follow_up" | "partner_ask" | "partner_warm_up";
+                            kind: "reply" | "demo_reminder" | "rebook" | "birthday" | "new_job" | "warm_lead" | "pitch" | "video" | "opener" | "follow_up" | "check_in" | "reconnect" | "comment" | "group_reply" | "warm_up" | "friend_request" | "confirm" | "recommend" | "partner_reply" | "partner_details" | "partner_follow_up" | "partner_ask" | "partner_warm_up";
+                            likeComment?: boolean;
                             name: string;
                             nextStep: string | null;
                             partnerId?: string | null;
@@ -76578,6 +78077,12 @@ export interface operations {
                             videoLink: string | null;
                             why: string[];
                         }[];
+                        /** @default null */
+                        profileOwn: {
+                            /** Format: date-time */
+                            at: string;
+                            parts: number;
+                        } | null;
                         readAdmins: {
                             /** Format: uuid */
                             groupId: string;
@@ -76771,7 +78276,7 @@ export interface operations {
                                 result: {
                                     drafts: string[];
                                     /** @default null */
-                                    kind: ("opener" | "reconnect" | "pitch" | "video" | "follow_up" | "check_in" | "reply" | "comment" | "warm_lead" | "partner_ask" | "partner_follow_up" | "partner_details" | "partner_reply") | null;
+                                    kind: ("opener" | "reconnect" | "pitch" | "video" | "follow_up" | "check_in" | "reply" | "demo_reminder" | "rebook" | "birthday" | "new_job" | "comment" | "group_reply" | "warm_lead" | "partner_ask" | "partner_follow_up" | "partner_details" | "partner_reply") | null;
                                     /** @default false */
                                     lookedUp: boolean;
                                     /** @default null */
@@ -76809,7 +78314,7 @@ export interface operations {
                                 createdAt: string;
                                 handedOver: boolean;
                                 /** @enum {string} */
-                                kind: "opener" | "reconnect" | "pitch" | "video" | "follow_up" | "check_in" | "reply" | "partner_ask" | "partner_follow_up" | "partner_details" | "partner_reply" | "comment";
+                                kind: "opener" | "reconnect" | "pitch" | "video" | "follow_up" | "check_in" | "reply" | "demo_reminder" | "rebook" | "birthday" | "new_job" | "partner_ask" | "partner_follow_up" | "partner_details" | "partner_reply" | "comment" | "group_reply";
                                 name: string;
                                 needsYou: string | null;
                                 opener: {
@@ -76850,7 +78355,7 @@ export interface operations {
                                 createdAt: string;
                                 handedOver: boolean;
                                 /** @enum {string} */
-                                kind: "opener" | "reconnect" | "pitch" | "video" | "follow_up" | "check_in" | "reply" | "partner_ask" | "partner_follow_up" | "partner_details" | "partner_reply" | "comment";
+                                kind: "opener" | "reconnect" | "pitch" | "video" | "follow_up" | "check_in" | "reply" | "demo_reminder" | "rebook" | "birthday" | "new_job" | "partner_ask" | "partner_follow_up" | "partner_details" | "partner_reply" | "comment" | "group_reply";
                                 name: string;
                                 needsYou: string | null;
                                 opener: {
@@ -77088,6 +78593,7 @@ export interface operations {
                         };
                         payouts: {
                             account: {
+                                country: string;
                                 detailsSubmitted: boolean;
                                 needsMore: boolean;
                                 ready: boolean;

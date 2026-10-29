@@ -523,6 +523,8 @@ describe('registry', () => {
       'contact_ai.cancel_sweep',
       'maintenance.set_schedule',
       'lead.catch_up',
+      // A lead waiting for won or lost after its demo (decision 106).
+      'lead.wait_for_outcome',
       'attendee.confirm',
       'attendee.confirm_online',
       // One person's attendance on a session (funnels).

@@ -9,7 +9,9 @@
  *   `never_contact`), their chats
  *   (`?view=chats`, `?show=tagged`, `read` or `waiting`, and a tag `?tag=`), and their Partners list (`?view=partners`,
  *   `?show=asked`… for one stage, else everyone).
- * - **Groups** (`?view=groups`, `?show=maybe`, `skip` or `all`, else Work these).
+ * - **Groups** (`?view=groups`, `?show=maybe`, `skip` or `all`, else Work these), and a group's own page
+ *   (`?group=` its id, decision 103): who was found there and how each turned out, `?show=` one outcome
+ *   (`not_reached`, `talking`…), else everyone.
  * - **Results** (`?view=results`, and the old `?view=activity`): the stretch of days (`?period=today`, `week` or
  *   `month`) and whose steps (`?who=everyone`, for owners and admins).
  * - **Settings** (`?view=settings`), a page for each part (`?part=general`, `facebook`, `linkedin`, `computer` or
@@ -24,6 +26,7 @@ import { ACTIVITY_PERIOD_KEYS, type ActivityPeriod } from '@hfos/core/addons/out
 import { CHAT_VIEW_KEYS, type ChatView } from '@hfos/core/addons/outreach/chat-read';
 import { FRIEND_VIEW_KEYS, type FriendView } from '@hfos/core/addons/outreach/friends';
 import { GROUP_VIEWS, type GroupView } from '@hfos/core/addons/outreach/groups';
+import { GROUP_PEOPLE_VIEW_KEYS, type GroupPeopleView } from '@hfos/core/addons/outreach/journey';
 import { readNetwork } from '@hfos/core/addons/outreach/network-words';
 import type { Platform } from '@hfos/core/addons/outreach/networks';
 import { PARTNER_VIEW_KEYS, type PartnerView } from '@hfos/core/addons/outreach/partners';
@@ -122,6 +125,10 @@ export interface OutreachAddress {
   readonly chats: ChatView;
   /** Which groups: Work these, Maybe, Skip, or all. */
   readonly groups: GroupView;
+  /** One group's page: its id, or empty for the list. */
+  readonly group: string;
+  /** Who of a group's page: everyone found there, one outcome, or those not reached yet. */
+  readonly outcome: GroupPeopleView;
   /** Which of the pipeline: everyone in play (the board), or one stage. */
   readonly stages: StageView;
   /** Which of the Partners list: everyone on it, or one stage. */
@@ -155,6 +162,8 @@ export function readOutreachAddress(
     show: FRIEND_VIEW_KEYS.find((k) => k === one(sp.show)) ?? 'friends',
     chats: CHAT_VIEW_KEYS.find((k) => k === one(sp.show)) ?? 'prospects',
     groups: GROUP_VIEW_KEYS.find((k) => k === one(sp.show)) ?? 'work',
+    group: UUID.test(one(sp.group)) ? one(sp.group).toLowerCase() : '',
+    outcome: GROUP_PEOPLE_VIEW_KEYS.find((k) => k === one(sp.show)) ?? 'all',
     stages: STAGE_VIEW_KEYS.find((k) => k === one(sp.show)) ?? 'all',
     partners: PARTNER_VIEW_KEYS.find((k) => k === one(sp.show)) ?? 'all',
     tag: one(sp.tag).trim().slice(0, 40),
@@ -168,7 +177,8 @@ export function readOutreachAddress(
 
 /**
  * A view's address: for the results their stretch and whose; for the pipeline, groups, friends and chats which, the
- * name searched for and the page; for partners which and the page; for settings, the part and whose.
+ * name searched for and the page; for a group's page the group, who and the page; for partners which and the page;
+ * for settings, the part and whose.
  */
 export function outreachHref(workspaceId: string, to: Partial<OutreachAddress> = {}): string {
   const params = new URLSearchParams();
@@ -187,6 +197,10 @@ export function outreachHref(workspaceId: string, to: Partial<OutreachAddress> =
   if (view === 'settings') {
     if (to.part && to.part !== 'general') params.set('part', to.part);
     if (to.for) params.set('for', to.for);
+  } else if (view === 'groups' && to.group) {
+    params.set('group', to.group);
+    if (to.outcome && to.outcome !== 'all') params.set('show', to.outcome);
+    if (to.page && to.page > 1) params.set('page', String(to.page));
   } else if (view === 'groups') {
     if (to.groups && to.groups !== 'work') params.set('show', to.groups);
     if (to.search) params.set('q', to.search);

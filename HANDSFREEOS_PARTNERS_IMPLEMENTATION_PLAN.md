@@ -34,7 +34,7 @@ someone who already has your customers' attention, asked to send them your way f
 | 15  | Which networks?                                      | **All four at once.** Instagram's and Alignable's partner steps run as soon as each network's own steps do (they're still looked at, decision 78).                                                             |
 | 16  | Who pays Stripe's fees?                              | **The business,** added to its monthly charge and shown on its statement (Chris, 18 Oct 2026).                                                                                                                 |
 | 17  | What's the smallest payout?                          | **$25,** with less carried to the next month. A business can set a lower one for its partners.                                                                                                                 |
-| 18  | Partners outside the US?                             | **Later.** US partners first.                                                                                                                                                                                  |
+| 18  | Partners outside the US?                             | **Later.** US partners first. Since 28 Oct 2026: from the countries the business reaches, paid in the US, Canada, the UK, the EEA and Switzerland (docs/outreach.md decision 118).                             |
 | 19  | A refund made in Stripe's or Square's own dashboard? | **Recorded,** as one made in HandsFreeOS is: it counts on the invoice, and takes back the partner's share (Chris, 18 Oct 2026).                                                                                |
 
 ## How it works, in plain words
@@ -301,7 +301,8 @@ if the business says, decision 17), and the calendar the referral link books.
 ## Stage 3: payouts (core)
 
 - **The partner's bank:** Stripe Connect Express, set up from their page with Stripe's own form (bank details, tax
-  details and identity are Stripe's, never HandsFreeOS's). US partners first.
+  details and identity are Stripe's, never HandsFreeOS's). US partners first; since decision 118 of docs/outreach.md,
+  also Canada, the UK, the EEA and Switzerland, with the account made in the country their bank is in.
 - **The business's card:** kept for partner payouts on HandsFreeOS's own Stripe account, as texting fees keep theirs.
 - **Each month:** for each business, what's owed for payments at least 30 days old is added up as one payout; the
   card is charged off-session, once per month by its key; then each partner is paid by a Stripe transfer tied to
@@ -715,4 +716,6 @@ request when opened, so no Check opens it: the first real request shows what it 
 7. **Stage 5 (built):** the payout loose ends: 1099 fees, a deleted partner's held line, and a refund that fails
    later.
 8. **Stage 6:** partners on Alignable, then Instagram, as each network starts to work (6a to 6d above).
-9. **Chris tries each,** in Stripe's test mode first for payouts.
+9. **Partners outside the US (built, 28 Oct 2026):** the countries the business reaches, paid in the US, Canada, the
+   UK, the EEA and Switzerland (docs/outreach.md decision 118, migration 20261027017500).
+10. **Chris tries each,** in Stripe's test mode first for payouts.

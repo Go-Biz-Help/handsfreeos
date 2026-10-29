@@ -15,6 +15,7 @@ import {
   dayNumber,
   PostCheckInput,
   PostCheckOutput,
+  accountPostLook,
   postLook,
   postLooks,
   type PostCheck,
@@ -97,10 +98,11 @@ export const postsSave = defineAddonCommand(outreachAddon, {
           });
           continue;
         }
-        const look = postLook(playbooks, p.text, {
-          platform: input.platform,
-          words: input.words,
-        });
+        // An account like the business's (decision 110): each of its posts is kept, for its people.
+        const look =
+          input.found === 'account'
+            ? accountPostLook(playbooks, input.words, p.text)
+            : postLook(playbooks, p.text, { platform: input.platform, words: input.words });
         if (!look.worth) {
           marks.push({ url: p.url, check: null, why: look.reasons as string[], done: false });
           continue;

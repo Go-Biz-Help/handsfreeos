@@ -211,6 +211,7 @@ import { leadArchive, leadRestore } from './lead.archive';
 import { leadCreate } from './lead.create';
 import { leadCatchUp } from './lead.catch_up';
 import { leadMoveStage } from './lead.move_stage';
+import { leadWaitForOutcome } from './lead.wait_for_outcome';
 import { leadSetNextAction } from './lead.set_next_action';
 import { leadUpdate } from './lead.update';
 import { membershipChangeRole } from './membership.change_role';
@@ -626,6 +627,7 @@ export {
   leadRestore,
   leadSetNextAction,
   leadUpdate,
+  leadWaitForOutcome,
   membershipChangeRole,
   membershipInvite,
   membershipRemove,
@@ -1082,6 +1084,8 @@ export const commands: readonly CommandDef[] = [
   ...contactAiCommands,
   maintenanceSetSchedule,
   leadCatchUp,
+  // A deal a person marks won or lost themselves: Social Outreach's from a demo (20261027015700).
+  leadWaitForOutcome,
   attendeeConfirm,
   attendeeConfirmOnline,
   attendeeSetAttendance,

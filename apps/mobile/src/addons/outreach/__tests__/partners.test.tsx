@@ -251,6 +251,7 @@ describe('a partner’s steps on Today', () => {
       week: null,
       fresh: { on: false, from: null, until: null, days: 14 },
       requestsHeld: null,
+      profileOwn: null,
     };
     await render(
       <TodayBody
@@ -300,6 +301,7 @@ describe('Results on the phone', () => {
       warning: null,
       partners: { asked: 3, interested: 1, calls: 1, partners: 0 },
       groups: [],
+      topics: [],
       people: [],
       morePeople: 0,
     };

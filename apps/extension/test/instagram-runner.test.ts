@@ -176,7 +176,7 @@ const { searchInstagram } = await import('../src/jobs/instagram/partner-search')
 const { WorkTab } = await import('../src/tab');
 const { LIVE_KEY } = await import('../src/hfos/live');
 const { NETWORKS_KEY } = await import('../src/networks/on');
-const { INSTAGRAM_STATE_KEY } = await import('../src/auto/plan');
+const { freshState, INSTAGRAM_STATE_KEY } = await import('../src/auto/plan');
 const { WARNED_KEY } = await import('../src/hfos/warned');
 const { beforeDayDoing, beforeDayLine } = await import('../src/auto/lists');
 const { chatBoxFor } = await import('../src/networks/instagram/auto');
@@ -241,10 +241,13 @@ const accountHtml = (
     username?: string;
     button?: 'Follow' | 'Following';
     posts?: readonly (readonly [string, string])[];
+    /** Their story's ring round their picture (decision 111). */
+    story?: boolean;
   } = {},
 ) => {
   const username = o.username ?? 'dana.reyes';
   return `${MENU}<main role="main"><header>
+    ${o.story ? `<section><div role="button"><canvas></canvas><span role="link"><img alt="${username}'s profile picture"></span></div></section>` : ''}
     <section><a href="#"><h2 dir="auto"><span>${username}</span></h2></a><span dir="auto">Dana Reyes</span></section>
     <section><div dir="auto">Plumber in Austin</div></section>
     <section><button id="follow"><div dir="auto">${o.button ?? 'Follow'}</div></button>
@@ -254,6 +257,18 @@ const accountHtml = (
     .map(([code, alt]) => `<a href="/${username}/p/${code}/"><img alt="${alt}"></a>`)
     .join('')}</div></main>`;
 };
+
+/** Their story's own address (decision 111), and the story the viewer shows there once View story is pressed. */
+const STORY = `${IG}/stories/dana.reyes/`;
+const STORY_AT = `${IG}/stories/dana.reyes/3100000000000000001/`;
+/** What Instagram asks first on a story's own address. */
+const STORY_ASKS_FIRST = `<section><div><span>dana.reyes will be able to see that you viewed their story.</span>
+  <div role="button" id="view">View story</div><div role="button">Cancel</div></div></section>`;
+/** The story's viewer: its box to reply in, with its Like beside it, and its Close. */
+const STORY_VIEWER = `<section><div><img alt="Photo by Dana Reyes">
+  <form><textarea aria-label="Reply to dana.reyes…"></textarea></form>
+  <div role="button" id="story-like"><svg role="img" aria-label="Like"></svg></div>
+  <div role="button"><svg role="img" aria-label="Close"></svg></div></div></section>`;
 
 /** One of their posts on its own page: who posted it by its own link, its caption, and its bar's Like and Comment. */
 const postHtml = (
@@ -444,16 +459,23 @@ describe('what it does on Instagram’s list', () => {
     expect(nextInstagramDaily({ daily: done })).toBe('chats');
     expect(nextInstagramDaily({ daily: { ...done, chats: 'z' } })).toBe('partners');
     expect(nextInstagramDaily({ daily: { ...done, chats: 'z', partners: 'w' } })).toBe('posts');
-    expect(nextInstagramDaily({ daily: { ...done, chats: 'z', partners: 'w', posts: 'v' } })).toBe(
-      'helpful',
-    );
-    // Then who liked and commented on the good posts the hashtags found, and last the people found by topic checked
-    // for good fits (decision 92).
-    const all = { ...done, chats: 'z', partners: 'w', posts: 'v', helpful: 't' };
+    // Accounts like yours after the hashtags (decision 110), then the notifications.
+    const looked = { ...done, chats: 'z', partners: 'w', posts: 'v' };
+    expect(nextInstagramDaily({ daily: looked })).toBe('like_yours');
+    expect(nextInstagramDaily({ daily: { ...looked, like_yours: 'l' } })).toBe('helpful');
+    // Then the week's helpful post asked for (decision 109), who liked and commented on the good posts the hashtags
+    // found, and last the people found by topic checked for good fits (decision 92).
+    const engaged = { ...looked, like_yours: 'l', helpful: 't' };
+    expect(nextInstagramDaily({ daily: engaged })).toBe('weekly_post');
+    const all = { ...engaged, weekly_post: 'q' };
     expect(nextInstagramDaily({ daily: all })).toBe('post_people');
     expect(nextInstagramDaily({ daily: { ...all, post_people: 'r' } })).toBe('found_checks');
+    // And on the 1st of each month, their own profile read (decision 99).
+    expect(nextInstagramDaily({ daily: { ...all, post_people: 'r', found_checks: 's' } })).toBe(
+      'profile',
+    );
     expect(
-      nextInstagramDaily({ daily: { ...all, post_people: 'r', found_checks: 's' } }),
+      nextInstagramDaily({ daily: { ...all, post_people: 'r', found_checks: 's', profile: 'p' } }),
     ).toBeNull();
   });
 
@@ -516,15 +538,27 @@ describe('what it does on Instagram’s list', () => {
 describe('a warm-up on Instagram', () => {
   /** Their account and each post's own page; a post's Like says Unlike once pressed. */
   const likes: string[] = [];
-  const pagesFor = (posts?: readonly (readonly [string, string])[]) => {
+  const pagesFor = (posts?: readonly (readonly [string, string])[], story = false) => {
     likes.length = 0;
     world.pages = (url) =>
       url === DANA
-        ? { html: accountHtml({ posts }) }
-        : /\/p\/(\w+)\/$/.test(url)
-          ? { html: postHtml(/\/p\/(\w+)\/$/.exec(url)![1]!) }
-          : null;
+        ? { html: accountHtml({ posts, story }) }
+        : url === STORY
+          ? { html: STORY_ASKS_FIRST }
+          : /\/p\/(\w+)\/$/.test(url)
+            ? { html: postHtml(/\/p\/(\w+)\/$/.exec(url)![1]!) }
+            : null;
     world.behave = (doc, url) => {
+      // Their story's View story draws its viewer at the story's own address, whose Like says Unlike once pressed.
+      doc.querySelector('#view')?.addEventListener('click', () => {
+        doc.defaultView!.history.pushState({}, '', STORY_AT);
+        doc.body.innerHTML = STORY_VIEWER;
+        const like = doc.querySelector('#story-like')!;
+        like.addEventListener('click', () => {
+          like.querySelector('svg')!.setAttribute('aria-label', 'Unlike');
+          likes.push(STORY_AT);
+        });
+      });
       for (const like of doc.querySelectorAll('.like'))
         like.addEventListener('click', () => {
           like.querySelector('svg')!.setAttribute('aria-label', 'Unlike');
@@ -589,6 +623,68 @@ describe('a warm-up on Instagram', () => {
     expect(missedPosted().map((p) => p.body)).toEqual([
       { workspaceId: ME.businessId, profileId: PROFILE_ID },
     ]);
+  });
+
+  /** The story's warm-up (decision 111), with the clock moved on while it's watched. */
+  const warmedWithStory = async (spare: number) => {
+    vi.useFakeTimers({ toFake: ['setTimeout'] });
+    try {
+      const going = doWork(
+        { do: 'step', item: item({ kind: 'warm_up' }) },
+        ME.businessId,
+        true,
+        spare,
+      );
+      await vi.advanceTimersByTimeAsync(30_000);
+      return await going;
+    } finally {
+      vi.useRealTimers();
+    }
+  };
+
+  it('watches their story and likes it first, as one of the warm-up’s likes, noting it by its address (decision 111)', async () => {
+    pagesFor(undefined, true);
+    expect(await warmedWithStory(3)).toEqual({
+      done: true,
+      line: 'Watched Dana Reyes’s story and liked it, and a post of theirs too: the follow comes tomorrow',
+    });
+    // Their account (their posts read on it), their story, then one post: the story is one of the 2 likes.
+    expect(world.opened).toEqual([DANA, STORY, `${IG}/p/C2bbbbbbb/`]);
+    expect(likes).toEqual([STORY_AT, `${IG}/p/C2bbbbbbb/`]);
+    expect(notedAs()).toEqual([
+      {
+        kind: 'like',
+        auto: true,
+        postUrl: STORY_AT,
+        username: 'dana.reyes',
+        platform: 'instagram',
+      },
+      {
+        kind: 'like',
+        auto: true,
+        postUrl: `${IG}/p/C2bbbbbbb/`,
+        username: 'dana.reyes',
+        platform: 'instagram',
+      },
+    ]);
+    expect(store.get(INSTAGRAM_STATE_KEY)).toMatchObject({ done: { story_like: 1 } });
+    expect(missedPosted()).toEqual([]);
+  });
+
+  it('likes their story alone when the day’s likes have no room for a second', async () => {
+    pagesFor(undefined, true);
+    expect(await warmedWithStory(0)).toEqual({
+      done: true,
+      line: 'Watched Dana Reyes’s story and liked it: the follow comes tomorrow',
+    });
+    expect(likes).toEqual([STORY_AT]);
+  });
+
+  it('opens no story once the day’s 20 are liked, and likes their posts as before', async () => {
+    pagesFor(undefined, true);
+    store.set(INSTAGRAM_STATE_KEY, { ...freshState(null), done: { story_like: 20 } });
+    await doWork({ do: 'step', item: item({ kind: 'warm_up' }) }, ME.businessId, true, 3);
+    expect(world.opened).toEqual([DANA, `${IG}/p/C2bbbbbbb/`, `${IG}/p/C3ccccccc/`]);
   });
 
   /** Someone found by a post they wrote (decision 92): its own link, and what it said. */
@@ -666,6 +762,89 @@ describe('a warm-up on Instagram', () => {
       3,
     );
     expect(world.opened).toEqual([DANA, `${IG}/p/C2bbbbbbb/`, `${IG}/p/C3ccccccc/`]);
+    expect(likes).toEqual([`${IG}/p/C2bbbbbbb/`, `${IG}/p/C3ccccccc/`]);
+  });
+
+  /** A good post of someone else's, with Dana's comment on it (decision 116): its own link, words, Reply and Like. */
+  const COMMENTED = `${IG}/p/C5commentd/`;
+  const DANAS_COMMENT = `${IG}/p/C5commentd/c/17900000000000005/`;
+  const commentedHtml = (words: string) => `${MENU}<main role="main"><article>
+    <div><a href="/kim_bakes/"><span>kim_bakes</span></a></div>
+    <div><div><div><a role="link" href="/dana.reyes/"><img alt=""></a>
+      <div><div><div><div><span dir="auto"><a role="link" href="/dana.reyes/"><span dir="auto">dana.reyes</span></a></span>
+        <span dir="auto"><a role="link" href="/p/C5commentd/c/17900000000000005/"><time>2h</time></a></span></div>
+        <span dir="auto">${words}</span></div>
+        <div><div role="button"><span dir="auto"><span>Reply</span></span></div></div></div>
+        <div role="button" id="comment-like"><svg role="img" aria-label="Like"></svg></div></div></div></div></div>
+    <section><div><div role="button" class="like"><svg role="img" aria-label="Like"></svg></div>
+      <div role="button"><svg role="img" aria-label="Comment"></svg></div></div></section>
+    <div><a href="/kim_bakes/p/C5commentd/"><time>1d</time></a></div>
+  </article></main>`;
+  /** Someone found by their comment on a good post (decision 116): the post's own link, and what it said. */
+  const foundByComment = (words: string) => {
+    pagesFor();
+    const pages = world.pages;
+    const behave = world.behave;
+    world.pages = (url) => (url === COMMENTED ? { html: commentedHtml(words) } : pages(url));
+    world.behave = (doc, url) => {
+      behave(doc, url);
+      const like = doc.querySelector('#comment-like');
+      like?.addEventListener('click', () => {
+        like.querySelector('svg')!.setAttribute('aria-label', 'Unlike');
+        likes.push(DANAS_COMMENT);
+      });
+    };
+    return item({
+      kind: 'warm_up',
+      postId: POST_ID,
+      postUrl: COMMENTED,
+      post: 'Anyone know a good plumber?',
+      likeComment: true,
+    });
+  };
+
+  it('likes their comment on the post it found them by first, never the post, then one of their latest', async () => {
+    const found = foundByComment('We fix leaks all over Austin.');
+    expect(await doWork({ do: 'step', item: found }, ME.businessId, true, 3)).toEqual({
+      done: true,
+      line: 'Liked Dana Reyes’s comment it found and a post of theirs: the follow comes tomorrow',
+    });
+    // Their comment on the post's own page, never the post's own Like, then their account and one of their latest.
+    expect(world.opened).toEqual([COMMENTED, DANA, `${IG}/p/C2bbbbbbb/`]);
+    expect(likes).toEqual([DANAS_COMMENT, `${IG}/p/C2bbbbbbb/`]);
+    expect(notedAs().map((n) => [n.kind, n.postUrl, n.username])).toEqual([
+      ['like', DANAS_COMMENT, 'dana.reyes'],
+      ['like', `${IG}/p/C2bbbbbbb/`, 'dana.reyes'],
+    ]);
+    // With no room past the warm-ups left, their comment alone.
+    world.opened.length = 0;
+    world.noted.length = 0;
+    expect(
+      await doWork(
+        { do: 'step', item: foundByComment('We fix leaks all over Austin.') },
+        ME.businessId,
+        true,
+        0,
+      ),
+    ).toEqual({
+      done: true,
+      line: 'Liked Dana Reyes’s comment it found: the follow comes tomorrow',
+    });
+    expect(likes).toEqual([DANAS_COMMENT]);
+  });
+
+  it('likes their latest in its place when their comment is about grief, or the post shows none of theirs', async () => {
+    const sad = foundByComment('So sorry for your loss, rest in peace.');
+    await doWork({ do: 'step', item: sad }, ME.businessId, true, 3);
+    expect(world.opened).toEqual([COMMENTED, DANA, `${IG}/p/C2bbbbbbb/`, `${IG}/p/C3ccccccc/`]);
+    expect(likes).toEqual([`${IG}/p/C2bbbbbbb/`, `${IG}/p/C3ccccccc/`]);
+    // Nobody's comment of theirs on it: their latest, as anyone's.
+    world.opened.length = 0;
+    const gone = foundByComment('We fix leaks all over Austin.');
+    world.pages = ((pages) => (url: string) =>
+      url === COMMENTED ? { html: postHtml('C5commentd', 'kim_bakes') } : pages(url))(world.pages);
+    await doWork({ do: 'step', item: gone }, ME.businessId, true, 3);
+    expect(world.opened).toEqual([COMMENTED, DANA, `${IG}/p/C2bbbbbbb/`, `${IG}/p/C3ccccccc/`]);
     expect(likes).toEqual([`${IG}/p/C2bbbbbbb/`, `${IG}/p/C3ccccccc/`]);
   });
 
@@ -2061,5 +2240,158 @@ describe('Instagram’s growing (part 15)', () => {
     expect(world.asked.find((a) => a.type === 'hfos-follow-backs-next')?.input).toMatchObject({
       most: 28,
     });
+  });
+});
+
+describe('accounts like yours on Instagram (decision 110)', () => {
+  const ACCOUNT_ID = '5e6f7081-9203-4b4c-8d6e-7f8091a2b3c4';
+  const job = (): Job => ({
+    tab: new WorkTab('window'),
+    hfos: (async (ask: { readonly type: string }) => {
+      world.asked.push(ask);
+      const found = world.hfos[ask.type];
+      return { ok: true, value: found ? found(ask as Record<string, unknown>) : {} };
+    }) as unknown as Hfos,
+    businessId: ME.businessId,
+    stopped: () => false,
+    progress: () => undefined,
+    warn: async () => undefined,
+    report: async () => undefined,
+  });
+
+  /** Instagram's search for the words: two accounts, and the person's own. */
+  const searchHtml = `${MENU}<main><div>
+    <div><a href="/atx.chamber/"><span>atx.chamber</span></a></div>
+    <div><a href="/Austin.Events/"><span>Austin.Events</span></a></div>
+    <div><a href="/me.owner/"><span>me.owner</span></a></div></div></main>`;
+  /** One of the account's posts on its own page: who posted it, and its caption beside its time. */
+  const theirPostHtml = (
+    by: string,
+    caption: string,
+  ) => `${MENU}<section><main role="main"><div><div><div>
+      <div><div><div><span dir="auto"><a role="link" href="/${by}/"><span dir="auto">${by}</span></a></span></div></div>
+        <div role="button">Follow</div></div>
+        <div role="button" aria-expanded="false"><svg role="img" aria-label="More options"></svg></div></div>
+      <hr>
+      <div><div><div><a role="link" href="/${by}/"><img alt=""></a>
+        <div><span dir="auto"><div><div><a role="link" href="/${by}/"><span dir="auto">${by}</span></a>
+          <span>•</span><time>2d</time></div>
+          <span>${caption}</span></div></span></div></div></div>
+    </div></div></main></section>`;
+  /** Its followers, in the box over its page: someone new, someone the person follows, and the person. */
+  const followersHtml = `${accountHtml({ username: 'austinchamber' })}<div role="dialog"><h1>Followers</h1>
+    <div role="button" aria-label="Close"></div><div>
+    <div><a href="/dana.reyes/"><span dir="auto">dana.reyes</span></a><span dir="auto">Dana Reyes</span>
+      <button><div dir="auto">Follow</div></button></div>
+    <div><a href="/pat.quinn/"><span dir="auto">pat.quinn</span></a><span dir="auto">Pat Quinn</span>
+      <button><div dir="auto">Following</div></button></div>
+    <div><a href="/me.owner/"><span dir="auto">me.owner</span></a><span dir="auto">Me Owner</span></div>
+  </div></div>`;
+  const CODES = ['C1aaaaaaa', 'C2bbbbbbb', 'C3ccccccc', 'C4ddddddd'] as const;
+
+  it('searches for accounts like yours, then reads one: its latest posts and its followers', async () => {
+    world.pages = (url) => {
+      if (url === `${IG}/explore/search/keyword/?q=Austin%20chamber%20of%20commerce`)
+        return { html: searchHtml };
+      if (url === `${IG}/austinchamber/`)
+        return {
+          html: accountHtml({
+            username: 'austinchamber',
+            posts: CODES.map((c) => [c, 'A post'] as const),
+          }),
+        };
+      const post = /\/p\/(\w+)\/$/.exec(url)?.[1];
+      if (post) return { html: theirPostHtml('austinchamber', `Mixer night ${post}`) };
+      if (url === `${IG}/austinchamber/followers/`) return { html: followersHtml };
+      return null;
+    };
+    world.hfos['hfos-like-yours-next'] = () => ({
+      searches: ['Austin chamber of commerce'],
+      account: { id: ACCOUNT_ID, username: 'austinchamber', url: `${IG}/austinchamber/` },
+    });
+    world.hfos['hfos-like-yours-found'] = (ask) => ({
+      candidates: (ask['input'] as { accounts: unknown[] }).accounts.length,
+    });
+    world.hfos['hfos-save-posts'] = (ask) => ({
+      groupId: null,
+      posts: [],
+      checking: (ask['input'] as { posts: unknown[] }).posts.length,
+    });
+    world.hfos['hfos-finds-save'] = (ask) => ({
+      added: (ask['input'] as { people: unknown[] }).people.length,
+      skipped: 0,
+    });
+    const inFront = vi.fn(<T>(work: () => Promise<T>) => work());
+    const base = job();
+    const end = await runInstagramDaily('like_yours', {
+      ...base,
+      tab: Object.assign(base.tab, { inFront }),
+    });
+    expect(world.asked.find((a) => a.type === 'hfos-like-yours-next')?.input).toEqual({
+      workspaceId: ME.businessId,
+      platform: 'instagram',
+    });
+    // The accounts the search showed, never the person's own, by their usernames in small letters.
+    expect(world.asked.find((a) => a.type === 'hfos-like-yours-found')?.input).toEqual({
+      workspaceId: ME.businessId,
+      platform: 'instagram',
+      accounts: [
+        { username: 'atx.chamber', name: null, words: 'Austin chamber of commerce' },
+        { username: 'austin.events', name: null, words: 'Austin chamber of commerce' },
+      ],
+    });
+    // Its latest 3 posts, sent as found by it, so their people are read whatever the AI says of them.
+    expect(world.opened).toEqual([
+      `${IG}/explore/search/keyword/?q=Austin%20chamber%20of%20commerce`,
+      `${IG}/austinchamber/`,
+      `${IG}/p/C1aaaaaaa/`,
+      `${IG}/p/C2bbbbbbb/`,
+      `${IG}/p/C3ccccccc/`,
+      `${IG}/austinchamber/followers/`,
+    ]);
+    expect(inFront).toHaveBeenCalledTimes(1);
+    expect(world.asked.find((a) => a.type === 'hfos-save-posts')?.input).toMatchObject({
+      workspaceId: ME.businessId,
+      platform: 'instagram',
+      group: null,
+      found: 'account',
+      words: '@austinchamber',
+      posts: [
+        expect.objectContaining({ name: 'austinchamber', text: 'Mixer night C1aaaaaaa' }),
+        expect.objectContaining({ text: 'Mixer night C2bbbbbbb' }),
+        expect.objectContaining({ text: 'Mixer night C3ccccccc' }),
+      ],
+    });
+    // Who follows it, never the person or anyone they follow already, as people found who follow it.
+    expect(world.asked.find((a) => a.type === 'hfos-finds-save')?.input).toMatchObject({
+      workspaceId: ME.businessId,
+      platform: 'instagram',
+      how: 'follows',
+      postId: null,
+      words: '@austinchamber',
+      people: [
+        {
+          name: 'Dana Reyes',
+          profile: { id: null, username: 'dana.reyes', url: `${IG}/dana.reyes/` },
+        },
+      ],
+    });
+    expect(world.asked.find((a) => a.type === 'hfos-like-yours-read')?.input).toEqual({
+      workspaceId: ME.businessId,
+      id: ACCOUNT_ID,
+    });
+    expect(end).toEqual({
+      line: 'Done. Found 2 accounts like yours on Instagram for the AI to pick from. Read @austinchamber: 3 posts sent to check, 1 new person from its followers to check for good fits.',
+      warned: false,
+    });
+  });
+
+  it('says so when there’s nothing to search for or read', async () => {
+    world.hfos['hfos-like-yours-next'] = () => ({ searches: [], account: null });
+    expect(await runInstagramDaily('like_yours', job())).toEqual({
+      line: 'No account like yours to read on Instagram today. Add some in Settings → Instagram → Accounts like yours, or add your area to a playbook so the AI finds some.',
+      warned: false,
+    });
+    expect(world.opened).toEqual([]);
   });
 });

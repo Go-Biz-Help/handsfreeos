@@ -7,15 +7,22 @@
  * then works from: requests to confirm, people to send friend requests to, posts to comment on, chats for the AI, and
  * friends to reconnect with. Then it searches for people who could partner with the business and reads them for the
  * AI's partner check (decision 81). Last, it asks for today's helpful post and reads who engaged with those up lately
- * (decision 50). Nothing is pressed or sent on Facebook but Join group and its questions' answers, and
- * only while the person lets it join on its own; and on the person's own posts, See who reacted to this. They run while the person lets it work on its own and leaves **Once
- * a day** ticked.
+ * (decision 50); and on the 1st of each month it reads their profile for the AI's check (decision 99). From 0.100.0 it
+ * reads their friends' birthdays after tidying, for a note on Today that waits for their OK (decision 108); and from
+ * 0.105.0, once a week before the day's checks, their followers, whose good fits among those who aren't friends go on
+ * Today for a friend request (decision 113); and from 0.106.0, after finding posts, it likes a few recent posts in their
+ * groups and keeps a question there for the day's reply, which the AI writes and waits for their OK at first
+ * (decision 114). Nothing is pressed or sent on Facebook but Join group and its questions' answers, and only while the
+ * person lets it join on its own; the likes in their groups; and on the person's own posts, See who reacted to this.
+ * They run while the person lets it work on its own and leaves **Once a day** ticked.
  */
 import type { ReadResult } from '../networks/facebook/types';
 import { CHECKS_PER_DAY } from '@hfos/core/addons/outreach/checks';
 import { GROUP_CHECKS_DAILY } from '@hfos/core/addons/outreach/group-checks';
+import { stayActive } from '../jobs/active';
 import { chatMemory, readChats } from '../jobs/chats';
 import { checkFriends } from '../jobs/checks';
+import { readFollowers } from '../jobs/followers';
 import { checkPartners } from '../jobs/partners';
 import { PARTNER_CHECKS_PER_DAY } from '@hfos/core/addons/outreach/partners';
 import { checkGroups } from '../jobs/groups-check';
@@ -24,7 +31,11 @@ import { joinGroups } from '../jobs/join';
 import type { Job, JobEnd } from '../jobs/job';
 import { checkRequests, saveMembers } from '../jobs/people';
 import { findPosts, groupsToWork, RUN_GROUPS } from '../jobs/posts';
+import { facebookOccasions } from '../jobs/occasions';
+import { readProfileOnItsOwn } from '../jobs/own-read';
+import { profileRead } from '../jobs/profile';
 import { tidyOnItsOwn } from '../jobs/tidy';
+import { takeNote } from '../hfos/noting';
 import { postsSave } from '../hfos/saves';
 import type { DailyJob } from './plan';
 
@@ -35,28 +46,36 @@ export const DAILY_CHATS = 60;
 export const DAILY_DOING: Readonly<Record<DailyJob, string>> = {
   requests: 'Checking your friend requests…',
   tidy: 'Tidying up your old friend requests…',
+  occasions: 'Reading your friends’ birthdays…',
   group_checks: 'Checking your groups for your people…',
   join: 'Looking for good groups to join…',
   members: 'Saving your groups’ members…',
   posts: 'Finding posts in your groups…',
+  active: 'Liking a few recent posts in your groups…',
   chats: 'Reading your chats for the AI…',
+  followers: 'Reading your followers, as it does once a week…',
   checks: 'Checking your friends for good fits…',
   partners: 'Searching for people who could partner with you, then reading them…',
   helpful: 'Asking for today’s helpful post, and reading who engaged…',
+  profile: 'Reading your profile, as it does on the 1st of each month…',
 };
 
 /** The job's name, for the panel's list of what it did today. */
 export const DAILY_NAMES: Readonly<Record<DailyJob, string>> = {
   requests: 'Friend requests',
   tidy: 'Tidy up',
+  occasions: 'Birthdays',
   group_checks: 'Check my groups',
   join: 'Join groups',
   members: 'Group members',
   posts: 'Find posts',
+  active: 'Active in your groups',
   chats: 'Read my chats',
+  followers: 'Your followers',
   checks: 'Check my friends',
   partners: 'Find partners',
   helpful: 'Helpful posts',
+  profile: 'Read my profile',
 };
 
 /**
@@ -85,6 +104,8 @@ export async function runDaily(kind: DailyJob, job: Job): Promise<JobEnd> {
   switch (kind) {
     case 'requests':
       return checkRequests(job);
+    case 'occasions':
+      return facebookOccasions(job);
     case 'tidy':
       return tidyOnItsOwn(job);
     case 'group_checks':
@@ -100,17 +121,25 @@ export async function runDaily(kind: DailyJob, job: Job): Promise<JobEnd> {
         ? saveMembers(job, groups)
         : findPosts(job, groups, postSender(job));
     }
+    case 'active':
+      return stayActive(job, (step) =>
+        takeNote({ type: 'hfos-noted', step, at: new Date().toISOString() }),
+      );
     case 'chats':
       return readChats(job, {
         most: DAILY_CHATS,
         memory: chatMemory,
         again: 'The rest wait for tomorrow.',
       });
+    case 'followers':
+      return readFollowers(job);
     case 'checks':
       return checkFriends(job, CHECKS_PER_DAY);
     case 'partners':
       return checkPartners(job, PARTNER_CHECKS_PER_DAY);
     case 'helpful':
       return helpfulDaily(job);
+    case 'profile':
+      return readProfileOnItsOwn(job, 'facebook', profileRead);
   }
 }

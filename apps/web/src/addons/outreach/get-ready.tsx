@@ -75,7 +75,11 @@ import { useLiveRefresh } from '@/lib/realtime/live-provider';
 import { cn } from '@/lib/utils';
 import { outreachHref } from './address';
 import { AskButton, AskLine } from './asks';
-import { checkDue, PROFILE_PART_WORDS as PW } from '@hfos/core/addons/outreach/profile-parts';
+import {
+  checkDue,
+  partHowFor,
+  PROFILE_PART_WORDS as PW,
+} from '@hfos/core/addons/outreach/profile-parts';
 import {
   MoreButton,
   ProfileLookBox,
@@ -436,7 +440,12 @@ export function ProfileBody({
           />
         ) : null}
       </div>
-      {checkDue(check, Date.now()) ? (
+      {check?.own ? (
+        // Read on its own on the 1st (decision 99): nothing went in, and what it suggests waits for their OK.
+        <p className="text-[12.5px] text-text-2" data-testid="ready-profile-own">
+          {PW.own(new Date(check.at).toLocaleDateString([], { month: 'short', day: 'numeric' }))}
+        </p>
+      ) : checkDue(check, Date.now()) ? (
         <p className="text-[12.5px] text-warning-text" data-testid="ready-profile-due">
           {PW.due}
         </p>
@@ -676,7 +685,9 @@ export function ProfileBody({
         asks={asks}
       />
       <ProfilePictures workspaceId={workspaceId} platform={platform} check={whole} />
-      {check?.feature.length ? (
+      {/* What to feature, in the AI's words, where it isn't put in for them (decision 99): Instagram's highlights. */}
+      {check?.feature.length &&
+      partHowFor(platform, 'featured', asks?.computer?.version) === 'tip' ? (
         <div className="grid gap-1">
           <p className="font-semibold">{P.feature}</p>
           <ul className="list-disc pl-5 text-[13.5px]">

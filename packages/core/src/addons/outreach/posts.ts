@@ -45,8 +45,12 @@ export const COMMENT_DRAFTS = 2;
 /** What the AI made of a post: waiting to be read, good to comment on, not for the business, or couldn't be read. */
 export const POST_CHECKS = ['waiting', 'good', 'not', 'failed'] as const;
 export type PostCheck = (typeof POST_CHECKS)[number];
-/** How a post was found: as the person scrolled, by Find posts, or by the look at the newest every hour or two. */
-export const POST_FOUND = ['scroll', 'find', 'watch', 'search'] as const;
+/**
+ * How a post was found: scrolling a group's feed, Find posts, the watch for new ones, a network's own search, an
+ * account like the business's own (decision 110), whose posts are read for who liked and commented on them, or the day's
+ * look at the person's groups for a question to answer (`active`, decision 114, ./active.ts).
+ */
+export const POST_FOUND = ['scroll', 'find', 'watch', 'search', 'account', 'active'] as const;
 export type PostFound = (typeof POST_FOUND)[number];
 
 /** The look at the newest posts (decision 49): how many groups, how many screens of each, and how often. */
@@ -212,6 +216,23 @@ export function postLook(
   };
 }
 
+/**
+ * A post by an account like the business's own (decision 110, `found: 'account'`): kept whatever it says, as its
+ * likers and commenters are read whatever the AI makes of it, and checked by the AI as any post is, for a comment.
+ */
+export function accountPostLook(
+  playbooks: readonly Pick<PostLookPlaybook, 'id'>[],
+  account: string | null,
+  text: string,
+): PostLook {
+  return {
+    worth: true,
+    help: asksForHelp(text),
+    playbookId: playbooks.length === 1 ? playbooks[0]!.id : null,
+    reasons: [account ? `By ${account}, an account like yours` : 'By an account like yours'],
+  };
+}
+
 // ---- Saving ----
 
 export const PostIn = z.object({
@@ -238,7 +259,8 @@ export const PostsSaveInput = z
      */
     group: GroupRef.nullable().default(null),
     posts: z.array(PostIn).min(1).max(POSTS_SAVE_MOST),
-    found: z.enum(POST_FOUND).default('scroll'),
+    // A post for the day's reply in a group is kept by `outreach.active.reply` alone.
+    found: z.enum(POST_FOUND).exclude(['active']).default('scroll'),
     /**
      * The hashtag (without its #) or phrase the look or search found these with (decision 92), kept on each new post
      * (`posts.words`, the first one kept). A post found under a playbook's own is worth the AI's check whatever its
@@ -249,7 +271,13 @@ export const PostsSaveInput = z
   .refine((i) => i.group !== null || i.platform !== 'facebook', {
     error: 'Say which group the posts are in.',
     path: ['group'],
-  });
+  })
+  .refine(
+    (i) =>
+      i.found !== 'account' ||
+      (i.platform === 'instagram' && /^@[a-z0-9._]{1,30}$/.test(i.words ?? '')),
+    { error: 'Say whose Instagram posts these are, by the account’s @username.', path: ['words'] },
+  );
 export type PostsSaveInput = z.input<typeof PostsSaveInput>;
 
 /** How a post the page shows stands, for the extension to mark it. */

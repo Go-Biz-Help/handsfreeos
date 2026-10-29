@@ -5,7 +5,8 @@
  *
  * What happened to a deal is what's linked to it (`lead_id` on the quote or the visit). A quote or visit linked to
  * no deal counts for the customer's only open deal, when it came after that deal was opened: a customer with two
- * open deals is left alone, since there's no telling which one it was for.
+ * open deals is left alone, since there's no telling which one it was for. A deal a person marks won or lost
+ * themselves (`won_by_hand`, as Social Outreach's demos are) is never won by its done visit.
  */
 import { rows, sql, type Tx } from '@hfos/db/client';
 import { uuidArray } from '../calendar/load';
@@ -75,7 +76,7 @@ export async function dealFacts(
     tx,
     sql`with d as (
           select l.id, l.title, l.person_id, l.assignee_user_id, l.pipeline_id, l.stage_id,
-            l.status::text as status, l.stage_entered_at, l.first_response_at, l.created_at,
+            l.status::text as status, l.stage_entered_at, l.first_response_at, l.created_at, l.won_by_hand,
             l.person_id is not null and (select count(*) from app.leads o
               where o.workspace_id = l.workspace_id and o.person_id = l.person_id and o.status = 'open'
                 and o.archived_at is null) = 1 as only_open
@@ -100,6 +101,7 @@ export async function dealFacts(
             where a.workspace_id = ${workspaceId} and a.status <> 'cancelled' and aa.status <> 'cancelled'
               and ${forDeal(sql`a.lead_id`, sql`aa.person_id`, sql`aa.created_at`)}
             order by aa.created_at desc limit 1) as booked,
+          -- A deal a person marks won or lost themselves (lead.wait_for_outcome): its done visit is no win.
           (select json_build_object('at', ev.created_at, 'title', a.title) from app.appointments a
             join app.appointment_attendees aa on aa.appointment_id = a.id
             join lateral (select x.created_at from app.events x
@@ -107,6 +109,7 @@ export async function dealFacts(
                 and x.event_type = 'appointment.completed'
               order by x.created_at desc limit 1) ev on true
             where a.workspace_id = ${workspaceId} and a.status = 'completed' and aa.status = 'attended'
+              and not d.won_by_hand
               and ${forDeal(sql`a.lead_id`, sql`aa.person_id`, sql`ev.created_at`)}
             order by ev.created_at desc limit 1) as done
         from d

@@ -22,6 +22,9 @@
  * and the person has OK'd 25; then it goes on its own with any Sending but Off. An answer to an Alignable post asking
  * for exactly what the business offers always waits for an OK of its own (decision 79).
  *
+ * **The day's reply in a group** on Facebook (`group_reply`, decision 114, ./active.ts) goes as a comment does, under
+ * the question it answers, and under the same hold, counted from those replies alone.
+ *
  * Browser-safe: the extension and the web read it.
  */
 import { z } from 'zod';
@@ -38,6 +41,7 @@ import {
   type ReplyMode,
   type SendingMode,
   type SendKind,
+  underAPost,
 } from './automation';
 import { MESSAGE_MOST } from './limits';
 import { DraftOpener } from './openers';
@@ -133,8 +137,8 @@ export const Send = z.object({
   /** The chat's latest messages, oldest first, when there is one: where it's going. */
   recent: z.array(RecentMessage).max(RECENT_SHOWN),
   /**
-   * For a comment (decision 92): its post, the post's link and its first words (`postStartOf`), shown above the
-   * comment. Null for a message.
+   * For a comment (decision 92) or a reply in a group (decision 114): its post, the post's link and its first words
+   * (`postStartOf`), shown above it. Null for a message.
    */
   postId: z.uuid().nullable(),
   postUrl: z.string().nullable(),
@@ -163,11 +167,14 @@ export const SendQueueInput = z
     opener: DraftOpener.nullable().default(null),
     /** For a reply: the AI found it simple, so with Replies (b) it goes as it is. */
     simple: z.boolean().default(false),
-    /** For a comment (decision 92), and only for one: the good post on Today it goes under. */
+    /**
+     * For a comment (decision 92) or a reply in a group (decision 114), and only for one: the post on Today it goes
+     * under.
+     */
     postId: z.uuid().nullable().default(null),
   })
-  .refine((i) => (i.kind === 'comment') === (i.postId !== null), {
-    error: 'Send the post a comment goes under, and a post only with a comment.',
+  .refine((i) => underAPost(i.kind) === (i.postId !== null), {
+    error: 'Send the post a comment or a reply in a group goes under, and a post only with one.',
     path: ['postId'],
   });
 export type SendQueueInput = z.input<typeof SendQueueInput>;
@@ -243,13 +250,23 @@ export function goesAsItIs(o: {
   readonly simple: boolean;
   /** From `replyNeedsYou`, or why a comment waits for an OK of its own. */
   readonly needsYou: string | null;
-  /** For a comment: whether its network's comment hold is on (`commentHoldOn`). */
+  /** For a comment or a reply in a group: whether its network's comment hold is on (`commentHoldOn`). */
   readonly held?: boolean;
 }): boolean {
-  // A partner's messages wait for the person's OK, whatever Sending says (decision 81).
-  if (o.wheels || o.sending === 'off' || o.kind.startsWith('partner_')) return false;
-  // A comment goes on its own with any Sending but Off, once its hold is off, unless it needs the person (decision 92).
-  if (o.kind === 'comment') return !o.held && !o.needsYou;
+  // A partner's messages wait for the person's OK, whatever Sending says (decision 81), and so do another time after
+  // a no-show (decision 106) and a birthday or new-job note (decision 108).
+  if (
+    o.wheels ||
+    o.sending === 'off' ||
+    o.kind.startsWith('partner_') ||
+    o.kind === 'rebook' ||
+    o.kind === 'birthday' ||
+    o.kind === 'new_job'
+  )
+    return false;
+  // A comment, or a reply in a group, goes on its own with any Sending but Off, once its hold is off, unless it needs
+  // the person (decisions 92 and 114).
+  if (underAPost(o.kind)) return !o.held && !o.needsYou;
   if (o.kind !== 'reply') return o.sending === 'everything';
   if (o.needsYou) return false;
   return o.replies === 'everything' || (o.replies === 'simple' && o.simple);
@@ -286,6 +303,9 @@ export const COMMENT_NEEDS_YOU = {
   /** An answer to an Alignable post asking for exactly what the business offers (decision 79). */
   answer: 'a forum answer always waits for your OK',
 } as const;
+
+/** Why another time after a no-show waits for an OK of its own (decision 106, `needsYou`). */
+export const REBOOK_NEEDS_YOU = 'they missed their demo, so you see it first';
 
 /**
  * Whether a reply that waits is handed over with a push: with Replies (b) or (c), off training wheels, the person

@@ -1,7 +1,8 @@
 /**
  * Check Alignable's stops for its groups (docs/outreach.md decision 92), after the pages its steps and Find partners
  * were built from (../looking.ts): the person's own groups, a search for groups, a group that isn't their town's with
- * its own Join looked at and never pressed, its About and its members. Every group page's reader, their groups' page
+ * its own Join looked at and never pressed, its About and its members; then from 0.104.0 the events in their town and
+ * one event's page (decision 112). Every group page's reader, their groups' page
  * and the search's address are guesses till this Check reads the real ones: each stop is noted with its outline and
  * how many its readers found, so they can be tuned from it. Nothing is pressed but the link that opens each page, and
  * nothing is written.
@@ -9,6 +10,7 @@
 import type { LookingRead } from '../../networks/looking/site';
 import { isEnd, SEARCH_WORDS, type Checkup } from '../checkup';
 import type { Job, JobEnd } from '../job';
+import { EVENTS_AT } from './events';
 import { GROUP_SEARCHES, MY_GROUPS } from './read';
 
 /** How many of one of Alignable's readers' lists a page had (`LookingRead.found`). */
@@ -114,4 +116,55 @@ export async function groupStops(
     countOf(p, 'members'),
   );
   return isEnd(members) ? members : null;
+}
+
+/** The events a page listed, by their own pages. */
+const eventsOn = (page: LookingRead): string[] => {
+  const rows = page.found?.['events'];
+  return Array.isArray(rows)
+    ? rows.flatMap((row: { url?: unknown }) => (typeof row.url === 'string' ? [row.url] : []))
+    : [];
+};
+
+/** How many an event's page showed hosting it and going. */
+const eventPeople = (page: LookingRead): number => {
+  const event = page.found?.['event'] as { hosts?: unknown; guests?: unknown } | undefined;
+  const count = (list: unknown) => (Array.isArray(list) ? list.length : 0);
+  return count(event?.hosts) + count(event?.guests);
+};
+
+/**
+ * Check Alignable's stops for the events near them (decision 112, 0.104.0): their town's events, and the first one's
+ * page with who's hosting it and going. Both readers and the events page's address are guesses till this Check reads
+ * the real ones. Nothing on an event is pressed, so they're never signed up. Null when they're done, else the job's end.
+ */
+export async function eventStops(
+  c: Checkup<LookingRead>,
+  job: Job,
+  town: string | null,
+): Promise<JobEnd | null> {
+  if (!town) {
+    c.nothingOn.push('the events near you');
+    return null;
+  }
+  // At each of the addresses they may be at, till one lists any.
+  let first: string | undefined;
+  for (const [i, at] of EVENTS_AT.entries()) {
+    const list = await stop(
+      c,
+      job,
+      at(town),
+      i ? 'your town group’s events' : 'the events near you',
+      (p) => countOf(p, 'events'),
+    );
+    if (isEnd(list)) return list;
+    [first] = eventsOn(list);
+    if (first) break;
+  }
+  if (!first) {
+    c.nothingOn.push('an event');
+    return null;
+  }
+  const event = await stop(c, job, first, 'an event', eventPeople);
+  return isEnd(event) ? event : null;
 }

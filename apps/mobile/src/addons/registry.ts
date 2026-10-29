@@ -4,6 +4,7 @@ import type * as React from 'react';
 import type { CopyDb, PhoneAddonSearch } from '@/search/copy-sql';
 
 import { OutreachMore } from './outreach/more';
+import { OutreachSocialCard } from './outreach/social-card';
 import { RealestateMore } from './realestate/more';
 import { RE_COPY_KINDS, searchRealestateCopy } from './realestate/search';
 import { SalescoachCallCard } from './salescoach/call-card';
@@ -36,6 +37,11 @@ export interface PhoneAddon {
    * card. Drawn only for someone holding `permission`; nothing while it has nothing to say.
    */
   readonly CallCard?: React.ComponentType<{ workspaceId: string }>;
+  /**
+   * Its card on a customer's page (the web's `person.panels`): Social Outreach's Social card. Drawn only for someone
+   * holding `permission`; nothing for a customer it has nothing on.
+   */
+  readonly PersonPanel?: React.ComponentType<{ workspaceId: string; personId: string }>;
 }
 
 export const PHONE_ADDONS: readonly PhoneAddon[] = [
@@ -46,7 +52,12 @@ export const PHONE_ADDONS: readonly PhoneAddon[] = [
     search: searchRealestateCopy,
     searchKinds: RE_COPY_KINDS,
   },
-  { addonId: 'outreach', permission: 'outreach.use', More: OutreachMore },
+  {
+    addonId: 'outreach',
+    permission: 'outreach.use',
+    More: OutreachMore,
+    PersonPanel: OutreachSocialCard,
+  },
   {
     addonId: 'salescoach',
     permission: 'salescoach.use',

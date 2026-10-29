@@ -771,6 +771,13 @@ test('the groups tab scores saved groups, and today waits for a group’s admins
   await expect(groups.first()).toContainText('1 person saved');
   await expect(groups.first()).toContainText('Admins not read');
   await expect(groups.last()).toContainText('Skip');
+  // Its name opens its own page (decision 103): who was found there and how each turned out.
+  await groups.first().getByTestId('group-open').click();
+  await expect(page.getByTestId('group-page-name')).toHaveText('Austin Small Business Owners');
+  await expect(page.getByTestId('group-page-person')).toHaveText([/Rowan Ellis/]);
+  await expect(page.getByTestId('group-page-stage')).toHaveText('Not reached yet');
+  await page.getByTestId('group-page-back').click();
+  await expect(page).toHaveURL(new RegExp(`/a/outreach\\?view=groups$`));
 
   await page.getByTestId('outreach-tab-today').click();
   await expect(page).toHaveURL(new RegExp(`/a/outreach\\?view=today$`));

@@ -56,6 +56,8 @@ export type TodayListItem = TodayList['items'][number];
 export type { TodayDraftInput };
 /** Old requests and friends to unfriend, and each one the extension did (packages/core/src/addons/outreach/tidy.ts). */
 export type Tidy = Ok<'/v1/queries/outreach.friends.tidy'>;
+/** Every network's latest check of the person's own profile (decision 99): what the read on its own goes by. */
+export type Profiles = Ok<'/v1/queries/outreach.profiles'>;
 export type TidyCandidate = Tidy['cancel'][number];
 export type FriendEndInput = Body<'/v1/commands/outreach.friend.end'>;
 /** A note of what a job saw on a page (decision 74, src/jobs/report.ts). */
@@ -131,10 +133,43 @@ export type PostsPeopleNextInput = Body<'/v1/queries/outreach.posts.people_next'
 export type PostsPeopleNext = Ok<'/v1/queries/outreach.posts.people_next'>;
 export type FindsSaveInput = Body<'/v1/commands/outreach.finds.save'>;
 export type FindsSaved = Ok<'/v1/commands/outreach.finds.save'>;
+/**
+ * Instagram accounts like the business's (decision 110, packages/core/src/addons/outreach/like-yours.ts): what to search
+ * for and which kept account to read today, the accounts a search showed, and an account read.
+ */
+export type LikeYoursNextInput = Body<'/v1/queries/outreach.like_yours.next'>;
+export type LikeYoursNext = Ok<'/v1/queries/outreach.like_yours.next'>;
+export type LikeYoursFoundInput = Body<'/v1/commands/outreach.like_yours.found'>;
+export type LikeYoursFound = Ok<'/v1/commands/outreach.like_yours.found'>;
+export type LikeYoursReadInput = Body<'/v1/commands/outreach.like_yours.read'>;
+export type LikeYoursRead = Ok<'/v1/commands/outreach.like_yours.read'>;
+/**
+ * Events near the person on Alignable (decision 112, packages/core/src/addons/outreach/events-near.ts): whether this
+ * week's read is due and which events were read lately, and a read noted.
+ */
+export type EventsNextInput = Body<'/v1/queries/outreach.events.next'>;
+export type EventsNext = Ok<'/v1/queries/outreach.events.next'>;
+export type EventsReadInput = Body<'/v1/commands/outreach.events.read'>;
+export type EventsRead = Ok<'/v1/commands/outreach.events.read'>;
+export type FollowersNextInput = Body<'/v1/queries/outreach.followers.next'>;
+export type FollowersNext = Ok<'/v1/queries/outreach.followers.next'>;
+export type FollowersSaveInput = Body<'/v1/commands/outreach.followers.save'>;
+export type FollowersSaved = Ok<'/v1/commands/outreach.followers.save'>;
+/** Staying active in the person's Facebook groups (decision 114). */
+export type ActiveNextInput = Body<'/v1/queries/outreach.active.next'>;
+export type ActiveNext = Ok<'/v1/queries/outreach.active.next'>;
+export type ActiveReplyInput = Body<'/v1/commands/outreach.active.reply'>;
+export type ActiveReplied = Ok<'/v1/commands/outreach.active.reply'>;
+/** Birthdays and new jobs read once a day (decision 108). */
+export type OccasionsSaveInput = Body<'/v1/commands/outreach.occasions.save'>;
+export type OccasionsSaved = Ok<'/v1/commands/outreach.occasions.save'>;
 export type FindsNextInput = Body<'/v1/queries/outreach.finds.next'>;
 export type FindsNext = Ok<'/v1/queries/outreach.finds.next'>;
 export type FindsSearchesInput = Body<'/v1/queries/outreach.finds.searches'>;
 export type FindsSearches = Ok<'/v1/queries/outreach.finds.searches'>;
+/** The towns near the person's own on Alignable (decision 115). */
+export type FindsTownsInput = Body<'/v1/queries/outreach.finds.towns'>;
+export type FindsTowns = Ok<'/v1/queries/outreach.finds.towns'>;
 export type { JoinAnswerInput, JoinAnswerOutput, LikePickInput, LikePickOutput };
 /** The AI's drafts, from the worker (apps/worker/src/addons/outreach/today.ts). */
 export type Drafts = TodayDraftOutput;
@@ -285,6 +320,8 @@ export type HfosAsk =
     }
   /** The people to tidy on a network (Facebook's unless said): requests to cancel, LinkedIn's invitations to withdraw. */
   | { readonly type: 'hfos-tidy'; readonly workspaceId: string; readonly platform?: Platform }
+  /** Every network's latest check of the person's own profile, for the read on its own on the 1st (decision 99). */
+  | { readonly type: 'hfos-profiles'; readonly workspaceId: string }
   /** When the person's own lists were last saved to their end, and one noted now (../auto/lists.ts). */
   /** A network's lists before its first day (Facebook's unless said), and one noted as saved. */
   | { readonly type: 'hfos-lists'; readonly workspaceId: string; readonly platform?: Platform }
@@ -317,8 +354,27 @@ export type HfosAsk =
    */
   | { readonly type: 'hfos-posts-people-next'; readonly input: PostsPeopleNextInput }
   | { readonly type: 'hfos-finds-save'; readonly input: FindsSaveInput }
+  | { readonly type: 'hfos-occasions-save'; readonly input: OccasionsSaveInput }
+  /** Instagram accounts like the business's (decision 110): what to do next, what a search showed, one read. */
+  | { readonly type: 'hfos-like-yours-next'; readonly input: LikeYoursNextInput }
+  | { readonly type: 'hfos-like-yours-found'; readonly input: LikeYoursFoundInput }
+  | { readonly type: 'hfos-like-yours-read'; readonly input: LikeYoursReadInput }
+  /** Events near the person on Alignable (decision 112): whether this week's read is due, and a read noted. */
+  | { readonly type: 'hfos-events-next'; readonly input: EventsNextInput }
+  | { readonly type: 'hfos-events-read'; readonly input: EventsReadInput }
+  /** The person's own followers on Facebook (decision 113): whether this week's read is due, and a part of it saved. */
+  | { readonly type: 'hfos-followers-next'; readonly input: FollowersNextInput }
+  | { readonly type: 'hfos-followers-save'; readonly input: FollowersSaveInput }
+  /**
+   * Staying active in the person's Facebook groups (decision 114): what today's likes and question there are, and the
+   * question kept for the day's reply.
+   */
+  | { readonly type: 'hfos-active-next'; readonly input: ActiveNextInput }
+  | { readonly type: 'hfos-active-reply'; readonly input: ActiveReplyInput }
   | { readonly type: 'hfos-finds-next'; readonly input: FindsNextInput }
   | { readonly type: 'hfos-finds-searches'; readonly input: FindsSearchesInput }
+  /** The towns within 25 miles of the person's own on Alignable, the closest first, and today's to search in (decision 115). */
+  | { readonly type: 'hfos-finds-towns'; readonly input: FindsTownsInput }
   /**
    * Groups to check and to join, and how one went: Facebook's unless the input says its network (`platform`), as
    * Alignable's groups do (decision 92).
@@ -374,6 +430,7 @@ export interface HfosValues {
   readonly 'hfos-draft': Drafts;
   readonly 'hfos-profile-check': ProfileCheck;
   readonly 'hfos-tidy': Tidy;
+  readonly 'hfos-profiles': Profiles;
   readonly 'hfos-lists': ListsSaved;
   readonly 'hfos-lists-saved': ListsSaved;
   readonly 'hfos-post-words': PostWords;
@@ -390,8 +447,19 @@ export interface HfosValues {
   readonly 'hfos-partner-leads': PartnerLeadsKept;
   readonly 'hfos-posts-people-next': PostsPeopleNext;
   readonly 'hfos-finds-save': FindsSaved;
+  readonly 'hfos-occasions-save': OccasionsSaved;
+  readonly 'hfos-like-yours-next': LikeYoursNext;
+  readonly 'hfos-like-yours-found': LikeYoursFound;
+  readonly 'hfos-like-yours-read': LikeYoursRead;
+  readonly 'hfos-events-next': EventsNext;
+  readonly 'hfos-events-read': EventsRead;
+  readonly 'hfos-followers-next': FollowersNext;
+  readonly 'hfos-followers-save': FollowersSaved;
+  readonly 'hfos-active-next': ActiveNext;
+  readonly 'hfos-active-reply': ActiveReplied;
   readonly 'hfos-finds-next': FindsNext;
   readonly 'hfos-finds-searches': FindsSearches;
+  readonly 'hfos-finds-towns': FindsTowns;
   readonly 'hfos-groups-to-check': GroupsToCheck;
   readonly 'hfos-group-look': GroupLooked;
   readonly 'hfos-joins-next': JoinsNext;

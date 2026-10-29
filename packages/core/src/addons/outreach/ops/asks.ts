@@ -21,6 +21,7 @@ import {
   PROFILE_ABOUT_SINCE,
   PROFILE_PARTS_SINCE,
   profileEditWords,
+  hasEveryPart,
   targetOn,
   ASK_LINE_SECONDS,
   ASK_LOOKUPS_MOST,
@@ -63,6 +64,7 @@ import { isOffline, networkOffWords } from '../live';
 import { outreachAddon } from '../manifest';
 import { NETWORKS, PLATFORM_KEYS, PLATFORMS, type Platform } from '../networks';
 import { dayNumber, postSearchWords } from '../posts';
+import { EVERY_PART_SINCE } from '../profile-parts';
 import { ProfileSaveOutput } from '../saves';
 import { askCodes, asks, computers, profiles } from '../tables';
 import { askShown, endStale, groupsForAsk, shownAsks, takeable, type AskRow } from './ask-rows';
@@ -338,6 +340,11 @@ async function taskOf(
           name: ask.name ?? null,
           username: ask.username ?? null,
           links: ask.links ?? [],
+          work: ask.work ?? null,
+          featured: ask.featured ?? null,
+          ideal: ask.ideal ?? null,
+          services: ask.services ?? [],
+          linkChanges: ask.linkChanges ?? [],
         },
         target,
         about: null,
@@ -418,7 +425,11 @@ export const askMake = defineAddonCommand(outreachAddon, {
       // Its name, username and links (decision 84): a build before them would put the bio in alone.
       (ask.kind === 'profile_edit' &&
         hasNewProfileParts(ask) &&
-        !appVersionAtLeast(working.version, PROFILE_PARTS_SINCE))
+        !appVersionAtLeast(working.version, PROFILE_PARTS_SINCE)) ||
+      // The work, what's featured and the rest (decision 99): a build before them never sees them.
+      (ask.kind === 'profile_edit' &&
+        hasEveryPart(platform, ask) &&
+        !appVersionAtLeast(working.version, EVERY_PART_SINCE))
     )
       throw HfosError.rule('outreach_extension_too_old', 409, tooOldWords(working));
     if (onFacebook(ask.kind) && (await warnedToday(ctx, me, now, platform)))

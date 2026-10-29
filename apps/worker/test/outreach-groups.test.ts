@@ -313,6 +313,24 @@ describe('writing a helpful post', () => {
       why_not: 'Only admins post in this group',
     });
   });
+
+  it('writes Instagram’s week’s post with the picture to take, for the person’s own account', async () => {
+    const asked = await runAs(owner, ws, 'outreach.helpful.ask', { platform: 'instagram' });
+    expect(asked).toMatchObject({ groupName: null, fresh: true });
+    const from = model.requests.length;
+    await drain();
+    const request = model.requests.slice(from).find((r) => /Instagram/.test(r.system));
+    expect(request).toBeTruthy();
+    const [kept] = await rows<{ state: string; body: string | null; picture: string | null }>(
+      admin(),
+      sql`select state, body, picture from addon_outreach.helpful where id = ${asked.helpfulId}`,
+    );
+    expect(kept).toEqual({
+      state: 'draft',
+      body: expect.stringMatching(/^One habit that won me more jobs/),
+      picture: 'Your notebook of follow-up dates open on the truck’s dashboard',
+    });
+  });
 });
 
 describe('Alignable’s groups (decision 92)', () => {

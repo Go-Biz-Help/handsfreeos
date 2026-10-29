@@ -9,11 +9,13 @@ import { rows, sql } from '@hfos/db/client';
 import { closeTestDbs, createTestUser, testDbs, type TestUser } from '@hfos/db/testing';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import {
+  acceptedPushWords,
   hourWords,
   morningPushWords,
   nextMorning,
   replyPushWords,
 } from '../../src/addons/outreach/alerts';
+import { AUTOMATION_DEFAULTS } from '../../src/addons/outreach/automation';
 import { outreachSettings } from '../../src/addons/outreach/chat-read';
 import { demoLink, demoRef, readDemoRef } from '../../src/addons/outreach/demos';
 import { outreachAddon } from '../../src/addons/outreach/manifest';
@@ -157,6 +159,33 @@ describe('the pushes', () => {
       title: '2 on your list for today',
       body: '1 reply and 1 friend request, on Facebook and Alignable. Open Today to start.',
     });
+  });
+
+  it('say who accepted the person’s requests, in each network’s words, several in one', () => {
+    expect(acceptedPushWords(['Dana Reyes'], 'facebook')).toEqual({
+      title: 'Dana Reyes accepted your friend request',
+      body: 'On Facebook. Tap for your list for today.',
+    });
+    expect(acceptedPushWords(['Dana Reyes'], 'linkedin').title).toBe(
+      'Dana Reyes accepted your invitation to connect',
+    );
+    expect(acceptedPushWords(['Dana Reyes'], 'alignable').title).toBe(
+      'Dana Reyes accepted your connection request',
+    );
+    expect(acceptedPushWords(['Dana Reyes'], 'instagram').title).toBe(
+      'Dana Reyes followed you back',
+    );
+    expect(
+      acceptedPushWords(['Dana Reyes', 'Sam Lee', 'Kit Lowe', 'Jo Banks'], 'linkedin'),
+    ).toEqual({
+      title: '4 people accepted your invitations to connect',
+      body: 'Dana Reyes, Sam Lee and 2 more. On LinkedIn. Tap for your list for today.',
+    });
+    expect(acceptedPushWords(['Dana Reyes', 'Sam Lee'], 'instagram').title).toBe(
+      '2 people followed you back',
+    );
+    // Off to start (decision 101).
+    expect(AUTOMATION_DEFAULTS.acceptedPush).toBe(false);
   });
 
   it('come at the business’s hour, in its time zone, 8 to start', () => {

@@ -37,6 +37,16 @@ describe('Social Outreach’s links', () => {
     });
   });
 
+  it('open a group’s own page on the phone, with who of it (decision 103)', () => {
+    const GROUP = 'eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee';
+    expect(
+      routeFor(`/app/w/${WS}/a/outreach?view=groups&group=${GROUP}&show=not_reached`),
+    ).toMatchObject({
+      kind: 'screen',
+      href: `/app/w/${WS}/a/outreach?view=groups&show=not_reached&group=${GROUP}`,
+    });
+  });
+
   it('open a playbook on the phone', () => {
     expect(routeFor(`/app/w/${WS}/a/outreach/playbooks/${PB}`)).toMatchObject({
       kind: 'screen',

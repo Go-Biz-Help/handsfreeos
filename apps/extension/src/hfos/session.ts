@@ -417,6 +417,11 @@ async function value(ask: SessionAsk): Promise<HfosValues[SessionAsk['type']]> {
         }),
         ask.workspaceId,
       );
+    case 'hfos-profiles':
+      return call(
+        api().POST('/v1/queries/outreach.profiles', { body: { workspaceId: ask.workspaceId } }),
+        ask.workspaceId,
+      );
     case 'hfos-lists':
       return call(
         api().POST('/v1/queries/outreach.lists', {
@@ -507,6 +512,56 @@ async function value(ask: SessionAsk): Promise<HfosValues[SessionAsk['type']]> {
         api().POST('/v1/commands/outreach.finds.save', { body: ask.input }),
         ask.input.workspaceId,
       );
+    case 'hfos-occasions-save':
+      return call(
+        api().POST('/v1/commands/outreach.occasions.save', { body: ask.input }),
+        ask.input.workspaceId,
+      );
+    case 'hfos-like-yours-next':
+      return call(
+        api().POST('/v1/queries/outreach.like_yours.next', { body: ask.input }),
+        ask.input.workspaceId,
+      );
+    case 'hfos-like-yours-found':
+      return call(
+        api().POST('/v1/commands/outreach.like_yours.found', { body: ask.input }),
+        ask.input.workspaceId,
+      );
+    case 'hfos-like-yours-read':
+      return call(
+        api().POST('/v1/commands/outreach.like_yours.read', { body: ask.input }),
+        ask.input.workspaceId,
+      );
+    case 'hfos-events-next':
+      return call(
+        api().POST('/v1/queries/outreach.events.next', { body: ask.input }),
+        ask.input.workspaceId,
+      );
+    case 'hfos-events-read':
+      return call(
+        api().POST('/v1/commands/outreach.events.read', { body: ask.input }),
+        ask.input.workspaceId,
+      );
+    case 'hfos-followers-next':
+      return call(
+        api().POST('/v1/queries/outreach.followers.next', { body: ask.input }),
+        ask.input.workspaceId,
+      );
+    case 'hfos-followers-save':
+      return call(
+        api().POST('/v1/commands/outreach.followers.save', { body: ask.input }),
+        ask.input.workspaceId,
+      );
+    case 'hfos-active-next':
+      return call(
+        api().POST('/v1/queries/outreach.active.next', { body: ask.input }),
+        ask.input.workspaceId,
+      );
+    case 'hfos-active-reply':
+      return call(
+        api().POST('/v1/commands/outreach.active.reply', { body: ask.input }),
+        ask.input.workspaceId,
+      );
     case 'hfos-finds-next':
       return call(
         api().POST('/v1/queries/outreach.finds.next', { body: ask.input }),
@@ -515,6 +570,11 @@ async function value(ask: SessionAsk): Promise<HfosValues[SessionAsk['type']]> {
     case 'hfos-finds-searches':
       return call(
         api().POST('/v1/queries/outreach.finds.searches', { body: ask.input }),
+        ask.input.workspaceId,
+      );
+    case 'hfos-finds-towns':
+      return call(
+        api().POST('/v1/queries/outreach.finds.towns', { body: ask.input }),
         ask.input.workspaceId,
       );
     case 'hfos-groups-to-check':

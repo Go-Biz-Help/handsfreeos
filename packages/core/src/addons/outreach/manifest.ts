@@ -147,6 +147,15 @@ export const outreachAddon = defineAddon({
       'outreach.partner.marked',
       'outreach.client.marked',
       'outreach.finds.saved',
+      'outreach.later.marked',
+      'outreach.friend.accepted',
+      'outreach.lead.wanted',
+      'outreach.lead.opened',
+      'outreach.demo.decided',
+      'outreach.owner.moved',
+      'outreach.occasions.saved',
+      'outreach.like_yours.found',
+      'outreach.like_yours.changed',
     ],
     // The last part of a download, and chats read in Messenger, start the AI's read of the chats
     // (apps/worker/src/addons/outreach/chats.ts); group posts worth a look start its check of them (./posts.ts), and
@@ -165,7 +174,11 @@ export const outreachAddon = defineAddon({
     // saving one's settings, arms the day's report, and a new main offer tells whoever OK'd their messages against an
     // older one (decision 70, ./tracking.ts). Someone who could partner, read off their profile, waits for the AI's
     // partner check (decision 81, ./partners.ts). A playbook saved, a network turned on and the day started have the AI
-    // write each network's own words for a customers' playbook that has none yet (decision 92, ./words.ts).
+    // write each network's own words for a customers' playbook that has none yet (decision 92, ./words.ts). Someone
+    // accepting the person's friend request pushes to their phone, when they switched that on (decision 101, ./alerts.ts).
+    // Someone who wants a demo, or answered the playbook's questions, goes in the main pipeline (decision 105, ./leads.ts);
+    // once they came to the demo, their lead moves on and waits for the person's won or lost (decision 106). Accounts
+    // an Instagram search showed for accounts like yours wait for the AI to pick the best (decision 110, ./like-yours.ts).
     consumes: [
       'outreach.download.saved',
       'outreach.chats.collected',
@@ -192,6 +205,10 @@ export const outreachAddon = defineAddon({
       'main_offer.published',
       'outreach.partner.looked',
       'outreach.playbook.saved',
+      'outreach.friend.accepted',
+      'outreach.lead.wanted',
+      'appointment.completed',
+      'outreach.like_yours.found',
     ],
   },
   jobs: [
@@ -209,6 +226,7 @@ export const outreachAddon = defineAddon({
     'outreach.review',
     'outreach.check_partners',
     'outreach.write_words',
+    'outreach.pick_like_yours',
   ],
   // Who from the chats brought in goes in Contacts (./chat-read.ts), how long a sent request waits, the hour of the
   // morning push, the weekly report, and which countries it reaches: Social Outreach → Settings → General, For your
@@ -224,10 +242,13 @@ export const outreachAddon = defineAddon({
     'days',
     'demos',
     'engagements',
+    'event_reads',
     'file_chats',
     'file_people',
     'finds',
     'follow_ups',
+    'follower_reads',
+    'followers',
     'friend_ends',
     'friends',
     'group_people',
@@ -235,11 +256,13 @@ export const outreachAddon = defineAddon({
     'helpful',
     'imports',
     'joins',
+    'like_yours',
     'list_saves',
     'live_steps',
     'my_groups',
     'needs',
     'network_starts',
+    'occasions',
     'opener_uses',
     'partner_leads',
     'partner_searches',
@@ -294,12 +317,13 @@ export const outreachAddon = defineAddon({
     ],
     // The whole add-on on the phone, under More (decision 44): one page with the web's tabs (`?view=`), so the pushes'
     // links (`?view=waiting`, `live`, `today`) open the phone's screens; Settings' part (`?part=`, decision 73) and the
-    // network shown (`?net=`) with them; the code an ask waits on (`?view=code&ask=`, decision 82); and a playbook. The
-    // activity and friends stay on the web, and their links open it.
+    // network shown (`?net=`) with them; the code an ask waits on (`?view=code&ask=`, decision 82); a group's own page
+    // (`?view=groups&group=`, decision 103); and a playbook. The activity and friends stay on the web, and their links
+    // open it.
     phone: [
       {
         path: '',
-        query: ['view', 'part', 'for', 'net', 'show', 'tag', 'q', 'ask'],
+        query: ['view', 'part', 'for', 'net', 'show', 'tag', 'q', 'ask', 'group'],
         web: { view: ['activity', 'friends'] },
       },
       { path: 'playbooks/:playbookId' },

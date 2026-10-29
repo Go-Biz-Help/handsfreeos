@@ -23,10 +23,11 @@
  *   their own feed once the AI has written it (../jobs/linkedin/helpful.ts).
  * - **Then LinkedIn's list for today** (`outreach.today` with `platform: 'linkedin'`), the kinds it does on its own
  *   (`auto`): a look at their profile and a like on a post of theirs (warm-up; for a writer a search found, the post it
- *   found, liked on its own page), an invitation to connect without a note (Chris), a comment in the post's own box,
- *   and the messages: drafted after a look-up, and sent once OK'd, in LinkedIn messaging, typing only into that
- *   conversation's box. Invitations they sent you are left for them to accept. Old invitations are withdrawn only
- *   when the person ticks them (their ask, ../asks/run.ts).
+ *   found, liked on its own page), an invitation to connect without a note (Chris), and the messages: drafted after a
+ *   look-up, and sent once OK'd, in LinkedIn messaging, typing only into that conversation's box. From 0.99.0 a comment
+ *   on a good post goes as Instagram's and Alignable's do (decision 102, ./comments.ts): drafted from the post to wait
+ *   for the person's OK at first, then written in the post's own box. Invitations they sent you are left for them to
+ *   accept. Old invitations are withdrawn only when the person ticks them (their ask, ../asks/run.ts).
  * - **At LinkedIn's pace:** a few minutes between steps, within LinkedIn's own limits, which HandsFreeOS keeps (its
  *   list holds only what they have room for, the week's 80 invitations among them).
  * - **Stops on any LinkedIn warning,** for the day, on LinkedIn alone: Facebook's runner goes on.
@@ -60,6 +61,9 @@ import { reporter } from '../jobs/report';
 import { checkConnections, isThem, readThemOnLinkedIn } from '../jobs/linkedin/checks';
 import { checkFound } from '../jobs/found-checks';
 import { checkPartners } from '../jobs/partners';
+import { linkedInProfileRead } from '../jobs/linkedin/profile';
+import { linkedInOccasions } from '../jobs/occasions';
+import { readProfileOnItsOwn } from '../jobs/own-read';
 import { PARTNER_CHECKS_PER_DAY } from '@hfos/core/addons/outreach/partners';
 import { lookUpOnLinkedIn } from '../jobs/linkedin/lookup';
 import { postOnLinkedIn, linkedInHelpfulDaily } from '../jobs/linkedin/helpful';
@@ -74,6 +78,14 @@ import type { ProfileRef, ThreadRef } from '../networks/linkedin/types';
 import { comparable, postOf, profileRefOf, sameMember } from '../networks/linkedin/urls';
 import { isWorking, statesNow } from '../networks/on';
 import { WorkTab } from '../tab';
+import {
+  commentDoing,
+  draftComment,
+  isCommentWork,
+  sendComment,
+  type CommentOutcome,
+  type CommentRunner,
+} from './comments';
 import { DAILY_CHATS } from './daily';
 import {
   beforeDay,
@@ -110,17 +122,22 @@ const NAME = NETWORKS.linkedin.name;
 
 export const LINKEDIN_ALARM = 'hfos-auto-linkedin';
 
-/** The kinds it does on its own on LinkedIn, in order: invitations they sent are theirs to accept. */
-export const LINKEDIN_AUTO: readonly TodayKind[] = ['warm_up', 'friend_request', 'comment'];
+/**
+ * The kinds it does on its own on LinkedIn, in order: invitations they sent are theirs to accept. From 0.99.0 a comment
+ * on a good post is drafted and sent through `sends` (decision 102), as Instagram's and Alignable's are, never as a step.
+ */
+export const LINKEDIN_AUTO: readonly TodayKind[] = ['warm_up', 'friend_request'];
 /**
  * The once-a-day jobs on LinkedIn, in order. From 0.97.0 it withdraws old invitations on its own after checking the
- * new ones (`tidy`, decision 98), as the person chose. From 0.95.0 (decision 92) who reacted to and commented on the good posts
+ * new ones (`tidy`, decision 98), as the person chose; from 0.100.0 it then reads Catch up for birthdays and new jobs
+ * (`occasions`, decision 108), for a note on Today that waits for the person's OK. From 0.95.0 (decision 92) who reacted to and commented on the good posts
  * its search found is read after the helpful post (`post_people`), and the people found are checked last
  * (`found_checks`), inside its 40 profiles read, found people first.
  */
 export const LINKEDIN_DAILY = [
   'requests',
   'tidy',
+  'occasions',
   'checks',
   'chats',
   'posts',
@@ -128,11 +145,13 @@ export const LINKEDIN_DAILY = [
   'helpful',
   'post_people',
   'found_checks',
+  'profile',
 ] as const satisfies readonly (DailyJob | OwnDailyJob)[];
 type LinkedInDaily = (typeof LINKEDIN_DAILY)[number];
 
 const DAILY_DOING: Readonly<Record<LinkedInDaily, string>> = {
   requests: 'Checking your invitations on LinkedIn…',
+  occasions: 'Reading Catch up on LinkedIn for birthdays and new jobs…',
   tidy: 'Withdrawing your old invitations on LinkedIn…',
   checks: 'Checking your connections for good fits…',
   chats: 'Reading your LinkedIn chats for the AI…',
@@ -141,9 +160,11 @@ const DAILY_DOING: Readonly<Record<LinkedInDaily, string>> = {
   helpful: 'Asking for today’s helpful post for your feed, and reading who engaged…',
   post_people: 'Reading who reacted to and commented on good posts on LinkedIn…',
   found_checks: 'Checking the people found on LinkedIn for good fits…',
+  profile: 'Reading your LinkedIn profile, as it does on the 1st of each month…',
 };
 const DAILY_NAMES: Readonly<Record<LinkedInDaily, string>> = {
   requests: 'Invitations',
+  occasions: 'Birthdays and new jobs',
   tidy: 'Tidy up',
   checks: 'Check my connections',
   chats: 'Read my chats',
@@ -152,6 +173,7 @@ const DAILY_NAMES: Readonly<Record<LinkedInDaily, string>> = {
   helpful: 'Helpful posts',
   post_people: 'Who reacted and commented',
   found_checks: 'Check the people found',
+  profile: 'Read my profile',
 };
 
 /** LinkedIn's pace between steps: slower than Facebook's, a person's. */
@@ -342,11 +364,91 @@ async function likeFoundPost(
   };
 }
 
+/** The day a comment that couldn't be liked was last noted with its page's outline (decision 74): once a day at most. */
+let commentNotedOn: string | null = null;
+
+/**
+ * The like on their comment on the good post a search found them by (decision 116), on that post's own page, found
+ * again by who wrote it, when nothing rules it out (never one about grief, illness or trouble, nor on a post that is).
+ * One liked already counts. Null when the page shows no comment of theirs (LinkedIn shows the most relevant first, and
+ * "Load more comments" is never pressed) or no Like on it, noted with the page's outline once a day: then one of their
+ * latest is liked instead. Noted as a like with the comment's own link when the page gives one.
+ */
+async function likeFoundComment(
+  item: TodayListItem,
+  businessId: string,
+  after: After,
+): Promise<Outcome | null> {
+  const want = item.profileUrl ? profileRefOf(item.profileUrl) : null;
+  const url = item.postUrl ? postOf(item.postUrl) : null;
+  if (!want || !url) return null;
+  await tab.open(url);
+  await setState({ tabId: tab.tabId });
+  const page = await read();
+  const stop = await warnedOn(page, businessId);
+  if (stop) return { stop };
+  if (page.kind !== 'post') return null;
+  const noteMissed = async () => {
+    const state = await stateNow();
+    if (commentNotedOn === state.day) return;
+    commentNotedOn = state.day;
+    await reporter(tab, answer as Hfos, {
+      businessId,
+      platform: PLATFORM,
+      askId: null,
+      job: 'warm_up.comment',
+    })({ note: 'Couldn’t like their comment.', outline: true });
+  };
+  const seen = await tab.ask({ type: 'hfos-their-comment', profile: want, postUrl: url });
+  if (!seen.ok) throw new Error(seen.error);
+  const theirs = seen.comment;
+  if (!theirs || theirs.liked === null) {
+    await noteMissed();
+    return null;
+  }
+  if (neverLike({ text: `${item.post ?? ''}\n${theirs.text ?? ''}`, pictures: [] })) return null;
+  if (!theirs.liked) {
+    const liked = await tab.ask({ type: 'hfos-like-comment', profile: want, postUrl: url });
+    if (!liked.ok) throw new Error(liked.error);
+    if (liked.result === 'none' || liked.result === 'not_sent') {
+      await noteMissed();
+      return null;
+    }
+    await pause(SETTLE_MS);
+    const warned = await warnedOn(await read(), businessId);
+    if (warned) return { stop: warned };
+  }
+  await takeNote(
+    {
+      type: 'hfos-noted',
+      step: {
+        kind: 'like',
+        to: { name: item.name, profile: want },
+        group: null,
+        postUrl: theirs.commentUrl ?? url,
+        thread: null,
+        replying: null,
+        auto: true,
+        postText: likedText({ text: `Their comment: ${theirs.text ?? ''}`, pictures: [] }),
+      },
+      at: now(),
+    },
+    PLATFORM,
+  );
+  return {
+    done: true,
+    line: theirs.liked
+      ? `${item.name}’s comment was liked already: ${after.next}`
+      : `Liked ${item.name}’s comment on a post your search found: ${after.next}`,
+  };
+}
+
 /**
  * A look at their profile, and a like on a post of theirs, a day before the invitation: the first post of theirs that
  * nothing rules out (never one about grief, illness or trouble), not liked yet. One liked already counts. For a writer
  * found by a search (decision 92), the like goes on the post it found, on its own page, and their latest only when
- * that one's gone.
+ * that one's gone. From 0.108.0 (decision 116) someone found by their comment on it gets the like on that comment, in
+ * the same way.
  */
 async function warmUp(item: TodayListItem, businessId: string): Promise<Outcome> {
   // A partner's warm-up comes before the ask about partnering (decision 81), not an invitation.
@@ -355,7 +457,9 @@ async function warmUp(item: TodayListItem, businessId: string): Promise<Outcome>
       ? { without: 'the ask about partnering goes without', next: 'the ask comes tomorrow' }
       : { without: 'the invitation goes without', next: 'the invitation comes tomorrow' };
   if (item.postUrl) {
-    const found = await likeFoundPost(item, businessId, after);
+    const found = item.likeComment
+      ? await likeFoundComment(item, businessId, after)
+      : await likeFoundPost(item, businessId, after);
     if (found) return found;
     await pause(SETTLE_MS);
   }
@@ -482,60 +586,23 @@ async function invite(item: TodayListItem, businessId: string): Promise<Outcome>
   return { done: true, line: `Sent ${item.name} an invitation to connect` };
 }
 
-/** Writes the AI's comment under a good post LinkedIn's post search found, in the post's own box. */
-async function comment(item: TodayListItem, businessId: string): Promise<Outcome> {
-  const author = item.profileUrl ? profileRefOf(item.profileUrl) : null;
-  if (!author || !item.postUrl || !item.postId)
-    return { done: false, line: `${item.name}’s post: no link kept` };
-  const drafted = await answer({
-    type: 'hfos-draft',
-    workspaceId: businessId,
-    input: { kind: 'comment', postId: item.postId },
-  });
-  if (!drafted.ok) return { done: false, line: `${item.name}’s post: ${drafted.problem.message}` };
-  const text = (drafted.value as { drafts: readonly string[] }).drafts[0];
-  if (!text) return { done: false, line: `${item.name}’s post: the AI had nothing to say on it` };
-  await tab.open(item.postUrl);
-  await setState({ tabId: tab.tabId });
-  const stop = await warnedOn(await read(), businessId);
-  if (stop) return { stop };
-  const wrote = await tab.ask({ type: 'hfos-comment', text });
-  if (!wrote.ok) throw new Error(wrote.error);
-  if (wrote.result === 'none')
-    return {
-      done: false,
-      line: `${item.name}’s post: couldn’t find the box to comment in`,
-      need: true,
-    };
-  if (wrote.result !== 'done')
-    return {
-      done: false,
-      line: `${item.name}’s post: LinkedIn didn’t take the comment`,
-      need: true,
-    };
-  await pause(SETTLE_MS);
-  const after = await warnedOn(await read(), businessId);
-  if (after) return { stop: after };
-  await takeNote(
-    {
-      type: 'hfos-noted',
-      step: {
-        kind: 'comment',
-        to: { name: item.name, profile: author },
-        group: null,
-        postUrl: item.postUrl,
-        thread: null,
-        replying: null,
-        auto: true,
-        postText: item.post,
-        commentText: text,
-      },
-      at: now(),
-    },
-    PLATFORM,
-  );
-  return { done: true, line: `Commented on ${item.name}’s post` };
-}
+/**
+ * What a comment's send (./comments.ts, decisions 92 and 102) borrows: this window's tab, and a look at the page it
+ * opened for LinkedIn's warning. LinkedIn's pages never ask to sign in mid-run, so it never stops for now.
+ */
+const commenting: CommentRunner = {
+  platform: PLATFORM,
+  tab,
+  async onPage(businessId) {
+    await setState({ tabId: tab.tabId });
+    const stop = await warnedOn(await read(), businessId);
+    return stop ? { stop } : null;
+  },
+};
+
+/** A comment's draft or send as LinkedIn's own outcome: a stop for now (which LinkedIn never asks) is a pass. */
+const commentOutcome = (out: CommentOutcome): Outcome =>
+  'again' in out ? { done: false, line: out.again } : out;
 
 // ------------------------------------------------------------------------------------------------- messages
 
@@ -641,6 +708,7 @@ async function bringInChat(
 
 /** Drafts a message with the AI after looking them up on LinkedIn, and hands it to HandsFreeOS to wait or go. */
 async function draftMessage(item: TodayListItem, businessId: string): Promise<Outcome> {
+  if (item.kind === 'comment') return commentOutcome(await draftComment(item, businessId));
   if (item.kind === 'reply' || item.kind === 'partner_reply') {
     const stopped = await bringInChat(item, businessId);
     if (stopped) return stopped;
@@ -707,6 +775,15 @@ async function sendMessage(
   businessId: string,
   split: boolean,
 ): Promise<Outcome> {
+  if (item.kind === 'comment')
+    return commentOutcome(
+      await sendComment(
+        item,
+        item.profileUrl ? profileRefOf(item.profileUrl) : null,
+        businessId,
+        commenting,
+      ),
+    );
   const send = item.send!;
   const failed = async (line: string): Promise<Outcome> => {
     const lead = `${item.name}: `;
@@ -773,7 +850,11 @@ export function doWork(work: Work, businessId: string, split: boolean): Promise<
     case 'friend_request':
       return invite(work.item, businessId);
     default:
-      return comment(work.item, businessId);
+      // Never on its list for it (`LINKEDIN_AUTO`): comments go as sends, drafted and sent above.
+      return Promise.resolve({
+        done: false,
+        line: `${work.item.name}: that’s yours to do on LinkedIn`,
+      });
   }
 }
 
@@ -781,15 +862,15 @@ const DOING: Readonly<Partial<Record<TodayKind, string>>> = {
   warm_up: 'Looking at the profile of',
   partner_warm_up: 'Looking at the profile of',
   friend_request: 'Inviting',
-  comment: 'Commenting on a post of',
 };
 
 const doing = (work: Work) =>
-  work.do === 'step'
+  commentDoing(work) ??
+  (work.do === 'step'
     ? `${DOING[work.item.kind] ?? 'Working on'} ${work.item.name}…`
     : work.do === 'draft'
       ? `Writing a message to ${work.item.name}…`
-      : `Sending ${work.item.name} a message…`;
+      : `Sending ${work.item.name} a message…`);
 
 const doneAs = (work: Work): DoneKind =>
   work.do === 'step'
@@ -798,7 +879,9 @@ const doneAs = (work: Work): DoneKind =>
       : (work.item.kind as DoneKind)
     : work.do === 'draft'
       ? 'drafted'
-      : 'sent';
+      : isCommentWork(work)
+        ? 'comment'
+        : 'sent';
 
 /** What's left on LinkedIn's list for it today: only the kinds it does there. */
 export function linkedInWorkLeft(
@@ -834,6 +917,8 @@ export async function runLinkedInDaily(kind: LinkedInDaily, job: Job): Promise<J
   switch (kind) {
     case 'requests':
       return checkInvitations(job);
+    case 'occasions':
+      return linkedInOccasions(job);
     case 'tidy':
       return withdrawOnItsOwn(job);
     case 'checks':
@@ -868,6 +953,8 @@ export async function runLinkedInDaily(kind: LinkedInDaily, job: Job): Promise<J
       return readPostPeople(reporting(job, kind));
     case 'found_checks':
       return checkFound(job, { platform: PLATFORM, read: readThemOnLinkedIn });
+    case 'profile':
+      return readProfileOnItsOwn(job, PLATFORM, linkedInProfileRead);
   }
 }
 

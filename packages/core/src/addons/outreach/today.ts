@@ -29,6 +29,13 @@
  * - **Follow up** and **Check in** (decision 67): someone who went quiet after a step, at the playbook's pace, then
  *   once a month; and likely prospects in chats that started another way, a few quiet days after the person wrote.
  * - **Reply**: likely prospects who wrote last, lately, and haven't been answered.
+ * - **Remind them of the demo** and **Offer another time** (decision 106): a short reminder in the chat the day before a
+ *   demo booked through the person's link, and after a no-show a message asking whether they'd like another time,
+ *   which always waits for the person's OK. Both count against the follow-ups.
+ * - **Wish them a happy birthday** and **Congratulate them** (decision 108): a short note on the day of a birthday, and
+ *   for two weeks after a new job, read on Facebook's Birthdays page or LinkedIn's Catch up (./occasions.ts), only for
+ *   someone the person has chatted with or who fits a playbook. No pitch and no link, and it always waits for the
+ *   person's OK. They count against the follow-ups too.
  * - **Comment on a post**: posts in the business's groups the AI checked as good (./posts.ts, decisions 18 to 20),
  *   from the last week, until the person comments or puts the post aside. As many as today's limit has left.
  *
@@ -43,7 +50,9 @@
  * draw it.
  */
 import { z } from 'zod';
+import { OCCASION_KINDS, type OccasionKind } from './occasions';
 import { quoteData } from '../../knowledge/prompt';
+import { intlTimeZone } from '../../intl/engine-zones';
 import { FreshState, NOT_FRESH, SEND_KINDS, SENDING_MODE_KEYS, WheelsState } from './automation';
 import type { DownloadMessage } from './download';
 import { FRIENDS_CAP_ROOM, REQUESTS_WAITING_MOST, type DailyStep } from './limits';
@@ -78,6 +87,12 @@ import {
  */
 export const TODAY_KINDS = {
   reply: 'Reply',
+  // After a demo is booked through the person's link (decision 106): the day before, and after a no-show.
+  demo_reminder: 'Remind them of the demo',
+  rebook: 'Offer another time',
+  // A birthday or a new job read on the person's computer (decision 108): a short note, which waits for their OK.
+  birthday: 'Wish them a happy birthday',
+  new_job: 'Congratulate them',
   warm_lead: 'Answer their comment',
   pitch: 'Send the link',
   video: 'Send the video',
@@ -86,6 +101,8 @@ export const TODAY_KINDS = {
   check_in: 'Check in',
   reconnect: 'Reconnect',
   comment: 'Comment on a post',
+  // The day's question in one of the person's Facebook groups (decision 114, ./active.ts): the AI's reply waits at first.
+  group_reply: 'Answer a question in your group',
   warm_up: 'Like a post first',
   friend_request: 'Send a friend request',
   confirm: 'Confirm their request',
@@ -156,8 +173,13 @@ export const TODAY_LIMIT: Readonly<Record<TodayKind, DailyStep | null>> = {
   video: 'follow_up',
   follow_up: 'follow_up',
   check_in: 'follow_up',
+  demo_reminder: 'follow_up',
+  rebook: 'follow_up',
+  birthday: 'follow_up',
+  new_job: 'follow_up',
   reply: null,
   comment: 'comment',
+  group_reply: 'comment',
   warm_lead: 'comment',
   partner_reply: null,
   partner_details: 'follow_up',
@@ -166,8 +188,11 @@ export const TODAY_LIMIT: Readonly<Record<TodayKind, DailyStep | null>> = {
   partner_warm_up: 'like',
 };
 
-/** How far back a new friend, a follow-up in a chat that started another way, and a reply are still worth it. */
-export const TODAY_WINDOW_DAYS = { opener: 30, follow_up: 60, reply: 14 } as const;
+/**
+ * How far back a new friend, a follow-up in a chat that started another way, a reply, and a demo they missed (another
+ * time, decision 106) are still worth it.
+ */
+export const TODAY_WINDOW_DAYS = { opener: 30, follow_up: 60, reply: 14, rebook: 14 } as const;
 /** The most of each kind listed when no limit says: replies. */
 export const TODAY_MOST = 20;
 
@@ -196,6 +221,12 @@ export const TodayItem = z.object({
   postUrl: z.string().nullable(),
   posted: z.string().nullable(),
   post: z.string().nullable(),
+  /**
+   * For a warm-up of someone found by their comment on a good post (decision 116): the like goes on their comment
+   * there, found again by who wrote it on the post's own page (`postUrl`), not on the post. Left out otherwise, and by
+   * builds of the phone from before it: read as not.
+   */
+  likeComment: z.boolean().optional(),
   /** The post's writer is asking, now, for what the business offers (./posts.ts, decision 49): first on the list. */
   asking: z.boolean(),
   /** Why it's on the list: "Owner at Pine Street Bakery", "Found in Austin Small Business Owners". */
@@ -322,6 +353,14 @@ export const TodayOutput = z.object({
   fresh: FreshState.default(NOT_FRESH),
   /** Why no new friend requests are listed (decision 97): null while they are. */
   requestsHeld: RequestsHeld.nullable().default(null),
+  /**
+   * The person's profile there, read on its own on the 1st (decision 99, answer 17a): how many changes the AI suggests
+   * wait for their OK. Null while none wait.
+   */
+  profileOwn: z
+    .object({ at: z.iso.datetime(), parts: z.number().int().min(1) })
+    .nullable()
+    .default(null),
 });
 export type TodayOutput = z.output<typeof TodayOutput>;
 
@@ -358,7 +397,12 @@ export const DRAFT_KINDS = [
   'follow_up',
   'check_in',
   'reply',
+  'demo_reminder',
+  'rebook',
+  'birthday',
+  'new_job',
   'comment',
+  'group_reply',
   'warm_lead',
   ...PARTNER_MESSAGE_KINDS,
 ] as const;
@@ -378,7 +422,12 @@ export const DRAFTS_FOR: Readonly<Record<DraftKind, number>> = {
   follow_up: DRAFTS_MOST,
   check_in: DRAFTS_MOST,
   reply: DRAFTS_MOST,
+  demo_reminder: DRAFTS_MOST,
+  rebook: DRAFTS_MOST,
+  birthday: DRAFTS_MOST,
+  new_job: DRAFTS_MOST,
   comment: COMMENT_DRAFTS,
+  group_reply: COMMENT_DRAFTS,
   warm_lead: COMMENT_DRAFTS,
   partner_ask: DRAFTS_MOST,
   partner_follow_up: DRAFTS_MOST,
@@ -395,7 +444,7 @@ export const TodayDraftInput = z.object({
   /** Who it's to: their profile, or for a follow-up or a reply, the chat. */
   profileId: z.uuid().nullable().default(null),
   chatId: z.uuid().nullable().default(null),
-  /** For a comment: the post. */
+  /** For a comment, or a reply in a group: the post. */
   postId: z.uuid().nullable().default(null),
   /** What the extension just read on their profile and business page; the web sends none. Never kept. */
   lookup: z.array(z.string().trim().min(1).max(LOOKUP_LINE_MOST)).max(LOOKUP_LINES).default([]),
@@ -431,7 +480,7 @@ export const todayDraftSystem = (platform: Platform = 'facebook') =>
 
 /**
  * The most words in a comment where comments go through `sends` (decision 92) and the network keeps them short
- * (Instagram's); null where a helpful answer may run longer (Alignable's) or comments don't go that way.
+ * (Instagram's); null where a helpful answer may run longer (Alignable's and LinkedIn's) or comments don't go that way.
  */
 export const COMMENT_WORDS_MOST: Readonly<Record<Platform, number | null>> = {
   facebook: null,
@@ -442,11 +491,13 @@ export const COMMENT_WORDS_MOST: Readonly<Record<Platform, number | null>> = {
 
 /**
  * How a comment is written where comments go through `sends` and the extension posts them once OK'd (decision 92):
- * Instagram's short, with no link, hashtag or pitch; Alignable's a helpful answer, with no pitch or link.
+ * Instagram's short, with no link, hashtag or pitch; Alignable's and LinkedIn's (decision 102) a helpful answer, with no
+ * pitch or link.
  */
 const COMMENT_RULES: Readonly<Record<Platform, string | null>> = {
   facebook: null,
-  linkedin: null,
+  linkedin:
+    'A comment on LinkedIn is a helpful answer to the post, from what the business knows: no pitch, no link and no web address.',
   instagram: `A comment on Instagram is under ${COMMENT_WORDS_MOST.instagram} words, with no link, no web address, no hashtags and no pitch: answer or add something useful, as a friendly local would.`,
   alignable:
     'A comment on Alignable is a helpful answer to the post, from what the business knows: no pitch, no link and no web address.',
@@ -523,10 +574,20 @@ const TASK: Record<CustomerDraftKind, string> = {
     'They haven’t answered the owner’s follow-ups. Write a short, friendly check-in, one or two lines, that gives them the useful thing below with no ask, and leaves the door open.',
   reply:
     'They wrote last. Write the owner’s reply to their last message. When it’s a question (the price, how it works, proof), answer it in a sentence or two, honestly, with the price when they asked, then say why a quick call helps them: they get a plan for their business, with their numbers. Never give them a reason to skip the call. When they said not now, say no problem and that the owner will check back in a few weeks. When they said no, thank them kindly and leave it there. Otherwise answer and move the conversation along.',
+  demo_reminder:
+    'They booked a call with the owner through the owner’s link, and it’s tomorrow, at the time below. Write a short, friendly reminder, one or two lines: the day and time, that the owner is looking forward to it, and that if the time no longer works they can just say. No pitch, no price, no link.',
+  rebook:
+    'They booked a call with the owner through the owner’s link but didn’t make it. Write a short, kind message, one or two lines: no problem, things come up, and would they like to pick another time, with the link to book again. Never make them feel bad about it. No pitch, no price.',
+  birthday:
+    'It’s their birthday today. Write the owner’s short, warm happy birthday, one or two lines, in the owner’s own voice, picking up something real from the chat or their pages when there is one. Nothing about the business: no pitch, no offer, no price, no link, no ask.',
+  new_job:
+    'They just started a new job, as the line below says. Write the owner’s short, warm congratulations, one or two lines, naming the new role or place when the line says it, and wishing them well in it. Nothing about the business: no pitch, no offer, no price, no link, no ask.',
   comment:
     'They posted this in a Facebook group. Write the owner’s public comment under it: answer what they asked or add something useful first, and only then offer to help, without a hard pitch or a link unless they asked for one. Under 50 words. No questions about things the post already says.',
   warm_lead:
     'They commented on the owner’s own helpful post in a Facebook group. Write the owner’s public reply to their comment: thank them by name, answer or add to what they said, and ask one light question back. No pitch, no link. Under 40 words.',
+  group_reply:
+    'They asked this in a Facebook group the owner is in. Write the owner’s public reply under it, as a friendly neighbour would: answer what they asked, or add something useful from what the owner knows. Nothing about the business unless they asked for what it does, and no pitch, no link and no web address. Under 40 words. When there’s nothing useful the owner could honestly add, write no drafts.',
 };
 
 /**
@@ -547,6 +608,16 @@ const LINKED =
 /** Whether a message can go to someone's Requests: one short text, with no link. */
 export const fitsRequests = (text: string): boolean =>
   text.trim().length <= REQUESTS_MESSAGE_MOST && !LINKED.test(text) && !/\n\s*\n/.test(text.trim());
+
+/** A birthday or a new-job note (decision 108, ./occasions.ts): nothing about the business, and it waits for an OK. */
+export const isOccasionKind = (kind: string): kind is OccasionKind =>
+  (OCCASION_KINDS as readonly string[]).includes(kind);
+
+/** Whether a drafted birthday or new-job note can go: never with a link or a web address. */
+export const fitsOccasion = (text: string): boolean => !LINKED.test(text);
+
+/** Whether a drafted reply to a question in a group can go (decision 114): never with a link or a web address. */
+export const fitsGroupReply = (text: string): boolean => !LINKED.test(text);
 
 /**
  * Whether a drafted comment can wait to be posted where comments go through `sends` (decision 92): never with a link
@@ -594,12 +665,29 @@ function taskOn(kind: CustomerDraftKind, platform: Platform, inGroup: boolean): 
 export const chatLines = (recent: readonly DownloadMessage[]) =>
   recent.map((m) => `${m.fromMe ? 'Owner' : 'Them'}: ${m.text}`).join('\n');
 
+/**
+ * When a demo is, for a reminder or another time after a no-show (decision 106), on the business's calendar: "Thursday,
+ * October 29 at 2:00 PM CDT". A zone this engine doesn't know is read as UTC.
+ */
+export function demoWhen(at: Date | string, timeZone: string): string {
+  return new Date(at).toLocaleString('en-US', {
+    weekday: 'long',
+    month: 'long',
+    day: 'numeric',
+    hour: 'numeric',
+    minute: '2-digit',
+    timeZone: intlTimeZone(timeZone),
+    timeZoneName: 'short',
+  });
+}
+
 /** When the latest message in a chat was, either way. */
 export const lastOf = (recent: readonly DownloadMessage[]): string | null =>
   recent.reduce<string | null>((last, m) => (last === null || m.at > last ? m.at : last), null);
 
 /** Whether a kind of draft is a message in Messenger, which can go as a few texts, rather than a public comment. */
-const isMessageKind = (kind: DraftKind) => kind !== 'comment' && kind !== 'warm_lead';
+const isMessageKind = (kind: DraftKind) =>
+  kind !== 'comment' && kind !== 'group_reply' && kind !== 'warm_lead';
 
 /** The kinds a draft is told the main offer for: the conversation's. Reconnect's drafts stay without a pitch. */
 const OFFER_KINDS: ReadonlySet<DraftKind> = new Set([
@@ -643,28 +731,37 @@ export function todayDraftPrompt(input: {
    * (decision 87; ./conversation.ts `ownWordsFor`).
    */
   readonly own?: OwnWords | null;
+  /** For a demo reminder or another time after a no-show (decision 106): when it is, or was, in words (`demoWhen`). */
+  readonly demoWhen?: string | null;
+  /** For a new-job note (decision 108): what the page said of it, "Started a new position as Owner at Reyes Plumbing". */
+  readonly occasion?: string | null;
 }): string {
   const p = input.playbook;
   const voice = input.voice ?? VOICE_DEFAULTS;
   const requests = input.requests === true && input.kind === 'opener';
+  // A birthday or a new-job note (decision 108) is nothing about the business: the playbook gives only its voice. A
+  // reply to a question in a group (decision 114) knows what the business does, to answer from it, but carries no link
+  // and asks nothing of the playbook's conversation.
+  const note = isOccasionKind(input.kind);
+  const helping = input.kind === 'group_reply';
   // A message in Messenger can go as a few texts; a comment is one, in public, and so is a message to their Requests.
   const texts = isMessageKind(input.kind) && !requests;
   const playbook = p
     ? [
         `Name: ${p.name}`,
-        p.offer ? `Offer: ${p.offer}` : null,
-        // A message to their Requests carries no link (`REQUESTS_TASK`).
-        p.link && !requests ? `Link: ${p.link}` : null,
-        p.audience ? `For: ${p.audience}` : null,
-        p.niche ? `Niche: ${p.niche}` : null,
-        p.proof?.length
+        p.offer && !note ? `Offer: ${p.offer}` : null,
+        // A message to their Requests carries no link (`REQUESTS_TASK`), and nor does a note.
+        p.link && !requests && !note && !helping ? `Link: ${p.link}` : null,
+        p.audience && !note ? `For: ${p.audience}` : null,
+        p.niche && !note ? `Niche: ${p.niche}` : null,
+        p.proof?.length && !note && !helping
           ? `Proof for this niche:\n${p.proof.map((r) => `- ${r}`).join('\n')}`
           : null,
         p.tone ? `Tone: ${p.tone}` : null,
         p.samples.length ? `Sample messages:\n${p.samples.map((s) => `- ${s}`).join('\n')}` : null,
         p.avoid.length ? `Words to avoid: ${p.avoid.join(', ')}` : null,
         p.disclaimer ? `Every message must say: ${p.disclaimer}` : null,
-        p.questions.length
+        p.questions.length && !note && !helping
           ? `Conversation:\n${p.questions.map((q, i) => `${i + 1}. ${q.text}`).join('\n')}`
           : null,
       ]
@@ -722,8 +819,14 @@ export function todayDraftPrompt(input: {
       : taskOn(input.kind, input.platform ?? 'facebook', !!input.post?.group),
     where,
     useful,
-    input.kind === 'pitch' && p?.link
+    (input.kind === 'pitch' || input.kind === 'rebook') && p?.link
       ? `Put this link in every draft, exactly as written: ${quoteData(p.link)}`
+      : null,
+    input.demoWhen && (input.kind === 'demo_reminder' || input.kind === 'rebook')
+      ? `${input.kind === 'rebook' ? 'When the call was' : 'When the call is'}: ${quoteData(input.demoWhen)}`
+      : null,
+    input.occasion && input.kind === 'new_job'
+      ? `What the page said: ${quoteData(input.occasion)}`
       : null,
     input.kind === 'video' && p?.videoLink
       ? `Put this video link in every draft, exactly as written: ${quoteData(p.videoLink)}`

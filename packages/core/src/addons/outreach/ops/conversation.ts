@@ -32,6 +32,7 @@ import { PARTNER_GOAL, paceOf, type Pace } from '../playbooks';
 import { followUps, playbooks, profiles, stages } from '../tables';
 import { EVER } from './activity';
 import { inWorkspace, type Ctx } from './common';
+import { wantLead } from './leads';
 import { notePartnerSent } from './partners';
 import { numbersIn } from './tracking';
 
@@ -101,7 +102,7 @@ async function kept(ctx: Ctx, me: string, profileId: string) {
  * at it, with follow-ups to come; a follow-up counts one more; a check-in waits a month; a reply after their answer
  * starts the follow-ups again, or a check-in a month on when they said not now. A step, or a reply to anything but a
  * no, goes on with a conversation the person stopped (`outreach.conversation.stop`). Reconnect leaves it be: its
- * messages carry no pitch.
+ * messages carry no pitch; and so do a demo's reminder, another time after a no-show and a birthday or new-job note.
  */
 export async function noteSent(
   ctx: Ctx,
@@ -113,8 +114,18 @@ export async function noteSent(
     readonly offerVersion: number | null;
   },
 ): Promise<void> {
-  // A partner's messages are the Partners list's (./partners.ts), never a customer conversation.
-  if (sent.kind === 'reconnect' || sent.kind.startsWith('partner_')) return;
+  // A partner's messages are the Partners list's (./partners.ts), never a customer conversation; a demo's reminder and
+  // another time after a no-show (decision 106) are about the booking, and a birthday or new-job note (decision 108)
+  // about them, and leave it be too.
+  if (
+    sent.kind === 'reconnect' ||
+    sent.kind === 'demo_reminder' ||
+    sent.kind === 'rebook' ||
+    sent.kind === 'birthday' ||
+    sent.kind === 'new_job' ||
+    sent.kind.startsWith('partner_')
+  )
+    return;
   const ws = ctx.scope.workspaceId!;
   const at = sent.at;
   const row = await kept(ctx, me, sent.profileId);
@@ -336,7 +347,7 @@ export const answerNote = defineAddonCommand(outreachAddon, {
   permission: 'outreach.use',
   actors: ['system'],
   scope: inWorkspace,
-  emits: [],
+  emits: ['outreach.lead.wanted'],
   async handler(ctx, input) {
     const [profile] = await ctx.tx
       .select({ id: profiles.id })
@@ -351,6 +362,8 @@ export const answerNote = defineAddonCommand(outreachAddon, {
       at: changeMoment(ctx.meta),
       writtenAt: input.writtenAt ? new Date(input.writtenAt) : null,
     });
+    // The yes before the link puts them in the pipeline (decision 105).
+    if (input.answer === 'yes') await wantLead(ctx, input.userId, profile.id);
     return { noted: true };
   },
 });

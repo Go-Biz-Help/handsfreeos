@@ -19,6 +19,14 @@ import { friendCommands, friendQueries } from './ops/friends';
 import { groupCheckCommands, groupCheckQueries } from './ops/group-checks';
 import { helpfulCommands, helpfulQueries } from './ops/helpful';
 import { groupCommands, groupQueries } from './ops/groups';
+import { journeyQueries } from './ops/journey';
+import { leadCommands } from './ops/leads';
+import { likeYoursCommands, likeYoursQueries } from './ops/like-yours';
+import { eventsCommands, eventsQueries } from './ops/events-near';
+import { activeCommands, activeQueries } from './ops/active';
+import { followersCommands, followersQueries } from './ops/followers';
+import { ownerCommands } from './ops/owners';
+import { occasionCommands } from './ops/occasions';
 import { listCommands, listQueries } from './ops/lists';
 import { liveCommands, liveQueries } from './ops/live';
 import { openerCommands, openerQueries } from './ops/openers';
@@ -32,6 +40,7 @@ import { readinessCommands, readinessQueries } from './ops/readiness';
 import { setupCommands, setupQueries } from './ops/setup';
 import { stageCommands, stageQueries } from './ops/stages';
 import { tidyCommands, tidyQueries } from './ops/tidy';
+import { townQueries } from './ops/towns';
 import { postCommands, postQueries } from './ops/posts';
 import { todayQueries } from './ops/today';
 import { trackingCommands, trackingQueries } from './ops/tracking';
@@ -73,6 +82,13 @@ export const outreachAddonServer: AddonServerModule = {
     ...partnerCommands,
     ...personMenuCommands,
     ...findCommands,
+    ...leadCommands,
+    ...ownerCommands,
+    ...occasionCommands,
+    ...likeYoursCommands,
+    ...eventsCommands,
+    ...followersCommands,
+    ...activeCommands,
   ],
   queries: [
     ...playbookQueries,
@@ -103,6 +119,12 @@ export const outreachAddonServer: AddonServerModule = {
     ...partnerQueries,
     ...personMenuQueries,
     ...findQueries,
+    ...journeyQueries,
+    ...likeYoursQueries,
+    ...eventsQueries,
+    ...followersQueries,
+    ...activeQueries,
+    ...townQueries,
   ],
   // What the extension sends in: only the person's own browser can see Facebook, Instagram, LinkedIn and Alignable.
   notForTheAssistant: {
@@ -141,6 +163,17 @@ export const outreachAddonServer: AddonServerModule = {
     'outreach.finds.save': EXTENSION,
     'outreach.finds.next': EXTENSION,
     'outreach.finds.searches': EXTENSION,
+    'outreach.occasions.save': EXTENSION,
+    'outreach.like_yours.next': EXTENSION,
+    'outreach.like_yours.found': EXTENSION,
+    'outreach.like_yours.read': EXTENSION,
+    'outreach.events.next': EXTENSION,
+    'outreach.events.read': EXTENSION,
+    'outreach.followers.next': EXTENSION,
+    'outreach.followers.save': EXTENSION,
+    'outreach.active.next': EXTENSION,
+    'outreach.active.reply': EXTENSION,
+    'outreach.finds.towns': EXTENSION,
     'outreach.opener.use':
       'The screens noting which opener a copied first message was drafted with.',
   },

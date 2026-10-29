@@ -275,6 +275,7 @@ export function createStripePayments(opts: {
       transfersActive: caps['transfers'] === 'active',
       disabledReason: str(req['disabled_reason'])?.slice(0, 200) ?? null,
       due: [...new Set([...list(req['past_due']), ...list(req['currently_due'])])].slice(0, 200),
+      country: /^[A-Z]{2}$/.test(String(a['country'] ?? '')) ? String(a['country']) : 'US',
     };
   };
 
@@ -736,15 +737,16 @@ export function createStripePayments(opts: {
       livemode,
       payouts: {
         /**
-         * An Express account on our own platform, in the US only for now (decision 18): Stripe hosts its form and
-         * its dashboard, so a partner's bank, tax and identity details are Stripe's and never reach us. It only
-         * ever receives money, so it asks for transfers and nothing else.
+         * An Express account on our own platform, in the country their bank is in (decision 118): the US, Canada,
+         * the UK, the EEA or Switzerland, which Stripe pays across borders on the full agreement. Stripe hosts its
+         * form and its dashboard, so a partner's bank, tax and identity details are Stripe's and never reach us. It
+         * only ever receives money, so it asks for transfers and nothing else.
          */
         async create(input) {
           const made = await api<Json>(null, '/accounts', {
             body: {
               type: 'express',
-              country: 'US',
+              country: input.country,
               ...(input.email ? { email: input.email.slice(0, 200) } : {}),
               capabilities: { transfers: { requested: true } },
               metadata: cleanMetadata(input.metadata),

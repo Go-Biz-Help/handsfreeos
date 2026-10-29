@@ -21,11 +21,14 @@ web's own addresses, so a link or a push to `/a/outreach?view=…` or a playbook
   `settings-network.tsx` a network's page and the team's say on it, `settings-bits.tsx` the controls and choices they
   share. Every change saves as it's made, with no Save button (`autosave.ts`): a tap at once, a stepper after a short
   pause, one save at a time, the page's line under its title saying how the latest went; a refused save goes back to
-  what's kept with the server's words. Only the extension's link has its own button.
+  what's kept with the server's words. Only the extension's link has its own button. General's countries
+  (`country-setting.tsx`) wait while Only these countries has none picked (`useAutosave`'s `hold`), and lead to the
+  lists they make, each its own screen (`countries.tsx`, `?view=countries&show=unsure|skipped`). Your computer opens
+  the Live screen, where the person's computers are renamed or removed (`computers.tsx`).
 - **Words** are core's: `@hfos/core/addons/outreach/words` (`OUTREACH_WORDS`, which the web's tabs read too), and the
   add-on's own (`waiting-words.ts`, `live.ts`, `automation.ts`, `today.ts`, `groups.ts`, `chat-read.ts`,
-  `playbooks.ts`, `asks.ts`) first.
-  Don't write a sentence in a screen.
+  `playbooks.ts`, `asks.ts`) first. `phone-words.ts` holds the few the web still writes in its screens, word for
+  word, until they move into core. Don't write a sentence in a screen.
 - **Activity and Friends stay on the web** (the manifest's `ui.phone` `web`): the route map opens them there, and
   `WebOnlyScreen` says so if one is opened here anyway.
 - **Each network on its own** (docs/outreach.md, "Each network is in the app"): Today's strip is a row for each
@@ -76,9 +79,14 @@ web's own addresses, so a link or a push to `/a/outreach?view=…` or a playbook
   and Start my day waits, saying beside it what holds the day and where it's done (`notReadyWords`), on every row of
   the strip. Their profile never holds it (decision 90): once nothing else is left, the card stays while the profile
   is, as advice beside a Start that works. Their profile list and their goal are done right there, with signal
-  (`outreach.readiness.profile`, `.numbers`); the main offer is built on a computer (core's Settings → Main offer
-  reviews it on the phone) and the playbooks are written there too. The same profile list is **Your profile** on each
+  (`outreach.readiness.profile`, `.numbers`), and so are their messages (`ready-messages.tsx`): written and written
+  again by the AI, changed, and OK'd; the main offer is built on a computer (core's Settings → Main offer reviews it
+  on the phone). The same profile list is **Your profile** on each
   network's page of Settings (decision 80, `useProfileProps`), a network still looked at among them.
+- **The AI** (AI help on a playbook's parts in `ai-help.tsx`, the short video's script in `playbook.tsx`, and the
+  sample messages) is the worker's add-on actions (`workerPost` to `/v1/addons/outreach/actions/<name>`:
+  `outreach.playbook.assist`, `outreach.video.script`, `outreach.messages.samples`, `.rewrite`), with signal. What a
+  playbook's help writes is only offered, and saved with the part.
 - **Everything else** asks HandsFreeOS (`useOutreachAnswer`, on `@/lib/live-answer`), and with no signal says
   "… needs signal. Try again when you're back online." The Live screen asks again every minute
   (`LIVE_REFETCH_SECONDS`) and keeps the last answer, "As of 2:14 PM".

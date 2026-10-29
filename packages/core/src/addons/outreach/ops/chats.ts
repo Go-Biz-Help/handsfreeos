@@ -35,6 +35,7 @@ import { PLATFORMS, type Platform } from '../playbooks';
 import { fileChats, profiles } from '../tables';
 import { inWorkspace, keptProfile, once, sourceFor, tagIdsFor } from './common';
 import { noteAnswer } from './conversation';
+import { wantLead } from './leads';
 import { noteChatRead } from './stages';
 
 const DAY = 86_400_000;
@@ -61,7 +62,7 @@ export const chatRead = defineAddonCommand(outreachAddon, {
   permission: 'outreach.use',
   actors: ['system'],
   scope: inWorkspace,
-  emits: ['outreach.chat.read'],
+  emits: ['outreach.chat.read', 'outreach.lead.wanted'],
   async handler(ctx, input) {
     const ws = ctx.scope.workspaceId!;
     const at = changeMoment(ctx.meta);
@@ -140,6 +141,9 @@ export const chatRead = defineAddonCommand(outreachAddon, {
         at,
         writtenAt: chat.lastAt,
       });
+    // Ready for the offer, or a yes: a lead in the pipeline when it's the yes before the link (decision 105).
+    if (chat.profileId && (read.pitch === 'ready' || (read.reply === 'yes' && !chat.lastFromMe)))
+      await wantLead(ctx, chat.userId, chat.profileId);
 
     if (personId) {
       const tagIds = await tagIdsFor(ctx, read.tags);

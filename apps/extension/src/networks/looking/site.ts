@@ -9,14 +9,17 @@
  * warnings and the steps it looks for. Everything else is ./kit.ts, ./read.ts and ./looks.ts, the same for each.
  */
 import type { Platform } from '@hfos/core/addons/outreach/networks';
+import type { CommentLiked, TheirComment } from '../../messages';
 import type { ProfileRead } from '@hfos/core/addons/outreach/profile-check';
 import type { AboutResult, CodeResult } from '../alignable/own-profile';
 import type { AlignableWithdrawResult } from '../alignable/withdraw';
 import type { AutoResult, TheirPost } from '../facebook/auto';
+import type { PostResult } from '../facebook/compose';
 import type { JoinStep } from '../facebook/join';
 import type { BioResult } from '../facebook/own-profile';
 import type { ReplySighting } from '../facebook/replies';
 import type { FormSteps } from '../instagram/own-profile';
+import type { PartWrite, PartWrote } from '../fill';
 import type { ProfileRef } from '../facebook/types';
 import type { CenterNetwork } from '../accounts-center/pages';
 import type { Noticer } from '../kit';
@@ -143,6 +146,13 @@ export interface LookingSite {
     ) => Promise<{ readonly result: BioResult; readonly steps: FormSteps }>;
     readonly writeAbout?: (doc: Document, about: string) => Promise<AboutResult>;
     readonly putCode?: (doc: Document, code: string) => Promise<CodeResult>;
+    /** Decision 99's parts (Alignable's Elevator Pitch, ideal customer and partner, services), from 0.98.0. */
+    readonly writePart?: (
+      doc: Document,
+      href: string,
+      part: PartWrite,
+      mask: (text: string) => string,
+    ) => Promise<PartWrote>;
   };
   /** Noting the person's own steps there, once its steps are known (Alignable's, partners stage 6c). */
   readonly noticer?: () => Noticer;
@@ -184,6 +194,11 @@ export interface LookingSite {
     readonly openLikers?: (doc: Document, href: string) => boolean | Promise<boolean>;
     readonly moreComments?: (doc: Document, href: string) => boolean | Promise<boolean>;
     readonly closeDialog?: (doc: Document, href: string) => boolean | Promise<boolean>;
+    /**
+     * Another account's followers (Instagram's accounts like the business's, decision 110): the box of them opened by
+     * its count of followers, on that account's own page.
+     */
+    readonly openTheirFollowers?: (doc: Document, href: string) => boolean | Promise<boolean>;
   };
   /**
    * The chats on the page whose last message is theirs (decision 22), for HandsFreeOS to hear who wrote back, as the
@@ -201,12 +216,38 @@ export interface LookingSite {
    */
   readonly auto?: {
     readonly theirPosts: (doc: Document, href: string, profile: ProfileRef) => TheirPost[];
+    /**
+     * Their story liked on its own page (Instagram's, decision 111): watched a few seconds, liked with the viewer's own
+     * Like, and closed; the address of the story it liked. A site without stories is never asked.
+     */
+    readonly likeStory?: (
+      doc: Document,
+      href: string,
+      profile: ProfileRef,
+    ) => Promise<{ readonly result: AutoResult; readonly storyUrl: string | null }>;
     readonly like: (
       doc: Document,
       href: string,
       profile: ProfileRef,
       pick: { readonly index: number; readonly url: string | null },
     ) => Promise<{ readonly result: AutoResult; readonly postUrl: string | null }>;
+    /**
+     * Their comment on a good post's own page (decision 116: the warm-up for someone found by their comment), found
+     * again by who wrote it: read (`theirComment`), then liked with its own Like (`likeComment`), its link and what it
+     * says. A site without them is never asked.
+     */
+    readonly theirComment?: (
+      doc: Document,
+      href: string,
+      profile: ProfileRef,
+      postUrl: string,
+    ) => TheirComment | null;
+    readonly likeComment?: (
+      doc: Document,
+      href: string,
+      profile: ProfileRef,
+      postUrl: string,
+    ) => Promise<CommentLiked>;
     readonly connect: (
       doc: Document,
       href: string,
@@ -239,6 +280,15 @@ export interface LookingSite {
       doc: Document,
       answers: readonly string[],
     ) => Promise<'done' | 'not_sent' | 'none'>;
+    /**
+     * The person's own helpful post, once they OK'd it (Alignable's, decision 109): put up on their own page with the
+     * box's own Post, only while that box is empty; its link when the page shows it.
+     */
+    readonly post?: (
+      doc: Document,
+      href: string,
+      text: string,
+    ) => Promise<{ readonly result: PostResult; readonly url: string | null }>;
   };
   /** Its own readers, run on each page read beside the links (`LookingRead.found`). */
   readonly readFound?: (doc: Document, href: string) => Readonly<Record<string, unknown>>;

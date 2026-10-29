@@ -321,6 +321,8 @@ export function classifyUrl(href: string): PageAddress {
   if (lower === 'search') return { kind: 'search', ...none };
   if (lower === 'friends') return { kind: 'friends', ...none };
   if (lower === 'notifications') return { kind: 'notifications', ...none };
+  if (lower === 'events' && second?.toLowerCase() === 'birthdays')
+    return { kind: 'birthdays', ...none };
   if (lower === 'permalink.php' || lower === 'story.php') return { kind: 'post', ...none };
   if (lower === 'profile.php')
     return {

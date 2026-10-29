@@ -17,6 +17,69 @@ export const ACCOUNT_FEE_CENTS = 200;
 /** Stripe's fee for each payout to a partner's bank: 0.25% + 25¢. */
 export const PAYOUT_FEE_BP = 25;
 export const PAYOUT_FEE_FIXED_CENTS = 25;
+/** Stripe's fee on top for a payout to a bank outside the US (decision 118): 0.25%. */
+export const CROSS_BORDER_FEE_BP = 25;
+
+/**
+ * Where a partner's bank can be (docs/outreach.md decision 118; the partners plan's decision 18): the countries
+ * Stripe pays a US platform's Express accounts in, the US first. Canada, the UK, Switzerland and the EEA's, by name.
+ * Anywhere else, Stripe can't pay them from HandsFreeOS yet.
+ */
+export const PAYOUT_COUNTRIES = {
+  US: 'United States',
+  AT: 'Austria',
+  BE: 'Belgium',
+  BG: 'Bulgaria',
+  CA: 'Canada',
+  HR: 'Croatia',
+  CY: 'Cyprus',
+  CZ: 'Czechia',
+  DK: 'Denmark',
+  EE: 'Estonia',
+  FI: 'Finland',
+  FR: 'France',
+  DE: 'Germany',
+  GR: 'Greece',
+  HU: 'Hungary',
+  IE: 'Ireland',
+  IT: 'Italy',
+  LV: 'Latvia',
+  LI: 'Liechtenstein',
+  LT: 'Lithuania',
+  LU: 'Luxembourg',
+  MT: 'Malta',
+  NL: 'Netherlands',
+  NO: 'Norway',
+  PL: 'Poland',
+  PT: 'Portugal',
+  RO: 'Romania',
+  SK: 'Slovakia',
+  SI: 'Slovenia',
+  ES: 'Spain',
+  SE: 'Sweden',
+  CH: 'Switzerland',
+  GB: 'United Kingdom',
+} as const;
+export type PayoutCountry = keyof typeof PAYOUT_COUNTRIES;
+export const PAYOUT_COUNTRY_KEYS = Object.keys(PAYOUT_COUNTRIES) as [
+  PayoutCountry,
+  ...PayoutCountry[],
+];
+/** A country's name, for a code that may be one Stripe pays or not. */
+export const payoutCountryName = (code: string): string => {
+  const ours = (PAYOUT_COUNTRIES as Record<string, string>)[code];
+  if (ours) return ours;
+  try {
+    return new Intl.DisplayNames(['en'], { type: 'region' }).of(code) ?? code;
+  } catch {
+    return code;
+  }
+};
+/** Where a bank is, as a sentence ends: "in Canada", "in the United States". */
+export const payoutCountryIn = (code: string): string => {
+  const name = payoutCountryName(code);
+  return ['US', 'GB', 'NL'].includes(code) ? `in the ${name}` : `in ${name}`;
+};
 /**
  * Stripe's fees for each partner's 1099 (stage 5): $2.99 to e-file it with the IRS and $1.49 to e-file it with their
  * state. Mailing a paper copy ($2.99) when a partner hasn't taken e-delivery stays HandsFreeOS's.
@@ -35,9 +98,9 @@ export const taxFormThresholdCents = (taxYear: number): number =>
 const bpUp = (cents: number, bp: number): number =>
   Math.floor((cents * bp + BASIS_POINTS - 1) / BASIS_POINTS);
 
-/** Stripe's fee for paying one partner this amount: their account's month and their payout. */
-export const payoutFeeCents = (amountCents: number): number =>
-  bpUp(amountCents, PAYOUT_FEE_BP) + PAYOUT_FEE_FIXED_CENTS;
+/** Stripe's fee for paying one partner this amount, with its cross-border part for a bank outside the US. */
+export const payoutFeeCents = (amountCents: number, abroad = false): number =>
+  bpUp(amountCents, PAYOUT_FEE_BP + (abroad ? CROSS_BORDER_FEE_BP : 0)) + PAYOUT_FEE_FIXED_CENTS;
 
 /** Stripe's card fee on a charge of this much. */
 export const cardFeeCents = (chargeCents: number): number =>
@@ -65,7 +128,7 @@ export interface PayoutTotals {
   readonly owedCents: number;
   /** Stripe's $2 for each partner's account paid this month. */
   readonly accountFeesCents: number;
-  /** Stripe's 0.25% + 25¢ for each payout to a partner's bank. */
+  /** Stripe's 0.25% + 25¢ for each payout to a partner's bank, and 0.25% more to a bank outside the US. */
   readonly payoutFeesCents: number;
   /** Stripe's fees for the partners' 1099s of a year that ended. */
   readonly taxFormsCents: number;
@@ -75,21 +138,27 @@ export interface PayoutTotals {
   readonly chargeCents: number;
 }
 
+/** One partner's amount in a payout, and whether their bank is outside the US. */
+export type PayoutAmount = number | { readonly amountCents: number; readonly abroad: boolean };
+
 /**
  * What a month's payout charges for paying each of these amounts, with each line's own fees, and Stripe's fees for
  * this many 1099s of a year that ended.
  */
 export function payoutTotals(
-  amounts: readonly number[],
+  amounts: readonly PayoutAmount[],
   taxForms = 0,
 ): PayoutTotals & {
   readonly lines: readonly PayoutLineAmounts[];
 } {
-  const lines = amounts.map((amountCents) => ({
-    amountCents,
-    accountFeeCents: ACCOUNT_FEE_CENTS,
-    payoutFeeCents: payoutFeeCents(amountCents),
-  }));
+  const lines = amounts.map((a) => {
+    const { amountCents, abroad } = typeof a === 'number' ? { amountCents: a, abroad: false } : a;
+    return {
+      amountCents,
+      accountFeeCents: ACCOUNT_FEE_CENTS,
+      payoutFeeCents: payoutFeeCents(amountCents, abroad),
+    };
+  });
   const owedCents = lines.reduce((a, l) => a + l.amountCents, 0);
   const accountFeesCents = lines.reduce((a, l) => a + l.accountFeeCents, 0);
   const payoutFeesCents = lines.reduce((a, l) => a + l.payoutFeeCents, 0);

@@ -371,7 +371,13 @@ export async function registerPortalRoutes(app: FastifyInstance, deps: HttpDeps)
         const session = await portalSessionOf(deps, req);
         if (!session || session.accessId !== link.accessId) throw signedOut();
         const body = parseBody(PartnerPayoutsBody, req.body ?? {});
-        return partnerPayoutsAction(deps, session, req.params.token, body.action);
+        return partnerPayoutsAction(
+          deps,
+          session,
+          req.params.token,
+          body.action,
+          body.country ?? null,
+        );
       },
     );
 

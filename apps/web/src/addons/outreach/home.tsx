@@ -21,6 +21,7 @@ import type { ActivityPeriod } from '@hfos/core/addons/outreach/activity';
 import type { ChatView } from '@hfos/core/addons/outreach/chat-read';
 import type { FriendView } from '@hfos/core/addons/outreach/friends';
 import type { GroupView } from '@hfos/core/addons/outreach/groups';
+import type { GroupPeopleView } from '@hfos/core/addons/outreach/journey';
 import { networksOn } from '@hfos/core/addons/outreach/network-words';
 import { PLATFORM_KEYS, PLATFORMS, type Platform } from '@hfos/core/addons/outreach/networks';
 import type { PartnerView } from '@hfos/core/addons/outreach/partners';
@@ -52,6 +53,7 @@ import { OUTREACH_TABS, outreachHref, TAB_VIEW, tabOf, type OutreachView } from 
 import { ComputerNote } from './asks';
 import { ChatsView } from './chats-view';
 import { FriendsView } from './friends-view';
+import { GroupPage } from './group-page';
 import { GroupsView } from './groups-view';
 import { LiveView } from './live-view';
 import type { Board } from './board';
@@ -69,6 +71,7 @@ import type {
   AutomationPeople,
   Chats,
   Friends,
+  GroupPeople,
   Groups,
   HelpfulList,
   Live,
@@ -139,6 +142,15 @@ export type OutreachShown =
       readonly asks: Asks;
       /** Find groups' box starts with these. */
       readonly searchWords: string;
+    }
+  | {
+      /** A group's own page (decision 103), under the Groups tab. */
+      readonly view: 'group';
+      readonly groupId: string;
+      /** Null when it couldn't be had, `problem` saying why. */
+      readonly people: GroupPeople | null;
+      readonly problem: string | null;
+      readonly outcome: GroupPeopleView;
     }
   | {
       readonly view: 'friends';
@@ -455,7 +467,9 @@ export function OutreachHome({
   /** How many things need the person, on the Today tab: null when it couldn't be had. */
   waitingCount?: number | null;
 }) {
-  const tab = tabOf(shown.view);
+  // A group's own page sits under the Groups tab.
+  const view: OutreachView = shown.view === 'group' ? 'groups' : shown.view;
+  const tab = tabOf(view);
   const count = shown.view === 'today' && shown.waiting ? shown.waiting.count : waitingCount;
   const asks =
     'asks' in shown && shown.view !== 'today' && shown.view !== 'live' && shown.view !== 'pipeline'
@@ -531,7 +545,7 @@ export function OutreachHome({
           ) : (
             <SettingsMenu
               workspaceId={workspaceId}
-              view={shown.view}
+              view={view}
               part={null}
               whose={null}
               mine
@@ -612,6 +626,14 @@ export function OutreachHome({
           search={shown.search}
           asks={shown.asks}
           searchWords={shown.searchWords}
+        />
+      ) : shown.view === 'group' ? (
+        <GroupPage
+          workspaceId={workspaceId}
+          groupId={shown.groupId}
+          people={shown.people}
+          problem={shown.problem}
+          outcome={shown.outcome}
         />
       ) : shown.view === 'friends' ? (
         <FriendsView

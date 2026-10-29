@@ -283,6 +283,11 @@ describe('every network’s profile, optimized (decision 80)', () => {
       name: null,
       username: null,
       links: [],
+      work: null,
+      featured: null,
+      ideal: null,
+      services: [],
+      linkChanges: [],
     });
     expect(profileEditWords('linkedin', { bio: 'Roofers', about: 'I help roofers.' })).toBeNull();
     expect(profileEditWords('facebook', { about: 'I help roofers.' })).toContain('no About');
@@ -296,12 +301,12 @@ describe('every network’s profile, optimized (decision 80)', () => {
     expect(hasPlaceholder('[Your town]’s roofers')).toBe(true);
   });
 
-  it('checks an Alignable profile by its own list, and writes About Us whole, never a pitch', () => {
+  it('checks an Alignable profile by its own list, and writes About Us whole and Elevator Pitches', () => {
     expect(profileCheckSystem('alignable')).toBe(ALIGNABLE_PROFILE_CHECK_SYSTEM);
     expect(ALIGNABLE_PROFILE_CHECK_SYSTEM).not.toMatch(/facebook|linkedin|instagram/i);
     expect(ALIGNABLE_PROFILE_CHECK_SYSTEM).toContain('whole About Us');
     expect(PROFILE_ITEMS_ON.alignable).toEqual(['picture', 'about', 'bio', 'work', 'featured']);
-    // As the extension reads it (src/networks/alignable/own-profile.ts): the pitch is Alignable's assistant's.
+    // As the extension reads it (src/networks/alignable/own-profile.ts): the pitch isn't read.
     const al = ProfileRead.parse({
       platform: 'alignable',
       name: 'Casey Lee',
@@ -343,15 +348,21 @@ describe('every network’s profile, optimized (decision 80)', () => {
     );
     expect(RECOMMENDATIONS_WORDS.count(7)).toBe('7 on your profile. That’s enough to start.');
     expect(RECOMMENDATIONS_WORDS.count(null)).toContain('Read your profile again');
-    // No bios: Alignable's pitch can't be put in, even were the AI to write some.
+    // Its Elevator Pitches, from decision 99 (extension 0.98.0): each to Alignable's 150 characters.
     expect(check.bios).toEqual([]);
     expect(
-      checkedProfileCheck({ ...answer, bios: ['A pitch'] } as never, al, check.at, 1).bios,
-    ).toEqual([]);
-    // About Us goes in; a pitch never does.
+      checkedProfileCheck(
+        { ...answer, bios: ['We fix roofs in Columbus.', 'p'.repeat(151)] } as never,
+        al,
+        check.at,
+        1,
+      ).bios,
+    ).toEqual(['We fix roofs in Columbus.']);
+    // About Us and the pitch both go in.
     expect(profileEditWords('alignable', { about: 'We fix roofs in Columbus.' })).toBeNull();
-    expect(profileEditWords('alignable', { bio: 'Roofs' })).toContain(
-      'Elevator Pitch is made with its own assistant',
+    expect(profileEditWords('alignable', { bio: 'Roofs' })).toBeNull();
+    expect(profileEditWords('alignable', { bio: 'p'.repeat(151) })).toContain(
+      'Elevator Pitch takes up to 150 characters',
     );
     expect(profileEditWords('alignable', { about: 'x'.repeat(ABOUT_MOST + 1) })).toContain(
       'Alignable’s About Us takes up to 2,600 characters',

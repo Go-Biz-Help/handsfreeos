@@ -25,7 +25,7 @@
  * every network, each item marked with its network by name (`networkOfWaiting`), its links on that network.
  */
 import { TOUCHED_POSTS_WORDS } from '@hfos/core/addons/outreach/activity';
-import { wheelsWords } from '@hfos/core/addons/outreach/automation';
+import { underAPost, wheelsWords } from '@hfos/core/addons/outreach/automation';
 import {
   chatUrlOn,
   networkOfWaiting,
@@ -38,7 +38,6 @@ import {
   approveAllCount,
   approveAllTakesComments,
   approveAllWords,
-  COMMENT_TITLE_AROUND,
   commentHoldShown,
   forumAnswer,
   forumAnswersLeftWords,
@@ -49,6 +48,7 @@ import {
   needTitleAround,
   needWhyWords,
   NEED_CLEARS,
+  postTitleAround,
   WAITING_KIND_KEYS,
   WAITING_KINDS,
   waitingWords,
@@ -153,7 +153,7 @@ function Group({
   // Comments on good posts wait among the messages (decision 92): the heading says so, and Approve all leaves forum
   // answers, saying why.
   const sends = items.flatMap((item) => (item.kind === 'message' ? [item.send] : []));
-  const comments = sends.filter((send) => send.kind === 'comment');
+  const comments = sends.filter((send) => underAPost(send.kind));
   const answers = comments.filter(forumAnswer).length;
   // A comment Approve all takes, on a network whose comments-only hold is on: the hold's note says what it is.
   const held = commentHoldShown(comments, waiting.commentHolds);
@@ -285,7 +285,7 @@ function ApproveAll({
 function SendRow({ workspaceId, item }: { workspaceId: string; item: SendItem }) {
   const send = item.send;
   const platform = networkOfWaiting(item);
-  if (send.kind === 'comment') return <CommentRow workspaceId={workspaceId} item={item} />;
+  if (underAPost(send.kind)) return <CommentRow workspaceId={workspaceId} item={item} />;
   const chat = chatUrlOn(platform, send.threadKey);
   const open = chat ?? send.profileUrl;
   return (
@@ -337,24 +337,26 @@ function SendRow({ workspaceId, item }: { workspaceId: string; item: SendItem })
 
 /**
  * A comment on a good post waiting for the person's OK (decision 92): "Comment on Dana Reyes’s post", the post's first
- * words, then the comment with OK, Change and Skip. Open goes to the post.
+ * words, then the comment with OK, Change and Skip. Open goes to the post. The day's reply in a group (decision 114)
+ * the same way: "Answer Dana Reyes’s question".
  */
 function CommentRow({ workspaceId, item }: { workspaceId: string; item: SendItem }) {
   const send = item.send;
   const platform = networkOfWaiting(item);
   const open = send.postUrl ?? send.profileUrl;
+  const around = postTitleAround(send.kind);
   return (
     <div data-testid="waiting-comment">
       <div className="flex flex-wrap items-center gap-2">
         <p className="text-[14px] font-medium" data-testid="waiting-comment-title">
-          {COMMENT_TITLE_AROUND[0]}
+          {around[0]}
           {/* The name opens the person menu (decision 91): their page first, Contacts, Client, Don't pitch and more. */}
           <PersonName
             workspaceId={workspaceId}
             who={{ profileId: send.profileId, name: send.name, platform, url: send.profileUrl }}
             className="text-accent-text"
           />
-          {COMMENT_TITLE_AROUND[1]}
+          {around[1]}
         </p>
         <NetworkName platform={platform} />
         {open ? (

@@ -19,7 +19,7 @@ vi.mock('../src/jobs/job', async (original) => ({
   },
 }));
 
-const { checkFound, foundMost } = await import('../src/jobs/found-checks');
+const { checkFound, FOUND_DAY_MOST } = await import('../src/jobs/found-checks');
 
 const BUSINESS = '9a8b7c6d-5e4f-4a3b-8c2d-1e0f9a8b7c6d';
 const IG = 'https://www.instagram.com';
@@ -84,10 +84,37 @@ const looks = (sent: HfosAsk[]) =>
     .map((a) => a.input);
 
 describe('checking the people found by topic', () => {
-  it('asks for today’s room on the network, at most what one ask takes', () => {
-    expect(foundMost('instagram')).toBe(30);
-    expect(foundMost('alignable')).toBe(30);
-    expect(foundMost('linkedin')).toBe(30);
+  it('asks for up to the most a business may set a day, which HandsFreeOS cuts to the day’s room', () => {
+    expect(FOUND_DAY_MOST).toBe(100);
+  });
+
+  it('asks again past one ask’s 40 for the rest of the day’s room, till an ask comes back short (decision 116)', async () => {
+    paused.length = 0;
+    const sent: HfosAsk[] = [];
+    const forty = Array.from({ length: 40 }, (_, i) => person(`Person ${i}`, `${IG}/p${i}/`));
+    const two = [KIM, LEO];
+    let asks = 0;
+    const hfos = (async (ask: HfosAsk) => {
+      sent.push(ask);
+      if (ask.type === 'hfos-finds-next')
+        return {
+          ok: true,
+          value: { today: 0, perDay: 60, people: asks++ === 0 ? forty : two },
+        };
+      return { ok: true, value: { profileId: 'x', fit: 'waiting' } };
+    }) as unknown as Hfos;
+    const read = async (): Promise<ReadThem> => lines('Someone');
+    const end = await checkFound(jobWith(hfos), { platform: 'alignable', read });
+    expect(
+      sent
+        .filter((a) => a.type === 'hfos-finds-next')
+        .map((a) => (a.input as { most: number }).most),
+    ).toEqual([40, 40]);
+    expect(looks(sent)).toHaveLength(42);
+    expect(paused).toHaveLength(41);
+    expect(end.line).toBe(
+      'Done. Checked 42 people found by topic for the AI. The good fits come onto Today once it has read them.',
+    );
   });
 
   it('reads each one by the network’s reader and sends the lines for the AI’s found check', async () => {
@@ -104,7 +131,7 @@ describe('checking the people found by topic', () => {
     });
     expect(sent[0]).toEqual({
       type: 'hfos-finds-next',
-      input: { workspaceId: BUSINESS, platform: 'instagram', most: 30 },
+      input: { workspaceId: BUSINESS, platform: 'instagram', most: 40 },
     });
     expect(looks(sent)).toEqual([
       {

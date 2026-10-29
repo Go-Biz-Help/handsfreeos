@@ -70,12 +70,26 @@ describe('a find’s line', () => {
 });
 
 describe('the way a find keeps', () => {
-  it('is the stronger one: posted, commented, liked, member, searched', () => {
-    expect(FIND_HOW_KEYS).toEqual(['posted', 'commented', 'liked', 'member', 'searched']);
+  it('is the stronger one: posted, commented, liked, member, event, follows, searched', () => {
+    expect(FIND_HOW_KEYS).toEqual([
+      'posted',
+      'commented',
+      'liked',
+      'member',
+      'event',
+      'follows',
+      'searched',
+    ]);
     expect(strongerHow('liked', 'commented')).toBe('commented');
     expect(strongerHow('posted', 'liked')).toBe('posted');
     expect(strongerHow('searched', 'member')).toBe('member');
     expect(strongerHow('liked', 'liked')).toBe('liked');
+    // Following an account like the business's (decision 110) is weaker than a group, stronger than a search.
+    expect(strongerHow('follows', 'member')).toBe('member');
+    expect(strongerHow('searched', 'follows')).toBe('follows');
+    // Hosting or going to an event near them (decision 112) is weaker than a group, stronger than following.
+    expect(strongerHow('event', 'member')).toBe('member');
+    expect(strongerHow('follows', 'event')).toBe('event');
   });
 
   it('waits at 3 days of a network’s found checks', () => {

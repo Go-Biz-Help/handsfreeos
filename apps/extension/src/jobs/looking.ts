@@ -9,7 +9,8 @@
  *
  * - **Instagram:** the feed, the person's own account (read as the AI's check reads it) and its form (the bio), a
  *   search, someone from their feed
- *   (Follow, which isn't tried on someone they follow, and Message, whose chat is opened and closed), one of their posts
+ *   (Follow, which isn't tried on someone they follow, and Message, whose chat is opened and closed; from 0.103.0,
+ *   decision 111, their story when they have one, watched with its Like looked for and never pressed), one of their posts
  *   (Like, and the box to comment in, where a word is written and taken out to see Post show; from 0.95.0, decision 92,
  *   its Likes box opened by its count of likes and closed again, and its View all comments pressed once), the accounts
  *   Instagram suggests and up to three of them (Follow, on someone they don't follow), and their messages.
@@ -26,6 +27,7 @@ import {
   ASK_CODE_MINUTES,
   askCodeRanOutWords,
   askCodeWords,
+  hasEveryPart,
   hasNewProfileParts,
   profileEditDoneWords,
   type AskTaken,
@@ -43,7 +45,11 @@ import type { CenterPart } from '../networks/accounts-center/pages';
 import { townOf } from '../networks/alignable/site';
 import { clean } from '../networks/facebook/dom';
 import type { FormSteps } from '../networks/instagram/own-profile';
-import { instagramUrl, profileOf as instagramProfileOf } from '../networks/instagram/urls';
+import {
+  instagramUrl,
+  profileOf as instagramProfileOf,
+  storyUrl,
+} from '../networks/instagram/urls';
 import type { LookingPlatform, LookingRead } from '../networks/looking/site';
 import type { TryStep } from '../networks/tries';
 import {
@@ -55,9 +61,10 @@ import {
   putUsernameIn,
   unseenWords as centerUnseenWords,
 } from './accounts-center';
-import { groupStops } from './alignable/checkup';
+import { eventStops, groupStops } from './alignable/checkup';
 import { Checkup, isEnd, SEARCH_WORDS, wholeProfile } from './checkup';
 import { readPageIn, valueOf, warnedOn, type Job, type JobEnd, type JobTab } from './job';
+import { partSteps, putParts, shownParts, unseenParts, unseenPartsWords } from './own-parts';
 import { checkUsernames, putInByHand, type ByHandPart } from './profile-parts';
 import { ownProfileNote } from './report';
 
@@ -142,8 +149,19 @@ async function checkupInstagram(job: Job): Promise<JobEnd> {
     theirPosts = theirs.posts;
     await c.tryHere('follow');
     await c.tryHere('message');
+    // Their story, when their account shows one (decision 111): watched on its own page, its Like looked for and never
+    // pressed, and the viewer closed again.
+    const story = storyOn(theirs);
+    if (story) {
+      if (stoppedEnd(job)) return stoppedEnd(job)!;
+      const page = await c.open(storyUrl(story), 'someone’s story');
+      if (isEnd(page)) return page;
+      await c.note('someone’s story', null);
+      await c.tryHere('story');
+    } else await c.nothingFor('story', 'no story on their account');
   } else {
     await c.nothingFor('message', 'no account on your feed or the search to open');
+    await c.nothingFor('story', 'no account on your feed or the search to open');
   }
 
   // One of their posts, or one from your feed or the search: Like and the box to comment in looked for.
@@ -293,6 +311,13 @@ const HASHTAG = 'smallbusiness';
 /** The hashtag's posts it opens, one at a time, for one tagged at a place. */
 const PLACE_POSTS = 2;
 
+/** Whose story an account's page shows (`InstagramFound`'s profile, decision 111): their name, or null with none. */
+const storyOn = (page: LookingRead): string | null => {
+  const profile = page.found?.['profile'] as
+    { username?: unknown; story?: unknown } | null | undefined;
+  return profile?.story === true && typeof profile.username === 'string' ? profile.username : null;
+};
+
 /** The addresses one of Instagram's own readers found on a page (`InstagramFound`): places, hashtags or chats. */
 const linksFound = (page: LookingRead, list: 'locations' | 'tags' | 'threads'): string[] => {
   const links = page.found?.[list];
@@ -321,6 +346,8 @@ async function checkupAlignable(job: Job): Promise<JobEnd> {
   if (home.signedOut) return signedOutEnd('alignable');
   await c.note('your Alignable', home.places.length);
   await lookHere();
+  // The box to start a post on it (0.101.0, decision 109): looked for, nothing written.
+  await c.look('post');
   const reads: LookingRead[] = [home];
 
   // Its public home page too, when the signed-in one's menus have nothing worth a look: its menu leads in.
@@ -484,8 +511,9 @@ async function nextPages(
       await c.note('a chat with messages', countOf(read, 'chats'));
     } else c.nothingOn.push('a chat with messages');
   } else c.nothingOn.push('a chat with a connection');
-  // From 0.95.0 (decision 92), its groups: theirs, a search for them, and one not their town's (./alignable/checkup.ts).
-  return groupStops(c, job, town);
+  // From 0.95.0 (decision 92), its groups: theirs, a search for them, and one not their town's (./alignable/checkup.ts);
+  // then from 0.104.0 the events in their town and one event (decision 112).
+  return (await groupStops(c, job, town)) ?? eventStops(c, job, town);
 }
 
 /** How many of one of the network's own readers' lists a page had (`LookingRead.found`). */
@@ -560,7 +588,7 @@ interface InstagramSeen {
  * bio is the bio as kept; both read, noted, and sent for the AI's check. `after` looks at what was read first (Put
  * these in's parts, to be sure they show).
  */
-async function instagramProfileRead(
+export async function instagramProfileRead(
   job: Job,
   after?: (seen: InstagramSeen) => Promise<void>,
 ): Promise<JobEnd> {
@@ -802,8 +830,14 @@ const ALIGNABLE_MINE = 'https://www.alignable.com/biz/businesses/my_profile';
 /** Tries at a code: a mistyped or an old one asks for the newest. */
 const CODE_TRIES = 3;
 
-/** Read my profile, on Alignable: their own profile, read, noted, and sent for the AI's check. */
-async function alignableProfileRead(job: Job): Promise<JobEnd> {
+/**
+ * Read my profile, on Alignable: their own profile, read, noted, and sent for the AI's check. `after` looks at what was
+ * read first (decision 99's parts that went in).
+ */
+export async function alignableProfileRead(
+  job: Job,
+  after?: (read: ProfileRead) => Promise<void>,
+): Promise<JobEnd> {
   job.progress('Opening your Alignable profile…');
   const mine = await openForProfile(job, ALIGNABLE_MINE, 'alignable');
   if (isEnd(mine)) return mine;
@@ -818,24 +852,41 @@ async function alignableProfileRead(job: Job): Promise<JobEnd> {
       warned: false,
       failed: true,
     };
+  await after?.(read);
   job.progress('Checking it with the AI…');
   valueOf(await job.hfos({ type: 'hfos-profile-check', workspaceId: job.businessId, input: read }));
   return { line: P.readDone, warned: false };
 }
 
 /**
- * Put this one in, on Alignable: About Us, past the code Alignable emails (decision 82). Its Edit asks for the code;
- * HandsFreeOS asks the person for it (`job.code`), and it goes in where Alignable asks, then About Us is written and
- * saved. A code that didn't work asks for the newest. None in its 30 minutes hands them Try again: pressed, their
- * profile is opened afresh and its Edit asks Alignable for a new one. Anything else the person does by hand, and
- * presses Carry on. Then it's read again for a new check.
+ * The code Alignable emailed, for one of decision 99's parts: asked of the person in HandsFreeOS and put in where
+ * Alignable asks. `again` to ask the part again (taken, or mistyped with tries left), `none` when none came in its time
+ * or it wasn't taken (the part is handed over then).
  */
-async function alignableProfileEdit(job: Job, task: EditTask): Promise<JobEnd> {
-  const about = task.about;
-  if (!about) return { line: 'Pick an About Us to put in first.', warned: false, failed: true };
-  job.progress('Opening your Alignable profile…');
-  const mine = await openForProfile(job, ALIGNABLE_MINE, 'alignable');
-  if (isEnd(mine)) return mine;
+async function partCode(job: Job, tries: { wrong: number; again: boolean }) {
+  if (!job.code) return 'none' as const;
+  const code = await job.code(askCodeWords('alignable', tries.again));
+  if (job.stopped()) return { line: 'Stopped.', warned: false } satisfies JobEnd;
+  if (!code) return 'none' as const;
+  job.progress('Putting the code in…');
+  const put = await job.tab.ask({ type: 'hfos-put-code', code });
+  const taken = put.ok ? put.code : 'none';
+  if (taken === 'none') return 'none' as const;
+  if (taken === 'wrong') {
+    tries.again = true;
+    return ++tries.wrong >= CODE_TRIES ? ('none' as const) : ('again' as const);
+  }
+  tries.again = false;
+  return 'again' as const;
+}
+
+/**
+ * About Us, past the code Alignable emails (decision 82). Its Edit asks for the code; HandsFreeOS asks the person for
+ * it (`job.code`), and it goes in where Alignable asks, then About Us is written and saved. A code that didn't work
+ * asks for the newest. None in its 30 minutes hands them Try again: pressed, their profile is opened afresh and its
+ * Edit asks Alignable for a new one. Anything else the person does by hand, and presses Carry on. Null once it's in.
+ */
+async function alignableAbout(job: Job, about: string): Promise<JobEnd | null> {
   job.progress('Putting your About Us in…');
   let result: string = 'none';
   let again = false;
@@ -876,33 +927,76 @@ async function alignableProfileEdit(job: Job, task: EditTask): Promise<JobEnd> {
     again = taken === 'wrong';
     job.progress('Putting your About Us in…');
   }
-  if (result !== 'done') {
-    // Something wasn't as expected: the person puts it in, and says when. The note of the page says which.
-    await job.report?.({
-      note: `About Us didn’t go in (${
-        result === 'not_saved'
-          ? 'Save didn’t keep it'
-          : result === 'code'
-            ? 'Alignable kept asking for a code'
-            : 'no Edit, no box for About Us, or no Save'
-      }).`,
-      outline: true,
-    });
-    if (!job.handOver)
-      return {
-        line: 'Alignable didn’t let the extension change your About Us.',
-        warned: false,
-        failed: true,
-      };
-    const reply = await job.handOver(
-      'Put your About Us in: on your Alignable profile press Edit by About Us, paste what HandsFreeOS wrote, and press Save. Then press Carry on.',
-    );
-    if (reply !== 'carry_on') return { line: 'Stopped.', warned: false, failed: true };
+  if (result === 'done') return null;
+  // Something wasn't as expected: the person puts it in, and says when. The note of the page says which.
+  await job.report?.({
+    note: `About Us didn’t go in (${
+      result === 'not_saved'
+        ? 'Save didn’t keep it'
+        : result === 'code'
+          ? 'Alignable kept asking for a code'
+          : 'no Edit, no box for About Us, or no Save'
+    }).`,
+    outline: true,
+  });
+  if (!job.handOver)
+    return {
+      line: 'Alignable didn’t let the extension change your About Us.',
+      warned: false,
+      failed: true,
+    };
+  const reply = await job.handOver(
+    'Put your About Us in: on your Alignable profile press Edit by About Us, paste what HandsFreeOS wrote, and press Save. Then press Carry on.',
+  );
+  return reply === 'carry_on' ? null : { line: 'Stopped.', warned: false, failed: true };
+}
+
+/**
+ * Put this one in, or Put these in, on Alignable: About Us (`alignableAbout`), then from 0.98.0 (decision 99) the
+ * Elevator Pitch, the ideal customer and partner and the services (./own-parts.ts, src/networks/alignable/parts.ts),
+ * each past the code Alignable may email first. Then it's read again for a new check.
+ */
+async function alignableProfileEdit(job: Job, task: EditTask): Promise<JobEnd> {
+  const about = task.about;
+  const every = hasEveryPart('alignable', task);
+  if (!about && !every)
+    return { line: 'Pick an About Us to put in first.', warned: false, failed: true };
+  job.progress('Opening your Alignable profile…');
+  const mine = await openForProfile(job, ALIGNABLE_MINE, 'alignable');
+  if (isEnd(mine)) return mine;
+  if (about) {
+    const ended = await alignableAbout(job, about);
+    if (ended) return ended;
   }
-  const checked = await alignableProfileRead(job);
-  return checked.failed
-    ? checked
-    : { line: profileCheckWordsOn('alignable').editAboutDone, warned: false };
+  const steps = partSteps('alignable', task, { profile: ALIGNABLE_MINE });
+  if (steps.length) {
+    const tries = { wrong: 0, again: false };
+    const put = await putParts(job, steps, {
+      open: async (url) => {
+        const page = await openForProfile(job, url, 'alignable');
+        return isEnd(page) ? page : null;
+      },
+      code: () => partCode(job, tries),
+    });
+    if (!Array.isArray(put)) return put;
+  }
+  let unseen = new Set<string>();
+  const checked = await alignableProfileRead(job, async (read) => {
+    unseen = every ? unseenParts('alignable', task, read) : new Set();
+    if (unseen.size)
+      await job.report?.({
+        job: 'profile_edit.check',
+        note: `Not shown on the profile after it went in: ${[...unseen].map((p) => `the ${p}`).join(', ')}.`,
+        outline: true,
+      });
+  });
+  if (checked.failed) return checked;
+  if (!every) return { line: profileCheckWordsOn('alignable').editAboutDone, warned: false };
+  const words = [
+    profileEditDoneWords('alignable', shownParts(task, unseen)),
+    unseenPartsWords('alignable', unseen),
+  ];
+  return { line: words.filter(Boolean).join(' '), warned: false };
 }
 
 /** What Instagram says when it isn't the person's own account in front of the extension. */

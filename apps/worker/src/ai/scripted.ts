@@ -1792,6 +1792,39 @@ function scriptedTodayDraft(message: string) {
       answer: last === 'Them' ? scriptedAnswer(theirs) : 'none',
       drafts: [`Thanks for getting back to me, ${first}.`],
     };
+  // A birthday or a new-job note (decision 108): short and warm, the new job in the page's words; one with a link,
+  // for the checks to drop.
+  if (message.includes('Write the owner’s short, warm happy birthday'))
+    return {
+      simple: false,
+      answer: 'none',
+      drafts: [
+        `Happy birthday, ${first}! Hope it’s a great one.`,
+        `Happy birthday, ${first}! Book a call: https://example.com/book`,
+      ],
+    };
+  if (message.includes('Write the owner’s short, warm congratulations')) {
+    const said = unquote(/^What the page said: (.*)$/m.exec(message)?.[1] ?? '');
+    return {
+      simple: false,
+      answer: 'none',
+      drafts: [
+        said ? `Congratulations, ${first}! Saw this: ${said}.` : `Congratulations, ${first}!`,
+        `Congrats, ${first}! See www.example.com/demo`,
+      ],
+    };
+  }
+  // A reply to a question in one of the owner's groups (decision 114): answers it; one with a link, for the checks to
+  // drop.
+  if (message.includes('Write the owner’s public reply under it, as a friendly neighbour would'))
+    return {
+      simple: false,
+      answer: 'none',
+      drafts: [
+        `Good question, ${first}! It opens at eight on Saturdays.`,
+        `Hi ${first}, the times are on www.example.com`,
+      ],
+    };
   // A first message to someone's Requests on Instagram: one short text; a link is for the checks to drop, and a second
   // text for them to join to the first.
   if (message.includes('this message lands in their message Requests'))
@@ -1966,6 +1999,33 @@ function scriptedHelpful(message: string) {
   };
 }
 
+/**
+ * A helpful post for the person's own account (decision 109): a tip about following up, with the picture to take on
+ * Instagram and up to 3 of the hashtags given.
+ */
+function scriptedOwnHelpful(message: string) {
+  const tags = unquote(/<hashtags>\n([\s\S]*?)\n<\/hashtags>/.exec(message)?.[1] ?? '')
+    .split(/\s+/)
+    .filter((t) => t && t !== 'None' && t !== 'given.')
+    .slice(0, 3);
+  const text =
+    'One habit that won me more jobs this year: I follow up on every quote two days later with a short, friendly note.';
+  if (!/say what picture to take for it\.$/.test(message))
+    return {
+      allowed: true,
+      topic: 'Following up on quotes',
+      text,
+      why: 'People here ask how to win more jobs',
+    };
+  return {
+    allowed: true,
+    topic: 'Following up on quotes',
+    text: tags.length ? `${text}\n\n${tags.map((t) => `#${t}`).join(' ')}` : text,
+    why: 'People here ask how to win more jobs',
+    picture: 'Your notebook of follow-up dates open on the truck’s dashboard',
+  };
+}
+
 /** Social Outreach's answers to a group's questions (decision 31): one per question, saying which it answers. */
 function scriptedJoinAnswers(message: string) {
   const questions = (/<questions>\n([\s\S]*?)\n<\/questions>/.exec(message)?.[1] ?? '')
@@ -2009,7 +2069,8 @@ function scriptedNicheFit(message: string) {
 /**
  * The AI's check of a person's own profile (outreach.profile.check): an item is right when something was read for it,
  * the picture only when it's a person and the bio only when it names the offer's line of work; three bios from who
- * the offer is for, the last too long for Facebook's short bio.
+ * the offer is for, the last too long for Facebook's short bio. Every part (decision 99): the work to add, the first
+ * post to feature, and each link there that isn't one of theirs changed to the first that is, or taken off.
  */
 function scriptedProfileCheck(message: string) {
   const offer = unquote(quotedBlock(message, 'main_offer') ?? '');
@@ -2027,6 +2088,8 @@ function scriptedProfileCheck(message: string) {
     ok
       ? { ok: true, why: `Your ${what} looks right.`, fix: null }
       : { ok: false, why: `Your ${what} isn’t there yet.`, fix: `Change your ${what}.` };
+  const linksIn = (text: string) => [...text.matchAll(/^- (https?:\/\/\S+)$/gm)].map((m) => m[1]!);
+  const theirs = linksIn(unquote(quotedBlock(message, 'links_to_use') ?? ''));
   return {
     items: {
       picture: item(/person/i.test(one('picture')), 'picture'),
@@ -2063,6 +2126,11 @@ function scriptedProfileCheck(message: string) {
         },
     names: [],
     usernames: [],
+    work: { title: 'Owner', words: `I help ${who} get more booked calls.` },
+    featurePost: 1,
+    linkChanges: linksIn(/^links:\n((?:- .*\n?)*)/m.exec(profile)?.[1] ?? '')
+      .filter((link) => !theirs.includes(link))
+      .map((link) => ({ link, to: theirs[0] ?? null, why: 'It’s about another business.' })),
   };
 }
 
@@ -2198,11 +2266,28 @@ export const OUTREACH_RULES: readonly ScriptRule[] = [
   { when: /Answer the group’s questions\.$/, json: (message) => scriptedJoinAnswers(message) },
   { when: /Write one helpful post for this group\.$/, json: (message) => scriptedHelpful(message) },
   {
+    when: /Write one helpful post for their own [^\n]+\.$/,
+    json: (message) => scriptedOwnHelpful(message),
+  },
+  {
     when: /Help write this part of the playbook\.$/,
     json: (message) => scriptedPlaybookAssist(message),
   },
   { when: /Write the words to look with\.$/, json: (message) => scriptedFindWords(message) },
+  {
+    when: /Pick up to \d+ of these accounts whose followers are this business’s customers\.$/,
+    json: (message) => scriptedLikeYoursPick(message),
+  },
 ];
+
+/**
+ * Social Outreach's pick of Instagram accounts like the business's (decision 110): the first account found, with
+ * why; none when the list says nothing.
+ */
+function scriptedLikeYoursPick(message: string) {
+  const first = /<account username="([a-z0-9._]+)"/.exec(message)?.[1];
+  return { picks: first ? [{ username: first, why: 'Shares the business’s customers' }] : [] };
+}
 
 /**
  * Social Outreach's words for finding people by topic (decision 92), from the playbook's niche and area: every list,

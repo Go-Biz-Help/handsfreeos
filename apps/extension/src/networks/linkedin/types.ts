@@ -40,6 +40,8 @@ export const PAGE_KINDS = [
   'messaging',
   'chat',
   'notifications',
+  // Catch up on My Network: connections' birthdays and new jobs (decision 108).
+  'catch-up',
   'group',
   'company',
   'other',
@@ -172,6 +174,13 @@ export interface GroupPage {
   readonly group: GroupRef | null;
 }
 
+/** A birthday or a new job on Catch up (./catch-up.ts, decision 108): whose, and for a new job, LinkedIn's words. */
+export interface CatchUp extends Named {
+  readonly profile: ProfileRef;
+  readonly kind: 'birthday' | 'new_job';
+  readonly detail: string | null;
+}
+
 /** Everything one read of a LinkedIn page found. Plain data: it crosses from the tab to the background as JSON. */
 export interface ReadResult {
   readonly platform: 'linkedin';
@@ -187,6 +196,7 @@ export interface ReadResult {
   readonly notices?: readonly Notice[];
   readonly group?: GroupPage;
   readonly company?: CompanyPage;
+  readonly catchUp?: readonly CatchUp[];
   /** LinkedIn's own warnings on the page: the weekly invitation limit, a restriction, a security check. */
   readonly warnings: readonly string[];
   /** What the person should know about this read: "LinkedIn loads more as you scroll." */

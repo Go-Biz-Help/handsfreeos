@@ -20,6 +20,9 @@ import {
   nextPayoutMonth,
   payoutFeeCents,
   payoutMonthOf,
+  PAYOUT_COUNTRY_KEYS,
+  payoutCountryIn,
+  payoutCountryName,
   payoutTotals,
   planPayout,
 } from '../src/partners/payouts';
@@ -89,6 +92,19 @@ describe('what a payout charges', () => {
     expect(t.owedCents + t.accountFeesCents + t.payoutFeesCents + t.cardFeeCents).toBe(
       t.chargeCents,
     );
+  });
+
+  it('adds Stripe’s 0.25% for a payout to a bank outside the US (decision 118)', () => {
+    expect(payoutFeeCents(10_000, true)).toBe(75);
+    const t = payoutTotals([{ amountCents: 10_000, abroad: true }, 5_000]);
+    expect(t.lines.map((l) => l.payoutFeeCents)).toEqual([75, 38]);
+    expect(t.payoutFeesCents).toBe(113);
+    expect(t.chargeCents).toBe(grossUpCents(15_000 + 400 + 113));
+    expect(payoutCountryIn('US')).toBe('in the United States');
+    expect(payoutCountryIn('CA')).toBe('in Canada');
+    expect(payoutCountryName('BR')).toBe('Brazil');
+    expect(PAYOUT_COUNTRY_KEYS[0]).toBe('US');
+    expect(PAYOUT_COUNTRY_KEYS).not.toContain('IS');
   });
 
   it('pays everyone owed the smallest payout whose bank is set up; the rest wait', () => {
@@ -470,7 +486,12 @@ describe('paying partners', () => {
     ]);
     expect(got.payouts[0]).toMatchObject({ card: { last4: '1881' }, partners: 3 });
     const page = await ask(partnerGet, { ...ws(), partnerId: pia }, t.owner);
-    expect(page.payouts.account).toEqual({ ready: true, detailsSubmitted: true, needsMore: false });
+    expect(page.payouts.account).toEqual({
+      ready: true,
+      detailsSubmitted: true,
+      needsMore: false,
+      country: 'US',
+    });
     expect(page.payouts.lines.map((l) => [l.month, l.status])).toEqual([
       ['2026-12-01', 'paid'],
       ['2026-11-01', 'cancelled'],
@@ -562,7 +583,7 @@ describe('paying partners', () => {
     expect(page.payouts).toMatchObject({
       open: true,
       smallestPayoutCents: 2_500,
-      account: { ready: true, needsMore: false },
+      account: { ready: true, needsMore: false, country: 'US' },
     });
     // The failed month's line isn't theirs to see: what it held went into the next one.
     expect(page.payouts.lines).toMatchObject([

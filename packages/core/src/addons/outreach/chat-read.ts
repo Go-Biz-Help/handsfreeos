@@ -14,6 +14,7 @@ import type { PlaybookDetails } from './playbooks';
 import { PITCH_READS, STAGE_WHY_MOST } from './stages';
 import { CANCEL_AFTER_WEEKS } from './tidy';
 import { ANYWHERE, CountryRule } from './countries';
+import { FOUND_CHECKS } from './finds';
 import { PLATFORM_KEYS } from './networks';
 
 /** Where a chat's reading is (`addon_outreach.file_chats.read_state`). */
@@ -47,6 +48,16 @@ export const OutreachSettingsSchema = z.object({
   morningPushHour: z.number().int().min(0).max(23).nullable().default(MORNING_PUSH_HOUR),
   /** Whether each person gets the weekly report by email, Monday at the morning push's hour (./results.ts). */
   weeklyReport: z.boolean().default(true),
+  /**
+   * How many people found by topic on Instagram, LinkedIn and Alignable the AI checks a day for each person
+   * (decision 116, `FOUND_CHECKS`): 10 to 100, starting at 30.
+   */
+  foundChecksPerDay: z
+    .number()
+    .int()
+    .min(FOUND_CHECKS.least)
+    .max(FOUND_CHECKS.most)
+    .default(FOUND_CHECKS.start),
   /** What each person may pick for the extension, their daily limits and where a new person starts (./automation.ts). */
   rules: BusinessRules.default(NO_RULES),
   /**

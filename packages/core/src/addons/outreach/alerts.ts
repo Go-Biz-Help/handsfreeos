@@ -79,6 +79,33 @@ export function replyPushWords(name: string): { title: string; body: string } {
   };
 }
 
+/** What accepting the person's request is on each network: Instagram's is following them back. */
+const acceptedOn = (platform: Platform, many: boolean): string =>
+  platform === 'instagram'
+    ? 'followed you back'
+    : inNetworkWords(
+        many ? 'accepted your friend requests' : 'accepted your friend request',
+        platform,
+      );
+
+/**
+ * The push when people accept the person's friend request, invitation or follow (decision 101), on their switch: one
+ * by name, or several in one, "Dana Reyes, Sam Lee and 2 more".
+ */
+export function acceptedPushWords(
+  names: readonly string[],
+  platform: Platform,
+): { title: string; body: string } {
+  const on = `On ${PLATFORMS[platform]}. Tap for your list for today.`;
+  if (names.length === 1) return { title: `${names[0]} ${acceptedOn(platform, false)}`, body: on };
+  const shown = names.slice(0, 2);
+  const more = names.length - shown.length;
+  return {
+    title: `${names.length} people ${acceptedOn(platform, true)}`,
+    body: `${more ? `${shown.join(', ')} and ${more} more` : shown.join(' and ')}. ${on}`,
+  };
+}
+
 /** Each kind as the morning push counts it: "2 friend requests". */
 const COUNTED: Record<TodayKind, readonly [string, string]> = {
   confirm: ['request to confirm', 'requests to confirm'],
@@ -91,7 +118,12 @@ const COUNTED: Record<TodayKind, readonly [string, string]> = {
   follow_up: ['follow-up', 'follow-ups'],
   check_in: ['check-in', 'check-ins'],
   reply: ['reply', 'replies'],
+  demo_reminder: ['demo to remind them of', 'demos to remind them of'],
+  rebook: ['missed demo to offer another time for', 'missed demos to offer another time for'],
+  birthday: ['birthday note', 'birthday notes'],
+  new_job: ['note on a new job', 'notes on new jobs'],
   comment: ['post to comment on', 'posts to comment on'],
+  group_reply: ['question to answer in your groups', 'questions to answer in your groups'],
   warm_lead: ['comment to answer', 'comments to answer'],
   recommend: ['business to recommend', 'businesses to recommend'],
   partner_reply: ['reply to a partner', 'replies to partners'],

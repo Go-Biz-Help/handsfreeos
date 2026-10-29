@@ -793,6 +793,7 @@ describe('Check my followers and Research, on Instagram', () => {
       posts: ['/p/C1aaaaaaa/'],
       bio: ['Cakes for every party. '.repeat(30)],
       pictures: ['A tiered wedding cake with roses. '.repeat(30)],
+      story: false,
     });
     expect(lines.map((l) => l.length)).toEqual([16, LOOKUP_LINE_MOST, LOOKUP_LINE_MOST]);
     const id = '9a8b7c6d-5e4f-4a3b-8c2d-1e0f9a8b7c6d';

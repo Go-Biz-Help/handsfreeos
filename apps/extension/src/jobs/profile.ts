@@ -31,6 +31,7 @@ import {
   type ProfileRead,
 } from '@hfos/core/addons/outreach/profile-check';
 import {
+  hasEveryPart,
   hasNewProfileParts,
   profileEditDoneWords,
   type AskTask,
@@ -51,6 +52,14 @@ import {
   unseenWords as centerUnseenWords,
   type CenterProfile,
 } from './accounts-center';
+import {
+  partSteps,
+  putParts,
+  shownParts,
+  unseenParts,
+  unseenPartsWords,
+  type PartStep,
+} from './own-parts';
 import { putInByHand, type ByHandPart } from './profile-parts';
 import { readIn, valueOf, warnedOn, type Job, type JobEnd } from './job';
 import { editorNote, ownProfileNote, type ReportNote } from './report';
@@ -119,6 +128,12 @@ async function handed(job: Job, says: string, note?: ReportNote): Promise<JobEnd
   return reply === 'carry_on' ? null : STOPPED;
 }
 
+/** Opens a page for one of decision 99's parts: null once it's open, how it ended on a warning. */
+async function openPart(job: Job, url: string): Promise<JobEnd | null> {
+  const page = await openEditor(job, url);
+  return isEnd(page) ? page : null;
+}
+
 /** Opens one of the profile's editors: the page as read. A warning ends it. */
 async function openEditor(job: Job, url: string): Promise<JobEnd | ReadResult> {
   await job.tab.open(url);
@@ -134,7 +149,8 @@ async function openEditor(job: Job, url: string): Promise<JobEnd | ReadResult> {
 export async function profileEdit(job: Job, task: EditTask): Promise<JobEnd> {
   const { bio } = task;
   const more = hasNewProfileParts(task);
-  if (!bio && !more) return failed('Pick a bio to put in first.');
+  const every = hasEveryPart('facebook', task);
+  if (!bio && !more && !every) return failed('Pick a bio to put in first.');
   job.progress('Opening your profile…');
   const opened = await openOwn(job);
   if (isEnd(opened)) return opened;
@@ -143,10 +159,31 @@ export async function profileEdit(job: Job, task: EditTask): Promise<JobEnd> {
     const put = await putBio(job, bio, editors);
     if (put) return put;
   }
+  // Decision 99's parts: the links that don't fit taken off first, on Contact and basic info; the work and the post
+  // after the rest.
+  const steps = partSteps('facebook', task, {
+    profile: OWN_PROFILE_URL,
+    work: editors?.work ?? null,
+    links: editors?.links ?? null,
+  });
+  const ways = { open: (url: string) => openPart(job, url) };
+  const offs = await putParts(
+    job,
+    steps.filter((s) => s.write.kind === 'link_off'),
+    ways,
+  );
+  if (!Array.isArray(offs)) return offs;
+  // A link changed is taken off, then the new one added with the rest.
+  const links = [
+    ...task.links,
+    ...task.linkChanges
+      .map((c) => c.to)
+      .filter((to): to is string => !!to && !task.links.some((l) => sameLink(l, to))),
+  ];
   const done = new Set<ByHandPart>();
-  if (task.links.length && partHowOn('facebook', 'links') === 'auto') {
+  if (links.length && partHowOn('facebook', 'links') === 'auto') {
     if (job.stopped()) return STOPPED;
-    const put = await putLinks(job, task.links, editors);
+    const put = await putLinks(job, links, editors);
     if (put) return put;
     done.add('links');
   }
@@ -188,6 +225,11 @@ export async function profileEdit(job: Job, task: EditTask): Promise<JobEnd> {
     const byHand = await putInByHand(job, 'facebook', task, done);
     if (byHand) return byHand;
   }
+  const rest: PartStep[] = steps.filter((s) => s.write.kind !== 'link_off');
+  if (rest.length) {
+    const put = await putParts(job, rest, ways);
+    if (!Array.isArray(put)) return put;
+  }
   const again = await openOwn(job);
   if (isEnd(again)) return again;
   // Their new username, in the address /me went to: Facebook leaves out dots when it matches one.
@@ -197,7 +239,9 @@ export async function profileEdit(job: Job, task: EditTask): Promise<JobEnd> {
     username !== null && !refused.has('username') && (at === null || plain(at) !== plain(username));
   // What went in but doesn't show on the profile read after: never said to be in.
   let unseen: ShownPart[] = [];
+  let unseenEvery = new Set<string>();
   const checked = await readAndCheck(job, async (read) => {
+    unseenEvery = every ? unseenParts('facebook', task, read) : new Set();
     unseen = SHOWN_PARTS.filter((part) =>
       part === 'bio'
         ? bio !== null && clean(read.bio) !== clean(bio)
@@ -207,25 +251,31 @@ export async function profileEdit(job: Job, task: EditTask): Promise<JobEnd> {
             ? name !== null && !refused.has('name') && !review && !nameShows(read.name, name)
             : usernameUnseen,
     );
-    if (unseen.length)
+    if (unseen.length || unseenEvery.size)
       await job.report?.({
         job: 'profile_edit.check',
-        note: `Not shown on the profile after it went in: ${unseen.map((p) => `the ${p}`).join(', ')}.`,
+        note: `Not shown on the profile after it went in: ${[...unseen, ...unseenEvery].map((p) => `the ${p}`).join(', ')}.`,
         outline: true,
       });
   });
   if (checked.failed) return checked;
   const shown = {
-    ...task,
+    ...shownParts(task, unseenEvery),
     bio: unseen.includes('bio') ? null : bio,
     links: unseen.includes('links') ? [] : task.links,
     username: refused.has('username') || unseen.includes('username') ? null : task.username,
     name: refused.has('name') || review || unseen.includes('name') ? null : task.name,
   };
-  const anyIn = Boolean(shown.bio || shown.name || shown.username || shown.links.length);
+  const anyIn = Boolean(
+    shown.bio ||
+    shown.name ||
+    shown.username ||
+    shown.links.length ||
+    hasEveryPart('facebook', shown),
+  );
   const doneLine = !anyIn
     ? null
-    : shown.bio && !hasNewProfileParts(shown)
+    : shown.bio && !hasNewProfileParts(shown) && !hasEveryPart('facebook', shown)
       ? P.editDone(shown.bio)
       : profileEditDoneWords('facebook', shown);
   const after = [
@@ -233,6 +283,7 @@ export async function profileEdit(job: Job, task: EditTask): Promise<JobEnd> {
     refused.get('name'),
     review && name ? nameReviewWords('facebook', name) : null,
     ...unseen.map((part) => unseenWords(part, task, username, name)),
+    unseenPartsWords('facebook', unseenEvery),
   ];
   const line = [doneLine, ...after].filter((l): l is string => Boolean(l)).join(' ');
   return {

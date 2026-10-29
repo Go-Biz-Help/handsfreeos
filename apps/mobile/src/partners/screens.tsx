@@ -7,6 +7,7 @@ import {
   PARTNERS_WORDS as W,
   payoutLineWords,
   PAYOUT_WORDS as P,
+  payoutCountryIn,
   rateWords,
   type PartnerEarnings,
   type PartnerStatus,
@@ -478,11 +479,9 @@ export function PartnerBody({
 
       <ListLabel>{P.partner.title}</ListLabel>
       <Text className="px-1 text-[13px] text-text-2" testID="partner-payouts-account">
-        {got.payouts.account?.ready
-          ? P.partner.ready
-          : got.payouts.account
-            ? P.partner.needsMore
-            : P.partner.noAccount}
+        {got.payouts.account
+          ? `${got.payouts.account.ready ? P.partner.ready : P.partner.needsMore} ${P.partner.bank(payoutCountryIn(got.payouts.account.country))}`
+          : P.partner.noAccount}
       </Text>
       {got.payouts.lines.length ? (
         <List testID="partner-payout-lines">

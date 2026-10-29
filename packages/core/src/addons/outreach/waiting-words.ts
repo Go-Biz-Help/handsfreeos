@@ -23,7 +23,7 @@
  * Browser-safe and without zod of its own, and with nothing from ./sends.ts but its types, so the extension's pages
  * stay small: the schemas are in ./waiting.ts.
  */
-import { inWorkingHours, nextInHours, type WorkingHours } from './automation';
+import { inWorkingHours, nextInHours, underAPost, type WorkingHours } from './automation';
 import type { FitLevel } from './fit';
 import { networkOfLink, NETWORKS, PLATFORMS, withArticle, type Platform } from './networks';
 
@@ -411,13 +411,21 @@ export const messagesTitle = (comments: boolean): string =>
  * button (decision 91), between the two parts.
  */
 export const COMMENT_TITLE_AROUND = ['Comment on ', '’s post'] as const;
+/** A reply in a group waiting's (decision 114), as `COMMENT_TITLE_AROUND`: "Answer Dana Reyes’s question". */
+export const GROUP_REPLY_TITLE_AROUND = ['Answer ', '’s question'] as const;
+
+/** The heading either side of the name for what goes under a post: a comment, or a reply in a group. */
+export const postTitleAround = (kind: string) =>
+  kind === 'group_reply' ? GROUP_REPLY_TITLE_AROUND : COMMENT_TITLE_AROUND;
 
 /**
  * A comment waiting, as Waiting for you heads it, its post's first words above the comment: "Comment on Dana Reyes’s
- * post".
+ * post"; a reply in a group, "Answer Dana Reyes’s question".
  */
-export const commentTitle = (name: string): string =>
-  `${COMMENT_TITLE_AROUND[0]}${name}${COMMENT_TITLE_AROUND[1]}`;
+export const commentTitle = (name: string, kind = 'comment'): string => {
+  const [before, after] = postTitleAround(kind);
+  return `${before}${name}${after}`;
+};
 
 /**
  * Whether a send waiting is an answer to an Alignable post asking for what the business offers (decision 79): a
@@ -429,8 +437,8 @@ export const forumAnswer = (send: {
 }): boolean => send.kind === 'comment' && send.needsYou !== null;
 
 /**
- * Whether Approve all takes a comment among the messages waiting (decision 92): one that doesn't wait for an OK of its
- * own (`oneByOne`, so never a forum answer). Its button and what it says after are "messages and comments" only then.
+ * Whether Approve all takes a comment among the messages waiting (decision 92), or a reply in a group (decision 114):
+ * one that doesn't wait for an OK of its own (`oneByOne`, so never a forum answer). Its button and what it says after are "messages and comments" only then.
  * Today, Waiting for you and the phone all ask it.
  */
 export const approveAllTakesComments = (
@@ -439,7 +447,7 @@ export const approveAllTakesComments = (
     readonly handedOver: boolean;
     readonly needsYou: string | null;
   }[],
-): boolean => sends.some((send) => send.kind === 'comment' && !oneByOne(send));
+): boolean => sends.some((send) => underAPost(send.kind) && !oneByOne(send));
 
 /**
  * Whether Messages to OK says what the comments-only hold is (decision 92's 13): while a comment Approve all takes
@@ -457,7 +465,7 @@ export function commentHoldShown(
 ): boolean {
   if (!holds?.length) return false;
   return sends.some((send) => {
-    if (send.kind !== 'comment' || oneByOne(send) || !send.profileUrl) return false;
+    if (!underAPost(send.kind) || oneByOne(send) || !send.profileUrl) return false;
     const on = networkOfLink(send.profileUrl);
     return on !== null && holds.includes(on);
   });

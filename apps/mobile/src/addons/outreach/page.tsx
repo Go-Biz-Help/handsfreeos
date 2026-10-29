@@ -10,7 +10,9 @@ import { openWebPath } from '@/home/open';
 
 import { ChatsScreen } from './chats';
 import { CodeScreen } from './code';
+import { CountriesScreen } from './countries';
 import { OutreachWorkspace } from './frame';
+import { GroupPageScreen } from './group-page';
 import { GroupsScreen } from './groups';
 import { TodayHub } from './hub';
 import { isSetUp, outreachPath, useOutreachContext, type OutreachTab, type WebTab } from './kit';
@@ -25,9 +27,11 @@ import { SettingsScreen } from './settings';
 /**
  * Social Outreach's page on the phone (decisions 44 and 59), by its address's `?view=`, as the web's: four tabs and
  * the gear. Today (no `?view=`, `today`, and the old `waiting`) has what the computer is doing, Needs you and the
- * list; People is the Pipeline, Chats, the Partners list and the Never contact list; then Groups and Results; the gear opens Settings, with Playbooks there.
+ * list; People is the Pipeline, Chats, the Partners list and the Never contact list; then Groups (`&group=` one
+ * group's own page, decision 103) and Results; the gear opens Settings, with Playbooks there.
  * Settings is a menu, and `?part=` one of its pages (General, or a network's). `live` is the computer's whole day.
- * `code` is the code a network emailed for an ask (`?ask=`), where its notification opens (decision 82). Friends, and the old Activity, have a lot to look through, so they stay on the
+ * `code` is the code a network emailed for an ask (`?ask=`), where its notification opens (decision 82). `countries` is
+ * one of the lists the country setting makes (`?show=unsure|skipped`), opened from General. Friends, and the old Activity, have a lot to look through, so they stay on the
  * web: a link to them opens there (the manifest's `ui.phone` `web`), and this says so if one is opened here anyway.
  */
 
@@ -44,6 +48,7 @@ const PHONE_TABS: readonly OutreachTab[] = [
   'playbooks',
   'settings',
   'code',
+  'countries',
 ];
 const WEB_TABS: readonly WebTab[] = ['activity', 'friends'];
 
@@ -56,6 +61,7 @@ export function OutreachPage(props: {
   net?: string;
   part?: string;
   ask?: string;
+  group?: string;
 }) {
   const ctx = useOutreachContext();
   return (
@@ -74,6 +80,7 @@ function OutreachView({
   net,
   part,
   ask,
+  group,
 }: {
   view?: string;
   for?: string;
@@ -83,6 +90,7 @@ function OutreachView({
   net?: string;
   part?: string;
   ask?: string;
+  group?: string;
 }) {
   const tab = PHONE_TABS.find((t) => t === view);
   const webTab = WEB_TABS.find((t) => t === view);
@@ -92,7 +100,11 @@ function OutreachView({
     case 'pipeline':
       return <PipelineScreen show={show} q={q} />;
     case 'groups':
-      return <GroupsScreen show={show} q={q} />;
+      return group ? (
+        <GroupPageScreen groupId={group} show={show} />
+      ) : (
+        <GroupsScreen show={show} q={q} />
+      );
     case 'chats':
       return <ChatsScreen show={show} tag={tag} q={q} />;
     case 'never_contact':
@@ -107,6 +119,8 @@ function OutreachView({
       return <SettingsScreen whose={whose} part={part} />;
     case 'code':
       return <CodeScreen askId={ask ?? null} />;
+    case 'countries':
+      return <CountriesScreen show={show} />;
     default:
       return webTab ? <WebOnlyScreen tab={webTab} /> : <TodayHub net={readNetwork(net)} />;
   }

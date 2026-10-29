@@ -1,5 +1,6 @@
 import {
   freshWords,
+  underAPost,
   wheelsWords,
   type WheelsListOutput,
 } from '@hfos/core/addons/outreach/automation';
@@ -14,6 +15,7 @@ import { PLATFORMS, type Platform } from '@hfos/core/addons/outreach/networks';
 import { PARTNER_WORDS as PW } from '@hfos/core/addons/outreach/partners';
 import {
   doneOnItsOwn,
+  isOccasionKind,
   TODAY_KIND_KEYS,
   TODAY_LIMIT,
   type TodayItem,
@@ -29,6 +31,7 @@ import {
   type HelpfulListOutput,
 } from '@hfos/core/addons/outreach/helpful';
 import { warningNote } from '@hfos/core/addons/outreach/tidy';
+import { PROFILE_PART_WORDS } from '@hfos/core/addons/outreach/profile-parts';
 import { recentBubbles, RECENT_WORDS } from '@hfos/core/addons/outreach/sends';
 import { oneByOneWords } from '@hfos/core/addons/outreach/waiting-words';
 import * as React from 'react';
@@ -46,7 +49,15 @@ import { api, errorMessage, unwrap } from '@/lib/api';
 
 import { okSend, skipPost, skipSend } from './actions';
 import { ChatBubbles } from './chat-bubbles';
-import { NeedsSignal, Note, openOutside, Part, useOutreachAnswer, useOutreachContext } from './kit';
+import {
+  NeedsSignal,
+  Note,
+  openOutside,
+  openSettingsPart,
+  Part,
+  useOutreachAnswer,
+  useOutreachContext,
+} from './kit';
 import { PersonName } from './person-menu';
 
 /**
@@ -112,10 +123,11 @@ export function useTodayProps(
     toast.show(said);
     today.reload();
   };
-  // A comment on a good post (decision 92) says it goes under the post, and that a skip puts the post aside.
+  // A comment on a good post (decision 92), or the day's reply in a group (decision 114), says it goes under the
+  // post, and that a skip puts the post aside.
   const commentOf = (sendId: string) =>
     [...(today.data?.items ?? []), ...(today.data?.partners ?? [])].some(
-      (i) => i.kind === 'comment' && i.send?.sendId === sendId,
+      (i) => underAPost(i.kind) && i.send?.sendId === sendId,
     );
   return {
     platform,
@@ -177,6 +189,7 @@ export function useTodayProps(
         failed(e);
       }
     },
+    onProfileOwn: () => openSettingsPart(ws, platform),
     onEndWheels: async (userId, name, network = 'facebook') => {
       try {
         await change('outreach.wheels.end', { workspaceId: ws, userId, platform: network });
@@ -209,6 +222,7 @@ export function TodayBody({
   onSkip,
   onNotForMe,
   onEndWheels,
+  onProfileOwn,
   embedded = false,
   hideSends,
 }: {
@@ -226,6 +240,8 @@ export function TodayBody({
   onNotForMe: (postId: string) => void;
   /** Ends someone's training wheels on a network: Facebook's when left out. */
   onEndWheels: (userId: string, name: string, platform?: Platform) => void;
+  /** Opens the network's part of Settings, where the AI's suggestions for its profile wait (decision 99). */
+  onProfileOwn?: () => void;
   /** Inside Today's tab, under Needs you (./hub.tsx): no screen of its own. */
   embedded?: boolean;
   /** Messages Needs you shows already: left off here, so nobody shows twice. */
@@ -270,6 +286,25 @@ export function TodayBody({
           <Text className="text-[13px] leading-[18px] text-warning-text">
             {requestsHeldWords(list.requestsHeld, platform)}
           </Text>
+        </View>
+      ) : null}
+      {/* Their profile, read on its own on the 1st: what the AI suggests waits for their OK (decision 99). */}
+      {list.profileOwn ? (
+        <View className="gap-2 rounded-menu bg-card-2 px-3 py-2.5" testID="today-profile-own">
+          <Text className="text-[13px] leading-[18px] text-text-2">
+            {PROFILE_PART_WORDS.ownWaiting(platform, list.profileOwn.parts)}
+          </Text>
+          {onProfileOwn ? (
+            <Button
+              size="md"
+              variant="secondary"
+              className="self-start"
+              onPress={onProfileOwn}
+              testID="today-profile-own-look"
+            >
+              {PROFILE_PART_WORDS.ownLook}
+            </Button>
+          ) : null}
         </View>
       ) : null}
       {helpful && onHelpful && helpfulOn(platform) ? (
@@ -426,9 +461,16 @@ function ItemCard({
 }) {
   // Where Open goes, and its words, as the web's: the post, their chat, else their page.
   const openAt = todayOpenOf(item, platform);
-  // A comment drafted to wait (decision 92): it goes under the post; skipping it puts the post aside.
-  const comment = item.kind === 'comment' && item.send !== null;
-  const alone = comment && item.send?.state === 'waiting' ? oneByOneWords(item.send) : null;
+  // A comment or a group reply drafted to wait (decisions 92 and 114): it goes under the post; skipping it puts the
+  // post aside.
+  const comment = underAPost(item.kind) && item.send !== null;
+  // It waits for an OK of its own, said under it: a comment's, another time after a no-show (decision 106), and a
+  // birthday or new-job note (decision 108).
+  const alone =
+    (comment || item.kind === 'rebook' || isOccasionKind(item.kind)) &&
+    item.send?.state === 'waiting'
+      ? oneByOneWords(item.send)
+      : null;
   return (
     <Card className="gap-2 px-4 py-3.5" testID="today-item">
       <View className="flex-row flex-wrap items-center gap-2">
@@ -512,7 +554,7 @@ function ItemCard({
             </Button>
           </>
         ) : null}
-        {item.kind === 'comment' && item.postId && !comment ? (
+        {underAPost(item.kind) && item.postId && !comment ? (
           <Button
             size="md"
             variant="ghost"
@@ -543,7 +585,8 @@ function ItemCard({
  * Today's helpful post (decision 50): what the AI wrote and for which group, to OK for the computer, say it's up
  * after copying it (the words can be selected), or put aside; why one was put aside; and those up lately, with who
  * engaged. With none today, Write a helpful post. It needs signal. On LinkedIn it's for the person's own feed: "Your
- * LinkedIn feed" where a group's name would be, and Open LinkedIn in place of Open the group.
+ * LinkedIn feed" where a group's name would be, and Open LinkedIn in place of Open the group. On Instagram and
+ * Alignable it's one a week on their own account (decision 109), Instagram's with the picture to take.
  */
 function HelpfulPart({
   platform,
@@ -577,6 +620,12 @@ function HelpfulPart({
               >
                 {shown.text}
               </Text>
+              {shown.picture ? (
+                <Text className="text-[14.5px]" testID="today-helpful-picture">
+                  <Text className="font-semibold">{`${H.picture}: `}</Text>
+                  {shown.picture}
+                </Text>
+              ) : null}
               <Note>{shown.state === 'approved' ? H.waitingComputer : H.how(shown.how)}</Note>
               <View className="flex-row flex-wrap gap-2">
                 {shown.how === 'after_ok' || shown.state === 'approved' ? (

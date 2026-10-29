@@ -114,33 +114,52 @@ const group = (id: string, more: Record<string, unknown> = {}) => ({
 });
 
 describe('the once-a-day jobs, in order', () => {
-  it('checks requests, tidies, then groups, joins, members, posts, chats, friends and partners, each once a day', () => {
+  it('checks requests, tidies, then groups, joins, members, posts, likes in groups, chats, followers, friends and partners, each once a day', () => {
     expect(DAILY_JOBS).toEqual([
       'requests',
       'tidy',
+      'occasions',
       'group_checks',
       'join',
       'members',
       'posts',
+      'active',
       'chats',
+      'followers',
       'checks',
       'partners',
       'helpful',
+      'profile',
     ]);
     const fresh = freshState('2026-10-10');
     expect(nextDaily(fresh)).toBe('requests');
     expect(nextDaily({ daily: { requests: 'Saved 2.' } })).toBe('tidy');
+    // Then today's birthdays (0.100.0, decision 108).
     expect(nextDaily({ daily: { requests: 'Saved 2.', tidy: 'Nothing to tidy up today.' } })).toBe(
-      'group_checks',
+      'occasions',
     );
     expect(
       nextDaily({
-        daily: { requests: '', tidy: '', group_checks: '', join: '', members: 'Saved 9.' },
+        daily: { requests: 'Saved 2.', tidy: 'Nothing to tidy up today.', occasions: '' },
+      }),
+    ).toBe('group_checks');
+    expect(
+      nextDaily({
+        daily: {
+          requests: '',
+          tidy: '',
+          occasions: '',
+          group_checks: '',
+          join: '',
+          members: 'Saved 9.',
+        },
       }),
     ).toBe('posts');
     // A state kept by 0.21 hasn't done the groups' jobs yet today: they come next.
     expect(
-      nextDaily({ daily: { requests: '', tidy: '', members: '', posts: '', chats: '' } }),
+      nextDaily({
+        daily: { requests: '', tidy: '', occasions: '', members: '', posts: '', chats: '' },
+      }),
     ).toBe('group_checks');
     // A state kept before tidying on its own (0.97) tidies next, after the requests.
     expect(
@@ -151,14 +170,37 @@ describe('the once-a-day jobs, in order', () => {
         daily: {
           requests: '',
           tidy: '',
+          occasions: '',
           group_checks: '',
           join: '',
           members: '',
           posts: '',
+          active: '',
           chats: '',
+          followers: '',
           checks: '',
           partners: '',
           helpful: '',
+        },
+      }),
+    ).toBe('profile');
+    expect(
+      nextDaily({
+        daily: {
+          requests: '',
+          tidy: '',
+          occasions: '',
+          group_checks: '',
+          join: '',
+          members: '',
+          posts: '',
+          active: '',
+          chats: '',
+          followers: '',
+          checks: '',
+          partners: '',
+          helpful: '',
+          profile: '',
         },
       }),
     ).toBeNull();
@@ -168,16 +210,59 @@ describe('the once-a-day jobs, in order', () => {
         daily: {
           requests: '',
           tidy: '',
+          occasions: '',
           group_checks: '',
           join: '',
           members: '',
           posts: '',
+          active: '',
           chats: '',
+          followers: '',
           checks: '',
           helpful: '',
         },
       }),
     ).toBe('partners');
+    // A state kept before the followers (0.105.0, decision 113) reads them next, before the checks.
+    expect(
+      nextDaily({
+        daily: {
+          requests: '',
+          tidy: '',
+          occasions: '',
+          group_checks: '',
+          join: '',
+          members: '',
+          posts: '',
+          active: '',
+          chats: '',
+          checks: '',
+          partners: '',
+          helpful: '',
+          profile: '',
+        },
+      }),
+    ).toBe('followers');
+    // A state kept before staying active in the groups (0.106.0, decision 114) does it next, after finding posts.
+    expect(
+      nextDaily({
+        daily: {
+          requests: '',
+          tidy: '',
+          occasions: '',
+          group_checks: '',
+          join: '',
+          members: '',
+          posts: '',
+          chats: '',
+          followers: '',
+          checks: '',
+          partners: '',
+          helpful: '',
+          profile: '',
+        },
+      }),
+    ).toBe('active');
     // A state kept by 0.11 has none: it starts from the first.
     expect(nextDaily({})).toBe('requests');
   });

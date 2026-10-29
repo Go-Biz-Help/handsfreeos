@@ -688,6 +688,114 @@ describe('Get ready on the phone', () => {
     ).toBeTruthy();
   });
 
+  it('puts the work, the best post and a link switched on in, read on its own (decision 99)', async () => {
+    const ok = { ok: true, why: 'Looks right.', fix: null };
+    const fix = (why: string, change: string) => ({ ok: false, why, fix: change });
+    const readiness: ReadinessOutput = {
+      ...notReady,
+      platform: 'facebook',
+      profileCheck: {
+        items: {
+          picture: ok,
+          cover: ok,
+          bio: ok,
+          work: fix('No workplace.', 'Add your business.'),
+          featured: fix('Nothing pinned.', 'Pin your best post.'),
+          posts: ok,
+        },
+        bios: [],
+        names: [],
+        usernames: [],
+        look: {
+          reads: 'person',
+          work: 'same',
+          ok: true,
+          title: 'This reads as you.',
+          clashes: [],
+          unlike: [],
+        },
+        seen: {
+          url: 'https://www.facebook.com/casey.lee',
+          name: 'Casey Lee',
+          username: 'casey.lee',
+          line: 'I help roofers.',
+          links: ['https://oldtiles.example.com/'],
+        },
+        coverLine: null,
+        feature: [],
+        workDraft: { title: 'Owner', company: 'Summit Roof Leads', words: 'I fix roofs.' },
+        featurePost: 'Five stars from the Parkers.',
+        linkChanges: [{ link: 'https://oldtiles.example.com/', to: null, why: 'An old job.' }],
+        own: true,
+        at: '2026-11-01T14:00:00.000Z',
+        version: 1,
+      },
+    } as ReadinessOutput;
+    const actions = { busy: null, ask: jest.fn(), reply: jest.fn(), stop: jest.fn() };
+    const asks: AsksOutput = {
+      now: new Date().toISOString(),
+      timezone: 'America/New_York',
+      computer: {
+        computerId: '00000000-0000-4000-8000-000000000001',
+        name: 'Office laptop',
+        online: true,
+        signedOut: false,
+        lastSeenAt: new Date().toISOString(),
+        version: '0.98.0',
+      },
+      warnedToday: false,
+      asks: [],
+    };
+    const view = await render(
+      <GetReadyCard
+        readiness={readiness}
+        asks={asks}
+        actions={actions}
+        onTick={jest.fn()}
+        onNumbers={jest.fn()}
+      />,
+    );
+    await fireEvent.press(view.getByTestId('ready-open-profile'));
+    // Read on its own on the 1st: nothing changed, and what it suggests waits for their OK.
+    expect(view.getByTestId('ready-profile-own')).toBeTruthy();
+    expect(view.getByText(/Nothing changed on your profile/)).toBeTruthy();
+    const rest = view.getByTestId('ready-profile-rest');
+    expect(within(rest).getByText('Owner at Summit Roof Leads')).toBeTruthy();
+    expect(within(rest).getByText('“Five stars from the Parkers.”')).toBeTruthy();
+    // A link is taken off only once it's switched on.
+    const off = 'Take it off: https://oldtiles.example.com/';
+    expect(view.getByLabelText(off).props.accessibilityState).toMatchObject({ checked: false });
+    await fireEvent.press(view.getByTestId('ready-rest-put-in'));
+    expect(actions.ask).toHaveBeenLastCalledWith(
+      {
+        kind: 'profile_edit',
+        work: { title: 'Owner', company: 'Summit Roof Leads', words: 'I fix roofs.', since: null },
+        featured: { post: 'Five stars from the Parkers.', link: null },
+      },
+      'facebook',
+    );
+    await fireEvent(view.getByLabelText(off), 'checkedChange', true);
+    await fireEvent.press(view.getByTestId('ready-rest-put-in'));
+    expect(actions.ask).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        linkChanges: [{ from: 'https://oldtiles.example.com/', to: null }],
+      }),
+      'facebook',
+    );
+    // A build before 0.98.0 can't put them in: they're the person's, as before.
+    await view.rerender(
+      <GetReadyCard
+        readiness={readiness}
+        asks={{ ...asks, computer: { ...asks.computer!, version: '0.97.0' } }}
+        actions={actions}
+        onTick={jest.fn()}
+        onNumbers={jest.fn()}
+      />,
+    );
+    expect(view.queryByTestId('ready-part-work')).toBeNull();
+    expect(view.queryByTestId('ready-link-changes')).toBeNull();
+  });
+
   it('says how the last headline put in went once, under them all, and none from before the latest read', async () => {
     const check = {
       items: Object.fromEntries(

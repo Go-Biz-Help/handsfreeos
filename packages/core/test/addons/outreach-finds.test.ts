@@ -15,7 +15,14 @@ import {
   NETWORK_CHOICES_DEFAULTS,
   NETWORKS_DEFAULTS,
 } from '../../src/addons/outreach/automation';
-import { FIND_LIKES_BEHIND_DAYS, findsWaitingMost } from '../../src/addons/outreach/finds';
+import { topicName } from '../../src/addons/outreach/activity';
+import { OutreachSettingsSchema } from '../../src/addons/outreach/chat-read';
+import {
+  FIND_LIKES_BEHIND_DAYS,
+  findsWaitingMost,
+  FOUND_CHECKS,
+  stepFoundChecks,
+} from '../../src/addons/outreach/finds';
 import { NETWORKS } from '../../src/addons/outreach/networks';
 import { kindSearches } from '../../src/addons/outreach/ops/finds';
 import { PLAYBOOK_TEMPLATES } from '../../src/addons/outreach/playbooks';
@@ -640,6 +647,40 @@ describe('people found by topic', () => {
     expect(got.people).toHaveLength(5);
   });
 
+  it('checks as many a day as the business sets, 10 to 100, LinkedIn’s inside its 40 (decision 116)', async () => {
+    const setTo = (n: number | null) =>
+      admin().execute(
+        n === null
+          ? sql`update app.addon_installations set settings = settings - 'foundChecksPerDay'
+                where workspace_id = ${ws} and addon_id = 'outreach'`
+          : sql`update app.addon_installations
+                set settings = coalesce(settings, '{}'::jsonb) || jsonb_build_object('foundChecksPerDay', ${n}::int)
+                where workspace_id = ${ws} and addon_id = 'outreach'`,
+      );
+    try {
+      await setTo(60);
+      expect(await next(riley, { platform: 'instagram' })).toMatchObject({ perDay: 60 });
+      expect(await next(riley, { platform: 'alignable' })).toMatchObject({ perDay: 60 });
+      // LinkedIn's inside its 40 profiles read (Riley's are halved for the warning above: the owner's aren't).
+      expect(await next()).toMatchObject({ perDay: 40 });
+      await setTo(10);
+      expect(await next(riley, { platform: 'instagram' })).toMatchObject({ perDay: 10 });
+      expect(await next()).toMatchObject({ perDay: 10 });
+    } finally {
+      await setTo(null);
+    }
+    expect(await next(riley, { platform: 'instagram' })).toMatchObject({ perDay: 30 });
+    // The setting's own bounds, and the phone's steps of ten.
+    expect(OutreachSettingsSchema.parse({}).foundChecksPerDay).toBe(FOUND_CHECKS.start);
+    expect(OutreachSettingsSchema.safeParse({ foundChecksPerDay: 9 }).success).toBe(false);
+    expect(OutreachSettingsSchema.safeParse({ foundChecksPerDay: 101 }).success).toBe(false);
+    expect(stepFoundChecks(30, 1)).toBe(40);
+    expect(stepFoundChecks(35, 1)).toBe(40);
+    expect(stepFoundChecks(35, -1)).toBe(30);
+    expect(stepFoundChecks(10, -1)).toBe(10);
+    expect(stepFoundChecks(100, 1)).toBe(100);
+  });
+
   it('checks 15 a day on training wheels', async () => {
     const dana = await teammate('Dana Wheels');
     await runAs(dana, ws, 'outreach.automation.save', {
@@ -718,5 +759,45 @@ describe('people found by topic', () => {
     expect(
       (await runAs(owner, ws, 'outreach.finds.searches', { platform: 'alignable' })).searches,
     ).toHaveLength(3);
+  });
+});
+
+describe('which words bring replies (decision 116)', () => {
+  it('shows the people reached by the hashtag, phrase or kind of business they were found with', async () => {
+    const pat = await createTestUser('outfind-topics', { fullName: 'Pat Topics' });
+    const ws = await outreachBusiness(pat, 'Outreach Topics Co');
+    const reached = async (platform: string, n: number, words: string | null) => {
+      const [made] = await rows<{ id: string }>(
+        admin(),
+        sql`insert into addon_outreach.profiles (workspace_id, platform, username, url, name)
+            values (${ws}, ${platform}, ${`topic-${n}`}, ${`https://www.${platform}.com/topic-${n}/`},
+              ${`Made Up Person ${n}`})
+            returning id`,
+      );
+      await admin().execute(sql`
+        insert into addon_outreach.finds (workspace_id, user_id, profile_id, platform, how, words, found_at)
+        values (${ws}, ${pat.id}, ${made!.id}, ${platform}, 'liked', ${words}, now() - interval '1 day')`);
+      await admin().execute(sql`
+        insert into addon_outreach.touches (workspace_id, user_id, profile_id, kind, at)
+        values (${ws}, ${pat.id}, ${made!.id}, 'like', now())`);
+    };
+    await reached('instagram', 1, 'sourdough');
+    await reached('instagram', 2, 'Sourdough');
+    await reached('linkedin', 3, 'sourdough');
+    // Found without words (a group's members): in no row.
+    await reached('alignable', 4, null);
+    const activity = (await runAs(pat, ws, 'outreach.activity', {})) as {
+      topics: { platform: string; words: string; people: number; warmedUp: number }[];
+    };
+    expect(activity.topics).toEqual([
+      expect.objectContaining({
+        platform: 'instagram',
+        words: expect.stringMatching(/^sourdough$/i),
+        people: 2,
+        warmedUp: 2,
+      }),
+      expect.objectContaining({ platform: 'linkedin', words: 'sourdough', people: 1, warmedUp: 1 }),
+    ]);
+    expect(topicName(activity.topics[1]! as never)).toBe('“sourdough” on LinkedIn');
   });
 });

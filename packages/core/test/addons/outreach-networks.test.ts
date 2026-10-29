@@ -377,11 +377,11 @@ describe('each network’s own choices', () => {
       warmUp: false,
     });
     // Facebook does nothing on its own; LinkedIn does its own steps, without liking a post first. Its runner accepts
-    // no invitations, so those stay the person's whatever the switch says (its kit's `runs`).
+    // no invitations, so those stay the person's whatever the switch says (its kit's `runs`), and its comments wait
+    // for an OK at first, as messages do (decision 102).
     expect((await runAs(dana, ws, 'outreach.today', {})).auto).toEqual([]);
     expect((await runAs(dana, ws, 'outreach.today', { platform: 'linkedin' })).auto).toEqual([
       'friend_request',
-      'comment',
     ]);
     // A screen from before networks sends none: the ones kept stay.
     const { networks: _left, ...before } = AUTOMATION_DEFAULTS;
@@ -570,6 +570,44 @@ describe('each network’s own lists, asks and Today', () => {
     expect(await refused(ask(old, 'linkedin', { kind: 'friends' }))).toBe(
       'outreach_extension_too_old',
     );
+  });
+
+  it('ask for the work, what’s featured and the rest only of a build from 0.98.0 (decision 99)', async () => {
+    const dana = await teammate('Jordan Vale');
+    const pc = randomUUID();
+    await runAs(dana, ws, 'outreach.automation.save', { settings: linkedInOn });
+    const work = { title: 'Owner', company: 'Summit Roof Leads', words: null, since: '2021-03' };
+    const featured = { post: 'Five stars from the Parkers.', link: 'https://cal.com/casey' };
+    // Refused before it's asked, saying what to do: LinkedIn asks when they started.
+    expect(
+      await refused(
+        ask(dana, 'linkedin', { kind: 'profile_edit', work: { ...work, since: null } }),
+      ),
+    ).toBe('outreach_profile_edit_refused');
+    // 0.97.0 never sees them, so it's asked to update first; its headline still goes in.
+    await beat(dana, pc, '0.97.0');
+    expect(await refused(ask(dana, 'linkedin', { kind: 'profile_edit', work, featured }))).toBe(
+      'outreach_extension_too_old',
+    );
+    await beat(dana, pc, '0.98.0');
+    const made = await ask(dana, 'linkedin', { kind: 'profile_edit', work, featured });
+    expect(made).toMatchObject({
+      fresh: true,
+      ask: { platform: 'linkedin', kind: 'profile_edit' },
+    });
+    const [row] = await rows<{ task: unknown }>(
+      admin(),
+      sql`select task from addon_outreach.asks where id = ${made.ask.askId}`,
+    );
+    expect(row!.task).toMatchObject({
+      kind: 'profile_edit',
+      bio: null,
+      work,
+      featured,
+      ideal: null,
+      services: [],
+      linkChanges: [],
+    });
   });
 
   it('ask Instagram only what a build there does, its followers from 0.80.0 and its chats from 0.81.0, and start its day', async () => {
@@ -1555,6 +1593,67 @@ describe('growing on LinkedIn', () => {
       );
     expect(await today('linkedin')).toContain('warm_lead: Mo Lane');
     expect(await today()).not.toContain('warm_lead: Mo Lane');
+  });
+
+  it('writes one helpful post a week on Instagram, with its picture, posted from the phone', async () => {
+    const sky = await teammate('Sky Ortiz');
+    const asked = (await runAs(sky, ws, 'outreach.helpful.ask', { platform: 'instagram' })) as {
+      helpfulId: string;
+      fresh: boolean;
+    };
+    expect(asked.fresh).toBe(true);
+    const list = async (platform: 'instagram' | 'alignable') =>
+      (await runAs(sky, ws, 'outreach.helpful', { platform })) as {
+        posts: { helpfulId: string; how: string; state: string; picture: string | null }[];
+        every: number;
+        posting: string;
+      };
+    // Whatever their posting choice, Instagram's is copied and posted from the phone.
+    expect(await list('instagram')).toMatchObject({ every: 7, posting: 'copy' });
+    await runAsSystem(ws, 'outreach.helpful.draft', {
+      helpfulId: asked.helpfulId,
+      draft: {
+        allowed: true,
+        topic: 'Following up',
+        text: 'Most jobs are won in the follow-up. #smallbusiness',
+        why: 'People ask how to follow up',
+        picture: 'Your notebook of follow-up dates on the dashboard',
+      },
+    });
+    expect((await list('instagram')).posts[0]).toMatchObject({
+      how: 'copy',
+      state: 'draft',
+      picture: 'Your notebook of follow-up dates on the dashboard',
+    });
+    expect(
+      await refused(runAs(sky, ws, 'outreach.helpful.ok', { helpfulId: asked.helpfulId })),
+    ).toBe('outreach_helpful_phone');
+    await runAs(sky, ws, 'outreach.helpful.posted', { helpfulId: asked.helpfulId, posted: true });
+    // One a week: the next waits till its week is done.
+    expect(await refused(runAs(sky, ws, 'outreach.helpful.ask', { platform: 'instagram' }))).toBe(
+      'outreach_helpful_week',
+    );
+    await admin().execute(
+      sql`update addon_outreach.helpful set asked_at = asked_at - interval '7 days'
+          where id = ${asked.helpfulId}`,
+    );
+    expect(await runAs(sky, ws, 'outreach.helpful.ask', { platform: 'instagram' })).toMatchObject({
+      fresh: true,
+    });
+
+    // Alignable's is for their own profile, OK'd for their computer, and never goes on its own.
+    const onAlignable = (await runAs(sky, ws, 'outreach.helpful.ask', {
+      platform: 'alignable',
+    })) as { helpfulId: string };
+    expect(await list('alignable')).toMatchObject({ every: 7, posting: 'after_ok' });
+    await runAsSystem(ws, 'outreach.helpful.draft', {
+      helpfulId: onAlignable.helpfulId,
+      draft: { allowed: true, topic: 'Follow-ups', text: 'A tip for local owners.', why: 'Asked' },
+    });
+    expect(
+      await runAs(sky, ws, 'outreach.helpful.ok', { helpfulId: onAlignable.helpfulId }),
+    ).toMatchObject({ state: 'approved' });
+    expect((await list('alignable')).posts[0]).toMatchObject({ how: 'after_ok', picture: null });
   });
 });
 

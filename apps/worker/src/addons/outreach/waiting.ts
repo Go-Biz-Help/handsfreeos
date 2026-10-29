@@ -12,11 +12,13 @@
  *   on a good post (decision 92): "A comment on Quinn Harper’s post waits for your OK", and a need with its network:
  *   "Dana Reyes: the extension needs you on Alignable". The bundle counts comments with the messages.
  *
- * A reply handed over pushes at once whatever the setting (./alerts.ts), and friend requests never push: Facebook
- * tells people of those itself. Every push goes to the person alone, on their add-ons switch, and opens Waiting for
+ * A reply handed over pushes at once whatever the setting (./alerts.ts), and friend requests they got never push:
+ * Facebook tells people of those itself. Someone accepting theirs pushes only when they switched that on (./alerts.ts,
+ * decision 101). Every push goes to the person alone, on their add-ons switch, and opens Waiting for
  * you. What they choose and their hours are read as their Waiting for you reads them (`outreach.waiting`, asked on
  * their behalf), so the phone and the extension's pop-ups follow one rule.
  */
+import { underAPost } from '@hfos/core/addons/outreach/automation';
 import type { Platform } from '@hfos/core/addons/outreach/networks';
 import { waiting } from '@hfos/core/addons/outreach/ops/waiting';
 import type { WaitingOutput } from '@hfos/core/addons/outreach/waiting';
@@ -151,7 +153,8 @@ export async function sendWaits(ctx: AddonEventContext): Promise<void> {
   if (!p.waits || p.handOver || !p.userId || !ctx.event.entityId) return;
   const userId = p.userId;
   const profileId = ctx.event.entityId;
-  const comment = p.kind === 'comment';
+  // A reply in a group goes under its post as a comment does (decision 114).
+  const comment = p.kind !== undefined && underAPost(p.kind);
   const [still] = await asWorker(ctx.db, ctx.scope, (tx) =>
     rows<{ name: string; person_id: string | null }>(
       tx,
@@ -159,7 +162,7 @@ export async function sendWaits(ctx: AddonEventContext): Promise<void> {
           join addon_outreach.profiles p on p.workspace_id = s.workspace_id and p.id = s.profile_id
           where s.workspace_id = ${ctx.scope.workspaceId} and s.user_id = ${userId}
             and s.profile_id = ${profileId} and s.state = 'waiting'
-            and ${comment ? sql`s.kind = 'comment'` : sql`s.kind <> 'comment'`}
+            and ${comment ? sql`s.kind in ('comment', 'group_reply')` : sql`s.kind not in ('comment', 'group_reply')`}
           limit 1`,
     ),
   );

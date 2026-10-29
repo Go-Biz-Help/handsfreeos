@@ -7,6 +7,7 @@
  * person's ask to join it. **Check my groups** has the AI read the groups' About pages and posts, and **Find and join
  * more groups** asks to join good ones; a card says how many people the groups have left to reach, in days of friend
  * requests. Which, the name and the page are in the address (./address.ts), so the page asks HandsFreeOS for them.
+ * A group's name opens its own page (./group-page.tsx): who was found there and how each turned out.
  */
 import {
   ASK_LINK_MOST,
@@ -23,6 +24,8 @@ import {
 import { GROUP_VIEWS, GROUPS_PAGE, type GroupView } from '@hfos/core/addons/outreach/groups';
 import { brought, resultWords } from '@hfos/core/addons/outreach/results';
 import { OUTREACH_WORDS as W } from '@hfos/core/addons/outreach/words';
+import { ExternalLink } from 'lucide-react';
+import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useEffect, useRef, useState, useTransition } from 'react';
 import { toast } from 'sonner';
@@ -395,13 +398,22 @@ function GroupRow({
     <li className="border-t border-border px-5 py-3" data-testid="group">
       <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
         <div className="min-w-0 text-[13.5px]">
+          {/* Its own page: who was found there and how each turned out (decision 103). */}
+          <Link
+            href={outreachHref(workspaceId, { view: 'groups', group: g.groupId })}
+            className="font-medium text-accent-text hover:underline"
+            data-testid="group-open"
+          >
+            {g.name ?? 'A group'}
+          </Link>{' '}
           <a
             href={g.url}
             target="_blank"
             rel="noreferrer"
-            className="font-medium text-accent-text hover:underline"
+            aria-label={`Open ${g.name ?? 'the group'} on its network`}
+            className="inline-flex align-[-2px] text-text-3 hover:text-accent-text"
           >
-            {g.name ?? 'A group'}
+            <ExternalLink className="h-3.5 w-3.5" strokeWidth={1.75} aria-hidden="true" />
           </a>
           {facts.length ? (
             <div className="text-[12.5px] text-text-3">{facts.join(' · ')}</div>

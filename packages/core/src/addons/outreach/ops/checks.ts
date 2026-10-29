@@ -6,7 +6,11 @@
  *
  * The same checks read people found by topic on Instagram, LinkedIn and Alignable (decision 92, ./finds.ts): each look
  * says whether it was of someone known or found (`via`), for the day's counts; the readers about people the person
- * knows decide by who they know now (`knownCheck`), so someone found who becomes a friend shows there at once.
+ * knows decide by who they know now (`knownCheck`), so someone found who becomes a friend shows there at once. The
+ * person's followers on Facebook who aren't friends (decision 113, ./followers.ts) are checked like friends, after
+ * them, and counted with them (`via` `follower`); Today offers the good fits a friend request. People in the business's
+ * Facebook groups who aren't friends (decision 116) are checked the same way, last of all (`via` `member`), and
+ * Today's friend requests from the groups go by what the AI made of them.
  */
 import { and, eq, isNotNull, sql, type SQL } from 'drizzle-orm';
 import { rows, type Tx } from '@hfos/db/client';
@@ -39,6 +43,9 @@ import {
   type MutualCountries,
 } from '../countries';
 import { FIND_FRESH_DAYS, FIND_LIKES_BEHIND_DAYS, type CheckVia } from '../finds';
+import { bestFit } from '../fit';
+import type { GroupCheckState } from '../group-checks';
+import { FOLLOWERS_KEPT_DAYS } from '../followers';
 import { limitNow } from '../limits';
 import { NETWORKS, type Platform } from '../networks';
 import { outreachAddon } from '../manifest';
@@ -50,14 +57,18 @@ import {
   countryFateSql,
   countryLetsSql,
   countryRuleOf,
+  foundChecksOf,
   inPlay,
   inWorkspace,
   keepCountry,
+  notOthers,
   pitchable,
   runsAGroup,
   waitsForLook,
   type Ctx,
 } from './common';
+import { playbooksInUse } from './friends';
+import { groupFitOf } from './group-checks';
 import { slowsNow, startOfToday, warningOf } from './tidy';
 
 const DAY = 86_400_000;
@@ -88,6 +99,23 @@ export const knownCheck = (me: string) => sql`(ch.via = 'known' or ${knowsThem(m
 /** Someone the person found by topic (decision 92) and doesn't know: a find of theirs, and no friend or chat. `p` is the profile. */
 export const foundNotKnown = (me: string) => sql`(exists (select 1 from addon_outreach.finds fd
     where fd.profile_id = p.id and fd.user_id = ${me}) and not ${knowsThem(me)})`;
+
+/**
+ * One of the person's followers on Facebook (decision 113): seen on their list in the last three weeks. `p` is the
+ * profile.
+ */
+export const followsMe = (me: string, now: number, p = 'p') => sql`exists (
+    select 1 from addon_outreach.followers fo where fo.profile_id = ${sql.raw(p)}.id and fo.user_id = ${me}
+      and fo.seen_at >= ${new Date(now - FOLLOWERS_KEPT_DAYS * DAY).toISOString()}::timestamptz)`;
+
+/**
+ * In one of the business's Facebook groups (decision 116): a member, not someone who runs it, of a group whose admins
+ * have been read, and not a group someone else on the team is working. `p` is the profile.
+ */
+export const inMyGroups = (me: string) => sql`exists (select 1 from addon_outreach.group_people gp
+    join addon_outreach.groups g on g.id = gp.group_id
+    where gp.profile_id = p.id and g.admins_read_at is not null and not gp.runs_group
+      and ${notOthers(me, 'g')})`;
 
 /**
  * The person's own profile on its network (decision 92: never someone to find, check, comment on or reach), as the
@@ -169,7 +197,7 @@ export async function readToday(
   const [done] = await rows<{ checks: number; partners: number; found: number }>(
     ctx.tx,
     sql`select
-          (select count(*) filter (where ch.via = 'known')::int from addon_outreach.checks ch
+          (select count(*) filter (where ch.via in ('known', 'follower', 'member'))::int from addon_outreach.checks ch
             join addon_outreach.profiles p on p.id = ch.profile_id
             where ch.workspace_id = ${ws} and ch.user_id = ${me} and p.platform = ${platform}
               and ch.looked_at >= ${since}::timestamptz) as checks,
@@ -232,7 +260,7 @@ export interface DayReads {
  * - **Checks** of people they know: the network's profiles read a day (`checksPerDay`), halved for a week after a
  *   warning there; today's partner reads count too.
  * - **Partners**: at most half of those (`partnerReadsPerDay`), inside what the checks leave (./partners.ts).
- * - **Found** people (decision 92): the network's own a day (`foundChecksPerDay`), halved on training wheels there too
+ * - **Found** people (decision 92): the business's found checks a day (decision 116, `foundChecksOf`), halved on training wheels there too
  *   and for a week after a warning, never below 1, beside the profiles read. Where they share them instead
  *   (`foundShareReads`, LinkedIn's settled 40), found people go first: up to their day's, inside the profiles read, the
  *   found checks still to come today hold their part (as many as wait, only while the person's computer finds people
@@ -255,9 +283,10 @@ export async function perDayFor(
   const left = Math.max(0, reads - used);
   let found: DayReads = { today: read.found, perDay: 0, room: 0 };
   let held = 0;
-  if (kit.foundChecksPerDay !== null) {
+  const foundChecks = await foundChecksOf(ctx, platform);
+  if (foundChecks !== null) {
     const slower = warned || (await automationOf(ctx, me, now, platform)).slower;
-    const most = limitNow(kit.foundChecksPerDay, slower);
+    const most = limitNow(foundChecks, slower);
     const perDay = shared ? Math.min(most, reads) : most;
     const room = Math.max(0, perDay - read.found);
     found = { today: read.found, perDay, room: shared ? Math.min(room, left) : room };
@@ -326,7 +355,7 @@ export async function checksSummary(
 export const checksNext = defineAddonQuery(outreachAddon, {
   name: 'outreach.checks.next',
   description:
-    'Who the person’s computer checks next for whether they fit a playbook, in order and no more than today has room for: anyone they pressed Research on, anyone waiting for a look at where they live (those asking to be friends first), friends whose chat looks like a prospect, then friends with any chat, others they’ve chatted with, friends from the groups, then the rest. Never anyone on Don’t pitch, nor anyone checked lately unless the person asked to check everyone again or they wait for a look.',
+    'Who the person’s computer checks next for whether they fit a playbook, in order and no more than today has room for: anyone they pressed Research on, anyone waiting for a look at where they live (those asking to be friends first), friends whose chat looks like a prospect, then friends with any chat, others they’ve chatted with, friends from the groups, the rest of their friends, their followers on Facebook who aren’t friends yet, then people in the business’s Facebook groups who aren’t friends, the best fit first. Never anyone on Don’t pitch, nor anyone checked lately unless the person asked to check everyone again or they wait for a look.',
   input: ChecksNextInput,
   output: ChecksNextOutput,
   permission: 'outreach.use',
@@ -354,9 +383,17 @@ export const checksNext = defineAddonQuery(outreachAddon, {
     // someone found by topic the person doesn't know: their own check looks (decision 92, `outreach.finds.next`).
     const rule = await countryRuleOf(ctx);
     const look = sql`(${waitsForLook(rule, 'p')} and not ${foundNotKnown(me)})`;
+    // A follower on Facebook who isn't a friend (decision 113), still someone to reach: checked like a friend, after them.
+    const follower = sql`(${followsMe(me, now)} and not ${knowsThem(me)} and ${stillToReach(me)})`;
+    // Not checked yet, asked to be again, or checked long enough ago. `ch` is their check.
+    const due = sql`(ch.id is null
+      or (ch.again and ch.verdict <> 'waiting')
+      or (ch.verdict in ('good', 'maybe', 'not') and ch.checked_at < ${ago(CHECK_AGAIN_DAYS)}::timestamptz)
+      or (ch.verdict = 'failed' and ch.looked_at < ${ago(CHECK_RETRY_DAYS)}::timestamptz))`;
     const who = input.profileId
       ? sql`p.id = ${input.profileId} and p.friendship <> 'self' and ${pitchable('p')}`
-      : sql`(${knownToMe(me)} or (p.friendship <> 'self' and ${pitchable('p')} and (${asked} or ${look})))`;
+      : sql`(${knownToMe(me)} or ${follower}
+          or (p.friendship <> 'self' and ${pitchable('p')} and (${asked} or ${look})))`;
     const found = await rows<{ id: string; name: string; url: string; reason: CheckReason }>(
       ctx.tx,
       sql`select x.id, x.name, x.url, x.reason from (
@@ -367,6 +404,7 @@ export const checksNext = defineAddonQuery(outreachAddon, {
                 when f.id is not null and c.prospect then 'prospect'
                 when f.id is not null and c.id is not null then 'chat'
                 when c.id is not null then 'chat_only'
+                when f.id is null and ${follower} then 'follower'
                 when p.group_id is not null then 'group'
                 else 'friend'
               end as reason
@@ -381,24 +419,26 @@ export const checksNext = defineAddonQuery(outreachAddon, {
             left join addon_outreach.checks ch on ch.profile_id = p.id and ch.user_id = ${me}
             where p.workspace_id = ${ws} and ${who}
               and p.platform = ${input.platform}
-              and (ch.id is null
-                or (ch.again and ch.verdict <> 'waiting')
+              and (${due}
                 or (ch.verdict = 'failed' and ${asked})
-                or (ch.verdict in ('good', 'maybe', 'not')
-                  and ch.checked_at < ${ago(CHECK_AGAIN_DAYS)}::timestamptz)
-                or (ch.verdict = 'failed' and ch.looked_at < ${ago(CHECK_RETRY_DAYS)}::timestamptz)
                 or (${look} and ch.verdict in ('good', 'maybe', 'not')))
           ) x
           order by array_position(
-              array['asked', 'country', 'prospect', 'chat', 'chat_only', 'group', 'friend'], x.reason),
+              array['asked', 'country', 'prospect', 'chat', 'chat_only', 'group', 'friend', 'follower', 'member'],
+              x.reason),
             (x.reason = 'country' and x.friendship = 'request_received') desc,
             x.mutual_friends desc nulls last, x.updated_at desc, x.id
           limit ${room}`,
     );
+    // People in the business's Facebook groups who aren't friends (decision 116): last of all, in what room is left.
+    const members =
+      input.platform === 'facebook' && !input.profileId && found.length < room
+        ? await membersNext(ctx, me, room - found.length, due, new Set(found.map((p) => p.id)))
+        : [];
     // Where their mutual friends live helps say where they do, while the business reaches only some countries.
     const mutual = countryRuleOn(rule) && input.platform === 'facebook';
     return {
-      people: found.map((p) => ({
+      people: [...found, ...members.map((p) => ({ ...p, reason: 'member' as const }))].map((p) => ({
         profileId: p.id,
         name: p.name,
         url: p.url,
@@ -410,6 +450,94 @@ export const checksNext = defineAddonQuery(outreachAddon, {
     };
   },
 });
+
+/** The most group members weighed at once for who to check next. */
+const MEMBERS_WEIGHED = 500;
+
+/**
+ * Facebook's group members to check next (decision 116): people in the business's groups (`inMyGroups`) whom Today
+ * could offer a friend request, weighed as it weighs them: the best fit by the lines under their name first, the
+ * person's own groups and those the AI says their people are in a little ahead. Never anyone in a group the playbooks
+ * skip, nor anyone their lines skip, nor anyone whose check isn't due (`due`, `ch` their check), nor those in
+ * `leaveOut`.
+ */
+async function membersNext(
+  ctx: Ctx,
+  me: string,
+  most: number,
+  due: SQL,
+  leaveOut: ReadonlySet<string>,
+): Promise<{ id: string; name: string; url: string }[]> {
+  const playbooks = await playbooksInUse(ctx, 'facebook');
+  if (!playbooks.length) return [];
+  const lets = countryLetsSql(await countryRuleOf(ctx), 'p');
+  const found = await rows<{
+    id: string;
+    name: string;
+    url: string;
+    intro: string[];
+    mutual_friends: number | null;
+    lines: string[];
+    group_name: string | null;
+    group_detail: string | null;
+    group_members: number | null;
+    group_privacy: 'public' | 'private' | null;
+    check_state: GroupCheckState | null;
+    check_why: string[];
+    check_playbook_id: string | null;
+    in_group: boolean;
+  }>(
+    ctx.tx,
+    sql`select distinct on (p.id) p.id, p.name, p.url, p.intro, p.mutual_friends, gp.lines,
+          g.name as group_name, g.detail as group_detail, g.members as group_members,
+          g.privacy as group_privacy, g.check_state, g.check_why, g.check_playbook_id,
+          exists (select 1 from addon_outreach.my_groups m
+            where m.group_id = g.id and m.user_id = ${me} and m.joined) as in_group
+        from addon_outreach.group_people gp
+        join addon_outreach.groups g on g.id = gp.group_id
+        join addon_outreach.profiles p on p.id = gp.profile_id
+        left join addon_outreach.checks ch on ch.profile_id = p.id and ch.user_id = ${me}
+        where gp.workspace_id = ${ctx.scope.workspaceId!} and g.platform = 'facebook'
+          and g.admins_read_at is not null and not gp.runs_group and ${notOthers(me, 'g')}
+          and ${stillToReach(me)} and not ${knowsThem(me)} and ${lets}
+          and not exists (select 1 from addon_outreach.touches t
+            where t.profile_id = p.id and t.kind = 'friend_request')
+          and ${due}
+        order by p.id, gp.seen_at desc
+        limit ${MEMBERS_WEIGHED}`,
+  );
+  return found
+    .flatMap((p) => {
+      if (leaveOut.has(p.id)) return [];
+      const group = groupFitOf(playbooks, {
+        name: p.group_name,
+        detail: p.group_detail,
+        members: p.group_members,
+        privacy: p.group_privacy,
+        joined: p.in_group,
+        check_state: p.check_state,
+        check_why: p.check_why,
+        check_playbook_id: p.check_playbook_id,
+        check_playbook: null,
+      });
+      if (group.verdict === 'skip') return [];
+      const fit = bestFit(playbooks, {
+        lines: [...p.lines, ...p.intro],
+        mutualFriends: p.mutual_friends,
+        groupName: p.group_name,
+      });
+      if (fit.level === 'skip') return [];
+      return [{ p, score: fit.score + (p.in_group ? 1 : 0) + (p.check_state === 'good' ? 1 : 0) }];
+    })
+    .sort(
+      (a, b) =>
+        b.score - a.score ||
+        (b.p.mutual_friends ?? 0) - (a.p.mutual_friends ?? 0) ||
+        a.p.name.localeCompare(b.p.name),
+    )
+    .slice(0, most)
+    .map(({ p }) => ({ id: p.id, name: p.name, url: p.url }));
+}
 
 /**
  * Where someone's mutual friends live, as far as the business knows (decision 86): each country, the most first, with
@@ -460,18 +588,38 @@ export const checkLook = defineAddonCommand(outreachAddon, {
     const verdict: CheckVerdict = input.missing ? 'failed' : 'waiting';
     // Of someone found by topic the person doesn't know (decision 92), counted on its own a day; else of someone known,
     // as is anyone they pressed Research on since the last look (decision 46a). Set at each look, so it's kept fresh.
-    const [seen] = await rows<{ found: boolean }>(
+    // One of their followers on Facebook who isn't a friend (decision 113), or someone in one of the business's groups
+    // there who isn't (decision 116): checked like a friend, and counted with them, but shown with the people they
+    // know only once they are one.
+    const [seen] = await rows<{
+      asked: boolean;
+      found: boolean;
+      follower: boolean;
+      member: boolean;
+    }>(
       ctx.tx,
-      sql`select (${foundNotKnown(me)} and not exists (select 1 from addon_outreach.asks a
-            where a.workspace_id = p.workspace_id and a.user_id = ${me} and a.kind = 'research'
-              and a.target = 'profile:' || p.id::text and a.state <> 'cancelled'
-              and a.asked_at > ${new Date(at.getTime() - ASK_KEEP_DAYS * DAY).toISOString()}::timestamptz
-              and (ch.id is null or a.asked_at > ch.looked_at))) as found
+      sql`select exists (select 1 from addon_outreach.asks a
+              where a.workspace_id = p.workspace_id and a.user_id = ${me} and a.kind = 'research'
+                and a.target = 'profile:' || p.id::text and a.state <> 'cancelled'
+                and a.asked_at > ${new Date(at.getTime() - ASK_KEEP_DAYS * DAY).toISOString()}::timestamptz
+                and (ch.id is null or a.asked_at > ch.looked_at)) as asked,
+            ${foundNotKnown(me)} as found,
+            (${followsMe(me, at.getTime())} and not ${knowsThem(me)}) as follower,
+            (p.platform = 'facebook' and ${inMyGroups(me)} and not ${knowsThem(me)}) as member
           from addon_outreach.profiles p
           left join addon_outreach.checks ch on ch.profile_id = p.id and ch.user_id = ${me}
           where p.workspace_id = ${ws} and p.id = ${profile.id}`,
     );
-    const via: CheckVia = seen?.found ? 'found' : 'known';
+    const via: CheckVia =
+      !seen || seen.asked
+        ? 'known'
+        : seen.found
+          ? 'found'
+          : seen.follower
+            ? 'follower'
+            : seen.member
+              ? 'member'
+              : 'known';
     // Their mutual friends (decision 86), matched to the people the business keeps on the network, for where they live.
     const mutual = input.missing ? null : input.mutual;
     const ids = (mutual ?? []).flatMap((m) => (m.id ? [m.id] : []));

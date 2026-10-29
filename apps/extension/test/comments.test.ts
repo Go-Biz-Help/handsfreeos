@@ -310,3 +310,80 @@ describe('a comment’s send', () => {
     ).toEqual({ done: true, line: 'Commented on Kim Baker’s post' });
   });
 });
+
+describe('the day’s reply in a group on Facebook (decision 114)', () => {
+  const FB = 'https://www.facebook.com';
+  const QUESTION = `${FB}/groups/austinsmallbiz/posts/9100000000000004/`;
+  const LEE = {
+    id: '100002000000003',
+    username: null,
+    url: `${FB}/profile.php?id=100002000000003`,
+  };
+  const asked = (more: Partial<TodayListItem> = {}) =>
+    item({
+      kind: 'group_reply',
+      name: 'Lee Hart',
+      profileUrl: LEE.url,
+      postUrl: QUESTION,
+      post: 'What time does the farmers market open on Saturdays?',
+      ...more,
+    });
+
+  it('is written for the question and queued with it, waiting for an OK at first', async () => {
+    world.draft = ['It opens at eight! Get there early for the bread.'];
+    expect(await draftComment(asked(), BUSINESS)).toEqual({
+      done: true,
+      line: 'Wrote a reply to Lee Hart’s question: it waits for your OK',
+    });
+    expect(world.asked).toEqual([
+      {
+        type: 'hfos-draft',
+        workspaceId: BUSINESS,
+        input: { kind: 'group_reply', profileId: PROFILE_ID, postId: POST_ID },
+      },
+    ]);
+    expect(world.posted[0]!.body).toMatchObject({ kind: 'group_reply', postId: POST_ID });
+    expect(commentDoing({ do: 'draft', item: asked() })).toBe(
+      'Writing a reply to Lee Hart’s question…',
+    );
+  });
+
+  it('goes under the question on its page once OK’d, noted as a comment of the extension’s', async () => {
+    const reply = {
+      sendId: 'c0c0c0c0-0000-4000-8000-000000000002',
+      state: 'approved' as const,
+      text: 'It opens at eight! Get there early for the bread.',
+      handedOver: false,
+      needsYou: null,
+    };
+    const tab = runner({ ok: true, result: 'done' });
+    const facebook = { ...tab.runner, platform: 'facebook' as const };
+    expect(commentDoing({ do: 'send', item: asked({ send: reply }) })).toBe(
+      'Answering Lee Hart’s question…',
+    );
+    expect(await sendComment(asked({ send: reply }), LEE, BUSINESS, facebook)).toEqual({
+      done: true,
+      line: 'Answered Lee Hart’s question in your group',
+    });
+    expect(tab.opened).toEqual([QUESTION]);
+    expect(tab.asks).toEqual([
+      { type: 'hfos-comment', text: reply.text, profile: LEE, postUrl: QUESTION },
+    ]);
+    expect(world.noted).toEqual([
+      {
+        note: expect.objectContaining({
+          step: expect.objectContaining({
+            kind: 'comment',
+            postUrl: QUESTION,
+            auto: true,
+            commentText: reply.text,
+          }),
+        }),
+        platform: 'facebook',
+      },
+    ]);
+    expect(done().map((p) => p.body)).toEqual([
+      { workspaceId: BUSINESS, sendId: reply.sendId, sent: true, why: null },
+    ]);
+  });
+});

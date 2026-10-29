@@ -63,6 +63,7 @@ import {
 import {
   countryFateSql,
   countryRuleOf,
+  foundChecksOf,
   inWorkspace,
   keepCountry,
   keptProfile,
@@ -75,6 +76,13 @@ import { startOfToday } from './tidy';
 
 const DAY = 86_400_000;
 const ago = (now: number, days: number) => new Date(now - days * DAY).toISOString();
+
+/**
+ * A post whose people are read: one the AI called good, or an account like the business's own whatever it called it
+ * (decision 110).
+ */
+const peopleReadOf = (alias: string) =>
+  sql.raw(`(${alias}.check_state = 'good' or ${alias}.found = 'account')`);
 
 /** How someone was found, strongest first, as the database orders them. */
 const HOW_ORDER = `{${FIND_HOW_KEYS.join(',')}}`;
@@ -164,6 +172,8 @@ export async function findWriter(
   post: typeof posts.$inferSelect,
   at: Date,
 ): Promise<FindKept | null> {
+  // An account like the business's (decision 110) is read for its people, never found itself.
+  if (post.found === 'account') return null;
   const [author] = await ctx.tx.select().from(profiles).where(eq(profiles.id, post.profileId));
   if (!author || NETWORKS[author.platform].foundChecksPerDay === null) return null;
   if (!(await findsByTopic(ctx, post.userId))) return null;
@@ -189,14 +199,14 @@ export async function findWriter(
 
 /** Whether the finds waiting for the AI's check on a network are at the cap: 3 days of its found checks. */
 async function findsFull(ctx: Ctx, me: string, platform: Platform, now: number): Promise<boolean> {
-  const most = findsWaitingMost(NETWORKS[platform].foundChecksPerDay ?? 0);
+  const most = findsWaitingMost((await foundChecksOf(ctx, platform)) ?? 0);
   return (await findsWaiting(ctx, me, platform, now)) >= most;
 }
 
 export const findsSave = defineAddonCommand(outreachAddon, {
   name: 'outreach.finds.save',
   description:
-    'People found by topic on Instagram, LinkedIn or Alignable, as the person’s computer read them: who liked or commented on a good post its search found (that post’s people are then read), the businesses a search of Alignable showed, or a group’s members. Each one new is kept, the person’s own, for the AI to check from their own page; nobody goes in Contacts. Leaves out the person, the post’s writer, friends and anyone asked either way, customers and clients, anyone on Don’t pitch or Never contact or running a group, anyone who says a playbook’s skip word, and anyone the country setting skips by where they are; and stops once 3 days of checks wait.',
+    'People found by topic on Instagram, LinkedIn or Alignable, as the person’s computer read them: who liked or commented on a good post its search found, or on an Instagram account like yours’s post (that post’s people are then read), the businesses a search of Alignable showed, a group’s members, the hosts and guests of an Alignable event near them, or an account like yours’s followers. Each one new is kept, the person’s own, for the AI to check from their own page; nobody goes in Contacts. Leaves out the person, the post’s writer, friends and anyone asked either way, customers and clients, anyone on Don’t pitch or Never contact or running a group, anyone who says a playbook’s skip word, and anyone the country setting skips by where they are; and stops once 3 days of checks wait.',
   risk: 1,
   input: FindsSaveInput,
   output: FindsSaveOutput,
@@ -208,7 +218,7 @@ export const findsSave = defineAddonCommand(outreachAddon, {
     const ws = ctx.scope.workspaceId!;
     const at = changeMoment(ctx.meta);
     const kit = NETWORKS[input.platform];
-    const perDay = kit.foundChecksPerDay;
+    const perDay = await foundChecksOf(ctx, input.platform);
     if (perDay === null)
       throw HfosError.rule(
         'outreach_finds_off',
@@ -229,7 +239,7 @@ export const findsSave = defineAddonCommand(outreachAddon, {
               sql`select po.id, po.profile_id, po.group_id, po.words from addon_outreach.posts po
                   join addon_outreach.profiles a on a.id = po.profile_id
                   where po.workspace_id = ${ws} and po.id = ${input.postId} and po.user_id = ${me}
-                    and a.platform = ${input.platform} and po.check_state = 'good' and po.skipped_at is null
+                    and a.platform = ${input.platform} and ${peopleReadOf('po')} and po.skipped_at is null
                     and po.seen_at >= ${ago(at.getTime(), POST_FRESH_DAYS)}::timestamptz
                   for update of po`,
             )
@@ -318,7 +328,7 @@ export const findsSave = defineAddonCommand(outreachAddon, {
 export const postsPeopleNext = defineAddonQuery(outreachAddon, {
   name: 'outreach.posts.people_next',
   description:
-    'Which good posts the person’s computer reads next for who liked and commented on them, on a network that reads them (Instagram’s and LinkedIn’s): their own, the AI called good, seen in the last week, not put aside, not read yet and not showing none; those asking for what the business offers first, then the busiest, then the newest; no more than the day’s, and none while 3 days of checks of people found wait.',
+    'Which good posts the person’s computer reads next for who liked and commented on them, on a network that reads them (Instagram’s, LinkedIn’s and Alignable’s): their own, the AI called good or by an Instagram account like yours, seen in the last week, not put aside, not read yet and not showing none; those asking for what the business offers first, then the busiest, then the newest; no more than the day’s, and none while 3 days of checks of people found wait.',
   input: PostsPeopleNextInput,
   output: PostsPeopleNextOutput,
   permission: 'outreach.use',
@@ -356,7 +366,7 @@ export const postsPeopleNext = defineAddonQuery(outreachAddon, {
           from addon_outreach.posts po
           join addon_outreach.profiles a on a.id = po.profile_id
           where po.workspace_id = ${ws} and po.user_id = ${me} and a.platform = ${input.platform}
-            and po.check_state = 'good' and po.people_read_at is null and po.skipped_at is null
+            and ${peopleReadOf('po')} and po.people_read_at is null and po.skipped_at is null
             and po.seen_at >= ${ago(now, POST_FRESH_DAYS)}::timestamptz and not ${myOwnProfile(me, 'a')}
             -- A post that shows no comments and no likes has nobody to read; one whose counts weren't read may.
             and (coalesce(po.comments, 1) > 0 or coalesce(po.reactions, 1) > 0)

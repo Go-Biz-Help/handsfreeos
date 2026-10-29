@@ -21,6 +21,7 @@ import {
   fileChats,
   followUps,
   friends,
+  occasions,
   openerUses,
   playbooks,
   posts,
@@ -237,6 +238,32 @@ describe('drafts for Today', () => {
     expect((await draft(member, { kind: 'comment', postId })).statusCode).toBe(404);
   });
 
+  it('drafts a reply to a question kept in a group, never with a link (decision 114)', async () => {
+    const [asked] = await testDbs()
+      .admin.db.insert(posts)
+      .values({
+        workspaceId: ws,
+        userId: owner.id,
+        profileId,
+        url: 'https://www.facebook.com/groups/323456789/posts/100002/',
+        body: 'What time does the farmers market open on Saturdays?',
+        found: 'active',
+        checkState: 'not',
+        reasons: ['Asks something'],
+        seenAt: new Date(),
+        replyAt: new Date(),
+      })
+      .returning({ id: posts.id });
+    const res = await draft(owner, { kind: 'group_reply', postId: asked!.id });
+    expect(res.statusCode).toBe(200);
+    expect(res.json()).toMatchObject({
+      kind: 'group_reply',
+      drafts: ['Good question, Dana! It opens at eight on Saturdays.'],
+    });
+    expect((await draft(owner, { kind: 'group_reply' })).statusCode).toBe(404);
+    expect((await draft(member, { kind: 'group_reply', postId: asked!.id })).statusCode).toBe(404);
+  });
+
   it('drafts from the person’s own chats only', async () => {
     expect((await draft(owner, { kind: 'reply', chatId })).statusCode).toBe(200);
     expect((await draft(member, { kind: 'reply', chatId })).statusCode).toBe(404);
@@ -378,5 +405,82 @@ describe('a first message on Instagram', () => {
       'Hi Sam, thanks for adding me! How’s business going?',
       'Hey Sam, good to connect. What keeps you busiest these days?',
     ]);
+  });
+});
+
+describe('after a demo (decision 106)', () => {
+  it('offers another time with the link to book again, and reminds them without it', async () => {
+    const db = testDbs().admin.db;
+    await db
+      .update(playbooks)
+      .set({
+        details: {
+          ...PLAYBOOK_TEMPLATES.crm_demos.details,
+          avoid: ['free trial'],
+          link: 'https://example.com/book',
+        },
+      })
+      .where(eq(playbooks.workspaceId, ws));
+    const [quinn] = await db
+      .insert(profiles)
+      .values({
+        workspaceId: ws,
+        platform: 'facebook',
+        username: 'quinn.harper.7',
+        url: 'https://www.facebook.com/quinn.harper.7',
+        name: 'Quinn Harper',
+        intro: ['Owner at Harper Roofing'],
+      })
+      .returning({ id: profiles.id });
+    const rebook = await draft(owner, { kind: 'rebook', profileId: quinn!.id });
+    expect(rebook.statusCode).toBe(200);
+    const made = rebook.json() as { kind: string; drafts: string[] };
+    expect(made.kind).toBe('rebook');
+    expect(made.drafts.length).toBeGreaterThan(0);
+    for (const d of made.drafts) expect(d).toContain('https://example.com/book');
+    const reminder = (
+      await draft(owner, { kind: 'demo_reminder', profileId: quinn!.id })
+    ).json() as { kind: string; drafts: string[] };
+    expect(reminder.kind).toBe('demo_reminder');
+    for (const d of reminder.drafts) expect(d).not.toContain('https://example.com/book');
+  });
+});
+
+describe('birthday and new-job notes (decision 108)', () => {
+  it('writes a short note with nothing about the business and no link, the new job in the page’s words', async () => {
+    const db = testDbs().admin.db;
+    const [avery] = await db
+      .insert(profiles)
+      .values({
+        workspaceId: ws,
+        platform: 'linkedin',
+        username: 'avery-brooks-12',
+        url: 'https://www.linkedin.com/in/avery-brooks-12/',
+        name: 'Avery Brooks',
+        intro: ['Owner at Brooks Roofing'],
+      })
+      .returning({ id: profiles.id });
+    await db.insert(occasions).values({
+      workspaceId: ws,
+      userId: member.id,
+      profileId: avery!.id,
+      kind: 'new_job',
+      onDay: '2026-10-27',
+      detail: 'Started a new position as Owner at Brooks Roofing',
+      seenAt: new Date('2026-10-27T15:00:00Z'),
+    });
+    const job = (await draft(member, { kind: 'new_job', profileId: avery!.id })).json() as {
+      kind: string;
+      drafts: string[];
+    };
+    expect(job.kind).toBe('new_job');
+    expect(job.drafts).toEqual([
+      'Congratulations, Avery! Saw this: Started a new position as Owner at Brooks Roofing.',
+    ]);
+    // The playbook's link never goes on a note, and a draft with one is dropped.
+    const birthday = (await draft(member, { kind: 'birthday', profileId: avery!.id })).json() as {
+      drafts: string[];
+    };
+    expect(birthday.drafts).toEqual(['Happy birthday, Avery! Hope it’s a great one.']);
   });
 });

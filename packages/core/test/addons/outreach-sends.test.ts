@@ -21,6 +21,7 @@ import {
   wheelsWords,
 } from '../../src/addons/outreach/automation';
 import { PLAYBOOK_TEMPLATES } from '../../src/addons/outreach/playbooks';
+import { LINKEDIN_COMMENTS_WAIT_SINCE } from '../../src/addons/outreach/profile-parts';
 import {
   changed,
   COMMENT_HOLD,
@@ -262,6 +263,12 @@ describe('messages on their own', () => {
       'follow_up',
       'check_in',
       'reply',
+      // After a demo (decision 106): the reminder the day before, and another time after a no-show.
+      'demo_reminder',
+      'rebook',
+      // A birthday or a new job (decision 108), which always waits for an OK.
+      'birthday',
+      'new_job',
       // A partner's (decision 81), which always wait for an OK of their own.
       'partner_ask',
       'partner_follow_up',
@@ -690,7 +697,8 @@ describe('comments through Waiting for you (decision 92)', () => {
     expect(await refused(queue(await profileOf('tess.moor.hvac'), other, 'Hi!'))).toBe(
       'outreach_comment_post',
     );
-    // LinkedIn's comments go as the runner's own step: never queued, and never on its list of messages.
+    // LinkedIn's wait for an OK too, but only from the build that posts them (decision 102): an older one would send
+    // one as a message, so it's offered none and none is queued.
     const linkedin = await goodPost(
       'linkedin',
       'https://www.linkedin.com/feed/update/urn:li:activity:7390000000000000901/',
@@ -700,11 +708,17 @@ describe('comments through Waiting for you (decision 92)', () => {
         url: 'https://www.linkedin.com/in/nia-park-roofing/',
       },
     );
-    expect(await refused(queue(await profileOf('nia-park-roofing'), linkedin, 'Hi!'))).toBe(
-      'outreach_comment_network',
-    );
+    const nia = await profileOf('nia-park-roofing');
+    expect(await refused(queue(nia, linkedin, 'Hi!'))).toBe('outreach_comment_network');
     expect((await todayOn('linkedin')).messages).not.toContain('comment');
     expect((await runAs(owner, ws, 'outreach.today', {})).messages).not.toContain('comment');
+    await computerOn(owner, ws, LINKEDIN_COMMENTS_WAIT_SINCE);
+    expect((await todayOn('linkedin')).messages).toContain('comment');
+    const held = await queue(nia, linkedin, 'A shared call list helped our crew most.');
+    expect(held).toMatchObject({ kind: 'comment', state: 'waiting', postId: linkedin });
+    // Set aside here, so the hold below is Instagram's alone.
+    await runAs(owner, ws, 'outreach.send.skip', { sendId: held.sendId });
+    await computerOn(owner, ws, '0.95.0');
   });
 
   it('waits under the hold with its post, one open a writer, and Approve all takes it', async () => {

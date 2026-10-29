@@ -29,6 +29,7 @@ import { OUTREACH_WORDS } from '../words';
 import { knownCheck } from './checks';
 import { clientCauseOf, inWorkspace, isClient, pitchable, type Ctx } from './common';
 import { noteSent, offerVersionFor, restartConversation } from './conversation';
+import { wantLead } from './leads';
 import type { CheckVerdict } from '../checks';
 
 const DAY = 86_400_000;
@@ -50,7 +51,7 @@ async function keptMarks(ctx: Ctx, me: string, profileId: string) {
 }
 
 /** Keeps marks for one person and profile: a row made the first time. */
-async function keepMarks(
+export async function keepMarks(
   ctx: Ctx,
   me: string,
   profileId: string,
@@ -101,8 +102,11 @@ export async function noteChatRead(
     await keepMarks(ctx, me, profileId, { mark: null, markedBy: null, why: null, markedAt: null });
 }
 
-/** What's known about each person reached, and the stage it comes to. `which` narrows the profiles. */
-function staged(ctx: Ctx, me: string, which: SQL) {
+/**
+ * Everyone the person reached among the profiles `which` picks (`p`), each with their stage worked out: a query to
+ * select from, as the pipeline, a customer's Social panel and a group's page (../journey.ts) do.
+ */
+export function staged(ctx: Ctx, me: string, which: SQL) {
   const ws = ctx.scope.workspaceId!;
   return sql`with reached as (
       select p.id from addon_outreach.profiles p
@@ -165,7 +169,7 @@ function staged(ctx: Ctx, me: string, which: SQL) {
     from facts`;
 }
 
-type StagedRow = {
+export type StagedRow = {
   readonly profile_id: string;
   readonly person_id: string | null;
   readonly platform: Platform;
@@ -245,6 +249,19 @@ export function stageWhy(r: StagedRow, now: number): string[] {
   }
 }
 
+/** Where someone stands, as a screen shows it: their stage, why, the AI's next step while it's worth one, and the latest. */
+export function standingOf(r: StagedRow, now: number) {
+  return {
+    stage: r.stage,
+    why: stageWhy(r, now),
+    nextStep:
+      r.stage === 'lost' || r.stage === 'booked' || r.stage === 'client'
+        ? null
+        : (r.chat_step ?? r.check_step),
+    lastAt: iso(r.last_at),
+  };
+}
+
 /** Where some people stand now, by profile, for the person. */
 export async function stagesOf(
   ctx: Ctx,
@@ -276,7 +293,7 @@ export const stageMark = defineAddonCommand(outreachAddon, {
     keywords: ['ready to pitch', 'pitched', 'not a fit', 'back in play'],
   },
   scope: inWorkspace,
-  emits: ['outreach.stage.marked'],
+  emits: ['outreach.stage.marked', 'outreach.lead.wanted'],
   async handler(ctx, input) {
     const me = requireHuman(ctx).userId;
     const ws = ctx.scope.workspaceId!;
@@ -294,6 +311,7 @@ export const stageMark = defineAddonCommand(outreachAddon, {
           why: null,
           markedAt: at,
         });
+        await wantLead(ctx, me, profile.id);
         break;
       case 'pitched':
         await keepMarks(ctx, me, profile.id, { pitchedAt: at });
@@ -399,13 +417,7 @@ export const stagesList = defineAddonQuery(outreachAddon, {
         name: r.name,
         url: r.url,
         platform: r.platform,
-        stage: r.stage,
-        why: stageWhy(r, now),
-        nextStep:
-          r.stage === 'lost' || r.stage === 'booked' || r.stage === 'client'
-            ? null
-            : (r.chat_step ?? r.check_step),
-        lastAt: iso(r.last_at),
+        ...standingOf(r, now),
         threadKey: r.thread_key,
         marked: r.marked_by === 'person',
         demoBooked: r.marked_booked,

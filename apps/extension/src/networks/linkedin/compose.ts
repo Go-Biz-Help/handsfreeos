@@ -9,24 +9,41 @@
  *   reactions count opens, which it closes after. Never the person themselves. Nothing else is pressed. In LinkedIn's
  *   newer layout (the owner's outlines of 16 Oct 2026) comments aren't articles: each is the box of a Reply after the
  *   post's bar (./posts.ts, `newerComments`), its words in its text box; and the count is a link ("55 reactions").
+ * - **A comment's Like** (decision 116, from 0.108.0): on a good post's own page, the warm-up for someone found by
+ *   their comment there: the first comment or reply they wrote, and only its own Like (the older layout's "React Like
+ *   to …’s comment", the newer's reaction button in the comment's own box), never the post's or a reply's under it,
+ *   and only while none of the person's reactions is on it.
  * - **A good post's people** (docs/outreach.md, decision 92): on someone else's post its search found, who commented
  *   and who reacted, each with the line under their name and how far they are, for the AI's check of their own
- *   profile. Never the person, the post's writer (`skip`) or a 1st-degree connection. The reactions box is read as far
- *   as it first shows (about 25 rows), never scrolled, and closed with its Dismiss, as is one that drew nobody (in a
- *   window hidden behind another, LinkedIn draws no row); "Load more comments" is never pressed.
+ *   profile. Never the person, the post's writer (`skip`) or a 1st-degree connection. The reactions box is read up to
+ *   3 screens (decision 116: scrolled twice, else its own Show more results pressed, about 45 rows), and closed with
+ *   its Dismiss, as is one that drew nobody (in a window hidden behind another, LinkedIn draws no row); "Load more
+ *   comments" is never pressed.
  *
  * Like the readers, it goes by what a person sees (words, labels, links, page order), never LinkedIn's class names.
  */
+import type { CommentLiked, TheirComment } from '../../messages';
 import type { Engaged, PostResult } from '../facebook/compose';
 import { clean } from '../facebook/dom';
 import { shown } from '../facebook/fetch';
 import { sameName } from '../facebook/people';
 import { hasWriting } from './actions';
 import { inNested, postOnPage, says, waitFor } from './auto';
-import { CONTROLS, mainOf, shownLines, yourName } from './dom';
+import { scrolls, SHOW_MORE } from './browse';
+import { CONTROLS, mainOf, shownLines, wordsOf, yourName } from './dom';
 import { outlineNow } from './outline';
 import { peopleLinked, readPeople, rowLines, type LinkedPerson } from './people';
-import { commentWriter, newerComments, postBoxes, postIn, readPost, TEXT_BOX } from './posts';
+import {
+  commentWriter,
+  hasYours,
+  newerComments,
+  postBoxes,
+  postIn,
+  reactionChange,
+  reactionState,
+  readPost,
+  TEXT_BOX,
+} from './posts';
 import type { Degree, ProfileRef } from './types';
 import { postOf, profileRefOf, sameMember } from './urls';
 
@@ -201,22 +218,22 @@ const linksTo = (links: readonly Element[], profile: ProfileRef, href: string) =
     return to !== null && sameMember(to, profile);
   });
 
+/** A comment's (or reply's) own box on a post, with its writer and the links in it outside its words. */
+interface CommentBox {
+  readonly box: Element;
+  readonly who: LinkedPerson & { readonly name: string };
+  readonly links: readonly Element[];
+  /** LinkedIn's newer layout's, whose words are in its text box. */
+  readonly newer: boolean;
+}
+
 /**
- * The comments and replies on the post the page shows, each writer once, in page order: never the person themselves,
- * nor anyone `skip` names.
+ * The comments and replies on a post, in page order, each with its own box and writer: the older layout's articles,
+ * then the newer layout's, the box of each Reply.
  */
-function commentsOn(doc: Document, href: string, skip: readonly ProfileRef[]): CommentRead[] {
-  const post = postOnPage(doc);
-  if (!post) return [];
+function commentBoxesOn(post: Element, href: string): CommentBox[] {
   const own = postIn(post);
-  const you = yourName(doc);
-  const seen = new Set<string>();
-  const kept = (who: LinkedPerson | null | undefined): who is LinkedPerson & { name: string } =>
-    !!who?.name &&
-    !(you && sameName(who.name, you)) &&
-    !seen.has(who.profile.url) &&
-    !skip.some((one) => sameMember(one, who.profile));
-  const found: CommentRead[] = [];
+  const found: CommentBox[] = [];
   for (const article of post.querySelectorAll('article, [role="article"]')) {
     if (article === own || article === post || !isComment(article)) continue;
     // The comment's own writer: the first person it links to, outside any reply in it.
@@ -224,33 +241,165 @@ function commentsOn(doc: Document, href: string, skip: readonly ProfileRef[]): C
       (a) => a.closest('article, [role="article"]') === article && !a.closest(WRITING),
     );
     const who = peopleLinked(links, href).find((p) => p.name);
-    if (!kept(who)) continue;
-    seen.add(who.profile.url);
-    found.push({
-      name: who.name,
-      profile: who.profile,
-      links: linksTo(links, who.profile, href),
-      comment: commentText(article),
-    });
+    if (who?.name)
+      found.push({ box: article, who: { ...who, name: who.name }, links, newer: false });
   }
   // The newer layout's: the box of each Reply, its words in its text box.
   for (const comment of newerComments(post)) {
     const who = commentWriter(comment, href);
-    if (!kept(who)) continue;
-    seen.add(who.profile.url);
+    if (!who?.name) continue;
     const words = comment.querySelector(TEXT_BOX);
-    const text = words ? shownLines(words, { max: 40, exclude: CONTROLS }).join('\n') : '';
     const links = [...comment.querySelectorAll('a[href]')].filter(
       (a) => !a.closest(WRITING) && !words?.contains(a),
     );
+    found.push({ box: comment, who: { ...who, name: who.name }, links, newer: true });
+  }
+  return found;
+}
+
+/** What a comment's box says: the older layout's own words, or the newer's in its text box. */
+function commentWords({ box, newer }: CommentBox): string | null {
+  if (!newer) return commentText(box);
+  const words = box.querySelector(TEXT_BOX);
+  return (words ? shownLines(words, { max: 40, exclude: CONTROLS }).join('\n') : '') || null;
+}
+
+/**
+ * The comments and replies on the post the page shows, each writer once, in page order: never the person themselves,
+ * nor anyone `skip` names.
+ */
+function commentsOn(doc: Document, href: string, skip: readonly ProfileRef[]): CommentRead[] {
+  const post = postOnPage(doc);
+  if (!post) return [];
+  const you = yourName(doc);
+  const seen = new Set<string>();
+  const found: CommentRead[] = [];
+  for (const comment of commentBoxesOn(post, href)) {
+    const { who } = comment;
+    if (
+      (you && sameName(who.name, you)) ||
+      seen.has(who.profile.url) ||
+      skip.some((one) => sameMember(one, who.profile))
+    )
+      continue;
+    seen.add(who.profile.url);
     found.push({
       name: who.name,
       profile: who.profile,
-      links: linksTo(links, who.profile, href),
-      comment: text || null,
+      links: linksTo(comment.links, who.profile, href),
+      comment: commentWords(comment),
     });
   }
   return found;
+}
+
+// ------------------------------------------------------------------------------------------------ a comment's like
+
+/** A comment's own Like in the older layout: "React Like to Sam Lee’s comment" (or "Like"). */
+const COMMENT_LIKE = /^(react like\b.*|unreact like\b.*|like)$/i;
+/** The newer layout's reaction button says its state: "Reaction button state: no reaction". */
+const REACTION_STATE = /\bbutton state:/i;
+/** A comment's own link, in the older layout: the post's, naming the comment. */
+const COMMENT_LINK = /[?&]commentUrn=/;
+
+/**
+ * A comment's own Like: the older layout's says so; the newer's is its reaction button, which says its state. Never a
+ * reply's under it, in a box of its own.
+ */
+function commentLikeOf(comment: CommentBox, all: readonly CommentBox[]): HTMLElement | null {
+  const { box } = comment;
+  return (
+    [...box.querySelectorAll<HTMLElement>(CONTROLS)].find((control) => {
+      const nested = control.closest('article, [role="article"]');
+      if (nested && nested !== box && box.contains(nested)) return false;
+      if (
+        all.some(
+          (other) => other.box !== box && box.contains(other.box) && other.box.contains(control),
+        )
+      )
+        return false;
+      return (
+        shown(control) &&
+        (says(control, COMMENT_LIKE) || REACTION_STATE.test(reactionState(control).label))
+      );
+    }) ?? null
+  );
+}
+
+/**
+ * Their comment on the post the page shows (decision 116): the first comment or reply whose writer is them, with what
+ * it says, its own link when the older layout gives one, and its own Like. Null when the page shows none of theirs.
+ */
+export function theirCommentOn(
+  doc: Document,
+  href: string,
+  them: ProfileRef,
+): {
+  readonly text: string | null;
+  readonly url: string | null;
+  readonly like: HTMLElement | null;
+} | null {
+  const post = postOnPage(doc);
+  if (!post) return null;
+  const all = commentBoxesOn(post, href);
+  const theirs = all.find((c) => sameMember(c.who.profile, them));
+  if (!theirs) return null;
+  const link = theirs.links.find((a) => COMMENT_LINK.test(a.getAttribute('href') ?? ''));
+  const url = link ? new URL(link.getAttribute('href')!, href).href : null;
+  return { text: commentWords(theirs), url, like: commentLikeOf(theirs, all) };
+}
+
+/** Whether the page is the post asked for, by its activity. */
+function onPost(href: string, postUrl: string): boolean {
+  const asked = postOf(postUrl);
+  return asked !== null && postOf(href) === asked;
+}
+
+/**
+ * Their comment on the post asked for, as the page shows it (decision 116): what it says, its own link (the older
+ * layout's), and whether one of the person's reactions is on it (null with no Like to press). Null when the page isn't
+ * that post or shows no comment of theirs.
+ */
+export function theirComment(
+  doc: Document,
+  href: string,
+  them: ProfileRef,
+  postUrl: string,
+): TheirComment | null {
+  const theirs = onPost(href, postUrl) ? theirCommentOn(doc, href, them) : null;
+  if (!theirs) return null;
+  return {
+    text: theirs.text,
+    commentUrl: theirs.url,
+    liked: theirs.like ? hasYours(reactionState(theirs.like)) === true : null,
+  };
+}
+
+/**
+ * Likes their comment on a good post's own page (decision 116: the warm-up for someone found by their comment), when
+ * the page is the post asked for: its own Like, while none of the person's reactions is on it. `done` once it shows
+ * one given, `already` when it did, `none` when the page isn't that post, shows no comment of theirs or no Like on it,
+ * `not_sent` when LinkedIn didn't take it; with its own link (the older layout's) and what it says.
+ */
+export async function likeTheirComment(
+  doc: Document,
+  href: string,
+  them: ProfileRef,
+  postUrl: string,
+): Promise<CommentLiked> {
+  if (!onPost(href, postUrl)) return { result: 'none', commentUrl: null, text: null };
+  const theirs = theirCommentOn(doc, href, them);
+  const said = { commentUrl: theirs?.url ?? null, text: theirs?.text ?? null };
+  if (!theirs?.like) return { result: 'none', ...said };
+  const before = reactionState(theirs.like);
+  if (hasYours(before) === true) return { result: 'already', ...said };
+  theirs.like.click();
+  // LinkedIn may draw the comments again: its Like is found again each look.
+  const went = await waitFor(() => {
+    const now = theirCommentOn(doc, href, them)?.like;
+    return now && reactionChange(before, reactionState(now)) === 'added' ? true : null;
+  }, 5_000);
+  return { result: went ? 'done' : 'not_sent', ...said };
 }
 
 /**
@@ -375,12 +524,63 @@ export async function readReactions(doc: Document, href: string): Promise<Engage
   return found;
 }
 
-/** The most rows of the reactions box read: what it shows when it opens (about 25), never scrolled for more. */
-export const REACTORS_MOST = 25;
+/** The most rows of the reactions box read: up to 3 screens of it (decision 116), about 45. */
+export const REACTORS_MOST = 45;
+/** Screens of the reactions box past its first: 3 in all (decision 116). Never further. */
+const REACTORS_SCROLLS = 2;
+/** How long LinkedIn has to draw more rows once the box moved. */
+const MORE_ROWS_MS = 4_000;
+/** Between one screen of the box and the next: a person reading down it. */
+const SCREEN_PACE_MS = [1_500, 3_000] as const;
 
 /** The rows of the box of who reacted, as far as they're read: each with their headline and how far they are. */
 export const reactorRows = (box: Element, href: string) =>
   readPeople(box, href).slice(0, REACTORS_MOST);
+
+/** The list in the box of who reacted that scrolls, and its own Show more results at its foot, as it shows them. */
+function moversIn(box: Element): { list: Element | null; more: HTMLElement | null } {
+  return {
+    list: [box, ...box.querySelectorAll('*')].find(scrolls) ?? null,
+    more:
+      [...box.querySelectorAll<HTMLElement>(CONTROLS)].find(
+        (control) => shown(control) && wordsOf(control).some((w) => SHOW_MORE.test(w)),
+      ) ?? null,
+  };
+}
+
+/**
+ * The box of who reacted, a screen further down: its list scrolled most of a screen, else at its foot its own Show
+ * more results pressed. Whether LinkedIn drew more rows.
+ */
+async function moreReactors(box: Element, href: string): Promise<boolean> {
+  const before = readPeople(box, href).length;
+  const { list, more } = moversIn(box);
+  const moved = list ? list.scrollTop : null;
+  if (list) list.scrollTop += Math.max(200, list.clientHeight * 0.8);
+  if (!list || list.scrollTop === moved) {
+    if (!more) return false;
+    more.click();
+  }
+  return (
+    (await waitFor(() => (readPeople(box, href).length > before ? true : null), MORE_ROWS_MS)) ===
+    true
+  );
+}
+
+/** Up to 3 screens of the box of who reacted (decision 116), each row once, as far as `REACTORS_MOST`. */
+async function readReactorRows(box: Element, href: string) {
+  const rows = new Map(readPeople(box, href).map((row) => [row.profile.url, row]));
+  for (let screen = 0; screen < REACTORS_SCROLLS && rows.size < REACTORS_MOST; screen++) {
+    const movers = moversIn(box);
+    if (!movers.list && !movers.more) break;
+    const [least, most] = SCREEN_PACE_MS;
+    await pause(least + Math.random() * (most - least));
+    if (!(await moreReactors(box, href))) break;
+    for (const row of readPeople(box, href))
+      if (!rows.has(row.profile.url)) rows.set(row.profile.url, row);
+  }
+  return [...rows.values()].slice(0, REACTORS_MOST);
+}
 
 /** How reading who reacted went. */
 export interface ReactorsRead {
@@ -402,8 +602,8 @@ export interface ReactorsRead {
 
 /**
  * Who reacted to a good post its search found, on the post's own page (decision 92): presses its reactions count,
- * reads the first rows of the box it opens with each one's headline and how far they are, without scrolling it, and
- * closes it with its Dismiss. Never the person, the post's writer (`skip`) or a 1st-degree connection.
+ * reads up to 3 screens of the box it opens (decision 116) with each one's headline and how far they are, and closes
+ * it with its Dismiss. Never the person, the post's writer (`skip`) or a 1st-degree connection.
  */
 export async function readReactors(
   doc: Document,
@@ -430,7 +630,7 @@ export async function readReactors(
       ...(hiddenNow(doc) ? { hidden: true as const } : {}),
     };
   }
-  const rows = reactorRows(box, href);
+  const rows = await readReactorRows(box, href);
   const you = yourName(doc);
   const skip = options.skip ?? [];
   const people = rows.flatMap((row): PostPerson[] =>

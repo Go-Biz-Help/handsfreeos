@@ -103,6 +103,10 @@ describe('the AI’s partner check', () => {
             'five',
           ],
           nextStep: '',
+          country: 'ca',
+          otherCountry: 'CA',
+          countrySure: true,
+          countryWhy: '  Says she   runs it from Toronto ',
         },
         playbooks,
       ),
@@ -114,6 +118,8 @@ describe('the AI’s partner check', () => {
       audienceSize: 4200,
       why: ['Runs a busy homeowners group', `${'x'.repeat(159)}…`, 'four'],
       nextStep: null,
+      // Where they live, as the customer checks say it (decision 118).
+      country: { code: 'CA', other: 'CA', sure: true, why: 'Says she runs it from Toronto' },
     });
     // Not a partner names no playbook; one that isn't the business's is none, unless it has only one.
     const answer = {
@@ -566,6 +572,63 @@ describe('finding partners', () => {
     expect(seen[0]!.n).toBe(0);
     // Found by the owner, Gail is never pitched by the teammate either, nor read as a partner again.
     expect((await next(riley)).people.map((p) => p.name)).not.toContain('Gail Admin');
+  });
+
+  it('reads only whoever the country setting doesn’t skip, and keeps where the AI says they live (decision 118)', async () => {
+    await runAs(owner, ws, 'outreach.friends.save', {
+      list: 'friends',
+      people: [person('ade.abroad.7', 'Ade Abroad'), person('uma.unknown.8', 'Uma Unknown')],
+    });
+    await rows(
+      admin(),
+      sql`update addon_outreach.profiles set followers = 30000
+          where workspace_id = ${ws} and username in ('ade.abroad.7', 'uma.unknown.8')`,
+    );
+    await rows(
+      admin(),
+      sql`update addon_outreach.profiles set country = 'NG', country_how = 'seen', country_at = now()
+          where workspace_id = ${ws} and username = 'ade.abroad.7'`,
+    );
+    const rule = (countries: unknown) =>
+      rows(
+        admin(),
+        sql`update app.addon_installations
+            set settings = coalesce(settings, '{}'::jsonb) || ${JSON.stringify({ countries })}::jsonb
+            where workspace_id = ${ws} and addon_id = 'outreach'`,
+      );
+    const names = async () => (await next()).people.map((p) => p.name);
+    expect(await names()).toEqual(expect.arrayContaining(['Ade Abroad', 'Uma Unknown']));
+    await rule({ mode: 'only', codes: ['US', 'CA'] });
+    try {
+      // Someone known to live in Nigeria is left alone; someone nobody knows about is read, and the AI says.
+      expect(await names()).not.toContain('Ade Abroad');
+      expect(await names()).toContain('Uma Unknown');
+      const uma = await idOf('uma.unknown.8');
+      const looked = await look(uma, 'creator', ['Life coach for new moms']);
+      expect(
+        await save(
+          looked.partnerId,
+          await lookedAt(looked.partnerId),
+          answer({
+            kind: 'creator',
+            country: {
+              code: 'CA',
+              other: null,
+              sure: true,
+              why: 'Says she coaches moms across Canada',
+            },
+          }),
+        ),
+      ).toEqual({ saved: true, fit: 'good' });
+      const [kept] = await rows<{ country: string; how: string; unsure: boolean; looked: boolean }>(
+        admin(),
+        sql`select country, country_how as how, country_unsure as unsure, country_looked_at is not null as looked
+            from addon_outreach.profiles where id = ${uma}`,
+      );
+      expect(kept).toEqual({ country: 'CA', how: 'friends', unsure: false, looked: true });
+    } finally {
+      await rule({ mode: 'anywhere', codes: [] });
+    }
   });
 });
 

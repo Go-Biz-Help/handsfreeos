@@ -752,6 +752,11 @@ const TASK: Extract<AskTask, { kind: 'profile_edit' }> = {
   name: 'Casey Lee',
   username: 'casey.roofs',
   links: [CAL],
+  work: null,
+  featured: null,
+  ideal: null,
+  services: [],
+  linkChanges: [],
 };
 
 async function putIn(
@@ -976,7 +981,16 @@ describe('Put these in, on Facebook', () => {
 
   it('hands the bio over on the editor, saying where to press, when its Edit isn’t there', async () => {
     const { said, opened } = await putIn(
-      { name: null, username: null, links: [] },
+      {
+        name: null,
+        username: null,
+        links: [],
+        work: null,
+        featured: null,
+        ideal: null,
+        services: [],
+        linkChanges: [],
+      },
       { noBioEdit: true },
     );
     expect(opened.slice(0, 2)).toEqual([`${FB}/me`, EDITOR]);

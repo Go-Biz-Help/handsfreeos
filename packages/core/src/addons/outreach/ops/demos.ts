@@ -19,6 +19,8 @@ import { outreachAddon } from '../manifest';
 import { demos, profiles } from '../tables';
 import { inWorkspace, once } from './common';
 import { profileToSet } from './friends';
+import { wantLead } from './leads';
+import { claimProfile } from './owners';
 
 export const demoMark = defineAddonCommand(outreachAddon, {
   name: 'outreach.demo.mark',
@@ -33,7 +35,7 @@ export const demoMark = defineAddonCommand(outreachAddon, {
     keywords: ['demo booked', 'booked a call'],
   },
   scope: inWorkspace,
-  emits: ['outreach.demo.marked'],
+  emits: ['outreach.demo.marked', 'outreach.lead.wanted'],
   async handler(ctx, input) {
     const me = requireHuman(ctx).userId;
     const ws = ctx.scope.workspaceId!;
@@ -70,6 +72,10 @@ export const demoMark = defineAddonCommand(outreachAddon, {
         entityId: profile.id,
         payload: { booked: input.booked },
       });
+      if (input.booked) {
+        await claimProfile(ctx, me, profile.id, changeMoment(ctx.meta));
+        await wantLead(ctx, me, profile.id);
+      }
       return { profileId: profile.id, booked: input.booked };
     });
   },
@@ -85,7 +91,7 @@ export const demoNote = defineAddonCommand(outreachAddon, {
   permission: 'outreach.use',
   actors: ['system'],
   scope: inWorkspace,
-  emits: ['outreach.demo.booked'],
+  emits: ['outreach.demo.booked', 'outreach.lead.wanted'],
   async handler(ctx, input) {
     const ws = ctx.scope.workspaceId!;
     const named = readDemoRef(input.ref);
@@ -122,6 +128,9 @@ export const demoNote = defineAddonCommand(outreachAddon, {
       entityId: profile.id,
       payload: { userId: named.userId, appointmentId: input.appointmentId },
     });
+    // A demo booked through their link reaches them (decision 107).
+    await claimProfile(ctx, named.userId, profile.id, new Date(input.at));
+    await wantLead(ctx, named.userId, profile.id);
     return { counted: true };
   },
 });

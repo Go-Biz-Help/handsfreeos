@@ -6,6 +6,9 @@
  * - **A reply handed over** (`outreach.send.queued`, decision 27): with Replies (b) or (c), a reply that waits for the
  *   person after all, because it isn't simple or they need the person, is pushed at once, whatever their pushes
  *   setting says (./waiting.ts), and opens Waiting for you: "Dana Reyes needs you".
+ * - **Someone accepted** the person's friend request, invitation or follow (`outreach.friend.accepted`, decision
+ *   101): pushed at once when they switched it on, one push for everyone a list showed: "Dana Reyes accepted your
+ *   friend request". Off to start.
  * - **The morning push** (`outreach.morning`, one job per business): at the business's hour, each person who noted a
  *   step lately and has something on their list for today hears how much, worked out as their list is
  *   (`outreach.today`, asked on their behalf). It comes back the next morning. A change to the hour moves it; it's
@@ -16,6 +19,7 @@
  * (`pushAddonNotice`).
  */
 import {
+  acceptedPushWords,
   MORNING_ACTIVE_DAYS,
   morningPushWords,
   nextMorning,
@@ -124,6 +128,41 @@ export async function replySeen(ctx: AddonEventContext): Promise<void> {
     });
   }
   await armMorning(ctx);
+}
+
+/** `outreach.friend.accepted`: on their switch, the person's phone hears who accepted, in one push. */
+export async function requestAccepted(ctx: AddonEventContext): Promise<void> {
+  const p = (ctx.event.payload ?? {}) as {
+    userId?: string;
+    platform?: Platform;
+    profileIds?: string[];
+    push?: boolean;
+  };
+  if (!p.push || !p.userId || !p.platform || !p.profileIds?.length) return;
+  const { userId, platform } = p;
+  await asWorker(ctx.db, ctx.scope, async (tx) => {
+    const found = await rows<{ id: string; name: string; person_id: string | null }>(
+      tx,
+      sql`select id, name, person_id from addon_outreach.profiles
+          where workspace_id = ${ctx.scope.workspaceId}
+            and id = any (${`{${p.profileIds!.join(',')}}`}::uuid[])
+          order by name, id`,
+    );
+    if (!found.length) return;
+    const one = found.length === 1 ? found[0]! : null;
+    await pushAddonNotice(ctx, tx, {
+      key: `accepted:${ctx.event.id}`,
+      userIds: [userId],
+      permission: 'outreach.use',
+      ...acceptedPushWords(
+        found.map((f) => f.name),
+        platform,
+      ),
+      href: TODAY_HREF,
+      collapseKey: one ? `accepted-${one.id}` : null,
+      personId: one?.person_id ?? null,
+    });
+  });
 }
 
 /** `outreach.send.queued`: a reply handed over to the person (decision 27) is pushed to them, with why. */

@@ -140,6 +140,24 @@ export function openFollowers(doc: Document, href: string): boolean {
   return true;
 }
 
+/**
+ * Opens the box of another account's followers over its page (decision 110: an account like the business's, whose
+ * followers are its kind of customer): a press of the account's count of followers, as a person does. Only on an
+ * account's own page that isn't the person's, and never with the box open already. Whether the box is there, or was
+ * asked for.
+ */
+export function openTheirFollowers(doc: Document, href: string): boolean {
+  if (followersBox(doc, href)) return true;
+  const page = instagramUrl(href);
+  const account = page ? accountOf(page) : null;
+  const own = ownOf(doc, href);
+  if (!account || (own && account.username.toLowerCase() === own.toLowerCase())) return false;
+  const count = followersCount(doc);
+  if (!count) return false;
+  count.click();
+  return true;
+}
+
 // ------------------------------------------------------------------------------------------------ a post's people
 
 /** A box over the page's own Close, as its label says. */

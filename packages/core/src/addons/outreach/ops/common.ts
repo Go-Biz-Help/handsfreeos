@@ -26,7 +26,7 @@ import type { DontPitch, NeverContact } from '../friends';
 import { DONT_PITCH_TAG, MESSAGE_MOST, type FriendState } from '../limits';
 import type { SendKind } from '../automation';
 import { outreachAddon } from '../manifest';
-import { profileMisfit } from '../networks';
+import { NETWORKS, profileMisfit } from '../networks';
 import type { ClientStanding } from '../person-menu';
 import { PARTNER_GOAL, PLATFORMS, type Platform } from '../playbooks';
 import { RECENT_SHOWN, type RecentMessage } from '../sends';
@@ -225,10 +225,47 @@ export const openToMe = (me: string, p: string) => sql`(not exists (
   and not ${reachedElsewhere(p)})`;
 
 /**
- * A profile still in play for the person `me`: open to them (`openToMe`), and not a client (`isClient`, decision
- * 91), who gets no outreach. Every pick on Today but a reply they're owed goes by it. `p` is its alias.
+ * Not on the person `me`'s Later (decision 100): Later in the person menu takes someone off their Today for 2 weeks
+ * (`LATER_DAYS`), then they're back. A reply they're owed, and their friend request to confirm, still show. `p` is its
+ * alias.
  */
-export const inPlay = (me: string, p: string) => sql`(${openToMe(me, p)} and not ${isClient(p)})`;
+export const notLater = (me: string, p: string) => sql`not exists (
+  select 1 from addon_outreach.stages sl
+  where sl.profile_id = ${sql.raw(p)}.id and sl.user_id = ${me} and sl.later_until > now())`;
+
+/**
+ * The teammates besides `me` who use Social Outreach, as their business and who, read once for the whole query. Each
+ * person's own access row is theirs alone to read: their permissions come from their membership.
+ */
+const othersWorking = (
+  me: string,
+) => sql`select m.workspace_id, m.user_id from app.workspace_memberships m
+  where m.user_id <> ${me} and 'outreach.use' = any (private.user_permissions(m.user_id, m.workspace_id))`;
+
+/**
+ * A group or a profile that isn't another teammate's (decision 107, the owner's pick 4a): nobody's yet, the person
+ * `me`'s, or theirs who no longer uses Social Outreach. A group is whoever worked it first; a person whoever reached
+ * them first; an owner or admin moves either (`outreach.owner.move`). `x` is its alias.
+ */
+export const notOthers = (me: string, x: string) =>
+  sql`(${sql.raw(x)}.owner_user_id is null
+    or (${sql.raw(x)}.workspace_id, ${sql.raw(x)}.owner_user_id) not in (${othersWorking(me)}))`;
+
+/**
+ * A profile still in play for the person `me`, whoever reached them first: open to them (`openToMe`), not a client
+ * (`isClient`, decision 91), who gets no outreach, and not on their Later (`notLater`, decision 100). For what answers
+ * their own move (a follow back) or a demo they booked through the person's link. `p` is its alias.
+ */
+export const inPlayAnyOwner = (me: string, p: string) =>
+  sql`(${openToMe(me, p)} and not ${isClient(p)} and ${notLater(me, p)})`;
+
+/**
+ * A profile still in play for the person `me` (`inPlayAnyOwner`) that isn't another teammate's (`notOthers`, decision
+ * 107). Every pick on Today but a reply they're owed, their friend request to confirm, a follow back and a booked
+ * demo's messages goes by it. `p` is its alias.
+ */
+export const inPlay = (me: string, p: string) =>
+  sql`(${inPlayAnyOwner(me, p)} and ${notOthers(me, p)})`;
 
 /**
  * The profiles the client rule covers for one customer (`isClient`): every profile on them, on any network, and any
@@ -288,6 +325,8 @@ export async function skipOutreachTo(
   ctx: CommandContext,
   profileIds: readonly string[],
   kinds?: readonly SendKind[],
+  /** Only this person's own (Later, decision 100): anyone's when left out. */
+  userId?: string,
 ): Promise<number> {
   if (!profileIds.length || kinds?.length === 0) return 0;
   const at = changeMoment(ctx.meta);
@@ -300,6 +339,7 @@ export async function skipOutreachTo(
         inArray(sends.profileId, [...new Set(profileIds)]),
         inArray(sends.state, ['waiting', 'approved']),
         ...(kinds ? [inArray(sends.kind, [...kinds])] : []),
+        ...(userId ? [eq(sends.userId, userId)] : []),
       ),
     )
     .returning({ kind: sends.kind, profileId: sends.profileId });
@@ -350,6 +390,15 @@ export async function outreachSettingsOf(ctx: Ctx): Promise<OutreachSettings> {
         where workspace_id = ${ctx.scope.workspaceId!} and addon_id = ${outreachAddon.id}`,
   );
   return outreachSettings(installed?.settings);
+}
+
+/**
+ * How many people found by topic the AI checks a day on a network for each person, before training wheels and
+ * warnings have their say: the business's setting (decision 116), or null where the network doesn't check them.
+ */
+export async function foundChecksOf(ctx: Ctx, platform: Platform): Promise<number | null> {
+  if (NETWORKS[platform].foundChecksPerDay === null) return null;
+  return (await outreachSettingsOf(ctx)).foundChecksPerDay;
 }
 
 /** The business's country setting (decision 61), as it's read: Anywhere when it isn't set. */

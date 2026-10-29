@@ -13,6 +13,7 @@ import {
   COUNTRY_WORDS,
   type CountryRule,
 } from '@hfos/core/addons/outreach/countries';
+import { FOUND_CHECKS } from '@hfos/core/addons/outreach/finds';
 import { OUTREACH_WORDS as W } from '@hfos/core/addons/outreach/words';
 import { RadioCard } from '@/components/ui/radio-card';
 import { Switch } from '@/components/ui/switch';
@@ -20,6 +21,11 @@ import { CountryPicker } from './country-picker';
 
 /** The weeks a sent friend request can wait before it's suggested for cancelling. */
 const WEEKS = Array.from({ length: 12 }, (_, i) => i + 1);
+/** The people found by topic the AI checks a day for each person: 10 to 100, in tens (decision 116). */
+const FOUND_CHECK_STEPS = Array.from(
+  { length: (FOUND_CHECKS.most - FOUND_CHECKS.least) / 10 + 1 },
+  (_, i) => FOUND_CHECKS.least + i * 10,
+);
 
 /** The business's Social Outreach settings these fields change: all but the extension's link, which has its own box. */
 export type TeamSettings = Omit<OutreachSettings, 'extensionLink'>;
@@ -35,7 +41,8 @@ const select =
  * In Social Outreach → Settings → General, under For your team, for owners and admins (the Add-ons page links there,
  * settings-link.tsx): who from the chats brought in from Facebook goes in Contacts once the AI has read them
  * (docs/outreach.md, decision 3), how long a sent friend request waits before it's suggested for cancelling (decision
- * 12), the hour of the morning push to each person's phone, in the business's time zone (decision 22), whether each
+ * 12), how many people found by topic the AI checks a day for each person (decision 116), the hour of the morning
+ * push to each person's phone, in the business's time zone (decision 22), whether each
  * person gets the weekly report by email (decision 34), which countries it reaches (decision 61), and what happens when
  * a look can't tell where someone lives (decision 86). Anyone already
  * in Contacts gets the tags whatever it says. Each change goes to `onChange`, which saves it (./use-autosave.ts).
@@ -83,6 +90,25 @@ export function TeamSettingsFields({
               {W.weeks(w)}
             </option>
           ))}
+        </select>
+      </label>
+      <label className="block border-t border-border pt-4">
+        <span className="text-[14px] font-semibold">{W.sections.foundChecks}</span>
+        <span className="block text-[13px] text-text-2">{W.abouts.foundChecks}</span>
+        <select
+          className={select}
+          value={value.foundChecksPerDay}
+          onChange={(e) => onChange({ foundChecksPerDay: Number(e.target.value) })}
+          data-testid="outreach-found-checks"
+        >
+          {/* A number set some other way still shows. */}
+          {[...new Set([...FOUND_CHECK_STEPS, value.foundChecksPerDay])]
+            .sort((a, b) => a - b)
+            .map((n) => (
+              <option key={n} value={n}>
+                {W.aDay(n)}
+              </option>
+            ))}
         </select>
       </label>
       <label className="block border-t border-border pt-4">

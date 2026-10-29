@@ -9,7 +9,8 @@
  *   feed, a list of people and a list of groups scrolled for more (./browse.ts).
  * - Working on its own (../../auto/run.ts): Add friend, Confirm and Like on the profiles of people on their list for
  *   today, the comment the AI drafted on a post on their list, and a message they OK'd, only in a chat with them
- *   (./auto.ts).
+ *   (./auto.ts); from 0.106.0 a few recent posts liked in their own groups each day, and the day's reply under a
+ *   question there once OK'd (decision 114).
  * - A good group: Join group, and its questions answered with the AI's answers (./join.ts, decision 48).
  * - A helpful post put up on a group's page, and who engaged with one of theirs (./compose.ts, decision 50).
  * - Their own profile read for the AI's check, and the bio they picked put in (./own-profile.ts, decision 64); for Put
@@ -29,6 +30,9 @@ import type {
   BrowseAsk,
   FetchAnswer,
   FetchAsk,
+  GroupFeedAnswer,
+  GroupFeedAsk,
+  GroupLikeAsk,
   GroupPostAnswer,
   GroupPostAsk,
   JoinAnswer,
@@ -43,12 +47,16 @@ import type {
   TryAsk,
   WriteLinkAnswer,
   WriteLinkAsk,
+  WritePartAnswer,
+  WritePartAsk,
 } from '../../messages';
 import { usernamePageOf } from '../accounts-center/username';
 import { CENTER_ASKS, centerWork, type CenterAsk } from '../accounts-center/work';
 import {
+  likeGroupPost,
   likeTheirPost,
   openMessage,
+  readGroupFeed,
   readTheirPosts,
   writeComment,
   writeMessage,
@@ -61,6 +69,7 @@ import { requestsPage } from './friends';
 import { answerJoin, pressJoin } from './join';
 import { linksPage, writeLink } from './links';
 import { ownEditorsOf, readOwnProfile, writeBioSteps } from './own-profile';
+import { writeFacebookPart } from './parts';
 import { readProfile } from './profile';
 import { tidyPage } from './tidy';
 import {
@@ -131,6 +140,20 @@ async function autoStep(ask: AutoAsk): Promise<AutoAnswer | PostsAnswer> {
   }
   if (kind !== 'post') return { ok: false, error: 'Facebook didn’t open the post.' };
   return { ok: true, result: await writeComment(document, ask.text) };
+}
+
+/**
+ * In one of the person's groups (decision 114): its newest posts read for the day's likes and question, or one of them
+ * liked; only on a group's own page.
+ */
+async function groupFeedStep(
+  ask: GroupFeedAsk | GroupLikeAsk,
+): Promise<GroupFeedAnswer | AutoAnswer> {
+  if (classifyUrl(location.href).kind !== 'group')
+    return { ok: false, error: 'Facebook didn’t open the group.' };
+  if (ask.type === 'hfos-group-feed')
+    return { ok: true, posts: await readGroupFeed(document, location.href, window, ask.most) };
+  return { ok: true, ...likeGroupPost(document, location.href, ask) };
 }
 
 /**
@@ -209,6 +232,17 @@ function ownEditorsStep(): OwnEditorsAnswer {
 const ownLinksHere = (): boolean => linksPage(location.href) && ownProfileHere();
 
 /** One new link (./links.ts), only on their own profile's About tab, where its links are changed. */
+/**
+ * One of decision 99's parts (./parts.ts), only on their own profile: their work on its About tab, their best post on
+ * the profile, a link taken off on Contact and basic info.
+ */
+async function writePartStep(ask: WritePartAsk): Promise<WritePartAnswer> {
+  if (!ownProfileHere()) return { ok: false, error: 'Facebook didn’t open your profile.' };
+  if (ask.part.kind === 'link_off' && !linksPage(location.href))
+    return { ok: false, error: 'Facebook didn’t open where your links are changed.' };
+  return { ok: true, ...(await writeFacebookPart(document, ask.part)) };
+}
+
 async function writeLinkStep(ask: WriteLinkAsk): Promise<WriteLinkAnswer> {
   if (!ownLinksHere())
     return { ok: false, error: 'Facebook didn’t open where your links are changed.' };
@@ -308,6 +342,8 @@ export const WORK_ASKS: ReadonlySet<string> = new Set([
   'hfos-scroll-page',
   'hfos-their-posts',
   'hfos-like-post',
+  'hfos-group-feed',
+  'hfos-like-group-post',
   'hfos-comment',
   'hfos-message',
   'hfos-open-message',
@@ -319,6 +355,7 @@ export const WORK_ASKS: ReadonlySet<string> = new Set([
   'hfos-write-bio',
   'hfos-own-editors',
   'hfos-write-link',
+  'hfos-write-part',
   ...CENTER_ASKS,
   'hfos-try',
 ]);
@@ -327,12 +364,15 @@ type WorkAsk =
   | FetchAsk
   | BrowseAsk
   | AutoAsk
+  | GroupFeedAsk
+  | GroupLikeAsk
   | OpenMessageAsk
   | JoinAsk
   | GroupPostAsk
   | OwnProfileAsk
   | OwnEditorsAsk
   | WriteLinkAsk
+  | WritePartAsk
   | CenterAsk
   | TryAsk;
 
@@ -352,6 +392,8 @@ export function work(ask: { readonly type: string }): Promise<unknown> | null {
       return Promise.resolve(ownEditorsStep());
     case 'hfos-write-link':
       return writeLinkStep(known);
+    case 'hfos-write-part':
+      return writePartStep(known);
     // Accounts Center's, for the username and the name: only on Facebook's own (../accounts-center/work.ts).
     case 'hfos-write-username':
     case 'hfos-write-center-name':
@@ -366,6 +408,9 @@ export function work(ask: { readonly type: string }): Promise<unknown> | null {
     case 'hfos-comment':
     case 'hfos-message':
       return autoStep(known);
+    case 'hfos-group-feed':
+    case 'hfos-like-group-post':
+      return groupFeedStep(known);
     case 'hfos-open-message':
       return openMessageStep();
     case 'hfos-open-chat':
@@ -375,11 +420,12 @@ export function work(ask: { readonly type: string }): Promise<unknown> | null {
     case 'hfos-scroll-page':
       return Promise.resolve(browseStep(known));
     // Another network's list (Alignable's My Network): Facebook's open on everything already. Instagram's post's boxes
-    // (decision 92) are never asked of a Facebook tab.
+    // (decision 92) and another account's followers (decision 110) are never asked of a Facebook tab.
     case 'hfos-show-all':
     case 'hfos-open-likers':
     case 'hfos-more-comments':
     case 'hfos-close-dialog':
+    case 'hfos-open-their-followers':
       return Promise.resolve({ ok: false });
     case 'hfos-fetch-step':
     case 'hfos-fetch-path':

@@ -3,10 +3,11 @@
  * following under it), /p/<code>/ and /reel/<code>/ for a post (newer links put the account's name first),
  * /p/<code>/liked_by/ for a post's Likes box over it (decision 92), /explore/tags/<tag>/ for a hashtag,
  * /explore/locations/<id>/<name>/ for a place, /explore/search/keyword/?q= for a search, /explore/people/ for the
- * accounts it suggests, /direct/inbox/, /direct/requests/ and /direct/t/<id>/ for messages, and /accounts/edit/ for the
- * person's own profile's form. Shared by the site, its readers (./read.ts) and the noting of the person's own steps
- * (./actions.ts). From the owner's Check of 21 Oct 2026: a hashtag's page sends the tab to a search for it
- * (/explore/search/keyword/?q=%23<tag>), and /explore/locations/ alone is no list of places.
+ * accounts it suggests, /direct/inbox/, /direct/requests/ and /direct/t/<id>/ for messages, /accounts/edit/ for the
+ * person's own profile's form, and /stories/<name>/ for someone's story (decision 111). Shared by the site, its readers
+ * (./read.ts) and the noting of the person's own steps (./actions.ts). From the owner's Check of 21 Oct 2026: a
+ * hashtag's page sends the tab to a search for it (/explore/search/keyword/?q=%23<tag>), and /explore/locations/ alone
+ * is no list of places.
  */
 
 export const HOST = 'www.instagram.com';
@@ -151,6 +152,17 @@ export function isCommentLink(url: URL): boolean {
   const parts = partsOf(url);
   const at = parts[0] === 'p' || parts[0] === 'reel' ? 0 : parts[1] === 'p' ? 1 : -1;
   return at >= 0 && parts[at + 2] === 'c' && /^[0-9]{1,40}$/.test(parts[at + 3] ?? '');
+}
+
+/** Their story's own address (decision 111): Instagram opens the story they put up first, at /stories/<name>/<id>/. */
+export const storyUrl = (username: string): string => `https://${HOST}/stories/${username}/`;
+
+/** Whose story an address is (/stories/<name>/ or /stories/<name>/<id>/): the name in it, or null for any other. */
+export function storyOf(url: URL): string | null {
+  const [first = '', name = ''] = partsOf(url);
+  return first.toLowerCase() === 'stories' && NAME.test(name) && name.toLowerCase() !== 'highlights'
+    ? name
+    : null;
 }
 
 /** A chat's id in its address (/direct/t/<id>/), or null. */

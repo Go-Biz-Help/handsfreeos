@@ -24,7 +24,7 @@ import {
   unique,
   uuid,
 } from 'drizzle-orm/pg-core';
-import { people, users, workspaces } from '@hfos/db/schema';
+import { leads, people, users, workspaces } from '@hfos/db/schema';
 import type { TouchKind, TouchStep } from './activity';
 import type { AskKind, AskReply, AskResult, AskState, AskTask, AskVia } from './asks';
 import type {
@@ -56,6 +56,8 @@ import type { ProfileTicks } from './readiness';
 import type { ListMark } from './lists';
 import type { PartnerFit, PartnerKind, PartnerSearchKind, PartnerStage } from './partners';
 import type { DownloadCounts, DownloadList, DownloadMessage } from './download';
+import type { LikeYoursState } from './like-yours';
+import type { OccasionKind } from './occasions';
 import type { FriendState, TidyKind } from './limits';
 import type { DraftOpener, OpenerKind } from './openers';
 import type { PlaybookDetails } from './playbooks';
@@ -139,6 +141,9 @@ export const groups = addonOutreach.table(
     checkWho: text('check_who'),
     checkPlaybookId: uuid('check_playbook_id'),
     checkedAt: ts('checked_at'),
+    /** The teammate who worked it first (decision 107), and since when: another's Today leaves it out. */
+    ownerUserId: userRef('owner_user_id'),
+    ownedAt: ts('owned_at'),
     createdAt: ts('created_at').notNull().defaultNow(),
     updatedAt: ts('updated_at').notNull().defaultNow(),
   },
@@ -212,6 +217,15 @@ export const profiles = addonOutreach.table(
     followersAt: ts('followers_at'),
     /** When they were found as a partner (decision 81): never pitched as a customer since, nor are their twins. */
     partnerFoundAt: ts('partner_found_at'),
+    /**
+     * The lead it put in the pipeline when they wanted a demo (decision 105), or the customer's open lead it found, and
+     * when: one lead a profile, once, so `leadAt` stays when the lead is deleted for good.
+     */
+    leadId: uuid('lead_id').references(() => leads.id, { onDelete: 'set null' }),
+    leadAt: ts('lead_at'),
+    /** Whoever reached them first (decision 107), and since when: another's Today leaves them out. */
+    ownerUserId: userRef('owner_user_id'),
+    ownedAt: ts('owned_at'),
     savedBy: userRef('saved_by'),
     lastSeenBy: userRef('last_seen_by'),
     lastSeenAt: ts('last_seen_at').notNull().defaultNow(),
@@ -569,6 +583,8 @@ export const posts = addonOutreach.table(
     words: text('words'),
     /** When its likers and commenters were read (decision 92): each good post's people are read once. */
     peopleReadAt: ts('people_read_at'),
+    /** When it was kept for the day's reply in one of the person's groups (decision 114); null for any other. */
+    replyAt: ts('reply_at'),
     checkedAt: ts('checked_at'),
     skippedAt: ts('skipped_at'),
     seenAt: ts('seen_at').notNull(),
@@ -717,6 +733,8 @@ export const automation = addonOutreach.table(
     pushes: text('pushes').notNull().default('bundled').$type<PushMode>(),
     /** The day's report: a push at the end of their working hours with the day's numbers (../tracking.ts). */
     dayReport: boolean('day_report').notNull().default(true),
+    /** A push when someone accepts their friend request, connection or follow (decision 101). Off to start. */
+    acceptedPush: boolean('accepted_push').notNull().default(false),
     /** How the AI writes for them (../voice.ts). */
     voiceShorthand: boolean('voice_shorthand').notNull().default(false),
     voiceAcronyms: boolean('voice_acronyms').notNull().default(false),
@@ -1272,6 +1290,8 @@ export const stages = addonOutreach.table(
     pitchedAt: ts('pitched_at'),
     /** When they first said yes: a positive reply (../conversation.ts), counted on Results. */
     positiveAt: ts('positive_at'),
+    /** Later (decision 100): off this person's Today until then, their replies aside. Null is not on Later. */
+    laterUntil: ts('later_until'),
     createdAt: ts('created_at').notNull().defaultNow(),
     updatedAt: ts('updated_at').notNull().defaultNow(),
   },
@@ -1388,7 +1408,7 @@ export const helpful = addonOutreach.table(
     userId: uuid('user_id')
       .notNull()
       .references(() => users.id, { onDelete: 'cascade' }),
-    /** The network it goes up on: on Facebook in a group, on LinkedIn on the person's own feed. */
+    /** The network it goes up on: on Facebook in a group, anywhere else on the person's own account. */
     platform: text('platform').notNull().default('facebook').$type<Platform>(),
     groupId: uuid('group_id'),
     playbookId: uuid('playbook_id'),
@@ -1397,6 +1417,8 @@ export const helpful = addonOutreach.table(
     how: text('how').notNull().$type<PostingMode>(),
     topic: text('topic'),
     body: text('body'),
+    /** On Instagram: the picture to take for it (decision 109). */
+    picture: text('picture'),
     postUrl: text('post_url'),
     whyNot: text('why_not'),
     askedAt: ts('asked_at').notNull(),
@@ -1500,6 +1522,131 @@ export const networkStarts = addonOutreach.table(
   (t) => [unique().on(t.workspaceId, t.id), unique().on(t.workspaceId, t.userId, t.platform)],
 );
 
+/**
+ * A birthday or a new job the person's computer read for someone already kept (./occasions.ts, decision 108): on
+ * Facebook's Birthdays page or LinkedIn's Catch up, once a day. Each person's own. `onDay` is the business's day it was
+ * read for.
+ */
+export const occasions = addonOutreach.table(
+  'occasions',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    workspaceId: workspaceRef(),
+    userId: uuid('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    profileId: uuid('profile_id').notNull(),
+    kind: text('kind').notNull().$type<OccasionKind>(),
+    onDay: date('on_day', { mode: 'string' }).notNull(),
+    /** For a new job, what the page said of it. */
+    detail: text('detail'),
+    seenAt: ts('seen_at').notNull(),
+    createdAt: ts('created_at').notNull().defaultNow(),
+  },
+  (t) => [
+    unique().on(t.workspaceId, t.id),
+    unique().on(t.workspaceId, t.userId, t.profileId, t.kind, t.onDay),
+    foreignKey({
+      columns: [t.workspaceId, t.profileId],
+      foreignColumns: [profiles.workspaceId, profiles.id],
+    }).onDelete('cascade'),
+  ],
+);
+
+/**
+ * The business's Instagram accounts like yours (./like-yours.ts, decision 110): those a search showed for the AI to look
+ * at, the ones kept (up to 5), those it passed over and those a person removed, each once by its username, with who
+ * added it (null: the AI) and when the person's computer last read it.
+ */
+export const likeYours = addonOutreach.table(
+  'like_yours',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    workspaceId: workspaceRef(),
+    platform: text('platform').notNull().default('instagram').$type<'instagram'>(),
+    username: text('username').notNull(),
+    name: text('name'),
+    why: text('why'),
+    state: text('state').notNull().$type<LikeYoursState>(),
+    addedByUserId: userRef('added_by_user_id'),
+    foundAt: ts('found_at').notNull(),
+    readAt: ts('read_at'),
+    createdAt: ts('created_at').notNull().defaultNow(),
+    updatedAt: ts('updated_at').notNull().defaultNow(),
+  },
+  (t) => [unique().on(t.workspaceId, t.id), unique().on(t.workspaceId, t.platform, t.username)],
+);
+
+/**
+ * When each person's computer last read the events near them on Alignable (./events-near.ts, decision 112), about once
+ * a week, and the addresses of the events it read lately, the newest first, so none is read twice. Each person's own:
+ * one row a person and network.
+ */
+export const eventReads = addonOutreach.table(
+  'event_reads',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    workspaceId: workspaceRef(),
+    userId: uuid('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    platform: text('platform').notNull().default('alignable').$type<'alignable'>(),
+    readAt: ts('read_at').notNull(),
+    urls: text('urls')
+      .array()
+      .notNull()
+      .default(sql`'{}'`),
+    createdAt: ts('created_at').notNull().defaultNow(),
+    updatedAt: ts('updated_at').notNull().defaultNow(),
+  },
+  (t) => [unique().on(t.workspaceId, t.id), unique().on(t.workspaceId, t.userId, t.platform)],
+);
+
+/**
+ * Who follows each person on Facebook, as their computer last read the list (./followers.ts, decision 113): someone who
+ * isn't their friend is checked by the AI like a friend, and a good fit goes on Today for a friend request. Each
+ * person's own.
+ */
+export const followers = addonOutreach.table(
+  'followers',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    workspaceId: workspaceRef(),
+    userId: uuid('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    profileId: uuid('profile_id').notNull(),
+    seenAt: ts('seen_at').notNull(),
+    createdAt: ts('created_at').notNull().defaultNow(),
+    updatedAt: ts('updated_at').notNull().defaultNow(),
+  },
+  (t) => [
+    unique().on(t.workspaceId, t.id),
+    unique().on(t.workspaceId, t.userId, t.profileId),
+    foreignKey({
+      columns: [t.workspaceId, t.profileId],
+      foreignColumns: [profiles.workspaceId, profiles.id],
+    }).onDelete('cascade'),
+  ],
+);
+
+/** When each person's computer last read who follows them on Facebook (decision 113), about once a week. Each person's own. */
+export const followerReads = addonOutreach.table(
+  'follower_reads',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    workspaceId: workspaceRef(),
+    userId: uuid('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    platform: text('platform').notNull().default('facebook').$type<'facebook'>(),
+    readAt: ts('read_at').notNull(),
+    createdAt: ts('created_at').notNull().defaultNow(),
+    updatedAt: ts('updated_at').notNull().defaultNow(),
+  },
+  (t) => [unique().on(t.workspaceId, t.id), unique().on(t.workspaceId, t.userId, t.platform)],
+);
+
 /** Every table above, for the test that holds the mirror to the live columns. */
 export const OUTREACH_TABLES = {
   asks,
@@ -1508,9 +1655,12 @@ export const OUTREACH_TABLES = {
   computers,
   days,
   engagements,
+  eventReads,
   fileChats,
   filePeople,
   finds,
+  followerReads,
+  followers,
   friendEnds,
   friends,
   groupPeople,
@@ -1520,10 +1670,12 @@ export const OUTREACH_TABLES = {
   imports,
   joins,
   demos,
+  likeYours,
   listSaves,
   liveSteps,
   needs,
   networkStarts,
+  occasions,
   openerUses,
   partnerLeads,
   partnerSearches,

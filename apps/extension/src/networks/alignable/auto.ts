@@ -5,6 +5,10 @@
  * - **Like** a recent post of theirs on their business page: only a post they wrote, only its own Like (a link drawn
  *   as a button: never its count, which opens who liked it, and never an answer's), and only while it isn't liked yet.
  *   It's liked once the Like says so (Liked, Unlike, or pressed) or its count goes up.
+ * - **Like** their answer on a good post (decision 116, from 0.108.0), the warm-up for a business found by its answer:
+ *   on that post's own page, by its discussion's id, the first answer its author line says they wrote, and only its own
+ *   Like (never its count, nor a reply's under it), only while it isn't liked yet. Alignable's answers' Like is read
+ *   from guessed markup till the owner's next Check Alignable outlines one.
  * - **Connect** on their business page: only its own, a link to /biz/connection_requests/… carrying Alignable's id for
  *   their business, and only while it says Connect: never while their page shows you're connected (its own Remove
  *   Connection, 0.94.0). It makes the request at once and may open another page, so the tab answers as it presses, and
@@ -24,6 +28,7 @@
  * Nothing else is pressed, and nothing is written anywhere else: never a recommendation, which stays the person's.
  * Like the readers, it goes by Alignable's own test ids, its links' addresses and its words, never class names.
  */
+import type { CommentLiked, TheirComment } from '../../messages';
 import type { AutoResult, TheirPost } from '../facebook/auto';
 import { visible } from '../facebook/fetch';
 import type { JoinStep } from '../facebook/join';
@@ -31,6 +36,7 @@ import type { ProfileRef } from '../facebook/types';
 import { nameOf, pause, waitFor, writeIn, writingIn } from '../looking/looks';
 import type { CommentOn } from '../looking/site';
 import {
+  answerParts,
   businessPage,
   chatOpen,
   CONNECT_AT,
@@ -46,6 +52,8 @@ import {
   urlOf,
 } from './read';
 
+/** Alignable's own address: an answer's link is its discussion's. */
+const ALIGNABLE = 'https://www.alignable.com';
 /** A post's Like, not liked yet; and once it is. */
 const LIKE = /^like$/i;
 const LIKED = /^(liked|unlike)$/i;
@@ -137,6 +145,101 @@ export async function likeTheirPost(
   };
   const went = await waitFor(() => (given() ? true : null), WENT_MS);
   return { result: went ? 'done' : 'not_sent', postUrl: one.post.url };
+}
+
+// ------------------------------------------------------------------------------------------------ an answer's like
+
+/** An answer's own Like: one saying Like (or Liked) in it, not in a reply under it; never its count. */
+export function answerLikeOf(answer: Element, base: string): HTMLElement | null {
+  return (
+    [...answer.querySelectorAll<HTMLElement>('a[href], button, [role="button"]')].find(
+      (control) => {
+        if (control.closest(PART('discussion-comment')) !== answer || !visible(control))
+          return false;
+        const words = nameOf(control);
+        if (!LIKE.test(words) && !LIKED.test(words)) return false;
+        if (!control.matches('a[href]')) return true;
+        const url = urlOf(control.getAttribute('href'), base);
+        return url !== null && !url.searchParams.has('resource');
+      },
+    ) ?? null
+  );
+}
+
+/**
+ * Their answer on the discussion the tab shows (decision 116): the first answer (or reply) its own author line says
+ * their business wrote, with what it says and its own Like. Null when the page shows none of theirs.
+ */
+export function theirAnswerOn(
+  doc: Document,
+  href: string,
+  profile: ProfileRef,
+): { readonly answer: Element; readonly text: string; readonly like: HTMLElement | null } | null {
+  const theirs = answerParts(doc, href).find(
+    ({ read }) => read.author?.profile && sameBusiness(read.author.profile, profile),
+  );
+  return theirs
+    ? { answer: theirs.answer, text: theirs.read.text, like: answerLikeOf(theirs.answer, href) }
+    : null;
+}
+
+/** The discussion's id when the page's post is the one asked for, by it; else null. */
+function askedPost(doc: Document, href: string, postUrl: string): string | null {
+  const id = discussionIdOf(postUrl);
+  const shown = postParts(doc, href)[0]?.thread.url ?? href;
+  return id && discussionIdOf(shown) === id ? id : null;
+}
+
+/**
+ * Their answer on the post asked for, as the page shows it (decision 116): what it says, the discussion's link (an
+ * answer has none of its own), and whether the person's like is on it (null with no Like to press). Null when the
+ * page's post isn't that one or shows no answer of theirs.
+ */
+export function theirAnswer(
+  doc: Document,
+  href: string,
+  profile: ProfileRef,
+  postUrl: string,
+): TheirComment | null {
+  const id = askedPost(doc, href, postUrl);
+  const theirs = id ? theirAnswerOn(doc, href, profile) : null;
+  if (!theirs) return null;
+  return {
+    text: theirs.text || null,
+    commentUrl: `${ALIGNABLE}/biz/discussions/${id}`,
+    liked: theirs.like ? likedNow(theirs.like) : null,
+  };
+}
+
+/**
+ * Likes their answer on a good post's own page (decision 116: the warm-up for a business found by its answer), when
+ * the page's post is the one asked for, by its discussion's id: the answer's own Like, while it isn't liked yet. `done`
+ * once it says so, `already` when it did, `none` when the page isn't that post, shows no answer of theirs or no Like
+ * on it, `not_sent` when Alignable didn't take it; with the discussion's link (an answer has none of its own) and what
+ * the answer says.
+ */
+export async function likeTheirAnswer(
+  doc: Document,
+  href: string,
+  profile: ProfileRef,
+  postUrl: string,
+): Promise<CommentLiked> {
+  const id = askedPost(doc, href, postUrl);
+  if (!id) return { result: 'none', commentUrl: null, text: null };
+  const theirs = theirAnswerOn(doc, href, profile);
+  const said = {
+    commentUrl: theirs ? `${ALIGNABLE}/biz/discussions/${id}` : null,
+    text: theirs?.text || null,
+  };
+  if (!theirs?.like) return { result: 'none', ...said };
+  if (likedNow(theirs.like)) return { result: 'already', ...said };
+  theirs.like.click();
+  // Alignable may draw the answers again: its Like is found again each look.
+  const went = await waitFor(() => {
+    const now = theirAnswerOn(doc, href, profile)?.like;
+    return now && likedNow(now) ? true : null;
+  }, WENT_MS);
+  return { result: went ? 'done' : 'not_sent', ...said };
 }
 
 // ------------------------------------------------------------------------------------------------ connect

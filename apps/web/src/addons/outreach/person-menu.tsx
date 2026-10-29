@@ -12,6 +12,9 @@
  * - **Mark as client** (`outreach.client.set`), through the same "Is this one of these?" when they aren't in
  *   Contacts, or **Not a client after all**, or why Contacts counts them a client;
  * - **Demo booked**, or **Not a demo after all**;
+ * - **Later**, off the person's own Today for 2 weeks, or **Take off Later** (`outreach.later.set`, decision 100);
+ * - who reached them first, and for an owner or admin **Give them to {teammate}** (`outreach.owner.move`, decision
+ *   107);
  * - **Don't pitch** and **Never contact**, or taking them off, or who put them on: left out where the row has its own
  *   switches (Friends, Chats).
  *
@@ -21,23 +24,27 @@
 import type { Platform } from '@hfos/core/addons/outreach/networks';
 import {
   clientSetWords,
+  laterSetWords,
   personMenuItems,
   personMenuOfflineWords,
   type PersonMenuItem,
   type PersonMenuKey,
   type ProfileMarksOutput,
 } from '@hfos/core/addons/outreach/person-menu';
+import { OWNER_WORDS } from '@hfos/core/addons/outreach/owners';
 import { OUTREACH_WORDS } from '@hfos/core/addons/outreach/words';
 import {
   BadgeCheck,
   Ban,
   CalendarCheck,
   ChevronDown,
+  Clock,
   ExternalLink,
   Loader2,
   MessageCircle,
   UserPlus,
   UserRound,
+  Users,
   UserX,
   WifiOff,
   type LucideIcon,
@@ -96,6 +103,8 @@ const ICONS: Partial<Record<PersonMenuKey, LucideIcon>> = {
   'client-line': BadgeCheck,
   demo: CalendarCheck,
   'not-demo': CalendarCheck,
+  later: Clock,
+  'not-later': Clock,
   'dont-pitch': Ban,
   'not-dont-pitch': Ban,
   'dont-pitch-line': Ban,
@@ -300,6 +309,16 @@ function NameMenu({
         ),
       booked ? P.demoMarked(name) : P.demoUnmarked,
     );
+  // Later is the person's own: the page drawn again leaves them off Today, or puts them back.
+  const later = (on: boolean) =>
+    void act('later', async () => {
+      const out = unwrap(
+        await apiBrowser().POST('/v1/commands/outreach.later.set', {
+          body: { workspaceId, profileId, later: on },
+        }),
+      );
+      toast.success(laterSetWords(name, out));
+    });
   const list = (change: { dontPitch: boolean } | { neverContact: boolean }, done: string) =>
     void act(
       'list',
@@ -312,25 +331,40 @@ function NameMenu({
       done,
     );
 
+  // Whose they are (decision 107): an owner or admin gives them to a teammate.
+  const give = (userId: string) =>
+    void act('owner', async () => {
+      const out = unwrap(
+        await apiBrowser().POST('/v1/commands/outreach.owner.move', {
+          body: { workspaceId, kind: 'person', id: profileId, userId },
+        }),
+      );
+      toast.success(OWNER_WORDS.moved('person', out.owner));
+    });
+
   const run: Partial<Record<PersonMenuKey, () => void>> = {
     'add-contact': addToContacts,
     'mark-client': markClient,
     'not-client': notClient,
     demo: () => demo(true),
     'not-demo': () => demo(false),
+    later: () => later(true),
+    'not-later': () => later(false),
     'dont-pitch': () => list({ dontPitch: true }, P.dontPitchDone(name)),
     'not-dont-pitch': () => list({ dontPitch: false }, P.dontPitchOff(name)),
     'never-contact': () => list({ neverContact: true }, P.neverContactDone(name)),
     'not-never-contact': () => list({ neverContact: false }, P.neverContactOff(name)),
   };
   const select = (item: PersonMenuItem) =>
-    item.move !== undefined
-      ? moves.find((m) => m.key === item.move)?.onSelect()
-      : run[item.key]?.();
+    item.owner !== undefined
+      ? give(item.owner)
+      : item.move !== undefined
+        ? moves.find((m) => m.key === item.move)?.onSelect()
+        : run[item.key]?.();
   const personId = (marks ? marks.personId : who.personId) ?? null;
 
   const draw = (item: PersonMenuItem) => {
-    const Icon = ICONS[item.key];
+    const Icon = item.key.startsWith('owner-') ? Users : ICONS[item.key];
     const icon = Icon ? <Icon className="h-4 w-4 flex-none" strokeWidth={1.5} aria-hidden /> : null;
     if (item.kind === 'open')
       return (
@@ -383,7 +417,7 @@ function NameMenu({
     );
   };
 
-  // Their page and chat; the Pipeline's moves; then Contacts, Client, Demo booked and the lists.
+  // Their page and chat; the Pipeline's moves; then Contacts, Client, Demo booked, Later and the lists.
   const groups = [
     items.filter((i) => i.kind === 'open'),
     items.filter((i) => i.key === 'move-to' || i.move !== undefined),

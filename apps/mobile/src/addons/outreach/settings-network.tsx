@@ -46,6 +46,7 @@ import { Text } from '@/components/ui/text';
 import { AskButton, type AskActions } from './asks';
 import { useAutosave, type Autosave, type SaveState } from './autosave';
 import { Note } from './kit';
+import { LikeYoursSection, type LikeYoursProps } from './like-yours';
 import { ProfileList, type ProfileProps } from './ready';
 import {
   ExtensionTicks,
@@ -84,12 +85,15 @@ export function NetworkMine({
   asks = null,
   askActions = null,
   profile = null,
+  likeYours = null,
 }: {
   platform: Platform;
   automation: AutomationOutput;
   form: Autosave<AutomationSettings>;
   manages: boolean;
   online: boolean;
+  /** On Instagram, the business's accounts like yours (decision 110): null where there are none to show. */
+  likeYours?: LikeYoursProps | null;
   /** The person's own asks of their computer (Check LinkedIn) and the computer: null on someone else's settings. */
   asks?: AsksOutput | null;
   askActions?: AskActions | null;
@@ -180,6 +184,9 @@ export function NetworkMine({
                 disabled={disabled}
                 testID={testID}
               />
+              {p === 'instagram' && likeYours ? (
+                <LikeYoursSection likeYours={likeYours} boxed disabled={disabled} testID={testID} />
+              ) : null}
               {p === 'facebook' ? (
                 <ExtensionTicks
                   value={value}

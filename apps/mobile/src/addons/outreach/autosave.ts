@@ -5,7 +5,9 @@ import * as React from 'react';
  * stepper or typing after a short pause. One save goes at a time; a change made meanwhile goes in the next save, from
  * the latest value. Saved, the screen's copy of what's kept moves on; refused, the form goes back to what's kept and the
  * line says why in the server's words. A change saved somewhere else (the web, an owner) starts the form again from it,
- * only when nothing of its own waits or is saving. The person's settings and the business's both use it.
+ * only when nothing of its own waits or is saving. The person's settings and the business's both use it. `hold` keeps a
+ * change from saving while the form isn't whole yet (Only these countries with none picked), as the web's does: it
+ * saves with the change that makes it whole.
  */
 
 /** How long a stepper or typing waits after the last change before it saves. */
@@ -41,11 +43,13 @@ const same = (a: unknown, b: unknown) => JSON.stringify(a) === JSON.stringify(b)
 /**
  * `kept` is the server's answer, asked again after each save; `save` saves a whole value and gives the problem's words,
  * or null once it's saved. `onState` hears where the saving stands each time it moves, for a line drawn elsewhere.
+ * `hold` says when a value can't be saved yet: it waits, saying nothing, and the form says why beside what's missing.
  */
 export function useAutosave<T>(
   kept: T,
   save: (value: T) => Promise<string | null>,
   onState?: (state: SaveState) => void,
+  hold?: (value: T) => boolean,
 ): Autosave<T> {
   const [value, setValue] = React.useState(kept);
   const [state, setState] = React.useState<SaveState>({ kind: 'idle' });
@@ -57,8 +61,12 @@ export function useAutosave<T>(
   const again = React.useRef(false);
   const pause = React.useRef<ReturnType<typeof setTimeout> | null>(null);
   const said = React.useRef<string | null>(null);
+  // A change that can't be saved yet, waiting for the one that makes the form whole.
+  const held = React.useRef(false);
   const send = React.useRef(save);
   send.current = save;
+  const holds = React.useRef(hold);
+  holds.current = hold;
   const tell = React.useRef(onState);
   tell.current = onState;
   React.useEffect(() => tell.current?.(state), [state]);
@@ -70,6 +78,11 @@ export function useAutosave<T>(
       again.current = true;
       return;
     }
+    if (holds.current?.(latest.current) === true) {
+      held.current = true;
+      return;
+    }
+    held.current = false;
     saving.current = true;
     const sent = latest.current;
     const words = said.current;
@@ -84,6 +97,7 @@ export function useAutosave<T>(
     if (problem) {
       // Back to what's kept, a change made meanwhile with it, and why.
       again.current = false;
+      held.current = false;
       if (pause.current) clearTimeout(pause.current);
       pause.current = null;
       latest.current = saved.current;
@@ -92,10 +106,15 @@ export function useAutosave<T>(
       return;
     }
     saved.current = sent;
-    if (again.current) {
+    // A change made meanwhile goes next, unless it can't be saved yet: what went is saved, and it waits.
+    if (again.current && holds.current?.(latest.current) !== true) {
       again.current = false;
       void run();
-    } else if (!pause.current) setState({ kind: 'saved', words });
+      return;
+    }
+    again.current = false;
+    if (holds.current?.(latest.current) === true) held.current = true;
+    if (!pause.current) setState({ kind: 'saved', words });
   }, []);
 
   const change = React.useCallback<Edit<T>>(
@@ -103,9 +122,15 @@ export function useAutosave<T>(
       latest.current = edit(latest.current);
       setValue(latest.current);
       said.current = options?.said ?? null;
-      setState({ kind: 'saving' });
       if (pause.current) clearTimeout(pause.current);
       pause.current = null;
+      if (holds.current?.(latest.current) === true) {
+        // Not whole yet: nothing goes, and the line stays as it was.
+        held.current = true;
+        return;
+      }
+      held.current = false;
+      setState({ kind: 'saving' });
       if (options?.later) pause.current = setTimeout(() => void run(), SAVE_PAUSE_MS);
       else void run();
     },
@@ -118,7 +143,7 @@ export function useAutosave<T>(
   React.useEffect(() => {
     if (same(kept, saved.current)) return;
     saved.current = kept;
-    if (saving.current || pause.current || again.current) return;
+    if (saving.current || pause.current || again.current || held.current) return;
     latest.current = kept;
     setValue(kept);
   }, [keptKey]);

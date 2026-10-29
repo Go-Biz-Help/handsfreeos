@@ -17,6 +17,8 @@ export const PAGE_KINDS = [
   'group-members',
   'search',
   'notifications',
+  // Your friends' birthdays (facebook.com/events/birthdays/, decision 108).
+  'birthdays',
   'post',
   'feed',
   'other',

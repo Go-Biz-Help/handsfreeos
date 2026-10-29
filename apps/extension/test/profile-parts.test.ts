@@ -74,6 +74,11 @@ const task = (more: Partial<{ name: string; username: string; links: string[] }>
   name: more.name ?? null,
   username: more.username ?? null,
   links: more.links ?? [],
+  work: null,
+  featured: null,
+  ideal: null,
+  services: [],
+  linkChanges: [],
 });
 
 describe('the name, username and links, put in by the person', () => {

@@ -63,7 +63,7 @@ async function profileContext(
   platform: Platform,
 ): Promise<{ readonly context: ProfileContext; readonly before: ProfileCheck | null }> {
   const ws = ctx.scope.workspaceId!;
-  const { business, you, row, kept } = await asWorker(ctx.db, ctx.scope, async (tx) => {
+  const { business, you, row, kept, site } = await asWorker(ctx.db, ctx.scope, async (tx) => {
     const [b] = await rows<{ name: string; names: string[] | null }>(
       tx,
       sql`select w.name, o.names from app.workspaces w
@@ -84,22 +84,30 @@ async function profileContext(
       sql`select name, details from addon_outreach.playbooks
           where workspace_id = ${ws} and archived_at is null and ${FOR_CUSTOMERS} order by created_at`,
     );
-    return { business: b, you: u, row: r, kept: p };
+    // The business's website, as `outreach.profiles` gives it: a link Facebook's may change to (decision 99).
+    const [k] = await rows<{ url: string | null }>(
+      tx,
+      sql`select url from app.knowledge_sources where workspace_id = ${ws} limit 1`,
+    );
+    return { business: b, you: u, row: r, kept: p, site: k?.url ?? null };
   });
-  // The playbooks that run on this network, for whether the profile is about the work they offer there.
+  // The playbooks that run on this network, for whether the profile is about the work they offer there, and their
+  // booking links.
+  const booking: string[] = [];
   const playbooks = kept.flatMap((p) => {
     const read = PlaybookDetails.safeParse(upgradePlaybookDetails(p.details));
-    return read.success && runsOn(read.data, platform)
-      ? [
-          {
-            name: p.name,
-            offer: read.data.offer,
-            audience: read.data.audience,
-            niche: read.data.niche ?? null,
-          },
-        ]
-      : [];
+    if (!read.success || !runsOn(read.data, platform)) return [];
+    if (read.data.link) booking.push(read.data.link);
+    return [
+      {
+        name: p.name,
+        offer: read.data.offer,
+        audience: read.data.audience,
+        niche: read.data.niche ?? null,
+      },
+    ];
   });
+  const names = business ? namesGoneBy(business.names ?? [], business.name) : [];
   const others = (row?.network_profiles ?? {}) as Record<string, { check?: unknown } | undefined>;
   const checkOn = (p: Platform): ProfileCheck | null =>
     ProfileCheck.safeParse(p === 'facebook' ? row?.profile_check : others[p]?.check).data ?? null;
@@ -107,9 +115,10 @@ async function profileContext(
   return {
     context: {
       // Every name the business goes by (the main offer's), else its name in HandsFreeOS.
-      business: business
-        ? namesGoneBy(business.names ?? [], business.name).join('; ') || null
-        : null,
+      business: names.join('; ') || null,
+      // The work is added for the first of them (decision 99); a link may change only to one of these.
+      company: names[0] ?? null,
+      links: [...new Set([...booking, ...(site ? [site] : [])])],
       you: you?.full_name?.trim() || null,
       playbooks,
       others: PLATFORM_KEYS.filter((p) => p !== platform).flatMap((p) => {
@@ -148,7 +157,13 @@ export const profileCheck: AddonWorkerAction<ProfileRead> = {
         usage: { source: 'addon' as const, addonId: ctx.manifest.id },
         ...profileCheckAsk(read.platform),
       });
-      check = checkedProfileCheck(value, read, new Date().toISOString(), live?.version ?? null);
+      check = checkedProfileCheck(
+        value,
+        read,
+        new Date().toISOString(),
+        live?.version ?? null,
+        context,
+      );
     } catch (e) {
       throw aiFailure(e);
     }

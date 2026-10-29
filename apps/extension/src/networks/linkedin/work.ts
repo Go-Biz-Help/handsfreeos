@@ -21,6 +21,10 @@ import type {
   AutoAnswer,
   AutoAsk,
   BrowseAnswer,
+  CommentLikeAnswer,
+  CommentLikeAsk,
+  TheirCommentAnswer,
+  TheirCommentAsk,
   ConnectAsk,
   BrowseAsk,
   FeedPostAnswer,
@@ -40,7 +44,10 @@ import type {
   PostsAnswer,
   WithdrawAnswer,
   WithdrawAsk,
+  WritePartAnswer,
+  WritePartAsk,
 } from '../../messages';
+import { writeLinkedInPart } from './parts';
 import {
   connect,
   likeTheirPost,
@@ -51,7 +58,14 @@ import {
 } from './auto';
 import { stepOnPage } from '../facebook/fetch';
 import { openChat, scrollChats, scrollList } from './browse';
-import { postPeopleOn, readComments, readReactions, writeFeedPost } from './compose';
+import {
+  likeTheirComment,
+  postPeopleOn,
+  theirComment,
+  readComments,
+  readReactions,
+  writeFeedPost,
+} from './compose';
 import { dataPage } from './data';
 import {
   loadWholeProfile,
@@ -85,9 +99,12 @@ export const WORK_ASKS: ReadonlySet<string> = new Set([
   'hfos-write-bio',
   'hfos-write-about',
   'hfos-write-name',
+  'hfos-write-part',
   'hfos-withdraw',
   'hfos-their-posts',
   'hfos-like-post',
+  'hfos-their-comment',
+  'hfos-like-comment',
   'hfos-connect',
   'hfos-comment',
   'hfos-message',
@@ -104,6 +121,7 @@ type WorkAsk =
   | Extract<BrowseAsk, { type: 'hfos-open-chat' | 'hfos-scroll-chats' | 'hfos-scroll-list' }>
   | OwnProfileAsk
   | WriteNameAsk
+  | WritePartAsk
   | TryAsk
   | WithdrawAsk
   | AutoAsk
@@ -112,13 +130,29 @@ type WorkAsk =
   | FetchAsk
   | FeedPostAsk
   | Extract<GroupPostAsk, { type: 'hfos-engaged' }>
-  | PostPeopleAsk;
+  | PostPeopleAsk
+  | TheirCommentAsk
+  | CommentLikeAsk;
 
 /** Whether the tab shows a profile: the person's own, after linkedin.com/in/me/ took it there. */
 const onProfile = (href: string) => {
   const kind = classifyUrl(href).kind;
   return kind === 'profile' || kind === 'own-profile';
 };
+
+/**
+ * One of decision 99's parts (./parts.ts), only on the person's own pages: their profile, its posts and Add position,
+ * and Public profile & URL.
+ */
+async function writePartStep(ask: WritePartAsk): Promise<WritePartAnswer> {
+  const path = new URL(location.href).pathname;
+  if (
+    !onProfile(location.href) &&
+    !/^\/(in\/[^/]+\/(edit|recent-activity|overlay)\/|public-profile\/settings)/i.test(path)
+  )
+    return { ok: false, error: 'LinkedIn didn’t open your profile.' };
+  return { ok: true, ...(await writeLinkedInPart(document, location.href, ask.part)) };
+}
 
 /** The person's own profile: read it for the AI's check, or put the headline in. */
 async function ownProfileStep(ask: OwnProfileAsk | WriteNameAsk): Promise<OwnProfileAnswer> {
@@ -228,6 +262,20 @@ async function postStep(
   };
 }
 
+/** Their comment on a good post (decision 116), read then liked, only on the post's own page (./compose.ts). */
+async function commentStep(
+  ask: TheirCommentAsk | CommentLikeAsk,
+): Promise<TheirCommentAnswer | CommentLikeAnswer> {
+  if (classifyUrl(location.href).kind !== 'post')
+    return { ok: false, error: 'LinkedIn didn’t open the post.' };
+  if (ask.type === 'hfos-their-comment')
+    return { ok: true, comment: theirComment(document, location.href, ask.profile, ask.postUrl) };
+  return {
+    ok: true,
+    ...(await likeTheirComment(document, location.href, ask.profile, ask.postUrl)),
+  };
+}
+
 /** The runner's steps (./auto.ts), each only on its own kind of page. */
 async function autoStep(
   ask: AutoAsk | ConnectAsk | OpenMessageAsk,
@@ -284,6 +332,8 @@ export function work(ask: { readonly type: string }): Promise<unknown> | null {
     case 'hfos-write-about':
     case 'hfos-write-name':
       return ownProfileStep(known);
+    case 'hfos-write-part':
+      return writePartStep(known);
     case 'hfos-withdraw':
       return withdrawStep(known);
     case 'hfos-their-posts':
@@ -293,6 +343,9 @@ export function work(ask: { readonly type: string }): Promise<unknown> | null {
     case 'hfos-message':
     case 'hfos-open-message':
       return autoStep(known);
+    case 'hfos-their-comment':
+    case 'hfos-like-comment':
+      return commentStep(known);
     case 'hfos-fetch-step':
     case 'hfos-fetch-path':
       return fetchStep(known);

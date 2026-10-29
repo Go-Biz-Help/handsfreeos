@@ -17,6 +17,8 @@ import {
   type RecordAction,
   type RecordTab,
 } from '@/components/customers/bits';
+import { holdsAddon } from '@/addons/gate';
+import { PHONE_ADDONS } from '@/addons/registry';
 import { DeleteSheet } from '@/components/bin/delete-sheet';
 import { AttributionCard } from '@/components/customers/attribution';
 import { FunnelCard } from '@/components/customers/funnel-card';
@@ -270,6 +272,7 @@ export default function PersonScreen() {
       />
       {person.archivedAt ? null : <FunnelCard workspaceId={business.id} personId={personId} />}
       <DocumentsCard workspaceId={business.id} personId={personId} />
+      <AddonPersonPanels workspaceId={business.id} personId={personId} />
 
       <RecordBody
         data={data}
@@ -338,5 +341,20 @@ export default function PersonScreen() {
       />
       {video.sheet}
     </Screen>
+  );
+}
+
+/** What add-ons show on a customer's page, for the add-ons the person may use (the registry's `PersonPanel`). */
+function AddonPersonPanels({ workspaceId, personId }: { workspaceId: string; personId: string }) {
+  const grants = useGrants();
+  return (
+    <>
+      {PHONE_ADDONS.filter((a) => a.PersonPanel && holdsAddon(grants, a.permission)).map(
+        ({ addonId, PersonPanel }) =>
+          PersonPanel ? (
+            <PersonPanel key={addonId} workspaceId={workspaceId} personId={personId} />
+          ) : null,
+      )}
+    </>
   );
 }

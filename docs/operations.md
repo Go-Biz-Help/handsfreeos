@@ -10220,7 +10220,10 @@ for it in /admin**, one business at a time.
 - **Chris, with his accountant or lawyer** (the plan's "Before stage 3 goes live"): HandsFreeOS charging businesses
   and paying their partners makes it the platform that pays them. Check the business's terms, the partners' terms
   and the 1099s.
-- **US partners only for now** (decision 18). Stripe's form asks for a US bank and a US tax id.
+- **Partners in the US, Canada, the UK, the EEA and Switzerland** (decision 118 in docs/outreach.md). Before
+  Stripe's form opens, a partner picks where their bank is, and their account is made there; Stripe's form then asks
+  for a bank and the tax and ID details of that country. A payout to a bank outside the US costs Stripe's 0.25% more,
+  passed on to the business.
 - **Try it in Stripe's test mode first**, on your laptop (Part 4).
 
 ### Part 1: Turn on Express accounts
@@ -10232,6 +10235,9 @@ for it in /admin**, one business at a time.
    form and in their Stripe Express page.
 5. Set the support email and phone partners see on their Stripe Express page (Stripe keeps these with the
    platform's public details).
+6. Under **Onboarding options** → **Countries** (https://dashboard.stripe.com/settings/connect/onboarding-options/countries),
+   make sure the US, Canada, the UK, Switzerland and the EEA's countries are allowed for Express accounts, so a
+   partner there can be paid.
 
 You should see Express listed as on. A partner's account only ever receives transfers, so it asks for the
 `transfers` capability and nothing else.
@@ -10253,6 +10259,7 @@ payout after the year ends, on a line of their own ("Tax forms for 2026"):
   from 2027: check the IRS's figure each January and change `taxFormThresholdCents` if it moved.
 - **Each form once,** in `app.partner_tax_forms` by the partner's account and year. A payout that's given up on lets
   its forms go to the next one. Test payouts file nothing.
+- **Only a US bank's:** a partner whose account is outside the US gets no 1099, and no fee for one.
 - **What stays HandsFreeOS's:** Stripe's $2.99 for mailing a paper copy when a partner hasn't taken e-delivery, and
   the forms of a business with no payout after the year ends.
 

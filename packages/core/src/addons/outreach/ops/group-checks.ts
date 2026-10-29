@@ -45,8 +45,17 @@ import type { PlaybookDetails } from '../playbooks';
 import { dayNumber, inTurn } from '../posts';
 import { groups, joins, myGroups } from '../tables';
 import { automationOf, rulesOf } from './automation';
-import { countryLetsSql, countryRuleOf, inPlay, inWorkspace, pitchable, type Ctx } from './common';
+import {
+  countryLetsSql,
+  countryRuleOf,
+  inPlay,
+  inWorkspace,
+  notOthers,
+  pitchable,
+  type Ctx,
+} from './common';
 import { playbooksInUse } from './friends';
+import { claimGroup } from './owners';
 import { slowsNow, startOfToday, warningOf } from './tidy';
 
 const DAY = 86_400_000;
@@ -136,7 +145,7 @@ export async function peopleLeft(
         where gp.workspace_id = ${ctx.scope.workspaceId!}
           and ${byCheck ? sql`true` : sql`g.admins_read_at is not null`}
           and not gp.runs_group and p.person_id is null and ${pitchable('p')} and ${inPlay(me, 'p')}
-          and ${lets}
+          and ${notOthers(me, 'g')} and ${lets}
           and p.friendship not in ('self', 'friends', 'request_sent', 'request_received')
           and not exists (select 1 from addon_outreach.group_people x
             where x.profile_id = p.id and x.runs_group)
@@ -451,6 +460,7 @@ export const joinsNext = defineAddonQuery(outreachAddon, {
                   where j.group_id = g.id and j.user_id = ${me} and (j.state <> 'failed'
                     or ${input.groupIds ? sql`false` : sql`j.asked_at >= ${ago(now, GROUP_CHECK_RETRY_DAYS)}::timestamptz`}))
                 and g.check_state is distinct from 'not'
+                ${input.groupIds ? sql`` : sql`and ${notOthers(me, 'g')}`}
               limit 500`,
         )
       : [];
@@ -520,6 +530,8 @@ export const joinNote = defineAddonCommand(outreachAddon, {
           askedAt: sql`case when ${joins.state} = 'failed' then excluded.asked_at else ${joins.askedAt} end`,
         },
       });
+    // Asking to join works the group (decision 107).
+    if (input.state !== 'failed') await claimGroup(ctx, me, group.id, at);
     if (input.state === 'joined')
       await ctx.tx
         .insert(myGroups)

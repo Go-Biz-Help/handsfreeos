@@ -4,7 +4,7 @@ import type { StagesOutput } from '@hfos/core/addons/outreach/stages';
 import type { TodayItem, TodayOutput } from '@hfos/core/addons/outreach/today';
 import { blankPlaybook, type Playbook } from '@hfos/core/addons/outreach/playbooks';
 import { VIDEO_PART_KEYS } from '@hfos/core/addons/outreach/video';
-import { COMMENT_NEEDS_YOU } from '@hfos/core/addons/outreach/sends';
+import { COMMENT_NEEDS_YOU, REBOOK_NEEDS_YOU } from '@hfos/core/addons/outreach/sends';
 import { fireEvent, render, screen, within } from '@testing-library/react-native';
 import * as React from 'react';
 
@@ -187,6 +187,7 @@ describe('Today on the phone', () => {
       week: null,
       fresh: { on: false, from: null, until: null, days: 14 },
       requestsHeld: null,
+      profileOwn: null,
     };
     await render(
       <TodayBody
@@ -238,6 +239,7 @@ describe('Today on the phone', () => {
       week: null,
       fresh: { on: false, from: null, until: null, days: 14 },
       requestsHeld: null,
+      profileOwn: null,
     };
     const onOk = jest.fn();
     const onSkip = jest.fn();
@@ -277,6 +279,69 @@ describe('Today on the phone', () => {
     );
   });
 
+  it('lists a demo’s reminder and another time after a no-show, which says it waits for an OK of its own', async () => {
+    const message = (n: number, name: string, kind: TodayItem['kind'], why: string): TodayItem => ({
+      ...post(n, name, false),
+      kind,
+      postId: null,
+      postUrl: null,
+      posted: null,
+      post: null,
+      why: [why],
+      send: {
+        sendId: id(70 + n),
+        state: 'waiting',
+        text: 'No worries. Want to pick another time?',
+        handedOver: false,
+        needsYou: kind === 'rebook' ? REBOOK_NEEDS_YOU : null,
+      },
+    });
+    const today: TodayOutput = {
+      limits: LIVE.limits,
+      items: [
+        message(
+          1,
+          'Quinn Harper',
+          'demo_reminder',
+          'Their demo is tomorrow, Thursday, October 29 at 2:00 PM CDT',
+        ),
+        message(2, 'Ari Lane', 'rebook', 'Missed their demo, Tuesday, October 27 at 10:00 AM CDT'),
+      ],
+      partners: [],
+      readAdmins: [],
+      hasPlaybook: true,
+      warning: null,
+      auto: [],
+      messages: ['demo_reminder', 'rebook'],
+      sending: 'steps',
+      wheels: { on: false, from: null, ok: 0, daysLeft: 0, edits: 0 },
+      ready: true,
+      week: null,
+      fresh: { on: false, from: null, until: null, days: 14 },
+      requestsHeld: null,
+      profileOwn: null,
+    };
+    await render(
+      <TodayBody
+        today={today}
+        error={null}
+        wheels={null}
+        onRetry={jest.fn()}
+        onOk={jest.fn()}
+        onSkip={jest.fn()}
+        onNotForMe={jest.fn()}
+        onEndWheels={jest.fn()}
+      />,
+    );
+    expect(screen.getByText('Remind them of the demo · 1')).toBeTruthy();
+    expect(screen.getByText('Offer another time · 1')).toBeTruthy();
+    const [quinn, ari] = screen.getAllByTestId('today-item');
+    expect(within(quinn!).queryByTestId('today-send-alone')).toBeNull();
+    expect(within(ari!).getByTestId('today-send-alone').props.children).toBe(
+      `It waits for you on its own: ${REBOOK_NEEDS_YOU}.`,
+    );
+  });
+
   it('shows today’s helpful post, OKs it for the computer, or puts it aside', async () => {
     const actions = { write: jest.fn(), ok: jest.fn(), posted: jest.fn(), skip: jest.fn() };
     const today: TodayOutput = {
@@ -294,6 +359,7 @@ describe('Today on the phone', () => {
       week: null,
       fresh: { on: false, from: null, until: null, days: 14 },
       requestsHeld: null,
+      profileOwn: null,
     };
     const helpful: HelpfulListOutput = {
       posts: [
@@ -307,6 +373,7 @@ describe('Today on the phone', () => {
           how: 'after_ok',
           topic: 'Following up on quotes',
           text: 'I follow up on every quote two days later.',
+          picture: null,
           postUrl: null,
           whyNot: null,
           askedAt: new Date(NOW).toISOString(),
@@ -317,6 +384,7 @@ describe('Today on the phone', () => {
       ],
       today: 1,
       perDay: 1,
+      every: 1,
       posting: 'after_ok',
     };
     await render(
@@ -363,6 +431,7 @@ describe('Today on the phone', () => {
       week: null,
       fresh: { on: false, from: null, until: null, days: 14 },
       requestsHeld: null,
+      profileOwn: null,
     };
     const helpful: HelpfulListOutput = {
       posts: [
@@ -377,6 +446,7 @@ describe('Today on the phone', () => {
           how: 'copy',
           topic: 'Following up on quotes',
           text: 'I follow up on every quote two days later.',
+          picture: null,
           postUrl: null,
           whyNot: null,
           askedAt: new Date(NOW).toISOString(),
@@ -387,6 +457,7 @@ describe('Today on the phone', () => {
       ],
       today: 1,
       perDay: 1,
+      every: 1,
       posting: 'copy',
     };
     await render(
@@ -417,6 +488,77 @@ describe('Today on the phone', () => {
     await fireEvent.press(screen.getByTestId('today-helpful-posted'));
     expect(actions.posted).toHaveBeenCalledWith(id(70));
   });
+
+  it('puts the week’s Instagram post with the picture to take, posted from the phone', async () => {
+    const actions = { write: jest.fn(), ok: jest.fn(), posted: jest.fn(), skip: jest.fn() };
+    const today: TodayOutput = {
+      limits: LIVE.limits,
+      items: [],
+      partners: [],
+      readAdmins: [],
+      hasPlaybook: true,
+      warning: null,
+      auto: [],
+      messages: [],
+      sending: 'off',
+      wheels: { on: false, from: null, ok: 0, daysLeft: 0, edits: 0 },
+      ready: true,
+      week: null,
+      fresh: { on: false, from: null, until: null, days: 14 },
+      requestsHeld: null,
+      profileOwn: null,
+    };
+    const helpful: HelpfulListOutput = {
+      posts: [
+        {
+          helpfulId: id(80),
+          platform: 'instagram',
+          groupId: null,
+          groupName: null,
+          groupUrl: null,
+          playbookName: 'CRM demos',
+          state: 'draft',
+          how: 'copy',
+          topic: 'Following up on quotes',
+          text: 'I follow up on every quote two days later.',
+          picture: 'Your notebook of follow-up dates on the dashboard',
+          postUrl: null,
+          whyNot: null,
+          askedAt: new Date(NOW).toISOString(),
+          postedAt: null,
+          comments: 0,
+          reactions: 0,
+        },
+      ],
+      today: 1,
+      perDay: 1,
+      every: 7,
+      posting: 'copy',
+    };
+    await render(
+      <TodayBody
+        platform="instagram"
+        today={today}
+        helpful={helpful}
+        onHelpful={actions}
+        error={null}
+        wheels={null}
+        onRetry={jest.fn()}
+        onOk={jest.fn()}
+        onSkip={jest.fn()}
+        onNotForMe={jest.fn()}
+        onEndWheels={jest.fn()}
+      />,
+    );
+    const part = screen.getByTestId('today-helpful');
+    expect(within(part).getByText('One helpful post a week, on your own account.')).toBeTruthy();
+    expect(within(part).getByTestId('today-helpful-picture')).toHaveTextContent(
+      'The picture to take: Your notebook of follow-up dates on the dashboard',
+    );
+    expect(within(part).queryByTestId('today-helpful-ok')).toBeNull();
+    await fireEvent.press(screen.getByTestId('today-helpful-posted'));
+    expect(actions.posted).toHaveBeenCalledWith(id(80));
+  });
 });
 
 const todayOf = (items: TodayItem[], partners: TodayItem[] = []): TodayOutput => ({
@@ -434,6 +576,7 @@ const todayOf = (items: TodayItem[], partners: TodayItem[] = []): TodayOutput =>
   week: null,
   fresh: { on: false, from: null, until: null, days: 14 },
   requestsHeld: null,
+  profileOwn: null,
 });
 
 const stagePerson = (
@@ -1010,9 +1153,9 @@ describe('A playbook on the phone', () => {
     expect(sectionWords(PLAYBOOK.details, 'offer')).toBe('A 20-minute demo');
     expect(sectionWords(PLAYBOOK.details, 'signs')).toBe('Nothing yet.');
     expect(sectionWords(PLAYBOOK.details, 'goal')).toBe('Book a demo');
-    // The short video: its link, and the script written on the computer, part by part.
+    // The short video: its link, and the script the AI writes, part by part.
     expect(sectionWords(PLAYBOOK.details, 'video')).toBe(
-      'No video yet\n\nWrite the script on your computer, under Playbooks in HandsFreeOS.',
+      'No video yet\n\nNo script yet. The AI writes one from your main offer and this playbook’s niche.',
     );
     const scripted = sectionWords(
       {

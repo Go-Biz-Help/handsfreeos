@@ -11,11 +11,11 @@
  *
  * On Facebook: their profile (the bio; with no Edit bio, on the About tab's editor Edit profile leads to), Contact and
  * basic info (adding a link), their feed, their friend requests (confirming; then View sent requests, as
- * Check your friend requests presses it, for someone to try cancelling on), their friends, their groups and one of them
+ * Check your friend requests presses it, for someone to try cancelling on), their friends, their followers, their groups and one of them
  * (posting, and commenting on one of its posts), a people search (a friend request on someone they aren't friends
  * with), a groups search (joining one they aren't in), their chats, one friend's profile (liking, unfriending and
  * messaging, the last as it may open Messenger), the profile of someone they sent a request to (cancelling), their
- * notifications, Accounts Center's username page for their Facebook profile (the username: no warning is read there
+ * notifications, their friends' birthdays, Accounts Center's username page for their Facebook profile (the username: no warning is read there
  * while Facebook asks them for something, as its "Confirm it's you" is none), and Download your information (the
  * file).
  */
@@ -47,6 +47,8 @@ import {
 } from './job';
 import { FRIEND_REQUESTS, VIEW_SENT, YOUR_FRIENDS } from './people';
 import { OWN_PROFILE_URL } from './profile';
+import { BIRTHDAYS_PAGE } from './occasions';
+import { YOUR_FOLLOWERS } from './followers';
 import { loadNote, ownProfileNote, tryNote } from './report';
 
 /** What the searches look for: everyday words, to see how the network draws its results. */
@@ -80,6 +82,7 @@ const TRYING: Readonly<Record<TryStep, string>> = {
   pitch: 'your elevator pitch',
   ideal: 'your ideal customer',
   reactors: 'who liked a post',
+  story: 'a story’s Like',
 };
 
 /**
@@ -347,6 +350,11 @@ async function checkup(job: Job): Promise<JobEnd> {
   if (isEnd(friends)) return friends;
   await c.note('your friends', friends.people?.length ?? 0);
   const friend = friends.people?.find((p) => p.profile)?.profile ?? null;
+  // Your followers (decision 113).
+  if (stopped()) return stopped()!;
+  const followers = await c.open(YOUR_FOLLOWERS, 'your followers');
+  if (isEnd(followers)) return followers;
+  await c.note('your followers', followers.people?.length ?? 0);
 
   // Your groups, and the first of them: posting tried there, and commenting on one of its posts on its own page.
   if (stopped()) return stopped()!;
@@ -441,11 +449,16 @@ async function checkup(job: Job): Promise<JobEnd> {
     await c.tryHere('cancel');
   } else if (!c.has('cancel')) await c.nothingFor('cancel', 'no friend requests you’ve sent');
 
-  // Your notifications, your username in Accounts Center, and Download your information.
+  // Your notifications, your friends' birthdays, your username in Accounts Center, and Download your information.
   if (stopped()) return stopped()!;
   const notices = await c.open(`${FACEBOOK}/notifications`, 'your notifications');
   if (isEnd(notices)) return notices;
   await c.note('your notifications', notices.notices?.length ?? 0);
+  // Your friends' birthdays (decision 108).
+  if (stopped()) return stopped()!;
+  const birthdays = await c.open(BIRTHDAYS_PAGE, 'your friends’ birthdays');
+  if (isEnd(birthdays)) return birthdays;
+  await c.note('your friends’ birthdays', birthdays.people?.length ?? 0);
   if (stopped()) return stopped()!;
   const ended = await tryUsername(job, c, editors?.id ?? null);
   if (ended) return ended;

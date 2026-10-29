@@ -23,7 +23,14 @@ import {
 } from '@hfos/core/addons/outreach/profile-check';
 import {
   COVER_SIZE_ON,
+  EVERY_PART_WORDS as E,
+  featuredEdit,
   firstUsername,
+  linkChangesEdit,
+  linkChangesFor,
+  serviceLine,
+  workEdit,
+  workLine,
   linkName,
   LINK_WORDS,
   linksToAdd,
@@ -183,9 +190,13 @@ function Swap({ now, next, mono = false }: { now: string | null; next: string; m
   );
 }
 
+/** The parts listed here: from decision 99 the work and what's featured too, where the person's computer puts them in. */
+const REST_PARTS: readonly string[] = ['username', 'name', 'links', 'work', 'featured'];
+
 /**
- * The profile's username, name and links: each as it is and as written, who does it, and Put these in for the ones
- * ticked (decision 84). Pictures, featured and posts are the checklist's.
+ * The profile's username, name and links, and from decision 99 its work and what's featured (Alignable's ideal
+ * customer and partner, and its services): each as it is and as written, who does it, and Put these in for the ones
+ * ticked (decision 84). Pictures and posts are the checklist's.
  */
 export function ProfileRest({
   workspaceId,
@@ -214,7 +225,7 @@ export function ProfileRest({
         : [],
     [known, check, platform, version],
   );
-  const rows = all.filter((r) => ['username', 'name', 'links'].includes(r.part) && r.how !== 'tip');
+  const rows = all.filter((r) => REST_PARTS.includes(r.part) && r.how !== 'tip');
   const links = useMemo(
     () =>
       known && check
@@ -227,13 +238,29 @@ export function ProfileRest({
   const [linksOn, setLinksOn] = useState<ReadonlySet<string>>(new Set());
   const [ticked, setTicked] = useState<ReadonlySet<string>>(new Set());
   const [dialog, setDialog] = useState<'username' | 'name' | null>(null);
+  // When they started the work (LinkedIn asks), and Facebook's links to take off or change left on (decision 99).
+  const [since, setSince] = useState('');
+  const [changesOn, setChangesOn] = useState<ReadonlySet<string>>(new Set());
+  const changes = rows.some((r) => r.part === 'links')
+    ? linkChangesFor(platform, check ?? null, version)
+    : [];
   // What's written comes ticked: a name and links to add; a username only once picked, as it asks first.
   useEffect(() => {
     setName(check?.names?.[0] ?? check?.nameDraft ?? null);
     setLinksOn(new Set(links.filter((l) => !l.held).map((l) => l.url)));
+    // A link is taken off or changed only once it's switched on (answer 16a).
+    setChangesOn(new Set());
+    setSince('');
     setTicked(
       new Set(
-        rows.filter((r) => !r.ok && r.part !== 'username' && r.next.length).map((r) => r.part),
+        rows
+          .filter(
+            (r) =>
+              !r.ok &&
+              r.part !== 'username' &&
+              (r.next.length > 0 || (r.part === 'links' && changes.length > 0)),
+          )
+          .map((r) => r.part),
       ),
     );
     // Only a new check resets what's picked.
@@ -248,12 +275,38 @@ export function ProfileRest({
       return next;
     });
   const pickedLinks = links.filter((l) => !l.held && linksOn.has(l.url)).map((l) => l.url);
+  const pickedChanges = linkChangesEdit(check, changesOn);
+  // The rest (decision 99): the work, what's featured, and on Alignable the ideal customer, partner and services.
+  const work = workEdit(platform, check, since);
+  const featured = known ? featuredEdit(platform, check, known) : null;
+  const ideal = platform === 'alignable' ? (check.idealDraft ?? null) : null;
+  const services = platform === 'alignable' ? (check.services ?? []) : [];
+  const can = (part: string): boolean =>
+    part === 'username'
+      ? !!username
+      : part === 'name'
+        ? !!name
+        : part === 'links'
+          ? pickedLinks.length > 0 || pickedChanges.length > 0
+          : part === 'work'
+            ? platform === 'alignable'
+              ? !!ideal
+              : work.edit !== null
+            : platform === 'alignable'
+              ? services.length > 0
+              : featured !== null;
+  const on = (part: string) => ticked.has(part) && can(part);
   const edit = {
-    ...(ticked.has('name') && name ? { name } : {}),
-    ...(ticked.has('username') && username ? { username } : {}),
-    ...(ticked.has('links') && pickedLinks.length ? { links: pickedLinks } : {}),
+    ...(on('name') && name ? { name } : {}),
+    ...(on('username') && username ? { username } : {}),
+    ...(on('links') && pickedLinks.length ? { links: pickedLinks } : {}),
+    ...(on('links') && pickedChanges.length ? { linkChanges: pickedChanges } : {}),
+    ...(on('work') && work.edit ? { work: work.edit } : {}),
+    ...(on('work') && ideal ? { ideal } : {}),
+    ...(on('featured') && featured ? { featured } : {}),
+    ...(on('featured') && services.length ? { services } : {}),
   };
-  const count = Object.keys(edit).length;
+  const count = rows.filter((r) => on(r.part)).length;
   const goIn = rows.filter((r) => r.how === 'auto').length;
   return (
     <section
@@ -269,12 +322,6 @@ export function ProfileRest({
       </div>
       <ul className="divide-y divide-border border-y border-border">
         {rows.map((row) => {
-          const can =
-            row.part === 'username'
-              ? !!username
-              : row.part === 'name'
-                ? !!name
-                : pickedLinks.length > 0;
           const next =
             row.part === 'username'
               ? username
@@ -282,9 +329,13 @@ export function ProfileRest({
                 : null
               : row.part === 'name'
                 ? name
-                : pickedLinks.length
-                  ? pickedLinks.join(', ')
-                  : null;
+                : row.part === 'links'
+                  ? pickedLinks.length
+                    ? pickedLinks.join(', ')
+                    : null
+                  : row.part === 'work' && check.workDraft && platform !== 'alignable'
+                    ? workLine(check.workDraft)
+                    : null;
           return (
             <li
               key={row.part}
@@ -302,8 +353,8 @@ export function ProfileRest({
                 <input
                   type="checkbox"
                   className="mt-1 h-[18px] w-[18px] accent-[var(--accent)]"
-                  checked={ticked.has(row.part) && can}
-                  disabled={!can}
+                  checked={on(row.part)}
+                  disabled={!can(row.part)}
                   onChange={(e) => tick(row.part, e.target.checked)}
                   aria-label={`Put in the ${row.name.toLowerCase()}`}
                   data-testid={`ready-part-${row.part}-tick`}
@@ -336,7 +387,52 @@ export function ProfileRest({
                   <p className="mt-1 text-[13.5px] text-text-2">{row.fix}</p>
                 ) : null}
                 {row.part === 'links' && !row.ok ? (
-                  <LinkSwitches links={links} on={linksOn} onChange={setLinksOn} />
+                  <>
+                    <LinkSwitches links={links} on={linksOn} onChange={setLinksOn} />
+                    <LinkChangeSwitches changes={changes} on={changesOn} onChange={setChangesOn} />
+                  </>
+                ) : null}
+                {row.part === 'work' && !row.ok && check.workDraft && platform !== 'alignable' ? (
+                  <WorkSince
+                    platform={platform}
+                    words={check.workDraft.words}
+                    since={since}
+                    onChange={setSince}
+                    why={work.why}
+                  />
+                ) : null}
+                {(row.part === 'featured' || (row.part === 'work' && platform === 'alignable')) &&
+                !row.ok &&
+                row.next.length ? (
+                  <ul className="mt-2 grid gap-1.5" data-testid={`ready-part-${row.part}-next`}>
+                    {(row.part === 'featured' && platform === 'alignable'
+                      ? services.map(serviceLine)
+                      : row.next
+                    ).map((line) => (
+                      <li
+                        key={line}
+                        className="rounded-control border border-accent bg-accent-soft px-3 py-2 text-[13.5px] [overflow-wrap:anywhere]"
+                      >
+                        {row.part === 'featured' && featured?.link === line ? (
+                          <>
+                            <span className="block text-[12px] font-medium text-text-2">
+                              {E.link}
+                            </span>
+                            <span className="font-mono text-[12.5px]">{line}</span>
+                          </>
+                        ) : row.part === 'featured' && platform !== 'alignable' ? (
+                          <>
+                            <span className="block text-[12px] font-medium text-text-2">
+                              {E.post}
+                            </span>
+                            {line}
+                          </>
+                        ) : (
+                          line
+                        )}
+                      </li>
+                    ))}
+                  </ul>
                 ) : null}
                 {/* Who does it, only for what's left to change. */}
                 <p className={cn('mt-1.5 text-[12.5px] text-text-3', row.ok && 'hidden')}>
@@ -418,6 +514,87 @@ export function ProfileRest({
         }}
       />
     </section>
+  );
+}
+
+/** When they started the work (decision 99): LinkedIn asks for the month; the AI's words on it below. */
+function WorkSince({
+  platform,
+  words,
+  since,
+  onChange,
+  why,
+}: {
+  platform: Platform;
+  words: string | null;
+  since: string;
+  onChange: (since: string) => void;
+  why: string | null;
+}) {
+  return (
+    <div className="mt-2 grid gap-1.5">
+      {words ? <p className="text-[13px] text-text-2">{words}</p> : null}
+      <label className="text-[13px] font-medium" htmlFor={`work-since-${platform}`}>
+        {E.since}
+      </label>
+      <input
+        id={`work-since-${platform}`}
+        value={since}
+        onChange={(e) => onChange(e.target.value)}
+        placeholder="March 2021"
+        className="h-9 w-48 rounded-control border border-border-strong bg-card px-2.5 text-[14px] focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring"
+        data-testid="ready-work-since"
+      />
+      <p
+        className={cn('text-[12px]', why && since.trim() ? 'text-warning-text' : 'text-text-3')}
+        data-testid="ready-work-since-why"
+      >
+        {why && since.trim() ? why : E.sinceHint(platform)}
+      </p>
+    </div>
+  );
+}
+
+/** Facebook's links there to take off or change (answer 16a), each with its switch: nothing changes unless it's on. */
+function LinkChangeSwitches({
+  changes,
+  on,
+  onChange,
+}: {
+  changes: readonly { link: string; to: string | null; why: string }[];
+  on: ReadonlySet<string>;
+  onChange: (next: ReadonlySet<string>) => void;
+}) {
+  if (!changes.length) return null;
+  return (
+    <div className="mt-3 grid gap-2" data-testid="ready-link-changes">
+      <p className="text-[13px] font-semibold">{E.changes}</p>
+      {changes.map((c) => (
+        <div
+          key={c.link}
+          className="flex items-center justify-between gap-3 rounded-control bg-card-2 px-3 py-2"
+        >
+          <div className="min-w-0">
+            <p className="truncate font-mono text-[12px] text-text-2 line-through decoration-text-3">
+              {c.link}
+            </p>
+            <p className="text-[13.5px] font-medium">{c.to ? E.changeTo(c.to) : E.takeOff}</p>
+            <p className="text-[12px] text-text-3">{c.why}</p>
+          </div>
+          <Switch
+            checked={on.has(c.link)}
+            label={c.to ? E.changeTo(c.to) : `${E.takeOff}: ${c.link}`}
+            onChange={(next) => {
+              const s = new Set(on);
+              if (next) s.add(c.link);
+              else s.delete(c.link);
+              onChange(s);
+            }}
+          />
+        </div>
+      ))}
+      <p className="text-[12px] text-text-3">{E.changesHint}</p>
+    </div>
   );
 }
 

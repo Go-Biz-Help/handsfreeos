@@ -253,6 +253,7 @@ describe('paying partners', () => {
     const { provider, calls } = stripeWatching(ready);
     const made = await provider.platform.payouts.create({
       email: 'pia@example.com',
+      country: 'US',
       metadata: { partner_id: 'p1' },
       idempotencyKey: 'partner-payout-account:p1',
     });
@@ -273,7 +274,24 @@ describe('paying partners', () => {
       transfersActive: true,
       disabledReason: null,
       due: [],
+      country: 'US',
     });
+  });
+
+  it('makes a partner’s account in the country their bank is in (decision 118)', async () => {
+    const { provider, calls } = stripeWatching({ ...ready, country: 'CA' });
+    const made = await provider.platform.payouts.create({
+      email: null,
+      country: 'CA',
+      metadata: { partner_id: 'p2' },
+      idempotencyKey: 'partner-payout-account:p2:CA',
+    });
+    expect(calls[0]!.body.get('country')).toBe('CA');
+    // Still only transfers: Stripe pays Canada, the UK, the EEA and Switzerland across borders on the full agreement.
+    expect(calls[0]!.body.get('capabilities[transfers][requested]')).toBe('true');
+    expect(calls[0]!.body.get('capabilities[card_payments][requested]')).toBeNull();
+    expect(calls[0]!.body.get('tos_acceptance[service_agreement]')).toBeNull();
+    expect(made.country).toBe('CA');
   });
 
   it('reads what Stripe still needs from them, and that it can’t pay them yet', async () => {

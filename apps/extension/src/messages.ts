@@ -14,12 +14,13 @@ import type { LinkedInFilePart } from './hfos/files';
 import type { AboutResult, CodeResult } from './networks/alignable/own-profile';
 import type { EditorSteps } from './networks/facebook/editors';
 import type { LinkResult } from './networks/facebook/links';
+import type { PartWrite, PartWrote } from './networks/fill';
 import type { BioResult, OwnEditors } from './networks/facebook/own-profile';
 import type { FormSteps } from './networks/instagram/own-profile';
 import type { NameWrote } from './networks/accounts-center/name';
 import type { Asking } from './networks/accounts-center/pages';
 import type { UsernameWrote } from './networks/accounts-center/username';
-import type { AutoResult, MessageWrote, TheirPost } from './networks/facebook/auto';
+import type { AutoResult, GroupFeedPost, MessageWrote, TheirPost } from './networks/facebook/auto';
 import type { StepAsk, StepResult } from './networks/facebook/fetch';
 import type { Engaged, PostResult } from './networks/facebook/compose';
 import type { JoinStep } from './networks/facebook/join';
@@ -71,7 +72,12 @@ export type BrowseAsk =
    */
   | { readonly type: 'hfos-open-likers' }
   | { readonly type: 'hfos-more-comments' }
-  | { readonly type: 'hfos-close-dialog' };
+  | { readonly type: 'hfos-close-dialog' }
+  /**
+   * An Instagram account like the business's (decision 110, src/jobs/instagram/like-yours.ts): the box of its followers
+   * opened by its count of followers, on its own page.
+   */
+  | { readonly type: 'hfos-open-their-followers' };
 
 export type BrowseAnswer = { readonly ok: boolean };
 
@@ -149,6 +155,65 @@ export type GroupPostAnswer =
   | { readonly ok: true; readonly result: PostResult }
   | { readonly ok: true; readonly comments: Engaged[]; readonly reactions: Engaged[] }
   | { readonly ok: false; readonly error: string };
+
+/**
+ * Their story on its own page (decision 111, src/networks/instagram/auto.ts): watched a few seconds and liked with the
+ * viewer's own Like, then closed; how it went, and the address of the story it liked.
+ */
+export type StoryAsk = { readonly type: 'hfos-like-story'; readonly profile: ProfileRef };
+export type StoryAnswer =
+  | { readonly ok: true; readonly result: AutoResult; readonly storyUrl: string | null }
+  | { readonly ok: false; readonly error: string };
+
+/**
+ * Their comment on a good post, on that post's own page (decision 116: the warm-up for someone found by their comment,
+ * src/auto/instagram.ts, src/auto/linkedin.ts, src/auto/alignable.ts), found again by who wrote it: first read (what it
+ * says, so one about grief, illness or trouble is never liked, and whether it's liked), then liked with its own Like;
+ * how that went, with its own link when the page gives one and what it says.
+ */
+export type TheirCommentAsk = {
+  readonly type: 'hfos-their-comment';
+  readonly profile: ProfileRef;
+  readonly postUrl: string;
+};
+export type CommentLikeAsk = {
+  readonly type: 'hfos-like-comment';
+  readonly profile: ProfileRef;
+  readonly postUrl: string;
+};
+/** Their comment as the page shows it: null when the page isn't the post asked for, or shows no comment of theirs. */
+export interface TheirComment {
+  readonly text: string | null;
+  readonly commentUrl: string | null;
+  /** Whether the person's like is on it; null when it shows no Like to press. */
+  readonly liked: boolean | null;
+}
+export type TheirCommentAnswer =
+  | { readonly ok: true; readonly comment: TheirComment | null }
+  | { readonly ok: false; readonly error: string };
+export interface CommentLiked {
+  readonly result: AutoResult;
+  readonly commentUrl: string | null;
+  readonly text: string | null;
+}
+export type CommentLikeAnswer =
+  ({ readonly ok: true } & CommentLiked) | { readonly ok: false; readonly error: string };
+
+/**
+ * In one of the person's Facebook groups (decision 114, src/networks/facebook/auto.ts): the newest posts in its feed,
+ * each with whether the person liked it already, for the day's likes and its question for a reply; and one of them
+ * liked, by its place among those read, checked by its link when the page gave one. The like answers as an
+ * `AutoAnswer`, with the post's address.
+ */
+export type GroupFeedAsk = { readonly type: 'hfos-group-feed'; readonly most: number };
+export type GroupFeedAnswer =
+  | { readonly ok: true; readonly posts: readonly GroupFeedPost[] }
+  | { readonly ok: false; readonly error: string };
+export type GroupLikeAsk = {
+  readonly type: 'hfos-like-group-post';
+  readonly index: number;
+  readonly url: string | null;
+};
 
 /**
  * LinkedIn's helpful post, put up on the person's own feed (src/networks/linkedin/compose.ts): how it went, and its
@@ -315,10 +380,20 @@ export type AccountWarningsAnswer =
     }
   | { readonly ok: false; readonly error: string };
 
+/**
+ * One of decision 99's parts of the person's own profile, put in on the page the tab shows (src/networks/fill.ts): their
+ * work, a featured post or link, a link taken off, LinkedIn's address and website, Alignable's Elevator Pitch, ideal
+ * customer and partner and services. From 0.98.0.
+ */
+export type WritePartAsk = { readonly type: 'hfos-write-part'; readonly part: PartWrite };
+export type WritePartAnswer =
+  ({ readonly ok: true } & PartWrote) | { readonly ok: false; readonly error: string };
+
 /** Put these in's own asks on Facebook, and in Accounts Center on Instagram (decision 89), and what each is answered. */
 export type ProfileEditAsk =
   | OwnEditorsAsk
   | WriteLinkAsk
+  | WritePartAsk
   | WriteUsernameAsk
   | WriteCenterNameAsk
   | UsernamePageAsk
@@ -326,6 +401,7 @@ export type ProfileEditAsk =
 export interface ProfileEditAnswers {
   readonly 'hfos-own-editors': OwnEditorsAnswer;
   readonly 'hfos-write-link': WriteLinkAnswer;
+  readonly 'hfos-write-part': WritePartAnswer;
   readonly 'hfos-write-username': WriteUsernameAnswer;
   readonly 'hfos-write-center-name': WriteCenterNameAnswer;
   readonly 'hfos-username-page': UsernamePageAnswer;

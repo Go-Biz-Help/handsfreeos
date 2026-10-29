@@ -19,7 +19,7 @@ import { findStep, shown, type FetchStep } from './fetch';
 import { isNameLike, nameForms, peopleLinked, sameName } from './people';
 import { COMMENT, LIKE, postBoxes, readPost } from './posts';
 import type { TidyPlan } from './tidy';
-import type { ProfilePage, ProfileRef } from './types';
+import type { Named, ProfilePage, ProfileRef } from './types';
 import { classifyUrl, FACEBOOK } from './urls';
 import { UI_WORDS } from './vocabulary';
 
@@ -249,6 +249,78 @@ export async function likeTheirPost(
   pick: { readonly index: number; readonly url: string | null },
 ): Promise<{ readonly result: AutoResult; readonly postUrl: string | null }> {
   const found = theirPosts(doc, href, profile);
+  const one =
+    (pick.url ? found.find((f) => f.post.url === pick.url) : undefined) ??
+    (pick.url ? undefined : found[pick.index]);
+  if (!one) return { result: 'none', postUrl: pick.url };
+  const button = likeButton(one.box);
+  if (!button) return { result: 'none', postUrl: one.post.url };
+  if (!/^like$/i.test(clean(button.getAttribute('aria-label'))))
+    return { result: 'already', postUrl: one.post.url };
+  (button as HTMLElement).click();
+  return { result: 'done', postUrl: one.post.url };
+}
+
+/** One post in a group's feed (decision 114): for the day's likes there and its question for a reply. */
+export interface GroupFeedPost extends TheirPost {
+  readonly author: Named | null;
+  readonly comments: number | null;
+  readonly reactions: number | null;
+}
+
+/** The posts in the group's feed on the page, as far as it has drawn, in page order: anyone's, with words. */
+export function groupFeedPosts(
+  doc: Document,
+  href: string,
+): { readonly box: Element; readonly post: GroupFeedPost }[] {
+  const found: { readonly box: Element; readonly post: GroupFeedPost }[] = [];
+  for (const box of postBoxes(mainOf(doc))) {
+    const post = readPost(box, href);
+    if (!post?.text) continue;
+    const like = likeButton(box);
+    found.push({
+      box,
+      post: {
+        url: post.url,
+        when: post.when,
+        text: post.text,
+        pictures: picturesOf(box),
+        liked: like !== null && !/^like$/i.test(clean(like.getAttribute('aria-label'))),
+        author: post.author,
+        comments: post.comments,
+        reactions: post.reactions,
+      },
+    });
+  }
+  return found;
+}
+
+/** Reads the newest few posts in a group's feed (decision 114), scrolling a little while fewer are drawn. */
+export async function readGroupFeed(
+  doc: Document,
+  href: string,
+  view: { scrollBy(x: number, y: number): void; readonly innerHeight: number },
+  most: number,
+): Promise<GroupFeedPost[]> {
+  let found = groupFeedPosts(doc, href);
+  for (let more = 0; found.length < most && more < 3; more++) {
+    view.scrollBy(0, view.innerHeight);
+    await pause(1_200);
+    found = groupFeedPosts(doc, href);
+  }
+  return found.slice(0, most).map((f) => f.post);
+}
+
+/**
+ * Likes one of the posts `readGroupFeed` read, by its place among them, checked by its link when the page gave one
+ * (decision 114). The post's address, when the page gave it, for noting.
+ */
+export function likeGroupPost(
+  doc: Document,
+  href: string,
+  pick: { readonly index: number; readonly url: string | null },
+): { readonly result: AutoResult; readonly postUrl: string | null } {
+  const found = groupFeedPosts(doc, href);
   const one =
     (pick.url ? found.find((f) => f.post.url === pick.url) : undefined) ??
     (pick.url ? undefined : found[pick.index]);

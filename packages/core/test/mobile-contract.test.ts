@@ -132,11 +132,12 @@ const ONLINE_COMMANDS = [
   'outreach.ask.cancel',
   'outreach.ask.code',
   // The person menu on Today (decision 44): Add to Contacts, Demo booked and Don't pitch; and on any name, Mark as
-  // client and Not a client after all (decision 91).
+  // client and Not a client after all (decision 91), and Later (decision 100).
   'outreach.profile.contact',
   'outreach.demo.mark',
   'outreach.friend.set',
   'outreach.client.set',
+  'outreach.later.set',
   // Where someone stands, from the Pipeline screen (decision 47), and on the Partners list (decision 81).
   'outreach.stage.mark',
   'outreach.partner.mark',
@@ -151,6 +152,21 @@ const ONLINE_COMMANDS = [
   'outreach.readiness.profile',
   'outreach.readiness.numbers',
   'outreach.readiness.messages',
+  // The rest of Social Outreach's settings on the phone (decision 104): a computer renamed or removed, a country call
+  // kept or taken back, and the sample messages changed or a kept note forgotten.
+  'outreach.computer.rename',
+  'outreach.computer.remove',
+  'outreach.country.decide',
+  'outreach.country.unskip',
+  'outreach.messages.edit',
+  'outreach.messages.forget',
+  // Instagram accounts like yours, added or taken off in the settings (decision 110).
+  'outreach.like_yours.add',
+  'outreach.like_yours.remove',
+  // Won or lost after the demo, on a customer's Social card (decision 106).
+  'outreach.demo.outcome',
+  // A group or a person given to a teammate, on a group's page and the person menu (decision 107).
+  'outreach.owner.move',
   // Feedback on the AI teammate's replies (HANDSFREEOS_AI_FEEDBACK_IMPLEMENTATION_PLAN.md), in a conversation and the
   // test console: a thumbs up or down, the answer to its quick question, and Not now on the rule it suggests.
   'ai_teammate.give_feedback',
@@ -264,10 +280,15 @@ const QUERIES = [
   'outreach.setup',
   // The Pipeline screen: everyone the person reached, by where they stand (decision 47).
   'outreach.stages',
+  // A customer's Social card and a group's own page: how someone came along (decision 103).
+  'outreach.person',
+  'outreach.group.people',
   // Today's helpful post, and those up lately (decision 50).
   'outreach.helpful',
   // Get ready on Today: what's left before the extension reaches anyone (decision 63).
   'outreach.readiness',
+  // Not sure where they live and Skipped for country, from General on the phone (decision 104).
+  'outreach.countries.skipped',
   // The extension's sign-ins waiting for the person's number, for the screen its push opens (20261027002910).
   'extension_sign_in.pending',
   // The feedback on the AI teammate's replies on a screen, and what came of it, asked again while it's being read.

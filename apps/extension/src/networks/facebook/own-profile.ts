@@ -403,6 +403,8 @@ export interface OwnEditors {
   readonly about: string | null;
   /** The Links card's Edit links (Contact and basic info), where links are added; else that page by the address. */
   readonly links: string | null;
+  /** Work and education on the About tab, by the address, where their work is added (decision 99). */
+  readonly work?: string | null;
   /** The profile's number, which Accounts Center's username page goes by: Edit profile's `id=`, or the address's. */
   readonly id: string | null;
   /** The username in the profile's address. */
@@ -461,14 +463,16 @@ export function ownEditorsOf(doc: Document, href: string): OwnEditors {
   };
   const aboutId = aboutLink ? (urlOf(aboutLink)?.searchParams.get('id') ?? null) : null;
   const id = aboutId && NUMBER.test(aboutId) ? aboutId : (profile?.id ?? null);
-  const built = profile?.username
-    ? `${FACEBOOK}/${encodeURIComponent(profile.username)}/about_contact`
-    : id
-      ? `${FACEBOOK}/profile.php?id=${id}&sk=about_contact`
-      : null;
+  const tab = (sk: string) =>
+    profile?.username
+      ? `${FACEBOOK}/${encodeURIComponent(profile.username)}/${sk}`
+      : id
+        ? `${FACEBOOK}/profile.php?id=${id}&sk=${sk}`
+        : null;
   return {
     about: whole(aboutLink),
-    links: whole(linksLink) ?? built,
+    links: whole(linksLink) ?? tab('about_contact'),
+    work: tab('about_work_and_education'),
     id,
     username: profile?.username ?? null,
   };

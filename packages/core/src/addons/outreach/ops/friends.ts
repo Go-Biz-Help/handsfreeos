@@ -59,6 +59,7 @@ import {
   type Profile,
   type ProfileKey,
 } from './common';
+import { automationOf } from './automation';
 import { checksSummary, knownCheck } from './checks';
 import { matchFileLater } from './file-match';
 import { clearNeeds, doneNeeds } from './needs';
@@ -145,7 +146,7 @@ export const friendsSave = defineAddonCommand(outreachAddon, {
   output: FriendsSaveOutput,
   permission: 'outreach.use',
   scope: inWorkspace,
-  emits: ['outreach.friends.saved', 'outreach.need.cleared'],
+  emits: ['outreach.friends.saved', 'outreach.need.cleared', 'outreach.friend.accepted'],
   async handler(ctx, input) {
     const me = requireHuman(ctx).userId;
     const ws = ctx.scope.workspaceId!;
@@ -232,6 +233,16 @@ export const friendsSave = defineAddonCommand(outreachAddon, {
           await ctx.tx.update(profiles).set(change).where(eq(profiles.id, had.id));
       }
 
+      // On the friends list now, with the person's own request to them last seen waiting: they accepted (decision 101).
+      const accepted =
+        input.list === 'friends'
+          ? await requestsAccepted(
+              ctx,
+              me,
+              people.map((p) => found(p.profile)!.id),
+              at,
+            )
+          : [];
       const changed = await keepFriendStates(
         ctx,
         me,
@@ -270,10 +281,50 @@ export const friendsSave = defineAddonCommand(outreachAddon, {
         entityId: ws,
         payload: { platform: input.platform, list: input.list, ...result },
       });
+      // Their phone hears it when they switched that on (Settings → General, Your phone and the extension).
+      if (accepted.length)
+        await ctx.emit({
+          type: 'outreach.friend.accepted',
+          entityType: 'workspace',
+          entityId: ws,
+          payload: {
+            userId: me,
+            platform: input.platform,
+            profileIds: accepted,
+            push: (await automationOf(ctx, me)).settings.acceptedPush,
+          },
+        });
       return result;
     });
   },
 });
+
+/**
+ * Of some profiles now on the person's friends list, those whose last state with them was the person's own request,
+ * seen before `at`: they accepted it (decision 101). A later look that's kept already says more, as
+ * `keepFriendStates` has it.
+ */
+async function requestsAccepted(
+  ctx: CommandContext,
+  me: string,
+  profileIds: readonly string[],
+  at: Date,
+): Promise<string[]> {
+  if (!profileIds.length) return [];
+  const sent = await ctx.tx
+    .select({ profileId: friends.profileId })
+    .from(friends)
+    .where(
+      and(
+        eq(friends.workspaceId, ctx.scope.workspaceId!),
+        eq(friends.userId, me),
+        inArray(friends.profileId, [...new Set(profileIds)]),
+        eq(friends.state, 'request_sent'),
+        sql`${friends.seenAt} <= ${at.toISOString()}::timestamptz`,
+      ),
+    );
+  return sent.map((f) => f.profileId);
+}
 
 /** The profile `friend.set` and `demo.mark` are about: the one kept here, or the one on the page, kept now when it's new. */
 export async function profileToSet(

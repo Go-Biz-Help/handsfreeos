@@ -407,6 +407,7 @@ export const recordPayoutAccount = (
       transfersActive: state.transfersActive,
       disabledReason: state.disabledReason,
       due: [...state.due],
+      country: state.country,
     },
     systemActor(scope),
     workerMeta(),

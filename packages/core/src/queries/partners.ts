@@ -397,7 +397,12 @@ export const portalPartner = defineQuery({
       transfers_active: boolean;
       disabled_reason: string | null;
       due_count: number;
-    }>(ctx.tx, sql`select * from portal.partner_payout_account()`);
+      country: string;
+    }>(
+      ctx.tx,
+      sql`select a.*, coalesce(portal.partner_payout_country(), 'US') as country
+          from portal.partner_payout_account() a`,
+    );
     const paidLines = await rows<{
       line_id: string;
       month: string;

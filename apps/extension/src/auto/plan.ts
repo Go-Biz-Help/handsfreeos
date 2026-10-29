@@ -15,6 +15,7 @@ import {
   businessDay,
   nextInHours,
   startAfterToday,
+  underAPost,
   workWindow,
   type WorkingHours,
 } from '@hfos/core/addons/outreach/automation';
@@ -37,21 +38,28 @@ export const INSTAGRAM_STATE_KEY = 'hfos.auto.instagram';
 /** The kinds it does on its own, in the order it does them. */
 export const AUTO_KINDS = ['confirm', 'warm_up', 'friend_request', 'comment'] as const;
 export type AutoKind = (typeof AUTO_KINDS)[number];
-/** What it counts as done today: the steps above, messages drafted, and messages sent. */
-export type DoneKind = AutoKind | 'drafted' | 'sent';
+/**
+ * What it counts as done today: the steps above, messages drafted, and messages sent; and on Instagram the stories its
+ * warm-ups liked (decision 111), against the kit's `storyLikesPerDay`.
+ */
+export type DoneKind = AutoKind | 'drafted' | 'sent' | 'story_like';
 
 /** The jobs it does once a day before the list, in the order it does them (./daily.ts, decision 32). */
 export const DAILY_JOBS = [
   'requests',
   'tidy',
+  'occasions',
   'group_checks',
   'join',
   'members',
   'posts',
+  'active',
   'chats',
+  'followers',
   'checks',
   'partners',
   'helpful',
+  'profile',
 ] as const;
 export type DailyJob = (typeof DAILY_JOBS)[number];
 /**
@@ -60,10 +68,21 @@ export type DailyJob = (typeof DAILY_JOBS)[number];
  * commented on good posts, on Instagram and LinkedIn (`post_people`), the checks of the people found, on all three
  * (`found_checks`, ../jobs/found-checks.ts), and on Alignable its search of businesses (`search`), the person's own
  * groups read first (`my_groups`) and the posts of the groups they joined (`group_posts`), beside Facebook's
- * `group_checks`, `join` and `members`.
+ * `group_checks`, `join` and `members`; from 0.101.0 the week's helpful post asked for on Instagram and Alignable
+ * (`weekly_post`, decision 109); from 0.102.0 Instagram's accounts like the business's (`like_yours`, decision
+ * 110, ../jobs/instagram/like-yours.ts); and from 0.104.0 the events near the person on Alignable, once a week
+ * (`events`, decision 112, ../jobs/alignable/events.ts).
  */
 export type OwnDailyJob =
-  'follow_backs' | 'post_people' | 'found_checks' | 'search' | 'my_groups' | 'group_posts';
+  | 'follow_backs'
+  | 'post_people'
+  | 'found_checks'
+  | 'search'
+  | 'my_groups'
+  | 'group_posts'
+  | 'weekly_post'
+  | 'like_yours'
+  | 'events';
 
 /** The shortest and longest wait between two steps in the working hours. */
 export const GAP_MS = { least: 60_000, most: 45 * 60_000 } as const;
@@ -221,8 +240,8 @@ export const workKey = (work: Work): string =>
 
 /**
  * The messages on a list it drafts and sends: a kind it writes, to someone kept, with their chat or profile. A comment
- * that goes through `sends` (decision 92: where `comment` is among the list's `messages`) also needs its post, kept and
- * with its link.
+ * that goes through `sends` (decision 92: where `comment` is among the list's `messages`), and the day's reply in a
+ * group (decision 114: `group_reply`), also needs its post, kept and with its link.
  */
 const messagesOn = (items: readonly TodayListItem[], kinds: readonly string[]) =>
   items.filter(
@@ -230,7 +249,7 @@ const messagesOn = (items: readonly TodayListItem[], kinds: readonly string[]) =
       kinds.includes(item.kind) &&
       item.profileId !== null &&
       (item.profileUrl !== null || item.threadKey !== null) &&
-      (item.kind !== 'comment' || (item.postId !== null && item.postUrl !== null)),
+      (!underAPost(item.kind) || (item.postId !== null && item.postUrl !== null)),
   );
 
 /**

@@ -18,7 +18,7 @@
  */
 import { clean } from '../facebook/dom';
 import { visible } from '../facebook/fetch';
-import { outlineNow } from '../looking/read';
+import { nameOf, outlineNow } from '../looking/read';
 import {
   boxesSaying,
   controlsSaying,
@@ -35,8 +35,12 @@ import { missingOf, TRY_WORD, went, untried } from '../tries';
 import { instagramNoticer } from './actions';
 import {
   followThem,
+  likeTheirComment,
   likeTheirPost,
+  likeTheirStory,
   openTheirChat,
+  storyLikeOf,
+  theirComment,
   theirPosts,
   writeMessage,
   writeTheirComment,
@@ -48,6 +52,7 @@ import {
   moreComments,
   openChat,
   openFollowers,
+  openTheirFollowers,
   openLikers,
   scrollList,
 } from './browse';
@@ -328,6 +333,8 @@ export const INSTAGRAM: LookingSite = {
     openLikers: (doc, href) => openLikers(doc, href),
     moreComments: (doc, href) => moreComments(doc, href),
     closeDialog: (doc, href) => closeDialog(doc, href),
+    // An account like the business's (decision 110, 0.102.0): its followers' box opened by its count of followers.
+    openTheirFollowers: (doc, href) => openTheirFollowers(doc, href),
   },
   // Who wrote back in their chats (part 13), as the person goes and as Read my chats goes.
   replies: readReplies,
@@ -336,7 +343,12 @@ export const INSTAGRAM: LookingSite = {
   // OK'd, or past the comment hold, on a good post of theirs: only on that post's page, in its own box.
   auto: {
     theirPosts,
+    // Their story (decision 111, 0.103.0): watched a few seconds and liked on its own page, then closed.
+    likeStory: likeTheirStory,
     like: likeTheirPost,
+    // Their comment on a good post (decision 116, 0.108.0): found again by who wrote it, read, then liked.
+    theirComment,
+    likeComment: likeTheirComment,
     connect: followThem,
     openMessage: openTheirChat,
     message: writeMessage,
@@ -466,6 +478,37 @@ export const INSTAGRAM: LookingSite = {
           },
           [],
         );
+      },
+    },
+    // On someone's story's own page (decision 111): View story pressed where Instagram asks first, since watching is a
+    // look they may see, then the viewer's own Like looked for (never pressed) and the viewer closed with its own Close.
+    story: {
+      on: ['story'],
+      look: async (doc) => {
+        const asked = controlsSaying(doc.body, /^view story$/i)[0] ?? null;
+        asked?.click();
+        const like = await waitFor(() => storyLikeOf(doc), 8_000);
+        const outline = outlineNow(doc, INSTAGRAM);
+        const close = controlsSaying(doc.body, /^close$/i, true)[0] ?? null;
+        close?.click();
+        const missing = missingOf([
+          !like && 'no Like on the story',
+          !close && 'no Close on the story',
+        ]);
+        return {
+          ...went(
+            'story',
+            {
+              viewStory: asked !== null,
+              like: like !== null,
+              liked: like !== null && /^unlike$/i.test(nameOf(like)),
+              close: close !== null,
+            },
+            missing,
+            missing.length ? namesIn(doc.body, INSTAGRAM) : [],
+          ),
+          ...(missing.length ? { outline } : {}),
+        };
       },
     },
     // On a post's own page (decision 92): its Likes box, opened by its count of likes as a person opens it, its rows

@@ -184,6 +184,36 @@ describe('what it does next', () => {
     expect(workLeft({ ...list, auto: [], messages: [], sending: 'off' }, [])).toEqual([]);
   });
 
+  it('drafts the day’s reply in a group only with its post, and sends it once OK’d (decision 114)', () => {
+    const question = item({
+      kind: 'group_reply',
+      name: 'Lee Hart',
+      profileId: '1c6f5c4d-3e2a-4b1c-8d9e-0f1a2b3c4d5e',
+      profileUrl: `${FB}/lee.hart.3`,
+      postId: '2c6f5c4d-3e2a-4b1c-8d9e-0f1a2b3c4d5e',
+      postUrl: `${FB}/groups/austinsmallbiz/posts/9100000000000004/`,
+    });
+    const noPost = item({ ...question, name: 'No Post', postUrl: null });
+    const list = { items: [question, noPost], auto: [], sending: 'steps' as const };
+    const what = (work: ReturnType<typeof workLeft>) => work.map((w) => `${w.do}: ${w.item.name}`);
+    expect(what(workLeft({ ...list, messages: ['group_reply'] }, []))).toEqual(['draft: Lee Hart']);
+    // A build HandsFreeOS gives none to: none drafted.
+    expect(workLeft({ ...list, messages: ['comment'] }, [])).toEqual([]);
+    const okd = {
+      ...question,
+      send: {
+        sendId: '3c6f5c4d-3e2a-4b1c-8d9e-0f1a2b3c4d5e',
+        state: 'approved' as const,
+        text: 'It opens at eight!',
+        handedOver: false,
+        needsYou: null,
+      },
+    };
+    expect(what(workLeft({ ...list, items: [okd], messages: ['group_reply'] }, []))).toEqual([
+      'send: Lee Hart',
+    ]);
+  });
+
   it('spreads the day’s steps over what’s left of the hours, and goes at a person’s pace after Start my day', () => {
     const now = Date.UTC(2026, 9, 9, 15);
     const hour = 3_600_000;

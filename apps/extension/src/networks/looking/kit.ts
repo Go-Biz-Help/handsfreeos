@@ -18,7 +18,15 @@ import type {
   BrowseAsk,
   CodeAnswer,
   CodeAsk,
+  CommentLikeAnswer,
+  CommentLikeAsk,
+  TheirCommentAnswer,
+  TheirCommentAsk,
   ConnectAsk,
+  FeedPostAnswer,
+  FeedPostAsk,
+  StoryAnswer,
+  StoryAsk,
   JoinAnswer,
   JoinAsk,
   OpenMessageAsk,
@@ -30,11 +38,13 @@ import type {
   UnfollowAnswer,
   WithdrawAnswer,
   WithdrawAsk,
+  WritePartAnswer,
+  WritePartAsk,
 } from '../../messages';
 import { centerUrl } from '../accounts-center/pages';
 import { CENTER_ASKS, centerWork, type CenterAsk } from '../accounts-center/work';
 import { isWholeAddress, type Kit } from '../kit';
-import { outlineLooking, readLooking, readWarnings } from './read';
+import { maskOn, outlineLooking, readLooking, readWarnings } from './read';
 import type { LookingSite } from './site';
 
 /** Answers a look (`hfos-try`), only on the kinds of page its step is for. */
@@ -70,6 +80,13 @@ async function ownProfile(site: LookingSite, ask: OwnProfileAsk): Promise<OwnPro
   return { ok: true, result: await own.writeBio(document, ask.bio) };
 }
 
+/** One of decision 99's parts of the person's own profile, where the site puts them in (Alignable's, from 0.98.0). */
+async function writePart(site: LookingSite, ask: WritePartAsk): Promise<WritePartAnswer> {
+  const write = site.ownProfile?.writePart;
+  if (!write) return { ok: false, error: `The extension doesn’t put that in on ${site.name} yet.` };
+  return { ok: true, ...(await write(document, location.href, ask.part, maskOn(site))) };
+}
+
 /** A code the network emailed them, put in where it asks for it (decision 82). */
 async function putCode(site: LookingSite, ask: CodeAsk): Promise<CodeAnswer> {
   const put = site.ownProfile?.putCode;
@@ -89,6 +106,7 @@ const BROWSE_ASKS: ReadonlySet<string> = new Set<LookingBrowseAsk['type']>([
   'hfos-open-likers',
   'hfos-more-comments',
   'hfos-close-dialog',
+  'hfos-open-their-followers',
 ]);
 
 /**
@@ -108,6 +126,7 @@ async function browse(site: LookingSite, ask: LookingBrowseAsk): Promise<BrowseA
     'hfos-open-likers': lists.openLikers,
     'hfos-more-comments': lists.moreComments,
     'hfos-close-dialog': lists.closeDialog,
+    'hfos-open-their-followers': lists.openTheirFollowers,
   }[ask.type];
   return { ok: go ? await go(document, location.href) : false };
 }
@@ -128,9 +147,20 @@ async function withdrawHere(site: LookingSite, ask: WithdrawAsk): Promise<Withdr
 
 /**
  * The runner's presses it answers: their posts, a like, Connect (Follow), Message and a message; and from 0.95.0
- * (decision 92) a comment and a group's Join, only for a site that declares them (`auto.comment`, `auto.join`).
+ * (decision 92) a comment and a group's Join, only for a site that declares them (`auto.comment`, `auto.join`); from
+ * 0.101.0 the person's own helpful post, OK'd (`auto.post`, decision 109); from 0.103.0 a like on their story
+ * (`auto.likeStory`, Instagram's, decision 111); from 0.108.0 a like on their comment on a good post
+ * (`auto.theirComment`, `auto.likeComment`, decision 116).
  */
-export type OnItsOwnAsk = AutoAsk | ConnectAsk | OpenMessageAsk | JoinAsk;
+export type OnItsOwnAsk =
+  | AutoAsk
+  | ConnectAsk
+  | OpenMessageAsk
+  | JoinAsk
+  | FeedPostAsk
+  | StoryAsk
+  | TheirCommentAsk
+  | CommentLikeAsk;
 export const ON_ITS_OWN_ASKS: ReadonlySet<string> = new Set<OnItsOwnAsk['type']>([
   'hfos-their-posts',
   'hfos-like-post',
@@ -140,7 +170,45 @@ export const ON_ITS_OWN_ASKS: ReadonlySet<string> = new Set<OnItsOwnAsk['type']>
   'hfos-comment',
   'hfos-join',
   'hfos-join-answer',
+  'hfos-feed-post',
+  'hfos-like-story',
+  'hfos-their-comment',
+  'hfos-like-comment',
 ]);
+
+/** The person's own helpful post, OK'd, on a site that declares it (`auto.post`, Alignable's, decision 109). */
+async function feedPost(site: LookingSite, ask: FeedPostAsk): Promise<FeedPostAnswer> {
+  if (!site.auto?.post)
+    return { ok: false, error: `The extension doesn’t put posts up on ${site.name}.` };
+  return { ok: true, ...(await site.auto.post(document, location.href, ask.text)) };
+}
+
+/** A like on their story, on its own page, where the site has stories (`auto.likeStory`, Instagram's, decision 111). */
+async function likeStory(site: LookingSite, ask: StoryAsk): Promise<StoryAnswer> {
+  if (!site.auto?.likeStory)
+    return { ok: false, error: `The extension doesn’t like stories on ${site.name}.` };
+  return { ok: true, ...(await site.auto.likeStory(document, location.href, ask.profile)) };
+}
+
+/** Their comment on a good post, read on its own page, where the site has it (`auto.theirComment`, decision 116). */
+function theirComment(site: LookingSite, ask: TheirCommentAsk): TheirCommentAnswer {
+  if (!site.auto?.theirComment)
+    return { ok: false, error: `The extension doesn’t like comments on ${site.name}.` };
+  return {
+    ok: true,
+    comment: site.auto.theirComment(document, location.href, ask.profile, ask.postUrl),
+  };
+}
+
+/** A like on their comment on a good post, on its own page, where the site has it (`auto.likeComment`, decision 116). */
+async function likeComment(site: LookingSite, ask: CommentLikeAsk): Promise<CommentLikeAnswer> {
+  if (!site.auto?.likeComment)
+    return { ok: false, error: `The extension doesn’t like comments on ${site.name}.` };
+  return {
+    ok: true,
+    ...(await site.auto.likeComment(document, location.href, ask.profile, ask.postUrl)),
+  };
+}
 
 /**
  * A comment, or a group's Join and its questions, on a site that declares them (decision 92): never anywhere else. A
@@ -179,9 +247,22 @@ async function commentOrJoin(
 async function onItsOwn(
   site: LookingSite,
   ask: OnItsOwnAsk,
-): Promise<PostsAnswer | AutoAnswer | BrowseAnswer | JoinAnswer> {
+): Promise<
+  | PostsAnswer
+  | AutoAnswer
+  | BrowseAnswer
+  | JoinAnswer
+  | FeedPostAnswer
+  | StoryAnswer
+  | TheirCommentAnswer
+  | CommentLikeAnswer
+> {
   if (ask.type === 'hfos-comment' || ask.type === 'hfos-join' || ask.type === 'hfos-join-answer')
     return commentOrJoin(site, ask);
+  if (ask.type === 'hfos-feed-post') return feedPost(site, ask);
+  if (ask.type === 'hfos-like-story') return likeStory(site, ask);
+  if (ask.type === 'hfos-their-comment') return theirComment(site, ask);
+  if (ask.type === 'hfos-like-comment') return likeComment(site, ask);
   const auto = site.auto;
   if (!auto)
     return { ok: false, error: `The extension doesn’t work on ${site.name} on its own yet.` };
@@ -242,14 +323,16 @@ export function lookingKit(site: LookingSite): Kit {
             ? ownProfile(site, ask as OwnProfileAsk)
             : ask.type === 'hfos-put-code'
               ? putCode(site, ask as CodeAsk)
-              : BROWSE_ASKS.has(ask.type)
-                ? browse(site, ask as LookingBrowseAsk)
-                : ask.type === 'hfos-unfollow'
-                  ? unfollowHere(site)
-                  : ask.type === 'hfos-withdraw'
-                    ? withdrawHere(site, ask as WithdrawAsk)
-                    : ON_ITS_OWN_ASKS.has(ask.type)
-                      ? onItsOwn(site, ask as OnItsOwnAsk)
-                      : null,
+              : ask.type === 'hfos-write-part'
+                ? writePart(site, ask as WritePartAsk)
+                : BROWSE_ASKS.has(ask.type)
+                  ? browse(site, ask as LookingBrowseAsk)
+                  : ask.type === 'hfos-unfollow'
+                    ? unfollowHere(site)
+                    : ask.type === 'hfos-withdraw'
+                      ? withdrawHere(site, ask as WithdrawAsk)
+                      : ON_ITS_OWN_ASKS.has(ask.type)
+                        ? onItsOwn(site, ask as OnItsOwnAsk)
+                        : null,
   };
 }

@@ -70,6 +70,7 @@ import { countriesProblem, TeamSettingsFields, type TeamSettings } from './busin
 import { AskButton } from './asks';
 import { ExtensionDownload } from './extension-download';
 import { ExtensionLinkForm } from './extension-link';
+import { LikeYoursPart } from './like-yours';
 import { ProfileSheet } from './get-ready';
 import { ComputersCard, useServerNow } from './live-view';
 import {
@@ -610,6 +611,7 @@ function NetworkPage({
                 onChange={set}
                 testId={testId}
               />
+              {platform === 'instagram' ? <LikeYoursPart workspaceId={workspaceId} /> : null}
               {facebook ? (
                 <ExtensionTicks
                   card

@@ -27,9 +27,13 @@ const IG_MENU = `<div><a href="/" role="link"><span>Home</span></a>
   <a href="/direct/inbox/" role="link"><span>Messages</span></a>
   <a href="/casey.owner/" role="link"><img alt="casey.owner's profile picture" /><span>Profile</span></a></div>`;
 
-/** An account's header, with its first button: Follow, or Following beside its arrow. */
-const igProfile = (name: string, button: string, post: string) =>
-  html(`${IG_MENU}<main role="main"><header><h2>${name}</h2>
+/** An account's header, with its first button: Follow, or Following beside its arrow; and its story's ring. */
+const igProfile = (name: string, button: string, post: string, story = false) =>
+  html(`${IG_MENU}<main role="main"><header>${
+    story
+      ? `<div role="button"><canvas></canvas><span role="link"><img alt="${name}'s profile picture"></span></div>`
+      : ''
+  }<h2>${name}</h2>
     <button type="button"><div><div dir="auto">${button}</div>
       <svg aria-label="Down chevron icon"><title>Down chevron icon</title></svg></div></button>
     <div role="button">Message</div></header><a href="/p/${post}/">a post</a></main>`);
@@ -46,10 +50,15 @@ const INSTAGRAM_PAGES: Record<string, string> = {
   [`${IG}/explore/search/keyword/?q=small%20business`]: html(
     `${IG_MENU}<main role="main"><a href="/sam.carter/">sam.carter</a><a href="/p/D1aBc34DeFg/">post</a></main>`,
   ),
-  [`${IG}/dana.reyes/`]: igProfile('dana.reyes', 'Follow', 'E2bCd45EfGh').replace(
+  [`${IG}/dana.reyes/`]: igProfile('dana.reyes', 'Follow', 'E2bCd45EfGh', true).replace(
     '<a href="/p/',
     '<a href="/dana.reyes/reel/R0aBc12XyZq/">a reel</a><a href="/p/',
   ),
+  // Their story's viewer (decision 111): its box to reply in, its Like beside it, and its Close.
+  [`${IG}/stories/dana.reyes/`]: html(`<section><div><img alt="Photo by Dana Reyes">
+    <form><textarea aria-label="Reply to dana.reyes…"></textarea></form>
+    <div role="button"><svg aria-label="Like"><title>Like</title></svg></div>
+    <div role="button"><svg aria-label="Close"><title>Close</title></svg></div></div></section>`),
   // A post with a comment, its View all comments, and its count of likes, which opens its Likes box (decision 92).
   [`${IG}/p/E2bCd45EfGh/`]: html(`<main role="main"><article>
     <a href="/explore/locations/212988663/austin-texas/">Austin, Texas</a>
@@ -135,7 +144,7 @@ const ALIGNABLE_MENU = `<header><nav>
 
 const ALIGNABLE_PAGES: Record<string, string> = {
   [`${AL}/biz`]: html(
-    `${ALIGNABLE_MENU}<main><div><button>Like</button><button>Comment</button></div></main>`,
+    `${ALIGNABLE_MENU}<main><button>Start a post</button><div><button>Like</button><button>Comment</button></div></main>`,
   ),
   [`${AL}/network`]: html(`${ALIGNABLE_MENU}<main>
     <div><a href="/austin-tx/acme-plumbing/dana-reyes">Dana Reyes</a><button>Connect</button></div></main>`),
@@ -248,6 +257,17 @@ const ALIGNABLE_PAGES: Record<string, string> = {
     <div><a href="/boise-id/pine-painting/jamie-pine">Jamie Pine</a><a href="/boise-id/pine-painting">Pine Painting</a>
       <span>Painter in Boise</span><button>Connect</button></div>
   </main>`),
+  // The events in their town (decision 112), and one event's page with who's hosting and going: its RSVP never pressed.
+  [`${AL}/austin-tx/events`]: html(`${ALIGNABLE_MENU}<main><h1>Events in Austin, TX</h1>
+    <div><h3><a href="/austin-tx/events/101-spring-mixer">Spring Business Mixer</a></h3><span>Thu, Nov 6</span></div>
+  </main>`),
+  [`${AL}/austin-tx/events/101-spring-mixer`]:
+    html(`${ALIGNABLE_MENU}<main><h1>Spring Business Mixer</h1>
+    <button>RSVP</button><h2>Hosted by</h2>
+    <div><a href="/austin-tx/cole-bakery/morgan-cole">Morgan Cole</a><a href="/austin-tx/cole-bakery">Cole Bakery</a></div>
+    <h2>Attendees</h2>
+    <div><a href="/austin-tx/pine-painting/jamie-pine">Jamie Pine</a><a href="/austin-tx/pine-painting">Pine Painting</a></div>
+  </main>`),
 };
 
 /** Where Alignable sends an address: their own profile, to their business's page in its town. */
@@ -272,6 +292,12 @@ function alignableDoes(doc: Document) {
     dialog.querySelectorAll('button')[1]!.addEventListener('click', () => dialog.remove());
     doc.body.append(dialog);
   });
+  // An event's RSVP would sign them up (decision 112): Check never presses it.
+  for (const button of doc.querySelectorAll('button'))
+    if (/^rsvp$/i.test(button.textContent?.trim() ?? ''))
+      button.addEventListener('click', () => {
+        throw new Error('An event’s RSVP was pressed, which signs them up');
+      });
   // About Us's Edit asks for a code Alignable emails them (0.69.0), so Check never presses it.
   doc.querySelector('a[href*="source=about_us_section"]')?.addEventListener('click', (e) => {
     e.preventDefault();
@@ -384,6 +410,8 @@ describe('Check Instagram', () => {
       `${IG}/accounts/edit/`,
       `${IG}/explore/search/keyword/?q=small%20business`,
       `${IG}/dana.reyes/`,
+      // Their story, which their account shows (decision 111).
+      `${IG}/stories/dana.reyes/`,
       `${IG}/p/E2bCd45EfGh/`,
       `${IG}/casey.owner/followers/`,
       `${IG}/explore/tags/smallbusiness/`,
@@ -403,11 +431,18 @@ describe('Check Instagram', () => {
       'checkup.bio',
       'checkup.follow',
       'checkup.message',
+      'checkup.story',
       'checkup.like',
       'checkup.comment',
       'checkup.reactors',
       'checkup.summary',
     ]);
+    // Their story's Like found, never pressed (decision 111).
+    expect(notes.find((n) => n.job === 'checkup.story')?.found).toMatchObject({
+      like: true,
+      liked: false,
+      close: true,
+    });
     expect(notes.find((n) => n.job === 'checkup.message')?.found).toMatchObject({
       box: true,
       closed: true,
@@ -423,16 +458,16 @@ describe('Check Instagram', () => {
       rows: 1,
       closed: true,
     });
-    expect(notes.at(-1)!.found).toEqual({ pages: 12, steps: 6, working: 6 });
+    expect(notes.at(-1)!.found).toEqual({ pages: 13, steps: 7, working: 7 });
     expect(end).toEqual({
-      line: 'Read 12 Instagram pages and tried 6 steps up to their last press. Everything works.',
+      line: 'Read 13 Instagram pages and tried 7 steps up to their last press. Everything works.',
       warned: false,
     });
   });
 
   it('looks for Follow on an account Instagram suggests when they follow the first one already', async () => {
     const pages = { ...INSTAGRAM_PAGES };
-    pages[`${IG}/dana.reyes/`] = igProfile('dana.reyes', 'Following', 'E2bCd45EfGh');
+    pages[`${IG}/dana.reyes/`] = igProfile('dana.reyes', 'Following', 'E2bCd45EfGh', true);
     const { tab, opened } = fakeTab(pages, 'instagram');
     const notes: ReportNote[] = [];
     const job = {
@@ -456,7 +491,7 @@ describe('Check Instagram', () => {
       true,
     ]);
     expect(end.line).toBe(
-      'Read 14 Instagram pages and tried 6 steps up to their last press. Everything works.',
+      'Read 15 Instagram pages and tried 7 steps up to their last press. Everything works.',
     );
   });
 
@@ -497,7 +532,7 @@ describe('Check Instagram', () => {
     const end = await runAsk({ kind: 'checkup' }, job, 'instagram');
     expect(asked.filter((t) => t === 'hfos-show-all')).toHaveLength(1);
     // Its posts opened one at a time till one was tagged at a place; never /explore/locations/ alone.
-    expect(opened.slice(6, 11)).toEqual([
+    expect(opened.slice(7, 12)).toEqual([
       `${IG}/casey.owner/followers/`,
       `${IG}/explore/tags/smallbusiness/`,
       `${IG}/p/G4dEf67GhIj/`,
@@ -506,7 +541,7 @@ describe('Check Instagram', () => {
     ]);
     expect(opened).not.toContain(`${IG}/explore/locations/`);
     expect(end.line).toBe(
-      'Read 14 Instagram pages and tried 6 steps up to their last press. Everything works.',
+      'Read 15 Instagram pages and tried 7 steps up to their last press. Everything works.',
     );
   });
 
@@ -567,6 +602,9 @@ describe('Check Alignable', () => {
       `${AL}/groups/home-pros-network`,
       `${AL}/groups/home-pros-network/about`,
       `${AL}/groups/home-pros-network/members`,
+      // Then the events in their town and one event's page (0.104.0, decision 112): nothing on it is pressed.
+      `${AL}/austin-tx/events`,
+      `${AL}/austin-tx/events/101-spring-mixer`,
     ]);
     for (const never of ['/', '/logout', '/upgrade']) expect(opened).not.toContain(`${AL}${never}`);
     // Nothing is written in the chat or the answer's box, and nothing's pressed there.
@@ -584,6 +622,8 @@ describe('Check Alignable', () => {
       ['checkup.recommend', true],
       ['checkup.like', true],
       ['checkup.comment', true],
+      // The box to start a post on their home page (decision 109), looked for and never written in.
+      ['checkup.post', true],
       // A group's own Join, looked at on its page and never pressed.
       ['checkup.join', true],
     ]);
@@ -597,7 +637,7 @@ describe('Check Alignable', () => {
     // Their profile as the AI's check reads it: what was found, never what it says.
     expect(notes.find((n) => n.found?.about === true && n.found?.name === true)).toBeTruthy();
     expect(end.line).toBe(
-      'Read 21 Alignable pages and tried 9 steps up to their last press. Everything works.',
+      'Read 23 Alignable pages and tried 10 steps up to their last press. Everything works.',
     );
   });
 
@@ -646,7 +686,7 @@ describe('Check Alignable', () => {
       outline: false,
     });
     expect(end.line).toBe(
-      'Read 21 Alignable pages and tried 9 steps up to their last press. Not working: recommending.',
+      'Read 23 Alignable pages and tried 10 steps up to their last press. Not working: recommending.',
     );
   });
 });
