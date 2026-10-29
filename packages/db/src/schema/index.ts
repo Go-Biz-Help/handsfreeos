@@ -7858,6 +7858,8 @@ export const campaigns = app.table('campaigns', {
   /** AI outbound calls: a call campaign's one opening line ("about our fall tune-up …"), and whether a person changed it. */
   callOpening: text('call_opening'),
   callEdited: boolean('call_edited').notNull().default(false),
+  /** AI calls, part 4: a call campaign that keeps adding anyone who later fits and agrees to calls, until stopped. */
+  keepAdding: boolean('keep_adding').notNull().default(false),
   /** Why the worker paused it; null when a person did. */
   pausedReason: text('paused_reason'),
   ...timestamps(),

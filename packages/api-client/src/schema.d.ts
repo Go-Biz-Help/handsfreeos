@@ -2017,6 +2017,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/commands/campaign.set_keep_adding": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Turn on or off whether a call campaign keeps adding people: on, anyone who later gets one of its tags or reaches one of its stages, and agrees to calls in writing, joins and is called at its pace; off, it finishes once everyone it has is called.
+         * @description Risk level 2. Requires workflows.manage. Emits campaign.keep_adding_changed.
+         */
+        post: operations["command_campaign_set_keep_adding"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/commands/campaign.set_pace": {
         parameters: {
             query?: never;
@@ -27994,6 +28014,8 @@ export interface operations {
                      */
                     channel?: "sms" | "email" | "call";
                     goal: string;
+                    /** @default false */
+                    keepAdding?: boolean;
                     name: string;
                     /** @default null */
                     offerId?: string | null;
@@ -28107,6 +28129,41 @@ export interface operations {
                 "application/json": {
                     /** Format: uuid */
                     campaignId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        campaignId: string;
+                        /** @enum {string} */
+                        status: "drafting" | "review" | "sending" | "paused" | "done" | "cancelled";
+                    };
+                };
+            };
+        };
+    };
+    command_campaign_set_keep_adding: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    campaignId: string;
+                    on: boolean;
                     /** Format: uuid */
                     workspaceId: string;
                 };
@@ -65589,6 +65646,7 @@ export interface operations {
                             goal: string;
                             /** Format: uuid */
                             id: string;
+                            keepAdding: boolean;
                             name: string;
                             offer: {
                                 /** Format: uuid */
@@ -65671,6 +65729,7 @@ export interface operations {
                             goal: string;
                             /** Format: uuid */
                             id: string;
+                            keepAdding: boolean;
                             name: string;
                             offer: {
                                 /** Format: uuid */

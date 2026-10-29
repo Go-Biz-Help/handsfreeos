@@ -18,6 +18,8 @@
  * - no written consent to calls (`people.call_consent` isn't `opted_in`);
  * - another campaign called them in the last 14 days;
  * - they're mid-conversation or have an open card on Home, or they're booked in the next 30 days (as texts).
+ * One that keeps adding people (AI calls, part 4) looks again later for anyone new who fits, and for anyone left out
+ * for a reason that can change (`REJOIN_REASONS`): a yes to calls given since, a conversation that's over.
  */
 import { rows, sql, type Tx } from '@hfos/db/client';
 import { uuidArray } from '../calendar/load';
@@ -215,6 +217,15 @@ export interface CallAudienceFacts {
   readonly bookedSoon: boolean;
 }
 
+/** Why someone left out of a call campaign may still join one that keeps adding people: these can change. */
+export const REJOIN_REASONS: readonly SkipReason[] = [
+  'no_phone',
+  'no_call_consent',
+  'called_recently',
+  'in_conversation',
+  'booked_soon',
+];
+
 /** The first reason someone is left out of a call campaign, or null when they're in. */
 export function callSkipReasonOf(f: CallAudienceFacts): SkipReason | null {
   if (!f.hasPhone) return 'no_phone';
@@ -225,13 +236,16 @@ export function callSkipReasonOf(f: CallAudienceFacts): SkipReason | null {
   return null;
 }
 
-/** The call facts for a list of people (or everyone the audience picks), as of `now`. */
+/**
+ * The call facts for a list of people (or everyone the audience picks), as of `now`. `joining`: only people not in
+ * that campaign yet, or left out of it for a reason that can change.
+ */
 export async function callAudienceFacts(
   tx: Tx,
   workspaceId: string,
   pick: Pick,
   now: Date,
-  opts: { readonly exceptCampaignId?: string } = {},
+  opts: { readonly exceptCampaignId?: string; readonly joining?: string } = {},
 ): Promise<Map<string, CallAudienceFacts>> {
   const at = sql`${now.toISOString()}::timestamptz`;
   const list = await rows<{
@@ -265,6 +279,16 @@ export async function callAudienceFacts(
             as booked_soon
         from app.people p
         where p.workspace_id = ${workspaceId} and p.archived_at is null and ${whichPeople(pick)}
+          ${
+            opts.joining
+              ? sql`and not exists (select 1 from app.campaign_recipients r
+                                    where r.campaign_id = ${opts.joining} and r.person_id = p.id
+                                      and not (r.status = 'skipped' and r.skip_reason in (${sql.join(
+                                        REJOIN_REASONS.map((x) => sql`${x}`),
+                                        sql`, `,
+                                      )})))`
+              : sql``
+          }
         order by p.created_at
         limit ${CAMPAIGN_MAX_RECIPIENTS}`,
   );

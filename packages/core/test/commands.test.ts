@@ -517,6 +517,7 @@ describe('registry', () => {
       'campaign.resume',
       'campaign.cancel',
       'campaign.set_pace',
+      'campaign.set_keep_adding',
       'email_unsubscribe.record',
       'person.set_call_consent',
       'contact_ai.start_sweep',

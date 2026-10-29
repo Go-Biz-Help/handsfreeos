@@ -7,7 +7,9 @@
  *
  * Or calls (AI outbound calls): the AI teammate rings each person who agreed to calls in writing. The AI writes
  * one opening line for them all ("about our fall tune-up, which is $89 this month"), the owner changes it, and it
- * finishes "I'm calling …" on every call.
+ * finishes "I'm calling …" on every call. A call campaign can keep adding people (AI calls, part 4): anyone who later
+ * gets one of its tags or reaches one of its stages, and agrees to calls in writing, joins and is called at its
+ * pace, until it's stopped.
  */
 import { z } from 'zod';
 import { aiCallOutcome, aiCallStatus } from './ai-call';
@@ -118,6 +120,11 @@ export const CampaignCreateInput = z.object({
     })
     .nullable()
     .default(null),
+  /**
+   * A call campaign only: keep adding anyone who later gets one of the tags or reaches one of the stages and agrees
+   * to calls in writing, until it's stopped. It may start with nobody to call yet.
+   */
+  keepAdding: z.boolean().default(false),
 });
 export const CampaignCreateOutput = z.object({
   campaignId: uuid,
@@ -156,6 +163,12 @@ export const CampaignSetPaceInput = z.object({
   workspaceId: uuid,
   campaignId: uuid,
   perHour,
+});
+export const CampaignSetKeepAddingInput = z.object({
+  workspaceId: uuid,
+  campaignId: uuid,
+  /** On: anyone who later fits and agrees to calls joins. Off: it finishes once everyone it has is called. */
+  on: z.boolean(),
 });
 
 /** Worker: someone asked for no more campaign email (the page's button, their mail app's, or Postmark's). */
@@ -207,6 +220,8 @@ export const CampaignSummary = z.object({
   /** Why HandsFreeOS paused it (`email_campaigns_not_ready`, `texting_not_ready`, …); null when a person did. */
   pausedReason: z.string().nullable(),
   perHour: z.number().int(),
+  /** A call campaign that keeps adding anyone who later fits and agrees to calls (false for the others). */
+  keepAdding: z.boolean(),
   counts: CampaignCounts,
   /** The offer it's about, if any. */
   offer: z.object({ id: uuid, name: z.string() }).nullable(),

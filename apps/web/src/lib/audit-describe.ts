@@ -1093,7 +1093,7 @@ function describeAction(e: AuditEntry): string {
     case 'attention.record_auto':
       return recordAutoSentence(e);
     case 'campaign.create':
-      return `started the campaign ${campaignOf(e)} for ${countOf(e.after?.recipients)} ${countOf(e.after?.recipients) === 1 ? 'person' : 'people'}`;
+      return `started the campaign ${campaignOf(e)} for ${countOf(e.after?.recipients)} ${countOf(e.after?.recipients) === 1 ? 'person' : 'people'}${e.after?.keepAdding === true ? ', adding more as they fit' : ''}`;
     case 'campaign.update_draft':
       return `changed a text in a campaign`;
     case 'campaign.update_email':
@@ -1114,6 +1114,10 @@ function describeAction(e: AuditEntry): string {
       return `stopped the campaign ${campaignOf(e)}`;
     case 'campaign.set_pace':
       return `set the campaign ${campaignOf(e)} to ${countOf(e.after?.perHour)} ${campaignNoun(e)} an hour`;
+    case 'campaign.set_keep_adding':
+      return e.after?.keepAdding === true
+        ? `had the campaign ${campaignOf(e)} keep adding people`
+        : `stopped adding people to the campaign ${campaignOf(e)}`;
     default:
       return detectionSentence(e) ?? e.action;
   }

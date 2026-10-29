@@ -36254,6 +36254,10 @@
                         "type": "null"
                       }
                     ]
+                  },
+                  "keepAdding": {
+                    "default": false,
+                    "type": "boolean"
                   }
                 },
                 "required": [
@@ -36932,6 +36936,81 @@
                   "workspaceId",
                   "campaignId",
                   "perHour"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "campaignId": {
+                      "type": "string",
+                      "format": "uuid",
+                      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                    },
+                    "status": {
+                      "type": "string",
+                      "enum": [
+                        "drafting",
+                        "review",
+                        "sending",
+                        "paused",
+                        "done",
+                        "cancelled"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "campaignId",
+                    "status"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/commands/campaign.set_keep_adding": {
+      "post": {
+        "operationId": "command_campaign_set_keep_adding",
+        "summary": "Turn on or off whether a call campaign keeps adding people: on, anyone who later gets one of its tags or reaches one of its stages, and agrees to calls in writing, joins and is called at its pace; off, it finishes once everyone it has is called.",
+        "tags": [
+          "commands"
+        ],
+        "description": "Risk level 2. Requires workflows.manage. Emits campaign.keep_adding_changed.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "workspaceId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  },
+                  "campaignId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  },
+                  "on": {
+                    "type": "boolean"
+                  }
+                },
+                "required": [
+                  "workspaceId",
+                  "campaignId",
+                  "on"
                 ]
               }
             }
@@ -171639,6 +171718,9 @@
                             "minimum": -9007199254740991,
                             "maximum": 9007199254740991
                           },
+                          "keepAdding": {
+                            "type": "boolean"
+                          },
                           "counts": {
                             "type": "object",
                             "properties": {
@@ -171758,6 +171840,7 @@
                           "status",
                           "pausedReason",
                           "perHour",
+                          "keepAdding",
                           "counts",
                           "offer",
                           "createdAt",
@@ -171864,6 +171947,9 @@
                           "type": "integer",
                           "minimum": -9007199254740991,
                           "maximum": 9007199254740991
+                        },
+                        "keepAdding": {
+                          "type": "boolean"
                         },
                         "counts": {
                           "type": "object",
@@ -172076,6 +172162,7 @@
                         "status",
                         "pausedReason",
                         "perHour",
+                        "keepAdding",
                         "counts",
                         "offer",
                         "createdAt",

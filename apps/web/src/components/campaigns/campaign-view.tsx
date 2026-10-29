@@ -13,6 +13,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
+import { Switch } from '@/components/ui/switch';
 import { Textarea } from '@/components/ui/textarea';
 import { apiBrowser, errorMessage, unwrap } from '@/lib/api/client';
 import type { CampaignGet, CampaignRecipient } from '@/lib/api/types';
@@ -121,13 +122,15 @@ export function CampaignView({
                       'approve',
                       email
                         ? `Send this email to ${people(c.counts.ready)}, ${c.perHour} an hour while you’re open?`
-                        : calls
-                          ? `Have your AI teammate call ${people(c.counts.ready)}, ${c.perHour} an hour while you’re open? Each call says it’s an AI and that it’s recorded.`
-                          : `Send ${people(c.counts.ready)} these texts, ${c.perHour} an hour while you’re open?`,
+                        : calls && c.keepAdding
+                          ? `Have your AI teammate call ${people(c.counts.ready)} now and anyone who joins later, ${c.perHour} an hour while you’re open? Each call says it’s an AI and that it’s recorded.`
+                          : calls
+                            ? `Have your AI teammate call ${people(c.counts.ready)}, ${c.perHour} an hour while you’re open? Each call says it’s an AI and that it’s recorded.`
+                            : `Send ${people(c.counts.ready)} these texts, ${c.perHour} an hour while you’re open?`,
                     )
                   }
                   loading={busy === 'approve'}
-                  disabled={c.counts.ready === 0}
+                  disabled={c.counts.ready === 0 && !c.keepAdding}
                   data-testid="campaign-approve"
                 >
                   {calls ? 'Approve all and start calling' : 'Approve all and send'}
@@ -188,6 +191,9 @@ export function CampaignView({
           </p>
         ) : null}
         <PaceLine workspaceId={workspaceId} data={data} canManage={canManage} />
+        {calls ? (
+          <KeepAddingLine workspaceId={workspaceId} data={data} canManage={canManage} />
+        ) : null}
       </Card>
 
       {email && c.email ? (
@@ -363,8 +369,68 @@ function PaceLine({
       )}
       {c.status === 'sending' && data.nextSendAt ? (
         <span className="basis-full">
-          Next {noun.slice(0, -1)}: {timeOf(data.nextSendAt)}
+          {c.keepAdding && c.counts.approved === 0
+            ? `Looks for new people again: ${timeOf(data.nextSendAt)}`
+            : `Next ${noun.slice(0, -1)}: ${timeOf(data.nextSendAt)}`}
         </span>
+      ) : null}
+    </div>
+  );
+}
+
+/** A call campaign that keeps adding people, or doesn't: anyone who comes to fit joins, until it's stopped. */
+function KeepAddingLine({
+  workspaceId,
+  data,
+  canManage,
+}: {
+  workspaceId: string;
+  data: CampaignGet;
+  canManage: boolean;
+}) {
+  const router = useRouter();
+  const c = data.campaign;
+  const [busy, setBusy] = useState(false);
+  const open = !['done', 'cancelled'].includes(c.status);
+  if (!open && !c.keepAdding) return null;
+
+  async function set(on: boolean) {
+    setBusy(true);
+    try {
+      unwrap(
+        await apiBrowser().POST('/v1/commands/campaign.set_keep_adding', {
+          body: { workspaceId, campaignId: c.id, on },
+        }),
+      );
+      toast.success(
+        on ? 'It keeps adding people who come to fit.' : 'It calls only the people it has now.',
+      );
+      router.refresh();
+    } catch (e) {
+      toast.error(errorMessage(e));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <div className="flex items-center justify-between gap-3 border-t border-border pt-3">
+      <div className="flex flex-col gap-0.5">
+        <span className="text-[13px] font-medium">Keep adding people</span>
+        <span className="text-[12.5px] text-text-2" data-testid="campaign-keep-adding-words">
+          {c.keepAdding
+            ? 'Anyone who later gets one of its tags or reaches one of its stages, and agrees to calls in writing, joins and is called at its pace, until you stop it.'
+            : 'It calls only the people it has, then finishes.'}
+        </span>
+      </div>
+      {canManage && open ? (
+        <Switch
+          checked={c.keepAdding}
+          label="Keep adding people"
+          busy={busy}
+          onChange={(on) => void set(on)}
+          testId="campaign-keep-adding-switch"
+        />
       ) : null}
     </div>
   );

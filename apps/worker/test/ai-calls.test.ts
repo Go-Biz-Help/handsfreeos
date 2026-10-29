@@ -10,7 +10,8 @@
  * - a quote still unanswered two days after its reminder (piece 4b): a call draft even while the teammate is
  *   automatic, and a word from them since leaves it alone;
  * - a call campaign (piece 4b): only people who agreed to calls in writing, the AI's opening line, and approved
- *   once, each call goes without a draft, even while the teammate trains;
+ *   once, each call goes without a draft, even while the teammate trains; one that keeps adding people (part 4)
+ *   calls whoever comes to fit and agrees, and finishes once it's turned off;
  * - a workflow's "AI teammate calls them" (part 2): only someone who agreed in writing, with the step's opening and
  *   playbook, and a call still waiting for an OK isn't made once they've written in since;
  * - a call to a lead (part 3) waits for the calling hours where they are, and rings again the next day when nobody
@@ -26,6 +27,7 @@ import {
   campaignApprove,
   campaignCreate,
   campaignGet,
+  campaignSetKeepAdding,
   campaignUpdateCall,
   defaultAutomationSettings,
   estimateCreate,
@@ -52,7 +54,12 @@ import {
   spokenWhen,
   voicemailText,
 } from '../src/ai-calls/index';
-import { cleanOpening, fallbackOpening } from '../src/automations/campaigns';
+import {
+  campaignSendKey,
+  cleanOpening,
+  fallbackOpening,
+  KEEP_ADDING_LOOK_MS,
+} from '../src/automations/campaigns';
 import { recordSystemEvent } from '../src/system-event';
 import { scriptedAi } from '../src/ai/scripted';
 import { answeredByMachine, voicemailMessage } from '../src/http/ai-calls';
@@ -76,6 +83,7 @@ import {
   newCustomer,
   query,
   run,
+  runDue,
   runNow,
   saveTeammate,
   setQuietHours,
@@ -718,6 +726,66 @@ describe('a call campaign', () => {
     } finally {
       await setStatus(w, 'automatic');
     }
+  });
+
+  it('keeps adding people: whoever comes to fit and agrees is called, until it’s turned off', async () => {
+    const { tagId } = await run(w, tagCreate, { workspaceId: w.workspaceId, name: 'Every lead' });
+    const made = await run(w, campaignCreate, {
+      workspaceId: w.workspaceId,
+      name: 'Every new lead',
+      goal: 'The quote you asked us for',
+      audience: { tagIds: [tagId], stageIds: [] },
+      perHour: 200,
+      channel: 'call',
+      keepAdding: true,
+    });
+    expect(made).toMatchObject({ recipients: 0, skipped: 0 });
+    await drain(w);
+    await run(w, campaignApprove, { workspaceId: w.workspaceId, campaignId: made.campaignId });
+    await drain(w);
+    const get = () =>
+      query(w, campaignGet, { workspaceId: w.workspaceId, campaignId: made.campaignId });
+    // Nobody yet: it keeps going, and looks again within the hour.
+    const waiting = await get();
+    expect(waiting.campaign).toMatchObject({ status: 'sending', keepAdding: true });
+    expect(new Date(waiting.nextSendAt!).getTime()).toBeGreaterThan(
+      Date.now() + KEEP_ADDING_LOOK_MS - 5 * 60_000,
+    );
+
+    // Lee gets the tag, then agrees to calls in writing: Lee joins at once and is called.
+    const lee = await newCustomer(w, 'Lee');
+    await rows(
+      admin(),
+      sql`insert into app.record_tags (workspace_id, tag_id, record_type, record_id)
+          values (${w.workspaceId}, ${tagId}, 'person', ${lee.id})`,
+    );
+    await drain(w);
+    expect((await get()).recipients).toEqual([]);
+    await run(w, personSetCallConsent, {
+      workspaceId: w.workspaceId,
+      personId: lee.id,
+      consent: 'opted_in',
+      source: 'Website form',
+    });
+    await drain(w);
+    const [call] = await aiCallsOf(lee.id);
+    expect(call).toBeDefined();
+    const joined = await get();
+    expect(joined.campaign.status).toBe('sending');
+    expect(joined.recipients).toEqual([
+      expect.objectContaining({ personId: lee.id, status: 'sent' }),
+    ]);
+
+    // Off, it finishes once everyone it has is called.
+    await run(w, campaignSetKeepAdding, {
+      workspaceId: w.workspaceId,
+      campaignId: made.campaignId,
+      on: false,
+    });
+    await drain(w);
+    await runDue(w, [campaignSendKey(made.campaignId)]);
+    expect((await get()).campaign).toMatchObject({ status: 'done', keepAdding: false });
+    expect(await aiCallsOf(lee.id)).toHaveLength(1);
   });
 
   it('cleans the AI’s opening line, and falls back to the goal', () => {

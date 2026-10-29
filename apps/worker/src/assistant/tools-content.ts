@@ -133,6 +133,8 @@ interface CampaignSummary {
   status: 'drafting' | 'review' | 'sending' | 'paused' | 'done' | 'cancelled';
   pausedReason: string | null;
   perHour: number;
+  /** A call campaign that adds anyone who comes to fit, and never finishes while it's on. */
+  keepAdding: boolean;
   counts: {
     total: number;
     drafting: number;
@@ -405,6 +407,9 @@ const startCampaign: SettingsConfirmTool = {
       throw need(
         'Who gets it? Give at least one tag in tagIds or one open pipeline stage in stageIds.',
       );
+    const keepAdding = args['keepAdding'] === true;
+    if (keepAdding && channel !== 'call')
+      throw need('Only a call campaign keeps adding people. Send it as calls, or leave that off.');
     const [tags, pipelines, offers] = await Promise.all([
       tagsOf(db, ctx),
       pipelinesOf(db, ctx),
@@ -440,7 +445,7 @@ const startCampaign: SettingsConfirmTool = {
           ? `The promotion “${offer.name}” has ended.`
           : channel === 'email' && !preview.postalAddress
             ? 'Every campaign email has to show the business address. Add it in Settings → Payments first (I can do that if you tell me the address).'
-            : preview.recipients === 0
+            : preview.recipients === 0 && !keepAdding
               ? `Nobody it picks can get it${leftOutLine(preview.skipped) ? `: ${leftOutLine(preview.skipped)}` : '. Nobody has those tags or stages'}.`
               : null;
     const who = await audienceWords(db, ctx, { tagIds, stageIds });
@@ -462,6 +467,12 @@ const startCampaign: SettingsConfirmTool = {
           { label: 'Left out', value: leftOutLine(preview.skipped) },
           { label: 'About the promotion', value: offer?.name ?? '' },
           { label: 'Pace', value: paceLine({ channel, perHour: Number(args['perHour'] ?? 20) }) },
+          {
+            label: 'Keeps adding people',
+            value: keepAdding
+              ? 'Yes: anyone who later fits and agrees to calls joins, until you stop it'
+              : '',
+          },
         ],
         ...orBlocked(
           blocked,
@@ -493,6 +504,7 @@ const startCampaign: SettingsConfirmTool = {
         perHour: args['perHour'],
         offerId: str(args['offerId']) ?? null,
         channel: str(args['channel']) ?? 'sms',
+        keepAdding: args['keepAdding'] === true,
       },
     );
     const channel = (str(args['channel']) ?? 'sms') as Channel;
@@ -514,7 +526,7 @@ function campaignBlocked(got: CampaignGet, act: string, perHour?: number): strin
       if (c.status === 'drafting')
         return `It’s still being written. The ${many} wait here for approval once they’re ready.`;
       if (c.status !== 'review') return `It’s ${now}, so there’s nothing to approve.`;
-      if (c.counts.ready === 0) return 'There’s nobody left to send to.';
+      if (c.counts.ready === 0 && !c.keepAdding) return 'There’s nobody left to send to.';
       if (c.channel === 'email' && !(c.email?.subject?.trim() && c.email.body?.trim()))
         return 'The email isn’t written yet.';
       if (c.channel === 'call' && !c.call?.opening?.trim())
@@ -526,6 +538,14 @@ function campaignBlocked(got: CampaignGet, act: string, perHour?: number): strin
       return c.status === 'paused' ? null : `It’s ${now}, not paused.`;
     case 'stop':
       return c.status === 'done' || c.status === 'cancelled' ? `It’s already ${now}.` : null;
+    case 'keep_adding':
+    case 'stop_adding':
+      if (c.channel !== 'call') return 'Only a call campaign keeps adding people.';
+      if (c.status === 'done' || c.status === 'cancelled')
+        return `It’s ${now}, so nobody more joins it. Start a new call campaign instead.`;
+      if (c.keepAdding === (act === 'keep_adding'))
+        return c.keepAdding ? 'It already keeps adding people.' : 'It doesn’t keep adding people.';
+      return null;
     default:
       if (c.status === 'done' || c.status === 'cancelled')
         return `It’s ${now}, so its pace can’t change.`;
@@ -673,6 +693,40 @@ const manageCampaign: SettingsConfirmTool = {
           }),
           result,
         };
+      case 'keep_adding':
+      case 'stop_adding': {
+        const on = act === 'keep_adding';
+        return {
+          card: card(toolCallId, 'manage_campaign', {
+            title: on
+              ? `Have “${c.name}” keep adding people?`
+              : `Stop adding people to “${c.name}”?`,
+            fields: [
+              base,
+              {
+                label: on ? 'Who joins' : 'From now on',
+                value: on
+                  ? 'Anyone who later gets one of its tags or reaches one of its stages, and agrees to calls in writing'
+                  : 'It calls only the people it has, then finishes',
+              },
+              { label: 'Pace', value: paceLine(c) },
+            ],
+            ...orBlocked(
+              blocked,
+              on ? 'Keep adding people' : 'Stop adding people',
+              on
+                ? [
+                    {
+                      kind: 'caution',
+                      text: 'Each person who joins is called without asking you again, until you stop it.',
+                    },
+                  ]
+                : [],
+            ),
+          }),
+          result,
+        };
+      }
       default:
         return {
           card: card(toolCallId, 'manage_campaign', {
@@ -701,7 +755,10 @@ const manageCampaign: SettingsConfirmTool = {
       case 'approve_and_send':
         await command(db, ctx, 'campaign.approve', { campaignId });
         return {
-          outcome: `Approved. ${c.channel === 'call' ? 'Calls start' : `The ${many} start going`} to ${peopleOf(c.counts.ready)}, ${c.perHour} an hour while you’re open.`,
+          outcome:
+            c.keepAdding && c.counts.ready === 0
+              ? `Approved. Nobody fits yet: anyone who comes to fit is called, ${c.perHour} an hour while you’re open.`
+              : `Approved. ${c.channel === 'call' ? 'Calls start' : `The ${many} start going`} to ${peopleOf(c.counts.ready)}${c.keepAdding ? ' and anyone who comes to fit' : ''}, ${c.perHour} an hour while you’re open.`,
           href,
           command: 'campaign.approve',
         };
@@ -714,6 +771,18 @@ const manageCampaign: SettingsConfirmTool = {
       case 'stop':
         await command(db, ctx, 'campaign.cancel', { campaignId });
         return { outcome: `Stopped “${c.name}”.`, href, command: 'campaign.cancel' };
+      case 'keep_adding':
+      case 'stop_adding': {
+        const on = act === 'keep_adding';
+        await command(db, ctx, 'campaign.set_keep_adding', { campaignId, on });
+        return {
+          outcome: on
+            ? `“${c.name}” keeps adding people who come to fit, and calls them at its pace.`
+            : `“${c.name}” calls only the people it has now.`,
+          href,
+          command: 'campaign.set_keep_adding',
+        };
+      }
       default:
         await command(db, ctx, 'campaign.set_pace', { campaignId, perHour: args['perHour'] });
         return {

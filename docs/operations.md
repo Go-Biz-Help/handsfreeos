@@ -9174,8 +9174,25 @@ Needs `20261006000700_email_campaigns.sql`. See "Apply new migrations".
 - **Approve all and start calling** is the approval for every call on the list, so the calls don't wait for a person again, even while the teammate is training.
 - The same pace (calls an hour), open hours, quiet hours, **Pause**, **Resume** and **Stop** as texts. Each call is an AI call like the others (see "AI calls" below): recorded, the business's voicemail choice, "don't call me again" respected. Each person's row shows how their call went: **Calling soon**, **Talked** (with the summary), **Voicemail**, **No answer**, **Busy**, **Not called**.
 - It pauses itself, saying why, when the AI teammate isn't taking calls (off, or its phone off).
+- **Keep adding people** (a box under the pace, calls only; `campaigns.keep_adding`): anyone who later gets one of
+  its tags or reaches one of its stages, and agrees to calls in writing, joins and is called at its pace. It may
+  start, and be approved, with nobody yet ("Nobody to call yet. Anyone who comes to fit joins and is called."). The
+  first approval covers everyone who joins later. While it's on it never finishes by itself; the list shows **Keeps
+  adding**, and the progress screen has a switch to turn it off, after which it finishes once everyone it has is
+  called.
+  - The worker looks at once when a lead comes in, a deal changes stage, a tag changes or someone says yes to calls
+    (`campaign.keep_adding_changed`, `lead.created`, `lead.stage_changed`, `record.tags_changed`,
+    `person.call_consent_changed`), keeping to the pace. Otherwise it looks every hour, which also catches people
+    tagged by an import. Up to 50 join at each look.
+  - A joiner is anyone the campaign picks and doesn't have yet, or left out for a reason that has changed since (no
+    phone, no written yes, called lately, mid-conversation, booked). Someone already called by it isn't called
+    again, and the same checks run again just before each call.
+  - The Assistant starts one with `start_campaign` (`keepAdding`) and turns it on or off with `manage_campaign`
+    (`keep_adding`, `stop_adding`), on a Confirm card. The command is `campaign.set_keep_adding` (risk 2,
+    `workflows.manage`), refused for texts and email, and for a campaign that's done or stopped.
 
-Needs `20261008000200_quote_and_campaign_calls.sql` (`campaigns.channel` `call`, `campaigns.call_opening`). See "Apply new migrations".
+Needs `20261008000200_quote_and_campaign_calls.sql` (`campaigns.channel` `call`, `campaigns.call_opening`), and for
+**Keep adding people** `20261027018300_campaign_keep_adding.sql`. See "Apply new migrations".
 
 **About a promotion**: a campaign can be about one of the business's promotions (Knowledge → Promotions, live or upcoming; `app.offers` underneath). Picking one fills in the goal if it's empty, and the AI writes each text from the promotion's own words and says when it ends. An archived promotion can't be picked.
 
