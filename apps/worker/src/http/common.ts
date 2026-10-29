@@ -1,6 +1,8 @@
 import type { SessionTimings } from '../voice-agent/session';
 import {
   bearerToken,
+  callBoxOn,
+  callConsentWords,
   HfosError,
   offersConsentWords,
   sendsOffers,
@@ -74,6 +76,19 @@ export async function offersBoxFor(
         limit 1`,
   );
   return sendsOffers(row?.use_case) ? offersConsentWords(business) : null;
+}
+
+/**
+ * The "OK to call" box a public page shows under the text boxes, or null when the business doesn't ask for one
+ * (Settings → Automations → AI calls → Ask for an OK to call). Whatever page sends a tick back, the command keeping
+ * it checks the switch again, so a page loaded before it went off keeps nothing.
+ */
+export async function callBoxFor(
+  tx: Tx,
+  workspaceId: string,
+  business: string,
+): Promise<{ title: string; detail: string } | null> {
+  return (await callBoxOn(tx, workspaceId)) ? callConsentWords(business) : null;
 }
 
 export const header = (req: FastifyRequest, name: string): string | undefined => {

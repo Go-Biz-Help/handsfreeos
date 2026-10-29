@@ -27,6 +27,8 @@ export interface PublicFormPage {
   readonly botCheck: { readonly siteKey: string | null } | null;
   /** The separate box for offers, under "Text me", for a business that sends them. */
   readonly offersConsent?: { readonly title: string; readonly detail: string } | null;
+  /** The "OK to call" box under those, for a business that asks for one (core's callConsentWords). */
+  readonly callConsent?: { readonly title: string; readonly detail: string } | null;
 }
 
 export interface StartedSheet {
@@ -128,6 +130,7 @@ export const saveContactSheet = (
     answers: Record<string, unknown>;
     smsConsent: boolean;
     offersConsent?: boolean;
+    callConsent?: boolean;
     askAgain?: boolean;
     website?: string;
     turnstileToken?: string;
@@ -143,6 +146,7 @@ export const sendSheet = (
     answers: Record<string, unknown>;
     smsConsent: boolean;
     offersConsent?: boolean;
+    callConsent?: boolean;
     askAgain?: boolean;
     website?: string;
     turnstileToken?: string;

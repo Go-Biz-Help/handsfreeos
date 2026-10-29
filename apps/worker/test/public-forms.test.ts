@@ -233,6 +233,56 @@ describe('filling it in', () => {
     );
   });
 
+  it('shows the OK to call box once the business asks for one, and keeps a yes with where it was ticked', async () => {
+    const asks = (on: boolean) =>
+      admin().execute(
+        sql`update app.workspaces
+            set settings = jsonb_set(coalesce(settings, '{}'::jsonb), '{automations}',
+              coalesce(settings->'automations', '{}'::jsonb)
+                || jsonb_build_object('calls', jsonb_build_object('askConsent', ${on}::boolean)))
+            where id = ${w.workspaceId}`,
+      );
+    const boxOf = async () =>
+      ((await get(w, formUrl())).json() as { callConsent: { title: string } | null }).callConsent;
+    const send = async (callConsent: boolean) => {
+      const started = (await post(w, formUrl('/start'), {}).then((r) => r.json())) as {
+        responseId: string;
+        token: string;
+      };
+      const sent = await post(w, formUrl(`/${started.responseId}/submit`), {
+        token: started.token,
+        answers: { [qid('name')]: 'Dale Ruiz', [qid('phone')]: '(512) 555-0403' },
+        callConsent,
+      });
+      expect(sent.statusCode, sent.body).toBe(200);
+      const [person] = await rows<{ consent: string; source: string | null; at: Date | null }>(
+        admin(),
+        sql`select call_consent as consent, call_consent_source as source, call_consent_at as at
+            from app.people where workspace_id = ${w.workspaceId} and phone_e164 = '+15125550403'`,
+      );
+      return person!;
+    };
+
+    // Off to begin with: no box, and a tick sent anyway is a box nobody read.
+    expect(await boxOf()).toBeNull();
+    expect((await send(true)).consent).toBe('unknown');
+
+    await asks(true);
+    expect((await boxOf())?.title).toMatch(/OK to call/i);
+    expect(await send(false)).toMatchObject({ consent: 'unknown' });
+    const yes = await send(true);
+    expect(yes).toMatchObject({ consent: 'opted_in', source: 'Form: Quote request' });
+    expect(yes.at).not.toBeNull();
+
+    // "Doesn't want calls" wins, as STOP does for texts.
+    await admin().execute(
+      sql`update app.people set call_consent = 'opted_out'
+          where workspace_id = ${w.workspaceId} and phone_e164 = '+15125550403'`,
+    );
+    expect((await send(true)).consent).toBe('opted_out');
+    await asks(false);
+  });
+
   it('refuses to write to a sheet without its key', async () => {
     const started = (await post(w, formUrl('/start'), {}).then((r) => r.json())) as {
       responseId: string;

@@ -54,6 +54,8 @@ export interface DetailsValues {
   readonly smsConsent: boolean;
   /** The separate box for offers, when the business sends them. */
   readonly offersConsent?: boolean;
+  /** The "OK to call" box, when the business asks for one. */
+  readonly callConsent?: boolean;
   /** The away form's "How can we help?". */
   readonly message: string;
 }
@@ -496,6 +498,7 @@ export class VisitorChatSession extends ChatSession {
         ...(email ? { email } : {}),
         smsConsent: !!phone && values.smsConsent,
         offersConsent: !!phone && !!values.offersConsent,
+        callConsent: !!phone && !!values.callConsent,
         ...(token ? { turnstileToken: token } : {}),
         ...(honeypot ? { honeypot } : {}),
       });

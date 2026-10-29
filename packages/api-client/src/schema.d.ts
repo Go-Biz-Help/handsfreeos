@@ -26601,6 +26601,8 @@ export interface operations {
                         };
                         /** @default {} */
                         calls?: {
+                            /** @default false */
+                            askConsent?: boolean;
                             /**
                              * @default text
                              * @enum {string}
@@ -26714,6 +26716,8 @@ export interface operations {
                                 eveningAt: string;
                             };
                             calls: {
+                                /** @default false */
+                                askConsent: boolean;
                                 /**
                                  * @default text
                                  * @enum {string}
@@ -31661,6 +31665,8 @@ export interface operations {
                     answers: {
                         [key: string]: unknown;
                     };
+                    /** @default false */
+                    callConsent?: boolean;
                     /** Format: uuid */
                     formId: string;
                     /** Format: uuid */

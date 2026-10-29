@@ -29,7 +29,7 @@ import { asWorker, rows, sql } from '@hfos/db/client';
 import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
 import { passThroughBotCheck, type BotCheck } from '../booking/bot-check';
-import { offersBoxFor, type HttpDeps } from './common';
+import { callBoxFor, offersBoxFor, type HttpDeps } from './common';
 
 const SLUG_RE = /^[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?$/i;
 
@@ -90,6 +90,7 @@ const SubmitBody = z.object({
   answers: Answers,
   smsConsent: z.boolean().default(false),
   offersConsent: z.boolean().default(false),
+  callConsent: z.boolean().default(false),
   askAgain: z.boolean().default(false),
   website: z.string().max(200).optional(),
   turnstileToken: z.string().max(2048).optional(),
@@ -220,10 +221,13 @@ export async function registerFormRoutes(app: FastifyInstance, deps: HttpDeps): 
             row.response_count >= definition.settings.closesAfter);
         const name = row.site_name ?? row.form_name;
         const offers = await worker(scope, (tx) => offersBoxFor(tx, row.workspace_id, name));
+        const calls = await worker(scope, (tx) => callBoxFor(tx, row.workspace_id, name));
         return {
           business: { name, timeZone: row.timezone },
           // The separate box for offers, under the first, for a business that sends them.
           offersConsent: offers,
+          // The "OK to call" box under those, for a business that asks for one.
+          callConsent: calls,
           form: {
             formId: row.form_id,
             slug: row.form_slug,
@@ -322,6 +326,7 @@ export async function registerFormRoutes(app: FastifyInstance, deps: HttpDeps): 
             answers: body.answers,
             smsConsent: body.smsConsent,
             offersConsent: body.offersConsent,
+            callConsent: body.callConsent,
             askAgain: body.askAgain,
           },
           { type: 'system', ...scope },
@@ -361,6 +366,7 @@ export async function registerFormRoutes(app: FastifyInstance, deps: HttpDeps): 
             answers: body.answers,
             smsConsent: body.smsConsent,
             offersConsent: body.offersConsent,
+            callConsent: body.callConsent,
             askAgain: body.askAgain,
           },
           { type: 'system', ...scope },

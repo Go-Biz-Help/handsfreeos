@@ -100,6 +100,8 @@ describe('the widget’s settings', () => {
       },
       // No texting registration that includes offers, so no second box.
       offersConsent: null,
+      // The business hasn't asked for an OK to call, so no box for calls either.
+      callConsent: null,
       humanCheck: null,
       paused: false,
       maxMessageLength: 1000,
@@ -628,6 +630,36 @@ describe('read receipts and details', () => {
       [first.messageId]: 'delivered',
       [second.messageId]: 'queued',
     });
+  });
+
+  it('asks for an OK to call once the business does, and keeps a new customer’s yes', async () => {
+    const asks = (on: boolean) =>
+      admin().execute(
+        sql`update app.workspaces
+            set settings = jsonb_set(coalesce(settings, '{}'::jsonb), '{automations}',
+              coalesce(settings->'automations', '{}'::jsonb)
+                || jsonb_build_object('calls', jsonb_build_object('askConsent', ${on}::boolean)))
+            where id = ${w.workspaceId}`,
+      );
+    await asks(true);
+    try {
+      expect((await configOf(w.key)).json()).toMatchObject({
+        callConsent: { title: expect.stringMatching(/OK to call/i) },
+      });
+      const v = await startedVisitor(app, w.key, '203.0.113.91');
+      await v.send('Can you call me about a quote?');
+      const phone = nextPhone();
+      const said = await v.identify({ name: 'Omar Haddad', phone, callConsent: true });
+      expect(said.statusCode, said.body).toBe(200);
+      const [p] = await rows<{ consent: string; source: string | null }>(
+        admin(),
+        sql`select call_consent::text as consent, call_consent_source as source from app.people
+            where workspace_id = ${w.workspaceId} and phone_e164 = ${phone}`,
+      );
+      expect(p).toEqual({ consent: 'opted_in', source: 'Website chat' });
+    } finally {
+      await asks(false);
+    }
   });
 
   it('never shows a visitor anything about the customer their details matched', async () => {

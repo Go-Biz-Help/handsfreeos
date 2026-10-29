@@ -32847,6 +32847,10 @@
                               "message",
                               "hang_up"
                             ]
+                          },
+                          "askConsent": {
+                            "default": false,
+                            "type": "boolean"
                           }
                         }
                       },
@@ -33165,10 +33169,15 @@
                                 "message",
                                 "hang_up"
                               ]
+                            },
+                            "askConsent": {
+                              "default": false,
+                              "type": "boolean"
                             }
                           },
                           "required": [
-                            "voicemail"
+                            "voicemail",
+                            "askConsent"
                           ],
                           "additionalProperties": false
                         },
@@ -54722,6 +54731,10 @@
                     "additionalProperties": {}
                   },
                   "smsConsent": {
+                    "default": false,
+                    "type": "boolean"
+                  },
+                  "callConsent": {
                     "default": false,
                     "type": "boolean"
                   }

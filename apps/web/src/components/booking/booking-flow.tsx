@@ -342,16 +342,19 @@ function SmsConsent({
 
 /**
  * The separate box for offers, under "Text me", for a business that sends them. Starts unticked and is never
- * required; agreeing to texts about this booking is not agreeing to offers (core's offersConsentWords).
+ * required; agreeing to texts about this booking is not agreeing to offers (core's offersConsentWords). The
+ * "OK to call" box, for a business that asks for one, is the same box with core's callConsentWords.
  */
 function OffersConsent({
   checked,
   onChange,
   words,
+  testId = 'booking-offers-consent',
 }: {
   checked: boolean;
   onChange: (v: boolean) => void;
   words: { title: string; detail: string };
+  testId?: string;
 }) {
   return (
     <button
@@ -360,7 +363,7 @@ function OffersConsent({
       aria-checked={checked}
       onClick={() => onChange(!checked)}
       className="flex min-h-11 items-start gap-2.5 py-1 text-left"
-      data-testid="booking-offers-consent"
+      data-testid={testId}
     >
       <span
         aria-hidden
@@ -666,6 +669,7 @@ export function BookingFlow({
     notes: '',
     smsConsent: false,
     offersConsent: false,
+    callConsent: false,
   });
   const set = (k: keyof typeof form) => (v: string | boolean) => setForm((f) => ({ ...f, [k]: v }));
   const [intake, setIntake] = useState<Record<string, Answer>>({});
@@ -764,6 +768,7 @@ export function BookingFlow({
         email: form.email.trim() || null,
         smsConsent: form.smsConsent,
         offersConsent: business.offersConsent ? form.offersConsent : false,
+        callConsent: business.callConsent ? form.callConsent : false,
         intake,
         notes: form.notes.trim() || null,
         ref: linkRef,
@@ -801,6 +806,7 @@ export function BookingFlow({
         email: form.email.trim() || null,
         smsConsent: form.smsConsent,
         offersConsent: business.offersConsent ? form.offersConsent : false,
+        callConsent: business.callConsent ? form.callConsent : false,
         website,
         turnstileToken: botToken ?? undefined,
       });
@@ -998,6 +1004,14 @@ export function BookingFlow({
           checked={form.offersConsent}
           onChange={(v) => set('offersConsent')(v)}
           words={business.offersConsent}
+        />
+      ) : null}
+      {business.callConsent ? (
+        <OffersConsent
+          checked={form.callConsent}
+          onChange={(v) => set('callConsent')(v)}
+          words={business.callConsent}
+          testId="booking-call-consent"
         />
       ) : null}
       <Honeypot value={website} onChange={setWebsite} />

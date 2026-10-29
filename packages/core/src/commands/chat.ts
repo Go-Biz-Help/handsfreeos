@@ -67,6 +67,7 @@ import {
 } from '../schemas/chat';
 import { PersonCreateInput } from '../schemas/person';
 import { personCreate } from './person.create';
+import { recordCallConsent } from '../messaging/call-consent';
 import { recordOffersConsent } from '../messaging/offers';
 
 const inWorkspace = (i: { workspaceId: string }) => ({
@@ -564,6 +565,7 @@ export const chatIdentify = defineCommand({
         }
         if (input.offersConsent && typed.phoneE164 && !stopped)
           await recordOffersConsent(ctx.tx, personId, 'chat_widget');
+        if (input.callConsent) await recordCallConsent(ctx.tx, ws, personId, 'Website chat');
       }
       await ctx.tx.update(chatVisitors).set({ personId }).where(eq(chatVisitors.id, visitor.id));
       linkedNow = true;

@@ -174,6 +174,12 @@ const Calls = z.object({
    * saying who called and why; hang_up: nothing more.
    */
   voicemail: z.enum(CALL_VOICEMAIL_CHOICES).default('text'),
+  /**
+   * An "OK to call" box under the text box on the business's public forms, booking page, waitlist and website chat
+   * (`callConsentWords`). A tick is kept like the customer page's "Agreed in writing". Off to begin with: turning it
+   * on is the business's choice, not something that appears on its pages overnight (Chris, 2026-10-28).
+   */
+  askConsent: z.boolean().default(false),
 });
 
 export const AutomationSettings = z

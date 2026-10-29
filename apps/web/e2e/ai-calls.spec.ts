@@ -4,8 +4,8 @@ import { api, ownerWithSite, randomPhone } from './booking-helpers';
 
 /**
  * AI outbound calls, in the browser: the two rows on Settings → Automations (off to begin with, "Calls customers",
- * waiting for the teammate's phone), the Adjust sheet's choice for a voicemail box, and a customer's written consent
- * to calls on their Details.
+ * waiting for the teammate's phone), the Adjust sheet's choice for a voicemail box and its "OK to call" box (ticked on
+ * a public form, it shows on the customer's Details), and a customer's written consent to calls on their Details.
  */
 test('AI calls: the rows, the voicemail choice, and a customer’s consent to calls', async ({
   page,
@@ -47,7 +47,105 @@ test('AI calls: the rows, the voicemail choice, and a customer’s consent to ca
       return workspace.settings.automations?.calls?.voicemail;
     })
     .toBe('message');
+
+  // The "OK to call" box: off to begin with, its words right there, saved as it's switched.
+  const ask = page.getByTestId('ai-calls-ask-consent');
+  await expect(ask).not.toBeChecked();
+  await expect(page.getByTestId('ai-calls-consent-preview')).toContainText(
+    'OK to call me, including with an AI assistant',
+  );
+  await ask.click();
+  await expect(
+    page.getByText('Your forms, booking page and chat now ask for an OK to call.'),
+  ).toBeVisible();
+  await expect
+    .poll(async () => {
+      const { workspace } = await api<{
+        workspace: { settings: { automations?: { calls?: { askConsent?: boolean } } } };
+      }>(owner.token, 'queries', 'workspace.get', { workspaceId: ws });
+      return workspace.settings.automations?.calls?.askConsent;
+    })
+    .toBe(true);
   await page.keyboard.press('Escape');
+
+  // On a public form, the box sits under the texts box, and a tick is kept with the form's name.
+  const created = await api<{ formId: string; revision: number; slug: string }>(
+    owner.token,
+    'commands',
+    'form.create',
+    { workspaceId: ws, name: 'Call me back' },
+  );
+  const got = await api<{ definition: { pages: { id: string }[] } }>(
+    owner.token,
+    'queries',
+    'form.get',
+    { workspaceId: ws, formId: created.formId },
+  );
+  const pageId = got.definition.pages[0]!.id;
+  const saved = await api<{ revision: number }>(owner.token, 'commands', 'form.save_draft', {
+    workspaceId: ws,
+    formId: created.formId,
+    baseRevision: created.revision,
+    ops: [
+      {
+        op: 'add_question',
+        pageId,
+        index: null,
+        question: {
+          id: 'q_name0000',
+          type: 'short_text',
+          title: 'Your name',
+          required: true,
+          mapTo: 'person.first_name',
+          config: {},
+        },
+      },
+      {
+        op: 'add_question',
+        pageId,
+        index: null,
+        question: {
+          id: 'q_phone000',
+          type: 'phone',
+          title: 'Your phone',
+          required: true,
+          mapTo: 'person.phone',
+          config: {},
+        },
+      },
+    ],
+  });
+  await api(owner.token, 'commands', 'form.publish', {
+    workspaceId: ws,
+    formId: created.formId,
+    baseRevision: saved.revision,
+  });
+  await page.goto(`/f/${owner.site}/${created.slug}`);
+  await page.getByLabel('Your name').fill('Cora');
+  await page.getByLabel('Your phone').fill(randomPhone());
+  await expect(page.getByTestId('form-call-consent')).not.toBeChecked();
+  await page.getByTestId('form-call-consent').check();
+  await expect(page.getByTestId('form-send')).toBeEnabled({ timeout: 30_000 });
+  await page.getByTestId('form-send').click();
+  await expect(page.getByTestId('form-sent')).toBeVisible();
+  let cora = '';
+  await expect
+    .poll(async () => {
+      const people = await api<{ items: { id: string; firstName: string }[] }>(
+        owner.token,
+        'queries',
+        'person.list',
+        { workspaceId: ws, limit: 20 },
+      );
+      cora = people.items.find((p) => p.firstName === 'Cora')?.id ?? '';
+      return cora;
+    })
+    .not.toBe('');
+  await page.goto(`/app/w/${ws}/customers/people/${cora}`);
+  await page.getByTestId('tab-details').click();
+  await expect(page.getByTestId('call-consent-value')).toHaveText(
+    'Agreed in writing (Form: Call me back)',
+  );
 
   // A customer who agreed to calls in writing.
   const { personId } = await api<{ personId: string }>(owner.token, 'commands', 'person.create', {

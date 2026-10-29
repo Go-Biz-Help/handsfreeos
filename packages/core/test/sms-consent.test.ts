@@ -13,6 +13,7 @@ import { describe, expect, it } from 'vitest';
 import {
   HELP_KEYWORDS,
   STOP_KEYWORDS,
+  callConsentWords,
   offersConsentWords,
   optInDescriptionDefault,
   optInDescriptionFor,
@@ -122,6 +123,31 @@ describe('offers have a box of their own', () => {
     expect(ownSiteBoxText('Lone Star HVAC', true)).toContain(
       offersConsentWords('Lone Star HVAC').title,
     );
+  });
+});
+
+describe('calls have a box of their own', () => {
+  // What a written yes to AI calls has to say, for the owner's lawyer: who calls, that it may be an AI or a
+  // recorded voice, what about, that it isn't a condition of buying, that calls may be recorded, and how to stop.
+  const { title, detail } = callConsentWords(BUSINESS);
+
+  it('says it may be an AI, and names the business that calls rather than us', () => {
+    expect(title).toMatch(/OK to call/i);
+    expect(`${title} ${detail}`).toMatch(/AI assistant/i);
+    expect(detail).toMatch(/recorded voice/i);
+    expect(detail).toContain(BUSINESS);
+    expect(`${title} ${detail}`).not.toMatch(/HandsFreeOS/i);
+  });
+
+  it('says what about, that it isn’t a condition of buying, that calls may be recorded, and how to stop', () => {
+    expect(detail).toMatch(/services and offers/i);
+    expect(detail).toMatch(/not a condition/i);
+    expect(detail).toMatch(/may be recorded/i);
+    expect(detail).toMatch(/stop/i);
+  });
+
+  it('falls back to something true when a business has no name on file', () => {
+    expect(callConsentWords('  ').detail).toMatch(/^this business may call/);
   });
 });
 

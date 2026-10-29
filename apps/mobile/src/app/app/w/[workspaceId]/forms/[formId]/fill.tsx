@@ -1,10 +1,13 @@
 import {
   answerProblem,
+  automationSettingsOf,
+  callConsentWords,
   formState,
   smsConsentWords,
   type AnswerSheet,
   type AnswerValue,
 } from '@hfos/core';
+import { useQuery } from '@powersync/react-native';
 import { router, useLocalSearchParams } from 'expo-router';
 import * as React from 'react';
 import { View } from 'react-native';
@@ -39,6 +42,7 @@ export default function FillForm() {
   const [answers, setAnswers] = React.useState<AnswerSheet>({});
   const [tried, setTried] = React.useState(false);
   const [consent, setConsent] = React.useState(false);
+  const [callConsent, setCallConsent] = React.useState(false);
   const [sending, setSending] = React.useState(false);
   // Made once, not per attempt: a failed send that the person tries again is the same answer sheet.
   const responseId = React.useMemo(() => newId(), []);
@@ -48,6 +52,9 @@ export default function FillForm() {
   const blocked = form ? blockedQuestions(form.definition) : [];
   const state = form ? formState(form.definition, answers) : null;
   const words = smsConsentWords(business.name, 'form');
+  // The "OK to call" box, when the business asks for one (Settings → Automations → AI calls).
+  const askCalls = useAsksForCalls(business.id);
+  const callWords = callConsentWords(business.name);
 
   if (!form)
     return (
@@ -104,6 +111,7 @@ export default function FillForm() {
         // same way the server would drop it.
         answers: state!.answers as Record<string, AnswerValue>,
         smsConsent: consent,
+        callConsent: askCalls && callConsent,
       });
       toast.show('Sent.');
       // Back to the form's page, which counts it as on its way until HandsFreeOS has it.
@@ -146,6 +154,20 @@ export default function FillForm() {
             <Text className="flex-1 text-[14px] font-medium">{words.title}</Text>
           </View>
           <Text className="text-xs text-text-3">{words.detail}</Text>
+          {askCalls ? (
+            <>
+              <View className="mt-2 flex-row items-center gap-3">
+                <Switch
+                  label={callWords.title}
+                  checked={callConsent}
+                  onCheckedChange={(next: boolean) => setCallConsent(next)}
+                  testID="fill-form-call-consent"
+                />
+                <Text className="flex-1 text-[14px] font-medium">{callWords.title}</Text>
+              </View>
+              <Text className="text-xs text-text-3">{callWords.detail}</Text>
+            </>
+          ) : null}
         </View>
       ) : null}
 
@@ -159,4 +181,21 @@ export default function FillForm() {
       </Button>
     </Screen>
   );
+}
+
+const SETTINGS_SQL = 'SELECT settings FROM workspaces WHERE id = ?';
+
+/** Whether the business shows the "OK to call" box, from its settings on this phone. */
+function useAsksForCalls(workspaceId: string): boolean {
+  const { data } = useQuery<{ settings: string | null }>(SETTINGS_SQL, [workspaceId]);
+  const raw = data[0]?.settings ?? null;
+  return React.useMemo(() => {
+    try {
+      const parsed = raw ? (JSON.parse(raw) as Record<string, unknown>) : null;
+      return automationSettingsOf(parsed).calls.askConsent;
+    } catch {
+      // Settings the phone can't read: no box, as for a business that never turned it on.
+      return false;
+    }
+  }, [raw]);
 }

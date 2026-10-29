@@ -55,6 +55,7 @@ export default async function PublicFormPage({
       closedMessage={page.closedMessage}
       botCheck={page.botCheck}
       offers={page.offersConsent ?? null}
+      calls={page.callConsent ?? null}
       resumed={
         resumed ??
         (personal?.sheet
