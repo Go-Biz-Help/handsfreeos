@@ -4,7 +4,8 @@
  *
  * - **Loaded only where a PDF is shown**: the editor, the Send screen, a document's page and the signing page import
  *   it when they open one, so no other page carries it.
- * - **Its legacy build**, which still runs on the older phones customers sign on.
+ * - **Its legacy build**, which still runs on the older phones customers sign on. Safari still can't loop over a
+ *   stream, which even that build does to read a page's words, so streams are given the loop first (streams.ts).
  * - **On the page's own thread**: pdf.js's worker code is imported and handed over, so nothing has to be served
  *   from a separate address. The PDFs here are contracts of a few pages, which it reads in a moment.
  * - **Pages are measured the way the worker draws them**: in points, turned as the PDF says (`getViewport` at
@@ -18,6 +19,7 @@ import {
   type DocumentTextLine,
 } from '@hfos/core';
 import type * as PdfJsModule from 'pdfjs-dist/legacy/build/pdf.mjs';
+import { letStreamsBeLooped } from './streams';
 
 type PdfJs = typeof PdfJsModule;
 export type PdfDocument = Awaited<ReturnType<PdfJs['getDocument']>['promise']>;
@@ -27,6 +29,7 @@ let loading: Promise<PdfJs> | null = null;
 
 /** pdf.js, once, with its worker code on this thread. */
 export function loadPdfJs(): Promise<PdfJs> {
+  letStreamsBeLooped();
   loading ??= (async () => {
     const [pdfjs, worker] = await Promise.all([
       import('pdfjs-dist/legacy/build/pdf.mjs'),
