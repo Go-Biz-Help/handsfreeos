@@ -136,7 +136,7 @@ afterAll(closeTestDbs);
 describe('the extra tools', () => {
   it('each has an executor, a step label, and goes only to the roles its commands allow', () => {
     const names = [...Object.keys(extraAutoTools), ...Object.keys(extraConfirmTools)];
-    expect(names).toHaveLength(11);
+    expect(names).toHaveLength(12);
     for (const name of names) {
       const tool = assistantToolByName.get(name);
       expect(tool, name).toBeTruthy();
