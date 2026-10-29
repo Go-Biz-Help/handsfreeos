@@ -6,6 +6,8 @@ import {
   PUSH_MODES,
   REPLY_MODE_KEYS,
   REPLY_MODES,
+  requestModeChange,
+  requestModeOf,
   SENDING_MODE_KEYS,
   WEEKDAY_WORDS,
   WHEELS_START_WORDS,
@@ -22,6 +24,7 @@ import {
   noRunnerWords,
   onItsOwnAbout,
   postingAboutOn,
+  requestsChoiceOn,
   sendingModesOn,
   ticksOn,
   ticksShownOn,
@@ -362,7 +365,11 @@ export function NetworkModes({
   );
 }
 
-/** Along the way on one network, in its words: liking first, confirming requests, the once-a-day jobs, and more. */
+/**
+ * Along the way on one network, in its words: liking first, confirming requests, the once-a-day jobs, and more. Where
+ * the extension answers the requests the person gets (Facebook's), how it answers them, in place of a tick
+ * (decision 121).
+ */
 export function NetworkTicks({
   platform,
   value,
@@ -381,23 +388,49 @@ export function NetworkTicks({
   const ticks = ticksOn(platform);
   // None on a network whose runner reads none yet.
   const shown = ticksShownOn(platform);
-  if (!shown.length) return null;
+  const requests = requestsChoiceOn(platform);
+  if (!shown.length && !requests) return null;
+  const answering = requestModeOf(value);
   return (
-    <Section boxed={boxed} title={W.sections.along}>
-      <View className="gap-3">
-        {shown.map((k) => (
-          <Tick
-            key={k}
-            label={ticks[k][0]}
-            about={ticks[k][1]}
-            checked={value[k]}
-            onChange={(on) => onChange({ [k]: on })}
-            disabled={disabled}
-            testID={`${testID}-${k}`}
-          />
-        ))}
-      </View>
-    </Section>
+    <>
+      {shown.length ? (
+        <Section boxed={boxed} title={W.sections.along}>
+          <View className="gap-3">
+            {shown.map((k) => (
+              <Tick
+                key={k}
+                label={ticks[k][0]}
+                about={ticks[k][1]}
+                checked={value[k]}
+                onChange={(on) => onChange({ [k]: on })}
+                disabled={disabled}
+                testID={`${testID}-${k}`}
+              />
+            ))}
+          </View>
+        </Section>
+      ) : null}
+      {requests ? (
+        <Section
+          boxed={boxed}
+          title={requests.label}
+          about={requests.about}
+          testID={`${testID}-requests`}
+        >
+          {requests.options.map((o) => (
+            <Choice
+              key={o.key}
+              label={o.label}
+              about={o.note ?? undefined}
+              selected={answering === o.key}
+              onPress={() => onChange(requestModeChange(o.key))}
+              disabled={disabled}
+              testID={`${testID}-requests-${o.key}`}
+            />
+          ))}
+        </Section>
+      ) : null}
+    </>
   );
 }
 

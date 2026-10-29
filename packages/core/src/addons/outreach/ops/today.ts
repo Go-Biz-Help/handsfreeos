@@ -17,14 +17,16 @@ import {
   autoKinds,
   businessLimitsOn,
   messageKinds,
+  requestModeOf,
   underAPost,
+  type RequestMode,
 } from '../automation';
 import { GROUP_REPLY_WORDS, groupRepliesOn, REPLY_KEPT_DAYS } from '../active';
 import { demoLink, demoRef } from '../demos';
 import { bestFit, type Fit, type FitPlaybook } from '../fit';
 import type { GroupCheckState } from '../group-checks';
 import { type DailyStep } from '../limits';
-import { inNetworkWords, networkLimitsNow, NETWORKS } from '../networks';
+import { answersRequests, inNetworkWords, networkLimitsNow, NETWORKS } from '../networks';
 import { outreachAddon } from '../manifest';
 import {
   ANSWERS,
@@ -161,14 +163,20 @@ export const requestFit = (playbooks: readonly FitPlaybook[], p: RequestGot): Fi
  * fits on a later day. Waiting for you (./waiting.ts) lists the requests lately that aren't good fits for this, as the
  * person's to decide. A partner's is confirmed like anyone's (decision 81), and so is a client's (decision 91): saying
  * yes to a request is no pitch (`openToMe`, not `inPlay`).
+ *
+ * Where the extension answers them (Facebook's), as the person picked (decision 121): everyone's, playbook or not,
+ * when they confirm them all, the best fits first; and nobody's when they delete them all.
  */
 export async function requestsToConfirm(
   ctx: Ctx,
   me: string,
   playbooks: readonly FitPlaybook[],
   platform: Platform = 'facebook',
+  mode: RequestMode = 'fits',
 ): Promise<{ readonly p: RequestGot; readonly fit: Fit }[]> {
-  if (!playbooks.length) return [];
+  const answered = answersRequests(platform) ? mode : 'fits';
+  const everyone = answered === 'all';
+  if (answered === 'delete' || (!everyone && !playbooks.length)) return [];
   // The business's country setting skips some (decision 61): they're on the Skipped for country list instead. Only
   // the network's own requests are its to confirm.
   const lets = sql`(${countryLetsSql(await countryRuleOf(ctx), 'p')} and p.platform = ${platform})`;
@@ -184,7 +192,7 @@ export async function requestsToConfirm(
   );
   return asked
     .map((p) => ({ p, fit: requestFit(playbooks, p) }))
-    .filter(({ fit }) => fit.level === 'good')
+    .filter(({ fit }) => everyone || fit.level === 'good')
     .sort((a, b) => b.fit.score - a.fit.score || a.p.name.localeCompare(b.p.name))
     .slice(0, TODAY_MOST);
 }
@@ -257,10 +265,21 @@ export const today = defineAddonQuery(outreachAddon, {
         : null;
     // No new friend requests while 200 of theirs wait for an answer there, or their friends there near its cap
     // (decision 97): nor the likes before them, as after a warning.
-    const [mine] = await rows<{ waiting: number; friends: number }>(
+    // With how many of those the extension sent, and Cancel all's left (decision 121), for the note's buttons.
+    const [mine] = await rows<{
+      waiting: number;
+      friends: number;
+      extension: number;
+      cancelling: number;
+    }>(
       ctx.tx,
       sql`select count(*) filter (where f.state = 'request_sent')::int as waiting,
-            count(*) filter (where f.state = 'friends')::int as friends
+            count(*) filter (where f.state = 'friends')::int as friends,
+            count(*) filter (where f.state = 'request_sent' and exists (
+              select 1 from addon_outreach.touches t where t.profile_id = p.id and t.user_id = ${me}
+                and t.kind = 'friend_request' and t.auto))::int as extension,
+            count(*) filter (where f.state = 'request_sent' and f.cancel_at is not null
+              and f.cancel_at >= f.since)::int as cancelling
           from addon_outreach.friends f
           join addon_outreach.profiles p on p.id = f.profile_id
           where f.workspace_id = ${ws} and f.user_id = ${me} and p.platform = ${input.platform}`,
@@ -319,7 +338,13 @@ export const today = defineAddonQuery(outreachAddon, {
 
     // Requests the person got from people who fit a playbook well: theirs to confirm (decision 30). The rest lately are
     // theirs to decide, in Waiting for you.
-    for (const { p, fit } of await requestsToConfirm(ctx, me, playbooks, input.platform))
+    for (const { p, fit } of await requestsToConfirm(
+      ctx,
+      me,
+      playbooks,
+      input.platform,
+      requestModeOf(settings),
+    ))
       items.push(
         item({
           kind: 'confirm',

@@ -329,7 +329,7 @@ describe('your numbers', () => {
     const none = {
       networks: {
         ...NETWORKS_DEFAULTS,
-        facebook: { on: false, young: false, tidy: 'cancel' as const },
+        facebook: { on: false, young: false, tidy: 'cancel' as const, requests: 'fits' as const },
       },
     };
     expect(numbersPace(none, NO_RULES).networks).toEqual([{ platform: 'facebook', canSend: 15 }]);

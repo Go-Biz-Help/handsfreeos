@@ -8,6 +8,7 @@ import { OUTREACH_WORDS as W } from '@hfos/core/addons/outreach/words';
 import {
   helpfulOn,
   requestsHeldWords,
+  tidyWordsOn,
   todayKindsOn,
   todayOpenOf,
 } from '@hfos/core/addons/outreach/network-words';
@@ -190,6 +191,28 @@ export function useTodayProps(
       }
     },
     onProfileOwn: () => openSettingsPart(ws, platform),
+    // Cancel all (decision 121): the oldest go at once when the computer can take them, the rest once a day.
+    onCancelAll: async (leaveOutOwn) => {
+      try {
+        const out = await change('outreach.friends.cancel_all', {
+          workspaceId: ws,
+          platform,
+          on: true,
+          leaveOutOwn,
+        });
+        const { first, marked } = out.output;
+        // Nothing lost when the computer can't be asked now: the once-a-day job takes them.
+        if (first.length)
+          await change('outreach.ask.make', {
+            workspaceId: ws,
+            platform,
+            ask: { kind: 'cancel', profileIds: first },
+          }).catch(() => undefined);
+        after(tidyWordsOn(platform).all?.started(marked) ?? W.saved);
+      } catch (e) {
+        failed(e);
+      }
+    },
     onEndWheels: async (userId, name, network = 'facebook') => {
       try {
         await change('outreach.wheels.end', { workspaceId: ws, userId, platform: network });
@@ -223,6 +246,7 @@ export function TodayBody({
   onNotForMe,
   onEndWheels,
   onProfileOwn,
+  onCancelAll,
   embedded = false,
   hideSends,
 }: {
@@ -242,6 +266,8 @@ export function TodayBody({
   onEndWheels: (userId: string, name: string, platform?: Platform) => void;
   /** Opens the network's part of Settings, where the AI's suggestions for its profile wait (decision 99). */
   onProfileOwn?: () => void;
+  /** Starts Cancel all on the network (decision 121), leaving out the extension's or not. */
+  onCancelAll?: (leaveOutOwn: boolean) => void;
   /** Inside Today's tab, under Needs you (./hub.tsx): no screen of its own. */
   embedded?: boolean;
   /** Messages Needs you shows already: left off here, so nobody shows twice. */
@@ -282,10 +308,18 @@ export function TodayBody({
       {/* None from a server before decisions 96 and 97. */}
       {list.fresh?.on ? <Note testID="today-fresh">{freshWords(list.fresh, platform)}</Note> : null}
       {list.requestsHeld ? (
-        <View className="rounded-menu bg-warning-soft px-3 py-2.5" testID="today-requests-held">
+        <View
+          className="gap-2 rounded-menu bg-warning-soft px-3 py-2.5"
+          testID="today-requests-held"
+        >
           <Text className="text-[13px] leading-[18px] text-warning-text">
             {requestsHeldWords(list.requestsHeld, platform)}
           </Text>
+          <CancelAllButtons
+            platform={platform}
+            held={list.requestsHeld}
+            onCancelAll={onCancelAll}
+          />
         </View>
       ) : null}
       {/* Their profile, read on its own on the 1st: what the AI suggests waits for their OK (decision 99). */}
@@ -396,6 +430,47 @@ export function TodayBody({
         </Part>
       ) : null}
     </>,
+  );
+}
+
+/**
+ * Under the note that no new requests go for now (decision 97): Cancel all's two ways to start, the extension's left
+ * out first (decision 121), while it isn't going and only where the network has it.
+ */
+function CancelAllButtons({
+  platform,
+  held,
+  onCancelAll,
+}: {
+  platform: Platform;
+  held: NonNullable<TodayOutput['requestsHeld']>;
+  onCancelAll?: (leaveOutOwn: boolean) => void;
+}) {
+  const words = tidyWordsOn(platform).all;
+  // None from a server before it, nor while it's going.
+  const extension = held.extension ?? 0;
+  if (!words || !onCancelAll || held.why !== 'waiting' || held.cancelling) return null;
+  return (
+    <View className="flex-row flex-wrap gap-2" testID="today-cancel-all">
+      {extension > 0 && extension < held.count ? (
+        <Button
+          size="md"
+          variant="secondary"
+          onPress={() => onCancelAll(true)}
+          testID="today-cancel-all-leaving-out"
+        >
+          {words.leavingOut(extension)}
+        </Button>
+      ) : null}
+      <Button
+        size="md"
+        variant="secondary"
+        onPress={() => onCancelAll(false)}
+        testID="today-cancel-all-every"
+      >
+        {words.every(held.count)}
+      </Button>
+    </View>
   );
 }
 

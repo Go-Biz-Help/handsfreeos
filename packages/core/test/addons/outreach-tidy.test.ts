@@ -8,7 +8,7 @@
 import { rows, sql } from '@hfos/db/client';
 import { closeTestDbs, createTestUser, testDbs, type TestUser } from '@hfos/db/testing';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { DAILY_LIMITS, TIDY_LIMITS } from '../../src/addons/outreach/limits';
+import { DAILY_LIMITS, DECLINES_PER_DAY, TIDY_LIMITS } from '../../src/addons/outreach/limits';
 import { warningNote } from '../../src/addons/outreach/tidy';
 import { outreachBusiness, runAs } from './outreach-fixture';
 
@@ -128,6 +128,8 @@ describe('tidying friends', () => {
     expect(out.limits).toEqual({
       cancel_request: { done: 0, most: TIDY_LIMITS.cancel_request },
       unfriend: { done: 0, most: TIDY_LIMITS.unfriend },
+      // The requests they got that it deletes on its own, as they pick (decision 121).
+      decline: { done: 0, most: DECLINES_PER_DAY },
     });
   });
 

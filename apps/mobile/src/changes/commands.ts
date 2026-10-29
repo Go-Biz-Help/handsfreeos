@@ -354,6 +354,7 @@ import {
 import { DemoMarkInput, DemoMarkOutput } from '@hfos/core/addons/outreach/demos';
 import { DemoOutcomeInput, DemoOutcomeOutput } from '@hfos/core/addons/outreach/leads';
 import { FriendSetInput, FriendSetOutput } from '@hfos/core/addons/outreach/friends';
+import { CancelAllInput, CancelAllOutput } from '@hfos/core/addons/outreach/tidy';
 import {
   ComputerRemoveInput,
   ComputerRemoveOutput,
@@ -639,6 +640,8 @@ export const PHONE_COMMANDS = {
   // Won or lost after the demo, on a customer's Social card (decision 106): with signal, as the card is.
   'outreach.demo.outcome': command(ONLINE, DemoOutcomeInput, DemoOutcomeOutput),
   'outreach.friend.set': command(ONLINE, FriendSetInput, FriendSetOutput),
+  // Cancel all, under Today's note when no new requests go for now (decision 121): with signal.
+  'outreach.friends.cancel_all': command(ONLINE, CancelAllInput, CancelAllOutput),
   'outreach.helpful.ask': command(ONLINE, HelpfulAskInput, HelpfulAskOutput),
   'outreach.helpful.ok': command(ONLINE, HelpfulOkInput, HelpfulChangeOutput),
   'outreach.helpful.posted': command(ONLINE, HelpfulPostedInput, HelpfulChangeOutput),

@@ -3,7 +3,7 @@
 The extension that works beside a person on Facebook, and on LinkedIn, Instagram and Alignable once they turn each on,
 for the Social Outreach add-on (docs/outreach.md). It connects to HandsFreeOS only for businesses that have that add-on on.
 
-**This is a test build (0.109.0), and a bare one** (decisions 43, 59 and 72 in docs/outreach.md). Everything is set
+**This is a test build (0.110.0), and a bare one** (decisions 43, 59 and 72 in docs/outreach.md). Everything is set
 and started in HandsFreeOS; the extension does the work on Facebook. Its side panel shows progress and activity only:
 signing in, what it does next with today's steps and **Start my day** and **Stop for today**, how many things need
 you in HandsFreeOS (with a link there), each network's line, what it did today, and a link to HandsFreeOS. Needs you
@@ -1073,6 +1073,25 @@ shows under Instagram). Your Instagram choices in HandsFreeOS say what it does (
 Each step is noted as the extension's own (`auto`), as Instagram's. A step its page doesn't let it do goes to your
 Needs you; it never guesses.
 
+### Cancel all, and deleting requests you get (0.110.0)
+
+From 0.110.0 (docs/outreach.md, decision 121):
+
+- **Cancel all** under Old friend requests in HandsFreeOS marks every request of yours still waiting, however new,
+  leaving out the ones the extension sent unless you untick that. The extension cancels the oldest of them straight
+  away, up to the day's limit (30 on Facebook), and the rest once a day with the other once-a-day jobs, the way
+  tidying on its own goes (`src/jobs/own-tidy.ts`), whatever you picked for tidying. LinkedIn's and Alignable's
+  withdraw them the same way. Stop in HandsFreeOS clears the marks.
+- **Requests you get, on Facebook,** go as you pick in Settings: confirm who fits (as before), confirm them all,
+  delete them all, or confirm who fits and delete the rest. Confirming goes through your day as before. Deleting goes
+  once a day, up to 30: on their profile it presses Respond, then Delete request (`decline` in
+  `src/networks/facebook/tidy.ts`), checks the profile says Add friend after, and notes it as your answer
+  (`hfos-friend-note`), even while noting is off. HandsFreeOS never picks someone in Contacts, someone you've chatted
+  with, a partner, or anyone on Don't pitch or Never contact.
+
+Not yet tried on the owner's computer. Builds before 0.110.0 still cancel Cancel all's requests, as tidying on its
+own, but never delete a request.
+
 ### Its window waits till you're away (0.109.0)
 
 From 0.109.0 (docs/outreach.md, decision 120) a read that needs the screen no longer pulls its window over your work.
@@ -1691,7 +1710,8 @@ you on Alignable read once a week (decision 112, 0.104.0), and your Facebook fol
 week (decision 113, 0.105.0), staying active in your groups (decision 114, 0.106.0), and Alignable's search in the
 towns within 25 miles of yours (decision 115, 0.107.0), and liking a commenter's comment, 3 screens of a Likes box and
 Alignable's likers (decision 116, 0.108.0), and drafts naming each of someone's businesses and its window waiting
-till you're away (decisions 119 and 120, 0.109.0); Social
+till you're away (decisions 119 and 120, 0.109.0), and Cancel all and deleting requests you get (decision 121,
+0.110.0); Social
 Outreach's onboarding is built, in HandsFreeOS (decisions 36 and 45). Safari on Mac
 follows in Phase 2.
 

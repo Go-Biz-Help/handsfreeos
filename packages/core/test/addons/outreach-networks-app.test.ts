@@ -79,7 +79,8 @@ describe('a network’s words on screen', () => {
     expect(sendingModesOn('linkedin').steps).toMatch(/^Invitations to connect, likes/);
     expect(ticksOn('facebook').warmUp).toEqual(W.ticks.warmUp);
     // Settings show only the switches a network's runner reads; one still looked at has none yet.
-    expect(ticksShownOn('facebook')).toEqual(ALONG_TICKS);
+    // Facebook's confirming is a choice of five in its place (decision 121, `requestsChoiceOn`).
+    expect(ticksShownOn('facebook')).toEqual(ALONG_TICKS.filter((t) => t !== 'confirmRequests'));
     expect(ticksShownOn('linkedin')).toEqual(['warmUp', 'collect']);
     // Alignable's runner (part 5) reads the warm-up and the once-a-day jobs, as LinkedIn's does, and joins good
     // groups when people found in its groups run low (decision 92).

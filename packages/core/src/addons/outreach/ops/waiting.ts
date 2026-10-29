@@ -14,7 +14,13 @@ import { changeMoment } from '../../../kernel/moment';
 import { defineAddonCommand, defineAddonQuery } from '../../server';
 import type { FitPlaybook } from '../fit';
 import { outreachAddon } from '../manifest';
-import { underAPost } from '../automation';
+import {
+  choicesFor,
+  requestModeOf,
+  underAPost,
+  type AnswerMode,
+  type RequestMode,
+} from '../automation';
 import { PLATFORM_KEYS, type Platform } from '../networks';
 import { friends, needs, posts, profiles, sends } from '../tables';
 import {
@@ -40,7 +46,7 @@ import {
   type WaitingRequest,
 } from '../waiting';
 import { asksNeedingYou } from './ask-rows';
-import { automationOf } from './automation';
+import { automationOf, rulesOf } from './automation';
 import { contactable, inWorkspace, type Ctx } from './common';
 import { playbooksInUse } from './friends';
 import { openNeed } from './needs';
@@ -106,10 +112,40 @@ async function sendAndNeedKinds(
 }
 
 /**
+ * How each person has the requests they get on Facebook answered (decision 121): as they picked, or as the business
+ * starts everyone until they pick.
+ */
+async function requestModes(
+  ctx: Ctx,
+  userIds: readonly string[],
+): Promise<Map<string, RequestMode>> {
+  const fallback = requestModeOf(choicesFor((await rulesOf(ctx)).defaults, 'facebook'));
+  const kept = await rows<{
+    user_id: string;
+    confirm_requests: boolean;
+    requests: AnswerMode | null;
+  }>(
+    ctx.tx,
+    sql`select a.user_id, a.confirm_requests, a.networks -> 'facebook' ->> 'requests' as requests
+        from addon_outreach.automation a
+        where a.workspace_id = ${ctx.scope.workspaceId!} and a.user_id = any (${ids(userIds)}::uuid[])`,
+  );
+  const modes = new Map(userIds.map((id) => [id, fallback]));
+  for (const k of kept)
+    modes.set(
+      k.user_id,
+      requestModeOf({ confirmRequests: k.confirm_requests, requests: k.requests ?? undefined }),
+    );
+  return modes;
+}
+
+/**
  * Each person's friend requests to decide, the newest first: those they got in the last two weeks, not set aside since
  * they asked, that don't fit a playbook (owner answer 13a), or that fit but aren't Today's to confirm because no
  * playbook is in use or the person is on Don't pitch; with why. Good fits Today leaves for a later day stay off, and
- * so does anyone on Never contact, whose requests are never confirmed.
+ * so does anyone on Never contact, whose requests are never confirmed. On Facebook, when the person has the extension
+ * confirm them all (decision 121), everyone it may confirm is Today's too; when it deletes them all, the good fits wait
+ * here with the rest, as Today confirms none.
  */
 export async function requestsToDecide(
   ctx: Ctx,
@@ -119,12 +155,14 @@ export async function requestsToDecide(
 ): Promise<Map<string, WaitingRequest[]>> {
   const out = new Map<string, WaitingRequest[]>(userIds.map((id) => [id, []]));
   if (!userIds.length) return out;
+  const modes = await requestModes(ctx, userIds);
   const found = await rows<
-    RequestGot & { user_id: string; since: Date | string; pitched: boolean }
+    RequestGot & { user_id: string; since: Date | string; pitched: boolean; platform: Platform }
   >(
     ctx.tx,
     sql`select * from (
           select f.user_id, p.id, p.name, p.url, p.intro, p.mutual_friends, g.name as group_name, f.since,
+            p.platform,
             (${notNever('p')}) as pitched,
             row_number() over (partition by f.user_id order by f.since desc) as nth
           from addon_outreach.friends f
@@ -146,10 +184,24 @@ export async function requestsToDecide(
         .map((r) => ({ r, fit: requestFit(playbooks, r) }))
         // A good fit from someone pitched, with a playbook in use, is Today's to confirm (decision 30): if not today,
         // then on a later day, so it never waits for the person, however many there are.
-        .filter(({ r, fit }) => !(fit.level === 'good' && r.pitched && playbooks.length))
+        // On Facebook, as the person picked (decision 121): everyone Today's when they confirm them all, and nobody
+        // when they delete them all, so those it never deletes wait here.
+        .filter(({ r, fit }) => {
+          const mode = r.platform === 'facebook' ? modes.get(userId) : 'fits';
+          return !(
+            r.pitched &&
+            mode !== 'delete' &&
+            ((fit.level === 'good' && playbooks.length) || mode === 'all')
+          );
+        })
         .map(({ r, fit }) => {
+          // A good fit pitched with a playbook in use waits here only while they delete them all: nothing held it.
           const held: RequestHeld | null =
-            fit.level !== 'good' ? null : !playbooks.length ? 'no_playbook' : 'dont_pitch';
+            fit.level !== 'good' || (r.pitched && playbooks.length)
+              ? null
+              : !playbooks.length
+                ? 'no_playbook'
+                : 'dont_pitch';
           return {
             profileId: r.id,
             name: r.name,

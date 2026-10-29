@@ -38,6 +38,7 @@ export type TouchSaved = Ok<'/v1/commands/outreach.touch.save'>;
 export type Activity = Ok<'/v1/queries/outreach.activity'>;
 /** Friends (packages/core/src/addons/outreach/friends.ts): an answer to a request, and a list saved. */
 export type FriendNoteInput = Body<'/v1/commands/outreach.friend.note'>;
+export type FriendNoted = Ok<'/v1/commands/outreach.friend.note'>;
 export type FriendsSaveInput = Body<'/v1/commands/outreach.friends.save'>;
 export type FriendsSaved = Ok<'/v1/commands/outreach.friends.save'>;
 /** A part of Facebook's download file, brought in (packages/core/src/addons/outreach/download.ts). */
@@ -337,6 +338,8 @@ export type HfosAsk =
    */
   | { readonly type: 'hfos-post-words'; readonly workspaceId: string; readonly platform: Platform }
   | { readonly type: 'hfos-friend-end'; readonly input: FriendEndInput }
+  /** A request the person got that a job deleted (decision 121), noted whether or not noting is on. */
+  | { readonly type: 'hfos-friend-note'; readonly input: FriendNoteInput }
   | { readonly type: 'hfos-report'; readonly input: ReportSaveInput }
   | { readonly type: 'hfos-warning'; readonly input: WarningNoteInput }
   | { readonly type: 'hfos-save-posts'; readonly input: PostsSaveInput }
@@ -435,6 +438,7 @@ export interface HfosValues {
   readonly 'hfos-lists-saved': ListsSaved;
   readonly 'hfos-post-words': PostWords;
   readonly 'hfos-friend-end': FriendEnded;
+  readonly 'hfos-friend-note': FriendNoted;
   readonly 'hfos-report': ReportSaved;
   readonly 'hfos-warning': WarningNoted;
   readonly 'hfos-save-posts': PostsSaved;

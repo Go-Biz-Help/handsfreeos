@@ -8518,6 +8518,31 @@
         "required": ["workspaceId"]
       }
     },
+    "outreach.friends.cancel_all": {
+      "offline": "online",
+      "input": {
+        "type": "object",
+        "properties": {
+          "workspaceId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "platform": {
+            "default": "facebook",
+            "type": "string",
+            "enum": ["facebook", "linkedin", "instagram", "alignable"]
+          },
+          "on": {
+            "type": "boolean"
+          },
+          "leaveOutOwn": {
+            "default": true,
+            "type": "boolean"
+          }
+        },
+        "required": ["workspaceId", "on"]
+      }
+    },
     "outreach.helpful.ask": {
       "offline": "online",
       "input": {

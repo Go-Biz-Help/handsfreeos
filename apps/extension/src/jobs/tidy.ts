@@ -6,6 +6,10 @@
  * it's them and where things stand, presses Cancel request or Unfriend (src/networks/facebook/tidy.ts), checks it worked, and
  * notes it in HandsFreeOS. It goes slowly, stops at today's limit, and stops for the day on any Facebook warning. A
  * step it can't find, it hands to the person: Carry on once they've done it, or Skip that person.
+ *
+ * From 0.110.0 on its own too (decision 121): the requests nobody answered that Cancel all is cancelling, however new,
+ * and the requests the person got that HandsFreeOS picked to delete as they chose for those, Respond then Delete
+ * request, each noted as their answer.
  */
 import { TIDY_PACE_SECONDS } from '@hfos/core/addons/outreach/asks';
 import { withTheirName } from '../networks/facebook/auto';
@@ -28,6 +32,14 @@ const WAIT_OPTIONAL_MS = 3_000;
 const WORDS: Record<TidyJob, { doing: string; done: string }> = {
   cancel_request: { doing: 'Cancelling the request to', done: 'Requests cancelled' },
   unfriend: { doing: 'Unfriending', done: 'Unfriended' },
+  decline: { doing: 'Deleting the request from', done: 'Requests deleted' },
+};
+
+/** What the person presses themselves when the extension couldn't finish. */
+const YOURSELF: Record<TidyJob, string> = {
+  cancel_request: 'Press “Cancel request” yourself.',
+  unfriend: 'Press “Friends”, then “Unfriend”, yourself.',
+  decline: 'Press “Respond”, then “Delete request”, yourself.',
 };
 
 /** What became of someone ticked: done, done already, skipped, or the job's end (a warning, a stop). */
@@ -98,6 +110,23 @@ async function one(job: Job, which: TidyJob, who: TidyCandidate): Promise<Outcom
   if (warned) return warned;
   if (!page.profile || !sameProfile(page.profile.profile, who)) return 'skipped';
   const end = async (already: boolean) => {
+    // A request they got, deleted (or gone already): noted as their answer, so it isn't picked again.
+    if (which === 'decline') {
+      valueOf(
+        await job.hfos({
+          type: 'hfos-friend-note',
+          input: {
+            workspaceId: job.businessId,
+            platform: facebook.platform,
+            answer: 'delete',
+            profile: { id: who.platformId, username: who.username, url: who.url },
+            name: who.name,
+            mutualFriends: page.profile?.mutualFriends ?? null,
+          },
+        }),
+      );
+      return;
+    }
     valueOf(
       await job.hfos({
         type: 'hfos-friend-end',
@@ -134,11 +163,7 @@ async function one(job: Job, which: TidyJob, who: TidyCandidate): Promise<Outcom
   if (warnedAfter) return warnedAfter;
   if (page.profile?.friendship !== 'not_friends') {
     // Not gone yet: the person finishes it, or skips them.
-    const says =
-      which === 'cancel_request'
-        ? 'Press “Cancel request” yourself.'
-        : 'Press “Friends”, then “Unfriend”, yourself.';
-    const reply = await handOver(job, who.name, says);
+    const reply = await handOver(job, who.name, YOURSELF[which]);
     if (reply === 'stop' || job.stopped()) return 'stopped';
     if (reply === 'skip') return 'skipped';
     page = await readIn(job.tab);
@@ -201,7 +226,7 @@ async function tidyThese(
  */
 export async function tidy(
   job: Job,
-  which: TidyJob,
+  which: Exclude<TidyJob, 'decline'>,
   profileIds: readonly string[],
 ): Promise<JobEnd> {
   job.progress('Getting the list from HandsFreeOS…');
@@ -213,11 +238,16 @@ export async function tidy(
 }
 
 /**
- * Tidying on its own, once a day (decision 98): those HandsFreeOS picks for today as the person chose for Facebook,
- * the old requests first, then the friends to unfriend, within today's limits. Nobody is handed to the person: a step
- * it can't find, it passes over.
+ * Tidying on its own, once a day (decisions 98 and 121): those HandsFreeOS picks for today as the person chose for
+ * Facebook, the old requests (and Cancel all's) first, then the friends to unfriend, then the requests they got to
+ * delete, within today's limits. Nobody is handed to the person: a step it can't find, it passes over.
  */
 export async function tidyOnItsOwn(job: Job): Promise<JobEnd> {
   const lists = valueOf(await job.hfos({ type: 'hfos-tidy', workspaceId: job.businessId }));
-  return ownTidy(job, lists, (which, picks) => tidyThese(job, which, picks, lists));
+  return ownTidy(
+    job,
+    lists,
+    (which, picks) => tidyThese(job, which, picks, lists),
+    (picks) => tidyThese(job, 'decline', picks, lists),
+  );
 }

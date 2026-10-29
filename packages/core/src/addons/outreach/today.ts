@@ -284,6 +284,9 @@ export const RequestsHeld = z.object({
   count: n,
   /** The line: 200 waiting, or the network's cap less 100. */
   most: n,
+  /** Of those waiting, how many the extension sent, and how many Cancel all has left to cancel (decision 121). */
+  extension: n.default(0),
+  cancelling: n.default(0),
 });
 export type RequestsHeld = z.output<typeof RequestsHeld>;
 
@@ -294,14 +297,20 @@ export type RequestsHeld = z.output<typeof RequestsHeld>;
  */
 export function requestsHeldOn(
   platform: Platform,
-  counts: { readonly waiting: number; readonly friends: number },
+  counts: {
+    readonly waiting: number;
+    readonly friends: number;
+    readonly extension?: number;
+    readonly cancelling?: number;
+  },
 ): RequestsHeld | null {
   const kit = NETWORKS[platform];
   if (kit.requestsMessageAfterDays !== null) return null;
   const most = kit.friendsCap - FRIENDS_CAP_ROOM;
-  if (counts.friends >= most) return { why: 'cap', count: counts.friends, most };
+  const more = { extension: counts.extension ?? 0, cancelling: counts.cancelling ?? 0 };
+  if (counts.friends >= most) return { why: 'cap', count: counts.friends, most, ...more };
   if (counts.waiting >= REQUESTS_WAITING_MOST)
-    return { why: 'waiting', count: counts.waiting, most: REQUESTS_WAITING_MOST };
+    return { why: 'waiting', count: counts.waiting, most: REQUESTS_WAITING_MOST, ...more };
   return null;
 }
 
