@@ -426,9 +426,10 @@ describe('what it does on LinkedIn’s list', () => {
         },
       }),
     ).toBe('helpful');
-    // Then who reacted to and commented on the good posts its search found, and last the people found by topic
-    // checked for good fits (decision 92).
-    const all = {
+    // Then who engaged with their helpful posts, its own job from 0.109.0 (decision 120); who reacted to and
+    // commented on the good posts its search found; and last the people found by topic checked for good fits
+    // (decision 92).
+    const asked = {
       requests: 'x',
       tidy: 't',
       occasions: 'o',
@@ -438,6 +439,8 @@ describe('what it does on LinkedIn’s list', () => {
       partners: 'v',
       helpful: 'u',
     };
+    expect(nextLinkedInDaily({ daily: asked })).toBe('engaged');
+    const all = { ...asked, engaged: 'e' };
     expect(nextLinkedInDaily({ daily: all })).toBe('post_people');
     expect(nextLinkedInDaily({ daily: { ...all, post_people: 's' } })).toBe('found_checks');
     // And on the 1st of each month, their own profile read (decision 99).
@@ -447,6 +450,10 @@ describe('what it does on LinkedIn’s list', () => {
     expect(
       nextLinkedInDaily({ daily: { ...all, post_people: 's', found_checks: 't', profile: 'p' } }),
     ).toBeNull();
+    // While the person is at their computer, those put off as they needed the screen are passed over (decision 120).
+    const putOff = ['engaged', 'post_people', 'profile'] as const;
+    expect(nextLinkedInDaily({ daily: asked }, putOff)).toBe('found_checks');
+    expect(nextLinkedInDaily({ daily: { ...all, found_checks: 't' } }, putOff)).toBeNull();
   });
 
   it('notes a good post with no reactions count to open, as LinkedIn’s, with the page’s outline', async () => {

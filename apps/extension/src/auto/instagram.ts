@@ -84,6 +84,7 @@ import { instagram } from '../networks';
 import { instagramUrl, postOf, storyUrl } from '../networks/instagram/urls';
 import type { ProfileRef, ThreadRef } from '../networks/facebook/types';
 import { isWorking, statesNow } from '../networks/on';
+import { awayNow } from '../away';
 import { WorkTab } from '../tab';
 import {
   commentDoing,
@@ -93,6 +94,7 @@ import {
   type CommentRunner,
 } from './comments';
 import { DAILY_CHATS } from './daily';
+import { AWAY_AGAIN_MS, awayEnd, isNotAway, PutOff, waitingFor, waitingWords } from './on-screen';
 import {
   beforeDay,
   beforeDayDoing,
@@ -205,7 +207,10 @@ const LIKES_MOST = 2;
 /** The stories its warm-ups like in a day (decision 111): the kit's. */
 const STORY_LIKES_MOST = NETWORKS.instagram.storyLikesPerDay ?? 0;
 
-const tab = new WorkTab('window', instagram);
+// Its reads that need the screen come in front only while the person is away, put off till then (decision 120).
+const tab = new WorkTab('window', instagram, { front: 'away', waits: false });
+/** Its once-a-day jobs put off till the person is away (decision 120). */
+const putOff = new PutOff<InstagramDaily>();
 /** Instagram's runner's window's tab, while it's open: what the person sees there isn't theirs to note. */
 export const instagramRunnerTabId = (): number | null => tab.tabId;
 
@@ -1028,8 +1033,12 @@ export function spareLikes(list: Pick<TodayList, 'limits'>, left: readonly Work[
 // ------------------------------------------------------------------------------------------------- the once-a-day jobs
 
 /** The once-a-day job to do next on Instagram: the first not done today. */
-export const nextInstagramDaily = (state: Pick<AutoState, 'daily'>): InstagramDaily | null =>
-  INSTAGRAM_DAILY.find((job) => state.daily?.[job] === undefined) ?? null;
+export const nextInstagramDaily = (
+  state: Pick<AutoState, 'daily'>,
+  passOver: readonly InstagramDaily[] = [],
+): InstagramDaily | null =>
+  INSTAGRAM_DAILY.find((job) => state.daily?.[job] === undefined && !passOver.includes(job)) ??
+  null;
 
 /** A job that notes a page it couldn't read with its outline (decision 74): its own way to, or the runner's. */
 const reporting = (job: Job, kind: InstagramDaily): Job => ({
@@ -1182,14 +1191,28 @@ async function go(): Promise<void> {
     await (answer as Hfos)({ type: 'hfos-lists', workspaceId: to.businessId, platform: PLATFORM }),
   );
   if (JSON.stringify(state.lists) !== JSON.stringify(lists)) state = await setState({ lists });
+  // Reads that need the screen wait till the person is away from their computer (decision 120): saving their
+  // followers reads its box on screen, so their first day waits for it, and a weekly save is passed over till then.
+  const away = await awayNow();
   const before = beforeDay(lists, state.before ?? {}, at, timezone, PLATFORM);
-  if (before) {
+  if (before?.do === 'save' && before.first && !away) {
+    await closeWindow();
+    await say(
+      `Your first day on ${NAME} starts once your followers are saved. That needs its window on screen, so it waits till you’ve been away from your computer for 2 minutes.`,
+    );
+    return goAt(Date.now() + AWAY_AGAIN_MS);
+  }
+  if (before && (away || before.do !== 'save')) {
     const end = await inTurn('runner', () => beforeTheDay(before, to.businessId), PLATFORM);
     const line = beforeDayLine(before, end, PLATFORM);
     if (end.warned) {
       await closeWindow();
       await say(end.line, { stopped: 'warning' });
       return goAt(tomorrow());
+    }
+    if (end.away) {
+      await say(line);
+      return soon();
     }
     void feed('job', `${NAME}: ${line}`);
     if (before.do === 'save' && before.first && end.failed) {
@@ -1204,7 +1227,8 @@ async function go(): Promise<void> {
     return soon();
   }
 
-  const daily = choices.collect ? nextInstagramDaily(state) : null;
+  const passOver = putOff.passOver(away);
+  const daily = choices.collect ? nextInstagramDaily(state, passOver) : null;
   if (daily) {
     const end = await inTurn('runner', () => collect(daily, to.businessId), PLATFORM);
     if (end.warned) {
@@ -1214,7 +1238,8 @@ async function go(): Promise<void> {
     }
     const line = `${DAILY_NAMES[daily]}: ${end.line}`;
     await say(line);
-    void feed('job', `${NAME}: ${line}`);
+    if (end.away) putOff.off(daily);
+    else void feed('job', `${NAME}: ${line}`);
     return soon();
   }
 
@@ -1228,12 +1253,18 @@ async function go(): Promise<void> {
   const work = left[0];
   if (!work) {
     await closeWindow();
+    // What waits for them to be away is looked at again sooner.
+    const waiting = choices.collect
+      ? waitingWords(waitingFor(passOver, state.daily, DAILY_NAMES))
+      : null;
     await say(
-      state.tried.length
-        ? `Done for today on ${NAME}. It looks again within the hour for anything new.`
-        : `Nothing on your ${NAME} list for it to do yet.`,
+      waiting
+        ? `${state.tried.length ? `The rest of today on ${NAME} is done.` : `Nothing on your ${NAME} list for it to do yet.`} ${waiting}`
+        : state.tried.length
+          ? `Done for today on ${NAME}. It looks again within the hour for anything new.`
+          : `Nothing on your ${NAME} list for it to do yet.`,
     );
-    return goAt(at + 60 * 60_000);
+    return goAt(at + (waiting ? AWAY_AGAIN_MS : 60 * 60_000));
   }
   const { item } = work;
   await say(doing(work), { working: true });
@@ -1312,14 +1343,18 @@ async function beforeTheDay(step: BeforeDay, businessId: string): Promise<JobEnd
     end = await doBeforeDay(step, jobFor(businessId), PLATFORM);
   } catch (error) {
     if (error instanceof Refused) throw error;
-    end = {
-      line: error instanceof Error ? error.message : String(error),
-      warned: false,
-      failed: true,
-    };
+    end = isNotAway(error)
+      ? awayEnd()
+      : {
+          line: error instanceof Error ? error.message : String(error),
+          warned: false,
+          failed: true,
+        };
   } finally {
     await setState({ working: false, tabId: tab.tabId, beforeNow: null });
   }
+  // Put off till they're away: tried again then.
+  if (end.away) return end;
   const state = await stateNow();
   // The newest followers saved, and the first check, stand for today's newest followers and checks.
   const daily =
@@ -1337,13 +1372,14 @@ async function collect(kind: InstagramDaily, businessId: string): Promise<JobEnd
     end = await runInstagramDaily(kind, jobFor(businessId));
   } catch (error) {
     if (error instanceof Refused) throw error;
-    end = {
-      line: error instanceof Error ? error.message : String(error),
-      warned: false,
-    };
+    end = isNotAway(error)
+      ? awayEnd()
+      : { line: error instanceof Error ? error.message : String(error), warned: false };
   } finally {
     await setState({ working: false, tabId: tab.tabId });
   }
+  // Put off till they're away (decision 120): not done for the day, so it's tried again then.
+  if (end.away) return end;
   const state = await stateNow();
   await setState({ daily: { ...state.daily, [kind]: end.line } });
   return end;

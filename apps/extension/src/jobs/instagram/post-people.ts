@@ -24,7 +24,7 @@ import type { PostsPeopleNext } from '../../hfos/messages';
 import { findsSave, type FoundPerson } from '../../hfos/saves';
 import type { Account } from '../../networks/instagram/read';
 import { counted } from '../../words';
-import { paced, pause, valueOf, warnedOn, type Job, type JobEnd } from '../job';
+import { onScreen, paced, pause, valueOf, warnedOn, type Job, type JobEnd } from '../job';
 import { accountIn } from './checks';
 import { ended, gather, readInstagramIn, signedOutEnd, type InstagramPage } from './read';
 
@@ -183,7 +183,7 @@ export async function readPostPeople(job: Job): Promise<JobEnd> {
       `${i + 1} of ${next.posts.length}: reading who liked and commented on ${post.name}’s post…`,
     );
     const look = () => readPost(job, post, note);
-    const people = await (job.tab.inFront ? job.tab.inFront(look) : look());
+    const people = await onScreen(job, look);
     if (ended(people)) return { ...people, line: `${people.line} ${summary(read, added)}` };
     const kept = await savePeople(job, post, people);
     if (kept === null) continue;

@@ -19,7 +19,7 @@ import { findsSave, type FoundPerson } from '../../hfos/saves';
 import type { PostPerson, ReactorsRead } from '../../networks/linkedin/compose';
 import { postOf, profileRefOf } from '../../networks/linkedin/urls';
 import { counted } from '../../words';
-import { paced, pause, valueOf, warnedOn, type Job, type JobEnd } from '../job';
+import { onScreen, paced, pause, valueOf, warnedOn, type Job, type JobEnd } from '../job';
 import type { ReportNote } from '../report';
 import { readLinkedIn } from './read';
 
@@ -181,7 +181,7 @@ export async function readPostPeople(job: Job): Promise<JobEnd> {
       `${i + 1} of ${next.posts.length}: reading who reacted to and commented on ${post.name}’s post…`,
     );
     const look = () => readPostPage(job, post);
-    const got = await (job.tab.inFront ? job.tab.inFront(look) : look());
+    const got = await onScreen(job, look);
     if (got.page === 'warned')
       return { ...got.end, line: `${got.end.line} ${summary(read, added, gone)}` };
     let commenters: readonly PostPerson[] = [];

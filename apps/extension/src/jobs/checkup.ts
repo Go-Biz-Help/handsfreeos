@@ -36,6 +36,7 @@ import { listOnPage } from '../hfos/saves';
 import { MESSENGER } from './chats';
 import { groupSearch, YOUR_GROUPS } from './groups';
 import {
+  onScreen,
   pause,
   paced,
   readIn,
@@ -529,5 +530,5 @@ async function tryUsername(
 
 /** Check Facebook: with its window in front the whole time, then the person's own back. */
 export async function checkFacebook(job: Job): Promise<JobEnd> {
-  return job.tab.inFront ? job.tab.inFront(() => checkup(job)) : checkup(job);
+  return onScreen(job, () => checkup(job));
 }

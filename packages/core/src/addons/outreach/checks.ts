@@ -157,7 +157,7 @@ export const CHECK_SYSTEM = [
   'Name the playbook they fit, copied exactly, or null.',
   'Give why in up to three short plain lines a person reads in a list, each under 15 words, from the facts only.',
   'A job is not a business of their own: someone who works at a company, or lists one under Work, does not run it unless a line says they own or founded it. A page under "Where they work" is their employer.',
-  'Say who they are in one short line ("Owns a bakery in Austin", "Data analyst at Consultmyapp"), or null when nothing says.',
+  'Say who they are in one short line ("Owns a bakery in Austin", "Data analyst at Consultmyapp"), or null when nothing says. When they show more than one business or line of work, in their bio, their links or their posts, name each ("Sells solar, and photographs weddings"): never only the first.',
   'Suggest one natural first step for the owner in a few words ("Ask how the new shop is going"), never a pitch, or null.',
   'Say the country they most likely live in now as an ISO 3166-1 two-letter code ("US", "GB"), weighing <where_they_live> with everything else. A "Lives in" on their profile is strong unless their mutual friends clearly say otherwise. "From" is only where they grew up. Mutual friends count for more the bigger a share of their friends they are, and the more of them live where most of the owner’s friends do. A name alone is weak. Give null when nothing points anywhere.',
   'Give otherCountry when the facts point to a second country too (a profile that says one place and friends another), else null. Set countrySure false when it’s close or there’s little to go on. Give countryWhy in one short plain line ("Lives in Denver, and most mutual friends are in the United States").',
@@ -250,7 +250,7 @@ export const FOUND_CHECK_SYSTEM = [
   'Name the playbook they fit, copied exactly, or null.',
   'Give why in up to three short plain lines a person reads in a list, each under 15 words, from the facts only.',
   'A job is not a business of their own: someone who works at a company does not run it unless a line says they own or founded it.',
-  'Say who they are in one short line ("Owns a roofing company in Austin", "Office manager at a dental practice"), or null when nothing says.',
+  'Say who they are in one short line ("Owns a roofing company in Austin", "Office manager at a dental practice"), or null when nothing says. When they show more than one business or line of work, in their bio, their links or their posts, name each ("Sells solar, and photographs weddings"): never only the first.',
   'Suggest one natural first step for the owner in a few words ("Ask how the busy season is going"), never a pitch, or null.',
   'Say the country they most likely live in now as an ISO 3166-1 two-letter code ("US", "GB"), weighing <where_they_live> with everything else. A "Lives in" or a business address on their page is strong. "From" is only where they grew up. A name alone is weak. Give null when nothing points anywhere.',
   'Give otherCountry when the facts point to a second country too, else null. Set countrySure false when it’s close or there’s little to go on. Give countryWhy in one short plain line ("Their business page is in Austin, Texas").',
@@ -359,7 +359,11 @@ export const CHECK_SCHEMA: Record<string, unknown> = {
     fit: { type: 'string', enum: [...CHECK_FITS] },
     playbook: { type: ['string', 'null'], description: 'A playbook’s name, copied exactly.' },
     why: { type: 'array', items: { type: 'string' }, description: 'Up to three short lines.' },
-    about: { type: ['string', 'null'], description: 'Who they are, in one short line.' },
+    about: {
+      type: ['string', 'null'],
+      description:
+        'Who they are, in one short line, naming each business or line of work they show.',
+    },
     nextStep: { type: ['string', 'null'], description: 'A first step, in a few words.' },
     country: {
       type: ['string', 'null'],

@@ -35,6 +35,7 @@
  * - **A network off here** (turned off, or not allowed by Chrome, since it was taken) ends its ask at once, saying how
  *   to turn it on, and nothing is opened for it.
  */
+import { NotAway } from '../away';
 import {
   ASK_CHATS,
   ASK_CODE_MINUTES,
@@ -518,7 +519,8 @@ async function runOne(place: Place, ask: AskTaken): Promise<void> {
     place,
     ask,
     platform,
-    tab: new WorkTab(placeFor(ask.kind), kit),
+    // A Check comes in front right away; the rest's reads that need the screen wait for the person to be away.
+    tab: new WorkTab(placeFor(ask.kind), kit, { front: ask.kind === 'checkup' ? 'now' : 'away' }),
     state: 'working',
     line: null,
     sentAt: null,
@@ -554,16 +556,20 @@ async function runOne(place: Place, ask: AskTaken): Promise<void> {
       );
     }
   } catch (error) {
-    end = {
-      line:
-        error instanceof Refused
-          ? error.problem.message
-          : error instanceof Error
-            ? error.message
-            : 'Something went wrong. Ask again.',
-      warned: false,
-      failed: true,
-    };
+    // Stopped while a read waited for them to be away (decision 120): its stop says how it ended.
+    end =
+      error instanceof NotAway
+        ? { line: error.message, warned: false }
+        : {
+            line:
+              error instanceof Refused
+                ? error.problem.message
+                : error instanceof Error
+                  ? error.message
+                  : 'Something went wrong. Ask again.',
+            warned: false,
+            failed: true,
+          };
   }
   // A job that didn't finish: the page it ended on, outline and all, while its tab is still open (decision 74).
   if (ran && end.failed && !end.warned)

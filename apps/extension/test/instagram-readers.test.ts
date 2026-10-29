@@ -42,8 +42,12 @@ const MENU = `<div><a role="link" href="/"><span>Home</span></a>
   <a role="link" href="/direct/inbox/"><span>Messages</span></a>
   <a role="link" href="/me.owner/"><span role="link"><img alt="me.owner's profile picture"></span><span dir="auto"><span>Profile</span></span></a></div>`;
 
+/** What they do and their bio, as the owner's Check outlined them. */
+const BIO = `<div dir="auto">Plumber</div>
+          <span dir="auto"><div role="button"><span dir="auto">Fixing Austin leaks since 2009</span></div></span>`;
+
 /** Someone's profile as the owner's Check outlined it: the header's sections, then their posts. */
-const profile = (buttons: string, more = '') =>
+const profile = (buttons: string, more = '', bio = BIO) =>
   page(
     '/dana.reyes/',
     `${MENU}<section><main role="main"><div>
@@ -57,8 +61,7 @@ const profile = (buttons: string, more = '') =>
           <div><span dir="auto"><span>504</span> posts</span>
             <a role="link" href="#"><span dir="auto"><span title="321,861"><span>321K</span></span> followers</span></a>
             <a role="link" href="#"><span dir="auto"><span>1,769</span> following</span></a></div></div></div></section></div>
-        <section><div><div><div dir="auto">Plumber</div>
-          <span dir="auto"><div role="button"><span dir="auto">Fixing Austin leaks since 2009</span></div></span></div>
+        <section><div><div>${bio}</div>
           <a role="link" href="/dana.reyes/followers/mutualOnly"><span dir="auto">Followed by sam.lee and 2 others</span></a></div></section>
         <section><div>${buttons}<div role="button"><svg role="img" aria-label="Similar accounts"></svg></div></div></section>
         ${more}
@@ -89,6 +92,22 @@ describe('someone’s profile on Instagram', () => {
       pictures: ['A new water heater', 'Before and after'],
       story: false,
     });
+  });
+
+  it('reads each line of a bio with its @mentions, and the words of its links off Instagram (decision 119)', () => {
+    // Two lines of work, as the owner's Check of 29 Oct 2026 showed one: the second in the bio's own lines, the
+    // @mention of the other business and the website. Their Threads badge is no link of theirs.
+    const two = `<div dir="auto">Photographer</div>
+      <span dir="auto"><div role="button"><span dir="auto">Solar with <a role="link" href="/sunny.roofs/">@sunny.roofs</a><br>Family and wedding photos<br>Booking spring sessions in Tucson now</span></div></span>
+      <a role="link" href="https://www.threads.com/@dana.reyes"><svg role="img" aria-label="Threads"></svg><span dir="auto">dana.reyes</span></a>
+      <div><a role="link" href="https://l.instagram.com/?u=https%3A%2F%2Fdanaphotos.example%2F&amp;e=AT0" rel="me nofollow noopener noreferrer" target="_blank"><svg role="img" aria-label="Link icon"></svg><div dir="auto">danaphotos.example</div></a></div>`;
+    expect(read(profile(FOLLOWING, '', two)).profile?.bio).toEqual([
+      'Photographer',
+      'Solar with @sunny.roofs',
+      'Family and wedding photos',
+      'Booking spring sessions in Tucson now',
+      'Link: danaphotos.example',
+    ]);
   });
 
   it('reads Follow Back and Follows you as following you, and Requested as asked', () => {
