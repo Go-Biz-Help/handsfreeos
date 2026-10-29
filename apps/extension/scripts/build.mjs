@@ -117,7 +117,8 @@ const manifest = {
   // The side panel, its setting and the sign-in, loading the reader into Facebook tabs opened before the extension
   // was, finding the zips Facebook gave the person among Chrome's downloads, and waking the runner that works on its
   // own at its times (src/auto/run.ts); Chrome's pop-ups about what waits for the person (src/hfos/waiting.ts); and the
-  // offscreen page that reads the zips when the person asks for their file to be brought in (src/jobs/file-in.ts).
+  // offscreen page that reads the zips when the person asks for their file to be brought in (src/jobs/file-in.ts); and
+  // whether the person is away from their computer, as a read that needs the screen waits for that (src/away.ts).
   permissions: [
     'sidePanel',
     'storage',
@@ -126,6 +127,7 @@ const manifest = {
     'alarms',
     'notifications',
     'offscreen',
+    'idle',
   ],
   host_permissions: [...FACEBOOK, ...ACCOUNTS_CENTER, ...NETWORKS, ...HFOS, ...FILES],
   content_scripts: [

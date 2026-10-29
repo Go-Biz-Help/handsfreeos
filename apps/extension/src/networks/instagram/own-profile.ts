@@ -25,6 +25,7 @@ import { shown } from '../facebook/fetch';
 import { typeInto } from '../facebook/join';
 import type { BioResult } from '../facebook/own-profile';
 import { boxesSaying, controlsSaying, mainOf, pause, waitFor, writingIn } from '../looking/looks';
+import { isBioLink } from './urls';
 
 /** The bio's box on the form, as its label says it, its Submit, and what Instagram says once it's kept. */
 const BIO = /^bio$|^biography$|^pepbio$/i;
@@ -61,22 +62,6 @@ function bioSection(doc: Document): Element | null {
     ) ?? null
   );
 }
-
-/**
- * Whether a link is one of the bio's own: the links in a bio go off Instagram, through its own, to the site they name.
- * Instagram's badge for their Threads account is never one.
- */
-const offInstagram = (anchor: Element): boolean => {
-  const href = anchor.getAttribute('href') ?? '';
-  if (!/^https?:/i.test(href)) return false;
-  try {
-    const host = new URL(href).hostname.toLowerCase();
-    // l.instagram.com is the way out it sends a bio's links through.
-    return host === 'l.instagram.com' || !/(^|\.)(instagram\.com|threads\.(com|net))$/.test(host);
-  } catch {
-    return false;
-  }
-};
 
 /** The bio's own lines: what the bio's section says that isn't the name, a link or Instagram's own words. */
 function bioOf(section: Element, name: string | null): string | null {
@@ -116,7 +101,7 @@ export function readOwnProfile(doc: Document, href: string): ProfileRead {
       PROFILE_READ_LIMITS.line,
     ) ?? null;
   const links = [...(section?.querySelectorAll('a[href]') ?? [])]
-    .filter(offInstagram)
+    .filter(isBioLink)
     .map((anchor) => clean(anchor.textContent))
     .filter((words) => words && !OWN_WORDS.test(words))
     .map((words) => `Link: ${words}`.slice(0, PROFILE_READ_LIMITS.line));

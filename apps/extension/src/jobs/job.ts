@@ -9,6 +9,7 @@
  * warning. Only the file's steps and tidying press anything on Facebook; the rest open and scroll. LinkedIn's are in
  * ./linkedin/, with the same `Job`, and Read my chats (./chats.ts) works on both.
  */
+import type { Hold } from '../away';
 import type { Reporter, ReportNote } from './report';
 import { NETWORKS } from '@hfos/core/addons/outreach/networks';
 import { platformOf, type PageRead } from '../networks/kit';
@@ -60,9 +61,10 @@ export interface JobTab {
   focus?(): Promise<void>;
   /**
    * Brings it to the front while `work` runs, then the person's own window back: for a page that draws only what's on
-   * screen.
+   * screen. Outside a Check, only while the person is away from their computer (decision 120): `hold` says meanwhile
+   * that it waits, and whether it was stopped. Through `onScreen`.
    */
-  inFront?<T>(work: () => Promise<T>): Promise<T>;
+  inFront?<T>(work: () => Promise<T>, hold?: Hold): Promise<T>;
   /** While `inFront` runs, brings it back in front when the person put another window over it. */
   keepInFront?(): Promise<void>;
   /** Closes it, and its window when it has one of its own: done with the network's pages before the job ends. */
@@ -118,6 +120,16 @@ export interface Job {
   readonly report?: Reporter;
 }
 
+/**
+ * Does `work` with the job's window in front, for a page that draws only what's on screen (src/tab.ts `inFront`):
+ * outside a Check only once the person is away from their computer (decision 120), an ask saying meanwhile that it
+ * waits for that.
+ */
+export const onScreen = <T>(job: Job, work: () => Promise<T>): Promise<T> =>
+  job.tab.inFront
+    ? job.tab.inFront(work, { say: (line) => job.progress(line), stopped: () => job.stopped() })
+    : work();
+
 /** The person's answer to a step handed to them. */
 export type HandOverReply = 'carry_on' | 'skip' | 'stop';
 
@@ -131,6 +143,8 @@ export interface JobEnd {
   readonly failed?: boolean;
   /** A list read to its very end and saved whole (./people.ts): the friends list, or friend requests either way. */
   readonly whole?: boolean;
+  /** Put off till the person is away from their computer (decision 120): tried again later, never done. */
+  readonly away?: boolean;
 }
 
 export const pause = (ms: number) => new Promise((done) => setTimeout(done, ms));

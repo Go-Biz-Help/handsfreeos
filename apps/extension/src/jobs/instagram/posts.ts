@@ -25,7 +25,7 @@ import { PLACE_LOOKS_PER_DAY } from '@hfos/core/addons/outreach/posts';
 import { instagramPostsSave } from '../../hfos/saves';
 import type { InstagramPost } from '../../networks/instagram/read';
 import { counted } from '../../words';
-import { pause, paced, valueOf, warnedOn, type Job, type JobEnd } from '../job';
+import { onScreen, pause, paced, valueOf, warnedOn, type Job, type JobEnd } from '../job';
 import { accountIn } from './checks';
 import {
   ended,
@@ -102,7 +102,7 @@ function lookAt(
   noted: Set<string>,
 ): Promise<Looked | JobEnd> {
   const look = () => lookedAt(job, page, progress, opened, noted);
-  return job.tab.inFront ? job.tab.inFront(look) : look();
+  return onScreen(job, look);
 }
 
 async function lookedAt(

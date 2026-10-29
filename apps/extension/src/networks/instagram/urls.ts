@@ -170,3 +170,33 @@ export function threadOf(url: URL): string | null {
   const [first, second, id] = partsOf(url);
   return first === 'direct' && second === 't' && id && /^[0-9]{1,64}$/.test(id) ? id : null;
 }
+
+/** An address's host, or null when it isn't one. */
+const hostOf = (href: string): string | null => {
+  try {
+    return /^https?:/i.test(href) ? new URL(href).hostname.toLowerCase() : null;
+  } catch {
+    return null;
+  }
+};
+
+/** Instagram's own hosts and Threads', where a site of someone's own never is. */
+const META_HOST = /(^|\.)(instagram\.com|threads\.(com|net))$/;
+
+/**
+ * Whether a link is one of a bio's own: the links in a bio go off Instagram, through l.instagram.com (its own way out),
+ * to the site they name. Instagram's badge for their Threads account is never one, by its icon or where it goes.
+ */
+export function isBioLink(anchor: Element): boolean {
+  const threads = [...anchor.querySelectorAll('svg[aria-label]')].some((icon) =>
+    /^threads$/i.test(icon.getAttribute('aria-label') ?? ''),
+  );
+  const href = anchor.getAttribute('href') ?? '';
+  const host = hostOf(href);
+  if (threads || !host) return false;
+  if (host !== 'l.instagram.com') return !META_HOST.test(host);
+  // Where its way out leads, when it says (?u=): never back to Threads.
+  const to = new URL(href).searchParams.get('u');
+  const toHost = to ? hostOf(to) : null;
+  return !toHost || !/(^|\.)threads\.(com|net)$/.test(toHost);
+}

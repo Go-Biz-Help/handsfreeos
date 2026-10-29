@@ -66,7 +66,7 @@ import { linkedInOccasions } from '../jobs/occasions';
 import { readProfileOnItsOwn } from '../jobs/own-read';
 import { PARTNER_CHECKS_PER_DAY } from '@hfos/core/addons/outreach/partners';
 import { lookUpOnLinkedIn } from '../jobs/linkedin/lookup';
-import { postOnLinkedIn, linkedInHelpfulDaily } from '../jobs/linkedin/helpful';
+import { linkedInHelpfulAsk, postOnLinkedIn, readLinkedInEngaged } from '../jobs/linkedin/helpful';
 import { checkInvitations } from '../jobs/linkedin/people';
 import { findPostsBySearch } from '../jobs/linkedin/posts';
 import { readPostPeople } from '../jobs/linkedin/post-people';
@@ -77,6 +77,7 @@ import { linkedin, type LinkedInRead } from '../networks';
 import type { ProfileRef, ThreadRef } from '../networks/linkedin/types';
 import { comparable, postOf, profileRefOf, sameMember } from '../networks/linkedin/urls';
 import { isWorking, statesNow } from '../networks/on';
+import { awayNow } from '../away';
 import { WorkTab } from '../tab';
 import {
   commentDoing,
@@ -87,6 +88,7 @@ import {
   type CommentRunner,
 } from './comments';
 import { DAILY_CHATS } from './daily';
+import { AWAY_AGAIN_MS, awayEnd, isNotAway, PutOff, waitingFor, waitingWords } from './on-screen';
 import {
   beforeDay,
   beforeDayDoing,
@@ -132,7 +134,9 @@ export const LINKEDIN_AUTO: readonly TodayKind[] = ['warm_up', 'friend_request']
  * new ones (`tidy`, decision 98), as the person chose; from 0.100.0 it then reads Catch up for birthdays and new jobs
  * (`occasions`, decision 108), for a note on Today that waits for the person's OK. From 0.95.0 (decision 92) who reacted to and commented on the good posts
  * its search found is read after the helpful post (`post_people`), and the people found are checked last
- * (`found_checks`), inside its 40 profiles read, found people first.
+ * (`found_checks`), inside its 40 profiles read, found people first. From 0.109.0 who engaged with their helpful posts
+ * is read on its own after the day's post is asked for (`engaged`), as that read needs its window in front, so waits
+ * till they're away from their computer (decision 120) while the post goes up as ever.
  */
 export const LINKEDIN_DAILY = [
   'requests',
@@ -143,6 +147,7 @@ export const LINKEDIN_DAILY = [
   'posts',
   'partners',
   'helpful',
+  'engaged',
   'post_people',
   'found_checks',
   'profile',
@@ -157,7 +162,8 @@ const DAILY_DOING: Readonly<Record<LinkedInDaily, string>> = {
   chats: 'Reading your LinkedIn chats for the AI…',
   posts: 'Finding posts with LinkedIn’s post search…',
   partners: 'Searching LinkedIn for people who could partner with you, then reading them…',
-  helpful: 'Asking for today’s helpful post for your feed, and reading who engaged…',
+  helpful: 'Asking for today’s helpful post for your feed…',
+  engaged: 'Reading who engaged with your helpful posts on LinkedIn…',
   post_people: 'Reading who reacted to and commented on good posts on LinkedIn…',
   found_checks: 'Checking the people found on LinkedIn for good fits…',
   profile: 'Reading your LinkedIn profile, as it does on the 1st of each month…',
@@ -171,6 +177,7 @@ const DAILY_NAMES: Readonly<Record<LinkedInDaily, string>> = {
   posts: 'Find posts',
   partners: 'Find partners',
   helpful: 'Helpful posts',
+  engaged: 'Who engaged with your posts',
   post_people: 'Who reacted and commented',
   found_checks: 'Check the people found',
   profile: 'Read my profile',
@@ -189,7 +196,10 @@ const LOOK_AGAIN_MS = 30 * 60_000;
 /** While an ask on LinkedIn goes first, it looks again after this. */
 const ASK_FIRST_MS = 2 * 60_000;
 
-const tab = new WorkTab('window', linkedin);
+// Its reads that need the screen come in front only while the person is away, put off till then (decision 120).
+const tab = new WorkTab('window', linkedin, { front: 'away', waits: false });
+/** Its once-a-day jobs put off till the person is away (decision 120). */
+const putOff = new PutOff<LinkedInDaily>();
 /** LinkedIn's runner's window's tab, while it's open: what the person sees there isn't theirs to note. */
 export const linkedInRunnerTabId = (): number | null => tab.tabId;
 
@@ -896,8 +906,11 @@ export function linkedInWorkLeft(
 // ------------------------------------------------------------------------------------------------- the once-a-day jobs
 
 /** The once-a-day job to do next on LinkedIn: the first not done today. */
-export const nextLinkedInDaily = (state: Pick<AutoState, 'daily'>): LinkedInDaily | null =>
-  LINKEDIN_DAILY.find((job) => state.daily?.[job] === undefined) ?? null;
+export const nextLinkedInDaily = (
+  state: Pick<AutoState, 'daily'>,
+  passOver: readonly LinkedInDaily[] = [],
+): LinkedInDaily | null =>
+  LINKEDIN_DAILY.find((job) => state.daily?.[job] === undefined && !passOver.includes(job)) ?? null;
 
 /** A job that notes a page it couldn't read with its outline (decision 74): its own way to, or the runner's. */
 const reporting = (job: Job, kind: LinkedInDaily): Job => ({
@@ -947,7 +960,9 @@ export async function runLinkedInDaily(kind: LinkedInDaily, job: Job): Promise<J
       return findPostsBySearch(job, words);
     }
     case 'helpful':
-      return linkedInHelpfulDaily(job);
+      return linkedInHelpfulAsk(job);
+    case 'engaged':
+      return readLinkedInEngaged(job);
     case 'post_people':
       // A post it couldn't read, or whose box of who reacted didn't open or read nobody, is noted with its outline.
       return readPostPeople(reporting(job, kind));
@@ -1053,6 +1068,10 @@ async function go(): Promise<void> {
       await say(end.line, { stopped: 'warning' });
       return goAt(tomorrow());
     }
+    if (end.away) {
+      await say(line);
+      return soon();
+    }
     void feed('job', `${NAME}: ${line}`);
     if (before.do === 'save' && before.first && end.failed) {
       await closeWindow();
@@ -1066,7 +1085,10 @@ async function go(): Promise<void> {
     return soon();
   }
 
-  const daily = choices.collect ? nextLinkedInDaily(state) : null;
+  // Reads that need the screen wait till the person is away from their computer (decision 120).
+  const away = await awayNow();
+  const passOver = putOff.passOver(away);
+  const daily = choices.collect ? nextLinkedInDaily(state, passOver) : null;
   if (daily) {
     const end = await inTurn('runner', () => collect(daily, to.businessId), PLATFORM);
     if (end.warned) {
@@ -1076,7 +1098,8 @@ async function go(): Promise<void> {
     }
     const line = `${DAILY_NAMES[daily]}: ${end.line}`;
     await say(line);
-    void feed('job', `${NAME}: ${line}`);
+    if (end.away) putOff.off(daily);
+    else void feed('job', `${NAME}: ${line}`);
     return soon();
   }
 
@@ -1113,12 +1136,18 @@ async function go(): Promise<void> {
   const work = left[0];
   if (!work) {
     await closeWindow();
+    // What waits for them to be away is looked at again sooner.
+    const waiting = choices.collect
+      ? waitingWords(waitingFor(passOver, state.daily, DAILY_NAMES))
+      : null;
     await say(
-      state.tried.length
-        ? `Done for today on ${NAME}. It looks again within the hour for anything new.`
-        : `Nothing on your ${NAME} list for it to do yet.`,
+      waiting
+        ? `${state.tried.length ? `The rest of today on ${NAME} is done.` : `Nothing on your ${NAME} list for it to do yet.`} ${waiting}`
+        : state.tried.length
+          ? `Done for today on ${NAME}. It looks again within the hour for anything new.`
+          : `Nothing on your ${NAME} list for it to do yet.`,
     );
-    return goAt(at + 60 * 60_000);
+    return goAt(at + (waiting ? AWAY_AGAIN_MS : 60 * 60_000));
   }
   const { item } = work;
   await say(doing(work), { working: true });
@@ -1191,14 +1220,18 @@ async function beforeTheDay(step: BeforeDay, businessId: string): Promise<JobEnd
     end = await doBeforeDay(step, jobFor(businessId), PLATFORM);
   } catch (error) {
     if (error instanceof Refused) throw error;
-    end = {
-      line: error instanceof Error ? error.message : String(error),
-      warned: false,
-      failed: true,
-    };
+    end = isNotAway(error)
+      ? awayEnd()
+      : {
+          line: error instanceof Error ? error.message : String(error),
+          warned: false,
+          failed: true,
+        };
   } finally {
     await setState({ working: false, tabId: tab.tabId, beforeNow: null });
   }
+  // Put off till they're away: tried again then.
+  if (end.away) return end;
   const state = await stateNow();
   // The morning's invitations, and the first check, stand for today's once-a-day ones.
   const stands =
@@ -1217,13 +1250,14 @@ async function collect(kind: LinkedInDaily, businessId: string): Promise<JobEnd>
     end = await runLinkedInDaily(kind, jobFor(businessId));
   } catch (error) {
     if (error instanceof Refused) throw error;
-    end = {
-      line: error instanceof Error ? error.message : String(error),
-      warned: false,
-    };
+    end = isNotAway(error)
+      ? awayEnd()
+      : { line: error instanceof Error ? error.message : String(error), warned: false };
   } finally {
     await setState({ working: false, tabId: tab.tabId });
   }
+  // Put off till they're away (decision 120): not done for the day, so it's tried again then.
+  if (end.away) return end;
   const state = await stateNow();
   await setState({ daily: { ...state.daily, [kind]: end.line } });
   return end;

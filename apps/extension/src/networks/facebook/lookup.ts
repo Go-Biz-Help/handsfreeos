@@ -7,8 +7,11 @@
 import { LOOKUP_LINE_MOST } from '@hfos/core/addons/outreach/today';
 import type { Named, ReadResult } from './types';
 
-/** What's read from their latest posts, and the business's: a couple each, cut short. */
-export const POSTS_READ = 2;
+/**
+ * What's read from their latest posts, and the business's: a few each, cut short, so a second business or interest among
+ * them shows too (the owner, 29 Oct 2026).
+ */
+export const POSTS_READ = 4;
 const POST_LINE_MOST = 240;
 
 export const line = (text: string, most = LOOKUP_LINE_MOST) => {

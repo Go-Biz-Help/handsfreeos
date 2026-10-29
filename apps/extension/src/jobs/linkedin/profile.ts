@@ -20,7 +20,7 @@ import { partStepsWords } from '@hfos/core/addons/outreach/profile-parts';
 import { partSteps, putParts, shownParts, unseenParts, unseenPartsWords } from '../own-parts';
 import type { OwnProfileAnswer } from '../../messages';
 import { PROFILE_CHECK_WORDS as P } from '@hfos/core/addons/outreach/profile-check';
-import { valueOf, warnedOn, type Job, type JobEnd } from '../job';
+import { onScreen, valueOf, warnedOn, type Job, type JobEnd } from '../job';
 import { aboutNote, headlineNote, loadNote, ownProfileNote, type ReportNote } from '../report';
 import { LINKEDIN, OWN_PROFILE, readLinkedIn, SIGNED_IN } from './read';
 
@@ -70,7 +70,7 @@ async function readAndCheck(
       await job.report?.(loadNote(ownProfileNote(answer.read), answer.load));
     return answer;
   };
-  const answer = await (job.tab.inFront ? job.tab.inFront(read) : read());
+  const answer = await onScreen(job, read);
   if (!answer.ok) return failed(answer.error);
   if (!('read' in answer)) return failed('LinkedIn didn’t show your profile.');
   await after?.(answer.read);

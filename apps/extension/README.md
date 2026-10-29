@@ -3,7 +3,7 @@
 The extension that works beside a person on Facebook, and on LinkedIn, Instagram and Alignable once they turn each on,
 for the Social Outreach add-on (docs/outreach.md). It connects to HandsFreeOS only for businesses that have that add-on on.
 
-**This is a test build (0.108.0), and a bare one** (decisions 43, 59 and 72 in docs/outreach.md). Everything is set
+**This is a test build (0.109.0), and a bare one** (decisions 43, 59 and 72 in docs/outreach.md). Everything is set
 and started in HandsFreeOS; the extension does the work on Facebook. Its side panel shows progress and activity only:
 signing in, what it does next with today's steps and **Start my day** and **Stop for today**, how many things need
 you in HandsFreeOS (with a link there), each network's line, what it did today, and a link to HandsFreeOS. Needs you
@@ -377,7 +377,8 @@ to put in (from 0.93.0 it goes in by the About tab's editor, above).
 From 0.89.0 (the owner's save of 23 Oct 2026 read 87 followers in twelve minutes, and started over from the top):
 
 - **Its window is in front while it reads your followers,** then yours is put back: Instagram draws more of the box
-  only as it's scrolled on screen, and Chrome draws nothing in a window hidden behind another.
+  only as it's scrolled on screen, and Chrome draws nothing in a window hidden behind another. From 0.109.0 only
+  while you're away from your computer (decision 120).
 - **It scrolls the box to its end each screen,** still 8 to 15 seconds apart, so each screen draws the next rows
   whatever the box's height: the newest 200 take a few minutes. The box keeps every row it drew, so none is skipped.
 - **HandsFreeOS says where the last save got to,** not this computer. Each screen is saved as it's read, and a later
@@ -1072,6 +1073,32 @@ shows under Instagram). Your Instagram choices in HandsFreeOS say what it does (
 Each step is noted as the extension's own (`auto`), as Instagram's. A step its page doesn't let it do goes to your
 Needs you; it never guesses.
 
+### Its window waits till you're away (0.109.0)
+
+From 0.109.0 (docs/outreach.md, decision 120) a read that needs the screen no longer pulls its window over your work.
+Chrome draws nothing in a covered or minimized window, and some pages load only what's drawn: Instagram's boxes of
+followers and likes, LinkedIn's box of who reacted, your profile's sections.
+
+- **It comes in front only once you're away:** no key pressed and the mouse not moved for 2 minutes, as Chrome's idle
+  state says (`src/away.ts`, the `idle` permission, which shows no warning). A locked or dark screen doesn't count.
+- **It steps back the moment you're back,** giving you your window again (or just going behind, when you weren't in
+  Chrome). What it was reading goes on unseen till its next page or step, which then waits again.
+- **The runners on Instagram, LinkedIn and Alignable pass over what waits** (`src/auto/on-screen.ts`): a once-a-day
+  job that met the screen while you were there is put off, never kept as done, and tried again once you're away, or
+  10 minutes on. Likes, follows, requests and messages go on unseen meanwhile, and the day's last line says what waits.
+  LinkedIn's helpful post is asked for as before; who engaged with it is its own job now (`engaged`).
+- **An ask waits too,** saying so on its line in HandsFreeOS, and Stop ends it. **A Check comes in front right away,**
+  as you pressed it to watch, and a step handed to you still comes to the front in its tab.
+- **Its window opens beside yours,** at your window's right and the same height, without taking your attention.
+
+Not yet tried on the owner's computer. A browser without Chrome's idle state (Safari may not have it) reads in front
+as before.
+
+Also from 0.109.0 (decision 119), so a draft can name each of someone's businesses: Instagram's reader keeps each line
+of a bio, the @mentions in it and up to 3 of its links off Instagram ("Link: …", never the Threads badge), and their
+check reads 8 of their posts, not 4; Facebook's check and look-up read 4 posts, not 2, and LinkedIn's 6 lines of the
+About, not 3.
+
 ### More from finding people by topic (0.108.0)
 
 From 0.108.0 (docs/outreach.md, decision 116):
@@ -1646,7 +1673,7 @@ networks Chrome lets it on, so HandsFreeOS can say what to press when an ask wai
 | `src/hfos/setup.ts`                         | The first run: telling HandsFreeOS it's signed in, and opening HandsFreeOS's setup for a first-timer                                                                                                                                                                                                                                                                     |
 | `src/hfos/live.ts`                          | What it tells HandsFreeOS: this computer, the beat, the feed of steps, Start my day and Stop for today, and which computer works                                                                                                                                                                                                                                         |
 | `src/hfos/waiting.ts`                       | What needs you: the number on the icon and Chrome's pop-ups, which open Needs you in HandsFreeOS (its address and words in `src/hfos/needs-you.ts`)                                                                                                                                                                                                                      |
-| `src/tab.ts`                                | The tab a job works in, in view or in a window of its own                                                                                                                                                                                                                                                                                                                |
+| `src/tab.ts`, `src/away.ts`                 | The tab a job works in, in view or in a window of its own, and whether you're away, for a read that needs the screen (decision 120)                                                                                                                                                                                                                                      |
 | `src/background.ts`                         | Opens the side panel, answers its asks, notes the steps the tabs tell it, follows your settings and your day, beats, and wakes the runner and the asks                                                                                                                                                                                                                   |
 | `scripts/build.mjs`                         | Bundles with esbuild and writes `manifest.json`, with the version from `package.json` and LinkedIn's site as optional                                                                                                                                                                                                                                                    |
 | `test/`                                     | The readers and steps on the hand-written pages, the addresses, the outline's hiding, the saves, the jobs and the asks                                                                                                                                                                                                                                                   |
@@ -1663,7 +1690,8 @@ day (decision 108, 0.100.0), the week's helpful post on Instagram and Alignable 
 you on Alignable read once a week (decision 112, 0.104.0), and your Facebook followers checked like friends once a
 week (decision 113, 0.105.0), staying active in your groups (decision 114, 0.106.0), and Alignable's search in the
 towns within 25 miles of yours (decision 115, 0.107.0), and liking a commenter's comment, 3 screens of a Likes box and
-Alignable's likers (decision 116, 0.108.0); Social
+Alignable's likers (decision 116, 0.108.0), and drafts naming each of someone's businesses and its window waiting
+till you're away (decisions 119 and 120, 0.109.0); Social
 Outreach's onboarding is built, in HandsFreeOS (decisions 36 and 45). Safari on Mac
 follows in Phase 2.
 

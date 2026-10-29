@@ -97,6 +97,7 @@ import { alignable } from '../networks';
 import { businessRef, discussionIdOf, idIn, urlOf } from '../networks/alignable/read';
 import type { ProfileRef, ThreadRef } from '../networks/facebook/types';
 import { isWorking, statesNow } from '../networks/on';
+import { awayNow } from '../away';
 import { WorkTab } from '../tab';
 import {
   commentDoing,
@@ -106,6 +107,7 @@ import {
   type CommentRunner,
 } from './comments';
 import { DAILY_CHATS } from './daily';
+import { AWAY_AGAIN_MS, awayEnd, isNotAway, PutOff, waitingFor, waitingWords } from './on-screen';
 import {
   beforeDay,
   beforeDayDoing,
@@ -231,7 +233,10 @@ const LOOK_AGAIN_MS = 30 * 60_000;
 /** While an ask on Alignable goes first, it looks again after this. */
 const ASK_FIRST_MS = 2 * 60_000;
 
-const tab = new WorkTab('window', alignable);
+// Its reads that need the screen come in front only while the person is away, put off till then (decision 120).
+const tab = new WorkTab('window', alignable, { front: 'away', waits: false });
+/** Its once-a-day jobs put off till the person is away (decision 120). */
+const putOff = new PutOff<AlignableDaily>();
 /** Alignable's runner's window's tab, while it's open: what the person sees there isn't theirs to note. */
 export const alignableRunnerTabId = (): number | null => tab.tabId;
 
@@ -956,8 +961,12 @@ export function alignableWorkLeft(
 // ------------------------------------------------------------------------------------------------- the once-a-day jobs
 
 /** The once-a-day job to do next on Alignable: the first not done today. */
-export const nextAlignableDaily = (state: Pick<AutoState, 'daily'>): AlignableDaily | null =>
-  ALIGNABLE_DAILY.find((job) => state.daily?.[job] === undefined) ?? null;
+export const nextAlignableDaily = (
+  state: Pick<AutoState, 'daily'>,
+  passOver: readonly AlignableDaily[] = [],
+): AlignableDaily | null =>
+  ALIGNABLE_DAILY.find((job) => state.daily?.[job] === undefined && !passOver.includes(job)) ??
+  null;
 
 /**
  * A job that says what it couldn't find with the page's outline (decision 74): the jobs from 0.95.0, whose pages are
@@ -1120,6 +1129,10 @@ async function go(): Promise<void> {
       await say(end.line, { stopped: 'warning' });
       return goAt(tomorrow());
     }
+    if (end.away) {
+      await say(line);
+      return soon();
+    }
     void feed('job', `${NAME}: ${line}`);
     if (before.do === 'save' && before.first && end.failed) {
       await closeWindow();
@@ -1133,7 +1146,10 @@ async function go(): Promise<void> {
     return soon();
   }
 
-  const daily = choices.collect ? nextAlignableDaily(state) : null;
+  // Reads that need the screen wait till the person is away from their computer (decision 120).
+  const away = await awayNow();
+  const passOver = putOff.passOver(away);
+  const daily = choices.collect ? nextAlignableDaily(state, passOver) : null;
   if (daily) {
     const end = await inTurn('runner', () => collect(daily, to.businessId), PLATFORM);
     if (end.warned) {
@@ -1143,7 +1159,8 @@ async function go(): Promise<void> {
     }
     const line = `${DAILY_NAMES[daily]}: ${end.line}`;
     await say(line);
-    void feed('job', `${NAME}: ${line}`);
+    if (end.away) putOff.off(daily);
+    else void feed('job', `${NAME}: ${line}`);
     return soon();
   }
 
@@ -1157,12 +1174,18 @@ async function go(): Promise<void> {
   const work = left[0];
   if (!work) {
     await closeWindow();
+    // What waits for them to be away is looked at again sooner.
+    const waiting = choices.collect
+      ? waitingWords(waitingFor(passOver, state.daily, DAILY_NAMES))
+      : null;
     await say(
-      state.tried.length
-        ? `Done for today on ${NAME}. It looks again within the hour for anything new.`
-        : `Nothing on your ${NAME} list for it to do yet.`,
+      waiting
+        ? `${state.tried.length ? `The rest of today on ${NAME} is done.` : `Nothing on your ${NAME} list for it to do yet.`} ${waiting}`
+        : state.tried.length
+          ? `Done for today on ${NAME}. It looks again within the hour for anything new.`
+          : `Nothing on your ${NAME} list for it to do yet.`,
     );
-    return goAt(at + 60 * 60_000);
+    return goAt(at + (waiting ? AWAY_AGAIN_MS : 60 * 60_000));
   }
   const { item } = work;
   await say(doing(work), { working: true });
@@ -1241,14 +1264,18 @@ async function beforeTheDay(step: BeforeDay, businessId: string): Promise<JobEnd
     end = await doBeforeDay(step, jobFor(businessId), PLATFORM);
   } catch (error) {
     if (error instanceof Refused) throw error;
-    end = {
-      line: error instanceof Error ? error.message : String(error),
-      warned: false,
-      failed: true,
-    };
+    end = isNotAway(error)
+      ? awayEnd()
+      : {
+          line: error instanceof Error ? error.message : String(error),
+          warned: false,
+          failed: true,
+        };
   } finally {
     await setState({ working: false, tabId: tab.tabId, beforeNow: null });
   }
+  // Put off till they're away: tried again then.
+  if (end.away) return end;
   const state = await stateNow();
   // The morning's requests, and the first check, stand for today's once-a-day ones.
   const stands =
@@ -1267,13 +1294,14 @@ async function collect(kind: AlignableDaily, businessId: string): Promise<JobEnd
     end = await runAlignableDaily(kind, jobFor(businessId));
   } catch (error) {
     if (error instanceof Refused) throw error;
-    end = {
-      line: error instanceof Error ? error.message : String(error),
-      warned: false,
-    };
+    end = isNotAway(error)
+      ? awayEnd()
+      : { line: error instanceof Error ? error.message : String(error), warned: false };
   } finally {
     await setState({ working: false, tabId: tab.tabId });
   }
+  // Put off till they're away (decision 120): not done for the day, so it's tried again then.
+  if (end.away) return end;
   const state = await stateNow();
   await setState({ daily: { ...state.daily, [kind]: end.line } });
   return end;

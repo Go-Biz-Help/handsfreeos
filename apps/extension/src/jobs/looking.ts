@@ -63,7 +63,7 @@ import {
 } from './accounts-center';
 import { eventStops, groupStops } from './alignable/checkup';
 import { Checkup, isEnd, SEARCH_WORDS, wholeProfile } from './checkup';
-import { readPageIn, valueOf, warnedOn, type Job, type JobEnd, type JobTab } from './job';
+import { onScreen, readPageIn, valueOf, warnedOn, type Job, type JobEnd, type JobTab } from './job';
 import { partSteps, putParts, shownParts, unseenParts, unseenPartsWords } from './own-parts';
 import { checkUsernames, putInByHand, type ByHandPart } from './profile-parts';
 import { ownProfileNote } from './report';
@@ -1004,7 +1004,7 @@ const SIGNED_IN_INSTAGRAM = 'Check you’re signed in to Instagram in this brows
 
 /** Check Instagram or Check Alignable: with its window in front the whole time, then the person's own back. */
 function inFront(job: Job, work: (job: Job) => Promise<JobEnd>): Promise<JobEnd> {
-  return job.tab.inFront ? job.tab.inFront(() => work(job)) : work(job);
+  return onScreen(job, () => work(job));
 }
 
 /**
