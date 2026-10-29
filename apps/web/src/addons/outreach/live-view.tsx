@@ -1,6 +1,6 @@
 'use client';
 /**
- * What the person's extension is doing, in the parts Today and Settings share (docs/outreach.md, decisions 41 and 126:
+ * What the person's extension is doing, in the parts Today and Settings share (docs/outreach.md, decisions 41 and 127:
  * the Details page folded into them). Today has a card for each network (./status-strip.tsx), Done today and, for owners
  * and admins, each person's status, counts and how many wait, never their lines or messages (`TeamCard`). Settings →
  * Your computer has the person's computers, renamable and removable, one or every one standing by (decision 85;
@@ -78,7 +78,7 @@ export function useRefetchWhileShown(everyMs = LIVE_REFETCH_SECONDS * 1000): voi
 
 /**
  * What the person asked their computer to do from the other pages, today's and the open ones, each as it goes: on
- * Settings → Your computer (decision 126).
+ * Settings → Your computer (decision 127).
  */
 export function AskedCard({
   workspaceId,
@@ -271,7 +271,7 @@ export function ComputersCard({
 
 /**
  * How each person's extension is doing today on one network, for owners and admins (decision 24): on Today, below the
- * person's own (decision 126). Never their lines or messages.
+ * person's own (decision 127). Never their lines or messages.
  */
 export function TeamCard({ team, className }: { team: LiveTeam; className?: string }) {
   const now = useServerNow(team.now);

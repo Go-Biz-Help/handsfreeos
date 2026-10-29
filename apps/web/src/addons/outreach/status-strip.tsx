@@ -1,6 +1,6 @@
 'use client';
 /**
- * The top of Today (docs/outreach.md, decisions 41, 59 and 126): what the person's computer is doing, what's next,
+ * The top of Today (docs/outreach.md, decisions 41, 59 and 127): what the person's computer is doing, what's next,
  * today's steps against the daily limits, and Start my day and Stop for today, so nobody opens another page to see
  * whether it's working. Offline, a warning, and Sending off each say so in a line. Today's feed is Done today beside
  * the list; renaming computers, and what was asked of them, are on Settings → Your computer.

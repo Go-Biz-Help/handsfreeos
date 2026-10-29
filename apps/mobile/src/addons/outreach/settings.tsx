@@ -54,7 +54,7 @@ import { useProfileProps, type ProfileProps } from './ready';
  * Social Outreach's Settings on the phone (decision 44), a page for each part as on the web (Chris, 2026-10-16: "a
  * settings menu with general settings and then all the platforms"). The Settings screen is the menu: General, each
  * network with whether it's on for the person shown, the networks still to come, then Your computer (Playbooks are a
- * page of their own since decision 126).
+ * page of their own since decision 127).
  * Owners and admins pick whose under Settings for, and each part opens for them. A part is its own screen over the
  * menu (`?part=`, ./kit.tsx's `openSettingsPart`); an address with no part, as every link before the parts, opens the
  * menu. Every change saves as it's made (./autosave.ts), with no Save button: the person's through
@@ -288,7 +288,7 @@ export function SettingsMenuBody({
   onRetry: () => void;
   onWhose: (userId: string) => void;
   onPart: (part: PhonePart) => void;
-  /** The person's computer, beside the settings; Playbooks are a page of their own (decision 126). */
+  /** The person's computer, beside the settings; Playbooks are a page of their own (decision 127). */
   onOpen: (view: 'live') => void;
 }) {
   if (!automation)

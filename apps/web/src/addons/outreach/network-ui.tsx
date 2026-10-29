@@ -29,7 +29,7 @@ export function rememberNetwork(workspaceId: string, net: Platform | null) {
 }
 
 /**
- * The network picker at the top of a page (decision 126): every network or one on People's lists, the networks the
+ * The network picker at the top of a page (decision 127): every network or one on People's lists, the networks the
  * person works on Today. The one picked is kept, so the next page opens on it too.
  */
 export function NetworkPicker({

@@ -35,7 +35,7 @@ import {
 } from './kit';
 
 /**
- * Social Outreach's first screen on the phone (decision 126), where its row under More opens: its pages, in the web's
+ * Social Outreach's first screen on the phone (decision 127), where its row under More opens: its pages, in the web's
  * side-menu order, each with what it's for. Needs you says how many messages wait for the person's OK, from the
  * phone's own copy, so it reads the same with no signal. Each page opens as its own screen over this one, so Back
  * comes here.

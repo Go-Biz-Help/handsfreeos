@@ -167,7 +167,7 @@ export interface AddonUi {
    */
   readonly connections?: string;
   /**
-   * A count in the side menu (Social Outreach's Needs you, its decision 126): on its page `page`, a key of the
+   * A count in the side menu (Social Outreach's Needs you, its decision 127): on its page `page`, a key of the
    * manifest's `ui.nav`, and on the add-on's row while its pages are closed. One component, fetched the first time the
    * menu draws the add-on, keeps its number fresh and draws it with `MenuCount` (components/shell/nav-links.tsx).
    */

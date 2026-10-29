@@ -1,6 +1,6 @@
 'use client';
 /**
- * The count on Needs you in the side menu (docs/outreach.md, decision 126), and on Social Outreach's row while its
+ * The count on Needs you in the side menu (docs/outreach.md, decision 127), and on Social Outreach's row while its
  * pages are closed: how many things wait for the person (`outreach.waiting`, counted only). Every count drawn shares
  * one number for the business, asked again when something that waits changes, and when the menu is drawn again after
  * half a minute.

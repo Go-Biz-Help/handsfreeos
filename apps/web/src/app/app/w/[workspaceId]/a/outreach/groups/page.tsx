@@ -5,7 +5,7 @@ import { showOutreach, type OutreachPageProps } from '../show';
 export const metadata: Metadata = { title: 'Groups' };
 
 /**
- * Social Outreach's Groups, and a group's own page (`?group=`; docs/outreach.md, decision 126).
+ * Social Outreach's Groups, and a group's own page (`?group=`; docs/outreach.md, decision 127).
  */
 export default async function Page(props: OutreachPageProps) {
   const { workspaceId } = await props.params;

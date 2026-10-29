@@ -312,7 +312,7 @@ export const outreachAddon = defineAddon({
     ],
   },
   ui: {
-    // Its pages in the side menu, which pop out from its one row (the owner's decision, 2026-10-09; decision 126):
+    // Its pages in the side menu, which pop out from its one row (the owner's decision, 2026-10-09; decision 127):
     // one page for each thing the person comes to do, shown only while it runs and to people who may open it. The
     // bare page (`path: ''`) isn't one of them: it forwards the old `?view=` addresses to these.
     nav: [

@@ -1,5 +1,5 @@
 /**
- * Social Outreach's pages (docs/outreach.md, decision 126): one for each thing the person comes to do, in this order,
+ * Social Outreach's pages (docs/outreach.md, decision 127): one for each thing the person comes to do, in this order,
  * in the side menu's pop-out on the web (the manifest's `ui.nav`) and on the add-on's first screen on the phone, so
  * the two read the same. Needs you comes first after Set up, as what waits on the person; Settings is the gear's.
  *

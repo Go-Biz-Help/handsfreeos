@@ -1,6 +1,6 @@
 'use client';
 /**
- * Needs you, Social Outreach's first page (docs/outreach.md, decisions 40, 42, 59, 72 and 126). The extension only
+ * Needs you, Social Outreach's first page (docs/outreach.md, decisions 40, 42, 59, 72 and 127). The extension only
  * counts it, on its icon and in a line in its panel, which links to Today's `#needs-you` as its pop-ups do: Today
  * sends that here, and the list keeps the id. Everything waiting for the person, in one list
  * (packages/core/src/addons/outreach/waiting.ts):

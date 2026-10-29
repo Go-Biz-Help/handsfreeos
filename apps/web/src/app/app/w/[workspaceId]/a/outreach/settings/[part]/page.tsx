@@ -6,7 +6,7 @@ export const metadata: Metadata = { title: 'Social Outreach settings' };
 
 /**
  * A part of Social Outreach's Settings: a network's page, Your computer or Start fresh (docs/outreach.md,
- * decisions 73 and 126).
+ * decisions 73 and 127).
  */
 export default async function Page(props: OutreachPageProps) {
   const { workspaceId } = await props.params;

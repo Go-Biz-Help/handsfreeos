@@ -23,7 +23,7 @@ function searchWordsOf(list: PlaybookList | null): string {
 }
 
 /**
- * Social Outreach's pages (docs/outreach.md, decision 126), each its own route under `/a/outreach/` and one of the
+ * Social Outreach's pages (docs/outreach.md, decision 127), each its own route under `/a/outreach/` and one of the
  * side menu's pages (the manifest's `ui.nav`), drawn by `OutreachHome` (./address.ts says what each address shows):
  * **Needs you**, everything waiting on the person; **Today**, what their computer is doing on each network, with Start
  * my day and Stop for today, its feed and, for owners and admins, the team's, and the network shown's list (`?net=`,
@@ -128,7 +128,7 @@ export async function showOutreach(
             .then((r) => r.data ?? null)
             .catch(() => null)
         : null,
-      // A network's own asks there; on Your computer, everything asked of it (decision 126: it was Today's Details).
+      // A network's own asks there; on Your computer, everything asked of it (decision 127: it was Today's Details).
       network || computer
         ? api
             .POST('/v1/queries/outreach.asks', {

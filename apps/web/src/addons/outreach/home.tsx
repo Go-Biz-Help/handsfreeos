@@ -1,6 +1,6 @@
 'use client';
 /**
- * Social Outreach's pages (docs/outreach.md, decision 126): each its own address (./address.ts) and one of the side
+ * Social Outreach's pages (docs/outreach.md, decision 127): each its own address (./address.ts) and one of the side
  * menu's pages, which pop out from the add-on's one row there, so a link, a push or the builder's way back opens the
  * one it's about. Each has its name and what it's for at the top.
  *
@@ -254,7 +254,7 @@ interface MenuRow {
 /**
  * Settings' menu (decision 73, the "Social Outreach settings by platform" design): Settings with General; Networks,
  * each with whether it's on for the person shown, then the networks still to come; and More: Your computer (their
- * own) and Start fresh (an owner's). Playbooks have their own page in the side menu (decision 126). A part keeps whose
+ * own) and Start fresh (an owner's). Playbooks have their own page in the side menu (decision 127). A part keeps whose
  * settings an owner or admin is looking at. On a phone it's a list to pick from, above the page.
  */
 function SettingsMenu({
@@ -438,7 +438,7 @@ function SettingsMenu({
 }
 
 /**
- * The network picker at the top of Today and People's lists (decision 126): on Today, the networks the person works,
+ * The network picker at the top of Today and People's lists (decision 127): on Today, the networks the person works,
  * whose list shows; on a list, every network or one. Each choice keeps what else the page shows, from its first page.
  * Null on the pages it doesn't narrow: Needs you never hides what waits.
  */

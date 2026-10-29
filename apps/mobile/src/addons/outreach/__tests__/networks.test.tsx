@@ -125,7 +125,7 @@ describe('Today’s strip, a row for each network', () => {
     const row = screen.getByTestId('today-network-linkedin');
     expect(within(row).getByText('LinkedIn')).toBeTruthy();
     expect(within(row).getByText('Not started today')).toBeTruthy();
-    // Its own bars, on its own card (decision 126).
+    // Its own bars, on its own card (decision 127).
     expect(screen.queryByTestId('today-limits')).toBeNull();
     expect(screen.getByTestId('today-limits-linkedin')).toBeTruthy();
     await fireEvent.press(screen.getByTestId('live-start'));

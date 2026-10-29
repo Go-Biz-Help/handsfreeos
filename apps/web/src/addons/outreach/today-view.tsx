@@ -1,6 +1,6 @@
 'use client';
 /**
- * Social Outreach's Today (docs/outreach.md, the plan's Phase 1 step 5, and decision 126's page to watch it work): at
+ * Social Outreach's Today (docs/outreach.md, the plan's Phase 1 step 5, and decision 127's page to watch it work): at
  * the top, one Heads up card for what to know (a warning, training wheels, half limits on a new account, requests
  * held with Cancel all, profile ideas waiting), the count of what needs the person with the way to Needs you (its own
  * page, which a `#needs-you` here opens, as the extension's links still ask), and a card for each network the person

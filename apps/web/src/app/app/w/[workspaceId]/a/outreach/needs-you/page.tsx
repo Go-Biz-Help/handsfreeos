@@ -6,7 +6,7 @@ export const metadata: Metadata = { title: 'Needs you' };
 
 /**
  * Social Outreach's Needs you: everything waiting on the person, on every network (docs/outreach.md,
- * decision 126).
+ * decision 127).
  */
 export default async function Page(props: OutreachPageProps) {
   const { workspaceId } = await props.params;

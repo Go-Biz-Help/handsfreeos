@@ -56,7 +56,7 @@ import { TodayBody, useTodayProps } from './today';
 import { useWaitingProps } from './waiting';
 
 /**
- * Social Outreach's Today on the phone (decisions 59 and 126), as the web's: how many things need the person, with the
+ * Social Outreach's Today on the phone (decisions 59 and 127), as the web's: how many things need the person, with the
  * way to Needs you (its own page, ./waiting.tsx's `NeedsYouScreen`, which works with no signal), what their computer
  * is doing with Start my day and Stop for today in a card for each network, their list for the day, Done today (every
  * step today, newest first) and, for owners and admins, how each person's extension is doing. A message waiting for

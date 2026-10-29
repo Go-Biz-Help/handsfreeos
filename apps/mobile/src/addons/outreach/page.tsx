@@ -27,7 +27,7 @@ import { SettingsScreen } from './settings';
 import { NeedsYouScreen } from './waiting';
 
 /**
- * Social Outreach on the phone (decisions 44, 59 and 126), by its address's `?view=`, as the web's old addresses name
+ * Social Outreach on the phone (decisions 44, 59 and 127), by its address's `?view=`, as the web's old addresses name
  * its pages. With none, its first screen lists the pages in the web's side-menu order (./home.tsx). Needs you is
  * `waiting`; Today (`today`) has what the computer is doing on each network, the list and Done today; People is the
  * Pipeline, Chats, the Partners list and the Never contact list; then Groups (`&group=` one group's own page, decision

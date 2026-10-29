@@ -10,7 +10,7 @@ import { Button } from '@/components/ui/button';
 import { openOutreach, switchOutreach } from './kit';
 
 /**
- * One of Social Outreach's pages on the phone (decision 126): its name at the top, as the add-on's first screen lists
+ * One of Social Outreach's pages on the phone (decision 127): its name at the top, as the add-on's first screen lists
  * them (./home.tsx) in the web's side-menu order, and Back to that list. People has its own Pipeline, Chats, the
  * Partners list and the Never contact list, a row of them that scrolls, and Friends, which stays on the web.
  */

@@ -30,7 +30,7 @@ requests while 200 wait or near the cap (decisions 96 and 97), tidying up on its
 month (decision 99, extension 0.98.0), and Later on a person, a push when a request is accepted, and LinkedIn's
 comments waiting for an OK at first (decisions 100 to 102, extension 0.99.0).
 
-The parts below name the tabs they were built on. Since decision 126 those are pages of their own, which pop out from
+The parts below name the tabs they were built on. Since decision 127 those are pages of their own, which pop out from
 Social Outreach's one row in the side menu, in this order: **Needs you** (Waiting for you, with its count on the
 menu); **Today**, with a card for each network (the Live tab's status, Start my day and Stop for today, and its bars),
 one Heads up, Done today (the old Details' feed), the list, and the team for owners; **People**, with the Pipeline (a
@@ -1088,7 +1088,7 @@ The owner asked on 12 Oct 2026 for a better design of the add-on and the extensi
 design system ("Social Outreach redesign", a Design canvas), and said to build all of it. That changes where decisions
 41 to 44 put things; what they decided stands. Settled too:
 
-59. **Four tabs and the gear, and the panel in HandsFreeOS's look** (the tabs and the gear replaced by decision 126:
+59. **Four tabs and the gear, and the panel in HandsFreeOS's look** (the tabs and the gear replaced by decision 127:
     pages in the side menu). Ten tabs were too many, Waiting for you and Today said the same, and every tab carried
     notes and the same orange line about the computer.
     - **Today** opens first (the bare page; `?view=waiting` too): a strip with the computer's state, what it's doing,

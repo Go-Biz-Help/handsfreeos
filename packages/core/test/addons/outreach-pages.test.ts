@@ -1,5 +1,5 @@
 /**
- * Social Outreach's pages (docs/outreach.md, decision 126): the side menu's pop-out on the web and the phone's first
+ * Social Outreach's pages (docs/outreach.md, decision 127): the side menu's pop-out on the web and the phone's first
  * screen read the same list, in the same order, from core's `pages.ts`.
  */
 import { describe, expect, it } from 'vitest';

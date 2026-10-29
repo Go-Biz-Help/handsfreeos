@@ -1,6 +1,6 @@
 /**
  * What Social Outreach's pages show, from their addresses. Each page has its own path under `/a/outreach/`, so the side
- * menu's pop-out lights the one open (docs/outreach.md, decision 126):
+ * menu's pop-out lights the one open (docs/outreach.md, decision 127):
  *
  * - **Needs you** (`/needs-you`): everything waiting on the person, on every network.
  * - **Today** (`/today`): what their computer is doing on each network, and the network shown's list (`?net=`).
@@ -97,7 +97,7 @@ const OLD_VIEWS: Readonly<Record<string, OutreachView>> = {
   // A code a network emailed waits under Needs you (decision 82's ask, in "Your computer needs you").
   code: 'needs',
   today: 'today',
-  // The computer's whole day folded into Today (decision 126).
+  // The computer's whole day folded into Today (decision 127).
   live: 'today',
   activity: 'results',
   results: 'results',

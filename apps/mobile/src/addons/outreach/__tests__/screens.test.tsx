@@ -25,7 +25,7 @@ import { TodayBody } from '../today';
 import { id, TZ, WS } from './mocks';
 
 /**
- * Social Outreach's other screens on the phone (decisions 44, 59 and 126): its one row in More, its first screen
+ * Social Outreach's other screens on the phone (decisions 44, 59 and 127): its one row in More, its first screen
  * listing its pages, People's lists, the tabs left to the web, Today's cards and the live view with Start my day and
  * Stop for today, Today with posts
  * asking for what the business offers first, comments drafted to wait on Instagram and Alignable (decision 92), each
@@ -803,7 +803,7 @@ describe('The live view on the phone', () => {
     expect(screen.getByTestId('live-state')).toHaveTextContent('Working');
     expect(screen.getByText('Liking a post of Dana Reyes’s')).toBeTruthy();
     expect(screen.getByTestId('today-limit-like')).toHaveTextContent(/^Likes7 \/ 40$/);
-    // Its whole day is Settings → Your computer now, not a Details button here (decision 126).
+    // Its whole day is Settings → Your computer now, not a Details button here (decision 127).
     expect(screen.queryByTestId('today-status-details')).toBeNull();
     await fireEvent.press(screen.getByTestId('live-start'));
     expect(h.onStart).toHaveBeenCalled();

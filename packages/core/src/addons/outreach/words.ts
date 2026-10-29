@@ -327,13 +327,13 @@ export const OUTREACH_WORDS = {
   /** Nothing waits: said in a line on Today. */
   needsYouNone: 'Nothing needs you right now.',
   doneToday: 'Done today',
-  /** Under Done today: its feed is every network's (decision 126). */
+  /** Under Done today: its feed is every network's (decision 127). */
   doneTodayAbout: 'On every network, newest first.',
   /** Done today shows its first steps, then the rest in place. */
   doneTodayMore: (n: number) => `Show ${things(n, 'more step', 'more steps')}`,
-  /** Today's one card for what to know: warnings, holds and notes, each a line (decision 126). */
+  /** Today's one card for what to know: warnings, holds and notes, each a line (decision 127). */
   headsUp: 'Heads up',
-  /** Today's line to Needs you, which has its own page (decision 126). */
+  /** Today's line to Needs you, which has its own page (decision 127). */
   needsYouCount: (n: number) =>
     n === 1 ? '1 thing needs you.' : `${n.toLocaleString('en-US')} things need you.`,
   openNeedsYou: 'Open Needs you',

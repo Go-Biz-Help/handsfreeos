@@ -5,7 +5,7 @@ import { showOutreach, type OutreachPageProps } from '../show';
 export const metadata: Metadata = { title: 'Results' };
 
 /**
- * Social Outreach's Results: from reached to booked (docs/outreach.md, decision 126).
+ * Social Outreach's Results: from reached to booked (docs/outreach.md, decision 127).
  */
 export default async function Page(props: OutreachPageProps) {
   const { workspaceId } = await props.params;

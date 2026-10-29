@@ -7,7 +7,7 @@ web's own addresses, so a link or a push to `/a/outreach?view=…` or a playbook
 
 - **Routes** sit inside More: `src/app/app/w/[workspaceId]/(tabs)/(more)/a/outreach/`. `index.tsx` is the page,
   whichever screen `?view=` names (`page.tsx` picks it), and `playbooks/[playbookId].tsx` one playbook. With no
-  `?view=`, the add-on's first screen (`home.tsx`) lists its pages in the web's side-menu order (decision 126: Needs
+  `?view=`, the add-on's first screen (`home.tsx`) lists its pages in the web's side-menu order (decision 127: Needs
   you, Today, People, Groups, Results, Playbooks and Settings, core's `pages.ts`), each opening as its own screen
   with its name at the top (`frame.tsx`). Needs you is `?view=waiting` (`NeedsYouScreen` in `waiting.tsx`).
   `_layout.tsx` is the gate: only someone holding `outreach.use`, which they hold only while the add-on runs here.

@@ -6,7 +6,7 @@ export const metadata: Metadata = { title: 'Today' };
 
 /**
  * Social Outreach's Today: what the person's computer is doing on each network, and the plan for today
- * (docs/outreach.md, decision 126).
+ * (docs/outreach.md, decision 127).
  */
 export default async function Page(props: OutreachPageProps) {
   const { workspaceId } = await props.params;

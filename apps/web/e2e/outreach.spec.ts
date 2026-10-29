@@ -36,7 +36,7 @@ import { madeUpDownload, makeZip } from './outreach-download';
  *   marks who sent a client from their pages, and sees each partner's link, clients and what they earned (stage 2d).
  */
 /**
- * Opens one of Social Outreach's pages from its one row in the side menu, where they pop out (decision 126): Needs
+ * Opens one of Social Outreach's pages from its one row in the side menu, where they pop out (decision 127): Needs
  * you, Today, People, Groups, Results, Playbooks and Settings.
  */
 async function openOutreachPage(page: Page, name: string) {
@@ -82,7 +82,7 @@ test('an owner builds a playbook a step at a time, with answers that tag people 
 
   await page.goto(`/app/w/${workspaceId}/a/outreach`);
   await expect(page.getByTestId('outreach-home')).toBeVisible();
-  // Its pages pop out from its one row in the side menu, Playbooks among them (decision 126).
+  // Its pages pop out from its one row in the side menu, Playbooks among them (decision 127).
   await page
     .getByRole('navigation', { name: 'Workspace' })
     .getByTestId('menu-addon-outreach')
@@ -367,7 +367,7 @@ test('the Results tab counts what the extension noted, by group and person, over
   );
   await expect(page.getByTestId('today-limit-friend_request')).toContainText('1 of 10');
   await expect(page.getByTestId('today-limit-first_message')).toContainText('1 of 7');
-  // The old addresses still open the page they became (decision 126): the activity's Results, a network's settings
+  // The old addresses still open the page they became (decision 127): the activity's Results, a network's settings
   // its page there, and the extension's Needs you link, on Today, Needs you.
   await page.goto(`/app/w/${workspaceId}/a/outreach?view=activity&period=today`);
   await expect(page).toHaveURL(new RegExp(`/a/outreach/results\\?period=today$`));
@@ -418,7 +418,7 @@ test('the friends tab lists what the extension saved a page at a time, keeps a f
   });
 
   await page.goto(`/app/w/${workspaceId}/a/outreach`);
-  // Friends sit under People (decisions 59 and 126).
+  // Friends sit under People (decisions 59 and 127).
   await openOutreachPage(page, 'People');
   await page.getByTestId('outreach-people-friends').click();
   await expect(page).toHaveURL(new RegExp(`/a/outreach/people/friends$`));

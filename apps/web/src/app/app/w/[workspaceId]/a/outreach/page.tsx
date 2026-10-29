@@ -6,7 +6,7 @@ import { apiServer, unwrapPage } from '@/lib/api/server';
 
 /**
  * Social Outreach's bare address, `/a/outreach`, which is no page of its own since its pages each have one
- * (docs/outreach.md, decision 126). An old address (`?view=waiting`, `live`, `settings&part=linkedin`…), as pushes,
+ * (docs/outreach.md, decision 127). An old address (`?view=waiting`, `live`, `settings&part=linkedin`…), as pushes,
  * emails, notifications, the extension and old phones still open, goes to the page its view became, with the rest
  * of its query (./address.ts, `forwardedHref`); the browser keeps a `#needs-you` on the way, which Today then
  * follows. The bare address itself opens Today, or the setup for a first-timer. It opens through the gate, as the
