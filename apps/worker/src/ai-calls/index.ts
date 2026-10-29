@@ -26,15 +26,21 @@
  * is (core's call-hours.ts: the legal hours there, narrowed by the business's own), and ring again the next day when
  * nobody answers, the line's busy or a voicemail box picks up, up to the business's tries (3 to begin with). The
  * voicemail choice comes after the last try: before it, a voicemail box just gets hung up on.
+ *
+ * Either needs the written yes, or (part 5) with Call business landlines without a yes on, a number the phone company
+ * says is a business landline: asked just before the call (line-check.ts), and the call's `consent_basis` says which.
  */
 import {
   automationOn,
   automationSettingsOf,
+  businessLineOf,
   callPlacesOf,
+  callsBusinessLandlines,
   callRecord,
   defaultNumber,
   executeCommand,
   formatPhone,
+  lineFactsOf,
   loadTeammate,
   money,
   nextCallMoment,
@@ -60,6 +66,7 @@ import { recordSystemEvent } from '../system-event';
 import { loadAccount } from '../telephony/accounts';
 import { isPermanentProviderError } from '../telephony/provider';
 import { voiceUrls } from '../telephony/voice';
+import { askPhoneCompany } from './line-check';
 
 export const AI_CALL_JOBS = {
   consider: 'ai_calls.consider',
@@ -694,7 +701,13 @@ const skip = async (tx: Tx, id: string, reason: string) => {
     sql`update app.ai_calls set status = 'skipped', reason = ${reason.slice(0, 200)}, finished_at = now()
         where id = ${id} and status = 'queued'`,
   );
-  await recipientFailed(tx, id, reason);
+  // Not a business landline is a reason a campaign leaves someone out, which a yes given later can change.
+  if (reason === 'not_business_landline')
+    await tx.execute(
+      sql`update app.campaign_recipients set status = 'skipped', skip_reason = ${reason}
+          where id = (select campaign_recipient_id from app.ai_calls where id = ${id}) and status = 'sent'`,
+    );
+  else await recipientFailed(tx, id, reason);
 };
 
 /**
@@ -726,30 +739,31 @@ export const aiCallPlaceJob: JobHandler = async (ctx) => {
   const aiCallId = str(ctx.job.payload['aiCallId']);
   if (!aiCallId) return;
   const now = ctx.now;
-  const step = await asWorker(
-    ctx.db,
-    scope,
-    async (tx): Promise<{ wait: number } | { place: Placing } | null> => {
-      const [c] = await rows<{
-        id: string;
-        purpose: AiCallPurpose;
-        status: string;
-        to_e164: string;
-        attendee_id: string | null;
-        missed_call_id: string | null;
-        estimate_id: string | null;
-        campaign_status: string | null;
-        call_consent: string;
-        deleted: boolean;
-        person_id: string;
-        created_at: Date;
-        tries: number;
-        state: string | null;
-        postal_code: string | null;
-        country: string | null;
-      }>(
-        tx,
-        sql`select c.id, c.purpose, c.status, c.to_e164, c.attendee_id, c.missed_call_id, c.estimate_id,
+  const decide = () =>
+    asWorker(
+      ctx.db,
+      scope,
+      async (tx): Promise<{ wait: number } | { place: Placing } | { check: string } | null> => {
+        const [c] = await rows<{
+          id: string;
+          purpose: AiCallPurpose;
+          status: string;
+          to_e164: string;
+          attendee_id: string | null;
+          missed_call_id: string | null;
+          estimate_id: string | null;
+          campaign_status: string | null;
+          call_consent: string;
+          deleted: boolean;
+          person_id: string;
+          created_at: Date;
+          tries: number;
+          state: string | null;
+          postal_code: string | null;
+          country: string | null;
+        }>(
+          tx,
+          sql`select c.id, c.purpose, c.status, c.to_e164, c.attendee_id, c.missed_call_id, c.estimate_id,
               c.person_id, c.created_at, c.tries, p.state, p.postal_code, p.country,
               (select k.status from app.campaign_recipients r join app.campaigns k on k.id = r.campaign_id
                where r.id = c.campaign_recipient_id) as campaign_status,
@@ -758,91 +772,112 @@ export const aiCallPlaceJob: JobHandler = async (ctx) => {
             from app.ai_calls c join app.people p on p.id = c.person_id
             where c.id = ${aiCallId} and c.workspace_id = ${scope.workspaceId}
             for update of c`,
-      );
-      if (!c || c.status !== 'queued') return null;
-      // Deleting a customer cancels their calls waiting to go; one queued since isn't made either.
-      if (c.deleted) return skip(tx, c.id, 'deleted').then(() => null);
-      if (c.call_consent === 'opted_out') return skip(tx, c.id, 'no_calls').then(() => null);
-      if (c.purpose === 'workflow') {
-        // A workflow's call needs the written yes, still, as a campaign's does.
-        if (c.call_consent !== 'opted_in')
-          return skip(tx, c.id, 'no_call_consent').then(() => null);
-        // A call that waited (an approval, open hours) isn't wanted once they've booked or been in touch.
-        const since = await sinceCallQueued(tx, c.person_id, new Date(c.created_at));
-        if (since) return skip(tx, c.id, since).then(() => null);
-      }
-      if (c.purpose === 'campaign') {
-        // Marketing calls need the written yes, still, and a campaign that's still going.
-        if (c.call_consent !== 'opted_in')
-          return skip(tx, c.id, 'no_call_consent').then(() => null);
-        if (c.campaign_status !== 'sending' && c.campaign_status !== 'done')
-          return skip(tx, c.id, 'campaign_stopped').then(() => null);
-        // Tomorrow's try isn't wanted once they've booked or been in touch since the first.
-        if (c.tries > 0) {
+        );
+        if (!c || c.status !== 'queued') return null;
+        // Deleting a customer cancels their calls waiting to go; one queued since isn't made either.
+        if (c.deleted) return skip(tx, c.id, 'deleted').then(() => null);
+        if (c.call_consent === 'opted_out') return skip(tx, c.id, 'no_calls').then(() => null);
+        // A call to a lead needs the written yes, still, or a business landline while the business calls those.
+        let basis: 'written' | 'business_landline' | 'check' | null = null;
+        if (TO_LEADS.has(c.purpose)) {
+          if (c.call_consent === 'opted_in') basis = 'written';
+          else if (!(await callsBusinessLandlines(tx, scope.workspaceId)))
+            return skip(tx, c.id, 'no_call_consent').then(() => null);
+          else {
+            const line = businessLineOf(
+              await lineFactsOf(tx, scope.workspaceId, c.to_e164, new Date(now)),
+            );
+            if (line === 'other') return skip(tx, c.id, 'not_business_landline').then(() => null);
+            basis = line === 'business' ? 'business_landline' : 'check';
+          }
+        }
+        if (c.purpose === 'workflow') {
+          // A call that waited (an approval, open hours) isn't wanted once they've booked or been in touch.
           const since = await sinceCallQueued(tx, c.person_id, new Date(c.created_at));
           if (since) return skip(tx, c.id, since).then(() => null);
         }
-      }
-      // Still wanted? A reply, a confirmation or a call since the approval leaves it alone.
-      const again =
-        c.purpose === 'confirm_visit' && c.attendee_id
-          ? await considerVisit(tx, c.attendee_id, now)
-          : c.purpose === 'missed_call' && c.missed_call_id
-            ? await considerMissed(tx, c.missed_call_id, now)
-            : c.purpose === 'quote' && c.estimate_id
-              ? await considerQuote(tx, c.estimate_id, now)
-              : null;
-      if (again && 'skip' in again) return skip(tx, c.id, again.skip).then(() => null);
-      const m = await workspaceMessaging(tx, scope.workspaceId);
-      const key = SWITCH_OF[c.purpose];
-      if (key && !automationOn(m.rawSettings, key))
-        return skip(tx, c.id, 'switched_off').then(() => null);
-      if (!voiceReady(ctx, await loadTeammate(tx, scope.workspaceId)))
-        return skip(tx, c.id, 'no_voice').then(() => null);
-      for (const kind of ['call', 'ai'] as const) {
-        const room = await walletRoom(tx, scope.workspaceId, kind, (msg, e) =>
-          ctx.log.error({ err: e }, msg),
-        );
-        if (!room.allowed) return skip(tx, c.id, 'balance').then(() => null);
-      }
-      // Open hours only, never quiet hours: it waits for the next good moment. A call to a lead waits for the
-      // calling hours where they are too.
-      const tz = m.timezone || 'UTC';
-      const calls = automationSettingsOf(m.rawSettings).calls;
-      const at = TO_LEADS.has(c.purpose)
-        ? goodMomentForLead(
-            m,
-            tz,
-            callPlacesOf(
-              c.to_e164,
-              { state: c.state, postalCode: c.postal_code, country: c.country },
+        if (c.purpose === 'campaign') {
+          // A campaign that's still going.
+          if (c.campaign_status !== 'sending' && c.campaign_status !== 'done')
+            return skip(tx, c.id, 'campaign_stopped').then(() => null);
+          // Tomorrow's try isn't wanted once they've booked or been in touch since the first.
+          if (c.tries > 0) {
+            const since = await sinceCallQueued(tx, c.person_id, new Date(c.created_at));
+            if (since) return skip(tx, c.id, since).then(() => null);
+          }
+        }
+        // Still wanted? A reply, a confirmation or a call since the approval leaves it alone.
+        const again =
+          c.purpose === 'confirm_visit' && c.attendee_id
+            ? await considerVisit(tx, c.attendee_id, now)
+            : c.purpose === 'missed_call' && c.missed_call_id
+              ? await considerMissed(tx, c.missed_call_id, now)
+              : c.purpose === 'quote' && c.estimate_id
+                ? await considerQuote(tx, c.estimate_id, now)
+                : null;
+        if (again && 'skip' in again) return skip(tx, c.id, again.skip).then(() => null);
+        const m = await workspaceMessaging(tx, scope.workspaceId);
+        const key = SWITCH_OF[c.purpose];
+        if (key && !automationOn(m.rawSettings, key))
+          return skip(tx, c.id, 'switched_off').then(() => null);
+        if (!voiceReady(ctx, await loadTeammate(tx, scope.workspaceId)))
+          return skip(tx, c.id, 'no_voice').then(() => null);
+        for (const kind of ['call', 'ai'] as const) {
+          const room = await walletRoom(tx, scope.workspaceId, kind, (msg, e) =>
+            ctx.log.error({ err: e }, msg),
+          );
+          if (!room.allowed) return skip(tx, c.id, 'balance').then(() => null);
+        }
+        // Open hours only, never quiet hours: it waits for the next good moment. A call to a lead waits for the
+        // calling hours where they are too.
+        const tz = m.timezone || 'UTC';
+        const calls = automationSettingsOf(m.rawSettings).calls;
+        const at = TO_LEADS.has(c.purpose)
+          ? goodMomentForLead(
+              m,
               tz,
-            ),
-            calls.hours,
-            now,
-          )
-        : nextSendMoment(openHoursOf(m.rawSettings), m.settings.quietHours, tz, now);
-      if (at === null) return skip(tx, c.id, 'no_calling_hours').then(() => null);
-      if (at > now) return { wait: at };
-      const number = await defaultNumber(tx, scope.workspaceId);
-      if (!number || number.status !== 'active')
-        return skip(tx, c.id, 'no_number').then(() => null);
-      await tx.execute(
-        // Another try starts clean: the last one's "tries again tomorrow" is over.
-        sql`update app.ai_calls set status = 'calling', placed_at = now(), tries = tries + 1,
-              outcome = null, summary = null
+              callPlacesOf(
+                c.to_e164,
+                { state: c.state, postalCode: c.postal_code, country: c.country },
+                tz,
+              ),
+              calls.hours,
+              now,
+            )
+          : nextSendMoment(openHoursOf(m.rawSettings), m.settings.quietHours, tz, now);
+        if (at === null) return skip(tx, c.id, 'no_calling_hours').then(() => null);
+        if (at > now) return { wait: at };
+        const number = await defaultNumber(tx, scope.workspaceId);
+        if (!number || number.status !== 'active')
+          return skip(tx, c.id, 'no_number').then(() => null);
+        // Only now, with everything else ready: the phone company is asked what the number is (each ask is paid for).
+        if (basis === 'check') return { check: c.to_e164 };
+        await tx.execute(
+          // Another try starts clean: the last one's "tries again tomorrow" is over.
+          sql`update app.ai_calls set status = 'calling', placed_at = now(), tries = tries + 1,
+              outcome = null, summary = null, consent_basis = ${basis}
             where id = ${c.id}`,
-      );
-      return {
-        place: {
-          id: c.id,
-          to: c.to_e164,
-          from: number.e164,
-          voicemail: automationSettingsOf(m.rawSettings).calls.voicemail,
-        },
-      };
-    },
-  );
+        );
+        return {
+          place: {
+            id: c.id,
+            to: c.to_e164,
+            from: number.e164,
+            voicemail: automationSettingsOf(m.rawSettings).calls.voicemail,
+          },
+        };
+      },
+    );
+  let step = await decide();
+  if (step && 'check' in step) {
+    // What the phone company says decides it: the call goes, or it's left alone as not a business landline.
+    if (!(await askPhoneCompany(ctx, scope, step.check))) {
+      await asWorker(ctx.db, scope, (tx) => skip(tx, aiCallId, 'no_telephony_account'));
+      return;
+    }
+    step = await decide();
+    if (step && 'check' in step) return { rescheduleAt: new Date(now + 60_000) };
+  }
   if (!step) return;
   if ('wait' in step) return { rescheduleAt: new Date(step.wait) };
   const p = step.place;

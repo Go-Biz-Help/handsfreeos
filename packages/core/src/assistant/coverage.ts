@@ -481,6 +481,7 @@ export const SETTING_TOOLS: Readonly<Record<string, readonly SettingWay[]>> = {
   ],
   'adjust.call_tries': [{ tool: 'update_automations', field: 'callTries' }],
   'adjust.ok_to_call': [{ tool: 'update_automations', field: 'askForOkToCall' }],
+  'adjust.business_landlines': [{ tool: 'update_automations', field: 'callBusinessLandlines' }],
 };
 
 /** Setting rows the Assistant never changes, and why. */

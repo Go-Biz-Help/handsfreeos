@@ -7919,10 +7919,32 @@ export const aiCalls = app.table('ai_calls', {
   dedupeKey: text('dedupe_key').notNull(),
   /** How many times it has rung: a campaign's or a workflow's call tries again the next day, up to 3. */
   tries: smallint('tries').notNull().default(0),
+  /** A call to a lead: why it could go, `written` (a yes) or `business_landline` (AI calls, part 5). */
+  consentBasis: text('consent_basis'),
   placedAt: ts('placed_at'),
   finishedAt: ts('finished_at'),
   ...timestamps(),
 });
+
+/**
+ * What the phone company said about a number (AI calls, part 5): its line type and, for a landline, who it's
+ * registered to. Used for 90 days, then asked again (core's business-line.ts).
+ */
+export const phoneLineChecks = app.table(
+  'phone_line_checks',
+  {
+    id: id(),
+    workspaceId: workspaceRef(),
+    phoneE164: text('phone_e164').notNull(),
+    /** landline, mobile, voip, toll_free, other or unknown. */
+    lineType: text('line_type').notNull(),
+    /** business, consumer or unknown; null when it wasn't asked. */
+    callerType: text('caller_type'),
+    checkedAt: ts('checked_at').notNull().defaultNow(),
+    ...timestamps(),
+  },
+  (t) => [unique().on(t.workspaceId, t.phoneE164)],
+);
 
 /** Email campaigns: an address that asked for no more campaign email from this business. */
 export const emailUnsubscribes = app.table('email_unsubscribes', {

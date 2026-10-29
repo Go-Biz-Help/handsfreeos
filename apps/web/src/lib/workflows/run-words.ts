@@ -205,6 +205,8 @@ export function skipReasonText(reason: string | null | undefined): string {
       return 'nobody to notify';
     case 'no_call_consent':
       return 'they haven’t agreed to calls in writing';
+    case 'not_business_landline':
+      return 'they haven’t agreed to calls in writing, and their number isn’t a business landline';
     case 'no_calls':
       return 'they asked not to be called';
     case 'no_teammate':

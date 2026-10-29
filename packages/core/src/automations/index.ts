@@ -5,6 +5,7 @@
 export * from './catalog';
 export * from './settings';
 export * from './call-hours';
+export * from './business-line';
 export * from './state';
 export * from './delivery';
 export * from './intake';

@@ -223,6 +223,7 @@ export const campaignPreviewAudience = defineQuery({
     return {
       recipients: people.filter((p) => !p.skipReason).length,
       skipped,
+      landlineChecks: people.filter((p) => p.landlineCheck).length,
       postalAddress:
         input.channel === 'email' ? await businessPostalAddress(ctx.tx, input.workspaceId) : null,
     };

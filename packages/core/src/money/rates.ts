@@ -90,6 +90,13 @@ export const USAGE_KEYS = [
   'a2p.campaign.vetting',
   /** The campaign itself, a month at a time from the day it's approved, for as long as it stays registered. */
   'a2p.campaign.month',
+  // ---------- asking the phone company about a number (Twilio Lookup) ----------
+  // Before an AI call to someone with no written yes, with Call business landlines without a yes on (AI calls,
+  // part 5): one fee per request, since Twilio bills each one, even one that finds nothing.
+  /** What kind of line it is: landline, mobile, internet. */
+  'lookup.line_type',
+  /** Who a landline is registered to: a business or a person. US numbers only. */
+  'lookup.caller_name',
 ] as const;
 export type UsageKey = (typeof USAGE_KEYS)[number];
 
@@ -139,6 +146,8 @@ export const USAGE_KEY_UNITS: Readonly<Record<UsageKey, UsageUnit>> = {
   'a2p.brand.vetting': 'fee',
   'a2p.campaign.vetting': 'fee',
   'a2p.campaign.month': 'month',
+  'lookup.line_type': 'fee',
+  'lookup.caller_name': 'fee',
 };
 
 /**
@@ -534,6 +543,25 @@ export const SEED_RATES: readonly {
     minChargeCents: 0,
     roundUpTo: 'none',
     notes: 'A2P 10DLC campaign, $10 a month for a standard use case. Passed on at cost.',
+  },
+  {
+    key: 'lookup.line_type',
+    costMicros: 8_000,
+    markupBp: 15_000,
+    // 1.2¢ would round down to 1¢, under the 1.5× promise: one on its own is the floor's 2¢.
+    minChargeCents: 2,
+    roundUpTo: 'none',
+    notes:
+      'Asking the phone company what kind of line a number is (Twilio Lookup Line Type Intelligence, $0.008), before an AI call to someone with no yes. Charged 2¢.',
+  },
+  {
+    key: 'lookup.caller_name',
+    costMicros: 10_000,
+    markupBp: 15_000,
+    minChargeCents: 1,
+    roundUpTo: 'none',
+    notes:
+      'Asking the phone company who a landline is registered to (Twilio Lookup Caller Name, $0.01, US only), before an AI call to someone with no yes. Charged 2¢.',
   },
 ];
 

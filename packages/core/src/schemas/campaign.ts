@@ -60,6 +60,8 @@ export const SKIP_REASONS = [
   // Call campaigns.
   'no_call_consent',
   'called_recently',
+  // No yes, and the phone company says the number isn't a business landline (AI calls, part 5).
+  'not_business_landline',
 ] as const;
 export const skipReason = z.enum(SKIP_REASONS);
 export type SkipReason = z.infer<typeof skipReason>;
@@ -198,6 +200,11 @@ export const CampaignPreviewOutput = z.object({
   skipped: z.record(z.string(), z.number().int()),
   /** Email: the address every email shows, or null when the business hasn't given one (it can't send then). */
   postalAddress: z.string().nullable(),
+  /**
+   * Calls: of those it would call, how many have no yes and are called only if the phone company says their number
+   * is a business landline (with Call business landlines without a yes on).
+   */
+  landlineChecks: z.number().int().default(0),
 });
 
 export const CampaignCounts = z.object({

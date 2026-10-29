@@ -1319,6 +1319,31 @@ describe('bringing a number that is already in Twilio (20261010000900)', () => {
     expect(seen[0]!.path).toBe('/v2/PhoneNumbers/%2B12565550123');
   });
 
+  it('checks a lead’s line on the business’s own subaccount, asking only what it’s told to (AI calls, part 5)', async () => {
+    const seen = mockTwilio([
+      [
+        /^GET lookups\.twilio\.com\/v2\/PhoneNumbers\//,
+        (req) => ({
+          json: new URL(req.url).searchParams.get('Fields')?.includes('caller_name')
+            ? { caller_name: { caller_name: 'LONE STAR HVAC', caller_type: 'BUSINESS' } }
+            : { line_type_intelligence: { type: 'landline' } },
+        }),
+      ],
+    ]);
+    const t = createTwilioTelephony(MASTER);
+    expect(
+      await t.checkLine(account, '+17135550100', { lineType: true, callerName: false }),
+    ).toEqual({ lineType: 'landline', callerType: null });
+    expect(
+      await t.checkLine(account, '+17135550100', { lineType: false, callerName: true }),
+    ).toEqual({ lineType: null, callerType: 'BUSINESS' });
+    expect(seen.map((r) => new URL(r.url).searchParams.get('Fields'))).toEqual([
+      'line_type_intelligence',
+      'caller_name',
+    ]);
+    expect(seen[0]!.auth).toBe(`${account.sid}:${account.authToken}`);
+  });
+
   it('signs in to a business’s own account as the API key it gave, and says whose subaccount it is', async () => {
     const seen = mockTwilio([
       [

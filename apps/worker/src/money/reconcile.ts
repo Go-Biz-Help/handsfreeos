@@ -88,7 +88,10 @@ export const CARRIER_CATEGORIES: Readonly<Record<string, readonly UsageKey[]>> =
   transcriptions: [],
   // A browser leg. Not on the card, and named here so its cost is charged rather than quietly absorbed.
   'calls-client': [],
-  calleridlookups: [],
+  // Asking the phone company about a number before an AI call with no yes (AI calls, part 5), charged when asked.
+  // Caller name lookups for any other reason still show up here as a shortfall.
+  calleridlookups: ['lookup.caller_name'],
+  'enhanced-line-type-lookups': ['lookup.line_type'],
 };
 
 /**

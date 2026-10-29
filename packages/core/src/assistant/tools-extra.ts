@@ -271,6 +271,12 @@ export const extraTools: readonly AssistantTool[] = [
         .describe(
           'Show an “OK to call me, including with an AI assistant” box under the text box on the business’s forms, booking page, waitlist and website chat. A tick counts as agreed in writing to calls',
         ),
+      callBusinessLandlines: z
+        .boolean()
+        .optional()
+        .describe(
+          'Let a campaign’s or workflow’s call go to someone with no written yes when their number is a business landline (checked with the phone company first, about a cent each). Mobiles, home lines and internet numbers still need the yes',
+        ),
     }),
     autonomy: 'confirm',
     permission: 'workspace.update',

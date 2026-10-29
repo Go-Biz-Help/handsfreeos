@@ -10,6 +10,8 @@
  */
 import {
   activityLog,
+  businessLineOf,
+  callsBusinessLandlines,
   conversationAssign,
   conversationClose,
   executeCommandIn,
@@ -20,6 +22,7 @@ import {
   leadMoveStage,
   leadSetNextAction,
   leadUpdate,
+  lineFactsOf,
   personalFormQuery,
   personUpdate,
   recordSetTags,
@@ -612,8 +615,16 @@ export async function runAction(ec: ExecCtx): Promise<Outcome> {
       if (!p || p.gone) return skipped('no_person', input);
       if (!p.phone) return skipped('no_phone', input);
       if (p.consent === 'opted_out') return skipped('no_calls', input);
-      // Only a written yes: the customer page's "Agreed in writing", an import's column or the "OK to call" box.
-      if (p.consent !== 'opted_in') return skipped('no_call_consent', input);
+      // A written yes (the customer page's "Agreed in writing", an import's column or the "OK to call" box), or a
+      // business landline while the business calls those: asked just before the call, unless already known.
+      if (p.consent !== 'opted_in') {
+        if (!(await callsBusinessLandlines(ec.tx, ec.scope.workspaceId)))
+          return skipped('no_call_consent', input);
+        const line = businessLineOf(
+          await lineFactsOf(ec.tx, ec.scope.workspaceId, p.phone, new Date()),
+        );
+        if (line === 'other') return skipped('not_business_landline', input);
+      }
       if (test) return simulated(input, { would: 'call' });
       const late = lateSkip(ec, input);
       if (late) return late;

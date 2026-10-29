@@ -26623,6 +26623,8 @@ export interface operations {
                         calls?: {
                             /** @default false */
                             askConsent?: boolean;
+                            /** @default false */
+                            businessLandlines?: boolean;
                             /** @default {} */
                             hours?: {
                                 /** @default 21:00 */
@@ -26749,6 +26751,8 @@ export interface operations {
                             calls: {
                                 /** @default false */
                                 askConsent: boolean;
+                                /** @default false */
+                                businessLandlines: boolean;
                                 hours: {
                                     /** @default 21:00 */
                                     end: string;
@@ -65780,6 +65784,8 @@ export interface operations {
                 };
                 content: {
                     "application/json": {
+                        /** @default 0 */
+                        landlineChecks: number;
                         postalAddress: string | null;
                         recipients: number;
                         skipped: {

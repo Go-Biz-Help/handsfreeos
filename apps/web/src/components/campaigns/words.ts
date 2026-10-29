@@ -48,6 +48,7 @@ export const SKIP_REASON_WORDS: Record<string, string> = {
   emailed_recently: 'Sent another campaign email in the last 14 days',
   no_call_consent: 'Hasn’t agreed to calls in writing',
   called_recently: 'Called by another campaign in the last 14 days',
+  not_business_landline: 'No yes to calls, and not a business landline',
 };
 
 /** A try nobody answered, while the next waits for tomorrow. */

@@ -16,6 +16,7 @@
 import {
   callLegUsageKey,
   callUsageKey,
+  lineCheckUsageKey,
   mmsUsageKey,
   smsUsageKey,
   videoCallUsageKey,
@@ -263,6 +264,33 @@ export async function chargeVideoCall(
     subject: `Video call: ${usage.title}`,
     providerRef: usage.roomSid,
     meta: { videoCallId: usage.callId, people: usage.people, seconds: usage.personSeconds },
+    ...(usage.occurredAt ? { occurredAt: usage.occurredAt } : {}),
+  });
+}
+
+export interface LineCheckUsage {
+  /** The check that asked: one Twilio bills, so asked again is charged again. */
+  readonly checkId: string;
+  readonly what: 'line_type' | 'caller_name';
+  readonly e164: string;
+  readonly occurredAt?: Date;
+}
+
+/**
+ * One request to the phone company about a number before an AI call to someone with no yes (AI calls, part 5):
+ * Twilio Lookup bills each request, even one that finds nothing, so each is a charge of its own.
+ */
+export async function chargeLineCheck(
+  deps: WalletDeps,
+  scope: TenantScope,
+  usage: LineCheckUsage,
+): Promise<Charged> {
+  const type = usage.what === 'line_type';
+  return chargeUsage(deps, scope, {
+    parts: [{ key: type ? 'lookup.line_type' : 'lookup.caller_name', quantity: 1 }],
+    idempotencyKey: lineCheckUsageKey(usage.checkId, usage.what),
+    subject: `${type ? 'Line type check' : 'Caller name check'} for ${formatPhone(usage.e164)}`,
+    meta: { e164: usage.e164 },
     ...(usage.occurredAt ? { occurredAt: usage.occurredAt } : {}),
   });
 }

@@ -15,7 +15,9 @@
  * - a workflow's "AI teammate calls them" (part 2): only someone who agreed in writing, with the step's opening and
  *   playbook, and a call still waiting for an OK isn't made once they've written in since;
  * - a call to a lead (part 3) waits for the calling hours where they are, and rings again the next day when nobody
- *   answers or a voicemail box does, up to 3 times, then texts as the business chose.
+ *   answers or a voicemail box does, up to 3 times, then texts as the business chose;
+ * - with Call business landlines without a yes on (part 5), a call to someone with no yes goes only once the phone
+ *   company says their number is a business's landline (or it's a company's number here), each ask charged once.
  */
 import type { AddressInfo } from 'node:net';
 import {
@@ -27,6 +29,7 @@ import {
   campaignApprove,
   campaignCreate,
   campaignGet,
+  campaignPreviewAudience,
   campaignSetKeepAdding,
   campaignUpdateCall,
   defaultAutomationSettings,
@@ -1076,6 +1079,205 @@ describe('a call to a lead (AI calls, part 3)', () => {
       reason: 'in_touch_since',
     });
     expect(allPlacedTo(flo.phone)).toHaveLength(1);
+  });
+});
+
+// ---------- business landlines with no yes (part 5) ----------
+
+describe('a business landline with no yes (AI calls, part 5)', () => {
+  // Houston's numbers: a Wednesday at noon there is inside every calling hour.
+  const WEDNESDAY_NOON = new Date('2026-11-04T18:00:00Z').getTime();
+
+  /** Someone who never said yes or no to calls, and a workflow's call to them, queued. */
+  async function queuedCall(first: string) {
+    const lead = await newCustomer(w, first);
+    const made = await asWorker(testDbs().worker.db, scope(), (tx) =>
+      queueAiCall(
+        tx,
+        scope(),
+        {
+          purpose: 'workflow',
+          personId: lead.id,
+          to: lead.phone,
+          goal: 'about the office cleaning quote you asked for.',
+          playbook: { findOut: '', offer: '', book: 'never' },
+          dedupeKey: `part5:${lead.id}:${crypto.randomUUID()}`,
+        },
+        crypto.randomUUID(),
+      ),
+    );
+    return { ...lead, aiCallId: made!.id };
+  }
+  const checksOf = (phone: string) => telephony().lineChecks.filter((c) => c.e164 === phone);
+  const chargesFor = (phone: string) =>
+    rows<{ rate_key: string; amount_cents: string }>(
+      admin(),
+      sql`select rate_key, amount_cents::text from app.usage_ledger
+          where workspace_id = ${w.workspaceId} and meta->>'e164' = ${phone} order by rate_key`,
+    );
+  const callOf = async (aiCallId: string) => {
+    const [c] = await rows<{ status: string; reason: string | null; consent_basis: string | null }>(
+      admin(),
+      sql`select status, reason, consent_basis from app.ai_calls where id = ${aiCallId}`,
+    );
+    return c!;
+  };
+
+  beforeAll(() => saveAutomations({ businessLandlines: true }));
+  afterAll(() => saveAutomations());
+
+  it('calls a business’s landline once the phone company says so, and charges each ask', async () => {
+    const lia = await queuedCall('Lia');
+    telephony().lines.set(lia.phone, { lineType: 'landline', callerType: 'BUSINESS' });
+    await placeAt(lia.aiCallId, WEDNESDAY_NOON);
+    expect(await callOf(lia.aiCallId)).toMatchObject({
+      status: 'calling',
+      consent_basis: 'business_landline',
+    });
+    expect(placedTo(lia.phone)).toBeDefined();
+    expect(checksOf(lia.phone)).toEqual([
+      { e164: lia.phone, lineType: true, callerName: false },
+      { e164: lia.phone, lineType: false, callerName: true },
+    ]);
+    expect(await chargesFor(lia.phone)).toEqual([
+      { rate_key: 'lookup.caller_name', amount_cents: '2' },
+      { rate_key: 'lookup.line_type', amount_cents: '2' },
+    ]);
+    const [kept] = await rows<{ line_type: string; caller_type: string | null }>(
+      admin(),
+      sql`select line_type, caller_type from app.phone_line_checks
+          where workspace_id = ${w.workspaceId} and phone_e164 = ${lia.phone}`,
+    );
+    expect(kept).toEqual({ line_type: 'landline', caller_type: 'business' });
+  });
+
+  it('leaves a mobile or a home landline alone, and asks only what it doesn’t know yet', async () => {
+    // A mobile: the line type is enough, and no caller name is paid for.
+    const mo = await queuedCall('Mo');
+    await placeAt(mo.aiCallId, WEDNESDAY_NOON);
+    expect(await callOf(mo.aiCallId)).toMatchObject({
+      status: 'skipped',
+      reason: 'not_business_landline',
+    });
+    expect(placedTo(mo.phone)).toBeUndefined();
+    expect(checksOf(mo.phone)).toEqual([{ e164: mo.phone, lineType: true, callerName: false }]);
+
+    // Another call to the same number goes by what's kept: nothing is asked again.
+    const again = await asWorker(testDbs().worker.db, scope(), (tx) =>
+      queueAiCall(
+        tx,
+        scope(),
+        {
+          purpose: 'workflow',
+          personId: mo.id,
+          to: mo.phone,
+          goal: 'about your quote.',
+          playbook: { findOut: '', offer: '', book: 'never' },
+          dedupeKey: `part5-again:${mo.id}`,
+        },
+        crypto.randomUUID(),
+      ),
+    );
+    await placeAt(again!.id, WEDNESDAY_NOON);
+    expect(await callOf(again!.id)).toMatchObject({ reason: 'not_business_landline' });
+    expect(checksOf(mo.phone)).toHaveLength(1);
+
+    // A landline registered to a person.
+    const hal = await queuedCall('Hal');
+    telephony().lines.set(hal.phone, { lineType: 'landline', callerType: 'CONSUMER' });
+    await placeAt(hal.aiCallId, WEDNESDAY_NOON);
+    expect(await callOf(hal.aiCallId)).toMatchObject({ reason: 'not_business_landline' });
+    expect(checksOf(hal.phone)).toHaveLength(2);
+  });
+
+  it('takes a company’s own number here as a business’s, and needs the yes once it’s off', async () => {
+    const cy = await queuedCall('Cy');
+    await rows(
+      admin(),
+      sql`insert into app.companies (workspace_id, name, phone_e164)
+          values (${w.workspaceId}, 'Cy’s Office Supply', ${cy.phone})`,
+    );
+    telephony().lines.set(cy.phone, { lineType: 'landline', callerType: 'UNDETERMINED' });
+    await placeAt(cy.aiCallId, WEDNESDAY_NOON);
+    expect(await callOf(cy.aiCallId)).toMatchObject({
+      status: 'calling',
+      consent_basis: 'business_landline',
+    });
+    expect(checksOf(cy.phone)).toEqual([{ e164: cy.phone, lineType: true, callerName: false }]);
+
+    await saveAutomations();
+    try {
+      const dee = await queuedCall('Dee');
+      telephony().lines.set(dee.phone, { lineType: 'landline', callerType: 'BUSINESS' });
+      await placeAt(dee.aiCallId, WEDNESDAY_NOON);
+      expect(await callOf(dee.aiCallId)).toMatchObject({
+        status: 'skipped',
+        reason: 'no_call_consent',
+      });
+      expect(checksOf(dee.phone)).toEqual([]);
+    } finally {
+      await saveAutomations({ businessLandlines: true });
+    }
+  });
+
+  it('a call campaign counts who waits on the check, and leaves out who isn’t a business landline', async () => {
+    const { tagId } = await run(w, tagCreate, { workspaceId: w.workspaceId, name: 'Offices' });
+    const tagged = async (first: string) => {
+      const c = await newCustomer(w, first);
+      await rows(
+        admin(),
+        sql`insert into app.record_tags (workspace_id, tag_id, record_type, record_id)
+            values (${w.workspaceId}, ${tagId}, 'person', ${c.id})`,
+      );
+      return c;
+    };
+    const kay = await tagged('Kay');
+    const ned = await tagged('Ned');
+    // Ned's number was checked last week: a mobile.
+    await rows(
+      admin(),
+      sql`insert into app.phone_line_checks (workspace_id, phone_e164, line_type, checked_at)
+          values (${w.workspaceId}, ${ned.phone}, 'mobile', now() - interval '7 days')`,
+    );
+    const audience = { tagIds: [tagId], stageIds: [] };
+    const preview = await query(w, campaignPreviewAudience, {
+      workspaceId: w.workspaceId,
+      audience,
+      channel: 'call',
+    });
+    expect(preview).toMatchObject({
+      recipients: 1,
+      landlineChecks: 1,
+      skipped: { not_business_landline: 1 },
+    });
+
+    const made = await run(w, campaignCreate, {
+      workspaceId: w.workspaceId,
+      name: 'Office calls',
+      goal: 'Our office cleaning special this month',
+      audience,
+      perHour: 200,
+      channel: 'call',
+    });
+    await drain(w);
+    await run(w, campaignApprove, { workspaceId: w.workspaceId, campaignId: made.campaignId });
+    await drain(w);
+    // Kay's number turns out to be a mobile: left out, saying why, and never rung.
+    const [call] = await aiCallsOf(kay.id);
+    await placeAt(call!.id, WEDNESDAY_NOON);
+    expect(placedTo(kay.phone)).toBeUndefined();
+    const got = await query(w, campaignGet, {
+      workspaceId: w.workspaceId,
+      campaignId: made.campaignId,
+    });
+    expect(got.recipients.find((r) => r.personId === kay.id)).toMatchObject({
+      status: 'skipped',
+      skipReason: 'not_business_landline',
+    });
+    expect(got.recipients.find((r) => r.personId === ned.id)).toMatchObject({
+      status: 'skipped',
+      skipReason: 'not_business_landline',
+    });
   });
 });
 

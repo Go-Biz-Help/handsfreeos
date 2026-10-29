@@ -217,6 +217,7 @@ const SKIP_WORDS: Record<string, string> = {
   emailed_recently: 'sent another campaign email in the last 14 days',
   no_call_consent: 'hasn’t agreed to calls in writing',
   called_recently: 'called by another campaign in the last 14 days',
+  not_business_landline: 'no yes to calls, and not a business landline',
 };
 /** Why HandsFreeOS paused a campaign, and what to do about it (the campaign page's words). */
 const PAUSED_WORDS: Record<string, string> = {

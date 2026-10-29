@@ -32876,6 +32876,10 @@
                             "type": "integer",
                             "minimum": 1,
                             "maximum": 3
+                          },
+                          "businessLandlines": {
+                            "default": false,
+                            "type": "boolean"
                           }
                         }
                       },
@@ -33227,13 +33231,18 @@
                               "type": "integer",
                               "minimum": 1,
                               "maximum": 3
+                            },
+                            "businessLandlines": {
+                              "default": false,
+                              "type": "boolean"
                             }
                           },
                           "required": [
                             "voicemail",
                             "askConsent",
                             "hours",
-                            "tries"
+                            "tries",
+                            "businessLandlines"
                           ],
                           "additionalProperties": false
                         },
@@ -172438,12 +172447,19 @@
                         "string",
                         "null"
                       ]
+                    },
+                    "landlineChecks": {
+                      "default": 0,
+                      "type": "integer",
+                      "minimum": -9007199254740991,
+                      "maximum": 9007199254740991
                     }
                   },
                   "required": [
                     "recipients",
                     "skipped",
-                    "postalAddress"
+                    "postalAddress",
+                    "landlineChecks"
                   ],
                   "additionalProperties": false
                 }

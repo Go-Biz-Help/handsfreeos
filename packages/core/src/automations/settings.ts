@@ -191,6 +191,13 @@ const Calls = z.object({
    * box picks up, once a day; the voicemail choice above comes after the last.
    */
   tries: z.number().int().min(1).max(CALL_TRIES_MAX).default(CALL_TRIES_MAX),
+  /**
+   * Campaign and workflow calls to someone with no written yes, when their number is a business landline: Twilio
+   * says it's a landline, and its registered owner is a business or it's a company's number in HandsFreeOS
+   * (business-line.ts). A home landline, a mobile or an internet number still needs the yes. Off to begin with
+   * (AI calls, part 5; Chris, 2026-10-28).
+   */
+  businessLandlines: z.boolean().default(false),
 });
 
 export const AutomationSettings = z

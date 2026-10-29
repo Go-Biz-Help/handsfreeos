@@ -1082,6 +1082,13 @@ async function callOne(
       );
       return { rescheduleAt: new Date(now) };
     }
+    // Someone back after their last call was left alone (not a business landline, then a yes) gets a new one.
+    const [earlier] = await rows<{ n: number }>(
+      tx,
+      sql`select count(*)::int as n from app.ai_calls
+          where campaign_recipient_id = ${r.id} and status = 'skipped'`,
+    );
+    const dedupeKey = earlier?.n ? `campaign:${r.id}:${earlier.n}` : `campaign:${r.id}`;
     const made = await queueAiCall(
       tx,
       scope,
@@ -1091,7 +1098,7 @@ async function callOne(
         to: r.phone_e164,
         goal: opening,
         campaignRecipientId: r.id,
-        dedupeKey: `campaign:${r.id}`,
+        dedupeKey,
       },
       ctx.job.id,
       { approved: true },
@@ -1099,7 +1106,7 @@ async function callOne(
     if (!made) {
       const [before] = await rows(
         tx,
-        sql`select 1 from app.ai_calls where campaign_recipient_id = ${r.id} limit 1`,
+        sql`select 1 from app.ai_calls where workspace_id = ${scope.workspaceId} and dedupe_key = ${dedupeKey}`,
       );
       // No teammate to make it: stop until someone turns it on and resumes.
       if (!before) {

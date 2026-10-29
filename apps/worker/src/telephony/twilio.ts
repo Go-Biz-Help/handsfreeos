@@ -1055,6 +1055,23 @@ export function createTwilioTelephony(master: {
       return { carrierName: line?.carrier_name || null, lineType: line?.type || null };
     },
 
+    async checkLine(account, e164, ask) {
+      const fields = [
+        ...(ask.lineType ? ['line_type_intelligence'] : []),
+        ...(ask.callerName ? ['caller_name'] : []),
+      ];
+      const res = await call<{
+        line_type_intelligence?: { type?: string | null } | null;
+        caller_name?: { caller_type?: string | null } | null;
+      }>(credsOf(account), 'GET', `${LOOKUPS}/${encodeURIComponent(e164)}`, {
+        Fields: fields.join(','),
+      });
+      return {
+        lineType: res.line_type_intelligence?.type || null,
+        callerType: res.caller_name?.caller_type || null,
+      };
+    },
+
     async inspectAccount(creds) {
       const res = await call<{
         sid: string;

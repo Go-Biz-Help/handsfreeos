@@ -1878,6 +1878,7 @@ function AiCallsPanel({ env }: { env: PanelEnv }) {
   const askConsent = env.automations.calls.askConsent;
   const hours = env.automations.calls.hours;
   const tries = env.automations.calls.tries;
+  const landlines = env.automations.calls.businessLandlines;
   const callWords = callConsentWords(env.businessName);
   const saveHours = (next: typeof hours, done: string) =>
     void env.saveAutomations((s) => ({ ...s, calls: { ...s.calls, hours: next } }), done);
@@ -2044,6 +2045,32 @@ function AiCallsPanel({ env }: { env: PanelEnv }) {
         <p className="mt-1.5 text-[12.5px] text-text-3">
           Each yes shows on the customer’s Details with where they said it, like “Form: Get a
           quote”. It never undoes a “Doesn’t want calls”.
+        </p>
+      </Block>
+      <Block title="Business landlines" setting="adjust.business_landlines">
+        <SetRow
+          first
+          title="Call business landlines without a yes"
+          description="For campaign and workflow calls to someone who hasn’t agreed in writing. Just before the call, the phone company is asked what the number is, about a cent each, kept for 90 days. It’s called only when it’s a landline and a business’s: registered to one, or a company’s number here. Mobiles, home lines and internet numbers still need the yes, even when used for work."
+        >
+          <Switch
+            checked={landlines}
+            label="Call business landlines without a yes"
+            onChange={(on) =>
+              void env.saveAutomations(
+                (s) => ({ ...s, calls: { ...s.calls, businessLandlines: on } }),
+                on
+                  ? 'Calls can now go to business landlines without a yes.'
+                  : 'Calls go only to people who agreed in writing.',
+              )
+            }
+            testId="ai-calls-business-landlines"
+          />
+        </SetRow>
+        <p className="mt-1.5 text-[12.5px] text-text-3">
+          The AI still says who it is, that it’s an AI and that the call is recorded, and “don’t
+          call me again” is kept. Some states don’t make an exception for business numbers, so ask
+          your lawyer before turning this on.
         </p>
       </Block>
     </>

@@ -325,8 +325,10 @@ describe('Settings → Automations', () => {
       callLeadsFrom: '10:00',
       callLeadsUntil: '18:00',
       callTries: 2,
+      callBusinessLandlines: true,
     });
     expect(card.title).toBe('Change your automations');
+    expect(field(card, 'Call business landlines without a yes')!.value).toBe('On');
     expect(field(card, 'Ask for an OK to call')!.value).toBe('On');
     expect(field(card, 'Calling hours for leads')!.value).toBe(
       '10:00 AM to 6:00 PM, in each lead’s own time',
@@ -352,6 +354,7 @@ describe('Settings → Automations', () => {
       askConsent: true,
       hours: { start: '10:00', end: '18:00', weekends: true },
       tries: 2,
+      businessLandlines: true,
     });
     // Never wider than the law allows.
     await expect(prepare('update_automations', { callLeadsFrom: '07:00' })).rejects.toThrow(

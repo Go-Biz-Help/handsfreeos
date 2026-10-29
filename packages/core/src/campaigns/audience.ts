@@ -20,8 +20,22 @@
  * - they're mid-conversation or have an open card on Home, or they're booked in the next 30 days (as texts).
  * One that keeps adding people (AI calls, part 4) looks again later for anyone new who fits, and for anyone left out
  * for a reason that can change (`REJOIN_REASONS`): a yes to calls given since, a conversation that's over.
+ *
+ * With **Call business landlines without a yes** on (AI calls, part 5), someone who hasn't said yes or no isn't
+ * left out for it: their call waits on the phone company saying it's a business landline (business-line.ts), and
+ * they're left out once it says it isn't one (`not_business_landline`). A "Doesn't want calls" is always left out.
  */
+import type { SQL } from 'drizzle-orm';
 import { rows, sql, type Tx } from '@hfos/db/client';
+import {
+  businessLineOf,
+  LINE_CHECK_DAYS,
+  type BusinessLine,
+  type CallerType,
+  type LineFacts,
+  type LineType,
+} from '../automations/business-line';
+import { automationSettingsOf } from '../automations/settings';
 import { uuidArray } from '../calendar/load';
 import type { CampaignAudience, CampaignChannel, SkipReason } from '../schemas/campaign';
 
@@ -61,6 +75,8 @@ export function skipReasonOf(f: AudienceFacts): SkipReason | null {
 export interface AudienceMember {
   readonly personId: string;
   readonly skipReason: SkipReason | null;
+  /** A call that goes only once the phone company says their number is a business landline (no yes). */
+  readonly landlineCheck?: boolean;
 }
 
 type Pick = { readonly audience: CampaignAudience } | { readonly personIds: readonly string[] };
@@ -215,12 +231,18 @@ export interface CallAudienceFacts {
   readonly calledRecently: boolean;
   readonly inConversation: boolean;
   readonly bookedSoon: boolean;
+  /**
+   * With no yes and no "Doesn't want calls", while the business calls business landlines: whether their number is
+   * one (`unchecked` until the phone company is asked). Null otherwise: a yes, a no, or the switch off.
+   */
+  readonly line?: BusinessLine | null;
 }
 
 /** Why someone left out of a call campaign may still join one that keeps adding people: these can change. */
 export const REJOIN_REASONS: readonly SkipReason[] = [
   'no_phone',
   'no_call_consent',
+  'not_business_landline',
   'called_recently',
   'in_conversation',
   'booked_soon',
@@ -229,7 +251,8 @@ export const REJOIN_REASONS: readonly SkipReason[] = [
 /** The first reason someone is left out of a call campaign, or null when they're in. */
 export function callSkipReasonOf(f: CallAudienceFacts): SkipReason | null {
   if (!f.hasPhone) return 'no_phone';
-  if (!f.callConsent) return 'no_call_consent';
+  if (!f.callConsent && !f.line) return 'no_call_consent';
+  if (!f.callConsent && f.line === 'other') return 'not_business_landline';
   if (f.calledRecently) return 'called_recently';
   if (f.inConversation) return 'in_conversation';
   if (f.bookedSoon) return 'booked_soon';
@@ -248,16 +271,27 @@ export async function callAudienceFacts(
   opts: { readonly exceptCampaignId?: string; readonly joining?: string } = {},
 ): Promise<Map<string, CallAudienceFacts>> {
   const at = sql`${now.toISOString()}::timestamptz`;
+  const landlines = await callsBusinessLandlines(tx, workspaceId);
   const list = await rows<{
     id: string;
     has_phone: boolean;
     call_consent: boolean;
+    no_answer_yet: boolean;
+    line_type: LineType | null;
+    caller_type: CallerType | null;
+    company_number: boolean;
     called_recently: boolean;
     in_conversation: boolean;
     booked_soon: boolean;
   }>(
     tx,
     sql`select p.id, p.phone_e164 is not null as has_phone, p.call_consent = 'opted_in' as call_consent,
+          p.call_consent = 'unknown' as no_answer_yet,
+          ${
+            landlines
+              ? sql`lc.line_type, lc.caller_type, ${companyHasNumber(sql`p.phone_e164`)} as company_number,`
+              : sql`null as line_type, null as caller_type, false as company_number,`
+          }
           exists (
             select 1 from app.ai_calls ac
             where ac.person_id = p.id and ac.purpose = 'campaign'
@@ -278,6 +312,13 @@ export async function callAudienceFacts(
                     and ap.starts_at > ${at} and ap.starts_at < ${at} + ${`${BOOKED_SOON_DAYS} days`}::interval)
             as booked_soon
         from app.people p
+          ${
+            landlines
+              ? sql`left join app.phone_line_checks lc on lc.workspace_id = p.workspace_id
+                      and lc.phone_e164 = p.phone_e164
+                      and lc.checked_at > ${at} - ${`${LINE_CHECK_DAYS} days`}::interval`
+              : sql``
+          }
         where p.workspace_id = ${workspaceId} and p.archived_at is null and ${whichPeople(pick)}
           ${
             opts.joining
@@ -301,6 +342,14 @@ export async function callAudienceFacts(
         calledRecently: r.called_recently,
         inConversation: r.in_conversation,
         bookedSoon: r.booked_soon,
+        line:
+          landlines && r.no_answer_yet && r.has_phone
+            ? businessLineOf({
+                lineType: r.line_type,
+                callerType: r.caller_type,
+                companyNumber: r.company_number,
+              })
+            : null,
       },
     ]),
   );
@@ -316,10 +365,14 @@ export async function campaignAudience(
 ): Promise<AudienceMember[]> {
   if (channel === 'call') {
     const facts = await callAudienceFacts(tx, workspaceId, { audience }, now);
-    return [...facts.entries()].map(([personId, f]) => ({
-      personId,
-      skipReason: callSkipReasonOf(f),
-    }));
+    return [...facts.entries()].map(([personId, f]) => {
+      const skipReason = callSkipReasonOf(f);
+      return {
+        personId,
+        skipReason,
+        ...(!skipReason && !f.callConsent ? { landlineCheck: true } : {}),
+      };
+    });
   }
   if (channel === 'email') {
     const facts = await emailAudienceFacts(tx, workspaceId, { audience }, now);
@@ -330,6 +383,53 @@ export async function campaignAudience(
   }
   const facts = await audienceFacts(tx, workspaceId, { audience }, now);
   return [...facts.entries()].map(([personId, f]) => ({ personId, skipReason: skipReasonOf(f) }));
+}
+
+/** Whether the business calls business landlines without a yes (Settings → Automations → AI calls → Adjust). */
+export async function callsBusinessLandlines(tx: Tx, workspaceId: string): Promise<boolean> {
+  const [w] = await rows<{ settings: Record<string, unknown> | null }>(
+    tx,
+    sql`select settings from app.workspaces where id = ${workspaceId}`,
+  );
+  return automationSettingsOf(w?.settings).calls.businessLandlines;
+}
+
+/** A company of the same business (not archived) has this number, as its main one or another. */
+export const companyHasNumber = (phone: SQL): SQL =>
+  sql`exists (select 1 from app.companies co
+              where co.workspace_id = p.workspace_id and co.archived_at is null
+                and (co.phone_e164 = ${phone}
+                     or co.other_phones @> jsonb_build_array(jsonb_build_object('phone', ${phone}))))`;
+
+/**
+ * What's known about one number of this business's: what the phone company said in the last `LINE_CHECK_DAYS` (or
+ * nothing), and whether it's a company's number here.
+ */
+export async function lineFactsOf(
+  tx: Tx,
+  workspaceId: string,
+  phone: string,
+  now: Date,
+): Promise<LineFacts> {
+  const at = sql`${now.toISOString()}::timestamptz`;
+  const [r] = await rows<{
+    line_type: LineType | null;
+    caller_type: CallerType | null;
+    company_number: boolean;
+  }>(
+    tx,
+    sql`select lc.line_type, lc.caller_type,
+          ${companyHasNumber(sql`p.phone_e164`)} as company_number
+        from (select ${workspaceId}::uuid as workspace_id, ${phone}::text as phone_e164) p
+          left join app.phone_line_checks lc on lc.workspace_id = p.workspace_id
+            and lc.phone_e164 = p.phone_e164
+            and lc.checked_at > ${at} - ${`${LINE_CHECK_DAYS} days`}::interval`,
+  );
+  return {
+    lineType: r?.line_type ?? null,
+    callerType: r?.caller_type ?? null,
+    companyNumber: r?.company_number ?? false,
+  };
 }
 
 /** Seconds between two texts at a pace. */

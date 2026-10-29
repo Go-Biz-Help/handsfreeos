@@ -789,11 +789,15 @@ function planAutomations(state: AutomationState, args: Args): AutomationPlan {
         : now.calls.hours.weekends,
   };
   const tries = num(args['callTries']) ?? now.calls.tries;
+  const businessLandlines =
+    typeof args['callBusinessLandlines'] === 'boolean'
+      ? args['callBusinessLandlines']
+      : now.calls.businessLandlines;
   const next: AutomationSettings = {
     ...now,
     reengage: { ...now.reengage, ...reengage },
     briefings: { ...now.briefings, eveningAt },
-    calls: { ...now.calls, voicemail, askConsent, hours, tries },
+    calls: { ...now.calls, voicemail, askConsent, hours, tries, businessLandlines },
   };
   if (reengage.afterDays !== now.reengage.afterDays)
     fields.push({ label: 'Re-engage: gone cold after', value: plural(reengage.afterDays, 'day') });
@@ -829,6 +833,11 @@ function planAutomations(state: AutomationState, args: Args): AutomationPlan {
     });
   if (askConsent !== now.calls.askConsent)
     fields.push({ label: 'Ask for an OK to call', value: askConsent ? 'On' : 'Off' });
+  if (businessLandlines !== now.calls.businessLandlines)
+    fields.push({
+      label: 'Call business landlines without a yes',
+      value: businessLandlines ? 'On' : 'Off',
+    });
   if (JSON.stringify(next) !== JSON.stringify(now)) {
     try {
       parseAutomationSettings(next);

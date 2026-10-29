@@ -852,6 +852,11 @@ const ADJUST_FIELDS = {
     label: 'Ask for an OK to call',
     words: ['call consent', 'consent to calls', 'permission to call', 'ok to call box'],
   },
+  'adjust.business_landlines': {
+    automation: 'call_back_missed',
+    label: 'Business landlines',
+    words: ['call business numbers', 'landline check', 'calls without consent', 'office phones'],
+  },
   'adjust.how_you_tag': {
     automation: 'ai_tags',
     label: 'How you tag customers',

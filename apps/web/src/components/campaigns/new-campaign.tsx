@@ -227,6 +227,11 @@ export function NewCampaign({
                 ? 'Nobody to call yet. Anyone who comes to fit joins and is called.'
                 : `It would ${email ? 'email' : calls ? 'call' : 'text'} ${people(preview.recipients)}${adding ? ' to begin with' : ''}.`}
             </span>
+            {calls && preview.landlineChecks > 0 ? (
+              <p className="mt-1 text-[12.5px] text-text-2" data-testid="campaign-landline-checks">
+                {`${people(preview.landlineChecks)} with no yes to calls ${preview.landlineChecks === 1 ? 'is' : 'are'} called only if the phone company says their number is a business landline, checked just before the call.`}
+              </p>
+            ) : null}
             {skipped.length ? (
               <ul className="mt-1 text-[12.5px] text-text-2">
                 {skipped.map(([why, n]) => (
