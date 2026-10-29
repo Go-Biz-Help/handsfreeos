@@ -70,6 +70,10 @@ describe('adding whoever emailed (2026-10-29)', () => {
     expect(nameFromSender('Gregory Lyons')).toBe('Gregory Lyons');
     expect(nameFromSender('"Gregory  Lyons" ')).toBe('Gregory Lyons');
     expect(nameFromSender('“José Peña”')).toBe('José Peña');
+    // A From line that is mostly quotes still comes back at once.
+    expect(nameFromSender(`${'"'.repeat(50_000)}Ann${'"'.repeat(50_000)}x`)).toBe(
+      `Ann${'"'.repeat(50_000)}x`.slice(0, 160),
+    );
   });
 
   it('starts empty when the "name" is the address again, or none at all', () => {

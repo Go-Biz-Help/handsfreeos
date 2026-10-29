@@ -32,16 +32,20 @@ export function splitName(full: string): NameParts {
     : { firstName: trimmed.slice(0, cut), lastName: trimmed.slice(cut + 1) };
 }
 
+const SENDER_QUOTES = new Set(['"', "'", '“', '”', '‘', '’']);
+
 /**
  * The name an email's From line gave, as a new contact's name, or nothing: what's between quotes is kept, and a "name"
  * that is only the address again, or has no letter in it, is no name.
  */
 export function nameFromSender(raw: string | null | undefined): string | null {
-  const name = (raw ?? '')
-    .trim()
-    .replace(/^["'“‘]+|["'”’]+$/g, '')
-    .trim()
-    .replace(/\s+/g, ' ');
+  // Quotes are peeled off one at a time: a regex anchored at the end slows down on a long run of them.
+  const quoted = (raw ?? '').trim();
+  let start = 0;
+  let end = quoted.length;
+  while (start < end && SENDER_QUOTES.has(quoted[start]!)) start++;
+  while (end > start && SENDER_QUOTES.has(quoted[end - 1]!)) end--;
+  const name = quoted.slice(start, end).trim().replace(/\s+/g, ' ');
   if (!name || name.includes('@') || !/\p{L}/u.test(name)) return null;
   return name.slice(0, 160);
 }
