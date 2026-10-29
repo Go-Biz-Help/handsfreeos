@@ -2925,6 +2925,18 @@ where decisions 37 and 59 put the settings; what they decided stands. Settled to
         page with its outline, the menu open (decision 74), once a search. Check LinkedIn does it for one post. No
         migration.
 
+124.  **Messages talk about a business in plain words** (Chris, 29 Oct 2026). "the ai uses the business name too much
+      it's robotic when you say a whole business name every time you message someone." A reply named someone's
+      business by its run-together page name.
+      - **What every message is told** (`BUSINESS_NAMES` in `voice.ts`, in `DRAFT_RULES` on every network, and in the
+        sample messages and their rewrites in Your messages): say what a business does in plain words ("your
+        photography", "the solar side"), and "I" or "we" for the person's own. A business's name goes in at most once
+        in a whole chat, only where it reads naturally, and a handle or a name run together never. Decision 119's
+        mention of each business still holds, in those plain words. No migration, and no new extension.
+      - **The phone's Change box stays above the keyboard** (a bug). Changing a message waiting for OK put the keyboard
+        over the words being typed. That sheet, and the phone's other outreach sheets with a box to type in (renaming a
+        computer, a new playbook, a playbook's section), now lift by the keyboard's height (`useKeyboardHeight`).
+
 ## Rules worth knowing before changing anything
 
 - **Nothing is saved until the person presses a button in HandsFreeOS** (an ask, below), except the four steps the
@@ -2947,6 +2959,8 @@ where decisions 37 and 59 put the settings; what they decided stands. Settled to
 - **What the AI writes for the person goes through `voice.ts`** (decisions 53 to 55). Every prompt that writes for
   them carries `PLAIN_WRITING` (everyday words, short sentences, relaxed, no long dash), and what comes back is cleaned
   with `noDashes` (a dash between words becomes a comma, between numbers a hyphen) whatever the prompt said. A message
+  talks about a business in plain words, its name at most once in a chat and never a handle (`BUSINESS_NAMES`,
+  decision 124). A message
   or comment carries the person's voice (`voiceLines`, from `AutomationSettings.voice`, columns `voice_*` in
   `addon_outreach.automation`; the worker reads it with `voiceFor`); a helpful post only their emoji choice. A message
   to a chat quiet `GAP_GREETING_DAYS` (3) or more opens with a greeting that fits the gap (`gapLine`), measured from the
