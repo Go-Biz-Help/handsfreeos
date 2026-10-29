@@ -325,13 +325,8 @@ describe('Settings → Automations', () => {
       callLeadsFrom: '10:00',
       callLeadsUntil: '18:00',
       callTries: 2,
-      callBusinessLandlines: true,
     });
     expect(card.title).toBe('Change your automations');
-    // What each check costs is on the card, as Settings → Automations shows it.
-    expect(field(card, 'Call business landlines without a yes')!.value).toBe(
-      'On. Each check is charged to your balance: $0.02 to check what kind of line a number is, and $0.02 more to check who a landline belongs to',
-    );
     expect(field(card, 'Ask for an OK to call')!.value).toBe('On');
     expect(field(card, 'Calling hours for leads')!.value).toBe(
       '10:00 AM to 6:00 PM, in each lead’s own time',
@@ -357,7 +352,7 @@ describe('Settings → Automations', () => {
       askConsent: true,
       hours: { start: '10:00', end: '18:00', weekends: true },
       tries: 2,
-      businessLandlines: true,
+      businessLandlines: false,
     });
     // Never wider than the law allows.
     await expect(prepare('update_automations', { callLeadsFrom: '07:00' })).rejects.toThrow(
@@ -366,6 +361,20 @@ describe('Settings → Automations', () => {
     expect(s['attention'].kinds.hot_lead).toBe(false);
     expect(s['attention'].kinds.unanswered_lead).toBe(true);
     expect((await teammate()).config['followUp'].neverReplied).toBe(false);
+  });
+
+  it('turns on calling business landlines with what each check costs on the card', async () => {
+    const { card, parsed } = await prepare('update_automations', { callBusinessLandlines: true });
+    // As Settings → Automations shows it, from the live prices.
+    expect(card.fields).toEqual([
+      {
+        label: 'Call business landlines without a yes',
+        value:
+          'On. Each check is charged to your balance: $0.02 to check what kind of line a number is, and $0.02 more to check who a landline belongs to',
+      },
+    ]);
+    await confirm('update_automations', parsed);
+    expect((await settings())['automations'].calls.businessLandlines).toBe(true);
   });
 
   it('says so when turning one on reaches customers, and what it still needs', async () => {

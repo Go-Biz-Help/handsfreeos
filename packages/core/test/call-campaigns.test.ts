@@ -254,23 +254,24 @@ describe('call campaigns', () => {
       t.owner,
     );
     expect(off.campaign.keepAdding).toBe(false);
-    // As if it were texts: they never keep adding.
-    await rows(
+    // Texts never keep adding (a campaign's channel never changes, so this one is made as texts).
+    const [texts] = await rows<{ id: string }>(
       admin(),
-      sql`update app.campaigns set channel = 'sms' where id = ${made.campaignId}`,
+      sql`insert into app.campaigns (workspace_id, name, goal, status, channel)
+          values (${t.wsId}, 'Fall texts', 'Our fall tune-up', 'sending', 'sms') returning id`,
     );
     await expectHfos(
       () =>
         run(
           campaignSetKeepAdding,
-          { workspaceId: t.wsId, campaignId: made.campaignId, on: true },
+          { workspaceId: t.wsId, campaignId: texts!.id, on: true },
           t.owner,
         ),
       'campaign_channel',
     );
     await rows(
       admin(),
-      sql`update app.campaigns set channel = 'call', status = 'done' where id = ${made.campaignId}`,
+      sql`update app.campaigns set status = 'done' where id = ${made.campaignId}`,
     );
     await expectHfos(
       () =>

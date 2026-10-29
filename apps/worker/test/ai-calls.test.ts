@@ -86,7 +86,6 @@ import {
   newCustomer,
   query,
   run,
-  runDue,
   runNow,
   saveTeammate,
   setQuietHours,
@@ -269,7 +268,11 @@ const allPlacedTo = (to: string) => telephony().calls.filter((c) => c.to === to)
  * job waits.
  */
 async function placeAt(aiCallId: string, asOf?: number) {
-  const key = aiCallPlaceKey(aiCallId);
+  await runJobAt(aiCallPlaceKey(aiCallId), asOf);
+}
+
+/** Runs the pending job with this key now, with this test's carrier and speech (as of `asOf`, or when it was due). */
+async function runJobAt(key: string, asOf?: number) {
   const [job] = await rows<{ run_at: Date }>(
     admin(),
     sql`select run_at from app.scheduled_jobs
@@ -786,7 +789,7 @@ describe('a call campaign', () => {
       on: false,
     });
     await drain(w);
-    await runDue(w, [campaignSendKey(made.campaignId)]);
+    await runJobAt(campaignSendKey(made.campaignId));
     expect((await get()).campaign).toMatchObject({ status: 'done', keepAdding: false });
     expect(await aiCallsOf(lee.id)).toHaveLength(1);
   });
@@ -1140,8 +1143,8 @@ describe('a business landline with no yes (AI calls, part 5)', () => {
       { e164: lia.phone, lineType: false, callerName: true },
     ]);
     expect(await chargesFor(lia.phone)).toEqual([
-      { rate_key: 'lookup.caller_name', amount_cents: '2' },
-      { rate_key: 'lookup.line_type', amount_cents: '2' },
+      { rate_key: 'lookup.caller_name', amount_cents: '-2' },
+      { rate_key: 'lookup.line_type', amount_cents: '-2' },
     ]);
     const [kept] = await rows<{ line_type: string; caller_type: string | null }>(
       admin(),

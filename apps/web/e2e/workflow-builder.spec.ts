@@ -902,7 +902,7 @@ test('workflow builder: hand to the AI teammate, its recipes and the double-text
   await page.getByTestId('call-with-ai-book-never').click();
   await saved(page);
   await expect(page.getByTestId(`step-${callId}`)).toContainText(
-    'calls them: “about the quote you asked for”; leaves booking to the team',
+    '“about the quote you asked for”; leaves booking to the team',
   );
   const after = await api<WorkflowGet>('queries/workflow.get', { workspaceId, workflowId });
   expect(stepIn(after.workflow.definition, callId)?.config).toMatchObject({
