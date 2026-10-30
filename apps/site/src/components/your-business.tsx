@@ -35,13 +35,22 @@ interface Ctx {
   readonly shown: string;
   /** Whether the name is theirs. */
   readonly own: boolean;
+  /** On a trade's own page the trade is that one, and there is nothing to pick. */
+  readonly fixed: boolean;
   readonly setName: (name: string) => void;
   readonly setTrade: (trade: TradeId) => void;
 }
 
 const YourBusinessContext = createContext<Ctx | null>(null);
 
-export function YourBusinessProvider({ children }: { children: ReactNode }) {
+export function YourBusinessProvider({
+  children,
+  trade: fixed,
+}: {
+  children: ReactNode;
+  /** A trade's own page tells its own trade whatever this browser picked before. */
+  trade?: TradeId;
+}) {
   const [business, setBusiness] = useState<YourBusiness>(NOBODY);
   const counted = useRef(false);
 
@@ -51,7 +60,9 @@ export function YourBusinessProvider({ children }: { children: ReactNode }) {
     if (saved !== NOBODY) setBusiness(saved);
   }, []);
 
-  const change = (next: YourBusiness) => {
+  const change = (picked: YourBusiness) => {
+    // A name typed on a trade's page is a business in that trade, and sign-up hears so.
+    const next = fixed ? { ...picked, trade: fixed } : picked;
     setBusiness(next);
     saveYourBusiness(next);
     // Once a visit, and never the name: whether people try it, and on which trade, is what's worth knowing.
@@ -61,13 +72,14 @@ export function YourBusinessProvider({ children }: { children: ReactNode }) {
     }
   };
 
-  const trade = tradeById(business.trade) ?? firstTrade;
+  const trade = tradeById(fixed ?? business.trade) ?? firstTrade;
   const name = nameOf(business);
   const value: Ctx = {
     business,
     trade,
     shown: name || trade.sample,
     own: name !== '',
+    fixed: fixed !== undefined,
     setName: (typed) => change({ ...business, name: typed.slice(0, NAME_MAX) }),
     setTrade: (id) => change({ ...business, trade: id }),
   };
@@ -82,6 +94,7 @@ export function useYourBusiness(): Ctx {
       trade: firstTrade,
       shown: firstTrade.sample,
       own: false,
+      fixed: false,
       setName: () => {},
       setTrade: () => {},
     }
@@ -93,7 +106,7 @@ export function useYourBusiness(): Ctx {
  * hero's buttons down, and live, so the answer shows up in the messages as it is typed.
  */
 export function TryItOnYourBusiness() {
-  const { business, trade, own, setName, setTrade } = useYourBusiness();
+  const { business, trade, own, fixed, setName, setTrade } = useYourBusiness();
   const field =
     'bg-card-2 border-border-strong hover:border-accent/60 focus:border-accent h-10 rounded-[10px] border text-base font-semibold transition-[border-color] duration-150 ease-out';
   return (
@@ -122,7 +135,7 @@ export function TryItOnYourBusiness() {
         </p>
       </div>
       {/* Side by side where there's room; on a phone the name gets the whole width. */}
-      <div className="grid gap-2 sm:grid-cols-[minmax(0,1fr)_auto]">
+      <div className={`grid gap-2 ${fixed ? '' : 'sm:grid-cols-[minmax(0,1fr)_auto]'}`}>
         <input
           id="your-business"
           type="text"
@@ -134,32 +147,34 @@ export function TryItOnYourBusiness() {
           spellCheck={false}
           className={`${field} placeholder:text-text-3 w-full min-w-0 px-3 placeholder:font-normal`}
         />
-        <span className="relative flex">
-          <select
-            value={trade.id}
-            onChange={(e) => setTrade(e.target.value as TradeId)}
-            aria-label="What your business does"
-            className={`${field} w-full cursor-pointer appearance-none pr-8 pl-3`}
-          >
-            {trades.map((t) => (
-              <option key={t.id} value={t.id}>
-                {t.label}
-              </option>
-            ))}
-          </select>
-          <svg
-            viewBox="0 0 16 16"
-            aria-hidden="true"
-            className="text-text-2 pointer-events-none absolute top-1/2 right-2.5 h-3.5 w-3.5 -translate-y-1/2"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-          >
-            <path d="m4 6 4 4 4-4" />
-          </svg>
-        </span>
+        {fixed ? null : (
+          <span className="relative flex">
+            <select
+              value={trade.id}
+              onChange={(e) => setTrade(e.target.value as TradeId)}
+              aria-label="What your business does"
+              className={`${field} w-full cursor-pointer appearance-none pr-8 pl-3`}
+            >
+              {trades.map((t) => (
+                <option key={t.id} value={t.id}>
+                  {t.label}
+                </option>
+              ))}
+            </select>
+            <svg
+              viewBox="0 0 16 16"
+              aria-hidden="true"
+              className="text-text-2 pointer-events-none absolute top-1/2 right-2.5 h-3.5 w-3.5 -translate-y-1/2"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            >
+              <path d="m4 6 4 4 4-4" />
+            </svg>
+          </span>
+        )}
       </div>
     </div>
   );

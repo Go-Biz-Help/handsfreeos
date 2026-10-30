@@ -518,3 +518,19 @@ p {
 .post-body :is(th, td) > p {
   margin: 0;
 }
+
+/*
+ * The home page's tabs: a panel settles in when its tab is picked, so the change reads as the same place showing
+ * something else rather than the page jumping.
+ */
+@media (prefers-reduced-motion: no-preference) {
+  .tab-panel:not([hidden]) {
+    animation: tab-in 220ms var(--curve-out) both;
+  }
+}
+@keyframes tab-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+}

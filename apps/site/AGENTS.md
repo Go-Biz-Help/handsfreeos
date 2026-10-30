@@ -101,3 +101,25 @@ JSON, not HTML. Everything that talks to Opinly is in `src/lib/opinly/`:
   `components/signup-link-visitor.tsx` adds the pixel's visitor id to every link to the app's sign-up as
   `?oa=`; the sign-up form keeps it on the account, and the worker sends it with those events, so they land on
   the exact visit. `/privacy` says all of this; change one and change the other.
+
+## Pages for comparing and for each trade
+
+- **`/vs/<id>` puts HandsFreeOS beside a tool people already pay for** (Jobber, GoHighLevel), from
+  `src/content/compare.ts`. Their side is only what their own pricing page says, linked and dated; ours is
+  only what ships today; and each page says when the other tool is the better pick. Re-check their prices
+  with `savings.ts`'s.
+- **`/<slug>` is a page for one trade** (`/hvac`, `/plumbing`, `/lawn-care` …), from
+  `src/content/trade-pages.ts`. Its example conversation and lost lead are the trade's own in `trades.ts`,
+  and "Try it on your business" asks only for the name. Adding a trade means a `trades.ts` entry first.
+- More of both can come later (the owner, 2026-10-30); the footer and the sitemap list them from those
+  files, so a new entry needs no other change.
+
+## Planned, not built yet
+
+The owner's picks of 2026-10-30, to add to the site once each is ready:
+
+- **A demo number the AI answers.** A real number on the home page that a visitor can text or call, and
+  HandsFreeOS's own AI teammate answers and books a made-up job. It needs a number and the teammate set up
+  on the HandsFreeOS business first.
+- **A live "what it did today" ticker.** Anonymous counts from the real product, such as texts answered
+  today. Only once there are customers: until then any count would be invented.
