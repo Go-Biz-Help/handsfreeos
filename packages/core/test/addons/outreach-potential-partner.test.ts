@@ -311,10 +311,22 @@ describe('marking a potential partner', () => {
       sql`insert into app.people (workspace_id, first_name, last_name)
           values (${ws}, 'Mae', 'Marks') returning id`,
     );
+    // The call they booked: a demo is kept against its appointment.
+    const [cal] = await rows<{ id: string }>(
+      admin(),
+      sql`insert into app.calendars (workspace_id, name, slug, status)
+          values (${ws}, 'Partner calls', 'partner-calls', 'active') returning id`,
+    );
+    const [appt] = await rows<{ id: string }>(
+      admin(),
+      sql`insert into app.appointments (workspace_id, calendar_id, calendar_revision, title, starts_at, ends_at)
+          values (${ws}, ${cal!.id}, 1, 'Partner call', now() + interval '1 day', now() + interval '1 day 30 minutes')
+          returning id`,
+    );
     expect(
       await runAsSystem(ws, 'outreach.partner.call', {
         ref: partnerRef(owner.id, profileId),
-        appointmentId: randomUUID(),
+        appointmentId: appt!.id,
         at: new Date().toISOString(),
         personId: person!.id,
       }),
