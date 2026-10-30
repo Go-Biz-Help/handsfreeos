@@ -209,10 +209,13 @@ vi.mock('../src/tab', async () => {
                 this.at,
                 message.text as string,
                 message.profile as never,
+                (message.opened as string | null | undefined) ?? null,
               ),
             };
-          case 'hfos-open-message':
-            return { ok: auto.openMessage(doc) };
+          case 'hfos-open-message': {
+            const opened = auto.openMessage(doc, this.at);
+            return opened === false ? { ok: false } : { ok: true, opened };
+          }
           case 'hfos-feed-post':
             return {
               ok: true,
@@ -917,6 +920,53 @@ describe('what it does on LinkedIn’s list', () => {
       sent: true,
     });
   });
+
+  // The owner's sends of 30 Oct 2026, on 0.117.0: Message on a profile took the tab to a new conversation drawn in
+  // LinkedIn's interop frame, but only after the runner's pause, so the box was never taken for theirs.
+  it('sends through Message on her profile, once the tab turns into the new conversation after the ask came', async () => {
+    world.pages = () => ({ fixture: 'linkedin-profile.html' });
+    const sent: string[] = [];
+    world.behave = (doc) => {
+      doc.querySelector('[aria-label="Message Dana Reyes"]')!.addEventListener('click', (event) => {
+        event.preventDefault();
+        setTimeout(() => {
+          doc.defaultView!.history.pushState(
+            {},
+            '',
+            '/messaging/thread/new/?recipient=ACoAAFakeDanaReyes123&screenContext=NON_SELF_PROFILE_VIEW',
+          );
+          const frame = doc.createElement('iframe');
+          frame.setAttribute('data-testid', 'interop-iframe');
+          doc.body.append(frame);
+          const inner = frame.contentDocument!;
+          inner.body.innerHTML = load(
+            'linkedin-new-conversation.html',
+            `${LI}/messaging/thread/new/`,
+          ).body.innerHTML;
+          const box = inner.querySelector('[role="textbox"]')!;
+          const send = inner.querySelector<HTMLButtonElement>('button[type="submit"]')!;
+          inner.execCommand = (_c: string, _u?: boolean, text?: string) => {
+            box.textContent = text ?? '';
+            send.disabled = !box.textContent;
+            return true;
+          };
+          send.addEventListener('click', () => {
+            sent.push(box.textContent ?? '');
+            box.textContent = '';
+          });
+        }, 3_000);
+      });
+    };
+    world.answers['/v1/commands/outreach.send.done'] = () => ({ ok: true });
+    const outcome = await doWork(
+      { do: 'send', item: approvedSend({ kind: 'reconnect', threadKey: null }) },
+      ME.businessId,
+      false,
+    );
+    expect(outcome).toEqual({ done: true, line: 'Sent Dana Reyes a message' });
+    expect(world.opened).toEqual([DANA]);
+    expect(sent).toEqual(['Glad to help, Dana.']);
+  }, 30_000);
 
   /** Her conversation's own page as LinkedIn behaves: what's typed in its box goes when its Send is pressed. */
   function chatSends(doc: Document, sent: string[]) {

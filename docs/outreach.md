@@ -3236,6 +3236,29 @@ where decisions 37 and 59 put the settings; what they decided stands. Settled to
         ends with the person's own message, or reads as come to a close. Before, only a message the extension noted
         took it off.
 
+135.  **Sends that couldn't find where to write, found** (Chris, 30 Oct 2026, extension **0.117.1**). "still getting
+      failed messages being sent. investigate why and fix". On 0.117.0, every LinkedIn message through Message on a
+      profile said "couldn't find the box to write in" (none had gone in six days), and Instagram messages to some
+      followers said "couldn't find Message on their account".
+      - **LinkedIn's new conversation, looked at as it turns up** (`writeMessage`, `messageBoxFor` in
+        `src/networks/linkedin/auto.ts`). Message on a profile now takes the tab to the new conversation's page
+        (/messaging/thread/new/?recipient=…, drawn in the interop frame) only once LinkedIn has loaded its messaging,
+        which can be after the runner's pause, more so in a window behind another. The look kept the profile's address
+        it began with, so it never took that page's box for theirs. Now each look goes by the address as it is then,
+        and waits up to 15 seconds after a Message that's a link. Owner's outlines of 30 Oct 2026.
+      - **Theirs by whom Message named.** When they've written before, the page shows their past messages over the box
+        instead of a card about them. Their profile's Message is a link naming whom it's to (`recipient`), and the new
+        conversation's address names the same: a box on a page whose address names whom the Message the runner pressed
+        named is theirs (`openMessage` says the link, the runner passes it with the message as `opened`), whatever way
+        LinkedIn writes it, and that, not an id read off their profile, says who it's to. A card linking to someone
+        else still stops it.
+      - **Followed back on Instagram first** (Chris: "Follow back, then message"; `followBack` in
+        `src/auto/instagram.ts`). Instagram shows Message only on accounts the person follows, and followers count as
+        friends there, so a follower not followed back had only Follow Back. When their account shows no Message and
+        they follow the person, the runner presses Follow Back, checks it says Following, notes it as a follow (it
+        counts toward the day's follows), then presses Message. Someone who doesn't follow the person isn't followed,
+        and a private account (Requested) waits for them, each with its reason. No migration.
+
 ## Rules worth knowing before changing anything
 
 - **Nothing is saved until the person presses a button in HandsFreeOS** (an ask, below), except the four steps the
