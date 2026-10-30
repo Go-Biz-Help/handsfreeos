@@ -776,8 +776,65 @@ function jobFor(businessId: string): Job {
 }
 
 /**
+ * Follows back someone who follows the person, when their account shows no Message: Instagram shows it only on
+ * accounts the person follows (the owner's sends of 30 Oct 2026, on 0.117.0, to followers not followed back), so
+ * they're followed back first, then messaged (decision 136). Noted as a follow, like one the runner makes. An outcome
+ * when it can't: they don't follow the person, Instagram didn't take it, or the account is private (Requested).
+ */
+async function followBack(
+  item: TodayListItem,
+  opened: { readonly page: InstagramPage; readonly noted: ProfileRef; readonly name: string },
+  businessId: string,
+): Promise<{ readonly outcome: Outcome } | null> {
+  const shown = opened.page.found.profile;
+  if (shown?.following !== 'no' || shown.followsYou !== true)
+    return {
+      outcome: { done: false, line: `${item.name}: couldn’t find Message on their account` },
+    };
+  const didnt = {
+    outcome: {
+      done: false,
+      line: `${item.name}: Instagram shows Message only on accounts you follow, and following them back didn’t go`,
+    },
+  };
+  const went = await tab.ask({ type: 'hfos-connect', profile: opened.noted });
+  if (!went.ok || went.result !== 'done') return didnt;
+  await pause(SETTLE_MS);
+  const page = await read();
+  const stop = await warnedOn(page, businessId);
+  if (stop) return { outcome: { stop } };
+  const standing = page.found.profile?.following;
+  if (standing === 'requested')
+    return {
+      outcome: {
+        done: false,
+        line: `${item.name}: their account is private, so Instagram shows Message once they let you follow them`,
+      },
+    };
+  if (standing !== 'following') return didnt;
+  await takeNote(
+    {
+      type: 'hfos-noted',
+      step: {
+        kind: 'friend_request',
+        to: { name: opened.name, profile: opened.noted },
+        group: null,
+        postUrl: null,
+        thread: null,
+        replying: null,
+        auto: true,
+      },
+      at: now(),
+    },
+    PLATFORM,
+  );
+  return null;
+}
+
+/**
  * Opens the chat with them: its own page by the chat's id when it's kept, else their account's Message, which opens
- * it over the page or on a page of its own. It must be with them, by the name in their account's address.
+ * it over the page or on a page of its own, once they're followed back when it shows none (`followBack`). It must be
+ * with them, by the name in their account's address.
  */
 async function openChat(
   item: TodayListItem,
@@ -809,7 +866,12 @@ async function openChat(
   }
   const opened = await openAccount(item, businessId);
   if ('outcome' in opened) return opened;
-  const pressed = await tab.ask({ type: 'hfos-open-message', profile: opened.noted });
+  let pressed = await tab.ask({ type: 'hfos-open-message', profile: opened.noted });
+  if (!pressed.ok) {
+    const back = await followBack(item, opened, businessId);
+    if (back) return back;
+    pressed = await tab.ask({ type: 'hfos-open-message', profile: opened.noted });
+  }
   if (!pressed.ok)
     return {
       outcome: { done: false, line: `${item.name}: couldn’t find Message on their account` },

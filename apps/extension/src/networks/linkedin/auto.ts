@@ -437,11 +437,29 @@ function composeLinks(box: Element, href: string): ProfileRef[] {
 const NEW_CONVERSATION = /^\/messaging\/(thread\/new|compose)(\/|$)/i;
 
 /**
+ * Whether a new conversation's address names whom the link their profile's Message was names: the same `recipient`,
+ * written the same way, whatever way that is. Their profile's Message (/messaging/compose/?profileUrn=…&recipient=…)
+ * takes the tab to /messaging/thread/new/?recipient=… with it (the owner's sends of 30 Oct 2026, on 0.117.0).
+ */
+function namesWhomOpened(url: URL, opened: string | null): boolean {
+  const recipient = url.searchParams.get('recipient');
+  return (
+    !!recipient && !!opened && linkedinUrl(opened)?.searchParams.get('recipient') === recipient
+  );
+}
+
+/**
  * The box to write to them in: the conversation's own on its page (when it's with them, as far as it says), or the
  * one window over the page that links to them, wherever LinkedIn draws it (its interop box among them: ./dom.ts).
- * Null when there's none, or more than one.
+ * Null when there's none, or more than one. `opened` is the link their profile's Message was, when the runner pressed
+ * it: a new conversation whose address names whom it named is theirs.
  */
-export function messageBoxFor(doc: Document, href: string, them: ProfileRef): HTMLElement | null {
+export function messageBoxFor(
+  doc: Document,
+  href: string,
+  them: ProfileRef,
+  opened: string | null = null,
+): HTMLElement | null {
   const address = classifyUrl(href);
   const main = mainOf(doc);
   const url = linkedinUrl(href);
@@ -449,13 +467,16 @@ export function messageBoxFor(doc: Document, href: string, them: ProfileRef): HT
   const fresh = address.kind === 'messaging' && !!url && NEW_CONVERSATION.test(url.pathname);
   const toId = fresh ? memberIdFrom(url!) : null;
   const to = toId ? { id: toId, username: null, url: href } : null;
+  const asOpened = fresh && namesWhomOpened(url!, opened);
   if (address.kind === 'chat' || fresh) {
     // Their conversation's own page: the runner opened it by its id and checked it's theirs, or Message on their
     // profile opened it for them. Only something plainly saying it's someone else's is a reason to stop: an id of the
     // same kind as theirs that isn't theirs (LinkedIn writes one member's id two ways: ./urls.ts), or a card over the
-    // box linking to someone else. A new conversation whose address names nobody it can read is theirs only by that
-    // card. LinkedIn's newer pages draw it in the interop frame's own page.
-    if (to && byMemberId(to, them) && to.id !== them.id) return null;
+    // box linking to someone else. A new conversation whose address names nobody it can read is theirs by that card,
+    // or by naming whom their profile's Message named: then that, not an id read off their profile, says who it's to.
+    // LinkedIn's newer pages draw it in the interop frame's own page, with no card when they've written before: their
+    // past messages are there instead (the owner's sends of 30 Oct 2026, on 0.117.0).
+    if (to && !asOpened && byMemberId(to, them) && to.id !== them.id) return null;
     const boxes = pagesOf(doc).flatMap((page) => {
       if (address.kind === 'chat') {
         const chat = readChat(page, address, href);
@@ -466,7 +487,7 @@ export function messageBoxFor(doc: Document, href: string, them: ProfileRef): HT
         if (!fresh) return true;
         const linked = composeLinks(box, href);
         if (linked.some((p) => comparable(p, them) && !sameMember(p, them))) return false;
-        return to !== null || linked.some((p) => sameMember(p, them));
+        return to !== null || asOpened || linked.some((p) => sameMember(p, them));
       });
     });
     return boxes.length === 1 ? boxes[0]! : null;
@@ -486,27 +507,47 @@ export function messageBoxFor(doc: Document, href: string, them: ProfileRef): HT
   return theirs.length === 1 ? theirs[0]! : null;
 }
 
-/** On their profile, the top card's Message: whether there was one to press. */
-export function openMessage(doc: Document): boolean {
+/**
+ * On their profile, the top card's Message, pressed: false when there's none, else the link it is (whole), or null
+ * when it's a button.
+ */
+export function openMessage(doc: Document, href: string): string | null | false {
   const message = topCardControl(doc, MESSAGE);
   if (!message) return false;
+  const link = message.closest('a[href]')?.getAttribute('href');
   message.click();
-  return true;
+  return link ? (linkedinUrl(link, href)?.href ?? null) : null;
 }
 
 /**
  * Writes a message to them in their conversation and sends it, waiting a little for the box to show. Nothing is typed
  * unless the focus is in their box, and nothing is sent unless, once typed, it's still their conversation's box; else
- * what was typed is taken out again (`not_theirs`).
+ * what was typed is taken out again (`not_theirs`). `opened` is the link their profile's Message was (`openMessage`).
+ *
+ * Each look goes by the page's address as it is then: Message on their profile takes the tab to the new conversation's
+ * page only once LinkedIn has loaded its messaging, which can be after the ask comes (more so in a window behind
+ * another), and a look that kept their profile's address never took that page's box for theirs (the owner's sends of
+ * 30 Oct 2026, on 0.117.0). Its longer wait counts once the address is that page's, or from the start after a Message
+ * that's a link (to that page).
  */
 export async function writeMessage(
   doc: Document,
   href: string,
   text: string,
   them: ProfileRef,
+  opened: string | null = null,
 ): Promise<AutoResult> {
-  const theirs = () => messageBoxFor(doc, href, them);
-  const box = await waitFor(theirs, classifyUrl(href).kind === 'messaging' ? NEW_BOX_MS : BOX_MS);
+  const at = () => doc.defaultView?.location.href || href;
+  const theirs = () => messageBoxFor(doc, at(), them, opened);
+  let box = theirs();
+  for (
+    let waited = 0;
+    !box && waited < (opened || classifyUrl(at()).kind === 'messaging' ? NEW_BOX_MS : BOX_MS);
+    waited += LOOK_MS
+  ) {
+    await pause(LOOK_MS);
+    box = theirs();
+  }
   if (!box) return 'none';
   return typeAndSend(box, text, SENDS_MESSAGE, theirs);
 }

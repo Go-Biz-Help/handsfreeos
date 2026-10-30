@@ -109,13 +109,15 @@ export type AutoAsk =
    * `profile` says whose conversation's box it goes in (src/networks/linkedin/auto.ts, src/networks/alignable/auto.ts,
    * src/networks/instagram/auto.ts). On Facebook (src/networks/facebook/auto.ts) `names` does too, for a chat that
    * names them without a link to their profile: the name Facebook showed for them, on the chat or the profile the
-   * runner checked. Facebook types nothing for an ask without `profile`.
+   * runner checked. Facebook types nothing for an ask without `profile`. On LinkedIn `opened` is the link their
+   * profile's Message was, when the runner pressed it (`OpenMessageAnswer`): the new conversation it opens names whom.
    */
   | {
       readonly type: 'hfos-message';
       readonly text: string;
       readonly profile?: ProfileRef;
       readonly names?: readonly string[];
+      readonly opened?: string | null;
     };
 
 /**
@@ -130,6 +132,8 @@ export type ConnectAsk = { readonly type: 'hfos-connect'; readonly profile?: Pro
  * (src/networks/facebook/auto.ts), the chats open before it are noted first: none of those is taken for theirs by name.
  */
 export type OpenMessageAsk = { readonly type: 'hfos-open-message'; readonly profile?: ProfileRef };
+/** Whether Message was pressed; on LinkedIn, the link it was (null for a button), for the message's ask. */
+export type OpenMessageAnswer = BrowseAnswer & { readonly opened?: string | null };
 
 /**
  * Asking to join a group (src/networks/facebook/join.ts, decisions 31 and 48): on its page, press Join group and say what
