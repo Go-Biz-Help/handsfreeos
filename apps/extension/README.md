@@ -1136,7 +1136,7 @@ list, the reading goes on. Nothing in HandsFreeOS changes for it.
 
 On the owner's sends of 30 Oct 2026, on 0.117.0, every LinkedIn message through Message on a profile said "couldn't
 find the box to write in", and some Instagram messages said "couldn't find Message on their account" (docs/outreach.md,
-decision 136).
+decision 135).
 
 LinkedIn's Message takes the tab to the new conversation's page only once it has loaded its messaging, which can be after
 the runner's pause, and the look for the box kept the profile's address it began with, so it never took that page's box

@@ -1085,7 +1085,7 @@ describe('a message on Instagram', () => {
     });
 
   // The owner's sends of 30 Oct 2026, on 0.117.0: followers not followed back had only Follow Back, no Message.
-  it('follows back someone who follows you when their account shows no Message, then messages them (decision 136)', async () => {
+  it('follows back someone who follows you when their account shows no Message, then messages them (decision 135)', async () => {
     world.pages = (url) => (url === DANA ? { html: accountHtml() } : null);
     const sent: { to: string; text: string }[] = [];
     world.behave = (doc) => {

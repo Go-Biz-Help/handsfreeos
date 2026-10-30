@@ -778,7 +778,7 @@ function jobFor(businessId: string): Job {
 /**
  * Follows back someone who follows the person, when their account shows no Message: Instagram shows it only on
  * accounts the person follows (the owner's sends of 30 Oct 2026, on 0.117.0, to followers not followed back), so
- * they're followed back first, then messaged (decision 136). Noted as a follow, like one the runner makes. An outcome
+ * they're followed back first, then messaged (decision 135). Noted as a follow, like one the runner makes. An outcome
  * when it can't: they don't follow the person, Instagram didn't take it, or the account is private (Requested).
  */
 async function followBack(
