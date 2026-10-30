@@ -223,7 +223,7 @@ beforeEach(() => {
   answers = (tab, message) => {
     if (message.type === 'hfos-read')
       return { ok: true, result: { platform: 'alignable', found: { chats: rows } } };
-    if (tab.url.startsWith('https://www.facebook.com')) return { ok: true, seen: [maya] };
+    if (new URL(tab.url).hostname === 'www.facebook.com') return { ok: true, seen: [maya] };
     return { ok: true, seen: [] };
   };
   vi.useFakeTimers({ toFake: ['Date'] });
