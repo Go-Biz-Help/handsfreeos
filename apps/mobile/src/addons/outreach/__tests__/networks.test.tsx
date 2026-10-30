@@ -1085,14 +1085,14 @@ const savedOn = (
   now: Record<string, unknown>,
 ): Partial<OutreachSettings> => p.onSaveBusiness.mock.lastCall![0](outreachSettings(now));
 
-describe('For your team on a network, for owners and admins', () => {
+describe('Each network’s say for everyone, on Team, for owners and admins (decision 129)', () => {
   afterEach(() => jest.useRealTimers());
 
   it('lets the team use LinkedIn or not, saved at once on what’s kept', async () => {
     const p = partProps();
     const kept = { weeklyReport: false, rules: { sendingAllowed: ['off', 'steps'] } };
     await render(
-      <SettingsPartBody part="linkedin" automation={AUTOMATION} {...p} manages business={kept} />,
+      <SettingsPartBody part="team" automation={AUTOMATION} {...p} manages business={kept} />,
     );
     expect(screen.getByText('For your team on LinkedIn')).toBeTruthy();
     expect(screen.getByTestId('settings-rules-network-linkedin')).toBeChecked();
@@ -1113,7 +1113,7 @@ describe('For your team on a network, for owners and admins', () => {
     jest.useFakeTimers();
     const p = partProps();
     await render(
-      <SettingsPartBody part="linkedin" automation={AUTOMATION} {...p} manages business={{}} />,
+      <SettingsPartBody part="team" automation={AUTOMATION} {...p} manages business={{}} />,
     );
     // At LinkedIn's starting limit: never past it.
     expect(screen.getByTestId('settings-rules-linkedin-limit-friend_request-up')).toBeDisabled();
@@ -1133,7 +1133,7 @@ describe('For your team on a network, for owners and admins', () => {
     const p = partProps();
     const kept = { rules: { networkLimits: { linkedin: { like: 5 } } } };
     await render(
-      <SettingsPartBody part="facebook" automation={AUTOMATION} {...p} manages business={kept} />,
+      <SettingsPartBody part="team" automation={AUTOMATION} {...p} manages business={kept} />,
     );
     expect(screen.getByTestId('settings-rules-network-facebook')).toBeDisabled();
     expect(screen.getByTestId('settings-rules-network-facebook')).toBeChecked();
@@ -1146,21 +1146,40 @@ describe('For your team on a network, for owners and admins', () => {
     expect(rules?.networkLimits).toEqual({ linkedin: { like: 5 } });
   });
 
-  it('still shows the team’s part on a network the business doesn’t use', async () => {
+  it('points a network’s page to Team, where a network the business doesn’t use can be let back in', async () => {
+    const onTeam = jest.fn();
+    const automation = {
+      ...AUTOMATION,
+      rules: { ...AUTOMATION.rules, networksAllowed: ['facebook' as const] },
+    };
+    const business = { rules: { networksAllowed: ['facebook'] } };
     await render(
       <SettingsPartBody
         part="linkedin"
-        automation={{
-          ...AUTOMATION,
-          rules: { ...AUTOMATION.rules, networksAllowed: ['facebook'] },
-        }}
+        automation={automation}
         {...partProps()}
         manages
-        business={{ rules: { networksAllowed: ['facebook'] } }}
+        business={business}
+        onTeam={onTeam}
       />,
     );
     expect(screen.getByTestId('settings-networks-linkedin-not-allowed')).toHaveTextContent(
       /^Your business doesn’t use LinkedIn for outreach\./,
+    );
+    expect(screen.queryByTestId('settings-rules-network-linkedin')).toBeNull();
+    expect(screen.getByTestId('settings-team-moved-linkedin')).toHaveTextContent(
+      /Your team’s say on LinkedIn is on Team\./,
+    );
+    await fireEvent.press(screen.getByTestId('settings-team-moved-linkedin-open'));
+    expect(onTeam).toHaveBeenCalled();
+    await render(
+      <SettingsPartBody
+        part="team"
+        automation={automation}
+        {...partProps()}
+        manages
+        business={business}
+      />,
     );
     expect(screen.getByTestId('settings-rules-network-linkedin')).not.toBeChecked();
     expect(screen.getByTestId('settings-rules-network-linkedin')).toBeEnabled();

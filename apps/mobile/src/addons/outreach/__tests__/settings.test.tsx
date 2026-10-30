@@ -15,10 +15,11 @@ import { phonePartOf, SettingsMenuBody, SettingsPartBody } from '../settings';
 import { id, ME, TZ } from './mocks';
 
 /**
- * Social Outreach's Settings on the phone, a page for each part (Chris, 2026-10-16): the menu (General, each network
- * with whether it's on, the networks still to come, Playbooks and Your computer), General with For your team, and
- * every change saved as it's made, with no Save button: one save at a time, the line under the page saying how it
- * went, and a refused save going back with the server's words. A network's page is in ./networks.test.tsx.
+ * Social Outreach's Settings on the phone, a page for each part (Chris, 2026-10-16; regrouped by decision 129): the
+ * menu (You, each network with whether it's on, the networks still to come, Your computer, and Team for owners and
+ * admins), You, Team with the business's people and For your team, and every change saved as it's made, with no Save
+ * button: one save at a time, the line under the page saying how it went, and a refused save going back with the
+ * server's words. A network's page is in ./networks.test.tsx.
  */
 
 jest.mock('expo-router', () => ({
@@ -89,20 +90,24 @@ const withLinkedIn = (on: boolean): AutomationSettings => ({
 const menuProps = () => ({
   error: null,
   mine: true,
-  people: null,
   online: true,
   onRetry: jest.fn(),
-  onWhose: jest.fn(),
+  onBackToYours: jest.fn(),
   onPart: jest.fn(),
   onOpen: jest.fn(),
 });
 
 describe('The Settings menu on the phone', () => {
-  it('lists General, each network with whether it’s on for you, the networks to come, and the rest', async () => {
+  it('lists You, each network with whether it’s on for you, the networks to come, and the rest', async () => {
     const p = menuProps();
     await render(<SettingsMenuBody automation={AUTOMATION} {...p} />);
-    expect(screen.getByText('General')).toBeTruthy();
+    expect(screen.getByTestId('settings-open-general')).toHaveTextContent(
+      /You.*How it writes, hours and alerts/,
+    );
     expect(screen.getByText('Networks')).toBeTruthy();
+    expect(screen.getByText('This computer')).toBeTruthy();
+    // Team is an owner's or admin's.
+    expect(screen.queryByTestId('settings-open-team')).toBeNull();
     expect(screen.getByTestId('settings-open-facebook-badge')).toHaveTextContent('On');
     expect(screen.getByTestId('settings-open-linkedin-badge')).toHaveTextContent('Off');
     // A screen reader says it too.
@@ -120,11 +125,18 @@ describe('The Settings menu on the phone', () => {
 
   it('opens each part as its own page, and Your computer; Playbooks are a page of their own', async () => {
     const p = menuProps();
-    await render(<SettingsMenuBody automation={AUTOMATION} {...p} />);
+    await render(<SettingsMenuBody automation={AUTOMATION} {...p} manages />);
     await fireEvent.press(screen.getByTestId('settings-open-general'));
     await fireEvent.press(screen.getByTestId('settings-open-facebook'));
     await fireEvent.press(screen.getByTestId('settings-open-linkedin'));
-    expect(p.onPart.mock.calls.map(([part]) => part)).toEqual(['general', 'facebook', 'linkedin']);
+    expect(screen.getByText('Owners')).toBeTruthy();
+    await fireEvent.press(screen.getByTestId('settings-open-team'));
+    expect(p.onPart.mock.calls.map(([part]) => part)).toEqual([
+      'general',
+      'facebook',
+      'linkedin',
+      'team',
+    ]);
     expect(screen.queryByTestId('settings-open-playbooks')).toBeNull();
     await fireEvent.press(screen.getByTestId('settings-open-computer'));
     expect(p.onOpen.mock.calls.map(([view]) => view)).toEqual(['live']);
@@ -151,39 +163,21 @@ describe('The Settings menu on the phone', () => {
     expect(screen.getByTestId('settings-open-linkedin-badge')).toHaveTextContent('On');
   });
 
-  it('lets owners and admins pick whose, and says whose it shows', async () => {
+  it('says whose it shows, opened from Team, with Back to yours', async () => {
     const p = menuProps();
     await render(
       <SettingsMenuBody
         automation={{ ...AUTOMATION, userId: id(7), name: 'Riley Member' }}
         {...p}
         mine={false}
-        people={{
-          people: [
-            {
-              userId: ME,
-              name: 'Dana Reyes',
-              saved: false,
-              sending: 'off',
-              replies: 'draft',
-              wheels: false,
-            },
-            {
-              userId: id(7),
-              name: 'Riley Member',
-              saved: true,
-              sending: 'steps',
-              replies: 'draft',
-              wheels: true,
-            },
-          ],
-        }}
       />,
     );
     expect(screen.getByTestId('screen-subtitle')).toHaveTextContent('Settings for Riley Member');
-    expect(screen.getByText('Dana Reyes (not set yet)')).toBeTruthy();
-    await fireEvent.press(screen.getAllByTestId('settings-for-person')[0]!);
-    expect(p.onWhose).toHaveBeenCalledWith(ME);
+    expect(screen.getByTestId('settings-whose')).toHaveTextContent(
+      /You’re looking at Riley Member’s settings\./,
+    );
+    await fireEvent.press(screen.getByTestId('settings-whose-back'));
+    expect(p.onBackToYours).toHaveBeenCalled();
   });
 
   it('says it needs signal, and with no answer offers Try again', async () => {
@@ -209,6 +203,7 @@ describe('The Settings menu on the phone', () => {
     expect(phonePartOf('computer')).toBeNull();
     expect(phonePartOf('linkedin')).toBe('linkedin');
     expect(phonePartOf('general')).toBe('general');
+    expect(phonePartOf('team')).toBe('team');
     // The parts before these were My settings and Business settings, both on General now.
     expect(phonePartOf('mine')).toBe('general');
     expect(phonePartOf('business')).toBe('general');
@@ -229,7 +224,7 @@ const partProps = () => ({
   ),
 });
 
-describe('General on the phone, saved as it’s changed', () => {
+describe('You on the phone, saved as it’s changed', () => {
   it('saves a change by itself, saying so on the line under the page, with no toast', async () => {
     const p = partProps();
     await render(<SettingsPartBody part="general" automation={AUTOMATION} {...p} />);
@@ -380,6 +375,22 @@ describe('General on the phone, saved as it’s changed', () => {
       'settings-my-day-1',
       'settings-my-start-up',
       'settings-my-start-down',
+    ])
+      expect(screen.getByTestId(testID)).toBeDisabled();
+    await fireEvent.press(screen.getByTestId('settings-my-pushes-each'));
+    expect(p.onSaveMine).not.toHaveBeenCalled();
+    // Team's too.
+    await render(
+      <SettingsPartBody
+        part="team"
+        automation={AUTOMATION}
+        {...p}
+        manages
+        business={{}}
+        online={false}
+      />,
+    );
+    for (const testID of [
       'settings-rules-sending-steps',
       'settings-contacts-everyone',
       'settings-weekly',
@@ -388,8 +399,6 @@ describe('General on the phone, saved as it’s changed', () => {
       'settings-extension-link-save',
     ])
       expect(screen.getByTestId(testID)).toBeDisabled();
-    await fireEvent.press(screen.getByTestId('settings-my-pushes-each'));
-    expect(p.onSaveMine).not.toHaveBeenCalled();
   });
 
   it('says who changed them, and who sets the rest for someone who isn’t an owner', async () => {
@@ -404,9 +413,27 @@ describe('General on the phone, saved as it’s changed', () => {
     expect(screen.getByText(/An owner or admin of this business sets the choices/)).toBeTruthy();
     expect(screen.queryByText('For your team')).toBeNull();
   });
+
+  it('points an owner or admin to Team, where the team’s say is now', async () => {
+    const onTeam = jest.fn();
+    await render(
+      <SettingsPartBody
+        part="general"
+        automation={AUTOMATION}
+        {...partProps()}
+        manages
+        business={BUSINESS}
+        onTeam={onTeam}
+      />,
+    );
+    expect(screen.queryByText('For your team')).toBeNull();
+    expect(screen.getByTestId('settings-team-moved')).toHaveTextContent(/are on Team\./);
+    await fireEvent.press(screen.getByTestId('settings-team-moved-open'));
+    expect(onTeam).toHaveBeenCalled();
+  });
 });
 
-/** The business's saved settings with LinkedIn's limits set, which General's team part never changes. */
+/** The business's saved settings with LinkedIn's limits set, which For your team never changes. */
 const BUSINESS = {
   contactsFromChats: 'tagged',
   weeklyReport: true,
@@ -419,21 +446,76 @@ const savedOn = (
   now: Record<string, unknown> = BUSINESS,
 ): Partial<OutreachSettings> => p.onSaveBusiness.mock.lastCall![0](outreachSettings(now));
 
-describe('For your team on General, for owners and admins', () => {
+describe('Team, for owners and admins', () => {
+  it('lists the business’s people with their training wheels to end, and their settings to open', async () => {
+    const onTheirs = jest.fn();
+    const onEnd = jest.fn(async () => null);
+    await render(
+      <SettingsPartBody
+        part="team"
+        automation={AUTOMATION}
+        {...partProps()}
+        manages
+        business={BUSINESS}
+        myId={ME}
+        people={{
+          people: [
+            {
+              userId: ME,
+              name: 'Dana Reyes',
+              saved: true,
+              sending: 'steps',
+              replies: 'draft',
+              wheels: false,
+            },
+            {
+              userId: id(7),
+              name: 'Riley Member',
+              saved: false,
+              sending: 'off',
+              replies: 'draft',
+              wheels: true,
+            },
+          ],
+        }}
+        wheels={{
+          people: [
+            {
+              userId: id(7),
+              name: 'Riley Member',
+              platform: 'linkedin',
+              wheels: { on: true, from: null, ok: 4, daysLeft: 3, edits: 0 },
+            },
+          ],
+        }}
+        onTheirs={onTheirs}
+        onEndWheels={onEnd}
+      />,
+    );
+    const [mine, theirs] = screen.getAllByTestId('settings-person');
+    expect(mine).toHaveTextContent(/Dana Reyes \(you\)/);
+    expect(theirs).toHaveTextContent(/Riley Member.*Hasn’t saved their own yet/);
+    expect(within(theirs!).getByTestId('settings-person-wheels')).toHaveTextContent(
+      /Training wheels on LinkedIn · 4 of 25 OK’d · 3 days to go/,
+    );
+    await fireEvent.press(within(theirs!).getByTestId('settings-person-wheels-end'));
+    expect(onEnd).toHaveBeenCalledWith(id(7), 'linkedin');
+    await fireEvent.press(within(theirs!).getByTestId('settings-person-open'));
+    expect(onTheirs).toHaveBeenCalledWith(id(7));
+    // Each network's say for everyone, in one place.
+    expect(screen.getByTestId('settings-team-networks')).toHaveTextContent(
+      /Each network, for everyone/,
+    );
+  });
+
   it('saves the business’s settings as they’re changed, keeping each network’s own', async () => {
     jest.useFakeTimers();
     const p = partProps();
     await render(
-      <SettingsPartBody
-        part="general"
-        automation={AUTOMATION}
-        {...p}
-        manages
-        business={BUSINESS}
-      />,
+      <SettingsPartBody part="team" automation={AUTOMATION} {...p} manages business={BUSINESS} />,
     );
     expect(screen.getByText('For your team')).toBeTruthy();
-    expect(screen.getByText('Owners and admins')).toBeTruthy();
+    expect(screen.getAllByText('Owners and admins').length).toBeGreaterThan(0);
     expect(screen.queryByText(/An owner or admin of this business sets/)).toBeNull();
     await fireEvent.press(screen.getByTestId('settings-contacts-everyone'));
     expect(p.onSaveBusiness).toHaveBeenCalledTimes(1);
@@ -458,13 +540,7 @@ describe('For your team on General, for owners and admins', () => {
   it('folds where a new person starts to a line, and saves a change to it', async () => {
     const p = partProps();
     await render(
-      <SettingsPartBody
-        part="general"
-        automation={AUTOMATION}
-        {...p}
-        manages
-        business={BUSINESS}
-      />,
+      <SettingsPartBody part="team" automation={AUTOMATION} {...p} manages business={BUSINESS} />,
     );
     expect(screen.getByText('You do everything · Every reply waits for you')).toBeTruthy();
     expect(screen.queryByTestId('settings-defaults-sending-steps')).toBeNull();
@@ -477,13 +553,7 @@ describe('For your team on General, for owners and admins', () => {
     const p = partProps();
     p.onSaveBusiness.mockResolvedValueOnce('Only owners and admins change these.');
     await render(
-      <SettingsPartBody
-        part="general"
-        automation={AUTOMATION}
-        {...p}
-        manages
-        business={BUSINESS}
-      />,
+      <SettingsPartBody part="team" automation={AUTOMATION} {...p} manages business={BUSINESS} />,
     );
     await fireEvent.press(screen.getByTestId('settings-weekly'));
     expect(screen.getByTestId('settings-team-problem')).toHaveTextContent(
@@ -496,7 +566,7 @@ describe('For your team on General, for owners and admins', () => {
     const p = partProps();
     await render(
       <SettingsPartBody
-        part="general"
+        part="team"
         automation={AUTOMATION}
         {...p}
         manages

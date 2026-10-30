@@ -31,6 +31,8 @@ export const OUTREACH_MANAGE = 'outreach.manage';
 
 /** The page's views the phone draws, as the web's `?view=` names them. */
 export type OutreachTab =
+  // How far the setup has come, and each network's Get ready (decision 129).
+  | 'setup'
   | 'waiting'
   | 'live'
   | 'today'

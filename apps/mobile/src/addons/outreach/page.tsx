@@ -26,16 +26,17 @@ import { PipelineScreen } from './pipeline';
 import { PlaybooksScreen } from './playbooks';
 import { ResultsScreen } from './results';
 import { SettingsScreen } from './settings';
+import { SetupScreen } from './setup';
 import { NeedsYouScreen } from './waiting';
 
 /**
- * Social Outreach on the phone (decisions 44, 59, 127 and 128), by its address's `?view=`, as the web's old addresses
- * name its pages. With none, its first screen lists the pages in the web's side-menu order (./home.tsx). Needs you is
- * `waiting`; Today (`today`) has what the computer is doing on each network, the list and Done today; People is one
+ * Social Outreach on the phone (decisions 44, 59, 127 to 129), by its address's `?view=`, as the web's old addresses
+ * name its pages. With none, its first screen lists the pages in the web's side-menu order (./home.tsx). Set up
+ * (`setup`) has how far the setup has come and each network's Get ready; Needs you is `waiting`; Today (`today`) has what the computer is doing on each network, the list and Done today; People is one
  * list with a view for each kind (./frame.tsx): the Pipeline, the friends lists (`friends`, `&show=` which), Chats,
  * the Partners list and the Never contact list; then Find people (`find`), where Groups (`groups`, `&group=` one
  * group's own page, decision 103) open from, Results, Playbooks and Settings, a menu with `?part=` one of its pages
- * (General, or a network's). `live` is Your computer: its whole day, its computers and what was asked of it. `code` is
+ * (You, a network's, or Team). `live` is Your computer: its whole day, its computers and what was asked of it. `code` is
  * the code a network emailed for an ask (`?ask=`), where its notification opens (decision 82). `countries` is one of
  * the lists the country setting makes (`?show=unsure|skipped`). The old Activity has a lot to look through, so it stays
  * on the web: a link to it opens there (the manifest's `ui.phone` `web`), and this says so if one is opened here
@@ -43,6 +44,7 @@ import { NeedsYouScreen } from './waiting';
  */
 
 const PHONE_TABS: readonly OutreachTab[] = [
+  'setup',
   'waiting',
   'live',
   'today',
@@ -104,6 +106,8 @@ function OutreachView({
   const tab = PHONE_TABS.find((t) => t === view);
   const webTab = WEB_TABS.find((t) => t === view);
   switch (tab) {
+    case 'setup':
+      return <SetupScreen />;
     case 'waiting':
       return <NeedsYouScreen />;
     case 'today':

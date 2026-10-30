@@ -326,6 +326,7 @@ export const OUTREACH_WORDS = {
   settingsParts: {
     playbooks: 'Playbooks',
     computer: 'Your computer',
+    team: 'Team',
     fresh: 'Start fresh',
   },
   needsYou: NEEDS_YOU,

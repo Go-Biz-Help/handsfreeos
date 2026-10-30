@@ -1,6 +1,6 @@
 /**
- * Social Outreach's pages (docs/outreach.md, decision 127): the side menu's pop-out on the web and the phone's first
- * screen read the same list, in the same order, from core's `pages.ts`.
+ * Social Outreach's pages (docs/outreach.md, decisions 127 and 129): the side menu's pop-out on the web and the phone's
+ * first screen read the same list, in the same order, from core's `pages.ts`.
  */
 import { describe, expect, it } from 'vitest';
 import { manifestIssues } from '../../src/addons/manifest';
@@ -24,8 +24,10 @@ describe('Social Outreach’s pages', () => {
     expect(manifestIssues(outreachAddon)).toEqual([]);
   });
 
-  it('starts with Needs you, keeps Settings out of Settings search, and says what each is for', () => {
-    expect(OUTREACH_PAGE_KEYS[0]).toBe('needs-you');
+  it('starts with Set up, then Needs you, keeps Settings out of Settings search, and says what each is for', () => {
+    expect(OUTREACH_PAGE_KEYS.slice(0, 2)).toEqual(['setup', 'needs-you']);
+    // The setup a step at a time keeps its own address.
+    expect(OUTREACH_PAGE_PATHS.setup).not.toBe('setup');
     expect(OUTREACH_PAGE_KEYS).not.toContain('settings');
     expect(OUTREACH_PAGES.gear).toBe('Settings');
     for (const k of OUTREACH_PAGE_KEYS) {

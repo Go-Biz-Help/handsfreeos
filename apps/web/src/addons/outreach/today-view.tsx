@@ -72,14 +72,14 @@ import {
   todayOpenOf,
 } from '@hfos/core/addons/outreach/network-words';
 import { NETWORKS, PLATFORMS, type Platform } from '@hfos/core/addons/outreach/networks';
-import { adviceLeft, READY_WORDS } from '@hfos/core/addons/outreach/readiness';
+import { READY_WORDS } from '@hfos/core/addons/outreach/readiness';
+import { SET_UP_PAGE_WORDS, todayReadyWords } from '@hfos/core/addons/outreach/set-up-page';
 import { messageParts } from '@hfos/core/addons/outreach/voice';
 import { OUTREACH_WORDS as W } from '@hfos/core/addons/outreach/words';
 import { PROFILE_PART_WORDS } from '@hfos/core/addons/outreach/profile-parts';
 import {
   BellOff,
   CalendarCheck,
-  Check,
   CheckCheck,
   ChevronDown,
   Copy,
@@ -108,7 +108,6 @@ import { ChatSoFar } from './chat-bubbles';
 import { Drafted } from './drafted';
 import { HelpfulCard } from './helpful-card';
 import { PersonName } from './person-menu';
-import { GetReadyCard } from './get-ready';
 import { GoalNote, goalNoteOn } from './goal-note';
 import { TeamCard } from './live-view';
 import { StatusStrip, type NetworkLive } from './status-strip';
@@ -121,7 +120,6 @@ import type {
   TodayItem,
   TodayList,
   Waiting,
-  WheelsList,
 } from './types';
 import { useAct } from './use-act';
 
@@ -157,7 +155,6 @@ export function TodayView({
   networks,
   today,
   helpful,
-  wheels,
   team = null,
   asks,
   waiting,
@@ -175,13 +172,11 @@ export function TodayView({
   today: TodayList;
   /**
    * Get ready on the network shown (decisions 63 and 90): what's left, the profile's advice among it; null when it
-   * couldn't be had. Whether anything holds the day is `today.ready`.
+   * couldn't be had. Whether anything holds the day is `today.ready`. Get ready itself is on Set up (decision 129).
    */
   readiness: Readiness | null;
   /** Today's helpful post, and those up lately (decision 50). */
   helpful: HelpfulList;
-  /** Who's on training wheels: for owners and admins, else null. */
-  wheels: WheelsList | null;
   /** How each person's extension is doing on the network shown: for owners and admins, else null. */
   team?: LiveTeam | null;
   /** The look-ups and group members asked of the person's computer from here. */
@@ -197,10 +192,9 @@ export function TodayView({
     if (window.location.hash === '#needs-you')
       router.replace(outreachHref(workspaceId, { view: 'needs' }));
   }, [router, workspaceId]);
-  // Until the person is ready, Get ready shows in place of the list (decision 63); once they are, only while their
-  // profile is left, as advice above the list (decision 90).
+  // Until the person is ready, a line says how much is left with Set up a press away, in place of the list (decisions
+  // 63 and 129); once they are, only while their profile is left, as advice above the list (decision 90).
   const ready = today.ready;
-  const getReady = readiness && (!ready || adviceLeft(readiness.items).length) ? readiness : null;
   const live = networks.find((n) => n.platform === platform)?.live ?? null;
   const many = networks.length > 1;
   const name = PLATFORMS[platform];
@@ -318,8 +312,12 @@ export function TodayView({
       ) : null}
       <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_320px]">
         <div className="min-w-0 space-y-5">
-          {getReady ? (
-            <GetReadyCard workspaceId={workspaceId} readiness={getReady} asks={asks} />
+          {readiness ? (
+            <GetReadyLine
+              workspaceId={workspaceId}
+              words={todayReadyWords(PLATFORMS[platform], ready, readiness.items)}
+              ready={ready}
+            />
           ) : null}
           {helpfulOn(platform) ? (
             <HelpfulCard
@@ -414,7 +412,6 @@ export function TodayView({
         </div>
         <aside className="space-y-4">
           {live ? <DoneToday live={live} /> : null}
-          {wheels?.people.length ? <WheelsCard workspaceId={workspaceId} wheels={wheels} /> : null}
           {!today.hasPlaybook ? (
             <Card className="p-4">
               <h3 className="text-[15px] font-semibold">
@@ -734,53 +731,40 @@ function TodayRow({
   );
 }
 
-/** Who's on training wheels, for owners and admins: how far each has come, and End now. */
-function WheelsCard({ workspaceId, wheels }: { workspaceId: string; wheels: WheelsList }) {
-  const { busy, act } = useAct();
+/** Get ready on the network shown, on Set up (decision 129): how much holds the day, or the profile's advice. */
+function GetReadyLine({
+  workspaceId,
+  words,
+  ready,
+}: {
+  workspaceId: string;
+  words: string | null;
+  ready: boolean;
+}) {
+  if (!words) return null;
   return (
-    <Card className="p-4" data-testid="today-wheels-team">
-      <h3 className="text-[15px] font-semibold">{W.wheelsTitle}</h3>
-      <p className="mt-1.5 text-[13px] text-text-2">
-        Their messages wait for their OK and their daily limits are half, for 7 days and 25 messages
-        OK’d. End them early for someone you trust.
-      </p>
-      <ul className="mt-2 space-y-2 text-[13px]">
-        {wheels.people.map((p) => (
-          <li key={`${p.userId}:${p.platform}`} className="flex items-center justify-between gap-3">
-            <span className="min-w-0">
-              <span className="font-medium">{p.name}</span>
-              <span className="text-text-3"> · {PLATFORMS[p.platform]}</span>
-              <span className="block text-[12px] text-text-3">
-                {p.wheels.ok.toLocaleString()} of 25 OK’d ·{' '}
-                {p.wheels.daysLeft
-                  ? `${p.wheels.daysLeft} ${p.wheels.daysLeft === 1 ? 'day' : 'days'} to go`
-                  : 'days done'}
-              </span>
-            </span>
-            <Button
-              variant="secondary"
-              size="sm"
-              disabled={busy !== null}
-              onClick={() =>
-                void act(
-                  `${p.userId}:${p.platform}`,
-                  async () =>
-                    unwrap(
-                      await apiBrowser().POST('/v1/commands/outreach.wheels.end', {
-                        body: { workspaceId, userId: p.userId, platform: p.platform },
-                      }),
-                    ),
-                  W.wheelsEnded(p.name),
-                )
-              }
-              data-testid="today-wheels-end"
-            >
-              <Check className="h-3.5 w-3.5" strokeWidth={1.5} />
-              {W.endNow}
-            </Button>
-          </li>
-        ))}
-      </ul>
+    <Card
+      className={cn(
+        'flex flex-wrap items-center justify-between gap-3 p-4',
+        ready ? '' : 'border-warning-soft',
+      )}
+      data-testid="today-get-ready"
+      data-advice={ready ? 'true' : undefined}
+    >
+      <div className="min-w-0 flex-[1_1_260px]">
+        <p className="text-[11.5px] font-semibold uppercase tracking-[0.04em] text-text-3">
+          {READY_WORDS.card}
+        </p>
+        <p className="mt-1 text-[13.5px] text-text-2">{words}</p>
+      </div>
+      <ButtonLink
+        size="sm"
+        variant={ready ? 'secondary' : 'primary'}
+        href={outreachHref(workspaceId, { view: 'setup' })}
+        data-testid="today-get-ready-open"
+      >
+        {SET_UP_PAGE_WORDS.todayOpen}
+      </ButtonLink>
     </Card>
   );
 }
