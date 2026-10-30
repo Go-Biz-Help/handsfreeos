@@ -9,7 +9,9 @@ import { z } from 'zod';
 import { AskShown } from './asks';
 import { clipLine } from './live';
 import { PUSH_MODE_KEYS, WheelsState, WorkingHours } from './automation';
+import { REQUEST_ANSWER_KEYS } from './checks';
 import { FIT_LEVEL_KEYS } from './fit';
+import { FRIEND_ANSWER_KEYS } from './limits';
 import { PLATFORM_KEYS } from './networks';
 import { Send } from './sends';
 import {
@@ -74,6 +76,8 @@ export const WaitingRequest = z.object({
   /** When they asked. */
   since: z.iso.datetime(),
   mutualFriends: z.number().int().nullable(),
+  /** What the AI says to do with it (decision 136), once it's read them: Confirm or Delete stands out for it. */
+  said: z.enum(REQUEST_ANSWER_KEYS).nullable().default(null),
 });
 export type WaitingRequest = z.output<typeof WaitingRequest>;
 
@@ -156,3 +160,15 @@ export const NeedClearOutput = z.object({
 export const RequestSetAsideInput = z.object({ workspaceId: z.uuid(), profileId: z.uuid() });
 export type RequestSetAsideInput = z.input<typeof RequestSetAsideInput>;
 export const RequestSetAsideOutput = z.object({ profileId: z.uuid() });
+
+/** The person's Confirm or Delete on a friend request they got (decision 136): the extension does it. */
+export const RequestAnswerInput = z.object({
+  workspaceId: z.uuid(),
+  profileId: z.uuid(),
+  answer: z.enum(FRIEND_ANSWER_KEYS),
+});
+export type RequestAnswerInput = z.input<typeof RequestAnswerInput>;
+export const RequestAnswerOutput = z.object({
+  profileId: z.uuid(),
+  answer: z.enum(FRIEND_ANSWER_KEYS),
+});

@@ -17,6 +17,8 @@ import {
   autoKinds,
   businessLimitsOn,
   messageKinds,
+  readsRequests,
+  requestAnswerOf,
   requestModeOf,
   underAPost,
   type RequestMode,
@@ -25,7 +27,7 @@ import { GROUP_REPLY_WORDS, groupRepliesOn, REPLY_KEPT_DAYS } from '../active';
 import { demoLink, demoRef } from '../demos';
 import { bestFit, type Fit, type FitPlaybook } from '../fit';
 import type { GroupCheckState } from '../group-checks';
-import { type DailyStep } from '../limits';
+import { type DailyStep, type FriendAnswer } from '../limits';
 import {
   answersRequests,
   inNetworkWords,
@@ -60,6 +62,7 @@ import {
   type TodayItem,
 } from '../today';
 import { POST_FRESH_DAYS } from '../posts';
+import { REQUEST_PRESSED_WHY } from '../waiting-words';
 import { NEW_JOB_DAYS, OCCASION_WORDS, type OccasionKind } from '../occasions';
 import { commentSendsOn, foundByTopicOn, ownSuggestions } from '../profile-parts';
 import {
@@ -69,7 +72,7 @@ import {
   LEADERS_WAIT_DAYS,
   type FindHow,
 } from '../finds';
-import { RECONNECT_QUIET_DAYS, type CheckVerdict } from '../checks';
+import { RECONNECT_QUIET_DAYS, type CheckVerdict, type RequestAnswer } from '../checks';
 import { FOLLOWER_WHY, FOLLOWERS_KEPT_DAYS } from '../followers';
 import { type EngagementKind, WARM_LEAD_DAYS } from '../helpful';
 import type { GroupResults } from '../results';
@@ -92,6 +95,7 @@ import {
   openToMe,
   pitchable,
   recentOf,
+  requestAnswerColumns,
   type Ctx,
 } from './common';
 import {
@@ -182,15 +186,23 @@ export type RequestGot = {
 export const requestFit = (playbooks: readonly FitPlaybook[], p: RequestGot): Fit =>
   bestFit(playbooks, { lines: p.intro, mutualFriends: p.mutual_friends, groupName: p.group_name });
 
+/** A request the person got, with what's known of it besides its profile (`requestAnswerColumns`). */
+export type RequestAnswered = RequestGot & {
+  readonly pressed: FriendAnswer | null;
+  readonly said: RequestAnswer | null;
+  readonly said_why: string | null;
+};
+
 /**
- * The requests the person got that Today lists as **Confirm their request** (decision 30): with a playbook in use,
- * from people who are pitched and fit one well, the best first, as many as Today lists of a kind; the rest of the good
- * fits on a later day. Waiting for you (./waiting.ts) lists the requests lately that aren't good fits for this, as the
- * person's to decide. A partner's is confirmed like anyone's (decision 81), and so is a client's (decision 91): saying
- * yes to a request is no pitch (`openToMe`, not `inPlay`).
+ * The requests the person got that Today lists as **Confirm their request** (decisions 30, 121 and 136), the ones they
+ * pressed Confirm on first, then the best fits, as many as Today lists of a kind; the rest on a later day. Waiting for
+ * you (./waiting.ts) lists the ones that are theirs to decide. A partner's is confirmed like anyone's (decision 81), and
+ * so is a client's (decision 91): saying yes to a request is no pitch (`openToMe`, not `inPlay`).
  *
- * Where the extension answers them (Facebook's), as the person picked (decision 121): everyone's, playbook or not,
- * when they confirm them all, the best fits first; and nobody's when they delete them all.
+ * Where the extension answers them (Facebook's, LinkedIn's and Alignable's), as the person picked and the AI says
+ * (`requestAnswerOf`): everyone's when they confirm them all, nobody's when they delete them all, and only the ones they
+ * pressed Confirm on when they leave them to themselves. Elsewhere, the good fits by the lines their list showed, for
+ * the person to confirm.
  */
 export async function requestsToConfirm(
   ctx: Ctx,
@@ -198,28 +210,55 @@ export async function requestsToConfirm(
   playbooks: readonly FitPlaybook[],
   platform: Platform = 'facebook',
   mode: RequestMode = 'fits',
-): Promise<{ readonly p: RequestGot; readonly fit: Fit }[]> {
-  const answered = answersRequests(platform) ? mode : 'fits';
-  const everyone = answered === 'all';
-  if (answered === 'delete' || (!everyone && !playbooks.length)) return [];
-  // The business's country setting skips some (decision 61): they're on the Skipped for country list instead. Only
-  // the network's own requests are its to confirm.
-  const lets = sql`(${countryLetsSql(await countryRuleOf(ctx), 'p')} and p.platform = ${platform})`;
-  const asked = await rows<RequestGot>(
+): Promise<{ readonly p: RequestAnswered; readonly fit: Fit }[]> {
+  const answering = answersRequests(platform);
+  const picked = answering ? mode : 'fits';
+  // The business's country setting skips some (decision 61): they're on the Skipped for country list instead. One the
+  // person pressed Confirm on goes whatever it says. Only the network's own requests are its to confirm.
+  const lets = countryLetsSql(await countryRuleOf(ctx), 'p');
+  const asked = await rows<RequestAnswered & { pitched: boolean }>(
     ctx.tx,
-    sql`select p.id, p.name, p.url, p.intro, p.mutual_friends, g.name as group_name
-        from addon_outreach.friends f
-        join addon_outreach.profiles p on p.id = f.profile_id
-        left join addon_outreach.groups g on g.id = p.group_id
-        where f.workspace_id = ${ctx.scope.workspaceId!} and f.user_id = ${me}
-          and f.state = 'request_received' and ${notNever('p')} and ${openToMe(me, 'p')} and ${lets}
-        order by f.since desc limit ${CANDIDATES_MOST}`,
+    sql`select * from (
+          select p.id, p.name, p.url, p.intro, p.mutual_friends, g.name as group_name, f.since,
+            ${requestAnswerColumns}, (${notNever('p')}) as pitched,
+            (${openToMe(me, 'p')} and ${lets}) as open
+          from addon_outreach.friends f
+          join addon_outreach.profiles p on p.id = f.profile_id
+          left join addon_outreach.groups g on g.id = p.group_id
+          left join addon_outreach.checks ch on ch.profile_id = p.id and ch.user_id = ${me}
+          where f.workspace_id = ${ctx.scope.workspaceId!} and f.user_id = ${me}
+            and f.state = 'request_received' and p.platform = ${platform} and ${contactable('p')}
+        ) r
+        where r.pressed = 'confirm' or (r.open and r.pressed is null)
+        order by (r.pressed = 'confirm') desc nulls last, r.since desc
+        limit ${CANDIDATES_MOST}`,
   );
   return asked
-    .map((p) => ({ p, fit: requestFit(playbooks, p) }))
-    .filter(({ fit }) => everyone || fit.level === 'good')
-    .sort((a, b) => b.fit.score - a.fit.score || a.p.name.localeCompare(b.p.name))
-    .slice(0, TODAY_MOST);
+    .map(({ pitched, ...p }) => {
+      const fit = requestFit(playbooks, p);
+      return {
+        p,
+        fit,
+        answer: requestAnswerOf({
+          mode: picked,
+          pressed: answering ? p.pressed : null,
+          pitched,
+          playbooks: playbooks.length > 0,
+          said: answering && readsRequests(picked) ? p.said : null,
+          good: fit.level === 'good',
+        }),
+      };
+    })
+    .filter(({ answer }) => answer === 'confirm')
+    .sort(
+      (a, b) =>
+        Number(b.p.pressed === 'confirm') - Number(a.p.pressed === 'confirm') ||
+        Number(b.p.said === 'confirm') - Number(a.p.said === 'confirm') ||
+        b.fit.score - a.fit.score ||
+        a.p.name.localeCompare(b.p.name),
+    )
+    .slice(0, TODAY_MOST)
+    .map(({ p, fit }) => ({ p, fit }));
 }
 
 export const today = defineAddonQuery(outreachAddon, {
@@ -372,8 +411,8 @@ export const today = defineAddonQuery(outreachAddon, {
       .find((p) => p.details.videoLink);
     const hasVideo = Boolean(videoed);
 
-    // Requests the person got from people who fit a playbook well: theirs to confirm (decision 30). The rest lately are
-    // theirs to decide, in Waiting for you.
+    // Requests the person got to confirm, as they picked and the AI says (decisions 30, 121 and 136). The rest lately
+    // are theirs to decide, in Waiting for you.
     for (const { p, fit } of await requestsToConfirm(
       ctx,
       me,
@@ -387,7 +426,14 @@ export const today = defineAddonQuery(outreachAddon, {
           name: p.name,
           profileId: p.id,
           profileUrl: p.url,
-          why: ['Asked to be your friend', ...fit.reasons],
+          why: [
+            inNetworkWords('Asked to be your friend', input.platform),
+            ...(p.pressed === 'confirm'
+              ? [REQUEST_PRESSED_WHY.confirm]
+              : p.said === 'confirm' && p.said_why
+                ? [p.said_why]
+                : fit.reasons),
+          ],
           playbookName: fit.playbookName,
         }),
       );

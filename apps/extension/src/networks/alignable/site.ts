@@ -40,6 +40,7 @@ import { closeLikers, likersBox, likersOn, openLikers, scrollLikers } from './li
 import { JOIN, JOIN_ASKED, JOINED, readAlignable } from './read';
 import { readReplies } from './replies';
 import { withdrawOnPage } from './withdraw';
+import { answerOnRequests } from './answer';
 import type { LookingSite, PlaceOpening } from '../looking/site';
 import { went } from '../tries';
 
@@ -814,6 +815,8 @@ export const ALIGNABLE: LookingSite = {
   },
   // A request the person sent withdrawn, on that business's own page (0.97.0, decisions 12 and 98).
   withdraw: withdrawOnPage,
+  // A request the person got accepted or declined, on My Network's Requests (0.118.0, decision 136).
+  answerRequest: answerOnRequests,
   words: WORDS,
   warnings: WARNINGS,
   placeOpening,

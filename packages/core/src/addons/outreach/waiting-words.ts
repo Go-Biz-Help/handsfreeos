@@ -24,6 +24,7 @@
  * stay small: the schemas are in ./waiting.ts.
  */
 import { inWorkingHours, nextInHours, underAPost, type WorkingHours } from './automation';
+import type { RequestAnswer } from './checks';
 import type { FitLevel } from './fit';
 import { networkOfLink, NETWORKS, PLATFORMS, withArticle, type Platform } from './networks';
 
@@ -260,12 +261,57 @@ export const REQUEST_HELD = {
 } as const;
 export type RequestHeld = keyof typeof REQUEST_HELD;
 
-/** Why a friend request is the person's to decide: how they fit, or that nothing does. */
+/** What the AI says to do with a request (decision 136), before its line on why. */
+export const REQUEST_SAID = {
+  confirm: 'The AI says confirm',
+  delete: 'The AI says delete',
+  ask: 'The AI isn’t sure',
+} as const satisfies Record<RequestAnswer, string>;
+
+/**
+ * Where the AI's read of a request stands (decision 136): it said (`read`), it's still to read them (`reading`, shown
+ * once a day has gone by), it couldn't read them (`failed`), or it doesn't read them (`off`: all go one way, they're
+ * on Don't pitch, or the network's requests are the person's).
+ */
+export type RequestRead = 'read' | 'reading' | 'failed' | 'off';
+
+/** How long a new request waits off the list for the AI's read (decision 136) before it shows without one. */
+export const REQUEST_READ_DAYS = 1;
+
+/** Why one the AI would delete waits for the person instead (decision 136). */
+export const REQUEST_KEPT = {
+  never: 'It never deletes someone in Contacts, kept, chatted with, or a partner',
+  no_playbook: 'With no playbook in use, it deletes nobody',
+} as const;
+export type RequestKept = keyof typeof REQUEST_KEPT;
+
+/** The person's own press on a request (decision 136), as Today's step says it. */
+export const REQUEST_PRESSED_WHY = {
+  confirm: 'You pressed Confirm',
+  delete: 'You pressed Delete',
+} as const;
+
+/**
+ * Why a friend request is the person's to decide: what the AI said and why (decision 136), or where its read stands;
+ * else how they fit, or that nothing does.
+ */
 export function requestWhy(
   reasons: readonly string[],
   level: FitLevel,
   held: RequestHeld | null = null,
+  ai: {
+    readonly read: RequestRead;
+    readonly said: RequestAnswer | null;
+    readonly why: string | null;
+    readonly kept?: RequestKept | null;
+  } = { read: 'off', said: null, why: null },
 ): string[] {
+  if (ai.read === 'read' && ai.said) {
+    const said = ai.why ? `${REQUEST_SAID[ai.said]}: ${ai.why}` : REQUEST_SAID[ai.said];
+    return [said, ...(ai.kept ? [REQUEST_KEPT[ai.kept]] : [])];
+  }
+  if (ai.read === 'reading') return ['The AI hasn’t read their profile yet'];
+  if (ai.read === 'failed') return ['The AI couldn’t read their profile'];
   const why = [...reasons];
   if (held) why.push(REQUEST_HELD[held]);
   else if (level !== 'skip' && !reasons.length)

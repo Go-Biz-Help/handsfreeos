@@ -12,6 +12,7 @@
  */
 import { TOUCHED_POSTS_WORDS } from './activity';
 import { askNameOn, TIDY_ASK_KINDS, TIDY_PACE_WORDS } from './asks';
+import { REQUEST_MUTUAL_YES } from './checks';
 import {
   REQUEST_MODE_KEYS,
   REQUEST_MODES,
@@ -528,20 +529,22 @@ export function requestsHeldWords(
 }
 
 /**
- * How the requests the person gets are answered (decision 121), on a network's page in Settings where the extension
- * answers them (Facebook's): the choice, what it never does, and its picks. Null where they're the person's.
+ * How the requests the person gets are answered (decisions 121 and 136), on a network's page in Settings where the
+ * extension answers them (Facebook's, LinkedIn's and Alignable's): the choice, how the AI decides, what it never does,
+ * and its picks. Null where they're the person's.
  */
 export function requestsChoiceOn(platform: Platform) {
   if (!answersRequests(platform)) return null;
-  const { friendRequests } = NETWORKS[platform].words;
+  const { friendRequests, friends } = NETWORKS[platform].words;
   const notes: Readonly<Partial<Record<RequestMode, string>>> = {
-    mine: 'They wait for you under Waiting for you.',
-    fits: 'As it starts. The rest wait for you under Waiting for you.',
-    fits_delete: 'With no playbook in use, nobody fits, so nobody is deleted.',
+    mine: 'They wait for you under Waiting for you, each with what the AI says, and Confirm and Delete.',
+    fits: 'As it starts. The rest wait for you under Waiting for you, with Confirm and Delete.',
+    fits_delete:
+      'The ones it isn’t sure about wait for you. With no playbook in use, it deletes nobody.',
   };
   return {
     label: `${cap(friendRequests)} you get`,
-    about: `It confirms them as it works through your day, and deletes them once a day, up to ${DECLINES_PER_DAY} a day. It never deletes someone in Contacts, someone you’ve chatted with, a partner, or anyone on Don’t pitch, and never answers anyone on Never contact.`,
+    about: `The AI reads each one’s profile first, with your playbooks, your mutual ${friends} and where they live. A good one is a likely customer or partner, or a real person with ${REQUEST_MUTUAL_YES} or more mutual ${friends}. It confirms them as it works through your day, and deletes them once a day, up to ${DECLINES_PER_DAY} a day. It never deletes someone in Contacts, someone you’ve chatted with, a partner, or anyone on Don’t pitch, and never answers anyone on Never contact.`,
     options: REQUEST_MODE_KEYS.map((key) => ({
       key,
       label: REQUEST_MODES[key],

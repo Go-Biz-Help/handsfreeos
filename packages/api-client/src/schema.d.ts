@@ -8397,6 +8397,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/commands/outreach.request.answer": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * The person confirms or deletes a friend request they got (decision 136), whatever they picked for those: their computer confirms it as it works through their day, or deletes it with the once-a-day jobs, on Facebook, LinkedIn or Alignable. It leaves Waiting for you at once.
+         * @description Risk level 2. Requires outreach.use. Emits outreach.request.answered. Can wait on a phone with no signal.
+         */
+        post: operations["command_outreach_request_answer"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/commands/outreach.request.set_aside": {
         parameters: {
             query?: never;
@@ -19527,7 +19547,7 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * Who the person’s computer checks next for whether they fit a playbook, in order and no more than today has room for: anyone they pressed Research on, anyone waiting for a look at where they live (those asking to be friends first), friends whose chat looks like a prospect, then friends with any chat, others they’ve chatted with, friends from the groups, the rest of their friends, their followers on Facebook who aren’t friends yet, then people in the business’s Facebook groups who aren’t friends, the best fit first. Never anyone on Don’t pitch, nor anyone checked lately unless the person asked to check everyone again or they wait for a look.
+         * Who the person’s computer checks next for whether they fit a playbook, in order and no more than today has room for: anyone they pressed Research on, anyone who sent them a friend request they haven’t answered (for what to do with it), anyone waiting for a look at where they live (those asking to be friends first), friends whose chat looks like a prospect, then friends with any chat, others they’ve chatted with, friends from the groups, the rest of their friends, their followers on Facebook who aren’t friends yet, then people in the business’s Facebook groups who aren’t friends, the best fit first. Never anyone on Don’t pitch, nor anyone checked lately unless the person asked to check everyone again or they wait for a look.
          * @description Requires outreach.use.
          */
         post: operations["query_outreach_checks_next"];
@@ -45022,6 +45042,42 @@ export interface operations {
                             /** Format: uuid */
                             profileId: string;
                         }[];
+                    };
+                };
+            };
+        };
+    };
+    command_outreach_request_answer: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** @enum {string} */
+                    answer: "confirm" | "delete";
+                    /** Format: uuid */
+                    profileId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @enum {string} */
+                        answer: "confirm" | "delete";
+                        /** Format: uuid */
+                        profileId: string;
                     };
                 };
             };
@@ -76057,7 +76113,7 @@ export interface operations {
                             /** Format: uuid */
                             profileId: string;
                             /** @enum {string} */
-                            reason: "asked" | "country" | "prospect" | "chat" | "chat_only" | "group" | "friend" | "follower" | "member";
+                            reason: "asked" | "request" | "country" | "prospect" | "chat" | "chat_only" | "group" | "friend" | "follower" | "member";
                             url: string;
                         }[];
                         perDay: number;
@@ -79727,6 +79783,8 @@ export interface operations {
                                 name: string;
                                 /** Format: uuid */
                                 profileId: string;
+                                /** @default null */
+                                said: ("confirm" | "delete" | "ask") | null;
                                 /** Format: date-time */
                                 since: string;
                                 url: string;

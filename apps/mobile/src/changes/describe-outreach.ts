@@ -90,6 +90,10 @@ export function describeOutreach(
         : words('Did a step yourself', 'a step done', 'task');
     case 'outreach.request.set_aside':
       return words('Left a friend request', 'a friend request left', 'person');
+    case 'outreach.request.answer':
+      return input.answer === 'confirm'
+        ? words('Confirmed a friend request', 'a friend request confirmed', 'person')
+        : words('Deleted a friend request', 'a friend request deleted', 'person');
     case 'outreach.post.skip':
       return words('Put a post aside', 'a post put aside', 'item');
     default:

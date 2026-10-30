@@ -16,7 +16,14 @@ import { requireHuman } from '../../../kernel/actor';
 import { changeMoment } from '../../../kernel/moment';
 import { defineAddonCommand, defineAddonQuery } from '../../server';
 import { ASK_TIDY_MOST } from '../asks';
-import { deletesRequests, requestModeOf, tidyModeOn } from '../automation';
+import {
+  deletesRequests,
+  readsRequests,
+  requestAnswerOf,
+  requestModeOf,
+  tidyModeOn,
+} from '../automation';
+import type { RequestAnswer } from '../checks';
 import { outreachSettings } from '../chat-read';
 import { bestFit } from '../fit';
 import {
@@ -24,6 +31,7 @@ import {
   limitNow,
   OWN_TIDY_LIMITS,
   WARNING_SLOWER_DAYS,
+  type FriendAnswer,
   type TidyKind,
 } from '../limits';
 import { networkOffWords } from '../live';
@@ -54,7 +62,17 @@ import {
   type WarningState,
 } from '../tidy';
 import { automationOf, wheelsBackOn } from './automation';
-import { inWorkspace, keepFriendStates, keptProfile, once, pitchable, type Ctx } from './common';
+import {
+  contactable,
+  inWorkspace,
+  keepFriendStates,
+  keptProfile,
+  neverDeleted,
+  once,
+  pitchable,
+  requestAnswerColumns,
+  type Ctx,
+} from './common';
 import { warnDay } from './day';
 import { playbooksInUse } from './friends';
 
@@ -157,13 +175,6 @@ const marked = sql`(f.cancel_at is not null and f.cancel_at >= f.since)`;
 /** A request the extension sent on its own (decision 26), to `p`, by the person `me`. */
 const sentByExtension = (me: string) => sql`exists (select 1 from addon_outreach.touches t
   where t.profile_id = p.id and t.user_id = ${me} and t.kind = 'friend_request' and t.auto)`;
-
-/** Any chat with someone either way, kept or noted: never deleted for not fitting (decision 121). `p` is the profile. */
-const chattedWith = (me: string) => sql`(exists (select 1 from addon_outreach.file_chats c
-    where c.profile_id = p.id and c.user_id = ${me})
-  or exists (select 1 from addon_outreach.replies r where r.profile_id = p.id and r.user_id = ${me})
-  or exists (select 1 from addon_outreach.touches t
-    where t.profile_id = p.id and t.user_id = ${me} and t.kind = 'message'))`;
 
 export const friendsTidy = defineAddonQuery(outreachAddon, {
   name: 'outreach.friends.tidy',
@@ -288,22 +299,27 @@ export const friendsTidy = defineAddonQuery(outreachAddon, {
         a.name.localeCompare(b.name),
     );
 
-    // On Facebook, the requests the person got that it deletes as they picked (decision 121): never anyone in Contacts,
-    // kept, chatted with, a partner, on Don't pitch or Never contact; and for not fitting, only with a playbook in use.
+    // The requests the person got that it deletes (decisions 121 and 136), where the extension answers them: the ones
+    // they pressed Delete on first, whatever they picked; then as they picked and the AI says. Never anyone in Contacts,
+    // kept, chatted with, a partner or on Don't pitch but by their own Delete, nor anyone on Never contact; and for not
+    // fitting, only with a playbook in use.
     const answering = requestModeOf(auto.choices);
-    const deleting = answersRequests(input.platform) && deletesRequests(answering);
-    const got = deleting
-      ? await rows<Found>(
+    const got = answersRequests(input.platform)
+      ? await rows<Found & { pressed: FriendAnswer | null; said: RequestAnswer | null }>(
           ctx.tx,
-          sql`select p.id, p.name, p.url, p.platform_id, p.username, f.since, null as last_contact, p.intro,
-                p.mutual_friends, g.name as group_name, count(*) over ()::int as total
-              from addon_outreach.friends f
-              join addon_outreach.profiles p on p.id = f.profile_id
-              left join addon_outreach.groups g on g.id = p.group_id
-              where f.workspace_id = ${ws} and f.user_id = ${me} and p.platform = ${input.platform}
-                and f.state = 'request_received' and not f.keep and p.person_id is null
-                and ${pitchable('p')} and not ${chattedWith(me)}
-              order by f.since, p.id limit ${TIDY_MOST}`,
+          sql`select * from (
+                select p.id, p.name, p.url, p.platform_id, p.username, f.since, null as last_contact, p.intro,
+                  p.mutual_friends, g.name as group_name, ${requestAnswerColumns}, ${neverDeleted(me)} as kept
+                from addon_outreach.friends f
+                join addon_outreach.profiles p on p.id = f.profile_id
+                left join addon_outreach.groups g on g.id = p.group_id
+                left join addon_outreach.checks ch on ch.profile_id = p.id and ch.user_id = ${me}
+                where f.workspace_id = ${ws} and f.user_id = ${me} and p.platform = ${input.platform}
+                  and f.state = 'request_received' and ${contactable('p')}
+              ) r
+              where r.pressed = 'delete'
+                or ${deletesRequests(answering) ? sql`(r.pressed is null and not r.kept)` : sql`false`}
+              order by (r.pressed = 'delete') desc nulls last, r.since, r.id limit ${TIDY_MOST}`,
         )
       : [];
     const [declined] = await rows<{ n: number }>(
@@ -321,8 +337,17 @@ export const friendsTidy = defineAddonQuery(outreachAddon, {
         mutualFriends: f.mutual_friends,
         groupName: f.group_name,
       }).level === 'good';
-    const toDecline =
-      answering === 'delete' ? got : playbooks.length ? got.filter((f) => !fits(f)) : [];
+    const toDecline = got.filter(
+      (f) =>
+        requestAnswerOf({
+          mode: answering,
+          pressed: f.pressed,
+          pitched: true,
+          playbooks: playbooks.length > 0,
+          said: readsRequests(answering) ? f.said : null,
+          good: fits(f),
+        }) === 'delete',
+    );
     const candidate = (f: Found, fitted: boolean): TidyCandidate => ({
       profileId: f.id,
       name: f.name,

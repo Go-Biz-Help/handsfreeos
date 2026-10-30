@@ -2,8 +2,9 @@
  * Tidying on its own, once a day (docs/outreach.md, decision 98), on any network: what HandsFreeOS picked for today
  * from the person's choice there (packages/core/src/addons/outreach/tidy.ts, `own`), each kind in turn through the
  * network's own job: Facebook's cancel and unfriend (./tidy.ts), LinkedIn's and Alignable's withdraw, Instagram's
- * unfollow; with Cancel all's, however the person picked (decision 121). Then on Facebook, the requests the person got
- * that it deletes as they picked for those. Nobody is handed to the person: a step it can't find, it passes over.
+ * unfollow; with Cancel all's, however the person picked (decision 121). Then the requests the person got that it
+ * deletes, as they pressed Delete or as they picked and the AI said (decision 136): Facebook's deleted, and from 0.118.0
+ * LinkedIn's ignored and Alignable's declined. Nobody is handed to the person: a step it can't find, it passes over.
  */
 import type { TidyKind } from '@hfos/core/addons/outreach/limits';
 import type { Tidy, TidyCandidate } from '../hfos/messages';

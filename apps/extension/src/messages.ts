@@ -126,6 +126,18 @@ export type AutoAsk =
  */
 export type ConnectAsk = { readonly type: 'hfos-connect'; readonly profile?: ProfileRef };
 /**
+ * Answering a request the person got (decision 136, from 0.118.0), once they pressed Confirm or Delete in HandsFreeOS
+ * or the AI said to as they chose: on LinkedIn, Accept or Ignore in the top card of the profile of whoever sent it
+ * (src/networks/linkedin/auto.ts); on Alignable, Accept or Decline on that business's row of My Network's Requests
+ * (src/networks/alignable/answer.ts), found by `profile`. Its answer is an `AutoAnswer`: `already` when there's nothing
+ * left to answer, `none` when there's no such button to press.
+ */
+export type AnswerRequestAsk = {
+  readonly type: 'hfos-answer-request';
+  readonly answer: 'confirm' | 'delete';
+  readonly profile?: ProfileRef;
+};
+/**
  * On Instagram (src/networks/instagram/auto.ts), `profile` says whose account's Message it is. On Facebook
  * (src/networks/facebook/auto.ts), the chats open before it are noted first: none of those is taken for theirs by name.
  */

@@ -171,6 +171,16 @@ export interface LookingSite {
     profile: ProfileRef,
   ) => Promise<AlignableWithdrawResult>;
   /**
+   * Answering a request the person got, from that business (decision 136, Alignable's from 0.118.0): Accept for
+   * Confirm, Decline for Delete, on the page the site answers them on.
+   */
+  readonly answerRequest?: (
+    doc: Document,
+    href: string,
+    profile: ProfileRef,
+    answer: 'confirm' | 'delete',
+  ) => Promise<AutoResult>;
+  /**
    * Going through one of its lists, for the person's asks (Alignable's connections and requests, partners stage 6c):
    * scroll for more, its own Show more pressed where the list ends in one, and a list that opens on a few switched to
    * its tab of them all. Each says whether it could.

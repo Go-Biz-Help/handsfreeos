@@ -12,6 +12,7 @@
  */
 import { NETWORKS } from '@hfos/core/addons/outreach/networks';
 import type {
+  AnswerRequestAsk,
   AutoAnswer,
   AutoAsk,
   BrowseAnswer,
@@ -143,6 +144,18 @@ async function withdrawHere(site: LookingSite, ask: WithdrawAsk): Promise<Withdr
   if (!site.withdraw)
     return { ok: false, error: `The extension doesn’t withdraw requests on ${site.name}.` };
   return { ok: true, result: await site.withdraw(document, location.href, ask.profile) };
+}
+
+/** Answers a request the person got, where the site does (Alignable's, decision 136). */
+async function answerHere(site: LookingSite, ask: AnswerRequestAsk): Promise<AutoAnswer> {
+  if (!site.answerRequest)
+    return { ok: false, error: `The extension doesn’t answer requests on ${site.name}.` };
+  if (!ask.profile)
+    return { ok: false, error: `The extension didn’t say whose request it is on ${site.name}.` };
+  return {
+    ok: true,
+    result: await site.answerRequest(document, location.href, ask.profile, ask.answer),
+  };
 }
 
 /**
@@ -331,8 +344,10 @@ export function lookingKit(site: LookingSite): Kit {
                     ? unfollowHere(site)
                     : ask.type === 'hfos-withdraw'
                       ? withdrawHere(site, ask as WithdrawAsk)
-                      : ON_ITS_OWN_ASKS.has(ask.type)
-                        ? onItsOwn(site, ask as OnItsOwnAsk)
-                        : null,
+                      : ask.type === 'hfos-answer-request'
+                        ? answerHere(site, ask as AnswerRequestAsk)
+                        : ON_ITS_OWN_ASKS.has(ask.type)
+                          ? onItsOwn(site, ask as OnItsOwnAsk)
+                          : null,
   };
 }

@@ -3,7 +3,7 @@
  * someone to a social network, where the person's own Facebook stands with them, and who's never pitched. Row
  * security decides what a request sees.
  */
-import { and, eq, inArray, isNull, or, sql } from 'drizzle-orm';
+import { and, eq, inArray, isNull, or, sql, type SQL } from 'drizzle-orm';
 import { rows } from '@hfos/db/client';
 import { people, recordTags, tags } from '@hfos/db/schema';
 import { personClientCause, personIsClient } from '../../../crm/clients';
@@ -133,6 +133,34 @@ export const partnered = (p: string) =>
  * a partner, who's asked to partner instead (decision 81). `p` is its alias.
  */
 export const pitchable = (p: string) => sql`(${notNever(p)} and not ${partnered(p)})`;
+
+/**
+ * Any chat with someone either way, kept or noted, of the person `me` (an id, or a column of the query): never deleted
+ * for not fitting (decision 121). `p` is the profile.
+ */
+export const chattedWith = (me: string | SQL, p = 'p') => {
+  const at = sql.raw(p);
+  return sql`(exists (select 1 from addon_outreach.file_chats c
+    where c.profile_id = ${at}.id and c.user_id = ${me})
+  or exists (select 1 from addon_outreach.replies r where r.profile_id = ${at}.id and r.user_id = ${me})
+  or exists (select 1 from addon_outreach.touches t
+    where t.profile_id = ${at}.id and t.user_id = ${me} and t.kind = 'message'))`;
+};
+
+/**
+ * What's known of a request the person got besides its profile (decision 136): their own Confirm or Delete since it
+ * came (`pressed`), and what the AI said to do with it (`said`), and why (`said_why`). `f` is the request, `ch` the
+ * person's check of them, left joined.
+ */
+export const requestAnswerColumns = sql`case when f.answer_at >= f.since then f.answer end as pressed,
+  ch.request_answer as said, ch.request_why as said_why`;
+
+/**
+ * Someone whose friend request is never deleted but by the person (decisions 121 and 136): kept, in Contacts, chatted
+ * with, a partner, or on Don't pitch. `f` is the request, `p` its profile, and `me` the person (an id or a column).
+ */
+export const neverDeleted = (me: string | SQL, p = 'p', f = 'f') =>
+  sql`(${sql.raw(f)}.keep or ${sql.raw(p)}.person_id is not null or not ${pitchable(p)} or ${chattedWith(me, p)})`;
 
 /**
  * A playbook that's after customers: any but a partner playbook (decision 81), whose audience is reached through

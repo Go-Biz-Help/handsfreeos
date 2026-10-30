@@ -153,6 +153,13 @@ export const OUTREACH_WORDS = {
   openOnFacebook: 'Open on Facebook',
   leaveIt: 'Leave it',
   left: (name: string) => `Left. ${name} is off this list until they ask again.`,
+  /** Confirm and Delete on a request to decide (decision 136): the extension does it. */
+  confirmRequest: 'Confirm',
+  deleteRequest: 'Delete',
+  confirming: (name: string) =>
+    `Confirming. Your computer confirms ${name}’s request as it works through your day.`,
+  deleting: (name: string) =>
+    `Deleting. Your computer deletes ${name}’s request with its once-a-day jobs.`,
   asked: (when: string, mutual: number | null) =>
     `Asked ${when}${mutual ? ` · ${mutual.toLocaleString('en-US')} mutual` : ''}`,
   hearTitle: 'How you hear of it',

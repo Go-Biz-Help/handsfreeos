@@ -37,7 +37,7 @@ import type {
 } from './automation';
 import type { EngagementKind, HelpfulState } from './helpful';
 import type { ChatReadState } from './chat-read';
-import type { CheckVerdict } from './checks';
+import type { CheckVerdict, RequestAnswer } from './checks';
 import type {
   Answer,
   ConversationStep,
@@ -58,7 +58,7 @@ import type { PartnerFit, PartnerKind, PartnerSearchKind, PartnerStage } from '.
 import type { DownloadCounts, DownloadList, DownloadMessage } from './download';
 import type { LikeYoursState } from './like-yours';
 import type { OccasionKind } from './occasions';
-import type { FriendState, TidyKind } from './limits';
+import type { FriendAnswer, FriendState, TidyKind } from './limits';
 import type { DraftOpener, OpenerKind } from './openers';
 import type { PlaybookDetails } from './playbooks';
 import type { PostCheck, PostFound } from './posts';
@@ -318,6 +318,12 @@ export const friends = addonOutreach.table(
     setAsideAt: ts('set_aside_at'),
     /** When Cancel all marked a sent request to cancel (decision 121): it counts while it's since `since`. */
     cancelAt: ts('cancel_at'),
+    /**
+     * The person's Confirm or Delete on a request they got (decision 136), which the extension does: it counts while
+     * `answerAt` is since `since`.
+     */
+    answer: text('answer').$type<FriendAnswer>(),
+    answerAt: ts('answer_at'),
     createdAt: ts('created_at').notNull().defaultNow(),
     updatedAt: ts('updated_at').notNull().defaultNow(),
   },
@@ -1112,6 +1118,12 @@ export const checks = addonOutreach.table(
     via: text('via').notNull().default('known').$type<CheckVia>(),
     /** Why they look more like a partner than a customer (decision 130), in one line: null when they don't. */
     partnerHint: text('partner_hint'),
+    /**
+     * Of someone who asked to be friends (decision 136): what the AI says to do with their request, and why in a line.
+     * The verdict stays whether they'd be a customer.
+     */
+    requestAnswer: text('request_answer').$type<RequestAnswer>(),
+    requestWhy: text('request_why'),
     createdAt: ts('created_at').notNull().defaultNow(),
     updatedAt: ts('updated_at').notNull().defaultNow(),
   },

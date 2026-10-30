@@ -95633,6 +95633,81 @@
         }
       }
     },
+    "/v1/commands/outreach.request.answer": {
+      "post": {
+        "operationId": "command_outreach_request_answer",
+        "summary": "The person confirms or deletes a friend request they got (decision 136), whatever they picked for those: their computer confirms it as it works through their day, or deletes it with the once-a-day jobs, on Facebook, LinkedIn or Alignable. It leaves Waiting for you at once.",
+        "tags": [
+          "commands"
+        ],
+        "description": "Risk level 2. Requires outreach.use. Emits outreach.request.answered. Can wait on a phone with no signal.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "workspaceId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  },
+                  "profileId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  },
+                  "answer": {
+                    "type": "string",
+                    "enum": [
+                      "confirm",
+                      "delete"
+                    ]
+                  }
+                },
+                "required": [
+                  "workspaceId",
+                  "profileId",
+                  "answer"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "profileId": {
+                      "type": "string",
+                      "format": "uuid",
+                      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                    },
+                    "answer": {
+                      "type": "string",
+                      "enum": [
+                        "confirm",
+                        "delete"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "profileId",
+                    "answer"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/v1/commands/outreach.ask.make": {
       "post": {
         "operationId": "command_outreach_ask_make",
@@ -214871,6 +214946,22 @@
                                         "type": "null"
                                       }
                                     ]
+                                  },
+                                  "said": {
+                                    "default": null,
+                                    "anyOf": [
+                                      {
+                                        "type": "string",
+                                        "enum": [
+                                          "confirm",
+                                          "delete",
+                                          "ask"
+                                        ]
+                                      },
+                                      {
+                                        "type": "null"
+                                      }
+                                    ]
                                   }
                                 },
                                 "required": [
@@ -214881,7 +214972,8 @@
                                   "why",
                                   "held",
                                   "since",
-                                  "mutualFriends"
+                                  "mutualFriends",
+                                  "said"
                                 ],
                                 "additionalProperties": false
                               }
@@ -220689,7 +220781,7 @@
     "/v1/queries/outreach.checks.next": {
       "post": {
         "operationId": "query_outreach_checks_next",
-        "summary": "Who the person’s computer checks next for whether they fit a playbook, in order and no more than today has room for: anyone they pressed Research on, anyone waiting for a look at where they live (those asking to be friends first), friends whose chat looks like a prospect, then friends with any chat, others they’ve chatted with, friends from the groups, the rest of their friends, their followers on Facebook who aren’t friends yet, then people in the business’s Facebook groups who aren’t friends, the best fit first. Never anyone on Don’t pitch, nor anyone checked lately unless the person asked to check everyone again or they wait for a look.",
+        "summary": "Who the person’s computer checks next for whether they fit a playbook, in order and no more than today has room for: anyone they pressed Research on, anyone who sent them a friend request they haven’t answered (for what to do with it), anyone waiting for a look at where they live (those asking to be friends first), friends whose chat looks like a prospect, then friends with any chat, others they’ve chatted with, friends from the groups, the rest of their friends, their followers on Facebook who aren’t friends yet, then people in the business’s Facebook groups who aren’t friends, the best fit first. Never anyone on Don’t pitch, nor anyone checked lately unless the person asked to check everyone again or they wait for a look.",
         "tags": [
           "queries"
         ],
@@ -220763,6 +220855,7 @@
                             "type": "string",
                             "enum": [
                               "asked",
+                              "request",
                               "country",
                               "prospect",
                               "chat",

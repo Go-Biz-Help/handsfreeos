@@ -21,6 +21,7 @@ import { sameMember } from '../../networks/linkedin/urls';
 import { counted } from '../../words';
 import { paced, pause, valueOf, warnedOn, type Job, type JobEnd } from '../job';
 import { ownTidy } from '../own-tidy';
+import { ignoreThese } from './ignore';
 import { INVITATIONS_SENT, readLinkedIn, SCROLL_PACE_MS } from './read';
 
 /** Between people, a steady pace like a person's: never the same twice. */
@@ -153,14 +154,19 @@ export async function withdrawInvitations(
 
 /**
  * Withdrawing on its own, once a day (decision 98): the oldest invitations HandsFreeOS picked for today, as the person
- * chose for LinkedIn. Nobody is handed to the person: one it can't withdraw, it passes over.
+ * chose for LinkedIn; then, from 0.118.0, the invitations they got that it picked to ignore (decision 136, ./ignore.ts).
+ * Nobody is handed to the person: one it can't withdraw or ignore, it passes over.
  */
 export async function withdrawOnItsOwn(job: Job): Promise<JobEnd> {
   const lists = await listsOf(job);
-  return ownTidy(job, lists, (which, picks) =>
-    which === 'cancel_request'
-      ? withdrawThese(job, picks, lists)
-      : Promise.resolve({ line: '', warned: false }),
+  return ownTidy(
+    job,
+    lists,
+    (which, picks) =>
+      which === 'cancel_request'
+        ? withdrawThese(job, picks, lists)
+        : Promise.resolve({ line: '', warned: false }),
+    (picks) => ignoreThese(job, picks, lists),
   );
 }
 

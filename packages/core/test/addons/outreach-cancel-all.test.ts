@@ -13,7 +13,7 @@ import { AUTOMATION_DEFAULTS, type AnswerMode } from '../../src/addons/outreach/
 import { DECLINES_PER_DAY } from '../../src/addons/outreach/limits';
 import { tidyWordsOn } from '../../src/addons/outreach/network-words';
 import { PLAYBOOK_TEMPLATES } from '../../src/addons/outreach/playbooks';
-import { outreachBusiness, refused, runAs } from './outreach-fixture';
+import { checkedAs, outreachBusiness, refused, runAs } from './outreach-fixture';
 
 const admin = () => testDbs().admin.db;
 const DAY = 86_400_000;
@@ -291,6 +291,13 @@ describe('the friend requests the person gets, on Facebook', () => {
       name: crm.name,
       template: 'crm_demos',
       details: crm.details,
+    });
+    // Not fitting by the lines under a name never deletes on its own: the AI reads them first (decision 136).
+    expect((await tidy()).own.decline).toEqual([]);
+    await checkedAs(owner, ws, await profileId('hollis.reed.6'), {
+      fit: 'not',
+      why: ['Nothing on their page'],
+      request: { answer: 'delete', why: 'No mutual friends, and nothing on their page' },
     });
     expect(names((await tidy()).own.decline)).toEqual(['Hollis Reed']);
     expect(await confirms()).toEqual(['Gale Prior']);

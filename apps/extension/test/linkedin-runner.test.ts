@@ -359,7 +359,7 @@ beforeEach(() => {
 });
 
 describe('what it does on LinkedIn’s list', () => {
-  it('does only the kinds it does there: invitations they got are theirs to accept', () => {
+  it('does only the kinds it does there: from 0.118.0 the invitations HandsFreeOS says to accept too', () => {
     const nia = item({
       kind: 'comment',
       name: 'Nia Park',
@@ -379,6 +379,7 @@ describe('what it does on LinkedIn’s list', () => {
       sending: 'steps',
     } as never;
     expect(linkedInWorkLeft(list, []).map((w) => w.item.kind)).toEqual([
+      'confirm',
       'warm_up',
       'friend_request',
     ]);
@@ -388,7 +389,7 @@ describe('what it does on LinkedIn’s list', () => {
       linkedInWorkLeft({ ...(list as object), messages: ['comment'] } as never, []).map(
         (w) => `${w.do}: ${w.item.kind}`,
       ),
-    ).toEqual(['step: warm_up', 'step: friend_request', 'draft: comment']);
+    ).toEqual(['step: confirm', 'step: warm_up', 'step: friend_request', 'draft: comment']);
     expect(
       linkedInWorkLeft(
         {

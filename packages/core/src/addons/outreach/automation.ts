@@ -113,15 +113,16 @@ export type TidyMode = keyof typeof TIDY_MODES;
 export const TIDY_MODE_KEYS = Object.keys(TIDY_MODES) as [TidyMode, ...TidyMode[]];
 
 /**
- * The friend requests the person gets (decision 121), where the extension answers them (Facebook's runner): left to
- * them; confirmed when they fit a playbook, the rest left to them (decision 30, as it starts); those confirmed and the
- * rest deleted; all confirmed; or all deleted. Kept as `confirmRequests`, off when they're left to the person, and,
- * while it's on, `requests`.
+ * The friend requests the person gets (decision 121), where the extension answers them (the runners on Facebook,
+ * LinkedIn and Alignable, decision 136): left to them; the AI's good ones confirmed, the rest left to them (decision 30,
+ * as it starts); the AI deciding, its good ones confirmed and its noes deleted; all confirmed; or all deleted. Kept as
+ * `confirmRequests`, off when they're left to the person, and, while it's on, `requests`. From decision 136 the AI
+ * reads each one's profile to say which are good (`requestAnswerOf`), not the lines Facebook's list showed.
  */
 export const REQUEST_MODES = {
   mine: 'Leave them all to me',
-  fits: 'Confirm who fits a playbook, and leave the rest to me',
-  fits_delete: 'Confirm who fits a playbook, and delete the rest',
+  fits: 'Let the AI confirm the good ones, and leave the rest to me',
+  fits_delete: 'Let the AI decide: confirm the good ones, and delete the rest',
   all: 'Confirm them all',
   delete: 'Delete them all',
 } as const;
@@ -151,6 +152,39 @@ export const requestModeChange = (
 /** Whether a pick deletes some of the requests the person gets. */
 export const deletesRequests = (mode: RequestMode): boolean =>
   mode === 'fits_delete' || mode === 'delete';
+
+/** Whether the AI reads the requests the person gets under a pick (decision 136): not when all go one way. */
+export const readsRequests = (mode: RequestMode): boolean => mode !== 'all' && mode !== 'delete';
+
+/**
+ * What becomes of a friend request someone sent the person, where the extension answers them (decisions 30, 121 and
+ * 136): confirmed, deleted, or theirs to decide (null). Their own Confirm or Delete goes first, whatever they picked.
+ * Nobody on Don't pitch or tagged Friend or family is answered but by them. Else as they picked: by the AI's read of
+ * their profile while it decides (`said`), or before it has, a good fit by the lines the list showed (`good`). A no is
+ * deleted only while they have it decide, and only with a playbook in use. The callers keep their own rules besides:
+ * who's never deleted, and the business's countries.
+ */
+export function requestAnswerOf(r: {
+  readonly mode: RequestMode;
+  /** The person's own Confirm or Delete since the request came (`friends.answer`). */
+  readonly pressed: 'confirm' | 'delete' | null;
+  /** Not on Don't pitch, nor tagged Friend or family. */
+  readonly pitched: boolean;
+  /** The business has a playbook in use. */
+  readonly playbooks: boolean;
+  /** What the AI says to do with it, once it's read them for it. */
+  readonly said: 'confirm' | 'delete' | 'ask' | null;
+  /** They fit a playbook well by what the list showed of them (decision 30). */
+  readonly good: boolean;
+}): 'confirm' | 'delete' | null {
+  if (r.pressed) return r.pressed;
+  if (!r.pitched || r.mode === 'mine') return null;
+  if (r.mode === 'all') return 'confirm';
+  if (r.mode === 'delete') return 'delete';
+  const said = r.said ?? (r.good && r.playbooks ? 'confirm' : null);
+  if (said === 'confirm') return 'confirm';
+  return said === 'delete' && r.mode === 'fits_delete' && r.playbooks ? 'delete' : null;
+}
 
 /** A network's tidying as it goes there: unfriending only where the network has it, else just the old requests. */
 export const tidyModeOn = (platform: Platform, mode: TidyMode): TidyMode =>
@@ -477,15 +511,16 @@ type DoesChoices = Pick<NetworkChoices, 'sending' | 'confirmRequests' | 'warmUp'
 /**
  * The kinds on the list for today the extension does on its own for someone, in the order it does them: requests
  * to confirm first, then likes, friend requests and comments. Messages go their own way (`MESSAGE_KINDS`). None on a
- * network the person doesn't work, and only what the network's runner does (its kit's `runs`): LinkedIn's accepts no
- * invitations, so its Accept rows stay the person's.
+ * network the person doesn't work, and only what the network's runner does (its kit's `runs`). Requests to confirm go
+ * whatever the person picked for those (decision 136): Today lists only the ones it's to confirm, which with the
+ * requests left to them are the ones they pressed Confirm on.
  */
 export function autoKinds(settings: DoesChoices, platform: Platform = 'facebook'): TodayKind[] {
   if (settings.sending === 'off' || settings.on === false) return [];
   const runs: readonly TodayKind[] = NETWORKS[platform].runs.auto;
   return (
     [
-      ...(settings.confirmRequests ? (['confirm'] as const) : []),
+      'confirm',
       ...(settings.warmUp ? (['warm_up'] as const) : []),
       'friend_request',
       'comment',
