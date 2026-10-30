@@ -1204,6 +1204,7 @@ type TodayRow = {
   profile_id: string;
   name: string;
   url: string;
+  platform_id: string | null;
   kind: PartnerKind;
   audience: string | null;
   why: string[];
@@ -1253,7 +1254,7 @@ export async function partnerToday(
       })
       .sort((a, b) => a.name.localeCompare(b.name))[0]?.link ?? null;
   const select = sql`select pa.id, pa.stage, pa.marked_at is not null as marked, pa.details_at, pa.profile_id, p.name,
-      p.url, pa.kind, pa.audience, pa.why, pa.next_step, pa.playbook_id, p.person_id`;
+      p.url, p.platform_id, pa.kind, pa.audience, pa.why, pa.next_step, pa.playbook_id, p.person_id`;
   const from = sql`from addon_outreach.partners pa join addon_outreach.profiles p on p.id = pa.profile_id
       where pa.workspace_id = ${ws} and pa.user_id = ${me} and p.platform = ${o.platform} and ${notNever('p')}`;
   // Those the person marked go before the AI's finds (answer 6a), then the best fits with the biggest audiences.
@@ -1342,6 +1343,7 @@ export async function partnerToday(
         name: r.name,
         profileId: r.profile_id,
         profileUrl: r.url,
+        ...(r.platform_id ? { platformId: r.platform_id } : {}),
         chatId: r.chat_id,
         threadKey: r.thread_key,
         postId: null,

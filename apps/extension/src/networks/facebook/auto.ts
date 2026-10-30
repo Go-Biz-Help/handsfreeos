@@ -532,12 +532,9 @@ function windowProof(
   names: readonly string[],
   fresh: boolean,
 ): 'key' | 'name' | null {
-  const around = chatWindowOf(box, main);
-  if (!around) return null;
-  const { chatWindow, close } = around;
-  const header = headerOf(chatWindow, close, box);
-  const linked = linkedIn(header.querySelectorAll('a[href]'));
-  const heading = headingIn(header);
+  const parts = windowParts(box, main);
+  if (!parts) return null;
+  const { chatWindow, close, linked, heading } = parts;
   if (!boxAgrees(box, [...names, heading, ...linked.map((person) => person.name)])) return null;
   const keyed = linked.map((person) => sameByKey(person.profile, them));
   if (linked.length > 0 && keyed.every((same) => same === true)) return 'key';
@@ -555,6 +552,18 @@ function windowProof(
     ),
   );
   return elsewhere.some((person) => sameByKey(person.profile, them) === false) ? null : 'name';
+}
+
+/** A small chat window around a box to write in, its Close chat, and who its header links to and names. */
+function windowParts(box: Element, main: Element) {
+  const around = chatWindowOf(box, main);
+  if (!around) return null;
+  const header = headerOf(around.chatWindow, around.close, box);
+  return {
+    ...around,
+    linked: linkedIn(header.querySelectorAll('a[href]')),
+    heading: headingIn(header),
+  };
 }
 
 /**
@@ -736,6 +745,37 @@ export function messageBoxFor(
   return named.length === 1 ? named[0]!.box : null;
 }
 
+/**
+ * Who the chat window that opened on their profile's Message links to, when it can't count as theirs: the one window
+ * not open before it, showing their name as `messageBoxFor` asks of a window by name but without the cursor in it,
+ * that links to one person by a key HandsFreeOS doesn't keep for them. Facebook's windows link to people by number,
+ * someone may be kept by username alone, and Facebook puts no cursor in a window that opens while the runner's is
+ * behind the person's own (the owner's report of 30 Oct 2026). Never typed into on this: the runner opens that number's
+ * profile, and only when Facebook shows it's theirs does the message go, by that number (src/auto/run.ts). Null when
+ * there's no such window, or more than one.
+ */
+export function openedWindowLinks(
+  doc: Document,
+  href: string,
+  them: ProfileRef,
+  names: readonly string[],
+  before: ChatsBefore | null,
+): ProfileRef | null {
+  const main = doc.querySelector('[role="main"]');
+  const pressed = before?.doc === doc ? before : null;
+  if (!main || !pressed || classifyUrl(href).kind === 'chat') return null;
+  if (pressed.names.some((name) => names.some((one) => mayBeSame(name, one)))) return null;
+  const opened = messageBoxes(doc).filter(
+    (box) =>
+      !main.contains(box) &&
+      !pressed.boxes.has(box) &&
+      windowProof(box, main, them, names, true) === 'name',
+  );
+  const linked = opened.length === 1 ? (windowParts(opened[0]!, main)?.linked ?? []) : [];
+  const person = linked.length === 1 ? linked[0]!.profile : null;
+  return person && sameByKey(person, them) === null ? person : null;
+}
+
 /** How a message went: with, when its typing went into another chat's box and stayed there, whose that is. */
 export interface MessageWrote {
   readonly result: AutoResult;
@@ -744,6 +784,11 @@ export interface MessageWrote {
    * Quinn's), or null when it names nobody. The person's to take out.
    */
   readonly left?: { readonly with: string | null };
+  /**
+   * With `none`: who the window their profile's Message opened links to, by a key HandsFreeOS doesn't keep for them
+   * (`openedWindowLinks`), for the runner to check on Facebook before it asks again with that key.
+   */
+  readonly linksTo?: ProfileRef;
 }
 
 /**
@@ -774,7 +819,10 @@ export async function writeMessage(
     box = byKey();
   }
   box ??= theirs();
-  if (!box) return { result: 'none' };
+  if (!box) {
+    const linksTo = openedWindowLinks(doc, here(), them, names, before);
+    return linksTo ? { result: 'none', linksTo } : { result: 'none' };
+  }
   const wrote = await typeAndSend(doc, box, text, theirs);
   if (wrote.result === 'done' && before?.doc === doc) before.sentIn = box;
   return wrote;

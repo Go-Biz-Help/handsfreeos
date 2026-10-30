@@ -79212,6 +79212,7 @@ export interface operations {
                             partnerHint?: string | null;
                             partnerId?: string | null;
                             personId: string | null;
+                            platformId?: string | null;
                             playbookName: string | null;
                             post: string | null;
                             posted: string | null;
@@ -79277,6 +79278,7 @@ export interface operations {
                             partnerHint?: string | null;
                             partnerId?: string | null;
                             personId: string | null;
+                            platformId?: string | null;
                             playbookName: string | null;
                             post: string | null;
                             posted: string | null;

@@ -22,6 +22,7 @@ import {
 } from '../src/auto/plan';
 import {
   AUTO_PLANS,
+  chatsOpen,
   likeTheirPost,
   readTheirPosts,
   MESSAGE_PATH,
@@ -31,6 +32,7 @@ import {
   withTheirName,
   writeComment,
   writeMessage,
+  type ChatsBefore,
 } from '../src/networks/facebook/auto';
 import { doPath, doStep, findStep, type FetchStep } from '../src/networks/facebook/fetch';
 import { readPage } from '../src/networks/facebook/page';
@@ -1028,6 +1030,62 @@ describe('writing a message', () => {
     const before = await press({ name: 'Dana Reyes', href: null });
     expect(await write(doc, URL, 'Hi Dana', dana, ['Dana Reyes'], before)).toBe('none');
     expect(sent).toEqual([]);
+  });
+
+  it('types nothing in the window their Message opened, linking by number, without the cursor, and says who it links to', async () => {
+    // As Facebook's windows do: hers links to her by number, which HandsFreeOS doesn't keep, and the runner's window
+    // is behind the person's, so Facebook puts no cursor in it (the owner's report of 30 Oct 2026).
+    const hers = { name: 'Dana Reyes', href: '/100009000000031/' };
+    const { doc, sent, boxOf, press } = profileWithChats(rileyChat);
+    const before = await press(hers, 'before', false);
+    expect(await written(doc, URL, 'Hi Dana', dana, ['Dana Reyes'], before)).toEqual({
+      result: 'none',
+      linksTo: {
+        id: '100009000000031',
+        username: null,
+        url: `${FB}/profile.php?id=100009000000031`,
+      },
+    });
+    expect(sent).toEqual([]);
+    expect(boxOf('Dana Reyes').textContent?.trim()).toBe('');
+    // Once the runner has seen on Facebook that the number is hers, it goes there by it.
+    const numbered = { ...dana, id: '100009000000031' };
+    expect(await write(doc, URL, 'Hi Dana', numbered, ['Dana Reyes'])).toBe('done');
+    expect(sent).toEqual([{ to: 'Write to Dana Reyes', text: 'Hi Dana' }]);
+  });
+
+  it('says who a window links to only for the one window that opened on their Message with their name', async () => {
+    const hers = { name: 'Dana Reyes', href: '/100009000000031/' };
+    const linksTo = async (made: ReturnType<typeof profileWithChats>, before: ChatsBefore) =>
+      (await written(made.doc, URL, 'Hi Dana', dana, ['Dana Reyes'], before)).linksTo;
+    // Not when a window open before showed her name: someone else may have it.
+    const namesake = profileWithChats(rileyChat, { name: 'Dana Reyes', href: null });
+    expect(await linksTo(namesake, await namesake.press(hers, 'after', false))).toBeUndefined();
+    // Not when another window with her name popped up beside it.
+    const two = profileWithChats(rileyChat);
+    two.doc
+      .querySelector('[role="button"][aria-label="Message"]')!
+      .addEventListener('click', () => two.open({ name: 'Dana Reyes', href: '/100009000000032/' }));
+    expect(await linksTo(two, await two.press(hers, 'after', false))).toBeUndefined();
+    // Not for one with someone else's name, nor one linking to someone else by her kind of key.
+    const sam = profileWithChats(rileyChat);
+    expect(
+      await linksTo(
+        sam,
+        await sam.press({ name: 'Sam Lee', href: '/100009000000033/' }, 'after', false),
+      ),
+    ).toBeUndefined();
+    const other = profileWithChats(rileyChat);
+    expect(
+      await linksTo(
+        other,
+        await other.press({ name: 'Dana Reyes', href: '/dana.reyes.99/' }, 'after', false),
+      ),
+    ).toBeUndefined();
+    // Not without Message pressed on this page.
+    const unpressed = profileWithChats(rileyChat);
+    unpressed.open(hers);
+    expect(await linksTo(unpressed, chatsOpen(unpressed.doc))).toBeUndefined();
   });
 
   it('never takes a window that opened on their Message by name when it links to someone else elsewhere in it', async () => {

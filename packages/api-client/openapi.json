@@ -208465,6 +208465,12 @@
                               "null"
                             ]
                           },
+                          "platformId": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
                           "chatId": {
                             "anyOf": [
                               {
@@ -208738,6 +208744,12 @@
                             ]
                           },
                           "profileUrl": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "platformId": {
                             "type": [
                               "string",
                               "null"
