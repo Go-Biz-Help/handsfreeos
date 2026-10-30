@@ -332,6 +332,7 @@ const todayOf = (items: TodayItem[]): TodayOutput => ({
   fresh: { on: false, from: null, until: null, days: 14 },
   requestsHeld: null,
   profileOwn: null,
+  goal: null,
 });
 
 describe('A network’s list for today', () => {
@@ -398,7 +399,14 @@ describe('A network’s list for today', () => {
 
   it('offers Cancel all under the note that no new requests go, the extension’s left out first (decision 121)', async () => {
     const onCancelAll = jest.fn();
-    const held = { why: 'waiting', count: 207, most: 200, extension: 7, cancelling: 0 } as const;
+    const held = {
+      why: 'waiting',
+      count: 207,
+      most: 200,
+      extension: 7,
+      cancelling: 0,
+      cancelMost: null,
+    } as const;
     const body = (requestsHeld: TodayOutput['requestsHeld']) => (
       <TodayBody
         platform="facebook"
@@ -428,6 +436,57 @@ describe('A network’s list for today', () => {
     await render(body({ ...held, extension: 0 }));
     expect(screen.queryByTestId('today-cancel-all-leaving-out')).toBeNull();
     expect(screen.getByTestId('today-cancel-all-every')).toBeTruthy();
+  });
+
+  it('says how many first messages short and why, with what to try (decision 126)', async () => {
+    const onGoalTry = jest.fn();
+    const goal: NonNullable<TodayOutput['goal']> = {
+      most: 15,
+      done: 2,
+      listed: 1,
+      waitingOk: 1,
+      short: 12,
+      ahead: 3,
+      requests: { listed: 0, left: 20 },
+      more: true,
+      why: 'few_fits',
+      tries: ['niche', 'playbook'],
+      facts: {
+        checked: 0,
+        fit: 0,
+        weekChecked: 40,
+        weekFit: 3,
+        unchecked: 0,
+        sent: 0,
+        accepted: 0,
+      },
+    };
+    const body = (g: TodayOutput['goal']) => (
+      <TodayBody
+        platform="facebook"
+        today={{ ...todayOf([]), goal: g }}
+        error={null}
+        wheels={null}
+        onRetry={jest.fn()}
+        onOk={jest.fn()}
+        onSkip={jest.fn()}
+        onNotForMe={jest.fn()}
+        onEndWheels={jest.fn()}
+        onGoalTry={onGoalTry}
+      />
+    );
+    await render(body(goal));
+    expect(screen.getByTestId('today-goal')).toHaveTextContent(
+      /^Facebook is 12 short of today’s 15 first messages\. Only 3 of the 40 people it checked this week fit your playbooks\. It’s checking more people/,
+    );
+    await fireEvent.press(screen.getByTestId('today-goal-niche'));
+    expect(onGoalTry).toHaveBeenLastCalledWith('niche');
+    expect(screen.getByTestId('today-goal-playbook')).toHaveTextContent('Add a playbook');
+    // Get ready says what's left before it starts; nothing while it isn't short.
+    await render(body({ ...goal, why: 'not_ready', tries: [] }));
+    expect(screen.queryByTestId('today-goal')).toBeNull();
+    await render(body({ ...goal, short: 0, why: null }));
+    expect(screen.queryByTestId('today-goal')).toBeNull();
   });
 });
 

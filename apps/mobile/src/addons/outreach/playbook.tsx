@@ -45,6 +45,7 @@ import { ActivityIndicator, View } from 'react-native';
 
 import { change, ChangeError } from '@/changes';
 import { Archive, Check, Plus, RotateCcw, Sparkles, Trash } from '@/components/icons';
+import { useKeyboardHeight } from '@/components/shell/keyboard';
 import { List, ListRow } from '@/components/shell/list';
 import { Screen } from '@/components/shell/screen';
 import { Badge } from '@/components/ui/badge';
@@ -454,6 +455,7 @@ function SectionSheet({
   const [draft, setDraft] = React.useState<Pick<Playbook, 'name' | 'details'>>(playbook);
   const [problem, setProblem] = React.useState<string | null>(null);
   const [busy, setBusy] = React.useState(false);
+  const keyboard = useKeyboardHeight();
   React.useEffect(() => {
     if (section) {
       setDraft({ name: playbook.name, details: playbook.details });
@@ -477,7 +479,7 @@ function SectionSheet({
     : undefined;
   return (
     <Sheet open={section !== null} onClose={onClose} title={title} scroll testID="playbook-sheet">
-      <View className="gap-3">
+      <View style={keyboard ? { paddingBottom: keyboard } : undefined} className="gap-3">
         {section ? (
           <SectionEditor section={section} draft={draft} set={set} setDraft={setDraft} {...ai} />
         ) : null}

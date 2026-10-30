@@ -71,11 +71,14 @@ export const RepliesNoteOutput = z.object({
 });
 export type RepliesNoteOutput = z.output<typeof RepliesNoteOutput>;
 
-/** The push for a reply: "Dana Reyes wrote back". */
-export function replyPushWords(name: string): { title: string; body: string } {
+/** The push for a reply: "Dana Reyes wrote back", on the network they wrote on. */
+export function replyPushWords(
+  name: string,
+  platform: Platform = 'facebook',
+): { title: string; body: string } {
   return {
     title: `${name} wrote back`,
-    body: 'On Facebook. Your list for today has them, with drafts for your reply.',
+    body: `On ${PLATFORMS[platform]}. Your list for today has them, with drafts for your reply.`,
   };
 }
 

@@ -302,7 +302,12 @@ async function joinsNext(job: Job): Promise<JoinsNext> {
   return valueOf(
     await job.hfos({
       type: 'hfos-joins-next',
-      input: { workspaceId: job.businessId, platform: 'alignable' },
+      input: {
+        workspaceId: job.businessId,
+        platform: 'alignable',
+        // Today's round of finding again (decision 126): the next search words.
+        ...(job.round ? { round: job.round } : {}),
+      },
     }),
   );
 }
@@ -378,7 +383,8 @@ export async function joinGroupsOn(job: Job): Promise<JobEnd> {
       line: 'Joining groups on its own is off in your Alignable settings.',
       warned: false,
     };
-  if (!got.prospects.low)
+  // Or more on a day the first messages need more good fits (decision 126).
+  if (!got.prospects.low && !got.more)
     return {
       line: `Your Alignable groups have ${counted(got.prospects.left, 'person', 'people')} left to reach: no need to join more yet.`,
       warned: false,

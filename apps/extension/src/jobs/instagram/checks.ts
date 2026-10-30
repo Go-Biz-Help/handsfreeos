@@ -16,7 +16,7 @@ import { line } from '../../networks/facebook/lookup';
 import type { Account, InstagramProfile } from '../../networks/instagram/read';
 import { instagramUrl, profileOf } from '../../networks/instagram/urls';
 import { counted } from '../../words';
-import type { ReadThem, Who } from '../checks';
+import { moreToCome, type ReadThem, type Who } from '../checks';
 import { paced, pause, valueOf, warnedOn, type Job, type JobEnd } from '../job';
 import { readInstagramIn, signedOutEnd } from './read';
 
@@ -179,5 +179,9 @@ export async function checkFollowers(
       await pause(paced(PACE_MS));
     }
   }
-  return { line: `Done. ${summary(sent, missing)}`, warned: false };
+  return {
+    line: `Done. ${summary(sent, missing)}`,
+    warned: false,
+    ...(moreToCome(next, most) ? { again: true } : {}),
+  };
 }

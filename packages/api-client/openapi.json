@@ -207263,6 +207263,19 @@
                               "type": "integer",
                               "minimum": 0,
                               "maximum": 9007199254740991
+                            },
+                            "cancelMost": {
+                              "default": null,
+                              "anyOf": [
+                                {
+                                  "type": "integer",
+                                  "minimum": 0,
+                                  "maximum": 9007199254740991
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
                             }
                           },
                           "required": [
@@ -207270,7 +207283,8 @@
                             "count",
                             "most",
                             "extension",
-                            "cancelling"
+                            "cancelling",
+                            "cancelMost"
                           ],
                           "additionalProperties": false
                         },
@@ -207306,6 +207320,169 @@
                           "type": "null"
                         }
                       ]
+                    },
+                    "goal": {
+                      "default": null,
+                      "anyOf": [
+                        {
+                          "type": "object",
+                          "properties": {
+                            "most": {
+                              "type": "integer",
+                              "minimum": 0,
+                              "maximum": 9007199254740991
+                            },
+                            "done": {
+                              "type": "integer",
+                              "minimum": 0,
+                              "maximum": 9007199254740991
+                            },
+                            "listed": {
+                              "type": "integer",
+                              "minimum": 0,
+                              "maximum": 9007199254740991
+                            },
+                            "waitingOk": {
+                              "type": "integer",
+                              "minimum": 0,
+                              "maximum": 9007199254740991
+                            },
+                            "short": {
+                              "type": "integer",
+                              "minimum": 0,
+                              "maximum": 9007199254740991
+                            },
+                            "ahead": {
+                              "type": "integer",
+                              "minimum": 0,
+                              "maximum": 9007199254740991
+                            },
+                            "requests": {
+                              "type": "object",
+                              "properties": {
+                                "listed": {
+                                  "type": "integer",
+                                  "minimum": 0,
+                                  "maximum": 9007199254740991
+                                },
+                                "left": {
+                                  "type": "integer",
+                                  "minimum": 0,
+                                  "maximum": 9007199254740991
+                                }
+                              },
+                              "required": [
+                                "listed",
+                                "left"
+                              ],
+                              "additionalProperties": false
+                            },
+                            "more": {
+                              "type": "boolean"
+                            },
+                            "why": {
+                              "anyOf": [
+                                {
+                                  "type": "string",
+                                  "enum": [
+                                    "not_ready",
+                                    "few_fits",
+                                    "checking",
+                                    "requests_held",
+                                    "few_accepts",
+                                    "few_found",
+                                    "waiting_accepts"
+                                  ]
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
+                            },
+                            "tries": {
+                              "type": "array",
+                              "items": {
+                                "type": "string",
+                                "enum": [
+                                  "niche",
+                                  "playbook",
+                                  "groups",
+                                  "words",
+                                  "profile",
+                                  "networks"
+                                ]
+                              }
+                            },
+                            "facts": {
+                              "type": "object",
+                              "properties": {
+                                "checked": {
+                                  "type": "integer",
+                                  "minimum": 0,
+                                  "maximum": 9007199254740991
+                                },
+                                "fit": {
+                                  "type": "integer",
+                                  "minimum": 0,
+                                  "maximum": 9007199254740991
+                                },
+                                "weekChecked": {
+                                  "type": "integer",
+                                  "minimum": 0,
+                                  "maximum": 9007199254740991
+                                },
+                                "weekFit": {
+                                  "type": "integer",
+                                  "minimum": 0,
+                                  "maximum": 9007199254740991
+                                },
+                                "unchecked": {
+                                  "type": "integer",
+                                  "minimum": 0,
+                                  "maximum": 9007199254740991
+                                },
+                                "sent": {
+                                  "type": "integer",
+                                  "minimum": 0,
+                                  "maximum": 9007199254740991
+                                },
+                                "accepted": {
+                                  "type": "integer",
+                                  "minimum": 0,
+                                  "maximum": 9007199254740991
+                                }
+                              },
+                              "required": [
+                                "checked",
+                                "fit",
+                                "weekChecked",
+                                "weekFit",
+                                "unchecked",
+                                "sent",
+                                "accepted"
+                              ],
+                              "additionalProperties": false
+                            }
+                          },
+                          "required": [
+                            "most",
+                            "done",
+                            "listed",
+                            "waitingOk",
+                            "short",
+                            "ahead",
+                            "requests",
+                            "more",
+                            "why",
+                            "tries",
+                            "facts"
+                          ],
+                          "additionalProperties": false
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
                     }
                   },
                   "required": [
@@ -207323,7 +207500,8 @@
                     "week",
                     "fresh",
                     "requestsHeld",
-                    "profileOwn"
+                    "profileOwn",
+                    "goal"
                   ],
                   "additionalProperties": false
                 }
@@ -208168,6 +208346,12 @@
                       "instagram",
                       "alignable"
                     ]
+                  },
+                  "round": {
+                    "default": 0,
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 2
                   }
                 },
                 "required": [
@@ -218367,7 +218551,7 @@
                     "default": 40,
                     "type": "integer",
                     "minimum": 1,
-                    "maximum": 40
+                    "maximum": 150
                   },
                   "profileId": {
                     "type": "string",
@@ -218937,6 +219121,12 @@
                       "format": "uuid",
                       "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
                     }
+                  },
+                  "round": {
+                    "default": 0,
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 2
                   }
                 },
                 "required": [
@@ -219034,6 +219224,10 @@
                     },
                     "onItsOwn": {
                       "type": "boolean"
+                    },
+                    "more": {
+                      "default": false,
+                      "type": "boolean"
                     }
                   },
                   "required": [
@@ -219043,7 +219237,8 @@
                     "prospects",
                     "words",
                     "anywhere",
-                    "onItsOwn"
+                    "onItsOwn",
+                    "more"
                   ],
                   "additionalProperties": false
                 }
@@ -221432,6 +221627,12 @@
                       "instagram",
                       "alignable"
                     ]
+                  },
+                  "round": {
+                    "default": 0,
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 2
                   }
                 },
                 "required": [

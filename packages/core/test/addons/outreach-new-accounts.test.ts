@@ -91,6 +91,7 @@ describe('no new friend requests', () => {
       most: 200,
       extension: 0,
       cancelling: 0,
+      cancelMost: null,
     });
     // How many the extension sent, and Cancel all's left (decision 121), for the note's buttons.
     expect(
@@ -109,6 +110,7 @@ describe('no new friend requests', () => {
       most: 4_900,
       extension: 0,
       cancelling: 0,
+      cancelMost: null,
     });
     expect(requestsHeldOn('alignable', { waiting: 0, friends: 9_900 })).toMatchObject({
       why: 'cap',
@@ -122,12 +124,19 @@ describe('no new friend requests', () => {
 
   it('says why, and what lets them start again, in the network’s words', () => {
     expect(requestsHeldWords({ why: 'waiting', count: 201, most: 200 }, 'facebook')).toBe(
-      'No new friend requests for now: 201 of yours are still waiting for an answer, and Facebook watches accounts with many. They start again under 200. Cancel all cancels them however new, 30 a day, or tick some under Old friend requests in Tidy up on the Friends tab.',
+      'No new friend requests for now: 201 of yours are still waiting for an answer, and Facebook watches accounts with many. They start again under 200. Cancel all cancels them however new, 60 a day, or tick some under Old friend requests in Tidy up on the Friends tab.',
     );
     // While Cancel all is going (decision 121), how many it has left.
     expect(
       requestsHeldWords({ why: 'waiting', count: 207, most: 200, cancelling: 199 }, 'facebook'),
     ).toMatch(/They start again under 200\. Cancelling all of them: 199 left, 30 a day\.$/);
+    // At twice the pace while 100 or more wait (decision 126, answer 9a), as Today says.
+    expect(
+      requestsHeldWords(
+        { why: 'waiting', count: 207, most: 200, cancelling: 199, cancelMost: 60 },
+        'facebook',
+      ),
+    ).toMatch(/Cancelling all of them: 199 left, 60 a day\.$/);
     expect(requestsHeldWords({ why: 'waiting', count: 230, most: 200 }, 'linkedin')).toMatch(
       /^No new invitations to connect for now: 230 of yours .* under Old invitations in Tidy up/,
     );
@@ -276,6 +285,8 @@ describe('no new friend requests, in the business', () => {
       most: 200,
       extension: 0,
       cancelling: 0,
+      // Cancel all's pace: the usual 30 a day while it isn't going (decision 126, answer 9a).
+      cancelMost: 30,
     });
     // LinkedIn's invitations are their own.
     expect(

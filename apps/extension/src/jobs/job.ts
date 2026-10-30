@@ -126,6 +126,11 @@ export interface Job {
   readonly code?: (line: string) => Promise<string | null>;
   /** Notes the page its tab shows in HandsFreeOS (decision 74, ./report.ts): what it found, and what it didn't. */
   readonly report?: Reporter;
+  /**
+   * Today's round of finding again (decision 126, src/auto/plan.ts `nextRound`): 0 the first time, and each round
+   * after asks HandsFreeOS for the next search words. A runner's once-a-day jobs only.
+   */
+  readonly round?: number;
 }
 
 /**
@@ -153,6 +158,11 @@ export interface JobEnd {
   readonly whole?: boolean;
   /** Put off till the person is away from their computer (decision 120): tried again later, never done. */
   readonly away?: boolean;
+  /**
+   * A batch done with more of today's room left (decision 126): the runner does the next later today
+   * (src/auto/plan.ts `afterDaily`).
+   */
+  readonly again?: boolean;
 }
 
 export const pause = (ms: number) => new Promise((done) => setTimeout(done, ms));

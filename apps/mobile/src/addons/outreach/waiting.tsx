@@ -49,6 +49,7 @@ import { View } from 'react-native';
 
 import { ChangeError } from '@/changes';
 import { Check, CheckCheck, ExternalLink, Pencil, X } from '@/components/icons';
+import { useKeyboardHeight } from '@/components/shell/keyboard';
 import { Screen } from '@/components/shell/screen';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -666,6 +667,8 @@ function ChangeSheet({
 }) {
   const [text, setText] = React.useState('');
   const [problem, setProblem] = React.useState<string | null>(null);
+  // Above the keyboard, so the words being changed stay in view (the owner's report, 29 Oct 2026).
+  const keyboard = useKeyboardHeight();
   React.useEffect(() => {
     if (send) setText(send.text);
     setProblem(null);
@@ -692,7 +695,7 @@ function ChangeSheet({
       description={W.changeHelp}
       testID="waiting-change-sheet"
     >
-      <View className="gap-3">
+      <View style={keyboard ? { paddingBottom: keyboard } : undefined} className="gap-3">
         <Input
           value={text}
           onChangeText={(t) => {

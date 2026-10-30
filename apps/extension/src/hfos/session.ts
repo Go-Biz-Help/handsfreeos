@@ -443,7 +443,11 @@ async function value(ask: SessionAsk): Promise<HfosValues[SessionAsk['type']]> {
     case 'hfos-post-words':
       return call(
         api().POST('/v1/queries/outreach.posts.words', {
-          body: { workspaceId: ask.workspaceId, platform: ask.platform },
+          body: {
+            workspaceId: ask.workspaceId,
+            platform: ask.platform,
+            ...(ask.round ? { round: ask.round } : {}),
+          },
         }),
         ask.workspaceId,
       );

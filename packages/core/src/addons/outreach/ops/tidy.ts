@@ -37,6 +37,7 @@ import { outreachAddon } from '../manifest';
 import { answersRequests, NETWORKS, type Platform } from '../networks';
 import { friendEnds, warnings } from '../tables';
 import {
+  cancelMostNow,
   CancelAllInput,
   CancelAllOutput,
   FriendEndInput,
@@ -350,7 +351,13 @@ export const friendsTidy = defineAddonQuery(outreachAddon, {
     const limits = tidyLimits(
       done,
       {
-        cancel_request: limitNow(kit.tidyLimits.cancel_request, slower),
+        // Twice as fast while Cancel all is going and 100 or more wait (decision 126, answer 9a).
+        cancel_request: cancelMostNow(input.platform, {
+          going: all !== null,
+          waiting: sent?.waiting ?? 0,
+          warned: slowsNow(warning, now),
+          slower: auto.slower,
+        }),
         unfriend: limitNow(kit.tidyLimits.unfriend, slower),
       },
       {
@@ -663,7 +670,12 @@ export const friendsCancelAll = defineAddonCommand(outreachAddon, {
     const todayFrom = await startOfToday(ctx, now);
     const warning = await warningOf(ctx, me, input.platform, todayFrom, now);
     const done = await endsToday(ctx, me, todayFrom, input.platform);
-    const most = limitNow(kit.tidyLimits.cancel_request, slowsNow(warning, now) || auto.slower);
+    const most = cancelMostNow(input.platform, {
+      going: markedNow.length > 0,
+      waiting,
+      warned: slowsNow(warning, now),
+      slower: auto.slower,
+    });
     const room = warning?.today
       ? 0
       : Math.max(0, Math.min(most - done.cancel_request, ASK_TIDY_MOST));

@@ -246,6 +246,7 @@ describe('Today on the phone', () => {
       fresh: { on: false, from: null, until: null, days: 14 },
       requestsHeld: null,
       profileOwn: null,
+      goal: null,
     };
     await render(
       <TodayBody
@@ -298,6 +299,7 @@ describe('Today on the phone', () => {
       fresh: { on: false, from: null, until: null, days: 14 },
       requestsHeld: null,
       profileOwn: null,
+      goal: null,
     };
     const onOk = jest.fn();
     const onSkip = jest.fn();
@@ -378,6 +380,7 @@ describe('Today on the phone', () => {
       fresh: { on: false, from: null, until: null, days: 14 },
       requestsHeld: null,
       profileOwn: null,
+      goal: null,
     };
     await render(
       <TodayBody
@@ -418,6 +421,7 @@ describe('Today on the phone', () => {
       fresh: { on: false, from: null, until: null, days: 14 },
       requestsHeld: null,
       profileOwn: null,
+      goal: null,
     };
     const helpful: HelpfulListOutput = {
       posts: [
@@ -490,6 +494,7 @@ describe('Today on the phone', () => {
       fresh: { on: false, from: null, until: null, days: 14 },
       requestsHeld: null,
       profileOwn: null,
+      goal: null,
     };
     const helpful: HelpfulListOutput = {
       posts: [
@@ -565,6 +570,7 @@ describe('Today on the phone', () => {
       fresh: { on: false, from: null, until: null, days: 14 },
       requestsHeld: null,
       profileOwn: null,
+      goal: null,
     };
     const helpful: HelpfulListOutput = {
       posts: [
@@ -635,6 +641,7 @@ const todayOf = (items: TodayItem[], partners: TodayItem[] = []): TodayOutput =>
   fresh: { on: false, from: null, until: null, days: 14 },
   requestsHeld: null,
   profileOwn: null,
+  goal: null,
 });
 
 const stagePerson = (

@@ -1073,11 +1073,12 @@ describe('people found by topic on LinkedIn', () => {
     await checked(sky, 'drew-park-hvac', 'maybe', 'Might run an HVAC company');
     await checked(sky, 'ellis-ford-design', 'not', 'A designer, not a trade');
     const list = await listOf(sky, 'linkedin');
-    // A maybe and a no are never listed.
+    // A no is never listed; a maybe fills what's left after the good fits (decision 126, answer 5a).
     expect(list.filter((i) => names.includes(i.name)).map((i) => [i.name, i.kind])).toEqual([
       ['Robin Vale', 'comment'],
       ['Robin Vale', 'warm_up'],
       ['Quinn Harper', 'warm_up'],
+      ['Drew Park', 'warm_up'],
     ]);
     // The writer's like goes on the post it found; a reactor's on one of their own.
     const robin = list.find((i) => i.name === 'Robin Vale' && i.kind === 'warm_up')!;
@@ -1163,12 +1164,13 @@ describe('people found by topic on LinkedIn', () => {
     await touched(jo, 'morgan-ash-hvac', 'comment', 21, MORGAN_POST);
     // The AI said Taylor might fit; Morgan's check hasn't come.
     await checked(jo, 'taylor-reed-roofing', 'maybe', 'Might run a roofing crew');
-    // A comment since they were found is no warm-up the old pick gave: only a good check lists them.
+    // A comment since they were found is no warm-up the old pick gave: only a check that they fit, or might (decision
+    // 126, answer 5a), lists them.
     expect(
       (await listOf(jo, 'linkedin'))
         .filter((i) => ['Taylor Reed', 'Morgan Ash'].includes(i.name) && i.kind !== 'comment')
         .map((i) => [i.name, i.kind]),
-    ).toEqual([]);
+    ).toEqual([['Taylor Reed', 'warm_up']]);
   });
 
   it('still invites a writer the old search pick warmed up, and a computer before 0.95.0 keeps that pick', async () => {

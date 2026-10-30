@@ -2930,7 +2930,74 @@ where decisions 37 and 59 put the settings; what they decided stands. Settled to
         page with its outline, the menu open (decision 74), once a search. Check LinkedIn does it for one post. No
         migration.
 
-124.  **Social Outreach, rearranged, part 1** (Chris, 29 Oct 2026, "all of your picks" on the redesign's 13 choices).
+124.  **Messages talk about a business in plain words** (Chris, 29 Oct 2026). "the ai uses the business name too much
+      it's robotic when you say a whole business name every time you message someone." A reply named someone's
+      business by its run-together page name.
+      - **What every message is told** (`BUSINESS_NAMES` in `voice.ts`, in `DRAFT_RULES` on every network, and in the
+        sample messages and their rewrites in Your messages): say what a business does in plain words ("your
+        photography", "the solar side"), and "I" or "we" for the person's own. A business's name goes in at most once
+        in a whole chat, only where it reads naturally, and a handle or a name run together never. Decision 119's
+        mention of each business still holds, in those plain words. No migration, and no new extension.
+      - **The phone's Change box stays above the keyboard** (a bug). Changing a message waiting for OK put the keyboard
+        over the words being typed. That sheet, and the phone's other outreach sheets with a box to type in (renaming a
+        computer, a new playbook, a playbook's section), now lift by the keyboard's height (`useKeyboardHeight`).
+
+125.  **Each network's messages kept open and read every minute, and a reply drafted first** (Chris, 29 Oct 2026,
+      "Every minute" on the card; extension **0.113.0**). "is the social outreach tool supposed to reply to people as
+      well? … i think the system should keep a page of each platform open at all times and check for messages sent to
+      use each minute locally so that we can reply quickly." A prospect's Instagram reply was seen an hour late, by the
+      once-a-day chats read, and its draft then waited behind the day's steps (drafts came after every step unless
+      Approve all was on).
+      - **The messages kept open** (`src/auto/watch.ts`). While Chrome is open, someone's signed in, this is the
+        computer that works and noting is on, a window of the extension's own, minimized, holds one tab for each
+        network that's on and works on its own (not Off) and wasn't warned today: Messenger, LinkedIn's messaging,
+        Instagram's messages and Alignable's. Every minute each page is read where it stands, never pressed, scrolled
+        or typed in. On Facebook, LinkedIn and Instagram its script says who wrote last (`hfos-replies-now`, decision
+        22's readers), sent as that network's `outreach.replies.note`, so the phone hears who wrote back. Alignable's
+        list doesn't say who wrote last, so a conversation whose last line changed has Alignable's runner read its chats
+        again at their next turn (only the changed ones are opened). A page is loaded afresh every 20 minutes
+        (Alignable's every 5), and when it went elsewhere or doesn't answer, at most every 5 minutes. A tab the person
+        closes stays closed for an hour, and every tab does when they close the window. The phone's push names the
+        network they wrote on (`replyPushWords`; it said Facebook for every network). No migration.
+      - **A reply is drafted next** (`plan.ts`). A reply (`reply`, `partner_reply`) now comes first on every network's
+        list, before the messages OK'd and the steps, Approve all or not. When `outreach.replies.note` keeps a reply as
+        new, from the window above or any tab of the person's, that network's runner goes at once rather than at its
+        next step's time (`onReplied`), and while the morning's reading is left the list has the next turn (`replied` in
+        the runner's state, `listTurn`). Someone who writes back again the same day has their reply drafted again,
+        though it was tried. The Replies choice still decides whether it waits for an OK, and the network's day and
+        limits still decide whether the runner works at all: a reply seen outside the working hours buzzes the phone
+        and is drafted when the day starts.
+126.  **The day's first messages, nearly guaranteed** (Chris, 29 Oct 2026, "1a 2a 3c 4a 5a 6a 7a 8a 9a" on
+      questions-29-oct-goal.md; extension **0.114.0**). "the system needs to understand that its main purpose is to
+      send out new messages to good leads/candidates. It needs to almost guarantee it will reach its goal of messages
+      each day. … if it for any reason feels like it hasn't found enough people to message … then it should notify the
+      user what platform it won't be able to meet its goal and tell it why and suggest other searching methods." In
+      three days it had sent 12 first messages against about 55 a day: nobody had accepted a request since 20 Oct, it
+      checked 40 people a day, 197 old Facebook requests held new ones, and five messages waited for an OK.
+      - **The goal** (1a, 2a; `goal.ts`). First messages only, each network its own: its first-message limit as it
+        stands, half while the person is new there. Today's list carries it (`goal`): sent, on the list (those waiting
+        for an OK count as found, 8a), how many short, good fits ready ahead, and why it's short, the first that holds:
+        not ready; under 1 in 10 of the week's checks fit (once 20 were checked); still checking people they know; new
+        requests held; under 1 in 5 of the last 14 days' requests accepted (once 10 were sent); too few found to fill
+        the day's requests; or first messages waiting on accepts. Messages still go only to friends and connections
+        (3c): the lever is more requests to more good fits.
+      - **More checks and searches while short** (4a, 5a, 6a). A network that's ready and has under 2 days of its
+        first messages ready (or of its requests, while they aren't held) checks up to its kit's `checksMost` a day
+        (Facebook and LinkedIn 150, Instagram and Alignable 60, halved while new or warned), its found checks double,
+        the people of good posts triple, it joins groups though people left to reach aren't low, and "maybe" fits fill
+        whatever the good fits leave on Reconnect and the requests. The extension checks a batch at a time, the next
+        35 to 60 minutes later (`again`, `afterDaily`); once the day's reading is done and the list still says more,
+        it finds people again up to twice, 90 minutes apart, each round with the next search words (`round` on
+        `outreach.posts.words`, `outreach.finds.searches`, `outreach.joins.next`).
+      - **Telling the person** (7a, 8a; the worker's `goal.ts`). Half an hour into the working day one push says how
+        many messages wait for their OK and which networks won't reach the day's, for a reason that won't fix itself
+        as the day goes, with why; at midday, the same for anything new. Today shows the note with two or three things
+        to try, each a button (`goalTryPlace`): widen the niche, add a playbook, join groups or add search words,
+        finish the profile, turn on another network. The day's report names the networks that fell short.
+      - **Cancel all faster** (9a; `cancelMostNow`). 60 a day on Facebook while 100 or more requests wait, back to 30
+        after. No migration.
+
+127.  **Social Outreach, rearranged, part 1** (Chris, 29 Oct 2026, "all of your picks" on the redesign's 13 choices).
       "right now we can do everything we need to and see everything we need to see but it’s hard to know where
       everything is likely because we have been building on top of an already existing design/system and now the
       design doesn’t fit the full picture." It replaces decision 59's four tabs and the gear, and decision 73's
@@ -2968,7 +3035,7 @@ where decisions 37 and 59 put the settings; what they decided stands. Settled to
         Settings with a Team page, adds the Set up page, moves which openers work to Results, and puts Run now on Your
         computer. No migration, and no command changed.
 
-125.  **Social Outreach, rearranged, part 2: People and Find people** (Chris, 29 Oct 2026, the same picks). Decision 127's
+128.  **Social Outreach, rearranged, part 2: People and Find people** (Chris, 29 Oct 2026, the same picks). Decision 127's
       second part, on the web and the phone together. No migration, and no command changed; one query is new.
       - **People is one list with a view for each kind,** in this order: In play, Good fits, Talking, Friends,
         Requests, Sent, Chats, Partners, Clients and Left alone (`PEOPLE_VIEWS` in core's `people-views.ts`). Each
@@ -3018,7 +3085,8 @@ where decisions 37 and 59 put the settings; what they decided stands. Settled to
   Alignable's groups and their members (decision 92); and what two switches send as the person goes, in the Facebook tab in front of them,
   panel open or not, each on by default and turned off in their settings in HandsFreeOS (decision 37): the chats they
   open in Messenger (**Read chats as I open them**), and the posts worth a look in a group's feed (**Look for posts
-  as I scroll a group**). Facebook's warnings are read there always. The extension's own work tabs are never read this way.
+  as I scroll a group**). Facebook's warnings are read there always. The extension's own work tabs are never read this way,
+  but for who wrote last on the messages pages it keeps open (decision 125).
   While noting is on, it also tells HandsFreeOS who wrote last in the chats on the page (decision 22), and the runner
   hands over a step it couldn't do (`outreach.need.note`, decision 42). Reading any other page only looks things up.
 - **Settings live in HandsFreeOS, never in the extension** (decision 37). A new choice for what the extension does
@@ -3029,6 +3097,8 @@ where decisions 37 and 59 put the settings; what they decided stands. Settled to
 - **What the AI writes for the person goes through `voice.ts`** (decisions 53 to 55). Every prompt that writes for
   them carries `PLAIN_WRITING` (everyday words, short sentences, relaxed, no long dash), and what comes back is cleaned
   with `noDashes` (a dash between words becomes a comma, between numbers a hyphen) whatever the prompt said. A message
+  talks about a business in plain words, its name at most once in a chat and never a handle (`BUSINESS_NAMES`,
+  decision 124). A message
   or comment carries the person's voice (`voiceLines`, from `AutomationSettings.voice`, columns `voice_*` in
   `addon_outreach.automation`; the worker reads it with `voiceFor`); a helpful post only their emoji choice. A message
   to a chat quiet `GAP_GREETING_DAYS` (3) or more opens with a greeting that fits the gap (`gapLine`), measured from the

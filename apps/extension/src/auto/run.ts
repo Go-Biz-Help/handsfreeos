@@ -114,7 +114,10 @@ import {
 } from './lists';
 import { askInLine, inTurn } from './turns';
 import {
+  afterDaily,
+  AGAIN_WORDS,
   AUTO_STATE_KEY,
+  FINDING_JOBS,
   freshState,
   gapAfter,
   HELPFUL_AGAIN_MS,
@@ -124,9 +127,15 @@ import {
   listTurn,
   needOf,
   nextDaily,
+  nextRound,
   nextStart,
   nextWatch,
+  repliedAfter,
+  roundDue,
+  soonestAgain,
+  stillReplied,
   watchDue,
+  withReplied,
   workKey,
   workLeft,
   type AutoKind,
@@ -166,6 +175,8 @@ let busy = false;
 let stopAsked = false;
 /** A beat's answer asked it to end what it was doing while a go was under way: one more go once that ends. */
 let haltAgain = false;
+/** Someone wrote back while a go was under way (decision 125): one more go once that ends, for their reply. */
+let repliedAgain = false;
 
 const pause = (ms: number) => new Promise((done) => setTimeout(done, ms));
 
@@ -923,7 +934,8 @@ async function collect(kind: DailyJob, businessId: string): Promise<JobEnd> {
   await say(DAILY_DOING[kind], { working: true });
   let end: JobEnd;
   try {
-    end = await runDaily(kind, jobFor(businessId));
+    // A round of finding again asks for the next search words (decision 126).
+    end = await runDaily(kind, { ...jobFor(businessId), round: (await stateNow()).round ?? 0 });
   } catch (error) {
     if (error instanceof Refused) throw error;
     end = {
@@ -935,7 +947,8 @@ async function collect(kind: DailyJob, businessId: string): Promise<JobEnd> {
   }
   const state = await stateNow();
   await setState({
-    daily: { ...state.daily, [kind]: end.line },
+    // A batch of checks with more of today's room left: the next later on (decision 126).
+    ...afterDaily(state, kind, end, Date.now(), Math.random()),
     // Find posts just read the groups: the newest posts wait an hour or two.
     ...(kind === 'posts' ? { watchAt: nextWatch(Date.now(), Math.random()) } : {}),
   });
@@ -967,7 +980,7 @@ async function beforeTheDay(step: BeforeDay, businessId: string): Promise<JobEnd
   const state = await stateNow();
   const stands =
     !end.failed && (key === 'requests' || key === 'checks' || key === 'group_checks')
-      ? { daily: { ...state.daily, [key]: end.line } }
+      ? afterDaily(state, key, end, Date.now(), Math.random())
       : {};
   const lists = await (answer as Hfos)({ type: 'hfos-lists', workspaceId: businessId });
   await setState({
@@ -1094,12 +1107,21 @@ async function go(): Promise<void> {
   const lists = valueOf(await (answer as Hfos)({ type: 'hfos-lists', workspaceId: to.businessId }));
   if (JSON.stringify(state.lists) !== JSON.stringify(lists)) state = await setState({ lists });
   const before = beforeDay(lists, state.before ?? {}, at, timezone);
-  const daily = settings.collect ? nextDaily(state) : null;
+  let daily = settings.collect ? nextDaily(state, at) : null;
+  // Short of good fits once the day's reading is done (decision 126, answer 6a): it finds people again, with the next
+  // search words, and checks them.
+  if (settings.collect && !before && !daily && roundDue(state, at)) {
+    state = await setState(nextRound(state, FINDING_JOBS, at));
+    daily = nextDaily(state, at);
+  }
   const reading = before !== null || daily !== null;
   // The morning's reading and the list take turns (decision 123): a step on the list now, when there's one, after a
   // part of the reading went last.
   if (listTurn(state, reading, holdsTheDay(before))) {
-    const { list, left } = await listNow(to.businessId, state.tried);
+    const { list, left } = await listNow(to.businessId, state.tried, state.replied);
+    // Who wrote back and isn't on what's left gives the reading its turn back (decision 125).
+    const replied = stillReplied(state.replied ?? [], left);
+    if (replied.length !== (state.replied ?? []).length) state = await setState({ replied });
     if (left[0])
       return workNext(left, list, {
         businessId: to.businessId,
@@ -1210,19 +1232,29 @@ async function go(): Promise<void> {
     );
   }
 
-  const { list, left } = await listNow(to.businessId, state.tried);
+  const { list, left } = await listNow(to.businessId, state.tried, state.replied);
   if (!left[0]) {
     await closeWindow();
+    // The checks' next batch, when one's to come today (decision 126).
+    const again = settings.collect ? soonestAgain(await stateNow(), at) : null;
     await say(
-      state.tried.length
-        ? 'Done for today. It looks again later for new requests to confirm.'
-        : 'Nothing on your list for it to do yet.',
+      `${
+        state.tried.length
+          ? 'Done for today. It looks again later for new requests to confirm.'
+          : 'Nothing on your list for it to do yet.'
+      }${again !== null ? ` ${AGAIN_WORDS}` : ''}`,
     );
-    // In the hours, it looks again within the hour, or when the newest posts are due, whichever is first.
+    // In the hours, it looks again within the hour, or when the newest posts or the next checks are due, whichever is
+    // first.
     const watchAt = settings.watchPosts ? ((await stateNow()).watchAt ?? null) : null;
     return goAt(
       inHours
-        ? Math.min(at + IDLE_MS, window!.to, ...(watchAt !== null ? [Math.max(watchAt, at)] : []))
+        ? Math.min(
+            at + IDLE_MS,
+            window!.to,
+            ...(watchAt !== null ? [Math.max(watchAt, at)] : []),
+            ...(again !== null ? [again] : []),
+          )
         : tomorrow(),
     );
   }
@@ -1241,12 +1273,16 @@ async function go(): Promise<void> {
 async function listNow(
   businessId: string,
   tried: readonly string[],
+  replied: readonly string[] = [],
 ): Promise<{ readonly list: TodayList; readonly left: Work[] }> {
   const list: TodayList = await call(
     api().POST('/v1/queries/outreach.today', { body: { workspaceId: businessId } }),
     businessId,
   );
-  return { list, left: workLeft(list, tried) };
+  // Whether Facebook needs more good fits today (decision 126): it finds people again once the day's reading is done.
+  const more = list.goal?.more === true;
+  if ((await stateNow()).more !== more) await setState({ more });
+  return { list, left: workLeft(list, tried, replied) };
 }
 
 /**
@@ -1301,7 +1337,11 @@ async function workNext(
     'done' in outcome && outcome.done
       ? { ...state.done, [kind]: (state.done[kind] ?? 0) + 1 }
       : state.done;
-  await setState({ tried: [...state.tried, workKey(work)], done });
+  await setState({
+    tried: [...state.tried, workKey(work)],
+    done,
+    replied: repliedAfter(state.replied ?? [], work),
+  });
   if ('stop' in outcome) {
     await closeWindow();
     await say(outcome.stop, { stopped: 'warning' });
@@ -1354,11 +1394,23 @@ export async function tick(): Promise<void> {
     busy = false;
     // The day stopped, or another computer took over, while that go went: it looks again now, and stops or stands
     // by, rather than at the next step's time.
-    if (haltAgain) {
+    if (haltAgain || repliedAgain) {
       haltAgain = false;
+      repliedAgain = false;
       void tick();
     }
   }
+}
+
+/**
+ * Someone wrote back on Facebook (decision 125, ../hfos/replies.ts): their reply is drafted next, now, before the
+ * next step's time, or as soon as the go under way ends. The day's own rules still say whether it goes at all.
+ */
+export async function replied(profileIds: readonly string[]): Promise<void> {
+  const state = await stateNow();
+  await setState({ replied: withReplied(state.replied ?? [], profileIds) });
+  if (busy) repliedAgain = true;
+  else void tick();
 }
 
 // A beat's answer that moves the day, or which computer works, has it look again. One that ends what it's doing

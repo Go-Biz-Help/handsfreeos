@@ -60,6 +60,14 @@ import {
   REVIEW_JOB,
   reviewJob,
 } from './tracking';
+import {
+  armGoalCheckFor,
+  armGoalChecks,
+  GOAL_CHECK_JOB,
+  GOAL_MIDDAY_JOB,
+  goalCheckJob,
+  goalMiddayJob,
+} from './goal';
 import { armWeekly, WEEKLY_JOB, weeklyJob } from './weekly';
 import { WRITE_WORDS_JOB, wordsWanted, writeWordsJob } from './words';
 
@@ -171,8 +179,9 @@ export const outreachAddonWorker: AddonWorkerModule = {
     // the AI write each network's own words for a customers' playbook with none (./words.ts); and, as days start on
     // their own (decision 95) with nobody pressing anything, so does the morning's first list the extension saves (a
     // safety net, decision 123).
-    'outreach.day.started': both(armDayReportFor, wordsWanted),
-    'outreach.automation.saved': both(armDayReportFor, wordsWanted),
+    // And the day's looks at its first messages (./goal.ts, decision 126).
+    'outreach.day.started': both(both(armDayReportFor, armGoalCheckFor), wordsWanted),
+    'outreach.automation.saved': both(both(armDayReportFor, armGoalCheckFor), wordsWanted),
     'outreach.playbook.saved': wordsWanted,
     'outreach.lists.saved': wordsWanted,
     'main_offer.published': offerPublished,
@@ -192,10 +201,12 @@ export const outreachAddonWorker: AddonWorkerModule = {
     [CHECK_PARTNERS_JOB]: checkPartnersJob,
     [CHECK_GROUPS_JOB]: checkGroupsJob,
     [DRAFT_HELPFUL_JOB]: draftHelpfulJob,
-    // The morning push arms the day's reports of whoever noted a step this week (./tracking.ts).
+    // The morning push arms the day's reports, and the day's looks at the first messages, of whoever noted a step this
+    // week (./tracking.ts, ./goal.ts).
     [MORNING_JOB]: async (ctx) => {
       const next = await morningJob(ctx);
       await armDayReports(ctx);
+      await armGoalChecks(ctx);
       return next;
     },
     [WEEKLY_JOB]: weeklyJob,
@@ -206,6 +217,8 @@ export const outreachAddonWorker: AddonWorkerModule = {
     [REVIEW_JOB]: reviewJob,
     [WRITE_WORDS_JOB]: writeWordsJob,
     [PICK_LIKE_YOURS_JOB]: pickLikeYoursJob,
+    [GOAL_CHECK_JOB]: goalCheckJob,
+    [GOAL_MIDDAY_JOB]: goalMiddayJob,
   },
   // AI help on a playbook's parts, from the builder (./assist.ts), drafts for Today (./today.ts), and answers to a
   // group's questions when the extension asks to join it (./groups.ts), and which post to like (./likes.ts).

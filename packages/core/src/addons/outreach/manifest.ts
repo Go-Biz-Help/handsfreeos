@@ -231,6 +231,8 @@ export const outreachAddon = defineAddon({
     'outreach.check_partners',
     'outreach.write_words',
     'outreach.pick_like_yours',
+    'outreach.goal_check',
+    'outreach.goal_midday',
   ],
   // Who from the chats brought in goes in Contacts (./chat-read.ts), how long a sent request waits, the hour of the
   // morning push, the weekly report, and which countries it reaches: Social Outreach → Settings → General, For your

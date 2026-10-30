@@ -109,9 +109,14 @@ export async function replySeen(ctx: AddonEventContext): Promise<void> {
   if (p.push && p.userId && p.profileIds?.length) {
     const userId = p.userId;
     await asWorker(ctx.db, ctx.scope, async (tx) => {
-      const found = await rows<{ id: string; name: string; person_id: string | null }>(
+      const found = await rows<{
+        id: string;
+        name: string;
+        person_id: string | null;
+        platform: Platform;
+      }>(
         tx,
-        sql`select id, name, person_id from addon_outreach.profiles
+        sql`select id, name, person_id, platform from addon_outreach.profiles
             where workspace_id = ${ctx.scope.workspaceId}
               and id = any (${`{${p.profileIds!.join(',')}}`}::uuid[])`,
       );
@@ -120,7 +125,7 @@ export async function replySeen(ctx: AddonEventContext): Promise<void> {
           key: `reply:${ctx.event.id}:${profile.id}`,
           userIds: [userId],
           permission: 'outreach.use',
-          ...replyPushWords(profile.name),
+          ...replyPushWords(profile.name, profile.platform),
           href: TODAY_HREF,
           collapseKey: `reply-${profile.id}`,
           personId: profile.person_id,

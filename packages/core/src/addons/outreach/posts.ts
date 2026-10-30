@@ -17,6 +17,7 @@
  *   what the business offers. A strong one that's fresh pushes to the person's phone at once and tops Today.
  */
 import { z } from 'zod';
+import { SearchRound } from './goal';
 import { quoteData } from '../../knowledge/prompt';
 import { GroupRef } from './activity';
 import { FIND_WORDS_MOST } from './finds';
@@ -347,6 +348,8 @@ export const POST_SEARCHES_MOST = 5;
 export const PostWordsInput = z.object({
   workspaceId: z.uuid(),
   platform: z.enum(PLATFORM_KEYS).default('facebook'),
+  /** Which of the day's searches (decision 126): each again takes the next words. */
+  round: SearchRound,
 });
 export type PostWordsInput = z.input<typeof PostWordsInput>;
 export const PostWordsOutput = z.object({

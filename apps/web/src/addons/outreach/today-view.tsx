@@ -109,6 +109,7 @@ import { Drafted } from './drafted';
 import { HelpfulCard } from './helpful-card';
 import { PersonName } from './person-menu';
 import { GetReadyCard } from './get-ready';
+import { GoalNote, goalNoteOn } from './goal-note';
 import { TeamCard } from './live-view';
 import { StatusStrip, type NetworkLive } from './status-strip';
 import type {
@@ -233,8 +234,10 @@ export function TodayView({
   // What to know today, each a line in one card: the network's warning when its card doesn't say it already, training
   // wheels, half limits on a new account, requests held, and profile ideas waiting.
   const warning = today.warning && !live?.warning ? today.warning : null;
+  // Short of today's first messages, why, and what to try (decision 126): none from a server before it.
+  const goal = today.goal && goalNoteOn(today.goal, platform) ? today.goal : null;
   const headsUp = Boolean(
-    warning || today.wheels.on || today.fresh?.on || today.requestsHeld || today.profileOwn,
+    warning || today.wheels.on || today.fresh?.on || today.requestsHeld || goal || today.profileOwn,
   );
   return (
     <div data-testid="outreach-today">
@@ -273,6 +276,7 @@ export function TodayView({
                 ) : null}
               </li>
             ) : null}
+            {goal ? <GoalNote workspaceId={workspaceId} platform={platform} goal={goal} /> : null}
             {/* Their profile, read on its own on the 1st: what the AI suggests waits for their OK (decision 99). */}
             {today.profileOwn ? (
               <li data-testid="today-profile-own" className="text-text-2">

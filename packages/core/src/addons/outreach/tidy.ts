@@ -24,6 +24,7 @@ import { z } from 'zod';
 import { TIDY_MODE_KEYS } from './automation';
 import { FIT_LEVEL_KEYS } from './fit';
 import {
+  limitNow,
   TIDY_KIND_KEYS,
   WARNING_NO_REQUESTS_DAYS,
   WARNING_SLOWER_DAYS,
@@ -191,6 +192,30 @@ export const TidyOutput = z.object({
     .default({ mode: 'off', cancel: [], unfriend: [], decline: [] }),
 });
 export type TidyOutput = z.output<typeof TidyOutput>;
+
+/**
+ * Cancel all's pace (decision 126, answer 9a): twice the network's daily limit for cancelling (60 a day on Facebook)
+ * while it's going and this many or more of the person's requests still wait, so new requests start again sooner;
+ * the usual limit once fewer wait. A warning halves either; being new there or on training wheels slows only the
+ * usual one, as cancelling reaches out to nobody.
+ */
+export const CANCEL_FAST = { times: 2, until: 100 } as const;
+
+/** Today's limit for cancelling sent requests on a network, as it stands. */
+export function cancelMostNow(
+  platform: Platform,
+  state: {
+    readonly going: boolean;
+    readonly waiting: number;
+    readonly warned: boolean;
+    readonly slower: boolean;
+  },
+): number {
+  const most = NETWORKS[platform].tidyLimits.cancel_request;
+  return state.going && state.waiting >= CANCEL_FAST.until
+    ? limitNow(most * CANCEL_FAST.times, state.warned)
+    : limitNow(most, state.warned || state.slower);
+}
 
 /**
  * Cancel all (decision 121): start it on a network for every sent request waiting for an answer there, however new,

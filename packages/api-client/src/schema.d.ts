@@ -75409,6 +75409,8 @@ export interface operations {
                      * @enum {string}
                      */
                     platform?: "facebook" | "linkedin" | "instagram" | "alignable";
+                    /** @default 0 */
+                    round?: number;
                     /** Format: uuid */
                     workspaceId: string;
                 };
@@ -76263,6 +76265,8 @@ export interface operations {
                      * @enum {string}
                      */
                     platform?: "facebook" | "linkedin" | "instagram" | "alignable";
+                    /** @default 0 */
+                    round?: number;
                     /** Format: uuid */
                     workspaceId: string;
                 };
@@ -76284,6 +76288,8 @@ export interface operations {
                             name: string | null;
                             url: string;
                         }[];
+                        /** @default false */
+                        more: boolean;
                         onItsOwn: boolean;
                         perDay: number;
                         prospects: {
@@ -77257,6 +77263,8 @@ export interface operations {
                      * @enum {string}
                      */
                     platform?: "facebook" | "linkedin" | "instagram" | "alignable";
+                    /** @default 0 */
+                    round?: number;
                     /** Format: uuid */
                     workspaceId: string;
                 };
@@ -78409,6 +78417,31 @@ export interface operations {
                             on: boolean;
                             until: string | null;
                         };
+                        /** @default null */
+                        goal: {
+                            ahead: number;
+                            done: number;
+                            facts: {
+                                accepted: number;
+                                checked: number;
+                                fit: number;
+                                sent: number;
+                                unchecked: number;
+                                weekChecked: number;
+                                weekFit: number;
+                            };
+                            listed: number;
+                            more: boolean;
+                            most: number;
+                            requests: {
+                                left: number;
+                                listed: number;
+                            };
+                            short: number;
+                            tries: ("niche" | "playbook" | "groups" | "words" | "profile" | "networks")[];
+                            waitingOk: number;
+                            why: ("not_ready" | "few_fits" | "checking" | "requests_held" | "few_accepts" | "few_found" | "waiting_accepts") | null;
+                        } | null;
                         hasPlaybook: boolean;
                         items: {
                             asking: boolean;
@@ -78531,6 +78564,8 @@ export interface operations {
                         requestsHeld: {
                             /** @default 0 */
                             cancelling: number;
+                            /** @default null */
+                            cancelMost: number | null;
                             count: number;
                             /** @default 0 */
                             extension: number;
