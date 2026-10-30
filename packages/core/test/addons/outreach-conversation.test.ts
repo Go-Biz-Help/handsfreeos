@@ -100,7 +100,8 @@ describe('the conversation’s rules', () => {
       });
     expect(prompt('opener')).toMatch(/The outcome, in a few words: 10 booked inspections/);
     expect(prompt('opener')).toMatch(/The price, only when they ask: \$2,000 a month/);
-    expect(prompt('opener')).toMatch(/Its only job is a yes/);
+    // The first message is one short question that makes them curious (decision 137).
+    expect(prompt('opener')).toMatch(/makes them curious enough to say yes/);
     // No message carries the guarantee (decision 65, 2026-10-26): it's there for a reply to someone who asks.
     expect(prompt('opener')).toMatch(
       /The guarantee, only when they ask whether there is one: a free month if not/,
