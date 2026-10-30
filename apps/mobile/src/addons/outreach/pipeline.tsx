@@ -151,7 +151,7 @@ export function PipelineBody({
   onMark: (p: Person, m: StageMark) => void;
 }) {
   return (
-    <OutreachFrame tab="people" people="pipeline" testID="outreach-pipeline">
+    <OutreachFrame page="people" people="pipeline" testID="outreach-pipeline">
       <Note>
         {view === 'lost'
           ? STAGE_WORDS.lostNote

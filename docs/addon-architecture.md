@@ -466,7 +466,11 @@ drawer. A person who may open only one of its pages gets a row that goes straigh
 other in the person's menu (`addon:<id>`, `packages/core/src/account/menu.ts`): it moves, hides and goes into a group,
 where its pages show under its name. A menu saved before then held each page as a place of its own
 (`addon:<id>:<page>`); it's read as the add-on, where the first of its pages stood. The phone app has no side menu:
-an add-on's places are under its name at the top of More.
+an add-on's places are under its name at the top of More. An add-on may put a count on one of its pages, such as
+Social Outreach's Needs you: the web registry's `navCount` names the page and a component, fetched the first time
+the menu draws the add-on, that keeps its own number and draws it with `MenuCount` (`components/shell/nav-links.tsx`).
+It shows on that page in the pop-out, and on the add-on's row while the pop-out is closed; one that's slow or breaks
+shows nothing.
 
 **One check, every actor.** The kernel refuses an add-on's operation, and core's operations run by the system for
 it, for people, the system, workflows and the AI teammate alike (`addon_inactive`, with the add-on's id in the

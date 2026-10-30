@@ -6,15 +6,18 @@ web's own addresses, so a link or a push to `/a/outreach?view=…` or a playbook
 ## Where things go
 
 - **Routes** sit inside More: `src/app/app/w/[workspaceId]/(tabs)/(more)/a/outreach/`. `index.tsx` is the page,
-  whichever tab `?view=` names (`page.tsx` picks the screen), and `playbooks/[playbookId].tsx` one playbook.
+  whichever screen `?view=` names (`page.tsx` picks it), and `playbooks/[playbookId].tsx` one playbook. With no
+  `?view=`, the add-on's first screen (`home.tsx`) lists its pages in the web's side-menu order (decision 127: Needs
+  you, Today, People, Groups, Results, Playbooks and Settings, core's `pages.ts`), each opening as its own screen
+  with its name at the top (`frame.tsx`). Needs you is `?view=waiting` (`NeedsYouScreen` in `waiting.tsx`).
   `_layout.tsx` is the gate: only someone holding `outreach.use`, which they hold only while the add-on runs here.
-- **Screens** are in this folder, one file a tab: `waiting.tsx`, `live.tsx`, `today.tsx`, `groups.tsx`, `chats.tsx`,
+- **Screens** are in this folder, one file a page: `waiting.tsx`, `hub.tsx` (Today), `live.tsx`, `today.tsx`, `groups.tsx`, `chats.tsx`,
   `playbooks.tsx`, `playbook.tsx`, `settings.tsx`; `more.tsx` is the one row in More, `asks.tsx` the buttons
   that ask the computer, and `person-menu.tsx` the person menu on every name. Each has a pure `…Body` the
   tests draw with props, and a `…Screen` that asks for what it shows. Only the routes and `src/addons/registry.ts`
   import from here.
 - **Settings is a menu with a page for each part** (Chris, 2026-10-16; core's `settings-parts.ts`): `settings.tsx` is
-  the menu (General, each network with whether it's on, the networks still to come, Playbooks and Your computer, and
+  the menu (General, each network with whether it's on, the networks still to come, and Your computer, and
   Settings for, for owners and admins) and a part's page, opened over it with `?part=` (`openSettingsPart` in
   `kit.tsx`, which puts the part on the screen's address itself, since the manifest's link keeps only the query it
   lists); an address with no part opens the menu. `settings-general.tsx` is General and its For your team,
@@ -25,14 +28,14 @@ web's own addresses, so a link or a push to `/a/outreach?view=…` or a playbook
   (`country-setting.tsx`) wait while Only these countries has none picked (`useAutosave`'s `hold`), and lead to the
   lists they make, each its own screen (`countries.tsx`, `?view=countries&show=unsure|skipped`). Your computer opens
   the Live screen, where the person's computers are renamed or removed (`computers.tsx`).
-- **Words** are core's: `@hfos/core/addons/outreach/words` (`OUTREACH_WORDS`, which the web's tabs read too), and the
+- **Words** are core's: `@hfos/core/addons/outreach/words` (`OUTREACH_WORDS`, which the web's pages read too), and the
   add-on's own (`waiting-words.ts`, `live.ts`, `automation.ts`, `today.ts`, `groups.ts`, `chat-read.ts`,
   `playbooks.ts`, `asks.ts`) first. `phone-words.ts` holds the few the web still writes in its screens, word for
   word, until they move into core. Don't write a sentence in a screen.
 - **Activity and Friends stay on the web** (the manifest's `ui.phone` `web`): the route map opens them there, and
   `WebOnlyScreen` says so if one is opened here anyway.
-- **Each network on its own** (docs/outreach.md, "Each network is in the app"): Today's strip is a row for each
-  network the person works (`useNetworksOn` in `networks.tsx`), each with its own live answer and its own Start my
+- **Each network on its own** (docs/outreach.md, "Each network is in the app"): Today has a card for each
+  network the person works, with its own bars (`useNetworksOn` in `networks.tsx`), each with its own live answer and its own Start my
   day and Stop for today (`useLiveProps(full, platform)`, `startDay(ws, platform)`); the list below is the network
   picked there (`useTodayProps(platform)`), with its own helpful post (on LinkedIn, the person's own feed) and its
   own Get ready (`useReadyProps(platform, onReady)`: LinkedIn's profile list, headlines and About); each other row's

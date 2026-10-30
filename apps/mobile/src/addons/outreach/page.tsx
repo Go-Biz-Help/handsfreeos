@@ -14,6 +14,7 @@ import { CountriesScreen } from './countries';
 import { OutreachWorkspace } from './frame';
 import { GroupPageScreen } from './group-page';
 import { GroupsScreen } from './groups';
+import { OutreachHomeScreen } from './home';
 import { TodayHub } from './hub';
 import { isSetUp, outreachPath, useOutreachContext, type OutreachTab, type WebTab } from './kit';
 import { LiveScreen } from './live';
@@ -23,13 +24,15 @@ import { PipelineScreen } from './pipeline';
 import { PlaybooksScreen } from './playbooks';
 import { ResultsScreen } from './results';
 import { SettingsScreen } from './settings';
+import { NeedsYouScreen } from './waiting';
 
 /**
- * Social Outreach's page on the phone (decisions 44 and 59), by its address's `?view=`, as the web's: four tabs and
- * the gear. Today (no `?view=`, `today`, and the old `waiting`) has what the computer is doing, Needs you and the
- * list; People is the Pipeline, Chats, the Partners list and the Never contact list; then Groups (`&group=` one
- * group's own page, decision 103) and Results; the gear opens Settings, with Playbooks there.
- * Settings is a menu, and `?part=` one of its pages (General, or a network's). `live` is the computer's whole day.
+ * Social Outreach on the phone (decisions 44, 59 and 127), by its address's `?view=`, as the web's old addresses name
+ * its pages. With none, its first screen lists the pages in the web's side-menu order (./home.tsx). Needs you is
+ * `waiting`; Today (`today`) has what the computer is doing on each network, the list and Done today; People is the
+ * Pipeline, Chats, the Partners list and the Never contact list; then Groups (`&group=` one group's own page, decision
+ * 103), Results, Playbooks and Settings, a menu with `?part=` one of its pages (General, or a network's). `live` is
+ * Your computer: its whole day, its computers and what was asked of it.
  * `code` is the code a network emailed for an ask (`?ask=`), where its notification opens (decision 82). `countries` is
  * one of the lists the country setting makes (`?show=unsure|skipped`), opened from General. Friends, and the old Activity, have a lot to look through, so they stay on the
  * web: a link to them opens there (the manifest's `ui.phone` `web`), and this says so if one is opened here anyway.
@@ -95,6 +98,10 @@ function OutreachView({
   const tab = PHONE_TABS.find((t) => t === view);
   const webTab = WEB_TABS.find((t) => t === view);
   switch (tab) {
+    case 'waiting':
+      return <NeedsYouScreen />;
+    case 'today':
+      return <TodayHub net={readNetwork(net)} />;
     case 'live':
       return <LiveScreen net={readNetwork(net)} />;
     case 'pipeline':
@@ -122,7 +129,7 @@ function OutreachView({
     case 'countries':
       return <CountriesScreen show={show} />;
     default:
-      return webTab ? <WebOnlyScreen tab={webTab} /> : <TodayHub net={readNetwork(net)} />;
+      return webTab ? <WebOnlyScreen tab={webTab} /> : <OutreachHomeScreen />;
   }
 }
 

@@ -8,6 +8,7 @@
  */
 import { defineAddon } from '../manifest';
 import { OutreachSettingsSchema } from './chat-read';
+import { OUTREACH_PAGES } from './pages';
 
 export const outreachAddon = defineAddon({
   id: 'outreach',
@@ -311,8 +312,19 @@ export const outreachAddon = defineAddon({
     ],
   },
   ui: {
-    // Its place in the side menu, shown only while it runs and to people who may open it.
-    nav: [{ key: 'outreach', label: 'Social Outreach', icon: 'handshake', path: '' }],
+    // Its pages in the side menu, which pop out from its one row (the owner's decision, 2026-10-09; decision 127):
+    // one page for each thing the person comes to do, shown only while it runs and to people who may open it. The
+    // bare page (`path: ''`) isn't one of them: it forwards the old `?view=` addresses to these.
+    nav: [
+      { key: 'needs-you', label: OUTREACH_PAGES['needs-you'], icon: 'inbox', path: 'needs-you' },
+      { key: 'today', label: OUTREACH_PAGES.today, icon: 'sun', path: 'today' },
+      { key: 'people', label: OUTREACH_PAGES.people, icon: 'users', path: 'people' },
+      { key: 'groups', label: OUTREACH_PAGES.groups, icon: 'users-round', path: 'groups' },
+      { key: 'results', label: OUTREACH_PAGES.results, icon: 'chart-column', path: 'results' },
+      { key: 'playbooks', label: OUTREACH_PAGES.playbooks, icon: 'book-open', path: 'playbooks' },
+      // Not `settings`: that key would put the page in Settings search, which opens it on the web.
+      { key: 'gear', label: OUTREACH_PAGES.gear, icon: 'settings', path: 'settings' },
+    ],
     // A customer's Facebook profile and the chats saved with them; and how the main offer's live version is doing.
     slots: [
       { slot: 'person.panels', permission: 'outreach.use' },

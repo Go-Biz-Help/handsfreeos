@@ -30,11 +30,14 @@ requests while 200 wait or near the cap (decisions 96 and 97), tidying up on its
 month (decision 99, extension 0.98.0), and Later on a person, a push when a request is accepted, and LinkedIn's
 comments waiting for an OK at first (decisions 100 to 102, extension 0.99.0).
 
-The parts below name the tabs they were built on. Since decision 59 those live here: **Today** has the Live tab's
-status, Start my day and Stop for today in a strip (the full day under its **Details**, `?view=live`), Waiting for
-you as **Needs you**, and the list; **People** has the Pipeline (a board for everyone in play), Friends and Chats;
-**Groups** is as it was; **Results** is the Activity tab; and the gear's **Settings** has the settings, Playbooks, the
-person's computers and Start fresh. The old addresses (`?view=waiting`, `?view=activity`) open what they became.
+The parts below name the tabs they were built on. Since decision 127 those are pages of their own, which pop out from
+Social Outreach's one row in the side menu, in this order: **Needs you** (Waiting for you, with its count on the
+menu); **Today**, with a card for each network (the Live tab's status, Start my day and Stop for today, and its bars),
+one Heads up, Done today (the old Details' feed), the list, and the team for owners; **People**, with the Pipeline (a
+board for everyone in play), Friends, Chats and Partners; **Groups**; **Results** (the Activity tab); **Playbooks**;
+and **Settings**, with the settings, the person's computers and what was asked of them, and Start fresh. The phone's
+first screen lists the same pages. The old addresses (`?view=waiting`, `?view=activity`, `?view=live`) open what they
+became.
 
 - **The activity panel** (`/a/outreach`, the page's first tab): what the extension noted over today, the last 7 days
   or the last 30. People reached, friend requests, likes, comments, chats started, follow-ups and who wrote back; by
@@ -1085,8 +1088,9 @@ The owner asked on 12 Oct 2026 for a better design of the add-on and the extensi
 design system ("Social Outreach redesign", a Design canvas), and said to build all of it. That changes where decisions
 41 to 44 put things; what they decided stands. Settled too:
 
-59. **Four tabs and the gear, and the panel in HandsFreeOS's look.** Ten tabs were too many, Waiting for you and Today
-    said the same, and every tab carried notes and the same orange line about the computer.
+59. **Four tabs and the gear, and the panel in HandsFreeOS's look** (the tabs and the gear replaced by decision 127:
+    pages in the side menu). Ten tabs were too many, Waiting for you and Today said the same, and every tab carried
+    notes and the same orange line about the computer.
     - **Today** opens first (the bare page; `?view=waiting` too): a strip with the computer's state, what it's doing,
       the next step, today's steps against the limits as bars, **Start my day** or **Stop for today**, and
       **Details** for the full day (`?view=live`: the feed, what was asked of it, the team and renaming computers);
@@ -2924,6 +2928,44 @@ where decisions 37 and 59 put the settings; what they decided stands. Settled to
         the page catches copies, and no post's menu twice. When two posts in a row give no link, it stops and notes the
         page with its outline, the menu open (decision 74), once a search. Check LinkedIn does it for one post. No
         migration.
+
+124.  **Social Outreach, rearranged, part 1** (Chris, 29 Oct 2026, "all of your picks" on the redesign's 13 choices).
+      "right now we can do everything we need to and see everything we need to see but it’s hard to know where
+      everything is likely because we have been building on top of an already existing design/system and now the
+      design doesn’t fit the full picture." It replaces decision 59's four tabs and the gear, and decision 73's
+      Playbooks in Settings' menu. It ships in three parts, each live before the next; this is the first. Nothing is
+      taken away: only where things live changes.
+      - **A page for each thing the person comes to do, in the side menu's pop-out** (the owner's rule of 9 Oct 2026:
+        one row for an add-on, its pages popping out from it): Needs you, Today, People, Groups, Results, Playbooks and
+        Settings, each its own address under `/a/outreach/` (`OUTREACH_PAGES` in core's `pages.ts`; the web's
+        `address.ts`). Settings' page key is `gear`, as `settings` would put the page in Settings search. Each page has
+        its name and what it's for at the top. The bare address opens Today, or the setup for a first-timer. An old
+        address (`?view=…`, as pushes, emails, the extension and old phones still open) goes to the page its view
+        became, with the rest of its query: `waiting` and `code` to Needs you, `live` to Today, `activity` to Results,
+        and a Settings part into its path (`/settings/linkedin`). On the phone, the add-on's first screen lists the same
+        pages in the same order, each with what it's for (`home.tsx`), and each opens as its own screen.
+      - **Needs you is its own page,** first in the menu, with its count on the menu: on its page in the pop-out, and
+        on the add-on's row while that's closed (the web registry's `navCount`, which any add-on can declare; this
+        one's is `menu-count.tsx`, asking `outreach.waiting` for the counts alone). It's never narrowed to a network,
+        so nothing that waits is hidden. Today says how many things need the person, with the way there; the
+        extension's link to Today's `#needs-you` opens it. On the phone it's `?view=waiting`, and works with no signal
+        as before.
+      - **Today is for watching it work:** one **Heads up** card for what to know (a warning, training wheels, half
+        limits on a new account, requests held with Cancel all, profile ideas waiting), a card for each network with
+        its own Start my day or Stop for today, its warning line and its own bars, then the list. The Details page
+        (`?view=live`) folds in: **Done today**, beside the list, has every step today on every network, newest first
+        (its first 8, then the rest in place), and owners and admins see each person's extension below (**Your
+        team**). What was asked of the computer moves to Settings → Your computer, beside the computers. The phone's
+        Today has the same; its Settings → Your computer still opens the computer's whole day.
+      - **Playbooks are a page of their own,** out of Settings' menu, on the web and the phone. Which openers work
+        stays on it for now.
+      - **One network picker at the top of the page,** on Today (the networks the person works) and People's lists
+        (All networks, or one), in place of the filter beside each list. The pick is kept for the business (the cookie
+        `outreach-net-<business id>`), so the next page opens on it; an address's own `?net=` wins. Pressing a
+        network's name on Today's cards keeps it too.
+      - Part 2 makes People one list with views and a panel for each person, and adds Find people; part 3 regroups
+        Settings with a Team page, adds the Set up page, moves which openers work to Results, and puts Run now on Your
+        computer. No migration, and no command changed.
 
 ## Rules worth knowing before changing anything
 

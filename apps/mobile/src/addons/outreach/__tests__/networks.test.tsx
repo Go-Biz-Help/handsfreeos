@@ -102,7 +102,6 @@ const handlers = () => ({
   onStart: jest.fn(),
   onStop: jest.fn(),
   onSettings: jest.fn(),
-  onDetails: jest.fn(),
 });
 
 describe('Today’s strip, a row for each network', () => {
@@ -126,8 +125,9 @@ describe('Today’s strip, a row for each network', () => {
     const row = screen.getByTestId('today-network-linkedin');
     expect(within(row).getByText('LinkedIn')).toBeTruthy();
     expect(within(row).getByText('Not started today')).toBeTruthy();
-    // Not the network shown: its limits are under its own list.
+    // Its own bars, on its own card (decision 127).
     expect(screen.queryByTestId('today-limits')).toBeNull();
+    expect(screen.getByTestId('today-limits-linkedin')).toBeTruthy();
     await fireEvent.press(screen.getByTestId('live-start'));
     expect(h.onStart).toHaveBeenCalled();
     await fireEvent.press(screen.getByTestId('today-network-linkedin-open'));
@@ -278,7 +278,7 @@ describe('Today’s strip, a row for each network', () => {
         {...handlers()}
       />,
     );
-    expect(screen.getByTestId('today-limit-friend_request')).toHaveTextContent(
+    expect(screen.getByTestId('today-limit-friend_request-linkedin')).toHaveTextContent(
       /^Invitations to connect1 \/ 15$/,
     );
     expect(screen.getByTestId('live-warning')).toHaveTextContent(

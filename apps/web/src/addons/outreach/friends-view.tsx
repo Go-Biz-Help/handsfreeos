@@ -57,7 +57,6 @@ import { CancelAllBox } from './cancel-all';
 import { SkippedCountryCard } from './country-skipped';
 import { DownloadCard } from './download-card';
 import { FileAsksCard } from './file-asks';
-import { NetworkFilterControl } from './network-ui';
 import { PersonName } from './person-menu';
 import { ResearchSlot } from './research';
 import type { Asks, Friend, Friends, Tidy } from './types';
@@ -235,11 +234,11 @@ export function FriendsView({
   useEffect(() => {
     asked.current = { show, search, net };
   }, [show, search, net]);
-  const go = (to: { show?: FriendView; search?: string; page?: number; net?: Platform | null }) => {
+  const go = (to: { show?: FriendView; search?: string; page?: number }) => {
     asked.current = {
       show: to.show ?? asked.current.show,
       search: to.search ?? asked.current.search,
-      net: to.net === undefined ? asked.current.net : to.net,
+      net: asked.current.net,
     };
     const href = outreachHref(workspaceId, {
       view: 'friends',
@@ -333,7 +332,6 @@ export function FriendsView({
             }))}
           />
         </div>
-        <NetworkFilterControl value={net} onChange={(n) => go({ net: n })} />
         <SearchBox search={search} onSearch={(s) => go({ search: s })} />
       </div>
       <Card className="mb-4 p-4" data-testid="friends-asks">

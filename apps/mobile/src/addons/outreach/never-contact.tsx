@@ -97,7 +97,7 @@ export function NeverContactBody({
 }) {
   const N = W.neverContactList;
   return (
-    <OutreachFrame tab="people" people="never_contact" testID="outreach-never-contact">
+    <OutreachFrame page="people" people="never_contact" testID="outreach-never-contact">
       <Note>{N.about}</Note>
       <Input
         value={search}
