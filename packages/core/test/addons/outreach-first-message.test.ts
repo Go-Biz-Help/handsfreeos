@@ -35,9 +35,14 @@ describe('a first message', () => {
     const prompt = opener();
     expect(prompt).toContain(FIRST_MESSAGE_SHAPE);
     expect(prompt).toContain(FIRST_MESSAGE_EXAMPLE);
-    expect(prompt).toMatch(/Name their kind of business from the facts or their pages/);
+    expect(prompt).toMatch(/name its kind from the facts or their pages/);
     expect(prompt).toMatch(/say “your business”/);
     expect(prompt).toMatch(/no greeting, no line about them, no promise of more info/);
+    // Only what the offer really does: SEO brings customers, credit repair is for people, not a business.
+    expect(prompt).toMatch(/say only what the offer really does/);
+    expect(prompt).toMatch(/help raise your credit score/);
+    expect(prompt).toMatch(/leave out “in your … business”/);
+    expect(prompt).not.toMatch(/for your home/);
     // Decision 65's ask is gone.
     expect(prompt).not.toMatch(/will send more info|open to the offer’s outcome|just say hi/);
   });

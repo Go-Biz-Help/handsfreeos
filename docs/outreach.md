@@ -3274,9 +3274,11 @@ where decisions 37 and 59 put the settings; what they decided stands. Settled to
       - **The shape** (`FIRST_MESSAGE_SHAPE`, `FIRST_MESSAGE_EXAMPLE` in `conversation.ts`): one question, under 30
         words, in the owner's words: the owner has something that could make them more money while saving them time,
         in their kind of business, and would they be interested. Nothing goes before or after it: no greeting, no line
-        about them, no promise of more info, and never what the thing is, its name, a link or the price. The AI changes
-        what it gets them only when the offer plainly gets people something other than money and time, and the end
-        when the offer is for people at home ("for your home").
+        about them, no promise of more info, and never what the thing is, its name, a link or the price. It says only
+        what the offer really does (Chris asked the same day about businesses that sell SEO or credit repair): an offer
+        that doesn't make money or save time says what it does get them ("bring more customers to your roofing business
+        from Google", "help raise your credit score"), and one for people rather than businesses leaves out "in your …
+        business".
       - **Their kind of business** (`THEIR_KIND` in `today.ts`) comes from what's known of them, as they'd say it
         (roofing, real estate, photography): the one the offer fits best when they run more than one, their line of
         work when they work for someone else ("as a realtor"), and "your business" when nothing shows it. Never guessed

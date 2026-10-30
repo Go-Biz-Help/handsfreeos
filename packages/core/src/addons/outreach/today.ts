@@ -613,7 +613,7 @@ export interface DraftConversation {
  * guessed.
  */
 const THEIR_KIND =
-  'Name their kind of business from the facts or their pages in a word or two, as they’d say it (roofing, real estate, photography); when they run more than one, the one the offer fits best. When those don’t show it, say “your business”, and when they work for someone else, put it as their line of work (“as a realtor”). Never guess it from the playbook.';
+  'Where the question names their business, name its kind from the facts or their pages in a word or two, as they’d say it (roofing, real estate, photography); when they run more than one, the one the offer fits best. When those don’t show it, say “your business”, and when they work for someone else, put it as their line of work (“as a realtor”). Never guess it from the playbook.';
 
 const TASK: Record<CustomerDraftKind, string> = {
   opener: `They just accepted the owner’s friend request. Write the first message as ${FIRST_MESSAGE_SHAPE} ${THEIR_KIND}`,
