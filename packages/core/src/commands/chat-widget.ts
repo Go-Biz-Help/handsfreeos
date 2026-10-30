@@ -112,9 +112,14 @@ export const chatWidgetCreate = defineCommand({
         dailyCap: input.dailyCap,
         createdBy: userIdOf(ctx.actor),
       })
-      .returning({ id: chatWidgets.id, publicKey: chatWidgets.publicKey });
+      .returning({
+        id: chatWidgets.id,
+        publicKey: chatWidgets.publicKey,
+        smsConsent: chatWidgets.smsConsent,
+      });
     if (!row) throw HfosError.forbidden();
-    if (input.smsConsent)
+    // Read back rather than from the input: a widget offers the box unless it's told not to.
+    if (row.smsConsent)
       await ensureBookingSite(ctx.tx, ctx.scope.workspaceId!, userIdOf(ctx.actor));
     await ctx.emit({
       type: 'chat_widget.created',
@@ -169,7 +174,8 @@ export const chatWidgetUpdate = defineCommand({
     if (updated.length === 0)
       return { widgetId: w.id, updated: [], allowedOrigins: w.allowedOrigins };
     await ctx.tx.update(chatWidgets).set(patch).where(eq(chatWidgets.id, w.id));
-    if (patch.smsConsent === true)
+    // Also for a widget that already offered the box, so one made before this names its pages when next saved.
+    if ((patch.smsConsent ?? w.smsConsent) === true)
       await ensureBookingSite(ctx.tx, ctx.scope.workspaceId!, userIdOf(ctx.actor));
     const allowedOrigins = (patch.allowedOrigins as string[] | undefined) ?? w.allowedOrigins;
     const before: Record<string, unknown> = {};
