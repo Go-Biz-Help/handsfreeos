@@ -11,7 +11,9 @@ import {
   WebSiteJsonLd,
 } from '@/components/json-ld';
 import { ProductMock } from '@/components/product-mock';
+import { StickyCta } from '@/components/sticky-cta';
 import { Reveal } from '@/components/reveal';
+import { BillBuilder } from '@/components/bill-builder';
 import { Button, Check, Container, Eyebrow, Section, SectionHeading } from '@/components/ui';
 import {
   ActionCenterVisual,
@@ -31,7 +33,6 @@ import {
 } from '@/components/your-business';
 import { homeFaqs } from '@/content/faqs';
 import {
-  ours,
   pricesCheckedOn,
   roughUsd,
   setupFees,
@@ -113,6 +114,7 @@ export default async function HomePage() {
         <Questions />
         <FinalCta open={open} />
       </YourBusinessProvider>
+      <StickyCta open={open} />
     </>
   );
 }
@@ -147,7 +149,7 @@ function Hero({ counts, open }: { counts: readonly FoundingCount[] | null; open:
               And it asks you first, until it has earned your trust.
             </p>
 
-            <div className="mt-9 flex flex-col gap-3 sm:flex-row sm:items-center">
+            <div data-cta="hero" className="mt-9 flex flex-col gap-3 sm:flex-row sm:items-center">
               <Button href={urls.signUp} size="lg" arrow>
                 {open ? 'Claim my founding spot' : 'Sign up'}
               </Button>
@@ -306,12 +308,12 @@ function NextTuesday() {
 }
 
 /**
- * What the same business pays today, line by line, each bill crossed off as it scrolls in. Every number comes
+ * What the same business pays today, line by line, and the visitor unticks what they don't pay for to see their
+ * own total (components/bill-builder.tsx). Every number comes
  * from content/savings.ts, where each is another company's public price with its link and the date it was read.
  * A tool whose HandsFreeOS side is still being built shows as coming and stays out of the total.
  */
 function TheBill() {
-  const live = stack.filter((t) => t.live);
   const coming = stack.filter((t) => !t.live);
   return (
     <Section id="bill" className="bg-card-2 border-border border-y">
@@ -333,46 +335,7 @@ function TheBill() {
         </div>
 
         <Reveal className="bg-card border-border rounded-[20px] border p-6 shadow-[var(--shadow-2)] sm:p-8">
-          <p className="text-text-3 text-sm font-medium">What the tools cost, a month</p>
-          <ul className="divide-border mt-4 divide-y">
-            {live.map((tool, index) => (
-              <li
-                key={tool.id}
-                className="chore-text text-text-2 flex items-baseline justify-between gap-4 py-2.5"
-                style={nth(index)}
-              >
-                <span className="min-w-0">
-                  {tool.job}
-                  <span className="text-text-3 block text-xs">{tool.product}</span>
-                </span>
-                <span className="chore-verb relative shrink-0 font-semibold tabular-nums">
-                  {usd(tool.monthly)}
-                  <span
-                    aria-hidden="true"
-                    className="chore-strike bg-accent absolute top-1/2 -right-1 -left-1 h-[2px] -translate-y-1/2 rounded-full"
-                  />
-                </span>
-              </li>
-            ))}
-          </ul>
-          <div className="border-border-strong mt-2 flex items-baseline justify-between gap-4 border-t pt-4">
-            <span className="text-text-2 font-semibold">{live.length} bills a month</span>
-            <span className="text-text-3 font-semibold tabular-nums line-through">
-              {usd(stackTotal)}
-            </span>
-          </div>
-          <div
-            className="bg-accent-soft mt-4 flex items-center justify-between gap-4 rounded-[14px] px-4 py-3.5"
-            style={nth(live.length)}
-          >
-            <span className="flex items-center gap-2 font-semibold">
-              <Check className="task-tick text-success" />
-              HandsFreeOS
-            </span>
-            <span className="text-lg font-bold tabular-nums">
-              {usd(ours.low)}–{usd(ours.high)}
-            </span>
-          </div>
+          <BillBuilder />
           {coming.length > 0 ? (
             <p className="text-text-3 mt-4 text-sm">
               Coming next, and not counted above:{' '}
@@ -956,7 +919,7 @@ function FinalCta({ open }: { open: boolean }) {
           Set it up this week. Watch every reply before it goes out, and let go of the ones it gets
           right. If it isn&rsquo;t for you within {moneyBack.days} days, you get your money back.
         </p>
-        <div className="mt-9 flex flex-col justify-center gap-3 sm:flex-row">
+        <div data-cta="final" className="mt-9 flex flex-col justify-center gap-3 sm:flex-row">
           <Button href={urls.signUp} size="lg" arrow>
             {open ? 'Claim my founding spot' : 'Sign up'}
           </Button>
