@@ -119,10 +119,11 @@ const MANUAL_QUIET_HOURS = 20;
 
 /**
  * A chat the AI read as come to a close (decision 134): they said no or not now (`not_interested`) and there's nothing
- * left to do (no next step), so their last message needs nothing back. `c` is its alias.
+ * left to do (no next step), so their last message needs nothing back. A chat with no pitch read isn't: never null, so
+ * `not` it keeps them. `c` is its alias.
  */
 const closedChat = (c: string) =>
-  sql`(${sql.raw(c)}.pitch = 'not_interested' and ${sql.raw(c)}.next_step is null)`;
+  sql`(${sql.raw(c)}.pitch is not distinct from 'not_interested' and ${sql.raw(c)}.next_step is null)`;
 
 const NONE_DONE: Record<DailyStep, number> = {
   friend_request: 0,
