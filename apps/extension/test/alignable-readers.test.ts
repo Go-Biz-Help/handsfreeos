@@ -619,6 +619,66 @@ describe('Messages', () => {
   });
 });
 
+describe('the conversation open on Messages, as Alignable draws it since 30 Oct 2026', () => {
+  // 0.117.0's 19:02 UTC outline: the conversation's header has no test id of its own, and Send is
+  // `messaging-send-desktop`; the site's menu and Messages' list each have a header too.
+  const drawn2026 = (header = true) =>
+    page(
+      `${AL}/biz/conversations?with_business_id=42`,
+      `<div><header><nav aria-label="Main"><a href="/biz/profile"><img alt="Me" /></a>
+        <a href="/austin-tx/acme-plumbing?user=5">Somewhere</a></nav></header>
+      <div><div data-testid="inbox"><div>
+        <div><header><h3>Messages</h3><button><svg></svg>New Message</button></header>
+          <div data-testid="conversationInSidebar"><div><div><img alt="" /><div><div>Dana Reyes</div><div>Talk soon</div></div></div>
+            <span data-testid="conversationDate">Oct 30</span></div></div></div>
+        <div>${
+          header
+            ? `<header><div><img alt="" /><a href="/biz/businesses/42?user=5&cyfid=6&cyattr=7"><div>Dana Reyes</div></a></div>
+          <div><div data-testid="ellipses"><div></div></div></div></header>`
+            : ''
+        }
+          <div><div><div><div><p>You and Dana Reyes are connected</p>
+            ${myRow('Want to swap referrals?', '9:40 AM')}
+            ${theirRow('42', 'Sure, talk soon', '10:02 AM')}</div></div></div>
+          <div data-testid="full-view-write-message"><button data-testid="messaging-upload-trigger-desktop"><svg role="img"></svg></button>
+            <div><div><div dir="ltr"><div role="presentation" dir="ltr" contenteditable="true" placeholder="Write a message"></div>
+              <textarea placeholder="Write a message"></textarea></div>
+              <button data-testid="messaging-send-desktop" title="Send"><svg role="img"></svg></button></div></div></div></div></div>
+      </div></div></div></div>`,
+    );
+
+  it('reads who it’s with from its plain header, its box and its Send, and who wrote last', () => {
+    const doc = drawn2026();
+    expect(readAlignable(doc, doc.location.href).chat).toEqual({
+      name: 'Dana Reyes',
+      profile: { id: '42', username: null, url: `${AL}/biz/businesses/42` },
+      box: true,
+      send: true,
+      messages: [
+        { from: 'me', text: 'Want to swap referrals?', when: '9:40 AM' },
+        { from: 'them', text: 'Sure, talk soon', when: '10:02 AM' },
+      ],
+      last: 'them',
+    });
+    expect(readReplies(doc, `${AL}/biz/conversations`)).toEqual([
+      {
+        name: 'Dana Reyes',
+        threadKey: '42',
+        profile: { id: '42', username: null, url: `${AL}/biz/businesses/42` },
+        when: null,
+      },
+    ]);
+  });
+
+  it('never takes the list’s header or the site’s menu for the conversation’s, before its own is drawn', () => {
+    const doc = drawn2026(false);
+    expect(readAlignable(doc, doc.location.href).chat).toMatchObject({
+      name: null,
+      profile: null,
+    });
+  });
+});
+
 /**
  * A conversation open on Messages, rebuilt element for element from the owner's Check of 21 Oct 2026 (0.83.0), with
  * made-up words where its outline hid them: its header's link to the business it's with, the business card and a day

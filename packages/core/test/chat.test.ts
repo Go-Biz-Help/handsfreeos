@@ -308,6 +308,82 @@ describe('chat widgets (owners and admins)', () => {
     });
   });
 
+  it('names the business’s pages when it offers the texts box, so the box links to the policy and terms', async () => {
+    const siteOf = async (workspaceId: string) =>
+      (
+        await rows<{ slug: string; enabled: boolean }>(
+          admin(),
+          sql`select slug::text as slug, enabled from app.booking_sites where workspace_id = ${workspaceId}`,
+        )
+      )[0];
+    // Made with the box (the texting registration's chat): named at once, switched off.
+    const made = await run(organizationCreate, { businessName: 'Texts Box Plumbing' }, owner);
+    await run(
+      chatWidgetCreate,
+      {
+        workspaceId: made.workspaceId,
+        allowedOrigins: ['texts-box.com'],
+        smsConsent: true,
+        askFor: { name: 'after_first_message', phone: 'after_first_message', email: 'never' },
+      },
+      owner,
+    );
+    expect(await siteOf(made.workspaceId)).toEqual({
+      slug: expect.stringMatching(/^texts-box-plumbing/),
+      enabled: false,
+    });
+
+    // A widget offers the box unless it's told not to, so one made without saying is named too.
+    const plain = await run(organizationCreate, { businessName: 'Box Default Heating' }, owner);
+    const { widgetId: p } = await run(
+      chatWidgetCreate,
+      { workspaceId: plain.workspaceId, allowedOrigins: ['box-default.com'] },
+      owner,
+    );
+    expect(await siteOf(plain.workspaceId)).toMatchObject({ enabled: false });
+    // One made before widgets named their pages gets them the next time it's saved.
+    await rows(
+      admin(),
+      sql`delete from app.booking_sites where workspace_id = ${plain.workspaceId} returning id`,
+    );
+    await run(
+      chatWidgetUpdate,
+      { workspaceId: plain.workspaceId, widgetId: p, greeting: 'Hi! How can we help?' },
+      owner,
+    );
+    expect(await siteOf(plain.workspaceId)).toMatchObject({ enabled: false });
+
+    // Without it, nothing is named until the box is turned on.
+    const later = await run(organizationCreate, { businessName: 'Box Later Roofing' }, owner);
+    const { widgetId: w } = await run(
+      chatWidgetCreate,
+      { workspaceId: later.workspaceId, allowedOrigins: ['box-later.com'], smsConsent: false },
+      owner,
+    );
+    expect(await siteOf(later.workspaceId)).toBeUndefined();
+    await run(
+      chatWidgetUpdate,
+      {
+        workspaceId: later.workspaceId,
+        widgetId: w,
+        smsConsent: true,
+        askFor: { phone: 'after_first_message' },
+      },
+      owner,
+    );
+    expect(await siteOf(later.workspaceId)).toMatchObject({ enabled: false });
+    const { widget } = await ask(
+      chatWidgetGet,
+      { workspaceId: later.workspaceId, widgetId: w },
+      owner,
+    );
+    expect(widget.askFor).toEqual({
+      name: 'when_needed',
+      phone: 'after_first_message',
+      email: 'when_needed',
+    });
+  });
+
   it('lists widgets with the install check and the public key, and nothing secret', async () => {
     const seen = (origin: string) =>
       sys(chatWidgetRecordSeen, { workspaceId: wsId, widgetId, origin });

@@ -348,18 +348,24 @@ describe('writing a message only in the conversation with them', () => {
     /** Their id as their profile's own links give it, and the other way LinkedIn writes one member's id. */
     const danaById: ProfileRef = { ...dana, id: 'ACoAAFakeDanaReyes123' };
 
+    /** Their profile's Message, as LinkedIn's newer profile links it, naming whom by `recipient`. */
+    const messageLink = (recipient: string) =>
+      `${LI}/messaging/compose/?profileUrn=urn%3Ali%3Afsd_profile%3AACoAAFakeDanaReyes123&recipient=${recipient}&screenContext=NON_SELF_PROFILE_VIEW&interop=msgOverlay`;
+
     /**
      * Their profile, its address now the new conversation's, with the conversation in the interop frame: drawn at
-     * once, or only once `drawIn` passes, as LinkedIn loads all of its messaging in the frame first.
+     * once, or only once `drawIn` passes, as LinkedIn loads all of its messaging in the frame first. With `from`, the
+     * tab is still at that address (their profile's) till then, and only then turns into the new conversation's.
      */
-    function composing(href: string, drawIn = 0, card?: (doc: Document) => void) {
-      const doc = load('linkedin-profile.html', href);
+    function composing(href: string, drawIn = 0, card?: (doc: Document) => void, from?: string) {
+      const doc = load('linkedin-profile.html', from ?? href);
       const frame = doc.createElement('iframe');
       frame.setAttribute('data-testid', 'interop-iframe');
       doc.body.append(frame);
       const inner = frame.contentDocument!;
       const sent: string[] = [];
       const draw = () => {
+        if (from) doc.defaultView!.history.pushState({}, '', href);
         const page = load('linkedin-new-conversation.html', href);
         card?.(page);
         inner.body.innerHTML = page.body.innerHTML;
@@ -397,15 +403,21 @@ describe('writing a message only in the conversation with them', () => {
     });
 
     // These look for the box through all 15 seconds LinkedIn's newer messaging gets, reading the page each time.
-    it('writes nothing when its card links to someone else', { timeout: 20_000 }, async () => {
+    it('writes nothing when its card links to someone else', { timeout: 30_000 }, async () => {
       vi.useFakeTimers({ toFake: ['setTimeout'] });
       const someoneElse = (page: Document) => {
         for (const a of page.querySelectorAll('a[href="/in/dana-reyes-4b2a1c/"]'))
           a.setAttribute('href', '/in/sam-ortiz-77/');
       };
-      for (const recipient of ['ACoAAFakeDanaReyes123', 'ACwAAFakeDanaSalesNav77', 'dXJuOmxp']) {
+      for (const [recipient, opened] of [
+        ['ACoAAFakeDanaReyes123', null],
+        ['ACwAAFakeDanaSalesNav77', null],
+        ['dXJuOmxp', null],
+        // Even when the address names whom their profile's Message named.
+        ['dXJuOmxp', messageLink('dXJuOmxp')],
+      ] as const) {
         const { doc, sent } = composing(newAt(recipient), 0, someoneElse);
-        const writing = writeMessage(doc, newAt(recipient), 'Hi Dana', danaById);
+        const writing = writeMessage(doc, newAt(recipient), 'Hi Dana', danaById, opened);
         await vi.advanceTimersByTimeAsync(20_000);
         expect(await writing).toBe('none');
         expect(sent).toEqual([]);
@@ -432,6 +444,99 @@ describe('writing a message only in the conversation with them', () => {
       vi.useFakeTimers({ toFake: ['setTimeout'] });
       const { doc, sent } = composing(newAt('ACoAAFakeDanaReyes123'), 9_000);
       const writing = writeMessage(doc, newAt('ACoAAFakeDanaReyes123'), 'Hi Dana', danaById);
+      await vi.advanceTimersByTimeAsync(20_000);
+      expect(await writing).toBe('done');
+      expect(sent).toEqual(['Hi Dana']);
+    });
+
+    // The owner's sends of 30 Oct 2026, on 0.117.0: the ask came while the tab was still at their profile's address,
+    // and the look kept it, so the new conversation's box was never taken for theirs.
+    it('goes on looking at the new conversation the tab turns into after the ask came', async () => {
+      vi.useFakeTimers({ toFake: ['setTimeout'] });
+      for (const drawIn of [3_000, 9_000]) {
+        const at = newAt('ACoAAFakeDanaReyes123');
+        const { doc, sent } = composing(at, drawIn, undefined, DANA);
+        const opened = messageLink('ACoAAFakeDanaReyes123');
+        const writing = writeMessage(doc, DANA, 'Hi Dana', danaById, opened);
+        await vi.advanceTimersByTimeAsync(20_000);
+        expect(await writing).toBe('done');
+        expect(sent).toEqual(['Hi Dana']);
+      }
+    });
+
+    /** What LinkedIn draws instead of the card when they've written before: their past messages over the box. */
+    const pastMessages = (page: Document) => {
+      page.querySelector('form')!.previousElementSibling!.innerHTML = `
+        <ul>
+          <li></li>
+          <li>
+            <time>Oct 2</time>
+            <span>Dana Reyes sent the following message at 9:50 AM</span>
+            <div>
+              <a href="/in/ACoAAFakeDanaReyes123"><span>View Dana’s profile</span><img alt="Dana Reyes" /></a>
+              <div><a href="/in/ACoAAFakeDanaReyes123"><span>Dana Reyes</span></a><time>9:50 AM</time></div>
+              <div dir="ltr"><p>Thanks for the help last spring.</p></div>
+            </div>
+          </li>
+          <li>
+            <span>Chris Pike sent the following message at 10:02 AM</span>
+            <div>
+              <a href="/in/ACoAAFakeChrisPike0001"><span>View Chris’s profile</span></a>
+              <div dir="ltr"><p>Anytime.</p></div>
+            </div>
+          </li>
+        </ul>`;
+    };
+
+    it('writes to them over their past messages, by its address naming whom their profile’s Message named', async () => {
+      vi.useFakeTimers({ toFake: ['setTimeout'] });
+      for (const recipient of ['ACoAAFakeDanaReyes123', 'dXJuOmxpOmZzZF9wcm9maWxl']) {
+        const { doc, sent } = composing(newAt(recipient), 0, pastMessages);
+        const writing = writeMessage(
+          doc,
+          newAt(recipient),
+          'Hi Dana',
+          dana,
+          messageLink(recipient),
+        );
+        await vi.advanceTimersByTimeAsync(20_000);
+        expect(await writing).toBe('done');
+        expect(sent).toEqual(['Hi Dana']);
+      }
+    });
+
+    it(
+      'writes nothing over past messages when its address names nobody it can read, nor whom Message named',
+      { timeout: 20_000 },
+      async () => {
+        vi.useFakeTimers({ toFake: ['setTimeout'] });
+        for (const opened of [
+          null,
+          messageLink('dXJuOmxpOmZzZF9wcm9maWxm'),
+          `${LI}/in/dana-reyes-4b2a1c/`,
+        ]) {
+          const { doc, sent } = composing(newAt('dXJuOmxpOmZzZF9wcm9maWxl'), 0, pastMessages);
+          const at = newAt('dXJuOmxpOmZzZF9wcm9maWxl');
+          const writing = writeMessage(doc, at, 'Hi Dana', dana, opened);
+          await vi.advanceTimersByTimeAsync(20_000);
+          expect(await writing).toBe('none');
+          expect(sent).toEqual([]);
+        }
+      },
+    );
+
+    it('goes by whom their profile’s Message named, over an id read off their profile that isn’t it', async () => {
+      vi.useFakeTimers({ toFake: ['setTimeout'] });
+      const misread: ProfileRef = { ...dana, id: 'ACoAAFakeSomeoneElse999' };
+      const at = newAt('ACoAAFakeDanaReyes123');
+      const { doc, sent } = composing(at, 0);
+      const writing = writeMessage(
+        doc,
+        at,
+        'Hi Dana',
+        misread,
+        messageLink('ACoAAFakeDanaReyes123'),
+      );
       await vi.advanceTimersByTimeAsync(20_000);
       expect(await writing).toBe('done');
       expect(sent).toEqual(['Hi Dana']);
@@ -603,7 +708,22 @@ describe('writing a message only in the conversation with them', () => {
     doc
       .querySelector('[aria-label="Message Dana Reyes"]')!
       .addEventListener('click', (event) => ((pressed = true), event.preventDefault()));
-    expect(openMessage(doc)).toBe(true);
+    // The link it is, whole: the new conversation it opens names whom it named (`messageBoxFor`).
+    expect(openMessage(doc, DANA)).toBe(
+      `${LI}/messaging/compose/?profileUrn=urn%3Ali%3Afsd_profile%3AACoAAFakeDanaReyes123&recipient=ACoAAFakeDanaReyes123&screenContext=NON_SELF_PROFILE_VIEW`,
+    );
     expect(pressed).toBe(true);
+  });
+
+  it('says null for a Message that’s a button, and false when there’s no Message', () => {
+    const doc = load('linkedin-profile.html', DANA);
+    const link = doc.querySelector('[aria-label="Message Dana Reyes"]')!;
+    const button = doc.createElement('button');
+    button.setAttribute('aria-label', 'Message Dana Reyes');
+    button.textContent = 'Message';
+    link.replaceWith(button);
+    expect(openMessage(doc, DANA)).toBeNull();
+    button.remove();
+    expect(openMessage(doc, DANA)).toBe(false);
   });
 });

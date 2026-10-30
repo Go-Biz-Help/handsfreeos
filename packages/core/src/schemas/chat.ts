@@ -8,8 +8,11 @@ import { optionalEmail, phoneInput } from './crm';
 
 // ---------- asking visitors for their details ----------
 
-/** When the chat window asks for a detail: never, only once it's needed (to book, to follow up), or first. */
-export const chatAskMode = z.enum(['never', 'when_needed', 'before_chat']);
+/**
+ * When the chat window asks for a detail: never, only once it's needed (to book, to follow up), right after the
+ * visitor's first message (whoever answers: the texting registration's way of collecting agreement to texts), or first.
+ */
+export const chatAskMode = z.enum(['never', 'when_needed', 'after_first_message', 'before_chat']);
 export type ChatAskMode = z.infer<typeof chatAskMode>;
 export const ChatAskFor = z.object({
   name: chatAskMode.default('when_needed'),

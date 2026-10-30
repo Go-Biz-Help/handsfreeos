@@ -1132,6 +1132,30 @@ whole day, as the list can't be worked out without them (`holdsTheDay` in `src/a
 and Alignable a read put off till you're away counts as the reading's turn, so the list goes next. With nothing on the
 list, the reading goes on. Nothing in HandsFreeOS changes for it.
 
+### LinkedIn's new conversation, Instagram's Follow Back first (0.117.1), and Alignable's new Messages (0.117.2)
+
+On the owner's sends of 30 Oct 2026, on 0.117.0, every LinkedIn message through Message on a profile said "couldn't
+find the box to write in", and some Instagram messages said "couldn't find Message on their account" (docs/outreach.md,
+decision 135).
+
+LinkedIn's Message takes the tab to the new conversation's page only once it has loaded its messaging, which can be after
+the runner's pause, and the look for the box kept the profile's address it began with, so it never took that page's box
+for theirs. Now each look goes by the page's address as it is then (`writeMessage` in `src/networks/linkedin/auto.ts`),
+waiting up to 15 seconds after a Message that's a link. When they've written before, LinkedIn shows their past messages
+over the box instead of a card about them: the box is theirs when the page's address names whom the Message pressed
+named (`recipient`; `openMessage` gives the link, the runner passes it as `opened`).
+
+Instagram shows Message only on accounts you follow, so a follower you hadn't followed back had only Follow Back. When
+their account shows no Message and they follow you, the runner follows them back, notes it as a follow, then presses
+Message (`followBack` in `src/auto/instagram.ts`). Nobody who doesn't follow you is followed.
+
+Alignable's messages broke the same day (0.117.2): since midday on 30 Oct 2026 (between the 15:35 and 19:02 UTC
+outlines) it draws a conversation's header with no test id of its own (it was `channel-header-loaded`) and its Send as
+`messaging-send-desktop` (it was `messaging-send-external`). With no header to read, every message said "Alignable showed
+a different conversation". The conversation's header is now the first header on the way up from its box to write in
+(`chatHeader` in `src/networks/alignable/read.ts`), never Messages' list's own header nor the site's menu, and either
+Send counts (`MESSAGE_SEND`), for the runner's sends, Read my chats, who wrote back, and noting the person's own.
+
 ### Replies seen by name, and answered any time (0.117.0)
 
 Instagram's list of chats links to none of them, and neither does LinkedIn's newer list of conversations, so before

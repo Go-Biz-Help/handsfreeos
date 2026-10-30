@@ -174,11 +174,34 @@ describe('the description names the pages a reviewer can open', () => {
     ).toContain('https://drive.test/sheet');
   });
 
+  it('says the chat on their own site asks after the first message, and where a reviewer sees it', () => {
+    const text = optInDescriptionFor('Lone Star HVAC', 'hosted', {
+      siteUrl: 'https://lonestarhvac.com',
+      chatUrl: 'https://app.handsfreeos.com/chat/wk_AbCdEfGhIjKlMnOpQrSt',
+    });
+    expect(text).toContain('in the chat on https://lonestarhvac.com');
+    expect(text).toMatch(/after a visitor sends their first message/i);
+    expect(text).toMatch(/name, mobile number and email/);
+    expect(text).toContain(
+      'A page showing exactly what the chat asks is at https://app.handsfreeos.com/chat/wk_AbCdEfGhIjKlMnOpQrSt.',
+    );
+    expect(text).toMatch(/links to the privacy policy and the terms/);
+    // A form already carrying the box is said too; nothing claims one that isn't there.
+    expect(text).not.toMatch(/\/f\//);
+    expect(
+      optInDescriptionFor('Lone Star HVAC', 'hosted', {
+        siteUrl: 'https://lonestarhvac.com',
+        formUrl: 'https://app.handsfreeos.com/f/lone-star/contact-us',
+      }),
+    ).toContain('The same box is on https://app.handsfreeos.com/f/lone-star/contact-us.');
+  });
+
   it('stays under what the registration accepts', () => {
     const urls = {
       formUrl: 'https://app.handsfreeos.com/f/lone-star-hvac-and-roofing/contact-us',
       bookingUrl: 'https://app.handsfreeos.com/book/lone-star-hvac-and-roofing',
       chatUrl: 'https://app.handsfreeos.com/chat/cw_abcdefghijklmnopqrstuvwx',
+      siteUrl: 'https://www.lonestarhvacandroofing.com',
     };
     const text = optInDescriptionFor('Lone Star HVAC & Roofing', 'hosted', urls, { offers: true });
     expect(text.length).toBeLessThanOrEqual(1500);

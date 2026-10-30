@@ -1,13 +1,16 @@
 import { expect, test } from '@playwright/test';
+import { WORKER } from './booking-helpers';
 import { BUSINESS_ADDRESS, createBusiness, signUpAndConfirm } from './helpers';
 
 /**
  * Setup's number and calendar steps the way a new owner with an EIN meets them, and what used to trip them up
  * (onboarding question 55): the website and the address from setup's first screen are already in website chat and
- * in the carriers' form; "Set this up for me" gives the agreement box, privacy policy and terms we host their
- * addresses at once, so the review lets the registration go without a reload; paying the carriers' fees on Stripe's
- * page comes back to the setup, not Settings; and the booking page the agreement box's form named, switched off, is
- * turned on by making the booking calendar. Before all that, the sign-up page's Terms and Privacy Policy open.
+ * in the carriers' form; "Set this up for me" gives the website chat with the agreement box (its code to paste in
+ * the footer, and a page showing what it asks) and the privacy policy and terms we host their addresses at once, so
+ * the review lets the registration go without a reload once the chat has opened on the website; paying the
+ * carriers' fees on Stripe's page comes back to the setup, not Settings; and the booking page the chat's box named,
+ * switched off, is turned on by making the booking calendar. Before all that, the sign-up page's Terms and Privacy
+ * Policy open.
  */
 
 /** The website given on setup's first screen, which takes only a public https address. Nothing is served there. */
@@ -74,11 +77,27 @@ test('setup: a local number on what we host, its fees paid, and the booking page
   await page.getByTestId('a2p-suggestion-1').click();
   await next.click();
 
-  // How customers agree: ours. Its form gets an address straight away, which is the business's first public page.
+  // How customers agree: ours. The chat for their website, with its code to paste in the footer and the page showing
+  // what it asks for the reviewer; its box names the business's first public page.
   await page.getByTestId('optin-hosted').click();
   await page.getByRole('button', { name: 'Set this up for me' }).click();
-  await expect(page.getByText('This is live.', { exact: false })).toBeVisible({ timeout: 30_000 });
-  await expect(page.getByRole('link', { name: /\/f\/[a-z0-9-]+\/[a-z0-9-]+$/ })).toBeVisible();
+  await expect(page.getByTestId('optin-chat-code')).toBeVisible({ timeout: 30_000 });
+  await expect(page.getByTestId('chat-snippet')).toContainText('/embed/v1/wk_');
+  await expect(page.getByTestId('chat-install')).toContainText('Not seen yet');
+  const chatPage = page.getByTestId('optin-chat-page');
+  await expect(chatPage).toHaveText(/\/chat\/wk_[A-Za-z0-9]{20}$/);
+  const key = (await chatPage.textContent())!.split('/chat/')[1]!;
+  // The page a reviewer opens shows the box, unticked, with the privacy policy and terms.
+  const shown = await page.context().newPage();
+  await shown.goto(`/chat/${key}`);
+  await expect(shown.getByTestId('chat-showcase-form-texts')).not.toBeChecked();
+  await expect(shown.getByRole('link', { name: 'Privacy policy' })).toBeVisible();
+  await shown.close();
+  // The chat opening on the website, as it does once its code is pasted in the footer: the review looks for that.
+  const opened = await page.request.post(`${WORKER}/public/chat/${key}/start`, {
+    data: { origin: KNOWLEDGE_SITE, pagePath: '/' },
+  });
+  expect(opened.ok()).toBe(true);
   await next.click();
 
   // The privacy policy and terms we write, at their addresses under the same name.
@@ -101,7 +120,7 @@ test('setup: a local number on what we host, its fees paid, and the booking page
   });
   await expect(page.getByRole('heading', { name: 'Get your business number' })).toBeVisible();
 
-  // The calendar step: the booking page is there, named by the form, and off.
+  // The calendar step: the booking page is there, named by the chat's box, and off.
   await page.goto(`/onboarding/${workspaceId}/setup/calendar`);
   await expect(page.getByTestId('booking-site-link')).toBeVisible();
   await expect(page.getByTestId('booking-site-enabled')).toHaveAttribute('aria-checked', 'false');

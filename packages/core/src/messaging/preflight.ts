@@ -14,7 +14,7 @@
  */
 
 /** The things worth going and looking at. Ids are stable: the wizard keys its rows on them. */
-export type PreflightId = 'website' | 'policy' | 'terms' | 'opt_in_surface';
+export type PreflightId = 'website' | 'policy' | 'terms' | 'opt_in_surface' | 'chat_on_site';
 
 export interface PreflightCheck {
   readonly id: PreflightId;
@@ -570,6 +570,84 @@ export function checkOptInSurface(
     ...base,
     ok: true,
     detail: 'The box is there, starts empty, is optional, and says what it has to.',
+    url,
+  };
+}
+
+/** A website chat as the worker found it, for the hosted path's "is it on your site" row. */
+export interface ChatOnSite {
+  /** The widget's public key, which its snippet carries (`/embed/v1/<key>.js`). */
+  readonly key: string;
+  /** Where the install check last saw the chat open, when it has. */
+  readonly seenOrigin: string | null;
+  readonly paused: boolean;
+}
+
+/** A site's host without its www, so acme.com and www.acme.com are the same site. */
+const siteOf = (url: string | null | undefined): string | null => {
+  if (!url) return null;
+  try {
+    return new URL(/^https?:\/\//i.test(url) ? url : `https://${url}`).host.replace(/^www\./, '');
+  } catch {
+    return null;
+  }
+};
+
+/**
+ * Whether the chat is really on the business's website (the hosted path). A reviewer opens the website, and a chat
+ * whose code was never pasted there is a promise nobody can check: the registration is turned down.
+ *
+ * Found two ways, either enough: the widget's key in the page the worker fetched (the snippet names it), or the
+ * install check having seen the chat open on that site. The second covers site builders that add footer code after
+ * the page loads, where the fetched page doesn't carry it.
+ */
+export function checkChatOnSite(
+  website: FetchedPage | null,
+  chats: readonly ChatOnSite[],
+): PreflightCheck {
+  const base = {
+    id: 'chat_on_site' as const,
+    label: 'Your website shows the chat',
+    severity: 'blocker' as const,
+  };
+  const url = website ? (website.finalUrl ?? website.url) : null;
+  const site = siteOf(url);
+  if (!chats.length)
+    return {
+      ...base,
+      ok: false,
+      detail:
+        'The chat isn’t set up yet. Go back to “How customers agree” and press “Set this up for me”.',
+      url,
+    };
+  const live = chats.filter((c) => !c.paused);
+  if (!live.length)
+    return {
+      ...base,
+      ok: false,
+      detail:
+        'Your website chat is paused, so a reviewer won’t find it. Turn it back on at the top of Settings → Website chat.',
+      url,
+    };
+  const html = website?.status && website.status < 400 ? website.html : '';
+  if (live.some((c) => html.includes(c.key)))
+    return {
+      ...base,
+      ok: true,
+      detail: `The chat’s code is on ${site ?? 'your website'}. A reviewer who sends it a message is asked for their details, with the box.`,
+      url,
+    };
+  if (site && live.some((c) => siteOf(c.seenOrigin) === site))
+    return {
+      ...base,
+      ok: true,
+      detail: `The chat has opened on ${site}, so its code is there.`,
+      url,
+    };
+  return {
+    ...base,
+    ok: false,
+    detail: `We couldn’t find the chat on ${site ?? 'your website'}. Paste the code from “How customers agree” into your site’s footer and publish, then open your site and click the chat button once.`,
     url,
   };
 }
