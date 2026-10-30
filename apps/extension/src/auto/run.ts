@@ -291,6 +291,16 @@ const profileOf = (url: string | null): ProfileRef | null => {
 };
 
 /**
+ * Who a step on the list is for, as HandsFreeOS keeps them: their profile's link, with their number when it's kept
+ * too. Their chats link to them by it, and it stays theirs when their name or username changes.
+ */
+function keptOf(item: TodayListItem): ProfileRef | null {
+  const kept = profileOf(item.profileUrl);
+  const id = item.platformId ?? null;
+  return kept && !kept.id && id && /^\d{1,20}$/.test(id) ? { ...kept, id } : kept;
+}
+
+/**
  * Opens someone's profile and checks it's them: the page and its profile, and the profile to note the step against
  * (the one kept, with what the page added); or what stopped it.
  */
@@ -301,7 +311,7 @@ async function openProfile(
   | { readonly page: ReadResult; readonly profile: ProfileRef; readonly noted: ProfileRef }
   | { readonly outcome: Outcome }
 > {
-  const want = profileOf(item.profileUrl);
+  const want = keptOf(item);
   if (!want) return { outcome: { done: false, line: `${item.name}: no profile link kept` } };
   await tab.open(want.url);
   await setState({ tabId: tab.tabId });
@@ -691,7 +701,7 @@ async function openChat(
     }
   | { readonly outcome: Outcome }
 > {
-  const want = profileOf(item.profileUrl);
+  const want = keptOf(item);
   let kept: ThreadRef | null = null;
   if (item.threadKey) {
     await tab.open(`${FACEBOOK}/messages/t/${encodeURIComponent(item.threadKey)}/`);
@@ -769,6 +779,34 @@ async function sendDone(sendId: string, businessId: string, sent: boolean, why: 
 }
 
 /**
+ * Their number, from the chat window their profile's Message opened, checked on Facebook (the owner's report of
+ * 30 Oct 2026): a small chat window links to someone by number, someone may be kept by username alone, and Facebook
+ * puts no cursor in a window that opens while the runner's is behind the person's, so no window could count as theirs.
+ * The number the one window that opened with their name links to is opened as a profile, and it's theirs only when
+ * Facebook shows that profile at their username. Their Message is pressed again there, and the message goes only into
+ * the window that links to them by that number. Null when it isn't shown to be theirs; a warning stops it.
+ */
+async function theirKey(
+  them: ProfileRef,
+  linked: ProfileRef,
+  businessId: string,
+): Promise<{ readonly profile: ProfileRef | null } | { readonly stop: string }> {
+  if (!linked.id || linked.username || them.id || !them.username) return { profile: null };
+  await tab.open(`${FACEBOOK}/profile.php?id=${encodeURIComponent(linked.id)}`);
+  await setState({ tabId: tab.tabId });
+  const page = await read();
+  const stop = await warnedOn(page, businessId);
+  if (stop) return { stop };
+  const shown = page.profile?.profile ?? null;
+  if (!shown || sameByKey(shown, them) !== true) return { profile: null };
+  const profile = { ...them, id: linked.id };
+  const pressed = await tab.ask({ type: 'hfos-open-message', profile });
+  if (!pressed.ok) return { profile: null };
+  await pause(SETTLE_MS);
+  return { profile };
+}
+
+/**
  * Sends a message OK'd (or let go as it is) in Messenger, and notes it as its own: as a few short texts, a few seconds
  * apart, when the person texts that way (@hfos/core/addons/outreach/voice), each part between blank lines its own.
  */
@@ -794,12 +832,25 @@ async function sendMessage(
   // Whose chat it goes in: the tab types only into one it shows is with them, by their profile, or by the name
   // Facebook showed for them where a chat links to nobody.
   const names = chat.name ? [chat.name] : [];
+  let profile = chat.profile;
   // Once a text has gone, the message has: the rest is said, not tried again.
   let partly: string | null = null;
   for (const [i, part] of parts.entries()) {
     // The next text a few seconds after, as long as typing it takes.
     if (i > 0) await pause(partPauseMs(part, Math.random()));
-    const wrote = await tab.ask({ type: 'hfos-message', text: part, profile: chat.profile, names });
+    let wrote = await tab.ask({ type: 'hfos-message', text: part, profile, names });
+    // The window their Message opened links to them by a key HandsFreeOS doesn't keep: that key, once Facebook shows
+    // it's theirs, and only then is it asked again.
+    if (i === 0 && wrote.ok && wrote.result === 'none' && wrote.linksTo) {
+      const checked = await theirKey(profile, wrote.linksTo, businessId);
+      if ('stop' in checked) return checked;
+      if (!checked.profile)
+        return failed(
+          `${item.name}: couldn’t make sure the chat that opened was theirs, so nothing was sent`,
+        );
+      profile = checked.profile;
+      wrote = await tab.ask({ type: 'hfos-message', text: part, profile, names });
+    }
     const why = !wrote.ok
       ? wrote.error
       : wrote.result === 'none'
@@ -820,7 +871,7 @@ async function sendMessage(
     type: 'hfos-noted',
     step: {
       kind: 'message',
-      to: { name: item.name, profile: chat.profile },
+      to: { name: item.name, profile },
       group: null,
       postUrl: null,
       thread: chat.thread,

@@ -1859,12 +1859,13 @@ export const today = defineAddonQuery(outreachAddon, {
       ? await rows<{
           id: string;
           person_id: string | null;
+          platform_id: string | null;
           marked: boolean;
           answer: Answer | null;
           partner_hint: string | null;
         }>(
           ctx.tx,
-          sql`select p.id, p.person_id, exists (select 1 from addon_outreach.demos d
+          sql`select p.id, p.person_id, p.platform_id, exists (select 1 from addon_outreach.demos d
                 where d.profile_id = p.id and d.user_id = ${me} and d.how = 'marked' and d.undone_at is null) as marked,
                 (select f.answer from addon_outreach.follow_ups f
                   where f.profile_id = p.id and f.user_id = ${me} and f.answered_at >= f.last_at) as answer,
@@ -1906,6 +1907,8 @@ export const today = defineAddonQuery(outreachAddon, {
           // Each line in the network's own words: "Asked to be your connection" on LinkedIn.
           why: why.map((w) => inNetworkWords(w, input.platform)),
           personId: k?.person_id ?? null,
+          // Their number on Facebook, once a step learned it: the extension knows their chats by it.
+          ...(k?.platform_id ? { platformId: k.platform_id } : {}),
           demoBooked: k?.marked ?? false,
           ...(k?.partner_hint ? { partnerHint: k.partner_hint } : {}),
           recent: isMessage(i) ? (recent.get(chatKey(i)) ?? []) : [],

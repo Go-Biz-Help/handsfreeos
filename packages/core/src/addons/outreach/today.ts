@@ -213,6 +213,11 @@ export const TodayItem = z.object({
   name: z.string(),
   profileId: z.uuid().nullable(),
   profileUrl: z.string().nullable(),
+  /**
+   * The network's own id for them, when it's kept: on Facebook their number, which stays theirs when their name or
+   * username changes, and which their chats link to them by. Left out when none is kept, and by builds from before it.
+   */
+  platformId: z.string().nullable().optional(),
   /** The chat, for a follow-up or a reply. */
   chatId: z.uuid().nullable(),
   threadKey: z.string().nullable(),

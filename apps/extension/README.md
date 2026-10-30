@@ -1720,6 +1720,13 @@ networks Chrome lets it on, so HandsFreeOS can say what to press when an ask wai
   for a message coming in doesn't take it), and no chat open as it was pressed showed a name that may be theirs.
   Messenger's chat links by number, so for someone kept by username it opens their profile's **Message** instead,
   and when that takes the tab to their chat in Messenger, it takes their number from it once it shows their name.
+  Facebook's chat windows link by number too, and put no cursor in a window that opens while the runner's is behind
+  the person's (the owner's report of 30 Oct 2026, when every send through a profile's **Message** to someone kept by
+  username stopped there). So from 0.114.1, when the one window that opened on **Message** with their name links to
+  them only by a number, it opens that number's profile, and only when Facebook shows it at their username does it
+  press **Message** again there and type into the window that links to that number (`openedWindowLinks`,
+  `theirKey`); else it sends nothing, and says it couldn't make sure the chat was theirs. The number is noted with
+  the message, so HandsFreeOS keeps it.
   Just before sending it checks again that the box is still theirs and no other box took the writing, and if not
   takes the writing out of every box it went in and sends nothing (`not_theirs`); writing it can't take out of a box
   that held the person's own is named in its line, for them to delete. When

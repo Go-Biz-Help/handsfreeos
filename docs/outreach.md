@@ -897,7 +897,11 @@ than a store extension, and for more features, and answered the questions the sa
     notes it as its own; one it couldn't send says why and leaves the list for the day. From extension 0.94.1 it
     types a message only into a chat the page shows is with them, never into another chat window left open from the
     person before, and sends nothing when it can't tell: a chat that links to a profile counts only by their number or
-    username, never by a name someone else may share. LinkedIn's and Instagram's sending goes the same way.
+    username, never by a name someone else may share. LinkedIn's and Instagram's sending goes the same way. From
+    0.114.1, someone kept by username whose chat window links to them by number (as Facebook's do) has that number
+    checked first: the extension opens its profile, and only when Facebook shows it at their username does the
+    message go, into the window that links to that number (the owner's report of 30 Oct 2026, when two OK'd messages
+    came back "Couldn't find a chat open with them").
 27. **Replies are a setting, per person:** (a) drafts wait for the person; (b) simple replies go on their own and the
     rest are handed over with a push; (c) every reply goes on its own. (b) and (c) start training wheels. Built: the
     AI says whether each reply it drafts is simple; with (b) a simple one goes as it is, with (c) every one does, and

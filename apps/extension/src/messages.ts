@@ -494,6 +494,8 @@ export type AutoAnswer =
       readonly postUrl?: string | null;
       /** A message's typing it couldn't take out of another chat's box, with the name on that box (Facebook's). */
       readonly left?: MessageWrote['left'];
+      /** With `none`: who the window their profile's Message opened links to, for the runner to check (Facebook's). */
+      readonly linksTo?: MessageWrote['linksTo'];
     }
   | { readonly ok: false; readonly error: string };
 
