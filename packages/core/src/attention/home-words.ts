@@ -50,6 +50,7 @@ const NOUNS: Readonly<Record<AttentionKind, readonly [string, string]>> = {
   offer_lapsing: ['promotion', 'promotions'],
   texting_rejected: ['registration', 'registrations'],
   addon_alert: ['alert', 'alerts'],
+  webinar_hot: ['customer', 'customers'],
 };
 
 /** The settings page that checks a channel or fixes a connection, by the card's stored subject type. */
@@ -498,6 +499,7 @@ export function attentionTargetOf(
     case 'maintenance_due':
     case 'client_quiet':
     case 'promise_due':
+    case 'webinar_hot':
       break;
     // What came in, and what's still owed.
     case 'revenue_moved':
@@ -656,6 +658,7 @@ export function handleButtonOf(
       return { label: 'Add address', icon: 'calendar-plus' };
     case 'client_quiet':
     case 'promise_due':
+    case 'webinar_hot':
       if (callsAvailable && item.personId) return { label: `Call ${first}`, icon: 'phone' };
       if (email) return { label: `Email ${first}`, icon: 'mail' };
       return { label: `Text ${first}`, icon: 'message' };
@@ -715,6 +718,7 @@ export function letHandleOffReason(
   if (item.kind === 'offer_lapsing') return 'Whether a promotion runs longer is your call';
   if (item.kind === 'texting_rejected') return 'Only you can fix the details they turned down';
   if (item.kind === 'addon_alert') return 'The add-on says when it’s done';
+  if (item.kind === 'webinar_hot') return 'Someone hot hears from a person';
   if (item.letHandleMode === 'none') return 'HandsFreeOS can’t handle this one';
   if (!item.actions.letHandle) return 'You can’t hand this one off';
   return null;

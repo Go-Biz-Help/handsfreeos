@@ -107,7 +107,7 @@ export const FORM_BUILDER_TOOLS: readonly FormToolDef[] = [
   {
     name: 'update_question',
     description:
-      'Change a question with a JSON merge patch: objects merge, lists and null replace. Its own settings go under "config"; a new "type" replaces them. Choices are edited by id under config.choices: [{"id", "label"}]. In a live poll, "live" holds {"seconds": 60, "showResults": false, "cues": ["what the presenter might say just before asking it"]}.',
+      'Change a question with a JSON merge patch: objects merge, lists and null replace. Its own settings go under "config"; a new "type" replaces them. Choices are edited by id under config.choices: [{"id", "label"}]. In a live poll, "live" holds {"seconds": 60, "showResults": false, "cues": ["what the presenter might say just before asking it"], "points": {"c_…": 10}}; points are what each answer says about how ready someone is (-100 to 100), by a choice’s id, "yes" and "no", a rating or scale’s number, "answered" for a short answer or "pressed" for a button, and are replaced whole.',
     inputSchema: obj({
       questionId: questionRef,
       json: str('The merge patch as a JSON object.'),
@@ -165,7 +165,8 @@ export const FORM_BUILDER_TOOLS: readonly FormToolDef[] = [
   },
   {
     name: 'set_form',
-    description: 'The form itself: which kind it is, its heading, and the words at the top.',
+    description:
+      'The form itself: which kind it is, its heading, the words at the top, and a live poll’s follow-up.',
     inputSchema: obj({
       mode: nullable(
         oneOf(
@@ -175,6 +176,11 @@ export const FORM_BUILDER_TOOLS: readonly FormToolDef[] = [
       ),
       title: nullable(str('The heading the customer reads.')),
       intro: nullable(str('The words above the first question.')),
+      leadsJson: nullable(
+        str(
+          'A live poll only: who to follow up with after the call, as JSON {"stayed": 10, "hot": 30, "warm": 10, "hotAction": "text"}. Points for staying to the end; Hot from and Warm from so many points (Warm below Hot); and what happens to hot ones: list (just the ranked list), home (a card on Home too) or text (the AI teammate texts them, the default).',
+        ),
+      ),
     }),
     strict: true,
   },
@@ -264,6 +270,7 @@ const INPUTS = {
     mode: z.enum(['form', 'survey', 'quiz', 'poll']).nullish(),
     title: z.string().max(160).nullish(),
     intro: z.string().max(4000).nullish(),
+    leadsJson: z.string().nullish(),
   }),
   set_scoring: z.object({ json: z.string() }),
   set_on_submit: z.object({ json: z.string() }),
@@ -451,6 +458,7 @@ export function formToolCallsToOps(
         if (input.mode) patch.mode = input.mode;
         if (input.title) patch.title = input.title;
         if (input.intro !== null && input.intro !== undefined) patch.intro = input.intro;
+        if (input.leadsJson) patch.leads = parseJsonObject(input.leadsJson, 'leadsJson');
         if (!Object.keys(patch).length) throw new CallError('Nothing to change.');
         return [{ op: 'set_form', patch }];
       }

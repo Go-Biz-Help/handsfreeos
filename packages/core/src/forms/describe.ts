@@ -169,6 +169,7 @@ export function describeFormOp(op: FormOp, before: FormDefinition): string {
           ? `Added the slides ${quoted(slides.name)}`
           : 'Took the slides off';
       }
+      if ('leads' in patch) return 'Changed who to follow up with after a call';
       if (typeof patch.mode === 'string') return `Made it a ${patch.mode}`;
       if (typeof patch.title === 'string') return `Changed the heading to ${quoted(patch.title)}`;
       return 'Changed the words at the top';
@@ -272,6 +273,7 @@ export function diffForms(from: FormDefinition, to: FormDefinition): FormOp[] {
   if (from.title !== to.title) formPatch.title = to.title;
   if (from.intro !== to.intro) formPatch.intro = to.intro;
   if (!jsonEqual(from.slides ?? null, to.slides ?? null)) formPatch.slides = to.slides ?? null;
+  if (!jsonEqual(from.leads ?? null, to.leads ?? null)) formPatch.leads = to.leads ?? null;
   if (Object.keys(formPatch).length) ops.push({ op: 'set_form', patch: formPatch });
   if (!jsonEqual(from.scoring, to.scoring))
     ops.push({ op: 'set_scoring', patch: cloneJson(to.scoring) });

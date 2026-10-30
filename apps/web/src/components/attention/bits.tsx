@@ -13,6 +13,7 @@ import {
   EyeOff,
   Globe,
   MessageSquareOff,
+  Presentation,
   Puzzle,
   Tag,
   GraduationCap,
@@ -93,6 +94,7 @@ export const KIND_LOOK: Readonly<Record<AttentionKind, { icon: LucideIcon; tone:
   texting_rejected: { icon: MessageSquareOff, tone: `${HOT_SOFT} ${HOT_TEXT}` },
   addon_alert: { icon: Puzzle, tone: 'bg-warning-soft text-warning-text' },
   faq_suggestions: { icon: CircleHelp, tone: `${AI_SOFT} ${AI_TEXT}` },
+  webinar_hot: { icon: Presentation, tone: `${HOT_SOFT} ${HOT_TEXT}` },
 };
 
 /** A card's kind, in the canvas's words ("Gone quiet", "Not confirmed"). */
@@ -131,6 +133,7 @@ export const KIND_WORD: Readonly<Record<AttentionKind, string>> = {
   texting_rejected: 'Texting turned down',
   addon_alert: 'Add-on alert',
   faq_suggestions: 'Question to answer',
+  webinar_hot: 'Hot after a webinar',
 };
 
 /** The kind's icon on its tinted tile: 30 px on cards, 24 px in Settings' list. */

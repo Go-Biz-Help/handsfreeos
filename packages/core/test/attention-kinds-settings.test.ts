@@ -65,6 +65,7 @@ describe('attention kinds', () => {
       'offer_lapsing',
       'texting_rejected',
       'addon_alert',
+      'webinar_hot',
     ]);
   });
 
@@ -224,6 +225,7 @@ describe('attention kinds', () => {
       'wallet_card_declined',
       'wallet_empty',
       'wallet_low',
+      'webinar_hot',
       'website_changed',
     ]);
     expect(letHandleRefusal('hot_lead')).toBeNull();

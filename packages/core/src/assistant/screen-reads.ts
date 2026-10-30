@@ -84,6 +84,7 @@ export const SCREEN_READS = [
   'usage.statement',
   'user_phone.get',
   'video_call.get',
+  'video_call.leads',
   'video_call.polls',
   'whats_new.list',
   'whats_new.unseen',

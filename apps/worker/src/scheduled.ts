@@ -43,6 +43,12 @@ import {
   videoCallPollsFinishJob,
 } from './video-calls/polls';
 import {
+  VIDEO_CALL_LEAD_REASONS_JOB,
+  WEBINAR_TEXT_HOT_JOB,
+  videoCallLeadReasonsJob,
+  webinarTextHotJob,
+} from './video-calls/leads';
+import {
   WEBINAR_JOIN_LINK_JOB,
   WEBINAR_MISSED_JOB,
   WEBINAR_STARTING_JOB,
@@ -574,6 +580,9 @@ export const jobs: JobMap = {
   [VIDEO_CALL_KEEP_WORDS_JOB]: videoCallKeepWordsJob,
   [VIDEO_CALL_POLL_CLOSE_JOB]: videoCallPollCloseJob,
   [VIDEO_CALL_POLLS_FINISH_JOB]: videoCallPollsFinishJob,
+  // Who to follow up with after a call with a live poll: the AI's lines, and the hot ones texted.
+  [VIDEO_CALL_LEAD_REASONS_JOB]: videoCallLeadReasonsJob,
+  [WEBINAR_TEXT_HOT_JOB]: webinarTextHotJob,
   // Webinars' messages: starting now, missed it, and their own Join link again (video-calls/webinars.ts).
   [WEBINAR_STARTING_JOB]: webinarStarting,
   [WEBINAR_MISSED_JOB]: webinarMissed,

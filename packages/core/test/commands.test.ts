@@ -342,6 +342,9 @@ describe('registry', () => {
       'video_call.poll_close',
       'video_call.poll_answer',
       'video_call.polls_finish',
+      'video_call.score_leads',
+      'video_call.lead_reasons',
+      'video_call.lead_outcome',
       'call_suggestion.record',
       'call_suggestion.decide',
       'attendee.record_reminder',
@@ -921,6 +924,7 @@ describe('registry', () => {
       'video_call.knock_status',
       'video_call.polls',
       'video_call.poll_now',
+      'video_call.leads',
       // M13: reading the support desk and the admin side.
       'support.ticket.list',
       'support.ticket.get',

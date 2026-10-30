@@ -152,11 +152,12 @@ export function useHomeActions(o: {
             return item.conversationId ? reply(item) : target(item);
           case 'referral_mentioned':
             return target(item);
-          // Two texts went already: a call when this phone can, else a reply.
+          // Two texts went already, or they're hot after a webinar: a call when this phone can, else a reply.
           case 'maintenance_due':
           case 'quiet_after_price':
           case 'client_quiet':
           case 'promise_due':
+          case 'webinar_hot':
             if (item.personId) return call(item);
             return item.conversationId ? reply(item) : target(item);
           // A deal on the wrong stage opens it, where the move is a press away.

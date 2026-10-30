@@ -180,6 +180,9 @@ export const ATTENTION_EVENTS: readonly string[] = [
   'addon_alert.updated',
   'addon_alert.acknowledged',
   'addon_alert.cleared',
+  // Someone hot after a webinar: scored, or what became of the AI teammate's text to them.
+  'webinar.rated',
+  'video_call_lead.followed_up',
   // A person brought an item back (Undo, or "show it now").
   'attention.restored',
   'attention.unsnoozed',
@@ -215,6 +218,7 @@ const SUBJECT_TYPES: ReadonlySet<string> = new Set<AttentionSubjectRef['type']>(
   'offer',
   'registration',
   'addon_alert',
+  'webinar_lead',
 ]);
 
 /** A subject from loose values (a job's payload, an item's row), or null. */
@@ -373,6 +377,9 @@ export async function subjectsOf(
       break;
     case 'addon_alert':
       add('addon_alert', id);
+      break;
+    case 'video_call_lead':
+      add('webinar_lead', id);
       break;
     case 'registration':
       add('registration', id);

@@ -182,6 +182,14 @@ A fourth kind beside form, survey and quiz (`mode = 'poll'`), picked on a call o
   each question (**Seconds it stays up**); a poll has no Required switch, no Where it goes and no Share tab.
 - **Its answers** are one response per person per call (`form_responses.video_call_id`, `source = 'video_call'`), so
   Results and the customer's record show them like any form's.
+- **Points for who to follow up with** (part 5): each answer's are on its question (`live.points`, by a choice's id,
+  `yes` and `no`, each number of a rating or scale, `answered`, `pressed`; -100 to 100, 0 left out), and the poll's
+  own `leads` holds what staying to the end is worth, where Hot and Warm start, and what happens to the hot ones.
+  `update_question` replaces `live.points` whole, so a point taken off stays off, and undo puts the old ones back.
+  The AI suggests them (**Suggest points for every question**) or drafts the whole poll from the webinar's goal and
+  slides (**Draft the questions with AI**); both land as edits. The Assistant's form builder sets them too
+  (`update_question` with `live.points`, `set_form` with `leadsJson`). "Who to follow up with" in `docs/video-calls.md` is how
+  they're used.
 
 ## Answering in a conversation
 

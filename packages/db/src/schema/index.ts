@@ -2870,6 +2870,41 @@ export const videoCallPolls = app.table('video_call_polls', {
 });
 
 /**
+ * Each customer in a call with a live poll, scored when it ended (20261027020100): points, Hot, Warm or Cold, the
+ * AI's reason, and what happened to a hot one. Only the worker writes it.
+ */
+export const videoCallLeads = app.table('video_call_leads', {
+  id: id(),
+  workspaceId: workspaceRef(),
+  videoCallId: uuid('video_call_id')
+    .notNull()
+    .references(() => videoCalls.id, { onDelete: 'cascade' }),
+  personId: uuid('person_id')
+    .notNull()
+    .references(() => people.id, { onDelete: 'cascade' }),
+  formId: uuid('form_id').references((): AnyPgColumn => forms.id, { onDelete: 'set null' }),
+  responseId: uuid('response_id').references((): AnyPgColumn => formResponses.id, {
+    onDelete: 'set null',
+  }),
+  points: integer('points').notNull().default(0),
+  /** hot, warm or cold. */
+  label: text('label').notNull(),
+  stayed: boolean('stayed').notNull().default(false),
+  seconds: integer('seconds').notNull().default(0),
+  /** What the points came from, in words. */
+  parts: jsonb('parts').$type<object[]>().notNull().default([]),
+  reason: text('reason'),
+  reasonAt: ts('reason_at'),
+  /** What the poll said to do with the hot ones: list, home or text. */
+  followUp: text('follow_up').notNull().default('list'),
+  /** The AI teammate's text to a hot one: sent, drafted, card or skipped. */
+  outcome: text('outcome'),
+  outcomeReason: text('outcome_reason'),
+  scoredAt: ts('scored_at').notNull().defaultNow(),
+  ...timestamps(),
+});
+
+/**
  * What the AI's listener heard in a video call, line by line, until the stretch is over and the lines become the
  * appointment's transcript (20261027013300).
  */

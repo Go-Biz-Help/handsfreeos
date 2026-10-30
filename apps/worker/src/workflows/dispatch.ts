@@ -185,6 +185,11 @@ function triggerContext(e: EventRow): Record<string, unknown> {
     // A form's events: which form, and (form.stopped) the page they stopped on.
     ...(str(p['formId']) && e.eventType.startsWith('form.') ? { form_id: p['formId'] } : {}),
     ...(typeof p['pageTitle'] === 'string' ? { page_title: p['pageTitle'] } : {}),
+    // A webinar's rating: Hot, Warm or Cold, and its points.
+    ...(e.eventType === 'webinar.rated' && str(p['label']) ? { label: p['label'] } : {}),
+    ...(e.eventType === 'webinar.rated' && typeof p['points'] === 'number'
+      ? { points: p['points'] }
+      : {}),
   };
 }
 

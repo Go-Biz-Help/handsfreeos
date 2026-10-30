@@ -857,6 +857,12 @@ const thankYouStep = (t: TeammateTurn): TeammateStep =>
     `${hello(t)}Thanks for choosing ${businessName(t.context)} today. We hope everything is working well!`,
   );
 
+/** Someone hot after a webinar: thanks for coming, and one question toward a call. */
+const webinarStep = (t: TeammateTurn): TeammateStep =>
+  say(
+    `${hello(t)}Thanks for joining the webinar from ${businessName(t.context)}! Would a quick call this week help?`,
+  );
+
 /** A reply to someone who just mentioned a referral starts by thanking them for it (prompt.ts's <referral>). */
 function thanked(asked: string, step: TeammateStep): TeammateStep {
   if (!asked.includes('<referral>') || 'text' in step) return step;
@@ -946,7 +952,9 @@ export function scriptedTeammateTurn(
       : asked.includes(NUDGE_ASK)
         ? nudgeStep()
         : asked.includes(TASK_ASK)
-          ? thankYouStep(turn)
+          ? asked.includes('<webinar>')
+            ? webinarStep(turn)
+            : thankYouStep(turn)
           : asked.includes(FUNNEL_ASK)
             ? funnelStep(turn, asked)
             : thanked(
@@ -2554,11 +2562,96 @@ function scriptedCallReview(message: string): unknown {
   };
 }
 
+/** Each person's line after a webinar, from what they did (video-calls/leads.ts's `leadLine`). */
+function scriptedLeadReasons(message: string) {
+  const people = [...message.matchAll(/^- (\S+) \((hot|warm|cold)\): (.+)$/gm)].map((m) => ({
+    id: m[1]!,
+    reason: `${m[2] === 'hot' ? 'Ready to talk' : m[2] === 'warm' ? 'Interested' : 'Not ready yet'}: ${m[3]!}.`,
+  }));
+  return { people };
+}
+
+/** Points for each answer of a poll (forms/poll-draft-routes.ts's `pointsRequest`): the later choice, yes, the high end. */
+function scriptedPollPoints(message: string) {
+  const questions = [...message.matchAll(/^- (\S+) \((\w+)\): .* · answers: (.+)$/gm)].map((m) => {
+    const keys = m[3]!.split('; ').map((a) => a.slice(0, a.indexOf(' = ')));
+    const points = keys.map((key, i) => ({
+      key,
+      points:
+        key === 'pressed'
+          ? 25
+          : key === 'answered'
+            ? 5
+            : key === 'yes'
+              ? 10
+              : key === 'no'
+                ? 0
+                : /^\d+$/.test(key)
+                  ? Math.max(0, Number(key) - 5) * 3
+                  : i * 5,
+    }));
+    return { id: m[1]!, points };
+  });
+  return { questions, lines: { stayed: 10, hot: 30, warm: 10 } };
+}
+
+/** A drafted poll (forms/poll-draft-routes.ts's `draftRequest`): a few easy questions, then a button. */
+function scriptedPollDraft(message: string) {
+  const count = Number(/How many questions and buttons: (\d+)/.exec(message)?.[1] ?? 6);
+  const slides = Number(/The presenter's slides \((\d+)\)/.exec(message)?.[1] ?? 0);
+  const slide = (n: number) => (slides >= n ? n : null);
+  const questions = [
+    {
+      type: 'choice',
+      title: 'Where do most of your customers come from now?',
+      choices: ['Referrals', 'Ads', 'Our website'],
+      cues: ['where do your customers come from'],
+      slide: slide(2),
+      points: [
+        { key: '2', points: 10 },
+        { key: '3', points: 10 },
+      ],
+    },
+    {
+      type: 'yes_no',
+      title: 'Do you use a CRM today?',
+      choices: [],
+      cues: ['quick show of hands'],
+      slide: slide(3),
+      points: [{ key: 'yes', points: 10 }],
+    },
+    {
+      type: 'scale',
+      title: 'How soon do you want this fixed?',
+      choices: [],
+      cues: ['how soon'],
+      slide: slide(4),
+      points: [
+        { key: '10', points: 20 },
+        { key: '9', points: 15 },
+        { key: '8', points: 10 },
+      ],
+    },
+  ].slice(0, Math.max(1, count - 1));
+  const button = {
+    type: 'button',
+    title: 'Want help setting it up?',
+    choices: ['Talk to someone'],
+    cues: ['if you want help'],
+    slide: null,
+    points: [{ key: 'pressed', points: 25 }],
+  };
+  return { questions: [...questions, button], lines: { stayed: 10, hot: 30, warm: 10 } };
+}
+
 export const MEETING_RULES: readonly ScriptRule[] = [
   {
     when: /Write the call review the instructions above describe\.$/,
     json: (m) => scriptedCallReview(m),
   },
+  { when: /Write the one line for each person\.$/, json: (m) => scriptedLeadReasons(m) },
+  { when: /Suggest the points for every answer\.$/, json: (m) => scriptedPollPoints(m) },
+  { when: /Draft the poll\.$/, json: (m) => scriptedPollDraft(m) },
 ];
 
 /**

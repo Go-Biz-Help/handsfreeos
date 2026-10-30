@@ -147,6 +147,31 @@ describe('the AI builder', () => {
     expect(out.definition.results.map((r) => r.name)).toEqual(['Gold', 'thanks']);
   });
 
+  it('sets a live poll’s points and who to follow up with, as the editor does', () => {
+    const start = def({
+      mode: 'poll',
+      pages: [page('about', [pickOne('source', [choice('Ads'), choice('Referrals')])])],
+    });
+    const ads = allQuestions(start)[0]!.config as { choices: { id: string }[] };
+    const out = build(start, [
+      call('update_question', {
+        questionId: qid('source'),
+        json: JSON.stringify({ live: { points: { [ads.choices[0]!.id]: 10 } } }),
+      }),
+      call('set_form', {
+        mode: null,
+        title: null,
+        intro: null,
+        leadsJson: '{"stayed": 5, "hot": 25, "warm": 10, "hotAction": "home"}',
+      }),
+    ]);
+    expect(out.results.every((r) => r.ok)).toBe(true);
+    expect(out.definition.leads).toEqual({ stayed: 5, hot: 25, warm: 10, hotAction: 'home' });
+    expect(
+      (allQuestions(out.definition)[0]!.live as { points: Record<string, number> }).points,
+    ).toEqual({ [ads.choices[0]!.id]: 10 });
+  });
+
   it('shows the model the form with its ids', () => {
     const form = def({
       pages: [page('about', [pickOne('service', [choice('Mow'), choice('Trim')])])],

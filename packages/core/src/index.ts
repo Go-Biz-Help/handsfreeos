@@ -17,6 +17,7 @@ export * from './meetings/google';
 export * from './meetings/video-calls';
 export * from './meetings/polls';
 export * from './meetings/slides';
+export * from './meetings/leads';
 export * from './schemas/index';
 export { slugify } from './slug';
 export const CORE_VERSION = '0.1.0';

@@ -11,7 +11,8 @@ It builds on the video calls (`docs/video-calls.md`), sessions-mode calendars (e
 **Where it stands (2026-10-30):** the owner answered the 26 questions; part 1, the webinar room, is built (migration
 20261027019600, "Webinars" in `docs/video-calls.md`), and so is part 2, live polls (migrations 20261027019700 and
 20261027019800, "Live polls" in `docs/video-calls.md`), part 3, the AI asking them (migration 20261027019900,
-"The AI asking" there), and part 4, slides (migration 20261027020000, "Slides" there). Part 5 is next.
+"The AI asking" there), part 4, slides (migration 20261027020000, "Slides" there), and part 5, who to follow up
+with (migration 20261027020100, "Who to follow up with" there). All five parts are built.
 
 ## Decisions (the owner, 2026-10-29 23:15 UTC)
 
@@ -159,8 +160,9 @@ ask before going against one.
 - **Present it from the call:** the presenter's arrows move the slide; the room is told which slide is up; attendees'
   big screen shows it. No screen share.
 - **The AI reads the slides** and gives each question the slide it fits and its cues (built). A question near its
-  slide is likelier to pop up, still on the presenter's words, and its slide coming up offers it to the team. Drafting
-  the poll from the slides is not yet built, and the points come with part 5.
+  slide is likelier to pop up, still on the presenter's words, and its slide coming up offers it to the team.
+- **The AI drafts the poll** from what the webinar is for and its slides (built with part 5, the owner's 11): the
+  questions and a closing button, each with its points, cues and slide, as edits in the draft to read and change.
 
 ## Part 5: who to follow up with
 
@@ -170,3 +172,7 @@ ask before going against one.
 - **What happens to hot ones** is the business's choice per poll: the ranked list; the list plus the top of Home and
   a workflow from the label; or the AI texts every hot one within 5 minutes of the end (the default), which waits for
   a person's OK while the AI teammate is on Training wheels.
+- **Built** (migration 20261027020100): scored once the call's answers are sent; a card on Home (`webinar_hot`) for a
+  hot one the poll puts there or the AI teammate couldn't text; the trigger **Somebody is rated after a webinar**
+  whatever the choice; the line on their timeline; and the ranked list on the webinar's appointment. "Who to follow up
+  with" in `docs/video-calls.md` has the details.

@@ -20072,6 +20072,7 @@
                               "attendee.joined",
                               "attendee.attended",
                               "attendee.no_show",
+                              "webinar.rated",
                               "message.received",
                               "call.missed",
                               "call.voicemail_left",
@@ -23780,6 +23781,7 @@
                               "attendee.joined",
                               "attendee.attended",
                               "attendee.no_show",
+                              "webinar.rated",
                               "message.received",
                               "call.missed",
                               "call.voicemail_left",
@@ -32729,6 +32731,13 @@
                             "enum": [
                               true
                             ]
+                          },
+                          "webinar_hot": {
+                            "default": true,
+                            "type": "boolean",
+                            "enum": [
+                              true
+                            ]
                           }
                         }
                       },
@@ -33075,6 +33084,13 @@
                               "enum": [
                                 true
                               ]
+                            },
+                            "webinar_hot": {
+                              "default": true,
+                              "type": "boolean",
+                              "enum": [
+                                true
+                              ]
                             }
                           },
                           "required": [
@@ -33111,7 +33127,8 @@
                             "faq_suggestions",
                             "offer_lapsing",
                             "texting_rejected",
-                            "addon_alert"
+                            "addon_alert",
+                            "webinar_hot"
                           ],
                           "additionalProperties": false
                         },
@@ -113521,6 +113538,291 @@
         }
       }
     },
+    "/v1/queries/video_call.leads": {
+      "post": {
+        "operationId": "query_video_call_leads",
+        "summary": "Who to follow up with after a HandsFreeOS video call with a live poll: everyone who came, Hot, Warm or Cold, hottest first, with their points and the AI’s reason.",
+        "tags": [
+          "queries"
+        ],
+        "description": "Requires records.read.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "workspaceId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  },
+                  "callId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  },
+                  "appointmentId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  }
+                },
+                "required": [
+                  "workspaceId"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "call": {
+                      "anyOf": [
+                        {
+                          "type": "object",
+                          "properties": {
+                            "id": {
+                              "type": "string",
+                              "format": "uuid",
+                              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                            },
+                            "ended": {
+                              "type": "boolean"
+                            },
+                            "endedAt": {
+                              "anyOf": [
+                                {
+                                  "type": "string",
+                                  "format": "date-time",
+                                  "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
+                            },
+                            "formId": {
+                              "anyOf": [
+                                {
+                                  "type": "string",
+                                  "format": "uuid",
+                                  "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
+                            },
+                            "formName": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
+                            "hot": {
+                              "type": "integer",
+                              "minimum": -9007199254740991,
+                              "maximum": 9007199254740991
+                            },
+                            "warm": {
+                              "type": "integer",
+                              "minimum": -9007199254740991,
+                              "maximum": 9007199254740991
+                            },
+                            "hotAction": {
+                              "type": "string",
+                              "enum": [
+                                "list",
+                                "home",
+                                "text"
+                              ]
+                            }
+                          },
+                          "required": [
+                            "id",
+                            "ended",
+                            "endedAt",
+                            "formId",
+                            "formName",
+                            "hot",
+                            "warm",
+                            "hotAction"
+                          ],
+                          "additionalProperties": false
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "counts": {
+                      "type": "object",
+                      "properties": {
+                        "hot": {
+                          "type": "integer",
+                          "minimum": -9007199254740991,
+                          "maximum": 9007199254740991
+                        },
+                        "warm": {
+                          "type": "integer",
+                          "minimum": -9007199254740991,
+                          "maximum": 9007199254740991
+                        },
+                        "cold": {
+                          "type": "integer",
+                          "minimum": -9007199254740991,
+                          "maximum": 9007199254740991
+                        }
+                      },
+                      "required": [
+                        "hot",
+                        "warm",
+                        "cold"
+                      ],
+                      "additionalProperties": false
+                    },
+                    "leads": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "string",
+                            "format": "uuid",
+                            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                          },
+                          "personId": {
+                            "type": "string",
+                            "format": "uuid",
+                            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                          },
+                          "name": {
+                            "type": "string"
+                          },
+                          "points": {
+                            "type": "integer",
+                            "minimum": -9007199254740991,
+                            "maximum": 9007199254740991
+                          },
+                          "label": {
+                            "type": "string",
+                            "enum": [
+                              "hot",
+                              "warm",
+                              "cold"
+                            ]
+                          },
+                          "parts": {
+                            "type": "array",
+                            "items": {
+                              "type": "object",
+                              "properties": {
+                                "what": {
+                                  "type": "string"
+                                },
+                                "points": {
+                                  "type": "integer",
+                                  "minimum": -9007199254740991,
+                                  "maximum": 9007199254740991
+                                }
+                              },
+                              "required": [
+                                "what",
+                                "points"
+                              ],
+                              "additionalProperties": false
+                            }
+                          },
+                          "reason": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "stayed": {
+                            "type": "boolean"
+                          },
+                          "seconds": {
+                            "type": "integer",
+                            "minimum": -9007199254740991,
+                            "maximum": 9007199254740991
+                          },
+                          "followUp": {
+                            "type": "string",
+                            "enum": [
+                              "list",
+                              "home",
+                              "text"
+                            ]
+                          },
+                          "outcome": {
+                            "anyOf": [
+                              {
+                                "type": "string",
+                                "enum": [
+                                  "sent",
+                                  "drafted",
+                                  "card",
+                                  "skipped"
+                                ]
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "outcomeReason": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "scoredAt": {
+                            "type": "string",
+                            "format": "date-time",
+                            "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+                          }
+                        },
+                        "required": [
+                          "id",
+                          "personId",
+                          "name",
+                          "points",
+                          "label",
+                          "parts",
+                          "reason",
+                          "stayed",
+                          "seconds",
+                          "followUp",
+                          "outcome",
+                          "outcomeReason",
+                          "scoredAt"
+                        ],
+                        "additionalProperties": false
+                      }
+                    }
+                  },
+                  "required": [
+                    "call",
+                    "counts",
+                    "leads"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/v1/queries/support.ticket.list": {
       "post": {
         "operationId": "query_support_ticket_list",
@@ -136492,7 +136794,8 @@
                                               "faq_suggestions",
                                               "offer_lapsing",
                                               "texting_rejected",
-                                              "addon_alert"
+                                              "addon_alert",
+                                              "webinar_hot"
                                             ]
                                           },
                                           "chips": {
@@ -160873,7 +161176,7 @@
                     ]
                   },
                   "kinds": {
-                    "maxItems": 34,
+                    "maxItems": 35,
                     "type": "array",
                     "items": {
                       "type": "string",
@@ -160911,7 +161214,8 @@
                         "faq_suggestions",
                         "offer_lapsing",
                         "texting_rejected",
-                        "addon_alert"
+                        "addon_alert",
+                        "webinar_hot"
                       ]
                     }
                   },
@@ -160993,7 +161297,8 @@
                               "faq_suggestions",
                               "offer_lapsing",
                               "texting_rejected",
-                              "addon_alert"
+                              "addon_alert",
+                              "webinar_hot"
                             ]
                           },
                           "state": {
@@ -161234,7 +161539,8 @@
                                     "offer_ends",
                                     "severity",
                                     "due_in",
-                                    "needs_ack"
+                                    "needs_ack",
+                                    "webinar"
                                   ]
                                 },
                                 "label": {
@@ -161620,7 +161926,8 @@
                               "faq_suggestions",
                               "offer_lapsing",
                               "texting_rejected",
-                              "addon_alert"
+                              "addon_alert",
+                              "webinar_hot"
                             ]
                           },
                           "state": {
@@ -161861,7 +162168,8 @@
                                     "offer_ends",
                                     "severity",
                                     "due_in",
-                                    "needs_ack"
+                                    "needs_ack",
+                                    "webinar"
                                   ]
                                 },
                                 "label": {
@@ -162247,7 +162555,8 @@
                               "faq_suggestions",
                               "offer_lapsing",
                               "texting_rejected",
-                              "addon_alert"
+                              "addon_alert",
+                              "webinar_hot"
                             ]
                           },
                           "title": {
@@ -162549,7 +162858,8 @@
                               "faq_suggestions",
                               "offer_lapsing",
                               "texting_rejected",
-                              "addon_alert"
+                              "addon_alert",
+                              "webinar_hot"
                             ]
                           },
                           "state": {
@@ -162790,7 +163100,8 @@
                                     "offer_ends",
                                     "severity",
                                     "due_in",
-                                    "needs_ack"
+                                    "needs_ack",
+                                    "webinar"
                                   ]
                                 },
                                 "label": {
@@ -163225,7 +163536,8 @@
                         "faq_suggestions",
                         "offer_lapsing",
                         "texting_rejected",
-                        "addon_alert"
+                        "addon_alert",
+                        "webinar_hot"
                       ]
                     },
                     "mode": {
@@ -163736,6 +164048,13 @@
                               "enum": [
                                 true
                               ]
+                            },
+                            "webinar_hot": {
+                              "default": true,
+                              "type": "boolean",
+                              "enum": [
+                                true
+                              ]
                             }
                           },
                           "required": [
@@ -163772,7 +164091,8 @@
                             "faq_suggestions",
                             "offer_lapsing",
                             "texting_rejected",
-                            "addon_alert"
+                            "addon_alert",
+                            "webinar_hot"
                           ],
                           "additionalProperties": false
                         },

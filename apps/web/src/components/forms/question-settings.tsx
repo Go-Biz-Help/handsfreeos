@@ -3,8 +3,11 @@ import {
   ANSWER_TARGETS,
   CHOICE_TYPES,
   findQuestion,
+  LEAD_WORDS,
   liveOf,
   parseVideoUrl,
+  pointsKeysOf,
+  POLL_MAX_POINTS,
   POLL_CUE_CHARS,
   POLL_MAX_CUES,
   POLL_MAX_SECONDS,
@@ -31,6 +34,7 @@ import { Switch } from '@/components/ui/switch';
 import { Textarea } from '@/components/ui/textarea';
 import type { FormCatalogsOut } from '@/lib/api/types';
 import { cueErrorMessage, writeCues } from '@/lib/forms/poll-cues';
+import { pollAiErrorMessage, suggestPoints } from '@/lib/forms/poll-leads';
 import { newChoice } from './editor-state';
 
 const TARGET_KEYS = Object.keys(ANSWER_TARGETS) as AnswerTargetKey[];
@@ -159,6 +163,10 @@ export function QuestionSettings({
             const ops = await writeCues(workspaceId, definition, [question]);
             if (ops.length) apply(ops);
           }}
+          onSuggestPoints={async () => {
+            const ops = await suggestPoints(workspaceId, definition, [question]);
+            if (ops.length) apply(ops);
+          }}
         />
       ) : null}
 
@@ -282,6 +290,7 @@ function LiveSettings({
   readOnly,
   slides,
   onWrite,
+  onSuggestPoints,
 }: {
   question: Question;
   patch: (fields: Record<string, unknown>) => void;
@@ -290,6 +299,8 @@ function LiveSettings({
   slides: number;
   /** The AI writes this question's when-to-ask phrases (part 3). */
   onWrite: () => Promise<void>;
+  /** The AI suggests what each of its answers is worth (part 5). */
+  onSuggestPoints: () => Promise<void>;
 }) {
   const live = liveOf(question);
   const counted = question.type !== 'short_text' && question.type !== 'button';
@@ -388,6 +399,12 @@ function LiveSettings({
           data-testid="question-live-seconds"
         />
       </Field>
+      <PointsSettings
+        question={question}
+        patch={patch}
+        readOnly={readOnly}
+        onSuggest={onSuggestPoints}
+      />
       {counted ? (
         <div className="flex items-center justify-between gap-4">
           <div>
@@ -410,6 +427,90 @@ function LiveSettings({
         </Hint>
       )}
     </Card>
+  );
+}
+
+/**
+ * What each answer is worth toward following up (part 5, the owner's 21): a box per choice, yes and no, each number, a
+ * short answer or pressing the button. Nothing to score on other kinds of question.
+ */
+function PointsSettings({
+  question,
+  patch,
+  readOnly,
+  onSuggest,
+}: {
+  question: Question;
+  patch: (fields: Record<string, unknown>) => void;
+  readOnly: boolean;
+  onSuggest: () => Promise<void>;
+}) {
+  const live = liveOf(question);
+  const keys = pointsKeysOf(question);
+  const [busy, setBusy] = useState(false);
+  if (!keys.length) return null;
+  const set = (key: string, value: string) => {
+    const n = Math.round(Number(value));
+    if (value.trim() !== '' && (!Number.isFinite(n) || Math.abs(n) > POLL_MAX_POINTS)) return;
+    const points = { ...live.points };
+    if (value.trim() === '' || n === 0) delete points[key];
+    else points[key] = n;
+    patch({ live: { ...live, points } });
+  };
+  const suggest = async () => {
+    setBusy(true);
+    try {
+      await onSuggest();
+    } catch (e) {
+      toast.error(
+        pollAiErrorMessage(
+          e,
+          'The AI couldn’t suggest points this time. Try again, or set them yourself.',
+        ),
+      );
+    } finally {
+      setBusy(false);
+    }
+  };
+  return (
+    <div className="space-y-2" data-testid="question-live-points">
+      <div>
+        <Label>{LEAD_WORDS.answerPoints}</Label>
+        <Hint>{LEAD_WORDS.answerPointsHelp}</Hint>
+      </div>
+      <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-3 gap-y-1.5 sm:max-w-sm">
+        {keys.map((k) => (
+          <div key={k.key} className="contents">
+            <label htmlFor={`q-live-points-${k.key}`} className="truncate text-[13px] text-text-2">
+              {k.label}
+            </label>
+            <Input
+              id={`q-live-points-${k.key}`}
+              type="number"
+              min={-POLL_MAX_POINTS}
+              max={POLL_MAX_POINTS}
+              inputSize="sm"
+              className="w-20"
+              value={String(live.points[k.key] ?? 0)}
+              disabled={readOnly}
+              onChange={(e) => set(k.key, e.target.value)}
+              data-testid={`question-live-points-${k.key}`}
+            />
+          </div>
+        ))}
+      </div>
+      {!readOnly ? (
+        <Button
+          size="sm"
+          variant="secondary"
+          loading={busy}
+          onClick={() => void suggest()}
+          data-testid="question-live-suggest-points"
+        >
+          <Sparkles size={14} aria-hidden /> {LEAD_WORDS.suggestOne}
+        </Button>
+      ) : null}
+    </div>
   );
 }
 

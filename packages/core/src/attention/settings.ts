@@ -59,6 +59,8 @@ const kindSwitches = {
   texting_rejected: always(),
   // An add-on's alerts are switched in its own settings: Home shows what it raises.
   addon_alert: always(),
+  // Its switch is the live poll's "What happens to hot ones", which decides whether a card opens at all.
+  webinar_hot: always(),
 } satisfies Record<AttentionKind, z.ZodType>;
 
 const Hot = z.object({

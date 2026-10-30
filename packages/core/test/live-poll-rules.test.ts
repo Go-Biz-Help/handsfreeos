@@ -1,26 +1,35 @@
 /**
  * Live polls' rules (HANDSFREEOS_WEBINARS_IMPLEMENTATION_PLAN.md, part 2), without a database: what a live poll may
  * ask, what each question looks like on screen, the totals, when one closes early, and what the room trusts. Part 4:
- * the poll's slides, a question's slide, and turning them.
+ * the poll's slides, a question's slide, and turning them. Part 5: points, Hot, Warm or Cold, and the timeline line.
  */
 import { describe, expect, it } from 'vitest';
 import {
+  answerPoints,
   answerProblem,
   applyFormOps,
   closesEarly,
   describeFormOps,
+  describeTimeline,
   countAnswers,
   FormDefinition,
   formProblems,
+  leadLabelOf,
   liveOf,
+  mostPoints,
+  pointsKeysOf,
+  pollLeadsOf,
   pollOnScreen,
   pollTotals,
   readPollMessage,
   readSlideMessage,
+  scoreLead,
   slideAfter,
+  timelineTone,
   totalsShown,
   type FormOp,
   type Question,
+  type TimelineEntry,
 } from '../src/index';
 
 const choice = {
@@ -107,11 +116,12 @@ describe('what a live poll may ask', () => {
   });
 
   it('gives each question a minute and keeps its totals for the team unless it says otherwise', () => {
-    expect(liveOf(q(choice))).toEqual({ seconds: 60, showResults: false, cues: [] });
+    expect(liveOf(q(choice))).toEqual({ seconds: 60, showResults: false, cues: [], points: {} });
     expect(liveOf(q({ ...choice, live: { seconds: 30, showResults: true } }))).toEqual({
       seconds: 30,
       showResults: true,
       cues: [],
+      points: {},
     });
     expect(() => q({ ...choice, live: { seconds: 5 } })).toThrow();
     expect(totalsShown(q({ ...choice, live: { showResults: true } }))).toBe(true);
@@ -334,5 +344,213 @@ describe('the slides (part 4)', () => {
     expect(readSlideMessage(JSON.stringify({ ...m, picture: 'javascript:alert(1)' }))).toBeNull();
     expect(readSlideMessage('not json')).toBeNull();
     expect(readSlideMessage(JSON.stringify({ t: 'open' }))).toBeNull();
+  });
+});
+
+describe('who to follow up with (part 5)', () => {
+  const yesNo = { id: 'q_yesno000', type: 'yes_no', title: 'Do you use a CRM?', config: {} };
+  const def = poll([
+    { ...choice, live: { points: { c_ads00000: 10 } } },
+    { ...yesNo, live: { points: { yes: 15, no: -5 } } },
+    { ...button({ action: 'talk', label: 'Talk to us' }), live: { points: { pressed: 20 } } },
+  ]);
+
+  it('keeps points under each choice, yes and no, each number, any short answer and a press', () => {
+    expect(pointsKeysOf(q(choice)).map((k) => k.key)).toEqual(['c_referral', 'c_ads00000']);
+    expect(pointsKeysOf(q({ ...yesNo, config: { yesLabel: 'Sure' } }))).toEqual([
+      { key: 'yes', label: 'Sure' },
+      { key: 'no', label: 'No' },
+    ]);
+    expect(
+      pointsKeysOf(q({ id: 'q_rating00', type: 'rating', title: 'Busy?', config: {} })).map(
+        (k) => k.key,
+      ),
+    ).toEqual(['1', '2', '3', '4', '5']);
+    expect(
+      pointsKeysOf(
+        q({ id: 'q_scale000', type: 'scale', title: 'Ready?', config: { min: 0, max: 3 } }),
+      ).map((k) => k.key),
+    ).toEqual(['0', '1', '2', '3']);
+    expect(
+      pointsKeysOf(q({ id: 'q_short000', type: 'short_text', title: 'Trade?', config: {} })),
+    ).toEqual([{ key: 'answered', label: 'Any answer' }]);
+    expect(pointsKeysOf(q(button({ action: 'talk' })))).toEqual([
+      { key: 'pressed', label: 'Pressed it' },
+    ]);
+    // Points stay small, and their keys plain.
+    expect(() => q({ ...choice, live: { points: { c_ads00000: 101 } } })).toThrow();
+    expect(() => q({ ...choice, live: { points: { 'bad key': 1 } } })).toThrow();
+  });
+
+  it('gives each answer its points, and nothing for no answer or one worth nothing', () => {
+    const [pick, yes, press] = def.pages[0]!.questions;
+    expect(answerPoints(pick!, 'c_ads00000')).toEqual({ points: 10, said: 'Ads' });
+    expect(answerPoints(pick!, 'c_referral')).toBeNull();
+    expect(answerPoints(yes!, true)).toEqual({ points: 15, said: 'Yes' });
+    expect(answerPoints(yes!, 'no')).toEqual({ points: -5, said: 'No' });
+    expect(answerPoints(yes!, null)).toBeNull();
+    expect(answerPoints(press!, true)).toEqual({ points: 20, said: 'pressed' });
+    expect(answerPoints(press!, 'yes')).toBeNull();
+    const checks = q({
+      ...choice,
+      id: 'q_checks00',
+      type: 'checkboxes',
+      live: { points: { c_referral: 5, c_ads00000: 10 } },
+    });
+    expect(answerPoints(checks, ['c_referral', 'c_ads00000'])).toEqual({
+      points: 15,
+      said: 'Referrals, Ads',
+    });
+    const rating = q({
+      id: 'q_rating00',
+      type: 'rating',
+      title: 'Busy?',
+      config: {},
+      live: { points: { '5': 8 } },
+    });
+    expect(answerPoints(rating, 5)).toEqual({ points: 8, said: '5' });
+    expect(answerPoints(rating, 'lots')).toBeNull();
+  });
+
+  it('adds up answers, presses and staying to the end, then rates Hot, Warm or Cold', () => {
+    // The defaults: 10 for staying, Hot from 30, Warm from 10, and the AI teammate texts the hot ones.
+    expect(pollLeadsOf(def)).toEqual({ stayed: 10, hot: 30, warm: 10, hotAction: 'text' });
+    const all = { q_choice00: 'c_ads00000', q_yesno000: true, q_button00: true };
+    expect(scoreLead(def, all, true)).toEqual({
+      points: 55,
+      label: 'hot',
+      parts: [
+        { what: '“How do you get leads now?”: Ads', points: 10 },
+        { what: '“Do you use a CRM?”: Yes', points: 15 },
+        { what: 'Pressed “Talk to us”', points: 20 },
+        { what: 'Stayed to the end', points: 10 },
+      ],
+    });
+    expect(scoreLead(def, { q_choice00: 'c_ads00000', q_yesno000: true }, false)).toMatchObject({
+      points: 25,
+      label: 'warm',
+    });
+    expect(scoreLead(def, { q_yesno000: false }, false)).toEqual({
+      points: -5,
+      label: 'cold',
+      parts: [{ what: '“Do you use a CRM?”: No', points: -5 }],
+    });
+    // Came and left early, answering nothing.
+    expect(scoreLead(def, {}, false)).toEqual({ points: 0, label: 'cold', parts: [] });
+  });
+
+  it('draws the lines where the poll says', () => {
+    const lines = { hot: 30, warm: 10 };
+    expect(leadLabelOf(30, lines)).toBe('hot');
+    expect(leadLabelOf(29, lines)).toBe('warm');
+    expect(leadLabelOf(10, lines)).toBe('warm');
+    expect(leadLabelOf(9, lines)).toBe('cold');
+    const own = FormDefinition.parse({ ...def, leads: { stayed: 0, hot: 20, warm: 5 } });
+    expect(scoreLead(own, { q_button00: true }, true)).toMatchObject({ points: 20, label: 'hot' });
+  });
+
+  it('says the most anyone can get', () => {
+    // Ads 10, Yes 15, the button 20, and staying 10.
+    expect(mostPoints(def)).toBe(55);
+    const checks = poll([
+      {
+        ...choice,
+        type: 'checkboxes',
+        live: { points: { c_referral: 5, c_ads00000: 10 } },
+      },
+    ]);
+    expect(mostPoints(checks)).toBe(25);
+  });
+
+  it('wants Warm below Hot, and scoring only on a live poll', () => {
+    expect(formProblems(def)).toEqual([]);
+    expect(formProblems(FormDefinition.parse({ ...def, leads: { hot: 20, warm: 20 } }))).toContain(
+      'Warm starts at 20 points, which isn’t below Hot’s 20. Make Warm lower than Hot.',
+    );
+    expect(
+      formProblems(
+        FormDefinition.parse({ ...poll([choice], 'survey'), leads: { hot: 30, warm: 10 } }),
+      ),
+    ).toContain(
+      'Only a live poll scores who to follow up with. Take that off, or make this a Live poll.',
+    );
+  });
+
+  it('changes a question’s points as an edit, replacing them whole, and undoing it puts things back', () => {
+    const before = poll([choice]);
+    const question = before.pages[0]!.questions[0]!;
+    const set: FormOp = {
+      op: 'update_question',
+      questionId: question.id,
+      patch: { live: { ...liveOf(question), points: { c_ads00000: 10, c_referral: 2 } } },
+    };
+    const once = applyFormOps(before, [set]);
+    expect(liveOf(once.definition.pages[0]!.questions[0]!).points).toEqual({
+      c_ads00000: 10,
+      c_referral: 2,
+    });
+    // A later change drops the points it leaves out, rather than keeping the old ones.
+    const fewer: FormOp = {
+      op: 'update_question',
+      questionId: question.id,
+      patch: { live: { ...liveOf(question), points: { c_ads00000: 12 } } },
+    };
+    const twice = applyFormOps(once.definition, [fewer]);
+    expect(liveOf(twice.definition.pages[0]!.questions[0]!).points).toEqual({ c_ads00000: 12 });
+    expect(
+      liveOf(applyFormOps(twice.definition, twice.inverse).definition.pages[0]!.questions[0]!)
+        .points,
+    ).toEqual({ c_ads00000: 10, c_referral: 2 });
+    // Undoing the first puts the question back as it was, with no points.
+    expect(
+      liveOf(applyFormOps(once.definition, once.inverse).definition.pages[0]!.questions[0]!).points,
+    ).toEqual({});
+  });
+
+  it('changes the lines and what happens to hot ones as an edit, and undoing it puts things back', () => {
+    const before = poll([choice]);
+    const change: FormOp = {
+      op: 'set_form',
+      patch: { leads: { stayed: 5, hot: 40, warm: 15, hotAction: 'home' } },
+    };
+    const changed = applyFormOps(before, [change]);
+    expect(pollLeadsOf(changed.definition)).toEqual({
+      stayed: 5,
+      hot: 40,
+      warm: 15,
+      hotAction: 'home',
+    });
+    expect(describeFormOps([change], before)).toEqual([
+      'Changed who to follow up with after a call',
+    ]);
+    expect(applyFormOps(changed.definition, changed.inverse).definition.leads ?? null).toBeNull();
+  });
+
+  it('writes the rating on their timeline, coloured by how hot', () => {
+    const rated = (meta: Record<string, unknown>): TimelineEntry => ({
+      id: '11111111-1111-4111-8111-111111111111',
+      entry: 'activity',
+      kind: 'system',
+      subtype: 'webinar_rated',
+      body: '“Do you use a CRM?”: Yes · Stayed to the end',
+      occurredAt: '2026-11-03T20:05:00.000Z',
+      actor: null,
+      actorType: 'system',
+      personId: '22222222-2222-4222-8222-222222222222',
+      companyId: null,
+      leadId: null,
+      customRecordId: null,
+      meta,
+    });
+    const hot = rated({ label: 'hot', points: 42, what: 'Roofing webinar' });
+    expect(describeTimeline(hot, 'person')).toBe(
+      'rated them Hot after “Roofing webinar” · 42 points',
+    );
+    expect(timelineTone(hot)).toBe('success');
+    expect(timelineTone(rated({ label: 'warm', points: 12 }))).toBe('warning');
+    expect(describeTimeline(rated({ label: 'cold', points: 1 }), 'person')).toBe(
+      'rated them Cold after a webinar · 1 point',
+    );
+    expect(timelineTone(rated({ label: 'cold', points: 1 }))).toBe('muted');
   });
 });

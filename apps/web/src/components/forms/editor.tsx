@@ -11,6 +11,8 @@ import { apiBrowser, errorMessage, unwrap } from '@/lib/api/client';
 import type { FormCatalogsOut, FormGet, FormResultsOut } from '@/lib/api/types';
 import { cueErrorMessage, questionsWanting, writeCues } from '@/lib/forms/poll-cues';
 import { FormStatusBadge } from './chips';
+import { PollDraftCard } from './poll-draft';
+import { PollLeadsCard } from './poll-leads';
 import { PollSlidesCard } from './poll-slides';
 import { useFormEditor } from './editor-state';
 import { FormPreview } from './preview';
@@ -178,6 +180,21 @@ export function FormEditor({
               <PollSlidesCard
                 workspaceId={workspaceId}
                 formId={initial.form.formId}
+                definition={editor.definition}
+                apply={editor.apply}
+                readOnly={!canManage}
+              />
+            ) : null}
+            {editor.definition.mode === 'poll' && canManage ? (
+              <PollDraftCard
+                workspaceId={workspaceId}
+                definition={editor.definition}
+                apply={editor.apply}
+              />
+            ) : null}
+            {editor.definition.mode === 'poll' ? (
+              <PollLeadsCard
+                workspaceId={workspaceId}
                 definition={editor.definition}
                 apply={editor.apply}
                 readOnly={!canManage}

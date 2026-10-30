@@ -75,6 +75,10 @@ export const POLL_MAX_SECONDS = 600;
 /** When-to-ask phrases a live poll's question holds, at most, and the longest one. */
 export const POLL_MAX_CUES = 8;
 export const POLL_CUE_CHARS = 160;
+/** The most one answer, a button press or staying to the end is worth, either way. */
+export const POLL_MAX_POINTS = 100;
+/** What an answer's points are kept under: a choice's id, yes, no, a number, answered or pressed. */
+const POINTS_KEY = /^[A-Za-z0-9_-]{1,40}$/;
 /** The most pages a live poll's slides may have. */
 export const MAX_SLIDES = 100;
 /** The biggest PDF of slides: the attachments bucket's limit. */
@@ -112,8 +116,36 @@ export const LiveQuestion = z.object({
    * comes up. None, and it goes by the words alone.
    */
   slide: z.int().min(1).max(MAX_SLIDES).nullish(),
+  /**
+   * What each answer is worth toward following up (part 5, the owner's 21), by `pointsKeysOf`: a choice's id, `yes`
+   * or `no`, a number for a rating or scale, `answered` for a short answer and `pressed` for a button. Suggested by
+   * the AI, changed by the business; an answer left out is worth nothing.
+   */
+  points: z
+    .record(z.string().regex(POINTS_KEY), z.int().min(-POLL_MAX_POINTS).max(POLL_MAX_POINTS))
+    .default({}),
 });
 export type LiveQuestion = z.infer<typeof LiveQuestion>;
+
+/**
+ * Who to follow up with after a call with this poll (part 5, the owner's 21 to 23): the points for staying to the end,
+ * the lines for Hot and Warm, and what happens to the hot ones. Left out, these defaults.
+ */
+export const PollLeads = z.object({
+  /** Points for still being there when the team finished. */
+  stayed: z.int().min(0).max(POLL_MAX_POINTS).default(10),
+  /** Hot from this many points. */
+  hot: z.int().min(1).max(10_000).default(30),
+  /** Warm from this many; under it is Cold. */
+  warm: z.int().min(0).max(10_000).default(10),
+  /**
+   * What happens to the hot ones: `list`, the ranked list; `home`, the list plus a card on Home each; `text`, the
+   * AI teammate texts each one within minutes of the end (the default), waiting for an OK while it's on training
+   * wheels. Whichever it is, "Somebody is rated after a webinar" starts the business's workflows.
+   */
+  hotAction: z.enum(['list', 'home', 'text']).default('text'),
+});
+export type PollLeads = z.infer<typeof PollLeads>;
 
 // ---- Questions ----
 
@@ -354,6 +386,8 @@ export const FormDefinition = z.object({
   intro: z.string().trim().max(4000).default(''),
   /** A live poll's slides (part 4); left out, it has none. */
   slides: PollSlides.nullish(),
+  /** A live poll's follow-up: staying's points, the Hot and Warm lines, what happens to hot ones (part 5). */
+  leads: PollLeads.nullish(),
   pages: z.array(FormPage).min(1, 'A form needs a page.').max(MAX_PAGES),
   calculations: z
     .array(Calculation)
@@ -559,8 +593,14 @@ export function formProblems(definition: FormDefinition): string[] {
   }
 
   if (definition.mode === 'poll') problems.push(...pollProblems(definition));
-  else if (definition.slides)
-    problems.push('Only a live poll has slides. Take them off, or make this a Live poll.');
+  else {
+    if (definition.slides)
+      problems.push('Only a live poll has slides. Take them off, or make this a Live poll.');
+    if (definition.leads)
+      problems.push(
+        'Only a live poll scores who to follow up with. Take that off, or make this a Live poll.',
+      );
+  }
   if (definition.mode !== 'poll')
     for (const question of questions)
       if (POLL_ONLY_TYPES.has(question.type))
@@ -588,6 +628,11 @@ function pollProblems(definition: FormDefinition): string[] {
   const problems: string[] = [];
   const questions = allQuestions(definition);
   if (!questions.length) problems.push('A live poll needs a question or a button.');
+  const leads = PollLeads.parse(definition.leads ?? {});
+  if (leads.warm >= leads.hot)
+    problems.push(
+      `Warm starts at ${leads.warm} points, which isn’t below Hot’s ${leads.hot}. Make Warm lower than Hot.`,
+    );
   if (questions.length > MAX_POLL_ITEMS)
     problems.push(`A live poll holds up to ${MAX_POLL_ITEMS} questions and buttons.`);
   if (

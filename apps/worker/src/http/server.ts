@@ -31,6 +31,7 @@ import { renewAfterRefusal } from '../telephony/tokens';
 import { registerWorkflowRoutes } from '../workflows/index';
 import { registerBuilderRoutes } from '../workflows/builder-routes';
 import { registerPollCueRoutes } from '../forms/poll-cue-routes';
+import { registerPollDraftRoutes } from '../forms/poll-draft-routes';
 import { registerTemplateRoutes } from '../workflows/templates-routes';
 import {
   authenticate,
@@ -351,6 +352,7 @@ export async function buildHttpServer(deps: HttpDeps): Promise<FastifyInstance> 
   await registerWorkflowRoutes(app, deps);
   await registerBuilderRoutes(app, deps);
   await registerPollCueRoutes(app, deps);
+  await registerPollDraftRoutes(app, deps);
   await registerTemplateRoutes(app, deps);
   if (deps.testRoutes) registerTestRoutes(app, deps, deps.testRoutes);
 

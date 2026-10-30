@@ -1,4 +1,4 @@
-# HandsFreeOS video calls (20261027013000, 20261027013300, 20261027013500, 20261027014600, 20261027019600, 20261027019800, 20261027019900, 20261027020000)
+# HandsFreeOS video calls (20261027013000, 20261027013300, 20261027013500, 20261027014600, 20261027019600, 20261027019800, 20261027019900, 20261027020000, 20261027020100)
 
 HandsFreeOS's own Zoom-like calls. A calendar's Online place (or one service on it) can say **HandsFreeOS video
 call**, and each appointment booked there gets its own call, with nothing for the business to connect. Customers
@@ -13,7 +13,8 @@ page and in a conversation, and **Switch to video** during a phone call, send th
 call ("Calls any time" below). A session's call is a **webinar**: up to 500 people, the presenter big and everyone
 else watching, with a link anyone can use ("Webinars" below), and any call can carry **live polls**: questions and buttons that pop
 up on customers' screens, asked by the team or by the AI when it hears them reach each one, with the answers landing
-on their contacts ("Live polls" below;
+on their contacts, and everyone who came rated Hot, Warm or Cold for following up ("Live polls" and "Who to follow up
+with" below;
 `HANDSFREEOS_WEBINARS_IMPLEMENTATION_PLAN.md` is the plan they come from). Support turns calls on per business in /admin until every business gets them. Setting up LiveKit (the account, the worker's secrets and the
 webhook) is "Video calls: LiveKit" in `docs/operations.md`.
 
@@ -65,6 +66,13 @@ webhook) is "Video calls: LiveKit" in `docs/operations.md`.
 | Slides: the rules, the message and the words | `packages/core/src/meetings/slides.ts`; `video_call.slide` in `commands/video-call-poll.ts`                                       |
 | Slides: telling the room                     | `apps/worker/src/video-calls/slides.ts` (and `reports.ts` for someone coming in), drawn by `documents/pages.ts`                   |
 | Slides: on the stage and turning them        | `components/video-call/slides.tsx`, `call-stage.tsx`; the editor's card in `components/forms/poll-slides.tsx`                     |
+| Who to follow up with: the table             | `supabase/migrations/20261027020100_webinar_leads.sql` (`app.video_call_leads`)                                                   |
+| Points, Hot, Warm or Cold, and the words     | `packages/core/src/meetings/leads.ts`; a poll's `leads` and `live.points` in `forms/definition.ts`                                |
+| Scoring, the AI's lines, outcomes, the list  | `packages/core/src/commands/video-call-leads.ts`                                                                                  |
+| After the call: the lines and the texts      | `apps/worker/src/video-calls/leads.ts`, started from `videoCallPollsFinishJob` in `video-calls/polls.ts`                          |
+| Hot after a webinar, on Home                 | `packages/core/src/attention/detectors/webinar-hot.ts`, `attention/load-webinar.ts`                                               |
+| The AI suggesting points, drafting a poll    | `apps/worker/src/forms/poll-draft-routes.ts`; the editor's side in `apps/web/src/lib/forms/poll-leads.ts`                         |
+| The editor's cards, and the ranked list      | `components/forms/poll-leads.tsx`, `poll-draft.tsx`; `components/calendar/webinar-leads.tsx` on the appointment                   |
 
 ## How a call goes
 
@@ -402,6 +410,42 @@ the talk each question goes.
   is likelier; the words still decide. And when a slide comes up that a question not asked yet goes with, the team is
   offered it (**Ask now?**, "It goes with the slide that just came up"), unless the AI is off for the call.
 
+#### Who to follow up with (20261027020100)
+
+Part 5 of the plan: the owner's 11 and 20 to 23. After a call with a live poll, everyone who came is rated, the
+hottest reached first.
+
+- **Points** come from each answer (`live.points` on its question: "Points for each answer" in its settings), each
+  button pressed (its `pressed`), and staying to the end (the poll's `leads.stayed`, 10 by default). The business sets
+  them, or the AI suggests them all at once (**Suggest points for every question** in the poll's **Who to follow up
+  with** card: `POST /v1/forms/ai/points` on the worker, which saves nothing).
+- **Hot, Warm or Cold** from the points, at the poll's lines (`leads.hot`, 30 by default, and `leads.warm`, 10; Warm
+  must be below Hot to publish). `scoreLead` in `meetings/leads.ts` is the one sum, read by the editor (the most anyone
+  can get) and by the scoring.
+- **Scored when the answers are sent:** the `video_call.polls_finish` job runs `video_call.score_leads` straight
+  after, about ten seconds past the end. Each customer who came with a contact gets one `app.video_call_leads` row per
+  call: points, rating, what they came from (`parts`), whether they stayed (still in within two minutes of the last
+  teammate leaving) and their seconds. A call that goes again is scored again when it ends: only a changed rating is
+  told again, and the AI's line stays only while the points are the same.
+- **Each rating is told once:** `webinar.rated`, the workflow trigger **Somebody is rated after a webinar** (with
+  **Rated** and **Webinar points** to branch on), and a line on their timeline ("rated them Hot after “Roofing
+  webinar” · 42 points", what the points came from beneath it).
+- **The AI's one line** on why (`video_call.lead_reasons`): one quick call per fifty people, the hot ones first, on
+  the business's AI as `meetings`. It reads what they did and how long they stayed, never their points. With no
+  budget or balance the lines are left out and nothing else waits.
+- **What happens to hot ones** is the poll's `leads.hotAction`. **Just the list**; **the list, and a card on Home**
+  (`webinar_hot`, one per hot one, until somebody writes or calls them, for three days); or **the AI teammate texts
+  them**, the default. That's a `webinar.text_hot` job each, queued as soon as the hot ones' lines are in (or failed),
+  so it goes within a minute or two of the end: the teammate's first message, with what they answered and its line,
+  a draft to OK while it's on training wheels, held by quiet hours. Someone the team already wrote to is left alone;
+  with no teammate, the teammate off, or a person on their conversation, the Home card asks a person instead. What
+  became of it is the row's `outcome` (sent, drafted, card, skipped), set once.
+- **The ranked list** is on the webinar's appointment, under the call (`video_call.leads`): hottest first, each with
+  the AI's line (or what they did), how long they stayed and what became of the text.
+- **The AI drafts a poll** too: **Draft the questions with AI** in the editor takes what the webinar is for, reads the
+  poll's slides when it has them, and writes the questions and a closing button, each with points, when-to-ask phrases
+  and a slide, plus the lines (`POST /v1/forms/ai/draft-poll`). They land in the draft as edits to read and change.
+
 ## Running it locally
 
 Without LiveKit the worker uses its stand-in: tickets connect to nothing and the call screen shows a stand-in for
@@ -424,8 +468,7 @@ enough to see captions and lines arrive. With `DEEPGRAM_API_KEY` and `VOICE_AGEN
   but **Video call** goes on to open the call for whoever pressed it, so for now it's only a button.
 - Screen share from a phone's browser, which phones don't allow; they can watch someone else's.
 - Joining by phone, recordings, breakout rooms and picture backgrounds.
-- Scoring who to follow up with: part 5 of `HANDSFREEOS_WEBINARS_IMPLEMENTATION_PLAN.md`. Live polls and slides on the
-  phone's call screen: the team asks and presents from the web for now, and the phone shows whoever is presenting.
-- The AI drafting a poll's questions from its slides: it ties questions the business wrote to their slides.
+- Live polls and slides on the phone's call screen: the team asks and presents from the web for now, and the phone
+  shows whoever is presenting. The ranked list after a webinar is on the web too; the phone has the Home cards.
 - Slides in any form but a PDF (PowerPoint and Keynote save as one), and animations or videos inside slides.
 - Webinar controls on the phone: it shows who's presenting, but the camera choice and Bring on stage are on the web.

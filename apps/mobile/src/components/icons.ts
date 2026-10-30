@@ -133,6 +133,7 @@ export { default as PhoneOutgoing } from 'lucide-react-native/icons/phone-outgoi
 export { default as Play } from 'lucide-react-native/icons/play';
 export { default as Plus } from 'lucide-react-native/icons/plus';
 export { default as PowerOff } from 'lucide-react-native/icons/power-off';
+export { default as Presentation } from 'lucide-react-native/icons/presentation';
 export { default as Puzzle } from 'lucide-react-native/icons/puzzle';
 export { default as Radar } from 'lucide-react-native/icons/radar';
 export { default as Receipt } from 'lucide-react-native/icons/receipt';

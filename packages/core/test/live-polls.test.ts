@@ -13,7 +13,10 @@
  *   - part 3: the AI asks only while the call lets it, never over a question that's up, just after one closed, or one
  *     the team skipped; and what it sees of the poll names the team, whose words alone count;
  *   - part 4: a poll's slides are a PDF on the poll, kept for good; a question's slide must be one the slides have;
- *     the team shows a slide only of the published poll's slides, and they come down with another poll.
+ *     the team shows a slide only of the published poll's slides, and they come down with another poll;
+ *   - part 5: once the call is over everyone who came is scored from their answers, presses and staying to the end,
+ *     then Hot, Warm or Cold; each rating is told once (an event and a timeline line), scoring again changes only
+ *     what moved, and what became of a hot one's text is kept once.
  */
 import { randomUUID } from 'node:crypto';
 import { asWorker, rows, sql } from '@hfos/db/client';
@@ -30,7 +33,12 @@ import {
   sessionPublish,
   videoCallEnter,
   videoCallJoin,
+  videoCallEnd,
   videoCallJoined,
+  videoCallLeadOutcome,
+  videoCallLeadReasons,
+  videoCallLeadsGet,
+  videoCallLeft,
   videoCallOpen,
   videoCallPollAnswer,
   videoCallPollClose,
@@ -40,6 +48,7 @@ import {
   videoCallPollsFinish,
   videoCallPollsGet,
   videoCallPollSkip,
+  videoCallScoreLeads,
   videoCallSetPoll,
   videoCallSetPollAi,
   videoCallSlide,
@@ -698,5 +707,324 @@ describe('the slides (part 4)', () => {
     expect((await events('video_call.slide_changed', callId)).at(-1)!.payload).toMatchObject({
       slide: null,
     });
+  });
+});
+
+describe('who to follow up with (part 5)', () => {
+  let callId: string;
+  let appointmentId: string;
+  let scoredPoll: string;
+  const seats: Record<string, { attendeeId: string; personId: string; rowId: string }> = {};
+  let priyaRow: string;
+  // The webinar ran an hour, two hours ago.
+  const t0 = Date.now() - 2 * 60 * 60_000;
+  const at = (s: number) => new Date(t0 + s * 1000).toISOString();
+  const presence = (rowId: string, s: number) => ({
+    workspaceId: t.wsId,
+    callId,
+    personId: rowId,
+    roomSid: 'RM_leads',
+    participantSid: `PA_${rowId.slice(0, 8)}`,
+    at: at(s),
+  });
+  const ask1 = async (questionId: string, said: Record<string, unknown>) => {
+    const opened = await run(
+      videoCallPollOpen,
+      { workspaceId: t.wsId, callId, questionId },
+      t.priya,
+    );
+    for (const [who, value] of Object.entries(said))
+      await runSystem(
+        videoCallPollAnswer,
+        { workspaceId: t.wsId, pollId: opened.pollId, attendeeId: seats[who]!.attendeeId, value },
+        t.scope,
+      );
+    await run(videoCallPollClose, { workspaceId: t.wsId, callId, pollId: opened.pollId }, t.priya);
+  };
+  const leadRows = () =>
+    rows<{
+      id: string;
+      person_id: string;
+      points: number;
+      label: string;
+      stayed: boolean;
+      follow_up: string;
+      parts: { what: string; points: number }[];
+      reason: string | null;
+      outcome: string | null;
+    }>(
+      admin(),
+      sql`select id, person_id, points, label, stayed, follow_up, parts, reason, outcome
+          from app.video_call_leads where video_call_id = ${callId} order by points desc`,
+    );
+  const rated = () =>
+    rows<{ payload: Record<string, unknown> }>(
+      admin(),
+      sql`select payload from app.events where event_type = 'webinar.rated'
+          and payload->>'videoCallId' = ${callId} order by created_at`,
+    );
+
+  beforeAll(async () => {
+    // A poll that scores: Ads 10, a yes 15 (a no takes 5 off), the button 20, and the default 10 for staying.
+    const created = await run(
+      formCreate,
+      { workspaceId: t.wsId, name: 'Scored poll', mode: 'poll' },
+      t.owner,
+    );
+    const [row] = await rows<{ definition: { pages: { id: string }[] } }>(
+      admin(),
+      sql`select definition from app.forms where id = ${created.formId}`,
+    );
+    const pageId = row!.definition.pages[0]!.id;
+    const add = (question: Record<string, unknown>) => ({
+      op: 'add_question',
+      pageId,
+      index: null,
+      question,
+    });
+    const saved = await run(
+      formSaveDraft,
+      {
+        workspaceId: t.wsId,
+        formId: created.formId,
+        baseRevision: 1,
+        ops: [
+          add({
+            id: Q.leads,
+            type: 'choice',
+            title: 'Where do your leads come from?',
+            config: {
+              choices: [
+                { id: 'c_referral', label: 'Referrals' },
+                { id: 'c_ads00000', label: 'Ads' },
+              ],
+            },
+            live: { points: { c_ads00000: 10 } },
+          }),
+          add({
+            id: Q.crm,
+            type: 'yes_no',
+            title: 'Do you use a CRM?',
+            config: {},
+            live: { points: { yes: 15, no: -5 } },
+          }),
+          add({
+            id: Q.talk,
+            type: 'button',
+            title: 'Want help setting up?',
+            config: { action: 'talk', label: 'Talk to someone' },
+            live: { points: { pressed: 20 } },
+          }),
+          {
+            op: 'set_form',
+            patch: { leads: { stayed: 10, hot: 30, warm: 10, hotAction: 'text' } },
+          },
+        ],
+      },
+      t.owner,
+    );
+    await run(
+      formPublish,
+      { workspaceId: t.wsId, formId: created.formId, baseRevision: saved.revision },
+      t.owner,
+    );
+    scoredPoll = created.formId;
+
+    ({ callId, appointmentId } = await publish('11:00', 4));
+    await run(videoCallSetPoll, { workspaceId: t.wsId, callId, formId: scoredPoll }, t.priya);
+    priyaRow = (await run(videoCallJoin, { workspaceId: t.wsId, callId }, t.priya)).personId;
+    await runSystem(videoCallJoined, presence(priyaRow, 0), t.scope);
+    for (const [i, name] of ['Ann', 'Ben', 'Cal'].entries()) {
+      const seat = await register(callId, name);
+      const inside = await runSystem(
+        videoCallEnter,
+        { workspaceId: t.wsId, attendeeId: seat.attendeeId, name },
+        t.scope,
+      );
+      await runSystem(videoCallJoined, presence(inside.personId!, 10 + i), t.scope);
+      const [p] = await rows<{ person_id: string }>(
+        admin(),
+        sql`select person_id from app.appointment_attendees where id = ${seat.attendeeId}`,
+      );
+      seats[name] = {
+        attendeeId: seat.attendeeId,
+        personId: p!.person_id,
+        rowId: inside.personId!,
+      };
+    }
+    // Ann picks Ads, says yes and presses the button; Ben says yes; Cal answers nothing.
+    await ask1(Q.leads, { Ann: 'c_ads00000' });
+    await ask1(Q.crm, { Ben: true, Ann: true });
+    await ask1(Q.talk, { Ann: true });
+  });
+
+  it('scores nobody while the call is still going', async () => {
+    expect(await runSystem(videoCallScoreLeads, { workspaceId: t.wsId, callId }, t.scope)).toEqual({
+      scored: 0,
+      hot: 0,
+      warm: 0,
+      cold: 0,
+    });
+    expect(await leadRows()).toEqual([]);
+  });
+
+  it('rates everyone who came once it’s over, staying to the end counting for those still there', async () => {
+    // Cal left after 5 minutes and Ben after 10; Ann stayed till a few seconds before Priya finished.
+    await runSystem(videoCallLeft, presence(seats.Cal!.rowId, 300), t.scope);
+    await runSystem(videoCallLeft, presence(seats.Ben!.rowId, 600), t.scope);
+    await runSystem(videoCallLeft, presence(seats.Ann!.rowId, 3600), t.scope);
+    await runSystem(videoCallLeft, presence(priyaRow, 3610), t.scope);
+    await run(videoCallEnd, { workspaceId: t.wsId, callId }, t.priya);
+    await runSystem(videoCallPollsFinish, { workspaceId: t.wsId, callId }, t.scope);
+
+    expect(await runSystem(videoCallScoreLeads, { workspaceId: t.wsId, callId }, t.scope)).toEqual({
+      scored: 3,
+      hot: 1,
+      warm: 1,
+      cold: 1,
+    });
+    const [ann, ben, cal] = await leadRows();
+    expect(ann).toMatchObject({
+      person_id: seats.Ann!.personId,
+      points: 55,
+      label: 'hot',
+      stayed: true,
+      follow_up: 'text',
+      parts: [
+        { what: '“Where do your leads come from?”: Ads', points: 10 },
+        { what: '“Do you use a CRM?”: Yes', points: 15 },
+        { what: 'Pressed “Talk to someone”', points: 20 },
+        { what: 'Stayed to the end', points: 10 },
+      ],
+    });
+    expect(ben).toMatchObject({
+      person_id: seats.Ben!.personId,
+      points: 15,
+      label: 'warm',
+      stayed: false,
+    });
+    expect(cal).toMatchObject({ person_id: seats.Cal!.personId, points: 0, label: 'cold' });
+
+    // Each rating starts workflows once, and goes on their timeline.
+    const told = await rated();
+    expect(told.map((e) => [e.payload.personId, e.payload.label, e.payload.points])).toEqual(
+      expect.arrayContaining([
+        [seats.Ann!.personId, 'hot', 55],
+        [seats.Ben!.personId, 'warm', 15],
+        [seats.Cal!.personId, 'cold', 0],
+      ]),
+    );
+    expect(told).toHaveLength(3);
+    expect(told[0]!.payload).toMatchObject({ appointmentId, formId: scoredPoll, followUp: 'text' });
+    const [line] = await rows<{ meta: Record<string, unknown>; body: string | null }>(
+      admin(),
+      sql`select meta, body from app.activities
+          where person_id = ${seats.Ann!.personId} and subtype = 'webinar_rated'`,
+    );
+    expect(line!.meta).toMatchObject({ label: 'hot', points: 55, videoCallId: callId });
+    expect(line!.body).toContain('Stayed to the end');
+    const [scored] = await events('video_call.leads_scored', callId);
+    expect(scored!.payload).toMatchObject({ hotAction: 'text', hot: 1, warm: 1, cold: 1 });
+  });
+
+  it('keeps the AI’s reason, and scoring again tells only what moved', async () => {
+    const [ann, ben] = await leadRows();
+    expect(
+      await runSystem(
+        videoCallLeadReasons,
+        {
+          workspaceId: t.wsId,
+          callId,
+          reasons: [
+            { leadId: ann!.id, reason: 'Gets leads from ads, uses a CRM and asked to talk.' },
+            { leadId: ben!.id, reason: 'Uses a CRM but left early.' },
+          ],
+        },
+        t.scope,
+      ),
+    ).toEqual({ written: 2 });
+
+    // Ben's answer counts for more now: his points move, so his reason no longer fits; Ann's stay.
+    await rows(
+      admin(),
+      sql`update app.form_responses set answers = answers || '{"q_talk0000": true}'::jsonb
+          where video_call_id = ${callId} and person_id = ${seats.Ben!.personId}`,
+    );
+    expect(await runSystem(videoCallScoreLeads, { workspaceId: t.wsId, callId }, t.scope)).toEqual({
+      scored: 3,
+      hot: 2,
+      warm: 0,
+      cold: 1,
+    });
+    const after = await leadRows();
+    expect(after.find((l) => l.id === ann!.id)).toMatchObject({
+      reason: 'Gets leads from ads, uses a CRM and asked to talk.',
+    });
+    expect(after.find((l) => l.id === ben!.id)).toMatchObject({
+      points: 35,
+      label: 'hot',
+      reason: null,
+    });
+    const told = await rated();
+    expect(told).toHaveLength(4);
+    expect(told.at(-1)!.payload).toMatchObject({ personId: seats.Ben!.personId, label: 'hot' });
+  });
+
+  it('keeps what became of a hot one’s text once', async () => {
+    const [ann] = await leadRows();
+    expect(
+      await runSystem(
+        videoCallLeadOutcome,
+        { workspaceId: t.wsId, leadId: ann!.id, outcome: 'sent' },
+        t.scope,
+      ),
+    ).toEqual({ changed: true });
+    expect(
+      await runSystem(
+        videoCallLeadOutcome,
+        { workspaceId: t.wsId, leadId: ann!.id, outcome: 'drafted' },
+        t.scope,
+      ),
+    ).toEqual({ changed: false });
+    expect((await leadRows()).find((l) => l.id === ann!.id)!.outcome).toBe('sent');
+    expect(await events('video_call_lead.followed_up', ann!.id)).toHaveLength(1);
+  });
+
+  it('lists everyone hottest first on the webinar’s appointment', async () => {
+    const got = await ask(videoCallLeadsGet, { workspaceId: t.wsId, appointmentId }, t.owner);
+    expect(got.call).toMatchObject({
+      id: callId,
+      ended: true,
+      formId: scoredPoll,
+      formName: 'Scored poll',
+      hot: 30,
+      warm: 10,
+      hotAction: 'text',
+    });
+    expect(got.counts).toEqual({ hot: 2, warm: 0, cold: 1 });
+    expect(got.leads.map((l) => [l.name, l.label, l.points])).toEqual([
+      ['Ann Watcher', 'hot', 55],
+      ['Ben Watcher', 'hot', 35],
+      ['Cal Watcher', 'cold', 0],
+    ]);
+    expect(got.leads[0]).toMatchObject({
+      reason: 'Gets leads from ads, uses a CRM and asked to talk.',
+      stayed: true,
+      outcome: 'sent',
+    });
+    // A call with no poll has nobody to rank.
+    const plain = await publish('14:00', 4);
+    await run(
+      videoCallSetPoll,
+      { workspaceId: t.wsId, callId: plain.callId, formId: null },
+      t.priya,
+    );
+    const none = await ask(
+      videoCallLeadsGet,
+      { workspaceId: t.wsId, callId: plain.callId },
+      t.owner,
+    );
+    expect(none.call?.formId ?? null).toBeNull();
+    expect(none.leads).toEqual([]);
   });
 });

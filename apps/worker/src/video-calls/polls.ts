@@ -7,7 +7,8 @@
  *   up.
  * - **It closes** (`video_call.poll_closed`): everyone is told, with the totals when the question shows them.
  * - **The call is over** (`video_call.ended`): the question that's up closes and each person's answers are sent as
- *   their form response, a few seconds later, once any answer still on its way is in.
+ *   their form response, a few seconds later, once any answer still on its way is in. Then everyone who came is
+ *   scored for following up (part 5, leads.ts).
  */
 import {
   VIDEO_CALL_POLLS_TOPIC,
@@ -25,6 +26,7 @@ import {
   videoCallPollQuestion,
   videoCallPollsFinish,
   videoCallRoom,
+  videoCallScoreLeads,
 } from '@hfos/core/server';
 import type { EventHandler, HandlerContext } from '../handlers/types';
 import { publicOrigin } from '../hosting/origin';
@@ -146,4 +148,13 @@ export const videoCallPollsFinishJob: JobHandler = async (ctx) => {
     workerMeta(),
   );
   if (output.sent) ctx.log.info({ callId, sent: output.sent }, 'a call’s live poll answers sent');
+  // Who to follow up with (part 5), now every answer is in.
+  const scored = await executeCommand(
+    ctx.db,
+    videoCallScoreLeads,
+    { workspaceId: scope.workspaceId, callId },
+    systemActor(scope),
+    workerMeta(),
+  );
+  if (scored.output.scored) ctx.log.info({ callId, ...scored.output }, 'a call’s people scored');
 };

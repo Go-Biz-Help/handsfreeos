@@ -76,6 +76,7 @@ const KIND_WORD: Readonly<Record<AttentionKind, string>> = {
   offer_lapsing: 'Promotion ending',
   texting_rejected: 'Texting turned down',
   addon_alert: 'Add-on alert',
+  webinar_hot: 'Hot after a webinar',
 };
 
 /** Chips that tell time: a row shows the first one on its right. */
@@ -681,6 +682,7 @@ const ASSIGN_CHANGES: Readonly<Record<AttentionKind, string>> = {
   offer_lapsing: 'Only who looks after the promotion. Nothing else changes.',
   texting_rejected: 'The business’s texting is set up by its owners and admins.',
   addon_alert: 'The add-on that raised it decides who it’s for.',
+  webinar_hot: 'Only who reaches out. Nothing else changes.',
 };
 
 type UpdateAction = 'snooze' | 'dismiss' | 'assign';

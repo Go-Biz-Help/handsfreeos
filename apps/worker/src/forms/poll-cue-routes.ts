@@ -154,6 +154,18 @@ export async function registerPollCueRoutes(app: FastifyInstance, deps: HttpDeps
   });
 }
 
+/** The slides' words as the model reads them: each slide's, up to all of them's limit. */
+export function slidesLines(slides: readonly string[]): string[] {
+  const lines = [`The presenter's slides (${slides.length}):`];
+  let room = SLIDES_CHARS;
+  slides.forEach((text, i) => {
+    const words = text.replace(/\s+/g, ' ').trim().slice(0, Math.min(SLIDE_CHARS, room));
+    room -= words.length;
+    lines.push(`Slide ${i + 1}: ${words || '(no words: a picture)'}`);
+  });
+  return lines;
+}
+
 /** The questions, and the slides' words when there are slides, as the model reads them. */
 export function cueRequest(
   input: z.output<typeof PollCuesInput>,
@@ -169,13 +181,7 @@ export function cueRequest(
     }),
   ];
   if (!slides?.length) return lines.join('\n');
-  lines.push('', `The presenter's slides (${slides.length}):`);
-  let room = SLIDES_CHARS;
-  slides.forEach((text, i) => {
-    const words = text.replace(/\s+/g, ' ').trim().slice(0, Math.min(SLIDE_CHARS, room));
-    room -= words.length;
-    lines.push(`Slide ${i + 1}: ${words || '(no words: a picture)'}`);
-  });
+  lines.push('', ...slidesLines(slides));
   return lines.join('\n');
 }
 
@@ -183,7 +189,11 @@ export function cueRequest(
  * The words on each of a poll's slides, read as the person asking: what the worker already read in the file, or the PDF
  * itself when it hasn't yet (just uploaded). 404 when the slides aren't there.
  */
-async function slidesText(deps: HttpDeps, workspaceId: string, fileId: string): Promise<string[]> {
+export async function slidesText(
+  deps: HttpDeps,
+  workspaceId: string,
+  fileId: string,
+): Promise<string[]> {
   const found = await asWorker(deps.httpDb, { workspaceId }, async (tx) => {
     const [file] = await rows<{ bucket: string; object_path: string; status: string }>(
       tx,
@@ -214,7 +224,7 @@ async function slidesText(deps: HttpDeps, workspaceId: string, fileId: string): 
 }
 
 /** The business the phrases are for, read as the person asking. */
-async function workspaceScope(
+export async function workspaceScope(
   deps: HttpDeps,
   actor: HumanActor,
   workspaceId: string,
@@ -226,7 +236,10 @@ async function workspaceScope(
   return { workspaceId, organizationId: workspace.organizationId };
 }
 
-function cueError(e: unknown): unknown {
+export function cueError(
+  e: unknown,
+  failed = 'The AI couldn’t write the phrases this time. Try again, or write them yourself.',
+): unknown {
   if (!(e instanceof AiAskError)) return e;
   switch (e.code) {
     case 'budget_reached':
@@ -239,10 +252,6 @@ function cueError(e: unknown): unknown {
         ? HfosError.rule('ai_busy', 503, e.message)
         : HfosError.rule('ai_failed', 502, e.message);
     default:
-      return HfosError.rule(
-        'ai_failed',
-        502,
-        'The AI couldn’t write the phrases this time. Try again, or write them yourself.',
-      );
+      return HfosError.rule('ai_failed', 502, failed);
   }
 }
