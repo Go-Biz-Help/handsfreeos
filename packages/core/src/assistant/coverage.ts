@@ -536,6 +536,16 @@ export const SETTING_TOOLS: Readonly<Record<string, readonly SettingWay[]>> = {
     { tool: 'update_safety_settings', field: 'alertAfterMinutes' },
     { tool: 'update_safety_settings', field: 'safetyUserId' },
   ],
+  // ---- Usage & balance: the card itself is typed on the payment provider's page, which only the person does ----
+  'usage.balance': [{ tool: 'do_wallet_top_up', field: 'amountCents' }],
+  'usage.auto_top_up': [
+    { tool: 'update_auto_topup', field: 'on' },
+    { tool: 'update_auto_topup', field: 'belowDollars' },
+    { tool: 'update_auto_topup', field: 'addDollars' },
+  ],
+  'usage.ai_limit': [{ tool: 'do_wallet_set_ai_limit', field: 'aiDailyLimitCents' }],
+  // Buying a seat is on Stripe's page (founding.buy is on the Never list); renewing is the business's switch.
+  'usage.founding': [{ tool: 'do_founding_set_renewing', field: 'renewing' }],
 };
 
 /** Setting rows the Assistant never changes, and why. */
@@ -552,6 +562,12 @@ export const SETTINGS_NEVER: Readonly<Record<string, string>> = {
   'phone.changes': 'a setting of the phone in their hand, set on it',
   'phone.my_safety': 'the person’s own safety contacts, which only they choose',
   'safety.preview': 'nothing of its own to change: it shows what the check-in times set',
+  'usage.card':
+    'the card is typed on the payment provider’s own page, which only the person can do (do_wallet_forget_card takes it off)',
+  'usage.prices':
+    'HandsFreeOS’s own prices, to read (get_settings, area usage): nothing here is the business’s to change',
+  'usage.statement':
+    'what was charged and added, to read (get_settings, area usage): nothing to change',
   ...Object.fromEntries(
     AUTOMATION_ROWS.filter((a) => a.locked).map((a) => [
       `automation.${a.id}`,
@@ -565,7 +581,6 @@ export const SETTINGS_NEVER: Readonly<Record<string, string>> = {
  * the first, says which tool changes each of its rows (adding what's missing), and takes it off.
  */
 export const SETTINGS_NOT_YET: readonly string[] = [
-  'usage',
   'texting',
   'email',
   'website_chat',

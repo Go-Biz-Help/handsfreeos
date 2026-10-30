@@ -727,23 +727,20 @@ const AREAS: Record<SettingsArea, AreaEntry> = {
     ],
     path: '/settings/usage',
     permission: 'money.manage',
-    canChange: ['automatic top-up: on or off, the balance it tops up below, and how much it adds'],
+    canChange: [
+      'automatic top-up: on or off, the balance it tops up below, and how much it adds',
+      'top up the balance now, from the card on file',
+      'the daily AI limit',
+      'take the card off, which turns automatic top-up off',
+      'whether the founding plan renews',
+    ],
     handovers: [
       {
-        what: 'top up the balance now, or change the card',
-        why: 'it is a card payment, which you make yourself',
+        what: 'add a card, or use a different one',
+        why: 'the card is typed on the payment provider’s own page, which only you can do',
         steps: [
           'Open Settings → Usage & balance.',
-          'Press Top up now.',
-          'Card on file is where the card is added or changed.',
-        ],
-      },
-      {
-        what: 'raise or lower the daily AI limit',
-        why: 'it decides how much the business’s AI may spend, which an owner or admin sets themselves',
-        steps: [
-          'Open Settings → Usage & balance.',
-          'Under Daily AI limit, type the most the AI may spend in a day.',
+          'Under Card on file, press Add a card, or Use a different card.',
         ],
       },
     ],

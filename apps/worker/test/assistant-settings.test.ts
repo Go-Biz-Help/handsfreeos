@@ -210,6 +210,18 @@ describe('settings_help', () => {
     expect(card).toBeUndefined();
     expect(result['canChange']).toContain('add, rename or archive a pipeline');
   });
+
+  it('leaves only the card to the person on Usage & balance: topping up and the AI limit are its to do', async () => {
+    const { result } = await readTool('settings_help', 'usage', owner);
+    const theirs = result['theyDoThemselves'] as { what: string }[];
+    expect(theirs.map((t) => t.what)).toEqual(['add a card, or use a different one']);
+    expect(result['canChange']).toEqual(
+      expect.arrayContaining([
+        'top up the balance now, from the card on file',
+        'the daily AI limit',
+      ]),
+    );
+  });
 });
 
 /** Prepares a confirm tool the way the runtime does, then presses Confirm. */
