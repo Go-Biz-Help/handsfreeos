@@ -898,7 +898,8 @@ describe('a message on Alignable', () => {
     doc.querySelector('[data-testid="messaging-send-external"]')!.addEventListener('click', () => {
       const card = doc.createElement('div');
       card.setAttribute('data-testid', 'rel-card-message');
-      card.innerHTML = `<div>${doc.querySelector('#box')!.textContent}</div>`;
+      card.append(doc.createElement('div'));
+      card.firstElementChild!.textContent = doc.querySelector('#box')!.textContent;
       doc.querySelector('[data-testid="channel-header-loaded"]')!.after(card);
     });
     vi.useFakeTimers({ toFake: ['setTimeout'] });

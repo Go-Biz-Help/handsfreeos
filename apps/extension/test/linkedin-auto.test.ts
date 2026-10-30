@@ -446,7 +446,8 @@ describe('writing a message only in the conversation with them', () => {
       replaced.addEventListener('click', () => {
         const box = form.querySelector('[role="textbox"]')!;
         const row = doc.createElement('li');
-        row.innerHTML = `<p>${box.textContent}</p>`;
+        row.append(doc.createElement('p'));
+        row.firstElementChild!.textContent = box.textContent;
         list.append(row);
         after(box, form);
       });
