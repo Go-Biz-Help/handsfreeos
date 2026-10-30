@@ -2,9 +2,9 @@
  * The conversation after someone accepts (docs/outreach.md, decisions 65 to 68; the main offer plan's "The
  * conversation"): the video's three steps, after a warm-up, on Facebook.
  *
- * 1. **First message** (`opener`): straight out, would they be open to the main offer's outcome, and if so, more info
- *    follows. A personal line first only when the look-up found something real that fits. No message carries the
- *    guarantee (the owner, 2026-10-26: it read disjointed): a reply gives it only when they ask whether there is one.
+ * 1. **First message** (`opener`): one short, straight question that makes them curious, in the owner's words, with
+ *    their kind of business put in (decision 137, `FIRST_MESSAGE_SHAPE`). No message carries the guarantee (the owner,
+ *    2026-10-26: it read disjointed): a reply gives it only when they ask whether there is one.
  * 2. **Send the video** (`video`): to someone who said yes, the playbook's short video and a line selling the call.
  *    A playbook with no video yet skips it.
  * 3. **Send the link** (`pitch`): to someone who wants the call, the booking link (decision 24).
@@ -398,6 +398,19 @@ export const AnswerNoteOutput = z.object({ noted: z.boolean() });
 
 // ---- Writing the samples (the worker's `outreach.messages.samples`) ----
 
+/**
+ * What a first message is (decision 137, the owner, 30 Oct 2026, replacing decision 65's): one short, straight question
+ * that makes them curious, in the owner's own words, with their kind of business put in. Your messages' samples and
+ * Today's drafts (./today.ts) are written to it.
+ */
+export const FIRST_MESSAGE_EXAMPLE =
+  'If I had something that could make you more money while saving you time in your photography business, would you be interested?';
+/** The most words in a first message: the owner's example has 22. */
+export const FIRST_MESSAGE_WORDS = 30;
+export const FIRST_MESSAGE_SHAPE = `one short, straight question, under ${FIRST_MESSAGE_WORDS} words, that makes them curious enough to say yes: the owner has something that could get them what the offer does, put broadly rather than in the offer’s words, in their kind of business, and would they be interested. Like: “${FIRST_MESSAGE_EXAMPLE}” Keep close to those words, changing what it gets them only when the offer plainly gets people something other than more money and time, and the end only when the offer is for people at home rather than a business (“for your home”). Never say what the thing is, how it works, its name, a link or the price, and put nothing before or after the question: no greeting, no line about them, no promise of more info.`;
+/** A sample's kind of business: the made-up person's, from the playbook's niche. */
+const NICHE_KIND = 'Put in the kind of business the playbook’s niche runs, in a word or two.';
+
 export const MESSAGE_SAMPLES_ASK = 'Write the sample messages.';
 
 export const MESSAGE_SAMPLES_SYSTEM = [
@@ -514,7 +527,7 @@ export function messageSamplesPrompt(f: SamplesFacts): string {
       : []),
     [
       'Write:',
-      '- first: 2 different first messages, sent once they accept the friend request. Each asks straight out whether they’d be open to the outcome, in a few words, and says that if they are, the owner will send more info.',
+      `- first: 2 different first messages, sent once they accept the friend request. Each is ${FIRST_MESSAGE_SHAPE} ${NICHE_KIND}`,
       p.hasVideo
         ? '- video: the message after they say yes, with [video link]: a short video on how it works and how others got results, and if a quick call sounds good, they can just say.'
         : '- video: null.',
@@ -631,7 +644,7 @@ export const MESSAGE_REWRITE_SYSTEM = [
 function partTask(slot: SampleSlot, f: Pick<SamplesFacts, 'playbook' | 'followUps'>): string {
   switch (slot.part) {
     case 'first':
-      return 'one first message, sent once they accept the friend request. It asks straight out whether they’d be open to the outcome, in a few words, and says that if they are, the owner will send more info.';
+      return `one first message, sent once they accept the friend request: ${FIRST_MESSAGE_SHAPE} ${NICHE_KIND}`;
     case 'video':
       return 'the message after they say yes, with [video link]: a short video on how it works and how others got results, and if a quick call sounds good, they can just say.';
     case 'link':

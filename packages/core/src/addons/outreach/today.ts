@@ -64,6 +64,7 @@ import type { MainOfferParts } from '../../main-offer/parts';
 import {
   ANSWER_KEYS,
   CONVERSATION_STEPS,
+  FIRST_MESSAGE_SHAPE,
   type Answer,
   type ConversationStep,
   type OwnWords,
@@ -607,9 +608,15 @@ export interface DraftConversation {
   readonly followUps: number;
 }
 
+/**
+ * Their kind of business in a first message (decision 137): from what's known of them, as they'd say it, and never
+ * guessed.
+ */
+const THEIR_KIND =
+  'Name their kind of business from the facts or their pages in a word or two, as they’d say it (roofing, real estate, photography); when they run more than one, the one the offer fits best. When those don’t show it, say “your business”, and when they work for someone else, put it as their line of work (“as a realtor”). Never guess it from the playbook.';
+
 const TASK: Record<CustomerDraftKind, string> = {
-  opener:
-    'They just accepted the owner’s friend request. Write the first message. Its only job is a yes: ask straight out whether they’d be open to the offer’s outcome, in a few words, and say that if they are, the owner will send more info. Open with one line about them (their business, their job, something they posted) only when the facts or their pages show something real that fits the offer; otherwise just say hi. Never the price, never a long story.',
+  opener: `They just accepted the owner’s friend request. Write the first message as ${FIRST_MESSAGE_SHAPE} ${THEIR_KIND}`,
   reconnect:
     'They’re already the owner’s friend or have chatted before, but neither has written in a while. Write a short, warm message that picks things up again from what their pages say or what the chat was about, and asks how they are or how their work is going. Don’t pitch yet.',
   pitch:
@@ -640,11 +647,10 @@ const TASK: Record<CustomerDraftKind, string> = {
 
 /**
  * A first message on a follow network (Instagram's) to someone who hasn't followed the owner back (`TodayItem.requests`):
- * it lands in their Requests, which passes only one text till they accept it. So it's one short message, with no link,
- * no video and no price, and it asks one light question.
+ * it lands in their Requests, which passes only one text till they accept it. So it's the same short question as any
+ * first message (decision 137), as one text, with no link, no video and no price.
  */
-export const REQUESTS_TASK =
-  'The owner followed them a few days ago and they haven’t followed back, so this message lands in their message Requests, where Instagram passes only one text till they accept it. Write that one first message. Keep it under 40 words and as one message: never split into texts. Say who the owner is and why they’re writing in a few words, from what the facts or their pages show when it fits; then ask straight out whether they’d be open to the offer’s outcome, in a few words. No link, no video, no web address and no price.';
+export const REQUESTS_TASK = `The owner followed them a few days ago and they haven’t followed back, so this message lands in their message Requests, where Instagram passes only one text till they accept it. Write that one first message as one text, never split into texts, and as ${FIRST_MESSAGE_SHAPE} ${THEIR_KIND} No video and no web address either.`;
 
 /** What a message to their Requests may be at most: one short text. */
 export const REQUESTS_MESSAGE_MOST = 300;
@@ -845,8 +851,9 @@ export function todayDraftPrompt(input: {
   // and asks nothing of the playbook's conversation.
   const note = isOccasionKind(input.kind);
   const helping = input.kind === 'group_reply';
-  // A message in Messenger can go as a few texts; a comment is one, in public, and so is a message to their Requests.
-  const texts = isMessageKind(input.kind) && !requests;
+  // A message in Messenger can go as a few texts; a comment is one, in public, and so is a first message: one short
+  // question (decision 137), to their Requests or not.
+  const texts = isMessageKind(input.kind) && input.kind !== 'opener';
   const playbook = p
     ? [
         `Name: ${p.name}`,
@@ -935,12 +942,13 @@ export function todayDraftPrompt(input: {
     input.kind === 'video' && p?.videoLink
       ? `Put this video link in every draft, exactly as written: ${quoteData(p.videoLink)}`
       : null,
+    // A style only words the first message's question (decision 137): nothing goes before or after it.
     input.opener?.kind === 'style'
-      ? `Write the line about them this way: ${quoteData(input.opener.text)}`
+      ? `Word the question in this style, as far as it fits one short question with nothing added: ${quoteData(input.opener.text)}`
       : null,
     ...ownLines(input.own ?? null, requests),
     voiceLines(voice, texts),
-    texts && input.kind !== 'opener'
+    texts
       ? gapLine(input.lastAt ?? lastOf(input.recent), input.now ?? Date.now(), {
           split: voice.split,
           theyWroteLast: input.recent.at(-1)?.fromMe === false,
