@@ -210,6 +210,11 @@ function PartnerCard({
       <View className="flex-row flex-wrap items-center gap-2">
         <Text className="text-[15px] font-semibold">{p.name}</Text>
         <NetworkName platform={p.platform} />
+        {p.marked ? (
+          <Badge variant="gray" testID="partner-marked">
+            <Text>{P.markedBadge}</Text>
+          </Badge>
+        ) : null}
         {p.fit === 'maybe' ? (
           <Badge variant="gray">
             <Text>{PARTNER_FITS.maybe}</Text>

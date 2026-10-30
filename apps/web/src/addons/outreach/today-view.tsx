@@ -710,6 +710,14 @@ function TodayRow({
       {item.nextStep ? (
         <p className="mt-1 text-[12.5px] text-text-2">Next: {item.nextStep}</p>
       ) : null}
+      {item.partnerHint && item.profileId && !partner ? (
+        <PartnerHint
+          workspaceId={workspaceId}
+          profileId={item.profileId}
+          name={item.name}
+          hint={item.partnerHint}
+        />
+      ) : null}
       <ChatSoFar recent={item.recent} />
       {item.send ? (
         <Drafted
@@ -728,6 +736,55 @@ function TodayRow({
         />
       ) : null}
     </li>
+  );
+}
+
+/**
+ * The AI's check thought this customer looks more like a partner (decision 130): why, and Potential partner, which puts
+ * them on the Partners list with partner messages. The person decides.
+ */
+function PartnerHint({
+  workspaceId,
+  profileId,
+  name,
+  hint,
+}: {
+  workspaceId: string;
+  profileId: string;
+  name: string;
+  hint: string;
+}) {
+  const { busy, act } = useAct();
+  return (
+    <div
+      className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1.5 rounded-control bg-card-2 px-3 py-2"
+      data-testid="today-partner-hint"
+    >
+      <p className="min-w-0 flex-[1_1_220px] text-[12.5px] text-text-2">
+        {W.person.partnerHint(hint)}
+      </p>
+      <Button
+        size="sm"
+        variant="secondary"
+        disabled={busy !== null}
+        onClick={() =>
+          void act(
+            'partner',
+            async () =>
+              unwrap(
+                await apiBrowser().POST('/v1/commands/outreach.partner.potential', {
+                  body: { workspaceId, profileId, potential: true },
+                }),
+              ),
+            W.person.potentialDone(name),
+          )
+        }
+        data-testid="today-potential-partner"
+      >
+        {busy === 'partner' ? <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden /> : null}
+        {W.person.potentialPartner}
+      </Button>
+    </div>
   );
 }
 

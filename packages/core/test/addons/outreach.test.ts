@@ -104,6 +104,7 @@ describe('Social Outreach', () => {
         'outreach.friends.cancel_all',
         'outreach.helpful.ok',
         'outreach.partner.mark',
+        'outreach.partner.potential',
         'outreach.playbook.archive',
         'outreach.playbook.save',
         'outreach.profile.contact',

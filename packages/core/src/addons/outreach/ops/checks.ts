@@ -875,6 +875,7 @@ export const checkSave = defineAddonCommand(outreachAddon, {
         why: a?.why ?? ['The AI couldn’t read them'],
         about: a?.about ?? null,
         nextStep: a?.nextStep ?? null,
+        partnerHint: a?.partner ?? null,
         checkedAt: at,
       })
       .where(eq(checks.id, check.id));

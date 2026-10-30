@@ -2,7 +2,8 @@
  * Partners (../partners.ts, docs/outreach.md decision 81): who the person's computer reads next for the AI's partner
  * check, what their profile said as it read it, what the AI made of it, the Partners list, and what the person marks
  * on it. Each person's own, like their checks (./checks.ts). Someone found as a partner is never pitched as a
- * customer again, nor are their twins (`partnered` in ./common.ts).
+ * customer again, nor are their twins (`partnered` in ./common.ts). The person can put anyone on their list themselves,
+ * and take them off (Potential partner, decision 130).
  */
 import { and, eq, sql } from 'drizzle-orm';
 import { rows } from '@hfos/db/client';
@@ -15,6 +16,7 @@ import type { CommandContext } from '../../../kernel/types';
 import { defineAddonCommand, defineAddonQuery } from '../../server';
 import { outreachAddon } from '../manifest';
 import { demoLink, partnerRef, readPartnerRef } from '../demos';
+import { SEND_KINDS } from '../automation';
 import type { DailyStep } from '../limits';
 import { NETWORKS, type Platform } from '../networks';
 import {
@@ -45,6 +47,8 @@ import {
   PartnerLookOutput,
   PartnerMarkInput,
   PartnerMarkOutput,
+  PartnerPotentialInput,
+  PartnerPotentialOutput,
   PartnerSaveInput,
   PartnerSaveOutput,
   PartnersInput,
@@ -63,6 +67,8 @@ import {
 } from '../partners';
 import { forPartners, PlaybookDetails, upgradePlaybookDetails } from '../playbooks';
 import {
+  isPartnerMessage,
+  PARTNER_MESSAGE_KINDS,
   PARTNER_TODAY_KINDS,
   TODAY_LIMIT,
   TODAY_MOST,
@@ -70,7 +76,7 @@ import {
   type TodayItem,
 } from '../today';
 import { linesCountry, lookedCountry } from '../countries';
-import { partnerLeads, partners, partnerSearches, playbooks, profiles } from '../tables';
+import { demos, partnerLeads, partners, partnerSearches, playbooks, profiles } from '../tables';
 import { perDayFor } from './checks';
 import {
   countryFateSql,
@@ -85,9 +91,12 @@ import {
   once,
   partnered,
   saveProfile,
+  skipOutreachTo,
   type Ctx,
 } from './common';
 import { partnerPlaybooksInUse } from './friends';
+import { wantLead } from './leads';
+import { claimProfile } from './owners';
 import { startOfToday } from './tidy';
 
 const DAY = 86_400_000;
@@ -108,7 +117,7 @@ export async function partnerPerDayFor(ctx: Ctx, me: string, now: number, platfo
 export const partnersNext = defineAddonQuery(outreachAddon, {
   name: 'outreach.partners.next',
   description:
-    'Who the person’s computer reads next for whether they could partner with the business, in order and no more than today has room for: admins of the biggest groups the business’s customers are in, then people with the biggest followings, then businesses. Only with a Find partners playbook in use on the network; never anyone on Don’t pitch or Never contact, anyone found already, anyone being messaged as a customer lately, nor anyone read lately.',
+    'Who the person’s computer reads next for whether they could partner with the business, in order and no more than today has room for: anyone the person marked as a potential partner and not read since, then admins of the biggest groups the business’s customers are in, people with the biggest followings, and businesses. Those the AI finds only with a Find partners playbook in use on the network; never anyone on Don’t pitch or Never contact, anyone found already, anyone being messaged as a customer lately, nor anyone read lately.',
   input: PartnersNextInput,
   output: PartnersNextOutput,
   permission: 'outreach.use',
@@ -124,13 +133,26 @@ export const partnersNext = defineAddonQuery(outreachAddon, {
     const { today, perDay, room: left } = await partnerPerDayFor(ctx, me, now, input.platform);
     const room = Math.min(input.most, left);
     if (!room) return { people: [], today, perDay };
+    // Anyone the person marked as a potential partner (decision 130) and not read since goes first, playbook or not:
+    // the read is for what kind of partner they are, so the messages fit.
+    const marked = await rows<{ id: string; name: string; url: string; kind: PartnerKind }>(
+      ctx.tx,
+      sql`select p.id, p.name, p.url, pa.kind from addon_outreach.partners pa
+          join addon_outreach.profiles p on p.id = pa.profile_id
+          where pa.workspace_id = ${ws} and pa.user_id = ${me} and p.platform = ${input.platform}
+            and pa.marked_at is not null and pa.stage is not null and pa.looked_at <= pa.marked_at
+            and p.friendship <> 'self' and ${notNever('p')}
+          order by pa.marked_at, pa.id
+          limit ${room}`,
+    );
+    const people = marked.map((p) => ({ profileId: p.id, name: p.name, url: p.url, kind: p.kind }));
     // The partner playbooks in use on this network say which kinds of partner to look for.
     const kinds = new Set(
       (await partnerPlaybooksInUse(ctx))
         .filter((p) => p.details.platforms.includes(input.platform))
         .flatMap((p) => partnerKindsOf(p.details)),
     );
-    if (!kinds.size) return { people: [], today, perDay };
+    if (!kinds.size || people.length >= room) return { people, today, perDay };
     const ago = (days: number) => new Date(now - days * DAY).toISOString();
     const looks = (kind: PartnerKind) => sql`${kinds.has(kind)}::boolean`;
     // Partners come from the countries the business reaches (decision 118): anyone it skips is never read, and
@@ -187,10 +209,13 @@ export const partnersNext = defineAddonQuery(outreachAddon, {
             coalesce(x.good, false) desc, coalesce(x.members, x.followers, 0) desc,
             -- Then those a search found, the newest first.
             x.lead_at desc nulls last, x.mutual_friends desc nulls last, x.updated_at desc, x.id
-          limit ${room}`,
+          limit ${room - people.length}`,
     );
     return {
-      people: found.map((p) => ({ profileId: p.id, name: p.name, url: p.url, kind: p.kind })),
+      people: [
+        ...people,
+        ...found.map((p) => ({ profileId: p.id, name: p.name, url: p.url, kind: p.kind })),
+      ],
       today,
       perDay,
     };
@@ -400,6 +425,33 @@ export const partnerLook = defineAddonCommand(outreachAddon, {
         .update(profiles)
         .set({ followers: input.followers, followersAt: at })
         .where(and(eq(profiles.workspaceId, ws), eq(profiles.id, profile.id)));
+    // Someone the person marked (decision 130) stays as they are on the list: the read only gives the AI their lines.
+    const [mine] = await ctx.tx
+      .select({ id: partners.id, fit: partners.fit })
+      .from(partners)
+      .where(
+        and(
+          eq(partners.workspaceId, ws),
+          eq(partners.userId, me),
+          eq(partners.profileId, profile.id),
+          sql`${partners.markedAt} is not null and ${partners.stage} is not null`,
+        ),
+      )
+      .for('update');
+    if (mine) {
+      await ctx.tx
+        .update(partners)
+        .set({ lines: input.missing ? [] : input.lines, lookedAt: at })
+        .where(eq(partners.id, mine.id));
+      if (!input.missing)
+        await ctx.emit({
+          type: 'outreach.partner.looked',
+          entityType: 'workspace',
+          entityId: ws,
+          payload: { partnerId: mine.id },
+        });
+      return { partnerId: mine.id, fit: mine.fit };
+    }
     const fit: PartnerFit = input.missing ? 'failed' : 'waiting';
     const why = input.missing
       ? [`${NETWORKS[profile.platform].name} didn’t show their profile`]
@@ -460,7 +512,7 @@ export const partnerLook = defineAddonCommand(outreachAddon, {
 export const partnerSave = defineAddonCommand(outreachAddon, {
   name: 'outreach.partner.save',
   description:
-    'Worker: what the AI made of someone who could partner with the business: a good partner, might be or not, for which partner playbook, what kind, who their audience is and how big, why and a first warm-up; or that it couldn’t read them. A good or maybe goes on the person’s Partners list and is never pitched as a customer. What their profile said is let go.',
+    'Worker: what the AI made of someone who could partner with the business: a good partner, might be or not, for which partner playbook, what kind, who their audience is and how big, why and a first warm-up; or that it couldn’t read them. A good or maybe goes on the person’s Partners list and is never pitched as a customer; someone the person marked stays on it whatever the AI says. What their profile said is let go.',
   risk: 0,
   input: PartnerSaveInput,
   output: PartnerSaveOutput,
@@ -477,8 +529,13 @@ export const partnerSave = defineAddonCommand(outreachAddon, {
       .where(and(eq(partners.workspaceId, ws), eq(partners.id, input.partnerId)))
       .for('update');
     if (!row) throw HfosError.notFound('That partner check isn’t kept anymore.');
+    // Someone the person marked (decision 130) waits for a read while their lines are kept.
+    const marked = row.markedAt !== null && row.stage !== null;
     // Answered already, or read again since: this answer is for lines that are gone.
-    if (row.fit !== 'waiting' || row.lookedAt.getTime() !== new Date(input.lookedAt).getTime())
+    if (
+      (marked ? !row.lines.length : row.fit !== 'waiting') ||
+      row.lookedAt.getTime() !== new Date(input.lookedAt).getTime()
+    )
       return { saved: false, fit: row.fit };
     const a = input.answer;
     const fit: PartnerFit = a ? a.fit : 'failed';
@@ -503,6 +560,36 @@ export const partnerSave = defineAddonCommand(outreachAddon, {
     } else {
       const lined = linesCountry(row.lines);
       if (lined) await keepCountry(ctx, row.profileId, lined);
+    }
+    if (marked) {
+      // The mark stands (answer 4a): the read says what kind of partner they are and who listens to them, and a "not"
+      // only makes them a maybe, without its reasons. With no read, they stay as marked.
+      const fit: PartnerFit = !a ? row.fit : a.fit === 'not' ? 'maybe' : a.fit;
+      await ctx.tx
+        .update(partners)
+        .set({
+          lines: [],
+          fit,
+          checkedAt: at,
+          ...(a
+            ? {
+                kind: a.kind,
+                playbookId: a.playbookId,
+                audience: a.audience,
+                audienceSize: a.audienceSize,
+                why: a.fit === 'not' ? [] : a.why,
+                nextStep: a.nextStep,
+              }
+            : {}),
+        })
+        .where(eq(partners.id, row.id));
+      await ctx.emit({
+        type: 'outreach.partner.saved',
+        entityType: 'workspace',
+        entityId: ws,
+        payload: { partnerId: row.id, fit },
+      });
+      return { saved: true, fit };
     }
     await ctx.tx
       .update(partners)
@@ -561,7 +648,7 @@ const stageAt = sql`case pa.stage
 export const partnersList = defineAddonQuery(outreachAddon, {
   name: 'outreach.partners',
   description:
-    'The person’s Partners list: everyone the AI found could send the business its customers, with how many are at each stage (Found, Warming up, Asked, Interested, Call booked, Partner, Not now), and for each their kind (a group’s admin, a creator, a business), network, audience and how big it is, why they fit and a first warm-up. The best fits with the biggest audiences first; a page at a time.',
+    'The person’s Partners list: everyone the AI found could send the business its customers, and anyone the person marked as a potential partner, with how many are at each stage (Found, Warming up, Asked, Interested, Call booked, Partner, Not now), and for each their kind (a group’s admin, a creator, a business), network, audience and how big it is, why they fit, a first warm-up, and whether the person marked them. The best fits with the biggest audiences first; a page at a time.',
   input: PartnersInput,
   output: PartnersOutput,
   permission: 'outreach.use',
@@ -602,12 +689,13 @@ export const partnersList = defineAddonQuery(outreachAddon, {
       next_step: string | null;
       playbook_id: string | null;
       playbook: string | null;
+      marked: boolean;
     }>(
       ctx.tx,
       sql`select pa.id, pa.profile_id,
             coalesce(nullif(btrim(pp.first_name || ' ' || pp.last_name), ''), p.name) as name, p.url, p.platform,
             pa.kind, pa.fit, pa.stage, ${stageAt} as stage_at, pa.audience, pa.audience_size, p.followers,
-            pa.why, pa.next_step, pb.id as playbook_id, pb.name as playbook
+            pa.why, pa.next_step, pb.id as playbook_id, pb.name as playbook, pa.marked_at is not null as marked
           from addon_outreach.partners pa
           join addon_outreach.profiles p on p.id = pa.profile_id
           left join app.people pp on pp.id = p.person_id
@@ -635,6 +723,7 @@ export const partnersList = defineAddonQuery(outreachAddon, {
         why: r.why,
         nextStep: r.next_step,
         playbook: r.playbook_id && r.playbook ? { id: r.playbook_id, name: r.playbook } : null,
+        marked: r.marked,
       })),
       more: listed.length > PARTNERS_PAGE,
     };
@@ -697,6 +786,182 @@ function stageBefore(row: typeof partners.$inferSelect): PartnerStage {
   return 'found';
 }
 
+/**
+ * Not a partner after all: off the list, as if never on it, and pitched as a customer again, picking up where they were;
+ * not read again for a while. A partner's messages of the person's to them still waiting are skipped.
+ */
+async function offTheList(ctx: CommandContext, row: typeof partners.$inferSelect, at: Date) {
+  const ws = ctx.scope.workspaceId!;
+  await ctx.tx
+    .update(partners)
+    .set({
+      fit: 'not',
+      stage: null,
+      why: ['You said they’re not a partner'],
+      nextStep: null,
+      foundAt: null,
+      warmedAt: null,
+      askedAt: null,
+      interestedAt: null,
+      callAt: null,
+      partnerAt: null,
+      notNowAt: null,
+      checkedAt: at,
+      markedAt: null,
+    })
+    .where(eq(partners.id, row.id));
+  await ctx.tx
+    .update(profiles)
+    .set({ partnerFoundAt: null })
+    .where(and(eq(profiles.workspaceId, ws), eq(profiles.id, row.profileId)));
+  return skipOutreachTo(ctx, [row.profileId], PARTNER_MESSAGE_KINDS, row.userId);
+}
+
+/** The kind of partner someone the person marks is taken for until the AI has read them: who runs a group, then a following. */
+const MARKED_KIND = sql`case
+  when exists (select 1 from addon_outreach.group_people gp where gp.profile_id = p.id and gp.runs_group)
+    then 'group_admin'
+  when coalesce(p.followers, 0) >= ${PARTNER_MIN_FOLLOWERS} then 'creator'
+  else 'business' end`;
+
+/** The customer messages Potential partner skips (answer 2a): every one but a partner's and a reply in a group. */
+const CUSTOMER_SEND_KINDS = SEND_KINDS.filter((k) => !isPartnerMessage(k) && k !== 'group_reply');
+
+export const partnerPotential = defineAddonCommand(outreachAddon, {
+  name: 'outreach.partner.potential',
+  description:
+    'Marks someone as a potential partner, or not a partner after all (decision 130). Marked, they go on the person’s Partners list and get partner messages instead of customer ones: a like first, then the ask a day later, before anyone the AI found and within the same 3 asks a day, each waiting for an OK. The AI reads their profile for what kind of partner they are, and the mark stands whatever it says. Customer messages to them waiting for an OK are skipped. Not a partner after all takes them off the list and back to customer messages, where they were.',
+  risk: 1,
+  input: PartnerPotentialInput,
+  output: PartnerPotentialOutput,
+  permission: 'outreach.use',
+  ai: {
+    tool: 'outreach_potential_partner',
+    autonomy: 'confirm',
+    keywords: ['potential partner', 'mark as partner', 'not a partner after all'],
+  },
+  scope: inWorkspace,
+  emits: ['outreach.partner.marked', 'outreach.send.skipped'],
+  async handler(ctx, input) {
+    const me = requireHuman(ctx).userId;
+    const ws = ctx.scope.workspaceId!;
+    const at = changeMoment(ctx.meta);
+    const [profile] = await rows<{
+      id: string;
+      name: string;
+      self: boolean;
+      never: boolean;
+      kind: PartnerKind;
+    }>(
+      ctx.tx,
+      sql`select p.id, coalesce(nullif(btrim(pp.first_name || ' ' || pp.last_name), ''), p.name) as name,
+            p.friendship = 'self' as self, not ${notNever('p')} as never, ${MARKED_KIND} as kind
+          from addon_outreach.profiles p left join app.people pp on pp.id = p.person_id
+          where p.workspace_id = ${ws} and p.id = ${input.profileId}`,
+    );
+    if (!profile)
+      throw HfosError.notFound(
+        'That person isn’t kept in Social Outreach any more. Refresh the page.',
+      );
+    const [row] = await ctx.tx
+      .select()
+      .from(partners)
+      .where(
+        and(
+          eq(partners.workspaceId, ws),
+          eq(partners.userId, me),
+          eq(partners.profileId, profile.id),
+        ),
+      )
+      .for('update');
+    if (!input.potential) {
+      if (!row || row.stage === null)
+        return { partnerId: row?.id ?? null, stage: null, skipped: 0 };
+      // A partner of the business is core's (`partner.add`): ending that is for Partners, not this menu.
+      if (row.stage === 'partner')
+        throw HfosError.rule(
+          'outreach_partner_is_partner',
+          409,
+          PARTNER_WORDS.potentialIsPartner(profile.name),
+        );
+      const skipped = await offTheList(ctx, row, at);
+      await ctx.emit({
+        type: 'outreach.partner.marked',
+        entityType: 'outreach_profile',
+        entityId: profile.id,
+        payload: { partnerId: row.id, mark: 'not_partner', stage: null },
+      });
+      return { partnerId: row.id, stage: null, skipped };
+    }
+    if (profile.self)
+      throw HfosError.rule('outreach_partner_self', 409, PARTNER_WORDS.potentialSelf);
+    if (profile.never)
+      throw HfosError.rule(
+        'outreach_partner_never',
+        409,
+        PARTNER_WORDS.potentialLeftAlone(profile.name),
+      );
+    // On the list already, the AI's find or their own: it's theirs now, wherever they are on it.
+    if (row && row.stage !== null) {
+      if (!row.markedAt)
+        await ctx.tx.update(partners).set({ markedAt: at }).where(eq(partners.id, row.id));
+      return { partnerId: row.id, stage: row.stage, skipped: 0 };
+    }
+    // A fresh start at Found: a like first, the ask a day later (answer 5b). The read for the AI comes next (4a).
+    const fresh = {
+      kind: row?.kind ?? profile.kind,
+      lines: [] as string[],
+      fit: 'good' as const,
+      why: [] as string[],
+      nextStep: null,
+      stage: 'found' as const,
+      foundAt: at,
+      warmedAt: null,
+      askedAt: null,
+      interestedAt: null,
+      callAt: null,
+      partnerAt: null,
+      notNowAt: null,
+      followUps: 0,
+      followedAt: null,
+      detailsAt: null,
+      answer: null,
+      answeredAt: null,
+      lookedAt: at,
+      checkedAt: null,
+      markedAt: at,
+    };
+    const [saved] = await ctx.tx
+      .insert(partners)
+      .values({ workspaceId: ws, userId: me, profileId: profile.id, ...fresh })
+      .onConflictDoUpdate({
+        target: [partners.workspaceId, partners.userId, partners.profileId],
+        set: fresh,
+      })
+      .returning({ id: partners.id });
+    // Asked to partner from now, by anyone here, and never pitched as a customer (decision 81), nor are their twins.
+    await ctx.tx
+      .update(profiles)
+      .set({ partnerFoundAt: at })
+      .where(
+        and(
+          eq(profiles.workspaceId, ws),
+          eq(profiles.id, profile.id),
+          sql`${profiles.partnerFoundAt} is null`,
+        ),
+      );
+    // Their customer messages waiting for an OK, anyone's, give way to partner ones (answer 2a).
+    const skipped = await skipOutreachTo(ctx, [profile.id], CUSTOMER_SEND_KINDS);
+    await ctx.emit({
+      type: 'outreach.partner.marked',
+      entityType: 'outreach_profile',
+      entityId: profile.id,
+      payload: { partnerId: saved!.id, mark: 'potential', stage: 'found' },
+    });
+    return { partnerId: saved!.id, stage: 'found' as const, skipped };
+  },
+});
+
 export const partnerMark = defineAddonCommand(outreachAddon, {
   name: 'outreach.partner.mark',
   description:
@@ -711,7 +976,7 @@ export const partnerMark = defineAddonCommand(outreachAddon, {
     keywords: ['partner interested', 'partner call booked', 'make a partner', 'not now'],
   },
   scope: inWorkspace,
-  emits: ['outreach.partner.marked'],
+  emits: ['outreach.partner.marked', 'outreach.send.skipped'],
   async handler(ctx, input) {
     const me = requireHuman(ctx).userId;
     const ws = ctx.scope.workspaceId!;
@@ -735,29 +1000,8 @@ export const partnerMark = defineAddonCommand(outreachAddon, {
       await makeCorePartner(ctx, row.profileId);
     let stage: PartnerStage | null;
     if (input.mark === 'not_partner') {
-      // The AI was wrong: off the list, as if never on it, and pitched as a customer again. Not read again for a while.
       stage = null;
-      await ctx.tx
-        .update(partners)
-        .set({
-          fit: 'not',
-          stage: null,
-          why: ['You said they’re not a partner'],
-          nextStep: null,
-          foundAt: null,
-          warmedAt: null,
-          askedAt: null,
-          interestedAt: null,
-          callAt: null,
-          partnerAt: null,
-          notNowAt: null,
-          checkedAt: at,
-        })
-        .where(eq(partners.id, row.id));
-      await ctx.tx
-        .update(profiles)
-        .set({ partnerFoundAt: null })
-        .where(and(eq(profiles.workspaceId, ws), eq(profiles.id, row.profileId)));
+      await offTheList(ctx, row, at);
     } else if (input.mark === 'again') {
       // Only someone set aside comes back: anyone else is on the list already.
       if (row.stage !== 'not_now') return { stage: row.stage };
@@ -896,14 +1140,14 @@ export const partnerAnswer = defineAddonCommand(outreachAddon, {
 export const partnerCall = defineAddonCommand(outreachAddon, {
   name: 'outreach.partner.call',
   description:
-    'Worker: a call booked through a person’s partner link (its ref starts sp-): the partner it went to is at Call booked, unless they’re a partner already. Never counted as a demo.',
+    'Worker: a call booked through a person’s partner link (its ref starts sp-): the partner it went to is at Call booked, unless they’re a partner already. Counted as a demo too only for someone the person marked as a potential partner, who may be offered one.',
   risk: 0,
   input: PartnerCallInput,
   output: PartnerCallOutput,
   permission: 'outreach.use',
   actors: ['system'],
   scope: inWorkspace,
-  emits: ['outreach.partner.marked'],
+  emits: ['outreach.partner.marked', 'outreach.demo.booked', 'outreach.lead.wanted'],
   async handler(ctx, input) {
     const who = readPartnerRef(input.ref);
     if (!who) return { noted: false };
@@ -921,6 +1165,32 @@ export const partnerCall = defineAddonCommand(outreachAddon, {
       entityId: row.profileId,
       payload: { partnerId: row.id, appointmentId: input.appointmentId, stage },
     });
+    // Someone the person marked may be offered a demo (answer 3a): the call counts as Demo booked too, as a demo link's.
+    if (row.markedAt && input.personId) {
+      const [demo] = await ctx.tx
+        .insert(demos)
+        .values({
+          workspaceId: ctx.scope.workspaceId!,
+          userId: who.userId,
+          profileId: row.profileId,
+          how: 'link',
+          appointmentId: input.appointmentId,
+          personId: input.personId,
+          at,
+        })
+        .onConflictDoNothing()
+        .returning({ id: demos.id });
+      if (demo) {
+        await ctx.emit({
+          type: 'outreach.demo.booked',
+          entityType: 'outreach_profile',
+          entityId: row.profileId,
+          payload: { userId: who.userId, appointmentId: input.appointmentId },
+        });
+        await claimProfile(ctx, who.userId, row.profileId, at);
+        await wantLead(ctx, who.userId, row.profileId);
+      }
+    }
     return { noted: true };
   },
 });
@@ -929,6 +1199,7 @@ export const partnerCall = defineAddonCommand(outreachAddon, {
 type TodayRow = {
   id: string;
   stage: PartnerStage;
+  marked: boolean;
   details_at: Date | string | null;
   profile_id: string;
   name: string;
@@ -973,11 +1244,21 @@ export async function partnerToday(
   const bookOf = (id: string | null) =>
     partnerBooks.find((b) => b.id === id) ??
     [...partnerBooks].sort((a, b) => a.name.localeCompare(b.name))[0];
-  const select = sql`select pa.id, pa.stage, pa.details_at, pa.profile_id, p.name, p.url, pa.kind, pa.audience,
-      pa.why, pa.next_step, pa.playbook_id, p.person_id`;
+  // Someone the person marked may be offered a demo (decision 130): with no partner playbook's link, any playbook's.
+  const anyLink =
+    kept
+      .flatMap((p) => {
+        const read = PlaybookDetails.safeParse(upgradePlaybookDetails(p.details));
+        return read.success && read.data.link ? [{ name: p.name, link: read.data.link }] : [];
+      })
+      .sort((a, b) => a.name.localeCompare(b.name))[0]?.link ?? null;
+  const select = sql`select pa.id, pa.stage, pa.marked_at is not null as marked, pa.details_at, pa.profile_id, p.name,
+      p.url, pa.kind, pa.audience, pa.why, pa.next_step, pa.playbook_id, p.person_id`;
   const from = sql`from addon_outreach.partners pa join addon_outreach.profiles p on p.id = pa.profile_id
       where pa.workspace_id = ${ws} and pa.user_id = ${me} and p.platform = ${o.platform} and ${notNever('p')}`;
-  const best = sql`pa.fit = 'maybe', coalesce(pa.audience_size, p.followers) desc nulls last, pa.id`;
+  // Those the person marked go before the AI's finds (answer 6a), then the best fits with the biggest audiences.
+  const best = sql`pa.marked_at is null, pa.fit = 'maybe', coalesce(pa.audience_size, p.followers) desc nulls last,
+      pa.id`;
   // Partners come from the countries the business reaches (decision 118): a warm-up, an ask or a follow-up only for
   // someone it lets through. A reply, and the details someone said yes to, are answered wherever they are.
   const lets = countryLetsSql(await countryRuleOf(ctx), 'p');
@@ -1068,14 +1349,19 @@ export async function partnerToday(
         posted: null,
         post: null,
         asking: false,
-        why: [PARTNER_WORDS.todayWhy(r.kind, r.audience), ...r.why],
+        why: [
+          ...(r.marked ? [PARTNER_WORDS.markedWhy] : []),
+          PARTNER_WORDS.todayWhy(r.kind, r.audience),
+          ...r.why,
+        ],
         summary: r.audience,
         nextStep: r.next_step,
         playbookName: book?.name ?? null,
-        // The partner link (./demos.ts): a call booked through it moves them to Call booked, never a demo.
+        // The partner link (./demos.ts): a call booked through it moves them to Call booked, and is a demo only for
+        // someone the person marked.
         demoLink:
           kind === 'partner_details' || kind === 'partner_reply'
-            ? demoLink(book?.link, partnerRef(me, r.profile_id))
+            ? demoLink(book?.link ?? (r.marked ? anyLink : null), partnerRef(me, r.profile_id))
             : null,
         videoLink: null,
         personId: r.person_id,
@@ -1103,6 +1389,7 @@ export const partnerCommands = [
   partnerLeadsSave,
   partnerLook,
   partnerSave,
+  partnerPotential,
   partnerMark,
   partnerAnswer,
   partnerCall,

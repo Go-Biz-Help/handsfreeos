@@ -2,7 +2,8 @@
  * The person menu on someone's name (docs/outreach.md, decision 91): wherever the app shows someone kept in Social
  * Outreach (Waiting for you, Today, the Pipeline, Chats, Friends), their name opens it. Its page on their network
  * first, which works with no signal, their chat second, then the Pipeline's moves, Contacts, **Mark as client**, Demo
- * booked, **Later** (decision 100), Don't pitch and Never contact, each showing where they stand now
+ * booked, **Potential partner** (decision 130), **Later** (decision 100), Don't pitch and Never contact, each showing
+ * where they stand now
  * (`outreach.profile.marks`) so it can be undone. `personMenuItems` decides the order, what shows, what's pressable
  * and the words, once, for the web and the phone.
  *
@@ -22,6 +23,7 @@ import { Journey } from './journey';
 import { chatUrlOn, openChatWords, openPageWords } from './network-words';
 import { PLATFORM_KEYS, type Platform } from './networks';
 import { OWNER_WORDS, TeamOwner } from './owners';
+import { PARTNER_STAGE_KEYS } from './partners';
 import { DontPitch, NeverContact } from './saves';
 import { OUTREACH_WORDS } from './words';
 
@@ -131,6 +133,16 @@ export const ProfileMarksOutput = z.object({
   personId: z.uuid().nullable(),
   /** Found as a partner (decision 81), or a twin of one: asked to partner, so no Client or Demo booked. */
   partner: z.boolean(),
+  /**
+   * Their row on the person's own Partners list (decision 130): its stage, and whether the person marked them, who may
+   * be offered a demo. Null when they're not on it; left out by builds from before it.
+   */
+  myPartner: z
+    .object({ stage: z.enum(PARTNER_STAGE_KEYS), marked: z.boolean() })
+    .nullable()
+    .optional(),
+  /** Why the AI's check thought they look more like a partner (decision 130): null when it didn't. */
+  partnerHint: z.string().nullable().optional(),
   /** The person marked them as having booked a demo (`outreach.demo.mark`). */
   demoBooked: z.boolean(),
   client: ClientStanding,
@@ -208,6 +220,9 @@ export type PersonMenuKey =
   | 'client-line'
   | 'demo'
   | 'not-demo'
+  | 'potential-partner'
+  | 'not-partner'
+  | 'partner-hint'
   | 'later'
   | 'not-later'
   | 'dont-pitch'
@@ -246,9 +261,10 @@ export interface PersonMenuItem {
 /**
  * The person menu's items, in order: Open on {Network}; Open in {messages} when their chat is known; the Pipeline's
  * moves; In Contacts or Add to Contacts; Mark as client, Not a client after all, or why they're a client; Demo booked
- * or Not a demo after all; Later or Take off Later; who reached them first, and for an owner or admin each teammate to
- * give them to (decision 107); Don't pitch, Take off Don't pitch, or who put them on; Never contact, Take off Never
- * contact, or who put them on. A partner has no Client or Demo booked; without `contactsWrite` there's no Add to
+ * or Not a demo after all; Potential partner (with why the AI thinks so, when it does) or Not a partner after all
+ * (decision 130); Later or Take off Later; who reached them first, and for an owner or admin each teammate to give them
+ * to (decision 107); Don't pitch, Take off Don't pitch, or who put them on; Never contact, Take off Never contact, or
+ * who put them on. A partner has no Client, nor Demo booked unless the person marked them; without `contactsWrite` there's no Add to
  * Contacts or Client to press; a row with its own switches has no Don't pitch or Never contact. The marks' toggles wait
  * for `marks`, and everything but the Open items waits for signal.
  */
@@ -350,14 +366,25 @@ export function personMenuItems(input: PersonMenuInput): PersonMenuItem[] {
     else if (contactsWrite) items.push(press('mark-client', P.markClient, 'person-client'));
   }
 
-  // 6: Demo booked.
-  if (!partner) {
+  // 6: Demo booked. Someone the person marked as a potential partner may book one (decision 130).
+  const mine = marks?.myPartner ?? null;
+  if (!partner || mine?.marked) {
     const booked = marks?.demoBooked ?? row.demoBooked ?? false;
     items.push(
       booked
         ? press('not-demo', P.notDemo, 'person-demo-mark')
         : press('demo', P.demoBooked, 'person-demo-mark'),
     );
+  }
+
+  // 6b: Potential partner (decision 130): on the person's own Partners list, or not. A partner of the business stays,
+  // and someone left alone is never asked to partner. Shown once their marks come, since only those say which.
+  if (mine) {
+    if (mine.stage !== 'partner') items.push(press('not-partner', P.notPartner, 'person-partner'));
+  } else if (marks && !marks.dontPitch && !marks.neverContact) {
+    if (marks.partnerHint)
+      items.push(line('partner-hint', P.partnerHint(marks.partnerHint), 'person-partner-hint'));
+    items.push(press('potential-partner', P.potentialPartner, 'person-partner'));
   }
 
   // 7: Later, the person's own (decision 100), on any row.

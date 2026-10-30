@@ -32,6 +32,7 @@ import {
   CalendarCheck,
   ChevronDown,
   ExternalLink,
+  Handshake,
   MessageCircle,
   Undo2,
   UserCheck,
@@ -61,8 +62,9 @@ import { NeedsSignal, Note, openOutreach, openOutside } from './kit';
  * **Open in {messages}** when the chat is known, which work with no signal; then **Add to Contacts** (customers with the
  * same name offered first, **It’s them** or **Add as new**) or **In Contacts**; **Mark as client** or **Not a client
  * after all** (`outreach.client.set`, the same same-name step first when they aren't in Contacts), or why they're one;
- * **Demo booked**; **Later**, off the person's own Today for 2 weeks, or **Take off Later** (`outreach.later.set`,
- * decision 100); who reached them first, and for an owner or admin **Give them to {teammate}** (`outreach.owner.move`,
+ * **Demo booked**; **Potential partner** (`outreach.partner.potential`, decision 130), under why the AI thinks so when it
+ * does, or **Not a partner after all**; **Later**, off the person's own Today for 2 weeks, or **Take off Later**
+ * (`outreach.later.set`, decision 100); who reached them first, and for an owner or admin **Give them to {teammate}** (`outreach.owner.move`,
  * decision 107); **Don’t pitch** and **Never contact**, or taking them off, or who put them on.
  *
  * Where they stand is asked as the menu opens (`outreach.profile.marks`), with signal: until it comes, its switches
@@ -300,6 +302,13 @@ function NameMenu({
           await change('outreach.demo.mark', { workspaceId, profileId, booked });
           return booked ? P.demoMarked(who.name) : P.demoUnmarked;
         });
+      case 'potential-partner':
+      case 'not-partner':
+        return void run(key, async () => {
+          const on = key === 'potential-partner';
+          await change('outreach.partner.potential', { workspaceId, profileId, potential: on });
+          return on ? P.potentialDone(who.name) : P.potentialOff(who.name);
+        });
       case 'later':
       case 'not-later':
         return void run(key, async () => {
@@ -413,6 +422,9 @@ const ICONS: Partial<Record<PersonMenuKey, LucideIcon>> = {
   'not-client': UserMinus,
   demo: CalendarCheck,
   'not-demo': CalendarCheck,
+  'potential-partner': Handshake,
+  'not-partner': Undo2,
+  'partner-hint': Handshake,
   later: AlarmClock,
   'not-later': Undo2,
   'dont-pitch': Ban,

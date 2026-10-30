@@ -189,6 +189,11 @@ function PartnerItem({
           </div>
         </div>
         <span className="flex items-center gap-1.5">
+          {p.marked ? (
+            <Badge variant="gray" data-testid="partner-marked">
+              {P.markedBadge}
+            </Badge>
+          ) : null}
           {p.fit === 'maybe' ? <Badge variant="gray">{PARTNER_FITS.maybe}</Badge> : null}
           <span className="text-[12.5px] text-text-2" data-testid="partner-stage">
             {P.since(p.stage, p.stageAt)}

@@ -1108,6 +1108,8 @@ export const checks = addonOutreach.table(
     mutualRead: integer('mutual_read'),
     /** Of someone the person knows, or someone found by topic (decision 92): the server sets it at each look. */
     via: text('via').notNull().default('known').$type<CheckVia>(),
+    /** Why they look more like a partner than a customer (decision 130), in one line: null when they don't. */
+    partnerHint: text('partner_hint'),
     createdAt: ts('created_at').notNull().defaultNow(),
     updatedAt: ts('updated_at').notNull().defaultNow(),
   },
@@ -1167,6 +1169,8 @@ export const partners = addonOutreach.table(
     answeredAt: ts('answered_at'),
     lookedAt: ts('looked_at').notNull(),
     checkedAt: ts('checked_at'),
+    /** When the person marked them as a potential partner (decision 130): null for anyone the AI found. */
+    markedAt: ts('marked_at'),
     createdAt: ts('created_at').notNull().defaultNow(),
     updatedAt: ts('updated_at').notNull().defaultNow(),
   },

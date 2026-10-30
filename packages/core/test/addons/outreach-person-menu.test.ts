@@ -100,6 +100,7 @@ describe('the person menu', () => {
       'add-contact',
       'mark-client',
       'demo',
+      'potential-partner',
       'later',
       'dont-pitch',
       'never-contact',
@@ -250,7 +251,7 @@ describe('the person menu', () => {
 
   it('says with no signal what opens now, and never promises an Open item it doesn’t show', () => {
     const waits =
-      'Contacts, Client, Demo booked, Later, Don’t pitch and Never contact need signal.';
+      'Contacts, Client, Demo booked, Potential partner, Later, Don’t pitch and Never contact need signal.';
     const offline = (row: PersonMenuInput['row']) =>
       personMenuOfflineWords(menu({ online: false, marks: null, row }));
     expect(offline({ url: 'https://www.facebook.com/dana.reyes.7', platform: 'facebook' })).toBe(

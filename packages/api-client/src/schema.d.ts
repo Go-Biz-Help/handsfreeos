@@ -8168,9 +8168,29 @@ export interface paths {
         put?: never;
         /**
          * Marks someone on the person’s Partners list: interested, call booked, a partner now (made a partner of the business, with a link of their own), not now (they can be asked again in 90 days), back on the list, or not a partner after all, when they’re off the list and may be pitched as a customer again.
-         * @description Risk level 1. Requires outreach.use. Emits outreach.partner.marked.
+         * @description Risk level 1. Requires outreach.use. Emits outreach.partner.marked, outreach.send.skipped.
          */
         post: operations["command_outreach_partner_mark"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/outreach.partner.potential": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Marks someone as a potential partner, or not a partner after all (decision 130). Marked, they go on the person’s Partners list and get partner messages instead of customer ones: a like first, then the ask a day later, before anyone the AI found and within the same 3 asks a day, each waiting for an OK. The AI reads their profile for what kind of partner they are, and the mark stands whatever it says. Customer messages to them waiting for an OK are skipped. Not a partner after all takes them off the list and back to customer messages, where they were.
+         * @description Risk level 1. Requires outreach.use. Emits outreach.partner.marked, outreach.send.skipped.
+         */
+        post: operations["command_outreach_partner_potential"];
         delete?: never;
         options?: never;
         head?: never;
@@ -19967,7 +19987,7 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * The person’s Partners list: everyone the AI found could send the business its customers, with how many are at each stage (Found, Warming up, Asked, Interested, Call booked, Partner, Not now), and for each their kind (a group’s admin, a creator, a business), network, audience and how big it is, why they fit and a first warm-up. The best fits with the biggest audiences first; a page at a time.
+         * The person’s Partners list: everyone the AI found could send the business its customers, and anyone the person marked as a potential partner, with how many are at each stage (Found, Warming up, Asked, Interested, Call booked, Partner, Not now), and for each their kind (a group’s admin, a creator, a business), network, audience and how big it is, why they fit, a first warm-up, and whether the person marked them. The best fits with the biggest audiences first; a page at a time.
          * @description Requires outreach.use.
          */
         post: operations["query_outreach_partners"];
@@ -19987,7 +20007,7 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * Who the person’s computer reads next for whether they could partner with the business, in order and no more than today has room for: admins of the biggest groups the business’s customers are in, then people with the biggest followings, then businesses. Only with a Find partners playbook in use on the network; never anyone on Don’t pitch or Never contact, anyone found already, anyone being messaged as a customer lately, nor anyone read lately.
+         * Who the person’s computer reads next for whether they could partner with the business, in order and no more than today has room for: anyone the person marked as a potential partner and not read since, then admins of the biggest groups the business’s customers are in, people with the biggest followings, and businesses. Those the AI finds only with a Find partners playbook in use on the network; never anyone on Don’t pitch or Never contact, anyone found already, anyone being messaged as a customer lately, nor anyone read lately.
          * @description Requires outreach.use.
          */
         post: operations["query_outreach_partners_next"];
@@ -20107,7 +20127,7 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * Where someone the person reached stands, as their person menu shows it: in Contacts or not, a client (and why), a partner, a demo booked, on the person’s Later (and until when), on Don’t pitch or Never contact (and who put them on), and whether the person may take them off; who reached them first, and for an owner or admin, the teammates they can be given to.
+         * Where someone the person reached stands, as their person menu shows it: in Contacts or not, a client (and why), a partner, on the person’s own Partners list (at which stage, and whether they marked them) or looking more like a partner to the AI (and why), a demo booked, on the person’s Later (and until when), on Don’t pitch or Never contact (and who put them on), and whether the person may take them off; who reached them first, and for an owner or admin, the teammates they can be given to.
          * @description Requires outreach.use.
          */
         post: operations["query_outreach_profile_marks"];
@@ -43648,6 +43668,40 @@ export interface operations {
                 };
                 content: {
                     "application/json": {
+                        stage: ("found" | "warming" | "asked" | "interested" | "call_booked" | "partner" | "not_now") | null;
+                    };
+                };
+            };
+        };
+    };
+    command_outreach_partner_potential: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    potential: boolean;
+                    /** Format: uuid */
+                    profileId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        partnerId: string | null;
+                        skipped: number;
                         stage: ("found" | "warming" | "asked" | "interested" | "call_booked" | "partner" | "not_now") | null;
                     };
                 };
@@ -77486,6 +77540,7 @@ export interface operations {
                             followers: number | null;
                             /** @enum {string} */
                             kind: "group_admin" | "creator" | "business";
+                            marked: boolean;
                             name: string;
                             nextStep: string | null;
                             /** Format: uuid */
@@ -77981,6 +78036,11 @@ export interface operations {
                             you: boolean;
                         }[];
                         mutualFriends?: number | null;
+                        myPartner?: {
+                            marked: boolean;
+                            /** @enum {string} */
+                            stage: "found" | "warming" | "asked" | "interested" | "call_booked" | "partner" | "not_now";
+                        } | null;
                         name: string;
                         neverContact: {
                             at: string | null;
@@ -77993,6 +78053,7 @@ export interface operations {
                             you: boolean;
                         } | null;
                         partner: boolean;
+                        partnerHint?: string | null;
                         personId: string | null;
                         /** @enum {string} */
                         platform: "facebook" | "linkedin" | "instagram" | "alignable";
@@ -79057,6 +79118,7 @@ export interface operations {
                             likeComment?: boolean;
                             name: string;
                             nextStep: string | null;
+                            partnerHint?: string | null;
                             partnerId?: string | null;
                             personId: string | null;
                             playbookName: string | null;
@@ -79121,6 +79183,7 @@ export interface operations {
                             likeComment?: boolean;
                             name: string;
                             nextStep: string | null;
+                            partnerHint?: string | null;
                             partnerId?: string | null;
                             personId: string | null;
                             playbookName: string | null;

@@ -64,9 +64,11 @@ export async function partnerDraft(
       why: string[];
       follow_ups: number;
       playbook_id: string | null;
+      marked: boolean;
     }>(
       tx,
-      sql`select p.name, p.platform, p.intro, pa.kind, pa.audience, pa.why, pa.follow_ups, pa.playbook_id
+      sql`select p.name, p.platform, p.intro, pa.kind, pa.audience, pa.why, pa.follow_ups, pa.playbook_id,
+            pa.marked_at is not null as marked
           from addon_outreach.partners pa join addon_outreach.profiles p on p.id = pa.profile_id
           where pa.workspace_id = ${ws} and pa.user_id = ${ctx.userId} and pa.profile_id = ${profileId}
             and pa.stage is not null`,
@@ -114,8 +116,15 @@ export async function partnerDraft(
     return read.success && forPartners(read.data) ? [{ id: p.id, name: p.name, ...read.data }] : [];
   });
   const book = books.find((b) => b.id === partner.playbook_id) ?? books[0] ?? null;
-  // The partner link (decision 81): a call booked through it is theirs, never a demo.
-  const link = book ? demoLink(book.link, partnerRef(ctx.userId, profileId)) : null;
+  // Someone the person marked may be offered a demo (decision 130): with no partner playbook's link, any playbook's.
+  const anyLink = partner.marked
+    ? (found.playbooks
+        .map((p) => PlaybookDetails.safeParse(upgradePlaybookDetails(p.details)))
+        .find((r) => r.success && r.data.link)?.data?.link ?? null)
+    : null;
+  // The partner link (decision 81): a call booked through it is theirs, a demo too only for someone the person marked.
+  const bookLink = book?.link ?? anyLink;
+  const link = bookLink ? demoLink(bookLink, partnerRef(ctx.userId, profileId)) : null;
   const parts = found.offer ? MainOfferParts.safeParse(found.offer.parts) : null;
   const helps = parts?.success ? parts.data.line?.trim() || null : null;
   // What the business knows (decision 122), with what matches their latest words first.
@@ -152,12 +161,14 @@ export async function partnerDraft(
                   link,
                 }
               : null,
+            link,
             followUps: partner.follow_ups,
             lookup: input.lookup,
             voice: found.voice,
             lastAt: found.lastAt,
             platform: partner.platform,
             knows,
+            marked: partner.marked,
           }),
         },
       ],
