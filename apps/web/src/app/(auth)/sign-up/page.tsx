@@ -2,12 +2,19 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 import { Card } from '@/components/ui/card';
 import { webSignInProviders } from '@/lib/auth/providers';
-import { affiliateTrail, discountCode, opinlyVisitor } from '@/lib/auth/visitor';
+import {
+  affiliateTrail,
+  discountCode,
+  opinlyVisitor,
+  websiteBusiness,
+  websiteBusinessQuery,
+} from '@/lib/auth/visitor';
 import { wantedPlan } from '@/lib/founding-plan';
 import { safeNext } from '@/lib/utils';
 import { SignUpForm } from './sign-up-form';
 
-// The canonical drops `?next=` and the site's `?oa=`, `?ref=` and `?code=`, so search engines see one sign-up page.
+// The canonical drops `?next=` and the site's `?oa=`, `?ref=`, `?code=`, `?business=` and `?industry=`, so search
+// engines see one sign-up page.
 export const metadata: Metadata = {
   title: 'Create your account',
   description:
@@ -25,8 +32,13 @@ export default async function SignUpPage({
 }) {
   const params = await searchParams;
   // The website's buttons say which founding spot they're for (`?plan=yearly|monthly`): it rides along to the plan page.
+  // The business typed into the website's example (`?business=`, `?industry=`) rides along to the setup's first screen.
   const plan = wantedPlan(params.plan);
-  const first = plan ? `${FIRST_STOP}?plan=${plan}` : FIRST_STOP;
+  const query = new URLSearchParams({
+    ...(plan ? { plan } : {}),
+    ...websiteBusinessQuery(websiteBusiness(params.business, params.industry)),
+  }).toString();
+  const first = query ? `${FIRST_STOP}?${query}` : FIRST_STOP;
   const next = safeNext(typeof params.next === 'string' ? params.next : null, first);
   const providers = await webSignInProviders();
   return (

@@ -19,11 +19,16 @@ import {
   BookingVisual,
   BusyTimesVisual,
   InboxVisual,
-  MissedLeadVisual,
   MoneyVisual,
   PaymentsVisual,
   TrustLadderVisual,
 } from '@/components/visuals';
+import {
+  MissedLeadForYou,
+  TryItOnYourBusiness,
+  YourBusinessName,
+  YourBusinessProvider,
+} from '@/components/your-business';
 import { homeFaqs } from '@/content/faqs';
 import {
   ours,
@@ -69,6 +74,10 @@ import {
  * The page is meant to feel like the product: calm, with things happening on their own. So it shows rather than
  * tells — the conversation in the hero plays itself, the bills cross themselves off, the lead you lost arrives at
  * 8pm — and everything else holds still. Motion lives in globals.css, each piece beside its reason.
+ *
+ * And it is about the visitor's business, not ours, once they say what it is: "Try it on your business" sits on
+ * top of the hero's conversation and asks for its name and trade, then the conversation, the lead lost at 8pm and
+ * the last band's question are told in them (components/your-business.tsx, content/trades.ts).
  */
 
 /** The spot counts are live, so the home page is rebuilt at most once a minute rather than at deploy. */
@@ -88,20 +97,22 @@ export default async function HomePage() {
       <WebSiteJsonLd />
       <SoftwareApplicationJsonLd spots={spots} />
       <FaqJsonLd faqs={homeFaqs} id={`${urls.site}/#faq`} />
-      <Hero counts={counts} open={open} />
-      <TheProblem />
-      <NextTuesday />
-      <TheBill />
-      <Outcomes />
-      <Trust />
-      <HowItWorks />
-      <Features />
-      <InYourPocket />
-      <ConnectedAccounts />
-      <Guarantee />
-      <Spots spots={spots} />
-      <Questions />
-      <FinalCta open={open} />
+      <YourBusinessProvider>
+        <Hero counts={counts} open={open} />
+        <TheProblem />
+        <NextTuesday />
+        <TheBill />
+        <Outcomes />
+        <Trust />
+        <HowItWorks />
+        <Features />
+        <InYourPocket />
+        <ConnectedAccounts />
+        <Guarantee />
+        <Spots spots={spots} />
+        <Questions />
+        <FinalCta open={open} />
+      </YourBusinessProvider>
     </>
   );
 }
@@ -164,7 +175,8 @@ function Hero({ counts, open }: { counts: readonly FoundingCount[] | null; open:
             </ul>
           </div>
 
-          <div className="lg:pl-2">
+          <div className="min-w-0 lg:pl-2">
+            <TryItOnYourBusiness />
             <ProductMock />
           </div>
         </div>
@@ -207,7 +219,7 @@ function TheProblem() {
           </p>
         </div>
         <Reveal>
-          <MissedLeadVisual />
+          <MissedLeadForYou />
         </Reveal>
       </div>
 
@@ -937,8 +949,8 @@ function FinalCta({ open }: { open: boolean }) {
             Answered 9 seconds later
           </span>
         </div>
-        <h2 className="text-on-night mt-9 text-[2.25rem] leading-[1.04] font-bold tracking-[-0.035em] sm:text-5xl">
-          The next lead texts you at 7pm. Who answers?
+        <h2 className="text-on-night mt-9 text-[2.25rem] leading-[1.04] font-bold tracking-[-0.035em] [overflow-wrap:anywhere] sm:text-5xl">
+          The next lead texts <YourBusinessName fallback="you" /> at 7pm. Who answers?
         </h2>
         <p className="text-on-night-2 mt-6 text-lg">
           Set it up this week. Watch every reply before it goes out, and let go of the ones it gets
