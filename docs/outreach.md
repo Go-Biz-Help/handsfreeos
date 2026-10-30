@@ -2243,6 +2243,17 @@ where decisions 37 and 59 put the settings; what they decided stands. Settled to
     - **An accepted request clears the need to send it.** When the person's friends (or connections) list shows
       someone, their own handed-over friend request to them is done (`outreach.friends.save`, which tells
       `outreach.need.cleared`), however it was sent; a need noted after that look stays.
+    - **What each item does shows on hover** (Chris, 30 Oct 2026: "what does make them yours do? lets add an explainer
+      when we hover for like 2 seconds or whatever the industry standard is"). Every item that can be pressed says what
+      it does in a sentence or two (`PersonMenuItem.hint`, from `OUTREACH_WORDS.person.hints`, the Pipeline's moves by
+      `StageMark`, and `OWNER_WORDS.giveHint` for Give them to and Make them yours); a line never has one, since it
+      says it already. The web shows it beside the item once the pointer rests 0.7 seconds (`HINT_DELAY_MS`), the
+      common tooltip wait: 2 seconds reads as broken, and under half a second flashes while the pointer passes. The
+      next item's shows straight away while the pointer moves along, the keyboard landing on an item shows it too, and
+      a screen reader reads it with the item (`components/ui/tooltip.tsx`, Radix Tooltip); a touch never shows it. The
+      phone shows it under a button that's held (press and hold, Android's way for a tooltip), says "Press and hold a
+      button to see what it does." under the items, and gives it to VoiceOver and TalkBack as the button's hint.
+      Holding it again, pressing any item or closing hides it.
 
     No migration: the tag is core's, and the rest is worked out each time.
 

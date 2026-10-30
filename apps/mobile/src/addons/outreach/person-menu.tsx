@@ -71,6 +71,9 @@ import { NeedsSignal, Note, openOutreach, openOutside } from './kit';
  * wait. With no signal only the Open items can be pressed, under a note saying the rest need signal; nothing is queued,
  * since every change here is an online command.
  *
+ * Holding a button shows what it does under it (core's `hint`, decision 91), as the pointer resting on it does on the
+ * web, and a screen reader hears it as the button's hint.
+ *
  * A screen gives its names what they need through `PersonMenuScope`: the business, the signal, whether the person may
  * add and edit customers (`records.write`, which Add to Contacts and Mark as client need) and what to reload after a
  * change. With no scope, or no profile, the name is plain words.
@@ -471,6 +474,12 @@ export function PersonMenuSheet({
   onPick: (personId: string) => void;
   onNew: () => void;
 }) {
+  // The item whose explainer shows under it: held for a moment, as a tooltip is on a phone. A press or closing hides it.
+  const [shown, setShown] = React.useState<string | null>(null);
+  const closeSheet = () => {
+    setShown(null);
+    onClose();
+  };
   if (same)
     return (
       <Sheet
@@ -522,7 +531,7 @@ export function PersonMenuSheet({
           <Note testID={i.testId}>{i.label}</Note>
         </View>
       );
-    return (
+    const button = (
       <Button
         key={i.key}
         variant={i.danger ? 'dangerOutline' : 'secondary'}
@@ -532,17 +541,32 @@ export function PersonMenuSheet({
         }
         loading={busy === i.key}
         disabled={i.kind === 'action' && (!i.enabled || busy !== null)}
-        onPress={() => onItem(i)}
+        onPress={() => {
+          setShown(null);
+          onItem(i);
+        }}
+        onLongPress={i.hint ? () => setShown(shown === i.key ? null : i.key) : undefined}
+        accessibilityHint={i.hint ?? undefined}
         testID={i.testId}
       >
         {i.label}
       </Button>
     );
+    return shown === i.key && i.hint ? (
+      <View key={i.key} className="gap-1">
+        {button}
+        <View className="px-1">
+          <Note testID="outreach-hint">{i.hint}</Note>
+        </View>
+      </View>
+    ) : (
+      button
+    );
   };
   const opens = items.filter((i) => i.kind === 'open');
   const rest = items.filter((i) => i.kind !== 'open');
   return (
-    <Sheet open={open} onClose={onClose} title={name} testID="person-menu-sheet">
+    <Sheet open={open} onClose={closeSheet} title={name} testID="person-menu-sheet">
       <View className="gap-2">
         {opens.map(item)}
         {!online ? (
@@ -553,6 +577,14 @@ export function PersonMenuSheet({
           <Note testID="person-loading">{P.loading}</Note>
         ) : null}
         {rest.map(item)}
+        {items.some((i) => i.hint) ? (
+          <Text
+            className="px-1 text-[12.5px] leading-[17px] text-text-3"
+            testID="outreach-hold-note"
+          >
+            {P.holdForHint}
+          </Text>
+        ) : null}
         {story ? <PersonStory {...story} /> : null}
       </View>
     </Sheet>
