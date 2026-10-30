@@ -45,6 +45,8 @@ export type ReadThem =
       /** How many friends they have, and their mutual friends with the person, when those were read. */
       readonly friends?: number | null;
       readonly mutual?: ProfileRef[] | null;
+      /** Who the page showed, with every key it gave: kept beside the key they're kept by (decision 131). */
+      readonly seen?: ProfileRef | null;
     }
   | { readonly end: JobEnd };
 
@@ -93,6 +95,7 @@ export async function readThem(job: Job, who: Who): Promise<ReadThem> {
     followers,
     friends: profile.profile.friends ?? null,
     mutual,
+    seen: shown,
   };
 }
 
@@ -189,6 +192,7 @@ export async function checkFriends(
           missing: read.missing,
           friendsCount: read.friends ?? null,
           mutual: read.mutual ?? null,
+          ...(read.seen ? { seen: read.seen } : {}),
         },
       }),
     );

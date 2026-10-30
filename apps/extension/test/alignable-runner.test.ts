@@ -789,6 +789,22 @@ describe('a message on Alignable', () => {
     ).toMatchObject({ sent: true });
   });
 
+  it('goes straight to their conversation by the id HandsFreeOS keeps beside their address in its town (decision 131)', async () => {
+    world.pages = (url) => (url === DANA_CHAT ? { html: chatHtml() } : null);
+    const sent: string[] = [];
+    world.behave = sentOn(sent);
+    world.answers['/v1/commands/outreach.send.done'] = () => ({ ok: true });
+    const outcome = await doWork(
+      { do: 'send', item: approved({ profileUrl: DANA_PAGE, platformId: '42' }) },
+      ME.businessId,
+      false,
+    );
+    expect(outcome).toEqual({ done: true, line: 'Sent Dana Reyes a message' });
+    // No look at their business page first for its id.
+    expect(world.opened).toEqual([DANA_CHAT]);
+    expect(sent).toEqual(['Glad to help, Dana.']);
+  });
+
   it('types nothing when Alignable opens a conversation with another business, and says it wasn’t sent', async () => {
     world.pages = () => ({ html: chatHtml('77'), at: DANA_CHAT });
     const sent: string[] = [];

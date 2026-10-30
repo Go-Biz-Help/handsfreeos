@@ -76,7 +76,7 @@ import { withdrawOnItsOwn } from '../jobs/linkedin/withdraw';
 import { LINKEDIN, readLinkedIn } from '../jobs/linkedin/read';
 import { linkedin, type LinkedInRead } from '../networks';
 import type { ProfileRef, ThreadRef } from '../networks/linkedin/types';
-import { comparable, postOf, profileRefOf, sameMember } from '../networks/linkedin/urls';
+import { comparable, keptMember, postOf, sameMember } from '../networks/linkedin/urls';
 import { isWorking, statesNow } from '../networks/on';
 import { awayNow } from '../away';
 import { WorkTab } from '../tab';
@@ -292,24 +292,32 @@ async function openProfile(
   | { readonly page: LinkedInRead; readonly noted: ProfileRef; readonly name: string }
   | { readonly outcome: Outcome }
 > {
-  const want = item.profileUrl ? profileRefOf(item.profileUrl) : null;
+  const want = keptMember(item.profileUrl, item.platformId);
   if (!want) return { outcome: { done: false, line: `${item.name}: no LinkedIn profile kept` } };
-  await tab.open(want.url);
-  await setState({ tabId: tab.tabId });
-  const page = await read();
-  const stop = await warnedOn(page, businessId);
-  if (stop) return { outcome: { stop } };
-  const shown = page.profile;
-  if (page.kind !== 'profile' || !shown?.profile || !isThem(shown, want, item.name))
-    return {
-      outcome: { done: false, line: `${item.name}: LinkedIn showed a different page`, need: true },
+  // By the name in their address, then by LinkedIn's id for them when that shows someone else or nobody: the name can
+  // change, and the id can't (decision 131).
+  const byId =
+    want.id && want.username
+      ? { ...want, username: null, url: `${LINKEDIN}/in/${want.id}/` }
+      : null;
+  for (const tried of byId ? [want, byId] : [want]) {
+    await tab.open(tried.url);
+    await setState({ tabId: tab.tabId });
+    const page = await read();
+    const stop = await warnedOn(page, businessId);
+    if (stop) return { outcome: { stop } };
+    const shown = page.profile;
+    if (page.kind !== 'profile' || !shown?.profile || !isThem(shown, tried, item.name)) continue;
+    const noted = {
+      id: want.id ?? shown.profile.id,
+      username: want.username ?? shown.profile.username,
+      url: want.url,
     };
-  const noted = {
-    id: want.id ?? shown.profile.id,
-    username: want.username ?? shown.profile.username,
-    url: want.url,
+    return { page, noted, name: shown.name ?? item.name };
+  }
+  return {
+    outcome: { done: false, line: `${item.name}: LinkedIn showed a different page`, need: true },
   };
-  return { page, noted, name: shown.name ?? item.name };
 }
 
 /** Says a warm-up had nothing to like: the invitation goes without. */
@@ -339,7 +347,7 @@ async function likeFoundPost(
   businessId: string,
   after: After,
 ): Promise<Outcome | null> {
-  const want = item.profileUrl ? profileRefOf(item.profileUrl) : null;
+  const want = keptMember(item.profileUrl, item.platformId);
   const url = item.postUrl ? postOf(item.postUrl) : null;
   if (!want || !url) return null;
   await tab.open(url);
@@ -402,7 +410,7 @@ async function likeFoundComment(
   businessId: string,
   after: After,
 ): Promise<Outcome | null> {
-  const want = item.profileUrl ? profileRefOf(item.profileUrl) : null;
+  const want = keptMember(item.profileUrl, item.platformId);
   const url = item.postUrl ? postOf(item.postUrl) : null;
   if (!want || !url) return null;
   await tab.open(url);
@@ -664,7 +672,7 @@ async function openChat(
   | { readonly profile: ProfileRef; readonly thread: ThreadRef | null }
   | { readonly outcome: Outcome }
 > {
-  const want = item.profileUrl ? profileRefOf(item.profileUrl) : null;
+  const want = keptMember(item.profileUrl, item.platformId);
   const different = {
     outcome: { done: false, line: `${item.name}: LinkedIn showed a different conversation` },
   };
@@ -802,12 +810,7 @@ async function sendMessage(
 ): Promise<Outcome> {
   if (item.kind === 'comment')
     return commentOutcome(
-      await sendComment(
-        item,
-        item.profileUrl ? profileRefOf(item.profileUrl) : null,
-        businessId,
-        commenting,
-      ),
+      await sendComment(item, keptMember(item.profileUrl, item.platformId), businessId, commenting),
     );
   const send = item.send!;
   const failed = async (line: string): Promise<Outcome> => {

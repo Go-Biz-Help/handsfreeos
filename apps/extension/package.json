@@ -2,7 +2,7 @@
   "name": "@hfos/extension",
   "private": true,
   "type": "module",
-  "version": "0.114.1",
+  "version": "0.115.0",
   "description": "The browser extension that works on Facebook for a person, and on LinkedIn once they turn it on, as they set it in HandsFreeOS's Social Outreach add-on (README.md): it notes their steps, works their list on its own, does what they ask of it from HandsFreeOS, and shows how its day goes, with how many things wait for them in HandsFreeOS.",
   "scripts": {
     "build": "node scripts/build.mjs",

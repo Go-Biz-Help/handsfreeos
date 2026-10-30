@@ -106,14 +106,19 @@ export function profileKey(profile: ProfileRef): string {
 export const comparable = (a: ProfileRef, b: ProfileRef): boolean =>
   (!!a.username && !!b.username) || (!!a.id && !!b.id);
 
+/** Whether two links both carry LinkedIn's id, of one kind: then the ids alone say whether they're one member. */
+export const byMemberId = (a: ProfileRef, b: ProfileRef): boolean =>
+  !!a.id && !!b.id && a.id.slice(0, 4) === b.id.slice(0, 4);
+
 /**
- * Whether two links are to the same member: by the name in their addresses when both have one, else by LinkedIn's
- * id when both have it. A name alone, as people write it, is never enough.
+ * Whether two links are to the same member: by LinkedIn's id when both have the same kind of it (decision 131), since
+ * the name in an address can change and the id can't; else by the name in their addresses when both have one. Sales
+ * Navigator's "ACwAA…" and LinkedIn's "ACoAA…" for one member differ, so those two go by the name. A name alone, as
+ * people write it, is never enough.
  */
 export function sameMember(a: ProfileRef, b: ProfileRef): boolean {
-  if (!comparable(a, b)) return false;
-  if (a.username && b.username) return a.username.toLowerCase() === b.username.toLowerCase();
-  return !!a.id && !!b.id && a.id === b.id;
+  if (byMemberId(a, b)) return a.id === b.id;
+  return !!a.username && !!b.username && a.username.toLowerCase() === b.username.toLowerCase();
 }
 
 /**
@@ -209,6 +214,15 @@ const fromLink =
   };
 
 export const profileRefOf = fromLink(profileFromUrl);
+
+/**
+ * The member HandsFreeOS keeps (decision 131): their kept link, with LinkedIn's id for them beside the name in their
+ * address once HandsFreeOS keeps that too.
+ */
+export function keptMember(href: string | null, id: string | null | undefined): ProfileRef | null {
+  const kept = href ? profileRefOf(href) : null;
+  return kept && !kept.id && id && MEMBER_ID.test(id) ? { ...kept, id } : kept;
+}
 export const threadOf = fromLink(threadFromUrl);
 export const postOf = fromLink(postUrlFrom);
 

@@ -492,4 +492,69 @@ describe('checking friends and chats', () => {
     await look(quinn, ['Owner at Harper Roofing']);
     expect(await via()).toBe('known');
   });
+
+  it('keeps the member id their own page shows beside the name in their address, never one another profile has (decision 131)', async () => {
+    const LI = 'https://www.linkedin.com/in';
+    const keep = async (username: string | null, platformId: string | null) =>
+      (
+        await rows<{ id: string }>(
+          admin(),
+          sql`insert into addon_outreach.profiles (workspace_id, platform, platform_id, username, url, name)
+              values (${ws}, 'linkedin', ${platformId}, ${username}, ${`${LI}/${username ?? platformId}/`},
+                'Morgan Ellis')
+              returning id`,
+        )
+      )[0]!.id;
+    const keys = async (id: string) =>
+      (
+        await rows<{ platform_id: string | null; username: string | null }>(
+          admin(),
+          sql`select platform_id, username from addon_outreach.profiles where id = ${id}`,
+        )
+      )[0]!;
+    const lookSeen = (profileId: string, seen: unknown, missing = false) =>
+      runAs(owner, ws, 'outreach.check.look', {
+        profileId,
+        lines: ['Owner at Ellis Electric'],
+        missing,
+        seen,
+      });
+    const morgan = await keep('morgan-ellis-3', null);
+    const seen = {
+      id: 'ACoAAFakeMorgan12345',
+      username: 'morgan-ellis-3',
+      url: `${LI}/morgan-ellis-3/`,
+    };
+    // A page LinkedIn didn't show as theirs keeps nothing.
+    await lookSeen(morgan, seen, true);
+    expect(await keys(morgan)).toEqual({ platform_id: null, username: 'morgan-ellis-3' });
+    // Nor one showing another member, by the name in its address.
+    await lookSeen(morgan, { ...seen, username: 'someone-else-9' });
+    expect(await keys(morgan)).toEqual({ platform_id: null, username: 'morgan-ellis-3' });
+    // Their own page: the id is kept beside the name.
+    await lookSeen(morgan, seen);
+    expect(await keys(morgan)).toEqual({
+      platform_id: 'ACoAAFakeMorgan12345',
+      username: 'morgan-ellis-3',
+    });
+    // Kept by the id alone, the name in their address is kept the same way.
+    const byId = await keep(null, 'ACoAAFakeJordan67890');
+    await lookSeen(byId, {
+      id: 'ACoAAFakeJordan67890',
+      username: 'jordan-wu-1',
+      url: `${LI}/jordan-wu-1/`,
+    });
+    expect(await keys(byId)).toEqual({
+      platform_id: 'ACoAAFakeJordan67890',
+      username: 'jordan-wu-1',
+    });
+    // An id another profile here has stays with that one.
+    const twin = await keep('morgan-ellis-plumbing', null);
+    await lookSeen(twin, {
+      ...seen,
+      username: 'morgan-ellis-plumbing',
+      url: `${LI}/morgan-ellis-plumbing/`,
+    });
+    expect(await keys(twin)).toEqual({ platform_id: null, username: 'morgan-ellis-plumbing' });
+  });
 });

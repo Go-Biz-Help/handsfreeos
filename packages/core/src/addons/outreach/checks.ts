@@ -140,6 +140,12 @@ export const CheckLookInput = z.object({
    * the AI has read them.
    */
   mutual: z.array(ProfileRef).max(MUTUAL_READ_MOST).nullable().default(null),
+  /**
+   * Who the page showed, with every key it gave (decision 131): their network's number beside the name in their
+   * address. A key they aren't kept by yet is kept now, since names and addresses change and a number doesn't. Null
+   * when the page gave none.
+   */
+  seen: ProfileRef.nullable().default(null),
 });
 export type CheckLookInput = z.input<typeof CheckLookInput>;
 
