@@ -3269,7 +3269,9 @@ where decisions 37 and 59 put the settings; what they decided stands. Settled to
       with only Open and Leave it: who fit was a keyword match on the lines Facebook's list showed (decision 30), which
       never read anyone's profile, so almost nobody fit, and LinkedIn's and Alignable's were never answered at all.
       Migration `20261027020900_outreach_request_answers`: a check `via` of `request`, the AI's answer on the check
-      (`request_answer`, `request_why`), and the person's press on the request (`friends.answer`, `answer_at`).
+      (`request_answer`, `request_why`), the person's press on the request (`friends.answer`, `answer_at`), and
+      `private.outreach_request_reads`, through which the team view counts a colleague's requests (a check is its
+      person's own), never with why.
       - **The AI reads each one** (1a, `REQUEST_CHECK_SYSTEM`, `requestCheckPrompt`): someone who sent a request the
         person hasn't answered, set aside or pressed on is next to check right after a Research press (`checks.next`'s
         reason `request`, `asksMe`), and once more if they were checked before without it. The worker asks the usual

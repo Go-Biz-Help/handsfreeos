@@ -54,7 +54,7 @@ import {
 } from '../waiting';
 import { asksNeedingYou } from './ask-rows';
 import { automationOf, everyoneAutomation } from './automation';
-import { contactable, inWorkspace, neverDeleted, requestAnswerColumns, type Ctx } from './common';
+import { contactable, inWorkspace, neverDeleted, type Ctx } from './common';
 import { playbooksInUse } from './friends';
 import { openNeed } from './needs';
 import { commentHoldOf, listed, mine } from './sends';
@@ -164,11 +164,16 @@ export async function requestsToDecide(
     sql`select * from (
           select f.user_id, p.id, p.name, p.url, p.intro, p.mutual_friends, g.name as group_name, f.since,
             p.platform, (${notNever('p')}) as pitched, ${neverDeleted(sql`f.user_id`)} as kept,
-            ${requestAnswerColumns}, ch.verdict,
+            case when f.answer_at >= f.since then f.answer end as pressed, rr.answer as said,
+            ch.request_why as said_why, rr.verdict,
             row_number() over (partition by f.user_id order by f.since desc) as nth
           from addon_outreach.friends f
           join addon_outreach.profiles p on p.id = f.profile_id
           left join addon_outreach.groups g on g.id = p.group_id
+          -- A check is its person's own: what the AI said of a colleague's requests is counted through
+          -- private.outreach_request_reads; only the person's own why is read.
+          left join private.outreach_request_reads(${ctx.scope.workspaceId!}::uuid, ${ids(userIds)}::uuid[]) rr
+            on rr.profile_id = p.id and rr.user_id = f.user_id
           left join addon_outreach.checks ch on ch.profile_id = p.id and ch.user_id = f.user_id
           where f.workspace_id = ${ctx.scope.workspaceId!} and f.user_id = any (${ids(userIds)}::uuid[])
             and f.state = 'request_received' and ${contactable('p')}

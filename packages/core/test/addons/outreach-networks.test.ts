@@ -376,11 +376,12 @@ describe('each network’s own choices', () => {
       sending: 'steps',
       warmUp: false,
     });
-    // Facebook does nothing on its own; LinkedIn does its own steps, without liking a post first. Its runner accepts
-    // no invitations, so those stay the person's whatever the switch says (its kit's `runs`), and its comments wait
-    // for an OK at first, as messages do (decision 102).
+    // Facebook does nothing on its own; LinkedIn does its own steps, without liking a post first. From decision 136
+    // its runner accepts the invitations Today lists to confirm, and its comments wait for an OK at first, as
+    // messages do (decision 102).
     expect((await runAs(dana, ws, 'outreach.today', {})).auto).toEqual([]);
     expect((await runAs(dana, ws, 'outreach.today', { platform: 'linkedin' })).auto).toEqual([
+      'confirm',
       'friend_request',
     ]);
     // A screen from before networks sends none: the ones kept stay.

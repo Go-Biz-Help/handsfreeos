@@ -105,6 +105,11 @@ describe('Never contact', () => {
         { profile: fb('kit.lowe.7'), name: 'Kit Lowe', mutualFriends: 1 },
       ],
     });
+    // They asked two days ago, so they show to decide though the AI hasn't read them (decision 136).
+    await rows(
+      admin(),
+      sql`update addon_outreach.friends set since = now() - interval '2 days' where workspace_id = ${ws}`,
+    );
     await chats(ws, [
       { name: 'Ash Quill', thread: '3000111', profile: fb('ash.quill.4'), fromMeLast: false },
     ]);

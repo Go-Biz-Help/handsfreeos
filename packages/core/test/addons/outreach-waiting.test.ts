@@ -244,8 +244,9 @@ describe('Waiting for you', () => {
       'reply: Ana Moss',
       'message: Dana Reyes',
       'need: Eli Brook',
-      'request: Kit Morrow',
+      // The newest first: Kit asked two days ago.
       'request: Quinn Ray',
+      'request: Kit Morrow',
     ]);
     const all = await waiting();
     const handed = (all.items as Item[]).find((i) => i.kind === 'reply')!.send!;

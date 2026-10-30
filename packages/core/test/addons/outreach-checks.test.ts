@@ -80,6 +80,7 @@ describe('the AI’s check', () => {
       nextStep: null,
       partner: null,
       country: { code: null, other: null, sure: false, why: null },
+      request: null,
     });
     // Not a fit names no playbook; one that isn't the business's is none, unless it has only one.
     expect(

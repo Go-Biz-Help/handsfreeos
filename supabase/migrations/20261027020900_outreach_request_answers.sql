@@ -18,8 +18,8 @@
 -- (`friends.answer`, at `answer_at`): it counts while it's since `since`, so
 -- one they send again later starts afresh.
 --
--- Only adds: two columns on each table nobody has to fill, and a check that
--- lets one more kind.
+-- Only adds: two columns on each table nobody has to fill, a check that
+-- lets one more kind, and a function for the team view's counts.
 -- =============================================================================
 
 alter table addon_outreach.checks drop constraint checks_via_check;
@@ -43,3 +43,20 @@ comment on column addon_outreach.friends.answer is
   'The person''s Confirm or Delete on a request they got (decision 136): the extension does it. Counts while `answer_at >= since`.';
 comment on column addon_outreach.friends.answer_at is
   'When the person pressed Confirm or Delete on this request (decision 136).';
+
+-- What the AI said of the requests each person got, for Waiting for you's
+-- counts (ops/waiting.ts `requestsToDecide`): a check is the person's own
+-- (checks_own), so the team view counts a colleague's requests through this.
+-- Owners and admins count anyone's, a person only their own
+-- (private.outreach_may_count). Only the answer and how the read went, never
+-- why, nor what the AI made of them.
+create or replace function private.outreach_request_reads(p_ws uuid, p_users uuid[])
+returns table (user_id uuid, profile_id uuid, answer text, verdict text)
+language sql stable security definer set search_path = '' as $$
+  select ch.user_id, ch.profile_id, ch.request_answer, ch.verdict
+  from addon_outreach.checks ch
+  where ch.workspace_id = p_ws and ch.user_id = any (p_users)
+    and private.outreach_may_count(p_ws, p_users)
+$$;
+revoke all on function private.outreach_request_reads(uuid, uuid[]) from public;
+grant execute on function private.outreach_request_reads(uuid, uuid[]) to authenticated, service_actor;
