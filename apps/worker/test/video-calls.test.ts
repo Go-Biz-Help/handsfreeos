@@ -282,6 +282,14 @@ const stored = async (room: string) =>
 const ticketOf = (res: LightMyRequestResponse) =>
   readFakeTicket((res.json() as { ticket: { token: string } }).ticket.token);
 
+/** What a meeting's ticket lets anyone in it do: send everything, in a room of 10. */
+const MEETING = {
+  format: 'meeting',
+  maxPeople: 10,
+  publish: { camera: true, microphone: true, screen: true },
+  attributes: {},
+};
+
 const pushesAbout = (callId: string) =>
   w.s.push.fake.sent.filter(
     (p) => p.message.to === ownerPhone && p.message.collapseId === `video-call-${callId}`,
@@ -349,6 +357,7 @@ describe('the team', () => {
       identity: body.personId,
       name: 'Dale Owner',
       kind: 'team',
+      rights: MEETING,
     });
     expect(res.headers['cache-control']).toBe('no-store');
     // Pressed again (a second tab): the same person in the room, not a second one.
@@ -440,6 +449,7 @@ describe('a customer on their own Join link', () => {
       identity: said.personId,
       name: 'Eli Customer',
       kind: 'customer',
+      rights: MEETING,
     });
     expect(await joinedAt(b.attendeeId)).toBeNull();
     await cameIn(b.room, said.personId, { roomSid: 'RM_eli' });
@@ -645,6 +655,7 @@ describe('anyone else on the call’s link', () => {
       identity: camId,
       name: 'Cam Guest',
       kind: 'guest',
+      rights: MEETING,
     });
 
     const deeKey = pageKey();
@@ -1100,6 +1111,7 @@ describe('a call with a customer that isn’t for an appointment (part 5)', () =
       identity: said.personId,
       name: 'Gia Customer',
       kind: 'customer',
+      rights: MEETING,
     });
     await cameIn(room, said.personId, { roomSid, at: t0 + MIN });
 

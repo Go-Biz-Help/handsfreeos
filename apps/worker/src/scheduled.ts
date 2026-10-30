@@ -36,6 +36,15 @@ import { depositJobs } from './booking/deposit';
 import { WINDOW_END_JOB, waitlistOfferExpire, waitlistOfferJob } from './booking/waitlist';
 import { appointmentMeetTranscriptPoll } from './meetings/meet-poll';
 import { VIDEO_CALL_KEEP_WORDS_JOB, videoCallKeepWordsJob } from './video-calls/handlers';
+import {
+  WEBINAR_JOIN_LINK_JOB,
+  WEBINAR_MISSED_JOB,
+  WEBINAR_STARTING_JOB,
+  WEBINAR_STARTING_KEY,
+  webinarJoinLink,
+  webinarMissed,
+  webinarStarting,
+} from './video-calls/webinars';
 import { appointmentCallReview } from './meetings/review';
 import { meetingSettingsCheck } from './meetings/settings';
 import { appointmentTranscriptFetch, appointmentTranscriptWatch } from './meetings/transcripts';
@@ -557,6 +566,10 @@ export const jobs: JobMap = {
   'appointment.meet_transcript_poll': appointmentMeetTranscriptPoll,
   // What the AI heard in a HandsFreeOS video call, made the appointment's transcript once the stretch is over.
   [VIDEO_CALL_KEEP_WORDS_JOB]: videoCallKeepWordsJob,
+  // Webinars' messages: starting now, missed it, and their own Join link again (video-calls/webinars.ts).
+  [WEBINAR_STARTING_JOB]: webinarStarting,
+  [WEBINAR_MISSED_JOB]: webinarMissed,
+  [WEBINAR_JOIN_LINK_JOB]: webinarJoinLink,
   'appointment.reminder': appointmentReminder,
   'appointment.notice': appointmentNotice,
   'waitlist.offer': waitlistOfferJob,
@@ -948,6 +961,16 @@ export async function ensureRecurringJobs(services: WorkerServices): Promise<voi
       kind: META_JOBS.plan,
       dedupeKey: META_PLAN_KEY,
       runAt,
+      payload: {},
+      workspaceId: null,
+      organizationId: null,
+    });
+    // Webinars starting, every minute from a minute after the start: "starting now" to whoever isn't in yet
+    // (video-calls/webinars.ts).
+    await scheduleJob(tx, {
+      kind: WEBINAR_STARTING_JOB,
+      dedupeKey: WEBINAR_STARTING_KEY,
+      runAt: new Date(Date.now() + 60_000),
       payload: {},
       workspaceId: null,
       organizationId: null,

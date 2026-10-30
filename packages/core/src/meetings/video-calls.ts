@@ -9,6 +9,9 @@
  *   that isn't a row.
  * - **Getting in** (6a): a customer on their own Join link goes straight in once someone from the team is there;
  *   anyone else waits until the team lets them in.
+ * - **A session's call is a webinar** (HANDSFREEOS_WEBINARS_IMPLEMENTATION_PLAN.md): the team presents to up to 500
+ *   people who watch, chat, react and raise a hand. The team can bring one on stage, and chooses whether attendees
+ *   may turn their cameras on, and who sees them.
  */
 import type { VideoProvider } from '../calendar/config';
 
@@ -17,6 +20,80 @@ export const VIDEO_CALL_NAME = 'HandsFreeOS video call';
 
 /** Up to 10 people at once for now (7a), the AI's listener aside. */
 export const VIDEO_CALL_MAX_PEOPLE = 10;
+
+// ---------- webinars (HANDSFREEOS_WEBINARS_IMPLEMENTATION_PLAN.md, part 1) ----------
+
+/**
+ * A meeting, where everyone talks and is on camera, or a webinar: a session's call, where the team presents and
+ * everyone else watches. Set when the call is made, from its appointment, and never changed.
+ */
+export const VIDEO_CALL_FORMATS = ['meeting', 'webinar'] as const;
+export type VideoCallFormat = (typeof VIDEO_CALL_FORMATS)[number];
+
+/** Up to 500 in a webinar at once (the owner's 2b), the listener aside: as many seats as a sessions calendar holds. */
+export const WEBINAR_MAX_PEOPLE = 500;
+
+/** How many people a call holds at once. */
+export const maxPeopleOf = (format: VideoCallFormat): number =>
+  format === 'webinar' ? WEBINAR_MAX_PEOPLE : VIDEO_CALL_MAX_PEOPLE;
+
+/**
+ * Attendees' cameras in a webinar (the owner's 4): off; on, with only the team seeing them; or on, with everyone
+ * seeing everyone. The presenter or a shared screen is always the big picture either way.
+ */
+export const ATTENDEE_VIDEO_CHOICES = ['off', 'team', 'everyone'] as const;
+export type AttendeeVideo = (typeof ATTENDEE_VIDEO_CHOICES)[number];
+
+/** Attendees on stage at once, beside the team: past this, the presenter sends someone back first. */
+export const WEBINAR_MAX_ON_STAGE = 3;
+
+/** What someone may send in the room. LiveKit holds them to it: their ticket and permissions say so. */
+export interface VideoCallPublish {
+  readonly camera: boolean;
+  readonly microphone: boolean;
+  readonly screen: boolean;
+}
+
+/**
+ * What someone may send: everything in a meeting, and for the team in a webinar. An attendee on stage talks and is on
+ * camera; the rest watch, with a camera only when the presenter allows one.
+ */
+export function mayPublish(p: {
+  readonly format: VideoCallFormat;
+  readonly kind: 'team' | 'customer' | 'guest';
+  readonly onStage: boolean;
+  readonly attendeeVideo: AttendeeVideo;
+}): VideoCallPublish {
+  if (p.format === 'meeting' || p.kind === 'team')
+    return { camera: true, microphone: true, screen: true };
+  if (p.onStage) return { camera: true, microphone: true, screen: false };
+  return { camera: p.attendeeVideo !== 'off', microphone: false, screen: false };
+}
+
+/**
+ * Who sees an attendee's camera in a webinar: everyone when the presenter said so or they're on stage, else only the
+ * team. Their own page holds LiveKit to it (track subscription permissions), so it isn't just hidden.
+ */
+export const attendeeSeenBy = (p: {
+  readonly onStage: boolean;
+  readonly attendeeVideo: AttendeeVideo;
+}): 'everyone' | 'team' => (p.onStage || p.attendeeVideo === 'everyone' ? 'everyone' : 'team');
+
+/**
+ * The link anyone can use for a webinar (the owner's 5c), `/live/<key>`: a door form that saves a seat on the session
+ * and, while it's open, goes straight in. The key is public, not secret, and only its webinar has it.
+ */
+export const WEBINAR_DOOR_KEY_LENGTH = 24;
+const DOOR_KEY_RE = new RegExp(`^[0-9A-Za-z]{${WEBINAR_DOOR_KEY_LENGTH}}$`);
+export const isWebinarDoorKey = (key: string): boolean => DOOR_KEY_RE.test(key);
+export const webinarDoorPath = (key: string): string => `/live/${key}`;
+
+/** The webinar settings a sessions calendar gives each session's call (the owner's 4 and 24). */
+export interface WebinarSettings {
+  readonly attendeeVideo: AttendeeVideo;
+  readonly startingNow: boolean;
+  readonly missedFollowUp: boolean;
+}
 
 /** How early a customer's own link opens the call, as with Zoom and Meet links today. */
 export const VIDEO_CALL_OPENS_MS = 60 * 60_000;
@@ -203,7 +280,64 @@ export type VideoCallPersonState = (typeof VIDEO_CALL_PERSON_STATES)[number];
  * What each person carries in the room, as LiveKit participant attributes: who they are to the call, and whether
  * their hand is up. The kind is the ticket's, set by HandsFreeOS; the hand is theirs to raise and lower.
  */
-export const VIDEO_CALL_ATTRIBUTES = { kind: 'hfos.kind', hand: 'hfos.hand' } as const;
+export const VIDEO_CALL_ATTRIBUTES = {
+  kind: 'hfos.kind',
+  hand: 'hfos.hand',
+  /** A webinar: `webinar`, so every page lays the room out as one. */
+  format: 'hfos.format',
+  /** A webinar: attendees' cameras (`off`, `team`, `everyone`), kept up to date by the worker. */
+  video: 'hfos.video',
+  /** A webinar: `on` for an attendee the team brought on stage. */
+  stage: 'hfos.stage',
+} as const;
+
+/**
+ * What the worker puts on someone in the room, besides who they are: a webinar's format, its camera choice and
+ * whether they're on stage. A meeting carries none of it.
+ */
+export function videoCallAttributes(p: {
+  readonly format: VideoCallFormat;
+  readonly attendeeVideo: AttendeeVideo;
+  readonly onStage: boolean;
+}): Record<string, string> {
+  if (p.format !== 'webinar') return {};
+  return {
+    [VIDEO_CALL_ATTRIBUTES.format]: 'webinar',
+    [VIDEO_CALL_ATTRIBUTES.video]: p.attendeeVideo,
+    [VIDEO_CALL_ATTRIBUTES.stage]: p.onStage ? 'on' : '',
+  };
+}
+
+/**
+ * What someone carries in the room, read back from their attributes: the format, who they are to the call, whether
+ * they're on stage, the camera choice, and so what they may send. Every page and the phone read it the same way.
+ */
+export function roomRightsOf(attrs: Readonly<Record<string, string>> | undefined): {
+  readonly format: VideoCallFormat;
+  readonly kind: VideoCallKind;
+  readonly onStage: boolean;
+  readonly attendeeVideo: AttendeeVideo;
+  readonly publish: VideoCallPublish;
+} {
+  const a = attrs ?? {};
+  const format: VideoCallFormat =
+    a[VIDEO_CALL_ATTRIBUTES.format] === 'webinar' ? 'webinar' : 'meeting';
+  const kind = (VIDEO_CALL_KINDS as readonly string[]).includes(a[VIDEO_CALL_ATTRIBUTES.kind] ?? '')
+    ? (a[VIDEO_CALL_ATTRIBUTES.kind] as VideoCallKind)
+    : 'guest';
+  const video = a[VIDEO_CALL_ATTRIBUTES.video] ?? '';
+  const attendeeVideo: AttendeeVideo = (ATTENDEE_VIDEO_CHOICES as readonly string[]).includes(video)
+    ? (video as AttendeeVideo)
+    : 'off';
+  const onStage = a[VIDEO_CALL_ATTRIBUTES.stage] === 'on';
+  return {
+    format,
+    kind,
+    onStage,
+    attendeeVideo,
+    publish: mayPublish({ format, kind, onStage, attendeeVideo }),
+  };
+}
 
 /** The data topic reactions travel on: one emoji at a time, never kept. */
 export const VIDEO_CALL_REACTIONS_TOPIC = 'hfos.reactions';
@@ -425,6 +559,153 @@ export const VIDEO_CALL_WORDS = {
     'The summary and suggestions show here a minute after the call ends, when its AI notes were on.',
 } as const;
 
+/** A webinar's words (HANDSFREEOS_WEBINARS_IMPLEMENTATION_PLAN.md), one copy for the web and the phone. */
+export const WEBINAR_WORDS = {
+  /** In the call's header, on the appointment and in Settings. */
+  name: 'Webinar',
+  // ---- attendees' cameras (the owner's 4) ----
+  attendeeVideo: 'Attendees’ cameras',
+  attendeeVideoChoices: {
+    off: 'Off',
+    team: 'On, only your team sees them',
+    everyone: 'On, everyone sees everyone',
+  } satisfies Record<AttendeeVideo, string>,
+  /** The team's pill in the call's header. */
+  attendeeVideoShort: {
+    off: 'Attendee cameras off',
+    team: 'Attendee cameras: team sees',
+    everyone: 'Attendee cameras: everyone sees',
+  } satisfies Record<AttendeeVideo, string>,
+  attendeeVideoHelp:
+    'Attendees join muted. Choose whether they can turn their cameras on, and who sees them. You or your slides are always the big picture.',
+  attendeeVideoChanged: {
+    off: 'Attendees’ cameras are off.',
+    team: 'Attendees can turn their cameras on. Only your team sees them.',
+    everyone: 'Attendees can turn their cameras on, and everyone sees everyone.',
+  } satisfies Record<AttendeeVideo, string>,
+  // ---- the stage ----
+  onStage: 'On stage',
+  bringOnStage: 'Bring on stage',
+  backToAudience: 'Back to the audience',
+  stageFull: `Up to ${WEBINAR_MAX_ON_STAGE} people can be on stage at once. Send someone back to the audience first.`,
+  youreOnStage: 'You’re on stage. You can turn on your microphone and camera now.',
+  backInAudience: 'You’re back in the audience.',
+  // ---- in the room ----
+  watching: (n: number) => (n === 1 ? '1 watching' : `${n} watching`),
+  audience: 'Audience',
+  presenting: 'Presenting',
+  /** The attendee's own page: why there's no microphone button. */
+  watchOnly:
+    'You’re watching. Raise your hand or use the chat, and the presenter can bring you on stage.',
+  /** The page before joining: why it asks for no microphone or camera. */
+  joinHint:
+    'You’ll join watching, with your microphone and camera off. Use the chat or raise your hand to take part.',
+  /** Before the presenter is in. */
+  waitingFor: 'The webinar starts soon. Stay on this page, and you’ll go in as soon as it starts.',
+  full: `This webinar is full: it has room for ${WEBINAR_MAX_PEOPLE} people at once. Try again in a few minutes.`,
+  // ---- the link anyone can use (5c) ----
+  doorLink: 'Link anyone can use',
+  doorLinkHelp:
+    'Anyone with this link can save a seat, or join while it’s on. Share it in posts, ads and emails.',
+  doorSave: 'Save my seat',
+  doorJoin: 'Join now',
+  doorSaving: 'Saving your seat…',
+  doorRegistered: (when: string) =>
+    `You’re registered for ${when}. Your own Join link is on its way, and it opens an hour before the start.`,
+  doorSent:
+    'You’re already on file with this business, so we sent your own Join link to the phone or email they have for you.',
+  doorOver: 'This webinar has ended.',
+  doorCancelled: 'This webinar was cancelled.',
+  doorFull: 'This webinar is full.',
+  doorOff: 'This link doesn’t work right now. Ask the business for another way to join.',
+  // ---- Settings → Calendars, on a sessions calendar with HandsFreeOS video calls ----
+  settingsHelp:
+    'Each session on this calendar runs as a webinar: you and your team present, and up to 500 people watch.',
+  startingNow: 'Message people when it starts',
+  startingNowHelp:
+    'Everyone booked who isn’t in yet gets their own Join link by text, or by email when a text can’t go.',
+  missedFollowUp: 'Follow up with anyone who misses it',
+  missedFollowUpHelp:
+    'Anyone who never came in is told when the next session is, with a link to save a seat.',
+} as const;
+
+/** "[Title] is starting now": to each person booked on a webinar who isn't in yet, with their own Join link. */
+export function webinarStartingWords(input: {
+  readonly title: string;
+  readonly business: string;
+  readonly firstName: string | null;
+  readonly link: string;
+}): { readonly text: string; readonly subject: string; readonly email: string } {
+  return {
+    text: `${input.title} is starting now. Join here: ${input.link}`,
+    subject: `${input.title} is starting now`,
+    email: [
+      `Hi ${input.firstName?.trim() || 'there'},`,
+      '',
+      `${input.title} with ${input.business} is starting now. Join here:`,
+      input.link,
+      '',
+      'It opens in your browser, with nothing to install.',
+    ].join('\n'),
+  };
+}
+
+/**
+ * The follow-up for someone who missed a webinar completely (the owner's 24): the next session with seats and its link
+ * anyone can use, or that they'll hear when there's another.
+ */
+export function webinarMissedWords(input: {
+  readonly title: string;
+  readonly business: string;
+  readonly firstName: string | null;
+  /** The next session on the same calendar with seats left: "Tue, Nov 3 · 7:00 pm" and its link anyone can use. */
+  readonly next: { readonly when: string; readonly link: string } | null;
+}): { readonly text: string; readonly subject: string; readonly email: string } {
+  const sorry = `Sorry we missed you at ${input.title}.`;
+  const after = input.next
+    ? `The next one is ${input.next.when}. Save your seat: ${input.next.link}`
+    : 'We’ll let you know when there’s another one.';
+  return {
+    text: `${sorry} ${after}`,
+    subject: input.next ? `The next ${input.title}: ${input.next.when}` : `Sorry we missed you`,
+    email: [
+      `Hi ${input.firstName?.trim() || 'there'},`,
+      '',
+      `Sorry we missed you at ${input.title} with ${input.business}.`,
+      '',
+      ...(input.next
+        ? [`The next one is ${input.next.when}. Save your seat here:`, input.next.link]
+        : ['We’ll let you know when there’s another one.']),
+    ].join('\n'),
+  };
+}
+
+/**
+ * Their own Join link again, for someone already on file who used a webinar's link anyone can use: it goes to the
+ * phone or email the business has for them, never back to the page, so typing someone else's details gets nobody in.
+ */
+export function webinarJoinLinkWords(input: {
+  readonly title: string;
+  readonly business: string;
+  readonly firstName: string | null;
+  /** "Fri, Sep 18 at 10:00 AM". */
+  readonly when: string;
+  readonly link: string;
+}): { readonly text: string; readonly subject: string; readonly email: string } {
+  return {
+    text: `Your own Join link for ${input.title} (${input.when}): ${input.link}`,
+    subject: `Your Join link for ${input.title}`,
+    email: [
+      `Hi ${input.firstName?.trim() || 'there'},`,
+      '',
+      `Here’s your own Join link for ${input.title} with ${input.business}, ${input.when}:`,
+      input.link,
+      '',
+      'It opens an hour before the start, in your browser, with nothing to install.',
+    ].join('\n'),
+  };
+}
+
 /** The push to the team when a customer waits for them, or someone asks to be let in. */
 export function videoCallWaitingPushWords(input: {
   readonly name: string;
@@ -434,4 +715,25 @@ export function videoCallWaitingPushWords(input: {
   return input.kind === 'customer'
     ? { title: `${input.name} is waiting in the video call`, body: input.title }
     : { title: `${input.name} is asking to join the video call`, body: input.title };
+}
+
+/**
+ * A webinar's push while nobody from the team is in yet: one for the crowd, not one per person, at most every
+ * `WEBINAR_WAITING_PUSH_MS`.
+ */
+export const WEBINAR_WAITING_PUSH_MS = 10 * 60_000;
+export function webinarWaitingPushWords(input: {
+  readonly waiting: number;
+  readonly title: string;
+}): {
+  title: string;
+  body: string;
+} {
+  return {
+    title:
+      input.waiting <= 1
+        ? 'Someone is waiting for your webinar'
+        : `${input.waiting} people are waiting for your webinar`,
+    body: input.title,
+  };
 }

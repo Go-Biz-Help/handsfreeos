@@ -314,6 +314,7 @@ describe('a customer on their own link', () => {
         status: 'waiting',
         name: 'Sam Guest',
         host: 'Priya',
+        rights: null,
       });
       // Only the page that knocked can ask.
       await expectHfos(() => standing(sam, knockKey()), 'not_found', 404);

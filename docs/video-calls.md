@@ -1,4 +1,4 @@
-# HandsFreeOS video calls (20261027013000, 20261027013300, 20261027013500, 20261027014600)
+# HandsFreeOS video calls (20261027013000, 20261027013300, 20261027013500, 20261027014600, 20261027019600)
 
 HandsFreeOS's own Zoom-like calls. A calendar's Online place (or one service on it) can say **HandsFreeOS video
 call**, and each appointment booked there gets its own call, with nothing for the business to connect. Customers
@@ -10,7 +10,9 @@ transcript on the appointment and today's After the call. So is part 3, the Sale
 the video, and its write-up and score after. Part 4, the team's call screen in the phone app, is built too and reaches
 phones with the next store build ("On the phone" below). So is part 5, calls any time: **Video call** on a customer's
 page and in a conversation, and **Switch to video** during a phone call, send the customer their own link and open the
-call ("Calls any time" below). Support turns calls on per business in /admin until every business gets them. Setting up LiveKit (the account, the worker's secrets and the
+call ("Calls any time" below). A session's call is a **webinar**: up to 500 people, the presenter big and everyone
+else watching, with a link anyone can use ("Webinars" below, and `HANDSFREEOS_WEBINARS_IMPLEMENTATION_PLAN.md` for
+the live polls built on it). Support turns calls on per business in /admin until every business gets them. Setting up LiveKit (the account, the worker's secrets and the
 webhook) is "Video calls: LiveKit" in `docs/operations.md`.
 
 ## Where things are
@@ -45,6 +47,12 @@ webhook) is "Video calls: LiveKit" in `docs/operations.md`.
 | Video call and Switch to video, on the web   | `apps/web/src/components/video-call/start-call.tsx`, used by `record-page.tsx`, `conversation-view.tsx` and `active-call-bar.tsx` |
 | Video call and Switch to video, on the phone | `apps/mobile/src/video-call/start-call.tsx`, used by the customer's screen, the conversation and `call-sheet.tsx`                 |
 | Notes from the call, on the timeline         | `components/video-call/call-notes.tsx` on the web, `src/video-call/call-notes.tsx` on the phone                                   |
+| Webinars: columns, the door's lookup, sweep  | `supabase/migrations/20261027019600_webinar_room.sql`                                                                             |
+| Webinars: who may send what, words           | `mayPublish`, `roomRightsOf`, `WEBINAR_WORDS` in `packages/core/src/meetings/video-calls.ts`; `rightsOf` in `video-call.ts`       |
+| Webinars: the camera choice and the stage    | `video_call.set_attendee_video`, `video_call.stage` (core); LiveKit told in `apps/worker/src/video-calls/handlers.ts`             |
+| Webinars: the link anyone can use            | `webinar.register` (`packages/core/src/commands/webinar.ts`), `apps/worker/src/http/webinar-door.ts`, the web's `/live/<key>`     |
+| Webinars: starting now, missed it            | `apps/worker/src/video-calls/webinars.ts`                                                                                         |
+| Webinars: the calendar's settings            | `WebinarSettings` in `apps/web/src/components/calendars/modules.tsx` (`locations.webinar` in the calendar's config)               |
 
 ## How a call goes
 
@@ -261,6 +269,41 @@ joining by phone, team-only meetings.
 - **The phone asks `workspace.get` whether calls are on,** once while the app is open, since nothing about calls is
   kept on the phone. `apps/sync/sync-config.yaml` is unchanged.
 
+### Webinars (20261027019600)
+
+The owner's answers of 29 October 2026 are in `HANDSFREEOS_WEBINARS_IMPLEMENTATION_PLAN.md`; this is part 1 of it.
+
+- **A session's call is a webinar** (`video_calls.format`), set when the call is made (`madeAs`) and never changed.
+  Everything else stays a meeting. A webinar holds 500 (`WEBINAR_MAX_PEOPLE`), a meeting 10; the room's size is set
+  by the first ticket used in it.
+- **What each person may send is in their ticket** (`rightsOf` → `video_call.join`, `.enter` and `.knock_status` →
+  the worker's ticket). The team sends everything. Attendees are muted with no screen share, and get a camera only
+  when the camera choice allows one. Someone brought on stage (`video_call.stage`, three at most, never the team)
+  talks and is on camera. LiveKit holds them to it: the ticket's `canPublishSources`, and on a change the worker's
+  `updateParticipant` from the event, which also stops anything they may no longer send.
+- **The same rights are attributes** (`hfos.format`, `hfos.video`, `hfos.stage`), read back with `roomRightsOf` by
+  every page and the phone, so the buttons match what LiveKit allows. The worker updates them with the permissions.
+- **The camera choice** (`video_calls.attendee_video`: off, team, everyone) starts from the calendar's
+  `locations.webinar.attendeeVideo` and is the team's to change in the call. With **team**, an attendee's own page
+  lets only the team's identities receive their camera (LiveKit's track subscription permissions): enforced by
+  LiveKit, not just hidden.
+- **The layout** (`call-stage.tsx`): a shared screen big, else whoever on stage spoke last; the rest of the team and
+  anyone on stage beside it; attendees' cameras, when this page may see them, in a strip of 12 at most.
+- **Attendees never see each other's names:** their People panel lists who's presenting and how many are watching,
+  raised hands are toasted to the team only, and an attendee's name in the room starts as their first name.
+- **Waiting for the team** gives one push for the crowd every ten minutes, not one per person.
+- **The link anyone can use** (`/live/<key>`, 24 public letters and digits in `door_key`) shows the webinar and a
+  door form. `webinar.register` books a seat on the session exactly as the booking page does (matching, consent,
+  the session caps; up to 500 bookings an hour on a sessions calendar). Only a customer made from that very form gets
+  their own Join link back; anyone already on file is sent theirs (`webinar.join_link`), so typing someone else's
+  details gets nobody in as them. A webinar that asks for payment points to the booking page instead.
+- **Starting now** (`webinar.starting`, every minute): webinars that started in the last 15 minutes
+  (`private.webinars_starting`) text, else email, each person booked who isn't in yet their own Join link, then
+  `video_call.starting_told` marks the call so it goes once. Off with the calendar's `webinar.startingNow`.
+- **Missed it:** `attendee.no_show` on a webinar queues `webinar.missed`, which waits out quiet hours and tells them
+  when the next session on the calendar with seats is, with its link anyone can use, unless they've booked a later
+  one already. Off with `webinar.missedFollowUp`. The replay joins it once replays exist.
+
 ## Running it locally
 
 Without LiveKit the worker uses its stand-in: tickets connect to nothing and the call screen shows a stand-in for
@@ -282,4 +325,7 @@ enough to see captions and lines arrive. With `DEEPGRAM_API_KEY` and `VOICE_AGEN
 - Starting a call from the Assistant. It can let people in, mute, remove and end a call as the call screen does,
   but **Video call** goes on to open the call for whoever pressed it, so for now it's only a button.
 - Screen share from a phone's browser, which phones don't allow; they can watch someone else's.
-- Joining by phone, recordings, big sessions, breakout rooms and picture backgrounds.
+- Joining by phone, recordings, breakout rooms and picture backgrounds.
+- A webinar's live polls, the AI popping them up, slides inside HandsFreeOS and scoring who to follow up: parts 2 to
+  5 of `HANDSFREEOS_WEBINARS_IMPLEMENTATION_PLAN.md`.
+- Webinar controls on the phone: it shows who's presenting, but the camera choice and Bring on stage are on the web.

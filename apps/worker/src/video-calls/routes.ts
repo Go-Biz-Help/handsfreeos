@@ -131,6 +131,7 @@ export async function registerVideoCallRoutes(app: FastifyInstance, deps: HttpDe
       identity: joined.personId,
       name: joined.name,
       kind: 'team',
+      rights: joined.rights,
     });
     return { workspaceId: scope.workspaceId, ...joined, ticket };
   });
@@ -219,6 +220,7 @@ export async function registerVideoCallRoutes(app: FastifyInstance, deps: HttpDe
             identity: said.personId,
             name: said.name,
             kind: 'customer',
+            rights: said.rights,
           });
           return { ...said, ticket };
         };
@@ -380,6 +382,7 @@ export async function registerVideoCallRoutes(app: FastifyInstance, deps: HttpDe
           identity: personId,
           name: stands.name,
           kind: 'guest',
+          rights: stands.rights,
         });
         return { ...stands, ticket };
       },

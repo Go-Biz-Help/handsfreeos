@@ -545,6 +545,8 @@ export type JoinAnswer =
       readonly look: NonNullable<PublicBusiness['look']>;
       /** The AI takes notes from the call: the page says so before they join. */
       readonly aiNotes: boolean;
+      /** A webinar: they join watching, so the page asks for no microphone or camera. */
+      readonly webinar?: boolean;
     };
 
 /**
@@ -572,6 +574,8 @@ export interface EnterAnswer {
   readonly name: string;
   /** Who they're waiting for, by first name. */
   readonly host: string | null;
+  /** A meeting, or a webinar: the presenter big, everyone else watching. */
+  readonly format?: 'meeting' | 'webinar';
   readonly ticket: VideoTicket | null;
 }
 
@@ -611,3 +615,57 @@ export interface KnockAnswer {
 /** How a request to be let in stands, asked by the page that made it. */
 export const knockStatus = (callId: string, personId: string, key: string) =>
   post<KnockAnswer>(`/public/calls/${seg(callId)}/knock/${seg(personId)}`, { key }, PRIVATE);
+
+// ---------- a webinar's link anyone can use (the worker's http/webinar-door.ts) ----------
+
+/** How a webinar stands on its link anyone can use. */
+export type WebinarDoorState = 'upcoming' | 'open' | 'full' | 'over' | 'cancelled';
+
+export interface WebinarDoor {
+  readonly business: PublicBusiness;
+  readonly title: string;
+  readonly startsAt: string;
+  readonly endsAt: string;
+  readonly timeZone: string;
+  /** "Thursday, September 17 · 7:00–8:00 PM", where the calendar is. */
+  readonly when: string;
+  /** "Central Time". */
+  readonly zone: string;
+  readonly state: WebinarDoorState;
+  /** Calls are on for the business and set up here; otherwise the page says so instead of the form. */
+  readonly ready: boolean;
+  readonly aiNotes: boolean;
+  /** The booking site's slug, for the texting consent's policy link. */
+  readonly site: string | null;
+  /** It asks for payment to save a seat: the page sends them to the booking page instead. */
+  readonly paid: boolean;
+  /** The calendar's booking page, when it's on the booking site. */
+  readonly bookingPath: string | null;
+  readonly botCheck: { readonly siteKey: string | null } | null;
+}
+
+export const getWebinarDoor = (key: string) => call<WebinarDoor>(`/public/live/${seg(key)}`, FRESH);
+
+export interface WebinarDoorBody {
+  readonly name: string;
+  readonly phone: string | null;
+  readonly email: string | null;
+  readonly smsConsent: boolean;
+  readonly offersConsent: boolean;
+  readonly callConsent: boolean;
+  readonly website?: string;
+  readonly turnstileToken?: string;
+}
+
+/**
+ * The door form sent: `registered` (a new customer) comes with their own Join link, which opens the call while
+ * `open`; `sent` means they're on file already, and their own Join link went to their phone or email.
+ */
+export interface WebinarDoorAnswer {
+  readonly status: 'registered' | 'sent';
+  readonly open: boolean;
+  readonly joinUrl: string | null;
+}
+
+export const registerWebinar = (key: string, body: WebinarDoorBody) =>
+  post<WebinarDoorAnswer>(`/public/live/${seg(key)}/register`, body, PRIVATE);

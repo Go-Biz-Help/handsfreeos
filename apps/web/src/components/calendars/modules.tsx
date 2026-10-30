@@ -15,6 +15,9 @@ import {
   type VideoProvider,
   type WeeklyHours,
   VIDEO_CALL_WORDS,
+  WEBINAR_WORDS,
+  ATTENDEE_VIDEO_CHOICES,
+  type AttendeeVideo,
 } from '@hfos/core';
 import { ArrowDown, ArrowUp, Info, Plus, Trash2, UserPlus, X } from 'lucide-react';
 import Link from 'next/link';
@@ -943,7 +946,65 @@ function LocationsModule({ draft, patch }: ModuleProps) {
           />
         </SetRow>
       ) : null}
+      {draft.schedule.mode === 'sessions' &&
+      options.some((o) => o.kind === 'virtual' && o.video === 'handsfree') ? (
+        <WebinarSettings draft={draft} patch={patch} />
+      ) : null}
     </>
+  );
+}
+
+/**
+ * A sessions calendar on HandsFreeOS video calls runs each session as a webinar (HANDSFREEOS_WEBINARS_
+ * IMPLEMENTATION_PLAN.md): attendees' cameras to start with, the "starting now" message and the follow-up for
+ * anyone who misses it.
+ */
+function WebinarSettings({ draft, patch }: Pick<ModuleProps, 'draft' | 'patch'>) {
+  const w = draft.locations.webinar;
+  return (
+    <div className="mt-6" data-testid="webinar-settings">
+      <Heading title={WEBINAR_WORDS.name} description={WEBINAR_WORDS.settingsHelp} />
+      <SetRow
+        first
+        title={WEBINAR_WORDS.attendeeVideo}
+        description={WEBINAR_WORDS.attendeeVideoHelp}
+      >
+        <Select
+          selectSize="sm"
+          className="w-[230px]"
+          aria-label={WEBINAR_WORDS.attendeeVideo}
+          value={w.attendeeVideo}
+          onChange={(e) =>
+            patch({ locations: { webinar: { attendeeVideo: e.target.value as AttendeeVideo } } })
+          }
+          data-testid="webinar-attendee-video"
+        >
+          {ATTENDEE_VIDEO_CHOICES.map((c) => (
+            <option key={c} value={c}>
+              {WEBINAR_WORDS.attendeeVideoChoices[c]}
+            </option>
+          ))}
+        </Select>
+      </SetRow>
+      <SetRow center title={WEBINAR_WORDS.startingNow} description={WEBINAR_WORDS.startingNowHelp}>
+        <Switch
+          checked={w.startingNow}
+          label={WEBINAR_WORDS.startingNow}
+          onChange={(v) => patch({ locations: { webinar: { startingNow: v } } })}
+        />
+      </SetRow>
+      <SetRow
+        center
+        title={WEBINAR_WORDS.missedFollowUp}
+        description={WEBINAR_WORDS.missedFollowUpHelp}
+      >
+        <Switch
+          checked={w.missedFollowUp}
+          label={WEBINAR_WORDS.missedFollowUp}
+          onChange={(v) => patch({ locations: { webinar: { missedFollowUp: v } } })}
+        />
+      </SetRow>
+    </div>
   );
 }
 

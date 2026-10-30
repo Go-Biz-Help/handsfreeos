@@ -6,6 +6,7 @@ import { personName, resourceName, serviceName, type CalendarCatalogs } from './
 import type { AssignmentMode, CalendarConfig, LocationKind, Reminder } from './config';
 import { formatClock } from '../messaging/quiet-hours';
 import { formatDuration, formatHours, formatNotice } from './format';
+import { WEBINAR_WORDS } from '../meetings/video-calls';
 
 export const ASSIGNMENT_NAMES: Readonly<Record<AssignmentMode, string>> = {
   fixed: 'fixed person',
@@ -120,6 +121,25 @@ export function diffConfigs(a: CalendarConfig, b: CalendarConfig, catalogs?: Nam
     'Customer picks the location',
     a.locations.customerChooses,
     b.locations.customerChooses,
+    onOff,
+  );
+  // A sessions calendar's webinars (HANDSFREEOS_WEBINARS_IMPLEMENTATION_PLAN.md).
+  change(
+    'Webinar attendees’ cameras',
+    a.locations.webinar.attendeeVideo,
+    b.locations.webinar.attendeeVideo,
+    (v) => WEBINAR_WORDS.attendeeVideoChoices[v].toLowerCase(),
+  );
+  change(
+    'Webinar “starting now” message',
+    a.locations.webinar.startingNow,
+    b.locations.webinar.startingNow,
+    onOff,
+  );
+  change(
+    'Webinar follow-up for anyone who misses it',
+    a.locations.webinar.missedFollowUp,
+    b.locations.webinar.missedFollowUp,
     onOff,
   );
   const res = (id: string) => resourceName(catalogs as CalendarCatalogs | undefined, id);

@@ -47,11 +47,14 @@ import {
 import { onJobStatusChanged } from '../booking/job-texts';
 import {
   onVideoCallAiChanged,
+  onVideoCallAttendeeVideoChanged,
   onVideoCallEnded,
   onVideoCallEndedByHost,
   onVideoCallMuteRequested,
   onVideoCallPersonRemoved,
+  onVideoCallStageChanged,
 } from '../video-calls/handlers';
+import { onWebinarNoShow } from '../video-calls/webinars';
 import {
   onAppointmentChanged,
   onMeetingConnected,
@@ -291,6 +294,11 @@ const ownTeammateAndWorkflows: HandlerMap = withWorkflows(
       'video_call.ended_by_host': onVideoCallEndedByHost,
       'video_call.ended': onVideoCallEnded,
       'video_call.ai_changed': onVideoCallAiChanged,
+      // A webinar: the camera choice and bringing someone on stage change what attendees may send.
+      'video_call.attendee_video_changed': onVideoCallAttendeeVideoChanged,
+      'video_call.stage_changed': onVideoCallStageChanged,
+      // Someone who missed a webinar completely is told about the next one (video-calls/webinars.ts).
+      'attendee.no_show': onWebinarNoShow,
       // What customers said in public: a person asks, and the queue does it.
       'review_connection.connected': onReviewSyncWanted,
       'review_connection.sync_requested': onReviewSyncWanted,

@@ -56,6 +56,7 @@ import { registerExtensionSignInRoutes } from './extension-sign-in';
 import { registerAddonWebhookRoutes } from './addon-webhooks';
 import { registerVideoLinkRoutes } from './video-links';
 import { registerJoinRoutes } from './join';
+import { registerWebinarDoorRoutes } from './webinar-door';
 import { registerFoundingRoutes } from './founding';
 import { registerAffiliateRoutes } from './affiliates';
 import { registerLegalRoutes } from './legal';
@@ -329,6 +330,8 @@ export async function buildHttpServer(deps: HttpDeps): Promise<FastifyInstance> 
   await registerVideoLinkRoutes(app, deps);
   // Joining an online session through a person's own Join link (funnels).
   await registerJoinRoutes(app, deps);
+  // A webinar's link anyone can use (/live/<key>): its door form saves a seat (http/webinar-door.ts).
+  await registerWebinarDoorRoutes(app, deps);
   // HandsFreeOS video calls: the team's and customers' tickets, asking to be let in, and LiveKit's webhooks.
   await registerVideoCallRoutes(app, deps);
   await registerSiteRoutes(app, deps);

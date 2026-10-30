@@ -12687,6 +12687,29 @@
                           "customerChooses": {
                             "default": false,
                             "type": "boolean"
+                          },
+                          "webinar": {
+                            "default": {},
+                            "type": "object",
+                            "properties": {
+                              "attendeeVideo": {
+                                "default": "off",
+                                "type": "string",
+                                "enum": [
+                                  "off",
+                                  "team",
+                                  "everyone"
+                                ]
+                              },
+                              "startingNow": {
+                                "default": true,
+                                "type": "boolean"
+                              },
+                              "missedFollowUp": {
+                                "default": true,
+                                "type": "boolean"
+                              }
+                            }
                           }
                         }
                       },
@@ -18539,6 +18562,27 @@
                               "type": "null"
                             }
                           ]
+                        },
+                        "format": {
+                          "type": "string",
+                          "enum": [
+                            "meeting",
+                            "webinar"
+                          ]
+                        },
+                        "attendeeVideo": {
+                          "type": "string",
+                          "enum": [
+                            "off",
+                            "team",
+                            "everyone"
+                          ]
+                        },
+                        "doorKey": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
                         }
                       },
                       "required": [
@@ -18549,7 +18593,10 @@
                         "hostUserId",
                         "aiNotes",
                         "startedAt",
-                        "endedAt"
+                        "endedAt",
+                        "format",
+                        "attendeeVideo",
+                        "doorKey"
                       ],
                       "additionalProperties": false
                     },
@@ -18560,12 +18607,66 @@
                     },
                     "name": {
                       "type": "string"
+                    },
+                    "rights": {
+                      "type": "object",
+                      "properties": {
+                        "format": {
+                          "type": "string",
+                          "enum": [
+                            "meeting",
+                            "webinar"
+                          ]
+                        },
+                        "maxPeople": {
+                          "type": "integer",
+                          "minimum": -9007199254740991,
+                          "maximum": 9007199254740991
+                        },
+                        "publish": {
+                          "type": "object",
+                          "properties": {
+                            "camera": {
+                              "type": "boolean"
+                            },
+                            "microphone": {
+                              "type": "boolean"
+                            },
+                            "screen": {
+                              "type": "boolean"
+                            }
+                          },
+                          "required": [
+                            "camera",
+                            "microphone",
+                            "screen"
+                          ],
+                          "additionalProperties": false
+                        },
+                        "attributes": {
+                          "type": "object",
+                          "propertyNames": {
+                            "type": "string"
+                          },
+                          "additionalProperties": {
+                            "type": "string"
+                          }
+                        }
+                      },
+                      "required": [
+                        "format",
+                        "maxPeople",
+                        "publish",
+                        "attributes"
+                      ],
+                      "additionalProperties": false
                     }
                   },
                   "required": [
                     "call",
                     "personId",
-                    "name"
+                    "name",
+                    "rights"
                   ],
                   "additionalProperties": false
                 }
@@ -18990,6 +19091,152 @@
                   },
                   "required": [
                     "changed"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/commands/video_call.set_attendee_video": {
+      "post": {
+        "operationId": "command_video_call_set_attendee_video",
+        "summary": "In a HandsFreeOS webinar, choose whether attendees may turn their cameras on, and whether only the team or everyone sees them.",
+        "tags": [
+          "commands"
+        ],
+        "description": "Risk level 1. Requires appointments.write. Emits video_call.attendee_video_changed.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "workspaceId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  },
+                  "callId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  },
+                  "attendeeVideo": {
+                    "type": "string",
+                    "enum": [
+                      "off",
+                      "team",
+                      "everyone"
+                    ]
+                  }
+                },
+                "required": [
+                  "workspaceId",
+                  "callId",
+                  "attendeeVideo"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "changed": {
+                      "type": "boolean"
+                    },
+                    "attendeeVideo": {
+                      "type": "string",
+                      "enum": [
+                        "off",
+                        "team",
+                        "everyone"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "changed",
+                    "attendeeVideo"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/commands/video_call.stage": {
+      "post": {
+        "operationId": "command_video_call_stage",
+        "summary": "In a HandsFreeOS webinar, bring an attendee on stage so they can talk and be on camera, or send them back to the audience.",
+        "tags": [
+          "commands"
+        ],
+        "description": "Risk level 1. Requires appointments.write. Emits video_call.stage_changed.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "workspaceId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  },
+                  "callId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  },
+                  "personId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  },
+                  "on": {
+                    "type": "boolean"
+                  }
+                },
+                "required": [
+                  "workspaceId",
+                  "callId",
+                  "personId",
+                  "on"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "changed": {
+                      "type": "boolean"
+                    },
+                    "onStage": {
+                      "type": "boolean"
+                    }
+                  },
+                  "required": [
+                    "changed",
+                    "onStage"
                   ],
                   "additionalProperties": false
                 }
@@ -111996,6 +112243,27 @@
                                   "type": "null"
                                 }
                               ]
+                            },
+                            "format": {
+                              "type": "string",
+                              "enum": [
+                                "meeting",
+                                "webinar"
+                              ]
+                            },
+                            "attendeeVideo": {
+                              "type": "string",
+                              "enum": [
+                                "off",
+                                "team",
+                                "everyone"
+                              ]
+                            },
+                            "doorKey": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
                             }
                           },
                           "required": [
@@ -112006,7 +112274,10 @@
                             "hostUserId",
                             "aiNotes",
                             "startedAt",
-                            "endedAt"
+                            "endedAt",
+                            "format",
+                            "attendeeVideo",
+                            "doorKey"
                           ],
                           "additionalProperties": false
                         },
@@ -112227,6 +112498,9 @@
                             "type": "integer",
                             "minimum": -9007199254740991,
                             "maximum": 9007199254740991
+                          },
+                          "onStage": {
+                            "type": "boolean"
                           }
                         },
                         "required": [
@@ -112240,7 +112514,8 @@
                           "askedAt",
                           "joinedAt",
                           "leftAt",
-                          "seconds"
+                          "seconds",
+                          "onStage"
                         ],
                         "additionalProperties": false
                       }
@@ -136927,11 +137202,40 @@
                                 "customerChooses": {
                                   "default": false,
                                   "type": "boolean"
+                                },
+                                "webinar": {
+                                  "type": "object",
+                                  "properties": {
+                                    "attendeeVideo": {
+                                      "default": "off",
+                                      "type": "string",
+                                      "enum": [
+                                        "off",
+                                        "team",
+                                        "everyone"
+                                      ]
+                                    },
+                                    "startingNow": {
+                                      "default": true,
+                                      "type": "boolean"
+                                    },
+                                    "missedFollowUp": {
+                                      "default": true,
+                                      "type": "boolean"
+                                    }
+                                  },
+                                  "required": [
+                                    "attendeeVideo",
+                                    "startingNow",
+                                    "missedFollowUp"
+                                  ],
+                                  "additionalProperties": false
                                 }
                               },
                               "required": [
                                 "options",
-                                "customerChooses"
+                                "customerChooses",
+                                "webinar"
                               ],
                               "additionalProperties": false
                             },

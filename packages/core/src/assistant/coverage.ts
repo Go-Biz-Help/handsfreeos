@@ -73,6 +73,8 @@ export const SCREEN_ACTIONS: Readonly<Record<string, ScreenAction>> = {
   'video_call.mute': {},
   'video_call.remove': {},
   'video_call.set_ai': {},
+  'video_call.set_attendee_video': {},
+  'video_call.stage': {},
   'video_call.turn_away': {},
   // ---- Money and plans ----
   'subscription.set_connection': {},

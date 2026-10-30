@@ -2791,6 +2791,14 @@ export const videoCalls = app.table('video_calls', {
   linkKeyHash: text('link_key_hash'),
   /** A call that isn't for an appointment: its own line on the customer's timeline. */
   activityId: uuid('activity_id').references(() => activities.id, { onDelete: 'set null' }),
+  /** meeting, or webinar (a session's call): set when the call is made (20261027019600). */
+  format: text('format').notNull().default('meeting'),
+  /** A webinar: attendees' cameras off, seen only by the team, or seen by everyone. */
+  attendeeVideo: text('attendee_video').notNull().default('off'),
+  /** A webinar: the key in its link anyone can use, `/live/<key>`. */
+  doorKey: text('door_key'),
+  /** A webinar: when the "starting now" message went out. */
+  startingNowAt: ts('starting_now_at'),
 });
 
 /** Who's in a video call: a teammate, a customer on their own Join link, or someone let in (20261027013000). */
@@ -2816,6 +2824,8 @@ export const videoCallPeople = app.table('video_call_people', {
   participantSid: text('participant_sid'),
   seconds: integer('seconds').notNull().default(0),
   ...timestamps(),
+  /** A webinar: brought on stage by the team, so their microphone and camera work (20261027019600). */
+  onStage: boolean('on_stage').notNull().default(false),
 });
 
 /**

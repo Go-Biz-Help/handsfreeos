@@ -25,6 +25,10 @@
  *   call, make a call with the customer and send them their own link (`video_call.start`). On it they come in as on
  *   a booking's Join link. The call is its own line on their timeline once it's over, with its transcript, summary
  *   and After the call.
+ * - **A session's call is a webinar** (HANDSFREEOS_WEBINARS_IMPLEMENTATION_PLAN.md, part 1): up to 500 people. The team
+ *   presents; attendees watch with their microphones off, a camera only when the team allows one
+ *   (`video_call.set_attendee_video`), and the team can bring one on stage (`video_call.stage`). What each person may
+ *   send is in their ticket (`rights`), and the worker changes it in LiveKit from those commands' events.
  */
 import { createHash, randomBytes } from 'node:crypto';
 import { and, asc, eq, inArray, lte, sql as dsql } from 'drizzle-orm';
@@ -50,20 +54,31 @@ import { defineCommand, defineQuery } from '../kernel/define';
 import { executeCommandWithin } from '../kernel/execute';
 import type { CommandContext, QueryContext } from '../kernel/types';
 import {
+  ATTENDEE_VIDEO_CHOICES,
   hostFirstName,
+  maxPeopleOf,
+  mayPublish,
   sideOfKind,
+  VIDEO_CALL_FORMATS,
   VIDEO_CALL_INVITE_CHANNELS,
   VIDEO_CALL_KINDS,
   VIDEO_CALL_LINK_KEY_LENGTH,
-  VIDEO_CALL_MAX_PEOPLE,
   VIDEO_CALL_PERSON_STATES,
   VIDEO_CALL_STATES,
+  VIDEO_CALL_WORDS,
+  videoCallAttributes,
   videoCallInviteChannel,
   videoCallInviteWords,
   videoCallLinkPath,
   videoCallTranscript,
+  WEBINAR_DOOR_KEY_LENGTH,
+  WEBINAR_MAX_ON_STAGE,
+  WEBINAR_WORDS,
+  type AttendeeVideo,
+  type VideoCallFormat,
   type VideoCallKind,
 } from '../meetings/video-calls';
+import { loadCalendar } from '../calendar/load';
 import { defaultNumber, isOptedOut, loadRegistrations, readiness } from '../messaging/store';
 import { logChannelActivity } from '../crm/activities';
 import { AppointmentLocation } from '../schemas/calendar';
@@ -104,6 +119,12 @@ const CallOut = z.object({
   aiNotes: z.boolean(),
   startedAt: isoDateTime.nullable(),
   endedAt: isoDateTime.nullable(),
+  /** A meeting, or a webinar (a session's call). */
+  format: z.enum(VIDEO_CALL_FORMATS),
+  /** A webinar: whether attendees may turn their cameras on, and who sees them. */
+  attendeeVideo: z.enum(ATTENDEE_VIDEO_CHOICES),
+  /** A webinar: the key in its link anyone can use (`/live/<key>`). */
+  doorKey: z.string().nullable(),
 });
 
 const PersonOut = z.object({
@@ -120,6 +141,8 @@ const PersonOut = z.object({
   leftAt: isoDateTime.nullable(),
   /** How long they've been in the call altogether, up to their last time leaving. */
   seconds: z.int(),
+  /** A webinar: an attendee the team brought on stage. */
+  onStage: z.boolean(),
 });
 
 const callOut = (c: CallRow): z.infer<typeof CallOut> => ({
@@ -131,6 +154,9 @@ const callOut = (c: CallRow): z.infer<typeof CallOut> => ({
   aiNotes: c.aiNotes,
   startedAt: iso(c.startedAt),
   endedAt: iso(c.endedAt),
+  format: formatOf(c),
+  attendeeVideo: attendeeVideoOf(c),
+  doorKey: c.doorKey,
 });
 
 const personOut = (p: PersonRow): z.infer<typeof PersonOut> => ({
@@ -145,7 +171,43 @@ const personOut = (p: PersonRow): z.infer<typeof PersonOut> => ({
   joinedAt: iso(p.joinedAt),
   leftAt: iso(p.leftAt),
   seconds: p.seconds,
+  onStage: p.onStage,
 });
+
+const formatOf = (c: CallRow): VideoCallFormat => (c.format === 'webinar' ? 'webinar' : 'meeting');
+const attendeeVideoOf = (c: CallRow): AttendeeVideo =>
+  (ATTENDEE_VIDEO_CHOICES as readonly string[]).includes(c.attendeeVideo)
+    ? (c.attendeeVideo as AttendeeVideo)
+    : 'off';
+
+/**
+ * What someone may do in the room, carried in their ticket: how many the room holds, what they may send, and the
+ * attributes every page reads (a webinar's format, its camera choice, whether they're on stage).
+ */
+const RoomRights = z.object({
+  format: z.enum(VIDEO_CALL_FORMATS),
+  maxPeople: z.int(),
+  publish: z.object({ camera: z.boolean(), microphone: z.boolean(), screen: z.boolean() }),
+  attributes: z.record(z.string(), z.string()),
+});
+export type VideoCallRoomRights = z.infer<typeof RoomRights>;
+
+export function rightsOf(
+  call: CallRow,
+  p: { readonly kind: string; readonly onStage: boolean },
+): VideoCallRoomRights {
+  const format = formatOf(call);
+  const attendeeVideo = attendeeVideoOf(call);
+  const kind = (VIDEO_CALL_KINDS as readonly string[]).includes(p.kind)
+    ? (p.kind as VideoCallKind)
+    : 'guest';
+  return {
+    format,
+    maxPeople: maxPeopleOf(format),
+    publish: mayPublish({ format, kind, onStage: p.onStage, attendeeVideo }),
+    attributes: videoCallAttributes({ format, attendeeVideo, onStage: p.onStage }),
+  };
+}
 
 /** The appointment's host (or its first person): who customers wait for, and whose name they see. */
 async function hostOf(tx: Tx, appointmentId: string): Promise<string | null> {
@@ -184,12 +246,37 @@ const callsOff = () =>
     'HandsFreeOS video calls aren’t on for this business yet. Ask HandsFreeOS support to turn them on, or use Zoom, Google Meet or your own link for now.',
   );
 
-const callFull = () =>
+const callFull = (call: CallRow) =>
   HfosError.rule(
     'video_call_full',
     409,
-    `This call is full: it has room for ${VIDEO_CALL_MAX_PEOPLE} people. Try again when someone leaves.`,
+    formatOf(call) === 'webinar' ? WEBINAR_WORDS.full : VIDEO_CALL_WORDS.full,
   );
+
+/** How many more the call holds before it's full. */
+const roomFor = (call: CallRow) => maxPeopleOf(formatOf(call));
+
+/**
+ * What a call for this appointment is made as: a session's is a webinar, with its calendar's camera choice and a link
+ * anyone can use; anything else is a meeting.
+ */
+async function madeAs(
+  tx: Tx,
+  ws: string,
+  appointmentId: string,
+): Promise<{ format: VideoCallFormat; attendeeVideo: AttendeeVideo; doorKey: string | null }> {
+  const [a] = await tx
+    .select({ kind: appointments.kind, calendarId: appointments.calendarId })
+    .from(appointments)
+    .where(and(eq(appointments.id, appointmentId), eq(appointments.workspaceId, ws)));
+  if (a?.kind !== 'session') return { format: 'meeting', attendeeVideo: 'off', doorKey: null };
+  const calendar = await loadCalendar(tx, ws, a.calendarId).catch(() => null);
+  return {
+    format: 'webinar',
+    attendeeVideo: calendar?.config.locations.webinar.attendeeVideo ?? 'off',
+    doorKey: randomKey(WEBINAR_DOOR_KEY_LENGTH),
+  };
+}
 
 /** The call for an appointment, made the first time it's asked for, its host kept in step with the appointment. */
 async function callForAppointment(
@@ -198,9 +285,10 @@ async function callForAppointment(
 ): Promise<{ call: CallRow; created: boolean }> {
   const ws = ctx.scope.workspaceId!;
   const host = await hostOf(ctx.tx, appointmentId);
+  const as = await madeAs(ctx.tx, ws, appointmentId);
   const [made] = await ctx.tx
     .insert(videoCalls)
-    .values({ workspaceId: ws, appointmentId, hostUserId: host })
+    .values({ workspaceId: ws, appointmentId, hostUserId: host, ...as })
     .onConflictDoNothing({
       target: videoCalls.appointmentId,
       where: dsql`appointment_id is not null`,
@@ -211,8 +299,8 @@ async function callForAppointment(
       type: 'video_call.opened',
       entityType: 'video_call',
       entityId: made.id,
-      payload: { appointmentId, hostUserId: host },
-      after: { appointmentId },
+      payload: { appointmentId, hostUserId: host, format: as.format },
+      after: { appointmentId, format: as.format },
     });
     return { call: made, created: true };
   }
@@ -288,6 +376,10 @@ const EnterOutput = z.object({
   name: z.string(),
   /** Who they're waiting for, by first name. */
   host: z.string().nullable(),
+  /** A meeting or a webinar: the page says what it's waiting for. */
+  format: z.enum(VIDEO_CALL_FORMATS),
+  /** In: what their ticket lets them do. */
+  rights: RoomRights.nullable(),
 });
 
 /** The customer at the door: a booking's attendee, or the customer a call that isn't for an appointment is with. */
@@ -397,6 +489,8 @@ export const videoCallEnter = defineCommand({
       personId: row?.id ?? null,
       name: row?.name ?? input.name,
       host,
+      format: formatOf(call),
+      rights: status === 'in' && row ? rightsOf(call, row) : null,
     });
 
     // Taken out by the team: they come back only by asking to be let in, like anyone else.
@@ -414,7 +508,7 @@ export const videoCallEnter = defineCommand({
       });
       return say('knocking', knock);
     }
-    if (inCall(list, mine?.id) >= VIDEO_CALL_MAX_PEOPLE) return say('full', mine ?? null);
+    if (inCall(list, mine?.id) >= roomFor(call)) return say('full', mine ?? null);
     const there = teamIsIn(list);
     const now = new Date();
     if (!mine) {
@@ -872,6 +966,8 @@ const JoinOutput = z.object({
   /** Their identity in the room. */
   personId: uuid,
   name: z.string(),
+  /** What their ticket lets them do: everything, on the team. */
+  rights: RoomRights,
 });
 
 /** A teammate joins from the appointment: straight in. A call that was ended starts again. */
@@ -891,8 +987,8 @@ export const videoCallJoin = defineCommand({
     let call = await lockCall(ctx, input.callId);
     const list = await peopleOf(ctx.tx, call.id);
     const mine = list.find((p) => p.kind === 'team' && p.userId === me);
-    if ((!mine || !connected(mine)) && inCall(list, mine?.id) >= VIDEO_CALL_MAX_PEOPLE)
-      throw callFull();
+    if ((!mine || !connected(mine)) && inCall(list, mine?.id) >= roomFor(call))
+      throw callFull(call);
     const name = (await userName(ctx.tx, me)) ?? 'Team member';
     const now = new Date();
     if (call.state === 'ended') {
@@ -935,7 +1031,12 @@ export const videoCallJoin = defineCommand({
         payload: { appointmentId: call.appointmentId, personRowId: row.id, userId: me },
         broadcast: false,
       });
-    return { call: callOut(call), personId: row.id, name: row.name };
+    return {
+      call: callOut(call),
+      personId: row.id,
+      name: row.name,
+      rights: rightsOf(call, row),
+    };
   },
 });
 
@@ -943,17 +1044,20 @@ export const videoCallJoin = defineCommand({
 
 const KEY_ALPHABET = '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz';
 
-/** A customer's own link key: random letters and digits, every one equally likely. */
-function linkKey(): string {
+/** A key of random letters and digits, every one equally likely: a customer's own link, a webinar's door. */
+function randomKey(length: number): string {
   let out = '';
-  while (out.length < VIDEO_CALL_LINK_KEY_LENGTH)
+  while (out.length < length)
     for (const b of randomBytes(48)) {
       // 248 is 62 × 4: anything above it would make the first letters likelier.
       if (b < 248) out += KEY_ALPHABET[b % 62];
-      if (out.length === VIDEO_CALL_LINK_KEY_LENGTH) break;
+      if (out.length === length) break;
     }
   return out;
 }
+
+/** A customer's own link key. */
+const linkKey = (): string => randomKey(VIDEO_CALL_LINK_KEY_LENGTH);
 
 /** The hash a customer's link key is kept as. */
 export const videoCallLinkKeyHash = (key: string): string =>
@@ -1177,7 +1281,7 @@ export const videoCallAdmit = defineCommand({
         `${p.name} isn’t waiting anymore, so there’s nobody to let in. They can ask again from their link.`,
       );
     const list = await peopleOf(ctx.tx, call.id);
-    if (inCall(list) >= VIDEO_CALL_MAX_PEOPLE) throw callFull();
+    if (inCall(list) >= roomFor(call)) throw callFull(call);
     await ctx.tx
       .update(videoCallPeople)
       .set({ state: 'admitted', admittedAt: new Date(), admittedBy: me })
@@ -1318,6 +1422,141 @@ export const videoCallEnd = defineCommand({
       payload: { appointmentId: call.appointmentId },
       before: { state: call.state },
       after: { state: 'ended' },
+    });
+    return { changed: true };
+  },
+});
+
+// ---------- webinars (HANDSFREEOS_WEBINARS_IMPLEMENTATION_PLAN.md, part 1) ----------
+
+const notAWebinar = () =>
+  HfosError.rule(
+    'not_a_webinar',
+    409,
+    'This call isn’t a webinar, so everyone in it can already talk and turn their camera on.',
+  );
+
+/**
+ * Attendees' cameras in a webinar (the owner's 4): off, on with only the team seeing them, or on with everyone seeing
+ * everyone. The worker changes what every attendee in the room may send from the event.
+ */
+export const videoCallSetAttendeeVideo = defineCommand({
+  name: 'video_call.set_attendee_video',
+  description:
+    'In a HandsFreeOS webinar, choose whether attendees may turn their cameras on, and whether only the team or everyone sees them.',
+  risk: 1,
+  input: z.object({
+    workspaceId: uuid,
+    callId: uuid,
+    attendeeVideo: z.enum(ATTENDEE_VIDEO_CHOICES),
+  }),
+  output: z.object({ changed: z.boolean(), attendeeVideo: z.enum(ATTENDEE_VIDEO_CHOICES) }),
+  permission: 'appointments.write',
+  scope: inWorkspace,
+  emits: ['video_call.attendee_video_changed'],
+  async handler(ctx, input) {
+    requireHuman(ctx);
+    const call = await lockCall(ctx, input.callId);
+    if (formatOf(call) !== 'webinar') throw notAWebinar();
+    const was = attendeeVideoOf(call);
+    if (was === input.attendeeVideo) return { changed: false, attendeeVideo: was };
+    await ctx.tx
+      .update(videoCalls)
+      .set({ attendeeVideo: input.attendeeVideo })
+      .where(eq(videoCalls.id, call.id));
+    await ctx.emit({
+      type: 'video_call.attendee_video_changed',
+      entityType: 'video_call',
+      entityId: call.id,
+      payload: { appointmentId: call.appointmentId, attendeeVideo: input.attendeeVideo },
+      before: { attendeeVideo: was },
+      after: { attendeeVideo: input.attendeeVideo },
+    });
+    return { changed: true, attendeeVideo: input.attendeeVideo };
+  },
+});
+
+/**
+ * Brings an attendee on stage in a webinar, so they can use their microphone and camera, or sends them back to the
+ * audience. Up to three at once beside the team. The worker changes what they may send from the event.
+ */
+export const videoCallStage = defineCommand({
+  name: 'video_call.stage',
+  description:
+    'In a HandsFreeOS webinar, bring an attendee on stage so they can talk and be on camera, or send them back to the audience.',
+  risk: 1,
+  input: PersonInput.extend({ on: z.boolean() }),
+  output: z.object({ changed: z.boolean(), onStage: z.boolean() }),
+  permission: 'appointments.write',
+  scope: inWorkspace,
+  emits: ['video_call.stage_changed'],
+  async handler(ctx, input) {
+    requireHuman(ctx);
+    const { call, p } = await lockPerson(ctx, input.callId, input.personId);
+    if (formatOf(call) !== 'webinar') throw notAWebinar();
+    if (p.kind === 'team')
+      throw HfosError.rule(
+        'video_call_team_on_stage',
+        409,
+        `${p.name} is on your team, so they can already talk and be on camera.`,
+      );
+    if (p.onStage === input.on) return { changed: false, onStage: p.onStage };
+    if (input.on) {
+      if (!connected(p))
+        throw HfosError.rule(
+          'video_call_not_in',
+          409,
+          `${p.name} isn’t in the webinar right now, so they can’t come on stage. Ask again once they’re back.`,
+        );
+      const list = await peopleOf(ctx.tx, call.id);
+      const onStage = list.filter((x) => x.onStage && connected(x) && x.id !== p.id).length;
+      if (onStage >= WEBINAR_MAX_ON_STAGE)
+        throw HfosError.rule('video_call_stage_full', 409, WEBINAR_WORDS.stageFull);
+    }
+    await ctx.tx
+      .update(videoCallPeople)
+      .set({ onStage: input.on })
+      .where(eq(videoCallPeople.id, p.id));
+    await ctx.emit({
+      type: 'video_call.stage_changed',
+      entityType: 'video_call',
+      entityId: call.id,
+      payload: { appointmentId: call.appointmentId, personRowId: p.id, onStage: input.on },
+      before: { onStage: p.onStage },
+      after: { name: p.name, onStage: input.on },
+    });
+    return { changed: true, onStage: input.on };
+  },
+});
+
+/**
+ * The worker sent a webinar's "starting now" messages (the owner's 24): the call keeps when, so they go once, however
+ * often the sweep looks.
+ */
+export const videoCallStartingTold = defineCommand({
+  name: 'video_call.starting_told',
+  description:
+    'Worker: a webinar’s “starting now” messages went to the people booked who weren’t in yet.',
+  risk: 0,
+  input: z.object({ workspaceId: uuid, callId: uuid, sent: z.int().min(0) }),
+  output: z.object({ changed: z.boolean() }),
+  permission: null,
+  actors: ['system'],
+  scope: inWorkspace,
+  emits: ['video_call.starting_told'],
+  async handler(ctx, input) {
+    const call = await lockCall(ctx, input.callId);
+    if (call.startingNowAt) return { changed: false };
+    await ctx.tx
+      .update(videoCalls)
+      .set({ startingNowAt: new Date() })
+      .where(eq(videoCalls.id, call.id));
+    await ctx.emit({
+      type: 'video_call.starting_told',
+      entityType: 'video_call',
+      entityId: call.id,
+      payload: { appointmentId: call.appointmentId, sent: input.sent },
+      broadcast: false,
     });
     return { changed: true };
   },
@@ -1466,6 +1705,8 @@ export const videoCallKnockStatus = defineQuery({
     status: z.enum(['waiting', 'in', 'turned_away', 'removed', 'left']),
     name: z.string(),
     host: z.string().nullable(),
+    /** In: what their ticket lets them do. */
+    rights: RoomRights.nullable(),
   }),
   permission: null,
   actors: ['system'],
@@ -1485,7 +1726,12 @@ export const videoCallKnockStatus = defineQuery({
         'We can’t find your request to join this call. Ask again from the call’s link.',
       );
     const status = knockStatus(call, p, list);
-    return { status, name: p.name, host: hostFirstName(await userName(ctx.tx, call.hostUserId)) };
+    return {
+      status,
+      name: p.name,
+      host: hostFirstName(await userName(ctx.tx, call.hostUserId)),
+      rights: status === 'in' ? rightsOf(call, p) : null,
+    };
   },
 });
 
@@ -1812,6 +2058,9 @@ export const videoCallCommands = [
   videoCallRemove,
   videoCallMute,
   videoCallEnd,
+  videoCallSetAttendeeVideo,
+  videoCallStage,
+  videoCallStartingTold,
   videoCallSetAi,
   videoCallHeard,
   videoCallKeepWords,

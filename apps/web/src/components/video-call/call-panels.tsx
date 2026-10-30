@@ -3,8 +3,17 @@
  * The side panels of a HandsFreeOS video call (docs/video-calls.md): the chat, and who's in the call. For the team,
  * who's asking to come in too, with Let in and Turn away, and Mute and Remove on everyone else. Chat isn't kept:
  * it goes with the call.
+ *
+ * In a webinar the team sees who's presenting and the audience, hands up first, with Bring on stage and Back to the
+ * audience; an attendee sees only who's presenting and how many are watching, never the other attendees.
  */
-import { VIDEO_CALL_ATTRIBUTES, VIDEO_CALL_WORDS, isPersonIdentity } from '@hfos/core';
+import {
+  VIDEO_CALL_ATTRIBUTES,
+  VIDEO_CALL_WORDS,
+  WEBINAR_WORDS,
+  isPersonIdentity,
+  roomRightsOf,
+} from '@hfos/core';
 import {
   useIsMuted,
   useParticipantAttribute,
@@ -18,7 +27,7 @@ import { Avatar } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { errorMessage } from '@/lib/api/errors';
 import { cn } from '@/lib/utils';
-import { actOn, type VideoCallGot, type VideoCallPerson } from './team-call';
+import { actOn, setOnStage, type VideoCallGot, type VideoCallPerson } from './team-call';
 import { toast } from './toast';
 import type { TeamSide } from './types';
 
@@ -145,19 +154,36 @@ export function ChatPanel({
 
 const KIND_LABEL: Record<VideoCallPerson['kind'], string> = VIDEO_CALL_WORDS.kinds;
 
+type PanelAct = Parameters<typeof actOn>[0] | 'stage_on' | 'stage_off';
+
+const presenting = (p: Participant) => {
+  const r = roomRightsOf(p.attributes);
+  return r.kind === 'team' || r.onStage;
+};
+const handUp = (p: Participant) => p.attributes[VIDEO_CALL_ATTRIBUTES.hand] === 'up';
+
 export function PeoplePanel({
   team,
   got,
   reload,
   onClose,
+  webinar = false,
 }: {
   /** The team's own: what they may do here. Null for a customer or a guest, who only see who's in. */
   team: TeamSide | null;
   got: VideoCallGot | null;
   reload: () => void;
   onClose: () => void;
+  /** A webinar: presenting and the audience apart, and attendees see only who's presenting. */
+  webinar?: boolean;
 }) {
-  const inRoom = useParticipants().filter((p) => isPersonIdentity(p.identity));
+  const everyone = useParticipants().filter((p) => isPersonIdentity(p.identity));
+  const stage = webinar ? everyone.filter(presenting) : everyone;
+  // The audience, hands up first: the team's to see, never another attendee's.
+  const audience = webinar
+    ? everyone.filter((p) => !presenting(p)).sort((a, b) => Number(handUp(b)) - Number(handUp(a)))
+    : [];
+  const inRoom = webinar && !team ? stage : everyone;
   const rows = new Map((got?.people ?? []).map((p) => [p.id, p]));
   // Asking to come in: someone waiting, or let in and on their way. A customer waiting goes in on their own now
   // that the team is here, so only someone on the call's link needs a button.
@@ -166,11 +192,14 @@ export function PeoplePanel({
       !inRoom.some((r) => r.identity === p.id) && (p.state === 'waiting' || p.state === 'admitted'),
   );
   const [busy, setBusy] = useState<string | null>(null);
-  const act = async (what: Parameters<typeof actOn>[0], personId: string) => {
+  const act = async (what: PanelAct, personId: string) => {
     if (!team || busy) return;
     setBusy(`${what}:${personId}`);
     try {
-      await actOn(what, { workspaceId: team.workspaceId, callId: team.callId, personId });
+      const body = { workspaceId: team.workspaceId, callId: team.callId, personId };
+      if (what === 'stage_on' || what === 'stage_off')
+        await setOnStage({ ...body, on: what === 'stage_on' });
+      else await actOn(what, body);
       reload();
     } catch (e) {
       toast.error(errorMessage(e));
@@ -227,21 +256,65 @@ export function PeoplePanel({
             ))}
           </section>
         ) : null}
-        <section data-testid="call-in">
-          <h3 className="mb-1.5 text-[12px] font-medium uppercase tracking-wide text-text-3">
-            In the call ({inRoom.length})
-          </h3>
-          {inRoom.map((p) => (
-            <InCall
-              key={p.identity}
-              participant={p}
-              row={rows.get(p.identity) ?? null}
-              team={team}
-              busy={busy}
-              onAct={(what) => void act(what, p.identity)}
-            />
-          ))}
-        </section>
+        {webinar ? (
+          <>
+            <section data-testid="call-presenting">
+              <h3 className="mb-1.5 text-[12px] font-medium uppercase tracking-wide text-text-3">
+                {WEBINAR_WORDS.presenting} ({stage.length})
+              </h3>
+              {stage.map((p) => (
+                <InCall
+                  key={p.identity}
+                  participant={p}
+                  row={rows.get(p.identity) ?? null}
+                  team={team}
+                  busy={busy}
+                  stage={roomRightsOf(p.attributes).onStage ? 'on' : null}
+                  onAct={(what) => void act(what, p.identity)}
+                />
+              ))}
+            </section>
+            <section className="mt-4" data-testid="call-audience-list">
+              <h3 className="mb-1.5 text-[12px] font-medium uppercase tracking-wide text-text-3">
+                {team ? `${WEBINAR_WORDS.audience} (${audience.length})` : WEBINAR_WORDS.audience}
+              </h3>
+              {team ? (
+                audience.map((p) => (
+                  <InCall
+                    key={p.identity}
+                    participant={p}
+                    row={rows.get(p.identity) ?? null}
+                    team={team}
+                    busy={busy}
+                    stage="off"
+                    onAct={(what) => void act(what, p.identity)}
+                  />
+                ))
+              ) : (
+                <p className="text-[13px] text-text-2" data-testid="call-watching">
+                  {WEBINAR_WORDS.watching(audience.length)}
+                </p>
+              )}
+            </section>
+          </>
+        ) : (
+          <section data-testid="call-in">
+            <h3 className="mb-1.5 text-[12px] font-medium uppercase tracking-wide text-text-3">
+              In the call ({inRoom.length})
+            </h3>
+            {inRoom.map((p) => (
+              <InCall
+                key={p.identity}
+                participant={p}
+                row={rows.get(p.identity) ?? null}
+                team={team}
+                busy={busy}
+                stage={null}
+                onAct={(what) => void act(what, p.identity)}
+              />
+            ))}
+          </section>
+        )}
       </div>
     </Panel>
   );
@@ -252,13 +325,16 @@ function InCall({
   row,
   team,
   busy,
+  stage,
   onAct,
 }: {
   participant: Participant;
   row: VideoCallPerson | null;
   team: TeamSide | null;
   busy: string | null;
-  onAct: (what: 'mute' | 'remove') => void;
+  /** A webinar's attendee: on stage (Back to the audience) or in the audience (Bring on stage). */
+  stage: 'on' | 'off' | null;
+  onAct: (what: 'mute' | 'remove' | 'stage_on' | 'stage_off') => void;
 }) {
   const micOff = useIsMuted({ participant: p, source: Track.Source.Microphone });
   const hand = useParticipantAttribute(VIDEO_CALL_ATTRIBUTES.hand, { participant: p }) === 'up';
@@ -271,13 +347,28 @@ function InCall({
           {p.isLocal ? `${name} (you)` : name}
           {hand ? <Hand size={13} className="flex-none text-warning" aria-label="Hand up" /> : null}
         </span>
-        {row ? <span className="text-[12px] text-text-3">{KIND_LABEL[row.kind]}</span> : null}
+        {row ? (
+          <span className="text-[12px] text-text-3">
+            {stage === 'on' ? WEBINAR_WORDS.onStage : KIND_LABEL[row.kind]}
+          </span>
+        ) : null}
       </span>
       {micOff ? (
         <MicOff size={15} className="flex-none text-text-3" aria-label="Microphone off" />
       ) : null}
       {team && !p.isLocal ? (
         <span className="flex flex-none gap-1">
+          {stage ? (
+            <Button
+              variant="ghost"
+              size="sm"
+              loading={busy === `stage_${stage === 'on' ? 'off' : 'on'}:${p.identity}`}
+              onClick={() => onAct(stage === 'on' ? 'stage_off' : 'stage_on')}
+              data-testid={stage === 'on' ? 'call-stage-off' : 'call-stage-on'}
+            >
+              {stage === 'on' ? WEBINAR_WORDS.backToAudience : WEBINAR_WORDS.bringOnStage}
+            </Button>
+          ) : null}
           {!micOff ? (
             <Button
               variant="ghost"

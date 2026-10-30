@@ -3,7 +3,7 @@
  * The pages around a HandsFreeOS video call (docs/video-calls.md): the business's name, logo and colour on top, a
  * small "Powered by HandsFreeOS" at the bottom (the owner's 3a), and what to say before and after the call itself.
  */
-import { VIDEO_CALL_WORDS } from '@hfos/core';
+import { VIDEO_CALL_WORDS, WEBINAR_WORDS } from '@hfos/core';
 import { CalendarOff, Hand, LinkIcon, LogOut, UserX, Video, WifiOff } from 'lucide-react';
 import type { ReactNode } from 'react';
 import { PublicFrame, PublicState } from '@/components/booking/public-shell';
@@ -56,12 +56,15 @@ export function Waiting({ title, children }: { title: string; children: ReactNod
 export function AfterCall({
   end,
   team,
+  webinar,
   onAgain,
   busy,
 }: {
   end: CallEnd | 'turned_away' | 'full';
   /** The team's own words where theirs differ: they can start an ended call again. */
   team?: boolean;
+  /** A webinar's own words, where they differ (it holds 500, not 10). */
+  webinar?: boolean;
   onAgain?: () => void;
   busy?: boolean;
 }) {
@@ -143,11 +146,11 @@ export function AfterCall({
         <PublicState
           tone="warning"
           icon={<Video size={20} />}
-          title="This call is full"
+          title={webinar ? WEBINAR_WORDS.doorFull : 'This call is full'}
           testId="call-full"
           action={again('Try again')}
         >
-          {VIDEO_CALL_WORDS.full}
+          {webinar ? WEBINAR_WORDS.full : VIDEO_CALL_WORDS.full}
         </PublicState>
       );
   }

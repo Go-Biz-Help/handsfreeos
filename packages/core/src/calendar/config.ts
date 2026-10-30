@@ -184,12 +184,27 @@ const Location = z.object({
   record: z.boolean().default(false),
 });
 
+/**
+ * A sessions calendar whose sessions are HandsFreeOS video calls runs each as a webinar
+ * (HANDSFREEOS_WEBINARS_IMPLEMENTATION_PLAN.md): what each session's call starts with. The presenter changes the
+ * cameras during the webinar too.
+ */
+const Webinar = z.object({
+  /** Attendees' cameras (the owner's 4): off, on with only the team seeing them, or on with everyone seeing. */
+  attendeeVideo: z.enum(['off', 'team', 'everyone']).default('off'),
+  /** At the start, everyone booked who isn't in yet gets their own Join link (the owner's 24). */
+  startingNow: z.boolean().default(true),
+  /** Anyone who missed it completely is told when the next session is, with a link to save a seat (24). */
+  missedFollowUp: z.boolean().default(true),
+});
+
 const Locations = z.object({
   options: z
     .array(Location)
     .max(10)
     .default(() => []),
   customerChooses: z.boolean().default(false),
+  webinar: Webinar.prefault({}),
 });
 
 const RequiredResource = z.object({ resourceId: id, quantity: z.int().min(1).max(100).default(1) });

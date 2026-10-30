@@ -3,18 +3,29 @@
  * Everyone on camera in a HandsFreeOS video call (docs/video-calls.md): a grid that fits the window, or a shared
  * screen big with everyone's camera beside it. Someone with their camera off shows as their initials. The AI's
  * listener (part 2) is in the room but never on the stage.
+ *
+ * A webinar (HANDSFREEOS_WEBINARS_IMPLEMENTATION_PLAN.md) is laid out around the presenter: a shared screen big when
+ * there is one, else whoever on stage spoke last (the first of the team to start with). The rest of the team and
+ * anyone on stage sit beside it. Attendees' cameras, when this page may see them, are a strip underneath, 12 at most.
  */
-import { VIDEO_CALL_ATTRIBUTES, isPersonIdentity } from '@hfos/core';
+import {
+  VIDEO_CALL_ATTRIBUTES,
+  WEBINAR_WORDS,
+  isPersonIdentity,
+  roomRightsOf,
+  type AttendeeVideo,
+} from '@hfos/core';
 import {
   isTrackReference,
   useIsMuted,
   useIsSpeaking,
   useParticipantAttribute,
+  useSpeakingParticipants,
   useTracks,
   VideoTrack,
   type TrackReferenceOrPlaceholder,
 } from '@livekit/components-react';
-import { Track } from 'livekit-client';
+import { Track, type Participant } from 'livekit-client';
 import { Hand, MicOff } from 'lucide-react';
 import { useEffect, useRef, useState, type RefObject } from 'react';
 import { Avatar } from '@/components/ui/avatar';
@@ -43,7 +54,22 @@ function useWide(el: RefObject<HTMLDivElement | null>): boolean {
   return wide;
 }
 
-export function CallStage({ alone }: { alone: string }) {
+/** A webinar's stage, as this page shows it. */
+export interface WebinarView {
+  /** Attendees' cameras: whether they may be on, and who sees them. */
+  readonly attendeeVideo: AttendeeVideo;
+  /** This page is the team's, which sees attendees' cameras whenever they're allowed. */
+  readonly team: boolean;
+}
+
+/** At most this many attendees' cameras show at once, in the strip under the presenter. */
+const AUDIENCE_SHOWN = 12;
+
+export function CallStage({ alone, webinar }: { alone: string; webinar?: WebinarView | null }) {
+  return webinar ? <WebinarStage view={webinar} /> : <MeetingStage alone={alone} />;
+}
+
+function MeetingStage({ alone }: { alone: string }) {
   const tracks = useTracks(
     [
       { source: Track.Source.Camera, withPlaceholder: true },
@@ -97,6 +123,96 @@ export function CallStage({ alone }: { alone: string }) {
         >
           {alone}
         </p>
+      ) : null}
+    </div>
+  );
+}
+
+/** On stage: the team, and anyone they brought up. */
+const presents = (p: Participant) => {
+  const r = roomRightsOf(p.attributes);
+  return r.kind === 'team' || r.onStage;
+};
+
+/** Whoever on stage spoke last, kept while they're quiet; null until someone on stage has spoken. */
+function useLastSpeaker(stage: readonly string[]): string | null {
+  const speaking = useSpeakingParticipants();
+  const loud = speaking.find((p) => stage.includes(p.identity))?.identity ?? null;
+  const [last, setLast] = useState<string | null>(null);
+  useEffect(() => {
+    if (loud) setLast(loud);
+  }, [loud]);
+  return last && stage.includes(last) ? last : null;
+}
+
+function WebinarStage({ view }: { view: WebinarView }) {
+  const tracks = useTracks(
+    [
+      { source: Track.Source.Camera, withPlaceholder: true },
+      { source: Track.Source.ScreenShare, withPlaceholder: false },
+    ],
+    { onlySubscribed: false },
+  ).filter((t) => isPersonIdentity(t.participant.identity));
+  const screens = tracks.filter(
+    (t) => t.source === Track.Source.ScreenShare && isTrackReference(t),
+  );
+  const stage = tracks.filter((t) => t.source === Track.Source.Camera && presents(t.participant));
+  const speaker = useLastSpeaker(stage.map((t) => t.participant.identity));
+  const big =
+    screens[0] ??
+    stage.find((t) => t.participant.identity === speaker) ??
+    stage.find((t) => roomRightsOf(t.participant.attributes).kind === 'team') ??
+    stage[0] ??
+    null;
+  const beside = [...screens.slice(1), ...stage].filter((t) => t !== big);
+  const seen = view.team ? view.attendeeVideo !== 'off' : view.attendeeVideo === 'everyone';
+  // Only cameras that are on; their own shows to them whoever else may see it.
+  const audience = tracks
+    .filter(
+      (t) =>
+        t.source === Track.Source.Camera &&
+        !presents(t.participant) &&
+        (seen || t.participant.isLocal) &&
+        isTrackReference(t) &&
+        !t.publication.isMuted,
+    )
+    .sort((a, b) => Number(b.participant.isLocal) - Number(a.participant.isLocal))
+    .slice(0, AUDIENCE_SHOWN);
+
+  return (
+    <div className="flex h-full min-h-0 w-full flex-col gap-2 p-2" data-testid="call-stage">
+      <div className="flex min-h-0 flex-1 flex-col gap-2 md:flex-row">
+        <div className="min-h-0 min-w-0 flex-1" data-testid="call-presenter">
+          {big ? (
+            <Tile trackRef={big} />
+          ) : (
+            <div className="flex h-full items-center justify-center rounded-card bg-[#20252e] px-6 text-center text-[13.5px] text-text-2">
+              {WEBINAR_WORDS.waitingFor}
+            </div>
+          )}
+        </div>
+        {beside.length ? (
+          <div className="flex h-[112px] flex-none gap-2 overflow-auto md:h-auto md:w-[220px] md:flex-col">
+            {beside.map((t) => (
+              <div key={keyOf(t)} className="aspect-video w-[168px] flex-none md:w-full">
+                <Tile trackRef={t} />
+              </div>
+            ))}
+          </div>
+        ) : null}
+      </div>
+      {audience.length ? (
+        <div
+          className="flex h-[88px] flex-none gap-2 overflow-x-auto md:h-[104px]"
+          aria-label={WEBINAR_WORDS.audience}
+          data-testid="call-audience"
+        >
+          {audience.map((t) => (
+            <div key={keyOf(t)} className="aspect-video h-full flex-none">
+              <Tile trackRef={t} />
+            </div>
+          ))}
+        </div>
       ) : null}
     </div>
   );

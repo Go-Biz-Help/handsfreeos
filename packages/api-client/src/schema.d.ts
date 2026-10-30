@@ -15417,6 +15417,46 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/commands/video_call.set_attendee_video": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * In a HandsFreeOS webinar, choose whether attendees may turn their cameras on, and whether only the team or everyone sees them.
+         * @description Risk level 1. Requires appointments.write. Emits video_call.attendee_video_changed.
+         */
+        post: operations["command_video_call_set_attendee_video"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/video_call.stage": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * In a HandsFreeOS webinar, bring an attendee on stage so they can talk and be on camera, or send them back to the audience.
+         * @description Risk level 1. Requires appointments.write. Emits video_call.stage_changed.
+         */
+        post: operations["command_video_call_stage"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/commands/video_call.start": {
         parameters: {
             query?: never;
@@ -27453,6 +27493,18 @@ export interface operations {
                                  */
                                 video?: "none" | "google_meet" | "zoom" | "handsfree";
                             }[];
+                            /** @default {} */
+                            webinar?: {
+                                /**
+                                 * @default off
+                                 * @enum {string}
+                                 */
+                                attendeeVideo?: "off" | "team" | "everyone";
+                                /** @default true */
+                                missedFollowUp?: boolean;
+                                /** @default true */
+                                startingNow?: boolean;
+                            };
                         };
                         /** @default {} */
                         notifications?: {
@@ -58973,7 +59025,12 @@ export interface operations {
                         call: {
                             aiNotes: boolean;
                             appointmentId: string | null;
+                            /** @enum {string} */
+                            attendeeVideo: "off" | "team" | "everyone";
+                            doorKey: string | null;
                             endedAt: string | null;
+                            /** @enum {string} */
+                            format: "meeting" | "webinar";
                             hostUserId: string | null;
                             /** Format: uuid */
                             id: string;
@@ -58985,6 +59042,19 @@ export interface operations {
                         name: string;
                         /** Format: uuid */
                         personId: string;
+                        rights: {
+                            attributes: {
+                                [key: string]: string;
+                            };
+                            /** @enum {string} */
+                            format: "meeting" | "webinar";
+                            maxPeople: number;
+                            publish: {
+                                camera: boolean;
+                                microphone: boolean;
+                                screen: boolean;
+                            };
+                        };
                     };
                 };
             };
@@ -59084,6 +59154,76 @@ export interface operations {
                     "application/json": {
                         aiNotes: boolean;
                         changed: boolean;
+                    };
+                };
+            };
+        };
+    };
+    command_video_call_set_attendee_video: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** @enum {string} */
+                    attendeeVideo: "off" | "team" | "everyone";
+                    /** Format: uuid */
+                    callId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @enum {string} */
+                        attendeeVideo: "off" | "team" | "everyone";
+                        changed: boolean;
+                    };
+                };
+            };
+        };
+    };
+    command_video_call_stage: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    callId: string;
+                    on: boolean;
+                    /** Format: uuid */
+                    personId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        changed: boolean;
+                        onStage: boolean;
                     };
                 };
             };
@@ -65315,6 +65455,17 @@ export interface operations {
                                          */
                                         video: "none" | "google_meet" | "zoom" | "handsfree";
                                     }[];
+                                    webinar: {
+                                        /**
+                                         * @default off
+                                         * @enum {string}
+                                         */
+                                        attendeeVideo: "off" | "team" | "everyone";
+                                        /** @default true */
+                                        missedFollowUp: boolean;
+                                        /** @default true */
+                                        startingNow: boolean;
+                                    };
                                 };
                                 notifications: {
                                     confirmation: {
@@ -88174,7 +88325,12 @@ export interface operations {
                         call: {
                             aiNotes: boolean;
                             appointmentId: string | null;
+                            /** @enum {string} */
+                            attendeeVideo: "off" | "team" | "everyone";
+                            doorKey: string | null;
                             endedAt: string | null;
+                            /** @enum {string} */
+                            format: "meeting" | "webinar";
                             hostUserId: string | null;
                             /** Format: uuid */
                             id: string;
@@ -88203,6 +88359,7 @@ export interface operations {
                             kind: "team" | "customer" | "guest";
                             leftAt: string | null;
                             name: string;
+                            onStage: boolean;
                             personId: string | null;
                             seconds: number;
                             /** @enum {string} */
