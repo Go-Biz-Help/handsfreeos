@@ -324,7 +324,7 @@ export interface PhoneAccountState {
   readonly accountSid: string | null;
   /** HandsFreeOS's parent Twilio account, which HighLevel asks for beside the sub-account's. */
   readonly parentAccountSid: string;
-  /** Why it was left on when someone tried to turn it off, in words. */
+  /** Why the switch didn't do what was last asked, in words: why it was left on, or couldn't be turned on. */
   readonly lastError: string | null;
 }
 
