@@ -101,16 +101,17 @@ export const videoCallScoreLeads = defineCommand({
     const leads = pollLeadsOf(definition);
 
     // The end is when the team finished: the last of them to leave (or the call's end, should none have joined).
-    const [team] = await rows<{ ended: Date | null }>(
+    const [team] = await rows<{ ended: Date | string | null }>(
       ctx.tx,
       sql`select max(left_at) as ended from app.video_call_people
           where video_call_id = ${call.id} and kind = 'team' and joined_at is not null`,
     );
-    const end = (team?.ended ?? call.endedAt ?? new Date()).getTime();
+    // Raw SQL gives a time as text, so each goes through new Date().
+    const end = new Date(team?.ended ?? call.endedAt ?? Date.now()).getTime();
     const came = await rows<{
       person_id: string;
       seconds: number;
-      left_at: Date | null;
+      left_at: Date | string | null;
       first_name: string | null;
       last_name: string | null;
     }>(
@@ -151,7 +152,8 @@ export const videoCallScoreLeads = defineCommand({
 
     const counts: Record<LeadLabel, number> = { hot: 0, warm: 0, cold: 0 };
     for (const person of came) {
-      const stayed = !!person.left_at && person.left_at.getTime() >= end - STAYED_GRACE_MS;
+      const stayed =
+        !!person.left_at && new Date(person.left_at).getTime() >= end - STAYED_GRACE_MS;
       const sheet = sheets.get(person.person_id) ?? null;
       const score = scoreLead(definition, sheet?.answers ?? {}, stayed);
       counts[score.label] += 1;

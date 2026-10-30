@@ -222,7 +222,7 @@ interface Seat extends Record<string, unknown> {
   label: string;
   follow_up: string;
   outcome: string | null;
-  scored_at: Date;
+  scored_at: Date | string;
   reason: string | null;
   parts: { what?: unknown }[] | null;
   what: string | null;
@@ -360,7 +360,7 @@ export const webinarTextHotJob: JobHandler = async (ctx) => {
       task: {
         purpose: 'webinar_hot',
         webinar: seat.what ?? 'The webinar',
-        endedAt: seat.scored_at.getTime(),
+        endedAt: new Date(seat.scored_at).getTime(),
         answers: (seat.parts ?? [])
           .map((p) => (typeof p.what === 'string' ? p.what : ''))
           .filter(Boolean),
@@ -377,7 +377,7 @@ export const webinarTextHotJob: JobHandler = async (ctx) => {
       sql`select outcome from app.ai_teammate_runs
           where workspace_id = ${scope.workspaceId} and person_id = ${seat.person_id}
             and triggered_by = ${WEBINAR_TEXT_HOT_TRIGGER}
-            and started_at >= ${seat.scored_at.toISOString()}::timestamptz
+            and started_at >= ${new Date(seat.scored_at).toISOString()}::timestamptz
           order by started_at desc limit 1`,
     ),
   );
