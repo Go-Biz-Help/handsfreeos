@@ -23,6 +23,7 @@
  */
 import { STOP_KEYWORDS } from './sms';
 import type { OptInPath } from './consent';
+import { tradingName } from './preflight';
 
 export type IssueSeverity = 'blocker' | 'warning';
 
@@ -294,8 +295,18 @@ function legalNameIssue(draft: A2pDraft): A2pIssue | null {
     field: 'legalName',
     severity: 'warning',
     message: 'Is this exactly the name on your EIN letter, including LLC or Inc?',
-    why: 'The carrier compares this against IRS records character by character. "Lone Star Heating" fails where "Lone Star Heating LLC" passes.',
+    why: 'The carrier compares this against IRS records character by character. "Lone Star Heating" fails where "Lone Star Heating LLC" passes. If customers know you by another name (a DBA), still put the legal name here: we tell the carriers the other name too.',
   };
+}
+
+/**
+ * Who the carriers are told is texting: "Go Biz Help LLC (doing business as HandsFreeOS)" for a business
+ * customers know by another name (`tradingName`), or the legal name alone. Campaign descriptions start with it,
+ * so the legal name the brand was checked against and the name the texts are signed with arrive together.
+ */
+export function senderForCarriers(legalName: string, displayName?: string | null): string {
+  const dba = tradingName(legalName, displayName);
+  return dba ? `${legalName.trim()} (doing business as ${dba})` : legalName.trim();
 }
 
 const EIN_RE = /^[0-9]{2}-?[0-9]{7}$/;

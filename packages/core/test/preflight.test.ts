@@ -20,6 +20,7 @@ import {
   readConsentBox,
   showsConsentBox,
   termsGaps,
+  tradingName,
   type FetchedPage,
 } from '../src/messaging/preflight';
 import { smsConsentWords } from '../src/messaging/consent';
@@ -117,6 +118,36 @@ describe('the website', () => {
     expect(check).toMatchObject({ ok: false, severity: 'warning' });
     expect(check.detail).toMatch(/Go Biz Help/);
     expect(checkWebsite(page(), ['Lone Star HVAC LLC']).ok).toBe(true);
+  });
+
+  it('asks a business with a DBA to show both names, so the reviewer can tie them together', () => {
+    const both = page({
+      html: `<html><body>${'HandsFreeOS answers your leads. '.repeat(10)}<footer>HandsFreeOS is a product of Go Biz Help LLC.</footer></body></html>`,
+    });
+    expect(checkWebsite(both, ['HandsFreeOS', 'Go Biz Help LLC'], 'Go Biz Help LLC').ok).toBe(true);
+
+    const dbaOnly = page({
+      html: `<html><body>${'HandsFreeOS answers your leads. '.repeat(10)}</body></html>`,
+    });
+    const check = checkWebsite(dbaOnly, ['HandsFreeOS', 'Go Biz Help LLC'], 'Go Biz Help LLC');
+    expect(check).toMatchObject({ ok: false, severity: 'warning' });
+    expect(check.detail).toMatch(/couldn’t find “Go Biz Help LLC”/);
+    expect(check.detail).toMatch(/HandsFreeOS is owned and run by Go Biz Help LLC/);
+
+    // The same name with or without its LLC is not a DBA, so one of them on the page is enough.
+    expect(
+      checkWebsite(page(), ['Lone Star HVAC', 'Lone Star HVAC LLC'], 'Lone Star HVAC LLC').ok,
+    ).toBe(true);
+  });
+
+  it('calls a name a DBA only when it is clearly a different name', () => {
+    expect(tradingName('Go Biz Help LLC', 'HandsFreeOS')).toBe('HandsFreeOS');
+    expect(tradingName('Dale Rivera', 'Rivera Plumbing')).toBe('Rivera Plumbing');
+    expect(tradingName('Lone Star HVAC LLC', 'Lone Star HVAC')).toBeNull();
+    expect(tradingName('Lone Star Heating LLC', 'Lone Star')).toBeNull();
+    expect(tradingName('Go Biz Help LLC', 'GoBizHelp')).toBeNull();
+    expect(tradingName('', 'HandsFreeOS')).toBeNull();
+    expect(tradingName('Go Biz Help LLC', null)).toBeNull();
   });
 
   it('finds a name however it is spaced, and by its first two words', () => {

@@ -18,6 +18,7 @@ import {
   sampleHasOptOut,
   sampleNamesBusiness,
   sampleSuggestions,
+  senderForCarriers,
   sensitiveFlags,
   type A2pDraft,
 } from '../src/messaging/a2p';
@@ -136,6 +137,22 @@ describe('the business the carrier looks up', () => {
     );
     expect(issues).toHaveLength(1);
     expect(issues[0]!.severity).toBe('warning');
+  });
+
+  it('tells a business with a DBA to keep its legal name here, when the name has no LLC or Inc', () => {
+    const [issue] = issuesFor(
+      checkDraft({ ...good, legalName: 'HandsFreeOS' }, 'HandsFreeOS'),
+      'legalName',
+    );
+    expect(issue?.why).toMatch(/DBA/);
+  });
+
+  it('names a business with a DBA both ways for the carriers, and one without it once', () => {
+    expect(senderForCarriers('Go Biz Help LLC', 'HandsFreeOS')).toBe(
+      'Go Biz Help LLC (doing business as HandsFreeOS)',
+    );
+    expect(senderForCarriers('Lone Star HVAC LLC', 'Lone Star HVAC')).toBe('Lone Star HVAC LLC');
+    expect(senderForCarriers(' Lone Star HVAC LLC ')).toBe('Lone Star HVAC LLC');
   });
 
   it('blocks a registration with no website for the reviewer to open', () => {

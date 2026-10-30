@@ -622,7 +622,9 @@ export const assistantTools = [
       kind: z
         .enum(['a2p_10dlc', 'toll_free_verification'])
         .describe('a2p_10dlc for a local number'),
-      legalName: text(120).describe('The business name as it is registered'),
+      legalName: text(120).describe(
+        'The legal name exactly as on the IRS letter, with LLC or Inc, even when customers know the business by another name (a DBA): the carriers are told the name customers know as well',
+      ),
       businessType: z.enum(['llc', 'corporation', 'sole_proprietor', 'partnership', 'non_profit']),
       ein: text(10)
         .nullable()
