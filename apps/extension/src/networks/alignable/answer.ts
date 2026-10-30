@@ -60,10 +60,10 @@ const buttonIn = (row: Element, words: RegExp): HTMLElement | null =>
     (control) => visible(control) && words.test(nameOf(control)),
   ) ?? null;
 
-/** A link that goes somewhere, which may open another page. */
-const goesSomewhere = (control: Element): boolean => {
+/** A link to another page on Alignable, which may open it: never one only to a spot on this page, nor a script. */
+const goesSomewhere = (control: Element, page: string): boolean => {
   const href = control.getAttribute('href');
-  return href !== null && href !== '#' && !href.startsWith('javascript:');
+  return href !== null && !href.startsWith('#') && urlOf(href, page) !== null;
 };
 
 /**
@@ -83,7 +83,7 @@ export async function answerOnRequests(
   const press = buttonIn(row, words);
   if (!press) return 'none';
   press.click();
-  if (goesSomewhere(press)) return 'done';
+  if (goesSomewhere(press, href)) return 'done';
   await pause(SETTLE_MS);
   const answered = () => {
     const now = requestRowFor(doc, href, them);
@@ -103,6 +103,6 @@ export async function answerOnRequests(
   if (next === 'answered') return 'done';
   if (!next) return 'not_sent';
   next.click();
-  if (goesSomewhere(next)) return 'done';
+  if (goesSomewhere(next, href)) return 'done';
   return (await waitFor(() => (answered() ? true : null), WAIT_MS)) ? 'done' : 'not_sent';
 }

@@ -177,6 +177,29 @@ describe('answering a connection request on Alignable', () => {
     expect(pressed).toEqual(['Ignore avery']);
   });
 
+  it('takes a link to another page as answered at once, and waits on a script link for the row to go', async () => {
+    const { doc, pressed } = requests();
+    const [samRow, averyRow] = [...doc.querySelectorAll('tbody tr')];
+    samRow!
+      .querySelector('button')!
+      .insertAdjacentHTML('beforebegin', '<a href="/biz/my_network/accept?id=43">Accept</a>');
+    samRow!.querySelector('button')!.remove();
+    averyRow!
+      .querySelectorAll('button')[1]!
+      .insertAdjacentHTML('beforebegin', '<a href="javascript:void(0)">Ignore</a>');
+    averyRow!.querySelectorAll('button')[1]!.remove();
+    // Alignable's script answers it a moment later.
+    averyRow!.querySelector('a[href^="javascript"]')!.addEventListener('click', () => {
+      pressed.push('Ignore avery');
+      setTimeout(() => averyRow!.remove(), 1_000);
+    });
+    expect(await answerOnRequests(doc, REQUESTS, sam, 'confirm')).toBe('done');
+    expect(requestRowFor(doc, REQUESTS, sam)).not.toBeNull();
+    expect(await answerOnRequests(doc, REQUESTS, avery, 'delete')).toBe('done');
+    expect(requestRowFor(doc, REQUESTS, avery)).toBeNull();
+    expect(pressed).toEqual(['Ignore avery']);
+  });
+
   it('presses nothing for someone with no row, or anywhere but Requests', async () => {
     const { doc, pressed } = requests();
     const other = { id: '99', username: 'austin-tx-other', url: `${AL}/austin-tx/other` };
