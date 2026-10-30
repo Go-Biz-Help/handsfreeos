@@ -96,6 +96,13 @@ export async function readThem(job: Job, who: Who): Promise<ReadThem> {
   };
 }
 
+/**
+ * Whether a batch of checks leaves more for later today (decision 126): it was given all it asked for, and today's room
+ * holds more, as on a day the goal needs more good fits (up to the kit's `checksMost`).
+ */
+export const moreToCome = (next: Pick<ChecksNext, 'people' | 'today' | 'perDay'>, most: number) =>
+  next.people.length >= most && next.today + next.people.length < next.perDay;
+
 /** How it went, in words for the person. */
 function summary(sent: number, missing: number): string {
   const parts = [`Checked ${counted(sent, 'person', 'people')} for the AI.`];
@@ -194,5 +201,9 @@ export async function checkFriends(
       await pause(paced(PACE_MS));
     }
   }
-  return { line: `Done. ${summary(sent, missing)}`, warned: false };
+  return {
+    line: `Done. ${summary(sent, missing)}`,
+    warned: false,
+    ...(moreToCome(next, most) ? { again: true } : {}),
+  };
 }

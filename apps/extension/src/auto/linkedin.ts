@@ -100,6 +100,8 @@ import {
   type BeforeDay,
 } from './lists';
 import {
+  afterDaily,
+  AGAIN_WORDS,
   freshState,
   gapAfter,
   HELPFUL_AGAIN_MS,
@@ -110,7 +112,14 @@ import {
   needOf,
   networkDay,
   networkWaitWords,
+  nextRound,
   nextStart,
+  repliedAfter,
+  roundDue,
+  soonestAgain,
+  stillReplied,
+  waitsAgain,
+  withReplied,
   workKey,
   workLeft,
   type AutoState,
@@ -905,18 +914,33 @@ export function linkedInWorkLeft(
     readonly partners?: readonly TodayListItem[];
   },
   tried: readonly string[],
+  replied: readonly string[] = [],
 ): Work[] {
-  return workLeft({ ...list, auto: list.auto.filter((k) => LINKEDIN_AUTO.includes(k)) }, tried);
+  return workLeft(
+    { ...list, auto: list.auto.filter((k) => LINKEDIN_AUTO.includes(k)) },
+    tried,
+    replied,
+  );
 }
 
 // ------------------------------------------------------------------------------------------------- the once-a-day jobs
 
 /** The once-a-day job to do next on LinkedIn: the first not done today. */
 export const nextLinkedInDaily = (
-  state: Pick<AutoState, 'daily'>,
+  state: Pick<AutoState, 'daily' | 'againAt'>,
   passOver: readonly LinkedInDaily[] = [],
+  now = Date.now(),
 ): LinkedInDaily | null =>
-  LINKEDIN_DAILY.find((job) => state.daily?.[job] === undefined && !passOver.includes(job)) ?? null;
+  LINKEDIN_DAILY.find(
+    (job) =>
+      state.daily?.[job] === undefined && !passOver.includes(job) && !waitsAgain(state, job, now),
+  ) ?? null;
+
+/**
+ * LinkedIn's jobs that find people, done again in a round while it needs more good fits (decision 126, plan.ts
+ * `nextRound`): LinkedIn’s post search with the next words, who reacted to and commented on good posts, and their checks.
+ */
+export const LINKEDIN_FINDING: readonly LinkedInDaily[] = ['posts', 'post_people', 'found_checks'];
 
 /** A job that notes a page it couldn't read with its outline (decision 74): its own way to, or the runner's. */
 const reporting = (job: Job, kind: LinkedInDaily): Job => ({
@@ -961,6 +985,7 @@ export async function runLinkedInDaily(kind: LinkedInDaily, job: Job): Promise<J
           type: 'hfos-post-words',
           workspaceId: job.businessId,
           platform: PLATFORM,
+          ...(job.round ? { round: job.round } : {}),
         }),
       ).words;
       // A search that gives no post its link is noted with the page (decision 123).
@@ -1070,12 +1095,27 @@ async function go(): Promise<void> {
   // Reads that need the screen wait till the person is away from their computer (decision 120).
   const away = await awayNow();
   const passOver = putOff.passOver(away);
-  const daily = choices.collect ? nextLinkedInDaily(state, passOver) : null;
+  let daily = choices.collect ? nextLinkedInDaily(state, passOver, at) : null;
+  // Short of good fits once the day's reading is done (decision 126, answer 6a): it finds people again, with the next
+  // search words, and checks them.
+  if (
+    choices.collect &&
+    !before &&
+    !daily &&
+    !passOver.some((job) => state.daily?.[job] === undefined) &&
+    roundDue(state, at)
+  ) {
+    state = await setState(nextRound(state, LINKEDIN_FINDING, at));
+    daily = nextLinkedInDaily(state, passOver, at);
+  }
   const reading = before !== null || daily !== null;
   // The morning's reading and the list take turns (decision 123): a step on the list now, when there's one, after a
   // part of the reading went last.
   if (listTurn(state, reading, holdsTheDay(before))) {
-    const left = await listNow(to.businessId, state.tried);
+    const left = await listNow(to.businessId, state.tried, state.replied);
+    // Who wrote back and isn't on what's left gives the reading its turn back (decision 125).
+    const replied = stillReplied(state.replied ?? [], left);
+    if (replied.length !== (state.replied ?? []).length) state = await setState({ replied });
     if (left[0])
       return workNext(left, {
         businessId: to.businessId,
@@ -1150,21 +1190,27 @@ async function go(): Promise<void> {
     }
   }
 
-  const left = await listNow(to.businessId, state.tried);
+  const left = await listNow(to.businessId, state.tried, state.replied);
   if (!left[0]) {
     await closeWindow();
     // What waits for them to be away is looked at again sooner.
     const waiting = choices.collect
       ? waitingWords(waitingFor(passOver, state.daily, DAILY_NAMES))
       : null;
+    // The checks' next batch, when one's to come today (decision 126).
+    const again = choices.collect ? soonestAgain(await stateNow(), at) : null;
     await say(
-      waiting
-        ? `${state.tried.length ? `The rest of today on ${NAME} is done.` : `Nothing on your ${NAME} list for it to do yet.`} ${waiting}`
-        : state.tried.length
-          ? `Done for today on ${NAME}. It looks again within the hour for anything new.`
-          : `Nothing on your ${NAME} list for it to do yet.`,
+      `${
+        waiting
+          ? `${state.tried.length ? `The rest of today on ${NAME} is done.` : `Nothing on your ${NAME} list for it to do yet.`} ${waiting}`
+          : state.tried.length
+            ? `Done for today on ${NAME}. It looks again within the hour for anything new.`
+            : `Nothing on your ${NAME} list for it to do yet.`
+      }${again !== null ? ` ${AGAIN_WORDS}` : ''}`,
     );
-    return goAt(at + (waiting ? AWAY_AGAIN_MS : 60 * 60_000));
+    return goAt(
+      Math.min(at + (waiting ? AWAY_AGAIN_MS : 60 * 60_000), ...(again !== null ? [again] : [])),
+    );
   }
   return workNext(left, {
     businessId: to.businessId,
@@ -1177,14 +1223,21 @@ async function go(): Promise<void> {
 }
 
 /** Asks for LinkedIn's list for today, and gives what's left on it for its runner (`linkedInWorkLeft`). */
-async function listNow(businessId: string, tried: readonly string[]): Promise<Work[]> {
+async function listNow(
+  businessId: string,
+  tried: readonly string[],
+  replied: readonly string[] = [],
+): Promise<Work[]> {
   const list: TodayList = await call(
     api().POST('/v1/queries/outreach.today', {
       body: { workspaceId: businessId, platform: PLATFORM },
     }),
     businessId,
   );
-  return linkedInWorkLeft(list, tried);
+  // Whether LinkedIn needs more good fits today (decision 126): it finds people again once the day's reading is done.
+  const more = list.goal?.more === true;
+  if ((await stateNow()).more !== more) await setState({ more });
+  return linkedInWorkLeft(list, tried, replied);
 }
 
 /**
@@ -1239,7 +1292,11 @@ async function workNext(
     'done' in outcome && outcome.done
       ? { ...state.done, [kind]: (state.done[kind] ?? 0) + 1 }
       : state.done;
-  await setState({ tried: [...state.tried, workKey(work)], done });
+  await setState({
+    tried: [...state.tried, workKey(work)],
+    done,
+    replied: repliedAfter(state.replied ?? [], work),
+  });
   if ('stop' in outcome) {
     await closeWindow();
     await say(outcome.stop, { stopped: 'warning' });
@@ -1295,7 +1352,7 @@ async function beforeTheDay(step: BeforeDay, businessId: string): Promise<JobEnd
   // The morning's invitations, and the first check, stand for today's once-a-day ones.
   const stands =
     !end.failed && (key === 'requests' || key === 'checks')
-      ? { daily: { ...state.daily, [key]: end.line } }
+      ? afterDaily(state, key, end, Date.now(), Math.random())
       : {};
   await setState({ before: { ...state.before, [key]: end.line }, ...stands });
   return end;
@@ -1306,7 +1363,11 @@ async function collect(kind: LinkedInDaily, businessId: string): Promise<JobEnd>
   await say(DAILY_DOING[kind], { working: true });
   let end: JobEnd;
   try {
-    end = await runLinkedInDaily(kind, jobFor(businessId));
+    // A round of finding again asks for the next search words (decision 126).
+    end = await runLinkedInDaily(kind, {
+      ...jobFor(businessId),
+      round: (await stateNow()).round ?? 0,
+    });
   } catch (error) {
     if (error instanceof Refused) throw error;
     end = isNotAway(error)
@@ -1318,7 +1379,8 @@ async function collect(kind: LinkedInDaily, businessId: string): Promise<JobEnd>
   // Put off till they're away (decision 120): not done for the day, so it's tried again then.
   if (end.away) return end;
   const state = await stateNow();
-  await setState({ daily: { ...state.daily, [kind]: end.line } });
+  // A batch of checks with more of today's room left: the next later on (decision 126).
+  await setState(afterDaily(state, kind, end, Date.now(), Math.random()));
   return end;
 }
 
@@ -1367,6 +1429,16 @@ export async function linkedInTick(): Promise<void> {
 }
 
 const tick = linkedInTick;
+
+/**
+ * Someone wrote back on LinkedIn (decision 125, ../hfos/replies.ts): their reply is drafted next, now, before the next
+ * step's time, or as soon as the go under way ends. The day's own rules still say whether it goes at all.
+ */
+export async function linkedInReplied(profileIds: readonly string[]): Promise<void> {
+  const state = await stateNow();
+  await setState({ replied: withReplied(state.replied ?? [], profileIds) });
+  void tick();
+}
 
 /** When the background starts: it looks once, and the beat wakes it after. */
 export async function wakeLinkedIn(): Promise<void> {

@@ -4,7 +4,8 @@
  *
  * - **The day's report** (`outreach.day_report`, one job a person): at the end of their working hours on a working
  *   day, their three numbers today against the target: "Today: 14 messages, 2 said yes, 1 booked. 1 more message hits
- *   your target." Only on a day with something to tell, and only while it's on (Settings → General; on to start). It's
+ *   your target." With the networks that fell short of the day's first messages, and why (decision 126). Only on a
+ *   day with something to tell, and only while it's on (Settings → General; on to start). It's
  *   armed when they start their day or save their settings, and by the morning push for whoever noted a step lately,
  *   and comes back the next working day while they keep noting steps.
  * - **The week's review** (`outreach.review`, one job a business): on Monday at the morning push's hour (8 when that's
@@ -17,11 +18,11 @@
  * Each push goes to the person alone, on their add-ons switch.
  */
 import {
-  anyNumbers,
   checkedReview,
   dayReportDue,
   dayReportWords,
   nextDayEnd,
+  reportWorthIt,
   REVIEW_SCHEMA,
   REVIEW_SYSTEM,
   ReviewAnswer,
@@ -136,14 +137,15 @@ export async function dayReportJob(ctx: AddonJobContext): Promise<JobResult> {
   const due = dayReportDue(now.hours, now.timezone, ctx.now);
   if (due) {
     const day = await dayOf(ctx, userId, due);
-    if (day && anyNumbers(day.numbers))
+    // A day with nothing sent still says which networks fell short, and why (decision 126).
+    if (day && reportWorthIt(day))
       await asWorker(ctx.db, ctx.scope, (tx) =>
         pushAddonNotice(ctx, tx, {
           // One a person a day: run again, it's the same push.
           key: `day-report:${ctx.scope.workspaceId}:${userId}:${due}`,
           userIds: [userId],
           permission: 'outreach.use',
-          ...dayReportWords(day.numbers, day.target),
+          ...dayReportWords(day.numbers, day.target, day.short),
           href: `${RESULTS_HREF}&period=today`,
           collapseKey: `day-report-${userId}`,
         }),

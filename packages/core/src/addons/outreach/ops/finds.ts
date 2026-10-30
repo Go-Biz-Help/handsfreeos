@@ -40,6 +40,7 @@ import {
   skipWordIn,
   type FindHow,
 } from '../finds';
+import { SEARCH_AGAIN } from '../goal';
 import { outreachAddon } from '../manifest';
 import { NETWORKS, type Platform } from '../networks';
 import {
@@ -57,6 +58,7 @@ import {
   findsWaiting,
   findToCheck,
   likesBehind,
+  moreToday,
   myOwnProfile,
   perDayFor,
   stillToReach,
@@ -73,7 +75,7 @@ import {
 } from './common';
 import { playbooksInUse } from './friends';
 import { findsByTopic } from './live';
-import { startOfToday } from './tidy';
+import { startOfToday, warningOf } from './tidy';
 
 const DAY = 86_400_000;
 const ago = (now: number, days: number) => new Date(now - days * DAY).toISOString();
@@ -341,9 +343,18 @@ export const postsPeopleNext = defineAddonQuery(outreachAddon, {
     const me = requireHuman(ctx).userId;
     const ws = ctx.scope.workspaceId!;
     const now = Date.now();
-    const perDay = NETWORKS[input.platform].postPeoplePerDay ?? 0;
-    if (!perDay) return { posts: [], today: 0, perDay: 0 };
+    const usual = NETWORKS[input.platform].postPeoplePerDay ?? 0;
+    if (!usual) return { posts: [], today: 0, perDay: 0 };
     const todayStart = await startOfToday(ctx, now);
+    // As many again for each search again on a day the goal needs more good fits (decision 126, answer 6a).
+    const more = await moreToday(
+      ctx,
+      me,
+      input.platform,
+      now,
+      await warningOf(ctx, me, input.platform, todayStart, now),
+    );
+    const perDay = more ? usual * (1 + SEARCH_AGAIN.rounds) : usual;
     const [done] = await rows<{ n: number }>(
       ctx.tx,
       sql`select count(*)::int as n from addon_outreach.posts po
@@ -487,7 +498,8 @@ export const findsSearches = defineAddonQuery(outreachAddon, {
     if (await findsFull(ctx, me, input.platform, now)) return { searches: [] };
     const pool = kindSearches(await playbooksInUse(ctx, input.platform), input.platform);
     const perDay = FIND_WORDS_PER_DAY[input.platform as WordsPlatform];
-    return { searches: inTurn(pool, perDay, dayNumber(now)) };
+    // A search again later in the day takes the next in turn (decision 126).
+    return { searches: inTurn(pool, perDay, dayNumber(now) + input.round) };
   },
 });
 

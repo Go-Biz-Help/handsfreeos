@@ -118,6 +118,8 @@ import {
   type BeforeDay,
 } from './lists';
 import {
+  afterDaily,
+  AGAIN_WORDS,
   ALIGNABLE_STATE_KEY,
   freshState,
   gapAfter,
@@ -126,7 +128,14 @@ import {
   needOf,
   networkDay,
   networkWaitWords,
+  nextRound,
   nextStart,
+  repliedAfter,
+  roundDue,
+  soonestAgain,
+  stillReplied,
+  waitsAgain,
+  withReplied,
   workKey,
   workLeft,
   type AutoState,
@@ -959,19 +968,40 @@ export function alignableWorkLeft(
     readonly partners?: readonly TodayListItem[];
   },
   tried: readonly string[],
+  replied: readonly string[] = [],
 ): Work[] {
-  return workLeft({ ...list, auto: list.auto.filter((k) => ALIGNABLE_AUTO.includes(k)) }, tried);
+  return workLeft(
+    { ...list, auto: list.auto.filter((k) => ALIGNABLE_AUTO.includes(k)) },
+    tried,
+    replied,
+  );
 }
 
 // ------------------------------------------------------------------------------------------------- the once-a-day jobs
 
 /** The once-a-day job to do next on Alignable: the first not done today. */
 export const nextAlignableDaily = (
-  state: Pick<AutoState, 'daily'>,
+  state: Pick<AutoState, 'daily' | 'againAt'>,
   passOver: readonly AlignableDaily[] = [],
+  now = Date.now(),
 ): AlignableDaily | null =>
-  ALIGNABLE_DAILY.find((job) => state.daily?.[job] === undefined && !passOver.includes(job)) ??
-  null;
+  ALIGNABLE_DAILY.find(
+    (job) =>
+      state.daily?.[job] === undefined && !passOver.includes(job) && !waitsAgain(state, job, now),
+  ) ?? null;
+
+/**
+ * Alignable's jobs that find people, done again in a round while it needs more good fits (decision 126, plan.ts
+ * `nextRound`): its search with the next kinds of business, groups and their members, who commented on good posts, and their checks.
+ */
+export const ALIGNABLE_FINDING: readonly AlignableDaily[] = [
+  'search',
+  'group_checks',
+  'join',
+  'members',
+  'post_people',
+  'found_checks',
+];
 
 /**
  * A job that says what it couldn't find with the page's outline (decision 74): the jobs from 0.95.0, whose pages are
@@ -1129,12 +1159,27 @@ async function go(): Promise<void> {
   // Reads that need the screen wait till the person is away from their computer (decision 120).
   const away = await awayNow();
   const passOver = putOff.passOver(away);
-  const daily = choices.collect ? nextAlignableDaily(state, passOver) : null;
+  let daily = choices.collect ? nextAlignableDaily(state, passOver, at) : null;
+  // Short of good fits once the day's reading is done (decision 126, answer 6a): it finds people again, with the next
+  // search words, and checks them.
+  if (
+    choices.collect &&
+    !before &&
+    !daily &&
+    !passOver.some((job) => state.daily?.[job] === undefined) &&
+    roundDue(state, at)
+  ) {
+    state = await setState(nextRound(state, ALIGNABLE_FINDING, at));
+    daily = nextAlignableDaily(state, passOver, at);
+  }
   const reading = before !== null || daily !== null;
   // The morning's reading and the list take turns (decision 123): a step on the list now, when there's one, after a
   // part of the reading went last.
   if (listTurn(state, reading, holdsTheDay(before))) {
-    const left = await listNow(to.businessId, state.tried);
+    const left = await listNow(to.businessId, state.tried, state.replied);
+    // Who wrote back and isn't on what's left gives the reading its turn back (decision 125).
+    const replied = stillReplied(state.replied ?? [], left);
+    if (replied.length !== (state.replied ?? []).length) state = await setState({ replied });
     if (left[0])
       return workNext(left, {
         businessId: to.businessId,
@@ -1186,21 +1231,27 @@ async function go(): Promise<void> {
     return soon();
   }
 
-  const left = await listNow(to.businessId, state.tried);
+  const left = await listNow(to.businessId, state.tried, state.replied);
   if (!left[0]) {
     await closeWindow();
     // What waits for them to be away is looked at again sooner.
     const waiting = choices.collect
       ? waitingWords(waitingFor(passOver, state.daily, DAILY_NAMES))
       : null;
+    // The checks' next batch, when one's to come today (decision 126).
+    const again = choices.collect ? soonestAgain(await stateNow(), at) : null;
     await say(
-      waiting
-        ? `${state.tried.length ? `The rest of today on ${NAME} is done.` : `Nothing on your ${NAME} list for it to do yet.`} ${waiting}`
-        : state.tried.length
-          ? `Done for today on ${NAME}. It looks again within the hour for anything new.`
-          : `Nothing on your ${NAME} list for it to do yet.`,
+      `${
+        waiting
+          ? `${state.tried.length ? `The rest of today on ${NAME} is done.` : `Nothing on your ${NAME} list for it to do yet.`} ${waiting}`
+          : state.tried.length
+            ? `Done for today on ${NAME}. It looks again within the hour for anything new.`
+            : `Nothing on your ${NAME} list for it to do yet.`
+      }${again !== null ? ` ${AGAIN_WORDS}` : ''}`,
     );
-    return goAt(at + (waiting ? AWAY_AGAIN_MS : 60 * 60_000));
+    return goAt(
+      Math.min(at + (waiting ? AWAY_AGAIN_MS : 60 * 60_000), ...(again !== null ? [again] : [])),
+    );
   }
   return workNext(left, {
     businessId: to.businessId,
@@ -1213,14 +1264,21 @@ async function go(): Promise<void> {
 }
 
 /** Asks for Alignable's list for today, and gives what's left on it for its runner (`alignableWorkLeft`). */
-async function listNow(businessId: string, tried: readonly string[]): Promise<Work[]> {
+async function listNow(
+  businessId: string,
+  tried: readonly string[],
+  replied: readonly string[] = [],
+): Promise<Work[]> {
   const list: TodayList = await call(
     api().POST('/v1/queries/outreach.today', {
       body: { workspaceId: businessId, platform: PLATFORM },
     }),
     businessId,
   );
-  return alignableWorkLeft(list, tried);
+  // Whether Alignable needs more good fits today (decision 126): it finds people again once the day's reading is done.
+  const more = list.goal?.more === true;
+  if ((await stateNow()).more !== more) await setState({ more });
+  return alignableWorkLeft(list, tried, replied);
 }
 
 /**
@@ -1281,7 +1339,11 @@ async function workNext(
     'done' in outcome && outcome.done
       ? { ...state.done, [kind]: (state.done[kind] ?? 0) + 1 }
       : state.done;
-  await setState({ tried: [...state.tried, workKey(work)], done });
+  await setState({
+    tried: [...state.tried, workKey(work)],
+    done,
+    replied: repliedAfter(state.replied ?? [], work),
+  });
   if ('stop' in outcome) {
     await closeWindow();
     await say(outcome.stop, { stopped: 'warning' });
@@ -1337,7 +1399,7 @@ async function beforeTheDay(step: BeforeDay, businessId: string): Promise<JobEnd
   // The morning's requests, and the first check, stand for today's once-a-day ones.
   const stands =
     !end.failed && (key === 'requests' || key === 'checks')
-      ? { daily: { ...state.daily, [key]: end.line } }
+      ? afterDaily(state, key, end, Date.now(), Math.random())
       : {};
   await setState({ before: { ...state.before, [key]: end.line }, ...stands });
   return end;
@@ -1348,7 +1410,11 @@ async function collect(kind: AlignableDaily, businessId: string): Promise<JobEnd
   await say(DAILY_DOING[kind], { working: true });
   let end: JobEnd;
   try {
-    end = await runAlignableDaily(kind, jobFor(businessId));
+    // A round of finding again asks for the next search words (decision 126).
+    end = await runAlignableDaily(kind, {
+      ...jobFor(businessId),
+      round: (await stateNow()).round ?? 0,
+    });
   } catch (error) {
     if (error instanceof Refused) throw error;
     end = isNotAway(error)
@@ -1360,7 +1426,8 @@ async function collect(kind: AlignableDaily, businessId: string): Promise<JobEnd
   // Put off till they're away (decision 120): not done for the day, so it's tried again then.
   if (end.away) return end;
   const state = await stateNow();
-  await setState({ daily: { ...state.daily, [kind]: end.line } });
+  // A batch of checks with more of today's room left: the next later on (decision 126).
+  await setState(afterDaily(state, kind, end, Date.now(), Math.random()));
   return end;
 }
 
@@ -1396,6 +1463,31 @@ export async function alignableTick(): Promise<void> {
 }
 
 const tick = alignableTick;
+
+/**
+ * Someone wrote back on Alignable (decision 125, ../hfos/replies.ts): their reply is drafted next, now, before the next
+ * step's time, or as soon as the go under way ends. The day's own rules still say whether it goes at all.
+ */
+export async function alignableReplied(profileIds: readonly string[]): Promise<void> {
+  const state = await stateNow();
+  await setState({ replied: withReplied(state.replied ?? [], profileIds) });
+  void tick();
+}
+
+/**
+ * A conversation on Alignable's Messages, kept open (decision 125, ./watch.ts), has a new last line: its chats are read
+ * again at their next turn, though read today, as its list doesn't say who wrote last. Only the conversations whose
+ * last line changed since they were read are opened (`chatMemory`).
+ */
+export async function alignableChatsAgain(): Promise<void> {
+  const state = await stateNow();
+  if (state.daily?.chats !== undefined) {
+    const daily = { ...state.daily };
+    delete daily.chats;
+    await setState({ daily });
+  }
+  void tick();
+}
 
 /** When the background starts: it looks once, and the beat wakes it after. */
 export async function wakeAlignable(): Promise<void> {

@@ -9,6 +9,7 @@ import * as React from 'react';
 import { View } from 'react-native';
 
 import { Laptop, Pencil, Trash } from '@/components/icons';
+import { useKeyboardHeight } from '@/components/shell/keyboard';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Icon } from '@/components/ui/icon';
@@ -193,6 +194,7 @@ function RenameSheet({
   const [name, setName] = React.useState('');
   const [problem, setProblem] = React.useState<string | null>(null);
   const [busy, setBusy] = React.useState(false);
+  const keyboard = useKeyboardHeight();
   React.useEffect(() => {
     if (computer) {
       setName(computer.name);
@@ -213,7 +215,7 @@ function RenameSheet({
   };
   return (
     <Sheet open={computer !== null} onClose={onClose} title={P.rename} testID="live-computer-sheet">
-      <View className="gap-3">
+      <View style={keyboard ? { paddingBottom: keyboard } : undefined} className="gap-3">
         <Text className="text-[14px] font-medium">{P.nameLabel}</Text>
         <Input
           value={name}

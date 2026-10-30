@@ -289,6 +289,15 @@ export type PageThereAnswer =
   | { readonly ok: false; readonly error: string };
 
 /**
+ * Who wrote last in the chats on the page, now (decision 125): the messages page kept open (src/auto/watch.ts) asks
+ * every minute, with no change to the page. Nothing while noting is off.
+ */
+export type RepliesNowAsk = { readonly type: 'hfos-replies-now' };
+export type RepliesNowAnswer =
+  | { readonly ok: true; readonly seen: readonly ReplySighting[] }
+  | { readonly ok: false; readonly error: string };
+
+/**
  * A code the person gave HandsFreeOS, put in where the network asks for the one it emailed them (Alignable's, before
  * About Us changes; decision 82, src/networks/alignable/own-profile.ts).
  */

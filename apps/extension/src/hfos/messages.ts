@@ -336,7 +336,13 @@ export type HfosAsk =
    * What to search a network's posts with: its runner's Find posts (LinkedIn's post search), and on Instagram the day's
    * hashtags and the area's places.
    */
-  | { readonly type: 'hfos-post-words'; readonly workspaceId: string; readonly platform: Platform }
+  | {
+      readonly type: 'hfos-post-words';
+      readonly workspaceId: string;
+      readonly platform: Platform;
+      /** Today's round of finding again (decision 126): the next words. */
+      readonly round?: number;
+    }
   | { readonly type: 'hfos-friend-end'; readonly input: FriendEndInput }
   /** A request the person got that a job deleted (decision 121), noted whether or not noting is on. */
   | { readonly type: 'hfos-friend-note'; readonly input: FriendNoteInput }
