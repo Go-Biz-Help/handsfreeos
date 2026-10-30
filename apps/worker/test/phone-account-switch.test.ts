@@ -98,6 +98,24 @@ async function drain(workspaceId: string, timeoutMs = 10_000) {
   }
 }
 
+/** One pass of this business's outbox and jobs, with turning on tried again now rather than after its backoff. */
+async function runOnce(workspaceId: string) {
+  await rows(
+    admin(),
+    sql`update app.outbox set locked_at = now(), locked_by = ${WORKER_ID}, next_attempt_at = now()
+        where status = 'pending' and workspace_id = ${workspaceId}`,
+  );
+  await rows(
+    admin(),
+    sql`update app.scheduled_jobs set locked_at = now(), locked_by = ${WORKER_ID},
+          run_at = case when kind = 'telephony.account_open' then now() else run_at end
+        where status = 'pending' and workspace_id = ${workspaceId}`,
+  );
+  const d = { ...s, workerId: WORKER_ID, batchSize: 200, reservedOnly: true };
+  await processOnce({ ...d, handlers });
+  await processJobs({ ...d, jobs });
+}
+
 const accountOf = async (workspaceId: string) =>
   (
     await admin()
@@ -171,6 +189,37 @@ describe('phone & texting on', () => {
     });
     const said = await admin().select().from(events).where(eq(events.workspaceId, ws));
     expect(said.map((e) => e.eventType)).toContain('telephony.account_changed');
+  });
+
+  it('says "Turning on…" through a refresh while Twilio keeps refusing, then why, instead of going back to Off', async () => {
+    const ws = await business('Switch Refused');
+    const refused = vi
+      .spyOn(s.telephony, 'createSubaccount')
+      .mockRejectedValue(
+        new ProviderError('Authenticate', '20003', false, 401, s.telephony.masterAccountSid),
+      );
+    try {
+      await turnOn(ws);
+      // The press reaches the worker: the job is queued, and nothing is made yet.
+      await runOnce(ws);
+      expect(await accountOf(ws)).toBeUndefined();
+      expect((await shown(ws)).json()).toMatchObject({ state: 'turning_on', lastError: null });
+      // Refused, and tried again: still turning on.
+      await runOnce(ws);
+      expect((await shown(ws)).json()).toMatchObject({ state: 'turning_on', lastError: null });
+      for (let i = 0; i < 4; i++) await runOnce(ws);
+    } finally {
+      refused.mockRestore();
+    }
+    expect(await accountOf(ws)).toBeUndefined();
+    const after = (await shown(ws)).json();
+    expect(after).toMatchObject({ state: 'off', accountSid: null });
+    expect(after.lastError).toMatch(/couldn’t be turned on.*refused HandsFreeOS’s sign-in/);
+
+    // With Twilio letting HandsFreeOS in again, the next press turns it on, and the reason goes.
+    await turnOn(ws);
+    await drain(ws);
+    expect((await shown(ws)).json()).toMatchObject({ state: 'on', lastError: null });
   });
 
   it('is only for those who manage the business’s numbers', async () => {

@@ -16,7 +16,8 @@ import { useLiveVersion } from '@/lib/realtime/live-provider';
  * account per business → its numbers).
  *
  * On makes the account now, so its Account SID is here to give HighLevel or Twilio when moving a number over,
- * before there is any number. Off closes it for good — Twilio cannot reopen one — so it asks first, and the
+ * before there is any number. When Twilio keeps refusing, the worker gives up after a few minutes and the card
+ * shows Off with why. Off closes it for good — Twilio cannot reopen one — so it asks first, and the
  * worker refuses while a number, a transfer, a port, an RCS sender or a texting registration is in it.
  *
  * While it is on, the card also finds the numbers sitting in the account that are not set up here: one moved in
@@ -45,13 +46,14 @@ export function PhoneAccountCard({ workspaceId }: { workspaceId: string }) {
   }, [load, version]);
 
   // The worker makes or closes the account within seconds; look again until it has, in case the live channel
-  // is down.
+  // is down. Once the worker has the press of On, the state it reports says "Turning on…" by itself, through a
+  // refresh too, and then either on or off with why.
   useEffect(() => {
     if (!busy && shown?.state !== 'turning_on') return;
     const timer = setInterval(() => {
       void load().then((next) => {
         if (!next) return;
-        if (busy === 'on' && next.state === 'on') setBusy(null);
+        if (busy === 'on' && next.state !== 'off') setBusy(null);
         if (busy === 'off' && (next.state === 'off' || next.lastError)) setBusy(null);
       });
     }, 2000);
@@ -157,7 +159,7 @@ export function PhoneAccountCard({ workspaceId }: { workspaceId: string }) {
         </Callout>
       ) : null}
 
-      {shown?.lastError && on && !busy && !refused ? (
+      {shown?.lastError && !busy && !refused ? (
         <Callout
           tone="warning"
           icon={CircleAlert}
