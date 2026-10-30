@@ -8,6 +8,7 @@
  */
 import { describe, expect, it } from 'vitest';
 import {
+  checkChatOnSite,
   checkOptInSurface,
   checkPolicy,
   checkTerms,
@@ -311,6 +312,57 @@ describe('the page where customers agree', () => {
       expect(check.severity).toBe('blocker');
       expect(check.ok).toBe(false);
     }
+  });
+});
+
+describe('whether the chat is on the website (letting us collect it)', () => {
+  const KEY = 'wk_AbCdEfGhIjKlMnOpQrSt';
+  const chat = (over: Partial<{ seenOrigin: string | null; paused: boolean }> = {}) => ({
+    key: KEY,
+    seenOrigin: null,
+    paused: false,
+    ...over,
+  });
+  const withSnippet = page({
+    html: `<html><body>Lone Star HVAC<script async src="https://app.handsfreeos.com/embed/v1/${KEY}.js"></script></body></html>`,
+  });
+
+  it('finds the snippet in the page, however the site builder escapes it', () => {
+    expect(checkChatOnSite(withSnippet, [chat()])).toMatchObject({ ok: true });
+    const escaped = page({
+      html: `<script>window.__footer="<script src=\\"https:\\/\\/app.handsfreeos.com\\/embed\\/v1\\/${KEY}.js\\">"</script>`,
+    });
+    expect(checkChatOnSite(escaped, [chat()]).ok).toBe(true);
+  });
+
+  it('takes the install check seeing it open on the same site, www or not', () => {
+    const check = checkChatOnSite(page(), [chat({ seenOrigin: 'https://www.lonestarhvac.test' })]);
+    expect(check).toMatchObject({ ok: true });
+    expect(check.detail).toContain('lonestarhvac.test');
+    // Seen somewhere else doesn't count: the reviewer opens this website.
+    expect(checkChatOnSite(page(), [chat({ seenOrigin: 'https://other.test' })]).ok).toBe(false);
+  });
+
+  it('blocks when the chat isn’t there, and says where to paste it', () => {
+    const check = checkChatOnSite(page(), [chat()]);
+    expect(check).toMatchObject({ ok: false, severity: 'blocker' });
+    expect(check.detail).toContain('lonestarhvac.test');
+    expect(check.detail).toMatch(/footer/);
+  });
+
+  it('blocks with no chat, or only a paused one, saying what to do', () => {
+    expect(checkChatOnSite(withSnippet, []).detail).toMatch(/Set this up for me/);
+    const paused = checkChatOnSite(withSnippet, [chat({ paused: true })]);
+    expect(paused.ok).toBe(false);
+    expect(paused.detail).toMatch(/paused/);
+  });
+
+  it('still takes the install check when the website didn’t open for us', () => {
+    const down = page({ status: null, html: '', error: 'timeout' });
+    expect(checkChatOnSite(down, [chat({ seenOrigin: 'https://lonestarhvac.test' })]).ok).toBe(
+      true,
+    );
+    expect(checkChatOnSite(down, [chat()]).ok).toBe(false);
   });
 });
 

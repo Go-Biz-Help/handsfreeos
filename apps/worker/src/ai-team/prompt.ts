@@ -323,6 +323,11 @@ function customerLines(rc: RunContext): string[] {
         ? `They said their name is ${quoteData(rc.visitorName)}.`
         : 'They haven’t said their name.',
       '</customer_record>',
+      ...(rc.chatFormAsks
+        ? [
+            'After their first message the chat shows them a short form for their name, mobile number and email, with a box to agree to texts. Don’t ask for those yourself. If they skip it and you need a way to reach them, ask then.',
+          ]
+        : []),
     ];
   const c = rc.customer;
   const lines = ['The customer:', '<customer_record>'];

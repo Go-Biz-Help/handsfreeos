@@ -16,7 +16,9 @@
  * the strength of the sentence we send: they open the business's website and look for the box the sentence
  * describes. So the wizard does not ask the business to describe its consent — it asks which way it wants
  * to collect it, turns that way on, and writes the sentence from what is now actually there. The hosted
- * option is recommended and first because it is the one we can make true in a single click.
+ * option is recommended and first because it is the one we can make true in a single click: the website chat, whose
+ * code goes in the footer of the business's own site, asks for a visitor's details after their first message, with
+ * the box to agree to texts and links to the privacy policy and terms.
  */
 import {
   checkDraft,
@@ -39,10 +41,12 @@ import {
   tradingName,
   updatedPolicyHtml,
   updatedPolicyText,
+  normalizeChatOrigin,
   type A2pDraft,
   type A2pField,
   type A2pIssue,
   type BusinessAddress,
+  type ChatAskFor,
   type OptInPath,
   type PolicyKind,
   type PolicyUpdateInput,
@@ -73,9 +77,17 @@ import { Input, Select } from '@/components/ui/input';
 import { RadioCard } from '@/components/ui/radio-card';
 import { Textarea } from '@/components/ui/textarea';
 import { apiBrowser, ApiError, errorMessage, unwrap } from '@/lib/api/client';
-import type { PhoneNumberInfo } from '@/lib/api/types';
+import type { ChatWidget, PhoneNumberInfo } from '@/lib/api/types';
 import { policyUpdate, registrationPreflight } from '@/lib/api/worker';
 import { cn } from '@/lib/utils';
+import {
+  hostOf,
+  InstallCheck,
+  PlatformSteps,
+  SnippetCode,
+  snippetOf,
+  snippetSrc,
+} from './chat-install';
 
 // ---------- the answers ----------
 
@@ -471,9 +483,22 @@ export interface HostedSurfaces {
   readonly siteSlug: string | null;
   /** An existing website chat widget's public key, if one is live. */
   readonly chatPublicKey: string | null;
+  /** That widget: what it asks for and when, its texts box, its sites and its install check. */
+  readonly chat?: HostedChat | null;
   /** The slug of a live public form carrying the consent box, if one exists. */
   readonly contactFormSlug: string | null;
   readonly bookingEnabled: boolean;
+  /** Where the chat's code loads from: the business's own domain once one is serving, otherwise this app. */
+  readonly snippetOrigin?: string | null;
+}
+
+/** The live website chat, as much of it as setting it up for agreeing to texts needs. */
+export interface HostedChat {
+  readonly id: string;
+  readonly smsConsent: boolean;
+  readonly askFor: ChatAskFor;
+  readonly allowedOrigins: readonly string[];
+  readonly install: ChatWidget['install'];
 }
 
 const EMPTY_SURFACES: HostedSurfaces = {
@@ -483,12 +508,41 @@ const EMPTY_SURFACES: HostedSurfaces = {
   bookingEnabled: false,
 };
 
-/** The public addresses of whatever is live, built from the surfaces and this deployment's origin. */
-function urlsOf(s: HostedSurfaces, origin: string) {
+/** The exact origin a website is, as the chat's list of sites keeps it; null when it isn't one. */
+function originOfSite(website: string): string | null {
+  const got = website.trim() ? normalizeChatOrigin(website) : null;
+  return got?.ok ? got.origin : null;
+}
+
+/** May the chat show on this website: it, or its www twin, is one of the chat's sites. */
+function chatAllows(chat: HostedChat, website: string): boolean {
+  const got = website.trim() ? normalizeChatOrigin(website) : null;
+  return !!got?.ok && [got.origin, got.twin].some((o) => !!o && chat.allowedOrigins.includes(o));
+}
+
+/**
+ * The chat is ready to collect agreement to texts on this website: it offers the box, asks for the mobile number
+ * right after the visitor's first message, and may show on the site.
+ */
+function chatReady(s: HostedSurfaces, website: string): s is HostedSurfaces & { chat: HostedChat } {
+  return (
+    !!s.chat &&
+    s.chat.smsConsent &&
+    s.chat.askFor.phone === 'after_first_message' &&
+    chatAllows(s.chat, website)
+  );
+}
+
+/**
+ * The public addresses of whatever is live, built from the surfaces and this deployment's origin. The chat's page
+ * (what it asks, for the reviewer) counts only once the chat is ready: before that it shows no box to point at.
+ */
+function urlsOf(s: HostedSurfaces, origin: string, website: string) {
   return {
     formUrl:
       s.siteSlug && s.contactFormSlug ? `${origin}/f/${s.siteSlug}/${s.contactFormSlug}` : null,
-    chatUrl: s.chatPublicKey ? `${origin}/chat/${s.chatPublicKey}` : null,
+    chatUrl: s.chatPublicKey && chatReady(s, website) ? `${origin}/chat/${s.chatPublicKey}` : null,
+    siteUrl: website || null,
     bookingUrl: s.bookingEnabled && s.siteSlug ? `${origin}/book/${s.siteSlug}` : null,
   };
 }
@@ -504,7 +558,7 @@ function describeFor(
   origin: string,
 ): string {
   if (!f.optInPath) return f.optIn;
-  return optInDescriptionFor(businessName, f.optInPath, urlsOf(s, origin), {
+  return optInDescriptionFor(businessName, f.optInPath, urlsOf(s, origin, withScheme(f.website)), {
     pageUrl: f.optInPath === 'own_site' ? withScheme(f.optInUrl) || null : null,
     proofUrl: withScheme(f.optInProofUrl) || null,
     offers: sendsOffers(f.useCase),
@@ -521,7 +575,7 @@ const OPT_IN_PATHS: readonly {
     value: 'hosted',
     title: 'Let us collect it for you',
     description:
-      'We put a contact form and a chat bubble on a page of your own, both with the agreement box already worded the way the carriers want. One click, nothing to install, and you get a web address the reviewer can open.',
+      'We give you a short code to paste in your website’s footer. It adds a chat that, after a visitor’s first message, asks for their name, mobile and email, with the boxes to agree to texts and links to your privacy policy and terms, worded the way the carriers want.',
     recommended: true,
   },
   {
@@ -538,14 +592,26 @@ const OPT_IN_PATHS: readonly {
   },
 ];
 
+/** Ask for each detail right after the first message, keeping a detail the business never asks for, or asks first. */
+const AFTER_FIRST: ChatAskFor = {
+  name: 'after_first_message',
+  phone: 'after_first_message',
+  email: 'after_first_message',
+};
+function askAfterFirst(now: ChatAskFor): ChatAskFor {
+  const keep = (m: ChatAskFor['name']) =>
+    m === 'never' || m === 'before_chat' ? m : 'after_first_message';
+  return { name: keep(now.name), phone: 'after_first_message', email: keep(now.email) };
+}
+
 /**
- * Turns the hosted opt-in on: a public contact form carrying the consent box, and the website chat.
+ * Turns the hosted opt-in on: the website chat, asking for a visitor's details right after their first message, with
+ * the box to agree to texts. A business with a chat already gets that one changed (its texts box on, the mobile number
+ * asked after the first message, its website added to its sites) rather than a second one.
  *
- * **Two commands rather than one, and deliberately not a transaction.** Each artefact is useful on its own
- * — a business with a contact form and no chat widget is a business with a contact form — so a half-done
- * run leaves nothing broken and the button can simply be pressed again. What it must not do is claim a
- * surface is live when its command failed, because that claim goes to a carrier; so anything that throws
- * is reported and left out of the returned surfaces.
+ * The chat's texts box names the business's public pages when it has no name yet (`chat_widget.create`), and the
+ * privacy policy and terms we host live under that name, so it's read back here. What fails is reported and left out
+ * of the returned surfaces, because whatever they claim goes to a carrier.
  */
 async function enableHostedOptIn(
   workspaceId: string,
@@ -553,61 +619,46 @@ async function enableHostedOptIn(
   have: HostedSurfaces,
 ): Promise<{ surfaces: HostedSurfaces; failed: string[] }> {
   const failed: string[] = [];
-  let { chatPublicKey, contactFormSlug } = have;
+  let { chat, chatPublicKey } = have;
 
-  if (!contactFormSlug) {
-    try {
-      const created = unwrap(
-        await apiBrowser().POST('/v1/commands/form.create', {
-          body: {
-            workspaceId,
-            name: 'Contact us',
-            mode: 'form',
-            title: 'Get in touch',
-            starter: 'enquiry',
-          },
-        }),
-      ) as { formId: string; revision: number; slug: string };
-      unwrap(
-        await apiBrowser().POST('/v1/commands/form.publish', {
-          body: {
-            workspaceId,
-            formId: created.formId,
-            baseRevision: created.revision,
-            source: 'editor',
-          },
-        }),
-      );
-      contactFormSlug = created.slug;
-    } catch (err) {
-      failed.push(`the contact form (${errorMessage(err)})`);
-    }
-  }
-
-  if (!chatPublicKey) {
-    try {
+  try {
+    if (!chat || !chatPublicKey) {
       const created = unwrap(
         await apiBrowser().POST('/v1/commands/chat_widget.create', {
+          body: { workspaceId, allowedOrigins: [website], smsConsent: true, askFor: AFTER_FIRST },
+        }),
+      ) as { widgetId: string; publicKey: string; allowedOrigins: string[] };
+      chat = {
+        id: created.widgetId,
+        smsConsent: true,
+        askFor: AFTER_FIRST,
+        allowedOrigins: created.allowedOrigins,
+        install: { seen: false, lastSeenOrigin: null, lastSeenAt: null },
+      };
+      chatPublicKey = created.publicKey;
+    } else if (!chatReady(have, website)) {
+      const askFor = askAfterFirst(chat.askFor);
+      const updated = unwrap(
+        await apiBrowser().POST('/v1/commands/chat_widget.update', {
           body: {
             workspaceId,
-            // The widget has to name the site it may show on; the business gave us that two steps ago.
-            allowedOrigins: [website],
+            widgetId: chat.id,
             smsConsent: true,
-            askFor: { name: 'when_needed', phone: 'when_needed', email: 'when_needed' },
+            askFor,
+            ...(chatAllows(chat, website)
+              ? {}
+              : { allowedOrigins: [...chat.allowedOrigins, website] }),
           },
         }),
-      ) as { publicKey: string };
-      chatPublicKey = created.publicKey;
-    } catch (err) {
-      failed.push(`the website chat (${errorMessage(err)})`);
+      ) as { allowedOrigins: string[] };
+      chat = { ...chat, smsConsent: true, askFor, allowedOrigins: updated.allowedOrigins };
     }
+  } catch (err) {
+    failed.push(`the website chat (${errorMessage(err)})`);
   }
 
-  // Publishing the form gave a business without public pages their name (`ensureBookingSite`), and the form's
-  // address and the privacy policy and terms we host are all built from it. Without it here the review found no
-  // policy and wouldn't send until the page was reloaded.
   let { siteSlug, bookingEnabled } = have;
-  if (!siteSlug && contactFormSlug) {
+  if (!siteSlug && chat?.smsConsent) {
     try {
       const got = unwrap(
         await apiBrowser().POST('/v1/queries/booking_site.get', { body: { workspaceId } }),
@@ -615,12 +666,12 @@ async function enableHostedOptIn(
       siteSlug = got.site?.slug ?? null;
       bookingEnabled = got.site?.enabled ?? false;
     } catch (err) {
-      failed.push(`the contact form’s address (${errorMessage(err)})`);
+      failed.push(`your privacy policy’s address (${errorMessage(err)})`);
     }
   }
 
   return {
-    surfaces: { ...have, chatPublicKey, contactFormSlug, siteSlug, bookingEnabled },
+    surfaces: { ...have, chat, chatPublicKey, siteSlug, bookingEnabled },
     failed,
   };
 }
@@ -647,8 +698,16 @@ function OptInStep({
   issues: readonly A2pIssue[];
 }) {
   const [busy, setBusy] = useState(false);
-  const urls = urlsOf(surfaces, origin);
-  const hostedLive = Boolean(urls.formUrl || urls.chatUrl);
+  const website = withScheme(form.website);
+  const urls = urlsOf(surfaces, origin, website);
+  const ready = chatReady(surfaces, website);
+  // A website that's our own simple page already shows the chat: there's nothing to paste.
+  const siteOrigin = originOfSite(website);
+  const ownPage =
+    !!siteOrigin && (siteOrigin === origin || siteOrigin === (surfaces.snippetOrigin ?? null));
+  const src = surfaces.chatPublicKey
+    ? snippetSrc(surfaces.snippetOrigin ?? origin, surfaces.chatPublicKey)
+    : null;
 
   /** Rewrites the sentence from the path and whatever is live. */
   const describe = (path: OptInPath, s: HostedSurfaces) =>
@@ -658,16 +717,15 @@ function OptInStep({
   async function turnOn() {
     setBusy(true);
     try {
-      const { surfaces: next, failed } = await enableHostedOptIn(
-        workspaceId,
-        withScheme(form.website),
-        surfaces,
-      );
+      const { surfaces: next, failed } = await enableHostedOptIn(workspaceId, website, surfaces);
       onSurfaces(next);
       describe('hosted', next);
       if (failed.length)
         toast.error(`Could not set up ${failed.join(' or ')}. Try again in a moment.`);
-      else toast.success('Your agreement box is live');
+      else
+        toast.success(
+          ownPage ? 'Your chat is ready' : 'Your chat is ready. Paste its code in your footer.',
+        );
     } catch (err) {
       toast.error(errorMessage(err));
     } finally {
@@ -720,37 +778,32 @@ function OptInStep({
       <Issues issues={issuesFor(issues, 'optInPath')} />
 
       {form.optInPath === 'hosted' ? (
-        <div className="rounded-menu border border-border bg-card-2 p-4">
-          <p className="text-[13.5px] font-semibold">What this turns on</p>
+        <div
+          className="rounded-menu border border-border bg-card-2 p-4"
+          data-testid="optin-hosted-setup"
+        >
+          <p className="text-[13.5px] font-semibold">What this sets up</p>
           <ul className="mt-2 space-y-2 text-[13px] text-text-2">
-            <li className="flex items-start gap-2">
-              <Globe className="mt-0.5 h-4 w-4 flex-none" aria-hidden />
-              <span>
-                A <strong>contact form</strong> on a page of your own, with the agreement box under
-                it.
-                {urls.formUrl ? (
-                  <a
-                    className="ml-1 underline"
-                    href={urls.formUrl}
-                    target="_blank"
-                    rel="noreferrer"
-                  >
-                    {urls.formUrl}
-                  </a>
-                ) : null}
-              </span>
-            </li>
             <li className="flex items-start gap-2">
               <MessageCircle className="mt-0.5 h-4 w-4 flex-none" aria-hidden />
               <span>
-                A <strong>chat bubble</strong> that asks the same thing before it takes a phone
-                number.
+                A <strong>chat for your website</strong>. After a visitor&rsquo;s first message, it
+                asks for their name, mobile and email, with the box to agree to texts and links to
+                your privacy policy and terms.
+              </span>
+            </li>
+            <li className="flex items-start gap-2">
+              <Globe className="mt-0.5 h-4 w-4 flex-none" aria-hidden />
+              <span>
+                A <strong>page that shows what the chat asks</strong>, for the carriers&rsquo;
+                reviewer, who rarely starts a chat to find the box.
                 {urls.chatUrl ? (
                   <a
                     className="ml-1 underline"
                     href={urls.chatUrl}
                     target="_blank"
                     rel="noreferrer"
+                    data-testid="optin-chat-page"
                   >
                     {urls.chatUrl}
                   </a>
@@ -760,34 +813,65 @@ function OptInStep({
           </ul>
           {offers ? (
             <p className="mt-2 text-[13px] text-text-2">
-              You send offers too, so each of these shows a second, separate box for them. Customers
-              can agree to texts about their own work without agreeing to offers.
+              You send offers too, so the chat shows a second, separate box for them. Customers can
+              agree to texts about their own work without agreeing to offers.
             </p>
           ) : null}
-          {hostedLive ? (
+          {ready && ownPage ? (
             <Callout tone="info" icon={Check} className="mt-3">
-              This is live. The reviewer can open it, which is the whole point — a chat bubble on
-              its own is often turned down because the wording is not visible until somebody clicks.
+              Your page at {hostOf(siteOrigin)} shows the chat already, so there&rsquo;s nothing to
+              paste.
             </Callout>
+          ) : ready && src ? (
+            <div className="mt-4 border-t border-border pt-4" data-testid="optin-chat-code">
+              <div className="mb-1.5 flex items-center justify-between gap-3">
+                <p className="text-[13.5px] font-semibold">
+                  Paste this in your website&rsquo;s footer
+                </p>
+                <CopyButton text={snippetOf(src)} />
+              </div>
+              <SnippetCode src={src} />
+              <p className="mt-1.5 text-[13px] text-text-3">
+                Once, just before &lt;/body&gt;, so it&rsquo;s on every page. Most site builders
+                have a footer code box for it.
+              </p>
+              <PlatformSteps className="mt-3" />
+              <InstallCheck workspaceId={workspaceId} widget={surfaces.chat} className="mt-3" />
+              <p className="mt-2 text-[13px] text-text-3">
+                We check it&rsquo;s on {hostOf(siteOrigin)} before this goes to the carriers. A
+                reviewer who opens your site and finds no chat turns the registration down.
+              </p>
+            </div>
           ) : (
-            <Button
-              type="button"
-              className="mt-3"
-              onClick={turnOn}
-              disabled={busy || !form.website}
-            >
-              {busy ? (
-                <Loader2 className="h-4 w-4 animate-spin" />
-              ) : (
-                <Sparkles className="h-4 w-4" />
-              )}
-              {busy ? 'Setting it up…' : 'Set this up for me'}
-            </Button>
+            <>
+              {surfaces.chat ? (
+                <p className="mt-3 text-[13px] text-text-2">
+                  Your website chat is already on. This turns on its box to agree to texts, has it
+                  ask for details after the first message
+                  {chatAllows(surfaces.chat, website)
+                    ? ''
+                    : `, and adds ${hostOf(siteOrigin)} to its sites`}
+                  .
+                </p>
+              ) : null}
+              <Button
+                type="button"
+                className="mt-3"
+                onClick={turnOn}
+                disabled={busy || !form.website}
+              >
+                {busy ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Sparkles className="h-4 w-4" />
+                )}
+                {busy ? 'Setting it up…' : 'Set this up for me'}
+              </Button>
+            </>
           )}
           {!form.website ? (
             <p className="mt-2 text-[13px] text-text-2">
-              Go back a step and add your website first — the chat needs to know which site it may
-              appear on.
+              Go back a step and add your website first. The chat goes on it.
             </p>
           ) : null}
         </div>
@@ -1018,11 +1102,14 @@ export function A2pWizard({
     issuesFor(issues, field).filter((i) => i.severity === 'blocker'),
   );
 
-  const surfaceUrls = urlsOf(surfaces, origin);
-  /** The page we are about to tell the carrier the agreement box is on. */
+  const surfaceUrls = urlsOf(surfaces, origin, withScheme(form.website));
+  /**
+   * The page we are about to tell the carrier the agreement box is on: for the chat, the page showing what it asks
+   * (the review also checks the chat is on the website itself).
+   */
   const optInUrl =
     form.optInPath === 'hosted'
-      ? (surfaceUrls.formUrl ?? surfaceUrls.chatUrl)
+      ? surfaceUrls.chatUrl
       : form.optInPath === 'own_site'
         ? withScheme(form.optInUrl) || null
         : null;
