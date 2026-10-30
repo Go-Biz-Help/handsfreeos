@@ -394,6 +394,11 @@ export const TodayOutput = z.object({
    * why, what to try, and whether it checks more and searches again today. None from a server before it.
    */
   goal: TodayGoal.nullable().default(null),
+  /**
+   * When the next message or comment tried again on this network may go (decision 133): its person is off the list
+   * till then, and the extension looks again by then. Null while none waits.
+   */
+  retryAt: z.iso.datetime().nullable().default(null),
 });
 export type TodayOutput = z.output<typeof TodayOutput>;
 

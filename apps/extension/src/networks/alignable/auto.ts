@@ -30,6 +30,7 @@
  */
 import type { CommentLiked, TheirComment } from '../../messages';
 import type { AutoResult, TheirPost } from '../facebook/auto';
+import { squashed, timesShown } from '../facebook/dom';
 import { visible } from '../facebook/fetch';
 import type { JoinStep } from '../facebook/join';
 import type { ProfileRef } from '../facebook/types';
@@ -64,7 +65,7 @@ const ASKED = /^(connected|request sent|requested|pending|invitation sent)$/i;
 const WRITING = '[contenteditable="true"], textarea, [role="textbox"]';
 /** How long a like and a message are waited on to show they went. */
 const WENT_MS = 5_000;
-const SENT_MS = 6_000;
+const SENT_MS = 8_000;
 
 /** Whether two links are to the same business: by Alignable's id when both carry it, else its address in its town. */
 export function sameBusiness(a: ProfileRef, b: ProfileRef): boolean {
@@ -350,8 +351,25 @@ export async function writeMessage(
     takeOut(box);
     return 'not_theirs';
   }
+  // It went once the box empties, or what was typed shows once more in the conversation: Alignable sometimes leaves
+  // the writing in the box after it sends (the owner's sends of 30 Oct 2026, on 0.114.0, said "didn't take" of
+  // messages that were in the conversation).
+  const before = timesShown(doc, text, WRITING);
   send.click();
-  return (await waitFor(() => (writingIn(box) ? null : true), SENT_MS)) ? 'done' : 'not_sent';
+  const went = await waitFor(
+    () => (!writingIn(box) || timesShown(doc, text, WRITING) > before ? true : null),
+    SENT_MS,
+  );
+  if (!went) return 'not_sent';
+  // What was typed left in the box after it went is taken out, so the next message finds it empty.
+  if (
+    box.isConnected &&
+    writingIn(box) &&
+    !(await waitFor(() => (writingIn(box) ? null : true), 2_000)) &&
+    squashed('value' in box ? String(box.value) : box.textContent) === squashed(text)
+  )
+    takeOut(box);
+  return 'done';
 }
 
 // ------------------------------------------------------------------------------------------------ comments

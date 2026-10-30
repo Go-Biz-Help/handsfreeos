@@ -34,11 +34,14 @@ import {
   messagesTitle,
   moreWords,
   NEED_CLEARS,
+  NEED_RETRY,
   needClearedWords,
   needPageOf,
+  needRetryable,
   needTitle,
   needWhyWords,
   oneByOneWords,
+  retriedWords,
   WAITING_KINDS,
   waitingWords,
   type NeedClear,
@@ -48,7 +51,7 @@ import * as React from 'react';
 import { View } from 'react-native';
 
 import { ChangeError } from '@/changes';
-import { Check, CheckCheck, ExternalLink, Pencil, X } from '@/components/icons';
+import { Check, CheckCheck, ExternalLink, Pencil, RotateCcw, X } from '@/components/icons';
 import { useKeyboardHeight } from '@/components/shell/keyboard';
 import { Screen } from '@/components/shell/screen';
 import { Badge } from '@/components/ui/badge';
@@ -60,7 +63,7 @@ import { Text } from '@/components/ui/text';
 import { toast } from '@/components/ui/toast';
 import { api, errorMessage, unwrap } from '@/lib/api';
 
-import { clearNeed, okAll, okSend, setAside, skipSend } from './actions';
+import { clearNeed, okAll, okSend, retrySends, setAside, skipSend } from './actions';
 import { AskLine, useAskActions, type AskActions } from './asks';
 import { ChatBubbles } from './chat-bubbles';
 import { useOutreachWaiting } from './copy';
@@ -252,6 +255,16 @@ export function useWaitingProps(): React.ComponentProps<typeof WaitingBody> {
         failed(e);
       }
     },
+    // Retry, and Retry all (decision 133): with signal, as it reaches them again.
+    onRetrySends: async (needIds) => {
+      try {
+        const { retried, passed } = (await retrySends(ws, needIds)).output;
+        toast.show(retriedWords(retried.length, passed));
+        answer.reload();
+      } catch (e) {
+        failed(e);
+      }
+    },
     onLeave: async (request) => {
       try {
         await setAside(ws, request.profileId);
@@ -282,6 +295,7 @@ export function WaitingBody({
   onSkip,
   onOkAll,
   onClear,
+  onRetrySends,
   onLeave,
   onSettings,
   askActions,
@@ -298,6 +312,8 @@ export function WaitingBody({
   onSkip: (send: PhoneSend) => void;
   onOkAll: (sends: { sendId: string }[]) => void;
   onClear: (need: Need, how: NeedClear) => void;
+  /** Retry one message or comment that didn't go, or every one (null): each a few minutes apart. */
+  onRetrySends?: (needIds: string[] | null) => void;
   onLeave: (request: Request) => void;
   onSettings: () => void;
   /** Carry on, Skip and Stop, on what the computer needs them for. */
@@ -416,6 +432,19 @@ export function WaitingBody({
               shown={server.needs.length}
               kind="need"
               testID="waiting-need"
+              action={
+                onRetrySends && server.needs.filter(needRetryable).length >= 2 ? (
+                  <Button
+                    size="md"
+                    variant="ghost"
+                    icon={RotateCcw}
+                    onPress={() => onRetrySends(null)}
+                    testID="waiting-retry-all"
+                  >
+                    {NEED_RETRY.all}
+                  </Button>
+                ) : null
+              }
             >
               {server.needs.map((need) => (
                 <NeedCard
@@ -423,6 +452,11 @@ export function WaitingBody({
                   need={need}
                   when={seenWords(need.seenAt, timeZone, now)}
                   onClear={(how) => onClear(need, how)}
+                  onRetry={
+                    onRetrySends && needRetryable(need)
+                      ? () => onRetrySends([need.needId])
+                      : undefined
+                  }
                 />
               ))}
             </Group>
@@ -724,10 +758,13 @@ function NeedCard({
   need,
   when,
   onClear,
+  onRetry,
 }: {
   need: Need;
   when: string;
   onClear: (how: NeedClear) => void;
+  /** Retry, on a message or comment that didn't go (decision 133). */
+  onRetry?: () => void;
 }) {
   // Its profile's network, as HandsFreeOS says: its words, its label and its links are that network's.
   const platform = networkOfWaiting({ kind: 'need', need });
@@ -765,6 +802,17 @@ function NeedCard({
         </Text>
       ) : null}
       <View className="flex-row flex-wrap gap-2">
+        {onRetry ? (
+          <Button
+            size="md"
+            variant="secondary"
+            icon={RotateCcw}
+            onPress={onRetry}
+            testID="waiting-need-retry"
+          >
+            {NEED_RETRY.one}
+          </Button>
+        ) : null}
         <Button size="md" icon={Check} onPress={() => onClear('done')} testID="waiting-need-done">
           {NEED_CLEARS.done}
         </Button>

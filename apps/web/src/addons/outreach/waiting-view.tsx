@@ -15,7 +15,8 @@
  *   person under their own hold, it says how long that lasts;
  * - **Steps it needs you for**: a step the extension couldn't do, in its network's words, to do there (**I did it**)
  *   or **Let it go**; **Open** goes to their page on that network (or the post, or the chat), and a message that
- *   didn't go has its words to copy;
+ *   didn't go has its words to copy, and **Retry** (decision 133), with **Retry all** over two or more: each goes
+ *   again a few minutes after the one before;
  * - **Friend requests to decide**: requests from the last two weeks that didn't fit a playbook, with why, and
  *   **Leave it**.
  *
@@ -46,10 +47,13 @@ import {
   moreWords,
   needClearedWords,
   needPageOf,
+  needRetryable,
   needTitleAround,
   needWhyWords,
   NEED_CLEARS,
+  NEED_RETRY,
   postTitleAround,
+  retriedWords,
   WAITING_KIND_KEYS,
   WAITING_KINDS,
   waitingWords,
@@ -57,7 +61,7 @@ import {
   type WaitingKind,
 } from '@hfos/core/addons/outreach/waiting-words';
 import { OUTREACH_WORDS as W } from '@hfos/core/addons/outreach/words';
-import { Check, CheckCheck, Copy, ExternalLink, X } from 'lucide-react';
+import { Check, CheckCheck, Copy, ExternalLink, RotateCcw, X } from 'lucide-react';
 import Link from 'next/link';
 import { toast } from 'sonner';
 import { Badge } from '@/components/ui/badge';
@@ -171,6 +175,7 @@ function Group({
             comments={approveAllTakesComments(comments)}
           />
         ) : null}
+        {kind === 'need' ? <RetryAll workspaceId={workspaceId} items={items} /> : null}
       </div>
       {kind === 'message' && waiting.wheels.on ? (
         <p className="px-5 pt-1.5 text-[12.5px] text-text-2" data-testid="waiting-wheels">
@@ -278,6 +283,37 @@ function ApproveAll({
     >
       <CheckCheck className="h-3.5 w-3.5" strokeWidth={1.5} />
       {approveAllWords(all, comments)}
+    </Button>
+  );
+}
+
+/** Tries a message or comment that didn't go again, or every one (`needIds` null): each a few minutes apart. */
+async function retry(workspaceId: string, needIds: string[] | null): Promise<void> {
+  const { retried, passed } = unwrap(
+    await apiBrowser().POST('/v1/commands/outreach.send.retry', {
+      body: { workspaceId, needIds },
+    }),
+  );
+  const said = retriedWords(retried.length, passed);
+  if (retried.length) toast.success(said);
+  else toast.info(said);
+}
+
+/** Retry all, over two or more messages and comments that didn't go (decision 133). */
+function RetryAll({ workspaceId, items }: { workspaceId: string; items: readonly WaitingItem[] }) {
+  const { busy, act } = useAct();
+  const retryable = items.filter((item) => item.kind === 'need' && needRetryable(item.need));
+  if (retryable.length < 2) return null;
+  return (
+    <Button
+      size="sm"
+      variant="ghost"
+      disabled={busy !== null}
+      onClick={() => void act('retry-all', () => retry(workspaceId, null))}
+      data-testid="waiting-retry-all"
+    >
+      <RotateCcw className="h-3.5 w-3.5" strokeWidth={1.5} />
+      {NEED_RETRY.all}
     </Button>
   );
 }
@@ -465,6 +501,18 @@ function NeedRow({
             <ExternalLink className="h-3.5 w-3.5" strokeWidth={1.5} />
             {messenger ? openChatWords(platform) : openPageWords(platform)}
           </a>
+        ) : null}
+        {needRetryable(need) ? (
+          <Button
+            size="sm"
+            variant="secondary"
+            disabled={busy !== null}
+            onClick={() => void act('retry', () => retry(workspaceId, [need.needId]))}
+            data-testid="waiting-need-retry"
+          >
+            <RotateCcw className="h-3.5 w-3.5" strokeWidth={1.5} />
+            {NEED_RETRY.one}
+          </Button>
         ) : null}
         <Button
           size="sm"

@@ -881,6 +881,70 @@ describe('a message on Alignable', () => {
     }
   });
 
+  it('knows a message went by its showing in the conversation, though Alignable leaves it in the box', async () => {
+    const { writeMessage } = await import('../src/networks/alignable/auto');
+    const { JSDOM } = await import('jsdom');
+    const doc = new JSDOM(`<!doctype html><html><body>${chatHtml()}</body></html>`, {
+      url: DANA_CHAT,
+    }).window.document;
+    let typed: Element | null = null;
+    for (const box of doc.querySelectorAll('[contenteditable="true"]'))
+      box.addEventListener('click', () => (typed = box));
+    doc.execCommand = (_c: string, _u?: boolean, text?: string) => {
+      if (typed) typed.textContent = text ?? '';
+      return true;
+    };
+    // Alignable shows the message in the conversation, and the box keeps it.
+    doc.querySelector('[data-testid="messaging-send-external"]')!.addEventListener('click', () => {
+      const card = doc.createElement('div');
+      card.setAttribute('data-testid', 'rel-card-message');
+      card.innerHTML = `<div>${doc.querySelector('#box')!.textContent}</div>`;
+      doc.querySelector('[data-testid="channel-header-loaded"]')!.after(card);
+    });
+    vi.useFakeTimers({ toFake: ['setTimeout'] });
+    try {
+      const writing = writeMessage(doc, DANA_CHAT, 'Glad to help, Dana.', {
+        id: '42',
+        username: null,
+        url: DANA,
+      });
+      await vi.advanceTimersByTimeAsync(20_000);
+      expect(await writing).toBe('done');
+      // What was typed is taken out of the box, so the next message finds it empty.
+      expect(doc.querySelector('#box')!.textContent).toBe('');
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('says a message didn’t go when it never shows and the box keeps it', async () => {
+    const { writeMessage } = await import('../src/networks/alignable/auto');
+    const { JSDOM } = await import('jsdom');
+    const doc = new JSDOM(`<!doctype html><html><body>${chatHtml()}</body></html>`, {
+      url: DANA_CHAT,
+    }).window.document;
+    let typed: Element | null = null;
+    for (const box of doc.querySelectorAll('[contenteditable="true"]'))
+      box.addEventListener('click', () => (typed = box));
+    doc.execCommand = (_c: string, _u?: boolean, text?: string) => {
+      if (typed) typed.textContent = text ?? '';
+      return true;
+    };
+    vi.useFakeTimers({ toFake: ['setTimeout'] });
+    try {
+      const writing = writeMessage(doc, DANA_CHAT, 'Glad to help, Dana.', {
+        id: '42',
+        username: null,
+        url: DANA,
+      });
+      await vi.advanceTimersByTimeAsync(20_000);
+      expect(await writing).toBe('not_sent');
+      expect(doc.querySelector('#box')!.textContent).toBe('Glad to help, Dana.');
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it('types nothing in a conversation whose header isn’t drawn, on its address alone', async () => {
     const { writeMessage } = await import('../src/networks/alignable/auto');
     const { JSDOM } = await import('jsdom');

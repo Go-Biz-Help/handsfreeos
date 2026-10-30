@@ -336,9 +336,152 @@ describe('writing a message only in the conversation with them', () => {
         url: `${LI}/in/ACoAAFakeSomeoneElse999/`,
       };
       const writing = writeMessage(doc, NEW, 'Hi', someoneElse);
-      await vi.advanceTimersByTimeAsync(10_000);
+      await vi.advanceTimersByTimeAsync(20_000);
       expect(await writing).toBe('none');
       expect(sent).toEqual([]);
+    });
+  });
+
+  describe('in a new conversation as LinkedIn’s newer messaging draws it, with a card about them over the box', () => {
+    const newAt = (recipient: string) =>
+      `${LI}/messaging/thread/new/?recipient=${recipient}&screenContext=NON_SELF_PROFILE_VIEW`;
+    /** Their id as their profile's own links give it, and the other way LinkedIn writes one member's id. */
+    const danaById: ProfileRef = { ...dana, id: 'ACoAAFakeDanaReyes123' };
+
+    /**
+     * Their profile, its address now the new conversation's, with the conversation in the interop frame: drawn at
+     * once, or only once `drawIn` passes, as LinkedIn loads all of its messaging in the frame first.
+     */
+    function composing(href: string, drawIn = 0, card?: (doc: Document) => void) {
+      const doc = load('linkedin-profile.html', href);
+      const frame = doc.createElement('iframe');
+      frame.setAttribute('data-testid', 'interop-iframe');
+      doc.body.append(frame);
+      const inner = frame.contentDocument!;
+      const sent: string[] = [];
+      const draw = () => {
+        const page = load('linkedin-new-conversation.html', href);
+        card?.(page);
+        inner.body.innerHTML = page.body.innerHTML;
+        const box = inner.querySelector('[role="textbox"]')!;
+        const send = inner.querySelector<HTMLButtonElement>('button[type="submit"]')!;
+        inner.execCommand = (_command: string, _ui?: boolean, text?: string) => {
+          box.textContent = text ?? '';
+          send.disabled = !box.textContent;
+          return true;
+        };
+        send.addEventListener('click', () => {
+          sent.push(box.textContent ?? '');
+          box.textContent = '';
+        });
+      };
+      if (drawIn) setTimeout(draw, drawIn);
+      else draw();
+      return { doc, sent };
+    }
+
+    it('writes to them when its address has their id the other way LinkedIn writes it, by the card', async () => {
+      const { doc, sent } = composing(newAt('ACwAAFakeDanaSalesNav77'));
+      expect(await writeMessage(doc, newAt('ACwAAFakeDanaSalesNav77'), 'Hi Dana', danaById)).toBe(
+        'done',
+      );
+      expect(sent).toEqual(['Hi Dana']);
+    });
+
+    it('writes to them when its address names nobody it can read, as its card links to them', async () => {
+      const { doc, sent } = composing(newAt('dXJuOmxpOmZzZF9wcm9maWxl'));
+      expect(await writeMessage(doc, newAt('dXJuOmxpOmZzZF9wcm9maWxl'), 'Hi Dana', dana)).toBe(
+        'done',
+      );
+      expect(sent).toEqual(['Hi Dana']);
+    });
+
+    it('writes nothing when its card links to someone else', async () => {
+      vi.useFakeTimers({ toFake: ['setTimeout'] });
+      const someoneElse = (page: Document) => {
+        for (const a of page.querySelectorAll('a[href="/in/dana-reyes-4b2a1c/"]'))
+          a.setAttribute('href', '/in/sam-ortiz-77/');
+      };
+      for (const recipient of ['ACoAAFakeDanaReyes123', 'ACwAAFakeDanaSalesNav77', 'dXJuOmxp']) {
+        const { doc, sent } = composing(newAt(recipient), 0, someoneElse);
+        const writing = writeMessage(doc, newAt(recipient), 'Hi Dana', danaById);
+        await vi.advanceTimersByTimeAsync(20_000);
+        expect(await writing).toBe('none');
+        expect(sent).toEqual([]);
+      }
+    });
+
+    it('writes nothing when its address names nobody it can read and no card says whom it’s to', async () => {
+      vi.useFakeTimers({ toFake: ['setTimeout'] });
+      const noCard = (page: Document) => {
+        for (const a of page.querySelectorAll('a[href^="/in/"]')) a.remove();
+      };
+      const { doc, sent } = composing(newAt('dXJuOmxp'), 0, noCard);
+      const writing = writeMessage(doc, newAt('dXJuOmxp'), 'Hi Dana', dana);
+      await vi.advanceTimersByTimeAsync(20_000);
+      expect(await writing).toBe('none');
+      expect(sent).toEqual([]);
+    });
+
+    it('waits for the frame to draw the conversation, as LinkedIn loads its messaging first', async () => {
+      vi.useFakeTimers({ toFake: ['setTimeout'] });
+      const { doc, sent } = composing(newAt('ACoAAFakeDanaReyes123'), 9_000);
+      const writing = writeMessage(doc, newAt('ACoAAFakeDanaReyes123'), 'Hi Dana', danaById);
+      await vi.advanceTimersByTimeAsync(20_000);
+      expect(await writing).toBe('done');
+      expect(sent).toEqual(['Hi Dana']);
+    });
+  });
+
+  describe('knowing a message went', () => {
+    /** The conversation's page, where Send puts the message in the conversation, and `after` does the rest. */
+    function sending(after: (box: Element, form: Element) => void) {
+      const doc = load('linkedin-chat.html', THREAD);
+      typing(doc);
+      const form = doc.querySelector('form')!;
+      const list = doc.querySelector('ul._m0')!;
+      const button = form.querySelector('button[type="submit"]')!;
+      const replaced = button.cloneNode(true);
+      button.replaceWith(replaced);
+      replaced.addEventListener('click', () => {
+        const box = form.querySelector('[role="textbox"]')!;
+        const row = doc.createElement('li');
+        row.innerHTML = `<p>${box.textContent}</p>`;
+        list.append(row);
+        after(box, form);
+      });
+      return { doc, form };
+    }
+
+    it('when the message shows in the conversation though LinkedIn leaves it in the box: and takes it out', async () => {
+      vi.useFakeTimers({ toFake: ['setTimeout'] });
+      const { doc, form } = sending(() => undefined);
+      const writing = writeMessage(doc, THREAD, 'Glad to help, Dana.', dana);
+      await vi.advanceTimersByTimeAsync(20_000);
+      expect(await writing).toBe('done');
+      expect(form.querySelector('[role="textbox"]')!.textContent).toBe('');
+    });
+
+    it('when LinkedIn draws the box afresh as it sends', async () => {
+      vi.useFakeTimers({ toFake: ['setTimeout'] });
+      const { doc } = sending((box) => {
+        const fresh = box.cloneNode(false) as Element;
+        box.replaceWith(fresh);
+      });
+      const writing = writeMessage(doc, THREAD, 'Glad to help, Dana.', dana);
+      await vi.advanceTimersByTimeAsync(20_000);
+      expect(await writing).toBe('done');
+    });
+
+    it('not when the message never shows and the box keeps it', async () => {
+      vi.useFakeTimers({ toFake: ['setTimeout'] });
+      const doc = load('linkedin-chat.html', THREAD);
+      typing(doc);
+      const button = doc.querySelector('form button[type="submit"]')!;
+      button.replaceWith(button.cloneNode(true));
+      const writing = writeMessage(doc, THREAD, 'Glad to help, Dana.', dana);
+      await vi.advanceTimersByTimeAsync(20_000);
+      expect(await writing).toBe('not_sent');
     });
   });
 
