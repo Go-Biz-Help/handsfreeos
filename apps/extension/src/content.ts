@@ -37,7 +37,8 @@
  *
  * While noting is on, it also looks at the chats on the page as they change and tells the background of each whose
  * last message is theirs, and whether the person was looking at the tab, so their phone can hear who wrote back. Only
- * who, never what they wrote.
+ * who, never what they wrote. The messages page the extension keeps open asks for the same each minute (decision 125,
+ * src/auto/watch.ts).
  *
  * And in the tab in front of the person, as the page settles: the network's warnings, always; and on Facebook, while
  * noting is on, a chat they open when Read chats I open is on, or a group's posts as they scroll when Look for posts
@@ -134,6 +135,15 @@ if (kit && !here.hfosSocialListening) {
               : undefined;
           // Chrome draws nothing in a window hidden behind another: what's below the first screen may be missing.
           respond({ ok: true, result, outline, shown: document.visibilityState === 'visible' });
+        } catch (error) {
+          respond({ ok: false, error: error instanceof Error ? error.message : String(error) });
+        }
+        return false;
+      }
+      // Who wrote last in the chats on the page, now: the messages page kept open asks every minute (decision 125).
+      if (ask.type === 'hfos-replies-now') {
+        try {
+          respond({ ok: true, seen: noting ? kit.readReplies(document, location.href) : [] });
         } catch (error) {
           respond({ ok: false, error: error instanceof Error ? error.message : String(error) });
         }

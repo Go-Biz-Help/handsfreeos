@@ -22,6 +22,7 @@ import {
   CHECK_AGAIN_DAYS,
   CHECK_RETRY_DAYS,
   CHECKS_PER_DAY,
+  RECONNECT_QUIET_DAYS,
   ChecksAgainInput,
   ChecksAgainOutput,
   CheckLookInput,
@@ -42,14 +43,16 @@ import {
   type CountryRule,
   type MutualCountries,
 } from '../countries';
-import { FIND_FRESH_DAYS, FIND_LIKES_BEHIND_DAYS, type CheckVia } from '../finds';
+import { FIND_FRESH_DAYS, FIND_LIKES_BEHIND_DAYS, FOUND_CHECKS, type CheckVia } from '../finds';
 import { bestFit } from '../fit';
 import type { GroupCheckState } from '../group-checks';
 import { FOLLOWERS_KEPT_DAYS } from '../followers';
+import { fewAhead } from '../goal';
 import { limitNow } from '../limits';
 import { NETWORKS, type Platform } from '../networks';
 import { outreachAddon } from '../manifest';
 import { partnerReadsPerDay } from '../partners';
+import { requestsHeldOn, TODAY_WINDOW_DAYS } from '../today';
 import { checks, finds, profiles } from '../tables';
 import { automationOf, limitsFor } from './automation';
 import { findsByTopic } from './live';
@@ -69,7 +72,9 @@ import {
 } from './common';
 import { playbooksInUse } from './friends';
 import { groupFitOf } from './group-checks';
+import { readinessFor } from './readiness';
 import { slowsNow, startOfToday, warningOf } from './tidy';
+import type { WarningState } from '../tidy';
 
 const DAY = 86_400_000;
 
@@ -95,6 +100,22 @@ export const knownToMe = (me: string) =>
  * someone found and not known yet is theirs alone: Today's found people. `ch` is the check, `p` its profile.
  */
 export const knownCheck = (me: string) => sql`(ch.via = 'known' or ${knowsThem(me)})`;
+
+/**
+ * Someone the person knows whom a check found a good fit, or who might fit (decision 126, answer 5a), to write to again
+ * (decision 46): neither side has written in `quiet`, nobody on the team wrote to them since, and they haven't written
+ * back since. Today's Reconnect takes the good fits first; the day's goal counts every one ready. `ch` is the check, `p`
+ * its profile, and `lets` the business's country setting and the network.
+ */
+export const reconnectReady = (me: string, quiet: string, lets: SQL) => sql`(ch.user_id = ${me}
+  and ch.verdict in ('good', 'maybe') and ${knownCheck(me)}
+  and p.friendship <> 'self' and ${pitchable('p')} and ${inPlay(me, 'p')} and ${lets}
+  and not exists (select 1 from addon_outreach.file_chats c where c.profile_id = p.id and c.user_id = ${me}
+    and c.last_at >= ${quiet}::timestamptz)
+  and not exists (select 1 from addon_outreach.touches t where t.profile_id = p.id
+    and t.user_id = ${me} and t.kind = 'message' and t.at >= ${quiet}::timestamptz)
+  and not exists (select 1 from addon_outreach.replies r where r.profile_id = p.id
+    and r.user_id = ${me} and r.seen_at >= ${quiet}::timestamptz))`;
 
 /** Someone the person found by topic (decision 92) and doesn't know: a find of theirs, and no friend or chat. `p` is the profile. */
 export const foundNotKnown = (me: string) => sql`(exists (select 1 from addon_outreach.finds fd
@@ -242,9 +263,106 @@ export async function likesBehind(
   return (waiting?.n ?? 0) >= FIND_LIKES_BEHIND_DAYS * likes;
 }
 
-/** The network's profiles read a day (`checksPerDay`), halved for a week after a warning there. */
-export const readsPerDay = (platform: Platform, slower: boolean) =>
-  limitNow(Math.min(CHECKS_PER_DAY, NETWORKS[platform].checksPerDay), slower);
+/**
+ * The good fits ready on a network for the day's goal (decision 126): for a first message, friends to reconnect with and
+ * new friends who accepted with no message yet, today's among them; and for a friend request, people found, following
+ * them or in their groups whom a check found fit or might, still to reach. With whether new requests are held there
+ * (decision 97).
+ */
+export async function goalStock(
+  ctx: Ctx,
+  me: string,
+  platform: Platform,
+  now: number,
+): Promise<{ messages: number; requests: number; held: boolean }> {
+  const ws = ctx.scope.workspaceId!;
+  const ago = (days: number) => new Date(now - days * DAY).toISOString();
+  const lets = sql`(${countryLetsSql(await countryRuleOf(ctx), 'p')} and p.platform = ${platform})`;
+  const [counted] = await rows<{
+    reconnect: number;
+    accepted: number;
+    requests: number;
+    waiting: number;
+    friends: number;
+  }>(
+    ctx.tx,
+    sql`select
+          (select count(*)::int from addon_outreach.checks ch
+            join addon_outreach.profiles p on p.id = ch.profile_id
+            where ch.workspace_id = ${ws} and ${reconnectReady(me, ago(RECONNECT_QUIET_DAYS), lets)}) as reconnect,
+          (select count(*)::int from addon_outreach.friends f
+            join addon_outreach.profiles p on p.id = f.profile_id
+            where f.workspace_id = ${ws} and f.user_id = ${me} and f.state = 'friends'
+              and f.since >= ${ago(TODAY_WINDOW_DAYS.opener)}::timestamptz
+              and ${pitchable('p')} and ${inPlay(me, 'p')} and ${lets}
+              and exists (select 1 from addon_outreach.touches t where t.profile_id = p.id
+                and t.user_id = ${me} and t.kind = 'friend_request')
+              and not exists (select 1 from addon_outreach.touches t where t.profile_id = p.id
+                and t.kind = 'message')
+              and not exists (select 1 from addon_outreach.file_chats c where c.profile_id = p.id
+                and c.user_id = ${me})
+              and not exists (select 1 from addon_outreach.follow_ups fu where fu.profile_id = p.id
+                and fu.user_id = ${me})) as accepted,
+          (select count(*)::int from addon_outreach.checks ch
+            join addon_outreach.profiles p on p.id = ch.profile_id
+            where ch.workspace_id = ${ws} and ch.user_id = ${me} and ch.verdict in ('good', 'maybe')
+              and ch.via in ('found', 'follower', 'member')
+              and ch.looked_at >= ${ago(FIND_FRESH_DAYS)}::timestamptz
+              and ${stillToReach(me)} and ${lets}) as requests,
+          (select count(*) filter (where f.state = 'request_sent')::int from addon_outreach.friends f
+            join addon_outreach.profiles p on p.id = f.profile_id
+            where f.workspace_id = ${ws} and f.user_id = ${me} and p.platform = ${platform}) as waiting,
+          (select count(*) filter (where f.state = 'friends')::int from addon_outreach.friends f
+            join addon_outreach.profiles p on p.id = f.profile_id
+            where f.workspace_id = ${ws} and f.user_id = ${me} and p.platform = ${platform}) as friends`,
+  );
+  return {
+    messages: (counted?.reconnect ?? 0) + (counted?.accepted ?? 0),
+    requests: counted?.requests ?? 0,
+    held:
+      requestsHeldOn(platform, {
+        waiting: counted?.waiting ?? 0,
+        friends: counted?.friends ?? 0,
+      }) !== null,
+  };
+}
+
+/**
+ * Whether a network checks more and searches again today (decision 126, answer 6a): the person is ready there (nothing
+ * goes out till then, decision 69), and it has fewer good fits ready for first messages than `GOAL_AHEAD_DAYS` days of
+ * its limit, or, while new requests aren't held there by a warning or the person's own, fewer to ask than that many
+ * days of requests.
+ */
+export async function moreToday(
+  ctx: Ctx,
+  me: string,
+  platform: Platform,
+  now: number,
+  warning: WarningState | null,
+): Promise<boolean> {
+  if (!(await readinessFor(ctx, me, platform)).ready) return false;
+  const limits = await limitsFor(ctx, me, slowsNow(warning, now), now, platform);
+  const stock = await goalStock(ctx, me, platform, now);
+  const requestsOff =
+    stock.held || (warning !== null && new Date(warning.requestsFrom).getTime() > now);
+  return (
+    fewAhead(stock.messages, limits.first_message) ||
+    (!requestsOff && fewAhead(stock.requests, limits.friend_request))
+  );
+}
+
+/**
+ * The network's profiles read a day (`checksPerDay`), or its most (`checksMost`) on a day it needs more good fits
+ * (decision 126, answer 4a); halved for a week after a warning there, and the most halved too while the person is new
+ * there or on training wheels (`slower`, answer 2a).
+ */
+export const readsPerDay = (platform: Platform, slower: boolean, more = false) =>
+  limitNow(
+    more
+      ? NETWORKS[platform].checksMost
+      : Math.min(CHECKS_PER_DAY, NETWORKS[platform].checksPerDay),
+    slower,
+  );
 
 /** A day's reads of one kind on a network: how many today, how many a day now, and how many more today has room for. */
 export interface DayReads {
@@ -257,10 +375,12 @@ export interface DayReads {
  * How many profiles the person's computer reads a day on a network now, and how many more today, for each kind of
  * read. Another network's reads and warnings never count.
  *
- * - **Checks** of people they know: the network's profiles read a day (`checksPerDay`), halved for a week after a
- *   warning there; today's partner reads count too.
+ * - **Checks** of people they know: the network's profiles read a day (`checksPerDay`), or its most (`checksMost`)
+ *   on a day the goal needs more good fits (decision 126, `moreToday`), halved for a week after a warning there;
+ *   today's partner reads count too.
  * - **Partners**: at most half of those (`partnerReadsPerDay`), inside what the checks leave (./partners.ts).
- * - **Found** people (decision 92): the business's found checks a day (decision 116, `foundChecksOf`), halved on training wheels there too
+ * - **Found** people (decision 92): the business's found checks a day (decision 116, `foundChecksOf`; twice that, up to
+ *   `FOUND_CHECKS.most`, on a day the goal needs more), halved on training wheels there too
  *   and for a week after a warning, never below 1, beside the profiles read. Where they share them instead
  *   (`foundShareReads`, LinkedIn's settled 40), found people go first: up to their day's, inside the profiles read, the
  *   found checks still to come today hold their part (as many as wait, only while the person's computer finds people
@@ -272,11 +392,17 @@ export async function perDayFor(
   me: string,
   now: number,
   platform: Platform = 'facebook',
+  /** Whether the day needs more good fits there, when the caller worked it out already (`moreToday`). */
+  needsMore?: boolean,
 ): Promise<{ checks: DayReads; partners: DayReads; found: DayReads }> {
   const todayStart = await startOfToday(ctx, now);
-  const warned = slowsNow(await warningOf(ctx, me, platform, todayStart, now), now);
+  const warning = await warningOf(ctx, me, platform, todayStart, now);
+  const warned = slowsNow(warning, now);
   const read = await readToday(ctx, me, platform, todayStart);
-  const reads = readsPerDay(platform, warned);
+  // More on a day the goal needs more good fits (decision 126), half that while the person is new there.
+  const more = needsMore ?? (await moreToday(ctx, me, platform, now, warning));
+  const slowerMore = more && (warned || (await automationOf(ctx, me, now, platform)).slower);
+  const reads = readsPerDay(platform, warned || slowerMore, more);
   const kit = NETWORKS[platform];
   const shared = kit.foundShareReads;
   const used = read.checks + read.partners + (shared ? read.found : 0);
@@ -286,7 +412,11 @@ export async function perDayFor(
   const foundChecks = await foundChecksOf(ctx, platform);
   if (foundChecks !== null) {
     const slower = warned || (await automationOf(ctx, me, now, platform)).slower;
-    const most = limitNow(foundChecks, slower);
+    // Twice the business's, up to the most it may set, on a day the goal needs more (decision 126).
+    const most = limitNow(
+      more ? Math.min(FOUND_CHECKS.most, foundChecks * 2) : foundChecks,
+      slower,
+    );
     const perDay = shared ? Math.min(most, reads) : most;
     const room = Math.max(0, perDay - read.found);
     found = { today: read.found, perDay, room: shared ? Math.min(room, left) : room };

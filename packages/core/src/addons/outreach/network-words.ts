@@ -45,6 +45,7 @@ import {
   type RunnerTick,
 } from './networks';
 import { COMMENT_HOLD_WORDS } from './sends';
+import { CANCEL_FAST } from './tidy';
 import { TODAY_KINDS, type TodayItem, type TodayKind } from './today';
 import { messengerChatUrl } from './waiting-words';
 import { OUTREACH_WORDS as W } from './words';
@@ -503,6 +504,8 @@ export function requestsHeldWords(
     readonly most: number;
     /** Left for Cancel all (decision 121): none from a server before it. */
     readonly cancelling?: number;
+    /** Cancel all's a day now (decision 126): none from a server before it. */
+    readonly cancelMost?: number | null;
   },
   platform: Platform,
 ): string {
@@ -520,8 +523,8 @@ export function requestsHeldWords(
   const { all, title } = MORE[platform].oldRequests;
   if (!all) return `${start} Tick some under ${title} in Tidy up on the Friends tab.`;
   if (held.cancelling)
-    return `${start} ${cap(all.doing)} all of them: ${held.cancelling.toLocaleString('en-US')} left, ${kit.tidyLimits.cancel_request} a day.`;
-  return `${start} ${all.button} ${all.does} them however new, ${kit.tidyLimits.cancel_request} a day, or tick some under ${title} in Tidy up on the Friends tab.`;
+    return `${start} ${cap(all.doing)} all of them: ${held.cancelling.toLocaleString('en-US')} left, ${held.cancelMost ?? kit.tidyLimits.cancel_request} a day.`;
+  return `${start} ${all.button} ${all.does} them however new, ${(kit.tidyLimits.cancel_request * CANCEL_FAST.times).toLocaleString('en-US')} a day, or tick some under ${title} in Tidy up on the Friends tab.`;
 }
 
 /**

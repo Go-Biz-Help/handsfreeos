@@ -45,6 +45,7 @@ import type { PlaybookDetails } from '../playbooks';
 import { dayNumber, inTurn } from '../posts';
 import { groups, joins, myGroups } from '../tables';
 import { automationOf, rulesOf } from './automation';
+import { moreToday } from './checks';
 import {
   countryLetsSql,
   countryRuleOf,
@@ -474,8 +475,8 @@ export const joinsNext = defineAddonQuery(outreachAddon, {
           b.fit.score - a.fit.score ||
           (b.g.members ?? 0) - (a.g.members ?? 0),
       );
-    // A different word each day, in turn.
-    const [word] = inTurn(words, 1, dayNumber(now));
+    // A different word each day, in turn; a search again later in the day takes the next word (decision 126).
+    const [word] = inTurn(words, 1, dayNumber(now) + input.round);
     return {
       groups: ranked.slice(0, room).map(({ g }) => ({ groupId: g.id, name: g.name, url: g.url })),
       today,
@@ -485,6 +486,7 @@ export const joinsNext = defineAddonQuery(outreachAddon, {
       anywhere: word?.anywhere ?? false,
       // The person's Join switch on that network (Facebook's is the settings' own).
       onItsOwn: (await automationOf(ctx, me, now, platform)).choices.joinGroups,
+      more: await moreToday(ctx, me, platform, now, warning),
     };
   },
 });

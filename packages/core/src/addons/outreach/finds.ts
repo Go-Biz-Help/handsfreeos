@@ -17,6 +17,7 @@
  * ./ops/finds.ts.
  */
 import { z } from 'zod';
+import { SearchRound } from './goal';
 import { GroupRef } from './activity';
 import { quoted, says } from './fit';
 import { NETWORKS, PLATFORM_KEYS, PLATFORMS, type Platform } from './networks';
@@ -343,6 +344,8 @@ export const FindsSearchesInput = z.object({
   workspaceId: z.uuid(),
   /** The network whose search of businesses goes with the playbooks' kinds of business: Alignable's. */
   platform: z.enum(PLATFORM_KEYS).default('alignable'),
+  /** Which of the day's searches (decision 126): each again takes the next words. */
+  round: SearchRound,
 });
 export type FindsSearchesInput = z.input<typeof FindsSearchesInput>;
 

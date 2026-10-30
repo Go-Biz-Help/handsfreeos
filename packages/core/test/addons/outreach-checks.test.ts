@@ -366,8 +366,9 @@ describe('checking friends and chats', () => {
     });
     const today = await runAs(owner, ws, 'outreach.today', {});
     const reconnect = today.items.filter((i: { kind: string }) => i.kind === 'reconnect');
-    // Avery wrote two days ago: not quiet yet. Blake's chat went quiet 40 days ago.
-    expect(reconnect).toHaveLength(1);
+    // Avery wrote two days ago: not quiet yet. Blake's chat went quiet 40 days ago. Casey, who might fit, fills what's
+    // left after the good fits (decision 126, answer 5a).
+    expect(reconnect.map((i: { name: string }) => i.name)).toEqual(['Blake Cho', 'Casey Moreno']);
     expect(reconnect[0]).toMatchObject({
       name: 'Blake Cho',
       why: ['Owns an electrical business'],
@@ -379,7 +380,11 @@ describe('checking friends and chats', () => {
     // Put on Don't pitch, they're off the list.
     await runAs(owner, ws, 'outreach.friend.set', { profileId: blake, dontPitch: true });
     const again = await runAs(owner, ws, 'outreach.today', {});
-    expect(again.items.filter((i: { kind: string }) => i.kind === 'reconnect')).toHaveLength(0);
+    expect(
+      again.items
+        .filter((i: { kind: string }) => i.kind === 'reconnect')
+        .map((i: { name: string }) => i.name),
+    ).toEqual(['Casey Moreno']);
     await runAs(owner, ws, 'outreach.friend.set', { profileId: blake, dontPitch: false });
   });
 

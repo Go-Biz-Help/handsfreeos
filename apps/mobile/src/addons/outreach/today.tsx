@@ -32,6 +32,7 @@ import {
   type HelpfulListOutput,
 } from '@hfos/core/addons/outreach/helpful';
 import { warningNote } from '@hfos/core/addons/outreach/tidy';
+import { goalTryPlace, type GoalTry } from '@hfos/core/addons/outreach/goal';
 import { PROFILE_PART_WORDS } from '@hfos/core/addons/outreach/profile-parts';
 import { recentBubbles, RECENT_WORDS } from '@hfos/core/addons/outreach/sends';
 import { oneByOneWords } from '@hfos/core/addons/outreach/waiting-words';
@@ -50,10 +51,12 @@ import { api, errorMessage, unwrap } from '@/lib/api';
 
 import { okSend, skipPost, skipSend } from './actions';
 import { ChatBubbles } from './chat-bubbles';
+import { GoalNote } from './goal-note';
 import {
   NeedsSignal,
   Note,
   openOutside,
+  openOutreach,
   openSettingsPart,
   Part,
   useOutreachAnswer,
@@ -191,6 +194,12 @@ export function useTodayProps(
       }
     },
     onProfileOwn: () => openSettingsPart(ws, platform),
+    // Where each thing to try on a short day is done (decision 126).
+    onGoalTry: (t) => {
+      const place = goalTryPlace(t, platform);
+      if (place.view === 'settings') openSettingsPart(ws, place.part);
+      else openOutreach(ws, place.view);
+    },
     // Cancel all (decision 121): the oldest go at once when the computer can take them, the rest once a day.
     onCancelAll: async (leaveOutOwn) => {
       try {
@@ -246,6 +255,7 @@ export function TodayBody({
   onNotForMe,
   onEndWheels,
   onProfileOwn,
+  onGoalTry,
   onCancelAll,
   embedded = false,
   hideSends,
@@ -266,6 +276,8 @@ export function TodayBody({
   onEndWheels: (userId: string, name: string, platform?: Platform) => void;
   /** Opens the network's part of Settings, where the AI's suggestions for its profile wait (decision 99). */
   onProfileOwn?: () => void;
+  /** Opens where a thing to try on a day short of first messages is done (decision 126). */
+  onGoalTry?: (t: GoalTry) => void;
   /** Starts Cancel all on the network (decision 121), leaving out the extension's or not. */
   onCancelAll?: (leaveOutOwn: boolean) => void;
   /** Inside Today's tab, under Needs you (./hub.tsx): no screen of its own. */
@@ -322,6 +334,8 @@ export function TodayBody({
           />
         </View>
       ) : null}
+      {/* Short of today's first messages, why, and what to try (decision 126): none from a server before it. */}
+      {list.goal ? <GoalNote platform={platform} goal={list.goal} onTry={onGoalTry} /> : null}
       {/* Their profile, read on its own on the 1st: what the AI suggests waits for their OK (decision 99). */}
       {list.profileOwn ? (
         <View className="gap-2 rounded-menu bg-card-2 px-3 py-2.5" testID="today-profile-own">

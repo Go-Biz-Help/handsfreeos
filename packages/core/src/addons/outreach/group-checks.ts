@@ -15,6 +15,7 @@
  * Browser-safe: the extension, the web, the phone and the worker read these words and shapes.
  */
 import { z } from 'zod';
+import { SearchRound } from './goal';
 import { quoteData } from '../../knowledge/prompt';
 import { inNetworkWords, NETWORKS, PLATFORM_KEYS, withArticle, type Platform } from './networks';
 import type { PlaybookDetails } from './playbooks';
@@ -320,6 +321,8 @@ export const JoinsNextInput = z.object({
   most: z.number().int().min(1).max(JOINS_PER_DAY).default(JOINS_PER_DAY),
   /** Only these groups, the person's pick: else the best not joined yet. */
   groupIds: z.array(z.uuid()).min(1).max(JOINS_PER_DAY).optional(),
+  /** Which of the day's searches (decision 126): each again takes the next words. */
+  round: SearchRound,
 });
 export type JoinsNextInput = z.input<typeof JoinsNextInput>;
 export const JoinsNextOutput = z.object({
@@ -337,6 +340,11 @@ export const JoinsNextOutput = z.object({
   anywhere: z.boolean().default(false),
   /** The person lets it join on its own when people left to reach run low (`joinGroups`). */
   onItsOwn: z.boolean(),
+  /**
+   * The day's first messages need more good fits there (decision 126, answer 6a): it joins as when people left run low.
+   * None from a server before it.
+   */
+  more: z.boolean().default(false),
 });
 export type JoinsNextOutput = z.output<typeof JoinsNextOutput>;
 

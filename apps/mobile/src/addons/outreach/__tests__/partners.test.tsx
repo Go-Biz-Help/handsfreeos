@@ -252,6 +252,7 @@ describe('a partner’s steps on Today', () => {
       fresh: { on: false, from: null, until: null, days: 14 },
       requestsHeld: null,
       profileOwn: null,
+      goal: null,
     };
     await render(
       <TodayBody

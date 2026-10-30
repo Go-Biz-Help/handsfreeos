@@ -15,7 +15,7 @@ import { line } from '../../networks/facebook/lookup';
 import type { BusinessPage, Ideal } from '../../networks/alignable/read';
 import { businessRef, idIn, urlOf } from '../../networks/alignable/read';
 import { counted } from '../../words';
-import type { ReadThem, Who } from '../checks';
+import { moreToCome, type ReadThem, type Who } from '../checks';
 import { paced, pause, valueOf, warnedOn, type Job, type JobEnd } from '../job';
 import { ALIGNABLE, readAlignableIn, signedOutEnd } from './read';
 
@@ -176,5 +176,9 @@ export async function checkConnections(
       await pause(paced(PACE_MS));
     }
   }
-  return { line: `Done. ${summary(sent, missing)}`, warned: false };
+  return {
+    line: `Done. ${summary(sent, missing)}`,
+    warned: false,
+    ...(moreToCome(next, most) ? { again: true } : {}),
+  };
 }

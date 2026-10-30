@@ -41,6 +41,11 @@ export type CheckFit = (typeof CHECK_FITS)[number];
 
 /** How many people the extension checks in a day: a person's pace, halved after a warning. */
 export const CHECKS_PER_DAY = 40;
+/**
+ * The most a network's checks go to in a day while its first messages need more good fits (decision 126, each kit's
+ * `checksMost`): the most one ask for who's next may want.
+ */
+export const CHECKS_MOST = 150;
 /** How long a check stands before it's read again: people change jobs and start businesses. */
 export const CHECK_AGAIN_DAYS = 90;
 /** One that couldn't be read is tried again after this. */
@@ -86,7 +91,7 @@ export const memberFact = (group: string | null) =>
 export const ChecksNextInput = z.object({
   workspaceId: z.uuid(),
   /** How many it wants: at most a day's. */
-  most: z.number().int().min(1).max(CHECKS_PER_DAY).default(CHECKS_PER_DAY),
+  most: z.number().int().min(1).max(CHECKS_MOST).default(CHECKS_PER_DAY),
   /** Only this person, asked with Research (decision 46a): listed when today has room and they're not checked lately. */
   profileId: z.uuid().optional(),
   /** The network whose people to check, with its own profiles read a day: Facebook unless said. */
@@ -509,7 +514,7 @@ export const CHECKS_WORDS = {
     'Reads everyone checked before again, with what the AI knows now. What it said stays on show until then.',
   note: `Your computer opens your friends’ profiles, and their business pages, about ${CHECKS_PER_DAY} a day, every ${CHECK_PACE_SECONDS[0]} to ${CHECK_PACE_SECONDS[1]} seconds, in a window of its own. The AI reads them with your chats to see who fits your playbooks. Friends you’ve chatted with go first.`,
   daily:
-    'While the extension works on its own with Once a day ticked, it checks them each morning too.',
+    'While the extension works on its own with Once a day ticked, it checks them each day too, a few at a time, and up to 150 on a day your first messages need more good fits.',
   none: 'Save your friends list first (above), or bring in your Facebook file and read your chats, and there’s someone to check.',
 } as const;
 
