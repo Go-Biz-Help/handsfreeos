@@ -38,7 +38,12 @@ async function next(job: Job, groupIds: readonly string[] | null): Promise<Joins
   return valueOf(
     await job.hfos({
       type: 'hfos-joins-next',
-      input: { workspaceId: job.businessId, ...(groupIds ? { groupIds: [...groupIds] } : {}) },
+      input: {
+        workspaceId: job.businessId,
+        // Today's round of finding again (decision 126): the next search words.
+        ...(job.round ? { round: job.round } : {}),
+        ...(groupIds ? { groupIds: [...groupIds] } : {}),
+      },
     }),
   );
 }
@@ -112,7 +117,8 @@ export async function joinGroups(
   let got = await next(job, groupIds);
   if (daily && !got.onItsOwn)
     return { line: 'Joining groups on its own is off in your settings.', warned: false };
-  if (daily && !got.prospects.low)
+  // Or more on a day the first messages need more good fits (decision 126).
+  if (daily && !got.prospects.low && !got.more)
     return {
       line: `Your groups have ${counted(got.prospects.left, 'person', 'people')} left to reach: no need to join more yet.`,
       warned: false,

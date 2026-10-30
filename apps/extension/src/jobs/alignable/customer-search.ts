@@ -73,7 +73,12 @@ export async function searchForCustomers(job: Job): Promise<JobEnd> {
   const { searches } = valueOf(
     await job.hfos({
       type: 'hfos-finds-searches',
-      input: { workspaceId: job.businessId, platform: 'alignable' },
+      input: {
+        workspaceId: job.businessId,
+        platform: 'alignable',
+        // Today's round of finding again (decision 126): the next kinds of business.
+        ...(job.round ? { round: job.round } : {}),
+      },
     }),
   );
   if (!searches.length)

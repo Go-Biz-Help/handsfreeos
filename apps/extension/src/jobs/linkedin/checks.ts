@@ -15,7 +15,7 @@ import { profileLines } from '../../networks/linkedin/lookup';
 import type { ProfilePage, ProfileRef } from '../../networks/linkedin/types';
 import { profileRefOf, sameMember } from '../../networks/linkedin/urls';
 import { counted } from '../../words';
-import type { ReadThem, Who } from '../checks';
+import { moreToCome, type ReadThem, type Who } from '../checks';
 import { paced, pause, valueOf, warnedOn, type Job, type JobEnd } from '../job';
 import { readLinkedIn } from './read';
 
@@ -161,5 +161,9 @@ export async function checkConnections(
       await pause(paced(PACE_MS));
     }
   }
-  return { line: `Done. ${summary(sent, missing)}`, warned: false };
+  return {
+    line: `Done. ${summary(sent, missing)}`,
+    warned: false,
+    ...(moreToCome(next, most) ? { again: true } : {}),
+  };
 }

@@ -262,8 +262,8 @@ export const postWords = defineAddonQuery(outreachAddon, {
   scope: inWorkspace,
   async handler(ctx, input) {
     const playbooks = await playbooksInUse(ctx, input.platform);
-    // Each day the next in turn, by the day's number.
-    const day = dayNumber();
+    // Each day the next in turn, by the day's number; a search again later in the day the next after (decision 126).
+    const day = dayNumber() + input.round;
     return {
       words: postSearchWords(playbooks, input.platform, day),
       // Where its runner looks at hashtags (Instagram's).

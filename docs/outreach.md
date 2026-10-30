@@ -2962,6 +2962,35 @@ where decisions 37 and 59 put the settings; what they decided stands. Settled to
         though it was tried. The Replies choice still decides whether it waits for an OK, and the network's day and
         limits still decide whether the runner works at all: a reply seen outside the working hours buzzes the phone
         and is drafted when the day starts.
+126.  **The day's first messages, nearly guaranteed** (Chris, 29 Oct 2026, "1a 2a 3c 4a 5a 6a 7a 8a 9a" on
+      questions-29-oct-goal.md; extension **0.114.0**). "the system needs to understand that its main purpose is to
+      send out new messages to good leads/candidates. It needs to almost guarantee it will reach its goal of messages
+      each day. … if it for any reason feels like it hasn't found enough people to message … then it should notify the
+      user what platform it won't be able to meet its goal and tell it why and suggest other searching methods." In
+      three days it had sent 12 first messages against about 55 a day: nobody had accepted a request since 20 Oct, it
+      checked 40 people a day, 197 old Facebook requests held new ones, and five messages waited for an OK.
+      - **The goal** (1a, 2a; `goal.ts`). First messages only, each network its own: its first-message limit as it
+        stands, half while the person is new there. Today's list carries it (`goal`): sent, on the list (those waiting
+        for an OK count as found, 8a), how many short, good fits ready ahead, and why it's short, the first that holds:
+        not ready; under 1 in 10 of the week's checks fit (once 20 were checked); still checking people they know; new
+        requests held; under 1 in 5 of the last 14 days' requests accepted (once 10 were sent); too few found to fill
+        the day's requests; or first messages waiting on accepts. Messages still go only to friends and connections
+        (3c): the lever is more requests to more good fits.
+      - **More checks and searches while short** (4a, 5a, 6a). A network that's ready and has under 2 days of its
+        first messages ready (or of its requests, while they aren't held) checks up to its kit's `checksMost` a day
+        (Facebook and LinkedIn 150, Instagram and Alignable 60, halved while new or warned), its found checks double,
+        the people of good posts triple, it joins groups though people left to reach aren't low, and "maybe" fits fill
+        whatever the good fits leave on Reconnect and the requests. The extension checks a batch at a time, the next
+        35 to 60 minutes later (`again`, `afterDaily`); once the day's reading is done and the list still says more,
+        it finds people again up to twice, 90 minutes apart, each round with the next search words (`round` on
+        `outreach.posts.words`, `outreach.finds.searches`, `outreach.joins.next`).
+      - **Telling the person** (7a, 8a; the worker's `goal.ts`). Half an hour into the working day one push says how
+        many messages wait for their OK and which networks won't reach the day's, for a reason that won't fix itself
+        as the day goes, with why; at midday, the same for anything new. Today shows the note with two or three things
+        to try, each a button (`goalTryPlace`): widen the niche, add a playbook, join groups or add search words,
+        finish the profile, turn on another network. The day's report names the networks that fell short.
+      - **Cancel all faster** (9a; `cancelMostNow`). 60 a day on Facebook while 100 or more requests wait, back to 30
+        after. No migration.
 
 ## Rules worth knowing before changing anything
 

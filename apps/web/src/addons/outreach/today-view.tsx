@@ -108,6 +108,7 @@ import { Drafted } from './drafted';
 import { HelpfulCard } from './helpful-card';
 import { PersonName } from './person-menu';
 import { GetReadyCard } from './get-ready';
+import { GoalNote } from './goal-note';
 import { StatusStrip, type NetworkLive } from './status-strip';
 import type {
   Asks,
@@ -275,6 +276,10 @@ export function TodayView({
                 />
               ) : null}
             </div>
+          ) : null}
+          {/* Short of today's first messages, why, and what to try (decision 126): none from a server before it. */}
+          {today.goal ? (
+            <GoalNote workspaceId={workspaceId} platform={platform} goal={today.goal} />
           ) : null}
           {/* Their profile, read on its own on the 1st: what the AI suggests waits for their OK (decision 99). */}
           {today.profileOwn ? (

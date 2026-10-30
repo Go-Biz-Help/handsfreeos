@@ -106,6 +106,8 @@ import {
   type BeforeDay,
 } from './lists';
 import {
+  afterDaily,
+  AGAIN_WORDS,
   freshState,
   gapAfter,
   INSTAGRAM_STATE_KEY,
@@ -114,9 +116,13 @@ import {
   needOf,
   networkDay,
   networkWaitWords,
+  nextRound,
   nextStart,
   repliedAfter,
+  roundDue,
+  soonestAgain,
   stillReplied,
+  waitsAgain,
   withReplied,
   workKey,
   workLeft,
@@ -1048,11 +1054,25 @@ export function spareLikes(list: Pick<TodayList, 'limits'>, left: readonly Work[
 
 /** The once-a-day job to do next on Instagram: the first not done today. */
 export const nextInstagramDaily = (
-  state: Pick<AutoState, 'daily'>,
+  state: Pick<AutoState, 'daily' | 'againAt'>,
   passOver: readonly InstagramDaily[] = [],
+  now = Date.now(),
 ): InstagramDaily | null =>
-  INSTAGRAM_DAILY.find((job) => state.daily?.[job] === undefined && !passOver.includes(job)) ??
-  null;
+  INSTAGRAM_DAILY.find(
+    (job) =>
+      state.daily?.[job] === undefined && !passOver.includes(job) && !waitsAgain(state, job, now),
+  ) ?? null;
+
+/**
+ * Instagram's jobs that find people, done again in a round while it needs more good fits (decision 126, plan.ts
+ * `nextRound`): its hashtags with the next words, an account like yours, who liked and commented on good posts, and their checks.
+ */
+export const INSTAGRAM_FINDING: readonly InstagramDaily[] = [
+  'posts',
+  'like_yours',
+  'post_people',
+  'found_checks',
+];
 
 /** A job that notes a page it couldn't read with its outline (decision 74): its own way to, or the runner's. */
 const reporting = (job: Job, kind: InstagramDaily): Job => ({
@@ -1099,6 +1119,7 @@ export async function runInstagramDaily(kind: InstagramDaily, job: Job): Promise
             type: 'hfos-post-words',
             workspaceId: job.businessId,
             platform: PLATFORM,
+            ...(job.round ? { round: job.round } : {}),
           }),
         ),
       );
@@ -1217,7 +1238,19 @@ async function go(): Promise<void> {
     return goAt(Date.now() + AWAY_AGAIN_MS);
   }
   const passOver = putOff.passOver(away);
-  const daily = choices.collect ? nextInstagramDaily(state, passOver) : null;
+  let daily = choices.collect ? nextInstagramDaily(state, passOver, at) : null;
+  // Short of good fits once the day's reading is done (decision 126, answer 6a): it finds people again, with the next
+  // search words, and checks them.
+  if (
+    choices.collect &&
+    !before &&
+    !daily &&
+    !passOver.some((job) => state.daily?.[job] === undefined) &&
+    roundDue(state, at)
+  ) {
+    state = await setState(nextRound(state, INSTAGRAM_FINDING, at));
+    daily = nextInstagramDaily(state, passOver, at);
+  }
   const reading = (before !== null && (away || before.do !== 'save')) || daily !== null;
   // The morning's reading and the list take turns (decision 123): a step on the list now, when there's one, after a
   // part of the reading went last.
@@ -1284,14 +1317,20 @@ async function go(): Promise<void> {
     const waiting = choices.collect
       ? waitingWords(waitingFor(passOver, state.daily, DAILY_NAMES))
       : null;
+    // The checks' next batch, when one's to come today (decision 126).
+    const again = choices.collect ? soonestAgain(await stateNow(), at) : null;
     await say(
-      waiting
-        ? `${state.tried.length ? `The rest of today on ${NAME} is done.` : `Nothing on your ${NAME} list for it to do yet.`} ${waiting}`
-        : state.tried.length
-          ? `Done for today on ${NAME}. It looks again within the hour for anything new.`
-          : `Nothing on your ${NAME} list for it to do yet.`,
+      `${
+        waiting
+          ? `${state.tried.length ? `The rest of today on ${NAME} is done.` : `Nothing on your ${NAME} list for it to do yet.`} ${waiting}`
+          : state.tried.length
+            ? `Done for today on ${NAME}. It looks again within the hour for anything new.`
+            : `Nothing on your ${NAME} list for it to do yet.`
+      }${again !== null ? ` ${AGAIN_WORDS}` : ''}`,
     );
-    return goAt(at + (waiting ? AWAY_AGAIN_MS : 60 * 60_000));
+    return goAt(
+      Math.min(at + (waiting ? AWAY_AGAIN_MS : 60 * 60_000), ...(again !== null ? [again] : [])),
+    );
   }
   return workNext(left, list, {
     businessId: to.businessId,
@@ -1315,6 +1354,9 @@ async function listNow(
     }),
     businessId,
   );
+  // Whether Instagram needs more good fits today (decision 126): it finds people again once the day's reading is done.
+  const more = list.goal?.more === true;
+  if ((await stateNow()).more !== more) await setState({ more });
   return { list, left: instagramWorkLeft(list, tried, replied) };
 }
 
@@ -1437,7 +1479,8 @@ async function beforeTheDay(step: BeforeDay, businessId: string): Promise<JobEnd
   // The newest followers saved, and the first check, stand for today's newest followers and checks.
   const daily =
     key === 'friends' ? 'requests' : key === 'checks' ? 'checks' : (null as DailyJob | null);
-  const stands = !end.failed && daily ? { daily: { ...state.daily, [daily]: end.line } } : {};
+  const stands =
+    !end.failed && daily ? afterDaily(state, daily, end, Date.now(), Math.random()) : {};
   await setState({ before: { ...state.before, [key]: end.line }, ...stands });
   return end;
 }
@@ -1447,7 +1490,11 @@ async function collect(kind: InstagramDaily, businessId: string): Promise<JobEnd
   await say(DAILY_DOING[kind], { working: true });
   let end: JobEnd;
   try {
-    end = await runInstagramDaily(kind, jobFor(businessId));
+    // A round of finding again asks for the next search words (decision 126).
+    end = await runInstagramDaily(kind, {
+      ...jobFor(businessId),
+      round: (await stateNow()).round ?? 0,
+    });
   } catch (error) {
     if (error instanceof Refused) throw error;
     end = isNotAway(error)
@@ -1459,7 +1506,8 @@ async function collect(kind: InstagramDaily, businessId: string): Promise<JobEnd
   // Put off till they're away (decision 120): not done for the day, so it's tried again then.
   if (end.away) return end;
   const state = await stateNow();
-  await setState({ daily: { ...state.daily, [kind]: end.line } });
+  // A batch of checks with more of today's room left: the next later on (decision 126).
+  await setState(afterDaily(state, kind, end, Date.now(), Math.random()));
   return end;
 }
 

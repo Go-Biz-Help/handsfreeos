@@ -21,10 +21,12 @@ import {
   type WorkingHours,
 } from '@hfos/core/addons/outreach/automation';
 import { startWords, type LiveDay } from '@hfos/core/addons/outreach/live';
+import { SEARCH_AGAIN } from '@hfos/core/addons/outreach/goal';
 import { WATCH_EVERY_MINUTES } from '@hfos/core/addons/outreach/posts';
 import type { TodayKind } from '@hfos/core/addons/outreach/today';
 import type { NeedNoteInput, TodayList, TodayListItem } from '../hfos/messages';
 import type { ListMark, ListsSaved } from '@hfos/core/addons/outreach/lists';
+import type { JobEnd } from '../jobs/job';
 import type { TriedBefore } from './lists';
 
 /** Where the runner keeps its state, which the panel watches. */
@@ -126,6 +128,19 @@ export interface AutoState {
    */
   readonly replied?: readonly string[];
   /**
+   * The once-a-day jobs with more of today's room left, each with when its next batch goes (decision 126, `afterDaily`):
+   * the checks, a batch at a time through the hours, while the day's first messages need more good fits. Missing in a
+   * state kept by 0.113.
+   */
+  readonly againAt?: Readonly<Partial<Record<DailyJob | OwnDailyJob, number>>>;
+  /**
+   * Whether today's list last said the network needs more good fits (decision 126, its goal's `more`), and the rounds of
+   * finding it did again today for it, with when the last began (`roundDue`). Missing in a state kept by 0.113.
+   */
+  readonly more?: boolean;
+  readonly round?: number;
+  readonly roundAt?: number | null;
+  /**
    * The person's lists as HandsFreeOS last said, and the step before the day under way now: for the panel's live
    * checklist. Missing in a state kept by 0.27.
    */
@@ -165,6 +180,11 @@ export function freshState(day: string | null, tabId: number | null = null): Aut
     daily: {},
     before: {},
     readLast: false,
+    replied: [],
+    againAt: {},
+    more: false,
+    round: 0,
+    roundAt: null,
     watchAt: null,
     helpfulAt: null,
     helpfulUp: false,
@@ -188,9 +208,92 @@ export function isState(value: unknown): value is AutoState {
   );
 }
 
-/** The once-a-day job to do next, when it collects: the first not done today. */
-export const nextDaily = (state: Pick<AutoState, 'daily'>): DailyJob | null =>
-  DAILY_JOBS.find((job) => state.daily?.[job] === undefined) ?? null;
+/**
+ * The once-a-day job to do next, when it collects: the first not done today whose next batch isn't still to come
+ * (`waitsAgain`).
+ */
+export const nextDaily = (
+  state: Pick<AutoState, 'daily' | 'againAt'>,
+  now = Date.now(),
+): DailyJob | null =>
+  DAILY_JOBS.find((job) => state.daily?.[job] === undefined && !waitsAgain(state, job, now)) ??
+  null;
+
+/** How long after a batch with more of today's room left the next goes (decision 126): spread through the hours. */
+export const AGAIN_MINUTES = [35, 60] as const;
+
+/** Whether a once-a-day job waits for its next batch. */
+export const waitsAgain = (
+  state: Pick<AutoState, 'againAt'>,
+  job: DailyJob | OwnDailyJob,
+  now: number,
+): boolean => (state.againAt?.[job] ?? 0) > now;
+
+/** When the first once-a-day job waiting for its next batch goes, or null with none waiting. */
+export function soonestAgain(
+  state: Pick<AutoState, 'againAt' | 'daily'>,
+  now: number,
+): number | null {
+  const at = Object.entries(state.againAt ?? {})
+    .filter(([job, when]) => state.daily?.[job as DailyJob] === undefined && (when ?? 0) > now)
+    .map(([, when]) => when!);
+  return at.length ? Math.min(...at) : null;
+}
+
+/**
+ * What a once-a-day job leaves in the state: done for today with how it went; or, a batch done with more of today's
+ * room left (`again`, decision 126), its next batch 35 to 60 minutes later (`random` 0 to 1), not done yet.
+ */
+export function afterDaily(
+  state: Pick<AutoState, 'daily' | 'againAt'>,
+  kind: DailyJob | OwnDailyJob,
+  end: Pick<JobEnd, 'line' | 'again' | 'warned' | 'failed'>,
+  now: number,
+  random: number,
+): Pick<AutoState, 'daily' | 'againAt'> {
+  const { [kind]: _was, ...againAt } = state.againAt ?? {};
+  if (end.again && !end.warned && !end.failed) {
+    const [least, most] = AGAIN_MINUTES;
+    const at = now + Math.round((least + random * (most - least)) * 60_000);
+    return { daily: state.daily ?? {}, againAt: { ...againAt, [kind]: at } };
+  }
+  return { daily: { ...state.daily, [kind]: end.line }, againAt };
+}
+
+/** The words a day's last line adds while the checks wait for their next batch (decision 126). */
+export const AGAIN_WORDS =
+  'It checks more people later today, as today’s first messages need more good fits.';
+
+/**
+ * Whether it finds people again now (decision 126, answer 6a): today's list says the network needs more good fits,
+ * the day's once-a-day reading is done, and it has done fewer than `SEARCH_AGAIN.rounds` rounds today, the last at least
+ * `SEARCH_AGAIN.minutes` ago.
+ */
+export const roundDue = (
+  state: Pick<AutoState, 'more' | 'round' | 'roundAt'>,
+  now: number,
+): boolean =>
+  state.more === true &&
+  (state.round ?? 0) < SEARCH_AGAIN.rounds &&
+  now - (state.roundAt ?? 0) >= SEARCH_AGAIN.minutes * 60_000;
+
+/**
+ * A round of finding again (`roundDue`): the network's finding jobs to do once more today, with the next search words
+ * (each asks HandsFreeOS with the round), and the round noted.
+ */
+export function nextRound(
+  state: Pick<AutoState, 'daily' | 'round'>,
+  finding: readonly (DailyJob | OwnDailyJob)[],
+  now: number,
+): Pick<AutoState, 'daily' | 'round' | 'roundAt'> {
+  const daily = Object.fromEntries(
+    Object.entries(state.daily ?? {}).filter(([job]) => !finding.includes(job as DailyJob)),
+  );
+  return { daily, round: (state.round ?? 0) + 1, roundAt: now };
+}
+
+/** Facebook's jobs that find people, done again in a round (`nextRound`): groups, their members, and the checks. */
+export const FINDING_JOBS: readonly DailyJob[] = ['group_checks', 'join', 'members', 'checks'];
 
 /** When it next looks at the newest posts after one at `now`: an hour or two later, at random (`random` 0 to 1). */
 export function nextWatch(now: number, random: number): number {

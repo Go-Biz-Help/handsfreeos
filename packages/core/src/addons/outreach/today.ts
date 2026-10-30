@@ -67,6 +67,7 @@ import {
 } from './conversation';
 import { DraftOpener, type Opener } from './openers';
 import { WarningState } from './tidy';
+import { TodayGoal } from './goal';
 import { inNetworkWords, NETWORKS, type Platform } from './networks';
 import { PLATFORM_KEYS, type PlaybookDetails } from './playbooks';
 import { COMMENT_DRAFTS } from './posts';
@@ -289,6 +290,8 @@ export const RequestsHeld = z.object({
   /** Of those waiting, how many the extension sent, and how many Cancel all has left to cancel (decision 121). */
   extension: n.default(0),
   cancelling: n.default(0),
+  /** How many Cancel all cancels a day now (decision 126): none from a server before it. */
+  cancelMost: n.nullable().default(null),
 });
 export type RequestsHeld = z.output<typeof RequestsHeld>;
 
@@ -309,7 +312,11 @@ export function requestsHeldOn(
   const kit = NETWORKS[platform];
   if (kit.requestsMessageAfterDays !== null) return null;
   const most = kit.friendsCap - FRIENDS_CAP_ROOM;
-  const more = { extension: counts.extension ?? 0, cancelling: counts.cancelling ?? 0 };
+  const more = {
+    extension: counts.extension ?? 0,
+    cancelling: counts.cancelling ?? 0,
+    cancelMost: null,
+  };
   if (counts.friends >= most) return { why: 'cap', count: counts.friends, most, ...more };
   if (counts.waiting >= REQUESTS_WAITING_MOST)
     return { why: 'waiting', count: counts.waiting, most: REQUESTS_WAITING_MOST, ...more };
@@ -372,6 +379,11 @@ export const TodayOutput = z.object({
     .object({ at: z.iso.datetime(), parts: z.number().int().min(1) })
     .nullable()
     .default(null),
+  /**
+   * The day's first messages against the network's limit (decision 126, ./goal.ts): sent and ready, how many short and
+   * why, what to try, and whether it checks more and searches again today. None from a server before it.
+   */
+  goal: TodayGoal.nullable().default(null),
 });
 export type TodayOutput = z.output<typeof TodayOutput>;
 

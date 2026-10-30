@@ -76,6 +76,11 @@ export interface NetworkKit {
   /** How many profiles the person's computer reads a day to check for good fits (decision 46). */
   readonly checksPerDay: number;
   /**
+   * The most it reads a day while the day's first messages need more good fits (decision 126, answer 4a): ./goal.ts
+   * `GOAL_AHEAD_DAYS` of them not ready ahead. Spread through the working hours, a batch at a time.
+   */
+  readonly checksMost: number;
+  /**
    * The most answers a day to posts asking for what the business offers, inside the daily comments: Alignable's forum,
    * where owners ask for referrals, watches for the same business answering every question (the plan: 2 a day). Null
    * where comments are the only limit.
@@ -164,6 +169,7 @@ export const NETWORKS: Readonly<Record<Platform, NetworkKit>> = {
     dailyLimits: DAILY_LIMITS,
     weeklyRequests: null,
     checksPerDay: 40,
+    checksMost: 150,
     forumAnswersPerDay: null,
     recommends: false,
     hashtags: false,
@@ -207,6 +213,7 @@ export const NETWORKS: Readonly<Record<Platform, NetworkKit>> = {
     dailyLimits: { friend_request: 15, first_message: 15, follow_up: 20, comment: 10, like: 30 },
     weeklyRequests: 80,
     checksPerDay: 40,
+    checksMost: 150,
     forumAnswersPerDay: null,
     recommends: false,
     hashtags: false,
@@ -255,6 +262,7 @@ export const NETWORKS: Readonly<Record<Platform, NetworkKit>> = {
     dailyLimits: { friend_request: 20, first_message: 10, follow_up: 15, comment: 10, like: 30 },
     weeklyRequests: null,
     checksPerDay: 20,
+    checksMost: 60,
     forumAnswersPerDay: null,
     recommends: false,
     hashtags: true,
@@ -304,6 +312,7 @@ export const NETWORKS: Readonly<Record<Platform, NetworkKit>> = {
     dailyLimits: { friend_request: 15, first_message: 15, follow_up: 20, comment: 10, like: 30 },
     weeklyRequests: null,
     checksPerDay: 30,
+    checksMost: 60,
     forumAnswersPerDay: 2,
     recommends: true,
     hashtags: false,

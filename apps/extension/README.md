@@ -1074,6 +1074,25 @@ shows under Instagram). Your Instagram choices in HandsFreeOS say what it does (
 Each step is noted as the extension's own (`auto`), as Instagram's. A step its page doesn't let it do goes to your
 Needs you; it never guesses.
 
+### The day's first messages, nearly guaranteed (0.114.0)
+
+Before 0.114.0 it checked 40 people a day on Facebook and LinkedIn, all at once in the morning, and searched once a day
+whatever the day needed (the owner's report of 29 Oct 2026: 12 first messages in three days against about 55 a day).
+From 0.114.0 (docs/outreach.md, decision 126):
+
+- **Checks a batch at a time.** While a network needs more good fits, HandsFreeOS lets it check up to that network's
+  most (150 a day on Facebook and LinkedIn, 60 on Instagram and Alignable). The once-a-day checks take their usual
+  batch, and when HandsFreeOS gave all it asked for and today has room for more, the job ends with `again`: it isn't done
+  for the day, and the next batch goes 35 to 60 minutes later (`afterDaily`, `againAt` in the runner's state,
+  `moreToCome` in `src/jobs/checks.ts`). The day's last line says more checks come later.
+- **Finds people again while short.** Once the day's reading is done and today's list still says the network needs
+  more good fits (its goal's `more`), the runner does its finding jobs once more, up to twice a day and 90 minutes
+  apart, each round asking HandsFreeOS for the next search words (`roundDue`, `nextRound`, and `round` on a job):
+  Facebook's groups, joining and members, then its checks; LinkedIn's post search and who reacted; Instagram's
+  hashtags, an account like yours and who liked; Alignable's search, groups and members. Joining a group goes ahead
+  on such a day though people left to reach aren't low.
+- **Never a message to someone who isn't a friend yet** (answer 3c): more requests to more good fits are the lever.
+
 ### Your messages, kept open and read every minute (0.113.0)
 
 Before 0.113.0 a reply was seen when the once-a-day chats read came round, or when you had a chat page on screen, and
@@ -1805,7 +1824,8 @@ till you're away (decisions 119 and 120, 0.109.0), and Cancel all and deleting r
 0.110.0), and cancelling from Sent requests (0.110.1), and replies Knowledge doesn't answer waiting for you
 (decision 122, 0.111.0), and the list taking turns with the morning's reading and a post's link on LinkedIn's
 post search from its menu (decision 123, 0.112.0), and your messages kept open and read every minute, a reply drafted
-first (decision 125, 0.113.0); Social
+first (decision 125, 0.113.0), and checks in batches and searching again while a network is short of the day's first
+messages (decision 126, 0.114.0); Social
 Outreach's onboarding is built, in HandsFreeOS (decisions 36 and 45). Safari on Mac
 follows in Phase 2.
 

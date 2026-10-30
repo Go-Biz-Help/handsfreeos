@@ -24,6 +24,7 @@ import { quoteData as quote } from '../../knowledge/prompt';
 import { noDashes, PLAIN_WRITING } from '../../writing';
 import { ACTIVITY_PERIOD_KEYS, ACTIVITY_PERIODS, type ActivityPeriod } from './activity';
 import type { WorkingHours } from './automation';
+import { GoalShort, goalReportLine } from './goal';
 import { PLATFORM_KEYS } from './networks';
 import { numbersMath, STARTING_RATES, type NumbersRates } from './readiness';
 
@@ -268,6 +269,11 @@ export const DayReportOutput = z.object({
   target: count.nullable(),
   /** A step noted in the last 7 days: the report keeps coming back only while they work. */
   active: z.boolean(),
+  /**
+   * The networks that fell short of the day's first messages, and why (decision 126), for a day named: the worker names
+   * the one whose working hours just ended. None from a server before it.
+   */
+  short: z.array(GoalShort).default([]),
 });
 export type DayReportOutput = z.output<typeof DayReportOutput>;
 
@@ -359,10 +365,14 @@ export const TRACKING_WORDS = {
 /** "Too few messages: the most common fix." for each fix, and its label. */
 export const fixWords = (fix: ReviewFix) => REVIEW_FIXES[fix];
 
-/** The day's report on the person's phone: their three numbers today, and how far they are from the target. */
+/**
+ * The day's report on the person's phone: their three numbers today, how far they are from the target, and the networks
+ * that fell short of the day's first messages, with why (decision 126).
+ */
 export function dayReportWords(
   n: TrackingNumbers,
   target: number | null,
+  short: readonly GoalShort[] = [],
 ): { title: string; body: string } {
   const day = `Today: ${plural(n.messages, 'message')}, ${n.positive.toLocaleString('en-US')} said yes, ${n.booked.toLocaleString('en-US')} booked.`;
   const left = target === null ? null : target - n.messages;
@@ -372,7 +382,7 @@ export function dayReportWords(
       : left > 0
         ? ` ${plural(left, 'more message')} ${left === 1 ? 'hits' : 'hit'} your target.`
         : ` You hit your target of ${target}.`;
-  return { title: 'Your day', body: `${day}${more}` };
+  return { title: 'Your day', body: `${day}${more}${goalReportLine(short)}` };
 }
 
 const HOUR = 3_600_000;
@@ -407,6 +417,10 @@ export function dayReportDue(hours: WorkingHours, timeZone: string, now: number)
 
 /** Whether a day had anything to report: a first message, a yes or a call. */
 export const anyNumbers = (n: TrackingNumbers) => n.messages + n.positive + n.booked > 0;
+
+/** Whether a day's report goes: something to report, or a network that fell short (decision 126). */
+export const reportWorthIt = (day: Pick<DayReportOutput, 'numbers' | 'short'>) =>
+  anyNumbers(day.numbers) || day.short.length > 0;
 
 /** The week's review on the person's phone. */
 export function reviewPushWords(review: Pick<WeekReview, 'headline' | 'numbers'>): {
