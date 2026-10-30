@@ -13,7 +13,7 @@ import { LOOKUP_LINES } from '@hfos/core/addons/outreach/today';
 import type { ChecksNext } from '../../hfos/messages';
 import { profileLines } from '../../networks/linkedin/lookup';
 import type { ProfilePage, ProfileRef } from '../../networks/linkedin/types';
-import { profileRefOf, sameMember } from '../../networks/linkedin/urls';
+import { byMemberId, profileRefOf, sameMember } from '../../networks/linkedin/urls';
 import { counted } from '../../words';
 import { moreToCome, type ReadThem, type Who } from '../checks';
 import { paced, pause, valueOf, warnedOn, type Job, type JobEnd } from '../job';
@@ -23,8 +23,9 @@ import { readLinkedIn } from './read';
 const PACE_MS = [CHECK_PACE_SECONDS[0] * 1000, CHECK_PACE_SECONDS[1] * 1000] as const;
 
 /**
- * Whether the profile shown is the one opened: the same member by their address's name or LinkedIn's id. A link with
- * only the id takes LinkedIn to their address with their name in it; then the name on the page must be theirs.
+ * Whether the profile shown is the one opened: the same member by LinkedIn's id or their address's name. A link with
+ * only the id takes LinkedIn to their address with their name in it; then, unless the page shows another id of theirs
+ * to go by, the name on the page must be theirs.
  */
 export function isThem(
   shown: Pick<ProfilePage, 'name' | 'profile'>,
@@ -35,6 +36,7 @@ export function isThem(
   if (sameMember(shown.profile, want)) return true;
   return (
     !want.username &&
+    !byMemberId(shown.profile, want) &&
     shown.name !== null &&
     shown.name.trim().toLowerCase() === name.trim().toLowerCase()
   );
@@ -57,6 +59,7 @@ export async function readThemOnLinkedIn(job: Job, who: Who): Promise<ReadThem> 
     lines: profileLines(page.profile).slice(0, LOOKUP_LINES),
     missing: false,
     followers: page.profile.followers ?? null,
+    seen: page.profile.profile,
   };
 }
 
@@ -149,6 +152,7 @@ export async function checkConnections(
           profileId: who.profileId,
           lines: read.lines,
           missing: read.missing,
+          ...(read.seen ? { seen: read.seen } : {}),
         },
       }),
     );

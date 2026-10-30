@@ -49,10 +49,11 @@ import type { GroupCheckState } from '../group-checks';
 import { FOLLOWERS_KEPT_DAYS } from '../followers';
 import { fewAhead } from '../goal';
 import { limitNow } from '../limits';
-import { NETWORKS, type Platform } from '../networks';
+import { NETWORKS, profileMisfit, type Platform } from '../networks';
 import { outreachAddon } from '../manifest';
 import { partnerReadsPerDay } from '../partners';
 import { requestsHeldOn, TODAY_WINDOW_DAYS } from '../today';
+import type { ProfileRef } from '../saves';
 import { checks, finds, profiles } from '../tables';
 import { automationOf, limitsFor } from './automation';
 import { findsByTopic } from './live';
@@ -66,6 +67,7 @@ import {
   keepCountry,
   notOthers,
   pitchable,
+  profilesFor,
   runsAGroup,
   waitsForLook,
   type Ctx,
@@ -695,6 +697,36 @@ export async function mutualCountries(
   return { read, by };
 }
 
+/**
+ * The keys a read of someone's own page adds to the one they're kept by (decision 131): their network's number when
+ * they're kept by the name in their address, or that name when they're kept by the number. Only from a page that
+ * showed the key they're kept by, and never a key another profile here has: that one stays as it is.
+ */
+async function keysSeen(
+  ctx: Ctx,
+  had: {
+    readonly platform: Platform;
+    readonly platformId: string | null;
+    readonly username: string | null;
+  },
+  seen: ProfileRef | null,
+): Promise<{ platformId?: string; username?: string }> {
+  if (!seen || profileMisfit(had.platform, seen)) return {};
+  const theirs =
+    (had.platformId !== null && seen.id === had.platformId) ||
+    (had.username !== null && seen.username?.toLowerCase() === had.username.toLowerCase());
+  const id = theirs && !had.platformId ? seen.id : null;
+  const username = theirs && !had.username ? seen.username : null;
+  if (!id && !username) return {};
+  const taken = await profilesFor(ctx, had.platform, { id, username });
+  return {
+    ...(id && !taken.some((p) => p.platformId === id) ? { platformId: id } : {}),
+    ...(username && !taken.some((p) => p.username?.toLowerCase() === username.toLowerCase())
+      ? { username }
+      : {}),
+  };
+}
+
 export const checkLook = defineAddonCommand(outreachAddon, {
   name: 'outreach.check.look',
   description:
@@ -710,7 +742,12 @@ export const checkLook = defineAddonCommand(outreachAddon, {
     const ws = ctx.scope.workspaceId!;
     const at = changeMoment(ctx.meta);
     const [profile] = await ctx.tx
-      .select({ id: profiles.id, platform: profiles.platform })
+      .select({
+        id: profiles.id,
+        platform: profiles.platform,
+        platformId: profiles.platformId,
+        username: profiles.username,
+      })
       .from(profiles)
       .where(and(eq(profiles.workspaceId, ws), eq(profiles.id, input.profileId)));
     if (!profile)
@@ -765,11 +802,14 @@ export const checkLook = defineAddonCommand(outreachAddon, {
           )
         ).map((r) => r.id)
       : [];
-    if (!input.missing && input.friendsCount !== null)
-      await ctx.tx
-        .update(profiles)
-        .set({ friendsCount: input.friendsCount })
-        .where(eq(profiles.id, profile.id));
+    const fresh = {
+      ...(input.missing ? {} : await keysSeen(ctx, profile, input.seen)),
+      ...(!input.missing && input.friendsCount !== null
+        ? { friendsCount: input.friendsCount }
+        : {}),
+    };
+    if (Object.keys(fresh).length)
+      await ctx.tx.update(profiles).set(fresh).where(eq(profiles.id, profile.id));
     const why = input.missing
       ? [`${NETWORKS[profile.platform].name} didn’t show their profile`]
       : [];

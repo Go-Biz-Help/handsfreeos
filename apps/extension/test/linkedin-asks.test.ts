@@ -601,6 +601,14 @@ describe('checking your connections, and research', () => {
     expect(opened).toEqual([DANA, `${LI}/in/sam-lee-77/`]);
     const looks = sentOf(sent, 'hfos-check-look').map((a) => a.input);
     expect(looks[0]).toMatchObject({ profileId: 'p-dana', missing: false });
+    // Their member id beside the name in their address, as the top card links to them, for HandsFreeOS to keep
+    // (decision 131).
+    expect(looks[0]!.seen).toEqual({
+      id: 'ACoAAFakeDanaReyes123',
+      username: 'dana-reyes-4b2a1c',
+      url: DANA,
+    });
+    expect(looks[1]!.seen).toBeUndefined();
     expect(looks[0]!.lines).toEqual([
       'Owner at Acme Plumbing | Helping Austin homeowners since 2009',
       'Owner at Acme Plumbing · Jan 2015 - Present · 10 yrs 10 mos',

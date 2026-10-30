@@ -1132,6 +1132,25 @@ whole day, as the list can't be worked out without them (`holdsTheDay` in `src/a
 and Alignable a read put off till you're away counts as the reading's turn, so the list goes next. With nothing on the
 list, the reading goes on. Nothing in HandsFreeOS changes for it.
 
+### Each person kept by their network's own id (0.115.0)
+
+Names and the names in addresses change, and a network's own id for someone doesn't (the owner, 30 Oct 2026). From
+0.115.0 (docs/outreach.md, decision 131) the extension keeps and goes by that id wherever a network shows one:
+
+- **LinkedIn:** a check of someone's profile (Check my connections, Research, and the checks of people found by topic)
+  sends the member id its top card links to them by beside the name in their address (`seen` in
+  `outreach.check.look`), and HandsFreeOS keeps whichever of the two it lacked. Today's list carries the id kept
+  (`platformId`), so the runner goes by it: two links are one member when their ids agree, whatever the names in their
+  addresses say, and never when they differ (`sameMember`, `keptMember`); Sales Navigator's id for a member isn't
+  LinkedIn's, so between those two it goes by the name. A kept conversation that links to them by id is theirs with no
+  look at their profile first, and when the name in their kept address shows someone else, or nobody, their profile is
+  opened by id once (`openProfile`).
+- **Alignable:** a check of a business's page sends its id and its address in its town the same way, and the runner
+  goes straight to the conversation by the id kept, with no look at its page first for it.
+- **Facebook:** a chat window's link gives their number, kept from 0.114.1 once a message goes (above).
+- **Instagram** shows no id for an account in its links, only the name in its address, so it stays by that. Its chats
+  are kept by their own key, which doesn't change.
+
 ### A post's link from its menu on LinkedIn's post search (0.112.0)
 
 LinkedIn's newer post search links no post (the owner's Check LinkedIn of 29 Oct 2026), and a post with no link can't be

@@ -41212,6 +41212,12 @@ export interface operations {
                     }[] | null;
                     /** Format: uuid */
                     profileId: string;
+                    /** @default null */
+                    seen?: {
+                        id: string | null;
+                        url: string;
+                        username: string | null;
+                    } | null;
                     /** Format: uuid */
                     workspaceId: string;
                 };

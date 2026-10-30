@@ -521,6 +521,76 @@ describe('what it does on LinkedIn’s list', () => {
     ]);
   });
 
+  it('opens their profile by member id when the name in their kept address shows someone else, as when they changed it (decision 131)', async () => {
+    const BY_ID = `${LI}/in/ACoAAFakeDanaReyes123/`;
+    const NEW_ADDRESS = `${LI}/in/dana-reyes-plumbing/`;
+    // Their old address shows another member now; their member id takes LinkedIn to their new one.
+    world.pages = (url) =>
+      url === BY_ID
+        ? { fixture: 'linkedin-profile.html', at: NEW_ADDRESS }
+        : { fixture: 'linkedin-profile.html' };
+    world.behave = (doc, url) => {
+      if (url === DANA)
+        for (const link of doc.querySelectorAll('a[href*="ACoAAFakeDanaReyes123"]'))
+          link.setAttribute(
+            'href',
+            (link.getAttribute('href') ?? '').replace(
+              'ACoAAFakeDanaReyes123',
+              'ACoAAFakeOtherDana456',
+            ),
+          );
+      const connect = doc.querySelector('[aria-label="Invite Dana Reyes to connect"]')!;
+      connect.addEventListener('click', () => {
+        connect.insertAdjacentHTML(
+          'beforebegin',
+          '<button aria-label="Pending, click to withdraw invitation sent to Dana Reyes"><span>Pending</span></button>',
+        );
+        connect.remove();
+      });
+    };
+    const outcome = await doWork(
+      { do: 'step', item: item({ platformId: 'ACoAAFakeDanaReyes123' }) },
+      ME.businessId,
+      false,
+    );
+    expect(outcome).toEqual({ done: true, line: 'Sent Dana Reyes an invitation to connect' });
+    expect(world.opened).toEqual([DANA, BY_ID]);
+  });
+
+  it('presses nothing when neither the name in their kept address nor their member id shows them', async () => {
+    const BY_ID = `${LI}/in/ACoAAFakeDanaReyes123/`;
+    // Both take LinkedIn to another member's profile.
+    world.pages = (url) =>
+      url === BY_ID
+        ? { fixture: 'linkedin-profile.html', at: `${LI}/in/someone-else-9/` }
+        : { fixture: 'linkedin-profile.html' };
+    let pressed = false;
+    world.behave = (doc) => {
+      for (const link of doc.querySelectorAll('a[href*="ACoAAFakeDanaReyes123"]'))
+        link.setAttribute(
+          'href',
+          (link.getAttribute('href') ?? '').replace(
+            'ACoAAFakeDanaReyes123',
+            'ACoAAFakeOtherDana456',
+          ),
+        );
+      doc
+        .querySelector('[aria-label="Invite Dana Reyes to connect"]')!
+        .addEventListener('click', () => (pressed = true));
+    };
+    const outcome = await doWork(
+      { do: 'step', item: item({ platformId: 'ACoAAFakeDanaReyes123' }) },
+      ME.businessId,
+      false,
+    );
+    expect(outcome).toMatchObject({
+      done: false,
+      line: 'Dana Reyes: LinkedIn showed a different page',
+    });
+    expect(world.opened).toEqual([DANA, BY_ID]);
+    expect(pressed).toBe(false);
+  });
+
   it('looks at their profile, then likes the first post of theirs nothing rules out', async () => {
     world.pages = (url) =>
       url.endsWith('recent-activity/all/')
@@ -884,6 +954,47 @@ describe('what it does on LinkedIn’s list', () => {
         (world.noted[0]?.note as { step: { thread: { id: string } | null } }).step.thread?.id,
       ).toBe(THREAD_KEY);
     }
+  });
+
+  it('sends in her kept conversation, linking by member id, with no look at her profile once HandsFreeOS keeps her member id (decision 131)', async () => {
+    world.pages = () => ({ fixture: 'linkedin-chat.html' });
+    const sent: string[] = [];
+    world.behave = (doc) => chatSends(doc, sent);
+    world.answers['/v1/commands/outreach.send.done'] = () => ({ ok: true });
+    const outcome = await doWork(
+      { do: 'send', item: approvedSend({ platformId: 'ACoAAFakeDanaReyes123' }) },
+      ME.businessId,
+      false,
+    );
+    expect(outcome).toEqual({ done: true, line: 'Sent Dana Reyes a message' });
+    expect(world.opened).toEqual([`${LI}/messaging/thread/${encodeURIComponent(THREAD_KEY)}/`]);
+    expect(sent).toEqual(['Glad to help, Dana.']);
+  });
+
+  it('sends nothing in a kept conversation that links to another member id than the one HandsFreeOS keeps', async () => {
+    world.pages = (url) =>
+      url === DANA ? { fixture: 'linkedin-profile.html' } : { fixture: 'linkedin-chat.html' };
+    const sent: string[] = [];
+    world.behave = (doc, url) => {
+      // Her profile and her conversation both link to another member than the one kept.
+      for (const link of doc.querySelectorAll('a[href*="ACoAAFakeDanaReyes123"]'))
+        link.setAttribute(
+          'href',
+          (link.getAttribute('href') ?? '').replace(
+            'ACoAAFakeDanaReyes123',
+            'ACoAAFakeOtherDana456',
+          ),
+        );
+      if (url !== DANA) chatSends(doc, sent);
+    };
+    world.answers['/v1/commands/outreach.send.done'] = () => ({ ok: true });
+    const outcome = await doWork(
+      { do: 'send', item: approvedSend({ platformId: 'ACoAAFakeDanaReyes123' }) },
+      ME.businessId,
+      false,
+    );
+    expect(outcome).toMatchObject({ done: false });
+    expect(sent).toEqual([]);
   });
 
   it('sends nothing when her kept conversation, opened again after her profile, links to someone else', async () => {

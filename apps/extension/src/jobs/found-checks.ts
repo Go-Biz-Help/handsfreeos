@@ -116,6 +116,7 @@ export async function checkFound(
             profileId: who.profileId,
             lines: read.lines,
             missing: read.missing,
+            ...(read.seen ? { seen: read.seen } : {}),
           },
         }),
       );

@@ -3136,6 +3136,21 @@ where decisions 37 and 59 put the settings; what they decided stands. Settled to
         it says why in one line (`partner`, kept as `checks.partner_hint`). Their card on Today and their person menu
         say so, with a **Potential partner** button. The person decides.
 
+131.  **Each person kept by their network's own id** (Chris, 30 Oct 2026, extension 0.115.0). "if other platforms use
+      profile ids we should use those as well because they don’t change but usernames and names do." Facebook's number
+      is decision 26's 0.114.1 note. No migration: `profiles.platform_id` was there from the start.
+      - **Kept from a check:** `outreach.check.look` takes `seen`, who the page showed with every key it gave. When the
+        page showed the key someone is kept by, the other one is kept too (`keysSeen`): LinkedIn's member id from the
+        profile's top card, Alignable's business id and its address in its town. Never from a page that wasn't theirs
+        (`missing`), and never a key another profile here has: those two stay as they are.
+      - **Gone by first:** Today's items carry `platformId`. LinkedIn's runner goes by the member id when both links
+        have the same kind of it (`sameMember`; Sales Navigator's "ACwAA…" and LinkedIn's "ACoAA…" differ, so those go
+        by the name in the address), takes a kept conversation linking by that id as theirs without a look at their
+        profile, and opens their profile by id once when the name in their kept address shows someone else or nobody.
+        Alignable's runner goes straight to the conversation by the business id kept.
+      - **Instagram stays by the name in an account's address:** its links show no id. Reading one from the page's
+        code was left out, as it also holds the person's own; its chats are kept by their own key.
+
 ## Rules worth knowing before changing anything
 
 - **Nothing is saved until the person presses a button in HandsFreeOS** (an ask, below), except the four steps the

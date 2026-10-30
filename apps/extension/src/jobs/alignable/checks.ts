@@ -72,7 +72,12 @@ export async function readThemOnAlignable(job: Job, who: Who): Promise<ReadThem>
   if (page.signedOut) return { end: signedOutEnd() };
   const shown = page.found.business;
   if (!shown || !isTheirs(shown, want)) return { lines: [], missing: true, followers: null };
-  return { lines: businessLines(shown).slice(0, LOOKUP_LINES), missing: false, followers: null };
+  return {
+    lines: businessLines(shown).slice(0, LOOKUP_LINES),
+    missing: false,
+    followers: null,
+    seen: shown.profile,
+  };
 }
 
 /** How it went, in words for the person. */
@@ -164,6 +169,7 @@ export async function checkConnections(
           profileId: who.profileId,
           lines: read.lines,
           missing: read.missing,
+          ...(read.seen ? { seen: read.seen } : {}),
         },
       }),
     );

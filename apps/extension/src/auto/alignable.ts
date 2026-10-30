@@ -329,10 +329,13 @@ async function warnedOn(page: AlignablePage, businessId: string): Promise<string
 
 const read = () => readAlignableIn(tab);
 
-/** Their business as kept: by Alignable's id for it when the link carries one, else its address in its town. */
-function wantOf(profileUrl: string | null): ProfileRef | null {
-  const url = urlOf(profileUrl, ALIGNABLE);
-  return url ? businessRef(url, idIn(url)) : null;
+/**
+ * Their business as kept: by Alignable's id for it when the link carries one or HandsFreeOS keeps it beside the link
+ * (decision 131), else its address in its town.
+ */
+function wantOf(item: Pick<TodayListItem, 'profileUrl' | 'platformId'>): ProfileRef | null {
+  const url = urlOf(item.profileUrl, ALIGNABLE);
+  return url ? businessRef(url, idIn(url) ?? item.platformId ?? null) : null;
 }
 
 /**
@@ -362,7 +365,7 @@ async function openBusiness(
   | { readonly page: AlignablePage; readonly want: ProfileRef; readonly noted: ProfileRef }
   | { readonly outcome: Outcome }
 > {
-  const want = wantOf(item.profileUrl);
+  const want = wantOf(item);
   if (!want) return { outcome: { done: false, line: `${item.name}: no Alignable page kept` } };
   await tab.open(want.url);
   await setState({ tabId: tab.tabId });
@@ -427,7 +430,7 @@ async function likeFoundPost(
   businessId: string,
   after: After,
 ): Promise<Outcome | null> {
-  const want = wantOf(item.profileUrl);
+  const want = wantOf(item);
   const id = discussionIdOf(item.postUrl);
   if (!want || !id) return null;
   const url = `${ALIGNABLE}/biz/discussions/${id}`;
@@ -492,7 +495,7 @@ async function likeFoundAnswer(
   businessId: string,
   after: After,
 ): Promise<Outcome | null> {
-  const want = wantOf(item.profileUrl);
+  const want = wantOf(item);
   const id = discussionIdOf(item.postUrl);
   if (!want || !id) return null;
   const url = `${ALIGNABLE}/biz/discussions/${id}`;
@@ -749,7 +752,7 @@ async function openChat(
 ): Promise<
   { readonly profile: ProfileRef; readonly thread: ThreadRef } | { readonly outcome: Outcome }
 > {
-  let want = wantOf(item.profileUrl);
+  let want = wantOf(item);
   let id = item.threadKey ?? want?.id ?? null;
   if (!id) {
     const opened = await openBusiness(item, businessId);
@@ -859,8 +862,7 @@ async function sendMessage(
   businessId: string,
   split: boolean,
 ): Promise<Outcome> {
-  if (item.kind === 'comment')
-    return sendComment(item, wantOf(item.profileUrl), businessId, commenting);
+  if (item.kind === 'comment') return sendComment(item, wantOf(item), businessId, commenting);
   const send = item.send!;
   const failed = async (line: string): Promise<Outcome> => {
     const lead = `${item.name}: `;

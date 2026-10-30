@@ -279,6 +279,12 @@ describe('Check my connections, Research and a look-up, on Alignable', () => {
           'Who they refer with: Realtors and home inspectors',
         ],
         missing: false,
+        // Its id and its address in its town, for HandsFreeOS to keep whichever it lacks (decision 131).
+        seen: {
+          id: 'B1',
+          username: 'columbus-oh-reyes-plumbing',
+          url: `${AL}/columbus-oh/reyes-plumbing`,
+        },
       },
       // Another business's page came up: noted as missing, never read as theirs.
       { workspaceId: 'b', profileId: 'p9', lines: [], missing: true },
