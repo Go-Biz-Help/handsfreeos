@@ -168,7 +168,7 @@ describe('the words', () => {
     expect(needClearedWords('done', 'open')).toMatch(/still waits for you/);
   });
 
-  it('offer Retry on a message or comment that didn’t go, and say what it did (decision 133)', () => {
+  it('offer Retry on a message or comment that didn’t go, and say what it did (decision 132)', () => {
     expect(needRetryable({ step: 'message', sendId: 'a' })).toBe(true);
     expect(needRetryable({ step: 'comment', sendId: 'a' })).toBe(true);
     expect(needRetryable({ step: 'message', sendId: null })).toBe(false);

@@ -1307,7 +1307,7 @@ async function go(): Promise<void> {
             window!.to,
             ...(watchAt !== null ? [Math.max(watchAt, at)] : []),
             ...(again !== null ? [again] : []),
-            // A message tried again that waits its turn (decision 133).
+            // A message tried again that waits its turn (decision 132).
             ...retryWake(await stateNow(), at),
           )
         : tomorrow(),
@@ -1335,7 +1335,7 @@ async function listNow(
     businessId,
   );
   // Whether Facebook needs more good fits today (decision 126): it finds people again once the day's reading is done.
-  // And when a message tried again may go (decision 133): it looks again by then.
+  // And when a message tried again may go (decision 132): it looks again by then.
   const says = listSays(list);
   const kept = await stateNow();
   if (kept.more !== says.more || (kept.retryAt ?? null) !== says.retryAt) await setState(says);

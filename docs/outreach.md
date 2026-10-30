@@ -3162,7 +3162,7 @@ where decisions 37 and 59 put the settings; what they decided stands. Settled to
       - **Instagram stays by the name in an account's address:** its links show no id. Reading one from the page's
         code was left out, as it also holds the person's own; its chats are kept by their own key.
 
-132.  **Retry, and Retry all, spaced out like a person** (Chris, 30 Oct 2026, extension 0.117.0). "need a retry button,
+132.  **Retry, and Retry all, spaced out like a person** (Chris, 30 Oct 2026, extension 0.116.0). "need a retry button,
       when it does retry it shouldn't all send at the same time it should space them out."
       - **Where:** on Steps it needs you for (web, phone, and the Assistant's `outreach_retry_messages`, on a Confirm
         card), each message or comment that didn't go has **Retry**; with two or more listed, **Retry all**. Steps that

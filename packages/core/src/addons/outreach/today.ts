@@ -395,7 +395,7 @@ export const TodayOutput = z.object({
    */
   goal: TodayGoal.nullable().default(null),
   /**
-   * When the next message or comment tried again on this network may go (decision 133): its person is off the list
+   * When the next message or comment tried again on this network may go (decision 132): its person is off the list
    * till then, and the extension looks again by then. Null while none waits.
    */
   retryAt: z.iso.datetime().nullable().default(null),

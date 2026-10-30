@@ -370,7 +370,7 @@ describe('messages on their own', () => {
     expect(await openerOf('Gray Lund')).toBeUndefined();
   });
 
-  it('tries one that didn’t go again with Retry, and Retry all spaces them a few minutes apart (decision 133)', async () => {
+  it('tries one that didn’t go again with Retry, and Retry all spaces them a few minutes apart (decision 132)', async () => {
     const [gray, fern] = [await profileOf('gray.lund.3'), await profileOf('fern.ash.9')];
     const needOf = async (profileId: string) =>
       (await runAs(owner, ws, 'outreach.waiting', {})).items.find(

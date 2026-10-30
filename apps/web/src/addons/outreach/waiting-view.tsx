@@ -15,7 +15,7 @@
  *   person under their own hold, it says how long that lasts;
  * - **Steps it needs you for**: a step the extension couldn't do, in its network's words, to do there (**I did it**)
  *   or **Let it go**; **Open** goes to their page on that network (or the post, or the chat), and a message that
- *   didn't go has its words to copy, and **Retry** (decision 133), with **Retry all** over two or more: each goes
+ *   didn't go has its words to copy, and **Retry** (decision 132), with **Retry all** over two or more: each goes
  *   again a few minutes after the one before;
  * - **Friend requests to decide**: requests from the last two weeks that didn't fit a playbook, with why, and
  *   **Leave it**.
@@ -299,7 +299,7 @@ async function retry(workspaceId: string, needIds: string[] | null): Promise<voi
   else toast.info(said);
 }
 
-/** Retry all, over two or more messages and comments that didn't go (decision 133). */
+/** Retry all, over two or more messages and comments that didn't go (decision 132). */
 function RetryAll({ workspaceId, items }: { workspaceId: string; items: readonly WaitingItem[] }) {
   const { busy, act } = useAct();
   const retryable = items.filter((item) => item.kind === 'need' && needRetryable(item.need));

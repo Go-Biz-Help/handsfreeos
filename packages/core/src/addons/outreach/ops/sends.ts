@@ -887,7 +887,7 @@ export const sendRetry = defineAddonCommand(outreachAddon, {
  * Today's sends for the list for today (./today.ts): those open, by profile and kind (a comment by its post), and the
  * people skipped or not sent to today, who are off the list until tomorrow (a comment's post alone). And each writer's
  * comment open, on whichever post: one at a time (decision 92's 17). One tried again keeps its person off the list
- * till it may go (decision 133): `retryAt` says when the next does, on a network.
+ * till it may go (decision 132): `retryAt` says when the next does, on a network.
  */
 export async function sendsToday(ctx: Ctx, me: string, todayFrom: string, now: Date = new Date()) {
   const found = await rows<{

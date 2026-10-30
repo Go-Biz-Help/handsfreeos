@@ -141,7 +141,7 @@ export interface AutoState {
   readonly round?: number;
   readonly roundAt?: number | null;
   /**
-   * When the next message tried again on the network may go, as today's list last said (decision 133): the runner
+   * When the next message tried again on the network may go, as today's list last said (decision 132): the runner
    * looks again by then, though nothing else is left. Missing in a state kept by 0.115.
    */
   readonly retryAt?: number | null;
@@ -386,7 +386,7 @@ export function itemsLeft(
   return [...left.filter((item) => item.asking), ...left.filter((item) => !item.asking)];
 }
 
-/** When to look again for a message tried again that waits its turn (decision 133): its time, once it's after `now`. */
+/** When to look again for a message tried again that waits its turn (decision 132): its time, once it's after `now`. */
 export const retryWake = (state: Pick<AutoState, 'retryAt'>, now: number): number[] =>
   state.retryAt != null && state.retryAt > now ? [state.retryAt] : [];
 

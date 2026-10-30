@@ -133,7 +133,7 @@ export function needClearedWords(how: NeedClear, state: NeedState): string {
 }
 
 /**
- * Retry, and Retry all, on a message or comment the extension couldn't send (decision 133): it goes again, OK'd as it
+ * Retry, and Retry all, on a message or comment the extension couldn't send (decision 132): it goes again, OK'd as it
  * was, each a few minutes after the one before, so they never all go at once.
  */
 export const NEED_RETRY = { one: 'Retry', all: 'Retry all' } as const;

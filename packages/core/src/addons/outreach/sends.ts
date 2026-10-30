@@ -224,7 +224,7 @@ export type SendDoneInput = z.input<typeof SendDoneInput>;
 export const SendDoneOutput = z.object({ sendId: z.uuid(), state: z.enum(SEND_STATE_KEYS) });
 
 /**
- * Retry, or Retry all, on messages and comments the extension couldn't send (decision 133): the steps handed to the
+ * Retry, or Retry all, on messages and comments the extension couldn't send (decision 132): the steps handed to the
  * person by their ids, or with none named every one that can be tried again. Each goes again as it was, a few minutes
  * after the one before.
  */

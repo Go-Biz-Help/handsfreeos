@@ -678,7 +678,7 @@ export const PHONE_COMMANDS = {
   'outreach.readiness.profile': command(ONLINE, ProfileTickInput, ReadinessOutput),
   'outreach.request.set_aside': command(ANYTIME, RequestSetAsideInput, RequestSetAsideOutput),
   'outreach.send.approve': command(FRESH, SendApproveInput, SendApproveOutput),
-  // Retry, and Retry all, on what didn't go (decision 133): with signal, as it reaches them again.
+  // Retry, and Retry all, on what didn't go (decision 132): with signal, as it reaches them again.
   'outreach.send.retry': command(ONLINE, SendRetryInput, SendRetryOutput),
   'outreach.send.skip': command(ANYTIME, SendSkipInput, SendSkipOutput),
   // Where someone stands, on the Pipeline screen (decision 47): with signal, as the person menu's marks are.

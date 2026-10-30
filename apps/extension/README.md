@@ -1132,17 +1132,17 @@ whole day, as the list can't be worked out without them (`holdsTheDay` in `src/a
 and Alignable a read put off till you're away counts as the reading's turn, so the list goes next. With nothing on the
 list, the reading goes on. Nothing in HandsFreeOS changes for it.
 
-### Retry, spaced out, and fewer false "didn't take" (0.117.0)
+### Retry, spaced out, and fewer false "didn't take" (0.116.0)
 
 A message or comment that didn't go waits on Steps it needs you for in HandsFreeOS, which from now has **Retry** on each
-and **Retry all** over two or more (docs/outreach.md, decision 133). Each goes again as a new send, OK'd as it was, the
+and **Retry all** over two or more (docs/outreach.md, decision 132). Each goes again as a new send, OK'd as it was, the
 oldest now and each next one 3 to 7 minutes after the one before. Till its time its person is off the list for today,
 and the list says when the next may go (`retryAt`); a runner with nothing else to do looks again then (`listSays` and
 `retryWake` in `src/auto/plan.ts`), and still does one thing at a time at its network's pace.
 
 The owner's sends of 30 Oct 2026, on 0.114.0, had LinkedIn and Alignable say "didn't take the message" of messages that
 were in the conversation: LinkedIn drew its box afresh as it sent, and Alignable left the writing in its box. From
-0.117.0 a message went once its box empties or once what was typed shows once more where the box is (`timesShown` in
+0.116.0 a message went once its box empties or once what was typed shows once more where the box is (`timesShown` in
 `src/networks/facebook/dom.ts`), and what's left in the box after is taken out, so the next message finds it empty.
 
 And on LinkedIn's newer messaging, Message on someone's profile opens a new conversation (`/messaging/thread/new/

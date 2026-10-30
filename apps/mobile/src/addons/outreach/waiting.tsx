@@ -255,7 +255,7 @@ export function useWaitingProps(): React.ComponentProps<typeof WaitingBody> {
         failed(e);
       }
     },
-    // Retry, and Retry all (decision 133): with signal, as it reaches them again.
+    // Retry, and Retry all (decision 132): with signal, as it reaches them again.
     onRetrySends: async (needIds) => {
       try {
         const { retried, passed } = (await retrySends(ws, needIds)).output;
@@ -763,7 +763,7 @@ function NeedCard({
   need: Need;
   when: string;
   onClear: (how: NeedClear) => void;
-  /** Retry, on a message or comment that didn't go (decision 133). */
+  /** Retry, on a message or comment that didn't go (decision 132). */
   onRetry?: () => void;
 }) {
   // Its profile's network, as HandsFreeOS says: its words, its label and its links are that network's.
