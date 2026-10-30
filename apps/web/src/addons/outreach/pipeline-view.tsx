@@ -41,7 +41,7 @@ import { cn, relativeTime } from '@/lib/utils';
 import { outreachHref } from './address';
 import { BOARD_STAGES, type Board } from './board';
 import { Pager, SearchBox } from './friends-view';
-import { NetworkFilterControl, NetworkName } from './network-ui';
+import { NetworkName } from './network-ui';
 import { PersonName, type MenuMove, type MenuPerson } from './person-menu';
 import { ResearchSlot } from './research';
 import type { Asks, Pipeline, PipelinePerson } from './types';
@@ -131,11 +131,11 @@ export function PipelineView({
   // A Research ask's progress and end.
   useLiveRefresh(['outreach_ask'], 800);
   const asked = useRef({ show, search, net });
-  const go = (to: { show?: StageView; search?: string; page?: number; net?: Platform | null }) => {
+  const go = (to: { show?: StageView; search?: string; page?: number }) => {
     asked.current = {
       show: to.show ?? asked.current.show,
       search: to.search ?? asked.current.search,
-      net: to.net === undefined ? asked.current.net : to.net,
+      net: asked.current.net,
     };
     const href = outreachHref(workspaceId, {
       view: 'pipeline',
@@ -181,7 +181,6 @@ export function PipelineView({
             }))}
           />
         </div>
-        <NetworkFilterControl value={net} onChange={(n) => go({ net: n })} />
         <SearchBox search={search} onSearch={(s) => go({ search: s })} />
       </div>
       <div

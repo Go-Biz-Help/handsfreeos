@@ -1,26 +1,26 @@
 /**
- * What Social Outreach's page shows, from its address. Four tabs and the gear (docs/outreach.md, decision 59):
+ * What Social Outreach's pages show, from their addresses. Each page has its own path under `/a/outreach/`, so the side
+ * menu's pop-out lights the one open (docs/outreach.md, decision 127):
  *
- * - **Today** (`?view=today`, and the bare page): what needs the person and their list. `?view=waiting`, the old
- *   Waiting for you tab's address that pushes and links still use, opens it too; `?view=live` is the detail of what
- *   their computer is doing, under the same tab.
- * - **People**: everyone reached by where they stand (`?view=pipeline`, `?show=ready`… for one stage, else the board),
- *   their friends (`?view=friends`, `?show=fits`, `requests`, `sent`, `keep`, `dont_pitch` or
- *   `never_contact`), their chats
- *   (`?view=chats`, `?show=tagged`, `read` or `waiting`, and a tag `?tag=`), and their Partners list (`?view=partners`,
- *   `?show=asked`… for one stage, else everyone).
- * - **Groups** (`?view=groups`, `?show=maybe`, `skip` or `all`, else Work these), and a group's own page
- *   (`?group=` its id, decision 103): who was found there and how each turned out, `?show=` one outcome
- *   (`not_reached`, `talking`…), else everyone.
- * - **Results** (`?view=results`, and the old `?view=activity`): the stretch of days (`?period=today`, `week` or
- *   `month`) and whose steps (`?who=everyone`, for owners and admins).
- * - **Settings** (`?view=settings`), a page for each part (`?part=general`, `facebook`, `linkedin`, `computer` or
- *   `fresh`, General when left out; the old `#mine` and `#business` are General too), whose with `?for=` someone's id,
- *   for owners and admins; and the business's playbooks (`?view=playbooks`).
+ * - **Needs you** (`/needs-you`): everything waiting on the person, on every network.
+ * - **Today** (`/today`): what their computer is doing on each network, and the network shown's list (`?net=`).
+ * - **People**: everyone reached by where they stand (`/people`, `?show=ready`… for one stage, else the board), their
+ *   friends (`/people/friends`, `?show=fits`, `requests`, `sent`, `keep`, `dont_pitch` or `never_contact`), their chats
+ *   (`/people/chats`, `?show=tagged`, `read` or `waiting`, and a tag `?tag=`), and their Partners list
+ *   (`/people/partners`, `?show=asked`… for one stage, else everyone).
+ * - **Groups** (`/groups`, `?show=maybe`, `skip` or `all`, else Work these), and a group's own page (`?group=` its id,
+ *   decision 103): who was found there and how each turned out, `?show=` one outcome (`not_reached`, `talking`…).
+ * - **Results** (`/results`): the stretch of days (`?period=today`, `week` or `month`) and whose steps
+ *   (`?who=everyone`, for owners and admins).
+ * - **Playbooks** (`/playbooks`): the business's playbooks, with how each opener did.
+ * - **Settings** (`/settings`, General; `/settings/<part>` for a network, Your computer or Start fresh), whose with
+ *   `?for=` someone's id, for owners and admins.
  *
- * Lists take a name searched for (`?q=`) and the page (`?page=2`). Today and Live take the network whose day they show, and
- * the pipeline, friends, chats and partners the network they're narrowed to (`?net=linkedin`): Today's first network,
- * and every network, when left out. A plain module, so the page reads it on the server and the tabs build their links from it.
+ * Lists take a name searched for (`?q=`) and the page (`?page=2`). Today takes the network whose list it shows, and
+ * the People lists the network they're narrowed to (`?net=linkedin`); with none in the address, the one the person
+ * picked last (`netCookie`), else Today's first network and every network. The old addresses, one page with
+ * `?view=` (decision 59), still work: the bare page forwards them here (`forwardedHref`). A plain module, so the
+ * pages read it on the server and build their links from it.
  */
 import { ACTIVITY_PERIOD_KEYS, type ActivityPeriod } from '@hfos/core/addons/outreach/activity';
 import { CHAT_VIEW_KEYS, type ChatView } from '@hfos/core/addons/outreach/chat-read';
@@ -29,6 +29,7 @@ import { GROUP_VIEWS, type GroupView } from '@hfos/core/addons/outreach/groups';
 import { GROUP_PEOPLE_VIEW_KEYS, type GroupPeopleView } from '@hfos/core/addons/outreach/journey';
 import { readNetwork } from '@hfos/core/addons/outreach/network-words';
 import type { Platform } from '@hfos/core/addons/outreach/networks';
+import type { OutreachPage } from '@hfos/core/addons/outreach/pages';
 import { PARTNER_VIEW_KEYS, type PartnerView } from '@hfos/core/addons/outreach/partners';
 import { settingsPartOf, type SettingsPart } from '@hfos/core/addons/outreach/settings-parts';
 import { STAGE_VIEW_KEYS, type StageView } from '@hfos/core/addons/outreach/stages';
@@ -39,8 +40,8 @@ export const GROUP_VIEW_KEYS = Object.keys(GROUP_VIEWS) as GroupView[];
 export const DEFAULT_PERIOD: ActivityPeriod = 'week';
 
 export type OutreachView =
+  | 'needs'
   | 'today'
-  | 'live'
   | 'pipeline'
   | 'friends'
   | 'chats'
@@ -49,41 +50,27 @@ export type OutreachView =
   | 'results'
   | 'settings'
   | 'playbooks';
-const VIEWS: readonly OutreachView[] = [
-  'today',
-  'live',
-  'pipeline',
-  'friends',
-  'chats',
-  'partners',
-  'groups',
-  'results',
-  'settings',
-  'playbooks',
-];
-/** The old tabs' addresses, which pushes, emails and old phones still open. */
-const OLD_VIEWS: Readonly<Record<string, OutreachView>> = {
-  waiting: 'today',
-  activity: 'results',
-  // A code a network emailed (the phone's own screen for it, decision 82): the Live tab, where its box is.
-  code: 'live',
+
+/** Each view's path under `/a/outreach/` (Settings' part goes after its own). */
+const VIEW_PATH: Readonly<Record<OutreachView, string>> = {
+  needs: 'needs-you',
+  today: 'today',
+  pipeline: 'people',
+  friends: 'people/friends',
+  chats: 'people/chats',
+  partners: 'people/partners',
+  groups: 'groups',
+  results: 'results',
+  settings: 'settings',
+  playbooks: 'playbooks',
 };
 
-/** The four tabs and the gear (decision 59). */
-export type OutreachTab = 'today' | 'people' | 'groups' | 'results' | 'settings';
-export const OUTREACH_TABS: readonly OutreachTab[] = [
-  'today',
-  'people',
-  'groups',
-  'results',
-  'settings',
-];
-
-/** The tab a view sits under. */
-export function tabOf(view: OutreachView): OutreachTab {
+/** The side menu's page a view is on: its title, and the menu's light. */
+export function pageOf(view: OutreachView): OutreachPage {
   switch (view) {
+    case 'needs':
+      return 'needs-you';
     case 'today':
-    case 'live':
       return 'today';
     case 'pipeline':
     case 'friends':
@@ -94,20 +81,40 @@ export function tabOf(view: OutreachView): OutreachTab {
       return 'groups';
     case 'results':
       return 'results';
-    case 'settings':
     case 'playbooks':
-      return 'settings';
+      return 'playbooks';
+    case 'settings':
+      return 'gear';
   }
 }
 
-/** Where a tab's own link goes. */
-export const TAB_VIEW: Readonly<Record<OutreachTab, OutreachView>> = {
+/**
+ * The old addresses' views (`?view=`, decision 59, and the phone's own), as the pages they became. What pushes,
+ * emails, notifications already sent, the extension and old phones still open.
+ */
+const OLD_VIEWS: Readonly<Record<string, OutreachView>> = {
+  waiting: 'needs',
+  // A code a network emailed waits under Needs you (decision 82's ask, in "Your computer needs you").
+  code: 'needs',
   today: 'today',
-  people: 'pipeline',
-  groups: 'groups',
+  // The computer's whole day folded into Today (decision 127).
+  live: 'today',
+  activity: 'results',
   results: 'results',
+  pipeline: 'pipeline',
+  friends: 'friends',
+  chats: 'chats',
+  partners: 'partners',
+  groups: 'groups',
   settings: 'settings',
+  playbooks: 'playbooks',
+  // The phone's Never contact list, and the lists the country setting makes, are the Friends lists here.
+  never_contact: 'friends',
+  countries: 'friends',
 };
+
+/** The cookie keeping the network the person picked last, for each business: `all` for every network. */
+export const netCookie = (workspaceId: string) => `outreach-net-${workspaceId}`;
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -147,16 +154,20 @@ export interface OutreachAddress {
   readonly net: Platform | null;
 }
 
+type Query = Record<string, string | string[] | undefined>;
+const one = (v: string | string[] | undefined) => (Array.isArray(v) ? v[0] : v) ?? '';
+
+/**
+ * A page's address, read: the view is its path's (`part` too, for Settings), the rest its query's. `remembered` is
+ * the network the person picked last (`netCookie`), for an address naming none.
+ */
 export function readOutreachAddress(
-  sp: Record<string, string | string[] | undefined>,
+  view: OutreachView,
+  sp: Query,
+  { part = '', remembered = null }: { part?: string; remembered?: string | null } = {},
 ): OutreachAddress {
-  const one = (v: string | string[] | undefined) => (Array.isArray(v) ? v[0] : v) ?? '';
-  const view = one(sp.view);
-  // The phone's Never contact list (`?view=never_contact`) is the Friends tab's list here.
-  if (view === 'never_contact')
-    return readOutreachAddress({ ...sp, view: 'friends', show: 'never_contact' });
   return {
-    view: VIEWS.find((v) => v === view) ?? OLD_VIEWS[view] ?? 'today',
+    view,
     period: ACTIVITY_PERIOD_KEYS.find((k) => k === one(sp.period)) ?? DEFAULT_PERIOD,
     everyone: one(sp.who) === 'everyone',
     show: FRIEND_VIEW_KEYS.find((k) => k === one(sp.show)) ?? 'friends',
@@ -170,9 +181,31 @@ export function readOutreachAddress(
     search: one(sp.q).trim().slice(0, 100),
     page: /^[1-9]\d{0,4}$/.test(one(sp.page)) ? Number(one(sp.page)) : 1,
     for: UUID.test(one(sp.for)) ? one(sp.for).toLowerCase() : '',
-    part: settingsPartOf(one(sp.part)),
-    net: readNetwork(one(sp.net)),
+    part: settingsPartOf(part),
+    // The address's own; with none, the last picked; `all` (or nothing) is every network.
+    net: sp.net !== undefined ? readNetwork(one(sp.net)) : readNetwork(remembered),
   };
+}
+
+/**
+ * Where an old address goes (`/a/outreach?view=…`, decision 59's page and the phone's views): the page its view
+ * became, with the rest of its query kept, Settings' part as its path. Null for the bare page with no query at all,
+ * which opens Today (or the setup, for a first-timer).
+ */
+export function forwardedHref(workspaceId: string, sp: Query): string | null {
+  const old = one(sp.view);
+  if (!old && !Object.keys(sp).length) return null;
+  const view = OLD_VIEWS[old] ?? 'today';
+  const params = new URLSearchParams();
+  for (const [key, value] of Object.entries(sp)) {
+    if (key === 'view' || key === 'part' || value === undefined) continue;
+    params.set(key, one(value));
+  }
+  if (old === 'never_contact') params.set('show', 'never_contact');
+  const part = view === 'settings' ? settingsPartOf(one(sp.part)) : 'general';
+  const path = `${VIEW_PATH[view]}${part !== 'general' ? `/${part}` : ''}`;
+  const qs = params.toString();
+  return `/app/w/${workspaceId}/a/outreach/${path}${qs ? `?${qs}` : ''}`;
 }
 
 /**
@@ -183,11 +216,10 @@ export function readOutreachAddress(
 export function outreachHref(workspaceId: string, to: Partial<OutreachAddress> = {}): string {
   const params = new URLSearchParams();
   const view = to.view ?? 'today';
-  params.set('view', view);
+  let path = VIEW_PATH[view];
   if (
     to.net &&
     (view === 'today' ||
-      view === 'live' ||
       view === 'pipeline' ||
       view === 'friends' ||
       view === 'chats' ||
@@ -195,7 +227,7 @@ export function outreachHref(workspaceId: string, to: Partial<OutreachAddress> =
   )
     params.set('net', to.net);
   if (view === 'settings') {
-    if (to.part && to.part !== 'general') params.set('part', to.part);
+    if (to.part && to.part !== 'general') path = `${path}/${to.part}`;
     if (to.for) params.set('for', to.for);
   } else if (view === 'groups' && to.group) {
     params.set('group', to.group);
@@ -225,5 +257,6 @@ export function outreachHref(workspaceId: string, to: Partial<OutreachAddress> =
     if (to.period && to.period !== DEFAULT_PERIOD) params.set('period', to.period);
     if (to.everyone) params.set('who', 'everyone');
   }
-  return `/app/w/${workspaceId}/a/outreach?${params.toString()}`;
+  const qs = params.toString();
+  return `/app/w/${workspaceId}/a/outreach/${path}${qs ? `?${qs}` : ''}`;
 }

@@ -1,6 +1,11 @@
 'use client';
 /**
- * Social Outreach's Today tab (docs/outreach.md, the plan's Phase 1 step 5): the person's short list for the day on
+ * Social Outreach's Today (docs/outreach.md, the plan's Phase 1 step 5, and decision 127's page to watch it work): at
+ * the top, one Heads up card for what to know (a warning, training wheels, half limits on a new account, requests
+ * held with Cancel all, profile ideas waiting), the count of what needs the person with the way to Needs you (its own
+ * page, which a `#needs-you` here opens, as the extension's links still ask), and a card for each network the person
+ * works (./status-strip.tsx). Beside the list, Done today, the feed of every step today; below it, for owners and
+ * admins, how each person's extension is doing (decision 24). Then the person's short list for the day on
  * Facebook, from what HandsFreeOS knows (packages/core/src/addons/outreach/today.ts): requests they got from people who
  * fit to confirm (decision 30), a post to like before a friend request (decision 33), friend requests to people from
  * the business's groups who fit a playbook, a first message to new friends, friends the AI found a good fit to
@@ -19,11 +24,12 @@
  * A message the extension drafted to send for them (packages/core/src/addons/outreach/sends.ts) shows in place of the
  * drafts: one waiting has its words to change, **Send** and **Skip**, and **Approve all** OKs every one waiting but a
  * reply handed over or one to someone who needs the person, which wait for an OK of their own (`oneByOne`, decision
- * 42); the extension then sends them in Messenger. The same messages are in Waiting for you (./waiting-view.tsx). While the person's training wheels are on, it says what's left before they
- * come off; owners and admins see who's on them and can end them early.
+ * 42); the extension then sends them in Messenger. Those waiting under Needs you (./waiting-view.tsx) stay off the
+ * list, so nobody shows twice. While the person's training wheels are on, it says what's left before they come off;
+ * owners and admins see who's on them and can end them early.
  *
- * Each network has its own list (Chris: each network on its own): the strip at the top has a row for each network the
- * person works, with its own Start my day and Stop for today and its own warning line, and the list is the one shown
+ * Each network has its own list (Chris: each network on its own): each network's card has its own Start my day and
+ * Stop for today, its warning line and its bars, and the list is the network picked at the top of the page
  * (`outreach.today` with its `platform`), in its words: an invitation to connect on LinkedIn, a friend request on
  * Facebook. Asks made from it carry its network, and only the kinds it can be asked show.
  *
@@ -90,7 +96,8 @@ import {
   X,
 } from 'lucide-react';
 import Link from 'next/link';
-import { useState } from 'react';
+import { useRouter } from 'next/navigation';
+import { useEffect, useState } from 'react';
 import { toast } from 'sonner';
 import { Badge } from '@/components/ui/badge';
 import { Button, ButtonLink } from '@/components/ui/button';
@@ -108,12 +115,14 @@ import { Drafted } from './drafted';
 import { HelpfulCard } from './helpful-card';
 import { PersonName } from './person-menu';
 import { GetReadyCard } from './get-ready';
-import { GoalNote } from './goal-note';
+import { GoalNote, goalNoteOn } from './goal-note';
+import { TeamCard } from './live-view';
 import { StatusStrip, type NetworkLive } from './status-strip';
 import type {
   Asks,
   HelpfulList,
   Live,
+  LiveTeam,
   Readiness,
   TodayItem,
   TodayList,
@@ -121,7 +130,6 @@ import type {
   WheelsList,
 } from './types';
 import { useAct } from './use-act';
-import { NeedsYou } from './waiting-view';
 
 const KIND_BADGE = {
   confirm: 'ok',
@@ -156,6 +164,7 @@ export function TodayView({
   today,
   helpful,
   wheels,
+  team = null,
   asks,
   waiting,
   readiness,
@@ -179,13 +188,21 @@ export function TodayView({
   helpful: HelpfulList;
   /** Who's on training wheels: for owners and admins, else null. */
   wheels: WheelsList | null;
+  /** How each person's extension is doing on the network shown: for owners and admins, else null. */
+  team?: LiveTeam | null;
   /** The look-ups and group members asked of the person's computer from here. */
   asks: Asks;
-  /** Everything that needs the person, first. Null when it couldn't be had. */
+  /** Everything that needs the person: its count, and what stays off the list. Null when it couldn't be had. */
   waiting: Waiting | null;
 }) {
   // A look-up's drafts, and a group's members saved, show once its ask ends.
   useLiveRefresh(['outreach_ask'], 800);
+  const router = useRouter();
+  // The extension's Needs you link and its pop-ups open Today at `#needs-you`: Needs you is its own page now.
+  useEffect(() => {
+    if (window.location.hash === '#needs-you')
+      router.replace(outreachHref(workspaceId, { view: 'needs' }));
+  }, [router, workspaceId]);
   // Until the person is ready, Get ready shows in place of the list (decision 63); once they are, only while their
   // profile is left, as advice above the list (decision 90).
   const ready = today.ready;
@@ -220,8 +237,82 @@ export function TodayView({
       );
       toast.success(W.okdAll(out.approved.length, comments));
     });
+  // What to know today, each a line in one card: the network's warning when its card doesn't say it already, training
+  // wheels, half limits on a new account, requests held, and profile ideas waiting.
+  const warning = today.warning && !live?.warning ? today.warning : null;
+  // Short of today's first messages, why, and what to try (decision 126): none from a server before it.
+  const goal = today.goal && goalNoteOn(today.goal, platform) ? today.goal : null;
+  const headsUp = Boolean(
+    warning || today.wheels.on || today.fresh?.on || today.requestsHeld || goal || today.profileOwn,
+  );
   return (
     <div data-testid="outreach-today">
+      {headsUp ? (
+        <Card className="mb-4 p-4" data-testid="today-heads-up">
+          <h2 className="text-[15px] font-semibold">{W.headsUp}</h2>
+          <ul className="mt-2 grid gap-2.5 text-[13px]">
+            {warning ? (
+              <li role="alert" data-testid="today-warning" className="text-danger-text">
+                {warningNote(warning, Date.now(), platform)}
+              </li>
+            ) : null}
+            {today.wheels.on ? (
+              <li data-testid="today-wheels" className="text-text-2">
+                {wheelsWords(today.wheels)}
+              </li>
+            ) : null}
+            {/* None from a server before decision 96. */}
+            {today.fresh?.on ? (
+              <li data-testid="today-fresh" className="text-text-2">
+                {freshWords(today.fresh, platform)}
+              </li>
+            ) : null}
+            {today.requestsHeld ? (
+              <li data-testid="today-requests-held" className="text-warning-text">
+                <p>{requestsHeldWords(today.requestsHeld, platform)}</p>
+                {/* Cancel all (decision 121), while it isn't going: none from a server before it. */}
+                {today.requestsHeld.why === 'waiting' && !today.requestsHeld.cancelling ? (
+                  <CancelAllButtons
+                    workspaceId={workspaceId}
+                    platform={platform}
+                    asks={asks}
+                    waiting={today.requestsHeld.count}
+                    extension={today.requestsHeld.extension ?? 0}
+                  />
+                ) : null}
+              </li>
+            ) : null}
+            {goal ? <GoalNote workspaceId={workspaceId} platform={platform} goal={goal} /> : null}
+            {/* Their profile, read on its own on the 1st: what the AI suggests waits for their OK (decision 99). */}
+            {today.profileOwn ? (
+              <li data-testid="today-profile-own" className="text-text-2">
+                {PROFILE_PART_WORDS.ownWaiting(platform, today.profileOwn.parts)}{' '}
+                <Link
+                  href={outreachHref(workspaceId, { view: 'settings', part: platform })}
+                  className="font-medium text-accent-text hover:underline"
+                >
+                  {PROFILE_PART_WORDS.ownLook}
+                </Link>
+              </li>
+            ) : null}
+          </ul>
+        </Card>
+      ) : null}
+      {waiting?.count ? (
+        <p
+          className="mb-4 flex flex-wrap items-baseline gap-x-2 rounded-card bg-accent-soft px-4 py-3 text-[13.5px] text-accent-text"
+          data-testid="today-needs-you"
+        >
+          <span className="font-semibold">{W.needsYouCount(waiting.count)}</span>
+          <Link
+            href={outreachHref(workspaceId, { view: 'needs' })}
+            className="font-medium underline-offset-2 hover:underline"
+            data-testid="today-needs-you-open"
+          >
+            {W.openNeedsYou}
+          </Link>
+        </p>
+      ) : null}
       {networks.length ? (
         <StatusStrip
           workspaceId={workspaceId}
@@ -233,73 +324,9 @@ export function TodayView({
       ) : null}
       <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_320px]">
         <div className="min-w-0 space-y-5">
-          {today.warning && !live?.warning ? (
-            <p
-              role="alert"
-              data-testid="today-warning"
-              className="rounded-card bg-danger-soft p-3.5 text-[13px] text-danger-text"
-            >
-              {warningNote(today.warning, Date.now(), platform)}
-            </p>
-          ) : null}
-          {today.wheels.on ? (
-            <p
-              data-testid="today-wheels"
-              className="rounded-card bg-card-2 p-3.5 text-[13px] text-text-2"
-            >
-              {wheelsWords(today.wheels)}
-            </p>
-          ) : null}
-          {/* None from a server before decision 96. */}
-          {today.fresh?.on ? (
-            <p
-              data-testid="today-fresh"
-              className="rounded-card bg-card-2 p-3.5 text-[13px] text-text-2"
-            >
-              {freshWords(today.fresh, platform)}
-            </p>
-          ) : null}
-          {today.requestsHeld ? (
-            <div
-              data-testid="today-requests-held"
-              className="rounded-card bg-warning-soft p-3.5 text-[13px] text-warning-text"
-            >
-              <p>{requestsHeldWords(today.requestsHeld, platform)}</p>
-              {/* Cancel all (decision 121), while it isn't going: none from a server before it. */}
-              {today.requestsHeld.why === 'waiting' && !today.requestsHeld.cancelling ? (
-                <CancelAllButtons
-                  workspaceId={workspaceId}
-                  platform={platform}
-                  asks={asks}
-                  waiting={today.requestsHeld.count}
-                  extension={today.requestsHeld.extension ?? 0}
-                />
-              ) : null}
-            </div>
-          ) : null}
-          {/* Short of today's first messages, why, and what to try (decision 126): none from a server before it. */}
-          {today.goal ? (
-            <GoalNote workspaceId={workspaceId} platform={platform} goal={today.goal} />
-          ) : null}
-          {/* Their profile, read on its own on the 1st: what the AI suggests waits for their OK (decision 99). */}
-          {today.profileOwn ? (
-            <p
-              data-testid="today-profile-own"
-              className="rounded-card bg-card-2 p-3.5 text-[13px] text-text-2"
-            >
-              {PROFILE_PART_WORDS.ownWaiting(platform, today.profileOwn.parts)}{' '}
-              <Link
-                href={outreachHref(workspaceId, { view: 'settings', part: platform })}
-                className="font-medium text-accent-text hover:underline"
-              >
-                {PROFILE_PART_WORDS.ownLook}
-              </Link>
-            </p>
-          ) : null}
           {getReady ? (
             <GetReadyCard workspaceId={workspaceId} readiness={getReady} asks={asks} />
           ) : null}
-          {waiting ? <NeedsYou workspaceId={workspaceId} waiting={waiting} /> : null}
           {helpfulOn(platform) ? (
             <HelpfulCard
               workspaceId={workspaceId}
@@ -395,7 +422,7 @@ export function TodayView({
           ) : null}
         </div>
         <aside className="space-y-4">
-          {live ? <DoneToday workspaceId={workspaceId} live={live} platform={platform} /> : null}
+          {live ? <DoneToday live={live} /> : null}
           {wheels?.people.length ? <WheelsCard workspaceId={workspaceId} wheels={wheels} /> : null}
           {!today.hasPlaybook ? (
             <Card className="p-4">
@@ -448,6 +475,7 @@ export function TodayView({
           ) : null}
         </aside>
       </div>
+      {team ? <TeamCard team={team} className="mt-5" /> : null}
       <HowItWorks />
     </div>
   );
@@ -547,21 +575,20 @@ function TodayStart({ workspaceId, platform }: { workspaceId: string; platform: 
 }
 
 /** The newest of today's steps, beside the lists: the rest, and the computers, on the computer's own page. */
-function DoneToday({
-  workspaceId,
-  live,
-  platform,
-}: {
-  workspaceId: string;
-  live: Live;
-  platform: Platform;
-}) {
-  const shown = live.steps.slice(0, 6);
+/** How many of today's steps show before the rest are asked for. */
+const DONE_SHOWN = 8;
+
+/** Every step taken today, on every network, newest first: its first ones, then the rest in place. */
+function DoneToday({ live }: { live: Live }) {
+  const [all, setAll] = useState(false);
+  const shown = all ? live.steps : live.steps.slice(0, DONE_SHOWN);
+  const more = live.steps.length - shown.length;
   return (
     <Card className="p-4" data-testid="today-done">
       <h3 className="text-[15px] font-semibold">{W.doneToday}</h3>
+      <p className="mt-0.5 text-[12.5px] text-text-3">{W.doneTodayAbout}</p>
       {shown.length ? (
-        <ol className="mt-3 space-y-2">
+        <ol className="mt-3 space-y-2" data-testid="today-done-steps">
           {shown.map((step, i) => (
             <li key={`${step.at}-${i}`} className="flex gap-3 text-[13px]">
               <span className="w-[62px] flex-none tabular-nums text-text-3">
@@ -582,12 +609,16 @@ function DoneToday({
       ) : (
         <p className="mt-2 text-[13px] text-text-2">{W.noSteps}</p>
       )}
-      <Link
-        href={outreachHref(workspaceId, { view: 'live', net: platform })}
-        className="mt-3 inline-block text-[13px] font-medium text-accent-text hover:underline"
-      >
-        {W.seeAllToday}
-      </Link>
+      {more > 0 ? (
+        <button
+          type="button"
+          onClick={() => setAll(true)}
+          className="mt-3 text-[13px] font-medium text-accent-text hover:underline"
+          data-testid="today-done-more"
+        >
+          {W.doneTodayMore(more)}
+        </button>
+      ) : null}
     </Card>
   );
 }

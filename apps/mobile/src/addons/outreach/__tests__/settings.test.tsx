@@ -118,16 +118,16 @@ describe('The Settings menu on the phone', () => {
     expect(screen.queryByText('Save')).toBeNull();
   });
 
-  it('opens each part as its own page, and Playbooks and Your computer', async () => {
+  it('opens each part as its own page, and Your computer; Playbooks are a page of their own', async () => {
     const p = menuProps();
     await render(<SettingsMenuBody automation={AUTOMATION} {...p} />);
     await fireEvent.press(screen.getByTestId('settings-open-general'));
     await fireEvent.press(screen.getByTestId('settings-open-facebook'));
     await fireEvent.press(screen.getByTestId('settings-open-linkedin'));
     expect(p.onPart.mock.calls.map(([part]) => part)).toEqual(['general', 'facebook', 'linkedin']);
-    await fireEvent.press(screen.getByTestId('settings-open-playbooks'));
+    expect(screen.queryByTestId('settings-open-playbooks')).toBeNull();
     await fireEvent.press(screen.getByTestId('settings-open-computer'));
-    expect(p.onOpen.mock.calls.map(([view]) => view)).toEqual(['playbooks', 'live']);
+    expect(p.onOpen.mock.calls.map(([view]) => view)).toEqual(['live']);
   });
 
   it('shows a network the business stopped allowing as off, whatever the person chose', async () => {

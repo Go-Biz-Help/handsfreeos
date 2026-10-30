@@ -135,7 +135,7 @@ export function PartnersBody({
 }) {
   const everyone = list ? PARTNER_STAGE_KEYS.reduce((n, s) => n + list.counts[s], 0) : 0;
   return (
-    <OutreachFrame tab="people" people="partners" testID="outreach-partners">
+    <OutreachFrame page="people" people="partners" testID="outreach-partners">
       <Note>{P.about}</Note>
       <ScrollView horizontal showsHorizontalScrollIndicator={false}>
         <View className="flex-row gap-1.5">

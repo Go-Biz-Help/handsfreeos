@@ -1,15 +1,15 @@
 'use client';
 /**
- * The top of Today (docs/outreach.md, decisions 41 and 59): what the person's computer is doing, what's next, today's
- * steps against the daily limits, and Start my day and Stop for today, in one strip, so nobody opens another tab to
- * see whether it's working. Offline, a warning, and Sending off each say so in a line. **Details** opens the
- * full day (./live-view.tsx): the feed, what was asked of the computer, the team, and renaming computers.
+ * The top of Today (docs/outreach.md, decisions 41, 59 and 127): what the person's computer is doing, what's next,
+ * today's steps against the daily limits, and Start my day and Stop for today, so nobody opens another page to see
+ * whether it's working. Offline, a warning, and Sending off each say so in a line. Today's feed is Done today beside
+ * the list; renaming computers, and what was asked of them, are on Settings → Your computer.
  *
- * Each network on its own (Chris): with more than one network on, the strip has a row for each, by name, with its own
- * day, its own Start my day or Stop for today (`outreach.day.*` with its `platform`) and its own warning line, and
- * **Start all** and **Stop all** press each one. Stopping one leaves the others going. A network going, started or on
- * its own in the working hours, has Stop for today (`dayGoing`, decision 95). The limits, the first lists
- * and the list below are the network shown (`?net=`); its name opens it.
+ * Each network on its own (Chris): with more than one network on, it has a card for each, by name, with its own day,
+ * its own Start my day or Stop for today (`outreach.day.*` with its `platform`), its own warning line and its own
+ * bars, and **Start all** and **Stop all** press each one. Stopping one leaves the others going. A network going,
+ * started or on its own in the working hours, has Stop for today (`dayGoing`, decision 95). The first lists and the
+ * list below are the network shown (`?net=`); its name opens it, and is kept as the one picked (`rememberNetwork`).
  *
  * A Start my day that can't be pressed always says why beside it (the owner, 26 Oct 2026): what holds that network's
  * day under Get ready and where it's done (`notReadyWords`; the profile never does, decision 90), the extension doing
@@ -46,6 +46,7 @@ import { apiBrowser, unwrap } from '@/lib/api/client';
 import { cn } from '@/lib/utils';
 import { outreachHref } from './address';
 import { useRefetchWhileShown, useServerNow } from './live-view';
+import { rememberNetwork } from './network-ui';
 import type { Live } from './types';
 import { PreDayList } from './pre-day-list';
 import {
@@ -87,6 +88,59 @@ export const pressDay = async (workspaceId: string, platform: Platform, kind: Pr
           body: { workspaceId, platform },
         }),
   );
+
+/**
+ * A network's steps today against its daily limits, a bar each: under the strip with one network, on each network's
+ * card with more (`suffix`, its own test ids).
+ */
+function LimitBars({
+  live,
+  platform,
+  suffix = '',
+  label,
+}: {
+  live: Live;
+  platform: Platform;
+  suffix?: string;
+  label?: string;
+}) {
+  const words = dailyWordsOn(platform);
+  const steps = DAILY_STEPS.filter((s) => live.limits[s].most > 0);
+  if (!steps.length) return null;
+  return (
+    <ul
+      className="grid gap-x-4 gap-y-3 [grid-template-columns:repeat(auto-fit,minmax(130px,1fr))]"
+      aria-label={label}
+      data-testid={`today-limits${suffix}`}
+    >
+      {steps.map((step) => {
+        const { done, most } = live.limits[step];
+        const full = done >= most;
+        return (
+          <li key={step} className="grid gap-1.5" data-testid={`today-limit-${step}${suffix}`}>
+            <div className="flex items-baseline justify-between gap-2 text-[13px]">
+              <span className="text-text-2">{words[step].label}</span>
+              <span
+                className={cn(
+                  'tabular-nums',
+                  full ? 'font-semibold text-warning-text' : 'font-medium',
+                )}
+              >
+                {W.countOf(done, most)}
+              </span>
+            </div>
+            <div className="h-1.5 rounded-full bg-card-2" aria-hidden="true">
+              <div
+                className={cn('h-1.5 rounded-full', full ? 'bg-warning' : 'bg-accent')}
+                style={{ width: `${Math.min(100, Math.round((done / most) * 100))}%` }}
+              />
+            </div>
+          </li>
+        );
+      })}
+    </ul>
+  );
+}
 
 /** Whether a network's day can be started now: ready there, working on its own there, and no warning there today. */
 const canStart = (n: NetworkLive, ready: boolean) =>
@@ -242,8 +296,6 @@ export function StatusStrip({
         {W.startDay}
       </Button>
     );
-  const words = dailyWordsOn(shown.platform);
-  const steps = DAILY_STEPS.filter((s) => live.limits[s].most > 0);
   const said = many ? '' : todayWords(live, shown.platform, now);
   return (
     <Card className="mb-5 grid gap-4 p-5" data-testid="today-status">
@@ -310,13 +362,6 @@ export function StatusStrip({
           ) : (
             dayButton(shown, 'live-{}')
           )}
-          <Link
-            href={outreachHref(workspaceId, { view: 'live', net: shown.platform })}
-            className="px-1 text-[13px] font-medium text-accent-text hover:underline"
-            data-testid="today-status-details"
-          >
-            {W.computerDetails}
-          </Link>
         </div>
       </div>
       {many ? (
@@ -328,7 +373,7 @@ export function StatusStrip({
               <li
                 key={n.platform}
                 className={cn(
-                  'grid gap-1.5 rounded-menu border px-3.5 py-2.5',
+                  'grid gap-2.5 rounded-menu border px-3.5 py-3',
                   here ? 'border-accent bg-accent-soft' : 'border-border',
                 )}
                 data-testid={`today-network-${n.platform}`}
@@ -337,6 +382,7 @@ export function StatusStrip({
                   <div className="min-w-0">
                     <Link
                       href={outreachHref(workspaceId, { view: 'today', net: n.platform })}
+                      onClick={() => rememberNetwork(workspaceId, n.platform)}
                       aria-current={here ? 'true' : undefined}
                       title={NW.showList(name)}
                       className="text-[14px] font-semibold hover:underline"
@@ -350,6 +396,7 @@ export function StatusStrip({
                   </div>
                   {dayButton(n, `live-{}-${n.platform}`)}
                 </div>
+                <LimitBars live={n.live} platform={n.platform} suffix={`-${n.platform}`} />
                 {n.live.warning ? (
                   <p
                     role="alert"
@@ -375,39 +422,7 @@ export function StatusStrip({
         </ul>
       ) : null}
       <PreDayList live={live} now={now} platform={shown.platform} />
-      {steps.length ? (
-        <ul
-          className="grid gap-x-4 gap-y-3 [grid-template-columns:repeat(auto-fit,minmax(130px,1fr))]"
-          aria-label={many ? NW.listOn(PLATFORMS[shown.platform]) : undefined}
-          data-testid="today-limits"
-        >
-          {steps.map((step) => {
-            const { done, most } = live.limits[step];
-            const full = done >= most;
-            return (
-              <li key={step} className="grid gap-1.5" data-testid={`today-limit-${step}`}>
-                <div className="flex items-baseline justify-between gap-2 text-[13px]">
-                  <span className="text-text-2">{words[step].label}</span>
-                  <span
-                    className={cn(
-                      'tabular-nums',
-                      full ? 'font-semibold text-warning-text' : 'font-medium',
-                    )}
-                  >
-                    {W.countOf(done, most)}
-                  </span>
-                </div>
-                <div className="h-1.5 rounded-full bg-card-2" aria-hidden="true">
-                  <div
-                    className={cn('h-1.5 rounded-full', full ? 'bg-warning' : 'bg-accent')}
-                    style={{ width: `${Math.min(100, Math.round((done / most) * 100))}%` }}
-                  />
-                </div>
-              </li>
-            );
-          })}
-        </ul>
-      ) : null}
+      {many ? null : <LimitBars live={live} platform={shown.platform} />}
       {offline && computer ? (
         <p
           role="status"

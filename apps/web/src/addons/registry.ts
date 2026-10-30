@@ -28,7 +28,16 @@ import {
   Settings2 as realestateSettingsIcon,
   Wrench as realestateVendorsIcon,
 } from 'lucide-react';
-import { Handshake as outreachAddonIcon } from 'lucide-react';
+import {
+  BookOpen as outreachPlaybooksIcon,
+  ChartColumn as outreachResultsIcon,
+  Handshake as outreachAddonIcon,
+  Inbox as outreachNeedsYouIcon,
+  Settings2 as outreachSettingsIcon,
+  Sun as outreachTodayIcon,
+  Users as outreachPeopleIcon,
+  UsersRound as outreachGroupsIcon,
+} from 'lucide-react';
 import { Headset as salescoachAddonIcon } from 'lucide-react';
 
 /** Any lucide icon, as the side menu draws its places. */
@@ -157,6 +166,15 @@ export interface AddonUi {
    * to core's `addons/<id>/connections`, which sends the person on to here. Absent: core's page shows them.
    */
   readonly connections?: string;
+  /**
+   * A count in the side menu (Social Outreach's Needs you, its decision 127): on its page `page`, a key of the
+   * manifest's `ui.nav`, and on the add-on's row while its pages are closed. One component, fetched the first time the
+   * menu draws the add-on, keeps its number fresh and draws it with `MenuCount` (components/shell/nav-links.tsx).
+   */
+  readonly navCount?: {
+    readonly page: string;
+    readonly load: () => Promise<{ default: ComponentType<{ readonly workspaceId: string }> }>;
+  };
 }
 
 /** Every add-on's UI, by add-on id. */
@@ -193,11 +211,21 @@ export const ADDON_UI: Readonly<Record<string, AddonUi>> = {
   },
   outreach: {
     icon: outreachAddonIcon,
+    navIcons: {
+      'needs-you': outreachNeedsYouIcon,
+      today: outreachTodayIcon,
+      people: outreachPeopleIcon,
+      groups: outreachGroupsIcon,
+      results: outreachResultsIcon,
+      playbooks: outreachPlaybooksIcon,
+      gear: outreachSettingsIcon,
+    },
     slots: {
       'person.panels': () => import('./outreach/person-panel'),
       'main_offer.panels': () => import('./outreach/offer-panel'),
     },
     settings: () => import('./outreach/settings-link'),
+    navCount: { page: 'needs-you', load: () => import('./outreach/menu-count') },
   },
   salescoach: {
     icon: salescoachAddonIcon,
