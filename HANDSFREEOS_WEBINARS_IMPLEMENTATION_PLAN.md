@@ -12,7 +12,8 @@ It builds on the video calls (`docs/video-calls.md`), sessions-mode calendars (e
 20261027019600, "Webinars" in `docs/video-calls.md`), and so is part 2, live polls (migrations 20261027019700 and
 20261027019800, "Live polls" in `docs/video-calls.md`), part 3, the AI asking them (migration 20261027019900,
 "The AI asking" there), part 4, slides (migration 20261027020000, "Slides" there), and part 5, who to follow up
-with (migration 20261027020100, "Who to follow up with" there). All five parts are built.
+with (migration 20261027020100, "Who to follow up with" there). All five parts are built, and so is scheduling
+webinars (one date or repeating, with the Webinar calendar type), at the end.
 
 ## Decisions (the owner, 2026-10-29 23:15 UTC)
 
@@ -176,3 +177,15 @@ ask before going against one.
   hot one the poll puts there or the AI teammate couldn't text; the trigger **Somebody is rated after a webinar**
   whatever the choice; the line on their timeline; and the ranked list on the webinar's appointment. "Who to follow up
   with" in `docs/video-calls.md` has the details.
+
+## Afterwards: scheduling webinars (the owner, 2026-10-30 13:58 UTC)
+
+"Need a webinar calendar type this way we can add scheduled recurring webinars or a single webinar. Should be able to
+create a webinar without a webinar calendar and then that creates the webinar calendar at the same time."
+
+- **The Webinar calendar type** (preset `webinar`): Fixed sessions on a HandsFreeOS video call, 500 seats, a
+  waitlist, one hour, staff repeats up to 52.
+- **New webinar** on the Calendar page (`webinar.schedule`): one date, or every week, every 2 weeks or every month on
+  the same weekday. With no webinar calendar, it makes "Webinars" and turns it on.
+- **Built** with no migration. "Scheduling a webinar" in `docs/video-calls.md` has the details. Still to come: the
+  same on the phone app.

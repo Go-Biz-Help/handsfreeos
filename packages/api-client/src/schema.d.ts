@@ -14087,7 +14087,7 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * Publish a date on a fixed-sessions calendar that customers take seats in.
+         * Publish a date on a fixed-sessions calendar that customers take seats in. On a calendar whose place is a HandsFreeOS video call, each date is a webinar (up to 500 people, with a link anyone can use to save a seat).
          * @description Risk level 1. Requires appointments.write. Emits session.published.
          */
         post: operations["command_session_publish"];
@@ -15871,6 +15871,26 @@ export interface paths {
          * @description Risk level 3. Requires money.manage. Emits wallet.recharge_requested.
          */
         post: operations["command_wallet_top_up"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/webinar.schedule": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Schedule a webinar on HandsFreeOS video: one date, or the same time every week, every 2 weeks or every month. It goes on the business’s webinar calendar, which is made (as Webinars, with you presenting) when there isn’t one.
+         * @description Risk level 2. Requires appointments.write. Emits .
+         */
+        post: operations["command_webinar_schedule"];
         delete?: never;
         options?: never;
         head?: never;
@@ -27502,7 +27522,7 @@ export interface operations {
                      * @default scratch
                      * @enum {string}
                      */
-                    preset?: "personal" | "round_robin" | "service" | "group" | "event" | "resource" | "collective" | "dispatch" | "scratch";
+                    preset?: "personal" | "round_robin" | "service" | "group" | "event" | "webinar" | "resource" | "collective" | "dispatch" | "scratch";
                     /** @default [] */
                     resources?: string[];
                     /** @default [] */
@@ -56707,6 +56727,8 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": {
+                    /** @default false */
+                    acknowledgeWarnings?: boolean;
                     /** Format: uuid */
                     calendarId: string;
                     capacity?: number;
@@ -56778,6 +56800,8 @@ export interface operations {
                             reason: string;
                             /** Format: date-time */
                             startsAt: string;
+                            /** @default false */
+                            warning: boolean;
                         }[];
                     };
                 };
@@ -60216,6 +60240,73 @@ export interface operations {
                         status: "pending" | "succeeded" | "failed" | "cancelled";
                         /** Format: uuid */
                         workspaceId: string;
+                    };
+                };
+            };
+        };
+    };
+    command_webinar_schedule: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** @default false */
+                    acknowledgeWarnings?: boolean;
+                    /** Format: uuid */
+                    calendarId?: string;
+                    durationMinutes?: number;
+                    notes?: string | null;
+                    /**
+                     * @default none
+                     * @enum {string}
+                     */
+                    repeat?: "none" | "week" | "two_weeks" | "month";
+                    seats?: number;
+                    /** Format: date-time */
+                    startsAt: string;
+                    times?: number;
+                    title: string;
+                    userIds?: string[];
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        appointmentIds: string[];
+                        /** Format: uuid */
+                        calendarId: string;
+                        calendarMade: boolean;
+                        calendarName: string;
+                        seriesId: string | null;
+                        skipped: {
+                            date: string;
+                            occurrence: number;
+                            reason: string;
+                            /** Format: date-time */
+                            startsAt: string;
+                            /** @default false */
+                            warning: boolean;
+                        }[];
+                        warnings: {
+                            /** @enum {string} */
+                            code: "in_past" | "buffer_clash" | "outside_hours" | "calendar_busy" | "time_off";
+                            message: string;
+                            resourceId: string | null;
+                            userId: string | null;
+                        }[];
                     };
                 };
             };

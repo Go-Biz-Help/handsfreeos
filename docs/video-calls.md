@@ -324,6 +324,31 @@ The owner's answers of 29 October 2026 are in `HANDSFREEOS_WEBINARS_IMPLEMENTATI
   when the next session on the calendar with seats is, with its link anyone can use, unless they've booked a later
   one already. Off with `webinar.missedFollowUp`. The replay joins it once replays exist.
 
+### Scheduling a webinar (owner, 30 October 2026)
+
+The owner asked for a webinar calendar type, for one webinar or a repeating one, and for a webinar to be made without
+a webinar calendar, making the calendar at the same time.
+
+- **A webinar calendar** is Fixed sessions on a HandsFreeOS video call (`isWebinarCalendar` in
+  `packages/core/src/calendar/webinars.ts`). The **Webinar** preset makes one: sessions, the HandsFreeOS place, 500
+  seats, a waitlist, one hour, and staff repeats up to 52 (a weekly webinar for a year). Settings → Calendars → New
+  calendar offers it while the business has video calls on.
+- **`webinar.schedule`** (risk 2, appointments.write) takes a name, the start, length, presenter, seats and a repeat:
+  none, every week, every 2 weeks, or every month on the same weekday ("the 2nd Tuesday", `monthly_nth`), 2 to 52
+  dates. It goes on the calendar asked for, else the business's webinar calendar (an active one first, then the
+  oldest). With none, it makes one called **Webinars** from the preset, with the person scheduling presenting, and
+  turns it on. Making one needs calendars.manage; anyone else is told who can (`no_webinar_calendar`). A calendar
+  that isn't a webinar one is refused (`not_a_webinar_calendar`), and so is everything while video calls are off.
+- **The dates go through `session.publish` or `series.create`** (`executeCommandWithin`), with their own rules and
+  events. Warnings (outside hours, busy, time off) ask once for every date: a repeat with only warnings in the way is
+  refused whole as `needs_confirmation`, and "Publish anyway" books over them (`series.create`'s
+  `acknowledgeWarnings`). Dates with a hard conflict are skipped and listed.
+- **On the web**, New webinar sits beside New appointment on the Calendar page (a video button on the phone-width
+  agenda). It shows a Calendar choice only when there are two webinar calendars or more, and opens the first date
+  after, with its link anyone can use. New appointment on a Fixed sessions calendar publishes a date too, with its
+  name and seats.
+- **The phone app** doesn't schedule webinars yet; it shows them on the calendar like any session.
+
 ### Live polls (20261027019700, 20261027019800)
 
 Part 2 of `HANDSFREEOS_WEBINARS_IMPLEMENTATION_PLAN.md`. Any HandsFreeOS call can carry one; a webinar is where it

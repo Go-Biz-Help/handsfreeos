@@ -70,6 +70,7 @@ import { meetingConnectionCommands } from './meeting-connection';
 import { liveMeetingCommands } from './live-meeting';
 import { videoCallCommands } from './video-call';
 import { webinarCommands } from './webinar';
+import { webinarScheduleCommands } from './webinar-schedule';
 import { videoCallPollCommands } from './video-call-poll';
 import { videoCallLeadCommands } from './video-call-leads';
 import { callSuggestionCommands } from './call-suggestion';
@@ -924,6 +925,7 @@ export const commands: readonly CommandDef[] = [
   ...videoCallCommands,
   // Webinars: a session's call (HANDSFREEOS_WEBINARS_IMPLEMENTATION_PLAN.md).
   ...webinarCommands,
+  ...webinarScheduleCommands,
   // Live polls in a call (part 2).
   ...videoCallPollCommands,
   // Who to follow up with after one (part 5).
@@ -1235,6 +1237,7 @@ export * from './meeting-connection';
 export * from './live-meeting';
 export * from './video-call';
 export * from './webinar';
+export * from './webinar-schedule';
 export * from './video-call-poll';
 export * from './video-call-leads';
 export * from './call-suggestion';

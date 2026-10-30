@@ -334,6 +334,7 @@ describe('registry', () => {
       'video_call.keep_words',
       'video_call.coach',
       'webinar.register',
+      'webinar.schedule',
       'video_call.set_poll',
       'video_call.slide',
       'video_call.set_poll_ai',

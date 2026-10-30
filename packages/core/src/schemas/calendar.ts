@@ -9,6 +9,7 @@ import { RecurrenceRule } from '../calendar/engine/recurrence';
 import { isLocalDate } from '../calendar/engine/zoned';
 import { IMPACT_DECISIONS } from '../calendar/impact';
 import { PRESET_KEYS } from '../calendar/presets';
+import { WEBINAR_REPEATS } from '../calendar/webinars';
 import { displayName, isoDateTime, timezone, uuid } from './common';
 import { notApplied, optionalEmail, phoneInput, seenId, seenText, UserRef } from './crm';
 
@@ -829,20 +830,61 @@ export const SeriesCreateInput = z.object({
   customRecordId: uuid.nullable().optional(),
   /** Send the customer the first visit's confirmation; the reminders follow the calendar either way. */
   notify: z.boolean().default(false),
+  /** Book dates over their warnings (outside hours, busy, time off) instead of skipping them. */
+  acknowledgeWarnings: z.boolean().default(false),
+});
+const SeriesSkipped = z.object({
+  occurrence: z.int(),
+  date: z.string(),
+  startsAt: isoDateTime,
+  reason: z.string(),
+  /** Skipped only for warnings, which acknowledgeWarnings books over. */
+  warning: z.boolean().default(false),
 });
 export const SeriesCreateOutput = z.object({
   seriesId: uuid,
   appointmentIds: z.array(uuid),
   /** Occurrences that did not fit, with the reason. */
-  skipped: z.array(
-    z.object({
-      occurrence: z.int(),
-      date: z.string(),
-      startsAt: isoDateTime,
-      reason: z.string(),
-    }),
-  ),
+  skipped: z.array(SeriesSkipped),
 });
+/**
+ * Schedule a webinar (docs/video-calls.md "Webinars"): one date, or the same time on repeat, on a webinar calendar.
+ * Leave the calendar out to use the business's own; one is made, as Webinars, when there's none.
+ */
+export const WebinarScheduleInput = z.object({
+  workspaceId: uuid,
+  /** A webinar calendar (Fixed sessions on a HandsFreeOS video call); left out, the business's own. */
+  calendarId: uuid.optional(),
+  title,
+  /** The first (or only) date's start. */
+  startsAt: isoDateTime,
+  /** Defaults to the calendar's length. */
+  durationMinutes: lengthMinutes.optional(),
+  /** Who presents; missing lets the calendar choose (on a calendar made for it, you). */
+  userIds: z.array(uuid).min(1).max(10).optional(),
+  /** Seats; defaults to the calendar's. */
+  seats: z.int().min(1).max(500).optional(),
+  /** Every week or every 2 weeks on the same weekday, or every month on the same weekday (like the 2nd Tuesday). */
+  repeat: z.enum(WEBINAR_REPEATS).default('none'),
+  /** How many dates a repeat books, the first included; about three months' worth when left out. */
+  times: z.int().min(2).max(52).optional(),
+  notes: notesText,
+  /** Book over warnings (outside hours, busy, time off), every date at once. */
+  acknowledgeWarnings: z.boolean().default(false),
+});
+export const WebinarScheduleOutput = z.object({
+  calendarId: uuid,
+  calendarName: z.string(),
+  /** A Webinars calendar was made for it. */
+  calendarMade: z.boolean(),
+  /** Every date booked, first to last. */
+  appointmentIds: z.array(uuid),
+  seriesId: uuid.nullable(),
+  /** A repeat's dates that didn't fit, with the reason. */
+  skipped: z.array(SeriesSkipped),
+  warnings: z.array(AppointmentWarning),
+});
+
 export const SeriesCancelInput = z.object({
   workspaceId: uuid,
   /** Any occurrence of the series. */
