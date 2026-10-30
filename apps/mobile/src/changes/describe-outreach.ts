@@ -76,6 +76,10 @@ export function describeOutreach(
     }
     case 'outreach.send.skip':
       return words(`Skipped ${to(str(input.sendId))}`, 'a message skipped', 'text');
+    case 'outreach.send.retry':
+      return input.needIds === null
+        ? words('Tried what didn’t go again', 'messages tried again', 'text')
+        : words('Tried a message again', 'a message tried again', 'text');
     case 'outreach.day.start':
       return words(`Start my day${onNetwork(input)}`, 'Start my day', 'calendar');
     case 'outreach.day.stop':

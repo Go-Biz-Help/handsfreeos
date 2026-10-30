@@ -1860,7 +1860,7 @@ export const today = defineAddonQuery(outreachAddon, {
     );
     // The messages the extension drafted (../sends.ts): each with its item, and anyone skipped today off the list. A
     // comment drafted is its post's, and a writer with one open isn't offered a second till it's sent or skipped.
-    const drafted = await sendsToday(ctx, me, todayFrom);
+    const drafted = await sendsToday(ctx, me, todayFrom, new Date(now));
     const commentOpenElsewhere = (i: TodayItem) => {
       const on = i.kind === 'comment' ? drafted.commentOn(i.profileId) : undefined;
       return on !== undefined && on !== i.postId;
@@ -2018,6 +2018,7 @@ export const today = defineAddonQuery(outreachAddon, {
       requestsHeld,
       profileOwn,
       goal,
+      retryAt: drafted.retryAt(input.platform),
     };
   },
 });

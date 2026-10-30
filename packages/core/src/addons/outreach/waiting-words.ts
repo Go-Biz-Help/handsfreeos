@@ -132,6 +132,33 @@ export function needClearedWords(how: NeedClear, state: NeedState): string {
     : 'Let go. It won’t be handed to you for a week.';
 }
 
+/**
+ * Retry, and Retry all, on a message or comment the extension couldn't send (decision 132): it goes again, OK'd as it
+ * was, each a few minutes after the one before, so they never all go at once.
+ */
+export const NEED_RETRY = { one: 'Retry', all: 'Retry all' } as const;
+/** The least and most minutes between one send tried again and the next: a person's pace, at random. */
+export const RETRY_GAP_MINUTES = { least: 3, most: 7 } as const;
+
+/** Whether a step handed to the person can be tried again: a message or comment that didn't go, with its words. */
+export const needRetryable = (need: {
+  readonly step: NeedStep;
+  readonly sendId: string | null;
+}): boolean => (need.step === 'message' || need.step === 'comment') && need.sendId !== null;
+
+/** What Retry or Retry all did: how many go again, and how many couldn't, as one already waits or went since. */
+export function retriedWords(retried: number, passed: number): string {
+  const n = (count: number) => count.toLocaleString('en-US');
+  const going =
+    retried === 0
+      ? 'Nothing to try again.'
+      : retried === 1
+        ? 'Trying it again: it goes next, when the extension is working.'
+        : `Trying ${n(retried)} again, a few minutes apart, when the extension is working.`;
+  if (!passed) return going;
+  return `${going} ${n(passed)} ${passed === 1 ? 'wasn’t' : 'weren’t'} tried again: a newer message to them waits already, or it went since.`;
+}
+
 /** Why the extension couldn't do a step, as a need shows it: its own words, with a capital to start. */
 export const needWhyWords = (why: string): string =>
   why ? `${why[0]!.toUpperCase()}${why.slice(1)}` : why;
