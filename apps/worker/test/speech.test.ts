@@ -2,7 +2,8 @@
  * Talking out loud (the Assistant's voice mode and the test console's calls): POST /v1/speech/hear turns one
  * recording into words and POST /v1/speech/say answers a clip to play, on the real database with the stand-in
  * speech. They need assistant.use or ai_team.manage; a clip is in the voice asked for, or the AI teammate's own
- * saved phone voice; and with no speech services they say talking out loud isn't set up.
+ * saved phone voice; and with no speech services they say talking out loud isn't set up. A Rime voice is said in
+ * its closest Deepgram voice when Rime isn't set up or has trouble, and GET /v1/speech/voices says which can speak.
  */
 import { createTokenVerifier } from '@hfos/core/server';
 import { rows, sql } from '@hfos/db/client';
@@ -13,6 +14,7 @@ import { buildHttpServer } from '../src/http/server';
 import { clipListenParams, heardClipOf } from '../src/voice-agent/deepgram-speech';
 import { createFakeSpeech, FAKE_HEARD, silentWav } from '../src/voice-agent/fake-speech';
 import type { SpeechServices } from '../src/voice-agent/speech';
+import { withVoices } from '../src/voice-agent/voices';
 import { admin, saveTeammate, teammateWorld, type TeammateWorld } from './ai-team-world';
 import { setBalance } from './helpers';
 
@@ -21,6 +23,10 @@ let w: TeammateWorld;
 let app: FastifyInstance;
 let off: FastifyInstance;
 let tight: FastifyInstance;
+let rimeApp: FastifyInstance;
+let noRime: FastifyInstance;
+const rimeFake = createFakeSpeech();
+const troubles: string[] = [];
 let ownerToken: string;
 let memberToken: string;
 let outsiderToken: string;
@@ -52,6 +58,18 @@ beforeAll(async () => {
     speech,
     speechLimits: { hear: { max: 2, timeWindow: 60_000 }, say: { max: 1, timeWindow: 60_000 } },
   });
+  rimeApp = await buildHttpServer({
+    ...base,
+    speech: withVoices({
+      base: rimeFake,
+      rime: rimeFake,
+      trouble: (from, to, where) => troubles.push(`${from} → ${to} (${where})`),
+    }),
+  });
+  noRime = await buildHttpServer({
+    ...base,
+    speech: withVoices({ base: rimeFake, rime: null }),
+  });
   const member = await createTestUser('speech-member', { fullName: 'Marco Member' });
   await rows(
     admin(),
@@ -69,6 +87,8 @@ afterAll(async () => {
   await app.close();
   await off.close();
   await tight.close();
+  await rimeApp.close();
+  await noRime.close();
   await w.app.close();
   await closeTestDbs();
 });
@@ -208,6 +228,72 @@ describe('the allowance', () => {
     expect((await hear(memberToken, 'Hi', 'text/plain', tight)).statusCode).toBe(200);
     expect((await say(ownerToken, { text: 'Hi' }, tight)).statusCode).toBe(200);
     expect((await say(ownerToken, { text: 'Hi' }, tight)).statusCode).toBe(429);
+  });
+});
+
+describe('a Rime voice', () => {
+  const tally = () =>
+    rows<{ rate_key: string }>(
+      admin(),
+      sql`select rate_key from app.speech_usage where workspace_id = ${w.workspaceId}
+          order by created_at`,
+    );
+  const voices = (token: string | null, server = rimeApp) =>
+    server.inject({
+      method: 'GET',
+      url: '/v1/speech/voices',
+      headers: token ? { authorization: `Bearer ${token}` } : {},
+    });
+
+  it('says which providers can speak, for the voice pickers', async () => {
+    expect((await voices(null)).statusCode).toBe(401);
+    expect((await voices(ownerToken)).json()).toEqual({
+      providers: { deepgram: true, rime: true },
+    });
+    expect((await voices(ownerToken, noRime)).json()).toEqual({
+      providers: { deepgram: true, rime: false },
+    });
+    expect((await voices(ownerToken, off)).json()).toEqual({
+      providers: { deepgram: false, rime: false },
+    });
+  });
+
+  it('is said by Rime and charged on its own line, and says so', async () => {
+    const before = (await tally()).length;
+    const res = await say(ownerToken, { text: 'Thanks for calling.', voice: 'rime_eyre' }, rimeApp);
+    expect(res.statusCode).toBe(200);
+    expect(res.headers['x-hfos-voice']).toBe('rime_eyre');
+    expect(rimeFake.voiced.at(-1)).toEqual({ text: 'Thanks for calling.', voice: 'rime_eyre' });
+    const mist = await say(memberToken, { text: 'Hi.', voice: 'rime_cove' }, rimeApp);
+    expect(mist.headers['x-hfos-voice']).toBe('rime_cove');
+    expect((await tally()).slice(before).map((r) => r.rate_key)).toEqual([
+      'speech.voice.coda.kchar',
+      'speech.voice.mist.kchar',
+    ]);
+  });
+
+  it('in trouble, is said again in its Deepgram voice, and support is told', async () => {
+    rimeFake.failing.add('rime_bancroft');
+    try {
+      const before = (await tally()).length;
+      troubles.length = 0;
+      const res = await say(ownerToken, { text: 'Hello there.', voice: 'rime_bancroft' }, rimeApp);
+      expect(res.statusCode).toBe(200);
+      expect(res.headers['x-hfos-voice']).toBe('deep');
+      expect(rimeFake.voiced.at(-1)).toEqual({ text: 'Hello there.', voice: 'deep' });
+      expect(troubles).toEqual(['rime_bancroft → deep (clip)']);
+      expect((await tally()).slice(before).map((r) => r.rate_key)).toEqual(['speech.voice.kchar']);
+    } finally {
+      rimeFake.failing.clear();
+    }
+  });
+
+  it('without Rime set up, is said in its Deepgram voice without telling anyone', async () => {
+    troubles.length = 0;
+    const res = await say(ownerToken, { text: 'Hi.', voice: 'rime_clementine' }, noRime);
+    expect(res.statusCode).toBe(200);
+    expect(res.headers['x-hfos-voice']).toBe('bright');
+    expect(troubles).toEqual([]);
   });
 });
 

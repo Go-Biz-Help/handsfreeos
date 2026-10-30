@@ -1,7 +1,10 @@
 'use client';
 import {
   AI_CALL_PURPOSES,
-  PHONE_VOICES,
+  PHONE_VOICE_PICK_WORDS,
+  phoneVoiceInfo,
+  phoneVoiceOf,
+  phoneVoiceSampleOf,
   TEST_CALL_GOAL_MAX,
   TEST_CALL_REASONS,
   TEST_CALL_WAY_HINTS,
@@ -13,7 +16,9 @@ import {
   testCallTimingLine,
   testSamples,
   testVerb,
+  withPhoneVoice,
   type AiCallPurpose,
+  type PhoneVoice,
   type TestCall,
   type TestCallDirection,
   type TestCallServerMessage,
@@ -27,6 +32,7 @@ import {
   AlertCircle,
   BookOpen,
   CalendarCheck,
+  Check,
   Hand,
   Hourglass,
   Info,
@@ -82,6 +88,13 @@ import { LiveCallBar } from './live-call-bar';
 import { LogRow, type LogLine, type LogTone } from './log';
 import { AiTile, TeammateMark } from './mark';
 import { ReplyFeedback, type Coaching } from './reply-feedback';
+import {
+  HearVoiceButton,
+  useHearVoice,
+  useVoiceReadiness,
+  VoiceNotReadyNote,
+  VoiceSelect,
+} from './voice-picker';
 
 /** A written message and its reply, a turn of a call, or the call's greeting (no words of theirs). */
 type TurnKind = 'written' | 'call' | 'greeting';
@@ -335,12 +348,6 @@ function step(t: Turn, e: TestEvent, timeZone: string): Turn {
   }
 }
 
-/** The phone voice in the builder's draft, so a test call sounds like the settings being tested. */
-function draftVoice(config: unknown): (typeof PHONE_VOICES)[number] | null {
-  const phone = (config as { phone?: { voice?: unknown } } | null)?.phone;
-  return PHONE_VOICES.find((v) => v === phone?.voice) ?? null;
-}
-
 /**
  * The test console: a manager writes as a customer (someone in Contacts, or an unknown visitor) by text,
  * chat or email, or plays a phone call (they call in, or the teammate calls them to confirm a visit, ring back
@@ -351,6 +358,10 @@ function draftVoice(config: unknown): (typeof PHONE_VOICES)[number] | null {
  *
  * On a call, Talk out loud plays it for real: the manager says what the caller says, and hears each reply in
  * the teammate's phone voice (the draft's), then it listens again, until the call ends.
+ *
+ * A call can try any other voice, Deepgram's or Rime's, without changing the settings (the owner's pick, 28 Oct
+ * 2026): Hear it says the greeting in it, Talk out loud and live calls speak in it, and Use this voice makes it
+ * the teammate's voice (`onUseVoice`).
  */
 export function TestConsole({
   open,
@@ -359,17 +370,23 @@ export function TestConsole({
   name,
   timeZone,
   config,
+  savedConfig = null,
   unsaved,
+  onUseVoice,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   workspaceId: string;
   name: string;
   timeZone: string;
-  /** The settings to test: the builder's draft. */
+  /** The settings to test: the builder's draft, or null for the saved ones. */
   config: unknown;
+  /** The saved settings, where `config` is null: a test call trying another voice tests them with it. */
+  savedConfig?: unknown;
   /** The draft has changes that aren't saved yet. */
   unsaved: boolean;
+  /** Use this voice: makes the voice being tried the teammate's own. */
+  onUseVoice?: (voice: PhoneVoice) => Promise<unknown> | void;
 }) {
   const [person, setPerson] = useState<PickedCustomer | null>(null);
   const [channel, setChannel] = useState<TestConsoleChannel>('sms');
@@ -395,7 +412,20 @@ export function TestConsole({
   const onLive = !!liveSnap && liveSnap.phase !== 'ended';
   /** What the live call's listener has heard of the caller so far, while they talk. */
   const [hearing, setHearing] = useState('');
-  const { session: voice, snap: voiceSnap } = useVoice(workspaceId, draftVoice(config));
+  /** The voice the settings being tested say, and another one this test is trying instead. */
+  const settings = config ?? savedConfig;
+  const settingsVoice = phoneVoiceOf(settings) ?? 'warm';
+  // Tried over the settings' voice as it was: once that changes (Use this voice, or an edit), the test speaks in it.
+  const [tried, setTried] = useState<{ voice: PhoneVoice; over: PhoneVoice } | null>(null);
+  const tryVoice = tried && tried.over === settingsVoice ? tried.voice : null;
+  const callVoice = tryVoice ?? settingsVoice;
+  const trying = tryVoice !== null && tryVoice !== settingsVoice;
+  /** The settings a call tests: with the voice being tried, when it's another. */
+  const tested = trying ? withPhoneVoice(settings, tryVoice) : config;
+  const { ready: voicesReady, known: voicesKnown } = useVoiceReadiness();
+  const { playing, hear, stop: stopHearing } = useHearVoice(workspaceId);
+  const [usingVoice, setUsingVoice] = useState(false);
+  const { session: voice, snap: voiceSnap } = useVoice(workspaceId, callVoice);
   const talking = voiceSnap.phase !== 'off';
   /** The turns already read out (or not to be), so each reply is said once. */
   const said = useRef(new Set<string>());
@@ -542,7 +572,7 @@ export function TestConsole({
           channel,
           call,
           at: at ? new Date(at).toISOString() : null,
-          config,
+          config: tested,
           messages: [
             ...history,
             ...(message ? [{ from: 'customer' as const, text: message }] : []),
@@ -642,6 +672,17 @@ export function TestConsole({
     }
   }
 
+  /** Use this voice: the voice being tried becomes the teammate's own (and so the one the test speaks in). */
+  async function keepVoice() {
+    if (!tryVoice || !onUseVoice) return;
+    setUsingVoice(true);
+    try {
+      await onUseVoice(tryVoice);
+    } finally {
+      setUsingVoice(false);
+    }
+  }
+
   /** Calls it live: heard and spoken in real time, over the phone line or straight from this browser. */
   function startLive() {
     if (!call || cantCall) return;
@@ -654,7 +695,7 @@ export function TestConsole({
         personId: person?.id ?? null,
         call,
         at: at ? new Date(at).toISOString() : null,
-        config,
+        config: tested,
       },
       onMessage: (m) => onLiveMessage(c, m),
     });
@@ -764,6 +805,7 @@ export function TestConsole({
         if (!o) {
           stop();
           voice.stop();
+          stopHearing();
           closeLive();
         }
         onOpenChange(o);
@@ -938,6 +980,46 @@ export function TestConsole({
                     />
                   </div>
                 ) : null}
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="text-[13px] font-semibold">{PHONE_VOICE_PICK_WORDS.label}</span>
+                  <VoiceSelect
+                    className="w-[300px] max-w-full"
+                    value={callVoice}
+                    ready={voicesReady}
+                    testId="test-call-voice"
+                    ariaLabel="The voice this test call speaks in"
+                    disabled={onLive}
+                    onChange={(v) => {
+                      stopHearing();
+                      setTried(v === settingsVoice ? null : { voice: v, over: settingsVoice });
+                    }}
+                  />
+                  <HearVoiceButton
+                    voice={callVoice}
+                    playing={playing}
+                    testId="test-call-voice-hear"
+                    onHear={() => hear(callVoice, phoneVoiceSampleOf(settings, name))}
+                    onStop={stopHearing}
+                  />
+                  {trying && onUseVoice ? (
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      disabled={usingVoice}
+                      onClick={() => void keepVoice()}
+                      data-testid="test-call-voice-use"
+                    >
+                      <Check className="h-3.5 w-3.5" strokeWidth={1.75} />
+                      {PHONE_VOICE_PICK_WORDS.use}
+                    </Button>
+                  ) : null}
+                </div>
+                {trying ? (
+                  <span className="w-full text-xs text-text-3" data-testid="test-call-voice-trying">
+                    {PHONE_VOICE_PICK_WORDS.trying(phoneVoiceInfo(callVoice).name)}
+                  </span>
+                ) : null}
+                <VoiceNotReadyNote voice={callVoice} ready={voicesReady} known={voicesKnown} />
                 <Button
                   size="sm"
                   variant={talking ? 'primary' : 'secondary'}

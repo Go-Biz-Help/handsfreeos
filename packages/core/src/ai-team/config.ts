@@ -11,6 +11,7 @@
 import { z } from 'zod';
 import { mergePatch, WeeklyHours } from '../calendar/config';
 import { NotifyWho } from '../workflows/actions';
+import { PHONE_VOICES } from './voices';
 
 export const TEAMMATE_CONFIG_VERSION = 3;
 
@@ -452,9 +453,8 @@ export const PHONE_LISTENER_LABELS: Readonly<Record<PhoneListener, string>> = {
   flux: 'Flux (on trial)',
 };
 
-/** How it sounds on a call. Each has an English and a Spanish voice, so it can answer in the caller's language. */
-export const PHONE_VOICES = ['warm', 'bright', 'calm', 'deep'] as const;
-export type PhoneVoice = (typeof PHONE_VOICES)[number];
+// How it sounds on a call: PHONE_VOICES, every provider's voices in one list (voices.ts). Each has an English and a
+// Spanish speaker, so it can answer in the caller's language.
 
 const Phone = z.object({
   /** Answers the business's phone numbers live, with the same tools, holds and hand-off as text. */

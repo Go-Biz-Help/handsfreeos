@@ -59,7 +59,7 @@ export const USAGE_KEYS = [
   'ai.opus.output.mtok',
   'ai.opus.cache_read.mtok',
   'ai.opus.cache_write.mtok',
-  // ---------- the AI's hearing and voice (Deepgram) ----------
+  // ---------- the AI's hearing and voice (Deepgram, and Rime's voices) ----------
   /** Listening live while the AI teammate is on a phone call, per minute of the call. */
   'speech.live.minute',
   /**
@@ -67,8 +67,14 @@ export const USAGE_KEYS = [
    * and call and voicemail transcripts (each side of a two-sided recording counts).
    */
   'speech.recording.minute',
-  /** The AI speaking, per thousand characters it says: on calls, and when talking out loud. */
+  /** The AI speaking, per thousand characters it says: on calls, and when talking out loud. Deepgram's voices. */
   'speech.voice.kchar',
+  /**
+   * The same in a Rime voice (20261027019100): Coda, its most natural, costs more than Deepgram; Mist v3, its
+   * fastest, about the same. Each model has its own line so the card can be checked against Rime's invoice.
+   */
+  'speech.voice.coda.kchar',
+  'speech.voice.mist.kchar',
   /** Sales Coach listening in a Zoom meeting, per minute: Zoom's own live transcript (its Developer Pack credits). */
   'speech.meeting.minute',
   // ---------- HandsFreeOS video calls (LiveKit) ----------
@@ -139,6 +145,8 @@ export const USAGE_KEY_UNITS: Readonly<Record<UsageKey, UsageUnit>> = {
   'speech.live.minute': 'minute',
   'speech.recording.minute': 'minute',
   'speech.voice.kchar': 'kchar',
+  'speech.voice.coda.kchar': 'kchar',
+  'speech.voice.mist.kchar': 'kchar',
   'speech.meeting.minute': 'minute',
   'video.minute': 'minute',
   'ai.unknown.mtok': 'mtok',
@@ -484,6 +492,24 @@ export const SEED_RATES: readonly {
     minChargeCents: 1,
     roundUpTo: 'none',
     notes: 'Deepgram Aura 2, $0.030 per 1,000 characters. Charged 4.5¢, billed in running totals.',
+  },
+  {
+    key: 'speech.voice.coda.kchar',
+    costMicros: 50_000,
+    markupBp: 15_000,
+    minChargeCents: 1,
+    roundUpTo: 'none',
+    notes:
+      'Rime Coda, $0.050 a minute pay as you go, metered at about 1,000 characters a minute. Charged 7.5¢, billed in running totals.',
+  },
+  {
+    key: 'speech.voice.mist.kchar',
+    costMicros: 30_000,
+    markupBp: 15_000,
+    minChargeCents: 1,
+    roundUpTo: 'none',
+    notes:
+      'Rime Mist v3, $0.030 a minute pay as you go, metered at about 1,000 characters a minute. Charged 4.5¢, billed in running totals.',
   },
   {
     key: 'speech.meeting.minute',

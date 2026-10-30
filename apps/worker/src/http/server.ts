@@ -10,6 +10,7 @@ import {
   dispositionOf,
   formatPhone,
   HfosError,
+  SPOKEN_VOICE_HEADER,
   type FetchedPage,
 } from '@hfos/core/server';
 import { asWorker, rows, sql } from '@hfos/db/client';
@@ -207,6 +208,8 @@ export async function buildHttpServer(deps: HttpDeps): Promise<FastifyInstance> 
     methods: ['GET', 'POST'] as string[],
     // last-event-id: the website chat's stream picks up where it left off.
     allowedHeaders: ['authorization', 'content-type', 'x-correlation-id', 'last-event-id'],
+    // The voice a clip was said in, when it isn't the one asked for (http/speech.ts).
+    exposedHeaders: [SPOKEN_VOICE_HEADER],
     maxAge: 600,
   };
   await app.register(cors, {

@@ -191,7 +191,7 @@ describe('diff', () => {
     expect(diffTeammateConfigs(a, b)).toEqual([
       'Phone calls: off → on',
       'Answers calls: when nobody picks up → every call',
-      'Phone voice: warm → calm',
+      'Phone voice: Warm → Calm',
       'Phone greeting changed',
     ]);
     expect(

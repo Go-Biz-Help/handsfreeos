@@ -8,13 +8,12 @@ import {
   formatDuration,
   formatHours,
   PHONE_ANSWER_MODES,
-  PHONE_VOICES,
+  phoneVoiceSample,
   QUIET_FOLLOW_UP_MINUTES,
   TEAMMATE_LINKS,
   teammateUsesAddon,
   type NotifyWho,
   type PhoneAnswerMode,
-  type PhoneVoice,
   type TeammateCatalogs,
   type TeammateConfig,
 } from '@hfos/core';
@@ -84,6 +83,13 @@ import {
 } from './parts';
 import { QualifyModule } from './qualify-module';
 import { ProgressBlock } from './rail';
+import {
+  HearVoiceButton,
+  useHearVoice,
+  useVoiceReadiness,
+  VoiceNotReadyNote,
+  VoiceSelect,
+} from './voice-picker';
 
 export interface ModuleProps {
   readonly workspaceId: string;
@@ -393,7 +399,11 @@ function ChannelsModule({ draft, patch, catalogs, workspaceId }: ModuleProps) {
             </>
           )
         }
-        body={draft.phone.enabled ? <PhoneSettings draft={draft} patch={patch} /> : null}
+        body={
+          draft.phone.enabled ? (
+            <PhoneSettings workspaceId={workspaceId} draft={draft} patch={patch} />
+          ) : null
+        }
       >
         <Switch
           checked={draft.phone.enabled}
@@ -415,17 +425,19 @@ const PHONE_ANSWER_WORDS: Readonly<Record<PhoneAnswerMode, string>> = {
   always: 'Every call',
 };
 
-const PHONE_VOICE_WORDS: Readonly<Record<PhoneVoice, string>> = {
-  warm: 'Warm',
-  bright: 'Bright',
-  calm: 'Calm',
-  deep: 'Deep',
-};
-
-/** When it picks up, how it sounds, and what it says first (M18 step 5). */
-function PhoneSettings({ draft, patch }: Pick<ModuleProps, 'draft' | 'patch'>) {
+/**
+ * When it picks up, how it sounds, and what it says first (M18 step 5). Its voice is any of Deepgram's or Rime's,
+ * and Hear it says the greeting in it (the owner's pick, 28 Oct 2026).
+ */
+function PhoneSettings({
+  workspaceId,
+  draft,
+  patch,
+}: Pick<ModuleProps, 'workspaceId' | 'draft' | 'patch'>) {
   const p = draft.phone;
   const name = draft.identity.name;
+  const { ready, known } = useVoiceReadiness();
+  const { playing, hear, stop } = useHearVoice(workspaceId);
   return (
     <div className="mt-1.5 flex flex-col gap-3">
       <div className="flex flex-wrap items-center gap-2">
@@ -448,23 +460,25 @@ function PhoneSettings({ draft, patch }: Pick<ModuleProps, 'draft' | 'patch'>) {
             </option>
           ))}
         </Select>
-        <Select
-          selectSize="sm"
-          className="w-[140px] max-w-full"
-          aria-label="Its voice"
+        <VoiceSelect
+          className="w-[320px] max-w-full"
           value={p.voice}
-          data-testid="phone-voice"
-          onChange={(e) =>
-            patch({ phone: { voice: e.target.value as PhoneVoice } }, 'Change its voice')
-          }
-        >
-          {PHONE_VOICES.map((v) => (
-            <option key={v} value={v}>
-              {PHONE_VOICE_WORDS[v]} voice
-            </option>
-          ))}
-        </Select>
+          ready={ready}
+          testId="phone-voice"
+          onChange={(v) => {
+            stop();
+            patch({ phone: { voice: v } }, 'Change its voice');
+          }}
+        />
+        <HearVoiceButton
+          voice={p.voice}
+          playing={playing}
+          testId="phone-voice-hear"
+          onHear={() => hear(p.voice, phoneVoiceSample(draft))}
+          onStop={stop}
+        />
       </div>
+      <VoiceNotReadyNote voice={p.voice} ready={ready} known={known} />
       <DraftText
         id="teammate-phone-greeting"
         label="What it says when it picks up"

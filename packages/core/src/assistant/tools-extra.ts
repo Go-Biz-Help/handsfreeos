@@ -16,10 +16,10 @@ import {
   APPROVALS_NEEDED_MAX,
   APPROVALS_NEEDED_MIN,
   PHONE_ANSWER_MODES,
-  PHONE_VOICES,
   QUESTION_KINDS,
   QUOTE_MODES,
 } from '../ai-team/config';
+import { PHONE_VOICES, phoneVoiceInfo } from '../ai-team/voices';
 import { AUTOMATION_GROUPS, AUTOMATIONS, type AutomationId } from '../automations/catalog';
 import { CALL_TRIES_MAX } from '../automations/call-hours';
 import { STAGE_ROLES } from '../automations/pipeline-roles';
@@ -166,7 +166,15 @@ export const extraTools: readonly AssistantTool[] = [
         .enum(PHONE_ANSWER_MODES)
         .optional()
         .describe('no_answer: when nobody picks up; after_hours: when closed; always: every call'),
-      phoneVoice: z.enum(PHONE_VOICES).optional(),
+      phoneVoice: z
+        .enum(PHONE_VOICES)
+        .optional()
+        .describe(
+          PHONE_VOICES.map((v) => {
+            const i = phoneVoiceInfo(v);
+            return `${v}: ${i.name} (${i.provider}), ${i.sound}`;
+          }).join('; '),
+        ),
       phoneGreeting: z
         .string()
         .trim()

@@ -146,6 +146,8 @@ log.info(
     addonPlatformKeys: Object.keys(env.addonPlatformKeys),
     push: env.pushProvider,
     video: env.videoProvider,
+    // Which phone voices can speak: Rime's need RIME_API_KEY.
+    voices: services.speech?.voices?.() ?? { deepgram: false, rime: false },
     assistant: env.assistantProvider,
     aiBackup: aiSwitch ? 'openai' : 'none',
     handlers: Object.keys(handlers),

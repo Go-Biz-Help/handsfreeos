@@ -1733,6 +1733,38 @@ export function aiSwitchEmail(input: {
 }
 
 /**
+ * A Rime voice couldn't speak, so the AI switched to the closest Deepgram voice (voice-agent/voice-trouble.ts): to
+ * AI_ALERT_EMAILS, at most once an hour per worker machine, so a Rime outage is one email rather than one a call.
+ */
+export function voiceTroubleEmail(input: {
+  /** The Rime voice that couldn't speak, and the Deepgram voice it switched to: "Eyre", "Calm". */
+  voice: string;
+  fallback: string;
+  /** Where: on a call, or a clip (talking out loud, Hear it). */
+  where: 'call' | 'clip';
+  error: string;
+  /** How many more times it happened since the last email. */
+  more: number;
+  link: string;
+}): EmailContent {
+  const subject = 'A Rime voice had trouble, so the AI used Deepgram';
+  const what = `Rime couldn’t speak in the ${input.voice} voice ${input.where === 'call' ? 'on a call' : 'for a clip'}, so the AI switched to ${input.fallback}, the closest Deepgram voice. The ${input.where === 'call' ? 'caller' : 'person'} still heard an answer.${input.more > 0 ? ` It happened ${input.more} more ${input.more === 1 ? 'time' : 'times'} since the last email.` : ''}`;
+  const why = `What Rime said: ${input.error}`;
+  const next =
+    'Nothing breaks while this goes on. If it keeps happening, check www.rimestat.us and that RIME_API_KEY on handsfreeos-worker is still good.';
+  const text = [what, '', why, '', next, '', `Open Health: ${input.link}`].join('\n');
+  const html = shell(
+    preheader(what) +
+      wordmark +
+      para(escapeHtml(what)) +
+      para(escapeHtml(why)) +
+      para(escapeHtml(next)) +
+      button(input.link, 'Open Health'),
+  );
+  return { subject, text, html };
+}
+
+/**
  * HandsFreeOS support asks to see a business's private records (Real Estate, step 4): to its owners and admins, and
  * the main person on any private record, who may let support in for 24 hours or say no.
  */

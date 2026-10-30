@@ -25,9 +25,9 @@ import WebSocket from 'ws';
 import { listenWithFlux } from './deepgram-flux';
 import { openDeepgramVoice } from './deepgram-voice-line';
 import {
+  deepgramModel,
   heardEndMs,
   MULAW_BYTES_A_SECOND,
-  voiceModel,
   type HeardClip,
   type HeardWords,
   type ListenHandlers,
@@ -217,7 +217,7 @@ export function createDeepgramSpeech(deps: {
 
     async *speak(text: string, options: SpeakOptions): AsyncIterable<Buffer> {
       const params = new URLSearchParams({
-        model: voiceModel(options.voice, options.language),
+        model: deepgramModel(options.voice, options.language),
         encoding: 'mulaw',
         sample_rate: '8000',
         container: 'none',
@@ -242,7 +242,7 @@ export function createDeepgramSpeech(deps: {
     openVoice: (options) =>
       openDeepgramVoice({
         apiKey: deps.apiKey,
-        model: voiceModel(options.voice, options.language),
+        model: deepgramModel(options.voice, options.language),
         log: deps.log,
       }),
 
@@ -262,7 +262,7 @@ export function createDeepgramSpeech(deps: {
 
     async voiceClip(text, options) {
       const params = new URLSearchParams({
-        model: voiceModel(options.voice, options.language),
+        model: deepgramModel(options.voice, options.language),
         encoding: 'mp3',
       });
       const res = await fetch(`${SPEAK_URL}?${params.toString()}`, {
