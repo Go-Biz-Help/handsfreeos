@@ -2,11 +2,17 @@
  * Website chat widgets (channels.manage: owners and admins): the sites a widget shows on, how it looks,
  * who answers, what it asks visitors for, pausing it, and a new public key that retires older snippets. The
  * worker records where the widget was last seen installed.
+ *
+ * A widget offering the texts box names the business's public pages (`ensureBookingSite`, switched off) when it
+ * hasn't got a name yet: the box links to the privacy policy and terms at `/legal/<site>/…`, and without the name
+ * it had nothing to link to. That's how the texting registration's chat gets its links without a form or a
+ * booking page being made first.
  */
 import { and, eq } from 'drizzle-orm';
 import { rows, sql } from '@hfos/db/client';
 import { chatWidgets, workspaces } from '@hfos/db/schema';
 import { loadTeammate } from '../ai-team/load';
+import { ensureBookingSite } from '../calendar/site';
 import { chatWidgetName, normalizeChatOrigins } from '../chat/origins';
 import { HfosError } from '../errors';
 import { userIdOf } from '../kernel/actor';
@@ -108,6 +114,8 @@ export const chatWidgetCreate = defineCommand({
       })
       .returning({ id: chatWidgets.id, publicKey: chatWidgets.publicKey });
     if (!row) throw HfosError.forbidden();
+    if (input.smsConsent)
+      await ensureBookingSite(ctx.tx, ctx.scope.workspaceId!, userIdOf(ctx.actor));
     await ctx.emit({
       type: 'chat_widget.created',
       entityType: 'chat_widget',
@@ -161,6 +169,8 @@ export const chatWidgetUpdate = defineCommand({
     if (updated.length === 0)
       return { widgetId: w.id, updated: [], allowedOrigins: w.allowedOrigins };
     await ctx.tx.update(chatWidgets).set(patch).where(eq(chatWidgets.id, w.id));
+    if (patch.smsConsent === true)
+      await ensureBookingSite(ctx.tx, ctx.scope.workspaceId!, userIdOf(ctx.actor));
     const allowedOrigins = (patch.allowedOrigins as string[] | undefined) ?? w.allowedOrigins;
     const before: Record<string, unknown> = {};
     for (const k of updated) before[k] = w[k as keyof typeof w];

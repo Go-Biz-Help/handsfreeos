@@ -13,7 +13,6 @@ import {
 } from '@hfos/core';
 import {
   Check,
-  CircleCheck,
   Clock,
   Copy,
   ExternalLink,
@@ -26,7 +25,7 @@ import {
 } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { useCallback, useEffect, useId, useState, type FormEvent, type ReactNode } from 'react';
+import { useId, useState, type FormEvent, type ReactNode } from 'react';
 import { toast } from 'sonner';
 import { Callout } from '@/components/crm/chips';
 import { Badge } from '@/components/ui/badge';
@@ -44,7 +43,8 @@ import { fieldErrors } from '@/lib/api/field-errors';
 import type { ChatWidget, ChatWidgetUpdateBody } from '@/lib/api/types';
 import { useLiveRefresh } from '@/lib/realtime/live-provider';
 import { usePublicOrigin } from '@/lib/use-origin';
-import { cn, relativeTime } from '@/lib/utils';
+import { cn } from '@/lib/utils';
+import { InstallCheck, PlatformSteps, SnippetCode, snippetOf, snippetSrc } from './chat-install';
 import { SetRow } from './set-row';
 import { settingAttrs } from './setting-anchor';
 
@@ -63,76 +63,12 @@ const ASK_LABELS = { name: 'Name', phone: 'Mobile', email: 'Email' } as const;
 const ASK_OPTIONS: readonly (readonly [ChatAskMode, string])[] = [
   ['never', 'Don’t ask'],
   ['when_needed', 'When needed'],
+  ['after_first_message', 'After their first message'],
   ['before_chat', 'Before the chat starts'],
 ];
 
-const PLATFORMS = [
-  {
-    key: 'wordpress',
-    name: 'WordPress',
-    steps: [
-      'In WordPress, go to Plugins, Add New, and install a header and footer plugin (like WPCode).',
-      'Paste the snippet into its footer box and save.',
-      'Open your site and click the chat button once. The check above turns green within a minute.',
-    ],
-  },
-  {
-    key: 'wix',
-    name: 'Wix',
-    steps: [
-      'In your Wix dashboard, go to Settings, then Custom code.',
-      'Add the snippet, choose “All pages” and “Body - end”, and apply.',
-      'Publish, then open your site and click the chat button once.',
-    ],
-  },
-  {
-    key: 'squarespace',
-    name: 'Squarespace',
-    steps: [
-      'Go to Settings, Advanced, then Code injection.',
-      'Paste the snippet into the Footer box and save.',
-      'Code injection needs a Squarespace business plan or higher.',
-    ],
-  },
-  {
-    key: 'gohighlevel',
-    name: 'GoHighLevel',
-    steps: [
-      'Open Sites, then your website or funnel, and go to its Settings.',
-      'Paste the snippet into “Footer tracking code” and save.',
-      'Publish, then open the site and click the chat button once.',
-    ],
-  },
-  {
-    key: 'webflow',
-    name: 'Webflow',
-    steps: [
-      'Open Site settings, then Custom code.',
-      'Paste the snippet into “Footer code” and save.',
-      'Publish the site, then open it and click the chat button once.',
-    ],
-  },
-  {
-    key: 'other',
-    name: 'Something else',
-    steps: [
-      'Paste the snippet just before </body> on every page.',
-      'If your site uses a template, add it to the template once.',
-      'Your web person can do this in a minute. Send them this page.',
-    ],
-  },
-] as const;
-
 /** A site as people read it: acme.com, or http://localhost:4191 on your own computer. */
 const shown = (origin: string) => origin.replace(/^https:\/\//, '');
-const hostOf = (origin: string | null) => {
-  if (!origin) return 'your site';
-  try {
-    return new URL(origin).host;
-  } catch {
-    return origin;
-  }
-};
 
 type Patch = Omit<ChatWidgetUpdateBody, 'workspaceId' | 'widgetId'>;
 
@@ -449,87 +385,6 @@ function SetUp({
   );
 }
 
-function newest(a: ChatWidget['install'], b: ChatWidget['install'] | null): ChatWidget['install'] {
-  if (!b) return a;
-  if (!a.lastSeenAt) return b;
-  if (!b.lastSeenAt) return a;
-  return b.lastSeenAt > a.lastSeenAt ? b : a;
-}
-
-/** "Seen on acme.com 3 min ago", or "Not seen yet"; checked again every 20 seconds until it's seen. */
-function InstallCheck({ workspaceId, widget }: { workspaceId: string; widget: ChatWidget }) {
-  const router = useRouter();
-  const [fetched, setFetched] = useState<ChatWidget['install'] | null>(null);
-  const [checking, setChecking] = useState(false);
-  const [, setTick] = useState(0);
-  const install = newest(widget.install, fetched);
-  const check = useCallback(async () => {
-    setChecking(true);
-    try {
-      const got = unwrap(
-        await apiBrowser().POST('/v1/queries/chat_widget.get', {
-          body: { workspaceId, widgetId: widget.id },
-        }),
-      );
-      setFetched(got.widget.install);
-      // The sites list's "Installed" badge comes from the page's copy.
-      if (got.widget.install.lastSeenAt !== widget.install.lastSeenAt) router.refresh();
-    } catch {
-      // Keep what's shown; the next check tries again.
-    } finally {
-      setChecking(false);
-    }
-  }, [workspaceId, widget.id, widget.install.lastSeenAt, router]);
-  useEffect(() => {
-    const timer = setInterval(() => {
-      if (document.visibilityState !== 'visible') return;
-      if (install.seen) setTick((n) => n + 1);
-      else void check();
-    }, 20_000);
-    return () => clearInterval(timer);
-  }, [install.seen, check]);
-  const again = (
-    <Button
-      variant="ghost"
-      size="sm"
-      className="flex-none text-inherit hover:text-inherit"
-      onClick={() => void check()}
-      loading={checking}
-      data-testid="chat-install-recheck"
-    >
-      Check again
-    </Button>
-  );
-  if (install.seen && install.lastSeenAt)
-    return (
-      <div
-        role="status"
-        className="mt-4 flex items-center gap-2.5 rounded-menu bg-success-soft py-1.5 pl-3 pr-1.5 text-[13px] text-success-text"
-        data-testid="chat-install"
-      >
-        <CircleCheck className="h-4 w-4 flex-none" aria-hidden />
-        <span className="min-w-0 flex-1 font-semibold">
-          Seen on {hostOf(install.lastSeenOrigin)} {relativeTime(install.lastSeenAt)}
-        </span>
-        {again}
-      </div>
-    );
-  return (
-    <div
-      role="status"
-      className="mt-4 flex items-center gap-2.5 rounded-menu bg-card-2 py-1.5 pl-3 pr-1.5 text-[13px] text-text-2"
-      data-testid="chat-install"
-    >
-      <Clock className="h-4 w-4 flex-none" aria-hidden />
-      <span className="min-w-0 flex-1">
-        <strong className="font-semibold">Not seen yet.</strong> Paste the snippet on your site,
-        then open the chat there once.
-      </span>
-      {again}
-    </div>
-  );
-}
-
 function StatusCard({
   workspaceId,
   widget,
@@ -780,13 +635,11 @@ function SnippetCard({
 }) {
   const router = useRouter();
   const origin = usePublicOrigin(brandedOrigin);
-  const src = `${origin}/embed/v1/${widget.publicKey}.js`;
-  const snippet = `<script async src="${src}"></script>`;
-  const [platform, setPlatform] = useState<(typeof PLATFORMS)[number]['key']>('wordpress');
+  const src = snippetSrc(origin, widget.publicKey);
+  const snippet = snippetOf(src);
   const [copied, setCopied] = useState(false);
   const [confirm, setConfirm] = useState(false);
   const [busy, setBusy] = useState(false);
-  const steps = PLATFORMS.find((p) => p.key === platform)?.steps ?? [];
   const rotate = async () => {
     setBusy(true);
     try {
@@ -826,47 +679,8 @@ function SnippetCard({
           {copied ? 'Copied' : 'Copy'}
         </Button>
       </div>
-      <pre
-        className="mt-3 whitespace-pre-wrap break-all rounded-[10px] border border-border-strong bg-[#191d25] px-3.5 py-3 font-mono text-[12.5px] leading-[1.65] text-[#e4e8ee]"
-        data-testid="chat-snippet"
-      >
-        <code>
-          <span className="text-[#8cb8ff]">&lt;script</span>{' '}
-          <span className="text-[#f5c97a]">async</span> <span className="text-[#f5c97a]">src</span>=
-          <span className="text-[#86e0a8]">&quot;{src}&quot;</span>
-          <span className="text-[#8cb8ff]">&gt;&lt;/script&gt;</span>
-        </code>
-      </pre>
-      <p className="mb-2 mt-4 text-[13px] font-medium" id="chat-platforms">
-        How to add it on
-      </p>
-      <div role="radiogroup" aria-labelledby="chat-platforms" className="flex flex-wrap gap-1.5">
-        {PLATFORMS.map((p) => (
-          <button
-            key={p.key}
-            type="button"
-            role="radio"
-            aria-checked={platform === p.key}
-            onClick={() => setPlatform(p.key)}
-            className={cn(
-              'h-[30px] rounded-full border px-3 text-[13px] font-medium transition-colors focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring',
-              platform === p.key
-                ? 'border-transparent bg-accent-soft text-accent-text'
-                : 'border-border-strong bg-card text-text-2 hover:text-text',
-            )}
-          >
-            {p.name}
-          </button>
-        ))}
-      </div>
-      <ol
-        className="mt-3 list-decimal pl-5 text-[13.5px] leading-[1.6]"
-        data-testid="chat-platform-steps"
-      >
-        {steps.map((s) => (
-          <li key={s}>{s}</li>
-        ))}
-      </ol>
+      <SnippetCode src={src} className="mt-3" />
+      <PlatformSteps className="mt-4" />
       <div className="mt-4 flex items-center justify-between gap-3 border-t border-border pt-4">
         <p className="text-xs text-text-3">
           Someone put your snippet on a site that isn’t yours? Get a new key, then paste the new
@@ -1163,7 +977,7 @@ function LookForm({
           <SetRow key={field} first={i === 0} center title={ASK_LABELS[field]} className="py-2">
             <Select
               selectSize="sm"
-              className="w-[200px]"
+              className="w-[220px]"
               value={draft.askFor[field]}
               onChange={(e) =>
                 set({ askFor: { ...draft.askFor, [field]: e.target.value as ChatAskMode } })
@@ -1181,8 +995,8 @@ function LookForm({
         ))}
         <Hint className="mt-0">
           {who
-            ? `“When needed” means ${who} asks only when it has to, like before booking.`
-            : '“When needed” means the chat asks after the visitor’s first message, so your team can get back to them.'}
+            ? `“When needed” means ${who} asks only when it has to, like before booking. “After their first message” shows a short form then, with the box to get texts, which is how your texting registration collects agreement.`
+            : '“When needed” and “After their first message” both ask after the visitor’s first message, so your team can get back to them.'}
         </Hint>
         <SetRow
           className="mt-2"

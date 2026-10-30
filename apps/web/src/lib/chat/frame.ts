@@ -12,6 +12,10 @@
  * The preview page (a manager trying the chat on our own site) passes `preview=<workspace id>` with our own
  * origin: then the rule is 'self' alone. Unknown keys, paused widgets and refused sites keep 'self' alone too.
  *
+ * Opened on its own, in a tab (no `o` and no preview), the address shows what the chat asks visitors instead: the
+ * page a carrier's reviewer is given for a texting registration, since they rarely start a chat to find the box.
+ * Nothing on it chats, and it's never framed by anyone else ('self' alone).
+ *
  * proxy.ts runs this for /chat/* instead of its session work, and hands the answer to the page in a request
  * header (read with chatWindowFrom), so the page doesn't ask the worker a second time.
  */
@@ -30,6 +34,8 @@ export interface ChatWindowContext {
   readonly path: string | null;
   /** The preview page's workspace: a signed-in manager trying the chat on our own site. Null for visitors. */
   readonly preview: string | null;
+  /** Opened on its own in a tab: the page showing what the chat asks, not a chat. */
+  readonly standalone?: boolean;
   readonly lookup: ChatLookup;
 }
 
@@ -55,7 +61,8 @@ export async function chatWindowContext(url: URL): Promise<ChatWindowContext> {
     if (host !== url.origin) return none({ state: 'refused' });
     return { key, origin: null, path, preview, lookup: await lookupChat(key, null) };
   }
-  // Opened on its own, not from a site: nothing to chat from.
+  // Opened on its own, not from a site: nothing to chat from, so it shows what the chat asks instead.
+  if (!host && !params.has('o')) return { ...none(await lookupChat(key, null)), standalone: true };
   if (!host) return none({ state: 'refused' });
   const lookup = await lookupChat(key, host);
   return { key, origin: lookup.state === 'ok' ? host : null, path, preview: null, lookup };

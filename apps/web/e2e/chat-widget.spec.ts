@@ -19,7 +19,9 @@ import {
  * alone: the button, the chat window, the AI teammate's reply read inside it, a staff reply arriving live ("Dale
  * joined"), and "Are you a real person?" getting the admission. The window and the page swap only "open", "close"
  * and "unread" (a count), and never a token. On a site that isn't the widget's (127.0.0.1:4192), the browser refuses
- * to show the window (frame-ancestors), and the button takes itself away.
+ * to show the window (frame-ancestors), and the button takes itself away. Set to ask "After their first message" (the
+ * texting registration's chat), it asks for the visitor's details with the texts box after their first message,
+ * even with Ava answering, and its address opened on its own shows that form for a carrier's reviewer.
  */
 test('the chat on an allowed site, by keyboard: the AI reply, a staff reply live, and the admission', async ({
   page,
@@ -112,6 +114,62 @@ test('the chat on an allowed site, by keyboard: the AI reply, a staff reply live
   const again = await chatFrame(site);
   await expect(again.getByTestId('chat-message-person').last()).toContainText('1 PM');
   await context.close();
+});
+
+test('after their first message: the details form with the texts box, even with Ava answering', async ({
+  page,
+  browser,
+}) => {
+  test.setTimeout(180_000);
+  const biz = await businessWithChat(page, 'chat-first', { teammate: true });
+  await api(biz.token, 'commands', 'chat_widget.update', {
+    workspaceId: biz.workspaceId,
+    widgetId: biz.widgetId,
+    smsConsent: true,
+    askFor: { name: 'after_first_message', phone: 'after_first_message', email: 'never' },
+  });
+
+  const context = await browser.newContext({ viewport: { width: 1280, height: 832 } });
+  const site = await context.newPage();
+  await site.goto(sitePage(CHAT_SITE, biz.key));
+  await tabToLauncher(site);
+  await site.keyboard.press('Enter');
+  const chat = await chatFrame(site);
+  await expect(chat.getByTestId('chat-window')).toHaveAttribute('data-phase', 'ready');
+  // Nothing is asked before they write.
+  await expect(chat.getByTestId('chat-details')).toHaveCount(0);
+
+  await site.keyboard.type('Hi, can I get a quote for a new AC?');
+  await site.keyboard.press('Enter');
+  const form = chat.getByTestId('chat-details');
+  await expect(form).toContainText('How can we reach you');
+  await expect(chat.getByTestId('chat-details-email')).toHaveCount(0);
+  await expect(chat.getByTestId('chat-details-texts')).not.toBeChecked();
+  await expect(form.getByRole('link', { name: 'Privacy policy' })).toHaveAttribute(
+    'href',
+    /\/legal\/[a-z0-9-]+\/privacy$/,
+  );
+  await expect(form.getByRole('link', { name: 'Terms' })).toBeVisible();
+  await chat.getByTestId('chat-details-name').fill('Linda Park');
+  await chat.getByTestId('chat-details-phone').fill('(832) 555-0126');
+  await chat.getByTestId('chat-details-texts').check();
+  await chat.getByTestId('chat-details-submit').click();
+  await expect(chat.getByTestId('chat-details-done')).toContainText(
+    'Texts about this request: yes',
+  );
+  await context.close();
+
+  // Opened on its own, the chat's address shows the same form for a reviewer, and sends nothing.
+  await page.goto(`${APP}/chat/${biz.key}`);
+  await expect(
+    page.getByRole('heading', { level: 1, name: /website chat asks to text you/ }),
+  ).toBeVisible();
+  await expect(page.getByTestId('chat-showcase-form-texts')).not.toBeChecked();
+  await page.getByTestId('chat-showcase-form-name').fill('Sam Reviewer');
+  await page.getByTestId('chat-showcase-form-submit').click();
+  await expect(page.getByTestId('chat-showcase-form')).toContainText(
+    'only shows what the chat asks',
+  );
 });
 
 test('a site that isn’t on the widget’s list: the browser refuses the chat window', async ({
