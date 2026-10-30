@@ -1074,11 +1074,32 @@ describe('what it does on LinkedIn’s list', () => {
 });
 
 describe('its day', () => {
-  it('waits outside the working hours with nothing pressed, waking at their start', async () => {
+  it('waits outside the working hours with nothing pressed, waking at their start: nothing new goes (decision 133)', async () => {
     keep(day('none'));
+    // A step and a first message OK'd wait for the hours; only a reply goes outside them.
+    world.answers['/v1/queries/outreach.today'] = () => ({
+      items: [
+        item({}),
+        item({
+          kind: 'opener',
+          send: {
+            sendId: '9b6f5c4d-3e2a-4b1c-8d9e-0f1a2b3c4d5e',
+            state: 'approved',
+            text: 'Hi Dana',
+            handedOver: false,
+            needsYou: null,
+          },
+        } as Partial<TodayListItem>),
+      ],
+      auto: ['warm_up', 'friend_request'],
+      messages: ['opener', 'reply'],
+      sending: 'steps',
+      partners: [],
+      limits: { like: { done: 0, most: 30 } },
+    });
     await linkedInTick();
     expect(world.opened).toEqual([]);
-    expect(alarms.get('hfos-auto-linkedin')).toBeGreaterThan(Date.now());
+    expect(alarms.get('hfos-auto-linkedin')).toBeGreaterThan(Date.now() + 60 * 60_000);
     expect((store.get(LINKEDIN_STATE_KEY) as { line: string }).line).toBe(
       'Starts on its own on LinkedIn tomorrow at 9:00 AM. To start now, press Start my day for LinkedIn on Today in HandsFreeOS.',
     );
