@@ -938,7 +938,8 @@ export const appointmentRemoveAttendee = defineCommand({
 
 export const sessionPublish = defineCommand({
   name: 'session.publish',
-  description: 'Publish a date on a fixed-sessions calendar that customers take seats in.',
+  description:
+    'Publish a date on a fixed-sessions calendar that customers take seats in. On a calendar whose place is a HandsFreeOS video call, each date is a webinar (up to 500 people, with a link anyone can use to save a seat).',
   risk: 1,
   input: SessionPublishInput,
   output: SessionPublishOutput,
@@ -1075,7 +1076,13 @@ export const seriesCreate = defineCommand({
         ? await attendeeFromPerson(ctx.tx, ws, input.personId, input.partySize, 'series')
         : null;
     const created: string[] = [];
-    const skipped: { occurrence: number; date: string; startsAt: string; reason: string }[] = [];
+    const skipped: {
+      occurrence: number;
+      date: string;
+      startsAt: string;
+      reason: string;
+      warning: boolean;
+    }[] = [];
     let prefer: readonly string[] | undefined = input.userIds;
     let firstSkip: HfosError | undefined;
     for (const occ of occurrences) {
@@ -1088,7 +1095,11 @@ export const seriesCreate = defineCommand({
           partySize: input.partySize,
           locationKind: input.location ? input.location.kind : undefined,
           // Series continuity: the first occurrence's people are kept when free.
-          choice: { mode: 'staff', userIds: input.userIds, acknowledgeWarnings: false },
+          choice: {
+            mode: 'staff',
+            userIds: input.userIds,
+            acknowledgeWarnings: input.acknowledgeWarnings,
+          },
           preferUserIds: prefer,
           kind: sessions ? 'session' : 'booking',
           capacity: sessions ? input.capacity : undefined,
@@ -1113,6 +1124,7 @@ export const seriesCreate = defineCommand({
           date: occ.date,
           startsAt: iso(occ.startsAt),
           reason: skipReason(e),
+          warning: e.rule === 'needs_confirmation',
         });
       }
     }

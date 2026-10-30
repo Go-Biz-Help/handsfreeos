@@ -68,6 +68,8 @@ export const SCREEN_ACTIONS: Readonly<Record<string, ScreenAction>> = {
   'attendee.set_attendance': {},
   'call_suggestion.decide': {},
   'job.add_visit': {},
+  'session.publish': {},
+  'webinar.schedule': {},
   'video_call.admit': {},
   'video_call.end': {},
   'video_call.mute': {},

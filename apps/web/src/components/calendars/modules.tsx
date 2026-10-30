@@ -16,6 +16,7 @@ import {
   type WeeklyHours,
   VIDEO_CALL_WORDS,
   WEBINAR_WORDS,
+  isWebinarCalendar,
   ATTENDEE_VIDEO_CHOICES,
   POLL_WORDS,
   POLL_AI_MODES,
@@ -949,8 +950,7 @@ function LocationsModule({ draft, patch, workspaceId }: ModuleProps) {
           />
         </SetRow>
       ) : null}
-      {draft.schedule.mode === 'sessions' &&
-      options.some((o) => o.kind === 'virtual' && o.video === 'handsfree') ? (
+      {isWebinarCalendar(draft) ? (
         <WebinarSettings draft={draft} patch={patch} workspaceId={workspaceId} />
       ) : null}
     </>

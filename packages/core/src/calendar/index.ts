@@ -9,6 +9,7 @@ export * from './terms';
 export * from './deposit';
 export * from './format';
 export * from './presets';
+export * from './webinars';
 export * from './rules';
 export * from './labels';
 export * from './diff';
