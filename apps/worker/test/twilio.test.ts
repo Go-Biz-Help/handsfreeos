@@ -1627,6 +1627,53 @@ describe('what the wizard settled goes to the carriers', () => {
     );
   });
 
+  it('names a business with a DBA both ways: in the description, and in toll-free’s own field', async () => {
+    const dba = { ...wizard, legalName: 'Go Biz Help LLC', displayName: 'HandsFreeOS' };
+    const seen = mockTwilio([
+      [
+        /^POST messaging\.twilio\.com\/v1\/Tollfree\/Verifications$/,
+        () => ({ status: 201, json: { sid: 'HHdbatest', status: 'PENDING_REVIEW' } }),
+      ],
+      [
+        /^POST messaging\.twilio\.com\/v1\/Services\/MGservicetest\/Compliance\/Usa2p$/,
+        () => ({ status: 201, json: { sid: 'QEdbatest', campaign_status: 'PENDING' } }),
+      ],
+    ]);
+    const twilio = createTwilioTelephony(MASTER);
+    await twilio.submitRegistration(account, request('toll_free_verification', {}, dba));
+    await twilio.submitRegistration(
+      account,
+      request('a2p_campaign', { a2p_brand: 'BNbrandtest' }, dba),
+    );
+    const tollFree = Object.fromEntries(seen[0]!.body);
+    expect(tollFree).toMatchObject({
+      BusinessName: 'Go Biz Help LLC',
+      DoingBusinessAs: 'HandsFreeOS',
+    });
+    expect(tollFree['UseCaseSummary']).toMatch(
+      /^Go Biz Help LLC \(doing business as HandsFreeOS\) sends /,
+    );
+    expect(seen[1]!.body.get('Description')).toMatch(
+      /^Go Biz Help LLC \(doing business as HandsFreeOS\) sends /,
+    );
+    expect(seen[1]!.body.get('HelpMessage')).toMatch(/^HandsFreeOS: /);
+  });
+
+  it('leaves the DBA out when the name customers know is the legal name without its LLC', async () => {
+    const seen = mockTwilio([
+      [
+        /^POST messaging\.twilio\.com\/v1\/Tollfree\/Verifications$/,
+        () => ({ status: 201, json: { sid: 'HHsametest', status: 'PENDING_REVIEW' } }),
+      ],
+    ]);
+    await createTwilioTelephony(MASTER).submitRegistration(
+      account,
+      request('toll_free_verification', {}, wizard),
+    );
+    expect(seen[0]!.body.has('DoingBusinessAs')).toBe(false);
+    expect(seen[0]!.body.get('UseCaseSummary')).toMatch(/^Lone Star HVAC LLC sends /);
+  });
+
   it('names the carrier industry from the kind of business', () => {
     expect(carrierIndustry('hvac')).toBe('CONSTRUCTION');
     expect(carrierIndustry('marketing_agency')).toBe('MEDIA');

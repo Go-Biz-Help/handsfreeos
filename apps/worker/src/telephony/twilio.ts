@@ -8,9 +8,11 @@ import {
   HELP_KEYWORDS,
   keywordReplies,
   rcsSenderIdOf,
+  senderForCarriers,
   sensitiveFlags,
   START_KEYWORDS,
   STOP_KEYWORDS,
+  tradingName,
 } from '@hfos/core';
 import {
   ProviderError,
@@ -438,10 +440,14 @@ const USE_CASE_TEXTS: Record<string, string> = {
 const OPT_OUT_SENTENCE =
   'Every message includes opt-out instructions, and replying STOP stops them.';
 
-/** The use case the carriers approve: a 10DLC campaign's Description and a toll-free UseCaseSummary. */
+/**
+ * The use case the carriers approve: a 10DLC campaign's Description and a toll-free UseCaseSummary. A business
+ * with a DBA is named both ways ("Go Biz Help LLC (doing business as HandsFreeOS) sends"), because the samples
+ * are signed with the name customers know and the brand was checked under the legal one.
+ */
 function useCaseDescription(b: Business): string {
   const how = consentSentence(b);
-  return `${b.legalName} sends ${USE_CASE_TEXTS[b.useCase] ?? AUTOMATED_CARE}.${how ? ` ${how}` : ''} ${OPT_OUT_SENTENCE}`;
+  return `${senderForCarriers(b.legalName, b.displayName)} sends ${USE_CASE_TEXTS[b.useCase] ?? AUTOMATED_CARE}.${how ? ` ${how}` : ''} ${OPT_OUT_SENTENCE}`;
 }
 
 /**
@@ -607,8 +613,11 @@ async function submitTollFree(
 
 /** The business details of a toll-free verification: the same fields for a new request and an edit. */
 function tollFreeDetails(request: RegistrationRequest, b: Business): Params {
+  const dba = tradingName(b.legalName, b.displayName);
   return {
     BusinessName: b.legalName,
+    // The name customers know, when it isn't the legal one: Twilio's own field for a DBA.
+    ...(dba ? { DoingBusinessAs: dba } : {}),
     BusinessType: TOLL_FREE_BUSINESS_TYPE[b.businessType] ?? 'PRIVATE_PROFIT',
     ...(b.businessType !== 'sole_proprietor' && b.ein
       ? {

@@ -119,13 +119,16 @@ export const registrationSubmit = defineCommand({
         : [];
 
     // The kind of business goes with it, for the carrier's industry: the workspace already knows it, and
-    // asking again on the form would only give it a second answer to disagree with.
+    // asking again on the form would only give it a second answer to disagree with. So does the name customers
+    // know when the sender didn't give one (the Assistant asks only for the legal name): with a DBA, the
+    // carriers are told both names, and HELP replies carry the one customers know.
     const [ws] = await ctx.tx
-      .select({ industry: workspaces.industry })
+      .select({ industry: workspaces.industry, name: workspaces.name })
       .from(workspaces)
       .where(eq(workspaces.id, workspaceId));
     const submission = {
       ...input.business,
+      ...(!input.business.displayName && ws?.name ? { displayName: ws.name } : {}),
       ...(forNumber ? { forNumber } : {}),
       industry: ws?.industry ?? null,
     };
