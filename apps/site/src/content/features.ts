@@ -123,6 +123,20 @@ export const featureSections: readonly FeatureSection[] = [
     ],
   },
   {
+    id: 'documents',
+    nav: 'Documents to sign',
+    title: 'Contracts signed on their phone, without a separate e-signature app',
+    intro:
+      'Turn the contract or agreement you already use into a template once, then send it to sign by text or email in a couple of taps.',
+    points: [
+      'Upload a PDF and mark where people sign, initial, date or fill something in. The AI suggests where each field goes.',
+      'Send to one person or several, in the order they sign. Each gets their own link, with reminders until it’s done.',
+      'Sign now, for a customer standing in front of you: hand them your phone or tablet.',
+      'The signed copy is saved on the customer’s record and locked for good, and they can find it in their own portal.',
+      'Send, follow and make templates from the phone app too.',
+    ],
+  },
+  {
     id: 'video',
     nav: 'Video calls',
     title: 'Video calls with the notes already written',
@@ -504,11 +518,6 @@ export const comingSoon = [
     title: 'Facebook and Instagram messages',
     when: 'Waiting on Meta’s review',
     body: 'DMs in the same inbox, with the ad that brought each one. Facebook lead ads come in through Zapier until then.',
-  },
-  {
-    title: 'Documents and e-signatures',
-    when: 'Being built',
-    body: 'Send a contract or a form to sign, and get it signed inside HandsFreeOS.',
   },
   {
     title: 'AI Sales Coach',
