@@ -44,6 +44,8 @@ import {
   PLATFORMS,
   type Platform,
 } from '@hfos/core/addons/outreach/networks';
+import { LIKE_YOURS_WORDS } from '@hfos/core/addons/outreach/like-yours';
+import { OUTREACH_PAGES } from '@hfos/core/addons/outreach/pages';
 import { allowedOn, REPORT_WORDS } from '@hfos/core/addons/outreach/reports';
 import {
   isNetworkPart,
@@ -56,6 +58,7 @@ import { checkCounts } from '@hfos/core/addons/outreach/profile-check';
 import { networkSteps, outreachSetupPath, SETUP_WORDS } from '@hfos/core/addons/outreach/setup';
 import { START_FRESH_WORDS as F, OUTREACH_WORDS as W } from '@hfos/core/addons/outreach/words';
 import { AlertCircle, Check, Loader2 } from 'lucide-react';
+import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useEffect, useRef, useState } from 'react';
 import { Badge } from '@/components/ui/badge';
@@ -70,7 +73,6 @@ import { countriesProblem, TeamSettingsFields, type TeamSettings } from './busin
 import { AskButton } from './asks';
 import { ExtensionDownload } from './extension-download';
 import { ExtensionLinkForm } from './extension-link';
-import { LikeYoursPart } from './like-yours';
 import { ProfileSheet } from './get-ready';
 import { AskedCard, ComputersCard, useServerNow } from './live-view';
 import {
@@ -613,7 +615,19 @@ function NetworkPage({
                 onChange={set}
                 testId={testId}
               />
-              {platform === 'instagram' ? <LikeYoursPart workspaceId={workspaceId} /> : null}
+              {platform === 'instagram' ? (
+                <Part card title={LIKE_YOURS_WORDS.title} testId="outreach-like-yours-moved">
+                  <p className="text-[13px] text-text-2">
+                    {LIKE_YOURS_WORDS.moved}{' '}
+                    <Link
+                      href={outreachHref(workspaceId, { view: 'find', net: 'instagram' })}
+                      className="font-medium text-accent-text hover:underline"
+                    >
+                      {OUTREACH_PAGES.find}
+                    </Link>
+                  </p>
+                </Part>
+              ) : null}
               {facebook ? (
                 <ExtensionTicks
                   card

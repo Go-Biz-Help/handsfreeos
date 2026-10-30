@@ -607,8 +607,8 @@ async function fileFacts(
   );
 }
 
-/** The person's latest download file brought in, for the Friends tab. */
-async function latestDownload(ctx: QueryContext, me: string) {
+/** The person's latest download file brought in, for the Friends tab and Find people. */
+export async function latestDownload(ctx: QueryContext, me: string) {
   const [latest] = await ctx.tx
     .select({ madeAt: imports.madeAt, at: imports.finishedAt, counts: imports.counts })
     .from(imports)

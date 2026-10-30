@@ -33,10 +33,11 @@ comments waiting for an OK at first (decisions 100 to 102, extension 0.99.0).
 The parts below name the tabs they were built on. Since decision 127 those are pages of their own, which pop out from
 Social Outreach's one row in the side menu, in this order: **Needs you** (Waiting for you, with its count on the
 menu); **Today**, with a card for each network (the Live tab's status, Start my day and Stop for today, and its bars),
-one Heads up, Done today (the old Details' feed), the list, and the team for owners; **People**, with the Pipeline (a
-board for everyone in play), Friends, Chats and Partners; **Groups**; **Results** (the Activity tab); **Playbooks**;
-and **Settings**, with the settings, the person's computers and what was asked of them, and Start fresh. The phone's
-first screen lists the same pages. The old addresses (`?view=waiting`, `?view=activity`, `?view=live`) open what they
+one Heads up, Done today (the old Details' feed), the list, and the team for owners; **People**, one list with a view
+for each kind (decision 128: In play, the Pipeline's board; Good fits, Friends, Requests and Sent, the Friends tab's
+lists; Talking; Chats; Partners; Clients; and Left alone); **Find people**, a card for each way new people are found,
+with the Groups under it; **Results** (the Activity tab); **Playbooks**; and **Settings**, with the settings, the
+person's computers and what was asked of them, and Start fresh. The phone's first screen lists the same pages. The old addresses (`?view=waiting`, `?view=activity`, `?view=live`) open what they
 became.
 
 - **The activity panel** (`/a/outreach`, the page's first tab): what the extension noted over today, the last 7 days
@@ -3033,6 +3034,45 @@ where decisions 37 and 59 put the settings; what they decided stands. Settled to
       - Part 2 makes People one list with views and a panel for each person, and adds Find people; part 3 regroups
         Settings with a Team page, adds the Set up page, moves which openers work to Results, and puts Run now on Your
         computer. No migration, and no command changed.
+
+128.  **Social Outreach, rearranged, part 2: People and Find people** (Chris, 29 Oct 2026, the same picks). Decision 127's
+      second part, on the web and the phone together. No migration, and no command changed; one query is new.
+      - **People is one list with a view for each kind,** in this order: In play, Good fits, Talking, Friends,
+        Requests, Sent, Chats, Partners, Clients and Left alone (`PEOPLE_VIEWS` in core's `people-views.ts`). Each
+        view is one of the lists HandsFreeOS already keeps, so its people, buttons and addresses are that list's own:
+        In play is the Pipeline's board (`/people`), Talking and Clients its stages, the friends lists the Friends
+        tab's (`/people/friends?show=…`), Chats and Partners their own. The row of views replaces the Friends tab's
+        own row; each view shows its count where the list shown knows it (`peopleCountsOf`: a friends list knows
+        every friends list's, the Pipeline its stages').
+      - **Left alone** gathers whoever outreach leaves be, each with who put them on and how to take them off:
+        Don't pitch, Never contact, Not a fit (the Pipeline's Lost), Keep, and **Skipped for country**
+        (`/people/skipped`, which was a list opened from General). When the business reaches anywhere and nobody is
+        skipped, that list says so and where the setting is. Left alone opens on Don't pitch.
+      - **Not sure where they live** moves to Needs you, at the end, with Let through and Skip on each person; on the
+        phone it's a card there saying how many wait, opening the list. An old address to it
+        (`?view=countries&show=unsure`) opens Needs you.
+      - **The person panel:** the name's menu (decision 91) opens as a panel from the right on the web, and on the
+        phone the same sheet grows: the menu's actions first, as before, then everything about them from
+        `outreach.profile.marks` (which now carries their journey, intro and mutual friends): why they fit, the AI's
+        next step, their lead, the chat so far with who wrote last, the groups they were found in (each opening its
+        page), and every step, the latest 6 until Show all.
+      - **Find people** (`/find`, in place of Groups in the menu): a card for each way Social Outreach finds new people,
+        on the networks it's on (`FIND_WAYS` in core's `find-page.ts`): Groups, Good posts, Searches, Accounts like
+        yours, Events near you, Your followers and Partners. Each card says what that way found for the person in the
+        last 7 days and how many the AI's check called a good fit (`outreach.finds.week`, new, reading
+        `addon_outreach.finds` joined to the checks, followers and group members checked, and partners found), and
+        opens where it's changed: Groups opens the groups (now `/find/groups`; `/groups` and `?view=groups` go there),
+        Searches shows the words from the playbooks in use and opens them, Partners the Partners list. Accounts like
+        yours (decision 110) moves here from Settings → Instagram, which now says where they went. Find posts, on a
+        network the extension doesn't work on its own, and Facebook's download file (**Old friends and chats**) move
+        here from Today and Friends. The network picker narrows the cards.
+      - **On the phone,** People's views are a row that scrolls at the top of each list, with Left alone's row under
+        it; a view replaces the screen. The friends lists come to the phone (`?view=friends&show=…`), each row with
+        the person's name opening the sheet, how they fit, since when, the group they were found in, and a friend's
+        Keep switch; so does Find people (`?view=find`), with Accounts like yours on it, and Results person by person,
+        the latest first, each step with when. Only the old Activity stays on the web (`ui.phone.web`).
+      - The words for the rows (`friendSinceWords`, `FRIEND_EMPTY`, `activityStepsOf`, the panel's) are core's, so the
+        web and the phone say the same.
 
 ## Rules worth knowing before changing anything
 

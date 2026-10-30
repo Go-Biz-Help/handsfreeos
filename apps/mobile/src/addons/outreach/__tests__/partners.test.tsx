@@ -75,10 +75,10 @@ describe('the Partners list on the phone', () => {
   it('is one of People’s lists', async () => {
     await render(
       <OutreachWorkspace.Provider value={WS}>
-        <OutreachFrame page="people" people="pipeline" testID="framed" />
+        <OutreachFrame page="people" testID="framed" />
       </OutreachWorkspace.Provider>,
     );
-    await fireEvent.press(screen.getByTestId('outreach-people-partners'));
+    await fireEvent.press(screen.getByTestId('people-view-partners'));
     expect(String(jest.mocked(router.replace).mock.calls.at(-1)?.[0])).toContain('view=partners');
   });
 

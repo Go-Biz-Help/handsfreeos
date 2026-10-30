@@ -27,9 +27,10 @@ function searchWordsOf(list: PlaybookList | null): string {
  * side menu's pages (the manifest's `ui.nav`), drawn by `OutreachHome` (./address.ts says what each address shows):
  * **Needs you**, everything waiting on the person; **Today**, what their computer is doing on each network, with Start
  * my day and Stop for today, its feed and, for owners and admins, the team's, and the network shown's list (`?net=`,
- * else the one picked last, else the first); **People**, everyone reached by where they stand (a board for everyone
- * in play), their friends and the Don't pitch list, their chats as the AI read them and their Partners list (decision
- * 81); **Groups**; **Results**; **Playbooks**, with how each opener did; and **Settings**, every setting the extension
+ * else the one picked last, else the first); **People**, one list with a view for each kind (decision 128): everyone
+ * reached by where they stand (a board for everyone in play), their friends, their chats as the AI read them, their
+ * Partners list (decision 81) and who's left alone; **Find people**, what each way of finding people found this week,
+ * and the groups; **Results**; **Playbooks**, with how each opener did; and **Settings**, every setting the extension
  * follows, a page for each part (`/settings/<part>`, decision 73), with anyone's for owners and admins (`?for=`). Each
  * route draws this inside the gate (`addonPage`): "not available here" while the add-on is off, and not found for
  * someone without `outreach.use`. Owners and admins (`outreach.manage`) write the playbooks and see everyone's
@@ -206,6 +207,46 @@ export async function showOutreach(
           net: shown.net,
           asks,
         }}
+      />
+    );
+  }
+  if (shown.view === 'find') {
+    // Find people (decision 128): what each way found this week, the groups' counts, the words the playbooks search
+    // for, and what the person asked their computer to do (Find posts, the download file). The groups and the words
+    // are left out when they can't be had, so the week still shows.
+    const [got, week, groups, playbooks, asks] = await Promise.all([
+      workspace,
+      api
+        .POST('/v1/queries/outreach.finds.week', { body: { workspaceId, ...onNetwork } })
+        .then(unwrapPage),
+      api
+        .POST('/v1/queries/outreach.groups', { body: { workspaceId, view: 'work', page: 1 } })
+        .then((r) => r.data ?? null)
+        .catch(() => null),
+      api
+        .POST('/v1/queries/outreach.playbook.list', { body: { workspaceId } })
+        .then((r) => r.data ?? null)
+        .catch(() => null),
+      asksOf(),
+    ]);
+    return (
+      <OutreachHome
+        workspaceId={workspaceId}
+        businessName={got.workspace.name}
+        canManage={got.workspace.permissions.includes('outreach.manage')}
+        shown={{ view: 'find', week, groups, playbooks, asks, net: shown.net }}
+      />
+    );
+  }
+  if (shown.view === 'skipped') {
+    // Left alone's Skipped for country: the list loads itself, as it did under Friends.
+    const got = await workspace;
+    return (
+      <OutreachHome
+        workspaceId={workspaceId}
+        businessName={got.workspace.name}
+        canManage={got.workspace.permissions.includes('outreach.manage')}
+        shown={{ view: 'skipped' }}
       />
     );
   }

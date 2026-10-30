@@ -264,6 +264,19 @@ describe('Mark as client', () => {
         { userId: owner.id, name: 'Morgan Owner', you: true },
         { userId: member.id, name: 'Riley Member', you: false },
       ],
+      // The person panel's (decision 128): nothing read of them, and no step yet.
+      mutualFriends: null,
+      intro: [],
+      journey: {
+        stage: null,
+        why: [],
+        nextStep: null,
+        lead: null,
+        chat: null,
+        groups: [],
+        steps: [],
+        moreSteps: 0,
+      },
     });
     // Kept under a client's name: one, with no reason of their own.
     expect(

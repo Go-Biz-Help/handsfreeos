@@ -101,7 +101,7 @@ export function GroupPageBody({
       ? router.push(businessHref(workspaceId, `customers/people/${p.personId}`) as Href)
       : openOutside(p.url);
   return (
-    <OutreachFrame page="groups" subtitle={page?.group.name ?? undefined} testID="outreach-group">
+    <OutreachFrame page="find" subtitle={page?.group.name ?? undefined} testID="outreach-group">
       {page ? (
         <>
           <Card className="gap-1.5 px-4 py-3.5" testID="group-page-head">

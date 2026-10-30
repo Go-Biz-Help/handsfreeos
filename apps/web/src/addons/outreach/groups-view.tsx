@@ -15,6 +15,7 @@ import {
   ASK_WORDS_MOST,
   askedWords,
 } from '@hfos/core/addons/outreach/asks';
+import { friendDayWords } from '@hfos/core/addons/outreach/friends';
 import {
   GROUP_CHECK_STATES,
   GROUP_CHECK_WORDS,
@@ -40,7 +41,7 @@ import { useLiveRefresh } from '@/lib/realtime/live-provider';
 import { cn } from '@/lib/utils';
 import { GROUP_VIEW_KEYS, outreachHref } from './address';
 import { AskButton, AskLine, cantAskWhy, latestAsk, targetOf } from './asks';
-import { dayWords, Pager, SearchBox } from './friends-view';
+import { Pager, SearchBox } from './friends-view';
 import type { Asks, Group, Groups } from './types';
 import { useAct } from './use-act';
 
@@ -381,7 +382,7 @@ function GroupRow({
     g.privacy === 'public' ? 'Public' : g.privacy === 'private' ? 'Private' : null,
     g.members !== null ? W.groupMembers(g.members) : null,
     g.joined ? W.joined : g.joined === false ? W.notJoined : null,
-    g.seenAt ? `Seen ${dayWords(g.seenAt)}` : null,
+    g.seenAt ? `Seen ${friendDayWords(g.seenAt)}` : null,
   ].filter(Boolean);
   const saved = g.people
     ? [

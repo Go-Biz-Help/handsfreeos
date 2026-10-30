@@ -12,6 +12,7 @@ import {
 } from '@hfos/core/addons/outreach/stages';
 import { chatUrlOn, openChatWords, openPageWords } from '@hfos/core/addons/outreach/network-words';
 import type { Platform } from '@hfos/core/addons/outreach/networks';
+import { peopleCountsOf } from '@hfos/core/addons/outreach/people-views';
 import { OUTREACH_WORDS as W } from '@hfos/core/addons/outreach/words';
 import * as React from 'react';
 import { ScrollView, View } from 'react-native';
@@ -151,7 +152,12 @@ export function PipelineBody({
   onMark: (p: Person, m: StageMark) => void;
 }) {
   return (
-    <OutreachFrame page="people" people="pipeline" testID="outreach-pipeline">
+    <OutreachFrame
+      page="people"
+      list={{ list: 'stages', show: view }}
+      counts={peopleCountsOf(pipeline ? { stages: pipeline.counts } : null)}
+      testID="outreach-pipeline"
+    >
       <Note>
         {view === 'lost'
           ? STAGE_WORDS.lostNote

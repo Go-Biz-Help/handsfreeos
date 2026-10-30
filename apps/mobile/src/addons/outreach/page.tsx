@@ -11,7 +11,9 @@ import { openWebPath } from '@/home/open';
 import { ChatsScreen } from './chats';
 import { CodeScreen } from './code';
 import { CountriesScreen } from './countries';
+import { FindScreen } from './find';
 import { OutreachWorkspace } from './frame';
+import { FriendsScreen } from './friends';
 import { GroupPageScreen } from './group-page';
 import { GroupsScreen } from './groups';
 import { OutreachHomeScreen } from './home';
@@ -27,15 +29,17 @@ import { SettingsScreen } from './settings';
 import { NeedsYouScreen } from './waiting';
 
 /**
- * Social Outreach on the phone (decisions 44, 59 and 127), by its address's `?view=`, as the web's old addresses name
- * its pages. With none, its first screen lists the pages in the web's side-menu order (./home.tsx). Needs you is
- * `waiting`; Today (`today`) has what the computer is doing on each network, the list and Done today; People is the
- * Pipeline, Chats, the Partners list and the Never contact list; then Groups (`&group=` one group's own page, decision
- * 103), Results, Playbooks and Settings, a menu with `?part=` one of its pages (General, or a network's). `live` is
- * Your computer: its whole day, its computers and what was asked of it.
- * `code` is the code a network emailed for an ask (`?ask=`), where its notification opens (decision 82). `countries` is
- * one of the lists the country setting makes (`?show=unsure|skipped`), opened from General. Friends, and the old Activity, have a lot to look through, so they stay on the
- * web: a link to them opens there (the manifest's `ui.phone` `web`), and this says so if one is opened here anyway.
+ * Social Outreach on the phone (decisions 44, 59, 127 and 128), by its address's `?view=`, as the web's old addresses
+ * name its pages. With none, its first screen lists the pages in the web's side-menu order (./home.tsx). Needs you is
+ * `waiting`; Today (`today`) has what the computer is doing on each network, the list and Done today; People is one
+ * list with a view for each kind (./frame.tsx): the Pipeline, the friends lists (`friends`, `&show=` which), Chats,
+ * the Partners list and the Never contact list; then Find people (`find`), where Groups (`groups`, `&group=` one
+ * group's own page, decision 103) open from, Results, Playbooks and Settings, a menu with `?part=` one of its pages
+ * (General, or a network's). `live` is Your computer: its whole day, its computers and what was asked of it. `code` is
+ * the code a network emailed for an ask (`?ask=`), where its notification opens (decision 82). `countries` is one of
+ * the lists the country setting makes (`?show=unsure|skipped`). The old Activity has a lot to look through, so it stays
+ * on the web: a link to it opens there (the manifest's `ui.phone` `web`), and this says so if one is opened here
+ * anyway.
  */
 
 const PHONE_TABS: readonly OutreachTab[] = [
@@ -43,6 +47,8 @@ const PHONE_TABS: readonly OutreachTab[] = [
   'live',
   'today',
   'pipeline',
+  'friends',
+  'find',
   'groups',
   'chats',
   'never_contact',
@@ -53,7 +59,7 @@ const PHONE_TABS: readonly OutreachTab[] = [
   'code',
   'countries',
 ];
-const WEB_TABS: readonly WebTab[] = ['activity', 'friends'];
+const WEB_TABS: readonly WebTab[] = ['activity'];
 
 export function OutreachPage(props: {
   view?: string;
@@ -106,6 +112,14 @@ function OutreachView({
       return <LiveScreen net={readNetwork(net)} />;
     case 'pipeline':
       return <PipelineScreen show={show} q={q} />;
+    case 'friends':
+      return show === 'never_contact' ? (
+        <NeverContactScreen q={q} />
+      ) : (
+        <FriendsScreen show={show} q={q} />
+      );
+    case 'find':
+      return <FindScreen net={readNetwork(net)} />;
     case 'groups':
       return group ? (
         <GroupPageScreen groupId={group} show={show} />

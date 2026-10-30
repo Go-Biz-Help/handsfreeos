@@ -214,6 +214,51 @@ export const ActivityOutput = z.object({
   morePeople: count,
 });
 export type ActivityOutput = z.output<typeof ActivityOutput>;
+
+/** A step someone took or was taken toward, as Results' People list shows it. */
+export const ACTIVITY_STEP_KEYS = [
+  'requestedAt',
+  'likedAt',
+  'commentedAt',
+  'messagedAt',
+  'repliedAt',
+] as const;
+export type ActivityStepKey = (typeof ACTIVITY_STEP_KEYS)[number];
+
+export interface ActivityStep {
+  readonly key: ActivityStepKey;
+  readonly label: string;
+  readonly at: string;
+}
+
+const STEP_LABELS: Record<Exclude<ActivityStepKey, 'requestedAt'>, string> = {
+  likedAt: 'Liked',
+  commentedAt: 'Commented',
+  messagedAt: 'Messaged',
+  repliedAt: 'Wrote back',
+};
+
+/**
+ * How far someone has come, a step at a time, for the web's People list and the phone's: each step taken, in order,
+ * the request to connect in their network's words ("Friend request", "Invitation to connect").
+ */
+export function activityStepsOf(p: ActivityOutput['people'][number]): ActivityStep[] {
+  return ACTIVITY_STEP_KEYS.flatMap((key): ActivityStep[] => {
+    const at = p[key];
+    if (!at) return [];
+    if (key !== 'requestedAt') return [{ key, label: STEP_LABELS[key], at }];
+    const word = NETWORKS[p.platform].words.friendRequest;
+    return [{ key, label: `${word.charAt(0).toUpperCase()}${word.slice(1)}`, at }];
+  });
+}
+
+/** The words around Results' People list. */
+export const ACTIVITY_PEOPLE_WORDS = {
+  title: 'People',
+  latestFirst: 'The latest first',
+  fromGroup: (name: string | null) => `From ${name ?? 'a group'}`,
+  more: (count: number) => `And ${count.toLocaleString('en-US')} more, not shown.`,
+} as const;
 export type ActivityTopic = ActivityOutput['topics'][number];
 
 /** What a row of Activity's words says: "“sourdough” on Instagram". */

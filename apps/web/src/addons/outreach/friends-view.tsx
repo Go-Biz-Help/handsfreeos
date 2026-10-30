@@ -1,14 +1,14 @@
 'use client';
 /**
- * Social Outreach's Friends tab (docs/outreach.md, decisions 10 to 13): where the person's own Facebook stands with
- * people, as the browser extension saved and noted it (apps/extension/README.md). Their friends against Facebook's
- * cap, the good fits the AI found among their friends and chats (decision 46, **Check my friends**), the friend
- * requests they've got in order of how each fits the playbooks in use, the requests they sent that nobody has
- * answered, the friends they keep (never suggested for unfriending), and the business's Don't pitch and Never contact
- * lists.
+ * Social Outreach's friends lists (docs/outreach.md, decisions 10 to 13), each one of People's views (decision 128):
+ * where the person's own Facebook stands with people, as the browser extension saved and noted it
+ * (apps/extension/README.md). Their friends against Facebook's cap, the good fits the AI found among their friends and
+ * chats (decision 46, **Check my friends**), the friend requests they've got in order of how each fits the playbooks
+ * in use, the requests they sent that nobody has answered, and, under Left alone, the friends they keep (never
+ * suggested for unfriending) and the business's Don't pitch and Never contact lists.
  * Which, a name searched for and the page are in the address (./address.ts), so the page asks HandsFreeOS for them.
- * The list follows the search box as a name is typed, a page at a time. Facebook's download file, brought in from
- * the side (./download-card.tsx), adds since when they've been friends and the latest message.
+ * The list follows the search box as a name is typed, a page at a time. Facebook's download file, brought in under
+ * Find people (./download-card.tsx), adds since when they've been friends and the latest message.
  */
 import {
   ASK_TIDY_MOST,
@@ -24,17 +24,21 @@ import {
   checksWords,
   type CheckVerdict,
 } from '@hfos/core/addons/outreach/checks';
+import { FIND_PAGE_WORDS } from '@hfos/core/addons/outreach/find-page';
 import { FIT_LEVELS, type FitLevel } from '@hfos/core/addons/outreach/fit';
 import {
   DONT_PITCH_TAG,
+  FRIEND_EMPTY,
+  FRIEND_NO_MATCH,
   FRIEND_STATES,
-  FRIEND_VIEW_KEYS,
   FRIEND_VIEWS,
   FRIENDS_PAGE,
+  friendSinceWords,
   type FriendView,
 } from '@hfos/core/addons/outreach/friends';
 import { saveListOn, tidyWordsOn } from '@hfos/core/addons/outreach/network-words';
 import { NETWORKS, PLATFORMS, type Platform } from '@hfos/core/addons/outreach/networks';
+import { OUTREACH_PAGES } from '@hfos/core/addons/outreach/pages';
 import { warningNote } from '@hfos/core/addons/outreach/tidy';
 import { OUTREACH_WORDS } from '@hfos/core/addons/outreach/words';
 import Link from 'next/link';
@@ -46,7 +50,6 @@ import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { EmptyState } from '@/components/ui/empty-state';
 import { Input } from '@/components/ui/input';
-import { Segmented } from '@/components/ui/segmented';
 import { Switch } from '@/components/ui/switch';
 import { apiBrowser, errorMessage, unwrap } from '@/lib/api/client';
 import { useLiveRefresh } from '@/lib/realtime/live-provider';
@@ -54,9 +57,6 @@ import { cn, relativeTime } from '@/lib/utils';
 import { outreachHref } from './address';
 import { AskButton, AskLine, latestAskOn } from './asks';
 import { CancelAllBox } from './cancel-all';
-import { SkippedCountryCard } from './country-skipped';
-import { DownloadCard } from './download-card';
-import { FileAsksCard } from './file-asks';
 import { PersonName } from './person-menu';
 import { ResearchSlot } from './research';
 import type { Asks, Friend, Friends, Tidy } from './types';
@@ -87,37 +87,6 @@ const ORDER: Record<FriendView, string> = {
   never_contact: 'The latest added first',
 };
 
-const EMPTY: Record<FriendView, { readonly title: string; readonly body: string }> = {
-  friends: {
-    title: 'No friends saved yet',
-    body: 'Press Save my friends list, and your computer reads your friends list on Facebook and saves it here. Or bring in your Facebook file.',
-  },
-  fits: {
-    title: 'No good fits found yet',
-    body: 'Press Check my friends, and your computer reads your friends’ profiles a few at a time for the AI. The ones who fit your playbooks show here, with why and a first step.',
-  },
-  requests: {
-    title: 'No friend requests waiting',
-    body: 'Press Check my friend requests, and your computer saves the ones waiting on Facebook. They show here in order of how they fit your playbooks.',
-  },
-  sent: {
-    title: 'No requests waiting on an answer',
-    body: 'The friend requests you send, noted by HandsFreeOS Social, show here until they’re answered, the oldest first. Ones you sent before come in with your Facebook file.',
-  },
-  keep: {
-    title: 'Nobody on your Keep list',
-    body: 'Turn on Keep for the friends you’ll never unfriend.',
-  },
-  dont_pitch: {
-    title: 'Nobody on the Don’t pitch list',
-    body: `Turn on Don’t pitch for anyone nobody here should pitch, like family and close friends. Customers tagged ${DONT_PITCH_TAG} in Contacts count too.`,
-  },
-  never_contact: {
-    title: 'Nobody on the Never contact list',
-    body: 'Turn on Never contact for anyone nobody here should deal with at all: no friend request, like, comment or message, not even a reply, and their friend requests are never confirmed.',
-  },
-};
-
 const CHECK_TONE: Record<CheckVerdict, BadgeVariant> = {
   waiting: 'gray',
   good: 'ok',
@@ -132,45 +101,6 @@ const FIT_TONE: Record<FitLevel, BadgeVariant> = {
   unknown: 'gray',
   skip: 'danger',
 };
-
-const WEEK = 7 * 86_400_000;
-
-/** "3 d ago" within the week, then "Sep 1", and "Jul 14, 2019" in another year. */
-export function dayWords(iso: string): string {
-  const at = new Date(iso);
-  if (Date.now() - at.getTime() < WEEK) return relativeTime(iso);
-  return at.toLocaleDateString(
-    'en-US',
-    at.getFullYear() === new Date().getFullYear()
-      ? { month: 'short', day: 'numeric' }
-      : { month: 'short', day: 'numeric', year: 'numeric' },
-  );
-}
-
-/**
- * "Asked · 3 d ago": when a request came or went, or was deleted. A friend's day is the one Facebook's download file
- * says ("Friends since Mar 2019"); without it, nothing. Then the latest message, from the file or noted since.
- */
-function sinceWords(f: Friend): string | null {
-  const word =
-    f.state === 'request_received'
-      ? 'Asked'
-      : f.state === 'request_sent'
-        ? 'Sent'
-        : f.state === 'declined'
-          ? 'Deleted'
-          : null;
-  const since =
-    word && f.since
-      ? `${word} · ${dayWords(f.since)}`
-      : f.state === 'friends' && f.friendsSince
-        ? `Friends since ${new Date(f.friendsSince).toLocaleDateString('en-US', { month: 'short', year: 'numeric' })}`
-        : null;
-  const message = f.lastMessage
-    ? `Last message ${dayWords(f.lastMessage.at)}, from ${f.lastMessage.fromMe ? 'you' : 'them'}`
-    : null;
-  return [since, message].filter(Boolean).join(' · ') || null;
-}
 
 /** Why someone isn't pitched: the list, who put them on it and when, or the Contacts tag. */
 function dontPitchWords(d: DontPitch): string {
@@ -313,25 +243,6 @@ export function FriendsView({
   return (
     <div data-testid="outreach-friends">
       <div className="mb-4 flex flex-wrap items-center gap-2">
-        <div className="max-w-full overflow-x-auto">
-          <Segmented
-            ariaLabel="Which people"
-            value={show}
-            onChange={(v) => go({ show: v })}
-            options={FRIEND_VIEW_KEYS.map((k) => ({
-              value: k,
-              label: (
-                <>
-                  {FRIEND_VIEWS[k]}
-                  <span className="tabular-nums text-text-3">
-                    {friends.counts[COUNTED[k]].toLocaleString()}
-                  </span>
-                </>
-              ),
-              testId: `friends-show-${k}`,
-            }))}
-          />
-        </div>
         <SearchBox search={search} onSearch={(s) => go({ search: s })} />
       </div>
       <Card className="mb-4 p-4" data-testid="friends-asks">
@@ -367,7 +278,13 @@ export function FriendsView({
           {friends.people.length ? (
             <Card className="p-0" data-testid="friends-list">
               <div className="flex items-baseline justify-between gap-3 px-5 pt-4">
-                <h3 className="text-[15px] font-semibold">{FRIEND_VIEWS[show]}</h3>
+                <h3 className="text-[15px] font-semibold">
+                  {FRIEND_VIEWS[show]}
+                  <span className="font-medium text-text-3" data-testid="friends-count">
+                    {' · '}
+                    {friends.counts[COUNTED[show]].toLocaleString()}
+                  </span>
+                </h3>
                 <span className="text-[12.5px] text-text-3" data-testid="friends-range">
                   {ORDER[show]}
                   {friends.pages > 1 ? ` · ${rangeWords(friends)}` : ''}
@@ -405,29 +322,39 @@ export function FriendsView({
           ) : (
             <Card data-testid="friends-empty">
               {search ? (
-                <EmptyState title={`Nobody called “${search}” here`}>
-                  Check the spelling, or look in another list.
+                <EmptyState title={FRIEND_NO_MATCH.title(search)}>
+                  {FRIEND_NO_MATCH.body}
                 </EmptyState>
               ) : (
-                <EmptyState title={EMPTY[show].title}>{EMPTY[show].body}</EmptyState>
+                <EmptyState title={FRIEND_EMPTY[show].title}>{FRIEND_EMPTY[show].body}</EmptyState>
               )}
             </Card>
           )}
-          {/* Each network's own tidying: LinkedIn withdraws old invitations, and never removes a connection. */}
-          {tidyWordsOn(asking).kinds.length ? (
+          {/* Each network's own tidying, with Sent and Friends: LinkedIn withdraws old invitations, and never removes a
+              connection. */}
+          {(show === 'sent' || show === 'friends') && tidyWordsOn(asking).kinds.length ? (
             <TidyCard workspaceId={workspaceId} platform={asking} tidy={tidy} asks={asks} />
           ) : null}
-          <SkippedCountryCard workspaceId={workspaceId} />
         </div>
         <aside className="space-y-4">
-          <ChecksCard workspaceId={workspaceId} friends={friends} asks={asks} platform={asking} />
-          <CapCard counts={friends.counts} cap={friends.cap} platform={asking} />
-          {/* The download file is Facebook's alone yet: shown where it can be asked for. */}
-          {askableOn(asking, 'file_in') ? (
-            <>
-              <FileAsksCard workspaceId={workspaceId} asks={asks} />
-              <DownloadCard workspaceId={workspaceId} download={friends.download} />
-            </>
+          {show === 'fits' || show === 'friends' ? (
+            <ChecksCard workspaceId={workspaceId} friends={friends} asks={asks} platform={asking} />
+          ) : null}
+          {show === 'friends' ? (
+            <CapCard counts={friends.counts} cap={friends.cap} platform={asking} />
+          ) : null}
+          {/* Facebook's download file is under Find people's Old friends and chats (decision 128). */}
+          {askableOn(asking, 'file_in') && show === 'friends' ? (
+            <Card className="p-4" data-testid="friends-file-moved">
+              <h3 className="text-[15px] font-semibold">{FIND_PAGE_WORDS.fileTitle}</h3>
+              <p className="mt-1.5 text-[13px] text-text-2">{FIND_PAGE_WORDS.fileAbout}</p>
+              <Link
+                href={outreachHref(workspaceId, { view: 'find' })}
+                className="mt-2 inline-block text-[13px] font-medium text-accent-text hover:underline"
+              >
+                {OUTREACH_PAGES.find}
+              </Link>
+            </Card>
           ) : null}
           <Card className="p-4">
             <h3 className="text-[15px] font-semibold">Yours, and the business’s</h3>
@@ -562,7 +489,7 @@ function FriendRow({
   asks: Asks;
   onSet: (change: Flip) => void;
 }) {
-  const since = sinceWords(f);
+  const since = friendSinceWords(f);
   const keep = flip?.keep ?? f.keep;
   const listed = flip?.dontPitch ?? (f.dontPitch !== null && f.dontPitch.at !== null);
   const off = flip?.neverContact ?? f.neverContact !== null;
@@ -623,7 +550,7 @@ function FriendRow({
               <Switch
                 checked={keep}
                 onChange={(keep) => onSet({ keep })}
-                label={`Keep ${f.name}: never suggest unfriending them`}
+                label={OUTREACH_WORDS.friendKeepLabel(f.name)}
                 testId="friend-keep"
               />
               Keep

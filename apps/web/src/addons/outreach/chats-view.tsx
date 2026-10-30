@@ -16,6 +16,7 @@ import {
   CONTACTS_FROM_CHATS_WORDS,
   type ChatView,
 } from '@hfos/core/addons/outreach/chat-read';
+import { friendDayWords } from '@hfos/core/addons/outreach/friends';
 import { chatUrlOn, openChatWords } from '@hfos/core/addons/outreach/network-words';
 import type { Platform } from '@hfos/core/addons/outreach/networks';
 import { OUTREACH_WORDS as W } from '@hfos/core/addons/outreach/words';
@@ -34,7 +35,7 @@ import { cn } from '@/lib/utils';
 import { outreachHref } from './address';
 import { AskButton } from './asks';
 import { KeepChatButton } from './chat-keep';
-import { dayWords, Pager, SearchBox } from './friends-view';
+import { Pager, SearchBox } from './friends-view';
 import { NetworkName } from './network-ui';
 import { PersonName } from './person-menu';
 import type { Asks, Chat, Chats } from './types';
@@ -225,7 +226,7 @@ export function ChatsView({
 }
 
 function ChatRow({ workspaceId, chat: c }: { workspaceId: string; chat: Chat }) {
-  const last = `Last message ${dayWords(c.lastAt)}, from ${c.lastFromMe ? 'you' : 'them'}`;
+  const last = `Last message ${friendDayWords(c.lastAt)}, from ${c.lastFromMe ? 'you' : 'them'}`;
   return (
     <li className="border-t border-border px-5 py-3" data-testid="chat">
       <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">

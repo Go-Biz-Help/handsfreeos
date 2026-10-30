@@ -1,5 +1,5 @@
 /**
- * Social Outreach's pages (docs/outreach.md, decision 127): one for each thing the person comes to do, in this order,
+ * Social Outreach's pages (docs/outreach.md, decisions 127 and 128): one for each thing the person comes to do, in this order,
  * in the side menu's pop-out on the web (the manifest's `ui.nav`) and on the add-on's first screen on the phone, so
  * the two read the same. Needs you comes first after Set up, as what waits on the person; Settings is the gear's.
  *
@@ -11,7 +11,7 @@ export const OUTREACH_PAGE_KEYS = [
   'needs-you',
   'today',
   'people',
-  'groups',
+  'find',
   'results',
   'playbooks',
   'gear',
@@ -23,7 +23,7 @@ export const OUTREACH_PAGES: Readonly<Record<OutreachPage, string>> = {
   'needs-you': 'Needs you',
   today: 'Today',
   people: 'People',
-  groups: 'Groups',
+  find: 'Find people',
   results: 'Results',
   playbooks: 'Playbooks',
   gear: 'Settings',
@@ -34,8 +34,8 @@ export const OUTREACH_PAGE_ABOUT: Readonly<Record<OutreachPage, string>> = {
   'needs-you':
     'Messages and comments to OK, replies handed to you, and steps your computer couldn’t do.',
   today: 'What your computer is doing on each network, and the plan for today.',
-  people: 'Everyone you reached, your friends, your chats and your partners.',
-  groups: 'The groups to work, and why.',
+  people: 'Everyone you’re reaching, one list with a view for each kind.',
+  find: 'Where new people come from: groups, searches, events, followers and more.',
   results: 'What came of it: friends made, chats and calls booked.',
   playbooks: 'Who you’re looking for, and how you sound.',
   gear: 'Your settings, each network’s, your computer and your team’s.',
@@ -46,7 +46,7 @@ export const OUTREACH_PAGE_PATHS: Readonly<Record<OutreachPage, string>> = {
   'needs-you': 'needs-you',
   today: 'today',
   people: 'people',
-  groups: 'groups',
+  find: 'find',
   results: 'results',
   playbooks: 'playbooks',
   gear: 'settings',

@@ -35,6 +35,8 @@ export type OutreachTab =
   | 'live'
   | 'today'
   | 'pipeline'
+  | 'friends'
+  | 'find'
   | 'groups'
   | 'chats'
   | 'never_contact'
@@ -46,8 +48,8 @@ export type OutreachTab =
   | 'code'
   // The lists the business's country setting makes (`&show=unsure|skipped`, decisions 61 and 86).
   | 'countries';
-/** The tabs the phone leaves to the web: they have a lot to look through (the manifest's `ui.phone` `web`). */
-export type WebTab = 'activity' | 'friends';
+/** The old Activity, which the phone leaves to the web (the manifest's `ui.phone` `web`): Results has what it had. */
+export type WebTab = 'activity';
 
 /** A Social Outreach page's address, the web's own: `/app/w/<business>/a/outreach?view=waiting`. */
 export function outreachPath(workspaceId: string, view?: OutreachTab | WebTab, more = ''): string {
@@ -60,11 +62,11 @@ export const openOutreach = (workspaceId: string, view?: OutreachTab | WebTab, m
   openWebPath(outreachPath(workspaceId, view, more));
 
 /**
- * Moves between the four tabs (decision 59): the screen is swapped for the tab's, rather than stacked on it, so Back
- * still leaves Social Outreach.
+ * Moves between People's views (decision 128), with their query (`show=talking`): the screen is swapped for the
+ * view's, rather than stacked on it, so Back still leaves for the add-on's first screen.
  */
-export function switchOutreach(workspaceId: string, view: OutreachTab): void {
-  const path = outreachPath(workspaceId, view);
+export function switchOutreach(workspaceId: string, view: OutreachTab, more = ''): void {
+  const path = outreachPath(workspaceId, view, more);
   const target = targetOfLink(path, [config.webUrl]);
   if (target.kind === 'screen') router.replace(target.href as Href);
   else openWebPath(path);

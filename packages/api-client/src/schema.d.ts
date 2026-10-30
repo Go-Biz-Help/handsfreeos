@@ -19397,6 +19397,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/queries/outreach.finds.week": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Where new people came from in the last week, for the person: how many were found each way on each network (writing, commenting on or liking a good post, in a group, at an event near them, following an account like theirs, or by a search), how many of those the AI called a good fit or a maybe, the followers and group members checked like friends, and the partners found. One network’s, or every network’s.
+         * @description Requires outreach.use.
+         */
+        post: operations["query_outreach_finds_week"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/queries/outreach.follow_backs.next": {
         parameters: {
             query?: never;
@@ -75444,6 +75464,76 @@ export interface operations {
             };
         };
     };
+    query_outreach_finds_week: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** @enum {string} */
+                    platform?: "facebook" | "linkedin" | "instagram" | "alignable";
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        download: {
+                            /** Format: date-time */
+                            at: string;
+                            counts: {
+                                chats: number;
+                                declined: number;
+                                followers: number;
+                                following: number;
+                                friends: number;
+                                linked: number;
+                                notLinked: number;
+                                removed: number;
+                                request_received: number;
+                                request_sent: number;
+                            };
+                            /** Format: date-time */
+                            madeAt: string;
+                        } | null;
+                        followers: {
+                            found: number;
+                            good: number;
+                            maybe: number;
+                        };
+                        members: {
+                            found: number;
+                            good: number;
+                            maybe: number;
+                        };
+                        partners: number;
+                        /** Format: date-time */
+                        since: string;
+                        ways: {
+                            found: number;
+                            good: number;
+                            /** @enum {string} */
+                            how: "posted" | "commented" | "liked" | "member" | "event" | "follows" | "searched";
+                            maybe: number;
+                            /** @enum {string} */
+                            platform: "facebook" | "linkedin" | "instagram" | "alignable";
+                        }[];
+                    };
+                };
+            };
+        };
+    };
     query_outreach_follow_backs_next: {
         parameters: {
             query?: never;
@@ -77236,6 +77326,49 @@ export interface operations {
                             by: string | null;
                             tagged: boolean;
                         } | null;
+                        intro?: string[];
+                        journey?: {
+                            chat: {
+                                /** Format: date-time */
+                                lastAt: string;
+                                lastFromMe: boolean;
+                                nextStep: string | null;
+                                summary: string | null;
+                            } | null;
+                            groups: {
+                                /** Format: uuid */
+                                groupId: string;
+                                name: string | null;
+                                url: string;
+                            }[];
+                            lead: {
+                                afterDemo?: boolean;
+                                /** Format: uuid */
+                                leadId: string;
+                                stage: string;
+                                /** @enum {string} */
+                                status: "open" | "won" | "lost";
+                                title: string;
+                            } | null;
+                            moreSteps: number;
+                            nextStep: string | null;
+                            stage: ("found" | "warming" | "friends" | "talking" | "ready" | "pitched" | "booked" | "client" | "lost") | null;
+                            steps: {
+                                /** Format: date-time */
+                                at: string;
+                                auto: boolean;
+                                by: string | null;
+                                group: {
+                                    name: string | null;
+                                    url: string;
+                                } | null;
+                                /** @enum {string} */
+                                kind: "friend_request" | "like" | "comment" | "message" | "recommend" | "reply" | "demo";
+                                postUrl: string | null;
+                                step: ("first_message" | "follow_up") | null;
+                            }[];
+                            why: string[];
+                        };
                         laterUntil: string | null;
                         moveTo?: {
                             name: string;
@@ -77243,6 +77376,7 @@ export interface operations {
                             userId: string;
                             you: boolean;
                         }[];
+                        mutualFriends?: number | null;
                         name: string;
                         neverContact: {
                             at: string | null;

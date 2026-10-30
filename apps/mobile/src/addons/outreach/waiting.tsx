@@ -9,6 +9,7 @@ import {
   openPageWords,
   todayKindsOn,
 } from '@hfos/core/addons/outreach/network-words';
+import { COUNTRY_LIST_WORDS as CW } from '@hfos/core/addons/outreach/countries';
 import { networkOfLink, PLATFORMS } from '@hfos/core/addons/outreach/networks';
 import {
   COMMENT_HOLD_WORDS,
@@ -68,6 +69,7 @@ import { PersonMenuScope, PersonName } from './person-menu';
 import {
   NeedsSignal,
   Note,
+  openOutreach,
   openOutside,
   openSettingsPart,
   useOutreachAnswer,
@@ -193,6 +195,17 @@ export function useWaitingProps(): React.ComponentProps<typeof WaitingBody> {
   );
   const ws = ctx.workspaceId;
   const askActions = useAskActions(null, answer.reload);
+  // Whoever the country setting isn't sure of waits here for a pick (decision 128).
+  const unsure = useOutreachAnswer(
+    async () =>
+      unwrap(
+        await api.POST('/v1/queries/outreach.countries.skipped', {
+          body: { workspaceId: ws, list: 'unsure', page: 1 },
+        }),
+      ),
+    `countries-unsure:${ws}`,
+    W.rows.waiting,
+  );
   return {
     phone,
     server: answer.data,
@@ -251,6 +264,9 @@ export function useWaitingProps(): React.ComponentProps<typeof WaitingBody> {
     // How the phone hears of it is on General.
     onSettings: () => openSettingsPart(ws, 'general'),
     askActions,
+    unsure: unsure.data?.total
+      ? { count: unsure.data.total, onOpen: () => openOutreach(ws, 'countries', 'show=unsure') }
+      : null,
   };
 }
 
@@ -269,6 +285,7 @@ export function WaitingBody({
   onLeave,
   onSettings,
   askActions,
+  unsure = null,
 }: {
   phone: PhoneWaiting;
   server: WaitingFromServer | null;
@@ -285,6 +302,8 @@ export function WaitingBody({
   onSettings: () => void;
   /** Carry on, Skip and Stop, on what the computer needs them for. */
   askActions?: AskActions;
+  /** How many the country setting isn't sure of, and opening them: null when none wait. */
+  unsure?: { readonly count: number; readonly onOpen: () => void } | null;
 }) {
   const [changing, setChanging] = React.useState<PhoneSend | null>(null);
   const all = approveAllFromPhone(phone);
@@ -429,6 +448,22 @@ export function WaitingBody({
         </>
       ) : online && serverError ? (
         <NeedsSignal words={serverError} onRetry={onRetry} testID="waiting-server-error" />
+      ) : null}
+
+      {unsure ? (
+        <Card className="gap-1.5 px-4 py-3.5" testID="waiting-country-unsure">
+          <Text className="text-[15px] font-semibold">{CW.unsureTitle}</Text>
+          <Note>{`${CW.unsureNote} ${CW.unsureCount(unsure.count)}`}</Note>
+          <Button
+            variant="secondary"
+            size="sm"
+            className="self-start"
+            onPress={unsure.onOpen}
+            testID="waiting-country-unsure-open"
+          >
+            {CW.unsureOpen}
+          </Button>
+        </Card>
       ) : null}
 
       {count === 0 && (server || !online) ? (

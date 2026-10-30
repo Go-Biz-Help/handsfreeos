@@ -18,6 +18,7 @@
 import { z } from 'zod';
 import { CLIENT_CAUSES, type ClientCause } from '../../crm/record-words';
 import { SEND_KINDS, type MessageKind, type SendKind } from './automation';
+import { Journey } from './journey';
 import { chatUrlOn, openChatWords, openPageWords } from './network-words';
 import { PLATFORM_KEYS, type Platform } from './networks';
 import { OWNER_WORDS, TeamOwner } from './owners';
@@ -146,6 +147,14 @@ export const ProfileMarksOutput = z.object({
   owner: TeamOwner.nullable().optional(),
   /** For an owner or admin: the teammates they can be given to (`outreach.owner.move`); none for anyone else. */
   moveTo: z.array(TeamOwner).optional(),
+  /**
+   * Everything about them, for the person panel (decision 128): their way so far (./journey.ts: where they stand and
+   * why, the groups they were found in, the chat as the AI read it, and every step), what their page's intro says, and
+   * their mutual friends. Left out by builds from before it.
+   */
+  journey: Journey.optional(),
+  intro: z.array(z.string()).optional(),
+  mutualFriends: z.number().int().nullable().optional(),
 });
 export type ProfileMarksOutput = z.output<typeof ProfileMarksOutput>;
 
