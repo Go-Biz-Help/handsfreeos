@@ -136,6 +136,8 @@ import {
   type NetworkDay,
   type OwnDailyJob,
   type Work,
+  listSays,
+  retryWake,
 } from './plan';
 import { askInLine, inTurn } from './turns';
 
@@ -1216,8 +1218,15 @@ async function go(): Promise<void> {
       });
     await closeWindow();
     await say(networkWaitWords(NAME, own, settings.hours, timezone, at));
-    // The beat says when it's pressed (`days.instagram`), and wakes this before then; a reply waiting for an OK, sooner.
-    return goAt(lookOutsideAt(!!answering && replyWaiting(answering.list), at, own.next));
+    // The beat says when it's pressed (`days.instagram`), and wakes this before then; a reply waiting for an OK, or a message tried again, sooner.
+    return goAt(
+      lookOutsideAt(
+        !!answering && replyWaiting(answering.list),
+        at,
+        own.next,
+        answering ? retryWake(await stateNow(), at) : [],
+      ),
+    );
   }
   if (own.started && !state.started) state = await setState({ started: true, stopped: null });
   if (state.stopped === 'warning' || (await warnedNow(PLATFORM))) {
@@ -1352,7 +1361,12 @@ async function go(): Promise<void> {
       }${again !== null ? ` ${AGAIN_WORDS}` : ''}`,
     );
     return goAt(
-      Math.min(at + (waiting ? AWAY_AGAIN_MS : 60 * 60_000), ...(again !== null ? [again] : [])),
+      Math.min(
+        at + (waiting ? AWAY_AGAIN_MS : 60 * 60_000),
+        ...(again !== null ? [again] : []),
+        // A message tried again that waits its turn (decision 132).
+        ...retryWake(await stateNow(), at),
+      ),
     );
   }
   return workNext(left, list, {
@@ -1378,8 +1392,10 @@ async function listNow(
     businessId,
   );
   // Whether Instagram needs more good fits today (decision 126): it finds people again once the day's reading is done.
-  const more = list.goal?.more === true;
-  if ((await stateNow()).more !== more) await setState({ more });
+  // And when a message tried again may go (decision 132): it looks again by then.
+  const says = listSays(list);
+  const kept = await stateNow();
+  if (kept.more !== says.more || (kept.retryAt ?? null) !== says.retryAt) await setState(says);
   return { list, left: instagramWorkLeft(list, tried, replied) };
 }
 

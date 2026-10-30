@@ -19,7 +19,7 @@
  * Like the readers, it goes by what a person sees (words, labels, links, page order), never LinkedIn's class names.
  */
 import type { AutoResult, TheirPost } from '../facebook/auto';
-import { isAfter } from '../facebook/dom';
+import { isAfter, squashed, timesShown } from '../facebook/dom';
 import { shown, visible } from '../facebook/fetch';
 import { hasWriting, reacted } from './actions';
 import { readChat } from './chat';
@@ -36,7 +36,15 @@ import {
 } from './posts';
 import { inTopCard, readProfile } from './profile';
 import type { ProfileRef } from './types';
-import { classifyUrl, comparable, linkedinUrl, memberIdFrom, sameMember } from './urls';
+import {
+  byMemberId,
+  classifyUrl,
+  comparable,
+  linkedinUrl,
+  memberIdFrom,
+  sameMember,
+  threadOf,
+} from './urls';
 import { CONNECT, MESSAGE, MORE } from './vocabulary';
 
 export type { AutoResult, TheirPost };
@@ -64,6 +72,12 @@ const REPLY_BOX = /^(add a reply|reply to\b|write a reply)/i;
 /** How long a box, a menu and a change are waited on, and how often they're looked at. */
 const WAIT_MS = 8_000;
 const LOOK_MS = 300;
+/** How long a sent message has to show it went. */
+const SENT_MS = 8_000;
+/** How long a box to write to them in may take to show: a new conversation's is drawn in the interop frame, which
+ * loads all of LinkedIn's messaging first (the owner's sends of 30 Oct 2026, on 0.114.0). */
+const BOX_MS = 5_000;
+const NEW_BOX_MS = 15_000;
 
 export const says = (control: Element, pattern: RegExp) =>
   wordsOf(control).some((w) => pattern.test(w));
@@ -289,8 +303,27 @@ async function typeAndSend(
   if (!hasWriting(box)) return 'not_sent';
   const send = sendFor(box, pattern);
   if (!send) return 'none';
+  // It went once the box empties, or what was typed shows once more where the box is: LinkedIn sometimes draws the
+  // box afresh, or leaves the writing in it a while (the owner's sends of 30 Oct 2026, on 0.114.0, said "didn't take"
+  // of a message that was in the conversation).
+  const place = box.getRootNode();
+  const before = timesShown(place, text, WRITING);
   send.click();
-  return (await waitFor(() => (hasWriting(box) ? null : true), 6_000)) ? 'done' : 'not_sent';
+  const went = await waitFor(
+    () => (!hasWriting(box) || timesShown(place, text, WRITING) > before ? true : null),
+    SENT_MS,
+  );
+  if (!went) return 'not_sent';
+  // What was typed left in the box after it went is taken out, so the next message finds it empty.
+  if (
+    box.isConnected &&
+    hasWriting(box) &&
+    !(await waitFor(() => (hasWriting(box) ? null : true), 2_000)) &&
+    squashed(box.tagName === 'TEXTAREA' ? (box as HTMLTextAreaElement).value : box.textContent) ===
+      squashed(text)
+  )
+    takeOut(box);
+  return 'done';
 }
 
 /** The post the page is about: its own page's, the first. */
@@ -381,6 +414,29 @@ function windowLinks(box: Element, doc: Document, href: string): ProfileRef[] {
 }
 
 /**
+ * Who a new conversation's box is to, as the part around it links to them: the people linked outside its messages in
+ * the nearest part around the box that links to anyone, short of the list of conversations or a second box to write
+ * in. In LinkedIn's newer messaging, the card over the box with their picture and name (the owner's sends of 30 Oct
+ * 2026, on 0.114.0).
+ */
+function composeLinks(box: Element, href: string): ProfileRef[] {
+  let up = box.parentElement;
+  for (let steps = 0; up && steps < 12; steps++, up = up.parentElement) {
+    if ([...up.querySelectorAll(WRITING)].filter(shown).length > 1) break;
+    if (
+      [...up.querySelectorAll('a[href]')].some((a) => threadOf(a.getAttribute('href') ?? '', href))
+    )
+      break;
+    const linked = peopleLinked(linksOutsideMessages(up), href, inPageBar).map((p) => p.profile);
+    if (linked.length) return linked;
+  }
+  return [];
+}
+
+/** A new conversation's own page: what Message on their profile opens (/messaging/thread/new/?recipient=…). */
+const NEW_CONVERSATION = /^\/messaging\/(thread\/new|compose)(\/|$)/i;
+
+/**
  * The box to write to them in: the conversation's own on its page (when it's with them, as far as it says), or the
  * one window over the page that links to them, wherever LinkedIn draws it (its interop box among them: ./dom.ts).
  * Null when there's none, or more than one.
@@ -390,19 +446,28 @@ export function messageBoxFor(doc: Document, href: string, them: ProfileRef): HT
   const main = mainOf(doc);
   const url = linkedinUrl(href);
   // The new conversation Message on their profile opens names whom it's to (/messaging/thread/new/?recipient=…).
-  const to = address.kind === 'messaging' && url ? memberIdFrom(url) : null;
-  if (address.kind === 'chat' || to) {
+  const fresh = address.kind === 'messaging' && !!url && NEW_CONVERSATION.test(url.pathname);
+  const toId = fresh ? memberIdFrom(url!) : null;
+  const to = toId ? { id: toId, username: null, url: href } : null;
+  if (address.kind === 'chat' || fresh) {
     // Their conversation's own page: the runner opened it by its id and checked it's theirs, or Message on their
-    // profile opened it for them. Only something plainly saying it's someone else's is a reason to stop. LinkedIn's
-    // newer pages draw it in the interop frame's own page.
-    if (to && them.id && to !== them.id) return null;
+    // profile opened it for them. Only something plainly saying it's someone else's is a reason to stop: an id of the
+    // same kind as theirs that isn't theirs (LinkedIn writes one member's id two ways: ./urls.ts), or a card over the
+    // box linking to someone else. A new conversation whose address names nobody it can read is theirs only by that
+    // card. LinkedIn's newer pages draw it in the interop frame's own page.
+    if (to && byMemberId(to, them) && to.id !== them.id) return null;
     const boxes = pagesOf(doc).flatMap((page) => {
       if (address.kind === 'chat') {
         const chat = readChat(page, address, href);
         if (chat.profile && comparable(chat.profile, them) && !sameMember(chat.profile, them))
           return [];
       }
-      return messageBoxes(page === doc ? main : page);
+      return messageBoxes(page === doc ? main : page).filter((box) => {
+        if (!fresh) return true;
+        const linked = composeLinks(box, href);
+        if (linked.some((p) => comparable(p, them) && !sameMember(p, them))) return false;
+        return to !== null || linked.some((p) => sameMember(p, them));
+      });
     });
     return boxes.length === 1 ? boxes[0]! : null;
   }
@@ -441,7 +506,7 @@ export async function writeMessage(
   them: ProfileRef,
 ): Promise<AutoResult> {
   const theirs = () => messageBoxFor(doc, href, them);
-  const box = await waitFor(theirs, 5_000);
+  const box = await waitFor(theirs, classifyUrl(href).kind === 'messaging' ? NEW_BOX_MS : BOX_MS);
   if (!box) return 'none';
   return typeAndSend(box, text, SENDS_MESSAGE, theirs);
 }

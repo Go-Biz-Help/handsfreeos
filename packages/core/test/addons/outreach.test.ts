@@ -111,6 +111,7 @@ describe('Social Outreach', () => {
         'outreach.readiness.messages',
         'outreach.readiness.numbers',
         'outreach.send.approve',
+        'outreach.send.retry',
         'outreach.wheels.end',
       ].sort(),
     );

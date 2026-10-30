@@ -3161,7 +3161,29 @@ where decisions 37 and 59 put the settings; what they decided stands. Settled to
         Alignable's runner goes straight to the conversation by the business id kept.
       - **Instagram stays by the name in an account's address:** its links show no id. Reading one from the page's
         code was left out, as it also holds the person's own; its chats are kept by their own key.
-132.  **Replies seen by name, and answered any time** (Chris, 30 Oct 2026, extension **0.117.0**). A prospect's Instagram
+132.  **Retry, and Retry all, spaced out like a person** (Chris, 30 Oct 2026, extension 0.116.0). "need a retry button,
+      when it does retry it shouldn't all send at the same time it should space them out."
+      - **Where:** on Steps it needs you for (web, phone, and the Assistant's `outreach_retry_messages`, on a Confirm
+        card), each message or comment that didn't go has **Retry**; with two or more listed, **Retry all**. Steps that
+        aren't a send (a friend request, a like) come back on the list on their own another day, so they have none.
+      - **What it does:** `outreach.send.retry` makes a new send, OK'd as it was, and marks the step done; one that
+        can't go again is handed back as a new step. A new send, not the old one again, as the extension tries each
+        send once a day by its own id. A comment's post, set aside when it didn't go, goes back on the list unless the
+        person set it aside since. One with a newer message to them waiting already, or that went since, is passed
+        over and said.
+      - **Spaced out:** the oldest goes first, now; each next one waits 3 to 7 minutes after the one before, at random
+        (`sends.not_before`, migration 20261027020600, `RETRY_GAP_MINUTES`). Till its time its person is off Today's
+        list, and Today says when the next may go on that network (`retryAt`), so a runner with nothing else to do
+        looks again then. Each runner still does one thing at a time at its network's pace, so they never go at once.
+      - **Fewer false alarms first** (the owner's sends of 30 Oct 2026, on 0.114.0): LinkedIn and Alignable said
+        "didn't take the message" of messages that were in the conversation, as LinkedIn drew the box afresh and
+        Alignable left the writing in it. A message went once the box empties or once what was typed shows once more
+        in the conversation (`timesShown`), and what's left in the box is taken out. On LinkedIn's newer messaging,
+        the new conversation Message opens loads in the interop frame, so it waits up to 15 seconds for the box, and
+        takes the box as theirs by the card over it linking to them, as the address may name them by the other kind of
+        member id: only a card or an id of the same kind naming someone else stops it.
+
+133.  **Replies seen by name, and answered any time** (Chris, 30 Oct 2026, extension **0.117.0**). A prospect's Instagram
       reply got no draft: it was seen only when Chris opened the chat. "check to make sure we don't have this
       issue with the other platforms as well." Then: "it should always be checking for new messages and always respond
       in real time it just shouldn't send out new messages if it's not in the working time."
@@ -3182,7 +3204,8 @@ where decisions 37 and 59 put the settings; what they decided stands. Settled to
         working hours, with nothing pressed, each network's runner still drafts a reply to someone who wrote back, at
         once, and sends one the person OK'd (or that goes on its own as Replies says). Nothing new goes: no first
         message, follow-up, reconnect, like or request, OK'd or not, till the hours start. While a reply waits for an
-        OK it looks again every 2 minutes, else it sleeps till the hours. Stop for today, a warning, noting off and an
+        OK it looks again every 2 minutes, and a message tried again (decision 132) wakes it at its turn, since a reply
+        tried again goes any time too; else it sleeps till the hours. Stop for today, a warning, noting off and an
         ask in line still stop it, as in the hours.
 
 ## Rules worth knowing before changing anything

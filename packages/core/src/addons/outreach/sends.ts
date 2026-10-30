@@ -223,6 +223,24 @@ export const SendDoneInput = z.object({
 export type SendDoneInput = z.input<typeof SendDoneInput>;
 export const SendDoneOutput = z.object({ sendId: z.uuid(), state: z.enum(SEND_STATE_KEYS) });
 
+/**
+ * Retry, or Retry all, on messages and comments the extension couldn't send (decision 132): the steps handed to the
+ * person by their ids, or with none named every one that can be tried again. Each goes again as it was, a few minutes
+ * after the one before.
+ */
+export const SendRetryInput = z.object({
+  workspaceId: z.uuid(),
+  needIds: z.array(z.uuid()).min(1).max(SENDS_MOST).nullable().default(null),
+});
+export type SendRetryInput = z.input<typeof SendRetryInput>;
+export const SendRetryOutput = z.object({
+  /** Each tried again: its step, the message that goes again, and when it may go at the soonest. */
+  retried: z.array(z.object({ needId: z.uuid(), sendId: z.uuid(), at: z.iso.datetime() })),
+  /** Those that couldn't be: a newer message to them waits already, or it went since. */
+  passed: z.number().int().min(0),
+});
+export type SendRetryOutput = z.output<typeof SendRetryOutput>;
+
 /** The person's messages waiting for their OK, and those OK'd, to send. */
 export const SendsInput = z.object({ workspaceId: z.uuid() });
 export type SendsInput = z.input<typeof SendsInput>;

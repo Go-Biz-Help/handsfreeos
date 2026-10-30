@@ -254,6 +254,7 @@ describe('a partner’s steps on Today', () => {
       requestsHeld: null,
       profileOwn: null,
       goal: null,
+      retryAt: null,
     };
     await render(
       <TodayBody

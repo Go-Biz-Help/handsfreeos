@@ -141,6 +141,11 @@ export interface AutoState {
   readonly round?: number;
   readonly roundAt?: number | null;
   /**
+   * When the next message tried again on the network may go, as today's list last said (decision 132): the runner
+   * looks again by then, though nothing else is left. Missing in a state kept by 0.115.
+   */
+  readonly retryAt?: number | null;
+  /**
    * The person's lists as HandsFreeOS last said, and the step before the day under way now: for the panel's live
    * checklist. Missing in a state kept by 0.27.
    */
@@ -368,10 +373,18 @@ export const replyWaiting = (
 
 /**
  * When a runner outside its hours looks next: soon while a reply waits for an OK, else at the hours' next start
- * (`next`; null when there's none this week).
+ * (`next`; null when there's none this week). A message tried again that waits its turn (`retry`, from `retryWake`)
+ * brings it sooner, as a reply tried again goes any time too.
  */
-export const lookOutsideAt = (waiting: boolean, now: number, next: number | null): number | null =>
-  waiting ? Math.min(now + REPLY_LOOK_MS, next ?? Infinity) : next;
+export const lookOutsideAt = (
+  waiting: boolean,
+  now: number,
+  next: number | null,
+  retry: readonly number[] = [],
+): number | null => {
+  const look = waiting ? Math.min(now + REPLY_LOOK_MS, next ?? Infinity) : next;
+  return retry.length ? Math.min(look ?? Infinity, ...retry) : look;
+};
 
 /** The most kept as having written back: a day's worth, far more than a list carries. */
 const REPLIED_MOST = 50;
@@ -414,6 +427,16 @@ export function itemsLeft(
   // A post asking for what the business offers goes first (decision 49): answered while it's fresh.
   return [...left.filter((item) => item.asking), ...left.filter((item) => !item.asking)];
 }
+
+/** When to look again for a message tried again that waits its turn (decision 132): its time, once it's after `now`. */
+export const retryWake = (state: Pick<AutoState, 'retryAt'>, now: number): number[] =>
+  state.retryAt != null && state.retryAt > now ? [state.retryAt] : [];
+
+/** What today's list says for the runner's state: whether it needs more good fits, and when a retry may go. */
+export const listSays = (list: Pick<TodayList, 'goal' | 'retryAt'>) => ({
+  more: list.goal?.more === true,
+  retryAt: list.retryAt ? Date.parse(list.retryAt) : null,
+});
 
 /** One thing for it to do: a step on the list, drafting a message, or sending one OK'd. */
 export type Work =

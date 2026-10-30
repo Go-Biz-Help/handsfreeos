@@ -8477,6 +8477,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/commands/outreach.send.retry": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * The person tries again messages and comments the extension couldn’t send, from Steps it needs you for: one (Retry), or with none named every one there (Retry all). Each goes again as it was, OK’d, a few minutes after the one before at random, so they never all go at once; its step leaves the list, and comes back if it can’t go again. One with a newer message to them waiting already, or that went since, is passed over.
+         * @description Risk level 1. Requires outreach.use. Emits outreach.send.approved, outreach.need.cleared.
+         */
+        post: operations["command_outreach_send_retry"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/commands/outreach.send.skip": {
         parameters: {
             query?: never;
@@ -45204,6 +45224,45 @@ export interface operations {
             };
         };
     };
+    command_outreach_send_retry: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** @default null */
+                    needIds?: string[] | null;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        passed: number;
+                        retried: {
+                            /** Format: date-time */
+                            at: string;
+                            /** Format: uuid */
+                            needId: string;
+                            /** Format: uuid */
+                            sendId: string;
+                        }[];
+                    };
+                };
+            };
+        };
+    };
     command_outreach_send_skip: {
         parameters: {
             query?: never;
@@ -79339,6 +79398,8 @@ export interface operations {
                             /** @enum {string} */
                             why: "waiting" | "cap";
                         } | null;
+                        /** @default null */
+                        retryAt: string | null;
                         /** @enum {string} */
                         sending: "off" | "steps" | "approve_all" | "everything";
                         warning: {

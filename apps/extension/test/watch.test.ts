@@ -79,6 +79,7 @@ const {
   REPLY_LOOK_MS,
   repliedAfter,
   replyWaiting,
+  retryWake,
   stillReplied,
   withReplied,
   workKey,
@@ -562,6 +563,12 @@ describe('outside the working hours (decision 133)', () => {
     expect(lookOutsideAt(false, now, next)).toBe(next);
     // The hours start sooner than the next look: then.
     expect(lookOutsideAt(true, now, now + 60_000)).toBe(now + 60_000);
+    // A message tried again that waits its turn (decision 132) wakes it then, as a reply tried again goes any time.
+    const retry = retryWake({ retryAt: now + 5 * 60_000 }, now);
+    expect(lookOutsideAt(false, now, next, retry)).toBe(now + 5 * 60_000);
+    expect(lookOutsideAt(false, now, null, retry)).toBe(now + 5 * 60_000);
+    expect(lookOutsideAt(true, now, next, retry)).toBe(now + REPLY_LOOK_MS);
+    expect(lookOutsideAt(false, now, next, retryWake({ retryAt: now - 60_000 }, now))).toBe(next);
   });
 });
 

@@ -333,6 +333,7 @@ const todayOf = (items: TodayItem[]): TodayOutput => ({
   requestsHeld: null,
   profileOwn: null,
   goal: null,
+  retryAt: null,
 });
 
 describe('A network’s list for today', () => {
