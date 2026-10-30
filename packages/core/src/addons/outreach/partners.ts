@@ -12,6 +12,10 @@
  * - **The Partners list** (`outreach.partners`): its own stages, kept as they're reached, each person's own.
  * - **Never pitched as customers** (decision 13): a profile found as a partner (`profiles.partner_found_at`) is left out of
  *   every customer step, with its twins, as Don't pitch is (./ops/common.ts).
+ * - **Marked by the person** (decision 130, `outreach.partner.potential`): Potential partner in the person menu puts
+ *   anyone on their Partners list, as the AI's finds go, before them. The AI still reads their profile for what kind of
+ *   partner they are and who listens to them, and the mark stands whatever it says. They may be offered a demo too,
+ *   which counts as Call booked and as Demo booked. Not a partner after all puts them back on customer messages.
  *
  * Browser-safe: the extension, the web, the phone and the worker read these words and shapes.
  */
@@ -277,6 +281,12 @@ export type PartnerPlaybook = Pick<PlaybookDetails, 'offer' | 'audience' | 'sign
 };
 
 export const PARTNER_ASK = 'Could this person send the business its customers?';
+/**
+ * The ask for someone the person marked as a potential partner themselves (decision 130): their mark stands, so the
+ * read is for the messages to fit, even with no playbook written.
+ */
+export const PARTNER_MARKED_ASK =
+  'The owner marked this person as a potential partner themselves, so they are one whatever you answer. Still say how good a fit their audience is, what kind of partner they are, who listens to them and how many, why, and a first warm-up, so the messages fit. With no playbooks, judge by who the business serves.';
 
 export const PARTNER_SYSTEM = [
   'You help a small business owner find partners on Facebook: people who already have the attention of the business’s customers, as <playbooks> describe them, and could send them the owner’s way for a share of what they pay.',
@@ -305,6 +315,8 @@ export function partnerPrompt(input: {
   readonly lines: readonly string[];
   readonly playbooks: readonly PartnerPlaybook[];
   readonly platform?: Platform;
+  /** The person marked them as a potential partner themselves (decision 130): read for the messages, not judged. */
+  readonly marked?: boolean;
 }): string {
   const network = NETWORKS[input.platform ?? 'facebook'].name;
   const playbooks = input.playbooks.length
@@ -333,7 +345,7 @@ export function partnerPrompt(input: {
     input.lines.length
       ? `<their_pages>\n${quoteData(input.lines.join('\n'))}\n</their_pages>`
       : `<their_pages>${network} showed nothing of theirs.</their_pages>`,
-    PARTNER_ASK,
+    input.marked ? PARTNER_MARKED_ASK : PARTNER_ASK,
   ]
     .filter(Boolean)
     .join('\n\n');
@@ -521,6 +533,8 @@ export const PartnerRow = z.object({
   why: z.array(z.string()),
   nextStep: z.string().nullable(),
   playbook: z.object({ id: z.uuid(), name: z.string() }).nullable(),
+  /** The person marked them as a potential partner (decision 130), rather than the AI finding them. */
+  marked: z.boolean(),
 });
 export type PartnerRow = z.output<typeof PartnerRow>;
 
@@ -560,6 +574,23 @@ export const PartnerMarkOutput = z.object({
   stage: z.enum(PARTNER_STAGE_KEYS).nullable(),
 });
 export type PartnerMarkOutput = z.output<typeof PartnerMarkOutput>;
+
+/** Potential partner, or Not a partner after all, from the person menu (decision 130). */
+export const PartnerPotentialInput = z.object({
+  workspaceId: z.uuid(),
+  profileId: z.uuid(),
+  potential: z.boolean(),
+});
+export type PartnerPotentialInput = z.input<typeof PartnerPotentialInput>;
+export const PartnerPotentialOutput = z.object({
+  /** Their row on the Partners list: null when they weren't on it. */
+  partnerId: z.uuid().nullable(),
+  /** Their stage now: null once they're off the list. */
+  stage: z.enum(PARTNER_STAGE_KEYS).nullable(),
+  /** How many messages to them waiting for an OK, or OK'd and not sent, were skipped: customer ones when marked. */
+  skipped: z.number().int().min(0),
+});
+export type PartnerPotentialOutput = z.output<typeof PartnerPotentialOutput>;
 
 /**
  * The marks a row of the Partners list offers at each stage, the web's and the phone's: the stages still ahead, Not
@@ -622,7 +653,17 @@ const PARTNER_TASK: Record<PartnerMessageKind, string> = {
     'They answered the owner about partnering. Write the owner’s reply to their last message. When it’s a question, answer it honestly from what a partner gets in a sentence or two, then offer a quick call. When they said not now, say no problem and that the owner will check back in a few months. When they said no, thank them kindly and leave it there. Otherwise answer and move it along.',
 };
 
-/** A partner's message (the worker's `outreach.today.draft`): the person's own words, about partnering only. */
+/**
+ * For someone the person marked as a potential partner (decision 130), once they're interested or ask how it works: the
+ * call may be a demo, to see what they'd send people to, or to try it for their own business. Partnering still leads.
+ */
+export const PARTNER_DEMO_TASK =
+  'The owner marked them as a potential partner themselves. When they show interest or ask how it works, the call can also be a quick demo, so they can see what they’d be sending people to, or try it for their own business. Partnering still comes first.';
+
+/**
+ * A partner's message (the worker's `outreach.today.draft`): the person's own words, about partnering only, or for
+ * someone the person marked, partnering first with a demo once they're interested.
+ */
 export function partnerDraftPrompt(input: {
   readonly kind: PartnerMessageKind;
   readonly business: string;
@@ -647,8 +688,13 @@ export function partnerDraftPrompt(input: {
   readonly platform?: Platform;
   /** What the business knows (decision 122, ./knows.ts): its profile and Knowledge. Left out, it isn't told. */
   readonly knows?: DraftKnows | null;
+  /** The person marked them as a potential partner (decision 130): once they're interested, a demo may be offered. */
+  readonly marked?: boolean;
+  /** The partner link with no partner playbook, for someone the person marked: another playbook's, with their ref. */
+  readonly link?: string | null;
 }): string {
   const p = input.playbook;
+  const partnerLink = p?.link ?? input.link ?? null;
   const voice = input.voice ?? VOICE_DEFAULTS;
   const playbook = p
     ? [
@@ -671,10 +717,10 @@ export function partnerDraftPrompt(input: {
     .filter(Boolean)
     .join('\n');
   const link =
-    p?.link && (input.kind === 'partner_details' || input.kind === 'partner_reply')
+    partnerLink && (input.kind === 'partner_details' || input.kind === 'partner_reply')
       ? input.kind === 'partner_details'
-        ? `Put this link in every draft, exactly as written: ${quoteData(p.link)}`
-        : `When you offer the call, give this link exactly as written: ${quoteData(p.link)}`
+        ? `Put this link in every draft, exactly as written: ${quoteData(partnerLink)}`
+        : `When you offer the call, give this link exactly as written: ${quoteData(partnerLink)}`
       : null;
   return [
     `<business>${quoteData(input.business)}</business>`,
@@ -689,6 +735,9 @@ export function partnerDraftPrompt(input: {
       : null,
     input.recent.length ? `<chat>\n${quoteData(chatLines(input.recent))}\n</chat>` : null,
     inNetworkWords(PARTNER_TASK[input.kind], input.platform ?? 'facebook'),
+    input.marked && (input.kind === 'partner_details' || input.kind === 'partner_reply')
+      ? PARTNER_DEMO_TASK
+      : null,
     input.kind === 'partner_follow_up'
       ? `This is follow-up ${Math.min((input.followUps ?? 0) + 1, PARTNER_FOLLOW_UPS)} of ${PARTNER_FOLLOW_UPS}.`
       : null,
@@ -739,6 +788,8 @@ export const PartnerCallInput = z.object({
   ref: z.string().min(1).max(200),
   appointmentId: z.uuid(),
   at: z.iso.datetime({ offset: true }),
+  /** The customer who booked: kept on the demo it counts as, for someone the person marked (decision 130). */
+  personId: z.uuid().nullable().default(null),
 });
 export type PartnerCallInput = z.input<typeof PartnerCallInput>;
 export const PartnerCallOutput = z.object({ noted: z.boolean() });
@@ -754,7 +805,7 @@ export const PARTNER_WORDS = {
     'People who already have your customers’ attention: group admins, creators and businesses with the same customers. Your computer finds them, the AI checks their audience, and you OK every message.',
   emptyTitle: 'No partners yet',
   empty:
-    'Nobody yet. Write a playbook whose goal is Find partners, and your computer starts finding them as it works.',
+    'Nobody yet. Write a playbook whose goal is Find partners, and your computer starts finding them as it works. Or tap someone’s name and choose Potential partner.',
   emptyStage: (stage: PartnerStage) => `Nobody is at ${PARTNER_STAGES[stage]} yet.`,
   /** When they reached their stage, as a row says it: "Asked · 3 d ago". */
   since: (stage: PartnerStage, at: string, now = Date.now()) =>
@@ -790,6 +841,15 @@ export const PARTNER_WORDS = {
   /** Why a partner's step is on Today, in a line. */
   todayWhy: (kind: PartnerKind, audience: string | null) =>
     audience ? `${PARTNER_KINDS[kind]}: ${audience}` : PARTNER_KINDS[kind],
+  /** Someone the person marked as a potential partner (decision 130), on their row and their step on Today. */
+  markedWhy: 'You marked them as a potential partner',
+  markedBadge: 'You marked them',
+  /** The refusals of Potential partner. */
+  potentialLeftAlone: (name: string) =>
+    `${name} is on Don’t pitch or Never contact, so they’re never asked to partner. Take them off it in their menu first.`,
+  potentialSelf: 'That’s your own profile, so it can’t go on your Partners list.',
+  potentialIsPartner: (name: string) =>
+    `${name} is a partner of the business now, so they stay on your Partners list. To stop working with them, change it in Partners.`,
   marked: (mark: PartnerMark, name: string) =>
     ({
       interested: `${name} is interested.`,

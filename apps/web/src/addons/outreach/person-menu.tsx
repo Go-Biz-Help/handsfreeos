@@ -15,6 +15,8 @@
  * - **Mark as client** (`outreach.client.set`), through the same "Is this one of these?" when they aren't in
  *   Contacts, or **Not a client after all**, or why Contacts counts them a client;
  * - **Demo booked**, or **Not a demo after all**;
+ * - **Potential partner** (`outreach.partner.potential`, decision 130), onto the person's Partners list with partner
+ *   messages, under why the AI thinks so when it does, or **Not a partner after all**;
  * - **Later**, off the person's own Today for 2 weeks, or **Take off Later** (`outreach.later.set`, decision 100);
  * - who reached them first, and for an owner or admin **Give them to {teammate}** (`outreach.owner.move`, decision
  *   107);
@@ -44,6 +46,7 @@ import {
   Ban,
   CalendarCheck,
   ChevronRight,
+  Handshake,
   Clock,
   ExternalLink,
   Loader2,
@@ -103,6 +106,9 @@ const ICONS: Partial<Record<PersonMenuKey, LucideIcon>> = {
   'client-line': BadgeCheck,
   demo: CalendarCheck,
   'not-demo': CalendarCheck,
+  'potential-partner': Handshake,
+  'not-partner': Handshake,
+  'partner-hint': Handshake,
   later: Clock,
   'not-later': Clock,
   'dont-pitch': Ban,
@@ -314,6 +320,18 @@ function NameMenu({
         ),
       booked ? P.demoMarked(name) : P.demoUnmarked,
     );
+  // Potential partner (decision 130): onto the person's Partners list with partner messages, or back off it.
+  const potential = (on: boolean) =>
+    void act(
+      'partner',
+      async () =>
+        unwrap(
+          await apiBrowser().POST('/v1/commands/outreach.partner.potential', {
+            body: { workspaceId, profileId, potential: on },
+          }),
+        ),
+      on ? P.potentialDone(name) : P.potentialOff(name),
+    );
   // Later is the person's own: the page drawn again leaves them off Today, or puts them back.
   const later = (on: boolean) =>
     void act('later', async () => {
@@ -353,6 +371,8 @@ function NameMenu({
     'not-client': notClient,
     demo: () => demo(true),
     'not-demo': () => demo(false),
+    'potential-partner': () => potential(true),
+    'not-partner': () => potential(false),
     later: () => later(true),
     'not-later': () => later(false),
     'dont-pitch': () => list({ dontPitch: true }, P.dontPitchDone(name)),

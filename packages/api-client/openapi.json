@@ -107664,6 +107664,102 @@
         }
       }
     },
+    "/v1/commands/outreach.partner.potential": {
+      "post": {
+        "operationId": "command_outreach_partner_potential",
+        "summary": "Marks someone as a potential partner, or not a partner after all (decision 130). Marked, they go on the person’s Partners list and get partner messages instead of customer ones: a like first, then the ask a day later, before anyone the AI found and within the same 3 asks a day, each waiting for an OK. The AI reads their profile for what kind of partner they are, and the mark stands whatever it says. Customer messages to them waiting for an OK are skipped. Not a partner after all takes them off the list and back to customer messages, where they were.",
+        "tags": [
+          "commands"
+        ],
+        "description": "Risk level 1. Requires outreach.use. Emits outreach.partner.marked, outreach.send.skipped.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "workspaceId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  },
+                  "profileId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  },
+                  "potential": {
+                    "type": "boolean"
+                  }
+                },
+                "required": [
+                  "workspaceId",
+                  "profileId",
+                  "potential"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "partnerId": {
+                      "anyOf": [
+                        {
+                          "type": "string",
+                          "format": "uuid",
+                          "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "stage": {
+                      "anyOf": [
+                        {
+                          "type": "string",
+                          "enum": [
+                            "found",
+                            "warming",
+                            "asked",
+                            "interested",
+                            "call_booked",
+                            "partner",
+                            "not_now"
+                          ]
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "skipped": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 9007199254740991
+                    }
+                  },
+                  "required": [
+                    "partnerId",
+                    "stage",
+                    "skipped"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/v1/commands/outreach.partner.mark": {
       "post": {
         "operationId": "command_outreach_partner_mark",
@@ -107671,7 +107767,7 @@
         "tags": [
           "commands"
         ],
-        "description": "Risk level 1. Requires outreach.use. Emits outreach.partner.marked.",
+        "description": "Risk level 1. Requires outreach.use. Emits outreach.partner.marked, outreach.send.skipped.",
         "requestBody": {
           "required": true,
           "content": {
@@ -206596,6 +206692,12 @@
                               }
                             ]
                           },
+                          "partnerHint": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
                           "requests": {
                             "type": "boolean"
                           },
@@ -206866,6 +206968,12 @@
                               {
                                 "type": "null"
                               }
+                            ]
+                          },
+                          "partnerHint": {
+                            "type": [
+                              "string",
+                              "null"
                             ]
                           },
                           "requests": {
@@ -220273,7 +220381,7 @@
     "/v1/queries/outreach.partners.next": {
       "post": {
         "operationId": "query_outreach_partners_next",
-        "summary": "Who the person’s computer reads next for whether they could partner with the business, in order and no more than today has room for: admins of the biggest groups the business’s customers are in, then people with the biggest followings, then businesses. Only with a Find partners playbook in use on the network; never anyone on Don’t pitch or Never contact, anyone found already, anyone being messaged as a customer lately, nor anyone read lately.",
+        "summary": "Who the person’s computer reads next for whether they could partner with the business, in order and no more than today has room for: anyone the person marked as a potential partner and not read since, then admins of the biggest groups the business’s customers are in, people with the biggest followings, and businesses. Those the AI finds only with a Find partners playbook in use on the network; never anyone on Don’t pitch or Never contact, anyone found already, anyone being messaged as a customer lately, nor anyone read lately.",
         "tags": [
           "queries"
         ],
@@ -220483,7 +220591,7 @@
     "/v1/queries/outreach.partners": {
       "post": {
         "operationId": "query_outreach_partners",
-        "summary": "The person’s Partners list: everyone the AI found could send the business its customers, with how many are at each stage (Found, Warming up, Asked, Interested, Call booked, Partner, Not now), and for each their kind (a group’s admin, a creator, a business), network, audience and how big it is, why they fit and a first warm-up. The best fits with the biggest audiences first; a page at a time.",
+        "summary": "The person’s Partners list: everyone the AI found could send the business its customers, and anyone the person marked as a potential partner, with how many are at each stage (Found, Warming up, Asked, Interested, Call booked, Partner, Not now), and for each their kind (a group’s admin, a creator, a business), network, audience and how big it is, why they fit, a first warm-up, and whether the person marked them. The best fits with the biggest audiences first; a page at a time.",
         "tags": [
           "queries"
         ],
@@ -220731,6 +220839,9 @@
                                 "type": "null"
                               }
                             ]
+                          },
+                          "marked": {
+                            "type": "boolean"
                           }
                         },
                         "required": [
@@ -220748,7 +220859,8 @@
                           "followers",
                           "why",
                           "nextStep",
-                          "playbook"
+                          "playbook",
+                          "marked"
                         ],
                         "additionalProperties": false
                       }
@@ -220773,7 +220885,7 @@
     "/v1/queries/outreach.profile.marks": {
       "post": {
         "operationId": "query_outreach_profile_marks",
-        "summary": "Where someone the person reached stands, as their person menu shows it: in Contacts or not, a client (and why), a partner, a demo booked, on the person’s Later (and until when), on Don’t pitch or Never contact (and who put them on), and whether the person may take them off; who reached them first, and for an owner or admin, the teammates they can be given to.",
+        "summary": "Where someone the person reached stands, as their person menu shows it: in Contacts or not, a client (and why), a partner, on the person’s own Partners list (at which stage, and whether they marked them) or looking more like a partner to the AI (and why), a demo booked, on the person’s Later (and until when), on Don’t pitch or Never contact (and who put them on), and whether the person may take them off; who reached them first, and for an owner or admin, the teammates they can be given to.",
         "tags": [
           "queries"
         ],
@@ -220846,6 +220958,44 @@
                     },
                     "partner": {
                       "type": "boolean"
+                    },
+                    "myPartner": {
+                      "anyOf": [
+                        {
+                          "type": "object",
+                          "properties": {
+                            "stage": {
+                              "type": "string",
+                              "enum": [
+                                "found",
+                                "warming",
+                                "asked",
+                                "interested",
+                                "call_booked",
+                                "partner",
+                                "not_now"
+                              ]
+                            },
+                            "marked": {
+                              "type": "boolean"
+                            }
+                          },
+                          "required": [
+                            "stage",
+                            "marked"
+                          ],
+                          "additionalProperties": false
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "partnerHint": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
                     },
                     "demoBooked": {
                       "type": "boolean"

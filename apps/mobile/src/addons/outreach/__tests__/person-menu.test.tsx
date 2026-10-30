@@ -193,6 +193,7 @@ describe('The person menu on the phone', () => {
       'person-add-contact',
       'person-client',
       'person-demo-mark',
+      'person-partner',
       'person-later',
       'person-dont-pitch',
       'person-never-contact',
@@ -219,7 +220,7 @@ describe('The person menu on the phone', () => {
     ]);
     expect(
       screen.getByText(
-        'Contacts, Client, Demo booked, Later, Don’t pitch and Never contact need signal. Opening their page works now.',
+        'Contacts, Client, Demo booked, Potential partner, Later, Don’t pitch and Never contact need signal. Opening their page works now.',
       ),
     ).toBeTruthy();
     for (const t of [
@@ -248,7 +249,7 @@ describe('The person menu on the phone', () => {
     expect(screen.queryByTestId('person-open-page')).toBeNull();
     expect(screen.queryByTestId('person-open-chat')).toBeNull();
     expect(screen.getByTestId('person-needs-signal')).toHaveTextContent(
-      'Contacts, Client, Demo booked, Later, Don’t pitch and Never contact need signal. Try again when you’re back online.',
+      'Contacts, Client, Demo booked, Potential partner, Later, Don’t pitch and Never contact need signal. Try again when you’re back online.',
     );
     expect(api.POST).not.toHaveBeenCalled();
   });
@@ -507,6 +508,45 @@ describe('The person menu on the phone', () => {
       }),
     );
     expect(toast.show).toHaveBeenCalledWith('Dana Reyes is back on your Today.');
+  });
+
+  it('marks them a potential partner under the AI’s word, and takes it back', async () => {
+    answers(marksOf({ partnerHint: 'Runs a group of 3,000 homeowners' }));
+    changed({ partnerId: id(80), stage: 'found', skipped: 1 });
+    await open();
+    expect(
+      screen.getByText('Looks more like a partner: Runs a group of 3,000 homeowners'),
+    ).toBeTruthy();
+    await fireEvent.press(screen.getByTestId('person-partner'));
+    await waitFor(() =>
+      expect(change).toHaveBeenCalledWith('outreach.partner.potential', {
+        workspaceId: WS,
+        profileId: PROFILE,
+        potential: true,
+      }),
+    );
+    expect(toast.show).toHaveBeenCalledWith(
+      'Dana Reyes is on your Partners list now. They get partner messages from here: a like first, then the ask a day later, each waiting for your OK.',
+    );
+
+    answers(marksOf({ partner: true, myPartner: { stage: 'found', marked: true } }));
+    changed({ partnerId: id(80), stage: null, skipped: 0 });
+    await fireEvent.press(screen.getByRole('button', { name: 'Dana Reyes' }));
+    await waitFor(() => expect(screen.queryByTestId('person-loading')).toBeNull());
+    expect(screen.getByText('Not a partner after all')).toBeTruthy();
+    // Someone marked may still book a demo.
+    expect(screen.getByText('Demo booked')).toBeTruthy();
+    await fireEvent.press(screen.getByTestId('person-partner'));
+    await waitFor(() =>
+      expect(change).toHaveBeenCalledWith('outreach.partner.potential', {
+        workspaceId: WS,
+        profileId: PROFILE,
+        potential: false,
+      }),
+    );
+    expect(toast.show).toHaveBeenCalledWith(
+      'Dana Reyes is off your Partners list, and back on customer messages where they were.',
+    );
   });
 
   it('opens them in Contacts once they’re there, and takes a demo back', async () => {

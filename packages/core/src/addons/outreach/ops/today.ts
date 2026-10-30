@@ -1852,8 +1852,8 @@ export const today = defineAddonQuery(outreachAddon, {
     };
     const sentOf = (i: TodayItem) =>
       drafted.open(i.profileId, i.kind, underAPost(i.kind) ? i.postId : null);
-    // Who's in Contacts already, and who the person marked as having booked a demo: the web's menu on each. And what
-    // the AI read in an answer of theirs not answered yet, for a reply's why.
+    // Who's in Contacts already, and who the person marked as having booked a demo: the web's menu on each. What the AI
+    // read in an answer of theirs not answered yet, for a reply's why, and whether they look more like a partner.
     const profileIds = [...new Set(items.map((i) => i.profileId).filter((id) => id !== null))];
     const known = profileIds.length
       ? await rows<{
@@ -1861,12 +1861,20 @@ export const today = defineAddonQuery(outreachAddon, {
           person_id: string | null;
           marked: boolean;
           answer: Answer | null;
+          partner_hint: string | null;
         }>(
           ctx.tx,
           sql`select p.id, p.person_id, exists (select 1 from addon_outreach.demos d
                 where d.profile_id = p.id and d.user_id = ${me} and d.how = 'marked' and d.undone_at is null) as marked,
                 (select f.answer from addon_outreach.follow_ups f
-                  where f.profile_id = p.id and f.user_id = ${me} and f.answered_at >= f.last_at) as answer
+                  where f.profile_id = p.id and f.user_id = ${me} and f.answered_at >= f.last_at) as answer,
+                -- The check's word that they look more like a partner (decision 130), till they're on the person's
+                -- Partners list or said not to be one.
+                (select ch.partner_hint from addon_outreach.checks ch
+                  where ch.profile_id = p.id and ch.user_id = ${me} and ch.partner_hint is not null
+                    and not exists (select 1 from addon_outreach.partners pa
+                      where pa.profile_id = p.id and pa.user_id = ${me}
+                        and (pa.stage is not null or pa.fit = 'not'))) as partner_hint
               from addon_outreach.profiles p
               where p.workspace_id = ${ws} and p.id = any (${`{${profileIds.join(',')}}`}::uuid[])`,
         )
@@ -1899,6 +1907,7 @@ export const today = defineAddonQuery(outreachAddon, {
           why: why.map((w) => inNetworkWords(w, input.platform)),
           personId: k?.person_id ?? null,
           demoBooked: k?.marked ?? false,
+          ...(k?.partner_hint ? { partnerHint: k.partner_hint } : {}),
           recent: isMessage(i) ? (recent.get(chatKey(i)) ?? []) : [],
           ...(send ? { send } : {}),
         };

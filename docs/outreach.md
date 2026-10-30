@@ -102,7 +102,9 @@ became.
   or maybe goes on the person's **Partners** list (`outreach.partners`) at Found, and `profiles.partner_found_at` keeps
   them and their twins out of every step for customers from then (`pitchable`); a friend request from them is still
   confirmed. The person marks them (`outreach.partner.mark`): Interested, Call booked, Make partner, Not now, back on
-  the list, or not a partner after all, which takes them off the list so they may be pitched again. Each person's own,
+  the list, or not a partner after all, which takes them off the list so they may be pitched again. The person can also
+  put anyone on it themselves with **Potential partner** in their person menu (`outreach.partner.potential`, decision
+  130). Each person's own,
   like their checks. Today reaches them in a part of its own (`partners`, `partnerToday`): a like first
   (`partner_warm_up`; one moves them to Warming up), the ask a day later (`partner_ask`, at most 3 a day, within the
   first messages the customers' steps left; again 90 days after Not now), up to 2 follow-ups a week apart
@@ -111,7 +113,8 @@ became.
   (`partnerDraftPrompt`), and always waits for an OK of its own, never Approve all; once it goes it moves them along
   (`notePartnerSent`). The AI reads their answer while drafting a reply (`outreach.partner.answer`): a yes makes them
   Interested and drafts the details, not now or no sets them aside. A call booked through the partner link (its ref
-  starts `sp-`) moves them to Call booked (`outreach.partner.call`), never a demo. The extension (0.64.0) reads up to
+  starts `sp-`) moves them to Call booked (`outreach.partner.call`), never a demo, but for someone the person marked
+  themselves, for whom it's a demo too (decision 130). The extension (0.64.0) reads up to
   15 candidates a day on Facebook and LinkedIn after checking friends (**Find partners**, its `src/jobs/partners.ts`),
   with how many follow them off the top of their profile, and does Today's partner steps after the customers' of each
   sort (`workLeft`). On the web and the phone, the Partners list is one of People's lists (`?view=partners`, `?show=`
@@ -1818,7 +1821,7 @@ where decisions 37 and 59 put the settings; what they decided stands. Settled to
     **Find partners** looks for group admins and moderators, creators and businesses whose audience is the
     playbook's, the AI judging fit first and size second. It warms them up, then asks only whether they're open to a
     partnership, and every partner message waits for the person's OK. Someone asked to partner is never pitched as a
-    customer. A partner earns a share of each payment their clients make in HandsFreeOS in their first 12 months,
+    customer, but someone the person marked a potential partner may be offered a demo (decision 130). A partner earns a share of each payment their clients make in HandsFreeOS in their first 12 months,
     paid by HandsFreeOS once a month for payments at least 30 days old, from the business's card through Stripe, with
     Stripe's fees the business's and $25 the smallest payout unless the business sets a lower one; US partners
     first (the plan's decisions 16 to 18), then the countries the business reaches (decision 118). Each partner has their own page. Alignable's referral swap stays beside
@@ -3100,6 +3103,34 @@ where decisions 37 and 59 put the settings; what they decided stands. Settled to
         a **Run now** menu at the top of People and Find people, on the network picked (`RUN_NOW_ON` in core's
         `run-now.ts`), and all of them, network by network, on Settings → Your computer (`RUN_NOW_ALL`), above what was
         asked. Group search and Save a group by its link stay on Groups. On the phone, Your computer has every job.
+
+130.  **Marking someone a potential partner** (Chris, 30 Oct 2026, "1a 2a 3a 4a 5b 6a 7a 8a"). "need to be able to mark
+      people as potential partners, this should then change the messages to be more in the realm of trying to start a
+      potential partnership vs a pitch to demo although it can still lead to a demo." Migration
+      `20261027020500_outreach_marked_partners`: `partners.marked_at` and `checks.partner_hint`.
+      - **Potential partner** in anyone's person menu (decision 91), on the web and the phone, once their marks come
+        (`outreach.partner.potential`, risk 1, the Assistant's `outreach_potential_partner` on a Confirm card). It puts
+        them on the person's own Partners list at Found, marked (`marked_at`), with `partner_found_at` set, and sets
+        aside the customer messages waiting for anyone's OK for them (`CUSTOMER_SEND_KINDS`). Never for the person
+        themselves, nor anyone on Don't pitch or Never contact or a twin of one (`notNever`), and the menu doesn't
+        offer it while they're on either. Someone already on the list is only marked.
+      - **The AI reads them first:** the next Find partners read (`outreach.partners.next`) puts the marked ones before
+        any it found, then `outreach.partner.look` and the worker's check (`PARTNER_MARKED_ASK`) say what kind of
+        partner they are and who listens to them, so the messages fit. The mark wins: an AI "not" stays maybe, and the
+        stage never moves. Until it has read them, the kind is guessed from what's known (runs a group, followers).
+      - **The same steps as anyone found:** a like first, the ask a day later, even when they already chat, and the
+        marked ones go first within the same 3 asks a day (`partnerToday`, which says "You marked them" as the why).
+      - **It can still lead to a demo:** the details and replies for someone marked carry `PARTNER_DEMO_TASK` (when
+        they show interest or ask how it works, the call can also be a quick demo, partnering first) and a link to the
+        partner playbook's calendar, or else any playbook's. A call booked through it is Call booked on the Partners
+        list and a demo (`demos`, how `link`), with a lead as decision 105 says.
+      - **Not a partner after all** in the same menu takes them off the list and back on customer messages where they
+        were, and sets aside their waiting partner messages (`offTheList`, as the Partners list's own mark does). Not
+        for someone made a partner, who's changed on the Partners list.
+      - **The AI suggests some:** when a customer check thinks someone looks more like a partner (an agency or
+        consultant serving the business's customers, a coach or creator with a following of them, a group's admin),
+        it says why in one line (`partner`, kept as `checks.partner_hint`). Their card on Today and their person menu
+        say so, with a **Potential partner** button. The person decides.
 
 ## Rules worth knowing before changing anything
 

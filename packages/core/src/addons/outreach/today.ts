@@ -252,6 +252,11 @@ export const TodayItem = z.object({
   /** For a partner's step (`partners`): their row on the Partners list (./partners.ts). */
   partnerId: z.uuid().nullable().optional(),
   /**
+   * For a customer's step, when the AI's check thought they look more like a partner (decision 130): why, in a line.
+   * The card says so, with a Potential partner button. Left out otherwise, and by builds from before it.
+   */
+  partnerHint: z.string().nullable().optional(),
+  /**
    * A first message on a follow network (Instagram's) to someone who hasn't followed the person back: it lands in their
    * Requests, so it's one short message with no link and no video, and nothing follows it till they answer or accept.
    * Left out by builds of the phone from before it: read as not.

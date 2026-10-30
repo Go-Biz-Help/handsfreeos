@@ -454,6 +454,15 @@ export const OUTREACH_WORDS = {
       }`,
     demoBooked: 'Demo booked',
     notDemo: 'Not a demo after all',
+    /** Potential partner (decision 130, `outreach.partner.potential`): onto the person's Partners list, and back off. */
+    potentialPartner: 'Potential partner',
+    notPartner: 'Not a partner after all',
+    /** Why the AI's check thinks they look more like a partner, over the button. */
+    partnerHint: (why: string) => `Looks more like a partner: ${why}`,
+    potentialDone: (name: string) =>
+      `${name} is on your Partners list now. They get partner messages from here: a like first, then the ask a day later, each waiting for your OK.`,
+    potentialOff: (name: string) =>
+      `${name} is off your Partners list, and back on customer messages where they were.`,
     /** Later (decision 100): off the person's own Today for 2 weeks (`LATER_DAYS`), then back. */
     later: 'Later: back in 2 weeks',
     notLater: (until: string) => `Take off Later (back ${laterDay(until)})`,
@@ -473,7 +482,7 @@ export const OUTREACH_WORDS = {
      * their page and where they stand can't be asked (`personMenuOfflineWords` in ./person-menu.ts picks).
      */
     needsSignal: (opens: 'page' | 'chat' | null) =>
-      `Contacts, Client, Demo booked, Later, Don’t pitch and Never contact need signal. ${
+      `Contacts, Client, Demo booked, Potential partner, Later, Don’t pitch and Never contact need signal. ${
         opens ? `Opening their ${opens} works now.` : 'Try again when you’re back online.'
       }`,
     /** Under a chat's own Don't pitch and Never contact switches with no signal. */

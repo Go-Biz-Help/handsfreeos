@@ -17,6 +17,7 @@ import type { Permission } from '../../../permissions';
 import { defineAddonCommand, defineAddonQuery } from '../../server';
 import { NO_JOURNEY } from '../journey';
 import { outreachAddon } from '../manifest';
+import type { PartnerStage } from '../partners';
 import {
   CLIENT_SKIPPED_KINDS,
   ClientSetInput,
@@ -226,7 +227,7 @@ export const laterSet = defineAddonCommand(outreachAddon, {
 export const profileMarks = defineAddonQuery(outreachAddon, {
   name: 'outreach.profile.marks',
   description:
-    'Where someone the person reached stands, as their person menu shows it: in Contacts or not, a client (and why), a partner, a demo booked, on the person’s Later (and until when), on Don’t pitch or Never contact (and who put them on), and whether the person may take them off; who reached them first, and for an owner or admin, the teammates they can be given to.',
+    'Where someone the person reached stands, as their person menu shows it: in Contacts or not, a client (and why), a partner, on the person’s own Partners list (at which stage, and whether they marked them) or looking more like a partner to the AI (and why), a demo booked, on the person’s Later (and until when), on Don’t pitch or Never contact (and who put them on), and whether the person may take them off; who reached them first, and for an owner or admin, the teammates they can be given to.',
   input: ProfileMarksInput,
   output: ProfileMarksOutput,
   permission: 'outreach.use',
@@ -243,6 +244,9 @@ export const profileMarks = defineAddonQuery(outreachAddon, {
       partner: boolean;
       demo_booked: boolean;
       later_until: Date | string | null;
+      my_stage: PartnerStage | null;
+      my_marked: boolean | null;
+      partner_hint: string | null;
     }>(
       ctx.tx,
       sql`select coalesce(nullif(btrim(pp.first_name || ' ' || pp.last_name), ''), p.name) as name,
@@ -250,9 +254,15 @@ export const profileMarks = defineAddonQuery(outreachAddon, {
             exists (select 1 from addon_outreach.demos d where d.profile_id = p.id and d.user_id = ${me}
               and d.how = 'marked' and d.undone_at is null) as demo_booked,
             (select st.later_until from addon_outreach.stages st
-              where st.profile_id = p.id and st.user_id = ${me} and st.later_until > now()) as later_until
+              where st.profile_id = p.id and st.user_id = ${me} and st.later_until > now()) as later_until,
+            pa.stage as my_stage, pa.marked_at is not null as my_marked,
+            -- The check's word that they look more like a partner (decision 130), till they're on the list or said not.
+            case when pa.id is null or (pa.stage is null and pa.fit <> 'not') then
+              (select ch.partner_hint from addon_outreach.checks ch where ch.profile_id = p.id and ch.user_id = ${me})
+            end as partner_hint
           from addon_outreach.profiles p
           left join app.people pp on pp.id = p.person_id
+          left join addon_outreach.partners pa on pa.profile_id = p.id and pa.user_id = ${me}
           where p.id = ${profile.id}`,
     );
     const manages = scopeCan(ctx.scope, 'outreach.manage' as Permission);
@@ -263,6 +273,10 @@ export const profileMarks = defineAddonQuery(outreachAddon, {
       url: profile.url,
       personId: profile.personId,
       partner: facts?.partner ?? false,
+      myPartner: facts?.my_stage
+        ? { stage: facts.my_stage, marked: facts.my_marked ?? false }
+        : null,
+      partnerHint: facts?.partner_hint ?? null,
       demoBooked: facts?.demo_booked ?? false,
       laterUntil: facts?.later_until ? new Date(facts.later_until).toISOString() : null,
       client: await clientOf(ctx, profile.id),

@@ -364,7 +364,12 @@ import {
   DayOutput,
 } from '@hfos/core/addons/outreach/live';
 import { OwnerMoveInput, OwnerMoveOutput } from '@hfos/core/addons/outreach/owners';
-import { PartnerMarkInput, PartnerMarkOutput } from '@hfos/core/addons/outreach/partners';
+import {
+  PartnerMarkInput,
+  PartnerMarkOutput,
+  PartnerPotentialInput,
+  PartnerPotentialOutput,
+} from '@hfos/core/addons/outreach/partners';
 import {
   ClientSetInput,
   ClientSetOutput,
@@ -659,6 +664,8 @@ export const PHONE_COMMANDS = {
   // An owner or admin gives a group or a person to a teammate (decision 107): with signal, as the person menu is.
   'outreach.owner.move': command(ONLINE, OwnerMoveInput, OwnerMoveOutput),
   'outreach.partner.mark': command(ONLINE, PartnerMarkInput, PartnerMarkOutput),
+  // Potential partner from the person menu (decision 130): with signal, as the rest of the menu is.
+  'outreach.partner.potential': command(ONLINE, PartnerPotentialInput, PartnerPotentialOutput),
   'outreach.playbook.archive': command(ONLINE, PlaybookArchiveInput, Playbook),
   'outreach.playbook.save': command(ONLINE, PlaybookSaveInput, Playbook),
   'outreach.post.skip': command(ANYTIME, PostSkipInput, PostSkipOutput),

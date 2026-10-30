@@ -65,6 +65,7 @@ const partner = (
   why: ['Runs a busy homeowners group'],
   nextStep: 'Comment on their latest post',
   playbook: null,
+  marked: false,
   ...over,
 });
 

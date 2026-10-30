@@ -40,7 +40,7 @@ import * as React from 'react';
 import { View } from 'react-native';
 
 import { change, ChangeError } from '@/changes';
-import { Check, ExternalLink, X } from '@/components/icons';
+import { Check, ExternalLink, Handshake, X } from '@/components/icons';
 import { Screen } from '@/components/shell/screen';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -193,6 +193,19 @@ export function useTodayProps(
         failed(e);
       }
     },
+    // The AI's check thought they look more like a partner (decision 130): onto the Partners list, with signal.
+    onPotential: async (profileId, name) => {
+      try {
+        await change('outreach.partner.potential', {
+          workspaceId: ws,
+          profileId,
+          potential: true,
+        });
+        after(W.person.potentialDone(name));
+      } catch (e) {
+        failed(e);
+      }
+    },
     onProfileOwn: () => openSettingsPart(ws, platform),
     // Where each thing to try on a short day is done (decision 126).
     onGoalTry: (t) => {
@@ -253,6 +266,7 @@ export function TodayBody({
   onOk,
   onSkip,
   onNotForMe,
+  onPotential,
   onEndWheels,
   onProfileOwn,
   onGoalTry,
@@ -272,6 +286,8 @@ export function TodayBody({
   onOk: (sendId: string) => void;
   onSkip: (sendId: string) => void;
   onNotForMe: (postId: string) => void;
+  /** Potential partner, from a customer the AI thinks looks more like one (decision 130). */
+  onPotential?: (profileId: string, name: string) => void;
   /** Ends someone's training wheels on a network: Facebook's when left out. */
   onEndWheels: (userId: string, name: string, platform?: Platform) => void;
   /** Opens the network's part of Settings, where the AI's suggestions for its profile wait (decision 99). */
@@ -372,6 +388,7 @@ export function TodayBody({
               onOk={onOk}
               onSkip={onSkip}
               onNotForMe={onNotForMe}
+              onPotential={onPotential}
             />
           ))}
         </Part>
@@ -386,6 +403,7 @@ export function TodayBody({
             onOk={onOk}
             onSkip={onSkip}
             onNotForMe={onNotForMe}
+            onPotential={onPotential}
           />
         ))
       ) : list.partners.length ? null : (
@@ -502,6 +520,7 @@ function KindPart({
   onOk,
   onSkip,
   onNotForMe,
+  onPotential,
 }: {
   platform: Platform;
   kind: TodayKind;
@@ -509,6 +528,7 @@ function KindPart({
   onOk: (sendId: string) => void;
   onSkip: (sendId: string) => void;
   onNotForMe: (postId: string) => void;
+  onPotential?: (profileId: string, name: string) => void;
 }) {
   const items = today.items.filter((i) => i.kind === kind && !i.asking);
   const auto = today.auto.includes(kind);
@@ -526,6 +546,7 @@ function KindPart({
           onOk={onOk}
           onSkip={onSkip}
           onNotForMe={onNotForMe}
+          onPotential={onPotential}
         />
       ))}
     </Part>
@@ -539,6 +560,7 @@ function ItemCard({
   onOk,
   onSkip,
   onNotForMe,
+  onPotential,
 }: {
   platform: Platform;
   item: TodayItem;
@@ -547,6 +569,7 @@ function ItemCard({
   onOk: (sendId: string) => void;
   onSkip: (sendId: string) => void;
   onNotForMe: (postId: string) => void;
+  onPotential?: (profileId: string, name: string) => void;
 }) {
   // Where Open goes, and its words, as the web's: the post, their chat, else their page.
   const openAt = todayOpenOf(item, platform);
@@ -586,6 +609,21 @@ function ItemCard({
       {item.kind === 'video' && !item.send ? <Note>{W.videoNext}</Note> : null}
       {item.summary ? <Text className="text-[14px] leading-[20px]">{item.summary}</Text> : null}
       {item.nextStep ? <Note>{`${W.nextStepLabel}: ${item.nextStep}`}</Note> : null}
+      {item.partnerHint && item.profileId && !item.partnerId && onPotential ? (
+        // The AI's check thought they look more like a partner (decision 130): the person decides.
+        <View className="gap-2 rounded-control bg-card-2 px-3 py-2" testID="today-partner-hint">
+          <Note>{W.person.partnerHint(item.partnerHint)}</Note>
+          <Button
+            size="sm"
+            variant="secondary"
+            icon={Handshake}
+            onPress={() => onPotential(item.profileId!, item.name)}
+            testID="today-potential-partner"
+          >
+            {W.person.potentialPartner}
+          </Button>
+        </View>
+      ) : null}
       {item.post ? (
         <Text className="rounded-control bg-card-2 px-3 py-2 text-[14px] leading-[20px]">
           {item.post}
