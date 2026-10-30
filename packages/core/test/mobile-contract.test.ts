@@ -143,6 +143,8 @@ const ONLINE_COMMANDS = [
   // Where someone stands, from the Pipeline screen (decision 47), and on the Partners list (decision 81).
   'outreach.stage.mark',
   'outreach.partner.mark',
+  // Potential partner, and Not a partner after all, from the person menu (decision 130).
+  'outreach.partner.potential',
   // Today's helpful post (decision 50): ask for it, OK it for the computer, say it's up, or put it aside.
   'outreach.helpful.ask',
   'outreach.helpful.ok',

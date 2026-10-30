@@ -8846,6 +8846,26 @@
         "required": ["workspaceId", "partnerId", "mark"]
       }
     },
+    "outreach.partner.potential": {
+      "offline": "online",
+      "input": {
+        "type": "object",
+        "properties": {
+          "workspaceId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "profileId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "potential": {
+            "type": "boolean"
+          }
+        },
+        "required": ["workspaceId", "profileId", "potential"]
+      }
+    },
     "outreach.playbook.archive": {
       "offline": "online",
       "input": {

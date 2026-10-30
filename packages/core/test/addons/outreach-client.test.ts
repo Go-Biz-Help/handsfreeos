@@ -258,6 +258,9 @@ describe('Mark as client', () => {
       dontPitch: null,
       neverContact: null,
       canTakeOff: { dontPitch: false, neverContact: false },
+      // Not on the person's Partners list, and no check called them more of a partner (decision 130).
+      myPartner: null,
+      partnerHint: null,
       // Nobody has reached them yet; an owner can give them to anyone on the team (decision 107).
       owner: null,
       moveTo: [
