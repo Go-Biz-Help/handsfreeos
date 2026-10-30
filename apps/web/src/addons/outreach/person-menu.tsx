@@ -1,8 +1,11 @@
 'use client';
 /**
- * The person menu on someone's name (docs/outreach.md, decisions 43 and 91): wherever the web shows someone kept in
- * Social Outreach (Waiting for you, Today, the Pipeline, Friends and Chats), their name is a button that opens it. Its
- * items, their order, what shows and what can be pressed come from core (`personMenuItems`), the same as on the phone:
+ * The person panel on someone's name (docs/outreach.md, decisions 43, 91 and 128): wherever the web shows someone kept
+ * in Social Outreach (Needs you, Today, People's lists), their name is a button that opens a panel with everything
+ * about them: the menu's actions at its top, then why they fit, the next step, the chat so far as the AI read it, the
+ * groups they were found in, and every step either way (`outreach.profile.marks`' journey). Pressing an action closes
+ * it, as a menu does, so the list behind shows what changed. Its actions, their order, what shows and what can be
+ * pressed come from core (`personMenuItems`), the same as on the phone:
  *
  * - **Open on {Network}**, their page there, first, and **Open in {messages}** where their chat is known: links out,
  *   in a new tab;
@@ -18,10 +21,12 @@
  * - **Don't pitch** and **Never contact**, or taking them off, or who put them on: left out where the row has its own
  *   switches (Friends, Chats).
  *
- * Opening it asks where they stand now (`outreach.profile.marks`); its toggles wait for the answer. Add to Contacts and
+ * Opening it asks where they stand now (`outreach.profile.marks`); its actions and story wait for the answer. Add to Contacts and
  * Client need Add and edit customers (`records.write`), so they're left out for whoever can't.
  */
-import type { Platform } from '@hfos/core/addons/outreach/networks';
+import { journeyStepWords, type Journey } from '@hfos/core/addons/outreach/journey';
+import { leadWords } from '@hfos/core/addons/outreach/leads';
+import { PLATFORMS, type Platform } from '@hfos/core/addons/outreach/networks';
 import {
   clientSetWords,
   laterSetWords,
@@ -32,12 +37,13 @@ import {
   type ProfileMarksOutput,
 } from '@hfos/core/addons/outreach/person-menu';
 import { OWNER_WORDS } from '@hfos/core/addons/outreach/owners';
+import { STAGES } from '@hfos/core/addons/outreach/stages';
 import { OUTREACH_WORDS } from '@hfos/core/addons/outreach/words';
 import {
   BadgeCheck,
   Ban,
   CalendarCheck,
-  ChevronDown,
+  ChevronRight,
   Clock,
   ExternalLink,
   Loader2,
@@ -50,19 +56,13 @@ import {
   type LucideIcon,
 } from 'lucide-react';
 import Link from 'next/link';
-import { Fragment, useCallback, useRef, useState, useSyncExternalStore } from 'react';
+import { useCallback, useRef, useState, useSyncExternalStore } from 'react';
 import { toast } from 'sonner';
 import { useCan } from '@/components/shell/workspace-shell';
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
+import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
 import { apiBrowser, errorMessage, unwrap } from '@/lib/api/client';
-import { cn } from '@/lib/utils';
+import { cn, relativeTime } from '@/lib/utils';
+import { outreachHref } from './address';
 import { SameNameDialog, sameNamesFor, type SameName } from './same-name';
 import { useAct } from './use-act';
 
@@ -113,6 +113,10 @@ const ICONS: Partial<Record<PersonMenuKey, LucideIcon>> = {
   'never-contact-line': UserX,
 };
 
+/** An action in the panel: a row to press, as the menu's were. */
+const ACTION =
+  'flex w-full items-center gap-2.5 rounded-control px-2.5 py-2 text-left text-[14px] transition-colors hover:bg-card-2 focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50';
+
 /** The browser's word on signal: true on the server and until it says otherwise. */
 const onSignalChange = (changed: () => void) => {
   window.addEventListener('online', changed);
@@ -130,7 +134,7 @@ const useOnline = (): boolean =>
   );
 
 /**
- * Someone's name, as a button that opens their person menu. With no profile kept it's the name alone. `className`
+ * Someone's name, as a button that opens their person panel. With no profile kept it's the name alone. `className`
  * keeps the row's own look for the name; `truncate` cuts a long one short on a narrow card.
  */
 export function PersonName({
@@ -196,6 +200,7 @@ function NameMenu({
   const [marks, setMarks] = useState<ProfileMarksOutput | null>(null);
   const [failed, setFailed] = useState<string | null>(null);
   const [same, setSame] = useState<{ people: readonly SameName[]; for: SameFor } | null>(null);
+  const [open, setOpen] = useState(false);
   // Only the latest ask's answer is shown: the menu opened again, or an action, asks afresh.
   const asked = useRef(0);
   const load = useCallback(async () => {
@@ -368,52 +373,66 @@ function NameMenu({
     const icon = Icon ? <Icon className="h-4 w-4 flex-none" strokeWidth={1.5} aria-hidden /> : null;
     if (item.kind === 'open')
       return (
-        <DropdownMenuItem key={item.key} asChild>
-          <a href={item.url} target="_blank" rel="noreferrer" data-testid={item.testId}>
-            {icon}
-            {item.label}
-          </a>
-        </DropdownMenuItem>
+        <a
+          key={item.key}
+          href={item.url}
+          target="_blank"
+          rel="noreferrer"
+          className={ACTION}
+          data-testid={item.testId}
+        >
+          {icon}
+          {item.label}
+        </a>
       );
     if (item.kind === 'line')
       return item.key === 'move-to' ? (
-        <DropdownMenuLabel key={item.key} data-testid={item.testId}>
-          {item.label}
-        </DropdownMenuLabel>
-      ) : (
-        <DropdownMenuLabel
+        <p
           key={item.key}
-          className="flex max-w-[300px] items-start gap-2.5 text-[13px] font-normal text-text-2"
+          className="px-2.5 pb-0.5 pt-1.5 text-[11.5px] font-semibold uppercase tracking-[0.04em] text-text-3"
+          data-testid={item.testId}
+        >
+          {item.label}
+        </p>
+      ) : (
+        <p
+          key={item.key}
+          className="flex items-start gap-2.5 px-2.5 py-1.5 text-[13px] text-text-2"
           data-testid={item.testId}
         >
           {icon ? <span className="mt-px">{icon}</span> : null}
           {item.label}
-        </DropdownMenuLabel>
+        </p>
       );
     const off = !item.enabled || busy !== null || disabled;
     if (item.key === 'in-contacts' && personId && !off)
       return (
-        <DropdownMenuItem key={item.key} asChild>
-          <Link
-            href={`/app/w/${workspaceId}/customers/people/${personId}`}
-            data-testid={item.testId}
-          >
-            {icon}
-            {item.label}
-          </Link>
-        </DropdownMenuItem>
+        <Link
+          key={item.key}
+          href={`/app/w/${workspaceId}/customers/people/${personId}`}
+          className={ACTION}
+          data-testid={item.testId}
+        >
+          {icon}
+          {item.label}
+        </Link>
       );
     return (
-      <DropdownMenuItem
+      <button
         key={item.key}
-        danger={item.danger}
+        type="button"
         disabled={off}
-        onSelect={() => select(item)}
+        onClick={() => {
+          // As a menu does: the panel closes, and the list behind shows what changed.
+          setOpen(false);
+          select(item);
+        }}
+        className={cn(ACTION, item.danger && 'text-danger-text')}
         data-testid={item.testId}
       >
         {icon}
         {item.label}
-      </DropdownMenuItem>
+      </button>
     );
   };
 
@@ -435,18 +454,21 @@ function NameMenu({
       : !marks
         ? { testId: 'person-loading', words: P.loading, Icon: Loader2, spin: true }
         : null;
+  const stage = marks?.journey?.stage ?? null;
 
   return (
     <>
-      <DropdownMenu
-        onOpenChange={(open) => {
-          if (!open) return;
+      <Sheet
+        open={open}
+        onOpenChange={(next) => {
+          setOpen(next);
+          if (!next) return;
           // Where they stand now, each time it opens: someone else may have changed it.
           setMarks(null);
           if (online) void load();
         }}
       >
-        <DropdownMenuTrigger asChild>
+        <SheetTrigger asChild>
           <button
             type="button"
             title={P.nameHint}
@@ -461,22 +483,31 @@ function NameMenu({
             {busy !== null ? (
               <Loader2 className="h-3 w-3 flex-none animate-spin" aria-hidden />
             ) : (
-              <ChevronDown className="h-3 w-3 flex-none opacity-70" strokeWidth={2} aria-hidden />
+              <ChevronRight className="h-3 w-3 flex-none opacity-70" strokeWidth={2} aria-hidden />
             )}
           </button>
-        </DropdownMenuTrigger>
-        <DropdownMenuContent className="max-w-[320px]" data-testid="person-menu-items">
-          {groups.map((group, i) => (
-            <Fragment key={group[0]!.key}>
-              {i ? <DropdownMenuSeparator /> : null}
-              {group.map(draw)}
-            </Fragment>
-          ))}
-          {status ? (
-            <>
-              <DropdownMenuSeparator />
-              <DropdownMenuLabel
-                className="flex items-start gap-2 font-normal"
+        </SheetTrigger>
+        <SheetContent
+          title={name}
+          description={`${PLATFORMS[who.platform]}${stage ? ` · ${STAGES[stage]}` : ''}`}
+        >
+          <div
+            role="group"
+            aria-label={P.menu(name)}
+            className="-mx-2.5 grid gap-0.5"
+            data-testid="person-menu-items"
+          >
+            {groups.map((group, i) => (
+              <div
+                key={group[0]!.key}
+                className={cn('grid gap-0.5', i > 0 && 'mt-1 border-t border-border pt-1')}
+              >
+                {group.map(draw)}
+              </div>
+            ))}
+            {status ? (
+              <p
+                className="mt-1 flex items-start gap-2 border-t border-border px-2.5 pt-2.5 text-[13px] text-text-2"
                 data-testid={status.testId}
               >
                 {status.Icon ? (
@@ -487,11 +518,20 @@ function NameMenu({
                   />
                 ) : null}
                 <span role="status">{status.words}</span>
-              </DropdownMenuLabel>
-            </>
+              </p>
+            ) : null}
+          </div>
+          {marks?.journey ? (
+            <PersonStory
+              workspaceId={workspaceId}
+              platform={who.platform}
+              journey={marks.journey}
+              intro={marks.intro ?? []}
+              mutualFriends={marks.mutualFriends ?? null}
+            />
           ) : null}
-        </DropdownMenuContent>
-      </DropdownMenu>
+        </SheetContent>
+      </Sheet>
       {same ? (
         <SameNameDialog
           name={name}
@@ -503,5 +543,139 @@ function NameMenu({
         />
       ) : null}
     </>
+  );
+}
+
+/** How many of the latest steps show until the rest are asked for. */
+const LATEST_STEPS = 6;
+
+/** The panel's story of someone (decision 128): why they fit, the next step, the chat so far, where found, every step. */
+function PersonStory({
+  workspaceId,
+  platform,
+  journey: j,
+  intro,
+  mutualFriends,
+}: {
+  workspaceId: string;
+  platform: Platform;
+  journey: Journey;
+  intro: readonly string[];
+  mutualFriends: number | null;
+}) {
+  const [all, setAll] = useState(false);
+  const steps = all ? j.steps : j.steps.slice(0, LATEST_STEPS);
+  const S = P.panel;
+  const heading = 'text-[12px] font-semibold uppercase tracking-[0.04em] text-text-3';
+  return (
+    <div
+      className="mt-4 space-y-4 border-t border-border pt-4 text-[13.5px]"
+      data-testid="person-panel"
+    >
+      {j.why.length || intro.length || mutualFriends ? (
+        <section data-testid="person-panel-why">
+          <h3 className={heading}>{S.whyFit}</h3>
+          {j.why.length ? <p className="mt-1">{j.why.join(' · ')}</p> : null}
+          {intro.length ? (
+            <ul className="mt-1 text-[13px] text-text-2">
+              {intro.slice(0, 4).map((line) => (
+                <li key={line}>{line}</li>
+              ))}
+            </ul>
+          ) : null}
+          {mutualFriends ? (
+            <p className="mt-0.5 text-[12.5px] text-text-3">{S.mutual(mutualFriends)}</p>
+          ) : null}
+        </section>
+      ) : null}
+      {j.nextStep ? (
+        <section data-testid="person-panel-next">
+          <h3 className={heading}>{S.nextStep}</h3>
+          <p className="mt-1">{j.nextStep}</p>
+        </section>
+      ) : null}
+      {j.lead ? (
+        <p data-testid="person-panel-lead">
+          <Link
+            href={`/app/w/${workspaceId}/leads/${j.lead.leadId}`}
+            className="text-accent-text hover:underline"
+          >
+            {leadWords(j.lead)}
+          </Link>
+        </p>
+      ) : null}
+      <section data-testid="person-panel-chat">
+        <h3 className={heading}>{S.theChat}</h3>
+        {j.chat?.summary ? (
+          <p className="mt-1">
+            {j.chat.summary}{' '}
+            <span className="text-[12.5px] text-text-3">
+              {S.lastFrom(j.chat.lastFromMe, relativeTime(j.chat.lastAt))}
+            </span>
+          </p>
+        ) : (
+          <p className="mt-1 text-text-2">{S.noChat}</p>
+        )}
+      </section>
+      {j.groups.length ? (
+        <section data-testid="person-panel-groups">
+          <h3 className={heading}>{S.foundIn}</h3>
+          <p className="mt-1">
+            {j.groups.map((g, i) => (
+              <span key={g.groupId}>
+                {i ? ', ' : ''}
+                <Link
+                  href={outreachHref(workspaceId, { view: 'groups', group: g.groupId })}
+                  className="text-accent-text hover:underline"
+                >
+                  {g.name ?? S.aGroup}
+                </Link>
+              </span>
+            ))}
+          </p>
+        </section>
+      ) : null}
+      <section data-testid="person-panel-steps">
+        <h3 className={heading}>{S.everyStep}</h3>
+        {steps.length ? (
+          <ol className="mt-1.5 space-y-1 border-l border-border pl-3">
+            {steps.map((step, i) => (
+              <li key={`${step.at}-${i}`} className="text-[13px]">
+                {step.postUrl ? (
+                  <a
+                    href={step.postUrl}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="hover:underline"
+                  >
+                    {journeyStepWords(step, platform)}
+                  </a>
+                ) : (
+                  <span>{journeyStepWords(step, platform)}</span>
+                )}
+                {step.group ? (
+                  <span className="text-text-3"> · {S.fromGroup(step.group.name)}</span>
+                ) : null}
+                <span className="text-text-3"> · {relativeTime(step.at)}</span>
+              </li>
+            ))}
+          </ol>
+        ) : (
+          <p className="mt-1 text-text-2">{S.noSteps}</p>
+        )}
+        {j.steps.length > LATEST_STEPS ? (
+          <button
+            type="button"
+            className="mt-1.5 text-[12.5px] text-accent-text hover:underline"
+            onClick={() => setAll(!all)}
+          >
+            {all ? S.showLatest : S.showAll(j.steps.length)}
+          </button>
+        ) : null}
+        {all && j.moreSteps ? (
+          <p className="mt-0.5 text-[12px] text-text-3">{S.moreSteps(j.moreSteps)}</p>
+        ) : null}
+      </section>
+    </div>
   );
 }

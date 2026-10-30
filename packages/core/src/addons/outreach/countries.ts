@@ -911,6 +911,13 @@ export const COUNTRY_LIST_WORDS = {
   skip: 'Skip',
   undo: 'Undo',
   skippedByYou: 'You skipped them',
+  /** Needs you's card on the phone: how many wait for a pick, and the button that opens them (decision 128). */
+  unsureCount: (n: number) =>
+    `${n.toLocaleString('en-US')} ${n === 1 ? 'person waits' : 'people wait'} for you to pick.`,
+  unsureOpen: 'Pick for each',
+  /** Left alone's Skipped for country while the business reaches anywhere (decision 128). */
+  anywhere:
+    'Your business reaches people anywhere, so nobody is skipped for where they live. To reach only some countries, an owner or admin picks them under Which countries to reach in Social Outreach’s Settings.',
   waiting: (n: number) =>
     `${n.toLocaleString('en-US')} ${n === 1 ? 'person waits' : 'people wait'} for a look at their profile before they’re reached or skipped.`,
 } as const;

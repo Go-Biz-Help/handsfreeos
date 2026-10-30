@@ -1,3 +1,4 @@
+import { relativeTimeAgo } from '@hfos/core';
 import {
   clientSetWords,
   laterSetWords,
@@ -9,12 +10,16 @@ import {
   type PersonMenuRow,
   type ProfileMarksOutput,
 } from '@hfos/core/addons/outreach/person-menu';
+import { journeyStepWords, type Journey } from '@hfos/core/addons/outreach/journey';
+import { leadWords } from '@hfos/core/addons/outreach/leads';
+import type { Platform } from '@hfos/core/addons/outreach/networks';
 import { OWNER_WORDS } from '@hfos/core/addons/outreach/owners';
 import {
   OUTREACH_WORDS as W,
   sameNamePeople,
   type SameNamePerson,
 } from '@hfos/core/addons/outreach/words';
+import { router, type Href } from 'expo-router';
 import type { LucideIcon } from 'lucide-react-native';
 import * as React from 'react';
 import { Pressable, View } from 'react-native';
@@ -36,6 +41,7 @@ import {
   Users,
   UserX,
 } from '@/components/icons';
+import { businessHref } from '@/components/shell/business-context';
 import { Button } from '@/components/ui/button';
 import { Icon } from '@/components/ui/icon';
 import { Sheet } from '@/components/ui/sheet';
@@ -45,7 +51,7 @@ import { openWebPath } from '@/home/open';
 import { api, errorMessage, unwrap } from '@/lib/api';
 import { cn } from '@/lib/utils';
 
-import { NeedsSignal, Note, openOutside } from './kit';
+import { NeedsSignal, Note, openOutreach, openOutside } from './kit';
 
 /**
  * The person menu on someone's name (docs/outreach.md, decision 91), as the web's
@@ -367,6 +373,24 @@ function NameMenu({
         online={online}
         loading={online && marks === null && problem === null}
         problem={problem}
+        story={
+          marks?.journey
+            ? {
+                platform: marks.platform,
+                journey: marks.journey,
+                intro: marks.intro ?? [],
+                mutualFriends: marks.mutualFriends ?? null,
+                onGroup: (groupId) => {
+                  close();
+                  openOutreach(workspaceId, 'groups', `group=${groupId}`);
+                },
+                onLead: (leadId) => {
+                  close();
+                  router.push(businessHref(workspaceId, `leads/${leadId}`) as Href);
+                },
+              }
+            : null
+        }
         onClose={close}
         onItem={onItem}
         onPick={(picked) =>
@@ -410,6 +434,7 @@ export function PersonMenuSheet({
   online,
   loading,
   problem,
+  story = null,
   onClose,
   onItem,
   onPick,
@@ -427,6 +452,8 @@ export function PersonMenuSheet({
   loading: boolean;
   /** Why where they stand couldn't be asked. */
   problem: string | null;
+  /** Everything about them, under the actions (decision 128): null until where they stand comes. */
+  story?: PersonStoryProps | null;
   onClose: () => void;
   onItem: (item: PersonMenuItem) => void;
   onPick: (personId: string) => void;
@@ -514,7 +541,123 @@ export function PersonMenuSheet({
           <Note testID="person-loading">{P.loading}</Note>
         ) : null}
         {rest.map(item)}
+        {story ? <PersonStory {...story} /> : null}
       </View>
     </Sheet>
+  );
+}
+
+/** A person's story in the sheet: what it shows, and where its links go. */
+export interface PersonStoryProps {
+  readonly platform: Platform;
+  readonly journey: Journey;
+  readonly intro: readonly string[];
+  readonly mutualFriends: number | null;
+  readonly onGroup: (groupId: string) => void;
+  readonly onLead: (leadId: string) => void;
+}
+
+/** The sheet shows this many of their latest steps until it's opened up. */
+const LATEST_STEPS = 6;
+
+/**
+ * Everything about them, as the web's person panel has it (decision 128): why they fit (what their page says, their
+ * mutual friends), the AI's next step, their lead, the chat so far, the groups they were found in, and every step,
+ * the latest first. The words are core's (`OUTREACH_WORDS.person.panel`).
+ */
+function PersonStory({
+  platform,
+  journey: j,
+  intro,
+  mutualFriends,
+  onGroup,
+  onLead,
+}: PersonStoryProps) {
+  const [all, setAll] = React.useState(false);
+  const S = P.panel;
+  const steps = all ? j.steps : j.steps.slice(0, LATEST_STEPS);
+  const heading = 'text-[12px] font-semibold uppercase tracking-[0.5px] text-text-3';
+  return (
+    <View className="mt-2 gap-3 border-t border-border pt-3" testID="person-panel">
+      {j.why.length || intro.length || mutualFriends ? (
+        <View className="gap-0.5" testID="person-panel-why">
+          <Text className={heading}>{S.whyFit}</Text>
+          {j.why.length ? <Text className="text-[14px]">{j.why.join(' · ')}</Text> : null}
+          {intro.slice(0, 4).map((line) => (
+            <Note key={line}>{line}</Note>
+          ))}
+          {mutualFriends ? <Note>{S.mutual(mutualFriends)}</Note> : null}
+        </View>
+      ) : null}
+      {j.nextStep ? (
+        <View className="gap-0.5" testID="person-panel-next">
+          <Text className={heading}>{S.nextStep}</Text>
+          <Text className="text-[14px]">{j.nextStep}</Text>
+        </View>
+      ) : null}
+      {j.lead ? (
+        <Pressable
+          role="link"
+          accessibilityLabel={leadWords(j.lead)}
+          onPress={() => onLead(j.lead!.leadId)}
+          testID="person-panel-lead"
+        >
+          <Text className="text-[14px] text-accent-text">{leadWords(j.lead)}</Text>
+        </Pressable>
+      ) : null}
+      <View className="gap-0.5" testID="person-panel-chat">
+        <Text className={heading}>{S.theChat}</Text>
+        {j.chat?.summary ? (
+          <>
+            <Text className="text-[14px]">{j.chat.summary}</Text>
+            <Note>{S.lastFrom(j.chat.lastFromMe, relativeTimeAgo(j.chat.lastAt))}</Note>
+          </>
+        ) : (
+          <Note>{S.noChat}</Note>
+        )}
+      </View>
+      {j.groups.length ? (
+        <View className="gap-0.5" testID="person-panel-groups">
+          <Text className={heading}>{S.foundIn}</Text>
+          <View className="flex-row flex-wrap gap-x-1">
+            {j.groups.map((g, i) => (
+              <Pressable
+                key={g.groupId}
+                role="link"
+                accessibilityLabel={g.name ?? S.aGroup}
+                onPress={() => onGroup(g.groupId)}
+              >
+                <Text className="text-[14px] text-accent-text">
+                  {`${g.name ?? S.aGroup}${i < j.groups.length - 1 ? ',' : ''}`}
+                </Text>
+              </Pressable>
+            ))}
+          </View>
+        </View>
+      ) : null}
+      <View className="gap-1" testID="person-panel-steps">
+        <Text className={heading}>{S.everyStep}</Text>
+        {steps.length ? (
+          <View className="gap-0.5 border-l border-border pl-3">
+            {steps.map((step, i) => (
+              <Text key={`${step.at}-${i}`} className="text-[13px] leading-[18px]">
+                {journeyStepWords(step, platform)}
+                <Text className="text-[13px] text-text-3">
+                  {`${step.group ? ` · ${S.fromGroup(step.group.name)}` : ''} · ${relativeTimeAgo(step.at)}`}
+                </Text>
+              </Text>
+            ))}
+          </View>
+        ) : (
+          <Note>{S.noSteps}</Note>
+        )}
+        {j.steps.length > LATEST_STEPS ? (
+          <Button size="sm" variant="ghost" className="self-start" onPress={() => setAll(!all)}>
+            {all ? S.showLatest : S.showAll(j.steps.length)}
+          </Button>
+        ) : null}
+        {all && j.moreSteps ? <Note>{S.moreSteps(j.moreSteps)}</Note> : null}
+      </View>
+    </View>
   );
 }

@@ -319,7 +319,7 @@ export const outreachAddon = defineAddon({
       { key: 'needs-you', label: OUTREACH_PAGES['needs-you'], icon: 'inbox', path: 'needs-you' },
       { key: 'today', label: OUTREACH_PAGES.today, icon: 'sun', path: 'today' },
       { key: 'people', label: OUTREACH_PAGES.people, icon: 'users', path: 'people' },
-      { key: 'groups', label: OUTREACH_PAGES.groups, icon: 'users-round', path: 'groups' },
+      { key: 'find', label: OUTREACH_PAGES.find, icon: 'search', path: 'find' },
       { key: 'results', label: OUTREACH_PAGES.results, icon: 'chart-column', path: 'results' },
       { key: 'playbooks', label: OUTREACH_PAGES.playbooks, icon: 'book-open', path: 'playbooks' },
       // Not `settings`: that key would put the page in Settings search, which opens it on the web.
@@ -333,13 +333,13 @@ export const outreachAddon = defineAddon({
     // The whole add-on on the phone, under More (decision 44): one page with the web's tabs (`?view=`), so the pushes'
     // links (`?view=waiting`, `live`, `today`) open the phone's screens; Settings' part (`?part=`, decision 73) and the
     // network shown (`?net=`) with them; the code an ask waits on (`?view=code&ask=`, decision 82); a group's own page
-    // (`?view=groups&group=`, decision 103); and a playbook. The activity and friends stay on the web, and their links
-    // open it.
+    // (`?view=groups&group=`, decision 103); and a playbook. Friends came to the phone with People's views (decision
+    // 128); the old Activity stays on the web, and its links open it.
     phone: [
       {
         path: '',
         query: ['view', 'part', 'for', 'net', 'show', 'tag', 'q', 'ask', 'group'],
-        web: { view: ['activity', 'friends'] },
+        web: { view: ['activity'] },
       },
       { path: 'playbooks/:playbookId' },
     ],

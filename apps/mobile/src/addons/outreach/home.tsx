@@ -9,15 +9,7 @@ import { OUTREACH_WORDS as W } from '@hfos/core/addons/outreach/words';
 import type { LucideIcon } from 'lucide-react-native';
 import * as React from 'react';
 
-import {
-  BookOpen,
-  ChartColumn,
-  Inbox,
-  Settings2,
-  Sun,
-  Users,
-  UsersRound,
-} from '@/components/icons';
+import { BookOpen, ChartColumn, Inbox, Search, Settings2, Sun, Users } from '@/components/icons';
 import { List, ListRow } from '@/components/shell/list';
 import { Screen } from '@/components/shell/screen';
 import { Badge } from '@/components/ui/badge';
@@ -46,7 +38,7 @@ const PAGE_VIEW: Readonly<Record<OutreachPage, OutreachTab>> = {
   'needs-you': 'waiting',
   today: 'today',
   people: 'pipeline',
-  groups: 'groups',
+  find: 'find',
   results: 'results',
   playbooks: 'playbooks',
   gear: 'settings',
@@ -56,7 +48,7 @@ const PAGE_ICON: Readonly<Record<OutreachPage, LucideIcon>> = {
   'needs-you': Inbox,
   today: Sun,
   people: Users,
-  groups: UsersRound,
+  find: Search,
   results: ChartColumn,
   playbooks: BookOpen,
   gear: Settings2,

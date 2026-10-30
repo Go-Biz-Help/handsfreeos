@@ -1,13 +1,19 @@
-import type { Metadata } from 'next';
+import { redirect } from 'next/navigation';
 import { addonPage } from '@/addons/gate';
-import { showOutreach, type OutreachPageProps } from '../show';
-
-export const metadata: Metadata = { title: 'Groups' };
+import type { OutreachPageProps } from '../show';
 
 /**
- * Social Outreach's Groups, and a group's own page (`?group=`; docs/outreach.md, decision 127).
+ * Where Groups was for a day (decision 127): it's under Find people now (decision 128), so a link to it goes there,
+ * with its query.
  */
-export default async function Page(props: OutreachPageProps) {
-  const { workspaceId } = await props.params;
-  return addonPage(workspaceId, 'outreach', 'outreach.use', () => showOutreach('groups', props));
+export default async function Page({ params, searchParams }: OutreachPageProps) {
+  const { workspaceId } = await params;
+  const sp = await searchParams;
+  return addonPage(workspaceId, 'outreach', 'outreach.use', () => {
+    const query = new URLSearchParams();
+    for (const [key, value] of Object.entries(sp))
+      if (value !== undefined) query.set(key, Array.isArray(value) ? (value[0] ?? '') : value);
+    const qs = query.toString();
+    redirect(`/app/w/${workspaceId}/a/outreach/find/groups${qs ? `?${qs}` : ''}`);
+  });
 }

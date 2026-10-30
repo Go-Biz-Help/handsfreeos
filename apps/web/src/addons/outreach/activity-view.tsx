@@ -12,10 +12,11 @@
 import {
   ACTIVITY_PERIOD_KEYS,
   ACTIVITY_PERIODS,
+  activityStepsOf,
   topicName,
   type ActivityPeriod,
 } from '@hfos/core/addons/outreach/activity';
-import { NETWORKS, PLATFORMS } from '@hfos/core/addons/outreach/networks';
+import { PLATFORMS } from '@hfos/core/addons/outreach/networks';
 import { PARTNER_WORDS } from '@hfos/core/addons/outreach/partners';
 import { OUTREACH_WORDS as W } from '@hfos/core/addons/outreach/words';
 import { ChevronRight } from 'lucide-react';
@@ -51,24 +52,6 @@ const ALONG: readonly { readonly key: keyof Numbers; readonly label: string }[] 
   { key: 'likes', label: 'Likes' },
   { key: 'comments', label: 'Comments' },
   { key: 'followUps', label: 'Follow-ups' },
-];
-
-/** A request to connect, in the person's network's words: "Friend request", "Invitation to connect". */
-const requestWord = (p: Person) => {
-  const word = NETWORKS[p.platform].words.friendRequest;
-  return `${word.charAt(0).toUpperCase()}${word.slice(1)}`;
-};
-
-/** How far someone has come, a step at a time. */
-const STEPS: readonly {
-  readonly key: 'requestedAt' | 'likedAt' | 'commentedAt' | 'messagedAt' | 'repliedAt';
-  readonly label: string;
-}[] = [
-  { key: 'requestedAt', label: 'Friend request' },
-  { key: 'likedAt', label: 'Liked' },
-  { key: 'commentedAt', label: 'Commented' },
-  { key: 'messagedAt', label: 'Messaged' },
-  { key: 'repliedAt', label: 'Wrote back' },
 ];
 
 /** "today", "in the last 7 days". */
@@ -438,18 +421,15 @@ function PeopleCard({
               <span className="text-[12.5px] text-text-3">{relativeTime(p.lastAt)}</span>
             </div>
             <div className="mt-1.5 flex flex-wrap gap-1.5">
-              {STEPS.map((s) => {
-                const at = p[s.key];
-                return at ? (
-                  <Badge
-                    key={s.key}
-                    variant={s.key === 'repliedAt' ? 'ok' : 'gray'}
-                    title={new Date(at).toLocaleString()}
-                  >
-                    {s.key === 'requestedAt' ? requestWord(p) : s.label} · {relativeTime(at)}
-                  </Badge>
-                ) : null;
-              })}
+              {activityStepsOf(p).map((s) => (
+                <Badge
+                  key={s.key}
+                  variant={s.key === 'repliedAt' ? 'ok' : 'gray'}
+                  title={new Date(s.at).toLocaleString()}
+                >
+                  {s.label} · {relativeTime(s.at)}
+                </Badge>
+              ))}
             </div>
           </li>
         ))}

@@ -18,6 +18,7 @@
  */
 import { z } from 'zod';
 import { GroupRef } from './activity';
+import { DownloadCounts } from './download';
 import { quoted, says } from './fit';
 import { NETWORKS, PLATFORM_KEYS, PLATFORMS, type Platform } from './networks';
 import type { PlaybookDetails } from './playbooks';
@@ -102,6 +103,43 @@ export const FIND_FRESH_DAYS = 14;
  * reader drawn from guessed markup never holds the members back for good.
  */
 export const LEADERS_WAIT_DAYS = 7;
+
+/** How many days back Find people counts what each way found (decision 128). */
+export const FIND_WEEK_DAYS = 7;
+
+export const FindsWeekInput = z.object({
+  workspaceId: z.uuid(),
+  /** One network's; every network's when left out. */
+  platform: z.enum(PLATFORM_KEYS).optional(),
+});
+export type FindsWeekInput = z.input<typeof FindsWeekInput>;
+
+/** How many were found one way on one network, and how many of them the AI's check called a good fit, or a maybe. */
+const WayCount = z.object({
+  found: z.number().int().min(0),
+  good: z.number().int().min(0),
+  maybe: z.number().int().min(0),
+});
+
+/**
+ * What each way of finding people found for the person in the last week (decision 128's Find people): people found by
+ * topic (`finds`, by network and how), their followers and the members of their groups checked like friends, the
+ * partners found for the business, and their latest Facebook download file.
+ */
+export const FindsWeekOutput = z.object({
+  since: z.iso.datetime(),
+  ways: z.array(
+    z.object({ platform: z.enum(PLATFORM_KEYS), how: z.enum(FIND_HOW_KEYS), ...WayCount.shape }),
+  ),
+  followers: WayCount,
+  members: WayCount,
+  partners: z.number().int().min(0),
+  /** The person's latest Facebook download file brought in (Old friends and chats): null before the first. */
+  download: z
+    .object({ madeAt: z.iso.datetime(), at: z.iso.datetime(), counts: DownloadCounts })
+    .nullable(),
+});
+export type FindsWeekOutput = z.output<typeof FindsWeekOutput>;
 
 /** A find as its fact line reads it: how, on which network, with what words, where, and in which group. */
 export interface FindOf {

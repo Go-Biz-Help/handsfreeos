@@ -35,6 +35,9 @@ import {
   FindsSearchesInput,
   FindsSearchesOutput,
   findsWaitingMost,
+  FIND_WEEK_DAYS,
+  FindsWeekInput,
+  FindsWeekOutput,
   PostsPeopleNextInput,
   PostsPeopleNextOutput,
   skipWordIn,
@@ -71,7 +74,7 @@ import {
   once,
   type Ctx,
 } from './common';
-import { playbooksInUse } from './friends';
+import { latestDownload, playbooksInUse } from './friends';
 import { findsByTopic } from './live';
 import { startOfToday } from './tidy';
 
@@ -491,5 +494,86 @@ export const findsSearches = defineAddonQuery(outreachAddon, {
   },
 });
 
+/**
+ * Find people's numbers (decision 128): what each way of finding people found for the person in the last week, and how
+ * many the AI's check called a good fit or a maybe. People found by topic by network and how; their Facebook followers
+ * and the members of their groups, checked like friends; and the partners found for the business. One network's, or
+ * every network's.
+ */
+export const findsWeek = defineAddonQuery(outreachAddon, {
+  name: 'outreach.finds.week',
+  description:
+    'Where new people came from in the last week, for the person: how many were found each way on each network (writing, commenting on or liking a good post, in a group, at an event near them, following an account like theirs, or by a search), how many of those the AI called a good fit or a maybe, the followers and group members checked like friends, and the partners found. One network’s, or every network’s.',
+  input: FindsWeekInput,
+  output: FindsWeekOutput,
+  permission: 'outreach.use',
+  ai: {
+    tool: 'outreach_where_people_come_from',
+    keywords: [
+      'where people come from',
+      'found this week',
+      'hashtags found',
+      'events found',
+      'followers checked',
+    ],
+  },
+  scope: inWorkspace,
+  async handler(ctx, input) {
+    const me = requireHuman(ctx).userId;
+    const ws = ctx.scope.workspaceId!;
+    const since = ago(Date.now(), FIND_WEEK_DAYS);
+    const on = (column: ReturnType<typeof sql>) =>
+      input.platform ? sql`and ${column} = ${input.platform}` : sql``;
+    const ways = await rows<{
+      platform: Platform;
+      how: FindHow;
+      found: number;
+      good: number;
+      maybe: number;
+    }>(
+      ctx.tx,
+      sql`select f.platform, f.how, count(*)::int as found,
+            count(*) filter (where c.verdict = 'good')::int as good,
+            count(*) filter (where c.verdict = 'maybe')::int as maybe
+          from addon_outreach.finds f
+          left join addon_outreach.checks c
+            on c.workspace_id = f.workspace_id and c.user_id = f.user_id and c.profile_id = f.profile_id
+          where f.workspace_id = ${ws} and f.user_id = ${me} and f.found_at >= ${since}
+            ${on(sql`f.platform`)}
+          group by f.platform, f.how
+          order by f.platform, f.how`,
+    );
+    const checked = await rows<{ via: string; found: number; good: number; maybe: number }>(
+      ctx.tx,
+      sql`select c.via, count(*)::int as found,
+            count(*) filter (where c.verdict = 'good')::int as good,
+            count(*) filter (where c.verdict = 'maybe')::int as maybe
+          from addon_outreach.checks c
+          join addon_outreach.profiles p on p.workspace_id = c.workspace_id and p.id = c.profile_id
+          where c.workspace_id = ${ws} and c.user_id = ${me} and c.via in ('follower', 'member')
+            and c.looked_at >= ${since} ${on(sql`p.platform`)}
+          group by c.via`,
+    );
+    const [partners] = await rows<{ n: number }>(
+      ctx.tx,
+      sql`select count(*)::int as n from addon_outreach.profiles p
+          where p.workspace_id = ${ws} and p.partner_found_at >= ${since} ${on(sql`p.platform`)}`,
+    );
+    const none = { found: 0, good: 0, maybe: 0 };
+    const via = (v: string) => {
+      const got = checked.find((c) => c.via === v);
+      return got ? { found: got.found, good: got.good, maybe: got.maybe } : none;
+    };
+    return {
+      since,
+      ways,
+      followers: via('follower'),
+      members: via('member'),
+      partners: partners?.n ?? 0,
+      download: await latestDownload(ctx, me),
+    };
+  },
+});
+
 export const findCommands = [findsSave] as const;
-export const findQueries = [postsPeopleNext, findsNext, findsSearches] as const;
+export const findQueries = [postsPeopleNext, findsNext, findsSearches, findsWeek] as const;

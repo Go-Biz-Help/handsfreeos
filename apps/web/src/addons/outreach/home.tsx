@@ -7,9 +7,11 @@
  * - **Needs you**: everything waiting on the person (decision 42's list), on every network, never narrowed.
  * - **Today**: what the person's computer is doing, a card for each network with Start my day and Stop for today,
  *   one Heads up for what to know, the feed of today's steps and the team's, and their list for the day.
- * - **People**: everyone reached by where they stand (the board, or one stage), their friends and the Don't pitch list,
- *   their chats as the AI read them, and their Partners list (decision 81).
- * - **Groups**: the groups saved and how they fit.
+ * - **People**: one list with a view for each kind (decision 128, `people-views.ts` in core): everyone in play (the
+ *   board, or one stage), the good fits, those talking, friends, requests got and sent, chats as the AI read them, the
+ *   Partners list (decision 81), clients, and Left alone, with a row of its own lists.
+ * - **Find people**: what each way of finding people found this week (decision 128), and the groups saved and how
+ *   they fit.
  * - **Results**: from reached to booked, by group and by person.
  * - **Playbooks**: the business's playbooks, with how each opener did.
  * - **Settings**: a menu beside a page for each part (decision 73): General, then each network (its On or Off for the
@@ -36,6 +38,17 @@ import {
 import { OUTREACH_PAGE_ABOUT, OUTREACH_PAGES } from '@hfos/core/addons/outreach/pages';
 import type { PartnerView } from '@hfos/core/addons/outreach/partners';
 import {
+  LEFT_ALONE,
+  LEFT_ALONE_KEYS,
+  PEOPLE_VIEW_KEYS,
+  PEOPLE_VIEW_WORDS as PV,
+  PEOPLE_VIEWS,
+  peopleCountsOf,
+  peopleListOf,
+  peopleViewOf,
+  type PeopleList,
+} from '@hfos/core/addons/outreach/people-views';
+import {
   NEXT_NETWORKS,
   SETTINGS_WORDS as S,
   type SettingsPart,
@@ -54,6 +67,8 @@ import { ActivityView } from './activity-view';
 import { outreachHref, pageOf, type OutreachView } from './address';
 import { ComputerNote } from './asks';
 import { ChatsView } from './chats-view';
+import { SkippedCountryCard } from './country-skipped';
+import { FindView } from './find-view';
 import { FriendsView } from './friends-view';
 import { GroupPage } from './group-page';
 import { GroupsView } from './groups-view';
@@ -73,6 +88,7 @@ import type {
   Automation,
   AutomationPeople,
   Chats,
+  FindsWeek,
   Friends,
   GroupPeople,
   Groups,
@@ -134,6 +150,21 @@ export type OutreachShown =
       readonly net: Platform | null;
       /** Research's asks, for the rows: null when they couldn't be had. */
       readonly asks: Asks | null;
+    }
+  | {
+      /** Find people: what each way found this week. */
+      readonly view: 'find';
+      readonly week: FindsWeek;
+      /** The groups' counts, and the people left in them: null when they couldn't be had. */
+      readonly groups: Groups | null;
+      readonly playbooks: PlaybookList | null;
+      readonly asks: Asks;
+      /** The network picked: null for every network. */
+      readonly net: Platform | null;
+    }
+  | {
+      /** Left alone's Skipped for country, which loads itself. */
+      readonly view: 'skipped';
     }
   | {
       readonly view: 'groups';
@@ -202,7 +233,7 @@ export type OutreachShown =
       readonly readiness?: Readiness | null;
     };
 
-/** A row of links that looks like a segmented control: People's lists. */
+/** A row of links that looks like a segmented control: People's views, Left alone's lists, Find people's parts. */
 function LinkSegments({
   label,
   items,
@@ -213,6 +244,8 @@ function LinkSegments({
     readonly label: string;
     readonly active: boolean;
     readonly testId: string;
+    /** How many are on it, where the page knows. */
+    readonly count?: number;
   }[];
 }) {
   return (
@@ -232,6 +265,9 @@ function LinkSegments({
           )}
         >
           {i.label}
+          {i.count !== undefined ? (
+            <span className="ml-1.5 tabular-nums text-text-3">{i.count.toLocaleString()}</span>
+          ) : null}
         </Link>
       ))}
     </nav>
@@ -437,6 +473,86 @@ function SettingsMenu({
   );
 }
 
+/** The list a People page shows, as People's views know it. */
+function peopleListShown(shown: OutreachShown): PeopleList | null {
+  switch (shown.view) {
+    case 'pipeline':
+      return { list: 'stages', show: shown.show };
+    case 'friends':
+      return { list: 'friends', show: shown.show };
+    case 'chats':
+      return { list: 'chats' };
+    case 'partners':
+      return { list: 'partners' };
+    case 'skipped':
+      return { list: 'country' };
+    default:
+      return null;
+  }
+}
+
+/** A list's address: the board for in play, a stage, a friends list, the chats, the partners or Skipped for country. */
+function peopleHref(workspaceId: string, at: PeopleList): string {
+  switch (at.list) {
+    case 'stages':
+      return outreachHref(workspaceId, { view: 'pipeline', stages: at.show });
+    case 'friends':
+      return outreachHref(workspaceId, { view: 'friends', show: at.show });
+    case 'chats':
+      return outreachHref(workspaceId, { view: 'chats' });
+    case 'partners':
+      return outreachHref(workspaceId, { view: 'partners' });
+    case 'country':
+      return outreachHref(workspaceId, { view: 'skipped' });
+  }
+}
+
+/**
+ * People's views (decision 128): one row for the one list, each view one of the lists HandsFreeOS keeps; and under
+ * Left alone, a row of its own lists.
+ */
+function PeopleViews({ workspaceId, shown }: { workspaceId: string; shown: OutreachShown }) {
+  const list = peopleListShown(shown);
+  if (!list) return null;
+  const at = peopleViewOf(list);
+  const counts = peopleCountsOf(
+    shown.view === 'friends'
+      ? { friends: shown.friends.counts }
+      : shown.view === 'pipeline'
+        ? { stages: shown.pipeline.counts }
+        : null,
+  );
+  return (
+    <div className="mb-4 space-y-2">
+      <LinkSegments
+        label={PV.label}
+        items={PEOPLE_VIEW_KEYS.map((v) => ({
+          href: peopleHref(workspaceId, peopleListOf(v)),
+          label: PEOPLE_VIEWS[v],
+          active: at.view === v,
+          testId: `people-view-${v}`,
+          count: counts[v],
+        }))}
+      />
+      {at.alone ? (
+        <div className="space-y-1.5">
+          <LinkSegments
+            label={PV.leftAloneLabel}
+            items={LEFT_ALONE_KEYS.map((k) => ({
+              href: peopleHref(workspaceId, peopleListOf(k)),
+              label: LEFT_ALONE[k],
+              active: at.alone === k,
+              testId: `people-alone-${k}`,
+              count: counts[k],
+            }))}
+          />
+          <p className="text-[12.5px] text-text-3">{PV.leftAloneAbout}</p>
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
 /**
  * The network picker at the top of Today and People's lists (decision 127): on Today, the networks the person works,
  * whose list shows; on a list, every network or one. Each choice keeps what else the page shows, from its first page.
@@ -486,6 +602,13 @@ function networkPickerOf(
         every: true,
         hrefOf: at({ view: 'partners', partners: shown.show }),
       };
+    case 'find':
+      return {
+        value: shown.net,
+        networks: WORKING_PLATFORMS,
+        every: true,
+        hrefOf: at({ view: 'find' }),
+      };
     default:
       return null;
   }
@@ -521,16 +644,25 @@ export function OutreachHome({
         actions={picker ? <NetworkPicker workspaceId={workspaceId} {...picker} /> : undefined}
       />
       <SetupBanner workspaceId={workspaceId} />
-      {page === 'people' ? (
+      {page === 'people' ? <PeopleViews workspaceId={workspaceId} shown={shown} /> : null}
+      {page === 'find' ? (
         <div className="mb-4">
           <LinkSegments
-            label={OUTREACH_PAGES.people}
-            items={(['pipeline', 'friends', 'chats', 'partners'] as const).map((v) => ({
-              href: outreachHref(workspaceId, { view: v }),
-              label: W.peopleParts[v],
-              active: shown.view === v,
-              testId: `outreach-people-${v}`,
-            }))}
+            label={OUTREACH_PAGES.find}
+            items={[
+              {
+                href: outreachHref(workspaceId, { view: 'find' }),
+                label: W.findParts.ways,
+                active: shown.view === 'find',
+                testId: 'find-part-ways',
+              },
+              {
+                href: outreachHref(workspaceId, { view: 'groups' }),
+                label: W.findParts.groups,
+                active: shown.view === 'groups' || shown.view === 'group',
+                testId: 'find-part-groups',
+              },
+            ]}
           />
         </div>
       ) : null}
@@ -644,6 +776,17 @@ export function OutreachHome({
           canManage={canManage}
           asks={shown.asks}
         />
+      ) : shown.view === 'find' ? (
+        <FindView
+          workspaceId={workspaceId}
+          week={shown.week}
+          groups={shown.groups}
+          playbooks={shown.playbooks}
+          asks={shown.asks}
+          net={shown.net}
+        />
+      ) : shown.view === 'skipped' ? (
+        <SkippedCountryCard workspaceId={workspaceId} />
       ) : shown.view === 'partners' ? (
         <PartnersView
           workspaceId={workspaceId}

@@ -15,6 +15,7 @@ import { executeCommandWithin, scopeCan } from '../../../kernel/execute';
 import { changeMoment } from '../../../kernel/moment';
 import type { Permission } from '../../../permissions';
 import { defineAddonCommand, defineAddonQuery } from '../../server';
+import { NO_JOURNEY } from '../journey';
 import { outreachAddon } from '../manifest';
 import {
   CLIENT_SKIPPED_KINDS,
@@ -44,6 +45,7 @@ import {
   type Ctx,
   type Profile,
 } from './common';
+import { journeysOf } from './journey';
 import { moveTargets, ownersOf } from './owners';
 
 const P = OUTREACH_WORDS.person;
@@ -277,6 +279,10 @@ export const profileMarks = defineAddonQuery(outreachAddon, {
         ? ((await ownersOf(ctx, me, [profile.ownerUserId])).get(profile.ownerUserId) ?? null)
         : null,
       moveTo: await moveTargets(ctx, me),
+      // The person panel's (decision 128): their way so far, as the person reached them.
+      journey: (await journeysOf(ctx, me, [profile.id])).get(profile.id) ?? NO_JOURNEY,
+      intro: profile.intro,
+      mutualFriends: profile.mutualFriends,
     };
   },
 });

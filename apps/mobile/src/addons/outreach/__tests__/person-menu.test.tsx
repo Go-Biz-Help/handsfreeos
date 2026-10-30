@@ -157,7 +157,7 @@ describe('The name on the phone', () => {
     expect(name.props.accessibilityRole).toBe('button');
     expect(name.props.accessibilityLabel).toBe('Dana Reyes');
     expect(name.props.accessibilityHint).toBe(
-      'Opens their page, Contacts, Client, Don’t pitch and more',
+      'Opens everything about them: their page, Contacts, Client, Don’t pitch and more',
     );
     expect(name.props.accessibilityState).toEqual({ expanded: false });
     expect(screen.queryByTestId('person-menu-sheet')).toBeNull();
@@ -531,5 +531,68 @@ describe('The person menu on the phone', () => {
     ).toHaveTextContent('That person isn’t kept here.');
     expect(screen.getByTestId('person-dont-pitch').props.accessibilityState.disabled).toBe(true);
     expect(screen.getByTestId('person-open-page').props.accessibilityState.disabled).toBe(false);
+  });
+});
+
+describe('Everything about them, under the actions (decision 128)', () => {
+  const GROUP = id(70);
+  const step = (kind: 'friend_request' | 'message', at: string) => ({
+    kind,
+    step: kind === 'message' ? ('first_message' as const) : null,
+    at,
+    auto: true,
+    by: null,
+    group:
+      kind === 'friend_request' ? { name: 'Springfield Makers', url: 'https://x.test/g' } : null,
+    postUrl: null,
+  });
+
+  it('shows why they fit, the next step, the chat, where they were found and every step', async () => {
+    answers(
+      marksOf({
+        intro: ['Owner at Reyes Design'],
+        mutualFriends: 4,
+        journey: {
+          stage: 'talking',
+          why: ['Runs a design studio'],
+          nextStep: 'Ask about their spring launch',
+          groups: [{ groupId: GROUP, name: 'Springfield Makers', url: 'https://x.test/g' }],
+          chat: {
+            summary: 'Asked what the service costs.',
+            nextStep: null,
+            lastAt: new Date(Date.now() - 3 * 3_600_000).toISOString(),
+            lastFromMe: false,
+          },
+          steps: [
+            step('message', new Date(Date.now() - 86_400_000).toISOString()),
+            step('friend_request', new Date(Date.now() - 2 * 86_400_000).toISOString()),
+          ],
+          moreSteps: 0,
+          lead: null,
+        },
+      }),
+    );
+    await open();
+    const panel = await screen.findByTestId('person-panel');
+    expect(within(panel).getByTestId('person-panel-why')).toHaveTextContent(
+      /Why they fitRuns a design studioOwner at Reyes Design4 mutual friends/,
+    );
+    expect(within(panel).getByTestId('person-panel-next')).toHaveTextContent(
+      /Ask about their spring launch/,
+    );
+    expect(within(panel).getByTestId('person-panel-chat')).toHaveTextContent(
+      /Asked what the service costs\.They wrote last, 3 h ago/,
+    );
+    expect(within(panel).getByTestId('person-panel-steps')).toHaveTextContent(
+      /from Springfield Makers · 2 d ago/,
+    );
+    await fireEvent.press(within(panel).getByRole('link', { name: 'Springfield Makers' }));
+    expect(openWebPath).toHaveBeenCalledWith(`/app/w/${WS}/a/outreach?view=groups&group=${GROUP}`);
+  });
+
+  it('waits for where they stand, and shows nothing more from a build before it', async () => {
+    answers(marksOf());
+    await open();
+    expect(screen.queryByTestId('person-panel')).toBeNull();
   });
 });

@@ -33,10 +33,10 @@ import {
   ChartColumn as outreachResultsIcon,
   Handshake as outreachAddonIcon,
   Inbox as outreachNeedsYouIcon,
+  Search as outreachFindIcon,
   Settings2 as outreachSettingsIcon,
   Sun as outreachTodayIcon,
   Users as outreachPeopleIcon,
-  UsersRound as outreachGroupsIcon,
 } from 'lucide-react';
 import { Headset as salescoachAddonIcon } from 'lucide-react';
 
@@ -215,7 +215,7 @@ export const ADDON_UI: Readonly<Record<string, AddonUi>> = {
       'needs-you': outreachNeedsYouIcon,
       today: outreachTodayIcon,
       people: outreachPeopleIcon,
-      groups: outreachGroupsIcon,
+      find: outreachFindIcon,
       results: outreachResultsIcon,
       playbooks: outreachPlaybooksIcon,
       gear: outreachSettingsIcon,
