@@ -396,7 +396,8 @@ describe('writing a message only in the conversation with them', () => {
       expect(sent).toEqual(['Hi Dana']);
     });
 
-    it('writes nothing when its card links to someone else', async () => {
+    // These look for the box through all 15 seconds LinkedIn's newer messaging gets, reading the page each time.
+    it('writes nothing when its card links to someone else', { timeout: 20_000 }, async () => {
       vi.useFakeTimers({ toFake: ['setTimeout'] });
       const someoneElse = (page: Document) => {
         for (const a of page.querySelectorAll('a[href="/in/dana-reyes-4b2a1c/"]'))
@@ -411,17 +412,21 @@ describe('writing a message only in the conversation with them', () => {
       }
     });
 
-    it('writes nothing when its address names nobody it can read and no card says whom it’s to', async () => {
-      vi.useFakeTimers({ toFake: ['setTimeout'] });
-      const noCard = (page: Document) => {
-        for (const a of page.querySelectorAll('a[href^="/in/"]')) a.remove();
-      };
-      const { doc, sent } = composing(newAt('dXJuOmxp'), 0, noCard);
-      const writing = writeMessage(doc, newAt('dXJuOmxp'), 'Hi Dana', dana);
-      await vi.advanceTimersByTimeAsync(20_000);
-      expect(await writing).toBe('none');
-      expect(sent).toEqual([]);
-    });
+    it(
+      'writes nothing when its address names nobody it can read and no card says whom it’s to',
+      { timeout: 20_000 },
+      async () => {
+        vi.useFakeTimers({ toFake: ['setTimeout'] });
+        const noCard = (page: Document) => {
+          for (const a of page.querySelectorAll('a[href^="/in/"]')) a.remove();
+        };
+        const { doc, sent } = composing(newAt('dXJuOmxp'), 0, noCard);
+        const writing = writeMessage(doc, newAt('dXJuOmxp'), 'Hi Dana', dana);
+        await vi.advanceTimersByTimeAsync(20_000);
+        expect(await writing).toBe('none');
+        expect(sent).toEqual([]);
+      },
+    );
 
     it('waits for the frame to draw the conversation, as LinkedIn loads its messaging first', async () => {
       vi.useFakeTimers({ toFake: ['setTimeout'] });
