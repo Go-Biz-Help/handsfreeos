@@ -220,6 +220,16 @@ export const SCREEN_ACTIONS: Readonly<Record<string, ScreenAction>> = {
   'funnel.turn_on': {},
   'funnel.pause': {},
   'funnel.archive': {},
+  // ---- AI quick setup and onboarding setup: a screen's answers at a time, from read_ai_setup_get or read_onboarding_setup_get ----
+  'ai_setup.save': {},
+  'ai_setup.finish': {},
+  'onboarding_setup.save': {
+    warning:
+      'Some screens act as they’re saved: the team screen sends its invitations, the simple page goes live or off, and the booking screen turns the booking page on.',
+  },
+  'onboarding_setup.finish': {
+    warning: 'Handed to the owner, it emails them an invitation to check it and finish.',
+  },
   // ---- Settings → Imports ----
   'import.cancel': {},
   // ---- Settings → Migrations: each step checks the agency's or the business's Migrations permission itself ----
@@ -393,18 +403,7 @@ export interface NotYet {
   readonly why: string;
 }
 
-export const ASSISTANT_NOT_YET: readonly NotYet[] = [
-  {
-    page: 'AI quick setup and onboarding setup',
-    actions: [
-      'ai_setup.save',
-      'ai_setup.finish',
-      'onboarding_setup.save',
-      'onboarding_setup.finish',
-    ],
-    why: 'They save a whole wizard’s answers at once. The Assistant sets each part up with its own tools; walking the wizard needs one of its own.',
-  },
-];
+export const ASSISTANT_NOT_YET: readonly NotYet[] = [];
 
 // ---------- settings: every row on the Settings pages (settings/catalog.ts) ----------
 
@@ -531,6 +530,12 @@ export const SETTING_TOOLS: Readonly<Record<string, readonly SettingWay[]>> = {
   'adjust.call_tries': [{ tool: 'update_automations', field: 'callTries' }],
   'adjust.ok_to_call': [{ tool: 'update_automations', field: 'askForOkToCall' }],
   'adjust.business_landlines': [{ tool: 'update_automations', field: 'callBusinessLandlines' }],
+  // ---- Safety ----
+  'safety.check_ins': [
+    { tool: 'update_safety_settings', field: 'askAfterMinutes' },
+    { tool: 'update_safety_settings', field: 'alertAfterMinutes' },
+    { tool: 'update_safety_settings', field: 'safetyUserId' },
+  ],
 };
 
 /** Setting rows the Assistant never changes, and why. */
@@ -546,6 +551,7 @@ export const SETTINGS_NEVER: Readonly<Record<string, string>> = {
   'phone.documents_mobile_data': 'a setting of the phone in their hand, set on it',
   'phone.changes': 'a setting of the phone in their hand, set on it',
   'phone.my_safety': 'the person’s own safety contacts, which only they choose',
+  'safety.preview': 'nothing of its own to change: it shows what the check-in times set',
   ...Object.fromEntries(
     AUTOMATION_ROWS.filter((a) => a.locked).map((a) => [
       `automation.${a.id}`,
@@ -559,7 +565,6 @@ export const SETTINGS_NEVER: Readonly<Record<string, string>> = {
  * the first, says which tool changes each of its rows (adding what's missing), and takes it off.
  */
 export const SETTINGS_NOT_YET: readonly string[] = [
-  'safety',
   'usage',
   'texting',
   'email',
