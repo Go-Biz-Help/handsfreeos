@@ -28,6 +28,7 @@ import {
   privacyPolicy,
   preflightBlocked,
   sampleSuggestions,
+  senderForCarriers,
   SENSITIVE_TOPICS,
   sendsOffers,
   TERMS_TEXTING_ITEMS,
@@ -35,6 +36,7 @@ import {
   TEXTING_CAMPAIGN_MONTH_CENTS,
   textingFeeLines,
   textingFeeTotal,
+  tradingName,
   updatedPolicyHtml,
   updatedPolicyText,
   type A2pDraft,
@@ -315,8 +317,14 @@ const STEPS: readonly Step[] = [
 
 // ---------- small pieces ----------
 
-/** "Why do they ask this?", folded away until somebody wants it. */
-function Why({ children }: { children: ReactNode }) {
+/** "Why do they ask this?", folded away until somebody wants it. `label` asks a different question. */
+function Why({
+  children,
+  label = 'Why do they ask this?',
+}: {
+  children: ReactNode;
+  label?: string;
+}) {
   const [open, setOpen] = useState(false);
   return (
     <div className="mt-1">
@@ -326,9 +334,11 @@ function Why({ children }: { children: ReactNode }) {
         className="inline-flex items-center gap-1.5 text-[13px] text-text-2 hover:text-text"
       >
         <HelpCircle className="h-3.5 w-3.5" aria-hidden />
-        Why do they ask this?
+        {label}
       </button>
-      {open ? <p className="mt-1.5 text-[13px] leading-relaxed text-text-2">{children}</p> : null}
+      {open ? (
+        <div className="mt-1.5 space-y-1.5 text-[13px] leading-relaxed text-text-2">{children}</div>
+      ) : null}
     </div>
   );
 }
@@ -354,6 +364,38 @@ function Issues({ issues }: { issues: readonly A2pIssue[] }) {
         </li>
       ))}
     </ul>
+  );
+}
+
+/**
+ * A business customers know by another name (a DBA): what the carriers are told, and the three things that get
+ * it approved first time. HandsFreeOS itself is one, a DBA of Go Biz Help LLC.
+ */
+function DbaCallout({ legalName, dba }: { legalName: string; dba: string }) {
+  return (
+    <Callout tone="info" icon={HelpCircle} data-testid="dba-callout">
+      <div className="space-y-1.5">
+        <p>
+          <span className="font-semibold">Customers know you as {dba}.</span> That&rsquo;s a DBA
+          (&ldquo;doing business as&rdquo;), and it&rsquo;s fine. We&rsquo;ll tell the carriers
+          &ldquo;{legalName} (doing business as {dba})&rdquo;.
+        </p>
+        <p>To get approved the first time:</p>
+        <ul className="list-disc space-y-1 pl-4">
+          <li>Use {legalName}&rsquo;s EIN, and the address on its IRS letter.</li>
+          <li>
+            Show both names on your website, for example at the bottom of every page: &ldquo;{dba}{' '}
+            is owned and run by {legalName}.&rdquo; We check for it before you send.
+          </li>
+          <li>Sign your example texts as {dba}, the name customers will see.</li>
+        </ul>
+        <p>
+          Already registered {legalName} in another workspace? Use the same legal name, EIN and
+          address here. Each workspace texts from its own numbers, so each needs its own approval,
+          but the carriers have already checked these details once.
+        </p>
+      </div>
+    </Callout>
   );
 }
 
@@ -1010,6 +1052,7 @@ export function A2pWizard({
         optInUrl,
         optInProofUrl: proofUrl,
         names: [businessName, form.legalName].filter((n) => n.trim()),
+        legalName: form.legalName.trim() || undefined,
       });
       setChecks(got);
     } catch (err) {
@@ -1099,6 +1142,9 @@ export function A2pWizard({
     }
   }
 
+  // The name customers know, when it isn't the legal one: the carriers are told both.
+  const dba = tradingName(form.legalName, businessName);
+
   const field = (
     key: keyof WizardForm,
     label: string,
@@ -1140,6 +1186,21 @@ export function A2pWizard({
             LLC&rdquo; passes, so copy it exactly, including LLC or Inc.
           </Why>
           <Issues issues={issuesFor(issues, 'legalName')} />
+          {dba ? (
+            <DbaCallout legalName={form.legalName.trim()} dba={dba} />
+          ) : (
+            <Why label="Do customers know you by another name?">
+              <p>
+                That&rsquo;s a DBA (&ldquo;doing business as&rdquo;), and it&rsquo;s fine. Put the
+                legal name from your IRS letter here anyway, with LLC or Inc.
+              </p>
+              <p>
+                The name customers know is this workspace&rsquo;s name, &ldquo;{businessName}
+                &rdquo;, which you can change in Settings &rarr; Workspace. When the two are
+                different, we tell the carriers both and show you what else they check.
+              </p>
+            </Why>
+          )}
           <Field label="What kind of business it is" htmlFor="a2p-businessType">
             <Select
               id="a2p-businessType"
@@ -1354,6 +1415,7 @@ export function A2pWizard({
       {step.key === 'review' ? (
         <ReviewStep
           form={form}
+          businessName={businessName}
           issues={issues}
           serverErrors={serverErrors}
           checks={checks}
@@ -1897,6 +1959,7 @@ function Row({ label, value, onJump }: { label: string; value: ReactNode; onJump
 
 function ReviewStep({
   form,
+  businessName,
   issues,
   serverErrors,
   checks,
@@ -1907,6 +1970,8 @@ function ReviewStep({
   onJump,
 }: {
   form: WizardForm;
+  /** The name customers know: with a DBA, the carriers are told it beside the legal name. */
+  businessName: string;
   issues: readonly A2pIssue[];
   serverErrors: readonly string[];
   /** What a reviewer would find, or null while it has not been looked at. */
@@ -2033,7 +2098,11 @@ function ReviewStep({
       ) : null}
 
       <div className="rounded-menu border border-border bg-card px-4">
-        <Row label="Business" value={form.legalName} onJump={() => onJump('business')} />
+        <Row
+          label="Business"
+          value={senderForCarriers(form.legalName, businessName)}
+          onJump={() => onJump('business')}
+        />
         <Row
           label="EIN"
           value={form.businessType === 'sole_proprietor' ? 'Sole proprietor' : form.ein}

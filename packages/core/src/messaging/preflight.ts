@@ -111,6 +111,29 @@ export function namesBusiness(text: string, names: readonly string[]): boolean {
   });
 }
 
+/**
+ * The name customers know the business by, when it isn't the legal name: its DBA ("doing business as").
+ * Null when the two are one name written differently.
+ *
+ * **Why it matters.** The carriers check the legal name against the IRS, then check that the texts, the
+ * website and the campaign all name that same business. HandsFreeOS is a DBA of Go Biz Help LLC: texts
+ * signed "HandsFreeOS" under a campaign that only says "Go Biz Help LLC" read as somebody else's, and are
+ * turned down (Twilio's 30918). Told "Go Biz Help LLC (doing business as HandsFreeOS)", they match.
+ *
+ * Only a clearly different name counts. "Lone Star HVAC" is "Lone Star HVAC LLC" without its LLC, and
+ * "Lone Star" for "Lone Star Heating LLC" is the business shortening itself; carriers read both as the same.
+ */
+export function tradingName(
+  legalName: string | null | undefined,
+  displayName: string | null | undefined,
+): string | null {
+  const legal = nameKey(legalName ?? '');
+  const shown = nameKey(displayName ?? '');
+  if (legal.length < 3 || shown.length < 3 || legal.includes(shown) || shown.includes(legal))
+    return null;
+  return (displayName ?? '').trim();
+}
+
 /** What the page's agreement box says and does, read the way a reviewer reads it. */
 export interface ConsentBoxReading {
   /** A tick box was found beside the words about stopping texts. */
@@ -223,10 +246,14 @@ const unreachable = (page: FetchedPage, what: string): string =>
  * `names` are the ways the business is known (its name and its legal name). A site that never says either
  * is a warning rather than a blocker: some sites put their name only in a logo, which a reviewer can see and
  * we can't.
+ *
+ * A business with a DBA (`legalName` differs from a name customers know, `tradingName`) needs both on the
+ * site, or the reviewer can't tell the texts and the registration are the same business. Also a warning.
  */
 export function checkWebsite(
   page: FetchedPage | null,
   names: readonly string[] = [],
+  legalName: string | null = null,
 ): PreflightCheck {
   const base = {
     id: 'website' as const,
@@ -266,6 +293,17 @@ export function checkWebsite(
       severity: 'warning',
       ok: false,
       detail: `It opens, but we couldn’t find “${named[0]}” on it. A reviewer checks the site belongs to the business being registered, so put your business name on the page, in words rather than only in a logo.`,
+      url: page.finalUrl ?? page.url,
+    };
+  const legal = (legalName ?? '').trim();
+  const dba = named.map((n) => tradingName(legal, n)).find((n): n is string => !!n);
+  const unnamed = dba ? [dba, legal].find((n) => !namesBusiness(text, [n])) : undefined;
+  if (dba && unnamed)
+    return {
+      ...base,
+      severity: 'warning',
+      ok: false,
+      detail: `It opens, but we couldn’t find “${unnamed}” on it. Customers know you as ${dba} and the carriers know you as ${legal}, so the reviewer needs to see they’re the same business. Add a line like “${dba} is owned and run by ${legal}.” to the bottom of your site.`,
       url: page.finalUrl ?? page.url,
     };
   return {

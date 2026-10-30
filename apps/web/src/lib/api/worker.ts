@@ -212,6 +212,8 @@ export function registrationPreflight(input: {
   optInProofUrl?: string | null;
   /** The ways the business is known, looked for on the website and beside the box. */
   names?: string[];
+  /** The name on the IRS letter, which a business with a DBA needs on its website too. */
+  legalName?: string;
 }): Promise<{ checks: PreflightCheck[] }> {
   return workerPost('/v1/telephony/registration-preflight', input);
 }

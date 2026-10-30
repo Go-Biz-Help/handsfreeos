@@ -189,6 +189,8 @@ const PreflightInput = z.strictObject({
   optInProofUrl: z.string().trim().max(500).nullable().optional(),
   /** The ways the business is known (its name and legal name), looked for on the website and beside the box. */
   names: z.array(z.string().trim().max(120)).max(4).default([]),
+  /** The name on the IRS letter: with a DBA, the website has to say it as well as the name customers know. */
+  legalName: z.string().trim().max(120).optional(),
 });
 
 export async function buildHttpServer(deps: HttpDeps): Promise<FastifyInstance> {
@@ -462,7 +464,7 @@ export async function buildHttpServer(deps: HttpDeps): Promise<FastifyInstance> 
 
     return {
       checks: [
-        checkWebsite(website, names),
+        checkWebsite(website, names, input.legalName ?? null),
         checkPolicy(policy),
         checkTerms(terms),
         checkOptInSurface(optIn, input.optInPath, names),
