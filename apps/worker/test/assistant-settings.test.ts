@@ -686,17 +686,23 @@ describe('what Home watches for', () => {
   it('turns a kind off without touching the others, and refuses automatic follow-ups it cannot turn on', async () => {
     const { card, parsed, tool } = await prepare(
       'update_action_center_settings',
-      { kindsOff: ['overdue_task'], bigJobDollars: 7500 },
+      { kindsOff: ['overdue_task'], bigJobDollars: 7500, ignoreBalancesUnderDollars: 25 },
       owner,
     );
     expect(card.fields.find((f) => f.label === 'A big job is')!.value).toBe('$7,500.00 or more');
+    expect(card.fields.find((f) => f.label === 'Ignore balances under')!.value).toBe('$25.00');
     await confirm(tool!, parsed, owner);
     const after = await q<{
-      settings: { kinds: Record<string, boolean>; hot: { minValueCents: number } };
+      settings: {
+        kinds: Record<string, boolean>;
+        hot: { minValueCents: number };
+        money: { minBalanceCents: number };
+      };
     }>('attention.settings');
     expect(after.settings.kinds['overdue_task']).toBe(false);
     expect(after.settings.kinds['hot_lead']).toBe(true);
     expect(after.settings.hot.minValueCents).toBe(750_000);
+    expect(after.settings.money.minBalanceCents).toBe(2_500);
 
     // Follow-ups stay off until someone has read the wording, so the card offers no Confirm at all.
     const nudges = await prepare(

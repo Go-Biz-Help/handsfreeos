@@ -22,7 +22,8 @@ import {
 } from '../ai-team/config';
 import { AUTOMATION_GROUPS, AUTOMATIONS, type AutomationId } from '../automations/catalog';
 import { CALL_TRIES_MAX } from '../automations/call-hours';
-import { CALL_VOICEMAIL_CHOICES } from '../automations/settings';
+import { STAGE_ROLES } from '../automations/pipeline-roles';
+import { CALL_VOICEMAIL_CHOICES, CONTACT_AI_GUIDE_MAX } from '../automations/settings';
 import { IDEA_MINE, IDEA_SORTS, IDEA_STATUSES } from '../ideas/words';
 import { PUSH_SWITCHES } from '../push';
 import { uuid } from '../schemas/common';
@@ -217,7 +218,7 @@ export const extraTools: readonly AssistantTool[] = [
   define({
     name: 'update_automations',
     description:
-      'Turn automations on or off by their id from list_automations — any row on Settings → Automations, whether its switch lives there, in what Home watches for, or in the AI teammate — and change re-engaging dead leads’ timing and message, which form Intake questions sends, when the end-of-day email goes, what the AI does when a voicemail box answers its call, the calling hours and tries for campaign and workflow calls to leads, and whether its pages ask for an OK to call. Re-engaging dead leads can only be turned on from the screen, where its message is read first. new_lead_greeting is only the AI teammate’s first message to a brand-new lead, and it goes out only while the teammate’s Respond switch is on too (manage_ai_teammate’s repliesToLeads, which is the whole section).',
+      'Turn automations on or off by their id from list_automations — any row on Settings → Automations, whether its switch lives there, in what Home watches for, or in the AI teammate — and change re-engaging dead leads’ timing and message, which form Intake questions sends, when the end-of-day email goes, what the AI does when a voicemail box answers its call, the calling hours and tries for campaign and workflow calls to leads, whether its pages ask for an OK to call, the Maintenance due texts, what each pipeline stage means and how the business tags customers. Turning on re-engaging dead leads the first time puts its message on the card to read before Confirm. new_lead_greeting is only the AI teammate’s first message to a brand-new lead, and it goes out only while the teammate’s Respond switch is on too (manage_ai_teammate’s repliesToLeads, which is the whole section).',
     input: z.object({
       turnOn: z.array(z.enum(AUTOMATION_IDS)).max(49).optional(),
       turnOff: z.array(z.enum(AUTOMATION_IDS)).max(49).optional(),
@@ -278,6 +279,38 @@ export const extraTools: readonly AssistantTool[] = [
         .optional()
         .describe(
           'Let a campaign’s or workflow’s call go to someone with no written yes when their number is a business landline (checked with the phone company first, charged per number to the balance: get_settings prices lists what each check costs). Mobiles, home lines and internet numbers still need the yes',
+        ),
+      maintenanceMessage: text(480)
+        .optional()
+        .describe(
+          'The Maintenance due text. Placeholders: {firstName}, {businessName}, {service}, {link}; it must have {link}',
+        ),
+      maintenancePlanMessage: text(480)
+        .optional()
+        .describe(
+          'The same text for a customer whose maintenance plan covers the service: {plan} too, and it must have {link}',
+        ),
+      stageMeanings: z
+        .array(
+          z.object({
+            stageId: uuid.describe('An open stage, from get_settings pipelines'),
+            means: z
+              .enum([...STAGE_ROLES, 'none'])
+              .describe(
+                'What moves a deal there: contacted (someone got back to them), quoted (a quote went out), booked (a visit was booked); none: deals only reach it by hand',
+              ),
+          }),
+        )
+        .min(1)
+        .max(50)
+        .optional(),
+      howYouTag: z
+        .string()
+        .trim()
+        .max(CONTACT_AI_GUIDE_MAX)
+        .optional()
+        .describe(
+          'How the business tags customers, in its own words, which the AI reads whenever it looks at a customer’s tags. Empty clears it',
         ),
     }),
     autonomy: 'confirm',

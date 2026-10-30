@@ -28,6 +28,7 @@ import {
   diffTeammateConfigs,
   formatClock,
   GET_HELP_WORDS,
+  guessStageRole,
   HfosError,
   IDEA_STATUS_WORDS,
   ideaUpdateLine,
@@ -46,6 +47,7 @@ import {
   reengageOn,
   sameMenu,
   storedMenu,
+  STAGE_ROLE_LABELS,
   SUGGESTED_MENU,
   templateIssues,
   validateTeammate,
@@ -64,6 +66,7 @@ import {
   type QualifyingQuestion,
   type QualifyingQuestionInput,
   type QuestionKind,
+  type StageRole,
   type TeammateCatalogs,
   type TeammateConfig,
   type TeammatePatch,
@@ -537,11 +540,13 @@ interface AutomationState {
   readonly forms: { formId: string; name: string; status: string }[] | null;
   /** For Business landlines: what checking a number costs, as the page shows it (null when it can't see prices). */
   readonly lineCheckCents: LineCheckCents | null;
+  /** For What each stage means: every open stage, by pipeline (null when they couldn't be read). */
+  readonly stages: { id: string; name: string; pipeline: string }[] | null;
 }
 
 /** Everything the page reads to draw its rows, read the way the page reads it. */
 async function automationState(db: Db, ctx: ToolContext): Promise<AutomationState> {
-  const [{ workspace }, team, services, plans, forms, prices] = await Promise.all([
+  const [{ workspace }, team, services, plans, forms, prices, pipelines] = await Promise.all([
     query<{ workspace: { settings: Record<string, unknown> } }>(db, ctx, 'workspace.get'),
     teammateOf(db, ctx).catch(() => null),
     query<{ items: { repeatMonths: number | null }[] }>(db, ctx, 'service.list').catch(() => null),
@@ -558,6 +563,13 @@ async function automationState(db: Db, ctx: ToolContext): Promise<AutomationStat
     query<{ items: { key: string | null; cents: number }[] }>(db, ctx, 'usage.prices').catch(
       () => null,
     ),
+    query<{
+      pipelines: {
+        name: string;
+        archivedAt: string | null;
+        stages: { id: string; name: string; kind: string }[];
+      }[];
+    }>(db, ctx, 'pipeline.list').catch(() => null),
   ]);
   const teammate = team?.teammate ?? null;
   const priced = (key: string) => prices?.items.find((p) => p.key === key)?.cents;
@@ -583,8 +595,24 @@ async function automationState(db: Db, ctx: ToolContext): Promise<AutomationStat
     canManageTeammate: team?.canManage ?? false,
     forms: forms?.items ?? null,
     lineCheckCents: line !== undefined && owner !== undefined ? { line, owner } : null,
+    // The open stages the page lists, as it lists them.
+    stages: pipelines
+      ? pipelines.pipelines
+          .filter((p) => !p.archivedAt)
+          .flatMap((p) =>
+            p.stages
+              .filter((st) => st.kind === 'open')
+              .map((st) => ({ id: st.id, name: st.name, pipeline: p.name })),
+          )
+      : null,
   };
 }
+
+/** What moves a deal into a stage: the business's pick, else the guess from its name, as the page shows it. */
+const stageMeaning = (roles: Record<string, string>, stage: { id: string; name: string }) =>
+  (roles[stage.id] ?? guessStageRole(stage.name) ?? 'none') as StageRole | 'none';
+const stageMeaningWords = (means: StageRole | 'none') =>
+  means === 'none' ? 'Nothing: deals reach it only by hand' : STAGE_ROLE_LABELS[means];
 
 async function listAutomations(db: Db, ctx: ToolContext, args: Args): Promise<ToolOutcome> {
   const state = await automationState(db, ctx);
@@ -608,7 +636,7 @@ async function listAutomations(db: Db, ctx: ToolContext, args: Args): Promise<To
           ...(r.locked ? { alwaysOn: true } : {}),
           ...(r.on && r.needsSetup ? { notWorkingYet: r.needsSetup.text } : {}),
           ...(r.awaitingReview
-            ? { turnsOnOnlyOnTheScreen: 'Its message is read first, in Adjust' }
+            ? { messageReadFirst: 'Turning it on puts its message on the card to read first' }
             : {}),
           ...(r.on && r.drafts ? { waitsForApprovalWhileTraining: true } : {}),
           ...(r.fallback ? { withoutAiTeammate: r.fallback } : {}),
@@ -632,6 +660,13 @@ async function listAutomations(db: Db, ctx: ToolContext, args: Args): Promise<To
         tries: a.calls.tries,
       },
       asksForOkToCall: a.calls.askConsent,
+      maintenanceDue: { message: a.maintenance.template, planMessage: a.maintenance.planTemplate },
+      stageMeanings: state.stages?.map((st) => ({
+        stageId: st.id,
+        stage: `${st.name} (${st.pipeline})`,
+        means: stageMeaningWords(stageMeaning(a.pipeline.roles, st)),
+      })),
+      howYouTag: a.contactAi.guide || null,
     },
   };
 }
@@ -809,11 +844,37 @@ function planAutomations(state: AutomationState, args: Args): AutomationPlan {
     typeof args['callBusinessLandlines'] === 'boolean'
       ? args['callBusinessLandlines']
       : now.calls.businessLandlines;
+  const maintenance = {
+    template: straight(str(args['maintenanceMessage'])) ?? now.maintenance.template,
+    planTemplate: straight(str(args['maintenancePlanMessage'])) ?? now.maintenance.planTemplate,
+  };
+  const guide = str(args['howYouTag'])?.trim() ?? now.contactAi.guide;
+  // A stage set back to the guess from its name drops the pick, as the page does.
+  const roles = { ...now.pipeline.roles };
+  const stageFields: Field[] = [];
+  for (const pick of list<{ stageId: string; means: StageRole | 'none' }>(args['stageMeanings']) ??
+    []) {
+    const stage = state.stages?.find((st) => st.id === pick.stageId);
+    if (!stage)
+      throw HfosError.notFound(
+        'No open stage with that id. The stages come from get_settings pipelines.',
+      );
+    if (stageMeaning(roles, stage) === pick.means) continue;
+    if (pick.means === (guessStageRole(stage.name) ?? 'none')) delete roles[stage.id];
+    else roles[stage.id] = pick.means;
+    stageFields.push({
+      label: `${stage.name} (${stage.pipeline})`,
+      value: stageMeaningWords(pick.means),
+    });
+  }
   const next: AutomationSettings = {
     ...now,
     reengage: { ...now.reengage, ...reengage },
     briefings: { ...now.briefings, eveningAt },
     calls: { ...now.calls, voicemail, askConsent, hours, tries, businessLandlines },
+    maintenance: { ...now.maintenance, ...maintenance },
+    pipeline: { ...now.pipeline, roles },
+    contactAi: { ...now.contactAi, guide },
   };
   if (reengage.afterDays !== now.reengage.afterDays)
     fields.push({ label: 'Re-engage: gone cold after', value: plural(reengage.afterDays, 'day') });
@@ -859,6 +920,16 @@ function planAutomations(state: AutomationState, args: Args): AutomationPlan {
             ? 'On. Each check is charged to your balance'
             : 'Off',
     });
+  const newText = maintenance.template !== now.maintenance.template;
+  const newPlanText = maintenance.planTemplate !== now.maintenance.planTemplate;
+  if (newText) fields.push({ label: 'Maintenance due text', value: maintenance.template });
+  if (newPlanText)
+    fields.push({ label: 'For customers on a maintenance plan', value: maintenance.planTemplate });
+  if ((newText || newPlanText) && automationRow(automationDef('maintenance_due'), at).on)
+    reaching.push('The maintenance due text');
+  fields.push(...stageFields);
+  if (guide !== now.contactAi.guide)
+    fields.push({ label: 'How you tag customers', value: guide || 'Nothing written' });
   if (JSON.stringify(next) !== JSON.stringify(now)) {
     try {
       parseAutomationSettings(next);

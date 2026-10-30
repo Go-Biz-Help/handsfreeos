@@ -13,8 +13,10 @@ import {
   menuOf,
   organizationCreate,
   pushSwitchesOf,
+  guessStageRole,
   registry,
   sameMenu,
+  STAGE_ROLE_LABELS,
   workflowTemplateCreate,
   workflowTemplatePublish,
   type AssistantCard,
@@ -305,7 +307,7 @@ describe('Settings → Automations', () => {
     expect(list.find((a) => a.id === 'day_before_confirmation')!.on).toBe(true);
     expect(list.find((a) => a.id === 'reengage_dead_leads')).toMatchObject({
       on: false,
-      turnsOnOnlyOnTheScreen: expect.any(String),
+      messageReadFirst: expect.any(String),
     });
     expect(list.find((a) => a.id === 'drafts_awaiting_review')!['alwaysOn']).toBe(true);
     const leads = await read('list_automations', { group: 'leads' });
@@ -439,6 +441,104 @@ describe('Settings → Automations', () => {
     await expect(
       prepare('update_automations', { turnOff: ['day_of_reminder'], turnOn: ['day_of_reminder'] }),
     ).rejects.toThrow('not both');
+  });
+
+  it('changes the maintenance plan text, what a stage means and how the business tags, only on Confirm', async () => {
+    const { pipelines } = await q<{
+      pipelines: { name: string; stages: { id: string; name: string; kind: string }[] }[];
+    }>('pipeline.list');
+    const stage = pipelines[0]!.stages.find((st) => st.kind === 'open')!;
+    const guess = guessStageRole(stage.name) ?? 'none';
+    const pick = guess === 'quoted' ? 'booked' : 'quoted';
+    const planText = 'Hi {firstName}, your {service} is due and your {plan} covers it: {link}';
+    const guide = 'VIP: has spent over $2,000 with us. Commercial: a business, not a home.';
+    const { card, parsed } = await prepare('update_automations', {
+      maintenancePlanMessage: planText,
+      stageMeanings: [{ stageId: stage.id, means: pick }],
+      howYouTag: guide,
+    });
+    expect(field(card, 'For customers on a maintenance plan')!.value).toBe(planText);
+    expect(field(card, `${stage.name} (${pipelines[0]!.name})`)!.value).toBe(
+      STAGE_ROLE_LABELS[pick],
+    );
+    expect(field(card, 'How you tag customers')!.value).toBe(guide);
+    // Maintenance due is on, so the new words go to customers on their own.
+    expect(card.warnings[0]!.text).toContain('The maintenance due text reaches customers');
+    expect((await settings())['automations'].contactAi?.guide ?? '').toBe('');
+
+    await confirm('update_automations', parsed);
+    const a = (await settings())['automations'];
+    expect(a.maintenance.planTemplate).toBe(planText);
+    expect(a.pipeline.roles).toEqual({ [stage.id]: pick });
+    expect(a.contactAi.guide).toBe(guide);
+    const { result } = await read('list_automations', {});
+    expect(result['howYouTag']).toBe(guide);
+    expect(
+      (result['stageMeanings'] as { stageId: string; means: string }[]).find(
+        (st) => st.stageId === stage.id,
+      )!.means,
+    ).toBe(STAGE_ROLE_LABELS[pick]);
+
+    // Set back to the guess from its name, the pick goes, as on the page.
+    const back = await prepare('update_automations', {
+      stageMeanings: [{ stageId: stage.id, means: guess }],
+    });
+    await confirm('update_automations', back.parsed);
+    expect((await settings())['automations'].pipeline.roles).toEqual({});
+    await expect(
+      prepare('update_automations', { maintenanceMessage: 'Your {service} is due soon.' }),
+    ).rejects.toThrow('Put {link} where the booking link goes');
+    await expect(
+      prepare('update_automations', {
+        stageMeanings: [{ stageId: randomUUID(), means: 'booked' }],
+      }),
+    ).rejects.toThrow('No open stage with that id');
+  });
+});
+
+describe('Settings → Migrations', () => {
+  it('pauses and carries on a move from another CRM on Confirm, warns before one starts, and never deletes one', async () => {
+    const tools = allScreenActionTools();
+    const named = (name: string) => tools.find((t) => t.name === name);
+    expect(named('do_migration_pause')!.permission).toBe('migrations.manage');
+    expect(named('do_migration_start')!.warning).toContain('Roll back');
+    expect(named('do_migration_map_scopes')!.warning).toContain('new business');
+    expect(named('do_migration_delete')).toBeUndefined();
+    expect(named('do_migration_rollback')).toBeUndefined();
+
+    const [connection] = await rows<{ id: string }>(
+      admin(),
+      sql`insert into app.migration_connections (organization_id, workspace_id, source_system, status, adapter_version)
+          values (${organizationId}, ${workspaceId}, 'gohighlevel', 'active', 1) returning id`,
+    );
+    const [migration] = await rows<{ id: string }>(
+      admin(),
+      sql`insert into app.migrations (organization_id, connection_id, source_system, status, name, adapter_version)
+          values (${organizationId}, ${connection!.id}, 'gohighlevel', 'importing'::app.migration_status,
+            ${`Off GoHighLevel ${mark}`}, 1)
+          returning id`,
+    );
+    const status = async () =>
+      (
+        await rows<{ status: string }>(
+          admin(),
+          sql`select status::text as status from app.migrations where id = ${migration!.id}`,
+        )
+      )[0]!.status;
+    const exec = createToolExecutor(api());
+    const args = { migrationId: migration!.id };
+
+    const pause = named('do_migration_pause')!;
+    const card = await exec.prepare(pause, args, ctxFor(owner), randomUUID());
+    expect(card.card?.type).toBe('confirm');
+    expect(await status()).toBe('importing');
+    await exec.commit(pause, args, ctxFor(owner), { toolCallId: randomUUID() });
+    expect(await status()).toBe('paused');
+
+    const resume = named('do_migration_resume')!;
+    await exec.prepare(resume, args, ctxFor(owner), randomUUID());
+    await exec.commit(resume, args, ctxFor(owner), { toolCallId: randomUUID() });
+    expect(await status()).toBe('importing');
   });
 });
 

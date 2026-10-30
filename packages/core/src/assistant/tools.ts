@@ -788,7 +788,7 @@ export const assistantTools = [
   define({
     name: 'update_action_center_settings',
     description:
-      'Change what Home watches for and what HandsFreeOS does on its own: which kinds of thing show up, how fast a new lead counts as waiting, what a big job is worth, how long before a lead has gone quiet, when an estimate or an unpaid invoice asks for attention, and whether HandsFreeOS confirms visits and follows up by itself. Read it with get_settings first.',
+      'Change what Home watches for and what HandsFreeOS does on its own: which kinds of thing show up, how fast a new lead counts as waiting, what a big job is worth, how long before a lead has gone quiet, when an estimate or an unpaid invoice asks for attention (and the balances too small to), and whether HandsFreeOS confirms visits and follows up by itself. Read it with get_settings first.',
     input: z.object({
       kindsOn: z.array(z.enum(ATTENTION_KINDS)).max(10).optional().describe('Kinds to turn on'),
       kindsOff: z.array(z.enum(ATTENTION_KINDS)).max(10).optional().describe('Kinds to turn off'),
@@ -799,6 +799,9 @@ export const assistantTools = [
       unconfirmedVisitWindowHours: z.int().min(1).max(168).optional(),
       estimateWaitingDays: z.int().min(1).max(60).optional(),
       invoiceOverdueDays: z.int().min(0).max(60).optional(),
+      ignoreBalancesUnderDollars: dollars
+        .optional()
+        .describe('An unpaid invoice with less than this left on it doesn’t show'),
       typicalJobValueDollars: dollars
         .nullable()
         .optional()

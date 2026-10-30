@@ -6,7 +6,11 @@
  * command a screen runs and every setting row against these lists. docs/operations.md, "Keeping the Assistant able to
  * do everything", says how to add to them.
  */
+import { AUTOMATIONS, type AutomationDef } from '../automations/catalog';
 import type { Permission } from '../permissions';
+
+/** Every Automations row, with what each may say about itself (always on). */
+const AUTOMATION_ROWS: readonly AutomationDef[] = AUTOMATIONS;
 
 /** One screen command the Assistant runs as it is. */
 export interface ScreenAction {
@@ -218,6 +222,23 @@ export const SCREEN_ACTIONS: Readonly<Record<string, ScreenAction>> = {
   'funnel.archive': {},
   // ---- Settings → Imports ----
   'import.cancel': {},
+  // ---- Settings → Migrations: each step checks the agency's or the business's Migrations permission itself ----
+  'migration.create': { offeredTo: 'migrations.manage' },
+  'migration.scan': { offeredTo: 'migrations.manage' },
+  'migration.select': { offeredTo: 'migrations.manage' },
+  'migration.map_scopes': {
+    offeredTo: 'migrations.manage',
+    warning: 'A sub-account set to land in a new business makes that business now.',
+  },
+  'migration.start': {
+    offeredTo: 'migrations.manage',
+    warning:
+      'It brings what was picked from the old system into the business now; no message, invoice or reminder goes out because of it. Taking it all back is Roll back, on the Migrations page, which only a person presses.',
+  },
+  'migration.pause': { offeredTo: 'migrations.manage' },
+  'migration.resume': { offeredTo: 'migrations.manage' },
+  'migration.retry': { offeredTo: 'migrations.manage' },
+  'migration.resolve_merge': { offeredTo: 'migrations.manage' },
   // ---- HandsFreeOS's own Admin area: staff only (the owner, 2026-10-27) ----
   'support.ticket.assign': {},
   'support.ticket.dismiss_draft': {},
@@ -306,6 +327,8 @@ export const NEVER_FOR_THE_ASSISTANT: Readonly<Record<string, string>> = {
   'addon.purge': 'deleting an add-on’s data for good (the owner, 2026-10-26)',
   'addon.start_fresh': 'deleting an add-on’s data for good (the owner, 2026-10-26)',
   'migration.rollback': 'taking back everything a move from another CRM brought, for good',
+  'migration.delete':
+    'deleting a move from another CRM, which finishes off the records it archived, for good',
   'calendar_connection.connect': 'signing in to Google or Outlook, which only the person can do',
   'mailbox.connect': 'signing in to Outlook or Gmail, which only the person can do',
   'meeting_connection.connect': 'signing in to Zoom, which only the person can do',
@@ -371,20 +394,6 @@ export interface NotYet {
 }
 
 export const ASSISTANT_NOT_YET: readonly NotYet[] = [
-  {
-    page: 'Settings → Migrations',
-    actions: [
-      'migration.create',
-      'migration.scan',
-      'migration.select',
-      'migration.map_scopes',
-      'migration.start',
-      'migration.pause',
-      'migration.resolve_merge',
-      'migration.delete',
-    ],
-    why: 'Moving from another CRM is a wizard whose steps check the agency’s permission themselves, so each needs its own tool and card.',
-  },
   {
     page: 'AI quick setup and onboarding setup',
     actions: [
@@ -487,7 +496,33 @@ export const SETTING_TOOLS: Readonly<Record<string, readonly SettingWay[]>> = {
     { tool: 'manage_permissions', field: 'action', value: 'set_person' },
     { tool: 'manage_permissions', field: 'action', value: 'reset_person' },
   ],
-  // ---- Automations ----
+  // ---- Automations: each row's switch by its id, wherever the switch lives; an always-on row is on the Never list ----
+  ...Object.fromEntries(
+    AUTOMATION_ROWS.filter((a) => !a.locked).map((a) => [
+      `automation.${a.id}`,
+      [
+        { tool: 'update_automations', field: 'turnOn', value: a.id },
+        { tool: 'update_automations', field: 'turnOff', value: a.id },
+      ],
+    ]),
+  ),
+  'adjust.urgent_after': [
+    { tool: 'update_action_center_settings', field: 'hotLeadUrgentAfterMinutes' },
+  ],
+  'adjust.big_job': [{ tool: 'update_action_center_settings', field: 'bigJobDollars' }],
+  'adjust.typical_value': [
+    { tool: 'update_action_center_settings', field: 'typicalJobValueDollars' },
+  ],
+  'adjust.reply_c': [{ tool: 'update_action_center_settings', field: 'replyCToConfirm' }],
+  'adjust.maintenance_plan': [{ tool: 'update_automations', field: 'maintenancePlanMessage' }],
+  'adjust.ignore_balances': [
+    { tool: 'update_action_center_settings', field: 'ignoreBalancesUnderDollars' },
+  ],
+  'adjust.stage_meanings': [{ tool: 'update_automations', field: 'stageMeanings' }],
+  'adjust.gone_quiet': [{ tool: 'update_action_center_settings', field: 'goneQuietAfterDays' }],
+  'adjust.gone_cold': [{ tool: 'update_automations', field: 'reengageAfterDays' }],
+  'adjust.voicemail_box': [{ tool: 'update_automations', field: 'whenVoicemailAnswers' }],
+  'adjust.how_you_tag': [{ tool: 'update_automations', field: 'howYouTag' }],
   'adjust.calling_hours': [
     { tool: 'update_automations', field: 'callLeadsFrom' },
     { tool: 'update_automations', field: 'callLeadsUntil' },
@@ -511,6 +546,12 @@ export const SETTINGS_NEVER: Readonly<Record<string, string>> = {
   'phone.documents_mobile_data': 'a setting of the phone in their hand, set on it',
   'phone.changes': 'a setting of the phone in their hand, set on it',
   'phone.my_safety': 'the person’s own safety contacts, which only they choose',
+  ...Object.fromEntries(
+    AUTOMATION_ROWS.filter((a) => a.locked).map((a) => [
+      `automation.${a.id}`,
+      'always on, so a person always sees what waits on them: it has no switch',
+    ]),
+  ),
 };
 
 /**
@@ -518,7 +559,6 @@ export const SETTINGS_NEVER: Readonly<Record<string, string>> = {
  * the first, says which tool changes each of its rows (adding what's missing), and takes it off.
  */
 export const SETTINGS_NOT_YET: readonly string[] = [
-  'automations',
   'safety',
   'usage',
   'texting',
