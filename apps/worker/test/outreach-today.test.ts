@@ -34,6 +34,7 @@ import {
   posts,
   profiles,
   setup,
+  stages,
 } from '../../../packages/core/src/addons/outreach/tables';
 import { PLAYBOOK_TEMPLATES } from '../../../packages/core/src/addons/outreach/playbooks';
 import { scriptedAi } from '../src/ai/scripted';
@@ -373,6 +374,100 @@ describe('drafts for Today', () => {
       expect(d).not.toContain('loom.com');
       expect(d).not.toMatch(/link to book/);
     }
+  });
+});
+
+describe('someone who said no (decision 134)', () => {
+  it('is never pitched again, whichever way it was kept, until a chat read says they came round', async () => {
+    const db = testDbs().admin.db;
+    const draftFor = async (username: string, name: string) => {
+      const [p] = await db
+        .insert(profiles)
+        .values({
+          workspaceId: ws,
+          platform: 'facebook',
+          username,
+          url: `https://www.facebook.com/${username}`,
+          name,
+        })
+        .returning({ id: profiles.id });
+      const [c] = await db
+        .insert(fileChats)
+        .values({
+          workspaceId: ws,
+          userId: owner.id,
+          platform: 'facebook',
+          profileId: p!.id,
+          name,
+          nameKey: name.toLowerCase().replace(/\s+/g, ''),
+          firstAt: new Date(),
+          lastAt: new Date(),
+          messages: 3,
+          lastFromMe: false,
+          recent: [
+            {
+              fromMe: true,
+              text: 'Do you use a CRM?',
+              at: new Date(Date.now() - 120_000).toISOString(),
+            },
+            {
+              fromMe: false,
+              text: 'Never needed one.',
+              at: new Date(Date.now() - 60_000).toISOString(),
+            },
+            { fromMe: false, text: 'No problem', at: new Date().toISOString() },
+          ],
+        })
+        .returning({ id: fileChats.id });
+      return { profileId: p!.id, chatId: c!.id };
+    };
+    const words = async (chat: { chatId: string }) =>
+      (await draft(owner, { kind: 'reply', chatId: chat.chatId })).json().drafts as string[];
+
+    // Nothing kept says they said no: the AI reads the chat as it is.
+    const quinn = await draftFor('quinn.vale.1', 'Quinn Vale');
+    expect(await words(quinn)).not.toContain('No problem at all, Quinn. Take care!');
+
+    // Marked not a fit, by the AI's read of their chat or by the person.
+    const marcus = await draftFor('marcus.hale.3', 'Marcus Hale');
+    await db.insert(stages).values({
+      workspaceId: ws,
+      userId: owner.id,
+      profileId: marcus.profileId,
+      mark: 'lost',
+      markedBy: 'ai',
+      why: 'Doesn’t need a CRM',
+      markedAt: new Date(),
+    });
+    expect(await words(marcus)).toEqual(['No problem at all, Marcus. Take care!']);
+
+    // Their chat read as not interested.
+    await db
+      .update(fileChats)
+      .set({ pitch: 'not_interested', pitchWhy: 'Never needed one' })
+      .where(eq(fileChats.id, quinn.chatId));
+    expect(await words(quinn)).toEqual(['No problem at all, Quinn. Take care!']);
+
+    // Their answer kept for the conversation: not now.
+    const nia = await draftFor('nia.brooks.8', 'Nia Brooks');
+    await db.insert(followUps).values({
+      workspaceId: ws,
+      userId: owner.id,
+      profileId: nia.profileId,
+      step: 'first',
+      stepAt: new Date(Date.now() - 300_000),
+      lastAt: new Date(Date.now() - 300_000),
+      answer: 'later',
+      answeredAt: new Date(Date.now() - 200_000),
+    });
+    expect(await words(nia)).toEqual(['No problem at all, Nia. Take care!']);
+
+    // A chat read since as ready for the offer: they came round.
+    await db
+      .update(fileChats)
+      .set({ pitch: 'ready', pitchWhy: 'Asked how to start' })
+      .where(eq(fileChats.id, quinn.chatId));
+    expect(await words(quinn)).not.toContain('No problem at all, Quinn. Take care!');
   });
 });
 

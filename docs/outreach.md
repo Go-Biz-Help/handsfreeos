@@ -3208,6 +3208,34 @@ where decisions 37 and 59 put the settings; what they decided stands. Settled to
         tried again goes any time too; else it sleeps till the hours. Stop for today, a warning, noting off and an
         ask in line still stop it, as in the hours.
 
+134.  **The AI reads where the conversation is** (Chris, 30 Oct 2026). "Social Outreach AI needs to be aware of the
+      context of the conversation that has been had. This person said they don’t need a crm and I sent a message back
+      saying if that changes let me know and now the ai is trying to still pitch them again." The draft in the
+      screenshot was a reply written hours before, to their message before the chat moved on: it was still waiting for
+      an OK beside the chat as it is now, and a newer reply was never drafted while it waited (one open send a person
+      and kind).
+      Migration `20261027020700_outreach_drafts_the_chat_moves`: the person may delete their own drafts never OK'd.
+      - **A draft goes once the chat moves on:** when a read of a chat (`outreach.chats.collect`) shows a last message
+        none of those kept, by who wrote it and its words (`movedOn`, never by the times a read gave it), a draft for
+        them still waiting for an OK is deleted (`DRAFTS_THE_CHAT_MOVES`: an answer, a nudge, the next step, a first
+        message), and the next look drafts again from the chat as it is now, or not at all when the person answered
+        them. A page read again as it was, or scrolled up, changes nothing. An OK'd draft stays theirs to send, and a
+        demo's reminder, another time after a no-show and a birthday or new-job note stay: they're about a day.
+      - **Never pitched after a no:** a reply, a follow-up or a check-in to someone who said no or not now (their
+        answer kept for the conversation, their chat read as `not_interested`, or marked not a fit) is told so, with
+        why, and carries no link and none of the playbook's conversation questions (`declinedLine`), until a chat read
+        says they came round (`ready`) or they say yes, which drafts the next step as before.
+      - **The whole chat, not the last line:** a reply's task says to read the whole chat first and answer where it is
+        now; the rules say never to ask what the chat already answered, nor bring back what they turned down. A chat
+        that has come to a close gets one short, warm sign-off at most, with no question, pitch or link.
+      - **A closed chat gets no reply and no follow-up:** a chat's read gives no next step once the chat has come to a
+        close (they said no or not now, the owner said that's fine, and their last message only signs off), and says
+        what to answer when there is something. Today lists no reply for a chat read as `not_interested` with no next
+        step (`closedChat`), and no follow-up in a chat read as `not_interested`.
+      - **A reply the extension saw is answered by hand too:** it leaves Today once their chat, read after it was seen,
+        ends with the person's own message, or reads as come to a close. Before, only a message the extension noted
+        took it off.
+
 ## Rules worth knowing before changing anything
 
 - **Nothing is saved until the person presses a button in HandsFreeOS** (an ask, below), except the four steps the
@@ -3574,8 +3602,9 @@ where decisions 37 and 59 put the settings; what they decided stands. Settled to
   in the person's own chat, which the server reads itself; the AI's "simple" only counts with (b)). With (b) or (c),
   one that waits is handed over with a push (`handedOver`, the worker's `handOver`). Only an OK'd one
   (`approved`) is sent, and only the extension says it went (`outreach.send.done`); the message itself is noted as any
-  step is. One open send a person, profile and kind at a time: drafting again returns it. A send skipped or not sent
-  takes them off the list for the rest of the day. A first message sent this way notes its opener, as copying does.
+  step is. One open send a person, profile and kind at a time: drafting again returns it, until a read of their chat
+  shows it moved on, which deletes a draft never OK'd so the next look drafts again (decision 134). A send skipped or
+  not sent takes them off the list for the rest of the day. A first message sent this way notes its opener, as copying does.
   **A comment goes through `sends` too** where the network's comments wait at first (decision 92; the kit's
   `commentsWait: 'hold'`, Instagram and Alignable), as kind `comment` with its post (`sends.post_id`;
   `MESSAGE_KINDS` still means messages, and `SEND_KINDS` adds the comment). It's queued only for a good post of the
@@ -3669,7 +3698,12 @@ where decisions 37 and 59 put the settings; what they decided stands. Settled to
   chat again is no news; a chat with nothing of the person's noted, or seen within 30 seconds of their message being
   noted (Messenger's list catching up), isn't one. The extension sends only who (the chat's number or their profile),
   only chats from the last two days, each at most every 3 minutes, and nothing while noting is off. The push goes to
-  that person alone, unless they had the tab in front of them.
+  that person alone, unless they had the tab in front of them. A reply seen leaves Today when the extension notes a
+  message to them, or when their chat, read after it was seen, ends with the person's own or reads as come to a close
+  (decision 134).
+- **Nobody who said no is pitched** (decision 134, `declinedLine`): a reply, a follow-up or a check-in to someone
+  whose answer kept is no or not now, whose chat reads `not_interested`, or who's marked not a fit carries no link and
+  no conversation questions, and the AI is told why. Only a chat read as `ready`, or their yes, brings the pitch back.
 - **The morning push is one job per business** (`outreach.morning`), armed when the add-on comes on, when the hour
   changes, and whenever the extension sends a reply or something Today reads, so a business that had the add-on
   before it gets one too. It works out each person's list as they would see it (`outreach.today` on their behalf),

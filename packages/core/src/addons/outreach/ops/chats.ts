@@ -5,7 +5,7 @@
  * tagged whatever it says; someone new is added only when the setting takes them, never from the Don't pitch list
  * unless it takes everyone.
  */
-import { and, eq, or, sql } from 'drizzle-orm';
+import { and, eq, inArray, or, sql } from 'drizzle-orm';
 import { rows } from '@hfos/db/client';
 import { personCreate } from '../../../commands/person.create';
 import { recordSetTags } from '../../../commands/record.set_tags';
@@ -28,11 +28,17 @@ import {
   type ChatView,
   type ContactsFromChats,
 } from '../chat-read';
-import { ChatsCollectInput, ChatsCollectOutput, mergeRecent } from '../chat-collect';
+import {
+  ChatsCollectInput,
+  ChatsCollectOutput,
+  DRAFTS_THE_CHAT_MOVES,
+  mergeRecent,
+  movedOn,
+} from '../chat-collect';
 import { nameKey, type DownloadMessage } from '../download';
 import { outreachAddon } from '../manifest';
 import { PLATFORMS, type Platform } from '../playbooks';
-import { fileChats, profiles } from '../tables';
+import { fileChats, profiles, sends } from '../tables';
 import { inWorkspace, keptProfile, once, sourceFor, tagIdsFor } from './common';
 import { noteAnswer } from './conversation';
 import { wantLead } from './leads';
@@ -430,6 +436,24 @@ export const chatsCollect = defineAddonCommand(outreachAddon, {
               collectedAt: now,
             })
             .where(eq(fileChats.id, had.id));
+          // Someone wrote since it was kept (decision 134): a draft for them still waiting for an OK was written for
+          // where the chat was, so it goes, and the next look drafts again from the chat as it is now, or not at all
+          // when the person answered them themselves.
+          const whose = profile?.id ?? had.profileId;
+          if (movedOn(had.recent, c.messages))
+            await ctx.tx
+              .delete(sends)
+              .where(
+                and(
+                  eq(sends.workspaceId, ws),
+                  eq(sends.userId, me),
+                  eq(sends.state, 'waiting'),
+                  inArray(sends.kind, [...DRAFTS_THE_CHAT_MOVES]),
+                  whose
+                    ? or(eq(sends.chatId, had.id), eq(sends.profileId, whose))
+                    : eq(sends.chatId, had.id),
+                ),
+              );
         }
         if (!changed) continue;
         saved++;

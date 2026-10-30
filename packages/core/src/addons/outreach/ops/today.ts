@@ -117,6 +117,14 @@ const HOUR = 3_600_000;
 /** A message the person wrote to someone themselves this lately puts their next follow-up off. */
 const MANUAL_QUIET_HOURS = 20;
 
+/**
+ * A chat the AI read as come to a close (decision 134): they said no or not now (`not_interested`) and there's nothing
+ * left to do (no next step), so their last message needs nothing back. A chat with no pitch read isn't: never null, so
+ * `not` it keeps them. `c` is its alias.
+ */
+const closedChat = (c: string) =>
+  sql`(${sql.raw(c)}.pitch is not distinct from 'not_interested' and ${sql.raw(c)}.next_step is null)`;
+
 const NONE_DONE: Record<DailyStep, number> = {
   friend_request: 0,
   first_message: 0,
@@ -1516,6 +1524,8 @@ export const today = defineAddonQuery(outreachAddon, {
     // Follow-ups and replies in chats that started another way (Reconnect, the download file, someone who wrote
     // first): likely prospects whose chat's last message was the person's, a few quiet days ago, until their first
     // follow-up starts a conversation; and those who wrote last, lately. A client (decision 91) gets the reply alone.
+    // Nobody the chat's read says turned the offer down gets a follow-up, and a chat read as come to a close gets no
+    // reply (decision 134).
     const chats = await rows<{
       id: string;
       name: string;
@@ -1537,9 +1547,11 @@ export const today = defineAddonQuery(outreachAddon, {
               and (not c.last_from_me or (${lets} and not ${isClient('p')}))))
             and ((c.last_from_me and c.last_at between ${ago(TODAY_WINDOW_DAYS.follow_up)}::timestamptz
                   and ${ago(pace.firstGap)}::timestamptz
+                  and c.pitch is distinct from 'not_interested'
                   and not exists (select 1 from addon_outreach.follow_ups f
                     where f.profile_id = c.profile_id and f.user_id = ${me}))
-              or (not c.last_from_me and c.last_at >= ${ago(TODAY_WINDOW_DAYS.reply)}::timestamptz))
+              or (not c.last_from_me and c.last_at >= ${ago(TODAY_WINDOW_DAYS.reply)}::timestamptz
+                  and not ${closedChat('c')}))
             and not exists (select 1 from addon_outreach.touches t
               where t.profile_id = c.profile_id and t.user_id = ${me} and t.kind = 'message'
                 and t.at > c.last_at)
@@ -1572,7 +1584,8 @@ export const today = defineAddonQuery(outreachAddon, {
     }
 
     // Replies the extension saw (decision 22), for anyone not listed from their chat already, until the person
-    // writes back.
+    // writes back: as the extension notes a message it sent, or as their chat, read since, shows the person's last or
+    // reads as come to a close (decision 134).
     const listed = new Set(items.map((i) => i.profileId).filter(Boolean));
     const seen = await rows<{
       profile_id: string;
@@ -1589,6 +1602,9 @@ export const today = defineAddonQuery(outreachAddon, {
             and not exists (select 1 from addon_outreach.touches t
               where t.profile_id = r.profile_id and t.user_id = ${me} and t.kind = 'message'
                 and t.at > r.seen_at)
+            and not exists (select 1 from addon_outreach.file_chats c
+              where c.profile_id = r.profile_id and c.user_id = ${me} and c.collected_at > r.seen_at
+                and (c.last_from_me or (c.read_state = 'read' and ${closedChat('c')})))
           order by r.profile_id, r.seen_at desc`,
     );
     seen.sort((a, b) => new Date(b.seen_at).getTime() - new Date(a.seen_at).getTime());
