@@ -29,9 +29,10 @@ import { EmptyState } from '@/components/ui/empty-state';
 import { Segmented } from '@/components/ui/segmented';
 import { cn, relativeTime } from '@/lib/utils';
 import { outreachHref } from './address';
+import { OpenerResults } from './opener-results';
 import { TouchedPostsCard } from './touched-posts';
 import { TrackingSection } from './tracking-view';
-import type { Activity, Tracking } from './types';
+import type { Activity, Openers, Tracking } from './types';
 
 type Numbers = Activity['numbers'];
 type PartnerNumbers = NonNullable<Activity['partners']>;
@@ -68,12 +69,15 @@ export function ActivityView({
   tracking,
   period,
   canManage,
+  openers = null,
 }: {
   workspaceId: string;
   activity: Activity;
   /** The three numbers on top (./tracking-view.tsx): null when they didn't load. */
   tracking: Tracking | null;
   period: ActivityPeriod;
+  /** Which openers work, every first message so far (decision 129): null when it didn't load. */
+  openers?: Openers | null;
   /** Owners and admins can see everyone's steps. */
   canManage: boolean;
 }) {
@@ -149,6 +153,7 @@ export function ActivityView({
             />
           </>
         )}
+        {openers ? <OpenerResults openers={openers} /> : null}
       </div>
     </div>
   );

@@ -12,7 +12,6 @@
  */
 import {
   ASK_TIDY_MOST,
-  ASK_WORDS,
   askableOn,
   askOpen,
   type TIDY_ASK_KINDS,
@@ -36,7 +35,7 @@ import {
   friendSinceWords,
   type FriendView,
 } from '@hfos/core/addons/outreach/friends';
-import { saveListOn, tidyWordsOn } from '@hfos/core/addons/outreach/network-words';
+import { tidyWordsOn } from '@hfos/core/addons/outreach/network-words';
 import { NETWORKS, PLATFORMS, type Platform } from '@hfos/core/addons/outreach/networks';
 import { OUTREACH_PAGES } from '@hfos/core/addons/outreach/pages';
 import { warningNote } from '@hfos/core/addons/outreach/tidy';
@@ -237,36 +236,14 @@ export function FriendsView({
     show === 'requests' &&
     friends.people.length > 0 &&
     friends.people.every((f) => !f.fit?.playbookName);
-  // The asks are the network shown's: Facebook's when the list is every network's.
+  // The cards are the network shown's: Facebook's when the list is every network's.
   const asking = net ?? 'facebook';
-  const words = NETWORKS[asking].words;
   return (
     <div data-testid="outreach-friends">
       <div className="mb-4 flex flex-wrap items-center gap-2">
         <SearchBox search={search} onSearch={(s) => go({ search: s })} />
       </div>
-      <Card className="mb-4 p-4" data-testid="friends-asks">
-        <h3 className="text-[15px] font-semibold">{`From ${PLATFORMS[asking]}`}</h3>
-        <p className="mt-0.5 text-[12.5px] text-text-3">{ASK_WORDS.fromFacebookNote}</p>
-        <div className="mt-3 grid gap-3 sm:grid-cols-2">
-          <AskButton
-            workspaceId={workspaceId}
-            asks={asks}
-            ask={{ kind: 'requests' }}
-            platform={asking}
-            label={`Check my ${words.friendRequests}`}
-            testId="ask-requests"
-          />
-          <AskButton
-            workspaceId={workspaceId}
-            asks={asks}
-            ask={{ kind: 'friends' }}
-            platform={asking}
-            label={saveListOn(asking)}
-            testId="ask-friends"
-          />
-        </div>
-      </Card>
+      {/* Checking requests and saving the friends list now are in Run now at the top (decision 129). */}
       <div
         className={cn(
           'grid gap-4 transition-opacity lg:grid-cols-[minmax(0,1fr)_300px]',

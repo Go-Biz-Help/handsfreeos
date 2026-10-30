@@ -19,7 +19,7 @@
  *   pm: { icon: Building2, settings: () => import('./pm/settings') },
  */
 import type { AddonSlotName } from '@hfos/core';
-import type { ComponentType } from 'react';
+import type { ComponentType, ReactNode } from 'react';
 import {
   House as realestateAddonIcon,
   ListChecks as realestateDutiesIcon,
@@ -33,6 +33,7 @@ import {
   ChartColumn as outreachResultsIcon,
   Handshake as outreachAddonIcon,
   Inbox as outreachNeedsYouIcon,
+  ListChecks as outreachSetupIcon,
   Search as outreachFindIcon,
   Settings2 as outreachSettingsIcon,
   Sun as outreachTodayIcon,
@@ -175,6 +176,25 @@ export interface AddonUi {
     readonly page: string;
     readonly load: () => Promise<{ default: ComponentType<{ readonly workspaceId: string }> }>;
   };
+  /**
+   * A page in the side menu that's there only while the add-on says so (Social Outreach's Set up, its decision 129):
+   * its page `page`, a key of the manifest's `ui.nav`. One component, fetched the first time the menu draws the
+   * add-on, decides, and draws the row with `row`, handed what goes beside its name. The row is always there while its
+   * page is open.
+   */
+  readonly navRow?: {
+    readonly page: string;
+    readonly load: () => Promise<{ default: ComponentType<NavRowProps> }>;
+  };
+}
+
+/** What an add-on's `navRow` is handed. */
+export interface NavRowProps {
+  readonly workspaceId: string;
+  /** Its page is the one open: the row is drawn whatever it decides. */
+  readonly lit: boolean;
+  /** Draws the row, with what goes beside its name. */
+  readonly row: (beside?: ReactNode) => ReactNode;
 }
 
 /** Every add-on's UI, by add-on id. */
@@ -212,6 +232,7 @@ export const ADDON_UI: Readonly<Record<string, AddonUi>> = {
   outreach: {
     icon: outreachAddonIcon,
     navIcons: {
+      setup: outreachSetupIcon,
       'needs-you': outreachNeedsYouIcon,
       today: outreachTodayIcon,
       people: outreachPeopleIcon,
@@ -226,6 +247,7 @@ export const ADDON_UI: Readonly<Record<string, AddonUi>> = {
     },
     settings: () => import('./outreach/settings-link'),
     navCount: { page: 'needs-you', load: () => import('./outreach/menu-count') },
+    navRow: { page: 'setup', load: () => import('./outreach/setup-row') },
   },
   salescoach: {
     icon: salescoachAddonIcon,

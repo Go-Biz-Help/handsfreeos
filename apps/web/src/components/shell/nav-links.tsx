@@ -336,6 +336,9 @@ export function MenuCount({ count, label }: { count: number; label: string }) {
 /** A count whose code is slow or broke: nothing in its place, as the menu has nowhere to say so. */
 const QuietBoundary = catchError(() => null);
 
+/** A page's row whose code is slow or broke: the plain row while its page is open, else nothing. */
+const LitBoundary = catchError((props: { fallback: ReactNode }) => props.fallback);
+
 /**
  * An add-on's count (the registry's `navCount`): on the page it counts, and on the add-on's row while its pages are
  * closed. Its code is fetched the first time the menu draws it, only while the add-on runs here.
@@ -358,6 +361,40 @@ const countedPage = (addonId: string, pageKey: string) => {
   const page = ADDON_UI[addonId]?.navCount?.page;
   return page !== undefined && pageKey === addonPageKey(addonId, page);
 };
+
+/** Whether an add-on's page is there only while the add-on says so (the registry's `navRow`). */
+const gatedPage = (addonId: string, pageKey: string) => {
+  const page = ADDON_UI[addonId]?.navRow?.page;
+  return page !== undefined && pageKey === addonPageKey(addonId, page);
+};
+
+/**
+ * A page that's there only while its add-on says so (the registry's `navRow`): its code decides, fetched the first
+ * time the menu draws it. Open, it's drawn while that code comes; slow or broken, it's left out unless it's open.
+ */
+function GatedRow({
+  workspaceId,
+  addonId,
+  lit,
+  row,
+}: {
+  workspaceId: string;
+  addonId: string;
+  lit: boolean;
+  row: (beside?: ReactNode) => ReactNode;
+}) {
+  const load = ADDON_UI[addonId]?.navRow?.load;
+  if (!load) return row();
+  const Row = lazyOnce(load);
+  const plain = lit ? row() : null;
+  return (
+    <LitBoundary fallback={plain}>
+      <Suspense fallback={plain}>
+        <Row workspaceId={workspaceId} lit={lit} row={row} />
+      </Suspense>
+    </LitBoundary>
+  );
+}
 
 const rowClass = (active: boolean, extra?: string) =>
   cn(
@@ -577,21 +614,36 @@ function AddonPageLinks({
   const addonId = item.key.replace(/^addon:/, '');
   return (
     <>
-      {pages.map((page) => (
-        <NavLink
-          key={page.key}
-          item={page}
-          active={page.key === lit}
-          onNavigate={onNavigate}
-          badge={
-            countedPage(addonId, page.key) ? (
-              <span className="ml-auto">
-                <AddonCount workspaceId={workspaceId} addonId={addonId} />
-              </span>
-            ) : undefined
-          }
-        />
-      ))}
+      {pages.map((page) => {
+        const row = (beside?: ReactNode) => (
+          <NavLink
+            key={page.key}
+            item={page}
+            active={page.key === lit}
+            onNavigate={onNavigate}
+            badge={
+              countedPage(addonId, page.key) ? (
+                <span className="ml-auto">
+                  <AddonCount workspaceId={workspaceId} addonId={addonId} />
+                </span>
+              ) : beside ? (
+                <span className="ml-auto">{beside}</span>
+              ) : undefined
+            }
+          />
+        );
+        return gatedPage(addonId, page.key) ? (
+          <GatedRow
+            key={page.key}
+            workspaceId={workspaceId}
+            addonId={addonId}
+            lit={page.key === lit}
+            row={row}
+          />
+        ) : (
+          row()
+        );
+      })}
     </>
   );
 }

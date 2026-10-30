@@ -318,6 +318,8 @@ export const outreachAddon = defineAddon({
     // one page for each thing the person comes to do, shown only while it runs and to people who may open it. The
     // bare page (`path: ''`) isn't one of them: it forwards the old `?view=` addresses to these.
     nav: [
+      // First while anything's left to set up: the web's registry draws its row, with "6 of 9" (decision 129).
+      { key: 'setup', label: OUTREACH_PAGES.setup, icon: 'list-checks', path: 'set-up' },
       { key: 'needs-you', label: OUTREACH_PAGES['needs-you'], icon: 'inbox', path: 'needs-you' },
       { key: 'today', label: OUTREACH_PAGES.today, icon: 'sun', path: 'today' },
       { key: 'people', label: OUTREACH_PAGES.people, icon: 'users', path: 'people' },

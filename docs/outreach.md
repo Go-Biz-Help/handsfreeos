@@ -31,13 +31,14 @@ month (decision 99, extension 0.98.0), and Later on a person, a push when a requ
 comments waiting for an OK at first (decisions 100 to 102, extension 0.99.0).
 
 The parts below name the tabs they were built on. Since decision 127 those are pages of their own, which pop out from
-Social Outreach's one row in the side menu, in this order: **Needs you** (Waiting for you, with its count on the
-menu); **Today**, with a card for each network (the Live tab's status, Start my day and Stop for today, and its bars),
+Social Outreach's one row in the side menu, in this order: **Set up** (decision 129: how far the setup has come and
+each network's Get ready, with its count on the menu while anything's left); **Needs you** (Waiting for you, with
+its count on the menu); **Today**, with a card for each network (the Live tab's status, Start my day and Stop for today, and its bars),
 one Heads up, Done today (the old Details' feed), the list, and the team for owners; **People**, one list with a view
 for each kind (decision 128: In play, the Pipeline's board; Good fits, Friends, Requests and Sent, the Friends tab's
 lists; Talking; Chats; Partners; Clients; and Left alone); **Find people**, a card for each way new people are found,
-with the Groups under it; **Results** (the Activity tab); **Playbooks**; and **Settings**, with the settings, the
-person's computers and what was asked of them, and Start fresh. The phone's first screen lists the same pages. The old addresses (`?view=waiting`, `?view=activity`, `?view=live`) open what they
+with the Groups under it; **Results** (the Activity tab, and which openers work); **Playbooks**; and **Settings**
+(decision 129: You, each network, This computer with Run now, and for owners and admins Team and Start fresh). The phone's first screen lists the same pages. The old addresses (`?view=waiting`, `?view=activity`, `?view=live`) open what they
 became.
 
 - **The activity panel** (`/a/outreach`, the page's first tab): what the extension noted over today, the last 7 days
@@ -3073,6 +3074,32 @@ where decisions 37 and 59 put the settings; what they decided stands. Settled to
         the latest first, each step with when. Only the old Activity stays on the web (`ui.phone.web`).
       - The words for the rows (`friendSinceWords`, `FRIEND_EMPTY`, `activityStepsOf`, the panel's) are core's, so the
         web and the phone say the same.
+
+129.  **Social Outreach, rearranged, part 3: Settings, Set up and Run now** (Chris, 29 Oct 2026, the same picks).
+      Decision 127's last part, on the web and the phone together. No migration, and no command or query changed.
+      - **Settings in four groups:** **You** (the person's own settings, which was General), **Networks** (one page
+        for each), **This computer** (Your computer and its computers), and for owners and admins **Owners**: Team and
+        Start fresh (`SETTINGS_PART_KEYS` and `SETTINGS_WORDS.menu` in core's `settings-parts.ts`). Groups with nothing in them aren't shown.
+      - **Team** (`/settings/team`, the phone's `?part=team`) gathers what owners and admins set for everyone, which
+        was spread over General and each network's page: **Your people**, each with their training wheels ("4 of 25
+        OK’d · 3 days to go") and End now, and Their settings, which opens that person's You with a bar saying whose
+        they are and Back to yours (in place of the Settings for picker); then **For your team** (what people may pick,
+        the defaults, the countries, the extension's link and the business's settings); then each network's say for
+        the team, all on one page. You and each network's page say what moved there, with a button to it.
+      - **Set up is a page** (`/set-up`, the phone's `?view=setup`), first in the menu while anything's left and the
+        reminder isn't hidden (`setUpInMenu` in core's `set-up-page.ts`), with "6 of 9" beside it (`setupDoneOf`:
+        every step but the optional ones, each network's counted; the web registry's `navRow`, which any add-on can
+        declare, lets a page's row decide whether it shows). It has the next step with Carry on, every step where it
+        stands, Set up again, and **Get ready** on each network the person works, which was a card on Today. Today
+        keeps one line while something holds the day or advice is left (`todayReadyWords`), opening Set up. Once
+        it's gone from the menu, Settings → You opens it. The setup itself stays at `/setup`.
+      - **Which openers work moves to Results,** after its cards, with **Works best so far** on the one with the most
+        replies for what was sent once two in the playbook now have had at least 5 sends (`bestOpenerOf`, `FAIR_TRY`).
+        The phone's Results has it too.
+      - **Run now:** the jobs a person can ask the computer for, which were buttons on Friends, Chats and Groups, are
+        a **Run now** menu at the top of People and Find people, on the network picked (`RUN_NOW_ON` in core's
+        `run-now.ts`), and all of them, network by network, on Settings → Your computer (`RUN_NOW_ALL`), above what was
+        asked. Group search and Save a group by its link stay on Groups. On the phone, Your computer has every job.
 
 ## Rules worth knowing before changing anything
 

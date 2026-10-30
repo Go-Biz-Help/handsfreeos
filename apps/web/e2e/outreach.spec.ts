@@ -24,9 +24,10 @@ import { madeUpDownload, makeZip } from './outreach-download';
  *   anyone from it.
  * - A first-timer is sent to the setup (decision 83): the main setup, then a short one for each network they turn on,
  *   each step ticked from facts (the extension signing in, the rules kept, their goal saved), Skip leaving it to do,
- *   Start saying what's still in the way, and Set up again on Settings.
- * - Settings has a page for each part, opened from its menu: General, then each network (decision 73). Every change
- *   saves as it's made, with no Save button, and is still there after a reload. A network's On for you saves at once
+ *   Start saying what's still in the way, Set up in the side menu with how far it's come (decision 129), and Set up
+ *   again on Settings.
+ * - Settings has a page for each part, opened from its menu: You, then each network (decision 73), and Team for an
+ *   owner (decision 129). Every change saves as it's made, with no Save button, and is still there after a reload. A network's On for you saves at once
  *   with a line beside it (Chris, 2026-10-16); one that can't be saved goes back, saying why.
  * - The Partners list, under People (decision 81), has everyone the AI found could send the business customers, by
  *   stage, and marks them along.
@@ -36,8 +37,8 @@ import { madeUpDownload, makeZip } from './outreach-download';
  *   marks who sent a client from their pages, and sees each partner's link, clients and what they earned (stage 2d).
  */
 /**
- * Opens one of Social Outreach's pages from its one row in the side menu, where they pop out (decisions 127 and 128):
- * Needs you, Today, People, Find people, Results, Playbooks and Settings.
+ * Opens one of Social Outreach's pages from its one row in the side menu, where they pop out (decisions 127 to 129):
+ * Set up while anything's left, Needs you, Today, People, Find people, Results, Playbooks and Settings.
  */
 async function openOutreachPage(page: Page, name: string) {
   await page
@@ -82,12 +83,14 @@ test('an owner builds a playbook a step at a time, with answers that tag people 
 
   await page.goto(`/app/w/${workspaceId}/a/outreach`);
   await expect(page.getByTestId('outreach-home')).toBeVisible();
-  // Its pages pop out from its one row in the side menu, Playbooks among them (decision 127).
+  // Its pages pop out from its one row in the side menu, Playbooks among them (decision 127), and Set up first while
+  // anything's left, with how far it's come (decision 129).
   await page
     .getByRole('navigation', { name: 'Workspace' })
     .getByTestId('menu-addon-outreach')
     .click();
   await expect(page.getByTestId('menu-addon-panel-outreach').getByRole('link')).toHaveText([
+    /^Set up/,
     /^Needs you/,
     'Today',
     'People',
@@ -341,7 +344,7 @@ test('the Results tab counts what the extension noted, by group and person, over
   await expect(page.getByTestId('tracking-numbers')).toContainText('The team’s numbers');
   await expect(page.getByTestId('tracking-review-none')).toHaveCount(0);
 
-  // The day's report is on to start; turned off on Settings → General, it saves by itself and stays off.
+  // The day's report is on to start; turned off on Settings → You, it saves by itself and stays off.
   await page.goto(`/app/w/${workspaceId}/a/outreach/settings`);
   const dayReport = page.getByTestId('outreach-my-dayReport');
   await expect(dayReport).toHaveAttribute('aria-checked', 'true');
@@ -835,13 +838,19 @@ test('the groups tab scores saved groups, and today waits for a group’s admins
 
   await openOutreachPage(page, 'Today');
   await expect(page).toHaveURL(new RegExp(`/a/outreach/today$`));
-  // Not ready yet (decision 63): Get ready in place of the list, its playbook still to write.
-  await expect(page.getByTestId('get-ready')).toBeVisible();
-  await expect(page.getByTestId('ready-playbook')).toHaveAttribute('data-state', 'todo');
+  // Not ready yet (decision 63): a line in place of the list says how much is left, with Set up a press away.
+  await expect(page.getByTestId('today-get-ready')).toContainText(
+    'before the extension reaches anyone on Facebook',
+  );
   await expect(page.getByTestId('today-read-admins')).toContainText('Austin Small Business Owners');
   await expect(page.getByText('Friend requests need a playbook')).toBeVisible();
   // Half while Facebook is new to them (decision 96).
   await expect(page.getByTestId('today-limits')).toContainText('Friend requests0 of 10');
+  // Get ready is on Set up (decision 129), its playbook still to write.
+  await page.getByTestId('today-get-ready-open').click();
+  await expect(page).toHaveURL(new RegExp(`/a/outreach/set-up$`));
+  await expect(page.getByTestId('get-ready')).toBeVisible();
+  await expect(page.getByTestId('ready-playbook')).toHaveAttribute('data-state', 'todo');
 });
 
 test('a first-timer is sent to the setup: the main setup, then each network, each step ticked from facts', async ({
@@ -854,7 +863,16 @@ test('a first-timer is sent to the setup: the main setup, then each network, eac
   const setup = page.getByTestId('outreach-setup');
   const rail = (key: string) => page.getByTestId(`outreach-setup-rail-${key}`).first();
 
-  // The line on every tab names the next step; Carry on opens it (they started when they left it for later).
+  // Set up is first in the side menu, with how far it's come (decision 129); its page names the next step, and Carry on
+  // opens it (they started when they left it for later).
+  await page
+    .getByRole('navigation', { name: 'Workspace' })
+    .getByTestId('menu-addon-outreach')
+    .click();
+  await expect(page.getByTestId('addon-menu-setup')).toContainText('0 of 10 setup steps done');
+  await page.keyboard.press('Escape');
+  await openOutreachPage(page, 'Set up');
+  await expect(page).toHaveURL(new RegExp(`/a/outreach/set-up$`));
   await expect(page.getByTestId('outreach-setup-banner')).toContainText(
     'Next: Main offer · 0 of 8 done.',
   );
@@ -975,9 +993,10 @@ test('a first-timer is sent to the setup: the main setup, then each network, eac
   await expect(page.getByTestId('outreach-setup-allow-steps')).toContainText('linkedin.com');
   await expect(page.getByTestId('outreach-setup-allow-waiting')).toBeVisible();
 
-  // Left for later: the line says what's next, and Carry on opens there, saying where they left off.
+  // Left for later: Set up says what's next, and Carry on opens there, saying where they left off.
   await page.getByTestId('outreach-setup-later').click();
-  await openOutreachPage(page, 'Today');
+  await openOutreachPage(page, 'Set up');
+  await expect(page.getByTestId('outreach-setup-rail-rules')).toHaveAttribute('data-state', 'done');
   await expect(page.getByTestId('outreach-setup-banner')).toContainText(
     'Next: Main offer · 5 of 8 done.',
   );
@@ -1060,7 +1079,7 @@ test('a network’s On for you saves at once on its page, with a line beside it,
   expect((await kept()).networks.linkedin).toMatchObject({ on: false, sending: 'steps' });
 });
 
-test('Settings opens General, LinkedIn’s page and Facebook’s from its menu, and each change saves by itself', async ({
+test('Settings opens You, LinkedIn’s page, Facebook’s and Team from its menu, and each change saves by itself', async ({
   page,
 }) => {
   test.setTimeout(180_000);
@@ -1084,15 +1103,15 @@ test('Settings opens General, LinkedIn’s page and Facebook’s from its menu, 
   const title = page.getByTestId('outreach-settings-title');
   const status = page.getByTestId('outreach-settings-status');
 
-  // Settings opens on General: the person's own on every network, and the team's say for an owner. No Save buttons but
-  // the extension's link box's own.
+  // Settings opens on You: the person's own on every network, and for an owner a line to Team, which has the team's
+  // say (decision 129). No Save buttons.
   await openOutreachPage(page, 'Settings');
   await expect(page).toHaveURL(new RegExp(`/a/outreach/settings$`));
   await expect(view).toHaveAttribute('data-part', 'general');
-  await expect(title).toHaveText('General');
+  await expect(title).toHaveText('You');
   await expect(status).toHaveText('Changes save as you make them.');
-  await expect(page.getByTestId('outreach-team')).toContainText('For your team');
-  await expect(page.getByTestId('outreach-extension-link-save')).toBeVisible();
+  await expect(page.getByTestId('outreach-team-moved')).toContainText('are on Team');
+  await expect(page.getByTestId('outreach-team')).toHaveCount(0);
   for (const gone of ['outreach-my-save', 'outreach-rules-save', 'outreach-settings-save'])
     await expect(page.getByTestId(gone)).toHaveCount(0);
   // The menu: each network with whether it's on for them, then those still to come, which don't open.
@@ -1114,15 +1133,29 @@ test('Settings opens General, LinkedIn’s page and Facebook’s from its menu, 
   await page.reload();
   await expect(page.getByTestId('outreach-my-voice-emoji')).toBeChecked();
 
-  // LinkedIn's page, from the menu: off for them, with the team's say on it for an owner.
+  // Team, from the menu (decision 129): the owner among their people, what people may pick, the extension's link box
+  // with its own Save, and each network's say for everyone.
+  await page.getByTestId('outreach-settings-part-team').click();
+  await expect(page).toHaveURL(new RegExp(`/a/outreach/settings/team$`));
+  await expect(view).toHaveAttribute('data-part', 'team');
+  await expect(title).toHaveText('Team');
+  await expect(page.getByTestId('outreach-team-person')).toContainText('(you)');
+  await expect(page.getByTestId('outreach-team')).toContainText('For your team');
+  await expect(page.getByTestId('outreach-extension-link-save')).toBeVisible();
+  await expect(page.getByTestId('outreach-team-facebook')).toContainText('Always allowed');
+  await expect(page.getByTestId('outreach-rules-network-linkedin')).toHaveAttribute(
+    'aria-checked',
+    'true',
+  );
+
+  // LinkedIn's page, from the menu: off for them, with a line to Team for an owner.
   await page.getByTestId('outreach-settings-part-linkedin').click();
   await expect(page).toHaveURL(new RegExp(`/a/outreach/settings/linkedin$`));
   await expect(view).toHaveAttribute('data-part', 'linkedin');
   await expect(title).toHaveText('LinkedIn');
   await expect(page.getByTestId('outreach-my-networks-linkedin-off')).toBeVisible();
-  await expect(page.getByTestId('outreach-rules-network-linkedin')).toHaveAttribute(
-    'aria-checked',
-    'true',
+  await expect(page.getByTestId('outreach-team-moved-linkedin')).toContainText(
+    'Your team’s say on LinkedIn is on Team.',
   );
   // On for you: its choices, that it works there from install, and its limits as they stand show; the menu says it's on.
   await page.getByTestId('outreach-my-networks-linkedin-on').click();
@@ -1145,22 +1178,25 @@ test('Settings opens General, LinkedIn’s page and Facebook’s from its menu, 
   );
   await page.keyboard.press('Escape');
   await expect(profileSheet).toHaveCount(0);
-  // The team's daily invitations, typed: saved once it's left, and their own limit follows, half while LinkedIn is new
-  // to them (decision 96).
+  // The team's daily invitations, typed on Team: saved once it's left, and their own limit on LinkedIn's page follows,
+  // half while LinkedIn is new to them (decision 96).
+  await page.getByTestId('outreach-team-moved-linkedin-open').click();
+  await expect(page).toHaveURL(new RegExp(`/a/outreach/settings/team$`));
   const invites = page.getByTestId('outreach-rules-linkedin-limit-friend_request');
   await expect(invites).toHaveValue('15');
   const limitSaved = saved('addon.save_settings');
   await invites.fill('10');
   await invites.blur();
   expect((await limitSaved).ok()).toBe(true);
+  await page.reload();
+  await expect(invites).toHaveValue('10');
+  await page.getByTestId('outreach-settings-part-linkedin').click();
   await expect(page.getByTestId('outreach-my-networks-linkedin-fresh')).toContainText(
     'New on LinkedIn',
   );
   await expect(
     page.getByTestId('outreach-my-networks-linkedin-limit-friend_request').locator('div').first(),
   ).toHaveText('5');
-  await page.reload();
-  await expect(invites).toHaveValue('10');
   await expect(page.getByTestId('outreach-my-networks-linkedin-on')).toHaveAttribute(
     'aria-checked',
     'true',
@@ -1171,7 +1207,6 @@ test('Settings opens General, LinkedIn’s page and Facebook’s from its menu, 
   await expect(page).toHaveURL(new RegExp(`/a/outreach/settings/facebook$`));
   await expect(title).toHaveText('Facebook');
   await expect(page.getByTestId('outreach-my-networks-facebook-chrome')).toHaveCount(0);
-  await expect(page.getByTestId('outreach-team-facebook')).toContainText('Always allowed');
   const readChats = page.getByTestId('outreach-my-readChats');
   await expect(readChats).toHaveAttribute('aria-checked', 'true');
   const chatsSaved = saved('outreach.automation.save');

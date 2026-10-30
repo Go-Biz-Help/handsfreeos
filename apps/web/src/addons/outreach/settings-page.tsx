@@ -3,21 +3,24 @@
  * Social Outreach's Settings tab, a page for each part (docs/outreach.md, decision 73; Chris, 16 Oct 2026, the "Social
  * Outreach settings by platform" design). The menu beside it (./home.tsx) opens one at a time (`?part=`):
  *
- * - **General**: the person's own on every network: how the AI writes for them, their working hours, and how their
- *   phone and the extension tell them what waits; Set up again; and for owners and admins, **For your team**: the
- *   choices people may pick, where a new person starts, where the team gets the extension (./extension-link.tsx),
- *   and the business's other Social Outreach settings (./business-settings.tsx).
+ * - **You** (its key is `general`): the person's own on every network: how the AI writes for them, their working
+ *   hours, and how their phone and the extension tell them what waits; Set up (decision 129) and Set up again.
  * - **Each network**: On for you; what the extension does there on its own and along the way, in the network's words;
  *   on Facebook, the extension's switches; the person's daily limits there as they stand; **Your profile** there, read
  *   by their computer and checked by the AI, with the words to put in (./get-ready.tsx's sheet, decision 80), on a
- *   network still looked at too; and for owners and admins, **For your team on** it: whether the team may use it, and
- *   its daily limits for each person.
- * - **Your computer** (./live-view.tsx) and **Start fresh**, for owners (./start-fresh.tsx).
+ *   network still looked at too. For owners and admins, a line to Team, which has the team's say on it.
+ * - **Your computer** (./live-view.tsx): their computers, the extension, every job it can run now (./run-now.tsx) and
+ *   what was asked of it lately.
+ * - **Team**, for owners and admins (decision 129): **Your people**, each with their training wheels to end and their
+ *   settings to open; **For your team**: the choices people may pick, where a new person starts, where the team gets
+ *   the extension (./extension-link.tsx) and the business's other Social Outreach settings (./business-settings.tsx);
+ *   and **each network, for everyone**: whether the team may use it, and its daily limits for each person.
+ * - **Start fresh**, for owners (./start-fresh.tsx).
  *
- * Owners and admins pick whose settings they see, above every part; the person sees who changed theirs last. Every
- * change saves as it's made (./use-autosave.ts): the person's through `outreach.automation.save`, the business's
- * through `addon.save_settings`, and the line under the page's title says how it went. No Save buttons, but the
- * extension's link, a box to type in that keeps its own.
+ * Owners and admins open someone's settings from Team (`?for=`), with a line above every part saying whose they are
+ * and Back to yours; the person sees who changed theirs last. Every change saves as it's made (./use-autosave.ts): the
+ * person's through `outreach.automation.save`, the business's through `addon.save_settings`, and the line under the
+ * page's title says how it went. No Save buttons, but the extension's link, a box to type in that keeps its own.
  */
 import {
   choicesFor,
@@ -55,9 +58,10 @@ import {
 } from '@hfos/core/addons/outreach/settings-parts';
 import { profileWordsOn, READY_WORDS as R, tickCounts } from '@hfos/core/addons/outreach/readiness';
 import { checkCounts } from '@hfos/core/addons/outreach/profile-check';
+import { SET_UP_PAGE_WORDS } from '@hfos/core/addons/outreach/set-up-page';
 import { networkSteps, outreachSetupPath, SETUP_WORDS } from '@hfos/core/addons/outreach/setup';
 import { START_FRESH_WORDS as F, OUTREACH_WORDS as W } from '@hfos/core/addons/outreach/words';
-import { AlertCircle, Check, Loader2 } from 'lucide-react';
+import { AlertCircle, ArrowLeft, Check, Loader2 } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useEffect, useRef, useState } from 'react';
@@ -75,6 +79,7 @@ import { ExtensionDownload } from './extension-download';
 import { ExtensionLinkForm } from './extension-link';
 import { ProfileSheet } from './get-ready';
 import { AskedCard, ComputersCard, useServerNow } from './live-view';
+import { RunNowAll } from './run-now';
 import {
   AllowedPicks,
   DefaultsFold,
@@ -86,13 +91,13 @@ import {
   NetworkTidy,
   Part,
   PushesPart,
-  select,
   Tick,
   VoicePart,
   wheelsOf,
 } from './settings-view';
 import { StartFresh } from './start-fresh';
-import type { Asks, Automation, AutomationPeople, Live, Readiness } from './types';
+import type { Asks, Automation, AutomationPeople, Live, Readiness, WheelsList } from './types';
+import { useAct } from './use-act';
 import { useAutosave, type Autosave, type SaveStatus } from './use-autosave';
 import { ProfilesSideBySide } from './profile-whole';
 
@@ -135,6 +140,8 @@ interface Props {
   asks?: Asks | null;
   /** On a network's page, the person's own profile there, read and checked (decision 80). */
   readiness?: Readiness | null;
+  /** On Team: who's on training wheels, to end them early. */
+  wheels?: WheelsList | null;
 }
 
 export function SettingsView(props: Props) {
@@ -156,8 +163,8 @@ function SettingsPages({
   extensionLink = null,
   asks = null,
   readiness = null,
+  wheels = null,
 }: Props) {
-  const router = useRouter();
   const person = useAutosave<AutomationSettings>(
     me.settings,
     async (settings) =>
@@ -191,36 +198,36 @@ function SettingsPages({
   // What the business allows: an owner's or admin's own changes show at once.
   const rules: Rules = business ? team.value.rules : me.rules;
   const statuses = business ? [person.status, team.status] : [person.status];
+  // Your computer is the person's own; Team and Start fresh are the business's, for those who may change it.
   const shown: SettingsPart =
-    (part === 'computer' && !mine) || (part === 'fresh' && !canStartFresh) ? 'general' : part;
+    (part === 'computer' && !mine) ||
+    (part === 'fresh' && !canStartFresh) ||
+    (part === 'team' && !business)
+      ? 'general'
+      : part;
   return (
     <div className="space-y-5" data-testid="outreach-settings-view" data-part={shown}>
-      {people ? (
-        <label className="flex flex-wrap items-center gap-2 text-[13px]">
-          <span className="font-semibold">{W.settingsFor}</span>
-          <select
-            className={select}
-            value={me.userId}
-            onChange={(e) =>
-              router.push(
-                outreachHref(workspaceId, {
-                  view: 'settings',
-                  part: shown === 'computer' || shown === 'fresh' ? 'general' : shown,
-                  for: e.target.value,
-                }),
-              )
-            }
-            data-testid="outreach-settings-for"
+      {mine ? null : (
+        // Someone else's, opened from Team: whose they are, above every part.
+        <div
+          className="flex flex-wrap items-center justify-between gap-3 rounded-menu bg-accent-soft px-3.5 py-2.5 text-[13.5px] text-accent-text"
+          data-testid="outreach-settings-whose"
+        >
+          <span className="min-w-0">{S.whose(me.name)}</span>
+          <ButtonLink
+            size="sm"
+            variant="secondary"
+            href={outreachHref(workspaceId, {
+              view: 'settings',
+              part: isNetworkPart(shown) ? shown : 'general',
+            })}
+            data-testid="outreach-settings-whose-back"
           >
-            {people.people.map((p) => (
-              <option key={p.userId} value={p.userId}>
-                {p.name}
-                {p.saved ? '' : W.notSetYet}
-              </option>
-            ))}
-          </select>
-        </label>
-      ) : null}
+            <ArrowLeft className="h-3.5 w-3.5" strokeWidth={1.75} />
+            {S.backToYours}
+          </ButtonLink>
+        </div>
+      )}
       {isNetworkPart(shown) ? (
         <NetworkPage
           // Its switch's line is its own.
@@ -242,9 +249,29 @@ function SettingsPages({
             {live ? <ComputerPart workspaceId={workspaceId} live={live} /> : null}
             <ExtensionDownload link={extensionLink} folded />
           </Card>
-          {/* What they asked it to do from the other pages, and how each went (decision 127). */}
-          {asks ? <AskedCard workspaceId={workspaceId} asks={asks} /> : null}
+          {/* Every job it can do now, on each network (decision 129), beside what was asked of it lately and how each
+              went (decision 127). */}
+          {asks ? (
+            <>
+              <RunNowAll
+                workspaceId={workspaceId}
+                asks={asks}
+                networks={networksOn(person.value, rules.networksAllowed)}
+              />
+              <AskedCard workspaceId={workspaceId} asks={asks} />
+            </>
+          ) : null}
         </>
+      ) : shown === 'team' && business ? (
+        <TeamPage
+          workspaceId={workspaceId}
+          me={me}
+          people={people}
+          wheels={wheels}
+          business={business}
+          team={team}
+          statuses={[team.status]}
+        />
       ) : shown === 'fresh' ? (
         <>
           <PageTitle title={F.title} about={F.about} />
@@ -258,7 +285,6 @@ function SettingsPages({
             mine={mine}
             business={business}
             person={person}
-            team={team}
             statuses={statuses}
           />
           {/* Their own profiles on every network, side by side (decision 84). */}
@@ -350,14 +376,13 @@ function SaveLine({ statuses }: { statuses: readonly SaveStatus[] }) {
   );
 }
 
-/** The person's own, on every network; and for owners and admins, what's the business's on every network. */
+/** The person's own, on every network; for owners and admins, a line to Team, which has the business's (decision 129). */
 function GeneralPage({
   workspaceId,
   me,
   mine,
   business,
   person,
-  team,
   statuses,
 }: {
   workspaceId: string;
@@ -365,11 +390,9 @@ function GeneralPage({
   mine: boolean;
   business: Readonly<Record<string, unknown>> | null;
   person: Autosave<AutomationSettings>;
-  team: Autosave<TeamSettings>;
   statuses: readonly SaveStatus[];
 }) {
   const own = { value: person.value, onChange: person.set, card: true, testId: 'outreach-my' };
-  const setRules = (rules: BusinessRules) => team.set((v) => ({ ...v, rules }));
   return (
     <>
       <PageTitle title={S.general} about={S.generalAbout}>
@@ -381,15 +404,27 @@ function GeneralPage({
           data-testid="outreach-setup-again"
         >
           <p className="min-w-0 flex-1 text-[13px] text-text-2">
+            {SET_UP_PAGE_WORDS.settingsAbout}{' '}
             {business ? SETUP_WORDS.againAboutManage : SETUP_WORDS.againAbout}
           </p>
-          <ButtonLink
-            size="sm"
-            href={outreachSetupPath(workspaceId, { again: true })}
-            data-testid="outreach-setup-again-open"
-          >
-            {SETUP_WORDS.again}
-          </ButtonLink>
+          <div className="flex flex-wrap gap-2">
+            {/* Set up, once it's gone from the side menu (decision 129). */}
+            <ButtonLink
+              size="sm"
+              variant="secondary"
+              href={outreachHref(workspaceId, { view: 'setup' })}
+              data-testid="outreach-set-up-open"
+            >
+              {SET_UP_PAGE_WORDS.settingsOpen}
+            </ButtonLink>
+            <ButtonLink
+              size="sm"
+              href={outreachSetupPath(workspaceId, { again: true })}
+              data-testid="outreach-setup-again-open"
+            >
+              {SETUP_WORDS.again}
+            </ButtonLink>
+          </div>
         </div>
       ) : null}
       {me.changedBy ? (
@@ -401,31 +436,196 @@ function GeneralPage({
       <HoursPart {...own} timezone={me.timezone} />
       <PushesPart {...own} switches />
       {business ? (
-        <Part card title={S.team} badge={S.teamWho} about={S.teamAbout} testId="outreach-team">
-          <AllowedPicks rules={team.value.rules} onChange={setRules} />
-          <div className="border-t border-border pt-4">
-            <DefaultsFold rules={team.value.rules} onChange={setRules} timezone={me.timezone} />
-          </div>
-          <div className="border-t border-border pt-4">
-            <ExtensionLinkForm
-              key={String(business.extensionLink ?? '')}
-              workspaceId={workspaceId}
-              settings={business}
-            />
-          </div>
-          <div className="border-t border-border pt-4">
-            <TeamSettingsFields
-              value={team.value}
-              onChange={(change) => team.set((v) => ({ ...v, ...change }))}
-            />
-          </div>
-        </Part>
+        <TeamMoved workspaceId={workspaceId} words={S.teamMovedAll} testId="outreach-team-moved" />
       ) : (
         <p className="text-[13px] text-text-2" data-testid="outreach-settings-not-owner">
           {W.abouts.notOwner}
         </p>
       )}
     </>
+  );
+}
+
+/** Where the team's say went, for an owner or admin (decision 129): a line to Team. */
+function TeamMoved({
+  workspaceId,
+  words,
+  testId,
+}: {
+  workspaceId: string;
+  words: string;
+  testId: string;
+}) {
+  return (
+    <p className="text-[13px] text-text-2" data-testid={testId}>
+      {words}{' '}
+      <Link
+        href={outreachHref(workspaceId, { view: 'settings', part: 'team' })}
+        className="font-medium text-accent-text hover:underline"
+        data-testid={`${testId}-open`}
+      >
+        {S.openTeam}
+      </Link>
+    </p>
+  );
+}
+
+/**
+ * Team, for owners and admins (decision 129): everything about their people in one place. Your people, each with their
+ * training wheels to end early and their settings to open; what people may pick, where a new person starts, the
+ * extension's link and the business's other settings; and each network's say for everyone.
+ */
+function TeamPage({
+  workspaceId,
+  me,
+  people,
+  wheels,
+  business,
+  team,
+  statuses,
+}: {
+  workspaceId: string;
+  /** The person shown: the timezone a new person's hours start in. */
+  me: Automation;
+  people: AutomationPeople | null;
+  wheels: WheelsList | null;
+  business: Readonly<Record<string, unknown>>;
+  team: Autosave<TeamSettings>;
+  statuses: readonly SaveStatus[];
+}) {
+  const setRules = (rules: BusinessRules) => team.set((v) => ({ ...v, rules }));
+  return (
+    <>
+      <PageTitle title={S.teamTitle} about={S.teamPageAbout}>
+        <SaveLine statuses={statuses} />
+      </PageTitle>
+      {people ? (
+        <YourPeople workspaceId={workspaceId} myId={me.userId} people={people} wheels={wheels} />
+      ) : null}
+      <Part card title={S.team} badge={S.teamWho} about={S.teamAbout} testId="outreach-team">
+        <AllowedPicks rules={team.value.rules} onChange={setRules} />
+        <div className="border-t border-border pt-4">
+          <DefaultsFold rules={team.value.rules} onChange={setRules} timezone={me.timezone} />
+        </div>
+        <div className="border-t border-border pt-4">
+          <ExtensionLinkForm
+            key={String(business.extensionLink ?? '')}
+            workspaceId={workspaceId}
+            settings={business}
+          />
+        </div>
+        <div className="border-t border-border pt-4">
+          <TeamSettingsFields
+            value={team.value}
+            onChange={(change) => team.set((v) => ({ ...v, ...change }))}
+          />
+        </div>
+      </Part>
+      <section className="space-y-3" aria-labelledby="outreach-team-networks-title">
+        <div>
+          <h3 id="outreach-team-networks-title" className="text-[17px] font-semibold">
+            {S.networksTitle}
+          </h3>
+          <p className="mt-0.5 text-[13px] text-text-2">{S.networksAbout}</p>
+        </div>
+        {PLATFORM_KEYS.map((p) => (
+          <TeamOnNetwork key={p} platform={p} team={team} />
+        ))}
+      </section>
+    </>
+  );
+}
+
+/** Everyone who uses Social Outreach here, with their training wheels on each network to end, and their settings. */
+function YourPeople({
+  workspaceId,
+  myId,
+  people,
+  wheels,
+}: {
+  workspaceId: string;
+  /** The owner or admin looking: their own open as theirs. */
+  myId: string;
+  people: AutomationPeople;
+  wheels: WheelsList | null;
+}) {
+  const { busy, act } = useAct();
+  const anyWheels = Boolean(wheels?.people.length);
+  return (
+    <Part card title={S.people} about={S.peopleAbout} testId="outreach-team-people">
+      {anyWheels ? <p className="text-[12.5px] text-text-3">{S.wheelsAbout}</p> : null}
+      <ul className="divide-y divide-border">
+        {people.people.map((p) => {
+          const theirs = wheels?.people.filter((w) => w.userId === p.userId) ?? [];
+          return (
+            <li
+              key={p.userId}
+              className="flex flex-wrap items-start justify-between gap-3 py-3 first:pt-0 last:pb-0"
+              data-testid="outreach-team-person"
+            >
+              <div className="min-w-0 flex-[1_1_220px] space-y-1.5">
+                <div className="text-[14px] font-medium">
+                  {p.name}
+                  {p.userId === myId ? (
+                    <span className="font-normal text-text-3"> {S.you}</span>
+                  ) : null}
+                </div>
+                {p.saved ? null : <div className="text-[12.5px] text-text-3">{S.notSaved}</div>}
+                {theirs.map((w) => (
+                  <div
+                    key={w.platform}
+                    className="flex flex-wrap items-center gap-x-3 gap-y-1.5 text-[12.5px] text-text-2"
+                    data-testid="outreach-team-wheels"
+                  >
+                    <span>
+                      <span className="font-medium text-warning-text">
+                        {S.wheelsOn(PLATFORMS[w.platform])}
+                      </span>
+                      {' · '}
+                      {S.wheelsLine(w.wheels.ok, w.wheels.daysLeft)}
+                    </span>
+                    <Button
+                      variant="secondary"
+                      size="sm"
+                      disabled={busy !== null}
+                      loading={busy === `${w.userId}:${w.platform}`}
+                      onClick={() =>
+                        void act(
+                          `${w.userId}:${w.platform}`,
+                          async () =>
+                            unwrap(
+                              await apiBrowser().POST('/v1/commands/outreach.wheels.end', {
+                                body: { workspaceId, userId: w.userId, platform: w.platform },
+                              }),
+                            ),
+                          W.wheelsEnded(w.name),
+                        )
+                      }
+                      data-testid="outreach-team-wheels-end"
+                    >
+                      <Check className="h-3.5 w-3.5" strokeWidth={1.5} />
+                      {W.endNow}
+                    </Button>
+                  </div>
+                ))}
+              </div>
+              <ButtonLink
+                size="sm"
+                variant="secondary"
+                href={outreachHref(workspaceId, {
+                  view: 'settings',
+                  part: 'general',
+                  ...(p.userId === myId ? {} : { for: p.userId }),
+                })}
+                data-testid="outreach-team-person-open"
+              >
+                {S.theirSettings}
+              </ButtonLink>
+            </li>
+          );
+        })}
+      </ul>
+    </Part>
   );
 }
 
@@ -698,7 +898,13 @@ function NetworkPage({
           ) : null}
         </>
       )}
-      {team ? <TeamOnNetwork platform={platform} team={team} /> : null}
+      {team ? (
+        <TeamMoved
+          workspaceId={workspaceId}
+          words={S.teamMoved(name)}
+          testId={`outreach-team-moved-${platform}`}
+        />
+      ) : null}
     </>
   );
 }

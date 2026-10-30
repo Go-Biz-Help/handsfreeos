@@ -162,3 +162,26 @@ export function rateWords(part: number, of: number, what: string): string {
   if (!of) return 'None sent yet';
   return `${part.toLocaleString()} of ${of.toLocaleString()} ${what} (${Math.round((part / of) * 100)}%)`;
 }
+
+/** A sent count needs to be this big before one opener's reply rate is called the best. */
+export const FAIR_TRY = 5;
+
+/** The opener with the most replies for what was sent, once each has had a fair try; null before then. */
+export function bestOpenerOf(list: readonly OpenerResult[]): OpenerResult | null {
+  const tried = list.filter((o) => o.current && o.sent >= FAIR_TRY);
+  if (tried.length < 2) return null;
+  const rate = (o: OpenerResult) => o.replies / o.sent;
+  const best = tried.reduce((a, b) => (rate(b) > rate(a) ? b : a));
+  return rate(best) > 0 ? best : null;
+}
+
+/** Which openers work, on Results (decision 129) on the web and the phone. */
+export const OPENER_RESULT_WORDS = {
+  title: 'Which openers work',
+  about: (everyone: boolean) =>
+    `${everyone ? 'Everyone’s first messages' : 'Your first messages'} from Today’s drafts, by how they opened. Drafts take turns with each.`,
+  notNow: 'Not in the playbook now',
+  best: 'Works best so far',
+  replies: (o: OpenerResult) => rateWords(o.replies, o.sent, 'wrote back'),
+  demos: (n: number) => (n === 1 ? '1 demo booked' : `${n.toLocaleString()} demos booked`),
+} as const;
