@@ -15,6 +15,7 @@ import {
   ASK_WORDS_MOST,
   askedWords,
 } from '@hfos/core/addons/outreach/asks';
+import { friendDayWords } from '@hfos/core/addons/outreach/friends';
 import {
   GROUP_CHECK_STATES,
   GROUP_CHECK_WORDS,
@@ -40,7 +41,7 @@ import { useLiveRefresh } from '@/lib/realtime/live-provider';
 import { cn } from '@/lib/utils';
 import { GROUP_VIEW_KEYS, outreachHref } from './address';
 import { AskButton, AskLine, cantAskWhy, latestAsk, targetOf } from './asks';
-import { dayWords, Pager, SearchBox } from './friends-view';
+import { Pager, SearchBox } from './friends-view';
 import type { Asks, Group, Groups } from './types';
 import { useAct } from './use-act';
 
@@ -247,14 +248,8 @@ function GroupAsks({
     <Card className="mb-4 p-4" data-testid="groups-asks">
       <h3 className="text-[15px] font-semibold">{ASK_WORDS.fromFacebook}</h3>
       <p className="mt-0.5 text-[12.5px] text-text-3">{ASK_WORDS.fromFacebookNote}</p>
+      {/* Saving the groups, their members and finding posts now are in Run now at the top (decision 129). */}
       <div className="mt-3 grid gap-4 md:grid-cols-2">
-        <AskButton
-          workspaceId={workspaceId}
-          asks={asks}
-          ask={{ kind: 'groups' }}
-          label={ASK_WORDS.saveGroups}
-          testId="ask-groups"
-        />
         <div className="grid content-start gap-1.5">
           <form
             className="flex gap-2"
@@ -281,20 +276,6 @@ function GroupAsks({
           {lastSearch ? <AskLine workspaceId={workspaceId} asks={asks} ask={lastSearch} /> : null}
         </div>
         <SaveGroupByLink workspaceId={workspaceId} asks={asks} />
-        <AskButton
-          workspaceId={workspaceId}
-          asks={asks}
-          ask={{ kind: 'members' }}
-          label={ASK_WORDS.saveMembers}
-          testId="ask-members"
-        />
-        <AskButton
-          workspaceId={workspaceId}
-          asks={asks}
-          ask={{ kind: 'posts' }}
-          label={ASK_WORDS.findPosts}
-          testId="ask-posts"
-        />
       </div>
     </Card>
   );
@@ -381,7 +362,7 @@ function GroupRow({
     g.privacy === 'public' ? 'Public' : g.privacy === 'private' ? 'Private' : null,
     g.members !== null ? W.groupMembers(g.members) : null,
     g.joined ? W.joined : g.joined === false ? W.notJoined : null,
-    g.seenAt ? `Seen ${dayWords(g.seenAt)}` : null,
+    g.seenAt ? `Seen ${friendDayWords(g.seenAt)}` : null,
   ].filter(Boolean);
   const saved = g.people
     ? [

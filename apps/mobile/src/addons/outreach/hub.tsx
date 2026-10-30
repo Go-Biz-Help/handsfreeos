@@ -21,6 +21,7 @@ import {
 } from '@hfos/core/addons/outreach/network-words';
 import { PLATFORMS, runsOnItsOwn, type Platform } from '@hfos/core/addons/outreach/networks';
 import { notReadyWords, READY_WORDS } from '@hfos/core/addons/outreach/readiness';
+import { SET_UP_PAGE_WORDS, todayReadyWords } from '@hfos/core/addons/outreach/set-up-page';
 import { SETUP_WORDS } from '@hfos/core/addons/outreach/setup';
 import { warningNote } from '@hfos/core/addons/outreach/tidy';
 import { OUTREACH_WORDS as W } from '@hfos/core/addons/outreach/words';
@@ -51,7 +52,7 @@ import type { LiveBody } from './live';
 import { StartRefusedNote, StepsPart, TeamPart, useLiveProps } from './live';
 import { useNetworksOn } from './networks';
 import { PersonMenuScope } from './person-menu';
-import { GetReadyCard, useReadyProps } from './ready';
+import { useReadyProps } from './ready';
 import { TodayBody, useTodayProps } from './today';
 import { useWaitingProps } from './waiting';
 
@@ -61,9 +62,10 @@ import { useWaitingProps } from './waiting';
  * is doing with Start my day and Stop for today in a card for each network, their list for the day, Done today (every
  * step today, newest first) and, for owners and admins, how each person's extension is doing. A message waiting for
  * an OK stays off the list, under Needs you. Until the person has set Social
- * Outreach up (decision 45), it says to do that on a computer; until they're ready (decision 63), Get ready shows
- * above the list (./ready.tsx) and Start my day waits, saying beside it what holds the day and where it's done. Their
- * profile never holds it (decision 90): while it's left, Get ready shows it as advice beside a Start that works. A
+ * Outreach up (decision 45), it says to do that on a computer; until they're ready (decision 63), a line above the list
+ * says how much is left, with Set up a press away (decision 129, ./setup.tsx, where Get ready is), and Start my day
+ * waits, saying beside it what holds the day and where it's done. Their profile never holds it (decision 90): while
+ * it's left, the line says it's still worth finishing. A
  * press HandsFreeOS refuses stays beside its Start in HandsFreeOS's words, with **Do it now** where it's fixed
  * (./live.tsx, `startRefusedOf`).
  *
@@ -170,7 +172,12 @@ export function TodayHub({ net: start = null }: { net?: Platform | null } = {}) 
           onLive={p === net ? setShownLive : undefined}
         />
       ))}
-      <GetReadyCard {...ready} />
+      {ready.readiness ? (
+        <GetReadyLine
+          words={todayReadyWords(PLATFORMS[net], ready.readiness.ready, ready.readiness.items)}
+          onOpen={() => openOutreach(ctx.workspaceId, 'setup')}
+        />
+      ) : null}
       <PersonMenuScope
         workspaceId={ctx.workspaceId}
         online={ctx.online}
@@ -192,6 +199,28 @@ export function TodayHub({ net: start = null }: { net?: Platform | null } = {}) 
       ) : null}
       {team.data ? <TeamPart team={team.data} now={Date.now()} /> : null}
     </OutreachFrame>
+  );
+}
+
+/** Get ready on the network shown, on Set up (decision 129): how much holds the day, or the profile's advice. */
+function GetReadyLine({ words, onOpen }: { words: string | null; onOpen: () => void }) {
+  if (!words) return null;
+  return (
+    <Card className="gap-2 px-4 py-3.5" testID="today-get-ready">
+      <Text className="text-[11.5px] font-semibold uppercase tracking-[0.5px] text-text-3">
+        {READY_WORDS.card}
+      </Text>
+      <Note>{words}</Note>
+      <Button
+        size="sm"
+        variant="secondary"
+        className="self-start"
+        onPress={onOpen}
+        testID="today-get-ready-open"
+      >
+        {SET_UP_PAGE_WORDS.todayOpen}
+      </Button>
+    </Card>
   );
 }
 

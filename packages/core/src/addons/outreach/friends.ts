@@ -6,10 +6,12 @@
  * web draws the Friends tab, and the server checks them.
  */
 import { z } from 'zod';
+import { relativeTimeAgo } from '../../workflows/approval-words';
 import { CheckShown, ChecksSummary } from './checks';
 import { DownloadCounts } from './download';
 import { FIT_LEVEL_KEYS } from './fit';
 import {
+  DONT_PITCH_TAG,
   FRIEND_ANSWER_KEYS,
   FRIEND_STATE_KEYS,
   FRIENDS_SAVE_MOST,
@@ -188,6 +190,46 @@ export const FRIEND_VIEWS = {
 export type FriendView = keyof typeof FRIEND_VIEWS;
 export const FRIEND_VIEW_KEYS = Object.keys(FRIEND_VIEWS) as [FriendView, ...FriendView[]];
 
+/** Each friends list with nobody on it: what it holds, and how people come onto it. */
+export const FRIEND_EMPTY: Readonly<
+  Record<FriendView, { readonly title: string; readonly body: string }>
+> = {
+  friends: {
+    title: 'No friends saved yet',
+    body: 'Press Save my friends list, and your computer reads your friends list on Facebook and saves it here. Or bring in your Facebook file.',
+  },
+  fits: {
+    title: 'No good fits found yet',
+    body: 'Press Check my friends, and your computer reads your friends’ profiles a few at a time for the AI. The ones who fit your playbooks show here, with why and a first step.',
+  },
+  requests: {
+    title: 'No friend requests waiting',
+    body: 'Press Check my friend requests, and your computer saves the ones waiting on Facebook. They show here in order of how they fit your playbooks.',
+  },
+  sent: {
+    title: 'No requests waiting on an answer',
+    body: 'The friend requests you send, noted by HandsFreeOS Social, show here until they’re answered, the oldest first. Ones you sent before come in with your Facebook file.',
+  },
+  keep: {
+    title: 'Nobody on your Keep list',
+    body: 'Turn on Keep for the friends you’ll never unfriend.',
+  },
+  dont_pitch: {
+    title: 'Nobody on the Don’t pitch list',
+    body: `Turn on Don’t pitch for anyone nobody here should pitch, like family and close friends. Customers tagged ${DONT_PITCH_TAG} in Contacts count too.`,
+  },
+  never_contact: {
+    title: 'Nobody on the Never contact list',
+    body: 'Turn on Never contact for anyone nobody here should deal with at all: no friend request, like, comment or message, not even a reply, and their friend requests are never confirmed.',
+  },
+};
+
+/** A friends list with nobody by the name searched for. */
+export const FRIEND_NO_MATCH = {
+  title: (search: string) => `Nobody called “${search}” here`,
+  body: 'Check the spelling, or look in another list.',
+} as const;
+
 /** How many people a page of the Friends tab lists. */
 export const FRIENDS_PAGE = 100;
 
@@ -272,3 +314,45 @@ export const FriendsOutput = z.object({
   more: count,
 });
 export type FriendsOutput = z.output<typeof FriendsOutput>;
+
+const WEEK = 7 * 86_400_000;
+
+/** "3 d ago" within the week, then "Sep 1", and "Jul 14, 2019" in another year. */
+export function friendDayWords(iso: string, now = Date.now()): string {
+  const at = new Date(iso);
+  if (now - at.getTime() < WEEK) return relativeTimeAgo(iso, now);
+  return at.toLocaleDateString(
+    'en-US',
+    at.getFullYear() === new Date(now).getFullYear()
+      ? { month: 'short', day: 'numeric' }
+      : { month: 'short', day: 'numeric', year: 'numeric' },
+  );
+}
+
+/**
+ * "Asked · 3 d ago": when a request came or went, or was deleted. A friend's day is the one Facebook's download file
+ * says ("Friends since Mar 2019"); without it, nothing. Then the latest message, from the file or noted since.
+ */
+export function friendSinceWords(
+  f: Pick<FriendsOutput['people'][number], 'state' | 'since' | 'friendsSince' | 'lastMessage'>,
+  now = Date.now(),
+): string | null {
+  const word =
+    f.state === 'request_received'
+      ? 'Asked'
+      : f.state === 'request_sent'
+        ? 'Sent'
+        : f.state === 'declined'
+          ? 'Deleted'
+          : null;
+  const since =
+    word && f.since
+      ? `${word} · ${friendDayWords(f.since, now)}`
+      : f.state === 'friends' && f.friendsSince
+        ? `Friends since ${new Date(f.friendsSince).toLocaleDateString('en-US', { month: 'short', year: 'numeric' })}`
+        : null;
+  const message = f.lastMessage
+    ? `Last message ${friendDayWords(f.lastMessage.at, now)}, from ${f.lastMessage.fromMe ? 'you' : 'them'}`
+    : null;
+  return [since, message].filter(Boolean).join(' · ') || null;
+}

@@ -7,6 +7,7 @@ import {
   type NetworkChoices,
 } from '@hfos/core/addons/outreach/automation';
 import type { AsksOutput } from '@hfos/core/addons/outreach/asks';
+import type { FindsWeekOutput } from '@hfos/core/addons/outreach/finds';
 import { outreachSettings, type OutreachSettings } from '@hfos/core/addons/outreach/chat-read';
 import { NO_MESSAGE_NOTES } from '@hfos/core/addons/outreach/conversation';
 import type { LiveOutput } from '@hfos/core/addons/outreach/live';
@@ -20,6 +21,7 @@ import * as React from 'react';
 import { Linking } from 'react-native';
 
 import { SAVE_PAUSE_MS } from '../autosave';
+import { FindBody } from '../find';
 import { LiveStrip } from '../hub';
 import { PipelineBody } from '../pipeline';
 import { SettingsPartBody } from '../settings';
@@ -783,6 +785,15 @@ describe('A network’s page of Settings on the phone, saved as it’s changed',
   });
 });
 
+const WEEK: FindsWeekOutput = {
+  since: '2026-10-03T15:00:00.000Z',
+  ways: [],
+  followers: { found: 0, good: 0, maybe: 0 },
+  members: { found: 0, good: 0, maybe: 0 },
+  partners: 0,
+  download: null,
+};
+
 describe('A network’s page and the person’s computer (decisions 74 and 77)', () => {
   const asks = (
     allowed: ('facebook' | 'linkedin' | 'instagram')[] | null,
@@ -951,7 +962,7 @@ describe('A network’s page and the person’s computer (decisions 74 and 77)',
     expect(screen.queryByTestId('settings-networks-instagram-profile')).toBeNull();
   });
 
-  it('lists the accounts like yours on Instagram, and lets an owner add and remove them (decision 110)', async () => {
+  it('lists the accounts like yours under Find people, and lets an owner add and remove them (decisions 110 and 128)', async () => {
     const instagramOn: AutomationOutput = {
       ...AUTOMATION,
       settings: {
@@ -980,39 +991,48 @@ describe('A network’s page and the person’s computer (decisions 74 and 77)',
       onAdd,
       onRemove,
     });
-    const view = await render(
+    // Settings → Instagram says where they are now, and opens it.
+    const onLikeYours = jest.fn();
+    const settings = await render(
       <SettingsPartBody
         part="instagram"
         automation={instagramOn}
         {...partProps()}
-        likeYours={likeYours(true)}
+        onLikeYours={onLikeYours}
       />,
     );
-    const part = screen.getByTestId('settings-networks-instagram-like-yours');
+    expect(screen.getByTestId('settings-networks-instagram-like-yours-moved')).toHaveTextContent(
+      /Accounts like yours.*under Find people now/,
+    );
+    await fireEvent.press(screen.getByTestId('settings-networks-instagram-like-yours-open'));
+    expect(onLikeYours).toHaveBeenCalled();
+    await settings.unmount();
+    const findBody = (canManage: boolean) => (
+      <FindBody
+        week={WEEK}
+        error={null}
+        onRetry={jest.fn()}
+        online
+        onOpen={jest.fn()}
+        likeYours={likeYours(canManage)}
+      />
+    );
+    const view = await render(findBody(true));
+    const part = screen.getByTestId('find-like-yours');
     expect(within(part).getByText('Accounts like yours')).toBeTruthy();
-    expect(screen.getByTestId('settings-networks-instagram-like-yours-account')).toHaveTextContent(
+    expect(screen.getByTestId('find-like-yours-account')).toHaveTextContent(
       /@austinchamber.*Austin Chamber.*Picked by the AI · Not read yet.*Local owners follow it/,
     );
-    await fireEvent.press(screen.getByTestId('settings-networks-instagram-like-yours-remove'));
+    await fireEvent.press(screen.getByTestId('find-like-yours-remove'));
     await waitFor(() => expect(onRemove).toHaveBeenCalledWith(chamber.id));
-    await fireEvent.changeText(
-      screen.getByTestId('settings-networks-instagram-like-yours-input'),
-      '@atx.events',
-    );
-    await fireEvent.press(screen.getByTestId('settings-networks-instagram-like-yours-add'));
+    await fireEvent.changeText(screen.getByTestId('find-like-yours-input'), '@atx.events');
+    await fireEvent.press(screen.getByTestId('find-like-yours-add'));
     await waitFor(() => expect(onAdd).toHaveBeenCalledWith('@atx.events'));
     // Someone who doesn't manage the business sees the list, and who adds to it.
-    await view.rerender(
-      <SettingsPartBody
-        part="instagram"
-        automation={instagramOn}
-        {...partProps()}
-        likeYours={likeYours(false)}
-      />,
-    );
-    expect(screen.queryByTestId('settings-networks-instagram-like-yours-remove')).toBeNull();
-    expect(screen.queryByTestId('settings-networks-instagram-like-yours-input')).toBeNull();
-    expect(screen.getByTestId('settings-networks-instagram-like-yours')).toHaveTextContent(
+    await view.rerender(findBody(false));
+    expect(screen.queryByTestId('find-like-yours-remove')).toBeNull();
+    expect(screen.queryByTestId('find-like-yours-input')).toBeNull();
+    expect(screen.getByTestId('find-like-yours')).toHaveTextContent(
       /An owner or admin of this business adds and removes them\./,
     );
   });
@@ -1065,14 +1085,14 @@ const savedOn = (
   now: Record<string, unknown>,
 ): Partial<OutreachSettings> => p.onSaveBusiness.mock.lastCall![0](outreachSettings(now));
 
-describe('For your team on a network, for owners and admins', () => {
+describe('Each network’s say for everyone, on Team, for owners and admins (decision 129)', () => {
   afterEach(() => jest.useRealTimers());
 
   it('lets the team use LinkedIn or not, saved at once on what’s kept', async () => {
     const p = partProps();
     const kept = { weeklyReport: false, rules: { sendingAllowed: ['off', 'steps'] } };
     await render(
-      <SettingsPartBody part="linkedin" automation={AUTOMATION} {...p} manages business={kept} />,
+      <SettingsPartBody part="team" automation={AUTOMATION} {...p} manages business={kept} />,
     );
     expect(screen.getByText('For your team on LinkedIn')).toBeTruthy();
     expect(screen.getByTestId('settings-rules-network-linkedin')).toBeChecked();
@@ -1093,7 +1113,7 @@ describe('For your team on a network, for owners and admins', () => {
     jest.useFakeTimers();
     const p = partProps();
     await render(
-      <SettingsPartBody part="linkedin" automation={AUTOMATION} {...p} manages business={{}} />,
+      <SettingsPartBody part="team" automation={AUTOMATION} {...p} manages business={{}} />,
     );
     // At LinkedIn's starting limit: never past it.
     expect(screen.getByTestId('settings-rules-linkedin-limit-friend_request-up')).toBeDisabled();
@@ -1113,7 +1133,7 @@ describe('For your team on a network, for owners and admins', () => {
     const p = partProps();
     const kept = { rules: { networkLimits: { linkedin: { like: 5 } } } };
     await render(
-      <SettingsPartBody part="facebook" automation={AUTOMATION} {...p} manages business={kept} />,
+      <SettingsPartBody part="team" automation={AUTOMATION} {...p} manages business={kept} />,
     );
     expect(screen.getByTestId('settings-rules-network-facebook')).toBeDisabled();
     expect(screen.getByTestId('settings-rules-network-facebook')).toBeChecked();
@@ -1126,21 +1146,40 @@ describe('For your team on a network, for owners and admins', () => {
     expect(rules?.networkLimits).toEqual({ linkedin: { like: 5 } });
   });
 
-  it('still shows the team’s part on a network the business doesn’t use', async () => {
+  it('points a network’s page to Team, where a network the business doesn’t use can be let back in', async () => {
+    const onTeam = jest.fn();
+    const automation = {
+      ...AUTOMATION,
+      rules: { ...AUTOMATION.rules, networksAllowed: ['facebook' as const] },
+    };
+    const business = { rules: { networksAllowed: ['facebook'] } };
     await render(
       <SettingsPartBody
         part="linkedin"
-        automation={{
-          ...AUTOMATION,
-          rules: { ...AUTOMATION.rules, networksAllowed: ['facebook'] },
-        }}
+        automation={automation}
         {...partProps()}
         manages
-        business={{ rules: { networksAllowed: ['facebook'] } }}
+        business={business}
+        onTeam={onTeam}
       />,
     );
     expect(screen.getByTestId('settings-networks-linkedin-not-allowed')).toHaveTextContent(
       /^Your business doesn’t use LinkedIn for outreach\./,
+    );
+    expect(screen.queryByTestId('settings-rules-network-linkedin')).toBeNull();
+    expect(screen.getByTestId('settings-team-moved-linkedin')).toHaveTextContent(
+      /Your team’s say on LinkedIn is on Team\./,
+    );
+    await fireEvent.press(screen.getByTestId('settings-team-moved-linkedin-open'));
+    expect(onTeam).toHaveBeenCalled();
+    await render(
+      <SettingsPartBody
+        part="team"
+        automation={automation}
+        {...partProps()}
+        manages
+        business={business}
+      />,
     );
     expect(screen.getByTestId('settings-rules-network-linkedin')).not.toBeChecked();
     expect(screen.getByTestId('settings-rules-network-linkedin')).toBeEnabled();

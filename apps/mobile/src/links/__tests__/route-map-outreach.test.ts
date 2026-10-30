@@ -2,7 +2,7 @@ import { routeFor } from '../route-map';
 
 /**
  * Social Outreach's links on the phone (decision 44): its page opens the phone's screen with the tab and the settings
- * its screens read, a playbook opens its screen, and the tabs it leaves to the web (Activity, Friends) open there.
+ * its screens read, a playbook opens its screen, and the old Activity, which it leaves to the web, opens there.
  */
 
 const WS = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa';
@@ -25,6 +25,15 @@ describe('Social Outreach’s links', () => {
     expect(routeFor(`/app/w/${WS}/a/outreach?view=never_contact`)).toMatchObject({
       kind: 'screen',
       href: `/app/w/${WS}/a/outreach?view=never_contact`,
+    });
+    // People's friends lists and Find people are the phone's too (decision 128).
+    expect(routeFor(`/app/w/${WS}/a/outreach?view=friends&show=requests`)).toMatchObject({
+      kind: 'screen',
+      href: `/app/w/${WS}/a/outreach?view=friends&show=requests`,
+    });
+    expect(routeFor(`/app/w/${WS}/a/outreach?view=find&net=instagram`)).toMatchObject({
+      kind: 'screen',
+      href: `/app/w/${WS}/a/outreach?view=find&net=instagram`,
     });
   });
 
@@ -54,11 +63,10 @@ describe('Social Outreach’s links', () => {
     });
   });
 
-  it('leave Activity and Friends, and a new playbook, to the web', () => {
+  it('leave Activity, and a new playbook, to the web', () => {
     for (const path of [
       `/app/w/${WS}/a/outreach?view=activity`,
       `/app/w/${WS}/a/outreach?view=activity&period=month`,
-      `/app/w/${WS}/a/outreach?view=friends&show=requests`,
       `/app/w/${WS}/a/outreach/playbooks/new`,
     ])
       expect(routeFor(path)).toEqual({ kind: 'web', path, businessId: WS });

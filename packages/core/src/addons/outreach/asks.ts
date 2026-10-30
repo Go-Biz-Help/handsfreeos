@@ -470,10 +470,14 @@ export const ASK_KINDS_FOR = {
     'cancel',
     'unfriend',
     'research',
+    // People's Run now (decision 129, `run-now.ts`), on each of its views.
+    'chats',
   ],
-  pipeline: ['research'],
+  pipeline: ['research', 'requests', 'friends', 'checks', 'chats'],
   groups: ['groups', 'group_search', 'members', 'posts', 'group_checks', 'join'],
-  chats: ['chats'],
+  chats: ['chats', 'requests', 'friends', 'checks'],
+  /** People's other views (Partners, Skipped for country): its Run now's. */
+  people: ['requests', 'friends', 'checks', 'chats'],
   today: ['lookup', 'members', 'post', 'profile_read', 'profile_edit', 'username_check'],
   settings: ['checkup', 'profile_read', 'profile_edit', 'username_check'],
 } as const satisfies Record<string, readonly AskKind[]>;

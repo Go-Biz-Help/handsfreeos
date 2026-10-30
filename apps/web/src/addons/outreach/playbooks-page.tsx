@@ -3,8 +3,7 @@
  * Social Outreach's playbooks tab (docs/outreach.md): what the business is after on social media, who it's for, the
  * steps it takes, the conversation, how it sounds and which of its tags to use. Everyone using the add-on reads them;
  * owners and admins write them in the builder (playbook-builder.tsx), from a template or blank, and archive them
- * rather than delete them. Under them, how each playbook's openers did: the first messages sent with each, who wrote
- * back and who booked a demo (`outreach.openers`), everyone's for owners and admins.
+ * rather than delete them. How each playbook's openers did is on Results (decision 129, ./opener-results.tsx).
  */
 import {
   PLAYBOOK_GOALS,
@@ -14,12 +13,6 @@ import {
   type PlaybookGoal,
   type PlaybookStep,
 } from '@hfos/core/addons/outreach/playbooks';
-import {
-  OPENER_KINDS,
-  openerShort,
-  rateWords,
-  type OpenerResult,
-} from '@hfos/core/addons/outreach/openers';
 import { OUTREACH_WORDS as W } from '@hfos/core/addons/outreach/words';
 import Link from 'next/link';
 import { useState } from 'react';
@@ -29,19 +22,16 @@ import { Card } from '@/components/ui/card';
 import { Dialog, DialogContent } from '@/components/ui/dialog';
 import { apiBrowser, unwrap } from '@/lib/api/client';
 import { relativeTime } from '@/lib/utils';
-import type { Openers, Playbook, PlaybookList } from './types';
+import type { Playbook, PlaybookList } from './types';
 import { useAct } from './use-act';
 
 export function PlaybooksView({
   workspaceId,
   list,
-  openers,
   canManage,
 }: {
   workspaceId: string;
   list: PlaybookList;
-  /** How each playbook's openers did. */
-  openers: Openers;
   /** Owners and admins write the playbooks. */
   canManage: boolean;
 }) {
@@ -70,7 +60,6 @@ export function PlaybooksView({
           ))}
         </div>
       )}
-      <OpenerResults openers={openers} />
       {archived.length ? (
         <details className="mt-6">
           <summary className="cursor-pointer text-[13.5px] text-text-2">
@@ -181,73 +170,6 @@ function PlaybookCard({
         </div>
       ) : null}
     </Card>
-  );
-}
-
-/** A sent count needs to be this big before one opener's reply rate is called the best. */
-const FAIR_TRY = 5;
-
-/** Which openers work: for each playbook, its openers with what came of the first messages sent with them. */
-function OpenerResults({ openers }: { openers: Openers }) {
-  const shown = openers.playbooks.filter((p) => p.openers.length);
-  if (!shown.length) return null;
-  return (
-    <Card className="mt-6 p-5" data-testid="opener-results">
-      <h3 className="text-[15px] font-semibold">Which openers work</h3>
-      <p className="mt-0.5 text-[13px] text-text-2">
-        {openers.everyone ? 'Everyone’s first messages' : 'Your first messages'} from Today’s
-        drafts, by how they opened. Drafts take turns with each.
-      </p>
-      <div className="mt-4 space-y-5">
-        {shown.map((p) => {
-          const best = bestOf(p.openers);
-          return (
-            <section key={p.playbookId}>
-              <h4 className="text-[12.5px] font-semibold uppercase tracking-wide text-text-3">
-                {p.name}
-              </h4>
-              <ul className="mt-1.5 divide-y divide-border">
-                {p.openers.map((o) => (
-                  <OpenerRow key={`${o.kind}:${o.text}`} opener={o} best={o === best} />
-                ))}
-              </ul>
-            </section>
-          );
-        })}
-      </div>
-    </Card>
-  );
-}
-
-/** The opener with the most replies for what was sent, once each has had a fair try; null before then. */
-function bestOf(list: readonly OpenerResult[]): OpenerResult | null {
-  const tried = list.filter((o) => o.current && o.sent >= FAIR_TRY);
-  if (tried.length < 2) return null;
-  const rate = (o: OpenerResult) => o.replies / o.sent;
-  const best = tried.reduce((a, b) => (rate(b) > rate(a) ? b : a));
-  return rate(best) > 0 ? best : null;
-}
-
-function OpenerRow({ opener: o, best }: { opener: OpenerResult; best: boolean }) {
-  return (
-    <li className="flex flex-wrap items-start justify-between gap-x-4 gap-y-1 py-2.5">
-      <div className="min-w-0 flex-1">
-        <div className="text-[13.5px]">{openerShort(o.text)}</div>
-        <div className="mt-0.5 flex flex-wrap items-center gap-1.5 text-[12px] text-text-3">
-          <span>{OPENER_KINDS[o.kind]}</span>
-          {o.current ? null : <span>· Not in the playbook now</span>}
-          {best ? <Badge variant="accent">Works best so far</Badge> : null}
-        </div>
-      </div>
-      <div className="text-right text-[12.5px] text-text-2">
-        <div>{o.sent ? rateWords(o.replies, o.sent, 'wrote back') : 'None sent yet'}</div>
-        {o.sent ? (
-          <div className="text-text-3">
-            {o.demos === 1 ? '1 demo booked' : `${o.demos.toLocaleString()} demos booked`}
-          </div>
-        ) : null}
-      </div>
-    </li>
   );
 }
 

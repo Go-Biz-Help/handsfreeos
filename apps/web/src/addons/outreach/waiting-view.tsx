@@ -70,6 +70,7 @@ import { outreachHref } from './address';
 import { AskLine } from './asks';
 import { ChatSoFar } from './chat-bubbles';
 import { KeepChatButton } from './chat-keep';
+import { UnsureCountryCard } from './country-skipped';
 import { NetworkName } from './network-ui';
 import { PersonName } from './person-menu';
 import { Drafted } from './drafted';
@@ -131,6 +132,8 @@ export function NeedsYou({ workspaceId, waiting }: { workspaceId: string; waitin
           {W.needsYouNone}
         </p>
       )}
+      {/* Whoever the country setting can't place waits on the person too (decision 128): it loads itself. */}
+      <UnsureCountryCard workspaceId={workspaceId} />
     </section>
   );
 }

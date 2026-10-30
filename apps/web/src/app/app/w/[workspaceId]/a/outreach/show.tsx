@@ -7,7 +7,7 @@ import { cookies } from 'next/headers';
 import { netCookie, readOutreachAddress, type OutreachView } from '@/addons/outreach/address';
 import { OutreachHome } from '@/addons/outreach/home';
 import { BOARD_STAGES, type Board } from '@/addons/outreach/board';
-import type { PlaybookList } from '@/addons/outreach/types';
+import type { PlaybookList, Setup } from '@/addons/outreach/types';
 import { apiServer, errorMessage, unwrap, unwrapPage } from '@/lib/api/server';
 
 /** What a page's route hands on: its business, its query, and Settings' part from its path. */
@@ -27,9 +27,10 @@ function searchWordsOf(list: PlaybookList | null): string {
  * side menu's pages (the manifest's `ui.nav`), drawn by `OutreachHome` (./address.ts says what each address shows):
  * **Needs you**, everything waiting on the person; **Today**, what their computer is doing on each network, with Start
  * my day and Stop for today, its feed and, for owners and admins, the team's, and the network shown's list (`?net=`,
- * else the one picked last, else the first); **People**, everyone reached by where they stand (a board for everyone
- * in play), their friends and the Don't pitch list, their chats as the AI read them and their Partners list (decision
- * 81); **Groups**; **Results**; **Playbooks**, with how each opener did; and **Settings**, every setting the extension
+ * else the one picked last, else the first); **People**, one list with a view for each kind (decision 128): everyone
+ * reached by where they stand (a board for everyone in play), their friends, their chats as the AI read them, their
+ * Partners list (decision 81) and who's left alone; **Find people**, what each way of finding people found this week,
+ * and the groups; **Results**; **Playbooks**, with how each opener did; and **Settings**, every setting the extension
  * follows, a page for each part (`/settings/<part>`, decision 73), with anyone's for owners and admins (`?for=`). Each
  * route draws this inside the gate (`addonPage`): "not available here" while the add-on is off, and not found for
  * someone without `outreach.use`. Owners and admins (`outreach.manage`) write the playbooks and see everyone's
@@ -77,6 +78,49 @@ export async function showOutreach(
         body: { workspaceId, period: shown.period, everyone },
       })
       .then(unwrapPage);
+  if (shown.view === 'setup') {
+    // How far the setup has come, and each network's Get ready (decision 129): the networks the person works, each with
+    // its profile's read and bio asked of their computer.
+    const [got, setup] = await Promise.all([
+      workspace,
+      // openapi-fetch's reading drops a key typed only `null` (a main step's `net`), though the answer has it.
+      api
+        .POST('/v1/queries/outreach.setup', { body: { workspaceId } })
+        .then((r) => unwrapPage(r) as Setup),
+    ]);
+    const nets = setup.networks.map((n) => n.platform);
+    const [readies, asks] = await Promise.all([
+      Promise.all(
+        nets.map((platform) =>
+          api
+            .POST('/v1/queries/outreach.readiness', { body: { workspaceId, platform } })
+            .then((r) => r.data ?? null)
+            .catch(() => null),
+        ),
+      ),
+      api
+        .POST('/v1/queries/outreach.asks', {
+          body: { workspaceId, kinds: ['profile_read', 'profile_edit', 'username_check'] },
+        })
+        .then((r) => r.data ?? null)
+        .catch(() => null),
+    ]);
+    return (
+      <OutreachHome
+        workspaceId={workspaceId}
+        businessName={got.workspace.name}
+        canManage={got.workspace.permissions.includes('outreach.manage')}
+        shown={{
+          view: 'setup',
+          setup,
+          readiness: nets.flatMap((platform, i) =>
+            readies[i] ? [{ platform, readiness: readies[i] }] : [],
+          ),
+          asks,
+        }}
+      />
+    );
+  }
   if (shown.view === 'needs') {
     // Everything waiting on the person, on every network: never narrowed, so nothing that needs them is hidden.
     const [got, waiting] = await Promise.all([
@@ -104,7 +148,8 @@ export async function showOutreach(
     // A network's page asks the person's own computer to check it (decision 74), and says what to press when
     // Chrome hasn't let the extension on it. It has their profile there too, read and checked (decision 80).
     const network = isNetworkPart(shown.part) && !whose ? shown.part : null;
-    const [me, people, business, live, setup, asks, readiness] = await Promise.all([
+    const team = shown.part === 'team' && canManage;
+    const [me, people, business, live, setup, asks, readiness, wheels] = await Promise.all([
       api
         .POST('/v1/queries/outreach.automation', {
           body: { workspaceId, ...(whose ? { userId: whose } : {}) },
@@ -143,6 +188,13 @@ export async function showOutreach(
             .then((r) => r.data ?? null)
             .catch(() => null)
         : null,
+      // Who's on training wheels, to end them early: Team's (decision 129; it was Today's).
+      team
+        ? api
+            .POST('/v1/queries/outreach.wheels', { body: { workspaceId } })
+            .then((r) => r.data ?? null)
+            .catch(() => null)
+        : null,
     ]);
     const canStartFresh = got.workspace.permissions.includes('addons.purge');
     return (
@@ -163,6 +215,7 @@ export async function showOutreach(
           extensionLink: setup?.extensionLink ?? null,
           asks,
           readiness,
+          wheels,
         }}
       />
     );
@@ -186,7 +239,7 @@ export async function showOutreach(
       workspace,
       stageOf(shown.stages),
       onBoard ? Promise.all(BOARD_STAGES.map((stage) => stageOf(stage))) : null,
-      // Research on the rows: left out (the buttons wait) when it can't be had.
+      // Research on the rows, and Run now (decision 129): left out (the buttons wait) when it can't be had.
       asksOf('pipeline').catch(() => null),
     ]);
     const board = columns
@@ -206,6 +259,47 @@ export async function showOutreach(
           net: shown.net,
           asks,
         }}
+      />
+    );
+  }
+  if (shown.view === 'find') {
+    // Find people (decision 128): what each way found this week, the groups' counts, the words the playbooks search
+    // for, and what the person asked their computer to do (Find posts, the download file). The groups and the words
+    // are left out when they can't be had, so the week still shows.
+    const [got, week, groups, playbooks, asks] = await Promise.all([
+      workspace,
+      api
+        .POST('/v1/queries/outreach.finds.week', { body: { workspaceId, ...onNetwork } })
+        .then(unwrapPage),
+      api
+        .POST('/v1/queries/outreach.groups', { body: { workspaceId, view: 'work', page: 1 } })
+        .then((r) => r.data ?? null)
+        .catch(() => null),
+      api
+        .POST('/v1/queries/outreach.playbook.list', { body: { workspaceId } })
+        .then((r) => r.data ?? null)
+        .catch(() => null),
+      asksOf(),
+    ]);
+    return (
+      <OutreachHome
+        workspaceId={workspaceId}
+        businessName={got.workspace.name}
+        canManage={got.workspace.permissions.includes('outreach.manage')}
+        shown={{ view: 'find', week, groups, playbooks, asks, net: shown.net }}
+      />
+    );
+  }
+  if (shown.view === 'skipped') {
+    // Left alone's Skipped for country: the list loads itself, as it did under Friends. Run now's asks (decision 129)
+    // are left out when they can't be had.
+    const [got, asks] = await Promise.all([workspace, asksOf('people').catch(() => null)]);
+    return (
+      <OutreachHome
+        workspaceId={workspaceId}
+        businessName={got.workspace.name}
+        canManage={got.workspace.permissions.includes('outreach.manage')}
+        shown={{ view: 'skipped', asks }}
       />
     );
   }
@@ -343,13 +437,15 @@ export async function showOutreach(
     );
   }
   if (shown.view === 'partners') {
-    const [got, partners] = await Promise.all([
+    const [got, partners, asks] = await Promise.all([
       workspace,
       api
         .POST('/v1/queries/outreach.partners', {
           body: { workspaceId, view: shown.partners, page: shown.page, ...onNetwork },
         })
         .then(unwrapPage),
+      // Run now's (decision 129): left out when it can't be had.
+      asksOf('people').catch(() => null),
     ]);
     return (
       <OutreachHome
@@ -362,6 +458,7 @@ export async function showOutreach(
           show: shown.partners,
           net: shown.net,
           page: shown.page,
+          asks,
         }}
       />
     );
@@ -372,16 +469,12 @@ export async function showOutreach(
       api.POST('/v1/queries/outreach.playbook.list', { body: { workspaceId } }).then(unwrapPage),
     ]);
     const canManage = got.workspace.permissions.includes('outreach.manage');
-    // Owners and admins see how everyone's openers did; anyone else, their own.
-    const openers = await api
-      .POST('/v1/queries/outreach.openers', { body: { workspaceId, everyone: canManage } })
-      .then(unwrapPage);
     return (
       <OutreachHome
         workspaceId={workspaceId}
         businessName={got.workspace.name}
         canManage={canManage}
-        shown={{ view: 'playbooks', list, openers }}
+        shown={{ view: 'playbooks', list }}
       />
     );
   }
@@ -401,15 +494,24 @@ export async function showOutreach(
       shown.everyone ? null : trackingOf(false),
     ]);
     const canManage = got.workspace.permissions.includes('outreach.manage');
-    const [activity, tracking] = own
-      ? [own, ownNumbers]
-      : await Promise.all([activityOf(canManage), trackingOf(canManage)]);
+    // Which openers work (decision 129: it was under the playbooks): owners and admins see everyone's, anyone else
+    // their own. Left out when it can't be had.
+    const openersOf = (everyone: boolean) =>
+      api
+        .POST('/v1/queries/outreach.openers', { body: { workspaceId, everyone } })
+        .then((r) => r.data ?? null)
+        .catch(() => null);
+    const [activity, tracking, openers] = await Promise.all([
+      own ?? activityOf(canManage),
+      own ? ownNumbers : trackingOf(canManage),
+      openersOf(canManage),
+    ]);
     return (
       <OutreachHome
         workspaceId={workspaceId}
         businessName={got.workspace.name}
         canManage={canManage}
-        shown={{ view: 'results', activity, tracking, period: shown.period }}
+        shown={{ view: 'results', activity, tracking, openers, period: shown.period }}
       />
     );
   }
@@ -460,15 +562,12 @@ export async function showOutreach(
       : [];
   });
   const canManage = got.workspace.permissions.includes('outreach.manage');
-  // Owners and admins see who's on training wheels, to end them early, and how each person's extension is doing on
-  // the network shown, never their lines or messages. Until the person is ready on the network shown, its Get ready
+  // Owners and admins see how each person's extension is doing on the network shown, never their lines or messages
+  // (who's on training wheels is on Settings → Team, decision 129). Until the person is ready on the network shown, its Get ready
   // shows in place of the day's list (decision 63); once they are, it shows only while the profile there is left, as
   // advice beside the list.
   const shownReadiness = readies[nets.indexOf(net)] ?? null;
-  const [wheels, team, readiness] = await Promise.all([
-    canManage
-      ? api.POST('/v1/queries/outreach.wheels', { body: { workspaceId } }).then(unwrapPage)
-      : null,
+  const [team, readiness] = await Promise.all([
     canManage
       ? api
           .POST('/v1/queries/outreach.live.team', { body: { workspaceId, platform: net } })
@@ -493,7 +592,6 @@ export async function showOutreach(
         networks,
         today,
         helpful,
-        wheels,
         team,
         asks,
         waiting,

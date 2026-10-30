@@ -5,10 +5,9 @@
  * and a next step. The likely prospects first, then the tagged, every chat read, and the ones not read yet; a tag
  * and a name narrow it. Which, the tag, the name and the page are in the address (./address.ts), so the page asks
  * HandsFreeOS for them. Who goes in Contacts is the business's setting, in Social Outreach → Settings → General.
- * Every network's chats, each row naming its network, or one network's (`?net=`); Read my chats asks the network
- * shown, Facebook's when the list is every network's.
+ * Every network's chats, each row naming its network, or one network's (`?net=`); Read my chats now is in People's
+ * Run now (decision 129, ./run-now.tsx).
  */
-import { ASK_WORDS, READ_CHATS_WORDS } from '@hfos/core/addons/outreach/asks';
 import {
   CHAT_VIEW_KEYS,
   CHAT_VIEWS,
@@ -16,6 +15,7 @@ import {
   CONTACTS_FROM_CHATS_WORDS,
   type ChatView,
 } from '@hfos/core/addons/outreach/chat-read';
+import { friendDayWords } from '@hfos/core/addons/outreach/friends';
 import { chatUrlOn, openChatWords } from '@hfos/core/addons/outreach/network-words';
 import type { Platform } from '@hfos/core/addons/outreach/networks';
 import { OUTREACH_WORDS as W } from '@hfos/core/addons/outreach/words';
@@ -32,12 +32,11 @@ import { apiBrowser, errorMessage, unwrap } from '@/lib/api/client';
 import { useLiveRefresh } from '@/lib/realtime/live-provider';
 import { cn } from '@/lib/utils';
 import { outreachHref } from './address';
-import { AskButton } from './asks';
 import { KeepChatButton } from './chat-keep';
-import { dayWords, Pager, SearchBox } from './friends-view';
+import { Pager, SearchBox } from './friends-view';
 import { NetworkName } from './network-ui';
 import { PersonName } from './person-menu';
-import type { Asks, Chat, Chats } from './types';
+import type { Chat, Chats } from './types';
 
 /** How Read my chats goes, under its button and in the empty lists. */
 
@@ -51,7 +50,6 @@ export function ChatsView({
   search,
   net = null,
   canManage,
-  asks,
 }: {
   workspaceId: string;
   chats: Chats;
@@ -62,8 +60,6 @@ export function ChatsView({
   net?: Platform | null;
   /** Owners and admins change who goes in Contacts. */
   canManage: boolean;
-  /** What the person asked their computer to do on this tab. */
-  asks: Asks;
 }) {
   // An ask's progress and end: the chats it read show once it ends.
   useLiveRefresh(['outreach_ask'], 800);
@@ -109,17 +105,7 @@ export function ChatsView({
         </div>
         <SearchBox search={search} onSearch={(s) => go({ search: s })} />
       </div>
-      <Card className="mb-4 p-4" data-testid="chats-asks">
-        <AskButton
-          workspaceId={workspaceId}
-          asks={asks}
-          ask={{ kind: 'chats' }}
-          platform={net ?? 'facebook'}
-          label={ASK_WORDS.readChats}
-          testId="ask-chats"
-        />
-        <p className="mt-2 text-[12.5px] text-text-3">{READ_CHATS_WORDS}</p>
-      </Card>
+      {/* Read my chats now is in Run now at the top (decision 129). */}
       {chats.tags.length ? (
         <div
           className="mb-4 flex flex-wrap items-center gap-1.5"
@@ -225,7 +211,7 @@ export function ChatsView({
 }
 
 function ChatRow({ workspaceId, chat: c }: { workspaceId: string; chat: Chat }) {
-  const last = `Last message ${dayWords(c.lastAt)}, from ${c.lastFromMe ? 'you' : 'them'}`;
+  const last = `Last message ${friendDayWords(c.lastAt)}, from ${c.lastFromMe ? 'you' : 'them'}`;
   return (
     <li className="border-t border-border px-5 py-3" data-testid="chat">
       <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">

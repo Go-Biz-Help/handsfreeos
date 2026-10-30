@@ -1,19 +1,23 @@
 /**
  * What Social Outreach's pages show, from their addresses. Each page has its own path under `/a/outreach/`, so the side
- * menu's pop-out lights the one open (docs/outreach.md, decision 127):
+ * menu's pop-out lights the one open (docs/outreach.md, decisions 127 and 128):
  *
+ * - **Set up** (`/set-up`, decision 129): how far the setup has come, each step opening the setup itself (`/setup`, a
+ *   step at a time), and each network's Get ready.
  * - **Needs you** (`/needs-you`): everything waiting on the person, on every network.
  * - **Today** (`/today`): what their computer is doing on each network, and the network shown's list (`?net=`).
- * - **People**: everyone reached by where they stand (`/people`, `?show=ready`… for one stage, else the board), their
- *   friends (`/people/friends`, `?show=fits`, `requests`, `sent`, `keep`, `dont_pitch` or `never_contact`), their chats
- *   (`/people/chats`, `?show=tagged`, `read` or `waiting`, and a tag `?tag=`), and their Partners list
- *   (`/people/partners`, `?show=asked`… for one stage, else everyone).
- * - **Groups** (`/groups`, `?show=maybe`, `skip` or `all`, else Work these), and a group's own page (`?group=` its id,
- *   decision 103): who was found there and how each turned out, `?show=` one outcome (`not_reached`, `talking`…).
+ * - **People**, one list with a view for each kind (`people-views.ts` in core): everyone reached by where they stand
+ *   (`/people`, `?show=ready`… for one stage, else the board), their friends (`/people/friends`, `?show=fits`,
+ *   `requests`, `sent`, `keep`, `dont_pitch` or `never_contact`), their chats (`/people/chats`, `?show=tagged`, `read`
+ *   or `waiting`, and a tag `?tag=`), their Partners list (`/people/partners`, `?show=asked`… for one stage, else
+ *   everyone), and those the country setting skips (`/people/skipped`).
+ * - **Find people** (`/find`): a card for each way new people are found, and the groups (`/find/groups`, `?show=maybe`,
+ *   `skip` or `all`, else Work these), with a group's own page (`?group=` its id, decision 103): who was found there
+ *   and how each turned out, `?show=` one outcome (`not_reached`, `talking`…).
  * - **Results** (`/results`): the stretch of days (`?period=today`, `week` or `month`) and whose steps
  *   (`?who=everyone`, for owners and admins).
  * - **Playbooks** (`/playbooks`): the business's playbooks, with how each opener did.
- * - **Settings** (`/settings`, General; `/settings/<part>` for a network, Your computer or Start fresh), whose with
+ * - **Settings** (`/settings`, You; `/settings/<part>` for a network, Your computer, Team or Start fresh), whose with
  *   `?for=` someone's id, for owners and admins.
  *
  * Lists take a name searched for (`?q=`) and the page (`?page=2`). Today takes the network whose list it shows, and
@@ -40,12 +44,15 @@ export const GROUP_VIEW_KEYS = Object.keys(GROUP_VIEWS) as GroupView[];
 export const DEFAULT_PERIOD: ActivityPeriod = 'week';
 
 export type OutreachView =
+  | 'setup'
   | 'needs'
   | 'today'
   | 'pipeline'
   | 'friends'
   | 'chats'
   | 'partners'
+  | 'skipped'
+  | 'find'
   | 'groups'
   | 'results'
   | 'settings'
@@ -53,13 +60,16 @@ export type OutreachView =
 
 /** Each view's path under `/a/outreach/` (Settings' part goes after its own). */
 const VIEW_PATH: Readonly<Record<OutreachView, string>> = {
+  setup: 'set-up',
   needs: 'needs-you',
   today: 'today',
   pipeline: 'people',
   friends: 'people/friends',
   chats: 'people/chats',
   partners: 'people/partners',
-  groups: 'groups',
+  skipped: 'people/skipped',
+  find: 'find',
+  groups: 'find/groups',
   results: 'results',
   settings: 'settings',
   playbooks: 'playbooks',
@@ -68,6 +78,8 @@ const VIEW_PATH: Readonly<Record<OutreachView, string>> = {
 /** The side menu's page a view is on: its title, and the menu's light. */
 export function pageOf(view: OutreachView): OutreachPage {
   switch (view) {
+    case 'setup':
+      return 'setup';
     case 'needs':
       return 'needs-you';
     case 'today':
@@ -76,9 +88,11 @@ export function pageOf(view: OutreachView): OutreachPage {
     case 'friends':
     case 'chats':
     case 'partners':
+    case 'skipped':
       return 'people';
+    case 'find':
     case 'groups':
-      return 'groups';
+      return 'find';
     case 'results':
       return 'results';
     case 'playbooks':
@@ -108,9 +122,13 @@ const OLD_VIEWS: Readonly<Record<string, OutreachView>> = {
   groups: 'groups',
   settings: 'settings',
   playbooks: 'playbooks',
-  // The phone's Never contact list, and the lists the country setting makes, are the Friends lists here.
+  // The phone's Never contact list is a Friends list here; the country setting's lists are Left alone's Skipped for
+  // country, and Not sure where they live waits under Needs you (decision 128).
   never_contact: 'friends',
-  countries: 'friends',
+  countries: 'skipped',
+  find: 'find',
+  // The phone's Set up screen's (decision 129).
+  setup: 'setup',
 };
 
 /** The cookie keeping the network the person picked last, for each business: `all` for every network. */
@@ -148,7 +166,7 @@ export interface OutreachAddress {
   readonly page: number;
   /** Whose settings, for an owner or admin: someone's id, or empty for their own. */
   readonly for: string;
-  /** Which part of Settings: General, a network's page, Your computer or Start fresh. */
+  /** Which part of Settings: You (`general`), a network's page, Your computer, Team or Start fresh. */
   readonly part: SettingsPart;
   /** Today's network, or the network a list is narrowed to: null for the first, or every one. */
   readonly net: Platform | null;
@@ -202,8 +220,12 @@ export function forwardedHref(workspaceId: string, sp: Query): string | null {
     params.set(key, one(value));
   }
   if (old === 'never_contact') params.set('show', 'never_contact');
+  if (old === 'countries') params.delete('show');
+  const unsure = old === 'countries' && one(sp.show) === 'unsure';
   const part = view === 'settings' ? settingsPartOf(one(sp.part)) : 'general';
-  const path = `${VIEW_PATH[view]}${part !== 'general' ? `/${part}` : ''}`;
+  const path = unsure
+    ? VIEW_PATH.needs
+    : `${VIEW_PATH[view]}${part !== 'general' ? `/${part}` : ''}`;
   const qs = params.toString();
   return `/app/w/${workspaceId}/a/outreach/${path}${qs ? `?${qs}` : ''}`;
 }
@@ -223,7 +245,8 @@ export function outreachHref(workspaceId: string, to: Partial<OutreachAddress> =
       view === 'pipeline' ||
       view === 'friends' ||
       view === 'chats' ||
-      view === 'partners')
+      view === 'partners' ||
+      view === 'find')
   )
     params.set('net', to.net);
   if (view === 'settings') {

@@ -76,7 +76,7 @@ describe('Social Outreach in More and its first screen', () => {
   it('lists its pages in the web’s side-menu order, Needs you saying what waits, each opening its screen', async () => {
     await render(<OutreachHomeBody workspaceId={WS} messages={3} />);
     expect(screen.getByTestId('screen-title')).toHaveTextContent('Social Outreach');
-    const pages = ['needs-you', 'today', 'people', 'groups', 'results', 'playbooks', 'gear'];
+    const pages = ['needs-you', 'today', 'people', 'find', 'results', 'playbooks', 'gear'];
     expect(
       within(screen.getByTestId('outreach-pages'))
         .getAllByTestId(/^outreach-page-/)
@@ -89,7 +89,7 @@ describe('Social Outreach in More and its first screen', () => {
     expect(screen.queryByTestId('outreach-set-up-on-computer')).toBeNull();
     for (const page of pages) await fireEvent.press(screen.getByTestId(`outreach-page-${page}`));
     expect(jest.mocked(openWebPath).mock.calls.map(([p]) => p)).toEqual(
-      ['waiting', 'today', 'pipeline', 'groups', 'results', 'playbooks', 'settings'].map(
+      ['waiting', 'today', 'pipeline', 'find', 'results', 'playbooks', 'settings'].map(
         (v) => `/app/w/${WS}/a/outreach?view=${v}`,
       ),
     );
@@ -103,23 +103,53 @@ describe('Social Outreach in More and its first screen', () => {
     );
   });
 
-  it('titles a page by its name, and moves between People’s lists in place, Friends on the web', async () => {
-    await render(
+  it('titles a page by its name, and moves between People’s views in place, with their counts', async () => {
+    const view = await render(
       <OutreachWorkspace.Provider value={WS}>
-        <OutreachFrame page="people" people="pipeline" testID="framed" />
+        <OutreachFrame page="people" counts={{ in_play: 12, talking: 3 }} testID="framed" />
       </OutreachWorkspace.Provider>,
     );
     expect(screen.getByTestId('screen-title')).toHaveTextContent('People');
     expect(screen.queryByTestId('outreach-tabs')).toBeNull();
-    await fireEvent.press(screen.getByTestId('outreach-people-chats'));
-    await fireEvent.press(screen.getByTestId('outreach-people-pipeline'));
-    // A list replaces the screen, rather than stacking another on it; the one shown isn't pressed again.
+    expect(screen.getByTestId('people-view-in_play')).toHaveTextContent('In play 12');
+    expect(screen.getByTestId('people-view-talking')).toHaveTextContent('Talking 3');
+    expect(screen.getByTestId('people-view-friends')).toHaveTextContent(/^Friends$/);
+    // Left alone's own lists show only under it.
+    expect(screen.queryByTestId('people-alone-keep')).toBeNull();
+    await fireEvent.press(screen.getByTestId('people-view-chats'));
+    await fireEvent.press(screen.getByTestId('people-view-in_play'));
+    await fireEvent.press(screen.getByTestId('people-view-friends'));
+    await fireEvent.press(screen.getByTestId('people-view-left_alone'));
+    await fireEvent.press(screen.getByTestId('people-view-clients'));
+    // A view replaces the screen, rather than stacking another on it; the one shown isn't pressed again.
     expect(jest.mocked(router.replace).mock.calls.map(([href]) => String(href))).toEqual([
       expect.stringContaining('view=chats'),
+      expect.stringMatching(/view=friends$/),
+      expect.stringContaining('view=friends&show=dont_pitch'),
+      expect.stringContaining('view=pipeline&show=client'),
     ]);
-    await fireEvent.press(screen.getByTestId('outreach-people-friends'));
+    jest.mocked(router.replace).mockClear();
+    await view.rerender(
+      <OutreachWorkspace.Provider value={WS}>
+        <OutreachFrame page="people" list={{ list: 'friends', show: 'keep' }} testID="framed" />
+      </OutreachWorkspace.Provider>,
+    );
+    expect(screen.getByTestId('people-view-left_alone').props.accessibilityState).toEqual({
+      selected: true,
+    });
+    expect(screen.getByTestId('people-alone-keep').props.accessibilityState).toEqual({
+      selected: true,
+    });
+    await fireEvent.press(screen.getByTestId('people-alone-never_contact'));
+    await fireEvent.press(screen.getByTestId('people-alone-lost'));
+    expect(jest.mocked(router.replace).mock.calls.map(([href]) => String(href))).toEqual([
+      expect.stringMatching(/view=never_contact$/),
+      expect.stringContaining('view=pipeline&show=lost'),
+    ]);
+    // Skipped for country opens over People, so Back comes here.
+    await fireEvent.press(screen.getByTestId('people-alone-country'));
     expect(jest.mocked(openWebPath).mock.calls.map(([p]) => p)).toEqual([
-      `/app/w/${WS}/a/outreach?view=friends`,
+      `/app/w/${WS}/a/outreach?view=countries&show=skipped`,
     ]);
   });
 

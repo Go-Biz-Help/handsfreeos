@@ -12,10 +12,11 @@
 import {
   ACTIVITY_PERIOD_KEYS,
   ACTIVITY_PERIODS,
+  activityStepsOf,
   topicName,
   type ActivityPeriod,
 } from '@hfos/core/addons/outreach/activity';
-import { NETWORKS, PLATFORMS } from '@hfos/core/addons/outreach/networks';
+import { PLATFORMS } from '@hfos/core/addons/outreach/networks';
 import { PARTNER_WORDS } from '@hfos/core/addons/outreach/partners';
 import { OUTREACH_WORDS as W } from '@hfos/core/addons/outreach/words';
 import { ChevronRight } from 'lucide-react';
@@ -28,9 +29,10 @@ import { EmptyState } from '@/components/ui/empty-state';
 import { Segmented } from '@/components/ui/segmented';
 import { cn, relativeTime } from '@/lib/utils';
 import { outreachHref } from './address';
+import { OpenerResults } from './opener-results';
 import { TouchedPostsCard } from './touched-posts';
 import { TrackingSection } from './tracking-view';
-import type { Activity, Tracking } from './types';
+import type { Activity, Openers, Tracking } from './types';
 
 type Numbers = Activity['numbers'];
 type PartnerNumbers = NonNullable<Activity['partners']>;
@@ -53,24 +55,6 @@ const ALONG: readonly { readonly key: keyof Numbers; readonly label: string }[] 
   { key: 'followUps', label: 'Follow-ups' },
 ];
 
-/** A request to connect, in the person's network's words: "Friend request", "Invitation to connect". */
-const requestWord = (p: Person) => {
-  const word = NETWORKS[p.platform].words.friendRequest;
-  return `${word.charAt(0).toUpperCase()}${word.slice(1)}`;
-};
-
-/** How far someone has come, a step at a time. */
-const STEPS: readonly {
-  readonly key: 'requestedAt' | 'likedAt' | 'commentedAt' | 'messagedAt' | 'repliedAt';
-  readonly label: string;
-}[] = [
-  { key: 'requestedAt', label: 'Friend request' },
-  { key: 'likedAt', label: 'Liked' },
-  { key: 'commentedAt', label: 'Commented' },
-  { key: 'messagedAt', label: 'Messaged' },
-  { key: 'repliedAt', label: 'Wrote back' },
-];
-
 /** "today", "in the last 7 days". */
 const within = (period: ActivityPeriod) =>
   period === 'today' ? 'today' : `in the ${ACTIVITY_PERIODS[period].label.toLowerCase()}`;
@@ -85,12 +69,15 @@ export function ActivityView({
   tracking,
   period,
   canManage,
+  openers = null,
 }: {
   workspaceId: string;
   activity: Activity;
   /** The three numbers on top (./tracking-view.tsx): null when they didn't load. */
   tracking: Tracking | null;
   period: ActivityPeriod;
+  /** Which openers work, every first message so far (decision 129): null when it didn't load. */
+  openers?: Openers | null;
   /** Owners and admins can see everyone's steps. */
   canManage: boolean;
 }) {
@@ -166,6 +153,7 @@ export function ActivityView({
             />
           </>
         )}
+        {openers ? <OpenerResults openers={openers} /> : null}
       </div>
     </div>
   );
@@ -438,18 +426,15 @@ function PeopleCard({
               <span className="text-[12.5px] text-text-3">{relativeTime(p.lastAt)}</span>
             </div>
             <div className="mt-1.5 flex flex-wrap gap-1.5">
-              {STEPS.map((s) => {
-                const at = p[s.key];
-                return at ? (
-                  <Badge
-                    key={s.key}
-                    variant={s.key === 'repliedAt' ? 'ok' : 'gray'}
-                    title={new Date(at).toLocaleString()}
-                  >
-                    {s.key === 'requestedAt' ? requestWord(p) : s.label} · {relativeTime(at)}
-                  </Badge>
-                ) : null;
-              })}
+              {activityStepsOf(p).map((s) => (
+                <Badge
+                  key={s.key}
+                  variant={s.key === 'repliedAt' ? 'ok' : 'gray'}
+                  title={new Date(s.at).toLocaleString()}
+                >
+                  {s.label} · {relativeTime(s.at)}
+                </Badge>
+              ))}
             </div>
           </li>
         ))}

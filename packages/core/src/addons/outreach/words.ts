@@ -280,6 +280,11 @@ export const OUTREACH_WORDS = {
     results: 'Results',
     settings: 'Settings',
   },
+  /** Find people's two parts (decision 128): every way's card, and the groups' own list. */
+  findParts: {
+    ways: 'Every way',
+    groups: 'Groups',
+  },
   /** People's lists. */
   peopleParts: {
     pipeline: 'Pipeline',
@@ -321,6 +326,7 @@ export const OUTREACH_WORDS = {
   settingsParts: {
     playbooks: 'Playbooks',
     computer: 'Your computer',
+    team: 'Team',
     fresh: 'Start fresh',
   },
   needsYou: NEEDS_YOU,
@@ -355,6 +361,8 @@ export const OUTREACH_WORDS = {
   ] as const,
   /** The Results tab: from reached to booked. */
   results: {
+    /** The phone's link to Results on the web, with the whole team's and the old Activity's tables. */
+    onWeb: 'More on the web',
     headline: (demos: number) => things(demos, 'demo booked', 'demos booked'),
     from: (people: number) => `from ${things(people, 'person reached', 'people reached')}`,
     funnel: {
@@ -372,7 +380,34 @@ export const OUTREACH_WORDS = {
   person: {
     menu: (name: string) => `More for ${name}`,
     /** What pressing the name does, for a screen reader (the name itself is the button's label). */
-    nameHint: 'Opens their page, Contacts, Client, Don’t pitch and more',
+    nameHint: 'Opens everything about them: their page, Contacts, Client, Don’t pitch and more',
+    /**
+     * The person panel (decision 128): their name opens it, with the menu's actions at its top, then why they fit,
+     * the chat so far, where they were found and every step.
+     */
+    panel: {
+      about: 'Everything about them, and what you can do.',
+      whyFit: 'Why they fit',
+      intro: 'Their page says',
+      mutual: (count: number) => (count === 1 ? '1 mutual friend' : `${count} mutual friends`),
+      nextStep: 'Next step',
+      theChat: 'The chat so far',
+      noChat: 'No chat read yet.',
+      foundIn: 'Found in',
+      everyStep: 'Every step',
+      noSteps: 'No steps yet.',
+      moreSteps: (count: number) =>
+        count === 1 ? '1 earlier step not shown' : `${count} earlier steps not shown`,
+      /** Who wrote last in the chat, and when ("3 h ago"). */
+      lastFrom: (fromMe: boolean, ago: string) =>
+        `${fromMe ? 'You wrote last' : 'They wrote last'}, ${ago}`,
+      /** The group a step came from. */
+      fromGroup: (name: string | null) => `from ${name ?? 'a group'}`,
+      aGroup: 'a group',
+      showAll: (count: number) => `Show all ${count.toLocaleString('en-US')} steps`,
+      showLatest: 'Show the latest only',
+      close: 'Close',
+    },
     /** While the menu asks where they stand (`outreach.profile.marks`). */
     loading: 'Checking where they stand…',
     /** The People tab's moves to another stage, in the menu after opening their page. */
@@ -480,6 +515,9 @@ export const OUTREACH_WORDS = {
   // ---- Groups and chats ----
   search: 'Search by name',
   more: 'Show more',
+  /** A friend's Keep switch: never suggested for unfriending. */
+  friendKeep: 'Keep: never suggest unfriending them',
+  friendKeepLabel: (name: string) => `Keep ${name}: never suggest unfriending them`,
   /** The Groups tab with none to show, by which groups. */
   groupsEmpty: {
     work: {

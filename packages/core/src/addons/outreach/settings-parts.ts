@@ -1,19 +1,27 @@
 /**
  * Social Outreach's Settings, a page for each part (Chris, 16 Oct 2026; the design is the "Social Outreach settings by
- * platform" canvas): **General**, what's the person's on every network; then **each network**, what the extension does
- * there and, for owners and admins, the team's say on it; then **Your computer** and **Start fresh**. Playbooks sit in
- * the same menu, on their own view. Every change saves as it's made: no Save button.
+ * platform" canvas; regrouped by decision 129): **You**, what's the person's on every network (its key is still
+ * `general`, as old links name it); then **each network**, what the extension does there for the person; **Your
+ * computer**, with every job it can be asked to run now; and for owners and admins **Team**, everything about their
+ * people and what the business allows, each network's say in one place; and for an owner **Start fresh**. Every change
+ * saves as it's made: no Save button.
  *
  * The web and the phone open a part from its key (`?part=` on the web), and build the menu from these words. Browser-safe.
  */
-import { businessLimitsOn, type BusinessRules } from './automation';
+import { businessLimitsOn, WHEELS, type BusinessRules } from './automation';
 import { HELPFUL_PER_DAY } from './helpful';
 import { DAILY_STEPS, limitNow } from './limits';
 import { dailyWordsOn, helpfulOn, tidyWordsOn } from './network-words';
 import { networkLimitsNow, NETWORKS, PLATFORM_KEYS, type Platform } from './networks';
 
 /** The parts, in the menu's order. */
-export const SETTINGS_PART_KEYS = ['general', ...PLATFORM_KEYS, 'computer', 'fresh'] as const;
+export const SETTINGS_PART_KEYS = [
+  'general',
+  ...PLATFORM_KEYS,
+  'computer',
+  'team',
+  'fresh',
+] as const;
 export type SettingsPart = (typeof SETTINGS_PART_KEYS)[number];
 
 /**
@@ -39,10 +47,14 @@ export const NEXT_NETWORKS = ['Threads', 'X', 'TikTok'] as const;
 
 /** The Settings pages' own words, on the web and the phone. */
 export const SETTINGS_WORDS = {
-  /** The menu's headings. */
-  menu: { settings: 'Settings', networks: 'Networks', more: 'More' },
-  general: 'General',
-  generalAbout: 'Yours, on every network. What it does on each network is on that network’s page.',
+  /** The menu's headings (decision 129). */
+  menu: { you: 'You', networks: 'Networks', computer: 'This computer', owners: 'Owners' },
+  /** The person's own part: its key is `general`. */
+  general: 'You',
+  generalAbout:
+    'How it writes for you, your working hours and your alerts, on every network. What it does on each network is on that network’s page.',
+  /** Under You in the menu. */
+  generalRow: 'How it writes, hours and alerts',
   /** Under a network's name, at the top of its page. */
   networkAbout: (name: string) => `What the extension does for you on ${name}.`,
   /** Beside a network's switch at the top of its page. */
@@ -55,7 +67,35 @@ export const SETTINGS_WORDS = {
   autosaves: 'Changes save as you make them.',
   saving: 'Saving…',
   saved: 'Saved. The extension follows it in a few seconds.',
-  /** The part for owners and admins: on General for every network, on a network's page for that one. */
+  /** Team's page, for owners and admins (decision 129). */
+  teamTitle: 'Team',
+  teamPageAbout:
+    'Your people and their training wheels, what they may pick, each network’s say, and the business’s settings. Only owners and admins see this.',
+  people: 'Your people',
+  peopleAbout: 'Open anyone’s settings to see or change them. Each change says who made it.',
+  theirSettings: 'Their settings',
+  notSaved: 'Hasn’t saved their own yet',
+  /** Who's on training wheels, on each network, among Your people (it was a card on Today). */
+  wheelsAbout: `Their messages wait for their OK and their daily limits are half, for ${WHEELS.days} days and ${WHEELS.ok} messages OK’d. End them early for someone you trust.`,
+  wheelsOn: (network: string) => `Training wheels on ${network}`,
+  wheelsLine: (ok: number, daysLeft: number) =>
+    `${ok.toLocaleString('en-US')} of ${WHEELS.ok} OK’d · ${
+      daysLeft ? `${daysLeft} ${daysLeft === 1 ? 'day' : 'days'} to go` : 'days done'
+    }`,
+  you: '(you)',
+  networksTitle: 'Each network, for everyone',
+  networksAbout:
+    'Whether your team may use each network, and how many of each step a person may take there a day.',
+  /** On a network's page, for an owner or admin: the team's say on it is on Team now. */
+  teamMoved: (name: string) => `Your team’s say on ${name} is on Team.`,
+  /** On You, for an owner or admin. */
+  teamMovedAll:
+    'What your team may pick, where a new person starts, the extension’s link and each network’s limits are on Team.',
+  openTeam: 'Open Team',
+  /** Someone else's settings, shown to an owner or admin. */
+  whose: (name: string) => `You’re looking at ${name}’s settings.`,
+  backToYours: 'Back to yours',
+  /** The business's part on Team: on every network. */
   team: 'For your team',
   teamOn: (name: string) => `For your team on ${name}`,
   teamWho: 'Owners and admins',
@@ -71,7 +111,8 @@ export const SETTINGS_WORDS = {
   builtIn: (name: string) =>
     `The extension works on ${name} as soon as it’s installed: there’s nothing to allow in Chrome.`,
   /** Your computer's page. */
-  computerAbout: 'The computers you’re signed in on, and the extension to download.',
+  computerAbout:
+    'The computers you’re signed in on, the extension to download, and every job your computer can be asked to run now.',
   /** Under a network's daily friend requests, when it also caps them in any 7 days (LinkedIn's 80). */
   weekly: (n: number) => `At most ${n.toLocaleString('en-US')} in any 7 days`,
   /** The kit's other limits a day, beside the daily steps. */

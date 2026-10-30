@@ -48,7 +48,7 @@ import { toast } from '@/components/ui/toast';
 import { api, errorMessage, unwrap } from '@/lib/api';
 
 import { startDay, stopDay } from './actions';
-import { AskedPart, useAskActions, useAsks, type AskActions } from './asks';
+import { AskedPart, RunNowPart, useAskActions, useAsks, type AskActions } from './asks';
 import { ComputersPart, type ComputerActions } from './computers';
 import {
   NeedsSignal,
@@ -553,7 +553,13 @@ export function LiveBody({
 
       <PreDayPart live={{ ...live, day }} now={now} platform={platform} />
 
-      {asks && askActions ? <AskedPart asks={asks} actions={askActions} /> : null}
+      {/* Every job it can do now, on each network (decision 129), beside what was asked of it lately. */}
+      {asks && askActions ? (
+        <>
+          <RunNowPart asks={asks} actions={askActions} networks={networks} />
+          <AskedPart asks={asks} actions={askActions} />
+        </>
+      ) : null}
 
       <Part title={W.todaySoFar} testID="live-limits">
         <List>
