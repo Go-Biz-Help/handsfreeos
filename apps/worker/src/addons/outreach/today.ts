@@ -484,11 +484,12 @@ export const todayDraft: AddonWorkerAction<TodayDraftInput> = {
         maxTokens: 800,
         usage: { source: 'addon', addonId: ctx.manifest.id },
       });
+      // A first message is one text (decision 137), as a comment is.
       const checked = checkedDrafts(
         value,
         [...(playbook?.details.avoid ?? []), ...(knows?.avoid ?? [])],
         DRAFTS_FOR[kind],
-        found.voice.split && !underAPost(kind) && kind !== 'warm_lead' && !toRequests,
+        found.voice.split && !underAPost(kind) && kind !== 'warm_lead' && kind !== 'opener',
       );
       // To their Requests: only one short text with no link goes. A comment that waits to be posted (Instagram's and
       // Alignable's, decision 92) never carries a link, and on Instagram no hashtag, within its 30 words; nor does a

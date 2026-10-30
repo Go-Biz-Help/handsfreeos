@@ -200,9 +200,9 @@ const SUGGEST_MORE: Partial<Record<ListPart, (d: AssistDraft) => string>> = {
     ': kinds of business the people it’s for run, as Alignable names them, like “Roofing Contractor” or “Property Management”',
   tags: () => ': short labels, two or three words each, for sorting people by how they fit',
   openerStyles: () =>
-    ': each a different way to open a first message to someone new, said as an instruction in one sentence, like “Ask one curious question about their business, from something real on their profile.” Each different enough that it’s clear which works better',
+    ': each a different way to say what the offer could get them in the first message, which is one short question like “If I had something that could make you more money while saving you time in your roofing business, would you be interested?”, said as an instruction in one sentence, like “Say it could make them more money while saving them time.” Each different enough that it’s clear which works better',
   ownOpeners: () =>
-    `: each a whole first message to someone new, short, friendly and in the playbook’s tone, ending with a light question and never pitching. Write ${FIRST_NAME} where their first name goes`,
+    `: each a whole first message to someone new: one short, straight question that makes them curious, in the playbook’s tone, like “If I had something that could make you more money while saving you time, would you be interested?”, never saying what the thing is. ${FIRST_NAME} can go where their first name goes`,
 };
 
 /** What to do for the part, in words the model acts on. */

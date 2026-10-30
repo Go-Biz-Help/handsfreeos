@@ -347,9 +347,9 @@ export const PlaybookDetails = z
     /** A few of the business's own messages, for the AI to sound like. */
     samples: lines(PLAYBOOK_LIMITS.samples),
     /**
-     * How first messages open (decision 23): styles the AI writes in ("Ask one curious question about their
-     * business"), and the business's own openers, sent as written. Drafts take turns with them (./openers.ts), so
-     * the results card can say which work. A playbook saved before them has none.
+     * How first messages open (decision 23): styles the AI words its one short question in ("Say it could make them
+     * more money while saving them time", decision 137), and the business's own openers, sent as written. Drafts take
+     * turns with them (./openers.ts), so the results card can say which work. A playbook saved before them has none.
      */
     openerStyles: lines(PLAYBOOK_LIMITS.openerStyles)
       .refine(distinct, 'Each style once.')
@@ -489,9 +489,9 @@ const TEMPLATES = {
       steps: ['connect', 'engage', 'message', 'follow_up'],
       tone: 'Friendly and curious, one owner to another. Short messages, no hard sell.',
       openerStyles: [
-        'Ask one curious question about their business, from something real on their profile or posts.',
-        'Mention the group you’re both in, then ask how business is going.',
-        'Say one thing you genuinely liked about their page or a post, then ask a light question.',
+        'Say it could make them more money while saving them time.',
+        'Say it could stop leads slipping through the cracks.',
+        'Say it could give them their evenings back.',
       ],
       questions: [
         {
@@ -569,9 +569,9 @@ const TEMPLATES = {
       steps: ['connect', 'engage', 'message', 'follow_up', 'answer'],
       tone: 'Warm and helpful, like a neighbor who knows the market. Short messages, no pressure.',
       openerStyles: [
-        'Ask one friendly question about something real on their profile or posts, like a move, a new job or a home project.',
-        'Mention the group you’re both in, then ask how they like living in the area.',
-        'Share one useful thing about the local market that fits what they posted, then ask a light question.',
+        'Say it could help them get the most for their home, with less stress.',
+        'Say it could help them find the right home without the guesswork.',
+        'Say it could show them what their home is worth today.',
       ],
       questions: [
         {
@@ -702,9 +702,9 @@ const TEMPLATES = {
       steps: ['connect', 'engage', 'message', 'follow_up', 'answer'],
       tone: 'Friendly and straight to the point, like a local pro the neighbors trust. Short messages, no pressure.',
       openerStyles: [
-        'Ask one helpful question about something real on their profile or posts, like a home project or a recent storm.',
-        'Mention the group you’re both in, then ask how things are going with their home.',
-        'Offer one quick tip that fits what they posted, then ask a light question.',
+        'Say it could save them money on their home.',
+        'Say it could get their project done without the hassle.',
+        'Say it could take that repair off their list for good.',
       ],
       questions: [
         {
@@ -806,9 +806,9 @@ const TEMPLATES = {
       steps: ['connect', 'engage', 'message', 'follow_up'],
       tone: 'Encouraging and curious, never pushy. Short messages that ask more than they tell.',
       openerStyles: [
-        'Ask one curious question about a goal or a change they posted about.',
-        'Mention the group you’re both in, then ask what they’re working on this year.',
-        'Say one thing you genuinely liked in a post of theirs, then ask a light question.',
+        'Say it could help them reach their goal this year.',
+        'Say it could help them get unstuck.',
+        'Say it could give them more time for what matters to them.',
       ],
       questions: [
         {
@@ -1078,11 +1078,11 @@ export const PLAYBOOK_SUGGESTIONS = {
   ],
   avoid: ['Act now', 'Limited time', 'Guaranteed', 'Buy now', 'Click here'],
   openerStyles: [
-    'Ask one curious question about their business, from something real on their profile or posts.',
-    'Mention the group you’re both in, then ask how business is going.',
-    'Say one thing you genuinely liked about their page or a post, then ask a light question.',
-    'Congratulate them on something they posted lately, then ask about it.',
-    'Ask for their advice on something they clearly know about.',
+    'Say it could make them more money while saving them time.',
+    'Say it could bring them more customers without more work.',
+    'Say it could give them their evenings and weekends back.',
+    'Say it could save them money.',
+    'Say it could take something off their plate.',
   ],
   tags: ['Prospect', 'Interested', 'Not interested', 'Not a fit', 'Friend or family', 'Customer'],
   answers: ['Yes', 'No', 'Not sure', 'Not really', 'Not now'],

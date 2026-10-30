@@ -187,7 +187,7 @@ test('an owner builds a playbook a step at a time, with answers that tag people 
 
   // How it starts a chat: a style tapped, and an opener of the business's own.
   await expect(builder.getByRole('heading', { name: 'How do you start a chat?' })).toBeVisible();
-  await builder.getByRole('button', { name: /^Mention the group you’re both in/ }).click();
+  await builder.getByRole('button', { name: /^Say it could bring them more customers/ }).click();
   await builder.getByRole('button', { name: 'Add an opener' }).click();
   await builder
     .getByLabel('Your opener 1')
@@ -207,7 +207,7 @@ test('an owner builds a playbook a step at a time, with answers that tag people 
   await expect(script).toContainText('“No” adds Not a fit, then stop here');
   await expect(script).toContainText('They answer in their own words.');
   await expect(builder.getByTestId('review-openers')).toContainText(
-    'Mention the group you’re both in',
+    'Say it could bring them more customers without more work',
   );
   await expect(builder.getByTestId('review-openers')).toContainText('1 opener of your own');
   await builder.getByTestId('playbook-save').click();

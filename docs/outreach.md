@@ -392,8 +392,8 @@ became.
   zone) each person who noted a step in the last 14 days and has something on their list hears how much ("6 on your list for today").
   Both are add-on pushes (`pushAddonNotice`), on the person's add-ons switch, and open Today.
 - **Which openers work** (decision 23, `openers.ts`, `ops/openers.ts`): each playbook keeps two or three styles the
-  AI opens first messages in, and up to three of the business's own openers, sent as written with the first name
-  filled in. A first message's drafts take the opener the person has used least, and copying one notes which it was
+  AI words a first message's one short question in (decision 137), and up to three of the business's own openers,
+  sent as written with the first name filled in. A first message's drafts take the opener the person has used least, and copying one notes which it was
   (`outreach.opener.use`). The Playbooks tab's **Which openers work** card counts, for each, the first messages sent
   with it, who wrote back and who booked a demo; owners and admins see everyone's.
 - **The demo link** (decision 24, `demos.ts`, `ops/demos.ts`, the worker's `demos.ts`): each person's own link to the
@@ -1196,8 +1196,8 @@ From the main offer's plan (HANDSFREEOS_MAIN_OFFER_IMPLEMENTATION_PLAN.md, Chris
     comments first). Before a friend request the extension likes one of their posts, and when the post is about their
     work it leaves a short comment too, counted against the comments' limit (extension 0.33.0). Once they accept,
     the **First message** asks straight out whether they'd be open to the main offer's outcome, and says more info
-    follows if so. No message carries the guarantee (the owner, 2026-10-26: "it made them feel disjointed and
-    unnatural"); a reply gives it only when they ask whether there is one, as the price. A personal line goes first only when the look-up found something real that fits.
+    follows if so (since decision 137, one short question that makes them curious instead). No message carries the
+    guarantee (the owner, 2026-10-26: "it made them feel disjointed and unnatural"); a reply gives it only when they ask whether there is one, as the price. A personal line goes first only when the look-up found something real that fits.
     The business's own openers can say `{outcome}` and `{guarantee}`, filled from the offer's words in a few words.
     This replaces decision 47's moment to pitch for new friends; its read (`pitch`) stays for chats that started
     another way (Reconnect, the download file, people who wrote first). Built.
@@ -3263,6 +3263,35 @@ where decisions 37 and 59 put the settings; what they decided stands. Settled to
         test id of its own and its Send as `messaging-send-desktop`, so every Alignable message said "Alignable showed a
         different conversation". The conversation's header is now the first header on the way up from its box to write
         in, never Messages' list's nor the site's menu, and either Send counts. No migration.
+
+<!-- Decision 136 comes in its own pull request; join this to the list once it's in. -->
+
+137.  **First messages: one short question that makes them curious** (Chris, 30 Oct 2026: "i want the first message to
+      the contacts to be more straight forward but bring about curiosity", with "If i had something that could make you
+      more money while saving you time in your [insert niche] business would you be interested", the niche photography
+      or roofing). This replaces decision 65's first message, which asked whether they'd be open to the outcome, said
+      more info would follow, and put a line about them first. No migration, and no new extension.
+      - **The shape** (`FIRST_MESSAGE_SHAPE`, `FIRST_MESSAGE_EXAMPLE` in `conversation.ts`): one question, under 30
+        words, in the owner's words: the owner has something that could make them more money while saving them time,
+        in their kind of business, and would they be interested. Nothing goes before or after it: no greeting, no line
+        about them, no promise of more info, and never what the thing is, its name, a link or the price. It says only
+        what the offer really does (Chris asked the same day about businesses that sell SEO or credit repair): an offer
+        that doesn't make money or save time says what it does get them ("bring more customers to your roofing business
+        from Google", "help raise your credit score"), and one for people rather than businesses leaves out "in your …
+        business".
+      - **Their kind of business** (`THEIR_KIND` in `today.ts`) comes from what's known of them, as they'd say it
+        (roofing, real estate, photography): the one the offer fits best when they run more than one, their line of
+        work when they work for someone else ("as a realtor"), and "your business" when nothing shows it. Never guessed
+        from the playbook.
+      - **Every first message:** Today's drafts (`TASK.opener`), the one text to someone's Requests on Instagram
+        (`REQUESTS_TASK`), and Your messages' first samples, written or written again. A first message is one text,
+        whatever the person's voice says about splitting. Replies, follow-ups, Reconnect and partners' messages are as
+        before.
+      - **Openers still take turns** (decision 23): a playbook's AI style now only words the question ("Say it could
+        make them more money while saving them time"), never adds a line, and the ready-made playbooks' styles, the
+        suggestions and the AI's playbook help are written that way. A playbook saved before keeps its styles; one that
+        asks for a line about them is followed only as far as one short question allows. The business's own openers
+        still go as written, and the person's own first message in Your messages is still kept close to.
 
 ## Rules worth knowing before changing anything
 
