@@ -231,10 +231,10 @@ export const NETWORKS: Readonly<Record<Platform, NetworkKit>> = {
     joinsPerDay: null,
     // Old invitations are withdrawn after the business's wait; nobody is removed.
     tidyLimits: { cancel_request: 20, unfriend: 0 },
-    // auto/linkedin.ts: likes and invitations; invitations sent to them are theirs to accept, and comments go through
-    // `sends`. Of the switches along the way it reads the warm-up and saving connections: it joins no groups and has
-    // no hourly look.
-    runs: { auto: ['warm_up', 'friend_request'], ticks: ['warmUp', 'collect'] },
+    // auto/linkedin.ts: likes and invitations, and from decision 136 accepting the invitations they get, as they
+    // picked and the AI says (on Received invitations); comments go through `sends`. Of the switches along the way it
+    // reads the warm-up and saving connections: it joins no groups and has no hourly look.
+    runs: { auto: ['confirm', 'warm_up', 'friend_request'], ticks: ['warmUp', 'collect'] },
     words: {
       friend: 'connection',
       friends: 'connections',
@@ -332,8 +332,12 @@ export const NETWORKS: Readonly<Record<Platform, NetworkKit>> = {
     // auto/alignable.ts (part 5): warm-ups (a look at their business page, and a like on a recent post of theirs when
     // it shows one) and connection requests. Comments and forum answers wait for the person's OK, as they're public
     // writing (the plan's question 9, decision 92), and Recommend is only ever theirs. Of the switches along the way it
-    // reads the warm-up, the once-a-day jobs and joining groups (decision 92): it has no hourly look.
-    runs: { auto: ['warm_up', 'friend_request'], ticks: ['warmUp', 'collect', 'joinGroups'] },
+    // reads the warm-up, the once-a-day jobs and joining groups (decision 92): it has no hourly look. From decision 136
+    // it accepts the connection requests they get too, as they picked and the AI says (on My Network's Requests).
+    runs: {
+      auto: ['confirm', 'warm_up', 'friend_request'],
+      ticks: ['warmUp', 'collect', 'joinGroups'],
+    },
     words: {
       friend: 'connection',
       friends: 'connections',
@@ -362,8 +366,8 @@ export const runsOnItsOwn = (platform: Platform): boolean =>
   NETWORKS[platform].runs.auto.length > 0;
 
 /**
- * Whether the extension answers the requests the person gets there on its own (decisions 30 and 121): Facebook's
- * runner confirms them, and deletes them as the person picks; elsewhere they're the person's.
+ * Whether the extension answers the requests the person gets there on its own (decisions 30, 121 and 136): the runners
+ * on Facebook, LinkedIn and Alignable confirm them, and delete them as the person picks; Instagram's are the person's.
  */
 export const answersRequests = (platform: Platform): boolean =>
   NETWORKS[platform].runs.auto.includes('confirm');

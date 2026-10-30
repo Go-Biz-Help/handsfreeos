@@ -86,6 +86,7 @@ function request(name: string): WaitingItem {
       held: null,
       since: new Date(friday10).toISOString(),
       mutualFriends: null,
+      said: null,
     },
   };
 }

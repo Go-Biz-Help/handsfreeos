@@ -10,7 +10,8 @@ import {
   todayKindsOn,
 } from '@hfos/core/addons/outreach/network-words';
 import { COUNTRY_LIST_WORDS as CW } from '@hfos/core/addons/outreach/countries';
-import { networkOfLink, PLATFORMS } from '@hfos/core/addons/outreach/networks';
+import { answersRequests, networkOfLink, PLATFORMS } from '@hfos/core/addons/outreach/networks';
+import type { FriendAnswer } from '@hfos/core/addons/outreach/limits';
 import {
   COMMENT_HOLD_WORDS,
   recentBubbles,
@@ -51,7 +52,7 @@ import * as React from 'react';
 import { View } from 'react-native';
 
 import { ChangeError } from '@/changes';
-import { Check, CheckCheck, ExternalLink, Pencil, RotateCcw, X } from '@/components/icons';
+import { Check, CheckCheck, ExternalLink, Pencil, RotateCcw, Trash, X } from '@/components/icons';
 import { useKeyboardHeight } from '@/components/shell/keyboard';
 import { Screen } from '@/components/shell/screen';
 import { Badge } from '@/components/ui/badge';
@@ -63,7 +64,7 @@ import { Text } from '@/components/ui/text';
 import { toast } from '@/components/ui/toast';
 import { api, errorMessage, unwrap } from '@/lib/api';
 
-import { clearNeed, okAll, okSend, retrySends, setAside, skipSend } from './actions';
+import { answerRequest, clearNeed, okAll, okSend, retrySends, setAside, skipSend } from './actions';
 import { AskLine, useAskActions, type AskActions } from './asks';
 import { ChatBubbles } from './chat-bubbles';
 import { useOutreachWaiting } from './copy';
@@ -274,6 +275,17 @@ export function useWaitingProps(): React.ComponentProps<typeof WaitingBody> {
         failed(e);
       }
     },
+    // Confirm and Delete (decision 136): the extension does it.
+    onAnswer: async (request, said) => {
+      try {
+        await answerRequest(ws, request.profileId, said);
+        const done = said === 'confirm' ? W.confirming(request.name) : W.deleting(request.name);
+        toast.show(saidOf(ctx.online, done, W.queued));
+        answer.reload();
+      } catch (e) {
+        failed(e);
+      }
+    },
     // How the phone hears of it is on General.
     onSettings: () => openSettingsPart(ws, 'general'),
     askActions,
@@ -297,6 +309,7 @@ export function WaitingBody({
   onClear,
   onRetrySends,
   onLeave,
+  onAnswer,
   onSettings,
   askActions,
   unsure = null,
@@ -315,6 +328,8 @@ export function WaitingBody({
   /** Retry one message or comment that didn't go, or every one (null): each a few minutes apart. */
   onRetrySends?: (needIds: string[] | null) => void;
   onLeave: (request: Request) => void;
+  /** Confirm or Delete on a request to decide (decision 136), where the extension answers them. */
+  onAnswer?: (request: Request, answer: FriendAnswer) => void;
   onSettings: () => void;
   /** Carry on, Skip and Stop, on what the computer needs them for. */
   askActions?: AskActions;
@@ -475,6 +490,7 @@ export function WaitingBody({
                   request={request}
                   when={seenWords(request.since, timeZone, now)}
                   onLeave={() => onLeave(request)}
+                  onAnswer={onAnswer ? (said) => onAnswer(request, said) : undefined}
                 />
               ))}
             </Group>
@@ -845,12 +861,16 @@ function RequestCard({
   request,
   when,
   onLeave,
+  onAnswer,
 }: {
   request: Request;
   when: string;
   onLeave: () => void;
+  onAnswer?: (answer: FriendAnswer) => void;
 }) {
   const platform = networkOfUrl(request.url);
+  // Confirm and Delete where the extension answers requests (decision 136): what the AI says stands out.
+  const answers = onAnswer && answersRequests(platform) ? onAnswer : null;
   return (
     <Card className="gap-2 px-4 py-3.5" testID="waiting-request-item">
       <View className="flex-row flex-wrap items-center gap-2">
@@ -871,6 +891,20 @@ function RequestCard({
         >
           {openPageWords(platform)}
         </Button>
+        {answers
+          ? (['confirm', 'delete'] as const).map((said) => (
+              <Button
+                key={said}
+                size="md"
+                variant={request.said === said ? 'secondary' : 'ghost'}
+                icon={said === 'confirm' ? Check : Trash}
+                onPress={() => answers(said)}
+                testID={`waiting-request-${said}`}
+              >
+                {said === 'confirm' ? W.confirmRequest : W.deleteRequest}
+              </Button>
+            ))
+          : null}
         <Button size="md" variant="ghost" icon={X} onPress={onLeave} testID="waiting-request-leave">
           {W.leaveIt}
         </Button>

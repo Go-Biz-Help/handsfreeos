@@ -499,7 +499,8 @@ became.
   network first, decision 91), beside **Open on <network>** (`needUrlOf`: the link given when it's on their network,
   the post or the chat, else their page there, so every step links; one kept with none, as every network's but
   Facebook's were before 26 October 2026, opens their page when it's read); and **Friend requests to decide**, those from the last
-  two weeks that didn't fit a playbook (or fit but are on Don't pitch), with why and **Leave it**. Each tab's label
+  two weeks that didn't fit a playbook (or fit but are on Don't pitch), with why and **Leave it**; from decision 136,
+  with what the AI says of each and **Confirm** and **Delete** on Facebook, LinkedIn and Alignable. Each tab's label
   carries the count. New
   messages and steps reach the phone as the person's **pushes** setting says: one bundled push at most every 2 hours
   in their working hours ("5 messages wait for your OK", the default), or one for each; a reply handed over pushes at
@@ -915,7 +916,8 @@ than a store extension, and for more features, and answered the questions the sa
 29. **Tidying on its own is a setting:** off, cancelling old requests on their own, or cancelling and unfriending on
     their own. Built on every network from extension 0.97.0 (decision 98). Cancel all skips the wait (decision 121).
 30. **Friend requests from people who fit a playbook are confirmed on their own;** the rest wait. Built: those who
-    fit well. From decision 121 it's one of five choices on Facebook, which can confirm them all or delete some.
+    fit well. From decision 121 it's one of five choices on Facebook, which can confirm them all or delete some. From
+    decision 136 the AI reads each one's profile to say who's good, on Facebook, LinkedIn and Alignable.
 31. **It asks to join good groups, up to 3 a day,** and the AI answers the join questions from the playbook. Automation part 5.
 32. **Find posts, Read my chats, saving group members and checking friend requests run once a day on their own.**
     Built: first thing in the working day (or after Start my day), before the list, while the extension works on its
@@ -2881,6 +2883,8 @@ where decisions 37 and 59 put the settings; what they decided stands. Settled to
       - **It never deletes** someone in Contacts, kept, chatted with (a chat in the file, a reply, a message noted), a
         partner, or anyone on Don't pitch, and never answers anyone on Never contact. For not fitting, only with a
         playbook in use: with none, nobody fits, so nobody is deleted. Those it never deletes wait in Waiting for you.
+        From decision 136 who fits is the AI's read of their profile, not the lines Facebook's list showed, and it's
+        the same on LinkedIn and Alignable.
       - **From 0.110.1 a request the person sent is cancelled from Sent requests** (the owner's report of 29 Oct 2026,
         where a profile's Cancel request couldn't be found and each one came to Needs you; the owner's words: "it
         should be trying to unfriend them from https://www.facebook.com/friends/requests click sent friend requests
@@ -3264,8 +3268,48 @@ where decisions 37 and 59 put the settings; what they decided stands. Settled to
         different conversation". The conversation's header is now the first header on the way up from its box to write
         in, never Messages' list's nor the site's menu, and either Send counts. No migration.
 
-<!-- Decision 136 comes in its own pull request; join this to the list once it's in. -->
-
+136.  **The AI decides the friend requests the person gets** (Chris, 30 Oct 2026, "1a 2a 3a 4a 5c" on
+      questions-30-oct-requests.md, extension **0.118.0**). "we still need that feature that decides if we should
+      accept the friend requests or not and does it based on the playbooks etc". Friend requests to decide showed 36
+      with only Open and Leave it: who fit was a keyword match on the lines Facebook's list showed (decision 30), which
+      never read anyone's profile, so almost nobody fit, and LinkedIn's and Alignable's were never answered at all.
+      Migration `20261027020900_outreach_request_answers`: a check `via` of `request`, the AI's answer on the check
+      (`request_answer`, `request_why`), the person's press on the request (`friends.answer`, `answer_at`), and
+      `private.outreach_request_reads`, through which the team view counts a colleague's requests (a check is its
+      person's own), never with why.
+      - **The AI reads each one** (1a, `REQUEST_CHECK_SYSTEM`, `requestCheckPrompt`): someone who sent a request the
+        person hasn't answered, set aside or pressed on is next to check right after a Research press (`checks.next`'s
+        reason `request`, `asksMe`), and once more if they were checked before without it. The worker asks the usual
+        read and what to do with their request, with the mutual friends and where the business reaches (`reachesWords`):
+        **Confirm** a likely customer or partner, or a real person with 10 or more mutual friends
+        (`REQUEST_MUTUAL_YES`) who isn't a clear no; **Delete** a clear no (fake or spammy, sells the same, a playbook
+        says to leave them, lives outside where the business reaches), or nothing pointing to them with fewer than 10
+        mutual friends; **Not sure** when it's close. Its line on why is kept beside it. Not while the person confirms
+        or deletes them all (`readsRequests`), when what it says changes nothing.
+      - **The five choices, renamed and powered by it** (3a, `REQUEST_MODES`, `requestAnswerOf`): leave them all to
+        me; **let the AI confirm the good ones, and leave the rest to me** (as it starts); **let the AI decide**:
+        confirm the good ones and delete the rest; confirm them all; delete them all. Its Confirm goes on Today as
+        **Confirm their request** with its why, its Delete with the day's deletes (decision 121) only under "let the AI
+        decide" and only with a playbook in use, and its Not sure (and a Delete it may not do) waits for the person.
+        Before it has read someone, a keyword fit still confirms, as decision 30 had it.
+      - **Not sure waits with why, and Confirm and Delete** (2a): Friend requests to decide says "The AI says delete:
+        …", "The AI isn't sure: …", or that it hasn't read or couldn't read their profile, and adds **Confirm** and
+        **Delete** beside Leave it, on the web and the phone, the one the AI said standing out
+        (`outreach.request.answer`, risk 2, the Assistant's on a Confirm card, refused for anyone on Never contact). A
+        press goes first whatever the person picked, even under "leave them all to me": Confirm on Today ("You pressed
+        Confirm"), Delete with the day's deletes, even someone kept. One the AI would delete but never deletes says
+        why (`REQUEST_KEPT`).
+      - **The waiting ones first** (4a): the 36 already waiting are read before anyone else but those the person
+        pressed Research on, the most mutual friends first, in the day's room for checks; a new one waits off the list
+        a day for its read (`REQUEST_READ_DAYS`), then shows saying the AI hasn't read it. With no playbook in use
+        nothing waits off the list.
+      - **On every network that has requests** (5c, `answersRequests`): Facebook as before; **LinkedIn**, where the
+        runner opens the sender's profile and presses Accept in its top card (`answerInvitation`), and ignores one
+        with Ignore (under More when it's there, and the box's own Ignore when LinkedIn asks) with the day's deletes
+        (`jobs/linkedin/ignore.ts`); **Alignable**, where it finds the business's row on My Network's Requests and
+        presses Accept, or Decline or Ignore (`networks/alignable/answer.ts`, `jobs/alignable/answer.ts`). Both note each answer as
+        Facebook's do. Instagram's follows wait for nobody. LinkedIn's and Alignable's start confirming on their own
+        under the same choice, so the AI's yeses there go once 0.118.0 runs.
 137.  **First messages: one short question that makes them curious** (Chris, 30 Oct 2026: "i want the first message to
       the contacts to be more straight forward but bring about curiosity", with "If i had something that could make you
       more money while saving you time in your [insert niche] business would you be interested", the niche photography
@@ -3717,7 +3761,12 @@ where decisions 37 and 59 put the settings; what they decided stands. Settled to
   or Don't pitch or tagged Friend or family), with why. A good fit from someone pitched is never here, even past the
   most Today lists at once: Today confirms it on a later day (decision 30).
   **Leave it** sets one aside until they ask again (`set_aside_at`). They count on the icon and the lists, and are
-  never pushed.
+  never pushed. Where the extension answers them (Facebook, LinkedIn, Alignable, `answersRequests`), decision 136
+  decides who's here (`requestAnswerOf`): never one Today confirms or tidying deletes. Each says what the AI said and
+  why (`requestWhy`), with **Confirm** and **Delete** (`outreach.request.answer`); one the AI hasn't read waits off
+  the list a day (`REQUEST_READ_DAYS`), but only with a playbook in use. A press counts while that request waits
+  (`friends.answer_at >= since`), and goes first whatever the person picked: Confirm on Today, Delete with the day's
+  deletes, even someone kept. The AI's no never deletes someone `neverDeleted`, nor anyone with no playbook in use.
 - **Pushes for what waits follow the person's choice** (`pushes`, the worker's `waiting.ts`): bundled, one job a
   person (`outreach.waiting_push`), 10 minutes after the first new one, at most every 2 hours and only in their
   working hours, and only when a message or step reached HandsFreeOS since the last (`waiting_pushes`, kept in the

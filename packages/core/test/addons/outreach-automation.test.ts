@@ -88,7 +88,8 @@ describe('working hours', () => {
         warmUp: false,
         confirmRequests: false,
       }),
-    ).toEqual(['friend_request', 'comment']);
+      // With requests left to the person, Today lists only the ones they pressed Confirm on (decision 136).
+    ).toEqual(['confirm', 'friend_request', 'comment']);
   });
 });
 
@@ -318,6 +319,7 @@ describe('the business’s rules', () => {
       expect(messageKinds(within.networks.instagram)).toEqual([]);
       // On Alignable, comments stay the person's: its runner warms up and connects.
       expect(autoKinds(within.networks.alignable, 'alignable')).toEqual([
+        'confirm',
         'warm_up',
         'friend_request',
       ]);

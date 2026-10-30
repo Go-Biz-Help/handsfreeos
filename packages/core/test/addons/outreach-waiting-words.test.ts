@@ -326,6 +326,42 @@ describe('the words', () => {
     ]);
   });
 
+  it('say what the AI says of a request, and why it waits for the person (decision 136)', () => {
+    const reasons = ['14 mutual friends'];
+    expect(
+      requestWhy(reasons, 'maybe', null, {
+        read: 'read',
+        said: 'ask',
+        why: 'A painter, but nothing says they hire',
+      }),
+    ).toEqual(['The AI isn’t sure: A painter, but nothing says they hire']);
+    // One it would delete, kept for the person: why it isn't deleted goes with it.
+    expect(
+      requestWhy(reasons, 'skip', null, {
+        read: 'read',
+        said: 'delete',
+        why: 'Sells the same thing',
+        kept: 'never',
+      }),
+    ).toEqual([
+      'The AI says delete: Sells the same thing',
+      'It never deletes someone in Contacts, kept, chatted with, or a partner',
+    ]);
+    expect(requestWhy(reasons, 'good', null, { read: 'read', said: 'confirm', why: null })).toEqual(
+      ['The AI says confirm'],
+    );
+    expect(requestWhy([], 'unknown', null, { read: 'reading', said: null, why: null })).toEqual([
+      'The AI hasn’t read their profile yet',
+    ]);
+    expect(requestWhy([], 'unknown', null, { read: 'failed', said: null, why: null })).toEqual([
+      'The AI couldn’t read their profile',
+    ]);
+    // Not read (all go one way, or on Don't pitch): the fit as before.
+    expect(
+      requestWhy(reasons, 'good', 'no_playbook', { read: 'off', said: null, why: null }),
+    ).toEqual(['14 mutual friends', 'Fits, but the business has no playbook in use yet']);
+  });
+
   it('leave a message to one tap when it’s handed over or to someone who needs the person', () => {
     expect(oneByOne({ handedOver: false, needsYou: null })).toBe(false);
     expect(oneByOne({ handedOver: true, needsYou: null })).toBe(true);

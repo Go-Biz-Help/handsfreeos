@@ -28,6 +28,7 @@ import type {
   TheirCommentAnswer,
   TheirCommentAsk,
   ConnectAsk,
+  AnswerRequestAsk,
   BrowseAsk,
   FeedPostAnswer,
   FeedPostAsk,
@@ -54,6 +55,7 @@ import type {
 } from '../../messages';
 import { writeLinkedInPart } from './parts';
 import {
+  answerInvitation,
   connect,
   likeTheirPost,
   openMessage,
@@ -112,6 +114,7 @@ export const WORK_ASKS: ReadonlySet<string> = new Set([
   'hfos-their-comment',
   'hfos-like-comment',
   'hfos-connect',
+  'hfos-answer-request',
   'hfos-comment',
   'hfos-message',
   'hfos-open-message',
@@ -133,6 +136,7 @@ type WorkAsk =
   | WithdrawAsk
   | AutoAsk
   | ConnectAsk
+  | AnswerRequestAsk
   | OpenMessageAsk
   | FetchAsk
   | FeedPostAsk
@@ -293,7 +297,7 @@ async function commentStep(
 
 /** The runner's steps (./auto.ts), each only on its own kind of page. */
 async function autoStep(
-  ask: AutoAsk | ConnectAsk | OpenMessageAsk,
+  ask: AutoAsk | ConnectAsk | AnswerRequestAsk | OpenMessageAsk,
 ): Promise<AutoAnswer | PostsAnswer | BrowseAnswer | OpenMessageAnswer> {
   const kind = classifyUrl(location.href).kind;
   // Their profile, their activity, or (decision 92) the post of theirs a search found, liked on its own page.
@@ -313,6 +317,10 @@ async function autoStep(
     case 'hfos-connect':
       if (kind !== 'profile') return { ok: false, error: 'LinkedIn didn’t open their profile.' };
       return { ok: true, result: await connect(document, location.href) };
+    case 'hfos-answer-request':
+      // Their invitation, answered in their profile's top card (decision 136).
+      if (kind !== 'profile') return { ok: false, error: 'LinkedIn didn’t open their profile.' };
+      return { ok: true, result: await answerInvitation(document, location.href, ask.answer) };
     case 'hfos-open-message': {
       const opened = kind === 'profile' ? openMessage(document, location.href) : false;
       return opened === false ? { ok: false } : { ok: true, opened };
@@ -362,6 +370,7 @@ export function work(ask: { readonly type: string }): Promise<unknown> | null {
     case 'hfos-their-posts':
     case 'hfos-like-post':
     case 'hfos-connect':
+    case 'hfos-answer-request':
     case 'hfos-comment':
     case 'hfos-message':
     case 'hfos-open-message':

@@ -9499,6 +9499,27 @@
         "required": ["workspaceId", "item", "done"]
       }
     },
+    "outreach.request.answer": {
+      "offline": "anytime",
+      "input": {
+        "type": "object",
+        "properties": {
+          "workspaceId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "profileId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "answer": {
+            "type": "string",
+            "enum": ["confirm", "delete"]
+          }
+        },
+        "required": ["workspaceId", "profileId", "answer"]
+      }
+    },
     "outreach.request.set_aside": {
       "offline": "anytime",
       "input": {

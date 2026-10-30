@@ -85,6 +85,7 @@ import { readWarmLeads } from '../jobs/alignable/engaged';
 import { findPostsInTown } from '../jobs/alignable/posts';
 import { ALIGNABLE, readAlignableIn, type AlignablePage } from '../jobs/alignable/read';
 import { withdrawOnItsOwn } from '../jobs/alignable/withdraw';
+import { answerOne } from '../jobs/alignable/answer';
 import { valueOf, warnedLine, type Hfos, type Job, type JobEnd } from '../jobs/job';
 import { chatMemory } from '../jobs/chats';
 import { checkFound } from '../jobs/found-checks';
@@ -160,9 +161,10 @@ export const ALIGNABLE_ALARM = 'hfos-auto-alignable';
 
 /**
  * The kinds it does on its own on Alignable, in order (its kit's `runs.auto`): comments and forum answers go through
- * `sends`, as messages do (./comments.ts), and requests they got are theirs to accept.
+ * `sends`, as messages do (./comments.ts). From 0.118.0 the requests they got that HandsFreeOS says to accept, as they
+ * pressed or the AI said (decision 136), are accepted on My Network's Requests (../jobs/alignable/answer.ts).
  */
-export const ALIGNABLE_AUTO: readonly TodayKind[] = ['warm_up', 'friend_request'];
+export const ALIGNABLE_AUTO: readonly TodayKind[] = ['confirm', 'warm_up', 'friend_request'];
 /**
  * The once-a-day jobs on Alignable, in order, as Instagram's: the requests, the connections checked, their chats
  * (0.84.0), Find partners, their town's posts, and who engaged with them, from their notifications (`helpful`: who
@@ -727,6 +729,43 @@ async function connect(item: TodayListItem, businessId: string): Promise<Outcome
   return { done: true, line: `Sent ${item.name} a connection request` };
 }
 
+/**
+ * Their connection request accepted on My Network's Requests (decision 136): as they pressed Confirm, or the AI said
+ * to. One no longer on the list was answered already: it waits for the next read of their requests.
+ */
+async function accept(item: TodayListItem, businessId: string): Promise<Outcome> {
+  const want = wantOf(item);
+  if (!want) return { done: false, line: `${item.name}: no Alignable page kept` };
+  const job = jobFor(businessId);
+  const went = await answerOne(
+    job,
+    { name: item.name, url: item.profileUrl, platformId: item.platformId ?? null },
+    'confirm',
+  );
+  await setState({ tabId: tab.tabId });
+  // Its warning, noted as the job's (`jobFor`), stops the day; a page asking to sign in, for now.
+  if (typeof went === 'object')
+    return went.warned
+      ? { stop: went.line }
+      : went.failed
+        ? { again: SIGNED_OUT }
+        : { done: false, line: `${item.name}: ${went.line}` };
+  if (went === 'stopped') return { done: false, line: `${item.name}: stopped` };
+  if (went === 'already')
+    return { done: false, line: `${item.name}: no request of theirs waiting on Requests` };
+  if (went === 'skipped')
+    return { done: false, line: `${item.name}: couldn’t accept it on Requests`, need: true };
+  await takeNote(
+    {
+      type: 'hfos-answered',
+      answered: { answer: 'confirm', to: { name: item.name, profile: want }, mutualFriends: null },
+      at: now(),
+    },
+    PLATFORM,
+  );
+  return { done: true, line: `Accepted ${item.name}’s connection request` };
+}
+
 // ------------------------------------------------------------------------------------------------- messages
 
 /** A job in the runner's window, for the look-up and the once-a-day jobs, noting Alignable's warnings as its own. */
@@ -934,6 +973,8 @@ export function doWork(work: Work, businessId: string, split: boolean): Promise<
       return warmUp(work.item, businessId);
     case 'friend_request':
       return connect(work.item, businessId);
+    case 'confirm':
+      return accept(work.item, businessId);
     default:
       // Never on its list for it (`ALIGNABLE_AUTO`): comments and answers go as sends, drafted and sent above.
       return Promise.resolve({
@@ -947,6 +988,7 @@ const DOING: Readonly<Partial<Record<TodayKind, string>>> = {
   warm_up: 'Looking at the business page of',
   partner_warm_up: 'Looking at the business page of',
   friend_request: 'Sending a connection request to',
+  confirm: 'Accepting the connection request from',
 };
 
 const doing = (work: Work) =>

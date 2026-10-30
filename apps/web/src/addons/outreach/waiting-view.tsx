@@ -17,7 +17,8 @@
  *   or **Let it go**; **Open** goes to their page on that network (or the post, or the chat), and a message that
  *   didn't go has its words to copy, and **Retry** (decision 132), with **Retry all** over two or more: each goes
  *   again a few minutes after the one before;
- * - **Friend requests to decide**: requests from the last two weeks that didn't fit a playbook, with why, and
+ * - **Friend requests to decide**: requests from the last two weeks the AI isn't sure of (decision 136), or that didn't
+ *   fit a playbook, with why, and **Confirm** and **Delete** (the extension does it; what the AI says stands out) beside
  *   **Leave it**.
  *
  * Each person's name opens their person menu (./person-menu.tsx, decision 91): their page first, then Contacts, Mark
@@ -34,7 +35,7 @@ import {
   openChatWords,
   openPageWords,
 } from '@hfos/core/addons/outreach/network-words';
-import { networkOfLink } from '@hfos/core/addons/outreach/networks';
+import { answersRequests, networkOfLink } from '@hfos/core/addons/outreach/networks';
 import { COMMENT_HOLD_WORDS } from '@hfos/core/addons/outreach/sends';
 import {
   approveAllCount,
@@ -61,7 +62,7 @@ import {
   type WaitingKind,
 } from '@hfos/core/addons/outreach/waiting-words';
 import { OUTREACH_WORDS as W } from '@hfos/core/addons/outreach/words';
-import { Check, CheckCheck, Copy, ExternalLink, RotateCcw, X } from 'lucide-react';
+import { Check, CheckCheck, Copy, ExternalLink, RotateCcw, Trash2, X } from 'lucide-react';
 import Link from 'next/link';
 import { toast } from 'sonner';
 import { Badge } from '@/components/ui/badge';
@@ -549,6 +550,8 @@ function RequestRow({
 }) {
   const request = item.request;
   const platform = networkOfWaiting(item);
+  // Confirm and Delete where the extension answers requests (decision 136): Facebook, LinkedIn and Alignable.
+  const answers = answersRequests(platform);
   const { busy, act } = useAct();
   return (
     <div>
@@ -583,6 +586,37 @@ function RequestRow({
           <ExternalLink className="h-3.5 w-3.5" strokeWidth={1.5} />
           {openPageWords(platform)}
         </a>
+        {answers
+          ? (['confirm', 'delete'] as const).map((answer) => (
+              <Button
+                key={answer}
+                // What the AI says stands out (decision 136): the rest stay quiet.
+                variant={request.said === answer ? 'secondary' : 'ghost'}
+                size="sm"
+                disabled={busy !== null}
+                onClick={() =>
+                  void act(
+                    answer,
+                    async () =>
+                      unwrap(
+                        await apiBrowser().POST('/v1/commands/outreach.request.answer', {
+                          body: { workspaceId, profileId: request.profileId, answer },
+                        }),
+                      ),
+                    answer === 'confirm' ? W.confirming(request.name) : W.deleting(request.name),
+                  )
+                }
+                data-testid={`waiting-request-${answer}`}
+              >
+                {answer === 'confirm' ? (
+                  <Check className="h-3.5 w-3.5" strokeWidth={1.5} />
+                ) : (
+                  <Trash2 className="h-3.5 w-3.5" strokeWidth={1.5} />
+                )}
+                {answer === 'confirm' ? W.confirmRequest : W.deleteRequest}
+              </Button>
+            ))
+          : null}
         <Button
           variant="ghost"
           size="sm"

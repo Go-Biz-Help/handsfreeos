@@ -13,7 +13,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { AUTOMATION_DEFAULTS } from '../../src/addons/outreach/automation';
 import { PLAYBOOK_TEMPLATES } from '../../src/addons/outreach/playbooks';
 import { oneByOne } from '../../src/addons/outreach/waiting';
-import { outreachBusiness, refused, runAs } from './outreach-fixture';
+import { checkedAs, outreachBusiness, refused, runAs } from './outreach-fixture';
 
 const admin = () => testDbs().admin.db;
 const MIN = 60_000;
@@ -77,6 +77,17 @@ const profileOf = async (ws: string, username: string) => {
   );
   return p!.id;
 };
+/**
+ * When someone asked, moved back: a request the AI hasn't read yet waits off the list for a day with a playbook in use
+ * (decision 136), then shows, saying so.
+ */
+const askedAgo = (ws: string, username: string, ms: number) =>
+  rows(
+    admin(),
+    sql`update addon_outreach.friends f set since = ${new Date(Date.now() - ms).toISOString()}::timestamptz
+        from addon_outreach.profiles p
+        where p.id = f.profile_id and p.workspace_id = ${ws} and p.username = ${username}`,
+  );
 const intro = (ws: string, username: string, line: string) =>
   rows(
     admin(),
@@ -212,8 +223,15 @@ describe('Waiting for you', () => {
     await runAs(owner, ws, 'outreach.request.set_aside', {
       profileId: await profileOf(ws, 'lane.park.5'),
     });
-    // The member's own of each kind are theirs.
+    // Kit asked two days ago and the AI hasn't read them yet: they show, saying so.
+    await askedAgo(ws, 'kit.morrow.8', 2 * DAY);
+    // The member's own of each kind are theirs: Jo, whom the AI read and isn't sure of.
     await requests(member, ws, [{ username: 'jo.west.2', name: 'Jo West' }]);
+    await checkedAs(member, ws, await profileOf(ws, 'jo.west.2'), {
+      fit: 'maybe',
+      why: ['Paints houses'],
+      request: { answer: 'ask', why: 'Paints houses, but nothing says they’d buy' },
+    });
     await runAs(member, ws, 'outreach.need.note', {
       step: 'warm_up',
       profileId: dana,
@@ -226,8 +244,9 @@ describe('Waiting for you', () => {
       'reply: Ana Moss',
       'message: Dana Reyes',
       'need: Eli Brook',
-      'request: Kit Morrow',
+      // The newest first: Kit asked two days ago.
       'request: Quinn Ray',
+      'request: Kit Morrow',
     ]);
     const all = await waiting();
     const handed = (all.items as Item[]).find((i) => i.kind === 'reply')!.send!;
@@ -235,7 +254,7 @@ describe('Waiting for you', () => {
     const quinn = (all.items as Item[]).find((i) => i.request?.name === 'Quinn Ray')!.request!;
     expect(quinn.held).toBe('dont_pitch');
     const kit = (all.items as Item[]).find((i) => i.request?.name === 'Kit Morrow')!.request!;
-    expect(kit).toMatchObject({ held: null, why: ['Nothing on their profile fits a playbook'] });
+    expect(kit).toMatchObject({ held: null, why: ['The AI hasn’t read their profile yet'] });
     expect(all.kinds).toMatchObject({
       reply: { count: 1 },
       message: { count: 1 },
@@ -249,6 +268,9 @@ describe('Waiting for you', () => {
     expect(counts).toMatchObject({ count: 5, items: [] });
     expect(counts.kinds).toEqual(all.kinds);
     expect(await list(member)).toEqual(['need: Dana Reyes', 'request: Jo West']);
+    expect(
+      ((await waiting(member)).items as Item[]).find((i) => i.kind === 'request')!.request!.why,
+    ).toEqual(['The AI isn’t sure: Paints houses, but nothing says they’d buy']);
     // Rowan is on Today, so not here.
     const today = await runAs(owner, ws, 'outreach.today', {});
     expect(
@@ -636,6 +658,11 @@ describe('Waiting for you', () => {
     const jamie = 'jamie.cole.3';
     await requests(owner, ws, [{ username: jamie, name: 'Jamie Cole' }]);
     const id = await profileOf(ws, jamie);
+    await checkedAs(owner, ws, id, {
+      fit: 'maybe',
+      why: ['Owns a cafe'],
+      request: { answer: 'ask', why: 'Owns a cafe' },
+    });
     // Pressed before they asked (it waited on a phone): it stays.
     expect(
       await runAs(owner, ws, 'outreach.request.set_aside', { profileId: id }, ago(30 * MIN)),

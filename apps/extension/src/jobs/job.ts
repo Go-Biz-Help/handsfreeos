@@ -16,6 +16,7 @@ import { platformOf, type PageRead } from '../networks/kit';
 import type { ReadResult } from '../networks/facebook/types';
 import type { HfosAnswer, HfosAsk, HfosValues } from '../hfos/messages';
 import type {
+  AnswerRequestAsk,
   Answer,
   Ask,
   BrowseAnswer,
@@ -94,6 +95,7 @@ export interface JobTab {
   ask(message: WithdrawAsk): Promise<WithdrawAnswer>;
   ask(message: CancelSentAsk): Promise<CancelSentAnswer>;
   ask(message: UnfollowAsk): Promise<UnfollowAnswer>;
+  ask(message: AnswerRequestAsk): Promise<AutoAnswer>;
 }
 
 /** HandsFreeOS: the background's own line (src/hfos/session.ts). */

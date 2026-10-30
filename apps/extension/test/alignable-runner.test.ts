@@ -413,7 +413,7 @@ beforeEach(() => {
 // ------------------------------------------------------------------------------------------------- the list
 
 describe('what it does on Alignable’s list', () => {
-  it('warms up and connects on its own; comments, answers and requests they got stay theirs', () => {
+  it('warms up, connects and (from 0.118.0) accepts on its own; comments and answers stay theirs', () => {
     const list = {
       items: [
         item({ kind: 'confirm', name: 'Avery Lane' }),
@@ -431,6 +431,7 @@ describe('what it does on Alignable’s list', () => {
       sending: 'steps',
     } as never;
     expect(alignableWorkLeft(list, []).map((w) => w.item.kind)).toEqual([
+      'confirm',
       'warm_up',
       'friend_request',
     ]);

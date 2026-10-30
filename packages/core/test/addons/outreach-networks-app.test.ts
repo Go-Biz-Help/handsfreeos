@@ -91,7 +91,8 @@ describe('a network’s words on screen', () => {
     ]);
     // Instagram's (part 14) the same: it confirms no follow requests, joins no groups and has no hourly look.
     expect(ticksShownOn('instagram')).toEqual(['warmUp', 'collect']);
-    // And Today marks as done on their own only the steps its runner does: LinkedIn's accepts no invitations.
+    // And Today marks as done on their own only the steps its runner does: from decision 136 LinkedIn's and
+    // Alignable's accept the requests the person got, as they pressed or the AI said.
     const doing = { ...AUTOMATION_DEFAULTS, sending: 'steps' as const };
     expect(autoKinds(doing, 'facebook')).toEqual([
       'confirm',
@@ -100,9 +101,9 @@ describe('a network’s words on screen', () => {
       'comment',
     ]);
     // LinkedIn's comments wait for an OK at first too (decision 102): its runner likes and sends invitations.
-    expect(autoKinds(doing, 'linkedin')).toEqual(['warm_up', 'friend_request']);
+    expect(autoKinds(doing, 'linkedin')).toEqual(['confirm', 'warm_up', 'friend_request']);
     // Alignable's forum answers and comments wait for an OK each time: its runner warms up and connects.
-    expect(autoKinds(doing, 'alignable')).toEqual(['warm_up', 'friend_request']);
+    expect(autoKinds(doing, 'alignable')).toEqual(['confirm', 'warm_up', 'friend_request']);
     // Instagram's comments wait for an OK each time too, as public writing: its runner likes and follows.
     expect(autoKinds(doing, 'instagram')).toEqual(['warm_up', 'friend_request']);
     // Their comments go through Waiting for you, each waiting for an OK at first, and Alignable's answers to posts

@@ -416,6 +416,8 @@ import {
 import {
   NeedClearInput,
   NeedClearOutput,
+  RequestAnswerInput,
+  RequestAnswerOutput,
   RequestSetAsideInput,
   RequestSetAsideOutput,
 } from '@hfos/core/addons/outreach/waiting';
@@ -676,6 +678,8 @@ export const PHONE_COMMANDS = {
   'outreach.readiness.messages': command(ONLINE, MessagesOkInput, ReadinessOutput),
   'outreach.readiness.numbers': command(ONLINE, NumbersInput, ReadinessOutput),
   'outreach.readiness.profile': command(ONLINE, ProfileTickInput, ReadinessOutput),
+  // Confirm and Delete on a request to decide (decision 136): kept on the phone and sent when it can, as Leave it.
+  'outreach.request.answer': command(ANYTIME, RequestAnswerInput, RequestAnswerOutput),
   'outreach.request.set_aside': command(ANYTIME, RequestSetAsideInput, RequestSetAsideOutput),
   'outreach.send.approve': command(FRESH, SendApproveInput, SendApproveOutput),
   // Retry, and Retry all, on what didn't go (decision 132): with signal, as it reaches them again.

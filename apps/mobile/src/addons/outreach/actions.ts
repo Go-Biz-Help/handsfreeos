@@ -1,3 +1,4 @@
+import type { FriendAnswer } from '@hfos/core/addons/outreach/limits';
 import type { Platform } from '@hfos/core/addons/outreach/networks';
 import type { NeedClear } from '@hfos/core/addons/outreach/waiting-words';
 import { SENDS_SOURCE } from '@hfos/core/addons/outreach/views/waiting';
@@ -73,6 +74,10 @@ export const retrySends = (workspaceId: string, needIds: string[] | null) =>
 /** Leave it, on a friend request that's the person's to decide. */
 export const setAside = (workspaceId: string, profileId: string) =>
   change('outreach.request.set_aside', { workspaceId, profileId });
+
+/** Confirm or Delete, on a friend request that's the person's to decide (decision 136): the extension does it. */
+export const answerRequest = (workspaceId: string, profileId: string, answer: FriendAnswer) =>
+  change('outreach.request.answer', { workspaceId, profileId, answer });
 
 /**
  * Start my day, and Stop for today, on one network (each network's day is its own): they wait on the phone with no

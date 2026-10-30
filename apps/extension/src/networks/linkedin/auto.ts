@@ -10,6 +10,8 @@
  * - **Connect** on their profile, without a note (Chris: LinkedIn invitations go with no note): Connect in the top
  *   card, or under More when Follow comes first; then the box's **Send without a note**. It never types a note, and a
  *   box that asks for anything (their email, a note it insists on) is left for the person.
+ * - **Accept** or **Ignore** their invitation (decision 136, from 0.118.0), in their profile's top card, once the
+ *   person pressed Confirm or Delete in HandsFreeOS or the AI said to as they chose.
  * - **A comment** in the post's own box, never a reply's, sent with that box's own button: one saying Comment or Post
  *   (or, a best reading of LinkedIn's newer words, "Post comment", "Submit comment"); anything else is left for the
  *   person.
@@ -45,7 +47,7 @@ import {
   sameMember,
   threadOf,
 } from './urls';
-import { CONNECT, MESSAGE, MORE } from './vocabulary';
+import { ACCEPT, CONNECT, IGNORE, MESSAGE, MORE } from './vocabulary';
 
 export type { AutoResult, TheirPost };
 
@@ -238,6 +240,54 @@ export async function connect(doc: Document, href: string): Promise<ConnectResul
   if (next === null || next === 'asks') return next === 'asks' ? 'none' : 'not_sent';
   next.click();
   return (await waitFor(() => (pending() ? true : null))) ? 'done' : 'not_sent';
+}
+
+/** The box LinkedIn may open to be sure of an Ignore: its own Ignore. */
+const SURE_IGNORE = /^(ignore|ignore invitation)$/i;
+
+/**
+ * Answers their invitation from their profile (decision 136): Accept, or Ignore, in its top card (Ignore under More
+ * when it isn't beside Accept), then the box's own Ignore where LinkedIn asks to be sure. It went once their profile
+ * no longer has Accept. `already` when there's nothing to answer: connected for Accept, or no invitation of theirs
+ * waiting for Ignore; `none` when there's no such button, which is the person's.
+ */
+export async function answerInvitation(
+  doc: Document,
+  href: string,
+  answer: 'confirm' | 'delete',
+): Promise<ConnectResult> {
+  const before = profileOn(doc, href).connection;
+  if (before !== 'received')
+    return (answer === 'confirm' ? before === 'connected' : before === 'not_connected')
+      ? 'already'
+      : 'none';
+  const pattern = answer === 'confirm' ? ACCEPT : IGNORE;
+  let press = topCardControl(doc, pattern);
+  if (!press && answer === 'delete') {
+    const more = topCardControl(doc, MORE);
+    if (!more) return 'none';
+    more.click();
+    press = await waitFor(() => topCardControl(doc, pattern), 3_000);
+  }
+  if (!press) return 'none';
+  press.click();
+  const answered = () => profileOn(doc, href).connection !== 'received';
+  const next = await waitFor<HTMLElement | 'answered'>(() => {
+    if (answered()) return 'answered';
+    if (answer !== 'delete') return null;
+    for (const box of doc.querySelectorAll(OVER_THE_PAGE)) {
+      if (!shown(box)) continue;
+      const sure = [...box.querySelectorAll<HTMLElement>(CONTROLS)].find(
+        (c) => shown(c) && says(c, SURE_IGNORE),
+      );
+      if (sure) return sure;
+    }
+    return null;
+  });
+  if (next === 'answered') return 'done';
+  if (!next) return 'not_sent';
+  next.click();
+  return (await waitFor(() => (answered() ? true : null))) ? 'done' : 'not_sent';
 }
 
 // ------------------------------------------------------------------------------------------------ writing

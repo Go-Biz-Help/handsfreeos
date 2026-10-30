@@ -118,6 +118,7 @@ export const outreachAddon = defineAddon({
       'outreach.need.noted',
       'outreach.need.cleared',
       'outreach.request.set_aside',
+      'outreach.request.answered',
       'outreach.ask.made',
       'outreach.ask.started',
       'outreach.ask.progressed',

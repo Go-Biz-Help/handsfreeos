@@ -49,8 +49,8 @@ export const strongerHow = (a: FindHow, b: FindHow): FindHow =>
 
 /**
  * What a check is of (`checks.via`): someone the person knows (decision 46), someone found by topic, one of their
- * followers on Facebook who isn't their friend (decision 113), or someone in one of the business's Facebook groups who
- * isn't their friend (decision 116), both checked like a friend. The server sets it at each look; the readers about
+ * followers on Facebook who isn't their friend (decision 113), someone in one of the business's Facebook groups who
+ * isn't their friend (decision 116), both checked like a friend, or someone who asked to be friends (decision 136). The server sets it at each look; the readers about
  * people the person knows decide by who they know now, never by this, and the day's checks are counted by it: a
  * follower's and a group member's with the people they know, someone found's on its own.
  */
@@ -59,6 +59,8 @@ export const CHECK_VIAS = {
   found: 'Someone found',
   follower: 'Someone who follows you',
   member: 'Someone in one of your groups',
+  /** Asked to be the person's friend, and not one yet (decision 136): their check also says what to do with it. */
+  request: 'Someone who asked to be your friend',
 } as const;
 export type CheckVia = keyof typeof CHECK_VIAS;
 export const CHECK_VIA_KEYS = Object.keys(CHECK_VIAS) as [CheckVia, ...CheckVia[]];

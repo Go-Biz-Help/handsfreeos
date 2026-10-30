@@ -144,10 +144,11 @@ const NAME = NETWORKS.linkedin.name;
 export const LINKEDIN_ALARM = 'hfos-auto-linkedin';
 
 /**
- * The kinds it does on its own on LinkedIn, in order: invitations they sent are theirs to accept. From 0.99.0 a comment
- * on a good post is drafted and sent through `sends` (decision 102), as Instagram's and Alignable's are, never as a step.
+ * The kinds it does on its own on LinkedIn, in order. From 0.99.0 a comment on a good post is drafted and sent through
+ * `sends` (decision 102), as Instagram's and Alignable's are, never as a step. From 0.118.0 the invitations they got
+ * that HandsFreeOS says to accept, as they pressed or the AI said (decision 136), are accepted from each profile.
  */
-export const LINKEDIN_AUTO: readonly TodayKind[] = ['warm_up', 'friend_request'];
+export const LINKEDIN_AUTO: readonly TodayKind[] = ['confirm', 'warm_up', 'friend_request'];
 /**
  * The once-a-day jobs on LinkedIn, in order. From 0.97.0 it withdraws old invitations on its own after checking the
  * new ones (`tidy`, decision 98), as the person chose; from 0.100.0 it then reads Catch up for birthdays and new jobs
@@ -577,6 +578,40 @@ const STANDING: Readonly<Record<string, string>> = {
   self: 'it’s your own profile',
 };
 
+/** Their invitation accepted from their profile (decision 136): as they pressed Confirm, or the AI said to. */
+async function accept(item: TodayListItem, businessId: string): Promise<Outcome> {
+  const opened = await openProfile(item, businessId);
+  if ('outcome' in opened) return opened.outcome;
+  const standing = opened.page.profile!.connection;
+  if (standing === 'connected') return { done: false, line: `${item.name}: connected already` };
+  if (standing !== 'received')
+    return { done: false, line: `${item.name}: no invitation of theirs waiting` };
+  const went = await tab.ask({ type: 'hfos-answer-request', answer: 'confirm' });
+  if (!went.ok) throw new Error(went.error);
+  await pause(SETTLE_MS);
+  const page = await read();
+  const stop = await warnedOn(page, businessId);
+  if (stop) return { stop };
+  if (went.result === 'none')
+    return { done: false, line: `${item.name}: couldn’t find Accept`, need: true };
+  if (went.result === 'already') return { done: false, line: `${item.name}: connected already` };
+  if (went.result !== 'done' || page.profile?.connection === 'received')
+    return { done: false, line: `${item.name}: LinkedIn didn’t take it`, need: true };
+  await takeNote(
+    {
+      type: 'hfos-answered',
+      answered: {
+        answer: 'confirm',
+        to: { name: opened.name, profile: opened.noted },
+        mutualFriends: opened.page.profile!.mutualConnections,
+      },
+      at: now(),
+    },
+    PLATFORM,
+  );
+  return { done: true, line: `Accepted ${item.name}’s invitation` };
+}
+
 /** An invitation to connect, without a note, from their profile. */
 async function invite(item: TodayListItem, businessId: string): Promise<Outcome> {
   const opened = await openProfile(item, businessId);
@@ -893,6 +928,8 @@ export function doWork(work: Work, businessId: string, split: boolean): Promise<
       return warmUp(work.item, businessId);
     case 'friend_request':
       return invite(work.item, businessId);
+    case 'confirm':
+      return accept(work.item, businessId);
     default:
       // Never on its list for it (`LINKEDIN_AUTO`): comments go as sends, drafted and sent above.
       return Promise.resolve({
@@ -906,6 +943,7 @@ const DOING: Readonly<Partial<Record<TodayKind, string>>> = {
   warm_up: 'Looking at the profile of',
   partner_warm_up: 'Looking at the profile of',
   friend_request: 'Inviting',
+  confirm: 'Accepting the invitation from',
 };
 
 const doing = (work: Work) =>

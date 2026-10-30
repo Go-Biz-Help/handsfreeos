@@ -13,6 +13,9 @@
  * - One of the person's followers on Facebook who isn't a friend (decision 113, a check `via = 'follower'`) is asked
  *   about like a friend, told they follow the owner; someone in one of the business's groups there who isn't (decision
  *   116, `via = 'member'`), told which group.
+ * - Someone who sent the person a friend request they haven't answered (decision 136, `via = 'request'`) gets its own
+ *   ask (`requestCheckSystem`): the known check's, told they asked, with their mutual friends and where the business
+ *   reaches, and it says too whether to confirm the request, delete it or leave it to the person, and why.
  * - While the business reaches only some countries, the AI also weighs where they live (decision 86): what their
  *   profile says, how many friends they have, where their mutual friends live, and how the person's own friends are
  *   spread, so it knows what "most of them" means here.
@@ -29,6 +32,11 @@ import {
   foundCheckPrompt,
   foundCheckSystem,
   memberFact,
+  reachesWords,
+  REQUEST_CHECK_SCHEMA,
+  RequestCheckAnswer,
+  requestCheckPrompt,
+  requestCheckSystem,
   type CheckPlaybook,
   type FoundCheckPlaybook,
 } from '@hfos/core/addons/outreach/checks';
@@ -236,77 +244,102 @@ export async function checkPeopleJob(ctx: AddonJobContext): Promise<JobResult> {
           }),
         }
       : {};
-  /** What the AI is asked of someone: found by topic, or known. */
+  // Where the business reaches, for what to do with a friend request (decision 136).
+  const reaches = reachesWords(outreachSettings(found.settings).countries);
+  /** What the known check is told of someone: what HandsFreeOS knows, their pages and their chat. */
+  const knownOf = (person: (typeof found.waiting)[number]) => ({
+    business: found.business?.name ?? 'the business',
+    name: person.name,
+    facts: [
+      ...(person.group_lines ?? []),
+      ...person.intro,
+      ...(person.group_name && person.via !== 'member'
+        ? [`Found in the group ${person.group_name}`]
+        : []),
+      ...(person.via === 'follower' ? [FOLLOWER_FACT] : []),
+      ...(person.via === 'member' ? [memberFact(person.member_group)] : []),
+      ...(person.mutual_friends
+        ? [
+            `${person.mutual_friends.toLocaleString('en-US')} mutual ${NETWORKS[person.platform].words.friends}`,
+          ]
+        : []),
+    ],
+    lines: person.lines,
+    chat:
+      person.summary || person.recent?.length
+        ? { summary: person.summary, recent: person.recent ?? [] }
+        : null,
+    playbooks: toldOn(person.platform),
+    platform: person.platform,
+    ...whereOf(person),
+  });
+  /**
+   * What the AI is asked of someone: found by topic, someone who asked to be friends (decision 136, with what to do
+   * with their request), or known.
+   */
   const askOf = (person: (typeof found.waiting)[number]) =>
-    person.via === 'found' && person.find_how
+    person.via === 'request'
       ? {
-          system: foundCheckSystem(person.platform),
-          content: foundCheckPrompt({
-            business: found.business?.name ?? 'the business',
-            name: person.name,
-            found: findFact({
-              platform: person.platform,
-              how: person.find_how,
-              words: person.find_words,
-              place: person.find_place,
-              group: person.find_group,
-            }),
-            post: person.find_post,
-            said: person.find_said,
-            facts: [...(person.group_lines ?? []), ...person.intro],
-            lines: person.lines,
-            playbooks: toldFoundOn(person.platform),
-            platform: person.platform,
-            ...whereOf(person),
+          system: requestCheckSystem(person.platform),
+          content: requestCheckPrompt({
+            ...knownOf(person),
+            mutualFriends: person.mutual_friends,
+            reaches,
           }),
+          request: true,
         }
-      : {
-          system: checkSystem(person.platform),
-          content: checkPrompt({
-            business: found.business?.name ?? 'the business',
-            name: person.name,
-            facts: [
-              ...(person.group_lines ?? []),
-              ...person.intro,
-              ...(person.group_name && person.via !== 'member'
-                ? [`Found in the group ${person.group_name}`]
-                : []),
-              ...(person.via === 'follower' ? [FOLLOWER_FACT] : []),
-              ...(person.via === 'member' ? [memberFact(person.member_group)] : []),
-              ...(person.mutual_friends
-                ? [
-                    `${person.mutual_friends.toLocaleString('en-US')} mutual ${NETWORKS[person.platform].words.friends}`,
-                  ]
-                : []),
-            ],
-            lines: person.lines,
-            chat:
-              person.summary || person.recent?.length
-                ? { summary: person.summary, recent: person.recent ?? [] }
-                : null,
-            playbooks: toldOn(person.platform),
-            platform: person.platform,
-            ...whereOf(person),
-          }),
-        };
+      : person.via === 'found' && person.find_how
+        ? {
+            system: foundCheckSystem(person.platform),
+            content: foundCheckPrompt({
+              business: found.business?.name ?? 'the business',
+              name: person.name,
+              found: findFact({
+                platform: person.platform,
+                how: person.find_how,
+                words: person.find_words,
+                place: person.find_place,
+                group: person.find_group,
+              }),
+              post: person.find_post,
+              said: person.find_said,
+              facts: [...(person.group_lines ?? []), ...person.intro],
+              lines: person.lines,
+              playbooks: toldFoundOn(person.platform),
+              platform: person.platform,
+              ...whereOf(person),
+            }),
+          }
+        : {
+            system: checkSystem(person.platform),
+            content: checkPrompt(knownOf(person)),
+          };
 
   for (const person of found.waiting.slice(0, CHECK_PEOPLE_BATCH)) {
     let answer: ReturnType<typeof checkedAnswer> | null;
     try {
       const ask = askOf(person);
-      const { value } = await askStructured(ctx, ctx.scope, {
-        system: ask.system,
-        messages: [
-          {
-            role: 'user',
-            content: ask.content,
-          },
-        ],
-        schema: CHECK_SCHEMA,
-        zod: CheckAnswer,
-        maxTokens: 500,
-        usage: { source: 'addon', addonId: ctx.manifest.id },
-      });
+      const messages = [{ role: 'user' as const, content: ask.content }];
+      const usage = { source: 'addon' as const, addonId: ctx.manifest.id };
+      // A request check answers what to do with the request too (decision 136).
+      const { value } =
+        'request' in ask
+          ? await askStructured(ctx, ctx.scope, {
+              system: ask.system,
+              messages,
+              schema: REQUEST_CHECK_SCHEMA,
+              zod: RequestCheckAnswer,
+              maxTokens: 600,
+              usage,
+            })
+          : await askStructured(ctx, ctx.scope, {
+              system: ask.system,
+              messages,
+              schema: CHECK_SCHEMA,
+              zod: CheckAnswer,
+              maxTokens: 500,
+              usage,
+            });
       answer = checkedAnswer(value, playbooks);
     } catch (e) {
       if (!(e instanceof AiAskError)) throw e;

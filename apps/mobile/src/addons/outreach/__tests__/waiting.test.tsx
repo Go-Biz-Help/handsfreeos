@@ -79,6 +79,7 @@ const SERVER: WaitingFromServer = {
       held: null,
       since: '2026-10-09T14:00:00.000Z',
       mutualFriends: 3,
+      said: null,
     },
   ],
   kinds: {

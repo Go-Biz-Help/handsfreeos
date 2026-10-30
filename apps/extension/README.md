@@ -1132,6 +1132,25 @@ whole day, as the list can't be worked out without them (`holdsTheDay` in `src/a
 and Alignable a read put off till you're away counts as the reading's turn, so the list goes next. With nothing on the
 list, the reading goes on. Nothing in HandsFreeOS changes for it.
 
+### Requests you get, answered as the AI says, on every network (0.118.0)
+
+From 0.118.0 (docs/outreach.md, decision 136) HandsFreeOS's AI reads the profile of everyone who sends you a request,
+against your playbooks, and says Confirm, Delete or Not sure. Your Confirm or Delete on Friend requests to decide goes
+first. The extension then answers them on LinkedIn and Alignable too, not just Facebook:
+
+- **LinkedIn:** an invitation to accept is on Today's list, and the runner presses Accept in the top card of their
+  profile (`answerInvitation` in `src/networks/linkedin/auto.ts`), checks Accept is gone, and notes it as your answer.
+  One to delete goes once a day after withdrawing, up to 30: Ignore in the same top card (under More when it isn't
+  beside Accept), and the box's own Ignore where LinkedIn asks (`src/jobs/linkedin/ignore.ts`).
+- **Alignable:** both go on My Network's Requests, on the row about that business, found by Alignable's id for it:
+  Accept, or Decline (`src/networks/alignable/answer.ts`, `src/jobs/alignable/answer.ts`). It opens Requests again to
+  see the row went. Alignable's Decline hasn't shown on a Check yet, so a row it can't answer is noted with the page's
+  outline.
+
+As on Facebook, nobody in Contacts, nobody you've chatted with, no partner and nobody on Don't pitch is deleted unless
+you pressed Delete, and nobody on Never contact is answered. Not yet tried on the owner's computer. Builds before
+0.118.0 leave LinkedIn's and Alignable's requests to you.
+
 ### LinkedIn's new conversation, Instagram's Follow Back first (0.117.1), and Alignable's new Messages (0.117.2)
 
 On the owner's sends of 30 Oct 2026, on 0.117.0, every LinkedIn message through Message on a profile said "couldn't

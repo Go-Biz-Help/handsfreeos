@@ -541,6 +541,7 @@ export const WAITING_EVENTS: ReadonlySet<string> = new Set([
   'outreach.need.noted',
   'outreach.need.cleared',
   'outreach.request.set_aside',
+  'outreach.request.answered',
   'outreach.friend.answered',
   'outreach.friend.marked',
   'outreach.friends.saved',
