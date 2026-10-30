@@ -126,7 +126,7 @@ export const stack: readonly StackTool[] = [
     product: 'DocuSign Standard, 2 people',
     monthly: 60,
     source: 'https://ecom.docusign.com/plans-and-pricing/esignature',
-    live: false,
+    live: true,
   },
 ];
 

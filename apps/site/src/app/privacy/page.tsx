@@ -17,7 +17,7 @@ import { company, urls } from '@/content/site';
 
  */
 
-const LAST_UPDATED = 'October 27, 2026';
+const LAST_UPDATED = 'October 30, 2026';
 
 export const metadata: Metadata = {
   title: 'Privacy policy: what we collect and why',
@@ -435,6 +435,12 @@ export default function PrivacyPage() {
           sign-up or payment is matched to the same visits. Deleting your account deletes the number
           with it. Opinly&rsquo;s script is never loaded in the web app or the phone app. It does
           not follow you to other websites, and nothing it records goes to an ad network.
+        </p>
+        <p>
+          If you type your business&rsquo;s name into the example on our home page, it stays in your
+          browser&rsquo;s storage, so the example remembers it next time; it is not sent to us or to
+          Opinly. If you then follow a link from here to sign up, the name and the kind of business
+          you picked go along in the link, so the first setup screen starts with them filled in.
         </p>
         <p>
           Some browsers send a &ldquo;Do Not Track&rdquo; signal. We do not need to do anything

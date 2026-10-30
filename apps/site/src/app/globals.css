@@ -270,8 +270,8 @@ p {
   animation-play-state: paused;
 }
 
-/* The home page's bill: each app's price is crossed out as it comes into view, then the one plan that does
-   their work ticks in. The page reads the same without it; the strike is the explanation, not the content. */
+/* The home page's bill (components/bill-builder.tsx): each ticked app's price is crossed out as it comes into view,
+   then the one plan that does their work ticks in. The page reads the same without it; the strike is the explanation, not the content. */
 .chore-strike {
   clip-path: inset(0 100% 0 0);
 }
@@ -279,11 +279,6 @@ p {
   clip-path: inset(0 0 0 0);
   transition: clip-path 520ms var(--curve-in-out);
   transition-delay: calc(240ms + var(--i, 0) * 110ms);
-}
-[data-reveal='in'] :is(.chore-text, .chore-verb) {
-  color: var(--text-3);
-  transition: color 400ms ease;
-  transition-delay: calc(400ms + var(--i, 0) * 110ms);
 }
 .task-tick path {
   stroke-dasharray: 20;
@@ -522,4 +517,20 @@ p {
 }
 .post-body :is(th, td) > p {
   margin: 0;
+}
+
+/*
+ * The home page's tabs: a panel settles in when its tab is picked, so the change reads as the same place showing
+ * something else rather than the page jumping.
+ */
+@media (prefers-reduced-motion: no-preference) {
+  .tab-panel:not([hidden]) {
+    animation: tab-in 220ms var(--curve-out) both;
+  }
+}
+@keyframes tab-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
 }

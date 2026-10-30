@@ -29,6 +29,7 @@ import { Field, FieldError } from '@/components/ui/field';
 import { Input } from '@/components/ui/input';
 import { Switch } from '@/components/ui/switch';
 import { ApiError, apiBrowser, errorMessage, unwrap } from '@/lib/api/client';
+import type { WebsiteBusiness } from '@/lib/auth/visitor';
 import { publicEnv } from '@/lib/env';
 import { onboardingSetupActions } from '@/lib/onboarding-setup/actions';
 import { foundingPlanHref } from '@/lib/founding-plan';
@@ -47,14 +48,19 @@ const PROGRESS = onboardingSetupProgress('business', STARTING, {
 
 export function CreateBusiness({
   plan = null,
+  start = {},
 }: {
   /** The founding spot the website's button was for (20261027012700): the plan page comes next, starting on it. */
   plan?: 'yearly' | 'monthly' | null;
+  /** What the person typed into the website's example: the name and kind to start with. */
+  start?: WebsiteBusiness;
 } = {}) {
   const router = useRouter();
-  const [business, setBusiness] = useState<OnboardingSetupBusinessDraft>(
-    NEW_ONBOARDING_SETUP_BUSINESS,
-  );
+  const [business, setBusiness] = useState<OnboardingSetupBusinessDraft>(() => ({
+    ...NEW_ONBOARDING_SETUP_BUSINESS,
+    name: start.name ?? '',
+    industry: start.industry ?? '',
+  }));
   const [agency, setAgency] = useState(false);
   const [agencyName, setAgencyName] = useState('');
   const [problems, setProblems] = useState<AiSetupProblems>({});

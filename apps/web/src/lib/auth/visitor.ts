@@ -1,3 +1,5 @@
+import { findIndustry, type IndustryId } from '@hfos/core';
+
 /**
  * Who this person was on handsfreeos.com before they got here: the website adds Opinly's anonymous visitor id to its
  * "Start free" links as `?oa=`. A new account keeps it, whether made with an email or with Google, so the worker can
@@ -49,3 +51,32 @@ export function discountCode(value: unknown): string | undefined {
 /** What a new account keeps of the code, in its sign-up details. */
 export const discountCodeData = (code: string | undefined): Record<string, string> =>
   code ? { affiliate_code: code } : {};
+
+/**
+ * The business they typed into the website's "Try it on your business" (apps/site/src/lib/your-business.ts): its
+ * sign-up links carry `?business=` and, when one was picked, `?industry=`. They ride along to the guided setup's first
+ * screen, which starts filled in with them; nothing is kept on the account, and the person can change either before
+ * the business is made. A name is cut to what the business name takes, and a kind only counts when it's on core's
+ * list.
+ */
+export interface WebsiteBusiness {
+  readonly name?: string;
+  readonly industry?: IndustryId;
+}
+
+export function websiteBusiness(name: unknown, industry: unknown): WebsiteBusiness {
+  const typed = typeof name === 'string' ? name.replace(/\s+/g, ' ').trim().slice(0, 120) : '';
+  const kind = typeof industry === 'string' ? findIndustry(industry) : undefined;
+  return {
+    ...(typed ? { name: typed } : {}),
+    ...(kind ? { industry: kind.id as IndustryId } : {}),
+  };
+}
+
+/** The same, as the query string the guided setup reads it from. */
+export function websiteBusinessQuery(business: WebsiteBusiness): Record<string, string> {
+  return {
+    ...(business.name ? { business: business.name } : {}),
+    ...(business.industry ? { industry: business.industry } : {}),
+  };
+}

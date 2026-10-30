@@ -3,6 +3,7 @@ import Link from 'next/link';
 import type { CSSProperties, ReactNode } from 'react';
 import { FeatureTour, type TourFeature } from '@/components/feature-tour';
 import { FoundingCounter, FoundingPill } from '@/components/founding-counter';
+import { HomeTabs } from '@/components/home-tabs';
 import { Icons } from '@/components/icons';
 import {
   FaqJsonLd,
@@ -11,7 +12,10 @@ import {
   WebSiteJsonLd,
 } from '@/components/json-ld';
 import { ProductMock } from '@/components/product-mock';
+import { NightBand } from '@/components/night-band';
+import { StickyCta } from '@/components/sticky-cta';
 import { Reveal } from '@/components/reveal';
+import { BillBuilder } from '@/components/bill-builder';
 import { Button, Check, Container, Eyebrow, Section, SectionHeading } from '@/components/ui';
 import {
   ActionCenterVisual,
@@ -19,14 +23,18 @@ import {
   BookingVisual,
   BusyTimesVisual,
   InboxVisual,
-  MissedLeadVisual,
   MoneyVisual,
   PaymentsVisual,
   TrustLadderVisual,
 } from '@/components/visuals';
+import {
+  MissedLeadForYou,
+  TryItOnYourBusiness,
+  YourBusinessName,
+  YourBusinessProvider,
+} from '@/components/your-business';
 import { homeFaqs } from '@/content/faqs';
 import {
-  ours,
   pricesCheckedOn,
   roughUsd,
   setupFees,
@@ -50,7 +58,9 @@ import {
  * worn down by everything around it, who has tried a CRM before and found it was one more job. It runs in the
  * order they decide in: what they get (hero), what it costs them today (the night band), what life looks like
  * after (next Tuesday), what it costs in money (the bill), why it is safe (it asks first), how fast (this week),
- * and what happens if it is wrong for them (the money back). The copy and the reasons behind each section are in
+ * and what happens if it is wrong for them (the money back). Since 30 October 2026 the middle of that (next
+ * Tuesday, what changes, it asks first, this week, the phone app) is one band of tabs, so the page is short enough
+ * to reach the promise. The copy and the reasons behind each section are in
  * the owner's "Home page copy" doc of 28 October 2026.
  *
  * The headline names both rewards in eight words: winning the job, and the evenings back. Variants worth testing
@@ -69,6 +79,10 @@ import {
  * The page is meant to feel like the product: calm, with things happening on their own. So it shows rather than
  * tells — the conversation in the hero plays itself, the bills cross themselves off, the lead you lost arrives at
  * 8pm — and everything else holds still. Motion lives in globals.css, each piece beside its reason.
+ *
+ * And it is about the visitor's business, not ours, once they say what it is: "Try it on your business" sits on
+ * top of the hero's conversation and asks for its name and trade, then the conversation, the lead lost at 8pm and
+ * the last band's question are told in them (components/your-business.tsx, content/trades.ts).
  */
 
 /** The spot counts are live, so the home page is rebuilt at most once a minute rather than at deploy. */
@@ -88,20 +102,19 @@ export default async function HomePage() {
       <WebSiteJsonLd />
       <SoftwareApplicationJsonLd spots={spots} />
       <FaqJsonLd faqs={homeFaqs} id={`${urls.site}/#faq`} />
-      <Hero counts={counts} open={open} />
-      <TheProblem />
-      <NextTuesday />
-      <TheBill />
-      <Outcomes />
-      <Trust />
-      <HowItWorks />
-      <Features />
-      <InYourPocket />
-      <ConnectedAccounts />
-      <Guarantee />
-      <Spots spots={spots} />
-      <Questions />
-      <FinalCta open={open} />
+      <YourBusinessProvider>
+        <Hero counts={counts} open={open} />
+        <TheProblem />
+        <Inside />
+        <TheBill />
+        <Features />
+        <ConnectedAccounts />
+        <Guarantee />
+        <Spots spots={spots} />
+        <Questions />
+        <FinalCta open={open} />
+      </YourBusinessProvider>
+      <StickyCta open={open} />
     </>
   );
 }
@@ -136,7 +149,7 @@ function Hero({ counts, open }: { counts: readonly FoundingCount[] | null; open:
               And it asks you first, until it has earned your trust.
             </p>
 
-            <div className="mt-9 flex flex-col gap-3 sm:flex-row sm:items-center">
+            <div data-cta="hero" className="mt-9 flex flex-col gap-3 sm:flex-row sm:items-center">
               <Button href={urls.signUp} size="lg" arrow>
                 {open ? 'Claim my founding spot' : 'Sign up'}
               </Button>
@@ -164,7 +177,8 @@ function Hero({ counts, open }: { counts: readonly FoundingCount[] | null; open:
             </ul>
           </div>
 
-          <div className="lg:pl-2">
+          <div className="min-w-0 lg:pl-2">
+            <TryItOnYourBusiness />
             <ProductMock />
           </div>
         </div>
@@ -207,7 +221,7 @@ function TheProblem() {
           </p>
         </div>
         <Reveal>
-          <MissedLeadVisual />
+          <MissedLeadForYou />
         </Reveal>
       </div>
 
@@ -258,48 +272,45 @@ function NextTuesday() {
     { time: '8:00pm', body: 'You’re at your kid’s game. Nothing needs you.' },
   ];
   return (
-    <Section id="tuesday">
-      <div className="grid gap-12 lg:grid-cols-[minmax(0,0.85fr)_minmax(0,1.15fr)] lg:gap-16">
-        <div className="lg:sticky lg:top-28 lg:self-start">
-          <Eyebrow>A day with HandsFreeOS</Eyebrow>
-          <SectionHeading sub="Same jobs, same crew. The difference is everything you no longer do.">
-            Picture next Tuesday.
-          </SectionHeading>
-        </div>
-
-        <Reveal>
-          <ol className="border-border-strong relative border-l pl-7 sm:pl-9">
-            {day.map((item, index) => (
-              <li key={item.time} className="rise relative pb-8 last:pb-0" style={nth(index)}>
-                <span
-                  aria-hidden="true"
-                  className="bg-accent ring-bg absolute top-1.5 -left-[calc(1.75rem+4.5px)] h-2 w-2 rounded-full ring-4 sm:-left-[calc(2.25rem+4.5px)]"
-                />
-                <p className="text-accent-text text-sm font-semibold tabular-nums">{item.time}</p>
-                <p className="text-text mt-1.5 text-lg leading-snug">{item.body}</p>
-              </li>
-            ))}
-          </ol>
-          <p className="mt-10 text-xl font-semibold tracking-[-0.015em]">
-            That&rsquo;s a normal Tuesday on HandsFreeOS.
-          </p>
-          <p className="text-text-3 mt-2 text-sm">
-            In your first weeks, the 6:30pm answer waits for your tap before it goes. That&rsquo;s
-            on purpose.
-          </p>
-        </Reveal>
+    <div className="grid gap-12 lg:grid-cols-[minmax(0,0.85fr)_minmax(0,1.15fr)] lg:gap-16">
+      <div className="lg:sticky lg:top-28 lg:self-start">
+        <PanelHeading sub="Same jobs, same crew. The difference is everything you no longer do.">
+          Picture next Tuesday.
+        </PanelHeading>
       </div>
-    </Section>
+
+      <Reveal>
+        <ol className="border-border-strong relative border-l pl-7 sm:pl-9">
+          {day.map((item, index) => (
+            <li key={item.time} className="rise relative pb-8 last:pb-0" style={nth(index)}>
+              <span
+                aria-hidden="true"
+                className="bg-accent ring-bg absolute top-1.5 -left-[calc(1.75rem+4.5px)] h-2 w-2 rounded-full ring-4 sm:-left-[calc(2.25rem+4.5px)]"
+              />
+              <p className="text-accent-text text-sm font-semibold tabular-nums">{item.time}</p>
+              <p className="text-text mt-1.5 text-lg leading-snug">{item.body}</p>
+            </li>
+          ))}
+        </ol>
+        <p className="mt-10 text-xl font-semibold tracking-[-0.015em]">
+          That&rsquo;s a normal Tuesday on HandsFreeOS.
+        </p>
+        <p className="text-text-3 mt-2 text-sm">
+          In your first weeks, the 6:30pm answer waits for your tap before it goes. That&rsquo;s on
+          purpose.
+        </p>
+      </Reveal>
+    </div>
   );
 }
 
 /**
- * What the same business pays today, line by line, each bill crossed off as it scrolls in. Every number comes
+ * What the same business pays today, line by line, and the visitor unticks what they don't pay for to see their
+ * own total (components/bill-builder.tsx). Every number comes
  * from content/savings.ts, where each is another company's public price with its link and the date it was read.
  * A tool whose HandsFreeOS side is still being built shows as coming and stays out of the total.
  */
 function TheBill() {
-  const live = stack.filter((t) => t.live);
   const coming = stack.filter((t) => !t.live);
   return (
     <Section id="bill" className="bg-card-2 border-border border-y">
@@ -321,46 +332,7 @@ function TheBill() {
         </div>
 
         <Reveal className="bg-card border-border rounded-[20px] border p-6 shadow-[var(--shadow-2)] sm:p-8">
-          <p className="text-text-3 text-sm font-medium">What the tools cost, a month</p>
-          <ul className="divide-border mt-4 divide-y">
-            {live.map((tool, index) => (
-              <li
-                key={tool.id}
-                className="chore-text text-text-2 flex items-baseline justify-between gap-4 py-2.5"
-                style={nth(index)}
-              >
-                <span className="min-w-0">
-                  {tool.job}
-                  <span className="text-text-3 block text-xs">{tool.product}</span>
-                </span>
-                <span className="chore-verb relative shrink-0 font-semibold tabular-nums">
-                  {usd(tool.monthly)}
-                  <span
-                    aria-hidden="true"
-                    className="chore-strike bg-accent absolute top-1/2 -right-1 -left-1 h-[2px] -translate-y-1/2 rounded-full"
-                  />
-                </span>
-              </li>
-            ))}
-          </ul>
-          <div className="border-border-strong mt-2 flex items-baseline justify-between gap-4 border-t pt-4">
-            <span className="text-text-2 font-semibold">{live.length} bills a month</span>
-            <span className="text-text-3 font-semibold tabular-nums line-through">
-              {usd(stackTotal)}
-            </span>
-          </div>
-          <div
-            className="bg-accent-soft mt-4 flex items-center justify-between gap-4 rounded-[14px] px-4 py-3.5"
-            style={nth(live.length)}
-          >
-            <span className="flex items-center gap-2 font-semibold">
-              <Check className="task-tick text-success" />
-              HandsFreeOS
-            </span>
-            <span className="text-lg font-bold tabular-nums">
-              {usd(ours.low)}–{usd(ours.high)}
-            </span>
-          </div>
+          <BillBuilder />
           {coming.length > 0 ? (
             <p className="text-text-3 mt-4 text-sm">
               Coming next, and not counted above:{' '}
@@ -392,6 +364,42 @@ function TheBill() {
   );
 }
 
+/**
+ * The middle of the page, folded into tabs (components/home-tabs.tsx): a day with it, what changes, why the AI can
+ * be trusted, how the first week goes, and the phone app. Each was a full section, and folding them brings the
+ * bill, the promise, the spots and the questions screens closer to the top. All five are still on the page for
+ * anyone, or anything, reading it, and the hero's "See a day with HandsFreeOS" (`/#tuesday`) opens the first.
+ */
+function Inside() {
+  return (
+    <Section className="border-border border-t">
+      <Eyebrow>What it&rsquo;s like</Eyebrow>
+      <SectionHeading className="mb-10">Your business, running on HandsFreeOS.</SectionHeading>
+      <HomeTabs
+        tabs={[
+          { id: 'tuesday', label: 'A day with it', panel: <NextTuesday /> },
+          { id: 'changes', label: 'What changes', panel: <Outcomes /> },
+          { id: 'trust', label: 'It asks first', panel: <Trust /> },
+          { id: 'how', label: 'Up this week', panel: <HowItWorks /> },
+          { id: 'pocket', label: 'On the job', panel: <InYourPocket /> },
+        ]}
+      />
+    </Section>
+  );
+}
+
+/** A tab's own heading: one step under the section's. */
+function PanelHeading({ children, sub }: { children: ReactNode; sub?: string }) {
+  return (
+    <div className="max-w-3xl">
+      <h3 className="text-[1.75rem] leading-[1.08] font-bold tracking-[-0.03em] sm:text-4xl">
+        {children}
+      </h3>
+      {sub ? <p className="text-text-2 mt-5 max-w-2xl text-lg">{sub}</p> : null}
+    </div>
+  );
+}
+
 /** One promise per card, then the features that keep it. Every feature named here is in the product today. */
 function Outcomes() {
   const outcomes = [
@@ -417,10 +425,9 @@ function Outcomes() {
     },
   ];
   return (
-    <Section>
-      <Eyebrow>What changes</Eyebrow>
-      <SectionHeading>More jobs. More money kept. More of your life back.</SectionHeading>
-      <Reveal className="mt-14 grid gap-5 sm:grid-cols-2 sm:gap-6">
+    <>
+      <PanelHeading>More jobs. More money kept. More of your life back.</PanelHeading>
+      <Reveal className="mt-10 grid gap-5 sm:grid-cols-2 sm:gap-6">
         {outcomes.map((item, index) => (
           <div
             key={item.title}
@@ -430,14 +437,14 @@ function Outcomes() {
             <span className="bg-accent-soft text-accent-text flex h-10 w-10 items-center justify-center rounded-[11px]">
               <item.icon />
             </span>
-            <h3 className="mt-5 text-xl leading-snug font-semibold tracking-[-0.015em]">
+            <h4 className="mt-5 text-xl leading-snug font-semibold tracking-[-0.015em]">
               {item.title}
-            </h3>
+            </h4>
             <p className="text-text-2 mt-3">{item.body}</p>
           </div>
         ))}
       </Reveal>
-    </Section>
+    </>
   );
 }
 
@@ -450,13 +457,12 @@ function Trust() {
     'Everything it knows is written in plain English, where you can read it and change it.',
   ];
   return (
-    <Section className="border-border border-t">
+    <>
       <div className="grid items-start gap-12 lg:grid-cols-[minmax(0,1fr)_minmax(0,24rem)] lg:gap-16">
         <div>
-          <Eyebrow>Why you can trust it</Eyebrow>
-          <SectionHeading sub="It handles the straightforward work fast, and gets out of the way the moment a person is needed. It starts by writing every reply and waiting for your tap. When a kind of reply has earned enough of your OKs, it sends those on its own. You can take that back any time.">
+          <PanelHeading sub="It handles the straightforward work fast, and gets out of the way the moment a person is needed. It starts by writing every reply and waiting for your tap. When a kind of reply has earned enough of your OKs, it sends those on its own. You can take that back any time.">
             It asks before it acts. Until you tell it it doesn&rsquo;t have to.
-          </SectionHeading>
+          </PanelHeading>
           <ul className="mt-10 grid max-w-2xl gap-4">
             {promises.map((item) => (
               <li key={item} className="text-text-2 flex gap-3 text-[1.0625rem]">
@@ -467,13 +473,13 @@ function Trust() {
           </ul>
         </div>
 
-        <Reveal className="lg:sticky lg:top-28">
+        <Reveal>
           <div className="rise">
             <TrustLadderVisual />
           </div>
         </Reveal>
       </div>
-    </Section>
+    </>
   );
 }
 
@@ -505,14 +511,13 @@ function HowItWorks() {
     },
   ];
   return (
-    <Section id="how" className="border-border border-t">
-      <Eyebrow>How it works</Eyebrow>
-      <SectionHeading sub="No consultant, no setup fee, and no training for your crew. You answer questions in plain English, and it sets itself up.">
+    <>
+      <PanelHeading sub="No consultant, no setup fee, and no training for your crew. You answer questions in plain English, and it sets itself up.">
         Up and running this week. Not this quarter.
-      </SectionHeading>
+      </PanelHeading>
 
       {/* A sequence, so it is drawn as one: a rule the steps sit on, drawing itself the way the days go. */}
-      <Reveal className="mt-16">
+      <Reveal className="mt-12">
         <ol className="relative grid gap-12 md:grid-cols-3 md:gap-10">
           <span
             aria-hidden="true"
@@ -534,9 +539,9 @@ function HowItWorks() {
                 >
                   {item.mode.label}
                 </span>
-                <h3 className="mt-4 text-xl leading-snug font-semibold tracking-[-0.015em]">
+                <h4 className="mt-4 text-xl leading-snug font-semibold tracking-[-0.015em]">
                   {item.title}
-                </h3>
+                </h4>
                 <p className="text-text-2 mt-3">{item.body}</p>
               </div>
             </li>
@@ -544,7 +549,7 @@ function HowItWorks() {
         </ol>
       </Reveal>
 
-      <p className="text-text-3 mt-14 max-w-3xl text-sm">
+      <p className="text-text-3 mt-12 max-w-3xl text-sm">
         {setupFees.map((item, index) => (
           <span key={item.name}>
             {index === 0 ? '' : ', and '}
@@ -561,7 +566,7 @@ function HowItWorks() {
         ))}
         . Moving in to HandsFreeOS is included.
       </p>
-    </Section>
+    </>
   );
 }
 
@@ -718,18 +723,12 @@ function InYourPocket() {
     { src: '/screenshots/invoice.png', alt: 'An invoice in the app, ready to send to a customer.' },
   ];
   return (
-    <Section className="overflow-hidden">
+    <>
       <div className="grid items-center gap-14 lg:grid-cols-[minmax(0,26rem)_minmax(0,1fr)] lg:gap-16">
         <div>
-          <Eyebrow>On the job</Eyebrow>
-          <h2 className="text-[2.125rem] leading-[1.04] font-bold tracking-[-0.035em] sm:text-5xl">
-            And in the pocket of whoever is doing the work.
-          </h2>
-          <p className="text-text-2 mt-6 text-lg">
-            iPhone and Android, working with no signal at all — in a basement, in a crawlspace, an
-            hour out of town. Nothing you type disappears when the bars do: it catches up the moment
-            they come back.
-          </p>
+          <PanelHeading sub="iPhone and Android, working with no signal at all — in a basement, in a crawlspace, an hour out of town. Nothing you type disappears when the bars do: it catches up the moment they come back.">
+            In the pocket of whoever is doing the work.
+          </PanelHeading>
           <Button href="/app" variant="secondary" size="lg" className="mt-8" arrow>
             See the phone app
           </Button>
@@ -756,7 +755,7 @@ function InYourPocket() {
           ))}
         </Reveal>
       </div>
-    </Section>
+    </>
   );
 }
 
@@ -937,14 +936,14 @@ function FinalCta({ open }: { open: boolean }) {
             Answered 9 seconds later
           </span>
         </div>
-        <h2 className="text-on-night mt-9 text-[2.25rem] leading-[1.04] font-bold tracking-[-0.035em] sm:text-5xl">
-          The next lead texts you at 7pm. Who answers?
+        <h2 className="text-on-night mt-9 text-[2.25rem] leading-[1.04] font-bold tracking-[-0.035em] [overflow-wrap:anywhere] sm:text-5xl">
+          The next lead texts <YourBusinessName fallback="you" /> at 7pm. Who answers?
         </h2>
         <p className="text-on-night-2 mt-6 text-lg">
           Set it up this week. Watch every reply before it goes out, and let go of the ones it gets
           right. If it isn&rsquo;t for you within {moneyBack.days} days, you get your money back.
         </p>
-        <div className="mt-9 flex flex-col justify-center gap-3 sm:flex-row">
+        <div data-cta="final" className="mt-9 flex flex-col justify-center gap-3 sm:flex-row">
           <Button href={urls.signUp} size="lg" arrow>
             {open ? 'Claim my founding spot' : 'Sign up'}
           </Button>
@@ -954,18 +953,5 @@ function FinalCta({ open }: { open: boolean }) {
         </div>
       </Reveal>
     </NightBand>
-  );
-}
-
-/** The after-hours band: night in both themes, with a little light from the top corner. */
-function NightBand({ children, className = '' }: { children: ReactNode; className?: string }) {
-  return (
-    // The faint edge matters in dark mode, where the page itself is nearly night already.
-    <section
-      className={`bg-night text-on-night border-night-border relative overflow-hidden border-y ${className}`}
-    >
-      <div className="night-glow pointer-events-none absolute inset-0" aria-hidden="true" />
-      <Container className="relative py-24 sm:py-32">{children}</Container>
-    </section>
   );
 }
