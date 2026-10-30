@@ -3,6 +3,7 @@ import { registerZoomRoutes } from '../meetings/routes';
 import cors from '@fastify/cors';
 import formbody from '@fastify/formbody';
 import {
+  checkChatOnSite,
   checkOptInSurface,
   checkPolicy,
   checkTerms,
@@ -505,11 +506,21 @@ export async function buildHttpServer(deps: HttpDeps): Promise<FastifyInstance> 
     // Fetched together: four sequential round trips would have the business watching a spinner for
     // the better part of half a minute.
     const names = input.names.filter(Boolean);
-    const [website, policy, terms, optIn] = await Promise.all([
+    const [website, policy, terms, optIn, chats] = await Promise.all([
       open(input.website),
       open(input.policyUrl),
       open(input.termsUrl),
       open(input.optInPath === 'in_person' ? input.optInProofUrl : input.optInUrl),
+      // The hosted path is the chat on their own site: its key (in the snippet) and where it was last seen open.
+      input.optInPath === 'hosted'
+        ? asWorker(deps.httpDb, { workspaceId: input.workspaceId }, (tx) =>
+            rows<{ key: string; seen_origin: string | null; paused: boolean }>(
+              tx,
+              sql`select public_key as key, last_seen_origin as seen_origin, paused_at is not null as paused
+                  from app.chat_widgets where workspace_id = ${input.workspaceId}`,
+            ),
+          )
+        : Promise.resolve(null),
     ]);
 
     return {
@@ -518,6 +529,14 @@ export async function buildHttpServer(deps: HttpDeps): Promise<FastifyInstance> 
         checkPolicy(policy),
         checkTerms(terms),
         checkOptInSurface(optIn, input.optInPath, names),
+        ...(chats
+          ? [
+              checkChatOnSite(
+                website,
+                chats.map((c) => ({ key: c.key, seenOrigin: c.seen_origin, paused: c.paused })),
+              ),
+            ]
+          : []),
       ],
     };
   });

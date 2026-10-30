@@ -31,8 +31,9 @@ import type { DetailsValues, FieldProblems, LogItem } from '@/lib/chat/session';
 import { markOf } from '@/lib/chat/look';
 import { cn } from '@/lib/utils';
 
-const CSS = `html,body{height:100%;overflow:hidden}
-.hfos-w{--wacc:var(--wacc-l);--wacc-on:var(--wacc-on-l)}
+/** The window fills its frame and never scrolls the page; a page of its own (the showcase) scrolls as usual. */
+const WINDOW_CSS = 'html,body{height:100%;overflow:hidden}';
+const CSS = `.hfos-w{--wacc:var(--wacc-l);--wacc-on:var(--wacc-on-l)}
 [data-theme='dark'] .hfos-w{--wacc:var(--wacc-d);--wacc-on:var(--wacc-on-d)}
 @media (prefers-color-scheme:dark){:root:not([data-theme='light']) .hfos-w{--wacc:var(--wacc-d);--wacc-on:var(--wacc-on-d)}}
 .hfos-dots i{display:block;width:7px;height:7px;border-radius:99px;background:var(--text-3);animation:hfos-dot 1.2s ease-in-out infinite}
@@ -44,13 +45,21 @@ const CSS = `html,body{height:100%;overflow:hidden}
 @media (prefers-reduced-motion:reduce){.hfos-dots i{animation:none;opacity:.6}.hfos-in{animation:none}}`;
 
 /** The window's own rules: the accent in light and dark, the typing dots, and nothing moving for reduced motion. */
-export function ChatStyles() {
-  return (
-    <style href="hfos-chat-window" precedence="default">
+export function ChatStyles({ page = false }: { page?: boolean } = {}) {
+  return page ? (
+    <style href="hfos-chat-page" precedence="default">
       {CSS}
+    </style>
+  ) : (
+    <style href="hfos-chat-window" precedence="default">
+      {`${WINDOW_CSS}\n${CSS}`}
     </style>
   );
 }
+
+/** What the chat asks right after a visitor's first message (askFor `after_first_message`). */
+export const AFTER_FIRST_INTRO =
+  'Thanks for your message. How can we reach you, in case you leave the chat?';
 
 const TEXT = {
   missing: [

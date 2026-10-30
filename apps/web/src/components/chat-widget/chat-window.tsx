@@ -32,6 +32,7 @@ import {
 } from '@/lib/chat/session';
 import { useOrigin } from '@/lib/use-origin';
 import {
+  AFTER_FIRST_INTRO,
   ChatFooter,
   ChatHeader,
   ChatStyles,
@@ -201,20 +202,26 @@ export function ChatWindow({ widgetKey, config, origin, path, preview }: ChatWin
   const awayForm = ready && config.away && !snap.started && !done;
   // Asked for before the chat starts: the composer waits for it.
   const beforeForm = ready && !awayForm && (before.name || before.phone || before.email);
-  // "When needed": the AI teammate asks when it has to. With only people answering, the form comes after the
-  // first message, so the team can get back to them.
+  // "After their first message": the form comes then, whoever answers (the texting registration's chat, where the
+  // box to agree to texts is the point). "When needed": the AI teammate asks when it has to, and with only people
+  // answering the form comes after the first message too, so the team can get back to them.
+  const afterFirst =
+    askFor.name === 'after_first_message' ||
+    askFor.phone === 'after_first_message' ||
+    askFor.email === 'after_first_message';
   const laterForm =
     ready &&
     !awayForm &&
     !beforeForm &&
-    !teammate &&
     snap.started &&
     nothingGiven &&
     !dismissed &&
     !done &&
-    (askFor.name === 'when_needed' ||
-      askFor.phone === 'when_needed' ||
-      askFor.email === 'when_needed');
+    (afterFirst ||
+      (!teammate &&
+        (askFor.name === 'when_needed' ||
+          askFor.phone === 'when_needed' ||
+          askFor.email === 'when_needed')));
   const stopped =
     snap.phase === 'paused' ||
     snap.phase === 'blocked' ||
@@ -368,7 +375,11 @@ export function ChatWindow({ widgetKey, config, origin, path, preview }: ChatWin
             {laterForm ? (
               <DetailsForm
                 testId="chat-details"
-                intro="Leave your details, so we can get back to you if you leave."
+                intro={
+                  afterFirst
+                    ? AFTER_FIRST_INTRO
+                    : 'Leave your details, so we can get back to you if you leave.'
+                }
                 show={show}
                 required={NONE}
                 needContact={false}

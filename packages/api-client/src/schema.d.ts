@@ -28717,17 +28717,17 @@ export interface operations {
                          * @default when_needed
                          * @enum {string}
                          */
-                        email?: "never" | "when_needed" | "before_chat";
+                        email?: "never" | "when_needed" | "after_first_message" | "before_chat";
                         /**
                          * @default when_needed
                          * @enum {string}
                          */
-                        name?: "never" | "when_needed" | "before_chat";
+                        name?: "never" | "when_needed" | "after_first_message" | "before_chat";
                         /**
                          * @default when_needed
                          * @enum {string}
                          */
-                        phone?: "never" | "when_needed" | "before_chat";
+                        phone?: "never" | "when_needed" | "after_first_message" | "before_chat";
                     };
                     awayMessage?: string | null;
                     dailyCap?: number;
@@ -28872,11 +28872,11 @@ export interface operations {
                     allowedOrigins?: string[];
                     askFor?: {
                         /** @enum {string} */
-                        email?: "never" | "when_needed" | "before_chat";
+                        email?: "never" | "when_needed" | "after_first_message" | "before_chat";
                         /** @enum {string} */
-                        name?: "never" | "when_needed" | "before_chat";
+                        name?: "never" | "when_needed" | "after_first_message" | "before_chat";
                         /** @enum {string} */
-                        phone?: "never" | "when_needed" | "before_chat";
+                        phone?: "never" | "when_needed" | "after_first_message" | "before_chat";
                     };
                     awayMessage?: string | null;
                     dailyCap?: number;
@@ -66849,17 +66849,17 @@ export interface operations {
                                  * @default when_needed
                                  * @enum {string}
                                  */
-                                email: "never" | "when_needed" | "before_chat";
+                                email: "never" | "when_needed" | "after_first_message" | "before_chat";
                                 /**
                                  * @default when_needed
                                  * @enum {string}
                                  */
-                                name: "never" | "when_needed" | "before_chat";
+                                name: "never" | "when_needed" | "after_first_message" | "before_chat";
                                 /**
                                  * @default when_needed
                                  * @enum {string}
                                  */
-                                phone: "never" | "when_needed" | "before_chat";
+                                phone: "never" | "when_needed" | "after_first_message" | "before_chat";
                             };
                             awayMessage: string | null;
                             /** Format: date-time */
@@ -66929,17 +66929,17 @@ export interface operations {
                                  * @default when_needed
                                  * @enum {string}
                                  */
-                                email: "never" | "when_needed" | "before_chat";
+                                email: "never" | "when_needed" | "after_first_message" | "before_chat";
                                 /**
                                  * @default when_needed
                                  * @enum {string}
                                  */
-                                name: "never" | "when_needed" | "before_chat";
+                                name: "never" | "when_needed" | "after_first_message" | "before_chat";
                                 /**
                                  * @default when_needed
                                  * @enum {string}
                                  */
-                                phone: "never" | "when_needed" | "before_chat";
+                                phone: "never" | "when_needed" | "after_first_message" | "before_chat";
                             };
                             awayMessage: string | null;
                             /** Format: date-time */

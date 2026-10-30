@@ -95,8 +95,21 @@ export async function loadTexting(
     surfaces: {
       siteSlug: site.site?.slug ?? null,
       chatPublicKey: liveWidget?.publicKey ?? null,
+      // The registration's chat: whether it already asks for details with the texts box, its sites, and whether
+      // it's been seen on them.
+      chat: liveWidget
+        ? {
+            id: liveWidget.id,
+            smsConsent: liveWidget.smsConsent,
+            askFor: liveWidget.askFor,
+            allowedOrigins: liveWidget.allowedOrigins,
+            install: liveWidget.install,
+          }
+        : null,
       contactFormSlug: liveForm?.slug ?? null,
       bookingEnabled: site.site?.enabled ?? false,
+      // The chat's code loads from the business's own domain once one is serving, as Settings → Website chat's does.
+      snippetOrigin: brandedOrigin,
     },
   };
 }

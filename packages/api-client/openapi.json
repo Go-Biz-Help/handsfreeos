@@ -31448,6 +31448,7 @@
                         "enum": [
                           "never",
                           "when_needed",
+                          "after_first_message",
                           "before_chat"
                         ]
                       },
@@ -31457,6 +31458,7 @@
                         "enum": [
                           "never",
                           "when_needed",
+                          "after_first_message",
                           "before_chat"
                         ]
                       },
@@ -31466,6 +31468,7 @@
                         "enum": [
                           "never",
                           "when_needed",
+                          "after_first_message",
                           "before_chat"
                         ]
                       }
@@ -31615,6 +31618,7 @@
                         "enum": [
                           "never",
                           "when_needed",
+                          "after_first_message",
                           "before_chat"
                         ]
                       },
@@ -31623,6 +31627,7 @@
                         "enum": [
                           "never",
                           "when_needed",
+                          "after_first_message",
                           "before_chat"
                         ]
                       },
@@ -31631,6 +31636,7 @@
                         "enum": [
                           "never",
                           "when_needed",
+                          "after_first_message",
                           "before_chat"
                         ]
                       }
@@ -161302,6 +161308,7 @@
                                 "enum": [
                                   "never",
                                   "when_needed",
+                                  "after_first_message",
                                   "before_chat"
                                 ]
                               },
@@ -161311,6 +161318,7 @@
                                 "enum": [
                                   "never",
                                   "when_needed",
+                                  "after_first_message",
                                   "before_chat"
                                 ]
                               },
@@ -161320,6 +161328,7 @@
                                 "enum": [
                                   "never",
                                   "when_needed",
+                                  "after_first_message",
                                   "before_chat"
                                 ]
                               }
@@ -161570,6 +161579,7 @@
                               "enum": [
                                 "never",
                                 "when_needed",
+                                "after_first_message",
                                 "before_chat"
                               ]
                             },
@@ -161579,6 +161589,7 @@
                               "enum": [
                                 "never",
                                 "when_needed",
+                                "after_first_message",
                                 "before_chat"
                               ]
                             },
@@ -161588,6 +161599,7 @@
                               "enum": [
                                 "never",
                                 "when_needed",
+                                "after_first_message",
                                 "before_chat"
                               ]
                             }
