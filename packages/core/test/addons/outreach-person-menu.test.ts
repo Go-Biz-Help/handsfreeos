@@ -8,6 +8,7 @@ import { describe, expect, it } from 'vitest';
 import {
   CLIENT_SKIPPED_KINDS,
   clientSetWords,
+  HINT_DELAY_MS,
   isClientSkipped,
   LATER_DAYS,
   LATER_SKIPPED_KINDS,
@@ -190,6 +191,53 @@ describe('the person menu', () => {
     // Before the marks come it waits, as the other toggles do; a partner has it too.
     expect(item(menu({ marks: null }), 'later')?.enabled).toBe(false);
     expect(keys(menu({ marks: marks({ partner: true }) }))).toContain('later');
+  });
+
+  it('explains every item that can be pressed, and never a line, which says it already', () => {
+    const team = (userId: string, name: string, you: boolean) => ({ userId, name, you });
+    const sets = [
+      menu({
+        row: {
+          url: 'https://www.facebook.com/dana.reyes.7',
+          platform: 'facebook',
+          threadKey: '100077712345',
+        },
+        moves: (['ready', 'pitched', 'lost', 'open'] as const).map((key) => ({ key, label: key })),
+        marks: marks({
+          owner: team(PERSON, 'Ana Ortiz', false),
+          moveTo: [team(PROFILE, 'Me', true), team(PERSON.replace('2', '3'), 'Ben Hale', false)],
+        }),
+      }),
+      menu({
+        marks: marks({
+          personId: PERSON,
+          demoBooked: true,
+          laterUntil: '2026-11-11T15:00:00.000Z',
+          client: { on: true, tagged: true, because: null },
+          myPartner: { stage: 'found', marked: true },
+          dontPitch: { by: 'Me', at: '2026-10-26T15:00:00.000Z', tagged: false },
+          neverContact: { by: 'Me', at: '2026-10-26T15:00:00.000Z' },
+          canTakeOff: { dontPitch: true, neverContact: true },
+        }),
+      }),
+    ];
+    const all = sets.flat();
+    expect(keys(all)).toEqual(
+      expect.arrayContaining(['open-chat', 'move-open', 'not-client', 'not-partner', 'not-later']),
+    );
+    for (const i of all) {
+      if (i.kind === 'line') expect(i.hint, i.key).toBeNull();
+      else expect(i.hint?.length, i.key).toBeGreaterThan(20);
+    }
+    expect(all.find((i) => i.label === 'Make them yours')?.hint).toBe(
+      'Only you reach out to them from now on, from your Today. Whoever had them before stops, and their messages still waiting to go are skipped. Replies still go.',
+    );
+    expect(all.find((i) => i.label === 'Give them to Ben Hale')?.hint).toContain(
+      'Only Ben Hale reaches out to them',
+    );
+    // The common tooltip wait: not a flash while the pointer passes, nor a wait that feels broken.
+    expect(HINT_DELAY_MS).toBeGreaterThanOrEqual(500);
+    expect(HINT_DELAY_MS).toBeLessThanOrEqual(1000);
   });
 
   it('says the same thing on the web and the phone after Later and Take off Later', () => {

@@ -25,12 +25,16 @@
  *
  * Opening it asks where they stand now (`outreach.profile.marks`); its actions and story wait for the answer. Add to Contacts and
  * Client need Add and edit customers (`records.write`), so they're left out for whoever can't.
+ *
+ * What each action does (core's `hint`, decision 91) shows beside it once the pointer rests there for `HINT_DELAY_MS`,
+ * or the keyboard lands on it.
  */
 import { journeyStepWords, type Journey } from '@hfos/core/addons/outreach/journey';
 import { leadWords } from '@hfos/core/addons/outreach/leads';
 import { PLATFORMS, type Platform } from '@hfos/core/addons/outreach/networks';
 import {
   clientSetWords,
+  HINT_DELAY_MS,
   laterSetWords,
   personMenuItems,
   personMenuOfflineWords,
@@ -63,6 +67,7 @@ import { useCallback, useRef, useState, useSyncExternalStore } from 'react';
 import { toast } from 'sonner';
 import { useCan } from '@/components/shell/workspace-shell';
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
+import { Tooltip, TooltipProvider } from '@/components/ui/tooltip';
 import { apiBrowser, errorMessage, unwrap } from '@/lib/api/client';
 import { cn, relativeTime } from '@/lib/utils';
 import { outreachHref } from './address';
@@ -388,7 +393,7 @@ function NameMenu({
         : run[item.key]?.();
   const personId = (marks ? marks.personId : who.personId) ?? null;
 
-  const draw = (item: PersonMenuItem) => {
+  const drawItem = (item: PersonMenuItem) => {
     const Icon = item.key.startsWith('owner-') ? Users : ICONS[item.key];
     const icon = Icon ? <Icon className="h-4 w-4 flex-none" strokeWidth={1.5} aria-hidden /> : null;
     if (item.kind === 'open')
@@ -455,6 +460,15 @@ function NameMenu({
       </button>
     );
   };
+  // What an item does shows beside it once the pointer rests there (`HINT_DELAY_MS`), or the keyboard lands on it.
+  const draw = (item: PersonMenuItem) =>
+    item.hint ? (
+      <Tooltip key={item.key} content={item.hint} side="left">
+        {drawItem(item)}
+      </Tooltip>
+    ) : (
+      drawItem(item)
+    );
 
   // Their page and chat; the Pipeline's moves; then Contacts, Client, Demo booked, Later and the lists.
   const groups = [
@@ -517,14 +531,16 @@ function NameMenu({
             className="-mx-2.5 grid gap-0.5"
             data-testid="person-menu-items"
           >
-            {groups.map((group, i) => (
-              <div
-                key={group[0]!.key}
-                className={cn('grid gap-0.5', i > 0 && 'mt-1 border-t border-border pt-1')}
-              >
-                {group.map(draw)}
-              </div>
-            ))}
+            <TooltipProvider delayDuration={HINT_DELAY_MS}>
+              {groups.map((group, i) => (
+                <div
+                  key={group[0]!.key}
+                  className={cn('grid gap-0.5', i > 0 && 'mt-1 border-t border-border pt-1')}
+                >
+                  {group.map(draw)}
+                </div>
+              ))}
+            </TooltipProvider>
             {status ? (
               <p
                 className="mt-1 flex items-start gap-2 border-t border-border px-2.5 pt-2.5 text-[13px] text-text-2"
