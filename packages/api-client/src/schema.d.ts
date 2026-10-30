@@ -15377,6 +15377,66 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/commands/video_call.poll_close": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Close the question that’s up in a HandsFreeOS video call’s live poll.
+         * @description Risk level 0. Requires appointments.write. Emits video_call.poll_closed.
+         */
+        post: operations["command_video_call_poll_close"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/video_call.poll_open": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Pop a question or button from the call’s live poll up on everyone’s screen in a HandsFreeOS video call. Any question that’s up closes.
+         * @description Risk level 1. Requires appointments.write. Emits video_call.poll_opened, video_call.poll_closed.
+         */
+        post: operations["command_video_call_poll_open"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/video_call.poll_skip": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Skip a question in the call’s live poll for now, so the next one is up next. It can still be asked later.
+         * @description Risk level 0. Requires appointments.write. Emits video_call.poll_skipped.
+         */
+        post: operations["command_video_call_poll_skip"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/commands/video_call.remove": {
         parameters: {
             query?: never;
@@ -15431,6 +15491,26 @@ export interface paths {
          * @description Risk level 1. Requires appointments.write. Emits video_call.attendee_video_changed.
          */
         post: operations["command_video_call_set_attendee_video"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/video_call.set_poll": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Pick the live poll whose questions pop up in a HandsFreeOS video call, or take it off. Live polls are made in Forms.
+         * @description Risk level 1. Requires appointments.write. Emits video_call.poll_set.
+         */
+        post: operations["command_video_call_set_poll"];
         delete?: never;
         options?: never;
         head?: never;
@@ -22657,6 +22737,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/queries/video_call.polls": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * A HandsFreeOS video call’s live poll: each question and button, whether it’s been asked, and the answers and totals so far.
+         * @description Requires records.read.
+         */
+        post: operations["query_video_call_polls"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/queries/waitlist.list": {
         parameters: {
             query?: never;
@@ -27502,6 +27602,8 @@ export interface operations {
                                 attendeeVideo?: "off" | "team" | "everyone";
                                 /** @default true */
                                 missedFollowUp?: boolean;
+                                /** @default null */
+                                pollFormId?: string | null;
                                 /** @default true */
                                 startingNow?: boolean;
                             };
@@ -31906,7 +32008,7 @@ export interface operations {
                      * @default form
                      * @enum {string}
                      */
-                    mode?: "form" | "survey" | "quiz";
+                    mode?: "form" | "survey" | "quiz" | "poll";
                     name: string;
                     /** @description A starter’s key, like “quote” or “review” */
                     starter?: string;
@@ -59035,6 +59137,7 @@ export interface operations {
                             /** Format: uuid */
                             id: string;
                             personId: string | null;
+                            pollFormId: string | null;
                             startedAt: string | null;
                             /** @enum {string} */
                             state: "open" | "live" | "ended";
@@ -59088,6 +59191,107 @@ export interface operations {
                 content: {
                     "application/json": {
                         requested: boolean;
+                    };
+                };
+            };
+        };
+    };
+    command_video_call_poll_close: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    callId: string;
+                    /** Format: uuid */
+                    pollId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        changed: boolean;
+                    };
+                };
+            };
+        };
+    };
+    command_video_call_poll_open: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    callId: string;
+                    questionId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        changed: boolean;
+                        /** Format: date-time */
+                        closesAt: string;
+                        /** Format: uuid */
+                        pollId: string;
+                    };
+                };
+            };
+        };
+    };
+    command_video_call_poll_skip: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    callId: string;
+                    questionId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        changed: boolean;
                     };
                 };
             };
@@ -59189,6 +59393,39 @@ export interface operations {
                         /** @enum {string} */
                         attendeeVideo: "off" | "team" | "everyone";
                         changed: boolean;
+                    };
+                };
+            };
+        };
+    };
+    command_video_call_set_poll: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    callId: string;
+                    formId: string | null;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        changed: boolean;
+                        pollFormId: string | null;
                     };
                 };
             };
@@ -65463,6 +65700,8 @@ export interface operations {
                                         attendeeVideo: "off" | "team" | "everyone";
                                         /** @default true */
                                         missedFollowUp: boolean;
+                                        /** @default null */
+                                        pollFormId: string | null;
                                         /** @default true */
                                         startingNow: boolean;
                                     };
@@ -68543,7 +68782,7 @@ export interface operations {
                             inChat: boolean;
                             lastResponseAt: string | null;
                             /** @enum {string} */
-                            mode: "form" | "survey" | "quiz";
+                            mode: "form" | "survey" | "quiz" | "poll";
                             name: string;
                             questionCount: number;
                             responseCount: number;
@@ -68587,7 +68826,7 @@ export interface operations {
                 "application/json": {
                     /** @default false */
                     includeArchived?: boolean;
-                    mode?: ("form" | "survey" | "quiz")[];
+                    mode?: ("form" | "survey" | "quiz" | "poll")[];
                     search?: string;
                     status?: ("draft" | "live" | "closed" | "archived")[];
                     /** Format: uuid */
@@ -68611,7 +68850,7 @@ export interface operations {
                             inChat: boolean;
                             lastResponseAt: string | null;
                             /** @enum {string} */
-                            mode: "form" | "survey" | "quiz";
+                            mode: "form" | "survey" | "quiz" | "poll";
                             name: string;
                             questionCount: number;
                             responseCount: number;
@@ -68673,7 +68912,7 @@ export interface operations {
                             responseId: string;
                             scorePercent: number | null;
                             /** @enum {string} */
-                            source: "link" | "embed" | "chat" | "qr" | "app" | "api";
+                            source: "link" | "embed" | "chat" | "qr" | "app" | "api" | "video_call";
                         }[];
                     };
                 };
@@ -68729,7 +68968,7 @@ export interface operations {
                             resultId: string | null;
                             scorePercent: number | null;
                             /** @enum {string} */
-                            source: "link" | "embed" | "chat" | "qr" | "app" | "api";
+                            source: "link" | "embed" | "chat" | "qr" | "app" | "api" | "video_call";
                             /** Format: date-time */
                             startedAt: string;
                             /** @enum {string} */
@@ -68785,7 +69024,7 @@ export interface operations {
                             resultId: string | null;
                             scorePercent: number | null;
                             /** @enum {string} */
-                            source: "link" | "embed" | "chat" | "qr" | "app" | "api";
+                            source: "link" | "embed" | "chat" | "qr" | "app" | "api" | "video_call";
                             /** Format: date-time */
                             startedAt: string;
                             /** @enum {string} */
@@ -68829,7 +69068,7 @@ export interface operations {
                         /** Format: uuid */
                         formId: string;
                         /** @enum {string} */
-                        mode: "form" | "survey" | "quiz";
+                        mode: "form" | "survey" | "quiz" | "poll";
                         name: string;
                         passRate: number | null;
                         questions: {
@@ -88335,6 +88574,7 @@ export interface operations {
                             /** Format: uuid */
                             id: string;
                             personId: string | null;
+                            pollFormId: string | null;
                             startedAt: string | null;
                             /** @enum {string} */
                             state: "open" | "live" | "ended";
@@ -88366,6 +88606,79 @@ export interface operations {
                             state: "waiting" | "admitted" | "in" | "left" | "turned_away" | "removed";
                             userId: string | null;
                         }[];
+                    };
+                };
+            };
+        };
+    };
+    query_video_call_polls: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    callId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        form: {
+                            /** Format: uuid */
+                            id: string;
+                            name: string;
+                            ready: boolean;
+                        } | null;
+                        questions: {
+                            button: {
+                                /** @enum {string} */
+                                action: "link" | "book" | "talk";
+                                label: string;
+                            } | null;
+                            closesAt: string | null;
+                            openedAt: string | null;
+                            openedBy: ("team" | "ai") | null;
+                            pollId: string | null;
+                            pressed: {
+                                name: string;
+                                /** Format: uuid */
+                                personId: string;
+                            }[];
+                            questionId: string;
+                            seconds: number;
+                            showResults: boolean;
+                            /** @enum {string} */
+                            state: "waiting" | "open" | "closed" | "skipped";
+                            texts: {
+                                name: string;
+                                text: string;
+                            }[];
+                            title: string;
+                            totals: {
+                                answered: number;
+                                average: number | null;
+                                bars: {
+                                    count: number;
+                                    id: string;
+                                    label: string;
+                                }[];
+                            };
+                            type: string;
+                        }[];
+                        watching: number;
                     };
                 };
             };

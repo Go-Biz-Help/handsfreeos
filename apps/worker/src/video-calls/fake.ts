@@ -24,6 +24,8 @@ export interface FakeVideo extends VideoCallProvider {
   readonly inRooms: Map<string, { people: number; listener: boolean }>;
   /** What each room was last told about the AI (`markAi`). */
   readonly aiMarks: Map<string, boolean>;
+  /** What was sent to rooms on data topics (a live poll), in order. */
+  readonly sent: { room: string; topic: string; message: unknown; to: readonly string[] | null }[];
 }
 
 const enc = (s: string) => Buffer.from(s).toString('base64url');
@@ -66,6 +68,7 @@ export function createFakeVideo(): FakeVideo {
   const listenerTickets: string[] = [];
   const inRooms = new Map<string, { people: number; listener: boolean }>();
   const aiMarks = new Map<string, boolean>();
+  const sent: FakeVideo['sent'] = [];
   return {
     name: 'fake',
     tickets,
@@ -76,6 +79,7 @@ export function createFakeVideo(): FakeVideo {
     listenerTickets,
     inRooms,
     aiMarks,
+    sent,
     async ticket(t) {
       tickets.push(t);
       return { url: 'fake:', token: `fake-livekit.${enc(JSON.stringify(t))}` };
@@ -112,6 +116,9 @@ export function createFakeVideo(): FakeVideo {
     },
     async markAi(room, on) {
       aiMarks.set(room, on);
+    },
+    async send(room, topic, message, to) {
+      sent.push({ room, topic, message, to: to ? [...to] : null });
     },
   };
 }

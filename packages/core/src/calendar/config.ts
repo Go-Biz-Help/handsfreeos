@@ -196,6 +196,8 @@ const Webinar = z.object({
   startingNow: z.boolean().default(true),
   /** Anyone who missed it completely is told when the next session is, with a link to save a seat (24). */
   missedFollowUp: z.boolean().default(true),
+  /** The live poll each session's questions pop up from (part 2, the owner's 8); the team can pick another. */
+  pollFormId: id.nullable().default(null),
 });
 
 const Locations = z.object({

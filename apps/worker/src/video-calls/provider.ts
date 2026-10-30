@@ -96,6 +96,12 @@ export interface VideoCallProvider {
   whoIsIn(room: string): Promise<{ readonly people: number; readonly listener: boolean }>;
   /** Tells everyone in the call whether the AI is hearing it ("AI notes on"). A room that's closed is no trouble. */
   markAi(room: string, on: boolean): Promise<void>;
+  /**
+   * Sends a message on a data topic to everyone in a room, or only to the identities named (a live poll, part 2 of
+   * webinars). It comes from the server, so pages trust it where they'd ignore the same topic from a person. A room
+   * that's closed is no trouble.
+   */
+  send(room: string, topic: string, message: unknown, to?: readonly string[]): Promise<void>;
 }
 
 /** LiveKit refused or didn't answer. `permanent` is a refusal that trying again won't change. */

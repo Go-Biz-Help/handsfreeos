@@ -20,7 +20,9 @@
  *   - the team turning AI notes off forgets what was heard, and the listener leaves;
  *   - a call with a customer that isn't for an appointment (part 5) sends them their own link on the business's
  *     address, lets them in on it once the team is there, becomes a line on their timeline with its transcript and
- *     summary, and stops opening a day after it was sent.
+ *     summary, and stops opening a day after it was sent;
+ *   - a live poll's question pops up for everyone from the server, the customer answers it on their own link, and
+ *     its totals go to everyone when it shares them (webinars, part 2).
  */
 import { randomBytes, randomUUID } from 'node:crypto';
 import type { AiProvider } from '@hfos/ai';
@@ -29,7 +31,11 @@ import {
   callSuggestionList,
   captionOf,
   executeCommand,
+  formCreate,
+  formPublish,
+  formSaveDraft,
   pushDeviceRegister,
+  VIDEO_CALL_POLLS_TOPIC,
   VIDEO_CALL_WORDS,
   videoCallAdmit,
   videoCallEnd,
@@ -38,7 +44,9 @@ import {
   videoCallMute,
   videoCallRemove,
   videoCallRoom,
+  videoCallPollOpen,
   videoCallSetAi,
+  videoCallSetPoll,
   videoCallTurnAway,
   videoCallUsageKey,
   LISTENER_IDENTITY,
@@ -1182,5 +1190,127 @@ describe('a call with a customer that isn’t for an appointment (part 5)', () =
     // A link that was never sent opens nothing.
     const made = await openLink(`${w.s.bookingLinks.webUrl}/j/${'Z'.repeat(32)}`);
     expect(made.statusCode).toBe(404);
+  });
+});
+
+describe('a live poll (webinars, part 2)', () => {
+  /** A published live poll with one pick-one question whose totals everyone sees. */
+  async function livePoll(): Promise<string> {
+    const created = await run(w, formCreate, {
+      workspaceId: w.workspaceId,
+      name: `Poll ${randomUUID().slice(0, 6)}`,
+      mode: 'poll',
+    });
+    const [row] = await rows<{ definition: { pages: { id: string }[] } }>(
+      admin(),
+      sql`select definition from app.forms where id = ${created.formId}`,
+    );
+    const saved = await run(w, formSaveDraft, {
+      workspaceId: w.workspaceId,
+      formId: created.formId,
+      baseRevision: 1,
+      ops: [
+        {
+          op: 'add_question',
+          pageId: row!.definition.pages[0]!.id,
+          index: null,
+          question: {
+            id: 'q_leads000',
+            type: 'choice',
+            title: 'Where do your leads come from?',
+            config: {
+              choices: [
+                { id: 'c_referral', label: 'Referrals' },
+                { id: 'c_ads00000', label: 'Ads' },
+              ],
+            },
+            live: { seconds: 30, showResults: true },
+          },
+        },
+      ],
+    });
+    await run(w, formPublish, {
+      workspaceId: w.workspaceId,
+      formId: created.formId,
+      baseRevision: saved.revision,
+    });
+    return created.formId;
+  }
+
+  const pollNow = (link: string) =>
+    w.app.inject({ method: 'GET', url: `/public/join/${tokenOf(link)}/poll` });
+  const answer = (link: string, body: Record<string, unknown>) =>
+    w.app.inject({
+      method: 'POST',
+      url: `/public/join/${tokenOf(link)}/poll`,
+      headers: { 'content-type': 'application/json' },
+      payload: JSON.stringify(body),
+    });
+  const sentTo = (room: string) =>
+    w.s.videoCalls.sent.filter((m) => m.room === room && m.topic === VIDEO_CALL_POLLS_TOPIC);
+
+  it('pops a question up on everyone’s screen, takes the customer’s answer on their link, and shows the totals', async () => {
+    const b = await booked('Ivy', await soonest());
+    const team = (await teamJoin(ownerToken, b.callId)).json() as { personId: string };
+    await cameIn(b.room, team.personId, { roomSid: 'RM_ivy' });
+    const ivy = (await enter(b.link, { name: 'Ivy Customer' })).json() as { personId: string };
+    await cameIn(b.room, ivy.personId, { roomSid: 'RM_ivy' });
+
+    const formId = await livePoll();
+    await run(w, videoCallSetPoll, { workspaceId: w.workspaceId, callId: b.callId, formId });
+    expect((await pollNow(b.link)).json()).toMatchObject({ poll: null, answered: false });
+
+    const opened = await run(w, videoCallPollOpen, {
+      workspaceId: w.workspaceId,
+      callId: b.callId,
+      questionId: 'q_leads000',
+    });
+    await drain(w);
+    expect(sentTo(b.room).at(-1)).toMatchObject({
+      to: null,
+      message: {
+        t: 'open',
+        poll: {
+          pollId: opened.pollId,
+          type: 'choice',
+          title: 'Where do your leads come from?',
+          closesAt: opened.closesAt,
+        },
+      },
+    });
+    // Its time up closes it, unless something closes it first.
+    expect(
+      await jobRow(`video_call.poll_close:${opened.pollId}:${Date.parse(opened.closesAt)}`),
+    ).toMatchObject({ status: 'pending' });
+
+    const now = await pollNow(b.link);
+    expect(now.statusCode, now.body).toBe(200);
+    expect(now.json()).toMatchObject({ poll: { pollId: opened.pollId }, answered: false });
+
+    const bad = await answer(b.link, { pollId: opened.pollId, value: 'c_nothere0' });
+    expect(bad.statusCode).toBe(400);
+    expect(errorOf(bad).rule).toBe('poll_answer_invalid');
+    // The only person watching answered: it closes.
+    const said = await answer(b.link, { pollId: opened.pollId, value: 'c_ads00000' });
+    expect(said.statusCode, said.body).toBe(200);
+    expect(said.json()).toEqual({ status: 'saved', closed: true });
+    await drain(w);
+    expect(sentTo(b.room).at(-1)?.message).toEqual({
+      t: 'close',
+      pollId: opened.pollId,
+      totals: {
+        answered: 1,
+        bars: [
+          { id: 'c_referral', label: 'Referrals', count: 0 },
+          { id: 'c_ads00000', label: 'Ads', count: 1 },
+        ],
+        average: null,
+      },
+    });
+    expect((await pollNow(b.link)).json()).toMatchObject({ poll: null });
+    expect(
+      (await answer('https://x.test/j/not-a-link', { pollId: opened.pollId, value: 'x' }))
+        .statusCode,
+    ).toBe(404);
   });
 });

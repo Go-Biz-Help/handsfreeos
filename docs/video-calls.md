@@ -1,4 +1,4 @@
-# HandsFreeOS video calls (20261027013000, 20261027013300, 20261027013500, 20261027014600, 20261027019600)
+# HandsFreeOS video calls (20261027013000, 20261027013300, 20261027013500, 20261027014600, 20261027019600, 20261027019800)
 
 HandsFreeOS's own Zoom-like calls. A calendar's Online place (or one service on it) can say **HandsFreeOS video
 call**, and each appointment booked there gets its own call, with nothing for the business to connect. Customers
@@ -11,8 +11,9 @@ the video, and its write-up and score after. Part 4, the team's call screen in t
 phones with the next store build ("On the phone" below). So is part 5, calls any time: **Video call** on a customer's
 page and in a conversation, and **Switch to video** during a phone call, send the customer their own link and open the
 call ("Calls any time" below). A session's call is a **webinar**: up to 500 people, the presenter big and everyone
-else watching, with a link anyone can use ("Webinars" below, and `HANDSFREEOS_WEBINARS_IMPLEMENTATION_PLAN.md` for
-the live polls built on it). Support turns calls on per business in /admin until every business gets them. Setting up LiveKit (the account, the worker's secrets and the
+else watching, with a link anyone can use ("Webinars" below), and any call can carry **live polls**: questions and buttons that pop
+up on customers' screens, with the answers landing on their contacts ("Live polls" below;
+`HANDSFREEOS_WEBINARS_IMPLEMENTATION_PLAN.md` is the plan they come from). Support turns calls on per business in /admin until every business gets them. Setting up LiveKit (the account, the worker's secrets and the
 webhook) is "Video calls: LiveKit" in `docs/operations.md`.
 
 ## Where things are
@@ -53,6 +54,11 @@ webhook) is "Video calls: LiveKit" in `docs/operations.md`.
 | Webinars: the link anyone can use            | `webinar.register` (`packages/core/src/commands/webinar.ts`), `apps/worker/src/http/webinar-door.ts`, the web's `/live/<key>`     |
 | Webinars: starting now, missed it            | `apps/worker/src/video-calls/webinars.ts`                                                                                         |
 | Webinars: the calendar's settings            | `WebinarSettings` in `apps/web/src/components/calendars/modules.tsx` (`locations.webinar` in the calendar's config)               |
+| Live polls: tables                           | `supabase/migrations/20261027019700_live_poll_kinds.sql`, `20261027019800_live_polls.sql`                                         |
+| Live polls: rules, the pop-up, the totals    | `packages/core/src/meetings/polls.ts`; what a poll may ask is `pollProblems` in `forms/definition.ts`                             |
+| Live polls: commands and reads               | `packages/core/src/commands/video-call-poll.ts`                                                                                   |
+| Live polls: the room told, the jobs          | `apps/worker/src/video-calls/polls.ts`; the customer's routes in `video-calls/routes.ts`                                          |
+| Live polls: the pop-up and the team's panel  | `components/video-call/poll-popup.tsx`, `poll-panel.tsx`, placed by `call-room.tsx`                                               |
 
 ## How a call goes
 
@@ -304,6 +310,40 @@ The owner's answers of 29 October 2026 are in `HANDSFREEOS_WEBINARS_IMPLEMENTATI
   when the next session on the calendar with seats is, with its link anyone can use, unless they've booked a later
   one already. Off with `webinar.missedFollowUp`. The replay joins it once replays exist.
 
+### Live polls (20261027019700, 20261027019800)
+
+Part 2 of `HANDSFREEOS_WEBINARS_IMPLEMENTATION_PLAN.md`. Any HandsFreeOS call can carry one; a webinar is where it
+matters.
+
+- **A poll is a form** made as a **Live poll** (`mode = 'poll'`, "Live polls" in `docs/forms.md`). A call picks one
+  (`video_calls.poll_form_id`, `video_call.set_poll`); a session's call starts with its calendar's
+  (`locations.webinar.pollFormId`), taken only while that form is a live poll and not archived.
+- **One question is up at a time.** The team asks from the poll panel (`video_call.poll_open`, Ask now); asking
+  another closes the one that's up (`replaced`). A question asked once isn't asked again; one skipped
+  (`video_call.poll_skip`) can be. Each asking is a row in `app.video_call_polls`, one per call and question, and a
+  unique index keeps one open per call.
+- **It closes** when its time is up (`liveOf(q).seconds`, 60 by default; the worker's `video_call.poll_close` job at
+  `closes_at`, which leaves alone a question asked again since), once 90% of the customers in the call answered
+  (`closesEarly`: the answer that gets it there closes it, in the same transaction), or on the team's Close.
+- **The room is told by the worker, from the events,** on LiveKit's `hfos.polls` data topic. Pages trust a poll
+  message only when LiveKit delivered it with nobody's name on it, which is how the server's messages arrive, so
+  someone in the call sending the same topic is ignored. A page that joins late, or comes back after a drop, asks
+  `GET /public/join/<token>/poll` what's up.
+- **Answers come in on the customer's own Join link** (`POST /public/join/<token>/poll`, `video_call.poll_answer`).
+  The first answer to a question stands; one sent after closing gets "closed" back (a few seconds' grace for answers
+  already on their way). Only someone in the call answers, as themselves: their seat is their contact.
+- **Each person's answers are one form response on their contact** (`form_responses.video_call_id`, one per call,
+  form and person), filled in as the questions come with the ordinary `form_answers`, so Results, the timeline and
+  the record read them unchanged. When a stretch of the call ends, `video_call.polls_finish` (10 seconds later, for
+  late answers) sends each sheet, so `form.submitted` starts the workflows on "Somebody answers a form".
+- **Totals** go to the team's panel live (`video_call.polls`, read every 2 seconds while a question is up), and to
+  everyone after closing only when the question says **Show everyone the totals when it closes**. What people typed
+  and who pressed a button are the team's alone.
+- **A button** (`type = 'button'`) is pressed as its answer (`true`). **Book** opens the calendar's booking page, a
+  **link** opens its https page in a new tab, and **talk to someone** just tells the team.
+- **A poll can't be filled in anywhere else:** it has no public page, the AI teammate can't ask it, the phone's Forms
+  list leaves it out, and `form_response.*` refuses it (`form_is_poll`).
+
 ## Running it locally
 
 Without LiveKit the worker uses its stand-in: tickets connect to nothing and the call screen shows a stand-in for
@@ -326,6 +366,7 @@ enough to see captions and lines arrive. With `DEEPGRAM_API_KEY` and `VOICE_AGEN
   but **Video call** goes on to open the call for whoever pressed it, so for now it's only a button.
 - Screen share from a phone's browser, which phones don't allow; they can watch someone else's.
 - Joining by phone, recordings, breakout rooms and picture backgrounds.
-- A webinar's live polls, the AI popping them up, slides inside HandsFreeOS and scoring who to follow up: parts 2 to
-  5 of `HANDSFREEOS_WEBINARS_IMPLEMENTATION_PLAN.md`.
+- The AI popping live polls up, slides inside HandsFreeOS and scoring who to follow up: parts 3 to 5 of
+  `HANDSFREEOS_WEBINARS_IMPLEMENTATION_PLAN.md`. Live polls on the phone's call screen: the team asks from the web
+  for now.
 - Webinar controls on the phone: it shows who's presenting, but the camera choice and Bring on stage are on the web.

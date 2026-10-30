@@ -132,6 +132,7 @@ export function describeFormOp(op: FormOp, before: FormDefinition): string {
       if (patch.showIf !== undefined) changes.push('changed when it shows');
       if (patch.help !== undefined) changes.push('changed the line underneath');
       if (patch.config !== undefined) changes.push('changed its settings');
+      if (patch.live !== undefined) changes.push('changed how it pops up');
       return changes.length ? `${name}: ${changes.join(', ')}` : `Changed ${name}`;
     }
     case 'add_choice':

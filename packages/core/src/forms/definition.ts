@@ -33,19 +33,56 @@ import { videoLinkProblem } from './video';
 
 export const FORM_DEFINITION_VERSION = 1;
 
-export const FORM_MODES = ['form', 'survey', 'quiz'] as const;
+/**
+ * `poll` is a live poll (HANDSFREEOS_WEBINARS_IMPLEMENTATION_PLAN.md, part 2): its questions and buttons pop up one at
+ * a time in a HandsFreeOS video call, and each person's answers are one response on their contact. It's never filled
+ * in on a page, in a conversation or on the phone.
+ */
+export const FORM_MODES = ['form', 'survey', 'quiz', 'poll'] as const;
 export type FormMode = (typeof FORM_MODES)[number];
 
 export const FORM_MODE_LABELS: Readonly<Record<FormMode, string>> = {
   form: 'Form',
   survey: 'Survey',
   quiz: 'Quiz',
+  poll: 'Live poll',
 };
 
 export const MAX_PAGES = 30;
 export const MAX_QUESTIONS_PER_PAGE = 60;
 export const MAX_QUESTIONS = 200;
 export const MAX_RESULTS = 20;
+
+// ---- Live polls ----
+
+/** What a live poll asks: pick one, pick any, yes or no, a rating, a 1 to 10 scale, a short answer, and buttons. */
+export const POLL_QUESTION_TYPES: ReadonlySet<QuestionType> = new Set([
+  'choice',
+  'checkboxes',
+  'yes_no',
+  'rating',
+  'scale',
+  'short_text',
+  'button',
+]);
+/** Types that only make sense popping up in a call. */
+export const POLL_ONLY_TYPES: ReadonlySet<QuestionType> = new Set(['button']);
+export const MAX_POLL_ITEMS = 30;
+/** How long a question stays up unless it says otherwise (the owner's 15). */
+export const POLL_SECONDS = 60;
+export const POLL_MIN_SECONDS = 10;
+export const POLL_MAX_SECONDS = 600;
+
+/**
+ * How a question runs in a live poll: how long it stays up, and whether everyone sees the totals once it closes (the
+ * owner's 16). Left out, the defaults: a minute, and the totals kept for the team. A short answer's totals are never
+ * shown to everyone: they're what people typed.
+ */
+export const LiveQuestion = z.object({
+  seconds: z.int().min(POLL_MIN_SECONDS).max(POLL_MAX_SECONDS).default(POLL_SECONDS),
+  showResults: z.boolean().default(false),
+});
+export type LiveQuestion = z.infer<typeof LiveQuestion>;
 
 // ---- Questions ----
 
@@ -63,6 +100,8 @@ const questionBase = {
    * invented. Null keeps it on the response, where it still shows on the customer's timeline.
    */
   mapTo: AnswerTargetRef.nullable().default(null),
+  /** In a live poll: how long it stays up and who sees the totals. Left out, `LiveQuestion`'s defaults. */
+  live: LiveQuestion.nullish(),
 };
 
 const question = <T extends QuestionType>(type: T) =>
@@ -89,6 +128,7 @@ export const Question = z.discriminatedUnion('type', [
   question('payment'),
   question('video'),
   question('booking'),
+  question('button'),
 ]);
 export type Question = z.infer<typeof Question>;
 export type QuestionInput = z.input<typeof Question>;
@@ -296,6 +336,11 @@ export type FormDefinitionInput = z.input<typeof FormDefinition>;
 
 // ---- Reading the tree ----
 
+/** How a question runs in a live poll, its defaults filled in. */
+export function liveOf(question: Pick<Question, 'live'>): LiveQuestion {
+  return LiveQuestion.parse(question.live ?? {});
+}
+
 /** Every question, in the order they are asked. */
 export function allQuestions(definition: Pick<FormDefinition, 'pages'>): Question[] {
   return definition.pages.flatMap((page) => page.questions);
@@ -480,6 +525,14 @@ export function formProblems(definition: FormDefinition): string[] {
       }
   }
 
+  if (definition.mode === 'poll') problems.push(...pollProblems(definition));
+  else
+    for (const question of questions)
+      if (POLL_ONLY_TYPES.has(question.type))
+        problems.push(
+          `“${question.title}” is a button for a live poll. Make this form a Live poll, or take the button out.`,
+        );
+
   for (const term of definition.calculations.flatMap((c) => c.terms))
     for (const factor of term.factors) {
       if (factor.kind === 'question' && !known.has(factor.questionId))
@@ -490,6 +543,40 @@ export function formProblems(definition: FormDefinition): string[] {
   problems.push(...calculationProblems(definition.calculations));
 
   return [...new Set(problems.filter(Boolean))];
+}
+
+/**
+ * What's wrong with a live poll: a question that can't pop up in a call, a rule (a question pops up when it's asked,
+ * so nothing decides whether it shows), too many to get through, and a button with nowhere to go.
+ */
+function pollProblems(definition: FormDefinition): string[] {
+  const problems: string[] = [];
+  const questions = allQuestions(definition);
+  if (!questions.length) problems.push('A live poll needs a question or a button.');
+  if (questions.length > MAX_POLL_ITEMS)
+    problems.push(`A live poll holds up to ${MAX_POLL_ITEMS} questions and buttons.`);
+  if (
+    definition.pages.some((p) => p.showIf.conditions.length) ||
+    questions.some((q) => q.showIf.conditions.length)
+  )
+    problems.push(
+      'Questions in a live poll pop up when they’re asked, so they can’t have rules. Take the rules off.',
+    );
+  for (const question of questions) {
+    if (!POLL_QUESTION_TYPES.has(question.type)) {
+      problems.push(
+        `“${question.title}” can’t pop up in a live poll. Use pick one, pick any, yes or no, a rating, a scale, a short answer or a button.`,
+      );
+      continue;
+    }
+    if (question.type !== 'button') continue;
+    const button = question.config as { action: string; url: string; calendarId: string };
+    if (button.action === 'link' && !isWebAddress(button.url))
+      problems.push(`“${question.title}” needs a web address starting https:// to open.`);
+    if (button.action === 'book' && !button.calendarId)
+      problems.push(`“${question.title}” needs a calendar to book on.`);
+  }
+  return problems;
 }
 
 /** Whether a quiz can actually be scored. */

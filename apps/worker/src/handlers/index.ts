@@ -56,6 +56,11 @@ import {
 } from '../video-calls/handlers';
 import { onWebinarNoShow } from '../video-calls/webinars';
 import {
+  onVideoCallEndedPolls,
+  onVideoCallPollClosed,
+  onVideoCallPollOpened,
+} from '../video-calls/polls';
+import {
   onAppointmentChanged,
   onMeetingConnected,
   onMeetingLinkRequested,
@@ -292,11 +297,14 @@ const ownTeammateAndWorkflows: HandlerMap = withWorkflows(
       'video_call.person_removed': onVideoCallPersonRemoved,
       'video_call.mute_requested': onVideoCallMuteRequested,
       'video_call.ended_by_host': onVideoCallEndedByHost,
-      'video_call.ended': onVideoCallEnded,
+      'video_call.ended': [onVideoCallEnded, onVideoCallEndedPolls],
       'video_call.ai_changed': onVideoCallAiChanged,
       // A webinar: the camera choice and bringing someone on stage change what attendees may send.
       'video_call.attendee_video_changed': onVideoCallAttendeeVideoChanged,
       'video_call.stage_changed': onVideoCallStageChanged,
+      // Live polls (webinars, part 2): on everyone's screen, and off again.
+      'video_call.poll_opened': onVideoCallPollOpened,
+      'video_call.poll_closed': onVideoCallPollClosed,
       // Someone who missed a webinar completely is told about the next one (video-calls/webinars.ts).
       'attendee.no_show': onWebinarNoShow,
       // What customers said in public: a person asks, and the queue does it.

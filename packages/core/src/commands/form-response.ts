@@ -171,8 +171,17 @@ async function openResponse(
   return { response, definition: parseStoredForm(version.definition), form };
 }
 
-/** Whether a form is taking answers at all: live, not archived, not past its own closing rules. */
+/**
+ * Whether a form is taking answers at all: live, not archived, not past its own closing rules. A live poll never is
+ * here: its questions pop up in a video call, and its answers come from there (`video_call.poll_answer`).
+ */
 function assertOpen(form: typeof forms.$inferSelect, definition: FormDefinition): void {
+  if (definition.mode === 'poll')
+    throw HfosError.rule(
+      'form_is_poll',
+      409,
+      'This is a live poll. Its questions pop up during a HandsFreeOS video call, so it can’t be filled in here.',
+    );
   if (form.status !== 'live')
     throw HfosError.rule('form_closed', 409, definition.settings.closedMessage);
   const { closesAt, closesAfter } = definition.settings;

@@ -9,7 +9,8 @@ It builds on the video calls (`docs/video-calls.md`), sessions-mode calendars (e
 (`docs/forms.md`) and the listener that already hears each person's microphone on its own.
 
 **Where it stands (2026-10-30):** the owner answered the 26 questions; part 1, the webinar room, is built (migration
-20261027019600, "Webinars" in `docs/video-calls.md`). Parts 2 to 5 are next.
+20261027019600, "Webinars" in `docs/video-calls.md`), and so is part 2, live polls (migrations 20261027019700 and
+20261027019800, "Live polls" in `docs/video-calls.md`). Parts 3 to 5 are next.
 
 ## Decisions (the owner, 2026-10-29 23:15 UTC)
 

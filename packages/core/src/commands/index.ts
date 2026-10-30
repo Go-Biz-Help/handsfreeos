@@ -70,6 +70,7 @@ import { meetingConnectionCommands } from './meeting-connection';
 import { liveMeetingCommands } from './live-meeting';
 import { videoCallCommands } from './video-call';
 import { webinarCommands } from './webinar';
+import { videoCallPollCommands } from './video-call-poll';
 import { callSuggestionCommands } from './call-suggestion';
 import { companyArchive } from './company.archive';
 import {
@@ -922,6 +923,8 @@ export const commands: readonly CommandDef[] = [
   ...videoCallCommands,
   // Webinars: a session's call (HANDSFREEOS_WEBINARS_IMPLEMENTATION_PLAN.md).
   ...webinarCommands,
+  // Live polls in a call (part 2).
+  ...videoCallPollCommands,
   ...callSuggestionCommands,
   attendeeRecordReminder,
   waitlistPromote,
@@ -1229,6 +1232,7 @@ export * from './meeting-connection';
 export * from './live-meeting';
 export * from './video-call';
 export * from './webinar';
+export * from './video-call-poll';
 export * from './call-suggestion';
 export * from './number-import';
 export * from './twilio-connection';

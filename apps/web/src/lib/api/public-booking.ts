@@ -5,7 +5,7 @@
  * production so a busy page doesn't spend the worker's per-address limits. Open times, bookings and the
  * change-or-cancel page are asked from the customer's own browser, so those limits count per customer.
  */
-import type { BusinessPageParts } from '@hfos/core';
+import type { BusinessPageParts, PollOnScreen } from '@hfos/core';
 import { notFound } from 'next/navigation';
 import { publicEnv } from '../env';
 import { ApiError } from './errors';
@@ -615,6 +615,27 @@ export interface KnockAnswer {
 /** How a request to be let in stands, asked by the page that made it. */
 export const knockStatus = (callId: string, personId: string, key: string) =>
   post<KnockAnswer>(`/public/calls/${seg(callId)}/knock/${seg(personId)}`, { key }, PRIVATE);
+
+// ---------- a live poll in the call, on a customer's own link (webinars, part 2) ----------
+
+/** The live poll question that's up in the call, and whether they've answered it. */
+export interface CallPollNow {
+  readonly poll: PollOnScreen | null;
+  readonly answered: boolean;
+  /** Whose answers they are, for the line under the pop-up. */
+  readonly business: string;
+}
+
+export const getCallPoll = (token: string) =>
+  call<CallPollNow>(`/public/join/${seg(token)}/poll`, PRIVATE);
+
+/** Their answer to the question that's up, or the button they pressed. */
+export const answerCallPoll = (token: string, body: { pollId: string; value: unknown }) =>
+  post<{ status: 'saved' | 'already' | 'closed'; closed: boolean }>(
+    `/public/join/${seg(token)}/poll`,
+    body,
+    PRIVATE,
+  );
 
 // ---------- a webinar's link anyone can use (the worker's http/webinar-door.ts) ----------
 

@@ -104,7 +104,10 @@ export function FormEditor({
                 : 'Results',
               testId: 'tab-results',
             },
-            { value: 'share', label: 'Share', testId: 'tab-share' },
+            // A live poll has no link: its questions pop up in a video call.
+            ...(editor.definition.mode === 'poll'
+              ? []
+              : [{ value: 'share' as const, label: 'Share', testId: 'tab-share' }]),
           ]}
         />
         <FormStatusBadge status={initial.form.status} />

@@ -21,10 +21,13 @@
  *   worker keeps them in step with LiveKit's permissions). The team's header has the attendees' cameras choice and
  *   how many are watching. An attendee whose camera only the team may see lets only the team's pages receive it
  *   (LiveKit's track subscription permissions).
+ * - **A live poll** (part 2): the team's Live poll panel asks the call's poll questions (./poll-panel.tsx), and a
+ *   customer on their own link sees each pop up and answers it (./poll-popup.tsx).
  */
 import {
   ATTENDEE_VIDEO_CHOICES,
   LISTENER_IDENTITY,
+  POLL_WORDS,
   VIDEO_CALL_ATTRIBUTES,
   VIDEO_CALL_CAPTIONS_TOPIC,
   VIDEO_CALL_REACTIONS,
@@ -74,6 +77,7 @@ import {
   ChevronDown,
   FileText,
   Hand,
+  ListChecks,
   MessageSquare,
   Mic,
   MicOff,
@@ -111,6 +115,8 @@ import { cn } from '@/lib/utils';
 import { canBlur, setBlur } from './blur';
 import { ChatPanel, PeoplePanel } from './call-panels';
 import { CallStage } from './call-stage';
+import { PollPanel } from './poll-panel';
+import { PollPopup } from './poll-popup';
 import { mediaProblem } from './pre-join';
 import {
   actOn,
@@ -136,6 +142,8 @@ export interface CallRoomProps {
   readonly team?: TeamSide | null;
   /** For the team: what add-ons show beside the video (the Sales Coach's cards, ./call-coach.tsx). */
   readonly coach?: ReactNode;
+  /** For a customer on their own link: the link, which answers the live poll's questions (./poll-popup.tsx). */
+  readonly poll?: { readonly token: string; readonly business: string } | null;
   readonly onEnd: (why: CallEnd) => void;
 }
 
@@ -168,7 +176,7 @@ function cameraOf(room: Room): LocalVideoTrack | undefined {
     LocalVideoTrack | undefined;
 }
 
-function LiveRoom({ ticket, choices, heading, color, team, coach, onEnd }: CallRoomProps) {
+function LiveRoom({ ticket, choices, heading, color, team, coach, poll, onEnd }: CallRoomProps) {
   const [room] = useState(
     () =>
       new Room({
@@ -257,6 +265,7 @@ function LiveRoom({ ticket, choices, heading, color, team, coach, onEnd }: CallR
         color={color}
         team={team ?? null}
         coach={team ? coach : null}
+        poll={team ? null : (poll ?? null)}
         blur={blur}
         onBlur={(on) => void toggleBlur(on)}
         onLeave={() => void room.disconnect()}
@@ -278,6 +287,7 @@ function CallScreen({
   color,
   team,
   coach,
+  poll,
   blur,
   onBlur,
   onLeave,
@@ -286,6 +296,7 @@ function CallScreen({
   color?: string | null | undefined;
   team: TeamSide | null;
   coach: ReactNode;
+  poll: CallRoomProps['poll'];
   blur: boolean;
   onBlur: (on: boolean) => void;
   onLeave: () => void;
@@ -294,7 +305,7 @@ function CallScreen({
   const { localParticipant, isMicrophoneEnabled, isCameraEnabled, isScreenShareEnabled } =
     useLocalParticipant();
   const people = useParticipants().filter((p) => isPersonIdentity(p.identity));
-  const [panel, setPanel] = useState<'chat' | 'people' | null>(null);
+  const [panel, setPanel] = useState<'chat' | 'people' | 'poll' | null>(null);
   const chat = useChat();
   const [seen, setSeen] = useState(0);
   const [floating, setFloating] = useState<Floating[]>([]);
@@ -591,6 +602,7 @@ function CallScreen({
             )}
             <Reactions floating={floating} />
             {cc ? <CaptionLines lines={captions} aiOn={aiNotes} /> : null}
+            {poll ? <PollPopup token={poll.token} business={poll.business} /> : null}
           </div>
           {panel === 'chat' ? (
             <ChatPanel
@@ -607,6 +619,8 @@ function CallScreen({
               onClose={() => setPanel(null)}
               webinar={webinar}
             />
+          ) : panel === 'poll' && team ? (
+            <PollPanel team={team} onClose={() => setPanel(null)} />
           ) : coach ? (
             // The coach's cards beside the video, or over its top on a phone; nothing while there are none.
             <div
@@ -727,6 +741,16 @@ function CallScreen({
           >
             <Users size={19} />
           </Control>
+          {team ? (
+            <Control
+              label={POLL_WORDS.panel}
+              active={panel === 'poll'}
+              onClick={() => setPanel(panel === 'poll' ? null : 'poll')}
+              testId="call-poll-button"
+            >
+              <ListChecks size={19} />
+            </Control>
+          ) : null}
           <Control
             label="Chat"
             active={panel === 'chat'}

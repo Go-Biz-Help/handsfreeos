@@ -71,9 +71,13 @@ export const SCREEN_ACTIONS: Readonly<Record<string, ScreenAction>> = {
   'video_call.admit': {},
   'video_call.end': {},
   'video_call.mute': {},
+  'video_call.poll_close': {},
+  'video_call.poll_open': {},
+  'video_call.poll_skip': {},
   'video_call.remove': {},
   'video_call.set_ai': {},
   'video_call.set_attendee_video': {},
+  'video_call.set_poll': {},
   'video_call.stage': {},
   'video_call.turn_away': {},
   // ---- Money and plans ----

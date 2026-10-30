@@ -139,7 +139,7 @@ export type FormIssueOut = z.infer<typeof FormIssueOut>;
 
 // ---- Filling one in ----
 
-export const FormSourceValue = z.enum(['link', 'embed', 'chat', 'qr', 'app', 'api']);
+export const FormSourceValue = z.enum(['link', 'embed', 'chat', 'qr', 'app', 'api', 'video_call']);
 
 /** Answers by question id. What each one may be is the question's own business (core's answerProblem). */
 export const AnswerSheetInput = z

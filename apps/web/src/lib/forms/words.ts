@@ -19,6 +19,7 @@ import {
   Hash,
   Heading,
   MapPin,
+  MousePointerClick,
   PenLine,
   Phone,
   SlidersHorizontal,
@@ -50,6 +51,7 @@ export const QUESTION_ICONS: Readonly<Record<QuestionType, LucideIcon>> = {
   payment: CreditCard,
   video: Film,
   booking: CalendarCheck,
+  button: MousePointerClick,
 };
 
 export { QUESTION_LABELS, FORM_MODE_LABELS };
@@ -62,10 +64,21 @@ export const QUESTION_MENU: readonly { group: string; types: readonly QuestionTy
   { group: 'Other', types: ['content', 'video', 'booking', 'file', 'signature', 'payment'] },
 ];
 
+/** A live poll's menu: what can pop up in a call (the owner's 9 and 17). */
+export const POLL_MENU: readonly { group: string; types: readonly QuestionType[] }[] = [
+  { group: 'Asking', types: ['choice', 'checkboxes', 'yes_no', 'short_text'] },
+  { group: 'Numbers', types: ['rating', 'scale'] },
+  { group: 'Buttons', types: ['button'] },
+];
+
+/** The menu for a form of this kind. */
+export const questionMenu = (mode: FormMode) => (mode === 'poll' ? POLL_MENU : QUESTION_MENU);
+
 export const MODE_BLURB: Readonly<Record<FormMode, string>> = {
   form: 'Collects answers and files them against the customer.',
   survey: 'Asks how you did. Can be answered without saying who they are.',
   quiz: 'Scores the answers, or points people at the right result.',
+  poll: 'Questions and buttons that pop up during a HandsFreeOS video call or webinar.',
 };
 
 export const STATUS_WORDS: Readonly<

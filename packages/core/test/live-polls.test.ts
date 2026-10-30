@@ -1,0 +1,447 @@
+/**
+ * Live polls, part 2 of webinars (HANDSFREEOS_WEBINARS_IMPLEMENTATION_PLAN.md), on the real database: a call's poll,
+ * asking its questions, answers landing on each person's contact, and each sheet sent when the call ends.
+ *
+ * What's worth holding:
+ *   - a session's call starts with its calendar's poll, and only a form made as a Live poll can be one;
+ *   - the team asks one question at a time: asking another closes the one that's up, and an asked one stays asked;
+ *   - each person's answers are one response on their contact, one answer per question, the first standing, and only
+ *     someone on the call's appointment can answer;
+ *   - nearly everyone watching answering closes it, and a job that runs early leaves it be;
+ *   - when the call ends each sheet is sent, so `form.submitted` goes out for it;
+ *   - a live poll can't be filled in anywhere else.
+ */
+import { rows, sql } from '@hfos/db/client';
+import { closeTestDbs } from '@hfos/db/testing';
+import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import {
+  formCreate,
+  formPublish,
+  formResponseStart,
+  formSaveDraft,
+  sessionPublish,
+  videoCallEnter,
+  videoCallJoin,
+  videoCallJoined,
+  videoCallOpen,
+  videoCallPollAnswer,
+  videoCallPollClose,
+  videoCallPollNow,
+  videoCallPollOpen,
+  videoCallPollsFinish,
+  videoCallPollsGet,
+  videoCallPollSkip,
+  videoCallSetPoll,
+  webinarRegister,
+} from '../src/server';
+import {
+  admin,
+  ask,
+  askSystem,
+  expectHfos,
+  isoAt,
+  makeCalendar,
+  nextPhone,
+  nextWeekday,
+  run,
+  runSystem,
+  setupTeam,
+  type Team,
+} from './calendar-helpers';
+
+let t: Team;
+let calendarId: string;
+let pollId: string;
+
+const Q = {
+  leads: 'q_leads000',
+  crm: 'q_crm00000',
+  ready: 'q_ready000',
+  trade: 'q_trade000',
+  talk: 'q_talk0000',
+};
+
+/** A published live poll: pick one, yes or no, a 1 to 10 scale, a short answer and a Talk to someone button. */
+async function publishedPoll(name: string, mode: 'poll' | 'form' = 'poll'): Promise<string> {
+  const created = await run(formCreate, { workspaceId: t.wsId, name, mode }, t.owner);
+  const [row] = await rows<{ definition: { pages: { id: string }[] } }>(
+    admin(),
+    sql`select definition from app.forms where id = ${created.formId}`,
+  );
+  const pageId = row!.definition.pages[0]!.id;
+  const add = (question: Record<string, unknown>) => ({
+    op: 'add_question',
+    pageId,
+    index: null,
+    question,
+  });
+  const ops =
+    mode === 'poll'
+      ? [
+          add({
+            id: Q.leads,
+            type: 'choice',
+            title: 'Where do your leads come from?',
+            config: {
+              choices: [
+                { id: 'c_referral', label: 'Referrals' },
+                { id: 'c_ads00000', label: 'Ads' },
+              ],
+            },
+            live: { seconds: 45, showResults: true },
+          }),
+          add({ id: Q.crm, type: 'yes_no', title: 'Do you use a CRM?', config: {} }),
+          add({ id: Q.ready, type: 'scale', title: 'How ready are you?', config: {} }),
+          add({ id: Q.trade, type: 'short_text', title: 'What’s your trade?', config: {} }),
+          add({
+            id: Q.talk,
+            type: 'button',
+            title: 'Want help setting up?',
+            config: { action: 'talk', label: 'Talk to someone' },
+          }),
+        ]
+      : [add({ id: Q.trade, type: 'short_text', title: 'What’s your trade?', config: {} })];
+  const saved = await run(
+    formSaveDraft,
+    { workspaceId: t.wsId, formId: created.formId, baseRevision: 1, ops },
+    t.owner,
+  );
+  await run(
+    formPublish,
+    { workspaceId: t.wsId, formId: created.formId, baseRevision: saved.revision },
+    t.owner,
+  );
+  return created.formId;
+}
+
+const publish = async (clock: string, weekday = 2) => {
+  const s = await run(
+    sessionPublish,
+    {
+      workspaceId: t.wsId,
+      calendarId,
+      startsAt: isoAt(nextWeekday(weekday, 5), clock),
+      userIds: [t.priya.id],
+      capacity: 8,
+    },
+    t.owner,
+  );
+  const open = await runSystem(
+    videoCallOpen,
+    { workspaceId: t.wsId, appointmentId: s.appointmentId },
+    t.scope,
+  );
+  return { appointmentId: s.appointmentId, callId: open.callId };
+};
+
+const register = (callId: string, firstName: string) =>
+  runSystem(
+    webinarRegister,
+    {
+      workspaceId: t.wsId,
+      callId,
+      customer: { firstName, lastName: 'Watcher', phone: nextPhone() },
+      smsConsent: true,
+    },
+    t.scope,
+  );
+
+const events = (type: string, entityId: string) =>
+  rows<{ payload: Record<string, unknown> }>(
+    admin(),
+    sql`select payload from app.events where event_type = ${type} and entity_id = ${entityId} order by created_at`,
+  );
+
+const pollRow = async (callId: string, questionId: string) =>
+  (
+    await rows<{ id: string; state: string; answers: number; opened_by: string }>(
+      admin(),
+      sql`select id, state, answers, opened_by from app.video_call_polls
+          where video_call_id = ${callId} and question_id = ${questionId}`,
+    )
+  )[0];
+
+beforeAll(async () => {
+  t = await setupTeam('polls');
+  await rows(admin(), sql`update app.workspaces set video_calls = true where id = ${t.wsId}`);
+  pollId = await publishedPoll('Demo poll');
+  const cal = await makeCalendar(t, 'Live demos', {
+    public: true,
+    team: { members: [{ userId: t.priya.id }] },
+    schedule: { mode: 'sessions' },
+    locations: {
+      options: [{ kind: 'virtual', video: 'handsfree' }],
+      webinar: { pollFormId: pollId },
+    },
+  });
+  calendarId = cal.id;
+});
+afterAll(closeTestDbs);
+
+describe('a call’s poll', () => {
+  it('starts with its calendar’s, and is only ever a form made as a Live poll', async () => {
+    const { callId } = await publish('09:00');
+    const [c] = await rows<{ poll_form_id: string | null }>(
+      admin(),
+      sql`select poll_form_id from app.video_calls where id = ${callId}`,
+    );
+    expect(c!.poll_form_id).toBe(pollId);
+
+    const plain = await publishedPoll('Plain form', 'form');
+    await expectHfos(
+      () => run(videoCallSetPoll, { workspaceId: t.wsId, callId, formId: plain }, t.priya),
+      'not_a_poll',
+      409,
+    );
+    expect(
+      await run(videoCallSetPoll, { workspaceId: t.wsId, callId, formId: null }, t.priya),
+    ).toEqual({ changed: true, pollFormId: null });
+    await expectHfos(
+      () => run(videoCallPollOpen, { workspaceId: t.wsId, callId, questionId: Q.leads }, t.priya),
+      'no_poll',
+      409,
+    );
+  });
+
+  it('can’t be filled in on a page, in a conversation or on the phone', async () => {
+    await expectHfos(
+      () =>
+        runSystem(
+          formResponseStart,
+          { workspaceId: t.wsId, formId: pollId, source: 'link' },
+          t.scope,
+        ),
+      'form_is_poll',
+      409,
+    );
+  });
+});
+
+describe('asking and answering', () => {
+  let callId: string;
+  const seats: Record<string, { attendeeId: string; personId: string }> = {};
+  const t0 = Date.now();
+
+  const answer = (who: string, value: unknown, poll: string) =>
+    runSystem(
+      videoCallPollAnswer,
+      { workspaceId: t.wsId, pollId: poll, attendeeId: seats[who]!.attendeeId, value },
+      t.scope,
+    );
+
+  beforeAll(async () => {
+    ({ callId } = await publish('11:00'));
+    const priya = await run(videoCallJoin, { workspaceId: t.wsId, callId }, t.priya);
+    const joined = (personId: string, s: number) =>
+      runSystem(
+        videoCallJoined,
+        {
+          workspaceId: t.wsId,
+          callId,
+          personId,
+          roomSid: 'RM_polls',
+          participantSid: `PA_${personId.slice(0, 8)}_${s}`,
+          at: new Date(t0 + s * 1000).toISOString(),
+        },
+        t.scope,
+      );
+    await joined(priya.personId, 0);
+    for (const [i, name] of ['Ann', 'Ben'].entries()) {
+      const seat = await register(callId, name);
+      const inside = await runSystem(
+        videoCallEnter,
+        { workspaceId: t.wsId, attendeeId: seat.attendeeId, name },
+        t.scope,
+      );
+      await joined(inside.personId!, 10 + i);
+      const [p] = await rows<{ person_id: string }>(
+        admin(),
+        sql`select person_id from app.appointment_attendees where id = ${seat.attendeeId}`,
+      );
+      seats[name] = { attendeeId: seat.attendeeId, personId: p!.person_id };
+    }
+  });
+
+  it('puts a question up for its seconds, by the team', async () => {
+    const opened = await run(
+      videoCallPollOpen,
+      { workspaceId: t.wsId, callId, questionId: Q.leads },
+      t.priya,
+    );
+    expect(opened.changed).toBe(true);
+    const left = new Date(opened.closesAt).getTime() - Date.now();
+    expect(left).toBeGreaterThan(40_000);
+    expect(left).toBeLessThanOrEqual(45_000);
+    expect(await pollRow(callId, Q.leads)).toMatchObject({ state: 'open', opened_by: 'team' });
+    expect(await events('video_call.poll_opened', callId)).toHaveLength(1);
+    // Asking it again while it's up changes nothing.
+    expect(
+      (await run(videoCallPollOpen, { workspaceId: t.wsId, callId, questionId: Q.leads }, t.priya))
+        .changed,
+    ).toBe(false);
+
+    const now = await askSystem(
+      videoCallPollNow,
+      { workspaceId: t.wsId, callId, personId: seats.Ann!.personId },
+      t.scope,
+    );
+    expect(now.poll).toMatchObject({ pollId: opened.pollId, type: 'choice' });
+    expect(now.answered).toBe(false);
+  });
+
+  it('keeps one answer per person, on a sheet on their contact', async () => {
+    const poll = (await pollRow(callId, Q.leads))!.id;
+    await expectHfos(() => answer('Ann', 'c_nothere0', poll), 'poll_answer_invalid', 400);
+    expect(await answer('Ann', 'c_ads00000', poll)).toEqual({ status: 'saved', closed: false });
+    expect(await answer('Ann', 'c_referral', poll)).toEqual({ status: 'already', closed: false });
+    const [sheet] = await rows<{
+      id: string;
+      source: string;
+      status: string;
+      person_id: string;
+      video_call_id: string;
+    }>(
+      admin(),
+      sql`select id, source, status, person_id, video_call_id from app.form_responses
+          where video_call_id = ${callId} and person_id = ${seats.Ann!.personId}`,
+    );
+    expect(sheet).toMatchObject({
+      source: 'video_call',
+      status: 'in_progress',
+      video_call_id: callId,
+    });
+    const [said] = await rows<{ choice_ids: string[]; choice_labels: string[] }>(
+      admin(),
+      sql`select choice_ids, choice_labels from app.form_answers
+          where response_id = ${sheet!.id} and question_id = ${Q.leads}`,
+    );
+    expect(said).toEqual({ choice_ids: ['c_ads00000'], choice_labels: ['Ads'] });
+  });
+
+  it('takes answers only from someone on this call’s appointment', async () => {
+    const other = await publish('13:00');
+    const stranger = await register(other.callId, 'Zed');
+    const poll = (await pollRow(callId, Q.leads))!.id;
+    await expectHfos(
+      () =>
+        runSystem(
+          videoCallPollAnswer,
+          {
+            workspaceId: t.wsId,
+            pollId: poll,
+            attendeeId: stranger.attendeeId,
+            value: 'c_ads00000',
+          },
+          t.scope,
+        ),
+      'poll_not_yours',
+      403,
+    );
+  });
+
+  it('closes once nearly everyone watching has answered', async () => {
+    const poll = (await pollRow(callId, Q.leads))!.id;
+    expect(await answer('Ben', 'c_referral', poll)).toEqual({ status: 'saved', closed: true });
+    expect(await pollRow(callId, Q.leads)).toMatchObject({ state: 'closed', answers: 2 });
+    const closed = await events('video_call.poll_closed', callId);
+    expect(closed.at(-1)!.payload).toMatchObject({ pollId: poll, why: 'nearly_all', answers: 2 });
+    // Too late now.
+    expect(await answer('Ben', 'c_ads00000', poll)).toEqual({ status: 'closed', closed: false });
+  });
+
+  it('asks one at a time, never the same one twice, and lets the team skip one for now', async () => {
+    await run(videoCallPollOpen, { workspaceId: t.wsId, callId, questionId: Q.crm }, t.priya);
+    await run(videoCallPollOpen, { workspaceId: t.wsId, callId, questionId: Q.ready }, t.priya);
+    expect(await pollRow(callId, Q.crm)).toMatchObject({ state: 'closed' });
+    expect((await events('video_call.poll_closed', callId)).at(-1)!.payload).toMatchObject({
+      why: 'replaced',
+    });
+    await expectHfos(
+      () => run(videoCallPollOpen, { workspaceId: t.wsId, callId, questionId: Q.leads }, t.priya),
+      'poll_already_asked',
+      409,
+    );
+    expect(
+      await run(videoCallPollSkip, { workspaceId: t.wsId, callId, questionId: Q.trade }, t.priya),
+    ).toEqual({ changed: true });
+    expect(
+      await run(videoCallPollSkip, { workspaceId: t.wsId, callId, questionId: Q.trade }, t.priya),
+    ).toEqual({ changed: false });
+    // A skipped one can still be asked.
+    await run(videoCallPollOpen, { workspaceId: t.wsId, callId, questionId: Q.trade }, t.priya);
+    expect(await pollRow(callId, Q.trade)).toMatchObject({ state: 'open' });
+  });
+
+  it('leaves a question be when its job runs early, and closes it when its time is up', async () => {
+    const poll = (await pollRow(callId, Q.trade))!.id;
+    expect(
+      await runSystem(videoCallPollClose, { workspaceId: t.wsId, callId, pollId: poll }, t.scope),
+    ).toEqual({ changed: false });
+    await rows(
+      admin(),
+      sql`update app.video_call_polls set closes_at = now() - interval '1 second' where id = ${poll}`,
+    );
+    expect(
+      await runSystem(videoCallPollClose, { workspaceId: t.wsId, callId, pollId: poll }, t.scope),
+    ).toEqual({ changed: true });
+    expect((await events('video_call.poll_closed', callId)).at(-1)!.payload).toMatchObject({
+      why: 'time',
+    });
+  });
+
+  it('shows the team every question, how it stands and its totals', async () => {
+    const panel = await ask(videoCallPollsGet, { workspaceId: t.wsId, callId }, t.priya);
+    expect(panel.form).toMatchObject({ id: pollId, name: 'Demo poll', ready: true });
+    expect(panel.watching).toBe(2);
+    expect(panel.questions.map((q) => [q.questionId, q.state])).toEqual([
+      [Q.leads, 'closed'],
+      [Q.crm, 'closed'],
+      [Q.ready, 'closed'],
+      [Q.trade, 'closed'],
+      [Q.talk, 'waiting'],
+    ]);
+    expect(panel.questions[0]!.totals).toEqual({
+      answered: 2,
+      bars: [
+        { id: 'c_referral', label: 'Referrals', count: 1 },
+        { id: 'c_ads00000', label: 'Ads', count: 1 },
+      ],
+      average: null,
+    });
+    expect(panel.questions[0]!.showResults).toBe(true);
+  });
+
+  it('says who pressed a button', async () => {
+    const opened = await run(
+      videoCallPollOpen,
+      { workspaceId: t.wsId, callId, questionId: Q.talk },
+      t.priya,
+    );
+    expect(await answer('Ann', true, opened.pollId)).toEqual({ status: 'saved', closed: false });
+    const panel = await ask(videoCallPollsGet, { workspaceId: t.wsId, callId }, t.priya);
+    const talk = panel.questions.find((q) => q.questionId === Q.talk)!;
+    expect(talk.pressed).toEqual([{ personId: seats.Ann!.personId, name: 'Ann Watcher' }]);
+    await run(videoCallPollClose, { workspaceId: t.wsId, callId, pollId: opened.pollId }, t.priya);
+  });
+
+  it('sends each person’s sheet when the call ends', async () => {
+    const finished = await runSystem(
+      videoCallPollsFinish,
+      { workspaceId: t.wsId, callId },
+      t.scope,
+    );
+    expect(finished).toEqual({ sent: 2 });
+    const sheets = await rows<{ status: string }>(
+      admin(),
+      sql`select status from app.form_responses where video_call_id = ${callId}`,
+    );
+    expect(sheets.map((s) => s.status)).toEqual(['completed', 'completed']);
+    const sent = await events('form.submitted', pollId);
+    expect(sent).toHaveLength(2);
+    expect(sent[0]!.payload).toMatchObject({ mode: 'poll', formId: pollId, videoCallId: callId });
+    // Once.
+    expect(await runSystem(videoCallPollsFinish, { workspaceId: t.wsId, callId }, t.scope)).toEqual(
+      { sent: 0 },
+    );
+  });
+});

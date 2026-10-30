@@ -166,6 +166,7 @@ const DEFAULT_TITLES: Partial<Record<QuestionType, string>> = {
   payment: 'Payment',
   video: 'Watch this first',
   booking: 'Pick a time',
+  button: 'Ready to take the next step?',
 };
 
 /** A question of that type with the smallest sensible config, ready to drop on a page. */

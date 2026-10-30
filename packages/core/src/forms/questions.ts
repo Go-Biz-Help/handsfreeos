@@ -28,6 +28,7 @@ export const QUESTION_TYPES = [
   'payment',
   'video',
   'booking',
+  'button',
 ] as const;
 export type QuestionType = (typeof QUESTION_TYPES)[number];
 
@@ -52,6 +53,7 @@ export const QUESTION_LABELS: Readonly<Record<QuestionType, string>> = {
   payment: 'Payment',
   video: 'Video',
   booking: 'Book a time',
+  button: 'Button',
 };
 
 // ---- Choices ----
@@ -194,6 +196,19 @@ export const QUESTION_CONFIGS = {
     /** How many days ahead the times reach. */
     days: z.int().min(1).max(31).default(14),
   }),
+  button: z.object({
+    /**
+     * A live poll's button (the owner's 17): `link` opens a web page (Claim my spot), `book` the business's booking
+     * page for a calendar (Book a call), and `talk` tells the team they'd like to talk. Pressing it is the answer.
+     */
+    action: z.enum(['link', 'book', 'talk']).default('talk'),
+    /** The words on the button; the question's title is the line above it. */
+    label: z.string().trim().min(1, 'Name the button.').max(40).default('Talk to someone'),
+    /** For `link`: a web address, checked when it's published (`formProblems`). */
+    url: z.string().trim().max(500).default(''),
+    /** For `book`: the calendar whose booking page opens. */
+    calendarId: z.string().trim().max(64).default(''),
+  }),
 } as const satisfies Record<QuestionType, z.ZodType>;
 
 export type QuestionConfig<T extends QuestionType = QuestionType> = z.infer<
@@ -219,7 +234,7 @@ export const NUMERIC_TYPES: ReadonlySet<QuestionType> = new Set([
  * Types the AI teammate can't ask in a conversation: there's nothing to play a video in, and a time is booked
  * with its own booking tools. A form with one is sent as a link instead.
  */
-export const NOT_IN_CHAT_TYPES: ReadonlySet<QuestionType> = new Set(['video', 'booking']);
+export const NOT_IN_CHAT_TYPES: ReadonlySet<QuestionType> = new Set(['video', 'booking', 'button']);
 
 /** Types that can be graded right or wrong. */
 export const GRADEABLE_TYPES: ReadonlySet<QuestionType> = new Set([

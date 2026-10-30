@@ -15,6 +15,7 @@ import {
 } from '@hfos/core';
 import {
   AccessToken,
+  DataPacket_Kind,
   RoomConfiguration,
   RoomServiceClient,
   ServerError,
@@ -242,6 +243,19 @@ export function createLiveKit(config: LiveKitConfig): VideoCallProvider {
         );
       } catch (e) {
         if (!notThere(e)) throw failed(e, 'say whether the AI hears a call');
+      }
+    },
+
+    async send(room, topic, message, to) {
+      try {
+        await rooms.sendData(
+          room,
+          new TextEncoder().encode(JSON.stringify(message)),
+          DataPacket_Kind.RELIABLE,
+          { topic, ...(to ? { destinationIdentities: [...to] } : {}) },
+        );
+      } catch (e) {
+        if (!notThere(e)) throw failed(e, 'send something to everyone in a call');
       }
     },
   };

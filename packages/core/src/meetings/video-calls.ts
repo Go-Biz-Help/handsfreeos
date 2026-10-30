@@ -578,6 +578,9 @@ export const WEBINAR_WORDS = {
   } satisfies Record<AttendeeVideo, string>,
   attendeeVideoHelp:
     'Attendees join muted. Choose whether they can turn their cameras on, and who sees them. You or your slides are always the big picture.',
+  /** Settings → Calendars: the live poll each session starts with (part 2). */
+  pollHelp:
+    'Its questions pop up on everyone’s screen when you ask them, and each answer is saved on the person’s contact. Make one in Forms as a Live poll.',
   attendeeVideoChanged: {
     off: 'Attendees’ cameras are off.',
     team: 'Attendees can turn their cameras on. Only your team sees them.',

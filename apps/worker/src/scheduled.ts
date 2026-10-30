@@ -37,6 +37,12 @@ import { WINDOW_END_JOB, waitlistOfferExpire, waitlistOfferJob } from './booking
 import { appointmentMeetTranscriptPoll } from './meetings/meet-poll';
 import { VIDEO_CALL_KEEP_WORDS_JOB, videoCallKeepWordsJob } from './video-calls/handlers';
 import {
+  VIDEO_CALL_POLL_CLOSE_JOB,
+  VIDEO_CALL_POLLS_FINISH_JOB,
+  videoCallPollCloseJob,
+  videoCallPollsFinishJob,
+} from './video-calls/polls';
+import {
   WEBINAR_JOIN_LINK_JOB,
   WEBINAR_MISSED_JOB,
   WEBINAR_STARTING_JOB,
@@ -566,6 +572,8 @@ export const jobs: JobMap = {
   'appointment.meet_transcript_poll': appointmentMeetTranscriptPoll,
   // What the AI heard in a HandsFreeOS video call, made the appointment's transcript once the stretch is over.
   [VIDEO_CALL_KEEP_WORDS_JOB]: videoCallKeepWordsJob,
+  [VIDEO_CALL_POLL_CLOSE_JOB]: videoCallPollCloseJob,
+  [VIDEO_CALL_POLLS_FINISH_JOB]: videoCallPollsFinishJob,
   // Webinars' messages: starting now, missed it, and their own Join link again (video-calls/webinars.ts).
   [WEBINAR_STARTING_JOB]: webinarStarting,
   [WEBINAR_MISSED_JOB]: webinarMissed,

@@ -28,7 +28,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { newPage, newQuestion } from './editor-state';
-import { QUESTION_ICONS, QUESTION_LABELS, QUESTION_MENU } from '@/lib/forms/words';
+import { QUESTION_ICONS, QUESTION_LABELS, questionMenu } from '@/lib/forms/words';
 import { cn } from '@/lib/utils';
 
 /**
@@ -270,11 +270,11 @@ export function QuestionList({
           <DropdownMenuTrigger asChild>
             <Button variant="secondary" className="w-full" data-testid="add-question">
               <Plus className="h-4 w-4" strokeWidth={1.75} />
-              Add a question
+              {definition.mode === 'poll' ? 'Add a question or button' : 'Add a question'}
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent className="max-h-[60vh] w-64 overflow-y-auto">
-            {QUESTION_MENU.map((group) => (
+            {questionMenu(definition.mode).map((group) => (
               <div key={group.group}>
                 <p className="px-2 py-1.5 text-[11.5px] font-medium uppercase tracking-wide text-text-3">
                   {group.group}
@@ -294,7 +294,7 @@ export function QuestionList({
         </DropdownMenu>
       ) : null}
 
-      {!readOnly && questions.length ? (
+      {!readOnly && questions.length && definition.mode !== 'poll' ? (
         <Button
           variant="ghost"
           className="w-full"

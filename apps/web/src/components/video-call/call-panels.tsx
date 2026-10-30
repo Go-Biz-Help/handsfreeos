@@ -31,7 +31,7 @@ import { actOn, setOnStage, type VideoCallGot, type VideoCallPerson } from './te
 import { toast } from './toast';
 import type { TeamSide } from './types';
 
-function Panel({
+export function Panel({
   title,
   onClose,
   children,

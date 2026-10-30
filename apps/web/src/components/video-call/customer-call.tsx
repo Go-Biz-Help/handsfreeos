@@ -127,6 +127,7 @@ export function CustomerCall({ token, answer }: { token: string; answer: CallAns
         choices={me.current.choices}
         heading={{ title: answer.business, detail: answer.title }}
         color={answer.look.color}
+        poll={{ token, business: answer.business }}
         onEnd={(end) => setStep({ kind: 'after', end, knock: step.knock })}
       />
     );

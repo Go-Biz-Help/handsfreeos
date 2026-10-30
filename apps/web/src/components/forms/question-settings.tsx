@@ -3,7 +3,11 @@ import {
   ANSWER_TARGETS,
   CHOICE_TYPES,
   findQuestion,
+  liveOf,
   parseVideoUrl,
+  POLL_MAX_SECONDS,
+  POLL_MIN_SECONDS,
+  POLL_WORDS,
   QUESTION_LABELS,
   targetAccepts,
   VIDEO_HOST_NAMES,
@@ -54,6 +58,8 @@ export function QuestionSettings({
     apply([{ op: 'update_question', questionId, patch: fields }]);
   const config = question.config as Record<string, unknown>;
   const patchConfig = (fields: Record<string, unknown>) => patch({ config: fields });
+  // A live poll's questions pop up when they're asked, and are answered or let go: none must be answered.
+  const poll = definition.mode === 'poll';
 
   return (
     <div className="space-y-4" data-testid="question-settings">
@@ -81,7 +87,7 @@ export function QuestionSettings({
             onChange={(e) => patch({ help: e.target.value })}
           />
         </Field>
-        {question.type !== 'content' && question.type !== 'video' ? (
+        {question.type !== 'content' && question.type !== 'video' && !poll ? (
           <div className="flex items-center justify-between gap-4">
             <div>
               <Label htmlFor="q-required">Must be answered</Label>
@@ -125,6 +131,17 @@ export function QuestionSettings({
       {question.type === 'video' ? (
         <VideoSettings config={config} patchConfig={patchConfig} readOnly={readOnly} />
       ) : null}
+
+      {question.type === 'button' ? (
+        <ButtonSettings
+          config={config}
+          patchConfig={patchConfig}
+          readOnly={readOnly}
+          catalogs={catalogs}
+        />
+      ) : null}
+
+      {poll ? <LiveSettings question={question} patch={patch} readOnly={readOnly} /> : null}
 
       {question.type === 'booking' ? (
         <BookingSettings
@@ -231,10 +248,162 @@ export function QuestionSettings({
       {question.type !== 'content' &&
       question.type !== 'payment' &&
       question.type !== 'video' &&
-      question.type !== 'booking' ? (
+      question.type !== 'booking' &&
+      !poll ? (
         <WhereItGoes question={question} patch={patch} catalogs={catalogs} readOnly={readOnly} />
       ) : null}
     </div>
+  );
+}
+
+/** A live poll's question: how long it stays up, and whether everyone sees the totals when it closes. */
+function LiveSettings({
+  question,
+  patch,
+  readOnly,
+}: {
+  question: Question;
+  patch: (fields: Record<string, unknown>) => void;
+  readOnly: boolean;
+}) {
+  const live = liveOf(question);
+  const counted = question.type !== 'short_text' && question.type !== 'button';
+  return (
+    <Card className="space-y-4 p-4" data-testid="question-live">
+      <Field
+        label={POLL_WORDS.seconds}
+        htmlFor="q-live-seconds"
+        hint={`From ${POLL_MIN_SECONDS} to ${POLL_MAX_SECONDS}. It closes sooner once nearly everyone has answered, or when you close it.`}
+      >
+        <Input
+          id="q-live-seconds"
+          type="number"
+          min={POLL_MIN_SECONDS}
+          max={POLL_MAX_SECONDS}
+          className="w-28"
+          value={String(live.seconds)}
+          disabled={readOnly}
+          onChange={(e) => {
+            const n = Math.round(Number(e.target.value));
+            if (Number.isFinite(n) && n >= POLL_MIN_SECONDS && n <= POLL_MAX_SECONDS)
+              patch({ live: { ...live, seconds: n } });
+          }}
+          data-testid="question-live-seconds"
+        />
+      </Field>
+      {counted ? (
+        <div className="flex items-center justify-between gap-4">
+          <div>
+            <Label htmlFor="q-live-results">{POLL_WORDS.showResults}</Label>
+            <Hint>Off, only your team sees how people answered.</Hint>
+          </div>
+          <Switch
+            label={POLL_WORDS.showResults}
+            checked={live.showResults}
+            disabled={readOnly}
+            onChange={(on) => patch({ live: { ...live, showResults: on } })}
+            testId="question-live-results"
+          />
+        </div>
+      ) : (
+        <Hint>
+          {question.type === 'button'
+            ? 'Your team sees who pressed it. Everyone else sees only the button.'
+            : 'Your team sees what people typed. Nobody else does.'}
+        </Hint>
+      )}
+    </Card>
+  );
+}
+
+/** A live poll's button: its words, and what pressing it does. */
+function ButtonSettings({
+  config,
+  patchConfig,
+  readOnly,
+  catalogs,
+}: {
+  config: Record<string, unknown>;
+  patchConfig: (fields: Record<string, unknown>) => void;
+  readOnly: boolean;
+  catalogs: FormCatalogsOut | null;
+}) {
+  const action = String(config.action ?? 'talk') as keyof typeof POLL_WORDS.buttonAction;
+  const select =
+    'h-9 w-full rounded-control border border-border-strong bg-card px-2.5 text-sm text-text';
+  return (
+    <Card className="space-y-4 p-4" data-testid="question-button">
+      <Field label="The words on the button" htmlFor="q-button-label">
+        <Input
+          id="q-button-label"
+          value={String(config.label ?? '')}
+          maxLength={40}
+          disabled={readOnly}
+          onChange={(e) => patchConfig({ label: e.target.value })}
+          data-testid="button-label"
+        />
+      </Field>
+      <Field label="Pressing it" htmlFor="q-button-action">
+        <select
+          id="q-button-action"
+          className={select}
+          value={action}
+          disabled={readOnly}
+          onChange={(e) => patchConfig({ action: e.target.value })}
+          data-testid="button-action"
+        >
+          {(Object.keys(POLL_WORDS.buttonAction) as (keyof typeof POLL_WORDS.buttonAction)[]).map(
+            (a) => (
+              <option key={a} value={a}>
+                {POLL_WORDS.buttonAction[a]}
+              </option>
+            ),
+          )}
+        </select>
+      </Field>
+      {action === 'link' ? (
+        <Field
+          label="The web page it opens"
+          htmlFor="q-button-url"
+          hint="It opens in a new tab, so they stay in the call."
+        >
+          <Input
+            id="q-button-url"
+            value={String(config.url ?? '')}
+            placeholder="https://"
+            disabled={readOnly}
+            onChange={(e) => patchConfig({ url: e.target.value })}
+            data-testid="button-url"
+          />
+        </Field>
+      ) : null}
+      {action === 'book' ? (
+        <Field
+          label="The calendar it books on"
+          htmlFor="q-button-calendar"
+          hint="Its booking page opens in a new tab."
+        >
+          <select
+            id="q-button-calendar"
+            className={select}
+            value={String(config.calendarId ?? '')}
+            disabled={readOnly}
+            onChange={(e) => patchConfig({ calendarId: e.target.value })}
+            data-testid="button-calendar"
+          >
+            <option value="">Pick a calendar</option>
+            {(catalogs?.calendars ?? []).map((c) => (
+              <option key={c.id} value={c.id}>
+                {c.name}
+              </option>
+            ))}
+          </select>
+        </Field>
+      ) : null}
+      {action === 'talk' ? (
+        <Hint>Your team sees who pressed it, live, and it’s saved on their contact.</Hint>
+      ) : null}
+    </Card>
   );
 }
 

@@ -61,6 +61,11 @@ business: they're a row each with no bin mark of their own, so until then Result
 Results and anything else that reads answers by form or by business leave them out, Bring back brings them back,
 and the worker reads them as it always has.
 
+**A live poll is only for a HandsFreeOS video call** (20261027019700). Its questions pop up when the team (or,
+later, the AI) asks them, so it has no public page, no embed, no rules on its questions, and the AI teammate and the
+phone never ask it; `form_response.*` refuses one (`form_is_poll`). Its answers still land as an ordinary response,
+so nothing that reads answers needs to know.
+
 **Ids are made by us, never by a model.** The AI builder writes labels; `formToolCallsToOps` stamps the
 ids and tells the model what they are.
 
@@ -159,6 +164,20 @@ A form can walk somebody through a funnel: a video, their details, a longer vide
 - **A seat in a shared session isn't one customer's appointment**, so only a booking of their own takes the lead.
 - **The AI teammate and the phone** don't ask a form with a booking question (`NOT_IN_CHAT_TYPES`,
   `NOT_ON_THE_PHONE`).
+
+## Live polls (webinars, part 2)
+
+A fourth kind beside form, survey and quiz (`mode = 'poll'`), picked on a call or a webinar's calendar.
+`docs/video-calls.md`, "Live polls", is how a call runs one.
+
+- **What it may ask** (`pollProblems` in `definition.ts`): pick one, pick any, yes or no, a rating, a scale, a short
+  answer, and **buttons**, at most 30 items, no rules. A button (`questions.ts`) books on a calendar, opens an https
+  link, or says "talk to someone"; it belongs to live polls only, so any other form with one has a problem to fix.
+- **Each question's `live`** holds how long it stays up (`seconds`, 10 to 600, 60 by default) and whether everyone
+  sees the totals after (`showResults`, off by default). `liveOf` fills the defaults. The editor shows both under
+  each question (**Seconds it stays up**); a poll has no Required switch, no Where it goes and no Share tab.
+- **Its answers** are one response per person per call (`form_responses.video_call_id`, `source = 'video_call'`), so
+  Results and the customer's record show them like any form's.
 
 ## Answering in a conversation
 

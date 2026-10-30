@@ -31,7 +31,7 @@
  *   send is in their ticket (`rights`), and the worker changes it in LiveKit from those commands' events.
  */
 import { createHash, randomBytes } from 'node:crypto';
-import { and, asc, eq, inArray, lte, sql as dsql } from 'drizzle-orm';
+import { and, asc, eq, inArray, isNull, lte, sql as dsql } from 'drizzle-orm';
 import {
   activities,
   appointmentAttendees,
@@ -39,6 +39,7 @@ import {
   appointmentStaff,
   appointmentTranscripts,
   conversations,
+  forms,
   people,
   users,
   videoCallLines,
@@ -125,6 +126,8 @@ const CallOut = z.object({
   attendeeVideo: z.enum(ATTENDEE_VIDEO_CHOICES),
   /** A webinar: the key in its link anyone can use (`/live/<key>`). */
   doorKey: z.string().nullable(),
+  /** The live poll its questions pop up from (part 2). */
+  pollFormId: uuid.nullable(),
 });
 
 const PersonOut = z.object({
@@ -157,6 +160,7 @@ const callOut = (c: CallRow): z.infer<typeof CallOut> => ({
   format: formatOf(c),
   attendeeVideo: attendeeVideoOf(c),
   doorKey: c.doorKey,
+  pollFormId: c.pollFormId,
 });
 
 const personOut = (p: PersonRow): z.infer<typeof PersonOut> => ({
@@ -257,24 +261,46 @@ const callFull = (call: CallRow) =>
 const roomFor = (call: CallRow) => maxPeopleOf(formatOf(call));
 
 /**
- * What a call for this appointment is made as: a session's is a webinar, with its calendar's camera choice and a link
- * anyone can use; anything else is a meeting.
+ * What a call for this appointment is made as: a session's is a webinar, with its calendar's camera choice, its live
+ * poll (part 2) and a link anyone can use; anything else is a meeting.
  */
 async function madeAs(
   tx: Tx,
   ws: string,
   appointmentId: string,
-): Promise<{ format: VideoCallFormat; attendeeVideo: AttendeeVideo; doorKey: string | null }> {
+): Promise<{
+  format: VideoCallFormat;
+  attendeeVideo: AttendeeVideo;
+  doorKey: string | null;
+  pollFormId: string | null;
+}> {
   const [a] = await tx
     .select({ kind: appointments.kind, calendarId: appointments.calendarId })
     .from(appointments)
     .where(and(eq(appointments.id, appointmentId), eq(appointments.workspaceId, ws)));
-  if (a?.kind !== 'session') return { format: 'meeting', attendeeVideo: 'off', doorKey: null };
+  if (a?.kind !== 'session')
+    return { format: 'meeting', attendeeVideo: 'off', doorKey: null, pollFormId: null };
   const calendar = await loadCalendar(tx, ws, a.calendarId).catch(() => null);
+  const pollRef = calendar?.config.locations.webinar.pollFormId ?? null;
+  // A poll deleted or archived since the calendar picked it is simply not there.
+  const [poll] = pollRef
+    ? await tx
+        .select({ id: forms.id })
+        .from(forms)
+        .where(
+          and(
+            eq(forms.id, pollRef),
+            eq(forms.workspaceId, ws),
+            eq(forms.mode, 'poll'),
+            isNull(forms.archivedAt),
+          ),
+        )
+    : [];
   return {
     format: 'webinar',
     attendeeVideo: calendar?.config.locations.webinar.attendeeVideo ?? 'off',
     doorKey: randomKey(WEBINAR_DOOR_KEY_LENGTH),
+    pollFormId: poll?.id ?? null,
   };
 }
 
@@ -343,6 +369,13 @@ async function lockCall(ctx: CommandContext | QueryContext, callId: string): Pro
   if (!call) throw notThere();
   return call;
 }
+
+/** For the live polls' commands (video-call-poll.ts): a call held for the change, who's in it, and who's in now. */
+export {
+  connected as videoCallPersonIsIn,
+  lockCall as lockVideoCall,
+  peopleOf as videoCallPeopleOf,
+};
 
 // ---------- the worker's: making the call, and letting customers in ----------
 

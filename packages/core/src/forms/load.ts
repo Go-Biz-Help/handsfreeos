@@ -25,6 +25,7 @@ import {
   scoringProblems,
   withSafeResultLinks,
   type Question,
+  type FormMode,
 } from './definition';
 import { newPageId, newResultId } from './ids';
 import { customTargetFieldId, isCustomTarget, type QuestionType } from './questions';
@@ -32,10 +33,7 @@ import { customTargetFieldId, isCustomTarget, type QuestionType } from './questi
 // ---- A form to start from ----
 
 /** A new, empty form: one page, one thank-you screen, nothing asked yet. */
-export function blankForm(
-  title: string,
-  mode: 'form' | 'survey' | 'quiz' = 'form',
-): FormDefinition {
+export function blankForm(title: string, mode: FormMode = 'form'): FormDefinition {
   return FormDefinition.parse({
     mode,
     title,

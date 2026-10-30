@@ -142,6 +142,10 @@ export function diffConfigs(a: CalendarConfig, b: CalendarConfig, catalogs?: Nam
     b.locations.webinar.missedFollowUp,
     onOff,
   );
+  if (a.locations.webinar.pollFormId !== b.locations.webinar.pollFormId)
+    lines.push(
+      b.locations.webinar.pollFormId ? 'Webinar live poll changed' : 'Webinar live poll taken off',
+    );
   const res = (id: string) => resourceName(catalogs as CalendarCatalogs | undefined, id);
   const rBefore = new Map(a.resources.required.map((r) => [r.resourceId, r.quantity]));
   const rAfter = new Map(b.resources.required.map((r) => [r.resourceId, r.quantity]));
