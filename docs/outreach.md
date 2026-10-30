@@ -3161,8 +3161,8 @@ where decisions 37 and 59 put the settings; what they decided stands. Settled to
         Alignable's runner goes straight to the conversation by the business id kept.
       - **Instagram stays by the name in an account's address:** its links show no id. Reading one from the page's
         code was left out, as it also holds the person's own; its chats are kept by their own key.
-133.  **Replies seen by name, and answered any time** (Chris, 30 Oct 2026, extension **0.117.0**). A prospect's Instagram
-      reply got no draft: it was seen only when Chris opened the chat himself. "check to make sure we don't have this
+132.  **Replies seen by name, and answered any time** (Chris, 30 Oct 2026, extension **0.117.0**). A prospect's Instagram
+      reply got no draft: it was seen only when Chris opened the chat. "check to make sure we don't have this
       issue with the other platforms as well." Then: "it should always be checking for new messages and always respond
       in real time it just shouldn't send out new messages if it's not in the working time."
       - **Why it was missed.** Instagram's list of chats is buttons that link to no chat (the owner's Checks of 21 and
