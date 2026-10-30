@@ -558,6 +558,28 @@ describe('The person menu on the phone', () => {
     expect(openWebPath).toHaveBeenCalledWith(`/app/w/${WS}/customers/people/${CUSTOMER}`);
   });
 
+  it('says what a button does when it’s held, and to a screen reader, without pressing it', async () => {
+    answers(marksOf());
+    await open();
+    expect(screen.getByTestId('outreach-hold-note')).toHaveTextContent(
+      'Press and hold a button to see what it does.',
+    );
+    const later = screen.getByTestId('person-later');
+    expect(later.props.accessibilityHint).toContain('Takes them off your Today for 2 weeks');
+    expect(screen.queryByTestId('outreach-hint')).toBeNull();
+    await fireEvent(later, 'longPress');
+    expect(screen.getByTestId('outreach-hint')).toHaveTextContent(
+      /^Takes them off your Today for 2 weeks/,
+    );
+    expect(change).not.toHaveBeenCalled();
+    // Holding another moves the explainer there; holding it again hides it.
+    await fireEvent(screen.getByTestId('person-dont-pitch'), 'longPress');
+    expect(screen.getAllByTestId('outreach-hint')).toHaveLength(1);
+    expect(screen.getByTestId('outreach-hint')).toHaveTextContent(/^Stops outreach to them/);
+    await fireEvent(screen.getByTestId('person-dont-pitch'), 'longPress');
+    expect(screen.queryByTestId('outreach-hint')).toBeNull();
+  });
+
   it('waits for where they stand before its switches work, and says why it couldn’t ask', async () => {
     (api.POST as unknown as jest.Mock).mockResolvedValue({ error: 'That person isn’t kept here.' });
     await render(

@@ -485,6 +485,46 @@ export const OUTREACH_WORDS = {
       `Contacts, Client, Demo booked, Potential partner, Later, Don’t pitch and Never contact need signal. ${
         opens ? `Opening their ${opens} works now.` : 'Try again when you’re back online.'
       }`,
+    /**
+     * What each item in the person menu does, in a sentence or two: shown when the pointer rests on it on the web
+     * (`HINT_DELAY_MS`), and when it's held on the phone. Who reached them first, and giving them to a teammate, are
+     * `OWNER_WORDS.giveHint`'s.
+     */
+    hints: {
+      openPage: 'Opens their own page, to look them over or do something there yourself.',
+      openChat: 'Opens your chat with them, to read it or write to them yourself.',
+      inContacts: 'Opens them in Contacts.',
+      addToContacts:
+        'Saves them as a customer in Contacts. If someone there has the same name, you pick whether it’s them first.',
+      markClient:
+        'Tags them Client in Contacts. Nobody here sends them outreach again, and their replies still come to you.',
+      notClient:
+        'Takes the Client tag off, so they can get outreach again. Messages skipped when you marked them stay skipped.',
+      demoBooked:
+        'For a demo they booked some other way than your demo link. It counts toward which first messages work.',
+      notDemo: 'Takes back the demo you marked.',
+      potentialPartner:
+        'Puts them on your Partners list. They get partner messages instead: a like first, then the ask a day later, each waiting for your OK.',
+      notPartner: 'Takes them off your Partners list, and back to customer messages.',
+      later:
+        'Takes them off your Today for 2 weeks, then they’re back on their own. Your messages to them waiting for an OK are skipped, and their replies still come.',
+      notLater: 'Puts them back on your Today now.',
+      dontPitch:
+        'Stops outreach to them from anyone here: first messages, pitches and follow-ups. Replies to them still go.',
+      notDontPitch: 'They can get outreach again.',
+      neverContact:
+        'Stops everything from anyone here: no messages, likes, comments or friend requests, not even replies.',
+      notNeverContact: 'They can be reached again.',
+      /** The Pipeline's moves, by `StageMark`. */
+      moves: {
+        ready: 'Today offers them a pitch next, with your demo link in the drafts.',
+        pitched: 'Notes that you’ve already offered them a demo.',
+        lost: 'Ends outreach to them for good. Their replies still come, and Back in play undoes it.',
+        open: 'Clears your mark, so their stage goes back to what their chat says.',
+      } as Readonly<Record<string, string>>,
+    },
+    /** Under the phone's person menu: holding an item shows its explainer, as the pointer resting on it does on the web. */
+    holdForHint: 'Press and hold a button to see what it does.',
     /** Under a chat's own Don't pitch and Never contact switches with no signal. */
     switchesNeedSignal:
       'Don’t pitch and Never contact need signal. Try again when you’re back online.',
