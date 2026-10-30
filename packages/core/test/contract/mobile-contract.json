@@ -9554,6 +9554,36 @@
         "required": ["workspaceId"]
       }
     },
+    "outreach.send.retry": {
+      "offline": "online",
+      "input": {
+        "type": "object",
+        "properties": {
+          "workspaceId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "needIds": {
+            "default": null,
+            "anyOf": [
+              {
+                "minItems": 1,
+                "maxItems": 100,
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "format": "uuid"
+                }
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": ["workspaceId"]
+      }
+    },
     "outreach.send.skip": {
       "offline": "anytime",
       "input": {

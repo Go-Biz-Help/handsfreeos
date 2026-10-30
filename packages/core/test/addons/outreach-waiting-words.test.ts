@@ -24,10 +24,12 @@ import {
   moreWords,
   needClearedWords,
   needPageOf,
+  needRetryable,
   needTitle,
   needTitleAround,
   needUrlOf,
   needWhyWords,
+  retriedWords,
   newestNudgeAt,
   NO_KINDS,
   nudgeCount,
@@ -164,6 +166,21 @@ describe('the words', () => {
       'Let go. It won’t be handed to you for a week.',
     );
     expect(needClearedWords('done', 'open')).toMatch(/still waits for you/);
+  });
+
+  it('offer Retry on a message or comment that didn’t go, and say what it did (decision 132)', () => {
+    expect(needRetryable({ step: 'message', sendId: 'a' })).toBe(true);
+    expect(needRetryable({ step: 'comment', sendId: 'a' })).toBe(true);
+    expect(needRetryable({ step: 'message', sendId: null })).toBe(false);
+    expect(needRetryable({ step: 'friend_request', sendId: 'a' })).toBe(false);
+    expect(retriedWords(1, 0)).toBe(
+      'Trying it again: it goes next, when the extension is working.',
+    );
+    expect(retriedWords(7, 0)).toBe(
+      'Trying 7 again, a few minutes apart, when the extension is working.',
+    );
+    expect(retriedWords(2, 1)).toMatch(/^Trying 2 again.* 1 wasn’t tried again: /);
+    expect(retriedWords(0, 2)).toMatch(/^Nothing to try again\. 2 weren’t tried again: /);
   });
 
   it('say why a need couldn’t be done, and link its chat, the same everywhere', () => {

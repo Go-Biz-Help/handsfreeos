@@ -806,6 +806,8 @@ export const sends = addonOutreach.table(
     /** A comment's post (decision 92): set for kind `comment`, and only for it. */
     postId: uuid('post_id'),
     approvedAt: ts('approved_at'),
+    /** One tried again goes no sooner (decision 132): each a few minutes after the one before. */
+    notBefore: ts('not_before'),
     doneAt: ts('done_at'),
     createdAt: ts('created_at').notNull().defaultNow(),
     updatedAt: ts('updated_at').notNull().defaultNow(),
