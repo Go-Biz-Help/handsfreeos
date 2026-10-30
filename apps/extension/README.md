@@ -1151,6 +1151,21 @@ Names and the names in addresses change, and a network's own id for someone does
 - **Instagram** shows no id for an account in its links, only the name in its address, so it stays by that. Its chats
   are kept by their own key, which doesn't change.
 
+### Replies seen by name, and answered any time (0.116.0)
+
+Instagram's list of chats links to none of them, and neither does LinkedIn's newer list of conversations, so before
+0.116.0 the messages pages kept open (0.113.0) saw no reply on Instagram, and on LinkedIn only the conversation open
+on the page: a reply waited for the once-a-day chats read or for you to open the chat (the owner's report of 30 Oct
+2026). From 0.116.0 (docs/outreach.md, decision 132) a row whose last line is theirs goes to HandsFreeOS by the name
+it shows, never what they wrote, and HandsFreeOS takes it only when exactly one person you messaged on that network
+goes by that name. Reactions, "You: …", Instagram's "Active 2h ago" and "Seen", InMails, ads and group chats are left
+out. Facebook and Alignable read as they did.
+
+Replies also go outside your working hours now: a reply to someone who wrote back is drafted at once, and sent once
+you OK it (or on its own, as Replies says), hours or not. Nothing new goes outside them: first messages, follow-ups,
+reconnects, likes and requests wait for the hours, OK'd or not. While a reply waits for your OK outside the hours, the
+runner looks for it every 2 minutes. Stop for today and a warning still stop everything.
+
 ### A post's link from its menu on LinkedIn's post search (0.112.0)
 
 LinkedIn's newer post search links no post (the owner's Check LinkedIn of 29 Oct 2026), and a post with no link can't be

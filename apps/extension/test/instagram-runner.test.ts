@@ -1602,14 +1602,82 @@ describe('its day', () => {
     expect(store.get(WARNED_KEY)).toMatchObject({ instagram: { day: expect.any(String) } });
   });
 
-  it('waits outside the working hours with nothing pressed, waking at their start', async () => {
+  it('waits outside the working hours with nothing pressed, waking at their start: nothing new goes (decision 132)', async () => {
     keep(day('none'));
+    // A step and a first message OK'd wait for the hours; only a reply goes outside them.
+    world.answers['/v1/queries/outreach.today'] = () => ({
+      items: [
+        item({}),
+        item({
+          kind: 'opener',
+          send: {
+            sendId: '9b6f5c4d-3e2a-4b1c-8d9e-0f1a2b3c4d5e',
+            state: 'approved',
+            text: 'Hi Dana',
+            handedOver: false,
+            needsYou: null,
+          },
+        } as Partial<TodayListItem>),
+      ],
+      auto: ['warm_up', 'friend_request'],
+      messages: ['opener', 'reply'],
+      sending: 'steps',
+      partners: [],
+      limits: { like: { done: 0, most: 30 } },
+    });
     await instagramTick();
     expect(world.opened).toEqual([]);
-    expect(alarms.get('hfos-auto-instagram')).toBeGreaterThan(Date.now());
+    expect(alarms.get('hfos-auto-instagram')).toBeGreaterThan(Date.now() + 60 * 60_000);
     expect((store.get(INSTAGRAM_STATE_KEY) as { line: string }).line).toBe(
       'Starts on its own on Instagram tomorrow at 9:00 AM. To start now, press Start my day for Instagram on Today in HandsFreeOS.',
     );
+  });
+
+  it('answers someone who wrote back outside the working hours, then looks soon for the reply OK’d (decision 132)', async () => {
+    keep(day('none'));
+    const reply = item({ kind: 'reply' });
+    const listOf = (items: TodayListItem[]) => ({
+      items,
+      auto: ['warm_up', 'friend_request'],
+      messages: ['reply'],
+      sending: 'steps',
+      partners: [],
+      limits: { like: { done: 0, most: 30 } },
+    });
+    world.answers['/v1/queries/outreach.today'] = () => listOf([reply]);
+    world.answers['/v1/commands/outreach.send.queue'] = () => ({ state: 'waiting' });
+    world.pages = (url) => (url === DANA ? { html: accountHtml() } : null);
+    world.hfos['hfos-draft'] = () => ({
+      drafts: ['Glad it helped, Dana. Want to look at Tuesday?'],
+      kind: 'reply',
+      opener: null,
+      simple: false,
+    });
+    await instagramTick();
+    expect(world.asked.find((a) => a.type === 'hfos-draft')?.input).toMatchObject({
+      kind: 'reply',
+    });
+    expect((store.get(INSTAGRAM_STATE_KEY) as { line: string }).line).toBe(
+      'Wrote a message to Dana Reyes: it waits for your OK',
+    );
+    // Drafted, it waits for their OK: the runner looks again in a couple of minutes, not at the hours' start.
+    world.answers['/v1/queries/outreach.today'] = () =>
+      listOf([
+        {
+          ...reply,
+          send: {
+            sendId: '9c6f5c4d-3e2a-4b1c-8d9e-0f1a2b3c4d5e',
+            state: 'waiting',
+            text: 'Glad it helped, Dana. Want to look at Tuesday?',
+            handedOver: false,
+            needsYou: null,
+          },
+        },
+      ]);
+    const before = Date.now();
+    await instagramTick();
+    expect(alarms.get('hfos-auto-instagram')).toBeGreaterThanOrEqual(before + 2 * 60_000);
+    expect(alarms.get('hfos-auto-instagram')).toBeLessThanOrEqual(Date.now() + 2 * 60_000);
   });
 
   it('waits after Stop for today till the working hours of a later day', async () => {

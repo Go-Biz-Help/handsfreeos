@@ -102,6 +102,8 @@ import {
 import {
   afterDaily,
   AGAIN_WORDS,
+  ANSWERING,
+  answersAnyTime,
   freshState,
   gapAfter,
   HELPFUL_AGAIN_MS,
@@ -109,12 +111,14 @@ import {
   isState,
   LINKEDIN_STATE_KEY,
   listTurn,
+  lookOutsideAt,
   needOf,
   networkDay,
   networkWaitWords,
   nextRound,
   nextStart,
   repliedAfter,
+  replyWaiting,
   roundDue,
   soonestAgain,
   stillReplied,
@@ -1058,11 +1062,30 @@ async function go(): Promise<void> {
   });
   const tomorrow = () => nextStart(settings.hours, timezone, Date.now(), random);
   if (!own.go) {
-    await closeWindow();
     await setState({ started: false, stopped: own.stopped });
+    // Outside the hours a reply to someone who wrote back still goes, and nothing new does (decision 132): never after
+    // Stop for today or a warning, nor while noting's off or an ask of theirs is in line.
+    const answering =
+      own.stopped === null &&
+      !(await warnedNow(PLATFORM)) &&
+      (await isNoting()) &&
+      !askInLine(PLATFORM)
+        ? await listNow(to.businessId, state.tried, state.replied)
+        : null;
+    const answers = answering?.left.filter(answersAnyTime) ?? [];
+    if (answers[0])
+      return workNext(answers, {
+        businessId: to.businessId,
+        settings,
+        timezone,
+        own: ANSWERING,
+        reading: false,
+        random,
+      });
+    await closeWindow();
     await say(networkWaitWords(NAME, own, settings.hours, timezone, at));
-    // The beat says when it's pressed (`days.linkedin`), and wakes this before then.
-    return goAt(own.next);
+    // The beat says when it's pressed (`days.linkedin`), and wakes this before then; a reply waiting for an OK, sooner.
+    return goAt(lookOutsideAt(!!answering && replyWaiting(answering.list), at, own.next));
   }
   if (own.started && !state.started) state = await setState({ started: true, stopped: null });
   if (state.stopped === 'warning' || (await warnedNow(PLATFORM))) {
@@ -1115,7 +1138,7 @@ async function go(): Promise<void> {
   // The morning's reading and the list take turns (decision 123): a step on the list now, when there's one, after a
   // part of the reading went last.
   if (listTurn(state, reading, holdsTheDay(before))) {
-    const left = await listNow(to.businessId, state.tried, state.replied);
+    const { left } = await listNow(to.businessId, state.tried, state.replied);
     // Who wrote back and isn't on what's left gives the reading its turn back (decision 125).
     const replied = stillReplied(state.replied ?? [], left);
     if (replied.length !== (state.replied ?? []).length) state = await setState({ replied });
@@ -1193,7 +1216,7 @@ async function go(): Promise<void> {
     }
   }
 
-  const left = await listNow(to.businessId, state.tried, state.replied);
+  const { left } = await listNow(to.businessId, state.tried, state.replied);
   if (!left[0]) {
     await closeWindow();
     // What waits for them to be away is looked at again sooner.
@@ -1225,12 +1248,12 @@ async function go(): Promise<void> {
   });
 }
 
-/** Asks for LinkedIn's list for today, and gives what's left on it for its runner (`linkedInWorkLeft`). */
+/** Asks for LinkedIn's list for today, and gives it and what's left on it for its runner (`linkedInWorkLeft`). */
 async function listNow(
   businessId: string,
   tried: readonly string[],
   replied: readonly string[] = [],
-): Promise<Work[]> {
+): Promise<{ readonly list: TodayList; readonly left: Work[] }> {
   const list: TodayList = await call(
     api().POST('/v1/queries/outreach.today', {
       body: { workspaceId: businessId, platform: PLATFORM },
@@ -1240,7 +1263,7 @@ async function listNow(
   // Whether LinkedIn needs more good fits today (decision 126): it finds people again once the day's reading is done.
   const more = list.goal?.more === true;
   if ((await stateNow()).more !== more) await setState({ more });
-  return linkedInWorkLeft(list, tried, replied);
+  return { list, left: linkedInWorkLeft(list, tried, replied) };
 }
 
 /**

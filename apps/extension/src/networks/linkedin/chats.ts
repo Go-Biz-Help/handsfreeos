@@ -1,8 +1,10 @@
 /**
  * The list of conversations in LinkedIn messaging (/messaging/): who each one is with, the last thing said and when.
  * Each conversation is found by its link (/messaging/thread/<id>/), wherever on the page the list is; the names in it
- * are the people in the conversation, in words ("Dana Reyes", "Dana Reyes, Sam Lee").
+ * are the people in the conversation, in words ("Dana Reyes", "Dana Reyes, Sam Lee"). LinkedIn's newer list links to
+ * none of them (`listedRows`).
  */
+import { clean } from '../facebook/dom';
 import { collectLinked, inTopBar, namesOn, shownLines, shownText } from './dom';
 import { bestName } from './people';
 import type { ChatSummary } from './types';
@@ -52,4 +54,39 @@ export function readChats(root: Element, base: string): ChatSummary[] {
     chats.push({ name, thread: entry.value, preview, when });
   }
   return chats;
+}
+
+/** A conversation in the list by what its row shows: no link, so no id. */
+export interface ListedRow {
+  readonly name: string;
+  readonly preview: string | null;
+  readonly when: string | null;
+}
+
+/**
+ * The conversations in LinkedIn's newer list, whose rows link to none of them (the owner's Check LinkedIn of 29 Oct
+ * 2026: a list labelled Conversation List, each row its name in a heading, its time, and its last line in a paragraph,
+ * opened by pressing it). Only the rows without a link: those with one are read by it (`readChats`). Its last line is
+ * as shown, its label kept ("InMail • …"), so a reader can tell it apart.
+ */
+export function listedRows(root: Element): ListedRow[] {
+  const rows: ListedRow[] = [];
+  for (const list of root.querySelectorAll('ul[aria-label]')) {
+    if (!/^conversation list$/i.test(clean(list.getAttribute('aria-label')))) continue;
+    for (const row of list.querySelectorAll('li')) {
+      if (row.parentElement?.closest('li') && list.contains(row.parentElement.closest('li')))
+        continue;
+      if (row.querySelector('a[href*="/messaging/thread/"]')) continue;
+      const heading = row.querySelector('h1, h2, h3, h4, h5, h6, [role="heading"]');
+      const name = heading ? shownText(heading) : '';
+      if (!name) continue;
+      const said = row.querySelector('p');
+      rows.push({
+        name,
+        preview: (said && shownText(said)) || null,
+        when: clean(row.querySelector('time')?.textContent) || null,
+      });
+    }
+  }
+  return rows;
 }

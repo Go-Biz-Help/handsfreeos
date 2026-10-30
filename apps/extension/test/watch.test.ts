@@ -72,8 +72,18 @@ const {
   watchTick,
   windowClosed,
 } = await import('../src/auto/watch');
-const { listTurn, repliedAfter, stillReplied, withReplied, workKey, workLeft } =
-  await import('../src/auto/plan');
+const {
+  answersAnyTime,
+  listTurn,
+  lookOutsideAt,
+  REPLY_LOOK_MS,
+  repliedAfter,
+  replyWaiting,
+  stillReplied,
+  withReplied,
+  workKey,
+  workLeft,
+} = await import('../src/auto/plan');
 const { NETWORKS_KEY } = await import('../src/networks/on');
 
 // ------------------------------------------------------------------------------------------------- Chrome
@@ -495,6 +505,63 @@ describe('replies first', () => {
     expect(listTurn({ readLast: false, replied: [] }, true, false)).toBe(false);
     // A first save still holds the day.
     expect(listTurn({ replied: [MAYA] }, true, true)).toBe(false);
+  });
+});
+
+describe('outside the working hours (decision 132)', () => {
+  const send = (state: 'waiting' | 'approved', text: string) => ({
+    sendId: '8b6f5c4d-3e2a-4b1c-8d9e-0f1a2b3c4d5e',
+    state,
+    text,
+    handedOver: false,
+    needsYou: null,
+  });
+  const reply = item({
+    kind: 'reply',
+    name: 'Maya Ortiz',
+    profileId: MAYA,
+    threadKey: '100200300',
+  });
+  const okdReply = item({
+    kind: 'partner_reply',
+    name: 'Ana Ruiz',
+    profileId: '5b6f5c4d-3e2a-4b1c-8d9e-0f1a2b3c4d5e',
+    threadKey: '100200301',
+    send: send('approved', 'Sounds good, Ana'),
+  } as Partial<TodayListItem>);
+  const okdOpener = item({
+    kind: 'opener',
+    name: 'Jo Hill',
+    profileId: OWEN,
+    send: send('approved', 'Hi Jo'),
+  } as Partial<TodayListItem>);
+  const list = {
+    items: [item({}), okdOpener, reply],
+    partners: [okdReply],
+    auto: ['friend_request' as const],
+    messages: ['opener' as const, 'reply' as const, 'partner_reply' as const],
+    sending: 'steps' as const,
+  };
+
+  it('answers who wrote back, drafted and sent once OK’d, and does nothing new', () => {
+    expect(
+      workLeft(list, [])
+        .filter(answersAnyTime)
+        .map((w) => `${w.do}: ${w.item.name}`),
+    ).toEqual(['draft: Maya Ortiz', 'send: Ana Ruiz']);
+  });
+
+  it('looks again soon while a reply waits for an OK, else at the hours’ next start', () => {
+    const now = Date.UTC(2026, 9, 30, 3);
+    const next = now + 6 * 3_600_000;
+    expect(replyWaiting(list)).toBe(false);
+    const waiting = { items: [{ ...reply, send: send('waiting', 'Thanks, Maya') }] };
+    expect(replyWaiting(waiting)).toBe(true);
+    expect(lookOutsideAt(true, now, next)).toBe(now + REPLY_LOOK_MS);
+    expect(lookOutsideAt(true, now, null)).toBe(now + REPLY_LOOK_MS);
+    expect(lookOutsideAt(false, now, next)).toBe(next);
+    // The hours start sooner than the next look: then.
+    expect(lookOutsideAt(true, now, now + 60_000)).toBe(now + 60_000);
   });
 });
 

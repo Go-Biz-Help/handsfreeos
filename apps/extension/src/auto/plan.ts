@@ -339,6 +339,40 @@ export const isReplyKind = (kind: TodayKind) => REPLY_KINDS.includes(kind);
 /** Whether a piece of work drafts the reply to someone who wrote back. */
 const isReplyDraft = (work: Work): boolean => work.do === 'draft' && isReplyKind(work.item.kind);
 
+/**
+ * What goes outside the working hours (decision 132; the owner, 30 Oct 2026: "it should always be checking for new
+ * messages and always respond in real time it just shouldn't send out new messages if it's not in the working
+ * time"): a reply to someone who wrote back, drafted at once, and sent once OK'd or on its own as Replies says.
+ * Nothing new goes: no first message, follow-up, like or request. Stop for today and a warning still stop it all.
+ */
+export const answersAnyTime = (work: Work): boolean =>
+  work.do !== 'step' && isReplyKind(work.item.kind);
+
+/** A runner's day outside its hours, for the replies alone: at a person's pace, with no end to spread them over. */
+export const ANSWERING: Extract<NetworkDay, { go: true }> = {
+  go: true,
+  started: true,
+  until: null,
+};
+
+/** Outside the hours, while a reply waits for the person's OK, how often the runner looks for it OK'd. */
+export const REPLY_LOOK_MS = 2 * 60_000;
+
+/** Whether a reply drafted on the list waits for the person's OK: outside the hours, it goes once they give it. */
+export const replyWaiting = (
+  list: Pick<TodayList, 'items'> & { readonly partners?: readonly TodayListItem[] },
+): boolean =>
+  [...list.items, ...(list.partners ?? [])].some(
+    (item) => isReplyKind(item.kind) && item.send?.state === 'waiting',
+  );
+
+/**
+ * When a runner outside its hours looks next: soon while a reply waits for an OK, else at the hours' next start
+ * (`next`; null when there's none this week).
+ */
+export const lookOutsideAt = (waiting: boolean, now: number, next: number | null): number | null =>
+  waiting ? Math.min(now + REPLY_LOOK_MS, next ?? Infinity) : next;
+
 /** The most kept as having written back: a day's worth, far more than a list carries. */
 const REPLIED_MOST = 50;
 

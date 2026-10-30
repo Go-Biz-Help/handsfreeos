@@ -6,6 +6,12 @@
  * (/direct/t/<id>/), where the last message is theirs. Only who it's with, by the chat's id and their account: never
  * what they wrote. A chat with more than one other person, or one the page doesn't tie to one account, is left out.
  * HandsFreeOS counts one only when it answers a message of the person's that the extension noted.
+ *
+ * Instagram's rows are buttons that link to no chat (the owner's Checks of 21 and 28 Oct 2026: none of 15 did), so a
+ * row goes by the name it shows, and HandsFreeOS takes it only when one person the person messaged there goes by it.
+ * Until 0.116.0 such rows were left out, so the messages page kept open (decision 125) never saw a reply on Instagram:
+ * one waited for the once-a-day chats read or for the person to open the chat. A reaction, or Instagram's own line
+ * ("Active 2h ago", "Seen"), is never a reply.
  */
 import type { ReplySighting } from '../facebook/replies';
 import { chatOn, chatRows, ownOf, type ChatOpen } from './read';
@@ -25,20 +31,40 @@ export function lastFromThem(chat: ChatOpen | null): ReplySighting | null {
   };
 }
 
+/** A row's last line that isn't a message of theirs: a reaction, or Instagram saying something. */
+const NOT_A_MESSAGE =
+  /^(active now|active (\d+\s?\w+|yesterday)( ago)?|seen( by .+)?|seen \d+\s?\w+ ago|sent( \d+\s?\w+ ago)?|delivered|typing…?|.+ is typing…?)$|\b(reacted|liked a message|liked your (message|story|note)|sent you a message request|wants to send you a message)\b/i;
+
+/** Whether a row's last line is a message of theirs: not the person's ("You: …"), and not a reaction or a notice. */
+export const theirsLast = (row: { readonly preview: string | null; readonly yours: boolean }) =>
+  row.preview !== null && !row.yours && !NOT_A_MESSAGE.test(row.preview.trim());
+
+const nameKey = (name: string) => name.trim().replace(/\s+/g, ' ').toLowerCase();
+
 export function readReplies(doc: Document, href: string): ReplySighting[] {
   const page = instagramUrl(href);
   if (!page || partsOf(page)[0] !== 'direct') return [];
   const found: ReplySighting[] = [];
-  for (const row of chatRows(doc, href))
-    if (row.thread && row.preview && !row.yours)
-      found.push({ name: row.name, threadKey: row.thread, profile: null, when: row.when });
   const open = lastFromThem(chatOn(doc, href, ownOf(doc, href)));
   if (open) found.push(open);
+  for (const row of chatRows(doc, href)) {
+    if (!theirsLast(row)) continue;
+    if (row.thread) {
+      found.push({ name: row.name, threadKey: row.thread, profile: null, when: row.when });
+      continue;
+    }
+    // The open chat's own row adds nothing: the chat says who it's with. Any other goes by the name it shows.
+    const theOpen =
+      open &&
+      [open.name, open.profile?.username].some((n) => n && nameKey(n) === nameKey(row.name));
+    if (!theOpen) found.push({ name: row.name, threadKey: null, profile: null, when: row.when });
+  }
   // Each chat once: the open one says who it's with, and the list when they wrote.
   const byKey = new Map<string, ReplySighting>();
   for (const s of found) {
-    const had = byKey.get(s.threadKey!);
-    byKey.set(s.threadKey!, had && !s.profile ? had : { ...s, when: had?.when ?? s.when });
+    const key = s.threadKey ?? `name:${nameKey(s.name)}`;
+    const had = byKey.get(key);
+    byKey.set(key, had && !s.profile ? had : { ...s, when: had?.when ?? s.when });
   }
   return [...byKey.values()];
 }

@@ -116,6 +116,7 @@ import { askInLine, inTurn } from './turns';
 import {
   afterDaily,
   AGAIN_WORDS,
+  answersAnyTime,
   AUTO_STATE_KEY,
   FINDING_JOBS,
   freshState,
@@ -125,12 +126,14 @@ import {
   IDLE_MS,
   isState,
   listTurn,
+  lookOutsideAt,
   needOf,
   nextDaily,
   nextRound,
   nextStart,
   nextWatch,
   repliedAfter,
+  replyWaiting,
   roundDue,
   soonestAgain,
   stillReplied,
@@ -1143,8 +1146,23 @@ async function go(): Promise<void> {
   const window = workWindow(settings.hours, timezone, at);
   const inHours = window !== null && at >= window.from && at < window.to;
   if (!state.started && !inHours) {
+    // Outside the hours a reply to someone who wrote back still goes, and nothing new does (decision 132). What the
+    // person asked from HandsFreeOS goes first.
+    if (askInLine()) return goAt(at + ASK_FIRST_MS);
+    const answering = await listNow(to.businessId, state.tried, state.replied);
+    const answers = answering.left.filter(answersAnyTime);
+    if (answers[0])
+      return workNext(answers, answering.list, {
+        businessId: to.businessId,
+        settings,
+        timezone,
+        inHours,
+        window,
+        reading: false,
+      });
     await closeWindow();
-    return goAt(tomorrow());
+    // A reply waiting for an OK goes once it's given: it looks again soon till then.
+    return goAt(lookOutsideAt(replyWaiting(answering.list), at, tomorrow()));
   }
 
   // What the person asked from HandsFreeOS goes first (../asks/run.ts): the runner looks again in a couple of minutes.

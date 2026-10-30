@@ -54,7 +54,7 @@ export type Profile = typeof profiles.$inferSelect;
 type ProfileRow = typeof profiles.$inferInsert;
 
 /** A profile's name as two are compared: one space between words, no capitals. `p` is its alias. */
-const nameKeyOf = (p: string) =>
+export const nameKeyOf = (p: string) =>
   sql`lower(regexp_replace(btrim(${sql.raw(p)}.name), '[[:space:]]+', ' ', 'g'))`;
 
 /** A profile marked never pitched itself: on Don't pitch, or a customer tagged Friend or family. `p` is its alias. */
