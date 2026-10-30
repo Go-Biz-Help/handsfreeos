@@ -1764,14 +1764,14 @@ function scriptedPlaybookAssist(message: string) {
  * simple when their last message asks nothing, and says what they answered; the video and the link say which they
  * are, for the checks to find their links on the end. A reply to a question none of whose words the business
  * profile or the knowledge has says it's unanswered, in their words (decision 122); one they have answers from the
- * knowledge.
+ * knowledge. Someone who said no gets a kind word and nothing more (decision 134).
  */
 function scriptedTodayDraft(message: string) {
   const name = /<person>([\s\S]*?)<\/person>/.exec(message)?.[1] ?? 'there';
   const first = unquote(name).split(' ')[0];
   const theirs = [...message.matchAll(/^Them: (.*)$/gm)].at(-1)?.[1] ?? '';
   const last = [...message.matchAll(/^(Owner|Them): /gm)].at(-1)?.[1];
-  const reply = message.includes('They wrote last. Write the owner’s reply');
+  const reply = message.includes('They wrote last. Read the whole chat first');
   const answer = reply && last === 'Them' ? scriptedAnswer(theirs) : 'none';
   // A question in a reply (decision 122): answered from the first item of the knowledge sharing a word with it, or
   // unanswered, in their words, when the business profile has none of its words either.
@@ -1870,6 +1870,14 @@ function scriptedTodayDraft(message: string) {
       simple: false,
       answer: 'none',
       drafts: [`Here’s my link to book a quick call, ${first}.`],
+    };
+  // Someone who told the owner no, or not now (decision 134): nothing that pitches, whatever the rest says.
+  if (message.includes('They told the owner no, or not now'))
+    return {
+      simple: false,
+      answer,
+      unanswered: '',
+      drafts: [`No problem at all, ${first}. Take care!`],
     };
   // A message the owner wrote themselves in Your messages (decision 87): kept close to, fitted to them.
   const example = /^- (.+)$/m.exec(unquote(quotedBlock(message, 'owner_example') ?? ''))?.[1];

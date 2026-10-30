@@ -8,6 +8,10 @@
  * their messages in Your messages, with the ones they wrote themselves (decision 87). Core holds what the model is
  * asked and checks what it answers (packages/core/src/addons/outreach/today.ts).
  *
+ * A reply, a follow-up or a check-in to someone who said no, or not now, before (their answer kept, their chat read as
+ * not interested, or marked not a fit) carries nothing that pitches, and the AI reads the whole chat, never only their
+ * last message: a chat that has come to a close gets a short sign-off at most (decision 134).
+ *
  * For a reply, the AI also reads their answer to the person's last step (yes, a question, not now, no), which is kept
  * for their conversation (`outreach.answer.note`); a yes is drafted as the next step instead, Send the video or Send
  * the link, and said so (`kind`), but never for a client in Contacts (decision 91), whose drafts carry no link. It also says whether a reply is simple (decision 27), never for someone who needs the
@@ -20,16 +24,19 @@
  * business and no link, the new job in the page's words.
  */
 import {
+  ANSWERS,
   messageNotesOf,
   MessageSamples,
   ownWordsFor,
   stepAfterYes,
+  type Answer,
   type ConversationStep,
 } from '@hfos/core/addons/outreach/conversation';
 import { FOR_CUSTOMERS, isClient } from '@hfos/core/addons/outreach/ops/common';
 import { demoLink, demoRef } from '@hfos/core/addons/outreach/demos';
 import { bestFit } from '@hfos/core/addons/outreach/fit';
 import type { DownloadMessage } from '@hfos/core/addons/outreach/download';
+import type { PitchRead } from '@hfos/core/addons/outreach/stages';
 import {
   nextOpener,
   openerKey,
@@ -88,6 +95,15 @@ import { partnerDraft } from './partner-drafts';
 
 export const TODAY_DRAFT_ACTION = 'outreach.today.draft';
 
+/** A chat a draft reads: who, its latest messages, and the AI's read of whether it's time to offer, with why. */
+type ChatRow = {
+  name: string;
+  profile_id: string | null;
+  recent: DownloadMessage[];
+  pitch: PitchRead | null;
+  pitch_why: string | null;
+};
+
 export const todayDraft: AddonWorkerAction<TodayDraftInput> = {
   permission: 'outreach.use',
   ai: {
@@ -114,17 +130,17 @@ export const todayDraft: AddonWorkerAction<TodayDraftInput> = {
         sql`select name, timezone from app.workspaces where id = ${ws}`,
       );
       const [chat] = input.chatId
-        ? await rows<{ name: string; profile_id: string | null; recent: DownloadMessage[] }>(
+        ? await rows<ChatRow>(
             tx,
             // The person's own chats only: nobody else sees them.
-            sql`select name, profile_id, recent from addon_outreach.file_chats
+            sql`select name, profile_id, recent, pitch, pitch_why from addon_outreach.file_chats
                 where workspace_id = ${ws} and id = ${input.chatId} and user_id = ${ctx.userId}`,
           )
         : input.profileId && !underAPost(input.kind) && input.kind !== 'warm_lead'
           ? // No chat named: their latest with the person, as the extension just brought it in for a reply.
-            await rows<{ name: string; profile_id: string | null; recent: DownloadMessage[] }>(
+            await rows<ChatRow>(
               tx,
-              sql`select name, profile_id, recent from addon_outreach.file_chats
+              sql`select name, profile_id, recent, pitch, pitch_why from addon_outreach.file_chats
                   where workspace_id = ${ws} and profile_id = ${input.profileId} and user_id = ${ctx.userId}
                   order by last_at desc limit 1`,
             )
@@ -203,10 +219,24 @@ export const todayDraft: AddonWorkerAction<TodayDraftInput> = {
       // Where their conversation with the person is (decisions 65 to 67), and the main offer's words for it: the
       // version they were first pitched with, else the live one.
       const [conversation] = profileId
-        ? await rows<{ step: ConversationStep; sent: number; offer_version: number | null }>(
+        ? await rows<{
+            step: ConversationStep;
+            sent: number;
+            offer_version: number | null;
+            answer: Answer | null;
+          }>(
             tx,
-            sql`select step, sent, offer_version from addon_outreach.follow_ups
+            sql`select step, sent, offer_version, answer from addon_outreach.follow_ups
                 where workspace_id = ${ws} and user_id = ${ctx.userId} and profile_id = ${profileId}`,
+          )
+        : [];
+      // Marked not a fit (decision 47): by the AI when they said no in a chat, or by the person, with why.
+      const [lost] = profileId
+        ? await rows<{ why: string | null }>(
+            tx,
+            sql`select why from addon_outreach.stages
+                where workspace_id = ${ws} and user_id = ${ctx.userId} and profile_id = ${profileId}
+                  and mark = 'lost'`,
           )
         : [];
       // Where the person stands with them on their network: on a follow network, someone who hasn't followed back gets
@@ -265,6 +295,7 @@ export const todayDraft: AddonWorkerAction<TodayDraftInput> = {
         voice: await voiceFor(tx, ws, ctx.userId),
         lastAt: last?.at ?? null,
         conversation: conversation ?? null,
+        lost: lost ?? null,
         offer: offer ?? null,
         friendState: friend?.state ?? null,
         demoAt: demo?.starts_at ?? null,
@@ -364,6 +395,22 @@ export const todayDraft: AddonWorkerAction<TodayDraftInput> = {
           ?.details.videoLink ??
         null);
     const recent = found.chat?.recent ?? [];
+    // They told the person no, or not now, before (decision 134): their answer kept for the conversation, their chat
+    // read as not interested, or marked not a fit. A chat read since as ready for the offer says they came round.
+    const said = found.conversation?.answer;
+    const declined =
+      found.chat?.pitch !== 'ready' &&
+      (found.lost !== null ||
+        said === 'no' ||
+        said === 'later' ||
+        found.chat?.pitch === 'not_interested')
+        ? {
+            why:
+              found.lost?.why ??
+              found.chat?.pitch_why ??
+              (said === 'no' || said === 'later' ? ANSWERS[said] : null),
+          }
+        : null;
     const conversation = found.conversation
       ? {
           step: found.conversation.step,
@@ -421,6 +468,7 @@ export const todayDraft: AddonWorkerAction<TodayDraftInput> = {
                 : null,
               occasion: found.occasion,
               knows,
+              declined,
               own: ownWordsFor(
                 kind,
                 found.samples,
