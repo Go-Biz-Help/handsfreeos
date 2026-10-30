@@ -11,9 +11,11 @@ import {
   VIDEO_CALL_MAX_PEOPLE,
   VIDEO_CALL_ROOM_AI,
   VIDEO_CALL_TICKET_SECONDS,
+  type VideoCallPublish,
 } from '@hfos/core';
 import {
   AccessToken,
+  DataPacket_Kind,
   RoomConfiguration,
   RoomServiceClient,
   ServerError,
@@ -32,13 +34,32 @@ export interface LiveKitConfig {
 /**
  * How a room behaves, set by the first ticket used in it. Everyone dropping for a moment (a train, a lift) doesn't
  * end the call: the room waits two minutes after the last person goes before it closes. Room for the AI's listener
- * and a second phone taking over beside the people LiveKit lets in.
+ * and a second phone taking over beside the people LiveKit lets in: 10 for a meeting, 500 for a webinar.
  */
-const ROOM = {
+const roomOf = (maxPeople: number) => ({
   emptyTimeout: 5 * 60,
   departureTimeout: 2 * 60,
-  maxParticipants: VIDEO_CALL_MAX_PEOPLE + 2,
-};
+  maxParticipants: maxPeople + 2,
+});
+
+/**
+ * What a ticket or a permission change lets someone send. Everything is LiveKit's "no list"; a webinar's attendee gets
+ * only what they may (a camera, or a microphone and camera on stage), and nothing at all is no publishing.
+ */
+export function sourcesOf(p: VideoCallPublish): {
+  canPublish: boolean;
+  canPublishSources: TrackSource[];
+} {
+  if (p.camera && p.microphone && p.screen) return { canPublish: true, canPublishSources: [] };
+  const sources = [
+    ...(p.camera ? [TrackSource.CAMERA] : []),
+    ...(p.microphone ? [TrackSource.MICROPHONE] : []),
+    ...(p.screen ? [TrackSource.SCREEN_SHARE, TrackSource.SCREEN_SHARE_AUDIO] : []),
+  ];
+  return { canPublish: sources.length > 0, canPublishSources: sources };
+}
+
+const EVERYTHING: VideoCallPublish = { camera: true, microphone: true, screen: true };
 
 const PRESENCE: Readonly<Record<string, 'joined' | 'left'>> = {
   participant_joined: 'joined',
@@ -106,19 +127,21 @@ export function createLiveKit(config: LiveKitConfig): VideoCallProvider {
         identity: t.identity,
         name: t.name,
         ttl: VIDEO_CALL_TICKET_SECONDS,
-        attributes: { [VIDEO_CALL_ATTRIBUTES.kind]: t.kind },
+        attributes: { ...t.rights?.attributes, [VIDEO_CALL_ATTRIBUTES.kind]: t.kind },
       });
+      const { canPublish, canPublishSources } = sourcesOf(t.rights?.publish ?? EVERYTHING);
       at.addGrant({
         roomJoin: true,
         room: t.room,
-        canPublish: true,
+        canPublish,
+        ...(canPublishSources.length ? { canPublishSources } : {}),
         canSubscribe: true,
         // Chat and reactions.
         canPublishData: true,
         // Raising and lowering their own hand.
         canUpdateOwnMetadata: true,
       });
-      at.roomConfig = new RoomConfiguration(ROOM);
+      at.roomConfig = new RoomConfiguration(roomOf(t.rights?.maxPeople ?? VIDEO_CALL_MAX_PEOPLE));
       return { url: config.url, token: await at.toJwt() };
     },
 
@@ -156,6 +179,25 @@ export function createLiveKit(config: LiveKitConfig): VideoCallProvider {
         await rooms.deleteRoom(room);
       } catch (e) {
         if (!notThere(e)) throw failed(e, 'close a call');
+      }
+    },
+
+    async permit(room, identity, p) {
+      try {
+        // LiveKit sets all of someone's permissions at once, so everything the ticket gave is said again.
+        await rooms.updateParticipant(room, identity, {
+          attributes: { ...p.attributes },
+          permission: {
+            ...sourcesOf(p.publish),
+            canSubscribe: true,
+            canPublishData: true,
+            canUpdateMetadata: true,
+          },
+        });
+        return true;
+      } catch (e) {
+        if (notThere(e)) return false;
+        throw failed(e, 'change what someone may send');
       }
     },
 
@@ -201,6 +243,19 @@ export function createLiveKit(config: LiveKitConfig): VideoCallProvider {
         );
       } catch (e) {
         if (!notThere(e)) throw failed(e, 'say whether the AI hears a call');
+      }
+    },
+
+    async send(room, topic, message, to) {
+      try {
+        await rooms.sendData(
+          room,
+          new TextEncoder().encode(JSON.stringify(message)),
+          DataPacket_Kind.RELIABLE,
+          { topic, ...(to ? { destinationIdentities: [...to] } : {}) },
+        );
+      } catch (e) {
+        if (!notThere(e)) throw failed(e, 'send something to everyone in a call');
       }
     },
   };

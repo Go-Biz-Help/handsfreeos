@@ -181,6 +181,11 @@ export const FIELD_CATALOG: readonly FieldDef[] = [
   // A form's events (funnels): which form, and the page somebody stopped on.
   f('trigger.form_id', 'Which form', 'trigger', 'ref', null, { refKind: 'form' }),
   f('trigger.page_title', 'Page they stopped on', 'trigger', 'text', null),
+  // A webinar's rating (part 5): Hot, Warm or Cold, and the points it came from.
+  f('trigger.label', 'Rated', 'trigger', 'enum', null, {
+    options: opts(['hot', 'Hot'], ['warm', 'Warm'], ['cold', 'Cold']),
+  }),
+  f('trigger.points', 'Webinar points', 'trigger', 'number', null),
   f('wait.timed_out', 'The last wait for an event timed out', 'trigger', 'boolean', null),
   f('wait.button', 'Button they chose in their reply', 'trigger', 'text', null),
 

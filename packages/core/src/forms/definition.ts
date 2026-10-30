@@ -33,19 +33,119 @@ import { videoLinkProblem } from './video';
 
 export const FORM_DEFINITION_VERSION = 1;
 
-export const FORM_MODES = ['form', 'survey', 'quiz'] as const;
+/**
+ * `poll` is a live poll (HANDSFREEOS_WEBINARS_IMPLEMENTATION_PLAN.md, part 2): its questions and buttons pop up one at
+ * a time in a HandsFreeOS video call, and each person's answers are one response on their contact. It's never filled
+ * in on a page, in a conversation or on the phone.
+ */
+export const FORM_MODES = ['form', 'survey', 'quiz', 'poll'] as const;
 export type FormMode = (typeof FORM_MODES)[number];
 
 export const FORM_MODE_LABELS: Readonly<Record<FormMode, string>> = {
   form: 'Form',
   survey: 'Survey',
   quiz: 'Quiz',
+  poll: 'Live poll',
 };
 
 export const MAX_PAGES = 30;
 export const MAX_QUESTIONS_PER_PAGE = 60;
 export const MAX_QUESTIONS = 200;
 export const MAX_RESULTS = 20;
+
+// ---- Live polls ----
+
+/** What a live poll asks: pick one, pick any, yes or no, a rating, a 1 to 10 scale, a short answer, and buttons. */
+export const POLL_QUESTION_TYPES: ReadonlySet<QuestionType> = new Set([
+  'choice',
+  'checkboxes',
+  'yes_no',
+  'rating',
+  'scale',
+  'short_text',
+  'button',
+]);
+/** Types that only make sense popping up in a call. */
+export const POLL_ONLY_TYPES: ReadonlySet<QuestionType> = new Set(['button']);
+export const MAX_POLL_ITEMS = 30;
+/** How long a question stays up unless it says otherwise (the owner's 15). */
+export const POLL_SECONDS = 60;
+export const POLL_MIN_SECONDS = 10;
+export const POLL_MAX_SECONDS = 600;
+/** When-to-ask phrases a live poll's question holds, at most, and the longest one. */
+export const POLL_MAX_CUES = 8;
+export const POLL_CUE_CHARS = 160;
+/** The most one answer, a button press or staying to the end is worth, either way. */
+export const POLL_MAX_POINTS = 100;
+/** What an answer's points are kept under: a choice's id, yes, no, a number, answered or pressed. */
+const POINTS_KEY = /^[A-Za-z0-9_-]{1,40}$/;
+/** The most pages a live poll's slides may have. */
+export const MAX_SLIDES = 100;
+/** The biggest PDF of slides: the attachments bucket's limit. */
+export const SLIDES_MAX_BYTES = 25 * 1024 * 1024;
+
+/**
+ * A live poll's slides (part 4): the presentation as a PDF, uploaded for the poll (`form.begin_slides_upload`), its
+ * file's record the form. The team shows them slide by slide in the call, and the AI reads them to tie each question
+ * to its slide. Left out, the poll has none.
+ */
+export const PollSlides = z.object({
+  fileId: z.uuid(),
+  /** The PDF's name, as it was uploaded. */
+  name: z.string().trim().min(1).max(200),
+  pages: z.int().min(1).max(MAX_SLIDES),
+});
+export type PollSlides = z.infer<typeof PollSlides>;
+
+/**
+ * How a question runs in a live poll: how long it stays up, and whether everyone sees the totals once it closes (the
+ * owner's 16). Left out, the defaults: a minute, and the totals kept for the team. A short answer's totals are never
+ * shown to everyone: they're what people typed.
+ */
+export const LiveQuestion = z.object({
+  seconds: z.int().min(POLL_MIN_SECONDS).max(POLL_MAX_SECONDS).default(POLL_SECONDS),
+  showResults: z.boolean().default(false),
+  /**
+   * What the presenter might say just before asking it (part 3): the AI hearing the call matches the team's words to
+   * these by meaning, beside the question itself. Written by the AI or the business; none, and it goes by the question.
+   */
+  cues: z.array(z.string().trim().min(1).max(POLL_CUE_CHARS)).max(POLL_MAX_CUES).default([]),
+  /**
+   * The slide it goes with, counted from 1 (part 4): the AI reads the poll's slides and picks it, or the business
+   * does. The AI hearing the call expects the question around that slide, and the team is offered it when the slide
+   * comes up. None, and it goes by the words alone.
+   */
+  slide: z.int().min(1).max(MAX_SLIDES).nullish(),
+  /**
+   * What each answer is worth toward following up (part 5, the owner's 21), by `pointsKeysOf`: a choice's id, `yes`
+   * or `no`, a number for a rating or scale, `answered` for a short answer and `pressed` for a button. Suggested by
+   * the AI, changed by the business; an answer left out is worth nothing.
+   */
+  points: z
+    .record(z.string().regex(POINTS_KEY), z.int().min(-POLL_MAX_POINTS).max(POLL_MAX_POINTS))
+    .default({}),
+});
+export type LiveQuestion = z.infer<typeof LiveQuestion>;
+
+/**
+ * Who to follow up with after a call with this poll (part 5, the owner's 21 to 23): the points for staying to the end,
+ * the lines for Hot and Warm, and what happens to the hot ones. Left out, these defaults.
+ */
+export const PollLeads = z.object({
+  /** Points for still being there when the team finished. */
+  stayed: z.int().min(0).max(POLL_MAX_POINTS).default(10),
+  /** Hot from this many points. */
+  hot: z.int().min(1).max(10_000).default(30),
+  /** Warm from this many; under it is Cold. */
+  warm: z.int().min(0).max(10_000).default(10),
+  /**
+   * What happens to the hot ones: `list`, the ranked list; `home`, the list plus a card on Home each; `text`, the
+   * AI teammate texts each one within minutes of the end (the default), waiting for an OK while it's on training
+   * wheels. Whichever it is, "Somebody is rated after a webinar" starts the business's workflows.
+   */
+  hotAction: z.enum(['list', 'home', 'text']).default('text'),
+});
+export type PollLeads = z.infer<typeof PollLeads>;
 
 // ---- Questions ----
 
@@ -63,6 +163,8 @@ const questionBase = {
    * invented. Null keeps it on the response, where it still shows on the customer's timeline.
    */
   mapTo: AnswerTargetRef.nullable().default(null),
+  /** In a live poll: how long it stays up and who sees the totals. Left out, `LiveQuestion`'s defaults. */
+  live: LiveQuestion.nullish(),
 };
 
 const question = <T extends QuestionType>(type: T) =>
@@ -89,6 +191,7 @@ export const Question = z.discriminatedUnion('type', [
   question('payment'),
   question('video'),
   question('booking'),
+  question('button'),
 ]);
 export type Question = z.infer<typeof Question>;
 export type QuestionInput = z.input<typeof Question>;
@@ -281,6 +384,10 @@ export const FormDefinition = z.object({
   title: z.string().trim().min(1, 'Name the form.').max(160),
   /** Shown above the first question. */
   intro: z.string().trim().max(4000).default(''),
+  /** A live poll's slides (part 4); left out, it has none. */
+  slides: PollSlides.nullish(),
+  /** A live poll's follow-up: staying's points, the Hot and Warm lines, what happens to hot ones (part 5). */
+  leads: PollLeads.nullish(),
   pages: z.array(FormPage).min(1, 'A form needs a page.').max(MAX_PAGES),
   calculations: z
     .array(Calculation)
@@ -295,6 +402,11 @@ export type FormDefinition = z.infer<typeof FormDefinition>;
 export type FormDefinitionInput = z.input<typeof FormDefinition>;
 
 // ---- Reading the tree ----
+
+/** How a question runs in a live poll, its defaults filled in. */
+export function liveOf(question: Pick<Question, 'live'>): LiveQuestion {
+  return LiveQuestion.parse(question.live ?? {});
+}
 
 /** Every question, in the order they are asked. */
 export function allQuestions(definition: Pick<FormDefinition, 'pages'>): Question[] {
@@ -480,6 +592,22 @@ export function formProblems(definition: FormDefinition): string[] {
       }
   }
 
+  if (definition.mode === 'poll') problems.push(...pollProblems(definition));
+  else {
+    if (definition.slides)
+      problems.push('Only a live poll has slides. Take them off, or make this a Live poll.');
+    if (definition.leads)
+      problems.push(
+        'Only a live poll scores who to follow up with. Take that off, or make this a Live poll.',
+      );
+  }
+  if (definition.mode !== 'poll')
+    for (const question of questions)
+      if (POLL_ONLY_TYPES.has(question.type))
+        problems.push(
+          `“${question.title}” is a button for a live poll. Make this form a Live poll, or take the button out.`,
+        );
+
   for (const term of definition.calculations.flatMap((c) => c.terms))
     for (const factor of term.factors) {
       if (factor.kind === 'question' && !known.has(factor.questionId))
@@ -490,6 +618,52 @@ export function formProblems(definition: FormDefinition): string[] {
   problems.push(...calculationProblems(definition.calculations));
 
   return [...new Set(problems.filter(Boolean))];
+}
+
+/**
+ * What's wrong with a live poll: a question that can't pop up in a call, a rule (a question pops up when it's asked,
+ * so nothing decides whether it shows), too many to get through, and a button with nowhere to go.
+ */
+function pollProblems(definition: FormDefinition): string[] {
+  const problems: string[] = [];
+  const questions = allQuestions(definition);
+  if (!questions.length) problems.push('A live poll needs a question or a button.');
+  const leads = PollLeads.parse(definition.leads ?? {});
+  if (leads.warm >= leads.hot)
+    problems.push(
+      `Warm starts at ${leads.warm} points, which isn’t below Hot’s ${leads.hot}. Make Warm lower than Hot.`,
+    );
+  if (questions.length > MAX_POLL_ITEMS)
+    problems.push(`A live poll holds up to ${MAX_POLL_ITEMS} questions and buttons.`);
+  if (
+    definition.pages.some((p) => p.showIf.conditions.length) ||
+    questions.some((q) => q.showIf.conditions.length)
+  )
+    problems.push(
+      'Questions in a live poll pop up when they’re asked, so they can’t have rules. Take the rules off.',
+    );
+  for (const question of questions) {
+    if (!POLL_QUESTION_TYPES.has(question.type)) {
+      problems.push(
+        `“${question.title}” can’t pop up in a live poll. Use pick one, pick any, yes or no, a rating, a scale, a short answer or a button.`,
+      );
+      continue;
+    }
+    const slide = question.live?.slide;
+    if (slide && slide > (definition.slides?.pages ?? 0))
+      problems.push(
+        definition.slides
+          ? `“${question.title}” goes with slide ${slide}, but the slides have ${definition.slides.pages}. Pick another slide, or none.`
+          : `“${question.title}” goes with slide ${slide}, but this poll has no slides. Add them, or pick no slide.`,
+      );
+    if (question.type !== 'button') continue;
+    const button = question.config as { action: string; url: string; calendarId: string };
+    if (button.action === 'link' && !isWebAddress(button.url))
+      problems.push(`“${question.title}” needs a web address starting https:// to open.`);
+    if (button.action === 'book' && !button.calendarId)
+      problems.push(`“${question.title}” needs a calendar to book on.`);
+  }
+  return problems;
 }
 
 /** Whether a quiz can actually be scored. */

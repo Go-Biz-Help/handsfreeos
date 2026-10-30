@@ -71,8 +71,16 @@ export const SCREEN_ACTIONS: Readonly<Record<string, ScreenAction>> = {
   'video_call.admit': {},
   'video_call.end': {},
   'video_call.mute': {},
+  'video_call.poll_close': {},
+  'video_call.poll_open': {},
+  'video_call.poll_skip': {},
   'video_call.remove': {},
   'video_call.set_ai': {},
+  'video_call.set_attendee_video': {},
+  'video_call.set_poll': {},
+  'video_call.set_poll_ai': {},
+  'video_call.slide': {},
+  'video_call.stage': {},
   'video_call.turn_away': {},
   // ---- Money and plans ----
   'subscription.set_connection': {},
@@ -312,6 +320,8 @@ export const NEVER_FOR_THE_ASSISTANT: Readonly<Record<string, string>> = {
   'support.staff.accept': 'accepting a support invitation, which is the person’s own',
   'extension_sign_in.answer': 'letting the browser extension in, which is the person’s own',
   'live_meeting.claim': 'done from HandsFreeOS’s app inside Zoom',
+  'form.begin_slides_upload':
+    'uploading a live poll’s slides, a PDF from the person’s own computer; they add it on the poll',
   'document_template.begin_upload':
     'uploading a template’s PDF, a file from the person’s own computer; they add it on the template',
   'document_template.set_source':

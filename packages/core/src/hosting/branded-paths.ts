@@ -25,6 +25,8 @@ const PUBLIC_PREFIXES = [
   '/v/',
   // A person's own Join link for an online session (funnels).
   '/j/',
+  // A webinar's link anyone can use, with its door form (HANDSFREEOS_WEBINARS_IMPLEMENTATION_PLAN.md).
+  '/live/',
   // A campaign email's unsubscribe page.
   '/u/',
   '/chat/',

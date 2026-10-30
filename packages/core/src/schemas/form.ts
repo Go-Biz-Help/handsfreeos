@@ -4,7 +4,7 @@
  * Browser-safe.
  */
 import { z } from 'zod';
-import { FORM_MODES } from '../forms/definition';
+import { FORM_MODES, SLIDES_MAX_BYTES } from '../forms/definition';
 import { FormOpList } from '../forms/ops';
 import { LINK_REF } from './calendar';
 import { isoDateTime, uuid } from './common';
@@ -90,6 +90,31 @@ export const FormSetStatusInput = z.object({
 export const FormStatusOutput = z.object({ formId: uuid, status: FormStatusValue });
 
 export const FormRenameInput = z.object({ workspaceId: uuid, formId: uuid, name: formName });
+
+/**
+ * Reserving a place for a live poll's slides, a PDF (webinars, part 4): upload it there, confirm it with file.confirm,
+ * then put it on the poll with set_form {slides: {fileId, name, pages}}.
+ */
+export const FormBeginSlidesUploadInput = z.object({
+  workspaceId: uuid,
+  formId: uuid,
+  name: z.string().trim().min(1).max(200),
+  mimeType: z.literal('application/pdf', {
+    error: 'Slides are added as a PDF. Save your presentation as a PDF and add that.',
+  }),
+  sizeBytes: z
+    .int()
+    .min(1)
+    .max(
+      SLIDES_MAX_BYTES,
+      'Slides can be up to 25 MB. Save the PDF smaller (fewer or smaller pictures) and add it again.',
+    ),
+});
+export const FormBeginSlidesUploadOutput = z.object({
+  fileId: uuid,
+  bucket: z.string(),
+  objectPath: z.string(),
+});
 export const FormSetSlugInput = z.object({ workspaceId: uuid, formId: uuid, slug });
 export const FormSlugOutput = z.object({ formId: uuid, slug: z.string() });
 
@@ -139,7 +164,7 @@ export type FormIssueOut = z.infer<typeof FormIssueOut>;
 
 // ---- Filling one in ----
 
-export const FormSourceValue = z.enum(['link', 'embed', 'chat', 'qr', 'app', 'api']);
+export const FormSourceValue = z.enum(['link', 'embed', 'chat', 'qr', 'app', 'api', 'video_call']);
 
 /** Answers by question id. What each one may be is the question's own business (core's answerProblem). */
 export const AnswerSheetInput = z

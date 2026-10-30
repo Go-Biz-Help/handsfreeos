@@ -4,7 +4,7 @@
  * it was asked. The worker alone holds LiveKit's secret, so nobody gets into a room without a ticket it signed,
  * and it signs one only once core's commands say the person may come in.
  */
-import type { VideoCallKind } from '@hfos/core';
+import type { VideoCallKind, VideoCallPublish } from '@hfos/core';
 
 export type VideoProviderName = 'livekit' | 'fake';
 
@@ -18,6 +18,26 @@ export interface TicketRequest {
   readonly name: string;
   /** Who they are to the call, carried in the room so every page can tell the team from the customer. */
   readonly kind: VideoCallKind;
+  /**
+   * What core says they may do in the room (`VideoCallRoomRights`): how many it holds, what they may send, and what
+   * else they carry (a webinar's format, camera choice, being on stage). Left out, a meeting's: everything, up to 10.
+   */
+  readonly rights?: RoomRights | null;
+}
+
+/** What someone may do in a room, from core (`rightsOf`). */
+export interface RoomRights {
+  /** How many people the room holds, the listener aside: set by the first ticket used in it. */
+  readonly maxPeople: number;
+  readonly publish: VideoCallPublish;
+  readonly attributes: Readonly<Record<string, string>>;
+}
+
+/** What someone in the room is changed to (a webinar's camera choice, or bringing them on stage). */
+export interface PermitRequest {
+  readonly publish: VideoCallPublish;
+  /** Only the ones to change; an empty value takes one off. */
+  readonly attributes: Readonly<Record<string, string>>;
 }
 
 /** What a browser connects with. */
@@ -62,6 +82,11 @@ export interface VideoCallProvider {
   mute(room: string, identity: string): Promise<boolean>;
   /** Closes a room, taking everyone out. One that's already closed is no trouble. */
   close(room: string): Promise<void>;
+  /**
+   * Changes what someone in a room may send, and what they carry, at once: LiveKit stops anything they may no longer
+   * send. False when they aren't in the room.
+   */
+  permit(room: string, identity: string, p: PermitRequest): Promise<boolean>;
 
   // The AI hearing the call (part 2): its listener, in the media process (video-calls/listener.ts).
 
@@ -71,6 +96,12 @@ export interface VideoCallProvider {
   whoIsIn(room: string): Promise<{ readonly people: number; readonly listener: boolean }>;
   /** Tells everyone in the call whether the AI is hearing it ("AI notes on"). A room that's closed is no trouble. */
   markAi(room: string, on: boolean): Promise<void>;
+  /**
+   * Sends a message on a data topic to everyone in a room, or only to the identities named (a live poll, part 2 of
+   * webinars). It comes from the server, so pages trust it where they'd ignore the same topic from a person. A room
+   * that's closed is no trouble.
+   */
+  send(room: string, topic: string, message: unknown, to?: readonly string[]): Promise<void>;
 }
 
 /** LiveKit refused or didn't answer. `permanent` is a refusal that trying again won't change. */

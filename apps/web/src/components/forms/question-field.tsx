@@ -291,6 +291,17 @@ function Answer({
           onChange={onChange}
         />
       );
+    case 'button':
+      // A live poll's button: pressing it is the answer.
+      return (
+        <Button
+          type="button"
+          variant={value === true ? 'primary' : 'secondary'}
+          onClick={() => onChange(true)}
+        >
+          {String(config.label ?? 'Press')}
+        </Button>
+      );
     case 'email':
       return (
         <Input

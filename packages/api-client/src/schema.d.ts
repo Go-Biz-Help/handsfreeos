@@ -3797,6 +3797,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/commands/form.begin_slides_upload": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Reserve a place for a live poll’s slides, a PDF of 25 MB at most. Upload it to the returned path, confirm it with file.confirm, then put it on the poll with set_form {slides: {fileId, name, pages}}.
+         * @description Risk level 1. Requires forms.manage. Emits .
+         */
+        post: operations["command_form_begin_slides_upload"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/commands/form.create": {
         parameters: {
             query?: never;
@@ -15377,6 +15397,66 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/commands/video_call.poll_close": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Close the question that’s up in a HandsFreeOS video call’s live poll.
+         * @description Risk level 0. Requires appointments.write. Emits video_call.poll_closed.
+         */
+        post: operations["command_video_call_poll_close"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/video_call.poll_open": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Pop a question or button from the call’s live poll up on everyone’s screen in a HandsFreeOS video call. Any question that’s up closes.
+         * @description Risk level 1. Requires appointments.write. Emits video_call.poll_opened, video_call.poll_closed.
+         */
+        post: operations["command_video_call_poll_open"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/video_call.poll_skip": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Skip a question in the call’s live poll for now, so the next one is up next. It can still be asked later.
+         * @description Risk level 0. Requires appointments.write. Emits video_call.poll_skipped.
+         */
+        post: operations["command_video_call_poll_skip"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/commands/video_call.remove": {
         parameters: {
             query?: never;
@@ -15411,6 +15491,106 @@ export interface paths {
          * @description Risk level 1. Requires appointments.write. Emits video_call.ai_changed.
          */
         post: operations["command_video_call_set_ai"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/video_call.set_attendee_video": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * In a HandsFreeOS webinar, choose whether attendees may turn their cameras on, and whether only the team or everyone sees them.
+         * @description Risk level 1. Requires appointments.write. Emits video_call.attendee_video_changed.
+         */
+        post: operations["command_video_call_set_attendee_video"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/video_call.set_poll": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Pick the live poll whose questions pop up in a HandsFreeOS video call, or take it off. Live polls are made in Forms.
+         * @description Risk level 1. Requires appointments.write. Emits video_call.poll_set, video_call.slide_changed.
+         */
+        post: operations["command_video_call_set_poll"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/video_call.set_poll_ai": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Say how far the AI goes with a HandsFreeOS video call’s live poll: pops a question up when it hears its moment and offers the rest (ask), only offers them (suggest), or leaves it to the team (off).
+         * @description Risk level 1. Requires appointments.write. Emits video_call.poll_ai_set.
+         */
+        post: operations["command_video_call_set_poll_ai"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/video_call.slide": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Show a slide of the live poll’s slides big on the stage in a HandsFreeOS video call, counted from 1, or take the slides down (null).
+         * @description Risk level 1. Requires appointments.write. Emits video_call.slide_changed.
+         */
+        post: operations["command_video_call_slide"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/video_call.stage": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * In a HandsFreeOS webinar, bring an attendee on stage so they can talk and be on camera, or send them back to the audience.
+         * @description Risk level 1. Requires appointments.write. Emits video_call.stage_changed.
+         */
+        post: operations["command_video_call_stage"];
         delete?: never;
         options?: never;
         head?: never;
@@ -22637,6 +22817,46 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/queries/video_call.leads": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Who to follow up with after a HandsFreeOS video call with a live poll: everyone who came, Hot, Warm or Cold, hottest first, with their points and the AI’s reason.
+         * @description Requires records.read.
+         */
+        post: operations["query_video_call_leads"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/queries/video_call.polls": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * A HandsFreeOS video call’s live poll: each question and button, whether it’s been asked, and the answers and totals so far.
+         * @description Requires records.read.
+         */
+        post: operations["query_video_call_polls"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/queries/waitlist.list": {
         parameters: {
             query?: never;
@@ -26362,6 +26582,11 @@ export interface operations {
                             wallet_empty?: true;
                             /** @default true */
                             wallet_low?: boolean;
+                            /**
+                             * @default true
+                             * @enum {boolean}
+                             */
+                            webinar_hot?: true;
                             /** @default true */
                             website_changed?: boolean;
                         };
@@ -26524,6 +26749,11 @@ export interface operations {
                                 wallet_empty: true;
                                 /** @default true */
                                 wallet_low: boolean;
+                                /**
+                                 * @default true
+                                 * @enum {boolean}
+                                 */
+                                webinar_hot: true;
                                 /** @default true */
                                 website_changed: boolean;
                             };
@@ -27473,6 +27703,25 @@ export interface operations {
                                  */
                                 video?: "none" | "google_meet" | "zoom" | "handsfree";
                             }[];
+                            /** @default {} */
+                            webinar?: {
+                                /**
+                                 * @default off
+                                 * @enum {string}
+                                 */
+                                attendeeVideo?: "off" | "team" | "everyone";
+                                /** @default true */
+                                missedFollowUp?: boolean;
+                                /**
+                                 * @default ask
+                                 * @enum {string}
+                                 */
+                                pollAi?: "ask" | "suggest" | "off";
+                                /** @default null */
+                                pollFormId?: string | null;
+                                /** @default true */
+                                startingNow?: boolean;
+                            };
                         };
                         /** @default {} */
                         notifications?: {
@@ -31860,6 +32109,44 @@ export interface operations {
             };
         };
     };
+    command_form_begin_slides_upload: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    formId: string;
+                    /** @enum {string} */
+                    mimeType: "application/pdf";
+                    name: string;
+                    sizeBytes: number;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        bucket: string;
+                        /** Format: uuid */
+                        fileId: string;
+                        objectPath: string;
+                    };
+                };
+            };
+        };
+    };
     command_form_create: {
         parameters: {
             query?: never;
@@ -31874,7 +32161,7 @@ export interface operations {
                      * @default form
                      * @enum {string}
                      */
-                    mode?: "form" | "survey" | "quiz";
+                    mode?: "form" | "survey" | "quiz" | "poll";
                     name: string;
                     /** @description A starter’s key, like “quote” or “review” */
                     starter?: string;
@@ -58993,11 +59280,19 @@ export interface operations {
                         call: {
                             aiNotes: boolean;
                             appointmentId: string | null;
+                            /** @enum {string} */
+                            attendeeVideo: "off" | "team" | "everyone";
+                            doorKey: string | null;
                             endedAt: string | null;
+                            /** @enum {string} */
+                            format: "meeting" | "webinar";
                             hostUserId: string | null;
                             /** Format: uuid */
                             id: string;
                             personId: string | null;
+                            /** @enum {string} */
+                            pollAi: "ask" | "suggest" | "off";
+                            pollFormId: string | null;
                             startedAt: string | null;
                             /** @enum {string} */
                             state: "open" | "live" | "ended";
@@ -59005,6 +59300,19 @@ export interface operations {
                         name: string;
                         /** Format: uuid */
                         personId: string;
+                        rights: {
+                            attributes: {
+                                [key: string]: string;
+                            };
+                            /** @enum {string} */
+                            format: "meeting" | "webinar";
+                            maxPeople: number;
+                            publish: {
+                                camera: boolean;
+                                microphone: boolean;
+                                screen: boolean;
+                            };
+                        };
                     };
                 };
             };
@@ -59038,6 +59346,107 @@ export interface operations {
                 content: {
                     "application/json": {
                         requested: boolean;
+                    };
+                };
+            };
+        };
+    };
+    command_video_call_poll_close: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    callId: string;
+                    /** Format: uuid */
+                    pollId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        changed: boolean;
+                    };
+                };
+            };
+        };
+    };
+    command_video_call_poll_open: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    callId: string;
+                    questionId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        changed: boolean;
+                        /** Format: date-time */
+                        closesAt: string;
+                        /** Format: uuid */
+                        pollId: string;
+                    };
+                };
+            };
+        };
+    };
+    command_video_call_poll_skip: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    callId: string;
+                    questionId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        changed: boolean;
                     };
                 };
             };
@@ -59104,6 +59513,178 @@ export interface operations {
                     "application/json": {
                         aiNotes: boolean;
                         changed: boolean;
+                    };
+                };
+            };
+        };
+    };
+    command_video_call_set_attendee_video: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** @enum {string} */
+                    attendeeVideo: "off" | "team" | "everyone";
+                    /** Format: uuid */
+                    callId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @enum {string} */
+                        attendeeVideo: "off" | "team" | "everyone";
+                        changed: boolean;
+                    };
+                };
+            };
+        };
+    };
+    command_video_call_set_poll: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    callId: string;
+                    formId: string | null;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        changed: boolean;
+                        pollFormId: string | null;
+                    };
+                };
+            };
+        };
+    };
+    command_video_call_set_poll_ai: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** @enum {string} */
+                    ai: "ask" | "suggest" | "off";
+                    /** Format: uuid */
+                    callId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @enum {string} */
+                        ai: "ask" | "suggest" | "off";
+                        changed: boolean;
+                    };
+                };
+            };
+        };
+    };
+    command_video_call_slide: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    callId: string;
+                    slide: number | null;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        changed: boolean;
+                        of: number;
+                        slide: number | null;
+                    };
+                };
+            };
+        };
+    };
+    command_video_call_stage: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    callId: string;
+                    on: boolean;
+                    /** Format: uuid */
+                    personId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        changed: boolean;
+                        onStage: boolean;
                     };
                 };
             };
@@ -59854,7 +60435,7 @@ export interface operations {
                     organizationId: string;
                     trigger?: {
                         /** @enum {string} */
-                        event: "person.created" | "person.updated" | "record.tags_changed" | "lead.created" | "lead.stage_changed" | "lead.assigned" | "lead.qualified" | "appointment.booked" | "appointment.rescheduled" | "appointment.cancelled" | "appointment.completed" | "appointment.no_show" | "attendee.joined" | "attendee.attended" | "attendee.no_show" | "message.received" | "call.missed" | "call.voicemail_left" | "call.completed" | "task.completed" | "ai_teammate.handed_off" | "estimate.sent" | "estimate.accepted" | "estimate.declined" | "invoice.paid" | "form.submitted" | "form.stopped" | "invoice.overdue";
+                        event: "person.created" | "person.updated" | "record.tags_changed" | "lead.created" | "lead.stage_changed" | "lead.assigned" | "lead.qualified" | "appointment.booked" | "appointment.rescheduled" | "appointment.cancelled" | "appointment.completed" | "appointment.no_show" | "attendee.joined" | "attendee.attended" | "attendee.no_show" | "webinar.rated" | "message.received" | "call.missed" | "call.voicemail_left" | "call.completed" | "task.completed" | "ai_teammate.handed_off" | "estimate.sent" | "estimate.accepted" | "estimate.declined" | "invoice.paid" | "form.submitted" | "form.stopped" | "invoice.overdue";
                         /** @default {} */
                         filters?: {
                             /** @default [] */
@@ -60372,7 +60953,7 @@ export interface operations {
                     recipeKey?: "speed_to_lead" | "missed_call_text_back" | "appointment_follow_up_review" | "estimate_follow_up" | "no_show_rebook" | "speed_to_lead_ai" | "missed_call_text_back_ai" | "speed_to_lead_phone";
                     trigger?: {
                         /** @enum {string} */
-                        event: "person.created" | "person.updated" | "record.tags_changed" | "lead.created" | "lead.stage_changed" | "lead.assigned" | "lead.qualified" | "appointment.booked" | "appointment.rescheduled" | "appointment.cancelled" | "appointment.completed" | "appointment.no_show" | "attendee.joined" | "attendee.attended" | "attendee.no_show" | "message.received" | "call.missed" | "call.voicemail_left" | "call.completed" | "task.completed" | "ai_teammate.handed_off" | "estimate.sent" | "estimate.accepted" | "estimate.declined" | "invoice.paid" | "form.submitted" | "form.stopped" | "invoice.overdue";
+                        event: "person.created" | "person.updated" | "record.tags_changed" | "lead.created" | "lead.stage_changed" | "lead.assigned" | "lead.qualified" | "appointment.booked" | "appointment.rescheduled" | "appointment.cancelled" | "appointment.completed" | "appointment.no_show" | "attendee.joined" | "attendee.attended" | "attendee.no_show" | "webinar.rated" | "message.received" | "call.missed" | "call.voicemail_left" | "call.completed" | "task.completed" | "ai_teammate.handed_off" | "estimate.sent" | "estimate.accepted" | "estimate.declined" | "invoice.paid" | "form.submitted" | "form.stopped" | "invoice.overdue";
                         /** @default {} */
                         filters?: {
                             /** @default [] */
@@ -63845,7 +64426,7 @@ export interface operations {
                                     /** Format: uuid */
                                     itemId?: string;
                                     /** @enum {string} */
-                                    kind?: "hot_lead" | "unanswered_lead" | "stale_opportunity" | "missing_next_action" | "unconfirmed_appointment" | "ai_approval" | "customer_waiting" | "overdue_task" | "estimate_waiting" | "invoice_overdue" | "wallet_low" | "wallet_empty" | "wallet_card_declined" | "job_not_thanked" | "referral_mentioned" | "maintenance_due" | "pipeline_mismatch" | "quiet_after_price" | "job_unconfirmed" | "job_never_completed" | "job_no_address" | "client_quiet" | "promise_due" | "revenue_moved" | "channel_quiet" | "connection_error" | "connection_silent" | "ai_unreviewed" | "ai_corrections" | "website_changed" | "faq_suggestions" | "offer_lapsing" | "texting_rejected" | "addon_alert";
+                                    kind?: "hot_lead" | "unanswered_lead" | "stale_opportunity" | "missing_next_action" | "unconfirmed_appointment" | "ai_approval" | "customer_waiting" | "overdue_task" | "estimate_waiting" | "invoice_overdue" | "wallet_low" | "wallet_empty" | "wallet_card_declined" | "job_not_thanked" | "referral_mentioned" | "maintenance_due" | "pipeline_mismatch" | "quiet_after_price" | "job_unconfirmed" | "job_never_completed" | "job_no_address" | "client_quiet" | "promise_due" | "revenue_moved" | "channel_quiet" | "connection_error" | "connection_silent" | "ai_unreviewed" | "ai_corrections" | "website_changed" | "faq_suggestions" | "offer_lapsing" | "texting_rejected" | "addon_alert" | "webinar_hot";
                                     title: string;
                                     /** @enum {string} */
                                     tone: "accent" | "warning" | "danger" | "muted";
@@ -64163,7 +64744,7 @@ export interface operations {
                             /** Format: uuid */
                             id: string;
                             /** @enum {string} */
-                            kind: "hot_lead" | "unanswered_lead" | "stale_opportunity" | "missing_next_action" | "unconfirmed_appointment" | "ai_approval" | "customer_waiting" | "overdue_task" | "estimate_waiting" | "invoice_overdue" | "wallet_low" | "wallet_empty" | "wallet_card_declined" | "job_not_thanked" | "referral_mentioned" | "maintenance_due" | "pipeline_mismatch" | "quiet_after_price" | "job_unconfirmed" | "job_never_completed" | "job_no_address" | "client_quiet" | "promise_due" | "revenue_moved" | "channel_quiet" | "connection_error" | "connection_silent" | "ai_unreviewed" | "ai_corrections" | "website_changed" | "faq_suggestions" | "offer_lapsing" | "texting_rejected" | "addon_alert";
+                            kind: "hot_lead" | "unanswered_lead" | "stale_opportunity" | "missing_next_action" | "unconfirmed_appointment" | "ai_approval" | "customer_waiting" | "overdue_task" | "estimate_waiting" | "invoice_overdue" | "wallet_low" | "wallet_empty" | "wallet_card_declined" | "job_not_thanked" | "referral_mentioned" | "maintenance_due" | "pipeline_mismatch" | "quiet_after_price" | "job_unconfirmed" | "job_never_completed" | "job_no_address" | "client_quiet" | "promise_due" | "revenue_moved" | "channel_quiet" | "connection_error" | "connection_silent" | "ai_unreviewed" | "ai_corrections" | "website_changed" | "faq_suggestions" | "offer_lapsing" | "texting_rejected" | "addon_alert" | "webinar_hot";
                             leadId: string | null;
                             /** @enum {string} */
                             letHandleMode: "auto" | "ask" | "none";
@@ -64173,7 +64754,7 @@ export interface operations {
                             reach: ("sms" | "email" | "chat" | "portal" | "messenger" | "instagram") | null;
                             reasons: {
                                 /** @enum {string} */
-                                code: "value" | "amount" | "waiting" | "not_contacted" | "auto_replied" | "ready_to_book" | "qualified" | "repeat_customer" | "came_in_today" | "handed_off" | "last_contact" | "no_contact" | "follow_up_overdue" | "no_next_action" | "next_action" | "starts_in" | "asked_to_confirm" | "draft" | "approval" | "expires_in" | "overdue" | "not_viewed" | "stage" | "not_a_fit" | "job_done" | "referral" | "maintenance" | "price" | "job_passed" | "no_address" | "quiet" | "promise" | "revenue" | "quiet_channel" | "silent" | "broken" | "unreviewed" | "corrected" | "knows_otherwise" | "site_changed" | "asked" | "offer_ends" | "severity" | "due_in" | "needs_ack";
+                                code: "value" | "amount" | "waiting" | "not_contacted" | "auto_replied" | "ready_to_book" | "qualified" | "repeat_customer" | "came_in_today" | "handed_off" | "last_contact" | "no_contact" | "follow_up_overdue" | "no_next_action" | "next_action" | "starts_in" | "asked_to_confirm" | "draft" | "approval" | "expires_in" | "overdue" | "not_viewed" | "stage" | "not_a_fit" | "job_done" | "referral" | "maintenance" | "price" | "job_passed" | "no_address" | "quiet" | "promise" | "revenue" | "quiet_channel" | "silent" | "broken" | "unreviewed" | "corrected" | "knows_otherwise" | "site_changed" | "asked" | "offer_ends" | "severity" | "due_in" | "needs_ack" | "webinar";
                                 label: string;
                                 /** Format: date-time */
                                 since?: string;
@@ -64216,7 +64797,7 @@ export interface operations {
                 "application/json": {
                     /** @default false */
                     includeHandled?: boolean;
-                    kinds?: ("hot_lead" | "unanswered_lead" | "stale_opportunity" | "missing_next_action" | "unconfirmed_appointment" | "ai_approval" | "customer_waiting" | "overdue_task" | "estimate_waiting" | "invoice_overdue" | "wallet_low" | "wallet_empty" | "wallet_card_declined" | "job_not_thanked" | "referral_mentioned" | "maintenance_due" | "pipeline_mismatch" | "quiet_after_price" | "job_unconfirmed" | "job_never_completed" | "job_no_address" | "client_quiet" | "promise_due" | "revenue_moved" | "channel_quiet" | "connection_error" | "connection_silent" | "ai_unreviewed" | "ai_corrections" | "website_changed" | "faq_suggestions" | "offer_lapsing" | "texting_rejected" | "addon_alert")[];
+                    kinds?: ("hot_lead" | "unanswered_lead" | "stale_opportunity" | "missing_next_action" | "unconfirmed_appointment" | "ai_approval" | "customer_waiting" | "overdue_task" | "estimate_waiting" | "invoice_overdue" | "wallet_low" | "wallet_empty" | "wallet_card_declined" | "job_not_thanked" | "referral_mentioned" | "maintenance_due" | "pipeline_mismatch" | "quiet_after_price" | "job_unconfirmed" | "job_never_completed" | "job_no_address" | "client_quiet" | "promise_due" | "revenue_moved" | "channel_quiet" | "connection_error" | "connection_silent" | "ai_unreviewed" | "ai_corrections" | "website_changed" | "faq_suggestions" | "offer_lapsing" | "texting_rejected" | "addon_alert" | "webinar_hot")[];
                     /** @enum {string} */
                     scope?: "mine" | "everyone";
                     /** Format: uuid */
@@ -64295,7 +64876,7 @@ export interface operations {
                             /** Format: uuid */
                             id: string;
                             /** @enum {string} */
-                            kind: "hot_lead" | "unanswered_lead" | "stale_opportunity" | "missing_next_action" | "unconfirmed_appointment" | "ai_approval" | "customer_waiting" | "overdue_task" | "estimate_waiting" | "invoice_overdue" | "wallet_low" | "wallet_empty" | "wallet_card_declined" | "job_not_thanked" | "referral_mentioned" | "maintenance_due" | "pipeline_mismatch" | "quiet_after_price" | "job_unconfirmed" | "job_never_completed" | "job_no_address" | "client_quiet" | "promise_due" | "revenue_moved" | "channel_quiet" | "connection_error" | "connection_silent" | "ai_unreviewed" | "ai_corrections" | "website_changed" | "faq_suggestions" | "offer_lapsing" | "texting_rejected" | "addon_alert";
+                            kind: "hot_lead" | "unanswered_lead" | "stale_opportunity" | "missing_next_action" | "unconfirmed_appointment" | "ai_approval" | "customer_waiting" | "overdue_task" | "estimate_waiting" | "invoice_overdue" | "wallet_low" | "wallet_empty" | "wallet_card_declined" | "job_not_thanked" | "referral_mentioned" | "maintenance_due" | "pipeline_mismatch" | "quiet_after_price" | "job_unconfirmed" | "job_never_completed" | "job_no_address" | "client_quiet" | "promise_due" | "revenue_moved" | "channel_quiet" | "connection_error" | "connection_silent" | "ai_unreviewed" | "ai_corrections" | "website_changed" | "faq_suggestions" | "offer_lapsing" | "texting_rejected" | "addon_alert" | "webinar_hot";
                             leadId: string | null;
                             /** @enum {string} */
                             letHandleMode: "auto" | "ask" | "none";
@@ -64305,7 +64886,7 @@ export interface operations {
                             reach: ("sms" | "email" | "chat" | "portal" | "messenger" | "instagram") | null;
                             reasons: {
                                 /** @enum {string} */
-                                code: "value" | "amount" | "waiting" | "not_contacted" | "auto_replied" | "ready_to_book" | "qualified" | "repeat_customer" | "came_in_today" | "handed_off" | "last_contact" | "no_contact" | "follow_up_overdue" | "no_next_action" | "next_action" | "starts_in" | "asked_to_confirm" | "draft" | "approval" | "expires_in" | "overdue" | "not_viewed" | "stage" | "not_a_fit" | "job_done" | "referral" | "maintenance" | "price" | "job_passed" | "no_address" | "quiet" | "promise" | "revenue" | "quiet_channel" | "silent" | "broken" | "unreviewed" | "corrected" | "knows_otherwise" | "site_changed" | "asked" | "offer_ends" | "severity" | "due_in" | "needs_ack";
+                                code: "value" | "amount" | "waiting" | "not_contacted" | "auto_replied" | "ready_to_book" | "qualified" | "repeat_customer" | "came_in_today" | "handed_off" | "last_contact" | "no_contact" | "follow_up_overdue" | "no_next_action" | "next_action" | "starts_in" | "asked_to_confirm" | "draft" | "approval" | "expires_in" | "overdue" | "not_viewed" | "stage" | "not_a_fit" | "job_done" | "referral" | "maintenance" | "price" | "job_passed" | "no_address" | "quiet" | "promise" | "revenue" | "quiet_channel" | "silent" | "broken" | "unreviewed" | "corrected" | "knows_otherwise" | "site_changed" | "asked" | "offer_ends" | "severity" | "due_in" | "needs_ack" | "webinar";
                                 label: string;
                                 /** Format: date-time */
                                 since?: string;
@@ -64387,7 +64968,7 @@ export interface operations {
                             /** Format: uuid */
                             id: string;
                             /** @enum {string} */
-                            kind: "hot_lead" | "unanswered_lead" | "stale_opportunity" | "missing_next_action" | "unconfirmed_appointment" | "ai_approval" | "customer_waiting" | "overdue_task" | "estimate_waiting" | "invoice_overdue" | "wallet_low" | "wallet_empty" | "wallet_card_declined" | "job_not_thanked" | "referral_mentioned" | "maintenance_due" | "pipeline_mismatch" | "quiet_after_price" | "job_unconfirmed" | "job_never_completed" | "job_no_address" | "client_quiet" | "promise_due" | "revenue_moved" | "channel_quiet" | "connection_error" | "connection_silent" | "ai_unreviewed" | "ai_corrections" | "website_changed" | "faq_suggestions" | "offer_lapsing" | "texting_rejected" | "addon_alert";
+                            kind: "hot_lead" | "unanswered_lead" | "stale_opportunity" | "missing_next_action" | "unconfirmed_appointment" | "ai_approval" | "customer_waiting" | "overdue_task" | "estimate_waiting" | "invoice_overdue" | "wallet_low" | "wallet_empty" | "wallet_card_declined" | "job_not_thanked" | "referral_mentioned" | "maintenance_due" | "pipeline_mismatch" | "quiet_after_price" | "job_unconfirmed" | "job_never_completed" | "job_no_address" | "client_quiet" | "promise_due" | "revenue_moved" | "channel_quiet" | "connection_error" | "connection_silent" | "ai_unreviewed" | "ai_corrections" | "website_changed" | "faq_suggestions" | "offer_lapsing" | "texting_rejected" | "addon_alert" | "webinar_hot";
                             leadId: string | null;
                             /** @enum {string} */
                             letHandleMode: "auto" | "ask" | "none";
@@ -64397,7 +64978,7 @@ export interface operations {
                             reach: ("sms" | "email" | "chat" | "portal" | "messenger" | "instagram") | null;
                             reasons: {
                                 /** @enum {string} */
-                                code: "value" | "amount" | "waiting" | "not_contacted" | "auto_replied" | "ready_to_book" | "qualified" | "repeat_customer" | "came_in_today" | "handed_off" | "last_contact" | "no_contact" | "follow_up_overdue" | "no_next_action" | "next_action" | "starts_in" | "asked_to_confirm" | "draft" | "approval" | "expires_in" | "overdue" | "not_viewed" | "stage" | "not_a_fit" | "job_done" | "referral" | "maintenance" | "price" | "job_passed" | "no_address" | "quiet" | "promise" | "revenue" | "quiet_channel" | "silent" | "broken" | "unreviewed" | "corrected" | "knows_otherwise" | "site_changed" | "asked" | "offer_ends" | "severity" | "due_in" | "needs_ack";
+                                code: "value" | "amount" | "waiting" | "not_contacted" | "auto_replied" | "ready_to_book" | "qualified" | "repeat_customer" | "came_in_today" | "handed_off" | "last_contact" | "no_contact" | "follow_up_overdue" | "no_next_action" | "next_action" | "starts_in" | "asked_to_confirm" | "draft" | "approval" | "expires_in" | "overdue" | "not_viewed" | "stage" | "not_a_fit" | "job_done" | "referral" | "maintenance" | "price" | "job_passed" | "no_address" | "quiet" | "promise" | "revenue" | "quiet_channel" | "silent" | "broken" | "unreviewed" | "corrected" | "knows_otherwise" | "site_changed" | "asked" | "offer_ends" | "severity" | "due_in" | "needs_ack" | "webinar";
                                 label: string;
                                 /** Format: date-time */
                                 since?: string;
@@ -64431,7 +65012,7 @@ export interface operations {
                             /** Format: uuid */
                             itemId: string;
                             /** @enum {string} */
-                            kind: "hot_lead" | "unanswered_lead" | "stale_opportunity" | "missing_next_action" | "unconfirmed_appointment" | "ai_approval" | "customer_waiting" | "overdue_task" | "estimate_waiting" | "invoice_overdue" | "wallet_low" | "wallet_empty" | "wallet_card_declined" | "job_not_thanked" | "referral_mentioned" | "maintenance_due" | "pipeline_mismatch" | "quiet_after_price" | "job_unconfirmed" | "job_never_completed" | "job_no_address" | "client_quiet" | "promise_due" | "revenue_moved" | "channel_quiet" | "connection_error" | "connection_silent" | "ai_unreviewed" | "ai_corrections" | "website_changed" | "faq_suggestions" | "offer_lapsing" | "texting_rejected" | "addon_alert";
+                            kind: "hot_lead" | "unanswered_lead" | "stale_opportunity" | "missing_next_action" | "unconfirmed_appointment" | "ai_approval" | "customer_waiting" | "overdue_task" | "estimate_waiting" | "invoice_overdue" | "wallet_low" | "wallet_empty" | "wallet_card_declined" | "job_not_thanked" | "referral_mentioned" | "maintenance_due" | "pipeline_mismatch" | "quiet_after_price" | "job_unconfirmed" | "job_never_completed" | "job_no_address" | "client_quiet" | "promise_due" | "revenue_moved" | "channel_quiet" | "connection_error" | "connection_silent" | "ai_unreviewed" | "ai_corrections" | "website_changed" | "faq_suggestions" | "offer_lapsing" | "texting_rejected" | "addon_alert" | "webinar_hot";
                             /** Format: date-time */
                             scheduledFor: string;
                             title: string;
@@ -64491,7 +65072,7 @@ export interface operations {
                         /** Format: uuid */
                         itemId: string;
                         /** @enum {string} */
-                        kind: "hot_lead" | "unanswered_lead" | "stale_opportunity" | "missing_next_action" | "unconfirmed_appointment" | "ai_approval" | "customer_waiting" | "overdue_task" | "estimate_waiting" | "invoice_overdue" | "wallet_low" | "wallet_empty" | "wallet_card_declined" | "job_not_thanked" | "referral_mentioned" | "maintenance_due" | "pipeline_mismatch" | "quiet_after_price" | "job_unconfirmed" | "job_never_completed" | "job_no_address" | "client_quiet" | "promise_due" | "revenue_moved" | "channel_quiet" | "connection_error" | "connection_silent" | "ai_unreviewed" | "ai_corrections" | "website_changed" | "faq_suggestions" | "offer_lapsing" | "texting_rejected" | "addon_alert";
+                        kind: "hot_lead" | "unanswered_lead" | "stale_opportunity" | "missing_next_action" | "unconfirmed_appointment" | "ai_approval" | "customer_waiting" | "overdue_task" | "estimate_waiting" | "invoice_overdue" | "wallet_low" | "wallet_empty" | "wallet_card_declined" | "job_not_thanked" | "referral_mentioned" | "maintenance_due" | "pipeline_mismatch" | "quiet_after_price" | "job_unconfirmed" | "job_never_completed" | "job_no_address" | "client_quiet" | "promise_due" | "revenue_moved" | "channel_quiet" | "connection_error" | "connection_silent" | "ai_unreviewed" | "ai_corrections" | "website_changed" | "faq_suggestions" | "offer_lapsing" | "texting_rejected" | "addon_alert" | "webinar_hot";
                         /** @enum {string} */
                         mode: "auto" | "ask" | "none";
                         options: {
@@ -64653,6 +65234,11 @@ export interface operations {
                                 wallet_empty: true;
                                 /** @default true */
                                 wallet_low: boolean;
+                                /**
+                                 * @default true
+                                 * @enum {boolean}
+                                 */
+                                webinar_hot: true;
                                 /** @default true */
                                 website_changed: boolean;
                             };
@@ -65335,6 +65921,24 @@ export interface operations {
                                          */
                                         video: "none" | "google_meet" | "zoom" | "handsfree";
                                     }[];
+                                    webinar: {
+                                        /**
+                                         * @default off
+                                         * @enum {string}
+                                         */
+                                        attendeeVideo: "off" | "team" | "everyone";
+                                        /** @default true */
+                                        missedFollowUp: boolean;
+                                        /**
+                                         * @default ask
+                                         * @enum {string}
+                                         */
+                                        pollAi: "ask" | "suggest" | "off";
+                                        /** @default null */
+                                        pollFormId: string | null;
+                                        /** @default true */
+                                        startingNow: boolean;
+                                    };
                                 };
                                 notifications: {
                                     confirmation: {
@@ -68412,7 +69016,7 @@ export interface operations {
                             inChat: boolean;
                             lastResponseAt: string | null;
                             /** @enum {string} */
-                            mode: "form" | "survey" | "quiz";
+                            mode: "form" | "survey" | "quiz" | "poll";
                             name: string;
                             questionCount: number;
                             responseCount: number;
@@ -68456,7 +69060,7 @@ export interface operations {
                 "application/json": {
                     /** @default false */
                     includeArchived?: boolean;
-                    mode?: ("form" | "survey" | "quiz")[];
+                    mode?: ("form" | "survey" | "quiz" | "poll")[];
                     search?: string;
                     status?: ("draft" | "live" | "closed" | "archived")[];
                     /** Format: uuid */
@@ -68480,7 +69084,7 @@ export interface operations {
                             inChat: boolean;
                             lastResponseAt: string | null;
                             /** @enum {string} */
-                            mode: "form" | "survey" | "quiz";
+                            mode: "form" | "survey" | "quiz" | "poll";
                             name: string;
                             questionCount: number;
                             responseCount: number;
@@ -68542,7 +69146,7 @@ export interface operations {
                             responseId: string;
                             scorePercent: number | null;
                             /** @enum {string} */
-                            source: "link" | "embed" | "chat" | "qr" | "app" | "api";
+                            source: "link" | "embed" | "chat" | "qr" | "app" | "api" | "video_call";
                         }[];
                     };
                 };
@@ -68598,7 +69202,7 @@ export interface operations {
                             resultId: string | null;
                             scorePercent: number | null;
                             /** @enum {string} */
-                            source: "link" | "embed" | "chat" | "qr" | "app" | "api";
+                            source: "link" | "embed" | "chat" | "qr" | "app" | "api" | "video_call";
                             /** Format: date-time */
                             startedAt: string;
                             /** @enum {string} */
@@ -68654,7 +69258,7 @@ export interface operations {
                             resultId: string | null;
                             scorePercent: number | null;
                             /** @enum {string} */
-                            source: "link" | "embed" | "chat" | "qr" | "app" | "api";
+                            source: "link" | "embed" | "chat" | "qr" | "app" | "api" | "video_call";
                             /** Format: date-time */
                             startedAt: string;
                             /** @enum {string} */
@@ -68698,7 +69302,7 @@ export interface operations {
                         /** Format: uuid */
                         formId: string;
                         /** @enum {string} */
-                        mode: "form" | "survey" | "quiz";
+                        mode: "form" | "survey" | "quiz" | "poll";
                         name: string;
                         passRate: number | null;
                         questions: {
@@ -88343,11 +88947,19 @@ export interface operations {
                         call: {
                             aiNotes: boolean;
                             appointmentId: string | null;
+                            /** @enum {string} */
+                            attendeeVideo: "off" | "team" | "everyone";
+                            doorKey: string | null;
                             endedAt: string | null;
+                            /** @enum {string} */
+                            format: "meeting" | "webinar";
                             hostUserId: string | null;
                             /** Format: uuid */
                             id: string;
                             personId: string | null;
+                            /** @enum {string} */
+                            pollAi: "ask" | "suggest" | "off";
+                            pollFormId: string | null;
                             startedAt: string | null;
                             /** @enum {string} */
                             state: "open" | "live" | "ended";
@@ -88372,12 +88984,168 @@ export interface operations {
                             kind: "team" | "customer" | "guest";
                             leftAt: string | null;
                             name: string;
+                            onStage: boolean;
                             personId: string | null;
                             seconds: number;
                             /** @enum {string} */
                             state: "waiting" | "admitted" | "in" | "left" | "turned_away" | "removed";
                             userId: string | null;
                         }[];
+                    };
+                };
+            };
+        };
+    };
+    query_video_call_leads: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    appointmentId?: string;
+                    /** Format: uuid */
+                    callId?: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        call: {
+                            ended: boolean;
+                            endedAt: string | null;
+                            formId: string | null;
+                            formName: string | null;
+                            hot: number;
+                            /** @enum {string} */
+                            hotAction: "list" | "home" | "text";
+                            /** Format: uuid */
+                            id: string;
+                            warm: number;
+                        } | null;
+                        counts: {
+                            cold: number;
+                            hot: number;
+                            warm: number;
+                        };
+                        leads: {
+                            /** @enum {string} */
+                            followUp: "list" | "home" | "text";
+                            /** Format: uuid */
+                            id: string;
+                            /** @enum {string} */
+                            label: "hot" | "warm" | "cold";
+                            name: string;
+                            outcome: ("sent" | "drafted" | "card" | "skipped") | null;
+                            outcomeReason: string | null;
+                            parts: {
+                                points: number;
+                                what: string;
+                            }[];
+                            /** Format: uuid */
+                            personId: string;
+                            points: number;
+                            reason: string | null;
+                            /** Format: date-time */
+                            scoredAt: string;
+                            seconds: number;
+                            stayed: boolean;
+                        }[];
+                    };
+                };
+            };
+        };
+    };
+    query_video_call_polls: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    callId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @enum {string} */
+                        ai: "ask" | "suggest" | "off";
+                        endsAt: string | null;
+                        form: {
+                            /** Format: uuid */
+                            id: string;
+                            name: string;
+                            ready: boolean;
+                        } | null;
+                        hearing: boolean;
+                        questions: {
+                            button: {
+                                /** @enum {string} */
+                                action: "link" | "book" | "talk";
+                                label: string;
+                            } | null;
+                            closesAt: string | null;
+                            openedAt: string | null;
+                            openedBy: ("team" | "ai") | null;
+                            pollId: string | null;
+                            pressed: {
+                                name: string;
+                                /** Format: uuid */
+                                personId: string;
+                            }[];
+                            questionId: string;
+                            seconds: number;
+                            showResults: boolean;
+                            slide: number | null;
+                            /** @enum {string} */
+                            state: "waiting" | "open" | "closed" | "skipped";
+                            texts: {
+                                name: string;
+                                text: string;
+                            }[];
+                            title: string;
+                            totals: {
+                                answered: number;
+                                average: number | null;
+                                bars: {
+                                    count: number;
+                                    id: string;
+                                    label: string;
+                                }[];
+                            };
+                            type: string;
+                        }[];
+                        slide: number | null;
+                        slides: {
+                            name: string;
+                            pages: number;
+                        } | null;
+                        watching: number;
                     };
                 };
             };

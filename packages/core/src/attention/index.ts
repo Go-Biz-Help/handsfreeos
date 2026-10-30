@@ -110,3 +110,4 @@ export {
   type AddonAlertSeverity,
 } from './detectors/addon-alert';
 export { FAQ_SUGGESTION_MIN_ASKS, type FaqSuggestionsFacts } from './detectors/faq-suggestions';
+export { WEBINAR_HOT_DAYS, type WebinarHotFacts } from './detectors/webinar-hot';

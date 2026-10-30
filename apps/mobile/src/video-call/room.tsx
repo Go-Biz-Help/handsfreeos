@@ -15,6 +15,8 @@
  *   first, and says so meanwhile.
  * - **Not on a phone yet**: sharing its screen, reactions and raising a hand. A hand raised on a computer still shows
  *   as a note.
+ * - **A webinar** (a session's call, HANDSFREEOS_WEBINARS_IMPLEMENTATION_PLAN.md): the stage shows only who's
+ *   presenting, the team and anyone they brought on stage, never the hundreds watching.
  */
 import {
   LISTENER_IDENTITY,
@@ -24,6 +26,7 @@ import {
   captionOf,
   isPersonIdentity,
   roomAiOn,
+  roomRightsOf,
   type VideoCallCaption,
 } from '@hfos/core';
 import {
@@ -569,7 +572,15 @@ const columnsFor = (n: number) => (n <= 2 ? 1 : n <= 6 ? 2 : 3);
 const keyOf = (t: TrackReferenceOrPlaceholder) => `${t.participant.identity}:${t.source}`;
 
 /** Everyone on camera: see the file's note on the stage. */
+/** On stage in a webinar: the team, and anyone they brought up. */
+const presents = (p: Participant) => {
+  const r = roomRightsOf(p.attributes);
+  return r.kind === 'team' || r.onStage;
+};
+
 function Stage({ front }: { front: boolean }) {
+  const webinar =
+    roomRightsOf(useLocalParticipant().localParticipant.attributes).format === 'webinar';
   const tracks = useTracks(
     [
       { source: Track.Source.Camera, withPlaceholder: true },
@@ -577,7 +588,9 @@ function Stage({ front }: { front: boolean }) {
     ],
     { onlySubscribed: false },
   ).filter((t) => isPersonIdentity(t.participant.identity));
-  const cameras = tracks.filter((t) => t.source === Track.Source.Camera);
+  const cameras = tracks.filter(
+    (t) => t.source === Track.Source.Camera && (!webinar || presents(t.participant)),
+  );
   const mine = cameras.find((t) => t.participant.isLocal) ?? null;
   const others = cameras.filter((t) => !t.participant.isLocal);
   const screens = tracks.filter(

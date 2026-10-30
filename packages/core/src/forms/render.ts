@@ -260,6 +260,9 @@ export function answerProblem(question: Question, value: AnswerValue): string | 
     case 'booking':
       // Whether the time is still free is the calendar's to say, when the form is sent.
       return isBookingAnswer(value) ? null : 'Pick one of the times.';
+    case 'button':
+      // A live poll's button: pressing it is the answer.
+      return value === true ? null : 'Press the button.';
     default:
       return null;
   }

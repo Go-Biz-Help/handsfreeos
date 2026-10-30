@@ -31,6 +31,7 @@ import * as unconfirmedAppointment from './detectors/unconfirmed-appointment';
 import * as offerLapsing from './detectors/offer-lapsing';
 import * as textingRejected from './detectors/texting-rejected';
 import * as addonAlert from './detectors/addon-alert';
+import * as webinarHot from './detectors/webinar-hot';
 import * as websiteChanged from './detectors/website-changed';
 import { walletCardDeclined, walletEmpty, walletLow } from './detectors/wallet';
 import type { AttentionKind } from './kinds';
@@ -79,6 +80,7 @@ export const DETECTORS = {
   offer_lapsing: offerLapsing,
   texting_rejected: textingRejected,
   addon_alert: addonAlert,
+  webinar_hot: webinarHot,
 } as const satisfies { readonly [K in AttentionKind]: DetectorModule<never> };
 
 /** The facts one kind's detector reads. */

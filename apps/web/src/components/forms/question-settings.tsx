@@ -3,8 +3,18 @@ import {
   ANSWER_TARGETS,
   CHOICE_TYPES,
   findQuestion,
+  LEAD_WORDS,
+  liveOf,
   parseVideoUrl,
+  pointsKeysOf,
+  POLL_MAX_POINTS,
+  POLL_CUE_CHARS,
+  POLL_MAX_CUES,
+  POLL_MAX_SECONDS,
+  POLL_MIN_SECONDS,
+  POLL_WORDS,
   QUESTION_LABELS,
+  SLIDE_WORDS,
   targetAccepts,
   VIDEO_HOST_NAMES,
   type AnswerTargetKey,
@@ -12,15 +22,19 @@ import {
   type FormOp,
   type Question,
 } from '@hfos/core';
-import { Plus, Trash2 } from 'lucide-react';
+import { Plus, Sparkles, Trash2 } from 'lucide-react';
+import { useState } from 'react';
+import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Field, Hint, Label } from '@/components/ui/field';
-import { Input } from '@/components/ui/input';
+import { Input, Select } from '@/components/ui/input';
 import { Switch } from '@/components/ui/switch';
 import { Textarea } from '@/components/ui/textarea';
 import type { FormCatalogsOut } from '@/lib/api/types';
+import { cueErrorMessage, writeCues } from '@/lib/forms/poll-cues';
+import { pollAiErrorMessage, suggestPoints } from '@/lib/forms/poll-leads';
 import { newChoice } from './editor-state';
 
 const TARGET_KEYS = Object.keys(ANSWER_TARGETS) as AnswerTargetKey[];
@@ -30,12 +44,14 @@ const TARGET_KEYS = Object.keys(ANSWER_TARGETS) as AnswerTargetKey[];
  * and — the part that makes a form worth filling in — which field on the customer the answer goes into.
  */
 export function QuestionSettings({
+  workspaceId,
   definition,
   questionId,
   apply,
   catalogs,
   readOnly,
 }: {
+  workspaceId: string;
   definition: FormDefinition;
   questionId: string;
   apply: (ops: FormOp[]) => void;
@@ -54,6 +70,8 @@ export function QuestionSettings({
     apply([{ op: 'update_question', questionId, patch: fields }]);
   const config = question.config as Record<string, unknown>;
   const patchConfig = (fields: Record<string, unknown>) => patch({ config: fields });
+  // A live poll's questions pop up when they're asked, and are answered or let go: none must be answered.
+  const poll = definition.mode === 'poll';
 
   return (
     <div className="space-y-4" data-testid="question-settings">
@@ -81,7 +99,7 @@ export function QuestionSettings({
             onChange={(e) => patch({ help: e.target.value })}
           />
         </Field>
-        {question.type !== 'content' && question.type !== 'video' ? (
+        {question.type !== 'content' && question.type !== 'video' && !poll ? (
           <div className="flex items-center justify-between gap-4">
             <div>
               <Label htmlFor="q-required">Must be answered</Label>
@@ -124,6 +142,32 @@ export function QuestionSettings({
 
       {question.type === 'video' ? (
         <VideoSettings config={config} patchConfig={patchConfig} readOnly={readOnly} />
+      ) : null}
+
+      {question.type === 'button' ? (
+        <ButtonSettings
+          config={config}
+          patchConfig={patchConfig}
+          readOnly={readOnly}
+          catalogs={catalogs}
+        />
+      ) : null}
+
+      {poll ? (
+        <LiveSettings
+          question={question}
+          patch={patch}
+          readOnly={readOnly}
+          slides={definition.slides?.pages ?? 0}
+          onWrite={async () => {
+            const ops = await writeCues(workspaceId, definition, [question]);
+            if (ops.length) apply(ops);
+          }}
+          onSuggestPoints={async () => {
+            const ops = await suggestPoints(workspaceId, definition, [question]);
+            if (ops.length) apply(ops);
+          }}
+        />
       ) : null}
 
       {question.type === 'booking' ? (
@@ -231,10 +275,333 @@ export function QuestionSettings({
       {question.type !== 'content' &&
       question.type !== 'payment' &&
       question.type !== 'video' &&
-      question.type !== 'booking' ? (
+      question.type !== 'booking' &&
+      !poll ? (
         <WhereItGoes question={question} patch={patch} catalogs={catalogs} readOnly={readOnly} />
       ) : null}
     </div>
+  );
+}
+
+/** A live poll's question: how long it stays up, and whether everyone sees the totals when it closes. */
+function LiveSettings({
+  question,
+  patch,
+  readOnly,
+  slides,
+  onWrite,
+  onSuggestPoints,
+}: {
+  question: Question;
+  patch: (fields: Record<string, unknown>) => void;
+  readOnly: boolean;
+  /** How many slides the poll has (part 4); 0 with none. */
+  slides: number;
+  /** The AI writes this question's when-to-ask phrases (part 3). */
+  onWrite: () => Promise<void>;
+  /** The AI suggests what each of its answers is worth (part 5). */
+  onSuggestPoints: () => Promise<void>;
+}) {
+  const live = liveOf(question);
+  const counted = question.type !== 'short_text' && question.type !== 'button';
+  const [writing, setWriting] = useState(false);
+  // What's typed, kept as typed (blank lines too) while the box has focus; the draft holds the tidy list.
+  const [typed, setTyped] = useState<string | null>(null);
+  const write = async () => {
+    setWriting(true);
+    try {
+      await onWrite();
+      setTyped(null);
+    } catch (e) {
+      toast.error(cueErrorMessage(e));
+    } finally {
+      setWriting(false);
+    }
+  };
+  return (
+    <Card className="space-y-4 p-4" data-testid="question-live">
+      <Field label={POLL_WORDS.cues} htmlFor="q-live-cues" hint={POLL_WORDS.cuesHelp}>
+        <Textarea
+          id="q-live-cues"
+          rows={4}
+          value={typed ?? live.cues.join('\n')}
+          disabled={readOnly}
+          placeholder="Let me ask you something about…"
+          onFocus={() => setTyped(live.cues.join('\n'))}
+          onBlur={() => setTyped(null)}
+          onChange={(e) => {
+            setTyped(e.target.value);
+            const cues = e.target.value
+              .split('\n')
+              .map((c) => c.trim().slice(0, POLL_CUE_CHARS))
+              .filter(Boolean)
+              .slice(0, POLL_MAX_CUES);
+            patch({ live: { ...live, cues } });
+          }}
+          data-testid="question-live-cues"
+        />
+      </Field>
+      {!readOnly ? (
+        <Button
+          size="sm"
+          variant="secondary"
+          loading={writing}
+          onClick={() => void write()}
+          data-testid="question-live-write-cues"
+        >
+          <Sparkles size={14} aria-hidden /> {POLL_WORDS.writeCues}
+        </Button>
+      ) : null}
+      {slides || live.slide ? (
+        <Field
+          label={SLIDE_WORDS.slide}
+          htmlFor="q-live-slide"
+          hint="The AI expects it around this slide, and your team is offered it when the slide comes up."
+        >
+          <Select
+            id="q-live-slide"
+            selectSize="sm"
+            className="w-56"
+            value={live.slide ? String(live.slide) : ''}
+            disabled={readOnly}
+            onChange={(e) =>
+              patch({ live: { ...live, slide: e.target.value ? Number(e.target.value) : null } })
+            }
+            data-testid="question-live-slide"
+          >
+            <option value="">{SLIDE_WORDS.anySlide}</option>
+            {Array.from({ length: Math.max(slides, live.slide ?? 0) }, (_, i) => (
+              <option key={i + 1} value={String(i + 1)}>
+                Slide {i + 1}
+              </option>
+            ))}
+          </Select>
+        </Field>
+      ) : null}
+      <Field
+        label={POLL_WORDS.seconds}
+        htmlFor="q-live-seconds"
+        hint={`From ${POLL_MIN_SECONDS} to ${POLL_MAX_SECONDS}. It closes sooner once nearly everyone has answered, or when you close it.`}
+      >
+        <Input
+          id="q-live-seconds"
+          type="number"
+          min={POLL_MIN_SECONDS}
+          max={POLL_MAX_SECONDS}
+          className="w-28"
+          value={String(live.seconds)}
+          disabled={readOnly}
+          onChange={(e) => {
+            const n = Math.round(Number(e.target.value));
+            if (Number.isFinite(n) && n >= POLL_MIN_SECONDS && n <= POLL_MAX_SECONDS)
+              patch({ live: { ...live, seconds: n } });
+          }}
+          data-testid="question-live-seconds"
+        />
+      </Field>
+      <PointsSettings
+        question={question}
+        patch={patch}
+        readOnly={readOnly}
+        onSuggest={onSuggestPoints}
+      />
+      {counted ? (
+        <div className="flex items-center justify-between gap-4">
+          <div>
+            <Label htmlFor="q-live-results">{POLL_WORDS.showResults}</Label>
+            <Hint>Off, only your team sees how people answered.</Hint>
+          </div>
+          <Switch
+            label={POLL_WORDS.showResults}
+            checked={live.showResults}
+            disabled={readOnly}
+            onChange={(on) => patch({ live: { ...live, showResults: on } })}
+            testId="question-live-results"
+          />
+        </div>
+      ) : (
+        <Hint>
+          {question.type === 'button'
+            ? 'Your team sees who pressed it. Everyone else sees only the button.'
+            : 'Your team sees what people typed. Nobody else does.'}
+        </Hint>
+      )}
+    </Card>
+  );
+}
+
+/**
+ * What each answer is worth toward following up (part 5, the owner's 21): a box per choice, yes and no, each number, a
+ * short answer or pressing the button. Nothing to score on other kinds of question.
+ */
+function PointsSettings({
+  question,
+  patch,
+  readOnly,
+  onSuggest,
+}: {
+  question: Question;
+  patch: (fields: Record<string, unknown>) => void;
+  readOnly: boolean;
+  onSuggest: () => Promise<void>;
+}) {
+  const live = liveOf(question);
+  const keys = pointsKeysOf(question);
+  const [busy, setBusy] = useState(false);
+  if (!keys.length) return null;
+  const set = (key: string, value: string) => {
+    const n = Math.round(Number(value));
+    if (value.trim() !== '' && (!Number.isFinite(n) || Math.abs(n) > POLL_MAX_POINTS)) return;
+    const points = { ...live.points };
+    if (value.trim() === '' || n === 0) delete points[key];
+    else points[key] = n;
+    patch({ live: { ...live, points } });
+  };
+  const suggest = async () => {
+    setBusy(true);
+    try {
+      await onSuggest();
+    } catch (e) {
+      toast.error(
+        pollAiErrorMessage(
+          e,
+          'The AI couldn’t suggest points this time. Try again, or set them yourself.',
+        ),
+      );
+    } finally {
+      setBusy(false);
+    }
+  };
+  return (
+    <div className="space-y-2" data-testid="question-live-points">
+      <div>
+        <Label>{LEAD_WORDS.answerPoints}</Label>
+        <Hint>{LEAD_WORDS.answerPointsHelp}</Hint>
+      </div>
+      <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-3 gap-y-1.5 sm:max-w-sm">
+        {keys.map((k) => (
+          <div key={k.key} className="contents">
+            <label htmlFor={`q-live-points-${k.key}`} className="truncate text-[13px] text-text-2">
+              {k.label}
+            </label>
+            <Input
+              id={`q-live-points-${k.key}`}
+              type="number"
+              min={-POLL_MAX_POINTS}
+              max={POLL_MAX_POINTS}
+              inputSize="sm"
+              className="w-20"
+              value={String(live.points[k.key] ?? 0)}
+              disabled={readOnly}
+              onChange={(e) => set(k.key, e.target.value)}
+              data-testid={`question-live-points-${k.key}`}
+            />
+          </div>
+        ))}
+      </div>
+      {!readOnly ? (
+        <Button
+          size="sm"
+          variant="secondary"
+          loading={busy}
+          onClick={() => void suggest()}
+          data-testid="question-live-suggest-points"
+        >
+          <Sparkles size={14} aria-hidden /> {LEAD_WORDS.suggestOne}
+        </Button>
+      ) : null}
+    </div>
+  );
+}
+
+/** A live poll's button: its words, and what pressing it does. */
+function ButtonSettings({
+  config,
+  patchConfig,
+  readOnly,
+  catalogs,
+}: {
+  config: Record<string, unknown>;
+  patchConfig: (fields: Record<string, unknown>) => void;
+  readOnly: boolean;
+  catalogs: FormCatalogsOut | null;
+}) {
+  const action = String(config.action ?? 'talk') as keyof typeof POLL_WORDS.buttonAction;
+  const select =
+    'h-9 w-full rounded-control border border-border-strong bg-card px-2.5 text-sm text-text';
+  return (
+    <Card className="space-y-4 p-4" data-testid="question-button">
+      <Field label="The words on the button" htmlFor="q-button-label">
+        <Input
+          id="q-button-label"
+          value={String(config.label ?? '')}
+          maxLength={40}
+          disabled={readOnly}
+          onChange={(e) => patchConfig({ label: e.target.value })}
+          data-testid="button-label"
+        />
+      </Field>
+      <Field label="Pressing it" htmlFor="q-button-action">
+        <select
+          id="q-button-action"
+          className={select}
+          value={action}
+          disabled={readOnly}
+          onChange={(e) => patchConfig({ action: e.target.value })}
+          data-testid="button-action"
+        >
+          {(Object.keys(POLL_WORDS.buttonAction) as (keyof typeof POLL_WORDS.buttonAction)[]).map(
+            (a) => (
+              <option key={a} value={a}>
+                {POLL_WORDS.buttonAction[a]}
+              </option>
+            ),
+          )}
+        </select>
+      </Field>
+      {action === 'link' ? (
+        <Field
+          label="The web page it opens"
+          htmlFor="q-button-url"
+          hint="It opens in a new tab, so they stay in the call."
+        >
+          <Input
+            id="q-button-url"
+            value={String(config.url ?? '')}
+            placeholder="https://"
+            disabled={readOnly}
+            onChange={(e) => patchConfig({ url: e.target.value })}
+            data-testid="button-url"
+          />
+        </Field>
+      ) : null}
+      {action === 'book' ? (
+        <Field
+          label="The calendar it books on"
+          htmlFor="q-button-calendar"
+          hint="Its booking page opens in a new tab."
+        >
+          <select
+            id="q-button-calendar"
+            className={select}
+            value={String(config.calendarId ?? '')}
+            disabled={readOnly}
+            onChange={(e) => patchConfig({ calendarId: e.target.value })}
+            data-testid="button-calendar"
+          >
+            <option value="">Pick a calendar</option>
+            {(catalogs?.calendars ?? []).map((c) => (
+              <option key={c.id} value={c.id}>
+                {c.name}
+              </option>
+            ))}
+          </select>
+        </Field>
+      ) : null}
+      {action === 'talk' ? (
+        <Hint>Your team sees who pressed it, live, and it’s saved on their contact.</Hint>
+      ) : null}
+    </Card>
   );
 }
 

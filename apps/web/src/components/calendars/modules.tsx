@@ -15,6 +15,12 @@ import {
   type VideoProvider,
   type WeeklyHours,
   VIDEO_CALL_WORDS,
+  WEBINAR_WORDS,
+  ATTENDEE_VIDEO_CHOICES,
+  POLL_WORDS,
+  POLL_AI_MODES,
+  type AttendeeVideo,
+  type PollAiMode,
 } from '@hfos/core';
 import { ArrowDown, ArrowUp, Info, Plus, Trash2, UserPlus, X } from 'lucide-react';
 import Link from 'next/link';
@@ -754,7 +760,7 @@ function CapacityModule({ draft, patch }: ModuleProps) {
 
 const KINDS: LocationKind[] = ['customer_address', 'business', 'virtual', 'phone'];
 
-function LocationsModule({ draft, patch }: ModuleProps) {
+function LocationsModule({ draft, patch, workspaceId }: ModuleProps) {
   const options = draft.locations.options;
   const set = (next: typeof options) => patch({ locations: { options: [...next] } });
   const { videoCalls } = useWorkspaceShell();
@@ -943,7 +949,126 @@ function LocationsModule({ draft, patch }: ModuleProps) {
           />
         </SetRow>
       ) : null}
+      {draft.schedule.mode === 'sessions' &&
+      options.some((o) => o.kind === 'virtual' && o.video === 'handsfree') ? (
+        <WebinarSettings draft={draft} patch={patch} workspaceId={workspaceId} />
+      ) : null}
     </>
+  );
+}
+
+/**
+ * A sessions calendar on HandsFreeOS video calls runs each session as a webinar (HANDSFREEOS_WEBINARS_
+ * IMPLEMENTATION_PLAN.md): attendees' cameras to start with, the "starting now" message and the follow-up for
+ * anyone who misses it.
+ */
+function WebinarSettings({
+  draft,
+  patch,
+  workspaceId,
+}: Pick<ModuleProps, 'draft' | 'patch' | 'workspaceId'>) {
+  const w = draft.locations.webinar;
+  // The business's live polls, for the one each session starts with (part 2).
+  const [polls, setPolls] = useState<{ formId: string; name: string }[]>([]);
+  useEffect(() => {
+    let live = true;
+    void apiBrowser()
+      .POST('/v1/queries/form.list', { body: { workspaceId, mode: ['poll'] } })
+      .then(unwrap)
+      .then((r) => {
+        if (live) setPolls(r.items.map((f) => ({ formId: f.formId, name: f.name })));
+      })
+      .catch(() => undefined);
+    return () => {
+      live = false;
+    };
+  }, [workspaceId]);
+  return (
+    <div className="mt-6" data-testid="webinar-settings">
+      <Heading title={WEBINAR_WORDS.name} description={WEBINAR_WORDS.settingsHelp} />
+      <SetRow
+        first
+        title={WEBINAR_WORDS.attendeeVideo}
+        description={WEBINAR_WORDS.attendeeVideoHelp}
+      >
+        <Select
+          selectSize="sm"
+          className="w-[230px]"
+          aria-label={WEBINAR_WORDS.attendeeVideo}
+          value={w.attendeeVideo}
+          onChange={(e) =>
+            patch({ locations: { webinar: { attendeeVideo: e.target.value as AttendeeVideo } } })
+          }
+          data-testid="webinar-attendee-video"
+        >
+          {ATTENDEE_VIDEO_CHOICES.map((c) => (
+            <option key={c} value={c}>
+              {WEBINAR_WORDS.attendeeVideoChoices[c]}
+            </option>
+          ))}
+        </Select>
+      </SetRow>
+      <SetRow center title={WEBINAR_WORDS.startingNow} description={WEBINAR_WORDS.startingNowHelp}>
+        <Switch
+          checked={w.startingNow}
+          label={WEBINAR_WORDS.startingNow}
+          onChange={(v) => patch({ locations: { webinar: { startingNow: v } } })}
+        />
+      </SetRow>
+      <SetRow
+        center
+        title={WEBINAR_WORDS.missedFollowUp}
+        description={WEBINAR_WORDS.missedFollowUpHelp}
+      >
+        <Switch
+          checked={w.missedFollowUp}
+          label={WEBINAR_WORDS.missedFollowUp}
+          onChange={(v) => patch({ locations: { webinar: { missedFollowUp: v } } })}
+        />
+      </SetRow>
+      <SetRow title={POLL_WORDS.panel} description={WEBINAR_WORDS.pollHelp}>
+        <Select
+          selectSize="sm"
+          className="w-[230px]"
+          aria-label={POLL_WORDS.panel}
+          value={w.pollFormId ?? ''}
+          onChange={(e) =>
+            patch({ locations: { webinar: { pollFormId: e.target.value || null } } })
+          }
+          data-testid="webinar-poll"
+        >
+          <option value="">{POLL_WORDS.none}</option>
+          {polls.map((p) => (
+            <option key={p.formId} value={p.formId}>
+              {p.name}
+            </option>
+          ))}
+          {w.pollFormId && !polls.some((p) => p.formId === w.pollFormId) ? (
+            <option value={w.pollFormId}>A poll that’s gone</option>
+          ) : null}
+        </Select>
+      </SetRow>
+      {w.pollFormId ? (
+        <SetRow title={POLL_WORDS.aiMode} description={WEBINAR_WORDS.pollAiHelp}>
+          <Select
+            selectSize="sm"
+            className="w-[230px]"
+            aria-label={POLL_WORDS.aiMode}
+            value={w.pollAi}
+            onChange={(e) =>
+              patch({ locations: { webinar: { pollAi: e.target.value as PollAiMode } } })
+            }
+            data-testid="webinar-poll-ai"
+          >
+            {POLL_AI_MODES.map((m) => (
+              <option key={m} value={m}>
+                {POLL_WORDS.aiModes[m]}
+              </option>
+            ))}
+          </Select>
+        </SetRow>
+      ) : null}
+    </div>
   );
 }
 

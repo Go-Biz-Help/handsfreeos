@@ -75,6 +75,8 @@ export const URGENCY_RULES: Readonly<Record<AttentionKind, UrgencyRule>> = {
   texting_rejected: { grows: 'since', start: 2, stepMs: DAY },
   // How serious it is comes from the add-on (probability and when it turns urgent); it climbs by the day.
   addon_alert: { grows: 'since', start: 1, stepMs: DAY },
+  // Interest from a webinar cools within days: it starts high and climbs by the day.
+  webinar_hot: { grows: 'since', start: 1.5, stepMs: DAY },
 };
 
 /**

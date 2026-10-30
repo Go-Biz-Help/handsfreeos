@@ -47,11 +47,21 @@ import {
 import { onJobStatusChanged } from '../booking/job-texts';
 import {
   onVideoCallAiChanged,
+  onVideoCallAttendeeVideoChanged,
   onVideoCallEnded,
   onVideoCallEndedByHost,
   onVideoCallMuteRequested,
   onVideoCallPersonRemoved,
+  onVideoCallStageChanged,
 } from '../video-calls/handlers';
+import { onWebinarNoShow } from '../video-calls/webinars';
+import {
+  onVideoCallEndedPolls,
+  onVideoCallPollClosed,
+  onVideoCallPollOpened,
+} from '../video-calls/polls';
+import { onVideoCallSlideChanged } from '../video-calls/slides';
+import { onVideoCallLeadsScored } from '../video-calls/leads';
 import {
   onAppointmentChanged,
   onMeetingConnected,
@@ -289,8 +299,20 @@ const ownTeammateAndWorkflows: HandlerMap = withWorkflows(
       'video_call.person_removed': onVideoCallPersonRemoved,
       'video_call.mute_requested': onVideoCallMuteRequested,
       'video_call.ended_by_host': onVideoCallEndedByHost,
-      'video_call.ended': onVideoCallEnded,
+      'video_call.ended': [onVideoCallEnded, onVideoCallEndedPolls],
       'video_call.ai_changed': onVideoCallAiChanged,
+      // A webinar: the camera choice and bringing someone on stage change what attendees may send.
+      'video_call.attendee_video_changed': onVideoCallAttendeeVideoChanged,
+      'video_call.stage_changed': onVideoCallStageChanged,
+      // Live polls (webinars, part 2): on everyone's screen, and off again.
+      'video_call.poll_opened': onVideoCallPollOpened,
+      'video_call.poll_closed': onVideoCallPollClosed,
+      // A poll's slides (part 4): the slide that's up, on everyone's stage.
+      'video_call.slide_changed': onVideoCallSlideChanged,
+      // Who to follow up with (part 5): the AI's lines, then the hot ones texted (video-calls/leads.ts).
+      'video_call.leads_scored': onVideoCallLeadsScored,
+      // Someone who missed a webinar completely is told about the next one (video-calls/webinars.ts).
+      'attendee.no_show': onWebinarNoShow,
       // What customers said in public: a person asks, and the queue does it.
       'review_connection.connected': onReviewSyncWanted,
       'review_connection.sync_requested': onReviewSyncWanted,

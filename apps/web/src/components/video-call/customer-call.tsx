@@ -4,15 +4,18 @@
  * camera check with the name on their booking filled in, then Join. Once someone from the team is there they go
  * straight in (the owner's 6a); until then "Dana will be right with you", asking again every few seconds while the
  * team gets a push. Taken out by the team, they can ask to be let back in, like anyone on the call's link.
+ *
+ * A webinar asks for no camera or microphone: they join watching, by their first name (HANDSFREEOS_WEBINARS_
+ * IMPLEMENTATION_PLAN.md).
  */
-import { VIDEO_CALL_WAIT_POLL_MS, VIDEO_CALL_WORDS } from '@hfos/core';
+import { VIDEO_CALL_WAIT_POLL_MS, VIDEO_CALL_WORDS, WEBINAR_WORDS } from '@hfos/core';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { ApiError } from '@/lib/api/errors';
 import { enterCall, type JoinAnswer, type VideoTicket } from '@/lib/api/public-booking';
 import { AfterCall, CallFrame, CallProblem, Waiting } from './call-frame';
 import { CallRoom } from './call-room';
 import { newKnockKey, useKnockWatch, type Knock } from './knock';
-import { PreJoin } from './pre-join';
+import { PreJoin, WebinarJoin } from './pre-join';
 import type { CallEnd, DeviceChoices } from './types';
 
 type CallAnswer = Extract<JoinAnswer, { state: 'call' }>;
@@ -124,13 +127,33 @@ export function CustomerCall({ token, answer }: { token: string; answer: CallAns
         choices={me.current.choices}
         heading={{ title: answer.business, detail: answer.title }}
         color={answer.look.color}
+        poll={{ token, business: answer.business }}
         onEnd={(end) => setStep({ kind: 'after', end, knock: step.knock })}
       />
     );
 
   return (
     <CallFrame business={business}>
-      {step.kind === 'pre' ? (
+      {step.kind === 'pre' && answer.webinar ? (
+        <WebinarJoin
+          heading={
+            <div className="text-center">
+              <h1 className="text-[17px] font-semibold" data-testid="call-heading">
+                {answer.title}
+              </h1>
+              <p className="text-[13px] text-text-2">{answer.when}</p>
+            </div>
+          }
+          name={answer.name}
+          notice={answer.aiNotes ? VIDEO_CALL_WORDS.aiNotice(answer.business) : null}
+          busy={busy}
+          error={error}
+          onJoin={(name, choices) => {
+            me.current = { name, choices };
+            void press(() => enter());
+          }}
+        />
+      ) : step.kind === 'pre' ? (
         <PreJoin
           heading={
             <div className="text-center">
@@ -151,8 +174,10 @@ export function CustomerCall({ token, answer }: { token: string; answer: CallAns
           }}
         />
       ) : step.kind === 'waiting' ? (
-        <Waiting title={VIDEO_CALL_WORDS.waitingFor(step.host)}>
-          {VIDEO_CALL_WORDS.waitingHint}
+        <Waiting
+          title={answer.webinar ? WEBINAR_WORDS.name : VIDEO_CALL_WORDS.waitingFor(step.host)}
+        >
+          {answer.webinar ? WEBINAR_WORDS.waitingFor : VIDEO_CALL_WORDS.waitingHint}
         </Waiting>
       ) : step.kind === 'knocking' ? (
         <Waiting title="Asking to come back in">{VIDEO_CALL_WORDS.knocking}</Waiting>
@@ -162,6 +187,7 @@ export function CustomerCall({ token, answer }: { token: string; answer: CallAns
         <>
           <AfterCall
             end={step.end}
+            webinar={answer.webinar === true}
             busy={busy}
             onAgain={
               step.end === 'ended' || step.end === 'turned_away'

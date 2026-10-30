@@ -69,6 +69,9 @@ import { calendarConnectionCommands } from './calendar-connection';
 import { meetingConnectionCommands } from './meeting-connection';
 import { liveMeetingCommands } from './live-meeting';
 import { videoCallCommands } from './video-call';
+import { webinarCommands } from './webinar';
+import { videoCallPollCommands } from './video-call-poll';
+import { videoCallLeadCommands } from './video-call-leads';
 import { callSuggestionCommands } from './call-suggestion';
 import { companyArchive } from './company.archive';
 import {
@@ -919,6 +922,12 @@ export const commands: readonly CommandDef[] = [
   ...liveMeetingCommands,
   // HandsFreeOS video calls (docs/video-calls.md).
   ...videoCallCommands,
+  // Webinars: a session's call (HANDSFREEOS_WEBINARS_IMPLEMENTATION_PLAN.md).
+  ...webinarCommands,
+  // Live polls in a call (part 2).
+  ...videoCallPollCommands,
+  // Who to follow up with after one (part 5).
+  ...videoCallLeadCommands,
   ...callSuggestionCommands,
   attendeeRecordReminder,
   waitlistPromote,
@@ -1225,6 +1234,9 @@ export * from './calendar-connection';
 export * from './meeting-connection';
 export * from './live-meeting';
 export * from './video-call';
+export * from './webinar';
+export * from './video-call-poll';
+export * from './video-call-leads';
 export * from './call-suggestion';
 export * from './number-import';
 export * from './twilio-connection';

@@ -251,6 +251,19 @@ function updateQuestion(
       old.config = { ...beforeRest, choices: beforeChoices };
       continue;
     }
+    if (key === 'live' && isPlainObject(value)) {
+      // Left out before, it goes back to none on undo; and a live question's points are replaced whole, so undoing
+      // a suggestion, or taking an answer's points off, leaves nothing behind.
+      const before = target.live == null ? null : (cloneJson(target.live) as Bag);
+      old.live =
+        before && isPlainObject(value.points) && !isPlainObject(before.points)
+          ? { ...before, points: {} }
+          : before;
+      const merged = mergeJson((target.live ?? {}) as Bag, value);
+      if (isPlainObject(value.points)) merged.points = cloneJson(value.points);
+      target.live = merged;
+      continue;
+    }
     old[key] = cloneJson(target[key]);
     target[key] = mergeJson(target[key], value);
   }
@@ -433,10 +446,14 @@ function applyOne(work: Work, op: FormOp, i: number): FormOp {
       return { op: 'add_result', index: at, result: removed as unknown as FormResultInput };
     }
     case 'set_form': {
-      const allowed = new Set(['mode', 'title', 'intro']);
+      const allowed = new Set(['mode', 'title', 'intro', 'slides', 'leads']);
       for (const key of Object.keys(op.patch))
         if (!allowed.has(key)) fail(i, 'bad_patch', `Change ${key} with its own op.`);
-      return { op: 'set_form', patch: patchInto(work as unknown as Bag, op.patch, i, 'Form') };
+      const undo = patchInto(work as unknown as Bag, op.patch, i, 'Form');
+      // A poll that had no slides, or no follow-up of its own, goes back to none.
+      if ('slides' in undo && undo.slides === undefined) undo.slides = null;
+      if ('leads' in undo && undo.leads === undefined) undo.leads = null;
+      return { op: 'set_form', patch: undo };
     }
     case 'set_scoring':
       return {

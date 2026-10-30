@@ -41,7 +41,7 @@ interface FormRouteRow extends Record<string, unknown> {
   readonly form_id: string;
   readonly form_slug: string;
   readonly form_name: string;
-  readonly mode: 'form' | 'survey' | 'quiz';
+  readonly mode: 'form' | 'survey' | 'quiz' | 'poll';
   readonly status: 'draft' | 'live' | 'closed' | 'archived';
   readonly version_id: string | null;
   readonly definition: unknown;
@@ -203,6 +203,8 @@ export async function registerFormRoutes(app: FastifyInstance, deps: HttpDeps): 
       { config: { rateLimit: limits.read } },
       async (req) => {
         const row = await findForm(req.params.site, req.params.slug);
+        // A live poll has no page: its questions pop up in a video call.
+        if (row.mode === 'poll') throw pageNotFound();
         const scope = { workspaceId: row.workspace_id, organizationId: row.organization_id };
         const definition = parseStoredForm(row.definition);
         // Somebody looked: the day's tally, with nothing in it that says who.

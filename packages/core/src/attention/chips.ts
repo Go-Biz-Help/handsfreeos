@@ -120,6 +120,7 @@ export const CHIP_ORDER: readonly ReasonCode[] = [
   'stage',
   'not_a_fit',
   'referral',
+  'webinar',
   'maintenance',
   'job_done',
   'price',

@@ -105,6 +105,15 @@ export const TRIGGER_EVENTS = {
     subject: 'payload_person',
     provides: ['appointment'],
   },
+  /**
+   * Webinars (part 5): somebody scored Hot, Warm or Cold after a call with a live poll, or scored again differently.
+   * The event's entity is their score; its payload names them, and `trigger.label` and `trigger.points` say how.
+   */
+  'webinar.rated': {
+    label: 'Somebody is rated after a webinar',
+    subject: 'payload_person',
+    provides: [],
+  },
   'message.received': {
     label: 'A customer sends a message',
     subject: 'payload_person',
@@ -197,6 +206,7 @@ export const TRIGGER_EVENT_GROUPS: readonly {
       'attendee.joined',
       'attendee.attended',
       'attendee.no_show',
+      'webinar.rated',
     ],
   },
   {

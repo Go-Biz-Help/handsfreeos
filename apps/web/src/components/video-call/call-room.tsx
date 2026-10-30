@@ -16,18 +16,34 @@
  *   ended for everyone, or they joined again somewhere else. A dropped connection rejoins on its own first.
  * - **The stand-in** (`fake:` tickets, on laptops and in tests without LiveKit) has no video to carry, so the screen
  *   says so; the team's panel still works, from the API.
+ * - **A webinar** (a session's call, HANDSFREEOS_WEBINARS_IMPLEMENTATION_PLAN.md): the presenter is the big picture
+ *   (call-stage.tsx), and the buttons follow what each person may send, as their attributes in the room say (the
+ *   worker keeps them in step with LiveKit's permissions). The team's header has the attendees' cameras choice and
+ *   how many are watching. An attendee whose camera only the team may see lets only the team's pages receive it
+ *   (LiveKit's track subscription permissions).
+ * - **A live poll** (part 2): the team's Live poll panel asks the call's poll questions (./poll-panel.tsx), and a
+ *   customer on their own link sees each pop up and answers it (./poll-popup.tsx). The AI hearing the team asks
+ *   them too, or offers the team "Ask now?" over the stage (part 3, `PollOffer`).
+ * - **The poll's slides** (part 4): while the team shows them they're the big picture for everyone (./slides.tsx),
+ *   and the team turns them from the bar over the stage, the panel or the arrow keys.
  */
 import {
+  ATTENDEE_VIDEO_CHOICES,
   LISTENER_IDENTITY,
+  POLL_WORDS,
   VIDEO_CALL_ATTRIBUTES,
   VIDEO_CALL_CAPTIONS_TOPIC,
   VIDEO_CALL_REACTIONS,
   VIDEO_CALL_REACTIONS_TOPIC,
   VIDEO_CALL_WORDS,
+  WEBINAR_WORDS,
+  attendeeSeenBy,
   captionOf,
   isPersonIdentity,
   roomAiOn,
+  roomRightsOf,
   videoCallTitle,
+  type AttendeeVideo,
   type VideoCallCaption,
 } from '@hfos/core';
 import {
@@ -38,6 +54,7 @@ import {
   useDataChannel,
   useLocalParticipant,
   useParticipantAttribute,
+  useParticipantAttributes,
   useParticipants,
   useRoomContext,
   useRoomInfo,
@@ -56,11 +73,14 @@ import {
   type Participant,
 } from 'livekit-client';
 import {
+  Camera,
   Captions,
   CaptionsOff,
+  Check,
   ChevronDown,
   FileText,
   Hand,
+  ListChecks,
   MessageSquare,
   Mic,
   MicOff,
@@ -98,8 +118,18 @@ import { cn } from '@/lib/utils';
 import { canBlur, setBlur } from './blur';
 import { ChatPanel, PeoplePanel } from './call-panels';
 import { CallStage } from './call-stage';
+import { PollOffer, PollPanel } from './poll-panel';
+import { PollPopup } from './poll-popup';
+import { SlideBar, useSlides } from './slides';
 import { mediaProblem } from './pre-join';
-import { actOn, endForEveryone, setAiNotes, useVideoCall, type VideoCallGot } from './team-call';
+import {
+  actOn,
+  endForEveryone,
+  setAiNotes,
+  setAttendeeVideo,
+  useVideoCall,
+  type VideoCallGot,
+} from './team-call';
 import { toast } from './toast';
 import type { CallEnd, CallHeading, DeviceChoices, TeamSide } from './types';
 
@@ -116,6 +146,8 @@ export interface CallRoomProps {
   readonly team?: TeamSide | null;
   /** For the team: what add-ons show beside the video (the Sales Coach's cards, ./call-coach.tsx). */
   readonly coach?: ReactNode;
+  /** For a customer on their own link: the link, which answers the live poll's questions (./poll-popup.tsx). */
+  readonly poll?: { readonly token: string; readonly business: string } | null;
   readonly onEnd: (why: CallEnd) => void;
 }
 
@@ -148,7 +180,7 @@ function cameraOf(room: Room): LocalVideoTrack | undefined {
     LocalVideoTrack | undefined;
 }
 
-function LiveRoom({ ticket, choices, heading, color, team, coach, onEnd }: CallRoomProps) {
+function LiveRoom({ ticket, choices, heading, color, team, coach, poll, onEnd }: CallRoomProps) {
   const [room] = useState(
     () =>
       new Room({
@@ -193,11 +225,13 @@ function LiveRoom({ ticket, choices, heading, color, team, coach, onEnd }: CallR
       .then(async () => {
         if (!live) return;
         const want = first.current;
+        // A webinar's attendee may send only what their ticket says (none of it, mostly): nothing else is tried.
+        const may = roomRightsOf(room.localParticipant.attributes).publish;
         await room.localParticipant
-          .setMicrophoneEnabled(want.mic)
+          .setMicrophoneEnabled(want.mic && may.microphone)
           .catch((e: unknown) => toast.error(mediaProblem(e, 'microphone')));
         await room.localParticipant
-          .setCameraEnabled(want.camera)
+          .setCameraEnabled(want.camera && may.camera)
           .catch((e: unknown) => toast.error(mediaProblem(e, 'camera')));
       })
       .catch(() => {
@@ -235,6 +269,7 @@ function LiveRoom({ ticket, choices, heading, color, team, coach, onEnd }: CallR
         color={color}
         team={team ?? null}
         coach={team ? coach : null}
+        poll={team ? null : (poll ?? null)}
         blur={blur}
         onBlur={(on) => void toggleBlur(on)}
         onLeave={() => void room.disconnect()}
@@ -256,6 +291,7 @@ function CallScreen({
   color,
   team,
   coach,
+  poll,
   blur,
   onBlur,
   onLeave,
@@ -264,6 +300,7 @@ function CallScreen({
   color?: string | null | undefined;
   team: TeamSide | null;
   coach: ReactNode;
+  poll: CallRoomProps['poll'];
   blur: boolean;
   onBlur: (on: boolean) => void;
   onLeave: () => void;
@@ -272,7 +309,7 @@ function CallScreen({
   const { localParticipant, isMicrophoneEnabled, isCameraEnabled, isScreenShareEnabled } =
     useLocalParticipant();
   const people = useParticipants().filter((p) => isPersonIdentity(p.identity));
-  const [panel, setPanel] = useState<'chat' | 'people' | null>(null);
+  const [panel, setPanel] = useState<'chat' | 'people' | 'poll' | null>(null);
   const chat = useChat();
   const [seen, setSeen] = useState(0);
   const [floating, setFloating] = useState<Floating[]>([]);
@@ -282,6 +319,24 @@ function CallScreen({
     participant: localParticipant,
   });
   const { got, reload } = useVideoCall(team?.workspaceId ?? '', team?.callId ?? '', !!team);
+  const slides = useSlides(team);
+  // What this page may send, and whether it's a webinar, from their own attributes in the room.
+  const mine = roomRightsOf(useParticipantAttributes({ participant: localParticipant }).attributes);
+  const webinar = mine.format === 'webinar';
+  const watching = webinar
+    ? people.filter((p) => roomRightsOf(p.attributes).kind !== 'team').length
+    : 0;
+  // The team reads the camera choice from the call; an attendee from what the worker last put on them.
+  const attendeeVideo: AttendeeVideo = team
+    ? (got?.call?.attendeeVideo ?? mine.attendeeVideo)
+    : mine.attendeeVideo;
+  useStageNotice(webinar && !team, mine.onStage);
+  useCameraPrivacy(
+    webinar && !team && state === ConnectionState.Connected,
+    attendeeSeenBy({ onStage: mine.onStage, attendeeVideo: mine.attendeeVideo }),
+    people,
+  );
+  const [changingVideo, setChangingVideo] = useState(false);
   const [ending, setEnding] = useState(false);
   const [confirmEnd, setConfirmEnd] = useState(false);
   // The AI hearing the call: the listener says so in the room; the team also knows the call's own setting.
@@ -325,8 +380,8 @@ function CallScreen({
     void sendData(new TextEncoder().encode(emoji), { reliable: true }).catch(() => undefined);
   };
 
-  // A hand going up says so, for whoever isn't looking at that tile.
-  useHandsUp();
+  // A hand going up says so, for whoever isn't looking at that tile: in a webinar, only to the team.
+  useHandsUp(!webinar || !!team);
 
   // Someone asking to come in, for the team: who, with Let in right there.
   const told = useRef(new Set<string>());
@@ -385,6 +440,24 @@ function CallScreen({
     }
   };
 
+  const changeAttendeeVideo = async (next: AttendeeVideo) => {
+    if (!team || changingVideo || next === attendeeVideo) return;
+    setChangingVideo(true);
+    try {
+      await setAttendeeVideo({
+        workspaceId: team.workspaceId,
+        callId: team.callId,
+        attendeeVideo: next,
+      });
+      reload();
+      toast(WEBINAR_WORDS.attendeeVideoChanged[next]);
+    } catch (e) {
+      toast.error(errorMessage(e));
+    } finally {
+      setChangingVideo(false);
+    }
+  };
+
   const turnAi = async (on: boolean) => {
     if (!team || turningAi) return;
     setTurningAi(true);
@@ -421,6 +494,52 @@ function CallScreen({
             </span>
             {detail ? <span className="truncate text-[12px] text-text-3">{detail}</span> : null}
           </span>
+          {webinar ? (
+            <span
+              className="hidden flex-none items-center gap-1.5 rounded-full bg-[#2c3139] px-2.5 py-1 text-[12px] text-text-2 sm:inline-flex"
+              data-testid="call-watching-count"
+            >
+              <Users size={13} aria-hidden />
+              {WEBINAR_WORDS.watching(watching)}
+            </span>
+          ) : null}
+          {webinar && team && got?.call ? (
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <button
+                  type="button"
+                  className={cn(aiPillClass(attendeeVideo !== 'off'), 'hover:brightness-110')}
+                  disabled={changingVideo}
+                  data-testid="call-attendee-video"
+                >
+                  <Camera size={13} aria-hidden />
+                  <span className="hidden sm:inline">
+                    {WEBINAR_WORDS.attendeeVideoShort[attendeeVideo]}
+                  </span>
+                  <ChevronDown size={13} aria-hidden />
+                </button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" data-theme="dark" className="max-w-[300px]">
+                <p className="px-2 pb-1.5 pt-1 text-[12px] text-text-3">
+                  {WEBINAR_WORDS.attendeeVideoHelp}
+                </p>
+                {ATTENDEE_VIDEO_CHOICES.map((c) => (
+                  <DropdownMenuItem
+                    key={c}
+                    onSelect={() => void changeAttendeeVideo(c)}
+                    data-testid={`call-attendee-video-${c}`}
+                  >
+                    <Check
+                      size={14}
+                      aria-hidden
+                      className={cn('flex-none', c === attendeeVideo ? 'opacity-100' : 'opacity-0')}
+                    />
+                    {WEBINAR_WORDS.attendeeVideoChoices[c]}
+                  </DropdownMenuItem>
+                ))}
+              </DropdownMenuContent>
+            </DropdownMenu>
+          ) : null}
           {team && got?.call ? (
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
@@ -481,10 +600,17 @@ function CallScreen({
                 {VIDEO_CALL_WORDS.joining}
               </div>
             ) : (
-              <CallStage alone={team ? VIDEO_CALL_WORDS.aloneTeam : VIDEO_CALL_WORDS.aloneOthers} />
+              <CallStage
+                alone={team ? VIDEO_CALL_WORDS.aloneTeam : VIDEO_CALL_WORDS.aloneOthers}
+                webinar={webinar ? { attendeeVideo, team: !!team } : null}
+                slide={slides.stage}
+              />
             )}
+            {team ? <SlideBar slides={slides} /> : null}
             <Reactions floating={floating} />
             {cc ? <CaptionLines lines={captions} aiOn={aiNotes} /> : null}
+            {poll ? <PollPopup token={poll.token} business={poll.business} /> : null}
+            {team ? <PollOffer team={team} /> : null}
           </div>
           {panel === 'chat' ? (
             <ChatPanel
@@ -494,7 +620,15 @@ function CallScreen({
               onClose={() => setPanel(null)}
             />
           ) : panel === 'people' ? (
-            <PeoplePanel team={team} got={got} reload={reload} onClose={() => setPanel(null)} />
+            <PeoplePanel
+              team={team}
+              got={got}
+              reload={reload}
+              onClose={() => setPanel(null)}
+              webinar={webinar}
+            />
+          ) : panel === 'poll' && team ? (
+            <PollPanel team={team} slides={slides} onClose={() => setPanel(null)} />
           ) : coach ? (
             // The coach's cards beside the video, or over its top on a phone; nothing while there are none.
             <div
@@ -506,27 +640,39 @@ function CallScreen({
           ) : null}
         </div>
         <StartAudioPrompt />
+        {webinar && !mine.publish.microphone ? (
+          <p
+            className="mx-auto max-w-[560px] px-4 pt-2 text-center text-[12.5px] text-text-3"
+            data-testid="call-watch-only"
+          >
+            {WEBINAR_WORDS.watchOnly}
+          </p>
+        ) : null}
         <nav
           className="flex flex-none items-center justify-center gap-1.5 overflow-x-auto px-3 pb-[max(12px,env(safe-area-inset-bottom))] pt-3 sm:gap-2"
           aria-label="Call controls"
         >
-          <Control
-            label={isMicrophoneEnabled ? 'Turn off microphone' : 'Turn on microphone'}
-            off={!isMicrophoneEnabled}
-            onClick={toggleMic}
-            testId="call-mic"
-          >
-            {isMicrophoneEnabled ? <Mic size={19} /> : <MicOff size={19} />}
-          </Control>
-          <Control
-            label={isCameraEnabled ? 'Turn off camera' : 'Turn on camera'}
-            off={!isCameraEnabled}
-            onClick={toggleCamera}
-            testId="call-camera"
-          >
-            {isCameraEnabled ? <Video size={19} /> : <VideoOff size={19} />}
-          </Control>
-          {canShareScreen() ? (
+          {mine.publish.microphone ? (
+            <Control
+              label={isMicrophoneEnabled ? 'Turn off microphone' : 'Turn on microphone'}
+              off={!isMicrophoneEnabled}
+              onClick={toggleMic}
+              testId="call-mic"
+            >
+              {isMicrophoneEnabled ? <Mic size={19} /> : <MicOff size={19} />}
+            </Control>
+          ) : null}
+          {mine.publish.camera ? (
+            <Control
+              label={isCameraEnabled ? 'Turn off camera' : 'Turn on camera'}
+              off={!isCameraEnabled}
+              onClick={toggleCamera}
+              testId="call-camera"
+            >
+              {isCameraEnabled ? <Video size={19} /> : <VideoOff size={19} />}
+            </Control>
+          ) : null}
+          {mine.publish.screen && canShareScreen() ? (
             <Control
               label={isScreenShareEnabled ? 'Stop sharing your screen' : 'Share your screen'}
               active={isScreenShareEnabled}
@@ -596,13 +742,23 @@ function CallScreen({
           <Control
             label="People"
             active={panel === 'people'}
-            badge={team ? asking : people.length}
+            badge={team ? asking : webinar ? undefined : people.length}
             badgeTone={team && asking ? 'warning' : 'plain'}
             onClick={() => setPanel(panel === 'people' ? null : 'people')}
             testId="call-people-button"
           >
             <Users size={19} />
           </Control>
+          {team ? (
+            <Control
+              label={POLL_WORDS.panel}
+              active={panel === 'poll'}
+              onClick={() => setPanel(panel === 'poll' ? null : 'poll')}
+              testId="call-poll-button"
+            >
+              <ListChecks size={19} />
+            </Control>
+          ) : null}
           <Control
             label="Chat"
             active={panel === 'chat'}
@@ -767,10 +923,51 @@ function CaptionLines({ lines, aiOn }: { lines: readonly ShownCaption[]; aiOn: b
   );
 }
 
+/** An attendee brought on stage or sent back, in a webinar: said once, on their own page. */
+function useStageNotice(on: boolean, onStage: boolean) {
+  const was = useRef(onStage);
+  useEffect(() => {
+    if (!on || was.current === onStage) return;
+    was.current = onStage;
+    toast(onStage ? WEBINAR_WORDS.youreOnStage : WEBINAR_WORDS.backInAudience);
+  }, [on, onStage]);
+}
+
+/**
+ * A webinar's attendee whose camera only the team may see: LiveKit sends it only to the team's pages, so it isn't
+ * merely hidden. On stage, or with everyone seeing everyone, anyone may receive it. Said again as the team comes and
+ * goes.
+ */
+function useCameraPrivacy(
+  on: boolean,
+  seenBy: 'everyone' | 'team',
+  people: readonly Participant[],
+) {
+  const room = useRoomContext();
+  const teamIds = people
+    .filter((p) => !p.isLocal && roomRightsOf(p.attributes).kind === 'team')
+    .map((p) => p.identity)
+    .sort()
+    .join(' ');
+  useEffect(() => {
+    if (!on) return;
+    if (seenBy === 'everyone') room.localParticipant.setTrackSubscriptionPermissions(true);
+    else
+      room.localParticipant.setTrackSubscriptionPermissions(
+        false,
+        (teamIds ? teamIds.split(' ') : []).map((id) => ({
+          participantIdentity: id,
+          allowAll: true,
+        })),
+      );
+  }, [room, on, seenBy, teamIds]);
+}
+
 /** "Dana raised their hand", for everyone else. */
-function useHandsUp() {
+function useHandsUp(on: boolean) {
   const room = useRoomContext();
   useEffect(() => {
+    if (!on) return;
     const changed = (attrs: Record<string, string>, p: Participant) => {
       if (p.isLocal || attrs[VIDEO_CALL_ATTRIBUTES.hand] !== 'up') return;
       toast(`${p.name || 'Someone'} raised their hand`, { icon: '✋' });
@@ -779,7 +976,7 @@ function useHandsUp() {
     return () => {
       room.off(RoomEvent.ParticipantAttributesChanged, changed);
     };
-  }, [room]);
+  }, [room, on]);
 }
 
 /** Browsers hold sound back until the page is pressed; Join usually counts, but not always on a phone. */

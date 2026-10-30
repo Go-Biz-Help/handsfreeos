@@ -50,7 +50,8 @@ export function usePhoneForms(): {
   const forms = React.useMemo(
     () =>
       (data ?? []).flatMap((row) => {
-        if (!row.definition) return [];
+        // A live poll is asked in a video call, never filled in here (webinars, part 2).
+        if (!row.definition || row.mode === 'poll') return [];
         // The same schema the web and the server parse with (`load.ts` is server-side, so this phone uses
         // the zod type directly). A definition this phone cannot read is one it should not pretend to render.
         let parsed;
@@ -92,7 +93,14 @@ export function usePhoneForm(formId: string): PhoneForm | null {
  * plainly where to open it. `formState` still decides what is *showing*, so a question behind a rule nobody met
  * does not block a form it is not part of.
  */
-export const NOT_ON_THE_PHONE = ['file', 'signature', 'payment', 'video', 'booking'] as const;
+export const NOT_ON_THE_PHONE = [
+  'file',
+  'signature',
+  'payment',
+  'video',
+  'booking',
+  'button',
+] as const;
 
 export function blockedQuestions(definition: FormDefinitionValue): readonly string[] {
   const kinds = new Set<string>(NOT_ON_THE_PHONE);

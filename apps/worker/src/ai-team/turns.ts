@@ -146,6 +146,7 @@ export function nudgeTurn(rc: RunContext, spec: NudgeSpec): string {
 
 /** A task from an automation: thanking the customer after a job was marked done. */
 export function taskTurn(rc: RunContext, task: TaskSpec): string {
+  if (task.purpose === 'webinar_hot') return webinarTurn(rc, task);
   const tz = rc.workspace.timeZone;
   const when = `${dayLabel(task.doneAt, tz)}, ${clockLabel(task.doneAt, tz)}`;
   return [
@@ -155,6 +156,28 @@ export function taskTurn(rc: RunContext, task: TaskSpec): string {
     '</job_done>',
     'The business finished a job for them. Thank them for choosing the business, in one or two warm sentences that mention the job.',
     'Ask for nothing: no review, no payment, no booking. No prices and no links. Use no_reply only if the conversation shows something went wrong with the job.',
+    TASK_ASK,
+  ].join('\n');
+}
+
+/**
+ * Someone hot after a webinar (HANDSFREEOS_WEBINARS_IMPLEMENTATION_PLAN.md part 5): the business's live poll scored
+ * them, and it has the teammate write to them within minutes of the end. Their answers and the reason are data.
+ */
+function webinarTurn(rc: RunContext, task: Extract<TaskSpec, { purpose: 'webinar_hot' }>): string {
+  const tz = rc.workspace.timeZone;
+  const when = `${dayLabel(task.endedAt, tz)}, ${clockLabel(task.endedAt, tz)}`;
+  return [
+    ...historyBlock(rc),
+    '<webinar>',
+    `${quoteData(task.webinar)}, which ended ${when}.`,
+    ...(task.answers.length
+      ? ['What they did in it:', ...task.answers.map((a) => `- ${quoteData(a)}`)]
+      : []),
+    ...(task.reason ? [`Why they look ready: ${quoteData(task.reason)}`] : []),
+    '</webinar>',
+    'They just watched the business’s webinar, and their answers say they’re interested. Thank them for coming, mention one thing they said or did, and ask one easy question toward the next step: usually a short call, or booking a time.',
+    'Two or three short sentences. Never quote their points or say they were scored or rated. Use no_reply only if the conversation shows they already took the next step or said they’re not interested.',
     TASK_ASK,
   ].join('\n');
 }

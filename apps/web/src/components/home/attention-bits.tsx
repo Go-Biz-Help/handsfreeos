@@ -7,6 +7,7 @@ import {
   EyeOff,
   Globe,
   MessageSquareOff,
+  Presentation,
   Puzzle,
   Tag,
   GraduationCap,
@@ -83,6 +84,7 @@ const KIND_LOOK: Readonly<
   texting_rejected: { icon: MessageSquareOff, tile: 'bg-danger-soft text-danger-text' },
   addon_alert: { icon: Puzzle, tile: 'bg-warning-soft text-warning-text' },
   faq_suggestions: { icon: CircleHelp, tile: cn(AI_SOFT, AI_TEXT) },
+  webinar_hot: { icon: Presentation, tile: 'bg-danger-soft text-danger-text' },
 };
 
 /** The kind label's colour where it isn't grey: hot leads in red, approvals in the AI teammate's violet. */

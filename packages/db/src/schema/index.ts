@@ -285,6 +285,8 @@ export const recordType = app.enum('record_type', [
   'custom_record',
   /** The PDF a document template is made from: record_id is the template (20261027015100). Tags never use it. */
   'document',
+  /** A live poll's slides, a PDF: record_id is the poll's form (20261027019700). Tags never use it. */
+  'form',
 ]);
 export const activityKind = app.enum('activity_kind', [
   'note',
@@ -2791,6 +2793,24 @@ export const videoCalls = app.table('video_calls', {
   linkKeyHash: text('link_key_hash'),
   /** A call that isn't for an appointment: its own line on the customer's timeline. */
   activityId: uuid('activity_id').references(() => activities.id, { onDelete: 'set null' }),
+  /** meeting, or webinar (a session's call): set when the call is made (20261027019600). */
+  format: text('format').notNull().default('meeting'),
+  /** A webinar: attendees' cameras off, seen only by the team, or seen by everyone. */
+  attendeeVideo: text('attendee_video').notNull().default('off'),
+  /** A webinar: the key in its link anyone can use, `/live/<key>`. */
+  doorKey: text('door_key'),
+  /** A webinar: when the "starting now" message went out. */
+  startingNowAt: ts('starting_now_at'),
+  /** The live poll its questions pop up from (20261027019800). */
+  pollFormId: uuid('poll_form_id').references((): AnyPgColumn => forms.id, {
+    onDelete: 'set null',
+  }),
+  /** How far the AI hearing the team goes with the poll: ask, suggest or off (20261027019900). */
+  pollAi: text('poll_ai').notNull().default('ask'),
+  /** The slide of the poll's PDF on the stage, counted from 1; null while the slides aren't up (20261027020000). */
+  slide: integer('slide'),
+  /** When the slide showing last changed. */
+  slideAt: ts('slide_at'),
 });
 
 /** Who's in a video call: a teammate, a customer on their own Join link, or someone let in (20261027013000). */
@@ -2815,6 +2835,72 @@ export const videoCallPeople = app.table('video_call_people', {
   leftAt: ts('left_at'),
   participantSid: text('participant_sid'),
   seconds: integer('seconds').notNull().default(0),
+  ...timestamps(),
+  /** A webinar: brought on stage by the team, so their microphone and camera work (20261027019600). */
+  onStage: boolean('on_stage').notNull().default(false),
+});
+
+/**
+ * A live poll's question or button, asked in a call (20261027019800): open until its time is up, nearly everyone
+ * answered or the team closed it; or skipped for now. One open at a time in a call.
+ */
+export const videoCallPolls = app.table('video_call_polls', {
+  id: id(),
+  workspaceId: workspaceRef(),
+  videoCallId: uuid('video_call_id')
+    .notNull()
+    .references(() => videoCalls.id, { onDelete: 'cascade' }),
+  formId: uuid('form_id')
+    .notNull()
+    .references((): AnyPgColumn => forms.id, { onDelete: 'cascade' }),
+  versionId: uuid('version_id')
+    .notNull()
+    .references((): AnyPgColumn => formVersions.id),
+  questionId: text('question_id').notNull(),
+  /** open, closed or skipped. */
+  state: text('state').notNull().default('open'),
+  /** team, or ai (the AI hearing the presenter, part 3). */
+  openedBy: text('opened_by').notNull().default('team'),
+  openedByUserId: userRef('opened_by_user_id'),
+  openedAt: ts('opened_at'),
+  closesAt: ts('closes_at'),
+  closedAt: ts('closed_at'),
+  answers: integer('answers').notNull().default(0),
+  ...timestamps(),
+});
+
+/**
+ * Each customer in a call with a live poll, scored when it ended (20261027020100): points, Hot, Warm or Cold, the
+ * AI's reason, and what happened to a hot one. Only the worker writes it.
+ */
+export const videoCallLeads = app.table('video_call_leads', {
+  id: id(),
+  workspaceId: workspaceRef(),
+  videoCallId: uuid('video_call_id')
+    .notNull()
+    .references(() => videoCalls.id, { onDelete: 'cascade' }),
+  personId: uuid('person_id')
+    .notNull()
+    .references(() => people.id, { onDelete: 'cascade' }),
+  formId: uuid('form_id').references((): AnyPgColumn => forms.id, { onDelete: 'set null' }),
+  responseId: uuid('response_id').references((): AnyPgColumn => formResponses.id, {
+    onDelete: 'set null',
+  }),
+  points: integer('points').notNull().default(0),
+  /** hot, warm or cold. */
+  label: text('label').notNull(),
+  stayed: boolean('stayed').notNull().default(false),
+  seconds: integer('seconds').notNull().default(0),
+  /** What the points came from, in words. */
+  parts: jsonb('parts').$type<object[]>().notNull().default([]),
+  reason: text('reason'),
+  reasonAt: ts('reason_at'),
+  /** What the poll said to do with the hot ones: list, home or text. */
+  followUp: text('follow_up').notNull().default('list'),
+  /** The AI teammate's text to a hot one: sent, drafted, card or skipped. */
+  outcome: text('outcome'),
+  outcomeReason: text('outcome_reason'),
+  scoredAt: ts('scored_at').notNull().defaultNow(),
   ...timestamps(),
 });
 
@@ -6339,10 +6425,20 @@ export const walletRecharges = app.table('wallet_recharges', {
 
 // ---- Forms, surveys and quizzes (M15) ----
 
-export const formMode = app.enum('form_mode', ['form', 'survey', 'quiz']);
+/** `poll` is a live poll, asked in a video call (20261027019700). */
+export const formMode = app.enum('form_mode', ['form', 'survey', 'quiz', 'poll']);
 export const formStatus = app.enum('form_status', ['draft', 'live', 'closed', 'archived']);
 export const formResponseStatus = app.enum('form_response_status', ['in_progress', 'completed']);
-export const formSource = app.enum('form_source', ['link', 'embed', 'chat', 'qr', 'app', 'api']);
+export const formSource = app.enum('form_source', [
+  'link',
+  'embed',
+  'chat',
+  'qr',
+  'app',
+  'api',
+  /** A live poll's answers, given in a video call (20261027019700). */
+  'video_call',
+]);
 export const customFieldEntity = app.enum('custom_field_entity', [
   'person',
   'company',
@@ -6481,6 +6577,10 @@ export const formResponses = app.table('form_responses', {
   stoppedPages: textArray('stopped_pages'),
   /** The `ref` its link was opened with, for a time booked on it (20261027012200). */
   linkRef: text('link_ref'),
+  /** A live poll's sheet: the video call its answers were given in (20261027019800). */
+  videoCallId: uuid('video_call_id').references((): AnyPgColumn => videoCalls.id, {
+    onDelete: 'set null',
+  }),
   startedAt: ts('started_at').notNull().defaultNow(),
   completedAt: ts('completed_at'),
   ...timestamps(),

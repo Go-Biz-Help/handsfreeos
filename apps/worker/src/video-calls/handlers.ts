@@ -4,7 +4,17 @@
  * call is over, everyone's minutes go on the business's balance, the coach's notes on it are finished, and what the AI
  * heard becomes the appointment's transcript. Each runs from its event, so a retry is safe: taking out someone already gone, muting someone already
  * muted or closing a closed room changes nothing, and the charge and the transcript are once per stretch.
+ *
+ * In a webinar, the team's camera choice and bringing someone on stage change what attendees in the room may send:
+ * LiveKit stops a camera or microphone they may no longer use, and every page reads the new attributes.
  */
+import {
+  ATTENDEE_VIDEO_CHOICES,
+  mayPublish,
+  videoCallAttributes,
+  type AttendeeVideo,
+  type VideoCallKind,
+} from '@hfos/core';
 import { executeCommand, videoCallKeepWords, videoCallRoom } from '@hfos/core/server';
 import { rows, sql } from '@hfos/db/client';
 import type { EventHandler, HandlerContext } from '../handlers/types';
@@ -54,6 +64,74 @@ export const onVideoCallEndedByHost: EventHandler = async (ctx) => {
 export const onVideoCallAiChanged: EventHandler = async (ctx) => {
   if (payloadOf(ctx)['on'] === false)
     await tell(ctx, 'say the AI is off', (video, room) => video.markAi(room, false));
+};
+
+/** LiveKit asked about this many people at once when a webinar's camera choice changes for everyone in it. */
+const PERMIT_AT_ONCE = 10;
+
+/** What each attendee in the room may now send, from the call as it stands (a retry reads it again). */
+async function permitAttendees(ctx: HandlerContext, only?: string): Promise<void> {
+  const callId = ctx.event.entityId;
+  if (!ctx.videoCalls || !callId) return;
+  const [call] = await rows<{ format: string; attendee_video: string }>(
+    ctx.tx,
+    sql`select format, attendee_video from app.video_calls where id = ${callId}`,
+  );
+  if (call?.format !== 'webinar') return;
+  const attendeeVideo: AttendeeVideo = (ATTENDEE_VIDEO_CHOICES as readonly string[]).includes(
+    call.attendee_video,
+  )
+    ? (call.attendee_video as AttendeeVideo)
+    : 'off';
+  // Only who's in the room now: anyone who comes in later gets a ticket that already says so.
+  const people = await rows<{ id: string; kind: VideoCallKind; on_stage: boolean }>(
+    ctx.tx,
+    sql`select id, kind, on_stage from app.video_call_people
+        where video_call_id = ${callId} and kind <> 'team'
+          and last_joined_at is not null and (left_at is null or left_at < last_joined_at)
+          and (${only ?? null}::uuid is null or id = ${only ?? null}::uuid)`,
+  );
+  const room = videoCallRoom(callId);
+  const video = ctx.videoCalls;
+  for (let i = 0; i < people.length; i += PERMIT_AT_ONCE) {
+    const said = await Promise.allSettled(
+      people.slice(i, i + PERMIT_AT_ONCE).map((p) =>
+        video.permit(room, p.id, {
+          publish: mayPublish({
+            format: 'webinar',
+            kind: p.kind,
+            onStage: p.on_stage,
+            attendeeVideo,
+          }),
+          attributes: videoCallAttributes({
+            format: 'webinar',
+            attendeeVideo,
+            onStage: p.on_stage,
+          }),
+        }),
+      ),
+    );
+    for (const r of said) {
+      if (r.status === 'fulfilled') continue;
+      const e: unknown = r.reason;
+      if (e instanceof VideoCallError && !e.permanent && ctx.attempt < ctx.maxAttempts) throw e;
+      ctx.log.warn(
+        { callId, err: errorMessage(e) },
+        'LiveKit couldn’t change what someone may send',
+      );
+    }
+  }
+}
+
+/** A webinar's camera choice changed: every attendee in the room may (or may no longer) use their camera. */
+export const onVideoCallAttendeeVideoChanged: EventHandler = async (ctx) => {
+  await permitAttendees(ctx);
+};
+
+/** Brought on stage, or sent back to the audience: their microphone and camera follow. */
+export const onVideoCallStageChanged: EventHandler = async (ctx) => {
+  const person = str(payloadOf(ctx)['personRowId']);
+  if (person) await permitAttendees(ctx, person);
 };
 
 export const VIDEO_CALL_KEEP_WORDS_JOB = 'video_call.keep_words';
