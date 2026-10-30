@@ -1084,6 +1084,48 @@ describe('a message on Instagram', () => {
       expect(left!.textContent).toBe('');
     });
 
+  // The owner's sends of 30 Oct 2026, on 0.117.0: followers not followed back had only Follow Back, no Message.
+  it('follows back someone who follows you when their account shows no Message, then messages them (decision 135)', async () => {
+    world.pages = (url) => (url === DANA ? { html: accountHtml() } : null);
+    const sent: { to: string; text: string }[] = [];
+    world.behave = (doc) => {
+      doc.querySelector('main')!.insertAdjacentHTML('beforeend', TABS);
+      doc.querySelector('#message')!.remove();
+      const follow = doc.querySelector('#follow')!;
+      follow.firstElementChild!.textContent = 'Follow Back';
+      follow.addEventListener('click', () => {
+        follow.firstElementChild!.textContent = 'Following';
+        follow.insertAdjacentHTML('afterend', '<div role="button" id="message">Message</div>');
+        doc.querySelector('#message')!.addEventListener('click', () => {
+          doc.body.insertAdjacentHTML('beforeend', chatOver('Dana Reyes', '/dana.reyes/'));
+          sendsOwn(doc, sent);
+        });
+      });
+    };
+    expect(await sendFromAccount()).toEqual({ done: true, line: 'Sent Dana Reyes a message' });
+    expect(sent).toEqual([{ to: 'Dana Reyes', text: 'Glad to help, Dana.\n\nWant the details?' }]);
+    expect(notedAs().map((n) => [n.kind, n.auto])).toEqual([
+      ['friend_request', true],
+      ['message', true],
+    ]);
+  });
+
+  it('follows nobody and says so when their account shows no Message and they don’t follow you', async () => {
+    world.pages = (url) => (url === DANA ? { html: accountHtml() } : null);
+    let followed = false;
+    world.behave = (doc) => {
+      doc.querySelector('main')!.insertAdjacentHTML('beforeend', TABS);
+      doc.querySelector('#message')!.remove();
+      doc.querySelector('#follow')!.addEventListener('click', () => (followed = true));
+    };
+    expect(await sendFromAccount()).toEqual({
+      done: false,
+      line: 'Dana Reyes: couldn’t find Message on their account',
+    });
+    expect(followed).toBe(false);
+    expect(world.noted).toEqual([]);
+  });
+
   it('never types into a chat left open from someone else, though it names nobody or its messages link to them', async () => {
     for (const leftOpen of [
       chatOver('Riley Quinn', null),

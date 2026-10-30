@@ -710,7 +710,12 @@ async function openChat(
   businessId: string,
   sending = false,
 ): Promise<
-  | { readonly profile: ProfileRef; readonly thread: ThreadRef | null }
+  | {
+      readonly profile: ProfileRef;
+      readonly thread: ThreadRef | null;
+      /** The link their profile's Message was, when it was pressed: the new conversation it opens names whom. */
+      readonly opened?: string | null;
+    }
   | { readonly outcome: Outcome }
 > {
   const want = keptMember(item.profileUrl, item.platformId);
@@ -757,7 +762,7 @@ async function openChat(
       outcome: { done: false, line: `${item.name}: couldn’t find Message on their profile` },
     };
   await pause(SETTLE_MS);
-  return { profile: opened.noted, thread: null };
+  return { profile: opened.noted, thread: null, opened: pressed.opened ?? null };
 }
 
 /** Their conversation as it is now, before a reply is drafted: brought into HandsFreeOS as LinkedIn's. */
@@ -870,7 +875,12 @@ async function sendMessage(
   let partly: string | null = null;
   for (const [i, part] of parts.entries()) {
     if (i > 0) await pause(partPauseMs(part, Math.random()));
-    const wrote = await tab.ask({ type: 'hfos-message', text: part, profile: chat.profile });
+    const wrote = await tab.ask({
+      type: 'hfos-message',
+      text: part,
+      profile: chat.profile,
+      opened: chat.opened ?? null,
+    });
     const why = !wrote.ok
       ? wrote.error
       : wrote.result === 'none'

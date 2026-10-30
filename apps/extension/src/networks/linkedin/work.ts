@@ -36,6 +36,7 @@ import type {
   FetchAsk,
   GroupPostAnswer,
   GroupPostAsk,
+  OpenMessageAnswer,
   OpenMessageAsk,
   OwnProfileAnswer,
   OwnProfileAsk,
@@ -297,7 +298,7 @@ async function commentStep(
 /** The runner's steps (./auto.ts), each only on its own kind of page. */
 async function autoStep(
   ask: AutoAsk | ConnectAsk | AnswerRequestAsk | OpenMessageAsk,
-): Promise<AutoAnswer | PostsAnswer | BrowseAnswer> {
+): Promise<AutoAnswer | PostsAnswer | BrowseAnswer | OpenMessageAnswer> {
   const kind = classifyUrl(location.href).kind;
   // Their profile, their activity, or (decision 92) the post of theirs a search found, liked on its own page.
   const onTheirs = kind === 'profile' || kind === 'activity' || kind === 'post';
@@ -320,8 +321,10 @@ async function autoStep(
       // Their invitation, answered in their profile's top card (decision 136).
       if (kind !== 'profile') return { ok: false, error: 'LinkedIn didn’t open their profile.' };
       return { ok: true, result: await answerInvitation(document, location.href, ask.answer) };
-    case 'hfos-open-message':
-      return { ok: kind === 'profile' && openMessage(document) };
+    case 'hfos-open-message': {
+      const opened = kind === 'profile' ? openMessage(document, location.href) : false;
+      return opened === false ? { ok: false } : { ok: true, opened };
+    }
     case 'hfos-comment':
       if (kind !== 'post') return { ok: false, error: 'LinkedIn didn’t open the post.' };
       return { ok: true, result: await writeComment(document, ask.text) };
@@ -331,7 +334,13 @@ async function autoStep(
         return { ok: false, error: 'LinkedIn didn’t open a conversation with them.' };
       return {
         ok: true,
-        result: await writeMessage(document, location.href, ask.text, ask.profile),
+        result: await writeMessage(
+          document,
+          location.href,
+          ask.text,
+          ask.profile,
+          ask.opened ?? null,
+        ),
       };
   }
 }
