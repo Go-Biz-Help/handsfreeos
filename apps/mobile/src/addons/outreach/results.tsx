@@ -118,7 +118,7 @@ export function ResultsBody({
   const R = W.results;
   const n = activity?.numbers;
   return (
-    <OutreachFrame tab="results" testID="outreach-results">
+    <OutreachFrame page="results" testID="outreach-results">
       <Segmented
         label="How far back"
         value={period}

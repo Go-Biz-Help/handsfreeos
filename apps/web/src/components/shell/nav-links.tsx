@@ -43,9 +43,11 @@ import {
   Workflow,
   Star,
 } from 'lucide-react';
+import { catchError } from 'next/error';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import {
+  Suspense,
   useEffect,
   useRef,
   useState,
@@ -54,6 +56,7 @@ import {
   type ReactNode,
 } from 'react';
 import { ADDON_UI } from '@/addons/registry';
+import { lazyOnce } from '@/components/addons/lazy';
 import { NewDot, useWhatsNewUnseen } from '@/components/ideas/whats-new-signal';
 import { useAttentionSummary } from '@/lib/realtime/attention-summary';
 import { useUnread } from '@/lib/realtime/unread-provider';
@@ -313,6 +316,49 @@ export function UrgentCount({ count, className }: { count: number; className?: s
   );
 }
 
+/**
+ * A count on an add-on's page in the menu, or on its row (the registry's `navCount`): drawn by the add-on's own code,
+ * with the words a screen reader says for it. Nothing when there's nothing to count.
+ */
+export function MenuCount({ count, label }: { count: number; label: string }) {
+  if (count <= 0) return null;
+  return (
+    <span
+      data-testid="addon-menu-count"
+      className="inline-flex h-[18px] min-w-[18px] items-center justify-center rounded-full bg-accent px-1.5 text-[11px] font-semibold leading-none text-white"
+    >
+      <span aria-hidden>{count > 99 ? '99+' : count}</span>
+      <span className="sr-only">{label}</span>
+    </span>
+  );
+}
+
+/** A count whose code is slow or broke: nothing in its place, as the menu has nowhere to say so. */
+const QuietBoundary = catchError(() => null);
+
+/**
+ * An add-on's count (the registry's `navCount`): on the page it counts, and on the add-on's row while its pages are
+ * closed. Its code is fetched the first time the menu draws it, only while the add-on runs here.
+ */
+function AddonCount({ workspaceId, addonId }: { workspaceId: string; addonId: string }) {
+  const load = ADDON_UI[addonId]?.navCount?.load;
+  if (!load) return null;
+  const Count = lazyOnce(load);
+  return (
+    <QuietBoundary>
+      <Suspense fallback={null}>
+        <Count workspaceId={workspaceId} />
+      </Suspense>
+    </QuietBoundary>
+  );
+}
+
+/** Whether an add-on's page is the one its count is on. */
+const countedPage = (addonId: string, pageKey: string) => {
+  const page = ADDON_UI[addonId]?.navCount?.page;
+  return page !== undefined && pageKey === addonPageKey(addonId, page);
+};
+
 const rowClass = (active: boolean, extra?: string) =>
   cn(
     'flex h-9 w-full items-center gap-2.5 rounded-control px-2.5 text-left text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring md:h-9 max-md:h-11',
@@ -514,22 +560,37 @@ function Fold({
   );
 }
 
-/** An add-on's pages (0108), the one the open page is in lit. */
+/** An add-on's pages (0108), the one the open page is in lit, and its count on the page it counts. */
 function AddonPageLinks({
+  workspaceId,
   item,
   pathname,
   onNavigate,
 }: {
+  workspaceId: string;
   item: NavItem;
   pathname: string;
   onNavigate?: () => void;
 }) {
   const pages = item.pages ?? [];
   const lit = currentMenuPlace(pages, pathname)?.key ?? null;
+  const addonId = item.key.replace(/^addon:/, '');
   return (
     <>
       {pages.map((page) => (
-        <NavLink key={page.key} item={page} active={page.key === lit} onNavigate={onNavigate} />
+        <NavLink
+          key={page.key}
+          item={page}
+          active={page.key === lit}
+          onNavigate={onNavigate}
+          badge={
+            countedPage(addonId, page.key) ? (
+              <span className="ml-auto">
+                <AddonCount workspaceId={workspaceId} addonId={addonId} />
+              </span>
+            ) : undefined
+          }
+        />
       ))}
     </>
   );
@@ -543,12 +604,14 @@ type Variant = 'sidebar' | 'drawer';
  * every add-on a business turns on adds a single row. It is lit on any of its pages.
  */
 function AddonRow({
+  workspaceId,
   item,
   active,
   pathname,
   variant,
   onNavigate,
 }: {
+  workspaceId: string;
   item: NavItem;
   active: boolean;
   pathname: string;
@@ -564,15 +627,24 @@ function AddonRow({
       label={item.label}
       icon={item.icon}
       active={active}
+      counts={() => <AddonCount key="a" workspaceId={workspaceId} addonId={addonId} />}
       onNavigate={onNavigate}
     >
-      {(picked) => <AddonPageLinks item={item} pathname={pathname} onNavigate={picked} />}
+      {(picked) => (
+        <AddonPageLinks
+          workspaceId={workspaceId}
+          item={item}
+          pathname={pathname}
+          onNavigate={picked}
+        />
+      )}
     </Opener>
   );
 }
 
 /** What a group draws its places from: each place's item, and the one the open page is in. */
 interface GroupProps {
+  workspaceId: string;
   group: MenuGroup;
   items: ReadonlyMap<MenuPlaceKey, NavItem>;
   activeKey: MenuPlaceKey | null;
@@ -586,7 +658,16 @@ interface GroupProps {
  * A group the person made, as one row that is lit by what is inside it. An add-on they put in it shows its pages
  * there, under its name.
  */
-function Group({ group, items, activeKey, pathname, badges, variant, onNavigate }: GroupProps) {
+function Group({
+  workspaceId,
+  group,
+  items,
+  activeKey,
+  pathname,
+  badges,
+  variant,
+  onNavigate,
+}: GroupProps) {
   const Opener = variant === 'drawer' ? Fold : Flyout;
   return (
     <Opener
@@ -606,7 +687,12 @@ function Group({ group, items, activeKey, pathname, badges, variant, onNavigate 
             return (
               <div key={key} role="group" aria-label={item.label} className="flex flex-col gap-0.5">
                 <p className="px-2.5 pb-1 pt-2 text-xs font-medium text-text-3">{item.label}</p>
-                <AddonPageLinks item={item} pathname={pathname} onNavigate={picked} />
+                <AddonPageLinks
+                  workspaceId={workspaceId}
+                  item={item}
+                  pathname={pathname}
+                  onNavigate={picked}
+                />
               </div>
             );
           return (
@@ -664,6 +750,11 @@ export function NavLinks({
   const urgent = useAttentionSummary().summary?.urgent ?? 0;
   const badges = (key: MenuPlaceKey, after = onNavigate): ReactNode => {
     if (key === 'home') return <UrgentCount key="u" count={urgent} />;
+    // An add-on's count, on a group the person put it in.
+    if (!isMenuKey(key))
+      return (
+        <AddonCount key={key} workspaceId={workspaceId} addonId={key.replace(/^addon:/, '')} />
+      );
     if (key === 'inbox')
       return (
         <UnreadCount
@@ -684,6 +775,7 @@ export function NavLinks({
           return (
             <Group
               key={entry.id}
+              workspaceId={workspaceId}
               group={entry}
               items={items}
               activeKey={activeKey}
@@ -700,6 +792,7 @@ export function NavLinks({
           return (
             <AddonRow
               key={entry.key}
+              workspaceId={workspaceId}
               item={item}
               active={entry.key === activeKey}
               pathname={pathname}

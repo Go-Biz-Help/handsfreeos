@@ -1,8 +1,9 @@
 'use client';
 /**
- * Needs you, at the top of Social Outreach's Today (docs/outreach.md, decisions 40, 42, 59 and 72). The extension only
- * counts it, on its icon and in a line in its panel, which links here at `#needs-you` as its pop-ups do, so the
- * heading keeps that id. Everything waiting for the person, in one list (packages/core/src/addons/outreach/waiting.ts):
+ * Needs you, Social Outreach's first page (docs/outreach.md, decisions 40, 42, 59, 72 and 127). The extension only
+ * counts it, on its icon and in a line in its panel, which links to Today's `#needs-you` as its pop-ups do: Today
+ * sends that here, and the list keeps the id. Everything waiting for the person, in one list
+ * (packages/core/src/addons/outreach/waiting.ts):
  *
  * - **Your computer needs you**: something asked of it from here hit a step it couldn't find, or Facebook wants a
  *   password typed (./asks.tsx), with **Carry on**, **Skip** and **Stop**;
@@ -107,25 +108,21 @@ export function NeedsYou({ workspaceId, waiting }: { workspaceId: string; waitin
     800,
   );
   return (
-    <section aria-labelledby="needs-you" className="space-y-3" data-testid="outreach-waiting">
-      <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
-        <h2 id="needs-you" className="text-lg font-semibold tracking-tight">
-          {W.needsYou}
-          {waiting.count ? (
-            <span className="font-medium text-text-3" data-testid="waiting-count">
-              {' '}
-              · {waiting.count.toLocaleString()}
-            </span>
-          ) : null}
-        </h2>
-        {waiting.count ? (
-          <span className="text-[12.5px] text-text-3">{waitingWords(waiting.count)}</span>
-        ) : null}
-      </div>
+    <section
+      id="needs-you"
+      aria-label={W.needsYou}
+      className="space-y-3"
+      data-testid="outreach-waiting"
+    >
       {waiting.count ? (
-        WAITING_KIND_KEYS.map((kind) => (
-          <Group key={kind} workspaceId={workspaceId} kind={kind} waiting={waiting} />
-        ))
+        <>
+          <p className="text-[13px] text-text-2" data-testid="waiting-count">
+            {waitingWords(waiting.count)}
+          </p>
+          {WAITING_KIND_KEYS.map((kind) => (
+            <Group key={kind} workspaceId={workspaceId} kind={kind} waiting={waiting} />
+          ))}
+        </>
       ) : (
         <p
           className="rounded-card border border-dashed border-border-strong px-4 py-3.5 text-[13px] text-text-2"

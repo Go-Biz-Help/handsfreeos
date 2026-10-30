@@ -1,41 +1,27 @@
 'use client';
 /**
- * Social Outreach's Live tab (docs/outreach.md, decision 41): what the person's extension is doing right now, on which
- * computer, and what's next; Start my day and Stop for today, which reach that computer within seconds; today's counts
- * against the limits and how many things wait for the person (Waiting for you); today's steps; their computers, renamable
- * and removable, one or every one standing by (decision 85); and for owners
- * and admins, each person's status, counts and how many wait, never their lines or messages. It follows changes live,
- * and works out "offline" itself on a 30-second clock, so the note shows with no event at all. A heartbeat tells
- * nobody, so while the tab is shown it also asks again every minute, which keeps "last seen" moving: a computer still
- * beating is never called offline.
- *
- * Each network's day is its own: with more than one network on, its names pick which (`?net=`), and Start my day and
- * Stop for today, the counts, the first lists and the warning are that network's.
+ * What the person's extension is doing, in the parts Today and Settings share (docs/outreach.md, decisions 41 and 127:
+ * the Details page folded into them). Today has a card for each network (./status-strip.tsx), Done today and, for owners
+ * and admins, each person's status, counts and how many wait, never their lines or messages (`TeamCard`). Settings →
+ * Your computer has the person's computers, renamable and removable, one or every one standing by (decision 85;
+ * `ComputersCard`), and what they asked their computer to do (`AskedCard`). Each follows changes live, and works out
+ * "offline" itself on a 30-second clock (`useServerNow`), so the note shows with no event at all. A heartbeat tells
+ * nobody, so while Today is shown it also asks again every minute (`useRefetchWhileShown`), which keeps "last seen"
+ * moving: a computer still beating is never called offline.
  */
+import { ASK_WORDS } from '@hfos/core/addons/outreach/asks';
 import { DAILY_STEPS, DAILY_WORDS } from '@hfos/core/addons/outreach/limits';
 import {
-  clockWords,
   COMPUTER_NAME_MOST,
-  isOffline,
   LIVE_REFETCH_SECONDS,
-  offlineWords,
   seenWords,
   SHOWN_STATES,
   shownState,
   stateTone,
-  todayWords,
   type ShownState,
 } from '@hfos/core/addons/outreach/live';
-import {
-  dailyWordsOn,
-  NETWORK_WORDS as NW,
-  noRunnerWords,
-  teamWordsOn,
-} from '@hfos/core/addons/outreach/network-words';
-import { PLATFORMS, runsOnItsOwn, type Platform } from '@hfos/core/addons/outreach/networks';
-import { warningNote } from '@hfos/core/addons/outreach/tidy';
+import { teamWordsOn } from '@hfos/core/addons/outreach/network-words';
 import { OUTREACH_WORDS as W } from '@hfos/core/addons/outreach/words';
-import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { Badge, type BadgeVariant } from '@/components/ui/badge';
@@ -43,21 +29,10 @@ import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { EmptyState } from '@/components/ui/empty-state';
 import { Input } from '@/components/ui/input';
-import { Segmented } from '@/components/ui/segmented';
 import { apiBrowser, unwrap } from '@/lib/api/client';
-import { useLiveRefresh } from '@/lib/realtime/live-provider';
 import { cn } from '@/lib/utils';
-import { outreachHref } from './address';
 import { AskLine } from './asks';
-import { ASK_WORDS } from '@hfos/core/addons/outreach/asks';
 import type { Asks, Live, LiveTeam } from './types';
-import { PreDayList } from './pre-day-list';
-import {
-  keptBesideStart,
-  startRefused,
-  StartRefusedNote,
-  type StartRefused,
-} from './start-refused';
 import { useAct } from './use-act';
 
 const TONES: Record<ReturnType<typeof stateTone>, BadgeVariant> = {
@@ -101,261 +76,21 @@ export function useRefetchWhileShown(everyMs = LIVE_REFETCH_SECONDS * 1000): voi
   }, [router, everyMs]);
 }
 
-export function LiveView({
+/**
+ * What the person asked their computer to do from the other pages, today's and the open ones, each as it goes: on
+ * Settings → Your computer (decision 127).
+ */
+export function AskedCard({
   workspaceId,
-  live,
-  team,
   asks,
-  platform = 'facebook',
-  networks = [platform],
+  className,
 }: {
   workspaceId: string;
-  live: Live;
-  /** Everyone's status, for owners and admins. */
-  team: LiveTeam | null;
-  /** What the person asked their computer to do from here: today's and the open ones. */
   asks: Asks;
-  /** The network whose day it is, of those the person works. */
-  platform?: Platform;
-  networks?: readonly Platform[];
+  className?: string;
 }) {
-  const router = useRouter();
-  useLiveRefresh(
-    [
-      'outreach_computer',
-      'outreach_ask',
-      'outreach_need',
-      'outreach_day',
-      'outreach_profile',
-      'outreach_automation',
-      'workspace',
-      'addon',
-    ],
-    800,
-  );
-  useRefetchWhileShown();
-  const now = useServerNow(live.now);
   return (
-    <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_340px]" data-testid="outreach-live">
-      <div className="grid content-start gap-4">
-        {networks.length > 1 ? (
-          <div className="max-w-full overflow-x-auto">
-            <Segmented<Platform>
-              ariaLabel={NW.filter}
-              value={platform}
-              onChange={(net) => router.push(outreachHref(workspaceId, { view: 'live', net }))}
-              options={networks.map((p) => ({
-                value: p,
-                label: PLATFORMS[p],
-                testId: `live-network-${p}`,
-              }))}
-            />
-          </div>
-        ) : null}
-        <RightNow
-          workspaceId={workspaceId}
-          live={live}
-          now={now}
-          platform={platform}
-          canManage={team !== null}
-        />
-        <AskedCard workspaceId={workspaceId} asks={asks} />
-        <StepsCard live={live} />
-        {team ? <TeamCard team={team} now={now} /> : null}
-      </div>
-      <div className="grid content-start gap-4">
-        <CountsCard workspaceId={workspaceId} live={live} platform={platform} />
-        <ComputersCard workspaceId={workspaceId} live={live} now={now} />
-      </div>
-    </div>
-  );
-}
-
-function RightNow({
-  workspaceId,
-  live,
-  now,
-  platform,
-  canManage = false,
-}: {
-  workspaceId: string;
-  live: Live;
-  now: number;
-  platform: Platform;
-  /** An owner or admin: a refused Start may point them to the business's part to fix. */
-  canManage?: boolean;
-}) {
-  const { busy, act } = useAct();
-  // A refused Start stays beside the buttons in the server's words, with where the setup fixes it.
-  const [refused, setRefused] = useState<StartRefused | null>(null);
-  const tz = live.timezone;
-  const computer = live.computer;
-  const state = shownState({
-    computer: computer ? { state: computer.state, lastSeenAt: computer.lastSeenAt } : null,
-    day: live.day,
-    sending: live.sending,
-    now,
-  });
-  const offline = computer !== null && isOffline(computer.lastSeenAt, now);
-  // Another of their computers is open while the one that works isn't: say where to go.
-  const open = offline
-    ? live.computers.find(
-        (c) => !c.working && c.state !== 'signed_out' && !isOffline(c.lastSeenAt, now),
-      )
-    : undefined;
-  const status = live.status;
-  const sendingOff = live.sending === 'off';
-  const started = live.day.state === 'started';
-  const stopped = live.day.state === 'stopped';
-  const said = todayWords(live, platform, now);
-  const press = (kind: 'start' | 'stop') => {
-    setRefused(null);
-    void act(
-      kind,
-      async () => {
-        try {
-          return unwrap(
-            kind === 'start'
-              ? await apiBrowser().POST('/v1/commands/outreach.day.start', {
-                  body: { workspaceId, platform },
-                })
-              : await apiBrowser().POST('/v1/commands/outreach.day.stop', {
-                  body: { workspaceId, platform },
-                }),
-          );
-        } catch (e) {
-          if (kind === 'start') setRefused(startRefused(e, platform, canManage));
-          throw e;
-        }
-      },
-      kind === 'stop' ? W.stopped : W.started(!offline && computer !== null),
-      // Kept beside the buttons (below), not toasted; anything else is (a route not served yet among them).
-      kind === 'start' ? keptBesideStart : undefined,
-    );
-  };
-  return (
-    <Card className="p-4" data-testid="live-now">
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <h3 className="text-[15px] font-semibold">{W.rightNow}</h3>
-        <StateChip state={state} testId="live-state" />
-      </div>
-      {computer ? (
-        <>
-          {status?.line && !offline && state !== 'signed_out' ? (
-            <p className="mt-2 text-[14px]" role="status" data-testid="live-line">
-              {status.line}
-            </p>
-          ) : null}
-          {status?.nextAt && state === 'waiting' ? (
-            <p className="mt-1 text-[13px] text-text-2" data-testid="live-next">
-              {W.nextStep(seenWords(status.nextAt, tz, now))}
-            </p>
-          ) : null}
-          <p className="mt-1 text-[12.5px] text-text-3" data-testid="live-computer">
-            {W.onComputer(computer.name, seenWords(computer.lastSeenAt, tz, now))}
-          </p>
-        </>
-      ) : (
-        <p className="mt-2 text-[13px] text-text-2" data-testid="live-no-computer">
-          {W.noComputer}
-        </p>
-      )}
-      <PreDayList live={live} now={now} platform={platform} className="mt-3" />
-      {offline && computer ? (
-        <p
-          role="status"
-          data-testid="live-offline"
-          className="mt-3 rounded-menu bg-warning-soft p-2.5 text-[12.5px] text-warning-text"
-        >
-          {offlineWords(computer.lastSeenAt, tz, now)}
-          {open ? ` ${W.otherOpen(open.name)}` : null}
-        </p>
-      ) : null}
-      {live.warning ? (
-        <p
-          role="alert"
-          data-testid="live-warning"
-          className="mt-3 rounded-menu bg-danger-soft p-2.5 text-[12.5px] text-danger-text"
-        >
-          {warningNote(live.warning, now, platform)}
-        </p>
-      ) : null}
-      {sendingOff ? (
-        <p
-          className="mt-3 rounded-menu bg-card-2 p-2.5 text-[12.5px] text-text-2"
-          data-testid="live-sending-off"
-        >
-          {!runsOnItsOwn(platform) ? (
-            noRunnerWords(platform)
-          ) : (
-            <>
-              {W.sendingOffNote}{' '}
-              {live.canSend ? (
-                <>
-                  {W.changeThatIn}{' '}
-                  <Link
-                    className="font-medium text-accent-text underline-offset-2 hover:underline"
-                    href={outreachHref(workspaceId, { view: 'settings', part: platform })}
-                  >
-                    {W.rows.settings}
-                  </Link>
-                  .
-                </>
-              ) : canManage ? (
-                // The business allows only Off, and this owner or admin can change that: where.
-                <>
-                  {W.allowForTeamIn}{' '}
-                  <Link
-                    className="font-medium text-accent-text underline-offset-2 hover:underline"
-                    href={outreachHref(workspaceId, { view: 'settings', part: 'general' })}
-                    data-testid="live-sending-off-general"
-                  >
-                    {W.settingsGeneral}
-                  </Link>
-                  .
-                </>
-              ) : (
-                W.askToSend
-              )}
-            </>
-          )}
-        </p>
-      ) : null}
-      <div className="mt-4 flex flex-wrap gap-2">
-        <Button
-          onClick={() => press('start')}
-          loading={busy === 'start'}
-          disabled={busy !== null || sendingOff || started || live.day.why === 'warning'}
-          data-testid="live-start"
-        >
-          {W.startDay}
-        </Button>
-        <Button
-          variant="secondary"
-          onClick={() => press('stop')}
-          loading={busy === 'stop'}
-          disabled={busy !== null || stopped}
-          data-testid="live-stop"
-        >
-          {W.stopDay}
-        </Button>
-      </div>
-      {refused ? (
-        <StartRefusedNote workspaceId={workspaceId} refused={refused} className="mt-3" />
-      ) : null}
-      {said ? (
-        <p className="mt-2 text-[12.5px] text-text-3" data-testid="live-day">
-          {said}
-        </p>
-      ) : null}
-    </Card>
-  );
-}
-
-/** What the person asked their computer to do from the other tabs, today's and the open ones, each as it goes. */
-function AskedCard({ workspaceId, asks }: { workspaceId: string; asks: Asks }) {
-  return (
-    <Card className="p-4" data-testid="live-asks">
+    <Card className={cn('p-4', className)} data-testid="live-asks">
       <h3 className="text-[15px] font-semibold">{ASK_WORDS.askedTitle}</h3>
       {asks.asks.length ? (
         <ul className="mt-3 grid gap-2">
@@ -369,85 +104,6 @@ function AskedCard({ workspaceId, asks }: { workspaceId: string; asks: Asks }) {
         <p className="mt-2 text-[13px] text-text-2" data-testid="live-asks-empty">
           {ASK_WORDS.askedNone}
         </p>
-      )}
-    </Card>
-  );
-}
-
-function CountsCard({
-  workspaceId,
-  live,
-  platform,
-}: {
-  workspaceId: string;
-  live: Live;
-  platform: Platform;
-}) {
-  const words = dailyWordsOn(platform);
-  return (
-    <Card className="p-4" data-testid="live-counts">
-      <h3 className="text-[15px] font-semibold">{W.todaySoFar}</h3>
-      <ul className="mt-3 space-y-1.5">
-        {DAILY_STEPS.map((step) => {
-          const { done, most } = live.limits[step];
-          const full = done >= most;
-          return (
-            <li
-              key={step}
-              className="flex items-baseline justify-between gap-2 text-[13px]"
-              data-testid={`live-count-${step}`}
-            >
-              <span>{words[step].label}</span>
-              <span
-                className={cn(
-                  'tabular-nums',
-                  full ? 'font-semibold text-warning-text' : 'text-text-2',
-                )}
-              >
-                {W.countOf(done, most)}
-              </span>
-            </li>
-          );
-        })}
-      </ul>
-      {live.waiting > 0 ? (
-        <p className="mt-3 text-[13px]" data-testid="live-waiting">
-          <Link
-            className="font-medium text-accent-text underline-offset-2 hover:underline"
-            href={outreachHref(workspaceId, { view: 'today' })}
-          >
-            {W.waitingLink(live.waiting)}
-          </Link>
-        </p>
-      ) : null}
-    </Card>
-  );
-}
-
-function StepsCard({ live }: { live: Live }) {
-  return (
-    <Card className="p-4" data-testid="live-steps">
-      <h3 className="text-[15px] font-semibold">{W.todaySteps}</h3>
-      {live.steps.length ? (
-        <ol className="mt-3 space-y-1.5">
-          {live.steps.map((step, i) => (
-            <li key={`${step.at}-${i}`} className="flex gap-3 text-[13px]">
-              <span className="w-[68px] flex-none tabular-nums text-text-3">
-                {clockWords(step.at, live.timezone)}
-              </span>
-              <span
-                className={cn(
-                  step.kind === 'stopped' && 'text-danger-text',
-                  step.kind === 'passed' && 'text-text-2',
-                )}
-              >
-                {step.line}
-              </span>
-            </li>
-          ))}
-        </ol>
-      ) : (
-        <p className="mt-2 text-[13px] text-text-2">{W.noSteps}</p>
       )}
     </Card>
   );
@@ -613,10 +269,15 @@ export function ComputersCard({
   );
 }
 
-function TeamCard({ team, now }: { team: LiveTeam; now: number }) {
+/**
+ * How each person's extension is doing today on one network, for owners and admins (decision 24): on Today, below the
+ * person's own (decision 127). Never their lines or messages.
+ */
+export function TeamCard({ team, className }: { team: LiveTeam; className?: string }) {
+  const now = useServerNow(team.now);
   const words = teamWordsOn(team.platform);
   return (
-    <Card className="p-4" data-testid="live-team">
+    <Card className={cn('p-4', className)} data-testid="live-team">
       <h3 className="text-[15px] font-semibold">{words.title}</h3>
       <p className="mt-0.5 text-[12.5px] text-text-3">
         How each person’s extension is doing today. What it says and who it reaches stay theirs.

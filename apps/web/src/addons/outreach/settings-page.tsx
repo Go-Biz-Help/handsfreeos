@@ -72,7 +72,7 @@ import { ExtensionDownload } from './extension-download';
 import { ExtensionLinkForm } from './extension-link';
 import { LikeYoursPart } from './like-yours';
 import { ProfileSheet } from './get-ready';
-import { ComputersCard, useServerNow } from './live-view';
+import { AskedCard, ComputersCard, useServerNow } from './live-view';
 import {
   AllowedPicks,
   DefaultsFold,
@@ -240,6 +240,8 @@ function SettingsPages({
             {live ? <ComputerPart workspaceId={workspaceId} live={live} /> : null}
             <ExtensionDownload link={extensionLink} folded />
           </Card>
+          {/* What they asked it to do from the other pages, and how each went (decision 127). */}
+          {asks ? <AskedCard workspaceId={workspaceId} asks={asks} /> : null}
         </>
       ) : shown === 'fresh' ? (
         <>

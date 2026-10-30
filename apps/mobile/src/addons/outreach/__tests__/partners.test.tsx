@@ -75,7 +75,7 @@ describe('the Partners list on the phone', () => {
   it('is one of People’s lists', async () => {
     await render(
       <OutreachWorkspace.Provider value={WS}>
-        <OutreachFrame tab="people" people="pipeline" testID="framed" />
+        <OutreachFrame page="people" people="pipeline" testID="framed" />
       </OutreachWorkspace.Provider>,
     );
     await fireEvent.press(screen.getByTestId('outreach-people-partners'));
