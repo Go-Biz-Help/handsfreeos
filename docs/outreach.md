@@ -2985,7 +2985,7 @@ where decisions 37 and 59 put the settings; what they decided stands. Settled to
         the runner's state, `listTurn`). Someone who writes back again the same day has their reply drafted again,
         though it was tried. The Replies choice still decides whether it waits for an OK, and the network's day and
         limits still decide whether the runner works at all: a reply seen outside the working hours buzzes the phone
-        and is drafted when the day starts.
+        and is drafted when the day starts. (From 0.117.0 it's drafted at once, hours or not: decision 133.)
 126.  **The day's first messages, nearly guaranteed** (Chris, 29 Oct 2026, "1a 2a 3c 4a 5a 6a 7a 8a 9a" on
       questions-29-oct-goal.md; extension **0.114.0**). "the system needs to understand that its main purpose is to
       send out new messages to good leads/candidates. It needs to almost guarantee it will reach its goal of messages
@@ -3161,7 +3161,6 @@ where decisions 37 and 59 put the settings; what they decided stands. Settled to
         Alignable's runner goes straight to the conversation by the business id kept.
       - **Instagram stays by the name in an account's address:** its links show no id. Reading one from the page's
         code was left out, as it also holds the person's own; its chats are kept by their own key.
-
 132.  **Retry, and Retry all, spaced out like a person** (Chris, 30 Oct 2026, extension 0.116.0). "need a retry button,
       when it does retry it shouldn't all send at the same time it should space them out."
       - **Where:** on Steps it needs you for (web, phone, and the Assistant's `outreach_retry_messages`, on a Confirm
@@ -3183,6 +3182,31 @@ where decisions 37 and 59 put the settings; what they decided stands. Settled to
         the new conversation Message opens loads in the interop frame, so it waits up to 15 seconds for the box, and
         takes the box as theirs by the card over it linking to them, as the address may name them by the other kind of
         member id: only a card or an id of the same kind naming someone else stops it.
+
+133.  **Replies seen by name, and answered any time** (Chris, 30 Oct 2026, extension **0.117.0**). A prospect's Instagram
+      reply got no draft: it was seen only when Chris opened the chat. "check to make sure we don't have this
+      issue with the other platforms as well." Then: "it should always be checking for new messages and always respond
+      in real time it just shouldn't send out new messages if it's not in the working time."
+      - **Why it was missed.** Instagram's list of chats is buttons that link to no chat (the owner's Checks of 21 and
+        28 Oct: none of 15 rows did), and decision 22's reader kept only a row with a chat's id, so from 0.113.0 the
+        messages page kept open (decision 125) never saw a reply on Instagram: one waited for the once-a-day chats
+        read, or for the person to open the chat. LinkedIn's newer list links to no conversation either (the owner's
+        Check LinkedIn of 29 Oct), so there only the conversation open on the page was seen. Facebook's list links each
+        chat by its number, and Alignable's is compared line by line (decision 125), so those were never short.
+      - **By name** (`networks/instagram/replies.ts`, `networks/linkedin/replies.ts`, `listedRows`). A row whose last
+        line is theirs goes by the name it shows, with no chat id or profile, never what they wrote: never "You: …", a
+        reaction, Instagram's "Active 2h ago" or "Seen", an InMail, an ad, LinkedIn itself or a group. HandsFreeOS
+        (`outreach.replies.note`) takes one only when exactly one person the person messaged on that network goes by
+        it (their name, the name in their address, or the name their chat is kept under), and keeps the reply with the
+        chat the person's message went in, so the runner opens it to read before it drafts. Two of that name: neither.
+        No migration.
+      - **Answered any time** (`answersAnyTime`, `ANSWERING`, `lookOutsideAt` in `src/auto/plan.ts`). Outside the
+        working hours, with nothing pressed, each network's runner still drafts a reply to someone who wrote back, at
+        once, and sends one the person OK'd (or that goes on its own as Replies says). Nothing new goes: no first
+        message, follow-up, reconnect, like or request, OK'd or not, till the hours start. While a reply waits for an
+        OK it looks again every 2 minutes, and a message tried again (decision 132) wakes it at its turn, since a reply
+        tried again goes any time too; else it sleeps till the hours. Stop for today, a warning, noting off and an
+        ask in line still stop it, as in the hours.
 
 ## Rules worth knowing before changing anything
 

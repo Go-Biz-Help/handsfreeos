@@ -505,6 +505,49 @@ describe('each network’s own lists, asks and Today', () => {
     expect(await kinds()).toEqual([]);
   });
 
+  it('take a reply seen by its name alone, as Instagram’s list of chats shows it, when one person messaged goes by it', async () => {
+    const dana = await teammate('Ellis Grant');
+    const ig = (username: string) => ({
+      id: null,
+      username,
+      url: `https://www.instagram.com/${username}/`,
+    });
+    const message = (username: string, name: string, threadKey: string) =>
+      runAs(
+        dana,
+        ws,
+        'outreach.touch.save',
+        { platform: 'instagram', kind: 'message', profile: ig(username), name, threadKey },
+        new Date(Date.now() - HOUR),
+      );
+    const seen = (name: string) =>
+      runAs(dana, ws, 'outreach.replies.note', { platform: 'instagram', seen: [{ name }] });
+    await message('kim.bakes', 'Kim Baker', '340282366841710301');
+    // Nobody the person messaged goes by the name: no reply.
+    expect((await seen('Lee Park')).replies).toEqual([]);
+    // The list's name, whatever its spaces and capitals; kept with the chat the message went in, which the runner
+    // opens to read before it drafts the reply.
+    const kim = (await seen('  kim   BAKER ')).replies;
+    expect(kim).toEqual([{ profileId: expect.any(String), name: 'Kim Baker' }]);
+    const [kept] = await rows<{ thread_key: string | null }>(
+      admin(),
+      sql`select thread_key from addon_outreach.replies where profile_id = ${kim[0].profileId}`,
+    );
+    expect(kept!.thread_key).toBe('340282366841710301');
+    const today = await runAs(dana, ws, 'outreach.today', { platform: 'instagram' });
+    expect(today.items.find((i: { name: string }) => i.name === 'Kim Baker')).toMatchObject({
+      kind: 'reply',
+      threadKey: '340282366841710301',
+    });
+    // By the name in their address too, when the list shows that.
+    await message('sam.fixes', 'Sam Ortiz', '340282366841710302');
+    expect((await seen('sam.fixes')).replies).toHaveLength(1);
+    // Two people messaged by one name: neither is known to be the one who wrote.
+    await message('jo.reed.1', 'Jo Reed', '340282366841710303');
+    await message('jo.reed.2', 'Jo Reed', '340282366841710304');
+    expect((await seen('Jo Reed')).replies).toEqual([]);
+  });
+
   it('keep each network’s lists and first day apart', async () => {
     const dana = await teammate('Rowan Blake');
     const linkedIn = await runAs(dana, ws, 'outreach.lists.saved', {
