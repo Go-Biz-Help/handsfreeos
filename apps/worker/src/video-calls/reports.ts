@@ -2,18 +2,21 @@
  * LiveKit's word on a HandsFreeOS video call, acted on (routes.ts stored it, checked against our key). Someone came
  * in, someone left, or the room closed: core's commands keep who was in and for how long, and close the stretch of
  * the call so its minutes go on the balance. Someone who came in on a ticket they shouldn't use any more (taken
- * out, turned away, or back in a call that ended before the team is) is taken straight out again.
+ * out, turned away, or back in a call that ended before the team is) is taken straight out again. Anyone else is
+ * shown the live poll's slide that's up, if one is (slides.ts).
  */
 import {
   callIdOfRoom,
   executeCommand,
   HfosError,
+  isPersonIdentity,
   videoCallFinished,
   videoCallJoined,
   videoCallLeft,
 } from '@hfos/core/server';
 import type { DeliveryProcessor } from '../deliveries';
 import { systemActor, workerMeta } from '../services';
+import { tellSlideTo } from './slides';
 
 /** What routes.ts kept: the report, field by field. */
 type Kept = Readonly<Record<string, string | undefined>>;
@@ -45,7 +48,11 @@ export const onLiveKitReport: DeliveryProcessor = async (ctx) => {
         if (output.kick && ctx.videoCalls) {
           ctx.log.info({ callId, personId: r['identity'] }, 'took someone out of a video call');
           await ctx.videoCalls.remove(r['room'], r['identity']!);
+          return;
         }
+        // Slides showing (webinars, part 4): someone coming in, or back after a reload, sees the one that's up.
+        if (r['identity'] && isPersonIdentity(r['identity']))
+          await tellSlideTo(ctx, scope, callId, r['identity']);
         return;
       }
       case 'left':

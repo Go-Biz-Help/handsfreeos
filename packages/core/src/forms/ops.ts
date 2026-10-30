@@ -433,10 +433,13 @@ function applyOne(work: Work, op: FormOp, i: number): FormOp {
       return { op: 'add_result', index: at, result: removed as unknown as FormResultInput };
     }
     case 'set_form': {
-      const allowed = new Set(['mode', 'title', 'intro']);
+      const allowed = new Set(['mode', 'title', 'intro', 'slides']);
       for (const key of Object.keys(op.patch))
         if (!allowed.has(key)) fail(i, 'bad_patch', `Change ${key} with its own op.`);
-      return { op: 'set_form', patch: patchInto(work as unknown as Bag, op.patch, i, 'Form') };
+      const undo = patchInto(work as unknown as Bag, op.patch, i, 'Form');
+      // A poll that had no slides goes back to none.
+      if ('slides' in undo && undo.slides === undefined) undo.slides = null;
+      return { op: 'set_form', patch: undo };
     }
     case 'set_scoring':
       return {

@@ -2,7 +2,8 @@
 /**
  * The AI writing a live poll's when-to-ask phrases (HANDSFREEOS_WEBINARS_IMPLEMENTATION_PLAN.md, part 3): the worker
  * writes them (apps/worker/src/forms/poll-cue-routes.ts), and the editor puts them in the draft as ordinary edits, so
- * they're saved, undone and changed like any other.
+ * they're saved, undone and changed like any other. A poll with slides (part 4) has them read too, and each question
+ * gets the slide it goes with.
  */
 import {
   aiLimitReached,
@@ -16,7 +17,11 @@ import { ApiError, errorMessage } from '@/lib/api/errors';
 import { workerPost } from '@/lib/api/worker';
 
 interface CueAnswer {
-  readonly questions: readonly { readonly id: string; readonly cues: readonly string[] }[];
+  readonly questions: readonly {
+    readonly id: string;
+    readonly cues: readonly string[];
+    readonly slide?: number | null;
+  }[];
 }
 
 const forModel = (q: Question) => {
@@ -53,16 +58,25 @@ export async function writeCues(
     workspaceId,
     title: definition.title,
     questions: questions.slice(0, 30).map(forModel),
+    slidesFileId: definition.slides?.fileId ?? null,
   });
   const byId = new Map(questions.map((q) => [q.id, q]));
   return answer.questions.flatMap((a) => {
     const q = byId.get(a.id);
-    if (!q || !a.cues.length) return [];
+    if (!q || (!a.cues.length && !a.slide)) return [];
+    const live = liveOf(q);
     return [
       {
         op: 'update_question' as const,
         questionId: q.id,
-        patch: { live: { ...liveOf(q), cues: [...a.cues] } },
+        patch: {
+          live: {
+            ...live,
+            cues: a.cues.length ? [...a.cues] : live.cues,
+            // The slide the AI picked; with none, the one the business picked stays.
+            slide: a.slide ?? live.slide ?? null,
+          },
+        },
       },
     ];
   });

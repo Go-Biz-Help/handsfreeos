@@ -3797,6 +3797,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/commands/form.begin_slides_upload": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Reserve a place for a live poll’s slides, a PDF of 25 MB at most. Upload it to the returned path, confirm it with file.confirm, then put it on the poll with set_form {slides: {fileId, name, pages}}.
+         * @description Risk level 1. Requires forms.manage. Emits .
+         */
+        post: operations["command_form_begin_slides_upload"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/commands/form.create": {
         parameters: {
             query?: never;
@@ -15508,7 +15528,7 @@ export interface paths {
         put?: never;
         /**
          * Pick the live poll whose questions pop up in a HandsFreeOS video call, or take it off. Live polls are made in Forms.
-         * @description Risk level 1. Requires appointments.write. Emits video_call.poll_set.
+         * @description Risk level 1. Requires appointments.write. Emits video_call.poll_set, video_call.slide_changed.
          */
         post: operations["command_video_call_set_poll"];
         delete?: never;
@@ -15531,6 +15551,26 @@ export interface paths {
          * @description Risk level 1. Requires appointments.write. Emits video_call.poll_ai_set.
          */
         post: operations["command_video_call_set_poll_ai"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/video_call.slide": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Show a slide of the live poll’s slides big on the stage in a HandsFreeOS video call, counted from 1, or take the slides down (null).
+         * @description Risk level 1. Requires appointments.write. Emits video_call.slide_changed.
+         */
+        post: operations["command_video_call_slide"];
         delete?: never;
         options?: never;
         head?: never;
@@ -32014,6 +32054,44 @@ export interface operations {
                         formId: string;
                         /** @enum {string} */
                         status: "draft" | "live" | "closed" | "archived";
+                    };
+                };
+            };
+        };
+    };
+    command_form_begin_slides_upload: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    formId: string;
+                    /** @enum {string} */
+                    mimeType: "application/pdf";
+                    name: string;
+                    sizeBytes: number;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        bucket: string;
+                        /** Format: uuid */
+                        fileId: string;
+                        objectPath: string;
                     };
                 };
             };
@@ -59488,6 +59566,40 @@ export interface operations {
                         /** @enum {string} */
                         ai: "ask" | "suggest" | "off";
                         changed: boolean;
+                    };
+                };
+            };
+        };
+    };
+    command_video_call_slide: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    callId: string;
+                    slide: number | null;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        changed: boolean;
+                        of: number;
+                        slide: number | null;
                     };
                 };
             };
@@ -88768,6 +88880,7 @@ export interface operations {
                             questionId: string;
                             seconds: number;
                             showResults: boolean;
+                            slide: number | null;
                             /** @enum {string} */
                             state: "waiting" | "open" | "closed" | "skipped";
                             texts: {
@@ -88786,6 +88899,11 @@ export interface operations {
                             };
                             type: string;
                         }[];
+                        slide: number | null;
+                        slides: {
+                            name: string;
+                            pages: number;
+                        } | null;
                         watching: number;
                     };
                 };

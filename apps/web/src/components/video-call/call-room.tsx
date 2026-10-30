@@ -24,6 +24,8 @@
  * - **A live poll** (part 2): the team's Live poll panel asks the call's poll questions (./poll-panel.tsx), and a
  *   customer on their own link sees each pop up and answers it (./poll-popup.tsx). The AI hearing the team asks
  *   them too, or offers the team "Ask now?" over the stage (part 3, `PollOffer`).
+ * - **The poll's slides** (part 4): while the team shows them they're the big picture for everyone (./slides.tsx),
+ *   and the team turns them from the bar over the stage, the panel or the arrow keys.
  */
 import {
   ATTENDEE_VIDEO_CHOICES,
@@ -118,6 +120,7 @@ import { ChatPanel, PeoplePanel } from './call-panels';
 import { CallStage } from './call-stage';
 import { PollOffer, PollPanel } from './poll-panel';
 import { PollPopup } from './poll-popup';
+import { SlideBar, useSlides } from './slides';
 import { mediaProblem } from './pre-join';
 import {
   actOn,
@@ -316,6 +319,7 @@ function CallScreen({
     participant: localParticipant,
   });
   const { got, reload } = useVideoCall(team?.workspaceId ?? '', team?.callId ?? '', !!team);
+  const slides = useSlides(team);
   // What this page may send, and whether it's a webinar, from their own attributes in the room.
   const mine = roomRightsOf(useParticipantAttributes({ participant: localParticipant }).attributes);
   const webinar = mine.format === 'webinar';
@@ -599,8 +603,10 @@ function CallScreen({
               <CallStage
                 alone={team ? VIDEO_CALL_WORDS.aloneTeam : VIDEO_CALL_WORDS.aloneOthers}
                 webinar={webinar ? { attendeeVideo, team: !!team } : null}
+                slide={slides.stage}
               />
             )}
+            {team ? <SlideBar slides={slides} /> : null}
             <Reactions floating={floating} />
             {cc ? <CaptionLines lines={captions} aiOn={aiNotes} /> : null}
             {poll ? <PollPopup token={poll.token} business={poll.business} /> : null}
@@ -622,7 +628,7 @@ function CallScreen({
               webinar={webinar}
             />
           ) : panel === 'poll' && team ? (
-            <PollPanel team={team} onClose={() => setPanel(null)} />
+            <PollPanel team={team} slides={slides} onClose={() => setPanel(null)} />
           ) : coach ? (
             // The coach's cards beside the video, or over its top on a phone; nothing while there are none.
             <div

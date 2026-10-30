@@ -8,6 +8,9 @@
  * Part 3: how far the AI goes with the poll (`video_call.set_poll_ai`), a note when it can't hear (AI notes off), the
  * questions not asked yet in the webinar's last minutes (the owner's 19), and `PollOffer`, the AI's "Ask now?" over
  * the stage, panel open or not.
+ *
+ * Part 4: the poll's slides, shown on the stage from here (Show slides, Stop) and turned from the bar over the stage
+ * or the arrow keys (./slides.tsx). Each question says the slide it goes with.
  */
 import {
   POLL_AI_MODES,
@@ -16,6 +19,7 @@ import {
   POLL_SUGGEST_MS,
   POLL_WORDS,
   QUESTION_LABELS,
+  SLIDE_WORDS,
   VIDEO_CALL_POLLS_TOPIC,
   pollSecondsLeft,
   readPollMessage,
@@ -36,6 +40,7 @@ import { apiBrowser, unwrap } from '@/lib/api/client';
 import { errorMessage } from '@/lib/api/errors';
 import { cn } from '@/lib/utils';
 import { Panel } from './call-panels';
+import type { Slides } from './slides';
 import { toast } from './toast';
 import type { TeamSide } from './types';
 
@@ -77,7 +82,15 @@ function usePolls(team: TeamSide): { polls: Polls | null; reload: () => void } {
   return { polls, reload };
 }
 
-export function PollPanel({ team, onClose }: { team: TeamSide; onClose: () => void }) {
+export function PollPanel({
+  team,
+  slides,
+  onClose,
+}: {
+  team: TeamSide;
+  slides: Slides;
+  onClose: () => void;
+}) {
   const { polls, reload } = usePolls(team);
   const [busy, setBusy] = useState<string | null>(null);
   const act = async (key: string, run: () => Promise<unknown>) => {
@@ -183,6 +196,15 @@ export function PollPanel({ team, onClose }: { team: TeamSide; onClose: () => vo
                 ) : null}
               </div>
             ) : null}
+            {ready && polls.slides ? (
+              <SlidesSection
+                name={polls.slides.name}
+                pages={polls.slides.pages}
+                // The room's word once it's come; the panel's read before then.
+                showing={slides.of ? slides.slide : polls.slide}
+                go={slides.go}
+              />
+            ) : null}
             {ready && notYet.length && !up ? (
               <section
                 className="rounded-card border border-warning-border p-3"
@@ -271,6 +293,51 @@ export function PollPanel({ team, onClose }: { team: TeamSide; onClose: () => vo
         )}
       </div>
     </Panel>
+  );
+}
+
+/** The poll's slides: which one is up, with Show slides or Stop. Turning them is the bar's and the keys'. */
+function SlidesSection({
+  name,
+  pages,
+  showing,
+  go,
+}: {
+  name: string;
+  pages: number;
+  showing: number | null;
+  go: (slide: number | null) => void;
+}) {
+  // Showing them again starts where they were taken down.
+  const last = useRef(1);
+  if (showing) last.current = Math.min(showing, pages);
+  return (
+    <section className="rounded-card border border-border p-3" data-testid="call-slides">
+      <p className="text-[11.5px] font-medium uppercase tracking-wide text-text-3">
+        {SLIDE_WORDS.slides}
+      </p>
+      <p className="mt-1 truncate text-[13.5px] font-medium">{name}</p>
+      <p className="text-[12px] text-text-3">
+        {showing ? SLIDE_WORDS.of(showing, pages) : SLIDE_WORDS.count(pages)}
+      </p>
+      <div className="mt-2.5 flex gap-2">
+        {showing ? (
+          <Button
+            size="sm"
+            variant="secondary"
+            onClick={() => go(null)}
+            data-testid="call-slides-stop"
+          >
+            {SLIDE_WORDS.stop}
+          </Button>
+        ) : (
+          <Button size="sm" onClick={() => go(last.current)} data-testid="call-slides-show">
+            {SLIDE_WORDS.show}
+          </Button>
+        )}
+      </div>
+      {showing ? <p className="mt-2 text-[12px] text-text-3">{SLIDE_WORDS.keys}</p> : null}
+    </section>
   );
 }
 
@@ -530,6 +597,7 @@ function QuestionRow({
         >
           <span className="block text-[13.5px] font-medium">{q.title}</span>
           <span className="block text-[12px] text-text-3">
+            {q.slide ? `Slide ${q.slide} · ` : ''}
             {state ? `${state} · ` : ''}
             {q.state === 'closed' || q.state === 'open'
               ? q.type === 'button'

@@ -1,11 +1,14 @@
 /**
  * Live polls' rules (HANDSFREEOS_WEBINARS_IMPLEMENTATION_PLAN.md, part 2), without a database: what a live poll may
- * ask, what each question looks like on screen, the totals, when one closes early, and what the room trusts.
+ * ask, what each question looks like on screen, the totals, when one closes early, and what the room trusts. Part 4:
+ * the poll's slides, a question's slide, and turning them.
  */
 import { describe, expect, it } from 'vitest';
 import {
   answerProblem,
+  applyFormOps,
   closesEarly,
+  describeFormOps,
   countAnswers,
   FormDefinition,
   formProblems,
@@ -13,7 +16,10 @@ import {
   pollOnScreen,
   pollTotals,
   readPollMessage,
+  readSlideMessage,
+  slideAfter,
   totalsShown,
+  type FormOp,
   type Question,
 } from '../src/index';
 
@@ -252,5 +258,81 @@ describe('the message', () => {
     };
     expect(readPollMessage(JSON.stringify(suggest))).toEqual(suggest);
     expect(readPollMessage(JSON.stringify({ t: 'open', poll: { title: 'Fake' } }))).toBeNull();
+  });
+});
+
+describe('the slides (part 4)', () => {
+  const slides = {
+    fileId: '2b9d6c1e-7f3a-4e5b-9c8d-0a1b2c3d4e5f',
+    name: 'Demo deck.pdf',
+    pages: 6,
+  };
+  const withSlides = (questions: unknown[], over: Record<string, unknown> = {}) =>
+    FormDefinition.parse({
+      mode: 'poll',
+      title: 'Webinar poll',
+      slides,
+      pages: [{ id: 'p_page0000', questions }],
+      results: [{ id: 'r_thanks00', name: 'Thanks', headline: 'Thanks' }],
+      ...over,
+    });
+
+  it('holds a question’s slide, and wants it to be one the slides have', () => {
+    const def = withSlides([{ ...choice, live: { slide: 4 } }]);
+    expect(liveOf(def.pages[0]!.questions[0]!).slide).toBe(4);
+    expect(formProblems(def)).toEqual([]);
+    expect(formProblems(withSlides([{ ...choice, live: { slide: 9 } }]))).toContain(
+      '“How do you get leads now?” goes with slide 9, but the slides have 6. Pick another slide, or none.',
+    );
+    expect(formProblems(poll([{ ...choice, live: { slide: 2 } }]))).toContain(
+      '“How do you get leads now?” goes with slide 2, but this poll has no slides. Add them, or pick no slide.',
+    );
+    // Only a live poll has slides.
+    expect(formProblems(withSlides([{ ...choice }], { mode: 'survey' }))).toContain(
+      'Only a live poll has slides. Take them off, or make this a Live poll.',
+    );
+  });
+
+  it('adds and takes off the slides as an edit, and undoing it puts things back', () => {
+    const before = poll([choice]);
+    const add: FormOp = { op: 'set_form', patch: { slides } };
+    const added = applyFormOps(before, [add]);
+    expect(added.definition.slides).toEqual(slides);
+    expect(describeFormOps([add], before)).toEqual(['Added the slides “Demo deck.pdf”']);
+    // Undone, the poll has none again.
+    expect(applyFormOps(added.definition, added.inverse).definition.slides ?? null).toBeNull();
+    const off: FormOp = { op: 'set_form', patch: { slides: null } };
+    expect(applyFormOps(added.definition, [off]).definition.slides).toBeNull();
+    expect(describeFormOps([off], added.definition)).toEqual(['Took the slides off']);
+  });
+
+  it('turns them on, back, to the start and to the end, never past either', () => {
+    expect(slideAfter(null, 6, 'next')).toBe(1);
+    expect(slideAfter(2, 6, 'next')).toBe(3);
+    expect(slideAfter(6, 6, 'next')).toBeNull();
+    expect(slideAfter(1, 6, 'previous')).toBeNull();
+    expect(slideAfter(3, 6, 'previous')).toBe(2);
+    expect(slideAfter(3, 6, 'first')).toBe(1);
+    expect(slideAfter(3, 6, 'last')).toBe(6);
+    expect(slideAfter(6, 6, 'last')).toBeNull();
+    expect(slideAfter(null, 0, 'next')).toBeNull();
+  });
+
+  it('reads the worker’s slide messages and nothing else', () => {
+    const m = {
+      t: 'slide',
+      slide: 2,
+      of: 6,
+      picture: 'https://storage.example.com/2.png?token=x',
+      next: 'https://storage.example.com/3.png?token=x',
+      at: '2026-11-03T19:00:00.000Z',
+    };
+    expect(readSlideMessage(JSON.stringify(m))).toEqual(m);
+    expect(
+      readSlideMessage(JSON.stringify({ ...m, slide: null, picture: null, next: null })),
+    ).toMatchObject({ slide: null });
+    expect(readSlideMessage(JSON.stringify({ ...m, picture: 'javascript:alert(1)' }))).toBeNull();
+    expect(readSlideMessage('not json')).toBeNull();
+    expect(readSlideMessage(JSON.stringify({ t: 'open' }))).toBeNull();
   });
 });

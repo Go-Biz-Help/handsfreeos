@@ -310,6 +310,23 @@ export async function formIssues(
       });
   }
 
+  // A live poll's slides: a PDF uploaded for one of the business's polls (a copied poll keeps its original's).
+  const slides = definition.mode === 'poll' ? definition.slides : null;
+  if (slides) {
+    const [file] = await rows<{ status: string }>(
+      tx,
+      sql`select status::text as status from app.files
+          where id = ${slides.fileId} and workspace_id = ${workspaceId} and record_type = 'form'
+            and deleted_at is null`,
+    );
+    if (!file)
+      issues.push({ message: `The slides “${slides.name}” aren’t there anymore. Add them again.` });
+    else if (file.status !== 'ready')
+      issues.push({
+        message: `The slides “${slides.name}” didn’t finish uploading. Add them again.`,
+      });
+  }
+
   for (const question of allQuestions(definition)) {
     if (!question.mapTo || !isCustomTarget(question.mapTo)) continue;
     const field = catalogs.customFields.find((f) => f.id === customTargetFieldId(question.mapTo!));

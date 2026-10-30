@@ -11,6 +11,7 @@ import {
   POLL_MIN_SECONDS,
   POLL_WORDS,
   QUESTION_LABELS,
+  SLIDE_WORDS,
   targetAccepts,
   VIDEO_HOST_NAMES,
   type AnswerTargetKey,
@@ -25,7 +26,7 @@ import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Field, Hint, Label } from '@/components/ui/field';
-import { Input } from '@/components/ui/input';
+import { Input, Select } from '@/components/ui/input';
 import { Switch } from '@/components/ui/switch';
 import { Textarea } from '@/components/ui/textarea';
 import type { FormCatalogsOut } from '@/lib/api/types';
@@ -153,6 +154,7 @@ export function QuestionSettings({
           question={question}
           patch={patch}
           readOnly={readOnly}
+          slides={definition.slides?.pages ?? 0}
           onWrite={async () => {
             const ops = await writeCues(workspaceId, definition, [question]);
             if (ops.length) apply(ops);
@@ -278,11 +280,14 @@ function LiveSettings({
   question,
   patch,
   readOnly,
+  slides,
   onWrite,
 }: {
   question: Question;
   patch: (fields: Record<string, unknown>) => void;
   readOnly: boolean;
+  /** How many slides the poll has (part 4); 0 with none. */
+  slides: number;
   /** The AI writes this question's when-to-ask phrases (part 3). */
   onWrite: () => Promise<void>;
 }) {
@@ -335,6 +340,32 @@ function LiveSettings({
         >
           <Sparkles size={14} aria-hidden /> {POLL_WORDS.writeCues}
         </Button>
+      ) : null}
+      {slides || live.slide ? (
+        <Field
+          label={SLIDE_WORDS.slide}
+          htmlFor="q-live-slide"
+          hint="The AI expects it around this slide, and your team is offered it when the slide comes up."
+        >
+          <Select
+            id="q-live-slide"
+            selectSize="sm"
+            className="w-56"
+            value={live.slide ? String(live.slide) : ''}
+            disabled={readOnly}
+            onChange={(e) =>
+              patch({ live: { ...live, slide: e.target.value ? Number(e.target.value) : null } })
+            }
+            data-testid="question-live-slide"
+          >
+            <option value="">{SLIDE_WORDS.anySlide}</option>
+            {Array.from({ length: Math.max(slides, live.slide ?? 0) }, (_, i) => (
+              <option key={i + 1} value={String(i + 1)}>
+                Slide {i + 1}
+              </option>
+            ))}
+          </Select>
+        </Field>
       ) : null}
       <Field
         label={POLL_WORDS.seconds}

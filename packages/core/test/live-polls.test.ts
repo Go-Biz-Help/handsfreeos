@@ -11,12 +11,18 @@
  *   - when the call ends each sheet is sent, so `form.submitted` goes out for it;
  *   - a live poll can't be filled in anywhere else;
  *   - part 3: the AI asks only while the call lets it, never over a question that's up, just after one closed, or one
- *     the team skipped; and what it sees of the poll names the team, whose words alone count.
+ *     the team skipped; and what it sees of the poll names the team, whose words alone count;
+ *   - part 4: a poll's slides are a PDF on the poll, kept for good; a question's slide must be one the slides have;
+ *     the team shows a slide only of the published poll's slides, and they come down with another poll.
  */
+import { randomUUID } from 'node:crypto';
 import { asWorker, rows, sql } from '@hfos/db/client';
 import { closeTestDbs, testDbs } from '@hfos/db/testing';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import {
+  fileConfirm,
+  fileDelete,
+  formBeginSlidesUpload,
   formCreate,
   formPublish,
   formResponseStart,
@@ -36,6 +42,8 @@ import {
   videoCallPollSkip,
   videoCallSetPoll,
   videoCallSetPollAi,
+  videoCallSlide,
+  videoCallSlideNow,
   webinarRegister,
 } from '../src/server';
 import {
@@ -459,7 +467,8 @@ describe('the AI asking (part 3)', () => {
     asWorker(testDbs().worker.db, t.scope, (tx) => videoCallPollCueState(tx, callId));
 
   beforeAll(async () => {
-    ({ callId } = await publish('13:00'));
+    // Another day: the answers' test has Priya at 13:00 on the first.
+    ({ callId } = await publish('13:00', 3));
     ({ personId: priyaIn } = await run(videoCallJoin, { workspaceId: t.wsId, callId }, t.priya));
   });
 
@@ -532,5 +541,162 @@ describe('the AI asking (part 3)', () => {
       'suggest',
       'off',
     ]);
+  });
+});
+
+describe('the slides (part 4)', () => {
+  let callId: string;
+  let deck: string;
+  let fileId: string;
+  const slideTo = (slide: number | null) =>
+    run(videoCallSlide, { workspaceId: t.wsId, callId, slide }, t.priya);
+  const revisionOf = async (formId: string) =>
+    (
+      await rows<{ revision: number }>(
+        admin(),
+        sql`select revision from app.forms where id = ${formId}`,
+      )
+    )[0]!.revision;
+  const begin = (formId: string) =>
+    run(
+      formBeginSlidesUpload,
+      {
+        workspaceId: t.wsId,
+        formId,
+        name: 'Demo deck.pdf',
+        mimeType: 'application/pdf',
+        sizeBytes: 2048,
+      },
+      t.owner,
+    );
+
+  beforeAll(async () => {
+    ({ callId } = await publish('15:00', 3));
+    deck = await publishedPoll('Poll with slides');
+  });
+
+  it('keeps a poll’s slides on the poll, never on a customer, and for good', async () => {
+    const plain = await publishedPoll('Plain form for slides', 'form');
+    await expectHfos(() => begin(plain), 'not_a_poll', 409);
+    const begun = await begin(deck);
+    fileId = begun.fileId;
+    expect(begun.objectPath.startsWith(`${t.wsId}/form/${deck}/${fileId}/`)).toBe(true);
+    await rows(
+      admin(),
+      sql`insert into storage.objects (bucket_id, name, metadata)
+          values ('attachments', ${begun.objectPath}, ${JSON.stringify({ size: 2048, mimetype: 'application/pdf' })}::jsonb)`,
+    );
+    await run(fileConfirm, { workspaceId: t.wsId, fileId }, t.owner);
+    const [f] = await rows<{ record_type: string; status: string }>(
+      admin(),
+      sql`select record_type::text as record_type, status::text as status from app.files where id = ${fileId}`,
+    );
+    expect(f).toEqual({ record_type: 'form', status: 'ready' });
+    // Published versions of the poll still show them.
+    await expectHfos(
+      () => run(fileDelete, { workspaceId: t.wsId, fileId }, t.owner),
+      'slides_file_kept',
+      409,
+    );
+  });
+
+  it('goes on the poll as an edit, and each question’s slide is one the slides have', async () => {
+    const saved = await run(
+      formSaveDraft,
+      {
+        workspaceId: t.wsId,
+        formId: deck,
+        baseRevision: await revisionOf(deck),
+        ops: [
+          { op: 'set_form', patch: { slides: { fileId, name: 'Demo deck.pdf', pages: 6 } } },
+          { op: 'update_question', questionId: Q.crm, patch: { live: { slide: 9 } } },
+        ],
+      },
+      t.owner,
+    );
+    expect(saved.changes).toContain('Added the slides “Demo deck.pdf”');
+    expect(saved.issues.map((i) => i.message)).toContain(
+      '“Do you use a CRM?” goes with slide 9, but the slides have 6. Pick another slide, or none.',
+    );
+    const fixed = await run(
+      formSaveDraft,
+      {
+        workspaceId: t.wsId,
+        formId: deck,
+        baseRevision: saved.revision,
+        ops: [{ op: 'update_question', questionId: Q.crm, patch: { live: { slide: 3 } } }],
+      },
+      t.owner,
+    );
+    expect(fixed.issues).toEqual([]);
+    await run(
+      formPublish,
+      { workspaceId: t.wsId, formId: deck, baseRevision: fixed.revision },
+      t.owner,
+    );
+  });
+
+  it('turns away slides that aren’t a poll’s PDF', async () => {
+    const other = await publishedPoll('Another poll for slides');
+    const saved = await run(
+      formSaveDraft,
+      {
+        workspaceId: t.wsId,
+        formId: other,
+        baseRevision: await revisionOf(other),
+        ops: [
+          {
+            op: 'set_form',
+            patch: { slides: { fileId: randomUUID(), name: 'Gone.pdf', pages: 2 } },
+          },
+        ],
+      },
+      t.owner,
+    );
+    expect(saved.issues.map((i) => i.message)).toContain(
+      'The slides “Gone.pdf” aren’t there anymore. Add them again.',
+    );
+  });
+
+  it('shows nothing until the call’s poll has slides, and only the slides it has', async () => {
+    await expectHfos(() => slideTo(1), 'no_slides', 409);
+    await run(videoCallSetPoll, { workspaceId: t.wsId, callId, formId: deck }, t.priya);
+    await expectHfos(() => slideTo(7), 'slide_past_end', 409);
+  });
+
+  it('shows a slide, tells the worker, and the panel and the AI know which', async () => {
+    expect(await slideTo(2)).toEqual({ changed: true, slide: 2, of: 6 });
+    expect(await slideTo(2)).toEqual({ changed: false, slide: 2, of: 6 });
+    expect((await events('video_call.slide_changed', callId)).at(-1)!.payload).toMatchObject({
+      slide: 2,
+      of: 6,
+      fileId,
+      formId: deck,
+    });
+    const panel = await ask(videoCallPollsGet, { workspaceId: t.wsId, callId }, t.priya);
+    expect(panel.slides).toEqual({ name: 'Demo deck.pdf', pages: 6 });
+    expect(panel.slide).toBe(2);
+    expect(panel.questions.find((q) => q.questionId === Q.crm)!.slide).toBe(3);
+    const seen = await asWorker(testDbs().worker.db, t.scope, (tx) =>
+      videoCallPollCueState(tx, callId),
+    );
+    expect(seen!.slide).toEqual({ n: 2, of: 6 });
+    expect(seen!.questions.find((q) => q.id === Q.crm)!.slide).toBe(3);
+    const now = await asWorker(testDbs().worker.db, t.scope, (tx) => videoCallSlideNow(tx, callId));
+    expect(now).toMatchObject({ slide: 2, of: 6, bucket: 'attachments', name: 'Demo deck.pdf' });
+  });
+
+  it('comes down when the team says, or when another poll is picked', async () => {
+    expect(await slideTo(null)).toEqual({ changed: true, slide: null, of: 6 });
+    await slideTo(4);
+    await run(videoCallSetPoll, { workspaceId: t.wsId, callId, formId: pollId }, t.priya);
+    const [c] = await rows<{ slide: number | null }>(
+      admin(),
+      sql`select slide from app.video_calls where id = ${callId}`,
+    );
+    expect(c!.slide).toBeNull();
+    expect((await events('video_call.slide_changed', callId)).at(-1)!.payload).toMatchObject({
+      slide: null,
+    });
   });
 });

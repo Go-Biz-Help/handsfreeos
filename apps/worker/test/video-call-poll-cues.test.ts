@@ -18,6 +18,7 @@ import {
   CallPollCues,
   PollCuesOutOfRoom,
   pollCueContext,
+  pollCueLines,
   pollCueStep,
   type PollCueMatch,
 } from '../src/video-calls/poll-cues';
@@ -34,6 +35,7 @@ const leads: PollCueQuestion = {
   help: '',
   choices: ['Referrals', 'Ads', 'Website'],
   cues: ['let me ask where your leads come from'],
+  slide: 4,
   state: 'waiting',
 };
 const book: PollCueQuestion = {
@@ -43,6 +45,7 @@ const book: PollCueQuestion = {
   help: '',
   choices: ['Book a call'],
   cues: [],
+  slide: null,
   state: 'waiting',
 };
 
@@ -52,6 +55,7 @@ const pollState = (over: Partial<PollCueState> = {}): PollCueState => ({
   lastClosedAt: null,
   questions: [leads, book],
   team: [PRESENTER],
+  slide: null,
   ...over,
 });
 
@@ -61,6 +65,7 @@ function matcher(opts: {
 }) {
   let clock = Date.parse('2026-11-03T19:00:00Z');
   const asked: (readonly string[])[] = [];
+  const slides: PollCueState['slide'][] = [];
   const opened: string[] = [];
   const offered: { questionId: string; to: readonly string[] }[] = [];
   let n = 0;
@@ -68,8 +73,9 @@ function matcher(opts: {
     log,
     now: () => clock,
     load: async () => (opts.state ?? (() => pollState()))(),
-    ask: async (_questions, lines) => {
+    ask: async (_questions, lines, slide) => {
       asked.push(lines);
+      slides.push(slide);
       return opts.answer?.(lines) ?? { questionId: null, confidence: 'no', why: '' };
     },
     open: async (questionId) => {
@@ -93,6 +99,7 @@ function matcher(opts: {
   return {
     cues,
     asked,
+    slides,
     opened,
     offered,
     say,
@@ -128,6 +135,19 @@ describe('what the AI does with an answer', () => {
     expect(context).toContain('Choices: Referrals; Ads; Website');
     expect(context).toContain('Said before it: “let me ask where your leads come from”');
     expect(context).toContain('q_book0000 [button] Want a setup call? Button: Book a call');
+    // Part 4: the slide a question goes with.
+    expect(context).toContain(
+      'q_leads000 [pick one] How do you get most of your leads? (goes with slide 4)',
+    );
+  });
+
+  it('tells the model which slide is showing, when the slides are up', () => {
+    expect(pollCueLines(['So, where do your leads come from?'], { n: 4, of: 12 })).toBe(
+      'Showing now: slide 4 of 12.\nWhat the team just said, oldest first:\n- So, where do your leads come from?',
+    );
+    expect(pollCueLines(['Hello everyone'], null)).toBe(
+      'What the team just said, oldest first:\n- Hello everyone',
+    );
   });
 });
 
@@ -138,6 +158,12 @@ describe('hearing the team', () => {
     expect(m.asked).toEqual([]);
     await m.say(PRESENTER, 'So let me ask you, where do most of your leads come from?');
     expect(m.asked).toEqual([['So let me ask you, where do most of your leads come from?']]);
+  });
+
+  it('passes the slide showing along with what was said', async () => {
+    const m = matcher({ state: () => pollState({ slide: { n: 4, of: 12 } }) });
+    await m.say(PRESENTER, 'So let me ask you, where do most of your leads come from?');
+    expect(m.slides).toEqual([{ n: 4, of: 12 }]);
   });
 
   it('pops the question up when the model is sure', async () => {

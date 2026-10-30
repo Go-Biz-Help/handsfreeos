@@ -6,8 +6,9 @@
  * Nobody writes a response here — responses arrive through the worker (see form-response.ts). And nothing
  * a visitor can see changes until a publish: the draft is only ever the business's own working copy.
  */
+import { randomUUID } from 'node:crypto';
 import { and, desc, eq, sql as dsql } from 'drizzle-orm';
-import { forms, formVersions } from '@hfos/db/schema';
+import { files, forms, formVersions } from '@hfos/db/schema';
 import { ensureBookingSite } from '../calendar/site';
 import { HfosError } from '../errors';
 import { allQuestions, type FormDefinition } from '../forms/definition';
@@ -23,9 +24,12 @@ import {
 import { applyFormOps, FormOpError, type FormOp } from '../forms/ops';
 import { starterByKey, starterForm } from '../forms/starters';
 import { requireHuman } from '../kernel/actor';
+import { storedFilePath } from './file';
 import { defineCommand } from '../kernel/define';
 import type { CommandContext } from '../kernel/types';
 import {
+  FormBeginSlidesUploadInput,
+  FormBeginSlidesUploadOutput,
   FormCreateInput,
   FormCreateOutput,
   FormDeliveryOutput,
@@ -596,6 +600,53 @@ export const formRestore = defineCommand({
   },
 });
 
+/**
+ * A place for a live poll's slides (webinars, part 4). The PDF belongs to the poll, not to a customer: its record is the
+ * form, so only people who make forms touch it and no timeline hears of it.
+ */
+export const formBeginSlidesUpload = defineCommand({
+  name: 'form.begin_slides_upload',
+  description:
+    'Reserve a place for a live poll’s slides, a PDF of 25 MB at most. Upload it to the returned path, confirm it with file.confirm, then put it on the poll with set_form {slides: {fileId, name, pages}}.',
+  risk: 1,
+  input: FormBeginSlidesUploadInput,
+  output: FormBeginSlidesUploadOutput,
+  permission: 'forms.manage',
+  scope: inWorkspace,
+  emits: [],
+  async handler(ctx, input) {
+    const ws = ctx.scope.workspaceId!;
+    const me = requireHuman(ctx).userId;
+    const { row } = await loadForm(ctx.tx, ws, input.formId);
+    assertNotArchived(row);
+    if (row.mode !== 'poll')
+      throw HfosError.rule(
+        'not_a_poll',
+        409,
+        `“${row.name}” isn’t a live poll, so it has no slides. Make it a Live poll first.`,
+      );
+    const fileId = randomUUID();
+    const objectPath = storedFilePath(ws, 'form', row.id, fileId, input.name);
+    const [f] = await ctx.tx
+      .insert(files)
+      .values({
+        id: fileId,
+        workspaceId: ws,
+        recordType: 'form',
+        recordId: row.id,
+        bucket: 'attachments',
+        objectPath,
+        name: input.name,
+        mimeType: input.mimeType,
+        sizeBytes: input.sizeBytes,
+        createdBy: me,
+      })
+      .returning({ id: files.id });
+    if (!f) throw HfosError.forbidden();
+    return { fileId, bucket: 'attachments', objectPath };
+  },
+});
+
 export const formCommands = [
   formCreate,
   formSaveDraft,
@@ -608,4 +659,5 @@ export const formCommands = [
   formDuplicate,
   formArchive,
   formRestore,
+  formBeginSlidesUpload,
 ] as const;

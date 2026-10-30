@@ -10,8 +10,8 @@ It builds on the video calls (`docs/video-calls.md`), sessions-mode calendars (e
 
 **Where it stands (2026-10-30):** the owner answered the 26 questions; part 1, the webinar room, is built (migration
 20261027019600, "Webinars" in `docs/video-calls.md`), and so is part 2, live polls (migrations 20261027019700 and
-20261027019800, "Live polls" in `docs/video-calls.md`), and part 3, the AI asking them (migration 20261027019900,
-"The AI asking" there). Parts 4 and 5 are next.
+20261027019800, "Live polls" in `docs/video-calls.md`), part 3, the AI asking them (migration 20261027019900,
+"The AI asking" there), and part 4, slides (migration 20261027020000, "Slides" there). Part 5 is next.
 
 ## Decisions (the owner, 2026-10-29 23:15 UTC)
 
@@ -158,8 +158,9 @@ ask before going against one.
 - **Upload a PDF** to the webinar (PowerPoint and Keynote save as one). The worker draws its pages (as for documents).
 - **Present it from the call:** the presenter's arrows move the slide; the room is told which slide is up; attendees'
   big screen shows it. No screen share.
-- **The AI reads the slides** and drafts the poll (when asked), each question's points, its cues and the slide it
-  fits. A question waits for its slide and the presenter's words together.
+- **The AI reads the slides** and gives each question the slide it fits and its cues (built). A question near its
+  slide is likelier to pop up, still on the presenter's words, and its slide coming up offers it to the team. Drafting
+  the poll from the slides is not yet built, and the points come with part 5.
 
 ## Part 5: who to follow up with
 

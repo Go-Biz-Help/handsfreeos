@@ -60,6 +60,7 @@ import {
   onVideoCallPollClosed,
   onVideoCallPollOpened,
 } from '../video-calls/polls';
+import { onVideoCallSlideChanged } from '../video-calls/slides';
 import {
   onAppointmentChanged,
   onMeetingConnected,
@@ -305,6 +306,8 @@ const ownTeammateAndWorkflows: HandlerMap = withWorkflows(
       // Live polls (webinars, part 2): on everyone's screen, and off again.
       'video_call.poll_opened': onVideoCallPollOpened,
       'video_call.poll_closed': onVideoCallPollClosed,
+      // A poll's slides (part 4): the slide that's up, on everyone's stage.
+      'video_call.slide_changed': onVideoCallSlideChanged,
       // Someone who missed a webinar completely is told about the next one (video-calls/webinars.ts).
       'attendee.no_show': onWebinarNoShow,
       // What customers said in public: a person asks, and the queue does it.

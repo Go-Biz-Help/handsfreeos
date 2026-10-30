@@ -17,6 +17,9 @@
  *   workflows on "Somebody answers a form" as for any form.
  * - **The team's panel** reads `video_call.polls`: every question, how it stands, the answers coming in and the
  *   totals.
+ * - **Slides** (part 4): a poll may hold the presentation as a PDF. The team shows it on the stage slide by slide
+ *   (`video_call.slide`); the worker tells the room each change, and offers the team a question that goes with the
+ *   slide that came up.
  */
 import { and, eq, isNull, sql as dsql } from 'drizzle-orm';
 import { rows, sql } from '@hfos/db/client';
@@ -35,7 +38,9 @@ import {
   allQuestions,
   findQuestion,
   liveOf,
+  MAX_SLIDES,
   type FormDefinition,
+  type PollSlides,
   type Question,
 } from '../forms/definition';
 import { QuestionId } from '../forms/ids';
@@ -284,7 +289,7 @@ export const videoCallSetPoll = defineCommand({
   output: z.object({ changed: z.boolean(), pollFormId: uuid.nullable() }),
   permission: 'appointments.write',
   scope: inWorkspace,
-  emits: ['video_call.poll_set'],
+  emits: ['video_call.poll_set', 'video_call.slide_changed'],
   async handler(ctx, input) {
     requireHuman(ctx);
     const call = await lockVideoCall(ctx, input.callId);
@@ -296,9 +301,13 @@ export const videoCallSetPoll = defineCommand({
         'A question is up right now. Close it first, then pick another poll.',
       );
     const form = input.formId ? await pollForm(ctx.tx, ctx.scope.workspaceId!, input.formId) : null;
+    // Another poll's slides are other slides: whatever was showing comes down.
     await ctx.tx
       .update(videoCalls)
-      .set({ pollFormId: input.formId })
+      .set({
+        pollFormId: input.formId,
+        ...(call.slide !== null ? { slide: null, slideAt: new Date() } : {}),
+      })
       .where(eq(videoCalls.id, call.id));
     await ctx.emit({
       type: 'video_call.poll_set',
@@ -308,6 +317,7 @@ export const videoCallSetPoll = defineCommand({
       after: { poll: form?.name ?? null },
       broadcast: false,
     });
+    if (call.slide !== null) await emitSlide(ctx, call, null, 0);
     return { changed: true, pollFormId: input.formId };
   },
 });
@@ -339,6 +349,140 @@ export const videoCallSetPollAi = defineCommand({
     return { changed: true, ai: input.ai };
   },
 });
+
+// ---------- the slides ----------
+
+/** Tells the worker the slide showing changed, so it tells the room. */
+async function emitSlide(
+  ctx: CommandContext,
+  call: CallRow,
+  slide: number | null,
+  of: number,
+  slides?: { formId: string; fileId: string },
+): Promise<void> {
+  await ctx.emit({
+    type: 'video_call.slide_changed',
+    entityType: 'video_call',
+    entityId: call.id,
+    payload: {
+      appointmentId: call.appointmentId,
+      slide,
+      of,
+      formId: slides?.formId ?? null,
+      fileId: slides?.fileId ?? null,
+    },
+    before: { slide: call.slide },
+    after: { slide },
+    broadcast: false,
+  });
+}
+
+/** The slides of the call's poll as published, or null with none. */
+async function callSlides(
+  tx: Tx,
+  call: CallRow,
+): Promise<{ form: FormRow; slides: PollSlides } | null> {
+  if (!call.pollFormId) return null;
+  const published = await publishedPoll(tx, call.workspaceId, call.pollFormId).catch(() => null);
+  const slides = published?.definition.slides;
+  return published && slides ? { form: published.form, slides } : null;
+}
+
+export const videoCallSlide = defineCommand({
+  name: 'video_call.slide',
+  description:
+    'Show a slide of the live poll’s slides big on the stage in a HandsFreeOS video call, counted from 1, or take the slides down (null).',
+  risk: 1,
+  input: z.object({
+    workspaceId: uuid,
+    callId: uuid,
+    slide: z.int().min(1).max(MAX_SLIDES).nullable(),
+  }),
+  output: z.object({ changed: z.boolean(), slide: z.int().nullable(), of: z.int() }),
+  permission: 'appointments.write',
+  scope: inWorkspace,
+  emits: ['video_call.slide_changed'],
+  async handler(ctx, input) {
+    requireHuman(ctx);
+    const call = await lockVideoCall(ctx, input.callId);
+    if (call.state === 'ended')
+      throw HfosError.rule(
+        'video_call_over',
+        409,
+        'This call has ended, so its slides can’t show anymore.',
+      );
+    const found = await callSlides(ctx.tx, call);
+    const of = found?.slides.pages ?? 0;
+    if (input.slide === null) {
+      if (call.slide === null) return { changed: false, slide: null, of };
+      await ctx.tx
+        .update(videoCalls)
+        .set({ slide: null, slideAt: new Date() })
+        .where(eq(videoCalls.id, call.id));
+      await emitSlide(ctx, call, null, of);
+      return { changed: true, slide: null, of };
+    }
+    if (!found) {
+      const [form] = call.pollFormId
+        ? await ctx.tx.select({ name: forms.name }).from(forms).where(eq(forms.id, call.pollFormId))
+        : [];
+      throw HfosError.rule(
+        'no_slides',
+        409,
+        form
+          ? `“${form.name}” has no slides yet. Add your presentation to it as a PDF in Forms, publish it, and you can show it here.`
+          : 'This call has no live poll, so there are no slides to show. Pick a poll with slides in the Live poll panel.',
+      );
+    }
+    const { form, slides } = found;
+    if (input.slide > slides.pages)
+      throw HfosError.rule(
+        'slide_past_end',
+        409,
+        `“${slides.name}” has ${slides.pages} slides, so there’s no slide ${input.slide}.`,
+      );
+    if (call.slide === input.slide) return { changed: false, slide: input.slide, of };
+    await ctx.tx
+      .update(videoCalls)
+      .set({ slide: input.slide, slideAt: new Date() })
+      .where(eq(videoCalls.id, call.id));
+    await emitSlide(ctx, call, input.slide, of, { formId: form.id, fileId: slides.fileId });
+    return { changed: true, slide: input.slide, of };
+  },
+});
+
+/** Where a call's slides are stored and which is showing, for the worker telling the room; null while none shows. */
+export async function videoCallSlideNow(
+  tx: Tx,
+  callId: string,
+): Promise<{
+  slide: number;
+  of: number;
+  name: string;
+  bucket: string;
+  objectPath: string;
+  at: Date;
+} | null> {
+  const [call] = await tx.select().from(videoCalls).where(eq(videoCalls.id, callId));
+  if (!call || call.slide === null) return null;
+  const found = await callSlides(tx, call);
+  if (!found || call.slide > found.slides.pages) return null;
+  const [file] = await rows<{ bucket: string; object_path: string }>(
+    tx,
+    sql`select bucket, object_path from app.files
+        where id = ${found.slides.fileId} and workspace_id = ${call.workspaceId} and record_type = 'form'
+          and status = 'ready' and deleted_at is null`,
+  );
+  if (!file) return null;
+  return {
+    slide: call.slide,
+    of: found.slides.pages,
+    name: found.slides.name,
+    bucket: file.bucket,
+    objectPath: file.object_path,
+    at: call.slideAt ?? new Date(),
+  };
+}
 
 // ---------- asking, skipping and closing ----------
 
@@ -773,6 +917,8 @@ const PollQuestionOut = z.object({
   texts: z.array(z.object({ name: z.string(), text: z.string() })),
   /** A button: who pressed it, newest first. */
   pressed: z.array(z.object({ personId: uuid, name: z.string() })),
+  /** The slide it goes with (part 4), counted from 1. */
+  slide: z.int().nullable(),
 });
 
 const PollsOut = z.object({
@@ -793,6 +939,10 @@ const PollsOut = z.object({
   hearing: z.boolean(),
   /** When the appointment is booked to end, for the questions not asked near the end; null for a call without one. */
   endsAt: isoDateTime.nullable(),
+  /** The published poll's slides (part 4): their name and how many; null with none. */
+  slides: z.object({ name: z.string(), pages: z.int() }).nullable(),
+  /** The slide showing on the stage, counted from 1; null while the slides aren't up. */
+  slide: z.int().nullable(),
   questions: z.array(PollQuestionOut),
 });
 
@@ -828,12 +978,13 @@ export const videoCallPollsGet = defineQuery({
       hearing: call.aiNotes,
       endsAt: iso(booked?.endsAt ?? null),
     };
-    if (!call.pollFormId) return { form: null, ...about, questions: [] };
+    const none = { slides: null, slide: null, questions: [] };
+    if (!call.pollFormId) return { form: null, ...about, ...none };
     const [form] = await ctx.tx
       .select()
       .from(forms)
       .where(and(eq(forms.id, call.pollFormId), eq(forms.workspaceId, ws)));
-    if (!form) return { form: null, ...about, questions: [] };
+    if (!form) return { form: null, ...about, ...none };
     const published = await publishedPoll(ctx.tx, ws, form.id).catch(() => null);
     // Not published yet: the draft's questions, to look at; nothing can be asked until it is.
     const definition = published?.definition ?? (await loadForm(ctx.tx, ws, form.id)).definition;
@@ -866,9 +1017,12 @@ export const videoCallPollsGet = defineQuery({
     );
     const nameOf = (r: { first_name: string | null; last_name: string | null }) =>
       [r.first_name, r.last_name].filter(Boolean).join(' ').trim() || 'Someone';
+    const slides = published?.definition.slides ?? null;
     return {
       form: { id: form.id, name: form.name, ready: !!published },
       ...about,
+      slides: slides ? { name: slides.name, pages: slides.pages } : null,
+      slide: slides && call.slide !== null && call.slide <= slides.pages ? call.slide : null,
       questions: allQuestions(definition).map((question) => {
         const p = byQuestion.get(question.id);
         const live = liveOf(question);
@@ -900,6 +1054,7 @@ export const videoCallPollsGet = defineQuery({
                   .filter((s) => s.person_id)
                   .map((s) => ({ personId: s.person_id!, name: nameOf(s) }))
               : [],
+          slide: live.slide ?? null,
         };
       }),
     };
@@ -1000,6 +1155,8 @@ export interface PollCueQuestion {
   /** Pick one and pick any: the choices' words; a button: its words. */
   readonly choices: readonly string[];
   readonly cues: readonly string[];
+  /** The slide it goes with (part 4), counted from 1; null for none. */
+  readonly slide: number | null;
   readonly state: 'waiting' | 'open' | 'closed' | 'skipped';
 }
 
@@ -1013,6 +1170,8 @@ export interface PollCueState {
   readonly questions: readonly PollCueQuestion[];
   /** The team's people in the call (their identities in the room): only their words count (the owner's 13). */
   readonly team: readonly string[];
+  /** The slide showing (part 4), counted from 1, and how many there are; null while the slides aren't up. */
+  readonly slide: { readonly n: number; readonly of: number } | null;
 }
 
 /**
@@ -1039,11 +1198,16 @@ export async function videoCallPollCueState(tx: Tx, callId: string): Promise<Pol
     .map((a) => a.closedAt?.getTime() ?? 0)
     .filter((t) => t > 0)
     .sort((a, b) => b - a);
+  const slides = published.definition.slides;
   return {
     ai: pollAiOf(call),
     openNow: asked.some((a) => a.state === 'open'),
     lastClosedAt: closed[0] ?? null,
     team: team.map((t) => t.id),
+    slide:
+      slides && call.slide !== null && call.slide <= slides.pages
+        ? { n: call.slide, of: slides.pages }
+        : null,
     questions: allQuestions(published.definition).map((q) => {
       const config = q.config as Record<string, unknown>;
       return {
@@ -1058,6 +1222,7 @@ export async function videoCallPollCueState(tx: Tx, callId: string): Promise<Pol
               ? [String(config.label)]
               : [],
         cues: liveOf(q).cues,
+        slide: liveOf(q).slide ?? null,
         state: (byQuestion.get(q.id)?.state ?? 'waiting') as PollCueQuestion['state'],
       };
     }),
@@ -1066,6 +1231,7 @@ export async function videoCallPollCueState(tx: Tx, callId: string): Promise<Pol
 
 export const videoCallPollCommands = [
   videoCallSetPoll,
+  videoCallSlide,
   videoCallSetPollAi,
   videoCallPollOpen,
   videoCallPollSkip,

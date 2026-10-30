@@ -335,6 +335,7 @@ describe('registry', () => {
       'video_call.coach',
       'webinar.register',
       'video_call.set_poll',
+      'video_call.slide',
       'video_call.set_poll_ai',
       'video_call.poll_open',
       'video_call.poll_skip',
@@ -697,6 +698,7 @@ describe('registry', () => {
       'form.duplicate',
       'form.archive',
       'form.restore',
+      'form.begin_slides_upload',
       // Documents to sign (docs/documents.md).
       'document_template.create',
       'document_template.begin_upload',

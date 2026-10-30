@@ -285,6 +285,8 @@ export const recordType = app.enum('record_type', [
   'custom_record',
   /** The PDF a document template is made from: record_id is the template (20261027015100). Tags never use it. */
   'document',
+  /** A live poll's slides, a PDF: record_id is the poll's form (20261027019700). Tags never use it. */
+  'form',
 ]);
 export const activityKind = app.enum('activity_kind', [
   'note',
@@ -2805,6 +2807,10 @@ export const videoCalls = app.table('video_calls', {
   }),
   /** How far the AI hearing the team goes with the poll: ask, suggest or off (20261027019900). */
   pollAi: text('poll_ai').notNull().default('ask'),
+  /** The slide of the poll's PDF on the stage, counted from 1; null while the slides aren't up (20261027020000). */
+  slide: integer('slide'),
+  /** When the slide showing last changed. */
+  slideAt: ts('slide_at'),
 });
 
 /** Who's in a video call: a teammate, a customer on their own Join link, or someone let in (20261027013000). */

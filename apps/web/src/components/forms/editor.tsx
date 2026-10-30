@@ -11,6 +11,7 @@ import { apiBrowser, errorMessage, unwrap } from '@/lib/api/client';
 import type { FormCatalogsOut, FormGet, FormResultsOut } from '@/lib/api/types';
 import { cueErrorMessage, questionsWanting, writeCues } from '@/lib/forms/poll-cues';
 import { FormStatusBadge } from './chips';
+import { PollSlidesCard } from './poll-slides';
 import { useFormEditor } from './editor-state';
 import { FormPreview } from './preview';
 import { FormResults } from './results';
@@ -173,6 +174,15 @@ export function FormEditor({
       {tab === 'questions' ? (
         <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
           <div className="min-w-0 space-y-3">
+            {editor.definition.mode === 'poll' && (canManage || editor.definition.slides) ? (
+              <PollSlidesCard
+                workspaceId={workspaceId}
+                formId={initial.form.formId}
+                definition={editor.definition}
+                apply={editor.apply}
+                readOnly={!canManage}
+              />
+            ) : null}
             {editor.definition.mode === 'poll' && canManage ? (
               <WriteAllCues
                 workspaceId={workspaceId}

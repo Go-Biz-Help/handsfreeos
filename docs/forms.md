@@ -176,7 +176,9 @@ A fourth kind beside form, survey and quiz (`mode = 'poll'`), picked on a call o
 - **Each question's `live`** holds how long it stays up (`seconds`, 10 to 600, 60 by default), whether everyone
   sees the totals after (`showResults`, off by default), and up to eight **when-to-ask phrases** (`cues`): what the
   presenter might say just before asking it, which the AI hearing the call listens for (part 3). The AI writes them
-  from the editor or the Assistant's builder, and the business changes them like any words. `liveOf` fills the defaults. The editor shows both under
+  from the editor or the Assistant's builder, and the business changes them like any words. With the poll's slides
+  (part 4: `definition.slides`, a PDF whose file's record is the form) a question can say the slide it goes with
+  (`live.slide`); "Slides" in `docs/video-calls.md` is how. `liveOf` fills the defaults. The editor shows both under
   each question (**Seconds it stays up**); a poll has no Required switch, no Where it goes and no Share tab.
 - **Its answers** are one response per person per call (`form_responses.video_call_id`, `source = 'video_call'`), so
   Results and the customer's record show them like any form's.

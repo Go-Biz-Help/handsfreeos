@@ -7,8 +7,12 @@
  * A webinar (HANDSFREEOS_WEBINARS_IMPLEMENTATION_PLAN.md) is laid out around the presenter: a shared screen big when
  * there is one, else whoever on stage spoke last (the first of the team to start with). The rest of the team and
  * anyone on stage sit beside it. Attendees' cameras, when this page may see them, are a strip underneath, 12 at most.
+ *
+ * The poll's slides (part 4), while the team shows them, take the big place in either: everyone's cameras, and any
+ * shared screen, sit beside them.
  */
 import {
+  SLIDE_WORDS,
   VIDEO_CALL_ATTRIBUTES,
   WEBINAR_WORDS,
   isPersonIdentity,
@@ -65,11 +69,58 @@ export interface WebinarView {
 /** At most this many attendees' cameras show at once, in the strip under the presenter. */
 const AUDIENCE_SHOWN = 12;
 
-export function CallStage({ alone, webinar }: { alone: string; webinar?: WebinarView | null }) {
-  return webinar ? <WebinarStage view={webinar} /> : <MeetingStage alone={alone} />;
+/** The slide showing on the stage (part 4): which, of how many, and its picture. */
+export interface StageSlide {
+  readonly n: number;
+  readonly of: number;
+  readonly picture: string;
 }
 
-function MeetingStage({ alone }: { alone: string }) {
+export function CallStage({
+  alone,
+  webinar,
+  slide = null,
+}: {
+  alone: string;
+  webinar?: WebinarView | null;
+  slide?: StageSlide | null;
+}) {
+  return webinar ? (
+    <WebinarStage view={webinar} slide={slide} />
+  ) : (
+    <MeetingStage alone={alone} slide={slide} />
+  );
+}
+
+/** The slide, as big as the stage lets it be, never cropped. */
+function SlideTile({ slide }: { slide: StageSlide }) {
+  const [loaded, setLoaded] = useState<string | null>(null);
+  return (
+    <div
+      className="relative h-full min-h-0 w-full overflow-hidden rounded-card bg-[#20252e]"
+      data-testid="call-slide"
+      data-slide={slide.n}
+    >
+      {/* A signed link that works for a few hours: nothing for an image optimizer to keep. */}
+      <img
+        src={slide.picture}
+        alt={SLIDE_WORDS.of(slide.n, slide.of)}
+        className="h-full w-full object-contain"
+        onLoad={() => setLoaded(slide.picture)}
+      />
+      {loaded !== slide.picture ? (
+        <span className="absolute inset-0 flex items-center justify-center text-[13px] text-text-2">
+          {SLIDE_WORDS.loading}
+        </span>
+      ) : null}
+      <span className="absolute bottom-2 right-2 rounded-full bg-black/55 px-2 py-0.5 text-[12px] text-white">
+        {SLIDE_WORDS.of(slide.n, slide.of)}
+      </span>
+    </div>
+  );
+}
+
+function MeetingStage({ alone, slide }: { alone: string; slide: StageSlide | null }) {
   const tracks = useTracks(
     [
       { source: Track.Source.Camera, withPlaceholder: true },
@@ -90,13 +141,13 @@ function MeetingStage({ alone }: { alone: string }) {
 
   return (
     <div ref={box} className="relative h-full min-h-0 w-full" data-testid="call-stage">
-      {screens.length ? (
+      {screens.length || slide ? (
         <div className="flex h-full w-full flex-col gap-2 p-2 md:flex-row">
           <div className="min-h-0 min-w-0 flex-1">
-            <Tile trackRef={screens[0]!} />
+            {slide ? <SlideTile slide={slide} /> : <Tile trackRef={screens[0]!} />}
           </div>
           <div className="flex h-[112px] flex-none gap-2 overflow-auto md:h-auto md:w-[220px] md:flex-col">
-            {[...screens.slice(1), ...cameras].map((t) => (
+            {[...(slide ? screens : screens.slice(1)), ...cameras].map((t) => (
               <div key={keyOf(t)} className="aspect-video w-[168px] flex-none md:w-full">
                 <Tile trackRef={t} />
               </div>
@@ -116,7 +167,7 @@ function MeetingStage({ alone }: { alone: string }) {
           ))}
         </div>
       )}
-      {cameras.length <= 1 && !screens.length ? (
+      {cameras.length <= 1 && !screens.length && !slide ? (
         <p
           className="pointer-events-none absolute inset-x-0 top-4 mx-auto w-fit rounded-full bg-black/55 px-3 py-1.5 text-[13px] text-white"
           data-testid="call-alone"
@@ -145,7 +196,7 @@ function useLastSpeaker(stage: readonly string[]): string | null {
   return last && stage.includes(last) ? last : null;
 }
 
-function WebinarStage({ view }: { view: WebinarView }) {
+function WebinarStage({ view, slide }: { view: WebinarView; slide: StageSlide | null }) {
   const tracks = useTracks(
     [
       { source: Track.Source.Camera, withPlaceholder: true },
@@ -158,13 +209,15 @@ function WebinarStage({ view }: { view: WebinarView }) {
   );
   const stage = tracks.filter((t) => t.source === Track.Source.Camera && presents(t.participant));
   const speaker = useLastSpeaker(stage.map((t) => t.participant.identity));
-  const big =
-    screens[0] ??
-    stage.find((t) => t.participant.identity === speaker) ??
-    stage.find((t) => roomRightsOf(t.participant.attributes).kind === 'team') ??
-    stage[0] ??
-    null;
-  const beside = [...screens.slice(1), ...stage].filter((t) => t !== big);
+  // The slides take the big place while they're up; everyone on stage, and any shared screen, sits beside them.
+  const big = slide
+    ? null
+    : (screens[0] ??
+      stage.find((t) => t.participant.identity === speaker) ??
+      stage.find((t) => roomRightsOf(t.participant.attributes).kind === 'team') ??
+      stage[0] ??
+      null);
+  const beside = [...(slide ? screens : screens.slice(1)), ...stage].filter((t) => t !== big);
   const seen = view.team ? view.attendeeVideo !== 'off' : view.attendeeVideo === 'everyone';
   // Only cameras that are on; their own shows to them whoever else may see it.
   const audience = tracks
@@ -183,7 +236,9 @@ function WebinarStage({ view }: { view: WebinarView }) {
     <div className="flex h-full min-h-0 w-full flex-col gap-2 p-2" data-testid="call-stage">
       <div className="flex min-h-0 flex-1 flex-col gap-2 md:flex-row">
         <div className="min-h-0 min-w-0 flex-1" data-testid="call-presenter">
-          {big ? (
+          {slide ? (
+            <SlideTile slide={slide} />
+          ) : big ? (
             <Tile trackRef={big} />
           ) : (
             <div className="flex h-full items-center justify-center rounded-card bg-[#20252e] px-6 text-center text-[13.5px] text-text-2">

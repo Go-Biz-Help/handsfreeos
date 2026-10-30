@@ -19362,7 +19362,7 @@
         "tags": [
           "commands"
         ],
-        "description": "Risk level 1. Requires appointments.write. Emits video_call.poll_set.",
+        "description": "Risk level 1. Requires appointments.write. Emits video_call.poll_set, video_call.slide_changed.",
         "requestBody": {
           "required": true,
           "content": {
@@ -19429,6 +19429,95 @@
                   "required": [
                     "changed",
                     "pollFormId"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/commands/video_call.slide": {
+      "post": {
+        "operationId": "command_video_call_slide",
+        "summary": "Show a slide of the live poll’s slides big on the stage in a HandsFreeOS video call, counted from 1, or take the slides down (null).",
+        "tags": [
+          "commands"
+        ],
+        "description": "Risk level 1. Requires appointments.write. Emits video_call.slide_changed.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "workspaceId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  },
+                  "callId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  },
+                  "slide": {
+                    "anyOf": [
+                      {
+                        "type": "integer",
+                        "minimum": 1,
+                        "maximum": 100
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  }
+                },
+                "required": [
+                  "workspaceId",
+                  "callId",
+                  "slide"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "changed": {
+                      "type": "boolean"
+                    },
+                    "slide": {
+                      "anyOf": [
+                        {
+                          "type": "integer",
+                          "minimum": -9007199254740991,
+                          "maximum": 9007199254740991
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "of": {
+                      "type": "integer",
+                      "minimum": -9007199254740991,
+                      "maximum": 9007199254740991
+                    }
+                  },
+                  "required": [
+                    "changed",
+                    "slide",
+                    "of"
                   ],
                   "additionalProperties": false
                 }
@@ -53149,6 +53238,92 @@
                   "required": [
                     "formId",
                     "status"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/commands/form.begin_slides_upload": {
+      "post": {
+        "operationId": "command_form_begin_slides_upload",
+        "summary": "Reserve a place for a live poll’s slides, a PDF of 25 MB at most. Upload it to the returned path, confirm it with file.confirm, then put it on the poll with set_form {slides: {fileId, name, pages}}.",
+        "tags": [
+          "commands"
+        ],
+        "description": "Risk level 1. Requires forms.manage. Emits .",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "workspaceId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  },
+                  "formId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  },
+                  "name": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 200
+                  },
+                  "mimeType": {
+                    "type": "string",
+                    "enum": [
+                      "application/pdf"
+                    ]
+                  },
+                  "sizeBytes": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 26214400
+                  }
+                },
+                "required": [
+                  "workspaceId",
+                  "formId",
+                  "name",
+                  "mimeType",
+                  "sizeBytes"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "fileId": {
+                      "type": "string",
+                      "format": "uuid",
+                      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                    },
+                    "bucket": {
+                      "type": "string"
+                    },
+                    "objectPath": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "fileId",
+                    "bucket",
+                    "objectPath"
                   ],
                   "additionalProperties": false
                 }
@@ -113059,6 +113234,43 @@
                         }
                       ]
                     },
+                    "slides": {
+                      "anyOf": [
+                        {
+                          "type": "object",
+                          "properties": {
+                            "name": {
+                              "type": "string"
+                            },
+                            "pages": {
+                              "type": "integer",
+                              "minimum": -9007199254740991,
+                              "maximum": 9007199254740991
+                            }
+                          },
+                          "required": [
+                            "name",
+                            "pages"
+                          ],
+                          "additionalProperties": false
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "slide": {
+                      "anyOf": [
+                        {
+                          "type": "integer",
+                          "minimum": -9007199254740991,
+                          "maximum": 9007199254740991
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
                     "questions": {
                       "type": "array",
                       "items": {
@@ -113256,6 +113468,18 @@
                               ],
                               "additionalProperties": false
                             }
+                          },
+                          "slide": {
+                            "anyOf": [
+                              {
+                                "type": "integer",
+                                "minimum": -9007199254740991,
+                                "maximum": 9007199254740991
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
                           }
                         },
                         "required": [
@@ -113272,7 +113496,8 @@
                           "closesAt",
                           "totals",
                           "texts",
-                          "pressed"
+                          "pressed",
+                          "slide"
                         ],
                         "additionalProperties": false
                       }
@@ -113284,6 +113509,8 @@
                     "ai",
                     "hearing",
                     "endsAt",
+                    "slides",
+                    "slide",
                     "questions"
                   ],
                   "additionalProperties": false

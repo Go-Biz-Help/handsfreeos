@@ -75,6 +75,23 @@ export const POLL_MAX_SECONDS = 600;
 /** When-to-ask phrases a live poll's question holds, at most, and the longest one. */
 export const POLL_MAX_CUES = 8;
 export const POLL_CUE_CHARS = 160;
+/** The most pages a live poll's slides may have. */
+export const MAX_SLIDES = 100;
+/** The biggest PDF of slides: the attachments bucket's limit. */
+export const SLIDES_MAX_BYTES = 25 * 1024 * 1024;
+
+/**
+ * A live poll's slides (part 4): the presentation as a PDF, uploaded for the poll (`form.begin_slides_upload`), its
+ * file's record the form. The team shows them slide by slide in the call, and the AI reads them to tie each question
+ * to its slide. Left out, the poll has none.
+ */
+export const PollSlides = z.object({
+  fileId: z.uuid(),
+  /** The PDF's name, as it was uploaded. */
+  name: z.string().trim().min(1).max(200),
+  pages: z.int().min(1).max(MAX_SLIDES),
+});
+export type PollSlides = z.infer<typeof PollSlides>;
 
 /**
  * How a question runs in a live poll: how long it stays up, and whether everyone sees the totals once it closes (the
@@ -89,6 +106,12 @@ export const LiveQuestion = z.object({
    * these by meaning, beside the question itself. Written by the AI or the business; none, and it goes by the question.
    */
   cues: z.array(z.string().trim().min(1).max(POLL_CUE_CHARS)).max(POLL_MAX_CUES).default([]),
+  /**
+   * The slide it goes with, counted from 1 (part 4): the AI reads the poll's slides and picks it, or the business
+   * does. The AI hearing the call expects the question around that slide, and the team is offered it when the slide
+   * comes up. None, and it goes by the words alone.
+   */
+  slide: z.int().min(1).max(MAX_SLIDES).nullish(),
 });
 export type LiveQuestion = z.infer<typeof LiveQuestion>;
 
@@ -329,6 +352,8 @@ export const FormDefinition = z.object({
   title: z.string().trim().min(1, 'Name the form.').max(160),
   /** Shown above the first question. */
   intro: z.string().trim().max(4000).default(''),
+  /** A live poll's slides (part 4); left out, it has none. */
+  slides: PollSlides.nullish(),
   pages: z.array(FormPage).min(1, 'A form needs a page.').max(MAX_PAGES),
   calculations: z
     .array(Calculation)
@@ -534,7 +559,9 @@ export function formProblems(definition: FormDefinition): string[] {
   }
 
   if (definition.mode === 'poll') problems.push(...pollProblems(definition));
-  else
+  else if (definition.slides)
+    problems.push('Only a live poll has slides. Take them off, or make this a Live poll.');
+  if (definition.mode !== 'poll')
     for (const question of questions)
       if (POLL_ONLY_TYPES.has(question.type))
         problems.push(
@@ -577,6 +604,13 @@ function pollProblems(definition: FormDefinition): string[] {
       );
       continue;
     }
+    const slide = question.live?.slide;
+    if (slide && slide > (definition.slides?.pages ?? 0))
+      problems.push(
+        definition.slides
+          ? `“${question.title}” goes with slide ${slide}, but the slides have ${definition.slides.pages}. Pick another slide, or none.`
+          : `“${question.title}” goes with slide ${slide}, but this poll has no slides. Add them, or pick no slide.`,
+      );
     if (question.type !== 'button') continue;
     const button = question.config as { action: string; url: string; calendarId: string };
     if (button.action === 'link' && !isWebAddress(button.url))

@@ -41,6 +41,7 @@ import {
   PollCueMatch,
   PollCuesOutOfRoom,
   pollCueContext,
+  pollCueLines,
 } from './poll-cues';
 import { CallHearing, type HeardLine, type JoinRoom, type ListenerRoom } from './hearing';
 import type { VideoCallProvider } from './provider';
@@ -192,17 +193,12 @@ export function createListener(deps: ListenerDeps): Listener {
       log,
       now,
       load: () => asWorker(deps.db, scope, (tx) => videoCallPollCueState(tx, callId)),
-      ask: async (questions, lines) => {
+      ask: async (questions, lines, slide) => {
         try {
           const { value } = await askStructured({ ...services, ai }, scope, {
             system: POLL_CUE_SYSTEM,
             context: pollCueContext(questions),
-            messages: [
-              {
-                role: 'user',
-                content: `What the team just said, oldest first:\n${lines.map((l) => `- ${l}`).join('\n')}`,
-              },
-            ],
+            messages: [{ role: 'user', content: pollCueLines(lines, slide) }],
             schema: POLL_CUE_MATCH_SCHEMA,
             zod: PollCueMatch,
             maxTokens: 300,

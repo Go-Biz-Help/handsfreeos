@@ -1,4 +1,4 @@
-# HandsFreeOS video calls (20261027013000, 20261027013300, 20261027013500, 20261027014600, 20261027019600, 20261027019800, 20261027019900)
+# HandsFreeOS video calls (20261027013000, 20261027013300, 20261027013500, 20261027014600, 20261027019600, 20261027019800, 20261027019900, 20261027020000)
 
 HandsFreeOS's own Zoom-like calls. A calendar's Online place (or one service on it) can say **HandsFreeOS video
 call**, and each appointment booked there gets its own call, with nothing for the business to connect. Customers
@@ -62,6 +62,9 @@ webhook) is "Video calls: LiveKit" in `docs/operations.md`.
 | Live polls: the pop-up and the team's panel  | `components/video-call/poll-popup.tsx`, `poll-panel.tsx`, placed by `call-room.tsx`                                               |
 | Live polls: the AI asking, in the call       | `apps/worker/src/video-calls/poll-cues.ts`, made by `listener.ts`; `videoCallPollCueState` (core)                                 |
 | Live polls: when-to-ask phrases by the AI    | `apps/worker/src/forms/poll-cue-routes.ts`; the editor's side in `apps/web/src/lib/forms/poll-cues.ts`                            |
+| Slides: the rules, the message and the words | `packages/core/src/meetings/slides.ts`; `video_call.slide` in `commands/video-call-poll.ts`                                       |
+| Slides: telling the room                     | `apps/worker/src/video-calls/slides.ts` (and `reports.ts` for someone coming in), drawn by `documents/pages.ts`                   |
+| Slides: on the stage and turning them        | `components/video-call/slides.tsx`, `call-stage.tsx`; the editor's card in `components/forms/poll-slides.tsx`                     |
 
 ## How a call goes
 
@@ -374,6 +377,31 @@ Part 3 of the plan: the owner's 10, 12, 13 and 19.
   or for every question without any: `POST /v1/forms/ai/cues` on the worker, which saves nothing; the editor puts
   them in the draft as edits), or by the Assistant's form builder, which makes live polls with them.
 
+#### Slides (20261027020000)
+
+Part 4 of the plan: the presenter's slides inside HandsFreeOS, so nobody shares a screen, and the AI knows where in
+the talk each question goes.
+
+- **A poll holds the slides** as a PDF (`definition.slides = {fileId, name, pages}`, 100 pages and 25 MB at most),
+  added in the forms editor's **Your slides** card: `form.begin_slides_upload`, the upload, `file.confirm`, then
+  `set_form {slides}` in the draft like any edit, published with the poll. The file's record is the form (record type
+  `form`): behind forms.manage, never tagged, on no timeline, and never deleted (`slides_file_kept`), since published
+  versions still show it. A copied poll keeps its original's file.
+- **Each question can go with a slide** (`live.slide`, counted from 1), picked by the business or by the AI: **Read
+  the slides and write when to ask each question** sends the slides' words (what the worker read in the file, or the
+  PDF itself when that isn't done yet) to `POST /v1/forms/ai/cues`, which gives each question its slide and phrases in
+  the slides' own words. A slide the PDF doesn't have is a problem to fix before publishing.
+- **The team shows them** from the Live poll panel (**Show slides**, Stop), then turns them with the bar over the
+  stage or the arrow keys (Page Up and Page Down too, which presentation clickers send): `video_call.slide`, kept in
+  `video_calls.slide` (null while they're down). Picking another poll takes them down.
+- **The worker tells the room** each change (`video_call.slide_changed`) on `hfos.slides`, from the server, with links
+  to a picture of the slide and of the next one that work for six hours. Pages are drawn as documents' are and kept
+  beside the PDF (`pages-v1/`), the next one with each. Someone who comes in, or back after a reload, is told the slide
+  that's up as LiveKit reports them joining. The slide takes the big place on everyone's stage, cameras beside it.
+- **The AI uses them.** The matcher is told which slide is up and each question's slide, so a question near its slide
+  is likelier; the words still decide. And when a slide comes up that a question not asked yet goes with, the team is
+  offered it (**Ask now?**, "It goes with the slide that just came up"), unless the AI is off for the call.
+
 ## Running it locally
 
 Without LiveKit the worker uses its stand-in: tickets connect to nothing and the call screen shows a stand-in for
@@ -396,7 +424,8 @@ enough to see captions and lines arrive. With `DEEPGRAM_API_KEY` and `VOICE_AGEN
   but **Video call** goes on to open the call for whoever pressed it, so for now it's only a button.
 - Screen share from a phone's browser, which phones don't allow; they can watch someone else's.
 - Joining by phone, recordings, breakout rooms and picture backgrounds.
-- Slides inside HandsFreeOS (with the AI matching each question to its slide) and scoring who to follow up: parts 4
-  and 5 of `HANDSFREEOS_WEBINARS_IMPLEMENTATION_PLAN.md`. Live polls on the phone's call screen: the team asks from the web
-  for now.
+- Scoring who to follow up with: part 5 of `HANDSFREEOS_WEBINARS_IMPLEMENTATION_PLAN.md`. Live polls and slides on the
+  phone's call screen: the team asks and presents from the web for now, and the phone shows whoever is presenting.
+- The AI drafting a poll's questions from its slides: it ties questions the business wrote to their slides.
+- Slides in any form but a PDF (PowerPoint and Keynote save as one), and animations or videos inside slides.
 - Webinar controls on the phone: it shows who's presenting, but the camera choice and Bring on stage are on the web.

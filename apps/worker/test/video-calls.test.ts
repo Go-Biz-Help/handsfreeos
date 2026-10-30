@@ -21,6 +21,8 @@
  *   - a call with a customer that isn't for an appointment (part 5) sends them their own link on the business's
  *     address, lets them in on it once the team is there, becomes a line on their timeline with its transcript and
  *     summary, and stops opening a day after it was sent;
+ *   - a poll's slides show on everyone's stage from the server, a question that goes with the slide that came up is
+ *     offered to the team, and someone coming in is shown the slide that's up;
  *   - a live poll's question pops up for everyone from the server, the customer answers it on their own link, and
  *     its totals go to everyone when it shares them (webinars, part 2).
  */
@@ -31,11 +33,14 @@ import {
   callSuggestionList,
   captionOf,
   executeCommand,
+  fileConfirm,
+  formBeginSlidesUpload,
   formCreate,
   formPublish,
   formSaveDraft,
   pushDeviceRegister,
   VIDEO_CALL_POLLS_TOPIC,
+  VIDEO_CALL_SLIDES_TOPIC,
   VIDEO_CALL_WORDS,
   videoCallAdmit,
   videoCallEnd,
@@ -47,6 +52,7 @@ import {
   videoCallPollOpen,
   videoCallSetAi,
   videoCallSetPoll,
+  videoCallSlide,
   videoCallTurnAway,
   videoCallUsageKey,
   LISTENER_IDENTITY,
@@ -54,6 +60,7 @@ import {
 import { asWorker, rows, sql } from '@hfos/db/client';
 import { closeTestDbs, createTestUser, signInTestUser, testDbs } from '@hfos/db/testing';
 import type { FastifyInstance, LightMyRequestResponse } from 'fastify';
+import { PDFDocument, StandardFonts } from 'pdf-lib';
 import pino from 'pino';
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 import { scriptedAi } from '../src/ai/scripted';
@@ -1312,5 +1319,88 @@ describe('a live poll (webinars, part 2)', () => {
       (await answer('https://x.test/j/not-a-link', { pollId: opened.pollId, value: 'x' }))
         .statusCode,
     ).toBe(404);
+  });
+
+  it('shows the poll’s slides on everyone’s stage, offers the question a slide goes with, and tells who comes in', async () => {
+    const b = await booked('Jo', await soonest());
+    const team = (await teamJoin(ownerToken, b.callId)).json() as { personId: string };
+    await cameIn(b.room, team.personId, { roomSid: 'RM_jo' });
+
+    // A poll whose question goes with slide 2 of a three-slide PDF.
+    const formId = await livePoll();
+    const doc = await PDFDocument.create();
+    const font = await doc.embedFont(StandardFonts.Helvetica);
+    for (const words of ['Welcome', 'Where leads come from', 'Pricing'])
+      doc.addPage([960, 540]).drawText(words, { x: 72, y: 270, size: 36, font });
+    const pdf = await doc.save();
+    const begun = (await run(w, formBeginSlidesUpload, {
+      workspaceId: w.workspaceId,
+      formId,
+      name: 'Deck.pdf',
+      mimeType: 'application/pdf',
+      sizeBytes: pdf.byteLength,
+    })) as { fileId: string; objectPath: string };
+    await w.s.store.upload('attachments', begun.objectPath, Buffer.from(pdf), 'application/pdf');
+    await run(w, fileConfirm, { workspaceId: w.workspaceId, fileId: begun.fileId });
+    const [row] = await rows<{ revision: number }>(
+      admin(),
+      sql`select revision from app.forms where id = ${formId}`,
+    );
+    const saved = (await run(w, formSaveDraft, {
+      workspaceId: w.workspaceId,
+      formId,
+      baseRevision: row!.revision,
+      ops: [
+        { op: 'set_form', patch: { slides: { fileId: begun.fileId, name: 'Deck.pdf', pages: 3 } } },
+        { op: 'update_question', questionId: 'q_leads000', patch: { live: { slide: 2 } } },
+      ],
+    })) as { revision: number };
+    await run(w, formPublish, { workspaceId: w.workspaceId, formId, baseRevision: saved.revision });
+    await run(w, videoCallSetPoll, { workspaceId: w.workspaceId, callId: b.callId, formId });
+    const slidesTo = () =>
+      w.s.videoCalls.sent.filter((m) => m.room === b.room && m.topic === VIDEO_CALL_SLIDES_TOPIC);
+    const offers = () =>
+      w.s.videoCalls.sent.filter(
+        (m) =>
+          m.room === b.room &&
+          m.topic === VIDEO_CALL_POLLS_TOPIC &&
+          (m.message as { t?: string }).t === 'suggest',
+      );
+
+    await run(w, videoCallSlide, { workspaceId: w.workspaceId, callId: b.callId, slide: 1 });
+    await drain(w);
+    expect(slidesTo().at(-1)).toMatchObject({
+      to: null,
+      message: {
+        t: 'slide',
+        slide: 1,
+        of: 3,
+        picture: expect.stringContaining('pages-v1/0.png'),
+        next: expect.stringContaining('pages-v1/1.png'),
+      },
+    });
+    expect(offers()).toEqual([]);
+
+    // The slide its question goes with: the team alone is offered it.
+    await run(w, videoCallSlide, { workspaceId: w.workspaceId, callId: b.callId, slide: 2 });
+    await drain(w);
+    expect(slidesTo().at(-1)?.message).toMatchObject({ slide: 2, of: 3 });
+    expect(offers().at(-1)).toMatchObject({
+      to: [team.personId],
+      message: { t: 'suggest', questionId: 'q_leads000' },
+    });
+
+    // Someone coming in sees the slide that's up, alone.
+    const jo = (await enter(b.link, { name: 'Jo Customer' })).json() as { personId: string };
+    await cameIn(b.room, jo.personId, { roomSid: 'RM_jo' });
+    expect(slidesTo().at(-1)).toMatchObject({ to: [jo.personId], message: { slide: 2 } });
+
+    // Down for everyone.
+    await run(w, videoCallSlide, { workspaceId: w.workspaceId, callId: b.callId, slide: null });
+    await drain(w);
+    expect(slidesTo().at(-1)).toMatchObject({
+      to: null,
+      message: { t: 'slide', slide: null, picture: null },
+    });
   });
 });
