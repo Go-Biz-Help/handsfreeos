@@ -4,11 +4,28 @@
  * owner's 14): which poll the call uses, the question up next with Ask now and Skip, the one that's up with its
  * answers coming in and Close, and every question's totals. Only the team sees it. It reads `video_call.polls` every
  * couple of seconds while a question is up, and less often otherwise.
+ *
+ * Part 3: how far the AI goes with the poll (`video_call.set_poll_ai`), a note when it can't hear (AI notes off), the
+ * questions not asked yet in the webinar's last minutes (the owner's 19), and `PollOffer`, the AI's "Ask now?" over
+ * the stage, panel open or not.
  */
-import { POLL_PANEL_POLL_MS, POLL_WORDS, QUESTION_LABELS, pollSecondsLeft } from '@hfos/core';
-import { ChevronDown, Sparkles } from 'lucide-react';
+import {
+  POLL_AI_MODES,
+  POLL_LAST_MINUTES,
+  POLL_PANEL_POLL_MS,
+  POLL_SUGGEST_MS,
+  POLL_WORDS,
+  QUESTION_LABELS,
+  VIDEO_CALL_POLLS_TOPIC,
+  pollSecondsLeft,
+  readPollMessage,
+  type PollAiMode,
+} from '@hfos/core';
+import { useDataChannel } from '@livekit/components-react';
+import { ChevronDown, Sparkles, X } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Button } from '@/components/ui/button';
+import { Select } from '@/components/ui/input';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -106,10 +123,20 @@ export function PollPanel({ team, onClose }: { team: TeamSide; onClose: () => vo
         await apiBrowser().POST('/v1/commands/video_call.set_poll', { body: { ...body, formId } }),
       ),
     );
+  const setAi = (ai: PollAiMode) =>
+    act('ai', async () =>
+      unwrap(
+        await apiBrowser().POST('/v1/commands/video_call.set_poll_ai', { body: { ...body, ai } }),
+      ),
+    );
 
   const up = polls?.questions.find((q) => q.state === 'open') ?? null;
   const next = polls?.questions.find((q) => q.state === 'waiting') ?? null;
   const ready = !!polls?.form?.ready;
+  const nearlyOver = useNearlyOver(polls?.endsAt ?? null);
+  const notYet = nearlyOver
+    ? (polls?.questions.filter((q) => q.state === 'waiting' || q.state === 'skipped') ?? [])
+    : [];
 
   return (
     <Panel title={POLL_WORDS.panel} onClose={onClose} testId="call-poll-panel">
@@ -129,6 +156,58 @@ export function PollPanel({ team, onClose }: { team: TeamSide; onClose: () => vo
               <p className="text-[13px] text-text-2" data-testid="call-poll-unpublished">
                 {POLL_WORDS.unpublished(polls.form.name)}
               </p>
+            ) : null}
+            {polls.form ? (
+              <div className="flex flex-col gap-1">
+                <label className="text-[12px] text-text-3" htmlFor="call-poll-ai">
+                  {POLL_WORDS.aiMode}
+                </label>
+                <Select
+                  id="call-poll-ai"
+                  selectSize="sm"
+                  value={polls.ai}
+                  onChange={(e) => void setAi(e.target.value as PollAiMode)}
+                  disabled={busy === 'ai'}
+                  data-testid="call-poll-ai"
+                >
+                  {POLL_AI_MODES.map((m) => (
+                    <option key={m} value={m}>
+                      {POLL_WORDS.aiModes[m]}
+                    </option>
+                  ))}
+                </Select>
+                {polls.ai !== 'off' && !polls.hearing ? (
+                  <p className="text-[12px] text-warning-text" data-testid="call-poll-deaf">
+                    {POLL_WORDS.aiDeaf}
+                  </p>
+                ) : null}
+              </div>
+            ) : null}
+            {ready && notYet.length && !up ? (
+              <section
+                className="rounded-card border border-warning-border p-3"
+                data-testid="call-poll-not-yet"
+              >
+                <p className="text-[11.5px] font-medium uppercase tracking-wide text-warning-text">
+                  {POLL_WORDS.notYet}
+                </p>
+                <p className="text-[12px] text-text-3">{POLL_WORDS.notYetHelp}</p>
+                <ul className="mt-2 flex flex-col gap-1.5">
+                  {notYet.map((q) => (
+                    <li key={q.questionId} className="flex items-center gap-2">
+                      <span className="min-w-0 flex-1 truncate text-[13px]">{q.title}</span>
+                      <Button
+                        size="sm"
+                        variant="secondary"
+                        loading={busy === `ask:${q.questionId}`}
+                        onClick={() => void ask(q)}
+                      >
+                        {POLL_WORDS.askNow}
+                      </Button>
+                    </li>
+                  ))}
+                </ul>
+              </section>
             ) : null}
             {up ? (
               <UpNow
@@ -192,6 +271,108 @@ export function PollPanel({ team, onClose }: { team: TeamSide; onClose: () => vo
         )}
       </div>
     </Panel>
+  );
+}
+
+/** Whether the call is in its last few minutes, by the appointment's end; checked every half minute. */
+function useNearlyOver(endsAt: string | null): boolean {
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    if (!endsAt) return undefined;
+    const t = setInterval(() => setNow(Date.now()), 30_000);
+    return () => clearInterval(t);
+  }, [endsAt]);
+  return !!endsAt && new Date(endsAt).getTime() - now <= POLL_LAST_MINUTES * 60_000;
+}
+
+type Offer = {
+  readonly questionId: string;
+  readonly title: string;
+  readonly why: string;
+  readonly until: number;
+};
+
+/**
+ * The AI's "Ask now?" for the team (part 3, the owner's 12): a question it thinks fits what was just said, over the
+ * stage whether the panel is open or not, for half a minute. Ask now pops it up as the person; the AI never sends
+ * this to attendees, and only the server's word counts.
+ */
+export function PollOffer({ team }: { team: TeamSide }) {
+  const [offer, setOffer] = useState<Offer | null>(null);
+  const [busy, setBusy] = useState(false);
+  useDataChannel(VIDEO_CALL_POLLS_TOPIC, (msg) => {
+    if (msg.from) return;
+    const m = readPollMessage(msg.payload);
+    if (m?.t === 'suggest')
+      setOffer({
+        questionId: m.questionId,
+        title: m.title,
+        why: m.why,
+        until: Math.min(new Date(m.until).getTime(), Date.now() + POLL_SUGGEST_MS),
+      });
+    // A question went up (asked by anyone): the offer has had its moment.
+    else if (m?.t === 'open') setOffer(null);
+  });
+  useEffect(() => {
+    if (!offer) return undefined;
+    const t = setTimeout(() => setOffer(null), Math.max(0, offer.until - Date.now()));
+    return () => clearTimeout(t);
+  }, [offer]);
+  if (!offer) return null;
+  const ask = async () => {
+    setBusy(true);
+    try {
+      unwrap(
+        await apiBrowser().POST('/v1/commands/video_call.poll_open', {
+          body: {
+            workspaceId: team.workspaceId,
+            callId: team.callId,
+            questionId: offer.questionId,
+          },
+        }),
+      );
+      setOffer(null);
+    } catch (e) {
+      toast.error(errorMessage(e));
+    } finally {
+      setBusy(false);
+    }
+  };
+  return (
+    <div
+      className="absolute inset-x-2 top-2 z-30 mx-auto max-w-[380px] rounded-card border border-accent bg-card p-3 shadow-3"
+      role="dialog"
+      aria-label={POLL_WORDS.suggestTitle}
+      data-testid="call-poll-offer"
+    >
+      <div className="flex items-start gap-2">
+        <Sparkles size={16} aria-hidden className="mt-0.5 flex-none text-accent-text" />
+        <div className="min-w-0 flex-1">
+          <p className="text-[11.5px] font-medium uppercase tracking-wide text-accent-text">
+            {POLL_WORDS.suggestTitle}
+          </p>
+          <p className="text-[14px] font-medium">{offer.title}</p>
+          <p className="text-[12px] text-text-3">{offer.why || POLL_WORDS.suggestHelp}</p>
+        </div>
+        <button
+          type="button"
+          aria-label="Not now"
+          onClick={() => setOffer(null)}
+          className="rounded-control p-1 text-text-3 hover:bg-card-2 hover:text-text"
+        >
+          <X size={16} />
+        </button>
+      </div>
+      <Button
+        size="sm"
+        className="mt-2.5 w-full"
+        loading={busy}
+        onClick={() => void ask()}
+        data-testid="call-poll-offer-ask"
+      >
+        {POLL_WORDS.askNow}
+      </Button>
+    </div>
   );
 }
 

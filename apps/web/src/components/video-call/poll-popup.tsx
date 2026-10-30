@@ -73,6 +73,8 @@ export function PollPopup({ token, business }: { token: string; business: string
       setError(null);
       return;
     }
+    // The AI's "Ask now?" is the team's alone (and never sent to a customer).
+    if (m.t !== 'close') return;
     setShown((was) => {
       if (was?.kind !== 'asking' || was.poll.pollId !== m.pollId) return was;
       return m.totals ? { kind: 'results', title: was.poll.title, totals: m.totals } : null;

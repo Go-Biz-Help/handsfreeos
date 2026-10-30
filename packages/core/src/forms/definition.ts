@@ -72,6 +72,9 @@ export const MAX_POLL_ITEMS = 30;
 export const POLL_SECONDS = 60;
 export const POLL_MIN_SECONDS = 10;
 export const POLL_MAX_SECONDS = 600;
+/** When-to-ask phrases a live poll's question holds, at most, and the longest one. */
+export const POLL_MAX_CUES = 8;
+export const POLL_CUE_CHARS = 160;
 
 /**
  * How a question runs in a live poll: how long it stays up, and whether everyone sees the totals once it closes (the
@@ -81,6 +84,11 @@ export const POLL_MAX_SECONDS = 600;
 export const LiveQuestion = z.object({
   seconds: z.int().min(POLL_MIN_SECONDS).max(POLL_MAX_SECONDS).default(POLL_SECONDS),
   showResults: z.boolean().default(false),
+  /**
+   * What the presenter might say just before asking it (part 3): the AI hearing the call matches the team's words to
+   * these by meaning, beside the question itself. Written by the AI or the business; none, and it goes by the question.
+   */
+  cues: z.array(z.string().trim().min(1).max(POLL_CUE_CHARS)).max(POLL_MAX_CUES).default([]),
 });
 export type LiveQuestion = z.infer<typeof LiveQuestion>;
 

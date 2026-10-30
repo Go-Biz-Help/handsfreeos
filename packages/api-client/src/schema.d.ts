@@ -15517,6 +15517,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/commands/video_call.set_poll_ai": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Say how far the AI goes with a HandsFreeOS video call’s live poll: pops a question up when it hears its moment and offers the rest (ask), only offers them (suggest), or leaves it to the team (off).
+         * @description Risk level 1. Requires appointments.write. Emits video_call.poll_ai_set.
+         */
+        post: operations["command_video_call_set_poll_ai"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/commands/video_call.stage": {
         parameters: {
             query?: never;
@@ -27602,6 +27622,11 @@ export interface operations {
                                 attendeeVideo?: "off" | "team" | "everyone";
                                 /** @default true */
                                 missedFollowUp?: boolean;
+                                /**
+                                 * @default ask
+                                 * @enum {string}
+                                 */
+                                pollAi?: "ask" | "suggest" | "off";
                                 /** @default null */
                                 pollFormId?: string | null;
                                 /** @default true */
@@ -59137,6 +59162,8 @@ export interface operations {
                             /** Format: uuid */
                             id: string;
                             personId: string | null;
+                            /** @enum {string} */
+                            pollAi: "ask" | "suggest" | "off";
                             pollFormId: string | null;
                             startedAt: string | null;
                             /** @enum {string} */
@@ -59426,6 +59453,41 @@ export interface operations {
                     "application/json": {
                         changed: boolean;
                         pollFormId: string | null;
+                    };
+                };
+            };
+        };
+    };
+    command_video_call_set_poll_ai: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** @enum {string} */
+                    ai: "ask" | "suggest" | "off";
+                    /** Format: uuid */
+                    callId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @enum {string} */
+                        ai: "ask" | "suggest" | "off";
+                        changed: boolean;
                     };
                 };
             };
@@ -65700,6 +65762,11 @@ export interface operations {
                                         attendeeVideo: "off" | "team" | "everyone";
                                         /** @default true */
                                         missedFollowUp: boolean;
+                                        /**
+                                         * @default ask
+                                         * @enum {string}
+                                         */
+                                        pollAi: "ask" | "suggest" | "off";
                                         /** @default null */
                                         pollFormId: string | null;
                                         /** @default true */
@@ -88609,6 +88676,8 @@ export interface operations {
                             /** Format: uuid */
                             id: string;
                             personId: string | null;
+                            /** @enum {string} */
+                            pollAi: "ask" | "suggest" | "off";
                             pollFormId: string | null;
                             startedAt: string | null;
                             /** @enum {string} */
@@ -88671,12 +88740,16 @@ export interface operations {
                 };
                 content: {
                     "application/json": {
+                        /** @enum {string} */
+                        ai: "ask" | "suggest" | "off";
+                        endsAt: string | null;
                         form: {
                             /** Format: uuid */
                             id: string;
                             name: string;
                             ready: boolean;
                         } | null;
+                        hearing: boolean;
                         questions: {
                             button: {
                                 /** @enum {string} */

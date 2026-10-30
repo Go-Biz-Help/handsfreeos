@@ -5,6 +5,8 @@ import {
   findQuestion,
   liveOf,
   parseVideoUrl,
+  POLL_CUE_CHARS,
+  POLL_MAX_CUES,
   POLL_MAX_SECONDS,
   POLL_MIN_SECONDS,
   POLL_WORDS,
@@ -16,7 +18,9 @@ import {
   type FormOp,
   type Question,
 } from '@hfos/core';
-import { Plus, Trash2 } from 'lucide-react';
+import { Plus, Sparkles, Trash2 } from 'lucide-react';
+import { useState } from 'react';
+import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -25,6 +29,7 @@ import { Input } from '@/components/ui/input';
 import { Switch } from '@/components/ui/switch';
 import { Textarea } from '@/components/ui/textarea';
 import type { FormCatalogsOut } from '@/lib/api/types';
+import { cueErrorMessage, writeCues } from '@/lib/forms/poll-cues';
 import { newChoice } from './editor-state';
 
 const TARGET_KEYS = Object.keys(ANSWER_TARGETS) as AnswerTargetKey[];
@@ -34,12 +39,14 @@ const TARGET_KEYS = Object.keys(ANSWER_TARGETS) as AnswerTargetKey[];
  * and — the part that makes a form worth filling in — which field on the customer the answer goes into.
  */
 export function QuestionSettings({
+  workspaceId,
   definition,
   questionId,
   apply,
   catalogs,
   readOnly,
 }: {
+  workspaceId: string;
   definition: FormDefinition;
   questionId: string;
   apply: (ops: FormOp[]) => void;
@@ -141,7 +148,17 @@ export function QuestionSettings({
         />
       ) : null}
 
-      {poll ? <LiveSettings question={question} patch={patch} readOnly={readOnly} /> : null}
+      {poll ? (
+        <LiveSettings
+          question={question}
+          patch={patch}
+          readOnly={readOnly}
+          onWrite={async () => {
+            const ops = await writeCues(workspaceId, definition, [question]);
+            if (ops.length) apply(ops);
+          }}
+        />
+      ) : null}
 
       {question.type === 'booking' ? (
         <BookingSettings
@@ -261,15 +278,64 @@ function LiveSettings({
   question,
   patch,
   readOnly,
+  onWrite,
 }: {
   question: Question;
   patch: (fields: Record<string, unknown>) => void;
   readOnly: boolean;
+  /** The AI writes this question's when-to-ask phrases (part 3). */
+  onWrite: () => Promise<void>;
 }) {
   const live = liveOf(question);
   const counted = question.type !== 'short_text' && question.type !== 'button';
+  const [writing, setWriting] = useState(false);
+  // What's typed, kept as typed (blank lines too) while the box has focus; the draft holds the tidy list.
+  const [typed, setTyped] = useState<string | null>(null);
+  const write = async () => {
+    setWriting(true);
+    try {
+      await onWrite();
+      setTyped(null);
+    } catch (e) {
+      toast.error(cueErrorMessage(e));
+    } finally {
+      setWriting(false);
+    }
+  };
   return (
     <Card className="space-y-4 p-4" data-testid="question-live">
+      <Field label={POLL_WORDS.cues} htmlFor="q-live-cues" hint={POLL_WORDS.cuesHelp}>
+        <Textarea
+          id="q-live-cues"
+          rows={4}
+          value={typed ?? live.cues.join('\n')}
+          disabled={readOnly}
+          placeholder="Let me ask you something about…"
+          onFocus={() => setTyped(live.cues.join('\n'))}
+          onBlur={() => setTyped(null)}
+          onChange={(e) => {
+            setTyped(e.target.value);
+            const cues = e.target.value
+              .split('\n')
+              .map((c) => c.trim().slice(0, POLL_CUE_CHARS))
+              .filter(Boolean)
+              .slice(0, POLL_MAX_CUES);
+            patch({ live: { ...live, cues } });
+          }}
+          data-testid="question-live-cues"
+        />
+      </Field>
+      {!readOnly ? (
+        <Button
+          size="sm"
+          variant="secondary"
+          loading={writing}
+          onClick={() => void write()}
+          data-testid="question-live-write-cues"
+        >
+          <Sparkles size={14} aria-hidden /> {POLL_WORDS.writeCues}
+        </Button>
+      ) : null}
       <Field
         label={POLL_WORDS.seconds}
         htmlFor="q-live-seconds"

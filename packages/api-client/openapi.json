@@ -12721,6 +12721,15 @@
                                     "type": "null"
                                   }
                                 ]
+                              },
+                              "pollAi": {
+                                "default": "ask",
+                                "type": "string",
+                                "enum": [
+                                  "ask",
+                                  "suggest",
+                                  "off"
+                                ]
                               }
                             }
                           }
@@ -18608,6 +18617,14 @@
                               "type": "null"
                             }
                           ]
+                        },
+                        "pollAi": {
+                          "type": "string",
+                          "enum": [
+                            "ask",
+                            "suggest",
+                            "off"
+                          ]
                         }
                       },
                       "required": [
@@ -18622,7 +18639,8 @@
                         "format",
                         "attendeeVideo",
                         "doorKey",
-                        "pollFormId"
+                        "pollFormId",
+                        "pollAi"
                       ],
                       "additionalProperties": false
                     },
@@ -19411,6 +19429,81 @@
                   "required": [
                     "changed",
                     "pollFormId"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/commands/video_call.set_poll_ai": {
+      "post": {
+        "operationId": "command_video_call_set_poll_ai",
+        "summary": "Say how far the AI goes with a HandsFreeOS video call’s live poll: pops a question up when it hears its moment and offers the rest (ask), only offers them (suggest), or leaves it to the team (off).",
+        "tags": [
+          "commands"
+        ],
+        "description": "Risk level 1. Requires appointments.write. Emits video_call.poll_ai_set.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "workspaceId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  },
+                  "callId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  },
+                  "ai": {
+                    "type": "string",
+                    "enum": [
+                      "ask",
+                      "suggest",
+                      "off"
+                    ]
+                  }
+                },
+                "required": [
+                  "workspaceId",
+                  "callId",
+                  "ai"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "changed": {
+                      "type": "boolean"
+                    },
+                    "ai": {
+                      "type": "string",
+                      "enum": [
+                        "ask",
+                        "suggest",
+                        "off"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "changed",
+                    "ai"
                   ],
                   "additionalProperties": false
                 }
@@ -112585,6 +112678,14 @@
                                   "type": "null"
                                 }
                               ]
+                            },
+                            "pollAi": {
+                              "type": "string",
+                              "enum": [
+                                "ask",
+                                "suggest",
+                                "off"
+                              ]
                             }
                           },
                           "required": [
@@ -112599,7 +112700,8 @@
                             "format",
                             "attendeeVideo",
                             "doorKey",
-                            "pollFormId"
+                            "pollFormId",
+                            "pollAi"
                           ],
                           "additionalProperties": false
                         },
@@ -112934,6 +113036,29 @@
                       "minimum": -9007199254740991,
                       "maximum": 9007199254740991
                     },
+                    "ai": {
+                      "type": "string",
+                      "enum": [
+                        "ask",
+                        "suggest",
+                        "off"
+                      ]
+                    },
+                    "hearing": {
+                      "type": "boolean"
+                    },
+                    "endsAt": {
+                      "anyOf": [
+                        {
+                          "type": "string",
+                          "format": "date-time",
+                          "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
                     "questions": {
                       "type": "array",
                       "items": {
@@ -113156,6 +113281,9 @@
                   "required": [
                     "form",
                     "watching",
+                    "ai",
+                    "hearing",
+                    "endsAt",
                     "questions"
                   ],
                   "additionalProperties": false
@@ -137865,13 +137993,23 @@
                                           "type": "null"
                                         }
                                       ]
+                                    },
+                                    "pollAi": {
+                                      "default": "ask",
+                                      "type": "string",
+                                      "enum": [
+                                        "ask",
+                                        "suggest",
+                                        "off"
+                                      ]
                                     }
                                   },
                                   "required": [
                                     "attendeeVideo",
                                     "startingNow",
                                     "missedFollowUp",
-                                    "pollFormId"
+                                    "pollFormId",
+                                    "pollAi"
                                   ],
                                   "additionalProperties": false
                                 }

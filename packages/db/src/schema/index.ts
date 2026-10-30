@@ -2803,6 +2803,8 @@ export const videoCalls = app.table('video_calls', {
   pollFormId: uuid('poll_form_id').references((): AnyPgColumn => forms.id, {
     onDelete: 'set null',
   }),
+  /** How far the AI hearing the team goes with the poll: ask, suggest or off (20261027019900). */
+  pollAi: text('poll_ai').notNull().default('ask'),
 });
 
 /** Who's in a video call: a teammate, a customer on their own Join link, or someone let in (20261027013000). */

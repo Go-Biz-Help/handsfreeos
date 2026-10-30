@@ -4,8 +4,10 @@
  * - **A call picks its poll** (`video_call.set_poll`): a form made as a Live poll. A session's call starts with its
  *   calendar's.
  * - **The team asks a question** (`video_call.poll_open`, Ask now in the panel), or skips it for now
- *   (`video_call.poll_skip`). One question is up at a time: asking another closes the one that's up. The AI asks too
- *   once it hears the presenter (part 3), as the system.
+ *   (`video_call.poll_skip`). One question is up at a time: asking another closes the one that's up.
+ * - **The AI asks too** (part 3), as the system, when it hears the team reach a question's moment and the call's
+ *   `poll_ai` is `ask` (`video_call.set_poll_ai`). It never takes down a question that's up, and never asks one that
+ *   was asked or skipped: those wait for the team.
  * - **It closes** when its time is up (the worker's job), once nearly everyone watching answered (the answer that
  *   gets it there closes it), or when the team closes it (`video_call.poll_close`). The worker tells the room, from
  *   the events.
@@ -18,7 +20,15 @@
  */
 import { and, eq, isNull, sql as dsql } from 'drizzle-orm';
 import { rows, sql } from '@hfos/db/client';
-import { formResponses, forms, formVersions, videoCallPolls, videoCalls } from '@hfos/db/schema';
+import {
+  appointments,
+  formResponses,
+  forms,
+  formVersions,
+  videoCallPeople,
+  videoCallPolls,
+  videoCalls,
+} from '@hfos/db/schema';
 import { z } from 'zod';
 import { HfosError } from '../errors';
 import {
@@ -37,6 +47,8 @@ import { requireHuman } from '../kernel/actor';
 import { defineCommand, defineQuery } from '../kernel/define';
 import type { CommandContext, QueryContext } from '../kernel/types';
 import {
+  POLL_AI_MODES,
+  POLL_AI_QUIET_MS,
   POLL_GRACE_MS,
   POLL_OPENERS,
   POLL_PRESSED_SHOWN,
@@ -47,6 +59,7 @@ import {
   closesEarly,
   pollOnScreen,
   pollTotals,
+  type PollAiMode,
   type PollCounts,
 } from '../meetings/polls';
 import { isoDateTime, uuid } from '../schemas/common';
@@ -67,6 +80,8 @@ export const POLL_CLOSED_WHY = ['time', 'nearly_all', 'team', 'replaced', 'ended
 export type PollClosedWhy = (typeof POLL_CLOSED_WHY)[number];
 
 const iso = (d: Date | null) => (d ? d.toISOString() : null);
+const pollAiOf = (c: { pollAi: string }): PollAiMode =>
+  (POLL_AI_MODES as readonly string[]).includes(c.pollAi) ? (c.pollAi as PollAiMode) : 'ask';
 
 const pollGone = () =>
   HfosError.notFound('That live poll isn’t in Forms anymore. Pick another one for this call.');
@@ -218,6 +233,46 @@ export async function pollCounts(
 
 const NO_COUNTS: PollCounts = { answered: 0, byChoice: {}, byNumber: {} };
 
+/**
+ * The AI asks on its own only while the call lets it, never over a question that's up or one just closed, and never
+ * one the team skipped: those are the team's to ask.
+ */
+async function mayAiAsk(
+  tx: Tx,
+  call: CallRow,
+  existing: PollRow | null,
+  up: PollRow | null,
+): Promise<void> {
+  if (call.pollAi !== 'ask')
+    throw HfosError.rule(
+      'poll_ai_off',
+      409,
+      'The AI only offers questions in this call. Ask it from the Live poll panel.',
+    );
+  if (up)
+    throw HfosError.rule(
+      'poll_question_open',
+      409,
+      'A question is up right now. The AI waits for it to close.',
+    );
+  if (existing?.state === 'skipped')
+    throw HfosError.rule(
+      'poll_skipped',
+      409,
+      'Your team skipped that question, so the AI leaves it to them.',
+    );
+  const [last] = await rows<{ closed_at: Date | string | null }>(
+    tx,
+    sql`select max(closed_at) as closed_at from app.video_call_polls where video_call_id = ${call.id}`,
+  );
+  if (last?.closed_at && Date.now() - new Date(last.closed_at).getTime() < POLL_AI_QUIET_MS)
+    throw HfosError.rule(
+      'poll_too_soon',
+      409,
+      'A question only just closed. The AI waits a few seconds before asking another.',
+    );
+}
+
 // ---------- picking the poll ----------
 
 export const videoCallSetPoll = defineCommand({
@@ -254,6 +309,34 @@ export const videoCallSetPoll = defineCommand({
       broadcast: false,
     });
     return { changed: true, pollFormId: input.formId };
+  },
+});
+
+export const videoCallSetPollAi = defineCommand({
+  name: 'video_call.set_poll_ai',
+  description:
+    'Say how far the AI goes with a HandsFreeOS video call’s live poll: pops a question up when it hears its moment and offers the rest (ask), only offers them (suggest), or leaves it to the team (off).',
+  risk: 1,
+  input: z.object({ workspaceId: uuid, callId: uuid, ai: z.enum(POLL_AI_MODES) }),
+  output: z.object({ changed: z.boolean(), ai: z.enum(POLL_AI_MODES) }),
+  permission: 'appointments.write',
+  scope: inWorkspace,
+  emits: ['video_call.poll_ai_set'],
+  async handler(ctx, input) {
+    requireHuman(ctx);
+    const call = await lockVideoCall(ctx, input.callId);
+    if (call.pollAi === input.ai) return { changed: false, ai: input.ai };
+    await ctx.tx.update(videoCalls).set({ pollAi: input.ai }).where(eq(videoCalls.id, call.id));
+    await ctx.emit({
+      type: 'video_call.poll_ai_set',
+      entityType: 'video_call',
+      entityId: call.id,
+      payload: { appointmentId: call.appointmentId, ai: input.ai },
+      before: { ai: call.pollAi },
+      after: { ai: input.ai },
+      broadcast: false,
+    });
+    return { changed: true, ai: input.ai };
   },
 });
 
@@ -312,6 +395,7 @@ export const videoCallPollOpen = defineCommand({
         `“${question.title}” was already asked in this call. Its answers are in the panel.`,
       );
     const up = await openPollIn(ctx.tx, call.id, true);
+    if (ctx.actor.type !== 'human') await mayAiAsk(ctx.tx, call, existing ?? null, up);
     if (up) await closePoll(ctx, call, up, 'replaced');
 
     const now = new Date();
@@ -703,6 +787,12 @@ const PollsOut = z.object({
     .nullable(),
   /** Everyone in the call now who isn't on the team. */
   watching: z.int(),
+  /** How far the AI goes with the poll (part 3). */
+  ai: z.enum(POLL_AI_MODES),
+  /** AI notes are on, so the AI can hear when to ask. */
+  hearing: z.boolean(),
+  /** When the appointment is booked to end, for the questions not asked near the end; null for a call without one. */
+  endsAt: isoDateTime.nullable(),
   questions: z.array(PollQuestionOut),
 });
 
@@ -726,12 +816,24 @@ export const videoCallPollsGet = defineQuery({
         'That video call isn’t there anymore, or isn’t one you can see. Open it again from the appointment.',
       );
     const watching = await watchingIn(ctx.tx, call.id);
-    if (!call.pollFormId) return { form: null, watching, questions: [] };
+    const [booked] = call.appointmentId
+      ? await ctx.tx
+          .select({ endsAt: appointments.endsAt })
+          .from(appointments)
+          .where(eq(appointments.id, call.appointmentId))
+      : [];
+    const about = {
+      watching,
+      ai: pollAiOf(call),
+      hearing: call.aiNotes,
+      endsAt: iso(booked?.endsAt ?? null),
+    };
+    if (!call.pollFormId) return { form: null, ...about, questions: [] };
     const [form] = await ctx.tx
       .select()
       .from(forms)
       .where(and(eq(forms.id, call.pollFormId), eq(forms.workspaceId, ws)));
-    if (!form) return { form: null, watching, questions: [] };
+    if (!form) return { form: null, ...about, questions: [] };
     const published = await publishedPoll(ctx.tx, ws, form.id).catch(() => null);
     // Not published yet: the draft's questions, to look at; nothing can be asked until it is.
     const definition = published?.definition ?? (await loadForm(ctx.tx, ws, form.id)).definition;
@@ -766,7 +868,7 @@ export const videoCallPollsGet = defineQuery({
       [r.first_name, r.last_name].filter(Boolean).join(' ').trim() || 'Someone';
     return {
       form: { id: form.id, name: form.name, ready: !!published },
-      watching,
+      ...about,
       questions: allQuestions(definition).map((question) => {
         const p = byQuestion.get(question.id);
         const live = liveOf(question);
@@ -889,8 +991,82 @@ export async function videoCallPollQuestion(
   return question ? { poll, question } : null;
 }
 
+/** A question the AI may match what the team says to: the words it goes by, and how it stands in the call. */
+export interface PollCueQuestion {
+  readonly id: string;
+  readonly type: string;
+  readonly title: string;
+  readonly help: string;
+  /** Pick one and pick any: the choices' words; a button: its words. */
+  readonly choices: readonly string[];
+  readonly cues: readonly string[];
+  readonly state: 'waiting' | 'open' | 'closed' | 'skipped';
+}
+
+/** What the AI hearing a call needs to match the team's words to its live poll (part 3). */
+export interface PollCueState {
+  readonly ai: PollAiMode;
+  /** A question is up now: the AI waits for it to close. */
+  readonly openNow: boolean;
+  /** When the last question closed, epoch ms, for the quiet after it. */
+  readonly lastClosedAt: number | null;
+  readonly questions: readonly PollCueQuestion[];
+  /** The team's people in the call (their identities in the room): only their words count (the owner's 13). */
+  readonly team: readonly string[];
+}
+
+/**
+ * The call's live poll as the AI hearing it sees it (the media process, every few lines): null while there's nothing
+ * it could ask, because the call has no published poll, the AI is off for it, or the call is over.
+ */
+export async function videoCallPollCueState(tx: Tx, callId: string): Promise<PollCueState | null> {
+  const [call] = await tx.select().from(videoCalls).where(eq(videoCalls.id, callId));
+  if (!call?.pollFormId || call.state === 'ended' || pollAiOf(call) === 'off') return null;
+  const published = await publishedPoll(tx, call.workspaceId, call.pollFormId).catch(() => null);
+  if (!published) return null;
+  const asked = await tx
+    .select()
+    .from(videoCallPolls)
+    .where(
+      and(eq(videoCallPolls.videoCallId, call.id), eq(videoCallPolls.formId, published.form.id)),
+    );
+  const byQuestion = new Map(asked.map((a) => [a.questionId, a]));
+  const team = await tx
+    .select({ id: videoCallPeople.id })
+    .from(videoCallPeople)
+    .where(and(eq(videoCallPeople.videoCallId, call.id), eq(videoCallPeople.kind, 'team')));
+  const closed = asked
+    .map((a) => a.closedAt?.getTime() ?? 0)
+    .filter((t) => t > 0)
+    .sort((a, b) => b - a);
+  return {
+    ai: pollAiOf(call),
+    openNow: asked.some((a) => a.state === 'open'),
+    lastClosedAt: closed[0] ?? null,
+    team: team.map((t) => t.id),
+    questions: allQuestions(published.definition).map((q) => {
+      const config = q.config as Record<string, unknown>;
+      return {
+        id: q.id,
+        type: q.type,
+        title: q.title,
+        help: q.help,
+        choices:
+          q.type === 'choice' || q.type === 'checkboxes'
+            ? (config.choices as { label: string }[]).map((c) => c.label)
+            : q.type === 'button'
+              ? [String(config.label)]
+              : [],
+        cues: liveOf(q).cues,
+        state: (byQuestion.get(q.id)?.state ?? 'waiting') as PollCueQuestion['state'],
+      };
+    }),
+  };
+}
+
 export const videoCallPollCommands = [
   videoCallSetPoll,
+  videoCallSetPollAi,
   videoCallPollOpen,
   videoCallPollSkip,
   videoCallPollClose,

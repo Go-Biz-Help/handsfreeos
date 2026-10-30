@@ -581,6 +581,9 @@ export const WEBINAR_WORDS = {
   /** Settings → Calendars: the live poll each session starts with (part 2). */
   pollHelp:
     'Its questions pop up on everyone’s screen when you ask them, and each answer is saved on the person’s contact. Make one in Forms as a Live poll.',
+  /** …and how far the AI goes with it (part 3). */
+  pollAiHelp:
+    'The AI listens to you and your team, and pops each question up when you reach it. When it’s only fairly sure, it asks you first. AI notes must be on for it to hear.',
   attendeeVideoChanged: {
     off: 'Attendees’ cameras are off.',
     team: 'Attendees can turn their cameras on. Only your team sees them.',

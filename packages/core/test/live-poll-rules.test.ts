@@ -101,10 +101,11 @@ describe('what a live poll may ask', () => {
   });
 
   it('gives each question a minute and keeps its totals for the team unless it says otherwise', () => {
-    expect(liveOf(q(choice))).toEqual({ seconds: 60, showResults: false });
+    expect(liveOf(q(choice))).toEqual({ seconds: 60, showResults: false, cues: [] });
     expect(liveOf(q({ ...choice, live: { seconds: 30, showResults: true } }))).toEqual({
       seconds: 30,
       showResults: true,
+      cues: [],
     });
     expect(() => q({ ...choice, live: { seconds: 5 } })).toThrow();
     expect(totalsShown(q({ ...choice, live: { showResults: true } }))).toBe(true);
@@ -120,6 +121,19 @@ describe('what a live poll may ask', () => {
         }),
       ),
     ).toBe(false);
+  });
+
+  it('keeps a few short when-to-ask phrases for the AI (part 3)', () => {
+    expect(
+      liveOf(
+        q({ ...choice, live: { cues: ['  how do you get leads  ', 'where do leads come from'] } }),
+      ).cues,
+    ).toEqual(['how do you get leads', 'where do leads come from']);
+    expect(() => q({ ...choice, live: { cues: [''] } })).toThrow();
+    expect(() =>
+      q({ ...choice, live: { cues: Array.from({ length: 9 }, (_, i) => `cue ${i}`) } }),
+    ).toThrow();
+    expect(() => q({ ...choice, live: { cues: ['x'.repeat(161)] } })).toThrow();
   });
 
   it('takes a press as a button’s answer', () => {
@@ -228,6 +242,15 @@ describe('the message', () => {
     };
     expect(readPollMessage(new TextEncoder().encode(JSON.stringify(open)))).toEqual(open);
     expect(readPollMessage('not json')).toBeNull();
+    // The AI's "Ask now?" for the team (part 3).
+    const suggest = {
+      t: 'suggest',
+      questionId: 'q_choice00',
+      title: 'How do you get leads now?',
+      why: 'They just asked where leads come from.',
+      until: '2026-11-03T19:01:30.000Z',
+    };
+    expect(readPollMessage(JSON.stringify(suggest))).toEqual(suggest);
     expect(readPollMessage(JSON.stringify({ t: 'open', poll: { title: 'Fake' } }))).toBeNull();
   });
 });

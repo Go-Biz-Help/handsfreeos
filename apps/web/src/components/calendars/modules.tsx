@@ -18,7 +18,9 @@ import {
   WEBINAR_WORDS,
   ATTENDEE_VIDEO_CHOICES,
   POLL_WORDS,
+  POLL_AI_MODES,
   type AttendeeVideo,
+  type PollAiMode,
 } from '@hfos/core';
 import { ArrowDown, ArrowUp, Info, Plus, Trash2, UserPlus, X } from 'lucide-react';
 import Link from 'next/link';
@@ -1046,6 +1048,26 @@ function WebinarSettings({
           ) : null}
         </Select>
       </SetRow>
+      {w.pollFormId ? (
+        <SetRow title={POLL_WORDS.aiMode} description={WEBINAR_WORDS.pollAiHelp}>
+          <Select
+            selectSize="sm"
+            className="w-[230px]"
+            aria-label={POLL_WORDS.aiMode}
+            value={w.pollAi}
+            onChange={(e) =>
+              patch({ locations: { webinar: { pollAi: e.target.value as PollAiMode } } })
+            }
+            data-testid="webinar-poll-ai"
+          >
+            {POLL_AI_MODES.map((m) => (
+              <option key={m} value={m}>
+                {POLL_WORDS.aiModes[m]}
+              </option>
+            ))}
+          </Select>
+        </SetRow>
+      ) : null}
     </div>
   );
 }

@@ -1285,7 +1285,7 @@ export const assistantTools = [
       'The business’s forms, surveys and quizzes: what each one is, whether it is taking answers, its public link and how many people have answered.',
     input: z.object({
       status: z.enum(['draft', 'live', 'closed']).optional(),
-      mode: z.enum(['form', 'survey', 'quiz']).optional(),
+      mode: z.enum(['form', 'survey', 'quiz', 'poll']).optional(),
     }),
     autonomy: 'auto',
     permission: 'workspace.read',
@@ -1309,15 +1309,15 @@ export const assistantTools = [
   define({
     name: 'build_form',
     description:
-      'Build a form, survey or quiz from the person’s words, or change one they name (formId). It saves a draft only — nothing a customer sees changes until it is published, which is a separate step they agree to. Put everything they asked for in the description.',
+      'Build a form, survey, quiz or live poll from the person’s words, or change one they name (formId). A live poll’s questions pop up during a HandsFreeOS video call or webinar, and it gets when-to-ask phrases for the AI listening. It saves a draft only — nothing a customer sees changes until it is published, which is a separate step they agree to. Put everything they asked for in the description.',
     input: z.object({
       description: text(2000).describe('What it should ask, or what to change, in their words'),
       formId: uuid.optional().describe('The form to change; leave it out to start a new one'),
       name: z.string().trim().min(1).max(120).optional().describe('A short name for a new form'),
       mode: z
-        .enum(['form', 'survey', 'quiz'])
+        .enum(['form', 'survey', 'quiz', 'poll'])
         .optional()
-        .describe('A new one: which of the three it is (default: form)'),
+        .describe('A new one: which kind it is (default: form)'),
     }),
     autonomy: 'auto',
     permission: 'forms.manage',

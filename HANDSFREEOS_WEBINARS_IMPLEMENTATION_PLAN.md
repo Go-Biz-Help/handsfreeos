@@ -10,7 +10,8 @@ It builds on the video calls (`docs/video-calls.md`), sessions-mode calendars (e
 
 **Where it stands (2026-10-30):** the owner answered the 26 questions; part 1, the webinar room, is built (migration
 20261027019600, "Webinars" in `docs/video-calls.md`), and so is part 2, live polls (migrations 20261027019700 and
-20261027019800, "Live polls" in `docs/video-calls.md`). Parts 3 to 5 are next.
+20261027019800, "Live polls" in `docs/video-calls.md`), and part 3, the AI asking them (migration 20261027019900,
+"The AI asking" there). Parts 4 and 5 are next.
 
 ## Decisions (the owner, 2026-10-29 23:15 UTC)
 
@@ -146,9 +147,10 @@ ask before going against one.
 ## Part 3: the AI pops them up
 
 - **Cue phrases** per question (`cues`), written by the AI when the poll is saved, editable.
-- **The listener hands each finished line from the team or someone on stage** to a matcher in the media process. It
-  compares the last few lines with the questions not yet asked. Sure: it opens the question (as the AI). Fairly sure:
-  it sends "Ask now?" to the team's panel only. Attendees' words never count.
+- **The listener hands each finished line from the team** to a matcher in the media process (the owner's 13: never
+  an attendee, even one brought on stage). It compares the last few lines with the questions not yet asked. Sure: it
+  opens the question (as the AI). Fairly sure: it sends "Ask now?" to the team alone. The call's `poll_ai` (ask,
+  suggest, off; from the calendar) says how far it goes.
 - **Waiting:** a question whose moment passed stays queued; in the last few minutes the panel lists those not asked.
 
 ## Part 4: slides inside HandsFreeOS

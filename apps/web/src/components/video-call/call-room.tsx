@@ -22,7 +22,8 @@
  *   how many are watching. An attendee whose camera only the team may see lets only the team's pages receive it
  *   (LiveKit's track subscription permissions).
  * - **A live poll** (part 2): the team's Live poll panel asks the call's poll questions (./poll-panel.tsx), and a
- *   customer on their own link sees each pop up and answers it (./poll-popup.tsx).
+ *   customer on their own link sees each pop up and answers it (./poll-popup.tsx). The AI hearing the team asks
+ *   them too, or offers the team "Ask now?" over the stage (part 3, `PollOffer`).
  */
 import {
   ATTENDEE_VIDEO_CHOICES,
@@ -115,7 +116,7 @@ import { cn } from '@/lib/utils';
 import { canBlur, setBlur } from './blur';
 import { ChatPanel, PeoplePanel } from './call-panels';
 import { CallStage } from './call-stage';
-import { PollPanel } from './poll-panel';
+import { PollOffer, PollPanel } from './poll-panel';
 import { PollPopup } from './poll-popup';
 import { mediaProblem } from './pre-join';
 import {
@@ -603,6 +604,7 @@ function CallScreen({
             <Reactions floating={floating} />
             {cc ? <CaptionLines lines={captions} aiOn={aiNotes} /> : null}
             {poll ? <PollPopup token={poll.token} business={poll.business} /> : null}
+            {team ? <PollOffer team={team} /> : null}
           </div>
           {panel === 'chat' ? (
             <ChatPanel

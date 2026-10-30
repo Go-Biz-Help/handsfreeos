@@ -80,6 +80,7 @@ import {
   type VideoCallKind,
 } from '../meetings/video-calls';
 import { loadCalendar } from '../calendar/load';
+import { POLL_AI_MODES, type PollAiMode } from '../meetings/polls';
 import { defaultNumber, isOptedOut, loadRegistrations, readiness } from '../messaging/store';
 import { logChannelActivity } from '../crm/activities';
 import { AppointmentLocation } from '../schemas/calendar';
@@ -128,6 +129,8 @@ const CallOut = z.object({
   doorKey: z.string().nullable(),
   /** The live poll its questions pop up from (part 2). */
   pollFormId: uuid.nullable(),
+  /** How far the AI hearing the team goes with the poll (part 3). */
+  pollAi: z.enum(POLL_AI_MODES),
 });
 
 const PersonOut = z.object({
@@ -161,6 +164,7 @@ const callOut = (c: CallRow): z.infer<typeof CallOut> => ({
   attendeeVideo: attendeeVideoOf(c),
   doorKey: c.doorKey,
   pollFormId: c.pollFormId,
+  pollAi: pollAiOf(c),
 });
 
 const personOut = (p: PersonRow): z.infer<typeof PersonOut> => ({
@@ -179,6 +183,9 @@ const personOut = (p: PersonRow): z.infer<typeof PersonOut> => ({
 });
 
 const formatOf = (c: CallRow): VideoCallFormat => (c.format === 'webinar' ? 'webinar' : 'meeting');
+const pollAiOf = (c: CallRow): PollAiMode =>
+  (POLL_AI_MODES as readonly string[]).includes(c.pollAi) ? (c.pollAi as PollAiMode) : 'ask';
+
 const attendeeVideoOf = (c: CallRow): AttendeeVideo =>
   (ATTENDEE_VIDEO_CHOICES as readonly string[]).includes(c.attendeeVideo)
     ? (c.attendeeVideo as AttendeeVideo)
@@ -273,13 +280,20 @@ async function madeAs(
   attendeeVideo: AttendeeVideo;
   doorKey: string | null;
   pollFormId: string | null;
+  pollAi: PollAiMode;
 }> {
   const [a] = await tx
     .select({ kind: appointments.kind, calendarId: appointments.calendarId })
     .from(appointments)
     .where(and(eq(appointments.id, appointmentId), eq(appointments.workspaceId, ws)));
   if (a?.kind !== 'session')
-    return { format: 'meeting', attendeeVideo: 'off', doorKey: null, pollFormId: null };
+    return {
+      format: 'meeting',
+      attendeeVideo: 'off',
+      doorKey: null,
+      pollFormId: null,
+      pollAi: 'ask',
+    };
   const calendar = await loadCalendar(tx, ws, a.calendarId).catch(() => null);
   const pollRef = calendar?.config.locations.webinar.pollFormId ?? null;
   // A poll deleted or archived since the calendar picked it is simply not there.
@@ -301,6 +315,7 @@ async function madeAs(
     attendeeVideo: calendar?.config.locations.webinar.attendeeVideo ?? 'off',
     doorKey: randomKey(WEBINAR_DOOR_KEY_LENGTH),
     pollFormId: poll?.id ?? null,
+    pollAi: calendar?.config.locations.webinar.pollAi ?? 'ask',
   };
 }
 

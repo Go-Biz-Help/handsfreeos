@@ -173,8 +173,10 @@ A fourth kind beside form, survey and quiz (`mode = 'poll'`), picked on a call o
 - **What it may ask** (`pollProblems` in `definition.ts`): pick one, pick any, yes or no, a rating, a scale, a short
   answer, and **buttons**, at most 30 items, no rules. A button (`questions.ts`) books on a calendar, opens an https
   link, or says "talk to someone"; it belongs to live polls only, so any other form with one has a problem to fix.
-- **Each question's `live`** holds how long it stays up (`seconds`, 10 to 600, 60 by default) and whether everyone
-  sees the totals after (`showResults`, off by default). `liveOf` fills the defaults. The editor shows both under
+- **Each question's `live`** holds how long it stays up (`seconds`, 10 to 600, 60 by default), whether everyone
+  sees the totals after (`showResults`, off by default), and up to eight **when-to-ask phrases** (`cues`): what the
+  presenter might say just before asking it, which the AI hearing the call listens for (part 3). The AI writes them
+  from the editor or the Assistant's builder, and the business changes them like any words. `liveOf` fills the defaults. The editor shows both under
   each question (**Seconds it stays up**); a poll has no Required switch, no Where it goes and no Share tab.
 - **Its answers** are one response per person per call (`form_responses.video_call_id`, `source = 'video_call'`), so
   Results and the customer's record show them like any form's.

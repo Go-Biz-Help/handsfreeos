@@ -1,4 +1,4 @@
-# HandsFreeOS video calls (20261027013000, 20261027013300, 20261027013500, 20261027014600, 20261027019600, 20261027019800)
+# HandsFreeOS video calls (20261027013000, 20261027013300, 20261027013500, 20261027014600, 20261027019600, 20261027019800, 20261027019900)
 
 HandsFreeOS's own Zoom-like calls. A calendar's Online place (or one service on it) can say **HandsFreeOS video
 call**, and each appointment booked there gets its own call, with nothing for the business to connect. Customers
@@ -12,7 +12,8 @@ phones with the next store build ("On the phone" below). So is part 5, calls any
 page and in a conversation, and **Switch to video** during a phone call, send the customer their own link and open the
 call ("Calls any time" below). A session's call is a **webinar**: up to 500 people, the presenter big and everyone
 else watching, with a link anyone can use ("Webinars" below), and any call can carry **live polls**: questions and buttons that pop
-up on customers' screens, with the answers landing on their contacts ("Live polls" below;
+up on customers' screens, asked by the team or by the AI when it hears them reach each one, with the answers landing
+on their contacts ("Live polls" below;
 `HANDSFREEOS_WEBINARS_IMPLEMENTATION_PLAN.md` is the plan they come from). Support turns calls on per business in /admin until every business gets them. Setting up LiveKit (the account, the worker's secrets and the
 webhook) is "Video calls: LiveKit" in `docs/operations.md`.
 
@@ -59,6 +60,8 @@ webhook) is "Video calls: LiveKit" in `docs/operations.md`.
 | Live polls: commands and reads               | `packages/core/src/commands/video-call-poll.ts`                                                                                   |
 | Live polls: the room told, the jobs          | `apps/worker/src/video-calls/polls.ts`; the customer's routes in `video-calls/routes.ts`                                          |
 | Live polls: the pop-up and the team's panel  | `components/video-call/poll-popup.tsx`, `poll-panel.tsx`, placed by `call-room.tsx`                                               |
+| Live polls: the AI asking, in the call       | `apps/worker/src/video-calls/poll-cues.ts`, made by `listener.ts`; `videoCallPollCueState` (core)                                 |
+| Live polls: when-to-ask phrases by the AI    | `apps/worker/src/forms/poll-cue-routes.ts`; the editor's side in `apps/web/src/lib/forms/poll-cues.ts`                            |
 
 ## How a call goes
 
@@ -344,6 +347,33 @@ matters.
 - **A poll can't be filled in anywhere else:** it has no public page, the AI teammate can't ask it, the phone's Forms
   list leaves it out, and `form_response.*` refuses it (`form_is_poll`).
 
+#### The AI asking (20261027019900)
+
+Part 3 of the plan: the owner's 10, 12, 13 and 19.
+
+- **It hears the team only.** The listener hands each finished line to `CallPollCues` (`poll-cues.ts`), which keeps
+  the team's (`video_call_people.kind = 'team'`) and drops everyone else's, someone on stage included. So the AI
+  asks only in a call it hears: AI notes on. The panel says so when they're off.
+- **A quick model decides** (the calls' model, `voiceAi`, thinking off): the newest team line and the three before
+  it, against the questions not asked yet, each with its kind, choices and **when-to-ask phrases** (`live.cues`). It
+  answers sure, fairly or no, with a one-line reason. A call with no published poll, or the AI off, never reaches it,
+  and neither does a line while a question is up, in the 20 seconds after one closed, or under a dozen letters. One
+  question to the model at a time per call; its tokens go on the business's AI as `meetings`, and an empty budget or
+  balance stops it for ten minutes.
+- **Sure** pops the question up as the system (`video_call.poll_open`, `opened_by = 'ai'`), when the call's
+  `poll_ai` is `ask`. Core holds the AI to it: `poll_ai_off`, `poll_question_open` (it never takes one down),
+  `poll_too_soon` and `poll_skipped` (a question the team skipped is theirs), and the matcher lets a refusal go.
+- **Fairly sure**, or sure while `poll_ai` is `suggest`, sends `{t: 'suggest'}` on `hfos.polls` to the team's
+  identities only (LiveKit's `destinationIdentities`), at most once per question every two minutes. `PollOffer`
+  shows **Ask now?** over the stage for 30 seconds, panel open or not; customers' pages ignore it anyway.
+- **How far it goes** is `video_calls.poll_ai` (ask, suggest, off): from the calendar's `locations.webinar.pollAi`,
+  changed in the panel (`video_call.set_poll_ai`).
+- **A question whose moment passed** simply waits for the next time the team's words fit. In the last five minutes
+  before the appointment's end, the panel lists those not asked yet with Ask now.
+- **When-to-ask phrases** are written by the business, by the AI from the editor (**Write them for me** on a question,
+  or for every question without any: `POST /v1/forms/ai/cues` on the worker, which saves nothing; the editor puts
+  them in the draft as edits), or by the Assistant's form builder, which makes live polls with them.
+
 ## Running it locally
 
 Without LiveKit the worker uses its stand-in: tickets connect to nothing and the call screen shows a stand-in for
@@ -366,7 +396,7 @@ enough to see captions and lines arrive. With `DEEPGRAM_API_KEY` and `VOICE_AGEN
   but **Video call** goes on to open the call for whoever pressed it, so for now it's only a button.
 - Screen share from a phone's browser, which phones don't allow; they can watch someone else's.
 - Joining by phone, recordings, breakout rooms and picture backgrounds.
-- The AI popping live polls up, slides inside HandsFreeOS and scoring who to follow up: parts 3 to 5 of
-  `HANDSFREEOS_WEBINARS_IMPLEMENTATION_PLAN.md`. Live polls on the phone's call screen: the team asks from the web
+- Slides inside HandsFreeOS (with the AI matching each question to its slide) and scoring who to follow up: parts 4
+  and 5 of `HANDSFREEOS_WEBINARS_IMPLEMENTATION_PLAN.md`. Live polls on the phone's call screen: the team asks from the web
   for now.
 - Webinar controls on the phone: it shows who's presenting, but the camera choice and Bring on stage are on the web.

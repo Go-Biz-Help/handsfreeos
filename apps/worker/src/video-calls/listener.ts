@@ -14,15 +14,34 @@
  *   joins (`markAi`).
  * - **The coach** (coach.ts): with the worker's services, what it hears goes to the add-ons that listen, for someone
  *   on the team in the call they're on for. AI notes off forgets their coaching too; leaving otherwise doesn't end it.
+ * - **The live poll** (poll-cues.ts): with the worker's services too, what the team says is matched to the call's
+ *   live poll, and a question pops up, or the team is offered it, when they reach its moment.
  */
-import { executeCommand, HfosError, videoCallHeard, videoCallRoom } from '@hfos/core/server';
+import {
+  executeCommand,
+  HfosError,
+  VIDEO_CALL_POLLS_TOPIC,
+  videoCallHeard,
+  videoCallPollCueState,
+  videoCallPollOpen,
+  videoCallRoom,
+} from '@hfos/core/server';
 import { asWorker, rows, sql, type Db } from '@hfos/db/client';
 import type { Logger } from 'pino';
 import type { LiveFanoutDeps } from '../addons/live-fanout';
 import { noteSpeech, speechMinutes } from '../money/speech-usage';
 import { systemActor, workerMeta, type TenantScope } from '../services';
 import type { SpeechServices } from '../voice-agent/speech';
+import { AiAskError, askStructured } from '../ai/ask';
 import { CallCoach } from './coach';
+import {
+  CallPollCues,
+  POLL_CUE_MATCH_SCHEMA,
+  POLL_CUE_SYSTEM,
+  PollCueMatch,
+  PollCuesOutOfRoom,
+  pollCueContext,
+} from './poll-cues';
 import { CallHearing, type HeardLine, type JoinRoom, type ListenerRoom } from './hearing';
 import type { VideoCallProvider } from './provider';
 
@@ -33,7 +52,10 @@ export interface ListenerDeps {
   readonly video: VideoCallProvider;
   readonly join: JoinRoom;
   readonly now?: () => number;
-  /** The worker's services, for the add-ons that listen (the coach). Without them, nobody is coached. */
+  /**
+   * The worker's services, for the add-ons that listen (the coach) and the AI asking the live poll. Without them,
+   * nobody is coached and no question pops up on its own.
+   */
   readonly coach?: LiveFanoutDeps;
 }
 
@@ -55,6 +77,7 @@ interface Heard {
   readonly hearing: CallHearing;
   readonly room: ListenerRoom;
   readonly coach: CallCoach | null;
+  readonly cues: CallPollCues | null;
 }
 
 export interface Listener {
@@ -79,6 +102,7 @@ export function createListener(deps: ListenerDeps): Listener {
     const h = heard.get(callId);
     if (!h) return;
     heard.delete(callId);
+    h.cues?.stop();
     await h.room.leave().catch(() => undefined);
     await h.hearing.stop();
     if (why === 'off') await deps.video.markAi(videoCallRoom(callId), false).catch(() => undefined);
@@ -113,12 +137,16 @@ export function createListener(deps: ListenerDeps): Listener {
     let inRoom: ListenerRoom | null = null;
     const log = deps.log.child({ callId });
     const coach = deps.coach ? new CallCoach(deps.coach, scope, callId, log, now) : null;
+    const cues = deps.coach ? pollCues(deps.coach, scope, callId, log) : null;
     const hearing = new CallHearing(callId, {
       speech: deps.speech,
       log,
       now,
       keep: (lines) => keep(scope, callId, lines),
-      onLine: (line) => coach?.heard(line),
+      onLine: (line) => {
+        coach?.heard(line);
+        cues?.heard(line);
+      },
       bill: (seconds) =>
         noteSpeech(deps, scope, [
           {
@@ -139,7 +167,7 @@ export function createListener(deps: ListenerDeps): Listener {
         void leave(callId, 'gone');
       },
     });
-    heard.set(callId, { scope, hearing, room: inRoom, coach });
+    heard.set(callId, { scope, hearing, room: inRoom, coach, cues });
     await deps.video
       .markAi(room, true)
       .catch((e: unknown) =>
@@ -150,6 +178,66 @@ export function createListener(deps: ListenerDeps): Listener {
       );
     deps.log.info({ callId }, 'hearing a video call');
     await coach?.check();
+  }
+
+  /** The call's live poll matched to what the team says (poll-cues.ts), on the quick model calls think with. */
+  function pollCues(
+    services: LiveFanoutDeps,
+    scope: TenantScope,
+    callId: string,
+    log: Logger,
+  ): CallPollCues {
+    const ai = { provider: services.voiceAi ?? services.ai.provider };
+    return new CallPollCues(callId, {
+      log,
+      now,
+      load: () => asWorker(deps.db, scope, (tx) => videoCallPollCueState(tx, callId)),
+      ask: async (questions, lines) => {
+        try {
+          const { value } = await askStructured({ ...services, ai }, scope, {
+            system: POLL_CUE_SYSTEM,
+            context: pollCueContext(questions),
+            messages: [
+              {
+                role: 'user',
+                content: `What the team just said, oldest first:\n${lines.map((l) => `- ${l}`).join('\n')}`,
+              },
+            ],
+            schema: POLL_CUE_MATCH_SCHEMA,
+            zod: PollCueMatch,
+            maxTokens: 300,
+            usage: { source: 'meetings' },
+          });
+          return value;
+        } catch (e) {
+          if (
+            e instanceof AiAskError &&
+            (e.code === 'budget_reached' ||
+              e.code === 'wallet_empty' ||
+              e.code === 'ai_unavailable')
+          )
+            throw new PollCuesOutOfRoom(e.message);
+          throw e;
+        }
+      },
+      open: async (questionId) => {
+        try {
+          await executeCommand(
+            deps.db,
+            videoCallPollOpen,
+            { workspaceId: scope.workspaceId, callId, questionId },
+            systemActor(scope),
+            workerMeta(),
+          );
+        } catch (e) {
+          // Asked by the team a moment ago, skipped, or too soon after the last: the AI lets it go.
+          if (e instanceof HfosError && e.status >= 400 && e.status < 500) return;
+          throw e;
+        }
+      },
+      offer: (message, to) =>
+        deps.video.send(videoCallRoom(callId), VIDEO_CALL_POLLS_TOPIC, message, to),
+    });
   }
 
   /** Lines into the call's keeping. A refusal (the call is gone) drops them; anything else is tried again. */

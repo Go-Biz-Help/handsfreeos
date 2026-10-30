@@ -107,7 +107,7 @@ export const FORM_BUILDER_TOOLS: readonly FormToolDef[] = [
   {
     name: 'update_question',
     description:
-      'Change a question with a JSON merge patch: objects merge, lists and null replace. Its own settings go under "config"; a new "type" replaces them. Choices are edited by id under config.choices: [{"id", "label"}].',
+      'Change a question with a JSON merge patch: objects merge, lists and null replace. Its own settings go under "config"; a new "type" replaces them. Choices are edited by id under config.choices: [{"id", "label"}]. In a live poll, "live" holds {"seconds": 60, "showResults": false, "cues": ["what the presenter might say just before asking it"]}.',
     inputSchema: obj({
       questionId: questionRef,
       json: str('The merge patch as a JSON object.'),
@@ -165,10 +165,14 @@ export const FORM_BUILDER_TOOLS: readonly FormToolDef[] = [
   },
   {
     name: 'set_form',
-    description:
-      'The form itself: which of the three it is, its heading, and the words at the top.',
+    description: 'The form itself: which kind it is, its heading, and the words at the top.',
     inputSchema: obj({
-      mode: nullable(oneOf(['form', 'survey', 'quiz'], 'Which kind it is.')),
+      mode: nullable(
+        oneOf(
+          ['form', 'survey', 'quiz', 'poll'],
+          'Which kind it is. poll: a live poll, whose questions pop up one at a time during a HandsFreeOS video call or webinar.',
+        ),
+      ),
       title: nullable(str('The heading the customer reads.')),
       intro: nullable(str('The words above the first question.')),
     }),
@@ -257,7 +261,7 @@ const INPUTS = {
     showIfJson: z.string().nullish(),
   }),
   set_form: z.object({
-    mode: z.enum(['form', 'survey', 'quiz']).nullish(),
+    mode: z.enum(['form', 'survey', 'quiz', 'poll']).nullish(),
     title: z.string().max(160).nullish(),
     intro: z.string().max(4000).nullish(),
   }),

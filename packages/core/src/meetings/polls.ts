@@ -8,6 +8,9 @@
  *   every page shows it, and the team's panel shows the answers coming in.
  * - **It closes** when its time is up, once nearly everyone watching has answered, or when the team closes it. Its
  *   totals go to everyone only when the question says so (16); the team always sees them.
+ * - **The AI asks too** (part 3): hearing the team, it pops a question up on its own when it's sure the moment has
+ *   come, and offers the team "Ask now?" when it's only fairly sure (the owner's 12). The call's `poll_ai` says how
+ *   far it may go.
  */
 import { z } from 'zod';
 import { liveOf, type Question } from '../forms/definition';
@@ -21,6 +24,19 @@ export type PollState = (typeof POLL_STATES)[number];
 /** Who put a question up: someone on the team, or the AI hearing the presenter (part 3). */
 export const POLL_OPENERS = ['team', 'ai'] as const;
 export type PollOpener = (typeof POLL_OPENERS)[number];
+
+/**
+ * How far the AI hearing the team goes with the call's poll (the owner's 12): **ask** pops a question up when it's sure
+ * and offers "Ask now?" when it's fairly sure; **suggest** only offers; **off** leaves it to the team.
+ */
+export const POLL_AI_MODES = ['ask', 'suggest', 'off'] as const;
+export type PollAiMode = (typeof POLL_AI_MODES)[number];
+/** How long the team's "Ask now?" stays up. */
+export const POLL_SUGGEST_MS = 30_000;
+/** After a question closes, the AI waits this long before asking another on its own, so they don't pile up. */
+export const POLL_AI_QUIET_MS = 20_000;
+/** The last minutes of a webinar, when the team's panel lists the questions not asked yet (the owner's 19). */
+export const POLL_LAST_MINUTES = 5;
 
 /** "Nearly everyone" (the owner's 15): a question closes early once this share of the people watching answered. */
 export const POLL_NEARLY_ALL = 0.9;
@@ -227,10 +243,21 @@ export function totalsShown(question: Question): boolean {
 
 // ---- The message ----
 
-/** What the worker tells the room: a question is up, or it closed (with its totals when everyone sees them). */
+/**
+ * What the worker tells the room: a question is up, or it closed (with its totals when everyone sees them). And, to the
+ * team alone, the AI's "Ask now?" for a question it thinks fits what was just said.
+ */
 export const PollMessage = z.discriminatedUnion('t', [
   z.object({ t: z.literal('open'), poll: PollOnScreen }),
   z.object({ t: z.literal('close'), pollId: z.uuid(), totals: PollTotals.nullable() }),
+  z.object({
+    t: z.literal('suggest'),
+    questionId: z.string().max(40),
+    title: z.string().max(300),
+    /** Why now, in the AI's words: what was said that fits it. */
+    why: z.string().max(200).default(''),
+    until: z.iso.datetime(),
+  }),
 ]);
 export type PollMessage = z.infer<typeof PollMessage>;
 
@@ -270,6 +297,24 @@ export const POLL_WORDS = {
     watching > 0 ? `${n} of ${watching} answered` : n === 1 ? '1 answer' : `${n} answers`,
   pressed: (n: number) => (n === 1 ? '1 pressed it' : `${n} pressed it`),
   byAi: 'Asked by the AI',
+  /** The AI asking (part 3). */
+  aiMode: 'The AI asks',
+  aiModes: {
+    ask: 'When it’s sure, and offers the rest',
+    suggest: 'Only offers them',
+    off: 'Never: your team asks',
+  } satisfies Record<PollAiMode, string>,
+  aiDeaf:
+    'AI notes are off, so the AI can’t hear when to ask. Turn them on and it listens for each question’s moment.',
+  suggestTitle: 'Ask now?',
+  suggestHelp: 'The AI thinks this fits what was just said.',
+  notYet: 'Not asked yet',
+  notYetHelp: 'The webinar is nearly over. These haven’t been asked.',
+  cues: 'When to ask it',
+  cuesHelp:
+    'What you might say just before asking, one per line. The AI listens for these, and anything that means the same, and pops it up.',
+  writeCues: 'Write them for me',
+  writeAllCues: 'Write when-to-ask phrases for every question',
   everyoneSees: 'Everyone sees the totals when it closes',
   teamSees: 'Only your team sees the totals',
   /** The pop-up. */

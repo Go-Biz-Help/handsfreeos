@@ -8,6 +8,7 @@
  */
 import { z } from 'zod';
 import { isClock, isLocalDate, parseClock } from './engine/zoned';
+import { POLL_AI_MODES } from '../meetings/polls';
 
 export const CALENDAR_CONFIG_VERSION = 1;
 
@@ -198,6 +199,11 @@ const Webinar = z.object({
   missedFollowUp: z.boolean().default(true),
   /** The live poll each session's questions pop up from (part 2, the owner's 8); the team can pick another. */
   pollFormId: id.nullable().default(null),
+  /**
+   * How far the AI hearing the team goes with that poll (part 3, the owner's 12): pops a question up when it's sure
+   * and offers the rest, only offers, or leaves it to the team. The team can change it during the webinar.
+   */
+  pollAi: z.enum(POLL_AI_MODES).default('ask'),
 });
 
 const Locations = z.object({

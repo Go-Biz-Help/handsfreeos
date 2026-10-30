@@ -6,6 +6,7 @@ import { personName, resourceName, serviceName, type CalendarCatalogs } from './
 import type { AssignmentMode, CalendarConfig, LocationKind, Reminder } from './config';
 import { formatClock } from '../messaging/quiet-hours';
 import { formatDuration, formatHours, formatNotice } from './format';
+import { POLL_WORDS } from '../meetings/polls';
 import { WEBINAR_WORDS } from '../meetings/video-calls';
 
 export const ASSIGNMENT_NAMES: Readonly<Record<AssignmentMode, string>> = {
@@ -146,6 +147,12 @@ export function diffConfigs(a: CalendarConfig, b: CalendarConfig, catalogs?: Nam
     lines.push(
       b.locations.webinar.pollFormId ? 'Webinar live poll changed' : 'Webinar live poll taken off',
     );
+  change(
+    'When the AI asks the webinar’s live poll',
+    a.locations.webinar.pollAi,
+    b.locations.webinar.pollAi,
+    (v) => POLL_WORDS.aiModes[v],
+  );
   const res = (id: string) => resourceName(catalogs as CalendarCatalogs | undefined, id);
   const rBefore = new Map(a.resources.required.map((r) => [r.resourceId, r.quantity]));
   const rAfter = new Map(b.resources.required.map((r) => [r.resourceId, r.quantity]));

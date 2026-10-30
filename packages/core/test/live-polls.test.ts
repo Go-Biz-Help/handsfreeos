@@ -9,10 +9,12 @@
  *     someone on the call's appointment can answer;
  *   - nearly everyone watching answering closes it, and a job that runs early leaves it be;
  *   - when the call ends each sheet is sent, so `form.submitted` goes out for it;
- *   - a live poll can't be filled in anywhere else.
+ *   - a live poll can't be filled in anywhere else;
+ *   - part 3: the AI asks only while the call lets it, never over a question that's up, just after one closed, or one
+ *     the team skipped; and what it sees of the poll names the team, whose words alone count.
  */
-import { rows, sql } from '@hfos/db/client';
-import { closeTestDbs } from '@hfos/db/testing';
+import { asWorker, rows, sql } from '@hfos/db/client';
+import { closeTestDbs, testDbs } from '@hfos/db/testing';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import {
   formCreate,
@@ -26,12 +28,14 @@ import {
   videoCallOpen,
   videoCallPollAnswer,
   videoCallPollClose,
+  videoCallPollCueState,
   videoCallPollNow,
   videoCallPollOpen,
   videoCallPollsFinish,
   videoCallPollsGet,
   videoCallPollSkip,
   videoCallSetPoll,
+  videoCallSetPollAi,
   webinarRegister,
 } from '../src/server';
 import {
@@ -443,5 +447,90 @@ describe('asking and answering', () => {
     expect(await runSystem(videoCallPollsFinish, { workspaceId: t.wsId, callId }, t.scope)).toEqual(
       { sent: 0 },
     );
+  });
+});
+
+describe('the AI asking (part 3)', () => {
+  let callId: string;
+  let priyaIn: string;
+  const open = (questionId: string) =>
+    runSystem(videoCallPollOpen, { workspaceId: t.wsId, callId, questionId }, t.scope);
+  const cueState = () =>
+    asWorker(testDbs().worker.db, t.scope, (tx) => videoCallPollCueState(tx, callId));
+
+  beforeAll(async () => {
+    ({ callId } = await publish('13:00'));
+    ({ personId: priyaIn } = await run(videoCallJoin, { workspaceId: t.wsId, callId }, t.priya));
+  });
+
+  it('starts with the calendar’s choice, and the panel says whether the AI can hear', async () => {
+    const panel = await ask(videoCallPollsGet, { workspaceId: t.wsId, callId }, t.priya);
+    expect(panel).toMatchObject({ ai: 'ask', hearing: true });
+    expect(panel.endsAt).not.toBeNull();
+    const seen = await cueState();
+    expect(seen).toMatchObject({ ai: 'ask', openNow: false, lastClosedAt: null, team: [priyaIn] });
+    expect(seen!.questions.map((q) => [q.id, q.state])).toEqual([
+      [Q.leads, 'waiting'],
+      [Q.crm, 'waiting'],
+      [Q.ready, 'waiting'],
+      [Q.trade, 'waiting'],
+      [Q.talk, 'waiting'],
+    ]);
+    expect(seen!.questions[0]!.choices).toEqual(['Referrals', 'Ads']);
+  });
+
+  it('asks a question as the AI, but never over one that’s up', async () => {
+    await open(Q.leads);
+    expect(await pollRow(callId, Q.leads)).toMatchObject({ state: 'open', opened_by: 'ai' });
+    expect((await events('video_call.poll_opened', callId)).at(-1)!.payload).toMatchObject({
+      openedBy: 'ai',
+    });
+    await expectHfos(() => open(Q.crm), 'poll_question_open', 409);
+    expect((await cueState())!.openNow).toBe(true);
+  });
+
+  it('waits a little after a question closes, then asks the next', async () => {
+    const leads = (await pollRow(callId, Q.leads))!.id;
+    await run(videoCallPollClose, { workspaceId: t.wsId, callId, pollId: leads }, t.priya);
+    await expectHfos(() => open(Q.crm), 'poll_too_soon', 409);
+    await rows(
+      admin(),
+      sql`update app.video_call_polls set closed_at = now() - interval '30 seconds' where id = ${leads}`,
+    );
+    await open(Q.crm);
+    expect(await pollRow(callId, Q.crm)).toMatchObject({ state: 'open', opened_by: 'ai' });
+    // The team can still take it down and ask another themselves.
+    await run(videoCallPollOpen, { workspaceId: t.wsId, callId, questionId: Q.ready }, t.priya);
+    expect(await pollRow(callId, Q.ready)).toMatchObject({ state: 'open', opened_by: 'team' });
+    await rows(
+      admin(),
+      sql`update app.video_call_polls set state = 'closed', closed_at = now() - interval '1 minute'
+          where video_call_id = ${callId} and state = 'open'`,
+    );
+  });
+
+  it('leaves a question the team skipped to the team', async () => {
+    await run(videoCallPollSkip, { workspaceId: t.wsId, callId, questionId: Q.trade }, t.priya);
+    await expectHfos(() => open(Q.trade), 'poll_skipped', 409);
+  });
+
+  it('only offers questions, or stays out of it, when the team says so', async () => {
+    expect(
+      await run(videoCallSetPollAi, { workspaceId: t.wsId, callId, ai: 'suggest' }, t.priya),
+    ).toEqual({ changed: true, ai: 'suggest' });
+    expect(
+      await run(videoCallSetPollAi, { workspaceId: t.wsId, callId, ai: 'suggest' }, t.priya),
+    ).toEqual({ changed: false, ai: 'suggest' });
+    await expectHfos(() => open(Q.talk), 'poll_ai_off', 409);
+    expect((await cueState())!.ai).toBe('suggest');
+    // The team still asks it.
+    await run(videoCallPollOpen, { workspaceId: t.wsId, callId, questionId: Q.talk }, t.priya);
+
+    await run(videoCallSetPollAi, { workspaceId: t.wsId, callId, ai: 'off' }, t.priya);
+    expect(await cueState()).toBeNull();
+    expect((await events('video_call.poll_ai_set', callId)).map((e) => e.payload.ai)).toEqual([
+      'suggest',
+      'off',
+    ]);
   });
 });
