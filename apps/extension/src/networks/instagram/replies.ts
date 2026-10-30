@@ -9,7 +9,7 @@
  *
  * Instagram's rows are buttons that link to no chat (the owner's Checks of 21 and 28 Oct 2026: none of 15 did), so a
  * row goes by the name it shows, and HandsFreeOS takes it only when one person the person messaged there goes by it.
- * Until 0.116.0 such rows were left out, so the messages page kept open (decision 125) never saw a reply on Instagram:
+ * Until 0.117.0 such rows were left out, so the messages page kept open (decision 125) never saw a reply on Instagram:
  * one waited for the once-a-day chats read or for the person to open the chat. A reaction, or Instagram's own line
  * ("Active 2h ago", "Seen"), is never a reply.
  */

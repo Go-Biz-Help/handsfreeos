@@ -1986,7 +1986,7 @@ describe('its day', () => {
     expect(store.get(WARNED_KEY)).toMatchObject({ alignable: { day: expect.any(String) } });
   });
 
-  it('waits outside the working hours with nothing pressed, waking at their start: nothing new goes (decision 132)', async () => {
+  it('waits outside the working hours with nothing pressed, waking at their start: nothing new goes (decision 133)', async () => {
     keep(day('none'));
     // A step and a first message OK'd wait for the hours; only a reply goes outside them.
     world.answers['/v1/queries/outreach.today'] = () => ({

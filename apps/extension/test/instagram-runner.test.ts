@@ -1602,7 +1602,7 @@ describe('its day', () => {
     expect(store.get(WARNED_KEY)).toMatchObject({ instagram: { day: expect.any(String) } });
   });
 
-  it('waits outside the working hours with nothing pressed, waking at their start: nothing new goes (decision 132)', async () => {
+  it('waits outside the working hours with nothing pressed, waking at their start: nothing new goes (decision 133)', async () => {
     keep(day('none'));
     // A step and a first message OK'd wait for the hours; only a reply goes outside them.
     world.answers['/v1/queries/outreach.today'] = () => ({
@@ -1633,7 +1633,7 @@ describe('its day', () => {
     );
   });
 
-  it('answers someone who wrote back outside the working hours, then looks soon for the reply OK’d (decision 132)', async () => {
+  it('answers someone who wrote back outside the working hours, then looks soon for the reply OK’d (decision 133)', async () => {
     keep(day('none'));
     const reply = item({ kind: 'reply' });
     const listOf = (items: TodayListItem[]) => ({

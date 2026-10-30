@@ -1063,7 +1063,7 @@ async function go(): Promise<void> {
   const tomorrow = () => nextStart(settings.hours, timezone, Date.now(), random);
   if (!own.go) {
     await setState({ started: false, stopped: own.stopped });
-    // Outside the hours a reply to someone who wrote back still goes, and nothing new does (decision 132): never after
+    // Outside the hours a reply to someone who wrote back still goes, and nothing new does (decision 133): never after
     // Stop for today or a warning, nor while noting's off or an ask of theirs is in line.
     const answering =
       own.stopped === null &&

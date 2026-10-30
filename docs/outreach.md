@@ -2985,7 +2985,7 @@ where decisions 37 and 59 put the settings; what they decided stands. Settled to
         the runner's state, `listTurn`). Someone who writes back again the same day has their reply drafted again,
         though it was tried. The Replies choice still decides whether it waits for an OK, and the network's day and
         limits still decide whether the runner works at all: a reply seen outside the working hours buzzes the phone
-        and is drafted when the day starts. (From 0.116.0 it's drafted at once, hours or not: decision 132.)
+        and is drafted when the day starts. (From 0.117.0 it's drafted at once, hours or not: decision 133.)
 126.  **The day's first messages, nearly guaranteed** (Chris, 29 Oct 2026, "1a 2a 3c 4a 5a 6a 7a 8a 9a" on
       questions-29-oct-goal.md; extension **0.114.0**). "the system needs to understand that its main purpose is to
       send out new messages to good leads/candidates. It needs to almost guarantee it will reach its goal of messages
@@ -3161,7 +3161,7 @@ where decisions 37 and 59 put the settings; what they decided stands. Settled to
         Alignable's runner goes straight to the conversation by the business id kept.
       - **Instagram stays by the name in an account's address:** its links show no id. Reading one from the page's
         code was left out, as it also holds the person's own; its chats are kept by their own key.
-132.  **Replies seen by name, and answered any time** (Chris, 30 Oct 2026, extension **0.116.0**). A prospect's Instagram
+133.  **Replies seen by name, and answered any time** (Chris, 30 Oct 2026, extension **0.117.0**). A prospect's Instagram
       reply got no draft: it was seen only when Chris opened the chat himself. "check to make sure we don't have this
       issue with the other platforms as well." Then: "it should always be checking for new messages and always respond
       in real time it just shouldn't send out new messages if it's not in the working time."

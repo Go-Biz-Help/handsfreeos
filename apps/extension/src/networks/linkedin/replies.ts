@@ -7,7 +7,7 @@
  * message of the person's that the extension noted.
  *
  * LinkedIn's newer list links to no conversation (the owner's Check LinkedIn of 29 Oct 2026), so a row there goes by
- * the name it shows, and HandsFreeOS takes it only when one person the person messaged there goes by it. Until 0.116.0
+ * the name it shows, and HandsFreeOS takes it only when one person the person messaged there goes by it. Until 0.117.0
  * those rows were never read, so the messaging page kept open (decision 125) saw only the conversation open on it.
  */
 import type { ChatOptions } from '../facebook/chat';

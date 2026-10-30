@@ -1146,7 +1146,7 @@ async function go(): Promise<void> {
   const window = workWindow(settings.hours, timezone, at);
   const inHours = window !== null && at >= window.from && at < window.to;
   if (!state.started && !inHours) {
-    // Outside the hours a reply to someone who wrote back still goes, and nothing new does (decision 132). What the
+    // Outside the hours a reply to someone who wrote back still goes, and nothing new does (decision 133). What the
     // person asked from HandsFreeOS goes first.
     if (askInLine()) return goAt(at + ASK_FIRST_MS);
     const answering = await listNow(to.businessId, state.tried, state.replied);

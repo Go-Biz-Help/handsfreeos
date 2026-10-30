@@ -340,7 +340,7 @@ export const isReplyKind = (kind: TodayKind) => REPLY_KINDS.includes(kind);
 const isReplyDraft = (work: Work): boolean => work.do === 'draft' && isReplyKind(work.item.kind);
 
 /**
- * What goes outside the working hours (decision 132; the owner, 30 Oct 2026: "it should always be checking for new
+ * What goes outside the working hours (decision 133; the owner, 30 Oct 2026: "it should always be checking for new
  * messages and always respond in real time it just shouldn't send out new messages if it's not in the working
  * time"): a reply to someone who wrote back, drafted at once, and sent once OK'd or on its own as Replies says.
  * Nothing new goes: no first message, follow-up, like or request. Stop for today and a warning still stop it all.
