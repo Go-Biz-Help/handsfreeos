@@ -259,6 +259,28 @@ const chatHtml = (withId = '42') => `<div data-testid="inbox">
     <form id="elsewhere"><div contenteditable="true" id="other-box"></div><button>Send</button></form>
   </div>`;
 
+/**
+ * The same conversation as Alignable draws it since the owner's sends of 30 Oct 2026 (0.117.0's 19:02 UTC outline): the
+ * site's menu in a header of its own, Messages' list under a header too, then the conversation's header with no test id
+ * (its picture and a link to their business), its messages, and its box with Send as `messaging-send-desktop`.
+ */
+const chatHtml2026 = (withId = '42') => `<div><header><nav aria-label="Main">
+    <a href="/biz/conversations?_fan=1&_nav=2">Messages</a><a href="/biz/profile"><img alt="Me" /></a></nav></header>
+  <div><div data-testid="inbox"><div>
+    <div><header><h3>Messages</h3><button><svg></svg>New Message</button></header>
+      <div data-testid="conversationInSidebar"><div><div>Sam Lee</div><div>See you Tuesday</div></div></div></div>
+    <div><header><div><img alt="" /><a href="/biz/businesses/${withId}?user=5&cyfid=6&cyattr=7"><div>Dana Reyes</div></a></div>
+        <div><div data-testid="ellipses"><div></div></div></div></header>
+      <div><div><div><div><p>You and Dana Reyes are connected</p>
+          <div><a href="/biz/businesses/${withId}?user=5&cyfid=6&cyattr=7"><img alt="" /></a>
+            <div><div><span>Dana</span><span>2 days</span></div>
+              <div data-testid="rel-card-message"><div>Thanks for connecting!</div><svg></svg></div></div></div></div></div></div>
+        <div data-testid="full-view-write-message"><button data-testid="messaging-upload-trigger-desktop"><svg></svg></button>
+          <div><div><div dir="ltr"><div contenteditable="true" id="box" placeholder="Write a message"></div></div>
+            <button data-testid="messaging-send-desktop" title="Send"><svg></svg></button></div></div></div></div></div>
+    <form id="elsewhere"><div contenteditable="true" id="other-box"></div><button>Send</button></form>
+  </div></div></div></div>`;
+
 /** Alignable's search for businesses, as Check Alignable read it (0.66.0): two results, each by Alignable's id. */
 const searchHtml = `<section><div role="contentinfo"><ul>
   <div><a href="/austin-tx/hill-homes?user=8&page_num=1&result_id=4242"><img alt="Hana Hill" /></a>
@@ -758,11 +780,15 @@ describe('a message on Alignable', () => {
       if (typed) typed.textContent = text ?? '';
       return true;
     };
-    doc.querySelector('[data-testid="messaging-send-external"]')!.addEventListener('click', () => {
-      const box = doc.querySelector('#box')!;
-      sent.push(box.textContent ?? '');
-      box.textContent = '';
-    });
+    doc
+      .querySelector(
+        '[data-testid="messaging-send-external"], [data-testid="messaging-send-desktop"]',
+      )!
+      .addEventListener('click', () => {
+        const box = doc.querySelector('#box')!;
+        sent.push(box.textContent ?? '');
+        box.textContent = '';
+      });
   };
 
   it('sends one OK’d in their conversation, typing only into its own box, and says it went', async () => {
@@ -788,6 +814,50 @@ describe('a message on Alignable', () => {
     expect(
       world.posted.find((p) => p.path === '/v1/commands/outreach.send.done')?.body,
     ).toMatchObject({ sent: true });
+  });
+
+  it('sends one in their conversation as Alignable draws it since 30 Oct 2026: a header with no test id, and Send as messaging-send-desktop', async () => {
+    world.pages = (url) => (url === DANA_CHAT ? { html: chatHtml2026() } : null);
+    const sent: string[] = [];
+    let other = '';
+    world.behave = (doc) => {
+      sentOn(sent)(doc);
+      other = doc.querySelector('#other-box')!.textContent ?? '';
+    };
+    world.answers['/v1/commands/outreach.send.done'] = () => ({ ok: true });
+    const outcome = await doWork({ do: 'send', item: approved() }, ME.businessId, false);
+    expect(outcome).toEqual({ done: true, line: 'Sent Dana Reyes a message' });
+    expect(sent).toEqual(['Glad to help, Dana.']);
+    expect(other).toBe('');
+    expect(notedAs()).toEqual([
+      { kind: 'message', auto: true, postUrl: null, id: '42', platform: 'alignable' },
+    ]);
+  });
+
+  it('types nothing in a conversation drawn that way with another business, nor before its header is drawn', async () => {
+    world.pages = () => ({ html: chatHtml2026('77'), at: DANA_CHAT });
+    const sent: string[] = [];
+    world.behave = sentOn(sent);
+    world.answers['/v1/commands/outreach.send.done'] = () => ({ ok: true });
+    const outcome = await doWork({ do: 'send', item: approved() }, ME.businessId, false);
+    expect(outcome).toEqual({
+      done: false,
+      line: 'Dana Reyes: Alignable showed a different conversation',
+    });
+    expect(sent).toEqual([]);
+
+    const { writeMessage } = await import('../src/networks/alignable/auto');
+    const { JSDOM } = await import('jsdom');
+    const doc = new JSDOM(`<!doctype html><html><body>${chatHtml2026()}</body></html>`, {
+      url: DANA_CHAT,
+    }).window.document;
+    // Only the list's header and the site's menu left: neither is the conversation's.
+    doc.querySelector('[data-testid="ellipses"]')!.closest('header')!.remove();
+    sentOn(sent)(doc);
+    const dana = { id: '42', username: null, url: DANA };
+    expect(await writeMessage(doc, DANA_CHAT, 'Glad to help, Dana.', dana)).toBe('none');
+    expect(sent).toEqual([]);
+    expect(doc.querySelector('#box')!.textContent).toBe('');
   });
 
   it('goes straight to their conversation by the id HandsFreeOS keeps beside their address in its town (decision 131)', async () => {

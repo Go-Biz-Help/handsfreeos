@@ -1560,8 +1560,34 @@ function messagesIn(
     .slice(-MESSAGES_MOST);
 }
 
+/**
+ * Send in Messages: `messaging-send-external` till the owner's sends of 30 Oct 2026, `messaging-send-desktop` since
+ * (0.117.0's 19:02 UTC outline).
+ */
+export const MESSAGE_SEND = `${PART('messaging-send-external')}, ${PART('messaging-send-desktop')}`;
+
+/**
+ * The open conversation's header, which links to the business it's with: its own part (`channel-header-loaded`) till
+ * 30 Oct 2026; since then a plain header with no test id, beside the conversation's messages and box to write in, so
+ * the first one on the way up from that box, never past Messages itself (`inbox`), whose list has a header of its own,
+ * and never the site's menu.
+ */
+export function chatHeader(doc: Document): Element | null {
+  const own = doc.querySelector(PART('channel-header-loaded'));
+  if (own) return own;
+  const write = doc.querySelector(PART('full-view-write-message'));
+  for (let at = write?.parentElement ?? null; at; at = at.parentElement) {
+    const header = [...at.children].find(
+      (child) => child.localName === 'header' && !child.querySelector('nav'),
+    );
+    if (header) return header;
+    if (at.matches(PART('inbox'))) return null;
+  }
+  return null;
+}
+
 export function chatOpen(doc: Document, base: string): ChatOpen | null {
-  const header = doc.querySelector(PART('channel-header-loaded'));
+  const header = chatHeader(doc);
   const write = doc.querySelector(PART('full-view-write-message'));
   if (!header && !write) return null;
   const link = header
@@ -1574,7 +1600,7 @@ export function chatOpen(doc: Document, base: string): ChatOpen | null {
     name: clean(link?.a.textContent) || null,
     profile,
     box: !!box && visible(box),
-    send: doc.querySelector(PART('messaging-send-external')) !== null,
+    send: doc.querySelector(MESSAGE_SEND) !== null,
     messages,
     last: messages[messages.length - 1]?.from ?? null,
   };

@@ -14,8 +14,8 @@
  *   Connection, 0.94.0). It makes the request at once and may open another page, so the tab answers as it presses, and
  *   the runner opens their page again to see the request went.
  * - **A message** in their conversation (/biz/conversations?with_business_id=<id>): typed only into that conversation's
- *   own box (`full-view-write-message`) while it's empty, and sent with its Send (`messaging-send-external`). It went
- *   once the box empties.
+ *   own box (`full-view-write-message`) while it's empty, and sent with its Send (`messaging-send-external`, since 30
+ *   Oct 2026 `messaging-send-desktop`). It went once the box empties.
  * - **A comment** on a good post (from 0.95.0, decision 92), once it's OK'd or past the comment hold: only on the post's
  *   own page, by its discussion's id, only in its own reply form at the top (`discussion-comment-reply-form`), never
  *   one under an answer, only while its box is empty, and sent with that form's own Send. It went once the box empties.
@@ -39,6 +39,7 @@ import type { CommentOn } from '../looking/site';
 import {
   answerParts,
   businessPage,
+  chatHeader,
   chatOpen,
   CONNECT_AT,
   differ,
@@ -48,6 +49,7 @@ import {
   isDiscussionPage,
   likesIn,
   linksIn,
+  MESSAGE_SEND,
   PART,
   postParts,
   urlOf,
@@ -289,7 +291,7 @@ export function connectOnPage(doc: Document, href: string, profile: ProfileRef):
 export function messageBoxFor(doc: Document, href: string, them: ProfileRef): HTMLElement | null {
   const url = urlOf(href, href);
   if (!them.id || url?.searchParams.get('with_business_id') !== them.id) return null;
-  if (!doc.querySelector(PART('channel-header-loaded'))) return null;
+  if (!chatHeader(doc)) return null;
   const linked = chatOpen(doc, href)?.profile;
   if (!linked || !(linked.id ? linked.id === them.id : sameBusiness(linked, them))) return null;
   const writes = [...doc.querySelectorAll(PART('full-view-write-message'))];
@@ -301,9 +303,9 @@ export function messageBoxFor(doc: Document, href: string, them: ProfileRef): HT
 function sendFor(box: Element, doc: Document): HTMLElement | null {
   const own = box
     .closest(PART('full-view-write-message'))
-    ?.querySelector<HTMLElement>(PART('messaging-send-external'));
+    ?.querySelector<HTMLElement>(MESSAGE_SEND);
   if (own) return own;
-  const all = [...doc.querySelectorAll<HTMLElement>(PART('messaging-send-external'))];
+  const all = [...doc.querySelectorAll<HTMLElement>(MESSAGE_SEND)];
   return all.length === 1 ? all[0]! : null;
 }
 

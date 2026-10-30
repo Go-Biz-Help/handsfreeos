@@ -3261,7 +3261,12 @@ where decisions 37 and 59 put the settings; what they decided stands. Settled to
         friends there, so a follower not followed back had only Follow Back. When their account shows no Message and
         they follow the person, the runner presses Follow Back, checks it says Following, notes it as a follow (it
         counts toward the day's follows), then presses Message. Someone who doesn't follow the person isn't followed,
-        and a private account (Requested) waits for them, each with its reason. No migration.
+        and a private account (Requested) waits for them, each with its reason.
+      - **Alignable's new Messages page** (extension **0.117.2**; `chatHeader` and `MESSAGE_SEND` in
+        `src/networks/alignable/read.ts`). Since midday on 30 Oct 2026, Alignable draws a conversation's header with no
+        test id of its own and its Send as `messaging-send-desktop`, so every Alignable message said "Alignable showed a
+        different conversation". The conversation's header is now the first header on the way up from its box to write
+        in, never Messages' list's nor the site's menu, and either Send counts. No migration.
 
 136.  **The AI decides the friend requests the person gets** (Chris, 30 Oct 2026, "1a 2a 3a 4a 5c" on
       questions-30-oct-requests.md, extension **0.118.0**). "we still need that feature that decides if we should
