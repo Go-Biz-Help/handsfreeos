@@ -5,7 +5,7 @@ import { Dialog, DialogContent } from '@/components/ui/dialog';
 
 /**
  * "Get the phone app": a code to scan and a link for each phone. The links come from core (onboarding/app-links.ts):
- * Google Play for Android, and TestFlight for iPhone until the App Store version is out.
+ * the App Store for iPhone and Google Play for Android.
  */
 export function PhoneAppDialog({
   open,
