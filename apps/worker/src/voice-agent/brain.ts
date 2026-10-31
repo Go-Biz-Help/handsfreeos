@@ -45,6 +45,7 @@ import { asWorker, rows, sql } from '@hfos/db/client';
 import { conversations } from '@hfos/db/schema';
 import { eq } from 'drizzle-orm';
 import { callBrief } from '../ai-calls';
+import { addonCallScript } from '../ai-calls/scripts';
 import { aiBudget, recordAndChargeAi } from '../ai/budget';
 import { runToolLoop, type ToolLoopResult } from '../ai/tool-loop';
 import { chatCodeSender } from '../ai-team/chat-code';
@@ -154,6 +155,8 @@ export interface OutboundCall {
   readonly firstName: string | null;
   /** A quote's or a campaign's facts, or a workflow's playbook, for the AI (data); null for the other reasons. */
   readonly brief: string | null;
+  /** A call to a lead: the sales script an add-on wrote for it (ai-calls/scripts.ts, data); null without one. */
+  readonly script?: string | null;
 }
 
 export type Prepared =
@@ -355,11 +358,24 @@ export async function prepareCall(deps: BrainDeps, ticket: StreamTicket): Promis
         } satisfies PreparedCall,
       };
     });
-    if ('call' in r) return { ok: true, call: r.call };
+    if ('call' in r) return { ok: true, call: await withScript(deps, r.call) };
     if ('why' in r) return { ok: false, why: r.why };
     if (Date.now() - started > RUN_WAIT_MS) return { ok: false, why: 'a reply was running' };
     await new Promise((resolve) => setTimeout(resolve, 250));
   }
+}
+
+/** A call it placed to a lead, with the script an add-on writes for it (Sales Coach's), when one does. */
+async function withScript(deps: BrainDeps, call: PreparedCall): Promise<PreparedCall> {
+  const o = call.outbound;
+  if (!o) return call;
+  const script = await addonCallScript(deps, call.scope, {
+    aiCallId: o.aiCallId,
+    purpose: o.purpose,
+    personId: o.personId,
+    goal: o.goal,
+  });
+  return script ? { ...call, outbound: { ...o, script } } : call;
 }
 
 /** The caller's words as one of a text reply's customer messages: the same checks read them. */

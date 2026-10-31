@@ -3,10 +3,21 @@
  * The coach on the person's call right now (`salescoach.live`): where the call is in the script and the cards, the
  * newest on top. It reads them again the moment the worker adds one (the live update for `salescoach_call`). Drawn
  * above the web's call bar (./call-panel.tsx, `compact`) and on the Live call tab, for a call on someone's cell.
+ *
+ * A script whose steps name the method's stages (round five) shows the stage bar: the stages it goes through, the
+ * one the call is in now, and the step. A card can carry a tip on how to say it, and a nudge stands out.
  */
 import type { CardKind } from '@hfos/core/addons/salescoach/coach';
+import { playbookStages, SALES_STAGE_LABELS, stageAt } from '@hfos/core/addons/salescoach/method';
 import { SALESCOACH_WORDS as W } from '@hfos/core/addons/salescoach/words';
-import { Headset, MessageCircleQuestion, ShieldAlert, Sparkles, StepForward } from 'lucide-react';
+import {
+  AlertTriangle,
+  Headset,
+  MessageCircleQuestion,
+  ShieldAlert,
+  Sparkles,
+  StepForward,
+} from 'lucide-react';
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
 import { toast } from 'sonner';
@@ -29,6 +40,7 @@ const KIND_ICON: Record<CardKind, typeof Sparkles> = {
   fact: Sparkles,
   step: StepForward,
   question: MessageCircleQuestion,
+  nudge: AlertTriangle,
 };
 
 /** The person's call the coach hears now, kept fresh. Undefined while it's first read. */
@@ -45,6 +57,38 @@ export function useLiveCall(workspaceId: string): LiveCall | null | undefined {
     };
   }, [workspaceId, version]);
   return call;
+}
+
+/** Where the call is in the method: the script's stages as a bar, the one it's in now named. */
+function StageBar({ call }: { call: LiveCall }) {
+  const steps = call.playbook?.details.steps ?? [];
+  const stages = playbookStages(steps);
+  if (stages.length === 0) return null;
+  const now = stageAt(steps, call.step) ?? stages[0]!;
+  const at = stages.indexOf(now);
+  return (
+    <div className="space-y-1.5" data-testid="coach-stage">
+      <div className="flex items-center gap-2 text-[12.5px] text-text-2">
+        <span className="font-medium text-text">{W.live.stage}:</span>
+        <span className="truncate">{SALES_STAGE_LABELS[now]}</span>
+        <span className="ml-auto flex-none tabular-nums text-text-3">
+          {W.live.stageOf(at + 1, stages.length)}
+        </span>
+      </div>
+      <ol className="flex gap-1" aria-hidden>
+        {stages.map((st, i) => (
+          <li
+            key={st}
+            title={SALES_STAGE_LABELS[st]}
+            className={cn(
+              'h-1.5 flex-1 rounded-full',
+              i < at ? 'bg-accent' : i === at ? 'bg-accent ring-2 ring-accent-soft' : 'bg-border',
+            )}
+          />
+        ))}
+      </ol>
+    </div>
+  );
 }
 
 function StepLine({ call }: { call: LiveCall }) {
@@ -90,12 +134,23 @@ function CoachCard({
       data-testid="coach-card"
       className={cn(
         'rounded-control border p-3',
-        top ? 'border-accent bg-accent-soft' : 'border-border bg-card',
+        card.kind === 'nudge'
+          ? 'border-warning bg-warning-soft'
+          : top
+            ? 'border-accent bg-accent-soft'
+            : 'border-border bg-card',
       )}
     >
       <div className="flex items-center gap-2">
-        <Icon className="h-4 w-4 flex-none text-accent-text" strokeWidth={1.75} aria-hidden />
-        <Badge variant={card.kind === 'objection' ? 'pending' : 'accent'}>
+        <Icon
+          className={cn(
+            'h-4 w-4 flex-none',
+            card.kind === 'nudge' ? 'text-warning-text' : 'text-accent-text',
+          )}
+          strokeWidth={1.75}
+          aria-hidden
+        />
+        <Badge variant={card.kind === 'objection' || card.kind === 'nudge' ? 'pending' : 'accent'}>
           {W.cardKinds[card.kind]}
         </Badge>
         <span className="truncate text-[13.5px] font-semibold">{card.title}</span>
@@ -109,6 +164,11 @@ function CoachCard({
         </Button>
       </div>
       <p className={cn('mt-1.5 leading-snug', top ? 'text-[15px]' : 'text-[13.5px]')}>{card.say}</p>
+      {card.tip ? (
+        <p className="mt-1 text-[12.5px] text-text-2" data-testid="coach-tip">
+          <span className="font-medium text-text">{W.live.how}:</span> {card.tip}
+        </p>
+      ) : null}
       {card.heard && top ? (
         <p className="mt-1 text-[12px] text-text-3">
           {W.live.heard}: “{card.heard}”
@@ -190,6 +250,7 @@ export function LiveCoach({
           <span className="ml-auto truncate text-text-2">{call.person.name}</span>
         ) : null}
       </div>
+      <StageBar call={call} />
       <StepLine call={call} />
       {cards.length ? (
         <div className="space-y-2">

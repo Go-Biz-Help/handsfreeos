@@ -1,9 +1,11 @@
 /**
  * Coached calls (`?view=calls`): the list, newest first, with the rep for people who review, and one call's write-up
  * (`&call=`): the score and what it's made of, the summary and notes, what the rep promised, the follow-up to copy,
- * the objections, tips for next time and what was said.
+ * the objections, tips for next time and what was said. A script with stages (round five) is scored by stage: the
+ * stages done and skipped, and whether the offer came before the customer said their problem.
  */
 import { WIN_LABELS, type WinKind } from '@hfos/core/addons/salescoach/learn';
+import { SALES_STAGE_LABELS, SALES_STAGES } from '@hfos/core/addons/salescoach/method';
 import { SALESCOACH_WORDS as W } from '@hfos/core/addons/salescoach/words';
 import { ChevronLeft } from 'lucide-react';
 import Link from 'next/link';
@@ -119,6 +121,38 @@ function Section({
   );
 }
 
+/** The script's stages, in the method's order: each done or skipped, and the note when the offer came too soon. */
+function StagesDone({
+  stages,
+}: {
+  stages: NonNullable<NonNullable<CoachedCall['result']>['score']['stages']>;
+}) {
+  const named = SALES_STAGES.filter(
+    (st) => stages.covered.includes(st) || stages.missed.includes(st),
+  );
+  return (
+    <Section title={W.calls.stagesTitle}>
+      <ul className="flex flex-wrap gap-1.5 text-[12.5px]" data-testid="coached-stages">
+        {named.map((st) => {
+          const done = stages.covered.includes(st);
+          return (
+            <li key={st}>
+              <Badge variant={done ? 'ok' : 'danger'}>
+                {SALES_STAGE_LABELS[st]} · {done ? W.calls.stageDone : W.calls.stageSkipped}
+              </Badge>
+            </li>
+          );
+        })}
+      </ul>
+      {stages.pitchedEarly ? (
+        <p className="text-[13px] text-warning-text" data-testid="coached-pitched-early">
+          {W.calls.pitchedEarly}
+        </p>
+      ) : null}
+    </Section>
+  );
+}
+
 export function CallDetail({
   workspaceId,
   call,
@@ -188,7 +222,14 @@ export function CallDetail({
       {r ? (
         <Card className="space-y-5 p-4 md:p-5">
           <ul className="flex flex-wrap gap-2 text-[12.5px]">
-            {r.score.steps ? (
+            {r.score.stages ? (
+              <Badge>
+                {W.calls.stages(
+                  r.score.stages.covered.length,
+                  r.score.stages.covered.length + r.score.stages.missed.length,
+                )}
+              </Badge>
+            ) : r.score.steps ? (
               <Badge>{W.calls.steps(r.score.steps.covered, r.score.steps.of)}</Badge>
             ) : null}
             <Badge>
@@ -196,6 +237,7 @@ export function CallDetail({
             </Badge>
             <Badge>{W.calls.talk(r.score.talkShare)}</Badge>
           </ul>
+          {r.score.stages ? <StagesDone stages={r.score.stages} /> : null}
           <Section title={W.calls.summary}>
             <p className="text-[14px] leading-relaxed">{r.summary}</p>
           </Section>

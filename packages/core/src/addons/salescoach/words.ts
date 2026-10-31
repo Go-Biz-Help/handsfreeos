@@ -33,6 +33,11 @@ export const SALESCOACH_WORDS = {
     stopped: 'Coach stopped for this call',
     seeCall: 'See the write-up',
     heard: 'They said',
+    /** The stage bar (round five): where the call is in the method, for a script whose steps name stages. */
+    stage: 'Stage',
+    stageOf: (n: number, of: number) => `${n} of ${of}`,
+    /** A card's tip on how to say it. */
+    how: 'How',
   },
   /** HandsFreeOS's app inside a Zoom meeting (round three): `?view=zoom`. */
   zoom: {
@@ -69,6 +74,7 @@ export const SALESCOACH_WORDS = {
     fact: 'They asked',
     step: 'Next step',
     question: 'Ask this',
+    nudge: 'Heads up',
   } as Record<CardKind, string>,
   calls: {
     none: 'Nothing coached yet. Calls show here once someone on the team who’s coached takes one, and texts, chats and emails once a conversation they answered goes quiet.',
@@ -100,6 +106,13 @@ export const SALESCOACH_WORDS = {
     objectionCount: (answered: number, of: number) =>
       of === 0 ? 'No objections' : `${answered} of ${of} objections answered`,
     talk: (share: number) => `You talked ${share}% of the time`,
+    /** The score by stage (round five). */
+    stages: (covered: number, of: number) => `${covered} of ${of} stages`,
+    stagesTitle: 'Stages',
+    stageDone: 'Done',
+    stageSkipped: 'Skipped',
+    pitchedEarly:
+      'You showed the offer before they said what their problem was. Next time, ask about the problem first: it counts for less when the offer comes early.',
     writing: 'Being written up',
     failed: 'No write-up',
     stopped: 'Coach stopped',
@@ -180,14 +193,21 @@ export const SALESCOACH_WORDS = {
   playbooks: {
     about:
       'The coach says only what’s here and what HandsFreeOS knows about the business. The usual playbook is the one calls use.',
-    none: 'No playbooks yet. Write one, or let the AI draft one from your business or your own script.',
+    none: 'No playbooks yet. Build your scripts with AI, turn your own script into one, or write one yourself.',
     readOnly: 'Owners and admins write the playbooks.',
     add: 'New playbook',
-    draft: 'Draft one with AI',
+    draft: 'Use my own script',
     draftAbout:
-      'Paste your own script to turn it into steps and objection answers, or leave it empty to start from what HandsFreeOS knows about your business.',
-    draftScript: 'Your script (optional)',
+      'Paste your own script and the AI turns it into steps and objection answers, keeping your words. The coach follows it as written.',
+    draftScript: 'Your script',
+    draftKind: 'It’s for',
+    draftGo: 'Turn it into a playbook',
     drafting: 'Drafting…',
+    stage: 'Stage',
+    noStage: 'No stage',
+    tip: 'How to say it',
+    queue: (n: number, of: number) => `Script ${n} of ${of}`,
+    skip: 'Skip this one',
     usual: 'Usual',
     makeUsual: 'Make it the usual one',
     archive: 'Archive',
@@ -213,6 +233,26 @@ export const SALESCOACH_WORDS = {
     remove: 'Remove',
     save: 'Save playbook',
     saved: 'Playbook saved.',
+    cancel: 'Cancel',
+  },
+  /** Building scripts the question-led way (./method.ts): the AI's answers first, the owner's fixes, then a script per kind. */
+  builder: {
+    open: 'Build my scripts',
+    title: 'Build your sales scripts',
+    about:
+      'The AI writes scripts that sell by asking: calm questions that let the customer say what’s wrong, what they want and why it matters, before you show how you help. Answer a few questions so they fit what you sell.',
+    reading: 'Reading what HandsFreeOS knows about your business…',
+    readFailed: 'Answer the questions yourself, then build.',
+    tellUs: 'Tell us',
+    fromAi: 'From what HandsFreeOS knows. Change anything that’s off.',
+    kinds: 'Write a script for',
+    noKind: 'Pick at least one kind of call.',
+    go: 'Build the scripts',
+    building: (n: number, of: number) => `Writing script ${n} of ${of}…`,
+    built: (n: number) =>
+      n === 1
+        ? 'Your script is ready to check.'
+        : `${n} scripts are ready to check, one at a time.`,
     cancel: 'Cancel',
   },
 } as const;

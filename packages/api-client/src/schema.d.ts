@@ -56689,6 +56689,10 @@ export interface operations {
                                 id: string;
                                 /** @default  */
                                 say: string;
+                                /** @default null */
+                                stage: ("connect" | "situation" | "problem" | "future" | "consequence" | "importance" | "bridge" | "present" | "commit") | null;
+                                /** @default  */
+                                tip: string;
                                 title: string;
                             }[];
                         };
@@ -56696,7 +56700,7 @@ export interface operations {
                         id: string;
                         isDefault: boolean;
                         /** @enum {string} */
-                        kind: "first_call" | "estimate" | "follow_up" | "any";
+                        kind: "new_lead" | "booked_call" | "aged_lead" | "cold_call" | "first_call" | "estimate" | "follow_up" | "any";
                         name: string;
                         updatedAt: string;
                     };
@@ -56732,6 +56736,10 @@ export interface operations {
                             id: string;
                             /** @default  */
                             say?: string;
+                            /** @default null */
+                            stage?: ("connect" | "situation" | "problem" | "future" | "consequence" | "importance" | "bridge" | "present" | "commit") | null;
+                            /** @default  */
+                            tip?: string;
                             title: string;
                         }[];
                     };
@@ -56740,7 +56748,7 @@ export interface operations {
                      * @default any
                      * @enum {string}
                      */
-                    kind?: "first_call" | "estimate" | "follow_up" | "any";
+                    kind?: "new_lead" | "booked_call" | "aged_lead" | "cold_call" | "first_call" | "estimate" | "follow_up" | "any";
                     name: string;
                     /** Format: uuid */
                     playbookId?: string;
@@ -56777,6 +56785,10 @@ export interface operations {
                                 id: string;
                                 /** @default  */
                                 say: string;
+                                /** @default null */
+                                stage: ("connect" | "situation" | "problem" | "future" | "consequence" | "importance" | "bridge" | "present" | "commit") | null;
+                                /** @default  */
+                                tip: string;
                                 title: string;
                             }[];
                         };
@@ -56784,7 +56796,7 @@ export interface operations {
                         id: string;
                         isDefault: boolean;
                         /** @enum {string} */
-                        kind: "first_call" | "estimate" | "follow_up" | "any";
+                        kind: "new_lead" | "booked_call" | "aged_lead" | "cold_call" | "first_call" | "estimate" | "follow_up" | "any";
                         name: string;
                         updatedAt: string;
                     };
@@ -86820,9 +86832,10 @@ export interface operations {
                                 /** Format: uuid */
                                 id: string;
                                 /** @enum {string} */
-                                kind: "objection" | "fact" | "step" | "question";
+                                kind: "objection" | "fact" | "step" | "question" | "nudge";
                                 objectionId: string | null;
                                 say: string;
+                                tip: string;
                                 title: string;
                             }[];
                             channel: ("sms" | "email" | "chat" | "portal" | "messenger" | "instagram") | null;
@@ -86873,6 +86886,12 @@ export interface operations {
                                         answered: number;
                                         of: number;
                                     };
+                                    /** @default null */
+                                    stages: {
+                                        covered: ("connect" | "situation" | "problem" | "future" | "consequence" | "importance" | "bridge" | "present" | "commit")[];
+                                        missed: ("connect" | "situation" | "problem" | "future" | "consequence" | "importance" | "bridge" | "present" | "commit")[];
+                                        pitchedEarly: boolean;
+                                    } | null;
                                     steps: {
                                         covered: number;
                                         of: number;
@@ -87030,9 +87049,10 @@ export interface operations {
                                 /** Format: uuid */
                                 id: string;
                                 /** @enum {string} */
-                                kind: "objection" | "fact" | "step" | "question";
+                                kind: "objection" | "fact" | "step" | "question" | "nudge";
                                 objectionId: string | null;
                                 say: string;
+                                tip: string;
                                 title: string;
                             }[];
                             /** Format: uuid */
@@ -87062,6 +87082,10 @@ export interface operations {
                                         id: string;
                                         /** @default  */
                                         say: string;
+                                        /** @default null */
+                                        stage: ("connect" | "situation" | "problem" | "future" | "consequence" | "importance" | "bridge" | "present" | "commit") | null;
+                                        /** @default  */
+                                        tip: string;
                                         title: string;
                                     }[];
                                 };
@@ -87121,6 +87145,10 @@ export interface operations {
                                     id: string;
                                     /** @default  */
                                     say: string;
+                                    /** @default null */
+                                    stage: ("connect" | "situation" | "problem" | "future" | "consequence" | "importance" | "bridge" | "present" | "commit") | null;
+                                    /** @default  */
+                                    tip: string;
                                     title: string;
                                 }[];
                             };
@@ -87128,7 +87156,7 @@ export interface operations {
                             id: string;
                             isDefault: boolean;
                             /** @enum {string} */
-                            kind: "first_call" | "estimate" | "follow_up" | "any";
+                            kind: "new_lead" | "booked_call" | "aged_lead" | "cold_call" | "first_call" | "estimate" | "follow_up" | "any";
                             name: string;
                             updatedAt: string;
                         }[];
