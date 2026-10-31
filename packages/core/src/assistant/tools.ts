@@ -568,7 +568,7 @@ export const assistantTools = [
   define({
     name: 'update_texting_settings',
     description:
-      'Change how texts and calls behave: quiet hours, how long a customer waits before the team is reminded, which phones ring and for how long, voicemail, and what the customer sees when a call is forwarded. Read it with get_settings first and pass only what changes.',
+      'Change how texts and calls behave: quiet hours, how long a customer waits before the team is reminded, which phones ring and for how long, voicemail, and what the customer sees when a call is forwarded. The calls settings are the default number’s, as on the screen. Whether callers hear that calls are recorded is do_phone_number_set_recording_notice. Read it with get_settings first and pass only what changes.',
     input: z.object({
       quietHoursEnabled: z.boolean().optional(),
       quietHoursStart: clock.optional().describe('When quiet hours start, like 20:00'),

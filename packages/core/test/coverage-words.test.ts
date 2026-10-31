@@ -4,6 +4,7 @@
  */
 import { describe, expect, it } from 'vitest';
 import {
+  ADDON_CATALOG,
   ASSISTANT_NOT_YET,
   assistantCoverage,
   coverageCards,
@@ -14,6 +15,7 @@ import {
   ROLE_PERMISSIONS,
   SCREEN_ACTIONS,
   SETTINGS_NOT_YET,
+  SETTINGS_PAGES,
 } from '../src';
 
 const c = assistantCoverage();
@@ -29,10 +31,16 @@ describe('assistant coverage', () => {
   });
 
   it('names each page to check as its menu does, with its rows', () => {
-    const page = (key: string) => c.settingsToCheck.find((p) => p.key === key)!;
-    expect(page('texting').label).toBe('Texting & calls');
-    expect(page('realestate').label).toBe('Real Estate Agent');
-    for (const p of c.settingsToCheck) expect(p.rows.length, p.key).toBeGreaterThan(0);
+    // The pages change as they're closed: each one left is named as the Settings menu or its add-on names it.
+    const named = new Map<string, string>([
+      ...SETTINGS_PAGES.map((p) => [p.key, p.label] as const),
+      ...ADDON_CATALOG.map((m) => [m.id, m.name] as const),
+      ['phone', 'The phone app'],
+    ]);
+    for (const p of c.settingsToCheck) {
+      expect(p.label, p.key).toBe(named.get(p.key));
+      expect(p.rows.length, p.key).toBeGreaterThan(0);
+    }
   });
 
   it('shows a gap in red only while there is one', () => {

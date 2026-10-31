@@ -12,6 +12,8 @@
  * and in the prompt, and test/settings-map.test.ts checks every step against the menus it names.
  */
 
+import { money } from '../money/format';
+import { RCS_FIRST_YEAR_CENTS } from '../money/rcs-fees';
 import type { Permission } from '../permissions';
 
 export const SETTINGS_AREAS = [
@@ -456,9 +458,10 @@ const AREAS: Record<SettingsArea, AreaEntry> = {
       'Business number: Text me a test, and Release this number under ⋯',
       'Carrier registration: where it stands, and View what we sent',
       'RCS messaging',
-      'Texting rules: Quiet hours, and Remind the team when a customer waits',
+      'Texting rules: Quiet hours, Remind the team when a customer waits, and STOP, START and HELP (always on)',
       'When a customer calls: which browsers and phones ring, and Ring for',
       'What forwarded phones show',
+      'Call recording: whether customers hear that calls are recorded',
       'Voicemail: on or off, and the greeting',
     ],
     path: '/settings/texting',
@@ -472,6 +475,9 @@ const AREAS: Record<SettingsArea, AreaEntry> = {
       'name a number, or make it the default',
       'choose who a number rings',
       'choose whether each person sees only their own conversations',
+      'start bringing over a number the business already has',
+      'whether customers hear that calls are recorded',
+      'connect the RCS sender HandsFreeOS made, by its id',
       'pause or turn on RCS, choose its number, check it, or disconnect it',
     ],
     handovers: [
@@ -485,12 +491,12 @@ const AREAS: Record<SettingsArea, AreaEntry> = {
         ],
       },
       {
-        what: 'connect an RCS sender',
-        why: 'the sender is made in your own Twilio account, which only you sign in to',
+        what: 'ask for RCS, and pay for it',
+        why: 'it’s paid for on Stripe’s page, which only you can do',
         steps: [
-          'Make the RCS sender in your Twilio account.',
-          'Open Settings → Texting & calls and, in RCS messaging, press Connect RCS sender.',
-          'Paste the sender’s id. After that I can pause it, choose its number or check it for you.',
+          'Open Settings → Texting & calls and, in RCS messaging, fill in what your sender should show.',
+          `Press Pay ${money(RCS_FIRST_YEAR_CENTS)} and send, then pay on Stripe’s page.`,
+          'HandsFreeOS makes the sender and connects it. After that I can pause it, choose its number or check it for you.',
         ],
       },
     ],

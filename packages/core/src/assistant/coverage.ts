@@ -548,6 +548,52 @@ export const SETTING_TOOLS: Readonly<Record<string, readonly SettingWay[]>> = {
   'usage.ai_limit': [{ tool: 'do_wallet_set_ai_limit', field: 'aiDailyLimitCents' }],
   // Buying a seat is on Stripe's page (founding.buy is on the Never list); renewing is the business's switch.
   'usage.founding': [{ tool: 'do_founding_set_renewing', field: 'renewing' }],
+  // ---- Texting & calls: the calls rows change the default number, as the screen does ----
+  'texting.inbox_visibility': [{ tool: 'set_inbox_visibility', field: 'eachPersonSeesTheirOwn' }],
+  'texting.number': [
+    { tool: 'manage_phone_number', field: 'action', value: 'get' },
+    { tool: 'manage_phone_number', field: 'action', value: 'give_up' },
+    { tool: 'manage_numbers', field: 'action', value: 'rename' },
+    { tool: 'manage_numbers', field: 'action', value: 'make_default' },
+    { tool: 'manage_numbers', field: 'action', value: 'choose_who_it_rings' },
+    { tool: 'do_number_port_start', field: 'e164' },
+    { tool: 'do_number_import_start', field: 'e164' },
+  ],
+  // The campaign fee is paid on Stripe's page (texting_fee.pay is on the Never list).
+  'texting.registration': [
+    { tool: 'submit_carrier_registration', field: 'kind' },
+    { tool: 'do_registration_save_draft', field: 'answers' },
+  ],
+  // Asking for a sender is paid on Stripe's page (rcs_request.submit is on the Never list); HandsFreeOS makes it.
+  'texting.rcs': [
+    { tool: 'do_rcs_sender_connect', field: 'senderId' },
+    { tool: 'manage_rcs', field: 'action', value: 'check_now' },
+    { tool: 'manage_rcs', field: 'action', value: 'disconnect' },
+  ],
+  'texting.rcs_send': [
+    { tool: 'manage_rcs', field: 'action', value: 'pause' },
+    { tool: 'manage_rcs', field: 'action', value: 'turn_on' },
+  ],
+  'texting.rcs_line': [
+    { tool: 'manage_rcs', field: 'action', value: 'start_on_number' },
+    { tool: 'manage_rcs', field: 'phoneNumberId' },
+  ],
+  'texting.quiet_hours': [
+    { tool: 'update_texting_settings', field: 'quietHoursEnabled' },
+    { tool: 'update_texting_settings', field: 'quietHoursStart' },
+    { tool: 'update_texting_settings', field: 'quietHoursEnd' },
+  ],
+  'texting.remind_waiting': [{ tool: 'update_texting_settings', field: 'remindTeamAfterMinutes' }],
+  'texting.calls': [{ tool: 'update_texting_settings', field: 'ringPhones' }],
+  'texting.ring_for': [{ tool: 'update_texting_settings', field: 'ringSeconds' }],
+  'texting.caller_id': [{ tool: 'update_texting_settings', field: 'showCustomerNumber' }],
+  'texting.recording': [
+    { tool: 'do_phone_number_set_recording_notice', field: 'announceRecording' },
+  ],
+  'texting.voicemail': [
+    { tool: 'update_texting_settings', field: 'voicemailEnabled' },
+    { tool: 'update_texting_settings', field: 'voicemailGreeting' },
+  ],
 };
 
 /** Setting rows the Assistant never changes, and why. */
@@ -570,6 +616,8 @@ export const SETTINGS_NEVER: Readonly<Record<string, string>> = {
     'HandsFreeOS’s own prices, to read (get_settings, area usage): nothing here is the business’s to change',
   'usage.statement':
     'what was charged and added, to read (get_settings, area usage): nothing to change',
+  'texting.stop_help':
+    'always on: every text answers STOP, START and HELP by itself, and an opted-out customer stays opted out until they text START',
   ...Object.fromEntries(
     AUTOMATION_ROWS.filter((a) => a.locked).map((a) => [
       `automation.${a.id}`,
@@ -583,7 +631,6 @@ export const SETTINGS_NEVER: Readonly<Record<string, string>> = {
  * the first, says which tool changes each of its rows (adding what's missing), and takes it off.
  */
 export const SETTINGS_NOT_YET: readonly string[] = [
-  'texting',
   'email',
   'website_chat',
   'facebook_instagram',

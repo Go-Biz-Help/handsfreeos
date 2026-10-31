@@ -7,7 +7,7 @@
  * before it goes to the carriers, because they take days to answer and a wrong answer means starting again.
  */
 
-import { money } from '@hfos/core';
+import { HfosError, money } from '@hfos/core';
 import type { Db } from '@hfos/db/client';
 import type { ToolContext } from './runtime';
 import { command, query } from './tools-read';
@@ -55,6 +55,16 @@ const phoneStatus = (db: Db, ctx: ToolContext) =>
 const updateTextingSettings: SettingsConfirmTool = {
   async prepare(db, ctx, args, toolCallId) {
     const status = await phoneStatus(db, ctx);
+    // The calls settings are the number's: with none yet, saying "Saved" would be untrue.
+    if (
+      !status?.number &&
+      (routingFrom(args, status) || bool(args['showCustomerNumber']) !== undefined)
+    )
+      throw HfosError.rule(
+        'no_number',
+        409,
+        'This business has no number yet, so there are no calls to set up. Get one under Get a business number in Settings → Texting & calls first.',
+      );
     const fields: Field[] = [];
     const quiet = quietFrom(args, status);
     if (quiet)
