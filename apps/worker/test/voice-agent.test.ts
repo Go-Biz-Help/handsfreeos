@@ -772,6 +772,24 @@ describe('the pieces', () => {
     );
   });
 
+  it('follows the business’s sales script on a call to a lead, up to how much it matters', () => {
+    const outbound = { purpose: 'workflow', goal: 'about your carpet request', brief: null };
+    const without = phoneChannelLines({ training: false, personHasIt: false, outbound }).join('\n');
+    expect(without).not.toContain('<call_script>');
+    const lines = phoneChannelLines({
+      training: false,
+      personHasIt: false,
+      outbound: { ...outbound, script: 'Script: New leads\n1. Say: “What made you reach out?”' },
+    }).join('\n');
+    expect(lines).toContain(
+      '<call_script>\nScript: New leads\n1. Say: “What made you reach out?”\n</call_script>',
+    );
+    expect(lines).toContain('Your part ends where the script ends');
+    expect(lines).toContain('Never say or suggest you’re a person.');
+    // Core's rules still come after it.
+    expect(lines.indexOf('no_more_calls')).toBeGreaterThan(lines.indexOf('</call_script>'));
+  });
+
   it('speaks a sentence at a time, in the caller’s language', () => {
     expect(sentencesOf('Hi there. How can I help? Sure!')).toEqual([
       'Hi there.',

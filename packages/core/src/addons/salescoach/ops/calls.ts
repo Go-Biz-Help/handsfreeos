@@ -30,7 +30,7 @@ import {
 import { WIN_KINDS } from '../learn';
 import { salescoachAddon } from '../manifest';
 import { callKindFor, type CallStart } from '../method';
-import { PlaybookDetails } from '../playbooks';
+import { PlaybookDetails, type PlaybookKind } from '../playbooks';
 import { cards, coachedCalls, playbooks } from '../tables';
 import { inWorkspace } from './playbooks';
 
@@ -146,7 +146,7 @@ const BOOKED_WITHIN_MS = 30 * 60_000;
  * How a call started, from core's records (round five): a meeting or a phone call and its way, whether the customer
  * has an appointment starting about now, and how old their newest open lead is.
  */
-async function callStart(
+export async function callStart(
   tx: Tx,
   input: { callId: string | null; liveMeetingId: string | null; personId: string | null },
   now: Date,
@@ -188,6 +188,20 @@ async function callStart(
   };
 }
 
+/** The business's script for a kind of call (its usual one first, then the oldest), else its usual script. */
+export async function playbookForKind(
+  tx: Tx,
+  workspaceId: string,
+  kind: PlaybookKind | null,
+): Promise<typeof playbooks.$inferSelect | undefined> {
+  const inUse = await tx
+    .select()
+    .from(playbooks)
+    .where(and(eq(playbooks.workspaceId, workspaceId), isNull(playbooks.archivedAt)))
+    .orderBy(desc(playbooks.isDefault), playbooks.createdAt);
+  return (kind && inUse.find((p) => p.kind === kind)) || inUse[0];
+}
+
 // ---------- the worker's ----------
 
 export const callBegin = defineAddonCommand(salescoachAddon, {
@@ -220,12 +234,7 @@ export const callBegin = defineAddonCommand(salescoachAddon, {
     const ws = ctx.scope.workspaceId!;
     // The script for how the call started when the business has one of that kind, else the usual one.
     const kind = callKindFor(await callStart(ctx.tx, input, changeMoment(ctx.meta)));
-    const inUse = await ctx.tx
-      .select()
-      .from(playbooks)
-      .where(and(eq(playbooks.workspaceId, ws), isNull(playbooks.archivedAt)))
-      .orderBy(desc(playbooks.isDefault), playbooks.createdAt);
-    const pb = (kind && inUse.find((p) => p.kind === kind)) || inUse[0];
+    const pb = await playbookForKind(ctx.tx, ws, kind);
     const [made] = await ctx.tx
       .insert(coachedCalls)
       .values({

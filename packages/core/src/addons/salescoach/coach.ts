@@ -23,8 +23,10 @@ import {
   SALES_BRIEF_QUESTIONS,
   SALES_STAGE_ABOUT,
   SALES_STAGE_LABELS,
+  AI_CALLER_STAGES,
   SALES_STAGES,
   playbookStages,
+  stageAt,
   type SalesStage,
 } from './method';
 import {
@@ -525,6 +527,54 @@ export function checkedCard(a: CoachAnswer, d: PlaybookDetails): CheckedCard {
       objectionId,
     },
   };
+}
+
+// ---------- the AI teammate's calls to leads ----------
+
+/** The most objections a call script carries: the screens' limit is higher, but every turn of the call reads it. */
+const CALLER_OBJECTIONS = 12;
+
+/**
+ * A playbook as the script the AI teammate follows on a call it placed to a lead (round five, part three; the worker's
+ * `callScript`): what the call is, how to sound, the questions in order up to how much it matters, and the objections
+ * with their answers. A script with stages keeps only the AI's stages (`AI_CALLER_STAGES`); one without keeps every
+ * step and says where to stop. Null when there's nothing to ask.
+ */
+export function callerScript(name: string, kind: PlaybookKind, d: PlaybookDetails): string | null {
+  const staged = playbookStages(d.steps).length > 0;
+  const steps = staged
+    ? d.steps.filter((s) => {
+        const st = stageAt(d.steps, s.id);
+        return st !== null && AI_CALLER_STAGES.includes(st);
+      })
+    : d.steps;
+  if (steps.length === 0) return null;
+  const stepLine = (s: PlaybookDetails['steps'][number], i: number) => {
+    const st = stageAt(d.steps, s.id);
+    return [
+      `${i + 1}. ${st ? `(${SALES_STAGE_LABELS[st]}) ` : ''}${s.say.trim() ? `Say: “${s.say.trim()}”` : s.title}`,
+      s.tip.trim() ? ` How: ${s.tip.trim()}` : '',
+    ].join('');
+  };
+  return [
+    `Script: ${name} (${PLAYBOOK_KIND_LABELS[kind]})`,
+    `About this call: ${CALL_OPENINGS[kind]}`,
+    'How to sound:',
+    ...METHOD_RULES.map((r) => `- ${r}`),
+    staged
+      ? 'The questions, in order. Your part ends after the last one:'
+      : 'The script, in order. It isn’t split into stages, so stop before any step that shows the offer, gives a price or asks for the sale:',
+    ...steps.map(stepLine),
+    ...(d.objections.length
+      ? [
+          'Objections, answered by asking:',
+          ...OBJECTION_RULES.map((r) => `- ${r}`),
+          ...d.objections
+            .slice(0, CALLER_OBJECTIONS)
+            .map((o) => `- “${o.objection.trim()}” → ${o.answer.trim()}`),
+        ]
+      : []),
+  ].join('\n');
 }
 
 // ---------- after the call ----------

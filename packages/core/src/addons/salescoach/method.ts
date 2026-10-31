@@ -209,3 +209,17 @@ export function callKindFor(start: CallStart): BuilderKind | null {
     return start.leadAgeDays <= NEW_LEAD_DAYS ? 'new_lead' : 'aged_lead';
   return start.known ? null : 'cold_call';
 }
+
+/**
+ * The stages the AI teammate takes its own calls to leads through (Chris, 2026-10-31: "up to how important, then it
+ * books a person"): it learns where they are and how much it matters, then books someone on the team to bridge, show
+ * how and ask for a yes.
+ */
+export const AI_CALLER_STAGES: readonly SalesStage[] = [
+  'connect',
+  'situation',
+  'problem',
+  'future',
+  'consequence',
+  'importance',
+];

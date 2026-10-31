@@ -137,6 +137,27 @@ export interface AddonWorkerModule {
    * is logged, and the next line still comes.
    */
   readonly liveCalls?: AddonLiveCalls;
+  /**
+   * The script the AI teammate follows on a call it places to a lead (its manifest's `callScripts`;
+   * ai-calls/scripts.ts), read once as the customer picks up. Null when it has none for this call. It reads only: it's
+   * handed what it needs to look at its own records, and a script that fails leaves the call to go on without one.
+   */
+  readonly callScript?: (ctx: AddonReadContext, call: ScriptedCall) => Promise<string | null>;
+}
+
+/** What an add-on is handed to read its own records for one business, and no more (a call's script). */
+export type AddonReadContext = Pick<
+  AddonScopeContext,
+  'db' | 'log' | 'manifest' | 'scope' | 'actor' | 'generation' | 'meta'
+>;
+
+/** A call the AI teammate placed to a lead, as the customer picks up: a workflow's step's, or a call campaign's. */
+export interface ScriptedCall {
+  readonly aiCallId: string;
+  readonly purpose: 'workflow' | 'campaign';
+  readonly personId: string;
+  /** What it said it's calling about: it finished "I'm calling …". */
+  readonly goal: string;
 }
 
 /** A call heard live: which, who on the team is on it, and the customer when the call knows them. */

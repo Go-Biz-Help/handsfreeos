@@ -190,12 +190,15 @@ became how the coach sells. The owner picked every recommendation ("all of your 
 | Objections                      | **Answered the same way:** calm questions back, never arguing.                                                                                                                                      |
 | How far the AI caller goes      | **Up to "how much it matters", then it books a person** to present and close. It talks the same calm way and still says up front it's an AI and the call is recorded.                               |
 
-Three parts, each its own pull request: 1. the method and the script builder; 2. live coaching and the score by
-stage; 3. the AI caller. Parts 1 and 2's details are in `docs/salescoach.md`, "The question-led method". One more
-rule from building part 1: the scripts never suggest borrowing or taking money from savings to pay (the training's
-money questions do); only the business's own payment options. Part 2 picks the script by how a call started (a
-booked call, a new lead within 14 days, an older lead, a cold call), and showing the offer before the customer said
-their problem keeps three quarters of the stages' part of the score.
+Three parts: 1. the method and the script builder; 2. live coaching and the score by stage; 3. the AI caller. Parts 1
+and 2's details are in `docs/salescoach.md`, "The question-led method". One more rule from building part 1: the
+scripts never suggest borrowing or taking money from savings to pay (the training's money questions do); only the
+business's own payment options. Part 2 picks the script by how a call started (a booked call, a new lead within 14
+days, an older lead, a cold call), and showing the offer before the customer said their problem keeps three quarters
+of the stages' part of the score. Part 3 is "The AI teammate's calls to leads" in `docs/salescoach.md`: core asks any
+add-on that declares `callScripts` for the script as a lead picks up a workflow's or a campaign's call, and Sales
+Coach hands back the script for that kind of call, cut to the stages up to how much it matters. All three parts went
+in one pull request, since only one branch could be pushed.
 
 ## What HandsFreeOS needs from outside
 

@@ -13,13 +13,16 @@
  *   once, each call goes without a draft, even while the teammate trains; one that keeps adding people (part 4)
  *   calls whoever comes to fit and agrees, and finishes once it's turned off;
  * - a workflow's "AI teammate calls them" (part 2): only someone who agreed in writing, with the step's opening and
- *   playbook, and a call still waiting for an OK isn't made once they've written in since;
+ *   playbook, and a call still waiting for an OK isn't made once they've written in since; with AI Sales Coach on,
+ *   it follows the business's script for a new lead, up to how much it matters (Sales Coach round five, part three);
  * - a call to a lead (part 3) waits for the calling hours where they are, and rings again the next day when nobody
  *   answers or a voicemail box does, up to 3 times, then texts as the business chose;
  * - with Call business landlines without a yes on (part 5), a call to someone with no yes goes only once the phone
  *   company says their number is a business's landline (or it's a company's number here), each ask charged once.
  */
 import type { AddressInfo } from 'node:net';
+import { salescoachAddon } from '@hfos/core/addons/salescoach/manifest';
+import { playbookSave } from '@hfos/core/addons/salescoach/ops/playbooks';
 import {
   aiTeammateDecideDraft,
   appointmentCreate,
@@ -63,6 +66,8 @@ import {
   fallbackOpening,
   KEEP_ADDING_LOOK_MS,
 } from '../src/automations/campaigns';
+import { addonCallScript, CALL_SCRIPT_MAX, CALL_SCRIPT_WAIT_MS } from '../src/ai-calls/scripts';
+import type { AddonWorkerModule } from '../src/addons/types';
 import { recordSystemEvent } from '../src/system-event';
 import { scriptedAi } from '../src/ai/scripted';
 import { answeredByMachine, voicemailMessage } from '../src/http/ai-calls';
@@ -79,6 +84,7 @@ import { addWorkflow, runsOf, sid, stepOf } from './workflow-world';
 import {
   admin,
   at,
+  briefOf,
   drain,
   hh,
   hourNow,
@@ -90,6 +96,7 @@ import {
   saveTeammate,
   setQuietHours,
   setStatus,
+  teammateRequests,
   teammateWorld,
   textIn,
   textsTo,
@@ -877,6 +884,109 @@ describe('a workflow’s call (AI calls, part 2)', () => {
       output: expect.objectContaining({ skipped: 'no_call_consent' }),
     });
     expect(await aiCallsOf(bo.id)).toEqual([]);
+  });
+
+  it('with AI Sales Coach on, follows the business’s script for a new lead, up to how much it matters', async () => {
+    await rows(
+      admin(),
+      sql`insert into app.addon_installations (workspace_id, addon_id, state, installed_version)
+          values (${w.workspaceId}, 'salescoach', 'enabled', ${salescoachAddon.version})
+          on conflict (workspace_id, addon_id) do update set state = 'enabled'`,
+    );
+    try {
+      const step = (id: string, stage: string, say: string) => ({ id, title: say, say, stage });
+      await run(w, playbookSave, {
+        workspaceId: w.workspaceId,
+        name: 'Our usual',
+        kind: 'any',
+        isDefault: true,
+        details: { steps: [step('s1', 'connect', 'What can I do for you today?')] },
+      });
+      await run(w, playbookSave, {
+        workspaceId: w.workspaceId,
+        name: 'New leads',
+        kind: 'new_lead',
+        details: {
+          steps: [
+            step('s1', 'connect', 'Did I catch you at an OK time?'),
+            step('s2', 'problem', 'What made you look into carpet cleaning now?'),
+            step('s3', 'importance', 'How important is it to you to get that sorted?'),
+            step('s4', 'present', 'Here’s how our deep clean works.'),
+          ],
+          objections: [
+            { id: 'o1', objection: 'Too pricey', answer: 'Too pricey compared to what?' },
+          ],
+        },
+      });
+
+      const dee = await newCustomer(w, 'Dee');
+      await agreed(dee.id);
+      await newLead(dee.id, 'carpet cleaning');
+      const [call] = await aiCallsOf(dee.id);
+      await placeAt(call!.id);
+      const placed = placedTo(dee.phone)!;
+      const answered = await post(`${V}/ai-call?aiCall=${call!.id}`, {
+        CallSid: placed.sid,
+        From: w.number!,
+        To: dee.phone,
+        AnsweredBy: 'human',
+      });
+      const line = await dial(placed.sid, ticketIn(answered.body)!);
+      await waitFor('the greeting', () => line.said.join(' ').includes('Is now a good time?'));
+      // The greeting is core's, whatever the script says: who it is, that it's an AI, and that the call is recorded.
+      expect(line.said.join(' ')).toContain('an AI assistant for');
+      expect(line.said.join(' ')).toContain('This call is recorded.');
+      line.speak('Sure, now is fine.');
+      const asked = await waitFor('the teammate’s turn', async () =>
+        teammateRequests(w)
+          .map(briefOf)
+          .find((b) => b.includes('What made you look into carpet cleaning now?')),
+      );
+      expect(asked).toContain('<call_script>');
+      expect(asked).toContain('Script: New leads (New lead who asked us to call)');
+      expect(asked).toContain('How important is it to you to get that sorted?');
+      expect(asked).toContain('“Too pricey” → Too pricey compared to what?');
+      // The AI stops at how much it matters: showing how and asking for a yes are a person's.
+      expect(asked).not.toContain('Here’s how our deep clean works.');
+      expect(asked).not.toContain('What can I do for you today?');
+      expect(asked).toContain('Your part ends where the script ends');
+      // The workflow step's facts still hold beside it.
+      expect(asked).toContain('What you may offer, and nothing more: A free estimate.');
+
+      // Only calls to leads, and only while it runs; a script that fails or is late leaves the call without one.
+      const ask = (purpose: 'workflow' | 'quote', modules?: readonly AddonWorkerModule[]) =>
+        addonCallScript(
+          w.s,
+          scope(),
+          { aiCallId: call!.id, purpose, personId: dee.id, goal: 'about your request' },
+          modules,
+        );
+      expect(await ask('workflow')).toContain('Script: New leads');
+      expect(await ask('quote')).toBeNull();
+      const writer = (callScript: AddonWorkerModule['callScript']): AddonWorkerModule => ({
+        manifest: salescoachAddon,
+        callScript,
+      });
+      expect(await ask('workflow', [writer(() => Promise.reject(new Error('broken')))])).toBeNull();
+      const started = Date.now();
+      expect(await ask('workflow', [writer(() => new Promise(() => {}))])).toBeNull();
+      expect(Date.now() - started).toBeLessThan(CALL_SCRIPT_WAIT_MS + 1000);
+      expect(
+        await ask('workflow', [writer(async () => 'x'.repeat(CALL_SCRIPT_MAX + 50))]),
+      ).toHaveLength(CALL_SCRIPT_MAX);
+      await rows(
+        admin(),
+        sql`update app.addon_installations set state = 'disabled'
+            where workspace_id = ${w.workspaceId} and addon_id = 'salescoach'`,
+      );
+      expect(await ask('workflow')).toBeNull();
+    } finally {
+      await rows(
+        admin(),
+        sql`update app.addon_installations set state = 'disabled'
+            where workspace_id = ${w.workspaceId} and addon_id = 'salescoach'`,
+      );
+    }
   });
 
   it('while training, waits for an OK, and leaves them alone once they’ve written in since', async () => {

@@ -30,12 +30,13 @@ review before anyone outside Go Biz Help's Zoom account can add it.
 | Hearing a HandsFreeOS video call live     | core's `video_call.coach`, `apps/worker/src/video-calls/coach.ts`; the cards beside the video in the web's `components/video-call/call-coach.tsx` (docs/video-calls.md, part 3)                                                                                                                                                                                                                                                    |
 | The Zoom panel                            | the web's `zoom-panel.tsx` (`?view=zoom`), `app/zoom/page.tsx` (where the Zoom app starts), `app/zoom/connect/` (linking Zoom), `components/settings/zoom-coach-card.tsx`, `lib/zoom-app.ts` (Zoom's required headers)                                                                                                                                                                                                             |
 | Hearing a person's call live (core)       | `apps/worker/src/telephony/live.ts` (`onCallAnswered`, `LiveCallSession`), `apps/worker/src/http/live-calls.ts` (the socket)                                                                                                                                                                                                                                                                                                       |
-| The add-on's worker half                  | `apps/worker/src/addons/salescoach/` (`live.ts`, `after-call.ts`, `draft.ts`, `business.ts`)                                                                                                                                                                                                                                                                                                                                       |
+| The add-on's worker half                  | `apps/worker/src/addons/salescoach/` (`live.ts`, `after-call.ts`, `draft.ts`, `business.ts`, `call-script.ts`)                                                                                                                                                                                                                                                                                                                     |
+| The AI teammate's calls to leads          | `apps/worker/src/ai-calls/scripts.ts` (`addonCallScript`); `callerScript` in coach.ts; `scriptLines` in `apps/worker/src/voice-agent/prompt.ts`                                                                                                                                                                                                                                                                                    |
 | The stand-in model's answers              | `SALESCOACH_RULES` in `apps/worker/src/ai/scripted.ts`                                                                                                                                                                                                                                                                                                                                                                             |
 | Web                                       | `apps/web/src/addons/salescoach/`; its page `app/app/w/[workspaceId]/a/salescoach/`; the call bar's slot in `active-call-bar.tsx`                                                                                                                                                                                                                                                                                                  |
 | Phone                                     | `apps/mobile/src/addons/salescoach/`; its route under `(more)/a/salescoach/`                                                                                                                                                                                                                                                                                                                                                       |
 | Database                                  | `supabase/migrations/20261027004500_addon_salescoach.sql`, `20261027004600_salescoach_suggestions.sql`, `20261027004700_salescoach_conversations.sql`, `20261027004800_salescoach_learning.sql`, core's `20261027004900_live_meetings.sql`, `20261027005000_salescoach_zoom.sql`, core's `20261027005100_live_meeting_accounts.sql`, `20261027021300_salescoach_call_kinds.sql`, `20261027021400_salescoach_coaching_by_stage.sql` |
-| Tests                                     | `packages/core/test/addons/salescoach*.test.ts`; `apps/worker/test/salescoach-live.test.ts`, `salescoach-draft.test.ts`, `salescoach-suggest.test.ts`, `salescoach-learn.test.ts`, `salescoach-zoom.test.ts`                                                                                                                                                                                                                       |
+| Tests                                     | `packages/core/test/addons/salescoach*.test.ts`; `apps/worker/test/salescoach-live.test.ts`, `salescoach-draft.test.ts`, `salescoach-suggest.test.ts`, `salescoach-learn.test.ts`, `salescoach-zoom.test.ts`; the AI caller's script in `ai-calls.test.ts` ("a workflow’s call")                                                                                                                                                   |
 
 ## The question-led method
 
@@ -117,6 +118,31 @@ prompt.
 6. **After.** When the stream stops, `salescoach.call.end` keeps what was said and the `salescoach.after_call` job asks
    for the write-up. `checkedAfterCall` holds it to the limits and works out the score; `salescoach.call.finish` puts
    the summary and notes on the customer's timeline and makes a task for each promise, assigned to the rep.
+
+## The AI teammate's calls to leads
+
+Round five, part three (Chris, 2026-10-31: "the AI caller asks up to how important, then books a person to present
+and close"). When the AI teammate places a call to a lead (a workflow's "AI teammate calls them" step, or a call
+campaign's call) in a business where Sales Coach runs, it follows the same scripts the coach uses for reps.
+
+1. **Asked at pickup.** As the customer picks up, the worker asks the add-ons whose manifest says `callScripts` for a
+   script (`addonCallScript` in `apps/worker/src/ai-calls/scripts.ts`; docs/addon-architecture.md). Sales Coach's
+   `callScript` (the worker's `call-script.ts`) picks the business's script the way it would for a rep making that
+   call (`callKindFor` with the call outbound): a new lead's for a lead from the last 14 days, an older lead's after
+   that, a booked call's at an appointment's time, else the usual script.
+2. **Cut to the AI's part.** `callerScript` (coach.ts) writes it as text: the kind of call and how it opens, how to
+   sound (the method's rules), the steps from Connect to How much it matters (`AI_CALLER_STAGES`), each with how to
+   say it, and up to 12 objections with their answers. A script without stages keeps every step and says to stop
+   before any that shows the offer, gives a price or asks for the sale. A script with nothing before the offer gives
+   none.
+3. **On the call.** The prompt carries it under `<call_script>`, as data (voice-agent/prompt.ts `scriptLines`): skip
+   its introduction (the greeting already said who it is), ask its questions in order, one at a time, in the
+   customer's words; answer objections by asking. Its part ends after how much it matters: it sums up what they said
+   and books a time with someone on the team to show how it works, unless the workflow step says not to book.
+4. **What still holds.** The greeting is core's: who it is, that it's an AI and that the call is recorded. It offers
+   only what the step or campaign allows; if asked about the offer or price, it answers briefly from those facts and
+   says the person they meet will go through it. "Don't call me again" still stops every call. A script that fails,
+   or isn't there in 1.5 seconds, leaves the call to go on as before.
 
 ## Suggested replies in a written conversation
 
@@ -284,6 +310,9 @@ The AI can ask too (`salescoach_trends`): "how's Dana doing on calls?"
 - **"If nothing changes" questions, kindly** (Chris, 2026-10-31): built only from what the customer said, never
   made-up deadlines, urgency, scarcity or scary facts. And never a suggestion to borrow, use a card or loan, or take
   money from savings to pay: only the payment options the business has.
+- **The AI caller stops at how much it matters** (Chris, 2026-10-31). On its own calls to leads it asks the
+  script's questions up to there, then books a person on the team to show how it works and ask for a yes. It never
+  presents, prices or closes, and never says or suggests it's a person.
 - **The coach says only what's in the playbook and the knowledge base.** No prices, promises or facts of its own:
   the instructions say so, and a card naming a step or an objection that isn't in the playbook loses the name.
 - **The score is worked out, never the model's number** (`scoreCall`): steps covered half (stages, for a script with
@@ -312,17 +341,14 @@ The AI can ask too (`salescoach_trends`): "how's Dana doing on calls?"
   of someone with `salescoach.use`. **Stop coaching this call** (`salescoach.call.stop`, the rep alone, while it's
   live) marks it `stopped`: no more cards or asks to the AI, nothing kept at the end, no write-up. Row security lets
   the rep make that one change to their own call and no other.
-- **Core never points into the add-on.** Core's live listening hands lines to any add-on that declares `liveCalls`;
-  its tables reference core's calls and live meetings, never the other way round. `/zoom` finds the add-on's page
+- **Core never points into the add-on.** Core's live listening hands lines to any add-on that declares `liveCalls`,
+  and the AI teammate's calls to leads ask any add-on that declares `callScripts`; its tables reference core's calls and live meetings, never the other way round. `/zoom` finds the add-on's page
   from the catalogue (`liveCalls.zoom`), not by name.
 - **A Zoom stream is heard only for whoever claimed it.** A stream nobody claimed in the last hour, or one started by
   a Zoom account other than the claimant's linked one, is left alone; and the worker connects only to Zoom's own
   servers (`trustedStreamUrl`).
 
 ## Not yet
-
-- **Round 5's part 3** (Chris, 2026-10-31): the AI caller using the same scripts, up to "how much it matters", and
-  booking a person to present and close.
 
 - **Hanging up the stream when the coach is stopped.** A stopped call stops asking the AI, but the worker still
   hears it to the end (and it's billed as live speech) until core can end one add-on's listening mid-call.

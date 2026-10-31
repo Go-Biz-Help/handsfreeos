@@ -18,6 +18,7 @@ import {
   cardMoment,
   checkedBrief,
   checkedCard,
+  callerScript,
   checkedDraft,
   COACH_SYSTEM,
   nudgeAllowed,
@@ -38,6 +39,7 @@ import {
 } from '../../src/addons/salescoach/learn';
 import { salescoachAddon } from '../../src/addons/salescoach/manifest';
 import {
+  AI_CALLER_STAGES,
   BUILDER_KINDS,
   CALL_OPENINGS,
   callKindFor,
@@ -375,6 +377,77 @@ describe('coaching by stage', () => {
     // Three quarters of the stages' part: (0.5 × 0.75 + 0.2) / 0.7.
     expect(early.total).toBe(82);
     expect(early.stages?.pitchedEarly).toBe(true);
+  });
+});
+
+describe('the AI teammate’s calls to leads (round five, part three)', () => {
+  const step = (id: string, stage: (typeof SALES_STAGES)[number] | null, say = '', tip = '') => ({
+    id,
+    title: `Step ${id}`,
+    say,
+    tip,
+    stage,
+  });
+
+  it('asks the script’s questions up to how much it matters, and stops there', () => {
+    expect(AI_CALLER_STAGES.at(-1)).toBe('importance');
+    expect(AI_CALLER_STAGES).not.toContain('present');
+    const script = callerScript(
+      'New leads',
+      'new_lead',
+      PlaybookDetails.parse({
+        steps: [
+          step('s1', 'connect', 'Is now an OK time?'),
+          step('s2', 'problem', 'What made you look into this?', 'Slow down here.'),
+          step('s3', null, 'How long has that been going on?'),
+          step('s4', 'importance', 'How important is it to you to fix that?'),
+          step('s5', 'present', 'Here is how we fix it.'),
+          step('s6', 'commit', 'Shall we get you started?'),
+        ],
+        objections: [
+          { id: 'o1', objection: 'Too expensive', answer: 'Too expensive compared to what?' },
+        ],
+      }),
+    )!;
+    expect(script).toContain('Script: New leads (New lead who asked us to call)');
+    expect(script).toContain(CALL_OPENINGS.new_lead);
+    expect(script).toContain('1. (Connect) Say: “Is now an OK time?”');
+    expect(script).toContain(
+      '2. (The problem) Say: “What made you look into this?” How: Slow down here.',
+    );
+    // A step without a stage carries on the one before it.
+    expect(script).toContain('3. (The problem) Say: “How long has that been going on?”');
+    expect(script).toContain('How important is it to you to fix that?');
+    expect(script).not.toContain('Here is how we fix it.');
+    expect(script).not.toContain('Shall we get you started?');
+    expect(script).toContain('“Too expensive” → Too expensive compared to what?');
+  });
+
+  it('keeps a script without stages whole, and says where to stop', () => {
+    const script = callerScript(
+      'Our own',
+      'any',
+      PlaybookDetails.parse({
+        steps: [step('s1', null, 'Hi there.'), step('s2', null), step('s3', null, 'Want to buy?')],
+      }),
+    )!;
+    expect(script).toContain(
+      'stop before any step that shows the offer, gives a price or asks for the sale',
+    );
+    expect(script).toContain('2. Step s2');
+    expect(script).toContain('Want to buy?');
+    expect(script).not.toContain('Objections');
+  });
+
+  it('has nothing to follow without questions before the offer', () => {
+    expect(callerScript('Empty', 'any', PlaybookDetails.parse({ steps: [] }))).toBeNull();
+    expect(
+      callerScript(
+        'Only the pitch',
+        'any',
+        PlaybookDetails.parse({ steps: [step('s1', 'present', 'Here it is.')] }),
+      ),
+    ).toBeNull();
   });
 });
 
