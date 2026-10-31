@@ -198,11 +198,20 @@ export const WorkingHours = z
     /** The hour it starts, and the hour it stops, on the business's clock. */
     start: z.number().int().min(0).max(23),
     end: z.number().int().min(1).max(24),
-    /** The days it works, 0 being Sunday; kept each once, in order (`dayList`). */
+    /**
+     * The days it works, 0 being Sunday; kept each once, in order (`dayList`). With `everyDay`, the days new messages go
+     * (decision 139): everything else goes every day.
+     */
     days: z
       .array(z.number().int().min(0).max(6))
       .min(1, { error: 'Pick at least one day.' })
       .max(7),
+    /**
+     * Keep working on other days (decision 139): likes, friend requests, comments and replies go every day in these
+     * hours, and only new messages (`WORK_DAY_KINDS`) wait for `days`. On to start: hours kept before it, without it,
+     * keep working too (`worksEveryDay`).
+     */
+    everyDay: z.boolean().optional(),
   })
   .refine((h) => h.end - h.start >= 1, {
     error: 'Make the working hours at least an hour long, ending after they start.',
@@ -240,6 +249,12 @@ export const NetworkChoices = z.object({
    * says so, as the extension can't see an account's age. Off to start.
    */
   young: z.boolean().default(false),
+  /**
+   * Full speed there now (decision 138; the owner, 31 Oct 2026, "Fix it all, full speed Monday"): its full safe
+   * limits, never halved for a person new there or on training wheels. A warning there still halves them for a week.
+   * Off to start.
+   */
+  fullSpeed: z.boolean().default(false),
   /** Tidying up on its own there (decision 98): old requests to start. */
   tidy: z.enum(TIDY_MODE_KEYS).default('cancel'),
   /**
@@ -261,11 +276,12 @@ export const NetworksSettings = z.object({
     .object({
       on: z.boolean().default(true),
       young: z.boolean().default(false),
+      fullSpeed: z.boolean().default(false),
       tidy: z.enum(TIDY_MODE_KEYS).default('cancel'),
       /** How the requests they get are answered while `confirmRequests` (a column) is on (decision 121). */
       requests: z.enum(ANSWER_MODE_KEYS).default('fits'),
     })
-    .default({ on: true, young: false, tidy: 'cancel', requests: 'fits' }),
+    .default({ on: true, young: false, fullSpeed: false, tidy: 'cancel', requests: 'fits' }),
   linkedin: NetworkChoices.default(NETWORK_CHOICES_DEFAULTS),
   instagram: NetworkChoices.default(NETWORK_CHOICES_DEFAULTS),
   alignable: NetworkChoices.default(NETWORK_CHOICES_DEFAULTS),
@@ -324,6 +340,7 @@ export function choicesFor(settings: AutomationSettings, platform: Platform): Ne
   return {
     on: settings.networks.facebook.on,
     young: settings.networks.facebook.young,
+    fullSpeed: settings.networks.facebook.fullSpeed,
     tidy: settings.networks.facebook.tidy,
     requests: settings.networks.facebook.requests,
     sending,
@@ -675,6 +692,16 @@ export function freshState(first: Date | string | null, young: boolean, now: num
   };
 }
 
+/**
+ * Whether someone's daily limits on a network are half now: new there (decision 96) or on training wheels there, but
+ * never once they picked Full speed there (decision 138). A warning halves them too, for callers.
+ */
+export const halvedNow = (state: {
+  readonly wheels: { readonly on: boolean };
+  readonly fresh: { readonly on: boolean };
+  readonly choices: Pick<NetworkChoices, 'fullSpeed'>;
+}): boolean => !state.choices.fullSpeed && (state.wheels.on || state.fresh.on);
+
 /** Where a network's half limits for someone new there stand, in words for the person. */
 export function freshWords(state: FreshState, platform: Platform): string {
   const name = PLATFORMS[platform];
@@ -688,8 +715,8 @@ export function freshWords(state: FreshState, platform: Platform): string {
   return `New on ${name}: your daily limits there are half until ${day}, so ${name} gets used to you slowly.`;
 }
 
-/** Where training wheels stand, in words for the person. */
-export function wheelsWords(state: WheelsState): string {
+/** Where training wheels stand, in words for the person: without half limits once they picked Full speed (decision 138). */
+export function wheelsWords(state: WheelsState, fullSpeed = false): string {
   const left = [
     state.ok < WHEELS.ok ? `${WHEELS.ok - state.ok} more messages to OK` : null,
     state.daysLeft ? `${state.daysLeft} ${state.daysLeft === 1 ? 'day' : 'days'} to go` : null,
@@ -697,7 +724,7 @@ export function wheelsWords(state: WheelsState): string {
       ? `fewer changes: you changed ${state.edits} of the last ${WHEELS.last}`
       : null,
   ].filter(Boolean);
-  return `Training wheels: every message waits for your OK, and your daily limits are half${left.length ? `. Still: ${left.join(', ')}` : ''}.`;
+  return `Training wheels: every message waits for your OK${fullSpeed ? '' : ', and your daily limits are half'}${left.length ? `. Still: ${left.join(', ')}` : ''}.`;
 }
 
 export const AutomationInput = z.object({
@@ -838,6 +865,42 @@ export const WARM_UP_WINDOW_DAYS = 14;
 export const dayList = (days: readonly number[]) => [...new Set(days)].sort((a, b) => a - b);
 
 const clock = (hour: number) => `${String(hour).padStart(2, '0')}:00`;
+
+/** Every day of the week, Sunday first. */
+export const ALL_WEEK = [0, 1, 2, 3, 4, 5, 6] as const;
+
+/**
+ * The hours the extension works in on its own (decision 139): the person's, every day of the week while they keep
+ * working on other days; else only on their days. New messages still go only on their days (`newMessagesWait`).
+ */
+export const workHours = (hours: WorkingHours): WorkingHours =>
+  worksEveryDay(hours) ? { ...hours, days: [...ALL_WEEK] } : hours;
+
+/** Whether the person keeps working on other days (decision 139): unless they turned it off. */
+export const worksEveryDay = (hours: Pick<WorkingHours, 'everyDay'>): boolean =>
+  hours.everyDay !== false;
+
+/**
+ * The messages that start or nudge a conversation, which go only on the person's working days while everything else
+ * goes every day (decision 139, the owner's "1a 2a 3a" of 31 Oct 2026): first messages, Reconnect, follow-ups and
+ * check-ins, and asks and follow-ups about partnering. What answers someone (a reply, the link or video after a yes, a
+ * demo's reminder, another time, the partner details) goes any day, and so does a birthday or new-job note, which
+ * belongs to its day.
+ */
+export const WORK_DAY_KINDS = [
+  'opener',
+  'reconnect',
+  'follow_up',
+  'check_in',
+  'partner_ask',
+  'partner_follow_up',
+] as const satisfies readonly MessageKind[];
+export const waitsForWorkDay = (kind: string): boolean =>
+  (WORK_DAY_KINDS as readonly string[]).includes(kind);
+
+/** Whether new messages wait today: the extension works today, but it isn't one of the person's days (decision 139). */
+export const newMessagesWait = (hours: WorkingHours, timeZone: string, now: number): boolean =>
+  worksEveryDay(hours) && !hours.days.includes(zonedParts(now, timeZone).weekday);
 
 /** Today's working window in the business's time zone, as instants: null on a day off. */
 export function workWindow(

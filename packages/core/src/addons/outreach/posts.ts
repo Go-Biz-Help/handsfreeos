@@ -320,7 +320,8 @@ export const POST_CHECK_ASK = 'Is this post worth a comment from the owner?';
 export const POST_CHECK_SYSTEM = [
   'You help a small business owner find posts in Facebook groups where they could helpfully comment.',
   'A post is good when the person who wrote it is asking for help, a recommendation or advice that the business’s offer answers, or plainly fits who the business is for and invites replies.',
-  'It is not good when it is an ad, someone selling the same thing, a rant with nothing to answer, news, a joke, or about something else entirely. When unsure, say not good.',
+  'A post is good too when its writer looks like someone a playbook is for and it is about their own work or business: a job they finished, a win, a tip, a milestone, a photo of their work, even one promoting their own business. A short, genuine comment there starts a friendship with someone the business is for.',
+  'It is not good when it is someone selling the same thing as the business, an ad by someone no playbook is for, a rant with nothing to say back to, news, a joke or meme, someone else’s content shared, about grief, illness or trouble, or about something else entirely. When unsure, say not good.',
   'Say strong only for a good post whose writer is asking, now, for exactly what the business offers, ready to hire or buy: “Looking for a CRM for my crew, who do you use?”. A general question, or one the offer only touches on, is not strong. When unsure, say not strong.',
   'Say fits when the writer themselves looks like someone a playbook is for, whatever the post is: an owner of such a business posting about their own work, even an ad for it, fits. Someone selling the same thing as the business, or anything a playbook says to skip, never fits. When unsure, say not fits.',
   'Give why in one short plain line a person can read in a list, under 15 words, without quoting the post at length.',

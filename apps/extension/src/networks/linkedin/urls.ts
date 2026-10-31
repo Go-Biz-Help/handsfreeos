@@ -36,6 +36,23 @@ export function linkedinUrl(href: string, base: string = LINKEDIN): URL | null {
 }
 
 /**
+ * One of LinkedIn's short links (https://lnkd.in/p/…), made whole, or null: what Copy link to post gives on its post
+ * search since 31 Oct 2026 (the owner's outline; docs/outreach.md, decision 138). It names no post until it's followed
+ * to the post's own page (src/jobs/linkedin/short-links.ts).
+ */
+export function shortLinkFrom(href: string): string | null {
+  let url: URL;
+  try {
+    url = new URL(href.trim());
+  } catch {
+    return null;
+  }
+  if (url.protocol !== 'https:' || url.username || url.password || url.port) return null;
+  if (url.hostname.toLowerCase() !== 'lnkd.in' || pathParts(url).length === 0) return null;
+  return `https://lnkd.in${url.pathname}`;
+}
+
+/**
  * An address the extension's own tab may open on LinkedIn, made whole, or null: https on www.linkedin.com, with
  * nothing else in the host (no name, password or port), so a bad link kept or read never takes the tab elsewhere.
  */

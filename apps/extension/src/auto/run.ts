@@ -35,7 +35,12 @@
  * It takes turns on Facebook with what the person asks of the extension from HandsFreeOS (../asks/run.ts, decision
  * 43), through ./turns.ts: an ask goes first, and the runner carries on after.
  */
-import { businessDay, workWindow, type MessageKind } from '@hfos/core/addons/outreach/automation';
+import {
+  businessDay,
+  workHours,
+  workWindow,
+  type MessageKind,
+} from '@hfos/core/addons/outreach/automation';
 import { ASK_FIRST_WORDS } from '@hfos/core/addons/outreach/asks';
 import { standDownWords } from '@hfos/core/addons/outreach/live';
 import { DAILY_STEPS, pastLimitWords, type DailyStep } from '@hfos/core/addons/outreach/limits';
@@ -1145,7 +1150,8 @@ async function go(): Promise<void> {
     );
     return goAt(at + LOOK_AGAIN_MS);
   }
-  const window = workWindow(settings.hours, timezone, at);
+  // Every day while the person keeps working on other days, new messages only on their days (decision 139).
+  const window = workWindow(workHours(settings.hours), timezone, at);
   const inHours = window !== null && at >= window.from && at < window.to;
   if (!state.started && !inHours) {
     // Outside the hours a reply to someone who wrote back still goes, and nothing new does (decision 133). What the

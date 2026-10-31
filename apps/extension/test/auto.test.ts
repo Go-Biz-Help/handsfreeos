@@ -29,12 +29,14 @@ import {
   openMessage,
   sameByKey,
   sameRef,
+  theirPosts,
   withTheirName,
   writeComment,
   writeMessage,
   type ChatsBefore,
 } from '../src/networks/facebook/auto';
 import { doPath, doStep, findStep, type FetchStep } from '../src/networks/facebook/fetch';
+import { likeStateOf } from '../src/networks/facebook/posts';
 import { readPage } from '../src/networks/facebook/page';
 import { boxEverything, load } from './load';
 
@@ -94,10 +96,11 @@ describe('what it does next', () => {
     });
     const list = [post, message, request, like, confirm];
     const all = ['confirm', 'warm_up', 'friend_request', 'comment'] as const;
+    // A friend request before a like (decision 138): one a like made ready goes before the next likes.
     expect(itemsLeft(list, all, []).map((i) => i.name)).toEqual([
       'Lee Park',
-      'Ana Ruiz',
       'Dana Reyes',
+      'Ana Ruiz',
       'Sam Carter',
     ]);
     // Messages wait for the person; a kind they didn't let it do stays theirs; one tried today isn't tried again.
@@ -115,8 +118,8 @@ describe('what it does next', () => {
     expect(itemsLeft([...list, asking], all, []).map((i) => i.name)).toEqual([
       'Kim Ng',
       'Lee Park',
-      'Ana Ruiz',
       'Dana Reyes',
+      'Ana Ruiz',
       'Sam Carter',
     ]);
   });
@@ -186,6 +189,121 @@ describe('what it does next', () => {
     expect(workLeft({ ...list, auto: [], messages: [], sending: 'off' }, [])).toEqual([]);
   });
 
+  it('takes turns: each kind of step and the drafts, the one tried least today first (decision 138)', () => {
+    const one = (kind: TodayListItem['kind'], name: string, n: number) =>
+      item({
+        kind,
+        name,
+        profileId: `${n}d6f5c4d-3e2a-4b1c-8d9e-0f1a2b3c4d5e`,
+        profileUrl: `${FB}/p.${n}`,
+      });
+    const list = {
+      items: [
+        one('friend_request', 'r1', 1),
+        one('friend_request', 'r2', 2),
+        one('friend_request', 'r3', 3),
+        one('warm_up', 'l1', 4),
+        one('warm_up', 'l2', 5),
+        one('warm_up', 'l3', 6),
+        {
+          ...one('comment', 'c1', 7),
+          postId: '7e6f5c4d-3e2a-4b1c-8d9e-0f1a2b3c4d5e',
+          postUrl: `${FB}/groups/austinsmallbiz/posts/9100000000000007/`,
+        },
+        one('opener', 'o1', 8),
+        one('opener', 'o2', 9),
+      ],
+      auto: ['confirm', 'warm_up', 'friend_request', 'comment'] as TodayListItem['kind'][],
+      messages: ['opener' as const],
+    };
+    const names = (work: ReturnType<typeof workLeft>) => work.map((w) => w.item.name);
+    expect(names(workLeft({ ...list, sending: 'steps' }, []))).toEqual([
+      'r1',
+      'l1',
+      'c1',
+      'o1',
+      'r2',
+      'l2',
+      'o2',
+      'r3',
+      'l3',
+    ]);
+    // Likes that kept failing today wait till the others have had as many turns: nothing waits on them.
+    const failed = [10, 11, 12, 13, 14].map((n) => itemKey(one('warm_up', `x${n}`, n)));
+    expect(names(workLeft({ ...list, sending: 'steps' }, failed))).toEqual([
+      'r1',
+      'c1',
+      'o1',
+      'r2',
+      'o2',
+      'r3',
+      'l1',
+      'l2',
+      'l3',
+    ]);
+    // With Approve all, the drafts have the first turn.
+    expect(names(workLeft({ ...list, sending: 'approve_all' }, []))).toEqual([
+      'o1',
+      'r1',
+      'l1',
+      'c1',
+      'o2',
+      'r2',
+      'l2',
+      'r3',
+      'l3',
+    ]);
+  });
+
+  it('holds what starts or nudges a conversation on a day that isn’t theirs, and does the rest (decision 139)', () => {
+    const one = (kind: TodayListItem['kind'], name: string, n: number) =>
+      item({
+        kind,
+        name,
+        profileId: `${n}d6f5c4d-3e2a-4b1c-8d9e-0f1a2b3c4d5e`,
+        profileUrl: `${FB}/p.${n}`,
+      });
+    const list: Parameters<typeof workLeft>[0] = {
+      items: [
+        one('reply', 'answer', 1),
+        one('friend_request', 'request', 2),
+        one('opener', 'first', 3),
+        one('follow_up', 'nudge', 4),
+        one('pitch', 'link', 5),
+      ],
+      auto: ['confirm', 'warm_up', 'friend_request', 'comment'],
+      messages: ['reply', 'opener', 'follow_up', 'pitch'],
+      sending: 'steps',
+    };
+    const names = (work: ReturnType<typeof workLeft>) => work.map((w) => w.item.name);
+    expect(names(workLeft(list, []))).toEqual(['answer', 'request', 'first', 'nudge', 'link']);
+    expect(names(workLeft({ ...list, newMessagesWait: true }, []))).toEqual([
+      'answer',
+      'request',
+      'link',
+    ]);
+  });
+
+  it('starts on its own on a day off too, unless the person turned that off (decision 139)', () => {
+    const weekdays = { start: 10, end: 18, days: [1, 2, 3, 4, 5] };
+    const saturday = { date: '2026-10-31', state: 'none', why: null } as const;
+    const at = (hours: typeof weekdays & { everyDay?: boolean }) =>
+      networkDay({
+        day: saturday,
+        today: '2026-10-31',
+        hours,
+        timeZone: 'America/Chicago',
+        now: Date.UTC(2026, 9, 31, 17),
+        random: 0,
+      });
+    expect(at(weekdays)).toEqual({ go: true, started: false, until: Date.UTC(2026, 9, 31, 23) });
+    expect(at({ ...weekdays, everyDay: false })).toEqual({
+      go: false,
+      stopped: null,
+      next: Date.UTC(2026, 10, 2, 16),
+    });
+  });
+
   it('drafts the day’s reply in a group only with its post, and sends it once OK’d (decision 114)', () => {
     const question = item({
       kind: 'group_reply',
@@ -241,9 +359,13 @@ describe('what it does next', () => {
 
   it('starts in the next working hours, on the business’s clock, a little after the hour', () => {
     const hours = { start: 9, end: 17, days: [1, 2, 3, 4, 5] };
-    // Friday 9 October 2026, 6 PM in Chicago: Monday at 9 AM there, 14:00 UTC.
+    // Friday 9 October 2026, 6 PM in Chicago: Saturday at 9 AM there, 14:00 UTC, as it works every day (decision 139);
+    // Monday for someone who turned that off.
     const friday = Date.UTC(2026, 9, 9, 23);
-    expect(nextStart(hours, 'America/Chicago', friday, 0)).toBe(Date.UTC(2026, 9, 12, 14));
+    expect(nextStart(hours, 'America/Chicago', friday, 0)).toBe(Date.UTC(2026, 9, 10, 14));
+    expect(nextStart({ ...hours, everyDay: false }, 'America/Chicago', friday, 0)).toBe(
+      Date.UTC(2026, 9, 12, 14),
+    );
     // Before the hours on a working day: the same day.
     const early = Date.UTC(2026, 9, 8, 12);
     const at = nextStart(hours, 'America/Chicago', early, 1)!;
@@ -290,9 +412,19 @@ describe('what it does next', () => {
     expect(
       networkWaitWords('Instagram', { stopped: null }, hours, zone, Date.UTC(2026, 9, 29)),
     ).toBe(`Starts on its own on Instagram tomorrow at 10:00 AM. ${press('Instagram')}`);
-    // Friday at 7 PM: Monday's, once the clocks have gone back.
+    // Friday at 7 PM: Saturday's, as it works every day (decision 139); Monday's, once the clocks have gone back, for
+    // someone who turned that off.
     expect(
       networkWaitWords('Alignable', { stopped: null }, hours, zone, Date.UTC(2026, 9, 31)),
+    ).toBe(`Starts on its own on Alignable tomorrow at 10:00 AM. ${press('Alignable')}`);
+    expect(
+      networkWaitWords(
+        'Alignable',
+        { stopped: null },
+        { ...hours, everyDay: false },
+        zone,
+        Date.UTC(2026, 9, 31),
+      ),
     ).toBe(`Starts on its own on Alignable on Mon, Nov 2 at 10:00 AM. ${press('Alignable')}`);
     expect(networkWaitWords('LinkedIn', { stopped: 'person' }, hours, zone, noon)).toBe(
       'Stopped on LinkedIn for today. It starts again on its own tomorrow at 10:00 AM.',
@@ -456,18 +588,90 @@ describe('liking their latest post', () => {
     expect(posts).toHaveLength(1);
     expect(posts[0]).toMatchObject({ liked: true, pictures: ['May be an image of text'] });
     const pick = { index: 0, url: posts[0]!.url };
-    expect((await likeTheirPost(doc, URL, dana, pick)).result).toBe('already');
+    const liking = async (to: { index: number; url: string | null }) => {
+      const going = likeTheirPost(doc, URL, dana, to);
+      await vi.advanceTimersByTimeAsync(20_000);
+      return (await going).result;
+    };
+    expect(await liking(pick)).toBe('already');
     const like = doc.querySelector<HTMLElement>('[aria-label="Remove Like"]')!;
     like.setAttribute('aria-label', 'Like');
     let pressed = 0;
     like.addEventListener('click', () => pressed++);
-    expect((await readTheirPosts(doc, URL, dana, view, 1))[0]!.liked).toBe(false);
-    expect((await likeTheirPost(doc, URL, dana, pick)).result).toBe('done');
+    const again = readTheirPosts(doc, URL, dana, view, 1);
+    await vi.advanceTimersByTimeAsync(10_000);
+    expect((await again)[0]!.liked).toBe(false);
+    expect(await liking(pick)).toBe('done');
     expect(pressed).toBe(1);
     // A post that's gone from the page isn't liked in its place.
-    expect((await likeTheirPost(doc, URL, dana, { index: 0, url: `${URL}/posts/1` })).result).toBe(
-      'none',
-    );
+    expect(await liking({ index: 0, url: `${URL}/posts/1` })).toBe('none');
+  });
+
+  it('finds the picked post again from the top once Facebook stops drawing it (decision 138)', async () => {
+    vi.useFakeTimers();
+    const doc = load('profile-2026.html', URL);
+    const reading = readTheirPosts(doc, URL, dana, view, 6);
+    await vi.advanceTimersByTimeAsync(10_000);
+    const [post] = await reading;
+    const like = doc.querySelector<HTMLElement>('[aria-label="Remove Like"]')!;
+    like.setAttribute('aria-label', 'Like');
+    let pressed = 0;
+    like.addEventListener('click', () => pressed++);
+    // Scrolled past, the post is swapped for an empty stand-in; back at the top, it's drawn again.
+    const box = theirPosts(doc, URL, dana)[0]!.box;
+    const stand = doc.createElement('div');
+    box.replaceWith(stand);
+    const scrolled: string[] = [];
+    const window = {
+      innerHeight: 800,
+      scrollBy: () => void scrolled.push('down'),
+      scrollTo: () => {
+        scrolled.push('top');
+        stand.replaceWith(box);
+      },
+    };
+    const going = likeTheirPost(doc, URL, dana, { index: 0, url: post!.url }, window);
+    await vi.advanceTimersByTimeAsync(20_000);
+    expect((await going).result).toBe('done');
+    expect(pressed).toBe(1);
+    expect(scrolled).toEqual(['top']);
+    // Without a window to scroll, it gives up as before.
+    box.replaceWith(stand);
+    const without = likeTheirPost(doc, URL, dana, { index: 0, url: post!.url });
+    await vi.advanceTimersByTimeAsync(20_000);
+    expect((await without).result).toBe('none');
+  });
+
+  it('presses a Like that Facebook gives only words, no label (decision 138)', async () => {
+    vi.useFakeTimers();
+    const doc = load('profile-2026.html', URL);
+    const like = doc.querySelector<HTMLElement>('[aria-label="Remove Like"]')!;
+    like.removeAttribute('aria-label');
+    like.textContent = 'Like';
+    let pressed = 0;
+    like.addEventListener('click', () => pressed++);
+    const reading = readTheirPosts(doc, URL, dana, view, 6);
+    await vi.advanceTimersByTimeAsync(10_000);
+    const [post] = await reading;
+    expect(post!.liked).toBe(false);
+    const going = likeTheirPost(doc, URL, dana, { index: 0, url: post!.url });
+    await vi.advanceTimersByTimeAsync(20_000);
+    expect((await going).result).toBe('done');
+    expect(pressed).toBe(1);
+  });
+
+  it('reads Facebook’s Like labels of 31 Oct 2026, before and after a like (decision 138)', () => {
+    const doc = load('profile-2026.html', URL);
+    const button = (label: string) => {
+      const b = doc.createElement('div');
+      b.setAttribute('role', 'button');
+      b.setAttribute('aria-label', label);
+      return b;
+    };
+    expect(likeStateOf(button('React with Like to Dana Reyes’s post'))).toBe('like');
+    expect(likeStateOf(button('Remove Like from Dana Reyes’s post'))).toBe('liked');
+    expect(likeStateOf(button('Change Like reaction'))).toBe('liked');
+    expect(likeStateOf(button('Share'))).toBe('unknown');
   });
 
   it('reads nobody else’s posts', async () => {

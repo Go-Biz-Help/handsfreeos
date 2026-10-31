@@ -17,7 +17,7 @@ import { conversationWith, isConversation, readChat } from './chat';
 import { clean, inTopBar, isAfter, labelOf, textWithEmoji } from './dom';
 import { findStep, shown, type FetchStep } from './fetch';
 import { isNameLike, nameForms, peopleLinked, sameName } from './people';
-import { COMMENT, LIKE, postBoxes, readPost } from './posts';
+import { COMMENT, LIKE, LIKE_HOOK, likeStateOf, postBoxes, readPost } from './posts';
 import type { TidyPlan } from './tidy';
 import type { Named, ProfilePage, ProfileRef } from './types';
 import { classifyUrl, FACEBOOK } from './urls';
@@ -152,11 +152,15 @@ export type AutoResult =
    */
   | 'not_theirs';
 
-/** A post's own Like button, not one of its comments': "Like", or "Remove Like" once liked. */
+/**
+ * A post's own Like button, not one of its comments': "Like", or "Remove Like" once liked, by its label or, where
+ * Facebook gives it none, its own words (decision 138).
+ */
 export function likeButton(box: Element): Element | null {
   return (
     [...box.querySelectorAll('[role="button"], button')].find((button) => {
-      if (!LIKE.test(clean(button.getAttribute('aria-label'))) || !shown(button)) return false;
+      const marked = button.matches(LIKE_HOOK) || button.querySelector(LIKE_HOOK) !== null;
+      if ((!marked && !LIKE.test(labelOf(button))) || !shown(button)) return false;
       // A comment is an article inside the post, or one labelled as a comment beside it.
       const article = button.closest('[role="article"]');
       if (!article || (article !== box && !box.contains(article))) return true;
@@ -211,7 +215,7 @@ export function theirPosts(
         when: post.when,
         text: post.text,
         pictures: picturesOf(box),
-        liked: like !== null && !/^like$/i.test(clean(like.getAttribute('aria-label'))),
+        liked: like !== null && likeStateOf(like) === 'liked',
       },
     });
   }
@@ -238,27 +242,75 @@ export async function readTheirPosts(
   return found.slice(0, most).map((f) => f.post);
 }
 
+/** The window a like scrolls in: to the top, a screen at a time, and the post into view. */
+export interface LikeView {
+  scrollTo(x: number, y: number): void;
+  scrollBy(x: number, y: number): void;
+  readonly innerHeight: number;
+}
+
+/** Screens it scrolls down from the top to find the picked post again before it gives up. */
+const FIND_AGAIN_SCREENS = 6;
+
+/**
+ * The picked post, found again (decision 138): Facebook draws only the posts near the screen, and swaps one scrolled
+ * past for an empty stand-in, so the one read a few screens up is looked for again from the top, a screen at a time.
+ */
+async function pickedAgain<T extends { readonly box: Element; readonly post: TheirPost }>(
+  read: () => T[],
+  pick: { readonly index: number; readonly url: string | null },
+  view: LikeView | null,
+): Promise<T | undefined> {
+  const find = () => {
+    const found = read();
+    return (
+      (pick.url ? found.find((f) => f.post.url === pick.url) : undefined) ??
+      (pick.url ? undefined : found[pick.index])
+    );
+  };
+  let one = find();
+  if (one || !view) return one;
+  view.scrollTo(0, 0);
+  for (let screen = 0; !one && screen <= FIND_AGAIN_SCREENS; screen++) {
+    await pause(1_200);
+    one = find();
+    if (!one) view.scrollBy(0, view.innerHeight);
+  }
+  return one;
+}
+
+/** Presses a post's Like, scrolled into view first as a person's would be: `already` when it's liked. */
+async function pressLike(one: {
+  readonly box: Element;
+  readonly post: TheirPost;
+}): Promise<{ readonly result: AutoResult; readonly postUrl: string | null }> {
+  const button = likeButton(one.box);
+  if (!button) return { result: 'none', postUrl: one.post.url };
+  const state = likeStateOf(button);
+  if (state === 'liked') return { result: 'already', postUrl: one.post.url };
+  // A Like that says something it doesn't know is never pressed, nor taken for one liked.
+  if (state === 'unknown') return { result: 'none', postUrl: one.post.url };
+  (button as HTMLElement).scrollIntoView?.({ block: 'center' });
+  await pause(400);
+  (button as HTMLElement).click();
+  return { result: 'done', postUrl: one.post.url };
+}
+
 /**
  * Likes the one of their posts picked, by its place among those `readTheirPosts` read, checked by its link when the
- * page gave one. The post's address, when the page gave it, for noting.
+ * page gave one, and found again from the top when Facebook stopped drawing it. The post's address, when the page gave
+ * it, for noting.
  */
 export async function likeTheirPost(
   doc: Document,
   href: string,
   profile: ProfileRef,
   pick: { readonly index: number; readonly url: string | null },
+  view: LikeView | null = null,
 ): Promise<{ readonly result: AutoResult; readonly postUrl: string | null }> {
-  const found = theirPosts(doc, href, profile);
-  const one =
-    (pick.url ? found.find((f) => f.post.url === pick.url) : undefined) ??
-    (pick.url ? undefined : found[pick.index]);
+  const one = await pickedAgain(() => theirPosts(doc, href, profile), pick, view);
   if (!one) return { result: 'none', postUrl: pick.url };
-  const button = likeButton(one.box);
-  if (!button) return { result: 'none', postUrl: one.post.url };
-  if (!/^like$/i.test(clean(button.getAttribute('aria-label'))))
-    return { result: 'already', postUrl: one.post.url };
-  (button as HTMLElement).click();
-  return { result: 'done', postUrl: one.post.url };
+  return pressLike(one);
 }
 
 /** One post in a group's feed (decision 114): for the day's likes there and its question for a reply. */
@@ -285,7 +337,7 @@ export function groupFeedPosts(
         when: post.when,
         text: post.text,
         pictures: picturesOf(box),
-        liked: like !== null && !/^like$/i.test(clean(like.getAttribute('aria-label'))),
+        liked: like !== null && likeStateOf(like) === 'liked',
         author: post.author,
         comments: post.comments,
         reactions: post.reactions,
@@ -315,22 +367,15 @@ export async function readGroupFeed(
  * Likes one of the posts `readGroupFeed` read, by its place among them, checked by its link when the page gave one
  * (decision 114). The post's address, when the page gave it, for noting.
  */
-export function likeGroupPost(
+export async function likeGroupPost(
   doc: Document,
   href: string,
   pick: { readonly index: number; readonly url: string | null },
-): { readonly result: AutoResult; readonly postUrl: string | null } {
-  const found = groupFeedPosts(doc, href);
-  const one =
-    (pick.url ? found.find((f) => f.post.url === pick.url) : undefined) ??
-    (pick.url ? undefined : found[pick.index]);
+  view: LikeView | null = null,
+): Promise<{ readonly result: AutoResult; readonly postUrl: string | null }> {
+  const one = await pickedAgain(() => groupFeedPosts(doc, href), pick, view);
   if (!one) return { result: 'none', postUrl: pick.url };
-  const button = likeButton(one.box);
-  if (!button) return { result: 'none', postUrl: one.post.url };
-  if (!/^like$/i.test(clean(button.getAttribute('aria-label'))))
-    return { result: 'already', postUrl: one.post.url };
-  (button as HTMLElement).click();
-  return { result: 'done', postUrl: one.post.url };
+  return pressLike(one);
 }
 
 /** The post's own box to comment in, never a reply's. */

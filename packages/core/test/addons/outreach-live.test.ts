@@ -220,9 +220,17 @@ describe('the live view’s words', () => {
     expect(todayWords(live, 'instagram', Date.UTC(2026, 9, 29))).toBe(
       'Starts on its own tomorrow at 10:00 AM.',
     );
+    // Friday at 7 PM: Saturday, as it works every day (decision 139); Monday once that's turned off.
     expect(todayWords(live, 'alignable', Date.UTC(2026, 9, 31))).toBe(
-      'Starts on its own on Mon, Nov 2 at 10:00 AM.',
+      'Starts on its own tomorrow at 10:00 AM.',
     );
+    expect(
+      todayWords(
+        { ...live, hours: { ...hours, everyDay: false } },
+        'alignable',
+        Date.UTC(2026, 9, 31),
+      ),
+    ).toBe('Starts on its own on Mon, Nov 2 at 10:00 AM.');
     // A day pressed says so; nothing's said while Sending is Off, or before the hours are known.
     const started = {
       ...none,

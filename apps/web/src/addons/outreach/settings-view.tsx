@@ -36,6 +36,7 @@ import {
   WHEELS_START_WORDS,
   wheelsMatter,
   wheelsWords,
+  worksEveryDay,
   type AutomationSettings,
   type NetworkChoices,
   type OtherPlatform,
@@ -593,6 +594,13 @@ export function HoursPart({
           {problem}
         </p>
       ) : null}
+      <Tick
+        switches
+        words={W.everyDay}
+        checked={worksEveryDay(value.hours)}
+        onChange={(everyDay) => hours({ everyDay })}
+        testId={`${testId}-every-day`}
+      />
     </Part>
   );
 }
@@ -720,7 +728,7 @@ export function NetworksPart({
                       className="text-[13px] text-warning-text"
                       data-testid={`${testId}-${p}-wheels`}
                     >
-                      {wheelsWords(wheels)}
+                      {wheelsWords(wheels, network.fullSpeed)}
                     </p>
                   ) : null}
                   <NetworkModes

@@ -76,9 +76,14 @@ export function sameBusiness(a: ProfileRef, b: ProfileRef): boolean {
   return a.url.toLowerCase() === b.url.toLowerCase();
 }
 
-/** Whether a Like shows it's given: it says Liked or Unlike, or it's pressed. */
+/**
+ * Whether a Like shows it's given: it says Liked or Unlike, or it's pressed, or (a group's feed, the owner's outline of
+ * 31 Oct 2026) Alignable marks it `active`.
+ */
 const likedNow = (like: Element) =>
-  LIKED.test(nameOf(like)) || like.getAttribute('aria-pressed') === 'true';
+  LIKED.test(nameOf(like)) ||
+  like.getAttribute('aria-pressed') === 'true' ||
+  (like.matches('[data-like-button]') && like.classList.contains('active'));
 
 /** A post's own Like: one saying Like (or Liked), in the post and not in one of its answers; never its count. */
 export function likeOf(post: Element, base: string): HTMLElement | null {

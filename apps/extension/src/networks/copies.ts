@@ -15,19 +15,39 @@ export const COPIED = 'data-hfos-copied';
 /** On the page's root once it catches copies. */
 export const CATCHING = 'data-hfos-copies';
 
-/** Catches what the page copies while its root says to: its clipboard's writeText and write, and a copy command. */
+/**
+ * Catches what the page copies while its root says to: its clipboard's writeText and write, and a copy command. In
+ * one of the page's frames too (decision 138: LinkedIn's newer pages draw parts in frames of their own), where the
+ * top page's root says, as the tab's script waits there; and on Clipboard's own prototype and a copy's DataTransfer,
+ * as a page may keep the clipboard's methods from before this ran.
+ */
 export function catchCopiesIn(view: Window = window): boolean {
   const page = view as Window & { __hfosCopies?: boolean };
   const doc = view.document;
-  const root = doc.documentElement;
+  // The top page's root, where the frame can reach it; else its own.
+  let root = doc.documentElement;
+  try {
+    if (view.top && view.top !== view && view.top.document)
+      root = view.top.document.documentElement;
+  } catch {
+    // A frame from another site can't reach the top page: it catches nothing.
+    return false;
+  }
   // The tab's script presses nothing that copies till it sees this.
   root.setAttribute('data-hfos-copies', '');
   if (page.__hfosCopies) return true;
   page.__hfosCopies = true;
+  const catching = () => root.hasAttribute('data-hfos-catch');
   const caught = (text: string): boolean => {
-    if (!root.hasAttribute('data-hfos-catch')) return false;
+    if (!catching()) return false;
     root.setAttribute('data-hfos-copied', text);
     return true;
+  };
+  const textOf = async (items: ClipboardItems): Promise<string | null> => {
+    for (const item of items)
+      for (const type of ['text/plain', 'text/uri-list'])
+        if (item.types.includes(type)) return (await item.getType(type)).text();
+    return null;
   };
   const clipboard = view.navigator.clipboard as Clipboard | undefined;
   if (clipboard?.writeText) {
@@ -38,19 +58,40 @@ export function catchCopiesIn(view: Window = window): boolean {
   if (clipboard?.write) {
     const write = clipboard.write.bind(clipboard);
     clipboard.write = async (items: ClipboardItems) => {
-      if (!root.hasAttribute('data-hfos-catch')) return write(items);
-      for (const item of items)
-        for (const type of ['text/plain', 'text/uri-list'])
-          if (item.types.includes(type)) {
-            caught(await (await item.getType(type)).text());
-            return;
-          }
+      if (!catching()) return write(items);
+      const text = await textOf(items);
+      if (text !== null) caught(text);
+    };
+  }
+  const proto = (view as Window & { Clipboard?: { prototype: Clipboard } }).Clipboard?.prototype;
+  if (proto?.writeText) {
+    const writeText = proto.writeText;
+    proto.writeText = function (this: Clipboard, text: string) {
+      return caught(String(text)) ? Promise.resolve() : writeText.call(this, text);
+    };
+  }
+  if (proto?.write) {
+    const write = proto.write;
+    proto.write = async function (this: Clipboard, items: ClipboardItems) {
+      if (!catching()) return write.call(this, items);
+      const text = await textOf(items);
+      if (text !== null) caught(text);
+    };
+  }
+  const transfer = (view as Window & { DataTransfer?: { prototype: DataTransfer } }).DataTransfer
+    ?.prototype;
+  if (transfer?.setData) {
+    const setData = transfer.setData;
+    transfer.setData = function (this: DataTransfer, format: string, data: string) {
+      if (/^(text|text\/plain|text\/uri-list)$/i.test(String(format)) && caught(String(data)))
+        return;
+      setData.call(this, format, data);
     };
   }
   if (typeof doc.execCommand === 'function') {
     const execCommand = doc.execCommand.bind(doc);
     doc.execCommand = (command: string, ui?: boolean, value?: string) => {
-      if (String(command).toLowerCase() === 'copy' && root.hasAttribute('data-hfos-catch')) {
+      if (String(command).toLowerCase() === 'copy' && catching()) {
         const field = doc.activeElement as HTMLInputElement | HTMLTextAreaElement | null;
         const text =
           field && typeof field.value === 'string' && field.value

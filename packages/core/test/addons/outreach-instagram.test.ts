@@ -182,14 +182,14 @@ describe('Instagram’s kit and words', () => {
         platform,
       });
     expect(comment('instagram')).toContain(
-      'They posted this on Instagram. Write the owner’s public comment under it: answer what they asked or add something useful, with no pitch and no link. Under 30 words.',
+      'They posted this on Instagram. Write the owner’s public comment under it. When they asked something, answer it or add something useful, with no pitch and no link. When it’s about their own work (a job finished, a win, a tip, their business), say something genuine and specific about it, with nothing about the owner’s business. Under 30 words.',
     );
     expect(comment('alignable')).toContain(
-      'add something useful, with no pitch and no link. Under 50 words.',
+      'with nothing about the owner’s business. Under 50 words.',
     );
     // LinkedIn's wait for an OK at first too, from 0.99.0 (decision 102): a helpful answer, with no pitch or link.
     expect(comment('linkedin')).toContain(
-      'They posted this on LinkedIn. Write the owner’s public comment under it: answer what they asked or add something useful, with no pitch and no link. Under 50 words.',
+      'They posted this on LinkedIn. Write the owner’s public comment under it. When they asked something, answer it or add something useful, with no pitch and no link. When it’s about their own work (a job finished, a win, a tip, their business), say something genuine and specific about it, with nothing about the owner’s business. Under 50 words.',
     );
     expect(comment('facebook')).toContain('only then offer to help');
     expect(todayDraftSystem('instagram')).toContain(

@@ -7944,6 +7944,9 @@
                       "minimum": 0,
                       "maximum": 6
                     }
+                  },
+                  "everyDay": {
+                    "type": "boolean"
                   }
                 },
                 "required": ["start", "end", "days"]
@@ -7999,6 +8002,7 @@
                     "default": {
                       "on": true,
                       "young": false,
+                      "fullSpeed": false,
                       "tidy": "cancel",
                       "requests": "fits"
                     },
@@ -8009,6 +8013,10 @@
                         "type": "boolean"
                       },
                       "young": {
+                        "default": false,
+                        "type": "boolean"
+                      },
+                      "fullSpeed": {
                         "default": false,
                         "type": "boolean"
                       },
@@ -8036,6 +8044,7 @@
                       "watchPosts": true,
                       "posting": "after_ok",
                       "young": false,
+                      "fullSpeed": false,
                       "tidy": "cancel",
                       "requests": "fits"
                     },
@@ -8081,6 +8090,10 @@
                         "enum": ["copy", "after_ok", "own"]
                       },
                       "young": {
+                        "default": false,
+                        "type": "boolean"
+                      },
+                      "fullSpeed": {
                         "default": false,
                         "type": "boolean"
                       },
@@ -8108,6 +8121,7 @@
                       "watchPosts": true,
                       "posting": "after_ok",
                       "young": false,
+                      "fullSpeed": false,
                       "tidy": "cancel",
                       "requests": "fits"
                     },
@@ -8153,6 +8167,10 @@
                         "enum": ["copy", "after_ok", "own"]
                       },
                       "young": {
+                        "default": false,
+                        "type": "boolean"
+                      },
+                      "fullSpeed": {
                         "default": false,
                         "type": "boolean"
                       },
@@ -8180,6 +8198,7 @@
                       "watchPosts": true,
                       "posting": "after_ok",
                       "young": false,
+                      "fullSpeed": false,
                       "tidy": "cancel",
                       "requests": "fits"
                     },
@@ -8225,6 +8244,10 @@
                         "enum": ["copy", "after_ok", "own"]
                       },
                       "young": {
+                        "default": false,
+                        "type": "boolean"
+                      },
+                      "fullSpeed": {
                         "default": false,
                         "type": "boolean"
                       },

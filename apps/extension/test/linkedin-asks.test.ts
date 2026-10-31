@@ -1354,6 +1354,49 @@ describe('finding posts with LinkedIn’s post search', () => {
     expect(end.line).toContain('2 posts sent for the AI to check');
   });
 
+  it('follows the short links Copy link to post gives now to each post, dropping one that leads nowhere (decision 138)', async () => {
+    const key = (doc: Document, name: string) =>
+      postKey(
+        readPage(doc, `${LI}/search/results/content/?keywords=x`, NOW, {
+          sideOf: () => null,
+        }).posts!.find((p) => p.author?.name === name)!,
+      );
+    let page: Document | null = null;
+    const { tab } = fakeTab(() => 'linkedin-search-posts-2026-10.html', {
+      onOpen: (doc) => void (page = doc),
+      scrolls: { 'hfos-scroll-list': [false] },
+      links: () => ({
+        ok: true,
+        links: [
+          { key: key(page!, 'Nora Vance'), url: 'https://lnkd.in/p/aaaa1111' },
+          { key: key(page!, 'Eli Brooks'), url: 'https://lnkd.in/p/bbbb2222' },
+        ],
+        tried: [key(page!, 'Nora Vance'), key(page!, 'Eli Brooks')],
+        found: { posts: 2, menus: 2, items: 2, copied: 2 },
+      }),
+    });
+    const lands: Record<string, string> = {
+      'https://lnkd.in/p/aaaa1111': `${LI}/posts/nora-vance-hvac_missed-calls-share-7390000000000000101-AbCd/?utm_source=share`,
+      'https://lnkd.in/p/bbbb2222': `${LI}/feed/`,
+    };
+    const get = vi.fn(async (url: string) => ({ url: lands[url] }) as Response);
+    vi.stubGlobal('fetch', get);
+    try {
+      const { hfos, sent } = fakeHfos();
+      await onLinkedIn(
+        { kind: 'posts', groups: null, words: ['missed calls'] },
+        jobWith(tab, hfos).job,
+      );
+      expect(get).toHaveBeenCalledTimes(2);
+      const saves = sentOf(sent, 'hfos-save-posts').map((a) => a.input);
+      expect(saves[0]!.posts.map((p) => [p.name, p.url])).toEqual([
+        ['Nora Vance', `${LI}/feed/update/urn:li:share:7390000000000000101/`],
+      ]);
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
+
   it('notes the page, its menu open, once, when no post’s menu gives its link', async () => {
     const { tab } = fakeTab(() => 'linkedin-search-posts-2026-10.html', {
       links: () => ({

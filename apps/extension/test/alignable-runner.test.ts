@@ -432,8 +432,8 @@ describe('what it does on Alignable’s list', () => {
     } as never;
     expect(alignableWorkLeft(list, []).map((w) => w.item.kind)).toEqual([
       'confirm',
-      'warm_up',
       'friend_request',
+      'warm_up',
     ]);
     // Their own groups first, before any search or join (decision 92), then the requests.
     expect(nextAlignableDaily({ daily: {} })).toBe('my_groups');
@@ -1670,7 +1670,7 @@ describe('Alignable’s groups', () => {
     world.pages = (url) =>
       url === MINE
         ? myProfile()
-        : url === `${GROUPS[0]!.url}/members`
+        : url === `${AL}/biz/groups/home-pros-network/members`
           ? {
               html: `<main><h1>Home Pros Network</h1><span>1,204 members</span>
               <h2>Group Leaders</h2>
@@ -1684,7 +1684,7 @@ describe('Alignable’s groups', () => {
             }
           : null;
     const end = await runAlignableDaily('members', dailyJob());
-    expect(world.opened).toEqual([MINE, `${GROUPS[0]!.url}/members`]);
+    expect(world.opened).toEqual([MINE, `${AL}/biz/groups/home-pros-network/members`]);
     const [saved] = inputsOf('hfos-save-group');
     expect(saved).toMatchObject({
       platform: 'alignable',

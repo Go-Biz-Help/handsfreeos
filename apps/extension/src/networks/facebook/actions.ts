@@ -94,8 +94,11 @@ export interface Seen {
 
 /** "Add friend", or "Add friend Jane Doe" where a list has many. */
 const ADD_FRIEND = /^add friend(?:\s+(.+))?$/i;
-/** The Like button before it's pressed: "Remove Like" takes it back, and "Like: 2 people" lists who reacted. */
-const LIKE = /^like$/i;
+/**
+ * The Like button before it's pressed: "Like", or since 30 Oct 2026 "React with Like to Dana Reyes's post" (decision
+ * 138). "Remove Like" takes it back, and "Like: 2 people" lists who reacted.
+ */
+const LIKE = /^(like|react with like\b.*)$/i;
 /** The box to comment in, and the box to reply to a comment in. */
 export const COMMENT_BOX =
   /^(comment as\b|write a (public )?comment|reply (to|as)\b|write a (public )?reply|answer as\b|write an answer)/i;

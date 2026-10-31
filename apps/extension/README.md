@@ -1132,6 +1132,33 @@ whole day, as the list can't be worked out without them (`holdsTheDay` in `src/a
 and Alignable a read put off till you're away counts as the reading's turn, so the list goes next. With nothing on the
 list, the reading goes on. Nothing in HandsFreeOS changes for it.
 
+### Every job gets its turn, Facebook's new Like, and Alignable's Directory (0.119.0)
+
+On Friday 30 Oct 2026 nearly every daily goal was missed (docs/outreach.md, decision 138). From 0.119.0:
+
+- **Jobs take turns on each network** (`inTurns` in `src/auto/plan.ts`). After replies, the messages you OK'd and what
+  waits on you, the job tried least today goes next: confirming requests, friend requests, warm-up likes, comments,
+  partners and messages to write. A like that keeps failing no longer holds up requests, comments or messages. A
+  warm-up like still comes before its own request.
+- **Facebook's Like** is now "React with Like to …'s post" (`likeStateOf` in `src/networks/facebook/posts.ts`). The
+  runner presses only a Like it can tell isn't pressed, and finds a post Facebook swapped out after scrolling by going
+  back to the top a screen at a time (`pickedAgain` in `src/networks/facebook/auto.ts`).
+- **LinkedIn's Copy link to post** is caught in every frame of the tab, from the clipboard's own writing and from the
+  "Link copied" note's link (`src/networks/copies.ts`, `src/networks/linkedin/post-links.ts`). If it still finds no
+  link, the problem report keeps the page's outline.
+- **LinkedIn's short links** (`https://lnkd.in/p/…`, what Copy link gives now) are followed by the background, without
+  cookies, to the post's own address (`src/jobs/linkedin/short-links.ts`). This is why 0.119.0 asks for
+  `https://lnkd.in/*`; Chrome may ask you to allow it.
+- **Facebook group posts' links** fill in only when the mouse goes over their time, so the runner points at each one in
+  the feed and waits a moment before reading it (`pointAtTimes` in `src/networks/facebook/browse.ts`).
+- **Alignable group members** are read from the group's Directory, /biz/groups/<group>/members (`membersPage` in
+  `src/networks/alignable/read.ts`), and a feed post's Like counts as done once it shows Liked.
+- **Every day, new messages on working days** (decision 139). With Keep working on other days on (under Working hours,
+  on to start), each network works every day in your hours. First messages, follow-ups, Reconnect and partner asks wait
+  for a ticked day (`newMessagesWait` on Today, read by `workLeft`); likes, requests, comments and replies go on.
+
+Not yet tried on the owner's computer.
+
 ### Requests you get, answered as the AI says, on every network (0.118.0)
 
 From 0.118.0 (docs/outreach.md, decision 136) HandsFreeOS's AI reads the profile of everyone who sends you a request,

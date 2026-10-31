@@ -95,9 +95,9 @@ export function withNetwork(
   platform: Platform,
   change: Partial<NetworkChoices>,
 ): AutomationSettings {
-  const { on, young, tidy, requests, ...choices } = change;
+  const { on, young, fullSpeed, tidy, requests, ...choices } = change;
   // As `choicesFor` reads them: Facebook's are the settings' own fields, but for its switch, its account's age, its
-  // tidying and how the requests it gets are answered, kept beside them.
+  // full speed, its tidying and how the requests it gets are answered, kept beside them.
   const own = platform === 'facebook';
   const networks = {
     ...settings.networks,
@@ -105,6 +105,7 @@ export function withNetwork(
       ...settings.networks[platform],
       ...(on === undefined ? {} : { on }),
       ...(young === undefined ? {} : { young }),
+      ...(fullSpeed === undefined ? {} : { fullSpeed }),
       ...(tidy === undefined ? {} : { tidy }),
       ...(requests === undefined ? {} : { requests }),
       ...(own ? {} : choices),
@@ -680,7 +681,11 @@ export const NETWORK_WORDS = {
   alwaysAllowed: 'Always allowed',
   limitsOn: (name: string) => `Daily limits on ${name}`,
   limitsAbout: (name: string) =>
-    `Up to ${name}’s starting limits, which keep an account there safe. Halved for your first 2 weeks there, for a week after a warning there, and on training wheels there.`,
+    `Up to ${name}’s starting limits, which keep an account there safe. Halved for your first 2 weeks there, for a week after a warning there, and on training wheels there, unless you go full speed.`,
+  /** The switch for full speed now (decision 138), under the limits. */
+  fullSpeed: (name: string) => `Full speed on ${name} now`,
+  fullSpeedAbout: (name: string) =>
+    `Your full daily limits on ${name} from today, without the half limits for your first weeks or training wheels. A warning from ${name} still halves them for a week.`,
   /** The switch for a young account (decision 96), on the network's page under its limits. */
   young: (name: string) => `My ${name} account is under a year old`,
   youngAbout: (name: string) =>

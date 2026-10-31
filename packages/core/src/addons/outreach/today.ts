@@ -381,8 +381,15 @@ export const TodayOutput = z.object({
    * last 7 days, and the most. Null on a network with none. Today's `friend_request` limit never goes past what's left.
    */
   week: z.object({ done: n, most: n }).nullable().default(null),
-  /** The network's half limits while the person is new there (decision 96). */
+  /** The network's half limits while the person is new there (decision 96): never on once they picked Full speed. */
   fresh: FreshState.default(NOT_FRESH),
+  /** They picked Full speed on this network (decision 138): no half limits for training wheels or while new there. */
+  fullSpeed: z.boolean().default(false),
+  /**
+   * Not one of the person's working days, while they keep working on other days (decision 139): the extension does the
+   * rest, and new messages (`WORK_DAY_KINDS`) wait for their next working day.
+   */
+  newMessagesWait: z.boolean().default(false),
   /** Why no new friend requests are listed (decision 97): null while they are. */
   requestsHeld: RequestsHeld.nullable().default(null),
   /**
@@ -544,10 +551,10 @@ export const COMMENT_WORDS_MOST: Readonly<Record<Platform, number | null>> = {
 const COMMENT_RULES: Readonly<Record<Platform, string | null>> = {
   facebook: null,
   linkedin:
-    'A comment on LinkedIn is a helpful answer to the post, from what the business knows: no pitch, no link and no web address.',
-  instagram: `A comment on Instagram is under ${COMMENT_WORDS_MOST.instagram} words, with no link, no web address, no hashtags and no pitch: answer or add something useful, as a friendly local would.`,
+    'A comment on LinkedIn is a helpful answer to the post, from what the business knows, or on a post about their own work, something genuine and specific about what they shared: no pitch, no link and no web address.',
+  instagram: `A comment on Instagram is under ${COMMENT_WORDS_MOST.instagram} words, with no link, no web address, no hashtags and no pitch: answer or add something useful, or say something genuine and specific about the work they shared, as a friendly local would.`,
   alignable:
-    'A comment on Alignable is a helpful answer to the post, from what the business knows: no pitch, no link and no web address.',
+    'A comment on Alignable is a helpful answer to the post, from what the business knows, or on a post about their own work, something genuine and specific about what they shared: no pitch, no link and no web address.',
 };
 
 const DRAFT_RULES = [
@@ -638,7 +645,7 @@ const TASK: Record<CustomerDraftKind, string> = {
   new_job:
     'They just started a new job, as the line below says. Write the owner’s short, warm congratulations, one or two lines, naming the new role or place when the line says it, and wishing them well in it. Nothing about the business: no pitch, no offer, no price, no link, no ask.',
   comment:
-    'They posted this in a Facebook group. Write the owner’s public comment under it: answer what they asked or add something useful first, and only then offer to help, without a hard pitch or a link unless they asked for one. Under 50 words. No questions about things the post already says.',
+    'They posted this in a Facebook group. Write the owner’s public comment under it. When they asked something, answer it or add something useful first, and only then offer to help, without a hard pitch or a link unless they asked for one. When it’s about their own work (a job finished, a win, a tip, their business), say something genuine and specific about it, with nothing about the owner’s business. Under 50 words. No questions about things the post already says.',
   warm_lead:
     'They commented on the owner’s own helpful post in a Facebook group. Write the owner’s public reply to their comment: thank them by name, answer or add to what they said, and ask one light question back. No pitch, no link. Under 40 words.',
   group_reply:

@@ -9,7 +9,9 @@
 import { describe, expect, it, vi } from 'vitest';
 import { catchCopiesIn, CATCH, COPIED } from '../src/networks/copies';
 import { readPage } from '../src/networks/linkedin/page';
-import { postKey, postLinksOn } from '../src/networks/linkedin/post-links';
+import { postKey, postLinkIn, postLinksOn } from '../src/networks/linkedin/post-links';
+import { shortLinkFrom } from '../src/networks/linkedin/urls';
+import { postUrlIn, postUrlOfShort } from '../src/jobs/linkedin/short-links';
 import { load } from './load';
 
 vi.setConfig({ testTimeout: 20_000 });
@@ -27,7 +29,17 @@ const COPIES: Record<string, string> = {
 };
 
 /** The page, its clipboard a stand-in, and its menus drawn as LinkedIn's: Save, Copy link to post (or not), Embed. */
-function page({ copyLink = true, catching = true } = {}) {
+function page({
+  copyLink = true,
+  catching = true,
+  toast = false,
+  copies = COPIES,
+}: {
+  copyLink?: boolean;
+  catching?: boolean;
+  toast?: boolean;
+  copies?: Record<string, string>;
+} = {}) {
   const doc = load('linkedin-search-posts-2026-10.html', SEARCH);
   const view = doc.defaultView!;
   const written: string[] = [];
@@ -48,7 +60,17 @@ function page({ copyLink = true, catching = true } = {}) {
         item.setAttribute('role', 'menuitem');
         item.textContent = words;
         item.addEventListener('click', () => {
-          if (words === 'Copy link to post') void view.navigator.clipboard.writeText(COPIES[by]!);
+          if (words === 'Copy link to post' && toast) {
+            // A copy that goes past the page, and LinkedIn's toast with the post's link through its redirect.
+            const alert = doc.createElement('div');
+            alert.setAttribute('role', 'alert');
+            const link = doc.createElement('a');
+            link.href = `/redir/redirect/?url=${encodeURIComponent(COPIES[by]!)}&urlhash=AbCd&isSdui=true`;
+            link.textContent = 'View post';
+            alert.append('Link copied to clipboard. ', link);
+            doc.body.append(alert);
+          } else if (words === 'Copy link to post')
+            void view.navigator.clipboard.writeText(copies[by]!);
           menu.remove();
         });
         menu.append(item);
@@ -124,6 +146,22 @@ describe('each post’s own link on the post search (decision 123)', () => {
     expect(doc.documentElement.hasAttribute(CATCH)).toBe(false);
   });
 
+  it('takes the link from the toast a copy brings up when the copy went past the page (decision 138)', async () => {
+    const { doc, written } = page({ toast: true });
+    // A toast left from before is never taken for the next post's.
+    const old = doc.createElement('div');
+    old.setAttribute('role', 'alert');
+    old.innerHTML =
+      '<a href="https://www.linkedin.com/feed/update/urn:li:activity:7390000000000000999/">View post</a>';
+    doc.body.append(old);
+    const answer = await postLinksOn(doc, SEARCH, 2);
+    expect(answer.ok && answer.links.map((l) => l.url)).toEqual([
+      'https://www.linkedin.com/feed/update/urn:li:activity:7390000000000000101/',
+      'https://www.linkedin.com/feed/update/urn:li:activity:7390000000000000102/',
+    ]);
+    expect(written).toEqual([]);
+  });
+
   it('passes over the posts it has already, and stops at most', async () => {
     const { doc, opened } = page();
     const answer = await postLinksOn(doc, SEARCH, 1, [keyOf(doc, 'Nora Vance')]);
@@ -156,5 +194,56 @@ describe('each post’s own link on the post search (decision 123)', () => {
     expect(outline).toContain('/search/results/content/');
     expect(outline).toContain('div role="menu"');
     expect(outline).toContain('div role="menuitem" "Save"');
+  });
+});
+
+describe('LinkedIn’s short links from Copy link to post (decision 138)', () => {
+  const SHORT = 'https://lnkd.in/p/eyaZJXmK';
+  /** Where the short link goes: the post's public page, with LinkedIn's tracking. */
+  const PUBLIC =
+    'https://www.linkedin.com/posts/sam-reed-roofing_new-roof-share-7522062222513266688-0quw/?utm_source=share&utm_medium=member_desktop&rcm=ACoAABDV3f4BIQ';
+  const POST = 'https://www.linkedin.com/feed/update/urn:li:share:7522062222513266688/';
+
+  it('takes a short link copied, or the one in the toast’s View post through /safety/go/', () => {
+    expect(shortLinkFrom(SHORT)).toBe(SHORT);
+    expect(shortLinkFrom(`${SHORT}?trk=x`)).toBe(SHORT);
+    expect(shortLinkFrom('https://lnkd.in/')).toBeNull();
+    expect(shortLinkFrom('http://lnkd.in/p/eyaZJXmK')).toBeNull();
+    expect(shortLinkFrom('https://lnkd.in.example.com/p/eyaZJXmK')).toBeNull();
+    expect(postLinkIn(SHORT, SEARCH)).toBe(SHORT);
+    expect(
+      postLinkIn(
+        `https://www.linkedin.com/safety/go/?url=${encodeURIComponent(SHORT)}&trk=toast`,
+        SEARCH,
+      ),
+    ).toBe(SHORT);
+    expect(postLinkIn('https://example.com/p/eyaZJXmK', SEARCH)).toBeNull();
+  });
+
+  it('follows one to its post, without the person’s cookies, past a sign-in wall too', async () => {
+    expect(postUrlIn(PUBLIC)).toBe(POST);
+    expect(
+      postUrlIn(
+        `https://www.linkedin.com/authwall?trk=bf&sessionRedirect=${encodeURIComponent(PUBLIC)}`,
+      ),
+    ).toBe(POST);
+    expect(postUrlIn('https://www.linkedin.com/feed/')).toBeNull();
+    const get = vi.fn(async () => ({ url: PUBLIC }) as Response);
+    expect(await postUrlOfShort(SHORT, get as unknown as typeof fetch)).toBe(POST);
+    expect(get).toHaveBeenCalledWith(
+      SHORT,
+      expect.objectContaining({ method: 'HEAD', credentials: 'omit', redirect: 'follow' }),
+    );
+    const down = vi.fn(async () => {
+      throw new TypeError('Failed to fetch');
+    });
+    expect(await postUrlOfShort(SHORT, down as unknown as typeof fetch)).toBeNull();
+  });
+
+  it('keeps a short link copied on the page, for the job to follow', async () => {
+    const { doc, written } = page({ copies: { 'Nora Vance': SHORT } });
+    const answer = await postLinksOn(doc, SEARCH, 1);
+    expect(answer.ok && answer.links.map((l) => l.url)).toEqual([SHORT]);
+    expect(written).toEqual([]);
   });
 });

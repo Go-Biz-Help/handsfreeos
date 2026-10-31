@@ -457,8 +457,8 @@ describe('what it does on Instagram’s list', () => {
       sending: 'steps',
     } as never;
     expect(instagramWorkLeft(list, []).map((w) => w.item.kind)).toEqual([
-      'warm_up',
       'friend_request',
+      'warm_up',
     ]);
     // The newest followers first, then who followed back seen on their accounts, the checks, the chats, Find
     // partners, the hashtags and the notifications.

@@ -91814,6 +91814,9 @@
                               "minimum": 0,
                               "maximum": 6
                             }
+                          },
+                          "everyDay": {
+                            "type": "boolean"
                           }
                         },
                         "required": [
@@ -91876,6 +91879,7 @@
                             "default": {
                               "on": true,
                               "young": false,
+                              "fullSpeed": false,
                               "tidy": "cancel",
                               "requests": "fits"
                             },
@@ -91886,6 +91890,10 @@
                                 "type": "boolean"
                               },
                               "young": {
+                                "default": false,
+                                "type": "boolean"
+                              },
+                              "fullSpeed": {
                                 "default": false,
                                 "type": "boolean"
                               },
@@ -91922,6 +91930,7 @@
                               "watchPosts": true,
                               "posting": "after_ok",
                               "young": false,
+                              "fullSpeed": false,
                               "tidy": "cancel",
                               "requests": "fits"
                             },
@@ -91980,6 +91989,10 @@
                                 ]
                               },
                               "young": {
+                                "default": false,
+                                "type": "boolean"
+                              },
+                              "fullSpeed": {
                                 "default": false,
                                 "type": "boolean"
                               },
@@ -92016,6 +92029,7 @@
                               "watchPosts": true,
                               "posting": "after_ok",
                               "young": false,
+                              "fullSpeed": false,
                               "tidy": "cancel",
                               "requests": "fits"
                             },
@@ -92074,6 +92088,10 @@
                                 ]
                               },
                               "young": {
+                                "default": false,
+                                "type": "boolean"
+                              },
+                              "fullSpeed": {
                                 "default": false,
                                 "type": "boolean"
                               },
@@ -92110,6 +92128,7 @@
                               "watchPosts": true,
                               "posting": "after_ok",
                               "young": false,
+                              "fullSpeed": false,
                               "tidy": "cancel",
                               "requests": "fits"
                             },
@@ -92168,6 +92187,10 @@
                                 ]
                               },
                               "young": {
+                                "default": false,
+                                "type": "boolean"
+                              },
+                              "fullSpeed": {
                                 "default": false,
                                 "type": "boolean"
                               },
@@ -92289,6 +92312,9 @@
                                 "minimum": 0,
                                 "maximum": 6
                               }
+                            },
+                            "everyDay": {
+                              "type": "boolean"
                             }
                           },
                           "required": [
@@ -92365,6 +92391,7 @@
                             "facebook": {
                               "on": true,
                               "young": false,
+                              "fullSpeed": false,
                               "tidy": "cancel",
                               "requests": "fits"
                             },
@@ -92379,6 +92406,7 @@
                               "watchPosts": true,
                               "posting": "after_ok",
                               "young": false,
+                              "fullSpeed": false,
                               "tidy": "cancel",
                               "requests": "fits"
                             },
@@ -92393,6 +92421,7 @@
                               "watchPosts": true,
                               "posting": "after_ok",
                               "young": false,
+                              "fullSpeed": false,
                               "tidy": "cancel",
                               "requests": "fits"
                             },
@@ -92407,6 +92436,7 @@
                               "watchPosts": true,
                               "posting": "after_ok",
                               "young": false,
+                              "fullSpeed": false,
                               "tidy": "cancel",
                               "requests": "fits"
                             }
@@ -92417,6 +92447,7 @@
                               "default": {
                                 "on": true,
                                 "young": false,
+                                "fullSpeed": false,
                                 "tidy": "cancel",
                                 "requests": "fits"
                               },
@@ -92427,6 +92458,10 @@
                                   "type": "boolean"
                                 },
                                 "young": {
+                                  "default": false,
+                                  "type": "boolean"
+                                },
+                                "fullSpeed": {
                                   "default": false,
                                   "type": "boolean"
                                 },
@@ -92453,6 +92488,7 @@
                               "required": [
                                 "on",
                                 "young",
+                                "fullSpeed",
                                 "tidy",
                                 "requests"
                               ],
@@ -92470,6 +92506,7 @@
                                 "watchPosts": true,
                                 "posting": "after_ok",
                                 "young": false,
+                                "fullSpeed": false,
                                 "tidy": "cancel",
                                 "requests": "fits"
                               },
@@ -92531,6 +92568,10 @@
                                   "default": false,
                                   "type": "boolean"
                                 },
+                                "fullSpeed": {
+                                  "default": false,
+                                  "type": "boolean"
+                                },
                                 "tidy": {
                                   "default": "cancel",
                                   "type": "string",
@@ -92562,6 +92603,7 @@
                                 "watchPosts",
                                 "posting",
                                 "young",
+                                "fullSpeed",
                                 "tidy",
                                 "requests"
                               ],
@@ -92579,6 +92621,7 @@
                                 "watchPosts": true,
                                 "posting": "after_ok",
                                 "young": false,
+                                "fullSpeed": false,
                                 "tidy": "cancel",
                                 "requests": "fits"
                               },
@@ -92640,6 +92683,10 @@
                                   "default": false,
                                   "type": "boolean"
                                 },
+                                "fullSpeed": {
+                                  "default": false,
+                                  "type": "boolean"
+                                },
                                 "tidy": {
                                   "default": "cancel",
                                   "type": "string",
@@ -92671,6 +92718,7 @@
                                 "watchPosts",
                                 "posting",
                                 "young",
+                                "fullSpeed",
                                 "tidy",
                                 "requests"
                               ],
@@ -92688,6 +92736,7 @@
                                 "watchPosts": true,
                                 "posting": "after_ok",
                                 "young": false,
+                                "fullSpeed": false,
                                 "tidy": "cancel",
                                 "requests": "fits"
                               },
@@ -92749,6 +92798,10 @@
                                   "default": false,
                                   "type": "boolean"
                                 },
+                                "fullSpeed": {
+                                  "default": false,
+                                  "type": "boolean"
+                                },
                                 "tidy": {
                                   "default": "cancel",
                                   "type": "string",
@@ -92780,6 +92833,7 @@
                                 "watchPosts",
                                 "posting",
                                 "young",
+                                "fullSpeed",
                                 "tidy",
                                 "requests"
                               ],
@@ -209461,6 +209515,14 @@
                       ],
                       "additionalProperties": false
                     },
+                    "fullSpeed": {
+                      "default": false,
+                      "type": "boolean"
+                    },
+                    "newMessagesWait": {
+                      "default": false,
+                      "type": "boolean"
+                    },
                     "requestsHeld": {
                       "default": null,
                       "anyOf": [
@@ -209744,6 +209806,8 @@
                     "ready",
                     "week",
                     "fresh",
+                    "fullSpeed",
+                    "newMessagesWait",
                     "requestsHeld",
                     "profileOwn",
                     "goal",
@@ -210890,6 +210954,9 @@
                                 "minimum": 0,
                                 "maximum": 6
                               }
+                            },
+                            "everyDay": {
+                              "type": "boolean"
                             }
                           },
                           "required": [
@@ -210966,6 +211033,7 @@
                             "facebook": {
                               "on": true,
                               "young": false,
+                              "fullSpeed": false,
                               "tidy": "cancel",
                               "requests": "fits"
                             },
@@ -210980,6 +211048,7 @@
                               "watchPosts": true,
                               "posting": "after_ok",
                               "young": false,
+                              "fullSpeed": false,
                               "tidy": "cancel",
                               "requests": "fits"
                             },
@@ -210994,6 +211063,7 @@
                               "watchPosts": true,
                               "posting": "after_ok",
                               "young": false,
+                              "fullSpeed": false,
                               "tidy": "cancel",
                               "requests": "fits"
                             },
@@ -211008,6 +211078,7 @@
                               "watchPosts": true,
                               "posting": "after_ok",
                               "young": false,
+                              "fullSpeed": false,
                               "tidy": "cancel",
                               "requests": "fits"
                             }
@@ -211018,6 +211089,7 @@
                               "default": {
                                 "on": true,
                                 "young": false,
+                                "fullSpeed": false,
                                 "tidy": "cancel",
                                 "requests": "fits"
                               },
@@ -211028,6 +211100,10 @@
                                   "type": "boolean"
                                 },
                                 "young": {
+                                  "default": false,
+                                  "type": "boolean"
+                                },
+                                "fullSpeed": {
                                   "default": false,
                                   "type": "boolean"
                                 },
@@ -211054,6 +211130,7 @@
                               "required": [
                                 "on",
                                 "young",
+                                "fullSpeed",
                                 "tidy",
                                 "requests"
                               ],
@@ -211071,6 +211148,7 @@
                                 "watchPosts": true,
                                 "posting": "after_ok",
                                 "young": false,
+                                "fullSpeed": false,
                                 "tidy": "cancel",
                                 "requests": "fits"
                               },
@@ -211132,6 +211210,10 @@
                                   "default": false,
                                   "type": "boolean"
                                 },
+                                "fullSpeed": {
+                                  "default": false,
+                                  "type": "boolean"
+                                },
                                 "tidy": {
                                   "default": "cancel",
                                   "type": "string",
@@ -211163,6 +211245,7 @@
                                 "watchPosts",
                                 "posting",
                                 "young",
+                                "fullSpeed",
                                 "tidy",
                                 "requests"
                               ],
@@ -211180,6 +211263,7 @@
                                 "watchPosts": true,
                                 "posting": "after_ok",
                                 "young": false,
+                                "fullSpeed": false,
                                 "tidy": "cancel",
                                 "requests": "fits"
                               },
@@ -211241,6 +211325,10 @@
                                   "default": false,
                                   "type": "boolean"
                                 },
+                                "fullSpeed": {
+                                  "default": false,
+                                  "type": "boolean"
+                                },
                                 "tidy": {
                                   "default": "cancel",
                                   "type": "string",
@@ -211272,6 +211360,7 @@
                                 "watchPosts",
                                 "posting",
                                 "young",
+                                "fullSpeed",
                                 "tidy",
                                 "requests"
                               ],
@@ -211289,6 +211378,7 @@
                                 "watchPosts": true,
                                 "posting": "after_ok",
                                 "young": false,
+                                "fullSpeed": false,
                                 "tidy": "cancel",
                                 "requests": "fits"
                               },
@@ -211350,6 +211440,10 @@
                                   "default": false,
                                   "type": "boolean"
                                 },
+                                "fullSpeed": {
+                                  "default": false,
+                                  "type": "boolean"
+                                },
                                 "tidy": {
                                   "default": "cancel",
                                   "type": "string",
@@ -211381,6 +211475,7 @@
                                 "watchPosts",
                                 "posting",
                                 "young",
+                                "fullSpeed",
                                 "tidy",
                                 "requests"
                               ],
@@ -213250,6 +213345,9 @@
                             "minimum": 0,
                             "maximum": 6
                           }
+                        },
+                        "everyDay": {
+                          "type": "boolean"
                         }
                       },
                       "required": [
@@ -215084,6 +215182,9 @@
                             "minimum": 0,
                             "maximum": 6
                           }
+                        },
+                        "everyDay": {
+                          "type": "boolean"
                         }
                       },
                       "required": [

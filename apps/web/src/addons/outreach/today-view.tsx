@@ -231,7 +231,13 @@ export function TodayView({
   // Short of today's first messages, why, and what to try (decision 126): none from a server before it.
   const goal = today.goal && goalNoteOn(today.goal, platform) ? today.goal : null;
   const headsUp = Boolean(
-    warning || today.wheels.on || today.fresh?.on || today.requestsHeld || goal || today.profileOwn,
+    warning ||
+    today.wheels.on ||
+    today.fresh?.on ||
+    today.newMessagesWait ||
+    today.requestsHeld ||
+    goal ||
+    today.profileOwn,
   );
   return (
     <div data-testid="outreach-today">
@@ -246,13 +252,19 @@ export function TodayView({
             ) : null}
             {today.wheels.on ? (
               <li data-testid="today-wheels" className="text-text-2">
-                {wheelsWords(today.wheels)}
+                {wheelsWords(today.wheels, today.fullSpeed)}
               </li>
             ) : null}
             {/* None from a server before decision 96. */}
             {today.fresh?.on ? (
               <li data-testid="today-fresh" className="text-text-2">
                 {freshWords(today.fresh, platform)}
+              </li>
+            ) : null}
+            {/* None from a server before decision 139. */}
+            {today.newMessagesWait ? (
+              <li data-testid="today-new-messages-wait" className="text-text-2">
+                {W.newMessagesWait}
               </li>
             ) : null}
             {today.requestsHeld ? (

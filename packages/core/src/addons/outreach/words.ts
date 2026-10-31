@@ -856,6 +856,14 @@ export const OUTREACH_WORDS = {
     `Your business doesn’t allow: ${choices.join('; ')}. An owner or admin can change that in Settings → General.`,
   from: 'From',
   to: 'to',
+  /** Under the working hours (decision 139). */
+  everyDay: [
+    'Keep working on other days',
+    'Likes, friend requests, comments and replies go every day in these hours. New messages (first messages, follow-ups, Reconnect and partner asks) go only on the days ticked here.',
+  ] as const,
+  /** On Today, on a day that isn't one of theirs while it keeps working (decision 139). */
+  newMessagesWait:
+    'Not one of your working days: likes, friend requests, comments and replies go on today, and new messages wait for your next working day.',
   usual: 'The usual choice.',
   weeks: (n: number) => (n === 1 ? '1 week' : `${n} weeks`),
   aDay: (n: number) => `${n.toLocaleString()} a day`,

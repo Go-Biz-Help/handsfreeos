@@ -11,6 +11,7 @@ import { commentOn } from '../src/networks/alignable/auto';
 import {
   groupCards,
   groupFacts,
+  groupOf,
   groupLeaders,
   groupStanding,
   memberRows,
@@ -1066,6 +1067,39 @@ describe('groups, as Alignable lists them (decision 92)', () => {
       leaders: [{ name: 'Riley Stone' }],
     });
     expect(groupFacts(doc, doc.location.href)).toMatchObject({ members: 1204, leaders: true });
+  });
+
+  it('reads the Directory of a group’s members at its /biz address (decision 138)', () => {
+    const row = (id: string, path: string, name: string, business: string) =>
+      `<div class="group-member-list__member-row-wrapper" data-group-member-row-id="${id}">
+        <div class="group-member-list__member-row js-group-members-result" data-member-id="${id}" data-member-index="0">
+          <a class="name js-hover-card" href="${path}">${name}</a>
+          <a class="business js-hover-card" href="${path}">${business}</a>
+          <a class="js-biz-connect-create-button mobile" data-link-name="connect_cta"
+            href="/biz/connection_requests/make_connection?business_id=${id}">Connect</a>
+          <a class="js-biz-connect-create-button desktop" data-link-name="connect_cta"
+            href="/biz/connection_requests/make_connection?business_id=${id}">Connect</a>
+        </div></div>`;
+    const doc = page(
+      `${AL}/biz/groups/ai-automation/members`,
+      `<main><h1>AI &amp; Automation</h1>${row('29855652', '/keller-tx/umorphos', 'Pat Lane', 'Umorphos')}${row(
+        '29855653',
+        '/boise-id/pine-painting',
+        'Jamie Pine',
+        'Pine Painting',
+      )}</main>`,
+    );
+    expect(
+      memberRows(doc, doc.location.href).map((m) => [m.name, m.profile.url, m.business]),
+    ).toEqual([
+      ['Pat Lane', `${AL}/keller-tx/umorphos`, 'Umorphos'],
+      ['Jamie Pine', `${AL}/boise-id/pine-painting`, 'Pine Painting'],
+    ]);
+    expect(groupOf(new URL(doc.location.href))).toEqual({
+      id: 'ai-automation',
+      url: `${AL}/groups/ai-automation`,
+      page: 'members',
+    });
   });
 
   it('marks a leader by the word beside them, and says when a page showed none', () => {
