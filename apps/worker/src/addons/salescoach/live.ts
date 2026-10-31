@@ -7,6 +7,7 @@
  *   the coach isn't still thinking about the last one, the fast model reads the playbook, the business and the last
  *   few minutes of the call, and says where the call is in the script and whether there's a card to show. A card goes
  *   to the rep's screen at once (the live update), and an objection's also to their phone, for a rep on their cell.
+ *   A nudge (round five) shows at most once for the same thing, and not too soon after the last (`nudgeAllowed`).
  * - **End**: what was said is kept, and the write-up is queued (./after-call.ts). A video call whose AI notes were
  *   turned off is forgotten instead: no lines, no cards, no write-up.
  *
@@ -16,6 +17,7 @@ import {
   cardMoment,
   checkedCard,
   CoachAnswer,
+  nudgeAllowed,
   COACH_SCHEMA,
   COACH_SYSTEM,
   coachPrompt,
@@ -42,6 +44,8 @@ interface CallState {
   readonly business: string;
   lastAskedAtMs: number | null;
   asking: boolean;
+  /** The nudges shown on this call: when the last was, and what each said. */
+  nudges: { lastAtMs: number | null; titles: Set<string> };
   /** The rep stopped the coach on this call. */
   stopped: boolean;
 }
@@ -75,6 +79,7 @@ export const salescoachLiveCalls: AddonLiveCalls = {
       business: await businessText(ctx),
       lastAskedAtMs: null,
       asking: false,
+      nudges: { lastAtMs: null, titles: new Set() },
       stopped: false,
     });
   },
@@ -170,7 +175,14 @@ async function coach(
     }
     throw e;
   }
-  const checked = checkedCard(answer, details);
+  let checked = checkedCard(answer, details);
+  const atMs = lines.at(-1)?.atMs ?? 0;
+  if (checked.card?.kind === 'nudge') {
+    if (nudgeAllowed(state.nudges, checked.card.title, atMs)) {
+      state.nudges.lastAtMs = atMs;
+      state.nudges.titles.add(checked.card.title.trim().toLowerCase());
+    } else checked = { step: checked.step, card: null };
+  }
   if (!checked.card && !checked.step) return;
   const { output } = await executeCommand(
     ctx.db,

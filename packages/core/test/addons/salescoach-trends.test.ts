@@ -31,6 +31,7 @@ const score = (total: number, over: Partial<CallScore> = {}): CallScore => ({
   steps: { covered: 2, of: 3 },
   objections: { answered: 1, of: 2 },
   talkShare: 50,
+  stages: null,
   ...over,
 });
 const record = (over: Partial<TrendRecord> = {}): TrendRecord => ({

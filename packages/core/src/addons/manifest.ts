@@ -526,6 +526,13 @@ export interface AddonManifest {
     readonly permission: string;
     readonly zoom?: { readonly path: string; readonly query?: Readonly<Record<string, string>> };
   };
+  /**
+   * It writes the script the AI teammate follows on the calls it places to leads (Sales Coach, round five part
+   * three): a workflow's "AI teammate calls them" step and a call campaign's calls, while the add-on runs. Its worker
+   * half writes it (`callScript`). Core's rules for those calls still hold: the AI says who it is, that it's an AI and
+   * that the call is recorded, offers only what the step or campaign allows, and books as it says.
+   */
+  readonly callScripts?: boolean;
   readonly billing: AddonBilling;
 }
 
@@ -921,6 +928,7 @@ export function manifestIssues(m: AddonManifest): AddonIssue[] {
     if ((m.tables ?? []).length || (m.jobs ?? []).length || (m.recordKinds ?? []).length)
       say('a planned add-on has no code yet, so it declares no tables, jobs or record kinds');
     if (m.liveCalls) say('a planned add-on has no code yet, so it hears no calls');
+    if (m.callScripts) say('a planned add-on has no code yet, so it writes no call scripts');
   }
   for (const g of m.catalog.groups ?? [])
     if (!g.trim() || g.length > 60) say(`group "${g}" must be 1–60 characters`);

@@ -13,11 +13,21 @@ import {
   queries,
 } from '../../src/server';
 import {
+  BRIEF_GUESS_ASK,
+  briefGuessPrompt,
   cardMoment,
+  checkedBrief,
   checkedCard,
+  callerScript,
   checkedDraft,
+  COACH_SYSTEM,
+  nudgeAllowed,
+  NUDGE_EVERY_MS,
   keptLines,
   KEPT_LINES,
+  PLAYBOOK_DRAFT_ASK,
+  PLAYBOOK_DRAFT_SYSTEM,
+  playbookDraftPrompt,
   scoreCall,
   talkShare,
 } from '../../src/addons/salescoach/coach';
@@ -28,7 +38,19 @@ import {
   tallyObjections,
 } from '../../src/addons/salescoach/learn';
 import { salescoachAddon } from '../../src/addons/salescoach/manifest';
-import { PlaybookDetails } from '../../src/addons/salescoach/playbooks';
+import {
+  AI_CALLER_STAGES,
+  BUILDER_KINDS,
+  CALL_OPENINGS,
+  callKindFor,
+  NEW_LEAD_DAYS,
+  playbookStages,
+  SALES_BRIEF_MAX,
+  SALES_BRIEF_QUESTIONS,
+  SALES_STAGES,
+  stageAt,
+} from '../../src/addons/salescoach/method';
+import { blankBrief, PLAYBOOK_KINDS, PlaybookDetails } from '../../src/addons/salescoach/playbooks';
 import { salescoachAddonServer } from '../../src/addons/salescoach/server';
 
 describe('AI Sales Coach', () => {
@@ -70,7 +92,7 @@ describe('AI Sales Coach', () => {
 });
 
 describe('the coach’s rules', () => {
-  const playbook = {
+  const playbook = PlaybookDetails.parse({
     steps: [
       { id: 's1', title: 'Hello', say: '' },
       { id: 's2', title: 'Book it', say: '' },
@@ -79,7 +101,7 @@ describe('the coach’s rules', () => {
       { id: 'o1', objection: 'Too expensive', answer: 'The fee goes toward the repair.' },
     ],
     points: [],
-  };
+  });
 
   it('asks for a card when the customer finishes saying something, not too often', () => {
     const said = (text: string, atMs: number, speaker: 'customer' | 'team' = 'customer') => ({
@@ -104,6 +126,7 @@ describe('the coach’s rules', () => {
             title: 'Price',
             say: 'x'.repeat(900),
             heard: 'too much',
+            tip: 'Slow down',
             objectionId: 'o7',
           },
         },
@@ -116,12 +139,16 @@ describe('the coach’s rules', () => {
         title: 'Price',
         say: `${'x'.repeat(399)}…`,
         heard: 'too much',
+        tip: 'Slow down',
         objectionId: null,
       },
     });
     expect(
       checkedCard(
-        { step: 's2', card: { kind: 'fact', title: ' ', say: 'x', heard: '', objectionId: null } },
+        {
+          step: 's2',
+          card: { kind: 'fact', title: ' ', say: 'x', heard: '', tip: '', objectionId: null },
+        },
         playbook,
       ),
     ).toEqual({ step: 's2', card: null });
@@ -141,6 +168,7 @@ describe('the coach’s rules', () => {
       steps: { covered: 1, of: 2 },
       objections: { answered: 0, of: 0 },
       talkShare: 40,
+      stages: null,
     });
     const quiet = [{ speaker: 'customer' as const, text: 'hello there', atMs: 0 }];
     expect(scoreCall({ lines: quiet, stepsCovered: [], steps: [], objections: [] }).total).toBe(0);
@@ -173,8 +201,253 @@ describe('the coach’s rules', () => {
       'estimate',
     );
     expect(draft.name).toBe('Going over an estimate');
-    expect(draft.details.steps).toEqual([{ id: 's1', title: 'Hello', say: 'Hi!' }]);
+    expect(draft.details.steps).toEqual([
+      { id: 's1', title: 'Hello', say: 'Hi!', stage: null, tip: '' },
+    ]);
     expect(PlaybookDetails.safeParse(draft.details).success).toBe(true);
+  });
+
+  it('keeps the stage the AI gives each step, when it’s one of the method’s', () => {
+    const draft = checkedDraft(
+      {
+        name: 'New lead',
+        steps: [
+          {
+            title: 'Ask what they use now',
+            say: 'What are you using now?',
+            stage: 'situation',
+            tip: '',
+          },
+          {
+            title: 'Ask what’s wrong',
+            say: 'What do you mean by that?',
+            stage: 'problem',
+            tip: 'Slow down.',
+          },
+          { title: 'Odd one', say: '', stage: 'hard_sell', tip: '' },
+          // An older stand-in leaves both out.
+          { title: 'Book it', say: '' },
+        ],
+        objections: [],
+        points: [],
+      },
+      'new_lead',
+    );
+    expect(draft.details.steps.map((st) => [st.id, st.stage, st.tip])).toEqual([
+      ['s1', 'situation', ''],
+      ['s2', 'problem', 'Slow down.'],
+      ['s3', null, ''],
+      ['s4', null, ''],
+    ]);
+    // A playbook saved before stages reads as having none.
+    expect(PlaybookDetails.parse({ steps: [{ id: 's1', title: 'Hello' }] }).steps[0]).toEqual({
+      id: 's1',
+      title: 'Hello',
+      say: '',
+      stage: null,
+      tip: '',
+    });
+  });
+});
+
+describe('the question-led method', () => {
+  it('asks the AI to write each kind of call its own way, from the owner’s answers', () => {
+    const prompt = playbookDraftPrompt({
+      kind: 'aged_lead',
+      business: '<business_profile>\nLone Star HVAC\n</business_profile>',
+      script: null,
+      brief: { ...blankBrief(), offer: 'AC repair', problems: 'Rooms that won’t cool' },
+    });
+    expect(prompt).toContain('Older lead');
+    expect(prompt).toContain(CALL_OPENINGS.aged_lead);
+    expect(prompt).toContain('<owner_answers>');
+    expect(prompt).toContain('AC repair');
+    // A blank answer isn't asked about.
+    expect(prompt).not.toContain(SALES_BRIEF_QUESTIONS.why.ask);
+    expect(prompt.endsWith(PLAYBOOK_DRAFT_ASK)).toBe(true);
+    // No answers at all: no empty block.
+    expect(
+      playbookDraftPrompt({ kind: 'new_lead', business: '', script: null, brief: blankBrief() }),
+    ).not.toContain('<owner_answers>');
+  });
+
+  it('tells the AI the stages and what it never does', () => {
+    for (const st of SALES_STAGES) expect(PLAYBOOK_DRAFT_SYSTEM).toContain(`- ${st} (`);
+    expect(PLAYBOOK_DRAFT_SYSTEM).toMatch(/Never mislead/);
+    expect(PLAYBOOK_DRAFT_SYSTEM).toMatch(/Never invent deadlines/);
+    expect(PLAYBOOK_DRAFT_SYSTEM).toMatch(/Never suggest they borrow/);
+    // The method is in HandsFreeOS's own words: it names no outside program.
+    expect(`${PLAYBOOK_DRAFT_SYSTEM}${COACH_SYSTEM}`).not.toMatch(/NEPQ|7th Level/i);
+  });
+
+  it('has an opening for every kind of call, and builds the four new ones', () => {
+    for (const k of PLAYBOOK_KINDS) expect(CALL_OPENINGS[k]).toBeTruthy();
+    expect(BUILDER_KINDS.every((k) => PLAYBOOK_KINDS.includes(k))).toBe(true);
+  });
+
+  it('keeps what the AI already knows of the builder’s questions to their length', () => {
+    const brief = checkedBrief({
+      ...blankBrief(),
+      offer: `  AC   repair ${'x'.repeat(500)}`,
+      buyers: 'Homeowners',
+    });
+    expect(brief.offer.length).toBe(SALES_BRIEF_MAX);
+    expect(brief.offer.startsWith('AC repair')).toBe(true);
+    expect(brief.buyers).toBe('Homeowners');
+    expect(brief.why).toBe('');
+    expect(briefGuessPrompt('<knowledge>\n</knowledge>').endsWith(BRIEF_GUESS_ASK)).toBe(true);
+  });
+});
+
+describe('coaching by stage', () => {
+  const staged = [
+    { id: 's1', stage: 'connect' as const },
+    { id: 's2', stage: 'problem' as const },
+    { id: 's3', stage: null },
+    { id: 's4', stage: 'present' as const },
+  ];
+
+  it('knows the stages a script goes through, and the one the call is in', () => {
+    expect(playbookStages(staged)).toEqual(['connect', 'problem', 'present']);
+    expect(playbookStages([{ id: 's1', stage: null }])).toEqual([]);
+    expect(stageAt(staged, 's2')).toBe('problem');
+    // A step without a stage carries on the one before.
+    expect(stageAt(staged, 's3')).toBe('problem');
+    expect(stageAt(staged, null)).toBeNull();
+    expect(stageAt(staged, 'zz')).toBeNull();
+  });
+
+  it('opens with the script for how the call started', () => {
+    const call = {
+      meeting: false,
+      direction: 'outbound' as const,
+      booked: false,
+      known: true,
+      leadAgeDays: null,
+    };
+    expect(callKindFor({ ...call, meeting: true, direction: null })).toBe('booked_call');
+    expect(callKindFor({ ...call, booked: true, leadAgeDays: 40 })).toBe('booked_call');
+    expect(callKindFor({ ...call, leadAgeDays: 2 })).toBe('new_lead');
+    expect(callKindFor({ ...call, leadAgeDays: NEW_LEAD_DAYS })).toBe('new_lead');
+    expect(callKindFor({ ...call, leadAgeDays: NEW_LEAD_DAYS + 1 })).toBe('aged_lead');
+    expect(callKindFor({ ...call, known: false })).toBe('cold_call');
+    // A customer with no open lead, or a call the customer made: the usual script.
+    expect(callKindFor(call)).toBeNull();
+    expect(callKindFor({ ...call, direction: 'inbound', leadAgeDays: 2 })).toBeNull();
+  });
+
+  it('coaches the method live, with tips and nudges', () => {
+    expect(COACH_SYSTEM).toContain('Never invent deadlines');
+    expect(COACH_SYSTEM).toContain('consequence (If nothing changes)');
+    expect(COACH_SYSTEM).toContain('nudge:');
+    expect(COACH_SYSTEM).toContain('tip:');
+    expect(COACH_SYSTEM).not.toMatch(/NEPQ|7th Level/i);
+  });
+
+  it('nudges once for the same thing, and not too often', () => {
+    const none = { lastAtMs: null, titles: new Set<string>() };
+    expect(nudgeAllowed(none, 'Price before the problem', 5_000)).toBe(true);
+    const one = { lastAtMs: 5_000, titles: new Set(['price before the problem']) };
+    expect(nudgeAllowed(one, ' Price before the problem ', 500_000)).toBe(false);
+    expect(nudgeAllowed(one, 'Let them talk', 5_000 + NUDGE_EVERY_MS - 1)).toBe(false);
+    expect(nudgeAllowed(one, 'Let them talk', 5_000 + NUDGE_EVERY_MS)).toBe(true);
+  });
+
+  it('scores a script with stages by stage, less when the offer came too soon', () => {
+    const lines = [
+      { speaker: 'team' as const, text: 'one two three four', atMs: 0 },
+      { speaker: 'customer' as const, text: 'one two three four five six', atMs: 1 },
+    ];
+    const score = scoreCall({ lines, stepsCovered: ['s1', 's3'], steps: staged, objections: [] });
+    // Connect only (s3 carries no stage of its own): 1 of 3 stages (0.5 × ⅓) and the talking (0.2 × 1), over 0.7.
+    expect(score).toMatchObject({
+      total: 52,
+      steps: { covered: 2, of: 4 },
+      stages: { covered: ['connect'], missed: ['problem', 'present'], pitchedEarly: false },
+    });
+    const all = ['s1', 's2', 's4'];
+    expect(scoreCall({ lines, stepsCovered: all, steps: staged, objections: [] }).total).toBe(100);
+    const early = scoreCall({
+      lines,
+      stepsCovered: all,
+      steps: staged,
+      objections: [],
+      pitchedEarly: true,
+    });
+    // Three quarters of the stages' part: (0.5 × 0.75 + 0.2) / 0.7.
+    expect(early.total).toBe(82);
+    expect(early.stages?.pitchedEarly).toBe(true);
+  });
+});
+
+describe('the AI teammate’s calls to leads (round five, part three)', () => {
+  const step = (id: string, stage: (typeof SALES_STAGES)[number] | null, say = '', tip = '') => ({
+    id,
+    title: `Step ${id}`,
+    say,
+    tip,
+    stage,
+  });
+
+  it('asks the script’s questions up to how much it matters, and stops there', () => {
+    expect(AI_CALLER_STAGES.at(-1)).toBe('importance');
+    expect(AI_CALLER_STAGES).not.toContain('present');
+    const script = callerScript(
+      'New leads',
+      'new_lead',
+      PlaybookDetails.parse({
+        steps: [
+          step('s1', 'connect', 'Is now an OK time?'),
+          step('s2', 'problem', 'What made you look into this?', 'Slow down here.'),
+          step('s3', null, 'How long has that been going on?'),
+          step('s4', 'importance', 'How important is it to you to fix that?'),
+          step('s5', 'present', 'Here is how we fix it.'),
+          step('s6', 'commit', 'Shall we get you started?'),
+        ],
+        objections: [
+          { id: 'o1', objection: 'Too expensive', answer: 'Too expensive compared to what?' },
+        ],
+      }),
+    )!;
+    expect(script).toContain('Script: New leads (New lead who asked us to call)');
+    expect(script).toContain(CALL_OPENINGS.new_lead);
+    expect(script).toContain('1. (Connect) Say: “Is now an OK time?”');
+    expect(script).toContain(
+      '2. (The problem) Say: “What made you look into this?” How: Slow down here.',
+    );
+    // A step without a stage carries on the one before it.
+    expect(script).toContain('3. (The problem) Say: “How long has that been going on?”');
+    expect(script).toContain('How important is it to you to fix that?');
+    expect(script).not.toContain('Here is how we fix it.');
+    expect(script).not.toContain('Shall we get you started?');
+    expect(script).toContain('“Too expensive” → Too expensive compared to what?');
+  });
+
+  it('keeps a script without stages whole, and says where to stop', () => {
+    const script = callerScript(
+      'Our own',
+      'any',
+      PlaybookDetails.parse({
+        steps: [step('s1', null, 'Hi there.'), step('s2', null), step('s3', null, 'Want to buy?')],
+      }),
+    )!;
+    expect(script).toContain(
+      'stop before any step that shows the offer, gives a price or asks for the sale',
+    );
+    expect(script).toContain('2. Step s2');
+    expect(script).toContain('Want to buy?');
+    expect(script).not.toContain('Objections');
+  });
+
+  it('has nothing to follow without questions before the offer', () => {
+    expect(callerScript('Empty', 'any', PlaybookDetails.parse({ steps: [] }))).toBeNull();
+    expect(
+      callerScript(
+        'Only the pitch',
+        'any',
+        PlaybookDetails.parse({ steps: [step('s1', 'present', 'Here it is.')] }),
+      ),
+    ).toBeNull();
   });
 });
 
