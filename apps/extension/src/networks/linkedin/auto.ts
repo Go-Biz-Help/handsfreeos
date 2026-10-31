@@ -353,6 +353,12 @@ async function typeAndSend(
   if (!hasWriting(box)) return 'not_sent';
   const send = sendFor(box, pattern);
   if (!send) return 'none';
+  // Its Comment shows once something's typed, but stays off a moment after (the owner's outline of 31 Oct 2026).
+  await waitFor(
+    () =>
+      send.hasAttribute('disabled') || send.getAttribute('aria-disabled') === 'true' ? null : true,
+    3_000,
+  );
   // It went once the box empties, or what was typed shows once more where the box is: LinkedIn sometimes draws the
   // box afresh, or leaves the writing in it a while (the owner's sends of 30 Oct 2026, on 0.114.0, said "didn't take"
   // of a message that was in the conversation).

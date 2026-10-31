@@ -11,14 +11,17 @@
  * LinkedIn's newer search links no post (the owner's Check LinkedIn of 29 Oct 2026), and a post with no link can't be
  * kept, so from 0.112.0 (decision 123) each person's post with none gets its own from its menu's Copy link to post,
  * caught on the page so the person's clipboard is never written to (`withLinks`). That's all it presses. When that
- * doesn't work, the page is noted with its outline, the menu open (decision 74), once a day.
+ * doesn't work, the page is noted with its outline, the menu open (decision 74), once a day. From 0.119.0 (decision
+ * 138) the short link it copies now (https://lnkd.in/p/…) is followed to the post's own address (./short-links.ts).
  */
 import { linkedInPostsSave } from '../../hfos/saves';
 import type { LinkedInRead } from '../../networks';
 import { postKey } from '../../networks/linkedin/post-links';
+import { shortLinkFrom } from '../../networks/linkedin/urls';
 import { counted } from '../../words';
 import { pause, paced, warnedOn, type Job, type JobEnd } from '../job';
 import { postSearchUrl, readLinkedIn, SCROLL_PACE_MS } from './read';
+import { postUrlOfShort } from './short-links';
 
 /** Screens of each search it reads. */
 export const SEARCH_SCREENS = 3;
@@ -31,14 +34,16 @@ export const LINKS_PER_SCREEN = 8;
 /**
  * The screen's posts with the links their menus copy, for the people's posts that show none (decision 123): only when
  * the page catches copies, so nothing goes to the person's clipboard. `known` holds the keys of posts it has tried
- * already, link or not, and gains each it tries, so no post's menu is pressed twice. When no link came, the page is
- * noted with the outline its menu showed (once a job).
+ * already, link or not, and gains each it tries, so no post's menu is pressed twice. A short link is followed to the
+ * post (`follow`), and one that leads to none is dropped. When no link came, the page is noted with the outline its
+ * menu showed (once a job), or that the short links led nowhere.
  */
 export async function withLinks(
   job: Job,
   page: LinkedInRead,
   known: Set<string>,
   most = LINKS_PER_SCREEN,
+  follow: (short: string) => Promise<string | null> = postUrlOfShort,
 ): Promise<LinkedInRead> {
   const posts = page.posts ?? [];
   const wanted = posts.some(
@@ -47,8 +52,22 @@ export async function withLinks(
   if (!wanted || !(await job.tab.catchCopies?.())) return page;
   const answer = await job.tab.ask({ type: 'hfos-post-links', most, skip: [...known] });
   if (!answer.ok) return page;
-  const links = new Map(answer.links.map((l) => [l.key, l.url]));
-  for (const key of [...answer.tried, ...links.keys()]) known.add(key);
+  const followed = await Promise.all(
+    answer.links.map(async (l) => ({
+      key: l.key,
+      url: shortLinkFrom(l.url) ? await follow(l.url) : l.url,
+    })),
+  );
+  const links = new Map(followed.flatMap((l) => (l.url ? [[l.key, l.url] as const] : [])));
+  for (const key of [...answer.tried, ...answer.links.map((l) => l.key)]) known.add(key);
+  if (!links.size && answer.links.length && !noted.has(job)) {
+    noted.add(job);
+    await job.report?.({
+      job: 'posts.links',
+      note: 'Copy link to post on LinkedIn’s post search gave short links that didn’t lead to a post.',
+      found: { ...answer.found, followed: 0 },
+    });
+  }
   if (!links.size && answer.outline && !noted.has(job)) {
     noted.add(job);
     await job.report?.({

@@ -7,10 +7,12 @@
  * And for **Find posts** (docs/outreach.md, decision 18): on a group's own page, it scrolls the feed down a screen at a
  * time, as the person would, for Facebook to load more posts. For the once-a-day jobs (decision 32), it scrolls the
  * person's friend requests, and a group's members, the same way, for Facebook to load more people; and the list of
- * their groups, or a search for groups, for more groups (decision 43). Nothing else: it opens nothing and presses
- * nothing.
+ * their groups, or a search for groups, for more groups (decision 43). And it points at each post's time in a group's
+ * feed, as a mouse passing over would, for Facebook to give it its address (decision 138). Nothing else: it opens
+ * nothing and presses nothing.
  */
 import { inTopBar } from './dom';
+import { COMMENT } from './posts';
 import { classifyUrl, facebookUrl, profileFromUrl, threadFromUrl } from './urls';
 
 /** Whether an address is Messenger's: the list of chats, or a chat. */
@@ -72,6 +74,39 @@ export function scrollChats(root: Document, base: string): boolean {
 
 /** Whether an address is a group's own feed: not its members, a post, or the list of groups. */
 export const groupFeedPage = (href: string) => classifyUrl(href).kind === 'group';
+
+/**
+ * A post's time link in a group's feed before it's pointed at: since 2026 only Facebook's tracking ("?__cft__[0]=…"),
+ * no path, its words scrambled (the owner's outline of 31 Oct 2026).
+ */
+const EMPTY_TIME = 'a[role="link"][href^="?"], a[role="link"][href="#"]';
+
+/**
+ * Points at each post's empty time link in a group's feed, as a mouse passing over would, so Facebook fills in the
+ * post's own address (/groups/<group>/posts/<number>/) for the next read (decision 138): how many. A comment's time
+ * links to the post already, so a link inside a comment is left alone. Nothing is pressed.
+ */
+export function pointAtTimes(root: Document, base: string): number {
+  if (!groupFeedPage(base)) return 0;
+  const view = root.defaultView;
+  if (!view) return 0;
+  const feed = root.querySelector('[role="feed"]') ?? root.querySelector('[role="main"]');
+  let pointed = 0;
+  for (const link of feed?.querySelectorAll<HTMLElement>(EMPTY_TIME) ?? []) {
+    const article = link.closest('[role="article"]');
+    if (article && COMMENT.test(article.getAttribute('aria-label') ?? '')) continue;
+    const at = { bubbles: true, cancelable: true, view };
+    const Pointer = view.PointerEvent ?? view.MouseEvent;
+    link.dispatchEvent(new Pointer('pointerover', at));
+    link.dispatchEvent(new view.MouseEvent('mouseover', at));
+    link.dispatchEvent(new view.FocusEvent('focusin', { bubbles: true }));
+    link.dispatchEvent(new Pointer('pointerout', at));
+    link.dispatchEvent(new view.MouseEvent('mouseout', at));
+    link.dispatchEvent(new view.FocusEvent('focusout', { bubbles: true }));
+    pointed++;
+  }
+  return pointed;
+}
 
 /** How far one scroll of a group's feed goes: most of a screen, so no post is skipped past unread. */
 const FEED_SCROLL = 0.8;

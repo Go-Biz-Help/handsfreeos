@@ -25,6 +25,7 @@
 import {
   choicesFor,
   freshWords,
+  halvedNow,
   hoursProblem,
   NOT_FRESH,
   OTHER_PLATFORMS,
@@ -779,10 +780,10 @@ function NetworkPage({
                   className="rounded-menu bg-warning-soft px-3.5 py-2.5 text-[13px] text-warning-text"
                   data-testid={`${testId}-wheels`}
                 >
-                  {wheelsWords(wheels)}
+                  {wheelsWords(wheels, choices.fullSpeed)}
                 </p>
               ) : null}
-              {fresh.on ? (
+              {fresh.on && !choices.fullSpeed ? (
                 <p
                   className="rounded-menu bg-card-2 px-3.5 py-2.5 text-[13px] text-text-2"
                   data-testid={`${testId}-fresh`}
@@ -844,27 +845,36 @@ function NetworkPage({
                 testId={`${testId}-limits`}
               >
                 <ul className="grid grid-cols-2 gap-2.5 sm:grid-cols-4">
-                  {limitsShownOn(platform, rules, wheels.on || fresh.on).map((l) => (
-                    <li
-                      key={l.key}
-                      className="min-w-0 rounded-[10px] bg-card-2 p-3"
-                      data-testid={`${testId}-limit-${l.key}`}
-                    >
-                      <div className="text-xl font-semibold tabular-nums">
-                        {l.most.toLocaleString('en-US')}
-                      </div>
-                      <div className="text-[12.5px] text-text-2">{l.label}</div>
-                      {l.note ? <div className="text-[12px] text-text-3">{l.note}</div> : null}
-                    </li>
-                  ))}
+                  {limitsShownOn(platform, rules, halvedNow({ wheels, fresh, choices })).map(
+                    (l) => (
+                      <li
+                        key={l.key}
+                        className="min-w-0 rounded-[10px] bg-card-2 p-3"
+                        data-testid={`${testId}-limit-${l.key}`}
+                      >
+                        <div className="text-xl font-semibold tabular-nums">
+                          {l.most.toLocaleString('en-US')}
+                        </div>
+                        <div className="text-[12.5px] text-text-2">{l.label}</div>
+                        {l.note ? <div className="text-[12px] text-text-3">{l.note}</div> : null}
+                      </li>
+                    ),
+                  )}
                 </ul>
-                <div className="mt-4 border-t border-border pt-4">
+                <div className="mt-4 space-y-4 border-t border-border pt-4">
                   <Tick
                     switches
                     words={[NW.young(name), NW.youngAbout(name)]}
                     checked={choices.young}
                     onChange={(young) => set({ young })}
                     testId={`${testId}-young`}
+                  />
+                  <Tick
+                    switches
+                    words={[NW.fullSpeed(name), NW.fullSpeedAbout(name)]}
+                    checked={choices.fullSpeed}
+                    onChange={(fullSpeed) => set({ fullSpeed })}
+                    testId={`${testId}-full-speed`}
                   />
                 </div>
               </Part>

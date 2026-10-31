@@ -383,8 +383,8 @@ describe('what it does on LinkedIn’s list', () => {
     } as never;
     expect(linkedInWorkLeft(list, []).map((w) => w.item.kind)).toEqual([
       'confirm',
-      'warm_up',
       'friend_request',
+      'warm_up',
     ]);
     // A comment is never a step of its own there (0.99.0, decision 102): it's drafted to wait for an OK at first, as
     // a message is, and sent once OK'd.
@@ -392,7 +392,7 @@ describe('what it does on LinkedIn’s list', () => {
       linkedInWorkLeft({ ...(list as object), messages: ['comment'] } as never, []).map(
         (w) => `${w.do}: ${w.item.kind}`,
       ),
-    ).toEqual(['step: confirm', 'step: warm_up', 'step: friend_request', 'draft: comment']);
+    ).toEqual(['step: confirm', 'step: friend_request', 'step: warm_up', 'draft: comment']);
     expect(
       linkedInWorkLeft(
         {

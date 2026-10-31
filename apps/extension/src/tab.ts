@@ -352,12 +352,13 @@ export class WorkTab {
   async catchCopies(): Promise<boolean> {
     if (this.id === null) return false;
     try {
-      const [ran] = await chrome.scripting.executeScript({
-        target: { tabId: this.id },
+      // Every frame of the page (decision 138): the top page's says whether it catches.
+      const ran = await chrome.scripting.executeScript({
+        target: { tabId: this.id, allFrames: true },
         world: 'MAIN',
         func: catchCopiesIn,
       });
-      return ran?.result === true;
+      return ran.find((r) => r.frameId === 0)?.result === true;
     } catch {
       return false;
     }

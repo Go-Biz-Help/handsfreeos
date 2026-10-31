@@ -98,7 +98,7 @@ async function putCode(site: LookingSite, ask: CodeAsk): Promise<CodeAnswer> {
 /** The asks about its lists it answers, where its site has them: never Facebook's chats, feed or pages. */
 type LookingBrowseAsk = Exclude<
   BrowseAsk,
-  { type: 'hfos-scroll-chats' | 'hfos-scroll-feed' | 'hfos-scroll-page' }
+  { type: 'hfos-scroll-chats' | 'hfos-scroll-feed' | 'hfos-point-times' | 'hfos-scroll-page' }
 >;
 const BROWSE_ASKS: ReadonlySet<string> = new Set<LookingBrowseAsk['type']>([
   'hfos-scroll-list',

@@ -1,7 +1,8 @@
 /**
  * Social Outreach's safety for new accounts (docs/outreach.md, decisions 96 and 97): a network's daily limits are half
- * for the first 2 weeks after the person's first step there, 2 more for an account under a year old; and no new
- * friend requests while 200 of theirs wait for an answer, or once their friends near the network's cap.
+ * for the first 2 weeks after the person's first step there, 2 more for an account under a year old, unless they go
+ * full speed there (decision 138); and no new friend requests while 200 of theirs wait for an answer, or once their
+ * friends near the network's cap.
  */
 import { rows, sql } from '@hfos/db/client';
 import { workspaceMemberships } from '@hfos/db/schema';
@@ -12,7 +13,9 @@ import {
   choicesFor,
   freshState,
   freshWords,
+  halvedNow,
   NO_RULES,
+  wheelsWords,
 } from '../../src/addons/outreach/automation';
 import { requestsHeldWords, withNetwork } from '../../src/addons/outreach/network-words';
 import { limitsShownOn } from '../../src/addons/outreach/settings-parts';
@@ -69,6 +72,7 @@ describe('half limits on a network new to the person', () => {
     expect(young.networks.facebook).toEqual({
       on: true,
       young: true,
+      fullSpeed: false,
       tidy: 'cancel',
       requests: 'fits',
     });
@@ -79,6 +83,29 @@ describe('half limits on a network new to the person', () => {
     const linkedin = withNetwork(AUTOMATION_DEFAULTS, 'linkedin', { young: true });
     expect(choicesFor(linkedin, 'linkedin').young).toBe(true);
     expect(choicesFor(linkedin, 'facebook').young).toBe(false);
+  });
+
+  it('go whole on a network the person picked Full speed on, training wheels or not', () => {
+    const on = { on: true };
+    const off = { on: false };
+    const choices = (settings = AUTOMATION_DEFAULTS, p: 'facebook' | 'linkedin' = 'facebook') =>
+      choicesFor(settings, p);
+    expect(halvedNow({ wheels: off, fresh: on, choices: choices() })).toBe(true);
+    expect(halvedNow({ wheels: on, fresh: off, choices: choices() })).toBe(true);
+    expect(halvedNow({ wheels: off, fresh: off, choices: choices() })).toBe(false);
+    const full = withNetwork(AUTOMATION_DEFAULTS, 'linkedin', { fullSpeed: true });
+    expect(halvedNow({ wheels: on, fresh: on, choices: choices(full, 'linkedin') })).toBe(false);
+    // Each network's own: Facebook stays at half.
+    expect(halvedNow({ wheels: on, fresh: on, choices: choices(full, 'facebook') })).toBe(true);
+    const facebook = withNetwork(AUTOMATION_DEFAULTS, 'facebook', { fullSpeed: true });
+    expect(choicesFor(facebook, 'facebook').fullSpeed).toBe(true);
+    expect('fullSpeed' in facebook).toBe(false);
+  });
+
+  it('leave half limits out of training wheels’ words at full speed', () => {
+    const wheels = { on: true, from: null, ok: 25, daysLeft: 0, edits: 0 };
+    expect(wheelsWords(wheels)).toMatch(/and your daily limits are half/);
+    expect(wheelsWords(wheels, true)).toBe('Training wheels: every message waits for your OK.');
   });
 });
 
@@ -250,6 +277,20 @@ describe('a person new to a network, in the business', () => {
     expect((await runAs(member, ws, 'outreach.automation', {})).fresh.facebook.from).toBe(
       theirs.fresh.facebook.from,
     );
+  });
+
+  it('gets the whole daily limits at once on a network they go full speed on', async () => {
+    expect(await requestsMost(member)).toBe(10);
+    const settings = (await runAs(member, ws, 'outreach.automation', {})).settings;
+    await runAs(member, ws, 'outreach.automation.save', {
+      settings: withNetwork(settings, 'facebook', { fullSpeed: true }),
+    });
+    const list = await today(member);
+    expect(list.limits.friend_request.most).toBe(20);
+    expect(list.fullSpeed).toBe(true);
+    expect(list.fresh.on).toBe(false);
+    // The 2 weeks are still kept, for the settings page.
+    expect((await runAs(member, ws, 'outreach.automation', {})).fresh.facebook.on).toBe(true);
   });
 });
 

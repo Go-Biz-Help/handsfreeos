@@ -246,7 +246,7 @@ export function TodayView({
             ) : null}
             {today.wheels.on ? (
               <li data-testid="today-wheels" className="text-text-2">
-                {wheelsWords(today.wheels)}
+                {wheelsWords(today.wheels, today.fullSpeed)}
               </li>
             ) : null}
             {/* None from a server before decision 96. */}

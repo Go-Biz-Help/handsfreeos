@@ -822,11 +822,22 @@ const CONTROLS = 'button, [role="button"], a[href]';
 export function groupOf(
   url: URL,
 ): { readonly id: string; readonly url: string; readonly page: string | null } | null {
-  const [first = '', slug = '', page] = parts(url);
+  const all = parts(url);
+  // Its Directory of members under /biz since Oct 2026 (decision 138; the owner's look of 31 Oct 2026: "the
+  // Directory link, which opens /biz/groups/<slug>/members"): the group's own page as ever.
+  const under = all[0]?.toLowerCase() === 'biz' && all[1]?.toLowerCase() === 'groups';
+  const [first = '', slug = '', page] = under ? all.slice(1) : all;
   if (first.toLowerCase() !== 'groups' || !GROUP_SLUG.test(slug)) return null;
   if (NOT_GROUPS.has(slug.toLowerCase())) return null;
   return { id: slug, url: `${HOST}/groups/${slug}`, page: page ? page.toLowerCase() : null };
 }
+
+/**
+ * A group's Directory of its members: /biz/groups/<group>/members since Oct 2026 (decision 138), where
+ * /groups/<group>/members shows nothing.
+ */
+export const membersPage = (group: { readonly id: string }): string =>
+  `${HOST}/biz/groups/${group.id}/members`;
 
 /** A group as a link to it showed it: its name in its address, its page, and its name when the page said it. */
 export interface GroupLink {

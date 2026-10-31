@@ -240,6 +240,12 @@ export const NetworkChoices = z.object({
    * says so, as the extension can't see an account's age. Off to start.
    */
   young: z.boolean().default(false),
+  /**
+   * Full speed there now (decision 138; the owner, 31 Oct 2026, "Fix it all, full speed Monday"): its full safe
+   * limits, never halved for a person new there or on training wheels. A warning there still halves them for a week.
+   * Off to start.
+   */
+  fullSpeed: z.boolean().default(false),
   /** Tidying up on its own there (decision 98): old requests to start. */
   tidy: z.enum(TIDY_MODE_KEYS).default('cancel'),
   /**
@@ -261,11 +267,12 @@ export const NetworksSettings = z.object({
     .object({
       on: z.boolean().default(true),
       young: z.boolean().default(false),
+      fullSpeed: z.boolean().default(false),
       tidy: z.enum(TIDY_MODE_KEYS).default('cancel'),
       /** How the requests they get are answered while `confirmRequests` (a column) is on (decision 121). */
       requests: z.enum(ANSWER_MODE_KEYS).default('fits'),
     })
-    .default({ on: true, young: false, tidy: 'cancel', requests: 'fits' }),
+    .default({ on: true, young: false, fullSpeed: false, tidy: 'cancel', requests: 'fits' }),
   linkedin: NetworkChoices.default(NETWORK_CHOICES_DEFAULTS),
   instagram: NetworkChoices.default(NETWORK_CHOICES_DEFAULTS),
   alignable: NetworkChoices.default(NETWORK_CHOICES_DEFAULTS),
@@ -324,6 +331,7 @@ export function choicesFor(settings: AutomationSettings, platform: Platform): Ne
   return {
     on: settings.networks.facebook.on,
     young: settings.networks.facebook.young,
+    fullSpeed: settings.networks.facebook.fullSpeed,
     tidy: settings.networks.facebook.tidy,
     requests: settings.networks.facebook.requests,
     sending,
@@ -675,6 +683,16 @@ export function freshState(first: Date | string | null, young: boolean, now: num
   };
 }
 
+/**
+ * Whether someone's daily limits on a network are half now: new there (decision 96) or on training wheels there, but
+ * never once they picked Full speed there (decision 138). A warning halves them too, for callers.
+ */
+export const halvedNow = (state: {
+  readonly wheels: { readonly on: boolean };
+  readonly fresh: { readonly on: boolean };
+  readonly choices: Pick<NetworkChoices, 'fullSpeed'>;
+}): boolean => !state.choices.fullSpeed && (state.wheels.on || state.fresh.on);
+
 /** Where a network's half limits for someone new there stand, in words for the person. */
 export function freshWords(state: FreshState, platform: Platform): string {
   const name = PLATFORMS[platform];
@@ -688,8 +706,8 @@ export function freshWords(state: FreshState, platform: Platform): string {
   return `New on ${name}: your daily limits there are half until ${day}, so ${name} gets used to you slowly.`;
 }
 
-/** Where training wheels stand, in words for the person. */
-export function wheelsWords(state: WheelsState): string {
+/** Where training wheels stand, in words for the person: without half limits once they picked Full speed (decision 138). */
+export function wheelsWords(state: WheelsState, fullSpeed = false): string {
   const left = [
     state.ok < WHEELS.ok ? `${WHEELS.ok - state.ok} more messages to OK` : null,
     state.daysLeft ? `${state.daysLeft} ${state.daysLeft === 1 ? 'day' : 'days'} to go` : null,
@@ -697,7 +715,7 @@ export function wheelsWords(state: WheelsState): string {
       ? `fewer changes: you changed ${state.edits} of the last ${WHEELS.last}`
       : null,
   ].filter(Boolean);
-  return `Training wheels: every message waits for your OK, and your daily limits are half${left.length ? `. Still: ${left.join(', ')}` : ''}.`;
+  return `Training wheels: every message waits for your OK${fullSpeed ? '' : ', and your daily limits are half'}${left.length ? `. Still: ${left.join(', ')}` : ''}.`;
 }
 
 export const AutomationInput = z.object({

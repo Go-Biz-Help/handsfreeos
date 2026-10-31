@@ -332,7 +332,9 @@ export function TodayBody({
           </Text>
         </Card>
       ) : null}
-      {list.wheels.on ? <Note testID="today-wheels">{wheelsWords(list.wheels)}</Note> : null}
+      {list.wheels.on ? (
+        <Note testID="today-wheels">{wheelsWords(list.wheels, list.fullSpeed)}</Note>
+      ) : null}
       {/* None from a server before decisions 96 and 97. */}
       {list.fresh?.on ? <Note testID="today-fresh">{freshWords(list.fresh, platform)}</Note> : null}
       {list.requestsHeld ? (

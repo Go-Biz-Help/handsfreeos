@@ -720,7 +720,7 @@ export function NetworksPart({
                       className="text-[13px] text-warning-text"
                       data-testid={`${testId}-${p}-wheels`}
                     >
-                      {wheelsWords(wheels)}
+                      {wheelsWords(wheels, network.fullSpeed)}
                     </p>
                   ) : null}
                   <NetworkModes

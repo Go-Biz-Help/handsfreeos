@@ -19,7 +19,7 @@ import { CONTROLS, mainOf, placesOf, wordsOf } from './dom';
 import { outlineNow } from './outline';
 import { postBoxes, readPost } from './posts';
 import type { Post } from './types';
-import { linkedinUrl, postUrlFrom } from './urls';
+import { linkedinUrl, postUrlFrom, shortLinkFrom } from './urls';
 import { POST_MENU } from './vocabulary';
 
 /** The item of a post's menu that copies its link. */
@@ -39,16 +39,49 @@ const menuOf = (box: Element): HTMLElement | null =>
     (control) => shown(control) && wordsOf(control).some((w) => POST_MENU.test(w)),
   ) ?? null;
 
-/** The link a press copies, caught on the page's root (LinkedIn's /posts/… or /feed/update/…), as a post's own. */
+/**
+ * A link to a post, as LinkedIn gives one: its own, or one through its redirect with the post's in `url`; or its short
+ * link (https://lnkd.in/p/…), as Copy link to post gives now, which the job follows to the post (decision 138).
+ */
+export function postLinkIn(href: string, base: string): string | null {
+  const link = linkedinUrl(href.trim(), base);
+  if (!link) return shortLinkFrom(href);
+  const own = postUrlFrom(link);
+  if (own) return own;
+  const inner = link.searchParams.get('url');
+  if (!inner) return null;
+  const through = linkedinUrl(inner, base);
+  return through ? postUrlFrom(through) : shortLinkFrom(inner);
+}
+
+/** The links in LinkedIn's toasts ("Link copied… View post"), as the page shows them now. */
+const toastLinks = (doc: Document): Element[] => [
+  ...doc.querySelectorAll('[role="alert"] a[href]'),
+];
+
+/**
+ * The link a press copies, caught on the page's root (LinkedIn's /posts/… or /feed/update/…, or its short link), as a
+ * post's own; or, where the copy went past the page, the post's link in the toast the press brought up ("Link copied
+ * to clipboard. View post", through LinkedIn's /safety/go/), never one shown before it (decision 138).
+ */
 async function copiedBy(doc: Document, item: HTMLElement): Promise<string | null> {
   const root = doc.documentElement;
+  const before = new Set(toastLinks(doc));
   root.removeAttribute(COPIED);
   root.setAttribute(CATCH, '');
   try {
     item.click();
-    const copied = await waitFor(() => root.getAttribute(COPIED), COPY_MS);
-    const link = copied ? linkedinUrl(copied.trim(), doc.location.href) : null;
-    return link ? postUrlFrom(link) : null;
+    const copied = await waitFor(
+      () =>
+        root.getAttribute(COPIED) ??
+        toastLinks(doc)
+          .filter((a) => !before.has(a))
+          .map((a) => postLinkIn(a.getAttribute('href')!, doc.location.href))
+          .find((url) => url !== null) ??
+        null,
+      COPY_MS,
+    );
+    return copied ? postLinkIn(copied, doc.location.href) : null;
   } finally {
     root.removeAttribute(CATCH);
     root.removeAttribute(COPIED);

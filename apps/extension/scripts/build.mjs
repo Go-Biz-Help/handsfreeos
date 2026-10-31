@@ -68,6 +68,9 @@ const NETWORKS = [
   // Instagram's own Accounts Center, where its username and name change (decision 89, from 0.94.0).
   'https://accountscenter.instagram.com/*',
   'https://www.alignable.com/*',
+  // LinkedIn's short links, which Copy link to post gives now: the background worker follows one to its post's address
+  // (src/jobs/linkedin/short-links.ts, decision 138, from 0.119.0).
+  'https://lnkd.in/*',
 ];
 /**
  * The person's own files, which Chrome opens to the extension only once they turn on **Allow access to file URLs**:

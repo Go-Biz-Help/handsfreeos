@@ -1,10 +1,10 @@
 /**
  * What the runner that works on its own (./run.ts) does next, and when: plain workings, kept apart so they can be
- * tested. It goes down the list for today (packages/core/src/addons/outreach/today.ts) in its own order: requests to
- * confirm, then posts to like, then friend requests, then comments (decisions 26, 30 and 33). Messages
- * (packages/core/src/addons/outreach/sends.ts) come around those: a reply to someone who wrote back is drafted
- * before anything else (decision 125), then the ones OK'd go, then it drafts the rest, which wait for the person or go
- * as they are; with Approve all, it drafts them all before the steps, so they're ready first thing. Within the working hours it spreads the day's steps out, at random times; after **Start my day** it goes at
+ * tested. It goes down the list for today (packages/core/src/addons/outreach/today.ts): requests to confirm, friend
+ * requests, posts to like and comments (decisions 26, 30 and 33), and the messages it drafts
+ * (packages/core/src/addons/outreach/sends.ts), each kind taking turns with the others (decision 138), so one that
+ * keeps failing never holds up the rest. A reply to someone who wrote back is drafted before anything else (decision
+ * 125), then the ones OK'd go; with Approve all, the drafts have the first turn. Within the working hours it spreads the day's steps out, at random times; after **Start my day** it goes at
  * a person's pace, a minute or few apart. Once a day, it checks the person's friend requests, checks their groups for
  * their people and joins good ones when people left to reach run low (decision 48), saves their groups' members, finds
  * posts, reads their chats (decision 32) and checks their friends for good fits (decision 46), which fill that list;
@@ -38,8 +38,11 @@ export const ALIGNABLE_STATE_KEY = 'hfos.auto.alignable';
 /** Where Instagram's runner keeps its own (./instagram.ts). */
 export const INSTAGRAM_STATE_KEY = 'hfos.auto.instagram';
 
-/** The kinds it does on its own, in the order it does them. */
-export const AUTO_KINDS = ['confirm', 'warm_up', 'friend_request', 'comment'] as const;
+/**
+ * The kinds it does on its own, in the order of their turns: a friend request before a like (decision 138), so one a
+ * like made ready (or nothing to like did) goes before the next likes.
+ */
+export const AUTO_KINDS = ['confirm', 'friend_request', 'warm_up', 'comment'] as const;
 export type AutoKind = (typeof AUTO_KINDS)[number];
 /**
  * What it counts as done today: the steps above, messages drafted, and messages sent; and on Instagram the stories its
@@ -467,11 +470,64 @@ const messagesOn = (items: readonly TodayListItem[], kinds: readonly string[]) =
   );
 
 /**
+ * The lanes that take turns (decision 138; the owner, 31 Oct 2026: "all of the tasks should be independent… so
+ * comments work even if likes don't or messages work even if comments don't"): each kind of step, a partner's steps,
+ * and the messages to draft.
+ */
+export type Lane = AutoKind | 'partner' | 'message';
+
+const laneOf = (work: Work): Lane =>
+  work.do === 'draft'
+    ? 'message'
+    : work.item.kind === 'partner_warm_up'
+      ? 'partner'
+      : (work.item.kind as AutoKind);
+
+/** The lane of a piece of work tried today, by its key (`workKey`): none for a send, which goes before the turns. */
+function laneOfKey(key: string): Lane | null {
+  if (key.startsWith('draft:')) return 'message';
+  const kind = key.slice(0, key.indexOf(':'));
+  if (kind === 'partner_warm_up') return 'partner';
+  return (AUTO_KINDS as readonly string[]).includes(kind) ? (kind as AutoKind) : null;
+}
+
+/**
+ * The work in turns: each go, the lane tried least today goes next, ties in `order`. A lane that keeps failing (likes
+ * a network won't take) gets its turns and no more, so friend requests, comments and messages carry on beside it.
+ */
+export function inTurns(
+  lanes: ReadonlyMap<Lane, readonly Work[]>,
+  order: readonly Lane[],
+  tried: readonly string[],
+): Work[] {
+  const turns = new Map<Lane, number>();
+  for (const key of tried) {
+    const lane = laneOfKey(key);
+    if (lane) turns.set(lane, (turns.get(lane) ?? 0) + 1);
+  }
+  const at = new Map<Lane, number>();
+  const all: Work[] = [];
+  for (;;) {
+    let pick: Lane | null = null;
+    for (const lane of order) {
+      if ((at.get(lane) ?? 0) >= (lanes.get(lane)?.length ?? 0)) continue;
+      if (pick === null || (turns.get(lane) ?? 0) < (turns.get(pick) ?? 0)) pick = lane;
+    }
+    if (pick === null) return all;
+    const i = at.get(pick) ?? 0;
+    all.push(lanes.get(pick)![i]!);
+    at.set(pick, i + 1);
+    turns.set(pick, (turns.get(pick) ?? 0) + 1);
+  }
+}
+
+/**
  * What's left for it to do today, in its order: replies to those who wrote back first (decision 125), then messages
- * OK'd; then, with Approve all, every other message to draft before the steps, else the steps before them. A message
- * needs the person kept, and their chat or profile to send in. A partner's steps (decision 81) come after the
- * customers' of each sort: a like while it may like on its own, and messages that each wait for an OK of their own.
- * Someone who wrote back again since (`replied`) has their reply drafted again, though it was tried today.
+ * OK'd, then a comment on a post asking for what the business offers (decision 49); then the rest in turns (decision
+ * 138): each kind of step and the messages to draft, the drafts' turn first with Approve all. A message needs the
+ * person kept, and their chat or profile to send in. A partner's steps (decision 81) take turns as a lane of their own,
+ * after the customers' when it's a tie: a like while it may like on its own, and messages that each wait for an OK of
+ * their own. Someone who wrote back again since (`replied`) has their reply drafted again, though it was tried today.
  */
 export function workLeft(
   list: Pick<TodayList, 'items' | 'auto' | 'messages' | 'sending'> & {
@@ -503,15 +559,22 @@ export function workLeft(
     .map((item) => ({ do: 'draft', item }) as const);
   const replies = drafts.filter(isReplyDraft);
   const others = drafts.filter((work) => !isReplyDraft(work));
-  const all: Work[] =
+  const open = (work: Work) =>
+    !done.has(workKey(work)) ||
+    (isReplyDraft(work) && work.item.profileId !== null && again.has(work.item.profileId));
+  const lanes = new Map<Lane, Work[]>();
+  for (const work of [...steps.filter((w) => !w.item.asking), ...partnerSteps, ...others].filter(
+    open,
+  ))
+    lanes.set(laneOf(work), [...(lanes.get(laneOf(work)) ?? []), work]);
+  const order: Lane[] =
     list.sending === 'approve_all'
-      ? [...replies, ...sends, ...others, ...steps, ...partnerSteps]
-      : [...replies, ...sends, ...steps, ...partnerSteps, ...others];
-  return all.filter(
-    (work) =>
-      !done.has(workKey(work)) ||
-      (isReplyDraft(work) && work.item.profileId !== null && again.has(work.item.profileId)),
-  );
+      ? ['message', ...AUTO_KINDS, 'partner']
+      : [...AUTO_KINDS, 'partner', 'message'];
+  return [
+    ...[...replies, ...sends, ...steps.filter((w) => w.item.asking)].filter(open),
+    ...inTurns(lanes, order, tried),
+  ];
 }
 
 /**

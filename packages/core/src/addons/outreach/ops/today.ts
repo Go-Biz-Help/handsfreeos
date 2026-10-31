@@ -538,6 +538,15 @@ export const today = defineAddonQuery(outreachAddon, {
         ),
     );
     const warmIds = new Set(toFriend.map((w) => w.id));
+    // Today's warm-ups that found nothing to like, or a like that wouldn't go, take the day's likes as a like does
+    // (decision 138): their requests are ready now, and likes that keep failing no longer add new ones ahead of them.
+    const [missed] = await rows<{ n: number }>(
+      ctx.tx,
+      sql`select count(*)::int as n from addon_outreach.profiles p
+          where p.workspace_id = ${ws} and p.platform = ${input.platform}
+            and p.warm_up_missed_at >= ${todayFrom}::timestamptz`,
+    );
+    const warmUpLeft = Math.max(0, leftToday(limits, 'warm_up') - (missed?.n ?? 0));
     let warmRequests = 0;
     let warmLikes = 0;
     if (!requestsOff)
@@ -565,7 +574,7 @@ export const today = defineAddonQuery(outreachAddon, {
               playbookName: w.playbook_name,
             }),
           );
-        } else if (!ready && liked === null && warmLikes < leftToday(limits, 'warm_up')) {
+        } else if (!ready && liked === null && warmLikes < warmUpLeft) {
           warmLikes++;
           items.push(
             item({
@@ -613,9 +622,7 @@ export const today = defineAddonQuery(outreachAddon, {
     let carriedWaiting = 0;
     const searchLeft = Math.max(0, leftToday(limits, 'friend_request') - warmRequests);
     const searchLikesLeft =
-      follows && settings.warmUp && !byTopic
-        ? Math.max(0, leftToday(limits, 'warm_up') - warmLikes)
-        : 0;
+      follows && settings.warmUp && !byTopic ? Math.max(0, warmUpLeft - warmLikes) : 0;
     if (playbooks.length && !requestsOff && (searchLeft || searchLikesLeft)) {
       const switched = byTopic ? await foundByTopicSince(ctx, me, input.platform) : null;
       const searched = await rows<{
@@ -749,9 +756,7 @@ export const today = defineAddonQuery(outreachAddon, {
       0,
       leftToday(limits, 'friend_request') - warmRequests - searchRequests,
     );
-    const foundLikesLeft = settings.warmUp
-      ? Math.max(0, leftToday(limits, 'warm_up') - warmLikes - searchLikes)
-      : 0;
+    const foundLikesLeft = settings.warmUp ? Math.max(0, warmUpLeft - warmLikes - searchLikes) : 0;
     if (byTopic && playbooks.length && !requestsOff && (foundLeft || foundLikesLeft)) {
       const good = (await foundGood(ctx, me, input.platform, lets, now)).filter(
         (p) => !warmIds.has(p.id) && !carried.has(p.id),
@@ -853,7 +858,7 @@ export const today = defineAddonQuery(outreachAddon, {
       leftToday(limits, 'friend_request') - warmRequests - searchRequests - foundRequests,
     );
     const followerLikesLeft = settings.warmUp
-      ? Math.max(0, leftToday(limits, 'warm_up') - warmLikes - searchLikes - foundLikes)
+      ? Math.max(0, warmUpLeft - warmLikes - searchLikes - foundLikes)
       : 0;
     if (
       input.platform === 'facebook' &&
@@ -967,7 +972,7 @@ export const today = defineAddonQuery(outreachAddon, {
     );
     const likesLeft = Math.max(
       0,
-      leftToday(limits, 'warm_up') - warmLikes - searchLikes - foundLikes - followerLikes,
+      warmUpLeft - warmLikes - searchLikes - foundLikes - followerLikes,
     );
     if (
       kit.foundChecksPerDay === null &&
@@ -2061,7 +2066,8 @@ export const today = defineAddonQuery(outreachAddon, {
       wheels,
       ready,
       week,
-      fresh,
+      fresh: settings.fullSpeed ? { ...fresh, on: false } : fresh,
+      fullSpeed: settings.fullSpeed,
       requestsHeld,
       profileOwn,
       goal,

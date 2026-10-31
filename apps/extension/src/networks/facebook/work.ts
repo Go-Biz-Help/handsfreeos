@@ -64,7 +64,7 @@ import {
   writeMessage,
   type ChatsBefore,
 } from './auto';
-import { openChat, scrollChats, scrollFeed, scrollList, scrollPage } from './browse';
+import { openChat, pointAtTimes, scrollChats, scrollFeed, scrollList, scrollPage } from './browse';
 import { readComments, readReactions, writeGroupPost } from './compose';
 import { fetchPage, stepOnPage } from './fetch';
 import { requestsPage } from './friends';
@@ -130,7 +130,10 @@ async function autoStep(ask: AutoAsk): Promise<AutoAnswer | PostsAnswer> {
         ok: true,
         posts: await readTheirPosts(document, location.href, ask.profile, window, ask.most),
       };
-    return { ok: true, ...(await likeTheirPost(document, location.href, ask.profile, ask)) };
+    return {
+      ok: true,
+      ...(await likeTheirPost(document, location.href, ask.profile, ask, window)),
+    };
   }
   if (ask.type === 'hfos-message') {
     if (kind !== 'chat' && kind !== 'profile')
@@ -163,7 +166,7 @@ async function groupFeedStep(
     return { ok: false, error: 'Facebook didn’t open the group.' };
   if (ask.type === 'hfos-group-feed')
     return { ok: true, posts: await readGroupFeed(document, location.href, window, ask.most) };
-  return { ok: true, ...likeGroupPost(document, location.href, ask) };
+  return { ok: true, ...(await likeGroupPost(document, location.href, ask, window)) };
 }
 
 /**
@@ -337,7 +340,9 @@ function browseStep(ask: BrowseAsk): BrowseAnswer {
           ? scrollList(document, location.href)
           : ask.type === 'hfos-scroll-page'
             ? scrollPage(document, location.href)
-            : scrollFeed(location.href);
+            : ask.type === 'hfos-point-times'
+              ? pointAtTimes(document, location.href) > 0
+              : scrollFeed(location.href);
   return { ok };
 }
 
@@ -349,6 +354,7 @@ export const WORK_ASKS: ReadonlySet<string> = new Set([
   'hfos-open-chat',
   'hfos-scroll-chats',
   'hfos-scroll-feed',
+  'hfos-point-times',
   'hfos-scroll-list',
   'hfos-scroll-page',
   'hfos-their-posts',
@@ -428,6 +434,7 @@ export function work(ask: { readonly type: string }): Promise<unknown> | null {
     case 'hfos-open-chat':
     case 'hfos-scroll-chats':
     case 'hfos-scroll-feed':
+    case 'hfos-point-times':
     case 'hfos-scroll-list':
     case 'hfos-scroll-page':
       return Promise.resolve(browseStep(known));

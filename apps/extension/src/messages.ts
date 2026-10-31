@@ -62,6 +62,8 @@ export type BrowseAsk =
   | { readonly type: 'hfos-open-chat'; readonly threadId: string; readonly name?: string }
   | { readonly type: 'hfos-scroll-chats' }
   | { readonly type: 'hfos-scroll-feed' }
+  /** A group's feed: each post's time pointed at, for Facebook to give it its address (decision 138). */
+  | { readonly type: 'hfos-point-times' }
   | { readonly type: 'hfos-scroll-list' }
   /** A list of groups, or a search for them: scroll the page for more (src/jobs/groups.ts). */
   | { readonly type: 'hfos-scroll-page' }

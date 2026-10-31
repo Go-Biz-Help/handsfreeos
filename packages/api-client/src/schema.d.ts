@@ -40455,6 +40455,7 @@ export interface operations {
                              *       "watchPosts": true,
                              *       "posting": "after_ok",
                              *       "young": false,
+                             *       "fullSpeed": false,
                              *       "tidy": "cancel",
                              *       "requests": "fits"
                              *     }
@@ -40464,6 +40465,8 @@ export interface operations {
                                 collect?: boolean;
                                 /** @default true */
                                 confirmRequests?: boolean;
+                                /** @default false */
+                                fullSpeed?: boolean;
                                 /** @default true */
                                 joinGroups?: boolean;
                                 /** @default false */
@@ -40504,11 +40507,14 @@ export interface operations {
                              * @default {
                              *       "on": true,
                              *       "young": false,
+                             *       "fullSpeed": false,
                              *       "tidy": "cancel",
                              *       "requests": "fits"
                              *     }
                              */
                             facebook?: {
+                                /** @default false */
+                                fullSpeed?: boolean;
                                 /** @default true */
                                 on?: boolean;
                                 /**
@@ -40536,6 +40542,7 @@ export interface operations {
                              *       "watchPosts": true,
                              *       "posting": "after_ok",
                              *       "young": false,
+                             *       "fullSpeed": false,
                              *       "tidy": "cancel",
                              *       "requests": "fits"
                              *     }
@@ -40545,6 +40552,8 @@ export interface operations {
                                 collect?: boolean;
                                 /** @default true */
                                 confirmRequests?: boolean;
+                                /** @default false */
+                                fullSpeed?: boolean;
                                 /** @default true */
                                 joinGroups?: boolean;
                                 /** @default false */
@@ -40593,6 +40602,7 @@ export interface operations {
                              *       "watchPosts": true,
                              *       "posting": "after_ok",
                              *       "young": false,
+                             *       "fullSpeed": false,
                              *       "tidy": "cancel",
                              *       "requests": "fits"
                              *     }
@@ -40602,6 +40612,8 @@ export interface operations {
                                 collect?: boolean;
                                 /** @default true */
                                 confirmRequests?: boolean;
+                                /** @default false */
+                                fullSpeed?: boolean;
                                 /** @default true */
                                 joinGroups?: boolean;
                                 /** @default false */
@@ -40827,6 +40839,7 @@ export interface operations {
                              *       "facebook": {
                              *         "on": true,
                              *         "young": false,
+                             *         "fullSpeed": false,
                              *         "tidy": "cancel",
                              *         "requests": "fits"
                              *       },
@@ -40841,6 +40854,7 @@ export interface operations {
                              *         "watchPosts": true,
                              *         "posting": "after_ok",
                              *         "young": false,
+                             *         "fullSpeed": false,
                              *         "tidy": "cancel",
                              *         "requests": "fits"
                              *       },
@@ -40855,6 +40869,7 @@ export interface operations {
                              *         "watchPosts": true,
                              *         "posting": "after_ok",
                              *         "young": false,
+                             *         "fullSpeed": false,
                              *         "tidy": "cancel",
                              *         "requests": "fits"
                              *       },
@@ -40869,6 +40884,7 @@ export interface operations {
                              *         "watchPosts": true,
                              *         "posting": "after_ok",
                              *         "young": false,
+                             *         "fullSpeed": false,
                              *         "tidy": "cancel",
                              *         "requests": "fits"
                              *       }
@@ -40887,6 +40903,7 @@ export interface operations {
                                  *       "watchPosts": true,
                                  *       "posting": "after_ok",
                                  *       "young": false,
+                                 *       "fullSpeed": false,
                                  *       "tidy": "cancel",
                                  *       "requests": "fits"
                                  *     }
@@ -40896,6 +40913,8 @@ export interface operations {
                                     collect: boolean;
                                     /** @default true */
                                     confirmRequests: boolean;
+                                    /** @default false */
+                                    fullSpeed: boolean;
                                     /** @default true */
                                     joinGroups: boolean;
                                     /** @default false */
@@ -40936,11 +40955,14 @@ export interface operations {
                                  * @default {
                                  *       "on": true,
                                  *       "young": false,
+                                 *       "fullSpeed": false,
                                  *       "tidy": "cancel",
                                  *       "requests": "fits"
                                  *     }
                                  */
                                 facebook: {
+                                    /** @default false */
+                                    fullSpeed: boolean;
                                     /** @default true */
                                     on: boolean;
                                     /**
@@ -40968,6 +40990,7 @@ export interface operations {
                                  *       "watchPosts": true,
                                  *       "posting": "after_ok",
                                  *       "young": false,
+                                 *       "fullSpeed": false,
                                  *       "tidy": "cancel",
                                  *       "requests": "fits"
                                  *     }
@@ -40977,6 +41000,8 @@ export interface operations {
                                     collect: boolean;
                                     /** @default true */
                                     confirmRequests: boolean;
+                                    /** @default false */
+                                    fullSpeed: boolean;
                                     /** @default true */
                                     joinGroups: boolean;
                                     /** @default false */
@@ -41025,6 +41050,7 @@ export interface operations {
                                  *       "watchPosts": true,
                                  *       "posting": "after_ok",
                                  *       "young": false,
+                                 *       "fullSpeed": false,
                                  *       "tidy": "cancel",
                                  *       "requests": "fits"
                                  *     }
@@ -41034,6 +41060,8 @@ export interface operations {
                                     collect: boolean;
                                     /** @default true */
                                     confirmRequests: boolean;
+                                    /** @default false */
+                                    fullSpeed: boolean;
                                     /** @default true */
                                     joinGroups: boolean;
                                     /** @default false */
@@ -75651,6 +75679,7 @@ export interface operations {
                              *       "facebook": {
                              *         "on": true,
                              *         "young": false,
+                             *         "fullSpeed": false,
                              *         "tidy": "cancel",
                              *         "requests": "fits"
                              *       },
@@ -75665,6 +75694,7 @@ export interface operations {
                              *         "watchPosts": true,
                              *         "posting": "after_ok",
                              *         "young": false,
+                             *         "fullSpeed": false,
                              *         "tidy": "cancel",
                              *         "requests": "fits"
                              *       },
@@ -75679,6 +75709,7 @@ export interface operations {
                              *         "watchPosts": true,
                              *         "posting": "after_ok",
                              *         "young": false,
+                             *         "fullSpeed": false,
                              *         "tidy": "cancel",
                              *         "requests": "fits"
                              *       },
@@ -75693,6 +75724,7 @@ export interface operations {
                              *         "watchPosts": true,
                              *         "posting": "after_ok",
                              *         "young": false,
+                             *         "fullSpeed": false,
                              *         "tidy": "cancel",
                              *         "requests": "fits"
                              *       }
@@ -75711,6 +75743,7 @@ export interface operations {
                                  *       "watchPosts": true,
                                  *       "posting": "after_ok",
                                  *       "young": false,
+                                 *       "fullSpeed": false,
                                  *       "tidy": "cancel",
                                  *       "requests": "fits"
                                  *     }
@@ -75720,6 +75753,8 @@ export interface operations {
                                     collect: boolean;
                                     /** @default true */
                                     confirmRequests: boolean;
+                                    /** @default false */
+                                    fullSpeed: boolean;
                                     /** @default true */
                                     joinGroups: boolean;
                                     /** @default false */
@@ -75760,11 +75795,14 @@ export interface operations {
                                  * @default {
                                  *       "on": true,
                                  *       "young": false,
+                                 *       "fullSpeed": false,
                                  *       "tidy": "cancel",
                                  *       "requests": "fits"
                                  *     }
                                  */
                                 facebook: {
+                                    /** @default false */
+                                    fullSpeed: boolean;
                                     /** @default true */
                                     on: boolean;
                                     /**
@@ -75792,6 +75830,7 @@ export interface operations {
                                  *       "watchPosts": true,
                                  *       "posting": "after_ok",
                                  *       "young": false,
+                                 *       "fullSpeed": false,
                                  *       "tidy": "cancel",
                                  *       "requests": "fits"
                                  *     }
@@ -75801,6 +75840,8 @@ export interface operations {
                                     collect: boolean;
                                     /** @default true */
                                     confirmRequests: boolean;
+                                    /** @default false */
+                                    fullSpeed: boolean;
                                     /** @default true */
                                     joinGroups: boolean;
                                     /** @default false */
@@ -75849,6 +75890,7 @@ export interface operations {
                                  *       "watchPosts": true,
                                  *       "posting": "after_ok",
                                  *       "young": false,
+                                 *       "fullSpeed": false,
                                  *       "tidy": "cancel",
                                  *       "requests": "fits"
                                  *     }
@@ -75858,6 +75900,8 @@ export interface operations {
                                     collect: boolean;
                                     /** @default true */
                                     confirmRequests: boolean;
+                                    /** @default false */
+                                    fullSpeed: boolean;
                                     /** @default true */
                                     joinGroups: boolean;
                                     /** @default false */
@@ -79294,6 +79338,8 @@ export interface operations {
                             on: boolean;
                             until: string | null;
                         };
+                        /** @default false */
+                        fullSpeed: boolean;
                         /** @default null */
                         goal: {
                             ahead: number;

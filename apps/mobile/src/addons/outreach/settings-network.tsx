@@ -2,6 +2,7 @@ import {
   businessLimitsOn,
   choicesFor,
   freshWords,
+  halvedNow,
   NOT_FRESH,
   OTHER_PLATFORMS,
   wheelsWords,
@@ -114,7 +115,11 @@ export function NetworkMine({
   const wheels = wheelsOf(automation, p);
   // Half limits while they're new there (decision 96), none from a server before it.
   const fresh = automation.fresh?.[p] ?? NOT_FRESH;
-  const limits = networkLimitsNow(p, wheels.on || fresh.on, businessLimitsOn(automation.rules, p));
+  const limits = networkLimitsNow(
+    p,
+    halvedNow({ wheels, fresh, choices }),
+    businessLimitsOn(automation.rules, p),
+  );
   const words = dailyWordsOn(p);
   const disabled = !online;
   return (
@@ -140,9 +145,9 @@ export function NetworkMine({
       ) : (
         <>
           {wheels.on && !isLooking(p) ? (
-            <Note testID={`${testID}-wheels`}>{wheelsWords(wheels)}</Note>
+            <Note testID={`${testID}-wheels`}>{wheelsWords(wheels, choices.fullSpeed)}</Note>
           ) : null}
-          {fresh.on && !isLooking(p) ? (
+          {fresh.on && !choices.fullSpeed && !isLooking(p) ? (
             <Note testID={`${testID}-fresh`}>{freshWords(fresh, p)}</Note>
           ) : null}
           <NetworkComputer
@@ -241,6 +246,14 @@ export function NetworkMine({
                   onChange={(young) => set({ young })}
                   disabled={disabled}
                   testID={`${testID}-young`}
+                />
+                <Tick
+                  label={NW.fullSpeed(name)}
+                  about={NW.fullSpeedAbout(name)}
+                  checked={choices.fullSpeed}
+                  onChange={(fullSpeed) => set({ fullSpeed })}
+                  disabled={disabled}
+                  testID={`${testID}-full-speed`}
                 />
               </Section>
             </>

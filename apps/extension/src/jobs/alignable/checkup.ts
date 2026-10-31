@@ -7,6 +7,7 @@
  * how many its readers found, so they can be tuned from it. Nothing is pressed but the link that opens each page, and
  * nothing is written.
  */
+import { membersPage } from '../../networks/alignable/read';
 import type { LookingRead } from '../../networks/looking/site';
 import { isEnd, SEARCH_WORDS, type Checkup } from '../checkup';
 import type { Job, JobEnd } from '../job';
@@ -112,7 +113,8 @@ export async function groupStops(
   const base = group.url.replace(/\/+$/, '');
   const about = await stop(c, job, `${base}/about`, 'a group’s About', aboutOf);
   if (isEnd(about)) return about;
-  const members = await stop(c, job, `${base}/members`, 'a group’s members', (p) =>
+  // Its Directory of members is under /biz (decision 138).
+  const members = await stop(c, job, membersPage(group), 'a group’s members', (p) =>
     countOf(p, 'members'),
   );
   return isEnd(members) ? members : null;

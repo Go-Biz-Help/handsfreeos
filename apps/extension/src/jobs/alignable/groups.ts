@@ -42,7 +42,7 @@ import {
 } from '../../hfos/saves';
 import type { JoinStep } from '../../networks/facebook/join';
 import { line } from '../../networks/facebook/lookup';
-import { groupOf, type GroupCard, type Member } from '../../networks/alignable/read';
+import { groupOf, membersPage, type GroupCard, type Member } from '../../networks/alignable/read';
 import { townOf } from '../../networks/alignable/site';
 import { counted } from '../../words';
 import { FOUND_CHECKED, JOIN_PACE_MS } from '../join';
@@ -505,7 +505,7 @@ export async function readMembers(job: Job): Promise<JobEnd> {
     if (g > 0) await pause(paced(PAGE_PACE_MS));
     const name = group.name ?? 'your group';
     job.progress(`Opening ${name}’s members…`);
-    await job.tab.open(`${card.url}/members`);
+    await job.tab.open(membersPage(card));
     await pause(DRAWN_MS);
     const got = await gather(
       job,

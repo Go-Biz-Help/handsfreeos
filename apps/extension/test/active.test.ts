@@ -60,10 +60,10 @@ function fakeTab(warnings: Record<string, string[]> = {}) {
       if (message.type === 'hfos-like-group-post')
         return {
           ok: true,
-          ...likeGroupPost(doc, at, {
+          ...(await likeGroupPost(doc, at, {
             index: message.index as number,
             url: message.url as string | null,
-          }),
+          })),
         };
       throw new Error(`Not expected: ${message.type}`);
     },
