@@ -1,11 +1,11 @@
 /**
- * Where "Get the phone app" sends people. Android is on Google Play (Chris, 2026-10-21) and iPhone on the App Store
- * (live 2026-10-31), so `testing` is false. `apps/site/src/content/site.ts` has the same two store links. Set
- * `testing` back to true only if a store link ever points at a test build again. Browser-safe.
+ * Where "Get the phone app" sends people: the App Store (Chris, 2026-10-31) and Google Play (Chris, 2026-10-21), so
+ * `testing` is false. `apps/site/src/content/site.ts` has the same two store links. Browser-safe.
  *
  * The Google Play link's `referrer` holds UTM tags, `utm_source=onboarding` and `utm_campaign=get_the_app`, which
  * Play Console's acquisition reports group installs by; the website's link says `utm_source=website`. The App Store
- * link has no tags: Apple's campaign links need the provider token from App Store Connect.
+ * link has no campaign tags yet: Apple counts a campaign only with both `ct=` and the account's provider token
+ * `pt=`, which App Store Connect gives out when it generates a campaign link.
  */
 export interface PhoneAppLink {
   readonly platform: 'ios' | 'android';
@@ -23,7 +23,7 @@ export const PHONE_APP_LINKS = {
       platform: 'ios',
       label: 'iPhone',
       from: 'App Store',
-      url: 'https://apps.apple.com/app/handsfreeos/id6813606312',
+      url: 'https://apps.apple.com/us/app/handsfreeos/id6813606312',
     },
     {
       platform: 'android',

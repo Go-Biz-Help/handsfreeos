@@ -52,7 +52,7 @@ test('a new owner works through Getting started on Home, hides it, and brings it
   const links = page.getByTestId('phone-app-links');
   await expect(links.getByRole('link', { name: 'Open App Store' })).toHaveAttribute(
     'href',
-    'https://apps.apple.com/app/handsfreeos/id6813606312',
+    'https://apps.apple.com/us/app/handsfreeos/id6813606312',
   );
   await expect(links.getByRole('link', { name: 'Open Google Play' })).toHaveAttribute(
     'href',

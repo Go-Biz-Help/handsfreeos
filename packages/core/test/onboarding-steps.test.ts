@@ -315,10 +315,10 @@ describe('the words', () => {
     );
   });
 
-  it('sends Android to Google Play and iPhone to the App Store', () => {
+  it('sends iPhone to the App Store and Android to Google Play', () => {
     expect(PHONE_APP_LINKS.testing).toBe(false);
     expect(PHONE_APP_LINKS.links.map((l) => l.url)).toEqual([
-      'https://apps.apple.com/app/handsfreeos/id6813606312',
+      'https://apps.apple.com/us/app/handsfreeos/id6813606312',
       'https://play.google.com/store/apps/details?id=com.gobizhelp.handsfreeos&referrer=utm_source%3Donboarding%26utm_campaign%3Dget_the_app',
     ]);
     expect(stepWords(step(owner(facts()), 'app'))).toMatchObject({
