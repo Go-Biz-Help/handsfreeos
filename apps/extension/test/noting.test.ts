@@ -143,10 +143,16 @@ describe('friendNote', () => {
         profile: { id: '100003000000002', username: null, url: kim.url },
         name: 'Kim Lowe',
         mutualFriends: 12,
+        auto: false,
       },
     });
     const deleted = friendNote(answered({ answer: 'delete', mutualFriends: 900_000 }), WS);
     expect(deleted.ok && deleted.input).toMatchObject({ answer: 'delete', mutualFriends: null });
+  });
+
+  it('says when the extension answered on its own, so it’s counted (decision 140)', () => {
+    const own = friendNote(answered({ auto: true }), WS);
+    expect(own.ok && own.input.auto).toBe(true);
   });
 
   it('notes nobody it can’t tell the profile of', () => {
