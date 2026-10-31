@@ -157,6 +157,8 @@ export async function declineThese(
             profile: { id: who.platformId, username: who.username, url: who.url },
             name: who.name,
             mutualFriends: null,
+            // Turned down here, not gone already: counted as the extension's (decision 140).
+            auto: outcome === 'done',
           },
         }),
       );

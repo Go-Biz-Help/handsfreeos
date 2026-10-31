@@ -31,6 +31,7 @@ import {
 import { posts, touches } from '../tables';
 import { keepGroup } from './activity';
 import { inWorkspace, keptProfile, once } from './common';
+import { tally } from './tallies';
 import { findWriter } from './finds';
 import { playbooksInUse } from './friends';
 
@@ -52,6 +53,8 @@ export const postsSave = defineAddonCommand(outreachAddon, {
       const groupId = input.group ? await keepGroup(ctx, input.platform, input.group) : null;
       const playbooks = await playbooksInUse(ctx, input.platform);
       const urls = [...new Set(input.posts.map((p) => p.url))];
+      // Each post the computer read counts (decision 140).
+      await tally(ctx, me, input.platform, 'post', urls.length, at);
       const kept = await ctx.tx
         .select()
         .from(posts)

@@ -94,6 +94,7 @@ import {
   skipOutreachTo,
   type Ctx,
 } from './common';
+import { tally } from './tallies';
 import { partnerPlaybooksInUse } from './friends';
 import { wantLead } from './leads';
 import { claimProfile } from './owners';
@@ -364,6 +365,8 @@ export const partnerLeadsSave = defineAddonCommand(outreachAddon, {
           .returning({ id: partnerLeads.id });
         if (row) kept++;
       }
+      // Each new person a search found counts (decision 140).
+      await tally(ctx, me, input.platform, 'found', kept, at);
       await ctx.tx
         .insert(partnerSearches)
         .values({
@@ -419,6 +422,8 @@ export const partnerLook = defineAddonCommand(outreachAddon, {
         409,
         `${profile.name} is on Don’t pitch or Never contact, so they’re never asked to partner.`,
       );
+    // A profile the computer read counts (decision 140); one the network wouldn't show doesn't.
+    if (!input.missing) await tally(ctx, me, profile.platform, 'profile', 1, at);
     // How many follow them, as their profile says now.
     if (!input.missing && input.followers !== null)
       await ctx.tx

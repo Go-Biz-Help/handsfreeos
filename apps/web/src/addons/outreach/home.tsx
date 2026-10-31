@@ -85,6 +85,7 @@ import { RunNowMenu } from './run-now';
 import { SettingsView } from './settings-page';
 import { SetupHub } from './setup-hub';
 import type { NetworkLive } from './status-strip';
+import { OutreachTicker } from './ticker';
 import { TodayView } from './today-view';
 import { NeedsYou } from './waiting-view';
 import type {
@@ -857,6 +858,8 @@ export function OutreachHome({
           page={shown.page}
         />
       ) : null}
+      {/* What the person's computer is doing now, along the bottom of every page (decision 140). */}
+      <OutreachTicker workspaceId={workspaceId} />
     </div>
   );
 }

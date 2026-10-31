@@ -63,6 +63,7 @@ import { automationOf } from './automation';
 import { checksSummary, knownCheck } from './checks';
 import { matchFileLater } from './file-match';
 import { clearNeeds, doneNeeds } from './needs';
+import { tally } from './tallies';
 
 /** What a list says about everyone in it: where the person's own Facebook stands with them, and so their profile. */
 const LIST_STATE: Readonly<Record<FriendList, FriendState & Friendship>> = {
@@ -109,6 +110,16 @@ export const friendNote = defineAddonCommand(outreachAddon, {
         }),
       );
       await keepFriendStates(ctx, me, [{ profileId: profile.id, state }], at);
+      // Answered by the extension on its own: counted (decision 140).
+      if (input.auto)
+        await tally(
+          ctx,
+          me,
+          input.platform,
+          input.answer === 'confirm' ? 'accepted' : 'declined',
+          1,
+          at,
+        );
       // Confirm or Delete pressed: a request the extension handed to the person is answered.
       await clearNeeds(ctx, me, { profileId: profile.id, steps: ['confirm'] }, at);
       await ctx.emit({
@@ -154,6 +165,8 @@ export const friendsSave = defineAddonCommand(outreachAddon, {
     const people = eachOnce(input.people);
     for (const p of people) requireFits(input.platform, p.profile);
     return once(async () => {
+      // Each person read off the list counts (decision 140).
+      await tally(ctx, me, input.platform, 'listed', people.length, at);
       const ids = people.flatMap((p) => (p.profile.id ? [p.profile.id] : []));
       const usernames = people.flatMap((p) =>
         p.profile.username ? [p.profile.username.toLowerCase()] : [],

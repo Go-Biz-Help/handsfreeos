@@ -29,6 +29,7 @@ import { ownerCommands } from './ops/owners';
 import { occasionCommands } from './ops/occasions';
 import { listCommands, listQueries } from './ops/lists';
 import { liveCommands, liveQueries } from './ops/live';
+import { tallyCommands, tallyQueries } from './ops/tallies';
 import { openerCommands, openerQueries } from './ops/openers';
 import { partnerCommands, partnerQueries } from './ops/partners';
 import { personMenuCommands, personMenuQueries } from './ops/person-menu';
@@ -67,6 +68,7 @@ export const outreachAddonServer: AddonServerModule = {
     ...automationCommands,
     ...sendCommands,
     ...liveCommands,
+    ...tallyCommands,
     ...listCommands,
     ...waitingCommands,
     ...askCommands,
@@ -104,6 +106,7 @@ export const outreachAddonServer: AddonServerModule = {
     ...automationQueries,
     ...sendQueries,
     ...liveQueries,
+    ...tallyQueries,
     ...listQueries,
     ...waitingQueries,
     ...askQueries,
@@ -174,6 +177,10 @@ export const outreachAddonServer: AddonServerModule = {
     'outreach.active.next': EXTENSION,
     'outreach.active.reply': EXTENSION,
     'outreach.finds.towns': EXTENSION,
+    'outreach.live.watch':
+      'The ticker saying it’s on screen, so the extension tells what it’s doing every few seconds.',
+    'outreach.ticker':
+      'The ticker’s own light read, asked every few seconds: the Assistant reads the same and more through outreach_live.',
     'outreach.opener.use':
       'The screens noting which opener a copied first message was drafted with.',
   },

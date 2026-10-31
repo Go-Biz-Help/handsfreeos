@@ -10,6 +10,7 @@ import { defineAddonCommand } from '../../server';
 import { outreachAddon } from '../manifest';
 import { OCCASIONS_ON, OccasionsSaveInput, OccasionsSaveOutput } from '../occasions';
 import { inWorkspace, profilesFor } from './common';
+import { tally } from './tallies';
 
 export const occasionsSave = defineAddonCommand(outreachAddon, {
   name: 'outreach.occasions.save',
@@ -48,6 +49,8 @@ export const occasionsSave = defineAddonCommand(outreachAddon, {
       );
       kept += 1;
     }
+    // Each birthday or piece of news read counts (decision 140).
+    await tally(ctx, me, input.platform, 'occasion', kept, at);
     await ctx.emit({
       type: 'outreach.occasions.saved',
       entityType: 'workspace',

@@ -143,6 +143,8 @@ async function noteEnd(
           profile: profileOf(who),
           name: who.name,
           mutualFriends,
+          // Turned down here, not gone already: counted as the extension's (decision 140).
+          auto: !already,
         },
       }),
     );

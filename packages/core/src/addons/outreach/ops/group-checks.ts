@@ -55,6 +55,7 @@ import {
   pitchable,
   type Ctx,
 } from './common';
+import { tally } from './tallies';
 import { playbooksInUse } from './friends';
 import { claimGroup } from './owners';
 import { slowsNow, startOfToday, warningOf } from './tidy';
@@ -317,6 +318,8 @@ export const groupLook = defineAddonCommand(outreachAddon, {
       .for('update');
     if (!group)
       throw HfosError.notFound('That group isn’t kept here anymore. Save your groups again.');
+    // A group the computer read counts (decision 140); one that showed nothing doesn't.
+    if (!nothing) await tally(ctx, me, group.platform, 'group', 1, at);
     await ctx.tx
       .update(groups)
       .set({
@@ -506,11 +509,13 @@ export const joinNote = defineAddonCommand(outreachAddon, {
     const ws = ctx.scope.workspaceId!;
     const at = changeMoment(ctx.meta);
     const [group] = await ctx.tx
-      .select({ id: groups.id })
+      .select({ id: groups.id, platform: groups.platform })
       .from(groups)
       .where(and(eq(groups.workspaceId, ws), eq(groups.id, input.groupId)));
     if (!group)
       throw HfosError.notFound('That group isn’t kept here anymore. Save your groups again.');
+    // A group joined, or asked to join, counts (decision 140); one it couldn't join doesn't.
+    if (input.state !== 'failed') await tally(ctx, me, group.platform, 'joined', 1, at);
     await ctx.tx
       .insert(joins)
       .values({

@@ -258,6 +258,37 @@ h3 {
   }
 }
 
+/* Social Outreach's ticker (decision 140): today's steps go past like the news line along the bottom of a TV, held
+   while pointed at, focused or paused, and still for reduced motion, where the steps scroll by hand instead. */
+@keyframes outreach-ticker {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(-50%);
+  }
+}
+.outreach-ticker-track {
+  animation: outreach-ticker var(--ticker-seconds, 30s) linear infinite;
+}
+.outreach-ticker-lane:hover .outreach-ticker-track,
+.outreach-ticker:focus-within .outreach-ticker-track,
+.outreach-ticker[data-paused='true'] .outreach-ticker-track {
+  animation-play-state: paused;
+}
+@media (prefers-reduced-motion: reduce) {
+  .outreach-ticker-track {
+    animation: none;
+  }
+  .outreach-ticker-lane {
+    overflow-x: auto;
+  }
+  .outreach-ticker-copy,
+  .outreach-ticker-pause {
+    display: none;
+  }
+}
+
 /* While a call is on, toasts sit above the call bar and its keypad. */
 body[data-call='on'] [data-sonner-toaster][data-y-position='bottom'] {
   --offset-bottom: 92px !important;

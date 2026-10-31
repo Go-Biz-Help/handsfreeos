@@ -36,6 +36,7 @@ import type { AutomationSettings } from '@hfos/core/addons/outreach/automation';
 import type { ListMark } from '@hfos/core/addons/outreach/lists';
 import { APP_HEADERS } from '@hfos/core/mobile';
 import { PLATFORM_KEYS, type Platform } from '@hfos/core/addons/outreach/networks';
+import { WATCHED_LINE_SECONDS } from '@hfos/core/addons/outreach/tallies';
 import { AUTO_STATE_KEY, isState, type AutoState } from '../auto/plan';
 import { statesNow } from '../networks/on';
 import { SETTINGS_KEY } from './follow';
@@ -54,8 +55,10 @@ export const BEAT_ALARM = 'hfos-beat';
  * A beat's answer kept: what the runners and the panel follow, and whose it is. Each other network's day (`days`) is
  * missing from one kept by a build before 0.41.0.
  */
-export interface Kept extends Omit<LiveBeatOutput, 'days'>, Place {
+export interface Kept extends Omit<LiveBeatOutput, 'days' | 'watched'>, Place {
   readonly days?: LiveBeatOutput['days'];
+  /** A ticker of the person's on screen (decision 140): missing from one kept by a build before 0.120.0. */
+  readonly watched?: boolean;
   readonly at: number;
 }
 
@@ -172,25 +175,39 @@ export function wakeFor(
 
 /**
  * Whether a change heard on the live channel is for this computer to look at: the signed-in person's own, and not
- * this computer's own beat coming back.
+ * this computer's own beat coming back, nor another's line alone, told every few seconds for a ticker (decision 140),
+ * which moves nothing here.
  */
 export function liveEventFor(
-  payload: { readonly type?: unknown; readonly actorId?: unknown; readonly entityId?: unknown },
+  payload: {
+    readonly type?: unknown;
+    readonly actorId?: unknown;
+    readonly entityId?: unknown;
+    readonly entityType?: unknown;
+  },
   userId: string | null,
   ownComputerId: string | null,
 ): boolean {
   if (!userId || payload.actorId !== userId) return false;
+  if (payload.type === 'outreach.live.changed' && payload.entityType === 'outreach_line')
+    return false;
   return !(payload.type === 'outreach.live.changed' && payload.entityId === ownComputerId);
 }
 
 /**
  * How long to wait before telling HandsFreeOS: now for the first beat, a heartbeat, the person's use, a step to send
- * or a new state; a line alone at most every so often; -1 when there's nothing new.
+ * or a new state; a line alone at most every so often, every few seconds while a ticker of the person's is on screen
+ * (`watched`, decision 140); -1 when there's nothing new.
  */
 export function beatWait(
   last: Told | null,
   now: Status,
-  more: { readonly steps: number; readonly active: boolean; readonly force: boolean },
+  more: {
+    readonly steps: number;
+    readonly active: boolean;
+    readonly force: boolean;
+    readonly watched?: boolean;
+  },
   at: number,
 ): number {
   if (
@@ -208,8 +225,13 @@ export function beatWait(
       now.nextAt !== null &&
       Math.abs(Date.parse(last.nextAt) - Date.parse(now.nextAt)) < 5_000);
   if (last.line === now.line && nextSame) return -1;
-  // While a step before the first day runs, its count goes up every few seconds on the web and the phone.
-  const every = now.doing ? PRE_DAY_LINE_SECONDS : LINE_BEAT_SECONDS;
+  // While a step before the first day runs, its count goes up every few seconds on the web and the phone; and while a
+  // ticker shows, so does what it's doing.
+  const every = now.doing
+    ? PRE_DAY_LINE_SECONDS
+    : more.watched
+      ? WATCHED_LINE_SECONDS
+      : LINE_BEAT_SECONDS;
   return Math.max(0, last.at + every * 1000 - at);
 }
 
@@ -424,7 +446,12 @@ async function beatOnce(
     : state
       ? reportedStatus(state, settings?.settings ?? null, kept ? !kept.working : false)
       : { state: 'idle', line: null, lineAt: null, nextAt: null, doing: null };
-  const wait = beatWait(told, shown, { steps: steps.length, active: isActive, force }, Date.now());
+  const wait = beatWait(
+    told,
+    shown,
+    { steps: steps.length, active: isActive, force, watched: kept?.watched === true },
+    Date.now(),
+  );
   if (wait < 0) return kept;
   if (wait > 0) {
     if (!later) later = setTimeout(() => ((later = null), void beat()), wait);

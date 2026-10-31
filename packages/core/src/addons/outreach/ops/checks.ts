@@ -73,6 +73,7 @@ import {
   waitsForLook,
   type Ctx,
 } from './common';
+import { tally } from './tallies';
 import { playbooksInUse } from './friends';
 import { groupFitOf } from './group-checks';
 import { readinessFor } from './readiness';
@@ -772,6 +773,8 @@ export const checkLook = defineAddonCommand(outreachAddon, {
       .where(and(eq(profiles.workspaceId, ws), eq(profiles.id, input.profileId)));
     if (!profile)
       throw HfosError.notFound('That person isn’t kept here anymore. Check your friends again.');
+    // A profile the computer read counts (decision 140); one the network wouldn't show doesn't.
+    if (!input.missing) await tally(ctx, me, profile.platform, 'profile', 1, at);
     const verdict: CheckVerdict = input.missing ? 'failed' : 'waiting';
     // Of someone found by topic the person doesn't know (decision 92), counted on its own a day; else of someone known,
     // as is anyone they pressed Research on since the last look (decision 46a). Set at each look, so it's kept fresh.

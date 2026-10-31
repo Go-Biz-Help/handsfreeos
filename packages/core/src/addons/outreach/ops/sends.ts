@@ -65,6 +65,7 @@ import {
   type ChatRef,
   type Ctx,
 } from './common';
+import { tally } from './tallies';
 import { workingBuild } from './live';
 import { openNeed } from './needs';
 import { someoneElses } from './owners';
@@ -413,6 +414,8 @@ export const sendQueue = defineAddonCommand(outreachAddon, {
       })
       .onConflictDoNothing()
       .returning({ id: sends.id });
+    // Each message or comment drafted counts (decision 140).
+    if (made) await tally(ctx, me, profile.platform, 'drafted', 1, at);
     if (made)
       await ctx.emit({
         type: 'outreach.send.queued',

@@ -33,7 +33,8 @@ const profileOf = (who: TidyCandidate): ProfileRef => ({
 /** One person: open their profile, check it's them, press Ignore, check again, note. */
 async function one(job: Job, who: TidyCandidate): Promise<Outcome> {
   const profile = profileOf(who);
-  const note = async (mutualFriends: number | null) => {
+  // `auto`: turned down here, not gone already, so it's counted as the extension's (decision 140).
+  const note = async (mutualFriends: number | null, auto = true) => {
     valueOf(
       await job.hfos({
         type: 'hfos-friend-note',
@@ -44,6 +45,7 @@ async function one(job: Job, who: TidyCandidate): Promise<Outcome> {
           profile,
           name: who.name,
           mutualFriends,
+          auto,
         },
       }),
     );
@@ -65,7 +67,7 @@ async function one(job: Job, who: TidyCandidate): Promise<Outcome> {
   const pressed = await job.tab.ask({ type: 'hfos-answer-request', answer: 'delete' });
   if (!pressed.ok) throw new Error(pressed.error);
   if (pressed.result === 'already') {
-    await note(shown.mutualConnections);
+    await note(shown.mutualConnections, false);
     return 'already';
   }
   await pause(1_500);

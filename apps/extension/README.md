@@ -1132,6 +1132,19 @@ whole day, as the list can't be worked out without them (`holdsTheDay` in `src/a
 and Alignable a read put off till you're away counts as the reading's turn, so the list goes next. With nothing on the
 list, the reading goes on. Nothing in HandsFreeOS changes for it.
 
+### Counted, and on the ticker as it happens (0.120.0)
+
+HandsFreeOS now counts everything the extension does on its own and shows what it's doing that very second on a
+ticker along the bottom of every Social Outreach page (docs/outreach.md, decision 140). The counting happens in
+HandsFreeOS as each save arrives, so older builds are counted too. From 0.120.0:
+
+- **The ticker, every few seconds.** While a ticker of yours is on screen, HandsFreeOS says so on the beat's answer
+  (`watched`) and over the live channel (`outreach.live.watched`), and the line goes every 4 seconds
+  (`WATCHED_LINE_SECONDS`) instead of every 20. Once nobody's watching it's back to every 20 at the next beat.
+- **Its own answers to requests say so** (`auto` on `outreach.friend.note`): a request the runner confirmed, or one the
+  AI said to turn down (decision 136), counts as the extension's; one you answered yourself, or one gone before it got
+  there, doesn't.
+
 ### Every job gets its turn, Facebook's new Like, and Alignable's Directory (0.119.0)
 
 On Friday 30 Oct 2026 nearly every daily goal was missed (docs/outreach.md, decision 138). From 0.119.0:
