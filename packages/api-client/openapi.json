@@ -8481,6 +8481,22 @@
                           }
                         ]
                       },
+                      "policyContact": {
+                        "type": "object",
+                        "properties": {
+                          "email": {
+                            "type": "string",
+                            "maxLength": 254,
+                            "format": "email",
+                            "pattern": "^(?:[A-Za-z0-9_'+\\-]+\\.)*[A-Za-z0-9_'+\\-]*[A-Za-z0-9_+-]@(?:[A-Za-z0-9][A-Za-z0-9\\-]*\\.)+[A-Za-z]{2,}$"
+                          },
+                          "phone": {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 40
+                          }
+                        }
+                      },
                       "privacyPageUrl": {
                         "anyOf": [
                           {
@@ -63136,7 +63152,7 @@
     "/v1/commands/texting_fee.pay": {
       "post": {
         "operationId": "command_texting_fee_pay",
-        "summary": "Pay a texting fee on a Stripe page with another card: a registration’s fees the card said no to, or a month of the campaign. The worker makes the page; read its address from phone.setup_status (textingFees). The card paid with is the one charged from then on.",
+        "summary": "Pay a texting fee on a Stripe page with another card: a registration’s fees the card said no to, or a month of the campaign. The worker makes the page; read its address from phone.setup_status (textingFees). The card paid with is the one charged from then on. For HandsFreeOS’s own business, which is never charged, the worker lets the fee through instead.",
         "tags": [
           "commands"
         ],
@@ -130272,13 +130288,17 @@
                                 },
                                 "campaignCovered": {
                                   "type": "boolean"
+                                },
+                                "ours": {
+                                  "type": "boolean"
                                 }
                               },
                               "required": [
                                 "brandSent",
                                 "brandPaid",
                                 "vettingPaid",
-                                "campaignCovered"
+                                "campaignCovered",
+                                "ours"
                               ],
                               "additionalProperties": false
                             }

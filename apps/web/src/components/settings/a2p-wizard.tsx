@@ -22,6 +22,7 @@
  */
 import {
   checkDraft,
+  formatPhone,
   hasBlockers,
   issuesFor,
   money,
@@ -119,6 +120,9 @@ export interface WizardForm {
   ownPolicyUrl: string;
   /** The same for the terms. */
   ownTermsUrl: string;
+  /** How customers reach the business, as our privacy policy and terms say under "Contact us". */
+  policyEmail: string;
+  policyPhone: string;
   /** Topics the carriers treat differently: the ids picked, [] for "None of these", null before answering. */
   sensitive: string[] | null;
 }
@@ -184,6 +188,7 @@ export function wizardFormFrom(
     optInProofUrl?: string | null;
     policyUrl?: string | null;
     termsUrl?: string | null;
+    policyContact?: { email?: string; phone?: string };
     sensitiveTopics?: string[];
     messageSamples?: string[];
     useCase?: string;
@@ -217,6 +222,9 @@ export function wizardFormFrom(
     optInProofUrl: b.optInProofUrl ?? '',
     ownPolicyUrl: b.policyUrl ?? '',
     ownTermsUrl: b.termsUrl ?? '',
+    // Filled in from the contact and the business number when the policy step opens, unless already given.
+    policyEmail: b.policyContact?.email ?? '',
+    policyPhone: b.policyContact?.phone ? formatPhone(b.policyContact.phone) : '',
     sensitive: Array.isArray(b.sensitiveTopics) ? b.sensitiveTopics : null,
   };
 }
@@ -257,6 +265,9 @@ const draftOf = (f: WizardForm): A2pDraft => ({
   optInProofUrl: f.optInProofUrl,
   sensitiveTopics: f.sensitive,
   monthlyVolume: f.volume,
+  policyUrl: f.ownPolicyUrl,
+  termsUrl: f.ownTermsUrl,
+  policyContact: { email: f.policyEmail, phone: f.policyPhone },
 });
 
 const withScheme = (raw: string) => {
@@ -264,6 +275,16 @@ const withScheme = (raw: string) => {
   if (!url) return '';
   return /^https?:\/\//i.test(url) ? url : `https://${url}`;
 };
+
+/** What our privacy policy and terms are written from: the preview, and the review's check of how they'll read. */
+const policyDetailsOf = (f: WizardForm) => ({
+  legalName: f.legalName,
+  website: withScheme(f.website),
+  ...(f.policyEmail.trim() ? { email: f.policyEmail.trim() } : {}),
+  ...(f.policyPhone.trim() ? { phone: f.policyPhone.trim() } : {}),
+  offers: sendsOffers(f.useCase),
+  address: { line1: f.line1, city: f.city, state: f.state, postalCode: f.postalCode },
+});
 
 // ---------- the steps ----------
 
@@ -317,7 +338,7 @@ const STEPS: readonly Step[] = [
     key: 'policy',
     title: 'Your privacy policy and terms',
     blurb: 'The reviewer opens both, and reads the policy for one particular sentence.',
-    fields: [],
+    fields: ['policyContact'],
   },
   {
     key: 'review',
@@ -1126,6 +1147,14 @@ export function A2pWizard({
       ? `${origin}/legal/${surfaces.siteSlug}/terms`
       : null;
 
+  // What our policy and terms are written from, so the review checks them as they'll read once sent. Kept while
+  // none of it changes, so the check runs again only when it does.
+  const hostedKey = JSON.stringify(policyDetailsOf(form));
+  const hostedFrom = useMemo(
+    () => JSON.parse(hostedKey) as ReturnType<typeof policyDetailsOf>,
+    [hostedKey],
+  );
+
   const runPreflight = useCallback(async () => {
     if (!form.optInPath) return;
     setChecking(true);
@@ -1140,6 +1169,7 @@ export function A2pWizard({
         optInProofUrl: proofUrl,
         names: [businessName, form.legalName].filter((n) => n.trim()),
         legalName: form.legalName.trim() || undefined,
+        policyBusiness: hostedFrom,
       });
       setChecks(got);
     } catch (err) {
@@ -1158,6 +1188,7 @@ export function A2pWizard({
     termsUrl,
     optInUrl,
     proofUrl,
+    hostedFrom,
   ]);
 
   // Opening the review runs them; going back and changing something throws the old answers away, so a
@@ -1204,6 +1235,10 @@ export function A2pWizard({
               optInProofUrl: proofUrl,
               policyUrl: form.ownPolicyUrl.trim() ? withScheme(form.ownPolicyUrl) : null,
               termsUrl: form.ownTermsUrl.trim() ? withScheme(form.ownTermsUrl) : null,
+              policyContact: {
+                ...(form.policyEmail.trim() ? { email: form.policyEmail.trim() } : {}),
+                ...(form.policyPhone.trim() ? { phone: form.policyPhone.trim() } : {}),
+              },
               privacyPageUrl: policyUrl,
               termsPageUrl: termsUrl,
               displayName: businessName,
@@ -1496,6 +1531,7 @@ export function A2pWizard({
           origin={origin}
           siteSlug={surfaces.siteSlug}
           phone={number?.display}
+          issues={issues}
         />
       ) : null}
 
@@ -1512,6 +1548,13 @@ export function A2pWizard({
           onAgreed={setAgreed}
           onJump={(key) => setAt(STEPS.findIndex((s) => s.key === key))}
         />
+      ) : null}
+
+      {step.key === 'review' && local && feesPaidFor?.ours ? (
+        <p className="mt-5 text-[13px] text-text-2" data-testid="registration-fees-ours">
+          HandsFreeOS’s own business isn’t charged the carriers’ fees, so this goes to them as soon
+          as you send it.
+        </p>
       ) : null}
 
       {step.key === 'review' && feeTotal > 0 ? (
@@ -1606,6 +1649,7 @@ function PolicyStep({
   origin,
   siteSlug,
   phone,
+  issues,
 }: {
   workspaceId: string;
   businessName: string;
@@ -1615,25 +1659,20 @@ function PolicyStep({
   siteSlug: string | null;
   /** The business number, which the terms give as the way to get help. Not known yet when it is on its way. */
   phone: string | undefined;
+  issues: readonly A2pIssue[];
 }) {
   const own = form.ownPolicyUrl.trim().length > 0;
   const ownTerms = form.ownTermsUrl.trim().length > 0;
   const hostedUrl = siteSlug ? `${origin}/legal/${siteSlug}/privacy` : null;
   const hostedTermsUrl = siteSlug ? `${origin}/legal/${siteSlug}/terms` : null;
-  const business = {
-    name: businessName,
-    legalName: form.legalName,
-    website: withScheme(form.website),
-    email: form.contactEmail,
-    ...(phone ? { phone } : {}),
-    offers: sendsOffers(form.useCase),
-    address: {
-      line1: form.line1,
-      city: form.city,
-      state: form.state,
-      postalCode: form.postalCode,
-    },
-  };
+  // How customers reach the business, asked here and filled in from what is known: the contact's email and the
+  // business number. Only when both are empty, so a box cleared on purpose stays clear.
+  useEffect(() => {
+    if (form.policyEmail.trim() || form.policyPhone.trim()) return;
+    if (form.contactEmail.trim()) set('policyEmail', form.contactEmail.trim());
+    if (phone) set('policyPhone', phone);
+  }, []);
+  const business = { name: businessName, ...policyDetailsOf(form) };
   const policy = privacyPolicy(business);
   const terms = termsOfService(business);
   // What the section added to the business's own policy or terms is written from: the same details, and for
@@ -1641,8 +1680,8 @@ function PolicyStep({
   const updating: PolicyUpdateInput['business'] = {
     name: businessName,
     legalName: form.legalName,
-    email: form.contactEmail,
-    ...(phone ? { phone } : {}),
+    ...(business.email ? { email: business.email } : {}),
+    ...(business.phone ? { phone: business.phone } : {}),
     offers: sendsOffers(form.useCase),
     address: business.address,
   };
@@ -1656,6 +1695,37 @@ function PolicyStep({
         Most small business websites have no privacy policy at all, and a campaign with nothing for
         the reviewer to read is turned down. We write one from what you have already told us.
       </Callout>
+
+      {/* Only ours print it: with both their own, there's nowhere for it to go. */}
+      {!own || !ownTerms ? (
+        <div data-testid="policy-contact">
+          <p className="text-[13.5px] font-semibold">How customers reach you</p>
+          <p className="mt-0.5 text-[13px] text-text-2">
+            Your privacy policy and terms say this under “Contact us”. Give at least one.
+          </p>
+          <div className="mt-2.5 grid gap-3 sm:grid-cols-2">
+            <Field label="Email" htmlFor="a2p-policyEmail">
+              <Input
+                id="a2p-policyEmail"
+                type="email"
+                value={form.policyEmail}
+                onChange={(e) => set('policyEmail', e.target.value)}
+                placeholder="hello@example.com"
+              />
+            </Field>
+            <Field label="Phone" htmlFor="a2p-policyPhone">
+              <Input
+                id="a2p-policyPhone"
+                type="tel"
+                value={form.policyPhone}
+                onChange={(e) => set('policyPhone', e.target.value)}
+                placeholder="(713) 555-0100"
+              />
+            </Field>
+          </div>
+          <Issues issues={issuesFor(issues, 'policyContact')} />
+        </div>
+      ) : null}
 
       <div role="radiogroup" aria-label="Privacy policy" className="space-y-2.5">
         <RadioCard
@@ -2251,6 +2321,11 @@ function ReviewStep({
         <Row
           label="Terms"
           value={form.ownTermsUrl.trim() || 'The ones we write for you'}
+          onJump={() => onJump('policy')}
+        />
+        <Row
+          label="How customers reach you"
+          value={[form.policyEmail.trim(), form.policyPhone.trim()].filter(Boolean).join(' · ')}
           onJump={() => onJump('policy')}
         />
       </div>

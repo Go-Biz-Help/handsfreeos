@@ -9,6 +9,7 @@ export * from './queries/index';
 export * from './crm/matching';
 export * from './auth/token';
 export * from './messaging/store';
+export * from './messaging/legal-source';
 export * from './messaging/phone-account';
 export * from './messaging/call-consent';
 // Reads a wallet in the caller's transaction, so it needs a database client and cannot live in the

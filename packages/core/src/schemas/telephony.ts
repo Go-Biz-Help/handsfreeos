@@ -252,6 +252,20 @@ export const BusinessProfile = z
     /** The business's own terms, when it has some; otherwise the ones HandsFreeOS hosts. Like `policyUrl`. */
     termsUrl: z.url().max(200).nullable().optional(),
     /**
+     * How customers reach the business, as the privacy policy and terms say under "Contact us". Asked for beside
+     * them, because `contact` is the person the carriers write to and may be nobody's to publish. Older
+     * submissions have none, and their pages use `contact.email` and the number the registration is for.
+     */
+    policyContact: z
+      .object({
+        email: z
+          .email({ error: 'Enter a valid email address for customers to reach you at.' })
+          .max(254)
+          .optional(),
+        phone: phoneRequired.optional(),
+      })
+      .optional(),
+    /**
      * The addresses the reviewer is given, whoever hosts them: the privacy policy and the terms (ours at
      * `/legal/<site>/…`, or the business's own). Sent to the carriers beside the campaign.
      */

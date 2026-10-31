@@ -214,6 +214,15 @@ export function registrationPreflight(input: {
   names?: string[];
   /** The name on the IRS letter, which a business with a DBA needs on its website too. */
   legalName?: string;
+  /** What our privacy policy and terms are written from: a link to ours is judged from these, as it'll read. */
+  policyBusiness?: {
+    legalName?: string;
+    website?: string;
+    email?: string;
+    phone?: string;
+    offers?: boolean;
+    address?: { line1?: string; city?: string; state?: string; postalCode?: string };
+  };
 }): Promise<{ checks: PreflightCheck[] }> {
   return workerPost('/v1/telephony/registration-preflight', input);
 }

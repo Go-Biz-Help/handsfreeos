@@ -630,6 +630,15 @@ export async function currentRcsSender(tx: Tx, workspaceId: string) {
   return s ?? null;
 }
 
+/** HandsFreeOS's own business (`workspaces.is_platform`, marked by a staff admin), which pays no texting fees. */
+export async function isOurOwnBusiness(tx: Tx, workspaceId: string): Promise<boolean> {
+  const [w] = await tx
+    .select({ isPlatform: workspaces.isPlatform })
+    .from(workspaces)
+    .where(eq(workspaces.id, workspaceId));
+  return !!w?.isPlatform;
+}
+
 /**
  * A texting fee waiting on the business (0105): a registration's fees not paid yet (the 10DLC steps wait for
  * them), or a month of the campaign the card didn't pay. At most one registration fee, by
@@ -659,7 +668,7 @@ export async function unsettledTextingFee(
  * What the business has already sent or paid for (0105), which decides what sending its local registration costs
  * now (core's textingFeeLines). The brand counts as behind it once it reached the carriers or its fee was paid; the
  * campaign's review is covered unless the campaign is new, was turned down (it goes again), or an unpaid fee
- * already lists it.
+ * already lists it. HandsFreeOS's own business is never charged (`ours`).
  */
 export async function textingFeesPaidFor(tx: Tx, workspaceId: string) {
   const latest = latestByKind(await loadRegistrations(tx, workspaceId));
@@ -678,6 +687,7 @@ export async function textingFeesPaidFor(tx: Tx, workspaceId: string) {
   const paid = (key: string) => settled.some((f) => f.lines.some((l) => l.key === key));
   const unpaid = await unsettledTextingFee(tx, workspaceId, 'registration');
   return {
+    ours: await isOurOwnBusiness(tx, workspaceId),
     brandSent: !!brand?.providerSid,
     brandPaid: paid('brand'),
     vettingPaid: paid('secondary_vetting'),
