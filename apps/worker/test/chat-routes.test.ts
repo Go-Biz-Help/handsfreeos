@@ -137,6 +137,35 @@ describe('the widget’s settings', () => {
   });
 });
 
+describe('the agreement box’s links', () => {
+  it('point at the business’s own privacy policy or terms as soon as the wizard says it has one', async () => {
+    await rows(
+      admin(),
+      sql`insert into app.registration_drafts (workspace_id, answers)
+          values (${w.workspaceId}, ${JSON.stringify({
+            form: { ownPolicyUrl: 'lonestarhvac.com/privacy', ownTermsUrl: '' },
+            at: new Date().toISOString(),
+          })}::jsonb)`,
+    );
+    try {
+      const { smsConsent } = (await configOf(w.key)).json();
+      expect(smsConsent).toEqual({
+        ...chatSmsConsent(
+          'chat-routes Booking HVAC',
+          'https://lonestarhvac.com/privacy',
+          `/legal/${w.site}/terms`,
+        ),
+        text: chatSmsConsent('chat-routes Booking HVAC', null).detail,
+      });
+    } finally {
+      await rows(
+        admin(),
+        sql`delete from app.registration_drafts where workspace_id = ${w.workspaceId}`,
+      );
+    }
+  });
+});
+
 describe('the business’s logo', () => {
   it('is at the top of the chat once the business has one', async () => {
     const path = `${w.workspaceId}/logo/${randomUUID()}.png`;

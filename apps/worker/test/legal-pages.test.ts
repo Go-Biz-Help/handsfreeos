@@ -50,11 +50,40 @@ describe('the pages we write', () => {
     const privacy = await get(`/public/legal/${site}/privacy`);
     expect(privacy.statusCode, privacy.body).toBe(200);
     expect(privacy.json().policy.title).toBe('Bayou Electric — Privacy Policy');
-    expect(privacy.headers['cache-control']).toContain('max-age=300');
+    expect(privacy.headers['cache-control']).toContain('max-age=60');
 
     const terms = await get(`/public/legal/${site}/terms`);
     expect(terms.statusCode, terms.body).toBe(200);
     expect(terms.json().policy.title).toBe('Bayou Electric — Terms of Service');
+  });
+
+  it('follow the answers being got ready, before anything has gone', async () => {
+    await rows(
+      testDbs().admin.db,
+      sql`insert into app.registration_drafts (workspace_id, answers)
+          values (${ws}, ${JSON.stringify({
+            form: {
+              legalName: 'Bayou Electric LLC',
+              policyEmail: 'hello@bayou.example',
+              policyPhone: '(504) 555-0144',
+              ownPolicyUrl: '',
+              ownTermsUrl: 'bayou.example/terms',
+            },
+            at: new Date().toISOString(),
+          })}::jsonb)`,
+    );
+    // Ours, with the way to reach them the wizard asked for under Contact us.
+    const privacy = (await get(`/public/legal/${site}/privacy`)).json();
+    const contact = privacy.policy.sections.find(
+      (s: { heading: string }) => s.heading === 'Contact us',
+    );
+    expect(contact.paragraphs[0]).toContain('Bayou Electric LLC');
+    expect(contact.paragraphs[0]).toContain('hello@bayou.example');
+    expect(contact.paragraphs[0]).toContain('(504) 555-0144');
+    // Theirs, as soon as they've said where it is.
+    expect((await get(`/public/legal/${site}/terms`)).json()).toEqual({
+      redirectTo: 'https://bayou.example/terms',
+    });
   });
 
   it('send each kind on to the business’s own, once a registration names them', async () => {

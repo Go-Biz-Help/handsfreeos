@@ -11,6 +11,9 @@ import {
   dispositionOf,
   formatPhone,
   HfosError,
+  policyAsText,
+  privacyPolicy,
+  termsOfService,
   type FetchedPage,
 } from '@hfos/core/server';
 import { asWorker, rows, sql } from '@hfos/db/client';
@@ -193,7 +196,44 @@ const PreflightInput = z.strictObject({
   names: z.array(z.string().trim().max(120)).max(4).default([]),
   /** The name on the IRS letter: with a DBA, the website has to say it as well as the name customers know. */
   legalName: z.string().trim().max(120).optional(),
+  /**
+   * What our privacy policy and terms are written from, as the wizard has it. A link to ours (`/legal/<site>/…`
+   * for this business) is judged from these, as the page will read once it's sent, rather than fetched: the page
+   * follows the saved answers a moment behind the typing, and is kept for a minute besides.
+   */
+  policyBusiness: z
+    .strictObject({
+      legalName: z.string().trim().max(120).optional(),
+      website: z.string().trim().max(300).optional(),
+      email: z.string().trim().max(254).optional(),
+      phone: z.string().trim().max(40).optional(),
+      offers: z.boolean().optional(),
+      address: z
+        .strictObject({
+          line1: z.string().trim().max(200).optional(),
+          city: z.string().trim().max(100).optional(),
+          state: z.string().trim().max(20).optional(),
+          postalCode: z.string().trim().max(20).optional(),
+        })
+        .optional(),
+    })
+    .optional(),
 });
+
+/** Which of our hosted pages a link is, for the business whose site has this name; null for anything else. */
+function hostedKind(
+  raw: string | null | undefined,
+  slug: string | null,
+): 'privacy' | 'terms' | null {
+  if (!raw || !slug) return null;
+  try {
+    const url = new URL(/^https?:\/\//i.test(raw) ? raw : `https://${raw}`);
+    const m = /^\/legal\/([A-Za-z0-9-]+)\/(privacy|terms)\/?$/.exec(url.pathname);
+    return m && m[1]!.toLowerCase() === slug.toLowerCase() ? (m[2] as 'privacy' | 'terms') : null;
+  } catch {
+    return null;
+  }
+}
 
 export async function buildHttpServer(deps: HttpDeps): Promise<FastifyInstance> {
   // Fly's proxy is the one hop in front, so request.ip is the caller's own address (the booking page's
@@ -503,13 +543,32 @@ export async function buildHttpServer(deps: HttpDeps): Promise<FastifyInstance> 
       }
     };
 
+    // Our own policy and terms, as they'll read once sent: written from the wizard's answers, not fetched.
+    const [site] = input.policyBusiness
+      ? await asWorker(deps.httpDb, { workspaceId: input.workspaceId }, (tx) =>
+          rows<{ slug: string | null; name: string }>(
+            tx,
+            sql`select s.slug::text as slug, coalesce(nullif(s.name, ''), w.name) as name
+                from app.workspaces w left join app.booking_sites s on s.workspace_id = w.id
+                where w.id = ${input.workspaceId}`,
+          ),
+        )
+      : [];
+    const hostedOr = async (raw: string | null | undefined, kind: 'privacy' | 'terms') => {
+      if (!input.policyBusiness || !site || hostedKind(raw, site.slug) !== kind) return open(raw);
+      const business = { name: site.name, ...input.policyBusiness };
+      const doc = kind === 'privacy' ? privacyPolicy(business) : termsOfService(business);
+      const url = raw!.trim();
+      return { url, status: 200, html: policyAsText(doc), finalUrl: url } satisfies FetchedPage;
+    };
+
     // Fetched together: four sequential round trips would have the business watching a spinner for
     // the better part of half a minute.
     const names = input.names.filter(Boolean);
     const [website, policy, terms, optIn, chats] = await Promise.all([
       open(input.website),
-      open(input.policyUrl),
-      open(input.termsUrl),
+      hostedOr(input.policyUrl, 'privacy'),
+      hostedOr(input.termsUrl, 'terms'),
       open(input.optInPath === 'in_person' ? input.optInProofUrl : input.optInUrl),
       // The hosted path is the chat on their own site: its key (in the snippet) and where it was last seen open.
       input.optInPath === 'hosted'
