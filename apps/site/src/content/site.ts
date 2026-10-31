@@ -42,6 +42,13 @@ export const urls = {
 } as const;
 
 /**
+ * The website chat on every page: the HandsFreeOS workspace's own widget, its snippet copied from Settings →
+ * Website chat. It is the texting-consent chat the carriers' A2P review is sent to: after a visitor's first
+ * message it asks for their details with the consent box, so it stays on every page.
+ */
+export const chatScript = 'https://app.handsfreeos.com/embed/v1/wk_uJni908sa8AGUjGaXmX8.js';
+
+/**
  * The plan: what every founding spot buys.
  *
  * **One plan, and everything is in it.** Three tiers were three conversations to have before somebody could

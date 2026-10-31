@@ -10914,18 +10914,16 @@ each person only their own, and their bills where they don't manage the money.
 
 ### Chat on handsfreeos.com
 
-The website's chat button is the same widget a business puts on its own site, pointed at us. To turn it on:
+The website's chat button is the same widget a business puts on its own site, pointed at us: the HandsFreeOS
+workspace's website chat (**Settings** → **Website chat**). It is also that workspace's texting-consent chat, which
+its A2P registration points the carriers at, so it is on every page.
 
-1. In HandsFreeOS, open a business you own (Go Biz Help's own workspace is the natural one), then
-   **Settings** → **Website chat**, and set it up as a business would: who it is for, what it may say, and
-   when a person takes over.
-2. Copy its key — the `wk_…` part of the snippet it shows you.
-3. In Vercel, on the **handsfreeos-site** project, add `NEXT_PUBLIC_CHAT_WIDGET_KEY` with that value, and
-   redeploy.
+Its snippet's address is `chatScript` in `apps/site/src/content/site.ts`. To use another widget, paste that
+widget's address there, or set `NEXT_PUBLIC_CHAT_WIDGET_KEY` on the **handsfreeos-site** project in Vercel to its
+`wk_…` key and redeploy (the key wins over the file).
 
-With no key set the site simply has no chat button, and the support page's email address and the in-app
-**Get help** still work. Nothing on the site breaks if the key is wrong: the widget answers 404 and the
-button never appears.
+Nothing on the site breaks if the key is wrong: the widget answers 404 and the button never appears, and the
+support page's email address and the in-app **Get help** still work.
 
 ### If support mail stops arriving
 
