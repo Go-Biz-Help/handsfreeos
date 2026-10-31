@@ -48,6 +48,8 @@ export const TextingFeesOut = z.object({
     brandPaid: z.boolean(),
     vettingPaid: z.boolean(),
     campaignCovered: z.boolean(),
+    /** HandsFreeOS's own business: never charged, so sending costs nothing. */
+    ours: z.boolean(),
   }),
 });
 export type TextingFeesOut = z.infer<typeof TextingFeesOut>;

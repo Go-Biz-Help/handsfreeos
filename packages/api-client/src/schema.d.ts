@@ -15287,7 +15287,7 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * Pay a texting fee on a Stripe page with another card: a registration’s fees the card said no to, or a month of the campaign. The worker makes the page; read its address from phone.setup_status (textingFees). The card paid with is the one charged from then on.
+         * Pay a texting fee on a Stripe page with another card: a registration’s fees the card said no to, or a month of the campaign. The worker makes the page; read its address from phone.setup_status (textingFees). The card paid with is the one charged from then on. For HandsFreeOS’s own business, which is never charged, the worker lets the fee through instead.
          * @description Risk level 3. Requires channels.manage. Emits texting_fee.page_requested.
          */
         post: operations["command_texting_fee_pay"];
@@ -55601,6 +55601,11 @@ export interface operations {
                         optInPath?: "hosted" | "own_site" | "in_person";
                         optInProofUrl?: string | null;
                         optInUrl?: string | null;
+                        policyContact?: {
+                            /** Format: email */
+                            email?: string;
+                            phone?: string;
+                        };
                         policyUrl?: string | null;
                         privacyPageUrl?: string | null;
                         sensitiveTopics?: ("lending" | "debt" | "lead_selling" | "cannabis" | "gambling" | "alcohol" | "tobacco" | "firearms")[];
@@ -80975,6 +80980,7 @@ export interface operations {
                                 brandPaid: boolean;
                                 brandSent: boolean;
                                 campaignCovered: boolean;
+                                ours: boolean;
                                 vettingPaid: boolean;
                             };
                         } | null;

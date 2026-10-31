@@ -248,6 +248,42 @@ describe('the registration’s fees', () => {
   });
 });
 
+describe('HandsFreeOS’s own business', () => {
+  it('lets a fee it was given before it was marked ours through, and sends the registration', async () => {
+    const { workspaceId } = await businessWithNumber('Fees Ours Co');
+    const before = s.telephony.registrations.length;
+    const sent = await submit(workspaceId);
+    await drain(workspaceId);
+    expect((await feesOf(workspaceId)).map((f) => f.status)).toEqual(['open']);
+
+    await rows(
+      admin(),
+      sql`update app.workspaces set is_platform = true where id = ${workspaceId}`,
+    );
+    try {
+      // "Send it without paying" on the Texting page.
+      await executeCommand(
+        api(),
+        textingFeePay,
+        { workspaceId, textingFeeId: sent.output.fee!.id },
+        actor(owner),
+        meta(),
+      );
+      await drain(workspaceId, {
+        until: async () => s.telephony.registrations.length > before,
+      });
+      const [fee] = await feesOf(workspaceId);
+      expect(fee).toMatchObject({ status: 'waived', paidAt: null });
+      expect(fee!.problem).toContain('own business');
+    } finally {
+      await rows(
+        admin(),
+        sql`update app.workspaces set is_platform = false where id = ${workspaceId}`,
+      );
+    }
+  });
+});
+
 describe('the campaign’s month', () => {
   it('charges $10 a month to the kept card, once a month however often the sweep runs', async () => {
     const { workspaceId, organizationId } = await businessWithNumber('Fees Monthly Co');

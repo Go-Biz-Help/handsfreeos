@@ -16,6 +16,7 @@ import { textingFees } from '@hfos/db/schema';
 import { HfosError } from '../errors';
 import { defineCommand } from '../kernel/define';
 import { money } from '../money/format';
+import { isOurOwnBusiness } from '../messaging/store';
 import { TEXTING_FEES } from '../money/texting-fees';
 import {
   TextingFeeChargeMonthInput,
@@ -36,7 +37,7 @@ const UNSETTLED = ['pending', 'open', 'failed'] as const;
 export const textingFeePay = defineCommand({
   name: 'texting_fee.pay',
   description:
-    'Pay a texting fee on a Stripe page with another card: a registration’s fees the card said no to, or a month of the campaign. The worker makes the page; read its address from phone.setup_status (textingFees). The card paid with is the one charged from then on.',
+    'Pay a texting fee on a Stripe page with another card: a registration’s fees the card said no to, or a month of the campaign. The worker makes the page; read its address from phone.setup_status (textingFees). The card paid with is the one charged from then on. For HandsFreeOS’s own business, which is never charged, the worker lets the fee through instead.',
   risk: 3,
   input: TextingFeePayInput,
   output: TextingFeePayOutput,
@@ -59,9 +60,11 @@ export const textingFeePay = defineCommand({
         409,
         'There’s nothing to pay for texting right now. Refresh Settings → Texting & calls to see where it stands.',
       );
+    // HandsFreeOS's own business is never charged: the worker lets this one through instead of making a page.
+    const ours = await isOurOwnBusiness(ctx.tx, ctx.scope.workspaceId!);
     // A page already waiting: the same one. One being collected: it is moments from a page or a charge.
-    if (f.status === 'open') return { textingFeeId: f.id, checkoutUrl: f.sessionUrl };
-    if (f.status === 'pending') return { textingFeeId: f.id, checkoutUrl: null };
+    if (f.status === 'open' && !ours) return { textingFeeId: f.id, checkoutUrl: f.sessionUrl };
+    if (f.status === 'pending' && !ours) return { textingFeeId: f.id, checkoutUrl: null };
     await ctx.emit({
       type: 'texting_fee.page_requested',
       entityType: 'texting_fee',

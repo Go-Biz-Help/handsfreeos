@@ -33,6 +33,7 @@ import {
   chatWidgetRecordSeen,
   executeCommand,
   HfosError,
+  legalSourceOf,
   openHoursOf,
   readableTextOn,
   type CommandDef,
@@ -415,11 +416,14 @@ export async function registerChatRoutes(app: FastifyInstance, deps: HttpDeps): 
           const timeZone = ws?.timezone || 'UTC';
           const openHours = openHoursOf(ws?.settings as Record<string, unknown> | null);
           // `text` carries the same words as `detail`: a widget already embedded on a customer's site
-          // reads only `text`, and it keeps working until its cached copy of the snippet catches up.
+          // reads only `text`, and it keeps working until its cached copy of the snippet catches up. The links
+          // are the business's own policy and terms when its texting registration points at them, and ours
+          // otherwise, as the registration has them now (core's legalSourceOf).
+          const legal = widget.smsConsent ? await legalSourceOf(tx, route.workspaceId) : null;
           const consentWords = chatSmsConsent(
             ws?.name ?? '',
-            ws?.site_slug ? consentPolicyPath(ws.site_slug) : null,
-            ws?.site_slug ? consentTermsPath(ws.site_slug) : null,
+            legal?.policyUrl ?? (ws?.site_slug ? consentPolicyPath(ws.site_slug) : null),
+            legal?.termsUrl ?? (ws?.site_slug ? consentTermsPath(ws.site_slug) : null),
           );
           const teammate = await answeringTeammate(tx, widget);
           const now = Date.now();

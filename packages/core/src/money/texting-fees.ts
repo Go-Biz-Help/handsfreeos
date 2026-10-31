@@ -70,6 +70,8 @@ export interface TextingFeesPaidFor {
   readonly vettingPaid: boolean;
   /** The campaign's next send is paid for: a review paid since the campaign last went to the carriers. */
   readonly campaignCovered: boolean;
+  /** HandsFreeOS's own business (`workspaces.is_platform`): the carriers' fees are ours, so it's never charged. */
+  readonly ours?: boolean;
 }
 
 /**
@@ -80,11 +82,13 @@ export interface TextingFeesPaidFor {
  * - the campaign's review, unless the send it is about is already paid for: a new campaign, or one the carriers
  *   turned down, goes again and is reviewed again.
  *
- * An unpaid fee from an earlier send isn't added on: anything still unpaid is simply still owed here.
+ * An unpaid fee from an earlier send isn't added on: anything still unpaid is simply still owed here. HandsFreeOS's
+ * own business owes nothing.
  */
 export function textingFeeLines(
   input: TextingFeesPaidFor & { readonly monthlyVolume: string },
 ): TextingFeeLine[] {
+  if (input.ours) return [];
   const lines: TextingFeeLine[] = [];
   if (!input.brandSent && !input.brandPaid) lines.push(TEXTING_FEES.brand);
   if (!input.brandSent && !input.vettingPaid && input.monthlyVolume !== 'under_1000')

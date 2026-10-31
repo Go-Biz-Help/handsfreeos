@@ -50,6 +50,7 @@ const world = vi.hoisted(() => ({
     start: number;
     end: number;
     days: number[];
+    everyDay?: boolean;
   },
 }));
 
@@ -326,12 +327,20 @@ const sentOn = (sent: string[]) => (doc: Document) => {
 // ------------------------------------------------------------------------------------------------- the day
 
 const today = () => new Date().toLocaleDateString('en-CA', { timeZone: 'America/Chicago' });
-/** Working hours that leave out today: nothing goes on its own unless a test says. */
+/**
+ * Working hours that leave out today: nothing goes on its own unless a test says. Only on their working days, or
+ * the day goes on its own every day (decision 139) and what it says waits on the clock.
+ */
 const notToday = () => {
   const weekday = new Date(
     new Date().toLocaleString('en-US', { timeZone: 'America/Chicago' }),
   ).getDay();
-  return { start: 9, end: 17, days: [0, 1, 2, 3, 4, 5, 6].filter((d) => d !== weekday) };
+  return {
+    start: 9,
+    end: 17,
+    days: [0, 1, 2, 3, 4, 5, 6].filter((d) => d !== weekday),
+    everyDay: false,
+  };
 };
 const ALL_DAY = { start: 0, end: 24, days: [0, 1, 2, 3, 4, 5, 6] };
 const day = (state: 'none' | 'started' | 'stopped') => ({
