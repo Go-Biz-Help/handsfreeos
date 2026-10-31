@@ -104,8 +104,6 @@ export const START_JITTER_MS = 20 * 60_000;
 /** How often it looks again in the hours when nothing's left: a new request to confirm may come. */
 export const IDLE_MS = 60 * 60_000;
 
-const DAY = 86_400_000;
-
 /** Where the runner is, kept in the extension's storage across the background's restarts. */
 export interface AutoState {
   /** The business's day these are for: "2026-10-09". A new day starts afresh. */
@@ -602,8 +600,9 @@ export function gapAfter(input: {
 }
 
 /**
- * When the working hours next start after `now`, within a week, every day while the person keeps working on other days
- * (decision 139); a little after the hour, at random.
+ * When the working hours next start after `now`, every day while the person keeps working on other days (decision
+ * 139); a little after the hour, at random. Today's start while it's ahead, else a later day's by the business's
+ * calendar, as the words say it (`networkWaitWords`): a day of 23 hours, when the clocks go forward, is never skipped.
  */
 export function nextStart(
   hours: WorkingHours,
@@ -611,11 +610,12 @@ export function nextStart(
   now: number,
   random: number,
 ): number | null {
-  for (let days = 0; days <= 7; days++) {
-    const window = workWindow(workHours(hours), timeZone, now + days * DAY);
-    if (window && window.from > now) return window.from + Math.round(random * START_JITTER_MS);
-  }
-  return null;
+  const today = workWindow(workHours(hours), timeZone, now);
+  const at =
+    today && today.from > now
+      ? today.from
+      : startAfterToday(workHours(hours), timeZone, businessDay(now, timeZone));
+  return at === null ? null : at + Math.round(random * START_JITTER_MS);
 }
 
 /**

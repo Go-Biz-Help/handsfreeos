@@ -373,6 +373,21 @@ describe('what it does next', () => {
     expect(at - Date.UTC(2026, 9, 8, 14)).toBeLessThanOrEqual(20 * 60_000);
   });
 
+  it('never skips the day the clocks go forward, and starts once on the day they go back', () => {
+    const hours = { start: 9, end: 17, days: [1, 2, 3, 4, 5] };
+    // Saturday 13 March 2027, 11:30 PM in Chicago: Sunday, 23 hours long, starts at 9 AM CDT, 14:00 UTC. A day
+    // counted as 24 hours from here lands on Monday.
+    const springEve = Date.UTC(2027, 2, 14, 5, 30);
+    expect(nextStart(hours, 'America/Chicago', springEve, 0)).toBe(Date.UTC(2027, 2, 14, 14));
+    // Sunday 1 November 2026, 12:30 AM CDT in Chicago, before the clocks go back: 9 AM CST that day, 15:00 UTC; and
+    // from 9:30 AM, Monday's.
+    const fallMorning = Date.UTC(2026, 10, 1, 5, 30);
+    expect(nextStart(hours, 'America/Chicago', fallMorning, 0)).toBe(Date.UTC(2026, 10, 1, 15));
+    expect(nextStart(hours, 'America/Chicago', Date.UTC(2026, 10, 1, 15, 30), 0)).toBe(
+      Date.UTC(2026, 10, 2, 15),
+    );
+  });
+
   // Wednesday 28 October 2026 in Chicago, five hours behind UTC, with hours of 10 to 6 on weekdays.
   const hours = { start: 10, end: 18, days: [1, 2, 3, 4, 5] };
   const zone = 'America/Chicago';
