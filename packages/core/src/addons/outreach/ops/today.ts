@@ -1249,8 +1249,9 @@ export const today = defineAddonQuery(outreachAddon, {
         where d.profile_id = ${sql.raw(p)}.id and d.user_id = ${me} and d.undone_at is null)`;
 
     // After a demo booked through the person's link (decision 106): a short reminder the day before, on the business's
-    // calendar, unless the person wrote to them since the day before; and after a no-show lately, another time, until
-    // they book again or write, or the person writes to them or skips it. Anyone owed a reply gets the reply instead.
+    // calendar, unless the person wrote to them since that day began there (however long the clocks make it); and after
+    // a no-show lately, another time, until they book again or write, or the person writes to them or skips it. Anyone
+    // owed a reply gets the reply instead.
     // First of the follow-ups' limit: they're due on the day.
     if (followLeft > 0) {
       const zone = await workspaceTimezone(ctx.tx, ws);
@@ -1280,7 +1281,7 @@ export const today = defineAddonQuery(outreachAddon, {
                     = (${nowAt}::timestamptz at time zone ${zone})::date + 1
                   and not exists (select 1 from addon_outreach.touches t
                     where t.profile_id = p.id and t.user_id = ${me} and t.kind = 'message'
-                      and t.at > a.starts_at - interval '36 hours'))
+                      and t.at >= ((a.starts_at at time zone ${zone})::date - 1)::timestamp at time zone ${zone}))
                 or ((a.status = 'no_show' or aa.status = 'no_show')
                   and a.starts_at between ${ago(TODAY_WINDOW_DAYS.rebook)}::timestamptz and ${nowAt}::timestamptz
                   and not exists (select 1 from addon_outreach.touches t
