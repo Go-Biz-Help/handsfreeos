@@ -4,7 +4,7 @@ This is the marketing site, not the product. The product is `apps/web` at `app.h
 They are deployed as **two separate Vercel projects** so a copy change never rebuilds the app.
 
 - **No database and no API of its own.** What it reads from outside is small and server-side: the founding
-  spot counters (`WORKER_PUBLIC_URL`), the chat button (`NEXT_PUBLIC_CHAT_WIDGET_KEY`) and the blog
+  spot counters (`WORKER_PUBLIC_URL`), the chat button (`chatScript` in `src/content/site.ts`) and the blog
   (`OPINLY_API_KEY`, `OPINLY_WEBHOOK_SIGNING_SECRET`; see "The blog" below). Every page still renders
   without them. If a page needs a secret or a fetch beyond those, stop and reconsider: that probably
   belongs in `apps/web`.
@@ -30,6 +30,9 @@ They are deployed as **two separate Vercel projects** so a copy change never reb
 - **Three pages exist because somebody reviews them**, and their wording is not decoration:
   - `/privacy#google` — the Limited Use paragraph Google's OAuth review reads.
   - `/privacy#messaging` — the opt-in paragraph the carriers and Twilio's A2P review read.
+  - The chat button on every page (`src/components/support-chat.tsx`) is the HandsFreeOS workspace's
+    texting-consent chat, the opt-in the carriers are sent to. Keep it in the root layout, and change
+    `chatScript` only for another widget of that workspace.
   - `/terms` and `/support` — Microsoft's publisher verification and Apple's support URL.
     `docs/operations.md` points reviewers at these; change one and check that guide still matches.
 - **The home page's `<title>`, `<h1>` and share title all start with `HandsFreeOS`**, written
