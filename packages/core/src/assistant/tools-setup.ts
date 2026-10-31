@@ -7,9 +7,9 @@
  * person can, with the same rules, events and audit. Anything that reaches a customer or changes a record waits
  * for the person's OK ("confirm").
  *
- * Left out on purpose: connecting an RCS sender (it is made in the business's own Twilio account, which only they
- * sign in to), and adding a website form or a connected app or replacing its key (each hands back a key, and a
- * key never goes in a chat).
+ * Left out on purpose: asking for an RCS sender (it is paid for on Stripe's page; connecting the one HandsFreeOS makes
+ * is the screen action do_rcs_sender_connect), and adding a website form or a connected app or replacing its key
+ * (each hands back a key, and a key never goes in a chat).
  */
 import { z } from 'zod';
 import { CUSTOM_FIELD_TYPES } from '../crm/custom-fields';
@@ -279,7 +279,7 @@ export const setupTools: readonly AssistantTool[] = [
   define({
     name: 'manage_rcs',
     description:
-      'Change the business’s RCS sender once it is connected: pause it (every text goes as SMS or MMS), turn it back on, choose the number a customer’s first RCS message starts its conversation on, ask Twilio where it stands now, or disconnect it. Connecting one is only on Settings → Texting & calls, since it is made in their own Twilio account. Where it stands is in get_settings (area texting).',
+      'Change the business’s RCS sender once it is connected: pause it (every text goes as SMS or MMS), turn it back on, choose the number a customer’s first RCS message starts its conversation on, ask Twilio where it stands now, or disconnect it. Connecting the sender HandsFreeOS made for the business, by its id, is do_rcs_sender_connect; asking for one is paid on Stripe’s page, which only the person can do. Where it stands is in get_settings (area texting).',
     input: z.object({
       action: z.enum(['pause', 'turn_on', 'start_on_number', 'check_now', 'disconnect']),
       phoneNumberId: uuid

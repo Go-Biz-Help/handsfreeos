@@ -1989,7 +1989,7 @@ const manageRcs: SettingsConfirmTool = {
     const s = status.rcsSender;
     if (!s || s.status === 'failed')
       throw HfosError.notFound(
-        'This business has no RCS sender connected. Connecting one is on Settings → Texting & calls, with the sender made in its own Twilio account.',
+        'This business has no RCS sender connected. Ask for one under RCS messaging in Settings → Texting & calls (it’s paid on Stripe’s page), and HandsFreeOS makes it and connects it.',
       );
     const about = [
       { label: 'Sender', value: s.senderId },
