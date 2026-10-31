@@ -604,6 +604,7 @@ async function accept(item: TodayListItem, businessId: string): Promise<Outcome>
         answer: 'confirm',
         to: { name: opened.name, profile: opened.noted },
         mutualFriends: opened.page.profile!.mutualConnections,
+        auto: true,
       },
       at: now(),
     },

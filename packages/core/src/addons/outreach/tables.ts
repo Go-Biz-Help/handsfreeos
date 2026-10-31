@@ -5,7 +5,7 @@
  * and demos, 20261027001200 for the extension on its own, 20261027001300 for the messages it sends,
  * 20261027001500 for live status: the computers, the day and the feed, and 20261027001600 for Waiting for you: the
  * steps it needs the person for, and the bundled push, 20261027001700 for asking the extension, 20261027002000 for
- * the fits among friends and chats, 20261027002100 for stages, 20261027002200 for checking and joining groups, 20261027002810 for countries, 20261027008400 for partners, 20261027009300 for finding partners by search, 20261027009800 for a code from the person's email, and 20261027014100 for finding people by topic):
+ * the fits among friends and chats, 20261027002100 for stages, 20261027002200 for checking and joining groups, 20261027002810 for countries, 20261027008400 for partners, 20261027009300 for finding partners by search, 20261027009800 for a code from the person's email, 20261027014100 for finding people by topic, and 20261027021500 for counting what the extension does):
  * the Drizzle mirror its server code reads and writes through.
  * Server-only.
  * test/addons/outreach-tables.test.ts holds the mirror to the live columns.
@@ -36,6 +36,7 @@ import type {
   SendKind,
 } from './automation';
 import type { EngagementKind, HelpfulState } from './helpful';
+import type { TallyKind } from './tallies';
 import type { ChatReadState } from './chat-read';
 import type { CheckVerdict, RequestAnswer } from './checks';
 import type {
@@ -851,6 +852,11 @@ export const computers = addonOutreach.table(
     nextAt: ts('next_at'),
     toldAt: ts('told_at'),
     /**
+     * Until when a ticker of the person's is on screen (./tallies.ts, decision 140): meanwhile its line is told every
+     * few seconds. Null, or past, while nobody's watching.
+     */
+    watchedUntil: ts('watched_until'),
+    /**
      * When it first worked on a build that finds people by topic (decision 92, ./ops/live.ts `foundByTopicSince`): the
      * old search pick carries on only with writers warmed up before then.
      */
@@ -1543,6 +1549,32 @@ export const networkStarts = addonOutreach.table(
 );
 
 /**
+ * How many of each thing the extension did on its own, a day at a time (./tallies.ts, decision 140): one row a person,
+ * business day, network and kind, added to as each save arrives. Each person writes only their own; owners and admins
+ * read the team's, which hold no names.
+ */
+export const tallies = addonOutreach.table(
+  'tallies',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    workspaceId: workspaceRef(),
+    userId: uuid('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    day: date('day', { mode: 'string' }).notNull(),
+    platform: text('platform').notNull().$type<Platform>(),
+    kind: text('kind').notNull().$type<TallyKind>(),
+    n: integer('n').notNull().default(0),
+    createdAt: ts('created_at').notNull().defaultNow(),
+    updatedAt: ts('updated_at').notNull().defaultNow(),
+  },
+  (t) => [
+    unique().on(t.workspaceId, t.id),
+    unique().on(t.workspaceId, t.userId, t.day, t.platform, t.kind),
+  ],
+);
+
+/**
  * A birthday or a new job the person's computer read for someone already kept (./occasions.ts, decision 108): on
  * Facebook's Birthdays page or LinkedIn's Catch up, once a day. Each person's own. `onDay` is the business's day it was
  * read for.
@@ -1707,6 +1739,7 @@ export const OUTREACH_TABLES = {
   sends,
   setup,
   stages,
+  tallies,
   threads,
   touches,
   waitingPushes,

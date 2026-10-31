@@ -10,6 +10,7 @@ import { rows } from '@hfos/db/client';
 import { HfosError } from '../../../errors';
 import { requireHuman } from '../../../kernel/actor';
 import { changeMoment } from '../../../kernel/moment';
+import { EXTENSION_CLIENT } from '../../../mobile';
 import { defineAddonCommand, defineAddonQuery } from '../../server';
 import type { GroupCheckState } from '../group-checks';
 import {
@@ -43,6 +44,7 @@ import { outreachAddon } from '../manifest';
 import { engagements, helpful } from '../tables';
 import { automationOf } from './automation';
 import { inWorkspace, keptProfile, notOthers, once, type Ctx } from './common';
+import { tally } from './tallies';
 import { playbooksInUse } from './friends';
 import { groupFitOf } from './group-checks';
 import { NETWORKS, type Platform } from '../networks';
@@ -516,6 +518,9 @@ export const helpfulPosted = defineAddonCommand(outreachAddon, {
       .update(helpful)
       .set({ ...change, updatedAt: at })
       .where(eq(helpful.id, row.id));
+    // Put up by the extension on its own counts (decision 140); one the person posted and noted here doesn't.
+    if (input.posted && ctx.meta.channel === EXTENSION_CLIENT)
+      await tally(ctx, me, row.platform, 'post_up', 1, at);
     // A post up in a group works it (decision 107).
     if (input.posted) await claimGroup(ctx, me, row.groupId, at);
     await ctx.emit({
@@ -586,6 +591,8 @@ export const helpfulEngaged = defineAddonCommand(outreachAddon, {
           .returning({ id: engagements.id });
         if (made) added++;
       }
+      // Each new person who engaged with the post counts (decision 140).
+      await tally(ctx, me, row.platform, 'found', added, at);
       if (added)
         await ctx.emit({
           type: 'outreach.helpful.engaged',
@@ -752,6 +759,8 @@ export const networkEngaged = defineAddonCommand(outreachAddon, {
         );
         if (kept?.added) added++;
       }
+      // Each new person who engaged counts (decision 140).
+      await tally(ctx, me, input.platform, 'found', added, at);
       if (added)
         await ctx.emit({
           type: 'outreach.engaged.saved',

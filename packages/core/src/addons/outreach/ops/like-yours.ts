@@ -38,6 +38,7 @@ import {
 import { outreachAddon } from '../manifest';
 import { likeYours } from '../tables';
 import { inWorkspace } from './common';
+import { tally } from './tallies';
 import { playbooksInUse } from './friends';
 
 const DAY = 86_400_000;
@@ -233,7 +234,7 @@ export const likeYoursFound = defineAddonCommand(outreachAddon, {
   scope: inWorkspace,
   emits: ['outreach.like_yours.found'],
   async handler(ctx, input) {
-    requireHuman(ctx);
+    const me = requireHuman(ctx).userId;
     const ws = ctx.scope.workspaceId!;
     const at = changeMoment(ctx.meta).toISOString();
     // The person's own Instagram, as their profile check read it, is never an account like theirs.
@@ -262,6 +263,8 @@ export const likeYoursFound = defineAddonCommand(outreachAddon, {
       );
       if (row?.added) candidates++;
     }
+    // Each account like theirs found new counts (decision 140).
+    await tally(ctx, me, 'instagram', 'found', candidates);
     const [waiting] = await rows<{ n: number }>(
       ctx.tx,
       sql`select count(*)::int as n from addon_outreach.like_yours
@@ -338,7 +341,7 @@ export const likeYoursRead = defineAddonCommand(outreachAddon, {
   scope: inWorkspace,
   emits: [],
   async handler(ctx, input) {
-    requireHuman(ctx);
+    const me = requireHuman(ctx).userId;
     const [row] = await ctx.tx
       .update(likeYours)
       .set({ readAt: changeMoment(ctx.meta) })
@@ -354,6 +357,8 @@ export const likeYoursRead = defineAddonCommand(outreachAddon, {
       throw HfosError.notFound(
         'That account isn’t on your accounts like yours any more: someone removed it. The next one is read tomorrow.',
       );
+    // An account like yours the computer read counts as a profile looked at (decision 140).
+    await tally(ctx, me, 'instagram', 'profile');
     return { id: row.id };
   },
 });

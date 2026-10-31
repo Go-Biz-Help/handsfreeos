@@ -76,6 +76,7 @@ import {
   once,
   type Ctx,
 } from './common';
+import { tally } from './tallies';
 import { latestDownload, playbooksInUse } from './friends';
 import { findsByTopic } from './live';
 import { startOfToday, warningOf } from './tidy';
@@ -322,6 +323,8 @@ export const findsSave = defineAddonCommand(outreachAddon, {
           room--;
         } else if (kept === 'left') skipped++;
       }
+      // Each new person found counts (decision 140).
+      await tally(ctx, me, input.platform, 'found', added, at);
       if (added)
         await ctx.emit({
           type: 'outreach.finds.saved',

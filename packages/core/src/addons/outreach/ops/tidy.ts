@@ -73,6 +73,7 @@ import {
   requestAnswerColumns,
   type Ctx,
 } from './common';
+import { tally } from './tallies';
 import { warnDay } from './day';
 import { playbooksInUse } from './friends';
 
@@ -475,6 +476,16 @@ export const friendEnd = defineAddonCommand(outreachAddon, {
           kind: input.kind,
           at,
         });
+      // Done by the extension: counted (decision 140); one done already when it got there isn't.
+      if (!input.already)
+        await tally(
+          ctx,
+          me,
+          input.platform,
+          input.kind === 'unfriend' ? 'unfriended' : 'cancelled',
+          1,
+          at,
+        );
       const done = await endsToday(ctx, me, await startOfToday(ctx), input.platform);
       await ctx.emit({
         type: 'outreach.friend.ended',

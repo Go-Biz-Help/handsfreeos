@@ -28,6 +28,7 @@ import { keepGroup } from './activity';
 import { automationOf, limitsFor } from './automation';
 import { myOwnProfile } from './checks';
 import { inWorkspace, keptProfile, notOthers, once } from './common';
+import { tally } from './tallies';
 import { playbooksInUse } from './friends';
 import { groupFitOf } from './group-checks';
 import { workingBuild } from './live';
@@ -134,6 +135,8 @@ export const activeReply = defineAddonCommand(outreachAddon, {
     const at = changeMoment(ctx.meta);
     const todayFrom = (await startOfToday(ctx, at.getTime())).toISOString();
     return once(async () => {
+      // Each post the computer read in the groups counts (decision 140).
+      await tally(ctx, me, input.platform, 'post', input.posts.length, at);
       const [kept] = await rows<{ id: string }>(
         ctx.tx,
         sql`select id from addon_outreach.posts

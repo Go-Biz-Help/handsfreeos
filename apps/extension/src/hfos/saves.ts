@@ -251,6 +251,7 @@ export function friendNote(
       answer: answered.answer,
       ...who,
       mutualFriends: mutual(answered.mutualFriends),
+      auto: answered.auto === true,
     },
   };
 }

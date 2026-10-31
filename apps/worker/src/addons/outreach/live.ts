@@ -15,6 +15,7 @@
 import { ASK_KEEP_DAYS } from '@hfos/core/addons/outreach/asks';
 import { FIND_FRESH_DAYS } from '@hfos/core/addons/outreach/finds';
 import { PLATFORM_KEYS, type Platform } from '@hfos/core/addons/outreach/playbooks';
+import { TALLY_KEEP_DAYS } from '@hfos/core/addons/outreach/tallies';
 import {
   COMPUTER_KEEP_DAYS,
   LIVE_KEEP_DAYS,
@@ -108,7 +109,8 @@ export async function liveChanged(ctx: AddonEventContext): Promise<void> {
  * been found again for `FIND_FRESH_DAYS` (decision 116: past then they're never checked or offered); and computers not
  * seen for `COMPUTER_KEEP_DAYS`, but the one that works for each person (ranked as core's
  * `workingOf`): their lines went with the week already, and an ask one took keeps no computer. Seen again, a computer
- * comes back as new. It comes back tomorrow.
+ * comes back as new. And counts of what the extension did, once `TALLY_KEEP_DAYS` old (decision 140). It comes back
+ * tomorrow.
  */
 export async function livePruneJob(ctx: AddonJobContext): Promise<JobResult> {
   const before = new Date(ctx.now - LIVE_KEEP_DAYS * DAY).toISOString();
@@ -117,6 +119,7 @@ export async function livePruneJob(ctx: AddonJobContext): Promise<JobResult> {
   const cleared = new Date(ctx.now - NEED_QUIET_DAYS * DAY).toISOString();
   const offList = new Date(ctx.now - (NEED_SHOWN_DAYS + NEED_GONE_DAYS) * DAY).toISOString();
   const stale = new Date(ctx.now - FIND_FRESH_DAYS * DAY).toISOString();
+  const tallyBefore = new Date(ctx.now - TALLY_KEEP_DAYS * DAY).toISOString().slice(0, 10);
   await asWorker(ctx.db, ctx.scope, async (tx) => {
     await rows(
       tx,
@@ -127,6 +130,12 @@ export async function livePruneJob(ctx: AddonJobContext): Promise<JobResult> {
       tx,
       sql`delete from addon_outreach.asks
           where workspace_id = ${ctx.scope.workspaceId} and asked_at < ${asked}::timestamptz`,
+    );
+    // Counts over 400 days old (decision 140): this month and the same month last year stay.
+    await rows(
+      tx,
+      sql`delete from addon_outreach.tallies
+          where workspace_id = ${ctx.scope.workspaceId} and day < ${tallyBefore}::date`,
     );
     // A code from their email that wasn't taken in its 10 minutes is no use to anyone.
     await rows(

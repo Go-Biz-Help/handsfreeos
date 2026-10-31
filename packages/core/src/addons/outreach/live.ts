@@ -254,6 +254,11 @@ export const LiveBeatOutput = z.object({
   stepsKept: z.array(z.uuid()),
   /** Asks from HandsFreeOS waiting for this computer (./asks.ts): 0 when it isn't the one that works. */
   asks: z.number().int().min(0),
+  /**
+   * A ticker of the person's is on screen (./tallies.ts, decision 140): while it is, the working computer sends its
+   * line every few seconds (`WATCHED_LINE_SECONDS`). False from a HandsFreeOS before it.
+   */
+  watched: z.boolean().default(false),
 });
 export type LiveBeatOutput = z.output<typeof LiveBeatOutput>;
 

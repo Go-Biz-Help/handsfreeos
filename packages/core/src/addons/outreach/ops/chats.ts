@@ -40,6 +40,7 @@ import { outreachAddon } from '../manifest';
 import { PLATFORMS, type Platform } from '../playbooks';
 import { fileChats, profiles, sends } from '../tables';
 import { inWorkspace, keptProfile, once, sourceFor, tagIdsFor } from './common';
+import { tally } from './tallies';
 import { noteAnswer } from './conversation';
 import { wantLead } from './leads';
 import { noteChatRead } from './stages';
@@ -459,6 +460,9 @@ export const chatsCollect = defineAddonCommand(outreachAddon, {
         saved++;
         if (readState === 'waiting') waiting++;
       }
+      // Each chat read with something new in it counts (decision 140): the watch's look every minute at chats that
+      // haven't moved doesn't.
+      await tally(ctx, me, input.platform, 'chat', saved, now);
       if (saved)
         await ctx.emit({
           type: 'outreach.chats.collected',

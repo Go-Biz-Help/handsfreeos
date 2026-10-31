@@ -758,7 +758,12 @@ async function accept(item: TodayListItem, businessId: string): Promise<Outcome>
   await takeNote(
     {
       type: 'hfos-answered',
-      answered: { answer: 'confirm', to: { name: item.name, profile: want }, mutualFriends: null },
+      answered: {
+        answer: 'confirm',
+        to: { name: item.name, profile: want },
+        mutualFriends: null,
+        auto: true,
+      },
       at: now(),
     },
     PLATFORM,
