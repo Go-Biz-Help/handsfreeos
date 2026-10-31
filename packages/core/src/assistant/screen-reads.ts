@@ -134,6 +134,8 @@ export const NOT_FOR_THE_ASSISTANT: Readonly<Record<string, string>> = {
     'the plan page a new business pays on, before it is set up and has an Assistant',
   'file.fingerprints': 'the upload box telling a file it already has',
   'outreach.lookup': 'what the browser extension reads off a network',
+  'outreach.ticker':
+    'the ticker’s light read of what the person’s computer is doing, which the Assistant reads through outreach_live',
   'form.response_export': 'a spreadsheet download',
   'pm.lease.list': 'an add-on’s, which reaches the Assistant through its own `ai`',
   'platform.me': 'whether the person is HandsFreeOS staff, which the Assistant already knows',
