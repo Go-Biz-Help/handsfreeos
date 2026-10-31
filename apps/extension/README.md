@@ -1159,6 +1159,13 @@ On Friday 30 Oct 2026 nearly every daily goal was missed (docs/outreach.md, deci
 
 Not yet tried on the owner's computer.
 
+### The day the clocks go forward (0.119.1)
+
+Before 0.119.1 a network's next start after its hours counted days as 24 hours (`nextStart` in `src/auto/plan.ts`). The
+Sunday the clocks go forward is 23 hours long, so from 11 PM the Saturday before, the runners slept till Monday's
+hours and skipped that Sunday, while Today and the panel said Sunday. Now the next start is today's while it's ahead,
+else the first later day's by the business's calendar (`startAfterToday`), the same day the words name.
+
 ### Requests you get, answered as the AI says, on every network (0.118.0)
 
 From 0.118.0 (docs/outreach.md, decision 136) HandsFreeOS's AI reads the profile of everyone who sends you a request,
