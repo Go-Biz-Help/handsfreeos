@@ -1016,6 +1016,7 @@ const doneAs = (work: Work): DoneKind =>
 export function alignableWorkLeft(
   list: Pick<TodayList, 'items' | 'auto' | 'messages' | 'sending'> & {
     readonly partners?: readonly TodayListItem[];
+    readonly newMessagesWait?: boolean;
   },
   tried: readonly string[],
   replied: readonly string[] = [],

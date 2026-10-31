@@ -331,6 +331,7 @@ const todayOf = (items: TodayItem[]): TodayOutput => ({
   week: null,
   fresh: { on: false, from: null, until: null, days: 14 },
   fullSpeed: false,
+  newMessagesWait: false,
   requestsHeld: null,
   profileOwn: null,
   goal: null,

@@ -91814,6 +91814,9 @@
                               "minimum": 0,
                               "maximum": 6
                             }
+                          },
+                          "everyDay": {
+                            "type": "boolean"
                           }
                         },
                         "required": [
@@ -92309,6 +92312,9 @@
                                 "minimum": 0,
                                 "maximum": 6
                               }
+                            },
+                            "everyDay": {
+                              "type": "boolean"
                             }
                           },
                           "required": [
@@ -209513,6 +209519,10 @@
                       "default": false,
                       "type": "boolean"
                     },
+                    "newMessagesWait": {
+                      "default": false,
+                      "type": "boolean"
+                    },
                     "requestsHeld": {
                       "default": null,
                       "anyOf": [
@@ -209797,6 +209807,7 @@
                     "week",
                     "fresh",
                     "fullSpeed",
+                    "newMessagesWait",
                     "requestsHeld",
                     "profileOwn",
                     "goal",
@@ -210943,6 +210954,9 @@
                                 "minimum": 0,
                                 "maximum": 6
                               }
+                            },
+                            "everyDay": {
+                              "type": "boolean"
                             }
                           },
                           "required": [
@@ -213331,6 +213345,9 @@
                             "minimum": 0,
                             "maximum": 6
                           }
+                        },
+                        "everyDay": {
+                          "type": "boolean"
                         }
                       },
                       "required": [
@@ -215165,6 +215182,9 @@
                             "minimum": 0,
                             "maximum": 6
                           }
+                        },
+                        "everyDay": {
+                          "type": "boolean"
                         }
                       },
                       "required": [

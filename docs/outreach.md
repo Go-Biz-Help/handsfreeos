@@ -3370,6 +3370,28 @@ where decisions 37 and 59 put the settings; what they decided stands. Settled to
         limits there at once, without the half limits for their first weeks (decision 96) or for training wheels.
         Training wheels still make every message wait for an OK, and a warning from the network still halves the limits
         for a week. Off to start; the owner turns it on per network.
+      - **LinkedIn's short links followed** (`postUrlOfShort` in `src/jobs/linkedin/short-links.ts`, `withLinks` in
+        `jobs/linkedin/posts.ts`). Copy link to post now gives `https://lnkd.in/p/<code>`. The extension's background
+        follows it (no cookies) to the post's own address; one that leads nowhere is dropped and said on the job.
+        The extension asks for `https://lnkd.in/*` for this.
+      - **Facebook group posts' links filled in** (`pointAtTimes` in `networks/facebook/browse.ts`, `readPointed` in
+        `jobs/posts.ts`). A group feed's time links say only `?…` until the mouse goes over them; the runner points at
+        each visible one, waits `POINT_MS`, then reads the feed. Owner's check of 31 Oct 2026.
+139.  **Every day, with new messages on working days only** (Chris, 31 Oct 2026, "it can still do everything all week
+      everyday of the week but the days it's limited sending new messages are the days i put in the settings which are
+      currently m-f", answered "1a 2a 3a"; extension **0.119.0**, with decision 138). No migration.
+      - **Keep working on other days** (`WorkingHours.everyDay`, `worksEveryDay`, `workHours` in `automation.ts`), a
+        switch under Working hours, on the web and the phone, on to start (a setting saved before has none, which counts
+        as on). On, each network works every day in the same start and end hours: `workHours` gives all seven days to
+        `workWindow`, `nextInHours`, `networkDay`, `nextStart` and the waiting words. Off, it's the ticked days only, as
+        before.
+      - **New messages wait for a ticked day** (`WORK_DAY_KINDS`, `newMessagesWait` in `automation.ts`): first
+        messages, Reconnect, follow-ups, check-ins and partner asks and their follow-ups. Today says so on a day off
+        (`newMessagesWait`, `W.newMessagesWait`) and `workLeft` in `src/auto/plan.ts` leaves those drafts and sends for
+        the next ticked day. Likes, friend requests, comments, confirming requests and replies go on. So do the pitch or
+        video after a yes, demo reminders and rebooking (the conversation is already going), and birthday and new job
+        notes (they belong to their day).
+      - **The daily first-message goal still counts ticked days only** (`readiness.ts` reads `hours.days`).
 
 ## Rules worth knowing before changing anything
 

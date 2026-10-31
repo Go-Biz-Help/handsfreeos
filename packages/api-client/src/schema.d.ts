@@ -40436,6 +40436,7 @@ export interface operations {
                         hours: {
                             days: number[];
                             end: number;
+                            everyDay?: boolean;
                             start: number;
                         };
                         /** @default true */
@@ -40828,6 +40829,7 @@ export interface operations {
                             hours: {
                                 days: number[];
                                 end: number;
+                                everyDay?: boolean;
                                 start: number;
                             };
                             /** @default true */
@@ -75668,6 +75670,7 @@ export interface operations {
                             hours: {
                                 days: number[];
                                 end: number;
+                                everyDay?: boolean;
                                 start: number;
                             };
                             /** @default true */
@@ -77408,6 +77411,7 @@ export interface operations {
                         hours?: {
                             days: number[];
                             end: number;
+                            everyDay?: boolean;
                             start: number;
                         };
                         limits: {
@@ -79431,6 +79435,8 @@ export interface operations {
                             };
                         };
                         messages: ("opener" | "reconnect" | "pitch" | "video" | "follow_up" | "check_in" | "reply" | "demo_reminder" | "rebook" | "birthday" | "new_job" | "partner_ask" | "partner_follow_up" | "partner_details" | "partner_reply" | "comment" | "group_reply")[];
+                        /** @default false */
+                        newMessagesWait: boolean;
                         /** @default [] */
                         partners: {
                             asking: boolean;
@@ -79658,6 +79664,7 @@ export interface operations {
                         hours: {
                             days: number[];
                             end: number;
+                            everyDay?: boolean;
                             start: number;
                         };
                         items: ({

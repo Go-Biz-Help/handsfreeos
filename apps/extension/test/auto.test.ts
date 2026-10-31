@@ -255,6 +255,55 @@ describe('what it does next', () => {
     ]);
   });
 
+  it('holds what starts or nudges a conversation on a day that isn’t theirs, and does the rest (decision 139)', () => {
+    const one = (kind: TodayListItem['kind'], name: string, n: number) =>
+      item({
+        kind,
+        name,
+        profileId: `${n}d6f5c4d-3e2a-4b1c-8d9e-0f1a2b3c4d5e`,
+        profileUrl: `${FB}/p.${n}`,
+      });
+    const list: Parameters<typeof workLeft>[0] = {
+      items: [
+        one('reply', 'answer', 1),
+        one('friend_request', 'request', 2),
+        one('opener', 'first', 3),
+        one('follow_up', 'nudge', 4),
+        one('pitch', 'link', 5),
+      ],
+      auto: ['confirm', 'warm_up', 'friend_request', 'comment'],
+      messages: ['reply', 'opener', 'follow_up', 'pitch'],
+      sending: 'steps',
+    };
+    const names = (work: ReturnType<typeof workLeft>) => work.map((w) => w.item.name);
+    expect(names(workLeft(list, []))).toEqual(['answer', 'request', 'first', 'nudge', 'link']);
+    expect(names(workLeft({ ...list, newMessagesWait: true }, []))).toEqual([
+      'answer',
+      'request',
+      'link',
+    ]);
+  });
+
+  it('starts on its own on a day off too, unless the person turned that off (decision 139)', () => {
+    const weekdays = { start: 10, end: 18, days: [1, 2, 3, 4, 5] };
+    const saturday = { date: '2026-10-31', state: 'none', why: null } as const;
+    const at = (hours: typeof weekdays & { everyDay?: boolean }) =>
+      networkDay({
+        day: saturday,
+        today: '2026-10-31',
+        hours,
+        timeZone: 'America/Chicago',
+        now: Date.UTC(2026, 9, 31, 17),
+        random: 0,
+      });
+    expect(at(weekdays)).toEqual({ go: true, started: false, until: Date.UTC(2026, 9, 31, 23) });
+    expect(at({ ...weekdays, everyDay: false })).toEqual({
+      go: false,
+      stopped: null,
+      next: Date.UTC(2026, 10, 2, 16),
+    });
+  });
+
   it('drafts the day’s reply in a group only with its post, and sends it once OK’d (decision 114)', () => {
     const question = item({
       kind: 'group_reply',
@@ -310,9 +359,13 @@ describe('what it does next', () => {
 
   it('starts in the next working hours, on the business’s clock, a little after the hour', () => {
     const hours = { start: 9, end: 17, days: [1, 2, 3, 4, 5] };
-    // Friday 9 October 2026, 6 PM in Chicago: Monday at 9 AM there, 14:00 UTC.
+    // Friday 9 October 2026, 6 PM in Chicago: Saturday at 9 AM there, 14:00 UTC, as it works every day (decision 139);
+    // Monday for someone who turned that off.
     const friday = Date.UTC(2026, 9, 9, 23);
-    expect(nextStart(hours, 'America/Chicago', friday, 0)).toBe(Date.UTC(2026, 9, 12, 14));
+    expect(nextStart(hours, 'America/Chicago', friday, 0)).toBe(Date.UTC(2026, 9, 10, 14));
+    expect(nextStart({ ...hours, everyDay: false }, 'America/Chicago', friday, 0)).toBe(
+      Date.UTC(2026, 9, 12, 14),
+    );
     // Before the hours on a working day: the same day.
     const early = Date.UTC(2026, 9, 8, 12);
     const at = nextStart(hours, 'America/Chicago', early, 1)!;
@@ -359,9 +412,19 @@ describe('what it does next', () => {
     expect(
       networkWaitWords('Instagram', { stopped: null }, hours, zone, Date.UTC(2026, 9, 29)),
     ).toBe(`Starts on its own on Instagram tomorrow at 10:00 AM. ${press('Instagram')}`);
-    // Friday at 7 PM: Monday's, once the clocks have gone back.
+    // Friday at 7 PM: Saturday's, as it works every day (decision 139); Monday's, once the clocks have gone back, for
+    // someone who turned that off.
     expect(
       networkWaitWords('Alignable', { stopped: null }, hours, zone, Date.UTC(2026, 9, 31)),
+    ).toBe(`Starts on its own on Alignable tomorrow at 10:00 AM. ${press('Alignable')}`);
+    expect(
+      networkWaitWords(
+        'Alignable',
+        { stopped: null },
+        { ...hours, everyDay: false },
+        zone,
+        Date.UTC(2026, 9, 31),
+      ),
     ).toBe(`Starts on its own on Alignable on Mon, Nov 2 at 10:00 AM. ${press('Alignable')}`);
     expect(networkWaitWords('LinkedIn', { stopped: 'person' }, hours, zone, noon)).toBe(
       'Stopped on LinkedIn for today. It starts again on its own tomorrow at 10:00 AM.',

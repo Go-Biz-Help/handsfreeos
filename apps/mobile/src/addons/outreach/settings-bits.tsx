@@ -12,6 +12,7 @@ import {
   WEEKDAY_WORDS,
   WHEELS_START_WORDS,
   wheelsMatter,
+  worksEveryDay,
   type AutomationSettings,
   type NetworkChoices,
   type PostingMode,
@@ -608,6 +609,14 @@ export function WhenPart({
             );
           })}
         </View>
+        <Tick
+          label={W.everyDay[0]}
+          about={W.everyDay[1]}
+          checked={worksEveryDay(hours)}
+          onChange={(everyDay) => setHours({ everyDay }, false)}
+          disabled={disabled}
+          testID={`${testID}-every-day`}
+        />
       </View>
     </Section>
   );

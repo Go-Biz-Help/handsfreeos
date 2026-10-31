@@ -17,6 +17,8 @@ import {
   nextInHours,
   startAfterToday,
   underAPost,
+  waitsForWorkDay,
+  workHours,
   workWindow,
   type WorkingHours,
 } from '@hfos/core/addons/outreach/automation';
@@ -532,6 +534,7 @@ export function inTurns(
 export function workLeft(
   list: Pick<TodayList, 'items' | 'auto' | 'messages' | 'sending'> & {
     readonly partners?: readonly TodayListItem[];
+    readonly newMessagesWait?: boolean;
   },
   tried: readonly string[],
   replied: readonly string[] = [],
@@ -547,10 +550,11 @@ export function workLeft(
         .filter((item) => item.kind === 'partner_warm_up' && item.profileUrl !== null)
         .map((item) => ({ do: 'step', item }) as const)
     : [];
+  // Not one of the person's working days: what starts or nudges a conversation waits for one (decision 139).
   const messages = [
     ...messagesOn(list.items, list.messages),
     ...messagesOn(partners, list.messages),
-  ];
+  ].filter((item) => !(list.newMessagesWait && waitsForWorkDay(item.kind)));
   const sends = messages
     .filter((item) => item.send?.state === 'approved')
     .map((item) => ({ do: 'send', item }) as const);
@@ -597,7 +601,10 @@ export function gapAfter(input: {
   return Math.round(Math.min(most, Math.max(least, even * (0.5 + input.random))));
 }
 
-/** When the working hours next start after `now`, within a week; a little after the hour, at random. */
+/**
+ * When the working hours next start after `now`, within a week, every day while the person keeps working on other days
+ * (decision 139); a little after the hour, at random.
+ */
 export function nextStart(
   hours: WorkingHours,
   timeZone: string,
@@ -605,7 +612,7 @@ export function nextStart(
   random: number,
 ): number | null {
   for (let days = 0; days <= 7; days++) {
-    const window = workWindow(hours, timeZone, now + days * DAY);
+    const window = workWindow(workHours(hours), timeZone, now + days * DAY);
     if (window && window.from > now) return window.from + Math.round(random * START_JITTER_MS);
   }
   return null;
@@ -637,7 +644,7 @@ export function networkDay(input: {
   const next = () => nextStart(input.hours, input.timeZone, input.now, input.random);
   if (pressed?.state === 'stopped') {
     // Held for the rest of the business's day, whatever its hours: it starts again on a later one.
-    const again = startAfterToday(input.hours, input.timeZone, input.today);
+    const again = startAfterToday(workHours(input.hours), input.timeZone, input.today);
     const jitter = Math.round(input.random * START_JITTER_MS);
     return {
       go: false,
@@ -646,7 +653,7 @@ export function networkDay(input: {
     };
   }
   if (pressed?.state === 'started') return { go: true, started: true, until: null };
-  const window = workWindow(input.hours, input.timeZone, input.now);
+  const window = workWindow(workHours(input.hours), input.timeZone, input.now);
   if (window && input.now >= window.from && input.now < window.to)
     return { go: true, started: false, until: window.to };
   return { go: false, stopped: null, next: next() };
@@ -664,8 +671,8 @@ export function networkWaitWords(
   now: number,
 ): string {
   const at = wait.stopped
-    ? startAfterToday(hours, timeZone, businessDay(now, timeZone))
-    : nextInHours(hours, timeZone, now);
+    ? startAfterToday(workHours(hours), timeZone, businessDay(now, timeZone))
+    : nextInHours(workHours(hours), timeZone, now);
   const when = at !== null && at > now ? startWords(at, timeZone, now) : null;
   if (wait.stopped)
     return when

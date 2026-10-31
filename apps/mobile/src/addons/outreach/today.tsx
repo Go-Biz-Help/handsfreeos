@@ -337,6 +337,9 @@ export function TodayBody({
       ) : null}
       {/* None from a server before decisions 96 and 97. */}
       {list.fresh?.on ? <Note testID="today-fresh">{freshWords(list.fresh, platform)}</Note> : null}
+      {list.newMessagesWait ? (
+        <Note testID="today-new-messages-wait">{W.newMessagesWait}</Note>
+      ) : null}
       {list.requestsHeld ? (
         <View
           className="gap-2 rounded-menu bg-warning-soft px-3 py-2.5"

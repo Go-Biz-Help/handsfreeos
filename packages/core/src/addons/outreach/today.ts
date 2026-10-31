@@ -385,6 +385,11 @@ export const TodayOutput = z.object({
   fresh: FreshState.default(NOT_FRESH),
   /** They picked Full speed on this network (decision 138): no half limits for training wheels or while new there. */
   fullSpeed: z.boolean().default(false),
+  /**
+   * Not one of the person's working days, while they keep working on other days (decision 139): the extension does the
+   * rest, and new messages (`WORK_DAY_KINDS`) wait for their next working day.
+   */
+  newMessagesWait: z.boolean().default(false),
   /** Why no new friend requests are listed (decision 97): null while they are. */
   requestsHeld: RequestsHeld.nullable().default(null),
   /**

@@ -198,11 +198,20 @@ export const WorkingHours = z
     /** The hour it starts, and the hour it stops, on the business's clock. */
     start: z.number().int().min(0).max(23),
     end: z.number().int().min(1).max(24),
-    /** The days it works, 0 being Sunday; kept each once, in order (`dayList`). */
+    /**
+     * The days it works, 0 being Sunday; kept each once, in order (`dayList`). With `everyDay`, the days new messages go
+     * (decision 139): everything else goes every day.
+     */
     days: z
       .array(z.number().int().min(0).max(6))
       .min(1, { error: 'Pick at least one day.' })
       .max(7),
+    /**
+     * Keep working on other days (decision 139): likes, friend requests, comments and replies go every day in these
+     * hours, and only new messages (`WORK_DAY_KINDS`) wait for `days`. On to start: hours kept before it, without it,
+     * keep working too (`worksEveryDay`).
+     */
+    everyDay: z.boolean().optional(),
   })
   .refine((h) => h.end - h.start >= 1, {
     error: 'Make the working hours at least an hour long, ending after they start.',
@@ -856,6 +865,42 @@ export const WARM_UP_WINDOW_DAYS = 14;
 export const dayList = (days: readonly number[]) => [...new Set(days)].sort((a, b) => a - b);
 
 const clock = (hour: number) => `${String(hour).padStart(2, '0')}:00`;
+
+/** Every day of the week, Sunday first. */
+export const ALL_WEEK = [0, 1, 2, 3, 4, 5, 6] as const;
+
+/**
+ * The hours the extension works in on its own (decision 139): the person's, every day of the week while they keep
+ * working on other days; else only on their days. New messages still go only on their days (`newMessagesWait`).
+ */
+export const workHours = (hours: WorkingHours): WorkingHours =>
+  worksEveryDay(hours) ? { ...hours, days: [...ALL_WEEK] } : hours;
+
+/** Whether the person keeps working on other days (decision 139): unless they turned it off. */
+export const worksEveryDay = (hours: Pick<WorkingHours, 'everyDay'>): boolean =>
+  hours.everyDay !== false;
+
+/**
+ * The messages that start or nudge a conversation, which go only on the person's working days while everything else
+ * goes every day (decision 139, the owner's "1a 2a 3a" of 31 Oct 2026): first messages, Reconnect, follow-ups and
+ * check-ins, and asks and follow-ups about partnering. What answers someone (a reply, the link or video after a yes, a
+ * demo's reminder, another time, the partner details) goes any day, and so does a birthday or new-job note, which
+ * belongs to its day.
+ */
+export const WORK_DAY_KINDS = [
+  'opener',
+  'reconnect',
+  'follow_up',
+  'check_in',
+  'partner_ask',
+  'partner_follow_up',
+] as const satisfies readonly MessageKind[];
+export const waitsForWorkDay = (kind: string): boolean =>
+  (WORK_DAY_KINDS as readonly string[]).includes(kind);
+
+/** Whether new messages wait today: the extension works today, but it isn't one of the person's days (decision 139). */
+export const newMessagesWait = (hours: WorkingHours, timeZone: string, now: number): boolean =>
+  worksEveryDay(hours) && !hours.days.includes(zonedParts(now, timeZone).weekday);
 
 /** Today's working window in the business's time zone, as instants: null on a day off. */
 export function workWindow(
