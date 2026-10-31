@@ -44,6 +44,11 @@ export const FriendNoteInput = z.object({
   profile: ProfileRef,
   name: PersonName,
   mutualFriends,
+  /**
+   * Answered by the extension on its own (decision 136), not pressed by the person: it's counted (decision 140). False
+   * from a build before 0.120.0.
+   */
+  auto: z.boolean().default(false),
 });
 export type FriendNoteInput = z.input<typeof FriendNoteInput>;
 

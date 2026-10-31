@@ -7977,6 +7977,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/commands/outreach.live.watch": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * A ticker of the person’s is on screen: for the next minute and a half their computer tells what it’s doing every few seconds, instead of every 20.
+         * @description Risk level 0. Requires outreach.use. Emits outreach.live.watched.
+         */
+        post: operations["command_outreach_live_watch"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/commands/outreach.messages.edit": {
         parameters: {
             query?: never;
@@ -19577,6 +19597,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/queries/outreach.counts": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * How many of each thing the person’s browser extension did on its own today, this week (from Monday) or this month (from the 1st), on each social network: friend requests, likes, comments and messages sent, profiles, posts and chats looked at, new people found, groups looked at and joined, old requests cancelled, messages drafted and more. Counting started the day it went live. Owners and admins can see the whole team’s, all together and person by person.
+         * @description Requires outreach.use.
+         */
+        post: operations["query_outreach_counts"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/queries/outreach.events.next": {
         parameters: {
             query?: never;
@@ -20291,6 +20331,26 @@ export interface paths {
          * @description Requires outreach.use.
          */
         post: operations["query_outreach_stages"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/queries/outreach.ticker": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * What the ticker along the bottom of Social Outreach shows: what the person’s computer that works says it’s doing now, and today’s newest steps.
+         * @description Requires outreach.use.
+         */
+        post: operations["query_outreach_ticker"];
         delete?: never;
         options?: never;
         head?: never;
@@ -42072,6 +42132,8 @@ export interface operations {
                 "application/json": {
                     /** @enum {string} */
                     answer: "confirm" | "delete";
+                    /** @default false */
+                    auto?: boolean;
                     /** @default null */
                     mutualFriends?: number | null;
                     name: string;
@@ -42993,8 +43055,40 @@ export interface operations {
                         };
                         name: string;
                         stepsKept: string[];
+                        /** @default false */
+                        watched: boolean;
                         working: boolean;
                         workingName: string | null;
+                    };
+                };
+            };
+        };
+    };
+    command_outreach_live_watch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: date-time */
+                        until: string;
                     };
                 };
             };
@@ -76249,6 +76343,67 @@ export interface operations {
             };
         };
     };
+    query_outreach_counts: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** @default false */
+                    everyone?: boolean;
+                    /**
+                     * @default today
+                     * @enum {string}
+                     */
+                    period?: "today" | "week" | "month";
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        counts: {
+                            /** @enum {string} */
+                            kind: "friend_request" | "like" | "comment" | "message" | "recommend" | "accepted" | "post_up" | "profile" | "post" | "chat" | "found" | "listed" | "occasion" | "event" | "group" | "joined" | "member" | "group_listed" | "cancelled" | "unfriended" | "declined" | "drafted";
+                            n: number;
+                            /** @enum {string} */
+                            platform: "facebook" | "linkedin" | "instagram" | "alignable";
+                        }[];
+                        everyone: boolean;
+                        from: string;
+                        people: {
+                            counts: {
+                                /** @enum {string} */
+                                kind: "friend_request" | "like" | "comment" | "message" | "recommend" | "accepted" | "post_up" | "profile" | "post" | "chat" | "found" | "listed" | "occasion" | "event" | "group" | "joined" | "member" | "group_listed" | "cancelled" | "unfriended" | "declined" | "drafted";
+                                n: number;
+                                /** @enum {string} */
+                                platform: "facebook" | "linkedin" | "instagram" | "alignable";
+                            }[];
+                            name: string;
+                            /** Format: uuid */
+                            userId: string;
+                        }[] | null;
+                        /** @enum {string} */
+                        period: "today" | "week" | "month";
+                        since: string | null;
+                        timezone: string;
+                        to: string;
+                    };
+                };
+            };
+        };
+    };
     query_outreach_events_next: {
         parameters: {
             query?: never;
@@ -79311,6 +79466,66 @@ export interface operations {
                             why: string[];
                         }[];
                         total: number;
+                    };
+                };
+            };
+        };
+    };
+    query_outreach_ticker: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        computer: {
+                            activeAt: string | null;
+                            allowed?: ("facebook" | "linkedin" | "instagram" | "alignable")[] | null;
+                            /** Format: uuid */
+                            id: string;
+                            /** Format: date-time */
+                            lastSeenAt: string;
+                            name: string;
+                            /** @enum {string} */
+                            state: "working" | "waiting" | "idle" | "stopped" | "off" | "standby" | "trouble" | "signed_out";
+                            version: string | null;
+                            working: boolean;
+                        } | null;
+                        /** Format: date-time */
+                        now: string;
+                        status: {
+                            /** @default null */
+                            doing: ("friends" | "requests" | "sent" | "groups" | "group_checks" | "tidy" | "checks") | null;
+                            line: string | null;
+                            lineAt: string | null;
+                            nextAt: string | null;
+                            /** @enum {string} */
+                            state: "working" | "waiting" | "idle" | "stopped" | "off" | "standby" | "trouble" | "signed_out";
+                        } | null;
+                        steps: {
+                            /** Format: date-time */
+                            at: string;
+                            /** @enum {string} */
+                            kind: "done" | "passed" | "job" | "stopped" | "day";
+                            line: string;
+                        }[];
+                        timezone: string;
                     };
                 };
             };

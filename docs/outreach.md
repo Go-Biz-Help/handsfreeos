@@ -28,7 +28,8 @@ with the day's report and the week's review), finding people by topic on Instagr
 requests while 200 wait or near the cap (decisions 96 and 97), tidying up on its own on every network (decision
 98, extension 0.97.0), every part of the profile put in for the person, with a read on its own on the 1st of each
 month (decision 99, extension 0.98.0), and Later on a person, a push when a request is accepted, and LinkedIn's
-comments waiting for an OK at first (decisions 100 to 102, extension 0.99.0).
+comments waiting for an OK at first (decisions 100 to 102, extension 0.99.0), and everything it does counted at the top of Today with a ticker of what it's doing now along
+the bottom of every page (decision 140, extension 0.120.0).
 
 The parts below name the tabs they were built on. Since decision 127 those are pages of their own, which pop out from
 Social Outreach's one row in the side menu, in this order: **Set up** (decision 129: how far the setup has come and
@@ -3392,6 +3393,46 @@ where decisions 37 and 59 put the settings; what they decided stands. Settled to
         video after a yes, demo reminders and rebooking (the conversation is already going), and birthday and new job
         notes (they belong to their day).
       - **The daily first-message goal still counts ticked days only** (`readiness.ts` reads `hours.days`).
+140.  **Everything it does, counted, and a ticker of what it's doing now** (Chris, 31 Oct 2026: "we should have a
+      counter of all the activities it's done that day, week, month. showing each platform and all together… also a
+      live activity feed that shows what it's doing that very second kind of like a ticker you see at the bottom of a
+      tv screen", answered "all of your picks"; extension **0.120.0**, migration `20261027021500_outreach_tallies`).
+      The picks:
+      - **Everything, in groups** (`TALLY_GROUPS`, `TALLY_KINDS` and `tallyLabel` in `tallies.ts`): Reached out
+        (requests, likes, comments, messages, recommendations, requests accepted, posts put up), Looked at (profiles,
+        posts, chats, new people found, people read from the person's lists, birthdays and news, events), Groups
+        (looked at, joined, members read, the person's groups read), Tidied up (old requests cancelled, friends removed,
+        requests turned down) and Written by the AI (messages and comments drafted). Each group opens to its lines, in
+        each network's own words. Requests, likes, comments, messages, profiles and posts show even at 0.
+      - **Only what it does on its own.** Each save that says the extension did something adds to the person's count
+        for the business's day, network and kind (`tally` in `ops/tallies.ts`), in the save's own transaction, so a
+        refused save counts nothing and older builds count too. What the person did themselves isn't counted:
+        `outreach.touch.save` and `outreach.friend.note` count only with `auto` (the extension's confirms, tidying and
+        answers say so from 0.120.0), and a helpful post only when the extension put it up. A message counts once, when
+        its touch is saved, never again at `outreach.send.done`.
+      - **Today, this week from Monday, this month from the 1st** (`countPeriodStart`), on the business's calendar.
+      - **At the top of Today**, on the web and the phone (`counters.tsx` in each), with Today, This week and This
+        month, All networks and a tab for each network worked or counted, going up live: the web asks again each time
+        the person's computer says something and every minute; the phone every 5 seconds while Today is open
+        (`TICKER_ASK_SECONDS`).
+      - **The ticker along the bottom of every Social Outreach page** (`ticker.tsx` on the web; the route's layout on
+        the phone): a Live dot, what the computer is doing now, then today's newest 12 steps going past like a TV's news
+        line (`tickerOf`, `outreach.ticker`, a lighter read than `outreach.live`). It holds still while pointed at,
+        focused or tapped, has Pause, and stands still for reduced motion, where the steps scroll by hand. The setup's
+        own full-screen steps don't have it.
+      - **About 5 seconds while a ticker is on screen, about a minute otherwise.** A ticker says so every minute
+        (`outreach.live.watch`, `computers.watched_until` for 90 seconds). Meanwhile each beat's answer says `watched`
+        and the extension sends a line alone every 4 seconds (`WATCHED_LINE_SECONDS`) instead of every 20, and the
+        server passes it on as often instead of every 45. The first watch tells the extension at once
+        (`outreach.live.watched`), so it speeds up without waiting for its minute's beat. A line alone told for a
+        ticker goes out as `outreach_line`, not `outreach_computer`, so Set up isn't drawn again every few seconds and
+        the person's other computers don't beat for it.
+      - **Owners and admins see the team's**, all together and person by person (`everyone`, refused to anyone else
+        with `outreach_counts_everyone`); counts hold no names, so the database lets managers read everyone's rows and
+        each person write only their own. Each person's ticker shows only their own computer.
+      - **From zero on the day it goes live**: nothing is worked out from before. A stretch that began earlier says
+        "Counted since Oct 31." (`countedSinceWords`). Counts are kept 400 days (`TALLY_KEEP_DAYS`, the worker's
+        nightly prune).
 
 ## Rules worth knowing before changing anything
 

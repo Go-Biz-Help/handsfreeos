@@ -31,6 +31,7 @@ import { choicesFor } from '../automation';
 import { automationOf } from './automation';
 import { EVER, keepGroup, reachedPeople, resultsByGroup } from './activity';
 import { inWorkspace, keptProfile, once } from './common';
+import { tally } from './tallies';
 import { playbooksInUse } from './friends';
 import { groupFitOf, peopleLeft, prospectsOf } from './group-checks';
 
@@ -85,6 +86,8 @@ export const groupsSave = defineAddonCommand(outreachAddon, {
     const me = requireHuman(ctx).userId;
     const at = changeMoment(ctx.meta);
     return once(async () => {
+      // Each group read off the page counts (decision 140).
+      await tally(ctx, me, input.platform, 'group_listed', input.groups.length, at);
       for (const g of input.groups) await keepFacts(ctx, input.platform, me, g, at);
       await ctx.emit({
         type: 'outreach.groups.saved',
@@ -112,6 +115,8 @@ export const groupSave = defineAddonCommand(outreachAddon, {
     const ws = ctx.scope.workspaceId!;
     const at = changeMoment(ctx.meta);
     return once(async () => {
+      // Each member read off the group's people counts (decision 140).
+      await tally(ctx, me, input.platform, 'member', input.people.length, at);
       const groupId = await keepFacts(ctx, input.platform, me, input, at);
       let runs = 0;
       for (const p of input.people) {

@@ -37,6 +37,7 @@ import { api, unwrap } from '@/lib/api';
 import { cn } from '@/lib/utils';
 
 import { AskButton, useAskActions, useAsks } from './asks';
+import { OutreachCounters } from './counters';
 import { OutreachFrame } from './frame';
 import {
   isSetUp,
@@ -137,6 +138,8 @@ export function TodayHub({ net: start = null }: { net?: Platform | null } = {}) 
       : 0);
   return (
     <OutreachFrame page="today" testID="outreach-hub">
+      {/* Everything it did on its own, today, this week and this month, going up as it works (decision 140). */}
+      <OutreachCounters working={nets} />
       {isSetUp(setup.data) ? null : (
         <Card className="px-4 py-3.5" testID="outreach-set-up-on-computer">
           <Note>{SETUP_WORDS.onPhone}</Note>

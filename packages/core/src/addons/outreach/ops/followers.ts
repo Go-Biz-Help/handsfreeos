@@ -19,6 +19,7 @@ import {
 import { outreachAddon } from '../manifest';
 import { followerReads } from '../tables';
 import { inWorkspace, keptProfile, once } from './common';
+import { tally } from './tallies';
 import { startOfToday } from './tidy';
 
 const DAY = 86_400_000;
@@ -111,6 +112,8 @@ export const followersSave = defineAddonCommand(outreachAddon, {
             set: { readAt: at, updatedAt: at },
           });
       }
+      // Each follower read off the list counts (decision 140).
+      await tally(ctx, me, input.platform, 'listed', list.length, at);
       return { saved: list.length, added: added?.n ?? 0, readAt };
     });
   },

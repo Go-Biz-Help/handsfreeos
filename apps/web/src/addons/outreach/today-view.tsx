@@ -109,6 +109,7 @@ import { Drafted } from './drafted';
 import { HelpfulCard } from './helpful-card';
 import { PersonName } from './person-menu';
 import { GoalNote, goalNoteOn } from './goal-note';
+import { OutreachCounters } from './counters';
 import { TeamCard } from './live-view';
 import { StatusStrip, type NetworkLive } from './status-strip';
 import type {
@@ -241,6 +242,12 @@ export function TodayView({
   );
   return (
     <div data-testid="outreach-today">
+      {/* Everything it did on its own, today, this week and this month, going up as it works (decision 140). */}
+      <OutreachCounters
+        workspaceId={workspaceId}
+        working={networks.map((n) => n.platform)}
+        canManage={canManage}
+      />
       {headsUp ? (
         <Card className="mb-4 p-4" data-testid="today-heads-up">
           <h2 className="text-[15px] font-semibold">{W.headsUp}</h2>

@@ -369,7 +369,7 @@ async function onProfile(item: TodayListItem, job: AutoJob, businessId: string):
   if (job === 'confirm') {
     await takeNote({
       type: 'hfos-answered',
-      answered: { answer: 'confirm', to, mutualFriends: page.profile.mutualFriends },
+      answered: { answer: 'confirm', to, mutualFriends: page.profile.mutualFriends, auto: true },
       at: now(),
     });
     return { done: true, line: `Confirmed ${item.name}’s friend request` };

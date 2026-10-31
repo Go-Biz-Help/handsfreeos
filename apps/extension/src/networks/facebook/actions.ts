@@ -534,6 +534,8 @@ export interface Answered {
   readonly to: Reached;
   /** As the card said: "12 mutual friends". */
   readonly mutualFriends: number | null;
+  /** Answered by the runner on its own (decision 136), not pressed by the person: HandsFreeOS counts it (decision 140). */
+  readonly auto?: boolean;
 }
 
 /** A request's two buttons in the menu a profile's Respond opens: only these words, since other menus say "Delete". */

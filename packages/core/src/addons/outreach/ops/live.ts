@@ -52,6 +52,7 @@ import { isLooking, networkLimitsNow } from '../networks';
 import type { Platform } from '../playbooks';
 import { foundByTopicOn } from '../profile-parts';
 import { notReadyWords } from '../readiness';
+import { WATCHED_LINE_SECONDS } from '../tallies';
 import { computers, days, liveSteps } from '../tables';
 import { todayLimits } from '../today';
 import { automationOf, everyoneAutomation } from './automation';
@@ -147,7 +148,7 @@ export async function foundByTopicSince(
   return since?.at ? new Date(since.at) : null;
 }
 
-const shown = (c: Computer, working: Computer | null): ComputerShown => ({
+export const shown = (c: Computer, working: Computer | null): ComputerShown => ({
   id: c.id,
   name: c.name,
   lastSeenAt: c.lastSeenAt.toISOString(),
@@ -262,19 +263,25 @@ export const liveBeat = defineAddonCommand(outreachAddon, {
           .returning({ id: liveSteps.id })
       : [];
 
+    // A ticker of the person's on screen (decision 140): the line is passed on every few seconds while it shows.
+    const watched = row.watchedUntil !== null && row.watchedUntil.getTime() > now.getTime();
     // A heartbeat tells nobody. A new computer, a different one working, a new state or step, one back online, or a
     // new line (at most every so often) tells the app and the person's other computers once.
     const toldLately =
       row.toldAt !== null &&
       now.getTime() - row.toldAt.getTime() <
-        (doing ? PRE_DAY_LINE_SECONDS : LINE_TELL_SECONDS) * 1000;
-    const tell =
+        (doing ? PRE_DAY_LINE_SECONDS : watched ? WATCHED_LINE_SECONDS : LINE_TELL_SECONDS) * 1000;
+    const more =
       isNew ||
       replaced !== null ||
       workingBefore?.id !== working?.id ||
       inserted.length > 0 ||
-      (isWorking && (stateChanged || doingChanged || wasOffline || (lineChanged && !toldLately))) ||
+      (isWorking && (stateChanged || doingChanged || wasOffline)) ||
       (!isWorking && stateChanged);
+    const tell = more || (isWorking && lineChanged && !toldLately);
+    // A line alone, told every few seconds for a ticker, goes out as the line's own: the ticker hears it, and pages
+    // that follow the computer for more than its line (Set up) aren't drawn again each time.
+    const lineAlone = !more && watched;
     const [kept] = await ctx.tx
       .update(computers)
       .set({
@@ -297,7 +304,7 @@ export const liveBeat = defineAddonCommand(outreachAddon, {
     if (tell)
       await ctx.emit({
         type: 'outreach.live.changed',
-        entityType: 'outreach_computer',
+        entityType: lineAlone ? 'outreach_line' : 'outreach_computer',
         entityId: row.id,
         // `made`: a computer new to HandsFreeOS, which has the worker make sure the feed's pruning is armed.
         payload: { userId: me, state, working: isWorking, made: isNew },
@@ -317,6 +324,7 @@ export const liveBeat = defineAddonCommand(outreachAddon, {
       ),
       stepsKept: input.steps.map((s) => s.id),
       asks: isWorking ? await asksWaiting(ctx, me, now.getTime()) : 0,
+      watched: isWorking && watched,
     };
   },
 });
