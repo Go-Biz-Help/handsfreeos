@@ -299,9 +299,9 @@ describe('a coached call', () => {
       },
       {
         steps: [
-          { id: 's1', title: 'a', say: '' },
-          { id: 's2', title: 'b', say: '' },
-          { id: 's3', title: 'c', say: '' },
+          { id: 's1', title: 'a', say: '', stage: null, tip: '' },
+          { id: 's2', title: 'b', say: '', stage: null, tip: '' },
+          { id: 's3', title: 'c', say: '', stage: null, tip: '' },
         ],
         objections: [],
         points: [],

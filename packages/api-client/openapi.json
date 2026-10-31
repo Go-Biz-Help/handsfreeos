@@ -110829,6 +110829,10 @@
                     "default": "any",
                     "type": "string",
                     "enum": [
+                      "new_lead",
+                      "booked_call",
+                      "aged_lead",
+                      "cold_call",
                       "first_call",
                       "estimate",
                       "follow_up",
@@ -110861,6 +110865,33 @@
                               "default": "",
                               "type": "string",
                               "maxLength": 600
+                            },
+                            "stage": {
+                              "default": null,
+                              "anyOf": [
+                                {
+                                  "type": "string",
+                                  "enum": [
+                                    "connect",
+                                    "situation",
+                                    "problem",
+                                    "future",
+                                    "consequence",
+                                    "importance",
+                                    "bridge",
+                                    "present",
+                                    "commit"
+                                  ]
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
+                            },
+                            "tip": {
+                              "default": "",
+                              "type": "string",
+                              "maxLength": 160
                             }
                           },
                           "required": [
@@ -110958,6 +110989,10 @@
                     "kind": {
                       "type": "string",
                       "enum": [
+                        "new_lead",
+                        "booked_call",
+                        "aged_lead",
+                        "cold_call",
                         "first_call",
                         "estimate",
                         "follow_up",
@@ -110990,12 +111025,41 @@
                                 "default": "",
                                 "type": "string",
                                 "maxLength": 600
+                              },
+                              "stage": {
+                                "default": null,
+                                "anyOf": [
+                                  {
+                                    "type": "string",
+                                    "enum": [
+                                      "connect",
+                                      "situation",
+                                      "problem",
+                                      "future",
+                                      "consequence",
+                                      "importance",
+                                      "bridge",
+                                      "present",
+                                      "commit"
+                                    ]
+                                  },
+                                  {
+                                    "type": "null"
+                                  }
+                                ]
+                              },
+                              "tip": {
+                                "default": "",
+                                "type": "string",
+                                "maxLength": 160
                               }
                             },
                             "required": [
                               "id",
                               "title",
-                              "say"
+                              "say",
+                              "stage",
+                              "tip"
                             ],
                             "additionalProperties": false
                           }
@@ -111156,6 +111220,10 @@
                     "kind": {
                       "type": "string",
                       "enum": [
+                        "new_lead",
+                        "booked_call",
+                        "aged_lead",
+                        "cold_call",
                         "first_call",
                         "estimate",
                         "follow_up",
@@ -111188,12 +111256,41 @@
                                 "default": "",
                                 "type": "string",
                                 "maxLength": 600
+                              },
+                              "stage": {
+                                "default": null,
+                                "anyOf": [
+                                  {
+                                    "type": "string",
+                                    "enum": [
+                                      "connect",
+                                      "situation",
+                                      "problem",
+                                      "future",
+                                      "consequence",
+                                      "importance",
+                                      "bridge",
+                                      "present",
+                                      "commit"
+                                    ]
+                                  },
+                                  {
+                                    "type": "null"
+                                  }
+                                ]
+                              },
+                              "tip": {
+                                "default": "",
+                                "type": "string",
+                                "maxLength": 160
                               }
                             },
                             "required": [
                               "id",
                               "title",
-                              "say"
+                              "say",
+                              "stage",
+                              "tip"
                             ],
                             "additionalProperties": false
                           }
@@ -225310,6 +225407,10 @@
                           "kind": {
                             "type": "string",
                             "enum": [
+                              "new_lead",
+                              "booked_call",
+                              "aged_lead",
+                              "cold_call",
                               "first_call",
                               "estimate",
                               "follow_up",
@@ -225342,12 +225443,41 @@
                                       "default": "",
                                       "type": "string",
                                       "maxLength": 600
+                                    },
+                                    "stage": {
+                                      "default": null,
+                                      "anyOf": [
+                                        {
+                                          "type": "string",
+                                          "enum": [
+                                            "connect",
+                                            "situation",
+                                            "problem",
+                                            "future",
+                                            "consequence",
+                                            "importance",
+                                            "bridge",
+                                            "present",
+                                            "commit"
+                                          ]
+                                        },
+                                        {
+                                          "type": "null"
+                                        }
+                                      ]
+                                    },
+                                    "tip": {
+                                      "default": "",
+                                      "type": "string",
+                                      "maxLength": 160
                                     }
                                   },
                                   "required": [
                                     "id",
                                     "title",
-                                    "say"
+                                    "say",
+                                    "stage",
+                                    "tip"
                                   ],
                                   "additionalProperties": false
                                 }
@@ -225594,12 +225724,41 @@
                                                 "default": "",
                                                 "type": "string",
                                                 "maxLength": 600
+                                              },
+                                              "stage": {
+                                                "default": null,
+                                                "anyOf": [
+                                                  {
+                                                    "type": "string",
+                                                    "enum": [
+                                                      "connect",
+                                                      "situation",
+                                                      "problem",
+                                                      "future",
+                                                      "consequence",
+                                                      "importance",
+                                                      "bridge",
+                                                      "present",
+                                                      "commit"
+                                                    ]
+                                                  },
+                                                  {
+                                                    "type": "null"
+                                                  }
+                                                ]
+                                              },
+                                              "tip": {
+                                                "default": "",
+                                                "type": "string",
+                                                "maxLength": 160
                                               }
                                             },
                                             "required": [
                                               "id",
                                               "title",
-                                              "say"
+                                              "say",
+                                              "stage",
+                                              "tip"
                                             ],
                                             "additionalProperties": false
                                           }

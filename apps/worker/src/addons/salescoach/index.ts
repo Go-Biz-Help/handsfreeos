@@ -8,7 +8,7 @@
 import { catalogAddon } from '@hfos/core/server';
 import type { AddonWorkerModule } from '../types';
 import { afterCall } from './after-call';
-import { playbookDraft } from './draft';
+import { playbookDraft, salesBriefGuess } from './draft';
 import { armLearning, LEARN_JOB, learnNow, learnWeekly, onWin } from './learn';
 import { AFTER_CALL_JOB, salescoachLiveCalls } from './live';
 import { conversationQuiet, QUIET_JOB } from './quiet';
@@ -35,5 +35,9 @@ export const salescoachAddonWorker: AddonWorkerModule = {
   },
   // The weekly look at what won, armed from now whenever it turns on.
   onEnable: armLearning,
-  actions: { 'salescoach.playbook.draft': playbookDraft, 'salescoach.learn.now': learnNow },
+  actions: {
+    'salescoach.playbook.brief': salesBriefGuess,
+    'salescoach.playbook.draft': playbookDraft,
+    'salescoach.learn.now': learnNow,
+  },
 };

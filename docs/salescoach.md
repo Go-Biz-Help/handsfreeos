@@ -6,9 +6,10 @@ what to say next, the answer to an objection and the facts the customer just ask
 the notes, a follow-up to send, a task for each thing the rep promised, and a score. The decisions and the rounds still to come are in
 `HANDSFREEOS_SALES_COACH_IMPLEMENTATION_PLAN.md`; this guide is for working on what's built.
 
-**Where it stands (2026-10-16):** rounds 0 to 4 are built, in `development` (staff hand it to test businesses):
+**Where it stands (2026-10-31):** rounds 0 to 4 are built, in `development` (staff hand it to test businesses):
 core's live listening, phone calls, written conversations (suggested replies, and a write-up once one goes quiet),
-Zoom meetings, lessons from wins, trends with the owner's view of every rep, and Spanish. Zoom
+Zoom meetings, lessons from wins, trends with the owner's view of every rep, and Spanish. Round 5, selling the
+question-led way, has its first part built: the method and the script builder (see "The question-led method"). Zoom
 meetings use their own Zoom app, set up as in "The coaching Zoom app" in `docs/calendar-setup.md`, and need Zoom's
 review before anyone outside Go Biz Help's Zoom account can add it.
 
@@ -17,6 +18,7 @@ review before anyone outside Go Biz Help's Zoom account can add it.
 | What                                      | Where                                                                                                                                                                                                                                                                                                                               |
 | ----------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Manifest, words, playbook rules (pure)    | `packages/core/src/addons/salescoach/` (`manifest.ts`, `words.ts`, `playbooks.ts`)                                                                                                                                                                                                                                                  |
+| The question-led method (pure)            | `packages/core/src/addons/salescoach/method.ts` (stages, openings, rules, the builder's questions); the worker's `draft.ts` (`salescoach.playbook.brief`, `salescoach.playbook.draft`); the web's `script-builder.tsx`                                                                                                              |
 | Trends and the owner's view               | `packages/core/src/addons/salescoach/trends.ts` (the math, pure), `ops/trends.ts` (`salescoach.trends`); the web's `trends-view.tsx` (`?view=trends`)                                                                                                                                                                               |
 | Learning from wins                        | `packages/core/src/addons/salescoach/learn.ts`, `ops/learning.ts`; the worker's `learn.ts`; the web's `lessons-view.tsx`                                                                                                                                                                                                            |
 | A quiet conversation's write-up           | the worker's `quiet.ts`; `salescoach.conversation.finish` in `ops/calls.ts`                                                                                                                                                                                                                                                         |
@@ -33,6 +35,35 @@ review before anyone outside Go Biz Help's Zoom account can add it.
 | Phone                                     | `apps/mobile/src/addons/salescoach/`; its route under `(more)/a/salescoach/`                                                                                                                                                                                                                                                        |
 | Database                                  | `supabase/migrations/20261027004500_addon_salescoach.sql`, `20261027004600_salescoach_suggestions.sql`, `20261027004700_salescoach_conversations.sql`, `20261027004800_salescoach_learning.sql`, core's `20261027004900_live_meetings.sql`, `20261027005000_salescoach_zoom.sql`, core's `20261027005100_live_meeting_accounts.sql` |
 | Tests                                     | `packages/core/test/addons/salescoach*.test.ts`; `apps/worker/test/salescoach-live.test.ts`, `salescoach-draft.test.ts`, `salescoach-suggest.test.ts`, `salescoach-learn.test.ts`, `salescoach-zoom.test.ts`                                                                                                                        |
+
+## The question-led method
+
+Sales Coach sells by asking (Chris, 2026-10-31, from the owner's sales training). The rep asks more than they tell:
+calm, curious questions let the customer say what they have now, what's wrong with it, what they want instead, what
+waiting would cost and how much it matters, in their own words. Only then does the rep show how the business fixes
+the problems the customer named, and ask whether it feels right. `method.ts` holds it once, for the screens and every
+prompt.
+
+1. **The stages** (`SALES_STAGES`), in order: Connect, Their situation, The problem, What they want, If nothing
+   changes, How much it matters, Bridge, Show how, Ask for a yes. Each has a line on what it's for
+   (`SALES_STAGE_ABOUT`). A script step names its stage (`PlaybookStep.stage`, in `details`, so no column) and may
+   say how to say it (`tip`: "Slow down"). A step from before stages, or from a pasted script that fits none, has
+   `null`.
+2. **The kinds of call** the builder writes (`BUILDER_KINDS`): a new lead who asked to be called, a booked call, an
+   older lead and a cold call, each with its own opening (`CALL_OPENINGS`); the rest of the call is the same stages.
+   The kinds from before (first call, estimate, follow-up, any) stay, with openings of their own. The table's check
+   widened in `20261027021300_salescoach_call_kinds.sql`.
+3. **The builder** (Playbooks → **Build my scripts**). `salescoach.playbook.brief` has the AI answer what it can of
+   six questions (`SALES_BRIEF_QUESTIONS`: what you sell, who buys, their usual problems, the result they want, why
+   people pick you, the next step) from the business's profile and knowledge, blank where they don't say. The owner
+   fills in or fixes them ("Tell us" marks the blank ones), ticks the kinds of call, and `salescoach.playbook.draft`
+   writes one script for each with those answers (`brief`). Each opens in the editor to check and save, one after
+   another; nothing is saved until then. The answers aren't kept: the next build asks the AI again.
+4. **Its own script** (Playbooks → **Use my own script**). A pasted script is kept in its words and the coach
+   follows it as written; its steps get the stages they fit.
+5. **Objections** are answered the same way (`OBJECTION_RULES`): clarify what they mean, talk it over together, then
+   let them solve it with a question; "send me some information", "just send a quote", "call me back" and "I need to
+   think it over" turn into a set time to talk again.
 
 ## How a coached call goes
 
@@ -218,6 +249,15 @@ The AI can ask too (`salescoach_trends`): "how's Dana doing on calls?"
 
 ## Rules worth knowing before changing anything
 
+- **The method is in HandsFreeOS's own words** (Chris, 2026-10-31). It came from the owner's sales training, but
+  names no outside program and copies none of its text; the owner's own business may still paste that training's
+  script as its own. A test holds the prompts to it.
+- **Nothing that misleads** (Chris, 2026-10-31). The rep says who they are and why they're calling; nothing acts as
+  if the customer should already know them, poses as anyone official, or uses props or tricks to seem like
+  something it's not.
+- **"If nothing changes" questions, kindly** (Chris, 2026-10-31): built only from what the customer said, never
+  made-up deadlines, urgency, scarcity or scary facts. And never a suggestion to borrow, use a card or loan, or take
+  money from savings to pay: only the payment options the business has.
 - **The coach says only what's in the playbook and the knowledge base.** No prices, promises or facts of its own:
   the instructions say so, and a card naming a step or an objection that isn't in the playbook loses the name.
 - **The score is worked out, never the model's number** (`scoreCall`): steps covered half, objections answered three
@@ -250,6 +290,11 @@ The AI can ask too (`salescoach_trends`): "how's Dana doing on calls?"
   servers (`trustedStreamUrl`).
 
 ## Not yet
+
+- **Round 5's parts 2 and 3** (Chris, 2026-10-31): live coaching by stage (the stage the call is at, the next
+  question fitted to the customer's words, a tone tip, nudges like "you're pitching before you've found the problem",
+  a script picked by how the call started) and the score by stage; then the AI caller using the same scripts, up to
+  "how much it matters", and booking a person to present and close.
 
 - **Hanging up the stream when the coach is stopped.** A stopped call stops asking the AI, but the worker still
   hears it to the end (and it's billed as live speech) until core can end one add-on's listening mid-call.

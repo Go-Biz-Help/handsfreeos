@@ -2452,20 +2452,106 @@ function scriptedCoachWriteUp(message: string) {
 /** Sales Coach's playbook to start from: the pasted script's lines as steps, or three made up from the business. */
 function scriptedCoachPlaybook(message: string) {
   const script = quotedBlock(message, 'script');
-  const lines = script
-    ? unquote(script)
-        .split('\n')
-        .map((l) => l.trim())
-        .filter(Boolean)
-    : ['Say hello and who you are', 'Ask what they need', 'Book the visit'];
+  if (script) {
+    const lines = unquote(script)
+      .split('\n')
+      .map((l) => l.trim())
+      .filter(Boolean);
+    return {
+      name: 'Our script',
+      steps: lines.slice(0, 8).map((title) => ({ title, say: '', stage: null, tip: '' })),
+      objections: [
+        { objection: 'It’s too expensive', answer: 'I hear you. What were you hoping to spend?' },
+      ],
+      points: [{ topic: 'Warranty', fact: '[warranty length]' }],
+    };
+  }
+  // The question-led way: a step for each stage, using the owner's answers when there are some.
+  const answers = unquote(quotedBlock(message, 'owner_answers') ?? '');
+  const answer = (ask: RegExp) => new RegExp(`${ask.source}\\n(.+)`).exec(answers)?.[1]?.trim();
+  const problem =
+    answer(/What problems do they usually have before they call you\?/) ?? '[the problem]';
+  const offer = answer(/What do you sell on these calls\?/) ?? '[what you sell]';
+  const kind =
+    /^Write a playbook for this kind of call: (.*)\.$/m.exec(message)?.[1] ?? 'First call';
   return {
-    name: script ? 'Our script' : 'First call',
-    steps: lines.slice(0, 8).map((title) => ({ title, say: '' })),
+    name: kind,
+    steps: [
+      {
+        title: 'Say who you are and why you’re calling',
+        say: `Hi, it’s [your name] with [business]. It looks like you asked about ${offer}. Is that right?`,
+        stage: 'connect',
+        tip: 'Slow and calm.',
+      },
+      {
+        title: 'Ask what they use now',
+        say: 'What are you doing about that now?',
+        stage: 'situation',
+        tip: '',
+      },
+      {
+        title: 'Ask what isn’t working',
+        say: `You mentioned ${problem}. What do you mean by that?`,
+        stage: 'problem',
+        tip: 'Sound curious.',
+      },
+      {
+        title: 'Ask what they want instead',
+        say: 'If that were fixed, what would be different for you?',
+        stage: 'future',
+        tip: '',
+      },
+      {
+        title: 'Ask what happens if nothing changes',
+        say: 'What happens if nothing changes over the next year?',
+        stage: 'consequence',
+        tip: 'Concerned, not pushy.',
+      },
+      {
+        title: 'Ask how much it matters',
+        say: 'How important is it to you to fix this now?',
+        stage: 'importance',
+        tip: '',
+      },
+      {
+        title: 'Sum up in their words',
+        say: 'Based on what you told me, we could help. Would you like to see how?',
+        stage: 'bridge',
+        tip: '',
+      },
+      {
+        title: 'Show how you fix what they named',
+        say: `The way we fix ${problem} is [how]. Does that make sense?`,
+        stage: 'present',
+        tip: '',
+      },
+      {
+        title: 'Ask how they feel about it',
+        say: 'Do you feel this could be what you’re looking for?',
+        stage: 'commit',
+        tip: '',
+      },
+    ],
     objections: [
-      { objection: 'It’s too expensive', answer: 'I hear you. What were you hoping to spend?' },
+      {
+        objection: 'It’s too expensive',
+        answer: 'When you say it’s a lot, how do you mean? What were you comparing it to?',
+      },
+      {
+        objection: 'I need to think it over',
+        answer:
+          'That’s fine. What would you want to go over? Let’s set a time to talk again so you don’t have to chase me.',
+      },
     ],
     points: [{ topic: 'Warranty', fact: '[warranty length]' }],
   };
+}
+
+/** What the script builder can already answer (coach.ts's brief guess): what the business sells, from its profile. */
+function scriptedCoachBrief(message: string) {
+  const profile = unquote(quotedBlock(message, 'business_profile') ?? '').trim();
+  const offer = profile && !/not available/i.test(profile) ? firstSentence(profile, 200) : '';
+  return { offer, buyers: '', problems: '', result: '', why: '', nextStep: '' };
 }
 
 /**
@@ -2545,6 +2631,7 @@ export const SALESCOACH_RULES: readonly ScriptRule[] = [
     json: (message) => scriptedCoachWriteUp(message),
   },
   { when: /Write the playbook\.$/, json: (message) => scriptedCoachPlaybook(message) },
+  { when: /Answer what the business says\.$/, json: (message) => scriptedCoachBrief(message) },
 ];
 
 /**
