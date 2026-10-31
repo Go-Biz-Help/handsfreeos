@@ -654,7 +654,7 @@ export const assistantTools = [
   define({
     name: 'manage_email_settings',
     description:
-      'Change how email is sent: add or change a sending address, add your own sending domain (which gives back records to put in with whoever sold you the domain), check a domain once those records are in, remove one, or unblock an address that bounced.',
+      'Change how email is sent: add or change a sending address (on the shared domain, or on the business’s own once it is checked), make one address a person’s own, add your own sending domain (which gives back records to put in with whoever sold you the domain), check a domain once those records are in, remove one, or unblock an address that bounced. Addresses and domains are in get_settings (area email); people in list_team. What becomes of the address of someone who has left is do_email_address_reassign.',
     input: z.object({
       action: z.enum([
         'add_address',
@@ -669,7 +669,16 @@ export const assistantTools = [
       isDefault: z.boolean().optional(),
       emailAddressId: uuid.optional(),
       domain: text(255).optional().describe('A domain you own, like lonestarhvac.com'),
-      emailDomainId: uuid.optional(),
+      emailDomainId: uuid
+        .optional()
+        .describe(
+          'The domain to check or remove; for add_address, the business’s own domain to put it on',
+        ),
+      ownerUserId: uuid
+        .optional()
+        .describe(
+          'For add_address or change_address: make it this person’s own address, so only they send from it and its mail is theirs alone',
+        ),
       suppressionId: uuid.optional().describe('The blocked address to release'),
     }),
     autonomy: 'confirm',

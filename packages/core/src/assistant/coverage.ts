@@ -594,6 +594,33 @@ export const SETTING_TOOLS: Readonly<Record<string, readonly SettingWay[]>> = {
     { tool: 'update_texting_settings', field: 'voicemailEnabled' },
     { tool: 'update_texting_settings', field: 'voicemailGreeting' },
   ],
+  // ---- Email: connecting a mailbox is signing in to Microsoft, which only the person does (mailbox.connect) ----
+  'email.sending_address': [
+    { tool: 'manage_email_settings', field: 'action', value: 'add_address' },
+    { tool: 'manage_email_settings', field: 'action', value: 'change_address' },
+    { tool: 'manage_email_settings', field: 'displayName' },
+    { tool: 'manage_email_settings', field: 'isDefault' },
+    { tool: 'manage_email_settings', field: 'ownerUserId' },
+    { tool: 'do_email_address_reassign', field: 'to' },
+  ],
+  'email.own_domain': [
+    { tool: 'manage_email_settings', field: 'action', value: 'add_domain' },
+    { tool: 'manage_email_settings', field: 'action', value: 'check_domain' },
+    { tool: 'manage_email_settings', field: 'action', value: 'remove_domain' },
+    { tool: 'manage_email_settings', field: 'emailDomainId' },
+    { tool: 'do_email_domain_receive', field: 'emailDomainId' },
+    { tool: 'do_email_domain_stop_receiving', field: 'emailDomainId' },
+  ],
+  'email.mailboxes': [{ tool: 'do_mailbox_disconnect', field: 'connectionId' }],
+  'email.blocked': [
+    { tool: 'manage_email_settings', field: 'action', value: 'unblock' },
+    { tool: 'block_email_address', field: 'address' },
+  ],
+  'email.unknown_senders': [
+    { tool: 'sort_unmatched_email', field: 'action', value: 'file_under_customer' },
+    { tool: 'sort_unmatched_email', field: 'action', value: 'dismiss' },
+  ],
+  'email.sender_rules': [{ tool: 'do_email_sender_rule_remove', field: 'address' }],
 };
 
 /** Setting rows the Assistant never changes, and why. */
@@ -631,7 +658,6 @@ export const SETTINGS_NEVER: Readonly<Record<string, string>> = {
  * the first, says which tool changes each of its rows (adding what's missing), and takes it off.
  */
 export const SETTINGS_NOT_YET: readonly string[] = [
-  'email',
   'website_chat',
   'facebook_instagram',
   'lead_intake',

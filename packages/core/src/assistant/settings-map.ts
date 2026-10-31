@@ -506,12 +506,13 @@ const AREAS: Record<SettingsArea, AreaEntry> = {
     what: 'the addresses you send from, your own sending domain, connected mailboxes and blocked addresses',
     where: ['Settings', 'Email'],
     onScreen: [
-      'Sending address: the name customers see, and which address is the default',
-      'Use your own domain: Add domain, Check now',
+      'Sending address: the name customers see, which address is the default, and who reads each one',
+      'Use your own domain: Add domain, Add address, Check now, Remove domain, and Receive mail here too',
       // Connect Gmail is greyed out as Coming soon until Google's review (NEXT_PUBLIC_GMAIL_ENABLED).
       'Connected mailboxes: Connect Outlook, and Connect Gmail marked Coming soon',
-      'Blocked addresses',
-      'Mail from people not in Contacts',
+      'Blocked addresses: Unblock',
+      'Mail from people not in Contacts: Add or link, Dismiss',
+      'Where senders’ mail goes: Remove',
     ],
     notHere: [
       'connecting a Gmail mailbox: coming soon, so connect Outlook or send from the workspace address',
@@ -519,11 +520,16 @@ const AREAS: Record<SettingsArea, AreaEntry> = {
     path: '/settings/email',
     permission: 'channels.manage',
     canChange: [
-      'add or change a sending address',
+      'add or change a sending address, on the shared domain or your own',
+      'make an address one person’s own',
+      'decide what becomes of the address of someone who has left',
       'add or remove your own sending domain, and check it',
+      'receive mail at your own domain, or stop',
+      'disconnect a connected mailbox',
       'unblock an address',
       'block an address',
       'file mail from someone not in Contacts under a customer, or dismiss it',
+      'forget where a sender’s mail goes, so it is sorted as usual',
     ],
     handovers: [
       {

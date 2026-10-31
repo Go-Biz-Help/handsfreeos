@@ -358,31 +358,60 @@ interface EmailStatus {
 const emailStatus = (db: Db, ctx: ToolContext) =>
   query<EmailStatus>(db, ctx, 'email.setup_status').catch(() => null);
 
+/** Who an address is being made the own address of, by name: the card says whose, not an id. */
+const personNamed = async (db: Db, ctx: ToolContext, userId: string | undefined) => {
+  if (!userId) return null;
+  const team = await query<{ members: { userId: string; fullName: string; email: string }[] }>(
+    db,
+    ctx,
+    'workspace.members',
+  ).catch(() => ({ members: [] }));
+  const m = team.members.find((x) => x.userId === userId);
+  if (!m)
+    throw HfosError.notFound(
+      'Nobody on this business’s team has that id. The people are in list_team.',
+    );
+  return m.fullName || m.email;
+};
+/** Said on the card when an address becomes one person's own. */
+const ownWarning = (name: string) =>
+  `Only ${name} sends from it, and mail to it reaches only them.`;
+
 const manageEmailSettings: SettingsConfirmTool = {
   async prepare(db, ctx, args, toolCallId) {
     const act = action(args);
     const status = await emailStatus(db, ctx);
     const address = status?.addresses.find((a) => a.id === args['emailAddressId']);
     const domain = status?.domains.find((d) => d.id === args['emailDomainId']);
+    const owner = await personNamed(db, ctx, str(args['ownerUserId']));
     const card = (title: string, fields: Field[], confirmLabel: string, warn?: string) =>
       settingsCard(toolCallId, 'manage_email_settings', {
         title,
         fields,
         confirmLabel,
-        warnings: warn ? [{ kind: 'note', text: warn }] : [],
+        warnings: [
+          ...(warn ? [{ kind: 'note', text: warn }] : []),
+          ...(owner ? [{ kind: 'note', text: ownWarning(owner) }] : []),
+        ],
       });
+    const whose = owner ? [{ label: 'Whose', value: `${owner}’s own` }] : [];
     switch (act) {
       case 'add_address':
+        if (args['emailDomainId'] !== undefined && !domain)
+          throw HfosError.notFound(
+            'That isn’t one of this business’s domains. Its domains are in get_settings (area email).',
+          );
         return {
           card: card(
             'Add a sending address',
             [
               {
                 label: 'Address',
-                value: `${str(args['localPart'])}@${status?.sharedDomain ?? 'your domain'}`,
+                value: `${str(args['localPart'])}@${domain?.domain ?? status?.sharedDomain ?? 'your domain'}`,
               },
               { label: 'From', value: str(args['displayName']) ?? '' },
               ...(args['isDefault'] === true ? [{ label: 'Default', value: 'Yes' }] : []),
+              ...whose,
             ],
             'Add it',
           ),
@@ -398,6 +427,7 @@ const manageEmailSettings: SettingsConfirmTool = {
                 ? [{ label: 'From', value: str(args['displayName'])! }]
                 : []),
               ...(args['isDefault'] === true ? [{ label: 'Default', value: 'Yes' }] : []),
+              ...whose,
             ],
             'Save the change',
           ),
@@ -453,7 +483,11 @@ const manageEmailSettings: SettingsConfirmTool = {
         const out = await command<{ address: string }>(db, ctx, 'email_address.create', {
           localPart: args['localPart'],
           displayName: args['displayName'],
-          ...defined({ isDefault: bool(args['isDefault']) }),
+          ...defined({
+            isDefault: bool(args['isDefault']),
+            emailDomainId: str(args['emailDomainId']),
+            ownerUserId: str(args['ownerUserId']),
+          }),
         });
         return { outcome: `Sending from ${out.address}`, href, command: 'email_address.create' };
       }
@@ -464,6 +498,7 @@ const manageEmailSettings: SettingsConfirmTool = {
             displayName: str(args['displayName']),
             localPart: str(args['localPart']),
             isDefault: bool(args['isDefault']),
+            ownerUserId: str(args['ownerUserId']),
           }),
         });
         return { outcome: 'Changed', href, command: 'email_address.update' };
