@@ -34,9 +34,10 @@ export const urls = {
   /**
    * Each store's link goes on the app page once it's set; until then that page says "coming soon" for it.
    * Google Play's `referrer` holds UTM tags (`utm_source=website`, `utm_campaign=get_the_app`) for Play Console's
-   * acquisition reports; the app's onboarding link says `utm_source=onboarding`.
+   * acquisition reports; the app's onboarding link says `utm_source=onboarding`. The App Store link has no campaign
+   * tags yet (see `packages/core/src/onboarding/app-links.ts`).
    */
-  appStore: '',
+  appStore: 'https://apps.apple.com/us/app/handsfreeos/id6813606312',
   playStore:
     'https://play.google.com/store/apps/details?id=com.gobizhelp.handsfreeos&referrer=utm_source%3Dwebsite%26utm_campaign%3Dget_the_app',
 } as const;
