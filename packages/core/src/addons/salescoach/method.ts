@@ -155,3 +155,57 @@ export const SALES_BRIEF_QUESTIONS: Readonly<
 
 /** Each answer's longest. */
 export const SALES_BRIEF_MAX = 400;
+
+// ---------- on a call (round five, part two) ----------
+
+/** A script step as far as the stages go: its id, and the stage it belongs to when it names one. */
+interface StagedStep {
+  readonly id: string;
+  readonly stage: SalesStage | null;
+}
+
+/** The stages a script's steps name, in the method's order. Empty for a script written before stages. */
+export function playbookStages(steps: readonly StagedStep[]): SalesStage[] {
+  const named = new Set(steps.flatMap((s) => (s.stage ? [s.stage] : [])));
+  return SALES_STAGES.filter((st) => named.has(st));
+}
+
+/**
+ * The stage the call is in at a step: the step's own, else the nearest one before it that names one (a step left
+ * without a stage carries on the stage before). Null before the first step, or with no stages at all.
+ */
+export function stageAt(steps: readonly StagedStep[], stepId: string | null): SalesStage | null {
+  const at = steps.findIndex((s) => s.id === stepId);
+  for (let i = at; i >= 0; i--) if (steps[i]!.stage) return steps[i]!.stage;
+  return null;
+}
+
+/** A lead whose newest open lead is this many days old or less is new; older is an older lead. */
+export const NEW_LEAD_DAYS = 14;
+
+/** How a call started, as far as the coach can tell, so it opens with the script for it. */
+export interface CallStart {
+  /** A HandsFreeOS video call or a Zoom meeting: someone booked it. */
+  readonly meeting: boolean;
+  /** A phone call's way; null for a meeting. */
+  readonly direction: 'inbound' | 'outbound' | null;
+  /** The customer has an appointment with the business starting within half an hour of now. */
+  readonly booked: boolean;
+  /** The call is with someone the business has on file. */
+  readonly known: boolean;
+  /** Days since their newest open lead was made; null with no open lead. */
+  readonly leadAgeDays: number | null;
+}
+
+/**
+ * The kind of script a call wants (Chris, 2026-10-31: one script per kind of call): a booked call for a meeting or a
+ * call at an appointment's time, and for a call the rep made, a new lead, an older lead or a cold call. A call the
+ * customer made, or a call to a customer with no open lead, wants the usual script: null.
+ */
+export function callKindFor(start: CallStart): BuilderKind | null {
+  if (start.meeting || start.booked) return 'booked_call';
+  if (start.direction !== 'outbound') return null;
+  if (start.leadAgeDays !== null)
+    return start.leadAgeDays <= NEW_LEAD_DAYS ? 'new_lead' : 'aged_lead';
+  return start.known ? null : 'cold_call';
+}

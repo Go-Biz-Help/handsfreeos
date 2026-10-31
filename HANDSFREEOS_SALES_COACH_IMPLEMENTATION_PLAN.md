@@ -16,7 +16,7 @@ under the planned id `salescoach`.
 
 **Where it stands (2026-10-31):** rounds 0 to 4 are built, in `development` (staff hand it to test businesses), with
 the differences from this plan noted under "What changed while building". Round 5 (the question-led method) has its
-first part built. `docs/salescoach.md` is the guide for working on it.
+first two parts built. `docs/salescoach.md` is the guide for working on it.
 
 ## Decisions (Chris, 2026-10-14)
 
@@ -191,9 +191,11 @@ became how the coach sells. The owner picked every recommendation ("all of your 
 | How far the AI caller goes      | **Up to "how much it matters", then it books a person** to present and close. It talks the same calm way and still says up front it's an AI and the call is recorded.                               |
 
 Three parts, each its own pull request: 1. the method and the script builder; 2. live coaching and the score by
-stage; 3. the AI caller. Part 1's details are in `docs/salescoach.md`, "The question-led method". One more rule from
-building it: the scripts never suggest borrowing or taking money from savings to pay (the training's money questions
-do); only the business's own payment options.
+stage; 3. the AI caller. Parts 1 and 2's details are in `docs/salescoach.md`, "The question-led method". One more
+rule from building part 1: the scripts never suggest borrowing or taking money from savings to pay (the training's
+money questions do); only the business's own payment options. Part 2 picks the script by how a call started (a
+booked call, a new lead within 14 days, an older lead, a cold call), and showing the offer before the customer said
+their problem keeps three quarters of the stages' part of the score.
 
 ## What HandsFreeOS needs from outside
 

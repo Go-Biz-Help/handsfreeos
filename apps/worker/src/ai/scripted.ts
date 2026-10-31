@@ -2388,10 +2388,20 @@ const inSpanish = (message: string) =>
 /** The stand-in's "translation": the words marked as said in Spanish. */
 const spanish = (words: string) => `En español: ${words}`;
 
+/** The stand-in's "pitched too soon": the rep named a price before the customer had said two things. */
+function pitchedSoon(message: string): boolean {
+  let customer = 0;
+  for (const m of message.matchAll(/^(Customer|Rep): (.*)$/gm)) {
+    if (m[1] === 'Customer') customer++;
+    else if (/\$\d/.test(m[2]!) && customer < 2) return true;
+  }
+  return false;
+}
+
 /**
- * Sales Coach live (coach.ts): a customer worried about price gets the playbook's first objection's answer; a
- * question gets the first talking point; anything else no card. The call is at the script's second step once the
- * customer has spoken twice.
+ * Sales Coach live (coach.ts): a customer worried about price gets the playbook's first objection's answer, with a
+ * tip; a question gets the first talking point; a rep who named a price too soon gets a nudge; anything else no
+ * card. The call is at the script's second step once the customer has spoken twice.
  */
 function scriptedCoachCard(message: string, context: string) {
   const said = coachSaid(message, 'Customer');
@@ -2409,6 +2419,7 @@ function scriptedCoachCard(message: string, context: string) {
         title: (heard ?? 'Price').replace(/^"|"$/g, ''),
         say: inSpanish(message) ? spanish(answer ?? objection.words) : (answer ?? objection.words),
         heard: last,
+        tip: 'Calm and curious. Ask before you answer.',
         objectionId: objection.id,
       },
     };
@@ -2416,7 +2427,28 @@ function scriptedCoachCard(message: string, context: string) {
   if (last.includes('?') && point)
     return {
       step,
-      card: { kind: 'fact', title: 'They asked', say: point.words, heard: last, objectionId: null },
+      card: {
+        kind: 'fact',
+        title: 'They asked',
+        say: point.words,
+        heard: last,
+        tip: '',
+        objectionId: null,
+      },
+    };
+  if (pitchedSoon(message))
+    return {
+      step,
+      card: {
+        kind: 'nudge',
+        title: 'Price before the problem',
+        say: inSpanish(message)
+          ? spanish('What made you look into this now?')
+          : 'Before price, ask: What made you look into this now?',
+        heard: '',
+        tip: 'Slow down.',
+        objectionId: null,
+      },
     };
   return { step, card: null };
 }
@@ -2444,6 +2476,7 @@ function scriptedCoachWriteUp(message: string) {
         objectionId: coachParts(message, 'o')[0]?.id ?? null,
       })),
     stepsCovered: coachParts(message, 's').map((s) => s.id),
+    pitchedEarly: pitchedSoon(message),
     tips: ['Ask for the booking before you hang up.'],
     language: inSpanish(message) ? 'es' : 'en',
   };

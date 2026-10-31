@@ -33,6 +33,11 @@ export const SALESCOACH_WORDS = {
     stopped: 'Coach stopped for this call',
     seeCall: 'See the write-up',
     heard: 'They said',
+    /** The stage bar (round five): where the call is in the method, for a script whose steps name stages. */
+    stage: 'Stage',
+    stageOf: (n: number, of: number) => `${n} of ${of}`,
+    /** A card's tip on how to say it. */
+    how: 'How',
   },
   /** HandsFreeOS's app inside a Zoom meeting (round three): `?view=zoom`. */
   zoom: {
@@ -69,6 +74,7 @@ export const SALESCOACH_WORDS = {
     fact: 'They asked',
     step: 'Next step',
     question: 'Ask this',
+    nudge: 'Heads up',
   } as Record<CardKind, string>,
   calls: {
     none: 'Nothing coached yet. Calls show here once someone on the team who’s coached takes one, and texts, chats and emails once a conversation they answered goes quiet.',
@@ -100,6 +106,13 @@ export const SALESCOACH_WORDS = {
     objectionCount: (answered: number, of: number) =>
       of === 0 ? 'No objections' : `${answered} of ${of} objections answered`,
     talk: (share: number) => `You talked ${share}% of the time`,
+    /** The score by stage (round five). */
+    stages: (covered: number, of: number) => `${covered} of ${of} stages`,
+    stagesTitle: 'Stages',
+    stageDone: 'Done',
+    stageSkipped: 'Skipped',
+    pitchedEarly:
+      'You showed the offer before they said what their problem was. Next time, ask about the problem first: it counts for less when the offer comes early.',
     writing: 'Being written up',
     failed: 'No write-up',
     stopped: 'Coach stopped',

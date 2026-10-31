@@ -225868,7 +225868,8 @@
                                       "objection",
                                       "fact",
                                       "step",
-                                      "question"
+                                      "question",
+                                      "nudge"
                                     ]
                                   },
                                   "title": {
@@ -225878,6 +225879,9 @@
                                     "type": "string"
                                   },
                                   "heard": {
+                                    "type": "string"
+                                  },
+                                  "tip": {
                                     "type": "string"
                                   },
                                   "objectionId": {
@@ -225896,6 +225900,7 @@
                                   "title",
                                   "say",
                                   "heard",
+                                  "tip",
                                   "objectionId",
                                   "createdAt"
                                 ],
@@ -226586,13 +226591,70 @@
                                       "type": "integer",
                                       "minimum": 0,
                                       "maximum": 100
+                                    },
+                                    "stages": {
+                                      "default": null,
+                                      "anyOf": [
+                                        {
+                                          "type": "object",
+                                          "properties": {
+                                            "covered": {
+                                              "type": "array",
+                                              "items": {
+                                                "type": "string",
+                                                "enum": [
+                                                  "connect",
+                                                  "situation",
+                                                  "problem",
+                                                  "future",
+                                                  "consequence",
+                                                  "importance",
+                                                  "bridge",
+                                                  "present",
+                                                  "commit"
+                                                ]
+                                              }
+                                            },
+                                            "missed": {
+                                              "type": "array",
+                                              "items": {
+                                                "type": "string",
+                                                "enum": [
+                                                  "connect",
+                                                  "situation",
+                                                  "problem",
+                                                  "future",
+                                                  "consequence",
+                                                  "importance",
+                                                  "bridge",
+                                                  "present",
+                                                  "commit"
+                                                ]
+                                              }
+                                            },
+                                            "pitchedEarly": {
+                                              "type": "boolean"
+                                            }
+                                          },
+                                          "required": [
+                                            "covered",
+                                            "missed",
+                                            "pitchedEarly"
+                                          ],
+                                          "additionalProperties": false
+                                        },
+                                        {
+                                          "type": "null"
+                                        }
+                                      ]
                                     }
                                   },
                                   "required": [
                                     "total",
                                     "steps",
                                     "objections",
-                                    "talkShare"
+                                    "talkShare",
+                                    "stages"
                                   ],
                                   "additionalProperties": false
                                 },
@@ -226644,7 +226706,8 @@
                                   "objection",
                                   "fact",
                                   "step",
-                                  "question"
+                                  "question",
+                                  "nudge"
                                 ]
                               },
                               "title": {
@@ -226654,6 +226717,9 @@
                                 "type": "string"
                               },
                               "heard": {
+                                "type": "string"
+                              },
+                              "tip": {
                                 "type": "string"
                               },
                               "objectionId": {
@@ -226672,6 +226738,7 @@
                               "title",
                               "say",
                               "heard",
+                              "tip",
                               "objectionId",
                               "createdAt"
                             ],

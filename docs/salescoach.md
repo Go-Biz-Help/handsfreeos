@@ -9,32 +9,33 @@ the notes, a follow-up to send, a task for each thing the rep promised, and a sc
 **Where it stands (2026-10-31):** rounds 0 to 4 are built, in `development` (staff hand it to test businesses):
 core's live listening, phone calls, written conversations (suggested replies, and a write-up once one goes quiet),
 Zoom meetings, lessons from wins, trends with the owner's view of every rep, and Spanish. Round 5, selling the
-question-led way, has its first part built: the method and the script builder (see "The question-led method"). Zoom
+question-led way, has two of its three parts built: the method and the script builder, then live coaching and the
+score by stage (see "The question-led method"). Zoom
 meetings use their own Zoom app, set up as in "The coaching Zoom app" in `docs/calendar-setup.md`, and need Zoom's
 review before anyone outside Go Biz Help's Zoom account can add it.
 
 ## Where things are
 
-| What                                      | Where                                                                                                                                                                                                                                                                                                                               |
-| ----------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Manifest, words, playbook rules (pure)    | `packages/core/src/addons/salescoach/` (`manifest.ts`, `words.ts`, `playbooks.ts`)                                                                                                                                                                                                                                                  |
-| The question-led method (pure)            | `packages/core/src/addons/salescoach/method.ts` (stages, openings, rules, the builder's questions); the worker's `draft.ts` (`salescoach.playbook.brief`, `salescoach.playbook.draft`); the web's `script-builder.tsx`                                                                                                              |
-| Trends and the owner's view               | `packages/core/src/addons/salescoach/trends.ts` (the math, pure), `ops/trends.ts` (`salescoach.trends`); the web's `trends-view.tsx` (`?view=trends`)                                                                                                                                                                               |
-| Learning from wins                        | `packages/core/src/addons/salescoach/learn.ts`, `ops/learning.ts`; the worker's `learn.ts`; the web's `lessons-view.tsx`                                                                                                                                                                                                            |
-| A quiet conversation's write-up           | the worker's `quiet.ts`; `salescoach.conversation.finish` in `ops/calls.ts`                                                                                                                                                                                                                                                         |
-| Suggested replies (what's asked, checks)  | `packages/core/src/addons/salescoach/suggest.ts`, `ops/suggestions.ts`; the worker's `suggest.ts`; the web's `composer-suggestions.tsx`                                                                                                                                                                                             |
-| What the AI is asked, its checks, scoring | `packages/core/src/addons/salescoach/coach.ts`                                                                                                                                                                                                                                                                                      |
-| Commands and queries                      | `packages/core/src/addons/salescoach/ops/` (`playbooks.ts`, `calls.ts`), its tables' mirror in `tables.ts`                                                                                                                                                                                                                          |
-| Hearing a Zoom meeting live (core)        | `packages/core/src/commands/live-meeting.ts` (`live_meeting.claim`), `apps/worker/src/meetings/live.ts` (`RtmsStream`, `ZoomLiveSession`), `zoom-live.ts` (the coaching Zoom app), `live-routes.ts` (its sign-in, link and webhook)                                                                                                 |
-| Hearing a HandsFreeOS video call live     | core's `video_call.coach`, `apps/worker/src/video-calls/coach.ts`; the cards beside the video in the web's `components/video-call/call-coach.tsx` (docs/video-calls.md, part 3)                                                                                                                                                     |
-| The Zoom panel                            | the web's `zoom-panel.tsx` (`?view=zoom`), `app/zoom/page.tsx` (where the Zoom app starts), `app/zoom/connect/` (linking Zoom), `components/settings/zoom-coach-card.tsx`, `lib/zoom-app.ts` (Zoom's required headers)                                                                                                              |
-| Hearing a person's call live (core)       | `apps/worker/src/telephony/live.ts` (`onCallAnswered`, `LiveCallSession`), `apps/worker/src/http/live-calls.ts` (the socket)                                                                                                                                                                                                        |
-| The add-on's worker half                  | `apps/worker/src/addons/salescoach/` (`live.ts`, `after-call.ts`, `draft.ts`, `business.ts`)                                                                                                                                                                                                                                        |
-| The stand-in model's answers              | `SALESCOACH_RULES` in `apps/worker/src/ai/scripted.ts`                                                                                                                                                                                                                                                                              |
-| Web                                       | `apps/web/src/addons/salescoach/`; its page `app/app/w/[workspaceId]/a/salescoach/`; the call bar's slot in `active-call-bar.tsx`                                                                                                                                                                                                   |
-| Phone                                     | `apps/mobile/src/addons/salescoach/`; its route under `(more)/a/salescoach/`                                                                                                                                                                                                                                                        |
-| Database                                  | `supabase/migrations/20261027004500_addon_salescoach.sql`, `20261027004600_salescoach_suggestions.sql`, `20261027004700_salescoach_conversations.sql`, `20261027004800_salescoach_learning.sql`, core's `20261027004900_live_meetings.sql`, `20261027005000_salescoach_zoom.sql`, core's `20261027005100_live_meeting_accounts.sql` |
-| Tests                                     | `packages/core/test/addons/salescoach*.test.ts`; `apps/worker/test/salescoach-live.test.ts`, `salescoach-draft.test.ts`, `salescoach-suggest.test.ts`, `salescoach-learn.test.ts`, `salescoach-zoom.test.ts`                                                                                                                        |
+| What                                      | Where                                                                                                                                                                                                                                                                                                                                                                                                                              |
+| ----------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Manifest, words, playbook rules (pure)    | `packages/core/src/addons/salescoach/` (`manifest.ts`, `words.ts`, `playbooks.ts`)                                                                                                                                                                                                                                                                                                                                                 |
+| The question-led method (pure)            | `packages/core/src/addons/salescoach/method.ts` (stages, openings, rules, the builder's questions, which script a call opens with); the worker's `draft.ts` (`salescoach.playbook.brief`, `salescoach.playbook.draft`); the web's `script-builder.tsx`                                                                                                                                                                             |
+| Trends and the owner's view               | `packages/core/src/addons/salescoach/trends.ts` (the math, pure), `ops/trends.ts` (`salescoach.trends`); the web's `trends-view.tsx` (`?view=trends`)                                                                                                                                                                                                                                                                              |
+| Learning from wins                        | `packages/core/src/addons/salescoach/learn.ts`, `ops/learning.ts`; the worker's `learn.ts`; the web's `lessons-view.tsx`                                                                                                                                                                                                                                                                                                           |
+| A quiet conversation's write-up           | the worker's `quiet.ts`; `salescoach.conversation.finish` in `ops/calls.ts`                                                                                                                                                                                                                                                                                                                                                        |
+| Suggested replies (what's asked, checks)  | `packages/core/src/addons/salescoach/suggest.ts`, `ops/suggestions.ts`; the worker's `suggest.ts`; the web's `composer-suggestions.tsx`                                                                                                                                                                                                                                                                                            |
+| What the AI is asked, its checks, scoring | `packages/core/src/addons/salescoach/coach.ts`                                                                                                                                                                                                                                                                                                                                                                                     |
+| Commands and queries                      | `packages/core/src/addons/salescoach/ops/` (`playbooks.ts`, `calls.ts`), its tables' mirror in `tables.ts`                                                                                                                                                                                                                                                                                                                         |
+| Hearing a Zoom meeting live (core)        | `packages/core/src/commands/live-meeting.ts` (`live_meeting.claim`), `apps/worker/src/meetings/live.ts` (`RtmsStream`, `ZoomLiveSession`), `zoom-live.ts` (the coaching Zoom app), `live-routes.ts` (its sign-in, link and webhook)                                                                                                                                                                                                |
+| Hearing a HandsFreeOS video call live     | core's `video_call.coach`, `apps/worker/src/video-calls/coach.ts`; the cards beside the video in the web's `components/video-call/call-coach.tsx` (docs/video-calls.md, part 3)                                                                                                                                                                                                                                                    |
+| The Zoom panel                            | the web's `zoom-panel.tsx` (`?view=zoom`), `app/zoom/page.tsx` (where the Zoom app starts), `app/zoom/connect/` (linking Zoom), `components/settings/zoom-coach-card.tsx`, `lib/zoom-app.ts` (Zoom's required headers)                                                                                                                                                                                                             |
+| Hearing a person's call live (core)       | `apps/worker/src/telephony/live.ts` (`onCallAnswered`, `LiveCallSession`), `apps/worker/src/http/live-calls.ts` (the socket)                                                                                                                                                                                                                                                                                                       |
+| The add-on's worker half                  | `apps/worker/src/addons/salescoach/` (`live.ts`, `after-call.ts`, `draft.ts`, `business.ts`)                                                                                                                                                                                                                                                                                                                                       |
+| The stand-in model's answers              | `SALESCOACH_RULES` in `apps/worker/src/ai/scripted.ts`                                                                                                                                                                                                                                                                                                                                                                             |
+| Web                                       | `apps/web/src/addons/salescoach/`; its page `app/app/w/[workspaceId]/a/salescoach/`; the call bar's slot in `active-call-bar.tsx`                                                                                                                                                                                                                                                                                                  |
+| Phone                                     | `apps/mobile/src/addons/salescoach/`; its route under `(more)/a/salescoach/`                                                                                                                                                                                                                                                                                                                                                       |
+| Database                                  | `supabase/migrations/20261027004500_addon_salescoach.sql`, `20261027004600_salescoach_suggestions.sql`, `20261027004700_salescoach_conversations.sql`, `20261027004800_salescoach_learning.sql`, core's `20261027004900_live_meetings.sql`, `20261027005000_salescoach_zoom.sql`, core's `20261027005100_live_meeting_accounts.sql`, `20261027021300_salescoach_call_kinds.sql`, `20261027021400_salescoach_coaching_by_stage.sql` |
+| Tests                                     | `packages/core/test/addons/salescoach*.test.ts`; `apps/worker/test/salescoach-live.test.ts`, `salescoach-draft.test.ts`, `salescoach-suggest.test.ts`, `salescoach-learn.test.ts`, `salescoach-zoom.test.ts`                                                                                                                                                                                                                       |
 
 ## The question-led method
 
@@ -64,6 +65,30 @@ prompt.
 5. **Objections** are answered the same way (`OBJECTION_RULES`): clarify what they mean, talk it over together, then
    let them solve it with a question; "send me some information", "just send a quote", "call me back" and "I need to
    think it over" turn into a set time to talk again.
+6. **Which script a call opens with** (part 2, `callKindFor`). `salescoach.call.begin` reads how the call started
+   from core's records (`callStart`): a HandsFreeOS video call or Zoom meeting, or a call with a customer whose
+   appointment starts within half an hour, is a booked call. A call the rep made is a new lead when the customer's
+   newest open lead is 14 days old or less (`NEW_LEAD_DAYS`), an older lead past that, and a cold call when nobody
+   on file is on it. A call the customer made, or to a customer with no open lead, gets the usual script. The
+   business's script of that kind (the usual one first, then the oldest) is used when it has one; otherwise the
+   usual script, as before.
+7. **Coaching live by stage** (part 2). The coach's instructions (`COACH_SYSTEM`) carry the method's rules, the
+   stages and the objection rules. A card can be the next question for the stage the call is in, built from the
+   customer's own words (the playbook's [brackets] filled in), and carries a `tip` on how to say it ("Slow down,
+   sound concerned"), from the step's own tip when it has one. A **nudge** (card kind `nudge`) says kindly when the
+   rep strays: the offer or price before the customer said their problem, doing most of the talking, two questions
+   at once, telling instead of asking, pushing or skipping a stage, with the question to ask instead. The worker
+   shows a nudge at most once for the same thing and not within 90 seconds of the last (`nudgeAllowed`). Screens
+   show a **stage bar** for a script whose steps name stages: the stages it goes through (`playbookStages`), the one
+   the call is in (`stageAt`: the step's own, or the one before for a step without one), and the step. The card's
+   tip column and the `nudge` kind came in `20261027021400_salescoach_coaching_by_stage.sql`.
+8. **The score by stage** (part 2). For a script whose steps name stages, `scoreCall` counts stages, not steps: a
+   stage is done once any of its steps was, and that half of the score is the stages done over the stages the
+   script names. The write-up says whether the rep showed the offer or price before the customer said their
+   problem (`pitchedEarly`); then that half keeps three quarters (`PITCHED_EARLY_KEEPS`). `score.stages` keeps the
+   stages done and skipped and the flag, and the write-up shows them, with a tip naming the first stage skipped and
+   the question to ask there. A script without stages is scored by step, as before, and older write-ups have no
+   `stages`.
 
 ## How a coached call goes
 
@@ -82,7 +107,8 @@ prompt.
    or the stand-in), and hands each finished line to each add-on in order, as the system acting for it. Twilio's
    `inbound` track is the party whose call it is: the customer on a call they made, the rep on one the team placed.
    Listening is billed as live speech, both sides.
-5. **Coaching.** Sales Coach starts the coached call with the usual playbook (`salescoach.call.begin`). When the
+5. **Coaching.** Sales Coach starts the coached call with the script for how it started, else the usual playbook
+   (`salescoach.call.begin`, "Which script a call opens with" above). When the
    customer finishes something worth answering (`cardMoment`: three words or more, at most every four seconds, one
    ask at a time), the fast model reads the playbook, the business's brief and short knowledge answers, and the last
    few minutes, and says which script step the call is at and whether there's a card. `checkedCard` holds it to the
@@ -260,8 +286,12 @@ The AI can ask too (`salescoach_trends`): "how's Dana doing on calls?"
   money from savings to pay: only the payment options the business has.
 - **The coach says only what's in the playbook and the knowledge base.** No prices, promises or facts of its own:
   the instructions say so, and a card naming a step or an objection that isn't in the playbook loses the name.
-- **The score is worked out, never the model's number** (`scoreCall`): steps covered half, objections answered three
-  tenths, a fair share of the talking a fifth (full marks between 35 and 60 percent), over whatever applies.
+- **The score is worked out, never the model's number** (`scoreCall`): steps covered half (stages, for a script with
+  them, less when the offer came before the problem), objections answered three tenths, a fair share of the talking
+  a fifth (full marks between 35 and 60 percent), over whatever applies. The model says only which steps were done
+  and whether the offer came early.
+- **Nudges are kind and rare**: one per thing a call, never within 90 seconds of the last, never
+  pushed to the phone. They say what to ask instead, not what the rep did wrong.
 - **Nothing goes out on its own.** The follow-up is a draft the rep copies; the cards are suggestions. Tasks are the
   only thing made for the rep, and they're theirs.
 - **Who sees what.** A coached call: the rep on it and whoever holds `salescoach.review` (admins by default; owners
@@ -291,10 +321,8 @@ The AI can ask too (`salescoach_trends`): "how's Dana doing on calls?"
 
 ## Not yet
 
-- **Round 5's parts 2 and 3** (Chris, 2026-10-31): live coaching by stage (the stage the call is at, the next
-  question fitted to the customer's words, a tone tip, nudges like "you're pitching before you've found the problem",
-  a script picked by how the call started) and the score by stage; then the AI caller using the same scripts, up to
-  "how much it matters", and booking a person to present and close.
+- **Round 5's part 3** (Chris, 2026-10-31): the AI caller using the same scripts, up to "how much it matters", and
+  booking a person to present and close.
 
 - **Hanging up the stream when the coach is stopped.** A stopped call stops asking the AI, but the worker still
   hears it to the end (and it's billed as live speech) until core can end one add-on's listening mid-call.

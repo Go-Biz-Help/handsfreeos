@@ -348,6 +348,31 @@ describe('a coached call', () => {
     expect(line?.words).toMatch(/^Marco’s call was coached and scored \d+ out of 100$/);
   });
 
+  it('nudges a rep who names the price before the customer says their problem', async () => {
+    const { callId, callSid } = await answeredCall();
+    await drain();
+    const call = await stream(callSid, s.telephony.streamed.at(-1)!.params['t']!);
+    await waitFor('the coached call', async () => (await coached(callId))?.state === 'live');
+    call.rep('Hi, this is Marco. The visit is $89 and we can come today.');
+    call.customer('Okay, I just need someone to look at it.');
+    const card = await waitFor('the nudge', async () => {
+      const [c] = await rows<{ kind: string; title: string; tip: string }>(
+        admin(),
+        sql`select k.kind, k.title, k.tip from addon_salescoach.cards k
+            join addon_salescoach.calls c on c.id = k.coached_call_id where c.call_id = ${callId}`,
+      );
+      return c;
+    });
+    expect(card).toMatchObject({
+      kind: 'nudge',
+      title: 'Price before the problem',
+      tip: 'Slow down.',
+    });
+    call.hangUp();
+    await waitFor('the call to end', async () => (await coached(callId))?.state === 'writing');
+    await drain();
+  });
+
   it('refuses a stream without a good ticket', async () => {
     const call = await stream(fakeSid('CA'), 'not-a-ticket');
     await waitFor('the stream to close', async () => call.closed());

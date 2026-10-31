@@ -86826,9 +86826,10 @@ export interface operations {
                                 /** Format: uuid */
                                 id: string;
                                 /** @enum {string} */
-                                kind: "objection" | "fact" | "step" | "question";
+                                kind: "objection" | "fact" | "step" | "question" | "nudge";
                                 objectionId: string | null;
                                 say: string;
+                                tip: string;
                                 title: string;
                             }[];
                             channel: ("sms" | "email" | "chat" | "portal" | "messenger" | "instagram") | null;
@@ -86879,6 +86880,12 @@ export interface operations {
                                         answered: number;
                                         of: number;
                                     };
+                                    /** @default null */
+                                    stages: {
+                                        covered: ("connect" | "situation" | "problem" | "future" | "consequence" | "importance" | "bridge" | "present" | "commit")[];
+                                        missed: ("connect" | "situation" | "problem" | "future" | "consequence" | "importance" | "bridge" | "present" | "commit")[];
+                                        pitchedEarly: boolean;
+                                    } | null;
                                     steps: {
                                         covered: number;
                                         of: number;
@@ -87036,9 +87043,10 @@ export interface operations {
                                 /** Format: uuid */
                                 id: string;
                                 /** @enum {string} */
-                                kind: "objection" | "fact" | "step" | "question";
+                                kind: "objection" | "fact" | "step" | "question" | "nudge";
                                 objectionId: string | null;
                                 say: string;
+                                tip: string;
                                 title: string;
                             }[];
                             /** Format: uuid */

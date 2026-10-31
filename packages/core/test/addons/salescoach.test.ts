@@ -20,6 +20,8 @@ import {
   checkedCard,
   checkedDraft,
   COACH_SYSTEM,
+  nudgeAllowed,
+  NUDGE_EVERY_MS,
   keptLines,
   KEPT_LINES,
   PLAYBOOK_DRAFT_ASK,
@@ -38,9 +40,13 @@ import { salescoachAddon } from '../../src/addons/salescoach/manifest';
 import {
   BUILDER_KINDS,
   CALL_OPENINGS,
+  callKindFor,
+  NEW_LEAD_DAYS,
+  playbookStages,
   SALES_BRIEF_MAX,
   SALES_BRIEF_QUESTIONS,
   SALES_STAGES,
+  stageAt,
 } from '../../src/addons/salescoach/method';
 import { blankBrief, PLAYBOOK_KINDS, PlaybookDetails } from '../../src/addons/salescoach/playbooks';
 import { salescoachAddonServer } from '../../src/addons/salescoach/server';
@@ -118,6 +124,7 @@ describe('the coach’s rules', () => {
             title: 'Price',
             say: 'x'.repeat(900),
             heard: 'too much',
+            tip: 'Slow down',
             objectionId: 'o7',
           },
         },
@@ -130,12 +137,16 @@ describe('the coach’s rules', () => {
         title: 'Price',
         say: `${'x'.repeat(399)}…`,
         heard: 'too much',
+        tip: 'Slow down',
         objectionId: null,
       },
     });
     expect(
       checkedCard(
-        { step: 's2', card: { kind: 'fact', title: ' ', say: 'x', heard: '', objectionId: null } },
+        {
+          step: 's2',
+          card: { kind: 'fact', title: ' ', say: 'x', heard: '', tip: '', objectionId: null },
+        },
         playbook,
       ),
     ).toEqual({ step: 's2', card: null });
@@ -155,6 +166,7 @@ describe('the coach’s rules', () => {
       steps: { covered: 1, of: 2 },
       objections: { answered: 0, of: 0 },
       talkShare: 40,
+      stages: null,
     });
     const quiet = [{ speaker: 'customer' as const, text: 'hello there', atMs: 0 }];
     expect(scoreCall({ lines: quiet, stepsCovered: [], steps: [], objections: [] }).total).toBe(0);
@@ -282,6 +294,87 @@ describe('the question-led method', () => {
     expect(brief.buyers).toBe('Homeowners');
     expect(brief.why).toBe('');
     expect(briefGuessPrompt('<knowledge>\n</knowledge>').endsWith(BRIEF_GUESS_ASK)).toBe(true);
+  });
+});
+
+describe('coaching by stage', () => {
+  const staged = [
+    { id: 's1', stage: 'connect' as const },
+    { id: 's2', stage: 'problem' as const },
+    { id: 's3', stage: null },
+    { id: 's4', stage: 'present' as const },
+  ];
+
+  it('knows the stages a script goes through, and the one the call is in', () => {
+    expect(playbookStages(staged)).toEqual(['connect', 'problem', 'present']);
+    expect(playbookStages([{ id: 's1', stage: null }])).toEqual([]);
+    expect(stageAt(staged, 's2')).toBe('problem');
+    // A step without a stage carries on the one before.
+    expect(stageAt(staged, 's3')).toBe('problem');
+    expect(stageAt(staged, null)).toBeNull();
+    expect(stageAt(staged, 'zz')).toBeNull();
+  });
+
+  it('opens with the script for how the call started', () => {
+    const call = {
+      meeting: false,
+      direction: 'outbound' as const,
+      booked: false,
+      known: true,
+      leadAgeDays: null,
+    };
+    expect(callKindFor({ ...call, meeting: true, direction: null })).toBe('booked_call');
+    expect(callKindFor({ ...call, booked: true, leadAgeDays: 40 })).toBe('booked_call');
+    expect(callKindFor({ ...call, leadAgeDays: 2 })).toBe('new_lead');
+    expect(callKindFor({ ...call, leadAgeDays: NEW_LEAD_DAYS })).toBe('new_lead');
+    expect(callKindFor({ ...call, leadAgeDays: NEW_LEAD_DAYS + 1 })).toBe('aged_lead');
+    expect(callKindFor({ ...call, known: false })).toBe('cold_call');
+    // A customer with no open lead, or a call the customer made: the usual script.
+    expect(callKindFor(call)).toBeNull();
+    expect(callKindFor({ ...call, direction: 'inbound', leadAgeDays: 2 })).toBeNull();
+  });
+
+  it('coaches the method live, with tips and nudges', () => {
+    expect(COACH_SYSTEM).toContain('Never invent deadlines');
+    expect(COACH_SYSTEM).toContain('consequence (If nothing changes)');
+    expect(COACH_SYSTEM).toContain('nudge:');
+    expect(COACH_SYSTEM).toContain('tip:');
+    expect(COACH_SYSTEM).not.toMatch(/NEPQ|7th Level/i);
+  });
+
+  it('nudges once for the same thing, and not too often', () => {
+    const none = { lastAtMs: null, titles: new Set<string>() };
+    expect(nudgeAllowed(none, 'Price before the problem', 5_000)).toBe(true);
+    const one = { lastAtMs: 5_000, titles: new Set(['price before the problem']) };
+    expect(nudgeAllowed(one, ' Price before the problem ', 500_000)).toBe(false);
+    expect(nudgeAllowed(one, 'Let them talk', 5_000 + NUDGE_EVERY_MS - 1)).toBe(false);
+    expect(nudgeAllowed(one, 'Let them talk', 5_000 + NUDGE_EVERY_MS)).toBe(true);
+  });
+
+  it('scores a script with stages by stage, less when the offer came too soon', () => {
+    const lines = [
+      { speaker: 'team' as const, text: 'one two three four', atMs: 0 },
+      { speaker: 'customer' as const, text: 'one two three four five six', atMs: 1 },
+    ];
+    const score = scoreCall({ lines, stepsCovered: ['s1', 's3'], steps: staged, objections: [] });
+    // Connect only (s3 carries no stage of its own): 1 of 3 stages (0.5 × ⅓) and the talking (0.2 × 1), over 0.7.
+    expect(score).toMatchObject({
+      total: 52,
+      steps: { covered: 2, of: 4 },
+      stages: { covered: ['connect'], missed: ['problem', 'present'], pitchedEarly: false },
+    });
+    const all = ['s1', 's2', 's4'];
+    expect(scoreCall({ lines, stepsCovered: all, steps: staged, objections: [] }).total).toBe(100);
+    const early = scoreCall({
+      lines,
+      stepsCovered: all,
+      steps: staged,
+      objections: [],
+      pitchedEarly: true,
+    });
+    // Three quarters of the stages' part: (0.5 × 0.75 + 0.2) / 0.7.
+    expect(early.total).toBe(82);
+    expect(early.stages?.pitchedEarly).toBe(true);
   });
 });
 
