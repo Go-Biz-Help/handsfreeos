@@ -42,7 +42,7 @@ import {
   JOIN_ANSWER_ACTION,
   joinAnswer,
 } from './groups';
-import { CHECK_POSTS_JOB, checkPostsJob, postChecked, postsSaved } from './posts';
+import { CHECK_POSTS_JOB, checkPostsJob, postChecked, postsSaved, recheckGoodPosts } from './posts';
 import { DRAFT_HELPFUL_JOB, draftHelpfulJob, helpfulAsked } from './helpful';
 import { LIKE_PICK_ACTION, likePick } from './likes';
 import {
@@ -138,7 +138,8 @@ export const outreachAddonWorker: AddonWorkerModule = {
     // online, and the networks whose words the AI wrote, empty. 9: phrases for Facebook's post search, and the AI's
     // hashtags and LinkedIn phrases let go, then written again around the playbook's topic (decision 141). Reading
     // upgrades an older one too (outreach.playbook.list), so these only tidy what a reinstall brings back, but for 9's
-    // write, asked for at once rather than at the next day's start.
+    // write, asked for at once rather than at the next day's start. 10: the posts an older check called good, and
+    // still open for a comment, checked again for the owner's own field (decision 143, ./posts.ts).
     2: upgradePlaybooks,
     3: upgradePlaybooks,
     4: upgradePlaybooks,
@@ -150,6 +151,7 @@ export const outreachAddonWorker: AddonWorkerModule = {
       await upgradePlaybooks(ctx);
       await scheduleWordsWrite(ctx.tx, ctx);
     },
+    10: recheckGoodPosts,
   },
   // The chats a download brought in, or read in Messenger, read by the AI (./chats.ts); group posts worth a look,
   // checked by it (./posts.ts); friends and people chatted with, checked for whether they fit (./checks.ts); a reply seen, or handed over to the person, pushed to their phone, and the morning push and weekly report
