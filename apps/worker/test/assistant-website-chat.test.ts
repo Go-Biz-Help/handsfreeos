@@ -34,7 +34,8 @@ let owner: TestUser;
 let workspaceId: string;
 let organizationId: string;
 const mark = randomUUID().slice(0, 8);
-const site = `chat-${mark}.example.com`;
+// A bare domain, so the www version is added beside it (a subdomain gets none).
+const site = `chat-${mark}.com`;
 
 type ConfirmCard = Extract<AssistantCard, { type: 'confirm' }>;
 interface Widget {
