@@ -15,6 +15,10 @@ const EXTENSION_ONLY = new Set([
   'outreach.profile.check',
   'outreach.like.pick',
   'outreach.join.answer',
+  // Its AI helper on a step that didn't go (decision 142): a look at the page, and the learned ways to try first.
+  'outreach.helper.look',
+  'outreach.helper.ways',
+  'outreach.helper.way',
 ]);
 
 const actions = ADDON_WORKER_MODULES.flatMap((m) =>
