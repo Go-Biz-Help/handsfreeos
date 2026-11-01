@@ -18,6 +18,7 @@ export function PhoneAppDialog({
   notifications?: boolean;
 }) {
   const [codes, setCodes] = useState<Record<string, string>>({});
+  const howTo = PHONE_APP_LINKS.testing ? GUIDE_WORDS.appTesting : GUIDE_WORDS.appScan;
 
   useEffect(() => {
     if (!open) return;
@@ -39,13 +40,7 @@ export function PhoneAppDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
         title={GUIDE_WORDS.appTitle}
-        description={
-          notifications
-            ? `${GUIDE_WORDS.appNotificationsNote} ${PHONE_APP_LINKS.testing ? GUIDE_WORDS.appTesting : ''}`
-            : PHONE_APP_LINKS.testing
-              ? GUIDE_WORDS.appTesting
-              : undefined
-        }
+        description={notifications ? `${GUIDE_WORDS.appNotificationsNote} ${howTo}` : howTo}
         className="w-[min(520px,calc(100vw-32px))]"
       >
         <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2" data-testid="phone-app-links">
