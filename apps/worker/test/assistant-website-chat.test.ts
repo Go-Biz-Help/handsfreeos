@@ -210,7 +210,8 @@ describe('Settings → Website chat', () => {
       askForSmsConsent: false,
     };
     const { card } = await prepare(args);
-    expect(card.title).toBe(`Change the website chat on ${site}`);
+    // The chat was named Main website above, so the card calls it that rather than by its site.
+    expect(card.title).toBe('Change the website chat on Main website');
     expect(field(card, 'New chats a day')).toBe('25');
     expect(field(card, 'Position')).toBe('Bottom left');
     expect(field(card, 'Ask for their mobile')).toBe('After their first message');
