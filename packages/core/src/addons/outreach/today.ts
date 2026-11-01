@@ -549,17 +549,17 @@ export const COMMENT_WORDS_MOST: Readonly<Record<Platform, number | null>> = {
 };
 
 /**
- * How a comment is written where comments go through `sends` and the extension posts them once OK'd (decision 92):
- * Instagram's short, with no link, hashtag or pitch; Alignable's and LinkedIn's (decision 102) a helpful answer, with no
- * pitch or link.
+ * How a comment is written where comments go through `sends` and the extension posts them once OK'd (decision 92), as
+ * a peer who knows the field (decision 141): Instagram's short, with no link or hashtag; Alignable's and LinkedIn's
+ * (decision 102) a useful point from what the business knows, with no link.
  */
 const COMMENT_RULES: Readonly<Record<Platform, string | null>> = {
   facebook: null,
   linkedin:
-    'A comment on LinkedIn is a helpful answer to the post, from what the business knows, or on a post about their own work, something genuine and specific about what they shared: no pitch, no link and no web address.',
-  instagram: `A comment on Instagram is under ${COMMENT_WORDS_MOST.instagram} words, with no link, no web address, no hashtags and no pitch: answer or add something useful, or say something genuine and specific about the work they shared, as a friendly local would.`,
+    'A comment on LinkedIn reads like a peer who knows the field: one specific, useful point that builds on the post, from what the business knows. No link and no web address.',
+  instagram: `A comment on Instagram is under ${COMMENT_WORDS_MOST.instagram} words, with no link, no web address and no hashtags: one specific, useful point that builds on the post, the way a peer who knows the field would say it.`,
   alignable:
-    'A comment on Alignable is a helpful answer to the post, from what the business knows, or on a post about their own work, something genuine and specific about what they shared: no pitch, no link and no web address.',
+    'A comment on Alignable reads like a peer who knows the field: one specific, useful point that builds on the post, from what the business knows. No link and no web address.',
 };
 
 const DRAFT_RULES = [
@@ -649,8 +649,10 @@ const TASK: Record<CustomerDraftKind, string> = {
     'It’s their birthday today. Write the owner’s short, warm happy birthday, one or two lines, in the owner’s own voice, picking up something real from the chat or their pages when there is one. Nothing about the business: no pitch, no offer, no price, no link, no ask.',
   new_job:
     'They just started a new job, as the line below says. Write the owner’s short, warm congratulations, one or two lines, naming the new role or place when the line says it, and wishing them well in it. Nothing about the business: no pitch, no offer, no price, no link, no ask.',
+  // As someone who knows the field (decision 141): a real point, never stock praise, and what the business does only
+  // when they asked for help with it.
   comment:
-    'They posted this in a Facebook group. Write the owner’s public comment under it. When they asked something, answer it or add something useful first, and only then offer to help, without a hard pitch or a link unless they asked for one. When it’s about their own work (a job finished, a win, a tip, their business), say something genuine and specific about it, with nothing about the owner’s business. Under 50 words. No questions about things the post already says.',
+    'They posted this in a Facebook group. Write the owner’s public comment under it, as someone who knows this field well talking to a peer: add one specific, useful point that builds on what they said, such as a tip, what works, a common mistake or a rule of thumb, from what the business knows and the playbook. When they asked for help with what the business does, the owner may also say in a few words that it’s what they do, with no hard pitch and no link unless they asked for one. Never open with praise or thanks (“Great post”, “Love this”, “So true”, “Thanks for sharing”), never repeat their post back to them, and never sound like a fan, a brand or an ad. Never invent experience, numbers or results the business hasn’t said: a tip anyone in the field would know is fine. Under 50 words. No questions about things the post already says.',
   warm_lead:
     'They commented on the owner’s own helpful post in a Facebook group. Write the owner’s public reply to their comment: thank them by name, answer or add to what they said, and ask one light question back. No pitch, no link. Under 40 words.',
   group_reply:
@@ -686,6 +688,45 @@ export const fitsOccasion = (text: string): boolean => !LINKED.test(text);
 export const fitsGroupReply = (text: string): boolean => !LINKED.test(text);
 
 /**
+ * Praise or thanks that says nothing, the way a comment opens when it sounds robotic (decision 141): "Great post!",
+ * "Love this.", "So true!", "Thanks for sharing.", each the whole of its sentence, so "Good gutters save roofs." is
+ * kept.
+ */
+const STOCK_PRAISE = new RegExp(
+  [
+    String.raw`(?:(?:this is|that’s|that's|what an?|such an?|really|so|very)\s+)?(?:an?\s+)?(?:great|good|awesome|amazing|fantastic|excellent|nice|solid|wonderful|brilliant|powerful|insightful|beautiful|incredible|helpful|important|interesting|valuable)(?:\s+(?:post|points?|question|share|tips?|read|stuff|work|job|advice|insights?|reminder|take|one|call|thread|topic|perspective|example|list))?(?:\s+(?:here|there|today))?`,
+    String.raw`(?:i\s+)?(?:love|loved|loving)\s+(?:this|that|it|these)(?:\s+(?:post|tip|one|idea))?`,
+    String.raw`(?:so\s+|very\s+)?true|well said|spot on|absolutely|totally agree|100%|couldn[’']?t agree more|(?:i\s+)?agreed?`,
+    String.raw`thanks?(?:\s+you)?(?:\s+so\s+much)?(?:\s+for\s+(?:sharing|posting|this))?|congrat(?:s|ulations)(?:\s+\S+){0,4}|wow|amen|this|yes|facts`,
+  ]
+    .map((p) => `^(?:${p})$`)
+    .join('|'),
+  'iu',
+);
+/** A sentence's end, a name after a comma, and the emoji a stock opening ends with. */
+const PRAISE_TAIL = /(?:,\s*\p{Lu}[\p{L}’'-]*)?[\s!.?…\p{Extended_Pictographic}\u{FE0F}]*$/u;
+
+/**
+ * A drafted comment without the stock praise it opens with (decision 141): a first sentence that's only "Great post!"
+ * or "Love this." goes, and the point after it stays. Null when nothing worth saying is left.
+ */
+export function withoutStockPraise(text: string): string | null {
+  const t = text.trim();
+  const first = /^[^.!?\n]*[.!?]+(?:\s+|$)|^[^\n]*\n+/.exec(t)?.[0] ?? '';
+  const opening = first
+    .replace(PRAISE_TAIL, '')
+    .replace(/^[“"']/, '')
+    .trim();
+  if (!opening || !STOCK_PRAISE.test(opening)) return t || null;
+  const rest = t
+    .slice(first.length)
+    .replace(/^[\s\p{Extended_Pictographic}\u{FE0F}]+/u, '')
+    .trim();
+  if (rest.split(/\s+/).filter(Boolean).length < 3) return null;
+  return rest.charAt(0).toUpperCase() + rest.slice(1);
+}
+
+/**
  * Whether a drafted comment can wait to be posted where comments go through `sends` (decision 92): never with a link
  * or a web address; where the network keeps comments short (`COMMENT_WORDS_MOST`, Instagram's), never with a hashtag
  * and within its words. Anywhere else, any draft.
@@ -698,8 +739,8 @@ export function fitsComment(text: string, platform: Platform): boolean {
 }
 
 /**
- * A kind's task on a network, in its words. A post off a group (LinkedIn's post search and feed, where the helpful post
- * goes on the person's own) is on the network, not in a group.
+ * A kind's task on a network, in its words. A post off a group (Facebook's and LinkedIn's post search, LinkedIn's feed,
+ * where the helpful post goes on the person's own) is on the network, not in a group.
  */
 function taskOn(kind: CustomerDraftKind, platform: Platform, inGroup: boolean): string {
   const said = inNetworkWords(TASK[kind], platform);
@@ -711,18 +752,19 @@ function taskOn(kind: CustomerDraftKind, platform: Platform, inGroup: boolean): 
           'They just followed the owner back.',
         )
       : said;
-  // A comment that waits to be posted (decision 92) carries no pitch and no link, and keeps to the network's words.
+  // A comment that waits to be posted (decision 92) carries no link, and keeps to the network's words.
   const most = COMMENT_WORDS_MOST[platform];
   const held =
     kind === 'comment' && NETWORKS[platform].commentsWait === 'hold'
       ? task
           .replace(
-            ' first, and only then offer to help, without a hard pitch or a link unless they asked for one.',
-            ', with no pitch and no link.',
+            ' with no hard pitch and no link unless they asked for one.',
+            ' with no pitch beyond that and no link or web address.',
           )
           .replace('Under 50 words.', most === null ? 'Under 50 words.' : `Under ${most} words.`)
       : task;
-  if (platform === 'facebook' || inGroup) return held;
+  // A post in no group (Facebook's or LinkedIn's post search, decision 141) is on the network itself.
+  if (inGroup) return held;
   const name = NETWORKS[platform].name;
   return held.replace(`in a ${name} group`, `on ${name}`);
 }

@@ -696,24 +696,28 @@ export const OUTREACH_WORDS = {
     avoid: 'Words to avoid',
     disclaimer: 'Disclaimer',
     tags: 'Tags',
-    // Each network's own words on a customers' playbook (data version 8, decision 92), shown while it runs there.
+    // Each network's own words on a customers' playbook (data versions 8 and 9, decisions 92 and 141), shown while it
+    // runs there.
+    facebookSearches: 'Words to search Facebook’s posts with',
     hashtags: 'Hashtags on Instagram',
     postSearches: 'Words to search LinkedIn’s posts with',
     businessKinds: 'Kinds of business to search for on Alignable',
     worksOnline: 'Clients online',
   },
   /**
-   * Each network's own words on a customers' playbook (decision 92): written by the AI once, from who it's for and
-   * their problem, while the list is empty, and the person's to change. An emptied list means that network looks at
-   * nothing for it. Which one shows under a list is `findWordsHint`'s.
+   * Each network's own words on a customers' playbook (decisions 92 and 141): written by the AI once, around the
+   * playbook's topic (the problem it solves and running that kind of business), while the list is empty, and the
+   * person's to change. An emptied list means that network looks at nothing for it. Which one shows under a list is
+   * `findWordsHint`'s.
    */
   findWords: {
     written: (perDay: number) =>
-      `The AI wrote these from who it’s for and their problem. Change any; it looks at ${perDay} a day, in turn.`,
+      `The AI wrote these around your topic: the problem you solve and running that kind of business. Change any; it looks at ${perDay} a day, in turn.`,
     notYet:
-      'While this list is empty, the AI writes it once from who it’s for and their problem. Any words you add are used instead.',
+      'While this list is empty, the AI writes it once around your topic: the problem you solve and running that kind of business. Any words you add are used instead.',
     own: 'These are your own words, so the AI won’t add to them. Empty the list and it writes its own.',
     none: {
+      facebook: 'Facebook won’t search posts for this playbook.',
       instagram: 'Instagram won’t look at hashtags for this playbook.',
       linkedin: 'LinkedIn won’t search posts for this playbook.',
       alignable: 'Alignable won’t search for businesses for this playbook.',

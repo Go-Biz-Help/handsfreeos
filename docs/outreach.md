@@ -700,6 +700,7 @@ became.
 | The chat so far beside a message waiting                 | `sends.ts` (`recentBubbles`), `ops/common.ts` (`recentOf`), `apps/web/src/addons/outreach/chat-bubbles.tsx`, `apps/mobile/src/addons/outreach/chat-bubbles.tsx`                                                                                                                     |
 | Don’t pitch covering a person kept twice                 | `ops/common.ts` (`neverTwins`, `pitchable`), `supabase/migrations/20261027002500_outreach_dont_pitch_twins.sql`                                                                                                                                                                     |
 | Start fresh                                              | `apps/web/src/addons/outreach/start-fresh.tsx`, core’s `addon.start_fresh`, `apps/extension/src/hfos/follow.ts` (`forgetOnFreshStart`)                                                                                                                                              |
+| Expert comments on posts about the topic (decision 141)  | `posts.ts` (`POST_CHECK_SYSTEM`, `SEARCH_PARTS`), `topics.ts`, `today.ts` (`TASK.comment`, `withoutStockPraise`), `playbooks.ts` (`facebookSearches`), `apps/extension/src/jobs/posts.ts` (`searchPosts`)                                                                           |
 | The extension                                            | `apps/extension`                                                                                                                                                                                                                                                                    |
 
 Operations, all through the kernel:
@@ -2274,7 +2275,8 @@ where decisions 37 and 59 put the settings; what they decided stands. Settled to
       LinkedIn use the old made-up words and Alignable doesn't search. Partner playbooks get none, and partner searches
       (decision 81) keep their words. Found while building: it writes only for the networks somebody in the business
       works (their own choice, or the business's starting one, inside the networks it allows), so a Facebook-only
-      business spends no AI on them, and turning a network on asks for its words then. From decision 123 the morning's
+      business spends no AI on them, and turning a network on asks for its words then. From decision 141 Facebook has
+      its own list too (**Words to search Facebook’s posts with**), so a Facebook-only business gets that one written. From decision 123 the morning's
       first list saved asks too, as days start on their own with nothing pressed.
     - **Where it looks:** Instagram 5 hashtags a day in turn, about 10 posts each (2a; places stay 4); LinkedIn 5
       phrases a day in turn; Alignable 3 kinds of business a day in the person's own town and those within 25 miles
@@ -3438,7 +3440,48 @@ where decisions 37 and 59 put the settings; what they decided stands. Settled to
       the social outreach extension is suggesting are very robotic and don’t make me sound like an expert in my field.
       the posts we respond to should be related to the playbook so it should be searching for posts using keywords and
       phrases related. also when it shows the suggested comment it should show a more option to show the whole post
-      instead of cutting it off"). No migration and no new extension.
+      instead of cutting it off"), answered "1a 2a 3b 4b 5b"; extension **0.121.0**, data version **9**, no migration.
+      What was wrong, from the live counts of the 5 days before: every comment waiting was on Instagram or LinkedIn,
+      on a post found by search, and the hashtags that found the most "good" posts were the trades' own
+      (#electriciansofinstagram, #roofingcontractor), while "too many leads" found none. The post check called a job
+      photo by someone the playbook is for good, the comment ask said to praise it "as a friendly local would", and
+      the AI's words were written for who the playbook is for, not its topic. The picks:
+      - **Only posts about the playbook's topic get comments** (1a). The post check (`POST_CHECK_SYSTEM` in `posts.ts`)
+        calls a post good only when it's about a playbook's problem, what the offer helps with, or running and growing
+        that kind of business: asking for help or a recommendation the offer answers, struggling with or complaining
+        about the problem, asking how others handle it, or a tip on it. A post that only shows the writer's work (a job
+        done, a photo, a win, an ad) isn't, however well they fit: the check says `fits` instead, so the writer is
+        still found, liked and followed (decision 123), with no comment. The check is told each playbook's niche and
+        problem as well as its offer and who it's for.
+      - **The AI's words are written again, around the topic** (2a). `FIND_WORDS_SYSTEM` (`topics.ts`) writes the
+        hashtags and phrases for the problem the business solves, what it helps with and running that kind of
+        business, never posts that only show the work; at most three local hashtags; the business-owner hashtags that
+        are about anything (#smallbusiness, #entrepreneur and the like) are dropped as noise. Data version 9
+        (`upgradePlaybookDetails`) lets go of the Instagram and LinkedIn lists the AI wrote before, even ones the person
+        changed since, as the owner chose; a list the person emptied stays empty, their own words stay, and
+        Alignable's kinds of business stay. The worker's data step 9 queues the business's words write at once, so the
+        new words come in minutes, at the usual cost of one AI ask per playbook.
+      - **Comments sound like a peer who knows the field** (3b). The comment ask (`TASK.comment`, `COMMENT_RULES` in
+        `today.ts`) is the owner's public comment "as someone who knows this field well talking to a peer": one
+        specific, useful point that builds on the post (a tip, what works, a common mistake, a rule of thumb) from what
+        the business knows and the playbook. When they asked for help with what the business does, it may say in a few
+        words that it's what they do, with no hard pitch and no link unless they asked (never a link where comments
+        wait to be posted). Never open with praise or thanks, never repeat the post back, never sound like a fan, a
+        brand or an ad, and never invent experience, numbers or results. Under 50 words, and Instagram's 30. A draft
+        that still opens with a sentence of stock praise ("Great post!", "Love this, Sam!", "So true.") has it taken
+        off (`withoutStockPraise`), and a draft with nothing left after it isn't offered. Comments already waiting stay
+        until they're OK'd or skipped, and good posts leave Today after 7 days.
+      - **No Comments part in Your messages** (4b): the voice is in the ask, the same for every business.
+      - **Facebook searches its posts with the playbook's phrases** (5b). A customers' playbook on Facebook has a new
+        list, **Words to search Facebook’s posts with** (`facebookSearches`, `FIND_WORDS_PARTS.facebook`, 8 to 12
+        phrases of up to 4 words, like "missed calls" or "anyone use a CRM"), written by the AI with the others and the
+        person's to change on the web and the phone; the three ready-made playbooks have their own. Each day the
+        extension's Find posts, after the groups (or with none), searches Facebook's posts with 5 of them in turn,
+        recent posts first, three screens each (`searchPosts` in `src/jobs/posts.ts`), and sends them in no group,
+        found by search, with the phrase (`PostsSaveInput` lets Facebook have no group only then). A post found with a
+        playbook's own phrase goes to the AI's check whatever its words say; one older than a week is left out. Unlike
+        LinkedIn, Facebook's search never falls back on the signs' words: no phrases, no search. Today says "On
+        Facebook" for such a post, and the comment ask says they posted it on Facebook.
       - **More on a post cut short.** Today shows a post's first 280 characters (`TODAY_POST_MOST`) and Waiting for you
         a comment's first 200 (`SEND_POST_MOST`), as before; when that cuts it short, **More** right after the words
         shows the whole post in place (all of it HandsFreeOS kept, up to `POST_TEXT_MOST`), and **Less** folds it back,

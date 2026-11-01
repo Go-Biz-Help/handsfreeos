@@ -1252,14 +1252,18 @@ describe('A playbook on the phone', () => {
     const details = {
       ...PLAYBOOK.details,
       platforms: ['facebook' as const, 'instagram' as const, 'alignable' as const],
+      facebookSearches: ['missed calls', 'slow season'],
       hashtags: ['austinroofing', 'hailrepair'],
       businessKinds: [],
-      wordsWritten: ['instagram' as const, 'alignable' as const],
+      wordsWritten: ['facebook' as const, 'instagram' as const, 'alignable' as const],
       worksOnline: true,
     };
     expect(sectionsOf(details)).toEqual(
-      expect.arrayContaining(['hashtags', 'businessKinds', 'worksOnline']),
+      expect.arrayContaining(['facebookSearches', 'hashtags', 'businessKinds', 'worksOnline']),
     );
+    // Facebook's phrases for its post search (decision 141).
+    expect(sectionWords(details, 'facebookSearches')).toBe('missed calls\nslow season');
+    expect(sectionsOf({ ...details, goal: 'partner' })).not.toContain('facebookSearches');
     expect(sectionsOf(details)).not.toContain('postSearches');
     expect(sectionsOf({ ...details, goal: 'partner' })).not.toContain('hashtags');
     expect(sectionWords(details, 'hashtags')).toBe('#austinroofing\n#hailrepair');
@@ -1313,7 +1317,7 @@ describe('A playbook on the phone', () => {
     await render(body(PLAYBOOK));
     await fireEvent.press(screen.getByTestId('playbook-edit-hashtags'));
     expect(screen.getByTestId('playbook-words-hint')).toHaveTextContent(
-      'While this list is empty, the AI writes it once from who it’s for and their problem. Any words you add are used instead.',
+      'While this list is empty, the AI writes it once around your topic: the problem you solve and running that kind of business. Any words you add are used instead.',
     );
     // Words typed in are the person's own: the AI never adds to them.
     await fireEvent.changeText(screen.getByTestId('playbook-lines'), 'roofleak');

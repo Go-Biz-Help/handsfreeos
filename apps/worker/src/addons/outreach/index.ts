@@ -69,7 +69,7 @@ import {
   goalMiddayJob,
 } from './goal';
 import { armWeekly, WEEKLY_JOB, weeklyJob } from './weekly';
-import { WRITE_WORDS_JOB, wordsWanted, writeWordsJob } from './words';
+import { scheduleWordsWrite, WRITE_WORDS_JOB, wordsWanted, writeWordsJob } from './words';
 
 /**
  * What the extension sends also arms the morning push and the weekly report, for a business that had the add-on on
@@ -127,8 +127,10 @@ export const outreachAddonWorker: AddonWorkerModule = {
     // useful to send. 4: its follow-ups are 5 to 7, each with its quiet days (moved from the one number), and a video
     // link. 5: the video's script. 6: the kinds of partner a partner playbook looks for. 7: a playbook runs on its own
     // networks, a customers' one saved before on Facebook and LinkedIn, as it ran. 8: each network's own words, works
-    // online, and the networks whose words the AI wrote, empty. Reading upgrades an older one too
-    // (outreach.playbook.list), so these only tidy what a reinstall brings back.
+    // online, and the networks whose words the AI wrote, empty. 9: phrases for Facebook's post search, and the AI's
+    // hashtags and LinkedIn phrases let go, then written again around the playbook's topic (decision 141). Reading
+    // upgrades an older one too (outreach.playbook.list), so these only tidy what a reinstall brings back, but for 9's
+    // write, asked for at once rather than at the next day's start.
     2: upgradePlaybooks,
     3: upgradePlaybooks,
     4: upgradePlaybooks,
@@ -136,6 +138,10 @@ export const outreachAddonWorker: AddonWorkerModule = {
     6: upgradePlaybooks,
     7: upgradePlaybooks,
     8: upgradePlaybooks,
+    9: async (ctx) => {
+      await upgradePlaybooks(ctx);
+      await scheduleWordsWrite(ctx.tx, ctx);
+    },
   },
   // The chats a download brought in, or read in Messenger, read by the AI (./chats.ts); group posts worth a look,
   // checked by it (./posts.ts); friends and people chatted with, checked for whether they fit (./checks.ts); a reply seen, or handed over to the person, pushed to their phone, and the morning push and weekly report

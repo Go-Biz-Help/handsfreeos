@@ -32,7 +32,12 @@ import { todayKindsOn } from '../../src/addons/outreach/network-words';
 
 const FACEBOOK_WORDS = /Facebook|Messenger|friend request|\bfriends?\b/i;
 
-const draft = (kind: (typeof CUSTOMER_DRAFT_KINDS)[number], platform?: 'facebook' | 'linkedin') =>
+/** A draft's ask: under a post, one in a group on Facebook, and on LinkedIn one off a group, from its post search. */
+const draft = (
+  kind: (typeof CUSTOMER_DRAFT_KINDS)[number],
+  platform?: 'facebook' | 'linkedin',
+  group: string | null = platform === 'linkedin' ? null : 'Austin Roofers',
+) =>
   todayDraftPrompt({
     kind,
     business: 'Bright Books',
@@ -40,8 +45,7 @@ const draft = (kind: (typeof CUSTOMER_DRAFT_KINDS)[number], platform?: 'facebook
     facts: [],
     recent: [],
     playbook: null,
-    post:
-      kind === 'comment' || kind === 'warm_lead' ? { text: 'Who do you use?', group: null } : null,
+    post: kind === 'comment' || kind === 'warm_lead' ? { text: 'Who do you use?', group } : null,
     ...(platform ? { platform } : {}),
   });
 
@@ -71,6 +75,9 @@ describe('each network’s words for the AI', () => {
     expect(TODAY_DRAFT_SYSTEM).toContain('short Facebook messages');
     expect(draft('opener')).toContain('accepted the owner’s friend request');
     expect(draft('comment')).toContain('posted this in a Facebook group');
+    // A post Facebook's post search found (decision 141) is in no group: it's on Facebook.
+    expect(draft('comment', 'facebook', null)).toContain('They posted this on Facebook.');
+    expect(postCheckSystem('facebook', false)).toContain('find posts on Facebook');
   });
 
   it('tells LinkedIn’s AI LinkedIn’s words, and never Facebook’s', () => {

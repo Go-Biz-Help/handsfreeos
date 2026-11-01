@@ -1795,12 +1795,10 @@ export const today = defineAddonQuery(outreachAddon, {
             asking: po.strong,
             why: [
               ...(po.check_why ? [po.check_why] : []),
-              // A post off a group, from LinkedIn's post search, is on the network itself.
+              // A post off a group, from Facebook's or LinkedIn's post search (decision 141), is on the network itself.
               ...(po.group_name
                 ? [`In ${po.group_name}`]
-                : input.platform === 'facebook'
-                  ? []
-                  : [`On ${NETWORKS[input.platform].name}`]),
+                : [`On ${NETWORKS[input.platform].name}`]),
             ],
             playbookName: po.playbook_name,
           }),

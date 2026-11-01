@@ -99,6 +99,8 @@ export async function checkPostsJob(ctx: AddonJobContext): Promise<JobResult> {
       .map((p) => ({
         name: p.name,
         offer: p.details.offer,
+        niche: p.details.niche,
+        problem: p.details.problem,
         audience: p.details.audience,
         signs: p.details.signs,
         skip: p.details.skip,
@@ -108,7 +110,7 @@ export async function checkPostsJob(ctx: AddonJobContext): Promise<JobResult> {
     let check: { good: boolean; strong: boolean; fits: boolean; why: string | null } | null;
     try {
       const { value } = await askStructured(ctx, ctx.scope, {
-        system: postCheckSystem(post.platform),
+        system: postCheckSystem(post.platform, post.group !== null),
         messages: [
           {
             role: 'user',

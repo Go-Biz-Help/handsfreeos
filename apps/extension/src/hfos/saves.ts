@@ -40,7 +40,12 @@ import {
 } from '@hfos/core/addons/outreach/finds';
 import { FOLLOWERS_SAVE_MOST } from '@hfos/core/addons/outreach/followers';
 import { REPLY_TRIES } from '@hfos/core/addons/outreach/active';
-import { POST_TEXT_MOST, POST_WORDS_MOST, POSTS_SAVE_MOST } from '@hfos/core/addons/outreach/posts';
+import {
+  POST_TEXT_MOST,
+  POST_WORDS_MOST,
+  POSTS_SAVE_MOST,
+  postHoursAgo,
+} from '@hfos/core/addons/outreach/posts';
 import { LOOKUP_LINE_MOST } from '@hfos/core/addons/outreach/today';
 import type { Answered, Reached, Step, StepGroup } from '../networks/facebook/actions';
 import { asked, askedByYou, mutualFriendsIn, type FriendList } from '../networks/facebook/friends';
@@ -560,6 +565,64 @@ export function postsSave(
       group,
       posts: posts.slice(0, POSTS_SAVE_MOST),
       found,
+    },
+  };
+}
+
+/** The oldest post Facebook's post search shows that's kept: past a week, it's late to comment on. */
+const SEARCH_POST_HOURS_MOST = 7 * 24;
+
+/** Whether Facebook printed a post's time as past a week ago ("3w"), or as a date with its year. */
+function pastAWeek(when: string | null): boolean {
+  if (!when) return false;
+  const hours = postHoursAgo(when);
+  return hours === null ? /\b(?:19|20)\d\d\b/.test(when) : hours > SEARCH_POST_HOURS_MOST;
+}
+
+/**
+ * The posts Facebook's post search shows for one of the playbooks' phrases (decision 141, from 0.121.0), to keep the
+ * ones worth a comment, in no group: each with who wrote it, its own link and what it says, and the phrase it searched
+ * with (`words`), so a post found with a playbook's own is worth the AI's check whatever its words say. One without
+ * its author's profile, its link or any words is left out, and so is one from past a week ago.
+ */
+export function facebookSearchPostsSave(
+  result: ReadResult,
+  workspaceId: string,
+  words: string,
+): Built<PostsSaveInput> {
+  if (result.kind !== 'search')
+    return { ok: false, why: 'Open Facebook’s post search to find posts with it.' };
+  const seen = new Set<string>();
+  const posts = (result.posts ?? []).flatMap((post) => {
+    const url = networkAddress(post.url);
+    const who = post.author?.profile
+      ? whom({ name: post.author.name, profile: post.author.profile })
+      : null;
+    const text = clipText(post.text, POST_TEXT_MOST);
+    if (!url || !who || !text || seen.has(url) || pastAWeek(post.when)) return [];
+    seen.add(url);
+    return [
+      {
+        url,
+        author: who.profile,
+        name: who.name,
+        when: post.when ? clip(post.when, WHEN_MOST) : null,
+        text,
+        comments: post.comments,
+        reactions: post.reactions,
+      },
+    ];
+  });
+  if (!posts.length) return { ok: false, why: 'There are no posts on the page to look at yet.' };
+  return {
+    ok: true,
+    input: {
+      workspaceId,
+      platform: JOBS,
+      group: null,
+      posts: posts.slice(0, POSTS_SAVE_MOST),
+      found: 'search',
+      words: foundWith(words),
     },
   };
 }

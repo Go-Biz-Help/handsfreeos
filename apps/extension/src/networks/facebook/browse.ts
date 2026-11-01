@@ -83,11 +83,12 @@ const EMPTY_TIME = 'a[role="link"][href^="?"], a[role="link"][href="#"]';
 
 /**
  * Points at each post's empty time link in a group's feed, as a mouse passing over would, so Facebook fills in the
- * post's own address (/groups/<group>/posts/<number>/) for the next read (decision 138): how many. A comment's time
- * links to the post already, so a link inside a comment is left alone. Nothing is pressed.
+ * post's own address (/groups/<group>/posts/<number>/) for the next read (decision 138): how many. Facebook's search
+ * results too, for its post search (decision 141). A comment's time links to the post already, so a link inside a
+ * comment is left alone. Nothing is pressed.
  */
 export function pointAtTimes(root: Document, base: string): number {
-  if (!groupFeedPage(base)) return 0;
+  if (!groupFeedPage(base) && classifyUrl(base).kind !== 'search') return 0;
   const view = root.defaultView;
   if (!view) return 0;
   const feed = root.querySelector('[role="feed"]') ?? root.querySelector('[role="main"]');
