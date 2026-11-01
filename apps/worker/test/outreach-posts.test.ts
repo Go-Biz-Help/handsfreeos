@@ -220,7 +220,8 @@ describe('checking again the posts an older check called good (decision 143)', (
     // One has its comment, one was skipped, and one is over a week old: a comment can't go on those.
     const [first] = await rows<{ user_id: string; profile_id: string }>(
       admin(),
-      sql`select user_id, profile_id from addon_outreach.posts where url = ${url(3)}`,
+      sql`select user_id, profile_id from addon_outreach.posts
+          where workspace_id = ${ws} and url = ${url(3)}`,
     );
     await rows(
       admin(),
@@ -229,11 +230,13 @@ describe('checking again the posts an older check called good (decision 143)', (
     );
     await rows(
       admin(),
-      sql`update addon_outreach.posts set skipped_at = now() where url = ${url(4)}`,
+      sql`update addon_outreach.posts set skipped_at = now()
+          where workspace_id = ${ws} and url = ${url(4)}`,
     );
     await rows(
       admin(),
-      sql`update addon_outreach.posts set seen_at = now() - interval '8 days' where url = ${url(5)}`,
+      sql`update addon_outreach.posts set seen_at = now() - interval '8 days'
+          where workspace_id = ${ws} and url = ${url(5)}`,
     );
 
     const [org] = await rows<{ organization_id: string }>(
