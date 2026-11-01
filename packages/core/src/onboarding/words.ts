@@ -401,6 +401,8 @@ export const GUIDE_WORDS = {
   appTitle: 'Get the phone app',
   appTesting:
     'The iPhone app is in testing for now. Scan a code with your phone’s camera, or open the link on your phone, then sign in with this account.',
+  appScan:
+    'Scan a code with your phone’s camera, or open the link on your phone, then sign in with this account.',
   appNotificationsNote: 'Notifications are turned on in the app itself, on your phone.',
   /**
    * On the card, while the guided setup isn't finished (HANDSFREEOS_ONBOARDING_QUICK_SETUP_IMPLEMENTATION_PLAN.md §7):
