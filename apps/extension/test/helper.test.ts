@@ -316,8 +316,14 @@ describe('the helper’s loop', () => {
       },
     ]);
     reports.sent.length = 0;
-    const again = vi.fn(async () => ({
-      done: true as const,
+    type Went = { readonly done: boolean; readonly line: string; readonly need?: true };
+    const first: Went = {
+      done: false,
+      line: 'Sam Carter: Facebook showed a different page',
+      need: true,
+    };
+    const again = vi.fn(async (): Promise<Went> => ({
+      done: true,
       line: 'Sent Sam Carter a friend request',
     }));
     const helped = await helpAfter({
@@ -327,11 +333,7 @@ describe('the helper’s loop', () => {
       platform: 'facebook',
       work: { do: 'step', item: { kind: 'friend_request', name: THEM } },
       job: 'friend_request',
-      outcome: {
-        done: false as boolean,
-        line: 'Sam Carter: Facebook showed a different page',
-        need: true as const,
-      },
+      outcome: first,
       again,
     });
     expect(again).toHaveBeenCalledOnce();

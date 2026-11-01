@@ -421,12 +421,22 @@ function namesSomeoneElse(element: Element, theirName: string | null): boolean {
   });
 }
 
+/**
+ * Whether a link only runs on the page it's on: `#…`, or a `javascript:` one the network's own script answers. A
+ * `data:` or `vbscript:` link goes somewhere, so it counts as leaving, as anything else does.
+ */
+function staysOnPage(href: string): boolean {
+  const to = href.trim().toLowerCase();
+  if (to.startsWith('data:') || to.startsWith('vbscript:')) return false;
+  return to.startsWith('#') || to.startsWith('javascript:');
+}
+
 /** Whether a link would take the tab to another page: the helper never follows one. */
 function leaves(element: Element): boolean {
   const link = element.closest('a[href]');
   if (!link) return false;
   const href = link.getAttribute('href') ?? '';
-  if (!href || href.startsWith('#') || href.startsWith('javascript:')) return false;
+  if (!href || staysOnPage(href)) return false;
   try {
     const to = new URL(href, element.ownerDocument.location.href);
     const here = new URL(element.ownerDocument.location.href);
@@ -444,7 +454,7 @@ function leavesSite(element: Element): boolean {
   const link = element.closest('a[href]');
   if (!link) return false;
   const href = link.getAttribute('href') ?? '';
-  if (!href || href.startsWith('#') || href.startsWith('javascript:')) return false;
+  if (!href || staysOnPage(href)) return false;
   try {
     return (
       new URL(href, element.ownerDocument.location.href).origin !==

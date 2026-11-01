@@ -643,6 +643,7 @@ describe('registry', () => {
       'ai_provider.set_mode',
       'problem_report.send',
       'problem_report.set_handled',
+      'learned_way.set_removed',
       'money.save_settings',
       'push_device.register',
       'push_device.remove',
