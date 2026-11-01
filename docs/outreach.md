@@ -700,7 +700,7 @@ became.
 | The chat so far beside a message waiting                 | `sends.ts` (`recentBubbles`), `ops/common.ts` (`recentOf`), `apps/web/src/addons/outreach/chat-bubbles.tsx`, `apps/mobile/src/addons/outreach/chat-bubbles.tsx`                                                                                                                     |
 | Don’t pitch covering a person kept twice                 | `ops/common.ts` (`neverTwins`, `pitchable`), `supabase/migrations/20261027002500_outreach_dont_pitch_twins.sql`                                                                                                                                                                     |
 | Start fresh                                              | `apps/web/src/addons/outreach/start-fresh.tsx`, core’s `addon.start_fresh`, `apps/extension/src/hfos/follow.ts` (`forgetOnFreshStart`)                                                                                                                                              |
-| Expert comments on posts about the topic (decision 141)  | `posts.ts` (`POST_CHECK_SYSTEM`, `SEARCH_PARTS`), `topics.ts`, `today.ts` (`TASK.comment`, `withoutStockPraise`), `playbooks.ts` (`facebookSearches`), `apps/extension/src/jobs/posts.ts` (`searchPosts`)                                                                           |
+| Expert comments on posts (decisions 141 and 143)         | `posts.ts` (`POST_CHECK_SYSTEM`, `SEARCH_PARTS`), `topics.ts`, `today.ts` (`TASK.comment`, `withoutStockPraise`), `playbooks.ts` (`facebookSearches`), `apps/extension/src/jobs/posts.ts` (`searchPosts`)                                                                           |
 | The extension                                            | `apps/extension`                                                                                                                                                                                                                                                                    |
 
 Operations, all through the kernel:
@@ -3539,6 +3539,40 @@ where decisions 37 and 59 put the settings; what they decided stands. Settled to
         computer tries it again (`learned_way.set_removed`), or bring it back. One that hasn't worked in 90 days goes.
         New ways sit beside the extension's own readers, never in place of them: the runner's own way is always tried
         first.
+
+143.  **Comments from the owner's own field, never the poster's trade** (Chris, 1 Nov 2026: "the social outreach
+      comments are behaving like I'm an expert in their field not mine. Like saying what to do if a breaker flips
+      multiple times or what to do when trying to find a stud, it shouldn't be making these types of comments it should
+      be making marketing or automation or ai or crm expert comments since that's what my field is", then "so the
+      types of posts the comments for my field would be is when a business owner or someone is speak or asking about
+      ai or automations or crms etc"), answered "1a but keep in mind this is for my business another customer using
+      social outreach would be commenting to different types of posts, 2a, 3a"; data version **10**, no migration, no
+      new extension. What was wrong: every post still waiting for a comment had been called good before decision 141
+      went live (all 72 posts checked after it were not good), and decision 141's comment ask said "as someone who
+      knows this field", with no word of whose, so with a playbook for roofers or electricians the AI wrote as one of
+      them. The picks:
+      - **Only posts about the owner's own field get a comment** (1a), each business's own: what it does and what its
+        offer helps with, never the trade of who a playbook is for. The post check (`POST_CHECK_SYSTEM`) says a
+        playbook's niche and who it's for say whose posts to look at, never the owner's field; a post about the
+        writer's own trade or work (how to do it, a tip for their customers, a job done, a photo, a win, an ad) isn't
+        good, however well they fit, and says `fits` instead, so they're still found, liked and followed (decision
+        123). Running a business counts only where the post is about the owner's field, so "running and growing that
+        kind of business" is gone from the check.
+      - **The field comes from the business profile and the offer** (2a): nothing new to fill in. The post check is
+        now told the business profile (`<business_profile>`, `briefFromProfile`, read by `businessKnows`), as a draft
+        already was (decision 122), beside each playbook's offer and problem. The AI's search words (`FIND_WORDS_SYSTEM`
+        in `topics.ts`) are written around the topic in that field too, for words written from now on; words already
+        written stay.
+      - **Comments from that field, or none** (`TASK.comment`, `COMMENT_RULES`): the owner's public comment is "from
+        the owner's own field", never advice about the writer's own trade or work (how to do it, their tools, their
+        materials, their customers' questions) unless it's the owner's field too. When the owner's field has nothing
+        real to add, the AI writes no drafts, and the extension passes the post by for the day ("the AI had nothing to
+        say on it"). The rest of decision 141's voice stays.
+      - **The posts an older check called good are checked again** (3a). Data step 10 (`recheckGoodPosts` in the
+        worker's `posts.ts`) sends back to the AI's check every good post a comment could still go on (seen in the last
+        week, not skipped, no comment drafted or posted), and queues the check at once: about one AI ask a post. Those
+        about the owner's field stay good; the rest leave Today. A comment already waiting stays until it's OK'd or
+        skipped.
 
 ## Rules worth knowing before changing anything
 

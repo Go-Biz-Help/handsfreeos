@@ -1,7 +1,8 @@
 /**
- * Social Outreach's comments that sound like an expert, on posts that fit the playbook (docs/outreach.md, decision
- * 141): the post check calls a post good only when it's about a playbook's topic, the comment ask is a peer's who
- * knows the field, a draft's stock praise goes, and Facebook's post search goes with the playbooks' own phrases.
+ * Social Outreach's comments that sound like an expert, on posts that fit the playbook (docs/outreach.md, decisions
+ * 141 and 143): the post check calls a post good only when it's about the owner's own field, never the trade of who a
+ * playbook is for, the comment ask is a peer's in that field, a draft's stock praise goes, and Facebook's post search
+ * goes with the playbooks' own phrases.
  */
 import { describe, expect, it } from 'vitest';
 import { blankPlaybook, type PlaybookDetails } from '../../src/addons/outreach/playbooks';
@@ -13,13 +14,38 @@ import {
 } from '../../src/addons/outreach/posts';
 import { todayDraftPrompt, withoutStockPraise } from '../../src/addons/outreach/today';
 
-describe('posts about the playbook’s topic', () => {
-  it('calls a post good only when it’s about the topic, never one that only shows the writer’s work', () => {
-    expect(POST_CHECK_SYSTEM).toContain('good only when it is about a playbook’s topic');
+describe('posts about the owner’s own field', () => {
+  it('calls a post good only when it’s about the owner’s field, never the trade of who a playbook is for', () => {
     expect(POST_CHECK_SYSTEM).toContain(
-      'however well its writer fits a playbook: say fits instead',
+      'A post is good only when it is about the owner’s own field',
     );
+    // The owner's report (1 Nov 2026): comments told a contractor what to do when a breaker trips. A playbook's niche
+    // is whose posts to look at, and a post about their trade only fits (decision 143).
+    expect(POST_CHECK_SYSTEM).toContain(
+      'A playbook’s niche and who it is for say whose posts to look at, never the owner’s field',
+    );
+    expect(POST_CHECK_SYSTEM).toContain(
+      'A post about the writer’s own trade or work, when that isn’t the owner’s field, is not good',
+    );
+    expect(POST_CHECK_SYSTEM).toContain('Say fits instead.');
+    expect(POST_CHECK_SYSTEM).not.toContain('running and growing the kind of business');
     expect(POST_CHECK_SYSTEM).not.toContain('A short, genuine comment there starts a friendship');
+  });
+
+  it('tells the check what the business does, from its profile', () => {
+    const prompt = (profile?: string | null) =>
+      postCheckPrompt({
+        business: 'Bright Books',
+        profile,
+        group: null,
+        text: 'Anyone using AI to answer calls?',
+        playbooks: [],
+      });
+    expect(prompt('Bookkeeping and payroll for contractors')).toContain(
+      '<business_profile>\nBookkeeping and payroll for contractors\n</business_profile>',
+    );
+    // With none written, the offers say it alone.
+    expect(prompt(null)).toContain('<business_profile>\nNothing written yet.\n</business_profile>');
   });
 
   it('tells the check the playbook’s niche and problem', () => {
@@ -77,7 +103,7 @@ describe('Facebook’s post search (decision 141)', () => {
   });
 });
 
-describe('comments that sound like someone who knows the field', () => {
+describe('comments that sound like someone who knows the owner’s own field', () => {
   const ask = (group: string | null, platform: 'facebook' | 'instagram' | 'linkedin') =>
     todayDraftPrompt({
       kind: 'comment',
@@ -90,9 +116,17 @@ describe('comments that sound like someone who knows the field', () => {
       platform,
     });
 
-  it('asks for a peer’s useful point, with no stock praise and nothing made up', () => {
+  it('asks for a peer’s useful point from the owner’s field, with no stock praise and nothing made up', () => {
     const facebook = ask('Austin Roofers', 'facebook');
-    expect(facebook).toContain('as someone who knows this field well talking to a peer');
+    expect(facebook).toContain(
+      'Write the owner’s public comment under it, from the owner’s own field',
+    );
+    // Never the writer's own trade, and nothing at all when the owner's field has nothing to add (decision 143).
+    expect(facebook).toContain('never give advice about the writer’s own trade or work');
+    expect(facebook).toContain(
+      'When the owner’s field has nothing real to add to this post, write no drafts.',
+    );
+    expect(facebook).not.toContain('knows this field well');
     expect(facebook).toContain('Never open with praise or thanks');
     expect(facebook).toContain('Never invent experience, numbers or results');
     expect(facebook).toContain('no hard pitch and no link unless they asked for one');

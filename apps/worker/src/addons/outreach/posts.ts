@@ -21,6 +21,7 @@ import { postCheck } from '@hfos/core/addons/outreach/ops/posts';
 import {
   checkedPostWhy,
   freshPost,
+  POST_FRESH_DAYS,
   type PostFound,
   POST_CHECK_SCHEMA,
   postCheckSystem,
@@ -36,7 +37,8 @@ import type { JobResult } from '../../jobs';
 import { AiAskError, askStructured } from '../../ai/ask';
 import { pushAddonNotice } from '../alerts';
 import { scheduleAddonJob } from '../queue';
-import type { AddonEventContext, AddonJobContext } from '../types';
+import type { AddonDataMigration, AddonEventContext, AddonJobContext } from '../types';
+import { businessKnows } from './knows';
 
 export const CHECK_POSTS_JOB = 'outreach.check_posts';
 const TODAY_HREF = '/a/outreach?view=today';
@@ -63,6 +65,40 @@ export async function postsSaved(ctx: AddonEventContext): Promise<void> {
   );
 }
 
+/**
+ * Data step 10 (decision 143): the posts still waiting for a comment that an older check called good go back to the
+ * AI's check, which now asks whether they're about the owner's own field. Only those a comment could still go on: seen
+ * in the last week, not skipped, with no comment drafted or posted on them. The check is queued at once.
+ */
+export const recheckGoodPosts: AddonDataMigration = async (ctx) => {
+  const ws = ctx.scope.workspaceId;
+  const back = await rows<{ id: string }>(
+    ctx.tx,
+    sql`update addon_outreach.posts po set check_state = 'waiting', check_why = null, strong = false,
+          checked_at = null
+        where po.workspace_id = ${ws} and po.check_state = 'good' and po.skipped_at is null
+          and po.seen_at >= now() - make_interval(days => ${POST_FRESH_DAYS}::int)
+          and not exists (select 1 from addon_outreach.sends s where s.post_id = po.id)
+          and not exists (select 1 from addon_outreach.touches t
+            where t.workspace_id = po.workspace_id and t.kind = 'comment' and t.post_url = po.url)
+        returning po.id`,
+  );
+  if (!back.length) return;
+  await scheduleAddonJob(
+    ctx.tx,
+    { id: ctx.manifest.id, generation: ctx.generation },
+    {
+      kind: CHECK_POSTS_JOB,
+      dedupeKey: `${CHECK_POSTS_JOB}:${ws}`,
+      runAt: new Date(),
+      payload: {},
+      workspaceId: ws,
+      organizationId: ctx.scope.organizationId,
+    },
+    { pullEarlier: true },
+  );
+};
+
 /** `outreach.check_posts`: checks a batch of the business's waiting posts, and comes back for the rest. */
 export async function checkPostsJob(ctx: AddonJobContext): Promise<JobResult> {
   const found = await asWorker(ctx.db, ctx.scope, async (tx) => ({
@@ -88,6 +124,8 @@ export async function checkPostsJob(ctx: AddonJobContext): Promise<JobResult> {
     ),
   }));
   if (!found.posts.length) return;
+  // What the business does, so the check knows the owner's own field (decision 143): unread, the offers say it alone.
+  const profile = (await businessKnows(ctx))?.brief ?? null;
   const read = found.playbooks.flatMap((p) => {
     const details = PlaybookDetails.safeParse(upgradePlaybookDetails(p.details));
     return details.success ? [{ name: p.name, details: details.data }] : [];
@@ -116,6 +154,7 @@ export async function checkPostsJob(ctx: AddonJobContext): Promise<JobResult> {
             role: 'user',
             content: postCheckPrompt({
               business: found.business?.name ?? 'the business',
+              profile,
               group: post.group,
               text: post.body,
               playbooks: playbooksOn(post.platform),
