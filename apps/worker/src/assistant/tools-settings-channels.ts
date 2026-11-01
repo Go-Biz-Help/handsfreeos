@@ -7,7 +7,7 @@
  * before it goes to the carriers, because they take days to answer and a wrong answer means starting again.
  */
 
-import { HfosError, money } from '@hfos/core';
+import { HfosError, money, normalizeChatOrigins } from '@hfos/core';
 import type { Db } from '@hfos/db/client';
 import type { ToolContext } from './runtime';
 import { command, query } from './tools-read';
@@ -528,108 +528,243 @@ const manageEmailSettings: SettingsConfirmTool = {
 
 // ---------- the chat box on the website ----------
 
-interface WidgetList {
-  widgets: {
+type AskMode = 'never' | 'when_needed' | 'after_first_message' | 'before_chat';
+const ASK_FIELDS = ['name', 'phone', 'email'] as const;
+/** The screen's words for each detail, and for when it is asked. */
+const ASK_LABELS = { name: 'Name', phone: 'Mobile', email: 'Email' } as const;
+const ASK_WORDS: Record<AskMode, string> = {
+  never: 'Don’t ask',
+  when_needed: 'When needed',
+  after_first_message: 'After their first message',
+  before_chat: 'Before the chat starts',
+};
+
+interface Widget {
+  id: string;
+  name: string;
+  allowedOrigins: string[];
+  teammate: { id: string; name: string } | null;
+  paused: boolean;
+}
+interface ChatTeammate {
+  teammate: {
     id: string;
-    allowedOrigins: string[];
-    greeting: string | null;
-    launcherLabel: string;
-    paused: boolean;
-    teammateId: string | null;
-  }[];
+    name: string;
+    status: string;
+    config?: { channels?: { chat?: unknown; widgetId?: unknown } };
+  } | null;
 }
 
-const widgetsOf = (db: Db, ctx: ToolContext) =>
-  query<WidgetList>(db, ctx, 'chat_widget.list').catch(() => ({ widgets: [] }));
+/** The business's chat box. The screen shows the first one, so that is the one changed unless another is named. */
+async function chatBox(db: Db, ctx: ToolContext, widgetId: string | undefined) {
+  const { items } = await query<{ items: Widget[] }>(db, ctx, 'chat_widget.list');
+  if (!widgetId) return items[0] ?? null;
+  const named = items.find((w) => w.id === widgetId);
+  if (!named)
+    throw HfosError.notFound(
+      'That isn’t this business’s website chat. Its chat is in get_settings (area website_chat).',
+    );
+  return named;
+}
+
+const noChat = () =>
+  HfosError.rule(
+    'no_chat',
+    409,
+    'This business has no website chat yet. Say which website it goes on and I’ll set it up.',
+  );
+
+/** The sites as they will be saved, www twins added, or the screen's own words for a site it can't take. */
+function sitesOf(args: Args): string[] | undefined {
+  const typed = list<string>(args['websites']);
+  if (!typed) return undefined;
+  const { origins, issues } = normalizeChatOrigins(typed);
+  if (issues.length)
+    throw HfosError.validation(
+      issues.map((i) => ({
+        path: i.index === null ? 'websites' : `websites.${i.index}`,
+        message: i.message,
+      })),
+      issues[0]!.message,
+    );
+  return origins;
+}
+const siteWords = (origins: readonly string[]) =>
+  origins.map((o) => o.replace(/^https:\/\//, '')).join(', ');
+
+/**
+ * Who answers, as the screen's Who answers sets it: the business's AI teammate, or only the team. A new chat box
+ * starts with the teammate when there is one, as the screen's set-up does. Undefined leaves it as it is.
+ */
+async function answerer(db: Db, ctx: ToolContext, ai: boolean | undefined, creating: boolean) {
+  if (ai === false) return { teammateId: null, who: 'Only your team', note: null };
+  if (ai === undefined && !creating) return undefined;
+  const { teammate } = await query<ChatTeammate>(db, ctx, 'ai_teammate.get');
+  if (!teammate) {
+    if (ai === undefined) return { teammateId: null, who: 'Only your team', note: null };
+    throw HfosError.rule(
+      'no_teammate',
+      409,
+      'This business has no AI teammate yet, so only your team can answer website chats. Set one up under AI teammate first, then I can have it answer.',
+    );
+  }
+  // The screen's own note: an AI teammate that is off, or whose Website chat channel is off, leaves it to the team.
+  const note =
+    teammate.status === 'off'
+      ? `${teammate.name} is off, so your team answers for now. Turn it on from the AI teammate page.`
+      : teammate.config?.channels?.chat !== true
+        ? `${teammate.name}’s Website chat channel is off, so your team answers for now. Turn on Website chat under Channels on the AI teammate page.`
+        : null;
+  return { teammateId: teammate.id, who: `${teammate.name} (AI)`, note };
+}
+
+/** What changes besides the sites and who answers, as the command takes it, and as the card reads it. */
+function lookOf(args: Args) {
+  const away = typeof args['awayMessage'] === 'string' ? args['awayMessage'].trim() : undefined;
+  const ask = (args['askFor'] ?? {}) as Partial<Record<(typeof ASK_FIELDS)[number], AskMode>>;
+  const askFor = defined(Object.fromEntries(ASK_FIELDS.map((f) => [f, ask[f]])));
+  const position = str(args['position']) as 'right' | 'left' | undefined;
+  const fields = defined({
+    greeting: str(args['greeting']),
+    launcherLabel: str(args['buttonLabel']),
+    accentColor: str(args['color']),
+    position,
+    awayMessage: away,
+    askFor: Object.keys(askFor).length ? askFor : undefined,
+    smsConsent: bool(args['askForSmsConsent']),
+    dailyCap: num(args['dailyCap']),
+  });
+  const words: Field[] = [
+    ...(num(args['dailyCap'])
+      ? [{ label: 'New chats a day', value: String(args['dailyCap']) }]
+      : []),
+    ...(str(args['greeting']) ? [{ label: 'Greeting', value: str(args['greeting'])! }] : []),
+    ...(str(args['buttonLabel']) ? [{ label: 'Button', value: str(args['buttonLabel'])! }] : []),
+    ...(str(args['color']) ? [{ label: 'Colour', value: str(args['color'])! }] : []),
+    ...(position
+      ? [{ label: 'Position', value: position === 'left' ? 'Bottom left' : 'Bottom right' }]
+      : []),
+    ...(away === undefined ? [] : [{ label: 'Away message', value: away || 'The standard words' }]),
+    ...ASK_FIELDS.filter((f) => ask[f]).map((f) => ({
+      label: `Ask for their ${ASK_LABELS[f].toLowerCase()}`,
+      value: ASK_WORDS[ask[f]!],
+    })),
+    ...(bool(args['askForSmsConsent']) === undefined
+      ? []
+      : [
+          {
+            label: 'Box to get texts',
+            value: args['askForSmsConsent'] ? 'Offered' : 'Not offered',
+          },
+        ]),
+  ];
+  return { fields, words };
+}
 
 const manageWebsiteChat: SettingsConfirmTool = {
   async prepare(db, ctx, args, toolCallId) {
     const act = action(args);
-    const { widgets } = await widgetsOf(db, ctx);
-    const current = widgets.find((w) => w.id === args['widgetId']) ?? widgets[0];
-    const sites = list<string>(args['websites']);
+    const creating = act === 'create';
+    const box = await chatBox(db, ctx, str(args['widgetId']));
+    if (creating && box)
+      throw HfosError.rule(
+        'chat_exists',
+        409,
+        `This business already has a website chat, on ${box.name}. I can change that one instead, like adding a site to it.`,
+      );
+    if (!creating && !box) throw noChat();
     if (act === 'turn_on' || act === 'turn_off') {
       const on = act === 'turn_on';
       return {
         card: settingsCard(toolCallId, 'manage_website_chat', {
           title: on ? 'Turn the website chat on' : 'Turn the website chat off',
-          fields: [{ label: 'Chat box', value: on ? 'On' : 'Off' }],
+          fields: [
+            { label: 'Chat box', value: on ? 'On' : 'Off' },
+            { label: 'Shows on', value: siteWords(box!.allowedOrigins) },
+          ],
           confirmLabel: on ? 'Turn it on' : 'Turn it off',
           warnings: on
             ? []
             : [{ kind: 'note', text: 'Visitors won’t see it until it is turned back on.' }],
         }),
-        result: { waiting: true },
+        result: { waiting: true, widgetId: box!.id },
       };
     }
-    const creating = act === 'create';
+    const sites = sitesOf(args);
+    if (creating && !sites)
+      throw HfosError.validation(
+        [{ path: 'websites', message: 'Say which website the chat goes on, like acme.com.' }],
+        'Say which website the chat goes on, like acme.com.',
+      );
+    const who = await answerer(db, ctx, bool(args['answeredByAi']), creating);
+    const { words } = lookOf(args);
+    const fields: Field[] = [
+      ...(sites ? [{ label: 'Shows on', value: siteWords(sites) }] : []),
+      ...(who ? [{ label: 'Who answers', value: who.who }] : []),
+      ...words,
+    ];
+    if (!fields.length)
+      throw HfosError.rule(
+        'nothing_to_change',
+        400,
+        'Nothing to change was given. Say what to change on the chat, like its greeting or who answers.',
+      );
     return {
       card: settingsCard(toolCallId, 'manage_website_chat', {
-        title: creating ? 'Set up the website chat' : 'Change the website chat',
-        fields: [
-          ...(sites ? [{ label: 'Shows on', value: sites.join(', ') }] : []),
-          ...(str(args['greeting']) ? [{ label: 'Greeting', value: str(args['greeting'])! }] : []),
-          ...(str(args['buttonLabel'])
-            ? [{ label: 'Button', value: str(args['buttonLabel'])! }]
-            : []),
-          ...(str(args['color']) ? [{ label: 'Colour', value: str(args['color'])! }] : []),
-          ...(bool(args['answeredByAi']) === undefined
-            ? []
-            : [
-                {
-                  label: 'Answered by',
-                  value: args['answeredByAi'] ? 'Your AI teammate' : 'Your team',
-                },
-              ]),
-          ...(bool(args['askForSmsConsent']) === undefined
-            ? []
-            : [{ label: 'Asks to text them', value: args['askForSmsConsent'] ? 'Yes' : 'No' }]),
-        ],
+        title: creating ? 'Set up the website chat' : `Change the website chat on ${box!.name}`,
+        fields,
         confirmLabel: creating ? 'Set it up' : 'Save the change',
-        warnings: creating
-          ? [
-              {
-                kind: 'note',
-                text: 'It shows up once the snippet is on your site — I’ll give you that next.',
-              },
-            ]
-          : [],
+        warnings: [
+          ...(who?.note ? [{ kind: 'note' as const, text: who.note }] : []),
+          ...(creating
+            ? [
+                {
+                  kind: 'note' as const,
+                  text: 'It shows up once its snippet is on your site. The snippet is under Add it to your site on Settings → Website chat.',
+                },
+              ]
+            : []),
+        ],
       }),
-      result: { waiting: true, widgetId: current?.id ?? null },
+      result: { waiting: true, widgetId: box?.id ?? null },
     };
   },
 
   async commit(db, ctx, args) {
     const act = action(args);
-    const { widgets } = await widgetsOf(db, ctx);
-    const current = widgets.find((w) => w.id === args['widgetId']) ?? widgets[0];
+    const creating = act === 'create';
+    const box = await chatBox(db, ctx, str(args['widgetId']));
     const href = `/app/w/${ctx.workspaceId}/settings/website-chat`;
+    if (!creating && !box) throw noChat();
     if (act === 'turn_on' || act === 'turn_off') {
-      await command(db, ctx, act === 'turn_on' ? 'chat_widget.resume' : 'chat_widget.pause', {
-        widgetId: current?.id,
-      });
+      const name = act === 'turn_on' ? 'chat_widget.resume' : 'chat_widget.pause';
+      await command(db, ctx, name, { widgetId: box!.id });
       return {
         outcome: act === 'turn_on' ? 'The chat box is on' : 'The chat box is off',
         href,
-        command: act === 'turn_on' ? 'chat_widget.resume' : 'chat_widget.pause',
+        command: name,
       };
     }
-    const fields = defined({
-      greeting: str(args['greeting']),
-      launcherLabel: str(args['buttonLabel']),
-      accentColor: str(args['color']),
-      smsConsent: bool(args['askForSmsConsent']),
-    });
-    if (act === 'create') {
+    const sites = sitesOf(args);
+    const who = await answerer(db, ctx, bool(args['answeredByAi']), creating);
+    const { fields } = lookOf(args);
+    if (creating) {
       await command(db, ctx, 'chat_widget.create', {
-        allowedOrigins: list<string>(args['websites']) ?? [],
+        allowedOrigins: sites ?? [],
+        teammateId: who?.teammateId ?? null,
         ...fields,
       });
-      return { outcome: 'The chat box is set up', href, command: 'chat_widget.create' };
+      return {
+        outcome:
+          'The chat box is set up. Copy its snippet from Add it to your site on Settings → Website chat, and paste it into your site.',
+        href,
+        command: 'chat_widget.create',
+      };
     }
     await command(db, ctx, 'chat_widget.update', {
-      widgetId: current?.id,
-      ...(list<string>(args['websites']) ? { allowedOrigins: list<string>(args['websites']) } : {}),
+      widgetId: box!.id,
+      ...(sites ? { allowedOrigins: sites } : {}),
+      ...(who ? { teammateId: who.teammateId } : {}),
       ...fields,
     });
     return { outcome: 'Changed', href, command: 'chat_widget.update' };
