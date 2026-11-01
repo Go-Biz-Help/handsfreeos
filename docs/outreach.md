@@ -3475,7 +3475,7 @@ where decisions 37 and 59 put the settings; what they decided stands. Settled to
       - **Facebook searches its posts with the playbook's phrases** (5b). A customers' playbook on Facebook has a new
         list, **Words to search Facebook’s posts with** (`facebookSearches`, `FIND_WORDS_PARTS.facebook`, 8 to 12
         phrases of up to 4 words, like "missed calls" or "anyone use a CRM"), written by the AI with the others and the
-        person's to change on the web and the phone; the three ready-made playbooks have their own. Each day the
+        person's to change on the web and the phone; every ready-made playbook (CRM demos too) has its own. Each day the
         extension's Find posts, after the groups (or with none), searches Facebook's posts with 5 of them in turn,
         recent posts first, three screens each (`searchPosts` in `src/jobs/posts.ts`), and sends them in no group,
         found by search, with the phrase (`PostsSaveInput` lets Facebook have no group only then). A post found with a

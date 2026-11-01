@@ -169,7 +169,7 @@ describe('Instagram’s kit and words', () => {
     expect(fitsRequests('x'.repeat(301))).toBe(false);
   });
 
-  it('writes a comment that waits to be posted short, with no link, hashtag or pitch (decision 92)', () => {
+  it('writes a comment that waits to be posted short, as a peer, with no link or hashtag (decisions 92 and 141)', () => {
     const comment = (platform: Platform) =>
       todayDraftPrompt({
         kind: 'comment',
@@ -181,22 +181,34 @@ describe('Instagram’s kit and words', () => {
         post: { text: 'What do small crews use to keep track of calls?', group: null },
         platform,
       });
+    // As a peer who knows the field (decision 141): a useful point, what the business does in a few words only when
+    // asked, and never a link where a comment waits to be posted.
     expect(comment('instagram')).toContain(
-      'They posted this on Instagram. Write the owner’s public comment under it. When they asked something, answer it or add something useful, with no pitch and no link. When it’s about their own work (a job finished, a win, a tip, their business), say something genuine and specific about it, with nothing about the owner’s business. Under 30 words.',
+      'They posted this on Instagram. Write the owner’s public comment under it, as someone who knows this field well talking to a peer:',
     );
-    expect(comment('alignable')).toContain(
-      'with nothing about the owner’s business. Under 50 words.',
+    expect(comment('instagram')).toContain(
+      'with no pitch beyond that and no link or web address. Never open with praise or thanks',
     );
-    // LinkedIn's wait for an OK at first too, from 0.99.0 (decision 102): a helpful answer, with no pitch or link.
+    expect(comment('instagram')).toContain('Under 30 words.');
+    expect(comment('alignable')).toContain('no link or web address');
+    expect(comment('alignable')).toContain('Under 50 words.');
+    // LinkedIn's wait for an OK at first too, from 0.99.0 (decision 102), with no link.
     expect(comment('linkedin')).toContain(
-      'They posted this on LinkedIn. Write the owner’s public comment under it. When they asked something, answer it or add something useful, with no pitch and no link. When it’s about their own work (a job finished, a win, a tip, their business), say something genuine and specific about it, with nothing about the owner’s business. Under 50 words.',
+      'They posted this on LinkedIn. Write the owner’s public comment under it, as someone who knows this field well talking to a peer:',
     );
-    expect(comment('facebook')).toContain('only then offer to help');
+    expect(comment('linkedin')).toContain('no pitch beyond that and no link or web address');
+    expect(comment('linkedin')).toContain('Under 50 words.');
+    // Facebook's in a group: a link only when they asked for one.
+    expect(comment('facebook')).toContain('no hard pitch and no link unless they asked for one');
     expect(todayDraftSystem('instagram')).toContain(
-      'A comment on Instagram is under 30 words, with no link, no web address, no hashtags and no pitch',
+      'A comment on Instagram is under 30 words, with no link, no web address and no hashtags',
     );
-    expect(todayDraftSystem('alignable')).toContain('A comment on Alignable is a helpful answer');
-    expect(todayDraftSystem('linkedin')).toContain('A comment on LinkedIn is a helpful answer');
+    expect(todayDraftSystem('alignable')).toContain(
+      'A comment on Alignable reads like a peer who knows the field',
+    );
+    expect(todayDraftSystem('linkedin')).toContain(
+      'A comment on LinkedIn reads like a peer who knows the field',
+    );
     expect(todayDraftSystem('facebook')).not.toContain('A comment on');
     expect(fitsComment('Same here! A shared call list helped our crew.', 'instagram')).toBe(true);
     expect(fitsComment('Love this #plumbing', 'instagram')).toBe(false);

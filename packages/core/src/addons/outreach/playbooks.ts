@@ -499,6 +499,18 @@ const TEMPLATES = {
         'Current customers',
       ],
       groupWords: ['small business owners', 'business owners'],
+      // Its own phrases for Facebook's post search (decision 141), about the topic: the person's from the start, so
+      // the AI never writes them.
+      facebookSearches: [
+        'anyone use a CRM',
+        'CRM recommendations',
+        'best CRM for contractors',
+        'missed calls',
+        'following up with leads',
+        'too many leads',
+        'leads slipping through',
+        'scheduling software',
+      ],
       steps: ['connect', 'engage', 'message', 'follow_up'],
       tone: 'Friendly and curious, one owner to another. Short messages, no hard sell.',
       openerStyles: [

@@ -156,8 +156,8 @@ describe('the AI’s words for finding people by topic', () => {
     await drain(s, ws);
     const written = await detailsOf(saved.id);
     expect(written).toMatchObject({
-      // A phrase twice is dropped.
-      facebookSearches: ['missed calls', 'anyone use a roofers app', 'roofers tips'],
+      // A phrase too long for a search, and one twice, are dropped.
+      facebookSearches: ['missed calls', 'roofers tips'],
       hashtags: ['roofleak'],
       // A phrase too long for a search, and one twice, are dropped.
       postSearches: ['missed calls', 'roofers tips', 'hiring help'],
@@ -274,7 +274,7 @@ describe('the AI’s words for finding people by topic', () => {
     await drain(s, ws);
     expect(ai.asks()).toBe(1);
     expect(await detailsOf(saved.id)).toMatchObject({
-      facebookSearches: ['missed calls', 'anyone use a roofers app', 'roofers tips'],
+      facebookSearches: ['missed calls', 'roofers tips'],
       hashtags: [],
       postSearches: [],
       businessKinds: [],
