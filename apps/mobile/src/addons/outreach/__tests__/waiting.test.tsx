@@ -12,7 +12,7 @@ import { change } from '@/changes';
 import { okAll, okSend, SEND_CHANGED_SQL, SEND_STATE_SQL, skipSend } from '../actions';
 import { pendingSendIds } from '../copy';
 import { PersonMenuScope } from '../person-menu';
-import { WaitingBody, type WaitingFromServer } from '../waiting';
+import { unheardOf, WaitingBody, type WaitingFromServer } from '../waiting';
 import { id, ME, sendRow, TZ } from './mocks';
 
 /**
@@ -416,6 +416,28 @@ describe('Waiting for you on the phone', () => {
     expect(within(comment).queryByTestId('waiting-comment-post')).toBeNull();
     // With no signal the hold isn't known, so nothing says it.
     expect(screen.queryByText(new RegExp(`^${COMMENT_HOLD_WORDS}`))).toBeNull();
+  });
+
+  it('knows a comment the copy brought after HandsFreeOS last answered, so the screen asks again for its post', () => {
+    // The owner's report (1 Nov 2026): a comment drafted while the screen was open showed no post, and Open went to
+    // their page, since its post comes only from HandsFreeOS.
+    const phone = waitingOfCopy(
+      [
+        sendRow(1),
+        sendRow(2, {
+          kind: 'comment',
+          name: 'Avery Cole',
+          profile_url: 'https://www.instagram.com/avery.cole.bakes/',
+        }),
+        sendRow(3, { handed_over: true, kind: 'reply' }),
+      ],
+      ME,
+    );
+    expect(unheardOf(phone, { ...SERVER, sendIds: new Set([id(1), id(3)]) })).toBe(id(2));
+    // Once it lists them all, nothing to ask; before the first answer, or from one that doesn't say, nothing either.
+    expect(unheardOf(phone, { ...SERVER, sendIds: new Set([id(1), id(2), id(3)]) })).toBe('');
+    expect(unheardOf(phone, null)).toBe('');
+    expect(unheardOf(phone, SERVER)).toBe('');
   });
 
   it('shows the steps and friend requests HandsFreeOS has, with signal, and how the person hears of it', async () => {

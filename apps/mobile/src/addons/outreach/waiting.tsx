@@ -95,7 +95,8 @@ import {
  *
  * Comments on good posts (decision 92, Instagram's and Alignable's) wait among the messages, from the same copy, so they
  * too are OK'd, changed, skipped and Approved all with no signal: "Comment on Dana Reyes’s post", with the post's
- * first words above it and Open the post once HandsFreeOS has said them (the copy keeps no post). Approve all leaves an
+ * first words above it and Open the post once HandsFreeOS has said them (the copy keeps no post; one the copy brings
+ * while the screen is open has HandsFreeOS asked again, `unheardOf`). Approve all leaves an
  * answer to a post asking for what the business offers, and says why.
  */
 
@@ -123,6 +124,11 @@ export interface WaitingFromServer {
    * no post.
    */
   readonly posts?: ReadonlyMap<string, CommentPost>;
+  /**
+   * The messages and comments the answer listed, by id: one the phone's copy holds and this doesn't came after it, so
+   * the screen asks again for its chat or post (`unheardOf`).
+   */
+  readonly sendIds?: ReadonlySet<string>;
 }
 
 /** A comment's post, as HandsFreeOS says it: its first words, the whole of it when they're cut short, and where it is. */
@@ -151,6 +157,11 @@ export function serverPart(answer: WaitingOutput): WaitingFromServer {
           : [],
       ),
     ),
+    sendIds: new Set(
+      answer.items.flatMap((i) =>
+        i.kind === 'reply' || i.kind === 'message' ? [i.send.sendId] : [],
+      ),
+    ),
     asks: answer.items.flatMap((i) => (i.kind === 'ask' ? [i.ask] : [])),
     needs: answer.items.flatMap((i) => (i.kind === 'need' ? [i.need] : [])),
     requests: answer.items.flatMap((i) => (i.kind === 'request' ? [i.request] : [])),
@@ -159,6 +170,22 @@ export function serverPart(answer: WaitingOutput): WaitingFromServer {
     commentHolds: answer.commentHolds,
     pushes: answer.pushes,
   };
+}
+
+/**
+ * The messages and comments on the phone's list that HandsFreeOS's last answer didn't list, as one key ('' when none):
+ * the copy brings a new one at once, but its chat so far, or a comment's post and link, come only from HandsFreeOS. Its
+ * screen asks again when this changes, so a comment drafted while the screen was open shows its post and opens it, not
+ * the person's page (the owner's report, 1 Nov 2026). Before the first answer, or from one that doesn't say, nothing.
+ */
+export function unheardOf(phone: PhoneWaiting, server: WaitingFromServer | null): string {
+  const heard = server?.sendIds;
+  if (!heard) return '';
+  return [...phone.replies, ...phone.messages]
+    .map((s) => s.sendId)
+    .filter((id) => !heard.has(id))
+    .sort()
+    .join(',');
 }
 
 /** What a press says: done, or waiting on the phone for signal. */
@@ -205,6 +232,15 @@ export function useWaitingProps(): React.ComponentProps<typeof WaitingBody> {
     W.rows.waiting,
   );
   const ws = ctx.workspaceId;
+  // One the copy brought since HandsFreeOS last answered: ask again for its chat or post, once for each new one, and
+  // only with signal (coming back, the answer is asked again anyway).
+  const unheard = unheardOf(phone, answer.data);
+  const online = React.useRef(ctx.online);
+  online.current = ctx.online;
+  const reload = answer.reload;
+  React.useEffect(() => {
+    if (unheard && online.current) reload();
+  }, [unheard, reload]);
   const askActions = useAskActions(null, answer.reload);
   // Whoever the country setting isn't sure of waits here for a pick (decision 128).
   const unsure = useOutreachAnswer(

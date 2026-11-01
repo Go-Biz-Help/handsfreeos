@@ -3882,7 +3882,9 @@ where decisions 37 and 59 put the settings; what they decided stands. Settled to
   answers what `outreach.waiting` does of them; a change to what's kept is a change to the manifest's `offline` and
   the migration together. A comment waiting is copied as a message is (decision 92, `phoneSendOf` takes
   `SEND_KINDS`): the copy keeps no post, so offline it shows its words alone, and the post above it once HandsFreeOS
-  has said it. A phone built before comments leaves their rows out of its copy, so nothing breaks.
+  has said it. A message or comment the copy brings after `outreach.waiting` last answered has the screen ask again
+  (`unheardOf`, the owner's report of 1 Nov 2026: an Instagram comment with no post, whose Open went to their page).
+  A phone built before comments leaves their rows out of its copy, so nothing breaks.
 - **On the phone, the newer press wins** (decision 44): an OK that waited is held to 30 minutes (`freshMinutes`), then
   asks; a skip that waited goes whenever, but is refused when the message was OK'd after it was pressed
   (`outreach_send_okd_since`); an OK that waited finds nothing to OK once the message was skipped meanwhile, and the
