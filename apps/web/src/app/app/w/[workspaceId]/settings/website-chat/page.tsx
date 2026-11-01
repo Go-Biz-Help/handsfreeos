@@ -29,13 +29,17 @@ export default async function WebsiteChatSettingsPage({
       <div className="mb-5" data-testid="chat-in-forms">
         <Callout tone="info" icon={MessageCircle}>
           {more > 0
-            ? `Your business has ${data.widgets.length} website chats. This is the first one; `
-            : 'Your website chats are listed in Forms too, beside your forms. '}
+            ? `Your business has ${data.widgets.length} website chats, and this is the first. `
+            : 'Website chats are listed in Forms too, beside your forms. '}
           <Link
             href={`/app/w/${workspaceId}/forms#website-chats`}
             className="font-medium underline underline-offset-2"
           >
-            {more > 0 ? 'open Forms to see them all.' : 'Open Forms to add another one.'}
+            {more > 0
+              ? 'See them all in Forms.'
+              : widget
+                ? 'Add another one there.'
+                : 'Open Forms.'}
           </Link>
         </Callout>
       </div>

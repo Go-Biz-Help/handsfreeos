@@ -621,7 +621,7 @@ export const SETTING_TOOLS: Readonly<Record<string, readonly SettingWay[]>> = {
     { tool: 'sort_unmatched_email', field: 'action', value: 'dismiss' },
   ],
   'email.sender_rules': [{ tool: 'do_email_sender_rule_remove', field: 'address' }],
-  // Settings → Website chat: one chat box per business, changed as its screen does.
+  // Settings → Website chat, and each chat in Forms → Website chats, changed as its screen does.
   'website_chat.who_answers': [{ tool: 'manage_website_chat', field: 'answeredByAi' }],
   'website_chat.daily_limit': [{ tool: 'manage_website_chat', field: 'dailyCap' }],
   'website_chat.sites': [
@@ -630,12 +630,24 @@ export const SETTING_TOOLS: Readonly<Record<string, readonly SettingWay[]>> = {
   ],
   'website_chat.install': [{ tool: 'do_chat_widget_rotate_key', field: 'widgetId' }],
   'website_chat.look': [
+    { tool: 'manage_website_chat', field: 'name' },
     { tool: 'manage_website_chat', field: 'greeting' },
     { tool: 'manage_website_chat', field: 'buttonLabel' },
     { tool: 'manage_website_chat', field: 'color', value: '#2d69d8' },
+    { tool: 'manage_website_chat', field: 'textColor', value: 'automatic' },
+    { tool: 'manage_website_chat', field: 'topBarColor', value: '#191d25' },
+  ],
+  'website_chat.logo': [{ tool: 'manage_website_chat', field: 'showLogo' }],
+  'website_chat.placement': [
     { tool: 'manage_website_chat', field: 'position', value: 'left' },
+    { tool: 'manage_website_chat', field: 'phonePosition', value: 'same_as_computer' },
+    { tool: 'manage_website_chat', field: 'computerLift' },
+    { tool: 'manage_website_chat', field: 'phoneLift' },
+    { tool: 'manage_website_chat', field: 'computerButton', value: 'icon' },
+    { tool: 'manage_website_chat', field: 'phoneButton', value: 'hidden' },
   ],
   'website_chat.away': [
+    { tool: 'manage_website_chat', field: 'whenNobodyAnswers', value: 'chat' },
     { tool: 'manage_website_chat', field: 'awayMessage' },
     { tool: 'manage_website_chat', field: 'askFor.name', value: 'when_needed' },
     { tool: 'manage_website_chat', field: 'askFor.phone', value: 'after_first_message' },

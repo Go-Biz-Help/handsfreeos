@@ -40,6 +40,15 @@ const site = `chat-${mark}.com`;
 type ConfirmCard = Extract<AssistantCard, { type: 'confirm' }>;
 interface Widget {
   id: string;
+  name: string;
+  ownTextColor: string | null;
+  headerColor: string | null;
+  showLogo: boolean;
+  whenAway: 'chat' | 'away_form';
+  placement: {
+    desktop: { position: 'right' | 'left'; lift: number; button: string };
+    mobile: { position: 'right' | 'left'; ownPosition: boolean; lift: number; button: string };
+  };
   allowedOrigins: string[];
   teammate: { id: string; name: string } | null;
   greeting: string | null;
@@ -67,7 +76,7 @@ const prepare = async (args: Record<string, unknown>) => {
 };
 const commit = (args: Record<string, unknown>) =>
   createToolExecutor(api()).commit(tool, argsOf(args), ctx(), { toolCallId: randomUUID() });
-const chat = async () =>
+const chats = async () =>
   (
     (await executeQuery(
       api(),
@@ -76,7 +85,8 @@ const chat = async () =>
       actor(owner),
       meta(),
     )) as { items: Widget[] }
-  ).items[0];
+  ).items;
+const chat = async () => (await chats())[0];
 const field = (card: ConfirmCard, label: string) =>
   card.fields.find((f) => f.label === label)?.value;
 
@@ -130,10 +140,63 @@ describe('Settings → Website chat', () => {
     expect(made.teammate).toBeNull();
   });
 
-  it('won’t make a second chat box, and offers to change the one there', async () => {
-    await expect(prepare({ action: 'create', websites: ['other.example.com'] })).rejects.toThrow(
-      `This business already has a website chat, on ${site}.`,
+  it('changes where the button sits on computers and phones, its colours, logo and name, only on Confirm', async () => {
+    const args = {
+      action: 'change',
+      name: 'Main website',
+      textColor: '#ffee00',
+      topBarColor: '#191d25',
+      showLogo: false,
+      phonePosition: 'left',
+      phoneLift: 90,
+      computerButton: 'icon',
+      phoneButton: 'label',
+      whenNobodyAnswers: 'chat',
+    };
+    const { card } = await prepare(args);
+    expect(field(card, 'Name')).toBe('Main website');
+    expect(field(card, 'Corner on phones')).toBe('Bottom left');
+    expect(field(card, 'Height on phones')).toBe('90 px higher');
+    expect(field(card, 'Button on computers')).toBe('Icon only');
+    expect(field(card, 'Logo')).toBe('Initials instead');
+    expect(field(card, 'While nobody is answering')).toBe('They can chat anyway');
+    expect((await chat())!.placement.mobile.lift).toBe(0);
+
+    await commit(args);
+    const after = (await chat())!;
+    expect(after.name).toBe('Main website');
+    expect(after).toMatchObject({
+      ownTextColor: '#ffee00',
+      headerColor: '#191d25',
+      showLogo: false,
+      whenAway: 'chat',
+    });
+    expect(after.placement).toEqual({
+      desktop: { position: 'right', lift: 0, button: 'icon' },
+      mobile: { position: 'left', ownPosition: true, lift: 90, button: 'label' },
+    });
+
+    // Back to automatic, and the phone's corner following the computer's again.
+    await commit({ action: 'change', textColor: 'automatic', phonePosition: 'same_as_computer' });
+    const back = (await chat())!;
+    expect(back.ownTextColor).toBeNull();
+    expect(back.placement.mobile).toMatchObject({ position: 'right', ownPosition: false });
+  });
+
+  it('adds another chat box beside the first, saying only one shows on a page', async () => {
+    const { card } = await prepare({
+      action: 'create',
+      websites: [`es.${site}`],
+      name: 'Spanish site',
+    });
+    expect(card.warnings.map((w) => w.text).join(' ')).toContain(
+      'This adds another chat beside the one on Main website.',
     );
+    await commit({ action: 'create', websites: [`es.${site}`], name: 'Spanish site' });
+    const items = await chats();
+    expect(items.map((w) => w.name)).toEqual(['Main website', 'Spanish site']);
+    // Changing without naming one still changes the first, as Settings → Website chat shows it.
+    expect((await chat())!.name).toBe('Main website');
   });
 
   it('changes the daily limit, position, away message, what it asks for and the texts box, keeping the rest', async () => {

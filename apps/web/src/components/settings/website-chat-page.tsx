@@ -1074,6 +1074,7 @@ function LookForm({
         </div>
         <SetRow
           className="mt-3"
+          setting="website_chat.logo"
           title="Show your logo"
           body={
             logo

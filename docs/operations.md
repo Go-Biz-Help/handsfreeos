@@ -8768,12 +8768,16 @@ Two more emails go to customers, not to the team:
 Do this with the client's web person, or send them the page: it has the steps for common site builders.
 
 1. Check that Turnstile is set up ("Protect the booking page with Turnstile (optional)" in "The calendar: Google, Outlook and online booking"). Without it, the chat relies on its limits and a hidden field only bots fill in.
-2. In the business, open **Settings** → **Website chat** and click **Turn on website chat**.
+2. In the business, open **Forms** and click **New website chat** under **Website chats** (or open **Settings** → **Website chat** and click **Turn on website chat**, for its first one).
 3. Under **Your sites**, add each website the chat button may show on, such as `acmeroofing.com`, up to 10. Type the address people visit. `http://` becomes `https://`, and a bare domain gets its `www` version too. Wildcards like `*.acme.com` don't work, so add each subdomain on its own. Browsers refuse to show the chat window on any site that isn't listed, even with the snippet pasted.
 4. Choose **Who answers**: the AI teammate, or **Only your team**. The teammate also needs **Website chat** on in its **Channels**.
-5. Set the look (greeting, button label, colours and position), the **Away message** for when nobody is answering, **What to ask visitors for** (**Don’t ask**, **When needed**, **After their first message** or **Before the chat starts**), whether to **Offer a box to get texts**, and the **Daily limit** of new chats, so a flood of strangers can't use up the business's AI time. Click **Save**.
+5. Set the look (its name, greeting, button label, the button's colour, the words' colour and the top bar's, and **Show your logo**), **Where the button sits** (below), what happens **When nobody is answering** with its **Away message**, **What to ask visitors for** (**Don’t ask**, **When needed**, **After their first message** or **Before the chat starts**), whether to **Offer a box to get texts**, and the **Daily limit** of new chats, so a flood of strangers can't use up the business's AI time. Click **Save**.
 
    You should see "Website chat saved."
+
+   **Where the button sits** is set on its own for computers and for phones (screens up to 480 pixels wide): the **Button** (its label beside the icon, **Icon only**, or on phones **Hidden**), its **Corner**, and **Higher up by**, the pixels above its usual spot. Raise it on phones when the site has a bar along the bottom, like a Call or Book button: about 90 clears most. With the button hidden on phones, a link to `#hfos-chat` on the site (a Chat item in its menu) opens the chat.
+
+   The logo is the business's own, from **Settings** → **Workspace** → **Logo and colour**. **Your logo** on the chat's page changes the same one.
 
 6. Click **Copy** next to the snippet. It looks like this, with the widget's own key:
 
@@ -8794,7 +8798,9 @@ Do this with the client's web person, or send them the page: it has the steps fo
 
 Changes reach the sites within about 5 minutes: browsers and Vercel's CDN keep the snippet's script for 5 minutes, and the web app keeps each widget's settings for a minute. That goes for a pause, a new key, a new site and a new look.
 
-To pause the chat, turn off its switch at the top of **Settings** → **Website chat**. The page then says "Paused. Visitors don’t see the chat button until you turn it back on."
+To pause the chat, turn off its switch at the top of its page. The page then says "Paused. Visitors don’t see the chat button until you turn it back on."
+
+**More than one chat.** **Forms** → **Website chats** lists every chat the business has, the texting registration's one included, and each opens the same page. Another chat has its own name, sites, look and who answers; only one chat shows on a page, so give each its own sites. **Settings** → **Website chat** shows the first one. The texting registration uses the chat that offers the box to get texts.
 
 #### Get a new key
 
@@ -8860,6 +8866,16 @@ Then, for each client: the teammate's name and disclosure, its qualifying questi
 - The chat is paused, or the site still has the snippet from before **New key**.
 - A change can take up to 5 minutes to reach the site.
 - The site builder shows the snippet as text instead of running it. Paste it into a footer or custom-code box, not a text block.
+
+#### The chat says "We’re not answering chats right now"
+
+That's the chat's away screen, and it has nothing to do with the texting registration. It shows while nobody is answering: the chat's **Who answers** is **Only your team** (or the AI teammate is off, outside its **Hours**, or its **Website chat** channel is off), and the business is closed by its open hours (**Settings** → **Workspace**; weekdays 8 to 5 until someone sets them).
+
+To change it, open the chat's page and, under **When nobody is answering**, pick **Let them chat anyway** (the chat works as usual and says the team will reply as soon as it can) or change the **Away message**. To have it answered, set the open hours, or have the AI teammate answer the chat.
+
+#### The chat button covers something on the site
+
+Open the chat's page, **Where the button sits**, and for **On phones** (or **On computers**) pick the other **Corner**, raise it with **Higher up by**, or choose **Icon only**. On phones it can also be **Hidden**, with a link to `#hfos-chat` on the site opening the chat. It reaches the site within about 5 minutes.
 
 #### "We couldn’t confirm you’re a person" keeps showing
 
@@ -10916,8 +10932,9 @@ each person only their own, and their bills where they don't manage the money.
 ### Chat on handsfreeos.com
 
 The website's chat button is the same widget a business puts on its own site, pointed at us: the HandsFreeOS
-workspace's website chat (**Settings** → **Website chat**). It is also that workspace's texting-consent chat, which
-its A2P registration points the carriers at, so it is on every page.
+workspace's website chat (**Forms** → **Website chats**, or **Settings** → **Website chat**). It is also that
+workspace's texting-consent chat, which its A2P registration points the carriers at, so it is on every page. The site
+has a bar along the bottom on phones, so the chat's button is raised on phones (**Where the button sits**).
 
 Its snippet's address is `chatScript` in `apps/site/src/content/site.ts`. To use another widget, paste that
 widget's address there, or set `NEXT_PUBLIC_CHAT_WIDGET_KEY` on the **handsfreeos-site** project in Vercel to its

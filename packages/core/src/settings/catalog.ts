@@ -551,8 +551,14 @@ const ROWS = {
       'chat button',
       'chat name',
       'top bar colour',
-      'chat logo',
+      'header colour',
     ],
+  },
+  'website_chat.logo': {
+    page: 'website_chat',
+    section: 'Look',
+    label: 'Show your logo',
+    words: ['chat logo', 'logo in the chat', 'initials'],
   },
   'website_chat.placement': {
     page: 'website_chat',
