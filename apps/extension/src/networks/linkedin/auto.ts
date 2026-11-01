@@ -232,6 +232,14 @@ export async function connect(doc: Document, href: string): Promise<ConnectResul
   }
   if (!press) return 'none';
   press.click();
+  return connectSent(doc, href);
+}
+
+/**
+ * Once Connect is pressed (by `connect`, or the AI helper's press of it, decision 142): the invitation box's own send
+ * as it is, when LinkedIn opens one that asks nothing else, then the wait for Pending.
+ */
+export async function connectSent(doc: Document, href: string): Promise<ConnectResult> {
   const pending = () => profileOn(doc, href).connection === 'pending';
   const next = await waitFor<HTMLElement | 'asks' | 'sent'>(
     () => sendAsItIs(doc) ?? (pending() ? 'sent' : null),

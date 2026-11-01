@@ -692,12 +692,10 @@ export function needOf(
   item: Pick<TodayListItem, 'kind' | 'name' | 'profileId' | 'postId' | 'postUrl' | 'profileUrl'>,
   line: string,
   businessId: string,
+  reportId: string | null = null,
 ): NeedNoteInput | null {
   if (!(AUTO_KINDS as readonly string[]).includes(item.kind) || !item.profileId) return null;
-  const why = [`${item.name}’s post: `, `${item.name}: `].reduce(
-    (said, lead) => (said.startsWith(lead) ? said.slice(lead.length) : said),
-    line,
-  );
+  const why = whyOf(item, line);
   return {
     workspaceId: businessId,
     step: item.kind as AutoKind,
@@ -706,5 +704,35 @@ export function needOf(
     name: item.name,
     url: (item.kind === 'comment' ? item.postUrl : null) ?? item.profileUrl ?? null,
     why,
+    reportId,
   };
+}
+
+/**
+ * Why a step didn't go, from the line it shows, less its lead ("Dana Reyes: ", "Dana Reyes’s post: "): what Needs you
+ * says, and the note on its problem report, which never names anyone (decision 142).
+ */
+export function whyOf(item: Pick<TodayListItem, 'name'>, line: string): string {
+  return [`${item.name}’s post: `, `${item.name}: `].reduce(
+    (said, lead) => (said.startsWith(lead) ? said.slice(lead.length) : said),
+    line,
+  );
+}
+
+/**
+ * The same, for a problem report and the AI helper: their name anywhere else in it, or their first name on its own, is
+ * "(their name)".
+ */
+export function reportWhy(item: Pick<TodayListItem, 'name'>, line: string): string {
+  const name = item.name.trim().replace(/\s+/g, ' ');
+  let why = whyOf(item, line);
+  if (!name) return why;
+  why = why.split(name).join('(their name)');
+  const first = name.split(' ')[0]!;
+  if (first.length < 3 || first === name) return why;
+  const escaped = first.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  return why.replace(
+    new RegExp(`(?<![\\p{L}\\p{N}])${escaped}(?![\\p{L}\\p{N}])`, 'gu'),
+    '(their name)',
+  );
 }

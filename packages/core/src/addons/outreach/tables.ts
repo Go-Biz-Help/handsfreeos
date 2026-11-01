@@ -938,6 +938,8 @@ export const needs = addonOutreach.table(
     url: text('url'),
     why: text('why').notNull(),
     state: text('state').notNull().default('open').$type<NeedState>(),
+    /** The problem report it was sent with (20261027021600): a label, as reports go after 30 days. */
+    reportId: uuid('report_id'),
     seenAt: ts('seen_at').notNull(),
     clearedAt: ts('cleared_at'),
     createdAt: ts('created_at').notNull().defaultNow(),

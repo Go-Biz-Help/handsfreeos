@@ -33,7 +33,9 @@
  * src/networks/linkedin/actions.ts) and tells the extension's background, which notes them in HandsFreeOS; and on
  * Facebook, who they open from a group. Only the person's own clicks and keys count, never the page's, and never what
  * they wrote. "Note my steps" in HandsFreeOS turns this off. It never changes the page, clicks, scrolls, or sends
- * anything but for the steps above.
+ * anything but for the steps above, and the AI helper's moves when one of them didn't go (decision 142,
+ * src/networks/helper-view.ts): a click that clears the way, the step's own button found in a new place, a scroll,
+ * Escape or a wait, never typing and never a link to another page.
  *
  * While noting is on, it also looks at the chats on the page as they change and tells the background of each whose
  * last message is theirs, and whether the person was looking at the tab, so their phone can hear who wrote back. Only
@@ -48,7 +50,15 @@
 import { kitHere, type Noticed, type Step, type Answered } from './networks';
 import { LOOK_EVERY_MS } from './networks/facebook/looking';
 import { isStates, isWorking, NETWORKS_KEY } from './networks/on';
-import { MARK_POSTS_KEY, NOTING_KEY, READ_CHATS_KEY, type TabNote } from './messages';
+import {
+  MARK_POSTS_KEY,
+  NOTING_KEY,
+  READ_CHATS_KEY,
+  type HelperAnswer,
+  type HelperAsk,
+  type TabNote,
+} from './messages';
+import { HelperHands } from './networks/helper-view';
 import { pageThere } from './networks/there';
 
 /** How long after the page starts changing it's read again: a post is drawn in several steps. */
@@ -110,6 +120,24 @@ if (kit && !here.hfosSocialListening) {
     if (MARK_POSTS_KEY in changes) markPosts = changes[MARK_POSTS_KEY]?.newValue === true;
   });
 
+  // The AI helper's hands in this tab (decision 142): who the step is for comes with each view, and stays here.
+  let theirName: string | null = null;
+  const hands = new HelperHands(kit.outlineSite, () => theirName);
+  const helperAnswer = async (ask: HelperAsk): Promise<HelperAnswer> => {
+    try {
+      if (ask.type === 'hfos-helper-view') {
+        theirName = ask.theirName;
+        return { ok: true, view: hands.look(document, location.href, ask.fresh) };
+      }
+      if (ask.type === 'hfos-helper-move')
+        return { ok: true, done: await hands.move(document, ask.move, ask.button) };
+      theirName = ask.theirName;
+      return { ok: true, pressed: await hands.pressWay(document, ask.way, ask.button) };
+    } catch (error) {
+      return { ok: false, error: error instanceof Error ? error.message : String(error) };
+    }
+  };
+
   chrome.runtime.onMessage.addListener(
     (ask: { readonly type?: unknown }, sender, respond: (answer: unknown) => void) => {
       if (sender.id !== chrome.runtime.id || typeof ask?.type !== 'string') return false;
@@ -148,6 +176,15 @@ if (kit && !here.hfosSocialListening) {
           respond({ ok: false, error: error instanceof Error ? error.message : String(error) });
         }
         return false;
+      }
+      // The AI helper (decision 142): a view of the page, one move on it, or a way it learned, pressed.
+      if (
+        ask.type === 'hfos-helper-view' ||
+        ask.type === 'hfos-helper-move' ||
+        ask.type === 'hfos-helper-way'
+      ) {
+        void helperAnswer(ask as HelperAsk).then(respond);
+        return true;
       }
       // Whether anyone's at this address: how a username's checked before it's picked (decision 84).
       if (ask.type === 'hfos-page-there') {

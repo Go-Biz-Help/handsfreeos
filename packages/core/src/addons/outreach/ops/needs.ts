@@ -32,6 +32,8 @@ export interface NeedSeen {
   /** Where to do it, as the extension or HandsFreeOS saw it: kept when it's on their network. */
   readonly url: string | null;
   readonly why: string;
+  /** The problem report the extension sent with it (decision 142): kept with the newest why. */
+  readonly reportId?: string | null;
 }
 
 /**
@@ -103,6 +105,7 @@ export async function openNeed(
               why: seen.why,
               name: seen.name,
               url: seen.url,
+              reportId: seen.reportId ?? null,
               ...(seen.sendId ? { sendId: seen.sendId } : {}),
             }
           : {}),
@@ -125,6 +128,7 @@ export async function openNeed(
       name: seen.name,
       url: seen.url,
       why: seen.why,
+      reportId: seen.reportId ?? null,
       // When it couldn't; it begins to wait (`created_at`) as it reaches HandsFreeOS, however long the extension
       // kept it, so the bundled push never takes it for one told already.
       seenAt: at,

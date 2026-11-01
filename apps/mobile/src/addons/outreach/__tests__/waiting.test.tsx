@@ -67,6 +67,7 @@ const SERVER: WaitingFromServer = {
       text: null,
       threadKey: null,
       seenAt: '2026-10-10T14:00:00.000Z',
+      reportId: null,
     },
   ],
   requests: [

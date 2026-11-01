@@ -52,6 +52,8 @@ import {
   type LikePickOutput,
 } from '@hfos/core/addons/outreach/like-pick';
 import { LOOKUP_LINES } from '@hfos/core/addons/outreach/today';
+import { buttonFor } from '@hfos/core/addons/outreach/helper';
+import type { ProblemHelper } from '@hfos/core/problem-report';
 import { messageParts, partPauseMs } from '@hfos/core/addons/outreach/voice';
 import {
   AUTO_PLANS,
@@ -66,7 +68,6 @@ import { facebook } from '../networks/facebook/kit';
 import { FRIENDSHIP_WORDS } from '../networks/facebook/tidy';
 import type { ProfileRef, ReadResult, ThreadRef } from '../networks/facebook/types';
 import { valueOf, type Hfos, type Job, type JobEnd } from '../jobs/job';
-import { reporter } from '../jobs/report';
 import { nameForms, sameName } from '../networks/facebook/people';
 import { FACEBOOK, facebookUrl, profileFromUrl } from '../networks/facebook/urls';
 import type {
@@ -117,6 +118,7 @@ import {
   markOf,
   type BeforeDay,
 } from './lists';
+import { helpAfter, stepHelp } from './helper';
 import { askInLine, inTurn } from './turns';
 import {
   afterDaily,
@@ -240,8 +242,16 @@ async function closeWindow(): Promise<void> {
  * for the day.
  */
 type Outcome =
-  | { readonly done: true; readonly line: string }
-  | { readonly done: false; readonly line: string; readonly need?: true }
+  | { readonly done: true; readonly line: string; readonly helper?: ProblemHelper }
+  | {
+      readonly done: false;
+      readonly line: string;
+      readonly need?: true;
+      /** Worth the AI helper's look though it isn't handed over: a like it couldn't press (decision 142). */
+      readonly look?: true;
+      /** What the AI helper did inside the step, for its report (decision 142). */
+      readonly helper?: ProblemHelper;
+    }
   | { readonly stop: string };
 
 async function read(): Promise<ReadResult> {
@@ -352,11 +362,22 @@ async function onProfile(item: TodayListItem, job: AutoJob, businessId: string):
   if (friendship === plan.after) return { done: false, line: `${item.name}: done already` };
   if (friendship !== plan.before)
     return { done: false, line: `${item.name}: Facebook says ${FRIENDSHIP_WORDS[friendship]}` };
-  if (!(await pressPath(withTheirName(plan.path, [opened.page.profile!.name, item.name]))))
+  const press = () => pressPath(withTheirName(plan.path, [opened.page.profile!.name, item.name]));
+  const missing = `couldn’t find “${plan.path[0]!.words[0]}”`;
+  // Its button moved, or something's over it: the AI helper finds it, on this page that's theirs (decision 142).
+  const help = stepHelp(tab, answer as Hfos, {
+    businessId,
+    platform: facebook.platform,
+    step: job,
+    theirName: item.name,
+    button: buttonFor(facebook.platform, job)!,
+  });
+  if (!(await press()) && !(await help.press(missing, press)))
     return {
       done: false,
-      line: `${item.name}: couldn’t find “${plan.path[0]!.words[0]}”`,
+      line: `${item.name}: ${missing}`,
       need: true,
+      helper: await help.end(false),
     };
   await sure(plan.then);
   await pause(SETTLE_MS);
@@ -364,7 +385,13 @@ async function onProfile(item: TodayListItem, job: AutoJob, businessId: string):
   const stop = await warnedOn(page, businessId);
   if (stop) return { stop };
   if (page.profile?.friendship !== plan.after)
-    return { done: false, line: `${item.name}: Facebook didn’t take it`, need: true };
+    return {
+      done: false,
+      line: `${item.name}: Facebook didn’t take it`,
+      need: true,
+      helper: await help.end(false),
+    };
+  const helper = await help.end(true);
   const to = { name: page.profile.name ?? item.name, profile: opened.noted };
   if (job === 'confirm') {
     await takeNote({
@@ -372,7 +399,7 @@ async function onProfile(item: TodayListItem, job: AutoJob, businessId: string):
       answered: { answer: 'confirm', to, mutualFriends: page.profile.mutualFriends, auto: true },
       at: now(),
     });
-    return { done: true, line: `Confirmed ${item.name}’s friend request` };
+    return { done: true, line: `Confirmed ${item.name}’s friend request`, helper };
   }
   await takeNote({
     type: 'hfos-noted',
@@ -387,7 +414,7 @@ async function onProfile(item: TodayListItem, job: AutoJob, businessId: string):
     },
     at: now(),
   });
-  return { done: true, line: `Sent ${item.name} a friend request` };
+  return { done: true, line: `Sent ${item.name} a friend request`, helper };
 }
 
 /** Comments the day's limit still has room for, as the list said this pass: a warm-up comment takes one. */
@@ -416,14 +443,15 @@ async function warmUp(item: TodayListItem, businessId: string): Promise<Outcome>
     most: LIKE_POSTS_READ,
   });
   if (!theirs.ok) throw new Error(theirs.error);
-  const missed = async (line: string): Promise<Outcome> => {
+  /** `look`: worth the AI helper's look at what stopped it, though the step isn't handed over (decision 142). */
+  const missed = async (line: string, look = false): Promise<Outcome> => {
     await call(
       api().POST('/v1/commands/outreach.warm_up.missed', {
         body: { workspaceId: businessId, profileId: item.profileId! },
       }),
       businessId,
     );
-    return { done: false, line };
+    return look ? { done: false, line, look } : { done: false, line };
   };
   if (!theirs.posts.length) return missed(`No post of ${item.name}’s to like: ${after.without}`);
   const posts = theirs.posts.map((p) => ({
@@ -457,7 +485,7 @@ async function warmUp(item: TodayListItem, businessId: string): Promise<Outcome>
   });
   if (!liked.ok) throw new Error(liked.error);
   if (liked.result === 'none' || liked.result === 'not_sent')
-    return missed(`Couldn’t like ${item.name}’s post: ${after.without}`);
+    return missed(`Couldn’t like ${item.name}’s post: ${after.without}`, true);
   await pause(SETTLE_MS);
   const stop = await warnedOn(await read(), businessId);
   if (stop) return { stop };
@@ -1406,14 +1434,24 @@ async function workNext(
   } finally {
     await setState({ working: false });
   }
-  // A step that didn't go: the page it ended on, outline and all, noted while the window still shows it (decision 74).
-  if ('done' in outcome && !outcome.done)
-    await reporter(tab, answer as Hfos, {
-      businessId,
-      platform: facebook.platform,
-      askId: null,
-      job: work.do === 'step' ? work.item.kind : work.do,
-    })({ note: 'The step didn’t go.', outline: true });
+  // A step that didn't go: the AI helper looks first, clearing the way and saying what it sees (decision 142); then
+  // the page it ended on, outline, why and all, noted while the window still shows it (decision 74).
+  const helped = await helpAfter({
+    tab,
+    hfos: answer as Hfos,
+    businessId,
+    platform: facebook.platform,
+    work,
+    job: work.do === 'step' ? work.item.kind : work.do,
+    outcome,
+    again:
+      work.do === 'step'
+        ? () => inTurn('runner', () => doWork(work, businessId, settings.voice?.split ?? true))
+        : null,
+    say: (line) => say(line, { working: true, readLast: false }),
+  });
+  outcome = helped.outcome;
+  await setState({ working: false });
   const state = await stateNow();
   const kind = doneAs(work);
   const done =
@@ -1433,7 +1471,9 @@ async function workNext(
   await say(outcome.line);
   // One the person can do themselves goes to their Waiting for you; done another day, or by them, it clears.
   const need =
-    'need' in outcome && work.do === 'step' ? needOf(item, outcome.line, businessId) : null;
+    'need' in outcome && work.do === 'step'
+      ? needOf(item, outcome.line, businessId, helped.reportId)
+      : null;
   if (need) void noteNeed(need);
   // The feed of today's steps in HandsFreeOS. A stop on a warning isn't one: HandsFreeOS writes that line itself.
   void feed(outcome.done ? 'done' : 'passed', outcome.line);

@@ -57,6 +57,7 @@ import { writeLinkedInPart } from './parts';
 import {
   answerInvitation,
   connect,
+  connectSent,
   likeTheirPost,
   openMessage,
   theirPosts,
@@ -316,7 +317,12 @@ async function autoStep(
       return { ok: true, ...(await likeTheirPost(document, location.href, ask.profile, ask)) };
     case 'hfos-connect':
       if (kind !== 'profile') return { ok: false, error: 'LinkedIn didn’t open their profile.' };
-      return { ok: true, result: await connect(document, location.href) };
+      return {
+        ok: true,
+        result: ask.sent
+          ? await connectSent(document, location.href)
+          : await connect(document, location.href),
+      };
     case 'hfos-answer-request':
       // Their invitation, answered in their profile's top card (decision 136).
       if (kind !== 'profile') return { ok: false, error: 'LinkedIn didn’t open their profile.' };

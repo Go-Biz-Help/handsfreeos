@@ -2,7 +2,8 @@
  * Problem reports (supabase/migrations/20261027008100_problem_reports.sql): what our own tools saw when something
  * didn't go, read by staff on the desk. Reports older than 30 days go, handled or not. Daily, at night, beside the
  * receipts' clean-up: batches of PROBLEM_REPORT_BATCH (private.delete_old_problem_reports) until one comes back short;
- * a very large backlog carries on a few minutes later.
+ * a very large backlog carries on a few minutes later. The AI helper's learned ways that haven't worked in 90 days go
+ * first, in one batch (20261027021600, private.delete_stale_learned_ways): there are only ever a few.
  */
 import { asWorker, rows, sql } from '@hfos/db/client';
 import type { JobHandler } from '../jobs';
@@ -19,6 +20,8 @@ const MIN = 60_000;
 // A report may carry a page's outline, up to 200,000 characters: smaller batches than the receipts'.
 export const PROBLEM_REPORT_BATCH = 500;
 export const PROBLEM_REPORT_ROUNDS = 40;
+/** Learned ways a night: more than ever pile up. */
+export const LEARNED_WAY_BATCH = 1000;
 const AGAIN_MS = 10 * MIN;
 
 /** With the receipts' clean-up: half an hour before the night's sync-window sweeps start. */
@@ -27,6 +30,9 @@ export const nextProblemReportCleanUp = (now: number): Date => nextReceiptCleanU
 /** `problem_reports.clean_up`: reports older than 30 days, a batch at a time. */
 export const cleanUpProblemReports: JobHandler = async (ctx) => {
   const batch = batchOf(ctx.job.payload, PROBLEM_REPORT_BATCH);
+  await asWorker(ctx.db, {}, (tx) =>
+    rows(tx, sql`select private.delete_stale_learned_ways(${LEARNED_WAY_BATCH}) as deleted`),
+  );
   for (let round = 0; round < PROBLEM_REPORT_ROUNDS; round++) {
     const [row] = await asWorker(ctx.db, {}, (tx) =>
       rows<{ deleted: number }>(

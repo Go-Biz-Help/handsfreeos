@@ -48,6 +48,8 @@ import {
   moreWords,
   needClearedWords,
   needPageOf,
+  needReportHref,
+  NEED_REPORT_WORDS,
   needRetryable,
   needTitleAround,
   needWhyWords,
@@ -65,6 +67,7 @@ import { OUTREACH_WORDS as W } from '@hfos/core/addons/outreach/words';
 import { Check, CheckCheck, Copy, ExternalLink, RotateCcw, Trash2, X } from 'lucide-react';
 import Link from 'next/link';
 import { toast } from 'sonner';
+import { useStaffCan } from '@/components/shell/workspace-shell';
 import { Badge } from '@/components/ui/badge';
 import { Button, buttonClassName } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
@@ -429,6 +432,7 @@ function NeedRow({
 }) {
   const need = item.need;
   const { busy, act } = useAct();
+  const staffSees = useStaffCan('platform.health.read');
   const clear = (how: NeedClear) =>
     act(how, async () => {
       const { state } = unwrap(
@@ -470,6 +474,19 @@ function NeedRow({
       <p className="mt-1 text-[12.5px] text-text-2">
         {needWhyWords(need.why)}
         {when(need.seenAt, timeZone) ? ` · ${when(need.seenAt, timeZone)}` : ''}
+        {/* HandsFreeOS staff only: the page the extension saw, and what the AI helper found (decision 142). */}
+        {need.reportId && staffSees ? (
+          <>
+            {' · '}
+            <Link
+              href={needReportHref(need.reportId)}
+              className="font-medium text-accent-text hover:underline"
+              data-testid="waiting-need-report"
+            >
+              {NEED_REPORT_WORDS}
+            </Link>
+          </>
+        ) : null}
       </p>
       {need.text ? (
         <div className="mt-2 flex items-start gap-2">

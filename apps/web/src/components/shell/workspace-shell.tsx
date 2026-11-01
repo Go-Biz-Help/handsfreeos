@@ -16,13 +16,21 @@ export interface WorkspaceShell {
   readonly permissions: readonly string[];
   /** HandsFreeOS video calls are on here (docs/video-calls.md), so the Online place offers them. */
   readonly videoCalls: boolean;
+  /**
+   * What this person may do as HandsFreeOS staff (`platform.me`), empty for everyone who doesn't work here: a staff-only
+   * link on a business's screen, such as a Needs you step's problem report (decision 142).
+   */
+  readonly staffPermissions: readonly string[];
 }
+
+const NONE: readonly string[] = [];
 
 const WorkspaceShellContext = createContext<WorkspaceShell>({
   workspaceId: '',
   addons: [],
   permissions: [],
   videoCalls: false,
+  staffPermissions: [],
 });
 
 /**
@@ -36,12 +44,17 @@ export function WorkspaceShellProvider({
   permissions,
   // Left out where no screen offers them: the setup pages.
   videoCalls = false,
+  staffPermissions = NONE,
   children,
-}: Omit<WorkspaceShell, 'videoCalls'> & { videoCalls?: boolean; children: ReactNode }) {
+}: Omit<WorkspaceShell, 'videoCalls' | 'staffPermissions'> & {
+  videoCalls?: boolean;
+  staffPermissions?: readonly string[];
+  children: ReactNode;
+}) {
   useLiveRefresh(['addon']);
   const value = useMemo(
-    () => ({ workspaceId, addons, permissions, videoCalls }),
-    [workspaceId, addons, permissions, videoCalls],
+    () => ({ workspaceId, addons, permissions, videoCalls, staffPermissions }),
+    [workspaceId, addons, permissions, videoCalls, staffPermissions],
   );
   return <WorkspaceShellContext.Provider value={value}>{children}</WorkspaceShellContext.Provider>;
 }
@@ -55,3 +68,7 @@ export const useAddonRunning = (addonId: string): boolean =>
 /** Whether this person holds a permission here: core's, or a running add-on's (`pm.read`). */
 export const useCan = (permission: string): boolean =>
   useWorkspaceShell().permissions.includes(permission);
+
+/** Whether this person holds a HandsFreeOS staff permission (`platform.health.read`): for staff-only links. */
+export const useStaffCan = (permission: string): boolean =>
+  useWorkspaceShell().staffPermissions.includes(permission);

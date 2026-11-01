@@ -58,6 +58,8 @@ import { NETWORKS, type Platform } from '@hfos/core/addons/outreach/networks';
 import { PARTNER_CHECKS_PER_DAY } from '@hfos/core/addons/outreach/partners';
 import { messageParts, partPauseMs } from '@hfos/core/addons/outreach/voice';
 import type { TodayKind } from '@hfos/core/addons/outreach/today';
+import { buttonFor } from '@hfos/core/addons/outreach/helper';
+import type { ProblemHelper } from '@hfos/core/problem-report';
 import { haltAsk } from '../asks/run';
 import { follow, loadSettings } from '../hfos/follow';
 import { feed, keptFor, onBeat, type Kept } from '../hfos/live';
@@ -152,6 +154,7 @@ import {
   listSays,
   retryWake,
 } from './plan';
+import { helpAfter, stepHelp } from './helper';
 import { askInLine, inTurn } from './turns';
 
 const PLATFORM: Platform = 'alignable';
@@ -315,8 +318,16 @@ async function closeWindow(): Promise<void> {
  * for now with nothing tried, when Alignable asked them to sign in.
  */
 type Outcome =
-  | { readonly done: true; readonly line: string }
-  | { readonly done: false; readonly line: string; readonly need?: true }
+  | { readonly done: true; readonly line: string; readonly helper?: ProblemHelper }
+  | {
+      readonly done: false;
+      readonly line: string;
+      readonly need?: true;
+      /** Worth the AI helper's look though it isn't handed over: a like it couldn't press (decision 142). */
+      readonly look?: true;
+      /** What the AI helper did inside the step, for its report (decision 142). */
+      readonly helper?: ProblemHelper;
+    }
   | { readonly stop: string }
   | { readonly again: string };
 
@@ -458,7 +469,11 @@ async function likeFoundPost(
     if (!liked.ok) throw new Error(liked.error);
     if (liked.result === 'none' || liked.result === 'not_sent') {
       await missed(item, businessId);
-      return { done: false, line: `Couldn’t like ${item.name}’s post: ${after.without}` };
+      return {
+        done: false,
+        line: `Couldn’t like ${item.name}’s post: ${after.without}`,
+        look: true,
+      };
     }
     await pause(SETTLE_MS);
     const warned = await warnedOn(await read(), businessId);
@@ -621,7 +636,11 @@ async function warmUp(item: TodayListItem, businessId: string): Promise<Outcome>
     if (!liked.ok) throw new Error(liked.error);
     if (liked.result === 'none' || liked.result === 'not_sent') {
       await missed(item, businessId);
-      return { done: false, line: `Couldn’t like ${item.name}’s post: ${after.without}` };
+      return {
+        done: false,
+        line: `Couldn’t like ${item.name}’s post: ${after.without}`,
+        look: true,
+      };
     }
     postUrl = liked.postUrl ?? chosen.post.url;
     await pause(SETTLE_MS);
@@ -684,32 +703,76 @@ async function connect(item: TodayListItem, businessId: string): Promise<Outcome
       line: `${item.name}: Alignable didn’t show their business’s id, so Connect wasn’t pressed`,
       need: true,
     };
-  if (!shown.connect)
-    return shown.message
-      ? {
-          done: false,
-          line: `${item.name}: no Connect on their page: you’re connected already, or asked`,
-        }
-      : { done: false, line: `${item.name}: couldn’t find Connect on their page`, need: true };
-  const went = await tab.ask({ type: 'hfos-connect', profile: opened.noted });
-  if (!went.ok) throw new Error(went.error);
-  if (went.result === 'already')
+  if (!shown.connect && shown.message)
+    return {
+      done: false,
+      line: `${item.name}: no Connect on their page: you’re connected already, or asked`,
+    };
+  /** Their page's own Connect link: whether it went, or `already` when it says they're connected or asked. */
+  const pressLink = async () => {
+    const went = await tab.ask({ type: 'hfos-connect', profile: opened.noted });
+    if (!went.ok) throw new Error(went.error);
+    return went.result;
+  };
+  const pressed = shown.connect ? await pressLink() : 'none';
+  if (pressed === 'already')
     return { done: false, line: `${item.name}: you’re connected already, or asked` };
-  if (went.result !== 'done')
-    return { done: false, line: `${item.name}: couldn’t find Connect on their page`, need: true };
-  // The press may have opened another page: once it's loaded, their page again shows whether the request went.
-  await pause(SETTLE_MS);
-  if (tab.tabId !== null) await tab.loaded(tab.tabId);
-  await tab.open(opened.want.url);
-  const page = await read();
-  const stop = await warnedOn(page, businessId);
-  if (stop) return { stop };
-  const after = page.found.business;
-  // It went once their own Connect is gone, or their page shows you're connected now (its Remove Connection).
-  const taken =
-    after !== null && isTheirs(after, opened.want) && (after.connected || !after.connect);
-  if (page.signedOut || !taken)
-    return { done: false, line: `${item.name}: Alignable didn’t take the request`, need: true };
+  // Connect moved, or something's over it: the AI helper finds it on their page, checked as theirs (decision 142).
+  const help = stepHelp(tab, answer as Hfos, {
+    businessId,
+    platform: PLATFORM,
+    step: item.kind,
+    theirName: item.name,
+    button: buttonFor(PLATFORM, 'friend_request')!,
+  });
+  const missing = 'couldn’t find Connect on their page';
+  if (
+    pressed !== 'done' &&
+    !(await help.press(missing, async () => (await pressLink()) === 'done'))
+  )
+    return {
+      done: false,
+      line: `${item.name}: ${missing}`,
+      need: true,
+      helper: await help.end(false),
+    };
+  /** Their page again, once what the press opened has loaded: whether it shows the request went. */
+  const reopened = async (): Promise<
+    { readonly stop: string } | { readonly taken: boolean; readonly theirs: boolean }
+  > => {
+    await pause(SETTLE_MS);
+    if (tab.tabId !== null) await tab.loaded(tab.tabId);
+    await tab.open(opened.want.url);
+    const page = await read();
+    const stop = await warnedOn(page, businessId);
+    if (stop) return { stop };
+    const after = page.found.business;
+    const theirs = !page.signedOut && after !== null && isTheirs(after, opened.want);
+    // It went once their own Connect is gone, or their page shows you're connected now (its Remove Connection).
+    return { taken: theirs && (after.connected || !after.connect), theirs };
+  };
+  let seen = await reopened();
+  if ('stop' in seen) return seen;
+  // Pressed, and their page still shows Connect: the AI helper presses the one on their page (decision 142).
+  if (
+    !seen.taken &&
+    seen.theirs &&
+    (await help.press(
+      'pressed Connect, but their page still shows it',
+      async () => (await pressLink()) === 'done',
+    ))
+  ) {
+    seen = await reopened();
+    if ('stop' in seen) return seen;
+  }
+  if (!seen.taken)
+    return {
+      done: false,
+      line: `${item.name}: Alignable didn’t take the request`,
+      need: true,
+      helper: await help.end(false),
+    };
+  const helper = await help.end(true);
   await takeNote(
     {
       type: 'hfos-noted',
@@ -726,7 +789,7 @@ async function connect(item: TodayListItem, businessId: string): Promise<Outcome
     },
     PLATFORM,
   );
-  return { done: true, line: `Sent ${item.name} a connection request` };
+  return { done: true, line: `Sent ${item.name} a connection request`, helper };
 }
 
 /**
@@ -1408,20 +1471,36 @@ async function workNext(
   } finally {
     await setState({ working: false });
   }
+  // A step that didn't go: the AI helper looks first, clearing the way and saying what it sees (decision 142); then
+  // the page it ended on, outline, why and all, noted while the window still shows it (decision 74). A stop for now
+  // goes by untouched.
+  const helped = await helpAfter({
+    tab,
+    hfos: answer as Hfos,
+    businessId,
+    platform: PLATFORM,
+    work,
+    job: work.do === 'step' ? work.item.kind : work.do,
+    outcome,
+    again:
+      work.do === 'step'
+        ? () =>
+            inTurn(
+              'runner',
+              () => doWork(work, businessId, settings.voice?.split ?? true),
+              PLATFORM,
+            )
+        : null,
+    say: (line) => say(line, { working: true, readLast: false }),
+  });
+  outcome = helped.outcome;
+  await setState({ working: false });
   // Alignable asked them to sign in: nothing tried, and it looks again in a while.
   if ('again' in outcome) {
     await closeWindow();
     await say(outcome.again, { needs: true });
     return goAt(Date.now() + AGAIN_MS);
   }
-  // A step that didn't go: the page it ended on, outline and all, noted while the window still shows it (decision 74).
-  if ('done' in outcome && !outcome.done)
-    await reporter(tab, answer as Hfos, {
-      businessId,
-      platform: PLATFORM,
-      askId: null,
-      job: work.do === 'step' ? work.item.kind : work.do,
-    })({ note: 'The step didn’t go.', outline: true });
   const state = await stateNow();
   const kind = doneAs(work);
   const done =
@@ -1440,7 +1519,9 @@ async function workNext(
   }
   await say(outcome.line);
   const need =
-    'need' in outcome && work.do === 'step' ? needOf(item, outcome.line, businessId) : null;
+    'need' in outcome && work.do === 'step'
+      ? needOf(item, outcome.line, businessId, helped.reportId)
+      : null;
   if (need) void noteNeed(need);
   void feed(outcome.done ? 'done' : 'passed', `${NAME}: ${outcome.line}`);
   if (stopAsked) {

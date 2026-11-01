@@ -308,10 +308,11 @@ async function neededOf(
     thread_key: string | null;
     platform: Platform;
     profile_url: string;
+    report_id: string | null;
   }>(
     ctx.tx,
     sql`select n.id, n.step, n.profile_id, n.post_id, n.send_id, n.name, n.url, n.why, n.seen_at, n.created_at,
-          s.text, s.thread_key, p.platform, p.url as profile_url
+          n.report_id, s.text, s.thread_key, p.platform, p.url as profile_url
         from addon_outreach.needs n
         join addon_outreach.profiles p on p.workspace_id = n.workspace_id and p.id = n.profile_id
         left join addon_outreach.sends s on s.id = n.send_id
@@ -337,6 +338,7 @@ async function neededOf(
       text: n.step === 'message' || n.step === 'comment' ? n.text : null,
       threadKey: n.step === 'message' ? n.thread_key : null,
       seenAt: new Date(n.seen_at).toISOString(),
+      reportId: n.report_id,
     },
   }));
 }
@@ -455,6 +457,7 @@ export const needNote = defineAddonCommand(outreachAddon, {
         name: input.name,
         url: input.url,
         why: input.why,
+        reportId: input.reportId,
       },
       changeMoment(ctx.meta),
     );

@@ -1,7 +1,12 @@
 'use client';
 import {
+  DESK_HELPER_WORDS,
   DESK_PROBLEM_WORDS,
   deskSectionLabel,
+  helperBadge,
+  helperMoveWords,
+  HELPER_VERDICT_WORDS,
+  HELPER_RESULT_WORDS,
   PROBLEM_STATE_WORDS,
   PROBLEM_STATES,
   problemForClaude,
@@ -11,6 +16,7 @@ import {
   type ProblemReportFull,
   type ProblemReportRow,
   type ProblemState,
+  type ProblemStep,
 } from '@hfos/core';
 import { ArrowLeft } from 'lucide-react';
 import Link from 'next/link';
@@ -68,6 +74,7 @@ const chip = (on: boolean) =>
 export function ProblemReports({
   reports,
   areas,
+  steps,
   state,
   area,
   nextBefore,
@@ -75,6 +82,7 @@ export function ProblemReports({
 }: {
   reports: readonly ProblemReportRow[];
   areas: readonly { area: string; open: number }[];
+  steps: readonly ProblemStep[];
   state: ProblemState;
   area: string | null;
   nextBefore: string | null;
@@ -85,7 +93,18 @@ export function ProblemReports({
   return (
     <div className="mx-auto w-full max-w-5xl">
       <h1 className="text-xl font-semibold md:text-2xl">{deskSectionLabel('problems')}</h1>
-      <p className="mt-1 text-[13px] text-text-3">{DESK_PROBLEM_WORDS.intro}</p>
+      <p className="mt-1 text-[13px] text-text-3">
+        {DESK_PROBLEM_WORDS.intro}{' '}
+        <Link
+          href="/admin/problems/ways"
+          className="font-medium text-accent-text hover:underline"
+          data-testid="problems-ways-link"
+        >
+          {DESK_HELPER_WORDS.ways}
+        </Link>
+      </p>
+
+      <ProblemSteps steps={area ? steps.filter((t) => t.area === area) : steps} />
 
       <div className="mt-4 flex flex-wrap items-center gap-1.5" data-testid="problems-states">
         {PROBLEM_STATES.map((s) => (
@@ -157,6 +176,14 @@ export function ProblemReports({
                     {DESK_PROBLEM_WORDS.withOutline}
                   </span>
                 ) : null}
+                {r.helper ? (
+                  <span
+                    className="rounded-full bg-accent-soft px-2 py-0.5 text-[11px] font-medium text-accent-text"
+                    data-testid={`problem-helper-${r.reportId}`}
+                  >
+                    {helperBadge(r.helper)}
+                  </span>
+                ) : null}
               </span>
               <span className="mt-0.5 block break-words text-[13px] text-text-2">
                 {r.note ?? DESK_PROBLEM_WORDS.noNote}
@@ -200,6 +227,73 @@ export function ProblemReports({
         </div>
       ) : null}
     </div>
+  );
+}
+
+/**
+ * The last week's reports by step (decision 142): which steps fail most, and how the AI helper sorted them, so a
+ * layout change on one network shows as a run of "layout changed" on its step.
+ */
+function ProblemSteps({ steps }: { steps: readonly ProblemStep[] }) {
+  return (
+    <section
+      className="mt-4 rounded-card border border-border bg-card p-4"
+      data-testid="problems-steps"
+    >
+      <h2 className="text-sm font-semibold">{DESK_HELPER_WORDS.steps}</h2>
+      {steps.length === 0 ? (
+        <p className="mt-2 text-[13px] text-text-3">{DESK_HELPER_WORDS.noSteps}</p>
+      ) : (
+        <ul className="mt-2 space-y-1 text-[13px]">
+          {steps.slice(0, 12).map((t) => (
+            <li key={`${t.area}:${t.job}`} className="flex flex-wrap gap-x-2">
+              <span className="font-medium">
+                {t.area} · {t.job}
+              </span>
+              <span className="text-text-2">{DESK_HELPER_WORDS.step(t)}</span>
+            </li>
+          ))}
+        </ul>
+      )}
+    </section>
+  );
+}
+
+/** What the AI helper found on a report, and what it did. */
+function HelperFound({ helper }: { helper: NonNullable<ProblemReportFull['helper']> }) {
+  return (
+    <section
+      className="mt-4 rounded-card border border-border bg-card p-4 text-[13px]"
+      data-testid="problem-helper"
+    >
+      <h2 className="text-sm font-semibold">{DESK_HELPER_WORDS.heading}</h2>
+      <p className="mt-2 font-medium">
+        {HELPER_VERDICT_WORDS[helper.verdict]} · {HELPER_RESULT_WORDS[helper.result]}
+      </p>
+      {helper.looks === 0 && !helper.learned ? (
+        <p className="mt-1 text-text-2">{DESK_HELPER_WORDS.notAsked}</p>
+      ) : (
+        <p className="mt-1 break-words">{helper.said || DESK_HELPER_WORDS.nothingSaid}</p>
+      )}
+      {helper.learned ? (
+        <p className="mt-1 text-text-2">{DESK_HELPER_WORDS.learned[helper.learned]}</p>
+      ) : null}
+      <h3 className="mt-3 text-[13px] font-semibold">{DESK_HELPER_WORDS.moves}</h3>
+      {helper.moves.length === 0 ? (
+        <p className="mt-1 text-text-3">{DESK_HELPER_WORDS.noMoves}</p>
+      ) : (
+        <ol className="mt-1 list-decimal space-y-0.5 pl-5">
+          {helper.moves.map((m, i) => (
+            <li key={i} className="break-words">
+              {helperMoveWords(m)}
+            </li>
+          ))}
+        </ol>
+      )}
+      {helper.looks > 0 ? (
+        <p className="mt-2 text-text-3">{DESK_HELPER_WORDS.looks(helper.looks)}</p>
+      ) : null}
+    </section>
   );
 }
 
@@ -272,6 +366,8 @@ export function ProblemReportView({ report: r }: { report: ProblemReportFull }) 
           </p>
         ) : null}
       </section>
+
+      {r.helper ? <HelperFound helper={r.helper} /> : null}
 
       <section className="mt-4 rounded-card border border-border bg-card p-4">
         <h2 className="text-sm font-semibold">{DESK_PROBLEM_WORDS.found}</h2>

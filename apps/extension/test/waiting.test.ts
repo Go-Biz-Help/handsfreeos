@@ -70,6 +70,7 @@ function need(name: string, why: string): WaitingItem {
       text: null,
       threadKey: null,
       seenAt: new Date(friday10).toISOString(),
+      reportId: null,
     },
   };
 }
@@ -275,6 +276,7 @@ describe('steps it needs you for', () => {
       name: 'Eli Brook',
       url: 'https://www.facebook.com/eli.brook.2',
       why: 'couldn’t find “Add friend”',
+      reportId: null,
     });
     expect(
       needOf(

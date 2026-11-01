@@ -3489,6 +3489,57 @@ where decisions 37 and 59 put the settings; what they decided stands. Settled to
         `post`, only when `post` was cut (`postParts` in `sends.ts`), so phones from before it show the start alone, as
         they did. An answer to a comment on the person's own post (`warm_lead`) does the same with the comment.
 
+142.  **When a step doesn't go, the AI helper looks, and the report says why** (Chris, 1 Nov 2026: "it failed to like a
+      post and send a connection request. anytime that happens it should send a report of the outline of the page and
+      preferably a screenshot in the admin section as a failure report of some kind so we can investigate and fix",
+      then "build/copy the claude extension into social outreach so it can handle it on its own. the ai usage will
+      just get charged to the hfos customer", "not just clears the way because sometimes it could just be a layout
+      difference between what is there and what the extension expected. so if that’s the case it should identify that
+      and then put that in the report", "sometimes things are in a different place for different seemingly
+      inconsistent reasons so the extension needs to be able to handle the buttons/layout being different in a number
+      of different ways", and "forget the screenshot"), answered "all your picks" (1b 2a 3b); extension **0.122.0**,
+      migration `20261027021700_problem_reports_helper_and_learned_ways.sql`. Every step that didn't go already sent a
+      problem report with the page's outline (decisions 74 and 75); what was missing was why, and anything that could
+      fix it on the spot. No screenshots: the helper works from a view of the page, as the outline does.
+      - **The helper's view** (`src/networks/helper-view.ts`): the page as numbered lines, what's on top first (a box,
+        a menu), then the page, its top bar left out: each control's kind, the network's own words on it, and where a
+        link goes, masked as the outline masks it. Everything a person wrote is "[2 words]", and the person the step is
+        for is "(their name)": their name never leaves the computer. At most 24,000 characters.
+      - **It looks a move at a time** (`src/auto/helper.ts`, the worker's `outreach.helper.look`, core's
+        `addons/outreach/helper.ts`). The AI says what it sees (`in_the_way`, `moved`, `refused`, `warning`,
+        `unclear`), in a sentence of the network's words, and one move: click, scroll, Escape, wait, or press. At most 8
+        moves a step and 80 looks a day on a computer, every network together; each look is the add-on's AI use,
+        charged to the business like any other, and without the AI (its limit, the balance, busy) the step is reported
+        as before. Core checks every move against the view before the tab takes it: a click only clears the way, never
+        on anything that takes a step or changes something (`NEVER_CLEAR`: Like, Send, Message, Remove, Follow, Post,
+        Pay and the like), never a link to another page; a press is the step's own button alone (`HELPER_BUTTONS`,
+        `mayPress`), never one for someone else (a name that isn't theirs on it), never off the network.
+      - **Where it presses** (2a). Inside a step, once the runner checked the page is the person's: Facebook's Add
+        friend and Confirm, LinkedIn's Connect (and the invitation box sent as it is, as before) and Accept,
+        Instagram's Follow, and Alignable's Connect (also when their page still shows Connect after the press). The
+        step's own check then says whether it went, and the report says **Done by the AI helper**. Never a message, a
+        comment or a removal, and never a like: the runner can't tell the helper which post the AI picked, so a like
+        that didn't go gets its look (`look`) and is reported, never pressed. Anywhere else (a different page, a step
+        handed over) the helper only clears the way and says; when it cleared something, a step on Today's list is
+        tried once more, never a message (it could go twice), and one that goes then is **Fixed itself**.
+      - **The report says why** (1b). A step that didn't go sends the runner's own words as its note (their name as
+        "(their name)") with the outline and what the helper did: what it sorted it as, what it said, its moves, how it
+        ended (`app.problem_reports.helper`, `ProblemHelper`). Admin → Problem reports shows a badge on each ("Layout
+        changed · Done by the AI helper"), the helper's findings on the report and in Copy for Claude, and the last 7
+        days by step ("12 reports, 3 open · 4 in the way, 2 layout changed"), on the web and the phone. A step handed to
+        the person keeps its report's id (`addon_outreach.needs.report_id`), and HandsFreeOS staff who read the reports
+        (`platform.health.read`) see **See what it saw** on its Needs you card, on the web and the phone; the business
+        never does.
+      - **Learned ways** (3b). When the helper pressed the step's button and the step went, how it found it is kept
+        across every business (`platform.learned_ways`): the button's tag, role and the network's words on it, the part
+        of the page it's in, and the menu it was under. Once a way has worked twice it's trusted, and every computer
+        tries the trusted ways for a step before asking the AI, pressing only when exactly one thing on the page fits.
+        A trusted way that pressed but didn't make the step go counts as failed. Staff see each way, how often it
+        worked and for how many businesses, on Admin → Problem reports → **Learned ways**, and **Set aside** one so no
+        computer tries it again (`learned_way.set_removed`), or bring it back. One that hasn't worked in 90 days goes.
+        New ways sit beside the extension's own readers, never in place of them: the runner's own way is always tried
+        first.
+
 ## Rules worth knowing before changing anything
 
 - **Nothing is saved until the person presses a button in HandsFreeOS** (an ask, below), except the four steps the
@@ -4222,6 +4273,11 @@ where decisions 37 and 59 put the settings; what they decided stands. Settled to
   business's clock, while `dayReport` is on; a save from a screen that sends none keeps the one kept.
 - **Timeline lines** come from `addonTimelineLine`: "added them from Facebook", "linked their Facebook profile",
   "saved 3 Facebook messages".
+- **The AI helper presses only the step's own button** (decision 142), on a page the runner checked is the person's,
+  and clears the way with nothing that takes a step or changes something. Core's checks (`checkedHelperAnswer`,
+  `mayClear`, `mayPress`) and the tab's (`HelperHands`) both hold it; widen `HELPER_BUTTONS` only with the owner's
+  OK, and never for a message, a comment, a removal or a like. Its view never holds what a person wrote or the
+  name of the person the step is for.
 - **No real people in the repo.** Tests and fixtures use made-up names; the extension's readers are tuned from
   outlines, never saved pages (apps/extension/README.md).
 

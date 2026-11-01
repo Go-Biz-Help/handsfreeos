@@ -104,6 +104,7 @@ export const SCREEN_READS = [
   'platform.founding',
   'platform.founding.business',
   'platform.health.summary',
+  'platform.learned_way.list',
   'platform.onboarding.counts',
   'platform.partner_payouts.get',
   'platform.problem_report.get',

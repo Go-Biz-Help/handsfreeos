@@ -12,7 +12,7 @@ import type { ReplySighting } from './facebook/replies';
 import type { ProfileRef, ReadResult as FacebookRead } from './facebook/types';
 import type { ReadResult as LinkedInRead } from './linkedin/types';
 import type { LookingRead } from './looking/site';
-import type { OutlineOptions } from './outline';
+import type { OutlineOptions, OutlineSite } from './outline';
 
 export type { Answered, Looking, LookingSwitches, ProfileRef, ReplySighting, Seen, Step };
 export type { FacebookRead, LinkedInRead, LookingRead };
@@ -110,6 +110,8 @@ export interface Kit {
   noticer(): Noticer;
   /** The page's outline, with names and words hidden. */
   outline(doc: Document, href: string, options?: KitOutlineOptions): string;
+  /** What its outline keeps, hides and leaves out: the AI helper's view masks words the same way (../helper-view.ts). */
+  readonly outlineSite: OutlineSite;
   /**
    * What else the background may ask a tab of this network: the runner's and the asks' steps, each network its own (a
    * network without it answers none of them). Null for an ask that isn't one of its own.

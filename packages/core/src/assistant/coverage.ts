@@ -283,6 +283,7 @@ export const SCREEN_ACTIONS: Readonly<Record<string, ScreenAction>> = {
   'phone_listener.set': {},
   'phone_model.set': {},
   'problem_report.set_handled': {},
+  'learned_way.set_removed': { warning: 'Set aside, no computer tries it again.' },
   'video_calls.set': {},
   'founding.approve': { warning: 'A free seat goes on their business at once.' },
   'founding.decline': {},

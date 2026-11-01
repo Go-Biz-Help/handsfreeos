@@ -58,6 +58,11 @@ export const WaitingNeed = z.object({
   threadKey: z.string().nullable(),
   /** The last time it couldn't. */
   seenAt: z.iso.datetime(),
+  /**
+   * The problem report the extension sent with it (decision 142): HandsFreeOS staff open it from the card. Null for
+   * one from before, or a message that didn't go. Reports go after 30 days, so it may be gone.
+   */
+  reportId: z.uuid().nullable(),
 });
 export type WaitingNeed = z.output<typeof WaitingNeed>;
 
@@ -132,6 +137,8 @@ export const NeedNoteInput = z.object({
     .trim()
     .min(1)
     .transform((w) => clipLine(w)),
+  /** The problem report it sent of the page (decision 142), for HandsFreeOS staff to open from Needs you. */
+  reportId: z.uuid().nullable().default(null),
 });
 export type NeedNoteInput = z.input<typeof NeedNoteInput>;
 export const NeedNoteOutput = z.object({
