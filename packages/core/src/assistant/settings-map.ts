@@ -554,7 +554,7 @@ const AREAS: Record<SettingsArea, AreaEntry> = {
   },
   website_chat: {
     label: 'Website chat',
-    what: 'the chat boxes on your websites: who answers each, how it looks, where its button sits on phones and computers, what it asks for. Every one is listed in Forms → Website chats too, which is where another one is added; this page shows the first',
+    what: 'the chat boxes on your websites: who answers each, how it looks, where its button sits on phones and computers, what it asks for. Every one is listed under Website chats on the Forms page too, which is where another one is added; this page shows the first',
     where: ['Settings', 'Website chat'],
     onScreen: [
       'Before it is on: Your sites, and Turn on website chat',
@@ -586,7 +586,7 @@ const AREAS: Record<SettingsArea, AreaEntry> = {
         steps: [
           'I set the chat box up and give you the snippet.',
           'Paste it into your site before </body> (or into your site builder’s custom-code box).',
-          'Your sites on the chat’s page (Forms → Website chats) goes green once it sees it.',
+          'Your sites on the chat’s page (under Website chats on the Forms page) goes green once it sees it.',
         ],
       },
     ],

@@ -28,3 +28,8 @@ alter table app.chat_widgets
   -- While nobody is answering (no AI teammate working and the business closed): the away message with a short
   -- form first ('away_form', as every chat did), or the chat as usual, saying the team will answer later ('chat').
   add column when_away text not null default 'away_form' check (when_away in ('away_form', 'chat'));
+
+-- People change these through chat_widget.update, like the columns granted beside them in ai_team_grants.
+grant update (name, mobile_position, desktop_lift, mobile_lift, desktop_button, mobile_button, text_color,
+  header_color, show_logo, when_away)
+  on app.chat_widgets to authenticated;

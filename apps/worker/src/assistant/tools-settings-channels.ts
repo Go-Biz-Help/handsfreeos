@@ -798,7 +798,7 @@ const manageWebsiteChat: SettingsConfirmTool = {
             ? [
                 {
                   kind: 'note' as const,
-                  text: 'It shows up once its snippet is on your site. The snippet is under Add it to your site, on its page in Forms → Website chats.',
+                  text: 'It shows up once its snippet is on your site. The snippet is under Add it to your site, on its page under Website chats on the Forms page.',
                 },
               ]
             : []),
@@ -835,7 +835,7 @@ const manageWebsiteChat: SettingsConfirmTool = {
       });
       return {
         outcome:
-          'The chat box is set up. Copy its snippet from Add it to your site on its page in Forms → Website chats, and paste it into your site.',
+          'The chat box is set up. Copy its snippet from Add it to your site on its page under Website chats on the Forms page, and paste it into your site.',
         href: pageOf(made.widgetId),
         command: 'chat_widget.create',
       };

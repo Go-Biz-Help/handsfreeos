@@ -79,11 +79,21 @@ describe('the widget’s settings', () => {
       greeting: GREETING,
       awayMessage: AWAY,
       away: false,
+      whenAway: 'away_form',
       look: {
         launcherLabel: 'Chat with us',
         accentColor: '#2d69d8',
         textColor: '#ffffff',
+        pickedTextColor: null,
+        // The top bar takes the button's colour until the business picks one.
+        headerColor: '#2d69d8',
+        headerTextColor: '#ffffff',
         position: 'right',
+        mobilePosition: 'right',
+        desktopLift: 0,
+        mobileLift: 0,
+        desktopButton: 'label',
+        mobileButton: 'label',
       },
       askFor: { name: 'when_needed', phone: 'when_needed', email: 'when_needed' },
       // The widget says the same six things the public form and the booking page say, and names the
