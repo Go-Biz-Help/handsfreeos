@@ -205,7 +205,7 @@ describe('checking again the posts an older check called good (decision 143)', (
     const ws = await seen('Outreach Recheck Co', [
       'Can anyone recommend a CRM for my crew?',
       'Business owners: a breaker tripped twice? Check what is plugged in first.',
-      'Anyone else miss calls while up on a roof?',
+      'Can anyone recommend an answering service?',
       'Recommend a scheduling app?',
       'Anyone have a bookkeeper they like?',
     ]);
@@ -271,7 +271,7 @@ describe('checking again the posts an older check called good (decision 143)', (
         check_why: 'Nothing to answer',
       },
       {
-        body: 'Anyone else miss calls while up on a roof?',
+        body: 'Can anyone recommend an answering service?',
         check_state: 'good',
         check_why: 'Old check',
       },
