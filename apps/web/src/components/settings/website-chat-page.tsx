@@ -6,10 +6,17 @@
  * what it asks visitors for and the texts box.
  */
 import {
+  chatWidgetName,
+  contrastRatio,
+  logoBox,
   MAX_CHAT_ORIGINS,
   normalizeChatOrigin,
   readableTextOn,
+  type BusinessLook,
   type ChatAskMode,
+  type ChatDesktopButton,
+  type ChatMobileButton,
+  type ChatWhenAway,
 } from '@hfos/core';
 import {
   Check,
@@ -35,7 +42,6 @@ import { copyText } from '@/components/ui/copy-field';
 import { Dialog, DialogClose, DialogContent } from '@/components/ui/dialog';
 import { FieldError, Hint, Label } from '@/components/ui/field';
 import { Input, Select } from '@/components/ui/input';
-import { Segmented } from '@/components/ui/segmented';
 import { Switch } from '@/components/ui/switch';
 import { Textarea } from '@/components/ui/textarea';
 import { apiBrowser, ApiError, errorMessage, unwrap } from '@/lib/api/client';
@@ -44,7 +50,16 @@ import type { ChatWidget, ChatWidgetUpdateBody } from '@/lib/api/types';
 import { useLiveRefresh } from '@/lib/realtime/live-provider';
 import { usePublicOrigin } from '@/lib/use-origin';
 import { cn } from '@/lib/utils';
+import { LookEditor } from '@/components/look/look-editor';
+import { markOf } from '@/lib/chat/look';
 import { InstallCheck, PlatformSteps, SnippetCode, snippetOf, snippetSrc } from './chat-install';
+import {
+  ColorChoice,
+  DESKTOP_BUTTONS,
+  DevicePlacement,
+  MOBILE_BUTTONS,
+  type DevicePlace,
+} from './chat-look-parts';
 import { SetRow } from './set-row';
 import { settingAttrs } from './setting-anchor';
 
@@ -66,6 +81,31 @@ const ASK_OPTIONS: readonly (readonly [ChatAskMode, string])[] = [
   ['after_first_message', 'After their first message'],
   ['before_chat', 'Before the chat starts'],
 ];
+
+const WHEN_AWAY: readonly { value: ChatWhenAway; title: string; detail: string }[] = [
+  {
+    value: 'chat',
+    title: 'Let them chat anyway',
+    detail:
+      'The chat works as usual and says you’ll reply as soon as you can. Their message waits in your inbox.',
+  },
+  {
+    value: 'away_form',
+    title: 'Show the away message and a short form',
+    detail: 'They leave their details and a message on a form before anything else.',
+  },
+];
+
+/** The business's logo and colour (Settings → Workspace), which the chat shows at its top. */
+export interface ChatBrand {
+  readonly look: BusinessLook;
+  /** Its logo as the chat draws it; null when it has none yet. */
+  readonly logo: { readonly url: string; readonly width: number; readonly height: number } | null;
+  readonly businessName: string;
+  readonly website: string | null;
+  /** May change the logo (workspace.update). */
+  readonly canChange: boolean;
+}
 
 /** A site as people read it: acme.com, or http://localhost:4191 on your own computer. */
 const shown = (origin: string) => origin.replace(/^https:\/\//, '');
@@ -116,6 +156,9 @@ export function WebsiteChatPage({
   teammate,
   brandedOrigin,
   website = null,
+  brand = null,
+  onCreated,
+  naming = false,
 }: {
   workspaceId: string;
   widget: ChatWidget | null;
@@ -124,9 +167,24 @@ export function WebsiteChatPage({
   brandedOrigin: string | null;
   /** The business's website as it gave it, which setting the chat up starts from. */
   website?: string | null;
+  /** The logo the chat shows, and the place to change it; null leaves the logo card out. */
+  brand?: ChatBrand | null;
+  /** After setting one up: where to go (Forms opens the new chat); without it, the page is drawn again. */
+  onCreated?: (widgetId: string) => void;
+  /** Setting up another chat: ask for its name too. */
+  naming?: boolean;
 }) {
-  useLiveRefresh(['chat_widget', 'ai_teammate']);
-  if (!widget) return <SetUp workspaceId={workspaceId} teammate={teammate} website={website} />;
+  useLiveRefresh(['chat_widget', 'ai_teammate', 'workspace']);
+  if (!widget)
+    return (
+      <SetUp
+        workspaceId={workspaceId}
+        teammate={teammate}
+        website={website}
+        onCreated={onCreated}
+        naming={naming}
+      />
+    );
   return (
     <div className="grid grid-cols-1 items-start gap-5 xl:grid-cols-2" data-testid="chat-settings">
       <div className="flex min-w-0 flex-col gap-5">
@@ -135,7 +193,17 @@ export function WebsiteChatPage({
         <SnippetCard workspaceId={workspaceId} widget={widget} brandedOrigin={brandedOrigin} />
         <TryCard workspaceId={workspaceId} widget={widget} />
       </div>
-      <LookForm key={widget.id} workspaceId={workspaceId} widget={widget} teammate={teammate} />
+      <div className="flex min-w-0 flex-col gap-5">
+        <LookForm
+          key={widget.id}
+          workspaceId={workspaceId}
+          widget={widget}
+          teammate={teammate}
+          businessName={brand?.businessName ?? ''}
+          logo={brand?.logo ?? null}
+        />
+        {brand ? <LogoCard workspaceId={workspaceId} brand={brand} /> : null}
+      </div>
     </div>
   );
 }
@@ -294,12 +362,17 @@ function SetUp({
   workspaceId,
   teammate,
   website,
+  onCreated,
+  naming,
 }: {
   workspaceId: string;
   teammate: ChatTeammate | null;
   website: string | null;
+  onCreated?: (widgetId: string) => void;
+  naming: boolean;
 }) {
   const router = useRouter();
+  const [name, setName] = useState('');
   const [typed, setTyped] = useState<string[]>(() =>
     website && normalizeChatOrigin(website).ok ? [website] : [],
   );
@@ -314,19 +387,21 @@ function SetUp({
     setBusy(true);
     setError(null);
     try {
-      unwrap(
+      const made = unwrap(
         await apiBrowser().POST('/v1/commands/chat_widget.create', {
           body: {
             workspaceId,
             allowedOrigins: typed,
             teammateId: teammate?.id ?? null,
+            ...(name.trim() ? { name: name.trim() } : {}),
             // A greeting to start from; it's the first thing visitors read, and Look changes it.
             greeting: 'Hi, thanks for stopping by. How can we help?',
           },
         }),
       );
       toast.success('Website chat is on. Paste the snippet on your site.');
-      router.refresh();
+      if (onCreated) onCreated(made.widgetId);
+      else router.refresh();
     } catch (e) {
       setError(sitesProblem(e) ?? errorMessage(e));
     } finally {
@@ -341,6 +416,21 @@ function SetUp({
         >
           Website chat
         </CardTitle>
+        {naming ? (
+          <div className="mt-5">
+            <Label htmlFor="chat-new-name">Name</Label>
+            <Input
+              id="chat-new-name"
+              inputSize="sm"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              placeholder="Like Main website, or Spanish site"
+              maxLength={60}
+              data-testid="chat-new-name"
+            />
+            <Hint>Only your team sees it, in Forms. Empty uses the first site.</Hint>
+          </div>
+        ) : null}
         <p className="mt-5 text-[13px] font-medium">Your sites</p>
         <p className="text-xs text-text-3">
           The chat only opens on these sites. Anywhere else, browsers refuse to show it.
@@ -770,21 +860,40 @@ function TryCard({ workspaceId, widget }: { workspaceId: string; widget: ChatWid
 }
 
 interface LookDraft {
+  name: string;
   greeting: string;
   launcherLabel: string;
   accentColor: string;
-  position: 'left' | 'right';
+  textColor: string | null;
+  headerColor: string | null;
+  showLogo: boolean;
+  desktop: DevicePlace<ChatDesktopButton>;
+  mobile: DevicePlace<ChatMobileButton>;
+  /** The phone's corner was picked on its own (saved), rather than following the computer's. */
+  mobileOwnCorner: boolean;
   awayMessage: string;
+  whenAway: ChatWhenAway;
   askFor: { name: ChatAskMode; phone: ChatAskMode; email: ChatAskMode };
   smsConsent: boolean;
 }
 
 const draftOf = (w: ChatWidget): LookDraft => ({
+  name: w.ownName ?? '',
   greeting: w.greeting ?? '',
   launcherLabel: w.launcherLabel,
   accentColor: w.accentColor,
-  position: w.position,
+  textColor: w.ownTextColor,
+  headerColor: w.headerColor,
+  showLogo: w.showLogo,
+  desktop: { ...w.placement.desktop },
+  mobile: {
+    position: w.placement.mobile.position,
+    lift: w.placement.mobile.lift,
+    button: w.placement.mobile.button,
+  },
+  mobileOwnCorner: w.placement.mobile.ownPosition,
   awayMessage: w.awayMessage ?? '',
+  whenAway: w.whenAway,
   askFor: { name: w.askFor.name, phone: w.askFor.phone, email: w.askFor.email },
   smsConsent: w.smsConsent,
 });
@@ -794,10 +903,14 @@ function LookForm({
   workspaceId,
   widget,
   teammate,
+  businessName,
+  logo,
 }: {
   workspaceId: string;
   widget: ChatWidget;
   teammate: ChatTeammate | null;
+  businessName: string;
+  logo: ChatBrand['logo'];
 }) {
   const router = useRouter();
   const saved = draftOf(widget);
@@ -814,11 +927,22 @@ function LookForm({
     setErrors({});
     try {
       await updateWidget(workspaceId, widget.id, {
+        name: draft.name,
         greeting: draft.greeting,
         launcherLabel: draft.launcherLabel,
         accentColor: draft.accentColor,
-        position: draft.position,
+        textColor: draft.textColor,
+        headerColor: draft.headerColor,
+        showLogo: draft.showLogo,
+        position: draft.desktop.position,
+        // A phone's corner follows the computer's until it's picked on its own.
+        mobilePosition: draft.mobileOwnCorner ? draft.mobile.position : null,
+        desktopLift: draft.desktop.lift,
+        mobileLift: draft.mobile.lift,
+        desktopButton: draft.desktop.button,
+        mobileButton: draft.mobile.button,
         awayMessage: draft.awayMessage,
+        whenAway: draft.whenAway,
         askFor: draft.askFor,
         smsConsent: draft.smsConsent,
       });
@@ -836,9 +960,27 @@ function LookForm({
   return (
     <form onSubmit={save} className="flex min-w-0 flex-col gap-5" data-testid="chat-look-form">
       <Card className="p-6" {...settingAttrs('website_chat.look')}>
-        <CardTitle sub="One colour and a greeting. The window matches your visitor’s light or dark setting.">
+        <CardTitle sub="Its name, words and colours. The window matches your visitor’s light or dark setting.">
           Look
         </CardTitle>
+        <div className="mt-4">
+          <Label htmlFor="chat-name">Name</Label>
+          <Input
+            id="chat-name"
+            inputSize="sm"
+            value={draft.name}
+            onChange={(e) => set({ name: e.target.value })}
+            placeholder={chatWidgetName(widget.allowedOrigins)}
+            maxLength={60}
+            invalid={!!errors.name}
+            data-testid="chat-name"
+          />
+          {errors.name ? (
+            <FieldError>{errors.name}</FieldError>
+          ) : (
+            <Hint>Only your team sees it, in Forms. Empty uses the first site.</Hint>
+          )}
+        </div>
         <div className="mt-4">
           <Label htmlFor="chat-greeting">Greeting</Label>
           <Textarea
@@ -852,36 +994,21 @@ function LookForm({
           />
           {errors.greeting ? <FieldError>{errors.greeting}</FieldError> : null}
         </div>
-        <div className="mt-4 grid grid-cols-1 gap-3.5 sm:grid-cols-2">
-          <div>
-            <Label htmlFor="chat-label">Button label</Label>
-            <Input
-              id="chat-label"
-              inputSize="sm"
-              value={draft.launcherLabel}
-              onChange={(e) => set({ launcherLabel: e.target.value })}
-              maxLength={40}
-              invalid={!!errors.launcherLabel}
-              data-testid="chat-label"
-            />
-            {errors.launcherLabel ? <FieldError>{errors.launcherLabel}</FieldError> : null}
-          </div>
-          <div>
-            <p className="mb-1.5 text-[13px] font-medium">Position</p>
-            <Segmented
-              fill
-              ariaLabel="Position"
-              value={draft.position}
-              onChange={(position) => set({ position })}
-              options={[
-                { value: 'right', label: 'Bottom right', testId: 'chat-position-right' },
-                { value: 'left', label: 'Bottom left', testId: 'chat-position-left' },
-              ]}
-            />
-          </div>
+        <div className="mt-4">
+          <Label htmlFor="chat-label">Button label</Label>
+          <Input
+            id="chat-label"
+            inputSize="sm"
+            value={draft.launcherLabel}
+            onChange={(e) => set({ launcherLabel: e.target.value })}
+            maxLength={40}
+            invalid={!!errors.launcherLabel}
+            data-testid="chat-label"
+          />
+          {errors.launcherLabel ? <FieldError>{errors.launcherLabel}</FieldError> : null}
         </div>
         <p className="mb-1.5 mt-4 text-[13px] font-medium" id="chat-colour">
-          Colour
+          Button colour
         </p>
         <div
           role="radiogroup"
@@ -922,34 +1049,117 @@ function LookForm({
             {draft.accentColor}
           </span>
         </div>
-        <Hint>
-          Text on the colour switches between white and dark by itself, so it’s always readable.
-        </Hint>
-        <div
-          className={cn(
-            'mt-3.5 flex items-end gap-3.5 rounded-xl bg-card-2 p-4',
-            draft.position === 'left' ? 'flex-row-reverse justify-end' : 'justify-end',
-          )}
-          aria-hidden
-          data-testid="chat-look-preview"
-        >
-          {draft.greeting.trim() ? (
-            <div className="max-w-[250px] rounded-[14px] border border-border bg-card px-3 py-2.5 text-[13.5px] leading-[1.45] text-text shadow-2">
-              {draft.greeting}
-            </div>
-          ) : null}
-          <span
-            className="inline-flex h-[54px] flex-none items-center gap-2 whitespace-nowrap rounded-full pl-[17px] pr-5 text-[15px] font-semibold shadow-[0_8px_24px_rgba(25,29,37,0.28)]"
-            style={{ background: draft.accentColor, color: readableTextOn(draft.accentColor) }}
-          >
-            <MessageCircle className="h-[22px] w-[22px]" />
-            {draft.launcherLabel.trim() || 'Chat with us'}
-          </span>
+        <div className="mt-4 flex flex-col gap-4">
+          <ColorChoice
+            title="Words on the button and top bar"
+            autoLabel="Automatic"
+            value={draft.textColor}
+            shownAuto={readableTextOn(draft.accentColor)}
+            onChange={(textColor) => set({ textColor })}
+            testId="chat-text-colour"
+            hint={
+              draft.textColor && contrastRatio(draft.textColor, draft.accentColor) < 3
+                ? 'These words are hard to read on the button colour. Pick a lighter or darker one.'
+                : 'Automatic switches between white and dark by itself, so it’s always readable.'
+            }
+          />
+          <ColorChoice
+            title="Top bar of the chat"
+            autoLabel="Same as the button"
+            value={draft.headerColor}
+            shownAuto={draft.accentColor}
+            onChange={(headerColor) => set({ headerColor })}
+            testId="chat-header-colour"
+          />
         </div>
+        <SetRow
+          className="mt-3"
+          title="Show your logo"
+          body={
+            logo
+              ? 'At the top of the chat, on a white square. Off shows your initials.'
+              : 'You haven’t added a logo yet, so the chat shows your initials. Add one under Your logo below.'
+          }
+        >
+          <Switch
+            checked={draft.showLogo}
+            onChange={(showLogo) => set({ showLogo })}
+            label="Show your logo"
+            testId="chat-show-logo"
+          />
+        </SetRow>
+        <LookPreview draft={draft} business={businessName} logo={draft.showLogo ? logo : null} />
+      </Card>
+
+      <Card className="p-6" {...settingAttrs('website_chat.placement')}>
+        <CardTitle sub="Set it for computers and for phones on their own, so it never covers a bar or button on your site.">
+          Where the button sits
+        </CardTitle>
+        <div className="mt-4 grid grid-cols-1 gap-3.5">
+          <DevicePlacement
+            device="desktop"
+            value={draft.desktop}
+            onChange={(desktop) =>
+              set(
+                draft.mobileOwnCorner
+                  ? { desktop }
+                  : { desktop, mobile: { ...draft.mobile, position: desktop.position } },
+              )
+            }
+            buttons={DESKTOP_BUTTONS}
+            label={draft.launcherLabel.trim() || 'Chat with us'}
+            accent={draft.accentColor}
+            text={draft.textColor ?? readableTextOn(draft.accentColor)}
+          />
+          <DevicePlacement
+            device="mobile"
+            value={draft.mobile}
+            onChange={(mobile) =>
+              set({
+                mobile,
+                mobileOwnCorner: draft.mobileOwnCorner || mobile.position !== draft.mobile.position,
+              })
+            }
+            buttons={MOBILE_BUTTONS}
+            label={draft.launcherLabel.trim() || 'Chat with us'}
+            accent={draft.accentColor}
+            text={draft.textColor ?? readableTextOn(draft.accentColor)}
+          />
+        </div>
+        <Hint>Changes show on your site within about 5 minutes of saving.</Hint>
       </Card>
 
       <Card className="p-6" {...settingAttrs('website_chat.away')}>
         <CardTitle>{who ? `When ${who} isn’t answering` : 'When nobody is answering'}</CardTitle>
+        <p className="mt-1 text-[13px] text-text-2" data-testid="chat-away-when">
+          {who
+            ? `That’s when ${who} is off or outside its hours, and your business is closed by its open hours (Settings → Workspace).`
+            : 'That’s whenever your business is closed by its open hours (Settings → Workspace), because only your team answers this chat.'}
+        </p>
+        <div className="mt-3" role="radiogroup" aria-label="While nobody is answering">
+          {WHEN_AWAY.map((o) => (
+            <label
+              key={o.value}
+              className={cn(
+                'flex cursor-pointer items-start gap-2.5 border-t border-border py-2.5 first:border-t-0',
+              )}
+            >
+              <input
+                type="radio"
+                name="chat-when-away"
+                value={o.value}
+                checked={draft.whenAway === o.value}
+                onChange={() => set({ whenAway: o.value })}
+                className="mt-1 h-4 w-4 flex-none accent-[var(--accent)]"
+                data-testid={`chat-when-away-${o.value}`}
+              />
+              <span className="flex min-w-0 flex-col">
+                <span className="text-[13.5px] font-medium">{o.title}</span>
+                <span className="text-xs text-text-3">{o.detail}</span>
+              </span>
+            </label>
+          ))}
+        </div>
         <div className="mt-3">
           <Label htmlFor="chat-away">Away message</Label>
           <Textarea
@@ -957,7 +1167,11 @@ function LookForm({
             value={draft.awayMessage}
             onChange={(e) => set({ awayMessage: e.target.value })}
             // What the chat window says when this is left empty.
-            placeholder="We’re not answering chats right now. Leave your details and we’ll get back to you."
+            placeholder={
+              draft.whenAway === 'chat'
+                ? 'Nobody’s here right now. Leave a message and we’ll get back to you as soon as we can.'
+                : 'We’re not answering chats right now. Leave your details and we’ll get back to you.'
+            }
             maxLength={500}
             invalid={!!errors.awayMessage}
             className="min-h-[72px] text-sm"
@@ -967,8 +1181,9 @@ function LookForm({
             <FieldError>{errors.awayMessage}</FieldError>
           ) : (
             <Hint>
-              Shown with a short form when {who ? `${who} is off or outside its hours and ` : ''}
-              your business is closed.
+              {draft.whenAway === 'chat'
+                ? 'The first thing visitors read then. They can write straight away.'
+                : 'Shown with a short form for their details and message.'}
             </Hint>
           )}
         </div>
@@ -1034,5 +1249,88 @@ function LookForm({
         </div>
       </Card>
     </form>
+  );
+}
+
+/** What visitors see, as the draft has it: the top of the open chat with the greeting, and the button. */
+function LookPreview({
+  draft,
+  business,
+  logo,
+}: {
+  draft: LookDraft;
+  business: string;
+  logo: ChatBrand['logo'];
+}) {
+  const header = draft.headerColor ?? draft.accentColor;
+  const headerText = draft.textColor ?? readableTextOn(header);
+  const buttonText = draft.textColor ?? readableTextOn(draft.accentColor);
+  const box = logo ? logoBox(logo, 26) : null;
+  return (
+    <div
+      className={cn(
+        'mt-3.5 flex flex-wrap items-end gap-3.5 rounded-xl bg-card-2 p-4',
+        draft.desktop.position === 'left' ? 'flex-row-reverse justify-end' : 'justify-end',
+      )}
+      aria-hidden
+      data-testid="chat-look-preview"
+    >
+      <div className="w-[230px] overflow-hidden rounded-[14px] border border-border bg-card shadow-2">
+        <div
+          className="flex items-center gap-2 px-2.5 py-2"
+          style={{ background: header, color: headerText }}
+          data-testid="chat-look-preview-header"
+        >
+          <span className="inline-flex h-[26px] min-w-[26px] flex-none items-center justify-center rounded-[8px] bg-white px-[3px] text-[10px] font-bold text-[#191d25]">
+            {logo && box ? (
+              <img
+                src={logo.url}
+                alt=""
+                width={box.width}
+                height={box.height}
+                style={{ width: box.width, height: box.height }}
+              />
+            ) : (
+              markOf(business || 'Chat')
+            )}
+          </span>
+          <span className="min-w-0 truncate text-[12.5px] font-semibold">
+            {business || 'Your business'}
+          </span>
+        </div>
+        {draft.greeting.trim() ? (
+          <p className="px-3 py-2.5 text-[12.5px] leading-[1.45] text-text">{draft.greeting}</p>
+        ) : null}
+      </div>
+      <span
+        className="inline-flex h-[54px] flex-none items-center gap-2 whitespace-nowrap rounded-full pl-[17px] pr-5 text-[15px] font-semibold shadow-[0_8px_24px_rgba(25,29,37,0.28)]"
+        style={{ background: draft.accentColor, color: buttonText }}
+      >
+        <MessageCircle className="h-[22px] w-[22px]" />
+        {draft.desktop.button === 'icon' ? null : draft.launcherLabel.trim() || 'Chat with us'}
+      </span>
+    </div>
+  );
+}
+
+/** The business's logo, changed right here: the same one as Settings → Workspace's Logo and colour. */
+function LogoCard({ workspaceId, brand }: { workspaceId: string; brand: ChatBrand }) {
+  const router = useRouter();
+  return (
+    <Card className="p-6" data-testid="chat-logo-card">
+      <CardTitle sub="The same logo and colour as your booking page, invoices and emails, so they all match. Settings → Workspace has it too.">
+        Your logo
+      </CardTitle>
+      <div className="mt-4">
+        <LookEditor
+          workspaceId={workspaceId}
+          look={brand.look}
+          businessName={brand.businessName}
+          website={brand.website}
+          canChange={brand.canChange}
+          onChanged={() => router.refresh()}
+        />
+      </div>
+    </Card>
   );
 }

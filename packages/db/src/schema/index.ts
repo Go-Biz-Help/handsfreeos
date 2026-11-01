@@ -3717,13 +3717,30 @@ export const chatWidgets = app.table('chat_widgets', {
   greeting: text('greeting'),
   launcherLabel: text('launcher_label').notNull().default('Chat with us'),
   accentColor: text('accent_color').notNull().default('#2d69d8'),
-  /** right, left. */
+  /** right, left: on a computer, and on a phone unless mobilePosition says otherwise. */
   position: text('position').notNull().default('right'),
   awayMessage: text('away_message'),
   askFor: jsonb('ask_for').$type<Json>().notNull().default({}),
   smsConsent: boolean('sms_consent').notNull().default(true),
   dailyCap: integer('daily_cap').notNull().default(200),
   pausedAt: ts('paused_at'),
+  /** What the business calls it in Forms; null: its first site. */
+  name: text('name'),
+  /** right, left on a phone; null: the same as position. */
+  mobilePosition: text('mobile_position'),
+  /** Pixels higher than the button's usual spot (0-300). */
+  desktopLift: smallint('desktop_lift').notNull().default(0),
+  mobileLift: smallint('mobile_lift').notNull().default(0),
+  /** label, icon (and hidden on a phone). */
+  desktopButton: text('desktop_button').notNull().default('label'),
+  mobileButton: text('mobile_button').notNull().default('label'),
+  /** The words on the button and top bar; null: whichever reads on the colour. */
+  textColor: text('text_color'),
+  /** The top bar; null: accentColor. */
+  headerColor: text('header_color'),
+  showLogo: boolean('show_logo').notNull().default(true),
+  /** away_form, chat. */
+  whenAway: text('when_away').notNull().default('away_form'),
   /** The install check; the worker's. */
   lastSeenOrigin: text('last_seen_origin'),
   lastSeenAt: ts('last_seen_at'),

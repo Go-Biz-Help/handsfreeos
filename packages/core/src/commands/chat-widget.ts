@@ -13,7 +13,7 @@ import { rows, sql } from '@hfos/db/client';
 import { chatWidgets, workspaces } from '@hfos/db/schema';
 import { loadTeammate } from '../ai-team/load';
 import { ensureBookingSite } from '../calendar/site';
-import { chatWidgetName, normalizeChatOrigins } from '../chat/origins';
+import { chatShownName, normalizeChatOrigins } from '../chat/origins';
 import { HfosError } from '../errors';
 import { userIdOf } from '../kernel/actor';
 import { defineCommand } from '../kernel/define';
@@ -80,7 +80,7 @@ const same = (a: unknown, b: unknown) => JSON.stringify(a) === JSON.stringify(b)
 export const chatWidgetCreate = defineCommand({
   name: 'chat_widget.create',
   description:
-    'Add a website chat widget: the sites it shows on (the www version is added for you), how it looks, who answers, and what it asks visitors for. Returns the public key for the snippet.',
+    'Add a website chat widget: its name, the sites it shows on (the www version is added for you), how it looks and where its button sits on phones and computers, who answers, what happens while nobody is answering, and what it asks visitors for. Returns the public key for the snippet.',
   risk: 2,
   input: ChatWidgetCreateInput,
   output: ChatWidgetCreateOutput,
@@ -102,11 +102,21 @@ export const chatWidgetCreate = defineCommand({
         workspaceId: ctx.scope.workspaceId!,
         allowedOrigins,
         teammateId: input.teammateId ?? null,
+        name: input.name ?? null,
         greeting: input.greeting ?? null,
         launcherLabel: input.launcherLabel,
         accentColor,
         position: input.position,
+        mobilePosition: input.mobilePosition ?? null,
+        desktopLift: input.desktopLift,
+        mobileLift: input.mobileLift,
+        desktopButton: input.desktopButton,
+        mobileButton: input.mobileButton,
+        textColor: input.textColor?.toLowerCase() ?? null,
+        headerColor: input.headerColor?.toLowerCase() ?? null,
+        showLogo: input.showLogo,
         awayMessage: input.awayMessage ?? null,
+        whenAway: input.whenAway,
         askFor: input.askFor ?? ChatAskFor.parse({}),
         smsConsent: input.smsConsent,
         dailyCap: input.dailyCap,
@@ -126,7 +136,7 @@ export const chatWidgetCreate = defineCommand({
       entityType: 'chat_widget',
       entityId: row.id,
       payload: { widgetId: row.id, teammateId: input.teammateId ?? null },
-      after: { name: chatWidgetName(allowedOrigins), allowedOrigins },
+      after: { name: chatShownName(input.name, allowedOrigins), allowedOrigins },
     });
     return { widgetId: row.id, publicKey: row.publicKey, allowedOrigins };
   },
@@ -135,7 +145,7 @@ export const chatWidgetCreate = defineCommand({
 export const chatWidgetUpdate = defineCommand({
   name: 'chat_widget.update',
   description:
-    'Change a website chat widget: its sites, look, greeting and away message, who answers, what it asks visitors for, SMS consent and daily limit. Only the fields sent change.',
+    'Change a website chat widget: its name, sites, colours and logo, where its button sits on phones and computers, greeting, away message and what happens while nobody is answering, who answers, what it asks visitors for, SMS consent and daily limit. Only the fields sent change.',
   risk: 2,
   input: ChatWidgetUpdateInput,
   output: ChatWidgetUpdateOutput,
@@ -157,11 +167,21 @@ export const chatWidgetUpdate = defineCommand({
       await assertOwnTeammate(ctx, input.teammateId);
       put('teammateId', input.teammateId);
     }
+    put('name', input.name);
     put('greeting', input.greeting);
     put('launcherLabel', input.launcherLabel);
     put('accentColor', input.accentColor?.toLowerCase());
     put('position', input.position);
+    put('mobilePosition', input.mobilePosition);
+    put('desktopLift', input.desktopLift);
+    put('mobileLift', input.mobileLift);
+    put('desktopButton', input.desktopButton);
+    put('mobileButton', input.mobileButton);
+    put('textColor', input.textColor === null ? null : input.textColor?.toLowerCase());
+    put('headerColor', input.headerColor === null ? null : input.headerColor?.toLowerCase());
+    put('showLogo', input.showLogo);
     put('awayMessage', input.awayMessage);
+    put('whenAway', input.whenAway);
     if (input.askFor) {
       // Compared in one key order: the database keeps jsonb keys in its own.
       const current = chatAskForOf(w.askFor);
@@ -186,7 +206,13 @@ export const chatWidgetUpdate = defineCommand({
       entityId: w.id,
       payload: { widgetId: w.id, fields: updated },
       before,
-      after: { name: chatWidgetName(allowedOrigins), ...patch },
+      after: {
+        ...patch,
+        name: chatShownName(
+          'name' in patch ? (patch.name as string | null) : w.name,
+          allowedOrigins,
+        ),
+      },
     });
     return { widgetId: w.id, updated, allowedOrigins };
   },
@@ -216,7 +242,7 @@ export const chatWidgetPause = defineCommand({
       entityId: w.id,
       payload: { widgetId: w.id },
       before: { paused: false },
-      after: { name: chatWidgetName(w.allowedOrigins), paused: true },
+      after: { name: chatShownName(w.name, w.allowedOrigins), paused: true },
     });
     return { widgetId: w.id, paused: true };
   },
@@ -241,7 +267,7 @@ export const chatWidgetResume = defineCommand({
       entityId: w.id,
       payload: { widgetId: w.id },
       before: { paused: true },
-      after: { name: chatWidgetName(w.allowedOrigins), paused: false },
+      after: { name: chatShownName(w.name, w.allowedOrigins), paused: false },
     });
     return { widgetId: w.id, paused: false };
   },
@@ -270,7 +296,7 @@ export const chatWidgetRotateKey = defineCommand({
       entityType: 'chat_widget',
       entityId: w.id,
       payload: { widgetId: w.id },
-      after: { name: chatWidgetName(w.allowedOrigins) },
+      after: { name: chatShownName(w.name, w.allowedOrigins) },
     });
     return { widgetId: w.id, publicKey: row.public_key };
   },

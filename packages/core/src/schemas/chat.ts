@@ -3,6 +3,7 @@
  * worker's chat routes and Settings → Website chat send and get back.
  */
 import { z } from 'zod';
+import { CHAT_LIFT_LIMIT } from '../chat/look';
 import { isoDateTime, uuid } from './common';
 import { optionalEmail, phoneInput } from './crm';
 
@@ -36,6 +37,29 @@ export function chatAskForOf(raw: unknown): ChatAskFor {
 // ---------- widgets (channels.manage) ----------
 
 export const chatWidgetPosition = z.enum(['right', 'left']);
+/** The button on a computer: its label beside the icon, or only the round icon. */
+export const chatDesktopButton = z.enum(['label', 'icon']);
+/** The button on a phone: as on a computer, or hidden (the chat then opens from a link to #hfos-chat). */
+export const chatMobileButton = z.enum(['label', 'icon', 'hidden']);
+/**
+ * While nobody is answering (no AI teammate working and the business closed): the away message with a short form
+ * first, or the chat as usual, saying the team answers later.
+ */
+export const chatWhenAway = z.enum(['away_form', 'chat']);
+/** How many pixels higher than its usual spot the button sits, to clear a bar along the bottom of the site. */
+const lift = z
+  .number()
+  .int()
+  .min(0, 'Pick 0 or more.')
+  .max(CHAT_LIFT_LIMIT, `Pick up to ${CHAT_LIFT_LIMIT}.`)
+  .optional();
+/** A colour like #2d69d8, or null for the one picked for you. */
+const optionalColor = z
+  .string()
+  .trim()
+  .regex(/^#[0-9a-fA-F]{6}$/, 'Pick a colour like #2d69d8.')
+  .nullable()
+  .optional();
 /** Blank clears it. */
 const optionalMessage = z
   .string()
@@ -45,6 +69,14 @@ const optionalMessage = z
   .optional()
   .transform((v) => (v === '' ? null : v));
 const widgetFields = {
+  /** What the business calls it in Forms; blank or null: its first site. */
+  name: z
+    .string()
+    .trim()
+    .max(60, 'Keep the name under 60 characters.')
+    .nullable()
+    .optional()
+    .transform((v) => (v === '' ? null : v)),
   /** The AI teammate that answers; null: only people do. It must be the business's own. */
   teammateId: uuid.nullable().optional(),
   greeting: optionalMessage,
@@ -59,9 +91,23 @@ const widgetFields = {
     .trim()
     .regex(/^#[0-9a-fA-F]{6}$/, 'Pick a colour like #2d69d8.')
     .optional(),
+  /** The button's corner on a computer, and on a phone unless mobilePosition says otherwise. */
   position: chatWidgetPosition.optional(),
+  /** The button's corner on a phone; null: the same as on a computer. */
+  mobilePosition: chatWidgetPosition.nullable().optional(),
+  desktopLift: lift,
+  mobileLift: lift,
+  desktopButton: chatDesktopButton.optional(),
+  mobileButton: chatMobileButton.optional(),
+  /** The words on the button and the top bar; null: white or near-black, whichever reads on the colour. */
+  textColor: optionalColor,
+  /** The chat's top bar; null: the button's colour. */
+  headerColor: optionalColor,
+  /** The business's logo at the top of the chat (Settings → Workspace); off: its initials. */
+  showLogo: z.boolean().optional(),
   /** Shown when nobody is answering. */
   awayMessage: optionalMessage,
+  whenAway: chatWhenAway.optional(),
   /** Show the SMS consent box (the booking page's wording) when a visitor gives a phone number. */
   smsConsent: z.boolean().optional(),
   /** The most new chats it takes a day. */
@@ -112,8 +158,10 @@ export const ChatWidgetRecordSeenOutput = z.object({
 
 export const ChatWidgetOut = z.object({
   id: uuid,
-  /** The first site it shows on ("lonestarhvac.com"). */
+  /** What the business calls it, or the first site it shows on ("lonestarhvac.com"). */
   name: z.string(),
+  /** The name the business gave it; null when it goes by its first site. */
+  ownName: z.string().nullable(),
   /** Goes in the snippet: <script async src="…/embed/v1/<publicKey>.js">. Not a secret. */
   publicKey: z.string(),
   allowedOrigins: z.array(z.string()),
@@ -123,10 +171,31 @@ export const ChatWidgetOut = z.object({
   greeting: z.string().nullable(),
   launcherLabel: z.string(),
   accentColor: z.string(),
-  /** The text colour on the accent: white or near-black, whichever reads better. */
+  /** The text colour on the button and top bar: the one picked, or white or near-black, whichever reads better. */
   textColor: z.string(),
+  /** The text colour picked; null when it's worked out from the colour. */
+  ownTextColor: z.string().nullable(),
+  /** The top bar's colour picked; null when it's the button's. */
+  headerColor: z.string().nullable(),
+  showLogo: z.boolean(),
   position: chatWidgetPosition,
+  /** Where the button sits on phones and on computers. */
+  placement: z.object({
+    desktop: z.object({
+      position: chatWidgetPosition,
+      lift: z.number().int(),
+      button: chatDesktopButton,
+    }),
+    mobile: z.object({
+      position: chatWidgetPosition,
+      /** The corner on phones was picked on its own, rather than following the computer's. */
+      ownPosition: z.boolean(),
+      lift: z.number().int(),
+      button: chatMobileButton,
+    }),
+  }),
   awayMessage: z.string().nullable(),
+  whenAway: chatWhenAway,
   askFor: ChatAskFor,
   smsConsent: z.boolean(),
   dailyCap: z.number().int(),

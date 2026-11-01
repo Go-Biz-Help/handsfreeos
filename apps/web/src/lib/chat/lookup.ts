@@ -9,7 +9,16 @@
  * them, so a pause or a new key shows at once, and neither does a production build under Playwright
  * (CHAT_LOOKUP_CACHE_MS=0).
  */
-import { chatAskForOf, readableTextOn, type ChatAskFor } from '@hfos/core';
+import {
+  chatAskForOf,
+  chatColorOf,
+  chatColorsOf,
+  chatPlacementOf,
+  chatWhenAwayOf,
+  type ChatAskFor,
+  type ChatPlacement,
+  type ChatWhenAway,
+} from '@hfos/core';
 import { publicEnv } from '../env';
 
 export interface ChatConfig {
@@ -24,12 +33,22 @@ export interface ChatConfig {
   readonly awayMessage: string | null;
   /** Nobody is answering right now: the AI teammate isn't working and the business is closed. */
   readonly away: boolean;
+  /** Then: the away message with a short form first, or the chat as usual. */
+  readonly whenAway: ChatWhenAway;
   readonly look: {
     readonly launcherLabel: string;
     readonly accentColor: string;
-    /** White or near-black, whichever reads better on the accent. */
+    /** The words on the accent: the business's pick, or white or near-black, whichever reads better. */
     readonly textColor: string;
+    /** The text colour the business picked; null when it's worked out from the colours. */
+    readonly pickedText: string | null;
+    /** The chat's top bar, and the words on it. */
+    readonly headerColor: string;
+    readonly headerTextColor: string;
+    /** A computer's corner (placement.desktop.position). */
     readonly position: 'left' | 'right';
+    /** Where the button sits on computers and on phones. */
+    readonly placement: ChatPlacement;
   };
   readonly askFor: ChatAskFor;
   /** The texts box's wording (the booking page's, for a chat); null when the widget doesn't offer it. */
@@ -108,6 +127,17 @@ export function parseChatConfig(raw: unknown): ChatConfig | null {
     typeof look.accentColor === 'string' && /^#[0-9a-f]{6}$/i.test(look.accentColor)
       ? look.accentColor.toLowerCase()
       : DEFAULT_ACCENT;
+  // The worker sends the words' colours worked out; any it doesn't send are worked out here the same way.
+  const colors = chatColorsOf({
+    accentColor: accent,
+    textColor: chatColorOf(look.textColor),
+    headerColor: look.headerColor,
+  });
+  const headerText =
+    typeof look.headerTextColor === 'string' && /^#[0-9a-f]{6}$/i.test(look.headerTextColor)
+      ? look.headerTextColor.toLowerCase()
+      : colors.headerText;
+  const placement = chatPlacementOf(look);
   const teammateName = isObj(raw.teammate) ? text(raw.teammate.name) : null;
   const consentRaw = isObj(raw.smsConsent) ? raw.smsConsent : null;
   const consent = consentRaw ? (text(consentRaw.detail) ?? text(consentRaw.text)) : null;
@@ -119,11 +149,16 @@ export function parseChatConfig(raw: unknown): ChatConfig | null {
     greeting: text(raw.greeting),
     awayMessage: text(raw.awayMessage),
     away: raw.away === true,
+    whenAway: chatWhenAwayOf(raw.whenAway),
     look: {
       launcherLabel: text(look.launcherLabel) ?? 'Chat with us',
       accentColor: accent,
-      textColor: readableTextOn(accent),
-      position: look.position === 'left' ? 'left' : 'right',
+      textColor: colors.accentText,
+      pickedText: chatColorOf(look.pickedTextColor),
+      headerColor: colors.header,
+      headerTextColor: headerText,
+      position: placement.desktop.position,
+      placement,
     },
     askFor: chatAskForOf(raw.askFor),
     smsConsent: consent

@@ -3,7 +3,8 @@
  * The chat window's pieces (design/m7/WidgetDesktop and WidgetPhone): the accent header, bubbles with "Ava · AI
  * assistant" and "Dale joined", "typing", the details form with the booking page's texts-box wording, the composer
  * (16 px on phones, so they don't zoom in), and "Powered by HandsFreeOS". Colours come from the widget's accent
- * through --wacc and --wacc-on, which follow the visitor's light or dark setting.
+ * through --wacc and --wacc-on (the top bar through --whd and --whd-on), which follow the visitor's light or dark
+ * setting.
  */
 import { logoBox } from '@hfos/core';
 import {
@@ -33,9 +34,9 @@ import { cn } from '@/lib/utils';
 
 /** The window fills its frame and never scrolls the page; a page of its own (the showcase) scrolls as usual. */
 const WINDOW_CSS = 'html,body{height:100%;overflow:hidden}';
-const CSS = `.hfos-w{--wacc:var(--wacc-l);--wacc-on:var(--wacc-on-l)}
-[data-theme='dark'] .hfos-w{--wacc:var(--wacc-d);--wacc-on:var(--wacc-on-d)}
-@media (prefers-color-scheme:dark){:root:not([data-theme='light']) .hfos-w{--wacc:var(--wacc-d);--wacc-on:var(--wacc-on-d)}}
+const CSS = `.hfos-w{--wacc:var(--wacc-l);--wacc-on:var(--wacc-on-l);--whd:var(--whd-l,var(--wacc-l));--whd-on:var(--whd-on-l,var(--wacc-on-l))}
+[data-theme='dark'] .hfos-w{--wacc:var(--wacc-d);--wacc-on:var(--wacc-on-d);--whd:var(--whd-d,var(--wacc-d));--whd-on:var(--whd-on-d,var(--wacc-on-d))}
+@media (prefers-color-scheme:dark){:root:not([data-theme='light']) .hfos-w{--wacc:var(--wacc-d);--wacc-on:var(--wacc-on-d);--whd:var(--whd-d,var(--wacc-d));--whd-on:var(--whd-on-d,var(--wacc-on-d))}}
 .hfos-dots i{display:block;width:7px;height:7px;border-radius:99px;background:var(--text-3);animation:hfos-dot 1.2s ease-in-out infinite}
 .hfos-dots i:nth-child(2){animation-delay:.15s}
 .hfos-dots i:nth-child(3){animation-delay:.3s}
@@ -141,7 +142,7 @@ export function ChatHeader({
 }) {
   const box = logo ? logoBox(logo, 34) : null;
   return (
-    <header className="flex flex-none items-center gap-2.5 bg-[var(--wacc)] py-3 pl-3.5 pr-2 text-[var(--wacc-on)]">
+    <header className="flex flex-none items-center gap-2.5 bg-[var(--whd)] py-3 pl-3.5 pr-2 text-[var(--whd-on)]">
       {logo && box ? (
         <span
           aria-hidden
@@ -177,7 +178,7 @@ export function ChatHeader({
           type="button"
           onClick={onClose}
           aria-label="Close the chat"
-          className="inline-flex h-10 w-10 flex-none items-center justify-center rounded-full transition-colors hover:bg-black/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--wacc-on)]"
+          className="inline-flex h-10 w-10 flex-none items-center justify-center rounded-full transition-colors hover:bg-black/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--whd-on)]"
           data-testid="chat-close"
         >
           <X className="h-5 w-5" aria-hidden />

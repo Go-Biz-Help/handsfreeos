@@ -5,8 +5,7 @@
  * exactly as the chat does after a visitor's first message: name, mobile and email, the box to agree to texts with its
  * wording, the offers and calls boxes when the business has them, and the privacy policy and terms. It sends nothing.
  */
-import type { CSSProperties } from 'react';
-import { widgetColors } from '@/lib/chat/look';
+import { widgetVars } from '@/lib/chat/look';
 import type { ChatConfig } from '@/lib/chat/lookup';
 import { AFTER_FIRST_INTRO, ChatFooter, ChatHeader, ChatStyles, DetailsForm } from './chat-parts';
 
@@ -14,13 +13,7 @@ const NONE = { name: false, phone: false, email: false } as const;
 
 export function ChatShowcase({ config }: { config: ChatConfig }) {
   const business = config.business.name || 'This business';
-  const colors = widgetColors(config.look.accentColor);
-  const vars = {
-    '--wacc-l': colors.light.accent,
-    '--wacc-on-l': colors.light.on,
-    '--wacc-d': colors.dark.accent,
-    '--wacc-on-d': colors.dark.on,
-  } as CSSProperties;
+  const { colors, vars } = widgetVars(config.look);
   const { askFor } = config;
   const show = {
     name: askFor.name !== 'never',

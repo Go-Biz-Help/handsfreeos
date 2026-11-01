@@ -119,6 +119,12 @@ export function normalizeChatOrigins(inputs: readonly string[]): {
 }
 
 /** A widget's name in lists: the first site it shows on ("lonestarhvac.com"). */
+/** What a chat is called: the name the business gave it, or else its first site. */
+export const chatShownName = (
+  name: string | null | undefined,
+  origins: readonly string[],
+): string => name?.trim() || chatWidgetName(origins);
+
 export function chatWidgetName(origins: readonly string[]): string {
   const first = origins[0];
   if (!first) return 'Website chat';
