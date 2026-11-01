@@ -197,6 +197,16 @@ A form marked "the AI teammate may ask this" (`in_chat`) becomes two teammate to
 state: the sheet is the same row the public page writes, found by customer and form, so a conversation that
 stops halfway can be finished on the link and the other way round.
 
+## Website chats on the Forms page
+
+**Forms** also lists the business's website chats (**Website chats**, above the forms), for people who may change
+them (`channels.manage`), because a chat is how most visitors leave their details. They aren't forms: each is a
+`chat_widgets` row, edited by `chat_widget.update` on its own page (`forms/chats/<id>`, the same editor as
+**Settings** → **Website chat**), and the texting registration's chat is one of them, not a kind of its own. A chat
+keeps its name, its look, where its button sits on computers and phones, and what happens while nobody is answering
+(`20261027021600_website_chat_look_and_place.sql`). The operator's side is "Set up the website chat for a client" in
+`docs/operations.md`.
+
 ## On the phone (M17)
 
 Built, and nothing in `forms/` had to change — the engine really was ready.

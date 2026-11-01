@@ -1396,17 +1396,29 @@ const CHAT_WIDGET_FIELD: Record<string, string> = {
   greeting: 'greeting',
   launcherLabel: 'button label',
   accentColor: 'colour',
+  textColor: 'words’ colour',
+  headerColor: 'top bar colour',
+  showLogo: 'logo',
   position: 'position',
+  mobilePosition: 'corner on phones',
+  desktopLift: 'height on computers',
+  mobileLift: 'height on phones',
+  desktopButton: 'button on computers',
+  mobileButton: 'button on phones',
   awayMessage: 'away message',
+  whenAway: 'what happens while nobody answers',
   askFor: 'what it asks for',
   smsConsent: 'texts consent box',
   dailyCap: 'daily limit',
+  name: 'name',
 };
+// `before` holds exactly the fields that changed; `after` always carries the chat's name to show, so without a
+// `before` the name is left out.
 const chatWidgetFields = (e: AuditEntry) =>
   andJoin(
-    Object.keys(e.after ?? {})
-      .filter((k) => k !== 'name')
-      .map((k) => CHAT_WIDGET_FIELD[k] ?? k),
+    (e.before ? Object.keys(e.before) : Object.keys(e.after ?? {}).filter((k) => k !== 'name')).map(
+      (k) => CHAT_WIDGET_FIELD[k] ?? k,
+    ),
   ) || 'details';
 
 /** chat.identify writes the visitor's details, and can add a customer and link the chat to them. */

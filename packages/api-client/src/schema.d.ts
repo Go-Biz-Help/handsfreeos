@@ -2127,7 +2127,7 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * Add a website chat widget: the sites it shows on (the www version is added for you), how it looks, who answers, and what it asks visitors for. Returns the public key for the snippet.
+         * Add a website chat widget: its name, the sites it shows on (the www version is added for you), how it looks and where its button sits on phones and computers, who answers, what happens while nobody is answering, and what it asks visitors for. Returns the public key for the snippet.
          * @description Risk level 2. Requires channels.manage. Emits chat_widget.created.
          */
         post: operations["command_chat_widget_create"];
@@ -2207,7 +2207,7 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * Change a website chat widget: its sites, look, greeting and away message, who answers, what it asks visitors for, SMS consent and daily limit. Only the fields sent change.
+         * Change a website chat widget: its name, sites, colours and logo, where its button sits on phones and computers, greeting, away message and what happens while nobody is answering, who answers, what it asks visitors for, SMS consent and daily limit. Only the fields sent change.
          * @description Risk level 2. Requires channels.manage. Emits chat_widget.updated.
          */
         post: operations["command_chat_widget_update"];
@@ -28791,12 +28791,25 @@ export interface operations {
                     };
                     awayMessage?: string | null;
                     dailyCap?: number;
+                    /** @enum {string} */
+                    desktopButton?: "label" | "icon";
+                    desktopLift?: number;
                     greeting?: string | null;
+                    headerColor?: string | null;
                     launcherLabel?: string;
                     /** @enum {string} */
+                    mobileButton?: "label" | "icon" | "hidden";
+                    mobileLift?: number;
+                    mobilePosition?: ("right" | "left") | null;
+                    name?: string | null;
+                    /** @enum {string} */
                     position?: "right" | "left";
+                    showLogo?: boolean;
                     smsConsent?: boolean;
                     teammateId?: string | null;
+                    textColor?: string | null;
+                    /** @enum {string} */
+                    whenAway?: "away_form" | "chat";
                     /** Format: uuid */
                     workspaceId: string;
                 };
@@ -28940,12 +28953,25 @@ export interface operations {
                     };
                     awayMessage?: string | null;
                     dailyCap?: number;
+                    /** @enum {string} */
+                    desktopButton?: "label" | "icon";
+                    desktopLift?: number;
                     greeting?: string | null;
+                    headerColor?: string | null;
                     launcherLabel?: string;
                     /** @enum {string} */
+                    mobileButton?: "label" | "icon" | "hidden";
+                    mobileLift?: number;
+                    mobilePosition?: ("right" | "left") | null;
+                    name?: string | null;
+                    /** @enum {string} */
                     position?: "right" | "left";
+                    showLogo?: boolean;
                     smsConsent?: boolean;
                     teammateId?: string | null;
+                    textColor?: string | null;
+                    /** @enum {string} */
+                    whenAway?: "away_form" | "chat";
                     /** Format: uuid */
                     widgetId: string;
                     /** Format: uuid */
@@ -67012,6 +67038,7 @@ export interface operations {
                             createdAt: string;
                             dailyCap: number;
                             greeting: string | null;
+                            headerColor: string | null;
                             /** Format: uuid */
                             id: string;
                             install: {
@@ -67021,11 +67048,31 @@ export interface operations {
                             };
                             launcherLabel: string;
                             name: string;
+                            ownName: string | null;
+                            ownTextColor: string | null;
                             paused: boolean;
                             pausedAt: string | null;
+                            placement: {
+                                desktop: {
+                                    /** @enum {string} */
+                                    button: "label" | "icon";
+                                    lift: number;
+                                    /** @enum {string} */
+                                    position: "right" | "left";
+                                };
+                                mobile: {
+                                    /** @enum {string} */
+                                    button: "label" | "icon" | "hidden";
+                                    lift: number;
+                                    ownPosition: boolean;
+                                    /** @enum {string} */
+                                    position: "right" | "left";
+                                };
+                            };
                             /** @enum {string} */
                             position: "right" | "left";
                             publicKey: string;
+                            showLogo: boolean;
                             smsConsent: boolean;
                             teammate: {
                                 /** Format: uuid */
@@ -67037,6 +67084,8 @@ export interface operations {
                             textColor: string;
                             /** Format: date-time */
                             updatedAt: string;
+                            /** @enum {string} */
+                            whenAway: "away_form" | "chat";
                         };
                     };
                 };
@@ -67092,6 +67141,7 @@ export interface operations {
                             createdAt: string;
                             dailyCap: number;
                             greeting: string | null;
+                            headerColor: string | null;
                             /** Format: uuid */
                             id: string;
                             install: {
@@ -67101,11 +67151,31 @@ export interface operations {
                             };
                             launcherLabel: string;
                             name: string;
+                            ownName: string | null;
+                            ownTextColor: string | null;
                             paused: boolean;
                             pausedAt: string | null;
+                            placement: {
+                                desktop: {
+                                    /** @enum {string} */
+                                    button: "label" | "icon";
+                                    lift: number;
+                                    /** @enum {string} */
+                                    position: "right" | "left";
+                                };
+                                mobile: {
+                                    /** @enum {string} */
+                                    button: "label" | "icon" | "hidden";
+                                    lift: number;
+                                    ownPosition: boolean;
+                                    /** @enum {string} */
+                                    position: "right" | "left";
+                                };
+                            };
                             /** @enum {string} */
                             position: "right" | "left";
                             publicKey: string;
+                            showLogo: boolean;
                             smsConsent: boolean;
                             teammate: {
                                 /** Format: uuid */
@@ -67117,6 +67187,8 @@ export interface operations {
                             textColor: string;
                             /** Format: date-time */
                             updatedAt: string;
+                            /** @enum {string} */
+                            whenAway: "away_form" | "chat";
                         }[];
                     };
                 };

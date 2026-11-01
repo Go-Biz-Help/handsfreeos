@@ -31371,7 +31371,7 @@
     "/v1/commands/chat_widget.create": {
       "post": {
         "operationId": "command_chat_widget_create",
-        "summary": "Add a website chat widget: the sites it shows on (the www version is added for you), how it looks, who answers, and what it asks visitors for. Returns the public key for the snippet.",
+        "summary": "Add a website chat widget: its name, the sites it shows on (the www version is added for you), how it looks and where its button sits on phones and computers, who answers, what happens while nobody is answering, and what it asks visitors for. Returns the public key for the snippet.",
         "tags": [
           "commands"
         ],
@@ -31396,6 +31396,17 @@
                       "type": "string",
                       "maxLength": 300
                     }
+                  },
+                  "name": {
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "maxLength": 60
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
                   },
                   "teammateId": {
                     "anyOf": [
@@ -31436,6 +31447,70 @@
                       "left"
                     ]
                   },
+                  "mobilePosition": {
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "enum": [
+                          "right",
+                          "left"
+                        ]
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "desktopLift": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 300
+                  },
+                  "mobileLift": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 300
+                  },
+                  "desktopButton": {
+                    "type": "string",
+                    "enum": [
+                      "label",
+                      "icon"
+                    ]
+                  },
+                  "mobileButton": {
+                    "type": "string",
+                    "enum": [
+                      "label",
+                      "icon",
+                      "hidden"
+                    ]
+                  },
+                  "textColor": {
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "pattern": "^#[0-9a-fA-F]{6}$"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "headerColor": {
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "pattern": "^#[0-9a-fA-F]{6}$"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "showLogo": {
+                    "type": "boolean"
+                  },
                   "awayMessage": {
                     "anyOf": [
                       {
@@ -31445,6 +31520,13 @@
                       {
                         "type": "null"
                       }
+                    ]
+                  },
+                  "whenAway": {
+                    "type": "string",
+                    "enum": [
+                      "away_form",
+                      "chat"
                     ]
                   },
                   "smsConsent": {
@@ -31538,7 +31620,7 @@
     "/v1/commands/chat_widget.update": {
       "post": {
         "operationId": "command_chat_widget_update",
-        "summary": "Change a website chat widget: its sites, look, greeting and away message, who answers, what it asks visitors for, SMS consent and daily limit. Only the fields sent change.",
+        "summary": "Change a website chat widget: its name, sites, colours and logo, where its button sits on phones and computers, greeting, away message and what happens while nobody is answering, who answers, what it asks visitors for, SMS consent and daily limit. Only the fields sent change.",
         "tags": [
           "commands"
         ],
@@ -31567,6 +31649,17 @@
                       "type": "string",
                       "maxLength": 300
                     }
+                  },
+                  "name": {
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "maxLength": 60
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
                   },
                   "teammateId": {
                     "anyOf": [
@@ -31607,6 +31700,70 @@
                       "left"
                     ]
                   },
+                  "mobilePosition": {
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "enum": [
+                          "right",
+                          "left"
+                        ]
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "desktopLift": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 300
+                  },
+                  "mobileLift": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 300
+                  },
+                  "desktopButton": {
+                    "type": "string",
+                    "enum": [
+                      "label",
+                      "icon"
+                    ]
+                  },
+                  "mobileButton": {
+                    "type": "string",
+                    "enum": [
+                      "label",
+                      "icon",
+                      "hidden"
+                    ]
+                  },
+                  "textColor": {
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "pattern": "^#[0-9a-fA-F]{6}$"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "headerColor": {
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "pattern": "^#[0-9a-fA-F]{6}$"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "showLogo": {
+                    "type": "boolean"
+                  },
                   "awayMessage": {
                     "anyOf": [
                       {
@@ -31616,6 +31773,13 @@
                       {
                         "type": "null"
                       }
+                    ]
+                  },
+                  "whenAway": {
+                    "type": "string",
+                    "enum": [
+                      "away_form",
+                      "chat"
                     ]
                   },
                   "smsConsent": {
@@ -161499,6 +161663,12 @@
                           "name": {
                             "type": "string"
                           },
+                          "ownName": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
                           "publicKey": {
                             "type": "string"
                           },
@@ -161557,6 +161727,21 @@
                           "textColor": {
                             "type": "string"
                           },
+                          "ownTextColor": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "headerColor": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "showLogo": {
+                            "type": "boolean"
+                          },
                           "position": {
                             "type": "string",
                             "enum": [
@@ -161564,10 +161749,92 @@
                               "left"
                             ]
                           },
+                          "placement": {
+                            "type": "object",
+                            "properties": {
+                              "desktop": {
+                                "type": "object",
+                                "properties": {
+                                  "position": {
+                                    "type": "string",
+                                    "enum": [
+                                      "right",
+                                      "left"
+                                    ]
+                                  },
+                                  "lift": {
+                                    "type": "integer",
+                                    "minimum": -9007199254740991,
+                                    "maximum": 9007199254740991
+                                  },
+                                  "button": {
+                                    "type": "string",
+                                    "enum": [
+                                      "label",
+                                      "icon"
+                                    ]
+                                  }
+                                },
+                                "required": [
+                                  "position",
+                                  "lift",
+                                  "button"
+                                ],
+                                "additionalProperties": false
+                              },
+                              "mobile": {
+                                "type": "object",
+                                "properties": {
+                                  "position": {
+                                    "type": "string",
+                                    "enum": [
+                                      "right",
+                                      "left"
+                                    ]
+                                  },
+                                  "ownPosition": {
+                                    "type": "boolean"
+                                  },
+                                  "lift": {
+                                    "type": "integer",
+                                    "minimum": -9007199254740991,
+                                    "maximum": 9007199254740991
+                                  },
+                                  "button": {
+                                    "type": "string",
+                                    "enum": [
+                                      "label",
+                                      "icon",
+                                      "hidden"
+                                    ]
+                                  }
+                                },
+                                "required": [
+                                  "position",
+                                  "ownPosition",
+                                  "lift",
+                                  "button"
+                                ],
+                                "additionalProperties": false
+                              }
+                            },
+                            "required": [
+                              "desktop",
+                              "mobile"
+                            ],
+                            "additionalProperties": false
+                          },
                           "awayMessage": {
                             "type": [
                               "string",
                               "null"
+                            ]
+                          },
+                          "whenAway": {
+                            "type": "string",
+                            "enum": [
+                              "away_form",
+                              "chat"
                             ]
                           },
                           "askFor": {
@@ -161680,6 +161947,7 @@
                         "required": [
                           "id",
                           "name",
+                          "ownName",
                           "publicKey",
                           "allowedOrigins",
                           "teammate",
@@ -161687,8 +161955,13 @@
                           "launcherLabel",
                           "accentColor",
                           "textColor",
+                          "ownTextColor",
+                          "headerColor",
+                          "showLogo",
                           "position",
+                          "placement",
                           "awayMessage",
+                          "whenAway",
                           "askFor",
                           "smsConsent",
                           "dailyCap",
@@ -161770,6 +162043,12 @@
                         "name": {
                           "type": "string"
                         },
+                        "ownName": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
                         "publicKey": {
                           "type": "string"
                         },
@@ -161828,6 +162107,21 @@
                         "textColor": {
                           "type": "string"
                         },
+                        "ownTextColor": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "headerColor": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "showLogo": {
+                          "type": "boolean"
+                        },
                         "position": {
                           "type": "string",
                           "enum": [
@@ -161835,10 +162129,92 @@
                             "left"
                           ]
                         },
+                        "placement": {
+                          "type": "object",
+                          "properties": {
+                            "desktop": {
+                              "type": "object",
+                              "properties": {
+                                "position": {
+                                  "type": "string",
+                                  "enum": [
+                                    "right",
+                                    "left"
+                                  ]
+                                },
+                                "lift": {
+                                  "type": "integer",
+                                  "minimum": -9007199254740991,
+                                  "maximum": 9007199254740991
+                                },
+                                "button": {
+                                  "type": "string",
+                                  "enum": [
+                                    "label",
+                                    "icon"
+                                  ]
+                                }
+                              },
+                              "required": [
+                                "position",
+                                "lift",
+                                "button"
+                              ],
+                              "additionalProperties": false
+                            },
+                            "mobile": {
+                              "type": "object",
+                              "properties": {
+                                "position": {
+                                  "type": "string",
+                                  "enum": [
+                                    "right",
+                                    "left"
+                                  ]
+                                },
+                                "ownPosition": {
+                                  "type": "boolean"
+                                },
+                                "lift": {
+                                  "type": "integer",
+                                  "minimum": -9007199254740991,
+                                  "maximum": 9007199254740991
+                                },
+                                "button": {
+                                  "type": "string",
+                                  "enum": [
+                                    "label",
+                                    "icon",
+                                    "hidden"
+                                  ]
+                                }
+                              },
+                              "required": [
+                                "position",
+                                "ownPosition",
+                                "lift",
+                                "button"
+                              ],
+                              "additionalProperties": false
+                            }
+                          },
+                          "required": [
+                            "desktop",
+                            "mobile"
+                          ],
+                          "additionalProperties": false
+                        },
                         "awayMessage": {
                           "type": [
                             "string",
                             "null"
+                          ]
+                        },
+                        "whenAway": {
+                          "type": "string",
+                          "enum": [
+                            "away_form",
+                            "chat"
                           ]
                         },
                         "askFor": {
@@ -161951,6 +162327,7 @@
                       "required": [
                         "id",
                         "name",
+                        "ownName",
                         "publicKey",
                         "allowedOrigins",
                         "teammate",
@@ -161958,8 +162335,13 @@
                         "launcherLabel",
                         "accentColor",
                         "textColor",
+                        "ownTextColor",
+                        "headerColor",
+                        "showLogo",
                         "position",
+                        "placement",
                         "awayMessage",
+                        "whenAway",
                         "askFor",
                         "smsConsent",
                         "dailyCap",

@@ -23,19 +23,22 @@ import {
   bearerToken,
   CHAT_MESSAGE_MAX,
   chatAskForOf,
+  chatColorOf,
+  chatColorsOf,
   chatIdentify,
   chatMarkRead,
   chatReceive,
   chatVisitorRecordSeen,
   chatVisitorResume,
   chatVisitorRotateToken,
+  chatPlacementOf,
   chatVisitorStart,
+  chatWhenAwayOf,
   chatWidgetRecordSeen,
   executeCommand,
   HfosError,
   legalSourceOf,
   openHoursOf,
-  readableTextOn,
   type CommandDef,
   type RequestMeta,
   consentPolicyPath,
@@ -430,20 +433,34 @@ export async function registerChatRoutes(app: FastifyInstance, deps: HttpDeps): 
           const aiAnswering =
             !!teammate && teammateWorkingNow(teammate.config, openHours, timeZone, now);
           const brand = publicLookOf(ws?.settings, deps.storageUrl);
+          const colors = chatColorsOf(widget);
+          const placement = chatPlacementOf(widget);
           return {
-            // Its logo for the top of the chat (its name alone without one).
-            business: { name: ws?.name ?? '', logo: brand.logo },
+            // Its logo for the top of the chat (its initials without one, or when the chat is set not to show it).
+            business: { name: ws?.name ?? '', logo: widget.showLogo ? brand.logo : null },
             /** The AI teammate that answers here: its name, nothing else. */
             teammate: teammate ? { name: teammate.name } : null,
             greeting: widget.greeting,
             awayMessage: widget.awayMessage,
             /** Nobody is answering right now (the AI isn't working and the business is closed). */
             away: !aiAnswering && !withinHours(openHours, timeZone, now),
+            /** Then: the away message with a short form first, or the chat as usual. */
+            whenAway: chatWhenAwayOf(widget.whenAway),
             look: {
               launcherLabel: widget.launcherLabel,
-              accentColor: widget.accentColor,
-              textColor: readableTextOn(widget.accentColor),
-              position: widget.position === 'left' ? 'left' : 'right',
+              accentColor: colors.accent,
+              textColor: colors.accentText,
+              // The text colour the business picked (null: worked out), which the window keeps on dark pages too.
+              pickedTextColor: chatColorOf(widget.textColor),
+              headerColor: colors.header,
+              headerTextColor: colors.headerText,
+              // Where the button sits: `position` is a computer's corner, as older loaders read it.
+              position: placement.desktop.position,
+              mobilePosition: placement.mobile.position,
+              desktopLift: placement.desktop.lift,
+              mobileLift: placement.mobile.lift,
+              desktopButton: placement.desktop.button,
+              mobileButton: placement.mobile.button,
             },
             askFor: chatAskForOf(widget.askFor),
             smsConsent: widget.smsConsent ? { ...consentWords, text: consentWords.detail } : null,

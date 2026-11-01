@@ -308,6 +308,98 @@ describe('chat widgets (owners and admins)', () => {
     });
   });
 
+  it('keeps a name, the button’s place on computers and phones, its colours, logo and what happens while nobody answers', async () => {
+    const { widgetId: w } = await run(
+      chatWidgetCreate,
+      { workspaceId: wsId, allowedOrigins: ['place-heating.com'], name: 'Main website' },
+      owner,
+    );
+    const ref = { workspaceId: wsId, widgetId: w };
+    // A new chat looks and behaves as every chat did: one corner for both, its usual spot, the label, the logo,
+    // and the away form while nobody is answering.
+    const { widget: fresh } = await ask(chatWidgetGet, ref, member);
+    expect(fresh).toMatchObject({
+      name: 'Main website',
+      ownName: 'Main website',
+      ownTextColor: null,
+      headerColor: null,
+      showLogo: true,
+      whenAway: 'away_form',
+      placement: {
+        desktop: { position: 'right', lift: 0, button: 'label' },
+        mobile: { position: 'right', ownPosition: false, lift: 0, button: 'label' },
+      },
+    });
+
+    const change = {
+      ...ref,
+      textColor: '#FFEE00',
+      headerColor: '#191D25',
+      showLogo: false,
+      position: 'left',
+      mobilePosition: 'right',
+      desktopLift: 20,
+      mobileLift: 90,
+      desktopButton: 'icon',
+      mobileButton: 'hidden',
+      whenAway: 'chat',
+    };
+    expect((await run(chatWidgetUpdate, change, manager)).updated).toEqual([
+      'position',
+      'mobilePosition',
+      'desktopLift',
+      'mobileLift',
+      'desktopButton',
+      'mobileButton',
+      'textColor',
+      'headerColor',
+      'showLogo',
+      'whenAway',
+    ]);
+    expect((await run(chatWidgetUpdate, change, manager)).updated).toEqual([]);
+    const { widget } = await ask(chatWidgetGet, ref, member);
+    expect(widget).toMatchObject({
+      textColor: '#ffee00',
+      ownTextColor: '#ffee00',
+      headerColor: '#191d25',
+      showLogo: false,
+      position: 'left',
+      whenAway: 'chat',
+      placement: {
+        desktop: { position: 'left', lift: 20, button: 'icon' },
+        mobile: { position: 'right', ownPosition: true, lift: 90, button: 'hidden' },
+      },
+    });
+
+    // Back to automatic text, the phone following the computer's corner, and the first site for a name.
+    await run(
+      chatWidgetUpdate,
+      { ...ref, textColor: null, mobilePosition: null, name: '' },
+      manager,
+    );
+    const { widget: back } = await ask(chatWidgetGet, ref, member);
+    expect(back).toMatchObject({
+      name: 'place-heating.com',
+      ownName: null,
+      ownTextColor: null,
+      textColor: '#ffffff',
+      placement: { mobile: { position: 'left', ownPosition: false } },
+    });
+
+    const tooHigh = await expectHfos(
+      () => run(chatWidgetUpdate, { ...ref, mobileLift: 301 }, manager),
+      'validation',
+    );
+    expect(tooHigh.details).toEqual([
+      { path: 'mobileLift', message: expect.stringMatching(/up to 300/) },
+    ]);
+    // An icon-only button is for computers and phones; hiding it is for phones only.
+    await expectHfos(
+      () => run(chatWidgetUpdate, { ...ref, desktopButton: 'hidden' }, manager),
+      'validation',
+    );
+  });
+
   it('names the business’s pages when it offers the texts box, so the box links to the policy and terms', async () => {
     const siteOf = async (workspaceId: string) =>
       (
@@ -414,10 +506,16 @@ describe('chat widgets (owners and admins)', () => {
         'teammate',
         'greeting',
         'launcherLabel',
+        'ownName',
         'accentColor',
         'textColor',
+        'ownTextColor',
+        'headerColor',
+        'showLogo',
         'position',
+        'placement',
         'awayMessage',
+        'whenAway',
         'askFor',
         'smsConsent',
         'dailyCap',

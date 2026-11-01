@@ -104,10 +104,13 @@ test('Website chat settings: sites, the snippet, the install check and a new key
   await expect(sites.filter({ hasText: '127.0.0.1:4191' })).toContainText('Installed');
   await visitor.close();
 
-  // The look: a colour, a label, the left corner and a greeting, saved together; the loader follows.
+  // The look: a colour, a label, the left corner and a greeting, and on phones the round icon raised 90 pixels
+  // above a bar along the bottom, saved together; the loader follows.
   await page.getByTestId('chat-colour-008743').click();
   await page.getByTestId('chat-label').fill('Ask us anything');
-  await page.getByTestId('chat-position-left').click();
+  await page.getByTestId('chat-desktop-left').click();
+  await page.getByTestId('chat-mobile-button-icon').click();
+  await page.getByTestId('chat-mobile-lift').fill('90');
   await page.getByTestId('chat-greeting').fill('Hi! Questions about heating or cooling? Ask here.');
   await expect(page.getByTestId('chat-look-preview')).toContainText('Ask us anything');
   await expect(page.getByTestId('chat-save-note')).toHaveText('Unsaved changes');
@@ -117,6 +120,19 @@ test('Website chat settings: sites, the snippet, the install check and a new key
   expect(restyled).toContain('"Ask us anything"');
   expect(restyled).toContain('background:#008743');
   expect(restyled).toContain('left:24px');
+  // The phone follows the computer's corner, sits higher and shows only the icon.
+  expect(restyled).toContain(
+    'button{left:16px;bottom:calc(var(--b) + 90px);padding:0;width:54px;justify-content:center}span{display:none}',
+  );
+  expect(restyled.length).toBeLessThan(3 * 1024);
+
+  // Every chat is in Forms too, opening the same editor.
+  await page.getByTestId('chat-in-forms').getByRole('link').click();
+  await expect(page.getByTestId('website-chat-row')).toHaveCount(1);
+  await expect(page.getByTestId('website-chat-row')).toContainText('on phones');
+  await page.getByTestId('website-chat-row').click();
+  await expect(page.getByTestId('chat-label')).toHaveValue('Ask us anything');
+  await page.goto(`/app/w/${workspaceId}/settings/website-chat`);
 
   // The daily limit saves on Enter.
   await page.getByTestId('chat-daily-cap').fill('150');

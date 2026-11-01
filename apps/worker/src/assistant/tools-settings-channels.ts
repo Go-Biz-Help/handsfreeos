@@ -555,14 +555,17 @@ interface ChatTeammate {
   } | null;
 }
 
-/** The business's chat box. The screen shows the first one, so that is the one changed unless another is named. */
+/**
+ * The business's chat box: the one named, or else its first, as Settings → Website chat shows it. Forms → Website
+ * chats lists every one, with the id get_settings (area website_chat) gives.
+ */
 async function chatBox(db: Db, ctx: ToolContext, widgetId: string | undefined) {
   const { items } = await query<{ items: Widget[] }>(db, ctx, 'chat_widget.list');
   if (!widgetId) return items[0] ?? null;
   const named = items.find((w) => w.id === widgetId);
   if (!named)
     throw HfosError.notFound(
-      'That isn’t this business’s website chat. Its chat is in get_settings (area website_chat).',
+      'That isn’t one of this business’s website chats. Its chats are in get_settings (area website_chat).',
     );
   return named;
 }
@@ -618,31 +621,104 @@ async function answerer(db: Db, ctx: ToolContext, ai: boolean | undefined, creat
   return { teammateId: teammate.id, who: `${teammate.name} (AI)`, note };
 }
 
+const CORNER_WORDS = { right: 'Bottom right', left: 'Bottom left' } as const;
+const BUTTON_WORDS = { label: 'Label and icon', icon: 'Icon only', hidden: 'Hidden' } as const;
+
+/** A colour, or the word for the one picked for you (null); undefined leaves it as it is. */
+function colourArg(v: unknown, auto: string): string | null | undefined {
+  if (v === auto) return null;
+  return str(v);
+}
+
 /** What changes besides the sites and who answers, as the command takes it, and as the card reads it. */
 function lookOf(args: Args) {
   const away = typeof args['awayMessage'] === 'string' ? args['awayMessage'].trim() : undefined;
+  const name = typeof args['name'] === 'string' ? args['name'].trim() : undefined;
   const ask = (args['askFor'] ?? {}) as Partial<Record<(typeof ASK_FIELDS)[number], AskMode>>;
   const askFor = defined(Object.fromEntries(ASK_FIELDS.map((f) => [f, ask[f]])));
   const position = str(args['position']) as 'right' | 'left' | undefined;
+  const phoneCorner = str(args['phonePosition']) as
+    'right' | 'left' | 'same_as_computer' | undefined;
+  const textColor = colourArg(args['textColor'], 'automatic');
+  const topBar = colourArg(args['topBarColor'], 'same_as_button');
+  const computerButton = str(args['computerButton']) as 'label' | 'icon' | undefined;
+  const phoneButton = str(args['phoneButton']) as 'label' | 'icon' | 'hidden' | undefined;
+  const whenAway = str(args['whenNobodyAnswers']) as 'chat' | 'away_form' | undefined;
   const fields = defined({
+    name,
     greeting: str(args['greeting']),
     launcherLabel: str(args['buttonLabel']),
     accentColor: str(args['color']),
+    textColor,
+    headerColor: topBar,
+    showLogo: bool(args['showLogo']),
     position,
+    mobilePosition: phoneCorner === 'same_as_computer' ? null : phoneCorner,
+    desktopLift: num(args['computerLift']),
+    mobileLift: num(args['phoneLift']),
+    desktopButton: computerButton,
+    mobileButton: phoneButton,
     awayMessage: away,
+    whenAway,
     askFor: Object.keys(askFor).length ? askFor : undefined,
     smsConsent: bool(args['askForSmsConsent']),
     dailyCap: num(args['dailyCap']),
   });
+  const lift = (n: number) => (n ? `${n} px higher` : 'Its usual spot');
   const words: Field[] = [
+    ...(name === undefined ? [] : [{ label: 'Name', value: name || 'Its first site' }]),
     ...(num(args['dailyCap'])
       ? [{ label: 'New chats a day', value: String(args['dailyCap']) }]
       : []),
     ...(str(args['greeting']) ? [{ label: 'Greeting', value: str(args['greeting'])! }] : []),
     ...(str(args['buttonLabel']) ? [{ label: 'Button', value: str(args['buttonLabel'])! }] : []),
     ...(str(args['color']) ? [{ label: 'Colour', value: str(args['color'])! }] : []),
+    ...(textColor === undefined
+      ? []
+      : [{ label: 'Words on the button and top bar', value: textColor ?? 'Automatic' }]),
+    ...(topBar === undefined
+      ? []
+      : [{ label: 'Top bar of the chat', value: topBar ?? 'Same as the button' }]),
+    ...(bool(args['showLogo']) === undefined
+      ? []
+      : [{ label: 'Logo', value: args['showLogo'] ? 'Shown' : 'Initials instead' }]),
     ...(position
-      ? [{ label: 'Position', value: position === 'left' ? 'Bottom left' : 'Bottom right' }]
+      ? [
+          {
+            label: phoneCorner ? 'Corner on computers' : 'Position',
+            value: CORNER_WORDS[position],
+          },
+        ]
+      : []),
+    ...(phoneCorner
+      ? [
+          {
+            label: 'Corner on phones',
+            value:
+              phoneCorner === 'same_as_computer'
+                ? 'Same as on computers'
+                : CORNER_WORDS[phoneCorner],
+          },
+        ]
+      : []),
+    ...(num(args['computerLift']) === undefined
+      ? []
+      : [{ label: 'Height on computers', value: lift(args['computerLift'] as number) }]),
+    ...(num(args['phoneLift']) === undefined
+      ? []
+      : [{ label: 'Height on phones', value: lift(args['phoneLift'] as number) }]),
+    ...(computerButton
+      ? [{ label: 'Button on computers', value: BUTTON_WORDS[computerButton] }]
+      : []),
+    ...(phoneButton ? [{ label: 'Button on phones', value: BUTTON_WORDS[phoneButton] }] : []),
+    ...(whenAway
+      ? [
+          {
+            label: 'While nobody is answering',
+            value:
+              whenAway === 'chat' ? 'They can chat anyway' : 'The away message and a short form',
+          },
+        ]
       : []),
     ...(away === undefined ? [] : [{ label: 'Away message', value: away || 'The standard words' }]),
     ...ASK_FIELDS.filter((f) => ask[f]).map((f) => ({
@@ -666,12 +742,6 @@ const manageWebsiteChat: SettingsConfirmTool = {
     const act = action(args);
     const creating = act === 'create';
     const box = await chatBox(db, ctx, str(args['widgetId']));
-    if (creating && box)
-      throw HfosError.rule(
-        'chat_exists',
-        409,
-        `This business already has a website chat, on ${box.name}. I can change that one instead, like adding a site to it.`,
-      );
     if (!creating && !box) throw noChat();
     if (act === 'turn_on' || act === 'turn_off') {
       const on = act === 'turn_on';
@@ -716,11 +786,19 @@ const manageWebsiteChat: SettingsConfirmTool = {
         confirmLabel: creating ? 'Set it up' : 'Save the change',
         warnings: [
           ...(who?.note ? [{ kind: 'note' as const, text: who.note }] : []),
+          ...(creating && box
+            ? [
+                {
+                  kind: 'note' as const,
+                  text: `This adds another chat beside the one on ${box.name}. Only one chat shows on a page, so give it its own sites.`,
+                },
+              ]
+            : []),
           ...(creating
             ? [
                 {
                   kind: 'note' as const,
-                  text: 'It shows up once its snippet is on your site. The snippet is under Add it to your site on Settings → Website chat.',
+                  text: 'It shows up once its snippet is on your site. The snippet is under Add it to your site, on its page under Website chats on the Forms page.',
                 },
               ]
             : []),
@@ -734,7 +812,8 @@ const manageWebsiteChat: SettingsConfirmTool = {
     const act = action(args);
     const creating = act === 'create';
     const box = await chatBox(db, ctx, str(args['widgetId']));
-    const href = `/app/w/${ctx.workspaceId}/settings/website-chat`;
+    const pageOf = (id: string) => `/app/w/${ctx.workspaceId}/forms/chats/${id}`;
+    const href = box ? pageOf(box.id) : `/app/w/${ctx.workspaceId}/forms#website-chats`;
     if (!creating && !box) throw noChat();
     if (act === 'turn_on' || act === 'turn_off') {
       const name = act === 'turn_on' ? 'chat_widget.resume' : 'chat_widget.pause';
@@ -749,15 +828,15 @@ const manageWebsiteChat: SettingsConfirmTool = {
     const who = await answerer(db, ctx, bool(args['answeredByAi']), creating);
     const { fields } = lookOf(args);
     if (creating) {
-      await command(db, ctx, 'chat_widget.create', {
+      const made = await command<{ widgetId: string }>(db, ctx, 'chat_widget.create', {
         allowedOrigins: sites ?? [],
         teammateId: who?.teammateId ?? null,
         ...fields,
       });
       return {
         outcome:
-          'The chat box is set up. Copy its snippet from Add it to your site on Settings → Website chat, and paste it into your site.',
-        href,
+          'The chat box is set up. Copy its snippet from Add it to your site on its page under Website chats on the Forms page, and paste it into your site.',
+        href: pageOf(made.widgetId),
         command: 'chat_widget.create',
       };
     }

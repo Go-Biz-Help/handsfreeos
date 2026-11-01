@@ -694,12 +694,22 @@ export const assistantTools = [
   define({
     name: 'manage_website_chat',
     description:
-      'Set up or change the chat box on the business’s website, as Settings → Website chat does: the sites it may show on, who answers it (the AI teammate, or only the team), the most new chats a day, its greeting, button label, colour and position, the away message, when it asks visitors for their name, mobile and email, the box to get texts, and turning it on or off. Read it with get_settings (area website_chat) first and pass only what changes. The snippet still has to be pasted into their site, so say so; a new snippet key is do_chat_widget_rotate_key.',
+      'Set up or change a chat box on the business’s website, as the Website chats list on the Forms page (and Settings → Website chat) does: its name, the sites it may show on, who answers it (the AI teammate, or only the team), the most new chats a day, its greeting, button label and colours, showing the business’s logo, where its button sits on computers and on phones (corner, how far up, label or icon only, or hidden on phones), what happens while nobody is answering, the away message, when it asks visitors for their name, mobile and email, the box to get texts, and turning it on or off. A business can have more than one; create adds another. Read them with get_settings (area website_chat) first and pass only what changes. The snippet still has to be pasted into their site, so say so; a new snippet key is do_chat_widget_rotate_key.',
     input: z.object({
       action: z.enum(['create', 'change', 'turn_on', 'turn_off']),
       widgetId: uuid
         .optional()
-        .describe('Leave out for the business’s chat, the one on the screen'),
+        .describe(
+          'Which chat, from get_settings (area website_chat). Leave out for the business’s first chat, the one Settings → Website chat shows',
+        ),
+      name: z
+        .string()
+        .trim()
+        .max(60)
+        .optional()
+        .describe(
+          'What the business calls this chat in Forms, like Main website. Empty goes back to its first site.',
+        ),
       websites: z
         .array(text(300))
         .max(10)
@@ -728,17 +738,71 @@ export const assistantTools = [
         .regex(/^#[0-9a-fA-F]{6}$/)
         .optional()
         .describe('A hex colour like #2d69d8'),
+      textColor: z
+        .union([z.string().regex(/^#[0-9a-fA-F]{6}$/), z.literal('automatic')])
+        .optional()
+        .describe(
+          'The words on the button and the top bar: a hex colour, or automatic (white or dark, whichever reads)',
+        ),
+      topBarColor: z
+        .union([z.string().regex(/^#[0-9a-fA-F]{6}$/), z.literal('same_as_button')])
+        .optional()
+        .describe('The top bar of the open chat: a hex colour, or same_as_button'),
+      showLogo: z
+        .boolean()
+        .optional()
+        .describe(
+          'Show the business’s logo (Settings → Workspace) at the top of the chat; false shows its initials',
+        ),
       position: z
         .enum(['right', 'left'])
         .optional()
-        .describe('The bottom corner of their site the button sits in'),
+        .describe(
+          'The bottom corner the button sits in on computers, and on phones unless phonePosition says otherwise',
+        ),
+      phonePosition: z
+        .enum(['right', 'left', 'same_as_computer'])
+        .optional()
+        .describe('The bottom corner on phones (screens up to 480 pixels wide)'),
+      computerLift: z
+        .int()
+        .min(0)
+        .max(300)
+        .optional()
+        .describe(
+          'How many pixels above its usual spot the button sits on computers; 0 is the usual spot',
+        ),
+      phoneLift: z
+        .int()
+        .min(0)
+        .max(300)
+        .optional()
+        .describe(
+          'How many pixels above its usual spot the button sits on phones, to clear a bar along the bottom of the site (about 90 clears most)',
+        ),
+      computerButton: z
+        .enum(['label', 'icon'])
+        .optional()
+        .describe('On computers: the label beside the icon, or only the round icon'),
+      phoneButton: z
+        .enum(['label', 'icon', 'hidden'])
+        .optional()
+        .describe(
+          'On phones: the label beside the icon, only the round icon, or hidden (the chat then opens from a link to #hfos-chat on their site)',
+        ),
+      whenNobodyAnswers: z
+        .enum(['chat', 'away_form'])
+        .optional()
+        .describe(
+          'While nobody is answering (no AI teammate working and the business closed): chat lets visitors write as usual and says the team replies later; away_form shows the away message with a short form first',
+        ),
       awayMessage: z
         .string()
         .trim()
         .max(500)
         .optional()
         .describe(
-          'Shown with a short form when nobody is answering. Empty goes back to the standard words.',
+          'The first thing visitors read while nobody is answering. Empty goes back to the standard words.',
         ),
       askFor: z
         .object({

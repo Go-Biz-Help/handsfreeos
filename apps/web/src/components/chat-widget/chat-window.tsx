@@ -15,11 +15,10 @@ import {
   useRef,
   useState,
   useSyncExternalStore,
-  type CSSProperties,
   type KeyboardEvent,
 } from 'react';
 import { Turnstile } from '@/components/booking/turnstile';
-import { widgetColors } from '@/lib/chat/look';
+import { widgetVars } from '@/lib/chat/look';
 import type { ChatConfig } from '@/lib/chat/lookup';
 import {
   INITIAL_SNAPSHOT,
@@ -177,13 +176,7 @@ export function ChatWindow({ widgetKey, config, origin, path, preview }: ChatWin
     }
   };
 
-  const colors = widgetColors(config.look.accentColor);
-  const vars = {
-    '--wacc-l': colors.light.accent,
-    '--wacc-on-l': colors.light.on,
-    '--wacc-d': colors.dark.accent,
-    '--wacc-on-d': colors.dark.on,
-  } as CSSProperties;
+  const { colors, vars } = widgetVars(config.look);
 
   const { askFor } = config;
   const show = {
@@ -198,8 +191,10 @@ export function ChatWindow({ widgetKey, config, origin, path, preview }: ChatWin
   };
   const ready = snap.phase === 'ready';
   const nothingGiven = !snap.gave.name && !snap.gave.phone && !snap.gave.email;
-  // Nobody is answering and they haven't written: the away message and a short form, as in the design.
-  const awayForm = ready && config.away && !snap.started && !done;
+  // Nobody is answering and they haven't written: the away message and a short form, as in the design, unless the
+  // business would rather they chat as usual (the team answers later).
+  const awayForm =
+    ready && config.away && config.whenAway === 'away_form' && !snap.started && !done;
   // Asked for before the chat starts: the composer waits for it.
   const beforeForm = ready && !awayForm && (before.name || before.phone || before.email);
   // "After their first message": the form comes then, whoever answers (the texting registration's chat, where the
@@ -237,13 +232,17 @@ export function ChatWindow({ widgetKey, config, origin, path, preview }: ChatWin
     snap.phase === 'paused'
       ? 'Paused right now'
       : config.away
-        ? 'We’re away right now'
+        ? config.whenAway === 'chat'
+          ? 'We’ll reply as soon as we can'
+          : 'We’re away right now'
         : teammate
           ? `${teammate} (AI) and the team`
           : 'Chat with the team';
   const openingText = config.away
     ? (config.awayMessage ??
-      'We’re not answering chats right now. Leave your details and we’ll get back to you.')
+      (config.whenAway === 'chat'
+        ? 'Nobody’s here right now. Leave a message and we’ll get back to you as soon as we can.'
+        : 'We’re not answering chats right now. Leave your details and we’ll get back to you.'))
     : config.greeting;
   const opening: LogItem | null = openingText
     ? { id: 'opening', from: 'business', name: null, body: openingText, at: '', joined: false }

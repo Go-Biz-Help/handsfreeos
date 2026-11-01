@@ -45,6 +45,8 @@ export async function GET(request: NextRequest, ctx: { params: Promise<{ file: s
       business: business.name,
       label: look.launcherLabel,
       accent: look.accentColor,
+      text: look.textColor,
+      placement: look.placement,
       position: look.position,
       preview,
     }),
