@@ -2336,9 +2336,9 @@ function scriptedLikeYoursPick(message: string) {
 }
 
 /**
- * Social Outreach's words for finding people by topic (decision 92), from the playbook's niche and area: every list,
- * asked for or not, so the check can drop what wasn't asked; with a hashtag everyone uses, the business's own name, a
- * hashtag twice and a phrase too long, for the check to drop too. Works online only when asked: yes when the niche
+ * Social Outreach's words for finding people by topic (decisions 92 and 141), from the playbook's niche and area: every
+ * list, asked for or not, so the check can drop what wasn't asked; with a hashtag everyone uses, the business's own
+ * name, a hashtag and a Facebook phrase twice and a phrase too long, for the check to drop too. Works online only when asked: yes when the niche
  * or the area says online, else no.
  */
 function scriptedFindWords(message: string) {
@@ -2352,6 +2352,12 @@ function scriptedFindWords(message: string) {
   const town = area.split(',')[0]!.replace(/\s+/g, '').toLowerCase();
   const kind = first.charAt(0).toUpperCase() + first.slice(1);
   return {
+    facebookSearches: [
+      'missed calls',
+      `anyone use a ${first} app`,
+      `${first} tips`,
+      'missed calls',
+    ],
     hashtags: [
       `#${niche}`,
       `${first}life`,

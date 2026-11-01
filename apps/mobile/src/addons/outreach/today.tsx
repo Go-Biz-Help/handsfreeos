@@ -63,6 +63,7 @@ import {
   useOutreachContext,
 } from './kit';
 import { PersonName } from './person-menu';
+import { PostQuote } from './post-quote';
 
 /**
  * Today on the phone (decision 44): the person's list for today, kind by kind, what the extension does on its own,
@@ -630,9 +631,13 @@ function ItemCard({
         </View>
       ) : null}
       {item.post ? (
-        <Text className="rounded-control bg-card-2 px-3 py-2 text-[14px] leading-[20px]">
-          {item.post}
-        </Text>
+        // More shows the whole post when it's cut short (decision 141).
+        <PostQuote
+          post={item.post}
+          whole={item.postWhole}
+          className="rounded-control bg-card-2 px-3 py-2 text-[14px] leading-[20px]"
+          testID="today-post"
+        />
       ) : null}
       {item.recent.length ? (
         <View className="gap-1">

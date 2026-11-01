@@ -38,7 +38,7 @@ import { playbooksInUse } from './friends';
 export const postsSave = defineAddonCommand(outreachAddon, {
   name: 'outreach.posts.save',
   description:
-    'Keep the posts in a Facebook group’s feed, or found by a network’s own search (LinkedIn’s post search, Instagram’s hashtags and places, Alignable’s town), that are worth a comment from the person: those saying a playbook’s signs or asking for help, or found under a playbook’s own hashtag or phrase, with who wrote them and the hashtag or phrase that found them, for the AI to check. Says how each post the page shows stands, for the extension to mark. Nobody goes in Contacts.',
+    'Keep the posts in a Facebook group’s feed, or found by a network’s own search (Facebook’s and LinkedIn’s post search, Instagram’s hashtags and places, Alignable’s town), that are worth a comment from the person: those saying a playbook’s signs or asking for help, or found under a playbook’s own hashtag or phrase, with who wrote them and the hashtag or phrase that found them, for the AI to check. Says how each post the page shows stands, for the extension to mark. Nobody goes in Contacts.',
   risk: 1,
   input: PostsSaveInput,
   output: PostsSaveOutput,
@@ -247,14 +247,14 @@ export const postSkip = defineAddonCommand(outreachAddon, {
 });
 
 /**
- * The words to search a network's posts with (LinkedIn's post search, latest first): the playbooks' own, as an ask for
- * Find posts takes them (`postSearchWords`), the day's in turn. For the extension's runner, which finds posts once a
- * day on its own; on Instagram, with the day's hashtags and the area's places (`postLooks`).
+ * The words to search a network's posts with (Facebook's and LinkedIn's post search, latest first): the playbooks'
+ * own, as an ask for Find posts takes them (`postSearchWords`), the day's in turn. For the extension's runner, which
+ * finds posts once a day on its own; on Instagram, with the day's hashtags and the area's places (`postLooks`).
  */
 export const postWords = defineAddonQuery(outreachAddon, {
   name: 'outreach.posts.words',
   description:
-    'The words the person’s computer searches a network’s posts with today, from the playbooks in use: their own phrases for the network’s post search first, a few a day in turn, else the quoted words in their signs, then their words for groups. With them, the hashtags a day’s look on Instagram opens (the playbooks’ own first, else ones made from their area and words), and the playbooks’ places, to tell a post tagged in the area.',
+    'The words the person’s computer searches a network’s posts with today, from the playbooks in use: their own phrases for the network’s post search first, a few a day in turn, else (off Facebook) the quoted words in their signs, then their words for groups. With them, the hashtags a day’s look on Instagram opens (the playbooks’ own first, else ones made from their area and words), and the playbooks’ places, to tell a post tagged in the area.',
   input: PostWordsInput,
   output: PostWordsOutput,
   permission: 'outreach.use',

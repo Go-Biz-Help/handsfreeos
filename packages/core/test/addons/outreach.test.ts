@@ -184,7 +184,7 @@ describe('playbooks', () => {
         d.hashtags!.map((h) => hashtagOf(h)),
         name,
       ).toEqual(d.hashtags);
-      for (const s of d.postSearches!)
+      for (const s of [...d.facebookSearches!, ...d.postSearches!])
         expect(s.split(' ').length, s).toBeLessThanOrEqual(POST_SEARCH_WORDS_MOST);
       // Everything blank that's the person's own: where, the link, and anything they must say.
       expect([d.area, d.link, d.disclaimer], name).toEqual([null, null, null]);
@@ -342,10 +342,18 @@ describe('a playbook’s conversation', () => {
   });
 
   it('reads one saved before each network had its own words, with them empty (data version 8)', () => {
-    const { hashtags, postSearches, businessKinds, worksOnline, wordsWritten, ...before } =
-      PLAYBOOK_TEMPLATES.crm_demos.details;
-    void [hashtags, postSearches, businessKinds, worksOnline, wordsWritten];
+    const {
+      facebookSearches,
+      hashtags,
+      postSearches,
+      businessKinds,
+      worksOnline,
+      wordsWritten,
+      ...before
+    } = PLAYBOOK_TEMPLATES.crm_demos.details;
+    void [facebookSearches, hashtags, postSearches, businessKinds, worksOnline, wordsWritten];
     expect(PlaybookDetails.parse(upgradePlaybookDetails(before))).toMatchObject({
+      facebookSearches: [],
       hashtags: [],
       postSearches: [],
       businessKinds: [],
@@ -368,7 +376,36 @@ describe('a playbook’s conversation', () => {
       );
     expect(issues({ hashtags: ['austinroofing', 'AustinRoofing'] })).toEqual(['hashtags']);
     expect(issues({ businessKinds: ['x'.repeat(81)] })).toEqual(['businessKinds.0']);
-    expect(issues({ wordsWritten: ['facebook'] })).toEqual(['wordsWritten.0']);
+    expect(issues({ wordsWritten: ['tiktok'] })).toEqual(['wordsWritten.0']);
+  });
+
+  it('lets go of the AI’s words on who a playbook is for, to be written around its topic (data version 9)', () => {
+    const v8 = {
+      ...blankPlaybook(),
+      hashtags: ['roofingcontractor', 'rooferlife'],
+      postSearches: ['missed calls'],
+      businessKinds: ['Roofing Contractor'],
+      wordsWritten: ['instagram', 'linkedin', 'alignable'],
+    } as Record<string, unknown>;
+    delete v8['facebookSearches'];
+    // Instagram's and LinkedIn's lists the AI wrote go, to be written again; Alignable's kinds of business stay.
+    expect(PlaybookDetails.parse(upgradePlaybookDetails(v8))).toMatchObject({
+      facebookSearches: [],
+      hashtags: [],
+      postSearches: [],
+      businessKinds: ['Roofing Contractor'],
+      wordsWritten: ['alignable'],
+    });
+    // A list the person emptied stays empty and written, so the AI never writes it; their own words stay theirs.
+    const kept = { ...v8, hashtags: [], postSearches: ['roof leak'], wordsWritten: ['instagram'] };
+    expect(PlaybookDetails.parse(upgradePlaybookDetails(kept))).toMatchObject({
+      hashtags: [],
+      postSearches: ['roof leak'],
+      wordsWritten: ['instagram'],
+    });
+    // Once upgraded, it reads the same again: words written after it stay.
+    const now = { ...blankPlaybook(), hashtags: ['roofleakhelp'], wordsWritten: ['instagram'] };
+    expect(PlaybookDetails.parse(upgradePlaybookDetails(now))).toEqual(now);
   });
 
   it('gives a network its own words only on a customers’ playbook that runs there', () => {
@@ -381,7 +418,7 @@ describe('a playbook’s conversation', () => {
     expect(hasWordsOn({ ...customers, goal: 'partner' }, 'instagram')).toBe(false);
     expect(playbookSectionTitle('hashtags', customers)).toBe('Hashtags on Instagram');
     expect(OUTREACH_WORDS.findWords.written(5)).toBe(
-      'The AI wrote these from who it’s for and their problem. Change any; it looks at 5 a day, in turn.',
+      'The AI wrote these around your topic: the problem you solve and running that kind of business. Change any; it looks at 5 a day, in turn.',
     );
   });
 

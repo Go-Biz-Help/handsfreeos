@@ -1,7 +1,11 @@
 /**
  * The AI's words for finding people by topic (docs/outreach.md, decision 92): for each network a customers' playbook
- * runs on, the words its looks go with, written once from the playbook's niche, who it's for and their problem.
+ * runs on, the words its looks go with, written once around the playbook's topic (decision 141): the problem the
+ * business solves, what it helps with, and running and growing the kind of business it's for, so the posts found are
+ * ones the owner's know-how adds to, not just posts by the people it's for.
  *
+ * - **Facebook:** short phrases someone writes in a post about the topic (`facebookSearches`, data version 9), for its
+ *   post search.
  * - **Instagram:** hashtags the people it's for post under or follow (`hashtags`), each as people tag it.
  * - **LinkedIn:** short phrases someone with the problem writes in a post (`postSearches`), for its post search.
  * - **Alignable:** the kinds of business the people it's for run (`businessKinds`), as Alignable names them, for its
@@ -33,14 +37,26 @@ import { hashtagOf } from './posts';
 export const FIND_WORDS_ASKED: Readonly<
   Record<WordsPlatform, { readonly fewest: number; readonly most: number }>
 > = {
+  facebook: { fewest: 8, most: 12 },
   instagram: { fewest: 15, most: 20 },
   linkedin: { fewest: 8, most: 12 },
   alignable: { fewest: 5, most: 10 },
 };
 /** The most words a phrase for LinkedIn's post search has: past it, a search finds next to nothing. */
 export const POST_SEARCH_WORDS_MOST = 4;
-/** Hashtags everyone uses, about anything: they find nobody in particular. */
+/**
+ * Hashtags everyone uses, about anything: they find nobody in particular. The business-owner ones too: posts under them
+ * are about anything, and gave no post worth a comment (decision 141).
+ */
 const NOISE_TAGS = new Set([
+  'smallbusiness',
+  'smallbusinessowner',
+  'smallbusinessowners',
+  'businessowner',
+  'businessowners',
+  'entrepreneur',
+  'entrepreneurs',
+  'entrepreneurship',
   'love',
   'instagood',
   'photooftheday',
@@ -74,7 +90,13 @@ export function wordsDue(
     Partial<
       Pick<
         PlaybookDetails,
-        'hashtags' | 'postSearches' | 'businessKinds' | 'niche' | 'audience' | 'problem'
+        | 'facebookSearches'
+        | 'hashtags'
+        | 'postSearches'
+        | 'businessKinds'
+        | 'niche'
+        | 'audience'
+        | 'problem'
       >
     >,
   worked?: readonly WordsPlatform[],
@@ -95,10 +117,11 @@ export function wordsDue(
 export const FIND_WORDS_ASK = 'Write the words to look with.';
 
 export const FIND_WORDS_SYSTEM = [
-  'You write the words a small business’s outreach finds its customers with on social media: hashtags to look at on Instagram, phrases to search LinkedIn’s posts with, and kinds of business to search for on Alignable.',
-  'Write them for the people the playbook is for (its niche, who it’s for and their problem), never for the business itself: what those people post, follow and call themselves, in their own words.',
-  `Instagram: ${FIND_WORDS_ASKED.instagram.fewest} to ${FIND_WORDS_ASKED.instagram.most} hashtags they post under or follow about their work or their problem, each one word in lower case with no # and no spaces, like austinroofing or roofleak. A few local ones made from the area, unless the business works with them online. Never the business’s own name or brand, and never hashtags everyone uses about anything, like love, instagood or photooftheday.`,
-  `LinkedIn: ${FIND_WORDS_ASKED.linkedin.fewest} to ${FIND_WORDS_ASKED.linkedin.most} phrases of 1 to ${POST_SEARCH_WORDS_MOST} words that someone with the problem writes in a post, like “missed calls” or “hiring a dispatcher”. Never a hashtag, and never the business’s own name.`,
+  'You write the words a small business’s outreach finds posts and customers with on social media: phrases to search Facebook’s posts with, hashtags to look at on Instagram, phrases to search LinkedIn’s posts with, and kinds of business to search for on Alignable.',
+  'The posts found get a comment from the owner as someone who knows the field, so write the hashtags and phrases around the playbook’s topic: the problem the business solves, what it helps with, and running and growing the kind of business it’s for. Find the posts where the people it’s for talk about that topic (ask for help with it, complain about it, share a tip on it), in their own words, never posts that only show their work. Never for the business itself.',
+  `Facebook: ${FIND_WORDS_ASKED.facebook.fewest} to ${FIND_WORDS_ASKED.facebook.most} phrases of 1 to ${POST_SEARCH_WORDS_MOST} words that someone writes in a post about the topic, the way people talk in Facebook groups, like “missed calls”, “anyone use a CRM” or “slow season”. Never a hashtag, and never the business’s own name.`,
+  `Instagram: ${FIND_WORDS_ASKED.instagram.fewest} to ${FIND_WORDS_ASKED.instagram.most} hashtags people post under about the topic, each one word in lower case with no # and no spaces, like roofingbusinesstips, contractormarketing or leadfollowup: most about the problem, what the business helps with and growing that kind of business, a few for who they are joined to the topic. At most three local ones made from the area, unless the business works with them online. Never the business’s own name or brand, and never hashtags everyone uses about anything, like love, instagood, photooftheday or smallbusiness.`,
+  `LinkedIn: ${FIND_WORDS_ASKED.linkedin.fewest} to ${FIND_WORDS_ASKED.linkedin.most} phrases of 1 to ${POST_SEARCH_WORDS_MOST} words that someone writes in a post about the topic, like “missed calls”, “speed to lead” or “hiring a dispatcher”. Never a hashtag, and never the business’s own name.`,
   `Alignable: ${FIND_WORDS_ASKED.alignable.fewest} to ${FIND_WORDS_ASKED.alignable.most} kinds of business the people it’s for run, as Alignable names a business’s kind, like “Roofing Contractor” or “Property Management”.`,
   'Works online: true when the business works with these clients from anywhere (by phone, video or online), so where they are doesn’t matter; false when it serves them in person in its area. Judge it from the main offer, the playbook’s area and its niche.',
   'Write only the lists asked for under <write>, and leave the others empty. Answer worksOnline only when <write> asks for it; otherwise null.',
@@ -123,6 +146,7 @@ const listed = (items: readonly string[]) =>
 
 /** What each network's list is, asked for by name. */
 const WRITE_WHAT: Readonly<Record<WordsPlatform, string>> = {
+  facebook: 'facebookSearches: phrases to search Facebook’s posts with',
   instagram: 'hashtags: hashtags to look at on Instagram',
   linkedin: 'postSearches: phrases to search LinkedIn’s posts with',
   alignable: 'businessKinds: kinds of business to search for on Alignable',
@@ -167,6 +191,8 @@ export function findWordsPrompt(input: {
 }
 
 export const FindWordsAnswer = z.object({
+  // Left out by a scripted answer from before Facebook's phrases (data version 9): read as none.
+  facebookSearches: z.array(z.string()).max(40).default([]),
   hashtags: z.array(z.string()).max(60),
   postSearches: z.array(z.string()).max(40),
   businessKinds: z.array(z.string()).max(40),
@@ -177,8 +203,9 @@ export type FindWordsAnswer = z.infer<typeof FindWordsAnswer>;
 export const FIND_WORDS_SCHEMA: Record<string, unknown> = {
   type: 'object',
   additionalProperties: false,
-  required: ['hashtags', 'postSearches', 'businessKinds', 'worksOnline'],
+  required: ['facebookSearches', 'hashtags', 'postSearches', 'businessKinds', 'worksOnline'],
   properties: {
+    facebookSearches: { type: 'array', items: { type: 'string' } },
     hashtags: { type: 'array', items: { type: 'string' } },
     postSearches: { type: 'array', items: { type: 'string' } },
     businessKinds: { type: 'array', items: { type: 'string' } },
@@ -188,6 +215,7 @@ export const FIND_WORDS_SCHEMA: Record<string, unknown> = {
 
 /** What the AI wrote, checked: only what was asked for, each list's lines within its limits and once. */
 export interface FindWords {
+  readonly facebookSearches?: string[];
   readonly hashtags?: string[];
   readonly postSearches?: string[];
   readonly businessKinds?: string[];
@@ -234,7 +262,7 @@ export function cleanFindWords(
       .filter(
         (l) =>
           l.length <= line &&
-          (platform !== 'linkedin' || l.split(' ').length <= POST_SEARCH_WORDS_MOST),
+          (platform === 'alignable' || l.split(' ').length <= POST_SEARCH_WORDS_MOST),
       ),
     most,
   );
@@ -270,6 +298,7 @@ const wordLines = (part: FindWordsPart) =>
 export const PlaybookWordsInput = z.object({
   workspaceId: z.uuid(),
   playbookId: z.uuid(),
+  facebookSearches: wordLines('facebookSearches'),
   hashtags: wordLines('hashtags'),
   postSearches: wordLines('postSearches'),
   businessKinds: wordLines('businessKinds'),

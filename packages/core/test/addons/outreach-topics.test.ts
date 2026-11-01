@@ -27,41 +27,47 @@ const playbook = (over: Partial<PlaybookDetails> = {}): PlaybookDetails => ({
 describe('the lists the AI writes', () => {
   it('are a customers’ playbook’s empty lists on its networks, with works online while nobody has said', () => {
     expect(wordsDue(playbook())).toEqual({
-      networks: ['instagram', 'linkedin', 'alignable'],
+      networks: ['facebook', 'instagram', 'linkedin', 'alignable'],
       askOnline: true,
     });
     expect(wordsDue(playbook({ platforms: ['facebook', 'linkedin'] }))).toEqual({
-      networks: ['linkedin'],
+      networks: ['facebook', 'linkedin'],
       askOnline: true,
     });
-    // Facebook has no list of its own.
+    // Facebook's own phrases for its post search (data version 9, decision 141).
     expect(wordsDue(playbook({ platforms: ['facebook'] }))).toEqual({
-      networks: [],
-      askOnline: false,
+      networks: ['facebook'],
+      askOnline: true,
     });
     expect(wordsDue(playbook({ worksOnline: false })).askOnline).toBe(false);
   });
 
   it('leave out the person’s own words, a list the AI wrote and the person emptied, partner playbooks, and a playbook that doesn’t say who it’s for', () => {
     expect(
-      wordsDue(playbook({ hashtags: ['austinroofing'], wordsWritten: ['linkedin'] })).networks,
+      wordsDue(
+        playbook({
+          facebookSearches: ['slow season'],
+          hashtags: ['austinroofing'],
+          wordsWritten: ['linkedin'],
+        }),
+      ).networks,
     ).toEqual(['alignable']);
     expect(wordsDue(playbook({ goal: 'partner' }))).toEqual({ networks: [], askOnline: false });
     // Nothing to write from yet: it waits for who it's for.
     expect(wordsDue(playbook({ niche: null }))).toEqual({ networks: [], askOnline: false });
-    expect(wordsDue(playbook({ niche: null, problem: 'Missed calls' })).networks).toHaveLength(3);
+    expect(wordsDue(playbook({ niche: null, problem: 'Missed calls' })).networks).toHaveLength(4);
   });
 
   it('leave out a network nobody in the business works', () => {
     expect(wordsDue(playbook(), ['linkedin'])).toEqual({ networks: ['linkedin'], askOnline: true });
-    // Nobody works any of the three: nothing to write, and nothing to ask.
+    // Nobody works any of them: nothing to write, and nothing to ask.
     expect(wordsDue(playbook(), [])).toEqual({ networks: [], askOnline: false });
   });
 
   it('are said under each list as they are, on the web and the phone', () => {
     // Empty and not written: the AI fills it while it stays empty.
     expect(findWordsHint(playbook(), 'instagram')).toBe(
-      'While this list is empty, the AI writes it once from who it’s for and their problem. Any words you add are used instead.',
+      'While this list is empty, the AI writes it once around your topic: the problem you solve and running that kind of business. Any words you add are used instead.',
     );
     // The person's own words: the AI never adds to them, so the hint never says it writes them.
     const own = playbook({ hashtags: ['roofleak'] });
@@ -140,6 +146,7 @@ describe('what the AI wrote', () => {
 
   it('keeps only the lists asked for, and works online only when asked', () => {
     const answer = {
+      facebookSearches: ['“anyone use a CRM”', 'a phrase far too long for any search to find'],
       hashtags: ['austinroofing'],
       postSearches: ['missed calls'],
       businessKinds: ['instagood'],
@@ -148,6 +155,10 @@ describe('what the AI wrote', () => {
     expect(
       checkedFindWords(answer, { networks: ['instagram', 'linkedin'], askOnline: false }, 'Acme'),
     ).toEqual({ hashtags: ['austinroofing'], postSearches: ['missed calls'] });
+    // Facebook's phrases (decision 141): cleaned as LinkedIn's are, within the words a search finds anything with.
+    expect(checkedFindWords(answer, { networks: ['facebook'], askOnline: false }, 'Acme')).toEqual({
+      facebookSearches: ['anyone use a CRM'],
+    });
     expect(
       checkedFindWords(
         { ...answer, hashtags: ['instagood', 'acme'] },

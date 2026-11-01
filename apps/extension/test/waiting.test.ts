@@ -40,6 +40,7 @@ function send(
       postId: null,
       postUrl: null,
       post: null,
+      postWhole: null,
       text: `Hi ${name}`,
       recent: [],
       state: 'waiting',

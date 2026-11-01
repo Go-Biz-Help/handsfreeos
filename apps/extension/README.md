@@ -1132,6 +1132,19 @@ whole day, as the list can't be worked out without them (`holdsTheDay` in `src/a
 and Alignable a read put off till you're away counts as the reading's turn, so the list goes next. With nothing on the
 list, the reading goes on. Nothing in HandsFreeOS changes for it.
 
+### Facebook's post search, with your playbooks' phrases (0.121.0)
+
+The owner's report of 1 Nov 2026: the posts it found to comment on weren't about the playbook (docs/outreach.md,
+decision 141). From 0.121.0 the once-a-day **Find posts** on Facebook, after the groups (or with none to go through),
+asks HandsFreeOS for the day's phrases (`outreach.posts.words` with Facebook: the playbooks' own **Words to search
+Facebook's posts with**, five a day in turn) and searches Facebook's posts with each, with Facebook's Recent posts
+filter on (`recentPostSearch` in `src/jobs/posts.ts`). It reads three screens of each at a person's pace, pointing at
+the posts' times first as in the groups (decision 138), and sends them in no group, found by search, with the phrase
+(`facebookSearchPostsSave` in `src/hfos/saves.ts`). A post Facebook says is from past a week ago is left out. Nothing
+is pressed. A playbook whose phrases the AI hasn't written yet, or that the person emptied, adds no search: Facebook's
+search never falls back on the signs' words. The day's line says both: "Looked through 3 groups… Searched Facebook's
+posts for 5 phrases: 12 posts sent for the AI to check."
+
 ### Counted, and on the ticker as it happens (0.120.0)
 
 HandsFreeOS now counts everything the extension does on its own and shows what it's doing that very second on a

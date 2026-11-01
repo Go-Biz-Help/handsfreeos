@@ -1355,6 +1355,7 @@ export async function partnerToday(
         postUrl: null,
         posted: null,
         post: null,
+        postWhole: null,
         asking: false,
         why: [
           ...(r.marked ? [PARTNER_WORDS.markedWhy] : []),

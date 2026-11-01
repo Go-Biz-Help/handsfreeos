@@ -31,7 +31,8 @@ export const PLAYBOOK_ASSIST_PARTS = {
   signs: { kind: 'list', label: 'signs someone fits' },
   skip: { kind: 'list', label: 'who to leave alone' },
   groupWords: { kind: 'list', label: 'words to search for groups' },
-  // Each network's own words (data version 8, decision 92).
+  // Each network's own words (data versions 8 and 9, decisions 92 and 141).
+  facebookSearches: { kind: 'list', label: 'words to search Facebook’s posts with' },
   hashtags: { kind: 'list', label: 'hashtags to look at on Instagram' },
   postSearches: { kind: 'list', label: 'words to search LinkedIn’s posts with' },
   businessKinds: { kind: 'list', label: 'kinds of business to search for on Alignable' },
@@ -52,6 +53,7 @@ type ListPart =
   | 'signs'
   | 'skip'
   | 'groupWords'
+  | 'facebookSearches'
   | 'hashtags'
   | 'postSearches'
   | 'businessKinds'
@@ -87,6 +89,10 @@ export const AssistDraft = z.object({
   signs: list(PLAYBOOK_LIMITS.signs.line, PLAYBOOK_LIMITS.signs.most),
   skip: list(PLAYBOOK_LIMITS.skip.line, PLAYBOOK_LIMITS.skip.most),
   groupWords: list(PLAYBOOK_LIMITS.groupWords.line, PLAYBOOK_LIMITS.groupWords.most),
+  facebookSearches: list(
+    PLAYBOOK_LIMITS.facebookSearches.line,
+    PLAYBOOK_LIMITS.facebookSearches.most,
+  ),
   hashtags: list(PLAYBOOK_LIMITS.hashtags.line, PLAYBOOK_LIMITS.hashtags.most),
   postSearches: list(PLAYBOOK_LIMITS.postSearches.line, PLAYBOOK_LIMITS.postSearches.most),
   businessKinds: list(PLAYBOOK_LIMITS.businessKinds.line, PLAYBOOK_LIMITS.businessKinds.most),
@@ -161,6 +167,7 @@ function playbookText(d: AssistDraft): string {
     `Signs someone fits:\n${lines(d.signs)}`,
     `Who to leave alone:\n${lines(d.skip)}`,
     `Words to search for groups:\n${lines(d.groupWords)}`,
+    `Words to search Facebook’s posts with:\n${lines(d.facebookSearches)}`,
     `Hashtags to look at on Instagram:\n${lines(d.hashtags.map((t) => `#${t.replace(/^#+/, '')}`))}`,
     `Words to search LinkedIn’s posts with:\n${lines(d.postSearches)}`,
     `Kinds of business to search for on Alignable:\n${lines(d.businessKinds)}`,
@@ -188,14 +195,17 @@ function playbookText(d: AssistDraft): string {
 const SUGGEST_MORE: Partial<Record<ListPart, (d: AssistDraft) => string>> = {
   samples: () =>
     ': short Facebook messages in the playbook’s tone, a first hello, a follow-up and the offer',
+  // Around the playbook's topic, where the owner's know-how adds something (decision 141).
+  facebookSearches: () =>
+    ': phrases of 1 to 4 words that someone writes in a Facebook post about the topic (the problem, what the business helps with, running that kind of business), in their words, not the business’s',
   hashtags: (d) =>
-    `: hashtags the people it’s for post under or follow about their problem, each one word with no # and no spaces, ${
+    `: hashtags people post under about the topic (the problem, what the business helps with, growing that kind of business), each one word with no # and no spaces, ${
       d.worksOnline
-        ? 'mostly not local, as the business works with them online'
-        : 'a few local ones for the area'
-    }; never the business’s own name, and never ones everyone uses, like love or instagood`,
+        ? 'none local, as the business works with them online'
+        : 'at most a few local ones for the area'
+    }; never the business’s own name, and never ones everyone uses, like love, instagood or smallbusiness`,
   postSearches: () =>
-    ': phrases of 1 to 4 words that someone with the problem writes in a LinkedIn post, in their words, not the business’s',
+    ': phrases of 1 to 4 words that someone writes in a LinkedIn post about the topic (the problem, what the business helps with, running that kind of business), in their words, not the business’s',
   businessKinds: () =>
     ': kinds of business the people it’s for run, as Alignable names them, like “Roofing Contractor” or “Property Management”',
   tags: () => ': short labels, two or three words each, for sorting people by how they fit',

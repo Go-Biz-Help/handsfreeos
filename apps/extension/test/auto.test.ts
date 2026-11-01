@@ -56,6 +56,7 @@ const item = (more: Partial<TodayListItem>): TodayListItem => ({
   postUrl: null,
   posted: null,
   post: null,
+  postWhole: null,
   asking: false,
   why: [],
   summary: null,
