@@ -45,6 +45,14 @@ import {
 import { CHECK_POSTS_JOB, checkPostsJob, postChecked, postsSaved } from './posts';
 import { DRAFT_HELPFUL_JOB, draftHelpfulJob, helpfulAsked } from './helpful';
 import { LIKE_PICK_ACTION, likePick } from './likes';
+import {
+  HELPER_LOOK_ACTION,
+  HELPER_WAY_ACTION,
+  HELPER_WAYS_ACTION,
+  helperLook,
+  helperWay,
+  helperWays,
+} from './helper';
 import { likeYoursFound, PICK_LIKE_YOURS_JOB, pickLikeYoursJob } from './like-yours';
 import { TODAY_DRAFT_ACTION, todayDraft } from './today';
 import { askCoded, askProgressed, askSettled } from './asks';
@@ -242,6 +250,10 @@ export const outreachAddonWorker: AddonWorkerModule = {
     [TODAY_DRAFT_ACTION]: todayDraft,
     [JOIN_ANSWER_ACTION]: joinAnswer,
     [LIKE_PICK_ACTION]: likePick,
+    // The AI helper when a step didn't go, and the ways it learned (./helper.ts, decision 142).
+    [HELPER_LOOK_ACTION]: helperLook,
+    [HELPER_WAYS_ACTION]: helperWays,
+    [HELPER_WAY_ACTION]: helperWay,
   },
   // The morning push, weekly report and review, and the feed's pruning, from now: nothing that came due while it was
   // off runs late.

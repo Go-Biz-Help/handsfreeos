@@ -164,6 +164,15 @@ export function retriedWords(retried: number, passed: number): string {
 export const needWhyWords = (why: string): string =>
   why ? `${why[0]!.toUpperCase()}${why.slice(1)}` : why;
 
+/**
+ * HandsFreeOS staff only (decision 142): a need's link to the problem report the extension sent of the page, with what
+ * the AI helper found. Shown to those who read the support desk's Problem reports, never to the business.
+ */
+export const NEED_REPORT_WORDS = 'See what it saw';
+
+/** Where it opens: the report on the support desk. */
+export const needReportHref = (reportId: string): string => `/admin/problems/${reportId}`;
+
 /** A chat in Messenger, by the number in its link (`threadKey`): where to answer them. Null without one. */
 export const messengerChatUrl = (threadKey: string | null): string | null =>
   threadKey ? `https://www.facebook.com/messages/t/${encodeURIComponent(threadKey)}` : null;

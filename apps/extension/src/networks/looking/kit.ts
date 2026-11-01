@@ -45,7 +45,7 @@ import type {
 import { centerUrl } from '../accounts-center/pages';
 import { CENTER_ASKS, centerWork, type CenterAsk } from '../accounts-center/work';
 import { isWholeAddress, type Kit } from '../kit';
-import { maskOn, outlineLooking, readLooking, readWarnings } from './read';
+import { maskOn, outlineLooking, outlineSiteOf, readLooking, readWarnings } from './read';
 import type { LookingSite } from './site';
 
 /** Answers a look (`hfos-try`), only on the kinds of page its step is for. */
@@ -325,6 +325,7 @@ export function lookingKit(site: LookingSite): Kit {
     lookFor: () => 'warnings',
     noticer: () => site.noticer?.() ?? { click: () => null, enter: () => null },
     outline: (doc, href, options = {}) => outlineLooking(doc, href, site, options),
+    outlineSite: outlineSiteOf(site),
     work: (ask) =>
       site.accountsCenter && CENTER_ASKS.has(ask.type)
         ? centerWork(site.accountsCenter, ask as CenterAsk, (doc, href) =>

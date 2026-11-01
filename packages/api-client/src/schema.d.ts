@@ -5537,6 +5537,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/commands/learned_way.set_removed": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Support: set aside ways the AI helper learned to find a step’s button (so no computer tries them again), or bring them back.
+         * @description Risk level 1. Requires platform.health.read. Emits learned_way.removed, learned_way.restored.
+         */
+        post: operations["command_learned_way_set_removed"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/commands/live_meeting_account.disconnect": {
         parameters: {
             query?: never;
@@ -20917,6 +20937,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/queries/platform.learned_way.list": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Support: the ways the AI helper learned to find a step’s button in a new place, across every business: how each is found, how often it worked and failed, and whether every computer tries it.
+         * @description Requires platform.health.read.
+         */
+        post: operations["query_platform_learned_way_list"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/queries/platform.me": {
         parameters: {
             query?: never;
@@ -36115,6 +36155,35 @@ export interface operations {
             };
         };
     };
+    command_learned_way_set_removed: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    removed: boolean;
+                    wayIds: string[];
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        changed: string[];
+                    };
+                };
+            };
+        };
+    };
     command_live_meeting_account_disconnect: {
         parameters: {
             query?: never;
@@ -43613,6 +43682,8 @@ export interface operations {
                     postId?: string | null;
                     /** Format: uuid */
                     profileId: string;
+                    /** @default null */
+                    reportId?: string | null;
                     /** @enum {string} */
                     step: "confirm" | "friend_request" | "warm_up" | "comment";
                     /** @default null */
@@ -47631,6 +47702,23 @@ export interface operations {
                         found?: {
                             [key: string]: number | boolean | string[];
                         };
+                        /** @default null */
+                        helper?: {
+                            /** @default null */
+                            learned?: ("worked" | "failed") | null;
+                            looks: number;
+                            moves: {
+                                /** @enum {string} */
+                                do: "click" | "scroll" | "escape" | "wait" | "press";
+                                on: string | null;
+                                went: boolean;
+                            }[];
+                            /** @enum {string} */
+                            result: "fixed_itself" | "done_by_helper" | "reported";
+                            said: string;
+                            /** @enum {string} */
+                            verdict: "in_the_way" | "moved" | "refused" | "warning" | "unclear";
+                        } | null;
                         job: string;
                         /** @default null */
                         note?: string | null;
@@ -80133,6 +80221,7 @@ export interface operations {
                                 postId: string | null;
                                 /** Format: uuid */
                                 profileId: string;
+                                reportId: string | null;
                                 /** Format: date-time */
                                 seenAt: string;
                                 sendId: string | null;
@@ -82247,6 +82336,63 @@ export interface operations {
             };
         };
     };
+    query_platform_learned_way_list: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** @default null */
+                    area?: string | null;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        ways: {
+                            addonId: string | null;
+                            area: string;
+                            businesses: number;
+                            button: string;
+                            failed: number;
+                            /** Format: date-time */
+                            firstAt: string;
+                            lastFailedAt: string | null;
+                            lastWorkedAt: string | null;
+                            removedAt: string | null;
+                            trustedAt: string | null;
+                            way: {
+                                inside: string | null;
+                                label: string | null;
+                                menu: {
+                                    label: string | null;
+                                    role: string | null;
+                                    tag: string;
+                                    words: string | null;
+                                } | null;
+                                role: string | null;
+                                tag: string;
+                                words: string | null;
+                            };
+                            /** Format: uuid */
+                            wayId: string;
+                            worked: number;
+                        }[];
+                    };
+                };
+            };
+        };
+    };
     query_platform_me: {
         parameters: {
             query?: never;
@@ -82396,6 +82542,22 @@ export interface operations {
                         };
                         handledAt: string | null;
                         handledBy: string | null;
+                        helper: {
+                            /** @default null */
+                            learned: ("worked" | "failed") | null;
+                            looks: number;
+                            moves: {
+                                /** @enum {string} */
+                                do: "click" | "scroll" | "escape" | "wait" | "press";
+                                on: string | null;
+                                went: boolean;
+                            }[];
+                            /** @enum {string} */
+                            result: "fixed_itself" | "done_by_helper" | "reported";
+                            said: string;
+                            /** @enum {string} */
+                            verdict: "in_the_way" | "moved" | "refused" | "warning" | "unclear";
+                        } | null;
                         job: string;
                         note: string | null;
                         outline: string | null;
@@ -82460,6 +82622,12 @@ export interface operations {
                             business: string;
                             handledAt: string | null;
                             hasOutline: boolean;
+                            helper: {
+                                /** @enum {string} */
+                                result: "fixed_itself" | "done_by_helper" | "reported";
+                                /** @enum {string} */
+                                verdict: "in_the_way" | "moved" | "refused" | "warning" | "unclear";
+                            } | null;
                             job: string;
                             note: string | null;
                             page: string;
@@ -82473,6 +82641,17 @@ export interface operations {
                             version: string | null;
                             /** Format: uuid */
                             workspaceId: string;
+                        }[];
+                        steps: {
+                            area: string;
+                            doneByHelper: number;
+                            fixed: number;
+                            inTheWay: number;
+                            job: string;
+                            moved: number;
+                            open: number;
+                            refused: number;
+                            reports: number;
                         }[];
                     };
                 };

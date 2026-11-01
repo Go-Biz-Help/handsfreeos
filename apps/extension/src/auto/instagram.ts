@@ -53,6 +53,8 @@ import { NETWORKS, type Platform } from '@hfos/core/addons/outreach/networks';
 import { PARTNER_CHECKS_PER_DAY } from '@hfos/core/addons/outreach/partners';
 import { messageParts, partPauseMs } from '@hfos/core/addons/outreach/voice';
 import type { TodayKind } from '@hfos/core/addons/outreach/today';
+import { buttonFor } from '@hfos/core/addons/outreach/helper';
+import type { ProblemHelper } from '@hfos/core/problem-report';
 import { haltAsk } from '../asks/run';
 import { follow, loadSettings } from '../hfos/follow';
 import { feed, keptFor, onBeat, type Kept } from '../hfos/live';
@@ -139,6 +141,7 @@ import {
   listSays,
   retryWake,
 } from './plan';
+import { helpAfter, stepHelp } from './helper';
 import { askInLine, inTurn } from './turns';
 
 const PLATFORM: Platform = 'instagram';
@@ -288,8 +291,16 @@ async function closeWindow(): Promise<void> {
  * for now with nothing tried, when Instagram asked them to sign in.
  */
 type Outcome =
-  | { readonly done: true; readonly line: string }
-  | { readonly done: false; readonly line: string; readonly need?: true }
+  | { readonly done: true; readonly line: string; readonly helper?: ProblemHelper }
+  | {
+      readonly done: false;
+      readonly line: string;
+      readonly need?: true;
+      /** Worth the AI helper's look though it isn't handed over: a like it couldn't press (decision 142). */
+      readonly look?: true;
+      /** What the AI helper did inside the step, for its report (decision 142). */
+      readonly helper?: ProblemHelper;
+    }
   | { readonly stop: string }
   | { readonly again: string };
 
@@ -703,7 +714,11 @@ async function warmUp(item: TodayListItem, businessId: string, spare: number): P
     else if (went === 'already') already++;
     else if (liked + already === 0) {
       await missed(item, businessId);
-      return { done: false, line: `Couldn’t like ${item.name}’s post: ${after.without}` };
+      return {
+        done: false,
+        line: `Couldn’t like ${item.name}’s post: ${after.without}`,
+        look: true,
+      };
     } else break;
   }
   return done(liked);
@@ -716,19 +731,48 @@ async function followThem(item: TodayListItem, businessId: string): Promise<Outc
   const standing = opened.page.found.profile!.following;
   if (standing === 'following' || standing === 'requested')
     return { done: false, line: `${item.name}: you follow them already, or asked to` };
-  const went = await tab.ask({ type: 'hfos-connect', profile: opened.noted });
-  if (!went.ok) throw new Error(went.error);
-  if (went.result === 'already')
+  const pressFollow = async () => {
+    const went = await tab.ask({ type: 'hfos-connect', profile: opened.noted });
+    if (!went.ok) throw new Error(went.error);
+    return went.result;
+  };
+  let result = await pressFollow();
+  if (result === 'already')
     return { done: false, line: `${item.name}: you follow them already, or asked to` };
-  if (went.result === 'none')
-    return { done: false, line: `${item.name}: couldn’t find Follow on their account`, need: true };
+  // Follow moved, or something's over it: the AI helper finds it on their account, checked as theirs (decision 142).
+  const help = stepHelp(tab, answer as Hfos, {
+    businessId,
+    platform: PLATFORM,
+    step: item.kind,
+    theirName: item.name,
+    button: buttonFor(PLATFORM, 'friend_request')!,
+  });
+  const missing = 'couldn’t find Follow on their account';
+  if (
+    result === 'none' &&
+    (await help.press(missing, async () => (await pressFollow()) === 'done'))
+  )
+    result = 'done';
+  if (result === 'none')
+    return {
+      done: false,
+      line: `${item.name}: ${missing}`,
+      need: true,
+      helper: await help.end(false),
+    };
   await pause(SETTLE_MS);
   const page = await read();
   const stop = await warnedOn(page, businessId);
   if (stop) return { stop };
   const standingNow = page.found.profile?.following;
-  if (went.result !== 'done' || (standingNow !== 'following' && standingNow !== 'requested'))
-    return { done: false, line: `${item.name}: Instagram didn’t take the follow`, need: true };
+  if (result !== 'done' || (standingNow !== 'following' && standingNow !== 'requested'))
+    return {
+      done: false,
+      line: `${item.name}: Instagram didn’t take the follow`,
+      need: true,
+      helper: await help.end(false),
+    };
+  const helper = await help.end(true);
   await takeNote(
     {
       type: 'hfos-noted',
@@ -751,6 +795,7 @@ async function followThem(item: TodayListItem, businessId: string): Promise<Outc
       standingNow === 'requested'
         ? `Asked to follow ${item.name}: their account is private`
         : `Followed ${item.name}`,
+    helper,
   };
 }
 
@@ -1501,20 +1546,36 @@ async function workNext(
   } finally {
     await setState({ working: false });
   }
+  // A step that didn't go: the AI helper looks first, clearing the way and saying what it sees (decision 142); then
+  // the page it ended on, outline, why and all, noted while the window still shows it (decision 74). A stop for now
+  // goes by untouched.
+  const helped = await helpAfter({
+    tab,
+    hfos: answer as Hfos,
+    businessId,
+    platform: PLATFORM,
+    work,
+    job: work.do === 'step' ? work.item.kind : work.do,
+    outcome,
+    again:
+      work.do === 'step'
+        ? () =>
+            inTurn(
+              'runner',
+              () => doWork(work, businessId, settings.voice?.split ?? true, spareLikes(list, left)),
+              PLATFORM,
+            )
+        : null,
+    say: (line) => say(line, { working: true, readLast: false }),
+  });
+  outcome = helped.outcome;
+  await setState({ working: false });
   // Instagram asked them to sign in: nothing tried, and it looks again in a while.
   if ('again' in outcome) {
     await closeWindow();
     await say(outcome.again, { needs: true });
     return goAt(Date.now() + AGAIN_MS);
   }
-  // A step that didn't go: the page it ended on, outline and all, noted while the window still shows it (decision 74).
-  if ('done' in outcome && !outcome.done)
-    await reporter(tab, answer as Hfos, {
-      businessId,
-      platform: PLATFORM,
-      askId: null,
-      job: work.do === 'step' ? work.item.kind : work.do,
-    })({ note: 'The step didn’t go.', outline: true });
   const state = await stateNow();
   const kind = doneAs(work);
   const done =
@@ -1533,7 +1594,9 @@ async function workNext(
   }
   await say(outcome.line);
   const need =
-    'need' in outcome && work.do === 'step' ? needOf(item, outcome.line, businessId) : null;
+    'need' in outcome && work.do === 'step'
+      ? needOf(item, outcome.line, businessId, helped.reportId)
+      : null;
   if (need) void noteNeed(need);
   void feed(outcome.done ? 'done' : 'passed', `${NAME}: ${outcome.line}`);
   if (stopAsked) {

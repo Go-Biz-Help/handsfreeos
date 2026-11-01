@@ -12,7 +12,7 @@
 import { NETWORKS } from '@hfos/core/addons/outreach/networks';
 import { isWholeAddress, type Kit } from '../kit';
 import { linkedInNoticer } from './actions';
-import { outlinePage } from './outline';
+import { LINKEDIN_OUTLINE, outlinePage } from './outline';
 import { readPage } from './page';
 import { readReplies } from './replies';
 import type { ReadResult } from './types';
@@ -41,5 +41,6 @@ export const linkedin: Kit = {
   noticer: () => linkedInNoticer(),
   outline: (doc, href, options = {}) =>
     outlinePage(doc, href, { ...options, found: options.found as ReadResult | undefined }),
+  outlineSite: LINKEDIN_OUTLINE,
   work,
 };

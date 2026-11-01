@@ -20,6 +20,8 @@ import {
   ProblemReportSendOutput,
   ProblemReportSetHandledInput,
   ProblemReportSetHandledOutput,
+  LearnedWaySetRemovedInput,
+  LearnedWaySetRemovedOutput,
 } from '../schemas/problem-report';
 
 const onPlatform = () => ({ kind: 'platform' as const });
@@ -73,6 +75,7 @@ export const problemReportSend = defineCommand({
         found: report.found,
         note: report.note,
         outline: report.outline,
+        helper: report.helper,
       })
       .returning({ id: problemReports.id });
     await ctx.emit({
@@ -123,4 +126,43 @@ export const problemReportSetHandled = defineCommand({
   },
 });
 
-export const problemReportCommands = [problemReportSend, problemReportSetHandled];
+/**
+ * Support: set learned ways aside, or bring them back (decision 142). One set aside is never tried again, and the
+ * same find is never learned again; the SQL behind it checks `platform.health.read` for itself.
+ */
+export const learnedWaySetRemoved = defineCommand({
+  name: 'learned_way.set_removed',
+  description:
+    'Support: set aside ways the AI helper learned to find a step’s button (so no computer tries them again), or bring them back.',
+  risk: 1,
+  input: LearnedWaySetRemovedInput,
+  output: LearnedWaySetRemovedOutput,
+  permission: 'platform.health.read',
+  scope: onPlatform,
+  emits: ['learned_way.removed', 'learned_way.restored'],
+  async handler(ctx, input) {
+    const ids = [...new Set(input.wayIds)];
+    const changed = (
+      await rows<{ id: string }>(
+        ctx.tx,
+        sql`select id from private.set_learned_ways_removed(${`{${ids.join(',')}}`}::uuid[], ${input.removed})`,
+      )
+    ).map((r) => r.id);
+    if (changed.length)
+      await ctx.emit({
+        type: input.removed ? 'learned_way.removed' : 'learned_way.restored',
+        entityType: 'learned_way',
+        entityId: changed[0]!,
+        payload: { wayIds: changed },
+        before: { removed: !input.removed },
+        after: { removed: input.removed },
+      });
+    return { changed };
+  },
+});
+
+export const problemReportCommands = [
+  problemReportSend,
+  problemReportSetHandled,
+  learnedWaySetRemoved,
+];

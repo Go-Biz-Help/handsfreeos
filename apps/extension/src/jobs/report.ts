@@ -10,7 +10,11 @@
  * and, when asked, the outline itself: tags, roles and the network's own words, with everything a person wrote as
  * "[2 words]". A note that can't be made or sent is let go: it never stops or slows the job past the read.
  */
-import { PROBLEM_FOUND_MOST, PROBLEM_OUTLINE_MOST } from '@hfos/core/problem-report';
+import {
+  PROBLEM_FOUND_MOST,
+  PROBLEM_OUTLINE_MOST,
+  type ProblemHelper,
+} from '@hfos/core/problem-report';
 import type { ProfileRead } from '@hfos/core/addons/outreach/profile-check';
 import type { Platform } from '@hfos/core/addons/outreach/networks';
 import { TRY_STEP_NAMES } from '@hfos/core/addons/outreach/reports';
@@ -43,9 +47,12 @@ export interface ReportNote {
    * (Check LinkedIn's tries).
    */
   readonly outlineText?: string;
+  /** What the AI helper did when the step didn't go (decision 142). */
+  readonly helper?: ProblemHelper | null;
 }
 
-export type Reporter = (note?: ReportNote) => Promise<void>;
+/** Sends a note of the page; what it answers (the report's id, from `reporter`) is for the runners' steps alone. */
+export type Reporter = (note?: ReportNote) => Promise<unknown>;
 
 /** Whose job and which: the ask it's for (null for a step of the day) and its kind or step. */
 export interface ReportFor {
@@ -465,16 +472,21 @@ export function tryNote(tried: StepTry): ReportNote {
 }
 
 /**
- * A job's way to note the page its tab shows: reads it with its outline there, and saves the note in HandsFreeOS.
+ * A job's way to note the page its tab shows: reads it with its outline there, and saves the note in HandsFreeOS. The
+ * report's id once HandsFreeOS kept it (for a step's Needs you, decision 142), else null.
  */
-export function reporter(tab: JobTab, hfos: Hfos, at: ReportFor): Reporter {
+export function reporter(
+  tab: JobTab,
+  hfos: Hfos,
+  at: ReportFor,
+): (note?: ReportNote) => Promise<string | null> {
   return async (note = {}) => {
     try {
       const answer = await tab.ask({ type: 'hfos-outline' });
-      if (!answer.ok) return;
+      if (!answer.ok) return null;
       const outline = note.outlineText ?? answer.outline ?? '';
       const sections = outline ? sectionsIn(outline) : [];
-      await hfos({
+      const sent = await hfos({
         type: 'hfos-report',
         input: {
           workspaceId: at.businessId,
@@ -491,11 +503,14 @@ export function reporter(tab: JobTab, hfos: Hfos, at: ReportFor): Reporter {
             found: reportFound(answer.result, sections, note.found),
             note: note.note?.slice(0, 300) ?? null,
             outline: note.outline && outline ? outline.slice(0, PROBLEM_OUTLINE_MOST) : null,
+            helper: note.helper ?? null,
           },
         },
       });
+      return sent.ok ? sent.value.reportId : null;
     } catch (error) {
       console.warn('HandsFreeOS Social couldn’t save its note of the page', error);
+      return null;
     }
   };
 }

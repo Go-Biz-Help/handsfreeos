@@ -883,7 +883,12 @@ describe('a warm-up on Instagram', () => {
     };
     expect(
       await doWork({ do: 'step', item: item({ kind: 'warm_up' }) }, ME.businessId, true, 3),
-    ).toEqual({ done: false, line: 'Couldn’t like Dana Reyes’s post: the follow goes without' });
+    ).toEqual({
+      done: false,
+      line: 'Couldn’t like Dana Reyes’s post: the follow goes without',
+      // Worth the AI helper's look, though it isn't handed over (decision 142).
+      look: true,
+    });
     expect(likes).toEqual([]);
     world.pages = () => ({ html: accountHtml({ username: 'sam.lee' }), at: `${IG}/sam.lee/` });
     expect(

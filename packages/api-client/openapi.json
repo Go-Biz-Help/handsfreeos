@@ -47937,6 +47937,106 @@
                             "type": "null"
                           }
                         ]
+                      },
+                      "helper": {
+                        "default": null,
+                        "anyOf": [
+                          {
+                            "type": "object",
+                            "properties": {
+                              "verdict": {
+                                "type": "string",
+                                "enum": [
+                                  "in_the_way",
+                                  "moved",
+                                  "refused",
+                                  "warning",
+                                  "unclear"
+                                ]
+                              },
+                              "result": {
+                                "type": "string",
+                                "enum": [
+                                  "fixed_itself",
+                                  "done_by_helper",
+                                  "reported"
+                                ]
+                              },
+                              "said": {
+                                "type": "string",
+                                "maxLength": 400
+                              },
+                              "moves": {
+                                "maxItems": 12,
+                                "type": "array",
+                                "items": {
+                                  "type": "object",
+                                  "properties": {
+                                    "do": {
+                                      "type": "string",
+                                      "enum": [
+                                        "click",
+                                        "scroll",
+                                        "escape",
+                                        "wait",
+                                        "press"
+                                      ]
+                                    },
+                                    "on": {
+                                      "anyOf": [
+                                        {
+                                          "type": "string",
+                                          "maxLength": 200
+                                        },
+                                        {
+                                          "type": "null"
+                                        }
+                                      ]
+                                    },
+                                    "went": {
+                                      "type": "boolean"
+                                    }
+                                  },
+                                  "required": [
+                                    "do",
+                                    "on",
+                                    "went"
+                                  ]
+                                }
+                              },
+                              "learned": {
+                                "default": null,
+                                "anyOf": [
+                                  {
+                                    "type": "string",
+                                    "enum": [
+                                      "worked",
+                                      "failed"
+                                    ]
+                                  },
+                                  {
+                                    "type": "null"
+                                  }
+                                ]
+                              },
+                              "looks": {
+                                "type": "integer",
+                                "minimum": 0,
+                                "maximum": 20
+                              }
+                            },
+                            "required": [
+                              "verdict",
+                              "result",
+                              "said",
+                              "moves",
+                              "looks"
+                            ]
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
                       }
                     },
                     "required": [
@@ -48012,6 +48112,71 @@
                 "required": [
                   "reportIds",
                   "handled"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "changed": {
+                      "type": "array",
+                      "items": {
+                        "type": "string",
+                        "format": "uuid",
+                        "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                      }
+                    }
+                  },
+                  "required": [
+                    "changed"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/commands/learned_way.set_removed": {
+      "post": {
+        "operationId": "command_learned_way_set_removed",
+        "summary": "Support: set aside ways the AI helper learned to find a step’s button (so no computer tries them again), or bring them back.",
+        "tags": [
+          "commands"
+        ],
+        "description": "Risk level 1. Requires platform.health.read. Emits learned_way.removed, learned_way.restored.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "wayIds": {
+                    "minItems": 1,
+                    "maxItems": 100,
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "format": "uuid",
+                      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                    }
+                  },
+                  "removed": {
+                    "type": "boolean"
+                  }
+                },
+                "required": [
+                  "wayIds",
+                  "removed"
                 ]
               }
             }
@@ -95789,6 +95954,19 @@
                   "why": {
                     "type": "string",
                     "minLength": 1
+                  },
+                  "reportId": {
+                    "default": null,
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "format": "uuid",
+                        "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
                   }
                 },
                 "required": [
@@ -118348,6 +118526,41 @@
                           },
                           "hasOutline": {
                             "type": "boolean"
+                          },
+                          "helper": {
+                            "anyOf": [
+                              {
+                                "type": "object",
+                                "properties": {
+                                  "verdict": {
+                                    "type": "string",
+                                    "enum": [
+                                      "in_the_way",
+                                      "moved",
+                                      "refused",
+                                      "warning",
+                                      "unclear"
+                                    ]
+                                  },
+                                  "result": {
+                                    "type": "string",
+                                    "enum": [
+                                      "fixed_itself",
+                                      "done_by_helper",
+                                      "reported"
+                                    ]
+                                  }
+                                },
+                                "required": [
+                                  "verdict",
+                                  "result"
+                                ],
+                                "additionalProperties": false
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
                           }
                         },
                         "required": [
@@ -118366,7 +118579,8 @@
                           "shown",
                           "note",
                           "handledAt",
-                          "hasOutline"
+                          "hasOutline",
+                          "helper"
                         ],
                         "additionalProperties": false
                       }
@@ -118403,12 +118617,74 @@
                         ],
                         "additionalProperties": false
                       }
+                    },
+                    "steps": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "area": {
+                            "type": "string"
+                          },
+                          "job": {
+                            "type": "string"
+                          },
+                          "reports": {
+                            "type": "integer",
+                            "minimum": -9007199254740991,
+                            "maximum": 9007199254740991
+                          },
+                          "open": {
+                            "type": "integer",
+                            "minimum": -9007199254740991,
+                            "maximum": 9007199254740991
+                          },
+                          "inTheWay": {
+                            "type": "integer",
+                            "minimum": -9007199254740991,
+                            "maximum": 9007199254740991
+                          },
+                          "moved": {
+                            "type": "integer",
+                            "minimum": -9007199254740991,
+                            "maximum": 9007199254740991
+                          },
+                          "refused": {
+                            "type": "integer",
+                            "minimum": -9007199254740991,
+                            "maximum": 9007199254740991
+                          },
+                          "fixed": {
+                            "type": "integer",
+                            "minimum": -9007199254740991,
+                            "maximum": 9007199254740991
+                          },
+                          "doneByHelper": {
+                            "type": "integer",
+                            "minimum": -9007199254740991,
+                            "maximum": 9007199254740991
+                          }
+                        },
+                        "required": [
+                          "area",
+                          "job",
+                          "reports",
+                          "open",
+                          "inTheWay",
+                          "moved",
+                          "refused",
+                          "fixed",
+                          "doneByHelper"
+                        ],
+                        "additionalProperties": false
+                      }
                     }
                   },
                   "required": [
                     "reports",
                     "nextBefore",
-                    "areas"
+                    "areas",
+                    "steps"
                   ],
                   "additionalProperties": false
                 }
@@ -118552,6 +118828,108 @@
                         "string",
                         "null"
                       ]
+                    },
+                    "helper": {
+                      "anyOf": [
+                        {
+                          "type": "object",
+                          "properties": {
+                            "verdict": {
+                              "type": "string",
+                              "enum": [
+                                "in_the_way",
+                                "moved",
+                                "refused",
+                                "warning",
+                                "unclear"
+                              ]
+                            },
+                            "result": {
+                              "type": "string",
+                              "enum": [
+                                "fixed_itself",
+                                "done_by_helper",
+                                "reported"
+                              ]
+                            },
+                            "said": {
+                              "type": "string",
+                              "maxLength": 400
+                            },
+                            "moves": {
+                              "maxItems": 12,
+                              "type": "array",
+                              "items": {
+                                "type": "object",
+                                "properties": {
+                                  "do": {
+                                    "type": "string",
+                                    "enum": [
+                                      "click",
+                                      "scroll",
+                                      "escape",
+                                      "wait",
+                                      "press"
+                                    ]
+                                  },
+                                  "on": {
+                                    "anyOf": [
+                                      {
+                                        "type": "string",
+                                        "maxLength": 200
+                                      },
+                                      {
+                                        "type": "null"
+                                      }
+                                    ]
+                                  },
+                                  "went": {
+                                    "type": "boolean"
+                                  }
+                                },
+                                "required": [
+                                  "do",
+                                  "on",
+                                  "went"
+                                ],
+                                "additionalProperties": false
+                              }
+                            },
+                            "learned": {
+                              "default": null,
+                              "anyOf": [
+                                {
+                                  "type": "string",
+                                  "enum": [
+                                    "worked",
+                                    "failed"
+                                  ]
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
+                            },
+                            "looks": {
+                              "type": "integer",
+                              "minimum": 0,
+                              "maximum": 20
+                            }
+                          },
+                          "required": [
+                            "verdict",
+                            "result",
+                            "said",
+                            "moves",
+                            "learned",
+                            "looks"
+                          ],
+                          "additionalProperties": false
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
                     }
                   },
                   "required": [
@@ -118572,7 +118950,287 @@
                     "handledAt",
                     "found",
                     "outline",
-                    "handledBy"
+                    "handledBy",
+                    "helper"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/queries/platform.learned_way.list": {
+      "post": {
+        "operationId": "query_platform_learned_way_list",
+        "summary": "Support: the ways the AI helper learned to find a step’s button in a new place, across every business: how each is found, how often it worked and failed, and whether every computer tries it.",
+        "tags": [
+          "queries"
+        ],
+        "description": "Requires platform.health.read.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "area": {
+                    "default": null,
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "pattern": "^[a-z][a-z0-9_]{0,39}$"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ways": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "wayId": {
+                            "type": "string",
+                            "format": "uuid",
+                            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                          },
+                          "addonId": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "area": {
+                            "type": "string"
+                          },
+                          "button": {
+                            "type": "string"
+                          },
+                          "way": {
+                            "type": "object",
+                            "properties": {
+                              "tag": {
+                                "type": "string",
+                                "pattern": "^[a-z][a-z0-9-]{0,30}$"
+                              },
+                              "role": {
+                                "anyOf": [
+                                  {
+                                    "type": "string",
+                                    "maxLength": 40
+                                  },
+                                  {
+                                    "type": "null"
+                                  }
+                                ]
+                              },
+                              "label": {
+                                "anyOf": [
+                                  {
+                                    "type": "string",
+                                    "maxLength": 120
+                                  },
+                                  {
+                                    "type": "null"
+                                  }
+                                ]
+                              },
+                              "words": {
+                                "anyOf": [
+                                  {
+                                    "type": "string",
+                                    "maxLength": 120
+                                  },
+                                  {
+                                    "type": "null"
+                                  }
+                                ]
+                              },
+                              "inside": {
+                                "anyOf": [
+                                  {
+                                    "type": "string",
+                                    "maxLength": 40
+                                  },
+                                  {
+                                    "type": "null"
+                                  }
+                                ]
+                              },
+                              "menu": {
+                                "anyOf": [
+                                  {
+                                    "type": "object",
+                                    "properties": {
+                                      "tag": {
+                                        "type": "string",
+                                        "pattern": "^[a-z][a-z0-9-]{0,30}$"
+                                      },
+                                      "role": {
+                                        "anyOf": [
+                                          {
+                                            "type": "string",
+                                            "maxLength": 40
+                                          },
+                                          {
+                                            "type": "null"
+                                          }
+                                        ]
+                                      },
+                                      "label": {
+                                        "anyOf": [
+                                          {
+                                            "type": "string",
+                                            "maxLength": 120
+                                          },
+                                          {
+                                            "type": "null"
+                                          }
+                                        ]
+                                      },
+                                      "words": {
+                                        "anyOf": [
+                                          {
+                                            "type": "string",
+                                            "maxLength": 120
+                                          },
+                                          {
+                                            "type": "null"
+                                          }
+                                        ]
+                                      }
+                                    },
+                                    "required": [
+                                      "tag",
+                                      "role",
+                                      "label",
+                                      "words"
+                                    ],
+                                    "additionalProperties": false
+                                  },
+                                  {
+                                    "type": "null"
+                                  }
+                                ]
+                              }
+                            },
+                            "required": [
+                              "tag",
+                              "role",
+                              "label",
+                              "words",
+                              "inside",
+                              "menu"
+                            ],
+                            "additionalProperties": false
+                          },
+                          "worked": {
+                            "type": "integer",
+                            "minimum": -9007199254740991,
+                            "maximum": 9007199254740991
+                          },
+                          "failed": {
+                            "type": "integer",
+                            "minimum": -9007199254740991,
+                            "maximum": 9007199254740991
+                          },
+                          "businesses": {
+                            "type": "integer",
+                            "minimum": -9007199254740991,
+                            "maximum": 9007199254740991
+                          },
+                          "trustedAt": {
+                            "anyOf": [
+                              {
+                                "type": "string",
+                                "format": "date-time",
+                                "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "removedAt": {
+                            "anyOf": [
+                              {
+                                "type": "string",
+                                "format": "date-time",
+                                "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "firstAt": {
+                            "type": "string",
+                            "format": "date-time",
+                            "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+                          },
+                          "lastWorkedAt": {
+                            "anyOf": [
+                              {
+                                "type": "string",
+                                "format": "date-time",
+                                "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "lastFailedAt": {
+                            "anyOf": [
+                              {
+                                "type": "string",
+                                "format": "date-time",
+                                "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          }
+                        },
+                        "required": [
+                          "wayId",
+                          "addonId",
+                          "area",
+                          "button",
+                          "way",
+                          "worked",
+                          "failed",
+                          "businesses",
+                          "trustedAt",
+                          "removedAt",
+                          "firstAt",
+                          "lastWorkedAt",
+                          "lastFailedAt"
+                        ],
+                        "additionalProperties": false
+                      }
+                    }
+                  },
+                  "required": [
+                    "ways"
                   ],
                   "additionalProperties": false
                 }
@@ -216107,6 +216765,18 @@
                                     "type": "string",
                                     "format": "date-time",
                                     "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+                                  },
+                                  "reportId": {
+                                    "anyOf": [
+                                      {
+                                        "type": "string",
+                                        "format": "uuid",
+                                        "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                                      },
+                                      {
+                                        "type": "null"
+                                      }
+                                    ]
                                   }
                                 },
                                 "required": [
@@ -216121,7 +216791,8 @@
                                   "why",
                                   "text",
                                   "threadKey",
-                                  "seenAt"
+                                  "seenAt",
+                                  "reportId"
                                 ],
                                 "additionalProperties": false
                               }

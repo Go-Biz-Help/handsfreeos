@@ -8235,7 +8235,45 @@ export const problemReports = app.table('problem_reports', {
   handledAt: ts('handled_at'),
   handledBy: userRef('handled_by'),
   createdAt: ts('created_at').notNull().defaultNow(),
+  /** What the AI helper did when the step didn't go (20261027021600): core's `ProblemHelper`. */
+  helper: jsonb('helper').$type<Record<string, unknown>>(),
 });
+
+/**
+ * How a tool's AI helper found a step's button in a new place (20261027021600): kept across every business, trusted
+ * once it has worked twice. Never anything a person wrote.
+ */
+export const learnedWays = platform.table('learned_ways', {
+  id: id(),
+  addonId: text('addon_id'),
+  area: text('area').notNull(),
+  button: text('button').notNull(),
+  way: jsonb('way').$type<Record<string, unknown>>().notNull(),
+  wayKey: text('way_key').notNull(),
+  worked: integer('worked').notNull().default(0),
+  failed: integer('failed').notNull().default(0),
+  trustedAt: ts('trusted_at'),
+  removedAt: ts('removed_at'),
+  removedBy: userRef('removed_by'),
+  firstAt: ts('first_at').notNull().defaultNow(),
+  lastWorkedAt: ts('last_worked_at'),
+  lastFailedAt: ts('last_failed_at'),
+});
+
+/** Which businesses a learned way worked or failed for (20261027021600). */
+export const learnedWayUses = platform.table(
+  'learned_way_uses',
+  {
+    wayId: uuid('way_id')
+      .notNull()
+      .references(() => learnedWays.id, { onDelete: 'cascade' }),
+    workspaceId: workspaceRef(),
+    worked: integer('worked').notNull().default(0),
+    failed: integer('failed').notNull().default(0),
+    lastAt: ts('last_at').notNull().defaultNow(),
+  },
+  (t) => [primaryKey({ columns: [t.wayId, t.workspaceId] })],
+);
 
 /** Maintenance (0095): one customer's own schedule for a service. `everyMonths` null means never remind them. */
 export const serviceSchedules = app.table('service_schedules', {

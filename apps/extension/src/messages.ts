@@ -29,8 +29,43 @@ import type { AlignableWithdrawResult } from './networks/alignable/withdraw';
 import type { CancelSentResult } from './networks/facebook/sent';
 import type { PostPerson, ReactorsRead } from './networks/linkedin/compose';
 import type { Answered, PageRead, ReplySighting, Seen, Step } from './networks/kit';
+import type { HelperMoveAsk, HelperMoveDone } from './networks/helper-view';
+import type { HelperButton, WayShape } from '@hfos/core/addons/outreach/helper';
 
 export type Ask = { readonly type: 'hfos-read' } | { readonly type: 'hfos-outline' };
+
+/**
+ * The AI helper's asks of a tab, on any network (docs/outreach.md, decision 142; src/networks/helper-view.ts): a view
+ * of the page (`fresh` at a step's first look), one move on the numbers of the last view, or a learned way pressed.
+ * `theirName` is who the step is for, shown in the view as "(their name)", never sent anywhere else.
+ */
+export type HelperAsk =
+  | {
+      readonly type: 'hfos-helper-view';
+      readonly theirName: string | null;
+      readonly fresh: boolean;
+    }
+  | {
+      readonly type: 'hfos-helper-move';
+      readonly move: HelperMoveAsk;
+      readonly button: HelperButton | null;
+    }
+  | {
+      readonly type: 'hfos-helper-way';
+      readonly way: WayShape;
+      readonly button: HelperButton;
+      readonly theirName: string | null;
+    };
+
+/** What a tab answers the helper: the view, how a move went, or whether a learned way was pressed. */
+export type HelperAnswer =
+  | {
+      readonly ok: true;
+      readonly view?: string;
+      readonly done?: HelperMoveDone;
+      readonly pressed?: boolean;
+    }
+  | { readonly ok: false; readonly error: string };
 
 /**
  * What the panel asks a tab on one of Facebook's download pages while it gets the person's file
@@ -128,7 +163,15 @@ export type AutoAsk =
  * page, whose answer is a `BrowseAnswer`. On Alignable (src/networks/alignable/auto.ts), `profile` says whose business
  * page it is, and only its own Connect, carrying Alignable's id for it, is pressed.
  */
-export type ConnectAsk = { readonly type: 'hfos-connect'; readonly profile?: ProfileRef };
+export type ConnectAsk = {
+  readonly type: 'hfos-connect';
+  readonly profile?: ProfileRef;
+  /**
+   * LinkedIn: Connect was pressed already (by the AI helper, decision 142): only its invitation box's own send as it
+   * is, when it asks nothing else, and the wait for Pending.
+   */
+  readonly sent?: true;
+};
 /**
  * Answering a request the person got (decision 136, from 0.118.0), once they pressed Confirm or Delete in HandsFreeOS
  * or the AI said to as they chose: on LinkedIn, Accept or Ignore in the top card of the profile of whoever sent it

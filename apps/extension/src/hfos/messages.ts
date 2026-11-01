@@ -8,6 +8,13 @@ import type { ProfileUsernamesSaveInput } from '@hfos/core/addons/outreach/profi
 import type { paths } from '@hfos/api-client';
 import type { JoinAnswerInput, JoinAnswerOutput } from '@hfos/core/addons/outreach/group-checks';
 import type { LikePickInput, LikePickOutput } from '@hfos/core/addons/outreach/like-pick';
+import type {
+  HelperLookInput,
+  HelperLookOutput,
+  HelperWayNoteInput,
+  HelperWaysInput,
+  HelperWaysOutput,
+} from '@hfos/core/addons/outreach/helper';
 import type { TodayDraftInput, TodayDraftOutput } from '@hfos/core/addons/outreach/today';
 import type { DailyStep } from '@hfos/core/addons/outreach/limits';
 import type { ReadyItem, ReadyState } from '@hfos/core/addons/outreach/readiness';
@@ -406,6 +413,22 @@ export type HfosAsk =
     }
   /** Which of someone's posts to like before their friend request (src/auto/run.ts). */
   | { readonly type: 'hfos-like-pick'; readonly workspaceId: string; readonly input: LikePickInput }
+  /** The AI helper, when a step didn't go (decision 142, src/auto/helper.ts): a look, the ways it learned, one pressed. */
+  | {
+      readonly type: 'hfos-helper-look';
+      readonly workspaceId: string;
+      readonly input: HelperLookInput;
+    }
+  | {
+      readonly type: 'hfos-helper-ways';
+      readonly workspaceId: string;
+      readonly input: HelperWaysInput;
+    }
+  | {
+      readonly type: 'hfos-helper-way';
+      readonly workspaceId: string;
+      readonly input: HelperWayNoteInput;
+    }
   | { readonly type: 'hfos-auto' }
   | { readonly type: 'hfos-auto-start' }
   | { readonly type: 'hfos-auto-stop' }
@@ -482,6 +505,9 @@ export interface HfosValues {
   readonly 'hfos-replies-note': RepliesNoted;
   readonly 'hfos-join-answers': JoinAnswerOutput;
   readonly 'hfos-like-pick': LikePickOutput;
+  readonly 'hfos-helper-look': HelperLookOutput;
+  readonly 'hfos-helper-ways': HelperWaysOutput;
+  readonly 'hfos-helper-way': { readonly trusted: boolean; readonly removed: boolean };
   readonly 'hfos-auto': AutoStatus;
   readonly 'hfos-auto-start': AutoStatus;
   readonly 'hfos-auto-stop': AutoStatus;

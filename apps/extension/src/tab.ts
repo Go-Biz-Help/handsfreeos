@@ -40,6 +40,8 @@ import type {
   PostPeopleAsk,
   FetchAnswer,
   FetchAsk,
+  HelperAnswer,
+  HelperAsk,
   GroupPostAnswer,
   GroupPostAsk,
   PostLinksAnswer,
@@ -390,6 +392,7 @@ export class WorkTab {
   async ask(message: WithdrawAsk): Promise<WithdrawAnswer>;
   async ask(message: UnfollowAsk): Promise<UnfollowAnswer>;
   async ask(message: BrowseAsk): Promise<BrowseAnswer | Answer>;
+  async ask(message: HelperAsk): Promise<HelperAnswer>;
   async ask(message: Ask): Promise<Answer>;
   async ask(
     message:
@@ -417,6 +420,7 @@ export class WorkTab {
       | WithdrawAsk
       | UnfollowAsk
       | BrowseAsk
+      | HelperAsk
       | Ask,
   ): Promise<
     | FetchAnswer
@@ -438,6 +442,7 @@ export class WorkTab {
     | WithdrawAnswer
     | UnfollowAnswer
     | BrowseAnswer
+    | HelperAnswer
     | Answer
   > {
     if (this.id === null)
@@ -457,6 +462,7 @@ export class WorkTab {
         | WithdrawAnswer
         | UnfollowAnswer
         | BrowseAnswer
+        | HelperAnswer
         | Answer;
     } catch {
       try {

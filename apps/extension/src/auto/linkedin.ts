@@ -49,6 +49,8 @@ import { standDownWords } from '@hfos/core/addons/outreach/live';
 import { NETWORKS, type Platform } from '@hfos/core/addons/outreach/networks';
 import { messageParts, partPauseMs } from '@hfos/core/addons/outreach/voice';
 import type { TodayKind } from '@hfos/core/addons/outreach/today';
+import { buttonFor } from '@hfos/core/addons/outreach/helper';
+import type { ProblemHelper } from '@hfos/core/problem-report';
 import { follow, loadSettings } from '../hfos/follow';
 import { feed, keptFor, onBeat, type Kept } from '../hfos/live';
 import type { Drafts, TodayList, TodayListItem } from '../hfos/messages';
@@ -135,6 +137,7 @@ import {
   listSays,
   retryWake,
 } from './plan';
+import { helpAfter, stepHelp } from './helper';
 import { askInLine, inTurn } from './turns';
 import { haltAsk } from '../asks/run';
 
@@ -273,8 +276,16 @@ async function closeWindow(): Promise<void> {
 
 /** What a step came to: done, passed over (handed to the person with `need`), or a stop for the day. */
 type Outcome =
-  | { readonly done: true; readonly line: string }
-  | { readonly done: false; readonly line: string; readonly need?: true }
+  | { readonly done: true; readonly line: string; readonly helper?: ProblemHelper }
+  | {
+      readonly done: false;
+      readonly line: string;
+      readonly need?: true;
+      /** Worth the AI helper's look though it isn't handed over: a like it couldn't press (decision 142). */
+      readonly look?: true;
+      /** What the AI helper did inside the step, for its report (decision 142). */
+      readonly helper?: ProblemHelper;
+    }
   | { readonly stop: string };
 
 /** Stops for the day on LinkedIn's warning on the page, noting it in HandsFreeOS once as LinkedIn's. */
@@ -328,14 +339,20 @@ async function openProfile(
 }
 
 /** Says a warm-up had nothing to like: the invitation goes without. */
-async function missed(item: TodayListItem, businessId: string, line: string): Promise<Outcome> {
+async function missed(
+  item: TodayListItem,
+  businessId: string,
+  line: string,
+  /** Worth the AI helper's look at what stopped it, though it isn't handed over (decision 142). */
+  look = false,
+): Promise<Outcome> {
   await call(
     api().POST('/v1/commands/outreach.warm_up.missed', {
       body: { workspaceId: businessId, profileId: item.profileId! },
     }),
     businessId,
   );
-  return { done: false, line };
+  return look ? { done: false, line, look } : { done: false, line };
 }
 
 /** What comes after a warm-up, in words: the invitation, or for a partner the ask about partnering (decision 81). */
@@ -372,7 +389,7 @@ async function likeFoundPost(
     const liked = await tab.ask({ type: 'hfos-like-post', profile: want, index, url: found.url });
     if (!liked.ok) throw new Error(liked.error);
     if (liked.result === 'none' || liked.result === 'not_sent')
-      return missed(item, businessId, `Couldn’t like ${item.name}’s post: ${after.without}`);
+      return missed(item, businessId, `Couldn’t like ${item.name}’s post: ${after.without}`, true);
     await pause(SETTLE_MS);
     const warned = await warnedOn(await read(), businessId);
     if (warned) return { stop: warned };
@@ -539,7 +556,7 @@ async function warmUp(item: TodayListItem, businessId: string): Promise<Outcome>
     });
     if (!liked.ok) throw new Error(liked.error);
     if (liked.result === 'none' || liked.result === 'not_sent')
-      return missed(item, businessId, `Couldn’t like ${item.name}’s post: ${after.without}`);
+      return missed(item, businessId, `Couldn’t like ${item.name}’s post: ${after.without}`, true);
     postUrl = liked.postUrl ?? chosen.url;
     await pause(SETTLE_MS);
     const stop = await warnedOn(await read(), businessId);
@@ -586,17 +603,45 @@ async function accept(item: TodayListItem, businessId: string): Promise<Outcome>
   if (standing === 'connected') return { done: false, line: `${item.name}: connected already` };
   if (standing !== 'received')
     return { done: false, line: `${item.name}: no invitation of theirs waiting` };
-  const went = await tab.ask({ type: 'hfos-answer-request', answer: 'confirm' });
-  if (!went.ok) throw new Error(went.error);
+  const pressAccept = async () => {
+    const went = await tab.ask({ type: 'hfos-answer-request', answer: 'confirm' });
+    if (!went.ok) throw new Error(went.error);
+    return went.result;
+  };
+  let result = await pressAccept();
+  // Accept moved, or something's over it: the AI helper finds it on their profile, checked as theirs (decision 142).
+  const help = stepHelp(tab, answer as Hfos, {
+    businessId,
+    platform: PLATFORM,
+    step: item.kind,
+    theirName: item.name,
+    button: buttonFor(PLATFORM, 'confirm')!,
+  });
+  if (
+    result === 'none' &&
+    (await help.press('couldn’t find Accept', async () => (await pressAccept()) === 'done'))
+  )
+    result = 'done';
   await pause(SETTLE_MS);
   const page = await read();
   const stop = await warnedOn(page, businessId);
   if (stop) return { stop };
-  if (went.result === 'none')
-    return { done: false, line: `${item.name}: couldn’t find Accept`, need: true };
-  if (went.result === 'already') return { done: false, line: `${item.name}: connected already` };
-  if (went.result !== 'done' || page.profile?.connection === 'received')
-    return { done: false, line: `${item.name}: LinkedIn didn’t take it`, need: true };
+  if (result === 'none')
+    return {
+      done: false,
+      line: `${item.name}: couldn’t find Accept`,
+      need: true,
+      helper: await help.end(false),
+    };
+  if (result === 'already') return { done: false, line: `${item.name}: connected already` };
+  if (result !== 'done' || page.profile?.connection === 'received')
+    return {
+      done: false,
+      line: `${item.name}: LinkedIn didn’t take it`,
+      need: true,
+      helper: await help.end(false),
+    };
+  const helper = await help.end(true);
   await takeNote(
     {
       type: 'hfos-answered',
@@ -610,7 +655,7 @@ async function accept(item: TodayListItem, businessId: string): Promise<Outcome>
     },
     PLATFORM,
   );
-  return { done: true, line: `Accepted ${item.name}’s invitation` };
+  return { done: true, line: `Accepted ${item.name}’s invitation`, helper };
 }
 
 /** An invitation to connect, without a note, from their profile. */
@@ -625,21 +670,47 @@ async function invite(item: TodayListItem, businessId: string): Promise<Outcome>
       line: `${item.name}: ${STANDING[standing]}`,
       ...(standing === 'received' ? { need: true as const } : {}),
     };
-  const went = await tab.ask({ type: 'hfos-connect' });
-  if (!went.ok) throw new Error(went.error);
+  const pressConnect = async (sent?: true) => {
+    const went = await tab.ask({ type: 'hfos-connect', ...(sent ? { sent } : {}) });
+    if (!went.ok) throw new Error(went.error);
+    return went.result;
+  };
+  let result = await pressConnect();
+  // Connect moved, or something's over it: the AI helper finds it on their profile, checked as theirs (decision 142),
+  // and the invitation box it opens is sent as it is, as Connect's own is.
+  const help = stepHelp(tab, answer as Hfos, {
+    businessId,
+    platform: PLATFORM,
+    step: item.kind,
+    theirName: item.name,
+    button: buttonFor(PLATFORM, 'friend_request')!,
+  });
+  const missing = 'couldn’t find Connect, or LinkedIn asked for more than Send';
+  if (
+    result === 'none' &&
+    (await help.press(missing, async () => (await pressConnect()) === 'done'))
+  )
+    result = await pressConnect(true);
   await pause(SETTLE_MS);
   const page = await read();
   const stop = await warnedOn(page, businessId);
   if (stop) return { stop };
-  if (went.result === 'already') return { done: false, line: `${item.name}: invited already` };
-  if (went.result === 'none')
+  if (result === 'already') return { done: false, line: `${item.name}: invited already` };
+  if (result === 'none')
     return {
       done: false,
-      line: `${item.name}: couldn’t find Connect, or LinkedIn asked for more than Send`,
+      line: `${item.name}: ${missing}`,
       need: true,
+      helper: await help.end(false),
     };
-  if (went.result !== 'done' || page.profile?.connection !== 'pending')
-    return { done: false, line: `${item.name}: LinkedIn didn’t take the invitation`, need: true };
+  if (result !== 'done' || page.profile?.connection !== 'pending')
+    return {
+      done: false,
+      line: `${item.name}: LinkedIn didn’t take the invitation`,
+      need: true,
+      helper: await help.end(false),
+    };
+  const helper = await help.end(true);
   await takeNote(
     {
       type: 'hfos-noted',
@@ -656,7 +727,7 @@ async function invite(item: TodayListItem, businessId: string): Promise<Outcome>
     },
     PLATFORM,
   );
-  return { done: true, line: `Sent ${item.name} an invitation to connect` };
+  return { done: true, line: `Sent ${item.name} an invitation to connect`, helper };
 }
 
 /**
@@ -1370,14 +1441,29 @@ async function workNext(
   } finally {
     await setState({ working: false });
   }
-  // A step that didn't go: the page it ended on, outline and all, noted while the window still shows it (decision 74).
-  if ('done' in outcome && !outcome.done)
-    await reporter(tab, answer as Hfos, {
-      businessId,
-      platform: PLATFORM,
-      askId: null,
-      job: work.do === 'step' ? work.item.kind : work.do,
-    })({ note: 'The step didn’t go.', outline: true });
+  // A step that didn't go: the AI helper looks first, clearing the way and saying what it sees (decision 142); then
+  // the page it ended on, outline, why and all, noted while the window still shows it (decision 74).
+  const helped = await helpAfter({
+    tab,
+    hfos: answer as Hfos,
+    businessId,
+    platform: PLATFORM,
+    work,
+    job: work.do === 'step' ? work.item.kind : work.do,
+    outcome,
+    again:
+      work.do === 'step'
+        ? () =>
+            inTurn(
+              'runner',
+              () => doWork(work, businessId, settings.voice?.split ?? true),
+              PLATFORM,
+            )
+        : null,
+    say: (line) => say(line, { working: true, readLast: false }),
+  });
+  outcome = helped.outcome;
+  await setState({ working: false });
   const state = await stateNow();
   const kind = doneAs(work);
   const done =
@@ -1396,7 +1482,9 @@ async function workNext(
   }
   await say(outcome.line);
   const need =
-    'need' in outcome && work.do === 'step' ? needOf(item, outcome.line, businessId) : null;
+    'need' in outcome && work.do === 'step'
+      ? needOf(item, outcome.line, businessId, helped.reportId)
+      : null;
   if (need) void noteNeed(need);
   void feed(outcome.done ? 'done' : 'passed', `${NAME}: ${outcome.line}`);
   if (stopAsked) {

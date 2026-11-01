@@ -41,6 +41,7 @@ import {
   needRetryable,
   needTitle,
   needWhyWords,
+  NEED_REPORT_WORDS,
   oneByOneWords,
   retriedWords,
   WAITING_KINDS,
@@ -48,11 +49,14 @@ import {
   type NeedClear,
 } from '@hfos/core/addons/outreach/waiting-words';
 import { seenWords } from '@hfos/core/addons/outreach/live';
+import { router, type Href } from 'expo-router';
 import * as React from 'react';
 import { View } from 'react-native';
 
+import { staffCan, useKeptStaff } from '@/admin/staff';
 import { ChangeError } from '@/changes';
 import { Check, CheckCheck, ExternalLink, Pencil, RotateCcw, Trash, X } from '@/components/icons';
+import { useBusinessIfAny } from '@/components/shell/business-context';
 import { useKeyboardHeight } from '@/components/shell/keyboard';
 import { Screen } from '@/components/shell/screen';
 import { Badge } from '@/components/ui/badge';
@@ -832,6 +836,11 @@ function NeedCard({
   // Only an address on a network the add-on knows opens: their page there, the post, or the chat.
   const page = need.url && networkOfLink(need.url) ? need.url : null;
   const why = needWhyWords(need.why);
+  // HandsFreeOS staff only: the page the extension saw, and what the AI helper found (decision 142).
+  const staffSees = staffCan(
+    useKeptStaff(useBusinessIfAny()?.userId ?? ''),
+    'platform.health.read',
+  );
   return (
     <Card className="gap-2 px-4 py-3.5" testID="waiting-need-item">
       {/* The name on its own, so it can be a button with its own target; the step under it says it in words. */}
@@ -894,6 +903,20 @@ function NeedCard({
             testID="waiting-need-open"
           >
             {messenger ? openChatWords(platform) : openPageWords(platform)}
+          </Button>
+        ) : null}
+        {need.reportId && staffSees ? (
+          <Button
+            size="md"
+            variant="ghost"
+            onPress={() =>
+              router.push(
+                `/app/admin/problems?report=${encodeURIComponent(need.reportId!)}` as Href,
+              )
+            }
+            testID="waiting-need-report"
+          >
+            {NEED_REPORT_WORDS}
           </Button>
         ) : null}
       </View>

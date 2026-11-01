@@ -1132,6 +1132,27 @@ whole day, as the list can't be worked out without them (`holdsTheDay` in `src/a
 and Alignable a read put off till you're away counts as the reading's turn, so the list goes next. With nothing on the
 list, the reading goes on. Nothing in HandsFreeOS changes for it.
 
+### The AI helper, when a step doesn't go (0.122.0)
+
+The owner's report of 1 Nov 2026: a like and an Alignable connection request didn't go, and nothing said why
+(docs/outreach.md, decision 142). From 0.122.0, when a step on Today's list doesn't go on any network:
+
+- **A learned way first.** For a step whose button the helper may press (Add friend, Confirm, Connect, Accept,
+  Follow), the ways every computer trusts (`outreach.helper.ways`, kept an hour) are tried in the tab: one presses only
+  when exactly one thing on the page fits it (`pressWay` in `src/networks/helper-view.ts`).
+- **Then it looks.** The tab makes a view of the page (`helperView`: numbered controls with the network's own words,
+  everything a person wrote as "[2 words]", the person as "(their name)"), the worker's AI says what it sees and one
+  move (`outreach.helper.look`), and the tab takes it (`HelperHands.move`): a click that only clears the way, a scroll,
+  Escape, a wait, or a press of the step's own button. Up to 8 moves a step, 80 looks a day on a computer
+  (`hfos-helper-looks` in `chrome.storage.local`).
+- **Inside a step** (`stepHelp` in `src/auto/helper.ts`), on a page the runner checked is theirs, it may press the
+  step's button where the runner couldn't find it; the step's own check says whether it went, and a way that worked is
+  noted (`outreach.helper.way`). LinkedIn's invitation box after the helper's Connect is sent as it is
+  (`hfos-connect` with `sent`). Anywhere else (`helpAfter`) it only clears and says, and a step it cleared the way for
+  is tried once more.
+- **The report** carries the runner's own words as its note, the outline, and what the helper did; its id goes with
+  the step's Needs you, for HandsFreeOS staff's See what it saw.
+
 ### Facebook's post search, with your playbooks' phrases (0.121.0)
 
 The owner's report of 1 Nov 2026: the posts it found to comment on weren't about the playbook (docs/outreach.md,
