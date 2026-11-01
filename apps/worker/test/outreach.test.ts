@@ -2,13 +2,16 @@
  * Social Outreach in the worker (docs/outreach.md): data version 2 brings a playbook saved before its questions had
  * answers, and before it had a pace, into today's shape when a reinstall brings it back; version 3 gives one saved
  * before it had a niche, problem, proof and something useful to send those, empty; version 8 gives one each network's
- * own words, empty, nothing said of working online, and nothing written by the AI. Run as the worker runs it.
+ * own words, empty, nothing said of working online, and nothing written by the AI; version 9 gives one phrases for
+ * Facebook's post search, empty, lets go of the hashtags and LinkedIn phrases the AI wrote around who it's for, and
+ * asks for them again around its topic (decision 141). Run as the worker runs it.
  */
 import { PlaybookDetails } from '@hfos/core/addons/outreach/playbooks';
 import { asWorker, rows, sql } from '@hfos/db/client';
 import { bootstrapOrganization, closeTestDbs, createTestUser, testDbs } from '@hfos/db/testing';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { outreachAddonWorker } from '../src/addons/outreach';
+import { WRITE_WORDS_JOB } from '../src/addons/outreach/words';
 import type { AddonDataMigration } from '../src/addons/types';
 
 const admin = () => testDbs().admin.db;
@@ -26,7 +29,7 @@ beforeAll(async () => {
 
 afterAll(closeTestDbs);
 
-describe('Social Outreach’s data versions 2 to 8', () => {
+describe('Social Outreach’s data versions 2 to 9', () => {
   it('gives an older playbook’s questions answers, a pace, follow-ups and empty newer parts, and leaves today’s alone', async () => {
     const before = {
       goal: 'demo',
@@ -59,27 +62,46 @@ describe('Social Outreach’s data versions 2 to 8', () => {
       videoScript: null,
       partnerKinds: ['group_admin', 'creator', 'business'],
       onItsNetworks: true,
+      facebookSearches: ['anyone use a CRM'],
       hashtags: ['austinroofing'],
       postSearches: [],
       businessKinds: [],
       worksOnline: false,
-      wordsWritten: ['instagram'],
+      wordsWritten: ['facebook', 'instagram'],
     });
     // A partner playbook saved before version 7 kept to its own networks already (decision 81).
     const partners = { ...before, goal: 'partner' };
-    const [old, current, partner] = await rows<{ id: string }>(
+    // Version 8's, with the AI's hashtags (about who it's for), LinkedIn's phrases the person emptied, and Alignable's.
+    const { facebookSearches, ...eight } = {
+      ...today,
+      hashtags: ['roofingcontractor', 'rooferlife'],
+      postSearches: [],
+      businessKinds: ['Roofing Contractor'],
+      wordsWritten: ['instagram', 'linkedin', 'alignable'],
+    };
+    void facebookSearches;
+    const [old, current, partner, written] = await rows<{ id: string }>(
       admin(),
       sql`insert into addon_outreach.playbooks (workspace_id, name, details)
           values (${ws}, 'Old', ${JSON.stringify(before)}::jsonb),
                  (${ws}, 'Current', ${JSON.stringify(today)}::jsonb),
-                 (${ws}, 'Partners', ${JSON.stringify(partners)}::jsonb)
+                 (${ws}, 'Partners', ${JSON.stringify(partners)}::jsonb),
+                 (${ws}, 'Written', ${JSON.stringify(eight)}::jsonb)
           returning id`,
     );
 
-    for (const v of [2, 3, 4, 5, 6, 7, 8]) {
+    const [org] = await rows<{ organization_id: string }>(
+      admin(),
+      sql`select organization_id from app.workspaces where id = ${ws}`,
+    );
+    for (const v of [2, 3, 4, 5, 6, 7, 8, 9]) {
       const step = outreachAddonWorker.dataMigrations![v]!;
       await asWorker(testDbs().worker.db, { workspaceId: ws }, (tx) =>
-        step({ tx, scope: { workspaceId: ws } } as unknown as Parameters<AddonDataMigration>[0]),
+        step({
+          tx,
+          manifest: outreachAddonWorker.manifest,
+          scope: { workspaceId: ws, organizationId: org!.organization_id },
+        } as unknown as Parameters<AddonDataMigration>[0]),
       );
     }
 
@@ -104,7 +126,8 @@ describe('Social Outreach’s data versions 2 to 8', () => {
       // It ran on every network that worked before version 7, and runs on those now.
       platforms: ['facebook', 'linkedin'],
       onItsNetworks: true,
-      // Each network's own words, for the AI to write once (decision 92).
+      // Each network's own words, for the AI to write once (decisions 92 and 141).
+      facebookSearches: [],
       hashtags: [],
       postSearches: [],
       businessKinds: [],
@@ -118,5 +141,21 @@ describe('Social Outreach’s data versions 2 to 8', () => {
       wordsWritten: [],
     });
     expect(got(current!.id)).toMatchObject({ details: today, updated: false });
+    // The AI's hashtags go, to be written again around its topic; a list the person emptied stays empty, and stays
+    // written, so it isn't filled again; Alignable's kinds of business stay (decision 141).
+    expect(PlaybookDetails.parse(got(written!.id).details)).toMatchObject({
+      facebookSearches: [],
+      hashtags: [],
+      postSearches: [],
+      businessKinds: ['Roofing Contractor'],
+      wordsWritten: ['linkedin', 'alignable'],
+    });
+    // And the business's words are asked for at once.
+    const [asked] = await rows<{ n: number }>(
+      admin(),
+      sql`select count(*)::int as n from app.scheduled_jobs
+          where workspace_id = ${ws} and kind = ${WRITE_WORDS_JOB} and status = 'pending'`,
+    );
+    expect(asked!.n).toBe(1);
   });
 });

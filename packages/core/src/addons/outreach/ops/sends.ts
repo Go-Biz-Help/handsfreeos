@@ -24,7 +24,8 @@ import {
   commentHoldOn,
   goesAsItIs,
   handedOver,
-  postStartOf,
+  postParts,
+  SEND_POST_MOST,
   REBOOK_NEEDS_YOU,
   replyNeedsYou,
   SendApproveInput,
@@ -123,7 +124,10 @@ export async function listed(ctx: Ctx, where: ReturnType<typeof and>): Promise<S
     recent: underAPost(s.kind) ? [] : (recent.get(`${s.userId}/${chatKey(refOf(s))}`) ?? []),
     postId: s.postId,
     postUrl: s.postId ? postUrl : null,
-    post: s.postId && postBody !== null ? postStartOf(postBody) : null,
+    // Its first words, and the whole post for More when they're cut short (decision 141).
+    ...(s.postId && postBody !== null
+      ? postParts(postBody, SEND_POST_MOST)
+      : { post: null, postWhole: null }),
   }));
 }
 

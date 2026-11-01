@@ -621,6 +621,27 @@ export const SETTING_TOOLS: Readonly<Record<string, readonly SettingWay[]>> = {
     { tool: 'sort_unmatched_email', field: 'action', value: 'dismiss' },
   ],
   'email.sender_rules': [{ tool: 'do_email_sender_rule_remove', field: 'address' }],
+  // Settings → Website chat: one chat box per business, changed as its screen does.
+  'website_chat.who_answers': [{ tool: 'manage_website_chat', field: 'answeredByAi' }],
+  'website_chat.daily_limit': [{ tool: 'manage_website_chat', field: 'dailyCap' }],
+  'website_chat.sites': [
+    { tool: 'manage_website_chat', field: 'action', value: 'create' },
+    { tool: 'manage_website_chat', field: 'websites', value: 'https://lonestarhvac.com' },
+  ],
+  'website_chat.install': [{ tool: 'do_chat_widget_rotate_key', field: 'widgetId' }],
+  'website_chat.look': [
+    { tool: 'manage_website_chat', field: 'greeting' },
+    { tool: 'manage_website_chat', field: 'buttonLabel' },
+    { tool: 'manage_website_chat', field: 'color', value: '#2d69d8' },
+    { tool: 'manage_website_chat', field: 'position', value: 'left' },
+  ],
+  'website_chat.away': [
+    { tool: 'manage_website_chat', field: 'awayMessage' },
+    { tool: 'manage_website_chat', field: 'askFor.name', value: 'when_needed' },
+    { tool: 'manage_website_chat', field: 'askFor.phone', value: 'after_first_message' },
+    { tool: 'manage_website_chat', field: 'askFor.email', value: 'never' },
+  ],
+  'website_chat.text_box': [{ tool: 'manage_website_chat', field: 'askForSmsConsent' }],
 };
 
 /** Setting rows the Assistant never changes, and why. */
@@ -645,6 +666,8 @@ export const SETTINGS_NEVER: Readonly<Record<string, string>> = {
     'what was charged and added, to read (get_settings, area usage): nothing to change',
   'texting.stop_help':
     'always on: every text answers STOP, START and HELP by itself, and an opted-out customer stays opted out until they text START',
+  'website_chat.try':
+    'a preview page the person opens to chat with their own chat box; test chats create and send nothing, so there is nothing to set',
   ...Object.fromEntries(
     AUTOMATION_ROWS.filter((a) => a.locked).map((a) => [
       `automation.${a.id}`,
@@ -658,7 +681,6 @@ export const SETTINGS_NEVER: Readonly<Record<string, string>> = {
  * the first, says which tool changes each of its rows (adding what's missing), and takes it off.
  */
 export const SETTINGS_NOT_YET: readonly string[] = [
-  'website_chat',
   'facebook_instagram',
   'lead_intake',
   'tags',

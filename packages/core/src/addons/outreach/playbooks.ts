@@ -38,10 +38,12 @@ export const forPartners = (details: Pick<PlaybookDetails, 'goal'>): boolean =>
 
 /**
  * The words the AI writes for each network a customers' playbook runs on (data version 8, docs/outreach.md decision
- * 92), and the part each goes in: the hashtags Instagram looks at, the phrases LinkedIn's post search goes with, and
- * the kinds of business Alignable's search looks for. Never on a partner playbook.
+ * 92), and the part each goes in: the phrases Facebook's post search goes with (data version 9, decision 141), the
+ * hashtags Instagram looks at, the phrases LinkedIn's post search goes with, and the kinds of business Alignable's
+ * search looks for. Never on a partner playbook.
  */
 export const FIND_WORDS_PARTS = {
+  facebook: 'facebookSearches',
   instagram: 'hashtags',
   linkedin: 'postSearches',
   alignable: 'businessKinds',
@@ -52,8 +54,12 @@ export const WORDS_PLATFORM_KEYS = Object.keys(FIND_WORDS_PARTS) as [
   WordsPlatform,
   ...WordsPlatform[],
 ];
-/** How many of each network's words a day's look takes, in turn (decision 92): 5 hashtags, 5 phrases, 3 kinds. */
+/**
+ * How many of each network's words a day's look takes, in turn (decisions 92 and 141): 5 phrases on Facebook, 5
+ * hashtags, 5 phrases on LinkedIn, 3 kinds.
+ */
 export const FIND_WORDS_PER_DAY: Readonly<Record<WordsPlatform, number>> = {
+  facebook: 5,
   instagram: 5,
   linkedin: 5,
   alignable: 3,
@@ -174,6 +180,8 @@ export const PLAYBOOK_LIMITS = {
   usefulLink: 500,
   /** The short video's link (data version 4): Loom, YouTube or Google Drive. */
   videoLink: 500,
+  /** Words Facebook's post search goes with (data version 9): "anyone use a CRM". */
+  facebookSearches: { line: 60, most: 12 },
   /** Hashtags Instagram looks at for this playbook (data version 8), each without its #: "austinroofing". */
   hashtags: { line: 40, most: 30 },
   /** Words LinkedIn's post search goes with: "missed calls". */
@@ -274,12 +282,16 @@ export const PlaybookDetails = z
      */
     onItsNetworks: z.literal(true).optional(),
     /**
-     * Each network's own words (data version 8, decision 92), written by the AI once from the niche, who it's for and
-     * their problem, and the person's to change: the hashtags Instagram looks at (each without its #, as
-     * `hashtagOf` makes them on a save), the phrases LinkedIn's post search goes with, and the kinds of business
-     * Alignable's search looks for. Only a customers' playbook's are read. Left out of a save, each keeps what's
-     * saved; an empty list, once the AI wrote it, means that network looks at nothing for the playbook.
+     * Each network's own words (data version 8, decision 92), written by the AI once around the playbook's topic (its
+     * problem, what the business helps with, and running that kind of business: decision 141), and the person's to
+     * change: the phrases Facebook's post search goes with (data version 9), the hashtags Instagram looks at (each
+     * without its #, as `hashtagOf` makes them on a save), the phrases LinkedIn's post search goes with, and the kinds
+     * of business Alignable's search looks for. Only a customers' playbook's are read. Left out of a save, each keeps
+     * what's saved; an empty list, once the AI wrote it, means that network looks at nothing for the playbook.
      */
+    facebookSearches: lines(PLAYBOOK_LIMITS.facebookSearches)
+      .refine(distinct, 'Each search once.')
+      .optional(),
     hashtags: lines(PLAYBOOK_LIMITS.hashtags).refine(distinct, 'Each hashtag once.').optional(),
     postSearches: lines(PLAYBOOK_LIMITS.postSearches)
       .refine(distinct, 'Each search once.')
@@ -427,6 +439,7 @@ export const blankPlaybook = (): PlaybookDetails => ({
   videoScript: null,
   partnerKinds: [...PARTNER_KIND_KEYS],
   onItsNetworks: true,
+  facebookSearches: [],
   hashtags: [],
   postSearches: [],
   businessKinds: [],
@@ -486,6 +499,18 @@ const TEMPLATES = {
         'Current customers',
       ],
       groupWords: ['small business owners', 'business owners'],
+      // Its own phrases for Facebook's post search (decision 141), about the topic: the person's from the start, so
+      // the AI never writes them.
+      facebookSearches: [
+        'anyone use a CRM',
+        'CRM recommendations',
+        'best CRM for contractors',
+        'missed calls',
+        'following up with leads',
+        'too many leads',
+        'leads slipping through',
+        'scheduling software',
+      ],
       steps: ['connect', 'engage', 'message', 'follow_up'],
       tone: 'Friendly and curious, one owner to another. Short messages, no hard sell.',
       openerStyles: [
@@ -629,6 +654,16 @@ const TEMPLATES = {
         'Guaranteed sale',
         'Guaranteed price',
       ],
+      facebookSearches: [
+        'looking for a realtor',
+        'recommend a realtor',
+        'moving to',
+        'relocating to',
+        'first time home buyer',
+        'selling our house',
+        'house hunting',
+        'recommend a lender',
+      ],
       hashtags: [
         'househunting',
         'firsttimehomebuyer',
@@ -737,6 +772,16 @@ const TEMPLATES = {
         },
       ],
       avoid: ['Cheapest', 'Lowest price guaranteed', 'Act now', 'Limited time'],
+      facebookSearches: [
+        'recommend a plumber',
+        'recommend a roofer',
+        'recommend an electrician',
+        'need a handyman',
+        'looking for a contractor',
+        'roof leak',
+        'water heater',
+        'storm damage',
+      ],
       hashtags: [
         'homeimprovement',
         'homerenovation',
@@ -838,6 +883,16 @@ const TEMPLATES = {
         },
       ],
       avoid: ['Guaranteed results', 'Cure', 'Diagnose', 'Therapy', 'Get rich quick'],
+      facebookSearches: [
+        'feeling stuck',
+        'career change',
+        'burnout',
+        'need accountability',
+        'next chapter',
+        'starting over',
+        'work life balance',
+        'growing my business',
+      ],
       hashtags: [
         'personalgrowth',
         'personaldevelopment',
@@ -895,6 +950,7 @@ export const PLAYBOOK_V8_KEYS = [
   'worksOnline',
   'wordsWritten',
 ] as const;
+export const PLAYBOOK_V9_KEYS = ['facebookSearches'] as const;
 /** What a save that leaves a part out keeps. */
 export const PLAYBOOK_KEPT_KEYS = [
   ...PLAYBOOK_V3_KEYS,
@@ -903,7 +959,14 @@ export const PLAYBOOK_KEPT_KEYS = [
   ...PLAYBOOK_V6_KEYS,
   ...PLAYBOOK_V7_KEYS,
   ...PLAYBOOK_V8_KEYS,
+  ...PLAYBOOK_V9_KEYS,
 ] as const;
+
+/**
+ * The networks whose words the AI wrote before data version 9 around who the playbook is for, not its topic: rewritten
+ * once (decision 141).
+ */
+const REWRITTEN_IN_9: readonly WordsPlatform[] = ['instagram', 'linkedin'];
 
 /** The networks every customers' playbook ran on before data version 7: those that worked then. */
 const RAN_ON_BEFORE_7: readonly Platform[] = ['facebook', 'linkedin'];
@@ -975,7 +1038,10 @@ export function paceOf(pace: unknown): Pace {
  * before 4, its follow-ups were one number of quiet days (`paceOf` moves it) and it had no video link; before 5, no
  * video script; before 6, no kinds of partner (every kind); before 7, a customers' playbook ran on every network that
  * worked (Facebook and LinkedIn), so those are put on it; before 8, no words of each network's own, nothing said of
- * working online, and none written by the AI. Anything else passes through for the schema to judge.
+ * working online, and none written by the AI; before 9, no phrases for Facebook's post search, and the hashtags and
+ * LinkedIn phrases the AI wrote were about who the playbook is for, so a list it wrote that the person hasn't emptied
+ * is let go, to be written again around the playbook's topic (decision 141; one the person emptied stays empty).
+ * Anything else passes through for the schema to judge.
  */
 export function upgradePlaybookDetails(stored: unknown): unknown {
   if (typeof stored !== 'object' || stored === null || Array.isArray(stored)) return stored;
@@ -988,6 +1054,16 @@ export function upgradePlaybookDetails(stored: unknown): unknown {
   const blank = blankPlaybook();
   const platforms = Array.isArray(d['platforms']) ? (d['platforms'] as unknown[]) : null;
   const before7 = d['onItsNetworks'] === undefined && d['goal'] !== PARTNER_GOAL && !!platforms;
+  // Before 9: the AI's lists on who the playbook is for go, to be written again around its topic (decision 141).
+  const written = Array.isArray(d['wordsWritten']) ? (d['wordsWritten'] as unknown[]) : null;
+  const filled = (platform: WordsPlatform) => {
+    const list = d[FIND_WORDS_PARTS[platform]];
+    return Array.isArray(list) && list.length > 0;
+  };
+  const rewrite =
+    d['facebookSearches'] === undefined && written
+      ? REWRITTEN_IN_9.filter((p) => written.includes(p) && filled(p))
+      : [];
   return {
     ...Object.fromEntries(PLAYBOOK_KEPT_KEYS.map((k) => [k, blank[k]])),
     ...d,
@@ -1005,6 +1081,12 @@ export function upgradePlaybookDetails(stored: unknown): unknown {
         )
       : d['questions'],
     pace: pace === undefined ? blank.pace : paceOf(pace),
+    ...(rewrite.length && written
+      ? {
+          ...Object.fromEntries(rewrite.map((p) => [FIND_WORDS_PARTS[p], []])),
+          wordsWritten: written.filter((p) => !rewrite.includes(p as WordsPlatform)),
+        }
+      : {}),
   };
 }
 

@@ -33,6 +33,13 @@ import { setupTools } from './tools-setup';
  */
 export type { AssistantTool, ToolAutonomy } from './tool-kit';
 
+/** When the website chat asks a visitor for a detail, as Settings → Website chat offers it. */
+const chatAskWhen = z
+  .enum(['never', 'when_needed', 'after_first_message', 'before_chat'])
+  .describe(
+    'never: don’t ask. when_needed: only when it has to, like before booking. after_first_message: a short form after their first message, with the box to get texts. before_chat: before the chat starts.',
+  );
+
 export const assistantTools = [
   // ---------- looking things up (auto) ----------
   define({
@@ -687,15 +694,33 @@ export const assistantTools = [
   define({
     name: 'manage_website_chat',
     description:
-      'Set up or change the chat box on the business’s website: which sites it may show on, its greeting, button label and colour, whether the AI teammate answers it, and turning it on or off. The snippet still has to be pasted into their site, so say so.',
+      'Set up or change the chat box on the business’s website, as Settings → Website chat does: the sites it may show on, who answers it (the AI teammate, or only the team), the most new chats a day, its greeting, button label, colour and position, the away message, when it asks visitors for their name, mobile and email, the box to get texts, and turning it on or off. Read it with get_settings (area website_chat) first and pass only what changes. The snippet still has to be pasted into their site, so say so; a new snippet key is do_chat_widget_rotate_key.',
     input: z.object({
       action: z.enum(['create', 'change', 'turn_on', 'turn_off']),
-      widgetId: uuid.optional(),
+      widgetId: uuid
+        .optional()
+        .describe('Leave out for the business’s chat, the one on the screen'),
       websites: z
         .array(text(300))
         .max(10)
         .optional()
-        .describe('The sites it may show on, like https://lonestarhvac.com'),
+        .describe(
+          'Every site it may show on, like https://lonestarhvac.com (the www version is added for you). This list replaces the one there, so keep the sites that stay.',
+        ),
+      answeredByAi: z
+        .boolean()
+        .optional()
+        .describe(
+          'True: the business’s AI teammate answers and the team can join. False: only the team answers, from the inbox. A new chat box starts with the AI teammate when there is one.',
+        ),
+      dailyCap: z
+        .int()
+        .min(1)
+        .max(10_000)
+        .optional()
+        .describe(
+          'The most new chats it takes a day, so a flood of strangers can’t use up AI time',
+        ),
       greeting: text(300).optional(),
       buttonLabel: text(40).optional(),
       color: z
@@ -703,7 +728,28 @@ export const assistantTools = [
         .regex(/^#[0-9a-fA-F]{6}$/)
         .optional()
         .describe('A hex colour like #2d69d8'),
-      answeredByAi: z.boolean().optional().describe('Whether the AI teammate answers it'),
+      position: z
+        .enum(['right', 'left'])
+        .optional()
+        .describe('The bottom corner of their site the button sits in'),
+      awayMessage: z
+        .string()
+        .trim()
+        .max(500)
+        .optional()
+        .describe(
+          'Shown with a short form when nobody is answering. Empty goes back to the standard words.',
+        ),
+      askFor: z
+        .object({
+          name: chatAskWhen.optional(),
+          phone: chatAskWhen.optional(),
+          email: chatAskWhen.optional(),
+        })
+        .optional()
+        .describe(
+          'When it asks visitors for their name, mobile (phone) and email; only those given change',
+        ),
       askForSmsConsent: z
         .boolean()
         .optional()

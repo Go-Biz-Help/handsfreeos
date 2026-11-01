@@ -1,7 +1,7 @@
 /**
  * Social Outreach in the worker: the AI (the stand-in model here) writes each network's own words for a customers'
- * playbook (decision 92): the hashtags Instagram looks at, the phrases LinkedIn's post search goes with and the kinds
- * of business Alignable's search looks for, with whether the business works with them online. Only a list that's
+ * playbook (decisions 92 and 141): the phrases Facebook's and LinkedIn's post searches go with, the hashtags Instagram
+ * looks at and the kinds of business Alignable's search looks for, with whether the business works with them online. Only a list that's
  * empty and that it hasn't written before, never a partner playbook's, never again on its own writing, only on a
  * network somebody in the business works, and at the day's AI limit the rest wait.
  */
@@ -148,7 +148,7 @@ describe('the AI’s words for finding people by topic', () => {
     const ai = counting();
     const s = testServices({ ai: { provider: ai.provider } });
     const ws = await everywhere('Outreach Words Co');
-    // The person's own hashtags stay as they are: the AI writes LinkedIn's and Alignable's.
+    // The person's own hashtags stay as they are: the AI writes Facebook's, LinkedIn's and Alignable's.
     const saved = await runAs(owner, ws, 'outreach.playbook.save', {
       name: 'Austin roofers',
       details: roofers({ hashtags: ['roofleak'] }),
@@ -156,13 +156,15 @@ describe('the AI’s words for finding people by topic', () => {
     await drain(s, ws);
     const written = await detailsOf(saved.id);
     expect(written).toMatchObject({
+      // A phrase too long for a search, and one twice, are dropped.
+      facebookSearches: ['missed calls', 'roofers tips'],
       hashtags: ['roofleak'],
       // A phrase too long for a search, and one twice, are dropped.
       postSearches: ['missed calls', 'roofers tips', 'hiring help'],
       businessKinds: ['Roofers', 'Property Management'],
       // Nobody had said: the AI's guess, from an area and a niche with no word of online.
       worksOnline: false,
-      wordsWritten: ['linkedin', 'alignable'],
+      wordsWritten: ['facebook', 'linkedin', 'alignable'],
     });
     expect(ai.asks()).toBe(1);
 
@@ -180,7 +182,7 @@ describe('the AI’s words for finding people by topic', () => {
       postSearches: [],
       businessKinds: ['Roofers', 'Property Management'],
       worksOnline: true,
-      wordsWritten: ['instagram', 'linkedin', 'alignable'],
+      wordsWritten: ['facebook', 'instagram', 'linkedin', 'alignable'],
     });
     expect(ai.asks()).toBe(2);
 
@@ -243,6 +245,7 @@ describe('the AI’s words for finding people by topic', () => {
     await drain(s, ws);
     expect(ai.asks()).toBe(0);
     expect(await detailsOf(saved.id)).toMatchObject({
+      facebookSearches: [],
       hashtags: [],
       postSearches: [],
       businessKinds: [],
@@ -263,25 +266,32 @@ describe('the AI’s words for finding people by topic', () => {
     const ai = counting();
     const s = testServices({ ai: { provider: ai.provider } });
     const ws = await outreachBusiness(owner, 'Outreach Words Facebook Co');
-    // Facebook only, as to start: none of the three has words to write.
+    // Facebook only, as to start: only Facebook's phrases, and works online (decision 141).
     const saved = await runAs(owner, ws, 'outreach.playbook.save', {
       name: 'Austin roofers',
       details: roofers(),
     });
     await drain(s, ws);
-    expect(ai.asks()).toBe(0);
-    expect(await detailsOf(saved.id)).toMatchObject({ wordsWritten: [], worksOnline: null });
+    expect(ai.asks()).toBe(1);
+    expect(await detailsOf(saved.id)).toMatchObject({
+      facebookSearches: ['missed calls', 'roofers tips'],
+      hashtags: [],
+      postSearches: [],
+      businessKinds: [],
+      worksOnline: false,
+      wordsWritten: ['facebook'],
+    });
 
-    // LinkedIn turned on: its words, and works online, now; Instagram's and Alignable's wait.
+    // LinkedIn turned on: its words now; Instagram's and Alignable's wait.
     await works(ws, 'linkedin');
     await drain(s, ws);
-    expect(ai.asks()).toBe(1);
+    expect(ai.asks()).toBe(2);
     expect(await detailsOf(saved.id)).toMatchObject({
       hashtags: [],
       postSearches: ['missed calls', 'roofers tips', 'hiring help'],
       businessKinds: [],
       worksOnline: false,
-      wordsWritten: ['linkedin'],
+      wordsWritten: ['facebook', 'linkedin'],
     });
   });
 
@@ -306,7 +316,7 @@ describe('the AI’s words for finding people by topic', () => {
     expect(await detailsOf(kept!.id)).toMatchObject({
       postSearches: ['missed calls', 'roofers tips', 'hiring help'],
       businessKinds: ['Roofers', 'Property Management'],
-      wordsWritten: ['instagram', 'linkedin', 'alignable'],
+      wordsWritten: ['facebook', 'instagram', 'linkedin', 'alignable'],
     });
 
     // Written: the next morning's lists ask nothing more.
@@ -340,7 +350,7 @@ describe('the AI’s words for finding people by topic', () => {
     expect(ai.asks()).toBe(WRITE_WORDS_BATCH + 2);
     for (const p of after)
       expect(await detailsOf(p.id)).toMatchObject({
-        wordsWritten: ['instagram', 'linkedin', 'alignable'],
+        wordsWritten: ['facebook', 'instagram', 'linkedin', 'alignable'],
       });
     const [waiting] = await rows<{ n: number }>(
       admin(),
@@ -366,7 +376,7 @@ describe('the AI’s words for finding people by topic', () => {
     await drain(s, ws);
     expect(ai.asks()).toBe(1);
     expect(await detailsOf(first.id)).toMatchObject({
-      wordsWritten: ['instagram', 'linkedin', 'alignable'],
+      wordsWritten: ['facebook', 'instagram', 'linkedin', 'alignable'],
     });
     expect(await detailsOf(second.id)).toMatchObject({ hashtags: [], wordsWritten: [] });
     // The rest come back hours later.

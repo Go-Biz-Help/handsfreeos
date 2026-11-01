@@ -87640,6 +87640,15 @@
                           true
                         ]
                       },
+                      "facebookSearches": {
+                        "maxItems": 12,
+                        "type": "array",
+                        "items": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 60
+                        }
+                      },
                       "hashtags": {
                         "maxItems": 30,
                         "type": "array",
@@ -87678,6 +87687,7 @@
                         "items": {
                           "type": "string",
                           "enum": [
+                            "facebook",
                             "instagram",
                             "linkedin",
                             "alignable"
@@ -88188,6 +88198,15 @@
                             true
                           ]
                         },
+                        "facebookSearches": {
+                          "maxItems": 12,
+                          "type": "array",
+                          "items": {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 60
+                          }
+                        },
                         "hashtags": {
                           "maxItems": 30,
                           "type": "array",
@@ -88226,6 +88245,7 @@
                           "items": {
                             "type": "string",
                             "enum": [
+                              "facebook",
                               "instagram",
                               "linkedin",
                               "alignable"
@@ -88810,6 +88830,15 @@
                             true
                           ]
                         },
+                        "facebookSearches": {
+                          "maxItems": 12,
+                          "type": "array",
+                          "items": {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 60
+                          }
+                        },
                         "hashtags": {
                           "maxItems": 30,
                           "type": "array",
@@ -88848,6 +88877,7 @@
                           "items": {
                             "type": "string",
                             "enum": [
+                              "facebook",
                               "instagram",
                               "linkedin",
                               "alignable"
@@ -91215,7 +91245,7 @@
     "/v1/commands/outreach.posts.save": {
       "post": {
         "operationId": "command_outreach_posts_save",
-        "summary": "Keep the posts in a Facebook group’s feed, or found by a network’s own search (LinkedIn’s post search, Instagram’s hashtags and places, Alignable’s town), that are worth a comment from the person: those saying a playbook’s signs or asking for help, or found under a playbook’s own hashtag or phrase, with who wrote them and the hashtag or phrase that found them, for the AI to check. Says how each post the page shows stands, for the extension to mark. Nobody goes in Contacts.",
+        "summary": "Keep the posts in a Facebook group’s feed, or found by a network’s own search (Facebook’s and LinkedIn’s post search, Instagram’s hashtags and places, Alignable’s town), that are worth a comment from the person: those saying a playbook’s signs or asking for help, or found under a playbook’s own hashtag or phrase, with who wrote them and the hashtag or phrase that found them, for the AI to check. Says how each post the page shows stands, for the extension to mark. Nobody goes in Contacts.",
         "tags": [
           "commands"
         ],
@@ -94164,6 +94194,13 @@
                         "string",
                         "null"
                       ]
+                    },
+                    "postWhole": {
+                      "default": null,
+                      "type": [
+                        "string",
+                        "null"
+                      ]
                     }
                   },
                   "required": [
@@ -94184,7 +94221,8 @@
                     "recent",
                     "postId",
                     "postUrl",
-                    "post"
+                    "post",
+                    "postWhole"
                   ],
                   "additionalProperties": false
                 }
@@ -205648,6 +205686,15 @@
                                   true
                                 ]
                               },
+                              "facebookSearches": {
+                                "maxItems": 12,
+                                "type": "array",
+                                "items": {
+                                  "type": "string",
+                                  "minLength": 1,
+                                  "maxLength": 60
+                                }
+                              },
                               "hashtags": {
                                 "maxItems": 30,
                                 "type": "array",
@@ -205686,6 +205733,7 @@
                                 "items": {
                                   "type": "string",
                                   "enum": [
+                                    "facebook",
                                     "instagram",
                                     "linkedin",
                                     "alignable"
@@ -209356,6 +209404,13 @@
                               "null"
                             ]
                           },
+                          "postWhole": {
+                            "default": null,
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
                           "likeComment": {
                             "type": "boolean"
                           },
@@ -209516,6 +209571,7 @@
                           "postUrl",
                           "posted",
                           "post",
+                          "postWhole",
                           "asking",
                           "why",
                           "summary",
@@ -209640,6 +209696,13 @@
                               "null"
                             ]
                           },
+                          "postWhole": {
+                            "default": null,
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
                           "likeComment": {
                             "type": "boolean"
                           },
@@ -209800,6 +209863,7 @@
                           "postUrl",
                           "posted",
                           "post",
+                          "postWhole",
                           "asking",
                           "why",
                           "summary",
@@ -211191,7 +211255,7 @@
     "/v1/queries/outreach.posts.words": {
       "post": {
         "operationId": "query_outreach_posts_words",
-        "summary": "The words the person’s computer searches a network’s posts with today, from the playbooks in use: their own phrases for the network’s post search first, a few a day in turn, else the quoted words in their signs, then their words for groups. With them, the hashtags a day’s look on Instagram opens (the playbooks’ own first, else ones made from their area and words), and the playbooks’ places, to tell a post tagged in the area.",
+        "summary": "The words the person’s computer searches a network’s posts with today, from the playbooks in use: their own phrases for the network’s post search first, a few a day in turn, else (off Facebook) the quoted words in their signs, then their words for groups. With them, the hashtags a day’s look on Instagram opens (the playbooks’ own first, else ones made from their area and words), and the playbooks’ places, to tell a post tagged in the area.",
         "tags": [
           "queries"
         ],
@@ -213152,6 +213216,13 @@
                               "string",
                               "null"
                             ]
+                          },
+                          "postWhole": {
+                            "default": null,
+                            "type": [
+                              "string",
+                              "null"
+                            ]
                           }
                         },
                         "required": [
@@ -213172,7 +213243,8 @@
                           "recent",
                           "postId",
                           "postUrl",
-                          "post"
+                          "post",
+                          "postWhole"
                         ],
                         "additionalProperties": false
                       }
@@ -215664,6 +215736,13 @@
                                       "string",
                                       "null"
                                     ]
+                                  },
+                                  "postWhole": {
+                                    "default": null,
+                                    "type": [
+                                      "string",
+                                      "null"
+                                    ]
                                   }
                                 },
                                 "required": [
@@ -215684,7 +215763,8 @@
                                   "recent",
                                   "postId",
                                   "postUrl",
-                                  "post"
+                                  "post",
+                                  "postWhole"
                                 ],
                                 "additionalProperties": false
                               }
@@ -215889,6 +215969,13 @@
                                       "string",
                                       "null"
                                     ]
+                                  },
+                                  "postWhole": {
+                                    "default": null,
+                                    "type": [
+                                      "string",
+                                      "null"
+                                    ]
                                   }
                                 },
                                 "required": [
@@ -215909,7 +215996,8 @@
                                   "recent",
                                   "postId",
                                   "postUrl",
-                                  "post"
+                                  "post",
+                                  "postWhole"
                                 ],
                                 "additionalProperties": false
                               }

@@ -18,6 +18,7 @@ import {
   groupDetailFacts,
   groupSave,
   groupsSave,
+  facebookSearchPostsSave,
   instagramPostsSave,
   isAdminsPage,
   isOwnGroupsPage,
@@ -434,6 +435,40 @@ describe('group posts', () => {
   it('sends nothing off a group’s feed', () => {
     expect(postsSave(read({ kind: 'feed', posts: [post(1)] }), WS)).toMatchObject({ ok: false });
     expect(postsSave(read({ kind: 'group', group, posts: [] }), WS)).toMatchObject({ ok: false });
+  });
+
+  it('sends the posts Facebook’s post search shows in no group, with the phrase, and none from past a week (decision 141)', () => {
+    const searched = read({
+      kind: 'search',
+      url: 'https://www.facebook.com/search/posts/?q=missed%20calls',
+      posts: [
+        post(1),
+        post(2, { when: '6d' }),
+        post(3, { when: '3w' }),
+        post(4, { when: 'March 3, 2024' }),
+        post(5, { when: null }),
+        post(6, { url: null }),
+      ],
+    });
+    const built = facebookSearchPostsSave(searched, WS, '  missed calls ');
+    expect(built.ok).toBe(true);
+    if (!built.ok) return;
+    expect(built.input).toMatchObject({
+      workspaceId: WS,
+      platform: 'facebook',
+      group: null,
+      found: 'search',
+      words: 'missed calls',
+    });
+    expect(built.input.posts.map((p) => p.url.slice(-8))).toEqual([
+      '/100001/',
+      '/100002/',
+      '/100005/',
+    ]);
+    // Only off Facebook's search.
+    expect(
+      facebookSearchPostsSave(read({ kind: 'group', group, posts: [post(1)] }), WS, 'missed calls'),
+    ).toMatchObject({ ok: false });
   });
 });
 

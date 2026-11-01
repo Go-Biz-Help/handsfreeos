@@ -75,6 +75,7 @@ import {
   TodayDraftInput,
   todayDraftPrompt,
   unansweredOf,
+  withoutStockPraise,
   type CustomerDraftKind,
   type DraftOffer,
   type TodayDraftOutput,
@@ -491,14 +492,18 @@ export const todayDraft: AddonWorkerAction<TodayDraftInput> = {
         DRAFTS_FOR[kind],
         found.voice.split && !underAPost(kind) && kind !== 'warm_lead' && kind !== 'opener',
       );
-      // To their Requests: only one short text with no link goes. A comment that waits to be posted (Instagram's and
-      // Alignable's, decision 92) never carries a link, and on Instagram no hashtag, within its 30 words; nor does a
-      // birthday or new-job note (decision 108), nor a reply in a group (decision 114).
+      // To their Requests: only one short text with no link goes. A comment opens with no stock praise (decision 141:
+      // a "Great post!" before its point goes), and one that waits to be posted (Instagram's and Alignable's, decision
+      // 92) never carries a link, and on Instagram no hashtag, within its 30 words; nor does a birthday or new-job note
+      // (decision 108), nor a reply in a group (decision 114).
       const drafts =
         toRequests && kind === 'opener'
           ? checked.filter(fitsRequests)
           : kind === 'comment'
-            ? checked.filter((d) => fitsComment(d, platform))
+            ? checked.flatMap((d) => {
+                const said = withoutStockPraise(d);
+                return said && fitsComment(said, platform) ? [said] : [];
+              })
             : kind === 'group_reply'
               ? checked.filter(fitsGroupReply)
               : isOccasionKind(kind)

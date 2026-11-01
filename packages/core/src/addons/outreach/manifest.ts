@@ -27,8 +27,9 @@ export const outreachAddon = defineAddon({
   // 7: a playbook runs on its own networks only; a customers' playbook saved before gets Facebook and LinkedIn, as it
   // ran on both. 8: a playbook has each network's own words (hashtags on Instagram, LinkedIn's post searches, kinds of
   // business on Alignable), whether it works with clients online, and which networks' words the AI wrote; empty on one
-  // saved before.
-  dataVersion: 8,
+  // saved before. 9: a playbook has phrases for Facebook's post search, and the AI's hashtags and LinkedIn phrases,
+  // written before around who it's for, are written again around its topic (decision 141).
+  dataVersion: 9,
   catalog: {
     status: 'development',
     // The words someone uses when they need it: what recommendations and the AI's search match on.

@@ -114,6 +114,7 @@ import { playbooksInUse } from './friends';
 import { readinessFor } from './readiness';
 import { groupFitOf } from './group-checks';
 import { sendsToday } from './sends';
+import { postParts } from '../sends';
 import { slowsNow, startOfToday, warningOf } from './tidy';
 import { cancelMostNow } from '../tidy';
 
@@ -385,6 +386,7 @@ export const today = defineAddonQuery(outreachAddon, {
       postUrl: null,
       posted: null,
       post: null,
+      postWhole: null,
       asking: false,
       why: [],
       summary: null,
@@ -516,10 +518,7 @@ export const today = defineAddonQuery(outreachAddon, {
           profileId: w.id,
           profileUrl: w.url,
           postUrl: w.post_url,
-          post:
-            w.comment!.length > TODAY_POST_MOST
-              ? `${w.comment!.slice(0, TODAY_POST_MOST - 1).trimEnd()}…`
-              : w.comment,
+          ...shownPost(w.comment!),
           why: [did(w)],
           playbookName: w.playbook_name,
         }),
@@ -830,7 +829,7 @@ export const today = defineAddonQuery(outreachAddon, {
                     postId: p.post_id,
                     postUrl: p.post_url,
                     posted: p.posted,
-                    post: p.body === null ? null : shownPost(p.body),
+                    ...(p.body === null ? {} : shownPost(p.body)),
                     ...(comment ? { likeComment: true } : {}),
                   }
                 : {}),
@@ -1792,19 +1791,14 @@ export const today = defineAddonQuery(outreachAddon, {
             postId: po.id,
             postUrl: po.url,
             posted: po.posted,
-            post:
-              po.body.length > TODAY_POST_MOST
-                ? `${po.body.slice(0, TODAY_POST_MOST - 1).trimEnd()}…`
-                : po.body,
+            ...shownPost(po.body),
             asking: po.strong,
             why: [
               ...(po.check_why ? [po.check_why] : []),
-              // A post off a group, from LinkedIn's post search, is on the network itself.
+              // A post off a group, from Facebook's or LinkedIn's post search (decision 141), is on the network itself.
               ...(po.group_name
                 ? [`In ${po.group_name}`]
-                : input.platform === 'facebook'
-                  ? []
-                  : [`On ${NETWORKS[input.platform].name}`]),
+                : [`On ${NETWORKS[input.platform].name}`]),
             ],
             playbookName: po.playbook_name,
           }),
@@ -1854,7 +1848,7 @@ export const today = defineAddonQuery(outreachAddon, {
             postId: po.id,
             postUrl: po.url,
             posted: po.posted,
-            post: shownPost(po.body),
+            ...shownPost(po.body),
             why: [GROUP_REPLY_WORDS.asked(po.group_name)],
           }),
         );
@@ -2079,9 +2073,8 @@ export const today = defineAddonQuery(outreachAddon, {
   },
 });
 
-/** A post as Today shows it: cut short at `TODAY_POST_MOST`. */
-const shownPost = (body: string): string =>
-  body.length > TODAY_POST_MOST ? `${body.slice(0, TODAY_POST_MOST - 1).trimEnd()}…` : body;
+/** A post as Today shows it: cut short at `TODAY_POST_MOST`, with the whole of it for More (decision 141). */
+const shownPost = (body: string) => postParts(body, TODAY_POST_MOST);
 
 /** Someone found by topic whose AI check was good (decision 92), as Today weighs them. */
 type FoundGood = {

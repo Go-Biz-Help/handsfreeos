@@ -11,12 +11,17 @@
  * Since 2026 a post's time in a group's feed has no address until it's pointed at, so a post with no comments was read
  * with no link and never kept (4 posts in a week). From 0.119.0 (decision 138) each screen's times are pointed at
  * first, as a mouse passing over would, and Facebook fills in each post's address before the read (`readPointed`).
+ *
+ * **Facebook's post search** (decision 141, from 0.121.0): after the groups, the once-a-day Find posts searches
+ * Facebook's posts, recent ones first, with the day's few phrases from the playbooks (their own, about their topic),
+ * a few screens of each, and sends them the same way, in no group (`searchPosts`).
  */
 import { WATCH_SCREENS } from '@hfos/core/addons/outreach/posts';
 import { groupsToWork as pickGroups } from '@hfos/core/addons/outreach/results';
 import type { ReadResult } from '../networks/facebook/types';
 import type { GroupsList } from '../hfos/messages';
 import { counted } from '../words';
+import { facebookPostSearch } from './partner-search';
 import { pause, paced, readIn, valueOf, warnedOn, type Job, type JobEnd } from './job';
 
 /** The most groups one Find posts goes through, and screens it scrolls in each. */
@@ -90,6 +95,52 @@ export async function findPosts(
 async function readPointed(job: Job): Promise<ReadResult> {
   if ((await job.tab.ask({ type: 'hfos-point-times' })).ok) await pause(POINT_MS);
   return readIn(job.tab);
+}
+
+/** Screens of each of Facebook's post searches it reads (decision 141). */
+export const POST_SEARCH_SCREENS = 3;
+/** Between searches: a person typing the next. */
+const SEARCH_PACE_MS = [15_000, 30_000] as const;
+/** Facebook's own Recent posts filter on its post search, as its link carries it. */
+const RECENT_POSTS = btoa(
+  JSON.stringify({ 'recent_posts:0': JSON.stringify({ name: 'recent_posts', args: '' }) }),
+);
+
+/** Facebook's post search for a phrase, with its Recent posts filter on: a comment on an old post comes too late. */
+export const recentPostSearch = (words: string) =>
+  `${facebookPostSearch(words)}&filters=${encodeURIComponent(RECENT_POSTS)}`;
+
+/**
+ * Searches Facebook's posts with each of the day's phrases (decision 141), recent ones first, and sends each screen's
+ * posts with `send`, which says how many went to the AI to check: how many phrases it searched with, and how many
+ * posts it sent; or the day's end on a warning.
+ */
+export async function searchPosts(
+  job: Job,
+  words: readonly string[],
+  send: (page: ReadResult, words: string) => Promise<number>,
+): Promise<{ readonly searched: number; readonly checking: number } | JobEnd> {
+  let checking = 0;
+  let searched = 0;
+  for (const [w, said] of words.entries()) {
+    if (job.stopped()) break;
+    job.progress(
+      `Searching Facebook’s posts for “${said}”… ${counted(checking, 'post')} sent to check so far.`,
+    );
+    await job.tab.open(recentPostSearch(said));
+    for (let screen = 0; screen < POST_SEARCH_SCREENS && !job.stopped(); screen++) {
+      const page = await readPointed(job);
+      const warned = await warnedOn(job, page);
+      if (warned) return warned;
+      checking += await send(page, said);
+      if (screen === POST_SEARCH_SCREENS - 1) break;
+      if (!(await job.tab.ask({ type: 'hfos-scroll-page' })).ok) break;
+      await pause(paced(PACE_MS));
+    }
+    searched++;
+    if (!job.stopped() && w < words.length - 1) await pause(paced(SEARCH_PACE_MS));
+  }
+  return { searched, checking };
 }
 
 /** A group's feed with the newest posts first, as Facebook's own New posts sort opens it. */
