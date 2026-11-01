@@ -108,6 +108,7 @@ import { ChatSoFar } from './chat-bubbles';
 import { Drafted } from './drafted';
 import { HelpfulCard } from './helpful-card';
 import { PersonName } from './person-menu';
+import { PostQuote } from './post-quote';
 import { GoalNote, goalNoteOn } from './goal-note';
 import { OutreachCounters } from './counters';
 import { TeamCard } from './live-view';
@@ -717,13 +718,12 @@ function TodayRow({
         </span>
       </div>
       {item.post ? (
-        <blockquote
-          className="mt-1.5 whitespace-pre-wrap border-l-2 border-border pl-3 text-[13px] text-text-2"
-          data-testid="today-post"
-        >
-          {item.post}
-          {item.posted ? <span className="text-text-3"> · {item.posted}</span> : null}
-        </blockquote>
+        <PostQuote
+          post={item.post}
+          whole={item.postWhole}
+          posted={item.posted}
+          testId="today-post"
+        />
       ) : null}
       {item.summary ? <p className="mt-1.5 text-[13px] text-text">{item.summary}</p> : null}
       {item.nextStep ? (

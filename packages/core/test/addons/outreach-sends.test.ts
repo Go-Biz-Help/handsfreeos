@@ -30,7 +30,9 @@ import {
   goesAsItIs,
   handedOver,
   handOverPushWords,
+  postParts,
   postStartOf,
+  SEND_POST_MOST,
   replyNeedsYou,
 } from '../../src/addons/outreach/sends';
 import { computerOn, outreachBusiness, refused, runAs } from './outreach-fixture';
@@ -146,6 +148,14 @@ describe('training wheels', () => {
     expect(postStartOf('  Short post.  ')).toBe('Short post.');
     expect(postStartOf('word '.repeat(80))).toMatch(/^word word .*…$/);
     expect(postStartOf('word '.repeat(80)).length).toBeLessThanOrEqual(200);
+    // With the whole post for More when it's cut short, and none when the start is all of it (decision 141).
+    expect(postParts('  Short post.  ', SEND_POST_MOST)).toEqual({
+      post: 'Short post.',
+      postWhole: null,
+    });
+    const long = postParts(`  ${'word '.repeat(80)}`, SEND_POST_MOST);
+    expect(long.post).toBe(postStartOf('word '.repeat(80)));
+    expect(long.postWhole).toBe('word '.repeat(80).trim());
   });
 
   it('know a reply that needs the person, as the AI teammate does', () => {

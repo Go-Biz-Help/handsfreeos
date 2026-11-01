@@ -352,6 +352,41 @@ describe('Waiting for you on the phone', () => {
     expect(await shown({ ...SERVER, commentHolds: ['alignable'] })).toBe(false);
   });
 
+  it('shows a post cut short with More, which shows the whole post, and Less folds it (decision 141)', async () => {
+    const whole = `Fresh sourdough out of the oven. ${'We proof it overnight in the cold. '.repeat(8)}Ask me anything!`;
+    const start = `${whole.slice(0, 199).trimEnd()}…`;
+    const phone = waitingOfCopy(
+      [
+        sendRow(2, {
+          kind: 'comment',
+          name: 'Avery Cole',
+          profile_url: 'https://www.instagram.com/avery.cole.bakes/',
+        }),
+      ],
+      ME,
+    );
+    await render(
+      <WaitingBody
+        phone={phone}
+        server={{
+          ...SERVER,
+          posts: new Map([[id(2), { post: start, postWhole: whole, postUrl: null }]]),
+        }}
+        serverError={null}
+        online
+        timeZone={TZ}
+        now={NOW}
+        {...handlers()}
+      />,
+    );
+    const post = screen.getByTestId('waiting-comment-post');
+    expect(post).toHaveTextContent(`${start} ${W.postMore}`);
+    await fireEvent.press(screen.getByTestId('waiting-comment-post-more'));
+    expect(post).toHaveTextContent(`${whole} ${W.postLess}`);
+    await fireEvent.press(screen.getByTestId('waiting-comment-post-more'));
+    expect(post).toHaveTextContent(`${start} ${W.postMore}`);
+  });
+
   it('shows a comment with no signal, without its post', async () => {
     const phone = waitingOfCopy(
       [

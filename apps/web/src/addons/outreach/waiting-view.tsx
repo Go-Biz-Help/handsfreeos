@@ -78,6 +78,7 @@ import { KeepChatButton } from './chat-keep';
 import { UnsureCountryCard } from './country-skipped';
 import { NetworkName } from './network-ui';
 import { PersonName } from './person-menu';
+import { PostQuote } from './post-quote';
 import { Drafted } from './drafted';
 import type { Waiting, WaitingItem } from './types';
 import { useAct } from './use-act';
@@ -410,12 +411,7 @@ function CommentRow({ workspaceId, item }: { workspaceId: string; item: SendItem
         ) : null}
       </div>
       {send.post ? (
-        <blockquote
-          className="mt-1.5 whitespace-pre-wrap border-l-2 border-border pl-3 text-[13px] text-text-2"
-          data-testid="waiting-comment-post"
-        >
-          {send.post}
-        </blockquote>
+        <PostQuote post={send.post} whole={send.postWhole} testId="waiting-comment-post" />
       ) : null}
       <Drafted workspaceId={workspaceId} name={send.name} send={send} comment={platform} />
     </div>

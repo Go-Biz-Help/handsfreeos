@@ -94000,6 +94000,13 @@
                         "string",
                         "null"
                       ]
+                    },
+                    "postWhole": {
+                      "default": null,
+                      "type": [
+                        "string",
+                        "null"
+                      ]
                     }
                   },
                   "required": [
@@ -94020,7 +94027,8 @@
                     "recent",
                     "postId",
                     "postUrl",
-                    "post"
+                    "post",
+                    "postWhole"
                   ],
                   "additionalProperties": false
                 }
@@ -208974,6 +208982,13 @@
                               "null"
                             ]
                           },
+                          "postWhole": {
+                            "default": null,
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
                           "likeComment": {
                             "type": "boolean"
                           },
@@ -209134,6 +209149,7 @@
                           "postUrl",
                           "posted",
                           "post",
+                          "postWhole",
                           "asking",
                           "why",
                           "summary",
@@ -209258,6 +209274,13 @@
                               "null"
                             ]
                           },
+                          "postWhole": {
+                            "default": null,
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
                           "likeComment": {
                             "type": "boolean"
                           },
@@ -209418,6 +209441,7 @@
                           "postUrl",
                           "posted",
                           "post",
+                          "postWhole",
                           "asking",
                           "why",
                           "summary",
@@ -212770,6 +212794,13 @@
                               "string",
                               "null"
                             ]
+                          },
+                          "postWhole": {
+                            "default": null,
+                            "type": [
+                              "string",
+                              "null"
+                            ]
                           }
                         },
                         "required": [
@@ -212790,7 +212821,8 @@
                           "recent",
                           "postId",
                           "postUrl",
-                          "post"
+                          "post",
+                          "postWhole"
                         ],
                         "additionalProperties": false
                       }
@@ -215282,6 +215314,13 @@
                                       "string",
                                       "null"
                                     ]
+                                  },
+                                  "postWhole": {
+                                    "default": null,
+                                    "type": [
+                                      "string",
+                                      "null"
+                                    ]
                                   }
                                 },
                                 "required": [
@@ -215302,7 +215341,8 @@
                                   "recent",
                                   "postId",
                                   "postUrl",
-                                  "post"
+                                  "post",
+                                  "postWhole"
                                 ],
                                 "additionalProperties": false
                               }
@@ -215507,6 +215547,13 @@
                                       "string",
                                       "null"
                                     ]
+                                  },
+                                  "postWhole": {
+                                    "default": null,
+                                    "type": [
+                                      "string",
+                                      "null"
+                                    ]
                                   }
                                 },
                                 "required": [
@@ -215527,7 +215574,8 @@
                                   "recent",
                                   "postId",
                                   "postUrl",
-                                  "post"
+                                  "post",
+                                  "postWhole"
                                 ],
                                 "additionalProperties": false
                               }

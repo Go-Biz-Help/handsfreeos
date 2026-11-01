@@ -304,6 +304,7 @@ const item: TodayItem = {
   postUrl: null,
   posted: null,
   post: null,
+  postWhole: null,
   asking: false,
   why: ['Owner at Lane Plumbing'],
   summary: null,

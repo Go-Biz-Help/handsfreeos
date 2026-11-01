@@ -3434,6 +3434,18 @@ where decisions 37 and 59 put the settings; what they decided stands. Settled to
         "Counted since Oct 31." (`countedSinceWords`). Counts are kept 400 days (`TALLY_KEEP_DAYS`, the worker's
         nightly prune).
 
+141.  **Comments that sound like an expert, on posts that fit the playbook** (Chris, 1 Nov 2026: "the comments that
+      the social outreach extension is suggesting are very robotic and don’t make me sound like an expert in my field.
+      the posts we respond to should be related to the playbook so it should be searching for posts using keywords and
+      phrases related. also when it shows the suggested comment it should show a more option to show the whole post
+      instead of cutting it off"). No migration and no new extension.
+      - **More on a post cut short.** Today shows a post's first 280 characters (`TODAY_POST_MOST`) and Waiting for you
+        a comment's first 200 (`SEND_POST_MOST`), as before; when that cuts it short, **More** right after the words
+        shows the whole post in place (all of it HandsFreeOS kept, up to `POST_TEXT_MOST`), and **Less** folds it back,
+        on the web and the phone (`post-quote.tsx` in each). Both answers carry the whole post as `postWhole` beside
+        `post`, only when `post` was cut (`postParts` in `sends.ts`), so phones from before it show the start alone, as
+        they did. An answer to a comment on the person's own post (`warm_lead`) does the same with the comment.
+
 ## Rules worth knowing before changing anything
 
 - **Nothing is saved until the person presses a button in HandsFreeOS** (an ask, below), except the four steps the

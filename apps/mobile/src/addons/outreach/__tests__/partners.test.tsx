@@ -201,6 +201,7 @@ const step = (kind: TodayItem['kind'], over: Partial<TodayItem> = {}): TodayItem
   postUrl: null,
   posted: null,
   post: null,
+  postWhole: null,
   asking: false,
   why: ['Group admin: About 4,200 Austin homeowners'],
   summary: null,

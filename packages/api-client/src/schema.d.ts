@@ -45383,6 +45383,8 @@ export interface operations {
                         post: string | null;
                         postId: string | null;
                         postUrl: string | null;
+                        /** @default null */
+                        postWhole: string | null;
                         /** Format: uuid */
                         profileId: string;
                         profileUrl: string | null;
@@ -79266,6 +79268,8 @@ export interface operations {
                             post: string | null;
                             postId: string | null;
                             postUrl: string | null;
+                            /** @default null */
+                            postWhole: string | null;
                             /** Format: uuid */
                             profileId: string;
                             profileUrl: string | null;
@@ -79621,6 +79625,8 @@ export interface operations {
                             posted: string | null;
                             postId: string | null;
                             postUrl: string | null;
+                            /** @default null */
+                            postWhole: string | null;
                             profileId: string | null;
                             profileUrl: string | null;
                             recent: {
@@ -79689,6 +79695,8 @@ export interface operations {
                             posted: string | null;
                             postId: string | null;
                             postUrl: string | null;
+                            /** @default null */
+                            postWhole: string | null;
                             profileId: string | null;
                             profileUrl: string | null;
                             recent: {
@@ -79973,6 +79981,8 @@ export interface operations {
                                 post: string | null;
                                 postId: string | null;
                                 postUrl: string | null;
+                                /** @default null */
+                                postWhole: string | null;
                                 /** Format: uuid */
                                 profileId: string;
                                 profileUrl: string | null;
@@ -80014,6 +80024,8 @@ export interface operations {
                                 post: string | null;
                                 postId: string | null;
                                 postUrl: string | null;
+                                /** @default null */
+                                postWhole: string | null;
                                 /** Format: uuid */
                                 profileId: string;
                                 profileUrl: string | null;

@@ -145,17 +145,33 @@ export const Send = z.object({
   postId: z.uuid().nullable(),
   postUrl: z.string().nullable(),
   post: z.string().nullable(),
+  /**
+   * The whole post, when `post` is cut short: **More** shows it in place (decision 141). Null when `post` is all of it,
+   * or for a message; left out by servers from before it, and read as null.
+   */
+  postWhole: z.string().nullable().default(null),
 });
 export type Send = z.output<typeof Send>;
 
 /** How much of a comment's post shows above it in Waiting for you. */
 export const SEND_POST_MOST = 200;
 
-/** A post's first words, as a comment waiting shows them: cut short at `SEND_POST_MOST`. */
-export const postStartOf = (body: string): string => {
+/**
+ * A post as a card shows it (decision 141): its first words, cut short at `most`, and the whole of it for **More** when
+ * they were cut, else null.
+ */
+export function postParts(
+  body: string,
+  most: number,
+): { readonly post: string; readonly postWhole: string | null } {
   const t = body.trim();
-  return t.length > SEND_POST_MOST ? `${t.slice(0, SEND_POST_MOST - 1).trimEnd()}…` : t;
-};
+  return t.length > most
+    ? { post: `${t.slice(0, most - 1).trimEnd()}…`, postWhole: t }
+    : { post: t, postWhole: null };
+}
+
+/** A post's first words, as a comment waiting shows them: cut short at `SEND_POST_MOST`. */
+export const postStartOf = (body: string): string => postParts(body, SEND_POST_MOST).post;
 
 /** The extension drafted a message, or a comment, for someone on today's list: it waits, or goes as it is. */
 export const SendQueueInput = z

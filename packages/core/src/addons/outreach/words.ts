@@ -344,6 +344,9 @@ export const OUTREACH_WORDS = {
   doneTodayAbout: 'On every network, newest first.',
   /** Done today shows its first steps, then the rest in place. */
   doneTodayMore: (n: number) => `Show ${things(n, 'more step', 'more steps')}`,
+  /** A post cut short above a comment, on Today and Waiting for you: More shows the whole post, Less folds it (decision 141). */
+  postMore: 'More',
+  postLess: 'Less',
   /** Today's one card for what to know: warnings, holds and notes, each a line (decision 127). */
   headsUp: 'Heads up',
   /** Today's line to Needs you, which has its own page (decision 127). */

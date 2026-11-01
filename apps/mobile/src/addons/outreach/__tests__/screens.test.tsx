@@ -216,6 +216,7 @@ const post = (n: number, name: string, asking: boolean): TodayItem => ({
   postUrl: `https://www.facebook.com/groups/1/posts/${n}/`,
   posted: '20m',
   post: asking ? 'Looking for a CRM for my crew, who do you use?' : 'Any tips for slow months?',
+  postWhole: null,
   asking,
   why: [],
   summary: null,

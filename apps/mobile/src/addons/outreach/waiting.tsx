@@ -70,6 +70,7 @@ import { ChatBubbles } from './chat-bubbles';
 import { useOutreachWaiting } from './copy';
 import { NetworkName } from './networks';
 import { PersonMenuScope, PersonName } from './person-menu';
+import { PostQuote } from './post-quote';
 import {
   NeedsSignal,
   Note,
@@ -124,9 +125,10 @@ export interface WaitingFromServer {
   readonly posts?: ReadonlyMap<string, CommentPost>;
 }
 
-/** A comment's post, as HandsFreeOS says it: its first words, and where it is. */
+/** A comment's post, as HandsFreeOS says it: its first words, the whole of it when they're cut short, and where it is. */
 export interface CommentPost {
   readonly post: string | null;
+  readonly postWhole?: string | null;
   readonly postUrl: string | null;
 }
 
@@ -140,7 +142,12 @@ export function serverPart(answer: WaitingOutput): WaitingFromServer {
     posts: new Map(
       answer.items.flatMap((i) =>
         i.kind === 'message' && underAPost(i.send.kind)
-          ? [[i.send.sendId, { post: i.send.post, postUrl: i.send.postUrl }] as const]
+          ? [
+              [
+                i.send.sendId,
+                { post: i.send.post, postWhole: i.send.postWhole, postUrl: i.send.postUrl },
+              ] as const,
+            ]
           : [],
       ),
     ),
@@ -643,12 +650,13 @@ function SendCard({
         </Text>
       ) : null}
       {comment && post?.post ? (
-        <Text
+        // More shows the whole post when it's cut short (decision 141).
+        <PostQuote
+          post={post.post}
+          whole={post.postWhole}
           className="border-l-2 border-border pl-3 text-[13.5px] leading-[19px] text-text-2"
           testID="waiting-comment-post"
-        >
-          {post.post}
-        </Text>
+        />
       ) : null}
       {recent.length ? (
         <View className="gap-1">

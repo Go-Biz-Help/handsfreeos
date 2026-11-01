@@ -234,6 +234,11 @@ export const TodayItem = z.object({
   posted: z.string().nullable(),
   post: z.string().nullable(),
   /**
+   * The whole post (or for an answer to a comment, the whole comment) when `post` is cut short: **More** shows it in
+   * place (decision 141). Null when `post` is all of it; left out by servers from before it, and read as null.
+   */
+  postWhole: z.string().nullable().default(null),
+  /**
    * For a warm-up of someone found by their comment on a good post (decision 116): the like goes on their comment
    * there, found again by who wrote it on the post's own page (`postUrl`), not on the post. Left out otherwise, and by
    * builds of the phone from before it: read as not.
