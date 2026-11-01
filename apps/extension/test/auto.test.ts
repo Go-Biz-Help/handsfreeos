@@ -109,6 +109,18 @@ describe('what it does next', () => {
       itemsLeft(list, ['friend_request', 'comment'], [itemKey(request)]).map((i) => i.name),
     ).toEqual(['Sam Carter']);
     expect(itemsLeft([item({ profileUrl: null })], all, [])).toEqual([]);
+    // Tried again from Steps it needs you for (decision 143): once more for each time it's put back, though it was
+    // tried today.
+    const back = {
+      ...request,
+      retry: { needId: '7b6f5c4d-3e2a-4b1c-8d9e-0f1a2b3c4d5e', at: '2026-11-01T22:00:00.000Z' },
+    };
+    expect(itemKey(back)).not.toBe(itemKey(request));
+    expect(itemsLeft([back], all, [itemKey(request)]).map((i) => i.name)).toEqual(['Dana Reyes']);
+    expect(itemsLeft([back], all, [itemKey(request), itemKey(back)])).toEqual([]);
+    expect(itemKey({ ...back, retry: { ...back.retry, at: '2026-11-02T09:00:00.000Z' } })).not.toBe(
+      itemKey(back),
+    );
     // A post asking for what the business offers goes before everything (decision 49).
     const asking = {
       ...post,

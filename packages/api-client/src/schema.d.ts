@@ -8097,6 +8097,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/commands/outreach.need.retry": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * The person tries again steps the extension handed to them, from Steps it needs you for: one (Retry), or with none named every one there (Retry all); the extension does Retry all on its own once after it’s updated, all but messages and comments that didn’t go, which could go twice. A message or comment that didn’t go goes again as it was, OK’d, a few minutes after the one before; any other step (a friend or connection request, a confirm, a like before a request, a comment it writes itself) goes back on the list for today on its network, ahead of new ones, for the extension’s next go. Each leaves Steps it needs you for, and comes back if it can’t be done again.
+         * @description Risk level 1. Requires outreach.use. Emits outreach.send.approved, outreach.need.cleared.
+         */
+        post: operations["command_outreach_need_retry"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/commands/outreach.occasions.save": {
         parameters: {
             query?: never;
@@ -43709,6 +43729,45 @@ export interface operations {
             };
         };
     };
+    command_outreach_need_retry: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** @default null */
+                    needIds?: string[] | null;
+                    /** @default true */
+                    sends?: boolean;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        passed: number;
+                        retried: {
+                            /** Format: date-time */
+                            at: string;
+                            /** Format: uuid */
+                            needId: string;
+                        }[];
+                    };
+                };
+            };
+        };
+    };
     command_outreach_occasions_save: {
         parameters: {
             query?: never;
@@ -47713,6 +47772,8 @@ export interface operations {
                                 on: string | null;
                                 went: boolean;
                             }[];
+                            /** @default null */
+                            notLooked?: ("looks_used" | "no_view" | "not_asked" | "no_answer") | null;
                             /** @enum {string} */
                             result: "fixed_itself" | "done_by_helper" | "reported";
                             said: string;
@@ -79800,6 +79861,12 @@ export interface operations {
                                 text: string;
                             }[];
                             requests?: boolean;
+                            retry?: {
+                                /** Format: date-time */
+                                at: string;
+                                /** Format: uuid */
+                                needId: string;
+                            };
                             send: {
                                 handedOver: boolean;
                                 needsYou: string | null;
@@ -79870,6 +79937,12 @@ export interface operations {
                                 text: string;
                             }[];
                             requests?: boolean;
+                            retry?: {
+                                /** Format: date-time */
+                                at: string;
+                                /** Format: uuid */
+                                needId: string;
+                            };
                             send: {
                                 handedOver: boolean;
                                 needsYou: string | null;
@@ -82552,6 +82625,8 @@ export interface operations {
                                 on: string | null;
                                 went: boolean;
                             }[];
+                            /** @default null */
+                            notLooked: ("looks_used" | "no_view" | "not_asked" | "no_answer") | null;
                             /** @enum {string} */
                             result: "fixed_itself" | "done_by_helper" | "reported";
                             said: string;

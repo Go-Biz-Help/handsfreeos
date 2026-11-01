@@ -55,6 +55,7 @@ import { follow, loadSettings } from '../hfos/follow';
 import { feed, keptFor, onBeat, type Kept } from '../hfos/live';
 import type { Drafts, TodayList, TodayListItem } from '../hfos/messages';
 import { isNoting, noteNeed, takeNote } from '../hfos/noting';
+import { clearRetried, handsOver, retryAfterUpdate } from './retry';
 import { chatCollect } from '../hfos/saves';
 import { answer, api, call, Refused, savingTo } from '../hfos/session';
 import { keepWarning, warnedNow, warningInput } from '../hfos/warned';
@@ -283,6 +284,8 @@ type Outcome =
       readonly need?: true;
       /** Worth the AI helper's look though it isn't handed over: a like it couldn't press (decision 142). */
       readonly look?: true;
+      /** Found done already (connected, asked, friends already): nothing's left to do, so it's no failure (decision 143). */
+      readonly skip?: true;
       /** What the AI helper did inside the step, for its report (decision 142). */
       readonly helper?: ProblemHelper;
     }
@@ -600,7 +603,8 @@ async function accept(item: TodayListItem, businessId: string): Promise<Outcome>
   const opened = await openProfile(item, businessId);
   if ('outcome' in opened) return opened.outcome;
   const standing = opened.page.profile!.connection;
-  if (standing === 'connected') return { done: false, line: `${item.name}: connected already` };
+  if (standing === 'connected')
+    return { done: false, line: `${item.name}: connected already`, skip: true };
   if (standing !== 'received')
     return { done: false, line: `${item.name}: no invitation of theirs waiting` };
   const pressAccept = async () => {
@@ -633,7 +637,8 @@ async function accept(item: TodayListItem, businessId: string): Promise<Outcome>
       need: true,
       helper: await help.end(false),
     };
-  if (result === 'already') return { done: false, line: `${item.name}: connected already` };
+  if (result === 'already')
+    return { done: false, line: `${item.name}: connected already`, skip: true };
   if (result !== 'done' || page.profile?.connection === 'received')
     return {
       done: false,
@@ -663,7 +668,8 @@ async function invite(item: TodayListItem, businessId: string): Promise<Outcome>
   const opened = await openProfile(item, businessId);
   if ('outcome' in opened) return opened.outcome;
   const standing = opened.page.profile!.connection;
-  if (standing === 'pending') return { done: false, line: `${item.name}: invited already` };
+  if (standing === 'pending')
+    return { done: false, line: `${item.name}: invited already`, skip: true };
   if (STANDING[standing])
     return {
       done: false,
@@ -695,7 +701,8 @@ async function invite(item: TodayListItem, businessId: string): Promise<Outcome>
   const page = await read();
   const stop = await warnedOn(page, businessId);
   if (stop) return { stop };
-  if (result === 'already') return { done: false, line: `${item.name}: invited already` };
+  if (result === 'already')
+    return { done: false, line: `${item.name}: invited already`, skip: true };
   if (result === 'none')
     return {
       done: false,
@@ -1154,6 +1161,8 @@ async function go(): Promise<void> {
     return closeWindow();
   }
   void follow(() => void tick()).catch(() => undefined);
+  // Updated since it last went: what was handed over before is tried again, once (decision 143).
+  await retryAfterUpdate(to.businessId);
   const { settings, timezone } = found;
   const choices = settings.networks.linkedin;
   let state = await stateNow();
@@ -1482,10 +1491,12 @@ async function workNext(
   }
   await say(outcome.line);
   const need =
-    'need' in outcome && work.do === 'step'
+    work.do === 'step' && handsOver(item, outcome)
       ? needOf(item, outcome.line, businessId, helped.reportId)
       : null;
   if (need) void noteNeed(need);
+  // A step tried again that it found done already is cleared (decision 143).
+  if (work.do === 'step') void clearRetried(item, outcome, businessId);
   void feed(outcome.done ? 'done' : 'passed', `${NAME}: ${outcome.line}`);
   if (stopAsked) {
     await closeWindow();

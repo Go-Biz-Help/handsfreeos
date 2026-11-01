@@ -930,6 +930,7 @@ describe('a follow on Instagram', () => {
     expect(await doWork({ do: 'step', item: item({}) }, ME.businessId, true)).toEqual({
       done: false,
       line: 'Dana Reyes: you follow them already, or asked to',
+      skip: true,
     });
     vi.useFakeTimers({ toFake: ['setTimeout'] });
     try {

@@ -23,6 +23,7 @@ import {
 import type { Platform } from '@hfos/core/addons/outreach/networks';
 import {
   HELPER_MOVES_MOST,
+  type HelperNotLooked,
   type HelperResult,
   type ProblemHelper,
 } from '@hfos/core/problem-report';
@@ -105,19 +106,28 @@ async function waysFor(
     workspaceId: businessId,
     input: { platform },
   });
-  const ways = asked.ok ? asked.value.ways : [];
+  // An answer without its list (an older worker's) is none, kept as none for the hour.
+  const ways = asked.ok && Array.isArray(asked.value?.ways) ? asked.value.ways : [];
   waysKept.set(platform, { at: Date.now(), ways });
   return ways;
 }
 
-/** A report's helper part that looked nowhere: the AI couldn't be asked, or the day's looks are used. */
-const notLooked = (moves: ProblemHelper['moves'] = []): ProblemHelper => ({
+/**
+ * A report's helper part that looked nowhere, and why when it didn't (decision 143): the day's looks used, the page
+ * unread, the AI not asked or HandsFreeOS not answering, with HandsFreeOS's words for the last two (`said`).
+ */
+const notLooked = (
+  moves: ProblemHelper['moves'] = [],
+  why: HelperNotLooked | null = null,
+  said = '',
+): ProblemHelper => ({
   verdict: 'unclear',
   result: 'reported',
-  said: '',
+  said: said.replace(/\s+/g, ' ').trim().slice(0, 400),
   moves,
   learned: null,
   looks: 0,
+  notLooked: why,
 });
 
 /**
@@ -168,14 +178,22 @@ async function look(tab: HelperTab, hfos: Hfos, at: HelperFor): Promise<HelperRu
   let verdict: ProblemHelper['verdict'] = 'unclear';
   let said = '';
   let cleared = false;
+  // Why the first look didn't happen, for the report: what stopped it, and HandsFreeOS's words when it said.
+  let stopped: { why: HelperNotLooked; said: string } | null = null;
   for (let i = 0; i <= HELPER_MOVES_MOST; i++) {
-    if (!(await takeLook())) break;
+    if (!(await takeLook())) {
+      stopped ??= { why: 'looks_used', said: '' };
+      break;
+    }
     const seen = await tab.ask({
       type: 'hfos-helper-view',
       theirName: at.theirName,
       fresh: i === 0,
     });
-    if (!seen.ok || seen.view === undefined) break;
+    if (!seen.ok || seen.view === undefined) {
+      stopped ??= { why: 'no_view', said: seen.ok ? '' : seen.error };
+      break;
+    }
     const asked = await hfos({
       type: 'hfos-helper-look',
       workspaceId: at.businessId,
@@ -189,7 +207,12 @@ async function look(tab: HelperTab, hfos: Hfos, at: HelperFor): Promise<HelperRu
       },
     });
     const answer: HelperLookOutput | null = asked.ok ? asked.value : null;
-    if (!answer?.asked) break;
+    if (!answer?.asked) {
+      stopped ??= asked.ok
+        ? { why: 'not_asked', said: asked.value.said }
+        : { why: 'no_answer', said: asked.problem.message };
+      break;
+    }
     looks++;
     verdict = answer.verdict;
     if (answer.said) said = answer.said;
@@ -204,7 +227,7 @@ async function look(tab: HelperTab, hfos: Hfos, at: HelperFor): Promise<HelperRu
     moves.push({ do: move.do, on: done?.on ?? null, went: done?.went ?? false });
     if (move.do === 'press' && done?.went)
       return {
-        helper: { verdict, result: 'reported', said, moves, learned: null, looks },
+        helper: { verdict, result: 'reported', said, moves, learned: null, looks, notLooked: null },
         cleared,
         pressed: true,
         way: done.way ?? null,
@@ -212,9 +235,15 @@ async function look(tab: HelperTab, hfos: Hfos, at: HelperFor): Promise<HelperRu
     if (done?.went && verdict === 'in_the_way' && move.do !== 'wait') cleared = true;
     await pause(SETTLE_MS);
   }
-  if (!looks) return { helper: notLooked(moves), cleared: false, pressed: false, way: null };
+  if (!looks)
+    return {
+      helper: notLooked(moves, stopped?.why ?? null, stopped?.said ?? ''),
+      cleared: false,
+      pressed: false,
+      way: null,
+    };
   return {
-    helper: { verdict, result: 'reported', said, moves, learned: null, looks },
+    helper: { verdict, result: 'reported', said, moves, learned: null, looks, notLooked: null },
     // A wait that let the page finish loading counts too, when the helper said something was in the way.
     cleared: cleared || (verdict === 'in_the_way' && moves.some((m) => m.went)),
     pressed: false,
@@ -267,6 +296,8 @@ type Went = {
   readonly need?: true;
   /** Worth the helper's look though it isn't handed over (a like it couldn't press). */
   readonly look?: true;
+  /** Found done already (connected, asked): nothing's left to do, so no failure to report (decision 143). */
+  readonly skip?: true;
   readonly helper?: ProblemHelper;
 };
 
@@ -331,7 +362,8 @@ export async function helpAfter<O extends object>(at: {
     }
   }
   let reportId: string | null = null;
-  if (went(outcome) && (!outcome.done || outcome.helper))
+  // Every step that didn't go is reported, but one found done already (decision 143), and every one the helper was in.
+  if (went(outcome) && ((!outcome.done && !outcome.skip) || outcome.helper))
     reportId = await reporter(at.tab, at.hfos, {
       businessId: at.businessId,
       platform: at.platform,
@@ -373,6 +405,8 @@ export async function pressEnded(
   worked: boolean,
 ): Promise<ProblemHelper | undefined> {
   if (!run) return undefined;
+  // It changed nothing (no press, nothing cleared) and the step went on its own: it wasn't needed, so it's no report.
+  if (worked && !run.pressed && !run.cleared) return undefined;
   await noteWay(hfos, at.businessId, at.platform, at.button, run, worked);
   return ended(
     run,

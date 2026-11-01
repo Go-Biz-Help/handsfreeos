@@ -60,6 +60,7 @@ import { follow, loadSettings } from '../hfos/follow';
 import { feed, keptFor, onBeat, type Kept } from '../hfos/live';
 import type { Drafts, TodayList, TodayListItem } from '../hfos/messages';
 import { isNoting, noteNeed, takeNote } from '../hfos/noting';
+import { clearRetried, handsOver, retryAfterUpdate } from './retry';
 import { chatCollect } from '../hfos/saves';
 import { answer, api, call, Refused, savingTo } from '../hfos/session';
 import { keepWarning, warnedNow, warningInput } from '../hfos/warned';
@@ -298,6 +299,8 @@ type Outcome =
       readonly need?: true;
       /** Worth the AI helper's look though it isn't handed over: a like it couldn't press (decision 142). */
       readonly look?: true;
+      /** Found done already (connected, asked, friends already): nothing's left to do, so it's no failure (decision 143). */
+      readonly skip?: true;
       /** What the AI helper did inside the step, for its report (decision 142). */
       readonly helper?: ProblemHelper;
     }
@@ -730,7 +733,7 @@ async function followThem(item: TodayListItem, businessId: string): Promise<Outc
   if ('outcome' in opened) return opened.outcome;
   const standing = opened.page.found.profile!.following;
   if (standing === 'following' || standing === 'requested')
-    return { done: false, line: `${item.name}: you follow them already, or asked to` };
+    return { done: false, line: `${item.name}: you follow them already, or asked to`, skip: true };
   const pressFollow = async () => {
     const went = await tab.ask({ type: 'hfos-connect', profile: opened.noted });
     if (!went.ok) throw new Error(went.error);
@@ -738,7 +741,7 @@ async function followThem(item: TodayListItem, businessId: string): Promise<Outc
   };
   let result = await pressFollow();
   if (result === 'already')
-    return { done: false, line: `${item.name}: you follow them already, or asked to` };
+    return { done: false, line: `${item.name}: you follow them already, or asked to`, skip: true };
   // Follow moved, or something's over it: the AI helper finds it on their account, checked as theirs (decision 142).
   const help = stepHelp(tab, answer as Hfos, {
     businessId,
@@ -1273,6 +1276,8 @@ async function go(): Promise<void> {
     return closeWindow();
   }
   void follow(() => void tick()).catch(() => undefined);
+  // Updated since it last went: what was handed over before is tried again, once (decision 143).
+  await retryAfterUpdate(to.businessId);
   const { settings, timezone } = found;
   const choices = settings.networks.instagram;
   let state = await stateNow();
@@ -1594,10 +1599,12 @@ async function workNext(
   }
   await say(outcome.line);
   const need =
-    'need' in outcome && work.do === 'step'
+    work.do === 'step' && handsOver(item, outcome)
       ? needOf(item, outcome.line, businessId, helped.reportId)
       : null;
   if (need) void noteNeed(need);
+  // A step tried again that it found done already is cleared (decision 143).
+  if (work.do === 'step') void clearRetried(item, outcome, businessId);
   void feed(outcome.done ? 'done' : 'passed', `${NAME}: ${outcome.line}`);
   if (stopAsked) {
     await closeWindow();

@@ -60,10 +60,11 @@ import {
   TodayOutput,
   TODAY_POST_MOST,
   demoWhen,
+  withRetried,
   type TodayItem,
 } from '../today';
 import { POST_FRESH_DAYS } from '../posts';
-import { REQUEST_PRESSED_WHY } from '../waiting-words';
+import { LIST_RETRY_STEPS, needWhyWords, REQUEST_PRESSED_WHY, RETRIED_WHY } from '../waiting-words';
 import { NEW_JOB_DAYS, OCCASION_WORDS, type OccasionKind } from '../occasions';
 import { commentSendsOn, foundByTopicOn, ownSuggestions } from '../profile-parts';
 import {
@@ -111,6 +112,7 @@ import { goalFacts } from './goal';
 import { fewAhead, goalTries, goalWhy } from '../goal';
 import { foundByTopicSince, workingBuild } from './live';
 import { playbooksInUse } from './friends';
+import { retrySince } from './needs';
 import { readinessFor } from './readiness';
 import { groupFitOf } from './group-checks';
 import { sendsToday } from './sends';
@@ -1897,6 +1899,68 @@ export const today = defineAddonQuery(outreachAddon, {
           }),
         );
     }
+
+    // Steps the person tried again from Steps it needs you for (decision 143): first of their kind, within today's
+    // limits, with the rest of a limit's kinds after them as far as it goes. A request or a like before one waits
+    // while new requests are held; one to someone on Don't pitch, or a comment on a post gone, isn't offered.
+    const retried = await rows<{
+      id: string;
+      step: (typeof LIST_RETRY_STEPS)[number];
+      name: string;
+      why: string;
+      retry_at: Date | string;
+      profile_id: string;
+      profile_url: string;
+      post_id: string | null;
+      post_url: string | null;
+      posted: string | null;
+      body: string | null;
+    }>(
+      ctx.tx,
+      sql`select n.id, n.step, n.name, n.why, n.retry_at, p.id as profile_id, p.url as profile_url,
+            po.id as post_id, po.url as post_url, po.posted, po.body
+          from addon_outreach.needs n
+          join addon_outreach.profiles p on p.workspace_id = n.workspace_id and p.id = n.profile_id
+          left join addon_outreach.posts po on po.workspace_id = n.workspace_id and po.id = n.post_id
+          where n.workspace_id = ${ws} and n.user_id = ${me} and n.state = 'open' and n.send_id is null
+            and n.retry_at >= ${retrySince(now)}::timestamptz and p.platform = ${input.platform}
+            and n.step in (${sql.join(
+              LIST_RETRY_STEPS.filter(
+                (step) => !requestsOff || (step !== 'friend_request' && step !== 'warm_up'),
+              ).map((step) => sql`${step}`),
+              sql`, `,
+            )})
+            and (n.step <> 'comment' or po.id is not null)
+            and (n.step = 'confirm' or ${pitchable('p')})
+          order by n.retry_at, n.seen_at, n.id
+          limit ${TODAY_MOST}`,
+    );
+    items.splice(
+      0,
+      items.length,
+      ...withRetried(
+        items,
+        retried.map((n) =>
+          item({
+            kind: n.step,
+            name: n.name,
+            profileId: n.profile_id,
+            profileUrl: n.profile_url,
+            ...(n.step === 'comment' && n.post_id
+              ? {
+                  postId: n.post_id,
+                  postUrl: n.post_url,
+                  posted: n.posted,
+                  ...shownPost(n.body ?? ''),
+                }
+              : {}),
+            why: [RETRIED_WHY, needWhyWords(n.why)],
+            retry: { needId: n.id, at: new Date(n.retry_at).toISOString() },
+          }),
+        ),
+        limits,
+      ),
+    );
 
     const readAdmins = await rows<{ id: string; name: string | null; url: string }>(
       ctx.tx,

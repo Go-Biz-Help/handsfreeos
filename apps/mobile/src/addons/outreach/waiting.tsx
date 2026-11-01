@@ -68,7 +68,7 @@ import { Text } from '@/components/ui/text';
 import { toast } from '@/components/ui/toast';
 import { api, errorMessage, unwrap } from '@/lib/api';
 
-import { answerRequest, clearNeed, okAll, okSend, retrySends, setAside, skipSend } from './actions';
+import { answerRequest, clearNeed, okAll, okSend, retrySteps, setAside, skipSend } from './actions';
 import { AskLine, useAskActions, type AskActions } from './asks';
 import { ChatBubbles } from './chat-bubbles';
 import { useOutreachWaiting } from './copy';
@@ -303,10 +303,10 @@ export function useWaitingProps(): React.ComponentProps<typeof WaitingBody> {
         failed(e);
       }
     },
-    // Retry, and Retry all (decision 132): with signal, as it reaches them again.
+    // Retry, and Retry all, on any step (decisions 132 and 143): with signal, as it reaches them again.
     onRetrySends: async (needIds) => {
       try {
-        const { retried, passed } = (await retrySends(ws, needIds)).output;
+        const { retried, passed } = (await retrySteps(ws, needIds)).output;
         toast.show(retriedWords(retried.length, passed));
         answer.reload();
       } catch (e) {
@@ -372,7 +372,7 @@ export function WaitingBody({
   onSkip: (send: PhoneSend) => void;
   onOkAll: (sends: { sendId: string }[]) => void;
   onClear: (need: Need, how: NeedClear) => void;
-  /** Retry one message or comment that didn't go, or every one (null): each a few minutes apart. */
+  /** Retry one step handed over, or every one (null): a message a few minutes after the one before (decision 143). */
   onRetrySends?: (needIds: string[] | null) => void;
   onLeave: (request: Request) => void;
   /** Confirm or Delete on a request to decide (decision 136), where the extension answers them. */
@@ -827,7 +827,7 @@ function NeedCard({
   need: Need;
   when: string;
   onClear: (how: NeedClear) => void;
-  /** Retry, on a message or comment that didn't go (decision 132). */
+  /** Retry, on a step that can be tried again (decisions 132 and 143). */
   onRetry?: () => void;
 }) {
   // Its profile's network, as HandsFreeOS says: its words, its label and its links are that network's.

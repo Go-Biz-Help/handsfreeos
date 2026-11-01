@@ -6,6 +6,7 @@
 import { describe, expect, it } from 'vitest';
 import { networkOfWaiting } from '../../src/addons/outreach/network-words';
 import { PLATFORM_KEYS } from '../../src/addons/outreach/networks';
+import { withRetried } from '../../src/addons/outreach/today';
 import {
   approveAllCount,
   approveAllTakesComments,
@@ -168,19 +169,79 @@ describe('the words', () => {
     expect(needClearedWords('done', 'open')).toMatch(/still waits for you/);
   });
 
-  it('offer Retry on a message or comment that didn’t go, and say what it did (decision 132)', () => {
+  it('offer Retry on every step that can go again, and say what it did (decisions 132 and 143)', () => {
     expect(needRetryable({ step: 'message', sendId: 'a' })).toBe(true);
     expect(needRetryable({ step: 'comment', sendId: 'a' })).toBe(true);
+    // A message whose words are gone has nothing to go again with.
     expect(needRetryable({ step: 'message', sendId: null })).toBe(false);
-    expect(needRetryable({ step: 'friend_request', sendId: 'a' })).toBe(false);
-    expect(retriedWords(1, 0)).toBe(
-      'Trying it again: it goes next, when the extension is working.',
-    );
-    expect(retriedWords(7, 0)).toBe(
-      'Trying 7 again, a few minutes apart, when the extension is working.',
-    );
+    // Any other step goes back on Today's list; a comment the extension writes itself, with its post.
+    expect(needRetryable({ step: 'friend_request', sendId: null })).toBe(true);
+    expect(needRetryable({ step: 'confirm', sendId: null })).toBe(true);
+    expect(needRetryable({ step: 'warm_up', sendId: null })).toBe(true);
+    expect(needRetryable({ step: 'comment', sendId: null, postId: 'p' })).toBe(true);
+    expect(needRetryable({ step: 'comment', sendId: null, postId: null })).toBe(false);
+    expect(retriedWords(1, 0)).toBe('Trying it again on the extension’s next go.');
+    expect(retriedWords(7, 0)).toBe('Trying 7 again on the extension’s next go, one at a time.');
     expect(retriedWords(2, 1)).toMatch(/^Trying 2 again.* 1 wasn’t tried again: /);
     expect(retriedWords(0, 2)).toMatch(/^Nothing to try again\. 2 weren’t tried again: /);
+  });
+
+  it('put steps tried again first on Today, within the day’s limits (decision 143)', () => {
+    type Row = {
+      kind: 'friend_request' | 'warm_up' | 'confirm';
+      name: string;
+      postId: null;
+      profileId: string;
+    };
+    const row = (kind: Row['kind'], name: string): Row => ({
+      kind,
+      name,
+      postId: null,
+      profileId: name,
+    });
+    const limits = {
+      friend_request: { done: 7, most: 10 },
+      first_message: { done: 0, most: 10 },
+      follow_up: { done: 0, most: 10 },
+      comment: { done: 0, most: 10 },
+      like: { done: 0, most: 10 },
+    };
+    const listed = [
+      row('friend_request', 'Ann'),
+      row('friend_request', 'Bo'),
+      row('friend_request', 'Cy'),
+    ];
+    const names = (rows: readonly Row[]) => rows.map((r) => `${r.kind}:${r.name}`);
+    // Three left today: the two tried again first, then the first new one; Bo's own is the one tried again.
+    expect(
+      names(
+        withRetried(listed, [row('friend_request', 'Bo'), row('friend_request', 'Dee')], limits),
+      ),
+    ).toEqual(['friend_request:Bo', 'friend_request:Dee', 'friend_request:Ann']);
+    // Past the limit, one tried again waits for another day; a confirm has no limit; likes keep what they had.
+    expect(
+      names(
+        withRetried(
+          [row('warm_up', 'Eve'), ...listed],
+          [
+            row('friend_request', 'Fay'),
+            row('friend_request', 'Gus'),
+            row('friend_request', 'Hal'),
+            row('friend_request', 'Ivo'),
+            row('confirm', 'Jan'),
+          ],
+          limits,
+        ),
+      ),
+    ).toEqual([
+      'friend_request:Fay',
+      'friend_request:Gus',
+      'friend_request:Hal',
+      'confirm:Jan',
+      'warm_up:Eve',
+    ]);
+    // Nothing tried again: the list as it was.
+    expect(names(withRetried(listed, [], limits))).toEqual(names(listed));
   });
 
   it('say why a need couldn’t be done, and link its chat, the same everywhere', () => {

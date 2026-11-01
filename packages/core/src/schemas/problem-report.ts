@@ -56,6 +56,14 @@ export type HelperResult = (typeof HELPER_RESULTS)[number];
 export const HELPER_MOVES = ['click', 'scroll', 'escape', 'wait', 'press'] as const;
 export type HelperMove = (typeof HELPER_MOVES)[number];
 
+/**
+ * Why it didn't look at all (decision 143): this computer's looks for the day were used, the page couldn't be read for
+ * it, the AI wasn't asked (its limit, the business's balance, busy: `said` has HandsFreeOS's words), or HandsFreeOS
+ * didn't answer (`said` has what went wrong).
+ */
+export const HELPER_NOT_LOOKED = ['looks_used', 'no_view', 'not_asked', 'no_answer'] as const;
+export type HelperNotLooked = (typeof HELPER_NOT_LOOKED)[number];
+
 /** The most moves it takes on one step, and the most looks a report keeps. */
 export const HELPER_MOVES_MOST = 8;
 
@@ -79,6 +87,8 @@ export const ProblemHelper = z.object({
   learned: z.enum(['worked', 'failed']).nullable().default(null),
   /** How many times it looked at the page. */
   looks: z.int().min(0).max(20),
+  /** Why it didn't look, when it didn't (`looks` 0). Null when it looked, and on a report from before it. */
+  notLooked: z.enum(HELPER_NOT_LOOKED).nullable().default(null),
 });
 export type ProblemHelper = z.output<typeof ProblemHelper>;
 

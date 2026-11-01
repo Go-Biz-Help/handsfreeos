@@ -3172,7 +3172,8 @@ where decisions 37 and 59 put the settings; what they decided stands. Settled to
       when it does retry it shouldn't all send at the same time it should space them out."
       - **Where:** on Steps it needs you for (web, phone, and the Assistant's `outreach_retry_messages`, on a Confirm
         card), each message or comment that didn't go has **Retry**; with two or more listed, **Retry all**. Steps that
-        aren't a send (a friend request, a like) come back on the list on their own another day, so they have none.
+        aren't a send (a friend request, a like) come back on the list on their own another day, so they have none
+        (decision 143 gives every step Retry).
       - **What it does:** `outreach.send.retry` makes a new send, OK'd as it was, and marks the step done; one that
         can't go again is handed back as a new step. A new send, not the old one again, as the extension tries each
         send once a day by its own id. A comment's post, set aside when it didn't go, goes back on the list unless the
@@ -3539,6 +3540,35 @@ where decisions 37 and 59 put the settings; what they decided stands. Settled to
         computer tries it again (`learned_way.set_removed`), or bring it back. One that hasn't worked in 90 days goes.
         New ways sit beside the extension's own readers, never in place of them: the runner's own way is always tried
         first.
+
+143.  **Retry all on every step, and once on its own after each update** (Chris, 1 Nov 2026, with Steps it needs you
+      for showing six Alignable "didn’t take the request" and a LinkedIn invite: "any failures we should have a retry
+      all option because we should be fixing those issues after updates"), answered "yes on picks"; extension
+      **0.123.0**, migration `20261027021800_outreach_need_retry.sql`.
+      - **Retry on any step** (`outreach.need.retry`; the Assistant's `outreach_retry_steps`, on a Confirm card). Each
+        step there that can be tried again has **Retry**, and with two or more, **Retry all** tops the group, on the web
+        and the phone (`needRetryable`). A message or comment that didn't go goes again through its send, as decision
+        132 says. Any other step (a friend or connection request, a confirm, a like before a request, a comment the
+        extension writes itself) goes back on Today's list on its network for the extension's next go
+        (`addon_outreach.needs.retry_at`), first of its kind and within the day's limits, with the rest of that limit
+        after it (`withRetried`). One to someone on Don't pitch since, or a request while new ones are held (decision
+        97), isn't offered. `outreach.send.retry` stays for phones from before it.
+      - **Off Steps it needs you for meanwhile.** A step put back doesn't show or count there for 3 days at most
+        (`NEED_RETRY_DAYS`, `private.outreach_needs_counted`). Done, it's cleared as any step is. Found done already
+        (connected, invited, asked, friends already), the extension clears it. Anything else hands it back, quietly, as
+        the person heard of it before. Neither within 3 days, it waits for them again on its own.
+      - **Tried once more for each time it's put back.** Its item carries `retry` (the step and when), and the
+        extension's key for it does too, so it goes though the extension tried it today.
+      - **Once on its own after each update.** The first go of a new version for a business presses Retry all for it
+        (`retryAfterUpdate`), so what failed before a fix is tried with the fix. Not messages and comments that didn't
+        go (`sends: false`): one that went after all would go twice, so those wait for the person's Retry.
+      - **Fewer false failures, and better reports.** A step found done already is no failure: it sends no problem
+        report and isn't handed over (`skip`). Facebook's "couldn't tell where things stand" is handed over and the AI
+        helper looks first, as a profile whose buttons it can't read is likely a new layout. When the helper didn't
+        look at all, the report says why (`notLooked`): the computer's 80 looks used, the page unread, the AI not asked
+        (with HandsFreeOS's words: its limit, the balance, busy), or HandsFreeOS not answering. Alignable's Connect
+        reads their page as the press left it before opening it again; still theirs and still showing Connect, the
+        helper looks there, while a box asking one more thing still shows.
 
 ## Rules worth knowing before changing anything
 
