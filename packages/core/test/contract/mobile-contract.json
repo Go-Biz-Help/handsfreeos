@@ -8823,6 +8823,40 @@
         "required": ["workspaceId", "needId", "how"]
       }
     },
+    "outreach.need.retry": {
+      "offline": "online",
+      "input": {
+        "type": "object",
+        "properties": {
+          "workspaceId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "needIds": {
+            "default": null,
+            "anyOf": [
+              {
+                "minItems": 1,
+                "maxItems": 100,
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "format": "uuid"
+                }
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "sends": {
+            "default": true,
+            "type": "boolean"
+          }
+        },
+        "required": ["workspaceId"]
+      }
+    },
     "outreach.owner.move": {
       "offline": "online",
       "input": {

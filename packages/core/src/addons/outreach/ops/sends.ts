@@ -807,88 +807,104 @@ export const sendRetry = defineAddonCommand(outreachAddon, {
       throw HfosError.notFound(
         'That isn’t waiting for you any more: it was done, let go or tried again. Refresh Waiting for you.',
       );
-    const failed: Row[] = open.length
-      ? await ctx.tx
-          .select()
-          .from(sends)
-          .where(
-            and(
-              mine(ctx, me),
-              eq(sends.state, 'failed'),
-              inArray(
-                sends.id,
-                open.map((need) => need.sendId!),
-              ),
-            ),
-          )
-      : [];
-    const failedOf = new Map(failed.map((row) => [row.id, row]));
-    const retried: { needId: string; sendId: string; at: string }[] = [];
-    let passed = 0;
-    let next = at.getTime();
-    for (const need of open) {
-      const row = failedOf.get(need.sendId!);
-      if (!row) {
-        passed++;
-        continue;
-      }
-      const notBefore = new Date(next);
-      // A new send, OK'd as it was: the extension tries each send once a day, by its own id. One open to them already
-      // (a newer draft, or one tried again) is theirs instead.
-      const [made] = await ctx.tx
-        .insert(sends)
-        .values({
-          workspaceId: ws,
-          userId: me,
-          profileId: row.profileId,
-          kind: row.kind,
-          chatId: row.chatId,
-          threadKey: row.threadKey,
-          text: row.text,
-          drafted: row.drafted,
-          opener: row.opener,
-          state: 'approved',
-          handedOver: row.handedOver,
-          needsYou: row.needsYou,
-          offerVersion: row.offerVersion,
-          postId: row.postId,
-          approvedAt: at,
-          notBefore,
-        })
-        .onConflictDoNothing()
-        .returning({ id: sends.id });
-      if (!made) {
-        passed++;
-        continue;
-      }
-      // A comment that didn't go set its post aside: back on the list, unless the person set it aside since.
-      if (underAPost(row.kind) && row.postId && row.doneAt)
-        await ctx.tx
-          .update(posts)
-          .set({ skippedAt: null })
-          .where(and(eq(posts.id, row.postId), eq(posts.skippedAt, row.doneAt)));
-      await ctx.tx
-        .update(needs)
-        .set({ state: 'done', clearedAt: at, updatedAt: new Date() })
-        .where(eq(needs.id, need.id));
-      await ctx.emit({
-        type: 'outreach.need.cleared',
-        entityType: 'outreach_need',
-        entityId: need.id,
-        payload: { userId: me, how: 'done', step: need.step },
-      });
-      await ctx.emit({
-        type: 'outreach.send.approved',
-        entityType: 'outreach_profile',
-        entityId: row.profileId,
-        payload: { kind: row.kind, changed: false },
-      });
-      retried.push({ needId: need.id, sendId: made.id, at: notBefore.toISOString() });
-      next += RETRY_GAP_MS.least + Math.random() * (RETRY_GAP_MS.most - RETRY_GAP_MS.least);
-    }
-    return { retried, passed };
+    return sendsAgain(ctx, me, open, at);
   },
 });
+
+/**
+ * Tries again the messages and comments that didn't go, for the steps handed over for them (`open`, oldest first): each
+ * a new send, OK'd as it was, a few minutes after the one before at random from `at`; its step done. One with a newer
+ * message to them open already, or whose send isn't one that failed, is passed over. Retry's (`outreach.send.retry`)
+ * and Retry all's on every step (`outreach.need.retry`, ./waiting.ts).
+ */
+export async function sendsAgain(
+  ctx: CommandContext,
+  me: string,
+  open: readonly (typeof needs.$inferSelect)[],
+  at: Date,
+): Promise<{ retried: { needId: string; sendId: string; at: string }[]; passed: number }> {
+  const ws = ctx.scope.workspaceId!;
+  const failed: Row[] = open.length
+    ? await ctx.tx
+        .select()
+        .from(sends)
+        .where(
+          and(
+            mine(ctx, me),
+            eq(sends.state, 'failed'),
+            inArray(
+              sends.id,
+              open.map((need) => need.sendId!),
+            ),
+          ),
+        )
+    : [];
+  const failedOf = new Map(failed.map((row) => [row.id, row]));
+  const retried: { needId: string; sendId: string; at: string }[] = [];
+  let passed = 0;
+  let next = at.getTime();
+  for (const need of open) {
+    const row = failedOf.get(need.sendId!);
+    if (!row) {
+      passed++;
+      continue;
+    }
+    const notBefore = new Date(next);
+    // A new send, OK'd as it was: the extension tries each send once a day, by its own id. One open to them already
+    // (a newer draft, or one tried again) is theirs instead.
+    const [made] = await ctx.tx
+      .insert(sends)
+      .values({
+        workspaceId: ws,
+        userId: me,
+        profileId: row.profileId,
+        kind: row.kind,
+        chatId: row.chatId,
+        threadKey: row.threadKey,
+        text: row.text,
+        drafted: row.drafted,
+        opener: row.opener,
+        state: 'approved',
+        handedOver: row.handedOver,
+        needsYou: row.needsYou,
+        offerVersion: row.offerVersion,
+        postId: row.postId,
+        approvedAt: at,
+        notBefore,
+      })
+      .onConflictDoNothing()
+      .returning({ id: sends.id });
+    if (!made) {
+      passed++;
+      continue;
+    }
+    // A comment that didn't go set its post aside: back on the list, unless the person set it aside since.
+    if (underAPost(row.kind) && row.postId && row.doneAt)
+      await ctx.tx
+        .update(posts)
+        .set({ skippedAt: null })
+        .where(and(eq(posts.id, row.postId), eq(posts.skippedAt, row.doneAt)));
+    await ctx.tx
+      .update(needs)
+      .set({ state: 'done', clearedAt: at, updatedAt: new Date() })
+      .where(eq(needs.id, need.id));
+    await ctx.emit({
+      type: 'outreach.need.cleared',
+      entityType: 'outreach_need',
+      entityId: need.id,
+      payload: { userId: me, how: 'done', step: need.step },
+    });
+    await ctx.emit({
+      type: 'outreach.send.approved',
+      entityType: 'outreach_profile',
+      entityId: row.profileId,
+      payload: { kind: row.kind, changed: false },
+    });
+    retried.push({ needId: need.id, sendId: made.id, at: notBefore.toISOString() });
+    next += RETRY_GAP_MS.least + Math.random() * (RETRY_GAP_MS.most - RETRY_GAP_MS.least);
+  }
+  return { retried, passed };
+}
 
 /**
  * Today's sends for the list for today (./today.ts): those open, by profile and kind (a comment by its post), and the

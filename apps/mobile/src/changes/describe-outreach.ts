@@ -80,6 +80,10 @@ export function describeOutreach(
       return input.needIds === null
         ? words('Tried what didn’t go again', 'messages tried again', 'text')
         : words('Tried a message again', 'a message tried again', 'text');
+    case 'outreach.need.retry':
+      return input.needIds === null
+        ? words('Tried what didn’t go again', 'steps tried again', 'task')
+        : words('Tried a step again', 'a step tried again', 'task');
     case 'outreach.day.start':
       return words(`Start my day${onNetwork(input)}`, 'Start my day', 'calendar');
     case 'outreach.day.stop':
