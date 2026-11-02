@@ -428,76 +428,98 @@ const things = (n: number, one: string, many: string) =>
   n === 1 ? `1 ${one}` : `${n.toLocaleString('en-US')} ${many}`;
 
 /**
- * The bundled push, in the owner's words, messages first: "5 messages wait for your OK"; null with nothing to tell.
- * Replies handed over aren't in it, since each pushed at once on its own, unless `withReplies` (the extension's first
- * look after a sign-in, which tells of all that was there).
+ * Where the words are read (decision 146): the phone's push says "Tap to…", the extension's pop-up on the computer
+ * "Click to…". Either opens Needs you, so the words never name a page.
+ */
+export type PushOn = 'phone' | 'computer';
+const press = (on: PushOn) => (on === 'computer' ? 'Click' : 'Tap');
+
+/**
+ * A push's title (decision 146): the network and what happened, short enough that a phone never cuts it ("LinkedIn
+ * message to OK"); "Message to OK" when the network isn't known.
+ */
+const titleOn = (platform: Platform | null, what: string): string =>
+  platform ? `${PLATFORMS[platform]} ${what}` : `${what[0]!.toUpperCase()}${what.slice(1)}`;
+
+/**
+ * The bundled push (decision 146), messages first: "5 messages to OK", "And 2 steps for you. Tap to see them."; null
+ * with nothing to tell. Replies handed over aren't in it, since each pushed at once on its own, unless `withReplies`
+ * (the extension's first look after a sign-in, which tells of all that was there).
  */
 export function bundlePushWords(
   kinds: WaitingKinds,
   withReplies = false,
+  on: PushOn = 'phone',
 ): { title: string; body: string } | null {
   const messages = kinds.message.count + (withReplies ? kinds.reply.count : 0);
   const needs = kinds.need.count;
   if (messages)
     return {
-      title: `${things(messages, 'message waits', 'messages wait')} for your OK`,
+      title: `${things(messages, 'message', 'messages')} to OK`,
       body: needs
-        ? `And ${things(needs, 'step', 'steps')} the extension couldn’t do. Open Today.`
-        : `Open Today to OK, change or skip ${messages === 1 ? 'it' : 'them'}.`,
+        ? `And ${things(needs, 'step', 'steps')} for you. ${press(on)} to see them.`
+        : `${press(on)} to OK, change or skip ${messages === 1 ? 'it' : 'them'}.`,
     };
   if (needs)
     return {
-      title: needs === 1 ? '1 step needs you' : `${needs.toLocaleString('en-US')} steps need you`,
+      title: `${things(needs, 'step', 'steps')} for you`,
       body:
         needs === 1
-          ? 'The extension couldn’t do it. Do it yourself, or let it go, on Today.'
-          : 'The extension couldn’t do them. Do them yourself, or let them go, on Today.',
+          ? `The extension couldn’t do it. Do it yourself, or let it go. ${press(on)} to see it.`
+          : `The extension couldn’t do them. Do them yourself, or let them go. ${press(on)} to see them.`,
     };
   return null;
 }
 
-/** A line as a sentence: its first letter capital, no stop at the end. */
-const sentence = (line: string) => {
-  const t = line.trim().replace(/[.!\s]+$/, '');
-  return t ? `${t[0]!.toUpperCase()}${t.slice(1)}` : t;
-};
+/** What pushes on its own with "one for each": a message or comment to OK, or a step handed to the person. */
+export type EachPush =
+  | {
+      readonly kind: 'message' | 'comment';
+      readonly name: string;
+      /** The network it goes out on: null when it isn't known, and the title then names none. */
+      readonly platform: Platform | null;
+    }
+  | {
+      readonly kind: 'need';
+      readonly name: string;
+      readonly step: NeedStep;
+      readonly platform: Platform;
+    };
 
 /**
- * A push for one message, comment or need, with "one for each": "Dana Reyes: a message waits for your OK", "A comment
- * on Quinn Harper’s post waits for your OK". A need's says its network when it's known: "Dana Reyes: the extension
- * needs you on Alignable".
+ * A push for one message, comment or need, with "one for each" (decision 146): the network and what happened in the
+ * title, who in the body, and what a tap does. "LinkedIn message to OK" / "To Dana Reyes. Tap to OK, change or skip
+ * it."; a need says what to do in its network's words, never the extension's reason, which Needs you shows: "LinkedIn
+ * step for you" / "Send Dana Reyes an invitation to connect yourself, or let it go. Tap to open it."
  */
 export function eachPushWords(
-  kind: 'message' | 'comment' | 'need',
-  name: string,
-  why: string | null = null,
-  platform: Platform | null = null,
+  what: EachPush,
+  on: PushOn = 'phone',
 ): { title: string; body: string } {
-  if (kind === 'message')
+  if (what.kind === 'need')
     return {
-      title: `${name}: a message waits for your OK`,
-      body: 'OK it, change it or skip it on Today.',
+      title: titleOn(what.platform, 'step for you'),
+      body: `${needTitle(what.step, what.name, what.platform)}, or let it go. ${press(on)} to open it.`,
     };
-  if (kind === 'comment')
-    return {
-      title: `A comment on ${name}’s post waits for your OK`,
-      body: 'OK it, change it or skip it on Today.',
-    };
-  const said = why ? sentence(why) : '';
-  return {
-    title: `${name}: the extension needs you${platform ? ` on ${PLATFORMS[platform]}` : ''}`,
-    body: `${said ? `${said}. ` : ''}Do it yourself, or let it go, on Today.`,
-  };
+  const ok = `${press(on)} to OK, change or skip it.`;
+  return what.kind === 'message'
+    ? { title: titleOn(what.platform, 'message to OK'), body: `To ${what.name}. ${ok}` }
+    : { title: titleOn(what.platform, 'comment to OK'), body: `On ${what.name}’s post. ${ok}` };
 }
 
-/** The push, and the extension's pop-up, for a reply handed over: "Dana Reyes needs you". */
+/**
+ * The push, and the extension's pop-up, for a reply handed over (decision 146): "Facebook reply needs you" / "From
+ * Dana Reyes: they sound upset, so the AI’s answer waits for you. Tap to see it."
+ */
 export function handOverPushWords(
   name: string,
   why: string | null,
+  platform: Platform | null = null,
+  on: PushOn = 'phone',
 ): { title: string; body: string } {
   return {
-    title: `${name} needs you`,
-    body: `Their reply waits for your OK on Today${why ? `: ${why}` : ': it isn’t a simple one'}.`,
+    title: titleOn(platform, 'reply needs you'),
+    body: `From ${name}: ${why || 'it isn’t a simple one'}, so the AI’s answer waits for you. ${press(on)} to see it.`,
   };
 }
 

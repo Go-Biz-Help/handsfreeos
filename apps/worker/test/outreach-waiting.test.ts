@@ -162,8 +162,8 @@ describe('pushes about what waits', () => {
     await drain(s, ws);
     expect(await pushes(ws)).toEqual([
       {
-        title: '2 messages wait for your OK',
-        body: 'Open Today to OK, change or skip them.',
+        title: '2 messages to OK',
+        body: 'Tap to OK, change or skip them.',
         path: `/app/w/${ws}/a/outreach?view=waiting`,
         user_ids: [owner.id],
       },
@@ -194,8 +194,8 @@ describe('pushes about what waits', () => {
     await runNow(ws);
     await drain(s, ws);
     expect((await pushes(ws)).map((p) => p.title)).toEqual([
-      '2 messages wait for your OK',
-      '3 messages wait for your OK',
+      '2 messages to OK',
+      '3 messages to OK',
     ]);
     expect(await armed(ws)).toBeNull();
 
@@ -228,7 +228,7 @@ describe('pushes about what waits', () => {
     await drain(s, ws);
     await runNow(ws);
     await drain(s, ws);
-    expect((await pushes(ws)).map((p) => p.title)).toEqual(['1 message waits for your OK']);
+    expect((await pushes(ws)).map((p) => p.title)).toEqual(['1 message to OK']);
     // The last push went 3 hours ago; a step the extension couldn't do 5 hours ago reaches HandsFreeOS only now.
     await rows(
       admin(),
@@ -265,11 +265,8 @@ describe('pushes about what waits', () => {
     await drain(s, ws);
     await runNow(ws);
     await drain(s, ws);
-    expect((await pushes(ws)).map((p) => p.title)).toEqual([
-      '1 message waits for your OK',
-      '1 message waits for your OK',
-    ]);
-    expect((await pushes(ws))[1]!.body).toBe('And 1 step the extension couldn’t do. Open Today.');
+    expect((await pushes(ws)).map((p) => p.title)).toEqual(['1 message to OK', '1 message to OK']);
+    expect((await pushes(ws))[1]!.body).toBe('And 1 step for you. Tap to see them.');
   }, 90_000);
 
   it('gives up only when the person may not be told: anything else is tried again', () => {
@@ -321,14 +318,14 @@ describe('pushes about what waits', () => {
     await drain(s, ws);
     expect(await pushes(ws)).toEqual([
       {
-        title: 'Dana Reyes: a message waits for your OK',
-        body: 'OK it, change it or skip it on Today.',
+        title: 'Facebook message to OK',
+        body: 'To Dana Reyes. Tap to OK, change or skip it.',
         path: `/app/w/${ws}/a/outreach?view=waiting`,
         user_ids: [owner.id],
       },
       {
-        title: 'Eli Brook: the extension needs you on Facebook',
-        body: 'Couldn’t find “Add friend”. Do it yourself, or let it go, on Today.',
+        title: 'Facebook step for you',
+        body: 'Send Eli Brook a friend request yourself, or let it go. Tap to open it.',
         path: `/app/w/${ws}/a/outreach?view=waiting`,
         user_ids: [owner.id],
       },
@@ -372,8 +369,8 @@ describe('pushes about what waits', () => {
     await drain(s, ws);
     expect(await pushes(ws)).toEqual([
       {
-        title: 'A comment on Quinn Harper’s post waits for your OK',
-        body: 'OK it, change it or skip it on Today.',
+        title: 'Instagram comment to OK',
+        body: 'On Quinn Harper’s post. Tap to OK, change or skip it.',
         path: `/app/w/${ws}/a/outreach?view=waiting`,
         user_ids: [owner.id],
       },
