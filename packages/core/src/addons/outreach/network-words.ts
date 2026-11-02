@@ -10,6 +10,7 @@
  *
  * Plain words, short sentences, curly apostrophes. Browser-safe and pure.
  */
+import { fmtMonthDay } from '../../calendar/when';
 import { TOUCHED_POSTS_WORDS } from './activity';
 import { askNameOn, TIDY_ASK_KINDS, TIDY_PACE_WORDS } from './asks';
 import { REQUEST_MUTUAL_YES } from './checks';
@@ -501,18 +502,22 @@ function cancelAllWords(platform: Platform, all: NonNullable<MoreWords['oldReque
  */
 export function requestsHeldWords(
   held: {
-    readonly why: 'waiting' | 'cap';
+    readonly why: 'waiting' | 'cap' | 'limit';
     readonly count: number;
     readonly most: number;
     /** Left for Cancel all (decision 121): none from a server before it. */
     readonly cancelling?: number;
     /** Cancel all's a day now (decision 126): none from a server before it. */
     readonly cancelMost?: number | null;
+    /** The business day a monthly limit's pause ends (decision 147). */
+    readonly until?: string | null;
   },
   platform: Platform,
 ): string {
   const kit = NETWORKS[platform];
   const { friendRequests, friends } = kit.words;
+  if (held.why === 'limit')
+    return `No new ${friendRequests} on ${kit.name} till ${held.until ? fmtMonthDay(held.until) : 'the 1st'}: ${kit.name} says you’ve reached your monthly limit. Likes, comments and messages go on. Upgraded on ${kit.name}? Start them again.`;
   const count = held.count.toLocaleString('en-US');
   if (held.why === 'cap')
     return `No new ${friendRequests} for now: you have ${count} ${friends} on ${kit.name}, close to its cap of ${kit.friendsCap.toLocaleString('en-US')}. ${
@@ -527,6 +532,25 @@ export function requestsHeldWords(
   if (held.cancelling)
     return `${start} ${cap(all.doing)} all of them: ${held.cancelling.toLocaleString('en-US')} left, ${held.cancelMost ?? kit.tidyLimits.cancel_request} a day.`;
   return `${start} ${all.button} ${all.does} them however new, ${(kit.tidyLimits.cancel_request * CANCEL_FAST.times).toLocaleString('en-US')} a day, or tick some under ${title} in Tidy up on the Friends tab.`;
+}
+
+/**
+ * The extension's line when the network says the person reached their monthly limit (decision 147), with the business
+ * day requests start again, or none when HandsFreeOS couldn't be told.
+ */
+export function requestsLimitLine(platform: Platform, until: string | null): string {
+  const kit = NETWORKS[platform];
+  return `${kit.name} says you’ve reached your monthly limit, so new ${kit.words.friendRequests} wait till ${until ? fmtMonthDay(until) : 'the 1st'}. Likes, comments and messages go on.`;
+}
+
+/** Start again, under Today's note on a monthly limit's pause (decision 147), and what it says once pressed. */
+export function requestsAgainWords(platform: Platform) {
+  const kit = NETWORKS[platform];
+  return {
+    button: 'Start again',
+    done: `New ${kit.words.friendRequests} on ${kit.name} start again. If ${kit.name} still says you’re at your limit, they wait again.`,
+    notOn: `New ${kit.words.friendRequests} on ${kit.name} weren’t waiting.`,
+  };
 }
 
 /**

@@ -304,10 +304,11 @@ export type TodayItem = z.output<typeof TodayItem>;
 
 /**
  * Why no new friend requests are on the list (decision 97): too many of the person's wait for an answer, or their
- * friends are near the network's cap. Likes before a request wait with them.
+ * friends are near the network's cap; or, from decision 147, the network said they reached their monthly limit there
+ * (`limit`, till `until`). Likes before a request wait with them.
  */
 export const RequestsHeld = z.object({
-  why: z.enum(['waiting', 'cap']),
+  why: z.enum(['waiting', 'cap', 'limit']),
   /** How many of theirs wait for an answer, or how many friends they have there. */
   count: n,
   /** The line: 200 waiting, or the network's cap less 100. */
@@ -317,8 +318,23 @@ export const RequestsHeld = z.object({
   cancelling: n.default(0),
   /** How many Cancel all cancels a day now (decision 126): none from a server before it. */
   cancelMost: n.nullable().default(null),
+  /** For `limit` (decision 147): the business day new requests start again, "2026-12-01". */
+  until: z.string().nullable().default(null),
 });
 export type RequestsHeld = z.output<typeof RequestsHeld>;
+
+/** Today's note for a pause the network's monthly limit put on new requests (decision 147). */
+export function requestsLimitHeld(until: string): RequestsHeld {
+  return {
+    why: 'limit',
+    count: 0,
+    most: 0,
+    extension: 0,
+    cancelling: 0,
+    cancelMost: null,
+    until,
+  };
+}
 
 /**
  * Whether new friend requests wait on a network (decision 97), from the person's requests waiting for an answer there
@@ -342,9 +358,16 @@ export function requestsHeldOn(
     cancelling: counts.cancelling ?? 0,
     cancelMost: null,
   };
-  if (counts.friends >= most) return { why: 'cap', count: counts.friends, most, ...more };
+  if (counts.friends >= most)
+    return { why: 'cap', count: counts.friends, most, ...more, until: null };
   if (counts.waiting >= REQUESTS_WAITING_MOST)
-    return { why: 'waiting', count: counts.waiting, most: REQUESTS_WAITING_MOST, ...more };
+    return {
+      why: 'waiting',
+      count: counts.waiting,
+      most: REQUESTS_WAITING_MOST,
+      ...more,
+      until: null,
+    };
   return null;
 }
 

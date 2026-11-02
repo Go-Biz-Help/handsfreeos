@@ -77,6 +77,7 @@ import { tally } from './tallies';
 import { playbooksInUse } from './friends';
 import { groupFitOf } from './group-checks';
 import { readinessFor } from './readiness';
+import { requestsPauseOf } from './request-pause';
 import { slowsNow, startOfToday, warningOf } from './tidy';
 import type { WarningState } from '../tidy';
 
@@ -280,7 +281,7 @@ export async function likesBehind(
  * The good fits ready on a network for the day's goal (decision 126): for a first message, friends to reconnect with and
  * new friends who accepted with no message yet, today's among them; and for a friend request, people found, following
  * them or in their groups whom a check found fit or might, still to reach. With whether new requests are held there
- * (decision 97).
+ * (decision 97), or paused by the network's monthly limit (decision 147).
  */
 export async function goalStock(
   ctx: Ctx,
@@ -336,7 +337,9 @@ export async function goalStock(
       requestsHeldOn(platform, {
         waiting: counted?.waiting ?? 0,
         friends: counted?.friends ?? 0,
-      }) !== null,
+      }) !== null ||
+      // The network's monthly limit (decision 147): no searching for more to ask meanwhile either.
+      (await requestsPauseOf(ctx, me, platform, now)) !== null,
   };
 }
 

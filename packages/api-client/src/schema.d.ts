@@ -8497,6 +8497,46 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/commands/outreach.requests.pause": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Note that a social network told the person they reached their monthly limit of requests there (Alignable’s connection requests), in its own words, as the extension read it: new requests on that network wait till the 1st of next month, with the likes before them. Likes, comments and messages go on, and nothing else slows down.
+         * @description Risk level 1. Requires outreach.use. Emits outreach.requests.paused. Can wait on a phone with no signal.
+         */
+        post: operations["command_outreach_requests_pause"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/outreach.requests.start_again": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Start new requests again on a social network (Alignable’s connection requests) before the 1st, after the person upgraded there: the pause its monthly limit put on them ends now. If the network says the limit is still reached, they pause again.
+         * @description Risk level 1. Requires outreach.use. Emits outreach.requests.started_again.
+         */
+        post: operations["command_outreach_requests_start_again"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/commands/outreach.send.approve": {
         parameters: {
             query?: never;
@@ -45398,6 +45438,70 @@ export interface operations {
             };
         };
     };
+    command_outreach_requests_pause: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** @enum {string} */
+                    platform: "facebook" | "linkedin" | "instagram" | "alignable";
+                    words: string[];
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        already: boolean;
+                        until: string;
+                    };
+                };
+            };
+        };
+    };
+    command_outreach_requests_start_again: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** @enum {string} */
+                    platform: "facebook" | "linkedin" | "instagram" | "alignable";
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        ended: boolean;
+                    };
+                };
+            };
+        };
+    };
     command_outreach_send_approve: {
         parameters: {
             query?: never;
@@ -79980,8 +80084,10 @@ export interface operations {
                             /** @default 0 */
                             extension: number;
                             most: number;
+                            /** @default null */
+                            until: string | null;
                             /** @enum {string} */
-                            why: "waiting" | "cap";
+                            why: "waiting" | "cap" | "limit";
                         } | null;
                         /** @default null */
                         retryAt: string | null;

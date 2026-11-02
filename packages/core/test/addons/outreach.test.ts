@@ -114,6 +114,7 @@ describe('Social Outreach', () => {
         'outreach.readiness.numbers',
         // Confirm or Delete on a friend request (decision 136): it reaches someone on their network.
         'outreach.request.answer',
+        'outreach.requests.start_again',
         'outreach.send.approve',
         'outreach.send.retry',
         'outreach.wheels.end',

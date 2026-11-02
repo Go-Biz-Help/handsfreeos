@@ -1556,6 +1556,29 @@ export const networkStarts = addonOutreach.table(
 );
 
 /**
+ * A network's own monthly limit on the person's requests (./request-pause.ts, decision 147): new requests there wait
+ * till `until`, unless Start again ends it sooner (`ended_at`). One row a person a network, written again each time.
+ */
+export const requestPauses = addonOutreach.table(
+  'request_pauses',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    workspaceId: workspaceRef(),
+    userId: uuid('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    platform: text('platform').notNull().$type<Platform>(),
+    words: text('words').array().notNull(),
+    at: ts('at').notNull(),
+    until: ts('until').notNull(),
+    endedAt: ts('ended_at'),
+    createdAt: ts('created_at').notNull().defaultNow(),
+    updatedAt: ts('updated_at').notNull().defaultNow(),
+  },
+  (t) => [unique().on(t.workspaceId, t.id), unique().on(t.workspaceId, t.userId, t.platform)],
+);
+
+/**
  * How many of each thing the extension did on its own, a day at a time (./tallies.ts, decision 140): one row a person,
  * business day, network and kind, added to as each save arrives. Each person writes only their own; owners and admins
  * read the team's, which hold no names.
@@ -1743,6 +1766,7 @@ export const OUTREACH_TABLES = {
   posts,
   profiles,
   replies,
+  requestPauses,
   sends,
   setup,
   stages,

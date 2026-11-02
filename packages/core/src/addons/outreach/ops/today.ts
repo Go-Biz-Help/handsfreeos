@@ -51,6 +51,7 @@ import {
   RECOMMEND_WORDS,
   REQUESTS_WHY,
   requestsHeldOn,
+  requestsLimitHeld,
   TODAY_KIND_KEYS,
   TODAY_LIMIT,
   TODAY_MOST,
@@ -117,6 +118,7 @@ import { readinessFor } from './readiness';
 import { groupFitOf } from './group-checks';
 import { sendsToday } from './sends';
 import { postParts } from '../sends';
+import { requestsPauseOf } from './request-pause';
 import { slowsNow, startOfToday, warningOf } from './tidy';
 import { cancelMostNow } from '../tidy';
 
@@ -354,16 +356,21 @@ export const today = defineAddonQuery(outreachAddon, {
           where f.workspace_id = ${ws} and f.user_id = ${me} and p.platform = ${input.platform}`,
     );
     const held = requestsHeldOn(input.platform, mine ?? { waiting: 0, friends: 0 });
+    // The network said they reached their monthly limit there (decision 147): none till the day it ends, whatever
+    // else would hold them, as only that day lets them start again.
+    const paused = await requestsPauseOf(ctx, me, input.platform, now);
     // Cancel all's pace now, for the note (decision 126, answer 9a).
-    const requestsHeld = held && {
-      ...held,
-      cancelMost: cancelMostNow(input.platform, {
-        going: held.cancelling > 0,
-        waiting: mine?.waiting ?? 0,
-        warned: slowsNow(warning, now),
-        slower,
-      }),
-    };
+    const requestsHeld = paused
+      ? requestsLimitHeld(paused.day)
+      : held && {
+          ...held,
+          cancelMost: cancelMostNow(input.platform, {
+            going: held.cancelling > 0,
+            waiting: mine?.waiting ?? 0,
+            warned: slowsNow(warning, now),
+            slower,
+          }),
+        };
     const requestsOff =
       (warning !== null && new Date(warning.requestsFrom).getTime() > now) || requestsHeld !== null;
     const playbooks = await playbooksInUse(ctx, input.platform);

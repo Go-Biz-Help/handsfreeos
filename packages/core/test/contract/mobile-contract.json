@@ -9603,6 +9603,23 @@
         "required": ["workspaceId", "profileId"]
       }
     },
+    "outreach.requests.start_again": {
+      "offline": "online",
+      "input": {
+        "type": "object",
+        "properties": {
+          "workspaceId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "platform": {
+            "type": "string",
+            "enum": ["facebook", "linkedin", "instagram", "alignable"]
+          }
+        },
+        "required": ["workspaceId", "platform"]
+      }
+    },
     "outreach.send.approve": {
       "offline": {
         "freshMinutes": 30

@@ -3643,6 +3643,28 @@ where decisions 37 and 59 put the settings; what they decided stands. Settled to
         connect yourself, or let it go." The extension's reason stays on Needs you.
       - **Every push ends with what a tap does** ("Tap to OK, change or skip it.", "Tap to open it."), so none names a
         page; the pop-ups say "Click to…" (`PushOn`).
+147.  **Alignable's monthly connection limit pauses its connection requests till the 1st** (Chris, 2 Nov 2026, after
+      the AI helper's reports showed it pressing Not now on a box after Connect: "oh it says i’ve reached my monthly
+      connection limit in alignable", "it asks me to upgrade"), answered "Pause requests till next month"; extension
+      **0.124.0**, migration `20261027021900_outreach_request_pauses.sql`.
+      - **The extension sees it.** Alignable's page read keeps its words when they say the person reached their
+        monthly limit of connection requests (`monthlyLimitOn`, the extension's `limit`). Connect looks for it before
+        Alignable's warnings, after the press and when their page opens again, and tells HandsFreeOS
+        (`outreach.requests.pause`, the extension's alone).
+      - **New connection requests wait till the 1st of next month**, the business's day (`pauseEndsOn`,
+        `addon_outreach.request_pauses`), and so do the likes before them and requests tried again, as decision 97
+        holds them; the day's goal and the searching for more to ask count it too (`goalStock`). Hit again within a
+        week of the last pause ending, it waits a week instead (`PAUSE_AGAIN_DAYS`): a limit counted over the last
+        30 days, not by the calendar month, doesn't cost a whole month.
+      - **Never a warning.** Likes, comments, messages and the rest of Alignable's day go on; nothing is halved, no
+        training wheels, no push, and the AI helper doesn't look. The step that hit it says so on the panel and in its
+        report; one tried again goes back to the person, as any that didn't go.
+      - **One line on Today, on the web and the phone** (`requestsHeld.why` `limit`, `requestsHeldWords`): "No new
+        connection requests on Alignable till Dec 1: Alignable says you’ve reached your monthly limit. Likes, comments
+        and messages go on. Upgraded on Alignable? Start them again." With **Start again**
+        (`outreach.requests.start_again`; the Assistant's `outreach_start_requests_again`, on a Confirm card), which
+        ends it now; still at the limit, the next Connect pauses them again.
+      - Any network's own monthly limit could use the same pause; only Alignable's is read today.
 
 ## Rules worth knowing before changing anything
 
@@ -4098,7 +4120,8 @@ where decisions 37 and 59 put the settings; what they decided stands. Settled to
   `network_starts`, the person's own, written only by `outreach.touch.save`; tests start everyone 90 days back
   (`season` in `outreach-fixture.ts`) unless the business is made with `{ newAccounts: true }`.
 - **Friend requests stop at 200 waiting or near the cap** (decision 97, `requestsHeldOn`): Today leaves them and the
-  likes before them off as after a warning, and says why with `requestsHeld`.
+  likes before them off as after a warning, and says why with `requestsHeld`. So does a network's monthly limit, till
+  the 1st (decision 147, `requestsPauseOf`): never a warning, so nothing else slows or stops.
 - **A post is checked once, and kept for the person who saw it** (`posts`, by `user_id` and link). Seen again, it's
   only updated; the AI's answer is taken once (`outreach.post.check` changes only a `waiting` post), and an answer it
   can't use marks it `failed`. Today offers it for a week from when it was last seen (`POST_FRESH_DAYS`), never when

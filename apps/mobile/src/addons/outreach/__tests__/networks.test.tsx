@@ -410,6 +410,7 @@ describe('A network’s list for today', () => {
       extension: 7,
       cancelling: 0,
       cancelMost: null,
+      until: null,
     } as const;
     const body = (requestsHeld: TodayOutput['requestsHeld']) => (
       <TodayBody
@@ -440,6 +441,41 @@ describe('A network’s list for today', () => {
     await render(body({ ...held, extension: 0 }));
     expect(screen.queryByTestId('today-cancel-all-leaving-out')).toBeNull();
     expect(screen.getByTestId('today-cancel-all-every')).toBeTruthy();
+  });
+
+  it('says till when Alignable’s monthly limit holds requests, with Start again and no Cancel all (decision 147)', async () => {
+    const onRequestsAgain = jest.fn();
+    await render(
+      <TodayBody
+        platform="alignable"
+        today={{
+          ...todayOf([]),
+          requestsHeld: {
+            why: 'limit',
+            count: 0,
+            most: 0,
+            extension: 0,
+            cancelling: 0,
+            cancelMost: null,
+            until: '2026-12-01',
+          },
+        }}
+        error={null}
+        wheels={null}
+        onRetry={jest.fn()}
+        onOk={jest.fn()}
+        onSkip={jest.fn()}
+        onNotForMe={jest.fn()}
+        onEndWheels={jest.fn()}
+        onCancelAll={jest.fn()}
+        onRequestsAgain={onRequestsAgain}
+      />,
+    );
+    const note = screen.getByTestId('today-requests-held');
+    expect(note).toHaveTextContent(/till Dec 1: Alignable says you’ve reached your monthly limit/);
+    expect(screen.queryByTestId('today-cancel-all')).toBeNull();
+    await fireEvent.press(screen.getByTestId('today-requests-again'));
+    expect(onRequestsAgain).toHaveBeenCalledTimes(1);
   });
 
   it('says how many first messages short and why, with what to try (decision 126)', async () => {

@@ -38,6 +38,7 @@ import { saveCommands, saveQueries } from './ops/saves';
 import { sendCommands, sendQueries } from './ops/sends';
 import { conversationCommands, conversationQueries } from './ops/conversation';
 import { readinessCommands, readinessQueries } from './ops/readiness';
+import { requestPauseCommands } from './ops/request-pause';
 import { setupCommands, setupQueries } from './ops/setup';
 import { stageCommands, stageQueries } from './ops/stages';
 import { tidyCommands, tidyQueries } from './ops/tidy';
@@ -61,6 +62,7 @@ export const outreachAddonServer: AddonServerModule = {
     ...chatCommands,
     ...groupCommands,
     ...tidyCommands,
+    ...requestPauseCommands,
     ...postCommands,
     ...alertCommands,
     ...openerCommands,
@@ -143,6 +145,7 @@ export const outreachAddonServer: AddonServerModule = {
     'outreach.group.save': EXTENSION,
     'outreach.friend.end': EXTENSION,
     'outreach.warning.note': EXTENSION,
+    'outreach.requests.pause': EXTENSION,
     'outreach.posts.save': EXTENSION,
     'outreach.replies.note': EXTENSION,
     'outreach.warm_up.missed': EXTENSION,

@@ -671,6 +671,58 @@ describe('a connection request on Alignable', () => {
     expect(world.noted).toEqual([]);
   });
 
+  it('pauses connection requests till the 1st when Alignable says the monthly limit is reached, with no warning and no helper (decision 147)', async () => {
+    world.pages = () => ({ html: businessHtml(), at: DANA_PAGE });
+    // Alignable's box after Connect, as the owner saw it on 2 Nov 2026: their limit, Upgrade, and Not now.
+    world.behave = (doc) =>
+      doc.querySelector('#connect')!.addEventListener('click', (event) => {
+        event.preventDefault();
+        doc.body.insertAdjacentHTML(
+          'beforeend',
+          `<div role="dialog" aria-modal="true"><h2>You’ve reached your monthly connection limit.</h2>
+            <p>Upgrade to keep growing your network. You’ve sent too many connection requests.</p>
+            <a href="/biz/premium">Upgrade</a><button>Not now</button></div>`,
+        );
+      });
+    world.answers['/v1/commands/outreach.requests.pause'] = () => ({
+      until: '2026-12-01',
+      already: false,
+    });
+    expect(await doWork({ do: 'step', item: item({}) }, ME.businessId, false)).toEqual({
+      done: false,
+      line: 'Dana Reyes: Alignable says you’ve reached your monthly limit, so new connection requests wait till Dec 1. Likes, comments and messages go on.',
+    });
+    expect(world.posted).toContainEqual({
+      path: '/v1/commands/outreach.requests.pause',
+      body: {
+        workspaceId: ME.businessId,
+        platform: 'alignable',
+        words: ['You’ve reached your monthly connection limit.'],
+      },
+    });
+    // Its "too many" is no warning here, the helper never looks, and their page isn't opened again.
+    expect(world.asked.map((a) => a.type)).not.toContain('hfos-warning');
+    expect(world.asked.map((a) => a.type).filter((t) => t.startsWith('hfos-helper'))).toEqual([]);
+    expect(world.opened).toEqual([DANA]);
+    expect(world.noted).toEqual([]);
+  });
+
+  it('still says requests wait when HandsFreeOS couldn’t be told, and goes on', async () => {
+    world.pages = () => ({ html: businessHtml(), at: DANA_PAGE });
+    world.behave = (doc) =>
+      doc.querySelector('#connect')!.addEventListener('click', (event) => {
+        event.preventDefault();
+        doc.body.insertAdjacentHTML(
+          'beforeend',
+          '<div role="dialog"><p>Monthly connection limit reached</p><button>Not now</button></div>',
+        );
+      });
+    expect(await doWork({ do: 'step', item: item({}) }, ME.businessId, false)).toEqual({
+      done: false,
+      line: 'Dana Reyes: Alignable says you’ve reached your monthly limit, so new connection requests wait till the 1st. Likes, comments and messages go on.',
+    });
+  });
+
   it('lets the AI helper look at their page as Connect left it, before it’s opened again (decision 145)', async () => {
     // Their page after the press, where a box asking one more thing would show; opened again, Alignable shows another.
     let opens = 0;

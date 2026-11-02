@@ -119,6 +119,7 @@ describe('no new friend requests', () => {
       extension: 0,
       cancelling: 0,
       cancelMost: null,
+      until: null,
     });
     // How many the extension sent, and Cancel all's left (decision 121), for the note's buttons.
     expect(
@@ -138,6 +139,7 @@ describe('no new friend requests', () => {
       extension: 0,
       cancelling: 0,
       cancelMost: null,
+      until: null,
     });
     expect(requestsHeldOn('alignable', { waiting: 0, friends: 9_900 })).toMatchObject({
       why: 'cap',
@@ -328,6 +330,7 @@ describe('no new friend requests, in the business', () => {
       cancelling: 0,
       // Cancel all's pace: the usual 30 a day while it isn't going (decision 126, answer 9a).
       cancelMost: 30,
+      until: null,
     });
     // LinkedIn's invitations are their own.
     expect(
