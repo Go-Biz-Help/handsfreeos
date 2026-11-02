@@ -44,6 +44,12 @@ export const POSTS_SAVE_MOST = 30;
 export const POST_WORDS_MOST = FIND_WORDS_MOST;
 /** How long a post is worth a comment: after a week, the conversation under it has moved on. */
 export const POST_FRESH_DAYS = 7;
+/**
+ * When the post check that knows the owner's own field went live (decision 143). A post called good before then waits
+ * for the check again before it's offered for a comment, and the worker sends it back (`sendOldGoodBack`), as a business
+ * with the add-on on never runs a data step.
+ */
+export const FIELD_CHECK_SINCE = '2026-11-01T23:51:00.000Z';
 /** How many comment drafts the AI writes (decision 20). */
 export const COMMENT_DRAFTS = 2;
 

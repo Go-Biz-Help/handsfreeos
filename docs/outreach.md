@@ -3568,11 +3568,13 @@ where decisions 37 and 59 put the settings; what they decided stands. Settled to
         materials, their customers' questions) unless it's the owner's field too. When the owner's field has nothing
         real to add, the AI writes no drafts, and the extension passes the post by for the day ("the AI had nothing to
         say on it"). The rest of decision 141's voice stays.
-      - **The posts an older check called good are checked again** (3a). Data step 10 (`recheckGoodPosts` in the
-        worker's `posts.ts`) sends back to the AI's check every good post a comment could still go on (seen in the last
-        week, not skipped, no comment drafted or posted), and queues the check at once: about one AI ask a post. Those
-        about the owner's field stay good; the rest leave Today. A comment already waiting stays until it's OK'd or
-        skipped.
+      - **The posts an older check called good are checked again** (3a). `sendOldGoodBack` (the worker's
+        `posts.ts`) sends back to the AI's check every good post checked before the new check went live
+        (`FIELD_CHECK_SINCE`) that a comment could still go on (seen in the last week, not skipped, no comment drafted
+        or posted), and queues the check at once: about one AI ask a post. A business with the add-on on never runs a
+        data step, so the next posts saved and the day's start do it (data step 10 is it for a reinstall), and Today
+        offers no post checked before then meanwhile. Those about the owner's field stay good; the rest leave Today. A
+        comment already waiting stays until it's OK'd or skipped.
 
 ## Rules worth knowing before changing anything
 
