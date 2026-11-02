@@ -6,7 +6,11 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { cn } from '@/lib/utils';
 import { BookingPicker } from './booking-picker';
+import { useFormLook } from './form-look';
 import { VideoPlayer } from './video-player';
+
+/** The boxes people type in, which can carry their question's words inside them (the design's labels). */
+const TYPED = new Set(['short_text', 'long_text', 'email', 'phone', 'number', 'money']);
 
 /**
  * One question as the person answering it sees it. The preview in the editor and the public page both use
@@ -24,6 +28,9 @@ export function QuestionField({
   onChange: (value: AnswerValue) => void;
 }) {
   const id = `q-${question.id}`;
+  const { labelsInside } = useFormLook();
+  // Words inside the box: the label stays for screen readers, and the box shows the question until they type.
+  const inside = labelsInside && TYPED.has(question.type);
   if (question.type === 'content')
     return (
       <p id={id} className="whitespace-pre-wrap text-[14px] text-text-2">
@@ -66,7 +73,10 @@ export function QuestionField({
   }
   return (
     <div id={id}>
-      <label className="mb-1.5 block text-[14px] font-medium text-text" htmlFor={`${id}-input`}>
+      <label
+        className={inside ? 'sr-only' : 'mb-1.5 block text-[14px] font-medium text-text'}
+        htmlFor={`${id}-input`}
+      >
         {question.title}
         {question.required ? (
           <span className="ml-1 text-danger-text" aria-hidden="true">
@@ -74,8 +84,18 @@ export function QuestionField({
           </span>
         ) : null}
       </label>
-      {question.help ? <p className="mb-2 text-[12.5px] text-text-3">{question.help}</p> : null}
-      <Answer question={question} value={value} onChange={onChange} />
+      {question.help && !inside ? (
+        <p className="mb-2 text-[12.5px] text-text-3">{question.help}</p>
+      ) : null}
+      <Answer
+        question={question}
+        value={value}
+        onChange={onChange}
+        placeholder={inside ? `${question.title}${question.required ? ' *' : ''}` : undefined}
+      />
+      {question.help && inside ? (
+        <p className="mt-1.5 text-[12.5px] text-text-3">{question.help}</p>
+      ) : null}
       {problem ? (
         <p role="alert" className="mt-1.5 text-[12.5px] text-danger-text">
           {problem}
@@ -89,12 +109,16 @@ function Answer({
   question,
   value,
   onChange,
+  placeholder: inside,
 }: {
   question: Question;
   value: AnswerValue;
   onChange: (value: AnswerValue) => void;
+  /** The question's own words, when the design puts them inside the box. */
+  placeholder?: string;
 }) {
   const config = question.config as Record<string, unknown>;
+  const placeholder = inside ?? String(config.placeholder ?? '');
   const id = `q-${question.id}-input`;
   switch (question.type) {
     case 'long_text':
@@ -103,7 +127,7 @@ function Answer({
           id={id}
           rows={4}
           value={typeof value === 'string' ? value : ''}
-          placeholder={String(config.placeholder ?? '')}
+          placeholder={placeholder}
           onChange={(e) => onChange(e.target.value)}
         />
       );
@@ -224,7 +248,7 @@ function Answer({
             value={
               typeof value === 'number' ? String(value) : typeof value === 'string' ? value : ''
             }
-            placeholder={String(config.placeholder ?? '')}
+            placeholder={placeholder}
             onChange={(e) => onChange(e.target.value === '' ? null : Number(e.target.value))}
           />
           {config.unit ? (
@@ -344,7 +368,7 @@ function Answer({
           autoComplete="email"
           inputMode="email"
           value={typeof value === 'string' ? value : ''}
-          placeholder={String(config.placeholder ?? '')}
+          placeholder={placeholder}
           onChange={(e) => onChange(e.target.value)}
         />
       );
@@ -356,7 +380,7 @@ function Answer({
           autoComplete="tel"
           inputMode="tel"
           value={typeof value === 'string' ? value : ''}
-          placeholder={String(config.placeholder ?? '')}
+          placeholder={placeholder}
           onChange={(e) => onChange(e.target.value)}
         />
       );
@@ -365,7 +389,7 @@ function Answer({
         <Input
           id={id}
           value={typeof value === 'string' ? value : ''}
-          placeholder={String(config.placeholder ?? '')}
+          placeholder={placeholder}
           onChange={(e) => onChange(e.target.value)}
         />
       );

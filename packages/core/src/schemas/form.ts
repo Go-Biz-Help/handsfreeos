@@ -118,26 +118,23 @@ export const FormBeginSlidesUploadOutput = z.object({
 export const FormSetSlugInput = z.object({ workspaceId: uuid, formId: uuid, slug });
 export const FormSlugOutput = z.object({ formId: uuid, slug: z.string() });
 
+/** "Use on all my forms": this form's design, saved in its draft, onto every other form. */
+export const FormUseDesignEverywhereInput = z.object({ workspaceId: uuid, formId: uuid });
+export const FormUseDesignEverywhereOutput = z.object({
+  /** The forms whose design changed. */
+  formIds: z.array(uuid),
+  /** How many of them were live, and show it now. */
+  live: z.int(),
+});
+
 export const FormSetDeliveryInput = z.object({
   workspaceId: uuid,
   formId: uuid,
-  /** The sites allowed to frame it; an empty list means it is embedded nowhere. */
-  embedOrigins: z
-    .array(
-      z
-        .string()
-        .trim()
-        .toLowerCase()
-        .max(200)
-        .regex(
-          /^https:\/\/[a-z0-9.-]+(:\d{1,5})?$|^http:\/\/(localhost|127\.0\.0\.1)(:\d{1,5})?$/,
-          {
-            error: 'Use a site address like https://example.com.',
-          },
-        ),
-    )
-    .max(10)
-    .optional(),
+  /**
+   * The sites allowed to frame it, as people typed them (acme.com, https://www.acme.com/contact): saved as exact
+   * origins with their www twins, as the website chat's are. An empty list means it is embedded nowhere.
+   */
+  embedOrigins: z.array(z.string().max(300)).max(20).optional(),
   /** Let the AI teammate ask these questions in a conversation. */
   inChat: z.boolean().optional(),
 });

@@ -108,6 +108,7 @@ export const SCREEN_ACTIONS: Readonly<Record<string, ScreenAction>> = {
   'document.void': {},
   // ---- Forms and reviews ----
   'form.set_delivery': {},
+  'form.use_design_everywhere': {},
   'review_connection.disconnect': {},
   'review_connection.sync_now': {},
   // ---- Ideas ----

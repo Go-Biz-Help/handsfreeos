@@ -1,6 +1,7 @@
 import type { NextRequest } from 'next/server';
 import { loaderScript } from '@/lib/chat/loader';
 import { lookupChat } from '@/lib/chat/lookup';
+import { formEmbedScript } from '@/lib/forms/embed-script';
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 /** A 404 or a paused widget's empty script: a minute in browsers and on the CDN. */
@@ -26,6 +27,9 @@ function script(body: string, status: number, cache: string): Response {
  */
 export async function GET(request: NextRequest, ctx: { params: Promise<{ file: string }> }) {
   const { file } = await ctx.params;
+  // A form's box that grows to fit it (lib/forms/embed-script.ts): the same for every form, so kept for a day.
+  if (file === 'form.js')
+    return script(formEmbedScript(), 200, 'public, max-age=86400, s-maxage=86400');
   const key = /^(wk_[A-Za-z0-9]{20})\.js$/.exec(file)?.[1];
   // The preview page (/chat-preview) loads the same script for a signed-in manager: never kept by shared caches.
   const asked = request.nextUrl.searchParams.get('preview');

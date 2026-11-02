@@ -129,7 +129,13 @@ export function StepButtons({
           Back
         </Button>
       ) : null}
-      <Button className="flex-1" onClick={onNext} disabled={disabled} data-testid="form-next">
+      <Button
+        className="flex-1"
+        onClick={onNext}
+        disabled={disabled}
+        data-testid="form-next"
+        data-form-action=""
+      >
         Next
       </Button>
     </div>

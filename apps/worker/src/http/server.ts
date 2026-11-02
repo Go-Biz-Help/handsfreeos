@@ -54,6 +54,7 @@ import { registerChatRoutes } from './chat';
 import { registerPortalRoutes } from './portal';
 import { formOrigins, registerIntakeRoutes } from './intake';
 import { registerFormRoutes } from './forms';
+import { registerWebsiteStyleRoutes } from './website-style';
 import { registerAddonActionRoutes } from './addon-actions';
 import { registerAddonConnectionRoutes } from './addon-connections';
 import { registerAddonSealedRoutes } from './addon-sealed';
@@ -355,6 +356,8 @@ export async function buildHttpServer(deps: HttpDeps): Promise<FastifyInstance> 
   // A customer's own portal: their private link, the code emailed to them, and the device it signs in.
   await registerPortalRoutes(app, deps);
   await registerFormRoutes(app, deps);
+  // A form's Match my website: a website's colours, font and corners, for its Design tab.
+  await registerWebsiteStyleRoutes(app, deps);
   // Documents: a signer's page (`/d/…`), their code, signing and declining, and the team's copy of a link.
   await registerDocumentRoutes(app, deps);
   // The AI placing the fields on a template's PDF, for the editor.

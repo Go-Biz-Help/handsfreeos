@@ -2,7 +2,7 @@
  * The form definition (`FormDefinition`, version 1): one tree that the question list, the live preview and
  * the Assistant all edit, only through the patch ops in ops.ts. A mode (form, survey or quiz), `pages[]`
  * of questions with stable ids, the calculations, the results they can land on, what happens when they
- * submit, and the settings.
+ * submit, the settings, and how it looks (design.ts).
  *
  * A form, a survey and a quiz are the same shape. `mode` changes what the editor puts in front of the
  * business and how a response reads afterwards, not what a question is — which is why a survey can be
@@ -13,6 +13,7 @@
 import { z } from 'zod';
 import { AssignTo, NotifyWho } from '../workflows/actions';
 import { Ref } from '../workflows/ids';
+import { FormDesign } from './design';
 import { CalculationId, PageId, QuestionId, ResultId } from './ids';
 import {
   AnswerConditionGroup,
@@ -397,6 +398,8 @@ export const FormDefinition = z.object({
   scoring: Scoring.prefault({}),
   onSubmit: OnSubmit.prefault({}),
   settings: FormSettings.prefault({}),
+  /** How it looks to the people filling it in (design.ts); left out, it follows the business's colour. */
+  design: FormDesign.prefault({}),
 });
 export type FormDefinition = z.infer<typeof FormDefinition>;
 export type FormDefinitionInput = z.input<typeof FormDefinition>;

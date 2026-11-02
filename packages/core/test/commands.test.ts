@@ -700,6 +700,7 @@ describe('registry', () => {
       'form.rename',
       'form.set_slug',
       'form.set_delivery',
+      'form.use_design_everywhere',
       'form.duplicate',
       'form.archive',
       'form.restore',

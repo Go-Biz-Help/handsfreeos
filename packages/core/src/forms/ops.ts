@@ -18,6 +18,7 @@ import {
   type FormSettingsInput,
   type QuestionInput,
 } from './definition';
+import type { FormDesignInput } from './design';
 import { CalculationId, ChoiceId, PageId, QuestionId, ResultId } from './ids';
 import type { CalculationInput, ScoringInput } from './logic';
 import type { QuestionChoiceInput } from './questions';
@@ -68,7 +69,8 @@ export type FormOp =
   | { readonly op: 'set_form'; readonly patch: FormPatch }
   | { readonly op: 'set_scoring'; readonly patch: Partial<ScoringInput> }
   | { readonly op: 'set_on_submit'; readonly patch: Partial<OnSubmitInput> }
-  | { readonly op: 'set_settings'; readonly patch: Partial<FormSettingsInput> };
+  | { readonly op: 'set_settings'; readonly patch: Partial<FormSettingsInput> }
+  | { readonly op: 'set_design'; readonly patch: Partial<FormDesignInput> };
 export type FormOpName = FormOp['op'];
 
 const loose = z.record(z.string(), z.unknown());
@@ -107,6 +109,7 @@ export const FormOpSchema = z.discriminatedUnion('op', [
   z.object({ op: z.literal('set_scoring'), patch: loose }),
   z.object({ op: z.literal('set_on_submit'), patch: loose }),
   z.object({ op: z.literal('set_settings'), patch: loose }),
+  z.object({ op: z.literal('set_design'), patch: loose }),
 ]);
 export const FormOpList = z.array(FormOpSchema).max(500);
 
@@ -485,6 +488,15 @@ function applyOne(work: Work, op: FormOp, i: number): FormOp {
           'Settings',
         ) as Partial<FormSettingsInput>,
       };
+    case 'set_design': {
+      // A form saved before the Design tab has no design yet; it starts from nothing set.
+      const bag = work as unknown as Bag;
+      if (!isPlainObject(bag.design)) bag.design = {};
+      return {
+        op: 'set_design',
+        patch: patchInto(bag.design as Bag, op.patch, i, 'Design') as Partial<FormDesignInput>,
+      };
+    }
     default: {
       const unknown: { op?: unknown } = op;
       return fail(i, 'invalid', `Unknown op ${String(unknown.op)}.`);
@@ -564,6 +576,7 @@ const AREA_OPS: Readonly<Record<string, FormOpName>> = {
   scoring: 'set_scoring',
   onSubmit: 'set_on_submit',
   settings: 'set_settings',
+  design: 'set_design',
 };
 
 function blame(ops: readonly FormOp[], targetId: string | null, area: FormOpName | null): number {

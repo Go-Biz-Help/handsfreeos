@@ -77,7 +77,13 @@ export function readWebTokens(css) {
   const themeBodies = blocks(clean, (s) => s === '@theme inline');
   if (!light.size || !dark.size || themeBodies.length !== 1)
     throw new Error(`Could not find the light, dark and @theme inline blocks in ${SOURCE}`);
-  return { light, dark, theme: declarations(themeBodies[0]) };
+  // A plain `@theme` holds the tokens the web's utilities read as variables (the corners a form's design changes);
+  // the phone takes them the same as the inline ones, and they come first, where they were before they moved.
+  const theme = new Map();
+  for (const body of blocks(clean, (s) => s === '@theme'))
+    for (const [k, v] of declarations(body)) theme.set(k, v);
+  for (const [k, v] of declarations(themeBodies[0])) theme.set(k, v);
+  return { light, dark, theme };
 }
 
 // ---------------------------------------------------------------------------------------------- colours

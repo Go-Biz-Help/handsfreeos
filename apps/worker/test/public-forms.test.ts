@@ -139,6 +139,20 @@ describe('opening one', () => {
       'https://example.com',
     ]);
   });
+
+  /** A form's design starts from the business's colour and logo (forms/design.ts), so the page needs them. */
+  it('hands back the business’s colour for the form’s design to start from', async () => {
+    await admin().execute(
+      sql`update app.workspaces set settings = settings || '{"look":{"color":{"hex":"#e85d04","from":"person","at":"2026-11-02T21:00:00.000Z"}}}'::jsonb
+          where id = ${w.workspaceId}`,
+    );
+    const res = await get(w, formUrl());
+    expect(res.statusCode, res.body).toBe(200);
+    const { business } = res.json() as {
+      business: { look: { color: string | null; logo: string | null } };
+    };
+    expect(business.look).toEqual({ color: '#e85d04', logo: null });
+  });
 });
 
 describe('filling it in', () => {

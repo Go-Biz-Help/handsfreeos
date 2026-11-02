@@ -182,6 +182,12 @@ export function describeFormOp(op: FormOp, before: FormDefinition): string {
       return 'Changed what happens when somebody sends it';
     case 'set_settings':
       return 'Changed the settings';
+    case 'set_design': {
+      const patch = op.patch as Record<string, unknown>;
+      if (patch.matched && typeof patch.matched === 'object')
+        return 'Matched the design to the website';
+      return 'Changed the design';
+    }
   }
 }
 
@@ -283,6 +289,8 @@ export function diffForms(from: FormDefinition, to: FormDefinition): FormOp[] {
     ops.push({ op: 'set_on_submit', patch: cloneJson(to.onSubmit) });
   if (!jsonEqual(from.settings, to.settings))
     ops.push({ op: 'set_settings', patch: cloneJson(to.settings) });
+  if (!jsonEqual(from.design, to.design))
+    ops.push({ op: 'set_design', patch: cloneJson(to.design) });
 
   return ops;
 }

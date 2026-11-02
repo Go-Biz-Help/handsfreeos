@@ -1,10 +1,11 @@
-import { can } from '@hfos/core';
+import { can, lookOf } from '@hfos/core';
 import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 import { FormEditor } from '@/components/forms/editor';
 import { FormNameHeader } from '@/components/forms/name-header';
 import { apiServer, unwrapPage } from '@/lib/api/server';
 import { brandedOriginFor } from '@/lib/hosting/branded-origin';
+import { logoSrc } from '@/lib/look';
 
 export const metadata: Metadata = { title: 'Form' };
 
@@ -35,6 +36,9 @@ export default async function FormPage({
     brandedOriginFor(api, workspaceId),
   ]);
   if (!formRes.data) notFound();
+  // The business's logo and colour (Settings → Workspace), which the form follows until its design says otherwise.
+  const settings = (got.workspace.settings ?? {}) as Record<string, unknown>;
+  const look = lookOf(settings);
   return (
     <>
       <FormNameHeader workspaceId={workspaceId} form={formRes.data.form} canManage={canManage} />
@@ -48,6 +52,13 @@ export default async function FormPage({
         brandedOrigin={brandedOrigin}
         timeZone={got.workspace.timezone}
         openResponse={openResponse}
+        brand={{
+          website: typeof settings['website'] === 'string' ? settings['website'] || null : null,
+          color: look.color?.hex ?? null,
+          logo: look.logo
+            ? { url: logoSrc(look.logo.path), width: look.logo.width, height: look.logo.height }
+            : null,
+        }}
       />
     </>
   );
