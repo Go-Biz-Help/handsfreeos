@@ -453,10 +453,7 @@ export function PublicForm({
 
             <div className="mt-6 flex flex-col gap-[var(--form-gap,1.5rem)]">
               {steps.shown.map((page) => (
-                <section
-                  key={page.page.id}
-                  className="flex flex-col gap-[var(--form-gap,1.5rem)]"
-                >
+                <section key={page.page.id} className="flex flex-col gap-[var(--form-gap,1.5rem)]">
                   {page.page.title ? (
                     <h2 className="text-[15px] font-medium text-text-2">{page.page.title}</h2>
                   ) : null}

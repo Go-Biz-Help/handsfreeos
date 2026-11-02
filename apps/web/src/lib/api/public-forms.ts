@@ -14,7 +14,11 @@ export interface PublicFormPage {
     readonly timeZone: string;
     /** Its logo and colour (the worker's PublicLook), which a form follows until its design says otherwise. */
     readonly look?: {
-      readonly logo: { readonly url: string; readonly width: number; readonly height: number } | null;
+      readonly logo: {
+        readonly url: string;
+        readonly width: number;
+        readonly height: number;
+      } | null;
       readonly color: string | null;
     };
   };

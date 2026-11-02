@@ -235,7 +235,11 @@ export async function registerFormRoutes(app: FastifyInstance, deps: HttpDeps): 
             .where(eq(workspaces.id, row.workspace_id)),
         );
         return {
-          business: { name, timeZone: row.timezone, look: publicLookOf(ws?.settings, deps.storageUrl) },
+          business: {
+            name,
+            timeZone: row.timezone,
+            look: publicLookOf(ws?.settings, deps.storageUrl),
+          },
           // The separate box for offers, under the first, for a business that sends them.
           offersConsent: offers,
           // The "OK to call" box under those, for a business that asks for one.
