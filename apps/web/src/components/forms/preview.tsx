@@ -12,7 +12,6 @@ import {
 } from '@hfos/core';
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
-import { cn } from '@/lib/utils';
 import { FormLogoMark, FormLookFrame, FormSurface, type FormLogo } from './form-look';
 import { QuestionField } from './question-field';
 import { StepButtons, StepProgress, useFormSteps } from './steps';

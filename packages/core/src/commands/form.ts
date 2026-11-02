@@ -7,7 +7,7 @@
  * a visitor can see changes until a publish: the draft is only ever the business's own working copy.
  */
 import { randomUUID } from 'node:crypto';
-import { and, desc, eq, sql as dsql } from 'drizzle-orm';
+import { and, desc, eq, isNull, ne, sql as dsql } from 'drizzle-orm';
 import { files, forms, formVersions } from '@hfos/db/schema';
 import { ensureBookingSite } from '../calendar/site';
 import { normalizeChatOrigins } from '../chat/origins';
@@ -47,6 +47,8 @@ import {
   FormSetStatusInput,
   FormSlugOutput,
   FormStatusOutput,
+  FormUseDesignEverywhereInput,
+  FormUseDesignEverywhereOutput,
 } from '../schemas/form';
 import { jsonEqual } from '../workflows/json';
 
@@ -514,6 +516,113 @@ export const formSetDelivery = defineCommand({
   },
 });
 
+/**
+ * "Use on all my forms" (the owner's 1a, 2026-11-02): one form's design onto the rest, so a business with five forms
+ * sets its look up once. Each one's draft takes it, and a live one shows it straight away as a new version with
+ * nothing else changed: its questions and anything half-done in its draft stay as they were. The design is read from
+ * this form's saved draft, so the editor saves first. Live polls are left out (they show in a video call), and so
+ * are archived forms.
+ */
+export const formUseDesignEverywhere = defineCommand({
+  name: 'form.use_design_everywhere',
+  description:
+    'Put one form’s design (its colours, font, shape and layout) on every other form. Live forms show it straight away; nothing else about them changes.',
+  risk: 2,
+  input: FormUseDesignEverywhereInput,
+  output: FormUseDesignEverywhereOutput,
+  permission: 'forms.manage',
+  scope: inWorkspace,
+  emits: ['form.draft_saved', 'form.published'],
+  async handler(ctx, input) {
+    const ws = ctx.scope.workspaceId!;
+    const me = requireHuman(ctx).userId;
+    const source = await loadForm(ctx.tx, ws, input.formId);
+    const design = source.definition.design;
+    const others = await ctx.tx
+      .select({ id: forms.id })
+      .from(forms)
+      .where(
+        and(
+          eq(forms.workspaceId, ws),
+          ne(forms.id, source.row.id),
+          ne(forms.status, 'archived'),
+          ne(forms.mode, 'poll'),
+          isNull(forms.archivedAt),
+        ),
+      )
+      .orderBy(forms.id)
+      .for('update');
+    const changed: string[] = [];
+    let live = 0;
+    const words = `Took the design from “${source.row.name}”`;
+    for (const { id } of others) {
+      const current = await loadForm(ctx.tx, ws, id, { forUpdate: true });
+      let touched = false;
+      if (!jsonEqual(current.definition.design, design)) {
+        const revision = current.row.revision + 1;
+        const definition = { ...current.definition, design };
+        await ctx.tx
+          .update(forms)
+          .set({ definition: asJson(definition), revision })
+          .where(eq(forms.id, id));
+        await ctx.emit({
+          type: 'form.draft_saved',
+          entityType: 'form',
+          entityId: id,
+          payload: { revision, changes: [words], opCount: 1 },
+          before: { revision: current.row.revision },
+          after: { revision, changes: [words] },
+        });
+        touched = true;
+      }
+      if (current.row.activeVersionId) {
+        const [active] = await ctx.tx
+          .select()
+          .from(formVersions)
+          .where(eq(formVersions.id, current.row.activeVersionId));
+        const published = active ? parseStoredForm(active.definition) : null;
+        if (published && !jsonEqual(published.design, design)) {
+          const [last] = await ctx.tx
+            .select({ version: formVersions.version })
+            .from(formVersions)
+            .where(eq(formVersions.formId, id))
+            .orderBy(desc(formVersions.version))
+            .limit(1);
+          const version = (last?.version ?? 0) + 1;
+          const definition = { ...published, design };
+          const [row] = await ctx.tx
+            .insert(formVersions)
+            .values({
+              workspaceId: ws,
+              formId: id,
+              version,
+              definition: asJson(definition),
+              definitionVersion: definition.version,
+              revision: current.row.revision,
+              source: 'editor',
+              publishedBy: me,
+            })
+            .returning({ id: formVersions.id });
+          if (!row) throw HfosError.forbidden();
+          await ctx.tx.update(forms).set({ activeVersionId: row.id }).where(eq(forms.id, id));
+          await ctx.emit({
+            type: 'form.published',
+            entityType: 'form',
+            entityId: id,
+            payload: { versionId: row.id, version, source: 'design', designFrom: source.row.id },
+            before: { status: current.row.status },
+            after: { status: current.row.status, version, changes: [words] },
+          });
+          if (current.row.status === 'live') live++;
+          touched = true;
+        }
+      }
+      if (touched) changed.push(id);
+    }
+    return { formIds: changed, live };
+  },
+});
+
 export const formDuplicate = defineCommand({
   name: 'form.duplicate',
   description:
@@ -675,6 +784,7 @@ export const formCommands = [
   formRename,
   formSetSlug,
   formSetDelivery,
+  formUseDesignEverywhere,
   formDuplicate,
   formArchive,
   formRestore,

@@ -4017,6 +4017,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/commands/form.use_design_everywhere": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Put one form’s design (its colours, font, shape and layout) on every other form. Live forms show it straight away; nothing else about them changes.
+         * @description Risk level 2. Requires forms.manage. Emits form.draft_saved, form.published.
+         */
+        post: operations["command_form_use_design_everywhere"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/commands/founding.approve": {
         parameters: {
             query?: never;
@@ -32884,6 +32904,38 @@ export interface operations {
                         formId: string;
                         /** @enum {string} */
                         status: "draft" | "live" | "closed" | "archived";
+                    };
+                };
+            };
+        };
+    };
+    command_form_use_design_everywhere: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    formId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        formIds: string[];
+                        live: number;
                     };
                 };
             };

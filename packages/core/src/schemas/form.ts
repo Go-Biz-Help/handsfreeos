@@ -118,6 +118,15 @@ export const FormBeginSlidesUploadOutput = z.object({
 export const FormSetSlugInput = z.object({ workspaceId: uuid, formId: uuid, slug });
 export const FormSlugOutput = z.object({ formId: uuid, slug: z.string() });
 
+/** "Use on all my forms": this form's design, saved in its draft, onto every other form. */
+export const FormUseDesignEverywhereInput = z.object({ workspaceId: uuid, formId: uuid });
+export const FormUseDesignEverywhereOutput = z.object({
+  /** The forms whose design changed. */
+  formIds: z.array(uuid),
+  /** How many of them were live, and show it now. */
+  live: z.int(),
+});
+
 export const FormSetDeliveryInput = z.object({
   workspaceId: uuid,
   formId: uuid,

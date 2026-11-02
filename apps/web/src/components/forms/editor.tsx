@@ -95,6 +95,27 @@ export function FormEditor({
     }
   }
 
+  /** "Use on all my forms": the draft is saved first, since the design is read from it. */
+  async function useDesignEverywhere() {
+    try {
+      await editor.save();
+      const out = unwrap(
+        await apiBrowser().POST('/v1/commands/form.use_design_everywhere', {
+          body: { workspaceId, formId: initial.form.formId },
+        }),
+      );
+      toast.success(
+        out.formIds.length === 0
+          ? 'Your other forms already look like this.'
+          : out.formIds.length === 1
+            ? 'Your other form looks like this now.'
+            : `Your other ${out.formIds.length} forms look like this now.`,
+      );
+    } catch (e) {
+      toast.error(errorMessage(e));
+    }
+  }
+
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-center gap-3">
@@ -240,6 +261,9 @@ export function FormEditor({
         </div>
       ) : tab === 'design' ? (
         <FormDesignPanel
+          workspaceId={workspaceId}
+          embedOrigins={initial.form.embedOrigins}
+          onUseEverywhere={useDesignEverywhere}
           definition={editor.definition}
           apply={editor.apply}
           readOnly={!canManage}

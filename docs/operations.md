@@ -8952,6 +8952,17 @@ Two more ways in, both set up in **Settings** → **Lead intake** and both landi
 
 A form the business builds in HandsFreeOS (M15) needs none of this. Its leads file under the same screen's **Website form** row, which is what decides whether they open a lead at all and which pipeline it lands in. A survey or a quiz never opens a lead by itself.
 
+#### A HandsFreeOS form shows a blank box on a website
+
+- **The site isn't listed.** Open the form, **Share**, and check **Sites allowed to show it**. An empty list means the form is shown nowhere but its own link (Shop Your Solar, 2 Nov 2026). Type the site any way (`shopyoursolar.com` is fine); the `www` version is added for you. A change takes up to a minute to reach the site.
+- **To check from a terminal:** `curl https://hooks.handsfreeos.com/public/form/<site>/<form>` and read `embedOrigins`. In the browser's developer console on the client's site, an error that mentions `frame-ancestors` means the site the visitor is on isn't in that list.
+- **It isn't published, or it's closed.** A draft has no public page; a closed form still shows, and says it's closed.
+- **The site builder.** Paste the whole snippet into an HTML or custom-code box, not a text block. GoDaddy's **HTML** section works; it puts what you paste in a box of its own, so if the form looks cut off there, make that section taller once.
+
+#### How a form looks on a website
+
+Each form has a **Design** tab (`docs/forms.md`, "How a form looks"). **Match my website** reads the site the form is on, or the business's website, and copies its button colour, words, font and corners into the draft; nothing shows until **Publish**. It reads the site from the worker (`POST /v1/forms/website-style`), as robots.txt lets HandsFreeOS. If it says it couldn't read the site, open the site in a browser to check it's up, or pick the colours by hand. **Use on all my forms** puts one form's design on the rest, and live forms show it straight away.
+
 **An app sending leads over.** Press **Connect an app** — Zapier, a Facebook lead-ad forwarder, or a developer's own code. It gives back a secret key, shown once and kept only as its hash, and the app posts JSON to `https://hooks.handsfreeos.com/v1/intake` with `Authorization: Bearer <key>`:
 
 ```bash

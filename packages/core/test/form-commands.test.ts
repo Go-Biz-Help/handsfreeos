@@ -20,6 +20,7 @@ import {
   formSetDelivery,
   formSetSlug,
   formSetStatus,
+  formUseDesignEverywhere,
   organizationCreate,
 } from '../src/server';
 import { admin, expectHfos, run } from './calendar-helpers';
@@ -444,6 +445,105 @@ describe('the link', () => {
         owner,
       ),
     ).rejects.toMatchObject({ code: 'validation' });
+  });
+});
+
+describe('one design on every form', () => {
+  /**
+   * "Use on all my forms" (the owner's 1a, 2026-11-02): one form's saved design onto the rest. A live form shows it
+   * straight away as a new version with nothing else changed; its draft takes it too, and keeps whatever else was
+   * half-done in it. A live poll is left alone.
+   */
+  it('puts one form’s design on the others, live ones straight away, and nothing else changes', async () => {
+    const org = await run(organizationCreate, { businessName: 'Design Everywhere Co' }, owner);
+    const ws = org.workspaceId;
+    const make = async (name: string, mode: 'form' | 'poll' = 'form') => {
+      const created = await run(formCreate, { workspaceId: ws, name, mode }, owner);
+      const pageId = ((await row(created.formId)).definition as { pages: { id: string }[] })
+        .pages[0]!.id;
+      const saved = await run(
+        formSaveDraft,
+        {
+          workspaceId: ws,
+          formId: created.formId,
+          baseRevision: 1,
+          ops: [addQuestion(pageId, askName())],
+        },
+        owner,
+      );
+      return { formId: created.formId, revision: saved.revision, pageId };
+    };
+    const source = await make('The one with the look');
+    const live = await make('Quote request');
+    const draftOnly = await make('Not out yet');
+    const poll = await make('Webinar poll', 'poll');
+    await run(
+      formPublish,
+      { workspaceId: ws, formId: live.formId, baseRevision: live.revision },
+      owner,
+    );
+    // Something half-done in the live form's draft, which mustn't go out with the design.
+    const halfDone = await run(
+      formSaveDraft,
+      {
+        workspaceId: ws,
+        formId: live.formId,
+        baseRevision: live.revision,
+        ops: [{ op: 'set_form', patch: { title: 'Not ready yet' } }],
+      },
+      owner,
+    );
+    await run(
+      formSaveDraft,
+      {
+        workspaceId: ws,
+        formId: source.formId,
+        baseRevision: source.revision,
+        ops: [{ op: 'set_design', patch: { colors: { button: '#e85d04' }, corners: 'round' } }],
+      },
+      owner,
+    );
+
+    const out = await run(
+      formUseDesignEverywhere,
+      { workspaceId: ws, formId: source.formId },
+      owner,
+    );
+    expect(new Set(out.formIds)).toEqual(new Set([live.formId, draftOnly.formId]));
+    expect(out.live).toBe(1);
+
+    type Stored = { title: string; design: { colors: { button: string | null }; corners: string } };
+    const liveRow = await row(live.formId);
+    const draft = liveRow.definition as Stored;
+    expect(draft.design.colors.button).toBe('#e85d04');
+    expect(draft.title).toBe('Not ready yet');
+    expect(liveRow.revision).toBe(halfDone.revision + 1);
+    const versions = await admin()
+      .select()
+      .from(formVersions)
+      .where(eq(formVersions.formId, live.formId));
+    expect(versions.map((v) => v.version).sort()).toEqual([1, 2]);
+    const showing = versions.find((v) => v.id === liveRow.activeVersionId)!;
+    expect(showing.version).toBe(2);
+    expect((showing.definition as Stored).design.corners).toBe('round');
+    // The live form shows the new look, and still asks what it asked.
+    expect((showing.definition as Stored).title).not.toBe('Not ready yet');
+
+    expect(((await row(draftOnly.formId)).definition as Stored).design.colors.button).toBe(
+      '#e85d04',
+    );
+    expect((await row(draftOnly.formId)).activeVersionId).toBeNull();
+    expect(
+      ((await row(poll.formId)).definition as Stored).design?.colors.button ?? null,
+    ).toBeNull();
+
+    // Again: nothing left to change.
+    const again = await run(
+      formUseDesignEverywhere,
+      { workspaceId: ws, formId: source.formId },
+      owner,
+    );
+    expect(again.formIds).toEqual([]);
   });
 });
 

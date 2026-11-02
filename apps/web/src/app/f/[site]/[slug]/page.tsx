@@ -1,6 +1,7 @@
 import { linkRefOf } from '@hfos/core';
 import type { Metadata } from 'next';
 import { PublicFrame } from '@/components/booking/public-shell';
+import { EmbedHeight } from '@/components/forms/embed-height';
 import { FormLookFrame } from '@/components/forms/form-look';
 import { PublicForm } from '@/components/forms/public-form';
 import { formPageData, getPublicForm, personalSheet, resumeSheet } from '@/lib/api/public-forms';
@@ -95,12 +96,17 @@ export default async function PublicFormPage({
     return (
       <>
         <style>{'html,body{background:transparent!important;color-scheme:light!important}'}</style>
-        <div className="p-1">{designed}</div>
+        <EmbedHeight>{designed}</EmbedHeight>
       </>
     );
   return (
     <PublicFrame
-      business={{ name: page.business.name, phone: null, phoneDisplay: null, look: look ?? undefined }}
+      business={{
+        name: page.business.name,
+        phone: null,
+        phoneDisplay: null,
+        look: look ?? undefined,
+      }}
     >
       <div className="w-full px-4 py-8 sm:py-12">{designed}</div>
     </PublicFrame>

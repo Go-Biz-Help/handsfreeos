@@ -79,7 +79,38 @@ ids and tells the model what they are.
 - a frame rule built from the sites the business listed, so an embedded form is framed by them and nobody
   else (`apps/web/src/lib/forms/frame.ts`).
 
-Embedding is a plain iframe with `?embed=1`; the page drops our frame and padding.
+Embedding is an iframe with `?embed=1` and one script line (`/embed/v1/form.js`, `lib/forms/embed-script.ts`): the
+page drops our frame and padding, says how tall it is whenever that changes, and the script fits the iframe to it. A
+snippet pasted before the script existed keeps its fixed height. The sites list takes sites typed any way and adds
+each one's `www` twin, as the website chat's does (`normalizeChatOrigins`).
+
+## How a form looks
+
+A form's `design` (`forms/design.ts`, the editor's **Design** tab) holds its colours, font, text size, corners, the
+style of its boxes and buttons, the space between questions, where the question words go, how wide it gets, and
+whether the business's logo is at the top. The owner's picks (2026-11-02, 1a 2a 3a 4a): each form has its own design,
+starting from the business's; **Use on all my forms** copies one form's design to the rest; **Match my website**
+copies a site's colours, font and corners; and there's no box for custom CSS, which could hide the texting consent
+words.
+
+**What rules here:**
+
+- **The design is part of the definition,** so it changes through `set_design` ops (Undo works, the Assistant and
+  the AI form builder can set it) and goes live with Publish like the questions. **Use on all my forms**
+  (`form.use_design_everywhere`) is the one exception: it's its own act, behind a confirmation, and puts the design
+  on the other forms' drafts and live versions straight away, changing nothing else about them.
+- **Unset colours follow the business.** The buttons take the business's colour (Settings → Workspace), darkened for
+  white words as on its booking page; every other colour is worked out from the background. `formLook` sets every
+  colour token the form's parts use, so a visitor's own dark mode never turns a form on a light site dark.
+- **A form on a website is see-through** unless its design gives it a background, so it sits on whatever part of the
+  site it's in. Its page is always in the light colour scheme there, because a browser paints a solid backdrop behind
+  a frame whose scheme differs from the page around it.
+- **The public page and the preview are worked out the same way** (`FormLookFrame`), so the preview is what goes live.
+- **Match my website** is read by the worker, never the API (`apps/worker/src/http/website-style.ts`, signed in, with
+  `forms.manage`): the page and up to six stylesheets, as robots.txt allows. `look/style.ts` finds the buttons in the
+  HTML first, so builders that style everything with made-up class names (GoDaddy's `.c1-a4`) are read as well as
+  hand-written `.btn` rules. A paid font is stood in for by the closest free one, and it says so. Nothing is kept: the
+  design lands in the draft as one edit.
 
 ## Videos and steps (funnels)
 

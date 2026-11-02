@@ -37,7 +37,8 @@ export default async function FormPage({
   ]);
   if (!formRes.data) notFound();
   // The business's logo and colour (Settings → Workspace), which the form follows until its design says otherwise.
-  const look = lookOf(got.workspace.settings ?? {});
+  const settings = (got.workspace.settings ?? {}) as Record<string, unknown>;
+  const look = lookOf(settings);
   return (
     <>
       <FormNameHeader workspaceId={workspaceId} form={formRes.data.form} canManage={canManage} />
@@ -52,6 +53,7 @@ export default async function FormPage({
         timeZone={got.workspace.timezone}
         openResponse={openResponse}
         brand={{
+          website: typeof settings['website'] === 'string' ? settings['website'] || null : null,
           color: look.color?.hex ?? null,
           logo: look.logo
             ? { url: logoSrc(look.logo.path), width: look.logo.width, height: look.logo.height }
