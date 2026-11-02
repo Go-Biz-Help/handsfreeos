@@ -137,12 +137,12 @@ function Hero({ counts, open }: { counts: readonly FoundingCount[] | null; open:
               <span className="text-accent-text mb-5 block text-sm leading-5 font-semibold tracking-normal">
                 HandsFreeOS
               </span>{' '}
-              Answer every lead in seconds. Get your evenings back.
+              Make more money. Work fewer hours.
             </h1>
             <p className="text-text-2 mt-7 max-w-xl text-lg sm:text-xl">
-              HandsFreeOS picks up your calls, answers your texts and website chats, books the job,
-              and chases the quote and the invoice. You step in only when it matters. One app, one
-              bill, your whole crew.
+              HandsFreeOS answers every call, text and chat in seconds, so you win more jobs. It
+              chases the quote and the invoice, so the money comes in. You step in only when it
+              matters.
             </p>
             {/* The first fear, answered before it forms: what will the AI say to my customers? */}
             <p className="text-text mt-5 max-w-xl text-lg font-semibold sm:text-xl">
