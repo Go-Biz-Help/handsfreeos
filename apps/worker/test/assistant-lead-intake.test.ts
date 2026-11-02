@@ -234,7 +234,7 @@ describe('Settings → Lead intake: website forms', () => {
     const { card } = await prepare('manage_lead_form', args);
     expect(card.title).toBe('Add a website form: Quote form');
     expect(field(card, 'Sites')).toBe(`${site}, www.${site}`);
-    expect(warned(card)).toContain('Copy');
+    expect(warned(card)).toContain('copy its snippet from Settings → Lead intake');
     expect(await form()).toBeUndefined();
 
     await commit('manage_lead_form', args);
