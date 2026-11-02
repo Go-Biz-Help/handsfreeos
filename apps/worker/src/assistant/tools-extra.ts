@@ -15,6 +15,7 @@
  */
 import { randomUUID } from 'node:crypto';
 import {
+  ADDON_CATALOG,
   applyTeammatePatch,
   attentionSettingsOf,
   AUTOMATION_GROUP_TITLES,
@@ -26,6 +27,7 @@ import {
   automationSettingsOf,
   DEFAULT_MENU,
   diffTeammateConfigs,
+  followUpLadderWords,
   formatClock,
   GET_HELP_WORDS,
   guessStageRole,
@@ -56,6 +58,7 @@ import {
   type AutomationId,
   type AutomationPatch,
   type AutomationSettings,
+  type FollowUpStep,
   type IdeaStatus,
   type LineCheckCents,
   type Menu,
@@ -303,9 +306,29 @@ function rulesPatch(config: TeammateConfig, args: Args): TeammatePatch {
   // Null or empty goes back to the usual one.
   const cleared = (key: string) => (args[key] === undefined ? undefined : (str(args[key]) ?? ''));
 
-  // Identity
+  // Identity and channels
   put('identity', 'signature', cleared('emailSignature'));
   put('identity', 'toneNote', cleared('tone'));
+  put('channels', 'emailAddressId', str(args['emailsFromAddressId']));
+  put('channels', 'widgetId', str(args['chatWidgetId']));
+  // Respond: its first message to a new lead
+  nest('respond', 'newLeads', {
+    channel: str(args['firstMessageBy']),
+    delayMinutes: num(args['firstMessageAfterMinutes']),
+  });
+  // Book, photos and its own hours
+  put('book', 'reschedule', bool(args['reschedules']));
+  put('book', 'cancel', bool(args['cancels']));
+  put('book', 'waitlist', bool(args['usesWaitlist']));
+  put('book', 'repeats', bool(args['booksRepeatVisits']));
+  put('book', 'serviceArea', bool(args['checksServiceArea']));
+  put('photos', 'enabled', bool(args['looksAtPhotos']));
+  put('photos', 'priceRanges', bool(args['priceRangesFromPhotos']));
+  const ownHours = list<{ day: number; start: string; end: string }>(args['ownHours']);
+  if (ownHours) {
+    put('hours', 'mode', 'custom');
+    put('hours', 'custom', ownHours);
+  }
   // Qualify
   put('qualify', 'enabled', bool(args['qualifies']));
   put('qualify', 'questions', nextQuestions(config.qualify.questions, args));
@@ -357,7 +380,68 @@ function rulesPatch(config: TeammateConfig, args: Args): TeammatePatch {
   // Autonomy
   put('autonomy', 'approvalsNeeded', num(args['approvalsBeforeAutomatic']));
   put('autonomy', 'draftExpiresMinutes', num(args['draftsExpireAfterMinutes']));
+  // Add-ons, by id once checkRefs has found them
+  const addons = {
+    ...Object.fromEntries((list<string>(args['useAddons']) ?? []).map((id) => [id, { on: true }])),
+    ...Object.fromEntries(
+      (list<string>(args['stopUsingAddons']) ?? []).map((id) => [id, { on: false }]),
+    ),
+  };
+  if (Object.keys(addons).length) (patch as Record<string, unknown>)['addons'] = addons;
   return patch as TeammatePatch;
+}
+
+/** The add-ons running here that give the AI teammate something to use, as its Add-ons section lists them. */
+async function teammateAddonsHere(
+  db: Db,
+  ctx: ToolContext,
+): Promise<{ id: string; name: string }[]> {
+  const { installed } = await query<{ installed?: { addonId: string; running: boolean }[] }>(
+    db,
+    ctx,
+    'addon.list',
+  );
+  const running = new Set((installed ?? []).filter((i) => i.running).map((i) => i.addonId));
+  return ADDON_CATALOG.filter((m) => !!m.teammate && running.has(m.id)).map((m) => ({
+    id: m.id,
+    name: m.name,
+  }));
+}
+
+/**
+ * Add-ons named in useAddons and stopUsingAddons, as their ids. Turning one on needs it running here and giving
+ * the teammate something; turning one off always works, so a stopped add-on can still be switched off.
+ */
+async function addonArgs(db: Db, ctx: ToolContext, args: Args, name: string): Promise<Args> {
+  const use = list<string>(args['useAddons']) ?? [];
+  const stop = list<string>(args['stopUsingAddons']) ?? [];
+  if (!use.length && !stop.length) return args;
+  const lower = (s: string) => s.trim().toLowerCase();
+  const find = (asked: string) =>
+    ADDON_CATALOG.find((m) => lower(m.id) === lower(asked) || lower(m.name) === lower(asked));
+  const here = use.length ? await teammateAddonsHere(db, ctx) : [];
+  const ids = (asked: string[], on: boolean) =>
+    asked.map((a) => {
+      const m = find(a);
+      if (!m)
+        throw HfosError.notFound(
+          `No add-on is called “${a}”. The add-ons are in get_settings with area add_ons.`,
+        );
+      if (on && !m.teammate)
+        throw HfosError.rule(
+          'addon_not_for_teammate',
+          400,
+          `${m.name} has nothing for ${name} to use in a conversation.`,
+        );
+      if (on && !here.some((h) => h.id === m.id))
+        throw HfosError.rule(
+          'addon_not_on',
+          409,
+          `${m.name} isn’t on in this business, so ${name} can’t use it yet. Turn it on in Add-ons first.`,
+        );
+      return m.id;
+    });
+  return { ...args, useAddons: ids(use, true), stopUsingAddons: ids(stop, false) };
 }
 
 /** Stage and people ids must be ones the business has, or the save would name someone who isn't there. */
@@ -377,6 +461,16 @@ function checkRefs(args: Args, catalogs: TeammateCatalogs): void {
   );
   if (strangers.length)
     throw HfosError.notFound('That person isn’t on the team. The team’s ids come from list_team.');
+  const address = str(args['emailsFromAddressId']);
+  if (address && !catalogs.emailAddresses.some((a) => a.id === address))
+    throw HfosError.notFound(
+      'No email address with that id. The addresses it can send from are catalogs.emailAddresses in get_settings with area ai_teammate; add one in Settings → Email.',
+    );
+  const widget = str(args['chatWidgetId']);
+  if (widget && !catalogs.chatWidgets.some((w) => w.id === widget))
+    throw HfosError.notFound(
+      'No website chat with that id. The chats are catalogs.chatWidgets in get_settings with area ai_teammate.',
+    );
 }
 
 function nextRules(config: TeammateConfig, args: Args, catalogs: TeammateCatalogs) {
@@ -498,8 +592,9 @@ function ruleWarnings(
 }
 
 const updateAiTeammateRules: SettingsConfirmTool = {
-  async prepare(db, ctx, args, toolCallId) {
+  async prepare(db, ctx, asked, toolCallId) {
     const { teammate, catalogs } = await requireTeammate(db, ctx);
+    const args = await addonArgs(db, ctx, asked, teammate.name);
     const next = nextRules(teammate.config, args, catalogs);
     const fields = ruleFields(teammate.config, next, catalogs);
     if (!fields.length) throw nothingChanges(`${teammate.name}’s rules are already set that way.`);
@@ -514,9 +609,10 @@ const updateAiTeammateRules: SettingsConfirmTool = {
     };
   },
 
-  async commit(db, ctx, args) {
+  async commit(db, ctx, asked) {
     // Read again and saved on that revision: someone saving in between is a conflict, not a silent overwrite.
     const { teammate, catalogs } = await requireTeammate(db, ctx);
+    const args = await addonArgs(db, ctx, asked, teammate.name);
     await command(db, ctx, 'ai_teammate.save_config', {
       teammateId: teammate.id,
       baseRevision: teammate.revision,
@@ -648,6 +744,13 @@ async function listAutomations(db: Db, ctx: ToolContext, args: Args): Promise<To
         message: a.reengage.template,
         messageRead: a.reengage.reviewedAt !== null,
       },
+      followUps: state.teammate
+        ? {
+            times: followUpLadderWords(state.teammate.config.followUp.ladder),
+            ladder: state.teammate.config.followUp.ladder,
+            thenMonthlyForMonths: state.teammate.config.followUp.monthlyForMonths,
+          }
+        : null,
       intakeForm: a.intake.formId
         ? (state.forms?.find((f) => f.formId === a.intake.formId)?.name ?? 'A form')
         : null,
@@ -699,7 +802,11 @@ interface AutomationPlan {
   /** Labels of what will text or call customers on its own once this saves. */
   readonly reaching: string[];
   readonly notes: string[];
+  /** Fewer follow-ups than before, or new times while follow-ups are off: said, so nobody is surprised. */
+  readonly followUpNote: string | null;
 }
+
+const monthsWords = (n: number) => (n === 0 ? 'none' : `${n} month${n === 1 ? '' : 's'}`);
 
 const VOICEMAIL_WORDS: Record<string, string> = {
   text: 'Hang up and send a text instead',
@@ -816,6 +923,54 @@ function planAutomations(state: AutomationState, args: Args): AutomationPlan {
       !reaching.includes(intake.def.label)
     )
       reaching.push(intake.def.label);
+  }
+
+  // When each follow-up after silence goes: the AI teammate's, saved with its settings as the Adjust panel does.
+  let followUpNote: string | null = null;
+  const ladder = list<FollowUpStep>(args['followUpTimes']);
+  const monthly = num(args['followUpMonthlyForMonths']);
+  const followUps = automationDef('follow_ups_after_silence');
+  if ((ladder || monthly !== undefined) && !at.teammate)
+    blocked.push(
+      `When ${followUps.label.toLowerCase()} go is the AI teammate’s, and there isn’t one yet. Set one up under AI teammate first.`,
+    );
+  else if ((ladder || monthly !== undefined) && !state.canManageTeammate)
+    blocked.push(
+      `When ${followUps.label.toLowerCase()} go is the AI teammate’s: only people who can run the AI teammate can change it. Ask an owner or admin.`,
+    );
+  else if (at.teammate && (ladder || monthly !== undefined)) {
+    const was = at.teammate.config as unknown as TeammateConfig;
+    let next: TeammateConfig;
+    try {
+      next = applyTeammatePatch(was, {
+        followUp: {
+          ...(ladder ? { ladder: ladder.map((x) => ({ after: x.after, unit: x.unit })) } : {}),
+          ...(monthly === undefined ? {} : { monthlyForMonths: monthly }),
+        },
+      });
+    } catch (e) {
+      throw invalid(e, 'Those follow-up times don’t work');
+    }
+    const a = was.followUp;
+    const b = next.followUp;
+    if (JSON.stringify(a.ladder) !== JSON.stringify(b.ladder))
+      fields.push({
+        label: 'Follow-up times',
+        value: `${followUpLadderWords(a.ladder)} → ${followUpLadderWords(b.ladder)}`,
+      });
+    if (a.monthlyForMonths !== b.monthlyForMonths)
+      fields.push({
+        label: 'Then monthly for',
+        value: `${monthsWords(a.monthlyForMonths)} → ${monthsWords(b.monthlyForMonths)}`,
+      });
+    if (JSON.stringify(a) !== JSON.stringify(b)) {
+      at = withPatch(at, { store: 'teammate', config: next as unknown as Record<string, unknown> });
+      stores.add('teammate');
+      if (b.ladder.length < a.ladder.length)
+        followUpNote = `That’s ${b.ladder.length} follow-up${b.ladder.length === 1 ? '' : 's'} instead of ${a.ladder.length}.`;
+      if (!b.enabled)
+        followUpNote = `${followUpNote ? `${followUpNote} ` : ''}${followUps.label} is off, so nothing goes until it’s on.`;
+    }
   }
 
   // The timings and wording only Settings → Automations keeps.
@@ -950,6 +1105,7 @@ function planAutomations(state: AutomationState, args: Args): AutomationPlan {
     blocked,
     reaching,
     notes,
+    followUpNote,
   };
 }
 
@@ -973,6 +1129,7 @@ function automationWarnings(plan: AutomationPlan, training: boolean): Warning[] 
         plan.reaching.length === 1 ? 'its' : 'their'
       } own.${training ? ' What your AI teammate writes waits for approval while it’s training.' : ''}`,
     });
+  if (plan.followUpNote) out.push({ kind: 'note', text: plan.followUpNote });
   if (plan.notes.length)
     out.push({ kind: 'note', text: `Not working until set up: ${plan.notes.join(' ')}` });
   return out.slice(0, 3);

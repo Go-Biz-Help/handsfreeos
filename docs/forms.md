@@ -69,6 +69,29 @@ so nothing that reads answers needs to know.
 **Ids are made by us, never by a model.** The AI builder writes labels; `formToolCallsToOps` stamps the
 ids and tells the model what they are.
 
+**The editor keeps the spaces being typed; what's saved is trimmed.** The editor applies an op on every
+keystroke, and the form's parse trims every text, so it calls `applyFormOps` with `keepSpaces` to put back a
+space typed at either end. Without it the space after a word was gone before the next word arrived. The server
+applies the same ops without `keepSpaces`, so nothing is stored with stray spaces.
+
+## Checkboxes, and a single checkbox
+
+- **Checkboxes** (`type: 'checkboxes'`, called "Pick any" until 2026-11-02) is several choices where they check any
+  number, with an optional least and most.
+- **A single checkbox** is one box to check, like "I agree to the terms" or "Text me updates". It isn't a type of its
+  own: it's a yes or no shown as one box (`config.display = 'checkbox'`, `isSingleCheckbox`), so Results, show-if
+  rules, the export, a quiz's grading, the phone and the AI teammate all read it as the yes or no they already know.
+  The question's title is the words beside the box. The add menu has a row for it (`single_checkbox` in
+  `QUESTION_MENU`, which starts it required), and a yes or no's settings switch between **Yes and No buttons** and
+  **One box to check**.
+
+**What rules here:**
+
+- **Checked is a yes; unchecked is no answer.** It's never recorded as a No, so Results counts the people who checked it.
+- **One that must be answered must be checked** (`CHECK_THIS_BOX` in `render.ts`). A No (said in a conversation, say)
+  doesn't count as agreeing. Saving part way leaves that problem out until it's sent
+  (`isUnansweredProblem`), as it does for any question not answered yet.
+
 ## The public page
 
 `/f/<site>/<form>`, served by the worker as the booking page is, and never the draft. What protects it:

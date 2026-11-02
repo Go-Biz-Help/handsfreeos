@@ -104,7 +104,7 @@ const CALENDAR_SECTIONS =
 
 /** The AI teammate's own sections, in its order (apps/web/src/lib/ai-team/describe.ts), and what each holds. */
 const TEAMMATE_SECTIONS =
-  'Identity (name, email signature, how it says it’s AI, tone), Channels (Texts, Email, Website chat, Phone calls), Respond (message new leads first, and how soon), Answer (from Knowledge, and photos customers send), Qualify (its questions, and what happens when a lead qualifies), Book (which calendars, rescheduling, cancelling, the waitlist, repeat visits, and checking the service area), Follow up, Hours (Always, After hours only, Custom), Autonomy (how many approvals before it works on its own), Limits (replies a day, discounts, bills, quotes, plans), Hand-off (when it hands over, who is told and how)';
+  'Identity (name, email signature, how it says it’s AI, tone), Channels (Texts, Email, Website chat, Phone calls), Respond (message new leads first, and how soon), Answer (from Knowledge, and photos customers send), Qualify (its questions, and what happens when a lead qualifies), Book (which calendars, rescheduling, cancelling, the waitlist, repeat visits, and checking the service area), Follow up (how many monthly ones; when each follow-up goes is set in Settings → Automations), Hours (Always, After hours only, Custom), Autonomy (how many approvals before it works on its own), Limits (replies a day, discounts, bills, quotes, plans), Hand-off (when it hands over, who is told and how)';
 
 /** Each calendar's own sections are reached the same way. */
 const ON_A_CALENDAR = 'Settings → Calendars, press the calendar, then';
@@ -802,6 +802,7 @@ const AREAS: Record<SettingsArea, AreaEntry> = {
       'which kinds of thing Home looks for',
       'how fast a lead counts as waiting, and what a big job is',
       'what HandsFreeOS does on its own, and how it words it',
+      'when each of the AI teammate’s follow-ups after silence goes, and how many monthly ones come after',
       'when a dead lead counts as cold, how many a day are re-engaged, and the message they get',
       'which form Intake questions sends after a first booking',
       'when the end-of-day email goes out',
@@ -811,6 +812,7 @@ const AREAS: Record<SettingsArea, AreaEntry> = {
     howTo: [
       'Change one automation: Settings → Automations, its switch, or Adjust beside it',
       'Set what a typical job is worth: Settings → Automations, Adjust on Hot lead alert',
+      'Change when follow-ups go: Settings → Automations, Adjust on Follow-ups after silence, then each follow-up’s time',
     ],
   },
   ai_teammate: {
@@ -828,8 +830,12 @@ const AREAS: Record<SettingsArea, AreaEntry> = {
     canChange: [
       'set one up, name it, and how it introduces itself',
       'off, training wheels, or automatic',
-      'which channels it answers on, and its hours',
+      'which channels it answers on, the address it emails from, the website chat it answers, and its hours',
       'what it may do: answer, qualify, book, follow up',
+      'its first message to a new lead: by text or email, and how long after the lead comes in',
+      'whether it reschedules, cancels, uses a waitlist, books repeat visits and checks the service area',
+      'whether it looks at photos and gives rough price ranges from them',
+      'which add-ons it uses in a conversation',
       'the questions it asks new leads, where a qualified lead goes, and who is told',
       'its limits: replies a day, look-ups, its share of the AI limit, discounts, bills, quotes and plans',
       'when it hands a customer to a person, who is told, and what the customer hears',

@@ -36,7 +36,7 @@ export const QUESTION_LABELS: Readonly<Record<QuestionType, string>> = {
   short_text: 'Short answer',
   long_text: 'Long answer',
   choice: 'Pick one',
-  checkboxes: 'Pick any',
+  checkboxes: 'Checkboxes',
   yes_no: 'Yes or no',
   number: 'Number',
   money: 'Amount',
@@ -111,6 +111,11 @@ export const QUESTION_CONFIGS = {
     max: z.int().min(1).max(MAX_CHOICES).nullable().default(null),
   }),
   yes_no: z.object({
+    /**
+     * `buttons` asks with a Yes and a No button; `checkbox` is a single box to check, its words the question's title
+     * ("I agree to the terms"). Checked is yes, left alone is no answer, and one that must be answered must be checked.
+     */
+    display: z.enum(['buttons', 'checkbox']).default('buttons'),
     yesLabel: z.string().trim().min(1).max(40).default('Yes'),
     noLabel: z.string().trim().min(1).max(40).default('No'),
     /** Quiz mode: the right answer, or null when it isn't graded. */
@@ -242,6 +247,21 @@ export const GRADEABLE_TYPES: ReadonlySet<QuestionType> = new Set([
   'checkboxes',
   'yes_no',
 ]);
+
+export const SINGLE_CHECKBOX_LABEL = 'Single checkbox';
+
+/** A yes-or-no question shown as one box to check (`display: 'checkbox'`). */
+export function isSingleCheckbox(question: { type: string; config?: unknown }): boolean {
+  return (
+    question.type === 'yes_no' &&
+    (question.config as { display?: string } | null | undefined)?.display === 'checkbox'
+  );
+}
+
+/** What kind of question it is, in the editor's words: a yes or no shown as one box is a "Single checkbox". */
+export function questionKindLabel(question: { type: QuestionType; config?: unknown }): string {
+  return isSingleCheckbox(question) ? SINGLE_CHECKBOX_LABEL : QUESTION_LABELS[question.type];
+}
 
 // ---- Where an answer can be written ----
 

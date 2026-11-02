@@ -15,6 +15,8 @@ import { MENU_KEYS } from '../account/menu';
 import {
   APPROVALS_NEEDED_MAX,
   APPROVALS_NEEDED_MIN,
+  FOLLOW_UP_MAX_STEPS,
+  FOLLOW_UP_UNITS,
   PHONE_ANSWER_MODES,
   PHONE_VOICES,
   QUESTION_KINDS,
@@ -28,7 +30,7 @@ import { IDEA_MINE, IDEA_SORTS, IDEA_STATUSES } from '../ideas/words';
 import { PUSH_SWITCHES } from '../push';
 import { uuid } from '../schemas/common';
 import { WorkflowOpSchema } from '../workflows/ops';
-import { clock, define, text, type AssistantTool } from './tool-kit';
+import { clock, define, text, WeeklyHoursInput, type AssistantTool } from './tool-kit';
 
 const AUTOMATION_IDS = AUTOMATIONS.map((a) => a.id) as [AutomationId, ...AutomationId[]];
 
@@ -98,8 +100,64 @@ export const extraTools: readonly AssistantTool[] = [
   define({
     name: 'update_ai_teammate_rules',
     description:
-      'Change the AI teammate’s finer rules, as its screen sections have them. Qualify: switch it on, add, change or remove the questions it asks new leads (kind, choices, required, which answers mean not a fit, and for a file question who hears when it arrives), where a qualified lead moves, who is told, whether it then offers times, whether the team hears when a lead isn’t a fit, and whether it opens and closes deals. Limits: replies to one customer a day, look-ups per reply, its share of the daily AI limit, discounts, bills, new bills, quotes and maintenance plans. Hand-off: when frustrated, sensitive topics, who is told and how, and what the customer is told. Phone calls: on or off, when it picks up, its voice and greeting. Identity: email signature and tone. Autonomy: approvals before it works on its own, and when drafts expire. Its name, status, channels, hours and skills are manage_ai_teammate. Read it first with get_settings area ai_teammate (question ids are there); stage ids come from get_settings area pipelines and people from list_team. Pass only what changes.',
+      'Change the AI teammate’s finer rules, as its screen sections have them. Channels: the address it emails from and the website chat it answers. Respond: how its first message to a new lead goes (text or email) and how long after the lead comes in. Book: whether it reschedules, cancels, uses a waitlist, books repeat visits and checks the service area. Photos: whether it looks at photos and gives rough price ranges from them. Hours: the hours it works when they’re its own. Add-ons: which ones it uses in a conversation. Qualify: switch it on, add, change or remove the questions it asks new leads (kind, choices, required, which answers mean not a fit, and for a file question who hears when it arrives), where a qualified lead moves, who is told, whether it then offers times, whether the team hears when a lead isn’t a fit, and whether it opens and closes deals. Limits: replies to one customer a day, look-ups per reply, its share of the daily AI limit, discounts, bills, new bills, quotes and maintenance plans. Hand-off: when frustrated, sensitive topics, who is told and how, and what the customer is told. Phone calls: on or off, when it picks up, its voice and greeting. Identity: email signature and tone. Autonomy: approvals before it works on its own, and when drafts expire. Its name, status, which channels it answers, when it works and its skills on or off are manage_ai_teammate; when each follow-up goes is update_automations’ followUpTimes. Read it first with get_settings area ai_teammate (question ids are there); stage ids come from get_settings area pipelines and people from list_team. Pass only what changes.',
     input: z.object({
+      // Channels
+      emailsFromAddressId: uuid
+        .optional()
+        .describe('The address it emails from: an id from catalogs.emailAddresses in get_settings'),
+      chatWidgetId: uuid
+        .optional()
+        .describe('The website chat it answers: an id from catalogs.chatWidgets in get_settings'),
+      // Respond
+      firstMessageBy: z
+        .enum(['sms', 'email'])
+        .optional()
+        .describe(
+          'Its first message to a new lead. sms: a text when they agreed to texts, otherwise an email; email: always email',
+        ),
+      firstMessageAfterMinutes: z
+        .int()
+        .min(0)
+        .max(120)
+        .optional()
+        .describe('How long after a new lead comes in it sends that first message; 0 for at once'),
+      // Book
+      reschedules: z.boolean().optional().describe('Moves a booking when the customer asks'),
+      cancels: z.boolean().optional().describe('Cancels a booking when the customer asks'),
+      usesWaitlist: z
+        .boolean()
+        .optional()
+        .describe('Puts a customer on a calendar’s waitlist when nothing open suits them'),
+      booksRepeatVisits: z
+        .boolean()
+        .optional()
+        .describe('Books repeat visits, on its calendars that let customers repeat'),
+      checksServiceArea: z
+        .boolean()
+        .optional()
+        .describe('Checks their ZIP code against the service areas before offering times'),
+      // Photos
+      looksAtPhotos: z.boolean().optional().describe('Looks at the photos customers send'),
+      priceRangesFromPhotos: z
+        .boolean()
+        .optional()
+        .describe('May say a rough price range from a photo, never a quote'),
+      // Hours
+      ownHours: WeeklyHoursInput.min(1)
+        .optional()
+        .describe(
+          'The hours it works, in the business’s time zone: every stretch, the whole week. Sets it to work only these hours',
+        ),
+      // Add-ons
+      useAddons: z
+        .array(z.string().trim().min(2).max(60))
+        .max(20)
+        .optional()
+        .describe(
+          'Add-ons it starts using in a customer’s conversation, by name as get_settings add_ons lists them',
+        ),
+      stopUsingAddons: z.array(z.string().trim().min(2).max(60)).max(20).optional(),
       // Qualify
       qualifies: z.boolean().optional().describe('The Qualify skill on or off'),
       addQuestions: z.array(QuestionInput).max(10).optional(),
@@ -218,10 +276,29 @@ export const extraTools: readonly AssistantTool[] = [
   define({
     name: 'update_automations',
     description:
-      'Turn automations on or off by their id from list_automations — any row on Settings → Automations, whether its switch lives there, in what Home watches for, or in the AI teammate — and change re-engaging dead leads’ timing and message, which form Intake questions sends, when the end-of-day email goes, what the AI does when a voicemail box answers its call, the calling hours and tries for campaign and workflow calls to leads, whether its pages ask for an OK to call, the Maintenance due texts, what each pipeline stage means and how the business tags customers. Turning on re-engaging dead leads the first time puts its message on the card to read before Confirm. new_lead_greeting is only the AI teammate’s first message to a brand-new lead, and it goes out only while the teammate’s Respond switch is on too (manage_ai_teammate’s repliesToLeads, which is the whole section).',
+      'Turn automations on or off by their id from list_automations — any row on Settings → Automations, whether its switch lives there, in what Home watches for, or in the AI teammate — and change when each of the AI teammate’s Follow-ups after silence goes and how many monthly ones come after, re-engaging dead leads’ timing and message, which form Intake questions sends, when the end-of-day email goes, what the AI does when a voicemail box answers its call, the calling hours and tries for campaign and workflow calls to leads, whether its pages ask for an OK to call, the Maintenance due texts, what each pipeline stage means and how the business tags customers. Turning on re-engaging dead leads the first time puts its message on the card to read before Confirm. new_lead_greeting is only the AI teammate’s first message to a brand-new lead, and it goes out only while the teammate’s Respond switch is on too (manage_ai_teammate’s repliesToLeads, which is the whole section).',
     input: z.object({
       turnOn: z.array(z.enum(AUTOMATION_IDS)).max(49).optional(),
       turnOff: z.array(z.enum(AUTOMATION_IDS)).max(49).optional(),
+      followUpTimes: z
+        .array(
+          z.object({
+            after: z.int().min(1).max(1000),
+            unit: z.enum(FOLLOW_UP_UNITS),
+          }),
+        )
+        .min(1)
+        .max(FOLLOW_UP_MAX_STEPS)
+        .optional()
+        .describe(
+          'Follow-ups after silence: every follow-up in order, each this long after the message the customer didn’t answer and later than the one before (5 minutes to 5 years). The whole list, so read followUps.times from list_automations first and change only what was asked: “make the first one an hour” keeps the others. Like [{"after":1,"unit":"hours"},{"after":1,"unit":"days"}]',
+        ),
+      followUpMonthlyForMonths: z
+        .int()
+        .min(0)
+        .max(12)
+        .optional()
+        .describe('After the last of those, one a month for this many months; 0 for none'),
       reengageAfterDays: z
         .int()
         .min(30)

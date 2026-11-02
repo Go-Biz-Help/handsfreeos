@@ -5,12 +5,12 @@
  * - **Bundled** (the default): a message that waits for their OK (`outreach.send.queued` with `waits`) or a step the
  *   extension needs them for (`outreach.need.noted`) arms one job a person (`outreach.waiting_push`). It runs 10
  *   minutes on, to gather the rest, no sooner than 2 hours after their last one, and in their working hours: "5
- *   messages wait for your OK". It pushes only when a message or step began to wait (reached HandsFreeOS) since the
- *   last one, and keeps when it went (`waiting_pushes`), in the same transaction as the push. Replies handed over
- *   aren't in it: each pushed on its own.
- * - **One for each**: each such message or need pushes at once: "Dana Reyes: a message waits for your OK", a comment
- *   on a good post (decision 92): "A comment on Quinn Harper’s post waits for your OK", and a need with its network:
- *   "Dana Reyes: the extension needs you on Alignable". The bundle counts comments with the messages.
+ *   messages to OK". It pushes only when a message or step began to wait (reached HandsFreeOS) since the last one,
+ *   and keeps when it went (`waiting_pushes`), in the same transaction as the push. Replies handed over aren't in it:
+ *   each pushed on its own.
+ * - **One for each**: each such message or need pushes at once, its network and what happened in the title (decision
+ *   146): "LinkedIn message to OK", a comment on a good post (decision 92) "Facebook comment to OK", and a need
+ *   "Alignable step for you", saying what to do in that network's words. The bundle counts comments with the messages.
  *
  * A reply handed over pushes at once whatever the setting (./alerts.ts), and friend requests they got never push:
  * Facebook tells people of those itself. Someone accepting theirs pushes only when they switched that on (./alerts.ts,
@@ -30,6 +30,8 @@ import {
   newestNudgeAt,
   nudgeCount,
   type BundleTiming,
+  type EachPush,
+  type NeedStep,
 } from '@hfos/core/addons/outreach/waiting-words';
 import { HfosError } from '@hfos/core';
 import { executeQuery } from '@hfos/core/server';
@@ -109,16 +111,11 @@ async function armBundle(
   );
 }
 
-/** What began to wait, for a push of its own. */
-interface Nudge {
-  readonly kind: 'message' | 'comment' | 'need';
+/** What began to wait, for a push of its own: its words' part (`eachPushWords`), and whose it is. */
+type Nudge = EachPush & {
   readonly profileId: string;
-  readonly name: string;
   readonly personId: string | null;
-  readonly why: string | null;
-  /** A need's network, which its push names. */
-  readonly platform?: Platform;
-}
+};
 
 /** Something began to wait for the person: a push now, or the bundled one armed, as they chose. */
 async function nudge(ctx: AddonEventContext, userId: string, what: Nudge): Promise<void> {
@@ -130,7 +127,7 @@ async function nudge(ctx: AddonEventContext, userId: string, what: Nudge): Promi
       key: `waiting:${ctx.event.id}`,
       userIds: [userId],
       permission: 'outreach.use',
-      ...eachPushWords(what.kind, what.name, what.why, what.platform ?? null),
+      ...eachPushWords(what),
       href: WAITING_HREF,
       // The same person's newer one replaces it on the phone.
       collapseKey: `waiting-${what.profileId}`,
@@ -156,9 +153,9 @@ export async function sendWaits(ctx: AddonEventContext): Promise<void> {
   // A reply in a group goes under its post as a comment does (decision 114).
   const comment = p.kind !== undefined && underAPost(p.kind);
   const [still] = await asWorker(ctx.db, ctx.scope, (tx) =>
-    rows<{ name: string; person_id: string | null }>(
+    rows<{ name: string; person_id: string | null; platform: Platform }>(
       tx,
-      sql`select p.name, p.person_id from addon_outreach.sends s
+      sql`select p.name, p.person_id, p.platform from addon_outreach.sends s
           join addon_outreach.profiles p on p.workspace_id = s.workspace_id and p.id = s.profile_id
           where s.workspace_id = ${ctx.scope.workspaceId} and s.user_id = ${userId}
             and s.profile_id = ${profileId} and s.state = 'waiting'
@@ -173,7 +170,7 @@ export async function sendWaits(ctx: AddonEventContext): Promise<void> {
     profileId,
     name: still.name,
     personId: still.person_id,
-    why: null,
+    platform: still.platform,
   });
 }
 
@@ -186,12 +183,12 @@ export async function needNoted(ctx: AddonEventContext): Promise<void> {
     rows<{
       profile_id: string;
       name: string;
-      why: string;
+      step: NeedStep;
       person_id: string | null;
       platform: Platform;
     }>(
       tx,
-      sql`select n.profile_id, n.name, n.why, p.person_id, p.platform from addon_outreach.needs n
+      sql`select n.profile_id, n.name, n.step, p.person_id, p.platform from addon_outreach.needs n
           join addon_outreach.profiles p on p.workspace_id = n.workspace_id and p.id = n.profile_id
           where n.workspace_id = ${ctx.scope.workspaceId} and n.id = ${ctx.event.entityId}
             and n.user_id = ${userId} and n.state = 'open'`,
@@ -204,7 +201,7 @@ export async function needNoted(ctx: AddonEventContext): Promise<void> {
     profileId: need.profile_id,
     name: need.name,
     personId: need.person_id,
-    why: need.why,
+    step: need.step,
     platform: need.platform,
   });
 }

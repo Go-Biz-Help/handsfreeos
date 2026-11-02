@@ -1150,6 +1150,15 @@ Not now, and the request never went. From 0.124.0:
 - **Start again** under Today's note, in the app, ends it sooner after an upgrade on Alignable; still at the limit,
   the next Connect pauses them again.
 
+### Pop-ups you can read at a glance (0.123.1)
+
+The owner, 2 Nov 2026, with a screenshot of two cut-off phone pushes: "the mobile notifications we getting are kind of
+hard to understand at a quick glance" (docs/outreach.md, decision 146). Chrome's pop-ups take the phone's new words
+from core (`eachPushWords`, `bundlePushWords`, `handOverPushWords` in `waiting-words.ts`): the network and what
+happened in the title ("LinkedIn message to OK", "Alignable step for you", "Facebook reply needs you"), who in the
+message, and "Click to…" where the phone says "Tap to…". A comment waiting now pops up as a comment, not a message.
+Words only: nothing else changed.
+
 ### Retry all, and again after each update (0.123.0)
 
 The owner, 1 Nov 2026: "any failures we should have a retry all option because we should be fixing those issues after

@@ -165,13 +165,14 @@ describe('training wheels', () => {
     expect(replyNeedsYou('Can I talk to a real person?')).toBe('they asked for you');
     expect(replyNeedsYou('This is ridiculous, nobody is answering')).toBe('they sound upset');
     expect(replyNeedsYou('Please stop messaging me')).toBe('they asked you to stop messaging them');
-    expect(handOverPushWords('Dana Cole', 'they asked for you')).toEqual({
-      title: 'Dana Cole needs you',
-      body: 'Their reply waits for your OK on Today: they asked for you.',
+    expect(handOverPushWords('Dana Cole', 'they asked for you', 'facebook')).toEqual({
+      title: 'Facebook reply needs you',
+      body: 'From Dana Cole: they asked for you, so the AI’s answer waits for you. Tap to see it.',
     });
-    expect(handOverPushWords('Dana Cole', null).body).toBe(
-      'Their reply waits for your OK on Today: it isn’t a simple one.',
-    );
+    expect(handOverPushWords('Dana Cole', null)).toEqual({
+      title: 'Reply needs you',
+      body: 'From Dana Cole: it isn’t a simple one, so the AI’s answer waits for you. Tap to see it.',
+    });
   });
 });
 
