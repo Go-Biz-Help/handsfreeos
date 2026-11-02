@@ -32749,6 +32749,12 @@ export interface operations {
                         patch: {
                             [key: string]: unknown;
                         };
+                    } | {
+                        /** @enum {string} */
+                        op: "set_design";
+                        patch: {
+                            [key: string]: unknown;
+                        };
                     })[];
                     /** Format: uuid */
                     workspaceId: string;

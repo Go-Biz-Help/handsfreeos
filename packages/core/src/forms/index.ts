@@ -7,6 +7,7 @@ export * from './ids';
 export * from './questions';
 export * from './logic';
 export * from './definition';
+export * from './design';
 export * from './ops';
 export * from './render';
 export * from './describe';

@@ -173,13 +173,67 @@
   --font-sans:
     var(--font-hanken), system-ui, -apple-system, 'Segoe UI', Helvetica, Arial, sans-serif;
   --font-mono: var(--font-jetbrains), ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-  --radius-control: 8px;
-  --radius-menu: 10px;
-  --radius-card: 12px;
   --radius-dialog: 14px;
   --shadow-1: var(--shadow-1);
   --shadow-2: var(--shadow-2);
   --shadow-3: var(--shadow-3);
+}
+
+/* Not inline: the utilities read these as variables, so a form's design (`.form-look`) can square or round its
+   corners. */
+@theme {
+  --radius-control: 8px;
+  --radius-menu: 10px;
+  --radius-card: 12px;
+}
+
+/* A form in its design (core's forms/design.ts, worked out by formLook in components/forms/form-look.tsx): the element
+   sets the colour tokens, the corners and the --form-* values below, and these rules read its data attributes. They
+   sit outside Tailwind's layers on purpose, so they win over the utilities on the inputs and buttons inside. */
+.form-look {
+  font-family: var(--form-font, inherit);
+  zoom: var(--form-zoom, 1);
+  color: var(--text);
+}
+.form-look .text-white {
+  color: var(--form-on-accent, #ffffff);
+}
+.form-look textarea {
+  border-radius: min(var(--radius-control), 16px);
+}
+.form-look[data-button-width='auto'] [data-form-action] {
+  flex: none;
+}
+.form-look[data-button='outline'] [data-form-action] {
+  background: transparent;
+  color: var(--accent-text);
+  box-shadow: inset 0 0 0 1.5px var(--accent);
+}
+.form-look[data-button='outline'] [data-form-action]:hover:not(:disabled) {
+  background: var(--accent-soft);
+}
+.form-look[data-fields='filled']
+  :is(input:not([type='checkbox'], [type='radio'], [type='hidden']), textarea, select) {
+  background: var(--card-2);
+  border-color: transparent;
+}
+.form-look[data-fields='underline']
+  :is(input:not([type='checkbox'], [type='radio'], [type='hidden']), textarea, select) {
+  background: transparent;
+  border-width: 0 0 1.5px;
+  border-color: var(--border-strong);
+  border-radius: 0;
+  padding-inline: 2px;
+}
+.form-look:is([data-fields='filled'], [data-fields='underline'])
+  :is(input:not([type='checkbox'], [type='radio']), textarea, select):focus {
+  border-color: var(--accent);
+}
+.form-look[data-fields='underline'] :is(input, textarea, select):focus {
+  box-shadow: none;
+}
+.form-look:is([data-fields='filled'], [data-fields='underline']) [aria-invalid='true'] {
+  border-color: var(--danger);
 }
 
 html {

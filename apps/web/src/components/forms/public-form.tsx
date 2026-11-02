@@ -19,7 +19,6 @@ import {
 import { ArrowLeft, CheckCircle2, Loader2 } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Button } from '@/components/ui/button';
-import { Card } from '@/components/ui/card';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Turnstile } from '@/components/booking/turnstile';
 import { ApiError } from '@/lib/api/errors';
@@ -32,6 +31,7 @@ import {
   type SentForm,
 } from '@/lib/api/public-forms';
 import { PublicFormContext } from './booking-picker';
+import { FormLogoMark, FormSurface } from './form-look';
 import { QuestionField } from './question-field';
 import { StepButtons, StepProgress, useFormSteps } from './steps';
 
@@ -295,7 +295,7 @@ export function PublicForm({
   if (sent) {
     const words = (text: string) => fillWords(text, { firstName });
     return (
-      <Card className="p-6 text-center sm:p-8" data-testid="form-sent">
+      <FormSurface className="p-6 text-center sm:p-8" data-testid="form-sent">
         <CheckCircle2 className="mx-auto h-8 w-8 text-success-text" strokeWidth={1.5} />
         <h1 className="mt-3 text-[19px] font-medium text-text">{words(sent.headline)}</h1>
         {sent.body ? (
@@ -322,11 +322,12 @@ export function PublicForm({
           <a
             href={sent.buttonUrl}
             className="mt-5 inline-flex h-9 items-center rounded-control bg-accent px-3.5 text-sm font-medium text-white"
+            data-form-action=""
           >
             {sent.buttonLabel}
           </a>
         ) : null}
-      </Card>
+      </FormSurface>
     );
   }
 
@@ -408,7 +409,8 @@ export function PublicForm({
 
   return (
     <PublicFormContext.Provider value={pageContext}>
-      <Card className="p-5 sm:p-7" data-testid="public-form">
+      <FormSurface className="p-5 sm:p-7" data-testid="public-form">
+        <FormLogoMark />
         <h1 className="text-[19px] font-medium text-text">{definition.title}</h1>
         {definition.intro ? (
           <p className="mt-2 whitespace-pre-wrap text-[14px] text-text-2">{definition.intro}</p>
@@ -449,9 +451,12 @@ export function PublicForm({
               </p>
             ) : null}
 
-            <div className="mt-6 space-y-6">
+            <div className="mt-6 flex flex-col gap-[var(--form-gap,1.5rem)]">
               {steps.shown.map((page) => (
-                <section key={page.page.id} className="space-y-6">
+                <section
+                  key={page.page.id}
+                  className="flex flex-col gap-[var(--form-gap,1.5rem)]"
+                >
                   {page.page.title ? (
                     <h2 className="text-[15px] font-medium text-text-2">{page.page.title}</h2>
                   ) : null}
@@ -533,6 +538,7 @@ export function PublicForm({
                     onClick={send}
                     disabled={sending || (botNeeded && !botToken)}
                     data-testid="form-send"
+                    data-form-action=""
                   >
                     {sending ? (
                       <Loader2 className="h-4 w-4 animate-spin" strokeWidth={1.75} />
@@ -549,7 +555,7 @@ export function PublicForm({
             )}
           </>
         )}
-      </Card>
+      </FormSurface>
     </PublicFormContext.Provider>
   );
 }

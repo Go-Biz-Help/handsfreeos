@@ -32,7 +32,7 @@ export function FormShare({
   /** Their own domain when one is serving (M17): the link to copy, and the QR code made from it. */
   brandedOrigin: string | null;
 }) {
-  const [origins, setOrigins] = useState(form.embedOrigins.join('\n'));
+  const [origins, setOrigins] = useState(form.embedOrigins.join(', '));
   const [inChat, setInChat] = useState(form.inChat);
   const [qr, setQr] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
@@ -55,11 +55,13 @@ export function FormShare({
   async function save(next: { embedOrigins?: string[]; inChat?: boolean }) {
     setSaving(true);
     try {
-      unwrap(
+      const saved = unwrap(
         await apiBrowser().POST('/v1/commands/form.set_delivery', {
           body: { workspaceId, formId: form.formId, ...next },
         }),
       );
+      // As saved: exact addresses, with the www (or bare) version added for each.
+      if (next.embedOrigins) setOrigins(saved.embedOrigins.join(', '));
       toast.success('Saved.');
     } catch (e) {
       toast.error(errorMessage(e));
@@ -158,11 +160,11 @@ export function FormShare({
         <Field
           label="Sites allowed to show it"
           htmlFor="embed-origins"
-          hint="One per line, like https://example.com. Empty means it isn’t embedded anywhere."
+          hint="Like example.com, with commas between them. The www version is added for you. Empty means it isn’t embedded anywhere."
         >
           <Input
             id="embed-origins"
-            placeholder="https://example.com"
+            placeholder="example.com"
             value={origins}
             disabled={!canManage || saving}
             onChange={(e) => setOrigins(e.target.value)}
@@ -170,7 +172,7 @@ export function FormShare({
               save({
                 embedOrigins: origins
                   .split(/[\s,]+/)
-                  .map((o: string) => o.trim().toLowerCase())
+                  .map((o: string) => o.trim())
                   .filter(Boolean),
               })
             }

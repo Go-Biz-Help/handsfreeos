@@ -408,8 +408,42 @@ describe('the link', () => {
       },
       owner,
     );
-    expect(delivery.embedOrigins).toEqual(['https://example.com']);
+    expect(delivery.embedOrigins).toEqual(['https://example.com', 'https://www.example.com']);
     expect(delivery.inChat).toBe(true);
+  });
+
+  /**
+   * A site typed the way people type it (Shop Your Solar, 2026-11-02): the www and bare addresses are different
+   * sites to a browser, so listing one and visiting the other left a blank box on the page.
+   */
+  it('takes a site typed any way, and adds its www twin', async () => {
+    const form = await withQuestion('On their site');
+    const typed = await run(
+      formSetDelivery,
+      {
+        workspaceId: wsId,
+        formId: form.formId,
+        embedOrigins: ['ShopYourSolar.com/contact-us', 'http://www.shopyoursolar.com/'],
+      },
+      owner,
+    );
+    expect(typed.embedOrigins).toEqual([
+      'https://shopyoursolar.com',
+      'https://www.shopyoursolar.com',
+    ]);
+    const cleared = await run(
+      formSetDelivery,
+      { workspaceId: wsId, formId: form.formId, embedOrigins: [] },
+      owner,
+    );
+    expect(cleared.embedOrigins).toEqual([]);
+    await expect(
+      run(
+        formSetDelivery,
+        { workspaceId: wsId, formId: form.formId, embedOrigins: ['not a site'] },
+        owner,
+      ),
+    ).rejects.toMatchObject({ code: 'validation' });
   });
 });
 

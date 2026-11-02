@@ -12,25 +12,47 @@ import {
 } from '@hfos/core';
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
-import { Card } from '@/components/ui/card';
 import { cn } from '@/lib/utils';
+import { FormLogoMark, FormLookFrame, FormSurface, type FormLogo } from './form-look';
 import { QuestionField } from './question-field';
 import { StepButtons, StepProgress, useFormSteps } from './steps';
 
 /**
  * The form as the customer sees it, running core's own engine in the browser — the same code the public
  * page and the server run. So a question that hides itself here hides itself there, and an answer this
- * refuses is an answer the server refuses.
+ * refuses is an answer the server refuses. It's in the form's design too, worked out as the public page does.
  *
  * Nothing here is sent anywhere: it is a rehearsal, and Submit shows the result they would land on.
  */
 export function FormPreview({
-  definition: raw,
+  definition,
   className,
+  businessColor = null,
+  logo = null,
+  embedded = false,
 }: {
   definition: FormDefinition;
   className?: string;
+  /** The business's own colour, which buttons follow until the design picks one. */
+  businessColor?: string | null;
+  logo?: FormLogo | null;
+  /** As it sits on a website: see-through unless the design gives it a background. */
+  embedded?: boolean;
 }) {
+  return (
+    <FormLookFrame
+      design={definition.design}
+      businessColor={businessColor}
+      logo={logo}
+      embedded={embedded}
+      className={className}
+    >
+      <Rehearsal definition={definition} />
+    </FormLookFrame>
+  );
+}
+
+function Rehearsal({ definition: raw }: { definition: FormDefinition }) {
   const [answers, setAnswers] = useState<AnswerSheet>({});
   const [tried, setTried] = useState(false);
   const [sent, setSent] = useState(false);
@@ -44,7 +66,7 @@ export function FormPreview({
   if (sent) {
     const result = pickResult(definition, state.answers);
     return (
-      <Card className={cn('p-6 text-center', className)} data-testid="preview-result">
+      <FormSurface className="p-6 text-center" data-testid="preview-result">
         <h2 className="text-[17px] font-medium text-text">{result.headline}</h2>
         {result.body ? <p className="mt-2 text-[13.5px] text-text-2">{result.body}</p> : null}
         {definition.scoring.enabled && definition.scoring.showScore ? (
@@ -65,12 +87,13 @@ export function FormPreview({
         >
           Try it again
         </Button>
-      </Card>
+      </FormSurface>
     );
   }
 
   return (
-    <Card className={cn('p-5 sm:p-6', className)} data-testid="form-preview">
+    <FormSurface className="p-5 sm:p-6" data-testid="form-preview">
+      <FormLogoMark />
       <h2 className="text-[17px] font-medium text-text">{definition.title}</h2>
       {definition.intro ? (
         <p className="mt-1.5 whitespace-pre-wrap text-[13.5px] text-text-2">{definition.intro}</p>
@@ -86,9 +109,9 @@ export function FormPreview({
         </div>
       ) : null}
 
-      <div className="mt-5 space-y-5">
+      <div className="mt-5 flex flex-col gap-[var(--form-gap,1.5rem)]">
         {steps.shown.map((page) => (
-          <section key={page.page.id} className="space-y-5">
+          <section key={page.page.id} className="flex flex-col gap-[var(--form-gap,1.5rem)]">
             {page.page.title ? (
               <h3 className="text-[14px] font-medium text-text-2">{page.page.title}</h3>
             ) : null}
@@ -147,11 +170,12 @@ export function FormPreview({
               else setSent(true);
             }}
             data-testid="preview-submit"
+            data-form-action=""
           >
             {definition.settings.submitLabel}
           </Button>
         </div>
       ) : null}
-    </Card>
+    </FormSurface>
   );
 }

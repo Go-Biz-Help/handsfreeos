@@ -14,6 +14,7 @@ import { FormStatusBadge } from './chips';
 import { PollDraftCard } from './poll-draft';
 import { PollLeadsCard } from './poll-leads';
 import { PollSlidesCard } from './poll-slides';
+import { FormDesignPanel, type FormBrand } from './design-panel';
 import { useFormEditor } from './editor-state';
 import { FormPreview } from './preview';
 import { FormResults } from './results';
@@ -21,7 +22,7 @@ import { FormShare } from './share';
 import { QuestionList } from './question-list';
 import { QuestionSettings } from './question-settings';
 
-type Tab = 'questions' | 'preview' | 'results' | 'share';
+type Tab = 'questions' | 'design' | 'preview' | 'results' | 'share';
 
 /**
  * One form, three ways to look at the same thing: the questions, and the form as a customer sees it. The
@@ -40,6 +41,7 @@ export function FormEditor({
   brandedOrigin,
   timeZone,
   openResponse = null,
+  brand = { color: null, logo: null },
 }: {
   workspaceId: string;
   initial: FormGet;
@@ -52,6 +54,8 @@ export function FormEditor({
   timeZone: string;
   /** A response a search result opens (`?response=<id>`): the form opens on its Results, with it open. */
   openResponse?: string | null;
+  /** The business's logo and colour, which the form follows until its design says otherwise. */
+  brand?: FormBrand;
 }) {
   const router = useRouter();
   const editor = useFormEditor(workspaceId, initial.form.formId, {
@@ -100,6 +104,10 @@ export function FormEditor({
           ariaLabel="How to look at this form"
           options={[
             { value: 'questions', label: 'Questions', testId: 'tab-questions' },
+            // A live poll pops up in a video call, in the call's own look.
+            ...(editor.definition.mode === 'poll'
+              ? []
+              : [{ value: 'design' as const, label: 'Design', testId: 'tab-design' }]),
             { value: 'preview', label: 'Preview', testId: 'tab-preview' },
             {
               value: 'results',
@@ -230,9 +238,20 @@ export function FormEditor({
             </Card>
           )}
         </div>
+      ) : tab === 'design' ? (
+        <FormDesignPanel
+          definition={editor.definition}
+          apply={editor.apply}
+          readOnly={!canManage}
+          brand={brand}
+        />
       ) : tab === 'preview' ? (
         <div className="mx-auto w-full max-w-2xl">
-          <FormPreview definition={editor.definition} />
+          <FormPreview
+            definition={editor.definition}
+            businessColor={brand.color}
+            logo={brand.logo}
+          />
           <p className="mt-3 text-center text-[12.5px] text-text-3">
             Nothing here is recorded. This is the live version of what you are building.
           </p>

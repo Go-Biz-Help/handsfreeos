@@ -10,6 +10,7 @@ import { randomUUID } from 'node:crypto';
 import { and, desc, eq, sql as dsql } from 'drizzle-orm';
 import { files, forms, formVersions } from '@hfos/db/schema';
 import { ensureBookingSite } from '../calendar/site';
+import { normalizeChatOrigins } from '../chat/origins';
 import { HfosError } from '../errors';
 import { allQuestions, type FormDefinition } from '../forms/definition';
 import { describeFormOps } from '../forms/describe';
@@ -464,6 +465,24 @@ export const formSetSlug = defineCommand({
   },
 });
 
+/**
+ * The typed sites as exact origins with their www twins (chat/origins.ts), so a form listed as acme.com shows on
+ * www.acme.com too; a validation error on each refused entry.
+ */
+function formOriginsOrThrow(typed: readonly string[]): string[] {
+  const { origins, issues } = normalizeChatOrigins(typed, { allowNone: true, what: 'A form' });
+  if (issues.length)
+    throw HfosError.validation(
+      issues.map((i) => ({
+        path: i.index === null ? 'embedOrigins' : `embedOrigins.${i.index}`,
+        message: i.message,
+      })),
+      // The Share tab has one box for them all, so the first refusal is the message.
+      issues[0]!.message,
+    );
+  return origins;
+}
+
 export const formSetDelivery = defineCommand({
   name: 'form.set_delivery',
   description:
@@ -479,7 +498,7 @@ export const formSetDelivery = defineCommand({
     const current = await loadForm(ctx.tx, ws, input.formId, { forUpdate: true });
     assertNotArchived(current.row);
     const embedOrigins = input.embedOrigins
-      ? [...new Set(input.embedOrigins)]
+      ? formOriginsOrThrow(input.embedOrigins)
       : current.row.embedOrigins;
     const inChat = input.inChat ?? current.row.inChat;
     await ctx.tx.update(forms).set({ embedOrigins, inChat }).where(eq(forms.id, current.row.id));

@@ -9,7 +9,15 @@ import { publicEnv } from '../env';
 import { ApiError } from './errors';
 
 export interface PublicFormPage {
-  readonly business: { readonly name: string; readonly timeZone: string };
+  readonly business: {
+    readonly name: string;
+    readonly timeZone: string;
+    /** Its logo and colour (the worker's PublicLook), which a form follows until its design says otherwise. */
+    readonly look?: {
+      readonly logo: { readonly url: string; readonly width: number; readonly height: number } | null;
+      readonly color: string | null;
+    };
+  };
   readonly form: {
     readonly formId: string;
     readonly slug: string;

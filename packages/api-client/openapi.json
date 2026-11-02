@@ -53068,6 +53068,28 @@
                             "op",
                             "patch"
                           ]
+                        },
+                        {
+                          "type": "object",
+                          "properties": {
+                            "op": {
+                              "type": "string",
+                              "enum": [
+                                "set_design"
+                              ]
+                            },
+                            "patch": {
+                              "type": "object",
+                              "propertyNames": {
+                                "type": "string"
+                              },
+                              "additionalProperties": {}
+                            }
+                          },
+                          "required": [
+                            "op",
+                            "patch"
+                          ]
                         }
                       ]
                     }
@@ -53595,12 +53617,11 @@
                     "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
                   },
                   "embedOrigins": {
-                    "maxItems": 10,
+                    "maxItems": 20,
                     "type": "array",
                     "items": {
                       "type": "string",
-                      "maxLength": 200,
-                      "pattern": "^https:\\/\\/[a-z0-9.-]+(:\\d{1,5})?$|^http:\\/\\/(localhost|127\\.0\\.0\\.1)(:\\d{1,5})?$"
+                      "maxLength": 300
                     }
                   },
                   "inChat": {

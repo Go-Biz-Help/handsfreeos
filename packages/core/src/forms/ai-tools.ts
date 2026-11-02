@@ -68,6 +68,7 @@ export const FORM_TOOL_NAMES = [
   'set_scoring',
   'set_on_submit',
   'set_settings',
+  'set_design',
   'finish',
 ] as const;
 export type FormToolName = (typeof FORM_TOOL_NAMES)[number];
@@ -206,6 +207,13 @@ export const FORM_BUILDER_TOOLS: readonly FormToolDef[] = [
     strict: true,
   },
   {
+    name: 'set_design',
+    description:
+      'How it looks: scheme (light or dark), colors {button, buttonText, background, text, field, fieldBorder, error} as #rrggbb or null to follow the business, font (a Google font name or null for ours), textSize (small, medium, large), corners (square, slight, round), fields (boxed, filled, underline), button {style: filled or outline, fullWidth}, spacing (compact, normal, roomy), labels (above or inside), width (narrow, medium, wide, full), showLogo. Only when they ask about how it looks.',
+    inputSchema: obj({ json: str('The merge patch as a JSON object.') }),
+    strict: true,
+  },
+  {
     name: 'finish',
     description:
       'Say you are done, with one sentence about what this form does. Call it once, last.',
@@ -275,6 +283,7 @@ const INPUTS = {
   set_scoring: z.object({ json: z.string() }),
   set_on_submit: z.object({ json: z.string() }),
   set_settings: z.object({ json: z.string() }),
+  set_design: z.object({ json: z.string() }),
   finish: z.object({ summary: z.string().trim().min(1).max(500) }),
 };
 
@@ -481,6 +490,13 @@ export function formToolCallsToOps(
           {
             op: 'set_settings',
             patch: parseJsonObject(checked(INPUTS.set_settings, raw, 'The call').json, 'json'),
+          },
+        ];
+      case 'set_design':
+        return [
+          {
+            op: 'set_design',
+            patch: parseJsonObject(checked(INPUTS.set_design, raw, 'The call').json, 'json'),
           },
         ];
       case 'finish': {
