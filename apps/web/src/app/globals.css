@@ -195,6 +195,10 @@
   zoom: var(--form-zoom, 1);
   color: var(--text);
 }
+/* A form's top with nothing showing (no logo, name or intro): the next part starts at the top. */
+.form-look [data-form-head].sr-only + * {
+  margin-top: 0;
+}
 .form-look .text-white {
   color: var(--form-on-accent, #ffffff);
 }

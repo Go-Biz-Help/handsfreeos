@@ -19,6 +19,7 @@ import {
   mixColors,
   NO_LOOK,
   siteNameOf,
+  typedColor,
   type BusinessLook,
 } from '../src';
 
@@ -41,6 +42,15 @@ describe('the colour', () => {
     expect(isLookColor('2d69d8')).toBe(false);
     expect(isLookColor('#fff')).toBe(false);
     expect(isLookColor(null)).toBe(false);
+  });
+
+  it('takes a colour typed any way, and waits while it isn’t one yet', () => {
+    expect(typedColor('#8B7408')).toBe('#8b7408');
+    expect(typedColor(' 8b7408 ')).toBe('#8b7408');
+    expect(typedColor('#fa0')).toBe('#ffaa00');
+    expect(typedColor('#8b74')).toBeNull();
+    expect(typedColor('orange')).toBeNull();
+    expect(typedColor('')).toBeNull();
   });
 
   it('mixes two colours', () => {

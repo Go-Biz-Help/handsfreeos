@@ -12,7 +12,7 @@ import {
 } from '@hfos/core';
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
-import { FormLogoMark, FormLookFrame, FormSurface, type FormLogo } from './form-look';
+import { FormHead, FormLookFrame, FormSurface, type FormLogo } from './form-look';
 import { QuestionField } from './question-field';
 import { StepButtons, StepProgress, useFormSteps } from './steps';
 
@@ -92,11 +92,13 @@ function Rehearsal({ definition: raw }: { definition: FormDefinition }) {
 
   return (
     <FormSurface className="p-5 sm:p-6" data-testid="form-preview">
-      <FormLogoMark />
-      <h2 className="text-[17px] font-medium text-text">{definition.title}</h2>
-      {definition.intro ? (
-        <p className="mt-1.5 whitespace-pre-wrap text-[13.5px] text-text-2">{definition.intro}</p>
-      ) : null}
+      <FormHead
+        title={definition.title}
+        intro={definition.intro}
+        heading="h2"
+        titleClassName="text-[17px] font-medium text-text"
+        introClassName="mt-1.5 text-[13.5px] text-text-2"
+      />
       {steps.stepped && definition.settings.showProgress ? (
         <StepProgress steps={steps} />
       ) : !steps.stepped && definition.settings.showProgress && state.questions.length > 1 ? (

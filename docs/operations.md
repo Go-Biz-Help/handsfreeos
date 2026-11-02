@@ -8965,6 +8965,8 @@ A form the business builds in HandsFreeOS (M15) needs none of this. Its leads fi
 
 Each form has a **Design** tab (`docs/forms.md`, "How a form looks"). **Match my website** reads the site the form is on, or the business's website, and copies its button colour, words, font and corners into the draft; nothing shows until **Publish**. It reads the site from the worker (`POST /v1/forms/website-style`), as robots.txt lets HandsFreeOS. If it says it couldn't read the site, open the site in a browser to check it's up, or pick the colours by hand. **Use on all my forms** puts one form's design on the rest, and live forms show it straight away.
 
+If a form scrolls inside its box on a website, the snippet there is an old one, from before forms grew to fit. Copy it again from the form's **Share** tab (it ends with a `<script src=".../embed/v1/form.js">` line) and paste it over the old one. On GoDaddy, that's the **HTML** section's **Custom Code** box.
+
 **An app sending leads over.** Press **Connect an app** — Zapier, a Facebook lead-ad forwarder, or a developer's own code. It gives back a secret key, shown once and kept only as its hash, and the app posts JSON to `https://hooks.handsfreeos.com/v1/intake` with `Authorization: Bearer <key>`:
 
 ```bash

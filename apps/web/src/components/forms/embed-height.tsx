@@ -1,6 +1,6 @@
 'use client';
 import { useEffect, useRef, type ReactNode } from 'react';
-import { FORM_HEIGHT_MESSAGE } from '@/lib/forms/embed-script';
+import { FORM_HEIGHT_ASK, FORM_HEIGHT_MESSAGE } from '@/lib/forms/embed-script';
 
 /**
  * A form on someone's website tells the page around it how tall it is, whenever that changes (a question shows, the
@@ -22,7 +22,21 @@ export function EmbedHeight({ children }: { children: ReactNode }) {
     const observer = new ResizeObserver(send);
     observer.observe(el);
     send();
-    return () => observer.disconnect();
+    // The script on the page loaded after this said its height, and asks again.
+    const ask = (e: MessageEvent) => {
+      if (
+        e.source !== window.parent ||
+        (e.data as { type?: unknown } | null)?.type !== FORM_HEIGHT_ASK
+      )
+        return;
+      last = 0;
+      send();
+    };
+    window.addEventListener('message', ask);
+    return () => {
+      observer.disconnect();
+      window.removeEventListener('message', ask);
+    };
   }, []);
   return (
     <div ref={ref} className="p-1" data-testid="form-embed">

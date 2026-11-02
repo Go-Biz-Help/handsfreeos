@@ -130,6 +130,8 @@ export const FormDesign = z.object({
   width: z.enum(FORM_WIDTHS).default('medium'),
   /** The business's logo at the top. */
   showLogo: z.boolean().default(false),
+  /** The form's name at the top. Hidden, screen readers still hear it; a website's own heading often says it. */
+  showTitle: z.boolean().default(true),
   /** Filled in from a website by Match my website: which site, and when. A person's change leaves it be. */
   matched: z
     .object({ site: z.string().trim().max(300), at: z.iso.datetime() })
@@ -211,6 +213,7 @@ export interface FormLook {
   readonly dark: boolean;
   readonly labelsInside: boolean;
   readonly showLogo: boolean;
+  readonly showTitle: boolean;
 }
 
 /**
@@ -295,6 +298,7 @@ export function formLook(
     dark,
     labelsInside: d.labels === 'inside',
     showLogo: d.showLogo,
+    showTitle: d.showTitle,
   };
 }
 

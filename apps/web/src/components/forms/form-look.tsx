@@ -17,12 +17,18 @@ interface FormLookValue {
   readonly bare: boolean;
   /** The logo to show at the top, when the design asks for it and the business has one. */
   readonly logo: FormLogo | null;
+  /** The form's name at the top; hidden, it's still there for screen readers. */
+  readonly showTitle: boolean;
+  /** A dark form, for parts drawn by others (Cloudflare's check) to match. */
+  readonly dark: boolean;
 }
 
 const FormLookContext = createContext<FormLookValue>({
   labelsInside: false,
   bare: false,
   logo: null,
+  showTitle: true,
+  dark: false,
 });
 
 export const useFormLook = (): FormLookValue => useContext(FormLookContext);
@@ -56,6 +62,8 @@ export function FormLookFrame({
         labelsInside: look.labelsInside,
         bare: !look.paintsBackground,
         logo: look.showLogo ? logo : null,
+        showTitle: look.showTitle,
+        dark: look.dark,
       }}
     >
       {/* React puts a stylesheet link in the page's head, once however many forms ask for it. */}
@@ -109,5 +117,35 @@ export function FormLogoMark() {
       className="mb-4"
       data-testid="form-logo"
     />
+  );
+}
+
+/**
+ * The top of a form: the logo, its name and its intro, as the design shows them. A hidden name stays for screen
+ * readers; with nothing showing at all, the top takes no room (globals.css drops the gap under it).
+ */
+export function FormHead({
+  title,
+  intro,
+  heading: Heading = 'h1',
+  titleClassName,
+  introClassName,
+}: {
+  title: string;
+  intro: string | null | undefined;
+  heading?: 'h1' | 'h2';
+  titleClassName: string;
+  introClassName: string;
+}) {
+  const { logo, showTitle } = useFormLook();
+  const shown = Boolean(logo) || showTitle || Boolean(intro);
+  return (
+    <div className={cn(!shown && 'sr-only')} data-form-head="">
+      <FormLogoMark />
+      <Heading className={cn(titleClassName, !showTitle && 'sr-only')}>{title}</Heading>
+      {intro ? (
+        <p className={cn('whitespace-pre-wrap', introClassName, !showTitle && 'mt-0')}>{intro}</p>
+      ) : null}
+    </div>
   );
 }

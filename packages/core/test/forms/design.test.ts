@@ -29,6 +29,7 @@ describe('what’s kept', () => {
     expect(parsed.design).toEqual(DEFAULT_FORM_DESIGN);
     expect(parsed.design.colors.button).toBeNull();
     expect(parsed.design.button.fullWidth).toBe(true);
+    expect(parsed.design.showTitle).toBe(true);
   });
 
   it('refuses a colour that isn’t one, and a font name that isn’t a name', () => {
@@ -153,5 +154,7 @@ describe('how it looks', () => {
       'data-labels': 'inside',
     });
     expect(look.labelsInside).toBe(true);
+    expect(look.showTitle).toBe(true);
+    expect(formLook(FormDesign.parse({ showTitle: false })).showTitle).toBe(false);
   });
 });

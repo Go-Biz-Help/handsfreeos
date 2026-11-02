@@ -41,17 +41,25 @@ export function Turnstile({
   onToken,
   resetKey = 0,
   invisible = false,
+  theme = 'auto',
+  onFailed,
 }: {
   siteKey: string;
   onToken: (token: string | null) => void;
   resetKey?: number;
-  /** Shows nothing unless Cloudflare needs the person to do something (the website chat). */
+  /** Shows nothing unless Cloudflare needs the person to do something (the website chat, forms). */
   invisible?: boolean;
+  /** Light or dark to match what it sits in; 'auto' follows the visitor's computer. */
+  theme?: 'auto' | 'light' | 'dark';
+  /** The check couldn't run (it didn't load, or Cloudflare gave up): out of sight, nothing else says so. */
+  onFailed?: () => void;
 }) {
   const box = useRef<HTMLDivElement>(null);
   const handler = useRef(onToken);
+  const failed = useRef(onFailed);
   useEffect(() => {
     handler.current = onToken;
+    failed.current = onFailed;
   });
   useEffect(() => {
     let id: string | null = null;
@@ -61,20 +69,26 @@ export function Turnstile({
         if (gone || !box.current || !window.turnstile) return;
         id = window.turnstile.render(box.current, {
           sitekey: siteKey,
-          theme: 'auto',
+          theme,
           size: 'flexible',
           ...(invisible ? { appearance: 'interaction-only' } : {}),
           callback: (token: string) => handler.current(token),
           'expired-callback': () => handler.current(null),
-          'error-callback': () => handler.current(null),
+          'error-callback': () => {
+            handler.current(null);
+            failed.current?.();
+          },
         });
       })
-      .catch(() => handler.current(null));
+      .catch(() => {
+        handler.current(null);
+        failed.current?.();
+      });
     return () => {
       gone = true;
       if (id && window.turnstile) window.turnstile.remove(id);
     };
-  }, [siteKey, resetKey, invisible]);
+  }, [siteKey, resetKey, invisible, theme]);
   return (
     <div ref={box} className={invisible ? undefined : 'min-h-[65px]'} data-testid="turnstile" />
   );
