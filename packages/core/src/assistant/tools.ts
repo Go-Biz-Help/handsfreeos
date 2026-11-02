@@ -3,6 +3,7 @@ import { ATTENTION_KINDS } from '../attention/kinds';
 import { isLocalDate } from '../calendar/engine/zoned';
 import { ATTENTION_ASK_ACTIONS } from '../schemas/attention';
 import { uuid } from '../schemas/common';
+import { IntakeChannelKind } from '../schemas/intake';
 import { SETTINGS_AREAS } from './settings-map';
 import {
   clock,
@@ -826,17 +827,17 @@ export const assistantTools = [
   define({
     name: 'manage_lead_intake',
     description:
-      'Set what happens when a stranger reaches the business: whether someone who texts, calls and doesn’t get through, or emails becomes a customer and an open lead by themselves, which pipeline and stage those leads land in, what they are filed under, and the most a day. One channel per call. Read it with get_settings first and pass only what changes.',
+      'Set what happens when a stranger reaches the business, each row of Settings → Lead intake’s ways in: whether someone who texts, calls and doesn’t get through, emails, messages the Facebook Page or the Instagram account, sends a lead ad’s form, or applies through Indeed becomes a customer and an open lead by themselves, which pipeline and stage those leads land in, what they are filed under, and the most a day. One channel per call. Read it with get_settings (area lead_intake) first and pass only what changes. Website forms and connected apps are manage_lead_form.',
     input: z.object({
-      channel: z
-        .enum(['text', 'call', 'email'])
-        .describe(
-          'text: they text the business number. call: a missed call or voicemail. email: they write in.',
-        ),
+      channel: IntakeChannelKind.describe(
+        'text: they text the business number. call: a missed call or voicemail. email: they write in. messenger: they message the Facebook Page. instagram: they message the Instagram account. facebook_lead_ad: they send the form on a Facebook or Instagram lead ad. indeed: Indeed emails about someone who applied to a job (off until turned on).',
+      ),
       active: z
         .boolean()
         .optional()
-        .describe('Off leaves a stranger as a conversation only, with no customer and no lead'),
+        .describe(
+          'Off leaves a stranger as a conversation only, with no customer and no lead; a lead ad’s form or an Indeed applicant is not filed at all',
+        ),
       createLead: z.boolean().optional().describe('Whether a lead opens as well as the customer'),
       pipelineId: uuid.nullable().optional().describe('Null is their first pipeline'),
       stageId: uuid.nullable().optional().describe('Null is that pipeline’s first open stage'),

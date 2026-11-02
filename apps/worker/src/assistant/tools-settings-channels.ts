@@ -10,7 +10,7 @@
 import { HfosError, money, normalizeChatOrigins } from '@hfos/core';
 import type { Db } from '@hfos/db/client';
 import type { ToolContext } from './runtime';
-import { command, query } from './tools-read';
+import { command, query, rehearse } from './tools-read';
 import { settingsCard, type SettingsConfirmTool } from './tools-settings-calendar';
 
 type Args = Record<string, unknown>;
@@ -852,8 +852,20 @@ const manageWebsiteChat: SettingsConfirmTool = {
 
 // ---------- lead intake: leads that arrive on their own ----------
 
+/** Each way in on Settings → Lead intake, as its card says it. */
+const CHANNEL_WORDS = {
+  text: 'someone texts you',
+  call: 'a call is missed',
+  email: 'someone emails you',
+  messenger: 'someone messages your Facebook Page',
+  instagram: 'someone messages your Instagram account',
+  facebook_lead_ad: 'someone sends your lead ad’s form',
+  indeed: 'Indeed emails you about an applicant',
+} as const;
+type Channel = keyof typeof CHANNEL_WORDS;
+
 interface IntakeSource {
-  kind: 'text' | 'call' | 'email';
+  kind: string;
   name: string;
   active: boolean;
   createLead: boolean;
@@ -865,83 +877,166 @@ interface IntakeList {
   sources: IntakeSource[];
   pipelines: { id: string; name: string; stages: { id: string; name: string; kind: string }[] }[];
 }
+interface MetaList {
+  accounts: { platform: 'facebook' | 'instagram'; status: string }[];
+}
 
-const CHANNEL_WORDS = {
-  text: 'someone texts you',
-  call: 'a call is missed',
-  email: 'someone emails you',
-} as const;
-
-const intakeOf = (db: Db, ctx: ToolContext) =>
-  query<IntakeList>(db, ctx, 'intake.list').catch(() => null);
-
-const channelOf = (args: Args): 'text' | 'call' | 'email' => {
+const channelOf = (args: Args): Channel => {
   const c = str(args['channel']);
-  return c === 'call' || c === 'email' ? c : 'text';
+  return c && c in CHANNEL_WORDS ? (c as Channel) : 'text';
+};
+
+interface IntakeInput {
+  kind: Channel;
+  active?: boolean;
+  createLead?: boolean;
+  pipelineId?: string | null;
+  stageId?: string | null;
+  name?: string;
+  dailyCap?: number;
+}
+
+/** What the command is given: the channel, and only what was asked. */
+const intakeInput = (args: Args): IntakeInput => ({
+  kind: channelOf(args),
+  ...(defined({
+    active: bool(args['active']),
+    createLead: bool(args['createLead']),
+    pipelineId: args['pipelineId'] === null ? null : str(args['pipelineId']),
+    stageId: args['stageId'] === null ? null : str(args['stageId']),
+    name: str(args['name']),
+    dailyCap: num(args['dailyCap']),
+  }) as Omit<IntakeInput, 'kind'>),
+});
+
+/** Messages and lead ads arrive only from what's connected on Settings → Facebook & Instagram. */
+async function metaNote(db: Db, ctx: ToolContext, channel: Channel): Promise<string | null> {
+  if (channel !== 'messenger' && channel !== 'instagram' && channel !== 'facebook_lead_ad')
+    return null;
+  const meta = await query<MetaList>(db, ctx, 'meta_account.list').catch(() => null);
+  if (!meta) return null;
+  const platform = channel === 'instagram' ? 'instagram' : 'facebook';
+  if (meta.accounts.some((a) => a.platform === platform && a.status !== 'disconnected'))
+    return null;
+  return channel === 'instagram'
+    ? 'No Instagram account is connected yet, so nothing comes in this way until one is. Connecting it is yours to do, with Connect Facebook in Settings → Facebook & Instagram.'
+    : 'No Facebook Page is connected yet, so nothing comes in this way until one is. Connecting it is yours to do, with Connect Facebook in Settings → Facebook & Instagram.';
+}
+
+/** What turning a channel off means for the people who arrive on it. */
+const OFF_WORDS: Record<Channel, string> = {
+  text: 'Their texts still reach your inbox. Nobody is added to your customers or leads.',
+  call: 'Their calls and voicemails still reach your inbox. Nobody is added to your customers or leads.',
+  email: 'Their emails still reach your inbox. Nobody is added to your customers or leads.',
+  messenger: 'Their messages still reach your inbox. Nobody is added to your customers or leads.',
+  instagram: 'Their messages still reach your inbox. Nobody is added to your customers or leads.',
+  facebook_lead_ad: 'Lead ad forms sent while it’s off aren’t added to your customers or leads.',
+  indeed:
+    'Applicants Indeed emails you about aren’t added to your customers or leads. The emails still arrive.',
 };
 
 const manageLeadIntake: SettingsConfirmTool = {
   async prepare(db, ctx, args, toolCallId) {
-    const channel = channelOf(args);
-    const list = await intakeOf(db, ctx);
-    const current = list?.sources.find((s) => s.kind === channel);
-    const active = bool(args['active']);
-    const createLead = bool(args['createLead']);
-    const pipeline = list?.pipelines.find((p) => p.id === args['pipelineId']);
-    const stage = pipeline?.stages.find((s) => s.id === args['stageId']);
+    const input = intakeInput(args);
+    const channel = input.kind;
     const words = CHANNEL_WORDS[channel];
+    const list = await query<IntakeList>(db, ctx, 'intake.list');
+    const current = list.sources.find((s) => s.kind === channel);
+    const asked = Object.keys(input).filter((k) => k !== 'kind');
+    if (!asked.length)
+      throw HfosError.rule(
+        'nothing_to_change',
+        400,
+        `Say what to change about leads when ${words}: on or off, whether a lead opens, where it lands, what it’s filed under, or the most a day.`,
+      );
+    const active = input.active;
+    if (asked.length === 1 && active !== undefined && current?.active === active)
+      throw HfosError.rule(
+        'nothing_to_change',
+        400,
+        active
+          ? `Nothing would change. Leads already come in when ${words}.`
+          : `Nothing would change. It’s already off, so nobody becomes a lead when ${words}.`,
+      );
+    const fields: Field[] = [];
+    if (active !== undefined)
+      fields.push({ label: 'New customer and lead', value: active ? 'Yes' : 'No' });
+    if (input.createLead !== undefined)
+      fields.push({ label: 'Opens a lead', value: input.createLead ? 'Yes' : 'Customer only' });
+    if (input.pipelineId !== undefined || input.stageId !== undefined) {
+      const pipelineId =
+        input.pipelineId === undefined ? (current?.pipelineId ?? null) : input.pipelineId;
+      const pipeline = list.pipelines.find((p) => p.id === pipelineId);
+      if (pipelineId && !pipeline)
+        throw HfosError.validation(
+          [{ path: 'pipelineId', message: 'Pick one of your pipelines.' }],
+          'No pipeline has that id. Pick one from get_settings (area lead_intake).',
+        );
+      const stage = pipeline?.stages.find((s) => s.id === input.stageId);
+      if (input.stageId && pipeline && !stage)
+        throw HfosError.validation(
+          [{ path: 'stageId', message: 'Pick a stage in that pipeline.' }],
+          `That stage isn’t in ${pipeline.name}. Pick one of its stages from get_settings (area lead_intake).`,
+        );
+      fields.push(
+        { label: 'Lands in', value: pipeline?.name ?? 'Your first pipeline' },
+        { label: 'Stage', value: stage?.name ?? 'Its first open stage' },
+      );
+    }
+    if (input.name) fields.push({ label: 'Filed under', value: input.name });
+    if (input.dailyCap) fields.push({ label: 'Most a day', value: String(input.dailyCap) });
+    // The command's own rules refuse anything else before any card is drawn.
+    await rehearse(db, ctx, 'intake_source.update', { ...input });
+
     const off = active === false;
+    const turningOn = active === true && current?.active === false;
+    const warnings: { kind: 'note' | 'caution'; text: string }[] = [];
+    if (off)
+      warnings.push({
+        kind: channel === 'facebook_lead_ad' || channel === 'indeed' ? 'caution' : 'note',
+        text: OFF_WORDS[channel],
+      });
+    if (!off) {
+      const meta = await metaNote(db, ctx, channel);
+      if (meta) warnings.push({ kind: 'note', text: meta });
+    }
+    if (turningOn && channel === 'indeed')
+      warnings.push({
+        kind: 'note',
+        text: 'Indeed’s emails need to reach a connected inbox, or one you forward them to.',
+      });
+    else if (turningOn && (channel === 'text' || channel === 'call' || channel === 'email'))
+      warnings.push({
+        kind: 'note',
+        text: 'Wrong numbers and spam can become leads; archive those.',
+      });
+
     return {
       card: settingsCard(toolCallId, 'manage_lead_intake', {
-        title: off ? `Stop opening leads when ${words}` : `Open a lead when ${words}`,
-        fields: [
-          ...(active === undefined
-            ? []
-            : [{ label: 'New customer and lead', value: active ? 'Yes' : 'No' }]),
-          ...(createLead === undefined
-            ? []
-            : [{ label: 'Opens a lead', value: createLead ? 'Yes' : 'Customer only' }]),
-          ...(pipeline ? [{ label: 'Lands in', value: pipeline.name }] : []),
-          ...(stage ? [{ label: 'Stage', value: stage.name }] : []),
-          ...(str(args['name']) ? [{ label: 'Filed under', value: str(args['name'])! }] : []),
-          ...(num(args['dailyCap'])
-            ? [{ label: 'Most a day', value: String(num(args['dailyCap'])) }]
-            : []),
-        ],
+        title: off
+          ? `Stop opening leads when ${words}`
+          : active
+            ? `Open a lead when ${words}`
+            : `Change the leads that come in when ${words}`,
+        fields,
         confirmLabel: off ? 'Turn it off' : 'Save the change',
-        warnings: off
-          ? [
-              {
-                kind: 'note',
-                text: 'Their message still reaches your inbox — nobody is added to your customers.',
-              },
-            ]
-          : active === true && current?.active === false
-            ? [{ kind: 'note', text: 'Wrong numbers and spam can become leads; archive those.' }]
-            : [],
+        warnings,
       }),
       result: { waiting: true, channel },
     };
   },
 
   async commit(db, ctx, args) {
-    const channel = channelOf(args);
-    await command(db, ctx, 'intake_source.update', {
-      kind: channel,
-      ...defined({
-        active: bool(args['active']),
-        createLead: bool(args['createLead']),
-        pipelineId: args['pipelineId'] === null ? null : str(args['pipelineId']),
-        stageId: args['stageId'] === null ? null : str(args['stageId']),
-        name: str(args['name']),
-        dailyCap: num(args['dailyCap']),
-      }),
-    });
+    const input = intakeInput(args);
+    await command(db, ctx, 'intake_source.update', { ...input });
+    const words = CHANNEL_WORDS[input.kind];
     return {
       outcome:
-        bool(args['active']) === false
-          ? `No more leads when ${CHANNEL_WORDS[channel]}`
-          : `Leads will come in when ${CHANNEL_WORDS[channel]}`,
+        input.active === false
+          ? `No more leads when ${words}`
+          : input.active === true
+            ? `Leads will come in when ${words}`
+            : 'Saved',
       href: `/app/w/${ctx.workspaceId}/settings/lead-intake`,
       command: 'intake_source.update',
     };
