@@ -69,6 +69,11 @@ so nothing that reads answers needs to know.
 **Ids are made by us, never by a model.** The AI builder writes labels; `formToolCallsToOps` stamps the
 ids and tells the model what they are.
 
+**The editor keeps the spaces being typed; what's saved is trimmed.** The editor applies an op on every
+keystroke, and the form's parse trims every text, so it calls `applyFormOps` with `keepSpaces` to put back a
+space typed at either end. Without it the space after a word was gone before the next word arrived. The server
+applies the same ops without `keepSpaces`, so nothing is stored with stray spaces.
+
 ## The public page
 
 `/f/<site>/<form>`, served by the worker as the booking page is, and never the draft. What protects it:

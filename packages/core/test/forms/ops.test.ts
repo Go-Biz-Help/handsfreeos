@@ -307,6 +307,78 @@ describe('the form itself', () => {
   });
 });
 
+describe('typing in the editor', () => {
+  /** Types `text` into a cleared title a key at a time: each key adds to what the box shows. */
+  const typeTitle = (text: string, keepSpaces: boolean) => {
+    let form = base();
+    let title = '';
+    for (const key of text) {
+      const patch = { title: title + key };
+      form = applyFormOps(form, [{ op: 'update_question', questionId: qid('name'), patch }], {
+        keepSpaces,
+      }).definition;
+      title = form.pages[0]!.questions[0]!.title;
+    }
+    return title;
+  };
+
+  it('keeps the spaces typed between words', () => {
+    expect(typeTitle('Your full name', true)).toBe('Your full name');
+    // Without it, each space is trimmed off before the next word arrives.
+    expect(typeTitle('Your full name', false)).toBe('Yourfullname');
+  });
+
+  it('keeps a space at either end while typing, and in every other text', () => {
+    const { definition } = applyFormOps(
+      base(),
+      [
+        { op: 'update_question', questionId: qid('name'), patch: { title: 'Your ', help: ' So' } },
+        {
+          op: 'update_question',
+          questionId: qid('service'),
+          patch: { config: { choices: [{ id: cid('Trim'), label: 'Hedge ' }] } },
+        },
+        { op: 'set_settings', patch: { submitLabel: 'Send it ' } },
+      ],
+      { keepSpaces: true },
+    );
+    const name = definition.pages[0]!.questions[0]!;
+    expect(name).toMatchObject({ title: 'Your ', help: ' So' });
+    const choices = (definition.pages[1]!.questions[0]!.config as { choices: { label: string }[] })
+      .choices;
+    expect(choices[1]!.label).toBe('Hedge ');
+    expect(definition.settings.submitLabel).toBe('Send it ');
+  });
+
+  it('still saves the text trimmed', () => {
+    const typed = applyFormOps(
+      base(),
+      [{ op: 'update_question', questionId: qid('name'), patch: { title: '  Your name  ' } }],
+      { keepSpaces: true },
+    );
+    // The server applies the same ops without keepSpaces.
+    const saved = applyFormOps(base(), [
+      { op: 'update_question', questionId: qid('name'), patch: { title: '  Your name  ' } },
+    ]);
+    expect(typed.definition.pages[0]!.questions[0]!.title).toBe('  Your name  ');
+    expect(saved.definition.pages[0]!.questions[0]!.title).toBe('Your name');
+    // Undo still puts back exactly what was there.
+    expect(applyFormOps(typed.definition, typed.inverse, { keepSpaces: true }).definition).toEqual(
+      base(),
+    );
+  });
+
+  it('still refuses a title that is only spaces', () => {
+    expect(() =>
+      applyFormOps(
+        base(),
+        [{ op: 'update_question', questionId: qid('name'), patch: { title: '   ' } }],
+        { keepSpaces: true },
+      ),
+    ).toThrow('Write the question.');
+  });
+});
+
 describe('a batch', () => {
   it('goes in all together or not at all', () => {
     const start = base();
