@@ -26,7 +26,7 @@ const DEFAULT_SHARE_IMAGE = {
   url: '/opengraph-image',
   width: 1200,
   height: 630,
-  alt: 'HandsFreeOS — answer every lead in seconds and get your evenings back',
+  alt: 'HandsFreeOS — make more money and work fewer hours',
 };
 
 /**

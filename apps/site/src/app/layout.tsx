@@ -33,7 +33,7 @@ export const metadata: Metadata = {
     type: 'website',
     siteName: 'HandsFreeOS',
     url: urls.site,
-    title: 'HandsFreeOS · Answer every lead in seconds. Get your evenings back.',
+    title: 'HandsFreeOS · Make more money. Work fewer hours.',
     description:
       'It picks up your calls, answers texts and website chats, books the job and chases quotes and invoices. One app, one bill. 30 days, or your money back.',
     locale: 'en_US',
