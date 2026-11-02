@@ -3576,6 +3576,28 @@ where decisions 37 and 59 put the settings; what they decided stands. Settled to
         offers no post checked before then meanwhile. Those about the owner's field stay good; the rest leave Today. A
         comment already waiting stays until it's OK'd or skipped.
 
+144.  **Comments that take a stand, and offer a demo when they want help** (Chris, 2 Nov 2026, showing their own comment on
+      a post asking for someone to do automations the right way: "You've got it all wrong, you need a crm where you
+      don't need to create automations in the first place because it does it for you. I can show you a demo if you're
+      interested.", and "these are the style comments i'm referring to. doesn't always have to be this but you should
+      understand what i mean"), answered "1a 2a 3a"; no data version, no migration, no new extension. Decision 141's
+      peer tip read like every other polite reply under a post. The picks:
+      - **A clear stand from the owner's field** (2a, `TASK.comment`, `COMMENT_RULES`): often a bold take on what most
+        people get wrong or do the hard way, and how the owner's way does it instead; sometimes one specific tip, a
+        rule of thumb or a common mistake. It challenges the usual way, never the person: never calling them wrong,
+        talking down to them or making fun of them. Decision 143 stands: the owner's own field, never the poster's
+        trade, and no drafts when that field has nothing real to add.
+      - **The angle is each business's own offer**: a comment is now told the main offer's angle (`ANGLE_KINDS` in
+        `today.ts`): its line, its outcome and how it works, never its price, its guarantee or its results, which a
+        comment in public doesn't say. Nothing is written for HandsFreeOS alone; another business's comments take its
+        own offer's stand.
+      - **An offer to show them only when they want the help** (1a): when the post asks for help with what the business
+        does, or is looking for someone to do it, the comment ends with a short, easy offer to show them, such as "I
+        can show you a demo if you're interested" (3a). On every other post it offers and pitches nothing.
+      - **No link in any comment** (3a): no link, no web address and no price, on Facebook too, where a link once went
+        when they asked for one. The playbook's link no longer reaches a comment's prompt. Those who say yes go on in
+        the chat, where the conversation's messages carry the link as before.
+
 ## Rules worth knowing before changing anything
 
 - **Nothing is saved until the person presses a button in HandsFreeOS** (an ask, below), except the four steps the
