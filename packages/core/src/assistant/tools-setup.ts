@@ -293,10 +293,14 @@ export const setupTools: readonly AssistantTool[] = [
   define({
     name: 'manage_lead_form',
     description:
-      'Change a form on the business’s own website or a connected app (like Zapier) that sends leads in: pause it, turn it back on, what its leads are filed under, where they land, how many a day, and a form’s sites and thank-you page; or retire it for good. Adding one or replacing its key is only on Settings → Lead intake, because it hands back a key. Texts, calls and emails are manage_lead_intake. Ids are in get_settings (area lead_intake).',
+      'Add a form for the business’s own website, give a form a new key, or change a form or a connected app (like Zapier) that sends leads in: pause it, turn it back on, what its leads are filed under, where they land, how many a day, and a form’s sites and thank-you page; or retire it for good. The person copies a form’s snippet from Settings → Lead intake into their site. Connecting an app, or replacing its key, is only on that page, because its secret key is shown once and never in a chat. Texts, calls, emails, Messenger, Instagram, lead ads and Indeed are manage_lead_intake. Ids are in get_settings (area lead_intake).',
     input: z.object({
-      action: z.enum(['change', 'pause', 'turn_on', 'retire']),
-      sourceId: uuid,
+      action: z
+        .enum(['create', 'change', 'new_key', 'pause', 'turn_on', 'retire'])
+        .describe(
+          'create: a new form for their website (name and websites). new_key: a form’s new key, which its snippet on the site needs pasted in again.',
+        ),
+      sourceId: uuid.optional().describe('The form or app; every action but create'),
       name: text(60).optional().describe('What its customers and leads are filed under'),
       createLead: z.boolean().optional().describe('Whether a lead opens as well as the customer'),
       pipelineId: uuid.nullable().optional().describe('Null is their first pipeline'),

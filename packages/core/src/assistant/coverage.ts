@@ -190,16 +190,18 @@ export const SCREEN_ACTIONS: Readonly<Record<string, ScreenAction>> = {
   },
   'email_address.reassign': {},
   'email_sender_rule.remove': {},
-  // ---- Settings → Website chat, Facebook & Instagram, Lead intake ----
+  // ---- Settings → Website chat, Facebook & Instagram ----
   'chat_widget.rotate_key': {
     warning: 'Every chat snippet pasted before stops working until the new one is pasted in.',
   },
-  'meta_account.disconnect': {},
-  'meta_connection.disconnect': {},
-  'intake_source.create': {},
-  'intake_source.rotate_key': {
+  // Disconnecting is a click; connecting again is signing in to Facebook, which only the person can do.
+  'meta_account.disconnect': {
     warning:
-      'Every copy of the old key stops working at once, on the website and in any connected app.',
+      'Only you can bring it back, with Connect Facebook in Settings → Facebook & Instagram.',
+  },
+  'meta_connection.disconnect': {
+    warning:
+      'Every Page and Instagram account it connected stops answering here. Only you can bring them back, with Connect Facebook in Settings → Facebook & Instagram.',
   },
   // ---- Settings → Calendars ----
   'booking_site.set_page': {},
@@ -655,6 +657,30 @@ export const SETTING_TOOLS: Readonly<Record<string, readonly SettingWay[]>> = {
     { tool: 'manage_website_chat', field: 'askFor.email', value: 'never' },
   ],
   'website_chat.text_box': [{ tool: 'manage_website_chat', field: 'askForSmsConsent' }],
+  // ---- Facebook & Instagram ----
+  'facebook_instagram.accounts': [{ tool: 'do_meta_account_disconnect', field: 'accountId' }],
+  'facebook_instagram.sign_in': [{ tool: 'do_meta_connection_disconnect', field: 'connectionId' }],
+  // ---- Lead intake ----
+  'lead_intake.channels': [
+    ...['text', 'call', 'email', 'messenger', 'instagram', 'facebook_lead_ad', 'indeed'].map(
+      (value) => ({ tool: 'manage_lead_intake', field: 'channel', value }),
+    ),
+    { tool: 'manage_lead_intake', field: 'active' },
+    { tool: 'manage_lead_intake', field: 'createLead' },
+    { tool: 'manage_lead_intake', field: 'pipelineId' },
+    { tool: 'manage_lead_intake', field: 'stageId' },
+    { tool: 'manage_lead_intake', field: 'name' },
+    { tool: 'manage_lead_intake', field: 'dailyCap' },
+  ],
+  'lead_intake.sources': [
+    ...['create', 'change', 'new_key', 'pause', 'turn_on', 'retire'].map((value) => ({
+      tool: 'manage_lead_form',
+      field: 'action',
+      value,
+    })),
+    { tool: 'manage_lead_form', field: 'websites' },
+    { tool: 'manage_lead_form', field: 'thankYouPage' },
+  ],
 };
 
 /** Setting rows the Assistant never changes, and why. */
@@ -681,6 +707,8 @@ export const SETTINGS_NEVER: Readonly<Record<string, string>> = {
     'always on: every text answers STOP, START and HELP by itself, and an opted-out customer stays opted out until they text START',
   'website_chat.try':
     'a preview page the person opens to chat with their own chat box; test chats create and send nothing, so there is nothing to set',
+  'facebook_instagram.lead_ads':
+    'what each Page’s lead ads send in, to read (get_settings, area facebook_instagram); letting leads in is connecting Facebook again or Meta’s own Leads Access, which only the person can do, and whether they open a lead is Lead intake’s (manage_lead_intake)',
   ...Object.fromEntries(
     AUTOMATION_ROWS.filter((a) => a.locked).map((a) => [
       `automation.${a.id}`,
@@ -694,8 +722,6 @@ export const SETTINGS_NEVER: Readonly<Record<string, string>> = {
  * the first, says which tool changes each of its rows (adding what's missing), and takes it off.
  */
 export const SETTINGS_NOT_YET: readonly string[] = [
-  'facebook_instagram',
-  'lead_intake',
   'tags',
   'relationships',
   'calendars',

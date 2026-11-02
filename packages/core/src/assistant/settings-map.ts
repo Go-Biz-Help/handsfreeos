@@ -604,15 +604,27 @@ const AREAS: Record<SettingsArea, AreaEntry> = {
     ],
     path: '/settings/facebook-instagram',
     permission: 'channels.manage',
-    canChange: [],
+    canChange: [
+      'disconnect a Facebook Page or an Instagram account, so its messages stop coming here',
+      'disconnect a Facebook sign-in, and every Page and account it connected',
+    ],
     handovers: [
       {
-        what: 'connect a Facebook Page or an Instagram account',
+        what: 'connect a Facebook Page or an Instagram account, or connect one again',
         why: 'you sign in to Facebook yourself and choose the Pages, so nobody else can do it for you',
         steps: [
           'Open Settings → Facebook & Instagram and press Connect Facebook.',
           'Sign in with a Facebook account that manages the business’s Page, and leave every permission ticked.',
           'Pick which Pages and Instagram accounts answer in the inbox.',
+        ],
+      },
+      {
+        what: 'let a Page’s lead ads send their leads in',
+        why: 'it is a permission on Facebook, which only you can give',
+        steps: [
+          'If Lead ads says the sign-in didn’t allow reading leads, press Connect Facebook again and leave Leads ticked.',
+          'If it says Facebook is keeping the leads out, open Leads Access in Meta Business Suite’s settings and add HandsFreeOS.',
+          'The next lead shows up under Lead ads within a minute of being sent.',
         ],
       },
     ],
@@ -641,20 +653,30 @@ const AREAS: Record<SettingsArea, AreaEntry> = {
     path: '/settings/lead-intake',
     permission: 'channels.manage',
     canChange: [
-      'turn a channel on or off',
+      'turn each way in on or off: texts, missed calls, emails, Facebook Page and Instagram messages, lead ad forms and Indeed applicants',
       'whether a lead opens as well as the customer',
       'which pipeline and stage those leads land in, and what they are filed under',
       'the most leads a day a channel may open',
+      'add a form for your website, and give a form a new key',
       'pause, turn back on, change or retire a website form or connected app',
     ],
     handovers: [
       {
-        what: 'connect a form on your own website, or an app like Zapier',
-        why: 'a form needs its key pasted into your website, and an app’s key is a secret I never put in a chat',
+        what: 'put a website form on your site',
+        why: 'its snippet goes into your website, which lives outside HandsFreeOS',
         steps: [
-          'Open Settings → Lead intake and, in Forms and connected apps, press Website form or Connect an app.',
-          'A form gives you a snippet to paste into your page; an app gives you a key, shown once.',
-          'Tell me where you want those leads to land and I’ll set the pipeline up for you.',
+          'I add the form for you, on the sites you name.',
+          'Open Settings → Lead intake, find it under Forms and connected apps, and press Copy the snippet.',
+          'Paste it into your page where the form should be.',
+        ],
+      },
+      {
+        what: 'connect an app like Zapier',
+        why: 'an app’s key is a secret shown once, and I never put one in a chat',
+        steps: [
+          'Open Settings → Lead intake and, in Forms and connected apps, press Connect an app.',
+          'Copy the key it shows you, once, into the app.',
+          'Tell me where you want those leads to land and I’ll set it up for you.',
         ],
       },
     ],
