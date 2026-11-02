@@ -15,7 +15,7 @@ import {
 } from './definition';
 import { cloneJson, jsonEqual } from '../workflows/json';
 import type { FormOp } from './ops';
-import { CHOICE_TYPES, QUESTION_LABELS, type QuestionType } from './questions';
+import { CHOICE_TYPES, questionKindLabel, type QuestionType } from './questions';
 
 // ---- One question ----
 
@@ -24,7 +24,9 @@ const choicesOf = (question: Question): { id: string; label: string }[] =>
 
 /** "Your budget — amount, must be answered, only sometimes, fills in Lead value". */
 export function questionLine(question: Question): string {
-  const bits = [QUESTION_LABELS[question.type as QuestionType].toLowerCase()];
+  const bits = [
+    questionKindLabel({ ...question, type: question.type as QuestionType }).toLowerCase(),
+  ];
   if (question.required) bits.push('must be answered');
   if (CHOICE_TYPES.has(question.type)) {
     const choices = choicesOf(question);

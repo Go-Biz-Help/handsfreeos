@@ -1,7 +1,12 @@
 import { describe, expect, it } from 'vitest';
 import {
   answerProblem,
+  CHECK_THIS_BOX,
   formState,
+  isSingleCheckbox,
+  isUnansweredProblem,
+  QUESTION_CONFIGS,
+  questionKindLabel,
   nextQuestion,
   pageProblems,
   pickResult,
@@ -203,6 +208,37 @@ describe('whether an answer will do', () => {
     const question = ask('checkboxes', { choices, min: 2, max: 3 });
     expect(answerProblem(question, [cid('A')])).toBe('Pick at least 2.');
     expect(answerProblem(question, [cid('A'), cid('B')])).toBe(null);
+  });
+
+  it('makes a single checkbox that must be answered be checked', () => {
+    const agree = ask('yes_no', { display: 'checkbox' }, { required: true });
+    expect(answerProblem(agree, 'yes')).toBe(null);
+    // The phone's answer is true.
+    expect(answerProblem(agree, true)).toBe(null);
+    expect(answerProblem(agree, null)).toBe(CHECK_THIS_BOX);
+    // A No from a chat or the phone's switch doesn't agree to anything.
+    expect(answerProblem(agree, 'no')).toBe(CHECK_THIS_BOX);
+    expect(answerProblem(agree, false)).toBe(CHECK_THIS_BOX);
+    // Saving part way waits for it, as it waits for any question not answered yet.
+    expect(isUnansweredProblem({ questionId: agree.id, message: CHECK_THIS_BOX })).toBe(true);
+    expect(isUnansweredProblem({ questionId: agree.id, message: 'Pick at least 2.' })).toBe(false);
+
+    const optional = ask('yes_no', { display: 'checkbox' });
+    expect(answerProblem(optional, null)).toBe(null);
+    expect(answerProblem(optional, 'yes')).toBe(null);
+    // Yes and No buttons that must be answered still take a No.
+    expect(answerProblem(ask('yes_no', {}, { required: true }), 'no')).toBe(null);
+  });
+
+  it('calls a yes or no shown as one box a single checkbox', () => {
+    const config = QUESTION_CONFIGS.yes_no.parse({ display: 'checkbox' });
+    expect(isSingleCheckbox({ type: 'yes_no', config })).toBe(true);
+    expect(questionKindLabel({ type: 'yes_no', config })).toBe('Single checkbox');
+    // One saved before there was a choice reads as Yes and No buttons.
+    const before = QUESTION_CONFIGS.yes_no.parse({});
+    expect(before.display).toBe('buttons');
+    expect(questionKindLabel({ type: 'yes_no', config: before })).toBe('Yes or no');
+    expect(questionKindLabel({ type: 'checkboxes', config: {} })).toBe('Checkboxes');
   });
 
   it('holds numbers to their range and their decimals', () => {

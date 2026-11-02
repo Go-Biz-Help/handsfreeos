@@ -1,4 +1,4 @@
-import { type AnswerValue, type Question } from '@hfos/core';
+import { isSingleCheckbox, type AnswerValue, type Question } from '@hfos/core';
 import * as React from 'react';
 import { Pressable, View } from 'react-native';
 
@@ -43,6 +43,43 @@ export function QuestionField({
         {question.help ? <Text className="text-[13px] text-text-2">{question.help}</Text> : null}
       </View>
     );
+
+  if (isSingleCheckbox(question)) {
+    // One box to check: the question is the words beside it. Checked is a yes; unchecked is no answer at all.
+    const checked = value === true || value === 'yes';
+    return (
+      <View className="gap-1.5 py-2" testID={`question-${question.id}`}>
+        <Pressable
+          accessibilityRole="checkbox"
+          accessibilityState={{ checked }}
+          accessibilityLabel={question.title}
+          onPress={() => onChange(checked ? null : 'yes')}
+          className={cn(
+            'min-h-12 flex-row items-center gap-2.5 rounded-menu border px-3',
+            checked ? 'border-accent bg-accent-soft' : 'border-border-strong bg-card',
+          )}
+          testID={`checkbox-${question.id}`}
+        >
+          <View
+            className={cn(
+              'h-[18px] w-[18px] items-center justify-center rounded-[5px] border',
+              checked ? 'border-accent bg-accent' : 'border-border-strong',
+            )}
+          />
+          <Text className="flex-1 text-[15px] font-medium">
+            {question.title}
+            {question.required ? <Text className="text-danger-text"> *</Text> : null}
+          </Text>
+        </Pressable>
+        {question.help ? <Text className="text-[13px] text-text-3">{question.help}</Text> : null}
+        {problem ? (
+          <Text className="text-[12.5px] text-danger-text" testID={`problem-${question.id}`}>
+            {problem}
+          </Text>
+        ) : null}
+      </View>
+    );
+  }
 
   return (
     <View className="gap-1.5 py-2" testID={`question-${question.id}`}>

@@ -36,6 +36,7 @@ import { choiceValues } from '../forms/definition';
 import { FORM_LINK_DAYS, knownTargetsOf, type FillContext } from '../forms/personal';
 import {
   formState,
+  isUnansweredProblem,
   pageProblems,
   pickResult,
   recordAnswers,
@@ -420,7 +421,7 @@ export const formResponseSave = defineCommand({
       progress: state.progress,
       calculations: state.calculations,
       problems: responseProblems(definition, state.answers, fill).filter(
-        (p) => p.message !== 'Answer this one.',
+        (p) => !isUnansweredProblem(p),
       ),
     };
   },
