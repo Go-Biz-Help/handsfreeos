@@ -278,6 +278,48 @@ describe('the AI teammate’s finer rules', () => {
     ]);
   });
 
+  it('changes the first message, booking, photos and its own hours, only on Confirm', async () => {
+    const before = await teammate();
+    const { card, parsed } = await prepare('update_ai_teammate_rules', {
+      firstMessageBy: 'email',
+      firstMessageAfterMinutes: 5,
+      usesWaitlist: false,
+      booksRepeatVisits: true,
+      priceRangesFromPhotos: true,
+      ownHours: [1, 2, 3, 4, 5].map((day) => ({ day, start: '08:00', end: '18:00' })),
+    });
+    expect(field(card, 'First message by')!.value).toBe('text → email');
+    expect(field(card, 'Waits before the first message')!.value).toContain('→ 5 min');
+    expect(field(card, 'Waitlist')!.value).toBe('on → off');
+    expect(field(card, 'Repeat visits')!.value).toBe('off → on');
+    expect(field(card, 'Rough price ranges from photos')!.value).toBe('off → on');
+    expect(field(card, 'Works')).toBeTruthy();
+    expect((await teammate()).revision).toBe(before.revision);
+
+    await confirm('update_ai_teammate_rules', parsed);
+    const c = (await teammate()).config;
+    expect(c['respond'].newLeads).toMatchObject({ channel: 'email', delayMinutes: 5 });
+    expect(c['book']).toMatchObject({ waitlist: false, repeats: true });
+    expect(c['photos']).toMatchObject({ enabled: true, priceRanges: true });
+    expect(c['hours'].mode).toBe('custom');
+    expect(c['hours'].custom).toHaveLength(5);
+    // Everything else stays as it was.
+    expect(c['followUp']).toEqual(before.config['followUp']);
+    expect(c['qualify']).toEqual(before.config['qualify']);
+  });
+
+  it('turns on only an add-on that’s on here, and only an address the business has', async () => {
+    await expect(
+      prepare('update_ai_teammate_rules', { useAddons: ['Real Estate Agent'] }),
+    ).rejects.toMatchObject({ rule: 'addon_not_on' });
+    await expect(
+      prepare('update_ai_teammate_rules', { useAddons: ['Nothing like it'] }),
+    ).rejects.toThrow('No add-on is called “Nothing like it”');
+    await expect(
+      prepare('update_ai_teammate_rules', { emailsFromAddressId: randomUUID() }),
+    ).rejects.toThrow('No email address with that id.');
+  });
+
   it('says what is wrong instead of saving something the settings refuse', async () => {
     await expect(
       prepare('update_ai_teammate_rules', {
@@ -365,6 +407,69 @@ describe('Settings → Automations', () => {
     expect(s['attention'].kinds.hot_lead).toBe(false);
     expect(s['attention'].kinds.unanswered_lead).toBe(true);
     expect((await teammate()).config['followUp'].neverReplied).toBe(false);
+  });
+
+  it('changes when the first follow-up goes, keeping the others, only on Confirm', async () => {
+    const days = 'days 1, 2, 4, 7, 10, 14, 21 and 30';
+    const listed = (await read('list_automations', { group: 'leads' })).result['followUps'] as {
+      times: string;
+      ladder: { after: number; unit: string }[];
+      thenMonthlyForMonths: number;
+    };
+    expect(listed.times).toBe(`4 hours, then ${days}`);
+    const rest = listed.ladder.slice(1);
+
+    // The owner's own case: the first one at 15 minutes, then an hour instead.
+    const quarter = await prepare('update_automations', {
+      followUpTimes: [{ after: 15, unit: 'minutes' }, ...rest],
+    });
+    await confirm('update_automations', quarter.parsed);
+    const before = await teammate();
+    const { card, parsed } = await prepare('update_automations', {
+      followUpTimes: [{ after: 1, unit: 'hours' }, ...rest],
+    });
+    expect(card.fields).toEqual([
+      { label: 'Follow-up times', value: `15 minutes, then ${days} → 1 hour, then ${days}` },
+    ]);
+    expect(card.confirmLabel).toBe('Save the change');
+    expect((await teammate()).revision).toBe(before.revision);
+
+    await confirm('update_automations', parsed);
+    const after = await teammate();
+    expect(after.revision).toBe(before.revision + 1);
+    expect(after.config['followUp'].ladder).toEqual([{ after: 1, unit: 'hours' }, ...rest]);
+    // Everything else stays as it was.
+    expect(after.config['followUp'].monthlyForMonths).toBe(listed.thenMonthlyForMonths);
+    expect(after.config['respond']).toEqual(before.config['respond']);
+    expect(after.name).toBe('Ava');
+  });
+
+  it('says how many follow-ups are left when the list gets shorter, and what’s wrong with times out of order', async () => {
+    const { card } = await prepare('update_automations', {
+      followUpTimes: [
+        { after: 1, unit: 'hours' },
+        { after: 2, unit: 'days' },
+      ],
+      followUpMonthlyForMonths: 0,
+    });
+    expect(field(card, 'Then monthly for')!.value).toBe('6 months → none');
+    expect(card.warnings.map((w) => w.text)).toContain('That’s 2 follow-ups instead of 9.');
+
+    await expect(
+      prepare('update_automations', {
+        followUpTimes: [
+          { after: 2, unit: 'days' },
+          { after: 1, unit: 'days' },
+        ],
+      }),
+    ).rejects.toThrow('Each follow-up comes after the one before.');
+    await expect(
+      prepare('update_automations', { followUpTimes: [{ after: 2, unit: 'minutes' }] }),
+    ).rejects.toThrow('At least 5 minutes.');
+    const ladder = (await teammate()).config['followUp'].ladder;
+    await expect(prepare('update_automations', { followUpTimes: ladder })).rejects.toThrow(
+      'Nothing would change.',
+    );
   });
 
   it('turns on calling business landlines with what each check costs on the card', async () => {
