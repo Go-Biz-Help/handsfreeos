@@ -653,6 +653,7 @@ describe('a connection request on Alignable', () => {
     expect(await doWork({ do: 'step', item: item({}) }, ME.businessId, false)).toEqual({
       done: false,
       line: 'Dana Reyes: no Connect on their page: you’re connected already, or asked',
+      skip: true,
     });
     expect(pressed).toBe('');
     expect(world.noted).toEqual([]);
@@ -662,12 +663,32 @@ describe('a connection request on Alignable', () => {
     world.pages = () => ({ html: businessHtml(), at: DANA_PAGE });
     world.behave = (doc) =>
       doc.querySelector('#connect')!.addEventListener('click', (event) => event.preventDefault());
-    expect(await doWork({ do: 'step', item: item({}) }, ME.businessId, false)).toEqual({
+    expect(await doWork({ do: 'step', item: item({}) }, ME.businessId, false)).toMatchObject({
       done: false,
       line: 'Dana Reyes: Alignable didn’t take the request',
       need: true,
     });
     expect(world.noted).toEqual([]);
+  });
+
+  it('lets the AI helper look at their page as Connect left it, before it’s opened again (decision 144)', async () => {
+    // Their page after the press, where a box asking one more thing would show; opened again, Alignable shows another.
+    let opens = 0;
+    world.pages = () => ({
+      html: businessHtml({ id: opens++ === 0 ? '42' : '77' }),
+      at: DANA_PAGE,
+    });
+    world.behave = (doc) =>
+      doc.querySelector('#connect')?.addEventListener('click', (event) => event.preventDefault());
+    world.hfos['hfos-helper-ways'] = () => ({ ways: [] });
+    expect(await doWork({ do: 'step', item: item({}) }, ME.businessId, false)).toMatchObject({
+      done: false,
+      line: 'Dana Reyes: Alignable didn’t take the request',
+      need: true,
+      // It looked while their page was as the press left it: the page opened again wasn't theirs.
+      helper: { result: 'reported', looks: 0, notLooked: 'no_view' },
+    });
+    expect(world.opened).toEqual([DANA, DANA]);
   });
 
   /** Every link that would change a connection, noting which was pressed. */
@@ -692,6 +713,7 @@ describe('a connection request on Alignable', () => {
     expect(await doWork({ do: 'step', item: item({}) }, ME.businessId, false)).toEqual({
       done: false,
       line: 'Dana Reyes: you’re connected already',
+      skip: true,
     });
     expect(world.opened).toEqual([DANA]);
     expect(pressed).toEqual([]);
@@ -741,6 +763,7 @@ describe('a connection request on Alignable', () => {
     expect(await doWork({ do: 'step', item: item({}) }, ME.businessId, false)).toEqual({
       done: false,
       line: 'Dana Reyes: no Connect on their page: you’re connected already, or asked',
+      skip: true,
     });
     expect(pressed).toEqual([]);
     expect(world.noted).toEqual([]);

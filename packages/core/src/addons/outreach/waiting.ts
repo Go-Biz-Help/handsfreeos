@@ -163,6 +163,34 @@ export const NeedClearOutput = z.object({
   state: z.enum(NEED_STATES),
 });
 
+/** The most steps Retry all tries again at once: every one Steps it needs you for lists, and more. */
+export const NEED_RETRY_MOST = 100;
+
+/**
+ * Retry, or Retry all, on steps handed to the person (decisions 132 and 144), from the web, the phone, the Assistant,
+ * and the extension on its own after an update: the steps by their ids, or with none named every one that can be.
+ */
+export const NeedRetryInput = z.object({
+  workspaceId: z.uuid(),
+  needIds: z.array(z.uuid()).min(1).max(NEED_RETRY_MOST).nullable().default(null),
+  /**
+   * Whether messages and comments that didn't go are tried again too. False for the extension's own Retry all after an
+   * update (decision 144): one that went after all would go twice, so those wait for the person's press.
+   */
+  sends: z.boolean().default(true),
+});
+export type NeedRetryInput = z.input<typeof NeedRetryInput>;
+export const NeedRetryOutput = z.object({
+  /**
+   * Each tried again: its step, and when it may go at the soonest (a message or comment that didn't go, a few minutes
+   * apart), or when it went back on Today's list (any other step).
+   */
+  retried: z.array(z.object({ needId: z.uuid(), at: z.iso.datetime() })),
+  /** Those that couldn't be: done since, a newer message to them waits already, or a step with nothing to go on. */
+  passed: z.number().int().min(0),
+});
+export type NeedRetryOutput = z.output<typeof NeedRetryOutput>;
+
 /** The person set a friend request aside: off Waiting for you until they ask again. */
 export const RequestSetAsideInput = z.object({ workspaceId: z.uuid(), profileId: z.uuid() });
 export type RequestSetAsideInput = z.input<typeof RequestSetAsideInput>;

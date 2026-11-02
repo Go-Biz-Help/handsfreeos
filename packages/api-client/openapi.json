@@ -48023,6 +48023,23 @@
                                 "type": "integer",
                                 "minimum": 0,
                                 "maximum": 20
+                              },
+                              "notLooked": {
+                                "default": null,
+                                "anyOf": [
+                                  {
+                                    "type": "string",
+                                    "enum": [
+                                      "looks_used",
+                                      "no_view",
+                                      "not_asked",
+                                      "no_answer"
+                                    ]
+                                  },
+                                  {
+                                    "type": "null"
+                                  }
+                                ]
                               }
                             },
                             "required": [
@@ -96092,6 +96109,105 @@
         }
       }
     },
+    "/v1/commands/outreach.need.retry": {
+      "post": {
+        "operationId": "command_outreach_need_retry",
+        "summary": "The person tries again steps the extension handed to them, from Steps it needs you for: one (Retry), or with none named every one there (Retry all); the extension does Retry all on its own once after it’s updated, all but messages and comments that didn’t go, which could go twice. A message or comment that didn’t go goes again as it was, OK’d, a few minutes after the one before; any other step (a friend or connection request, a confirm, a like before a request, a comment it writes itself) goes back on the list for today on its network, ahead of new ones, for the extension’s next go. Each leaves Steps it needs you for, and comes back if it can’t be done again.",
+        "tags": [
+          "commands"
+        ],
+        "description": "Risk level 1. Requires outreach.use. Emits outreach.send.approved, outreach.need.cleared.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "workspaceId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  },
+                  "needIds": {
+                    "default": null,
+                    "anyOf": [
+                      {
+                        "minItems": 1,
+                        "maxItems": 100,
+                        "type": "array",
+                        "items": {
+                          "type": "string",
+                          "format": "uuid",
+                          "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                        }
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "sends": {
+                    "default": true,
+                    "type": "boolean"
+                  }
+                },
+                "required": [
+                  "workspaceId"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "retried": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "needId": {
+                            "type": "string",
+                            "format": "uuid",
+                            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                          },
+                          "at": {
+                            "type": "string",
+                            "format": "date-time",
+                            "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+                          }
+                        },
+                        "required": [
+                          "needId",
+                          "at"
+                        ],
+                        "additionalProperties": false
+                      }
+                    },
+                    "passed": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 9007199254740991
+                    }
+                  },
+                  "required": [
+                    "retried",
+                    "passed"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/v1/commands/outreach.request.set_aside": {
       "post": {
         "operationId": "command_outreach_request_set_aside",
@@ -118914,6 +119030,23 @@
                               "type": "integer",
                               "minimum": 0,
                               "maximum": 20
+                            },
+                            "notLooked": {
+                              "default": null,
+                              "anyOf": [
+                                {
+                                  "type": "string",
+                                  "enum": [
+                                    "looks_used",
+                                    "no_view",
+                                    "not_asked",
+                                    "no_answer"
+                                  ]
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
                             }
                           },
                           "required": [
@@ -118922,7 +119055,8 @@
                             "said",
                             "moves",
                             "learned",
-                            "looks"
+                            "looks",
+                            "notLooked"
                           ],
                           "additionalProperties": false
                         },
@@ -210147,6 +210281,26 @@
                           "requests": {
                             "type": "boolean"
                           },
+                          "retry": {
+                            "type": "object",
+                            "properties": {
+                              "needId": {
+                                "type": "string",
+                                "format": "uuid",
+                                "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                              },
+                              "at": {
+                                "type": "string",
+                                "format": "date-time",
+                                "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+                              }
+                            },
+                            "required": [
+                              "needId",
+                              "at"
+                            ],
+                            "additionalProperties": false
+                          },
                           "send": {
                             "anyOf": [
                               {
@@ -210438,6 +210592,26 @@
                           },
                           "requests": {
                             "type": "boolean"
+                          },
+                          "retry": {
+                            "type": "object",
+                            "properties": {
+                              "needId": {
+                                "type": "string",
+                                "format": "uuid",
+                                "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                              },
+                              "at": {
+                                "type": "string",
+                                "format": "date-time",
+                                "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+                              }
+                            },
+                            "required": [
+                              "needId",
+                              "at"
+                            ],
+                            "additionalProperties": false
                           },
                           "send": {
                             "anyOf": [

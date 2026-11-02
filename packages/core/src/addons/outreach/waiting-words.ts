@@ -134,30 +134,56 @@ export function needClearedWords(how: NeedClear, state: NeedState): string {
 }
 
 /**
- * Retry, and Retry all, on a message or comment the extension couldn't send (decision 132): it goes again, OK'd as it
- * was, each a few minutes after the one before, so they never all go at once.
+ * Retry, and Retry all, on a step handed to the person (decisions 132 and 144): a message or comment that didn't go goes
+ * again, OK'd as it was, each a few minutes after the one before; any other step (a friend or connection request, a
+ * confirm, a like before a request, a comment the extension writes itself) goes back on Today's list for the
+ * extension's next go, ahead of new ones, and the list does them one at a time.
  */
 export const NEED_RETRY = { one: 'Retry', all: 'Retry all' } as const;
 /** The least and most minutes between one send tried again and the next: a person's pace, at random. */
 export const RETRY_GAP_MINUTES = { least: 3, most: 7 } as const;
+/**
+ * A step put back on Today's list (decision 144) stays on it this long at most: off Steps it needs you for meanwhile.
+ * Neither done nor handed back by then, it waits for the person again.
+ */
+export const NEED_RETRY_DAYS = 3;
 
-/** Whether a step handed to the person can be tried again: a message or comment that didn't go, with its words. */
+/** Why a step tried again is on Today's list (decision 144), first among its reasons. */
+export const RETRIED_WHY = 'Trying again: it didn’t go before';
+
+/** The steps Today's list takes back (decision 144): all but a message, which goes again through its send. */
+export const LIST_RETRY_STEPS = ['confirm', 'friend_request', 'warm_up', 'comment'] as const;
+
+/**
+ * Whether a step handed to the person can be tried again: a message or comment that didn't go, with its words; or a
+ * step Today's list takes back, a comment with its post.
+ */
 export const needRetryable = (need: {
   readonly step: NeedStep;
   readonly sendId: string | null;
-}): boolean => (need.step === 'message' || need.step === 'comment') && need.sendId !== null;
+  readonly postId?: string | null;
+}): boolean =>
+  need.sendId !== null
+    ? need.step === 'message' || need.step === 'comment'
+    : need.step === 'confirm' ||
+      need.step === 'friend_request' ||
+      need.step === 'warm_up' ||
+      (need.step === 'comment' && (need.postId ?? null) !== null);
 
-/** What Retry or Retry all did: how many go again, and how many couldn't, as one already waits or went since. */
+/**
+ * What Retry or Retry all did: how many go again, and how many couldn't, as it was done since or one already waits.
+ * Messages go a few minutes apart, and the rest from Today's list, so it's always "on the extension's next go".
+ */
 export function retriedWords(retried: number, passed: number): string {
   const n = (count: number) => count.toLocaleString('en-US');
   const going =
     retried === 0
       ? 'Nothing to try again.'
       : retried === 1
-        ? 'Trying it again: it goes next, when the extension is working.'
-        : `Trying ${n(retried)} again, a few minutes apart, when the extension is working.`;
+        ? 'Trying it again on the extension’s next go.'
+        : `Trying ${n(retried)} again on the extension’s next go, one at a time.`;
   if (!passed) return going;
-  return `${going} ${n(passed)} ${passed === 1 ? 'wasn’t' : 'weren’t'} tried again: a newer message to them waits already, or it went since.`;
+  return `${going} ${n(passed)} ${passed === 1 ? 'wasn’t' : 'weren’t'} tried again: it was done since, or a newer message to them waits already.`;
 }
 
 /** Why the extension couldn't do a step, as a need shows it: its own words, with a capital to start. */

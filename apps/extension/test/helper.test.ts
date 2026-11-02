@@ -288,16 +288,63 @@ describe('the helper’s loop', () => {
     });
   });
 
-  it('reports without a look once the AI can’t be asked', async () => {
+  it('reports without a look once the AI can’t be asked, and says why (decision 144)', async () => {
     const { tab, hfos } = fakes([
-      { verdict: 'unclear', said: '', move: { do: 'none', ref: null, dir: null }, asked: false },
+      {
+        verdict: 'unclear',
+        said: 'The AI is busy right now. Try again in a minute.',
+        move: { do: 'none', ref: null, dir: null },
+        asked: false,
+      },
     ]);
     const run = await helpWith(tab as never, hfos as never, { ...at, button: null });
     expect(run).toMatchObject({
       pressed: false,
       cleared: false,
-      helper: { looks: 0, verdict: 'unclear' },
+      helper: {
+        looks: 0,
+        verdict: 'unclear',
+        notLooked: 'not_asked',
+        said: 'The AI is busy right now. Try again in a minute.',
+      },
     });
+  });
+
+  it('says HandsFreeOS didn’t answer, or the page couldn’t be read, when it never looked', async () => {
+    const { tab } = fakes([]);
+    const down = async (message: Asked) =>
+      message.type === 'hfos-helper-look'
+        ? {
+            ok: false,
+            problem: { message: 'No connection.', rule: null, status: null, recheck: false },
+          }
+        : { ok: true, value: { ways: [] } };
+    expect(
+      (await helpWith(tab as never, down as never, { ...at, button: null }))?.helper,
+    ).toMatchObject({ looks: 0, notLooked: 'no_answer', said: 'No connection.' });
+    const blind = { ask: async () => ({ ok: false, error: 'The tab closed.' }) };
+    const { hfos } = fakes([]);
+    expect(
+      (await helpWith(blind as never, hfos as never, { ...at, button: null }))?.helper,
+    ).toMatchObject({ looks: 0, notLooked: 'no_view' });
+  });
+
+  it('reports nothing for a step found done already (decision 144)', async () => {
+    const { tab, hfos, hfosAsks } = fakes([]);
+    reports.sent.length = 0;
+    const helped = await helpAfter({
+      tab: tab as never,
+      hfos: hfos as never,
+      businessId: at.businessId,
+      platform: 'alignable',
+      work: { do: 'step', item: { kind: 'friend_request', name: THEM } },
+      job: 'friend_request',
+      outcome: { done: false, line: 'Sam Carter: you’re connected already', skip: true as const },
+      again: null,
+    });
+    expect(helped.reportId).toBeNull();
+    expect(reports.sent).toEqual([]);
+    expect(hfosAsks).toEqual([]);
   });
 
   it('after a step handed over: clears the way, tries it once more, and reports it fixed itself', async () => {

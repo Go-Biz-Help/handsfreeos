@@ -118,6 +118,7 @@ describe('Copy for Claude', () => {
         ],
         learned: null,
         looks: 2,
+        notLooked: null,
       },
     });
     expect(text).toContain('- AI helper: Layout changed · Done by the AI helper');
@@ -125,6 +126,21 @@ describe('Copy for Claude', () => {
     expect(text).toContain('  - Clicked button "More"');
     expect(text).toContain('  - Pressed the step’s button menuitem "Add friend"');
     expect(problemForClaude(full)).not.toContain('AI helper');
+    // It didn't look at all: why, and HandsFreeOS's words (decision 144).
+    const busy = problemForClaude({
+      ...full,
+      helper: {
+        verdict: 'unclear',
+        result: 'reported',
+        said: 'The AI is busy right now. Try again in a minute.',
+        moves: [],
+        learned: null,
+        looks: 0,
+        notLooked: 'not_asked',
+      },
+    });
+    expect(busy).toContain('- The AI helper couldn’t look: the AI wasn’t asked');
+    expect(busy).toContain('- It said: The AI is busy right now.');
   });
 
   it('reads the state a page address asks for, or the open ones', () => {

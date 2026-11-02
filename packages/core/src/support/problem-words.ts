@@ -5,6 +5,7 @@
  */
 import type {
   HelperMove,
+  HelperNotLooked,
   HelperResult,
   HelperVerdict,
   LearnedWayShape,
@@ -111,6 +112,14 @@ export const DESK_HELPER_WORDS = {
   heading: 'What the AI helper found',
   notAsked:
     'The AI helper couldn’t look this time (its daily limit, the business’s AI balance, or the AI was busy).',
+  /** Why it didn't look, as the computer said (decision 144); `notAsked` for a report from before it. */
+  notLooked: {
+    looks_used: 'The AI helper didn’t look: this computer’s looks for the day were all used.',
+    no_view: 'The AI helper didn’t look: the page couldn’t be read for it.',
+    not_asked:
+      'The AI helper couldn’t look: the AI wasn’t asked (its daily limit, the business’s AI balance, or the AI was busy).',
+    no_answer: 'The AI helper couldn’t look: HandsFreeOS didn’t answer when the computer asked.',
+  } satisfies Record<HelperNotLooked, string>,
   nothingSaid: 'It didn’t say more.',
   moves: 'What it did',
   noMoves: 'It only looked.',
@@ -204,6 +213,7 @@ export function problemForClaude(r: ProblemReportFull): string {
     lines.push(
       `- AI helper: ${HELPER_VERDICT_WORDS[r.helper.verdict]} · ${HELPER_RESULT_WORDS[r.helper.result]}`,
     );
+    if (r.helper.notLooked) lines.push(`- ${DESK_HELPER_WORDS.notLooked[r.helper.notLooked]}`);
     if (r.helper.said) lines.push(`- It said: ${r.helper.said}`);
     for (const m of r.helper.moves) lines.push(`  - ${helperMoveWords(m)}`);
     if (r.helper.learned) lines.push(`- ${DESK_HELPER_WORDS.learned[r.helper.learned]}`);

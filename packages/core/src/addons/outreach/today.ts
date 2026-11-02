@@ -277,6 +277,12 @@ export const TodayItem = z.object({
    */
   requests: z.boolean().optional(),
   /**
+   * A step tried again from Steps it needs you for (Retry, decision 144): the step handed over, and when it was put
+   * back. The extension tries it once more for each time it's put back, though it tried it today; one it finds done
+   * already it clears. Left out otherwise, and by servers from before it.
+   */
+  retry: z.object({ needId: z.uuid(), at: z.iso.datetime() }).optional(),
+  /**
    * For a message, the one the extension drafted to send (./sends.ts): waiting for the person's OK, or OK'd and about
    * to go; for a comment where comments wait at first (decision 92), the one drafted for its post. Null until it
    * drafts one. One handed over, or to someone who needs the person, waits for an OK of its own: Approve all leaves it
@@ -424,6 +430,48 @@ export function leftToday(limits: TodayOutput['limits'], kind: TodayKind): numbe
   if (!step) return TODAY_MOST;
   const { done, most } = limits[step as keyof TodayOutput['limits']];
   return Math.max(0, most - done);
+}
+
+/**
+ * The list with the steps the person tried again from Steps it needs you for (decision 144) first: of the same step for
+ * the same person or post, the one tried again alone; of each daily limit, those tried again first, and the rest of
+ * that limit's kinds after them as far as it goes. A step tried again past its limit waits for another day, and the one
+ * already on the list stays.
+ */
+export function withRetried<T extends Pick<TodayItem, 'kind' | 'postId' | 'profileId' | 'name'>>(
+  items: readonly T[],
+  retried: readonly T[],
+  limits: TodayOutput['limits'],
+): T[] {
+  const keyOf = (i: T) => `${i.kind}:${i.postId ?? i.profileId ?? i.name}`;
+  const room = new Map<string, number>();
+  const roomOf = (kind: TodayKind): string | null => TODAY_LIMIT[kind] ?? null;
+  const first: T[] = [];
+  const firstKeys = new Set<string>();
+  for (const r of retried) {
+    if (firstKeys.has(keyOf(r))) continue;
+    const step = roomOf(r.kind);
+    if (step) {
+      const left = room.get(step) ?? leftToday(limits, r.kind);
+      if (left <= 0) continue;
+      room.set(step, left - 1);
+    }
+    first.push(r);
+    firstKeys.add(keyOf(r));
+  }
+  return [
+    ...first,
+    ...items.filter((i) => {
+      if (firstKeys.has(keyOf(i))) return false;
+      const step = roomOf(i.kind);
+      // A limit nothing tried again took any of keeps what the list worked out.
+      if (!step || !room.has(step)) return true;
+      const left = room.get(step)!;
+      if (left <= 0) return false;
+      room.set(step, left - 1);
+      return true;
+    }),
+  ];
 }
 
 export const todayLimits = (

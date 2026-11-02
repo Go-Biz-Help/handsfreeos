@@ -5,7 +5,7 @@
  * request (a message's are `outreach.send.*`). The Live tab, the team view, the extension's icon and the pushes all
  * count what waits here (`waitingFor`), so they never disagree. Each person's are their own.
  */
-import { and, eq, sql } from 'drizzle-orm';
+import { and, asc, eq, inArray, isNull, lt, or, sql } from 'drizzle-orm';
 import { rows } from '@hfos/db/client';
 import { workspaceTimezone } from '../../../crm/records';
 import { HfosError } from '../../../errors';
@@ -29,6 +29,10 @@ import {
   NEED_SHOWN_DAYS,
   NeedClearInput,
   NeedClearOutput,
+  NEED_RETRY_MOST,
+  NeedRetryInput,
+  NeedRetryOutput,
+  needRetryable,
   NeedNoteInput,
   NeedNoteOutput,
   needUrlOf,
@@ -56,8 +60,8 @@ import { asksNeedingYou } from './ask-rows';
 import { automationOf, everyoneAutomation } from './automation';
 import { contactable, inWorkspace, neverDeleted, type Ctx } from './common';
 import { playbooksInUse } from './friends';
-import { openNeed } from './needs';
-import { commentHoldOf, listed, mine } from './sends';
+import { openNeed, retrySince } from './needs';
+import { commentHoldOf, listed, mine, sendsAgain } from './sends';
 import { notNever, requestFit, type RequestAnswered } from './today';
 
 const DAY = 86_400_000;
@@ -100,11 +104,13 @@ async function sendAndNeedKinds(
           where workspace_id = ${ws} and state = 'waiting' and user_id = any (${ids(userIds)}::uuid[])
           group by user_id`,
     ),
-    // A need names who and why: a colleague's are counted on the database, never read (decision 41).
+    // A need names who and why: a colleague's are counted on the database, never read (decision 41). One put back on
+    // Today's list lately isn't waiting (decision 144).
     rows<{ user_id: string; n: number; newest: Date | string | null }>(
       ctx.tx,
       sql`select user_id, n, newest
-          from private.outreach_needs_waiting(${ws}::uuid, ${ids(userIds)}::uuid[], ${shownSince(now)}::timestamptz)`,
+          from private.outreach_needs_counted(${ws}::uuid, ${ids(userIds)}::uuid[], ${shownSince(now)}::timestamptz,
+            ${retrySince(now)}::timestamptz)`,
     ),
   ]);
   for (const s of sent) {
@@ -317,6 +323,7 @@ async function neededOf(
         join addon_outreach.profiles p on p.workspace_id = n.workspace_id and p.id = n.profile_id
         left join addon_outreach.sends s on s.id = n.send_id
         where n.workspace_id = ${ctx.scope.workspaceId!} and n.user_id = ${me} and n.state = 'open'
+          and (n.retry_at is null or n.retry_at < ${retrySince(now)}::timestamptz)
           and private.outreach_need_shown(n.workspace_id, n.user_id, n.profile_id, n.step, n.state, n.seen_at,
             ${shownSince(now)}::timestamptz)
         order by n.seen_at desc, n.id
@@ -510,6 +517,72 @@ export const needClear = defineAddonCommand(outreachAddon, {
   },
 });
 
+export const needRetry = defineAddonCommand(outreachAddon, {
+  name: 'outreach.need.retry',
+  description:
+    'The person tries again steps the extension handed to them, from Steps it needs you for: one (Retry), or with none named every one there (Retry all); the extension does Retry all on its own once after it’s updated, all but messages and comments that didn’t go, which could go twice. A message or comment that didn’t go goes again as it was, OK’d, a few minutes after the one before; any other step (a friend or connection request, a confirm, a like before a request, a comment it writes itself) goes back on the list for today on its network, ahead of new ones, for the extension’s next go. Each leaves Steps it needs you for, and comes back if it can’t be done again.',
+  risk: 1,
+  input: NeedRetryInput,
+  output: NeedRetryOutput,
+  permission: 'outreach.use',
+  ai: {
+    tool: 'outreach_retry_steps',
+    autonomy: 'confirm',
+    keywords: ['retry', 'retry all', 'try again', 'failed steps', 'resend', 'send again'],
+  },
+  scope: inWorkspace,
+  emits: ['outreach.send.approved', 'outreach.need.cleared'],
+  async handler(ctx, input) {
+    const me = requireHuman(ctx).userId;
+    const ws = ctx.scope.workspaceId!;
+    const at = changeMoment(ctx.meta);
+    // The steps waiting for the person, oldest first: the first goes again first. One put back on Today's list lately
+    // is there already, and isn't put back twice.
+    const open = await ctx.tx
+      .select()
+      .from(needs)
+      .where(
+        and(
+          eq(needs.workspaceId, ws),
+          eq(needs.userId, me),
+          eq(needs.state, 'open'),
+          or(isNull(needs.retryAt), lt(needs.retryAt, new Date(retrySince(at.getTime())))),
+          ...(input.needIds ? [inArray(needs.id, input.needIds)] : []),
+          ...(input.sends ? [] : [isNull(needs.sendId)]),
+        ),
+      )
+      .orderBy(asc(needs.seenAt), asc(needs.id))
+      .limit(NEED_RETRY_MOST);
+    if (input.needIds && !open.length)
+      throw HfosError.notFound(
+        'That isn’t waiting for you any more: it was done, let go or tried again already. Refresh Waiting for you.',
+      );
+    // A message or comment that didn't go goes again through its send; the rest Today's list takes back.
+    const bySend = open.filter((n) => n.sendId !== null && needRetryable(n));
+    const byList = open.filter((n) => n.sendId === null && needRetryable(n));
+    const sent = await sendsAgain(ctx, me, bySend, at);
+    const listed: { needId: string; at: string }[] = [];
+    for (const need of byList) {
+      await ctx.tx
+        .update(needs)
+        .set({ retryAt: at, updatedAt: new Date() })
+        .where(eq(needs.id, need.id));
+      await ctx.emit({
+        type: 'outreach.need.cleared',
+        entityType: 'outreach_need',
+        entityId: need.id,
+        payload: { userId: me, how: 'retry', step: need.step },
+      });
+      listed.push({ needId: need.id, at: at.toISOString() });
+    }
+    return {
+      retried: [...sent.retried.map((r) => ({ needId: r.needId, at: r.at })), ...listed],
+      // And one with nothing to go on: a message whose words are gone.
+      passed: sent.passed + open.length - bySend.length - byList.length,
+    };
+  },
+});
+
 export const requestSetAside = defineAddonCommand(outreachAddon, {
   name: 'outreach.request.set_aside',
   description:
@@ -633,5 +706,11 @@ export const requestAnswer = defineAddonCommand(outreachAddon, {
   },
 });
 
-export const waitingCommands = [needNote, needClear, requestSetAside, requestAnswer] as const;
+export const waitingCommands = [
+  needNote,
+  needClear,
+  needRetry,
+  requestSetAside,
+  requestAnswer,
+] as const;
 export const waitingQueries = [waiting] as const;

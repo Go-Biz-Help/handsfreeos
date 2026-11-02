@@ -12,7 +12,7 @@ import { closeTestDbs, createTestUser, testDbs, type TestUser } from '@hfos/db/t
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { AUTOMATION_DEFAULTS } from '../../src/addons/outreach/automation';
 import { PLAYBOOK_TEMPLATES } from '../../src/addons/outreach/playbooks';
-import { oneByOne } from '../../src/addons/outreach/waiting';
+import { oneByOne, RETRIED_WHY } from '../../src/addons/outreach/waiting';
 import { checkedAs, outreachBusiness, refused, runAs } from './outreach-fixture';
 
 const admin = () => testDbs().admin.db;
@@ -692,6 +692,175 @@ describe('Waiting for you', () => {
       team.people.find((p: { userId: string }) => p.userId === u.id)?.waiting;
     expect(of(owner)).toBe(mine.count);
     expect(of(member)).toBe(theirs.count);
+  });
+});
+
+describe('Retry on any step (decision 144)', () => {
+  type TodayRow = {
+    kind: string;
+    name: string;
+    why: string[];
+    retry?: { needId: string; at: string };
+  };
+  const stepsOf = async (ws: string, u: TestUser = owner) =>
+    ((await runAs(u, ws, 'outreach.waiting', {})).items as Item[])
+      .filter((i) => i.kind === 'need')
+      .map((i) => i.need!.name)
+      .sort();
+  const todayOf = async (ws: string) =>
+    (await runAs(owner, ws, 'outreach.today', {})).items as TodayRow[];
+  const keep = async (ws: string, username: string, name: string) =>
+    (await runAs(owner, ws, 'outreach.friend.set', { profile: fb(username), name, keep: false }))
+      .profileId as string;
+
+  it('puts a request back on Today for the next go, off the list meanwhile, and hands it back if it can’t go', async () => {
+    const ws = await business('Outreach Retry Co');
+    const sky = await keep(ws, 'sky.lane.5', 'Sky Lane');
+    const noted = await runAs(
+      owner,
+      ws,
+      'outreach.need.note',
+      {
+        step: 'friend_request',
+        profileId: sky,
+        name: 'Sky Lane',
+        url: null,
+        why: 'Facebook didn’t take it',
+      },
+      ago(2 * MIN),
+    );
+    expect(await stepsOf(ws)).toEqual(['Sky Lane']);
+    // Someone else's isn't theirs to try again.
+    expect(
+      await refused(runAs(member, ws, 'outreach.need.retry', { needIds: [noted.needId] })),
+    ).toBe('not_found');
+
+    expect(await runAs(owner, ws, 'outreach.need.retry', {})).toMatchObject({
+      retried: [{ needId: noted.needId }],
+      passed: 0,
+    });
+    // Off Steps it needs you for, and not counted, while it's on Today's list: first, saying why.
+    expect(await stepsOf(ws)).toEqual([]);
+    expect((await runAs(owner, ws, 'outreach.waiting', { items: false })).kinds.need.count).toBe(0);
+    const item = (await todayOf(ws)).find((i) => i.name === 'Sky Lane')!;
+    expect(item).toMatchObject({ kind: 'friend_request', retry: { needId: noted.needId } });
+    expect(item.why[0]).toBe(RETRIED_WHY);
+    // On Today already: not put back twice.
+    expect(
+      await refused(runAs(owner, ws, 'outreach.need.retry', { needIds: [noted.needId] })),
+    ).toBe('not_found');
+
+    // It couldn't go again: handed back, quietly, as the person heard of it before.
+    const before = await events(ws, 'outreach.need.noted');
+    expect(
+      await runAs(owner, ws, 'outreach.need.note', {
+        step: 'friend_request',
+        profileId: sky,
+        name: 'Sky Lane',
+        url: null,
+        why: 'Facebook didn’t take it',
+      }),
+    ).toEqual({ needId: noted.needId, fresh: false });
+    expect(await events(ws, 'outreach.need.noted')).toBe(before);
+    expect(await stepsOf(ws)).toEqual(['Sky Lane']);
+    expect((await todayOf(ws)).find((i) => i.name === 'Sky Lane')?.retry).toBeUndefined();
+
+    // Tried again, and it went: done.
+    await runAs(owner, ws, 'outreach.need.retry', { needIds: [noted.needId] });
+    await runAs(owner, ws, 'outreach.touch.save', {
+      kind: 'friend_request',
+      profile: fb('sky.lane.5'),
+      name: 'Sky Lane',
+    });
+    expect(await stepsOf(ws)).toEqual([]);
+    expect((await todayOf(ws)).find((i) => i.name === 'Sky Lane')).toBeUndefined();
+  });
+
+  it('waits again on its own once it’s been on Today a few days, and isn’t offered to someone on Don’t pitch', async () => {
+    const ws = await business('Outreach Retry Later Co');
+    const [ivy, jo] = [
+      await keep(ws, 'ivy.reed.3', 'Ivy Reed'),
+      await keep(ws, 'jo.park.6', 'Jo Park'),
+    ];
+    for (const [profileId, name] of [
+      [ivy, 'Ivy Reed'],
+      [jo, 'Jo Park'],
+    ] as const)
+      await runAs(
+        owner,
+        ws,
+        'outreach.need.note',
+        { step: 'friend_request', profileId, name, url: null, why: 'couldn’t find “Add friend”' },
+        ago(MIN),
+      );
+    await runAs(owner, ws, 'outreach.need.retry', {});
+    // Ivy was put back four days ago: she waits for the person again.
+    await rows(
+      admin(),
+      sql`update addon_outreach.needs set retry_at = now() - interval '4 days'
+          where workspace_id = ${ws} and profile_id = ${ivy}`,
+    );
+    // Jo is on Don't pitch now: not offered, and off the list till it waits again.
+    await rows(
+      admin(),
+      sql`update addon_outreach.profiles set dont_pitch = true where workspace_id = ${ws} and id = ${jo}`,
+    );
+    expect(await stepsOf(ws)).toEqual(['Ivy Reed']);
+    const names = (await todayOf(ws)).filter((i) => i.retry).map((i) => i.name);
+    expect(names).toEqual([]);
+  });
+
+  it('sends a message again through its send, and leaves it for a press when the extension retries after an update', async () => {
+    const ws = await business('Outreach Retry Sends Co');
+    await runAs(owner, ws, 'outreach.automation.save', {
+      settings: { ...AUTOMATION_DEFAULTS, sending: 'steps' },
+    });
+    await runAs(owner, ws, 'outreach.wheels.end', { userId: owner.id });
+    await runAs(owner, ws, 'outreach.touch.save', {
+      kind: 'friend_request',
+      profile: fb('lou.hart.4'),
+      name: 'Lou Hart',
+    });
+    const lou = await profileOf(ws, 'lou.hart.4');
+    const s = await runAs(owner, ws, 'outreach.send.queue', {
+      profileId: lou,
+      kind: 'opener',
+      text: 'Hi Lou!',
+    });
+    await runAs(owner, ws, 'outreach.send.approve', { sends: [{ sendId: s.sendId }] });
+    await runAs(owner, ws, 'outreach.send.done', {
+      sendId: s.sendId,
+      sent: false,
+      why: 'couldn’t find the box to write in',
+    });
+    const confirmer = await keep(ws, 'max.cole.1', 'Max Cole');
+    await runAs(owner, ws, 'outreach.need.note', {
+      step: 'confirm',
+      profileId: confirmer,
+      name: 'Max Cole',
+      url: null,
+      why: 'couldn’t find “Confirm”',
+    });
+    expect(await stepsOf(ws)).toEqual(['Lou Hart', 'Max Cole']);
+    // The extension's own Retry all after an update: the confirm goes back on Today, the message waits for a press.
+    const auto = await runAs(owner, ws, 'outreach.need.retry', { sends: false });
+    expect(auto.retried).toHaveLength(1);
+    expect(await stepsOf(ws)).toEqual(['Lou Hart']);
+    expect((await todayOf(ws)).find((i) => i.name === 'Max Cole')).toMatchObject({
+      kind: 'confirm',
+      retry: { needId: auto.retried[0].needId },
+    });
+    // The person's Retry all: the message goes again, OK'd as it was.
+    const pressed = await runAs(owner, ws, 'outreach.need.retry', {});
+    expect(pressed).toMatchObject({ passed: 0 });
+    expect(pressed.retried).toHaveLength(1);
+    expect(await stepsOf(ws)).toEqual([]);
+    const [again] = await rows<{ state: string; text: string }>(
+      admin(),
+      sql`select state, text from addon_outreach.sends
+          where workspace_id = ${ws} and profile_id = ${lou} and id <> ${s.sendId}`,
+    );
+    expect(again).toEqual({ state: 'approved', text: 'Hi Lou!' });
   });
 });
 

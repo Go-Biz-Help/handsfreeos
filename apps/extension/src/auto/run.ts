@@ -94,6 +94,7 @@ import {
   pressWaiting,
 } from '../hfos/live';
 import { isNoting, noteNeed, takeNote } from '../hfos/noting';
+import { clearRetried, handsOver, retryAfterUpdate } from './retry';
 import { answer, answerWith, api, call, Refused, savingTo } from '../hfos/session';
 import { keepWarning, warnedNow, warningInput } from '../hfos/warned';
 import { WorkTab } from '../tab';
@@ -249,6 +250,8 @@ type Outcome =
       readonly need?: true;
       /** Worth the AI helper's look though it isn't handed over: a like it couldn't press (decision 142). */
       readonly look?: true;
+      /** Found done already (connected, asked, friends already): nothing's left to do, so it's no failure (decision 144). */
+      readonly skip?: true;
       /** What the AI helper did inside the step, for its report (decision 142). */
       readonly helper?: ProblemHelper;
     }
@@ -359,9 +362,22 @@ async function onProfile(item: TodayListItem, job: AutoJob, businessId: string):
   const opened = await openProfile(item, businessId);
   if ('outcome' in opened) return opened.outcome;
   const { friendship } = opened.page.profile!;
-  if (friendship === plan.after) return { done: false, line: `${item.name}: done already` };
+  if (friendship === plan.after)
+    return { done: false, line: `${item.name}: done already`, skip: true };
+  // Facebook's buttons didn't say where things stand: maybe a new layout, so the AI helper looks and the step is the
+  // person's (decision 144). Anywhere else Facebook says, there's nothing to do.
+  if (friendship === 'unknown')
+    return {
+      done: false,
+      line: `${item.name}: Facebook says ${FRIENDSHIP_WORDS.unknown}`,
+      need: true,
+    };
   if (friendship !== plan.before)
-    return { done: false, line: `${item.name}: Facebook says ${FRIENDSHIP_WORDS[friendship]}` };
+    return {
+      done: false,
+      line: `${item.name}: Facebook says ${FRIENDSHIP_WORDS[friendship]}`,
+      skip: true,
+    };
   const press = () => pressPath(withTheirName(plan.path, [opened.page.profile!.name, item.name]));
   const missing = `couldn’t find “${plan.path[0]!.words[0]}”`;
   // Its button moved, or something's over it: the AI helper finds it, on this page that's theirs (decision 142).
@@ -1125,6 +1141,8 @@ async function go(): Promise<void> {
     return void (await say('Sign in to HandsFreeOS in the panel, and the extension carries on.'));
   }
   const { settings, timezone } = await automationOf(to.businessId);
+  // Updated since it last went: what was handed over before is tried again, once (decision 144).
+  await retryAfterUpdate(to.businessId);
   let state = await stateNow();
   const at = Date.now();
   const day = businessDay(at, timezone);
@@ -1469,12 +1487,15 @@ async function workNext(
     return goAt(tomorrow());
   }
   await say(outcome.line);
-  // One the person can do themselves goes to their Waiting for you; done another day, or by them, it clears.
+  // One the person can do themselves, or one tried again that didn't go, goes to their Waiting for you; done another
+  // day, or by them, it clears.
   const need =
-    'need' in outcome && work.do === 'step'
+    work.do === 'step' && handsOver(item, outcome)
       ? needOf(item, outcome.line, businessId, helped.reportId)
       : null;
   if (need) void noteNeed(need);
+  // A step tried again that it found done already is cleared (decision 144).
+  if (work.do === 'step') void clearRetried(item, outcome, businessId);
   // The feed of today's steps in HandsFreeOS. A stop on a warning isn't one: HandsFreeOS writes that line itself.
   void feed(outcome.done ? 'done' : 'passed', outcome.line);
   // Stop for today, pressed while that step went.

@@ -1132,6 +1132,30 @@ whole day, as the list can't be worked out without them (`holdsTheDay` in `src/a
 and Alignable a read put off till you're away counts as the reading's turn, so the list goes next. With nothing on the
 list, the reading goes on. Nothing in HandsFreeOS changes for it.
 
+### Retry all, and again after each update (0.123.0)
+
+The owner, 1 Nov 2026: "any failures we should have a retry all option because we should be fixing those issues after
+updates" (docs/outreach.md, decision 144). Retry and Retry all on Steps it needs you for now take any step, not only a
+message or comment that didn't go (`outreach.need.retry`). A request, a confirm, a like before a request, or a comment
+the extension writes itself goes back on Today's list with `retry` on its item. From 0.123.0:
+
+- **Tried once more for each time it's put back.** The step's key carries when it was put back (`itemKey` in
+  `src/auto/plan.ts`), so it goes again though it was tried today. Done, it's noted as any step is, which clears it.
+  Found done already (connected, invited, asked, friends already: `skip` on the outcome), it's cleared
+  (`outreach.need.clear`, `clearRetried` in `src/auto/retry.ts`). Anything else hands it back to Steps it needs you
+  for (`handsOver`).
+- **Once after each update, on its own.** The first go of a new version for a business presses Retry all
+  (`retryAfterUpdate`, kept in `hfos-retried-for` in `chrome.storage.local`), so what failed before a fix is tried
+  with it. Not a message or comment that didn't go (`sends: false`): one that went after all would go twice, so
+  those wait for the person's Retry.
+- **Done already isn't a failure.** A step found done already sends no problem report, and isn't handed over.
+- **Facebook's "couldn't tell where things stand"** is handed over, and the AI helper looks first: a profile whose
+  buttons it can't read is likely a new layout.
+- **The helper says why it didn't look** (`notLooked` on the report's helper part): this computer's 80 looks used, the
+  page unread, the AI not asked (with HandsFreeOS's words: its limit, the balance, busy), or HandsFreeOS not answering.
+- **Alignable's Connect** reads their page as the press left it before opening it again: still theirs and still
+  showing Connect, the AI helper looks there, while a box asking one more thing still shows.
+
 ### The AI helper, when a step doesn't go (0.122.0)
 
 The owner's report of 1 Nov 2026: a like and an Alignable connection request didn't go, and nothing said why

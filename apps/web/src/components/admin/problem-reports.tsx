@@ -271,7 +271,14 @@ function HelperFound({ helper }: { helper: NonNullable<ProblemReportFull['helper
         {HELPER_VERDICT_WORDS[helper.verdict]} · {HELPER_RESULT_WORDS[helper.result]}
       </p>
       {helper.looks === 0 && !helper.learned ? (
-        <p className="mt-1 text-text-2">{DESK_HELPER_WORDS.notAsked}</p>
+        <>
+          <p className="mt-1 text-text-2" data-testid="problem-helper-not-looked">
+            {helper.notLooked
+              ? DESK_HELPER_WORDS.notLooked[helper.notLooked]
+              : DESK_HELPER_WORDS.notAsked}
+          </p>
+          {helper.said ? <p className="mt-1 break-words">{helper.said}</p> : null}
+        </>
       ) : (
         <p className="mt-1 break-words">{helper.said || DESK_HELPER_WORDS.nothingSaid}</p>
       )}

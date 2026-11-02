@@ -65,11 +65,11 @@ export const clearNeed = (workspaceId: string, needId: string, how: NeedClear) =
   change('outreach.need.clear', { workspaceId, needId, how });
 
 /**
- * Retry, or Retry all (`needIds` null), on messages and comments that didn't go (decision 132): with signal, as it
- * reaches them again. Each goes a few minutes after the one before.
+ * Retry, or Retry all (`needIds` null), on steps handed over (decisions 132 and 144): with signal, as it reaches them
+ * again. A message goes a few minutes after the one before; any other step goes back on Today's list.
  */
-export const retrySends = (workspaceId: string, needIds: string[] | null) =>
-  change('outreach.send.retry', { workspaceId, needIds });
+export const retrySteps = (workspaceId: string, needIds: string[] | null) =>
+  change('outreach.need.retry', { workspaceId, needIds });
 
 /** Leave it, on a friend request that's the person's to decide. */
 export const setAside = (workspaceId: string, profileId: string) =>

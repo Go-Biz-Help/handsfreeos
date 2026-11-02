@@ -322,9 +322,16 @@ export const helpfulDue = (
 export const watchDue = (state: Pick<AutoState, 'watchAt'>, now: number): boolean =>
   (state.watchAt ?? 0) <= now;
 
-/** Someone on the list, by what they're on it for. */
-export const itemKey = (item: Pick<TodayListItem, 'kind' | 'postId' | 'profileId' | 'name'>) =>
-  `${item.kind}:${item.postId ?? item.profileId ?? item.name}`;
+/**
+ * Someone on the list, by what they're on it for. A step tried again (decision 144) is a new one each time it's put
+ * back, so it goes once more though it was tried today.
+ */
+export const itemKey = (
+  item: Pick<TodayListItem, 'kind' | 'postId' | 'profileId' | 'name'> & {
+    readonly retry?: { readonly at: string };
+  },
+) =>
+  `${item.kind}:${item.postId ?? item.profileId ?? item.name}${item.retry ? `@${item.retry.at}` : ''}`;
 
 /**
  * Whether the list goes before the morning's reading this go (decision 123; the owner, 29 Oct 2026, an hour into a

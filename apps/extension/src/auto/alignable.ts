@@ -65,6 +65,7 @@ import { follow, loadSettings } from '../hfos/follow';
 import { feed, keptFor, onBeat, type Kept } from '../hfos/live';
 import type { Drafts, TodayList, TodayListItem } from '../hfos/messages';
 import { isNoting, noteNeed, takeNote } from '../hfos/noting';
+import { clearRetried, handsOver, retryAfterUpdate } from './retry';
 import { alignableListSave } from '../hfos/saves';
 import { answer, api, call, Refused, savingTo } from '../hfos/session';
 import { keepWarning, warnedNow, warningInput } from '../hfos/warned';
@@ -325,6 +326,8 @@ type Outcome =
       readonly need?: true;
       /** Worth the AI helper's look though it isn't handed over: a like it couldn't press (decision 142). */
       readonly look?: true;
+      /** Found done already (connected, asked, friends already): nothing's left to do, so it's no failure (decision 144). */
+      readonly skip?: true;
       /** What the AI helper did inside the step, for its report (decision 142). */
       readonly helper?: ProblemHelper;
     }
@@ -695,7 +698,7 @@ async function connect(item: TodayListItem, businessId: string): Promise<Outcome
   const shown = opened.page.found.business!;
   if (shown.connected) {
     await keepConnection(item, opened.noted, businessId);
-    return { done: false, line: `${item.name}: you’re connected already` };
+    return { done: false, line: `${item.name}: you’re connected already`, skip: true };
   }
   if (!opened.noted.id)
     return {
@@ -707,6 +710,7 @@ async function connect(item: TodayListItem, businessId: string): Promise<Outcome
     return {
       done: false,
       line: `${item.name}: no Connect on their page: you’re connected already, or asked`,
+      skip: true,
     };
   /** Their page's own Connect link: whether it went, or `already` when it says they're connected or asked. */
   const pressLink = async () => {
@@ -716,7 +720,7 @@ async function connect(item: TodayListItem, businessId: string): Promise<Outcome
   };
   const pressed = shown.connect ? await pressLink() : 'none';
   if (pressed === 'already')
-    return { done: false, line: `${item.name}: you’re connected already, or asked` };
+    return { done: false, line: `${item.name}: you’re connected already, or asked`, skip: true };
   // Connect moved, or something's over it: the AI helper finds it on their page, checked as theirs (decision 142).
   const help = stepHelp(tab, answer as Hfos, {
     businessId,
@@ -736,13 +740,9 @@ async function connect(item: TodayListItem, businessId: string): Promise<Outcome
       need: true,
       helper: await help.end(false),
     };
-  /** Their page again, once what the press opened has loaded: whether it shows the request went. */
-  const reopened = async (): Promise<
-    { readonly stop: string } | { readonly taken: boolean; readonly theirs: boolean }
-  > => {
-    await pause(SETTLE_MS);
-    if (tab.tabId !== null) await tab.loaded(tab.tabId);
-    await tab.open(opened.want.url);
+  type Seen = { readonly stop: string } | { readonly taken: boolean; readonly theirs: boolean };
+  /** The page in the tab now: whether it's theirs, and shows the request went. */
+  const shows = async (): Promise<Seen> => {
     const page = await read();
     const stop = await warnedOn(page, businessId);
     if (stop) return { stop };
@@ -751,6 +751,30 @@ async function connect(item: TodayListItem, businessId: string): Promise<Outcome
     // It went once their own Connect is gone, or their page shows you're connected now (its Remove Connection).
     return { taken: theirs && (after.connected || !after.connect), theirs };
   };
+  /** Once what the press opened has loaded. */
+  const settled = async () => {
+    await pause(SETTLE_MS);
+    if (tab.tabId !== null) await tab.loaded(tab.tabId);
+  };
+  /** Their page again, once what the press opened has loaded: whether it shows the request went. */
+  const reopened = async (): Promise<Seen> => {
+    await settled();
+    await tab.open(opened.want.url);
+    return shows();
+  };
+  // Their page as the press left it (decision 144): a box asking one more thing shows only now, and is gone once their
+  // page opens again. Still theirs and still showing Connect, the AI helper looks at it here, box and all. Never taken
+  // as gone from this alone: their page opened again says.
+  if (pressed === 'done') {
+    await settled();
+    const left = await shows();
+    if ('stop' in left) return left;
+    if (left.theirs && !left.taken)
+      await help.press(
+        'pressed Connect, but their page still shows it',
+        async () => (await pressLink()) === 'done',
+      );
+  }
   let seen = await reopened();
   if ('stop' in seen) return seen;
   // Pressed, and their page still shows Connect: the AI helper presses the one on their page (decision 142).
@@ -1207,6 +1231,8 @@ async function go(): Promise<void> {
     return closeWindow();
   }
   void follow(() => void tick()).catch(() => undefined);
+  // Updated since it last went: what was handed over before is tried again, once (decision 144).
+  await retryAfterUpdate(to.businessId);
   const { settings, timezone } = found;
   const choices = settings.networks.alignable;
   let state = await stateNow();
@@ -1519,10 +1545,12 @@ async function workNext(
   }
   await say(outcome.line);
   const need =
-    'need' in outcome && work.do === 'step'
+    work.do === 'step' && handsOver(item, outcome)
       ? needOf(item, outcome.line, businessId, helped.reportId)
       : null;
   if (need) void noteNeed(need);
+  // A step tried again that it found done already is cleared (decision 144).
+  if (work.do === 'step') void clearRetried(item, outcome, businessId);
   void feed(outcome.done ? 'done' : 'passed', `${NAME}: ${outcome.line}`);
   if (stopAsked) {
     await closeWindow();
