@@ -504,8 +504,8 @@ became.
   with what the AI says of each and **Confirm** and **Delete** on Facebook, LinkedIn and Alignable. Each tab's label
   carries the count. New
   messages and steps reach the phone as the person's **pushes** setting says: one bundled push at most every 2 hours
-  in their working hours ("5 messages wait for your OK", the default), or one for each; a reply handed over pushes at
-  once either way. The extension's Chrome pop-ups follow the same rule on the computer that works. A click opens
+  in their working hours ("5 messages to OK", the default), or one for each ("LinkedIn message to OK", decision 146);
+  a reply handed over pushes at once either way. The extension's Chrome pop-ups follow the same rule on the computer that works. A click opens
   Needs you in HandsFreeOS in a tab (`outreachPath(…, 'waiting')`, at `#needs-you`), never the side panel (decision
   72).
 - **Asking the extension** (decision 43, `asks.ts`, `ops/asks.ts`, `addon_outreach.asks`, the web's `asks.tsx`, the
@@ -3627,6 +3627,22 @@ where decisions 37 and 59 put the settings; what they decided stands. Settled to
         (with HandsFreeOS's words: its limit, the balance, busy), or HandsFreeOS not answering. Alignable's Connect
         reads their page as the press left it before opening it again; still theirs and still showing Connect, the
         helper looks there, while a box asking one more thing still shows.
+
+146.  **Pushes you can read at a glance** (Chris, 2 Nov 2026, with a screenshot of two pushes cut off on the lock
+      screen, "Abundant LifeX3 Solutions…" and "Nevin Labib: the extension…": "the mobile notifications we getting are
+      kind of hard to understand at a quick glance"), answered "1b 2b 3a"; extension **0.123.1** for the pop-ups, no
+      migration. The title started with the name, so the phone cut it before it said what happened; a message didn't
+      say its network; the words said "on Today" though a tap opens Needs you; and a step showed the extension's own
+      reason. The picks, in core's `waiting-words.ts`, so the phone's pushes and Chrome's pop-ups say the same:
+      - **The network and what happened make the title, short enough never to be cut** (1b): "LinkedIn message to OK",
+        "Facebook comment to OK", "Alignable step for you", "Instagram reply needs you"; with no network known,
+        "Message to OK". Who it is goes in the body: "To Dana Reyes.", "On Dana Reyes’s post.", "From Dana Reyes: they
+        sound upset, so the AI’s answer waits for you." The bundled push follows: "5 messages to OK", "2 steps for you".
+      - **No words of the message in the push** (2b): just who it's to and its network.
+      - **A step says what to do, in its network's words** (3a, `needTitle`): "Send Dana Reyes an invitation to
+        connect yourself, or let it go." The extension's reason stays on Needs you.
+      - **Every push ends with what a tap does** ("Tap to OK, change or skip it.", "Tap to open it."), so none names a
+        page; the pop-ups say "Click to…" (`PushOn`).
 
 ## Rules worth knowing before changing anything
 

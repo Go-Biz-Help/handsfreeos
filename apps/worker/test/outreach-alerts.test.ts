@@ -157,8 +157,8 @@ describe('phone alerts', () => {
     expect(queued.state).toBe('waiting');
     await drain(s, ws);
     expect(await pushes(ws)).toContainEqual({
-      title: 'Ana Moss needs you',
-      body: 'Their reply waits for your OK on Today: it’s about a refund.',
+      title: 'Facebook reply needs you',
+      body: 'From Ana Moss: it’s about a refund, so the AI’s answer waits for you. Tap to see it.',
       path: `/app/w/${ws}/a/outreach?view=waiting`,
       user_ids: [owner.id],
     });

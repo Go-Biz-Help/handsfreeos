@@ -1132,6 +1132,15 @@ whole day, as the list can't be worked out without them (`holdsTheDay` in `src/a
 and Alignable a read put off till you're away counts as the reading's turn, so the list goes next. With nothing on the
 list, the reading goes on. Nothing in HandsFreeOS changes for it.
 
+### Pop-ups you can read at a glance (0.123.1)
+
+The owner, 2 Nov 2026, with a screenshot of two cut-off phone pushes: "the mobile notifications we getting are kind of
+hard to understand at a quick glance" (docs/outreach.md, decision 146). Chrome's pop-ups take the phone's new words
+from core (`eachPushWords`, `bundlePushWords`, `handOverPushWords` in `waiting-words.ts`): the network and what
+happened in the title ("LinkedIn message to OK", "Alignable step for you", "Facebook reply needs you"), who in the
+message, and "Click to…" where the phone says "Tap to…". A comment waiting now pops up as a comment, not a message.
+Words only: nothing else changed.
+
 ### Retry all, and again after each update (0.123.0)
 
 The owner, 1 Nov 2026: "any failures we should have a retry all option because we should be fixing those issues after

@@ -20,6 +20,7 @@ import {
   eachPushWords,
   forumAnswer,
   forumAnswersLeftWords,
+  handOverPushWords,
   messagesTitle,
   messengerChatUrl,
   moreWords,
@@ -104,50 +105,78 @@ describe('the bundled push’s timing', () => {
 });
 
 describe('the words', () => {
-  it('bundle messages first, in the owner’s words', () => {
+  it('bundle messages first, in words a glance reads (decision 146)', () => {
     // Replies handed over pushed on their own: the bundle leaves them out.
     expect(bundlePushWords(kinds({ message: 3, reply: 2 }))).toEqual({
-      title: '3 messages wait for your OK',
-      body: 'Open Today to OK, change or skip them.',
+      title: '3 messages to OK',
+      body: 'Tap to OK, change or skip them.',
+    });
+    expect(bundlePushWords(kinds({ message: 1 }))).toEqual({
+      title: '1 message to OK',
+      body: 'Tap to OK, change or skip it.',
     });
     expect(bundlePushWords(kinds({ message: 1, need: 2 }))).toEqual({
-      title: '1 message waits for your OK',
-      body: 'And 2 steps the extension couldn’t do. Open Today.',
+      title: '1 message to OK',
+      body: 'And 2 steps for you. Tap to see them.',
+    });
+    expect(bundlePushWords(kinds({ need: 1 }))).toEqual({
+      title: '1 step for you',
+      body: 'The extension couldn’t do it. Do it yourself, or let it go. Tap to see it.',
     });
     expect(bundlePushWords(kinds({ need: 2, request: 4 }))).toEqual({
-      title: '2 steps need you',
-      body: 'The extension couldn’t do them. Do them yourself, or let them go, on Today.',
+      title: '2 steps for you',
+      body: 'The extension couldn’t do them. Do them yourself, or let them go. Tap to see them.',
     });
     expect(bundlePushWords(kinds({ reply: 2, request: 1 }))).toBeNull();
-    // The extension's first look tells of them too.
-    expect(bundlePushWords(kinds({ message: 3, reply: 2 }), true)?.title).toBe(
-      '5 messages wait for your OK',
-    );
+    // The extension's first look tells of them too, and its pop-up is clicked, not tapped.
+    expect(bundlePushWords(kinds({ message: 3, reply: 2 }), true, 'computer')).toEqual({
+      title: '5 messages to OK',
+      body: 'Click to OK, change or skip them.',
+    });
     expect(bundlePushWords(kinds({ request: 4 }))).toBeNull();
     expect(bundlePushWords(NO_KINDS)).toBeNull();
   });
 
-  it('push one at a time with “one for each”, the why as a sentence', () => {
-    expect(eachPushWords('message', 'Dana Reyes')).toEqual({
-      title: 'Dana Reyes: a message waits for your OK',
-      body: 'OK it, change it or skip it on Today.',
+  it('push one at a time with “one for each”: the network and what happened first (decision 146)', () => {
+    expect(eachPushWords({ kind: 'message', name: 'Dana Reyes', platform: 'linkedin' })).toEqual({
+      title: 'LinkedIn message to OK',
+      body: 'To Dana Reyes. Tap to OK, change or skip it.',
     });
-    expect(eachPushWords('need', 'Dana Reyes', 'couldn’t find “Add friend”.')).toEqual({
-      title: 'Dana Reyes: the extension needs you',
-      body: 'Couldn’t find “Add friend”. Do it yourself, or let it go, on Today.',
+    // No network known: the title names none.
+    expect(eachPushWords({ kind: 'message', name: 'Dana Reyes', platform: null }).title).toBe(
+      'Message to OK',
+    );
+    // A step says what to do in its network's words, never the extension's reason.
+    expect(
+      eachPushWords({
+        kind: 'need',
+        name: 'Nevin Labib',
+        step: 'friend_request',
+        platform: 'linkedin',
+      }),
+    ).toEqual({
+      title: 'LinkedIn step for you',
+      body: 'Send Nevin Labib an invitation to connect yourself, or let it go. Tap to open it.',
     });
-    // With its network, as HandsFreeOS's pushes say it.
     expect(
       eachPushWords(
-        'need',
-        'Lane Landscaping Co',
-        'couldn’t find Connect on their page',
-        'alignable',
+        { kind: 'need', name: 'Lane Landscaping Co', step: 'confirm', platform: 'alignable' },
+        'computer',
       ),
     ).toEqual({
-      title: 'Lane Landscaping Co: the extension needs you on Alignable',
-      body: 'Couldn’t find Connect on their page. Do it yourself, or let it go, on Today.',
+      title: 'Alignable step for you',
+      body: 'Accept Lane Landscaping Co’s connection request yourself, or let it go. Click to open it.',
     });
+    // Every title fits on one line of a lock screen.
+    for (const platform of PLATFORM_KEYS) {
+      for (const what of [
+        eachPushWords({ kind: 'message', name: 'A', platform }),
+        eachPushWords({ kind: 'comment', name: 'A', platform }),
+        eachPushWords({ kind: 'need', name: 'A', step: 'message', platform }),
+        handOverPushWords('A', null, platform),
+      ])
+        expect(what.title.length).toBeLessThanOrEqual(25);
+    }
   });
 
   it('count Approve all the same everywhere, and say how a list is cut short', () => {
@@ -438,9 +467,9 @@ describe('the words', () => {
   });
 
   it('say a comment waiting by its post, and take comments into Approve all (decision 92)', () => {
-    expect(eachPushWords('comment', 'Quinn Harper')).toEqual({
-      title: 'A comment on Quinn Harper’s post waits for your OK',
-      body: 'OK it, change it or skip it on Today.',
+    expect(eachPushWords({ kind: 'comment', name: 'Quinn Harper', platform: 'facebook' })).toEqual({
+      title: 'Facebook comment to OK',
+      body: 'On Quinn Harper’s post. Tap to OK, change or skip it.',
     });
     expect(commentTitle('Dana Reyes')).toBe('Comment on Dana Reyes’s post');
     expect(messagesTitle(false)).toBe('Messages to OK');
