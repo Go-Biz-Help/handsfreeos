@@ -20,6 +20,7 @@ import { FOR_CUSTOMERS } from '@hfos/core/addons/outreach/ops/common';
 import { postCheck } from '@hfos/core/addons/outreach/ops/posts';
 import {
   checkedPostWhy,
+  FIELD_CHECK_SINCE,
   freshPost,
   POST_FRESH_DAYS,
   type PostFound,
@@ -32,12 +33,17 @@ import {
 } from '@hfos/core/addons/outreach/posts';
 import { executeCommand } from '@hfos/core/server';
 import type { Platform } from '@hfos/core/addons/outreach/networks';
-import { asWorker, rows, sql } from '@hfos/db/client';
+import { asWorker, rows, sql, type Tx } from '@hfos/db/client';
 import type { JobResult } from '../../jobs';
 import { AiAskError, askStructured } from '../../ai/ask';
 import { pushAddonNotice } from '../alerts';
 import { scheduleAddonJob } from '../queue';
-import type { AddonDataMigration, AddonEventContext, AddonJobContext } from '../types';
+import type {
+  AddonDataMigration,
+  AddonEventContext,
+  AddonJobContext,
+  AddonScopeContext,
+} from '../types';
 import { businessKnows } from './knows';
 
 export const CHECK_POSTS_JOB = 'outreach.check_posts';
@@ -46,58 +52,67 @@ const TODAY_HREF = '/a/outreach?view=today';
 export const CHECK_POSTS_BATCH = 20;
 const HOUR = 3_600_000;
 
-/** `outreach.posts.saved`: the posts waiting are checked now. */
+/**
+ * `outreach.posts.saved`: the posts waiting are checked now, with any an older check called good sent back to it
+ * (decision 143).
+ */
 export async function postsSaved(ctx: AddonEventContext): Promise<void> {
-  await asWorker(ctx.db, ctx.scope, (tx) =>
-    scheduleAddonJob(
-      tx,
-      { id: ctx.manifest.id, generation: ctx.generation },
-      {
-        kind: CHECK_POSTS_JOB,
-        dedupeKey: `${CHECK_POSTS_JOB}:${ctx.scope.workspaceId}`,
-        runAt: new Date(),
-        payload: {},
-        workspaceId: ctx.scope.workspaceId,
-        organizationId: ctx.scope.organizationId,
-      },
-      { pullEarlier: true },
-    ),
+  await asWorker(ctx.db, ctx.scope, async (tx) => {
+    await sendOldGoodBack(tx, ctx);
+    await queueCheck(tx, ctx);
+  });
+}
+
+/** Queues the business's one post check, now. */
+async function queueCheck(tx: Tx, ctx: AddonScopeContext): Promise<void> {
+  await scheduleAddonJob(
+    tx,
+    { id: ctx.manifest.id, generation: ctx.generation },
+    {
+      kind: CHECK_POSTS_JOB,
+      dedupeKey: `${CHECK_POSTS_JOB}:${ctx.scope.workspaceId}`,
+      runAt: new Date(),
+      payload: {},
+      workspaceId: ctx.scope.workspaceId,
+      organizationId: ctx.scope.organizationId,
+    },
+    { pullEarlier: true },
   );
 }
 
 /**
- * Data step 10 (decision 143): the posts still waiting for a comment that an older check called good go back to the
- * AI's check, which now asks whether they're about the owner's own field. Only those a comment could still go on: seen
- * in the last week, not skipped, with no comment drafted or posted on them. The check is queued at once.
+ * The posts still waiting for a comment that an older check called good go back to the AI's check, which now asks
+ * whether they're about the owner's own field (decision 143), and the check is queued at once. Only those checked before
+ * that check went live (`FIELD_CHECK_SINCE`) and that a comment could still go on: seen in the last week, not skipped,
+ * with no comment drafted or posted on them. So it does its work once, and then nothing.
+ *
+ * A business with the add-on on never runs a data step, so a posts save and the day's start send them back too
+ * (`oldGoodWanted`); data step 10 is it for a reinstall.
  */
-export const recheckGoodPosts: AddonDataMigration = async (ctx) => {
+export async function sendOldGoodBack(tx: Tx, ctx: AddonScopeContext): Promise<void> {
   const ws = ctx.scope.workspaceId;
   const back = await rows<{ id: string }>(
-    ctx.tx,
+    tx,
     sql`update addon_outreach.posts po set check_state = 'waiting', check_why = null, strong = false,
           checked_at = null
         where po.workspace_id = ${ws} and po.check_state = 'good' and po.skipped_at is null
+          and po.checked_at < ${FIELD_CHECK_SINCE}::timestamptz
           and po.seen_at >= now() - make_interval(days => ${POST_FRESH_DAYS}::int)
           and not exists (select 1 from addon_outreach.sends s where s.post_id = po.id)
           and not exists (select 1 from addon_outreach.touches t
             where t.workspace_id = po.workspace_id and t.kind = 'comment' and t.post_url = po.url)
         returning po.id`,
   );
-  if (!back.length) return;
-  await scheduleAddonJob(
-    ctx.tx,
-    { id: ctx.manifest.id, generation: ctx.generation },
-    {
-      kind: CHECK_POSTS_JOB,
-      dedupeKey: `${CHECK_POSTS_JOB}:${ws}`,
-      runAt: new Date(),
-      payload: {},
-      workspaceId: ws,
-      organizationId: ctx.scope.organizationId,
-    },
-    { pullEarlier: true },
-  );
-};
+  if (back.length) await queueCheck(tx, ctx);
+}
+
+/** Data step 10 (decision 143): `sendOldGoodBack`, for a reinstall. */
+export const recheckGoodPosts: AddonDataMigration = (ctx) => sendOldGoodBack(ctx.tx, ctx);
+
+/** `outreach.day.started`: the posts an older check called good go back to the check (decision 143). */
+export async function oldGoodWanted(ctx: AddonEventContext): Promise<void> {
+  await asWorker(ctx.db, ctx.scope, (tx) => sendOldGoodBack(tx, ctx));
+}
 
 /** `outreach.check_posts`: checks a batch of the business's waiting posts, and comes back for the rest. */
 export async function checkPostsJob(ctx: AddonJobContext): Promise<JobResult> {

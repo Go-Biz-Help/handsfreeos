@@ -5,6 +5,7 @@
  */
 import { randomUUID } from 'node:crypto';
 import { PLAYBOOK_TEMPLATES } from '@hfos/core/addons/outreach/playbooks';
+import { FIELD_CHECK_SINCE } from '@hfos/core/addons/outreach/posts';
 import { asWorker, rows, sql } from '@hfos/db/client';
 import { closeTestDbs, createTestUser, testDbs, type TestUser } from '@hfos/db/testing';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
@@ -200,7 +201,7 @@ describe('finding good posts’ writers (decision 92)', () => {
 });
 
 describe('checking again the posts an older check called good (decision 143)', () => {
-  it('sends the ones still open for a comment back to the check, and leaves the rest', async () => {
+  it('sends the ones still open for a comment back to the check on the next save, once', async () => {
     const s = testServices({ ai: { provider: scriptedAi() } });
     const ws = await seen('Outreach Recheck Co', [
       'Can anyone recommend a CRM for my crew?',
@@ -210,10 +211,11 @@ describe('checking again the posts an older check called good (decision 143)', (
       'Anyone have a bookkeeper they like?',
     ]);
     await drain(s, ws);
-    // An older check called every one good.
+    // An older check, before the one that knows the owner’s field, called every one good.
     await rows(
       admin(),
-      sql`update addon_outreach.posts set check_state = 'good', check_why = 'Old check'
+      sql`update addon_outreach.posts set check_state = 'good', check_why = 'Old check',
+            checked_at = ${FIELD_CHECK_SINCE}::timestamptz - interval '1 day'
           where workspace_id = ${ws}`,
     );
     const url = (n: number) => post(n, '').url;
@@ -239,27 +241,13 @@ describe('checking again the posts an older check called good (decision 143)', (
           where workspace_id = ${ws} and url = ${url(5)}`,
     );
 
-    const [org] = await rows<{ organization_id: string }>(
-      admin(),
-      sql`select organization_id from app.workspaces where id = ${ws}`,
-    );
-    await asWorker(testDbs().worker.db, { workspaceId: ws }, (tx) =>
-      outreachAddonWorker.dataMigrations![10]!({
-        tx,
-        manifest: outreachAddonWorker.manifest,
-        scope: { workspaceId: ws, organizationId: org!.organization_id },
-      } as unknown as Parameters<AddonDataMigration>[0]),
-    );
-    expect((await states(ws)).map((p) => p.check_state)).toEqual([
-      'waiting',
-      'waiting',
-      'good',
-      'good',
-      'good',
-    ]);
-    // The check is queued at once, and asks again.
+    // A business with the add-on on never runs a data step: the next posts saved send the old ones back.
+    await runAs(owner, ws, 'outreach.posts.save', {
+      group,
+      posts: [post(6, 'Can anyone recommend a bookkeeper?')],
+    });
     await drain(s, ws);
-    expect(await states(ws)).toEqual([
+    const after = [
       {
         body: 'Can anyone recommend a CRM for my crew?',
         check_state: 'good',
@@ -277,6 +265,26 @@ describe('checking again the posts an older check called good (decision 143)', (
       },
       { body: 'Recommend a scheduling app?', check_state: 'good', check_why: 'Old check' },
       { body: 'Anyone have a bookkeeper they like?', check_state: 'good', check_why: 'Old check' },
-    ]);
+      {
+        body: 'Can anyone recommend a bookkeeper?',
+        check_state: 'good',
+        check_why: 'Asking for a recommendation',
+      },
+    ];
+    expect(await states(ws)).toEqual(after);
+
+    // Data step 10, for a reinstall, does the same, and only once: those checked since stay as they are.
+    const [org] = await rows<{ organization_id: string }>(
+      admin(),
+      sql`select organization_id from app.workspaces where id = ${ws}`,
+    );
+    await asWorker(testDbs().worker.db, { workspaceId: ws }, (tx) =>
+      outreachAddonWorker.dataMigrations![10]!({
+        tx,
+        manifest: outreachAddonWorker.manifest,
+        scope: { workspaceId: ws, organizationId: org!.organization_id },
+      } as unknown as Parameters<AddonDataMigration>[0]),
+    );
+    expect(await states(ws)).toEqual(after);
   });
 });

@@ -1,8 +1,9 @@
 /**
  * Social Outreach's comments that sound like an expert, on posts that fit the playbook (docs/outreach.md, decisions
- * 141 and 143): the post check calls a post good only when it's about the owner's own field, never the trade of who a
- * playbook is for, the comment ask is a peer's in that field, a draft's stock praise goes, and Facebook's post search
- * goes with the playbooks' own phrases.
+ * 141, 143 and 144): the post check calls a post good only when it's about the owner's own field, never the trade of
+ * who a playbook is for, the comment takes a clear stand from that field and the offer's angle, offering to show them
+ * only when they want the help, a draft's stock praise goes, and Facebook's post search goes with the playbooks' own
+ * phrases.
  */
 import { describe, expect, it } from 'vitest';
 import { blankPlaybook, type PlaybookDetails } from '../../src/addons/outreach/playbooks';
@@ -12,7 +13,12 @@ import {
   postSearchWords,
   SEARCH_PARTS,
 } from '../../src/addons/outreach/posts';
-import { todayDraftPrompt, withoutStockPraise } from '../../src/addons/outreach/today';
+import {
+  draftOfferOf,
+  todayDraftPrompt,
+  withoutStockPraise,
+} from '../../src/addons/outreach/today';
+import { MainOfferParts } from '../../src/main-offer/parts';
 
 describe('posts about the owner’s own field', () => {
   it('calls a post good only when it’s about the owner’s field, never the trade of who a playbook is for', () => {
@@ -104,7 +110,11 @@ describe('Facebook’s post search (decision 141)', () => {
 });
 
 describe('comments that sound like someone who knows the owner’s own field', () => {
-  const ask = (group: string | null, platform: 'facebook' | 'instagram' | 'linkedin') =>
+  const ask = (
+    group: string | null,
+    platform: 'facebook' | 'instagram' | 'linkedin',
+    more: Partial<Parameters<typeof todayDraftPrompt>[0]> = {},
+  ) =>
     todayDraftPrompt({
       kind: 'comment',
       business: 'Bright Books',
@@ -114,9 +124,10 @@ describe('comments that sound like someone who knows the owner’s own field', (
       playbook: null,
       post: { text: 'How do you all keep up with calls in storm season?', group },
       platform,
+      ...more,
     });
 
-  it('asks for a peer’s useful point from the owner’s field, with no stock praise and nothing made up', () => {
+  it('asks for a clear stand from the owner’s field, with no stock praise and nothing made up', () => {
     const facebook = ask('Austin Roofers', 'facebook');
     expect(facebook).toContain(
       'Write the owner’s public comment under it, from the owner’s own field',
@@ -129,12 +140,61 @@ describe('comments that sound like someone who knows the owner’s own field', (
     expect(facebook).not.toContain('knows this field well');
     expect(facebook).toContain('Never open with praise or thanks');
     expect(facebook).toContain('Never invent experience, numbers or results');
-    expect(facebook).toContain('no hard pitch and no link unless they asked for one');
     expect(facebook).not.toContain('friendly local');
-    // A comment that waits to be posted never carries a link, and keeps to the network's words.
+    // The owner's own comment (2 Nov 2026): a bold take that challenges the usual way, never the person, and an offer to
+    // show them only when they want the help, with no link (decision 144).
+    expect(facebook).toContain('Take a clear stand from the owner’s field');
+    expect(facebook).toContain(
+      'often a bold take on what most people get wrong or do the hard way',
+    );
+    expect(facebook).toContain('sometimes one specific tip');
+    expect(facebook).toContain('Challenge the usual way, never the person');
+    expect(facebook).toContain(
+      'When they ask for help with what the business does, or are looking for someone to do it, end with a short, easy offer to show them, such as “I can show you a demo if you’re interested”, with no link, no web address and no price. Otherwise offer nothing and pitch nothing.',
+    );
+    expect(facebook).not.toContain('unless they asked for one');
+    // Every network's comment carries no link, and keeps to the network's words.
     const instagram = ask(null, 'instagram');
-    expect(instagram).toContain('no pitch beyond that and no link or web address');
+    expect(instagram).toContain('with no link, no web address and no price');
+    expect(instagram).toContain('Under 30 words.');
     expect(ask(null, 'linkedin')).toContain('They posted this on LinkedIn.');
+  });
+
+  it('tells a comment the offer’s angle, never its price, guarantee or results, and no link (decision 144)', () => {
+    const offer = draftOfferOf(
+      3,
+      MainOfferParts.parse({
+        line: 'A CRM that follows up for you',
+        outcome: { result: 'Every lead answered in a minute' },
+        method: { steps: ['It texts every new lead back', 'It books the call on its own'] },
+        guarantee: { promise: 'Or the next month is free' },
+        price: { amount: '$297 a month' },
+        proof: ['Pine Roofing booked 14 in 30 days'],
+      }),
+    );
+    const playbook = { name: 'CRM demos', ...blankPlaybook(), link: 'https://cal.com/bright' };
+    const facebook = ask('Austin Roofers', 'facebook', { offer, playbook });
+    expect(facebook).toContain('<offer>');
+    expect(facebook).toContain('The offer: A CRM that follows up for you');
+    expect(facebook).toContain('The outcome, in a few words: Every lead answered in a minute');
+    expect(facebook).toContain('- It texts every new lead back');
+    expect(facebook).not.toContain('guarantee, only when');
+    expect(facebook).not.toContain('Or the next month is free');
+    expect(facebook).not.toContain('$297');
+    expect(facebook).not.toContain('Pine Roofing');
+    expect(facebook).not.toContain('cal.com/bright');
+    // A message in the conversation still gets them all, and the link.
+    const opener = todayDraftPrompt({
+      kind: 'opener',
+      business: 'Bright Books',
+      name: 'Sam Lee',
+      facts: [],
+      recent: [],
+      playbook,
+      offer,
+    });
+    expect(opener).toContain('The price, only when they ask: $297 a month');
+    expect(opener).toContain('Link: https://cal.com/bright');
   });
 
   it('drops the stock praise a draft opens with, and keeps its point', () => {

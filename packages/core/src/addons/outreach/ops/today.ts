@@ -63,7 +63,7 @@ import {
   withRetried,
   type TodayItem,
 } from '../today';
-import { POST_FRESH_DAYS } from '../posts';
+import { FIELD_CHECK_SINCE, POST_FRESH_DAYS } from '../posts';
 import { LIST_RETRY_STEPS, needWhyWords, REQUEST_PRESSED_WHY, RETRIED_WHY } from '../waiting-words';
 import { NEW_JOB_DAYS, OCCASION_WORDS, type OccasionKind } from '../occasions';
 import { commentSendsOn, foundByTopicOn, ownSuggestions } from '../profile-parts';
@@ -1774,6 +1774,10 @@ export const today = defineAddonQuery(outreachAddon, {
             left join addon_outreach.playbooks pb on pb.id = po.playbook_id
             where po.workspace_id = ${ws} and po.user_id = ${me} and po.check_state = 'good'
               and po.skipped_at is null and po.seen_at >= ${ago(POST_FRESH_DAYS)}::timestamptz
+              ${
+                // One an older check called good waits for the check that knows the owner’s field (decision 143).
+                sql`and (po.checked_at is null or po.checked_at >= ${FIELD_CHECK_SINCE}::timestamptz)`
+              }
               and p.friendship <> 'self' and not ${myOwnProfile(me)}
               and ${pitchable('p')} and ${inPlay(me, 'p')} and ${notOthers(me, 'g')} and ${lets}
               and not exists (select 1 from addon_outreach.group_people x
@@ -1900,7 +1904,7 @@ export const today = defineAddonQuery(outreachAddon, {
         );
     }
 
-    // Steps the person tried again from Steps it needs you for (decision 144): first of their kind, within today's
+    // Steps the person tried again from Steps it needs you for (decision 145): first of their kind, within today's
     // limits, with the rest of a limit's kinds after them as far as it goes. A request or a like before one waits
     // while new requests are held; one to someone on Don't pitch, or a comment on a post gone, isn't offered.
     const retried = await rows<{

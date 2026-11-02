@@ -3173,7 +3173,7 @@ where decisions 37 and 59 put the settings; what they decided stands. Settled to
       - **Where:** on Steps it needs you for (web, phone, and the Assistant's `outreach_retry_messages`, on a Confirm
         card), each message or comment that didn't go has **Retry**; with two or more listed, **Retry all**. Steps that
         aren't a send (a friend request, a like) come back on the list on their own another day, so they have none
-        (decision 144 gives every step Retry).
+        (decision 145 gives every step Retry).
       - **What it does:** `outreach.send.retry` makes a new send, OK'd as it was, and marks the step done; one that
         can't go again is handed back as a new step. A new send, not the old one again, as the extension tries each
         send once a day by its own id. A comment's post, set aside when it didn't go, goes back on the list unless the
@@ -3569,13 +3569,37 @@ where decisions 37 and 59 put the settings; what they decided stands. Settled to
         materials, their customers' questions) unless it's the owner's field too. When the owner's field has nothing
         real to add, the AI writes no drafts, and the extension passes the post by for the day ("the AI had nothing to
         say on it"). The rest of decision 141's voice stays.
-      - **The posts an older check called good are checked again** (3a). Data step 10 (`recheckGoodPosts` in the
-        worker's `posts.ts`) sends back to the AI's check every good post a comment could still go on (seen in the last
-        week, not skipped, no comment drafted or posted), and queues the check at once: about one AI ask a post. Those
-        about the owner's field stay good; the rest leave Today. A comment already waiting stays until it's OK'd or
-        skipped.
+      - **The posts an older check called good are checked again** (3a). `sendOldGoodBack` (the worker's
+        `posts.ts`) sends back to the AI's check every good post checked before the new check went live
+        (`FIELD_CHECK_SINCE`) that a comment could still go on (seen in the last week, not skipped, no comment drafted
+        or posted), and queues the check at once: about one AI ask a post. A business with the add-on on never runs a
+        data step, so the next posts saved and the day's start do it (data step 10 is it for a reinstall), and Today
+        offers no post checked before then meanwhile. Those about the owner's field stay good; the rest leave Today. A
+        comment already waiting stays until it's OK'd or skipped.
 
-144.  **Retry all on every step, and once on its own after each update** (Chris, 1 Nov 2026, with Steps it needs you
+144.  **Comments that take a stand, and offer a demo when they want help** (Chris, 2 Nov 2026, showing their own comment on
+      a post asking for someone to do automations the right way: "You've got it all wrong, you need a crm where you
+      don't need to create automations in the first place because it does it for you. I can show you a demo if you're
+      interested.", and "these are the style comments i'm referring to. doesn't always have to be this but you should
+      understand what i mean"), answered "1a 2a 3a"; no data version, no migration, no new extension. Decision 141's
+      peer tip read like every other polite reply under a post. The picks:
+      - **A clear stand from the owner's field** (2a, `TASK.comment`, `COMMENT_RULES`): often a bold take on what most
+        people get wrong or do the hard way, and how the owner's way does it instead; sometimes one specific tip, a
+        rule of thumb or a common mistake. It challenges the usual way, never the person: never calling them wrong,
+        talking down to them or making fun of them. Decision 143 stands: the owner's own field, never the poster's
+        trade, and no drafts when that field has nothing real to add.
+      - **The angle is each business's own offer**: a comment is now told the main offer's angle (`ANGLE_KINDS` in
+        `today.ts`): its line, its outcome and how it works, never its price, its guarantee or its results, which a
+        comment in public doesn't say. Nothing is written for HandsFreeOS alone; another business's comments take its
+        own offer's stand.
+      - **An offer to show them only when they want the help** (1a): when the post asks for help with what the business
+        does, or is looking for someone to do it, the comment ends with a short, easy offer to show them, such as "I
+        can show you a demo if you're interested" (3a). On every other post it offers and pitches nothing.
+      - **No link in any comment** (3a): no link, no web address and no price, on Facebook too, where a link once went
+        when they asked for one. The playbook's link no longer reaches a comment's prompt. Those who say yes go on in
+        the chat, where the conversation's messages carry the link as before.
+
+145.  **Retry all on every step, and once on its own after each update** (Chris, 1 Nov 2026, with Steps it needs you
       for showing six Alignable "didn’t take the request" and a LinkedIn invite: "any failures we should have a retry
       all option because we should be fixing those issues after updates"), answered "yes on picks"; extension
       **0.123.0**, migration `20261027021800_outreach_need_retry.sql`.
