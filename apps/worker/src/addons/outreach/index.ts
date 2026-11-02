@@ -42,7 +42,14 @@ import {
   JOIN_ANSWER_ACTION,
   joinAnswer,
 } from './groups';
-import { CHECK_POSTS_JOB, checkPostsJob, postChecked, postsSaved, recheckGoodPosts } from './posts';
+import {
+  CHECK_POSTS_JOB,
+  checkPostsJob,
+  oldGoodWanted,
+  postChecked,
+  postsSaved,
+  recheckGoodPosts,
+} from './posts';
 import { DRAFT_HELPFUL_JOB, draftHelpfulJob, helpfulAsked } from './helpful';
 import { LIKE_PICK_ACTION, likePick } from './likes';
 import {
@@ -139,7 +146,8 @@ export const outreachAddonWorker: AddonWorkerModule = {
     // hashtags and LinkedIn phrases let go, then written again around the playbook's topic (decision 141). Reading
     // upgrades an older one too (outreach.playbook.list), so these only tidy what a reinstall brings back, but for 9's
     // write, asked for at once rather than at the next day's start. 10: the posts an older check called good, and
-    // still open for a comment, checked again for the owner's own field (decision 143, ./posts.ts).
+    // still open for a comment, checked again for the owner's own field (decision 143, ./posts.ts); a posts save and
+    // the day's start do it for a business with the add-on on.
     2: upgradePlaybooks,
     3: upgradePlaybooks,
     4: upgradePlaybooks,
@@ -196,7 +204,11 @@ export const outreachAddonWorker: AddonWorkerModule = {
     // their own (decision 95) with nobody pressing anything, so does the morning's first list the extension saves (a
     // safety net, decision 123).
     // And the day's looks at its first messages (./goal.ts, decision 126).
-    'outreach.day.started': both(both(armDayReportFor, armGoalCheckFor), wordsWanted),
+    // And the posts an older check called good go back to the check (./posts.ts, decision 143).
+    'outreach.day.started': both(
+      both(both(armDayReportFor, armGoalCheckFor), wordsWanted),
+      oldGoodWanted,
+    ),
     'outreach.automation.saved': both(both(armDayReportFor, armGoalCheckFor), wordsWanted),
     'outreach.playbook.saved': wordsWanted,
     'outreach.lists.saved': wordsWanted,

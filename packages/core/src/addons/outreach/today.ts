@@ -550,16 +550,17 @@ export const COMMENT_WORDS_MOST: Readonly<Record<Platform, number | null>> = {
 
 /**
  * How a comment is written where comments go through `sends` and the extension posts them once OK'd (decision 92), as
- * a peer who knows the owner's own field (decisions 141 and 143): Instagram's short, with no link or hashtag;
- * Alignable's and LinkedIn's (decision 102) a useful point from what the business knows, with no link.
+ * someone who does the owner's own work every day (decisions 141, 143 and 144): a clear take or a useful point from
+ * that field and the offer's angle, an offer to show them only when they want the help, and never a link. Instagram's
+ * short, with no hashtag; Alignable's and LinkedIn's (decision 102) from what the business knows.
  */
 const COMMENT_RULES: Readonly<Record<Platform, string | null>> = {
   facebook: null,
   linkedin:
-    'A comment on LinkedIn reads like a peer who knows the owner’s own field: one specific, useful point from that field that builds on the post, from what the business knows. No link and no web address.',
-  instagram: `A comment on Instagram is under ${COMMENT_WORDS_MOST.instagram} words, with no link, no web address and no hashtags: one specific, useful point from the owner’s own field that builds on the post, the way a peer who knows that field would say it.`,
+    'A comment on LinkedIn reads like someone who does the owner’s own work every day: a clear take or one specific, useful point from that field that builds on the post, from what the business knows and how its offer does it, and an offer to show them only when they want help with it. No link and no web address.',
+  instagram: `A comment on Instagram is under ${COMMENT_WORDS_MOST.instagram} words, with no link, no web address and no hashtags: a clear take or one specific, useful point from the owner’s own field that builds on the post, the way someone who does that work every day would say it, and an offer to show them only when they want help with it.`,
   alignable:
-    'A comment on Alignable reads like a peer who knows the owner’s own field: one specific, useful point from that field that builds on the post, from what the business knows. No link and no web address.',
+    'A comment on Alignable reads like someone who does the owner’s own work every day: a clear take or one specific, useful point from that field that builds on the post, from what the business knows and how its offer does it, and an offer to show them only when they want help with it. No link and no web address.',
 };
 
 const DRAFT_RULES = [
@@ -649,10 +650,11 @@ const TASK: Record<CustomerDraftKind, string> = {
     'It’s their birthday today. Write the owner’s short, warm happy birthday, one or two lines, in the owner’s own voice, picking up something real from the chat or their pages when there is one. Nothing about the business: no pitch, no offer, no price, no link, no ask.',
   new_job:
     'They just started a new job, as the line below says. Write the owner’s short, warm congratulations, one or two lines, naming the new role or place when the line says it, and wishing them well in it. Nothing about the business: no pitch, no offer, no price, no link, no ask.',
-  // As someone who knows the owner's own field (decisions 141 and 143), never the writer's trade: a real point, never
-  // stock praise, what the business does only when they asked for help with it, and nothing when there's no point.
+  // As someone who knows the owner's own field (decisions 141 and 143), never the writer's trade: a clear stand from
+  // the offer's angle, often bold and sometimes a tip, never at the person (decision 144); an offer to show them only
+  // when they want help with it or someone to do it, never a link; never stock praise, and nothing when there's no point.
   comment:
-    'They posted this in a Facebook group. Write the owner’s public comment under it, from the owner’s own field: what their business does and what its offer helps with, as the business profile and the playbook’s offer say. The playbook’s niche and who it is for say who the owner helps, never what the owner knows: never give advice about the writer’s own trade or work (how to do it, their tools, their materials, their customers’ questions) unless it is the owner’s field too. Talking to them as a peer, add one specific, useful point from the owner’s field that builds on what they said, such as a tip, what works, a common mistake or a rule of thumb. When they asked for help with what the business does, the owner may also say in a few words that it’s what they do, with no hard pitch and no link unless they asked for one. When the owner’s field has nothing real to add to this post, write no drafts. Never open with praise or thanks (“Great post”, “Love this”, “So true”, “Thanks for sharing”), never repeat their post back to them, and never sound like a fan, a brand or an ad. Never invent experience, numbers or results the business hasn’t said: a tip anyone in the owner’s field would know is fine. Under 50 words. No questions about things the post already says.',
+    'They posted this in a Facebook group. Write the owner’s public comment under it, from the owner’s own field: what their business does and what its offer helps with, as the business profile, the playbook’s offer and the offer say. The playbook’s niche and who it is for say who the owner helps, never what the owner knows: never give advice about the writer’s own trade or work (how to do it, their tools, their materials, their customers’ questions) unless it is the owner’s field too. Take a clear stand from the owner’s field, the way someone who does this work every day would: often a bold take on what most people get wrong or do the hard way, and how the owner’s way (the offer and how it works) does it instead; sometimes one specific tip, a rule of thumb or a common mistake. Challenge the usual way, never the person: never call them wrong, talk down to them or make fun of them. When they ask for help with what the business does, or are looking for someone to do it, end with a short, easy offer to show them, such as “I can show you a demo if you’re interested”, with no link, no web address and no price. Otherwise offer nothing and pitch nothing. When the owner’s field has nothing real to add to this post, write no drafts. Never open with praise or thanks (“Great post”, “Love this”, “So true”, “Thanks for sharing”), never repeat their post back to them, and never sound like a fan, a brand or an ad. Never invent experience, numbers or results the business hasn’t said: a take or tip anyone in the owner’s field would stand behind is fine. Under 50 words. No questions about things the post already says.',
   warm_lead:
     'They commented on the owner’s own helpful post in a Facebook group. Write the owner’s public reply to their comment: thank them by name, answer or add to what they said, and ask one light question back. No pitch, no link. Under 40 words.',
   group_reply:
@@ -752,16 +754,12 @@ function taskOn(kind: CustomerDraftKind, platform: Platform, inGroup: boolean): 
           'They just followed the owner back.',
         )
       : said;
-  // A comment that waits to be posted (decision 92) carries no link, and keeps to the network's words.
+  // A comment that waits to be posted (decision 92) keeps to the network's words; no comment carries a link (decision
+  // 144).
   const most = COMMENT_WORDS_MOST[platform];
   const held =
-    kind === 'comment' && NETWORKS[platform].commentsWait === 'hold'
-      ? task
-          .replace(
-            ' with no hard pitch and no link unless they asked for one.',
-            ' with no pitch beyond that and no link or web address.',
-          )
-          .replace('Under 50 words.', most === null ? 'Under 50 words.' : `Under ${most} words.`)
+    kind === 'comment' && NETWORKS[platform].commentsWait === 'hold' && most !== null
+      ? task.replace('Under 50 words.', `Under ${most} words.`)
       : task;
   // A post in no group (Facebook's or LinkedIn's post search, decision 141) is on the network itself.
   if (inGroup) return held;
@@ -848,6 +846,12 @@ const OFFER_KINDS: ReadonlySet<DraftKind> = new Set([
   'reply',
 ]);
 
+/**
+ * A public comment is told the offer's angle (decision 144): the line, its outcome and how it works, for the stand the
+ * comment takes. Never its price, its guarantee or its results, which a comment in public never says.
+ */
+const ANGLE_KINDS: ReadonlySet<DraftKind> = new Set(['comment']);
+
 export function todayDraftPrompt(input: {
   readonly kind: CustomerDraftKind;
   readonly business: string;
@@ -855,7 +859,10 @@ export function todayDraftPrompt(input: {
   readonly facts: readonly string[];
   readonly recent: readonly DownloadMessage[];
   readonly playbook: DraftPlaybook | null;
-  /** The main offer they were pitched with, or the live one: every message but a comment, a warm lead and Reconnect. */
+  /**
+   * The main offer they were pitched with, or the live one: every message but a warm lead and Reconnect, and only its
+   * angle for a comment.
+   */
   readonly offer?: DraftOffer | null;
   /** Where they are in the conversation, for a follow-up, a check-in or a reply. */
   readonly conversation?: DraftConversation | null;
@@ -912,9 +919,11 @@ export function todayDraftPrompt(input: {
     ? [
         `Name: ${p.name}`,
         p.offer && !note ? `Offer: ${p.offer}` : null,
-        // A message to their Requests carries no link (`REQUESTS_TASK`), nor does a note, nor anything to someone who
-        // turned the offer down (decision 134).
-        p.link && !requests && !note && !helping && !declined ? `Link: ${p.link}` : null,
+        // A message to their Requests carries no link (`REQUESTS_TASK`), nor does a note, a public comment (decision 144)
+        // or anything to someone who turned the offer down (decision 134).
+        p.link && !requests && !note && !helping && input.kind !== 'comment' && !declined
+          ? `Link: ${p.link}`
+          : null,
         p.audience && !note ? `For: ${p.audience}` : null,
         p.niche && !note ? `Niche: ${p.niche}` : null,
         p.proof?.length && !note && !helping
@@ -931,18 +940,22 @@ export function todayDraftPrompt(input: {
         .filter(Boolean)
         .join('\n')
     : 'None yet: keep it friendly and simple.';
-  // The main offer's words, for the conversation's messages; never for a public comment, and Reconnect waits.
-  const o = OFFER_KINDS.has(input.kind) ? (input.offer ?? null) : null;
+  // The main offer's words, for the conversation's messages; a public comment gets only its angle (decision 144), and
+  // Reconnect waits.
+  const angle = ANGLE_KINDS.has(input.kind);
+  const o = OFFER_KINDS.has(input.kind) || angle ? (input.offer ?? null) : null;
   const offer = o
     ? [
         o.line ? `The offer: ${o.line}` : null,
         o.outcome ? `The outcome, in a few words: ${o.outcome}` : null,
-        o.guarantee
+        o.guarantee && !angle
           ? `The guarantee, only when they ask whether there is one: ${o.guarantee}`
           : null,
         o.method.length ? `How it works:\n${o.method.map((m) => `- ${m}`).join('\n')}` : null,
-        o.proof.length ? `Real results:\n${o.proof.map((r) => `- ${r}`).join('\n')}` : null,
-        o.price ? `The price, only when they ask: ${o.price}` : null,
+        o.proof.length && !angle
+          ? `Real results:\n${o.proof.map((r) => `- ${r}`).join('\n')}`
+          : null,
+        o.price && !angle ? `The price, only when they ask: ${o.price}` : null,
       ]
         .filter(Boolean)
         .join('\n')
