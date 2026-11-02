@@ -180,6 +180,20 @@ export function newQuestion(type: QuestionType): QuestionInput {
   } as QuestionInput;
 }
 
+/**
+ * A single checkbox: a yes or no shown as one box to check. It starts as the one most forms want, an agreement
+ * they must check, and the business rewords it or makes it optional.
+ */
+export function newSingleCheckbox(): QuestionInput {
+  const question = newQuestion('yes_no');
+  return {
+    ...question,
+    title: 'I agree to the terms',
+    required: true,
+    config: { ...(question.config as Record<string, unknown>), display: 'checkbox' },
+  } as QuestionInput;
+}
+
 function startingConfig(type: QuestionType): Record<string, unknown> {
   if (type === 'choice' || type === 'checkboxes')
     return {

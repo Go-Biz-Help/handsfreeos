@@ -13,7 +13,7 @@ import {
   POLL_MAX_SECONDS,
   POLL_MIN_SECONDS,
   POLL_WORDS,
-  QUESTION_LABELS,
+  questionKindLabel,
   SLIDE_WORDS,
   targetAccepts,
   VIDEO_HOST_NAMES,
@@ -77,7 +77,7 @@ export function QuestionSettings({
     <div className="space-y-4" data-testid="question-settings">
       <Card className="space-y-4 p-4">
         <p className="text-[12px] font-medium uppercase tracking-wide text-text-3">
-          {QUESTION_LABELS[question.type]}
+          {questionKindLabel(question)}
         </p>
         <Field label="What does it ask?" htmlFor="q-title">
           <Input
@@ -124,6 +124,10 @@ export function QuestionSettings({
           readOnly={readOnly}
           quiz={definition.mode === 'quiz'}
         />
+      ) : null}
+
+      {question.type === 'yes_no' && !poll ? (
+        <YesNoLook config={config} patchConfig={patchConfig} readOnly={readOnly} />
       ) : null}
 
       {question.type === 'content' ? (
@@ -280,6 +284,43 @@ export function QuestionSettings({
         <WhereItGoes question={question} patch={patch} catalogs={catalogs} readOnly={readOnly} />
       ) : null}
     </div>
+  );
+}
+
+/** A yes or no: Yes and No buttons, or one box to check ("I agree to the terms"). */
+function YesNoLook({
+  config,
+  patchConfig,
+  readOnly,
+}: {
+  config: Record<string, unknown>;
+  patchConfig: (fields: Record<string, unknown>) => void;
+  readOnly: boolean;
+}) {
+  const checkbox = config.display === 'checkbox';
+  return (
+    <Card className="p-4">
+      <Field
+        label="How they answer"
+        htmlFor="q-yes-no-look"
+        hint={
+          checkbox
+            ? 'The question is the words beside the box. Checked is a yes. If it must be answered, they can’t send the form without checking it.'
+            : 'A Yes and a No button. Pick one box to check for an agreement, like I agree to the terms.'
+        }
+      >
+        <Select
+          id="q-yes-no-look"
+          value={checkbox ? 'checkbox' : 'buttons'}
+          disabled={readOnly}
+          onChange={(e) => patchConfig({ display: e.target.value })}
+          data-testid="question-yes-no-look"
+        >
+          <option value="buttons">Yes and No buttons</option>
+          <option value="checkbox">One box to check</option>
+        </Select>
+      </Field>
+    </Card>
   );
 }
 
