@@ -323,7 +323,7 @@ export const watchDue = (state: Pick<AutoState, 'watchAt'>, now: number): boolea
   (state.watchAt ?? 0) <= now;
 
 /**
- * Someone on the list, by what they're on it for. A step tried again (decision 143) is a new one each time it's put
+ * Someone on the list, by what they're on it for. A step tried again (decision 144) is a new one each time it's put
  * back, so it goes once more though it was tried today.
  */
 export const itemKey = (

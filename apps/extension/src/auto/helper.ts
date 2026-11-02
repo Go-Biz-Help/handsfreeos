@@ -113,7 +113,7 @@ async function waysFor(
 }
 
 /**
- * A report's helper part that looked nowhere, and why when it didn't (decision 143): the day's looks used, the page
+ * A report's helper part that looked nowhere, and why when it didn't (decision 144): the day's looks used, the page
  * unread, the AI not asked or HandsFreeOS not answering, with HandsFreeOS's words for the last two (`said`).
  */
 const notLooked = (
@@ -296,7 +296,7 @@ type Went = {
   readonly need?: true;
   /** Worth the helper's look though it isn't handed over (a like it couldn't press). */
   readonly look?: true;
-  /** Found done already (connected, asked): nothing's left to do, so no failure to report (decision 143). */
+  /** Found done already (connected, asked): nothing's left to do, so no failure to report (decision 144). */
   readonly skip?: true;
   readonly helper?: ProblemHelper;
 };
@@ -362,7 +362,7 @@ export async function helpAfter<O extends object>(at: {
     }
   }
   let reportId: string | null = null;
-  // Every step that didn't go is reported, but one found done already (decision 143), and every one the helper was in.
+  // Every step that didn't go is reported, but one found done already (decision 144), and every one the helper was in.
   if (went(outcome) && ((!outcome.done && !outcome.skip) || outcome.helper))
     reportId = await reporter(at.tab, at.hfos, {
       businessId: at.businessId,

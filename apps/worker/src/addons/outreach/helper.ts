@@ -55,7 +55,7 @@ export const helperLook: AddonWorkerAction<HelperLookInput> = {
       return { ...checkedHelperAnswer(value, input), asked: true };
     } catch (e) {
       if (!(e instanceof AiAskError)) throw e;
-      // Why, in HandsFreeOS's own words (its limit, the balance, busy), for the step's report (decision 143).
+      // Why, in HandsFreeOS's own words (its limit, the balance, busy), for the step's report (decision 144).
       return { ...HELPER_NOT_ASKED, said: e.message.slice(0, HELPER_SAID_MOST) };
     }
   },

@@ -171,7 +171,7 @@ const ONLINE_COMMANDS = [
   'outreach.demo.outcome',
   // A group or a person given to a teammate, on a group's page and the person menu (decision 107).
   'outreach.owner.move',
-  // Retry, and Retry all, on what didn't go, from Steps it needs you for (decision 132), and on any step (143).
+  // Retry, and Retry all, on what didn't go, from Steps it needs you for (decision 132), and on any step (144).
   'outreach.send.retry',
   'outreach.need.retry',
   // Feedback on the AI teammate's replies (HANDSFREEOS_AI_FEEDBACK_IMPLEMENTATION_PLAN.md), in a conversation and the

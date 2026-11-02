@@ -15,7 +15,7 @@
  *   person under their own hold, it says how long that lasts;
  * - **Steps it needs you for**: a step the extension couldn't do, in its network's words, to do there (**I did it**)
  *   or **Let it go**; **Open** goes to their page on that network (or the post, or the chat), and a message that
- *   didn't go has its words to copy. Every step that can be tried again has **Retry** (decisions 132 and 143), with
+ *   didn't go has its words to copy. Every step that can be tried again has **Retry** (decisions 132 and 144), with
  *   **Retry all** over two or more: a message goes again a few minutes after the one before, and any other step goes
  *   back on Today's list for the extension's next go;
  * - **Friend requests to decide**: requests from the last two weeks the AI isn't sure of (decision 136), or that didn't
@@ -295,7 +295,7 @@ function ApproveAll({
 
 /**
  * Tries a step handed over again, or every one (`needIds` null): a message a few minutes after the one before, any
- * other step back on Today's list (decision 143).
+ * other step back on Today's list (decision 144).
  */
 async function retry(workspaceId: string, needIds: string[] | null): Promise<void> {
   const { retried, passed } = unwrap(
@@ -308,7 +308,7 @@ async function retry(workspaceId: string, needIds: string[] | null): Promise<voi
   else toast.info(said);
 }
 
-/** Retry all, over two or more steps that can be tried again (decisions 132 and 143). */
+/** Retry all, over two or more steps that can be tried again (decisions 132 and 144). */
 function RetryAll({ workspaceId, items }: { workspaceId: string; items: readonly WaitingItem[] }) {
   const { busy, act } = useAct();
   const retryable = items.filter((item) => item.kind === 'need' && needRetryable(item.need));

@@ -303,7 +303,7 @@ export function useWaitingProps(): React.ComponentProps<typeof WaitingBody> {
         failed(e);
       }
     },
-    // Retry, and Retry all, on any step (decisions 132 and 143): with signal, as it reaches them again.
+    // Retry, and Retry all, on any step (decisions 132 and 144): with signal, as it reaches them again.
     onRetrySends: async (needIds) => {
       try {
         const { retried, passed } = (await retrySteps(ws, needIds)).output;
@@ -372,7 +372,7 @@ export function WaitingBody({
   onSkip: (send: PhoneSend) => void;
   onOkAll: (sends: { sendId: string }[]) => void;
   onClear: (need: Need, how: NeedClear) => void;
-  /** Retry one step handed over, or every one (null): a message a few minutes after the one before (decision 143). */
+  /** Retry one step handed over, or every one (null): a message a few minutes after the one before (decision 144). */
   onRetrySends?: (needIds: string[] | null) => void;
   onLeave: (request: Request) => void;
   /** Confirm or Delete on a request to decide (decision 136), where the extension answers them. */
@@ -827,7 +827,7 @@ function NeedCard({
   need: Need;
   when: string;
   onClear: (how: NeedClear) => void;
-  /** Retry, on a step that can be tried again (decisions 132 and 143). */
+  /** Retry, on a step that can be tried again (decisions 132 and 144). */
   onRetry?: () => void;
 }) {
   // Its profile's network, as HandsFreeOS says: its words, its label and its links are that network's.

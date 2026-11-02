@@ -1,4 +1,4 @@
--- Retry all on every step handed over (docs/outreach.md, decision 143).
+-- Retry all on every step handed over (docs/outreach.md, decision 144).
 --
 -- Social Outreach's Steps it needs you for had Retry only on a message or a
 -- comment that didn't go. Now any step can be tried again: a friend or
@@ -19,7 +19,7 @@ alter table addon_outreach.needs add column retry_at timestamptz;
 
 -- How many needs each person has shown, and the newest, as
 -- private.outreach_needs_waiting, less those put back on Today's list since
--- p_retry_since (decision 143).
+-- p_retry_since (decision 144).
 create or replace function private.outreach_needs_counted(
   p_ws uuid, p_users uuid[], p_since timestamptz, p_retry_since timestamptz)
 returns table (user_id uuid, n int, newest timestamptz)

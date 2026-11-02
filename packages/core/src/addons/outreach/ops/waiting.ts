@@ -105,7 +105,7 @@ async function sendAndNeedKinds(
           group by user_id`,
     ),
     // A need names who and why: a colleague's are counted on the database, never read (decision 41). One put back on
-    // Today's list lately isn't waiting (decision 143).
+    // Today's list lately isn't waiting (decision 144).
     rows<{ user_id: string; n: number; newest: Date | string | null }>(
       ctx.tx,
       sql`select user_id, n, newest

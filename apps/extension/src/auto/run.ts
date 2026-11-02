@@ -250,7 +250,7 @@ type Outcome =
       readonly need?: true;
       /** Worth the AI helper's look though it isn't handed over: a like it couldn't press (decision 142). */
       readonly look?: true;
-      /** Found done already (connected, asked, friends already): nothing's left to do, so it's no failure (decision 143). */
+      /** Found done already (connected, asked, friends already): nothing's left to do, so it's no failure (decision 144). */
       readonly skip?: true;
       /** What the AI helper did inside the step, for its report (decision 142). */
       readonly helper?: ProblemHelper;
@@ -365,7 +365,7 @@ async function onProfile(item: TodayListItem, job: AutoJob, businessId: string):
   if (friendship === plan.after)
     return { done: false, line: `${item.name}: done already`, skip: true };
   // Facebook's buttons didn't say where things stand: maybe a new layout, so the AI helper looks and the step is the
-  // person's (decision 143). Anywhere else Facebook says, there's nothing to do.
+  // person's (decision 144). Anywhere else Facebook says, there's nothing to do.
   if (friendship === 'unknown')
     return {
       done: false,
@@ -1141,7 +1141,7 @@ async function go(): Promise<void> {
     return void (await say('Sign in to HandsFreeOS in the panel, and the extension carries on.'));
   }
   const { settings, timezone } = await automationOf(to.businessId);
-  // Updated since it last went: what was handed over before is tried again, once (decision 143).
+  // Updated since it last went: what was handed over before is tried again, once (decision 144).
   await retryAfterUpdate(to.businessId);
   let state = await stateNow();
   const at = Date.now();
@@ -1494,7 +1494,7 @@ async function workNext(
       ? needOf(item, outcome.line, businessId, helped.reportId)
       : null;
   if (need) void noteNeed(need);
-  // A step tried again that it found done already is cleared (decision 143).
+  // A step tried again that it found done already is cleared (decision 144).
   if (work.do === 'step') void clearRetried(item, outcome, businessId);
   // The feed of today's steps in HandsFreeOS. A stop on a warning isn't one: HandsFreeOS writes that line itself.
   void feed(outcome.done ? 'done' : 'passed', outcome.line);

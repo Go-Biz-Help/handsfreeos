@@ -941,7 +941,7 @@ export const needs = addonOutreach.table(
     /** The problem report it was sent with (20261027021600): a label, as reports go after 30 days. */
     reportId: uuid('report_id'),
     /**
-     * When the person put it back on Today's list with Retry (20261027021800, decision 143): off their list meanwhile,
+     * When the person put it back on Today's list with Retry (20261027021800, decision 144): off their list meanwhile,
      * for `NEED_RETRY_DAYS` at most. Null once it's handed back, and for one never put back.
      */
     retryAt: ts('retry_at'),

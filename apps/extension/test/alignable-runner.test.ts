@@ -671,7 +671,7 @@ describe('a connection request on Alignable', () => {
     expect(world.noted).toEqual([]);
   });
 
-  it('lets the AI helper look at their page as Connect left it, before it’s opened again (decision 143)', async () => {
+  it('lets the AI helper look at their page as Connect left it, before it’s opened again (decision 144)', async () => {
     // Their page after the press, where a box asking one more thing would show; opened again, Alignable shows another.
     let opens = 0;
     world.pages = () => ({

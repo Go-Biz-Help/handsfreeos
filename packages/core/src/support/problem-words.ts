@@ -112,7 +112,7 @@ export const DESK_HELPER_WORDS = {
   heading: 'What the AI helper found',
   notAsked:
     'The AI helper couldn’t look this time (its daily limit, the business’s AI balance, or the AI was busy).',
-  /** Why it didn't look, as the computer said (decision 143); `notAsked` for a report from before it. */
+  /** Why it didn't look, as the computer said (decision 144); `notAsked` for a report from before it. */
   notLooked: {
     looks_used: 'The AI helper didn’t look: this computer’s looks for the day were all used.',
     no_view: 'The AI helper didn’t look: the page couldn’t be read for it.',

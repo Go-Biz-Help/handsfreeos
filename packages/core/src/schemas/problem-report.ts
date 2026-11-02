@@ -57,7 +57,7 @@ export const HELPER_MOVES = ['click', 'scroll', 'escape', 'wait', 'press'] as co
 export type HelperMove = (typeof HELPER_MOVES)[number];
 
 /**
- * Why it didn't look at all (decision 143): this computer's looks for the day were used, the page couldn't be read for
+ * Why it didn't look at all (decision 144): this computer's looks for the day were used, the page couldn't be read for
  * it, the AI wasn't asked (its limit, the business's balance, busy: `said` has HandsFreeOS's words), or HandsFreeOS
  * didn't answer (`said` has what went wrong).
  */

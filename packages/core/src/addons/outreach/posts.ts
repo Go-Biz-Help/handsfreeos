@@ -321,10 +321,15 @@ export type PostCheckPlaybook = Pick<PlaybookDetails, 'offer' | 'audience' | 'si
 
 export const POST_CHECK_ASK = 'Is this post worth a comment from the owner?';
 
+/**
+ * What the post check is told it is: a post is good only when it's about the owner's own field (decision 143), what
+ * their business and its offer do, never the trade of who a playbook is for; a post about that trade is `fits`.
+ */
 export const POST_CHECK_SYSTEM = [
-  'You help a small business owner find posts in Facebook groups where a comment from them, as someone who knows their field, adds something.',
-  'A post is good only when it is about a playbook’s topic: its problem, what the business’s offer helps with, or running and growing the kind of business the playbook is for. Someone asking for help, a recommendation or advice the offer answers; someone struggling with or complaining about the problem; someone asking how others handle it, or sharing a tip or a question about it. The owner’s know-how has to have something real to add.',
-  'A post that only shows the writer’s own work or business (a job they finished, a photo of their work, a win, a milestone, an ad for their business), with nothing in it about the topic, is not good, however well its writer fits a playbook: say fits instead.',
+  'You help a small business owner find posts in Facebook groups where a comment from them, as someone who knows their own field, adds something.',
+  'The owner’s field is what their own business does and what its offer helps with, as <business_profile> and each playbook’s offer and problem say. A playbook’s niche and who it is for say whose posts to look at, never the owner’s field: when a playbook is for roofers, a roofer is someone the owner helps, not someone in the owner’s trade.',
+  'A post is good only when it is about the owner’s own field: someone talking about, asking about or struggling with what the business does or what its offer helps with. Someone asking for help, a recommendation or advice in that field; someone complaining about the playbook’s problem; someone asking how others handle it, or sharing a tip or a question about it. The owner’s know-how has to have something real to add.',
+  'A post about the writer’s own trade or work, when that isn’t the owner’s field, is not good, however well its writer fits a playbook: how to do the work or a tip for their own customers, a job they finished, a photo of their work, a win, a milestone, an ad for their business. Running a business counts only where the post is about the owner’s field. Say fits instead.',
   'It is not good either when it is someone selling the same thing as the business, an ad, a rant with nothing to say back to, news, a joke or meme, someone else’s content shared, about grief, illness or trouble, or about something else entirely. When unsure, say not good.',
   'Say strong only for a good post whose writer is asking, now, for exactly what the business offers, ready to hire or buy: “Looking for a CRM for my crew, who do you use?”. A general question, or one the offer only touches on, is not strong. When unsure, say not strong.',
   'Say fits when the writer themselves looks like someone a playbook is for, whatever the post is: an owner of such a business posting about their own work, even an ad for it, fits. Someone selling the same thing as the business, or anything a playbook says to skip, never fits. When unsure, say not fits.',
@@ -585,6 +590,11 @@ export function postLooks(
 
 export function postCheckPrompt(input: {
   readonly business: string;
+  /**
+   * The business profile in a few lines (`briefFromProfile`, decision 143): what the business does, so the check knows
+   * the owner's own field. Left out or null, the playbooks' offers say it alone.
+   */
+  readonly profile?: string | null;
   readonly group: string | null;
   readonly text: string;
   readonly playbooks: readonly PostCheckPlaybook[];
@@ -608,6 +618,7 @@ export function postCheckPrompt(input: {
     : 'None yet.';
   return [
     `<business>${quoteData(input.business)}</business>`,
+    `<business_profile>\n${quoteData(input.profile?.trim() || 'Nothing written yet.')}\n</business_profile>`,
     `<playbooks>\n${quoteData(playbooks)}\n</playbooks>`,
     input.group ? `<group>${quoteData(input.group)}</group>` : null,
     `<post>\n${quoteData(input.text)}\n</post>`,

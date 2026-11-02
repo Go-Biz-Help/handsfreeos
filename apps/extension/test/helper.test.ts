@@ -288,7 +288,7 @@ describe('the helper’s loop', () => {
     });
   });
 
-  it('reports without a look once the AI can’t be asked, and says why (decision 143)', async () => {
+  it('reports without a look once the AI can’t be asked, and says why (decision 144)', async () => {
     const { tab, hfos } = fakes([
       {
         verdict: 'unclear',
@@ -329,7 +329,7 @@ describe('the helper’s loop', () => {
     ).toMatchObject({ looks: 0, notLooked: 'no_view' });
   });
 
-  it('reports nothing for a step found done already (decision 143)', async () => {
+  it('reports nothing for a step found done already (decision 144)', async () => {
     const { tab, hfos, hfosAsks } = fakes([]);
     reports.sent.length = 0;
     const helped = await helpAfter({

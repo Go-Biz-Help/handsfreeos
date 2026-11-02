@@ -284,7 +284,7 @@ type Outcome =
       readonly need?: true;
       /** Worth the AI helper's look though it isn't handed over: a like it couldn't press (decision 142). */
       readonly look?: true;
-      /** Found done already (connected, asked, friends already): nothing's left to do, so it's no failure (decision 143). */
+      /** Found done already (connected, asked, friends already): nothing's left to do, so it's no failure (decision 144). */
       readonly skip?: true;
       /** What the AI helper did inside the step, for its report (decision 142). */
       readonly helper?: ProblemHelper;
@@ -1161,7 +1161,7 @@ async function go(): Promise<void> {
     return closeWindow();
   }
   void follow(() => void tick()).catch(() => undefined);
-  // Updated since it last went: what was handed over before is tried again, once (decision 143).
+  // Updated since it last went: what was handed over before is tried again, once (decision 144).
   await retryAfterUpdate(to.businessId);
   const { settings, timezone } = found;
   const choices = settings.networks.linkedin;
@@ -1495,7 +1495,7 @@ async function workNext(
       ? needOf(item, outcome.line, businessId, helped.reportId)
       : null;
   if (need) void noteNeed(need);
-  // A step tried again that it found done already is cleared (decision 143).
+  // A step tried again that it found done already is cleared (decision 144).
   if (work.do === 'step') void clearRetried(item, outcome, businessId);
   void feed(outcome.done ? 'done' : 'passed', `${NAME}: ${outcome.line}`);
   if (stopAsked) {

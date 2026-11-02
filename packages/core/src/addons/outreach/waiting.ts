@@ -167,7 +167,7 @@ export const NeedClearOutput = z.object({
 export const NEED_RETRY_MOST = 100;
 
 /**
- * Retry, or Retry all, on steps handed to the person (decisions 132 and 143), from the web, the phone, the Assistant,
+ * Retry, or Retry all, on steps handed to the person (decisions 132 and 144), from the web, the phone, the Assistant,
  * and the extension on its own after an update: the steps by their ids, or with none named every one that can be.
  */
 export const NeedRetryInput = z.object({
@@ -175,7 +175,7 @@ export const NeedRetryInput = z.object({
   needIds: z.array(z.uuid()).min(1).max(NEED_RETRY_MOST).nullable().default(null),
   /**
    * Whether messages and comments that didn't go are tried again too. False for the extension's own Retry all after an
-   * update (decision 143): one that went after all would go twice, so those wait for the person's press.
+   * update (decision 144): one that went after all would go twice, so those wait for the person's press.
    */
   sends: z.boolean().default(true),
 });

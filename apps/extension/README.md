@@ -1135,7 +1135,7 @@ list, the reading goes on. Nothing in HandsFreeOS changes for it.
 ### Retry all, and again after each update (0.123.0)
 
 The owner, 1 Nov 2026: "any failures we should have a retry all option because we should be fixing those issues after
-updates" (docs/outreach.md, decision 143). Retry and Retry all on Steps it needs you for now take any step, not only a
+updates" (docs/outreach.md, decision 144). Retry and Retry all on Steps it needs you for now take any step, not only a
 message or comment that didn't go (`outreach.need.retry`). A request, a confirm, a like before a request, or a comment
 the extension writes itself goes back on Today's list with `retry` on its item. From 0.123.0:
 

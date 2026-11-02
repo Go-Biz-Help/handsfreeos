@@ -1,5 +1,5 @@
 /**
- * Steps tried again (docs/outreach.md, decision 143). The person presses Retry or Retry all on Steps it needs you for,
+ * Steps tried again (docs/outreach.md, decision 144). The person presses Retry or Retry all on Steps it needs you for,
  * and a step goes back on Today's list (`retry` on its item): every runner tries it once more for each time it's put
  * back, though it tried it today (./plan.ts `itemKey`).
  *

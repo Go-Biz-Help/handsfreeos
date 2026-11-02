@@ -134,7 +134,7 @@ export function needClearedWords(how: NeedClear, state: NeedState): string {
 }
 
 /**
- * Retry, and Retry all, on a step handed to the person (decisions 132 and 143): a message or comment that didn't go goes
+ * Retry, and Retry all, on a step handed to the person (decisions 132 and 144): a message or comment that didn't go goes
  * again, OK'd as it was, each a few minutes after the one before; any other step (a friend or connection request, a
  * confirm, a like before a request, a comment the extension writes itself) goes back on Today's list for the
  * extension's next go, ahead of new ones, and the list does them one at a time.
@@ -143,15 +143,15 @@ export const NEED_RETRY = { one: 'Retry', all: 'Retry all' } as const;
 /** The least and most minutes between one send tried again and the next: a person's pace, at random. */
 export const RETRY_GAP_MINUTES = { least: 3, most: 7 } as const;
 /**
- * A step put back on Today's list (decision 143) stays on it this long at most: off Steps it needs you for meanwhile.
+ * A step put back on Today's list (decision 144) stays on it this long at most: off Steps it needs you for meanwhile.
  * Neither done nor handed back by then, it waits for the person again.
  */
 export const NEED_RETRY_DAYS = 3;
 
-/** Why a step tried again is on Today's list (decision 143), first among its reasons. */
+/** Why a step tried again is on Today's list (decision 144), first among its reasons. */
 export const RETRIED_WHY = 'Trying again: it didn’t go before';
 
-/** The steps Today's list takes back (decision 143): all but a message, which goes again through its send. */
+/** The steps Today's list takes back (decision 144): all but a message, which goes again through its send. */
 export const LIST_RETRY_STEPS = ['confirm', 'friend_request', 'warm_up', 'comment'] as const;
 
 /**

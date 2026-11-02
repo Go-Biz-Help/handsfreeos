@@ -1900,7 +1900,7 @@ export const today = defineAddonQuery(outreachAddon, {
         );
     }
 
-    // Steps the person tried again from Steps it needs you for (decision 143): first of their kind, within today's
+    // Steps the person tried again from Steps it needs you for (decision 144): first of their kind, within today's
     // limits, with the rest of a limit's kinds after them as far as it goes. A request or a like before one waits
     // while new requests are held; one to someone on Don't pitch, or a comment on a post gone, isn't offered.
     const retried = await rows<{

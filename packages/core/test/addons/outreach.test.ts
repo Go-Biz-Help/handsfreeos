@@ -103,7 +103,7 @@ describe('Social Outreach', () => {
         'outreach.friend.set',
         'outreach.friends.cancel_all',
         'outreach.helpful.ok',
-        // Retry and Retry all on any step handed over (decision 143): a message goes again, a request goes back on Today.
+        // Retry and Retry all on any step handed over (decision 144): a message goes again, a request goes back on Today.
         'outreach.need.retry',
         'outreach.partner.mark',
         'outreach.partner.potential',

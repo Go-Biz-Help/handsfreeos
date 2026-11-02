@@ -169,7 +169,7 @@ describe('the words', () => {
     expect(needClearedWords('done', 'open')).toMatch(/still waits for you/);
   });
 
-  it('offer Retry on every step that can go again, and say what it did (decisions 132 and 143)', () => {
+  it('offer Retry on every step that can go again, and say what it did (decisions 132 and 144)', () => {
     expect(needRetryable({ step: 'message', sendId: 'a' })).toBe(true);
     expect(needRetryable({ step: 'comment', sendId: 'a' })).toBe(true);
     // A message whose words are gone has nothing to go again with.
@@ -186,7 +186,7 @@ describe('the words', () => {
     expect(retriedWords(0, 2)).toMatch(/^Nothing to try again\. 2 weren’t tried again: /);
   });
 
-  it('put steps tried again first on Today, within the day’s limits (decision 143)', () => {
+  it('put steps tried again first on Today, within the day’s limits (decision 144)', () => {
     type Row = {
       kind: 'friend_request' | 'warm_up' | 'confirm';
       name: string;

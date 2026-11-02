@@ -666,7 +666,7 @@ export const PHONE_COMMANDS = {
   'outreach.messages.edit': command(ONLINE, MessageEditInput, ReadinessOutput),
   'outreach.messages.forget': command(ONLINE, MessageForgetInput, ReadinessOutput),
   'outreach.need.clear': command(ANYTIME, NeedClearInput, NeedClearOutput),
-  // Retry, and Retry all, on any step handed over (decision 143): with signal, as it reaches them again.
+  // Retry, and Retry all, on any step handed over (decision 144): with signal, as it reaches them again.
   'outreach.need.retry': command(ONLINE, NeedRetryInput, NeedRetryOutput),
   // Where someone stands on the Partners list (decision 81): with signal, as the pipeline's marks are.
   // An owner or admin gives a group or a person to a teammate (decision 107): with signal, as the person menu is.
@@ -686,7 +686,7 @@ export const PHONE_COMMANDS = {
   'outreach.request.answer': command(ANYTIME, RequestAnswerInput, RequestAnswerOutput),
   'outreach.request.set_aside': command(ANYTIME, RequestSetAsideInput, RequestSetAsideOutput),
   'outreach.send.approve': command(FRESH, SendApproveInput, SendApproveOutput),
-  // Retry, and Retry all, on what didn't go (decision 132), from builds before decision 143's: with signal.
+  // Retry, and Retry all, on what didn't go (decision 132), from builds before decision 144's: with signal.
   'outreach.send.retry': command(ONLINE, SendRetryInput, SendRetryOutput),
   'outreach.send.skip': command(ANYTIME, SendSkipInput, SendSkipOutput),
   // Where someone stands, on the Pipeline screen (decision 47): with signal, as the person menu's marks are.

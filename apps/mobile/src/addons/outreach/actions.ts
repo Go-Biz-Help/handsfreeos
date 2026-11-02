@@ -65,7 +65,7 @@ export const clearNeed = (workspaceId: string, needId: string, how: NeedClear) =
   change('outreach.need.clear', { workspaceId, needId, how });
 
 /**
- * Retry, or Retry all (`needIds` null), on steps handed over (decisions 132 and 143): with signal, as it reaches them
+ * Retry, or Retry all (`needIds` null), on steps handed over (decisions 132 and 144): with signal, as it reaches them
  * again. A message goes a few minutes after the one before; any other step goes back on Today's list.
  */
 export const retrySteps = (workspaceId: string, needIds: string[] | null) =>

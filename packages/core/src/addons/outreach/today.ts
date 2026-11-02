@@ -277,7 +277,7 @@ export const TodayItem = z.object({
    */
   requests: z.boolean().optional(),
   /**
-   * A step tried again from Steps it needs you for (Retry, decision 143): the step handed over, and when it was put
+   * A step tried again from Steps it needs you for (Retry, decision 144): the step handed over, and when it was put
    * back. The extension tries it once more for each time it's put back, though it tried it today; one it finds done
    * already it clears. Left out otherwise, and by servers from before it.
    */
@@ -433,7 +433,7 @@ export function leftToday(limits: TodayOutput['limits'], kind: TodayKind): numbe
 }
 
 /**
- * The list with the steps the person tried again from Steps it needs you for (decision 143) first: of the same step for
+ * The list with the steps the person tried again from Steps it needs you for (decision 144) first: of the same step for
  * the same person or post, the one tried again alone; of each daily limit, those tried again first, and the rest of
  * that limit's kinds after them as far as it goes. A step tried again past its limit waits for another day, and the one
  * already on the list stays.
@@ -598,16 +598,16 @@ export const COMMENT_WORDS_MOST: Readonly<Record<Platform, number | null>> = {
 
 /**
  * How a comment is written where comments go through `sends` and the extension posts them once OK'd (decision 92), as
- * a peer who knows the field (decision 141): Instagram's short, with no link or hashtag; Alignable's and LinkedIn's
- * (decision 102) a useful point from what the business knows, with no link.
+ * a peer who knows the owner's own field (decisions 141 and 143): Instagram's short, with no link or hashtag;
+ * Alignable's and LinkedIn's (decision 102) a useful point from what the business knows, with no link.
  */
 const COMMENT_RULES: Readonly<Record<Platform, string | null>> = {
   facebook: null,
   linkedin:
-    'A comment on LinkedIn reads like a peer who knows the field: one specific, useful point that builds on the post, from what the business knows. No link and no web address.',
-  instagram: `A comment on Instagram is under ${COMMENT_WORDS_MOST.instagram} words, with no link, no web address and no hashtags: one specific, useful point that builds on the post, the way a peer who knows the field would say it.`,
+    'A comment on LinkedIn reads like a peer who knows the owner’s own field: one specific, useful point from that field that builds on the post, from what the business knows. No link and no web address.',
+  instagram: `A comment on Instagram is under ${COMMENT_WORDS_MOST.instagram} words, with no link, no web address and no hashtags: one specific, useful point from the owner’s own field that builds on the post, the way a peer who knows that field would say it.`,
   alignable:
-    'A comment on Alignable reads like a peer who knows the field: one specific, useful point that builds on the post, from what the business knows. No link and no web address.',
+    'A comment on Alignable reads like a peer who knows the owner’s own field: one specific, useful point from that field that builds on the post, from what the business knows. No link and no web address.',
 };
 
 const DRAFT_RULES = [
@@ -697,10 +697,10 @@ const TASK: Record<CustomerDraftKind, string> = {
     'It’s their birthday today. Write the owner’s short, warm happy birthday, one or two lines, in the owner’s own voice, picking up something real from the chat or their pages when there is one. Nothing about the business: no pitch, no offer, no price, no link, no ask.',
   new_job:
     'They just started a new job, as the line below says. Write the owner’s short, warm congratulations, one or two lines, naming the new role or place when the line says it, and wishing them well in it. Nothing about the business: no pitch, no offer, no price, no link, no ask.',
-  // As someone who knows the field (decision 141): a real point, never stock praise, and what the business does only
-  // when they asked for help with it.
+  // As someone who knows the owner's own field (decisions 141 and 143), never the writer's trade: a real point, never
+  // stock praise, what the business does only when they asked for help with it, and nothing when there's no point.
   comment:
-    'They posted this in a Facebook group. Write the owner’s public comment under it, as someone who knows this field well talking to a peer: add one specific, useful point that builds on what they said, such as a tip, what works, a common mistake or a rule of thumb, from what the business knows and the playbook. When they asked for help with what the business does, the owner may also say in a few words that it’s what they do, with no hard pitch and no link unless they asked for one. Never open with praise or thanks (“Great post”, “Love this”, “So true”, “Thanks for sharing”), never repeat their post back to them, and never sound like a fan, a brand or an ad. Never invent experience, numbers or results the business hasn’t said: a tip anyone in the field would know is fine. Under 50 words. No questions about things the post already says.',
+    'They posted this in a Facebook group. Write the owner’s public comment under it, from the owner’s own field: what their business does and what its offer helps with, as the business profile and the playbook’s offer say. The playbook’s niche and who it is for say who the owner helps, never what the owner knows: never give advice about the writer’s own trade or work (how to do it, their tools, their materials, their customers’ questions) unless it is the owner’s field too. Talking to them as a peer, add one specific, useful point from the owner’s field that builds on what they said, such as a tip, what works, a common mistake or a rule of thumb. When they asked for help with what the business does, the owner may also say in a few words that it’s what they do, with no hard pitch and no link unless they asked for one. When the owner’s field has nothing real to add to this post, write no drafts. Never open with praise or thanks (“Great post”, “Love this”, “So true”, “Thanks for sharing”), never repeat their post back to them, and never sound like a fan, a brand or an ad. Never invent experience, numbers or results the business hasn’t said: a tip anyone in the owner’s field would know is fine. Under 50 words. No questions about things the post already says.',
   warm_lead:
     'They commented on the owner’s own helpful post in a Facebook group. Write the owner’s public reply to their comment: thank them by name, answer or add to what they said, and ask one light question back. No pitch, no link. Under 40 words.',
   group_reply:

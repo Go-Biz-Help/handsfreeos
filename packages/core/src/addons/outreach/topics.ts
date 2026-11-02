@@ -1,8 +1,8 @@
 /**
  * The AI's words for finding people by topic (docs/outreach.md, decision 92): for each network a customers' playbook
- * runs on, the words its looks go with, written once around the playbook's topic (decision 141): the problem the
- * business solves, what it helps with, and running and growing the kind of business it's for, so the posts found are
- * ones the owner's know-how adds to, not just posts by the people it's for.
+ * runs on, the words its looks go with, written once around the playbook's topic (decision 141) in the owner's own
+ * field (decision 143): the problem the business solves and what it helps with, never the trade of the people it's
+ * for, so the posts found are ones the owner's know-how adds to, not just posts by the people it's for.
  *
  * - **Facebook:** short phrases someone writes in a post about the topic (`facebookSearches`, data version 9), for its
  *   post search.
@@ -118,9 +118,9 @@ export const FIND_WORDS_ASK = 'Write the words to look with.';
 
 export const FIND_WORDS_SYSTEM = [
   'You write the words a small business’s outreach finds posts and customers with on social media: phrases to search Facebook’s posts with, hashtags to look at on Instagram, phrases to search LinkedIn’s posts with, and kinds of business to search for on Alignable.',
-  'The posts found get a comment from the owner as someone who knows the field, so write the hashtags and phrases around the playbook’s topic: the problem the business solves, what it helps with, and running and growing the kind of business it’s for. Find the posts where the people it’s for talk about that topic (ask for help with it, complain about it, share a tip on it), in their own words, never posts that only show their work. Never for the business itself.',
+  'The posts found get a comment from the owner as someone who knows their own field: what the business does and what its offer helps with, never the trade of the people it’s for (decision 143). So write the hashtags and phrases around the playbook’s topic in that field: the problem the business solves and what it helps with, as the people it’s for talk about it. Find the posts where they ask for help with it, complain about it or share a tip on it, in their own words, never posts about their own trade or work. Never for the business itself.',
   `Facebook: ${FIND_WORDS_ASKED.facebook.fewest} to ${FIND_WORDS_ASKED.facebook.most} phrases of 1 to ${POST_SEARCH_WORDS_MOST} words that someone writes in a post about the topic, the way people talk in Facebook groups, like “missed calls”, “anyone use a CRM” or “slow season”. Never a hashtag, and never the business’s own name.`,
-  `Instagram: ${FIND_WORDS_ASKED.instagram.fewest} to ${FIND_WORDS_ASKED.instagram.most} hashtags people post under about the topic, each one word in lower case with no # and no spaces, like roofingbusinesstips, contractormarketing or leadfollowup: most about the problem, what the business helps with and growing that kind of business, a few for who they are joined to the topic. At most three local ones made from the area, unless the business works with them online. Never the business’s own name or brand, and never hashtags everyone uses about anything, like love, instagood, photooftheday or smallbusiness.`,
+  `Instagram: ${FIND_WORDS_ASKED.instagram.fewest} to ${FIND_WORDS_ASKED.instagram.most} hashtags people post under about the topic, each one word in lower case with no # and no spaces, like contractormarketing, leadfollowup or missedcalls: most about the problem and what the business helps with, a few for who they are joined to the topic. At most three local ones made from the area, unless the business works with them online. Never the business’s own name or brand, and never hashtags everyone uses about anything, like love, instagood, photooftheday or smallbusiness.`,
   `LinkedIn: ${FIND_WORDS_ASKED.linkedin.fewest} to ${FIND_WORDS_ASKED.linkedin.most} phrases of 1 to ${POST_SEARCH_WORDS_MOST} words that someone writes in a post about the topic, like “missed calls”, “speed to lead” or “hiring a dispatcher”. Never a hashtag, and never the business’s own name.`,
   `Alignable: ${FIND_WORDS_ASKED.alignable.fewest} to ${FIND_WORDS_ASKED.alignable.most} kinds of business the people it’s for run, as Alignable names a business’s kind, like “Roofing Contractor” or “Property Management”.`,
   'Works online: true when the business works with these clients from anywhere (by phone, video or online), so where they are doesn’t matter; false when it serves them in person in its area. Judge it from the main offer, the playbook’s area and its niche.',

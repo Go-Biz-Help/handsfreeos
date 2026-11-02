@@ -126,7 +126,7 @@ describe('Copy for Claude', () => {
     expect(text).toContain('  - Clicked button "More"');
     expect(text).toContain('  - Pressed the step’s button menuitem "Add friend"');
     expect(problemForClaude(full)).not.toContain('AI helper');
-    // It didn't look at all: why, and HandsFreeOS's words (decision 143).
+    // It didn't look at all: why, and HandsFreeOS's words (decision 144).
     const busy = problemForClaude({
       ...full,
       helper: {

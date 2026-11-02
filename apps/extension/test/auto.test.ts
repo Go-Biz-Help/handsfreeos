@@ -109,7 +109,7 @@ describe('what it does next', () => {
       itemsLeft(list, ['friend_request', 'comment'], [itemKey(request)]).map((i) => i.name),
     ).toEqual(['Sam Carter']);
     expect(itemsLeft([item({ profileUrl: null })], all, [])).toEqual([]);
-    // Tried again from Steps it needs you for (decision 143): once more for each time it's put back, though it was
+    // Tried again from Steps it needs you for (decision 144): once more for each time it's put back, though it was
     // tried today.
     const back = {
       ...request,

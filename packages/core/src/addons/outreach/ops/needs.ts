@@ -21,7 +21,7 @@ import { needs, posts } from '../tables';
 const DAY = 86_400_000;
 
 /**
- * A step put back on Today's list since then (Retry, decision 143) is there still, and off Steps it needs you for:
+ * A step put back on Today's list since then (Retry, decision 144) is there still, and off Steps it needs you for:
  * `NEED_RETRY_DAYS` at most.
  */
 export const retrySince = (now: number): string =>
@@ -49,7 +49,7 @@ export interface NeedSeen {
  *
  * - the same step for the same person or post open already: it's seen again, with the newest why (and, for a message,
  *   the newest send); fresh again only when it had left the list (not seen for `NEED_SHOWN_DAYS`), so the person
- *   hears of it once more. One put back on Today's list (Retry, decision 143) that couldn't be done since is handed
+ *   hears of it once more. One put back on Today's list (Retry, decision 144) that couldn't be done since is handed
  *   back: on the list again, quietly, as the person heard of it before;
  * - the same let go within `NEED_QUIET_DAYS`: nothing is kept;
  * - else a new one, which the person hears of (`outreach.need.noted`).
