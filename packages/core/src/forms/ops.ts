@@ -600,8 +600,39 @@ function targetAtPath(root: unknown, path: readonly PropertyKey[]): string | nul
   return found;
 }
 
+export interface ApplyFormOptions {
+  /**
+   * For an editor: keep the spaces a person types at the start or end of a text. The parse trims every
+   * text, and the editor applies an op on each keystroke, so without this the space at the end of "Your "
+   * is gone before the next word can be typed. What's saved is still trimmed: the server applies the same
+   * ops without this.
+   */
+  readonly keepSpaces?: boolean;
+}
+
+/** The parsed form with each text put back as it was typed wherever the parse only trimmed it. */
+function keepTypedSpaces<T>(typed: unknown, parsed: T): T {
+  if (typeof parsed === 'string')
+    return (typeof typed === 'string' && typed.trim() === parsed ? typed : parsed) as T;
+  if (Array.isArray(parsed))
+    return parsed.map((v, i) =>
+      keepTypedSpaces(Array.isArray(typed) ? typed[i] : undefined, v),
+    ) as T;
+  if (isPlainObject(parsed)) {
+    const out: Record<string, unknown> = {};
+    for (const [k, v] of Object.entries(parsed))
+      out[k] = keepTypedSpaces(isPlainObject(typed) ? typed[k] : undefined, v);
+    return out as T;
+  }
+  return parsed;
+}
+
 /** Applies ops all or nothing. Throws a FormOpError naming the op that failed. */
-export function applyFormOps(definition: FormDefinition, ops: readonly FormOp[]): ApplyFormResult {
+export function applyFormOps(
+  definition: FormDefinition,
+  ops: readonly FormOp[],
+  options: ApplyFormOptions = {},
+): ApplyFormResult {
   const work = cloneJson(definition);
   const inverse: FormOp[] = [];
   ops.forEach((op, i) => inverse.unshift(applyOne(work, op, i)));
@@ -624,7 +655,10 @@ export function applyFormOps(definition: FormDefinition, ops: readonly FormOp[])
       duplicate.message,
       duplicate.id,
     );
-  return { definition: parsed.data, inverse };
+  return {
+    definition: options.keepSpaces ? keepTypedSpaces(work, parsed.data) : parsed.data,
+    inverse,
+  };
 }
 
 /**

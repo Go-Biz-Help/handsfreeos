@@ -14,7 +14,8 @@
  *
  * What's kept says whose it is (the person and the business), so one person's never shows for another.
  */
-import { inWorkingHours } from '@hfos/core/addons/outreach/automation';
+import { inWorkingHours, underAPost } from '@hfos/core/addons/outreach/automation';
+import { networkOfLink } from '@hfos/core/addons/outreach/networks';
 import {
   badgeText,
   bundleDue,
@@ -95,20 +96,43 @@ const isNudge = (item: WaitingItem): item is Nudge =>
 export const itemId = (item: Nudge): string =>
   item.kind === 'need' ? item.need.needId : item.send.sendId;
 
+/** The network a message goes out on, from their page's address: null without one the add-on knows. */
+const networkOf = (url: string | null) => (url ? networkOfLink(url) : null);
+
+/** Each pop-up says its network and what happened, as the phone's push does (decision 146), with "Click to…". */
 function popUpOf(item: Nudge): PopUp {
   const id = `${POPUP_ID}-${itemId(item)}`;
   const words =
-    item.kind === 'reply'
-      ? handOverPushWords(item.send.name, item.send.needsYou)
-      : item.kind === 'message'
-        ? eachPushWords('message', item.send.name)
-        : // A step handed over says its network, as the phone's push does: "… needs you on Alignable".
-          eachPushWords('need', item.need.name, item.need.why, item.need.platform);
+    item.kind === 'need'
+      ? eachPushWords(
+          {
+            kind: 'need',
+            name: item.need.name,
+            step: item.need.step,
+            platform: item.need.platform,
+          },
+          'computer',
+        )
+      : item.kind === 'reply'
+        ? handOverPushWords(
+            item.send.name,
+            item.send.needsYou,
+            networkOf(item.send.profileUrl),
+            'computer',
+          )
+        : eachPushWords(
+            {
+              kind: underAPost(item.send.kind) ? 'comment' : 'message',
+              name: item.send.name,
+              platform: networkOf(item.send.profileUrl),
+            },
+            'computer',
+          );
   return { id, title: words.title, message: words.body };
 }
 
 function bundledPopUp(kinds: WaitingKinds, withReplies = false): PopUp | null {
-  const words = bundlePushWords(kinds, withReplies);
+  const words = bundlePushWords(kinds, withReplies, 'computer');
   return words && { id: POPUP_ID, title: words.title, message: words.body };
 }
 

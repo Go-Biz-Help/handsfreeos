@@ -94,7 +94,7 @@ export const FORM_BUILDER_TOOLS: readonly FormToolDef[] = [
       ),
       json: nullable(
         str(
-          'The question’s own settings as a JSON object (choices, min, max, statement…), or null. A video takes {"url": "a YouTube, Vimeo or Loom link", "minPercent": 80} — minPercent holds the Next button until they have watched that much, null lets them move on.',
+          'The question’s own settings as a JSON object (choices, min, max, statement…), or null. A video takes {"url": "a YouTube, Vimeo or Loom link", "minPercent": 80} — minPercent holds the Next button until they have watched that much, null lets them move on. One box to check (I agree to the terms, Text me updates) is a yes_no with {"display": "checkbox"}, its title the words beside the box; a required one must be checked.',
         ),
       ),
       showIfJson: nullable(

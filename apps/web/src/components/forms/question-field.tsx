@@ -1,5 +1,5 @@
 'use client';
-import type { AnswerValue, Question } from '@hfos/core';
+import { isSingleCheckbox, type AnswerValue, type Question } from '@hfos/core';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
@@ -37,6 +37,40 @@ export function QuestionField({
         {String((question.config as { body: string }).body)}
       </p>
     );
+  if (isSingleCheckbox(question)) {
+    // One box to check: the question is the words beside it. Checked is a yes; unchecked is no answer at all.
+    const checked = value === 'yes' || value === true;
+    return (
+      <div id={id}>
+        <Checkbox
+          id={`${id}-input`}
+          className={cn(
+            'rounded-control border px-3.5 py-2.5 text-[14px] transition-colors',
+            checked ? 'border-accent bg-accent/5' : 'border-border hover:bg-card-2',
+          )}
+          label={
+            <>
+              {question.title}
+              {question.required ? (
+                <span className="ml-1 text-danger-text" aria-hidden="true">
+                  *
+                </span>
+              ) : null}
+            </>
+          }
+          checked={checked}
+          aria-required={question.required}
+          onChange={(e) => onChange(e.target.checked ? 'yes' : null)}
+        />
+        {question.help ? <p className="mt-1.5 text-[12.5px] text-text-3">{question.help}</p> : null}
+        {problem ? (
+          <p role="alert" className="mt-1.5 text-[12.5px] text-danger-text">
+            {problem}
+          </p>
+        ) : null}
+      </div>
+    );
+  }
   return (
     <div id={id}>
       <label

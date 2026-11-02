@@ -6981,6 +6981,8 @@ When it fails on a new setting row, add the row to `SETTING_TOOLS` (the tool, th
 
 `ASSISTANT_NOT_YET` and `SETTINGS_NOT_YET` are the list of gaps, in the order of the side menu and of Settings. The Admin area's **Assistant coverage** page shows them, with **Copy gaps** to hand them to Claude. A daily routine takes the first page of each, closes the gaps, and opens a pull request for the owner to merge. A page comes off `SETTINGS_NOT_YET` only when every one of its rows is in `SETTING_TOOLS` or `SETTINGS_NEVER`.
 
+The test can't see a setting that isn't a row in `SETTINGS`. Two places keep many of those: the AI teammate page, and the **Adjust** panels on **Settings** → **Automations**. The follow-up times, for one, sit in the Follow-ups after silence panel but save into the AI teammate's settings. When either gets a new switch or field, check by hand that `manage_ai_teammate`, `update_ai_teammate_rules` or `update_automations` takes it. In November 2026 the Assistant couldn't change the follow-up times, because nothing caught that gap.
+
 ### When a question fails
 
 Every failed question writes an `assistant run failed` line to the worker's log. Its `err` field says why. To read the recent log:
