@@ -980,6 +980,35 @@ describe('structured output', () => {
     });
   });
 
+  it('sends a choice that may be null as anyOf, never with null inside the enum', () => {
+    expect(
+      structuredOutputSchema({
+        type: 'object',
+        additionalProperties: false,
+        required: ['dir', 'about', 'ref'],
+        properties: {
+          dir: { type: ['string', 'null'], enum: ['up', 'down', null], description: 'Which way.' },
+          about: { type: ['null', 'string'], enum: [null, 'work'] },
+          ref: { type: ['integer', 'null'] },
+          plain: { type: 'string', enum: ['a', 'b'] },
+        },
+      }),
+    ).toEqual({
+      type: 'object',
+      additionalProperties: false,
+      required: ['dir', 'about', 'ref'],
+      properties: {
+        dir: {
+          description: 'Which way.',
+          anyOf: [{ type: 'string', enum: ['up', 'down'] }, { type: 'null' }],
+        },
+        about: { anyOf: [{ type: 'string', enum: ['work'] }, { type: 'null' }] },
+        ref: { type: ['integer', 'null'] },
+        plain: { type: 'string', enum: ['a', 'b'] },
+      },
+    });
+  });
+
   it('refuses answers it can’t use: cut off, refused, not JSON, or the wrong shape', () => {
     const turn = (text: string, stopReason: AiTurn['stopReason'] = 'end_turn'): AiTurn => ({
       text,

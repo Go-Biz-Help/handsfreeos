@@ -29,6 +29,7 @@ import {
   type HelperLookOutput,
   type HelperWaysOutput,
 } from '@hfos/core/addons/outreach/helper';
+import { AiProviderError } from '@hfos/ai';
 import { LearnedWayShape } from '@hfos/core/problem-report';
 import { asWorker, rows, sql } from '@hfos/db/client';
 import { AiAskError, askStructured } from '../../ai/ask';
@@ -55,11 +56,22 @@ export const helperLook: AddonWorkerAction<HelperLookInput> = {
       return { ...checkedHelperAnswer(value, input), asked: true };
     } catch (e) {
       if (!(e instanceof AiAskError)) throw e;
-      // Why, in HandsFreeOS's own words (its limit, the balance, busy), for the step's report (decision 145).
-      return { ...HELPER_NOT_ASKED, said: e.message.slice(0, HELPER_SAID_MOST) };
+      // Why, in HandsFreeOS's own words (its limit, the balance, busy), for the step's report (decision 145). Only
+      // HandsFreeOS's own Admin reads it, so when the AI service turned the request down, its own reason goes too:
+      // without it a report can't say what to fix.
+      return { ...HELPER_NOT_ASKED, said: notAskedWords(e).slice(0, HELPER_SAID_MOST) };
     }
   },
 };
+
+/** What a report says when the AI wasn't asked: HandsFreeOS's words, then the AI service's own when it refused. */
+export function notAskedWords(e: AiAskError): string {
+  const cause = e.cause instanceof AiProviderError ? e.cause : null;
+  if (e.code !== 'provider_error' || e.retryable || !cause || cause.code === 'aborted')
+    return e.message;
+  const reason = cause.message.replace(/\s+/g, ' ').trim();
+  return reason ? `${e.message} The AI service said: ${reason}` : e.message;
+}
 
 export const helperWays: AddonWorkerAction<HelperWaysInput> = {
   permission: 'outreach.use',
