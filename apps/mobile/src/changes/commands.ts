@@ -355,6 +355,7 @@ import { DemoMarkInput, DemoMarkOutput } from '@hfos/core/addons/outreach/demos'
 import { DemoOutcomeInput, DemoOutcomeOutput } from '@hfos/core/addons/outreach/leads';
 import { FriendSetInput, FriendSetOutput } from '@hfos/core/addons/outreach/friends';
 import { CancelAllInput, CancelAllOutput } from '@hfos/core/addons/outreach/tidy';
+import { RequestsAgainInput, RequestsAgainOutput } from '@hfos/core/addons/outreach/request-pause';
 import {
   ComputerRemoveInput,
   ComputerRemoveOutput,
@@ -685,6 +686,8 @@ export const PHONE_COMMANDS = {
   // Confirm and Delete on a request to decide (decision 136): kept on the phone and sent when it can, as Leave it.
   'outreach.request.answer': command(ANYTIME, RequestAnswerInput, RequestAnswerOutput),
   'outreach.request.set_aside': command(ANYTIME, RequestSetAsideInput, RequestSetAsideOutput),
+  // Start again, under Today's note on a monthly limit's pause (decision 147): with signal.
+  'outreach.requests.start_again': command(ONLINE, RequestsAgainInput, RequestsAgainOutput),
   'outreach.send.approve': command(FRESH, SendApproveInput, SendApproveOutput),
   // Retry, and Retry all, on what didn't go (decision 132), from builds before decision 145's: with signal.
   'outreach.send.retry': command(ONLINE, SendRetryInput, SendRetryOutput),

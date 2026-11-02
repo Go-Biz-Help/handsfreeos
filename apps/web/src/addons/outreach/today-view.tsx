@@ -67,6 +67,7 @@ import {
   dailyWordsOn,
   helpfulOn,
   NETWORK_WORDS as NW,
+  requestsAgainWords,
   requestsHeldWords,
   todayKindsOn,
   todayOpenOf,
@@ -288,6 +289,10 @@ export function TodayView({
                     extension={today.requestsHeld.extension ?? 0}
                   />
                 ) : null}
+                {/* The network's monthly limit (decision 147): Start again, after an upgrade there. */}
+                {today.requestsHeld.why === 'limit' ? (
+                  <StartRequestsAgain workspaceId={workspaceId} platform={platform} />
+                ) : null}
               </li>
             ) : null}
             {goal ? <GoalNote workspaceId={workspaceId} platform={platform} goal={goal} /> : null}
@@ -496,6 +501,40 @@ const START_ASKS = { groups: 'groups', chats: 'chats', friends: 'checks' } as co
  * An empty list: what gives it something to work with, each a button to where it's done (decision 59), in its
  * network's words, and only the steps its network can be asked.
  */
+/** Start again, under Today's note on a monthly limit's pause (decision 147): after an upgrade on the network. */
+function StartRequestsAgain({
+  workspaceId,
+  platform,
+}: {
+  workspaceId: string;
+  platform: Platform;
+}) {
+  const words = requestsAgainWords(platform);
+  const { busy, act } = useAct();
+  return (
+    <div className="mt-2">
+      <Button
+        size="sm"
+        variant="secondary"
+        loading={busy === 'start-again'}
+        onClick={() =>
+          void act('start-again', async () => {
+            const out = unwrap(
+              await apiBrowser().POST('/v1/commands/outreach.requests.start_again', {
+                body: { workspaceId, platform },
+              }),
+            );
+            toast.success(out.ended ? words.done : words.notOn);
+          })
+        }
+        data-testid="today-requests-again"
+      >
+        {words.button}
+      </Button>
+    </div>
+  );
+}
+
 function TodayStart({ workspaceId, platform }: { workspaceId: string; platform: Platform }) {
   const words = NETWORKS[platform].words;
   const steps = W.todayStart

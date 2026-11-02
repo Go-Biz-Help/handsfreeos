@@ -53,7 +53,7 @@ import {
   neverLike,
 } from '@hfos/core/addons/outreach/like-pick';
 import { standDownWords } from '@hfos/core/addons/outreach/live';
-import { chatUrlOn } from '@hfos/core/addons/outreach/network-words';
+import { chatUrlOn, requestsLimitLine } from '@hfos/core/addons/outreach/network-words';
 import { NETWORKS, type Platform } from '@hfos/core/addons/outreach/networks';
 import { PARTNER_CHECKS_PER_DAY } from '@hfos/core/addons/outreach/partners';
 import { messageParts, partPauseMs } from '@hfos/core/addons/outreach/voice';
@@ -687,6 +687,34 @@ async function keepConnection(item: TodayListItem, profile: ProfileRef, business
 }
 
 /**
+ * Alignable said the person reached their monthly limit of connection requests (decision 147): HandsFreeOS keeps new
+ * ones off their list till the 1st, with the likes before them, and says so on Today. Likes, comments and messages go
+ * on, so it's no stop and no warning; nor a step for the helper, as nothing on the page can send it. One tried again
+ * goes back to the person, as any that didn't go.
+ */
+async function monthlyLimit(
+  item: TodayListItem,
+  words: string,
+  businessId: string,
+): Promise<Outcome> {
+  let until: string | null = null;
+  try {
+    const out = await call(
+      api().POST('/v1/commands/outreach.requests.pause', {
+        body: { workspaceId: businessId, platform: PLATFORM, words: [words.slice(0, 300)] },
+      }),
+      businessId,
+    );
+    until = out.until;
+  } catch (error) {
+    // Noted with the next request it tries, which shows Alignable's box again; a sign-in that ended says so with the
+    // next list.
+    console.warn('HandsFreeOS Social couldn’t note Alignable’s monthly limit', error);
+  }
+  return { done: false, line: `${item.name}: ${requestsLimitLine(PLATFORM, until)}` };
+}
+
+/**
  * A connection request, with their business page's own Connect: a link that makes the request at once, carrying
  * Alignable's id for their business, which is checked first. Their page is opened again after, to see it went. A
  * business their page shows they're connected with already (its own Remove Connection, 0.94.0) is passed over, and
@@ -740,10 +768,16 @@ async function connect(item: TodayListItem, businessId: string): Promise<Outcome
       need: true,
       helper: await help.end(false),
     };
-  type Seen = { readonly stop: string } | { readonly taken: boolean; readonly theirs: boolean };
+  type Seen =
+    | { readonly stop: string }
+    | { readonly limit: string }
+    | { readonly taken: boolean; readonly theirs: boolean };
   /** The page in the tab now: whether it's theirs, and shows the request went. */
   const shows = async (): Promise<Seen> => {
     const page = await read();
+    // Alignable's monthly limit (decision 147), before its warnings: the box may say "too many" too, and it holds
+    // back only connection requests.
+    if (page.found.limit) return { limit: page.found.limit };
     const stop = await warnedOn(page, businessId);
     if (stop) return { stop };
     const after = page.found.business;
@@ -769,6 +803,7 @@ async function connect(item: TodayListItem, businessId: string): Promise<Outcome
     await settled();
     const left = await shows();
     if ('stop' in left) return left;
+    if ('limit' in left) return monthlyLimit(item, left.limit, businessId);
     if (left.theirs && !left.taken)
       await help.press(
         'pressed Connect, but their page still shows it',
@@ -777,6 +812,7 @@ async function connect(item: TodayListItem, businessId: string): Promise<Outcome
   }
   let seen = await reopened();
   if ('stop' in seen) return seen;
+  if ('limit' in seen) return monthlyLimit(item, seen.limit, businessId);
   // Pressed, and their page still shows Connect: the AI helper presses the one on their page (decision 142).
   if (
     !seen.taken &&
@@ -788,6 +824,7 @@ async function connect(item: TodayListItem, businessId: string): Promise<Outcome
   ) {
     seen = await reopened();
     if ('stop' in seen) return seen;
+    if ('limit' in seen) return monthlyLimit(item, seen.limit, businessId);
   }
   if (!seen.taken)
     return {

@@ -7,6 +7,7 @@ import {
 import { OUTREACH_WORDS as W } from '@hfos/core/addons/outreach/words';
 import {
   helpfulOn,
+  requestsAgainWords,
   requestsHeldWords,
   tidyWordsOn,
   todayKindsOn,
@@ -236,6 +237,16 @@ export function useTodayProps(
         failed(e);
       }
     },
+    // Start again after an upgrade on the network, before its monthly limit's pause ends (decision 147).
+    onRequestsAgain: async () => {
+      try {
+        const out = await change('outreach.requests.start_again', { workspaceId: ws, platform });
+        const words = requestsAgainWords(platform);
+        after(out.output.ended ? words.done : words.notOn);
+      } catch (e) {
+        failed(e);
+      }
+    },
     onEndWheels: async (userId, name, network = 'facebook') => {
       try {
         await change('outreach.wheels.end', { workspaceId: ws, userId, platform: network });
@@ -272,6 +283,7 @@ export function TodayBody({
   onProfileOwn,
   onGoalTry,
   onCancelAll,
+  onRequestsAgain,
   embedded = false,
   hideSends,
 }: {
@@ -297,6 +309,8 @@ export function TodayBody({
   onGoalTry?: (t: GoalTry) => void;
   /** Starts Cancel all on the network (decision 121), leaving out the extension's or not. */
   onCancelAll?: (leaveOutOwn: boolean) => void;
+  /** Starts new requests again before the network's monthly limit's pause ends (decision 147). */
+  onRequestsAgain?: () => void;
   /** Inside Today's tab, under Needs you (./hub.tsx): no screen of its own. */
   embedded?: boolean;
   /** Messages Needs you shows already: left off here, so nobody shows twice. */
@@ -354,6 +368,18 @@ export function TodayBody({
             held={list.requestsHeld}
             onCancelAll={onCancelAll}
           />
+          {list.requestsHeld.why === 'limit' && onRequestsAgain ? (
+            <View className="flex-row">
+              <Button
+                size="md"
+                variant="secondary"
+                onPress={onRequestsAgain}
+                testID="today-requests-again"
+              >
+                {requestsAgainWords(platform).button}
+              </Button>
+            </View>
+          ) : null}
         </View>
       ) : null}
       {/* Short of today's first messages, why, and what to try (decision 126): none from a server before it. */}

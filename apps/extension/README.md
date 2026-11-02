@@ -1132,6 +1132,24 @@ whole day, as the list can't be worked out without them (`holdsTheDay` in `src/a
 and Alignable a read put off till you're away counts as the reading's turn, so the list goes next. With nothing on the
 list, the reading goes on. Nothing in HandsFreeOS changes for it.
 
+### Alignable's monthly connection limit (0.124.0)
+
+The owner, 2 Nov 2026: Alignable's connection requests kept failing, and the box after Connect said they'd "reached
+my monthly connection limit" and asked them to upgrade (docs/outreach.md, decision 147). The AI helper pressed its
+Not now, and the request never went. From 0.124.0:
+
+- **Alignable's page read says so** (`limit` on what its readers found, `monthlyLimitOn` in
+  `src/networks/alignable/read.ts`): Alignable's words in a box over the page first, else anywhere shown on the page
+  but what someone wrote. A box drawn ahead of time and hidden never counts.
+- **Connect looks for it before Alignable's warnings** (`monthlyLimit` in `src/auto/alignable.ts`), as the page shows
+  it after the press and when their page opens again. It tells HandsFreeOS (`outreach.requests.pause`), which keeps
+  new connection requests, and the likes before them, off Today's list till the 1st of next month. The panel says so
+  ("Alignable says you’ve reached your monthly limit, so new connection requests wait till Dec 1…").
+- **Never a warning or a stop.** Likes, comments, messages and the rest of Alignable's day go on, nothing is halved,
+  and the AI helper doesn't look. One tried again (Retry) goes back to the person, as any step that didn't go.
+- **Start again** under Today's note, in the app, ends it sooner after an upgrade on Alignable; still at the limit,
+  the next Connect pauses them again.
+
 ### Retry all, and again after each update (0.123.0)
 
 The owner, 1 Nov 2026: "any failures we should have a retry all option because we should be fixing those issues after

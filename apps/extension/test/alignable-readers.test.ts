@@ -15,6 +15,7 @@ import {
   groupLeaders,
   groupStanding,
   memberRows,
+  monthlyLimitOn,
   readAlignable,
 } from '../src/networks/alignable/read';
 import { readReplies } from '../src/networks/alignable/replies';
@@ -1228,5 +1229,73 @@ describe('a comment on a good post (decision 92)', () => {
     expect(await commentOn(doc, doc.location.href, 'Hi', on)).toBe('not_sent');
     expect(sent).toEqual([]);
     expect(doc.querySelector<HTMLTextAreaElement>('#top textarea')!.value).toBe('My own words');
+  });
+});
+
+describe('Alignable’s monthly connection limit (decision 147)', () => {
+  const on = (body: string) => page(`${AL}/biz/businesses/42`, body);
+
+  it('reads it in a box over the page, however Alignable words it', () => {
+    expect(
+      monthlyLimitOn(
+        on(`<main><h1>Dana Reyes</h1></main><div role="dialog"><h2>You’ve reached your monthly connection limit</h2>
+          <p>Upgrade to Premium to keep growing your network.</p><button>Upgrade</button><button>Not now</button></div>`),
+      ),
+    ).toBe('You’ve reached your monthly connection limit');
+    // A heading and the line under it splitting the words.
+    expect(
+      monthlyLimitOn(
+        on(
+          `<div aria-modal="true"><h3>Monthly limit reached</h3><p>Upgrade to send more connection requests.</p></div>`,
+        ),
+      ),
+    ).toBe('Monthly limit reached Upgrade to send more connection requests.');
+    expect(
+      monthlyLimitOn(
+        on(
+          `<dialog open><p>You’ve used all 25 of your free connection requests this month.</p></dialog>`,
+        ),
+      ),
+    ).toBe('You’ve used all 25 of your free connection requests this month.');
+  });
+
+  it('reads it shown anywhere on the page but what someone wrote', () => {
+    expect(
+      monthlyLimitOn(
+        on(`<main><div><div>You’re out of connection requests for this month.</div></div></main>`),
+      ),
+    ).toBe('You’re out of connection requests for this month.');
+    expect(
+      monthlyLimitOn(
+        on(`<main><article><p>I hit my monthly connection limit on here, any tips?</p></article>
+          <div contenteditable="true">we reached the monthly connection limit</div></main>`),
+      ),
+    ).toBeNull();
+  });
+
+  it('never takes a box drawn ahead of time and hidden, nor a count of how many so far', () => {
+    expect(
+      monthlyLimitOn(
+        on(`<div style="display:none"><div role="dialog"><p>You’ve reached your monthly connection limit</p></div></div>
+          <div hidden><p>Monthly connection limit reached</p></div>`),
+      ),
+    ).toBeNull();
+    expect(
+      monthlyLimitOn(
+        on(`<main><p>You’ve used 20 of 25 connection requests this month.</p>
+        <p>3 out of 25 connection requests this month</p><p>Upgrade for unlimited connections each month.</p></main>`),
+      ),
+    ).toBeNull();
+  });
+
+  it('says so on the page’s read only where it shows', () => {
+    const shown = on(
+      `<div role="dialog"><p>You’ve reached your monthly connection limit</p></div>`,
+    );
+    expect(readAlignable(shown, shown.location.href).limit).toBe(
+      'You’ve reached your monthly connection limit',
+    );
+    const plain = on('<main><h1>Dana Reyes</h1></main>');
+    expect('limit' in readAlignable(plain, plain.location.href)).toBe(false);
   });
 });
