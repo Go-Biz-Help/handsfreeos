@@ -13,6 +13,7 @@ import { NETWORKS } from '../../src/addons/outreach/networks';
 import { PLAYBOOK_TEMPLATES, type PlaybookDetails } from '../../src/addons/outreach/playbooks';
 import {
   asksForHelp,
+  FIELD_CHECK_SINCE,
   freshPost,
   postCheckPrompt,
   postHoursAgo,
@@ -312,6 +313,17 @@ describe('posts in a group’s feed', () => {
       sql`update addon_outreach.posts set check_state = 'good' where id = ${second!.id}`,
     );
     expect((await comments()).map((c) => c.name)).toEqual(['Casey Moreno']);
+    // One an older check called good waits for the check that knows the owner’s field (decision 143).
+    await rows(
+      admin(),
+      sql`update addon_outreach.posts set checked_at = ${FIELD_CHECK_SINCE}::timestamptz - interval '1 hour'
+          where id = ${second!.id}`,
+    );
+    expect(await comments()).toEqual([]);
+    await rows(
+      admin(),
+      sql`update addon_outreach.posts set checked_at = now() where id = ${second!.id}`,
+    );
     await runAs(owner, ws, 'outreach.post.skip', { postId: second!.id });
     expect(await comments()).toEqual([]);
   });
