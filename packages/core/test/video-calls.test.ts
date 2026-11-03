@@ -700,14 +700,14 @@ describe('what the AI heard', () => {
   });
 
   it('is forgotten when the team turns the call’s AI notes off, and nothing is kept until they’re on again', async () => {
-    // Something typed in the chat before the notes go off.
+    // Something typed in the chat before the notes go off (by Priya: Sol is still waiting to be let in).
     expect(
       await runSystem(
         videoCallChat,
         {
           workspaceId: t.wsId,
           callId,
-          personId: customerRow,
+          personId: priyaRow,
           key: 'TX_c',
           text: 'Before: sol@example.com',
         },
@@ -739,7 +739,7 @@ describe('what the AI heard', () => {
     ).toMatchObject({
       callId,
       more: 0,
-      messages: [{ name: 'Sol Customer', side: 'customer', body: 'Before: sol@example.com' }],
+      messages: [{ name: 'Priya Tech', side: 'team', body: 'Before: sol@example.com' }],
     });
     const [changed] = await events('video_call.ai_changed', callId);
     expect(changed!.payload).toMatchObject({ appointmentId, on: false, forgotten: 2 });
