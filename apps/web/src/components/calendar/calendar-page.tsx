@@ -192,6 +192,18 @@ export function CalendarPage(props: {
       if (span)
         blocks.push({ key: `private-${i}`, span, kind: 'busy', title: 'Busy', provider: null });
     });
+    // Booked in another business they work in: only that they’re busy.
+    p.elsewhereBusy.forEach((b, i) => {
+      const span = place(b.startsAt, b.endsAt);
+      if (span)
+        blocks.push({
+          key: `elsewhere-${i}`,
+          span,
+          kind: 'busy',
+          title: 'Busy in another business',
+          provider: null,
+        });
+    });
     for (const t of p.timeOff) {
       if (t.kind !== 'unavailable') continue;
       const span = place(t.startsAt, t.endsAt);
@@ -459,6 +471,17 @@ export function CalendarPage(props: {
             span,
             kind: 'busy',
             title: 'Busy',
+            provider: null,
+          });
+      });
+      person?.elsewhereBusy.forEach((b, i) => {
+        const span = place(b.startsAt, b.endsAt);
+        if (span)
+          blocks.push({
+            key: `elsewhere-${d}-${i}`,
+            span,
+            kind: 'busy',
+            title: 'Busy in another business',
             provider: null,
           });
       });

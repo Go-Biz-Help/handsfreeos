@@ -895,6 +895,7 @@ export const scheduleTeam = defineQuery({
               startsAt: new Date(h.starts_at).toISOString(),
               endsAt: new Date(h.ends_at).toISOString(),
             })),
+          elsewhereBusy: s.elsewhere.map(span),
           connection: conn ? connectionOut(conn, fullName) : null,
         };
       }),

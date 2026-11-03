@@ -2005,7 +2005,7 @@ describe('the teammate’s settings and status', () => {
     expect(on.changes).toEqual([
       'Phone calls: off → on',
       'Answers calls: when nobody picks up → when you’re closed',
-      'Phone voice: warm → deep',
+      'Phone voice: Warm → Deep',
       'Phone greeting changed',
     ]);
     const seen = await ask(aiTeammateGet, { workspaceId: a.wsId }, a.owner);

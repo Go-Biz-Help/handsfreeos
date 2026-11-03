@@ -67,6 +67,11 @@ export interface WorkerEnv {
    * `flux` decides itself when they've finished, which is on trial (VOICE_LISTENER).
    */
   readonly voiceListener: 'nova-3' | 'flux';
+  /**
+   * Rime's voices, which a business can pick for the AI teammate beside Deepgram's (RIME_API_KEY). Without it,
+   * every Rime voice speaks in the Deepgram voice closest to it, and the pickers say Rime isn't ready yet.
+   */
+  readonly rimeApiKey: string | null;
   /** The model that thinks on a call; unset is Claude Haiku 5.5. A faster one keeps the pauses short. */
   readonly voiceModel: string;
   /**
@@ -368,6 +373,7 @@ export function readEnv(env: NodeJS.ProcessEnv = process.env): WorkerEnv {
   const voiceListener = (env.VOICE_LISTENER ?? '').trim() || 'nova-3';
   if (voiceListener !== 'nova-3' && voiceListener !== 'flux')
     throw new Error('VOICE_LISTENER must be nova-3 or flux');
+  const rimeApiKey = (env.RIME_API_KEY ?? '').trim() || null;
 
   // Branded domains (M17). `off` unless a token is there, because a business that adds a domain and then
   // waits forever for records that are never fetched is worse off than one that was never offered it.
@@ -692,6 +698,7 @@ export function readEnv(env: NodeJS.ProcessEnv = process.env): WorkerEnv {
     googleMapsServerKey,
     voiceAgent: voiceAgent as 'deepgram' | 'fake' | 'off',
     voiceListener,
+    rimeApiKey,
     voiceModel: (env.VOICE_MODEL ?? '').trim() || 'claude-haiku-5-5',
     walletMode: walletMode as 'off' | 'shadow' | 'on',
     twilioAccountSid,

@@ -1,4 +1,12 @@
-import { heardSpeechOf, type HeardSpeech, type PhoneVoice } from '@hfos/core';
+import {
+  heardSpeechOf,
+  isPhoneVoice,
+  SPOKEN_VOICE_HEADER,
+  voiceReadinessOf,
+  type HeardSpeech,
+  type PhoneVoice,
+  type VoiceReadiness,
+} from '@hfos/core';
 import { File, Paths, UploadType } from 'expo-file-system';
 import { fetch as expoFetch } from 'expo/fetch';
 
@@ -9,8 +17,9 @@ import { isTestOffline, networkSnapshot } from '@/lib/network';
 /**
  * Talking out loud's connection to the worker, exactly as the web's (apps/web/src/lib/voice/speech.ts): a recording
  * goes to POST /v1/speech/hear and comes back as words, and words go to POST /v1/speech/say and come back as audio,
- * kept in the cache folder just long enough to play. Only the worker listens and speaks, so it needs signal, and
- * with none the screen says so: nothing is queued.
+ * kept in the cache folder just long enough to play. GET /v1/speech/voices says which voice providers can speak, for
+ * the test console's voice picker. Only the worker listens and speaks, so it needs signal, and with none the screen
+ * says so: nothing is queued.
  */
 
 export type SpeechFailure =
@@ -103,6 +112,14 @@ export async function say(
   },
   signal?: AbortSignal,
 ): Promise<string> {
+  return (await sayClip(body, signal)).uri;
+}
+
+/** Like `say`, with the voice that said it (a Rime voice in trouble is said in its Deepgram one). */
+export async function sayClip(
+  body: Parameters<typeof say>[0],
+  signal?: AbortSignal,
+): Promise<{ readonly uri: string; readonly voice: PhoneVoice | null }> {
   const token = await ready();
   let res: Awaited<ReturnType<typeof expoFetch>>;
   try {
@@ -121,7 +138,24 @@ export async function say(
   const file = new File(Paths.cache, `hfos-speech-${Date.now()}-${clips++}.${wav ? 'wav' : 'mp3'}`);
   file.create({ overwrite: true });
   file.write(new Uint8Array(await res.arrayBuffer()));
-  return file.uri;
+  const spoken = res.headers.get(SPOKEN_VOICE_HEADER);
+  return { uri: file.uri, voice: isPhoneVoice(spoken) ? spoken : null };
+}
+
+/** Which voice providers can speak (Rime needs its key on the worker). */
+export async function voiceReadiness(): Promise<VoiceReadiness> {
+  const token = await ready();
+  let res: Awaited<ReturnType<typeof expoFetch>>;
+  try {
+    res = await expoFetch(`${config.workerUrl}/v1/speech/voices`, {
+      method: 'GET',
+      headers: { authorization: `Bearer ${token}` },
+    });
+  } catch {
+    throw new SpeechError(NO_SIGNAL, 'no_signal');
+  }
+  if (!res.ok) throw refusal(res.status, await res.text().catch(() => ''));
+  return voiceReadinessOf(await res.json().catch(() => null));
 }
 
 /** Deletes a clip once it has played. */

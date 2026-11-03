@@ -626,6 +626,8 @@ export const ScheduleTeamOutput = z.object({
       busy: z.array(Span),
       /** Their appointments on a private record you aren’t on (a deal): only that they’re busy then. */
       privateBusy: z.array(Span),
+      /** When they're booked in their other businesses: only that they're busy then. */
+      elsewhereBusy: z.array(Span),
       /** Their Google or Outlook link; null when none, or not yours to see. */
       connection: CalendarConnectionOut.nullable(),
     }),
@@ -643,7 +645,14 @@ export const CalendarConnectionListOutput = z.object({ items: z.array(CalendarCo
 // ---- Appointments ----
 
 export const AppointmentWarning = z.object({
-  code: z.enum(['in_past', 'buffer_clash', 'outside_hours', 'calendar_busy', 'time_off']),
+  code: z.enum([
+    'in_past',
+    'buffer_clash',
+    'outside_hours',
+    'calendar_busy',
+    'time_off',
+    'booked_elsewhere',
+  ]),
   message: z.string(),
   userId: uuid.nullable(),
   resourceId: uuid.nullable(),
