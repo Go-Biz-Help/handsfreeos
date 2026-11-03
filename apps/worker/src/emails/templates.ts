@@ -789,7 +789,7 @@ const detailRow = (label: string, value: string) =>
 export function teamBookingEmail(input: {
   about: 'booked' | 'cancelled';
   customer: string;
-  /** "booked an AC tune-up with you online", "cancelled their AC tune-up online". */
+  /** "booked an appointment with you online", "cancelled their appointment online". */
   sentence: string;
   title: string;
   /** "Fri 1:00 PM" */
@@ -805,6 +805,7 @@ export function teamBookingEmail(input: {
 }): EmailContent {
   const subject = `${input.about === 'booked' ? 'New booking' : 'Cancelled'}: ${input.customer}, ${input.title}, ${input.whenShort}`;
   const rows: [string, string | null][] = [
+    ['What', input.title],
     ['When', input.when],
     ['Where', input.where],
     ['Phone', input.phone],

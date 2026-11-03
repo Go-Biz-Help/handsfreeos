@@ -12,15 +12,18 @@ import { placeOf } from '../geo/geocoder';
 import type { EventHandler } from '../handlers/types';
 import { tenantOf, workerMeta } from '../services';
 import { clientIdFor, reachOf, sendText, wasSent } from './deliver';
-import { inSentence, joinNames, STOP_WORDING } from './messages';
+import { joinNames, STOP_WORDING } from './messages';
 import { loadBooking } from './visit';
 import { clock } from './when';
 
 type Payload = Record<string, unknown>;
 
+/**
+ * The visit's title is left out (messages.ts says why): it can be the calendar's name or a person's, and the
+ * customer, with someone at their door, knows what it is for.
+ */
 export interface JobTextInput {
   readonly business: string;
-  readonly title: string;
   readonly status: JobStatus;
   /** Only the note changed. */
   readonly noteOnly: boolean;
@@ -34,20 +37,19 @@ export interface JobTextInput {
 
 /** The text for a job's change, or null when this change doesn't get one. */
 export function jobText(i: JobTextInput): string | null {
-  const t = inSentence(i.title);
   const who = i.staff.length ? joinNames(i.staff) : 'Our tech';
   const line = i.noteOnly
     ? i.note
-      ? `${i.business}: An update on your ${t}: ${i.note}`
+      ? `${i.business}: An update on your appointment: ${i.note}`
       : null
     : {
         scheduled: null,
-        on_the_way: `${i.business}: ${who} ${i.staff.length > 1 ? 'are' : 'is'} on the way for your ${t}${
+        on_the_way: `${i.business}: ${who} ${i.staff.length > 1 ? 'are' : 'is'} on the way${
           i.eta ? `, arriving around ${i.eta.at} (about ${i.eta.minutes} min)` : ''
         }.`,
-        in_progress: `${i.business}: ${who} ${i.staff.length > 1 ? 'have' : 'has'} started your ${t}.`,
-        waiting_on_parts: `${i.business}: Your ${t} is waiting on parts. We'll let you know when we're back.`,
-        done: `${i.business}: Your ${t} is done. Thank you!`,
+        in_progress: `${i.business}: ${who} ${i.staff.length > 1 ? 'have' : 'has'} started work.`,
+        waiting_on_parts: `${i.business}: The work is waiting on parts. We'll let you know when we're back.`,
+        done: `${i.business}: The work is done. Thank you!`,
         cancelled: null,
       }[i.status];
   if (!line) return null;
@@ -103,7 +105,6 @@ export const onJobStatusChanged: EventHandler = async (ctx) => {
   }
   const body = jobText({
     business: booking.business.name,
-    title: booking.visit.title,
     status,
     noteOnly: !p['statusChanged'],
     note: job.customerNote,

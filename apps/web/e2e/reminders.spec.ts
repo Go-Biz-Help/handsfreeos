@@ -173,10 +173,10 @@ test('the day-before and 2-hour reminders go out; STOP means email only; a cance
   const dayBefore = await message(sent['day_before']!.messageId!);
   expect(dayBefore.channel).toBe('sms');
   expect(dayBefore.body).toContain(
-    'Reminder from Lone Star Reminders HVAC: your AC tune-up is tomorrow,',
+    'Reminder from Lone Star Reminders HVAC: your appointment is tomorrow,',
   );
   expect((await message(sent['before_120']!.messageId!)).body).toMatch(
-    /^Lone Star Reminders HVAC: Your AC tune-up with .+ is today at \d{1,2}:\d{2} [AP]M\. Questions\? Call /,
+    /^Lone Star Reminders HVAC: Your appointment with .+ is today at \d{1,2}:\d{2} [AP]M\. Questions\? Call /,
   );
   // The fake carrier delivered them.
   await expect

@@ -364,6 +364,9 @@ describe('confirming tomorrow’s visit', () => {
 
     const [call] = await aiCallsOf(ann.id);
     expect(call).toMatchObject({ status: 'calling' });
+    // The spoken line never holds the visit's title (it can be a calendar's own name); the AI reads it here.
+    const brief = await asWorker(testDbs().worker.db, scope(), (tx) => callBrief(tx, call!.id));
+    expect(brief).toMatch(/^Booked as: \S/);
     const placed = placedTo(ann.phone)!;
     expect(placed).toMatchObject({ from: w.number, machineDetection: 'answer' });
     expect(placed.record?.statusCallbackUrl).toBe(`${TEST_PUBLIC_URL}${V}/recording`);
@@ -385,7 +388,7 @@ describe('confirming tomorrow’s visit', () => {
     const hello = line.said.join(' ');
     expect(hello).toContain('Hi Ann, this is Ava, an AI assistant for');
     expect(hello).toContain('This call is recorded.');
-    expect(hello).toContain('about your');
+    expect(hello).toContain('about your appointment ');
     line.speak('Yes, that still works.');
     await waitFor('the goodbye', () => telephony().ended.includes(placed.sid));
     expect(line.said.join(' ')).toContain('Great, see you then. Bye!');
@@ -1405,11 +1408,11 @@ describe('the words', () => {
         config,
         'Lone Star HVAC',
         'Mike',
-        'about your AC tune-up tomorrow at 9:00 AM',
+        'about your appointment tomorrow at 9:00 AM',
         'confirm_visit',
       ),
     ).toBe(
-      'Hi Mike, this is Ava, an AI assistant for Lone Star HVAC. This call is recorded. I’m calling about your AC tune-up tomorrow at 9:00 AM. Does that still work for you?',
+      'Hi Mike, this is Ava, an AI assistant for Lone Star HVAC. This call is recorded. I’m calling about your appointment tomorrow at 9:00 AM. Does that still work for you?',
     );
     expect(outboundGreetingOf(config, 'Lone Star HVAC', null, 'back.', 'missed_call')).toBe(
       'Hi, this is Ava, an AI assistant for Lone Star HVAC. This call is recorded. I’m calling back. How can I help?',
@@ -1446,10 +1449,10 @@ describe('the words', () => {
       voicemailText('confirm_visit', {
         firstName: 'Mike',
         business: 'Lone Star HVAC',
-        goal: 'about your AC tune-up tomorrow at 9:00 AM',
+        goal: 'about your appointment tomorrow at 9:00 AM',
       }),
     ).toBe(
-      "Hi Mike, it's Lone Star HVAC. We tried to call you about your AC tune-up tomorrow at 9:00 AM. Reply C to confirm, or let us know if you need another time.",
+      "Hi Mike, it's Lone Star HVAC. We tried to call you about your appointment tomorrow at 9:00 AM. Reply C to confirm, or let us know if you need another time.",
     );
   });
 });
