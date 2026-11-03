@@ -50,6 +50,9 @@ export default defineConfig({
     trace: 'retain-on-failure',
     screenshot: 'only-on-failure',
     colorScheme: 'light',
+    // The browser sits where the test businesses are (Chicago), as most customers do: the public pages show times
+    // in the viewer's zone, so a test that wants another one says so (calendar.spec, booking.spec's Pacific visitor).
+    timezoneId: 'America/Chicago',
   },
   projects: [
     {

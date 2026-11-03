@@ -31,6 +31,7 @@ import {
   type Returned,
 } from './deposit-pay';
 import { callPhrase, CallButton, PublicFrame, PublicState } from './public-shell';
+import { useViewerZone } from './viewer-zone';
 
 type Failure =
   | { kind: 'stale'; business: PublicBusiness | null }
@@ -57,6 +58,8 @@ export function HoldPage({ token }: { token: string }) {
     null,
   );
   const [notice, setNotice] = useState<string | null>(null);
+  // Times in the viewer's zone, as the booking page showed them.
+  const [tz] = useViewerZone(hold?.appointment.timezone ?? 'UTC');
   const returned = useRef(false);
   /**
    * What the provider sent this browser back with, read once from the address before anything else runs. The
@@ -152,7 +155,6 @@ export function HoldPage({ token }: { token: string }) {
       </PublicFrame>
     );
 
-  const tz = hold.appointment.timezone;
   const restart = () => {
     window.location.assign(hold.calendar.bookingPath ?? '/');
   };

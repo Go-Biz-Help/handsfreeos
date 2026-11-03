@@ -43,6 +43,7 @@ import {
   type BookingResult,
 } from '../calendar/booking';
 import { expandRecurrence } from '../calendar/engine/recurrence';
+import { attendeeZoneOf } from '../calendar/zone-pick';
 import {
   dbNow,
   iso,
@@ -285,8 +286,12 @@ export const appointmentCreate = defineCommand({
     if (input.leadId) await requireLead(ctx.tx, ws, input.leadId);
     if (input.customRecordId) await requireCustomRecord(ctx.tx, ws, input.customRecordId);
     const source = staffSource(ctx);
+    // Set on another zone's clock than the calendar's: the customer's, which their messages tell the time in.
     const attendee = input.personId
-      ? await attendeeFromPerson(ctx.tx, ws, input.personId, input.partySize, source)
+      ? {
+          ...(await attendeeFromPerson(ctx.tx, ws, input.personId, input.partySize, source)),
+          timezone: attendeeZoneOf(input.timezone, calendar.timeZone),
+        }
       : null;
     const result = await bookAppointment(ctx, {
       calendar,
@@ -1074,7 +1079,10 @@ export const seriesCreate = defineCommand({
       .returning({ id: appointmentSeries.id });
     const attendee =
       input.personId && !sessions
-        ? await attendeeFromPerson(ctx.tx, ws, input.personId, input.partySize, 'series')
+        ? {
+            ...(await attendeeFromPerson(ctx.tx, ws, input.personId, input.partySize, 'series')),
+            timezone: attendeeZoneOf(input.timezone, calendar.timeZone),
+          }
         : null;
     const created: string[] = [];
     const skipped: {

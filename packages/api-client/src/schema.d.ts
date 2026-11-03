@@ -25963,6 +25963,7 @@ export interface operations {
                     serviceId?: string | null;
                     /** Format: date-time */
                     startsAt: string;
+                    timezone?: string;
                     title?: string;
                     userIds?: string[];
                     /** Format: uuid */

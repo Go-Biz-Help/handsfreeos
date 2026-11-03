@@ -393,6 +393,8 @@ export function AppointmentDialog({
             acknowledgeWarnings: !!warnings,
             clientId: clientId.current,
             notify: tell,
+            // Another zone than the calendar's is the customer's: their texts and emails say the time in it.
+            timezone: zone,
           },
         }),
       );

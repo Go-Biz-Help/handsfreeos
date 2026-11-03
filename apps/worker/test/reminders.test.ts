@@ -37,6 +37,8 @@ import {
   type World,
 } from './booking-world';
 
+const LA = 'America/Los_Angeles';
+
 let w: World;
 let cal: { id: string; slug: string };
 let phoneDisplay: string;
@@ -254,6 +256,17 @@ describe('appointment reminders', () => {
       channel: 'email',
       reason: 'opted_out',
     });
+  });
+
+  it('tells a customer who booked in another zone the time in theirs, still due on the calendar’s clock', async () => {
+    const start = at(13, '10:00');
+    const one = await bookAt(start, 'Paula', { timezone: 'America/Los_Angeles' });
+    // The day before at 4 PM, as the business set it, on the calendar's clock.
+    expect(await runAt(one.k.day)).toBe(at(12, '16:00'));
+    await runDue(w, [one.k.day]);
+    expect(textsTo(w, one.c.phone).at(-1)!.body).toBe(
+      `Reminder from ${BUSINESS}: your AC tune-up is tomorrow, ${dayShort(start, LA)} at 8:00 AM. Dale is coming to 123 Main St. Reply C to confirm.`,
+    );
   });
 
   it('skips each reminder the business turned off in Settings → Automations, read when it is due', async () => {

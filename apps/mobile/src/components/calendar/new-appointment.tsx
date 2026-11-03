@@ -153,6 +153,7 @@ export function NewAppointmentSheet({
         address: forWhom?.address ?? null,
         leadId: null,
         notify,
+        timezone: zone,
         dependsOn: added && added.personId === forWhom?.id ? [added.changeId] : [],
       });
       toast.show(

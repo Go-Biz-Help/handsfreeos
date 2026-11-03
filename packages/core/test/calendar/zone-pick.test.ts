@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
+  attendeeZoneOf,
+  customerTimeZone,
   findZones,
   fmtAtPicked,
   instantOfInput,
@@ -137,5 +139,26 @@ describe('a task’s or a follow-up’s time on the business’s clock', () => {
     expect(
       formatDate('2027-01-01T03:00:00.000Z', { timeZone: CHI }, new Date('2026-12-31T12:00:00Z')),
     ).toBe('Dec 31');
+  });
+});
+
+describe('the zone a customer is told a time in', () => {
+  it('is theirs when known, else their address’s, else the calendar’s', () => {
+    expect(customerTimeZone({ zone: 'US/Pacific', state: 'IL' }, CHI)).toBe(LA);
+    expect(customerTimeZone({ zone: null, state: 'az', postalCode: '85004' }, CHI)).toBe(
+      'America/Phoenix',
+    );
+    // A Florida panhandle ZIP is Central, the rest of the state Eastern.
+    expect(customerTimeZone({ state: 'FL', postalCode: '32501' }, 'America/New_York')).toBe(CHI);
+    expect(customerTimeZone({ state: 'FL', postalCode: '33101' }, CHI)).toBe('America/New_York');
+    expect(customerTimeZone({ state: 'ON', country: 'CA' }, CHI)).toBe(CHI);
+    expect(customerTimeZone({ zone: 'Not/AZone' }, CHI)).toBe(CHI);
+    expect(customerTimeZone({}, MANILA)).toBe(MANILA);
+  });
+
+  it('is kept on a booking only when the time was set on another zone’s clock', () => {
+    expect(attendeeZoneOf(LA, CHI)).toBe(LA);
+    expect(attendeeZoneOf('US/Central', CHI)).toBeNull();
+    expect(attendeeZoneOf(undefined, CHI)).toBeNull();
   });
 });

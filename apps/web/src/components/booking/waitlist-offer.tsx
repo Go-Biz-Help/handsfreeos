@@ -13,6 +13,7 @@ import type { ManageView, PublicBusiness } from '@/lib/api/public-booking';
 import { publicEnv } from '@/lib/env';
 import { dayLong, dayShort, lengthLabel, localDate, seatsLabel, timeOf, timeRange } from './format';
 import { CallButton, PublicFrame, PublicState } from './public-shell';
+import { useViewerZone, zoneWords } from './viewer-zone';
 
 interface OfferView {
   readonly state: 'offered' | 'taken' | 'expired' | 'booked' | 'closed';
@@ -96,6 +97,9 @@ export function WaitlistOffer({ token }: { token: string }) {
   const [busy, setBusy] = useState(false);
   const [claimed, setClaimed] = useState<Claimed | null>(null);
   const [now, setNow] = useState(() => Date.now());
+  // Times in the viewer's zone, as the booking page shows them.
+  const pageZone = view?.offer?.timezone ?? claimed?.appointment.timezone ?? 'UTC';
+  const [tz] = useViewerZone(pageZone);
 
   const load = useCallback(async () => {
     try {
@@ -174,7 +178,6 @@ export function WaitlistOffer({ token }: { token: string }) {
     );
 
   const o = view.offer;
-  const tz = o?.timezone ?? claimed?.appointment.timezone ?? 'UTC';
   const otherTimes = view.calendar.bookingPath ? (
     <ButtonLink href={view.calendar.bookingPath} variant="primary" size="sm">
       See other times
@@ -265,7 +268,7 @@ export function WaitlistOffer({ token }: { token: string }) {
       ? timeOf(view.expiresAt, tz)
       : `${dayShort(view.expiresAt, tz)} at ${timeOf(view.expiresAt, tz)}`;
   const details = [
-    o.timezoneLabel,
+    zoneWords(tz, o.timezone, o.timezoneLabel),
     o.where,
     o.seats > 1 ? seatsLabel(o.seats) : lengthLabel(o.durationMinutes),
   ].filter(Boolean);

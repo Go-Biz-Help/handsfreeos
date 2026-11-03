@@ -5,6 +5,7 @@
  */
 import { and, eq } from 'drizzle-orm';
 import {
+  customerTimeZone,
   formatPhone,
   loadCalendar,
   parseConfig,
@@ -160,12 +161,16 @@ export async function staffOf(
  * One booking as its messages need it, or null when it is gone. `forCustomer`: the messages go to the customer, so
  * an online session's link is their own Join link (`/j/…`), which says when they joined, rather than the meeting's
  * own address. A teammate's copy keeps the meeting's address: their opening it isn't the customer joining.
+ *
+ * The visit's times are told in the customer's own zone (core `customerTimeZone`: the one they booked in, else their
+ * address's, else the calendar's), the owner's answer of 2026-11-03. `teamZone`: a teammate's copy, which keeps the
+ * calendar's, as every screen of the business does.
  */
 export async function loadBooking(
   tx: Tx,
   s: LinkServices,
   attendeeId: string,
-  opts: { readonly forCustomer?: boolean } = {},
+  opts: { readonly forCustomer?: boolean; readonly teamZone?: boolean } = {},
 ): Promise<LoadedBooking | null> {
   const [row] = await tx
     .select({
@@ -174,6 +179,9 @@ export async function loadBooking(
       firstName: people.firstName,
       lastName: people.lastName,
       smsConsent: people.smsConsent,
+      state: people.state,
+      postalCode: people.postalCode,
+      country: people.country,
     })
     .from(appointmentAttendees)
     .innerJoin(appointments, eq(appointments.id, appointmentAttendees.appointmentId))
@@ -189,7 +197,17 @@ export async function loadBooking(
     title: row.p.title,
     startsAt: row.p.startsAt.getTime(),
     endsAt: row.p.endsAt.getTime(),
-    timeZone: calendar.timeZone,
+    timeZone: opts.teamZone
+      ? calendar.timeZone
+      : customerTimeZone(
+          {
+            zone: row.a.timezone,
+            state: row.state,
+            postalCode: row.postalCode,
+            country: row.country,
+          },
+          calendar.timeZone,
+        ),
     kind: row.p.kind,
     seats: row.a.seats,
     locationKind: location.kind ?? null,

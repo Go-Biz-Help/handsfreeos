@@ -688,6 +688,11 @@ export const AppointmentCreateInput = z.object({
    * settings either way.
    */
   notify: z.boolean().default(true),
+  /**
+   * The zone the time was set in (the Time zone pick). Another than the calendar's is taken as the customer's: their
+   * confirmation and reminders tell the time in it.
+   */
+  timezone: timezone.optional(),
 });
 export const AppointmentCreateOutput = z.object({
   appointmentId: uuid,
@@ -1166,6 +1171,11 @@ export const AppointmentBookOnlineInput = z.object({
   linkRef: z.string().regex(LINK_REF).nullable().optional(),
   /** The page's idempotency key: a retried submit books once. */
   clientId,
+  /**
+   * The zone the booking page showed the times in (the visitor's device's, or the one they changed it to): their
+   * confirmation and reminders tell the time in it.
+   */
+  timezone: timezone.optional(),
   /**
    * A lead this booking already belongs to (a form that books a time, funnels): the booking is put on it and the
    * calendar opens no lead of its own.
