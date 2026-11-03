@@ -473,6 +473,11 @@ became.
   ones. An owner or admin picks anyone under **Settings for** and changes theirs; the person then sees "Changed by".
   The extension loads them when the person signs in and hears each change within seconds on the same live channel
   the web listens on, while Chrome is open; its panel shows a short summary with **Change in HandsFreeOS**.
+- **Autopilot** (decision 151, `autopilot.ts`, `ops/autopilot.ts`, the worker's `autopilot.ts`, the web's and the
+  phone's `autopilot-list.tsx`): one switch at the top of General turns everything on its own on every network the
+  person works, and an hour before each working day it lists the people it plans to reach for the first time, first on
+  Needs you with a push, for them to OK, take off for the day, or mark Don't pitch or Never contact. Nobody on it is
+  reached till they're OK'd, and once OK'd the steps after go without asking. Their own picks come back when it's off.
 - **Live status and control** (decision 41, `/a/outreach?view=live`, `live.ts`, `ops/live.ts`, `ops/day.ts`, the
   web's `live-view.tsx`, the extension's `src/hfos/live.ts`): the **Live** tab shows what the person's extension is
   doing right now, on which computer, the next step, today's counts against the limits, how many things wait for
@@ -3698,6 +3703,56 @@ where decisions 37 and 59 put the settings; what they decided stands. Settled to
         big group is worked right through instead of its first screens over and over.
       - A business's owner setting it for the whole team was offered and left out (answer 3a): each person picks.
 
+<!-- 149 and 150 are #490's (open times from the HFOS calendar) and #491's (every reply caught). -->
+
+151.  **Autopilot, with a daily OK on who it reaches** (Chris, 3 Nov 2026: "need a feature where the ai goes on full
+      autopilot for the social outreach tool all it does is ask if the people it plans to reach out to that day are
+      ok, this way if the user is confident in the ai but not sure if everyone is set to not pitch or don't contact
+      are set the way they want they can just approve the people"), answered "1a (but to clarify this is a new
+      autopilot setting that just requests approval on who to send a new message to or not) full autopilot would just
+      send it without asking / 2a 3a 4a 5a 6a 7a"; migration `20261027022600_outreach_autopilot.sql`, no extension
+      release. A setting of its own beside **Everything on its own**, which stays as it was and sends without asking
+      (core's `autopilot.ts`, `ops/autopilot.ts`, the worker's `autopilot.ts`).
+      - **What it turns on** (1a, `AUTOPILOT_PICKS`, `autopilotOver`): on every network the person works, Sending and
+        Replies go on their own (Everything), helpful posts go up on their own where the network takes it, and the AI
+        decides the requests they get: it confirms the good ones and deletes the rest (`fits_delete`). The steps that wait for their own OK under
+        any other choice (a partner's messages and replies, birthday and new-job notes, another time after a no-show,
+        Alignable forum answers) go on their own too, for people OK'd. A reply where someone needs the person (asking
+        to stop, a refund, a complaint, upset) still comes to them. Their own picks are kept underneath
+        (`keepOwnPicks`): the network pages show Autopilot's picks, greyed with "Autopilot picks this while it's on",
+        and turning it off puts theirs back as they were.
+      - **Who's on the day's list** (2a): the people it plans to reach today who aren't OK'd yet, at their first like,
+        friend or connection request, comment or message; on the first day, the people it was talking to already too.
+        Once OK'd (`addon_outreach.autopilot_people`, one row a person and profile), the steps after go without asking
+        again. Someone who reached the person first (a reply, a partner's reply, an answer to their comment, confirming
+        their request) is answered without it (`AUTOPILOT_ANSWERS`). Everyone else on Today, and every message drafted
+        for them, waits (`outreach.today`'s `reach`, `okdAmong`; `outreach.send.queue` holds the draft "they aren't on
+        a list you OK'd yet").
+      - **When** (3a): an hour before the working hours start, on each day the extension works
+        (`AUTOPILOT_EARLY_MINUTES`, `autopilotTimes`), the worker's `outreach.autopilot_list` makes the day's list
+        (`outreach.autopilot.plan`, the system's alone) and one push says how many wait. Nobody on it is reached till
+        they OK it. In the middle of the hours, while any still wait, `outreach.autopilot_reminder` pushes once more.
+        Whoever they don't get to is on the next day's list. Turned on during the day, today's list is made at once,
+        with no push.
+      - **Found later** (4a): anyone found after the day's list was made waits for the next day's, so it asks once a
+        day (`autopilot_listed_on`).
+      - **Spares** (5a, `autopilotSpares`): a fifth past each daily limit, at least 2, last on the list under "If you
+        take anyone off, these go instead". OK'd, a spare goes only once the day's limit has room, so it takes the
+        place of anyone taken off.
+      - **Training wheels stay** (6a): someone new still OKs each message until they've earned it, and the switch says
+        so. The comments-only hold (decision 92's 13) stays too.
+      - **Where** (7a): one switch at the top of Settings → General ("You"), for every network, on the web and the phone
+        (`AutopilotPart`); one list first on Needs you, grouped by network, each name opening the person menu for Don't
+        pitch or Never contact, each row with **Not today** (or **Put back**), and **OK all** (or **OK everyone else**
+        once anyone's taken off) at the top (`outreach.autopilot`, `outreach.autopilot.answer`; the Assistant's
+        `outreach_autopilot_list` and `outreach_autopilot_answer`, on a Confirm card). Owners and admins allow it or
+        not under For your team (`rules.autopilotAllowed`, allowed to start); not allowed, the switch is hidden and a
+        save that turns it on is refused (`outreach_autopilot_not_allowed`).
+      - **Not today** leaves them off till the next day's list, where they're asked about again. Never contact, set
+        from the list, keeps them off for good, as anywhere.
+      - The extension needs nothing new: it reads Today again within the hour while it waits (`IDLE_MS`), so an OK
+        given after the day started is worked that hour. A chat with nobody kept for it yet waits for the person.
+
 ## Rules worth knowing before changing anything
 
 - **Nothing is saved until the person presses a button in HandsFreeOS** (an ask, below), except the four steps the
@@ -3826,6 +3881,11 @@ where decisions 37 and 59 put the settings; what they decided stands. Settled to
   (`src/hfos/warned.ts`), and keeps its state in the extension's storage, so a restart carries on where it was. The
   day's start and stop follow HandsFreeOS's (decision 41): a press here goes to `outreach.day.*`, and one in the app
   reaches it within seconds.
+- **Under Autopilot, nobody new is reached without the day's OK** (decision 151). `outreach.today` gates every kind
+  but the answers (`waitsForPeopleOk`, `AUTOPILOT_ANSWERS`) on an OK'd row in `addon_outreach.autopilot_people`, and
+  `outreach.send.queue` holds a draft for anyone not OK'd. A new kind of step on Today waits for the OK unless it
+  answers someone who reached the person first. The person's own picks stay in `automation`'s columns: a save while
+  Autopilot is on keeps them (`keepOwnPicks`), and only `withinRules` lays Autopilot's over them.
 - **One computer works at a time** (decision 41): the person's most recently used one (the panel opened or shown, a
   step of their own there, signing in there, Start or Stop pressed there; never the runner's own steps). The others
   stand by and say why. There's no automatic hand-over: the app names the open computer and says to open its panel.
