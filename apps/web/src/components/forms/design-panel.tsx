@@ -288,6 +288,13 @@ export function FormDesignPanel({
             testId="design-width"
           />
           <SwitchRow
+            label="The form’s name at the top"
+            checked={design.showTitle}
+            onChange={(showTitle) => set({ showTitle })}
+            disabled={readOnly}
+            testId="design-title"
+          />
+          <SwitchRow
             label="Your logo at the top"
             checked={design.showLogo}
             onChange={(showLogo) => set({ showLogo })}

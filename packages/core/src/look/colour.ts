@@ -26,6 +26,17 @@ const HEX = /^#[0-9a-f]{6}$/i;
 export const isLookColor = (hex: unknown): hex is string =>
   typeof hex === 'string' && HEX.test(hex);
 
+/**
+ * A colour someone typed, as kept (#rrggbb, lower case): with or without the #, in either case, and the short #rgb
+ * too. Null while it isn't one yet, so a box can wait for the rest.
+ */
+export function typedColor(typed: string): string | null {
+  const m = /^#?([0-9a-f]{3}|[0-9a-f]{6})$/i.exec(typed.trim());
+  if (!m) return null;
+  const h = m[1]!.toLowerCase();
+  return `#${h.length === 3 ? [...h].map((c) => c + c).join('') : h}`;
+}
+
 function channels(hex: string): [number, number, number] {
   const h = hex.replace('#', '');
   return [0, 2, 4].map((i) => parseInt(h.slice(i, i + 2), 16)) as [number, number, number];

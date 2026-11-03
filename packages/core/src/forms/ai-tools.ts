@@ -209,7 +209,7 @@ export const FORM_BUILDER_TOOLS: readonly FormToolDef[] = [
   {
     name: 'set_design',
     description:
-      'How it looks: scheme (light or dark), colors {button, buttonText, background, text, field, fieldBorder, error} as #rrggbb or null to follow the business, font (a Google font name or null for ours), textSize (small, medium, large), corners (square, slight, round), fields (boxed, filled, underline), button {style: filled or outline, fullWidth}, spacing (compact, normal, roomy), labels (above or inside), width (narrow, medium, wide, full), showLogo. Only when they ask about how it looks.',
+      'How it looks: scheme (light or dark), colors {button, buttonText, background, text, field, fieldBorder, error} as #rrggbb or null to follow the business, font (a Google font name or null for ours), textSize (small, medium, large), corners (square, slight, round), fields (boxed, filled, underline), button {style: filled or outline, fullWidth}, spacing (compact, normal, roomy), labels (above or inside), width (narrow, medium, wide, full), showLogo, showTitle (false hides the form’s name at the top). Only when they ask about how it looks.',
     inputSchema: obj({ json: str('The merge patch as a JSON object.') }),
     strict: true,
   },

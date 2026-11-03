@@ -7,12 +7,13 @@
  */
 import {
   CHAT_LIFT_LIMIT,
+  typedColor,
   type ChatCorner,
   type ChatDesktopButton,
   type ChatMobileButton,
 } from '@hfos/core';
 import { MessageCircle, Monitor, Smartphone } from 'lucide-react';
-import { useId, type ReactNode } from 'react';
+import { useId, useState, type ReactNode } from 'react';
 import { Hint } from '@/components/ui/field';
 import { Input } from '@/components/ui/input';
 import { Segmented } from '@/components/ui/segmented';
@@ -226,7 +227,7 @@ export const MOBILE_BUTTONS: readonly { value: ChatMobileButton; label: string }
   { value: 'hidden', label: 'Hidden' },
 ];
 
-/** A colour worked out for you ("Automatic"), or one picked: the choice, the picker and the hex. */
+/** A colour worked out for you ("Automatic"), or one picked: the choice, the picker, and the hex to type in. */
 export function ColorChoice({
   title,
   autoLabel,
@@ -279,9 +280,61 @@ export function ColorChoice({
             data-testid={`${testId}-input`}
           />
         </label>
-        <span className="font-mono text-xs text-text-3">{value ?? shownAuto}</span>
+        <HexBox
+          shown={value ?? shownAuto}
+          onColor={onChange}
+          labelledBy={id}
+          testId={`${testId}-hex`}
+        />
       </div>
       {hint ? <Hint>{hint}</Hint> : null}
     </div>
+  );
+}
+
+/**
+ * The colour's hex, to type or paste over: "#8b7408", "8B7408" and "#fa0" all work. A typed colour is picked the moment
+ * it's whole; leaving the box with something that isn't one puts the colour back.
+ */
+function HexBox({
+  shown,
+  onColor,
+  labelledBy,
+  testId,
+}: {
+  shown: string;
+  onColor: (hex: string) => void;
+  labelledBy: string;
+  testId: string;
+}) {
+  // What's being typed, while the box has it; otherwise the colour as it is.
+  const [draft, setDraft] = useState<string | null>(null);
+  const bad = draft !== null && draft.trim() !== '' && typedColor(draft) === null;
+  return (
+    <Input
+      inputSize="sm"
+      value={draft ?? shown}
+      onChange={(e) => {
+        setDraft(e.target.value);
+        const hex = typedColor(e.target.value);
+        if (hex && hex !== shown) onColor(hex);
+      }}
+      onFocus={(e) => {
+        setDraft(shown);
+        e.target.select();
+      }}
+      onBlur={() => setDraft(null)}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter') e.currentTarget.blur();
+      }}
+      invalid={bad}
+      maxLength={7}
+      spellCheck={false}
+      autoComplete="off"
+      aria-labelledby={labelledBy}
+      aria-description="Hex code, like #e85d04"
+      className="w-[6.5rem] font-mono text-xs"
+      data-testid={testId}
+    />
   );
 }

@@ -111,7 +111,7 @@ each one's `www` twin, as the website chat's does (`normalizeChatOrigins`).
 
 A form's `design` (`forms/design.ts`, the editor's **Design** tab) holds its colours, font, text size, corners, the
 style of its boxes and buttons, the space between questions, where the question words go, how wide it gets, and
-whether the business's logo is at the top. The owner's picks (2026-11-02, 1a 2a 3a 4a): each form has its own design,
+whether the business's logo and the form's name are at the top. A colour can be picked or typed as a hex code. The owner's picks (2026-11-02, 1a 2a 3a 4a): each form has its own design,
 starting from the business's; **Use on all my forms** copies one form's design to the rest; **Match my website**
 copies a site's colours, font and corners; and there's no box for custom CSS, which could hide the texting consent
 words.
@@ -134,6 +134,17 @@ words.
   HTML first, so builders that style everything with made-up class names (GoDaddy's `.c1-a4`) are read as well as
   hand-written `.btn` rules. A paid font is stood in for by the closest free one, and it says so. Nothing is kept: the
   design lands in the draft as one edit.
+- **HandsFreeOS's own permission boxes match the form.** The texting box (and the offers and calls boxes) are drawn
+  like a single checkbox question, in the form's corners, colours and text size, with their words always showing. They
+  can't be hidden or reworded on a form: they're what a carrier reads. A form's own "I agree to texts" question is
+  the same ask twice, and requiring it would make texting a condition of sending the form, which carriers refuse.
+- **Cloudflare's "are you a person" check stays out of sight** unless Cloudflare needs a click, and then shows in the
+  form's light or dark. If it can't run, the form says so above the send button.
+- **A hidden name stays for screen readers.** With no logo, name or intro showing, the form starts at its first
+  question.
+- **Site builders that wrap pasted code in a frame of their own** (GoDaddy's HTML section: an `srcdoc` frame sized
+  once, when the page loads) get that frame grown with the form by `/embed/v1/form.js` too. The script also asks each
+  form for its height when it starts, so a form that loaded first isn't left at the snippet's height.
 
 ## Videos and steps (funnels)
 
