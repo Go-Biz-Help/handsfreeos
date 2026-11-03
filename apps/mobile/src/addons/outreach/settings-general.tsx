@@ -1,6 +1,7 @@
 import {
   choicesFor,
   hourWords,
+  OTHER_PLATFORMS,
   POSTING_MODE_KEYS,
   POSTING_MODES,
   REPLY_MODE_KEYS,
@@ -20,6 +21,7 @@ import {
   type OutreachSettings,
 } from '@hfos/core/addons/outreach/chat-read';
 import type { CountryRule } from '@hfos/core/addons/outreach/countries';
+import { AUTOPILOT_WORDS } from '@hfos/core/addons/outreach/autopilot';
 import { FOUND_CHECKS, stepFoundChecks } from '@hfos/core/addons/outreach/finds';
 import { withNetwork } from '@hfos/core/addons/outreach/network-words';
 import { SETTINGS_WORDS } from '@hfos/core/addons/outreach/settings-parts';
@@ -39,6 +41,7 @@ import { useAutosave, type Autosave, type Edit, type SaveState } from './autosav
 import { countriesProblem, CountrySetting } from './country-setting';
 import { Note, Part } from './kit';
 import {
+  AutopilotPart,
   Choice,
   ExtensionTicks,
   NetworkModes,
@@ -76,6 +79,19 @@ export function GeneralMine({
   const disabled = !online;
   return (
     <>
+      {/* Autopilot first (decision 151, answer 7a): one switch for every network they work. */}
+      <AutopilotPart
+        value={form.value}
+        onChange={form.change}
+        allowed={automation.rules.autopilotAllowed}
+        wheels={
+          automation.wheels.on ||
+          OTHER_PLATFORMS.some((p) => automation.networkWheels[p].on && form.value.networks[p].on)
+        }
+        boxed
+        disabled={disabled}
+        testID="settings-my"
+      />
       <VoicePart
         value={form.value}
         onChange={form.change}
@@ -110,6 +126,7 @@ export interface TeamDraft {
   readonly sendingAllowed: BusinessRules['sendingAllowed'];
   readonly repliesAllowed: BusinessRules['repliesAllowed'];
   readonly postingAllowed: BusinessRules['postingAllowed'];
+  readonly autopilotAllowed: BusinessRules['autopilotAllowed'];
   readonly defaults: AutomationSettings;
   readonly contactsFromChats: OutreachSettings['contactsFromChats'];
   readonly cancelRequestsAfterWeeks: number;
@@ -125,6 +142,7 @@ export const teamDraftOf = (saved: unknown): TeamDraft => {
     sendingAllowed: s.rules.sendingAllowed,
     repliesAllowed: s.rules.repliesAllowed,
     postingAllowed: s.rules.postingAllowed,
+    autopilotAllowed: s.rules.autopilotAllowed,
     defaults: s.rules.defaults,
     contactsFromChats: s.contactsFromChats,
     cancelRequestsAfterWeeks: s.cancelRequestsAfterWeeks,
@@ -153,6 +171,7 @@ export const withTeam =
       sendingAllowed: draft.sendingAllowed,
       repliesAllowed: draft.repliesAllowed,
       postingAllowed: draft.postingAllowed,
+      autopilotAllowed: draft.autopilotAllowed,
       defaults: draft.defaults,
     },
   });
@@ -225,6 +244,14 @@ export function GeneralTeam({
               testID={`settings-rules-posting-${m}`}
             />
           ))}
+          <Tick
+            label={AUTOPILOT_WORDS.allow}
+            about={AUTOPILOT_WORDS.allowAbout}
+            checked={d.autopilotAllowed}
+            onChange={(on) => set({ autopilotAllowed: on })}
+            disabled={disabled}
+            testID="settings-rules-autopilot"
+          />
         </View>
       </Section>
       <Defaults
