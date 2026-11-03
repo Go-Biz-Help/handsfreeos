@@ -1,15 +1,22 @@
 import {
   ASSISTANT_CONSENT_VERSION,
   ASSISTANT_WORDS,
+  assistantAnswerAfterLastQuestion,
+  assistantChatToReopen,
+  assistantQuestionUnanswered,
+  assistantWaitingOf,
+  waitForAssistantAnswer,
   type AssistantCard,
   type AssistantEvent,
   type AssistantNoticeCode,
+  type AssistantWaiting,
   type PageRecord,
 } from '@hfos/core';
 import * as React from 'react';
+import { AppState } from 'react-native';
 
 import { toast } from '@/components/ui/toast';
-import { api, errorMessage, unwrap } from '@/lib/api';
+import { api, ApiError, errorMessage, unwrap } from '@/lib/api';
 import { deviceStore } from '@/lib/device-store';
 import { useNetwork } from '@/lib/network';
 
@@ -30,6 +37,11 @@ import {
  *   is queued: the outbox is for changes, and a question isn't one.
  * - **One chat at a time.** The phone opens a chat full screen rather than beside a page, so there is no docking,
  *   no keyboard shortcut and no page record to send.
+ *
+ * Asking and leaving works as on the web (`@hfos/core`'s `assistant/catch-up.ts`): the answer finishes on HandsFreeOS
+ * whether or not the screen is still open, the question is remembered on the phone until its answer has been
+ * shown, opening Ask HandsFreeOS again reopens that chat, and an answer still coming is checked on until it lands.
+ * Coming back to the app mid-answer checks on it the same way, since the stream may not have lived through it.
  */
 
 export interface Step {
@@ -139,6 +151,69 @@ export function noticeFor(error: unknown): Notice {
 }
 
 const consentKey = (userId: string) => `person.${userId}.assistantConsent`;
+const waitingKey = (userId: string, workspaceId: string) =>
+  `person.${userId}.assistantWaiting.${workspaceId}`;
+
+/** The question in this business whose answer this phone hasn't shown yet, if any. */
+export function rememberedWaiting(userId: string, workspaceId: string): AssistantWaiting | null {
+  return assistantWaitingOf(deviceStore.get(waitingKey(userId, workspaceId)));
+}
+
+function rememberWaiting(userId: string, workspaceId: string, waiting: AssistantWaiting): void {
+  deviceStore.set(waitingKey(userId, workspaceId), waiting);
+}
+
+/** Its answer is on screen: forgotten, unless the question waiting is another chat's. */
+function forgetWaiting(userId: string, workspaceId: string, threadId: string | null): void {
+  const waiting = rememberedWaiting(userId, workspaceId);
+  if (!waiting || !threadId || !waiting.threadId || waiting.threadId === threadId)
+    deviceStore.remove(waitingKey(userId, workspaceId));
+}
+
+type SavedChat = Awaited<ReturnType<typeof loadChat>>;
+
+async function loadChat(workspaceId: string, threadId: string) {
+  return unwrap(
+    await api.POST('/v1/queries/assistant_thread.get', { body: { workspaceId, threadId } }),
+  );
+}
+
+const callsOf = (toolCalls: SavedChat['toolCalls']): Record<string, CallState> =>
+  Object.fromEntries(
+    toolCalls.map((c) => [
+      c.id,
+      {
+        status: c.status,
+        tool: c.tool,
+        outcome: c.outcome,
+        error: c.error,
+        href: c.href,
+        undone: c.undone,
+      },
+    ]),
+  );
+
+const fromSaved = (m: SavedChat['messages'][number]): ChatMessage =>
+  m.role === 'user'
+    ? { key: m.id, role: 'user', text: m.text, createdAt: m.createdAt }
+    : {
+        key: m.id,
+        role: 'assistant',
+        text: m.text,
+        cards: m.cards as AssistantCard[],
+        steps: [],
+        live: false,
+        notice: null,
+        question: null,
+        createdAt: m.createdAt,
+      };
+
+/** The step under an answer the phone is checking on rather than streaming. */
+export const STILL_WORKING: Step = {
+  id: 'still-working',
+  label: ASSISTANT_WORDS.stillWorking,
+  status: 'running',
+};
 
 /** The OK as this phone last saw it, so the step doesn't flash before the answer comes back. */
 export function rememberedConsent(userId: string): boolean | null {
@@ -171,7 +246,8 @@ export interface AssistantChat {
   retry(answerKey: string): void;
   stop(): void;
   newChat(): void;
-  openThread(threadId: string): Promise<void>;
+  /** `silent`: a chat reopened on its own (for an answer waiting) says nothing if it can't be opened. */
+  openThread(threadId: string, opts?: { readonly silent?: boolean }): Promise<void>;
   setCall(toolCallId: string, patch: Partial<CallState>): void;
   forgetThread(threadId: string): void;
 }
@@ -209,6 +285,12 @@ export function useAssistantChat(
   const runRef = React.useRef<string | null>(null);
   const answerRef = React.useRef<string | null>(null);
   const waitingQuestion = React.useRef<string | null>(null);
+  /** Checking on an answer rather than streaming it (follow): Stop then leaves it to land. */
+  const followingRef = React.useRef(false);
+  /** The run streaming now, once the worker named it: where an answer that stops streaming is picked up. */
+  const startedRef = React.useRef<{ readonly runId: string; readonly threadId: string } | null>(
+    null,
+  );
   const pageRef = React.useRef(page);
   pageRef.current = page;
   const loadRef = React.useRef(0);
@@ -223,6 +305,8 @@ export function useAssistantChat(
     streamRef.current = null;
     runRef.current = null;
     answerRef.current = null;
+    followingRef.current = false;
+    startedRef.current = null;
     setRunning(false);
   }, []);
 
@@ -246,6 +330,80 @@ export function useAssistantChat(
       },
     }));
   }, []);
+
+  /**
+   * Puts a saved answer in place of the one on screen, once it has landed: everything after the chat's last question.
+   * With nothing there, the answer was cut off, and it says so with Ask again.
+   */
+  const land = React.useCallback(
+    (answerKey: string, got: SavedChat) => {
+      const tail = assistantAnswerAfterLastQuestion(got.messages);
+      setCalls((now) => ({ ...now, ...callsOf(got.toolCalls) }));
+      setMessages((all) =>
+        all.flatMap((m): ChatMessage[] =>
+          m.key !== answerKey || m.role !== 'assistant'
+            ? [m]
+            : tail.length
+              ? tail.map(fromSaved)
+              : [
+                  {
+                    ...m,
+                    live: false,
+                    steps: settleSteps(m.steps, false),
+                    notice: { code: 'unfinished', message: '' },
+                  },
+                ],
+        ),
+      );
+      forgetWaiting(userId, workspaceId, got.thread.id);
+    },
+    [userId, workspaceId],
+  );
+
+  /**
+   * Picks up an answer the phone isn't streaming: the chat was opened while it was still coming, the stream dropped,
+   * or the app came back from the background mid-answer. It checks the saved chat until the answer lands there (it
+   * always does, on the worker), and meanwhile says it's still working, with Stop where Send was.
+   */
+  const follow = React.useCallback(
+    (threadId: string, answerKey: string, runId: string | null, first?: SavedChat) => {
+      const controller = new AbortController();
+      streamRef.current = controller;
+      answerRef.current = answerKey;
+      runRef.current = runId;
+      followingRef.current = true;
+      startedRef.current = null;
+      setRunning(true);
+      patchAnswer(answerKey, (m) => ({
+        ...m,
+        live: true,
+        notice: null,
+        steps: [...m.steps.filter((s) => s.status !== 'running'), STILL_WORKING],
+      }));
+      void (async () => {
+        const got = await waitForAssistantAnswer(() => loadChat(workspaceId, threadId), {
+          signal: controller.signal,
+          ...(first ? { first } : {}),
+        });
+        // Stopped listening (a new chat, another chat opened, the screen closed): that already reset the chat.
+        if (controller.signal.aborted || streamRef.current !== controller) return;
+        if (got) land(answerKey, got);
+        else
+          patchAnswer(answerKey, (m) => ({
+            ...m,
+            live: false,
+            steps: settleSteps(m.steps, false),
+            notice: { code: 'dropped', message: 'The connection dropped.' },
+          }));
+        streamRef.current = null;
+        runRef.current = null;
+        answerRef.current = null;
+        followingRef.current = false;
+        setRunning(false);
+      })();
+    },
+    [land, patchAnswer, workspaceId],
+  );
 
   const ask = React.useCallback(
     (raw: string, opts: { readonly spoken?: boolean } = {}): boolean => {
@@ -279,21 +437,40 @@ export function useAssistantChat(
       streamRef.current = controller;
       answerRef.current = answerKey;
       runRef.current = null;
+      followingRef.current = false;
+      startedRef.current = null;
       setRunning(true);
+      // Remembered until its answer is on screen, so leaving now (closing the app, even) comes back to it.
+      rememberWaiting(userId, workspaceId, { threadId: threadRef.current, askedAt: now });
+      let started: { readonly runId: string; readonly threadId: string } | null = null;
 
-      const finish = (notice: Notice | null) =>
+      /** The answer had its last word (done, or an error the worker sent). */
+      let finished = false;
+      const finish = (notice: Notice | null) => {
+        finished = true;
         patchAnswer(answerKey, (m) => ({
           ...m,
           live: false,
           steps: settleSteps(m.steps, !notice),
           notice: notice ?? m.notice,
         }));
+        forgetWaiting(userId, workspaceId, started?.threadId ?? threadRef.current);
+      };
+      /** The stream stopped before the answer's last word: it goes on, and saves, on the worker. */
+      const pickUp = (): boolean => {
+        if (finished || !started || streamRef.current !== controller) return false;
+        follow(started.threadId, answerKey, started.runId);
+        return true;
+      };
 
       const onEvent = (event: AssistantEvent) => {
         if (controller.signal.aborted) return;
         switch (event.type) {
           case 'run':
             runRef.current = event.runId;
+            started = { runId: event.runId, threadId: event.threadId };
+            startedRef.current = started;
+            rememberWaiting(userId, workspaceId, { threadId: event.threadId, askedAt: now });
             if (threadRef.current !== event.threadId) setThread(event.threadId);
             setSetup('ready');
             break;
@@ -347,8 +524,9 @@ export function useAssistantChat(
             onEvent,
             controller.signal,
           );
-          // The stream ended without a last word: the run goes on, and saves, on the worker.
-          if (!controller.signal.aborted)
+          // The stream ended without a last word: the run goes on, and saves, on the worker, so it's picked up
+          // from there.
+          if (!controller.signal.aborted && !pickUp())
             patchAnswer(answerKey, (m) =>
               m.live
                 ? {
@@ -361,7 +539,10 @@ export function useAssistantChat(
             );
         } catch (error) {
           if (controller.signal.aborted) return;
+          // Signal lost mid-answer: picked up from the worker, which carries on regardless.
+          if (noticeFor(error).code === 'no_signal' && pickUp()) return;
           if (error instanceof AssistantError && error.failure === 'not_configured') {
+            forgetWaiting(userId, workspaceId, threadRef.current);
             setSetup('missing');
             setMessages((all) => all.filter((m) => m.key !== userKey && m.key !== answerKey));
             return;
@@ -369,6 +550,7 @@ export function useAssistantChat(
           // No OK on file after all (given elsewhere and taken back, or a newer wording): the step shows and the
           // question waits for it. Nothing reached the AI service.
           if (error instanceof AssistantError && error.failure === 'consent_required') {
+            forgetWaiting(userId, workspaceId, threadRef.current);
             setMessages((all) => all.filter((m) => m.key !== userKey && m.key !== answerKey));
             waitingQuestion.current = text;
             rememberConsent(userId, false);
@@ -383,13 +565,14 @@ export function useAssistantChat(
             streamRef.current = null;
             runRef.current = null;
             answerRef.current = null;
+            startedRef.current = null;
             setRunning(false);
           }
         }
       })();
       return true;
     },
-    [consentNeeded, patchAnswer, setCall, setThread, userId, workspaceId],
+    [consentNeeded, follow, patchAnswer, setCall, setThread, userId, workspaceId],
   );
 
   const retry = React.useCallback(
@@ -426,9 +609,10 @@ export function useAssistantChat(
       stopHere();
       return;
     }
+    // Being checked on, a run the worker can't reach has just ended: its answer lands at the next check.
     stopRun(runId)
       .then((r) => {
-        if (!r.stopping) stopHere();
+        if (!r.stopping && !followingRef.current) stopHere();
       })
       .catch(stopHere);
   }, [detach, patchAnswer]);
@@ -443,7 +627,7 @@ export function useAssistantChat(
   }, [detach, setThread]);
 
   const openThread = React.useCallback(
-    async (id: string) => {
+    async (id: string, opts: { readonly silent?: boolean } = {}) => {
       detach();
       const token = ++loadRef.current;
       setThread(id);
@@ -451,54 +635,50 @@ export function useAssistantChat(
       setCalls({});
       setLoading(true);
       try {
-        const got = unwrap(
-          await api.POST('/v1/queries/assistant_thread.get', {
-            body: { workspaceId, threadId: id },
-          }),
-        );
+        const got = await loadChat(workspaceId, id);
         if (token !== loadRef.current) return;
-        setCalls(
-          Object.fromEntries(
-            got.toolCalls.map((c) => [
-              c.id,
-              {
-                status: c.status,
-                tool: c.tool,
-                outcome: c.outcome,
-                error: c.error,
-                href: c.href,
-                undone: c.undone,
-              },
-            ]),
-          ),
-        );
-        setMessages(
-          got.messages.map((m) =>
-            m.role === 'user'
-              ? { key: m.id, role: 'user', text: m.text, createdAt: m.createdAt }
-              : {
-                  key: m.id,
-                  role: 'assistant',
-                  text: m.text,
-                  cards: m.cards as AssistantCard[],
+        setCalls(callsOf(got.toolCalls));
+        // Its last question still being answered (asked before the screen closed, or on the web), or cut off.
+        const last = got.messages[got.messages.length - 1];
+        const pending =
+          last?.role === 'user' &&
+          (got.answering || assistantQuestionUnanswered(got.messages, null))
+            ? newKey('a')
+            : null;
+        setMessages([
+          ...got.messages.map(fromSaved),
+          ...(pending
+            ? [
+                {
+                  key: pending,
+                  role: 'assistant' as const,
+                  text: '',
+                  cards: [],
                   steps: [],
-                  live: false,
-                  notice: null,
-                  question: null,
-                  createdAt: m.createdAt,
+                  live: !!got.answering,
+                  notice: got.answering ? null : { code: 'unfinished' as const, message: '' },
+                  question: last!.text,
+                  createdAt: last!.createdAt,
                 },
-          ),
-        );
+              ]
+            : []),
+        ]);
+        if (pending && got.answering) follow(id, pending, got.answering.runId, got);
+        else forgetWaiting(userId, workspaceId, id);
       } catch (error) {
         // A chat that can't be opened (no signal, or it was archived elsewhere) says so and leaves a fresh chat.
         if (token !== loadRef.current) return;
         setThread(null);
-        toast.error(errorMessage(error));
+        // Gone (archived, or another person's on this phone): nothing left to pick up.
+        if (opts.silent) {
+          if (error instanceof ApiError && error.status === 404)
+            forgetWaiting(userId, workspaceId, id);
+        } else toast.error(errorMessage(error));
       } finally {
         if (token === loadRef.current) setLoading(false);
       }
     },
-    [detach, setThread, workspaceId],
+    [detach, follow, setThread, userId, workspaceId],
   );
 
   const forgetThread = React.useCallback(
@@ -554,6 +734,48 @@ export function useAssistantChat(
     waitingQuestion.current = null;
     ask(waiting);
   }, [ask, consentNeeded]);
+
+  // Opening Ask HandsFreeOS with a question whose answer hasn't been shown yet (asked before the screen or the app
+  // was closed) reopens its chat, which picks the answer up. Once, with signal.
+  const reopenedRef = React.useRef(false);
+  React.useEffect(() => {
+    if (!online || reopenedRef.current) return;
+    reopenedRef.current = true;
+    const waiting = rememberedWaiting(userId, workspaceId);
+    if (!waiting || threadRef.current || streamRef.current) return;
+    void (async () => {
+      let id = waiting.threadId;
+      if (!id) {
+        // Asked in a new chat and closed before the worker said which: the newest chat, if it's that one.
+        const newest = await api
+          .POST('/v1/queries/assistant_thread.list', { body: { workspaceId, limit: 1 } })
+          .then((r) => unwrap(r).items[0] ?? null)
+          .catch(() => null);
+        id = assistantChatToReopen(waiting, newest);
+      }
+      if (threadRef.current || streamRef.current) return;
+      if (id) await openThread(id, { silent: true });
+      else forgetWaiting(userId, workspaceId, null);
+    })();
+  }, [online, openThread, userId, workspaceId]);
+
+  // Back from the background mid-answer: the stream may not have lived through it, so the answer is checked on in
+  // the saved chat instead, where it carries on regardless.
+  React.useEffect(() => {
+    let away = false;
+    const sub = AppState.addEventListener('change', (state) => {
+      if (state === 'background') away = true;
+      if (state !== 'active' || !away) return;
+      away = false;
+      const streaming = streamRef.current;
+      const started = startedRef.current;
+      const answerKey = answerRef.current;
+      if (!streaming || followingRef.current || !started || !answerKey) return;
+      follow(started.threadId, answerKey, started.runId);
+      streaming.abort();
+    });
+    return () => sub.remove();
+  }, [follow]);
 
   React.useEffect(() => () => streamRef.current?.abort(), []);
 

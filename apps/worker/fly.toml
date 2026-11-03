@@ -22,7 +22,8 @@
 app = "handsfreeos-worker"
 primary_region = "iad"
 kill_signal = "SIGTERM"
-# The worker closes its listener, then finishes the pass it is in.
+# The worker closes its listener, then finishes the pass it is in, and gives the Assistant's answers in progress up
+# to 20 seconds to finish (ANSWERS_GRACE_MS in src/main.ts).
 kill_timeout = "30s"
 
 # Two kinds of machine from the one image and the same secrets:

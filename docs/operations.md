@@ -6984,6 +6984,18 @@ When it fails on a new setting row, add the row to `SETTING_TOOLS` (the tool, th
 
 The test can't see a setting that isn't a row in `SETTINGS`. Two places keep many of those: the AI teammate page, and the **Adjust** panels on **Settings** → **Automations**. The follow-up times, for one, sit in the Follow-ups after silence panel but save into the AI teammate's settings. When either gets a new switch or field, check by hand that `manage_ai_teammate`, `update_ai_teammate_rules` or `update_automations` takes it. In November 2026 the Assistant couldn't change the follow-up times, because nothing caught that gap.
 
+### Asking and leaving
+
+Someone can ask and leave straight away: close the panel, the tab or the phone app, or lose signal. The worker finishes every question it's asked and saves the answer in the chat, whether or not anyone is still listening. Only **Stop** ends one early. Leaving never stops a question, and it never undoes one either: anything the Assistant does on its own while they're away (a task, a note) still happens, and anything that needs their OK still waits on its card.
+
+- **Coming back.** The web and the phone remember the question until its answer has been shown: in the browser's storage on the web, and on the phone itself. The next time they open Ask HandsFreeOS there, it reopens that chat, even in a new tab. It isn't reopened after a day, and a question asked on the web isn't remembered on the phone, or the other way round; it's always in **Your chats**.
+- **Still coming.** While the answer is still being worked out, the chat shows the question with "Still working on it. It’ll be here when you come back." underneath, and checks the saved chat every 2 seconds (every 5 after a minute) until the answer lands. On the web, the hint under the box says "You can leave. The answer will be here when you come back." while an answer comes in.
+- **The connection drops.** A laptop going to sleep or the phone going to the background mid-answer is handled the same way: the screen checks the saved chat instead of saying the connection dropped. It gives up after 10 minutes and says the answer is saved in the chat when it finishes.
+- **A deploy.** A worker that is stopping (every push to `main` deploys it) gives answers in progress up to 20 seconds to finish, inside `fly.toml`'s 30-second `kill_timeout`. One still going then is stopped and saves what it had with "HandsFreeOS restarted for an update before I finished. Ask again and I’ll start over." The log shows `assistant run cut off by a shutdown`.
+- **A crash.** A question the worker couldn't save anything for (the machine ran out of memory, say) counts as cut off once it has been going for five minutes. The chat then says "This answer didn’t finish", with **Try again**.
+
+The rules the web and the phone share live once, in `packages/core/src/assistant/catch-up.ts`. `assistant_thread.get` says when an answer is still coming (`answering`).
+
 ### When a question fails
 
 Every failed question writes an `assistant run failed` line to the worker's log. Its `err` field says why. To read the recent log:
