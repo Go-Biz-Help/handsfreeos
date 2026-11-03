@@ -2,8 +2,14 @@
 import {
   ASSISTANT_CONSENT_VERSION,
   ASSISTANT_WORDS,
+  assistantAnswerAfterLastQuestion,
+  assistantChatToReopen,
+  assistantQuestionUnanswered,
+  assistantWaitingOf,
+  waitForAssistantAnswer,
   type AssistantCard,
   type AssistantEvent,
+  type AssistantWaiting,
 } from '@hfos/core';
 import { usePathname } from 'next/navigation';
 import {
@@ -19,7 +25,12 @@ import {
 } from 'react';
 import { toast } from 'sonner';
 import { apiBrowser, ApiError, errorMessage, unwrap } from '@/lib/api/client';
-import type { AssistantSavedMessage, AssistantToolStatus } from '@/lib/api/types';
+import type {
+  AssistantSavedMessage,
+  AssistantThreadGet,
+  AssistantToolCall,
+  AssistantToolStatus,
+} from '@/lib/api/types';
 import { usePageRecord, type PageRecord } from '@/lib/assistant/page-record';
 import { stopRun, streamAnswer, warmAssistant } from '@/lib/assistant/stream';
 import { isMac, isShortcut } from '@/lib/keys';
@@ -41,7 +52,8 @@ export type NoticeCode =
   | 'stopped'
   | 'unreachable'
   | 'dropped'
-  | 'forbidden';
+  | 'forbidden'
+  | 'unfinished';
 export interface Notice {
   readonly code: NoticeCode;
   readonly message: string;
@@ -222,6 +234,59 @@ function rememberThread(workspaceId: string, threadId: string | null): void {
   }
 }
 
+/**
+ * The question whose answer this browser hasn't shown yet (assistant/catch-up.ts), kept in localStorage so that
+ * coming back in a new tab, after closing the last one, reopens its chat. Per workspace; gone once it's on screen.
+ */
+const waitingKey = (workspaceId: string) => `hfos.assistant.${workspaceId}.waiting`;
+function rememberedWaiting(workspaceId: string): AssistantWaiting | null {
+  try {
+    const raw = localStorage.getItem(waitingKey(workspaceId));
+    return assistantWaitingOf(raw ? JSON.parse(raw) : null);
+  } catch {
+    return null;
+  }
+}
+function rememberWaiting(workspaceId: string, waiting: AssistantWaiting): void {
+  try {
+    localStorage.setItem(waitingKey(workspaceId), JSON.stringify(waiting));
+  } catch {
+    // Storage off: the answer is still saved, in Your chats.
+  }
+}
+/** Its answer is on screen: forgotten, unless the question waiting is another chat's (asked in another tab). */
+function forgetWaiting(workspaceId: string, threadId: string | null): void {
+  try {
+    const waiting = rememberedWaiting(workspaceId);
+    if (!waiting || !threadId || !waiting.threadId || waiting.threadId === threadId)
+      localStorage.removeItem(waitingKey(workspaceId));
+  } catch {
+    // Nothing to forget.
+  }
+}
+
+const callsOf = (toolCalls: readonly AssistantToolCall[]): Record<string, CallState> =>
+  Object.fromEntries(
+    toolCalls.map((c) => [
+      c.id,
+      {
+        status: c.status,
+        tool: c.tool,
+        outcome: c.outcome,
+        error: c.error,
+        href: c.href,
+        undone: c.undone,
+      },
+    ]),
+  );
+
+/** The step under an answer this tab is checking on rather than streaming. */
+const STILL_WORKING: Step = {
+  id: 'still-working',
+  label: ASSISTANT_WORDS.stillWorking,
+  status: 'running',
+};
+
 const fromSaved = (m: AssistantSavedMessage): ChatMessage =>
   m.role === 'user'
     ? { key: m.id, role: 'user', text: m.text, createdAt: m.createdAt }
@@ -312,6 +377,8 @@ export function AssistantProvider({
   const streamRef = useRef<AbortController | null>(null);
   const runRef = useRef<string | null>(null);
   const answerRef = useRef<string | null>(null);
+  /** Checking on an answer rather than streaming it (follow): Stop then leaves it to land. */
+  const followingRef = useRef(false);
   /** Bumped whenever the chat on screen changes, so a slow load can't land on the wrong one. */
   const loadRef = useRef(0);
   const loadingRef = useRef(false);
@@ -333,6 +400,7 @@ export function AssistantProvider({
     streamRef.current = null;
     runRef.current = null;
     answerRef.current = null;
+    followingRef.current = false;
     setRunning(false);
   }, []);
 
@@ -360,6 +428,84 @@ export function AssistantProvider({
       },
     }));
   }, []);
+
+  /**
+   * Puts a saved answer in place of the one on screen (`answerKey`), once it has landed: everything after the chat's
+   * last question. With nothing there, the answer was cut off, and it says so with Try again.
+   */
+  const land = useCallback(
+    (answerKey: string, got: AssistantThreadGet) => {
+      const tail = assistantAnswerAfterLastQuestion(got.messages);
+      setCalls((now) => ({ ...now, ...callsOf(got.toolCalls) }));
+      setMessages((all) =>
+        all.flatMap((m): ChatMessage[] =>
+          m.key !== answerKey || m.role !== 'assistant'
+            ? [m]
+            : tail.length
+              ? tail.map(fromSaved)
+              : [
+                  {
+                    ...m,
+                    live: false,
+                    steps: settle(m.steps, false),
+                    notice: { code: 'unfinished', message: '' },
+                  },
+                ],
+        ),
+      );
+      forgetWaiting(workspaceId, got.thread.id);
+    },
+    [workspaceId],
+  );
+
+  /**
+   * Picks up an answer this tab isn't streaming: the chat was opened while it was still coming, or the stream
+   * dropped mid-answer. It checks the saved chat until the answer lands there (it always does, on the worker), and
+   * meanwhile says it's still working, with Stop where Send was.
+   */
+  const follow = useCallback(
+    (threadId: string, answerKey: string, runId: string | null, first?: AssistantThreadGet) => {
+      const controller = new AbortController();
+      streamRef.current = controller;
+      answerRef.current = answerKey;
+      runRef.current = runId;
+      followingRef.current = true;
+      setRunning(true);
+      patchAnswer(answerKey, (m) => ({
+        ...m,
+        live: true,
+        notice: null,
+        steps: [...m.steps.filter((s) => s.status !== 'running'), STILL_WORKING],
+      }));
+      void (async () => {
+        const got = await waitForAssistantAnswer(
+          async () =>
+            unwrap(
+              await apiBrowser().POST('/v1/queries/assistant_thread.get', {
+                body: { workspaceId, threadId },
+              }),
+            ),
+          { signal: controller.signal, ...(first ? { first } : {}) },
+        );
+        // Stopped listening (a new chat, another chat opened): that already reset what's on screen.
+        if (controller.signal.aborted || streamRef.current !== controller) return;
+        if (got) land(answerKey, got);
+        else
+          patchAnswer(answerKey, (m) => ({
+            ...m,
+            live: false,
+            steps: settle(m.steps, false),
+            notice: { code: 'dropped', message: 'The connection dropped.' },
+          }));
+        streamRef.current = null;
+        runRef.current = null;
+        answerRef.current = null;
+        followingRef.current = false;
+        setRunning(false);
+      })();
+    },
+    [land, patchAnswer, workspaceId],
+  );
 
   const ask = useCallback(
     (raw: string, opts: { readonly spoken?: boolean } = {}): boolean => {
@@ -396,20 +542,38 @@ export function AssistantProvider({
       streamRef.current = controller;
       answerRef.current = answerKey;
       runRef.current = null;
+      followingRef.current = false;
       setRunning(true);
+      // Remembered until its answer is on screen, so leaving now (closing the tab, even) comes back to it.
+      rememberWaiting(workspaceId, { threadId: threadRef.current, askedAt: now });
+      /** The run the worker started for it, once it says so: an answer that stops streaming is picked up there. */
+      let started: { readonly runId: string; readonly threadId: string } | null = null;
 
-      const finish = (notice: Notice | null) =>
+      /** The answer had its last word (done, or an error the worker sent). */
+      let finished = false;
+      const finish = (notice: Notice | null) => {
+        finished = true;
         patchAnswer(answerKey, (m) => ({
           ...m,
           live: false,
           steps: settle(m.steps, !notice),
           notice: notice ?? m.notice,
         }));
+        forgetWaiting(workspaceId, started?.threadId ?? threadRef.current);
+      };
+      /** The stream stopped before the answer's last word: it goes on, and saves, on the worker. */
+      const pickUp = (): boolean => {
+        if (finished || !started || streamRef.current !== controller) return false;
+        follow(started.threadId, answerKey, started.runId);
+        return true;
+      };
       const onEvent = (event: AssistantEvent) => {
         if (controller.signal.aborted) return;
         switch (event.type) {
           case 'run':
             runRef.current = event.runId;
+            started = { runId: event.runId, threadId: event.threadId };
+            rememberWaiting(workspaceId, { threadId: event.threadId, askedAt: now });
             if (threadRef.current !== event.threadId) setThread(event.threadId);
             setSetup('ready');
             break;
@@ -463,8 +627,9 @@ export function AssistantProvider({
             onEvent,
             controller.signal,
           );
-          // The stream ended without a last word: the run goes on, and saves, on the worker.
-          if (!controller.signal.aborted)
+          // The stream ended without a last word: the run goes on, and saves, on the worker, so it's picked up
+          // from there.
+          if (!controller.signal.aborted && !pickUp())
             patchAnswer(answerKey, (m) =>
               m.live
                 ? {
@@ -477,7 +642,10 @@ export function AssistantProvider({
             );
         } catch (e) {
           if (controller.signal.aborted) return;
+          // The connection went mid-answer (a laptop asleep, the network changed): picked up from the worker.
+          if (e instanceof ApiError && e.status === 0 && pickUp()) return;
           if (e instanceof ApiError && e.rule === 'assistant_not_configured') {
+            forgetWaiting(workspaceId, threadRef.current);
             setSetup('missing');
             setMessages((all) => all.filter((m) => m.key !== userKey && m.key !== answerKey));
             return;
@@ -485,6 +653,7 @@ export function AssistantProvider({
           // No OK on file after all (given on another device and taken back, or a newer wording): the consent
           // step shows, and the question waits for it. Nothing reached the AI service.
           if (e instanceof ApiError && e.rule === 'assistant_consent_required') {
+            forgetWaiting(workspaceId, threadRef.current);
             setMessages((all) => all.filter((m) => m.key !== userKey && m.key !== answerKey));
             waitingQuestionRef.current = text;
             setConsentNeeded(true);
@@ -504,7 +673,7 @@ export function AssistantProvider({
       })();
       return true;
     },
-    [consentNeeded, enabled, patchAnswer, setCall, setThread, workspaceId],
+    [consentNeeded, enabled, follow, patchAnswer, setCall, setThread, workspaceId],
   );
 
   const retry = useCallback(
@@ -535,10 +704,12 @@ export function AssistantProvider({
       stopHere();
       return;
     }
-    // The worker ends the run and says "stopped" on the stream; if it can't reach the run, stop listening.
+    // The worker ends the run and says "stopped" on the stream (or in the saved chat, for an answer being checked
+    // on); if it can't reach the run, stop listening, unless the answer is being checked on: then the run has just
+    // ended, and its answer lands at the next check.
     stopRun(runId)
       .then((r) => {
-        if (!r.stopping) stopHere();
+        if (!r.stopping && !followingRef.current) stopHere();
       })
       .catch(stopHere);
   }, [detach, patchAnswer]);
@@ -572,26 +743,44 @@ export function AssistantProvider({
           }),
         );
         if (token !== loadRef.current) return;
-        const saved: Record<string, CallState> = Object.fromEntries(
-          got.toolCalls.map((c) => [
-            c.id,
-            {
-              status: c.status,
-              tool: c.tool,
-              outcome: c.outcome,
-              error: c.error,
-              href: c.href,
-              undone: c.undone,
-            },
-          ]),
-        );
+        const saved = callsOf(got.toolCalls);
         const asked = askedWhileLoadingRef.current;
-        setMessages((now) => [...got.messages.map(fromSaved), ...now]);
+        // Its last question still being answered (asked here before a reload, or on the phone), or cut off.
+        const last = got.messages[got.messages.length - 1];
+        const pending =
+          !asked &&
+          last?.role === 'user' &&
+          (got.answering || assistantQuestionUnanswered(got.messages, null))
+            ? `a-${crypto.randomUUID()}`
+            : null;
+        setMessages((now) => [
+          ...got.messages.map(fromSaved),
+          ...(pending
+            ? [
+                {
+                  key: pending,
+                  role: 'assistant' as const,
+                  text: '',
+                  cards: [],
+                  steps: [],
+                  live: !!got.answering,
+                  notice: got.answering ? null : { code: 'unfinished' as const, message: '' },
+                  question: last!.text,
+                  createdAt: last!.createdAt,
+                },
+              ]
+            : []),
+          ...now,
+        ]);
         setCalls((now) => ({ ...(asked ? lapse(saved) : saved), ...now }));
+        if (pending && got.answering) follow(id, pending, got.answering.runId, got);
+        else forgetWaiting(workspaceId, id);
       } catch (e) {
         if (token !== loadRef.current) return;
-        if (e instanceof ApiError && e.status === 404 && !askedWhileLoadingRef.current)
+        if (e instanceof ApiError && e.status === 404 && !askedWhileLoadingRef.current) {
           setThread(null);
+          forgetWaiting(workspaceId, id);
+        }
         if (!opts.silent) toast.error(errorMessage(e));
       } finally {
         if (token === loadRef.current) {
@@ -600,7 +789,7 @@ export function AssistantProvider({
         }
       }
     },
-    [detach, setThread, workspaceId],
+    [detach, follow, setThread, workspaceId],
   );
 
   const forgetThread = useCallback(
@@ -625,12 +814,32 @@ export function AssistantProvider({
     [workspaceId],
   );
 
-  // The chat from before a reload comes back the first time the panel opens.
+  // The first time the panel opens: a question whose answer hasn't been shown yet (asked before the tab was closed
+  // or reloaded) reopens its chat, which picks the answer up; otherwise the chat from before a reload comes back.
   useEffect(() => {
     if (!open || restoredRef.current) return;
     restoredRef.current = true;
-    const id = rememberedThread(workspaceId);
-    if (id && !threadRef.current && !streamRef.current) void openThread(id, { silent: true });
+    if (threadRef.current || streamRef.current) return;
+    const waiting = rememberedWaiting(workspaceId);
+    if (!waiting) {
+      const id = rememberedThread(workspaceId);
+      if (id) void openThread(id, { silent: true });
+      return;
+    }
+    void (async () => {
+      let id = waiting.threadId;
+      if (!id) {
+        // Asked in a new chat and left before the worker said which: the newest chat, if it's that one.
+        const newest = await apiBrowser()
+          .POST('/v1/queries/assistant_thread.list', { body: { workspaceId, limit: 1 } })
+          .then((r) => unwrap(r).items[0] ?? null)
+          .catch(() => null);
+        id = assistantChatToReopen(waiting, newest);
+      }
+      if (threadRef.current || streamRef.current) return;
+      if (id) await openThread(id, { silent: true });
+      else forgetWaiting(workspaceId, null);
+    })();
   }, [open, openThread, workspaceId]);
 
   // Opening the panel has the AI read ahead while they type, so their first answer starts sooner. Not before

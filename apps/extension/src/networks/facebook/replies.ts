@@ -12,6 +12,15 @@ import { peopleLinked } from './people';
 import type { ChatPage, ProfileRef, ThreadRef } from './types';
 import { classifyUrl, facebookUrl, threadFromUrl } from './urls';
 
+/**
+ * A chat's last line as the page shows it, and where (its row in a list, or the chat open): compared on the computer
+ * only, to tell a newer message of theirs (decision 150). It never leaves the computer.
+ */
+export interface LastLine {
+  readonly line: string;
+  readonly where: 'list' | 'chat';
+}
+
 export interface ReplySighting {
   readonly name: string;
   /** The chat's number, from its link. */
@@ -19,6 +28,10 @@ export interface ReplySighting {
   readonly profile: ProfileRef | null;
   /** When the list said it was written ("3h"); null in an open chat, where it's in front of them. */
   readonly when: string | null;
+  /** Its last line, from the list when it shows one, else the chat open (decision 150): read on the computer only. */
+  readonly last?: LastLine | null;
+  /** Its last line changed since this computer last saw it (../../hfos/replies.ts): a newer message of theirs. */
+  readonly newer?: boolean;
 }
 
 /** The last thing said, in the list, was the person's own: "You: see you then", "You sent a photo". */
@@ -40,7 +53,36 @@ function lastFromThem(chat: ChatPage, thread: ThreadRef | null): ReplySighting |
   if (!last || last.from !== 'them' || !chat.name) return null;
   const threadKey = keyOf(chat.thread ?? thread);
   if (!threadKey && !chat.profile) return null;
-  return { name: chat.name, threadKey, profile: chat.profile, when: null };
+  return {
+    name: chat.name,
+    threadKey,
+    profile: chat.profile,
+    when: null,
+    last: lineOf(last.text, 'chat'),
+  };
+}
+
+/** A last line to compare, when there are words: a photo alone has none. */
+export const lineOf = (
+  text: string | null | undefined,
+  where: LastLine['where'],
+): LastLine | null => {
+  const line = clean(text ?? '');
+  return line ? { line, where } : null;
+};
+
+/**
+ * Two sightings of one chat as one: the open chat says more of who it's with, the list when they wrote and its last
+ * line (a row's line is the one compared each time, as the chat isn't always open).
+ */
+export function mergedSighting(had: ReplySighting | undefined, s: ReplySighting): ReplySighting {
+  const kept = had && !s.profile ? had : s;
+  const lines = [had?.last, s.last].filter((l): l is LastLine => !!l);
+  return {
+    ...kept,
+    when: had?.when ?? s.when,
+    last: lines.find((l) => l.where === 'list') ?? lines[0] ?? null,
+  };
 }
 
 /**
@@ -87,7 +129,14 @@ export function readReplies(
       const said = clean(chat.preview);
       if (!said || MINE.test(said) || NOT_A_MESSAGE.test(said)) continue;
       const threadKey = keyOf(chat.thread);
-      if (threadKey) found.push({ name: chat.name, threadKey, profile: null, when: chat.when });
+      if (threadKey)
+        found.push({
+          name: chat.name,
+          threadKey,
+          profile: null,
+          when: chat.when,
+          last: lineOf(said, 'list'),
+        });
     }
   }
   // The chat open on its own page.
@@ -110,8 +159,7 @@ export function readReplies(
   const byKey = new Map<string, ReplySighting>();
   for (const s of found) {
     const key = s.threadKey ?? `${s.profile?.id ?? ''}|${s.profile?.username ?? ''}|${s.name}`;
-    const had = byKey.get(key);
-    byKey.set(key, had && !s.profile ? had : { ...s, when: had?.when ?? s.when });
+    byKey.set(key, mergedSighting(byKey.get(key), s));
   }
   return [...byKey.values()];
 }

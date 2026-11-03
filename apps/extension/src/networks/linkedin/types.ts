@@ -17,6 +17,7 @@ import type {
   ProfileRef,
   ThreadRef,
 } from '../facebook/types';
+import type { ListedRow } from './chats';
 
 /**
  * A member's profile by the name in its address (/in/<username>/) and, where a link shows it, LinkedIn's id for them
@@ -192,6 +193,8 @@ export interface ReadResult {
   readonly invitations?: readonly Invitation[];
   readonly posts?: readonly Post[];
   readonly chats?: readonly ChatSummary[];
+  /** The newer list's conversations, whose rows link to none: by the name each shows (./chats.ts `listedRows`). */
+  readonly rows?: readonly ListedRow[];
   readonly chat?: ChatPage;
   readonly notices?: readonly Notice[];
   readonly group?: GroupPage;

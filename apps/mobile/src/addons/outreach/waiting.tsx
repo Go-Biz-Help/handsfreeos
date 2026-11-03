@@ -25,6 +25,7 @@ import {
   type PhoneWaiting,
 } from '@hfos/core/addons/outreach/views/waiting';
 import type { WaitingOutput } from '@hfos/core/addons/outreach/waiting';
+import { AUTOPILOT_WORDS, type AutopilotOutput } from '@hfos/core/addons/outreach/autopilot';
 import {
   approveAllTakesComments,
   approveAllWords,
@@ -68,8 +69,18 @@ import { Text } from '@/components/ui/text';
 import { toast } from '@/components/ui/toast';
 import { api, errorMessage, unwrap } from '@/lib/api';
 
-import { answerRequest, clearNeed, okAll, okSend, retrySteps, setAside, skipSend } from './actions';
+import {
+  answerAutopilot,
+  answerRequest,
+  clearNeed,
+  okAll,
+  okSend,
+  retrySteps,
+  setAside,
+  skipSend,
+} from './actions';
 import { AskLine, useAskActions, type AskActions } from './asks';
+import { AutopilotList, type AutopilotAnswerOf } from './autopilot-list';
 import { ChatBubbles } from './chat-bubbles';
 import { useOutreachWaiting } from './copy';
 import { NetworkName } from './networks';
@@ -246,6 +257,18 @@ export function useWaitingProps(): React.ComponentProps<typeof WaitingBody> {
     if (unheard && online.current) reload();
   }, [unheard, reload]);
   const askActions = useAskActions(null, answer.reload);
+  // Autopilot's day's list (decision 151), first: with signal, and nothing while it's off.
+  const autopilot = useOutreachAnswer(
+    async () =>
+      unwrap(
+        await api.POST('/v1/queries/outreach.autopilot', {
+          body: { workspaceId: ws },
+        }),
+      ),
+    `autopilot:${ws}`,
+    W.rows.waiting,
+  );
+  const reloadAutopilot = autopilot.reload;
   // Whoever the country setting isn't sure of waits here for a pick (decision 128).
   const unsure = useOutreachAnswer(
     async () =>
@@ -333,6 +356,17 @@ export function useWaitingProps(): React.ComponentProps<typeof WaitingBody> {
         failed(e);
       }
     },
+    autopilot: autopilot.data ?? null,
+    // OK, Not today and Put back on Autopilot's list: with signal, since the list comes from HandsFreeOS.
+    onAutopilot: async (said, profileIds) => {
+      try {
+        const out = await answerAutopilot(ws, said, profileIds);
+        if (said === 'ok' && !profileIds) toast.show(AUTOPILOT_WORDS.okdCount(out.output.changed));
+        reloadAutopilot();
+      } catch (e) {
+        failed(e);
+      }
+    },
     // How the phone hears of it is on General.
     onSettings: () => openSettingsPart(ws, 'general'),
     askActions,
@@ -360,6 +394,8 @@ export function WaitingBody({
   onSettings,
   askActions,
   unsure = null,
+  autopilot = null,
+  onAutopilot,
 }: {
   phone: PhoneWaiting;
   server: WaitingFromServer | null;
@@ -382,6 +418,9 @@ export function WaitingBody({
   askActions?: AskActions;
   /** How many the country setting isn't sure of, and opening them: null when none wait. */
   unsure?: { readonly count: number; readonly onOpen: () => void } | null;
+  /** Autopilot's day's list (decision 151): null while it's off, or with no word from HandsFreeOS. */
+  autopilot?: AutopilotOutput | null;
+  onAutopilot?: AutopilotAnswerOf;
 }) {
   const [changing, setChanging] = React.useState<PhoneSend | null>(null);
   const all = approveAllFromPhone(phone);
@@ -417,6 +456,10 @@ export function WaitingBody({
         <Card className="px-4 py-3" testID="waiting-offline">
           <Note>{W.waitingOffline}</Note>
         </Card>
+      ) : null}
+
+      {autopilot && onAutopilot ? (
+        <AutopilotList list={autopilot} online={online} onAnswer={onAutopilot} />
       ) : null}
 
       {server?.asks.length && askActions ? (

@@ -4,7 +4,7 @@
  * person's groups (decision 114): each drafted one waits for the person's OK or goes as it is, and the extension says
  * when it went. Each person's are their own.
  */
-import { and, eq, inArray, isNotNull, isNull, or, sql } from 'drizzle-orm';
+import { and, desc, eq, inArray, isNotNull, isNull, or, sql } from 'drizzle-orm';
 import { rows } from '@hfos/db/client';
 import { HfosError } from '../../../errors';
 import { requireHuman, userIdOf } from '../../../kernel/actor';
@@ -14,6 +14,7 @@ import { FRESH_MINUTES } from '../../../mobile';
 import { defineAddonCommand, defineAddonQuery } from '../../server';
 import { outreachAddon } from '../manifest';
 import { GROUP_REPLIES_SINCE, groupRepliesOn } from '../active';
+import { AUTOPILOT_WORDS, waitsForPeopleOk } from '../autopilot';
 import { underAPost, type PostSendKind, type SendKind } from '../automation';
 import { chatUrlOn } from '../network-words';
 import { NETWORKS, PLATFORMS, type Platform } from '../networks';
@@ -336,15 +337,44 @@ export const sendQueue = defineAddonCommand(outreachAddon, {
       underAPost(input.kind) && input.postId
         ? await postOf(ctx, me, profile, input.postId, input.kind)
         : null;
+    // A reply listed from the extension's sighting names no chat: it's theirs latest, as the runner just brought it in
+    // and the AI drafted from it (decision 150), so what they wrote is known.
     const [chat] =
       input.chatId && !post
         ? await ctx.tx
             .select({ id: fileChats.id, userId: fileChats.userId, recent: fileChats.recent })
             .from(fileChats)
             .where(and(eq(fileChats.workspaceId, ws), eq(fileChats.id, input.chatId)))
-        : [];
+        : !post && (input.kind === 'reply' || input.kind === 'partner_reply')
+          ? await ctx.tx
+              .select({ id: fileChats.id, userId: fileChats.userId, recent: fileChats.recent })
+              .from(fileChats)
+              .where(
+                and(
+                  eq(fileChats.workspaceId, ws),
+                  eq(fileChats.userId, me),
+                  eq(fileChats.profileId, profile.id),
+                ),
+              )
+              .orderBy(desc(fileChats.lastAt))
+              .limit(1)
+          : [];
     // The person's choices and training wheels on the network the message goes on: each network's are its own.
-    const { choices: settings, wheels } = await automationOf(ctx, me, Date.now(), profile.platform);
+    const {
+      choices: settings,
+      wheels,
+      settings: { autopilot },
+    } = await automationOf(ctx, me, Date.now(), profile.platform);
+    // Under Autopilot (decision 151), nothing goes to someone the person hasn't OK'd on a day's list but an answer to
+    // them: Today doesn't list them, so this holds whatever drafted it.
+    const [okd] =
+      autopilot && waitsForPeopleOk(input.kind)
+        ? await rows<{ ok: boolean }>(
+            ctx.tx,
+            sql`select true as ok from addon_outreach.autopilot_people
+                where workspace_id = ${ws} and user_id = ${me} and profile_id = ${profile.id} and state = 'ok'`,
+          )
+        : [{ ok: true }];
     const at = changeMoment(ctx.meta);
     // A reply goes on its own only to what HandsFreeOS saw them write, and never to someone who needs the person.
     const theirs =
@@ -354,24 +384,34 @@ export const sendQueue = defineAddonCommand(outreachAddon, {
     const partner = isPartnerKind(input.kind);
     // A partner's message waits for an OK of its own, never Approve all (decision 81), and so does an answer to a post
     // asking for what the business offers where the network keeps those apart (Alignable's forum, decision 79),
-    // another time after a no-show (decision 106), and a birthday or new-job note (decision 108).
-    const needsYou = partner
-      ? PARTNER_WORDS.needsYou
-      : input.kind === 'rebook'
-        ? REBOOK_NEEDS_YOU
-        : isOccasionKind(input.kind)
-          ? OCCASION_WORDS.needsYou
-          : post
-            ? post.strong && NETWORKS[profile.platform].forumAnswersPerDay !== null
-              ? COMMENT_NEEDS_YOU.answer
-              : null
-            : input.kind !== 'reply'
+    // another time after a no-show (decision 106), and a birthday or new-job note (decision 108). Under Autopilot none
+    // of those does (decision 151, answer 1a): a partner's reply waits only as a reply does, when it needs them.
+    const replying = input.kind === 'reply' || (autopilot && input.kind === 'partner_reply');
+    const needsYou = !okd
+      ? AUTOPILOT_WORDS.notOkd
+      : partner && !replying
+        ? autopilot
+          ? null
+          : PARTNER_WORDS.needsYou
+        : input.kind === 'rebook'
+          ? autopilot
+            ? null
+            : REBOOK_NEEDS_YOU
+          : isOccasionKind(input.kind)
+            ? autopilot
               ? null
-              : theirs === null
-                ? 'HandsFreeOS hasn’t seen what they wrote'
-                : // Something they asked that the business's Knowledge doesn't answer (decision 122): the person's.
-                  (replyNeedsYou(theirs) ??
-                  (input.unanswered ? KNOWS_WORDS.needsYou(input.unanswered) : null));
+              : OCCASION_WORDS.needsYou
+            : post
+              ? post.strong && NETWORKS[profile.platform].forumAnswersPerDay !== null && !autopilot
+                ? COMMENT_NEEDS_YOU.answer
+                : null
+              : !replying
+                ? null
+                : theirs === null
+                  ? 'HandsFreeOS hasn’t seen what they wrote'
+                  : // Something they asked that the business's Knowledge doesn't answer (decision 122): the person's.
+                    (replyNeedsYou(theirs) ??
+                    (input.unanswered ? KNOWS_WORDS.needsYou(input.unanswered) : null));
     const goes = goesAsItIs({
       sending: settings.sending,
       replies: settings.replies,
@@ -380,6 +420,7 @@ export const sendQueue = defineAddonCommand(outreachAddon, {
       simple: input.simple,
       needsYou,
       held: post ? await commentHoldOf(ctx, me, profile.platform) : false,
+      autopilot,
     });
     const handOver = handedOver({
       sending: settings.sending,

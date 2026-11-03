@@ -9,6 +9,7 @@
 import { NETWORKS, type Platform } from '@hfos/core/addons/outreach/networks';
 import { facebook, isLookingRead, type FacebookRead, type LinkedInRead } from '../networks';
 import type { ChatPage, ChatSummary } from '../networks/facebook/types';
+import type { ListedRow } from '../networks/linkedin/chats';
 import type { ChatsCollected } from '../hfos/messages';
 import { CHATS_PACE_SECONDS } from '@hfos/core/addons/outreach/asks';
 import { chatCollect } from '../hfos/saves';
@@ -110,6 +111,31 @@ export const chatMemory: ChatMemory = {
   },
 };
 
+/** The rows of a list that link to no chat: LinkedIn's newer list (decision 150). */
+const rowsOf = (page: FacebookRead | LinkedInRead): readonly ListedRow[] =>
+  ('rows' in page && page.rows) || [];
+
+/** A row's key in what was read lately: the name it shows, on its network. */
+const rowKey = (home: ChatsHome, row: ListedRow) =>
+  `${home.platform}:name:${row.name.trim().replace(/\s+/g, ' ').toLowerCase()}`;
+
+/** A row as what was read lately takes a chat. */
+const rowChat = (home: ChatsHome, row: ListedRow): ChatSummary => ({
+  name: row.name,
+  thread: { id: rowKey(home, row), encrypted: false, url: home.url },
+  preview: row.preview,
+  when: row.when,
+});
+
+/** Whether the conversation open is the row pressed: one with an id, by the name the row shows. */
+function isRowOpen(
+  chat: ChatPage | undefined,
+  row: ListedRow,
+): chat is ChatPage & { readonly thread: NonNullable<ChatPage['thread']> } {
+  const key = (name: string) => name.trim().replace(/\s+/g, ' ').toLowerCase();
+  return !!chat?.thread && !!chat.name && key(chat.name) === key(row.name);
+}
+
 /** What was last sent for each chat, so a chat read again with nothing new isn't sent again. */
 const sent = new Map<string, string>();
 
@@ -180,6 +206,56 @@ export async function readChats(
         next = chat;
         break;
       }
+    // LinkedIn's newer list links to no conversation (decision 150, answer 4a): each row is pressed open by its name.
+    let row: ListedRow | undefined;
+    if (!next)
+      for (const r of rowsOf(page)) {
+        const key = rowKey(home, r);
+        if (!tried.has(key) && !(await options.memory.lately(rowChat(home, r)))) {
+          row = r;
+          break;
+        }
+      }
+    if (row) {
+      emptyScrolls = 0;
+      const key = rowKey(home, row);
+      tried.add(key);
+      job.progress(`Reading the chat with ${row.name}… ${counted(read, 'chat')} read so far.`);
+      if ((await tab.ask({ type: 'hfos-open-chat', threadId: '', name: row.name })).ok) {
+        await pause(OPEN_MS);
+        let opened = await chatsPageIn(tab);
+        if (!isRowOpen(opened.chat, row)) {
+          await pause(OPEN_MS);
+          opened = await chatsPageIn(tab);
+        }
+        const chat = opened.chat;
+        if (isRowOpen(chat, row)) {
+          tried.add(chat.thread.id);
+          const listed = {
+            name: row.name,
+            thread: chat.thread,
+            preview: row.preview,
+            when: row.when,
+          };
+          const said = await sendChat(
+            job.hfos,
+            job.businessId,
+            options.memory,
+            chat,
+            listed,
+            home.platform,
+          );
+          if (said) {
+            read++;
+            options.said?.(said);
+          }
+        }
+      }
+      // One that didn't open waits for a day with something new.
+      await options.memory.remember(key, row.preview ?? row.when);
+      if (!job.stopped()) await pause(paced(PACE_MS));
+      continue;
+    }
     if (!next) {
       const moved =
         emptyScrolls < EMPTY_SCROLLS && (await tab.ask({ type: 'hfos-scroll-chats' })).ok;

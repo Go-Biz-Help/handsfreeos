@@ -9,7 +9,16 @@ import { Linking } from 'react-native';
 
 import { change } from '@/changes';
 
-import { okAll, okSend, SEND_CHANGED_SQL, SEND_STATE_SQL, skipSend } from '../actions';
+import { AUTOPILOT_WORDS, type AutopilotOutput } from '@hfos/core/addons/outreach/autopilot';
+
+import {
+  answerAutopilot,
+  okAll,
+  okSend,
+  SEND_CHANGED_SQL,
+  SEND_STATE_SQL,
+  skipSend,
+} from '../actions';
 import { pendingSendIds } from '../copy';
 import { PersonMenuScope } from '../person-menu';
 import { unheardOf, WaitingBody, type WaitingFromServer } from '../waiting';
@@ -91,6 +100,147 @@ const SERVER: WaitingFromServer = {
   wheels: { on: false, from: null, ok: 0, daysLeft: 7, edits: 0 },
   pushes: 'bundled',
 };
+
+/** Autopilot's day's list (decision 151): two on Facebook, one taken off, a spare on LinkedIn. */
+const AUTOPILOT: AutopilotOutput = {
+  on: true,
+  allowed: true,
+  day: '2026-10-10',
+  timezone: TZ,
+  made: true,
+  listAt: null,
+  waiting: 2,
+  people: [
+    {
+      profileId: id(70),
+      name: 'Jordan New',
+      url: 'https://www.facebook.com/jordan.new',
+      platform: 'facebook',
+      kind: 'friend_request',
+      why: ['Owner at a bakery'],
+      spare: false,
+      state: 'waiting',
+      dontPitch: true,
+      neverContact: false,
+      personId: null,
+    },
+    {
+      profileId: id(71),
+      name: 'Casey Off',
+      url: 'https://www.facebook.com/casey.off',
+      platform: 'facebook',
+      kind: 'opener',
+      why: [],
+      spare: false,
+      state: 'not_today',
+      dontPitch: false,
+      neverContact: false,
+      personId: null,
+    },
+    {
+      profileId: id(72),
+      name: 'Avery Spare',
+      url: 'https://www.linkedin.com/in/avery-spare',
+      platform: 'linkedin',
+      kind: 'friend_request',
+      why: [],
+      spare: true,
+      state: 'waiting',
+      dontPitch: false,
+      neverContact: false,
+      personId: null,
+    },
+  ],
+};
+
+describe('Autopilot’s day’s list on the phone (decision 151)', () => {
+  it('comes first on Needs you, grouped by network, the spares last, with OK everyone else, Not today and Put back', async () => {
+    const h = handlers();
+    const onAutopilot = jest.fn();
+    await render(
+      <WaitingBody
+        phone={waitingOfCopy([], ME)}
+        server={SERVER}
+        serverError={null}
+        online
+        timeZone={TZ}
+        now={NOW}
+        autopilot={AUTOPILOT}
+        onAutopilot={onAutopilot}
+        {...h}
+      />,
+    );
+    const list = screen.getByTestId('autopilot-list');
+    expect(within(list).getByText(AUTOPILOT_WORDS.listAbout)).toBeTruthy();
+    expect(within(screen.getByTestId('autopilot-facebook')).getByText('Jordan New')).toBeTruthy();
+    expect(within(list).getByText(W.person.dontPitch)).toBeTruthy();
+    expect(within(list).getByText(AUTOPILOT_WORDS.spares)).toBeTruthy();
+    // Someone's taken off, so the button OKs everyone else.
+    await fireEvent.press(screen.getByTestId('autopilot-ok-all'));
+    expect(onAutopilot).toHaveBeenCalledWith('ok');
+    expect(screen.getByText(AUTOPILOT_WORDS.okRest(2))).toBeTruthy();
+    await fireEvent.press(screen.getAllByTestId('autopilot-not-today')[0]!);
+    expect(onAutopilot).toHaveBeenCalledWith('not_today', [id(70)]);
+    await fireEvent.press(screen.getByTestId('autopilot-put-back'));
+    expect(onAutopilot).toHaveBeenCalledWith('waiting', [id(71)]);
+  });
+
+  it('says when the list comes before it’s made, and shows nothing while Autopilot is off', async () => {
+    const h = handlers();
+    const before = {
+      ...AUTOPILOT,
+      made: false,
+      people: [],
+      waiting: 0,
+      listAt: '2026-10-11T12:00:00.000Z',
+    };
+    const { rerender } = await render(
+      <WaitingBody
+        phone={waitingOfCopy([], ME)}
+        server={SERVER}
+        serverError={null}
+        online
+        timeZone={TZ}
+        now={NOW}
+        autopilot={before}
+        onAutopilot={jest.fn()}
+        {...h}
+      />,
+    );
+    expect(
+      screen.getByText(/^Today’s list comes at .+, an hour before your working hours\.$/),
+    ).toBeTruthy();
+    expect(screen.queryByTestId('autopilot-ok-all')).toBeNull();
+    await rerender(
+      <WaitingBody
+        phone={waitingOfCopy([], ME)}
+        server={SERVER}
+        serverError={null}
+        online
+        timeZone={TZ}
+        now={NOW}
+        autopilot={{ ...AUTOPILOT, on: false }}
+        onAutopilot={jest.fn()}
+        {...h}
+      />,
+    );
+    expect(screen.queryByTestId('autopilot-list')).toBeNull();
+  });
+
+  it('sends OK for everyone waiting with nobody named, and Not today for the one named', async () => {
+    await answerAutopilot('ws', 'ok');
+    expect(change).toHaveBeenCalledWith('outreach.autopilot.answer', {
+      workspaceId: 'ws',
+      answer: 'ok',
+    });
+    await answerAutopilot('ws', 'not_today', [id(70)]);
+    expect(change).toHaveBeenCalledWith('outreach.autopilot.answer', {
+      workspaceId: 'ws',
+      answer: 'not_today',
+      profileIds: [id(70)],
+    });
+  });
+});
 
 describe('Waiting for you on the phone', () => {
   it('lists the person’s messages from the phone’s copy, replies first, and theirs alone', async () => {

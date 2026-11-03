@@ -4,6 +4,7 @@ import { createTokenVerifier } from '@hfos/core/server';
 import { createDb } from '@hfos/db/client';
 import pino from 'pino';
 import { claudeWithBackup } from './ai/provider';
+import { settleAssistantRuns } from './assistant/routes';
 import { scriptedAssistant } from './assistant/scripted';
 import { createToolExecutor } from './assistant/tools-write';
 import { createBotCheck } from './booking/bot-check';
@@ -236,11 +237,20 @@ const loops = [
   }),
 ];
 
+/**
+ * How long a shutdown lets the Assistant's answers finish, inside fly.toml's 30-second kill_timeout: most people
+ * ask and leave, so nothing else would wait for an answer nobody is listening to. One still going then is stopped,
+ * and saves a line saying an update cut it off.
+ */
+const ANSWERS_GRACE_MS = 20_000;
+
 const shutdown = async (signal: string) => {
   running = false;
   aiSwitch?.stop();
   log.info({ signal }, 'worker stopping: closing the listener, then finishing the current passes');
-  await app.close();
+  // The listener closes at once; answers streaming to someone hold it open until they end, so both go together.
+  const [, answers] = await Promise.all([app.close(), settleAssistantRuns(ANSWERS_GRACE_MS)]);
+  if (answers) log.info({ answers }, 'the Assistant’s answers in progress were let finish');
   await Promise.all(loops);
   await Promise.all([handle.close(), httpHandle.close()]);
   process.exit(0);

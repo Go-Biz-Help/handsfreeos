@@ -45,6 +45,8 @@ export interface ScriptRule {
   ) => string;
   /** For requests with a `responseFormat`: the object to answer with (sent back as JSON text). */
   readonly json?: (question: string, context: string, request: AiRequest) => unknown;
+  /** Thinks this long before it answers, as a slow model would: for tests of what happens meanwhile. */
+  readonly thinkMs?: number;
 }
 
 /**
@@ -91,6 +93,7 @@ export class ScriptedProvider implements AiProvider {
       : rule?.reply
         ? rule.reply(question, resultsByTool(request.messages), context)
         : this.fallback;
+    if (rule?.thinkMs) await think(rule.thinkMs, options.signal);
     const words = text.split(/(?<= )/);
     options.onStarted?.('text');
     for (const w of words) {
@@ -104,6 +107,22 @@ export class ScriptedProvider implements AiProvider {
       usage: usage(inputTokens, Math.ceil(text.length / 4)),
     };
   }
+}
+
+/** A rule's pause before it answers, cut short by Stop. */
+function think(ms: number, signal: AbortSignal | undefined): Promise<void> {
+  return new Promise((done, fail) => {
+    const stopped = () => {
+      clearTimeout(timer);
+      fail(new AiProviderError('Stopped', 'aborted', false));
+    };
+    const timer = setTimeout(() => {
+      signal?.removeEventListener('abort', stopped);
+      done();
+    }, ms);
+    if (signal?.aborted) stopped();
+    else signal?.addEventListener('abort', stopped, { once: true });
+  });
 }
 
 function usage(inputTokens: number, outputTokens: number) {

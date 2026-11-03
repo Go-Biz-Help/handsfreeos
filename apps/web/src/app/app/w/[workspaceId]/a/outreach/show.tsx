@@ -123,18 +123,23 @@ export async function showOutreach(
   }
   if (shown.view === 'needs') {
     // Everything waiting on the person, on every network: never narrowed, so nothing that needs them is hidden.
-    const [got, waiting] = await Promise.all([
+    // Autopilot's day's list first (decision 151): left out when it couldn't be had.
+    const [got, waiting, autopilot] = await Promise.all([
       workspace,
       api
         .POST('/v1/queries/outreach.waiting', { body: { workspaceId, items: true } })
         .then(unwrapPage),
+      api
+        .POST('/v1/queries/outreach.autopilot', { body: { workspaceId } })
+        .then((r) => r.data ?? null)
+        .catch(() => null),
     ]);
     return (
       <OutreachHome
         workspaceId={workspaceId}
         businessName={got.workspace.name}
         canManage={got.workspace.permissions.includes('outreach.manage')}
-        shown={{ view: 'needs', waiting }}
+        shown={{ view: 'needs', waiting, autopilot }}
       />
     );
   }

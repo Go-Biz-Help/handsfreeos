@@ -7197,6 +7197,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/commands/outreach.autopilot.answer": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * The person answers today’s Autopilot list: OK everyone still waiting (or those named), so Autopilot reaches them and the steps after go without asking again; Not today for those named, who are on tomorrow’s list again; or Put back those left out today.
+         * @description Risk level 1. Requires outreach.use. Emits outreach.autopilot.answered.
+         */
+        post: operations["command_outreach_autopilot_answer"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/commands/outreach.chat.keep": {
         parameters: {
             query?: never;
@@ -7228,7 +7248,7 @@ export interface paths {
         put?: never;
         /**
          * Bring in one-to-one chats the extension read in Messenger in the person’s browser, each with its latest few messages and when they were sent, for the AI to read later. They join the chats from the person’s Facebook download, one per person. Adds nobody to Contacts itself.
-         * @description Risk level 1. Requires outreach.use. Emits outreach.chats.collected.
+         * @description Risk level 1. Requires outreach.use. Emits outreach.chats.collected, outreach.reply.seen.
          */
         post: operations["command_outreach_chats_collect"];
         delete?: never;
@@ -8467,7 +8487,7 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * The extension saw chats on the person’s Facebook whose last message is theirs: each one after a message of the person’s it noted is kept as a reply, once, and their phone told unless they were looking at it.
+         * The extension saw chats on one of the person’s networks whose last message is theirs: each one after a message, request or comment of the person’s it noted is kept as a reply, once, and once more for a newer message of theirs, and their phone told unless they were looking at it.
          * @description Risk level 0. Requires outreach.use. Emits outreach.reply.seen.
          */
         post: operations["command_outreach_replies_note"];
@@ -19631,6 +19651,26 @@ export interface paths {
          * @description Requires outreach.manage.
          */
         post: operations["query_outreach_automation_people"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/queries/outreach.autopilot": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Today’s Autopilot list for the person: the people it plans to reach today whom they haven’t OK’d, with what it plans for each and why, the spares last, and whether the list is made yet or when it comes.
+         * @description Requires outreach.use.
+         */
+        post: operations["query_outreach_autopilot"];
         delete?: never;
         options?: never;
         head?: never;
@@ -40703,6 +40743,7 @@ export interface operations {
                 "application/json": {
                     settings: {
                         acceptedPush?: boolean;
+                        autopilot?: boolean;
                         /** @default true */
                         collect?: boolean;
                         confirmRequests: boolean;
@@ -41056,6 +41097,8 @@ export interface operations {
                             };
                         };
                         rules: {
+                            /** @default true */
+                            autopilotAllowed: boolean;
                             dailyLimits: {
                                 comment?: number;
                                 first_message?: number;
@@ -41095,6 +41138,8 @@ export interface operations {
                         settings: {
                             /** @default false */
                             acceptedPush: boolean;
+                            /** @default false */
+                            autopilot: boolean;
                             /** @default true */
                             collect: boolean;
                             confirmRequests: boolean;
@@ -41435,6 +41480,39 @@ export interface operations {
             };
         };
     };
+    command_outreach_autopilot_answer: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** @enum {string} */
+                    answer: "ok" | "not_today" | "waiting";
+                    profileIds?: string[];
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        changed: number;
+                        waiting: number;
+                    };
+                };
+            };
+        };
+    };
     command_outreach_chat_keep: {
         parameters: {
             query?: never;
@@ -41525,6 +41603,7 @@ export interface operations {
                 };
                 content: {
                     "application/json": {
+                        replied?: string[];
                         saved: number;
                         waiting: number;
                     };
@@ -45399,6 +45478,8 @@ export interface operations {
                     platform?: "facebook" | "linkedin" | "instagram" | "alignable";
                     seen: {
                         name: string;
+                        /** @default false */
+                        newer?: boolean;
                         /** @default null */
                         profile?: {
                             id: string | null;
@@ -65123,6 +65204,12 @@ export interface operations {
                 };
                 content: {
                     "application/json": {
+                        answering: {
+                            /** Format: uuid */
+                            runId: string;
+                            /** Format: date-time */
+                            startedAt: string;
+                        } | null;
                         messages: {
                             cards: ({
                                 detail: string;
@@ -76127,6 +76214,8 @@ export interface operations {
                             };
                         };
                         rules: {
+                            /** @default true */
+                            autopilotAllowed: boolean;
                             dailyLimits: {
                                 comment?: number;
                                 first_message?: number;
@@ -76166,6 +76255,8 @@ export interface operations {
                         settings: {
                             /** @default false */
                             acceptedPush: boolean;
+                            /** @default false */
+                            autopilot: boolean;
                             /** @default true */
                             collect: boolean;
                             confirmRequests: boolean;
@@ -76540,6 +76631,58 @@ export interface operations {
                             userId: string;
                             wheels: boolean;
                         }[];
+                    };
+                };
+            };
+        };
+    };
+    query_outreach_autopilot: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        allowed: boolean;
+                        day: string;
+                        listAt: string | null;
+                        made: boolean;
+                        on: boolean;
+                        people: {
+                            dontPitch: boolean;
+                            /** @enum {string} */
+                            kind: "reply" | "demo_reminder" | "rebook" | "birthday" | "new_job" | "warm_lead" | "pitch" | "video" | "opener" | "follow_up" | "check_in" | "reconnect" | "comment" | "group_reply" | "warm_up" | "friend_request" | "confirm" | "recommend" | "partner_reply" | "partner_details" | "partner_follow_up" | "partner_ask" | "partner_warm_up";
+                            name: string;
+                            neverContact: boolean;
+                            personId: string | null;
+                            /** @enum {string} */
+                            platform: "facebook" | "linkedin" | "instagram" | "alignable";
+                            /** Format: uuid */
+                            profileId: string;
+                            spare: boolean;
+                            /** @enum {string} */
+                            state: "waiting" | "ok" | "not_today";
+                            url: string;
+                            why: string[];
+                        }[];
+                        timezone: string;
+                        waiting: number;
                     };
                 };
             };

@@ -387,8 +387,10 @@ became.
 - **Phone alerts** (decision 22, `alerts.ts`, `ops/alerts.ts`, the worker's `alerts.ts`): while noting is on, the
   extension looks at the chats on any Facebook page as it changes (Messenger's list, an open chat, a small chat
   window) and tells HandsFreeOS who wrote last in each, never what (`outreach.replies.note`). One that answers a
-  message of the person's the extension noted is a reply: their phone hears "Dana Reyes wrote back", unless they had
-  that tab in front of them, and they're on Today as a reply owed until the person answers. At the business's hour
+  message, request or comment of the person's the extension noted is a reply: their phone hears "Dana Reyes wrote
+  back", unless they had that tab in front of them, and they're on Today as a reply owed until the person answers. A
+  newer message of theirs is a reply again, at most one buzz a quarter hour, and one the daily chat read finds buzzes
+  too (decision 150). At the business's hour
   (`morningPushHour`, 8 AM to start, or off; Social Outreach → Settings → General, For your team, in the business's time
   zone) each person who noted a step in the last 14 days and has something on their list hears how much ("6 on your list for today").
   Both are add-on pushes (`pushAddonNotice`), on the person's add-ons switch, and open Today.
@@ -473,6 +475,11 @@ became.
   ones. An owner or admin picks anyone under **Settings for** and changes theirs; the person then sees "Changed by".
   The extension loads them when the person signs in and hears each change within seconds on the same live channel
   the web listens on, while Chrome is open; its panel shows a short summary with **Change in HandsFreeOS**.
+- **Autopilot** (decision 151, `autopilot.ts`, `ops/autopilot.ts`, the worker's `autopilot.ts`, the web's and the
+  phone's `autopilot-list.tsx`): one switch at the top of General turns everything on its own on every network the
+  person works, and an hour before each working day it lists the people it plans to reach for the first time, first on
+  Needs you with a push, for them to OK, take off for the day, or mark Don't pitch or Never contact. Nobody on it is
+  reached till they're OK'd, and once OK'd the steps after go without asking. Their own picks come back when it's off.
 - **Live status and control** (decision 41, `/a/outreach?view=live`, `live.ts`, `ops/live.ts`, `ops/day.ts`, the
   web's `live-view.tsx`, the extension's `src/hfos/live.ts`): the **Live** tab shows what the person's extension is
   doing right now, on which computer, the next step, today's counts against the limits, how many things wait for
@@ -3698,6 +3705,88 @@ where decisions 37 and 59 put the settings; what they decided stands. Settled to
         big group is worked right through instead of its first screens over and over.
       - A business's owner setting it for the whole team was offered and left out (answer 3a): each person picks.
 
+<!-- Decision 149 is the meeting times change, open as pull request 490. -->
+
+150.  **Every reply caught, in every chat the tool started** (Chris, 3 Nov 2026: "i feel like some messages on the
+      different platforms being we are receiving aren't being recognized. need to make sure we are being thorough on
+      checking received messages especially if they were conversations initiated by the social outreach tool"),
+      answered "1a 2a 3a 4a 5a"; extension **0.126.0**, no migration. A check of the live data found every reply
+      caught in the end, but late or quietly: a second message never buzzed, most Facebook list replies couldn't be
+      tied to anyone, a reply the daily chat read found told nobody, LinkedIn's chats were hardly read, and every reply
+      draft said HandsFreeOS hadn't seen what they wrote.
+      - **A newer message counts every time** (answer 1a). Each chat's last line, as the list or the open chat shows
+        it, is kept on the computer as a short fingerprint (`withNewer`, `lineHash`, `hfos.replyLines`, a week at
+        most), never its words and never sent. One that changed goes at once, marked `newer`, and HandsFreeOS keeps it
+        as a reply again (`keepReply`), buzzes the phone and has the runner draft it, at most once per person every 15
+        minutes (`NEWER_QUIET_MS`). Inside that time a draft for them still waiting for an OK goes, so the next look
+        writes it again from the chat as it is (`redraft`, no buzz).
+      - **Facebook list replies are matched by the chat number a chat read kept** (answer 2a): `file_chats.thread_key`
+        as well as the number a step kept, and when neither is known, by the name, when only one person reached on
+        that network goes by it (as Instagram's and LinkedIn's already were). A number that's someone else's chat, or
+        a profile that's someone the person didn't reach, is never anyone by name.
+      - **A reply the daily chat read finds is treated like the watch's** (answer 3a): `outreach.chats.collect` keeps
+        it, buzzes the phone (`outreach.reply.seen`) and answers with `replied`, so the extension has that network's
+        runner draft it next (`heardReplies`). So do Instagram's and Alignable's chats jobs' sightings.
+      - **LinkedIn's Read my chats presses each row** (answer 4a): the newer list links to no conversation, so its rows
+        come with the page (`rows`, `listedRows`), and the job presses each one not read lately by its name
+        (`pressRow`, `hfos-open-chat` with `name`), reads the conversation it opened by that conversation's id, and
+        scrolls the list from its last row (`lastRow`).
+      - **A reply is drafted for anyone in a conversation the tool started any way** (answer 5a): after a message, a
+        friend or connection request, or a comment (`REPLY_STARTS`), as well as likely prospects. Today's chat path
+        takes a chat read whose last message is theirs, after such a step. A personal chat the tool never touched stays
+        alone, and Never contact, Lost and Don't pitch stay as they were.
+      - **A reply drafted from a sighting keeps its chat** (a bug, fixed with these): `outreach.send.queue` takes the
+        person's latest chat with them when the draft names none, so a reply no longer says "HandsFreeOS hasn't seen
+        what they wrote" when the runner had just read it, and can go on its own when Replies says so.
+
+151.  **Autopilot, with a daily OK on who it reaches** (Chris, 3 Nov 2026: "need a feature where the ai goes on full
+      autopilot for the social outreach tool all it does is ask if the people it plans to reach out to that day are
+      ok, this way if the user is confident in the ai but not sure if everyone is set to not pitch or don't contact
+      are set the way they want they can just approve the people"), answered "1a (but to clarify this is a new
+      autopilot setting that just requests approval on who to send a new message to or not) full autopilot would just
+      send it without asking / 2a 3a 4a 5a 6a 7a"; migration `20261027022600_outreach_autopilot.sql`, no extension
+      release. A setting of its own beside **Everything on its own**, which stays as it was and sends without asking
+      (core's `autopilot.ts`, `ops/autopilot.ts`, the worker's `autopilot.ts`).
+      - **What it turns on** (1a, `AUTOPILOT_PICKS`, `autopilotOver`): on every network the person works, Sending and
+        Replies go on their own (Everything), helpful posts go up on their own where the network takes it, and the AI
+        decides the requests they get: it confirms the good ones and deletes the rest (`fits_delete`). The steps that wait for their own OK under
+        any other choice (a partner's messages and replies, birthday and new-job notes, another time after a no-show,
+        Alignable forum answers) go on their own too, for people OK'd. A reply where someone needs the person (asking
+        to stop, a refund, a complaint, upset) still comes to them. Their own picks are kept underneath
+        (`keepOwnPicks`): the network pages show Autopilot's picks, greyed with "Autopilot picks this while it's on",
+        and turning it off puts theirs back as they were.
+      - **Who's on the day's list** (2a): the people it plans to reach today who aren't OK'd yet, at their first like,
+        friend or connection request, comment or message; on the first day, the people it was talking to already too.
+        Once OK'd (`addon_outreach.autopilot_people`, one row a person and profile), the steps after go without asking
+        again. Someone who reached the person first (a reply, a partner's reply, an answer to their comment, confirming
+        their request) is answered without it (`AUTOPILOT_ANSWERS`). Everyone else on Today, and every message drafted
+        for them, waits (`outreach.today`'s `reach`, `okdAmong`; `outreach.send.queue` holds the draft "they aren't on
+        a list you OK'd yet").
+      - **When** (3a): an hour before the working hours start, on each day the extension works
+        (`AUTOPILOT_EARLY_MINUTES`, `autopilotTimes`), the worker's `outreach.autopilot_list` makes the day's list
+        (`outreach.autopilot.plan`, the system's alone) and one push says how many wait. Nobody on it is reached till
+        they OK it. In the middle of the hours, while any still wait, `outreach.autopilot_reminder` pushes once more.
+        Whoever they don't get to is on the next day's list. Turned on during the day, today's list is made at once,
+        with no push.
+      - **Found later** (4a): anyone found after the day's list was made waits for the next day's, so it asks once a
+        day (`autopilot_listed_on`).
+      - **Spares** (5a, `autopilotSpares`): a fifth past each daily limit, at least 2, last on the list under "If you
+        take anyone off, these go instead". OK'd, a spare goes only once the day's limit has room, so it takes the
+        place of anyone taken off.
+      - **Training wheels stay** (6a): someone new still OKs each message until they've earned it, and the switch says
+        so. The comments-only hold (decision 92's 13) stays too.
+      - **Where** (7a): one switch at the top of Settings → General ("You"), for every network, on the web and the phone
+        (`AutopilotPart`); one list first on Needs you, grouped by network, each name opening the person menu for Don't
+        pitch or Never contact, each row with **Not today** (or **Put back**), and **OK all** (or **OK everyone else**
+        once anyone's taken off) at the top (`outreach.autopilot`, `outreach.autopilot.answer`; the Assistant's
+        `outreach_autopilot_list` and `outreach_autopilot_answer`, on a Confirm card). Owners and admins allow it or
+        not under For your team (`rules.autopilotAllowed`, allowed to start); not allowed, the switch is hidden and a
+        save that turns it on is refused (`outreach_autopilot_not_allowed`).
+      - **Not today** leaves them off till the next day's list, where they're asked about again. Never contact, set
+        from the list, keeps them off for good, as anywhere.
+      - The extension needs nothing new: it reads Today again within the hour while it waits (`IDLE_MS`), so an OK
+        given after the day started is worked that hour. A chat with nobody kept for it yet waits for the person.
+
 ## Rules worth knowing before changing anything
 
 - **Nothing is saved until the person presses a button in HandsFreeOS** (an ask, below), except the four steps the
@@ -3826,6 +3915,11 @@ where decisions 37 and 59 put the settings; what they decided stands. Settled to
   (`src/hfos/warned.ts`), and keeps its state in the extension's storage, so a restart carries on where it was. The
   day's start and stop follow HandsFreeOS's (decision 41): a press here goes to `outreach.day.*`, and one in the app
   reaches it within seconds.
+- **Under Autopilot, nobody new is reached without the day's OK** (decision 151). `outreach.today` gates every kind
+  but the answers (`waitsForPeopleOk`, `AUTOPILOT_ANSWERS`) on an OK'd row in `addon_outreach.autopilot_people`, and
+  `outreach.send.queue` holds a draft for anyone not OK'd. A new kind of step on Today waits for the OK unless it
+  answers someone who reached the person first. The person's own picks stay in `automation`'s columns: a save while
+  Autopilot is on keeps them (`keepOwnPicks`), and only `withinRules` lays Autopilot's over them.
 - **One computer works at a time** (decision 41): the person's most recently used one (the panel opened or shown, a
   step of their own there, signing in there, Start or Stop pressed there; never the runner's own steps). The others
   stand by and say why. There's no automatic hand-over: the app names the open computer and says to open its panel.
@@ -4163,12 +4257,19 @@ where decisions 37 and 59 put the settings; what they decided stands. Settled to
   for 7 days from the latest one, friend requests leave the list for 2, and the same words twice in a day on the same
   network come back `repeated`. The
   extension keeps the day's warnings itself too, so it stops even when HandsFreeOS can't be reached.
-- **A reply answers a message the extension noted** (`outreach.replies.note`). A chat whose last message is theirs
-  counts once for each message of the person's it answers (`replies`, by the moment of that message), so seeing the
-  chat again is no news; a chat with nothing of the person's noted, or seen within 30 seconds of their message being
-  noted (Messenger's list catching up), isn't one. The extension sends only who (the chat's number or their profile),
-  only chats from the last two days, each at most every 3 minutes, and nothing while noting is off. The push goes to
-  that person alone, unless they had the tab in front of them. A reply seen leaves Today when the extension notes a
+- **A reply answers a step the extension noted** (`outreach.replies.note`, `keepReply`): a message, a friend or
+  connection request, or a comment (`REPLY_STARTS`, decision 150), never a like. A chat whose last message is theirs
+  counts once for each such step of the person's it answers (`replies`, by the moment of that step), so seeing the
+  chat again is no news; a chat with nothing of the person's noted, or seen within 30 seconds of their step being
+  noted (Messenger's list catching up), isn't one, and nor is a message of theirs a chat read shows from before it.
+  A newer message of theirs counts again (decision 150): the extension marks a sighting `newer` when the chat's last
+  line changed on the computer, and a chat read (`outreach.chats.collect`) says when they wrote; at most one a
+  quarter hour is kept and pushed (`NEWER_QUIET_MS`), and inside it a draft for them still waiting goes, to be
+  written again. The extension sends only who (the chat's number or their profile) and whether it's newer, never the
+  line, only chats from the last two days, each at most every 3 minutes but for a newer one, and nothing while
+  noting is off. Who a chat is with goes by their profile, or the chat's number as a step or a chat read kept it,
+  else by its name when one person reached there has it. The push goes to that person alone, unless they had the
+  tab in front of them; a reply a chat read found always pushes. A reply seen leaves Today when the extension notes a
   message to them, or when their chat, read after it was seen, ends with the person's own or reads as come to a close
   (decision 134).
 - **Nobody who said no is pitched** (decision 134, `declinedLine`): a reply, a follow-up or a check-in to someone

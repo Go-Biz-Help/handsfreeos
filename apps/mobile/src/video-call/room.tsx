@@ -19,6 +19,8 @@
  *   presenting, the team and anyone they brought on stage, never the hundreds watching.
  * - **What it used**: the phone reports what it has downloaded every minute and as it goes (./call-data.ts), so the
  *   call is priced by what it really used.
+ * - **Marks on a shared screen** (./screen-marks.tsx): what people point at and draw on it shows here too. Making
+ *   them from the phone comes later.
  */
 import {
   LISTENER_IDENTITY,
@@ -96,6 +98,7 @@ import { cn } from '@/lib/utils';
 import { useCallData } from './call-data';
 import { endOf, type CallEnd } from './ends';
 import { AUDIO_OUTPUTS, mediaProblem } from './media';
+import { MarksProvider, ScreenMarks } from './screen-marks';
 import {
   actOn,
   askingToJoin,
@@ -244,6 +247,7 @@ function CallScreen({
   const room = useRoomContext();
   const state = useConnectionState();
   const { localParticipant, isMicrophoneEnabled, isCameraEnabled } = useLocalParticipant();
+  const webinar = roomRightsOf(localParticipant.attributes).format === 'webinar';
   const { got, reload } = useVideoCall(team.workspaceId, team.callId);
   const heard = roomAiOn(useRoomInfo().metadata);
   // The AI hearing the call: the call's own setting, once read; until then what the listener says in the room.
@@ -421,7 +425,9 @@ function CallScreen({
             <Text className="text-[14px] text-white/70">{W.joining}</Text>
           </View>
         ) : (
-          <Stage front={front} />
+          <MarksProvider format={webinar ? 'webinar' : 'meeting'}>
+            <Stage front={front} />
+          </MarksProvider>
         )}
         {reconnecting ? (
           <View className="absolute inset-x-0 top-2 items-center" pointerEvents="none">
@@ -712,6 +718,9 @@ function Tile({
           <Avatar name={name} seed={p.identity} size={small ? 'lg' : 'xl'} />
         </View>
       )}
+      {screen && video && !small && isTrackReference(trackRef) ? (
+        <ScreenMarks on={p.identity} picture={trackRef.publication.dimensions} />
+      ) : null}
       {small ? null : (
         <View className="absolute bottom-2 left-2 max-w-[90%] flex-row items-center gap-1 rounded-full bg-black/55 px-2 py-0.5">
           {micOff && !screen ? (

@@ -34,6 +34,7 @@ import { Hand, MicOff } from 'lucide-react';
 import { useEffect, useRef, useState, type RefObject } from 'react';
 import { Avatar } from '@/components/ui/avatar';
 import { cn } from '@/lib/utils';
+import { ScreenMarks } from './screen-marks';
 
 /** Columns and rows for `n` cameras: side by side on a wide window, stacked on a tall one (a phone). */
 export function gridOf(n: number, wide: boolean): { cols: number; rows: number } {
@@ -144,7 +145,7 @@ function MeetingStage({ alone, slide }: { alone: string; slide: StageSlide | nul
       {screens.length || slide ? (
         <div className="flex h-full w-full flex-col gap-2 p-2 md:flex-row">
           <div className="min-h-0 min-w-0 flex-1">
-            {slide ? <SlideTile slide={slide} /> : <Tile trackRef={screens[0]!} />}
+            {slide ? <SlideTile slide={slide} /> : <Tile trackRef={screens[0]!} big />}
           </div>
           <div className="flex h-[112px] flex-none gap-2 overflow-auto md:h-auto md:w-[220px] md:flex-col">
             {[...(slide ? screens : screens.slice(1)), ...cameras].map((t) => (
@@ -239,7 +240,7 @@ function WebinarStage({ view, slide }: { view: WebinarView; slide: StageSlide | 
           {slide ? (
             <SlideTile slide={slide} />
           ) : big ? (
-            <Tile trackRef={big} />
+            <Tile trackRef={big} big />
           ) : (
             <div className="flex h-full items-center justify-center rounded-card bg-[#20252e] px-6 text-center text-[13.5px] text-text-2">
               {WEBINAR_WORDS.waitingFor}
@@ -273,7 +274,8 @@ function WebinarStage({ view, slide }: { view: WebinarView; slide: StageSlide | 
   );
 }
 
-function Tile({ trackRef }: { trackRef: TrackReferenceOrPlaceholder }) {
+/** One person's camera or shared screen. A shared screen carries its marks; the big one, the tools to make them. */
+function Tile({ trackRef, big = false }: { trackRef: TrackReferenceOrPlaceholder; big?: boolean }) {
   const p = trackRef.participant;
   const name = p.name || 'Guest';
   const screen = trackRef.source === Track.Source.ScreenShare;
@@ -306,6 +308,9 @@ function Tile({ trackRef }: { trackRef: TrackReferenceOrPlaceholder }) {
           <Avatar name={name} seed={p.identity} size="lg" />
         </div>
       )}
+      {screen && isTrackReference(trackRef) && !videoOff ? (
+        <ScreenMarks trackRef={trackRef} tools={big} />
+      ) : null}
       <span className="absolute bottom-2 left-2 flex max-w-[calc(100%-16px)] items-center gap-1 rounded-full bg-black/55 px-2 py-0.5 text-[12px] text-white">
         {micOff && !screen ? (
           <MicOff size={12} aria-label="Microphone off" className="flex-none" />

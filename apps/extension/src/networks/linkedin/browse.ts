@@ -6,6 +6,7 @@
  * as it scrolls, which shows more of the same list.
  */
 import { shown } from '../facebook/fetch';
+import { lastRow, pressRow } from './chats';
 import { CONTROLS, inTopBar, mainOf, wordsOf } from './dom';
 import type { PageKind } from './types';
 import { classifyUrl, linkedinUrl, postUrlFrom, profileFromUrl, threadFromUrl } from './urls';
@@ -97,19 +98,29 @@ function threadLinks(doc: Document, base: string): { anchor: HTMLAnchorElement; 
   return found;
 }
 
-/** Opens a conversation from messaging's list, as clicking it would. Whether its link was there to click. */
-export function openChat(doc: Document, base: string, threadId: string): boolean {
+/**
+ * Opens a conversation from messaging's list, as clicking it would: by its link, or in the newer list, whose rows link
+ * to none, by the name its row shows (`name`, decision 150). Whether it was there to press.
+ */
+export function openChat(
+  doc: Document,
+  base: string,
+  threadId: string,
+  name: string | null = null,
+): boolean {
   if (!messagingPage(base)) return false;
-  const link = threadLinks(doc, base).find((l) => l.id === threadId);
-  if (!link) return false;
-  link.anchor.click();
-  return true;
+  const link = threadId ? threadLinks(doc, base).find((l) => l.id === threadId) : undefined;
+  if (link) {
+    link.anchor.click();
+    return true;
+  }
+  return name ? pressRow(mainOf(doc), name) : false;
 }
 
 /** Scrolls messaging's list of conversations down, for LinkedIn to load more. Whether it moved. */
 export function scrollChats(doc: Document, base: string): boolean {
   if (!messagingPage(base)) return false;
   const links = threadLinks(doc, base);
-  const last = links[links.length - 1]?.anchor;
+  const last = links[links.length - 1]?.anchor ?? lastRow(mainOf(doc));
   return last ? scrollFrom(doc, last) : false;
 }
