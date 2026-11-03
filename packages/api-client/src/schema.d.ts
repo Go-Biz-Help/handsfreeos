@@ -25988,7 +25988,7 @@ export interface operations {
                         userIds: string[];
                         warnings: {
                             /** @enum {string} */
-                            code: "in_past" | "buffer_clash" | "outside_hours" | "calendar_busy" | "time_off";
+                            code: "in_past" | "buffer_clash" | "outside_hours" | "calendar_busy" | "time_off" | "booked_elsewhere";
                             message: string;
                             resourceId: string | null;
                             userId: string | null;
@@ -26107,7 +26107,7 @@ export interface operations {
                         userIds: string[];
                         warnings: {
                             /** @enum {string} */
-                            code: "in_past" | "buffer_clash" | "outside_hours" | "calendar_busy" | "time_off";
+                            code: "in_past" | "buffer_clash" | "outside_hours" | "calendar_busy" | "time_off" | "booked_elsewhere";
                             message: string;
                             resourceId: string | null;
                             userId: string | null;
@@ -26194,7 +26194,7 @@ export interface operations {
                         startsAt: string;
                         warnings: {
                             /** @enum {string} */
-                            code: "in_past" | "buffer_clash" | "outside_hours" | "calendar_busy" | "time_off";
+                            code: "in_past" | "buffer_clash" | "outside_hours" | "calendar_busy" | "time_off" | "booked_elsewhere";
                             message: string;
                             resourceId: string | null;
                             userId: string | null;
@@ -57631,7 +57631,7 @@ export interface operations {
                         startsAt: string;
                         warnings: {
                             /** @enum {string} */
-                            code: "in_past" | "buffer_clash" | "outside_hours" | "calendar_busy" | "time_off";
+                            code: "in_past" | "buffer_clash" | "outside_hours" | "calendar_busy" | "time_off" | "booked_elsewhere";
                             message: string;
                             resourceId: string | null;
                             userId: string | null;
@@ -60906,7 +60906,7 @@ export interface operations {
                         }[];
                         warnings: {
                             /** @enum {string} */
-                            code: "in_past" | "buffer_clash" | "outside_hours" | "calendar_busy" | "time_off";
+                            code: "in_past" | "buffer_clash" | "outside_hours" | "calendar_busy" | "time_off" | "booked_elsewhere";
                             message: string;
                             resourceId: string | null;
                             userId: string | null;
@@ -88128,6 +88128,12 @@ export interface operations {
                                 userId: string;
                             } | null;
                             defaultHours: boolean;
+                            elsewhereBusy: {
+                                /** Format: date-time */
+                                endsAt: string;
+                                /** Format: date-time */
+                                startsAt: string;
+                            }[];
                             fullName: string;
                             hours: {
                                 /** Format: date-time */
