@@ -1544,6 +1544,11 @@
           "notify": {
             "default": true,
             "type": "boolean"
+          },
+          "timezone": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 64
           }
         },
         "required": ["workspaceId", "calendarId", "startsAt"]

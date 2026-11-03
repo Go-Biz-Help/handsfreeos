@@ -878,6 +878,7 @@ export const scheduleTeam = defineQuery({
           fullName,
           scheduleId: s.scheduleId,
           timezone: s.timezone,
+          ownTimezone: s.ownTimezone,
           weekly: s.weekly,
           defaultHours: s.defaultHours,
           hours: s.windows.map(span),

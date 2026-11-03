@@ -21,6 +21,11 @@ export interface WorkspaceShell {
    * link on a business's screen, such as a Needs you step's problem report (decision 142).
    */
   readonly staffPermissions: readonly string[];
+  /**
+   * The business's time zone (Settings → Business), which a task's or a follow-up's time starts on and reads in
+   * (`useBusinessZone`). Empty where the layout doesn't say, and then the device's zone stands in.
+   */
+  readonly timeZone: string;
 }
 
 const NONE: readonly string[] = [];
@@ -31,6 +36,7 @@ const WorkspaceShellContext = createContext<WorkspaceShell>({
   permissions: [],
   videoCalls: false,
   staffPermissions: [],
+  timeZone: '',
 });
 
 /**
@@ -45,21 +51,32 @@ export function WorkspaceShellProvider({
   // Left out where no screen offers them: the setup pages.
   videoCalls = false,
   staffPermissions = NONE,
+  timeZone = '',
   children,
-}: Omit<WorkspaceShell, 'videoCalls' | 'staffPermissions'> & {
+}: Omit<WorkspaceShell, 'videoCalls' | 'staffPermissions' | 'timeZone'> & {
   videoCalls?: boolean;
   staffPermissions?: readonly string[];
+  timeZone?: string;
   children: ReactNode;
 }) {
   useLiveRefresh(['addon']);
   const value = useMemo(
-    () => ({ workspaceId, addons, permissions, videoCalls, staffPermissions }),
-    [workspaceId, addons, permissions, videoCalls, staffPermissions],
+    () => ({ workspaceId, addons, permissions, videoCalls, staffPermissions, timeZone }),
+    [workspaceId, addons, permissions, videoCalls, staffPermissions, timeZone],
   );
   return <WorkspaceShellContext.Provider value={value}>{children}</WorkspaceShellContext.Provider>;
 }
 
 export const useWorkspaceShell = (): WorkspaceShell => useContext(WorkspaceShellContext);
+
+/** The device's own zone, where the business's isn't known. */
+const deviceZone = (): string => Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC';
+
+/**
+ * The zone a task's due time, a follow-up and Snooze until start on and read in: the business's (owner's pick 1a,
+ * 2026-11-03), the way the calendar shows it, rather than whatever zone this computer is set to.
+ */
+export const useBusinessZone = (): string => useWorkspaceShell().timeZone || deviceZone();
 
 /** Whether an add-on runs in this business now. */
 export const useAddonRunning = (addonId: string): boolean =>

@@ -1,7 +1,10 @@
 'use client';
+import { instantOfInput } from '@hfos/core';
 import { useRouter } from 'next/navigation';
 import { useEffect, useState, type FormEvent } from 'react';
 import { toast } from 'sonner';
+import { ZonePick } from '@/components/calendar/zone-field';
+import { useBusinessZone } from '@/components/shell/workspace-shell';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent } from '@/components/ui/dialog';
 import { Field } from '@/components/ui/field';
@@ -38,6 +41,7 @@ export function LeadDialog({
   onCreated?: (leadId: string) => void;
 }) {
   const router = useRouter();
+  const businessZone = useBusinessZone();
   const active = pipelines.filter((p) => !p.archivedAt);
   const [title, setTitle] = useState('');
   const [value, setValue] = useState('');
@@ -47,6 +51,8 @@ export function LeadDialog({
   const [closeOn, setCloseOn] = useState('');
   const [nextAction, setNextAction] = useState('');
   const [nextAt, setNextAt] = useState('');
+  /** The zone the next action's When is read in: the business's, or another picked under it. */
+  const [nextZone, setNextZone] = useState(businessZone);
   const [source, setSource] = useState('');
   const [picked, setPicked] = useState<PickedRecord | null>(null);
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -64,10 +70,13 @@ export function LeadDialog({
     setCloseOn('');
     setNextAction('');
     setNextAt('');
+    setNextZone(businessZone);
     setSource('');
     setPicked(null);
     setErrors({});
   }, [open]);
+
+  const nextMs = nextAt ? instantOfInput(nextAt, nextZone) : null;
 
   async function submit(e: FormEvent) {
     e.preventDefault();
@@ -101,7 +110,7 @@ export function LeadDialog({
             assigneeUserId: assignee || null,
             expectedCloseOn: closeOn || null,
             nextAction: nextAction.trim() || null,
-            nextActionAt: nextAt ? new Date(nextAt).toISOString() : null,
+            nextActionAt: nextMs === null ? null : new Date(nextMs).toISOString(),
             source: source.trim() || null,
           },
         }),
@@ -236,6 +245,16 @@ export function LeadDialog({
               />
             </Field>
           </div>
+          {nextAt ? (
+            <ZonePick
+              id="l-next-zone"
+              value={nextZone}
+              onChange={setNextZone}
+              businessZone={businessZone}
+              at={nextMs}
+              testId="lead-next-zone"
+            />
+          ) : null}
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <Field label="Expected close" htmlFor="l-close">
               <Input

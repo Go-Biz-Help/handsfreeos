@@ -1,4 +1,11 @@
-import { FILE_WORDS, TASK_WORDS, type TagRef } from '@hfos/core';
+import {
+  addDays,
+  FILE_WORDS,
+  localDateOf,
+  localInstant,
+  TASK_WORDS,
+  type TagRef,
+} from '@hfos/core';
 import * as React from 'react';
 import { Pressable, ScrollView, View } from 'react-native';
 
@@ -261,6 +268,8 @@ export function EditSheet({
   );
 }
 
+const deviceZone = (): string => Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC';
+
 export interface TaskDraft {
   readonly title: string;
   readonly dueAt: string | null;
@@ -268,12 +277,14 @@ export interface TaskDraft {
   readonly assigneeUserId: string | null;
 }
 
-const startOfDay = (days: number): string => {
-  const d = new Date();
-  d.setDate(d.getDate() + days);
-  d.setHours(12, 0, 0, 0);
-  return d.toISOString();
-};
+/**
+ * Noon on a day `days` from today where the business is, the moment an all-day task is kept at, as the web keeps it:
+ * "Tomorrow" is the business's tomorrow, whatever zone the phone is set to.
+ */
+const startOfDay = (days: number, timeZone: string): string =>
+  new Date(
+    localInstant(addDays(localDateOf(Date.now(), timeZone), days), '12:00', timeZone),
+  ).toISOString();
 
 /** A new task on a record: a title, when it's due (a few plain choices) and who it's for. */
 export function TaskSheet({
@@ -282,12 +293,15 @@ export function TaskSheet({
   myUserId,
   onClose,
   onSave,
+  timeZone = deviceZone(),
 }: {
   open: boolean;
   members: readonly { readonly id: string; readonly fullName: string }[];
   myUserId: string;
   onClose: () => void;
   onSave: (task: TaskDraft) => void | Promise<void>;
+  /** The business's zone, whose today, tomorrow and next week the choices mean; the phone's own when left out. */
+  timeZone?: string;
 }) {
   const [title, setTitle] = React.useState('');
   const [due, setDue] = React.useState<'none' | 'today' | 'tomorrow' | 'week'>('today');
@@ -302,7 +316,7 @@ export function TaskSheet({
     }
   }, [open, myUserId]);
   const dueAt =
-    due === 'none' ? null : startOfDay(due === 'today' ? 0 : due === 'tomorrow' ? 1 : 7);
+    due === 'none' ? null : startOfDay(due === 'today' ? 0 : due === 'tomorrow' ? 1 : 7, timeZone);
   const w = RECORD_SHEET_WORDS.task;
   return (
     <Sheet open={open} onClose={onClose} title={w.title} testID="task-sheet">

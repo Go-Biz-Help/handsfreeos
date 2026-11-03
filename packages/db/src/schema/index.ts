@@ -2567,6 +2567,11 @@ export const appointmentAttendees = app.table('appointment_attendees', {
   joinOfferedAt: ts('join_offered_at'),
   /** Their attendance was set for them alone: marking the whole appointment leaves it. */
   attendanceSetAt: ts('attendance_set_at'),
+  /**
+   * The customer's own time zone (20261027023000): the booking page's, or the zone a teammate set the time in. Their
+   * texts and emails tell the time in it; empty, their address's zone, then the calendar's (core `customerTimeZone`).
+   */
+  timezone: text('timezone'),
 });
 
 /** M18: more services on one visit, each with its time and price as they read when added. */

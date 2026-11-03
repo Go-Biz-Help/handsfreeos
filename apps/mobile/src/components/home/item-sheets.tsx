@@ -40,6 +40,7 @@ import {
   UserRound,
 } from '@/components/icons';
 import { ROLE_LABELS } from '@/lib/businesses';
+import { ZoneChips } from '@/components/calendar/zone-chips';
 import { Avatar } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { Icon } from '@/components/ui/icon';
@@ -318,31 +319,15 @@ export function DismissSheet({ item, onClose }: { item: Item | null; onClose: ()
   );
 }
 
-const zoneLabels = new Map<string, string>();
-
-/** "Central Time" for America/Chicago, as the web says it; the zone's own name where the phone has no friendlier one. */
-function zoneLabel(timeZone: string): string {
-  let label = zoneLabels.get(timeZone);
-  if (!label) {
-    try {
-      label =
-        new Intl.DateTimeFormat('en-US', { timeZone, timeZoneName: 'longGeneric' })
-          .formatToParts(Date.UTC(2026, 0, 15))
-          .find((p) => p.type === 'timeZoneName')?.value ?? timeZone;
-    } catch {
-      label = timeZone;
-    }
-    zoneLabels.set(timeZone, label);
-  }
-  return label;
-}
-
 const TIMES = Array.from(
   { length: 48 },
   (_, i) => `${String(Math.floor(i / 2)).padStart(2, '0')}:${i % 2 ? '30' : '00'}`,
 );
 
-/** "Snooze until": a day and a time in the business's time zone, up to 30 days ahead. */
+/**
+ * "Snooze until": a day and a time, up to 30 days ahead, in the business's time zone, or on another zone's clock
+ * picked under them (core `zone-pick.ts`, as on the web).
+ */
 export function PickTimeSheet({ item, onClose }: { item: Item | null; onClose: () => void }) {
   const env = useHomeEnv();
   const [bounds, setBounds] = React.useState(() => {
@@ -354,6 +339,7 @@ export function PickTimeSheet({ item, onClose }: { item: Item | null; onClose: (
   });
   const [date, setDate] = React.useState(bounds.days[1]!);
   const [time, setTime] = React.useState('09:00');
+  const [zone, setZone] = React.useState(env.timeZone);
   const [error, setError] = React.useState<string | null>(null);
   const [shown, setShown] = React.useState<Item | null>(item);
   React.useEffect(() => {
@@ -363,21 +349,22 @@ export function PickTimeSheet({ item, onClose }: { item: Item | null; onClose: (
     setBounds({ today, days });
     setDate(days[1]!);
     setTime('09:00');
+    setZone(env.timeZone);
     setError(null);
     setShown(item);
   }, [item, env.timeZone]);
   const it = item ?? shown;
   if (!it) return null;
 
+  const until = localInstant(date, time, zone);
   const submit = () => {
-    const until = localInstant(date, time, env.timeZone);
     const problem = snoozePickError(until, Date.now());
     if (problem) return setError(problem);
     onClose();
     env.act.snooze(it, until);
   };
-  const dayWords = (d: string) => dayLabel(localInstant(d, '12:00', env.timeZone), env.timeZone);
-  const timeWords = (t: string) => clockLabel(localInstant(date, t, env.timeZone), env.timeZone);
+  const dayWords = (d: string) => dayLabel(localInstant(d, '12:00', zone), zone);
+  const timeWords = (t: string) => clockLabel(localInstant(date, t, zone), zone);
 
   return (
     <Sheet
@@ -412,8 +399,18 @@ export function PickTimeSheet({ item, onClose }: { item: Item | null; onClose: (
         className={cn('mt-2 text-[12.5px]', error ? 'text-danger-text' : 'text-text-3')}
         role={error ? 'alert' : undefined}
       >
-        {error ?? ATTENTION_WORDS.pickZone(zoneLabel(env.timeZone))}
+        {error ?? `${ATTENTION_WORDS.upTo30Days}.`}
       </Text>
+      <Text className="mb-1.5 mt-3.5 text-[13.5px] font-medium">Time zone</Text>
+      <ZoneChips
+        key={it.id}
+        value={zone}
+        onChange={setZone}
+        homeZone={env.timeZone}
+        at={until}
+        where="for the business"
+        testID="snooze-zone"
+      />
       <View className="mt-4 gap-2">
         <Button onPress={submit} testID="snooze-pick-save">
           {ATTENTION_WORDS.snooze}

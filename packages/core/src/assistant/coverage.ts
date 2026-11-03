@@ -469,7 +469,10 @@ export const SETTING_TOOLS: Readonly<Record<string, readonly SettingWay[]>> = {
   'notifications.ai_handoff': [{ tool: 'update_my_account', field: 'emailWhenAiHandsOver' }],
   'notifications.agency_digest': [{ tool: 'update_my_alerts', field: 'agencyDigestEmail' }],
   // ---- My calendar ----
-  'my_calendar.weekly_hours': [{ tool: 'update_my_hours', field: 'weekly' }],
+  'my_calendar.weekly_hours': [
+    { tool: 'update_my_hours', field: 'weekly' },
+    { tool: 'update_my_hours', field: 'timeZone' },
+  ],
   'my_calendar.time_off': [{ tool: 'update_my_hours', field: 'action', value: 'add_time_off' }],
   'my_calendar.connection': [
     { tool: 'do_calendar_connection_disconnect', field: 'connectionId' },

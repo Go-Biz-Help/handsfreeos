@@ -89,6 +89,7 @@ export default async function CalendarBuilderPage({
       pipelines={pipelines.pipelines}
       textingReady={textingReady}
       brandedOrigin={brandedOrigin}
+      businessZone={got.workspace.timezone}
       payments={{
         // Only a live account counts, exactly as the server's `paymentsAvailable` counts it.
         accounts: accounts

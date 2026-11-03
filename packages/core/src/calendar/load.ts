@@ -531,6 +531,8 @@ export interface StaffData {
   readonly weekly: WeeklyHours;
   /** The zone their hours are in. */
   readonly timezone: string;
+  /** Their hours' own zone; null follows the workspace's. */
+  readonly ownTimezone: string | null;
   /** No hours saved: DEFAULT_WEEKLY_HOURS apply. */
   readonly defaultHours: boolean;
   /** Open hours including extra-hours exceptions, merged. */
@@ -629,6 +631,7 @@ export async function loadStaffData(
       scheduleId: sched?.id ?? null,
       weekly: sched?.weekly ?? DEFAULT_WEEKLY_HOURS,
       timezone,
+      ownTimezone: sched?.timezone ?? null,
       defaultHours: !sched,
       windows: sched
         ? (windows.get(sched.id) ?? [])

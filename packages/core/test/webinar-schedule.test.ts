@@ -5,7 +5,8 @@
  * What's worth holding:
  *   - with no webinar calendar, one is made (Webinars, from the Webinar preset, the person scheduling presenting) and
  *     turned on, and the next webinar goes on it rather than a new one;
- *   - a repeat books every date on the same weekday and clock time, as one series;
+ *   - a repeat books every date on the same weekday and clock time, as one series, on the clock of the zone it was
+ *     set in (the Time zone pick);
  *   - warnings ask once for every date, nothing is booked until then, and Publish anyway books over them;
  *   - a calendar that isn't a webinar one is refused, and so is making one without permission to manage calendars;
  *   - with video calls off, nothing is made.
@@ -148,6 +149,28 @@ describe('with a webinar calendar', () => {
       .slice(1)
       .map((s, i) => new Date(s.starts_at).getTime() - new Date(list[i]!.starts_at).getTime());
     for (const gap of gaps) expect(Math.round(gap / DAY)).toBe(7);
+  });
+
+  it('keeps a repeat on the clock of the zone it was set in, across a clock change', async () => {
+    // 9 AM Phoenix, which never changes its clocks, every Thursday over Chicago's spring-forward (Sunday, March 14,
+    // 2027): 10 AM in Chicago before it and 11 AM after. On Chicago's clock the last would have slid to 8 AM there.
+    const PHX = 'America/Phoenix';
+    const out = await schedule({
+      title: 'Phoenix demo',
+      startsAt: '2027-02-25T16:00:00.000Z',
+      timezone: PHX,
+      repeat: 'week',
+      times: 4,
+      acknowledgeWarnings: true,
+    });
+    const list = (await sessions(calendarId)).filter((s) => s.series_id === out.seriesId);
+    expect(list).toHaveLength(4);
+    expect(list.map((s) => zonedParts(new Date(s.starts_at).getTime(), PHX).hour)).toEqual([
+      9, 9, 9, 9,
+    ]);
+    expect(list.map((s) => zonedParts(new Date(s.starts_at).getTime(), CHI).hour)).toEqual([
+      10, 10, 10, 11,
+    ]);
   });
 
   it('asks once about warnings for every date, then publishes anyway', async () => {

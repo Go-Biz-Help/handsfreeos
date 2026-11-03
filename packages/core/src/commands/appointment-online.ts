@@ -384,6 +384,8 @@ export const appointmentBookOnline = defineCommand({
       smsOk,
       source: 'booking_page',
       linkRef: input.linkRef ?? null,
+      // The zone the page showed them, so their confirmation and reminders say the time the way they saw it.
+      timezone: input.timezone ?? null,
     };
     const result = await bookAppointment(ctx, {
       calendar,

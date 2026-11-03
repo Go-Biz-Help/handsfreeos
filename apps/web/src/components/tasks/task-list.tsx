@@ -13,6 +13,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { EmptyState } from '@/components/ui/empty-state';
+import { useBusinessZone } from '@/components/shell/workspace-shell';
 import { dueLabel, TASK_WORDS, taskRelatedLine } from '@hfos/core';
 import { apiBrowser, errorMessage, unwrap } from '@/lib/api/client';
 import type { Task } from '@/lib/api/types';
@@ -47,6 +48,8 @@ export function TaskList({
   emptyHint?: string;
 }) {
   const router = useRouter();
+  // Due words on the business's clock, as the task was set and as "today" and "overdue" are worked out.
+  const businessZone = useBusinessZone();
   const [editing, setEditing] = useState<Task | null>(null);
   const [creating, setCreating] = useState(false);
   const [busyId, setBusyId] = useState<string | null>(null);
@@ -112,7 +115,7 @@ export function TaskList({
       ) : (
         <ul className="divide-y divide-border px-5 md:px-6" data-testid="task-list">
           {[...open, ...done].map((t) => {
-            const due = dueLabel(t);
+            const due = dueLabel(t, undefined, businessZone);
             const mine = t.createdBy?.id === myUserId;
             const related = taskRelatedLine(t);
             return (

@@ -27,6 +27,7 @@ import {
 import { cn } from '@/lib/utils';
 import { dayShort, lengthLabel, money, timeOf, timeRange, joinNames, dayLong } from './format';
 import { callPhrase } from './public-shell';
+import { zoneWords } from './viewer-zone';
 
 const METHODS: Record<PayMethod, { label: string; note: string; icon: typeof Landmark }> = {
   ach: { label: 'Bank transfer', note: 'Takes 1 to 3 business days.', icon: Landmark },
@@ -113,7 +114,7 @@ function VisitCard({ hold, tz, business }: { hold: Held; tz: string; business: s
     ['What', `${a.title} · ${lengthLabel(a.durationMinutes)}`],
     [
       'When',
-      `${dayLong(a.startsAt, tz)}, ${timeRange(a.startsAt, a.endsAt, tz)} ${a.timezoneLabel}`,
+      `${dayLong(a.startsAt, tz)}, ${timeRange(a.startsAt, a.endsAt, tz)} ${zoneWords(tz, a.timezone, a.timezoneLabel)}`,
     ],
     ['Where', a.where],
     ['Who', a.with.length ? `${joinNames(a.with)} from ${business}` : null],

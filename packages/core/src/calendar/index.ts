@@ -17,6 +17,7 @@ export * from './impact';
 export * from './engine/index';
 export * from './layout';
 export * from './when';
+export * from './zone-pick';
 export * from './agenda';
 export * from './reminder-words';
 export * from './areas';

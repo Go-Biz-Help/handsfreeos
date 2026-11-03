@@ -22,7 +22,6 @@ import {
   ChevronLeft,
   CircleX,
   Clock,
-  Globe,
   MapPin,
   Minus,
   Plus,
@@ -63,6 +62,7 @@ import {
 } from './format';
 import { BookingOff, CallButton, callPhrase, PublicState } from './public-shell';
 import { TimePicker } from './time-picker';
+import { TimesIn, useViewerZone } from './viewer-zone';
 import { Turnstile } from './turnstile';
 
 type Answer = string | number | boolean | string[] | null;
@@ -256,15 +256,6 @@ function PartyStepper({
         </button>
       </span>
     </div>
-  );
-}
-
-function TimesIn({ label }: { label: string }) {
-  return (
-    <p className="flex items-center gap-1.5 text-xs text-text-3">
-      <Globe size={14} aria-hidden />
-      Times in {label}
-    </p>
   );
 }
 
@@ -523,7 +514,11 @@ export function BookingFlow({
   linkRef?: string | null;
 }) {
   const info = page.booking!;
-  const tz = page.timezone;
+  // Times in the visitor's zone (their device's, or the one they changed it to), the owner's pick 4a.
+  const [tz, setTz] = useViewerZone(page.timezone);
+  const zoneLine = (
+    <TimesIn zone={tz} pageZone={page.timezone} pageLabel={page.timezoneLabel} onZone={setTz} />
+  );
   const business = page.business;
   const sessionsMode = info.mode === 'sessions';
 
@@ -772,6 +767,8 @@ export function BookingFlow({
         intake,
         notes: form.notes.trim() || null,
         ref: linkRef,
+        // The zone the times were shown in: their confirmation and reminders say the time the same way.
+        timezone: tz,
         website,
         turnstileToken: botToken ?? undefined,
       });
@@ -1227,6 +1224,7 @@ export function BookingFlow({
           <TimePicker
             timezone={tz}
             timezoneLabel={page.timezoneLabel}
+            zoneLine={zoneLine}
             minDate={minDate}
             maxDate={maxDate}
             load={load}
@@ -1347,7 +1345,7 @@ export function BookingFlow({
           </Button>
         ) : null}
         {errorLine}
-        <TimesIn label={page.timezoneLabel} />
+        {zoneLine}
       </>
     );
   } else if (step === 'pay' && held) {
@@ -1476,7 +1474,7 @@ export function BookingFlow({
                 })}
               </div>
             ) : null}
-            <TimesIn label={page.timezoneLabel} />
+            {zoneLine}
           </div>
         ) : null}
         {contactFields}

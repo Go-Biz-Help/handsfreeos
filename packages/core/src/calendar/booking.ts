@@ -517,6 +517,11 @@ export interface AttendeeDraft {
   readonly source: AppointmentSource;
   /** The `ref` an online booking's page was opened with, for whoever's link it was. */
   readonly linkRef?: string | null;
+  /**
+   * The customer's own time zone, which their texts, emails and pages tell the time in (`customerTimeZone`): the
+   * booking page's, from their device, or the zone their time was set in for them. Nothing keeps the calendar's.
+   */
+  readonly timezone?: string | null;
 }
 
 export type StaffChoice =
@@ -1000,6 +1005,7 @@ async function commit(
           smsOk: req.attendee.smsOk,
           source: req.attendee.source,
           linkRef: req.attendee.linkRef ?? null,
+          timezone: req.attendee.timezone ?? null,
           createdBy,
         })
         .returning({
@@ -1117,6 +1123,8 @@ export async function joinSession(ctx: CommandContext, req: JoinRequest): Promis
         smsOk: attendee.smsOk,
         // Only an online booking (the worker's) has one: people may not write it.
         ...(attendee.linkRef ? { linkRef: attendee.linkRef } : {}),
+        // Taken again from another zone: their messages follow the newer one.
+        ...(attendee.timezone ? { timezone: attendee.timezone } : {}),
         cancelledAt: null,
         // A fresh booking retires the links sent for the cancelled one.
         manageVersion: existing.manageVersion + 1,
@@ -1140,6 +1148,7 @@ export async function joinSession(ctx: CommandContext, req: JoinRequest): Promis
         smsOk: attendee.smsOk,
         source: attendee.source,
         linkRef: attendee.linkRef ?? null,
+        timezone: attendee.timezone ?? null,
         createdBy: userIdOf(ctx.actor),
       })
       .returning({

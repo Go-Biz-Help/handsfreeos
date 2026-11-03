@@ -1261,9 +1261,12 @@ function addressLine(a: PersonGet['person']['address']): string | null {
     .join(', ');
 }
 
-/** What series.create gets: the first visit's local date and time, the repeat, and the customer's street. */
+/**
+ * What series.create gets: the first visit's local date and time, the repeat, and the customer's street. The time of
+ * day is kept on the calendar's clock, or on the zone the person gave it in (the screen's Time zone pick).
+ */
 function seriesInput(args: Args, calendar: CalendarFull['calendar'], person: PersonGet['person']) {
-  const tz = calendar.timezone;
+  const tz = str(args['timeZone']) ?? calendar.timezone;
   const start = Date.parse(String(args['firstVisit']));
   const at = zonedParts(start, tz);
   const repeat = REPEATS[args['repeats'] as RepeatKey];
@@ -1273,6 +1276,7 @@ function seriesInput(args: Args, calendar: CalendarFull['calendar'], person: Per
   return defined({
     calendarId: calendar.id,
     firstDate: localDateOf(start, tz),
+    timezone: tz,
     rule: {
       freq: repeat.freq,
       interval: repeat.interval,

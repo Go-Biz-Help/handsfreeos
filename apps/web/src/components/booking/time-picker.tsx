@@ -1,7 +1,7 @@
 'use client';
 /**
  * Pick a day, then a time: a week strip on phones and a month on computers, times grouped into Morning and
- * Afternoon, always in the business's time zone. Open times are fetched 30 days at a time as the customer
+ * Afternoon, in the zone the page shows (the viewer's, `viewer-zone.tsx`). Open times are fetched 30 days at a time as the customer
  * moves forward; a change of inputs (`loadKey`) starts over at the first day with times.
  */
 import { addDays, daysBetween, localDateOf, startOfLocalDay, weekdayOf } from '@hfos/core';
@@ -26,9 +26,12 @@ export function TimePicker({
   onSelect,
   onEmpty,
   footer,
+  zoneLine,
 }: {
   timezone: string;
   timezoneLabel: string;
+  /** In place of "Times in …": the page's own line, with its Change. */
+  zoneLine?: ReactNode;
   /** First and last local dates that can be booked. */
   minDate: string;
   maxDate: string;
@@ -326,10 +329,12 @@ export function TimePicker({
         </div>
 
         <div className="flex min-w-0 flex-col gap-3">
-          <p className="flex items-center gap-1.5 text-xs text-text-3">
-            <Globe size={14} aria-hidden />
-            Times in {timezoneLabel}
-          </p>
+          {zoneLine ?? (
+            <p className="flex items-center gap-1.5 text-xs text-text-3">
+              <Globe size={14} aria-hidden />
+              Times in {timezoneLabel}
+            </p>
+          )}
           {day ? (
             <h2 className="hidden text-[15px] font-semibold md:block">{dateLong(day)}</h2>
           ) : null}

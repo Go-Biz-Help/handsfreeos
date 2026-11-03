@@ -1,5 +1,5 @@
 'use client';
-import { BIN_WORDS, can } from '@hfos/core';
+import { BIN_WORDS, can, instantOfInput, zonePickLabel } from '@hfos/core';
 import {
   AlertTriangle,
   Archive,
@@ -30,6 +30,7 @@ import { TaskList } from '@/components/tasks/task-list';
 import { LogActivitySheet, type LoggableKind } from '@/components/timeline/log-activity-sheet';
 import { Timeline } from '@/components/timeline/timeline';
 import { AddonSlot } from '@/components/addons/slot';
+import { useBusinessZone } from '@/components/shell/workspace-shell';
 import { DeleteDialog } from '@/components/bin/delete-dialog';
 import { Button, ButtonLink } from '@/components/ui/button';
 import { PersonFunnelLine } from '@/components/funnels/person-funnel';
@@ -127,6 +128,8 @@ export function LeadDetail({
   const [lost, setLost] = useState<LeadStage | null>(null);
   const [inlineNext, setInlineNext] = useState('');
   const [inlineAt, setInlineAt] = useState('');
+  const businessZone = useBusinessZone();
+  const inlineAtMs = inlineAt ? instantOfInput(inlineAt, businessZone) : null;
   const [booking, setBooking] = useState(false);
   const [openAppt, setOpenAppt] = useState<string | null>(null);
   const [deleting, setDeleting] = useState(false);
@@ -235,7 +238,8 @@ export function LeadDetail({
             workspaceId,
             leadId,
             text: inlineNext.trim(),
-            dueAt: inlineAt ? new Date(inlineAt).toISOString() : null,
+            // On the business's clock, as the lead shows it; Change opens the dialog with the Time zone pick.
+            dueAt: inlineAtMs === null ? null : new Date(inlineAtMs).toISOString(),
           },
         }),
       );
@@ -433,7 +437,7 @@ export function LeadDetail({
               {lead.nextActionAt ? (
                 <span className="opacity-80">
                   {' '}
-                  · {formatDate(lead.nextActionAt, { time: true })}
+                  · {formatDate(lead.nextActionAt, { time: true, timeZone: businessZone })}
                 </span>
               ) : null}
             </span>
@@ -470,13 +474,19 @@ export function LeadDetail({
                   type="datetime-local"
                   value={inlineAt}
                   onChange={(e) => setInlineAt(e.target.value)}
-                  aria-label="When"
+                  aria-label={`When, ${zonePickLabel(businessZone)}`}
+                  title={zonePickLabel(businessZone)}
                   className="bg-card sm:w-[190px]"
                 />
                 <Button size="sm" onClick={setNext} loading={busy} data-testid="lead-next-set">
                   Set
                 </Button>
               </div>
+              {inlineAt ? (
+                <span className="text-[12.5px] opacity-80" data-testid="lead-next-zone">
+                  {zonePickLabel(businessZone)}
+                </span>
+              ) : null}
             </div>
           </div>
         )

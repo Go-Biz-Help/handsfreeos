@@ -74,6 +74,7 @@ export default async function WorkspaceLayout({
         // Only a hint as well: without it the Online place doesn't offer them, but one already chosen still shows.
         videoCalls={workspace?.workspace.videoCalls ?? false}
         staffPermissions={platform?.staff?.permissions ?? []}
+        timeZone={current.timezone}
       >
         <UnreadProvider workspaceId={workspaceId}>
           {/* The urgent count on Home, in the sidebar and the phone's bottom bar. */}
