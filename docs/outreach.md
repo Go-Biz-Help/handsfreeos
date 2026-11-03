@@ -387,8 +387,10 @@ became.
 - **Phone alerts** (decision 22, `alerts.ts`, `ops/alerts.ts`, the worker's `alerts.ts`): while noting is on, the
   extension looks at the chats on any Facebook page as it changes (Messenger's list, an open chat, a small chat
   window) and tells HandsFreeOS who wrote last in each, never what (`outreach.replies.note`). One that answers a
-  message of the person's the extension noted is a reply: their phone hears "Dana Reyes wrote back", unless they had
-  that tab in front of them, and they're on Today as a reply owed until the person answers. At the business's hour
+  message, request or comment of the person's the extension noted is a reply: their phone hears "Dana Reyes wrote
+  back", unless they had that tab in front of them, and they're on Today as a reply owed until the person answers. A
+  newer message of theirs is a reply again, at most one buzz a quarter hour, and one the daily chat read finds buzzes
+  too (decision 150). At the business's hour
   (`morningPushHour`, 8 AM to start, or off; Social Outreach → Settings → General, For your team, in the business's time
   zone) each person who noted a step in the last 14 days and has something on their list hears how much ("6 on your list for today").
   Both are add-on pushes (`pushAddonNotice`), on the person's add-ons switch, and open Today.
@@ -3698,6 +3700,40 @@ where decisions 37 and 59 put the settings; what they decided stands. Settled to
         big group is worked right through instead of its first screens over and over.
       - A business's owner setting it for the whole team was offered and left out (answer 3a): each person picks.
 
+<!-- Decision 149 is the meeting times change, open as pull request 490. -->
+
+150.  **Every reply caught, in every chat the tool started** (Chris, 3 Nov 2026: "i feel like some messages on the
+      different platforms being we are receiving aren't being recognized. need to make sure we are being thorough on
+      checking received messages especially if they were conversations initiated by the social outreach tool"),
+      answered "1a 2a 3a 4a 5a"; extension **0.126.0**, no migration. A check of the live data found every reply
+      caught in the end, but late or quietly: a second message never buzzed, most Facebook list replies couldn't be
+      tied to anyone, a reply the daily chat read found told nobody, LinkedIn's chats were hardly read, and every reply
+      draft said HandsFreeOS hadn't seen what they wrote.
+      - **A newer message counts every time** (answer 1a). Each chat's last line, as the list or the open chat shows
+        it, is kept on the computer as a short fingerprint (`withNewer`, `lineHash`, `hfos.replyLines`, a week at
+        most), never its words and never sent. One that changed goes at once, marked `newer`, and HandsFreeOS keeps it
+        as a reply again (`keepReply`), buzzes the phone and has the runner draft it, at most once per person every 15
+        minutes (`NEWER_QUIET_MS`). Inside that time a draft for them still waiting for an OK goes, so the next look
+        writes it again from the chat as it is (`redraft`, no buzz).
+      - **Facebook list replies are matched by the chat number a chat read kept** (answer 2a): `file_chats.thread_key`
+        as well as the number a step kept, and when neither is known, by the name, when only one person reached on
+        that network goes by it (as Instagram's and LinkedIn's already were). A number that's someone else's chat, or
+        a profile that's someone the person didn't reach, is never anyone by name.
+      - **A reply the daily chat read finds is treated like the watch's** (answer 3a): `outreach.chats.collect` keeps
+        it, buzzes the phone (`outreach.reply.seen`) and answers with `replied`, so the extension has that network's
+        runner draft it next (`heardReplies`). So do Instagram's and Alignable's chats jobs' sightings.
+      - **LinkedIn's Read my chats presses each row** (answer 4a): the newer list links to no conversation, so its rows
+        come with the page (`rows`, `listedRows`), and the job presses each one not read lately by its name
+        (`pressRow`, `hfos-open-chat` with `name`), reads the conversation it opened by that conversation's id, and
+        scrolls the list from its last row (`lastRow`).
+      - **A reply is drafted for anyone in a conversation the tool started any way** (answer 5a): after a message, a
+        friend or connection request, or a comment (`REPLY_STARTS`), as well as likely prospects. Today's chat path
+        takes a chat read whose last message is theirs, after such a step. A personal chat the tool never touched stays
+        alone, and Never contact, Lost and Don't pitch stay as they were.
+      - **A reply drafted from a sighting keeps its chat** (a bug, fixed with these): `outreach.send.queue` takes the
+        person's latest chat with them when the draft names none, so a reply no longer says "HandsFreeOS hasn't seen
+        what they wrote" when the runner had just read it, and can go on its own when Replies says so.
+
 ## Rules worth knowing before changing anything
 
 - **Nothing is saved until the person presses a button in HandsFreeOS** (an ask, below), except the four steps the
@@ -4163,12 +4199,19 @@ where decisions 37 and 59 put the settings; what they decided stands. Settled to
   for 7 days from the latest one, friend requests leave the list for 2, and the same words twice in a day on the same
   network come back `repeated`. The
   extension keeps the day's warnings itself too, so it stops even when HandsFreeOS can't be reached.
-- **A reply answers a message the extension noted** (`outreach.replies.note`). A chat whose last message is theirs
-  counts once for each message of the person's it answers (`replies`, by the moment of that message), so seeing the
-  chat again is no news; a chat with nothing of the person's noted, or seen within 30 seconds of their message being
-  noted (Messenger's list catching up), isn't one. The extension sends only who (the chat's number or their profile),
-  only chats from the last two days, each at most every 3 minutes, and nothing while noting is off. The push goes to
-  that person alone, unless they had the tab in front of them. A reply seen leaves Today when the extension notes a
+- **A reply answers a step the extension noted** (`outreach.replies.note`, `keepReply`): a message, a friend or
+  connection request, or a comment (`REPLY_STARTS`, decision 150), never a like. A chat whose last message is theirs
+  counts once for each such step of the person's it answers (`replies`, by the moment of that step), so seeing the
+  chat again is no news; a chat with nothing of the person's noted, or seen within 30 seconds of their step being
+  noted (Messenger's list catching up), isn't one, and nor is a message of theirs a chat read shows from before it.
+  A newer message of theirs counts again (decision 150): the extension marks a sighting `newer` when the chat's last
+  line changed on the computer, and a chat read (`outreach.chats.collect`) says when they wrote; at most one a
+  quarter hour is kept and pushed (`NEWER_QUIET_MS`), and inside it a draft for them still waiting goes, to be
+  written again. The extension sends only who (the chat's number or their profile) and whether it's newer, never the
+  line, only chats from the last two days, each at most every 3 minutes but for a newer one, and nothing while
+  noting is off. Who a chat is with goes by their profile, or the chat's number as a step or a chat read kept it,
+  else by its name when one person reached there has it. The push goes to that person alone, unless they had the
+  tab in front of them; a reply a chat read found always pushes. A reply seen leaves Today when the extension notes a
   message to them, or when their chat, read after it was seen, ends with the person's own or reads as come to a close
   (decision 134).
 - **Nobody who said no is pitched** (decision 134, `declinedLine`): a reply, a follow-up or a check-in to someone

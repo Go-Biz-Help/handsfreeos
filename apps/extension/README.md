@@ -1136,6 +1136,28 @@ whole day, as the list can't be worked out without them (`holdsTheDay` in `src/a
 and Alignable a read put off till you're away counts as the reading's turn, so the list goes next. With nothing on the
 list, the reading goes on. Nothing in HandsFreeOS changes for it.
 
+### Every reply caught, and LinkedIn's chats read again (0.126.0)
+
+The owner, 3 Nov 2026: "some messages on the different platforms being we are receiving aren't being recognized",
+above all in chats the tool started (docs/outreach.md, decision 150). The live data showed each reply caught in the
+end, but a second message never buzzed, and LinkedIn's Read my chats had read 4 chats ever. From 0.126.0:
+
+- **A newer message is news.** Each sighting carries the chat's last line as the list or the open chat shows it
+  (`last` on `ReplySighting`, `lineOf` in `src/networks/facebook/replies.ts`, Instagram's and LinkedIn's readers). The
+  background keeps a short fingerprint of each (`withNewer`, `lineHash`, `hfos.replyLines` in `src/hfos/replies.ts`),
+  never the words, for a week, and one that changed goes at once marked `newer`, ahead of the rest, even when the chat
+  was sent a minute ago. Only that it changed is sent (`repliesInput`), never the line.
+- **Replies a chats read finds are drafted next too.** HandsFreeOS answers Read my chats with who wrote back
+  (`replied` from `outreach.chats.collect`), and Instagram's and Alignable's chats jobs with theirs, and the runner
+  for that network goes now, as for the watch's (`heardReplies`, `onReplied` in `src/hfos/replied.ts`).
+- **LinkedIn's rows are pressed.** LinkedIn's newer list links to no conversation, so the page read gives its rows
+  (`rows`, `listedRows`), and Read my chats presses each not read lately by the name it shows (`pressRow`, and
+  `hfos-open-chat` with `name`, in `src/networks/linkedin/chats.ts` and `browse.ts`), waits for that conversation to
+  open, and sends it by its own id. A row that doesn't open waits for a day with something new. The list scrolls from
+  its last row (`lastRow`).
+- In HandsFreeOS, Facebook list replies are matched by the chat number a chat read kept, else by the one name, a
+  reply after a friend or connection request or a comment counts, and a reply's draft keeps the chat it answers.
+
 ### Alignable's monthly connection limit (0.124.0)
 
 The owner, 2 Nov 2026: Alignable's connection requests kept failing, and the box after Connect said they'd "reached
