@@ -361,6 +361,30 @@ export const callEnd = defineAddonCommand(salescoachAddon, {
   emits: ['salescoach.call.ended'],
   async handler(ctx, input) {
     const c = await loadCoached(ctx.tx, ctx.scope.workspaceId!, input.coachedCallId);
+    // Stopped by the rep and still going: it ends now, with nothing kept, and can't start again.
+    if (c.state === 'stopped' && !c.endedAt) {
+      if (input.forgotten) await ctx.tx.delete(cards).where(eq(cards.coachedCallId, c.id));
+      await ctx.tx
+        .update(coachedCalls)
+        .set({
+          endedAt: changeMoment(ctx.meta),
+          ...(input.forgotten
+            ? {
+                failure:
+                  'The AI’s notes were turned off on this video call, so nothing from it was kept.',
+              }
+            : {}),
+        })
+        .where(eq(coachedCalls.id, c.id));
+      // The rep's screen hears it end, and stops offering to start the coach again.
+      await ctx.emit({
+        type: 'salescoach.call.ended',
+        entityType: 'salescoach_call',
+        entityId: c.id,
+        payload: { callId: c.callId, userId: c.userId, heard: false },
+      });
+      return { state: 'stopped' as const };
+    }
     // Already ended (a retry): it stays as it was.
     if (c.state !== 'live') return { state: c.state };
     if (input.forgotten) {
@@ -602,7 +626,7 @@ export const conversationFinish = defineAddonCommand(salescoachAddon, {
 export const callStop = defineAddonCommand(salescoachAddon, {
   name: 'salescoach.call.stop',
   description:
-    'Stop the coach on the call you’re on now: no more cards, and nothing from this call is kept or written up.',
+    'Stop the coach on the call you’re on now: no more cards, and nothing from this call is kept or written up unless you start it again.',
   risk: 1,
   input: z.object({ workspaceId: uuid, coachedCallId: uuid }),
   output: z.object({ state: z.enum(COACHED_STATES) }),
@@ -620,12 +644,12 @@ export const callStop = defineAddonCommand(salescoachAddon, {
         'Only the person on the call can stop the coach on it.',
       );
     if (c.state !== 'live') return { state: c.state };
-    // Row security lets the rep make this one change to their own live call, and no other.
+    // Row security lets the rep stop their own live call and start it again while it goes on, and no other change.
+    // It ends when the call does (`salescoach.call.end`), so it can start again until then.
     await ctx.tx
       .update(coachedCalls)
       .set({
         state: 'stopped',
-        endedAt: changeMoment(ctx.meta),
         failure: 'You stopped the coach on this call, so nothing from it was kept.',
       })
       .where(eq(coachedCalls.id, c.id));
@@ -636,6 +660,47 @@ export const callStop = defineAddonCommand(salescoachAddon, {
       payload: { callId: c.callId, userId: me },
     });
     return { state: 'stopped' as const };
+  },
+});
+
+export const callResume = defineAddonCommand(salescoachAddon, {
+  name: 'salescoach.call.resume',
+  description:
+    'Start the coach again on the call you stopped it on, while the call goes on: the cards come back, and the write-up has the whole call.',
+  risk: 1,
+  input: z.object({ workspaceId: uuid, coachedCallId: uuid }),
+  output: z.object({ state: z.enum(COACHED_STATES) }),
+  permission: 'salescoach.use',
+  ai: { tool: 'salescoach_call_resume', autonomy: 'confirm' },
+  scope: inWorkspace,
+  emits: ['salescoach.call.resumed'],
+  async handler(ctx, input) {
+    const me = requireHuman(ctx).userId;
+    const c = await loadCoached(ctx.tx, ctx.scope.workspaceId!, input.coachedCallId);
+    if (c.userId !== me)
+      throw HfosError.rule(
+        'salescoach_not_your_call',
+        403,
+        'Only the person on the call can start the coach on it again.',
+      );
+    if (c.state === 'live') return { state: c.state };
+    if (c.state !== 'stopped' || c.endedAt)
+      throw HfosError.rule(
+        'salescoach_call_over',
+        409,
+        'That call is over, so the coach can’t start on it again. It listens on your next call on its own.',
+      );
+    await ctx.tx
+      .update(coachedCalls)
+      .set({ state: 'live', failure: null })
+      .where(eq(coachedCalls.id, c.id));
+    await ctx.emit({
+      type: 'salescoach.call.resumed',
+      entityType: 'salescoach_call',
+      entityId: c.id,
+      payload: { callId: c.callId, userId: me },
+    });
+    return { state: 'live' as const };
   },
 });
 
@@ -684,6 +749,8 @@ const LiveOutput = z.object({
       /** The script step the call is at. */
       step: z.string().nullable(),
       startedAt: z.string(),
+      /** Null while the call goes on: a stopped one can start again until then. */
+      endedAt: z.string().nullable(),
       cards: z.array(Card),
     })
     .nullable(),
@@ -693,7 +760,7 @@ export type CoachLive = z.infer<typeof LiveOutput>;
 export const live = defineAddonQuery(salescoachAddon, {
   name: 'salescoach.live',
   description:
-    'Your call the coach is listening to now, with its cards (newest first) and where it is in the script; or your last one for a few minutes after it ends.',
+    'Your call the coach is listening to now, with its cards (newest first) and where it is in the script; or one you stopped the coach on while it goes on; or your last one for a few minutes after it ends.',
   input: z.object({ workspaceId: uuid }),
   output: LiveOutput,
   permission: 'salescoach.use',
@@ -711,7 +778,8 @@ export const live = defineAddonQuery(salescoachAddon, {
           eq(coachedCalls.workspaceId, ws),
           eq(coachedCalls.userId, me),
           gt(coachedCalls.startedAt, since),
-          sql`(${coachedCalls.state} = 'live' or ${coachedCalls.endedAt} > now() - interval '10 minutes')`,
+          // Live, or stopped while the call goes on (it can start again), or ended in the last few minutes.
+          sql`(${coachedCalls.state} = 'live' or (${coachedCalls.state} = 'stopped' and ${coachedCalls.endedAt} is null) or ${coachedCalls.endedAt} > now() - interval '10 minutes')`,
         ),
       )
       .orderBy(desc(coachedCalls.startedAt))
@@ -737,6 +805,7 @@ export const live = defineAddonQuery(salescoachAddon, {
         playbook: pb ? { name: pb.name, details: PlaybookDetails.parse(pb.details) } : null,
         step: c.step,
         startedAt: c.startedAt.toISOString(),
+        endedAt: c.endedAt?.toISOString() ?? null,
         cards: shown.map(cardOut),
       },
     };
@@ -846,7 +915,7 @@ export const callDelete = defineAddonCommand(salescoachAddon, {
   emits: ['salescoach.call.deleted'],
   async handler(ctx, input) {
     const c = await loadCoached(ctx.tx, ctx.scope.workspaceId!, input.coachedCallId);
-    if (c.state === 'live' || c.state === 'writing')
+    if (c.state === 'live' || c.state === 'writing' || (c.state === 'stopped' && !c.endedAt))
       throw HfosError.rule(
         'salescoach_call_in_progress',
         409,
@@ -873,6 +942,7 @@ export const callCommands = [
   conversationFinish,
   cardDismiss,
   callStop,
+  callResume,
   callDelete,
 ] as const;
 export const callQueries = [live, callList, callGet] as const;

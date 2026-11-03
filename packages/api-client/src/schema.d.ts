@@ -14037,6 +14037,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/commands/salescoach.call.resume": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Start the coach again on the call you stopped it on, while the call goes on: the cards come back, and the write-up has the whole call.
+         * @description Risk level 1. Requires salescoach.use. Emits salescoach.call.resumed.
+         */
+        post: operations["command_salescoach_call_resume"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/commands/salescoach.call.stop": {
         parameters: {
             query?: never;
@@ -14047,7 +14067,7 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * Stop the coach on the call you’re on now: no more cards, and nothing from this call is kept or written up.
+         * Stop the coach on the call you’re on now: no more cards, and nothing from this call is kept or written up unless you start it again.
          * @description Risk level 1. Requires salescoach.use. Emits salescoach.call.stopped.
          */
         post: operations["command_salescoach_call_stop"];
@@ -22547,7 +22567,7 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * Your call the coach is listening to now, with its cards (newest first) and where it is in the script; or your last one for a few minutes after it ends.
+         * Your call the coach is listening to now, with its cards (newest first) and where it is in the script; or one you stopped the coach on while it goes on; or your last one for a few minutes after it ends.
          * @description Requires salescoach.use.
          */
         post: operations["query_salescoach_live"];
@@ -57065,6 +57085,38 @@ export interface operations {
             };
         };
     };
+    command_salescoach_call_resume: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    coachedCallId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @enum {string} */
+                        state: "live" | "writing" | "done" | "failed" | "stopped";
+                    };
+                };
+            };
+        };
+    };
     command_salescoach_call_stop: {
         parameters: {
             query?: never;
@@ -87922,6 +87974,7 @@ export interface operations {
                                 tip: string;
                                 title: string;
                             }[];
+                            endedAt: string | null;
                             /** Format: uuid */
                             id: string;
                             liveMeetingId: string | null;

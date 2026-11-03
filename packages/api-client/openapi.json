@@ -112376,11 +112376,75 @@
     "/v1/commands/salescoach.call.stop": {
       "post": {
         "operationId": "command_salescoach_call_stop",
-        "summary": "Stop the coach on the call you’re on now: no more cards, and nothing from this call is kept or written up.",
+        "summary": "Stop the coach on the call you’re on now: no more cards, and nothing from this call is kept or written up unless you start it again.",
         "tags": [
           "commands"
         ],
         "description": "Risk level 1. Requires salescoach.use. Emits salescoach.call.stopped.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "workspaceId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  },
+                  "coachedCallId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  }
+                },
+                "required": [
+                  "workspaceId",
+                  "coachedCallId"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "state": {
+                      "type": "string",
+                      "enum": [
+                        "live",
+                        "writing",
+                        "done",
+                        "failed",
+                        "stopped"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "state"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/commands/salescoach.call.resume": {
+      "post": {
+        "operationId": "command_salescoach_call_resume",
+        "summary": "Start the coach again on the call you stopped it on, while the call goes on: the cards come back, and the write-up has the whole call.",
+        "tags": [
+          "commands"
+        ],
+        "description": "Risk level 1. Requires salescoach.use. Emits salescoach.call.resumed.",
         "requestBody": {
           "required": true,
           "content": {
@@ -228104,7 +228168,7 @@
     "/v1/queries/salescoach.live": {
       "post": {
         "operationId": "query_salescoach_live",
-        "summary": "Your call the coach is listening to now, with its cards (newest first) and where it is in the script; or your last one for a few minutes after it ends.",
+        "summary": "Your call the coach is listening to now, with its cards (newest first) and where it is in the script; or one you stopped the coach on while it goes on; or your last one for a few minutes after it ends.",
         "tags": [
           "queries"
         ],
@@ -228365,6 +228429,12 @@
                             "startedAt": {
                               "type": "string"
                             },
+                            "endedAt": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
                             "cards": {
                               "type": "array",
                               "items": {
@@ -228430,6 +228500,7 @@
                             "playbook",
                             "step",
                             "startedAt",
+                            "endedAt",
                             "cards"
                           ],
                           "additionalProperties": false

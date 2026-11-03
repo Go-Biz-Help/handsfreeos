@@ -82,7 +82,8 @@ describe('AI Sales Coach', () => {
     ]);
     expect(addonAssistantIssues([salescoachAddonServer])).toEqual([]);
     expect(ops.filter((op) => !people.includes(op) && tools.has(op.name))).toEqual([]);
-    // Putting a card away is the only change it makes on its own: the rest change a playbook or stop a call.
+    // Putting a card away is the only change it makes on its own: the rest change a playbook, or stop the coach on
+    // a call or start it again.
     expect(
       [...tools.values()]
         .filter((t) => t.op.kind === 'command' && t.autonomy === 'auto')
