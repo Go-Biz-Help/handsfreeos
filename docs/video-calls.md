@@ -512,8 +512,8 @@ what's kept here, once a week of it has been checked against LiveKit's bill. Par
 ### Marks on a shared screen (owner, 3 November 2026)
 
 Someone watching a shared screen can point at it and draw on it, and everyone in the call sees it there: the person
-sharing too, on their own screen's tile. It's the part every answer to the owner's questions on screen control
-needs; controlling another person's screen waits on those answers ("Not yet" below).
+sharing too, on their own screen's tile. Controlling another person's screen waits for a desktop app or a browser
+extension, the owner's call on 3 November 2026 ("Not yet" below).
 
 - **Point and Draw** sit on the big shared screen for whoever may mark it. With **Point**, their pointer shows to
   everyone as a bright dot in their own colour with their name, and a click spreads a ring where they clicked. With
@@ -557,8 +557,9 @@ enough to see captions and lines arrive. With `DEEPGRAM_API_KEY` and `VOICE_AGEN
 - Screen share from a phone's browser, which phones don't allow; they can watch someone else's.
 - Joining by phone, recordings, breakout rooms and picture backgrounds.
 - Controlling another person's shared screen, and marks drawn on top of their real screen rather than in the call.
-  A browser can't move someone else's mouse or draw over their screen; the owner is choosing how far to go
-  (HandsFreeOS tabs with nothing to install, a Chrome helper, or a desktop app).
+  A browser can't move someone else's mouse or draw over their screen. The owner chose (3 November 2026) to wait
+  until there's a HandsFreeOS desktop app or browser extension the other person installs, rather than doing it only
+  on shared HandsFreeOS tabs.
 - Pointing and drawing from the phone app: it shows marks others make.
 - Charging each call for what it really used ("What a call used" above): part 1 measures it, and the balance still
   takes the flat `video.minute` until part 2.
