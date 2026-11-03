@@ -685,9 +685,7 @@ export async function todayFor(
                   // For a build that finds people by topic, only a warm-up from before the person switched to it
                   // counts (`foundByTopicSince`): a like or a comment since, found or not (LinkedIn's comment on its
                   // own, or one OK'd), is no AI check. With no switch known yet, none does.
-                  byTopic
-                    ? sql`and t.at < ${switched?.toISOString() ?? null}::timestamptz`
-                    : sql``
+                  byTopic ? sql`and t.at < ${switched?.toISOString() ?? null}::timestamptz` : sql``
                 }) as warmed_at
           from addon_outreach.posts po
           join addon_outreach.profiles p on p.id = po.profile_id
@@ -801,8 +799,7 @@ export async function todayFor(
     const good = (await foundGood(ctx, me, input.platform, reach, now, onlyMine)).filter(
       (p) => !warmIds.has(p.id) && !carried.has(p.id),
     );
-    const likedBy = (p: FoundGood) =>
-      p.liked_at === null ? null : new Date(p.liked_at).getTime();
+    const likedBy = (p: FoundGood) => (p.liked_at === null ? null : new Date(p.liked_at).getTime());
     const ready = good.filter((p) => {
       const liked = likedBy(p);
       return (
@@ -841,15 +838,10 @@ export async function todayFor(
       const waiting = good.filter((p) => {
         const liked = likedBy(p);
         return (
-          liked !== null &&
-          p.warm_up_missed_at === null &&
-          liked > now - WARM_UP_WAIT_HOURS * HOUR
+          liked !== null && p.warm_up_missed_at === null && liked > now - WARM_UP_WAIT_HOURS * HOUR
         );
       }).length;
-      const wanted = Math.max(
-        0,
-        limits.friend_request.most - waiting - carriedWaiting - warmLikes,
-      );
+      const wanted = Math.max(0, limits.friend_request.most - waiting - carriedWaiting - warmLikes);
       const cold = good.filter((p) => likedBy(p) === null && p.warm_up_missed_at === null);
       for (const p of cold.slice(0, Math.min(foundLikesLeft, wanted))) {
         foundLikes++;
@@ -973,9 +965,7 @@ export async function todayFor(
       const waiting = good.filter((p) => {
         const liked = likedBy(p);
         return (
-          liked !== null &&
-          p.warm_up_missed_at === null &&
-          liked > now - WARM_UP_WAIT_HOURS * HOUR
+          liked !== null && p.warm_up_missed_at === null && liked > now - WARM_UP_WAIT_HOURS * HOUR
         );
       }).length;
       const wanted = Math.max(0, limits.friend_request.most - waiting - warmLikes - searchLikes);
@@ -1010,10 +1000,7 @@ export async function todayFor(
       foundRequests -
       followerRequests,
   );
-  const likesLeft = Math.max(
-    0,
-    warmUpLeft - warmLikes - searchLikes - foundLikes - followerLikes,
-  );
+  const likesLeft = Math.max(0, warmUpLeft - warmLikes - searchLikes - foundLikes - followerLikes);
   if (
     kit.foundChecksPerDay === null &&
     playbooks.length &&
@@ -1163,9 +1150,7 @@ export async function todayFor(
       );
     if (settings.warmUp) {
       // Enough warmed up for a day's requests: those waiting, and those liked lately, count.
-      const waiting = fitted.filter(
-        ({ p }) => likedBy(p) !== null && p.warm_up_missed_at === null,
-      );
+      const waiting = fitted.filter(({ p }) => likedBy(p) !== null && p.warm_up_missed_at === null);
       const wanted = Math.max(
         0,
         limits.friend_request.most - waiting.length - warmLikes - searchLikes - followerLikes,
@@ -1421,9 +1406,7 @@ export async function todayFor(
           chatId: p.chat_id,
           threadKey: p.thread_key,
           why: [
-            p.kind === 'birthday'
-              ? OCCASION_WORDS.birthdayWhy
-              : OCCASION_WORDS.newJobWhy(p.detail),
+            p.kind === 'birthday' ? OCCASION_WORDS.birthdayWhy : OCCASION_WORDS.newJobWhy(p.detail),
           ],
           summary: p.summary,
           nextStep: p.next_step,
@@ -1846,9 +1829,7 @@ export async function todayFor(
           why: [
             ...(po.check_why ? [po.check_why] : []),
             // A post off a group, from Facebook's or LinkedIn's post search (decision 141), is on the network itself.
-            ...(po.group_name
-              ? [`In ${po.group_name}`]
-              : [`On ${NETWORKS[input.platform].name}`]),
+            ...(po.group_name ? [`In ${po.group_name}`] : [`On ${NETWORKS[input.platform].name}`]),
           ],
           playbookName: po.playbook_name,
         }),
@@ -2067,9 +2048,7 @@ export async function todayFor(
   // again, a demo's reminder, a note for their day. Someone with nobody kept for them can't be on it, so waits too.
   const okd = gate ? await okdAmong(ctx, me, items) : null;
   const passes = (i: Pick<TodayItem, 'kind' | 'profileId'>) =>
-    okd === null ||
-    !waitsForPeopleOk(i.kind) ||
-    (i.profileId !== null && okd.has(i.profileId));
+    okd === null || !waitsForPeopleOk(i.kind) || (i.profileId !== null && okd.has(i.profileId));
   const listedItems = [
     ...items.filter((i) => i.asking),
     ...items.filter((i) => !i.asking).sort(byKind),
@@ -2127,10 +2106,7 @@ export async function todayFor(
   // The day's goal (decision 126): first messages sent and on the list against the limit, the good fits ready, and
   // why it's short. Those waiting for an OK count as found (answer 8a).
   const firsts = listedItems.filter((i) => TODAY_LIMIT[i.kind] === 'first_message');
-  const short = Math.max(
-    0,
-    limits.first_message.most - limits.first_message.done - firsts.length,
-  );
+  const short = Math.max(0, limits.first_message.most - limits.first_message.done - firsts.length);
   const requestsListed = listedItems.filter(
     (i) => i.kind === 'friend_request' || i.kind === 'warm_up',
   ).length;

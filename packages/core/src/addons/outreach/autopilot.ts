@@ -133,8 +133,7 @@ export const AUTOPILOT_WORDS = {
     'Your business doesn’t allow Autopilot. Ask an owner of this business to allow it under Social Outreach → Settings → Team.',
   /** Team's choices people may pick. */
   allow: 'Autopilot',
-  allowAbout:
-    'Everything on its own, with the people it reaches OK’d by each person once a day.',
+  allowAbout: 'Everything on its own, with the people it reaches OK’d by each person once a day.',
   listTitle: 'People to OK for today',
   listAbout:
     'Autopilot reaches them once you OK the list. Tap a name to mark them Don’t pitch or Never contact first.',

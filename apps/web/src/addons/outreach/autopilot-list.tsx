@@ -46,7 +46,10 @@ export function AutopilotList({
 }) {
   const { busy, act } = useAct();
   if (!autopilot?.on) return null;
-  const answer = (key: string, body: { answer: 'ok' | 'not_today' | 'waiting'; profileIds?: string[] }) =>
+  const answer = (
+    key: string,
+    body: { answer: 'ok' | 'not_today' | 'waiting'; profileIds?: string[] },
+  ) =>
     act(key, async () => {
       const out = unwrap(
         await apiBrowser().POST('/v1/commands/outreach.autopilot.answer', {

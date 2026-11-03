@@ -92,6 +92,8 @@ describe('Social Outreach', () => {
         'outreach.ask.make',
         'outreach.ask.reply',
         'outreach.automation.save',
+        // OK, Not today and Put back on Autopilot's day's list (decision 151): who it reaches.
+        'outreach.autopilot.answer',
         'outreach.chat.keep',
         'outreach.checks.again',
         'outreach.client.set',

@@ -387,9 +387,7 @@ export const sendQueue = defineAddonCommand(outreachAddon, {
               ? null
               : OCCASION_WORDS.needsYou
             : post
-              ? post.strong &&
-                NETWORKS[profile.platform].forumAnswersPerDay !== null &&
-                !autopilot
+              ? post.strong && NETWORKS[profile.platform].forumAnswersPerDay !== null && !autopilot
                 ? COMMENT_NEEDS_YOU.answer
                 : null
               : !replying

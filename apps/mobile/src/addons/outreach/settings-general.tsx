@@ -86,9 +86,7 @@ export function GeneralMine({
         allowed={automation.rules.autopilotAllowed}
         wheels={
           automation.wheels.on ||
-          OTHER_PLATFORMS.some(
-            (p) => automation.networkWheels[p].on && form.value.networks[p].on,
-          )
+          OTHER_PLATFORMS.some((p) => automation.networkWheels[p].on && form.value.networks[p].on)
         }
         boxed
         disabled={disabled}

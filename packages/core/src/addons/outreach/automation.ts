@@ -579,7 +579,9 @@ export function keepOwnPicks(
 }
 
 /** Whether a choice is one Autopilot makes while it's on: the screens show it as Autopilot's, not to change. */
-export const AUTOPILOT_PICKS_KEYS = Object.keys(AUTOPILOT_PICKS) as (keyof typeof AUTOPILOT_PICKS)[];
+export const AUTOPILOT_PICKS_KEYS = Object.keys(
+  AUTOPILOT_PICKS,
+) as (keyof typeof AUTOPILOT_PICKS)[];
 
 /**
  * A person's choices as they stand inside the business's rules, on every network: with Autopilot's picks over their

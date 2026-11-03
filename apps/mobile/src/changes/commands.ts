@@ -341,10 +341,7 @@ import {
   AskReplyInput,
   ProfileContactInput,
 } from '@hfos/core/addons/outreach/asks';
-import {
-  AutopilotAnswerInput,
-  AutopilotAnswerOutput,
-} from '@hfos/core/addons/outreach/autopilot';
+import { AutopilotAnswerInput, AutopilotAnswerOutput } from '@hfos/core/addons/outreach/autopilot';
 import {
   AutomationSaveInput,
   AutomationSaveOutput,

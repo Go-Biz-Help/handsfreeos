@@ -95,7 +95,11 @@ export const autopilotPlan = defineAddonCommand(outreachAddon, {
       { platform: Platform; kind: TodayKind; why: string[]; spare: boolean }
     >();
     for (const platform of networksShown(settings, rules.networksAllowed)) {
-      const { list, most } = await todayFor(ctx, { workspaceId: input.workspaceId, platform }, true);
+      const { list, most } = await todayFor(
+        ctx,
+        { workspaceId: input.workspaceId, platform },
+        true,
+      );
       const used = Object.fromEntries(DAILY_STEPS.map((s) => [s, 0])) as Record<DailyStep, number>;
       for (const i of [...list.items, ...(list.partners ?? [])]) {
         const step = autopilotStepOf(i.kind);
@@ -295,10 +299,7 @@ export const autopilotAnswer = defineAddonCommand(outreachAddon, {
                       inArray(autopilotPeople.profileId, named),
                       sql`${autopilotPeople.state} <> 'ok'`,
                     )
-                  : and(
-                      eq(autopilotPeople.day, day),
-                      eq(autopilotPeople.state, 'waiting'),
-                    ),
+                  : and(eq(autopilotPeople.day, day), eq(autopilotPeople.state, 'waiting')),
               ),
             )
             .returning({ id: autopilotPeople.id })
