@@ -22,6 +22,8 @@
  *   fit a playbook, with why, and **Confirm** and **Delete** (the extension does it; what the AI says stands out) beside
  *   **Leave it**.
  *
+ * With Autopilot on (decision 149), its day's list comes first (./autopilot-list.tsx): the people to OK for today.
+ *
  * Each person's name opens their person menu (./person-menu.tsx, decision 91): their page first, then Contacts, Mark
  * as client, Demo booked, Don't pitch and Never contact. Each card keeps its own Open.
  *
@@ -77,6 +79,7 @@ import { apiBrowser, unwrap } from '@/lib/api/client';
 import { useLiveRefresh } from '@/lib/realtime/live-provider';
 import { outreachHref } from './address';
 import { AskLine } from './asks';
+import { AutopilotList } from './autopilot-list';
 import { ChatSoFar } from './chat-bubbles';
 import { KeepChatButton } from './chat-keep';
 import { UnsureCountryCard } from './country-skipped';
@@ -84,7 +87,7 @@ import { NetworkName } from './network-ui';
 import { PersonName } from './person-menu';
 import { PostQuote } from './post-quote';
 import { Drafted } from './drafted';
-import type { Waiting, WaitingItem } from './types';
+import type { Autopilot, Waiting, WaitingItem } from './types';
 import { useAct } from './use-act';
 
 type SendItem = Extract<WaitingItem, { kind: 'reply' | 'message' }>;
@@ -106,7 +109,16 @@ function when(iso: string, timeZone: string): string {
   }
 }
 
-export function NeedsYou({ workspaceId, waiting }: { workspaceId: string; waiting: Waiting }) {
+export function NeedsYou({
+  workspaceId,
+  waiting,
+  autopilot = null,
+}: {
+  workspaceId: string;
+  waiting: Waiting;
+  /** Autopilot's day's list (decision 149), first: null while it's off or couldn't be had. */
+  autopilot?: Autopilot | null;
+}) {
   useLiveRefresh(
     [
       'outreach_profile',
@@ -125,6 +137,7 @@ export function NeedsYou({ workspaceId, waiting }: { workspaceId: string; waitin
       className="space-y-3"
       data-testid="outreach-waiting"
     >
+      <AutopilotList workspaceId={workspaceId} autopilot={autopilot} />
       {waiting.count ? (
         <>
           <p className="text-[13px] text-text-2" data-testid="waiting-count">

@@ -76669,6 +76669,7 @@ export interface operations {
                             url: string;
                             why: string[];
                         }[];
+                        timezone: string;
                         waiting: number;
                     };
                 };

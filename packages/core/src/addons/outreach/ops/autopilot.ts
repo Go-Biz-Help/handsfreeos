@@ -243,6 +243,7 @@ export const autopilotList = defineAddonQuery(outreachAddon, {
       on: settings.autopilot,
       allowed: rules.autopilotAllowed,
       day,
+      timezone: timeZone,
       made,
       listAt: comes === null ? null : new Date(comes).toISOString(),
       people,

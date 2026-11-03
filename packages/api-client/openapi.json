@@ -214230,6 +214230,9 @@
                     "day": {
                       "type": "string"
                     },
+                    "timezone": {
+                      "type": "string"
+                    },
                     "made": {
                       "type": "boolean"
                     },
@@ -214360,6 +214363,7 @@
                     "on",
                     "allowed",
                     "day",
+                    "timezone",
                     "made",
                     "listAt",
                     "people",

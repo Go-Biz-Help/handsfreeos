@@ -192,8 +192,9 @@ export const AutopilotOutput = z.object({
   on: z.boolean(),
   /** The business lets people turn it on. */
   allowed: z.boolean(),
-  /** The business's day today: "2026-11-04". */
+  /** The business's day today: "2026-11-04", and its time zone, which `listAt` is shown on. */
   day: z.string(),
+  timezone: z.string(),
   /** Today's list is made: when it isn't, `listAt` says when it comes, or it's being made now. */
   made: z.boolean(),
   /** When today's list comes, while it isn't made: null on a day off. */

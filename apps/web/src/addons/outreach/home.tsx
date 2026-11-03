@@ -92,6 +92,7 @@ import type {
   Activity,
   Asks,
   Automation,
+  Autopilot,
   AutomationPeople,
   Chats,
   FindsWeek,
@@ -147,6 +148,8 @@ export type OutreachShown =
       /** Everything waiting on the person, on every network. */
       readonly view: 'needs';
       readonly waiting: Waiting;
+      /** Autopilot's day's list (decision 149): null while it couldn't be had. */
+      readonly autopilot?: Autopilot | null;
     }
   | {
       readonly view: 'results';
@@ -767,7 +770,11 @@ export function OutreachHome({
           asks={shown.asks}
         />
       ) : shown.view === 'needs' ? (
-        <NeedsYou workspaceId={workspaceId} waiting={shown.waiting} />
+        <NeedsYou
+          workspaceId={workspaceId}
+          waiting={shown.waiting}
+          autopilot={shown.autopilot ?? null}
+        />
       ) : shown.view === 'today' ? (
         <TodayView
           workspaceId={workspaceId}

@@ -46,6 +46,7 @@ import {
   type SendingMode,
   type WheelsState,
 } from '@hfos/core/addons/outreach/automation';
+import { AUTOPILOT_WORDS } from '@hfos/core/addons/outreach/autopilot';
 import { outreachSettings, settingsToSave } from '@hfos/core/addons/outreach/chat-read';
 import { VOICE_WORDS, voiceSample, type Voice } from '@hfos/core/addons/outreach/voice';
 import { DAILY_LIMITS, DAILY_STEPS, DAILY_WORDS } from '@hfos/core/addons/outreach/limits';
@@ -184,6 +185,20 @@ export function Tick({
   );
 }
 
+/**
+ * Choices Autopilot makes while it's on (decision 149): shown as they stand, not to change, with a line saying so.
+ * Anything else is as it was.
+ */
+function Piloted({ on, children }: { on: boolean; children: React.ReactNode }) {
+  if (!on) return <>{children}</>;
+  return (
+    <fieldset disabled className="space-y-2 opacity-70" data-testid="outreach-piloted">
+      {children}
+      <p className="text-[13px] text-text-2">{AUTOPILOT_WORDS.picked}</p>
+    </fieldset>
+  );
+}
+
 /** What the business allows of a network's choices: the same on every network (decision 38). */
 interface Allowed {
   readonly sendingAllowed: readonly SendingMode[];
@@ -206,6 +221,7 @@ export function NetworkModes({
   card = false,
   wheelsStart = false,
   sendingPart = true,
+  piloted = false,
   testId,
 }: Allowed & {
   platform: Platform;
@@ -215,6 +231,8 @@ export function NetworkModes({
   wheelsStart?: boolean;
   /** Sending's own part: the setup asks it on its own, as cards, and folds the rest (decision 83). */
   sendingPart?: boolean;
+  /** Autopilot is on (decision 149): these are its picks, shown but not to change. */
+  piloted?: boolean;
   testId: string;
 }) {
   const modes = sendingModesOn(platform);
@@ -250,18 +268,20 @@ export function NetworkModes({
           testId={`${testId}-on-its-own`}
         >
           {runs ? (
-            <div role="radiogroup" aria-label="Sending" className="flex flex-col gap-2">
-              {sending.map((m) => (
-                <RadioCard
-                  key={m}
-                  selected={value.sending === m}
-                  onSelect={() => onChange({ sending: m })}
-                  title={modes[m]}
-                  description={starts({ sending: m, replies: value.replies })}
-                  testId={`${testId}-sending-${m}`}
-                />
-              ))}
-            </div>
+            <Piloted on={piloted}>
+              <div role="radiogroup" aria-label="Sending" className="flex flex-col gap-2">
+                {sending.map((m) => (
+                  <RadioCard
+                    key={m}
+                    selected={value.sending === m}
+                    onSelect={() => onChange({ sending: m })}
+                    title={modes[m]}
+                    description={starts({ sending: m, replies: value.replies })}
+                    testId={`${testId}-sending-${m}`}
+                  />
+                ))}
+              </div>
+            </Piloted>
           ) : null}
         </Part>
       ) : null}
@@ -271,34 +291,38 @@ export function NetworkModes({
           about={value.sending === 'off' ? W.abouts.repliesOff : W.abouts.replies}
           card={card}
         >
-          <div role="radiogroup" aria-label="Replies" className="flex flex-col gap-2">
-            {replies.map((m) => (
-              <RadioCard
-                key={m}
-                selected={value.replies === m}
-                onSelect={() => onChange({ replies: m })}
-                title={REPLY_MODES[m]}
-                description={starts({ sending: value.sending, replies: m })}
-                testId={`${testId}-replies-${m}`}
-              />
-            ))}
-          </div>
+          <Piloted on={piloted}>
+            <div role="radiogroup" aria-label="Replies" className="flex flex-col gap-2">
+              {replies.map((m) => (
+                <RadioCard
+                  key={m}
+                  selected={value.replies === m}
+                  onSelect={() => onChange({ replies: m })}
+                  title={REPLY_MODES[m]}
+                  description={starts({ sending: value.sending, replies: m })}
+                  testId={`${testId}-replies-${m}`}
+                />
+              ))}
+            </div>
+          </Piloted>
         </Part>
       ) : null}
       {helpful ? (
         <Part title={W.sections.posting} about={postingAboutOn(platform)} card={card}>
-          <div role="radiogroup" aria-label="Helpful posts" className="flex flex-col gap-2">
-            {posting.map((m) => (
-              <RadioCard
-                key={m}
-                selected={helpfulHowOn(platform, value.posting) === m}
-                onSelect={() => onChange({ posting: m })}
-                title={POSTING_MODES[m]}
-                description={m === 'after_ok' ? W.usual : undefined}
-                testId={`${testId}-posting-${m}`}
-              />
-            ))}
-          </div>
+          <Piloted on={piloted}>
+            <div role="radiogroup" aria-label="Helpful posts" className="flex flex-col gap-2">
+              {posting.map((m) => (
+                <RadioCard
+                  key={m}
+                  selected={helpfulHowOn(platform, value.posting) === m}
+                  onSelect={() => onChange({ posting: m })}
+                  title={POSTING_MODES[m]}
+                  description={m === 'after_ok' ? W.usual : undefined}
+                  testId={`${testId}-posting-${m}`}
+                />
+              ))}
+            </div>
+          </Piloted>
         </Part>
       ) : null}
       {notAllowed.length ? (
@@ -319,12 +343,15 @@ export function NetworkTicks({
   value,
   onChange,
   card = false,
+  piloted = false,
   testId,
 }: {
   platform: Platform;
   value: NetworkChoices;
   onChange: (change: Partial<NetworkChoices>) => void;
   card?: boolean;
+  /** Autopilot is on (decision 149): how the requests they get are answered is its pick. */
+  piloted?: boolean;
   testId: string;
 }) {
   const ticks = ticksOn(platform);
@@ -357,18 +384,20 @@ export function NetworkTicks({
           card={card}
           testId={`${testId}-requests`}
         >
-          <div role="radiogroup" aria-label={requests.label} className="flex flex-col gap-2">
-            {requests.options.map((o) => (
-              <RadioCard
-                key={o.key}
-                selected={answering === o.key}
-                onSelect={() => onChange(requestModeChange(o.key))}
-                title={o.label}
-                description={o.note ?? undefined}
-                testId={`${testId}-requests-${o.key}`}
-              />
-            ))}
-          </div>
+          <Piloted on={piloted}>
+            <div role="radiogroup" aria-label={requests.label} className="flex flex-col gap-2">
+              {requests.options.map((o) => (
+                <RadioCard
+                  key={o.key}
+                  selected={answering === o.key}
+                  onSelect={() => onChange(requestModeChange(o.key))}
+                  title={o.label}
+                  description={o.note ?? undefined}
+                  testId={`${testId}-requests-${o.key}`}
+                />
+              ))}
+            </div>
+          </Piloted>
         </Part>
       ) : null}
       {groups ? (
@@ -435,6 +464,40 @@ interface Own {
   onChange: (next: AutomationSettings) => void;
   card?: boolean;
   testId: string;
+}
+
+/**
+ * Autopilot (decision 149, answer 7a): one switch for every network the person works, first on Settings → You. Shown
+ * while the business allows it, or while it's on, so it can be turned off.
+ */
+export function AutopilotPart({
+  value,
+  onChange,
+  allowed,
+  wheels,
+  card = false,
+  testId,
+}: Own & { allowed: boolean; wheels: boolean }) {
+  if (!allowed && !value.autopilot) return null;
+  return (
+    <Part title={AUTOPILOT_WORDS.name} about={AUTOPILOT_WORDS.about} card={card} testId={testId}>
+      <Tick
+        words={[
+          AUTOPILOT_WORDS.name,
+          value.autopilot ? AUTOPILOT_WORDS.howItAsks : AUTOPILOT_WORDS.offPutsBack,
+        ]}
+        checked={value.autopilot}
+        onChange={(on) => onChange({ ...value, autopilot: on })}
+        switches
+        testId={`${testId}-switch`}
+      />
+      {value.autopilot && wheels ? (
+        <p className="text-[13px] text-text-2" data-testid={`${testId}-wheels`}>
+          {AUTOPILOT_WORDS.wheels}
+        </p>
+      ) : null}
+    </Part>
+  );
 }
 
 /** How the AI writes for them (decision 53), with a sample of how a message from them reads. */
@@ -814,6 +877,14 @@ export function AllowedPicks({
               data-testid={`outreach-rules-sending-${m}`}
             />
           ))}
+          {/* Autopilot (decision 149, answer 7a): allowed to start, like the rest. */}
+          <Checkbox
+            label={AUTOPILOT_WORDS.allow}
+            checked={rules.autopilotAllowed}
+            onChange={(e) => onChange({ ...rules, autopilotAllowed: e.target.checked })}
+            data-testid="outreach-rules-autopilot"
+          />
+          <p className="pl-7 text-[12.5px] text-text-3">{AUTOPILOT_WORDS.allowAbout}</p>
         </div>
         <div className="min-w-0 space-y-2">
           <p className="text-[12.5px] text-text-3">{W.sections.replies}</p>
