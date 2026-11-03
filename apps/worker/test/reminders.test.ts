@@ -89,8 +89,8 @@ describe('appointment reminders', () => {
     expect(texts).toHaveLength(3);
     expect(texts.slice(1)).toEqual(
       expect.arrayContaining([
-        `Reminder from ${BUSINESS}: your AC tune-up is tomorrow, ${dayShort(start, CHI)} at 10:00 AM. Dale is coming to 123 Main St. Reply C to confirm.`,
-        `${BUSINESS}: Dale is coming today at 10:00 AM for your AC tune-up. Questions? Call ${phoneDisplay}.`,
+        `Reminder from ${BUSINESS}: your appointment is tomorrow, ${dayShort(start, CHI)} at 10:00 AM. Dale is coming to 123 Main St. Reply C to confirm.`,
+        `${BUSINESS}: Dale is coming today at 10:00 AM for your appointment. Questions? Call ${phoneDisplay}.`,
       ]),
     );
     const state = await stateOf(attendeeId);
@@ -166,7 +166,7 @@ describe('appointment reminders', () => {
     // At the new time it goes, about the new start.
     await runDue(w, [k.day]);
     expect(textsTo(w, c.phone).at(-1)!.body).toBe(
-      `Reminder from ${BUSINESS}: your AC tune-up is tomorrow, ${dayShort(later, CHI)} at 1:00 PM. Dale is coming to 123 Main St. Reply C to confirm.`,
+      `Reminder from ${BUSINESS}: your appointment is tomorrow, ${dayShort(later, CHI)} at 1:00 PM. Dale is coming to 123 Main St. Reply C to confirm.`,
     );
 
     // Moved sooner: the 2-hour job moves up with it.
@@ -201,7 +201,7 @@ describe('appointment reminders', () => {
       await runDue(w, [one.k.two]);
       expect(textsTo(w, one.c.phone)).toHaveLength(sent + 1);
       expect(textsTo(w, one.c.phone).at(-1)!.body).toContain(
-        `Dale is coming today at ${clock(s1, CHI)} for your AC tune-up.`,
+        `Dale is coming today at ${clock(s1, CHI)} for your appointment.`,
       );
 
       // Quiet until 30 minutes before: too late to wait, so it goes by email at its time.
@@ -246,7 +246,7 @@ describe('appointment reminders', () => {
     expect(textsTo(w, one.c.phone)).toHaveLength(sent);
     const mail = await waitForMail(one.c.email, 'Reminder: AC tune-up tomorrow at 10:00 AM');
     expect(mail.text).toContain(
-      `Hi Olga, your AC tune-up is tomorrow, ${dayLong(start, CHI)}, 10:00–11:00 AM Central Time, at 123 Main St, Houston, TX 77002. Dale is coming.`,
+      `Hi Olga, your appointment is tomorrow, ${dayLong(start, CHI)}, 10:00–11:00 AM Central Time, at 123 Main St, Houston, TX 77002. Dale is coming.`,
     );
     expect(mail.text).toContain('Sent by email because Olga asked us not to text.');
     expect((await stateOf(one.attendeeId)).reminders['day_before']).toMatchObject({

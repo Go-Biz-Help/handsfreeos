@@ -149,7 +149,7 @@ export interface CallToMake {
   readonly purpose: AiCallPurpose;
   readonly personId: string;
   readonly to: string;
-  /** It finishes "I'm calling …": "about your AC tune-up tomorrow at 9:00 AM". */
+  /** It finishes "I'm calling …": "about your appointment tomorrow at 9:00 AM". */
   readonly goal: string;
   readonly attendeeId?: string | null;
   readonly missedCallId?: string | null;
@@ -382,7 +382,9 @@ async function considerVisit(tx: Tx, attendeeId: string, now: number): Promise<C
       purpose: 'confirm_visit',
       personId: a.person_id,
       to: a.phone,
-      goal: `about your ${a.title} ${spokenWhen(new Date(start), a.time_zone || 'UTC', now)}.`,
+      // Spoken word for word, so never the title: it can be the calendar's own name (booking/messages.ts). The AI
+      // hears the title in the call's brief instead (visitFacts).
+      goal: `about your appointment ${spokenWhen(new Date(start), a.time_zone || 'UTC', now)}.`,
       attendeeId,
       dedupeKey: `confirm_visit:${attendeeId}`,
     },
@@ -566,9 +568,9 @@ async function sinceCallQueued(
 // ---------- what the AI knows on the call ----------
 
 /**
- * The facts a quote, campaign or workflow call is about, for the AI on the call (data, not instructions): the
- * quote's name, total and last day; the campaign's goal and its offer; or the workflow step's playbook. Null for
- * the other reasons.
+ * The facts a quote, campaign, workflow or confirm call is about, for the AI on the call (data, not instructions):
+ * the quote's name, total and last day; the campaign's goal and its offer; the workflow step's playbook; or what
+ * the visit being confirmed was booked as. Null for the other reasons.
  */
 export async function callBrief(tx: Tx, aiCallId: string): Promise<string | null> {
   const [c] = await rows<{
@@ -582,12 +584,16 @@ export async function callBrief(tx: Tx, aiCallId: string): Promise<string | null
     offer_details: string | null;
     offer_ends: string | null;
     playbook: unknown;
+    visit_title: string | null;
   }>(
     tx,
     sql`select a.purpose, a.playbook, e.number, e.title, e.total_cents, e.expires_on::text as expires_on,
-          k.goal, o.name as offer_name, o.details as offer_details, o.ends_on::text as offer_ends
+          k.goal, o.name as offer_name, o.details as offer_details, o.ends_on::text as offer_ends,
+          p.title as visit_title
         from app.ai_calls a
         left join app.estimates e on e.id = a.estimate_id
+        left join app.appointment_attendees aa on aa.id = a.attendee_id
+        left join app.appointments p on p.id = aa.appointment_id
         left join app.campaign_recipients r on r.id = a.campaign_recipient_id
         left join app.campaigns k on k.id = r.campaign_id
         left join app.offers o on o.id = k.offer_id
@@ -598,8 +604,16 @@ export async function callBrief(tx: Tx, aiCallId: string): Promise<string | null
     return quoteFacts({ ...c, total_cents: c.total_cents });
   if (c.purpose === 'campaign' && c.goal) return campaignFacts({ ...c, goal: c.goal });
   if (c.purpose === 'workflow') return playbookFacts(playbookOf(c.playbook));
+  if (c.purpose === 'confirm_visit' && c.visit_title?.trim()) return visitFacts(c.visit_title);
   return null;
 }
+
+/**
+ * What a visit being confirmed was booked as, for the AI on the call: the title as it was typed, which the call's
+ * fixed opening line leaves out ("about your appointment tomorrow at 9:00 AM"), since it can be a calendar's name.
+ */
+export const visitFacts = (title: string): string =>
+  `Booked as: ${title.trim()} (the service, or the calendar’s own name when it has none)`;
 
 const BOOKING_WORDS: Readonly<Record<AiCallBooking, string>> = {
   when_ready: 'When they want to book, offer times and book it.',

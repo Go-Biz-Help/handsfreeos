@@ -69,7 +69,7 @@ import {
 import { asWorker, rows, sql, type Db, type Tx } from '@hfos/db/client';
 import type { Logger } from 'pino';
 import { ZodError } from 'zod';
-import { campaignFacts, playbookFacts, quoteFacts, spokenWhen } from '../ai-calls';
+import { campaignFacts, playbookFacts, quoteFacts, spokenWhen, visitFacts } from '../ai-calls';
 import { aiBudget, recordAndChargeAi } from '../ai/budget';
 import type { WalletDeps } from '../money/wallet';
 import { runToolLoop, toolErrorContent, type ToolLoopAnswer } from '../ai/tool-loop';
@@ -391,8 +391,8 @@ async function outboundFor(
         );
       return {
         ...base,
-        goal: `about your ${visit.title} ${spokenWhen(new Date(visit.startsAt), visit.timeZone, o.now)}.`,
-        brief: null,
+        goal: `about your appointment ${spokenWhen(new Date(visit.startsAt), visit.timeZone, o.now)}.`,
+        brief: visit.title.trim() ? visitFacts(visit.title) : null,
       };
     }
     case 'quote': {

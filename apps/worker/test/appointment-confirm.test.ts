@@ -96,7 +96,7 @@ const dayBefore = {
   why: null,
 };
 const PLAIN =
-  'Reminder from Lone Star HVAC: your AC tune-up is tomorrow, Fri, Sep 18 at 10:00 AM. Priya is coming to 2210 Oak St.';
+  'Reminder from Lone Star HVAC: your appointment is tomorrow, Fri, Sep 18 at 10:00 AM. Priya is coming to 2210 Oak St.';
 
 describe('the words', () => {
   it('ends the day-before text with "Reply C to confirm." and gives its email a Confirm link', () => {
@@ -255,7 +255,7 @@ describe('the day-before reminder asks', () => {
     expect((await seatOf(attendeeId)).confirm_asked_at).toBeNull();
     await runDue(w, [dayKey(attendeeId)]);
     expect(lastText(c.phone)).toBe(
-      `Reminder from ${BUSINESS}: your AC tune-up is tomorrow, ${dayShort(start, CHI)} at 10:00 AM. Dale is coming to 123 Main St. Reply C to confirm.`,
+      `Reminder from ${BUSINESS}: your appointment is tomorrow, ${dayShort(start, CHI)} at 10:00 AM. Dale is coming to 123 Main St. Reply C to confirm.`,
     );
     const asked = (await seatOf(attendeeId)).confirm_asked_at;
     expect(asked).not.toBeNull();
@@ -317,7 +317,7 @@ describe('the day-before reminder asks', () => {
       const { c, attendeeId } = await bookAt(start, 'Nils');
       await runDue(w, [dayKey(attendeeId)]);
       expect(lastText(c.phone)).toBe(
-        `Reminder from ${BUSINESS}: your AC tune-up is tomorrow, ${dayShort(start, CHI)} at 10:00 AM. Dale is coming to 123 Main St.`,
+        `Reminder from ${BUSINESS}: your appointment is tomorrow, ${dayShort(start, CHI)} at 10:00 AM. Dale is coming to 123 Main St.`,
       );
       expect((await seatOf(attendeeId)).confirm_asked_at).toBeNull();
     } finally {
@@ -367,7 +367,7 @@ describe('the day-before reminder asks', () => {
     await drain(w);
     await runDue(w, [dayKey(attendeeId)]);
     expect(lastText(c.phone)).toBe(
-      `Reminder from ${BUSINESS}: your AC tune-up is tomorrow, ${dayShort(start, CHI)} at 10:00 AM. Dale is coming to 123 Main St.`,
+      `Reminder from ${BUSINESS}: your appointment is tomorrow, ${dayShort(start, CHI)} at 10:00 AM. Dale is coming to 123 Main St.`,
     );
     expect((await seatOf(attendeeId)).confirm_asked_at).toBeNull();
   });

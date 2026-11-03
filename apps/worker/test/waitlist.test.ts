@@ -139,7 +139,7 @@ describe('sessions', () => {
     const moved = res.json() as { manageToken: string; newLink: boolean };
     expect(moved.newLink).toBe(true);
     await drain(w);
-    const mail = await waitForMail(c.email, 'Moved: Homeowner class is now');
+    const mail = await waitForMail(c.email, 'Moved: Homeowner class, now');
     expect(mail.text).toContain(`Change or cancel: http://localhost:3000/m/${moved.manageToken}`);
     expect(mail.text).not.toContain(booked.manageToken);
   });

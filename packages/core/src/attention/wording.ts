@@ -99,12 +99,6 @@ export function shortBusinessName(name: string): string {
   return words.join(' ').replace(/[,]$/, '') || full;
 }
 
-/** "furnace repair" for "Furnace repair"; "AC tune-up" keeps its capitals. */
-const inSentence = (title: string): string => {
-  const t = title.trim();
-  return /^[A-Z][a-z]/.test(t) ? t[0]!.toLowerCase() + t.slice(1) : t;
-};
-
 export const STOP_WORDING = 'Reply STOP to opt out.';
 /** What the preview shows where the worker puts the customer's own booking link. */
 export const BOOKING_LINK_PLACEHOLDER = '[their booking link]';
@@ -112,7 +106,10 @@ export const BOOKING_LINK_PLACEHOLDER = '[their booking link]';
 export interface ConfirmRequestInput {
   readonly firstName: string | null;
   readonly businessName: string;
-  /** The appointment's title ("AC tune-up"). */
+  /**
+   * The appointment's title ("AC tune-up", or the calendar's own name): only ever after the subject's colon, never
+   * inside a sentence, since it can be any name (apps/worker/src/booking/messages.ts).
+   */
   readonly title: string;
   readonly startsAt: number;
   readonly timeZone: string;
@@ -129,7 +126,7 @@ export interface ConfirmRequestInput {
 /** The one confirmation request HandsFreeOS texts on its own. */
 export function confirmRequestText(i: ConfirmRequestInput): string {
   const hello = `Hi ${i.firstName?.trim() || 'there'}, it's ${shortBusinessName(i.businessName)}.`;
-  const ask = `Can you confirm your ${inSentence(i.title)} ${whenFrom(i.startsAt, i.now, i.timeZone)}?`;
+  const ask = `Can you confirm your appointment ${whenFrom(i.startsAt, i.now, i.timeZone)}?`;
   const how = i.replyToConfirm
     ? 'Reply C to confirm.'
     : `Confirm here: ${i.manageUrl ?? BOOKING_LINK_PLACEHOLDER}`;
@@ -145,7 +142,7 @@ export function confirmRequestEmail(i: ConfirmRequestInput): { subject: string; 
     subject: `Please confirm: ${i.title} ${when}`,
     body: [
       `Hi ${i.firstName?.trim() || 'there'},`,
-      `Can you confirm your ${inSentence(i.title)} ${when}?`,
+      `Can you confirm your appointment ${when}?`,
       `Confirm or change it here: ${i.manageUrl ?? BOOKING_LINK_PLACEHOLDER}`,
       i.businessName,
     ].join('\n\n'),
