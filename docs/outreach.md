@@ -407,6 +407,11 @@ became.
   sent as the playbook's link: its sheet keeps the `ref` it was opened with, and the time booked on it carries it
   (docs/forms.md, "Booking a time"). **Demo booked** in a person's menu (Today, Friends, Chats,
   Waiting for you) marks one booked some other way (`outreach.demo.mark`, by the profile kept here).
+- **Times to meet in the chat** (decision 149, `meeting-times.ts`, `ops/meeting-times.ts`, the worker's `times.ts` and
+  `times-check.ts`): when the playbook's link is one of the business's own booking pages, Send the link, its
+  follow-up, Offer another time and a reply heading to a call offer three open times on it, with the link for any
+  other; a reply where they took one and gave an email or a mobile number confirms it, and the time is booked
+  through the person's demo link just before that reply goes.
 - **The extension on its own** (decisions 26 to 33, `automation.ts`, `ops/automation.ts`; the extension's
   `src/auto/`): each person picks, on Social Outreach's **Settings** tab (decision 37), whether the extension does their friend requests,
   likes and comments by itself (messages always wait for them), whether it likes a post first, whether it confirms
@@ -679,6 +684,7 @@ became.
 | Finding posts, and looking people up before drafting     | `apps/extension/src/jobs/posts.ts`, `src/jobs/lookup.ts`, `src/facebook/browse.ts`                                                                                                                                                                                                  |
 | Replies, openers and demos                               | `alerts.ts`, `openers.ts`, `demos.ts` and their `ops/`, `supabase/migrations/20261027001100_outreach_replies_openers_demos.sql`                                                                                                                                                     |
 | The pushes, and a booking through the demo link          | `apps/worker/src/addons/outreach/alerts.ts`, `demos.ts`; `apps/worker/src/addons/alerts.ts` (`pushAddonNotice`)                                                                                                                                                                     |
+| Times to meet in the chat (decision 149)                 | `meeting-times.ts`, `ops/meeting-times.ts`, `apps/worker/src/addons/outreach/times.ts`, `times-check.ts`, `supabase/migrations/20261027022500_outreach_time_offers.sql`                                                                                                             |
 | The extension on its own: choices, and the warm-up       | `automation.ts`, `ops/automation.ts`, `supabase/migrations/20261027001200_outreach_automation.sql`                                                                                                                                                                                  |
 | Settings in HandsFreeOS, and the business's rules        | `automation.ts`, `ops/automation.ts`, `apps/web/src/addons/outreach/settings-view.tsx`, `business-settings.tsx`, `settings-link.tsx`, `supabase/migrations/20261027001400_outreach_settings_in_app.sql`                                                                             |
 | The extension following them live                        | `apps/extension/src/hfos/follow.ts`, `src/panel/status.ts`                                                                                                                                                                                                                          |
@@ -769,6 +775,8 @@ Operations, all through the kernel:
 | `outreach.openers`                                    | `outreach.use`    | Which openers work, ever or in a week or month: sent, replies, demos; everyone's for owners, admins                                                                                                                                                                                                                                 |
 | `outreach.demo.mark`                                  | `outreach.use`    | Someone the person reached booked a demo some other way, or not after all; by the profile kept here too                                                                                                                                                                                                                             |
 | `outreach.demo.note`                                  | the worker        | A booking through someone's demo link, from core's `appointment.booked`: a demo, once a booking                                                                                                                                                                                                                                     |
+| `outreach.times.keep`                                 | the worker        | The open times a drafted message offers on the playbook's booking page, and the booking a reply makes, kept for the message queued from one of its drafts (decision 149)                                                                                                                                                            |
+| `outreach.times.settle`                               | the worker        | How the check of an OK'd message's times came out: still open or booked, it goes; a time taken, it's written again with fresh times; not booked, it waits for the person with why                                                                                                                                                   |
 | `outreach.automation`                                 | `outreach.use`    | Someone's settings for the extension, inside the business's rules; anyone's for owners and admins                                                                                                                                                                                                                                   |
 | `outreach.automation.save`                            | `outreach.use`    | Save someone's settings; anyone's for owners and admins. A choice the business doesn't allow: `not_allowed`                                                                                                                                                                                                                         |
 | `outreach.automation.people`                          | `outreach.manage` | Everyone who uses Social Outreach, with what each lets the extension do on its own                                                                                                                                                                                                                                                  |
@@ -3705,7 +3713,48 @@ where decisions 37 and 59 put the settings; what they decided stands. Settled to
         big group is worked right through instead of its first screens over and over.
       - A business's owner setting it for the whole team was offered and left out (answer 3a): each person picks.
 
-<!-- Decision 149 is the meeting times change, open as pull request 490. -->
+149.  **Times to meet in the chat, instead of only the booking link** (Chris, 3 Nov 2026: "since we are using a HFOS
+      calendar can't the ai in the social outreach tool suggest times instead of just sending a booking calendar"),
+      answered "1a 2a 3a 4a", with "make sure it's natural and not robotic" and the owner's own examples: "tomorrow at
+      11 ct", "this friday at noon ct", "tues 3pm ct", "wednesday 10am ct". No new extension, migration
+      `20261027022500_outreach_time_offers.sql`.
+      - **Only when the playbook's link is one of the business's own booking pages** (`bookingPageOf`:
+        `/book/<site>/<calendar>` or `/book/c/<id>`, on any host), on, public, taking bookings, and able to book in a
+        chat (`bookableInChat`): no deposit or price first, no ZIP code or customer's address, no question that must
+        be answered. Any other link (Calendly, a website, a form that books a time) goes as before.
+      - **Where the times go** (1a): Send the link, the follow-up after the link, Offer another time after a no-show,
+        and a reply when the chat is heading to a call offer three open times in one natural sentence, with the link
+        kept for any other time ("or grab any time that works for you here"). Never to a client, someone who said no
+        or not now, or a first message to their Requests (`TIME_KINDS`, `timesLines`, `TIMES_SAY`).
+      - **Which, and how they read** (4a): one on each of the next three days with open times from tomorrow, spread
+        out (around 11, 3 and noon, `pickTimes`), in their time zone when a "Lives in" on their profile shows it, else
+        the calendar's (`zoneFromLines`), always with the zone said the way people text it: "tomorrow at 11am ct",
+        "friday at noon ct", "tuesday the 17th at 3pm ct" (`sayTime`). The AI may word them its own way but never
+        changes the day or the time.
+      - **Whose times** (3a): the person's own when they're free on that calendar, and the booking is made with them
+        (`appointment.book_online`'s `withUserId`); anyone's on it otherwise.
+      - **When they take one** (2a): a reply reads the calendar's open times for the next 8 days (`openLines`: every
+        one up to 96 a day, a busier day spread across it with the times offered always kept, so a time still open is
+        never called taken) and says which they took (`TodayDraftAnswer.time`). A time it says they took that isn't
+        open makes the reply wait for the person. Without an email or a mobile number in what they wrote, it
+        says the time works and asks for the best email for the invite. With one (`contactIn`), it confirms the time,
+        and the booking waits with that reply: a reply that books goes on its own only on "Every reply goes on its own";
+        on the other two Replies choices it waits for the person's OK. A time no longer open gets "that one just got
+        taken" and the nearest open ones. A yes that takes a time stays a reply: it isn't turned into Send the link.
+      - **Checked again just before it goes** (`addon_outreach.time_offers`, `outreach.times.keep`, the worker's
+        `outreach.times.check`, `outreach.times.settle`). The draft keeps the times it offers (only drafts that name
+        them) or the booking it makes; the message queued from one of its drafts takes them, matched by its words, so
+        the extension needed no change. Once it's OK'd, on its own or by the person, it waits off Today's list while the
+        worker checks: still open, it goes; a booking, it's made first (through the person's demo link, so it counts
+        as their demo and gets the day-before reminder, decisions 24 and 106; once only, by the offer's id); a time
+        taken meanwhile, the message is written again with fresh times (twice at most, `TIME_REDRAFTS_MOST`), and one
+        the person had OK'd comes back to them to look over (`TIME_WORDS.rewritten`); refused for another reason, it
+        comes back to them with why (`TIME_WORDS.notBooked`). Either way it pushes as a reply handed over does.
+      - **On the web's Today**, a reply that books says so under its drafts ("Sending this books them in for tomorrow
+        at 11am ct.") and books as the person copies it (`outreach.times.book`; the Assistant's `outreach_book_time`,
+        on a Confirm card). One just taken says so, to draft again.
+      - Not yet: a form that books a time as the playbook's link. Its message carries the form's link as before, and
+        the form's own page offers its times.
 
 150.  **Every reply caught, in every chat the tool started** (Chris, 3 Nov 2026: "i feel like some messages on the
       different platforms being we are receiving aren't being recognized. need to make sure we are being thorough on

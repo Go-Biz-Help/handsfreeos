@@ -54,6 +54,7 @@
  */
 import { z } from 'zod';
 import { knowsBlocks, UNANSWERED_ASK, unansweredLine, type DraftKnows } from './knows';
+import { isTimeKind, timesLines, type DraftTimes } from './meeting-times';
 import { OCCASION_KINDS, type OccasionKind } from './occasions';
 import { quoteData } from '../../knowledge/prompt';
 import { intlTimeZone } from '../../intl/engine-zones';
@@ -594,6 +595,18 @@ export const TodayDraftOutput = z.object({
    * words (decision 122, ./knows.ts). The reply says the owner will check on it, and waits for the person.
    */
   unanswered: z.string().nullable().default(null),
+  /**
+   * Times to meet on the playbook's booking page (decision 149, ./meeting-times.ts): the times the drafts offer, and for
+   * a reply where they picked one and gave an email or number, the time it books before it goes. Null with none.
+   */
+  meeting: z
+    .object({
+      offerId: z.uuid().nullable(),
+      offered: z.array(z.string()),
+      books: z.string().nullable(),
+    })
+    .nullable()
+    .default(null),
 });
 export type TodayDraftOutput = z.output<typeof TodayDraftOutput>;
 
@@ -973,6 +986,12 @@ export function todayDraftPrompt(input: {
    * (`declinedFor`), nothing pitches: no link and none of the playbook's conversation questions.
    */
   readonly declined?: { readonly why: string | null } | null;
+  /**
+   * Open times on the playbook's booking page (decision 149, ./meeting-times.ts): for Send the link, the follow-up after
+   * it, another time after a no-show and a reply, the times to offer, and for a reply what's open and who the invite
+   * goes to. Left out, it offers none.
+   */
+  readonly times?: DraftTimes | null;
 }): string {
   const p = input.playbook;
   const declined = input.declined && declinedFor(input.kind) ? input.declined : null;
@@ -1043,6 +1062,16 @@ export function todayDraftPrompt(input: {
           .filter(Boolean)
           .join(' ')
       : null;
+  // Times to meet (decision 149): never to someone who turned the offer down, nor in a message to their Requests, and a
+  // follow-up offers them only after the link.
+  const times =
+    input.times &&
+    isTimeKind(input.kind) &&
+    !declined &&
+    !requests &&
+    (input.kind !== 'follow_up' || c?.step === 'link')
+      ? timesLines(input.kind, input.times, p?.link ?? null)
+      : [];
   const useful =
     input.kind === 'check_in' && p?.usefulWhat
       ? `The useful thing to send: ${quoteData(p.usefulWhat)}${p.usefulLink ? `, at ${quoteData(p.usefulLink)} (put the link in every draft, exactly as written)` : ''}`
@@ -1068,6 +1097,7 @@ export function todayDraftPrompt(input: {
     where,
     declined ? declinedLine(declined.why) : null,
     useful,
+    ...times,
     (input.kind === 'pitch' || input.kind === 'rebook') && p?.link
       ? `Put this link in every draft, exactly as written: ${quoteData(p.link)}`
       : null,
@@ -1145,18 +1175,21 @@ export const TodayDraftAnswer = z.object({
   answer: z.enum(DRAFT_ANSWERS).catch('none').default('none'),
   /** For a reply: what nothing given answers (`UNANSWERED_ASK`), empty when nothing. */
   unanswered: z.string().catch('').default(''),
+  /** For a reply: the open time they picked, as the open times list it (./meeting-times.ts `TIME_ASK`), else empty. */
+  time: z.string().catch('').default(''),
 });
 export type TodayDraftAnswer = z.output<typeof TodayDraftAnswer>;
 
 export const TODAY_DRAFT_SCHEMA: Record<string, unknown> = {
   type: 'object',
   additionalProperties: false,
-  required: ['drafts', 'simple', 'answer', 'unanswered'],
+  required: ['drafts', 'simple', 'answer', 'unanswered', 'time'],
   properties: {
     drafts: { type: 'array', items: { type: 'string' } },
     simple: { type: 'boolean' },
     answer: { type: 'string', enum: [...DRAFT_ANSWERS] },
     unanswered: { type: 'string' },
+    time: { type: 'string' },
   },
 };
 

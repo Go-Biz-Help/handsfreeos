@@ -1140,6 +1140,12 @@ export const AppointmentBookOnlineInput = z.object({
   /** Where the address is (the worker looks it up), for distance and drawn service areas. */
   point: GeoPointInput.nullable().optional(),
   chosenUserId: uuid.nullable().optional(),
+  /**
+   * Who to book it with when they're free then, whatever the calendar's way of picking (Social Outreach's booking in
+   * a chat, docs/outreach.md decision 149: the person the customer has been talking to). The worker sets it; the
+   * booking page never does.
+   */
+  withUserId: uuid.nullable().optional(),
   customer: OnlineCustomer,
   /** The unticked-by-default "Text me about this booking" box. */
   smsConsent: z.boolean().default(false),

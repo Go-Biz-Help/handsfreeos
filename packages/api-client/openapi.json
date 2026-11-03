@@ -94393,7 +94393,7 @@
         "tags": [
           "commands"
         ],
-        "description": "Risk level 0. Requires outreach.use. Emits outreach.send.queued.",
+        "description": "Risk level 0. Requires outreach.use. Emits outreach.send.queued, outreach.times.check.",
         "requestBody": {
           "required": true,
           "content": {
@@ -94767,7 +94767,7 @@
         "tags": [
           "commands"
         ],
-        "description": "Risk level 1. Requires outreach.use. Emits outreach.send.approved. Can wait on a phone for 30 minutes, then asks.",
+        "description": "Risk level 1. Requires outreach.use. Emits outreach.send.approved, outreach.times.check. Can wait on a phone for 30 minutes, then asks.",
         "requestBody": {
           "required": true,
           "content": {
