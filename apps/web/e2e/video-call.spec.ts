@@ -17,8 +17,9 @@ import { linkFrom, waitForMail } from './helpers';
 /**
  * HandsFreeOS video calls (docs/video-calls.md), end to end on a real LiveKit server: support turns them on in
  * /admin, a customer books an online visit set to one, opens their own Join link and waits, the owner joins from the
- * appointment, and the customer goes straight in (the owner's 6a). They see each other, chat and raise a hand, End
- * for everyone ends it for both, and the appointment says who joined.
+ * appointment, and the customer goes straight in (the owner's 6a). They see each other, chat and raise a hand, the
+ * customer points at the owner's shared screen, End for everyone ends it for both, and the appointment says who
+ * joined.
  *
  * It needs the worker on LiveKit: CI starts one before the browser tests ("Start a local LiveKit server" in
  * .github/workflows/ci.yml). On the worker's stand-in nothing connects, so it's skipped. Read from apps/worker/.env as
@@ -154,6 +155,23 @@ test('a customer and the owner meet in a booked HandsFreeOS video call', async (
   await expect(
     team.locator('[data-testid="call-tile"][data-name="Maya Brooks"]').getByTestId('call-hand'),
   ).toBeVisible();
+
+  // The owner shares their screen, Maya points at it, and the owner sees her pointer on it. Marks aren't kept.
+  await team.getByTestId('call-share').click();
+  const shared = customer.getByTestId('call-marks-picture');
+  await expect(shared).toBeVisible({ timeout: 30_000 });
+  await customer.getByTestId('call-mark-point').click();
+  const spot = (await shared.boundingBox())!;
+  await customer.mouse.move(spot.x + spot.width / 2, spot.y + spot.height / 2);
+  await customer.mouse.move(spot.x + spot.width / 2 + 12, spot.y + spot.height / 2 + 8);
+  await expect(
+    team.locator('[data-testid="call-mark-pointer"][data-name="Maya Brooks"]'),
+  ).toBeVisible();
+  // Turning marks off for the screen takes Maya's tools away.
+  await team.getByTestId('call-marks-toggle').click();
+  await expect(customer.getByTestId('call-marks-off')).toBeVisible();
+  await expect(customer.getByTestId('call-mark-tools')).toHaveCount(0);
+  await expect(team.getByTestId('call-mark-pointer')).toHaveCount(0);
 
   // End for everyone ends it on both sides.
   await team.getByTestId('call-leave').click();

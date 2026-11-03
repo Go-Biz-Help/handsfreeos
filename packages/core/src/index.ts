@@ -19,6 +19,7 @@ export * from './meetings/video-calls';
 export * from './meetings/call-data';
 export * from './meetings/polls';
 export * from './meetings/slides';
+export * from './meetings/screen-marks';
 export * from './meetings/leads';
 export * from './schemas/index';
 export { slugify } from './slug';

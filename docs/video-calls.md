@@ -76,6 +76,8 @@ webhook) is "Video calls: LiveKit" in `docs/operations.md`.
 | What a call used: each connection            | `supabase/migrations/20261027022000_video_call_connections.sql` (`app.video_call_connections`); `video_call.data`, `.listener`    |
 | What a call used: measuring and reporting    | `packages/core/src/meetings/call-data.ts` (`watchCallData`); `components/video-call/call-data.ts`, the phone's `call-data.ts`     |
 | What a call used: the report, checked        | `POST /public/calls/data` in `apps/worker/src/video-calls/routes.ts` (`readTicket` in `livekit.ts`)                               |
+| Marks on a shared screen: rules and board    | `packages/core/src/meetings/screen-marks.ts` (`MarksBoard`, `MarksStore`, `markFrom`, `SCREEN_MARK_WORDS`)                        |
+| Marks on a shared screen: drawn and made     | `components/video-call/screen-marks.tsx`, placed by `call-stage.tsx`; the phone's `src/video-call/screen-marks.tsx`               |
 
 ## How a call goes
 
@@ -161,8 +163,8 @@ joining by phone, team-only meetings.
   worker stores only its hash, so only that page can ask how it stands or come in on it.
 - **The call's own link may be passed on,** so what it shows anyone who isn't on the team is the business's name and
   look, never the appointment's title or the customer.
-- **Chat and reactions aren't kept.** They travel between the people in the call and go with it. No video or sound is
-  kept either (decision 10).
+- **Chat, reactions and marks aren't kept.** They travel between the people in the call and go with it. No video or
+  sound is kept either (decision 10).
 - **Background blur happens in the person's own browser,** before their camera is sent. Its model comes from its
   publisher's CDN the first time someone turns blur on, so a browser that can't fetch it simply can't blur.
 - **Switching calls off doesn't take the choice away.** While a business has calls off, a place set to HandsFreeOS
@@ -507,6 +509,31 @@ what's kept here, once a week of it has been checked against LiveKit's bill. Par
   the page closes. The phone sends JSON. The route answers 204 whatever it was, so it tells nothing about tickets.
 - **Only the worker writes the rows**, and only people who can read the business's money see them.
 
+### Marks on a shared screen (owner, 3 November 2026)
+
+Someone watching a shared screen can point at it and draw on it, and everyone in the call sees it there: the person
+sharing too, on their own screen's tile. It's the part every answer to the owner's questions on screen control
+needs; controlling another person's screen waits on those answers ("Not yet" below).
+
+- **Point and Draw** sit on the big shared screen for whoever may mark it. With **Point**, their pointer shows to
+  everyone as a bright dot in their own colour with their name, and a click spreads a ring where they clicked. With
+  **Draw**, they draw a line, to circle something. A line fades three seconds after its last point, like a laser
+  pointer. Esc stops marking.
+- **Who may mark**: anyone in a meeting; in a webinar, only the team. A page trusts LiveKit's own permissions on the
+  sender for that (in a webinar only the team may share a screen), never the sender's attributes, which a page can
+  change about itself.
+- **The person sharing can turn marks off** for their screen with **Marks on** on its tile: everything on it goes, and
+  the people watching see "Marks are off" instead of the tools. It's their attribute in the room (`hfos.marks`), so
+  someone who comes in later sees it too.
+- **Where on the screen** travels as a fraction of the shared picture, so a mark lands on the same spot whatever the
+  size of each person's window, and never in the dark bands around the picture.
+- **What travels**: the pointer at most 20 times a second and lossy, the newest place winning; clicks and lines
+  reliably, a line a stretch at a time. It's tiny next to the video, and nothing is kept.
+- **The person sharing is usually looking at what they share,** not at the call. A browser can't draw over their
+  real screen, so while their call tab is hidden its title says who is pointing at their screen until they come back
+  to it.
+- **On the phone** the marks show on a shared screen the same way. Making them from the phone comes later.
+
 ## Running it locally
 
 Without LiveKit the worker uses its stand-in: tickets connect to nothing and the call screen shows a stand-in for
@@ -529,6 +556,10 @@ enough to see captions and lines arrive. With `DEEPGRAM_API_KEY` and `VOICE_AGEN
   but **Video call** goes on to open the call for whoever pressed it, so for now it's only a button.
 - Screen share from a phone's browser, which phones don't allow; they can watch someone else's.
 - Joining by phone, recordings, breakout rooms and picture backgrounds.
+- Controlling another person's shared screen, and marks drawn on top of their real screen rather than in the call.
+  A browser can't move someone else's mouse or draw over their screen; the owner is choosing how far to go
+  (HandsFreeOS tabs with nothing to install, a Chrome helper, or a desktop app).
+- Pointing and drawing from the phone app: it shows marks others make.
 - Charging each call for what it really used ("What a call used" above): part 1 measures it, and the balance still
   takes the flat `video.minute` until part 2.
 - Live polls and slides on the phone's call screen: the team asks and presents from the web for now, and the phone

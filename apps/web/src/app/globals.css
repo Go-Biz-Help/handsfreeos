@@ -294,6 +294,27 @@ h3 {
   animation: call-ring 1.6s ease-out infinite;
 }
 
+/* A press on a shared screen in a video call: a ring that spreads from where they clicked (still for reduced motion). */
+@keyframes call-mark-press {
+  0% {
+    transform: translate(-50%, -50%) scale(0.3);
+    opacity: 1;
+  }
+  100% {
+    transform: translate(-50%, -50%) scale(1.6);
+    opacity: 0;
+  }
+}
+.call-mark-press {
+  transform: translate(-50%, -50%);
+  animation: call-mark-press 0.7s ease-out forwards;
+}
+@media (prefers-reduced-motion: reduce) {
+  .call-mark-press {
+    animation: none;
+  }
+}
+
 /* The Assistant's typing caret while an answer streams in (still for reduced motion). */
 @keyframes assistant-caret {
   50% {
