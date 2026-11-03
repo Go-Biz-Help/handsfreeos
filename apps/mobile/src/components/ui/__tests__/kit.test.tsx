@@ -1,7 +1,7 @@
 import { PortalHost } from '@rn-primitives/portal';
 import { act, fireEvent, render, screen } from '@testing-library/react-native';
 import * as React from 'react';
-import { Platform, Pressable, View } from 'react-native';
+import { Platform, Pressable, TextInput, View } from 'react-native';
 
 import { Mail } from '@/components/icons';
 import { Badge } from '@/components/ui/badge';
@@ -147,6 +147,160 @@ describe('Sheet', () => {
       </Sheet>,
     );
     expect(screen.queryByText('Sign out?')).not.toBeOnTheScreen();
+  });
+
+  describe('closes when dragged down', () => {
+    type Element = ReturnType<typeof screen.getByTestId>;
+
+    /** One finger's touch history, as React Native's responder system keeps it, the finger at `y` at time `at`. */
+    const history = (y: number, at: number, before: { y: number; at: number }) => ({
+      numberActiveTouches: 1,
+      indexOfSingleActiveTouch: 0,
+      mostRecentTimeStamp: at,
+      touchBank: [
+        {
+          touchActive: true,
+          startPageX: 0,
+          startPageY: 0,
+          startTimeStamp: 0,
+          currentPageX: 0,
+          currentPageY: y,
+          currentTimeStamp: at,
+          previousPageX: 0,
+          previousPageY: before.y,
+          previousTimeStamp: before.at,
+        },
+      ],
+    });
+
+    /**
+     * A finger put down on the sheet and moved through `ys` (points down from where it started), a step each `step` ms,
+     * then lifted, as the responder system asks the sheet. Says whether the sheet took the finger.
+     */
+    async function drag(
+      sheet: Element,
+      ys: number[],
+      { step = 16, on }: { step?: number; on?: unknown } = {},
+    ): Promise<boolean> {
+      const p = sheet.props;
+      let before = { y: 0, at: 0 };
+      const event = (y: number, at: number) => ({
+        target: on,
+        nativeEvent: { touches: [{}] },
+        touchHistory: history(y, at, before),
+      });
+      let took = false;
+      await act(async () => {
+        p.onStartShouldSetResponderCapture(event(0, 0));
+        let last = event(0, 0);
+        ys.forEach((y, i) => {
+          last = event(y, (i + 1) * step);
+          if (took) p.onResponderMove(last);
+          else {
+            // The capture phase runs first on every move, and keeps the gesture's numbers.
+            p.onMoveShouldSetResponderCapture(last);
+            if (p.onMoveShouldSetResponder(last)) {
+              p.onResponderGrant(last);
+              took = true;
+            }
+          }
+          before = { y, at: (i + 1) * step };
+        });
+        if (took) p.onResponderRelease(last);
+        // Its check that whoever owns it really closed it.
+        await new Promise((r) => setTimeout(r, 0));
+      });
+      return took;
+    }
+
+    const sheet = (onClose: () => void, scroll?: boolean) => (
+      <Sheet open onClose={onClose} title="Notifications" scroll={scroll} testID="sheet">
+        <Pressable role="button" onPress={jest.fn()}>
+          <Text>jmartinez1127 wrote back</Text>
+        </Pressable>
+      </Sheet>
+    );
+
+    it('a third of the way down, or 120 points, held there and let go', async () => {
+      const onClose = jest.fn();
+      await render(sheet(onClose));
+      // Held at 160 points before letting go: no flick, just far enough.
+      expect(await drag(screen.getByTestId('sheet'), [10, 40, 80, 120, 160, 160, 160])).toBe(true);
+      expect(onClose).toHaveBeenCalledTimes(1);
+    });
+
+    it('with a flick, however short', async () => {
+      const onClose = jest.fn();
+      await render(sheet(onClose));
+      expect(await drag(screen.getByTestId('sheet'), [10, 30, 60])).toBe(true);
+      expect(onClose).toHaveBeenCalledTimes(1);
+    });
+
+    it('but not from a short drag let go slowly, or one pushed back up', async () => {
+      const onClose = jest.fn();
+      await render(sheet(onClose));
+      expect(await drag(screen.getByTestId('sheet'), [10, 30, 60, 60, 60])).toBe(true);
+      expect(await drag(screen.getByTestId('sheet'), [10, 80, 160, 100])).toBe(true);
+      expect(onClose).not.toHaveBeenCalled();
+    });
+
+    it('and leaves a tap, a drag up and a swipe sideways to what’s under the finger', async () => {
+      const onClose = jest.fn();
+      await render(sheet(onClose));
+      const s = screen.getByTestId('sheet');
+      expect(s.props.onStartShouldSetResponder?.() ?? false).toBe(false);
+      expect(await drag(s, [3, 6, 6])).toBe(false);
+      expect(await drag(s, [-10, -40, -80])).toBe(false);
+      // 60 points across for 20 down.
+      const start = { y: 0, at: 0 };
+      const across = { nativeEvent: { touches: [{}] }, touchHistory: history(20, 16, start) };
+      across.touchHistory.touchBank[0]!.currentPageX = 60;
+      await act(async () => {
+        s.props.onStartShouldSetResponderCapture({
+          nativeEvent: { touches: [{}] },
+          touchHistory: history(0, 0, start),
+        });
+        s.props.onMoveShouldSetResponderCapture(across);
+        expect(s.props.onMoveShouldSetResponder(across)).toBe(false);
+      });
+      expect(onClose).not.toHaveBeenCalled();
+    });
+
+    it('but not from the field being typed in, which may be scrolling its own words', async () => {
+      const onClose = jest.fn();
+      await render(sheet(onClose));
+      const field = {};
+      const typing = jest
+        .spyOn(TextInput.State, 'currentlyFocusedInput')
+        .mockReturnValue(field as ReturnType<typeof TextInput.State.currentlyFocusedInput>);
+      try {
+        expect(await drag(screen.getByTestId('sheet'), [10, 80, 160, 160], { on: field })).toBe(
+          false,
+        );
+        // Anywhere else on the sheet still drags it.
+        expect(await drag(screen.getByTestId('sheet'), [10, 80, 160, 160], { on: {} })).toBe(true);
+      } finally {
+        typing.mockRestore();
+      }
+      expect(onClose).toHaveBeenCalledTimes(1);
+    });
+
+    it('only once its list is back at the top, when it scrolls', async () => {
+      const onClose = jest.fn();
+      await render(sheet(onClose, true));
+      const list = screen.getByTestId('sheet-scroll');
+      await fireEvent.scroll(list, { nativeEvent: { contentOffset: { x: 0, y: 240 } } });
+      // Partway down the list, a drag down scrolls it back up.
+      expect(await drag(screen.getByTestId('sheet'), [10, 80, 160, 160])).toBe(false);
+      await fireEvent.scroll(list, { nativeEvent: { contentOffset: { x: 0, y: 0 } } });
+      expect(await drag(screen.getByTestId('sheet'), [10, 80, 160, 160])).toBe(true);
+      expect(onClose).toHaveBeenCalledTimes(1);
+    });
+
+    it('and gives the finger back to a list inside it that starts scrolling', async () => {
+      await render(sheet(jest.fn()));
+      expect(screen.getByTestId('sheet').props.onResponderTerminationRequest({})).toBe(true);
+    });
   });
 
   describe('says when it has gone', () => {
