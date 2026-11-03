@@ -26,6 +26,7 @@ import { toast } from 'sonner';
 import { CallConsentRow } from '@/components/crm/call-consent';
 import { BIN_WORDS, can } from '@hfos/core';
 import { AddonSlot } from '@/components/addons/slot';
+import { useBusinessZone } from '@/components/shell/workspace-shell';
 import { PersonFunnelLine } from '@/components/funnels/person-funnel';
 import { DeleteDialog } from '@/components/bin/delete-dialog';
 import { AppointmentDialog } from '@/components/calendar/appointment-dialog';
@@ -145,6 +146,8 @@ export interface RecordPageProps {
 export function RecordPage(props: RecordPageProps) {
   const { workspaceId, myUserId, permissions, person, company, tags, members, pipelines } = props;
   const router = useRouter();
+  // A next action's time reads on the business's clock, as it was set.
+  const businessZone = useBusinessZone();
   const kind = person ? 'person' : 'company';
   const recordId = (person?.id ?? company?.id)!;
   const name = person ? person.fullName : company!.name;
@@ -1004,7 +1007,7 @@ export function RecordPage(props: RecordPageProps) {
                       {lead.nextActionAt ? (
                         <span className="text-text-2">
                           {' '}
-                          · {formatDate(lead.nextActionAt, { time: true })}
+                          · {formatDate(lead.nextActionAt, { time: true, timeZone: businessZone })}
                         </span>
                       ) : null}
                     </span>

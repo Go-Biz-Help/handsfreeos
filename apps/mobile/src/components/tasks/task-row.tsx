@@ -18,6 +18,7 @@ export function TaskRow({
   waiting,
   onToggle,
   onPress,
+  timeZone,
 }: {
   task: TaskOut;
   showRelated?: boolean;
@@ -25,8 +26,10 @@ export function TaskRow({
   waiting?: boolean;
   onToggle: (task: TaskOut) => void;
   onPress?: (task: TaskOut) => void;
+  /** The business's zone, so the due day and time read on its clock, as the task was set and as the web shows it. */
+  timeZone?: string;
 }) {
-  const due = dueLabel(task);
+  const due = dueLabel(task, undefined, timeZone);
   const related = showRelated ? taskRelatedLine(task) : '';
   const sub = [task.assignee?.fullName ?? TASK_WORDS.unassigned, related]
     .filter(Boolean)

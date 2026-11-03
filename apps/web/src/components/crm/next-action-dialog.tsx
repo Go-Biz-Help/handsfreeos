@@ -1,16 +1,21 @@
 'use client';
+import { instantOfInput, zonedInputValue } from '@hfos/core';
 import { useRouter } from 'next/navigation';
 import { useEffect, useState, type FormEvent } from 'react';
 import { toast } from 'sonner';
+import { ZonePick } from '@/components/calendar/zone-field';
+import { useBusinessZone } from '@/components/shell/workspace-shell';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent } from '@/components/ui/dialog';
 import { Field } from '@/components/ui/field';
 import { Input } from '@/components/ui/input';
 import { apiBrowser, errorMessage, unwrap } from '@/lib/api/client';
 import { fieldErrors } from '@/lib/api/field-errors';
-import { toLocalInputValue } from '@/lib/format';
 
-/** Sets (or clears) the one thing to do next on a lead. */
+/**
+ * Sets (or clears) the one thing to do next on a lead. Its When reads on the business's clock, as the lead shows it,
+ * with a Time zone pick for a call set on the customer's ("call Mike at 9 his time").
+ */
 export function NextActionDialog({
   workspaceId,
   leadId,
@@ -29,17 +34,25 @@ export function NextActionDialog({
   onSaved?: () => void;
 }) {
   const router = useRouter();
+  const businessZone = useBusinessZone();
   const [text, setText] = useState('');
   const [at, setAt] = useState('');
+  const [zone, setZone] = useState(businessZone);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [busy, setBusy] = useState(false);
 
   useEffect(() => {
     if (!open) return;
     setText(current?.text ?? '');
-    setAt(current?.at ? toLocalInputValue(new Date(current.at)) : '');
+    setAt(current?.at ? zonedInputValue(current.at, businessZone) : '');
+    setZone(businessZone);
     setErrors({});
-  }, [open, current?.text, current?.at]);
+  }, [open, current?.text, current?.at, businessZone]);
+
+  const atMs = at ? instantOfInput(at, zone) : null;
+  // Left as it opened, the moment stays exactly as it was (the box only shows minutes).
+  const untouched =
+    !!current?.at && at === zonedInputValue(current.at, businessZone) && zone === businessZone;
 
   async function save(clear = false) {
     if (!clear && !text.trim()) return setErrors({ text: 'What happens next?' });
@@ -52,7 +65,12 @@ export function NextActionDialog({
             workspaceId,
             leadId,
             text: clear ? null : text.trim(),
-            dueAt: clear || !at ? null : new Date(at).toISOString(),
+            dueAt:
+              clear || atMs === null
+                ? null
+                : untouched
+                  ? new Date(current!.at!).toISOString()
+                  : new Date(atMs).toISOString(),
           },
         }),
       );
@@ -104,6 +122,16 @@ export function NextActionDialog({
               onChange={(e) => setAt(e.target.value)}
             />
           </Field>
+          {at ? (
+            <ZonePick
+              id="na-zone"
+              value={zone}
+              onChange={setZone}
+              businessZone={businessZone}
+              at={atMs}
+              testId="next-action-zone"
+            />
+          ) : null}
           <div className="mt-1 flex justify-end gap-2">
             {current?.text ? (
               <Button variant="ghost" onClick={() => void save(true)} disabled={busy}>

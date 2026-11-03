@@ -121,6 +121,7 @@ export default function Tasks() {
         renderItem={({ item }) => (
           <TaskRow
             task={item}
+            timeZone={list.timeZone}
             showRelated
             waiting={stateOf(list.changes, item.id).waiting > 0}
             onToggle={(t) => void toggle(t)}
@@ -176,6 +177,7 @@ export default function Tasks() {
 
       <TaskSheet
         open={adding}
+        timeZone={list.timeZone}
         members={members}
         myUserId={me.user.id}
         onClose={() => setAdding(false)}

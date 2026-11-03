@@ -12,15 +12,12 @@ import {
   reminderScheduleWords,
   SEARCH_MIN_CHARS,
   tellNote,
-  findZones,
   timeOptionsWith,
-  zoneChoices,
-  zoneNote,
   type CalendarConfig,
   type ContactStart,
 } from '@hfos/core';
 import * as React from 'react';
-import { Pressable, ScrollView, View } from 'react-native';
+import { View } from 'react-native';
 
 import { askForTime } from '@/calendar/actions';
 import {
@@ -31,10 +28,11 @@ import {
   type CalendarChoice,
   type CustomerChoice,
 } from '@/calendar/use-calendar';
-import { Check, UserPlus } from '@/components/icons';
+import { Chips } from '@/components/calendar/chips';
+import { ZoneChips } from '@/components/calendar/zone-chips';
+import { UserPlus } from '@/components/icons';
 import { useBusiness } from '@/components/shell/business-context';
 import { Button } from '@/components/ui/button';
-import { Icon } from '@/components/ui/icon';
 import { Input } from '@/components/ui/input';
 import { Sheet } from '@/components/ui/sheet';
 import { Switch } from '@/components/ui/switch';
@@ -43,7 +41,6 @@ import { toast } from '@/components/ui/toast';
 import { addCustomer } from '@/customers/add-customer';
 import { useNetwork } from '@/lib/network';
 import { matchesSearch } from '@/sync/compute';
-import { cn } from '@/lib/utils';
 
 /**
  * **Ask for a time** (the canvas's "New appointment"): what, which day, what time, who goes, and whether the customer
@@ -106,8 +103,6 @@ export function NewAppointmentSheet({
   const [minutes, setMinutes] = React.useState(() => nextHalfHour(timeZone));
   /** The zone the day and time are read in: the business's, or another picked under them. */
   const [zone, setZone] = React.useState(timeZone);
-  /** What's typed to find a zone off the chips (a customer in Manila), or null while that search is shut. */
-  const [zoneSearch, setZoneSearch] = React.useState<string | null>(null);
   const [userIds, setUserIds] = React.useState<readonly string[]>([]);
   const [title, setTitle] = React.useState('');
   const [notify, setNotify] = React.useState(true);
@@ -125,7 +120,6 @@ export function NewAppointmentSheet({
       setDay(date);
       setMinutes(nextHalfHour(timeZone));
       setZone(timeZone);
-      setZoneSearch(null);
       setTitle('');
       setChosen(null);
       setTyped('');
@@ -171,8 +165,6 @@ export function NewAppointmentSheet({
       setBusy(false);
     }
   };
-
-  const zoneAway = zoneNote(localInstant(day, clockOf(minutes), zone), zone, timeZone);
 
   const tell = calendar?.config
     ? tellNote(
@@ -317,46 +309,15 @@ export function NewAppointmentSheet({
       </Field>
 
       <Field label="Time zone">
-        <Chips
-          options={[
-            ...zoneChoices(timeZone, zone).map((z) => ({ value: z.id, label: z.label })),
-            { value: MORE_ZONES, label: 'Somewhere else' },
-          ]}
-          value={zoneSearch === null ? zone : MORE_ZONES}
-          onChange={(v) => {
-            if (v === MORE_ZONES) return setZoneSearch('');
-            setZone(v);
-            setZoneSearch(null);
-          }}
+        <ZoneChips
+          // A fresh one each time the sheet opens, so a search left open last time is shut.
+          key={open ? 'open' : 'shut'}
+          value={zone}
+          onChange={setZone}
+          homeZone={timeZone}
+          at={localInstant(day, clockOf(minutes), zone)}
           testID="new-appointment-zone"
         />
-        {zoneSearch !== null ? (
-          <View className="mt-2 gap-2">
-            <Input
-              value={zoneSearch}
-              onChangeText={setZoneSearch}
-              placeholder="Search a city, like Manila or London"
-              accessibilityLabel="Find a time zone"
-              autoCorrect={false}
-              autoFocus
-              testID="new-appointment-zone-search"
-            />
-            <Chips
-              options={findZones(zoneSearch).map((z) => ({ value: z.id, label: z.label }))}
-              value=""
-              onChange={(v) => {
-                setZone(v);
-                setZoneSearch(null);
-              }}
-              testID="new-appointment-zone-found"
-            />
-          </View>
-        ) : null}
-        {zoneAway ? (
-          <Text className="mt-1 text-xs font-medium text-text-2" testID="new-appointment-zone-note">
-            {zoneAway}
-          </Text>
-        ) : null}
       </Field>
 
       {onThisCalendar.length ? (
@@ -556,51 +517,6 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
     </View>
   );
 }
-
-function Chips({
-  options,
-  value,
-  onChange,
-  testID,
-}: {
-  options: readonly { value: string; label: string }[];
-  value: string;
-  onChange: (value: string) => void;
-  testID?: string;
-}) {
-  return (
-    <ScrollView horizontal showsHorizontalScrollIndicator={false} testID={testID}>
-      <View className="flex-row gap-1.5 pr-3">
-        {options.map((o) => {
-          const on = o.value === value;
-          return (
-            <Pressable
-              key={o.value}
-              role="button"
-              accessibilityState={{ selected: on }}
-              testID={`${testID}-${o.value}`}
-              onPress={() => onChange(o.value)}
-              className={cn(
-                'h-11 flex-row items-center gap-1.5 rounded-full border px-3.5',
-                on ? 'border-transparent bg-accent-soft' : 'border-border-strong bg-card',
-              )}
-            >
-              {on ? <Icon as={Check} className="size-3.5 text-accent-text" /> : null}
-              <Text
-                className={cn('text-[13px] font-medium', on ? 'text-accent-text' : 'text-text-2')}
-              >
-                {o.label}
-              </Text>
-            </Pressable>
-          );
-        })}
-      </View>
-    </ScrollView>
-  );
-}
-
-/** The Time zone chip that opens the search for a zone off the list. */
-const MORE_ZONES = 'more';
 
 /** Fourteen days from today, starting at the day the calendar is showing. */
 function nextDays(from: string, timeZone: string): readonly string[] {

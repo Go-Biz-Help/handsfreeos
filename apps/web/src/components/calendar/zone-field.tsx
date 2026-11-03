@@ -89,3 +89,47 @@ export function ZoneField({
     </div>
   );
 }
+
+/**
+ * Time zone under a task's due time, a lead's next action or Snooze until (owner's pick 1a, 2026-11-03): the date and
+ * time above are read on this zone's clock. It starts on the business's zone, which those times are shown in, not on
+ * this computer's; on another one the line under it says where the time lands for the business.
+ */
+export function ZonePick({
+  id,
+  value,
+  onChange,
+  businessZone,
+  at,
+  testId,
+  className,
+}: {
+  id: string;
+  value: string;
+  onChange: (zone: string) => void;
+  /** The business's zone (`useBusinessZone`), which the pick starts on. */
+  businessZone: string;
+  /** The moment the date and time above make, or null while they don't make one yet. */
+  at: number | null;
+  testId: string;
+  className?: string;
+}) {
+  const note = at === null ? null : zoneNote(at, value, businessZone, 'for the business');
+  return (
+    <Field label="Time zone" htmlFor={id} className={className}>
+      <Select id={id} value={value} onChange={(e) => onChange(e.target.value)} data-testid={testId}>
+        <ZoneOptions calendarZone={businessZone} value={value} />
+      </Select>
+      <p
+        aria-live="polite"
+        className={cn(
+          'mt-1.5 text-[12.5px] leading-[1.45]',
+          note ? 'font-medium text-text-2' : 'text-text-3',
+        )}
+        data-testid={`${testId}-note`}
+      >
+        {note ?? 'Your business’s zone. Pick another to set the time on its clock.'}
+      </p>
+    </Field>
+  );
+}

@@ -2,13 +2,17 @@ import { describe, expect, it } from 'vitest';
 import {
   findZones,
   fmtAtPicked,
+  instantOfInput,
   localInstant,
   moreZoneChoices,
   sameZone,
   zoneChoices,
+  zonedInputValue,
   zoneNote,
   zonePickLabel,
 } from '../../src/calendar/index';
+import { formatDate } from '../../src/crm/format';
+import { dueLabel } from '../../src/crm/task-words';
 
 const CHI = 'America/Chicago';
 const LA = 'America/Los_Angeles';
@@ -97,5 +101,41 @@ describe('more time zones', () => {
 
   it('names UTC as itself', () => {
     expect(zonePickLabel('Etc/UTC')).toBe('UTC');
+  });
+});
+
+describe('a task’s or a follow-up’s time on the business’s clock', () => {
+  it('fills and reads a date-and-time box on the picked zone', () => {
+    const at = Date.parse('2026-11-10T22:00:00.000Z');
+    expect(zonedInputValue(at, CHI)).toBe('2026-11-10T16:00');
+    expect(zonedInputValue(at, LA)).toBe('2026-11-10T14:00');
+    expect(zonedInputValue(at, MANILA, true)).toBe('2026-11-11');
+    expect(instantOfInput('2026-11-10T16:00', CHI)).toBe(at);
+    expect(instantOfInput('2026-11-10T14:00:00', LA)).toBe(at);
+    // A date alone is noon there, where an all-day task is kept.
+    expect(new Date(instantOfInput('2026-11-10', CHI)!).toISOString()).toBe(
+      '2026-11-10T18:00:00.000Z',
+    );
+    expect(instantOfInput('', CHI)).toBeNull();
+    expect(instantOfInput('2026-02-30T10:00', CHI)).toBeNull();
+  });
+
+  it('says where it lands for the business', () => {
+    const at = localInstant('2026-11-10', '14:00', LA);
+    expect(zoneNote(at, LA, CHI, 'for the business')).toBe(
+      'That’s 4:00 PM Central Time for the business.',
+    );
+  });
+
+  it('writes the due words on the business’s clock when its zone is given', () => {
+    const now = new Date('2026-11-10T15:00:00.000Z');
+    const due = { dueAt: '2026-11-10T22:00:00.000Z', allDay: false, doneAt: null };
+    expect(dueLabel({ ...due, dueBucket: 'today' }, now, CHI).text).toBe('Today 4:00 PM');
+    expect(dueLabel({ ...due, dueBucket: 'today' }, now, LA).text).toBe('Today 2:00 PM');
+    expect(formatDate(due.dueAt, { time: true, timeZone: MANILA }, now)).toBe('Nov 11, 6:00 AM');
+    // A year away from now on that zone's clock, not the device's.
+    expect(
+      formatDate('2027-01-01T03:00:00.000Z', { timeZone: CHI }, new Date('2026-12-31T12:00:00Z')),
+    ).toBe('Dec 31');
   });
 });

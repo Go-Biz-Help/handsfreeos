@@ -5,12 +5,23 @@
  * beside the pick says where the time lands there: "That’s 4:00 PM Central Time on your calendar."
  *
  * Changing the zone keeps the clock as typed, as a paper diary would: 2:00 PM stays 2:00 PM, now on Pacific's clock.
- * The line beside the pick always shows the moment it books. Browser-safe.
+ * The line beside the pick always shows the moment it books.
+ *
+ * Tasks, a lead's next action and Snooze until have the same pick, starting on the business's zone rather than the
+ * device's (owner's pick 1a, 2026-11-03): their line says "for the business" instead of "on your calendar", and
+ * `zonedInputValue` / `instantOfInput` read a date-and-time box on the picked zone's clock. Browser-safe.
  */
 import { TIME_ZONES } from '../intl/time-zone-names';
 import { canonicalTimeZone } from '../intl/time-zones';
-import { US_TIME_ZONES } from '../onboarding-setup/address';
-import { localDateOf } from './engine/zoned';
+import { timeZoneForAddress, US_TIME_ZONES } from '../onboarding-setup/address';
+import {
+  formatLocalDate,
+  isClock,
+  isLocalDate,
+  localDateOf,
+  localInstant,
+  zonedParts,
+} from './engine/zoned';
 import { fmtAt, fmtTime, weekdayShort, zoneLabel } from './when';
 
 export interface ZoneChoice {
@@ -100,7 +111,13 @@ export function findZones(query: string, limit = 8): readonly ZoneChoice[] {
  * your calendar.", with the weekday when the day differs there: "That’s Tue 7:00 PM Central Time on your calendar."
  * Null when the pick is the calendar's own zone.
  */
-export function zoneNote(at: number | string, picked: string, calendarZone: string): string | null {
+export function zoneNote(
+  at: number | string,
+  picked: string,
+  calendarZone: string,
+  /** Where the time lands: "on your calendar", or "for the business" beside a task's or a follow-up's time. */
+  where = 'on your calendar',
+): string | null {
   if (sameZone(picked, calendarZone)) return null;
   const t = ms(at);
   const here = localDateOf(t, calendarZone);
@@ -108,7 +125,7 @@ export function zoneNote(at: number | string, picked: string, calendarZone: stri
     here === localDateOf(t, picked)
       ? fmtTime(t, calendarZone)
       : `${weekdayShort(here)} ${fmtTime(t, calendarZone)}`;
-  return `That’s ${clock} ${zonePickLabel(calendarZone)} on your calendar.`;
+  return `That’s ${clock} ${zonePickLabel(calendarZone)} ${where}.`;
 }
 
 /**
@@ -126,3 +143,64 @@ export function fmtAtPicked(at: number | string, picked: string, calendarZone: s
       : `${weekdayShort(there)} ${fmtTime(t, picked)}`;
   return `${base} (${clock} ${zonePickLabel(picked)})`;
 }
+
+const pad = (n: number) => String(n).padStart(2, '0');
+
+/**
+ * A moment as a date-and-time box's value on a zone's clock, "2026-11-10T14:00", or its date alone with `dateOnly`,
+ * "2026-11-10": what the box shows for a task's due time or a follow-up's when the pick is on that zone.
+ */
+export function zonedInputValue(
+  at: number | string | Date,
+  zone: string,
+  dateOnly = false,
+): string {
+  const p = zonedParts(at instanceof Date ? at : ms(at), zone);
+  const date = formatLocalDate(p.year, p.month, p.day);
+  return dateOnly ? date : `${date}T${pad(p.hour)}:${pad(p.minute)}`;
+}
+
+/**
+ * A date-and-time box's value ("2026-11-10T14:00", seconds allowed) read on a zone's clock, as the moment it is. A
+ * date alone ("2026-11-10") is noon there, the moment an all-day task is kept at, so its day is the same day across
+ * the US. Null when the box doesn't hold a date.
+ */
+export function instantOfInput(value: string, zone: string): number | null {
+  const m = /^(\d{4}-\d{2}-\d{2})(?:T(\d{2}:\d{2}))?/.exec(value.trim());
+  const date = m?.[1];
+  const clock = m?.[2] ?? '12:00';
+  if (!date || !isLocalDate(date) || !isClock(clock)) return null;
+  return localInstant(date, clock, zone);
+}
+
+/**
+ * The zone a customer's texts, emails, reminders and pages tell a time in. The owner's answer (2026-11-03): "the
+ * timezone should try to always show in the viewer's timezone but if it doesn't know it it defaults to the one set by
+ * the business". So: the zone they booked in (the booking page's, from their device) or the one their time was set in
+ * for them (the Time zone pick); else the zone of their US address; else the calendar's (its own, or the business's).
+ */
+export function customerTimeZone(
+  customer: {
+    /** The appointment attendee's own zone (`appointment_attendees.timezone`), when one was kept. */
+    readonly zone?: string | null;
+    readonly state?: string | null;
+    readonly postalCode?: string | null;
+    readonly country?: string | null;
+  },
+  calendarZone: string,
+): string {
+  const own = customer.zone ? canonicalTimeZone(customer.zone) : null;
+  if (own) return own;
+  if (customer.state && (customer.country ?? 'US').toUpperCase() === 'US') {
+    const there = timeZoneForAddress({ state: customer.state, postalCode: customer.postalCode });
+    if (there) return there;
+  }
+  return calendarZone;
+}
+
+/** The zone to keep on an attendee for a time set on `picked`'s clock: nothing when that's the calendar's own. */
+export const attendeeZoneOf = (
+  picked: string | null | undefined,
+  calendarZone: string,
+): string | null =>
+  picked && !sameZone(picked, calendarZone) ? (canonicalTimeZone(picked) ?? picked) : null;

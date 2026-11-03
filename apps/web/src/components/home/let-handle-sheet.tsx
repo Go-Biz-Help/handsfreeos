@@ -4,6 +4,7 @@ import {
   clockLabel,
   handToAiBullets,
   handToAiStays,
+  instantOfInput,
   letHandleAskButton,
   letHandleAutoButton,
   letHandleAutoToast,
@@ -14,6 +15,7 @@ import {
   letHandleSubOf,
   letHandleTitleOf,
   letHandleTo,
+  zonedInputValue,
 } from '@hfos/core';
 import {
   CalendarPlus,
@@ -31,6 +33,7 @@ import {
 import { useEffect, useState, type ReactNode } from 'react';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
+import { ZonePick } from '@/components/calendar/zone-field';
 import { Field } from '@/components/ui/field';
 import { Input } from '@/components/ui/input';
 import { Segmented } from '@/components/ui/segmented';
@@ -44,7 +47,6 @@ import type {
   AttentionItem,
   AttentionPreview,
 } from '@/lib/api/types';
-import { toLocalInputValue } from '@/lib/format';
 import { cn } from '@/lib/utils';
 import { handleLook } from './attention-actions';
 import { KindTile, ModeChip } from './attention-bits';
@@ -164,6 +166,8 @@ export function LetHandleSheet({
   const [subject, setSubject] = useState('');
   const [nextText, setNextText] = useState('');
   const [nextAt, setNextAt] = useState('');
+  /** The zone the next action's When is read in: the business's, or another picked under it. */
+  const [nextZone, setNextZone] = useState(env.timeZone);
   const [formError, setFormError] = useState<string | null>(null);
   const [scheduledFor, setScheduledFor] = useState<string | null>(null);
 
@@ -178,7 +182,8 @@ export function LetHandleSheet({
         setChoice(first?.action ?? null);
         const suggestion = p.options.find((o) => o.action === 'set_next_action')?.suggestion;
         setNextText(suggestion?.text ?? '');
-        setNextAt(suggestion?.dueAt ? toLocalInputValue(new Date(suggestion.dueAt)) : '');
+        setNextAt(suggestion?.dueAt ? zonedInputValue(suggestion.dueAt, env.timeZone) : '');
+        setNextZone(env.timeZone);
         // A money card's follow-up comes already written, from the document's own figures.
         setBody(first?.draft?.body ?? '');
         setSubject(first?.draft?.subject ?? '');
@@ -190,7 +195,8 @@ export function LetHandleSheet({
     return () => {
       cancelled = true;
     };
-  }, [env.workspaceId, item.id]);
+  }, [env.workspaceId, item.id, env.timeZone]);
+  const nextMs = nextAt ? instantOfInput(nextAt, nextZone) : null;
 
   const cmd = attentionCommands(env.workspaceId);
   const name = customerOf(item) ?? item.title;
@@ -257,7 +263,7 @@ export function LetHandleSheet({
           itemId: item.id,
           action: 'set_next_action',
           text: nextText.trim(),
-          dueAt: nextAt ? new Date(nextAt).toISOString() : null,
+          dueAt: nextMs === null ? null : new Date(nextMs).toISOString(),
         });
         toast.success(ATTENTION_WORDS.nextActionSetToast);
       } else {
@@ -458,6 +464,16 @@ export function LetHandleSheet({
                 onChange={(e) => setNextAt(e.target.value)}
               />
             </Field>
+            {nextAt ? (
+              <ZonePick
+                id="lh-zone"
+                value={nextZone}
+                onChange={setNextZone}
+                businessZone={env.timeZone}
+                at={nextMs}
+                testId="let-handle-zone"
+              />
+            ) : null}
           </div>
         ) : null}
         {/* What the business's own reminders have already said to this customer about this document. */}
