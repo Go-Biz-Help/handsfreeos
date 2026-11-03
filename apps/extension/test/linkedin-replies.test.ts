@@ -33,13 +33,21 @@ describe.each(SHAPES)('replies on LinkedIn, %s', (_, shape) => {
           url: `${LI}/in/ACoAAFakeDanaReyes123/`,
         },
         when: '2:21 PM',
+        // The list's line, compared on the computer each time (decision 150): never sent.
+        last: { line: 'Dana: Tuesday works. Talk then!', where: 'list' },
       },
     ]);
   });
 
   it('in the list alone: theirs, never yours ("You: …") and never a group', () => {
     expect(read(`${LI}/messaging/`)).toEqual([
-      { name: 'Dana Reyes', threadKey: '2-MadeUpThreadDana0001==', profile: null, when: '2:21 PM' },
+      {
+        name: 'Dana Reyes',
+        threadKey: '2-MadeUpThreadDana0001==',
+        profile: null,
+        when: '2:21 PM',
+        last: { line: 'Dana: Tuesday works. Talk then!', where: 'list' },
+      },
     ]);
   });
 
@@ -48,7 +56,9 @@ describe.each(SHAPES)('replies on LinkedIn, %s', (_, shape) => {
   });
 
   it('sends nothing they wrote', () => {
-    expect(JSON.stringify(read(THREAD))).not.toContain('Tuesday');
+    expect(JSON.stringify(repliesInput('ws-1', read(THREAD), false, 'linkedin'))).not.toContain(
+      'Tuesday',
+    );
   });
 });
 
@@ -74,9 +84,21 @@ describe.each(SHAPES)('replies in LinkedIn’s newer list, %s', (_, shape) => {
     const url = `${LI}/messaging/`;
     const doc = shape(new JSDOM(NEWER_LIST, { url }).window.document);
     expect(readReplies(doc, url, { sideOf: () => null })).toEqual([
-      { name: 'Dana Reyes', threadKey: null, profile: null, when: '2:21 PM' },
+      {
+        name: 'Dana Reyes',
+        threadKey: null,
+        profile: null,
+        when: '2:21 PM',
+        last: { line: 'Dana: Tuesday works for me', where: 'list' },
+      },
     ]);
-    expect(JSON.stringify(readReplies(doc, url, { sideOf: () => null }))).not.toContain('Tuesday');
+    const sent = repliesInput(
+      'ws-1',
+      readReplies(doc, url, { sideOf: () => null }),
+      false,
+      'linkedin',
+    );
+    expect(JSON.stringify(sent)).not.toContain('Tuesday');
   });
 });
 

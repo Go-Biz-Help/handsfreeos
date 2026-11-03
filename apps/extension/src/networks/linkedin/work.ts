@@ -358,7 +358,7 @@ export function work(ask: { readonly type: string }): Promise<unknown> | null {
   switch (known.type) {
     case 'hfos-open-chat':
       return Promise.resolve<BrowseAnswer>({
-        ok: openChat(document, location.href, known.threadId),
+        ok: openChat(document, location.href, known.threadId, known.name ?? null),
       });
     case 'hfos-scroll-chats':
       return Promise.resolve<BrowseAnswer>({ ok: scrollChats(document, location.href) });

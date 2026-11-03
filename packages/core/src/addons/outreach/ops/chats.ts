@@ -35,11 +35,13 @@ import {
   mergeRecent,
   movedOn,
 } from '../chat-collect';
+import { REPLY_FRESH_MS } from '../alerts';
 import { nameKey, type DownloadMessage } from '../download';
 import { outreachAddon } from '../manifest';
 import { PLATFORMS, type Platform } from '../playbooks';
 import { fileChats, profiles, sends } from '../tables';
 import { inWorkspace, keptProfile, once, sourceFor, tagIdsFor } from './common';
+import { keepReply, tellReplies } from './alerts';
 import { tally } from './tallies';
 import { noteAnswer } from './conversation';
 import { wantLead } from './leads';
@@ -339,7 +341,7 @@ export const chatsCollect = defineAddonCommand(outreachAddon, {
   output: ChatsCollectOutput,
   permission: 'outreach.use',
   scope: inWorkspace,
-  emits: ['outreach.chats.collected'],
+  emits: ['outreach.chats.collected', 'outreach.reply.seen'],
   async handler(ctx, input) {
     const me = requireHuman(ctx).userId;
     const ws = ctx.scope.workspaceId!;
@@ -355,6 +357,8 @@ export const chatsCollect = defineAddonCommand(outreachAddon, {
     return once(async () => {
       let saved = 0;
       let waiting = 0;
+      const replied: string[] = [];
+      const told: string[] = [];
       for (const c of input.chats) {
         const key = nameKey(c.name);
         const profile = c.profile
@@ -440,7 +444,7 @@ export const chatsCollect = defineAddonCommand(outreachAddon, {
           // Someone wrote since it was kept (decision 134): a draft for them still waiting for an OK was written for
           // where the chat was, so it goes, and the next look drafts again from the chat as it is now, or not at all
           // when the person answered them themselves.
-          const whose = profile?.id ?? had.profileId;
+          const whom = profile?.id ?? had.profileId;
           if (movedOn(had.recent, c.messages))
             await ctx.tx
               .delete(sends)
@@ -450,16 +454,35 @@ export const chatsCollect = defineAddonCommand(outreachAddon, {
                   eq(sends.userId, me),
                   eq(sends.state, 'waiting'),
                   inArray(sends.kind, [...DRAFTS_THE_CHAT_MOVES]),
-                  whose
-                    ? or(eq(sends.chatId, had.id), eq(sends.profileId, whose))
+                  whom
+                    ? or(eq(sends.chatId, had.id), eq(sends.profileId, whom))
                     : eq(sends.chatId, had.id),
                 ),
               );
+        }
+        // Their message last, lately, in a chat with someone the person reached (decision 150, answer 3a): a reply, as
+        // the extension's sightings are, so their phone hears and their runner drafts it next.
+        const whose = profile?.id ?? had?.profileId ?? null;
+        const theirsAt = Math.max(had?.lastAt.getTime() ?? 0, Date.parse(last.at));
+        const theirsLast =
+          had && Date.parse(last.at) < had.lastAt.getTime() ? !had.lastFromMe : !last.fromMe;
+        if (whose && theirsLast && now.getTime() - theirsAt <= REPLY_FRESH_MS) {
+          const kept = await keepReply(ctx, {
+            me,
+            profileId: whose,
+            threadKey: c.thread.id,
+            theirsAt: new Date(theirsAt),
+            newer: false,
+            looking: false,
+          });
+          if (kept && !replied.includes(whose)) replied.push(whose);
+          if (kept === 'kept') told.push(whose);
         }
         if (!changed) continue;
         saved++;
         if (readState === 'waiting') waiting++;
       }
+      await tellReplies(ctx, me, told, true);
       // Each chat read with something new in it counts (decision 140): the watch's look every minute at chats that
       // haven't moved doesn't.
       await tally(ctx, me, input.platform, 'chat', saved, now);
@@ -470,7 +493,7 @@ export const chatsCollect = defineAddonCommand(outreachAddon, {
           entityId: ws,
           payload: { platform: input.platform, saved, waiting },
         });
-      return { saved, waiting };
+      return { saved, waiting, replied };
     });
   },
 });

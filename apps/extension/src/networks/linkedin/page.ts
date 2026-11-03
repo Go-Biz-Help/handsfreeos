@@ -8,7 +8,7 @@ import type { ChatOptions } from '../facebook/chat';
 import { sameName } from '../facebook/people';
 import { readCatchUp } from './catch-up';
 import { readChat } from './chat';
-import { readChats } from './chats';
+import { listedRows, readChats } from './chats';
 import { readCompany } from './company';
 import { inTopBar, mainOf, shownText, yourName } from './dom';
 import { readInvitations } from './invitations';
@@ -134,11 +134,16 @@ export function readPage(
       };
       break;
     }
+    // The newer list's rows link to none (decision 150): they come as rows, pressed to open.
     case 'messaging':
-      found = { chats: readChats(main, base) };
+      found = { chats: readChats(main, base), rows: listedRows(main) };
       break;
     case 'chat':
-      found = { chat: readChat(doc, address, base, options), chats: readChats(main, base) };
+      found = {
+        chat: readChat(doc, address, base, options),
+        chats: readChats(main, base),
+        rows: listedRows(main),
+      };
       break;
     case 'notifications':
       found = { notices: readNotices(main, base) };
@@ -163,7 +168,7 @@ export function readPage(
     people: found.people?.length,
     invitations: found.invitations?.length,
     posts: found.posts?.length,
-    chats: found.chats?.length,
+    chats: (found.chats?.length ?? 0) + (found.rows?.length ?? 0) || undefined,
     messages: found.chat?.messages.length,
     notifications: found.notices?.length,
   };
