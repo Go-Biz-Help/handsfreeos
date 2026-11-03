@@ -106,9 +106,10 @@ describe('checking on an answer still coming', () => {
   });
 
   it('waits before the first check when it already has the chat, and answers at once when it’s done', async () => {
+    type Chat = { answering: typeof answering | null; already?: boolean };
     const c = clock();
     const loaded: number[] = [];
-    const got = await waitForAssistantAnswer(
+    const got = await waitForAssistantAnswer<Chat>(
       async () => {
         loaded.push(c.now());
         return { answering: null };
@@ -117,7 +118,7 @@ describe('checking on an answer still coming', () => {
     );
     expect(got).toEqual({ answering: null });
     expect(loaded).toEqual([2_000]);
-    const done = await waitForAssistantAnswer(async () => ({ answering }), {
+    const done = await waitForAssistantAnswer<Chat>(async () => ({ answering }), {
       signal: new AbortController().signal,
       first: { answering: null, already: true },
       now: c.now,
