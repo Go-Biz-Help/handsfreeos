@@ -383,6 +383,13 @@ const aiTagCustomers: SettingsConfirmTool = {
         result: { waiting: true, progress: `${running.reviewed} of ${running.total}` },
       };
     }
+    // One pass at a time, as the screen shows Stop instead of the form while one goes.
+    const { running } = await query<{ running: SweepOut | null }>(db, ctx, 'contact_ai.status');
+    if (running)
+      throw HfosError.conflict(
+        `The AI is already going through your customers (${running.reviewed} of ${running.total} looked at). Wait for it to finish, or stop it to start another.`,
+        'contact_ai_running',
+      );
     const onlyTagId = str(args['onlyTagId']) ?? null;
     const tagIds = ids(args['tagIds']);
     const newNames = names(args['newTagNames']);

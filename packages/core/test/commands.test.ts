@@ -333,6 +333,8 @@ describe('registry', () => {
       'video_call.heard',
       'video_call.keep_words',
       'video_call.coach',
+      'video_call.listener',
+      'video_call.data',
       'webinar.register',
       'webinar.schedule',
       'video_call.set_poll',

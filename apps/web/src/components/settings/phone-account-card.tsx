@@ -17,7 +17,7 @@ import { useLiveVersion } from '@/lib/realtime/live-provider';
  *
  * On makes the account now, so its Account SID is here to give HighLevel or Twilio when moving a number over,
  * before there is any number. When Twilio keeps refusing, the worker gives up after a few minutes and the card
- * shows Off with why. Off closes it for good — Twilio cannot reopen one — so it asks first, and the
+ * shows Off with why. When the state can't be read at all, the card says so and never guesses Off. Off closes it for good — Twilio cannot reopen one — so it asks first, and the
  * worker refuses while a number, a transfer, a port, an RCS sender or a texting registration is in it.
  *
  * While it is on, the card also finds the numbers sitting in the account that are not set up here: one moved in
@@ -29,14 +29,23 @@ export function PhoneAccountCard({ workspaceId }: { workspaceId: string }) {
   const [confirming, setConfirming] = useState(false);
   /** Why turning off was refused: what is still in the account, in words. */
   const [refused, setRefused] = useState<string | null>(null);
+  /** Why the state couldn't be read, while nothing has been: never shown as Off, which would be a guess. */
+  const [unread, setUnread] = useState<string | null>(null);
   const version = useLiveVersion(['telephony_account', 'phone_number']);
 
   const load = useCallback(async () => {
     try {
       const next = await phoneAccountState(workspaceId);
       setShown(next);
+      setUnread(null);
       return next;
-    } catch {
+    } catch (e) {
+      setUnread(
+        errorMessage(
+          e,
+          'Phone & texting couldn’t be checked just now. Refresh the page to try again.',
+        ),
+      );
       return null;
     }
   }, [workspaceId]);
@@ -88,9 +97,13 @@ export function PhoneAccountCard({ workspaceId }: { workspaceId: string }) {
       ? 'Turning on…'
       : busy === 'off'
         ? 'Turning off…'
-        : on
-          ? 'On'
-          : 'Off';
+        : !shown
+          ? unread
+            ? 'Couldn’t check'
+            : ''
+          : on
+            ? 'On'
+            : 'Off';
 
   return (
     <Card
@@ -145,6 +158,17 @@ export function PhoneAccountCard({ workspaceId }: { workspaceId: string }) {
           Turning off closes this business’s Twilio account for good. It only works when there are
           no numbers in it, and never releases one. Turning it back on later gives you a new Account
           SID.
+        </Callout>
+      ) : null}
+
+      {unread && !shown ? (
+        <Callout
+          tone="warning"
+          icon={CircleAlert}
+          className="mt-4"
+          data-testid="phone-account-unread"
+        >
+          {unread}
         </Callout>
       ) : null}
 

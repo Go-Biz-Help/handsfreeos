@@ -2925,6 +2925,26 @@ export const videoCallLines = app.table('video_call_lines', {
 });
 
 /**
+ * Each LiveKit connection in a HandsFreeOS video call (20261027022000): when it came and went, and what its app says
+ * it downloaded. What the call really used, so it can be priced by that (docs/video-calls.md, "What a call used").
+ */
+export const videoCallConnections = app.table('video_call_connections', {
+  id: id(),
+  workspaceId: workspaceRef(),
+  videoCallId: uuid('video_call_id').notNull(),
+  kind: text('kind').notNull(),
+  personRowId: uuid('person_row_id').references(() => videoCallPeople.id, { onDelete: 'cascade' }),
+  roomSid: text('room_sid').notNull(),
+  participantSid: text('participant_sid').notNull(),
+  joinedAt: ts('joined_at').notNull(),
+  leftAt: ts('left_at'),
+  bytesReceived: bigint('bytes_received', { mode: 'number' }).notNull().default(0),
+  reportedAt: ts('reported_at'),
+  createdAt: ts('created_at').notNull().defaultNow(),
+  updatedAt: ts('updated_at').notNull().defaultNow(),
+});
+
+/**
  * Which HandsFreeOS person a Zoom user is, in one business, for the live coaching Zoom app (20261027005100): made
  * when they add the app in Zoom and connect it, ended when they disconnect or remove it. No tokens are kept.
  */

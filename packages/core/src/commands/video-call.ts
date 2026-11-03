@@ -42,6 +42,7 @@ import {
   forms,
   people,
   users,
+  videoCallConnections,
   videoCallLines,
   videoCallPeople,
   videoCalls,
@@ -81,6 +82,7 @@ import {
 } from '../meetings/video-calls';
 import { loadCalendar } from '../calendar/load';
 import { POLL_AI_MODES, type PollAiMode } from '../meetings/polls';
+import { mostDownloadable, VIDEO_CALL_DATA_LATE_MS } from '../meetings/call-data';
 import { defaultNumber, isOptedOut, loadRegistrations, readiness } from '../messaging/store';
 import { logChannelActivity } from '../crm/activities';
 import { AppointmentLocation } from '../schemas/calendar';
@@ -383,6 +385,62 @@ async function lockCall(ctx: CommandContext | QueryContext, callId: string): Pro
     .for('update');
   if (!call) throw notThere();
   return call;
+}
+
+// ---------- what a call used (20261027022000) ----------
+
+/**
+ * A connection LiveKit says came into the call's room, kept for what the call used. Told twice, it's kept once.
+ * Without LiveKit's ids (the stand-in's oldest tests) there's no connection to keep.
+ */
+async function openConnection(
+  ctx: CommandContext,
+  call: CallRow,
+  kind: 'person' | 'listener',
+  personRowId: string | null,
+  ids: { roomSid: string | null; participantSid: string | null },
+  at: Date,
+): Promise<void> {
+  if (!ids.roomSid || !ids.participantSid) return;
+  await ctx.tx
+    .insert(videoCallConnections)
+    .values({
+      workspaceId: call.workspaceId,
+      videoCallId: call.id,
+      kind,
+      personRowId,
+      roomSid: ids.roomSid,
+      participantSid: ids.participantSid,
+      joinedAt: at,
+    })
+    .onConflictDoNothing({
+      target: [videoCallConnections.videoCallId, videoCallConnections.participantSid],
+    });
+}
+
+/** One connection left (`participantSid`), or the room closed and took every one still open in it (`roomSid`). */
+async function closeConnections(
+  ctx: CommandContext,
+  callId: string,
+  at: Date,
+  participantSid: string | null,
+  roomSid?: string | null,
+): Promise<void> {
+  if (!participantSid && !roomSid) return;
+  await ctx.tx
+    .update(videoCallConnections)
+    .set({
+      leftAt: dsql`greatest(${videoCallConnections.joinedAt}, ${at.toISOString()}::timestamptz)`,
+    })
+    .where(
+      and(
+        eq(videoCallConnections.videoCallId, callId),
+        isNull(videoCallConnections.leftAt),
+        participantSid
+          ? eq(videoCallConnections.participantSid, participantSid)
+          : eq(videoCallConnections.roomSid, roomSid!),
+      ),
+    );
 }
 
 /** For the live polls' commands (video-call-poll.ts): a call held for the change, who's in it, and who's in now. */
@@ -748,6 +806,8 @@ export const videoCallJoined = defineCommand({
     const list = call.state === 'ended' ? await peopleOf(ctx.tx, call.id) : [];
     if (kickedFrom(call, p, list)) return { changed: false, kick: true };
     const person = p!;
+    // Every connection LiveKit bills is kept, for what the call used: a reload or a second phone is one more.
+    await openConnection(ctx, call, 'person', person.id, input, at);
     // The same connection told twice.
     if (input.participantSid && person.participantSid === input.participantSid)
       return { changed: false, kick: false };
@@ -836,6 +896,8 @@ export const videoCallLeft = defineCommand({
       .from(videoCallPeople)
       .where(and(eq(videoCallPeople.id, input.personId), eq(videoCallPeople.videoCallId, call.id)))
       .for('update');
+    // This connection is over, even when another of theirs has taken over from it.
+    if (input.participantSid) await closeConnections(ctx, call.id, at, input.participantSid);
     if (!p || !connected(p)) return { changed: false, seconds: 0 };
     // An old connection a reload or a second phone took over from: they're still in the call.
     if (input.participantSid && p.participantSid && p.participantSid !== input.participantSid)
@@ -888,9 +950,11 @@ export const videoCallFinished = defineCommand({
   emits: ['video_call.ended'],
   async handler(ctx, input) {
     const call = await lockCall(ctx, input.callId);
+    const at = input.at ? new Date(input.at) : new Date();
+    // The room is closed, so every connection still open in it is too, late news included.
+    await closeConnections(ctx, call.id, at, null, input.roomSid ?? call.roomSid);
     // Late news of a room already closed, or of one before the call started again: nothing more to close.
     if (input.roomSid && call.roomSid !== input.roomSid) return { changed: false, seconds: 0 };
-    const at = input.at ? new Date(input.at) : new Date();
     const list = await peopleOf(ctx.tx, call.id);
     // Everyone's time in the call so far, this stretch's included.
     const secondsOf = new Map(list.map((p) => [p.id, p.seconds]));
@@ -1886,6 +1950,95 @@ export const videoCallHeard = defineCommand({
   },
 });
 
+/**
+ * The AI's listener came into a call's room or left it. LiveKit bills its connection like anyone's, so it's kept for
+ * what the call used; it's never one of the call's people, and never shown.
+ */
+export const videoCallListener = defineCommand({
+  name: 'video_call.listener',
+  description:
+    'Worker: LiveKit says the AI’s listener came into a video call or left it. Kept only for what the call used.',
+  risk: 0,
+  input: z.object({
+    workspaceId: uuid,
+    callId: uuid,
+    event: z.enum(['joined', 'left']),
+    roomSid: z.string().trim().min(1).max(100),
+    participantSid: z.string().trim().min(1).max(100),
+    at: isoDateTime.optional(),
+  }),
+  output: z.object({ ok: z.literal(true) }),
+  permission: null,
+  actors: ['system'],
+  scope: inWorkspace,
+  emits: [],
+  async handler(ctx, input) {
+    const [call] = await ctx.tx
+      .select()
+      .from(videoCalls)
+      .where(
+        and(eq(videoCalls.id, input.callId), eq(videoCalls.workspaceId, ctx.scope.workspaceId!)),
+      );
+    if (!call) throw notThere();
+    const at = input.at ? new Date(input.at) : new Date();
+    if (input.event === 'joined') await openConnection(ctx, call, 'listener', null, input, at);
+    else await closeConnections(ctx, call.id, at, input.participantSid);
+    return { ok: true as const };
+  },
+});
+
+/**
+ * What someone's call screen says it has downloaded so far on one connection, as their own app measured it
+ * (`watchCallData`): the worker checked the ticket the report came with, so it's theirs. Kept as the most it has said,
+ * never past what that connection could have carried in the time (`mostDownloadable`), and only while the connection
+ * is in the call or just left it. A connection LiveKit never told us about isn't one, and is ignored.
+ */
+export const videoCallData = defineCommand({
+  name: 'video_call.data',
+  description:
+    'Worker: how much someone’s video call screen has downloaded so far on one connection, as their app measured it. Kept for what the call used.',
+  risk: 0,
+  input: z.object({
+    workspaceId: uuid,
+    callId: uuid,
+    /** Their identity in the room, from the ticket: a row of the call's people. */
+    personId: uuid,
+    participantSid: z.string().trim().min(1).max(100),
+    bytes: z.int().min(0).max(Number.MAX_SAFE_INTEGER),
+    at: isoDateTime.optional(),
+  }),
+  output: z.object({ kept: z.boolean(), bytes: z.int() }),
+  permission: null,
+  actors: ['system'],
+  scope: inWorkspace,
+  emits: [],
+  async handler(ctx, input) {
+    const at = input.at ? new Date(input.at) : new Date();
+    const [c] = await ctx.tx
+      .select()
+      .from(videoCallConnections)
+      .where(
+        and(
+          eq(videoCallConnections.videoCallId, input.callId),
+          eq(videoCallConnections.participantSid, input.participantSid),
+          eq(videoCallConnections.personRowId, input.personId),
+        ),
+      )
+      .for('update');
+    if (!c) return { kept: false, bytes: 0 };
+    if (c.leftAt && at.getTime() - c.leftAt.getTime() > VIDEO_CALL_DATA_LATE_MS)
+      return { kept: false, bytes: c.bytesReceived };
+    const until = c.leftAt && c.leftAt.getTime() < at.getTime() ? c.leftAt : at;
+    const bytes = Math.min(input.bytes, mostDownloadable(until.getTime() - c.joinedAt.getTime()));
+    if (bytes <= c.bytesReceived) return { kept: false, bytes: c.bytesReceived };
+    await ctx.tx
+      .update(videoCallConnections)
+      .set({ bytesReceived: bytes, reportedAt: at })
+      .where(eq(videoCallConnections.id, c.id));
+    return { kept: true, bytes };
+  },
+});
+
 /** Fewer words than this isn't a conversation worth notes ("Can you hear me?"): it's dropped, not kept. */
 export const VIDEO_CALL_TRANSCRIPT_MIN_WORDS = 15;
 
@@ -2113,6 +2266,8 @@ export const videoCallCommands = [
   videoCallHeard,
   videoCallKeepWords,
   videoCallCoach,
+  videoCallListener,
+  videoCallData,
 ] as const;
 
 export const videoCallQueries = [videoCallGet, videoCallKnockStatus] as const;

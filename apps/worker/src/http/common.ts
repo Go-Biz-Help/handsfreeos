@@ -197,6 +197,11 @@ export async function authenticate(deps: HttpDeps, req: FastifyRequest): Promise
   return deps.verifyToken(token);
 }
 
+/**
+ * Whether the person asking (signed in by `authenticate`) may do this here. Asked as the database asks them through
+ * auth.uid(), so the founder working in a business as its owner (20261013002100) is let in here as on the API;
+ * `user_has_permission`, about somebody else, never counts that (20261027022100).
+ */
 export async function hasPermission(
   deps: Pick<HttpDeps, 'httpDb'>,
   userId: string,
@@ -206,7 +211,7 @@ export async function hasPermission(
   const [row] = await asWorker(deps.httpDb, {}, (tx) =>
     rows<{ ok: boolean }>(
       tx,
-      sql`select private.user_has_permission(${userId}, ${workspaceId}, ${permission}) as ok`,
+      sql`select private.asker_has_permission(${userId}, ${workspaceId}, ${permission}) as ok`,
     ),
   );
   return !!row?.ok;

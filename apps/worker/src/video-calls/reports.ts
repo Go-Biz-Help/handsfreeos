@@ -1,7 +1,8 @@
 /**
  * LiveKit's word on a HandsFreeOS video call, acted on (routes.ts stored it, checked against our key). Someone came
  * in, someone left, or the room closed: core's commands keep who was in and for how long, and close the stretch of
- * the call so its minutes go on the balance. Someone who came in on a ticket they shouldn't use any more (taken
+ * the call so its minutes go on the balance. Every connection is kept too, the AI's listener's included, for what the
+ * call used. Someone who came in on a ticket they shouldn't use any more (taken
  * out, turned away, or back in a call that ended before the team is) is taken straight out again. Anyone else is
  * shown the live poll's slide that's up, if one is (slides.ts).
  */
@@ -10,9 +11,11 @@ import {
   executeCommand,
   HfosError,
   isPersonIdentity,
+  LISTENER_IDENTITY,
   videoCallFinished,
   videoCallJoined,
   videoCallLeft,
+  videoCallListener,
 } from '@hfos/core/server';
 import type { DeliveryProcessor } from '../deliveries';
 import { systemActor, workerMeta } from '../services';
@@ -42,6 +45,27 @@ export const onLiveKitReport: DeliveryProcessor = async (ctx) => {
     at: r['at'],
   };
   try {
+    // The AI's listener: only its connection is kept, for what the call used (LiveKit bills it like anyone's).
+    if (r['identity'] === LISTENER_IDENTITY) {
+      const event = r['event'];
+      if ((event !== 'joined' && event !== 'left') || !r['roomSid'] || !r['participantSid'])
+        return 'ignored';
+      await executeCommand(
+        ctx.db,
+        videoCallListener,
+        {
+          workspaceId,
+          callId,
+          event,
+          roomSid: r['roomSid'],
+          participantSid: r['participantSid'],
+          at: r['at'],
+        },
+        actor,
+        meta,
+      );
+      return;
+    }
     switch (r['event']) {
       case 'joined': {
         const { output } = await executeCommand(ctx.db, videoCallJoined, presence, actor, meta);
