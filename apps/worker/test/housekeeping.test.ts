@@ -6,6 +6,8 @@
  * - **The receipts clean-up:** receipts older than 90 days go a batch at a time, recent ones stay, and it comes back
  *   the next night.
  * - **The problem reports clean-up:** reports older than 30 days go, handled or not; recent ones stay.
+ * - **Problem reports clearing themselves** (hourly): a limit once it's over, a problem quiet for 3 days, and a fixed
+ *   problem's reports from before the fix, to Handled with why.
  * - **The notifications clean-up:** what the bell lists goes after 30 days, a batch at a time, read or not; recent
  *   ones stay, and it comes back the next night.
  */
@@ -15,7 +17,11 @@ import { closeTestDbs, createTestUser, testDbs, type TestUser } from '@hfos/db/t
 import { executeCommand, organizationCreate, type HumanActor } from '@hfos/core/server';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { NOTIFICATION_JOBS, nextNotificationCleanUp } from '../src/housekeeping/notifications';
-import { nextProblemReportCleanUp, PROBLEM_REPORT_JOBS } from '../src/housekeeping/problem-reports';
+import {
+  nextProblemReportCleanUp,
+  nextProblemReportClearing,
+  PROBLEM_REPORT_JOBS,
+} from '../src/housekeeping/problem-reports';
 import { nextReceiptCleanUp, RECEIPT_JOBS } from '../src/housekeeping/receipts';
 import {
   nextSweepNight,
@@ -244,6 +250,90 @@ describe('the daily problem reports clean-up', () => {
     const next = new Date((await jobRow(clean)).run_at);
     expect(next.getTime()).toBe(nextProblemReportCleanUp(next.getTime() - 60 * 60_000).getTime());
     await rows(admin(), sql`update app.scheduled_jobs set status = 'done' where id = ${clean}`);
+  });
+});
+
+describe('problem reports clearing themselves (20261027023100)', () => {
+  const AREA = `t${randomUUID().replace(/-/g, '').slice(0, 12)}`;
+  const insert = async (r: {
+    ago: string;
+    job?: string;
+    note?: string;
+    kind?: 'fix' | 'limit';
+    limitKind?: string | null;
+    version?: string | null;
+  }) =>
+    (
+      await rows<{ id: string }>(
+        admin(),
+        sql`insert into app.problem_reports (workspace_id, user_id, addon_id, source, area, job, page, note, version,
+              kind, limit_kind, created_at)
+            values (${workspaceId}, ${owner.id}, 'outreach', 'extension', ${AREA}, ${r.job ?? 'like'}, 'activity',
+              ${r.note ?? null}, ${r.version ?? null}, ${r.kind ?? 'fix'}, ${r.limitKind ?? null},
+              now() - ${r.ago}::interval) returning id`,
+      )
+    )[0]!.id;
+  const stateOf = async (id: string) =>
+    (
+      await rows<{ open: boolean; cleared: string | null; fixed_in: string | null }>(
+        admin(),
+        sql`select handled_at is null as open, cleared, fixed_in from app.problem_reports where id = ${id}`,
+      )
+    )[0]!;
+
+  it('clears limits once they’re over and problems quiet for 3 days, and comes back every hour', async () => {
+    const aiYesterday = await insert({ ago: '2 days', kind: 'limit', limitKind: 'ai_daily' });
+    const aiNow = await insert({ ago: '1 minute', kind: 'limit', limitKind: 'ai_daily' });
+    const networkOld = await insert({ ago: '25 hours', kind: 'limit', limitKind: 'network' });
+    const networkNew = await insert({ ago: '1 hour', kind: 'limit', limitKind: 'network' });
+    const quiet = await insert({ ago: '4 days', note: 'Gone quiet' });
+    const stillOld = await insert({ ago: '4 days', note: 'Still happening' });
+    const stillNew = await insert({ ago: '1 hour', note: 'Still happening' });
+    const recent = await insert({ ago: '2 days', note: 'Only two days ago' });
+
+    const clear = await job(PROBLEM_REPORT_JOBS.clear, {}, false);
+    expect(await runJob(clear)).toMatchObject({ claimed: 1, rescheduled: 1, failed: 0 });
+
+    expect(await stateOf(aiYesterday)).toEqual({
+      open: false,
+      cleared: 'limit_over',
+      fixed_in: null,
+    });
+    expect((await stateOf(aiNow)).open).toBe(true);
+    expect(await stateOf(networkOld)).toMatchObject({ open: false, cleared: 'limit_over' });
+    expect((await stateOf(networkNew)).open).toBe(true);
+    expect(await stateOf(quiet)).toMatchObject({ open: false, cleared: 'quiet' });
+    expect((await stateOf(stillOld)).open).toBe(true);
+    expect((await stateOf(stillNew)).open).toBe(true);
+    expect((await stateOf(recent)).open).toBe(true);
+
+    const next = new Date((await jobRow(clear)).run_at);
+    expect(next.getTime()).toBe(nextProblemReportClearing(next.getTime() - 60 * 60_000).getTime());
+    expect(next.getUTCMinutes()).toBe(7);
+    await rows(admin(), sql`update app.scheduled_jobs set status = 'done' where id = ${clear}`);
+  });
+
+  it('clears a fixed problem’s reports from versions before the fix, by number, and keeps the rest', async () => {
+    const note = 'Couldn’t find Add friend';
+    const before = await insert({ ago: '1 hour', job: 'friend_request', note, version: '0.126.9' });
+    const lexical = await insert({ ago: '1 hour', job: 'friend_request', note, version: '0.99.1' });
+    const fixed = await insert({ ago: '1 hour', job: 'friend_request', note, version: '0.127.0' });
+    const other = await insert({
+      ago: '1 hour',
+      job: 'friend_request',
+      note: 'Another problem',
+      version: '0.126.0',
+    });
+    const [row] = await rows<{ cleared: number }>(
+      admin(),
+      sql`select private.clear_fixed_problem_reports('extension', ${AREA}, 'friend_request', 'Couldn’t find',
+            '0.127.0', null, 100) as cleared`,
+    );
+    expect(row?.cleared).toBe(2);
+    expect(await stateOf(before)).toEqual({ open: false, cleared: 'fixed', fixed_in: '0.127.0' });
+    expect((await stateOf(lexical)).cleared).toBe('fixed');
+    expect((await stateOf(fixed)).open).toBe(true);
+    expect((await stateOf(other)).open).toBe(true);
   });
 });
 

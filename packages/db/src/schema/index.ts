@@ -8282,6 +8282,15 @@ export const problemReports = app.table('problem_reports', {
   createdAt: ts('created_at').notNull().defaultNow(),
   /** What the AI helper did when the step didn't go (20261027021600): core's `ProblemHelper`. */
   helper: jsonb('helper').$type<Record<string, unknown>>(),
+  /**
+   * fix or limit (20261027023100): sorted when it's sent (core's `problemKind`). A limit says which: ai_daily,
+   * ai_balance or network.
+   */
+  kind: text('kind').notNull().default('fix'),
+  limitKind: text('limit_kind'),
+  /** Why it cleared itself (limit_over, fixed, quiet), and the version with the fix; null when a person marked it. */
+  cleared: text('cleared'),
+  fixedIn: text('fixed_in'),
 });
 
 /**

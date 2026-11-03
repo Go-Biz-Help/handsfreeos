@@ -1,13 +1,16 @@
 import {
   DESK_HELPER_WORDS,
+  DESK_PROBLEM_SECTION_WORDS,
   DESK_PROBLEM_WORDS,
   deskSectionLabel,
   helperBadge,
   helperMoveWords,
   HELPER_RESULT_WORDS,
   HELPER_VERDICT_WORDS,
+  PROBLEM_LIMIT_BADGE,
   PROBLEM_STATE_WORDS,
   PROBLEM_STATES,
+  problemClearedWords,
   problemForClaude,
   problemFrom,
   problemWhere,
@@ -16,7 +19,7 @@ import {
 } from '@hfos/core';
 import { useLocalSearchParams } from 'expo-router';
 import * as React from 'react';
-import { RefreshControl, ScrollView, Share, View } from 'react-native';
+import { Pressable, RefreshControl, ScrollView, Share, View } from 'react-native';
 
 import { DESK_BUSINESS_PHONE_WORDS } from '@/admin/business-words';
 import { desk, useLive, type Ok } from '@/admin/live';
@@ -33,15 +36,20 @@ import { useColors } from '@/theme';
 
 type Row = Ok<'/v1/queries/platform.problem_report.list'>['reports'][number];
 type Steps = Ok<'/v1/queries/platform.problem_report.list'>['steps'];
+type Groups = Ok<'/v1/queries/platform.problem_report.groups'>;
+/** One problem picked from Needs a fix: its area and step. */
+type Picked = { area: string; job: string };
 
 /** A report's id from the address (`?report=…`, from a Needs you step's See what it saw, decision 142). */
 const reportOf = (value: unknown): string | null =>
   typeof value === 'string' && /^[0-9a-f-]{36}$/i.test(value) ? value : null;
 
 /**
- * Problem reports (the web's /admin/problems): what our own tools saw when something didn't go, from every business,
- * newest first. Each is marked handled here, or shared for Claude (the report and its outline, as the web's Copy for
- * Claude puts it) into a message or a note.
+ * Problem reports (the web's /admin/problems): what our own tools saw when something didn't go, from every business.
+ * The open ones as two sections (20261027023100): the limits each business hit, on top, and what needs a fix grouped
+ * by problem; one problem's reports, the handled ones and all of them as a list, newest first. Each is marked handled
+ * here, or shared for Claude (the report and its outline, as the web's Copy for Claude puts it) into a message or a
+ * note.
  */
 export default function Problems() {
   const canRead = useDeskCan('platform.health.read');
@@ -66,10 +74,24 @@ function ProblemsPage() {
   const colors = useColors();
   const opened = reportOf(useLocalSearchParams<{ report?: string }>().report);
   const [state, setState] = React.useState<ProblemState>('open');
+  const [picked, setPicked] = React.useState<Picked | null>(null);
+  // The open ones with no problem picked are the two sections; the list still brings the week's steps.
+  const grouped = state === 'open' && picked === null;
   const live = useLive(
-    () => desk('/v1/queries/platform.problem_report.list', { state, limit: 50 }),
-    `problems-${state}`,
+    async () => ({
+      list: await desk('/v1/queries/platform.problem_report.list', {
+        state,
+        ...(picked ?? {}),
+        limit: grouped ? 1 : 50,
+      }),
+      groups: grouped ? await desk('/v1/queries/platform.problem_report.groups', {}) : null,
+    }),
+    `problems-${state}-${picked?.area ?? ''}-${picked?.job ?? ''}`,
   );
+  const pickState = (next: ProblemState) => {
+    setPicked(null);
+    setState(next);
+  };
   const [busy, setBusy] = React.useState<string | null>(null);
 
   const mark = async (r: Row) => {
@@ -99,7 +121,8 @@ function ProblemsPage() {
     }
   };
 
-  const list = live.data;
+  const list = live.data?.list ?? null;
+  const groups = live.data?.groups ?? null;
   return (
     <Screen
       title={deskSectionLabel('problems')}
@@ -113,7 +136,7 @@ function ProblemsPage() {
         <FilterChips<ProblemState>
           options={PROBLEM_STATES.map((s) => ({ key: s, label: PROBLEM_STATE_WORDS[s] }))}
           value={state}
-          onChange={setState}
+          onChange={pickState}
           testID="problems-state"
         />
       </View>
@@ -130,8 +153,19 @@ function ProblemsPage() {
           }
         >
           {opened ? <OpenedReport reportId={opened} /> : null}
-          <StepsCard steps={list.steps} />
-          {list.reports.length === 0 ? (
+          {groups ? (
+            <>
+              <LimitsCard limits={groups.limits} />
+              <FixesCard fixes={groups.fixes} onPick={setPicked} />
+              <StepsCard steps={list.steps} />
+            </>
+          ) : null}
+          {picked ? (
+            <Button size="sm" variant="ghost" onPress={() => setPicked(null)} testID="problems-all">
+              <Text>{DESK_PROBLEM_WORDS.allProblems}</Text>
+            </Button>
+          ) : null}
+          {groups ? null : list.reports.length === 0 ? (
             <Empty title={DESK_PROBLEM_WORDS.none[state]} testID="problems-none" />
           ) : (
             list.reports.map((r) => (
@@ -148,6 +182,17 @@ function ProblemsPage() {
                   {r.note ?? DESK_PROBLEM_WORDS.noNote}
                 </Text>
                 <Text className="text-[12.5px] text-text-3">{problemFrom(r)}</Text>
+                {r.kind === 'limit' ? (
+                  <Text
+                    className="text-[12.5px] font-medium text-warning-text"
+                    testID={`problem-limit-${r.reportId}`}
+                  >
+                    {PROBLEM_LIMIT_BADGE}
+                  </Text>
+                ) : null}
+                {problemClearedWords(r) ? (
+                  <Text className="text-[12.5px] text-text-3">{problemClearedWords(r)}</Text>
+                ) : null}
                 {r.helper ? (
                   <Text
                     className="text-[12.5px] font-medium text-accent-text"
@@ -187,6 +232,76 @@ function ProblemsPage() {
         <DeskWaiting live={live} testID="problems" />
       )}
     </Screen>
+  );
+}
+
+/** The limits each business hit (20261027023100): what each is, what can be done, and that it clears itself. */
+function LimitsCard({ limits }: { limits: Groups['limits'] }) {
+  const w = DESK_PROBLEM_SECTION_WORDS;
+  return (
+    <Card className="gap-1.5 px-4 py-3.5" testID="problems-limits">
+      <Text className="text-[15px] font-semibold">{w.limits}</Text>
+      <Text className="text-[13px] leading-[18px] text-text-3">{w.limitsIntro}</Text>
+      {limits.length === 0 ? (
+        <Text className="text-[13.5px] text-text-3">{w.noLimits}</Text>
+      ) : (
+        limits.map((g) => (
+          <View
+            key={`${g.workspaceId}:${g.limitKind}:${g.area ?? ''}`}
+            className="mt-1 gap-0.5 rounded-menu bg-warning-soft px-3 py-2.5"
+            testID={`problems-limit-${g.limitKind}`}
+          >
+            <Text className="text-[14px] font-semibold text-warning-text">{w.limitTitle(g)}</Text>
+            <Text className="text-[12.5px] text-text-3">
+              {w.limitCounts(g, whenWords(g.firstAt), whenWords(g.lastAt))}
+            </Text>
+            <Text className="text-[13.5px] leading-[19px] text-text-2">{w.limitSaid(g)}</Text>
+          </View>
+        ))
+      )}
+    </Card>
+  );
+}
+
+/** What needs a fix, by problem (20261027023100): each opens to its step's reports. */
+function FixesCard({
+  fixes,
+  onPick,
+}: {
+  fixes: Groups['fixes'];
+  onPick: (picked: Picked) => void;
+}) {
+  const w = DESK_PROBLEM_SECTION_WORDS;
+  return (
+    <Card className="gap-1.5 px-4 py-3.5" testID="problems-fixes">
+      <Text className="text-[15px] font-semibold">{w.fixes}</Text>
+      <Text className="text-[13px] leading-[18px] text-text-3">{w.fixesIntro}</Text>
+      {fixes.length === 0 ? (
+        <Text className="text-[13.5px] text-text-3">{w.noFixes}</Text>
+      ) : (
+        fixes.map((g) => {
+          const helper = w.fixHelper(g);
+          return (
+            <Pressable
+              key={`${g.area}:${g.job}:${g.note ?? ''}`}
+              role="button"
+              onPress={() => onPick({ area: g.area, job: g.job })}
+              className="mt-1 gap-0.5 rounded-menu border border-border px-3 py-2.5 active:bg-card-2"
+              testID={`problems-fix-${g.area}-${g.job}`}
+            >
+              <Text className="text-[14px] font-semibold">{w.fixTitle(g)}</Text>
+              <Text className="text-[12.5px] text-text-3">
+                {w.fixCounts(g, whenWords(g.lastAt))}
+              </Text>
+              <Text className="text-[13.5px] leading-[19px] text-text-2">
+                {g.note ?? DESK_PROBLEM_WORDS.noNote}
+              </Text>
+              {helper ? <Text className="text-[12.5px] text-text-3">{helper}</Text> : null}
+            </Pressable>
+          );
+        })
+      )}
+    </Card>
   );
 }
 

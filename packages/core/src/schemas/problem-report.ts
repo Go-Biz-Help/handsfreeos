@@ -24,6 +24,24 @@ export const PROBLEM_FOUND_MOST = 40;
 export const PROBLEM_SOURCES = ['extension', 'web', 'phone'] as const;
 export type ProblemSource = (typeof PROBLEM_SOURCES)[number];
 
+/**
+ * How a report is sorted when it's sent (20261027023100, support/problem-sort.ts): a **limit** (nothing in
+ * HandsFreeOS to fix: it waits out, or the business raises it) or a **fix** (something in HandsFreeOS to look at).
+ */
+export const PROBLEM_KINDS = ['fix', 'limit'] as const;
+export type ProblemKind = (typeof PROBLEM_KINDS)[number];
+/** Which limit: the business's daily AI limit, its balance running out, or a network refusing or warning. */
+export const PROBLEM_LIMITS = ['ai_daily', 'ai_balance', 'network'] as const;
+export type ProblemLimit = (typeof PROBLEM_LIMITS)[number];
+/**
+ * Why a report cleared itself (the worker's `problem_reports.clear`): its limit is over, its problem was fixed in a
+ * later version, or its problem hasn't happened again for `PROBLEM_QUIET_DAYS`.
+ */
+export const PROBLEM_CLEARED = ['limit_over', 'fixed', 'quiet'] as const;
+export type ProblemCleared = (typeof PROBLEM_CLEARED)[number];
+/** A problem that hasn't happened again for this many days clears itself. */
+export const PROBLEM_QUIET_DAYS = 3;
+
 /** What a tool found on a page: counts, yes or no, and the network's own section names. Never words. */
 const foundValue = z.union([
   z.number().int().min(0).max(100_000),
@@ -146,6 +164,10 @@ export const ProblemReportListInput = z.object({
     .regex(/^[a-z][a-z0-9_]{0,39}$/)
     .nullable()
     .default(null),
+  /** One step ("friend_request"), or every one: a problem's reports, opened from its group. */
+  job: z.string().trim().min(1).max(40).nullable().default(null),
+  /** Limits or what needs a fix, or both. */
+  kind: z.enum(PROBLEM_KINDS).nullable().default(null),
   /** The page after the one that ended with this report's time. */
   before: z.iso.datetime().nullable().default(null),
   limit: z.int().min(1).max(50).default(25),
@@ -167,6 +189,12 @@ const ProblemReportFields = {
   shown: z.boolean().nullable(),
   note: z.string().nullable(),
   handledAt: z.iso.datetime().nullable(),
+  kind: z.enum(PROBLEM_KINDS),
+  limitKind: z.enum(PROBLEM_LIMITS).nullable(),
+  /** Why it cleared itself; null when it's open or a person marked it. */
+  cleared: z.enum(PROBLEM_CLEARED).nullable(),
+  /** The version with its fix, when it cleared as fixed. */
+  fixedIn: z.string().nullable(),
 };
 
 export const ProblemReportRow = z.object({
@@ -203,6 +231,68 @@ export const ProblemReportListOutput = z.object({
   /** The last week's reports by step, the most first (`PROBLEM_STEP_DAYS`). */
   steps: z.array(ProblemStep),
 });
+
+export const ProblemGroupsInput = z.object({
+  /** One area, or every one. */
+  area: z
+    .string()
+    .regex(/^[a-z][a-z0-9_]{0,39}$/)
+    .nullable()
+    .default(null),
+});
+
+/** What every group of open reports says: how many, since when, the newest version and the newest report. */
+const ProblemGroupFields = {
+  reports: z.int(),
+  firstAt: z.iso.datetime(),
+  lastAt: z.iso.datetime(),
+  newestVersion: z.string().nullable(),
+  /** The newest report, to open. */
+  reportId: z.uuid(),
+};
+
+/**
+ * A problem that needs a fix: the open reports on one area and step with the same words, from every business. How
+ * many businesses, and the business when it's only one; how the AI helper sorted them.
+ */
+export const ProblemFixGroup = z.object({
+  ...ProblemGroupFields,
+  area: z.string(),
+  job: z.string(),
+  note: z.string().nullable(),
+  businesses: z.int(),
+  business: z.string().nullable(),
+  inTheWay: z.int(),
+  moved: z.int(),
+  /** The AI helper didn't look (its daily looks, or the AI limit). */
+  notLooked: z.int(),
+});
+export type ProblemFixGroup = z.output<typeof ProblemFixGroup>;
+
+/**
+ * A limit one business hit: its open reports of that limit (and network, for a network's), the areas they were on,
+ * the step when there was only one, and the newest one's words.
+ */
+export const ProblemLimitGroup = z.object({
+  ...ProblemGroupFields,
+  limitKind: z.enum(PROBLEM_LIMITS),
+  workspaceId: z.uuid(),
+  business: z.string(),
+  /** The network, for a network's limit. */
+  area: z.string().nullable(),
+  areas: z.array(z.string()),
+  job: z.string().nullable(),
+  note: z.string().nullable(),
+});
+export type ProblemLimitGroup = z.output<typeof ProblemLimitGroup>;
+
+export const ProblemGroupsOutput = z.object({
+  /** Limits, the newest first. */
+  limits: z.array(ProblemLimitGroup),
+  /** What needs a fix, by problem, the newest first. */
+  fixes: z.array(ProblemFixGroup),
+});
+export type ProblemGroups = z.output<typeof ProblemGroupsOutput>;
 
 export const ProblemReportGetInput = z.object({ reportId: z.uuid() });
 export const ProblemReportGetOutput = z.object({
