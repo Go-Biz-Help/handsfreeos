@@ -173,9 +173,17 @@ export function goalWhy(input: {
   return 'waiting_accepts';
 }
 
-/** What to try for a reason on a network: joining groups where it has them, else search words; another network only while one's off. */
-export function goalTries(why: GoalWhy | null, platform: Platform, othersOff: boolean): GoalTry[] {
-  const more: GoalTry = NETWORKS[platform].joinsPerDay !== null ? 'groups' : 'words';
+/**
+ * What to try for a reason on a network: joining groups where it has them, else search words; another network only
+ * while one's off. Working only the groups they're in (decision 148), joining more is never suggested.
+ */
+export function goalTries(
+  why: GoalWhy | null,
+  platform: Platform,
+  othersOff: boolean,
+  joinsGroups = true,
+): GoalTry[] {
+  const more: GoalTry = NETWORKS[platform].joinsPerDay !== null && joinsGroups ? 'groups' : 'words';
   const tries: Record<GoalWhy, GoalTry[]> = {
     not_ready: [],
     few_fits: ['niche', 'playbook', 'networks'],

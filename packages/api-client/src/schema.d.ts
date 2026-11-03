@@ -7727,7 +7727,7 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * Save a group the person has open on Facebook or Alignable and the people on its People tab or members page (or one of its See all pages), with the lines under each name. Admins, moderators and leaders are kept as such and never suggested; the full list of them marks the group’s admins as read. Nobody goes in Contacts.
+         * Save a group the person has open on Facebook or Alignable and the people on its People tab or members page (or one of its See all pages), with the lines under each name. Admins, moderators and leaders are kept as such and never suggested; the full list of them marks the group’s admins as read, and the once-a-day read notes how far down its member list it got. Nobody goes in Contacts.
          * @description Risk level 1. Requires outreach.use. Emits outreach.group.saved.
          */
         post: operations["command_outreach_group_save"];
@@ -19947,7 +19947,7 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * Which of the business’s groups on a network (Facebook’s, or Alignable’s) the person’s computer checks next for whether the playbooks’ people are there: their own groups first, then groups found that fit by name; none checked lately. Facebook’s when no network is named.
+         * Which of the business’s groups on a network (Facebook’s, or Alignable’s) the person’s computer checks next for whether the playbooks’ people are there: their own groups first, then groups found that fit by name; none checked lately. Only their own groups while they work only those. Facebook’s when no network is named.
          * @description Requires outreach.use.
          */
         post: operations["query_outreach_groups_to_check"];
@@ -20007,7 +20007,7 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * Which groups on a network (Facebook’s, or Alignable’s) the person’s computer asks to join next (decisions 31 and 92): the ones the AI says the business’s people are in, or that fit well by name while it hasn’t read them, that the person isn’t in and hasn’t asked to join; no more than today has room for there. With how many people that network’s groups have left to reach, words to search for more groups with and whether they go anywhere, and the person’s Join switch there. Facebook’s when no network is named.
+         * Which groups on a network (Facebook’s, or Alignable’s) the person’s computer asks to join next (decisions 31 and 92): the ones the AI says the business’s people are in, or that fit well by name while it hasn’t read them, that the person isn’t in and hasn’t asked to join; no more than today has room for there. With how many people that network’s groups have left to reach, words to search for more groups with and whether they go anywhere, and what the person picked about groups there. Facebook’s when no network is named.
          * @description Requires outreach.use.
          */
         post: operations["query_outreach_joins_next"];
@@ -42616,6 +42616,8 @@ export interface operations {
                     platform?: "facebook" | "linkedin" | "instagram" | "alignable";
                     /** @default null */
                     privacy?: ("public" | "private") | null;
+                    /** @default null */
+                    readTo?: number | null;
                     /** Format: uuid */
                     workspaceId: string;
                 };
@@ -77540,6 +77542,7 @@ export interface operations {
                             joined: boolean | null;
                             left: number;
                             members: number | null;
+                            membersDepth: number;
                             name: string | null;
                             people: number;
                             playbookName: string | null;

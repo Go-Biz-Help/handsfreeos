@@ -1722,7 +1722,10 @@ describe('Alignable’s groups', () => {
         { prospects: { left: 400, days: 20, low: false } },
         'Your Alignable groups have 400 people left to reach: no need to join more yet.',
       ],
-      [{ onItsOwn: false }, 'Joining groups on its own is off in your Alignable settings.'],
+      [
+        { onItsOwn: false },
+        'You’re working only the Alignable groups you’re in, so it joins none on its own.',
+      ],
     ] as const;
     for (const [more, line] of cases) {
       world.hfos['hfos-joins-next'] = () => joinsNext({ groups: GROUPS, ...more });

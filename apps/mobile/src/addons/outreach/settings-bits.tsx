@@ -1,4 +1,6 @@
 import {
+  groupModeChange,
+  groupModeOf,
   hourWords,
   POSTING_MODE_KEYS,
   POSTING_MODES,
@@ -21,6 +23,7 @@ import {
 } from '@hfos/core/addons/outreach/automation';
 import { HELPFUL_MODES_ON, helpfulHowOn } from '@hfos/core/addons/outreach/helpful';
 import {
+  groupsChoiceOn,
   helpfulOn,
   noRunnerWords,
   onItsOwnAbout,
@@ -369,7 +372,8 @@ export function NetworkModes({
 /**
  * Along the way on one network, in its words: liking first, confirming requests, the once-a-day jobs, and more. Where
  * the extension answers the requests the person gets (Facebook's), how it answers them, in place of a tick
- * (decision 121).
+ * (decision 121); and where groups are theirs to work (Facebook's and Alignable's), whether it joins more or works
+ * only the groups they're in (decision 148).
  */
 export function NetworkTicks({
   platform,
@@ -390,8 +394,10 @@ export function NetworkTicks({
   // None on a network whose runner reads none yet.
   const shown = ticksShownOn(platform);
   const requests = requestsChoiceOn(platform);
-  if (!shown.length && !requests) return null;
+  const groups = groupsChoiceOn(platform);
+  if (!shown.length && !requests && !groups) return null;
   const answering = requestModeOf(value);
+  const grouping = groupModeOf(value);
   return (
     <>
       {shown.length ? (
@@ -427,6 +433,26 @@ export function NetworkTicks({
               onPress={() => onChange(requestModeChange(o.key))}
               disabled={disabled}
               testID={`${testID}-requests-${o.key}`}
+            />
+          ))}
+        </Section>
+      ) : null}
+      {groups ? (
+        <Section
+          boxed={boxed}
+          title={groups.label}
+          about={groups.about}
+          testID={`${testID}-groups`}
+        >
+          {groups.options.map((o) => (
+            <Choice
+              key={o.key}
+              label={o.label}
+              about={o.note}
+              selected={grouping === o.key}
+              onPress={() => onChange(groupModeChange(o.key))}
+              disabled={disabled}
+              testID={`${testID}-groups-${o.key}`}
             />
           ))}
         </Section>

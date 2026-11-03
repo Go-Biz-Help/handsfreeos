@@ -311,6 +311,22 @@ describe('checking and joining groups', () => {
     ]);
   });
 
+  it('reads only the groups they’re in while that’s their pick', async () => {
+    // Only the groups I'm in (decision 148): the AI never reads a group they aren't in.
+    await runAs(owner, ws, 'outreach.automation.save', {
+      settings: { ...AUTOMATION_DEFAULTS, joinGroups: false },
+    });
+    expect(
+      (await runAs(owner, ws, 'outreach.groups.to_check', {})).groups.map(
+        (g: { name: string }) => g.name,
+      ),
+    ).toEqual(['Home Bakers Club']);
+    // And their own press still joins: the groups to join are the ones they aren't in, as ever.
+    expect(await runAs(owner, ws, 'outreach.joins.next', {})).toMatchObject({ onItsOwn: false });
+    await runAs(owner, ws, 'outreach.automation.save', { settings: AUTOMATION_DEFAULTS });
+    expect((await runAs(owner, ws, 'outreach.groups.to_check', {})).groups).toHaveLength(3);
+  });
+
   it('keeps the About page and rules, has the AI read them, and follows its answer', async () => {
     expect(await look('500000003', ['A club for home bakers'])).toEqual({
       groupId: await groupId('500000003'),

@@ -837,9 +837,11 @@ to 33 in docs/outreach.md). Your choices are your own, set on Social Outreach's 
   work, the AI writes a short comment for it too, which goes under it while the day's comments have room (0.33.0). A
   profile with no post of theirs to like gets its request without one.
 - **Confirm friend requests from people who fit a playbook** (on to start): **Confirm their request** on your list.
-- **Join good groups when my groups run low** (on to start): with less than a week of people left to reach in your
-  groups, it finds groups with your playbook's words and asks to join up to 3 good ones a day, the AI answering their
-  questions from your playbook (decision 48).
+- **Groups** (a pick of two, decision 148): **Join more good groups when mine run low**, as it starts, means that
+  with less than a week of people left to reach in your groups it finds groups with your playbook's words and asks to
+  join up to 3 good ones a day, the AI answering their questions from your playbook (decision 48). **Only the groups
+  I'm in** joins and searches for none, has the AI read only the groups you're in, and sends your friend requests only
+  to people found in them; **Find and join more groups** still joins when you press it.
 - **Helpful posts** (after your OK, to start): once a day the AI writes a post that helps the people in one of your
   groups. You copy it and post it yourself, the extension posts it after your OK on Today, or on its own in your
   hours (decision 50); your business may allow only some of these.
@@ -870,9 +872,11 @@ the step under way (`doing`), so they show its count under that step, sent every
 With **Once a day** ticked, the first thing it does each working day, or after **Start my day**, is fill your list, a
 job at a time, a minute or few apart, in its window (`src/auto/daily.ts`, `src/jobs/`): it saves the friend requests
 you've got (Friend requests, loading a few screens of them); checks up to 4 of your groups for your people (Check my
-groups); while **Join good groups when my groups run low** is on and your groups have less than a week of people left
-to reach, asks to join up to 3 good groups (the only thing it presses here); the admins and moderators of up to 3 of your Work these
-groups (the ones with fewest saved first), read to the end, then a few screens of their members (a group whose admins
+groups); while your **Groups** pick is **Join more good groups when mine run low** and your groups have less than a week of
+people left to reach, asks to join up to 3 good groups (the only thing it presses here); the admins and moderators of up to 3 of your Work these
+groups (the ones with fewest saved first), read to the end, then ten screens of their members, carrying on from where
+the last read of each list left off (0.125.0, decision 148: it scrolls past what it read before, saving nothing, and
+starts at the top again once a list runs out or it has gone 40 screens down) (a group whose admins
 don't load to the end waits for another day, so nobody who runs it is suggested); Find posts in those groups; Read
 my chats, up to 60 a day; Check my friends, the day's 40; Find partners (0.64.0, decision 81), up to 15 people who
 could partner with you, read as the checks read friends with how many follow them, for the AI's partner check

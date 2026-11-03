@@ -482,7 +482,12 @@ export function isAdminsPage(href: string): boolean {
  * admins page runs it, and so does anyone the page labels Admin or Moderator: they're kept so, and never suggested.
  * Only the last part says the admins page was read, so a save that stops halfway doesn't count it.
  */
-export function groupSave(result: ReadResult, workspaceId: string): Built<GroupSaveInput[]> {
+export function groupSave(
+  result: ReadResult,
+  workspaceId: string,
+  /** How many screens down its member list this read got (decision 148); null leaves the depth as it was. */
+  readTo: number | null = null,
+): Built<GroupSaveInput[]> {
   const page = result.group;
   const group = page?.group ? groupRef({ ...page.group, name: page.name }) : null;
   if (!page || !group) return { ok: false, why: NOT_WHICH_GROUP };
@@ -511,11 +516,13 @@ export function groupSave(result: ReadResult, workspaceId: string): Built<GroupS
     members: page.members,
     joined: page.joined,
   };
-  if (!people.length) return { ok: true, input: [{ ...facts, people: [], adminsPage: false }] };
+  if (!people.length)
+    return { ok: true, input: [{ ...facts, people: [], adminsPage: false, readTo }] };
   const parts: GroupSaveInput[] = [];
   for (let at = 0; at < people.length; at += GROUP_PEOPLE_MOST)
     parts.push({ ...facts, people: people.slice(at, at + GROUP_PEOPLE_MOST), adminsPage: false });
-  parts[parts.length - 1] = { ...parts[parts.length - 1]!, adminsPage };
+  // How deep the read got goes with the last part, as the admins page does: once, when it's all saved.
+  parts[parts.length - 1] = { ...parts[parts.length - 1]!, adminsPage, readTo };
   return { ok: true, input: parts };
 }
 
@@ -970,6 +977,8 @@ export function alignableGroupSave(
   people: readonly AlignableMember[],
   workspaceId: string,
   leadersRead = false,
+  /** How many screens down its member list this read got (decision 148); null leaves the depth as it was. */
+  readTo: number | null = null,
 ): Built<GroupSaveInput[]> {
   const ref = groupRef(group, ALIGNABLE);
   if (!ref) return { ok: false, why: NOT_WHICH_GROUP };
@@ -1001,11 +1010,12 @@ export function alignableGroupSave(
     members: group.members !== null && group.members <= 100_000_000 ? group.members : null,
     joined: group.joined,
   };
-  if (!kept.length) return { ok: true, input: [{ ...facts, people: [], adminsPage: leadersRead }] };
+  if (!kept.length)
+    return { ok: true, input: [{ ...facts, people: [], adminsPage: leadersRead, readTo }] };
   const parts: GroupSaveInput[] = [];
   for (let at = 0; at < kept.length; at += GROUP_PEOPLE_MOST)
     parts.push({ ...facts, people: kept.slice(at, at + GROUP_PEOPLE_MOST), adminsPage: false });
-  parts[parts.length - 1] = { ...parts[parts.length - 1]!, adminsPage: leadersRead };
+  parts[parts.length - 1] = { ...parts[parts.length - 1]!, adminsPage: leadersRead, readTo };
   return { ok: true, input: parts };
 }
 

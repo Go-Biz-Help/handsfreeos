@@ -9,6 +9,7 @@
  * pressed on Facebook but View sent requests.
  */
 import { MUTUAL_READ_MOST } from '@hfos/core/addons/outreach/countries';
+import { MEMBER_DEPTH_MOST } from '@hfos/core/addons/outreach/group-checks';
 import type { Person, ProfileRef, ReadResult } from '../networks/facebook/types';
 import type { FetchStep } from '../networks/facebook/fetch';
 import { listBeside } from '../networks/facebook/friends';
@@ -33,36 +34,50 @@ export const ADMIN_SCROLLS = 20;
 /** The most groups whose members it saves in a day. */
 export const MEMBER_GROUPS = 3;
 const PACE_MS = [4_000, 9_000] as const;
+/** Scrolling past screens of a list already read, which reads and saves nothing (decision 148). */
+const PAST_PACE_MS = [1_500, 3_000] as const;
 const GROUP_PACE_MS = [15_000, 30_000] as const;
 
 /**
  * Reads a list of people, scrolling it for more up to `scrolls` times: the last page read, with everyone each read
  * showed, each once, and whether it got to the end of the list. `pick` says who on a page counts. A warning ends it.
+ *
+ * `deeper` carries on from where the last read left off (decision 148): it scrolls past that many screens first,
+ * keeping nobody from them, then reads its `scrolls` screens. `past` says what the person sees while it scrolls, and
+ * `screens` how many screens down it ended up, so the next read starts there.
  */
 export async function gather(
   job: Job,
   scrolls: number,
   pick: (page: ReadResult) => readonly Person[],
   progress: (count: number) => string,
-): Promise<{ page: ReadResult; people: Person[]; whole: boolean } | JobEnd> {
+  deeper?: { readonly skip: number; readonly past: (screen: number) => string },
+): Promise<{ page: ReadResult; people: Person[]; whole: boolean; screens: number } | JobEnd> {
   const people = new Map<string, Person>();
+  const skip = deeper?.skip ?? 0;
   let page = await readIn(job.tab);
   let whole = false;
+  let screens = 0;
   for (let screen = 0; ; screen++) {
     const warned = await warnedOn(job, page);
     if (warned) return warned;
-    for (const person of pick(page))
-      if (person.profile) people.set(profileKey(person.profile), person);
-    job.progress(progress(people.size));
-    if (screen >= scrolls || job.stopped()) break;
+    screens = screen;
+    if (screen < skip) job.progress(deeper!.past(screen + 1));
+    else {
+      for (const person of pick(page))
+        if (person.profile) people.set(profileKey(person.profile), person);
+      job.progress(progress(people.size));
+    }
+    if (screen >= skip + scrolls || job.stopped()) break;
     if (!(await job.tab.ask({ type: 'hfos-scroll-list' })).ok) {
       whole = true;
       break;
     }
-    await pause(paced(PACE_MS));
+    // Scrolling past what was read before is no step on Facebook, so it goes at a quicker pace.
+    await pause(paced(screen < skip ? PAST_PACE_MS : PACE_MS));
     page = await readIn(job.tab);
   }
-  return { page, people: [...people.values()], whole };
+  return { page, people: [...people.values()], whole, screens };
 }
 
 export const ended = (got: object): got is JobEnd => 'warned' in got;
@@ -222,8 +237,13 @@ export async function saveFriends(job: Job): Promise<JobEnd> {
 }
 
 /** Saves the group's list on the page, in parts: how many people were saved. */
-async function saveGroupPage(job: Job, page: ReadResult, people: Person[]): Promise<number> {
-  const built = groupSave({ ...page, people }, job.businessId);
+async function saveGroupPage(
+  job: Job,
+  page: ReadResult,
+  people: Person[],
+  readTo: number | null = null,
+): Promise<number> {
+  const built = groupSave({ ...page, people }, job.businessId, readTo);
   if (!built.ok) throw new Error(built.why);
   let saved = 0;
   for (const input of built.input)
@@ -235,19 +255,27 @@ const groupPage = (url: string, part: string) => `${url.replace(/\/?$/, '/')}mem
 
 /**
  * For each group, the ones with fewest saved first: its admins and moderators, until their full list is saved, so
- * nobody who runs it is ever approached; then its members.
+ * nobody who runs it is ever approached; then its members, carrying on from where yesterday's read left off
+ * (decision 148), so a big group is worked right through instead of its first screens again. A list that ran out, or
+ * one read as deep as it goes (`MEMBER_DEPTH_MOST`), starts at the top next time.
  */
 export async function saveMembers(
   job: Job,
-  groups: readonly Pick<WorkGroup, 'name' | 'url' | 'people' | 'adminsRead'>[],
+  groups: readonly (Pick<WorkGroup, 'name' | 'url' | 'people' | 'adminsRead'> & {
+    /** How deep the last read of its members got (decision 148): none from a server before it. */
+    readonly membersDepth?: number;
+  })[],
 ): Promise<JobEnd> {
   const these = [...groups].sort((a, b) => a.people - b.people).slice(0, MEMBER_GROUPS);
   let saved = 0;
   let looked = 0;
+  let deeper = 0;
   for (const [g, group] of these.entries()) {
     if (job.stopped()) break;
     const name = group.name ?? 'your group';
     const parts = group.adminsRead ? [''] : ['admins', ''];
+    // Where its last read of the members got to: a build before this, or a server before it, starts at the top.
+    const from = Math.min(Math.max(group.membersDepth ?? 0, 0), MEMBER_DEPTH_MOST);
     for (const part of parts) {
       if (job.stopped()) break;
       job.progress(`Opening ${name}’s ${part ? 'admins and moderators' : 'members'}…`);
@@ -258,17 +286,38 @@ export async function saveMembers(
         (page) => (page.group ? (page.people ?? []) : []),
         (count) =>
           `Reading ${name}’s ${part ? 'admins' : 'members'}… ${counted(count, 'person', 'people')} so far.`,
+        part || !from
+          ? undefined
+          : {
+              skip: from,
+              past: (screen) =>
+                `Scrolling past ${name}’s members you’ve read… ${screen} of ${from} screens.`,
+            },
       );
       if (ended(got)) return got;
       // Its admins are saved only once read to the end, so nobody who runs it is suggested; till then its members wait.
       if (part && (!got.whole || !isAdminsPage(got.page.url) || job.stopped())) break;
-      if (got.people.length) saved += await saveGroupPage(job, got.page, got.people);
+      if (part) {
+        if (got.people.length) saved += await saveGroupPage(job, got.page, got.people);
+        continue;
+      }
+      // Where the next read starts: the top again once the list ran out or it's as deep as it goes; stopped part way,
+      // the depth stays as it was (null), so nothing is skipped over.
+      const to = job.stopped()
+        ? null
+        : got.whole || got.screens >= MEMBER_DEPTH_MOST
+          ? 0
+          : got.screens;
+      if (from) deeper++;
+      saved += await saveGroupPage(job, got.page, got.people, to);
     }
     looked++;
     if (!job.stopped() && g < these.length - 1) await pause(paced(GROUP_PACE_MS));
   }
   return {
-    line: `Saved ${counted(saved, 'person', 'people')} from ${counted(looked, 'group')}. Today suggests the ones who fit.`,
+    line: `Saved ${counted(saved, 'person', 'people')} from ${counted(looked, 'group')}${
+      deeper ? `, carrying on further down ${deeper === 1 ? 'one list' : `${deeper} lists`}` : ''
+    }. Today suggests the ones who fit.`,
     warned: false,
   };
 }

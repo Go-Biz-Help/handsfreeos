@@ -20,7 +20,7 @@ vi.mock('../src/jobs/job', async (original) => ({
 }));
 
 const { readChats } = await import('../src/jobs/chats');
-const { checkRequests, saveMembers, ADMIN_SCROLLS, FRIEND_REQUESTS } =
+const { checkRequests, saveMembers, ADMIN_SCROLLS, FRIEND_REQUESTS, MEMBER_SCROLLS } =
   await import('../src/jobs/people');
 const { findPosts, groupsToWork, newestUrl, recentPostSearch, watchPosts } =
   await import('../src/jobs/posts');
@@ -332,6 +332,41 @@ describe('saving group members', () => {
     await saveMembers(job, [group('4455667788')]);
     expect(opened).toEqual([`${FB}/groups/4455667788/members/admins`]);
     expect(sent).toEqual([]);
+  });
+
+  it('carries on further down a member list than the last read got, and notes where it got to', async () => {
+    // Decision 148: it scrolls past the screens already read, saving nobody from them, then reads its own.
+    const { tab, opened, asked } = fakeTab(members, {
+      'hfos-scroll-list': Array<boolean>(3 + MEMBER_SCROLLS).fill(true),
+    });
+    const { hfos, sent } = fakeHfos();
+    const { job } = jobWith(tab, hfos);
+    const end = await saveMembers(job, [
+      group('4455667788', { adminsRead: true, membersDepth: 3 }),
+    ]);
+    expect(opened).toEqual([`${FB}/groups/4455667788/members/`]);
+    // The screens it read before, plus its own ten.
+    expect(asked.filter((a) => a === 'hfos-scroll-list')).toHaveLength(3 + MEMBER_SCROLLS);
+    const saves = sent.filter((a) => a.type === 'hfos-save-group') as Extract<
+      HfosAsk,
+      { type: 'hfos-save-group' }
+    >[];
+    expect(saves.at(-1)!.input.readTo).toBe(3 + MEMBER_SCROLLS);
+    expect(end.line).toContain('carrying on further down one list');
+  });
+
+  it('starts a member list at the top again once it runs out', async () => {
+    const { tab } = fakeTab(members, {
+      'hfos-scroll-list': Array<boolean>(2).fill(true),
+    });
+    const { hfos, sent } = fakeHfos();
+    const { job } = jobWith(tab, hfos);
+    await saveMembers(job, [group('4455667788', { adminsRead: true, membersDepth: 5 })]);
+    const saves = sent.filter((a) => a.type === 'hfos-save-group') as Extract<
+      HfosAsk,
+      { type: 'hfos-save-group' }
+    >[];
+    expect(saves.at(-1)!.input.readTo).toBe(0);
   });
 
   it('goes to the groups with the fewest saved first, a few a day, and only members once admins are read', async () => {

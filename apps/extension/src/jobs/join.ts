@@ -116,7 +116,10 @@ export async function joinGroups(
   job.progress('Asking HandsFreeOS which groups to join…');
   let got = await next(job, groupIds);
   if (daily && !got.onItsOwn)
-    return { line: 'Joining groups on its own is off in your settings.', warned: false };
+    return {
+      line: 'You’re working only the groups you’re in, so it joins none on its own.',
+      warned: false,
+    };
   // Or more on a day the first messages need more good fits (decision 126).
   if (daily && !got.prospects.low && !got.more)
     return {

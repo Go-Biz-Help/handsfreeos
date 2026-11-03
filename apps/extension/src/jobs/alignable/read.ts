@@ -36,6 +36,8 @@ export const GROUP_SEARCHES = [
 
 /** Between screens of a list: a person reading as they go, as on LinkedIn. */
 export const SCROLL_PACE_MS = [6_000, 12_000] as const;
+/** Scrolling past screens of a list already read, which reads and saves nothing (decision 148). */
+export const PAST_PACE_MS = [2_000, 4_000] as const;
 /** Between the pages a job opens one after another (decision 92): a person's pace, 8 to 40 seconds. */
 export const PAGE_PACE_MS = [8_000, 40_000] as const;
 /** Their own profile, at their business's address: its town is the first part. */
@@ -88,25 +90,37 @@ export async function gather<T>(
   pick: (page: AlignablePage) => readonly T[],
   key: (item: T) => string,
   progress: (count: number) => string,
-): Promise<{ page: AlignablePage; items: T[]; whole: boolean } | JobEnd> {
+  /**
+   * Carry on from where the last read left off (decision 148): it scrolls past that many screens first, keeping
+   * nothing from them, then reads its own. `past` says what the person sees while it scrolls.
+   */
+  deeper?: { readonly skip: number; readonly past: (screen: number) => string },
+): Promise<{ page: AlignablePage; items: T[]; whole: boolean; screens: number } | JobEnd> {
   const items = new Map<string, T>();
+  const skip = deeper?.skip ?? 0;
   let page = await readAlignableIn(job.tab);
   let whole = false;
+  let screens = 0;
   for (let screen = 0; ; screen++) {
     const warned = await warnedOn(job, page);
     if (warned) return warned;
     if (page.signedOut) return signedOutEnd();
-    for (const item of pick(page)) if (!items.has(key(item))) items.set(key(item), item);
-    job.progress(progress(items.size));
-    if (screen >= scrolls || job.stopped()) break;
+    screens = screen;
+    if (screen < skip) job.progress(deeper!.past(screen + 1));
+    else {
+      for (const item of pick(page)) if (!items.has(key(item))) items.set(key(item), item);
+      job.progress(progress(items.size));
+    }
+    if (screen >= skip + scrolls || job.stopped()) break;
     if (!(await job.tab.ask({ type: 'hfos-scroll-list' })).ok) {
       whole = true;
       break;
     }
-    await pause(paced(SCROLL_PACE_MS));
+    // Scrolling past what was read before is no step on Alignable, so it goes at a quicker pace.
+    await pause(paced(screen < skip ? PAST_PACE_MS : SCROLL_PACE_MS));
     page = await readAlignableIn(job.tab);
   }
-  return { page, items: [...items.values()], whole };
+  return { page, items: [...items.values()], whole, screens };
 }
 
 /** The person's own on Alignable, as their own profile opens at it: their town ("austin-tx") and their business. */

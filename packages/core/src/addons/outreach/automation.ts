@@ -113,6 +113,34 @@ export type TidyMode = keyof typeof TIDY_MODES;
 export const TIDY_MODE_KEYS = Object.keys(TIDY_MODES) as [TidyMode, ...TidyMode[]];
 
 /**
+ * What it does about groups on a network where they're joined (decision 148), each network's own: it joins more good
+ * ones when the people left to reach in the person's own groups run low (decisions 31 and 48, as it starts), or it
+ * works only the groups they're already in. Kept as `joinGroups`, off for only their own.
+ */
+export const GROUP_MODES = {
+  join: 'Join more good groups when mine run low',
+  mine: 'Only the groups I’m in',
+} as const;
+export type GroupMode = keyof typeof GROUP_MODES;
+export const GROUP_MODE_KEYS = Object.keys(GROUP_MODES) as [GroupMode, ...GroupMode[]];
+
+/** Which of the two the person picked on a network, as their choices keep it. */
+export const groupModeOf = (choices: { readonly joinGroups: boolean }): GroupMode =>
+  choices.joinGroups ? 'join' : 'mine';
+
+/** A pick of what it does about groups, as the choices keep it. */
+export const groupModeChange = (mode: GroupMode): { joinGroups: boolean } => ({
+  joinGroups: mode === 'join',
+});
+
+/**
+ * Whether the person works only the groups they're in there (decision 148): nothing joined or searched for on its own,
+ * no group they aren't in checked by the AI, and only people found in their own groups reached.
+ */
+export const onlyMyGroups = (choices: { readonly joinGroups: boolean }): boolean =>
+  groupModeOf(choices) === 'mine';
+
+/**
  * The friend requests the person gets (decision 121), where the extension answers them (the runners on Facebook,
  * LinkedIn and Alignable, decision 136): left to them; the AI's good ones confirmed, the rest left to them (decision 30,
  * as it starts); the AI deciding, its good ones confirmed and its noes deleted; all confirmed; or all deleted. Kept as
@@ -241,6 +269,7 @@ export const NetworkChoices = z.object({
   warmUp: z.boolean().default(true),
   confirmRequests: z.boolean().default(true),
   collect: z.boolean().default(true),
+  /** What it does about groups (`GROUP_MODES`, decision 148): joins more when theirs run low, or only their own. */
   joinGroups: z.boolean().default(true),
   watchPosts: z.boolean().default(true),
   posting: z.enum(POSTING_MODE_KEYS).default('after_ok'),
@@ -298,8 +327,9 @@ export const AutomationSettings = z.object({
   /** The once-a-day jobs (decision 32): they fill the list it works from. On when left out, as 0.11 of the extension does. */
   collect: z.boolean().default(true),
   /**
-   * When people left to reach in the groups run low, it finds groups and asks to join up to 3 good ones a day (decision
-   * 48), with the once-a-day jobs. On when left out.
+   * What it does about groups (`GROUP_MODES`, decision 148): on, it finds groups and asks to join up to 3 good ones a
+   * day when people left to reach in the groups run low (decision 48), with the once-a-day jobs; off, it works only
+   * the groups the person is in. On when left out.
    */
   joinGroups: z.boolean().default(true),
   /**
