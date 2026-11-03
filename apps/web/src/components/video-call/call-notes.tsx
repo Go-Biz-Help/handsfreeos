@@ -2,12 +2,13 @@
 /**
  * A video call that wasn't for an appointment (docs/video-calls.md, part 5) is its own line on the customer's
  * timeline. Its summary is the line's body; **Notes from the call** opens what else the AI made of it: After the
- * call's suggestions, and the transcript.
+ * call's suggestions, and the transcript. Its chat is there too, kept whatever its AI notes.
  */
 import { FileText } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { VIDEO_CALL_WORDS } from '@hfos/core';
 import { CallReview } from '@/components/calendar/call-review';
+import { CallChatLog } from '@/components/video-call/call-chat-log';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent } from '@/components/ui/dialog';
 import { apiBrowser, errorMessage, unwrap } from '@/lib/api/client';
@@ -66,7 +67,12 @@ function Notes({ workspaceId, videoCallId }: { workspaceId: string; videoCallId:
   if (failed) return <p className="mt-3 text-[13px] text-text-2">{failed}</p>;
   if (!transcripts) return null;
   if (transcripts.length === 0)
-    return <p className="mt-3 text-[13px] text-text-2">{VIDEO_CALL_WORDS.notesSoon}</p>;
+    return (
+      <div className="mt-3 flex flex-col gap-3">
+        <p className="text-[13px] text-text-2">{VIDEO_CALL_WORDS.notesSoon}</p>
+        <CallChatLog workspaceId={workspaceId} callId={videoCallId} />
+      </div>
+    );
   return (
     <div
       className="mt-2 flex max-h-[65vh] flex-col gap-3 overflow-y-auto"
@@ -81,6 +87,7 @@ function Notes({ workspaceId, videoCallId }: { workspaceId: string; videoCallId:
           <p className="mt-1.5 whitespace-pre-wrap text-[13px] text-text-2">{t.body}</p>
         </details>
       ))}
+      <CallChatLog workspaceId={workspaceId} callId={videoCallId} />
     </div>
   );
 }

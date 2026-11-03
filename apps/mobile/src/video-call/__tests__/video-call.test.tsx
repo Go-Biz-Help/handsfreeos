@@ -175,7 +175,7 @@ describe('the call screen', () => {
     });
     expect(screen.getByTestId('call-who')).toHaveTextContent('Ana Garcia is waiting for you.');
     expect(screen.getByTestId('call-ai-notice')).toHaveTextContent(
-      /^AI takes notes from what’s said in the call\./,
+      /^AI takes notes from what’s said and typed in the call\./,
     );
 
     await fireEvent.press(screen.getByTestId('call-pre-camera'));

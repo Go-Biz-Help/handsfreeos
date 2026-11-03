@@ -23117,6 +23117,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/queries/video_call.chat": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * What people typed in a HandsFreeOS video call’s chat, oldest first: who sent each message, and when.
+         * @description Requires records.read.
+         */
+        post: operations["query_video_call_chat"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/queries/video_call.get": {
         parameters: {
             query?: never;
@@ -90191,6 +90211,50 @@ export interface operations {
                             lastVerificationAt: string | null;
                             verifiedAt: string | null;
                         } | null;
+                    };
+                };
+            };
+        };
+    };
+    query_video_call_chat: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    appointmentId?: string;
+                    /** Format: uuid */
+                    callId?: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        callId: string | null;
+                        messages: {
+                            body: string;
+                            /** Format: uuid */
+                            id: string;
+                            name: string;
+                            /** Format: date-time */
+                            sentAt: string;
+                            /** @enum {string} */
+                            side: "team" | "customer";
+                        }[];
+                        more: number;
                     };
                 };
             };

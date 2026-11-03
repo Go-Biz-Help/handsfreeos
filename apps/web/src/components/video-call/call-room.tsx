@@ -6,8 +6,9 @@
  * - **The controls**: microphone, camera, screen share (from a computer: phones' browsers can't share), background
  *   blur where the browser can, reactions, raise hand, chat, who's here, and Leave. The team's Leave also offers
  *   End for everyone.
- * - **Reactions and chat aren't kept.** Reactions travel on their own data topic, one emoji at a time; chat is
- *   LiveKit's, and goes with the call.
+ * - **Reactions aren't kept.** They travel on their own data topic, one emoji at a time. Chat is LiveKit's, and each
+ *   message this screen sends is reported to the worker too (./call-chat.ts), so the call keeps its chat whatever
+ *   its AI notes. Links and email addresses in it can be pressed.
  * - **A raised hand** is an attribute of the person in the room, so someone who comes in later sees it too.
  * - **The AI's notes** (part 2): "AI notes on" shows while the AI's unseen listener hears the call (the room's
  *   metadata says so). The team's pill also turns them off or on for this call. CC shows the listener's captions,
@@ -120,6 +121,7 @@ import { errorMessage } from '@/lib/api/errors';
 import { brandLook } from '@/lib/look';
 import { cn } from '@/lib/utils';
 import { canBlur, setBlur } from './blur';
+import { keepCallChat } from './call-chat';
 import { useCallData } from './call-data';
 import { ChatPanel, PeoplePanel } from './call-panels';
 import { CallStage } from './call-stage';
@@ -281,6 +283,7 @@ function LiveRoom({ ticket, choices, heading, color, team, coach, poll, onEnd }:
         blur={blur}
         onBlur={(on) => void toggleBlur(on)}
         onLeave={() => void room.disconnect()}
+        onChatSent={(id, text) => keepCallChat(ticket.token, id, text)}
       />
       <RoomAudioRenderer />
     </RoomContext.Provider>
@@ -303,6 +306,7 @@ function CallScreen({
   blur,
   onBlur,
   onLeave,
+  onChatSent,
 }: {
   heading: CallHeading;
   color?: string | null | undefined;
@@ -312,6 +316,8 @@ function CallScreen({
   blur: boolean;
   onBlur: (on: boolean) => void;
   onLeave: () => void;
+  /** A chat message this screen just sent, so the call keeps it. */
+  onChatSent: (id: string, text: string) => void;
 }) {
   const state = useConnectionState();
   const { localParticipant, isMicrophoneEnabled, isCameraEnabled, isScreenShareEnabled } =
@@ -319,6 +325,14 @@ function CallScreen({
   const people = useParticipants().filter((p) => isPersonIdentity(p.identity));
   const [panel, setPanel] = useState<'chat' | 'people' | 'poll' | null>(null);
   const chat = useChat();
+  const sendChat = useCallback(
+    async (text: string) => {
+      const sent = await chat.send(text);
+      onChatSent(sent.id, text);
+      return sent;
+    },
+    [chat, onChatSent],
+  );
   const [seen, setSeen] = useState(0);
   const [floating, setFloating] = useState<Floating[]>([]);
   const [blurs, setBlurs] = useState(false);
@@ -628,7 +642,7 @@ function CallScreen({
           {panel === 'chat' ? (
             <ChatPanel
               messages={chat.chatMessages}
-              send={chat.send}
+              send={sendChat}
               sending={chat.isSending}
               onClose={() => setPanel(null)}
             />

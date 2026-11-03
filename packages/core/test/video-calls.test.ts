@@ -29,7 +29,10 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { HfosError } from '../src/errors';
 import {
   platformBusinessGet,
+  VIDEO_CALL_CHAT_NOT_FOR_AI,
   videoCallAdmit,
+  videoCallChat,
+  videoCallChatGet,
   videoCallCoach,
   videoCallEnd,
   videoCallEnter,
@@ -697,9 +700,47 @@ describe('what the AI heard', () => {
   });
 
   it('is forgotten when the team turns the call’s AI notes off, and nothing is kept until they’re on again', async () => {
+    // Something typed in the chat before the notes go off (by Priya: Sol is still waiting to be let in).
+    expect(
+      await runSystem(
+        videoCallChat,
+        {
+          workspaceId: t.wsId,
+          callId,
+          personId: priyaRow,
+          key: 'TX_c',
+          text: 'Before: sol@example.com',
+        },
+        t.scope,
+      ),
+    ).toEqual({ kept: true });
     const off = { workspaceId: t.wsId, callId, on: false };
     expect(await run(videoCallSetAi, off, t.owner)).toEqual({ changed: true, aiNotes: false });
     expect(await linesOf()).toEqual([]);
+    // The chat stays with the call, but is never the AI's; and the team can't change what was typed.
+    expect(
+      await rows<{ body: string; stretch: string | null }>(
+        admin(),
+        sql`select body, stretch from app.video_call_messages where video_call_id = ${callId}`,
+      ),
+    ).toEqual([{ body: 'Before: sol@example.com', stretch: VIDEO_CALL_CHAT_NOT_FOR_AI }]);
+    const rewritten = await expectPgError(() =>
+      asUser(api(), t.owner.claims, (tx) =>
+        rows(
+          tx,
+          sql`update app.video_call_messages set body = 'Made up' where video_call_id = ${callId}`,
+        ),
+      ),
+    );
+    expect(rewritten.code).toBe('42501');
+    // The team reads it from the appointment.
+    expect(
+      await ask(videoCallChatGet, { workspaceId: t.wsId, appointmentId }, t.owner),
+    ).toMatchObject({
+      callId,
+      more: 0,
+      messages: [{ name: 'Priya Tech', side: 'team', body: 'Before: sol@example.com' }],
+    });
     const [changed] = await events('video_call.ai_changed', callId);
     expect(changed!.payload).toMatchObject({ appointmentId, on: false, forgotten: 2 });
     expect(await ask(videoCallGet, { workspaceId: t.wsId, callId }, t.owner)).toMatchObject({

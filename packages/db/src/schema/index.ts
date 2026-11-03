@@ -2925,6 +2925,26 @@ export const videoCallLines = app.table('video_call_lines', {
 });
 
 /**
+ * What people typed in a video call's chat (20261027022800): kept with the call whatever its AI notes, from the
+ * screen that sent it, and taken into the stretch's transcript while the notes are on (`stretch`, once).
+ */
+export const videoCallMessages = app.table('video_call_messages', {
+  id: id(),
+  workspaceId: workspaceRef(),
+  videoCallId: uuid('video_call_id').notNull(),
+  personRowId: uuid('person_row_id')
+    .notNull()
+    .references(() => videoCallPeople.id, { onDelete: 'cascade' }),
+  side: text('side').notNull(),
+  name: text('name').notNull(),
+  body: text('body').notNull(),
+  sentAt: ts('sent_at').notNull(),
+  messageKey: text('message_key').notNull(),
+  stretch: text('stretch'),
+  createdAt: ts('created_at').notNull().defaultNow(),
+});
+
+/**
  * Each LiveKit connection in a HandsFreeOS video call (20261027022000): when it came and went, and what its app says
  * it downloaded. What the call really used, so it can be priced by that (docs/video-calls.md, "What a call used").
  */

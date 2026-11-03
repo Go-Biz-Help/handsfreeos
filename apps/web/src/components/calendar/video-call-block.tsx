@@ -4,12 +4,14 @@
  * own, and who has been in it and for how long. It's read again whenever the call's people come and go.
  *
  * A session's call is a webinar: it shows its link anyone can use, with Copy, to share in posts, ads and emails.
+ * Its chat, kept whatever its AI notes, folds away under who joined.
  */
 import { callLengthLabel, VIDEO_CALL_WORDS, WEBINAR_WORDS, webinarDoorPath } from '@hfos/core';
 import { Copy, Video } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { toast } from 'sonner';
 import { Avatar } from '@/components/ui/avatar';
+import { CallChatLog } from '@/components/video-call/call-chat-log';
 import { buttonClassName } from '@/components/ui/button';
 import {
   readVideoCall,
@@ -163,6 +165,9 @@ export function VideoCallBlock({
         </div>
       ) : !upcoming ? (
         <p className="text-[13px] text-text-3">Nobody joined the video call.</p>
+      ) : null}
+      {got?.call ? (
+        <CallChatLog workspaceId={workspaceId} callId={got.call.id} version={calls} />
       ) : null}
     </div>
   );

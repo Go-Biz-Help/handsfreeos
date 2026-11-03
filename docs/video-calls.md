@@ -1,4 +1,4 @@
-# HandsFreeOS video calls (20261027013000, 20261027013300, 20261027013500, 20261027014600, 20261027019600, 20261027019800, 20261027019900, 20261027020000, 20261027020100, 20261027022000)
+# HandsFreeOS video calls (20261027013000, 20261027013300, 20261027013500, 20261027014600, 20261027019600, 20261027019800, 20261027019900, 20261027020000, 20261027020100, 20261027022000, 20261027022800)
 
 HandsFreeOS's own Zoom-like calls. A calendar's Online place (or one service on it) can say **HandsFreeOS video
 call**, and each appointment booked there gets its own call, with nothing for the business to connect. Customers
@@ -76,6 +76,11 @@ webhook) is "Video calls: LiveKit" in `docs/operations.md`.
 | What a call used: each connection            | `supabase/migrations/20261027022000_video_call_connections.sql` (`app.video_call_connections`); `video_call.data`, `.listener`    |
 | What a call used: measuring and reporting    | `packages/core/src/meetings/call-data.ts` (`watchCallData`); `components/video-call/call-data.ts`, the phone's `call-data.ts`     |
 | What a call used: the report, checked        | `POST /public/calls/data` in `apps/worker/src/video-calls/routes.ts` (`readTicket` in `livekit.ts`)                               |
+| The chat's links, pressable                  | `chatLinkParts` in `packages/core/src/meetings/chat-links.ts`; `ChatText` in `video-call/chat-text.tsx`, web and phone            |
+| The chat, kept: the table and the commands   | `supabase/migrations/20261027022800_video_call_chat.sql`; `packages/core/src/commands/video-call-chat.ts`                         |
+| The chat, kept: each screen's report         | `call-chat.ts` on the web and the phone; `POST /public/calls/chat` in `apps/worker/src/video-calls/routes.ts`                     |
+| The chat, read back                          | `components/video-call/call-chat-log.tsx` (appointment and the call's notes); `CallChat` in the phone's `calendar/meeting.tsx`    |
+| The chat in the AI's notes and to the coach  | `video_call.keep_words` in `commands/video-call.ts`; the coach's from `listener-room.ts` (`CallHearing.typed`) and `coach.ts`     |
 | Marks on a shared screen: rules and board    | `packages/core/src/meetings/screen-marks.ts` (`MarksBoard`, `MarksStore`, `markFrom`, `SCREEN_MARK_WORDS`)                        |
 | Marks on a shared screen: drawn and made     | `components/video-call/screen-marks.tsx`, placed by `call-stage.tsx`; the phone's `src/video-call/screen-marks.tsx`               |
 
@@ -96,9 +101,10 @@ webhook) is "Video calls: LiveKit" in `docs/operations.md`.
    with **Join** on the appointment in the phone app, which opens the call screen there (part 4). The push about
    someone waiting opens the call too. Someone signed in who can't see the appointment asks to be let in like anyone
    else.
-5. **In the call:** camera, microphone, screen share from a computer, chat, background blur, reactions and raise
-   hand. The team can let people in, turn them away, mute or remove someone, and end the call for everyone. A
-   dropped connection reconnects on its own; a second tab or phone takes over from the first.
+5. **In the call:** camera, microphone, screen share from a computer, chat (its links and email addresses can be
+   pressed), background blur, reactions and raise hand. The team can let people in, turn them away, mute or remove
+   someone, and end the call for everyone. A dropped connection reconnects on its own; a second tab or phone takes
+   over from the first.
 6. **The AI listens** (part 2) while the call's AI notes are on, which they are unless the team turns them off for
    that call. The worker's listener joins unseen and hears each person's microphone on its own. Each person's sound
    goes to Deepgram only while they talk. The words go to everyone as captions (CC) and are kept as lines, each with
@@ -163,8 +169,10 @@ joining by phone, team-only meetings.
   worker stores only its hash, so only that page can ask how it stands or come in on it.
 - **The call's own link may be passed on,** so what it shows anyone who isn't on the team is the business's name and
   look, never the appointment's title or the customer.
-- **Chat, reactions and marks aren't kept.** They travel between the people in the call and go with it. No video or
-  sound is kept either (decision 10).
+- **Reactions and marks aren't kept,** and neither is video or sound (decision 10): they travel between the people
+  in the call and go with it. **The chat is kept with every call,** whatever its AI notes (the owner, 3 November
+  2026, "Kept on every call"): the team reads it on the appointment, and while AI notes are on the AI takes it in
+  with what was said. What was typed while they were off never reaches the AI ("The chat, kept" below).
 - **Background blur happens in the person's own browser,** before their camera is sent. Its model comes from its
   publisher's CDN the first time someone turns blur on, so a browser that can't fetch it simply can't blur.
 - **Switching calls off doesn't take the choice away.** While a business has calls off, a place set to HandsFreeOS
@@ -210,6 +218,50 @@ joining by phone, team-only meetings.
 - **The notice** is on the booking page (`aiNotes` on a place or service), in the confirmation and reminders
   (`whereLine`), and on the page before joining, for the customer and for anyone on the call's link. Joining is
   agreeing (decision 9).
+
+### The chat, kept (20261027022800)
+
+The owner asked, on 3 November 2026, for HandsFreeOS to get the information people type in a call's chat as well as
+what they say, and for the chat's links to open when pressed. Asked how, they picked "Kept on every call": the chat
+is saved with the call even with AI notes off, and the AI uses it when they're on. What's typed (an email address, a
+phone number, an address, a link) is no longer lost when the call ends.
+
+- **Each screen reports what it sent.** The web's and the phone's chat send each message on LiveKit's chat topic
+  (`VIDEO_CALL_CHAT_TOPIC`, `lk.chat`), and then post it to the worker's `POST /public/calls/chat` with the ticket
+  they joined on (`call-chat.ts`, with LiveKit's id for the message). The worker reads who and which call off the
+  ticket (`readTicket`), never off the message, so a message is only ever its sender's own; then `video_call.chat`
+  keeps it in `app.video_call_messages`. The same message twice keeps one copy. The route always answers 204, so a
+  page learns nothing from it.
+- **Limits.** A message is 4,000 letters at most (`VIDEO_CALL_MESSAGE_MAX_CHARS`; the chat box sends 1,000), and one
+  person keeps 500 in a call at most (`VIDEO_CALL_CHAT_MAX_PER_PERSON`), so someone flooding the chat can't fill it.
+  Only someone let in, in the call or just gone, adds to it: someone taken out or turned away keeps nothing more.
+- **The team reads it with the call** (`video_call.chat` the query, `records.read`): "Chat from the call · 12",
+  folded away under its count on the appointment (web and phone), and in Notes from the call on the timeline line
+  of a call that wasn't for an appointment. Oldest first, each with who sent it and when, links pressable. A long
+  webinar chat shows its first 1,000, and says how many more there were. It goes with the call: deleting the
+  appointment deletes it.
+- **The AI's notes take it in** when a stretch of the call is over (`video_call.keep_words`), while they're on: each
+  message is a line of its own in the transcript, "Dana (in the chat): dana@example.com", never run into what they
+  said (`videoCallTranscript`, `VIDEO_CALL_TYPED_MARK`), its line breaks made spaces. Each message is taken once,
+  marked with the stretch that took it. Typed words count towards the 15 a transcript needs.
+- **So everything made from the transcript has it:** the summary, the follow-up, and the new email or phone number
+  After the call suggests for the customer (the review's instructions say a typed line counts as much as a spoken
+  one). The coach hears each message as "(in the chat) …" live, from the listener, which reads the chat topic while
+  it's in the room (`listener-room.ts`, `CallHearing.typed`; never captioned, never kept by the listener), and again
+  from the table when the stretch's coaching finishes (`finishCoaching`). The live poll goes by what the team says
+  only.
+- **AI notes off never gives the AI the chat.** Turning them off (`video_call.set_ai`) forgets what was heard as
+  before, and marks every message not yet taken as not the AI's (`VIDEO_CALL_CHAT_NOT_FOR_AI`); turning them back on
+  does the same to what was typed while they were off. Those messages stay with the call for the team. With the
+  notes off when a stretch ends, its messages are marked taken and no transcript is made.
+- **The notices say "said and typed"**: before joining, on the booking page and beside the Join link. The chat
+  itself says, before anyone writes, that messages are seen by everyone in the call and kept with it
+  (`chatKept`). Turning AI notes off says the chat is still kept (`aiOffConfirm`).
+- **Links in the chat can be pressed,** on the web and the phone, in the call and read back, from one copy
+  (`chatLinkParts`): web addresses with or without `https://`, `www.` ones, bare ones on a common ending
+  (`acme.com/quote`), and email addresses. Only http(s) pages and `mailto:` open, never another scheme, and never an
+  address with a name before its host (`https://bank.com@else.com`). On the web a page opens in a new tab, with no
+  referrer.
 
 ### The coach in the call (part 3)
 

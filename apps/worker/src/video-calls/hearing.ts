@@ -12,13 +12,20 @@
  *   the middle of a call (a deploy) loses next to nothing. When the stretch of the call is over they become the
  *   appointment's transcript (`video_call.keep_words`, from handlers.ts). Each goes to the coach as it's finished
  *   too (coach.ts).
+ * - **The chat** (20261027022800): each message someone types goes to the coach as it comes, a line of its own
+ *   marked `typed`. It isn't kept here: every screen reports what it sent, so the chat is kept with the call whatever
+ *   its AI notes (`video_call.chat`), and the transcript takes it from there. It's never captioned: everyone saw it.
  * - **The balance**: the seconds of sound sent, on the live speech line, about once a minute.
  *
  * The room is behind `ListenerRoom`, so this file and its tests never load LiveKit's native media library
  * (listener-room.ts does, in the media process alone).
  */
 import { randomUUID } from 'node:crypto';
-import { VIDEO_CALL_CAPTIONS_TOPIC, type VideoCallCaption } from '@hfos/core';
+import {
+  VIDEO_CALL_CAPTIONS_TOPIC,
+  VIDEO_CALL_CHAT_MAX_PER_PERSON,
+  type VideoCallCaption,
+} from '@hfos/core';
 import type { Logger } from 'pino';
 import {
   spokenLanguage,
@@ -40,8 +47,17 @@ export interface RoomVoice {
   readonly frames: AsyncIterable<Int16Array>;
 }
 
+/** A message someone typed in the call's chat. */
+export interface RoomChat {
+  /** Their identity in the room, as LiveKit says who sent it: their row of the call's people. */
+  readonly identity: string;
+  readonly text: string;
+}
+
 export interface ListenerRoomEvents {
   onVoice(voice: RoomVoice): void;
+  /** A chat message from someone in the call. */
+  onChat?(chat: RoomChat): void;
   /** The listener is out of the room: another listener took its place, the room closed, or the connection went. */
   onGone(why: 'replaced' | 'closed' | 'lost'): void;
 }
@@ -64,7 +80,14 @@ export interface HeardLine {
   readonly text: string;
   readonly saidAt: string;
   readonly language: string | null;
+  /** Typed in the call's chat rather than said. */
+  readonly typed?: boolean;
 }
+
+/** A line's words, at most (`video_call.heard` takes 4,000). */
+const LINE_MAX_CHARS = 4_000;
+/** Chat messages handed on from one person in one stretch of a call, at most: more is someone flooding it. */
+export const CHAT_MAX_PER_PERSON = VIDEO_CALL_CHAT_MAX_PER_PERSON;
 
 /**
  * The voice gate's settings. Browsers clean up their microphone's sound (echo, noise), so quiet comes through as
@@ -301,7 +324,7 @@ export class PersonEar {
       this.deps.onLine({
         key: `${this.deps.session}:${this.who.identity}:${this.turn++}`,
         personId: this.who.identity,
-        text: text.slice(0, 4000),
+        text: text.slice(0, LINE_MAX_CHARS),
         saidAt: new Date(this.saidFrom ?? this.deps.now()).toISOString(),
         language: this.language,
       });
@@ -316,7 +339,7 @@ export interface CallHearingDeps {
   readonly now?: () => number;
   /** Keeps lines heard (`video_call.heard`). Throws when it couldn't, and they're sent again. */
   readonly keep: (lines: readonly HeardLine[]) => Promise<void>;
-  /** Each line as it's finished, before it's kept: the coach in the call (coach.ts). */
+  /** Each line as it's finished, before it's kept, and each chat message: the coach in the call (coach.ts). */
   readonly onLine?: (line: HeardLine) => void;
   /** Seconds of sound sent, on the business's balance. Never throws. */
   readonly bill: (seconds: number) => Promise<void>;
@@ -341,6 +364,8 @@ export const ALONE_MS = 10_000;
 /** One call heard: everyone's microphone, their captions and lines, and what it costs. */
 export class CallHearing {
   private readonly ears = new Map<string, PersonEar>();
+  /** Chat messages kept from each person so far. */
+  private readonly typedBy = new Map<string, number>();
   private readonly waiting: HeardLine[] = [];
   private readonly session = randomUUID().slice(0, 8);
   private readonly now: () => number;
@@ -392,6 +417,28 @@ export class CallHearing {
         ear.close();
         if (this.ears.get(v.identity) === ear) this.ears.delete(v.identity);
       });
+  }
+
+  /**
+   * A message someone typed in the chat, for the coach: a line of its own, as they typed it and when it came. Not kept
+   * with the lines (the call keeps its chat itself) and never captioned. After `CHAT_MAX_PER_PERSON` from one person,
+   * the rest of theirs is dropped.
+   */
+  typed(c: RoomChat): void {
+    if (this.stopped) return;
+    const text = c.text.replace(/\s+/g, ' ').trim().slice(0, LINE_MAX_CHARS);
+    if (!text) return;
+    const n = this.typedBy.get(c.identity) ?? 0;
+    if (n >= CHAT_MAX_PER_PERSON) return;
+    this.typedBy.set(c.identity, n + 1);
+    this.deps.onLine?.({
+      key: `${this.session}:${c.identity}:chat:${n}`,
+      personId: c.identity,
+      text,
+      saidAt: new Date(this.now()).toISOString(),
+      language: null,
+      typed: true,
+    });
   }
 
   /** Every second: turns and streams that went quiet, lines kept, the balance. False once it should leave. */
