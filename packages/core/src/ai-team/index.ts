@@ -4,6 +4,7 @@
  * test, and a live test call). Browser-safe.
  */
 export * from './config';
+export * from './voices';
 export * from './catalogs';
 export * from './presets';
 export * from './rules';

@@ -16,6 +16,7 @@ import { useVoice } from '@/voice/use-voice';
 import { useReplyFeedback, type Coaching } from './feedback';
 import { firstName, historyOf, newTurn, stepTurn, type Turn } from './test-console';
 import { streamTest, TestConsoleError, type TestFailure } from './test-stream';
+import { useVoicePick } from './use-voice-pick';
 
 /** Who the manager plays: someone in Contacts, or nobody (an unknown visitor or caller). */
 export interface TestPerson {
@@ -29,7 +30,8 @@ export interface TestPerson {
  * starts over, as the web's does. Nothing is kept on the phone: a test isn't a change.
  *
  * On a call, talking out loud plays it for real, as on the web: the manager says what the caller says, and hears
- * each reply in the teammate's own phone voice, then it listens again, until the call ends.
+ * each reply in the teammate's own phone voice (or another it's trying: use-voice-pick.ts), then it listens again,
+ * until the call ends.
  *
  * Each reply takes feedback, as on the web (HANDSFREEOS_AI_FEEDBACK_IMPLEMENTATION_PLAN.md): thumbs up or down on its
  * run, and "Retry with the fix" runs a written turn again with what the person said about it, after the turns before
@@ -50,8 +52,10 @@ export function useTestConsole(workspaceId: string, name: string) {
   /** Why the console can't be used at all (no signal, not in this build, the route isn't there). */
   const [failure, setFailure] = React.useState<TestFailure | null>(null);
   const abort = React.useRef<AbortController | null>(null);
-  // The saved settings are what's tested, so it speaks in the teammate's saved voice (null asks the worker).
-  const { session: voice, snap: voiceSnap } = useVoice(workspaceId, null);
+  // The saved settings are what's tested, so it speaks in the teammate's saved voice (null asks the worker), or in
+  // another voice the call is trying.
+  const voicePick = useVoicePick(workspaceId, name);
+  const { session: voice, snap: voiceSnap } = useVoice(workspaceId, voicePick.tryVoice);
   const talking = voiceSnap.phase !== 'off';
   /** The turns already read out (or not to be), so each reply is said once. */
   const said = React.useRef(new Set<string>());
@@ -325,6 +329,8 @@ export function useTestConsole(workspaceId: string, name: string) {
     /** Feedback on each reply, and "Retry with the fix". */
     feedback,
     retry,
+    /** The voice a call speaks in: Hear it, trying another, and Use this voice. */
+    voicePick,
     /** Talking out loud on a call. */
     voice,
     voiceSnap,

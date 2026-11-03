@@ -15,6 +15,7 @@ import {
   type TeammateConfig,
   type UnsureAction,
 } from './config';
+import { phoneVoiceInfo } from './voices';
 
 export const DISCLOSURE_NAMES: Readonly<Record<DisclosureMode, string>> = {
   first_message: 'in its first message',
@@ -120,7 +121,7 @@ export function diffTeammateConfigs(
   // Phone calls, shown with the channels on the page
   change('Phone calls', a.phone.enabled, b.phone.enabled, onOff);
   change('Answers calls', a.phone.answer, b.phone.answer, (v) => PHONE_ANSWER_NAMES[v]);
-  change('Phone voice', a.phone.voice, b.phone.voice);
+  change('Phone voice', a.phone.voice, b.phone.voice, (v) => phoneVoiceInfo(v).name);
   if (a.phone.greeting !== b.phone.greeting) lines.push('Phone greeting changed');
 
   // Respond and answer

@@ -12,14 +12,19 @@
  *
  *   POST {worker}/v1/speech/say
  *   Body (JSON), SpeechSayInput: { workspaceId, text, voice, language }
- *     → 200 audio/mpeg (the stand-in answers audio/wav)
+ *     → 200 audio/mpeg (the stand-in answers audio/wav). Its SPOKEN_VOICE_HEADER names the voice it was said in,
+ *       which is the voice's closest Deepgram one when Rime isn't set up or had trouble (ai-team/voices.ts).
+ *
+ *   GET {worker}/v1/speech/voices
+ *   Authorization: Bearer <the session's access token>.
+ *     → 200 { providers: { deepgram, rime } }: which providers can speak (VoiceReadiness), for the voice pickers.
  *
  *   A refusal is the API's JSON error, { error: { code, message, rule } }: 401 or 403, 400 for an empty or
  *   unreadable recording, 413 when it's too long, and 503 with rule `speech_not_configured` when the worker has no
  *   one to listen and speak (production without a Deepgram key).
  */
 import { z } from 'zod';
-import { PHONE_VOICES, type PhoneVoice } from '../ai-team/config';
+import { PHONE_VOICES, type PhoneVoice } from '../ai-team/voices';
 
 /** The longest recording the worker takes: about a minute of talking at the phone's quality. */
 export const SPEECH_CLIP_MAX_BYTES = 4 * 1024 * 1024;
@@ -29,6 +34,9 @@ export const SPEECH_TURN_MAX_MS = 60_000;
 export const SPEECH_SAY_MAX = 1000;
 /** How much of an Assistant answer is read out; the rest is on the screen. */
 export const SPOKEN_ANSWER_MAX = 700;
+
+/** The response header that names the voice a clip was said in. */
+export const SPOKEN_VOICE_HEADER = 'x-hfos-voice';
 
 /** The Assistant's own voice, so it doesn't sound like the business's AI teammate. */
 export const ASSISTANT_VOICE: PhoneVoice = 'calm';

@@ -2,7 +2,7 @@ import { writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { expect, test } from '@playwright/test';
-import { consentToAssistant, signInOwner } from './booking-helpers';
+import { api, consentToAssistant, signInOwner } from './booking-helpers';
 import { createTeammate } from './ai-team';
 import { createBusiness, signUpAndConfirm } from './helpers';
 
@@ -16,6 +16,8 @@ import { createBusiness, signUpAndConfirm } from './helpers';
  * A live test call runs the same way, streamed: the microphone goes to the worker as phone audio while it talks,
  * the stand-in hears talking and then a pause as "Hello, can you hear me?", and what the teammate says streams
  * back and plays.
+ *
+ * The stand-in speaks every voice, Rime's too, so a test call can try one, hear it and keep it.
  */
 
 const HEARD = 'Hello, can you hear me?';
@@ -159,4 +161,50 @@ test('a live test call from this browser: it picks up, hears the caller, answers
   await bar.getByTestId('live-call-hang-up').click();
   await expect(testConsole.getByTestId('test-console-live-ended')).toContainText('The call ended.');
   await expect(bar).toBeHidden();
+});
+
+test('trying another voice on a test call: Hear it says the greeting, and Use this voice keeps it', async ({
+  page,
+}) => {
+  test.setTimeout(120_000);
+  const { email } = await signUpAndConfirm(page, 'voice-pick-owner');
+  const workspaceId = await createBusiness(page, { name: 'Pecan Street Plumbing' });
+  const { token } = await signInOwner(email);
+  await createTeammate(token, workspaceId);
+
+  await page.goto(`/app/w/${workspaceId}/ai-team`);
+  await page.getByTestId('open-test-console').click();
+  const testConsole = page.getByTestId('test-console');
+  await testConsole.getByTestId('test-channel-phone').click();
+  const pick = testConsole.getByTestId('test-call-voice');
+  await expect(pick).toHaveValue('warm');
+  // Rime's voices sit beside Deepgram's; trying one leaves the settings alone.
+  await pick.selectOption('rime_eyre');
+  const trying = testConsole.getByTestId('test-call-voice-trying');
+  await expect(trying).toContainText('Trying Eyre');
+  const hear = testConsole.getByTestId('test-call-voice-hear');
+  await hear.click();
+  await expect(hear).toHaveAttribute('aria-pressed', 'true');
+  // The stand-in's clip is a few seconds of quiet, and then it's ready to play again.
+  await expect(hear).toHaveAttribute('aria-pressed', 'false', { timeout: 15_000 });
+
+  await testConsole.getByTestId('test-call-voice-use').click();
+  await expect(page.getByText('Eyre is its phone voice now.')).toBeVisible();
+  await expect(trying).toBeHidden();
+  await expect(pick).toHaveValue('rime_eyre');
+  // The builder saves it as it saves any change: calls are answered in it.
+  await expect
+    .poll(
+      async () =>
+        (
+          await api<{ teammate: { config: { phone: { voice: string } } } }>(
+            token,
+            'queries',
+            'ai_teammate.get',
+            { workspaceId },
+          )
+        ).teammate.config.phone.voice,
+      { timeout: 20_000 },
+    )
+    .toBe('rime_eyre');
 });

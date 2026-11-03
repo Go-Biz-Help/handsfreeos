@@ -1243,6 +1243,35 @@
         "required": ["workspaceId", "rating"]
       }
     },
+    "ai_teammate.save_config": {
+      "offline": "online",
+      "input": {
+        "type": "object",
+        "properties": {
+          "workspaceId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "teammateId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "baseRevision": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 9007199254740991
+          },
+          "config": {
+            "type": "object",
+            "propertyNames": {
+              "type": "string"
+            },
+            "additionalProperties": {}
+          }
+        },
+        "required": ["workspaceId", "teammateId", "baseRevision", "config"]
+      }
+    },
     "ai_teammate.set_status": {
       "offline": "online",
       "input": {

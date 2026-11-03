@@ -4,6 +4,8 @@ import {
   localDateOf,
   localInstant,
   minutesPastMidnight,
+  PHONE_VOICE_PICK_WORDS,
+  phoneVoiceInfo,
   TEST_CALL_GOAL_MAX,
   TEST_CALL_REASONS,
   TEST_CHANNEL_NAMES,
@@ -61,6 +63,7 @@ import { cn } from '@/lib/utils';
 import { useColors } from '@/theme';
 
 import { ReplyFeedback } from './reply-feedback';
+import { VoicePicker } from './voice-picker';
 
 /**
  * The AI teammate's test console on the phone: everything the web's has (apps/web/src/components/ai-team/
@@ -161,6 +164,7 @@ export function TestConsoleView({
       : 'Incoming call'
     : TEST_CHANNEL_NAMES[c.channel];
   const when = c.at ? atWords(c.at, timeZone) : 'Now';
+  const voiceName = c.phone ? ` · ${phoneVoiceInfo(c.voicePick.callVoice).name} voice` : '';
   const failure =
     c.failure === 'no_signal' || c.failure === 'not_configured' || c.failure === 'gone'
       ? FAILURE_WORDS[c.failure]
@@ -181,6 +185,7 @@ export function TestConsoleView({
           </Text>
           <Text className="text-xs text-text-3" numberOfLines={1} testID="test-console-how">
             {how} · {when}
+            {voiceName}
           </Text>
         </View>
         <Text className="text-[13px] font-medium text-accent-text">Change</Text>
@@ -640,6 +645,12 @@ function SetupSheet({
               { value: 'outbound', label: 'Outgoing', testID: 'test-call-outbound' },
             ]}
           />
+        </Field>
+      ) : null}
+
+      {c.phone ? (
+        <Field label={PHONE_VOICE_PICK_WORDS.label}>
+          <VoicePicker pick={c.voicePick} />
         </Field>
       ) : null}
 

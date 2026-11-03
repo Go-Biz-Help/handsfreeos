@@ -36,7 +36,7 @@ import { phoneNumbers, telephonyAccounts } from '@hfos/db/schema';
 import type WebSocket from 'ws';
 import { KeyedLimiter } from '../chat/limiter';
 import { hasPermission, parseBody, requirePermission, type HttpDeps } from '../http/common';
-import { noteSpeech, speechKchars, speechMinutes } from '../money/speech-usage';
+import { noteSpeech, speechMinutes, voiceUses } from '../money/speech-usage';
 import type { TurnOutcome } from '../voice-agent/brain';
 import { CONNECTING, tongue, type CallLine } from '../voice-agent/prompt';
 import {
@@ -243,12 +243,7 @@ export function testCallMind(o: {
           source: 'talk',
           ref: o.testCallId,
         },
-        {
-          key: 'speech.voice.kchar',
-          quantity: speechKchars(said),
-          source: 'talk',
-          ref: o.testCallId,
-        },
+        ...voiceUses(said, 'talk', o.testCallId),
       ]),
 
     heard(words) {

@@ -5,23 +5,34 @@ import type { AiSwitchboard } from '../ai/switch';
 import type { WorkerEnv } from '../env';
 import { createDeepgramSpeech } from './deepgram-speech';
 import { createFakeSpeech } from './fake-speech';
+import { createRimeSpeech } from './rime-speech';
 import type { SpeechServices } from './speech';
+import { withVoices } from './voices';
 
 /**
  * Hearing and speaking on a live call, from VOICE_AGENT: Deepgram, the stand-in, or off (null). Deepgram listens
- * with VOICE_LISTENER's model.
+ * with VOICE_LISTENER's model. Rime speaks the Rime voices with RIME_API_KEY (voices.ts); the stand-in speaks every
+ * voice, Rime's too. `trouble` is told when a Rime voice can't speak (voice-trouble.ts).
  */
 export function createSpeech(
-  env: Pick<WorkerEnv, 'voiceAgent' | 'deepgramApiKey' | 'voiceListener'>,
+  env: Pick<WorkerEnv, 'voiceAgent' | 'deepgramApiKey' | 'voiceListener' | 'rimeApiKey'>,
   log: Logger,
+  trouble?: SpeechServices['trouble'],
 ): SpeechServices | null {
   if (env.voiceAgent === 'deepgram' && env.deepgramApiKey)
-    return createDeepgramSpeech({
-      apiKey: env.deepgramApiKey,
-      log,
-      listener: env.voiceListener,
+    return withVoices({
+      base: createDeepgramSpeech({
+        apiKey: env.deepgramApiKey,
+        log,
+        listener: env.voiceListener,
+      }),
+      rime: env.rimeApiKey ? createRimeSpeech({ apiKey: env.rimeApiKey, log }) : null,
+      trouble,
     });
-  if (env.voiceAgent === 'fake') return createFakeSpeech();
+  if (env.voiceAgent === 'fake') {
+    const fake = createFakeSpeech();
+    return withVoices({ base: fake, rime: fake, trouble });
+  }
   return null;
 }
 
