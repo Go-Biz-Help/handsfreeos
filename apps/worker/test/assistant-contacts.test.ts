@@ -1,8 +1,9 @@
 /**
  * The Assistant's customers in bulk (0107), against the real database: many customers at once with their tags;
  * tags on or off many in one go, a new tag made on the way; any detail of a customer changed, added or taken off;
- * and the AI's pass over the whole list started, read and stopped. Every change waits for Confirm, runs as the
- * person "via Assistant", and keeps the reason they gave on its audit row.
+ * and the AI's pass over the whole list started, read and stopped; and Settings → Tags' tags added, renamed,
+ * recoloured and deleted. Every change waits for Confirm, runs as the person "via Assistant", and keeps the reason
+ * they gave on its audit row.
  */
 import { randomUUID } from 'node:crypto';
 import {
@@ -278,6 +279,11 @@ describe('ai_tag_customers', () => {
       instructions: 'Anyone with a heat pump gets Heat pump.',
     });
 
+    // One pass at a time, as the screen shows Stop instead of the form while one goes.
+    await expect(prepare('ai_tag_customers', args)).rejects.toMatchObject({
+      rule: 'contact_ai_running',
+    });
+
     const stop = await prepare('ai_tag_customers', { action: 'stop' });
     expect(stop.card.title).toBe('Stop the AI going through your customers?');
     expect((await commit('ai_tag_customers', { action: 'stop' })).outcome).toBe(
@@ -288,5 +294,74 @@ describe('ai_tag_customers', () => {
       sql`select status, cancelled_by from app.contact_ai_sweeps where workspace_id = ${workspaceId}`,
     );
     expect(sweep).toEqual({ status: 'cancelled', cancelled_by: owner.id });
+  });
+});
+
+describe('Settings → Tags: manage_tag', () => {
+  const tagList = async () =>
+    rows<{ id: string; name: string; color: string }>(
+      admin(),
+      sql`select id, name::text as name, color from app.tags where workspace_id = ${workspaceId} order by name`,
+    );
+  const tagNamed = async (name: string) => (await tagList()).find((t) => t.name === name);
+
+  it('adds a tag only on Confirm, and turns away a name that’s taken', async () => {
+    const args = { action: 'create', name: 'Solar lead', color: '#16A34A' };
+    const { card } = await prepare('manage_tag', args);
+    expect(card.title).toBe('Add the Solar lead tag');
+    expect(field(card, 'Colour')).toBe('#16a34a');
+    expect(await tagNamed('Solar lead')).toBeUndefined();
+
+    await commit('manage_tag', args);
+    expect(await tagNamed('Solar lead')).toMatchObject({ color: '#16a34a' });
+
+    await expect(prepare('manage_tag', { action: 'create', name: 'vip' })).rejects.toMatchObject({
+      rule: 'tag_exists',
+      message: expect.stringContaining('There’s already a tag called VIP.'),
+    });
+  });
+
+  it('renames one, and says which tag and when nothing would change', async () => {
+    const solar = (await tagNamed('Solar lead'))!;
+    const args = { action: 'change', tagId: solar.id, name: 'Solar' };
+    const { card } = await prepare('manage_tag', args);
+    expect(card.title).toBe('Change the Solar lead tag');
+    expect(field(card, 'Tag')).toBe('Solar');
+    expect(field(card, 'Was')).toBe('Solar lead');
+    await commit('manage_tag', args);
+    expect(await tagNamed('Solar')).toMatchObject({ id: solar.id, color: '#16a34a' });
+
+    await expect(
+      prepare('manage_tag', { action: 'change', tagId: solar.id, color: '#16a34a' }),
+    ).rejects.toMatchObject({ rule: 'nothing_to_change' });
+    await expect(prepare('manage_tag', { action: 'change', name: 'Sun' })).rejects.toThrow(
+      'Say which tag',
+    );
+    await expect(
+      prepare('manage_tag', { action: 'change', tagId: solar.id, name: 'VIP' }),
+    ).rejects.toMatchObject({ rule: 'tag_exists' });
+  });
+
+  it('deletes one only on Confirm, saying who loses it and that it can’t come back', async () => {
+    const { tagId } = await run(tagCreate, { workspaceId, name: 'Old list' }, owner);
+    await run(
+      recordAddTag,
+      { workspaceId, recordType: 'person', recordId: people['Ann'], tagId },
+      owner,
+    );
+    const { card } = await prepare('manage_tag', { action: 'delete', tagId });
+    expect(card.title).toBe('Delete the Old list tag');
+    expect(field(card, 'On')).toBe('1 customer or lead');
+    expect(card.warnings[0]).toMatchObject({ kind: 'caution' });
+    expect(card.warnings[0]!.text).toContain('can’t be brought back');
+    expect(await tagsOn(people['Ann']!)).toContain('Old list');
+
+    const done = await commit('manage_tag', { action: 'delete', tagId });
+    expect(done.outcome).toBe('Deleted, and taken off 1 customer or lead');
+    expect(await tagNamed('Old list')).toBeUndefined();
+    expect(await tagsOn(people['Ann']!)).not.toContain('Old list');
+    await expect(prepare('manage_tag', { action: 'delete', tagId })).rejects.toThrow(
+      'No tag has that id.',
+    );
   });
 });

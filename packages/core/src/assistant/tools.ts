@@ -542,7 +542,7 @@ export const assistantTools = [
   define({
     name: 'manage_tag',
     description:
-      'Add, rename, recolour or delete one of the labels you put on customers and leads.',
+      'Add, rename, recolour or delete one of the tags (labels) you put on customers and leads, as Settings → Tags lists them. tagId comes from get_settings with area tags, which also says how many records have each. Deleting takes it off all of them and can’t be undone. To put tags on or take them off customers, use tag_customers.',
     input: z.object({
       action: z.enum(['create', 'change', 'delete']),
       tagId: uuid.optional(),
