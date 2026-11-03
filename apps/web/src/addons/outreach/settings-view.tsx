@@ -18,6 +18,8 @@
 import {
   BusinessRules,
   choicesFor,
+  groupModeChange,
+  groupModeOf,
   hoursProblem,
   hourWords,
   OTHER_PLATFORMS,
@@ -53,6 +55,7 @@ import {
   NETWORK_WORDS as NW,
   networksOn,
   noRunnerWords,
+  groupsChoiceOn,
   onItsOwnAbout,
   postingAboutOn,
   requestsChoiceOn,
@@ -308,7 +311,8 @@ export function NetworkModes({
 /**
  * Along the way on one network, in its words: liking first, confirming requests, the once-a-day jobs, and more. Where
  * the extension answers the requests the person gets (Facebook's), how it answers them, in place of a tick
- * (decision 121).
+ * (decision 121); and where groups are theirs to work (Facebook's and Alignable's), whether it joins more or works
+ * only the groups they're in (decision 148).
  */
 export function NetworkTicks({
   platform,
@@ -327,8 +331,10 @@ export function NetworkTicks({
   // None on a network whose runner reads none yet.
   const shown = ticksShownOn(platform);
   const requests = requestsChoiceOn(platform);
-  if (!shown.length && !requests) return null;
+  const groups = groupsChoiceOn(platform);
+  if (!shown.length && !requests && !groups) return null;
   const answering = requestModeOf(value);
+  const grouping = groupModeOf(value);
   return (
     <>
       {shown.length ? (
@@ -360,6 +366,22 @@ export function NetworkTicks({
                 title={o.label}
                 description={o.note ?? undefined}
                 testId={`${testId}-requests-${o.key}`}
+              />
+            ))}
+          </div>
+        </Part>
+      ) : null}
+      {groups ? (
+        <Part title={groups.label} about={groups.about} card={card} testId={`${testId}-groups`}>
+          <div role="radiogroup" aria-label={groups.label} className="flex flex-col gap-2">
+            {groups.options.map((o) => (
+              <RadioCard
+                key={o.key}
+                selected={grouping === o.key}
+                onSelect={() => onChange(groupModeChange(o.key))}
+                title={o.label}
+                description={o.note}
+                testId={`${testId}-groups-${o.key}`}
               />
             ))}
           </div>

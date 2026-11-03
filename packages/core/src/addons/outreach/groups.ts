@@ -21,6 +21,7 @@ import { PersonName, ProfileRef } from './saves';
 import {
   GroupCheckShown,
   JOIN_STATE_KEYS,
+  MEMBER_DEPTH_MOST,
   ProspectsLeft,
   type GroupCheckState,
 } from './group-checks';
@@ -214,6 +215,12 @@ export const GroupSaveInput = GroupFactsInput.extend({
     .default([]),
   /** The page was its full list of admins and moderators: everyone who runs it is known now. */
   adminsPage: z.boolean().default(false),
+  /**
+   * How many screens down its member list this read got (decision 148), so the next one goes further: 0 when the list
+   * ended or it was read as deep as it goes, which starts the next read at the top. Left out by a read that wasn't the
+   * once-a-day members one, and by a build before it, which leaves the depth as it was.
+   */
+  readTo: z.number().int().min(0).max(MEMBER_DEPTH_MOST).nullable().default(null),
 });
 export type GroupSaveInput = z.input<typeof GroupSaveInput>;
 
@@ -263,6 +270,11 @@ export const GroupsOutput = z.object({
       runsGroup: n,
       /** Whether its full list of admins and moderators has been read. */
       adminsRead: z.boolean(),
+      /**
+       * How many screens down the person's last read of its members got (decision 148): the next read starts there, so
+       * a big group is worked right through. 0 starts at the top.
+       */
+      membersDepth: n,
       /** Friend requests the business sent to people found there. */
       requests: n,
       /** Of everyone the business reached from it, ever, how many wrote back and booked a demo (./results.ts). */

@@ -18,7 +18,10 @@ import { cantAskWhy, latestAskOn } from '../../src/addons/outreach/asks';
 import {
   autoKinds,
   AUTOMATION_DEFAULTS,
+  groupModeChange,
+  groupModeOf,
   NETWORKS_DEFAULTS,
+  onlyMyGroups,
   SENDING_MODES,
   type AutomationSettings,
 } from '../../src/addons/outreach/automation';
@@ -31,6 +34,7 @@ import {
   ALONG_TICKS,
   chatUrlOn,
   dailyWordsOn,
+  groupsChoiceOn,
   NETWORK_FILTERS,
   NETWORK_WORDS,
   networkShown,
@@ -82,13 +86,30 @@ describe('a network’s words on screen', () => {
     // Facebook's confirming is a choice of five in its place (decision 121, `requestsChoiceOn`).
     expect(ticksShownOn('facebook')).toEqual(ALONG_TICKS.filter((t) => t !== 'confirmRequests'));
     expect(ticksShownOn('linkedin')).toEqual(['warmUp', 'collect']);
-    // Alignable's runner (part 5) reads the warm-up and the once-a-day jobs, as LinkedIn's does, and joins good
-    // groups when people found in its groups run low (decision 92).
-    expect(ticksShownOn('alignable')).toEqual(['warmUp', 'collect', 'joinGroups']);
-    expect(ticksOn('alignable').joinGroups).toEqual([
-      'Join good groups when my groups run low',
-      'Your own groups come first. When the people found in them run low, it finds groups for your niche and area, and joins up to 3 good ones a day.',
+    // Alignable's runner (part 5) reads the warm-up and the once-a-day jobs, as LinkedIn's does. Groups are a pick of
+    // two in their own place, never a switch along the way (decision 148).
+    expect(ticksShownOn('alignable')).toEqual(['warmUp', 'collect']);
+    // Groups are the person's to work on Facebook (decision 48) and Alignable (decision 92), and nowhere else.
+    expect(groupsChoiceOn('alignable')?.options.map((o) => o.label)).toEqual([
+      'Join more good groups when mine run low',
+      'Only the groups I’m in',
     ]);
+    expect(groupsChoiceOn('alignable')?.options[0]?.note).toMatch(/your niche and area/);
+    // Only their own says what stops on that network, in its words: Alignable's connection requests.
+    expect(groupsChoiceOn('alignable')?.options[1]?.note).toMatch(
+      /your connection requests go only to people in your own groups/,
+    );
+    expect(groupsChoiceOn('facebook')?.options[1]?.note).toMatch(
+      /your friend requests go only to people in your own groups/,
+    );
+    expect(groupsChoiceOn('linkedin')).toBeNull();
+    expect(groupsChoiceOn('instagram')).toBeNull();
+    // Which of the two a person is on, and what a pick keeps (decision 148).
+    expect(groupModeOf({ joinGroups: true })).toBe('join');
+    expect(groupModeOf({ joinGroups: false })).toBe('mine');
+    expect(groupModeChange('mine')).toEqual({ joinGroups: false });
+    expect(onlyMyGroups({ joinGroups: false })).toBe(true);
+    expect(onlyMyGroups({ joinGroups: true })).toBe(false);
     // Instagram's (part 14) the same: it confirms no follow requests, joins no groups and has no hourly look.
     expect(ticksShownOn('instagram')).toEqual(['warmUp', 'collect']);
     // And Today marks as done on their own only the steps its runner does: from decision 136 LinkedIn's and

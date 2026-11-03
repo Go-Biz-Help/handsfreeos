@@ -373,6 +373,14 @@ export const answersRequests = (platform: Platform): boolean =>
   NETWORKS[platform].runs.auto.includes('confirm');
 
 /**
+ * Whether groups are the person's to work on a network (decision 48 on Facebook, decision 92 on Alignable): its runner
+ * reads them and can ask to join them, so the person picks between joining more and only their own (decision 148).
+ * Instagram has no groups, and LinkedIn's are too quiet to work.
+ */
+export const joinsGroups = (platform: Platform): boolean =>
+  NETWORKS[platform].runs.ticks.includes('joinGroups');
+
+/**
  * A network's daily limits as they stand for the person: the business's own on that network, each at most the
  * network's starting one, halved (never below one) after a warning there or on training wheels there.
  */

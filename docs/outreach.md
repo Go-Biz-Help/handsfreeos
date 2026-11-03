@@ -200,8 +200,8 @@ became.
   playbook haven't been reached yet, against a day of friend requests ("1,240 people left to reach: about 62 days of
   friend requests"), each group's row the same, and when it's under a week (`LOW_DAYS`), says so. **Find and join
   more groups** (an ask, `join`), **Ask to join** on a group, and the once-a-day jobs while the person's
-  **Join good groups when my groups run low** setting is on (on to start) and people left are low, ask to join up to
-  3 a day (`JOINS_PER_DAY`, halved for a week after a warning; `outreach.joins.next`): the groups the AI said have
+  **Groups** pick is **Join more good groups when mine run low** (as it starts, decision 148) and people left are
+  low, ask to join up to 3 a day (`JOINS_PER_DAY`, halved for a week after a warning; `outreach.joins.next`): the groups the AI said have
   the business's people, then those that fit well by name not checked yet. With none, the extension searches
   Facebook with the playbook's words, checks the best 3 it finds and asks again. It presses **Join group**; when the
   group asks questions first, the AI answers each from the playbook (the worker's `outreach.join.answer` action),
@@ -686,7 +686,7 @@ became.
 | The runner, and what it presses                          | `apps/extension/src/auto/plan.ts`, `src/auto/run.ts`, `src/auto/turns.ts`, `src/facebook/auto.ts`, `src/panel/status.ts`, `src/tab.ts`                                                                                                                                              |
 | Stages and the pitch (decision 47)                       | `stages.ts`, `ops/stages.ts`, `apps/web/src/addons/outreach/pipeline-view.tsx`, `apps/mobile/src/addons/outreach/pipeline.tsx`, `supabase/migrations/20261027002100_outreach_stages.sql`                                                                                            |
 | The fits among friends and chats (decision 46)           | `checks.ts`, `ops/checks.ts`, `apps/worker/src/addons/outreach/checks.ts`, `apps/extension/src/jobs/checks.ts`, `supabase/migrations/20261027002000_outreach_fit_checks.sql`                                                                                                        |
-| Groups, theirs first, then new ones (decision 48)        | `group-checks.ts`, `ops/group-checks.ts`, `apps/worker/src/addons/outreach/groups.ts`, `apps/extension/src/jobs/groups-check.ts`, `src/jobs/join.ts`, `src/facebook/join.ts`, `supabase/migrations/20261027002200_outreach_group_checks.sql`                                        |
+| Groups, theirs first, then new ones (decisions 48, 148)  | `group-checks.ts`, `ops/group-checks.ts`, `apps/worker/src/addons/outreach/groups.ts`, `apps/extension/src/jobs/groups-check.ts`, `src/jobs/join.ts`, `src/facebook/join.ts`, `supabase/migrations/20261027002200_outreach_group_checks.sql`                                        |
 | Finding people by topic (decision 92)                    | `finds.ts`, `ops/finds.ts`, `topics.ts`, `sends.ts` (`commentHoldOn`), `apps/worker/src/addons/outreach/words.ts`, `apps/extension/src/jobs/found-checks.ts`, `src/auto/comments.ts`, `supabase/migrations/20261027014100_outreach_found_by_topic.sql`                              |
 | Asking the extension                                     | `asks.ts`, `ops/asks.ts`, `apps/web/src/addons/outreach/asks.tsx`, `apps/worker/src/addons/outreach/asks.ts`, `supabase/migrations/20261027001700_outreach_asks.sql`                                                                                                                |
 | Its jobs                                                 | `apps/extension/src/asks/run.ts`, `src/hfos/asks.ts`, `src/jobs/`, `src/offscreen.ts`                                                                                                                                                                                               |
@@ -3669,6 +3669,35 @@ where decisions 37 and 59 put the settings; what they decided stands. Settled to
         ends it now; still at the limit, the next Connect pauses them again.
       - Any network's own monthly limit could use the same pause; only Alignable's is read today.
 
+148.  **Only the groups I'm in** (Chris, 3 Nov 2026: "I want a setting in the social outreach tool to stop it from
+      joining more groups in the different platforms and focus on connecting with the members of the groups we are
+      already in"), answered "1a 2a 3a 4a"; extension **0.125.0**, migration
+      `20261027022200_outreach_members_depth.sql`.
+      - **A pick of two, in place of the Join switch** (`GROUP_MODES`, `groupModeOf`, kept as `joinGroups`), on each
+        network where groups are the person's to work (`joinsGroups`: Facebook, decision 48, and Alignable,
+        decision 92), under **Groups** on that network's page in Settings, on the web and the phone
+        (`groupsChoiceOn`): **Join more good groups when mine run low**, as it starts and always worked, or **Only the
+        groups I'm in**. Each person picks their own, on each network (answer 3a). Instagram has no groups and
+        LinkedIn's are too quiet, so neither shows it.
+      - **Only the groups I'm in stops looking outside them** (`onlyMyGroups`), not just the joining:
+        - nothing is joined or searched for on its own (`outreach.joins.next`'s `onItsOwn`, as the switch off did);
+        - the AI reads no group they aren't in (`outreach.groups.to_check`), so nothing is spent checking groups
+          they'd never work;
+        - the day's friend requests go only to people found in groups they're in, on Facebook by the words they show
+          and on Alignable by the AI's check of each (`outreach.today`, `foundGood`'s `onlyMine`);
+        - people left to reach, and the days of friend requests on the Groups page, count only those groups
+          (`peopleLeft`'s `onlyMine`, `prospectsWords`);
+        - the day's goal never says to join more groups: it says to add search words instead (`goalTries`).
+      - **Their own press still joins** (answer 4a): **Find and join more groups** and a group's **Ask to join** work
+        as they always did, under either pick. A group joined that way is one of their own from then on.
+      - **A group's members are read further down each day** (answer 2a, `MEMBER_DEPTH_MOST` 40 screens,
+        `my_groups.members_depth`): the once-a-day read of a group's member list scrolls past the screens the last read
+        covered, at a quicker pace since it saves nothing, then reads its own ten screens (five on Alignable) and
+        notes where it got to (`outreach.group.save`'s `readTo`). A list that ran out, or one read as deep as it goes,
+        starts at the top again; one stopped part way leaves the depth as it was. This runs under either pick, so a
+        big group is worked right through instead of its first screens over and over.
+      - A business's owner setting it for the whole team was offered and left out (answer 3a): each person picks.
+
 ## Rules worth knowing before changing anything
 
 - **Nothing is saved until the person presses a button in HandsFreeOS** (an ask, below), except the four steps the
@@ -3813,15 +3842,15 @@ where decisions 37 and 59 put the settings; what they decided stands. Settled to
   kept apart. On LinkedIn the extension notes the person's own steps, who wrote back and LinkedIn's warnings, as
   LinkedIn's (0.34.0, apps/extension/README.md, "The networks"), and takes no ask there before 0.40.0
   (`ASK_NETWORK_SINCE`); the activity panel is Facebook's. Joining groups is Facebook's and, from decision 92,
-  Alignable's, each with its own joins a day, warning and switch (`outreach.groups.to_check` and
+  Alignable's, each with its own joins a day, warning and groups pick (decision 148; `outreach.groups.to_check` and
   `outreach.joins.next` take `platform`, Facebook's when an older build names none). The team's live view is the network on
   screen's, as the person's own is (`outreach.live.team`'s `platform`): on any other than Facebook, only the people
   who have it on. A new place that
   reads a warning, a day or the day's counts names its network.
 - **Each network has its own choices** (Chris, 15 Oct 2026: the same choices as Facebook, each person turning networks
   on). Facebook's are the settings they always were; every other network's are in `AutomationSettings.networks`
-  (`NetworkChoices`: on, sending, replies, liking a post first, confirming requests, the once-a-day jobs, joining
-  groups, watching for posts, helpful posts), kept in `automation.networks` and off to start (20261027007100). Read
+  (`NetworkChoices`: on, sending, replies, liking a post first, confirming requests, the once-a-day jobs, what it does
+  about groups, watching for posts, helpful posts), kept in `automation.networks` and off to start (20261027007100). Read
   one network's with `choicesFor`, or `automationOf(ctx, me, now, platform)`, never the top-level fields for a network
   that isn't Facebook. The business allows networks (`rules.networksAllowed`, every one to start, Facebook always)
   and sets each other network's limits under its starting ones (`rules.networkLimits`); a network it stops allowing
@@ -4290,7 +4319,9 @@ where decisions 37 and 59 put the settings; what they decided stands. Settled to
   and group, restrictive to its person (`joins_own`); a failed one is asked again after a week, a new ask resetting
   when it went. The day's asks count since the business's midnight. Joining on its own is the person's
   `join_groups`, kept since 20261027001200 but unused until 20261027002200, which turned it on for everyone; the
-  once-a-day job joins only while it's on and people left to reach are under a week of friend requests. People left
+  once-a-day job joins only while it's on and people left to reach are under a week of friend requests. From
+  decision 148 that column is a pick of two (`onlyMyGroups`): off, the person works only the groups they're in, so no
+  group they aren't in is checked either, and their day reaches only those groups' people. People left
   count the way Today picks friend requests (found in a group that fits, fit a playbook, never reached, never running
   a group, on Don't pitch or in Contacts), up to 5,000. Groups go by network (decision 92): on Alignable the same
   pipeline checks and joins its groups, and people left count only those found in its groups, by the AI's check of
