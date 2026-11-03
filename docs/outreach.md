@@ -3037,7 +3037,10 @@ where decisions 37 and 59 put the settings; what they decided stands. Settled to
         address (`?view=…`, as pushes, emails, the extension and old phones still open) goes to the page its view
         became, with the rest of its query: `waiting` and `code` to Needs you, `live` to Today, `activity` to Results,
         and a Settings part into its path (`/settings/linkedin`). On the phone, the add-on's first screen lists the same
-        pages in the same order, each with what it's for (`home.tsx`), and each opens as its own screen.
+        pages in the same order, each with what it's for (`home.tsx`), and each opens as its own screen. Back from one
+        comes to that list, even when a link opened it (the bell, a notification), and Back from the list to More's
+        list (`first-screen.ts`: before 3 Nov 2026 Back from Needs you opened by the bell went Home, and More opened
+        Needs you again).
       - **Needs you is its own page,** first in the menu, with its count on the menu: on its page in the pop-out, and
         on the add-on's row while that's closed (the web registry's `navCount`, which any add-on can declare; this
         one's is `menu-count.tsx`, asking `outreach.waiting` for the counts alone). It's never narrowed to a network,
