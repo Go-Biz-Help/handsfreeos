@@ -10922,6 +10922,25 @@ the same way it refuses removing a business's last owner.
   paste into a Claude session on the code (the phone shares it instead); **Mark handled** files it. Open ones show
   first, by area. They go after 30 days, handled or not. Leads and admins, like Health. Needs
   `20261027008100_problem_reports.sql`. See "Apply new migrations".
+
+  The open ones come in two sections (`20261027023100_problem_reports_limits_and_clearing.sql`):
+  - **Limits**, on top: a business hit its daily AI limit, its balance ran out, or a network refused or warned (a
+    connection limit, say). Nothing in HandsFreeOS to fix. Each line says what it is and where it's raised. Each
+    report is sorted when it's sent, by core's `problemKind` (`packages/core/src/support/problem-sort.ts`).
+  - **Needs a fix**: everything else, grouped by problem (its network, its step and what went wrong), newest first.
+    Each opens to that step's reports.
+
+  Reports clear themselves to **Handled**, with why, through the worker's hourly `problem_reports.clear`:
+  - a limit once it's over (the daily AI limit at the business's own midnight, the rest after a day);
+  - a problem that hasn't happened again for 3 days (`PROBLEM_QUIET_DAYS`);
+  - a fixed problem's reports from before its fix. **When you fix a problem from this page, add an entry to
+    `PROBLEM_FIXES` in `packages/core/src/support/problem-fixes.ts` in the same pull request**: its area, step, the
+    start of its note when the step has other problems too, and the version with the fix (or when it went live, for
+    the web app). Once it's live, every open report of it from an older version clears. One from the fixed version or
+    later stays open: the fix didn't hold.
+
+  **Opening one again** forgets why it cleared, and a person marking one handled puts their name on it as before.
+
 - **Assistant coverage** is what Ask HandsFreeOS can't do yet, page by page in the menu's order: the actions, the
   settings pages whose rows aren't checked yet, and what it never does on purpose, with why. **Copy gaps** puts them
   on the clipboard, ready to paste into a Claude session on the code (the phone shares them instead). It's read from
@@ -10933,6 +10952,15 @@ the same way it refuses removing a business's last owner.
   the onboarding events; no business or person is named. How far people get through the wizard's pages is in
   Matomo (site 5), and the page links to its pages report. Needs
   `20261013001500_counting_getting_started.sql` (`private.admin_onboarding_counts`). See "Apply new migrations".
+
+#### The daily problem check
+
+A scheduled Claude task runs every morning in the project. It reads **Needs a fix** (the live database's
+`app.problem_reports`, open and `kind = 'fix'`, through the Supabase connector, read only), finds each new problem's
+cause in the code, fixes it with a test, adds its `PROBLEM_FIXES` entry, and puts the day's fixes in one pull request
+for the owner to merge. A problem that's really a limit gets its words added to `problemKind` instead. After three
+mornings in a row with nothing to fix, it stops and says so. It never marks reports handled by hand: they clear
+themselves once the fix is live.
 
 ### Looking at a business
 

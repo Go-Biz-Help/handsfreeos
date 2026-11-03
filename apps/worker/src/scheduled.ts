@@ -81,8 +81,10 @@ import {
 } from './housekeeping/receipts';
 import {
   nextProblemReportCleanUp,
+  nextProblemReportClearing,
   PROBLEM_REPORT_JOBS,
   PROBLEM_REPORTS_CLEAN_UP_KEY,
+  PROBLEM_REPORTS_CLEAR_KEY,
   problemReportJobs,
 } from './housekeeping/problem-reports';
 import {
@@ -953,6 +955,15 @@ export async function ensureRecurringJobs(services: WorkerServices): Promise<voi
       kind: PROBLEM_REPORT_JOBS.cleanUp,
       dedupeKey: PROBLEM_REPORTS_CLEAN_UP_KEY,
       runAt: nextProblemReportCleanUp(now),
+      payload: {},
+      workspaceId: null,
+      organizationId: null,
+    });
+    // Every hour: reports whose limit is over, whose problem went quiet or was fixed, cleared to Handled.
+    await scheduleJob(tx, {
+      kind: PROBLEM_REPORT_JOBS.clear,
+      dedupeKey: PROBLEM_REPORTS_CLEAR_KEY,
+      runAt: nextProblemReportClearing(now),
       payload: {},
       workspaceId: null,
       organizationId: null,

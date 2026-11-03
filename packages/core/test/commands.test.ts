@@ -947,6 +947,7 @@ describe('registry', () => {
       'platform.wallet.get',
       'platform.problem_report.list',
       'platform.problem_report.get',
+      'platform.problem_report.groups',
       'platform.learned_way.list',
       'teammate_view.current',
       'teammate_view.lens',

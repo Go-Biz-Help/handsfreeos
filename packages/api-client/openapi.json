@@ -118836,7 +118836,7 @@
     "/v1/queries/platform.problem_report.list": {
       "post": {
         "operationId": "query_platform_problem_report_list",
-        "summary": "Support: what HandsFreeOS’s own tools saw when something didn’t go, from every business, newest first: open, handled or both, on one area or all.",
+        "summary": "Support: what HandsFreeOS’s own tools saw when something didn’t go, from every business, newest first: open, handled or both, on one area or all, one step or all, limits or what needs a fix or both.",
         "tags": [
           "queries"
         ],
@@ -118863,6 +118863,34 @@
                       {
                         "type": "string",
                         "pattern": "^[a-z][a-z0-9_]{0,39}$"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "job": {
+                    "default": null,
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 40
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "kind": {
+                    "default": null,
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "enum": [
+                          "fix",
+                          "limit"
+                        ]
                       },
                       {
                         "type": "null"
@@ -118986,6 +119014,49 @@
                               }
                             ]
                           },
+                          "kind": {
+                            "type": "string",
+                            "enum": [
+                              "fix",
+                              "limit"
+                            ]
+                          },
+                          "limitKind": {
+                            "anyOf": [
+                              {
+                                "type": "string",
+                                "enum": [
+                                  "ai_daily",
+                                  "ai_balance",
+                                  "network"
+                                ]
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "cleared": {
+                            "anyOf": [
+                              {
+                                "type": "string",
+                                "enum": [
+                                  "limit_over",
+                                  "fixed",
+                                  "quiet"
+                                ]
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "fixedIn": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
                           "hasOutline": {
                             "type": "boolean"
                           },
@@ -119041,6 +119112,10 @@
                           "shown",
                           "note",
                           "handledAt",
+                          "kind",
+                          "limitKind",
+                          "cleared",
+                          "fixedIn",
                           "hasOutline",
                           "helper"
                         ],
@@ -119272,6 +119347,49 @@
                         }
                       ]
                     },
+                    "kind": {
+                      "type": "string",
+                      "enum": [
+                        "fix",
+                        "limit"
+                      ]
+                    },
+                    "limitKind": {
+                      "anyOf": [
+                        {
+                          "type": "string",
+                          "enum": [
+                            "ai_daily",
+                            "ai_balance",
+                            "network"
+                          ]
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "cleared": {
+                      "anyOf": [
+                        {
+                          "type": "string",
+                          "enum": [
+                            "limit_over",
+                            "fixed",
+                            "quiet"
+                          ]
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "fixedIn": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
                     "found": {
                       "type": "object",
                       "propertyNames": {
@@ -119428,10 +119546,244 @@
                     "shown",
                     "note",
                     "handledAt",
+                    "kind",
+                    "limitKind",
+                    "cleared",
+                    "fixedIn",
                     "found",
                     "outline",
                     "handledBy",
                     "helper"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/queries/platform.problem_report.groups": {
+      "post": {
+        "operationId": "query_platform_problem_report_groups",
+        "summary": "Support: the open problem reports grouped: limits each business hit (its daily AI limit, its balance, a network refusing or warning), which clear themselves, apart from what needs a fix, by problem across every business.",
+        "tags": [
+          "queries"
+        ],
+        "description": "Requires platform.health.read.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "area": {
+                    "default": null,
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "pattern": "^[a-z][a-z0-9_]{0,39}$"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "limits": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "reports": {
+                            "type": "integer",
+                            "minimum": -9007199254740991,
+                            "maximum": 9007199254740991
+                          },
+                          "firstAt": {
+                            "type": "string",
+                            "format": "date-time",
+                            "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+                          },
+                          "lastAt": {
+                            "type": "string",
+                            "format": "date-time",
+                            "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+                          },
+                          "newestVersion": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "reportId": {
+                            "type": "string",
+                            "format": "uuid",
+                            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                          },
+                          "limitKind": {
+                            "type": "string",
+                            "enum": [
+                              "ai_daily",
+                              "ai_balance",
+                              "network"
+                            ]
+                          },
+                          "workspaceId": {
+                            "type": "string",
+                            "format": "uuid",
+                            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                          },
+                          "business": {
+                            "type": "string"
+                          },
+                          "area": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "areas": {
+                            "type": "array",
+                            "items": {
+                              "type": "string"
+                            }
+                          },
+                          "job": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "note": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          }
+                        },
+                        "required": [
+                          "reports",
+                          "firstAt",
+                          "lastAt",
+                          "newestVersion",
+                          "reportId",
+                          "limitKind",
+                          "workspaceId",
+                          "business",
+                          "area",
+                          "areas",
+                          "job",
+                          "note"
+                        ],
+                        "additionalProperties": false
+                      }
+                    },
+                    "fixes": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "reports": {
+                            "type": "integer",
+                            "minimum": -9007199254740991,
+                            "maximum": 9007199254740991
+                          },
+                          "firstAt": {
+                            "type": "string",
+                            "format": "date-time",
+                            "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+                          },
+                          "lastAt": {
+                            "type": "string",
+                            "format": "date-time",
+                            "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+                          },
+                          "newestVersion": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "reportId": {
+                            "type": "string",
+                            "format": "uuid",
+                            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                          },
+                          "area": {
+                            "type": "string"
+                          },
+                          "job": {
+                            "type": "string"
+                          },
+                          "note": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "businesses": {
+                            "type": "integer",
+                            "minimum": -9007199254740991,
+                            "maximum": 9007199254740991
+                          },
+                          "business": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "inTheWay": {
+                            "type": "integer",
+                            "minimum": -9007199254740991,
+                            "maximum": 9007199254740991
+                          },
+                          "moved": {
+                            "type": "integer",
+                            "minimum": -9007199254740991,
+                            "maximum": 9007199254740991
+                          },
+                          "notLooked": {
+                            "type": "integer",
+                            "minimum": -9007199254740991,
+                            "maximum": 9007199254740991
+                          }
+                        },
+                        "required": [
+                          "reports",
+                          "firstAt",
+                          "lastAt",
+                          "newestVersion",
+                          "reportId",
+                          "area",
+                          "job",
+                          "note",
+                          "businesses",
+                          "business",
+                          "inTheWay",
+                          "moved",
+                          "notLooked"
+                        ],
+                        "additionalProperties": false
+                      }
+                    }
+                  },
+                  "required": [
+                    "limits",
+                    "fixes"
                   ],
                   "additionalProperties": false
                 }

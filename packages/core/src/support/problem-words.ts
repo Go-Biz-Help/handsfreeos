@@ -9,14 +9,21 @@ import type {
   HelperResult,
   HelperVerdict,
   LearnedWayShape,
+  ProblemCleared,
+  ProblemFixGroup,
   ProblemHelper,
+  ProblemLimitGroup,
   ProblemReportFull,
   ProblemReportRow,
   ProblemSource,
   ProblemState,
   ProblemStep,
 } from '../schemas/problem-report';
-import { PROBLEM_KEEP_DAYS, PROBLEM_STEP_DAYS } from '../schemas/problem-report';
+import {
+  PROBLEM_KEEP_DAYS,
+  PROBLEM_QUIET_DAYS,
+  PROBLEM_STEP_DAYS,
+} from '../schemas/problem-report';
 
 export const PROBLEM_SOURCE_WORDS: Readonly<Record<ProblemSource, string>> = {
   extension: 'Browser extension',
@@ -38,8 +45,12 @@ export const problemState = (value: unknown): ProblemState =>
 export const problemArea = (value: unknown): string | null =>
   typeof value === 'string' && /^[a-z][a-z0-9_]{0,39}$/.test(value) ? value : null;
 
+/** A step a page address asks for (`?job=friend_request`): one problem's reports, opened from its group. */
+export const problemJob = (value: unknown): string | null =>
+  typeof value === 'string' && /^[A-Za-z0-9_.:-]{1,40}$/.test(value) ? value : null;
+
 export const DESK_PROBLEM_WORDS = {
-  intro: `What our own tools saw when something didn’t go, from every business. Each is kept ${PROBLEM_KEEP_DAYS} days, handled or not.`,
+  intro: `What our own tools saw when something didn’t go, from every business. Limits are kept apart from what needs a fix, and reports clear themselves once they’re dealt with. Each is kept ${PROBLEM_KEEP_DAYS} days.`,
   none: {
     open: 'Nothing open. Every report is handled.',
     handled: 'Nothing has been marked handled yet.',
@@ -72,7 +83,115 @@ export const DESK_PROBLEM_WORDS = {
         : 'Chrome didn’t show the page: its window was behind another.',
   handled: (when: string, by: string | null) => `Handled ${when}${by ? ` by ${by}` : ''}.`,
   gone: 'That report isn’t there anymore. Reports go after 30 days. Go back to the list and pick another.',
+  /** Back from one problem's reports to the groups. */
+  allProblems: 'All problems',
 } as const;
+
+/** Network and app areas as their own names write them; anything else with its first letter up. */
+const AREA_NAMES: Readonly<Record<string, string>> = {
+  facebook: 'Facebook',
+  instagram: 'Instagram',
+  linkedin: 'LinkedIn',
+  alignable: 'Alignable',
+};
+export const problemAreaName = (area: string) =>
+  AREA_NAMES[area] ?? `${area[0]?.toUpperCase() ?? ''}${area.slice(1).replace(/_/g, ' ')}`;
+
+/** A step as words: "friend_request" → "friend request", "checkup.like" → "checkup like". */
+export const problemJobName = (job: string) => job.replace(/[_.]/g, ' ');
+
+const listed = (names: readonly string[]) =>
+  names.length <= 1
+    ? (names[0] ?? '')
+    : `${names.slice(0, -1).join(', ')} and ${names[names.length - 1]}`;
+
+const times = (n: number) => (n === 1 ? 'once' : `${n} times`);
+
+/**
+ * The desk's two sections (20261027023100): limits a business hit, apart and on top, and what needs a fix, grouped by
+ * problem. Each limit says what it is, whether anything can be done and where, and that it clears itself.
+ */
+export const DESK_PROBLEM_SECTION_WORDS = {
+  limits: 'Limits',
+  limitsIntro:
+    'A limit stopped these, not a bug. Nothing in HandsFreeOS needs fixing: each waits out, or the business raises it. They clear themselves once the limit is over.',
+  noLimits: 'No limits hit right now.',
+  fixes: 'Needs a fix',
+  fixesIntro: `Grouped by problem, the newest first. A problem clears itself once its fix is live, or when it hasn’t happened again for ${PROBLEM_QUIET_DAYS} days.`,
+  noFixes: 'Nothing needs a fix right now.',
+  /** "Alignable · friend request". */
+  fixTitle: (g: Pick<ProblemFixGroup, 'area' | 'job'>) =>
+    `${problemAreaName(g.area)} · ${problemJobName(g.job)}`,
+  /** "13 reports from 2 businesses · last 20 min ago · newest on 0.126.0". */
+  fixCounts: (g: ProblemFixGroup, last: string) =>
+    [
+      `${g.reports} ${g.reports === 1 ? 'report' : 'reports'}${
+        g.businesses > 1
+          ? ` from ${g.businesses} businesses`
+          : g.business
+            ? ` from ${g.business}`
+            : ''
+      }`,
+      `last ${last}`,
+      g.newestVersion ? `newest on ${g.newestVersion}` : null,
+    ]
+      .filter(Boolean)
+      .join(' · '),
+  /** How the AI helper sorted them, when it did: "4 in the way, 2 layout changed, 3 not looked at". */
+  fixHelper: (g: Pick<ProblemFixGroup, 'inTheWay' | 'moved' | 'notLooked'>) =>
+    [
+      g.inTheWay ? `${g.inTheWay} in the way` : null,
+      g.moved ? `${g.moved} layout changed` : null,
+      g.notLooked ? `${g.notLooked} the AI helper couldn’t look at` : null,
+    ]
+      .filter(Boolean)
+      .join(', ') || null,
+  /** "HandsFreeOS · Daily AI limit". */
+  limitTitle: (g: Pick<ProblemLimitGroup, 'business' | 'limitKind' | 'area'>) =>
+    `${g.business} · ${
+      g.limitKind === 'ai_daily'
+        ? 'Daily AI limit'
+        : g.limitKind === 'ai_balance'
+          ? 'Balance ran out'
+          : `${problemAreaName(g.area ?? '')} said no`
+    }`,
+  /** What happened and what can be done, by limit. */
+  limitSaid: (g: ProblemLimitGroup) => {
+    const where = listed(g.areas.map(problemAreaName));
+    if (g.limitKind === 'ai_daily')
+      return `The business reached its daily AI limit, so the AI stopped ${times(g.reports)}${
+        where ? ` (${where})` : ''
+      }. It starts again at midnight, or an owner raises the limit in Settings → Usage & balance.`;
+    if (g.limitKind === 'ai_balance')
+      return `The business’s balance ran out, so the AI stopped ${times(g.reports)}${
+        where ? ` (${where})` : ''
+      }. It starts again after a top-up in Settings → Usage & balance.`;
+    return `${problemAreaName(g.area ?? '')} refused or warned ${times(g.reports)}${
+      g.job ? ` on ${problemJobName(g.job)}` : ''
+    }: usually its own limit, like a monthly connection limit. Nothing to fix in HandsFreeOS. It waits it out, or the person upgrades with ${problemAreaName(g.area ?? '')}.`;
+  },
+  /** "6 reports · first 2 hours ago · last 20 min ago". */
+  limitCounts: (g: ProblemLimitGroup, first: string, last: string) =>
+    g.reports === 1 ? `1 report · ${last}` : `${g.reports} reports · first ${first} · last ${last}`,
+  seeReports: 'See the reports',
+  seeNewest: 'Open the newest',
+} as const;
+
+/** Why a report cleared itself, on it in the Handled list and on its own page. */
+export const problemClearedWords = (r: {
+  cleared: ProblemCleared | null;
+  fixedIn: string | null;
+}) =>
+  r.cleared === 'limit_over'
+    ? 'Cleared itself: the limit is over.'
+    : r.cleared === 'fixed'
+      ? `Cleared itself: fixed${r.fixedIn ? ` in ${r.fixedIn}` : ''}.`
+      : r.cleared === 'quiet'
+        ? `Cleared itself: it hasn’t happened again for ${PROBLEM_QUIET_DAYS} days.`
+        : null;
+
+/** A limit's badge on a report: "Limit". */
+export const PROBLEM_LIMIT_BADGE = 'Limit';
 
 /** How the AI helper sorted a step that didn't go (decision 142): the badge on a report and its heading. */
 export const HELPER_VERDICT_WORDS: Readonly<Record<HelperVerdict, string>> = {

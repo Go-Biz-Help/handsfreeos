@@ -11,19 +11,30 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { HfosError } from '../src/errors';
 import { executeCommand, executeQuery } from '../src/kernel/execute';
 import type { HumanActor, RequestMeta } from '../src/kernel/types';
+import { aiLimitReached } from '../src/money/wallet-words';
 import {
   organizationCreate,
+  platformProblemGroups,
   platformProblemReportGet,
   platformProblemReportList,
   problemReportSend,
   problemReportSetHandled,
+  WALLET_REFUSALS,
 } from '../src/server';
 import {
   PROBLEM_OUTLINE_MOST,
   ProblemReport,
+  type ProblemLimitGroup,
   type ProblemReportFull,
 } from '../src/schemas/problem-report';
-import { problemForClaude, problemState } from '../src/support/problem-words';
+import { problemKind } from '../src/support/problem-sort';
+import {
+  DESK_PROBLEM_SECTION_WORDS,
+  problemClearedWords,
+  problemForClaude,
+  problemJob,
+  problemState,
+} from '../src/support/problem-words';
 
 const api = () => testDbs().api.db;
 const admin = () => testDbs().admin.db;
@@ -92,6 +103,10 @@ describe('Copy for Claude', () => {
     outline: 'body\n  h2 "Experience"',
     handledBy: null,
     helper: null,
+    kind: 'fix',
+    limitKind: null,
+    cleared: null,
+    fixedIn: null,
   };
 
   it('says what, where and which version, with the outline, and never whose business it was', () => {
@@ -146,6 +161,80 @@ describe('Copy for Claude', () => {
   it('reads the state a page address asks for, or the open ones', () => {
     expect(problemState('handled')).toBe('handled');
     expect(problemState('everything')).toBe('open');
+    expect(problemJob('friend_request')).toBe('friend_request');
+    expect(problemJob('checkup.like')).toBe('checkup.like');
+    expect(problemJob('<script>')).toBeNull();
+  });
+});
+
+describe('a limit or a fix (20261027023100)', () => {
+  const sorted = (note: string | null, verdict?: string) =>
+    problemKind({ note, helper: verdict ? { verdict } : null });
+
+  it('sorts the daily AI limit’s words, with the amount or without, as the AI limit', () => {
+    expect(sorted(aiLimitReached(1000))).toEqual({ kind: 'limit', limitKind: 'ai_daily' });
+    expect(sorted(aiLimitReached())).toEqual({ kind: 'limit', limitKind: 'ai_daily' });
+    expect(sorted(aiLimitReached(250_000))).toEqual({ kind: 'limit', limitKind: 'ai_daily' });
+  });
+
+  it('sorts the balance running out as its own limit', () => {
+    expect(sorted(WALLET_REFUSALS.ai)).toEqual({ kind: 'limit', limitKind: 'ai_balance' });
+  });
+
+  it('sorts a network refusing or warning, or its own limit in the tool’s words, as the network’s', () => {
+    expect(sorted('Alignable didn’t take the request', 'refused')).toEqual({
+      kind: 'limit',
+      limitKind: 'network',
+    });
+    expect(sorted('LinkedIn didn’t take the invitation', 'warning').limitKind).toBe('network');
+    expect(sorted('You’ve reached the weekly invitation limit').limitKind).toBe('network');
+    expect(sorted('Alignable says you reached your monthly connection limit').limitKind).toBe(
+      'network',
+    );
+  });
+
+  it('sorts everything else as a fix, the helper’s other verdicts too', () => {
+    expect(sorted('Facebook says it couldn’t tell where things stand', 'unclear')).toEqual({
+      kind: 'fix',
+      limitKind: null,
+    });
+    expect(sorted('The step didn’t go.', 'moved').kind).toBe('fix');
+    expect(sorted('The AI is busy right now. Try again in a minute.').kind).toBe('fix');
+    expect(sorted(null).kind).toBe('fix');
+  });
+
+  it('says what each limit is and where it’s raised, and why a report cleared itself', () => {
+    const limit: ProblemLimitGroup = {
+      limitKind: 'ai_daily',
+      workspaceId: randomUUID(),
+      business: 'Reyes Roofing',
+      area: null,
+      areas: ['linkedin', 'instagram', 'alignable'],
+      job: 'draft',
+      note: aiLimitReached(1000),
+      reports: 6,
+      firstAt: new Date().toISOString(),
+      lastAt: new Date().toISOString(),
+      newestVersion: '0.126.0',
+      reportId: randomUUID(),
+    };
+    const w = DESK_PROBLEM_SECTION_WORDS;
+    expect(w.limitTitle(limit)).toBe('Reyes Roofing · Daily AI limit');
+    expect(w.limitSaid(limit)).toContain('stopped 6 times (LinkedIn, Instagram and Alignable)');
+    expect(w.limitSaid(limit)).toContain('Settings → Usage & balance');
+    const network = {
+      ...limit,
+      limitKind: 'network' as const,
+      area: 'alignable',
+      areas: ['alignable'],
+    };
+    expect(w.limitTitle(network)).toBe('Reyes Roofing · Alignable said no');
+    expect(w.limitSaid(network)).toContain('Nothing to fix in HandsFreeOS');
+    expect(problemClearedWords({ cleared: 'fixed', fixedIn: '0.127.0' })).toBe(
+      'Cleared itself: fixed in 0.127.0.',
+    );
+    expect(problemClearedWords({ cleared: 'quiet', fixedIn: null })).toContain('3 days');
+    expect(problemClearedWords({ cleared: null, fixedIn: null })).toBeNull();
   });
 });
 
@@ -231,6 +320,7 @@ describe('sending and handling', () => {
       area: 'linkedin',
       job: 'profile_read',
       page: 'own-profile',
+      kind: 'fix',
     });
     // The owner of the business doesn't read it on the database; its sender does.
     const read = (u: TestUser) =>
@@ -310,6 +400,80 @@ describe('sending and handling', () => {
     ]);
   });
 
+  it('keeps limits apart from what needs a fix, and groups each (20261027023100)', async () => {
+    const LIMITS = `${AREA}l`;
+    const limit = await send(owner, { area: LIMITS, job: 'draft', note: aiLimitReached(1000) });
+    await send(owner, { area: LIMITS, job: 'draft', note: aiLimitReached(1000) });
+    const fixes = [];
+    for (let i = 0; i < 3; i++)
+      fixes.push(
+        (await send(member, { area: LIMITS, job: 'friend_request', note: 'Couldn’t find Connect' }))
+          .output.reportId,
+      );
+    await send(member, { area: LIMITS, job: 'friend_request', note: 'A different problem' });
+
+    const sortedRows = await rows<{ kind: string; limit_kind: string | null }>(
+      admin(),
+      sql`select kind, limit_kind from app.problem_reports where id = ${limit.output.reportId}`,
+    );
+    expect(sortedRows).toEqual([{ kind: 'limit', limit_kind: 'ai_daily' }]);
+
+    const groups = await executeQuery(
+      api(),
+      platformProblemGroups,
+      { area: LIMITS },
+      human(staffLead),
+      meta(),
+    );
+    expect(groups.limits).toEqual([
+      expect.objectContaining({
+        limitKind: 'ai_daily',
+        workspaceId,
+        business: 'Problem Reports Roofing',
+        areas: [LIMITS],
+        job: 'draft',
+        reports: 2,
+      }),
+    ]);
+    expect(groups.fixes).toHaveLength(2);
+    expect(groups.fixes.find((g) => g.note === 'Couldn’t find Connect')).toMatchObject({
+      area: LIMITS,
+      job: 'friend_request',
+      reports: 3,
+      businesses: 1,
+      business: 'Problem Reports Roofing',
+      reportId: fixes[2],
+    });
+
+    // One problem's reports, and one kind's.
+    const step = await list(staffLead, { area: LIMITS, job: 'friend_request' });
+    expect(step.reports).toHaveLength(4);
+    expect(step.reports.every((r) => r.kind === 'fix' && r.limitKind === null)).toBe(true);
+    const onlyLimits = await list(staffLead, { area: LIMITS, kind: 'limit' });
+    expect(onlyLimits.reports.map((r) => r.limitKind)).toEqual(['ai_daily', 'ai_daily']);
+    await expect(
+      executeQuery(api(), platformProblemGroups, { area: LIMITS }, human(agent), meta()),
+    ).rejects.toBeInstanceOf(HfosError);
+  });
+
+  it('clears why a report cleared itself when it’s opened again', async () => {
+    const { output } = await send(member, { area: `${AREA}c` });
+    await admin().execute(
+      sql`update app.problem_reports set handled_at = now(), cleared = 'fixed', fixed_in = '0.127.0'
+          where id = ${output.reportId}`,
+    );
+    const handled = await list(staffLead, { area: `${AREA}c`, state: 'handled' });
+    expect(handled.reports[0]).toMatchObject({ cleared: 'fixed', fixedIn: '0.127.0' });
+    expect((await handle(staffLead, [output.reportId], false)).output.changed).toEqual([
+      output.reportId,
+    ]);
+    const [row] = await rows<{ cleared: string | null; fixed_in: string | null }>(
+      admin(),
+      sql`select cleared, fixed_in from app.problem_reports where id = ${output.reportId}`,
+    );
+    expect(row).toEqual({ cleared: null, fixed_in: null });
+  });
+
   it('refuses a support agent and the business itself, through the kernel and the database', async () => {
     const [mine] = (await list(staffLead, { area: AREA, state: 'all' })).reports;
     await expect(list(agent)).rejects.toBeInstanceOf(HfosError);
@@ -327,6 +491,17 @@ describe('sending and handling', () => {
       rows(tx, sql`select * from private.admin_problem_reports(null, null, null, 100)`),
     );
     expect(listed).toEqual([]);
+    const page = await asUser(api(), owner.claims, (tx) =>
+      rows(
+        tx,
+        sql`select * from private.admin_problem_report_page(null, null, null, null, null, 100)`,
+      ),
+    );
+    expect(page).toEqual([]);
+    const grouped = await asUser(api(), owner.claims, (tx) =>
+      rows(tx, sql`select * from private.admin_problem_groups(null)`),
+    );
+    expect(grouped).toEqual([]);
     const update = await asUser(api(), member.claims, (tx) =>
       rows(
         tx,

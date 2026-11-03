@@ -108,6 +108,7 @@ export const SCREEN_READS = [
   'platform.onboarding.counts',
   'platform.partner_payouts.get',
   'platform.problem_report.get',
+  'platform.problem_report.groups',
   'platform.problem_report.list',
   'platform.rates',
   'platform.wallet.get',

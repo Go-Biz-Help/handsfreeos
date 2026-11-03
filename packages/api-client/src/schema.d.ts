@@ -21157,6 +21157,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/queries/platform.problem_report.groups": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Support: the open problem reports grouped: limits each business hit (its daily AI limit, its balance, a network refusing or warning), which clear themselves, apart from what needs a fix, by problem across every business.
+         * @description Requires platform.health.read.
+         */
+        post: operations["query_platform_problem_report_groups"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/queries/platform.problem_report.list": {
         parameters: {
             query?: never;
@@ -21167,7 +21187,7 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * Support: what HandsFreeOS’s own tools saw when something didn’t go, from every business, newest first: open, handled or both, on one area or all.
+         * Support: what HandsFreeOS’s own tools saw when something didn’t go, from every business, newest first: open, handled or both, on one area or all, one step or all, limits or what needs a fix or both.
          * @description Requires platform.health.read.
          */
         post: operations["query_platform_problem_report_list"];
@@ -82920,6 +82940,8 @@ export interface operations {
                         /** Format: date-time */
                         at: string;
                         business: string;
+                        cleared: ("limit_over" | "fixed" | "quiet") | null;
+                        fixedIn: string | null;
                         found: {
                             [key: string]: unknown;
                         };
@@ -82944,6 +82966,9 @@ export interface operations {
                             verdict: "in_the_way" | "moved" | "refused" | "warning" | "unclear";
                         } | null;
                         job: string;
+                        /** @enum {string} */
+                        kind: "fix" | "limit";
+                        limitKind: ("ai_daily" | "ai_balance" | "network") | null;
                         note: string | null;
                         outline: string | null;
                         page: string;
@@ -82957,6 +82982,71 @@ export interface operations {
                         version: string | null;
                         /** Format: uuid */
                         workspaceId: string;
+                    };
+                };
+            };
+        };
+    };
+    query_platform_problem_report_groups: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** @default null */
+                    area?: string | null;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        fixes: {
+                            area: string;
+                            business: string | null;
+                            businesses: number;
+                            /** Format: date-time */
+                            firstAt: string;
+                            inTheWay: number;
+                            job: string;
+                            /** Format: date-time */
+                            lastAt: string;
+                            moved: number;
+                            newestVersion: string | null;
+                            note: string | null;
+                            notLooked: number;
+                            /** Format: uuid */
+                            reportId: string;
+                            reports: number;
+                        }[];
+                        limits: {
+                            area: string | null;
+                            areas: string[];
+                            business: string;
+                            /** Format: date-time */
+                            firstAt: string;
+                            job: string | null;
+                            /** Format: date-time */
+                            lastAt: string;
+                            /** @enum {string} */
+                            limitKind: "ai_daily" | "ai_balance" | "network";
+                            newestVersion: string | null;
+                            note: string | null;
+                            /** Format: uuid */
+                            reportId: string;
+                            reports: number;
+                            /** Format: uuid */
+                            workspaceId: string;
+                        }[];
                     };
                 };
             };
@@ -82976,6 +83066,10 @@ export interface operations {
                     area?: string | null;
                     /** @default null */
                     before?: string | null;
+                    /** @default null */
+                    job?: string | null;
+                    /** @default null */
+                    kind?: ("fix" | "limit") | null;
                     /** @default 25 */
                     limit?: number;
                     /**
@@ -83005,6 +83099,8 @@ export interface operations {
                             /** Format: date-time */
                             at: string;
                             business: string;
+                            cleared: ("limit_over" | "fixed" | "quiet") | null;
+                            fixedIn: string | null;
                             handledAt: string | null;
                             hasOutline: boolean;
                             helper: {
@@ -83014,6 +83110,9 @@ export interface operations {
                                 verdict: "in_the_way" | "moved" | "refused" | "warning" | "unclear";
                             } | null;
                             job: string;
+                            /** @enum {string} */
+                            kind: "fix" | "limit";
+                            limitKind: ("ai_daily" | "ai_balance" | "network") | null;
                             note: string | null;
                             page: string;
                             path: string;
