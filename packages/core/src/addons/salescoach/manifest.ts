@@ -108,6 +108,7 @@ export const salescoachAddon = defineAddon({
       'salescoach.card.dismissed',
       'salescoach.call.ended',
       'salescoach.call.stopped',
+      'salescoach.call.resumed',
       'salescoach.call.deleted',
       'salescoach.call.finished',
       'salescoach.suggestions.ready',

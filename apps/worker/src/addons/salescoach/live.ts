@@ -46,8 +46,6 @@ interface CallState {
   asking: boolean;
   /** The nudges shown on this call: when the last was, and what each said. */
   nudges: { lastAtMs: number | null; titles: Set<string> };
-  /** The rep stopped the coach on this call. */
-  stopped: boolean;
 }
 
 const calls = new Map<string, CallState>();
@@ -80,21 +78,17 @@ export const salescoachLiveCalls: AddonLiveCalls = {
       lastAskedAtMs: null,
       asking: false,
       nudges: { lastAtMs: null, titles: new Set() },
-      stopped: false,
     });
   },
 
   async onLine(ctx, call, line, lines) {
     const state = calls.get(call.key);
-    if (!state || state.stopped || state.asking || !cardMoment(line, state.lastAskedAtMs)) return;
+    if (!state || state.asking || !cardMoment(line, state.lastAskedAtMs)) return;
     state.asking = true;
     state.lastAskedAtMs = line.atMs;
     try {
-      // The rep may have stopped the coach on this call: then it's quiet for the rest of it.
-      if (!(await stillLive(ctx, state.coachedCallId))) {
-        state.stopped = true;
-        return;
-      }
+      // The rep may have stopped the coach on this call: then it's quiet, until they start it again.
+      if (!(await stillLive(ctx, state.coachedCallId))) return;
       await coach(ctx, call, state, lines);
     } finally {
       state.asking = false;

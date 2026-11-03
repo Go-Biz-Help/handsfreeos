@@ -116,17 +116,20 @@ export function SalescoachLiveScreen() {
     everySeconds: LIVE_EVERY_SECONDS,
   });
   const call = live.data?.call ?? null;
-  const stop = async () => {
+  // Stop the coach on the call, or start it again while the call goes on.
+  const change = async (to: 'stop' | 'resume') => {
     if (!call) return;
     try {
+      const body = { workspaceId: ws, coachedCallId: call.id };
       unwrap(
-        await api.POST('/v1/commands/salescoach.call.stop', {
-          body: { workspaceId: ws, coachedCallId: call.id },
-        }),
+        to === 'stop'
+          ? await api.POST('/v1/commands/salescoach.call.stop', { body })
+          : await api.POST('/v1/commands/salescoach.call.resume', { body }),
       );
       live.reload();
     } catch (e) {
       toast.error(errorMessage(e));
+      live.reload();
     }
   };
   const steps = call?.playbook?.details.steps ?? [];
@@ -192,8 +195,24 @@ export function SalescoachLiveScreen() {
             </Text>
           ) : null}
           {call.state === 'live' ? (
-            <Button variant="ghost" size="sm" className="self-start" onPress={() => void stop()}>
+            <Button
+              variant="ghost"
+              size="sm"
+              className="self-start"
+              onPress={() => void change('stop')}
+            >
               <Text>{W.live.stop}</Text>
+            </Button>
+          ) : null}
+          {call.state === 'stopped' && call.endedAt === null ? (
+            <Button
+              variant="secondary"
+              size="sm"
+              className="self-start"
+              onPress={() => void change('resume')}
+              testID="coach-resume"
+            >
+              <Text>{W.live.resume}</Text>
             </Button>
           ) : null}
           {call.state !== 'live' && call.state !== 'stopped' ? (

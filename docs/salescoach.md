@@ -339,8 +339,14 @@ The AI can ask too (`salescoach_trends`): "how's Dana doing on calls?"
   call's AI notes notice, and it listens only while they're on.
 - **Every call, on its own, and the rep can stop it** (Chris, 2026-10-14). The coach listens on every answered call
   of someone with `salescoach.use`. **Stop coaching this call** (`salescoach.call.stop`, the rep alone, while it's
-  live) marks it `stopped`: no more cards or asks to the AI, nothing kept at the end, no write-up. Row security lets
-  the rep make that one change to their own call and no other.
+  live) marks it `stopped`: no more cards or asks to the AI, nothing kept at the end, no write-up. **Start coaching
+  again** (`salescoach.call.resume`, the rep alone, while the call goes on; owner's ask 2026-11-03) makes it live
+  again: the cards come back, and the write-up has the whole call. A stopped call ends when the call does
+  (`salescoach.call.end` sets `ended_at`), and can't start again after that (`salescoach_call_over`). Row security
+  lets the rep make those two changes to their own call, before it ends, and no other
+  (`20261027022900_salescoach_start_again.sql`).
+- **The screen shows the rep's own change at once.** The live updates leave out the tab's own changes, so
+  `live-coach.tsx` shows the new state from the command's answer and reads the call again; the phone reads it again.
 - **Core never points into the add-on.** Core's live listening hands lines to any add-on that declares `liveCalls`,
   and the AI teammate's calls to leads ask any add-on that declares `callScripts`; its tables reference core's calls and live meetings, never the other way round. `/zoom` finds the add-on's page
   from the catalogue (`liveCalls.zoom`), not by name.
