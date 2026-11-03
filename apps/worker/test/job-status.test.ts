@@ -71,9 +71,7 @@ describe('the texts a customer gets as their job moves along', () => {
     await drain(w);
     const minutes = roughMinutes({ lat: 32.777, lng: -96.797 }, { lat: 32.95, lng: -96.8 });
     const onWay = textsTo(w, who.phone).at(-1)!.body;
-    expect(onWay).toMatch(
-      /is on the way for your home repairs, arriving around \d{1,2}:\d{2} [AP]M/,
-    );
+    expect(onWay).toMatch(/is on the way, arriving around \d{1,2}:\d{2} [AP]M/);
     expect(onWay).toContain(`(about ${minutes} min)`);
     const [job] = await rows<{ eta_at: Date | null }>(
       admin(),
@@ -89,12 +87,12 @@ describe('the texts a customer gets as their job moves along', () => {
     });
     await drain(w);
     expect(textsTo(w, who.phone).at(-1)!.body).toBe(
-      `${BUSINESS}: Your home repairs is waiting on parts. We'll let you know when we're back. Note from us: The part is ordered and due Friday.`,
+      `${BUSINESS}: The work is waiting on parts. We'll let you know when we're back. Note from us: The part is ordered and due Friday.`,
     );
 
     await run(w, jobSetStatus, { workspaceId: w.workspaceId, appointmentId, status: 'done' });
     await drain(w);
-    expect(textsTo(w, who.phone).at(-1)!.body).toContain('is done. Thank you!');
+    expect(textsTo(w, who.phone).at(-1)!.body).toContain('The work is done. Thank you!');
     // One text per change, even when the events are handled again.
     await drain(w);
     expect(textsTo(w, who.phone).length - before).toBe(3);
@@ -125,7 +123,6 @@ describe('the texts a customer gets as their job moves along', () => {
 describe('the words', () => {
   const base = {
     business: 'Lone Star',
-    title: 'AC repair',
     noteOnly: false,
     note: null,
     staff: ['Marco'],
@@ -133,18 +130,16 @@ describe('the words', () => {
     first: false,
   };
   it('reads plainly for each status, and sends nothing for back to scheduled', () => {
-    expect(jobText({ ...base, status: 'in_progress' })).toBe(
-      'Lone Star: Marco has started your AC repair.',
-    );
+    expect(jobText({ ...base, status: 'in_progress' })).toBe('Lone Star: Marco has started work.');
     expect(jobText({ ...base, staff: [], status: 'on_the_way' })).toBe(
-      'Lone Star: Our tech is on the way for your AC repair.',
+      'Lone Star: Our tech is on the way.',
     );
     expect(jobText({ ...base, status: 'scheduled' })).toBeNull();
     expect(
       jobText({ ...base, noteOnly: true, note: 'Back Monday.', status: 'waiting_on_parts' }),
-    ).toBe('Lone Star: An update on your AC repair: Back Monday.');
+    ).toBe('Lone Star: An update on your appointment: Back Monday.');
     expect(jobText({ ...base, status: 'done', first: true })).toBe(
-      'Lone Star: Your AC repair is done. Thank you! Reply STOP to opt out.',
+      'Lone Star: The work is done. Thank you! Reply STOP to opt out.',
     );
   });
 });

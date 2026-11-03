@@ -19,7 +19,7 @@ import {
   StepForward,
 } from 'lucide-react';
 import Link from 'next/link';
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { toast } from 'sonner';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -43,9 +43,13 @@ const KIND_ICON: Record<CardKind, typeof Sparkles> = {
   nudge: AlertTriangle,
 };
 
-/** The person's call the coach hears now, kept fresh. Undefined while it's first read. */
-export function useLiveCall(workspaceId: string): LiveCall | null | undefined {
+/**
+ * The person's call the coach hears now, kept fresh. Undefined while it's first read. The live updates leave out
+ * this tab's own changes, so after one (Stop coaching this call) `setCall` shows it at once and `readAgain` reads it.
+ */
+export function useLiveCall(workspaceId: string) {
   const version = useLiveVersion(['salescoach_call'], 150, { whileHidden: true });
+  const [again, setAgain] = useState(0);
   const [call, setCall] = useState<LiveCall | null | undefined>(undefined);
   useEffect(() => {
     let current = true;
@@ -55,8 +59,9 @@ export function useLiveCall(workspaceId: string): LiveCall | null | undefined {
     return () => {
       current = false;
     };
-  }, [workspaceId, version]);
-  return call;
+  }, [workspaceId, version, again]);
+  const readAgain = useCallback(() => setAgain((n) => n + 1), []);
+  return { call, setCall, readAgain };
 }
 
 /** Where the call is in the method: the script's stages as a bar, the one it's in now named. */
@@ -192,7 +197,8 @@ export function LiveCoach({
   /** Its own button to stop the coach on the call; the Zoom panel stops Zoom's stream instead. */
   ownStop?: boolean;
 }) {
-  const call = useLiveCall(workspaceId);
+  const { call, setCall, readAgain } = useLiveCall(workspaceId);
+  const [busy, setBusy] = useState<'stop' | 'resume' | null>(null);
   if (call === undefined) return null;
   if (!call) {
     if (compact) return null;
@@ -219,15 +225,24 @@ export function LiveCoach({
         : call.state === 'stopped'
           ? W.live.stopped
           : W.live.ended;
-  const stop = async () => {
+  // Stop the coach on the call, or start it again while the call goes on.
+  const change = async (to: 'stop' | 'resume') => {
+    setBusy(to);
     try {
-      await apiBrowser()
-        .POST('/v1/commands/salescoach.call.stop', {
-          body: { workspaceId, coachedCallId: call.id },
-        })
-        .then(unwrap);
+      const body = { workspaceId, coachedCallId: call.id };
+      const { state } = await (
+        to === 'stop'
+          ? apiBrowser().POST('/v1/commands/salescoach.call.stop', { body })
+          : apiBrowser().POST('/v1/commands/salescoach.call.resume', { body })
+      ).then(unwrap);
+      // This tab's own change doesn't come back as a live update: show it now, then read the call again.
+      setCall((c) => (c && c.id === call.id ? { ...c, state } : c));
+      readAgain();
     } catch (e) {
       toast.error(errorMessage(e));
+      readAgain();
+    } finally {
+      setBusy(null);
     }
   };
   return (
@@ -264,8 +279,25 @@ export function LiveCoach({
         </p>
       ) : null}
       {call.state === 'live' && ownStop ? (
-        <Button variant="ghost" size="sm" onClick={() => void stop()} data-testid="coach-stop">
-          {W.live.stop}
+        <Button
+          variant="ghost"
+          size="sm"
+          disabled={busy !== null}
+          onClick={() => void change('stop')}
+          data-testid="coach-stop"
+        >
+          {busy === 'stop' ? W.live.stopping : W.live.stop}
+        </Button>
+      ) : null}
+      {call.state === 'stopped' && call.endedAt === null && ownStop ? (
+        <Button
+          variant="secondary"
+          size="sm"
+          disabled={busy !== null}
+          onClick={() => void change('resume')}
+          data-testid="coach-resume"
+        >
+          {busy === 'resume' ? W.live.resuming : W.live.resume}
         </Button>
       ) : null}
       {call.state !== 'live' && call.state !== 'stopped' && !compact ? (

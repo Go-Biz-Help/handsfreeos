@@ -209,5 +209,13 @@ export async function partnerDraft(
       made = await draft(kind);
     }
   }
-  return { kind, answer, drafts: made.drafts, opener: null, simple: false, unanswered: null };
+  return {
+    kind,
+    answer,
+    drafts: made.drafts,
+    opener: null,
+    simple: false,
+    unanswered: null,
+    meeting: null,
+  };
 }

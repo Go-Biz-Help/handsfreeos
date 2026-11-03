@@ -5,6 +5,12 @@
  * Texts are plain. Straight apostrophes only (one curly one sends a text as 70-character parts), no dashes or
  * dots outside the texting alphabet, times without ranges, and "Reply STOP to opt out." on the first text to
  * a number. Emails go through message.send as plain text, which the worker renders with clickable links.
+ *
+ * A booking's title never sits inside a sentence. It can be anything: a service ("AC tune-up"), the calendar's own
+ * name when it has no services ("Chris's Calendar"), a person's name, words typed by hand. So a sentence says
+ * "your appointment" (bookingNoun), and the title goes on a line of its own ("What: Chris's Calendar"), in
+ * brackets at the end of a text, or after a subject's colon, written exactly as it was typed. The owner,
+ * 2026-11-03: "it needs to make sense regardless of the name of the calendar".
  */
 import { plainSpaces, VIDEO_CALL_WORDS, type Reminder } from '@hfos/core/server';
 import {
@@ -127,6 +133,19 @@ export function whoFrom(staff: readonly string[], business: string): string | nu
   return staff.length ? `${joinNames(staff)} from ${shortBusiness(business)}` : null;
 }
 
+/**
+ * What a sentence calls the booking: "appointment", or "booking" for a seat in a session. Never its title (see the
+ * top of this file).
+ */
+export const bookingNoun = (v: Pick<Visit, 'kind'>): string =>
+  v.kind === 'session' ? 'booking' : 'appointment';
+
+/** " (Chris's Calendar)", " (Yoga, 2 seats)": the title in brackets at the end of a text's sentence. */
+const named = (title: string, extra?: string | null): string => {
+  const parts = [title.trim(), extra].filter(Boolean);
+  return parts.length ? ` (${parts.join(', ')})` : '';
+};
+
 const streetOf = (address: string): string => address.split(',')[0]!.trim();
 const be = (staff: readonly string[]) => (staff.length > 1 ? 'are' : 'is');
 
@@ -146,7 +165,7 @@ export function whereLine(v: Visit): string | null {
   return v.address;
 }
 
-function whatLine(v: Visit): string {
+export function whatLine(v: Visit): string {
   const size =
     v.kind === 'session' || v.seats > 1
       ? `${v.seats} ${v.seats === 1 ? 'seat' : 'seats'}`
@@ -214,10 +233,10 @@ export function confirmationText(i: ConfirmationInput): string {
   const v = i.visit;
   const tz = v.timeZone;
   const lead = i.fromWaitlist ? "A seat opened, so you're booked for" : "You're booked for";
-  const seats = v.seats > 1 ? ` (${v.seats} seats)` : '';
+  const seats = v.seats > 1 ? `${v.seats} seats` : null;
   return text(
     [
-      `${i.business.name}: ${lead} ${withArticle(inSentence(v.title))}${seats} on ${dayShort(v.startsAt, tz)} at ${clock(v.startsAt, tz)} ${zoneName(tz, 'short', v.startsAt)}.`,
+      `${i.business.name}: ${lead} ${dayShort(v.startsAt, tz)} at ${clock(v.startsAt, tz)} ${zoneName(tz, 'short', v.startsAt)}${named(v.title, seats)}.`,
       i.manageUrl && `Change or cancel: ${i.manageUrl}`,
     ],
     i.first,
@@ -265,7 +284,7 @@ export function movedText(i: MovedInput): string {
   const tz = v.timeZone;
   return text(
     [
-      `${i.business.name}: Your ${inSentence(v.title)} is now ${dayShort(v.startsAt, tz)} at ${clock(v.startsAt, tz)} ${zoneName(tz, 'short', v.startsAt)}.`,
+      `${i.business.name}: Your ${bookingNoun(v)} is now ${dayShort(v.startsAt, tz)} at ${clock(v.startsAt, tz)} ${zoneName(tz, 'short', v.startsAt)}.`,
       i.manageUrl && `Change or cancel: ${i.manageUrl}`,
     ],
     i.first,
@@ -277,9 +296,9 @@ export function movedEmail(i: MovedInput): EmailText {
   const tz = v.timeZone;
   const was = i.from ? ` It was ${dayLong(i.from, tz)} at ${clock(i.from, tz)}.` : '';
   return {
-    subject: `Moved: ${v.title} is now ${dayShort(v.startsAt, tz)} at ${clock(v.startsAt, tz)}`,
+    subject: `Moved: ${v.title}, now ${dayShort(v.startsAt, tz)} at ${clock(v.startsAt, tz)}`,
     body: paragraphs([
-      `${hello(i.firstName)} your ${inSentence(v.title)} moved to ${whenLine(v)}.${was}`,
+      `${hello(i.firstName)} your ${bookingNoun(v)} moved to ${whenLine(v)}.${was}`,
       details(v, i.business),
       i.manageUrl &&
         [
@@ -305,7 +324,7 @@ export interface ReassignedInput {
 export function reassignedText(i: ReassignedInput): string {
   const v = i.visit;
   const tz = v.timeZone;
-  const t = inSentence(v.title);
+  const t = bookingNoun(v);
   const who = joinNames(v.staff);
   const at = `${dayShort(v.startsAt, tz)} at ${clock(v.startsAt, tz)} ${zoneName(tz, 'short', v.startsAt)}`;
   return text(
@@ -322,7 +341,7 @@ export function reassignedText(i: ReassignedInput): string {
 export function reassignedEmail(i: ReassignedInput): EmailText {
   const v = i.visit;
   const tz = v.timeZone;
-  const t = inSentence(v.title);
+  const t = bookingNoun(v);
   const who = joinNames(v.staff);
   return {
     subject: `Update: ${v.title} on ${dayShort(v.startsAt, tz)} at ${clock(v.startsAt, tz)}`,
@@ -357,7 +376,7 @@ export function cancelledText(i: CancelledInput): string {
   const b = i.business;
   return text(
     [
-      `${b.name}: Your ${inSentence(v.title)} on ${dayShort(v.startsAt, tz)} at ${clock(v.startsAt, tz)} ${zoneName(tz, 'short', v.startsAt)} is cancelled.${laterLine(i.laterToo)}`,
+      `${b.name}: Your ${bookingNoun(v)} on ${dayShort(v.startsAt, tz)} at ${clock(v.startsAt, tz)} ${zoneName(tz, 'short', v.startsAt)} is cancelled.${laterLine(i.laterToo)}`,
       b.bookingUrl
         ? `Book again: ${b.bookingUrl}`
         : b.phoneDisplay
@@ -375,7 +394,8 @@ export function cancelledEmail(i: CancelledInput): EmailText {
   return {
     subject: `Cancelled: ${v.title} on ${dayShort(v.startsAt, tz)} at ${clock(v.startsAt, tz)}`,
     body: paragraphs([
-      `${hello(i.firstName)} your ${inSentence(v.title)} on ${whenLine(v)} is cancelled.${laterLine(i.laterToo)}${i.byCustomer ? ' You cancelled it online.' : ''}`,
+      `${hello(i.firstName)} your ${bookingNoun(v)} on ${whenLine(v)} is cancelled.${laterLine(i.laterToo)}${i.byCustomer ? ' You cancelled it online.' : ''}`,
+      `What: ${whatLine(v)}`,
       b.bookingUrl
         ? `Book another time: ${b.bookingUrl}`
         : b.phoneDisplay
@@ -421,7 +441,7 @@ export function reminderText(i: ReminderInput): string {
   const v = i.visit;
   const tz = v.timeZone;
   const b = i.business;
-  const t = inSentence(v.title);
+  const t = bookingNoun(v);
   const who = v.staff.length ? joinNames(v.staff) : null;
   const when = whenFrom(v.startsAt, i.now, tz, 'text');
   const visit = v.locationKind === 'customer_address';
@@ -455,7 +475,7 @@ export function reminderText(i: ReminderInput): string {
 export function reminderEmail(i: ReminderInput): EmailText {
   const v = i.visit;
   const tz = v.timeZone;
-  const t = inSentence(v.title);
+  const t = bookingNoun(v);
   const rel = relativeDay(v.startsAt, i.now, tz);
   const who = v.staff.length ? joinNames(v.staff) : null;
   const place =
@@ -479,6 +499,7 @@ export function reminderEmail(i: ReminderInput): EmailText {
     subject: `Reminder: ${v.title} ${whenFrom(v.startsAt, i.now, tz, 'subject')}`,
     body: paragraphs([
       `${hello(i.firstName)} your ${t} is ${rel ? `${rel}, ` : 'on '}${whenLine(v)}${place}.${whoSentence}`,
+      `What: ${whatLine(v)}`,
       i.askToConfirm &&
         i.reminder.kind === 'day_before' &&
         i.manageUrl &&
@@ -549,7 +570,7 @@ export function offerText(i: OfferInput): string {
   const tz = i.timeZone;
   return text(
     [
-      `${i.business.name}: ${withArticle(inSentence(i.title))} time opened on ${dayShort(i.startsAt, tz)} at ${clock(i.startsAt, tz)}. It's held for you until ${untilText(i)}: ${i.url}`,
+      `${i.business.name}: A time opened on ${dayShort(i.startsAt, tz)} at ${clock(i.startsAt, tz)}${named(i.title)}. It's held for you until ${untilText(i)}: ${i.url}`,
     ],
     i.first,
   );
@@ -560,7 +581,8 @@ export function offerEmail(i: OfferInput): EmailText {
   return {
     subject: `A time opened: ${i.title} on ${dayShort(i.startsAt, tz)} at ${clock(i.startsAt, tz)}`,
     body: paragraphs([
-      `${hello(i.firstName)} ${withArticle(inSentence(i.title))} time opened: ${dayLong(i.startsAt, tz)}, ${timeRange(i.startsAt, i.endsAt, tz)} ${zoneName(tz, 'long', i.startsAt)}. We’re holding it for you until ${untilText(i)}.`,
+      `${hello(i.firstName)} a time opened: ${dayLong(i.startsAt, tz)}, ${timeRange(i.startsAt, i.endsAt, tz)} ${zoneName(tz, 'long', i.startsAt)}. We’re holding it for you until ${untilText(i)}.`,
+      `What: ${i.title}`,
       `Book it: ${i.url}`,
       'If you don’t want it, there’s nothing to do. We’ll offer it to the next person after that.',
       footer(i.business),

@@ -727,7 +727,7 @@ function DayBeforePanel({ env }: { env: PanelEnv }) {
             className="max-w-[92%] self-end rounded-2xl rounded-br-[5px] bg-accent px-[13px] py-2.5 text-sm leading-[1.45] text-white [overflow-wrap:anywhere]"
             data-testid="ac-replyc-preview"
           >
-            Reminder from {env.businessName}: your AC tune-up is tomorrow
+            Reminder from {env.businessName}: your appointment is tomorrow
             {now === null ? '' : `, ${tomorrowLabel(now)}`} at 10:00 AM. {env.senderName} is coming
             to 2210 Oak St.{replyC ? ' Reply C to confirm.' : ''}
           </div>

@@ -15,7 +15,7 @@ import { teamBookingEmail } from '../emails/templates';
 import type { HandlerContext } from '../handlers/types';
 import { tenantOf, type TenantScope } from '../services';
 import { recordSystemEvent } from '../system-event';
-import { inSentence, whereLine, withArticle } from './messages';
+import { whereLine } from './messages';
 import { loadBooking } from './visit';
 import { clock, dayShort, timeRange, weekdayShort, zoneName } from './when';
 
@@ -89,16 +89,17 @@ export async function emailTeam(
   const customer = `${b.person.firstName} ${b.person.lastName}`.trim() || 'A customer';
   const group = v.kind === 'session' || b.appt.capacity > 1;
   const seats = v.seats === 1 ? 'a seat' : `${v.seats} seats`;
+  // The title is on its own row (What), never in the sentence: it can be the calendar's name (messages.ts).
   const sentence =
     about === 'cancelled'
       ? group
-        ? `cancelled their ${v.seats === 1 ? 'seat' : `${v.seats} seats`} in ${v.title} online`
-        : `cancelled their ${inSentence(v.title)} online`
+        ? `cancelled their ${v.seats === 1 ? 'seat' : `${v.seats} seats`} online`
+        : 'cancelled their appointment online'
       : opts.fromWaitlist
-        ? `was booked into ${v.title} from the waitlist`
+        ? 'was booked from the waitlist'
         : group
-          ? `booked ${seats} in ${v.title} online`
-          : `booked ${withArticle(inSentence(v.title))}${staffed ? ' with you' : ''} online`;
+          ? `booked ${seats} online`
+          : `booked an appointment${staffed ? ' with you' : ''} online`;
   const phone = b.attendee.contactPhoneE164
     ? `${formatPhone(b.attendee.contactPhoneE164)} · ${b.attendee.smsOk ? 'texts OK' : 'no texts'}`
     : null;

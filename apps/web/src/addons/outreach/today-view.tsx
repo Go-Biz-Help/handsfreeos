@@ -44,6 +44,7 @@
  */
 import { freshWords, underAPost, wheelsWords } from '@hfos/core/addons/outreach/automation';
 import { KNOWS_WORDS } from '@hfos/core/addons/outreach/knows';
+import { TIME_WORDS } from '@hfos/core/addons/outreach/meeting-times';
 import { clockWords } from '@hfos/core/addons/outreach/live';
 import { OPENER_KINDS, openerShort, type DraftOpener } from '@hfos/core/addons/outreach/openers';
 import { warningNote } from '@hfos/core/addons/outreach/tidy';
@@ -908,6 +909,8 @@ function Drafts({
   const [draftedAs, setDraftedAs] = useState<DraftKind | null>(null);
   /** For a reply: what they asked that Knowledge doesn't answer (decision 122). */
   const [draftedUnanswered, setUnanswered] = useState<string | null>(null);
+  /** For a reply: the time it books as it's copied (decision 149). */
+  const [draftedBooks, setBooks] = useState<string | null>(null);
   // Looked up on its network first, while the computer is online and can be asked there.
   const lookup = {
     kind: 'lookup' as const,
@@ -926,6 +929,7 @@ function Drafts({
   const opener = fromLookup ? fromLookup.opener : draftedOpener;
   const as = (fromLookup ? fromLookup.kind : draftedAs) ?? kind;
   const unanswered = fromLookup ? fromLookup.unanswered : draftedUnanswered;
+  const books = fromLookup ? null : draftedBooks;
   const lookingUp = looked !== null && askOpen(looked.state);
   const skipping = useAct();
   const skip = (postId: string) =>
@@ -954,6 +958,7 @@ function Drafts({
       setOpener(out.opener);
       setDraftedAs(out.kind);
       setUnanswered(out.unanswered);
+      setBooks(out.meeting?.books ?? null);
     } catch (e) {
       toast.error(errorMessage(e));
     } finally {
@@ -993,7 +998,28 @@ function Drafts({
       .POST('/v1/commands/outreach.opener.use', { body: { workspaceId, profileId, opener } })
       .catch(() => undefined);
   };
-  const copy = async (text: string, part?: { readonly n: number; readonly of: number }) => {
+  /**
+   * A reply that confirms a time they picked books it as it's copied (decision 149): the person sends it themselves.
+   * Nothing to book says nothing; a time just taken says to draft again.
+   */
+  const bookIn = async (draft: string) => {
+    if (as !== 'reply' || !item.profileId) return;
+    try {
+      const out = await workerPost<{ booked: string | null }>(
+        '/v1/addons/outreach/actions/outreach.times.book',
+        { workspaceId, input: { profileId: item.profileId, text: draft } },
+      );
+      if (out.booked) toast.success(TIME_WORDS.booked(out.booked, messaging));
+    } catch (e) {
+      toast.error(errorMessage(e));
+    }
+  };
+  const copy = async (
+    text: string,
+    draft: string,
+    part?: { readonly n: number; readonly of: number },
+  ) => {
+    // Copied first, while the press still lets the page write to the clipboard; then its time is booked.
     await copyText(
       text,
       underPost
@@ -1002,8 +1028,9 @@ function Drafts({
           ? `Copied text ${part.n} of ${part.of}. Paste it in ${messaging}${part.n < part.of ? ', then copy the next' : ''}.`
           : `Copied. Paste it in ${messaging}.`,
     );
-    // A message copied a text at a time counts once, with its first.
+    // A message copied a text at a time counts once, with its first, and books once.
     if (part && part.n > 1) return;
+    await bookIn(draft);
     await noteSent(as);
   };
   const stopping = useAct();
@@ -1037,6 +1064,11 @@ function Drafts({
           Opens with {OPENER_KINDS[opener.kind].toLowerCase()}: “{openerShort(opener.text, 70)}”
         </p>
       ) : null}
+      {drafts.length && books ? (
+        <p className="mb-1 text-[12px] text-text-3" data-testid="today-books">
+          {TIME_WORDS.books(books)}
+        </p>
+      ) : null}
       {drafts.length && unanswered ? (
         <p className="mb-1 text-[12px] text-text-3" data-testid="today-unanswered">
           {KNOWS_WORDS.draftNote(unanswered)}
@@ -1063,6 +1095,7 @@ function Drafts({
                       onClick={() =>
                         void copy(
                           part,
+                          text,
                           parts.length > 1 ? { n: i + 1, of: parts.length } : undefined,
                         )
                       }

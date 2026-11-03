@@ -350,6 +350,29 @@ export const VIDEO_CALL_REACTIONS_TOPIC = 'hfos.reactions';
  */
 export const VIDEO_CALL_CAPTIONS_TOPIC = 'hfos.captions';
 
+/**
+ * The call's chat: LiveKit's own chat topic, which the web's and the phone's chat send each message on as a text
+ * stream. Each screen also reports what it sent, so the chat is kept with the call (`video_call.chat`); while the
+ * AI's notes are on, the listener reads it too, for the coach.
+ */
+export const VIDEO_CALL_CHAT_TOPIC = 'lk.chat';
+
+/** Chat messages kept from one person in one call, at most: past this, someone is flooding it. */
+export const VIDEO_CALL_CHAT_MAX_PER_PERSON = 500;
+
+/**
+ * What a chat message is marked with, in place of the stretch that took it, when the AI's notes were off as it was
+ * typed, or went off after: it stays with the call for the team, and no transcript or coach ever has it. The
+ * database lets the team write only this (20261027022800_video_call_chat.sql, `video_call_messages_not_for_ai`).
+ */
+export const VIDEO_CALL_CHAT_NOT_FOR_AI = 'ai-off';
+
+/** How a line typed in the chat reads to the AI, in the transcript and to the coach, so it's told apart from talk. */
+export const VIDEO_CALL_TYPED_MARK = '(in the chat)';
+
+/** A typed line's words as the coach is given them: "(in the chat) my email is …". */
+export const typedLineText = (text: string): string => `${VIDEO_CALL_TYPED_MARK} ${text}`;
+
 /** The room's metadata key that says the AI is hearing the call now ('on'), set by the listener. */
 export const VIDEO_CALL_ROOM_AI = 'hfos.ai';
 
@@ -410,20 +433,24 @@ export const sideOfKind = (kind: VideoCallKind): 'team' | 'customer' =>
 
 /**
  * What a stretch of a call said, as the appointment keeps it: one line per turn, "Name: words", a person's lines run
- * together while nobody else speaks, as Zoom's and Google Meet's transcripts read.
+ * together while nobody else speaks, as Zoom's and Google Meet's transcripts read. What someone typed in the chat is
+ * a line of its own, "Name (in the chat): words", so the AI and anyone reading can tell it from what was said.
  */
 export function videoCallTranscript(
-  lines: readonly { readonly name: string; readonly body: string }[],
+  lines: readonly { readonly name: string; readonly body: string; readonly typed?: boolean }[],
 ): string {
-  const turns: { who: string; said: string }[] = [];
+  const turns: { who: string; said: string; typed: boolean }[] = [];
   for (const l of lines) {
     const said = l.body.trim();
     if (!said) continue;
+    const typed = !!l.typed;
     const last = turns[turns.length - 1];
-    if (last && last.who === l.name) last.said += ` ${said}`;
-    else turns.push({ who: l.name, said });
+    if (last && !typed && !last.typed && last.who === l.name) last.said += ` ${said}`;
+    else turns.push({ who: l.name, said, typed });
   }
-  return turns.map((t) => `${t.who}: ${t.said}`).join('\n');
+  return turns
+    .map((t) => `${t.who}${t.typed ? ` ${VIDEO_CALL_TYPED_MARK}` : ''}: ${t.said}`)
+    .join('\n');
 }
 export const VIDEO_CALL_REACTIONS = ['👍', '❤️', '😂', '👏', '🎉', '😮'] as const;
 export type VideoCallReaction = (typeof VIDEO_CALL_REACTIONS)[number];
@@ -513,18 +540,24 @@ export const VIDEO_CALL_WORDS = {
   aiOn: 'AI notes on',
   /** Before joining, while the call's AI notes are on: joining is agreeing (9a). */
   aiNotice: (business: string) =>
-    `${business} uses AI to take notes from what’s said in this call. No video or sound is kept. By joining, you agree to this.`,
+    `${business} uses AI to take notes from what’s said and typed in this call. No video or sound is kept. By joining, you agree to this.`,
   /** On the booking page, before booking a HandsFreeOS call (9a). */
-  bookingNotice: 'AI takes notes from what’s said in this video call. No video or sound is kept.',
+  bookingNotice:
+    'AI takes notes from what’s said and typed in this video call. No video or sound is kept.',
   /** In the confirmation and reminders, beside the Join link (9a). */
-  emailNotice: 'AI takes notes from what’s said in the call. No video or sound is kept.',
+  emailNotice: 'AI takes notes from what’s said and typed in the call. No video or sound is kept.',
   /** The team's switch in the call. */
   aiTurnOff: 'Turn off AI notes for this call',
   aiTurnOn: 'Turn on AI notes for this call',
   aiOffConfirm:
-    'The AI stops listening, and what it heard of this call so far is forgotten. There will be no notes or suggestions from it.',
+    'The AI stops listening, and what it heard of this call so far is forgotten. There will be no notes or suggestions from it. The chat is still kept with the call.',
   aiTurnedOff: 'AI notes are off for this call.',
   aiTurnedOn: 'AI notes are on for this call.',
+  /** The chat, before anyone has written: it's kept with the call, whatever its AI notes (20261027022800). */
+  chatKept: 'Messages here are seen by everyone in the call, and kept with it.',
+  /** The chat kept, on the appointment and the call's line on the timeline. */
+  chatLog: 'Chat from the call',
+  chatLogMore: (n: number) => `and ${n} more ${n === 1 ? 'message' : 'messages'}`,
   captions: 'Captions',
   captionsOn: 'Show captions',
   captionsOff: 'Hide captions',

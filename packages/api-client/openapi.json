@@ -94408,7 +94408,7 @@
         "tags": [
           "commands"
         ],
-        "description": "Risk level 0. Requires outreach.use. Emits outreach.send.queued.",
+        "description": "Risk level 0. Requires outreach.use. Emits outreach.send.queued, outreach.times.check.",
         "requestBody": {
           "required": true,
           "content": {
@@ -94782,7 +94782,7 @@
         "tags": [
           "commands"
         ],
-        "description": "Risk level 1. Requires outreach.use. Emits outreach.send.approved. Can wait on a phone for 30 minutes, then asks.",
+        "description": "Risk level 1. Requires outreach.use. Emits outreach.send.approved, outreach.times.check. Can wait on a phone for 30 minutes, then asks.",
         "requestBody": {
           "required": true,
           "content": {
@@ -112391,11 +112391,75 @@
     "/v1/commands/salescoach.call.stop": {
       "post": {
         "operationId": "command_salescoach_call_stop",
-        "summary": "Stop the coach on the call you’re on now: no more cards, and nothing from this call is kept or written up.",
+        "summary": "Stop the coach on the call you’re on now: no more cards, and nothing from this call is kept or written up unless you start it again.",
         "tags": [
           "commands"
         ],
         "description": "Risk level 1. Requires salescoach.use. Emits salescoach.call.stopped.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "workspaceId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  },
+                  "coachedCallId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  }
+                },
+                "required": [
+                  "workspaceId",
+                  "coachedCallId"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "state": {
+                      "type": "string",
+                      "enum": [
+                        "live",
+                        "writing",
+                        "done",
+                        "failed",
+                        "stopped"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "state"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/commands/salescoach.call.resume": {
+      "post": {
+        "operationId": "command_salescoach_call_resume",
+        "summary": "Start the coach again on the call you stopped it on, while the call goes on: the cards come back, and the write-up has the whole call.",
+        "tags": [
+          "commands"
+        ],
+        "description": "Risk level 1. Requires salescoach.use. Emits salescoach.call.resumed.",
         "requestBody": {
           "required": true,
           "content": {
@@ -115462,6 +115526,122 @@
                     "call",
                     "counts",
                     "leads"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/queries/video_call.chat": {
+      "post": {
+        "operationId": "query_video_call_chat",
+        "summary": "What people typed in a HandsFreeOS video call’s chat, oldest first: who sent each message, and when.",
+        "tags": [
+          "queries"
+        ],
+        "description": "Requires records.read.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "workspaceId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  },
+                  "callId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  },
+                  "appointmentId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  }
+                },
+                "required": [
+                  "workspaceId"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "callId": {
+                      "anyOf": [
+                        {
+                          "type": "string",
+                          "format": "uuid",
+                          "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "messages": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "string",
+                            "format": "uuid",
+                            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                          },
+                          "name": {
+                            "type": "string"
+                          },
+                          "side": {
+                            "type": "string",
+                            "enum": [
+                              "team",
+                              "customer"
+                            ]
+                          },
+                          "body": {
+                            "type": "string"
+                          },
+                          "sentAt": {
+                            "type": "string",
+                            "format": "date-time",
+                            "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+                          }
+                        },
+                        "required": [
+                          "id",
+                          "name",
+                          "side",
+                          "body",
+                          "sentAt"
+                        ],
+                        "additionalProperties": false
+                      }
+                    },
+                    "more": {
+                      "type": "integer",
+                      "minimum": -9007199254740991,
+                      "maximum": 9007199254740991
+                    }
+                  },
+                  "required": [
+                    "callId",
+                    "messages",
+                    "more"
                   ],
                   "additionalProperties": false
                 }
@@ -228126,7 +228306,7 @@
     "/v1/queries/salescoach.live": {
       "post": {
         "operationId": "query_salescoach_live",
-        "summary": "Your call the coach is listening to now, with its cards (newest first) and where it is in the script; or your last one for a few minutes after it ends.",
+        "summary": "Your call the coach is listening to now, with its cards (newest first) and where it is in the script; or one you stopped the coach on while it goes on; or your last one for a few minutes after it ends.",
         "tags": [
           "queries"
         ],
@@ -228387,6 +228567,12 @@
                             "startedAt": {
                               "type": "string"
                             },
+                            "endedAt": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
                             "cards": {
                               "type": "array",
                               "items": {
@@ -228452,6 +228638,7 @@
                             "playbook",
                             "step",
                             "startedAt",
+                            "endedAt",
                             "cards"
                           ],
                           "additionalProperties": false

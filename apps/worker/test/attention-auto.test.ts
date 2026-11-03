@@ -153,7 +153,7 @@ describe('a confirmation request', () => {
     const texts = textsTo(w, c.phone);
     expect(texts).toHaveLength(before + 1);
     const asked = texts.at(-1)!.body;
-    expect(asked).toContain('Can you confirm your AC tune-up tomorrow');
+    expect(asked).toContain('Can you confirm your appointment tomorrow');
     expect(asked).toContain('Reply C to confirm.');
     // The ask is open, so a C now confirms; the item is handled until 12 hours before the start.
     expect((await seatOf(attendeeId)).confirm_asked_at).not.toBeNull();

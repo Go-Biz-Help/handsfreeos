@@ -57,6 +57,7 @@ import { OCCASION_WORDS } from '../occasions';
 import { isOccasionKind, isPartnerKind } from '../today';
 import { automationOf, countWheels } from './automation';
 import { noteSent, offerVersionFor } from './conversation';
+import { approveTimes, attachTimes } from './meeting-times';
 import {
   chatKey,
   clientCauseOf,
@@ -271,7 +272,7 @@ export const sendQueue = defineAddonCommand(outreachAddon, {
   output: SendQueueOutput,
   permission: 'outreach.use',
   scope: inWorkspace,
-  emits: ['outreach.send.queued'],
+  emits: ['outreach.send.queued', 'outreach.times.check'],
   async handler(ctx, input) {
     const me = requireHuman(ctx).userId;
     const ws = ctx.scope.workspaceId!;
@@ -461,6 +462,14 @@ export const sendQueue = defineAddonCommand(outreachAddon, {
       .returning({ id: sends.id });
     // Each message or comment drafted counts (decision 140).
     if (made) await tally(ctx, me, profile.platform, 'drafted', 1, at);
+    // The times its draft offers, or the booking it makes (decision 149): checked again before it goes.
+    if (made)
+      await attachTimes(ctx, me, {
+        sendId: made.id,
+        profileId: profile.id,
+        text: input.text,
+        goes,
+      });
     if (made)
       await ctx.emit({
         type: 'outreach.send.queued',
@@ -498,7 +507,7 @@ export const sendApprove = defineAddonCommand(outreachAddon, {
   // It reaches a prospect: an OK that waited on the phone goes by itself for 30 minutes, and asks "Still send?" after
   // (decision 44). The contract may grow it to `anytime` one day, never back.
   offline: { freshMinutes: FRESH_MINUTES },
-  emits: ['outreach.send.approved'],
+  emits: ['outreach.send.approved', 'outreach.times.check'],
   async handler(ctx, input) {
     const me = requireHuman(ctx).userId;
     const named = input.sends ? new Map(input.sends.map((s) => [s.sendId, s.text])) : null;
@@ -558,6 +567,12 @@ export const sendApprove = defineAddonCommand(outreachAddon, {
         payload: { kind: s.kind, changed: edits[edits.length - 1] },
       });
     }
+    // Their times are checked again, and their bookings made, before they go (decision 149).
+    await approveTimes(
+      ctx,
+      me,
+      waiting.map((s) => s.id),
+    );
     // Each network's training wheels count its own messages OK'd; a comment counts toward its own hold instead, from
     // `sends` (`commentHoldOf`).
     const platforms = waiting.length
@@ -965,10 +980,14 @@ export async function sendsToday(ctx: Ctx, me: string, todayFrom: string, now: D
     needs_you: string | null;
     not_before: Date | string | null;
     platform: Platform | null;
+    times_held: boolean;
   }>(
     ctx.tx,
     sql`select s.id, s.profile_id, s.kind, s.post_id, s.state, s.text, s.handed_over, s.needs_you, s.not_before,
-          p.platform
+          p.platform,
+          -- OK'd, it waits while its times are checked again and its booking made (decision 149).
+          exists (select 1 from addon_outreach.time_offers o
+            where o.send_id = s.id and o.state in ('drafted', 'checking')) as times_held
         from addon_outreach.sends s left join addon_outreach.profiles p on p.id = s.profile_id
         where s.workspace_id = ${ctx.scope.workspaceId} and s.user_id = ${me}
           and (s.state in ('waiting', 'approved')
@@ -998,6 +1017,7 @@ export async function sendsToday(ctx: Ctx, me: string, todayFrom: string, now: D
         held.add(key(s.profile_id, s.kind, s.post_id));
         if (s.platform) retryAt.set(s.platform, Math.min(goes, retryAt.get(s.platform) ?? goes));
       }
+      if (s.state === 'approved' && s.times_held) held.add(key(s.profile_id, s.kind, s.post_id));
       open.set(key(s.profile_id, s.kind, s.post_id), {
         sendId: s.id,
         state: s.state,

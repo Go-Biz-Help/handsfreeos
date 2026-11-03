@@ -8588,7 +8588,7 @@ export interface paths {
         put?: never;
         /**
          * The person OKs messages and comments the extension drafted, as they are or changed; with none named, every one waiting (Approve all) except replies handed over to them, messages to someone who needs them and answers to Alignable posts asking for what the business offers, which wait to be OK’d one at a time. The extension sends them. On training wheels, each message counts toward coming off them; each comment counts toward the comments’ own wait.
-         * @description Risk level 1. Requires outreach.use. Emits outreach.send.approved. Can wait on a phone for 30 minutes, then asks.
+         * @description Risk level 1. Requires outreach.use. Emits outreach.send.approved, outreach.times.check. Can wait on a phone for 30 minutes, then asks.
          */
         post: operations["command_outreach_send_approve"];
         delete?: never;
@@ -8628,7 +8628,7 @@ export interface paths {
         put?: never;
         /**
          * The extension drafted a message to someone on the person’s list for today: a first message, a follow-up or a reply; or, on Instagram, LinkedIn and Alignable, a comment on a good post of theirs; or, on Facebook, the day’s reply to a question asked in one of the person’s groups. It waits for the person’s OK, or, when they chose for messages to go on their own and their training wheels are off, goes as it is; a comment or a reply in a group goes on its own once the person has OK’d 25 there and a week has gone by, and an answer to an Alignable post asking for what the business offers always waits, as do a message offering another time after a missed demo, a birthday or new-job note, and a reply to something the business’s Knowledge doesn’t answer. A message already drafted for them comes back instead. A client in Contacts gets only replies.
-         * @description Risk level 0. Requires outreach.use. Emits outreach.send.queued.
+         * @description Risk level 0. Requires outreach.use. Emits outreach.send.queued, outreach.times.check.
          */
         post: operations["command_outreach_send_queue"];
         delete?: never;
@@ -14037,6 +14037,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/commands/salescoach.call.resume": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Start the coach again on the call you stopped it on, while the call goes on: the cards come back, and the write-up has the whole call.
+         * @description Risk level 1. Requires salescoach.use. Emits salescoach.call.resumed.
+         */
+        post: operations["command_salescoach_call_resume"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/commands/salescoach.call.stop": {
         parameters: {
             query?: never;
@@ -14047,7 +14067,7 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * Stop the coach on the call you’re on now: no more cards, and nothing from this call is kept or written up.
+         * Stop the coach on the call you’re on now: no more cards, and nothing from this call is kept or written up unless you start it again.
          * @description Risk level 1. Requires salescoach.use. Emits salescoach.call.stopped.
          */
         post: operations["command_salescoach_call_stop"];
@@ -22547,7 +22567,7 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * Your call the coach is listening to now, with its cards (newest first) and where it is in the script; or your last one for a few minutes after it ends.
+         * Your call the coach is listening to now, with its cards (newest first) and where it is in the script; or one you stopped the coach on while it goes on; or your last one for a few minutes after it ends.
          * @description Requires salescoach.use.
          */
         post: operations["query_salescoach_live"];
@@ -23091,6 +23111,26 @@ export interface paths {
          * @description Any signed-in user.
          */
         post: operations["query_user_phone_get"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/queries/video_call.chat": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * What people typed in a HandsFreeOS video call’s chat, oldest first: who sent each message, and when.
+         * @description Requires records.read.
+         */
+        post: operations["query_video_call_chat"];
         delete?: never;
         options?: never;
         head?: never;
@@ -57066,6 +57106,38 @@ export interface operations {
             };
         };
     };
+    command_salescoach_call_resume: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    coachedCallId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @enum {string} */
+                        state: "live" | "writing" | "done" | "failed" | "stopped";
+                    };
+                };
+            };
+        };
+    };
     command_salescoach_call_stop: {
         parameters: {
             query?: never;
@@ -87925,6 +87997,7 @@ export interface operations {
                                 tip: string;
                                 title: string;
                             }[];
+                            endedAt: string | null;
                             /** Format: uuid */
                             id: string;
                             liveMeetingId: string | null;
@@ -90142,6 +90215,50 @@ export interface operations {
                             lastVerificationAt: string | null;
                             verifiedAt: string | null;
                         } | null;
+                    };
+                };
+            };
+        };
+    };
+    query_video_call_chat: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    appointmentId?: string;
+                    /** Format: uuid */
+                    callId?: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        callId: string | null;
+                        messages: {
+                            body: string;
+                            /** Format: uuid */
+                            id: string;
+                            name: string;
+                            /** Format: date-time */
+                            sentAt: string;
+                            /** @enum {string} */
+                            side: "team" | "customer";
+                        }[];
+                        more: number;
                     };
                 };
             };

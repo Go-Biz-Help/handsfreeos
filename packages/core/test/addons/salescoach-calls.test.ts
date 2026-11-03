@@ -439,6 +439,77 @@ describe('a coached call', () => {
     ).toEqual([]);
   });
 
+  it('starts again when its rep asks while the call goes on, and then keeps the whole call', async () => {
+    const callId = await aCall(rep);
+    const begun = await worker('salescoach.call.begin', { callId, userId: rep.id, personId });
+    const id = begun.coachedCallId;
+    await as(rep, 'salescoach.call.stop', { coachedCallId: id });
+    // Stopped, the call goes on: the rep still sees it, with the way to start the coach again.
+    expect((await as(rep, 'salescoach.live', {})).call).toMatchObject({
+      id,
+      state: 'stopped',
+      endedAt: null,
+    });
+    // Only the rep on it.
+    expect(await refused(as(owner, 'salescoach.call.resume', { coachedCallId: id }))).toBe(
+      'salescoach_not_your_call',
+    );
+    expect(await as(rep, 'salescoach.call.resume', { coachedCallId: id })).toEqual({
+      state: 'live',
+    });
+    // Asking twice changes nothing.
+    expect(await as(rep, 'salescoach.call.resume', { coachedCallId: id })).toEqual({
+      state: 'live',
+    });
+    // The cards come back, and the end keeps everything that was said.
+    const card = await worker('salescoach.card.add', {
+      coachedCallId: id,
+      step: 's1',
+      card: { kind: 'fact', title: 'Back', say: 'Here again.', heard: '', objectionId: null },
+    });
+    expect(card.cardId).toBeTruthy();
+    expect(
+      await worker('salescoach.call.end', {
+        coachedCallId: id,
+        lines: [{ speaker: 'customer', text: 'Still talking', atMs: 1 }],
+      }),
+    ).toEqual({ state: 'writing' });
+    const [row] = await rows<{ state: string; failure: string | null }>(
+      admin(),
+      sql`select state, failure from addon_salescoach.calls where id = ${id}`,
+    );
+    expect(row).toEqual({ state: 'writing', failure: null });
+  });
+
+  it('can’t start again once the call is over', async () => {
+    const callId = await aCall(rep);
+    const begun = await worker('salescoach.call.begin', { callId, userId: rep.id, personId });
+    const id = begun.coachedCallId;
+    await as(rep, 'salescoach.call.stop', { coachedCallId: id });
+    // A stopped call that's still going isn't deleted under the coach.
+    expect(await refused(as(owner, 'salescoach.call.delete', { coachedCallId: id }))).toBe(
+      'salescoach_call_in_progress',
+    );
+    expect(await worker('salescoach.call.end', { coachedCallId: id, lines: [] })).toEqual({
+      state: 'stopped',
+    });
+    const [row] = await rows<{ ended_at: Date | null }>(
+      admin(),
+      sql`select ended_at from addon_salescoach.calls where id = ${id}`,
+    );
+    expect(row!.ended_at).not.toBeNull();
+    expect(await refused(as(rep, 'salescoach.call.resume', { coachedCallId: id }))).toBe(
+      'salescoach_call_over',
+    );
+    // Nor by going round the command.
+    expect(
+      await seen(
+        rep,
+        sql`update addon_salescoach.calls set state = 'live' where id = ${id} returning id`,
+      ),
+    ).toEqual([]);
+  });
+
   it('forgets a call whose AI notes were turned off: no lines, no cards, no write-up', async () => {
     const callId = await aCall(rep);
     const begun = await worker('salescoach.call.begin', { callId, userId: rep.id, personId });

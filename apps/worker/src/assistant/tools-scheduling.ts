@@ -955,7 +955,6 @@ const updateJobStatus: SettingsConfirmTool = {
     const note = plan.note === undefined ? (a.job?.customerNote ?? null) : plan.note;
     const text = jobText({
       business,
-      title: a.title,
       status,
       noteOnly: !plan.statusChanged,
       note,

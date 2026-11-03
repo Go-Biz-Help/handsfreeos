@@ -1,8 +1,8 @@
 'use client';
 /**
  * The side panels of a HandsFreeOS video call (docs/video-calls.md): the chat, and who's in the call. For the team,
- * who's asking to come in too, with Let in and Turn away, and Mute and Remove on everyone else. Chat isn't kept:
- * it goes with the call.
+ * who's asking to come in too, with Let in and Turn away, and Mute and Remove on everyone else. The chat's links can
+ * be pressed, and the call keeps it (./call-chat.ts), whatever its AI notes.
  *
  * In a webinar the team sees who's presenting and the audience, hands up first, with Bring on stage and Back to the
  * audience; an attendee sees only who's presenting and how many are watching, never the other attendees.
@@ -27,6 +27,7 @@ import { Avatar } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { errorMessage } from '@/lib/api/errors';
 import { cn } from '@/lib/utils';
+import { ChatText } from './chat-text';
 import { actOn, setOnStage, type VideoCallGot, type VideoCallPerson } from './team-call';
 import { toast } from './toast';
 import type { TeamSide } from './types';
@@ -97,8 +98,8 @@ export function ChatPanel({
     <Panel title="Chat" onClose={onClose} testId="call-chat">
       <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto px-4 py-3">
         {messages.length === 0 ? (
-          <p className="text-[13px] text-text-3">
-            Messages here are seen by everyone in the call, and aren’t kept after it.
+          <p className="text-[13px] text-text-3" data-testid="call-chat-empty">
+            {VIDEO_CALL_WORDS.chatKept}
           </p>
         ) : null}
         {messages.map((m) => (
@@ -109,7 +110,9 @@ export function ChatPanel({
               </span>{' '}
               · {clock(m.timestamp)}
             </span>
-            <span className="whitespace-pre-wrap break-words text-[13.5px]">{m.message}</span>
+            <span className="whitespace-pre-wrap break-words text-[13.5px]">
+              <ChatText text={m.message} />
+            </span>
           </div>
         ))}
         <div ref={end} />

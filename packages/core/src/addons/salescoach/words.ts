@@ -30,7 +30,11 @@ export const SALESCOACH_WORDS = {
     step: 'Where you are',
     dismiss: 'Got it',
     stop: 'Stop coaching this call',
+    stopping: 'Stopping…',
     stopped: 'Coach stopped for this call',
+    /** A stopped call, while it goes on. */
+    resume: 'Start coaching again',
+    resuming: 'Starting…',
     seeCall: 'See the write-up',
     heard: 'They said',
     /** The stage bar (round five): where the call is in the method, for a script whose steps name stages. */

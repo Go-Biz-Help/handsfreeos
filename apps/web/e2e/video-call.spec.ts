@@ -143,12 +143,19 @@ test('a customer and the owner meet in a booked HandsFreeOS video call', async (
   await team.getByTestId('call-ai-notes-off-confirm').click();
   await expect(notes).toContainText('AI notes off');
 
-  // Chat reaches the other side.
+  // Chat reaches the other side, with its links to press. It's kept with the call, AI notes off or not.
   await team.getByTestId('call-chat-button').click();
-  await team.getByTestId('call-chat-input').fill('Hi Maya, can you hear me?');
+  await expect(team.getByTestId('call-chat-empty')).toContainText('kept with it');
+  await team
+    .getByTestId('call-chat-input')
+    .fill('Hi Maya, can you hear me? Here’s the quote: acme.com/q/7.');
   await team.keyboard.press('Enter');
   await customer.getByTestId('call-chat-button').click();
   await expect(customer.getByTestId('call-chat')).toContainText('Hi Maya, can you hear me?');
+  const link = customer.getByTestId('call-chat').getByTestId('call-chat-link');
+  await expect(link).toHaveText('acme.com/q/7');
+  await expect(link).toHaveAttribute('href', 'https://acme.com/q/7');
+  await expect(link).toHaveAttribute('target', '_blank');
 
   // A raised hand shows on the customer's tile for the owner.
   await customer.getByTestId('call-raise-hand').click();

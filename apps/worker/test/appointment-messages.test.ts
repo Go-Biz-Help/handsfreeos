@@ -143,7 +143,7 @@ describe('confirmations', () => {
     expect(texts).toHaveLength(1);
     const body = texts[0]!.body;
     expect(body).toBe(
-      `${BUSINESS}: You're booked for an AC tune-up on ${dayShort(start, CHI)} at 10:00 AM CT. Change or cancel: http://localhost:3000/m/${booked.manageToken} Reply STOP to opt out.`,
+      `${BUSINESS}: You're booked for ${dayShort(start, CHI)} at 10:00 AM CT (AC tune-up). Change or cancel: http://localhost:3000/m/${booked.manageToken} Reply STOP to opt out.`,
     );
     expect(body).not.toMatch(/[‘’“”–—·]/);
     expect(smsSegments(body)).toMatchObject({ encoding: 'gsm7' });
@@ -175,7 +175,7 @@ describe('confirmations', () => {
       w.owner.email,
       `New booking: Nora Customer, AC tune-up, ${weekdayShort(start, CHI)} 10:00 AM`,
     );
-    expect(mail.text).toContain('Nora Customer booked an AC tune-up with you online.');
+    expect(mail.text).toContain('Nora Customer booked an appointment with you online.');
     expect(mail.text).toContain(`Phone: ${formatPhone(c.phone)} · texts OK`);
     expect(mail.text).toContain('Where: 123 Main St, Houston, TX 77002');
   });
@@ -218,7 +218,7 @@ describe('confirmations', () => {
     await drain(w);
     const second = textsTo(w, noraPhone).at(-1)!.body;
     expect(second).toMatch(
-      /^Lone Star Test HVAC: You're booked for an AC tune-up on .* 2:00 PM CT\. /,
+      /^Lone Star Test HVAC: You're booked for .* 2:00 PM CT \(AC tune-up\)\. /,
     );
     expect(second).not.toContain('STOP');
   });
@@ -256,7 +256,7 @@ describe('confirmations', () => {
       const texts = textsTo(w, c.phone);
       expect(texts).toHaveLength(1);
       expect(texts[0]!.body).toMatch(
-        /^Lone Star Test HVAC: You're booked for an AC tune-up on .* Reply STOP to opt out\.$/,
+        /^Lone Star Test HVAC: You're booked for .* \(AC tune-up\)\. .* Reply STOP to opt out\.$/,
       );
       expect((await stateOf(attendee.id)).confirmation).toMatchObject({
         status: 'sent',
@@ -297,7 +297,7 @@ describe('confirmations', () => {
     await drain(w);
     expect(textsTo(w, quiet.phone)).toEqual([]);
     expect(textsTo(w, told.phone)).toHaveLength(1);
-    expect(textsTo(w, told.phone)[0]!.body).toContain("You're booked for an AC tune-up");
+    expect(textsTo(w, told.phone)[0]!.body).toContain('CT (AC tune-up).');
     const [att] = await rows<{ id: string }>(
       admin(),
       sql`select id from app.appointment_attendees where appointment_id = ${a.appointmentId}`,
@@ -338,7 +338,7 @@ describe('confirmations', () => {
     expect((await repeat(quiet.personId, '15:00')).appointmentIds).toHaveLength(3);
     await drain(w);
     expect(textsTo(w, told.phone)).toHaveLength(1);
-    expect(textsTo(w, told.phone)[0]!.body).toContain("You're booked for an AC tune-up");
+    expect(textsTo(w, told.phone)[0]!.body).toContain('CT (AC tune-up).');
     expect(textsTo(w, quiet.phone)).toEqual([]);
   });
 
@@ -468,11 +468,11 @@ describe('the team, and change and cancel notices', () => {
     expect(cancelled.statusCode, cancelled.body).toBe(200);
     await drain(w);
     const mail = await waitForMail(w.owner.email, 'Cancelled: Loud Customer, AC tune-up');
-    expect(mail.text).toContain('Loud Customer cancelled their AC tune-up online.');
+    expect(mail.text).toContain('Loud Customer cancelled their appointment online.');
     expect(mail.text).toContain('Why: Fixed it myself');
     const texts = textsTo(w, loud.phone);
     expect(texts.at(-1)!.body).toBe(
-      `${BUSINESS}: Your AC tune-up on ${dayShort(start, CHI)} at 11:00 AM CT is cancelled. Book again: http://localhost:3000/book/${w.site}/${cal.slug}`,
+      `${BUSINESS}: Your appointment on ${dayShort(start, CHI)} at 11:00 AM CT is cancelled. Book again: http://localhost:3000/book/${w.site}/${cal.slug}`,
     );
 
     // The event again (a retry): nobody hears it twice.
@@ -518,7 +518,7 @@ describe('the team, and change and cancel notices', () => {
     await drain(w);
     const texts = textsTo(w, c.phone);
     expect(texts.at(-1)!.body).toBe(
-      `${BUSINESS}: Your AC tune-up is now ${dayShort(later, CHI)} at 2:00 PM CT. Change or cancel: http://localhost:3000/m/${booked.manageToken}`,
+      `${BUSINESS}: Your appointment is now ${dayShort(later, CHI)} at 2:00 PM CT. Change or cancel: http://localhost:3000/m/${booked.manageToken}`,
     );
     const [conv] = await rows<{ status: string; unread_count: number; waiting: boolean }>(
       admin(),
@@ -575,13 +575,13 @@ describe('a calendar with no staff', () => {
       const booked = await bookOnline(w, beds.slug, start, { ...texted, smsConsent: true });
       await drain(w);
       expect(textsTo(w, texted.phone).at(-1)!.body).toBe(
-        `${BUSINESS}: You're booked for a red light session on ${dayShort(start, CHI)} at 10:00 AM CT. Change or cancel: http://localhost:3000/m/${booked.manageToken} Reply STOP to opt out.`,
+        `${BUSINESS}: You're booked for ${dayShort(start, CHI)} at 10:00 AM CT (Red light session). Change or cancel: http://localhost:3000/m/${booked.manageToken} Reply STOP to opt out.`,
       );
       const team = await waitForMail(
         w.owner.email,
         `New booking: Ava Customer, Red light session, ${weekdayShort(start, CHI)} 10:00 AM`,
       );
-      expect(team.text).toContain('Ava Customer booked a red light session online.');
+      expect(team.text).toContain('Ava Customer booked an appointment online.');
       const attendee = await attendeeByToken(booked.manageToken);
       const [sync] = await rows<{ n: number }>(
         admin(),
@@ -602,7 +602,7 @@ describe('a calendar with no staff', () => {
         w.owner.email,
         'New booking: Ben Customer, Red light session',
       );
-      expect(heads.text).toContain('Ben Customer booked a red light session online.');
+      expect(heads.text).toContain('Ben Customer booked an appointment online.');
     } finally {
       await rows(admin(), sql`delete from app.calendar_connections where id = ${conn!.id}`);
     }

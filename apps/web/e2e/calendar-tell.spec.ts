@@ -149,7 +149,7 @@ test('Tell on a staff booking: unticked sends nothing, ticked texts once, and th
     .poll(async () => (await message(told.confirmation!.messageId!)).status, { timeout: 20_000 })
     .toBe('delivered');
   expect((await message(told.confirmation!.messageId!)).body).toMatch(
-    /^Gulf Coast Tell HVAC: You.re booked for a tune-up on /,
+    /^Gulf Coast Tell HVAC: You.re booked for .+ CT \(Tune-up\)\. /,
   );
 
   // Ann's booking was handled before Ben's: her reminders are set, but no confirmation and no text.

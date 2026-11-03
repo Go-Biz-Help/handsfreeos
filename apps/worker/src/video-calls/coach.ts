@@ -8,6 +8,8 @@
  *   nobody claims it. While nobody in the call is coached, it's asked again every so often, in case someone joins.
  * - **Every line**, both sides, in order: the team's people are the team's side, everyone else the customer's.
  *   Lines kept before it began (a listener that restarted, a rep who joined late) come first, so the coach knows them.
+ *   What someone typed in the chat comes too, as "(in the chat) …" (20261027022800): live from the listener, and
+ *   at the end from the call's kept messages.
  * - **AI notes off** ends it at once, forgotten: the add-ons keep nothing of it.
  * - **Otherwise it ends with the stretch.** A listener that leaves (alone, a deploy, another listener took over)
  *   leaves the live meeting live, so the next listener carries on with it. When the stretch is over, the job that
@@ -18,6 +20,7 @@ import {
   executeCommand,
   liveMeetingEnded,
   sideOfKind,
+  typedLineText,
   videoCallCoach,
   type VideoCallKind,
 } from '@hfos/core/server';
@@ -49,6 +52,8 @@ interface KeptLine extends Record<string, unknown> {
   readonly body: string;
   readonly language: string | null;
   readonly said_at: Date | string;
+  /** Typed in the chat rather than said: one of the call's kept messages. */
+  readonly typed?: boolean;
 }
 
 /** A line as the add-ons hear it: said at `saidAt`, in a live meeting that started at `from`. */
@@ -58,9 +63,11 @@ const liveLine = (
   saidAt: Date | string,
   language: string | null,
   from: number,
+  typed = false,
 ): LiveLine => ({
   speaker,
-  text,
+  // What someone typed in the chat reads as such: "(in the chat) my email is …".
+  text: typed ? typedLineText(text) : text,
   atMs: Math.max(0, new Date(saidAt).getTime() - from),
   language,
 });
@@ -212,13 +219,20 @@ export class CallCoach {
     const before: { key: string; saidAt: number; line: LiveLine }[] = kept.map((l) => ({
       key: l.line_key,
       saidAt: new Date(l.said_at).getTime(),
-      line: liveLine(l.side, l.body, l.said_at, l.language, c.from),
+      line: liveLine(l.side, l.body, l.said_at, l.language, c.from, l.typed),
     }));
     for (const l of this.early.splice(0))
       before.push({
         key: l.key,
         saidAt: new Date(l.saidAt).getTime(),
-        line: liveLine(await this.sideOf(l.personId), l.text, l.saidAt, l.language, c.from),
+        line: liveLine(
+          await this.sideOf(l.personId),
+          l.text,
+          l.saidAt,
+          l.language,
+          c.from,
+          l.typed,
+        ),
       });
     before.sort((a, b) => a.saidAt - b.saidAt);
     for (const b of before) {
@@ -231,7 +245,14 @@ export class CallCoach {
   private async add(c: Coaching, l: HeardLine): Promise<void> {
     if (this.keys.has(l.key)) return;
     this.keys.add(l.key);
-    const line = liveLine(await this.sideOf(l.personId), l.text, l.saidAt, l.language, c.from);
+    const line = liveLine(
+      await this.sideOf(l.personId),
+      l.text,
+      l.saidAt,
+      l.language,
+      c.from,
+      l.typed,
+    );
     this.lines.push(line);
     // The add-ons hear each line in order, on their own: the coach thinking doesn't hold up the next line.
     void c.fanout.line(line, this.lines.slice());
@@ -285,8 +306,14 @@ export async function finishCoaching(
   const kept = await asWorker(deps.db, scope, (tx) =>
     rows<KeptLine>(
       tx,
-      sql`select line_key, side, body, language, said_at from app.video_call_lines
+      sql`select line_key, side, body, language, said_at, false as typed, created_at
+            from app.video_call_lines
            where video_call_id = ${stretch.callId} and said_at <= ${stretch.until}::timestamptz
+          union all
+          select message_key, side, regexp_replace(body, '[[:space:]]+', ' ', 'g'), null, sent_at, true, created_at
+            from app.video_call_messages
+           where video_call_id = ${stretch.callId} and stretch is null
+             and sent_at <= ${stretch.until}::timestamptz
            order by said_at, created_at`,
     ),
   );
@@ -318,7 +345,9 @@ export async function finishCoaching(
       // The coach takes the call up where it was (the same coached call), and hears it end.
       await fanout.start();
       await fanout.end(
-        forgotten ? [] : kept.map((l) => liveLine(l.side, l.body, l.said_at, l.language, from)),
+        forgotten
+          ? []
+          : kept.map((l) => liveLine(l.side, l.body, l.said_at, l.language, from, l.typed)),
         { forgotten },
       );
     }
