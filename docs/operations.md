@@ -10891,7 +10891,10 @@ page, or on a ticket, they see **Open as owner** instead, and one click takes th
 - **No reason and no time limit.** It stays open until they press **Leave** on the banner, or open another
   business.
 - **They work as its owner.** They see everything and can change anything an owner could. What they change is
-  saved under their own name, like any owner's change.
+  saved under their own name, like any owner's change. That covers the worker's screens too (Phone & texting,
+  finding and moving numbers, Match my website): its routes ask `private.asker_has_permission`, which counts the
+  open business, and never `private.user_has_permission`, which is about somebody else and doesn't. Before
+  20261027022100 they asked the second, so Phone & texting read **Off** inside a business the founder had open.
 - **The business is not told.** Nothing goes into its audit log about the visit. The platform keeps the session:
   who, which business, and when.
 - **They never join the business.** They aren't on its team page or in its member count, get none of its

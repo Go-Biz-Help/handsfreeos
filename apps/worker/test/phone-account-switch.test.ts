@@ -14,6 +14,8 @@ import {
   numberImportStart,
   organizationCreate,
   phoneNumberBuy,
+  platformViewAsEnd,
+  platformViewAsStart,
   telephonyDisable,
   telephonyEnable,
   type HfosError,
@@ -233,6 +235,50 @@ describe('phone & texting on', () => {
       executeCommand(api(), telephonyEnable, { workspaceId: ws }, actor(member), meta()),
     ).rejects.toMatchObject({ status: 403 });
     expect((await shown(ws, member)).statusCode).toBe(403);
+  });
+
+  // The founder works in any business as its owner (20261013002100). The worker's routes ask about the person by
+  // id, so they need the founder's open business counted too, or the switch reads Off in it (20261027022100).
+  it('shows the founder working in the business what its owner sees, and nobody else from HandsFreeOS', async () => {
+    const ws = await business('Switch Founder Solar');
+    await turnOn(ws);
+    await drain(ws);
+    const [founder, agent] = await Promise.all([
+      createTestUser('switch-founder'),
+      createTestUser('switch-agent'),
+    ]);
+    await admin().execute(sql`update platform.staff set founder = false where founder`);
+    await admin().execute(
+      sql`insert into platform.staff (user_id, role, display_name, founder)
+          values (${agent.id}, 'agent', 'Sam at HandsFreeOS', false), (${founder.id}, 'agent', '', true)`,
+    );
+    try {
+      expect((await shown(ws, founder)).statusCode).toBe(403);
+
+      await executeCommand(api(), platformViewAsStart, { workspaceId: ws }, actor(founder), meta());
+      const seen = await shown(ws, founder);
+      expect(seen.statusCode).toBe(200);
+      expect(seen.json()).toMatchObject({ state: 'on', accountSid: expect.stringMatching(/^AC/) });
+
+      // Support's read-only look is not the owner's view.
+      await executeCommand(
+        api(),
+        platformViewAsStart,
+        { workspaceId: ws, reason: 'Their texting switch reads Off', minutes: 15 },
+        actor(agent),
+        meta(),
+      );
+      expect((await shown(ws, agent)).statusCode).toBe(403);
+      await executeCommand(api(), platformViewAsEnd, {}, actor(agent), meta());
+
+      // Once the founder leaves, the business is theirs no more.
+      await executeCommand(api(), platformViewAsEnd, {}, actor(founder), meta());
+      expect((await shown(ws, founder)).statusCode).toBe(403);
+    } finally {
+      await admin().execute(
+        sql`delete from platform.staff where user_id in (${agent.id}, ${founder.id})`,
+      );
+    }
   });
 });
 
