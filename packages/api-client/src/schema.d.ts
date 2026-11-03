@@ -65120,6 +65120,12 @@ export interface operations {
                 };
                 content: {
                     "application/json": {
+                        answering: {
+                            /** Format: uuid */
+                            runId: string;
+                            /** Format: date-time */
+                            startedAt: string;
+                        } | null;
                         messages: {
                             cards: ({
                                 detail: string;

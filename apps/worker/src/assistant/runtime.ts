@@ -56,6 +56,16 @@ import { moreSettingsStepLabels } from './tools-settings-more';
 import { schedulingStepLabels } from './tools-scheduling';
 import { setupStepLabels } from './tools-setup';
 
+/**
+ * Why a run is stopped when it isn't Stop: the worker is shutting down (a deploy), and gave the answer as long as it
+ * could (`settleAssistantRuns` in routes.ts). The chat keeps a line saying so, so nobody comes back to a question
+ * with nothing under it.
+ */
+export const SHUTTING_DOWN = 'shutting_down';
+/** What the chat says under an answer a shutdown cut off. */
+export const CUT_OFF_BY_UPDATE =
+  'HandsFreeOS restarted for an update before I finished. Ask again and I’ll start over.';
+
 /** One question never runs more tool rounds than this; the answer says it stopped short. */
 const MAX_ROUNDS = 8;
 /**
@@ -553,10 +563,18 @@ export async function ask(
     await chargeAssistantRun(deps, scope, { runId: run.runId, model: deps.provider.model, usage });
     emit({ type: 'done', messageId });
   } catch (e) {
-    const stopped = e instanceof AiProviderError && e.code === 'aborted';
+    const aborted = e instanceof AiProviderError && e.code === 'aborted';
+    // Cut off by a shutdown rather than by Stop: it failed, and says why.
+    const updating = aborted && signal.reason === SHUTTING_DOWN;
+    const stopped = aborted && !updating;
     const busy = e instanceof AiProviderError && e.retryable;
-    if (!stopped) deps.log.error({ err: e, runId: run.runId }, 'assistant run failed');
-    const said = stopped ? 'Stopped.' : 'Something went wrong before I finished.';
+    if (updating) deps.log.warn({ runId: run.runId }, 'assistant run cut off by a shutdown');
+    else if (!stopped) deps.log.error({ err: e, runId: run.runId }, 'assistant run failed');
+    const said = updating
+      ? CUT_OFF_BY_UPDATE
+      : stopped
+        ? 'Stopped.'
+        : 'Something went wrong before I finished.';
     await store.saveAnswer(deps.db, scope, {
       userId: input.actor.userId,
       threadId: run.threadId,
@@ -568,18 +586,20 @@ export async function ask(
       status: stopped ? 'cancelled' : 'failed',
       usage,
       toolRounds: rounds,
-      error: e instanceof Error ? e.message : String(e),
+      error: updating ? 'Cut off by a shutdown' : e instanceof Error ? e.message : String(e),
     });
     // What it spent before it stopped was spent all the same.
     await chargeAssistantRun(deps, scope, { runId: run.runId, model: deps.provider.model, usage });
     emit({
       type: 'error',
       code: stopped ? 'stopped' : busy ? 'busy' : 'failed',
-      message: stopped
-        ? 'Stopped. Anything that needs your OK did not happen.'
-        : busy
-          ? 'The Assistant is busy right now. Try again in a minute.'
-          : 'Something went wrong. Try again.',
+      message: updating
+        ? CUT_OFF_BY_UPDATE
+        : stopped
+          ? 'Stopped. Anything that needs your OK did not happen.'
+          : busy
+            ? 'The Assistant is busy right now. Try again in a minute.'
+            : 'Something went wrong. Try again.',
     });
   } finally {
     deps.log.info(

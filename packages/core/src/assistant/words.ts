@@ -25,7 +25,8 @@ export type AssistantNoticeCode =
   | 'stopped'
   | 'unreachable'
   | 'dropped'
-  | 'forbidden';
+  | 'forbidden'
+  | 'unfinished';
 
 export type AssistantNoticeIcon = 'limit' | 'offline' | 'waiting' | 'locked' | 'alert';
 
@@ -90,6 +91,15 @@ const NOTICES: Record<Exclude<AssistantNoticeCode, 'stopped'>, NoticeCopy> = {
     title: () => 'The connection dropped',
     sub: 'The answer is saved in this chat when it finishes.',
     action: 'reload',
+  },
+  // A question with no answer and nothing answering it: the worker was cut off mid-answer (it saves a line of its
+  // own when it can, so this is only when it couldn't).
+  unfinished: {
+    icon: 'alert',
+    tone: 'neutral',
+    title: () => 'This answer didn’t finish',
+    sub: 'It was cut off before it was done. Try again and it starts over.',
+    action: 'retry',
   },
   forbidden: {
     icon: 'locked',
@@ -186,9 +196,16 @@ export const ASSISTANT_WORDS = {
    */
   placeholder: { full: 'Ask anything, or tell me what to do…', compact: 'Ask HandsFreeOS…' },
   hint: 'Asks before it contacts customers or changes records',
+  /** The web's hint while an answer comes in: leaving doesn't stop it. */
+  hintWhileAnswering: 'You can leave. The answer will be here when you come back.',
   send: 'Send',
   stop: 'Stop',
   stopped: 'Stopped. Anything that needs your OK did not happen.',
+  /**
+   * Under an answer still coming that this screen isn't streaming: the person came back while it was being worked
+   * out, or the connection dropped. It finishes and saves on HandsFreeOS either way (`assistant/catch-up.ts`).
+   */
+  stillWorking: 'Still working on it. It’ll be here when you come back.',
   newChat: 'New chat',
   /** The chats list. */
   history: {

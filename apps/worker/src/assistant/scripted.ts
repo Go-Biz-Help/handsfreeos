@@ -109,6 +109,12 @@ const rules: ScriptRule[] = [
   ...moneyRules,
   ...settingsRules,
   ...workflowRules,
+  // A slow answer, for asking and leaving before it lands (apps/web/e2e/assistant-leave.spec.ts).
+  {
+    when: /^take your time\b/i,
+    thinkMs: 15_000,
+    reply: () => 'All done. That one took a little while, so I finished it while you were away.',
+  },
   {
     when: /how many (new )?leads/i,
     calls: () => [

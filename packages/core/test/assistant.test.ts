@@ -607,6 +607,46 @@ describe('Assistant chats', () => {
     ]);
   });
 
+  it('get says when an answer is still coming, so a screen opened meanwhile can wait for it', async () => {
+    const got = await ask(assistantThreadGet, { workspaceId: wsId, threadId: older }, member);
+    expect(got.answering).toBe(null);
+    // A second question, asked and left: its run is still going on the worker.
+    const runId = await worker(async (tx) => {
+      const [r] = await rows<{ id: string; started: Date }>(
+        tx,
+        sql`insert into app.assistant_runs (workspace_id, user_id, thread_id, model, correlation_id)
+            values (${wsId}, ${member.id}, ${older}, 'scripted', gen_random_uuid()) returning id, started_at as started`,
+      );
+      await tx.execute(sql`insert into app.assistant_messages (workspace_id, user_id, thread_id, role, text, run_id)
+        values (${wsId}, ${member.id}, ${older}, 'user', 'And last week?', ${r!.id})`);
+      return r!.id;
+    });
+    try {
+      const waiting = await ask(assistantThreadGet, { workspaceId: wsId, threadId: older }, member);
+      expect(waiting.answering).toMatchObject({ runId });
+      expect(waiting.messages.at(-1)).toMatchObject({ role: 'user', text: 'And last week?' });
+      // Nobody else hears of it: the chat isn't theirs.
+      await expectHfos(
+        () => ask(assistantThreadGet, { workspaceId: wsId, threadId: older }, owner),
+        'not_found',
+      );
+      // Running for longer than the worker allows, it was cut off: nothing is coming.
+      await worker((tx) =>
+        tx.execute(sql`update app.assistant_runs set started_at = now() - interval '6 minutes'
+          where id = ${runId}`),
+      );
+      const cut = await ask(assistantThreadGet, { workspaceId: wsId, threadId: older }, member);
+      expect(cut.answering).toBe(null);
+    } finally {
+      await worker((tx) =>
+        tx.execute(sql`update app.assistant_runs set status = 'done', ended_at = now()
+          where id = ${runId}`),
+      );
+    }
+    const done = await ask(assistantThreadGet, { workspaceId: wsId, threadId: older }, member);
+    expect(done.answering).toBe(null);
+  });
+
   it('someone else’s chat is not found, even for an owner', async () => {
     for (const u of [owner, teammate]) {
       await expectHfos(
