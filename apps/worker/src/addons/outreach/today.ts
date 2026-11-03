@@ -593,6 +593,8 @@ export const todayDraft: AddonWorkerAction<TodayDraftInput> = {
       // them, and checked again before it goes. A reply that books waits for the person unless every reply goes.
       const booking =
         meeting && kind === 'reply' ? bookingOf(meeting, picked, name, contact) : null;
+      // A time the AI says they took that isn't open: the person reads it before it goes.
+      const missed = meeting !== null && kind === 'reply' && !!made.value.time?.trim() && !picked;
       const offerId =
         meeting && profileId && isTimeKind(kind) && made.drafts.length
           ? await keepTimes(ctx, {
@@ -614,7 +616,8 @@ export const todayDraft: AddonWorkerAction<TodayDraftInput> = {
           theirs !== null &&
           !replyNeedsYou(theirs) &&
           unanswered === null &&
-          !booking,
+          !booking &&
+          !missed,
         unanswered,
         meeting:
           meeting && offerId

@@ -3726,8 +3726,10 @@ where decisions 37 and 59 put the settings; what they decided stands. Settled to
         changes the day or the time.
       - **Whose times** (3a): the person's own when they're free on that calendar, and the booking is made with them
         (`appointment.book_online`'s `withUserId`); anyone's on it otherwise.
-      - **When they take one** (2a): a reply reads the calendar's open times for the next 8 days (`openLines`) and
-        says which they took (`TodayDraftAnswer.time`). Without an email or a mobile number in what they wrote, it
+      - **When they take one** (2a): a reply reads the calendar's open times for the next 8 days (`openLines`: every
+        one up to 96 a day, a busier day spread across it with the times offered always kept, so a time still open is
+        never called taken) and says which they took (`TodayDraftAnswer.time`). A time it says they took that isn't
+        open makes the reply wait for the person. Without an email or a mobile number in what they wrote, it
         says the time works and asks for the best email for the invite. With one (`contactIn`), it confirms the time,
         and the booking waits with that reply: a reply that books goes on its own only on "Every reply goes on its own";
         on the other two Replies choices it waits for the person's OK. A time no longer open gets "that one just got

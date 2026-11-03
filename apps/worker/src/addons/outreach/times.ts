@@ -162,7 +162,7 @@ export function draftTimes(
     zone: zoneWord(meeting.zone),
     ...(kind === 'reply'
       ? {
-          open: openLines(meeting.open, meeting.zone, meeting.now),
+          open: openLines(meeting.open, meeting.zone, meeting.now, meeting.offer),
           contact: contact.email ?? contact.phone,
         }
       : {}),

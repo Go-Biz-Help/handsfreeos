@@ -26,8 +26,11 @@ export const TIMES_OFFERED = 3;
 export const TIMES_LOOK_DAYS = 14;
 /** How many days of open times a reply reads, to find the one they picked. */
 export const OPEN_LIST_DAYS = 8;
-/** The most open times listed for one day: past that, spread across it. */
-const OPEN_A_DAY_MOST = 24;
+/**
+ * The most open times listed for one day: every 5 minutes for eight hours, or every 15 for a whole day. Past that,
+ * spread across it, with the times offered always listed.
+ */
+const OPEN_A_DAY_MOST = 96;
 /**
  * The hour each offered day aims for, in their time zone: a morning, an afternoon, then around midday, so three
  * times never sit in a row.
@@ -345,9 +348,15 @@ export function openTimeOf(
 
 /**
  * The open times a reply reads to find the one they picked, a line a day in their zone: "2026-11-05 (thursday,
- * november 5th): 09:00, 09:30, 13:00". Up to `OPEN_LIST_DAYS` days, and a day with many spread across it.
+ * november 5th): 09:00, 09:30, 13:00". Up to `OPEN_LIST_DAYS` days, and a day with very many spread across it, with
+ * the times offered (`keep`) always among them: a time they took is never called taken while it's open.
  */
-export function openLines(open: readonly OpenTime[], zone: string, now: number): string[] {
+export function openLines(
+  open: readonly OpenTime[],
+  zone: string,
+  now: number,
+  keep: readonly OpenTime[] = [],
+): string[] {
   const today = localDateOf(now, zone);
   const last = addDays(today, OPEN_LIST_DAYS);
   const byDay = new Map<string, OpenTime[]>();
@@ -359,7 +368,9 @@ export function openLines(open: readonly OpenTime[], zone: string, now: number):
   }
   return [...byDay].map(([day, times]) => {
     const p = zonedParts(times[0]!.at, zone);
-    const shown = spreadOut(times, OPEN_A_DAY_MOST);
+    const kept = new Set(keep.map((t) => t.at));
+    const spread = new Set(spreadOut(times, OPEN_A_DAY_MOST));
+    const shown = times.filter((t) => spread.has(t) || kept.has(t.at));
     const label = `${WEEKDAY_NAMES[p.weekday]}, ${MONTH_NAMES[p.month - 1]} ${ordinal(p.day)}`;
     return `${day} (${label}): ${shown.map((t) => timeKey(t.at, zone).slice(11)).join(', ')}`;
   });

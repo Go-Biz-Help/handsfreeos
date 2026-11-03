@@ -171,6 +171,26 @@ describe('the time they picked', () => {
     ]);
   });
 
+  it('lists every time of a whole day open every 30 minutes', () => {
+    const day = Array.from({ length: 48 }, (_, i) => open(4, Math.floor(i / 2), (i % 2) * 30));
+    const [line] = openLines(day, CT, tuesday10);
+    expect(line!.split(': ')[1]!.split(', ')).toHaveLength(48);
+  });
+
+  it('spreads a day with very many, always keeping the times offered', () => {
+    // Every 5 minutes from midnight: 288 open times, past what a day lists.
+    const day = Array.from({ length: 288 }, (_, i) => open(4, Math.floor(i / 12), (i % 12) * 5));
+    const clocksOf = (line: string | undefined) => line!.split(': ')[1]!.split(', ');
+    const spread = clocksOf(openLines(day, CT, tuesday10)[0]);
+    expect(spread.length).toBeLessThan(288);
+    expect(spread).not.toContain('11:00');
+    expect(spread).not.toContain('15:00');
+    const offered = [open(4, 11), open(4, 15)];
+    const clocks = clocksOf(openLines(day, CT, tuesday10, offered)[0]);
+    expect(clocks).toEqual(expect.arrayContaining(['11:00', '15:00']));
+    expect(clocks).toEqual([...clocks].sort());
+  });
+
   it('finds the one the AI gave back, and nothing that isn’t open', () => {
     expect(timeKey(at(4, 15), CT)).toBe('2026-11-04 15:00');
     expect(openTimeOf('2026-11-04 15:00', times, CT)?.at).toBe(at(4, 15));
