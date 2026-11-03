@@ -5,7 +5,7 @@
  * and demos, 20261027001200 for the extension on its own, 20261027001300 for the messages it sends,
  * 20261027001500 for live status: the computers, the day and the feed, and 20261027001600 for Waiting for you: the
  * steps it needs the person for, and the bundled push, 20261027001700 for asking the extension, 20261027002000 for
- * the fits among friends and chats, 20261027002100 for stages, 20261027002200 for checking and joining groups, 20261027002810 for countries, 20261027008400 for partners, 20261027009300 for finding partners by search, 20261027009800 for a code from the person's email, 20261027014100 for finding people by topic, 20261027021500 for counting what the extension does, and 20261027022400 for times to meet offered in the chat):
+ * the fits among friends and chats, 20261027002100 for stages, 20261027002200 for checking and joining groups, 20261027002810 for countries, 20261027008400 for partners, 20261027009300 for finding partners by search, 20261027009800 for a code from the person's email, 20261027014100 for finding people by topic, 20261027021500 for counting what the extension does, and 20261027022500 for times to meet offered in the chat):
  * the Drizzle mirror its server code reads and writes through.
  * Server-only.
  * test/addons/outreach-tables.test.ts holds the mirror to the live columns.
@@ -1737,7 +1737,7 @@ export const followerReads = addonOutreach.table(
 
 /**
  * A drafted message that offers times on a booking page's calendar, or books one (./meeting-times.ts, decision 149;
- * 20261027022400). The message queued from one of its drafts takes it (`sendId`): once OK'd it waits while the times
+ * 20261027022500). The message queued from one of its drafts takes it (`sendId`): once OK'd it waits while the times
  * are checked again and the booking made (`drafted`, `checking`), then goes (`ready`, `booked`), or is written again
  * when a time was taken (`taken`). Each person's own.
  */
