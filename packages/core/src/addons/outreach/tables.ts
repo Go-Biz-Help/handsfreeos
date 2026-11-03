@@ -721,7 +721,7 @@ export const automation = addonOutreach.table(
       .notNull()
       .references(() => users.id, { onDelete: 'cascade' }),
     /**
-     * Autopilot (../autopilot.ts, decision 149): everything on its own, the people it reaches OK'd a day at a time. The
+     * Autopilot (../autopilot.ts, decision 151): everything on its own, the people it reaches OK'd a day at a time. The
      * choices below stay the person's own under it.
      */
     autopilot: boolean('autopilot').notNull().default(false),
@@ -1744,7 +1744,7 @@ export const followerReads = addonOutreach.table(
 );
 
 /**
- * The people Autopilot asks the person about (../autopilot.ts, decision 149): one row a person and profile, from the
+ * The people Autopilot asks the person about (../autopilot.ts, decision 151): one row a person and profile, from the
  * first day it planned to reach them. Waiting till they OK the day's list, OK'd for good once they do (the steps after
  * go without asking again), or left out for the day (`not_today`), which puts them on the next day's list. `day` is the
  * business's day of the list they were last on; `kind` and `why` what it planned for them then; `spare` whether they

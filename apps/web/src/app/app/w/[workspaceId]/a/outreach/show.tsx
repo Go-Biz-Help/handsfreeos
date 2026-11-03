@@ -123,7 +123,7 @@ export async function showOutreach(
   }
   if (shown.view === 'needs') {
     // Everything waiting on the person, on every network: never narrowed, so nothing that needs them is hidden.
-    // Autopilot's day's list first (decision 149): left out when it couldn't be had.
+    // Autopilot's day's list first (decision 151): left out when it couldn't be had.
     const [got, waiting, autopilot] = await Promise.all([
       workspace,
       api

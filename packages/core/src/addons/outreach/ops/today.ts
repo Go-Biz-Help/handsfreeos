@@ -289,7 +289,7 @@ export const today = defineAddonQuery(outreachAddon, {
 
 /**
  * The person's list for today on a network, as `outreach.today` gives it. With `plan`, as Autopilot's day's list is
- * worked out from it (decision 149, ./autopilot.ts): nobody held for the day's OK, a few spares past each daily limit,
+ * worked out from it (decision 151, ./autopilot.ts): nobody held for the day's OK, a few spares past each daily limit,
  * and the limits as they stand without them (`most`), to tell the spares.
  */
 export async function todayFor(
@@ -341,7 +341,7 @@ export async function todayFor(
     const r = limits.friend_request;
     r.most = Math.min(r.most, r.done + Math.max(0, weekly - week.done));
   }
-  // The limits as they stand; Autopilot's day's list (decision 149, answer 5a) has a few spares past each.
+  // The limits as they stand; Autopilot's day's list (decision 151, answer 5a) has a few spares past each.
   const most = Object.fromEntries(DAILY_STEPS.map((step) => [step, limits[step].most])) as Record<
     DailyStep,
     number
@@ -400,7 +400,7 @@ export async function todayFor(
   // Who the business's country setting lets be reached (decision 61): everything new on the list but a reply owed.
   // Only this network's people: every list of the day is one network's (Chris: each network on its own).
   const lets = sql`(${countryLetsSql(await countryRuleOf(ctx), 'p')} and p.platform = ${input.platform})`;
-  // Under Autopilot (decision 149), nobody new is reached till the person OKs them on the day's list, nor anyone
+  // Under Autopilot (decision 151), nobody new is reached till the person OKs them on the day's list, nor anyone
   // further along till they're OK'd once: `reach` is `lets` with that. A reply owed, an answer to their comment, a
   // request to confirm and Recommend them go as ever. The day's list itself is worked out without it (`plan`).
   const gate = everything.autopilot && !plan;
@@ -2063,7 +2063,7 @@ export async function todayFor(
   // The rest go in the kinds' order (../today.ts `TODAY_KINDS`), each kind as it was worked out.
   const order = new Map(TODAY_KIND_KEYS.map((k, i) => [k, i] as const));
   const byKind = (a: TodayItem, b: TodayItem) => order.get(a.kind)! - order.get(b.kind)!;
-  // Under Autopilot, whatever's left for someone not OK'd yet waits for the day's list (decision 149): a step tried
+  // Under Autopilot, whatever's left for someone not OK'd yet waits for the day's list (decision 151): a step tried
   // again, a demo's reminder, a note for their day. Someone with nobody kept for them can't be on it, so waits too.
   const okd = gate ? await okdAmong(ctx, me, items) : null;
   const passes = (i: Pick<TodayItem, 'kind' | 'profileId'>) =>
@@ -2202,7 +2202,7 @@ export async function todayFor(
 }
 
 /** A post as Today shows it: cut short at `TODAY_POST_MOST`, with the whole of it for More (decision 141). */
-/** Which of these people the person OK'd on Autopilot's list (decision 149). */
+/** Which of these people the person OK'd on Autopilot's list (decision 151). */
 async function okdAmong(
   ctx: Ctx,
   me: string,

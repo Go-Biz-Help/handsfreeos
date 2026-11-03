@@ -22,7 +22,7 @@ import { NetworkName } from './networks';
 import { PersonName } from './person-menu';
 
 /**
- * Autopilot's day's list on the phone, first on Needs you (docs/outreach.md, decision 149; the web's is
+ * Autopilot's day's list on the phone, first on Needs you (docs/outreach.md, decision 151; the web's is
  * apps/web/src/addons/outreach/autopilot-list.tsx): the people it plans to reach today whom the person hasn't OK'd
  * yet, grouped by network, the spares last under "If you take anyone off, these go instead". Each name opens the
  * person menu, for Don't pitch or Never contact; each row has **Not today** (or **Put back**); and one button OKs

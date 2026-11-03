@@ -286,7 +286,7 @@ export function NetworkModes({
   onChange: (change: Partial<NetworkChoices>) => void;
   /** When the network's training wheels started; undefined where they don't apply. */
   wheelsFrom?: string | null;
-  /** Autopilot is on (decision 149): its picks show, and wait under it to be picked again. */
+  /** Autopilot is on (decision 151): its picks show, and wait under it to be picked again. */
   piloted?: boolean;
   boxed: boolean;
   disabled: boolean;
@@ -393,7 +393,7 @@ export function NetworkTicks({
   platform: Platform;
   value: NetworkChoices;
   onChange: (change: Partial<NetworkChoices>) => void;
-  /** Autopilot is on (decision 149): it answers the requests, so that choice waits under it. */
+  /** Autopilot is on (decision 151): it answers the requests, so that choice waits under it. */
   piloted?: boolean;
   boxed: boolean;
   disabled: boolean;
@@ -544,7 +544,7 @@ export function ExtensionTicks({
 }
 
 /**
- * Autopilot (decision 149, answer 7a): one switch for every network the person works, first on General. Hidden when the
+ * Autopilot (decision 151, answer 7a): one switch for every network the person works, first on General. Hidden when the
  * business doesn't allow it, unless it's on already (so it can be turned off).
  */
 export function AutopilotPart({

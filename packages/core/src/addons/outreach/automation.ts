@@ -320,7 +320,7 @@ export const NETWORKS_DEFAULTS: NetworksSettings = NetworksSettings.parse({});
 
 export const AutomationSettings = z.object({
   /**
-   * Autopilot (decision 149; Chris, 3 Nov 2026): everything goes on its own on every network they work
+   * Autopilot (decision 151; Chris, 3 Nov 2026): everything goes on its own on every network they work
    * (`AUTOPILOT_PICKS`), and each day they OK the people it plans to reach for the first time (./autopilot.ts). Their
    * own picks stay kept under it, and come back when it's turned off. Off to start, and off where the business
    * doesn't allow it (`BusinessRules.autopilotAllowed`).
@@ -472,7 +472,7 @@ export const BusinessRules = z.object({
     .transform((nets) => PLATFORM_KEYS.filter((p) => p === 'facebook' || nets.includes(p))),
   /** Each other network's daily limits under its starting ones; Facebook's are `dailyLimits`. */
   networkLimits: NetworkLimits.default({}),
-  /** People may turn on Autopilot (decision 149, answer 7a): allowed to start, like the other choices. */
+  /** People may turn on Autopilot (decision 151, answer 7a): allowed to start, like the other choices. */
   autopilotAllowed: z.boolean().default(true),
   defaults: AutomationSettings.default(AUTOMATION_DEFAULTS),
 });
@@ -513,7 +513,7 @@ function choicesWithin(
 }
 
 /**
- * What Autopilot picks on every network while it's on (decision 149, answer 1a): messages, replies and posts on their
+ * What Autopilot picks on every network while it's on (decision 151, answer 1a): messages, replies and posts on their
  * own, and the AI deciding the requests the person gets. The rest (liking a post first, tidying, groups, the once-a-day
  * jobs) stays as they picked it. The business's rules still hold: a choice it doesn't allow steps back as any does.
  */
@@ -557,7 +557,7 @@ const ownPicks = (c: NetworkChoices, own: NetworkChoices): NetworkChoices => ({
 
 /**
  * Choices to keep, with the person's own (`own`) wherever Autopilot picks: what a save keeps while Autopilot is on, or
- * as it's turned off, so their own come back as they were (decision 149). Everything else is as `settings` says.
+ * as it's turned off, so their own come back as they were (decision 151). Everything else is as `settings` says.
  */
 export function keepOwnPicks(
   settings: AutomationSettings,
@@ -583,7 +583,7 @@ export const AUTOPILOT_PICKS_KEYS = Object.keys(AUTOPILOT_PICKS) as (keyof typeo
 
 /**
  * A person's choices as they stand inside the business's rules, on every network: with Autopilot's picks over their
- * own while it's on and the business allows it (decision 149), then each stepped back to what the business allows.
+ * own while it's on and the business allows it (decision 151), then each stepped back to what the business allows.
  */
 export function withinRules(
   settings: AutomationSettings,
@@ -895,7 +895,7 @@ export const AutomationOutput = z.object({
     dailyLimits: BusinessLimits,
     networksAllowed: z.array(z.enum(PLATFORM_KEYS)),
     networkLimits: NetworkLimits,
-    /** People may turn on Autopilot (decision 149). */
+    /** People may turn on Autopilot (decision 151). */
     autopilotAllowed: z.boolean().default(true),
   }),
 });
@@ -914,7 +914,7 @@ export const AutomationSaveInput = z.object({
     dayReport: z.boolean().optional(),
     acceptedPush: z.boolean().optional(),
     networks: NetworksSettings.optional(),
-    // A screen from before Autopilot (decision 149) sends none: it stays as it was.
+    // A screen from before Autopilot (decision 151) sends none: it stays as it was.
     autopilot: z.boolean().optional(),
   }),
 });

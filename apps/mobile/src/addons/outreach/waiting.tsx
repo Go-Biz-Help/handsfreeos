@@ -257,7 +257,7 @@ export function useWaitingProps(): React.ComponentProps<typeof WaitingBody> {
     if (unheard && online.current) reload();
   }, [unheard, reload]);
   const askActions = useAskActions(null, answer.reload);
-  // Autopilot's day's list (decision 149), first: with signal, and nothing while it's off.
+  // Autopilot's day's list (decision 151), first: with signal, and nothing while it's off.
   const autopilot = useOutreachAnswer(
     async () =>
       unwrap(
@@ -418,7 +418,7 @@ export function WaitingBody({
   askActions?: AskActions;
   /** How many the country setting isn't sure of, and opening them: null when none wait. */
   unsure?: { readonly count: number; readonly onOpen: () => void } | null;
-  /** Autopilot's day's list (decision 149): null while it's off, or with no word from HandsFreeOS. */
+  /** Autopilot's day's list (decision 151): null while it's off, or with no word from HandsFreeOS. */
   autopilot?: AutopilotOutput | null;
   onAutopilot?: AutopilotAnswerOf;
 }) {

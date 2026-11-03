@@ -642,7 +642,7 @@ export const PHONE_COMMANDS = {
   'outreach.ask.make': command(ONLINE, AskMakeInput, AskMakeOutput),
   'outreach.ask.reply': command(ONLINE, AskReplyInput, AskChangedOutput),
   'outreach.automation.save': command(ONLINE, AutomationSaveInput, AutomationSaveOutput),
-  // Autopilot's day's list on Needs you (decision 149): OK, Not today and Put back, with signal.
+  // Autopilot's day's list on Needs you (decision 151): OK, Not today and Put back, with signal.
   'outreach.autopilot.answer': command(ONLINE, AutopilotAnswerInput, AutopilotAnswerOutput),
   // Mark as client, or Not a client after all, from the person menu on a name (decision 91): with signal.
   'outreach.client.set': command(ONLINE, ClientSetInput, ClientSetOutput),

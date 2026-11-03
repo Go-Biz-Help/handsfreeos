@@ -79,7 +79,7 @@ export function GeneralMine({
   const disabled = !online;
   return (
     <>
-      {/* Autopilot first (decision 149, answer 7a): one switch for every network they work. */}
+      {/* Autopilot first (decision 151, answer 7a): one switch for every network they work. */}
       <AutopilotPart
         value={form.value}
         onChange={form.change}

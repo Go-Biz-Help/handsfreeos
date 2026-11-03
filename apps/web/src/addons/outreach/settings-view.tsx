@@ -186,7 +186,7 @@ export function Tick({
 }
 
 /**
- * Choices Autopilot makes while it's on (decision 149): shown as they stand, not to change, with a line saying so.
+ * Choices Autopilot makes while it's on (decision 151): shown as they stand, not to change, with a line saying so.
  * Anything else is as it was.
  */
 function Piloted({ on, children }: { on: boolean; children: React.ReactNode }) {
@@ -231,7 +231,7 @@ export function NetworkModes({
   wheelsStart?: boolean;
   /** Sending's own part: the setup asks it on its own, as cards, and folds the rest (decision 83). */
   sendingPart?: boolean;
-  /** Autopilot is on (decision 149): these are its picks, shown but not to change. */
+  /** Autopilot is on (decision 151): these are its picks, shown but not to change. */
   piloted?: boolean;
   testId: string;
 }) {
@@ -350,7 +350,7 @@ export function NetworkTicks({
   value: NetworkChoices;
   onChange: (change: Partial<NetworkChoices>) => void;
   card?: boolean;
-  /** Autopilot is on (decision 149): how the requests they get are answered is its pick. */
+  /** Autopilot is on (decision 151): how the requests they get are answered is its pick. */
   piloted?: boolean;
   testId: string;
 }) {
@@ -467,7 +467,7 @@ interface Own {
 }
 
 /**
- * Autopilot (decision 149, answer 7a): one switch for every network the person works, first on Settings → You. Shown
+ * Autopilot (decision 151, answer 7a): one switch for every network the person works, first on Settings → You. Shown
  * while the business allows it, or while it's on, so it can be turned off.
  */
 export function AutopilotPart({
@@ -877,7 +877,7 @@ export function AllowedPicks({
               data-testid={`outreach-rules-sending-${m}`}
             />
           ))}
-          {/* Autopilot (decision 149, answer 7a): allowed to start, like the rest. */}
+          {/* Autopilot (decision 151, answer 7a): allowed to start, like the rest. */}
           <Checkbox
             label={AUTOPILOT_WORDS.allow}
             checked={rules.autopilotAllowed}

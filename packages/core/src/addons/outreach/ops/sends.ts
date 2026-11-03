@@ -350,7 +350,7 @@ export const sendQueue = defineAddonCommand(outreachAddon, {
       wheels,
       settings: { autopilot },
     } = await automationOf(ctx, me, Date.now(), profile.platform);
-    // Under Autopilot (decision 149), nothing goes to someone the person hasn't OK'd on a day's list but an answer to
+    // Under Autopilot (decision 151), nothing goes to someone the person hasn't OK'd on a day's list but an answer to
     // them: Today doesn't list them, so this holds whatever drafted it.
     const [okd] =
       autopilot && waitsForPeopleOk(input.kind)
@@ -370,7 +370,7 @@ export const sendQueue = defineAddonCommand(outreachAddon, {
     // A partner's message waits for an OK of its own, never Approve all (decision 81), and so does an answer to a post
     // asking for what the business offers where the network keeps those apart (Alignable's forum, decision 79),
     // another time after a no-show (decision 106), and a birthday or new-job note (decision 108). Under Autopilot none
-    // of those does (decision 149, answer 1a): a partner's reply waits only as a reply does, when it needs them.
+    // of those does (decision 151, answer 1a): a partner's reply waits only as a reply does, when it needs them.
     const replying = input.kind === 'reply' || (autopilot && input.kind === 'partner_reply');
     const needsYou = !okd
       ? AUTOPILOT_WORDS.notOkd

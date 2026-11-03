@@ -293,12 +293,12 @@ export function goesAsItIs(o: {
   readonly needsYou: string | null;
   /** For a comment or a reply in a group: whether its network's comment hold is on (`commentHoldOn`). */
   readonly held?: boolean;
-  /** Autopilot is on (decision 149): what waits for an OK of its own under any other choice goes too. */
+  /** Autopilot is on (decision 151): what waits for an OK of its own under any other choice goes too. */
   readonly autopilot?: boolean;
 }): boolean {
   if (o.wheels || o.sending === 'off') return false;
   // A partner's messages wait for the person's OK, whatever Sending says (decision 81), and so do another time after
-  // a no-show (decision 106) and a birthday or new-job note (decision 108); not under Autopilot (decision 149, answer
+  // a no-show (decision 106) and a birthday or new-job note (decision 108); not under Autopilot (decision 151, answer
   // 1a), where they go as the rest do, to people the person OK'd.
   if (
     !o.autopilot &&

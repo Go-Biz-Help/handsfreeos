@@ -1,6 +1,6 @@
 'use client';
 /**
- * Autopilot's day's list, first on Needs you (docs/outreach.md, decision 149; packages/core/src/addons/outreach/autopilot.ts):
+ * Autopilot's day's list, first on Needs you (docs/outreach.md, decision 151; packages/core/src/addons/outreach/autopilot.ts):
  * the people it plans to reach today whom the person hasn't OK'd yet, grouped by network, the spares last under "If you
  * take anyone off, these go instead". Each name opens the person menu (./person-menu.tsx), for Don't pitch or Never
  * contact; each row has **Not today** (or **Put back**); and one button OKs everyone still waiting. Before the day's

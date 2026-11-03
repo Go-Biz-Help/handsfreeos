@@ -102,7 +102,7 @@ const ownOf = (row: Row | undefined, rules: BusinessRules): AutomationSettings =
 
 /**
  * A person's choices as they stand: their own (`ownOf`), with Autopilot's picks over them while it's on (decision
- * 149), inside the business's rules.
+ * 151), inside the business's rules.
  */
 const settingsOf = (row: Row | undefined, rules: BusinessRules): AutomationSettings =>
   withinRules(ownOf(row, rules), rules);
@@ -509,14 +509,14 @@ export const automationSave = defineAddonCommand(outreachAddon, {
       networks: input.settings.networks ?? kept.networks,
     };
     // While Autopilot is on, and as it's turned on or off, what it picks stays the person's own underneath (decision
-    // 149): the screens show its picks then, so theirs come back as they were once it's off.
+    // 151): the screens show its picks then, so theirs come back as they were once it's off.
     const s = own.autopilot || autopilot ? keepOwnPicks(asked, own) : asked;
     if (autopilot && !own.autopilot && !rules.autopilotAllowed)
       throw HfosError.rule('outreach_autopilot_not_allowed', 403, AUTOPILOT_WORDS.notAllowed);
     const refused = notAllowedWords(s, rules);
     if (refused) throw HfosError.rule('not_allowed', 403, refused);
     // Choosing Sending (b), or Replies (b) or (c), starts the training wheels, once, on each network on its own; and so
-    // does Autopilot, whose picks are those (decision 149, answer 6a).
+    // does Autopilot, whose picks are those (decision 151, answer 6a).
     const inForce = withinRules(s, rules);
     const wheels = wheelsMatter(inForce) && !before?.wheelsFrom ? { wheelsFrom: at } : {};
     const networkWheels = { ...(before?.networkWheels ?? {}) };
@@ -582,7 +582,7 @@ export const automationSave = defineAddonCommand(outreachAddon, {
           (['facebook', ...OTHER_PLATFORMS] as const).map((p) => [p, choicesFor(s, p).on]),
         ),
         byOther: whose !== me,
-        // Autopilot in force, and turned on now (decision 149): the worker makes today's list at once.
+        // Autopilot in force, and turned on now (decision 151): the worker makes today's list at once.
         autopilot: inForce.autopilot,
         ...(inForce.autopilot && !own.autopilot ? { autopilotOn: true } : {}),
       },

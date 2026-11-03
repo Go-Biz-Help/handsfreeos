@@ -1,5 +1,5 @@
 /**
- * Autopilot's day's list (docs/outreach.md, decision 149; core's rules in packages/core/src/addons/outreach/autopilot.ts):
+ * Autopilot's day's list (docs/outreach.md, decision 151; core's rules in packages/core/src/addons/outreach/autopilot.ts):
  *
  * - **The list** (`outreach.autopilot_list`, one job a person): an hour before each day's working hours, the day's list
  *   is made (`outreach.autopilot.plan`, on their behalf), and one push says how many people wait for their OK (answer

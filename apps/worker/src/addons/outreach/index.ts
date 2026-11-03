@@ -217,7 +217,7 @@ export const outreachAddonWorker: AddonWorkerModule = {
       both(both(armDayReportFor, armGoalCheckFor), wordsWanted),
       oldGoodWanted,
     ),
-    // And Autopilot's day's list (./autopilot.ts, decision 149): made at once as it's turned on, then each morning.
+    // And Autopilot's day's list (./autopilot.ts, decision 151): made at once as it's turned on, then each morning.
     'outreach.automation.saved': both(
       both(both(armDayReportFor, armGoalCheckFor), wordsWanted),
       autopilotSaved,

@@ -1,6 +1,6 @@
 -- =============================================================================
 -- Social Outreach: Autopilot, with a daily OK on the people it reaches
--- (docs/outreach.md, decision 149).
+-- (docs/outreach.md, decision 151).
 --
 -- The owner's decision (3 Nov 2026, "1a 2a 3a 4a 5a 6a 7a"): a new setting
 -- beside Everything on its own. Everything goes on its own on every network

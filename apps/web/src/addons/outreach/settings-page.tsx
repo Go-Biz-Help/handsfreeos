@@ -438,7 +438,7 @@ function GeneralPage({
           {W.changedBy(me.changedBy)}
         </p>
       ) : null}
-      {/* Autopilot first (decision 149, answer 7a): one switch for every network they work. */}
+      {/* Autopilot first (decision 151, answer 7a): one switch for every network they work. */}
       <AutopilotPart
         {...own}
         testId="outreach-autopilot"

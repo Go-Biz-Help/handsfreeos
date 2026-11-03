@@ -101,7 +101,7 @@ const SERVER: WaitingFromServer = {
   pushes: 'bundled',
 };
 
-/** Autopilot's day's list (decision 149): two on Facebook, one taken off, a spare on LinkedIn. */
+/** Autopilot's day's list (decision 151): two on Facebook, one taken off, a spare on LinkedIn. */
 const AUTOPILOT: AutopilotOutput = {
   on: true,
   allowed: true,
@@ -153,7 +153,7 @@ const AUTOPILOT: AutopilotOutput = {
   ],
 };
 
-describe('Autopilot’s day’s list on the phone (decision 149)', () => {
+describe('Autopilot’s day’s list on the phone (decision 151)', () => {
   it('comes first on Needs you, grouped by network, the spares last, with OK everyone else, Not today and Put back', async () => {
     const h = handlers();
     const onAutopilot = jest.fn();

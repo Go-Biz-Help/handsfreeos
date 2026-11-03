@@ -1,5 +1,5 @@
 /**
- * Autopilot (docs/outreach.md, decision 149; Chris, 3 Nov 2026: "need a feature where the ai goes on full autopilot for
+ * Autopilot (docs/outreach.md, decision 151; Chris, 3 Nov 2026: "need a feature where the ai goes on full autopilot for
  * the social outreach tool all it does is ask if the people it plans to reach out to that day are ok", then "1a 2a 3a
  * 4a 5a 6a 7a"). A setting of its own beside Everything on its own, which sends without asking:
  *

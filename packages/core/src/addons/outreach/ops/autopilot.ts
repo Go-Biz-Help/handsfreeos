@@ -1,5 +1,5 @@
 /**
- * Autopilot's day's list (../autopilot.ts, docs/outreach.md decision 149): who it plans to reach that the person hasn't
+ * Autopilot's day's list (../autopilot.ts, docs/outreach.md decision 151): who it plans to reach that the person hasn't
  * OK'd yet, made once a day, and their answers.
  *
  * - `outreach.autopilot.plan`: the worker makes the day's list an hour before the person's working hours, and as they

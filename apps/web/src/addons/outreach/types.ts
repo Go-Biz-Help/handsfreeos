@@ -42,7 +42,7 @@ export type LiveTeam = Ok<'/v1/queries/outreach.live.team'>;
  * friend requests to decide (packages/core/src/addons/outreach/waiting.ts).
  */
 export type Waiting = Ok<'/v1/queries/outreach.waiting'>;
-/** Autopilot's day's list (decision 149). */
+/** Autopilot's day's list (decision 151). */
 export type Autopilot = Ok<'/v1/queries/outreach.autopilot'>;
 export type WaitingItem = Waiting['items'][number];
 /**

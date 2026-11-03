@@ -22,7 +22,7 @@
  *   fit a playbook, with why, and **Confirm** and **Delete** (the extension does it; what the AI says stands out) beside
  *   **Leave it**.
  *
- * With Autopilot on (decision 149), its day's list comes first (./autopilot-list.tsx): the people to OK for today.
+ * With Autopilot on (decision 151), its day's list comes first (./autopilot-list.tsx): the people to OK for today.
  *
  * Each person's name opens their person menu (./person-menu.tsx, decision 91): their page first, then Contacts, Mark
  * as client, Demo booked, Don't pitch and Never contact. Each card keeps its own Open.
@@ -116,7 +116,7 @@ export function NeedsYou({
 }: {
   workspaceId: string;
   waiting: Waiting;
-  /** Autopilot's day's list (decision 149), first: null while it's off or couldn't be had. */
+  /** Autopilot's day's list (decision 151), first: null while it's off or couldn't be had. */
   autopilot?: Autopilot | null;
 }) {
   useLiveRefresh(

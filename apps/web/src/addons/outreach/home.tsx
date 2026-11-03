@@ -148,7 +148,7 @@ export type OutreachShown =
       /** Everything waiting on the person, on every network. */
       readonly view: 'needs';
       readonly waiting: Waiting;
-      /** Autopilot's day's list (decision 149): null while it couldn't be had. */
+      /** Autopilot's day's list (decision 151): null while it couldn't be had. */
       readonly autopilot?: Autopilot | null;
     }
   | {
