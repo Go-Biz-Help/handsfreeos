@@ -45,6 +45,10 @@ describe('the add-ons’ worker actions as Assistant tools', () => {
       allAddonActionTools(ADDON_WORKER_MODULES)
         .filter((t) => t.autonomy === 'confirm')
         .map((t) => t.actionName),
-    ).toEqual(['realestate.esign.remind']);
+    ).toEqual([
+      'realestate.esign.remind',
+      // Booking the time a reply confirms sends them the invite (decision 149).
+      'outreach.times.book',
+    ]);
   });
 });

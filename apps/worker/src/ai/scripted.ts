@@ -1865,11 +1865,53 @@ function scriptedTodayDraft(message: string) {
       answer: 'none',
       drafts: [`Great, ${first}! Here’s a short video on how it works.`],
     };
+  // Times to meet (decision 149): a reply naming one that's open ("2026-11-05 15:00") confirms it once they've given an
+  // email or a number, and asks for one before; the link's message offers the times given.
+  const offered = [...unquote(quotedBlock(message, 'times') ?? '').matchAll(/^- (.+)$/gm)].map(
+    (m) => m[1]!,
+  );
+  const openTimes = unquote(quotedBlock(message, 'open_times') ?? '');
+  const picked = /\b\d{4}-\d{2}-\d{2} \d{2}:\d{2}\b/.exec(unquote(theirs))?.[0];
+  const isOpen =
+    !!picked &&
+    openTimes
+      .split('\n')
+      .some(
+        (line) =>
+          line.startsWith(picked.slice(0, 10)) &&
+          line.split(': ')[1]?.split(', ').includes(picked.slice(11)),
+      );
+  if (reply && picked && openTimes && !isOpen)
+    return {
+      simple: false,
+      answer,
+      drafts: [
+        `Sorry, that one just got taken, ${first}. Would ${offered[0] ?? 'another time'} work instead?`,
+      ],
+    };
+  if (reply && picked && isOpen)
+    return message.includes('The email or number they gave for the invite')
+      ? {
+          simple: true,
+          answer,
+          time: picked,
+          drafts: [`You’re all set, ${first}! The invite is on its way.`],
+        }
+      : {
+          simple: true,
+          answer,
+          time: picked,
+          drafts: [`That works, ${first}! What’s the best email for the invite?`],
+        };
   if (message.includes('gives the link to book a quick call'))
     return {
       simple: false,
       answer: 'none',
-      drafts: [`Here’s my link to book a quick call, ${first}.`],
+      drafts: [
+        offered.length
+          ? `Would ${offered.slice(0, -1).join(', ')}${offered.length > 1 ? ' or ' : ''}${offered.at(-1)} work for a quick call, ${first}? Or grab any time here.`
+          : `Here’s my link to book a quick call, ${first}.`,
+      ],
     };
   // Someone who told the owner no, or not now (decision 134): nothing that pitches, whatever the rest says.
   if (message.includes('They told the owner no, or not now'))

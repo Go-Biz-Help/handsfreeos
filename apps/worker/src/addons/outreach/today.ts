@@ -22,6 +22,11 @@
  * on the business's calendar, and after a no-show a kind message offering another time, with the link to book again.
  * A birthday or a new job read on the person's computer (decision 108): a short, warm note with nothing about the
  * business and no link, the new job in the page's words.
+ *
+ * When the playbook's link is one of the business's own booking pages (decision 149, ./times.ts): Send the link, the
+ * follow-up after it, Offer another time and a reply offer three of its open times, with the link for any other, and a
+ * reply where they picked one and gave an email or a mobile number confirms it. What they offer and book is kept with
+ * the drafts, checked again, and booked, before the message queued from one of them goes (./times-check.ts).
  */
 import {
   ANSWERS,
@@ -80,6 +85,7 @@ import {
   type DraftOffer,
   type TodayDraftOutput,
 } from '@hfos/core/addons/outreach/today';
+import { contactIn, isTimeKind, openTimeOf } from '@hfos/core/addons/outreach/meeting-times';
 import { executeCommand, HfosError, MainOfferParts } from '@hfos/core/server';
 import { NETWORKS, type Platform } from '@hfos/core/addons/outreach/networks';
 import { asWorker, rows, sql } from '@hfos/db/client';
@@ -93,6 +99,7 @@ import {
 import type { AddonWorkerAction } from '../types';
 import { businessKnows } from './knows';
 import { partnerDraft } from './partner-drafts';
+import { bookingOf, draftTimes, keepTimes, meetingFor, offeredWords } from './times';
 
 export const TODAY_DRAFT_ACTION = 'outreach.today.draft';
 
@@ -177,10 +184,12 @@ export const todayDraft: AddonWorkerAction<TodayDraftInput> = {
             mutual_friends: number | null;
             group: string | null;
             client: boolean;
+            country: string | null;
           }>(
             tx,
             // A client in Contacts (decision 91) gets replies only: no link, no video, and a yes isn't a pitch.
-            sql`select p.name, p.platform, p.intro, p.mutual_friends, g.name as group, ${isClient('p')} as client
+            sql`select p.name, p.platform, p.intro, p.mutual_friends, g.name as group, ${isClient('p')} as client,
+                  p.country
                 from addon_outreach.profiles p left join addon_outreach.groups g on g.id = p.group_id
                 where p.workspace_id = ${ws} and p.id = ${profileId}`,
           )
@@ -378,6 +387,7 @@ export const todayDraft: AddonWorkerAction<TodayDraftInput> = {
         opener: drafted,
         simple: false,
         unanswered: null,
+        meeting: null,
       };
     // A client in Contacts (decision 91): written to as a client, never pitched.
     const client = found.profile?.client ?? false;
@@ -421,6 +431,29 @@ export const todayDraft: AddonWorkerAction<TodayDraftInput> = {
       : null;
     // The network the message goes on: the profile's.
     const platform = found.profile?.platform ?? 'facebook';
+    // Times to meet on the playbook's booking page (decision 149, ./times.ts): for Send the link, the follow-up after
+    // it, another time after a no-show and a reply (which may become Send the link), never to a client, someone who
+    // said no, or their Requests. The email or number they wrote is who a reply books.
+    const theirWords = recent.filter((m) => !m.fromMe).map((m) => m.text);
+    const contact = contactIn(theirWords);
+    const meeting =
+      profileId &&
+      !client &&
+      !declined &&
+      !toRequests &&
+      isTimeKind(input.kind) &&
+      (input.kind !== 'follow_up' || found.conversation?.step === 'link')
+        ? await meetingFor(ctx, {
+            link: playbook?.details.link,
+            userId: ctx.userId,
+            lines: [...found.lines, ...(found.profile?.intro ?? []), ...input.lookup],
+            country: found.profile?.country ?? null,
+          }).catch((e: unknown) => {
+            // No times is no reason to stop the draft: its link goes as before.
+            ctx.log.warn({ err: e }, 'outreach: open times for a draft failed');
+            return null;
+          })
+        : null;
     // What the business knows (decision 122): its profile and Knowledge, with what matches their latest words, their
     // post or their comment first. Read once, for the reply and the step after a yes alike.
     const knows = knowsFor(input.kind)
@@ -470,6 +503,7 @@ export const todayDraft: AddonWorkerAction<TodayDraftInput> = {
               occasion: found.occasion,
               knows,
               declined,
+              times: meeting && isTimeKind(kind) ? draftTimes(meeting, kind, contact) : null,
               own: ownWordsFor(
                 kind,
                 found.samples,
@@ -523,6 +557,11 @@ export const todayDraft: AddonWorkerAction<TodayDraftInput> = {
       let made = await draft(kind);
       // A reply: what they answered to the person's last step is kept, and a yes gets the next step instead.
       const answer = answerOf(kind, made.value, recent);
+      // A reply where they took one of the open times (decision 149): the booking is the next step, not the link.
+      const picked =
+        meeting && kind === 'reply'
+          ? openTimeOf(made.value.time, meeting.open, meeting.zone)
+          : null;
       if (answer && profileId) {
         await executeCommand(
           ctx.db,
@@ -539,7 +578,7 @@ export const todayDraft: AddonWorkerAction<TodayDraftInput> = {
         );
         // A client's yes is kept, and answered as a reply: no video or link follows it.
         const next =
-          answer === 'yes' && found.conversation && !client
+          answer === 'yes' && found.conversation && !client && !picked
             ? stepAfterYes(found.conversation.step, videoLink !== null)
             : null;
         if (next) {
@@ -550,6 +589,22 @@ export const todayDraft: AddonWorkerAction<TodayDraftInput> = {
       const theirs = [...recent].reverse().find((m) => !m.fromMe)?.text ?? null;
       // Something they asked that nothing given answers (decision 122): the reply says the owner will check, and waits.
       const unanswered = unansweredOf(kind, made.value, recent);
+      // The times the drafts offer, and the time a reply books (decision 149): kept for the message queued from one of
+      // them, and checked again before it goes. A reply that books waits for the person unless every reply goes.
+      const booking =
+        meeting && kind === 'reply' ? bookingOf(meeting, picked, name, contact) : null;
+      // A time the AI says they took that isn't open: the person reads it before it goes.
+      const missed = meeting !== null && kind === 'reply' && !!made.value.time?.trim() && !picked;
+      const offerId =
+        meeting && profileId && isTimeKind(kind) && made.drafts.length
+          ? await keepTimes(ctx, {
+              userId: ctx.userId,
+              profileId,
+              meeting,
+              drafts: made.drafts,
+              booking,
+            })
+          : null;
       return {
         kind,
         answer,
@@ -560,8 +615,18 @@ export const todayDraft: AddonWorkerAction<TodayDraftInput> = {
           made.value.simple &&
           theirs !== null &&
           !replyNeedsYou(theirs) &&
-          unanswered === null,
+          unanswered === null &&
+          !booking &&
+          !missed,
         unanswered,
+        meeting:
+          meeting && offerId
+            ? {
+                offerId,
+                offered: booking ? [] : offeredWords(meeting),
+                books: booking?.says ?? null,
+              }
+            : null,
       };
     } catch (e) {
       throw draftRefusal(e);

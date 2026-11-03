@@ -29,6 +29,8 @@
  *   and the team turns them from the bar over the stage, the panel or the arrow keys.
  * - **What it used**: the screen reports what it has downloaded every minute and as it goes (./call-data.ts), so the
  *   call is priced by what it really used.
+ * - **Marks on a shared screen** (./screen-marks.tsx): someone watching points at it or draws on it, and everyone sees
+ *   it. Like reactions, marks travel on their own data topic and aren't kept. In a webinar only the team marks.
  */
 import {
   ATTENDEE_VIDEO_CHOICES,
@@ -123,6 +125,7 @@ import { keepCallChat } from './call-chat';
 import { useCallData } from './call-data';
 import { ChatPanel, PeoplePanel } from './call-panels';
 import { CallStage } from './call-stage';
+import { MarksProvider } from './screen-marks';
 import { PollOffer, PollPanel } from './poll-panel';
 import { PollPopup } from './poll-popup';
 import { SlideBar, useSlides } from './slides';
@@ -619,11 +622,16 @@ function CallScreen({
                 {VIDEO_CALL_WORDS.joining}
               </div>
             ) : (
-              <CallStage
-                alone={team ? VIDEO_CALL_WORDS.aloneTeam : VIDEO_CALL_WORDS.aloneOthers}
-                webinar={webinar ? { attendeeVideo, team: !!team } : null}
-                slide={slides.stage}
-              />
+              <MarksProvider
+                format={webinar ? 'webinar' : 'meeting'}
+                canMark={!webinar || mine.publish.screen}
+              >
+                <CallStage
+                  alone={team ? VIDEO_CALL_WORDS.aloneTeam : VIDEO_CALL_WORDS.aloneOthers}
+                  webinar={webinar ? { attendeeVideo, team: !!team } : null}
+                  slide={slides.stage}
+                />
+              </MarksProvider>
             )}
             {team ? <SlideBar slides={slides} /> : null}
             <Reactions floating={floating} />

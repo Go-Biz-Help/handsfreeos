@@ -396,6 +396,7 @@ export const appointmentBookOnline = defineCommand({
       postalCode: input.postalCode ?? null,
       point: input.point ?? null,
       chosenUserId: input.chosenUserId ?? null,
+      preferUserIds: input.withUserId ? [input.withUserId] : undefined,
       choice: { mode: 'customer' },
       attendee,
       notes: input.notes ?? null,

@@ -81,6 +81,8 @@ webhook) is "Video calls: LiveKit" in `docs/operations.md`.
 | The chat, kept: each screen's report         | `call-chat.ts` on the web and the phone; `POST /public/calls/chat` in `apps/worker/src/video-calls/routes.ts`                     |
 | The chat, read back                          | `components/video-call/call-chat-log.tsx` (appointment and the call's notes); `CallChat` in the phone's `calendar/meeting.tsx`    |
 | The chat in the AI's notes and to the coach  | `video_call.keep_words` in `commands/video-call.ts`; the coach's from `listener-room.ts` (`CallHearing.typed`) and `coach.ts`     |
+| Marks on a shared screen: rules and board    | `packages/core/src/meetings/screen-marks.ts` (`MarksBoard`, `MarksStore`, `markFrom`, `SCREEN_MARK_WORDS`)                        |
+| Marks on a shared screen: drawn and made     | `components/video-call/screen-marks.tsx`, placed by `call-stage.tsx`; the phone's `src/video-call/screen-marks.tsx`               |
 
 ## How a call goes
 
@@ -167,10 +169,10 @@ joining by phone, team-only meetings.
   worker stores only its hash, so only that page can ask how it stands or come in on it.
 - **The call's own link may be passed on,** so what it shows anyone who isn't on the team is the business's name and
   look, never the appointment's title or the customer.
-- **Reactions aren't kept,** and neither is video or sound (decision 10). **The chat is kept with every call,**
-  whatever its AI notes (the owner, 3 November 2026, "Kept on every call"): the team reads it on the appointment,
-  and while AI notes are on the AI takes it in with what was said. What was typed while they were off never reaches
-  the AI ("The chat, kept" below).
+- **Reactions and marks aren't kept,** and neither is video or sound (decision 10): they travel between the people
+  in the call and go with it. **The chat is kept with every call,** whatever its AI notes (the owner, 3 November
+  2026, "Kept on every call"): the team reads it on the appointment, and while AI notes are on the AI takes it in
+  with what was said. What was typed while they were off never reaches the AI ("The chat, kept" below).
 - **Background blur happens in the person's own browser,** before their camera is sent. Its model comes from its
   publisher's CDN the first time someone turns blur on, so a browser that can't fetch it simply can't blur.
 - **Switching calls off doesn't take the choice away.** While a business has calls off, a place set to HandsFreeOS
@@ -559,6 +561,31 @@ what's kept here, once a week of it has been checked against LiveKit's bill. Par
   the page closes. The phone sends JSON. The route answers 204 whatever it was, so it tells nothing about tickets.
 - **Only the worker writes the rows**, and only people who can read the business's money see them.
 
+### Marks on a shared screen (owner, 3 November 2026)
+
+Someone watching a shared screen can point at it and draw on it, and everyone in the call sees it there: the person
+sharing too, on their own screen's tile. Controlling another person's screen waits for a desktop app or a browser
+extension, the owner's call on 3 November 2026 ("Not yet" below).
+
+- **Point and Draw** sit on the big shared screen for whoever may mark it. With **Point**, their pointer shows to
+  everyone as a bright dot in their own colour with their name, and a click spreads a ring where they clicked. With
+  **Draw**, they draw a line, to circle something. A line fades three seconds after its last point, like a laser
+  pointer. Esc stops marking.
+- **Who may mark**: anyone in a meeting; in a webinar, only the team. A page trusts LiveKit's own permissions on the
+  sender for that (in a webinar only the team may share a screen), never the sender's attributes, which a page can
+  change about itself.
+- **The person sharing can turn marks off** for their screen with **Marks on** on its tile: everything on it goes, and
+  the people watching see "Marks are off" instead of the tools. It's their attribute in the room (`hfos.marks`), so
+  someone who comes in later sees it too.
+- **Where on the screen** travels as a fraction of the shared picture, so a mark lands on the same spot whatever the
+  size of each person's window, and never in the dark bands around the picture.
+- **What travels**: the pointer at most 20 times a second and lossy, the newest place winning; clicks and lines
+  reliably, a line a stretch at a time. It's tiny next to the video, and nothing is kept.
+- **The person sharing is usually looking at what they share,** not at the call. A browser can't draw over their
+  real screen, so while their call tab is hidden its title says who is pointing at their screen until they come back
+  to it.
+- **On the phone** the marks show on a shared screen the same way. Making them from the phone comes later.
+
 ## Running it locally
 
 Without LiveKit the worker uses its stand-in: tickets connect to nothing and the call screen shows a stand-in for
@@ -581,6 +608,11 @@ enough to see captions and lines arrive. With `DEEPGRAM_API_KEY` and `VOICE_AGEN
   but **Video call** goes on to open the call for whoever pressed it, so for now it's only a button.
 - Screen share from a phone's browser, which phones don't allow; they can watch someone else's.
 - Joining by phone, recordings, breakout rooms and picture backgrounds.
+- Controlling another person's shared screen, and marks drawn on top of their real screen rather than in the call.
+  A browser can't move someone else's mouse or draw over their screen. The owner chose (3 November 2026) to wait
+  until there's a HandsFreeOS desktop app or browser extension the other person installs, rather than doing it only
+  on shared HandsFreeOS tabs.
+- Pointing and drawing from the phone app: it shows marks others make.
 - Charging each call for what it really used ("What a call used" above): part 1 measures it, and the balance still
   takes the flat `video.minute` until part 2.
 - Live polls and slides on the phone's call screen: the team asks and presents from the web for now, and the phone
