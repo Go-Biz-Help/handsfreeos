@@ -90,7 +90,7 @@ describe('a group’s fit, and what’s left', () => {
       /That’s less than a week\. The extension finds more groups/,
     );
     expect(prospectsWords(prospectsLeft(120, 20), false)).toMatch(
-      /Press Find and join more groups/,
+      /only the groups you’re in: press Find and join more groups/,
     );
     expect(prospectsWords(prospectsLeft(0, 20), true)).toMatch(/^Nobody left to reach/);
   });
