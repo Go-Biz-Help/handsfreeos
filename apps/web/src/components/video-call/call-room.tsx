@@ -6,8 +6,9 @@
  * - **The controls**: microphone, camera, screen share (from a computer: phones' browsers can't share), background
  *   blur where the browser can, reactions, raise hand, chat, who's here, and Leave. The team's Leave also offers
  *   End for everyone.
- * - **Reactions and chat aren't kept.** Reactions travel on their own data topic, one emoji at a time; chat is
- *   LiveKit's, and goes with the call.
+ * - **Reactions aren't kept.** They travel on their own data topic, one emoji at a time. Chat is LiveKit's: while the
+ *   call's AI notes are on, the AI's listener reads it too and keeps it with the call's notes; otherwise it goes with
+ *   the call. Links and email addresses in it can be pressed.
  * - **A raised hand** is an attribute of the person in the room, so someone who comes in later sees it too.
  * - **The AI's notes** (part 2): "AI notes on" shows while the AI's unseen listener hears the call (the room's
  *   metadata says so). The team's pill also turns them off or on for this call. CC shows the listener's captions,
@@ -622,6 +623,7 @@ function CallScreen({
               messages={chat.chatMessages}
               send={chat.send}
               sending={chat.isSending}
+              aiNotes={aiNotes}
               onClose={() => setPanel(null)}
             />
           ) : panel === 'people' ? (

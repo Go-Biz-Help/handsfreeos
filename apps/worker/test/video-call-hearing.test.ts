@@ -8,12 +8,20 @@
  *   - each person is heard on their own: their captions and lines say who, and a line's key never clashes with a
  *     listener's that restarted;
  *   - only the sound sent goes on the balance;
- *   - lines that couldn't be kept are sent again; the listener leaves once it's alone.
+ *   - lines that couldn't be kept are sent again; the listener leaves once it's alone;
+ *   - what's typed in the chat is a line of its own, kept as typed and never captioned, up to a limit a person.
  */
 import pino from 'pino';
 import { describe, expect, it, vi } from 'vitest';
 import { captionOf, VIDEO_CALL_CAPTIONS_TOPIC } from '@hfos/core';
-import { ALONE_MS, CallHearing, GATE, VoiceGate, type HeardLine } from '../src/video-calls/hearing';
+import {
+  ALONE_MS,
+  CallHearing,
+  CHAT_MAX_PER_PERSON,
+  GATE,
+  VoiceGate,
+  type HeardLine,
+} from '../src/video-calls/hearing';
 import { createFakeSpeech, FAKE_HEARD } from '../src/voice-agent/fake-speech';
 import { frame, microphone, SAID } from './sound';
 
@@ -21,7 +29,12 @@ const log = pino({ level: 'silent' });
 const ANA = '0b6c4e8e-1f2a-4c3d-8e9f-0a1b2c3d4e5f';
 const BO = '5a1f0c2e-3b4d-4e6f-8a9b-0c1d2e3f4a5b';
 
-function hearing(opts: { keep?: (lines: readonly HeardLine[]) => Promise<void> } = {}) {
+function hearing(
+  opts: {
+    keep?: (lines: readonly HeardLine[]) => Promise<void>;
+    onLine?: (line: HeardLine) => void;
+  } = {},
+) {
   let clock = Date.parse('2026-10-27T15:00:00Z');
   const lines: HeardLine[] = [];
   const said: { topic: string; payload: Uint8Array }[] = [];
@@ -43,6 +56,7 @@ function hearing(opts: { keep?: (lines: readonly HeardLine[]) => Promise<void> }
       said.push({ topic, payload });
     },
     people: () => people,
+    ...(opts.onLine ? { onLine: opts.onLine } : {}),
   });
   return {
     h,
@@ -146,6 +160,52 @@ describe('a call heard', () => {
     t.advance(3_000);
     await t.h.tick();
     expect(kept).toEqual([expect.objectContaining({ personId: ANA, text: FAKE_HEARD })]);
+  });
+
+  it('keeps what’s typed in the chat as lines of their own, never captioned', async () => {
+    const seen: HeardLine[] = [];
+    const t = hearing({ onLine: (l) => seen.push(l) });
+    const h = t.h;
+    h.typed({ identity: ANA, text: '  My email is\n ana@example.com  ' });
+    t.advance(2_000);
+    h.typed({ identity: BO, text: 'Here’s the quote: acme.com/q/7' });
+    h.typed({ identity: ANA, text: '   ' });
+    await h.tick();
+    expect(t.lines).toEqual([
+      expect.objectContaining({
+        personId: ANA,
+        text: 'My email is ana@example.com',
+        language: null,
+        typed: true,
+      }),
+      expect.objectContaining({
+        personId: BO,
+        text: 'Here’s the quote: acme.com/q/7',
+        typed: true,
+      }),
+    ]);
+    expect(Date.parse(t.lines[1]!.saidAt) - Date.parse(t.lines[0]!.saidAt)).toBe(2_000);
+    // The coach hears them as they come; nothing goes out as a caption, since everyone saw the chat already.
+    expect(seen.map((l) => l.typed)).toEqual([true, true]);
+    expect(t.said).toEqual([]);
+    // Each its own key, apart from the same person's spoken lines.
+    const [session] = t.lines[0]!.key.split(':');
+    expect(t.lines.map((l) => l.key)).toEqual([
+      `${session}:${ANA}:chat:0`,
+      `${session}:${BO}:chat:0`,
+    ]);
+  });
+
+  it('keeps only so many chat messages from one person', async () => {
+    const t = hearing();
+    for (let i = 0; i < CHAT_MAX_PER_PERSON + 5; i++) t.h.typed({ identity: ANA, text: `hi ${i}` });
+    t.h.typed({ identity: BO, text: 'still heard' });
+    await t.h.stop();
+    expect(t.lines.filter((l) => l.personId === ANA)).toHaveLength(CHAT_MAX_PER_PERSON);
+    expect(t.lines.filter((l) => l.personId === BO)).toHaveLength(1);
+    // Nothing after it stopped.
+    t.h.typed({ identity: BO, text: 'too late' });
+    expect(t.lines.filter((l) => l.personId === BO)).toHaveLength(1);
   });
 
   it('says to leave once it’s been alone a while', async () => {

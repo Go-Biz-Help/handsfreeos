@@ -2906,7 +2906,7 @@ export const videoCallLeads = app.table('video_call_leads', {
 
 /**
  * What the AI's listener heard in a video call, line by line, until the stretch is over and the lines become the
- * appointment's transcript (20261027013300).
+ * appointment's transcript (20261027013300): what people said, and what they typed in the chat (20261027022800).
  */
 export const videoCallLines = app.table('video_call_lines', {
   id: id(),
@@ -2922,6 +2922,8 @@ export const videoCallLines = app.table('video_call_lines', {
   saidAt: ts('said_at').notNull(),
   lineKey: text('line_key').notNull(),
   createdAt: ts('created_at').notNull().defaultNow(),
+  // Typed in the call's chat rather than said (20261027022800).
+  typed: boolean('typed').notNull().default(false),
 });
 
 /**

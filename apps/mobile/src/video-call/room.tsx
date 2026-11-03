@@ -26,6 +26,7 @@ import {
   VIDEO_CALL_CAPTIONS_TOPIC,
   VIDEO_CALL_WORDS as W,
   captionOf,
+  chatLinkParts,
   isPersonIdentity,
   roomAiOn,
   roomRightsOf,
@@ -508,6 +509,7 @@ function CallScreen({
         got={got}
         reload={reload}
         chat={chat}
+        aiNotes={aiNotes}
         output={output}
         onOutput={setOutput}
         turningAi={turningAi}
@@ -807,6 +809,7 @@ function CallSheet({
   got,
   reload,
   chat,
+  aiNotes,
   output,
   onOutput,
   turningAi,
@@ -820,6 +823,8 @@ function CallSheet({
   got: VideoCallGot | null;
   reload: () => void;
   chat: Chat;
+  /** Whether the call's AI notes are on, so what's typed in the chat goes in them. */
+  aiNotes: boolean;
   output: string;
   onOutput: (output: string) => void;
   turningAi: boolean;
@@ -860,7 +865,7 @@ function CallSheet({
       {kind === 'people' ? (
         <PeopleList team={team} got={got} reload={reload} />
       ) : kind === 'chat' ? (
-        <ChatList chat={chat} />
+        <ChatList chat={chat} aiNotes={aiNotes} />
       ) : kind === 'ai' ? (
         <View className="gap-2 pt-2">
           <Button
@@ -1131,8 +1136,34 @@ function InCall({
 const clock = (at: number) =>
   new Date(at).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
 
-/** The call's chat: seen by everyone in it, and gone with it. */
-function ChatList({ chat }: { chat: Chat }) {
+/** A chat message, with each link and email address in it one to press (core's `chatLinkParts`). */
+function ChatText({ text }: { text: string }) {
+  return (
+    <Text className="text-[15px]">
+      {chatLinkParts(text).map((p, i) =>
+        p.href ? (
+          <Text
+            key={i}
+            className="text-[15px] font-medium text-accent-text underline"
+            accessibilityRole="link"
+            onPress={() => void Linking.openURL(p.href!).catch(() => undefined)}
+            testID="call-chat-link"
+          >
+            {p.text}
+          </Text>
+        ) : (
+          p.text
+        ),
+      )}
+    </Text>
+  );
+}
+
+/**
+ * The call's chat: seen by everyone in it, its links pressable. Kept with the call's notes while its AI notes are on
+ * (the AI's listener reads it), and otherwise gone with it.
+ */
+function ChatList({ chat, aiNotes }: { chat: Chat; aiNotes: boolean }) {
   const [text, setText] = React.useState('');
   const list = React.useRef<ScrollView>(null);
   const keyboard = useKeyboardHeight();
@@ -1154,8 +1185,8 @@ function ChatList({ chat }: { chat: Chat }) {
     <View className="gap-3 pt-1">
       <ScrollView ref={list} className="max-h-[320px]" contentContainerClassName="gap-3">
         {count === 0 ? (
-          <Text className="text-[13.5px] text-text-3">
-            Messages here are seen by everyone in the call, and aren’t kept after it.
+          <Text className="text-[13.5px] text-text-3" testID="call-chat-empty">
+            {aiNotes ? W.chatInNotes : W.chatNotKept}
           </Text>
         ) : null}
         {chat.chatMessages.map((m) => (
@@ -1166,7 +1197,7 @@ function ChatList({ chat }: { chat: Chat }) {
               </Text>{' '}
               · {clock(m.timestamp)}
             </Text>
-            <Text className="text-[15px]">{m.message}</Text>
+            <ChatText text={m.message} />
           </View>
         ))}
       </ScrollView>

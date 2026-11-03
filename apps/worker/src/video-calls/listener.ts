@@ -16,6 +16,8 @@
  *   on the team in the call they're on for. AI notes off forgets their coaching too; leaving otherwise doesn't end it.
  * - **The live poll** (poll-cues.ts): with the worker's services too, what the team says is matched to the call's
  *   live poll, and a question pops up, or the team is offered it, when they reach its moment.
+ * - **The chat** (20261027022800): what people type in it is kept with what they say, as typed lines, and goes to the
+ *   coach. The live poll goes by what the team says only.
  */
 import {
   executeCommand,
@@ -146,7 +148,7 @@ export function createListener(deps: ListenerDeps): Listener {
       keep: (lines) => keep(scope, callId, lines),
       onLine: (line) => {
         coach?.heard(line);
-        cues?.heard(line);
+        if (!line.typed) cues?.heard(line);
       },
       bill: (seconds) =>
         noteSpeech(deps, scope, [
@@ -162,6 +164,7 @@ export function createListener(deps: ListenerDeps): Listener {
     });
     inRoom = await deps.join(await deps.video.listenerTicket(room), {
       onVoice: (v) => hearing.voice(v),
+      onChat: (c) => hearing.typed(c),
       onGone: (why) => {
         if (heard.get(callId)?.hearing !== hearing) return;
         if (why === 'replaced') notBefore.set(callId, now() + REPLACED_WAIT_MS);

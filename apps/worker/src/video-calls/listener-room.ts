@@ -4,9 +4,10 @@
  * worker's image is Debian (Dockerfile). Everything else about hearing a call is in hearing.ts.
  *
  * The listener asks only for microphones (never cameras or a shared screen's sound) and hears each one as 16 kHz
- * mono, the sound Deepgram is sent.
+ * mono, the sound Deepgram is sent. It reads the call's chat too (LiveKit's chat topic, a text stream a message):
+ * who sent it is LiveKit's word, never the message's.
  */
-import { isPersonIdentity, LISTENER_IDENTITY } from '@hfos/core';
+import { isPersonIdentity, LISTENER_IDENTITY, VIDEO_CALL_CHAT_TOPIC } from '@hfos/core';
 import {
   AudioStream,
   DisconnectReason,
@@ -17,6 +18,7 @@ import {
   type RemoteParticipant,
   type RemoteTrack,
   type RemoteTrackPublication,
+  type TextStreamReader,
 } from '@livekit/rtc-node';
 import { WIDE_SAMPLE_RATE } from '../voice-agent/speech';
 import type { JoinRoom, ListenerRoomEvents } from './hearing';
@@ -26,6 +28,23 @@ const isPerson = (p: RemoteParticipant) =>
 
 const isMicrophone = (pub: RemoteTrackPublication) =>
   pub.kind === TrackKind.KIND_AUDIO && pub.source === TrackSource.SOURCE_MICROPHONE;
+
+/** A chat message read, at most: the chat sends 1,000 letters, and a line keeps 4,000. */
+const CHAT_MAX_CHARS = 4_000;
+
+/** A chat message's words, read until it ends or is long enough; stopping early lets the stream go. */
+async function chatOf(reader: TextStreamReader): Promise<string> {
+  let text = '';
+  try {
+    for await (const chunk of reader) {
+      text += chunk;
+      if (text.length >= CHAT_MAX_CHARS) break;
+    }
+  } finally {
+    await reader.close().catch(() => undefined);
+  }
+  return text.slice(0, CHAT_MAX_CHARS);
+}
 
 /** A microphone's frames until it goes; stopping early lets the stream go too. */
 async function* framesOf(stream: AudioStream): AsyncIterable<Int16Array> {
@@ -71,6 +90,18 @@ export const joinLiveKitRoom: JoinRoom = async (ticket, events: ListenerRoomEven
           ? 'closed'
           : 'lost',
     );
+  });
+
+  room.registerTextStreamHandler(VIDEO_CALL_CHAT_TOPIC, (reader, from) => {
+    if (from.identity === LISTENER_IDENTITY || !isPersonIdentity(from.identity)) {
+      void reader.close().catch(() => undefined);
+      return;
+    }
+    void chatOf(reader)
+      .then((text) => {
+        if (!left && text.trim()) events.onChat?.({ identity: from.identity, text });
+      })
+      .catch(() => undefined);
   });
 
   // Nothing comes unasked: the listener picks the microphones itself.

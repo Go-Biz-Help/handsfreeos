@@ -969,6 +969,58 @@ describe('the AI hearing the call', () => {
     }
   });
 
+  it('reads the chat too, so what’s typed is in the transcript beside what’s said', async () => {
+    const c = await inCall('Rae');
+    w.s.videoCalls.inRooms.set(c.room, { people: 2, listener: false });
+    const t = listening();
+    try {
+      const room = await t.joined(c.room);
+      room.events.onVoice({
+        identity: c.customerId,
+        name: 'Rae Customer',
+        frames: microphone([...SAID, ...SAID]),
+      });
+      await vi.waitFor(() => expect(room.said).toHaveLength(2));
+      t.advance(3_000);
+      room.events.onChat?.({ identity: c.customerId, text: 'My email is\nrae@example.com' });
+      // LiveKit names who sent it; someone who isn't on the call keeps nothing.
+      room.events.onChat?.({ identity: randomUUID(), text: 'Not on this call' });
+      t.advance(1_000);
+      room.events.onChat?.({ identity: c.team.personId, text: 'Thanks! The quote: acme.com/q/7' });
+      await t.listener.tick();
+      const typed = await rows<{ person_row_id: string; side: string; body: string }>(
+        admin(),
+        sql`select person_row_id, side, body from app.video_call_lines
+            where video_call_id = ${c.callId} and typed order by said_at, line_key`,
+      );
+      expect(typed).toEqual([
+        { person_row_id: c.customerId, side: 'customer', body: 'My email is rae@example.com' },
+        { person_row_id: c.team.personId, side: 'team', body: 'Thanks! The quote: acme.com/q/7' },
+      ]);
+      // Never captioned: everyone in the call saw it already.
+      expect(room.said).toHaveLength(2);
+
+      await t.listener.stop();
+      const endedAt = t.now() + MIN;
+      expect(
+        (await hook('room_finished', c.room, { roomSid: c.roomSid, at: endedAt })).statusCode,
+      ).toBe(200);
+      await drain(w);
+      await runDue(w, [`video_call.keep_words:${c.roomSid}`]);
+      const [kept] = await transcriptsOf(c.appointmentId);
+      expect(kept?.body).toBe(
+        [
+          `Rae Customer: ${FAKE_HEARD} ${FAKE_HEARD}`,
+          'Rae Customer (in the chat): My email is rae@example.com',
+          `${c.team.name} (in the chat): Thanks! The quote: acme.com/q/7`,
+        ].join('\n'),
+      );
+      expect(await jobRow(`appointment.call_review:${kept!.id}`)).toBeDefined();
+    } finally {
+      await t.listener.stop();
+    }
+  });
+
   it('forgets what it heard and leaves once the team turns AI notes off for the call', async () => {
     const c = await inCall('Mo');
     w.s.videoCalls.inRooms.set(c.room, { people: 2, listener: false });

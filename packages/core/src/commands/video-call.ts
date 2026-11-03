@@ -1899,12 +1899,14 @@ const HeardLine = z.object({
     .regex(/^[a-z]{2}$/)
     .nullable()
     .default(null),
+  /** Typed in the call's chat rather than said (20261027022800). */
+  typed: z.boolean().default(false),
 });
 
 /**
- * What the listener heard, a few lines at a time, kept until the stretch of the call is over. Lines from someone who
- * isn't on the call are dropped, and nothing is kept once the call's AI notes are off: the listener is on its way
- * out, and what it heard is forgotten.
+ * What the listener heard, a few lines at a time, kept until the stretch of the call is over: what people said, and
+ * what they typed in the chat (`typed`). Lines from someone who isn't on the call are dropped, and nothing is kept
+ * once the call's AI notes are off: the listener is on its way out, and what it heard is forgotten.
  */
 export const videoCallHeard = defineCommand({
   name: 'video_call.heard',
@@ -1936,6 +1938,7 @@ export const videoCallHeard = defineCommand({
               language: l.language,
               saidAt: new Date(l.saidAt),
               lineKey: l.key,
+              typed: l.typed,
             },
           ]
         : [];
