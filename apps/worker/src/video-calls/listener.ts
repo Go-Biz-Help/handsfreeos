@@ -16,8 +16,8 @@
  *   on the team in the call they're on for. AI notes off forgets their coaching too; leaving otherwise doesn't end it.
  * - **The live poll** (poll-cues.ts): with the worker's services too, what the team says is matched to the call's
  *   live poll, and a question pops up, or the team is offered it, when they reach its moment.
- * - **The chat** (20261027022800): what people type in it is kept with what they say, as typed lines, and goes to the
- *   coach. The live poll goes by what the team says only.
+ * - **The chat** (20261027022800): what people type in it goes to the coach as it comes. The call keeps its chat
+ *   itself, from the screens that sent it, so nothing of it is kept here. The live poll goes by what the team says.
  */
 import {
   executeCommand,

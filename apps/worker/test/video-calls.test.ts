@@ -39,10 +39,12 @@ import {
   formPublish,
   formSaveDraft,
   pushDeviceRegister,
+  VIDEO_CALL_CHAT_NOT_FOR_AI,
   VIDEO_CALL_POLLS_TOPIC,
   VIDEO_CALL_SLIDES_TOPIC,
   VIDEO_CALL_WORDS,
   videoCallAdmit,
+  videoCallChatGet,
   videoCallEnd,
   videoCallHeard,
   videoCallKeepWords,
@@ -326,6 +328,21 @@ const reportData = (body: Record<string, unknown>, contentType = 'text/plain;cha
     headers: { 'content-type': contentType },
     payload: JSON.stringify(body),
   });
+
+const reportChat = (body: Record<string, unknown>, contentType = 'text/plain;charset=UTF-8') =>
+  w.app.inject({
+    method: 'POST',
+    url: '/public/calls/chat',
+    headers: { 'content-type': contentType },
+    payload: JSON.stringify(body),
+  });
+
+const chatOf = (callId: string) =>
+  rows<{ person_row_id: string; side: string; name: string; body: string; stretch: string | null }>(
+    admin(),
+    sql`select person_row_id, side, name, body, stretch from app.video_call_messages
+        where video_call_id = ${callId} order by sent_at, created_at`,
+  );
 
 const joinedAt = async (attendeeId: string) =>
   (
@@ -687,6 +704,138 @@ describe('what a call screen downloaded', () => {
   });
 });
 
+describe('the chat', () => {
+  it('is kept for every call, AI notes off too, each message from its own sender’s ticket', async () => {
+    const c = await inCall('Sol');
+    expect(
+      await run(w, videoCallSetAi, { workspaceId: w.workspaceId, callId: c.callId, on: false }),
+    ).toEqual({ changed: true, aiNotes: false });
+
+    expect(
+      (
+        await reportChat({
+          ticket: c.customerTicket,
+          id: 'TX_sol_1',
+          text: ' My email is\nsol@example.com ',
+        })
+      ).statusCode,
+    ).toBe(204);
+    // The phone sends JSON: the same.
+    expect(
+      (
+        await reportChat(
+          { ticket: c.team.ticket.token, id: 'TX_sol_2', text: 'Thanks! The quote: acme.com/q/7' },
+          'application/json',
+        )
+      ).statusCode,
+    ).toBe(204);
+    // The same message again keeps one copy. Not a ticket, or nothing typed: answered alike, nothing kept.
+    await reportChat({
+      ticket: c.customerTicket,
+      id: 'TX_sol_1',
+      text: 'My email is sol@example.com',
+    });
+    expect((await reportChat({ ticket: 'not-a-ticket', id: 'TX_x', text: 'hi' })).statusCode).toBe(
+      204,
+    );
+    expect(
+      (await reportChat({ ticket: c.customerTicket, id: 'TX_y', text: '   ' })).statusCode,
+    ).toBe(204);
+    expect((await reportChat({ ticket: c.customerTicket, text: 'no id' })).statusCode).toBe(400);
+
+    expect(await chatOf(c.callId)).toEqual([
+      {
+        person_row_id: c.customerId,
+        side: 'customer',
+        name: 'Sol Customer',
+        body: 'My email is\nsol@example.com',
+        stretch: null,
+      },
+      {
+        person_row_id: c.team.personId,
+        side: 'team',
+        name: c.team.name,
+        body: 'Thanks! The quote: acme.com/q/7',
+        stretch: null,
+      },
+    ]);
+
+    // The team reads it with the call, from its appointment.
+    expect(
+      await query(w, videoCallChatGet, {
+        workspaceId: w.workspaceId,
+        appointmentId: c.appointmentId,
+      }),
+    ).toEqual({
+      callId: c.callId,
+      more: 0,
+      messages: [
+        expect.objectContaining({
+          name: 'Sol Customer',
+          side: 'customer',
+          body: 'My email is\nsol@example.com',
+        }),
+        expect.objectContaining({
+          name: c.team.name,
+          side: 'team',
+          body: 'Thanks! The quote: acme.com/q/7',
+        }),
+      ],
+    });
+
+    // Someone taken out adds nothing more.
+    await run(w, videoCallRemove, {
+      workspaceId: w.workspaceId,
+      callId: c.callId,
+      personId: c.customerId,
+    });
+    await reportChat({ ticket: c.customerTicket, id: 'TX_sol_3', text: 'Still here?' });
+    expect(await chatOf(c.callId)).toHaveLength(2);
+
+    // The stretch ends with AI notes off: no transcript, and the chat stays with the call.
+    const endedAt = Date.now() + MIN;
+    await hook('room_finished', c.room, { roomSid: c.roomSid, at: endedAt });
+    await drain(w);
+    await runDue(w, [`video_call.keep_words:${c.roomSid}`]);
+    expect(await transcriptsOf(c.appointmentId)).toEqual([]);
+    expect((await chatOf(c.callId)).map((m) => m.stretch)).toEqual([c.roomSid, c.roomSid]);
+  });
+
+  it('never gives the AI what was typed before its notes went off, or while they were off', async () => {
+    const c = await inCall('Lu');
+    const ai = (on: boolean) =>
+      run(w, videoCallSetAi, { workspaceId: w.workspaceId, callId: c.callId, on });
+    await reportChat({
+      ticket: c.customerTicket,
+      id: 'TX_lu_1',
+      text: 'Before: lu@before.example',
+    });
+    await ai(false);
+    await reportChat({
+      ticket: c.customerTicket,
+      id: 'TX_lu_2',
+      text: 'While off: lu@off.example',
+    });
+    await ai(true);
+    const after =
+      'After: my email is lu@after.example and the best time to call me is any weekday morning before ten';
+    await reportChat({ ticket: c.customerTicket, id: 'TX_lu_3', text: after });
+
+    const endedAt = Date.now() + MIN;
+    await hook('room_finished', c.room, { roomSid: c.roomSid, at: endedAt });
+    await drain(w);
+    await runDue(w, [`video_call.keep_words:${c.roomSid}`]);
+    const [kept] = await transcriptsOf(c.appointmentId);
+    expect(kept?.body).toBe(`Lu Customer (in the chat): ${after}`);
+    // All three stay with the call for the team.
+    expect((await chatOf(c.callId)).map((m) => m.stretch)).toEqual([
+      VIDEO_CALL_CHAT_NOT_FOR_AI,
+      VIDEO_CALL_CHAT_NOT_FOR_AI,
+      c.roomSid,
+    ]);
+  });
+});
+
 describe('anyone else on the call’s link', () => {
   it('asks to be let in, sees the business and not the appointment, and only their page hears back', async () => {
     const b = await booked('Ivy', at(1, '14:00'));
@@ -835,13 +984,18 @@ const transcriptsOf = (appointmentId: string) =>
 async function inCall(first: string) {
   const b = await booked(first, await soonest());
   const roomSid = `RM_${randomUUID().slice(0, 12)}`;
-  const team = (await teamJoin(ownerToken, b.callId)).json() as { personId: string; name: string };
+  const team = (await teamJoin(ownerToken, b.callId)).json() as {
+    personId: string;
+    name: string;
+    ticket: { token: string };
+  };
   await cameIn(b.room, team.personId, { roomSid });
   const them = (await enter(b.link, { name: `${first} Customer` })).json() as {
     personId: string;
+    ticket: { token: string };
   };
   await cameIn(b.room, them.personId, { roomSid });
-  return { ...b, roomSid, team, customerId: them.personId };
+  return { ...b, roomSid, team, customerId: them.personId, customerTicket: them.ticket.token };
 }
 
 const asSystem = () =>
@@ -969,7 +1123,7 @@ describe('the AI hearing the call', () => {
     }
   });
 
-  it('reads the chat too, so what’s typed is in the transcript beside what’s said', async () => {
+  it('puts what was typed in the chat in the transcript beside what was said', async () => {
     const c = await inCall('Rae');
     w.s.videoCalls.inRooms.set(c.room, { people: 2, listener: false });
     const t = listening();
@@ -982,26 +1136,20 @@ describe('the AI hearing the call', () => {
       });
       await vi.waitFor(() => expect(room.said).toHaveLength(2));
       t.advance(3_000);
-      room.events.onChat?.({ identity: c.customerId, text: 'My email is\nrae@example.com' });
-      // LiveKit names who sent it; someone who isn't on the call keeps nothing.
-      room.events.onChat?.({ identity: randomUUID(), text: 'Not on this call' });
-      t.advance(1_000);
-      room.events.onChat?.({ identity: c.team.personId, text: 'Thanks! The quote: acme.com/q/7' });
       await t.listener.tick();
-      const typed = await rows<{ person_row_id: string; side: string; body: string }>(
-        admin(),
-        sql`select person_row_id, side, body from app.video_call_lines
-            where video_call_id = ${c.callId} and typed order by said_at, line_key`,
+      // Each screen reports what it sent, with the ticket it joined on.
+      await reportChat({
+        ticket: c.customerTicket,
+        id: 'TX_rae_1',
+        text: 'My email is\nrae@example.com',
+      });
+      await reportChat(
+        { ticket: c.team.ticket.token, id: 'TX_rae_2', text: 'Thanks! The quote: acme.com/q/7' },
+        'application/json',
       );
-      expect(typed).toEqual([
-        { person_row_id: c.customerId, side: 'customer', body: 'My email is rae@example.com' },
-        { person_row_id: c.team.personId, side: 'team', body: 'Thanks! The quote: acme.com/q/7' },
-      ]);
-      // Never captioned: everyone in the call saw it already.
-      expect(room.said).toHaveLength(2);
 
       await t.listener.stop();
-      const endedAt = t.now() + MIN;
+      const endedAt = Date.now() + MIN;
       expect(
         (await hook('room_finished', c.room, { roomSid: c.roomSid, at: endedAt })).statusCode,
       ).toBe(200);
@@ -1016,6 +1164,11 @@ describe('the AI hearing the call', () => {
         ].join('\n'),
       );
       expect(await jobRow(`appointment.call_review:${kept!.id}`)).toBeDefined();
+      // The chat stays with the call, taken by that stretch once.
+      expect((await chatOf(c.callId)).map((m) => [m.body, m.stretch])).toEqual([
+        ['My email is\nrae@example.com', c.roomSid],
+        ['Thanks! The quote: acme.com/q/7', c.roomSid],
+      ]);
     } finally {
       await t.listener.stop();
     }

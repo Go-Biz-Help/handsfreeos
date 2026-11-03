@@ -17,6 +17,8 @@
  * - `POST /public/calls/data`: a call screen (the team's or a customer's, web or phone) says what it has downloaded
  *   so far on its connection, every minute and as it leaves (core's `watchCallData`). It comes with the ticket the
  *   screen joined on, so it can only speak for itself. Kept for what the call used (`video_call.data`).
+ * - `POST /public/calls/chat`: a call screen says what it just sent in the chat, with the ticket it joined on, so it
+ *   can only speak for its own messages. Kept with the call, whatever its AI notes (`video_call.chat`).
  * - `POST /webhooks/livekit`: LiveKit's word on who came and went and when a room closed, checked against our key
  *   and stored, then worked through in order (reports.ts). The AI's listener's comings and goings are kept too: LiveKit
  *   bills its connection like anyone's.
@@ -32,6 +34,7 @@ import {
   hostFirstName,
   isPersonIdentity,
   LISTENER_IDENTITY,
+  videoCallChat,
   videoCallData,
   videoCallEnter,
   videoCallJoin,
@@ -42,6 +45,7 @@ import {
   videoCallPollNow,
   videoCallRoom,
   videoCallStart,
+  VIDEO_CALL_MESSAGE_MAX_CHARS,
   type RequestMeta,
 } from '@hfos/core/server';
 import { asWorker, rows, sql } from '@hfos/db/client';
@@ -513,6 +517,39 @@ export async function registerVideoCallRoutes(app: FastifyInstance, deps: HttpDe
           participantSid: body.sid,
           bytes: body.bytes,
         },
+        systemActor(scope),
+        meta('worker'),
+      ).catch((e: unknown) => {
+        // The call went with its appointment, deleted for good: nothing to keep.
+        if (!(e instanceof HfosError && e.status === 404)) throw e;
+      });
+      return reply.code(204).send();
+    });
+
+    // ---------- what someone typed in the chat ----------
+
+    pub.post('/public/calls/chat', { config: { rateLimit: reporting } }, async (req, reply) => {
+      void reply.header('cache-control', 'no-store');
+      const body = parseBody(
+        z.object({
+          ticket: z.string().min(1).max(8192),
+          id: z.string().trim().min(1).max(100),
+          text: z.string().max(4 * VIDEO_CALL_MESSAGE_MAX_CHARS),
+        }),
+        // Sent with a plain text body, so it goes without a preflight from a business's own address.
+        typeof req.body === 'string' ? safeJson(req.body) : req.body,
+      );
+      const text = body.text.trim().slice(0, VIDEO_CALL_MESSAGE_MAX_CHARS).trim();
+      const who = deps.videoCalls ? await deps.videoCalls.readTicket(body.ticket) : null;
+      const callId = who ? callIdOfRoom(who.room) : null;
+      if (!text || !who || !callId || !isPersonIdentity(who.identity))
+        return reply.code(204).send();
+      const scope = await callScope(deps, callId);
+      if (!scope) return reply.code(204).send();
+      await executeCommand(
+        deps.httpDb,
+        videoCallChat,
+        { workspaceId: scope.workspaceId, callId, personId: who.identity, key: body.id, text },
         systemActor(scope),
         meta('worker'),
       ).catch((e: unknown) => {

@@ -2906,7 +2906,7 @@ export const videoCallLeads = app.table('video_call_leads', {
 
 /**
  * What the AI's listener heard in a video call, line by line, until the stretch is over and the lines become the
- * appointment's transcript (20261027013300): what people said, and what they typed in the chat (20261027022800).
+ * appointment's transcript (20261027013300).
  */
 export const videoCallLines = app.table('video_call_lines', {
   id: id(),
@@ -2922,8 +2922,26 @@ export const videoCallLines = app.table('video_call_lines', {
   saidAt: ts('said_at').notNull(),
   lineKey: text('line_key').notNull(),
   createdAt: ts('created_at').notNull().defaultNow(),
-  // Typed in the call's chat rather than said (20261027022800).
-  typed: boolean('typed').notNull().default(false),
+});
+
+/**
+ * What people typed in a video call's chat (20261027022800): kept with the call whatever its AI notes, from the
+ * screen that sent it, and taken into the stretch's transcript while the notes are on (`stretch`, once).
+ */
+export const videoCallMessages = app.table('video_call_messages', {
+  id: id(),
+  workspaceId: workspaceRef(),
+  videoCallId: uuid('video_call_id').notNull(),
+  personRowId: uuid('person_row_id')
+    .notNull()
+    .references(() => videoCallPeople.id, { onDelete: 'cascade' }),
+  side: text('side').notNull(),
+  name: text('name').notNull(),
+  body: text('body').notNull(),
+  sentAt: ts('sent_at').notNull(),
+  messageKey: text('message_key').notNull(),
+  stretch: text('stretch'),
+  createdAt: ts('created_at').notNull().defaultNow(),
 });
 
 /**

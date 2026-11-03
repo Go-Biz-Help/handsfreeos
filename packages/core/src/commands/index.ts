@@ -73,6 +73,7 @@ import { webinarCommands } from './webinar';
 import { webinarScheduleCommands } from './webinar-schedule';
 import { videoCallPollCommands } from './video-call-poll';
 import { videoCallLeadCommands } from './video-call-leads';
+import { videoCallChatCommands } from './video-call-chat';
 import { callSuggestionCommands } from './call-suggestion';
 import { companyArchive } from './company.archive';
 import {
@@ -930,6 +931,8 @@ export const commands: readonly CommandDef[] = [
   ...videoCallPollCommands,
   // Who to follow up with after one (part 5).
   ...videoCallLeadCommands,
+  // A call's chat, kept whatever its AI notes (20261027022800).
+  ...videoCallChatCommands,
   ...callSuggestionCommands,
   attendeeRecordReminder,
   waitlistPromote,
@@ -1240,6 +1243,7 @@ export * from './webinar';
 export * from './webinar-schedule';
 export * from './video-call-poll';
 export * from './video-call-leads';
+export * from './video-call-chat';
 export * from './call-suggestion';
 export * from './number-import';
 export * from './twilio-connection';

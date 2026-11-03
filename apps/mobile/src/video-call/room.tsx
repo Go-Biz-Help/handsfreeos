@@ -26,7 +26,6 @@ import {
   VIDEO_CALL_CAPTIONS_TOPIC,
   VIDEO_CALL_WORDS as W,
   captionOf,
-  chatLinkParts,
   isPersonIdentity,
   roomAiOn,
   roomRightsOf,
@@ -94,6 +93,8 @@ import { toast } from '@/components/ui/toast';
 import { errorMessage } from '@/lib/api';
 import { cn } from '@/lib/utils';
 
+import { keepCallChat } from './call-chat';
+import { ChatText } from './chat-text';
 import { useCallData } from './call-data';
 import { endOf, type CallEnd } from './ends';
 import { AUDIO_OUTPUTS, mediaProblem } from './media';
@@ -220,6 +221,7 @@ export default function CallRoom({
         team={team}
         top={top}
         onLeave={() => void room.disconnect()}
+        onChatSent={(id, text) => keepCallChat(ticket.token, id, text)}
       />
     </RoomContext.Provider>
   );
@@ -234,12 +236,15 @@ function CallScreen({
   team,
   top,
   onLeave,
+  onChatSent,
 }: {
   title: string;
   detail: string | null;
   team: TeamSide;
   top: React.ReactNode;
   onLeave: () => void;
+  /** A chat message this phone just sent, so the call keeps it. */
+  onChatSent: (id: string, text: string) => void;
 }) {
   const insets = useSafeAreaInsets();
   const room = useRoomContext();
@@ -263,7 +268,19 @@ function CallScreen({
   const [turningAi, setTurningAi] = React.useState(false);
 
   // Chat that arrives while the chat is closed: a count on its button, and the message in passing.
-  const chat = useChat();
+  const lkChat = useChat();
+  // What this phone sends is reported too, so the call keeps its chat whatever its AI notes.
+  const chat = React.useMemo<Chat>(
+    () => ({
+      ...lkChat,
+      send: async (text, options) => {
+        const sent = await lkChat.send(text, options);
+        onChatSent(sent.id, text);
+        return sent;
+      },
+    }),
+    [lkChat, onChatSent],
+  );
   const [seen, setSeen] = React.useState(0);
   const count = chat.chatMessages.length;
   React.useEffect(() => {
@@ -509,7 +526,6 @@ function CallScreen({
         got={got}
         reload={reload}
         chat={chat}
-        aiNotes={aiNotes}
         output={output}
         onOutput={setOutput}
         turningAi={turningAi}
@@ -809,7 +825,6 @@ function CallSheet({
   got,
   reload,
   chat,
-  aiNotes,
   output,
   onOutput,
   turningAi,
@@ -823,8 +838,6 @@ function CallSheet({
   got: VideoCallGot | null;
   reload: () => void;
   chat: Chat;
-  /** Whether the call's AI notes are on, so what's typed in the chat goes in them. */
-  aiNotes: boolean;
   output: string;
   onOutput: (output: string) => void;
   turningAi: boolean;
@@ -865,7 +878,7 @@ function CallSheet({
       {kind === 'people' ? (
         <PeopleList team={team} got={got} reload={reload} />
       ) : kind === 'chat' ? (
-        <ChatList chat={chat} aiNotes={aiNotes} />
+        <ChatList chat={chat} />
       ) : kind === 'ai' ? (
         <View className="gap-2 pt-2">
           <Button
@@ -1136,34 +1149,8 @@ function InCall({
 const clock = (at: number) =>
   new Date(at).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
 
-/** A chat message, with each link and email address in it one to press (core's `chatLinkParts`). */
-function ChatText({ text }: { text: string }) {
-  return (
-    <Text className="text-[15px]">
-      {chatLinkParts(text).map((p, i) =>
-        p.href ? (
-          <Text
-            key={i}
-            className="text-[15px] font-medium text-accent-text underline"
-            accessibilityRole="link"
-            onPress={() => void Linking.openURL(p.href!).catch(() => undefined)}
-            testID="call-chat-link"
-          >
-            {p.text}
-          </Text>
-        ) : (
-          p.text
-        ),
-      )}
-    </Text>
-  );
-}
-
-/**
- * The call's chat: seen by everyone in it, its links pressable. Kept with the call's notes while its AI notes are on
- * (the AI's listener reads it), and otherwise gone with it.
- */
-function ChatList({ chat, aiNotes }: { chat: Chat; aiNotes: boolean }) {
+/** The call's chat: seen by everyone in it, its links pressable, and kept with the call whatever its AI notes. */
+function ChatList({ chat }: { chat: Chat }) {
   const [text, setText] = React.useState('');
   const list = React.useRef<ScrollView>(null);
   const keyboard = useKeyboardHeight();
@@ -1186,7 +1173,7 @@ function ChatList({ chat, aiNotes }: { chat: Chat; aiNotes: boolean }) {
       <ScrollView ref={list} className="max-h-[320px]" contentContainerClassName="gap-3">
         {count === 0 ? (
           <Text className="text-[13.5px] text-text-3" testID="call-chat-empty">
-            {aiNotes ? W.chatInNotes : W.chatNotKept}
+            {W.chatKept}
           </Text>
         ) : null}
         {chat.chatMessages.map((m) => (

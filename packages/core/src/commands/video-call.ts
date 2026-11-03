@@ -44,6 +44,7 @@ import {
   users,
   videoCallConnections,
   videoCallLines,
+  videoCallMessages,
   videoCallPeople,
   videoCalls,
   workspaces,
@@ -61,6 +62,7 @@ import {
   maxPeopleOf,
   mayPublish,
   sideOfKind,
+  VIDEO_CALL_CHAT_NOT_FOR_AI,
   VIDEO_CALL_FORMATS,
   VIDEO_CALL_INVITE_CHANNELS,
   VIDEO_CALL_KINDS,
@@ -1875,6 +1877,12 @@ export const videoCallSetAi = defineCommand({
           .delete(videoCallLines)
           .where(eq(videoCallLines.videoCallId, call.id))
           .returning({ id: videoCallLines.id });
+    // The chat stays with the call, but the AI never takes what was typed before its notes went off, or while they
+    // were off: each message not yet taken is marked as not the AI's, so no stretch's transcript has it.
+    await ctx.tx
+      .update(videoCallMessages)
+      .set({ stretch: VIDEO_CALL_CHAT_NOT_FOR_AI })
+      .where(and(eq(videoCallMessages.videoCallId, call.id), isNull(videoCallMessages.stretch)));
     await ctx.emit({
       type: 'video_call.ai_changed',
       entityType: 'video_call',
@@ -1899,14 +1907,12 @@ const HeardLine = z.object({
     .regex(/^[a-z]{2}$/)
     .nullable()
     .default(null),
-  /** Typed in the call's chat rather than said (20261027022800). */
-  typed: z.boolean().default(false),
 });
 
 /**
- * What the listener heard, a few lines at a time, kept until the stretch of the call is over: what people said, and
- * what they typed in the chat (`typed`). Lines from someone who isn't on the call are dropped, and nothing is kept
- * once the call's AI notes are off: the listener is on its way out, and what it heard is forgotten.
+ * What the listener heard, a few lines at a time, kept until the stretch of the call is over. Lines from someone who
+ * isn't on the call are dropped, and nothing is kept once the call's AI notes are off: the listener is on its way
+ * out, and what it heard is forgotten.
  */
 export const videoCallHeard = defineCommand({
   name: 'video_call.heard',
@@ -1938,7 +1944,6 @@ export const videoCallHeard = defineCommand({
               language: l.language,
               saidAt: new Date(l.saidAt),
               lineKey: l.key,
-              typed: l.typed,
             },
           ]
         : [];
@@ -2047,9 +2052,11 @@ export const VIDEO_CALL_TRANSCRIPT_MIN_WORDS = 15;
 
 /**
  * A stretch of the call is over: what the listener heard up to its end becomes the appointment's transcript, which
- * the AI's notes and suggestions start from as with Zoom's (`appointment.transcript_ready`), and the lines go. Once
- * per stretch: the same stretch again keeps nothing more. A call that isn't for an appointment keeps the transcript
- * itself (`video_call.transcript_ready`), and its summary goes on the call's own line on the customer's timeline.
+ * the AI's notes and suggestions start from as with Zoom's (`appointment.transcript_ready`), and the lines go. What
+ * people typed in the chat in the stretch goes in beside it, marked "(in the chat)" (20261027022800); the messages
+ * themselves stay with the call, marked with the stretch that took them, so each is taken once. Once per stretch:
+ * the same stretch again keeps nothing more. A call that isn't for an appointment keeps the transcript itself
+ * (`video_call.transcript_ready`), and its summary goes on the call's own line on the customer's timeline.
  */
 export const videoCallKeepWords = defineCommand({
   name: 'video_call.keep_words',
@@ -2081,16 +2088,40 @@ export const videoCallKeepWords = defineCommand({
         ),
       )
       .orderBy(asc(videoCallLines.saidAt), asc(videoCallLines.createdAt));
-    if (!lines.length) return { transcriptId: null, lines: 0 };
-    await ctx.tx.delete(videoCallLines).where(
-      inArray(
-        videoCallLines.id,
-        lines.map((l) => l.id),
-      ),
-    );
-    const words = lines.reduce((n, l) => n + l.body.split(/\s+/).filter(Boolean).length, 0);
+    // The chat sent in this stretch, taken once whatever the notes: a later stretch never takes it again.
+    const typed = await ctx.tx
+      .update(videoCallMessages)
+      .set({ stretch: input.stretch })
+      .where(
+        and(
+          eq(videoCallMessages.videoCallId, call.id),
+          isNull(videoCallMessages.stretch),
+          lte(videoCallMessages.sentAt, new Date(input.until)),
+        ),
+      )
+      .returning();
+    if (!lines.length && !typed.length) return { transcriptId: null, lines: 0 };
+    if (lines.length)
+      await ctx.tx.delete(videoCallLines).where(
+        inArray(
+          videoCallLines.id,
+          lines.map((l) => l.id),
+        ),
+      );
+    const all = [
+      ...lines.map((l) => ({ name: l.name, body: l.body, at: l.saidAt.getTime(), typed: false })),
+      ...typed.map((m) => ({
+        name: m.name,
+        // A message is one line of the transcript, however many it was typed on.
+        body: m.body.replace(/\s+/g, ' '),
+        at: m.sentAt.getTime(),
+        typed: true,
+      })),
+    ].sort((a, b) => a.at - b.at);
+    const said = all.length;
+    const words = all.reduce((n, l) => n + l.body.split(/\s+/).filter(Boolean).length, 0);
     if (!call.aiNotes || words < VIDEO_CALL_TRANSCRIPT_MIN_WORDS)
-      return { transcriptId: null, lines: lines.length };
+      return { transcriptId: null, lines: said };
     // A call that isn't for an appointment keeps its transcript itself, for its own line on the timeline (part 5).
     if (!call.appointmentId) {
       const [row] = await ctx.tx
@@ -2100,14 +2131,14 @@ export const videoCallKeepWords = defineCommand({
           videoCallId: call.id,
           provider: 'handsfree',
           externalId: `video:${input.stretch}`,
-          body: videoCallTranscript(lines).slice(0, 2_000_000),
+          body: videoCallTranscript(all).slice(0, 2_000_000),
         })
         .onConflictDoNothing({
           target: [appointmentTranscripts.videoCallId, appointmentTranscripts.externalId],
           where: dsql`video_call_id is not null`,
         })
         .returning({ id: appointmentTranscripts.id });
-      if (!row) return { transcriptId: null, lines: lines.length };
+      if (!row) return { transcriptId: null, lines: said };
       await ctx.emit({
         type: 'video_call.transcript_ready',
         entityType: 'video_call',
@@ -2115,13 +2146,13 @@ export const videoCallKeepWords = defineCommand({
         payload: { transcriptId: row.id, personId: call.personId },
         after: { provider: 'handsfree' },
       });
-      return { transcriptId: row.id, lines: lines.length };
+      return { transcriptId: row.id, lines: said };
     }
     const [appt] = await ctx.tx
       .select({ id: appointments.id, title: appointments.title })
       .from(appointments)
       .where(eq(appointments.id, call.appointmentId));
-    if (!appt) return { transcriptId: null, lines: lines.length };
+    if (!appt) return { transcriptId: null, lines: said };
     const [row] = await ctx.tx
       .insert(appointmentTranscripts)
       .values({
@@ -2129,13 +2160,13 @@ export const videoCallKeepWords = defineCommand({
         appointmentId: appt.id,
         provider: 'handsfree',
         externalId: `video:${input.stretch}`,
-        body: videoCallTranscript(lines).slice(0, 2_000_000),
+        body: videoCallTranscript(all).slice(0, 2_000_000),
       })
       .onConflictDoNothing({
         target: [appointmentTranscripts.appointmentId, appointmentTranscripts.externalId],
       })
       .returning({ id: appointmentTranscripts.id });
-    if (!row) return { transcriptId: null, lines: lines.length };
+    if (!row) return { transcriptId: null, lines: said };
     // Never the words themselves: the event and the activity log say a transcript arrived.
     await ctx.emit({
       type: 'appointment.transcript_ready',
@@ -2144,7 +2175,7 @@ export const videoCallKeepWords = defineCommand({
       payload: { transcriptId: row.id, provider: 'handsfree' },
       after: { title: appt.title, provider: 'handsfree' },
     });
-    return { transcriptId: row.id, lines: lines.length };
+    return { transcriptId: row.id, lines: said };
   },
 });
 

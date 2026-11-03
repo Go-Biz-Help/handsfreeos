@@ -4,8 +4,8 @@
  * worker's image is Debian (Dockerfile). Everything else about hearing a call is in hearing.ts.
  *
  * The listener asks only for microphones (never cameras or a shared screen's sound) and hears each one as 16 kHz
- * mono, the sound Deepgram is sent. It reads the call's chat too (LiveKit's chat topic, a text stream a message):
- * who sent it is LiveKit's word, never the message's.
+ * mono, the sound Deepgram is sent. It reads the call's chat too (LiveKit's chat topic, a text stream a message), for
+ * the coach: who sent it is LiveKit's word, never the message's.
  */
 import { isPersonIdentity, LISTENER_IDENTITY, VIDEO_CALL_CHAT_TOPIC } from '@hfos/core';
 import {

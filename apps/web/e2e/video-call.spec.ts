@@ -142,9 +142,9 @@ test('a customer and the owner meet in a booked HandsFreeOS video call', async (
   await team.getByTestId('call-ai-notes-off-confirm').click();
   await expect(notes).toContainText('AI notes off');
 
-  // Chat reaches the other side, with its links to press. With AI notes off, it isn't kept.
+  // Chat reaches the other side, with its links to press. It's kept with the call, AI notes off or not.
   await team.getByTestId('call-chat-button').click();
-  await expect(team.getByTestId('call-chat-empty')).toContainText('aren’t kept after it');
+  await expect(team.getByTestId('call-chat-empty')).toContainText('kept with it');
   await team
     .getByTestId('call-chat-input')
     .fill('Hi Maya, can you hear me? Here’s the quote: acme.com/q/7.');

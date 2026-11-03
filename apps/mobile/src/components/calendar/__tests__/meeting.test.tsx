@@ -101,10 +101,12 @@ describe('the video call', () => {
 });
 
 describe('a recorded call', () => {
-  const answer = (review: unknown, transcripts: unknown[] = []) =>
+  const answer = (review: unknown, transcripts: unknown[] = [], chat: unknown[] = []) =>
     post.mockImplementation(async (path: string) => {
       if (path === '/v1/queries/call_suggestion.list') return { data: review };
       if (path === '/v1/queries/appointment.transcripts') return { data: { items: transcripts } };
+      if (path === '/v1/queries/video_call.chat')
+        return { data: { callId: null, messages: chat, more: 0 } };
       return { data: { ok: true } };
     });
 
@@ -202,6 +204,47 @@ describe('a recorded call', () => {
       body: { workspaceId: WS, videoCallId: CALL },
     });
     expect(screen.getByTestId('call-transcript')).toHaveTextContent(/HandsFreeOS video call/);
+    expect(post).toHaveBeenCalledWith('/v1/queries/video_call.chat', {
+      body: { workspaceId: WS, callId: CALL },
+    });
+  });
+
+  it('keeps a HandsFreeOS call’s chat, folded under its count, with its links pressable', async () => {
+    const open = jest.spyOn(Linking, 'openURL').mockResolvedValue(true);
+    answer(
+      { summary: null, items: [] },
+      [],
+      [
+        {
+          id: 'm1',
+          name: 'Dana',
+          side: 'customer',
+          body: 'The quote is at acme.com/q/7',
+          sentAt: '2026-10-28T10:01:00Z',
+        },
+      ],
+    );
+    await render(<CallRecord workspaceId={WS} appointmentId={APPT} online ours />);
+    await waitFor(() =>
+      expect(screen.getByTestId('call-chat-log-toggle')).toHaveTextContent(
+        'Chat from the call · 1',
+      ),
+    );
+    expect(post).toHaveBeenCalledWith('/v1/queries/video_call.chat', {
+      body: { workspaceId: WS, appointmentId: APPT },
+    });
+    await fireEvent.press(screen.getByTestId('call-chat-log-toggle'));
+    expect(screen.getByTestId('call-chat-log-message')).toHaveTextContent(/Dana/);
+    await fireEvent.press(screen.getByText('acme.com/q/7'));
+    expect(open).toHaveBeenCalledWith('https://acme.com/q/7');
+    open.mockRestore();
+  });
+
+  it('asks for no chat on a call that isn’t ours', async () => {
+    answer({ summary: null, items: [] });
+    await render(<CallRecord workspaceId={WS} appointmentId={APPT} online />);
+    await waitFor(() => screen.getByTestId('call-record-waiting'));
+    expect(post).not.toHaveBeenCalledWith('/v1/queries/video_call.chat', expect.anything());
   });
 
   it('says the transcript comes after the call, and waits for the network offline', async () => {

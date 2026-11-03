@@ -8,6 +8,50 @@ import { Input } from '@/components/ui/input';
 import { Text } from '@/components/ui/text';
 import { toast } from '@/components/ui/toast';
 import { api, errorMessage, unwrap } from '@/lib/api';
+import { ChatText } from '@/video-call/chat-text';
+
+type ChatMessage = { id: string; name: string; body: string; sentAt: string };
+
+const clock = (at: string) =>
+  new Date(at).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+
+/**
+ * A HandsFreeOS call's chat, kept with the call whatever its AI notes (docs/video-calls.md, "The chat, kept"):
+ * folded away under its count, oldest first, each message's links pressable.
+ */
+function CallChat({ messages, more }: { messages: readonly ChatMessage[]; more: number }) {
+  const [open, setOpen] = React.useState(false);
+  if (!messages.length) return null;
+  return (
+    <View className="gap-2" testID="call-chat-log">
+      <Button
+        variant="ghost"
+        size="sm"
+        className="self-start"
+        onPress={() => setOpen(!open)}
+        testID="call-chat-log-toggle"
+      >
+        {`${VIDEO_CALL_WORDS.chatLog} · ${messages.length + more}`}
+      </Button>
+      {open ? (
+        <View className="gap-2.5">
+          {messages.map((m) => (
+            <View key={m.id} className="gap-0.5" testID="call-chat-log-message">
+              <Text className="text-[12px] text-text-3">
+                <Text className="text-[12px] font-medium text-text-2">{m.name}</Text> ·{' '}
+                {clock(m.sentAt)}
+              </Text>
+              <ChatText text={m.body} className="text-[13.5px]" />
+            </View>
+          ))}
+          {more ? (
+            <Text className="text-[12px] text-text-3">{VIDEO_CALL_WORDS.chatLogMore(more)}</Text>
+          ) : null}
+        </View>
+      ) : null}
+    </View>
+  );
+}
 
 /** The video meeting on an appointment's place, from `appointments.location` as the commands store it. */
 export interface Meeting {
@@ -134,18 +178,35 @@ export function CallRecord({
   const [titles, setTitles] = React.useState<Record<string, string>>({});
   const [busy, setBusy] = React.useState<string | null>(null);
   const [full, setFull] = React.useState(false);
+  const [chat, setChat] = React.useState<{ messages: ChatMessage[]; more: number }>({
+    messages: [],
+    more: 0,
+  });
 
   const load = React.useCallback(async () => {
     const body = {
       body: { workspaceId, ...(appointmentId ? { appointmentId } : { videoCallId }) },
     };
-    const [r, t] = await Promise.allSettled([
+    const [r, t, c] = await Promise.allSettled([
       api.POST('/v1/queries/call_suggestion.list', body).then(unwrap),
       api.POST('/v1/queries/appointment.transcripts', body).then(unwrap),
+      // A HandsFreeOS call keeps its chat, whatever its AI notes.
+      ours
+        ? api
+            .POST('/v1/queries/video_call.chat', {
+              body: {
+                workspaceId,
+                ...(appointmentId ? { appointmentId } : { callId: videoCallId }),
+              },
+            })
+            .then(unwrap)
+        : Promise.resolve(null),
     ]);
     if (r.status === 'fulfilled') setReview(r.value as Review);
     if (t.status === 'fulfilled') setTranscripts((t.value as { items: Transcript[] }).items);
-  }, [workspaceId, appointmentId, videoCallId]);
+    if (c.status === 'fulfilled' && c.value)
+      setChat({ messages: c.value.messages, more: c.value.more });
+  }, [workspaceId, appointmentId, videoCallId, ours]);
 
   React.useEffect(() => {
     if (online) void load();
@@ -182,9 +243,12 @@ export function CallRecord({
   const latest = transcripts[0];
   if (!latest && !review?.summary && !review?.items.length)
     return (
-      <Text className="text-[13px] text-text-2" testID="call-record-waiting">
-        {ours ? VIDEO_CALL_WORDS.transcriptSoon : 'The transcript shows here after the call.'}
-      </Text>
+      <View className="gap-3">
+        <Text className="text-[13px] text-text-2" testID="call-record-waiting">
+          {ours ? VIDEO_CALL_WORDS.transcriptSoon : 'The transcript shows here after the call.'}
+        </Text>
+        <CallChat messages={chat.messages} more={chat.more} />
+      </View>
     );
   return (
     <View className="gap-3" testID="call-record">
@@ -292,6 +356,7 @@ export function CallRecord({
           ) : null}
         </View>
       ) : null}
+      <CallChat messages={chat.messages} more={chat.more} />
     </View>
   );
 }

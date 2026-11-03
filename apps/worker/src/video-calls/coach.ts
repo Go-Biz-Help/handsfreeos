@@ -8,7 +8,8 @@
  *   nobody claims it. While nobody in the call is coached, it's asked again every so often, in case someone joins.
  * - **Every line**, both sides, in order: the team's people are the team's side, everyone else the customer's.
  *   Lines kept before it began (a listener that restarted, a rep who joined late) come first, so the coach knows them.
- *   What someone typed in the chat comes too, as "(in the chat) …" (20261027022800).
+ *   What someone typed in the chat comes too, as "(in the chat) …" (20261027022800): live from the listener, and
+ *   at the end from the call's kept messages.
  * - **AI notes off** ends it at once, forgotten: the add-ons keep nothing of it.
  * - **Otherwise it ends with the stretch.** A listener that leaves (alone, a deploy, another listener took over)
  *   leaves the live meeting live, so the next listener carries on with it. When the stretch is over, the job that
@@ -51,7 +52,8 @@ interface KeptLine extends Record<string, unknown> {
   readonly body: string;
   readonly language: string | null;
   readonly said_at: Date | string;
-  readonly typed: boolean;
+  /** Typed in the chat rather than said: one of the call's kept messages. */
+  readonly typed?: boolean;
 }
 
 /** A line as the add-ons hear it: said at `saidAt`, in a live meeting that started at `from`. */
@@ -210,7 +212,7 @@ export class CallCoach {
     const kept = await asWorker(this.deps.db, this.scope, (tx) =>
       rows<KeptLine>(
         tx,
-        sql`select line_key, side, body, language, said_at, typed from app.video_call_lines
+        sql`select line_key, side, body, language, said_at from app.video_call_lines
              where video_call_id = ${this.callId} order by said_at, created_at`,
       ),
     );
@@ -304,8 +306,14 @@ export async function finishCoaching(
   const kept = await asWorker(deps.db, scope, (tx) =>
     rows<KeptLine>(
       tx,
-      sql`select line_key, side, body, language, said_at, typed from app.video_call_lines
+      sql`select line_key, side, body, language, said_at, false as typed, created_at
+            from app.video_call_lines
            where video_call_id = ${stretch.callId} and said_at <= ${stretch.until}::timestamptz
+          union all
+          select message_key, side, regexp_replace(body, '[[:space:]]+', ' ', 'g'), null, sent_at, true, created_at
+            from app.video_call_messages
+           where video_call_id = ${stretch.callId} and stretch is null
+             and sent_at <= ${stretch.until}::timestamptz
            order by said_at, created_at`,
     ),
   );

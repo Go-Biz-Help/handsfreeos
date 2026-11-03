@@ -52,6 +52,7 @@ import { liveMeetingAccountMine } from '../commands/live-meeting';
 import { videoCallQueries } from '../commands/video-call';
 import { videoCallPollQueries } from '../commands/video-call-poll';
 import { videoCallLeadQueries } from '../commands/video-call-leads';
+import { videoCallChatQueries } from '../commands/video-call-chat';
 import { callSuggestionList } from '../commands/call-suggestion';
 import {
   appointmentGet,
@@ -271,6 +272,7 @@ export const queries: readonly QueryDef[] = [
   ...videoCallQueries,
   ...videoCallPollQueries,
   ...videoCallLeadQueries,
+  ...videoCallChatQueries,
   ...supportQueries,
   ...platformQueries,
   // What our own tools saw when something didn't go (20261027008100).

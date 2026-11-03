@@ -2,14 +2,12 @@
 /**
  * The side panels of a HandsFreeOS video call (docs/video-calls.md): the chat, and who's in the call. For the team,
  * who's asking to come in too, with Let in and Turn away, and Mute and Remove on everyone else. The chat's links can
- * be pressed. It's kept with the call's notes while AI notes are on (the AI's listener reads it), and otherwise goes
- * with the call.
+ * be pressed, and the call keeps it (./call-chat.ts), whatever its AI notes.
  *
  * In a webinar the team sees who's presenting and the audience, hands up first, with Bring on stage and Back to the
  * audience; an attendee sees only who's presenting and how many are watching, never the other attendees.
  */
 import {
-  chatLinkParts,
   VIDEO_CALL_ATTRIBUTES,
   VIDEO_CALL_WORDS,
   WEBINAR_WORDS,
@@ -29,6 +27,7 @@ import { Avatar } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { errorMessage } from '@/lib/api/errors';
 import { cn } from '@/lib/utils';
+import { ChatText } from './chat-text';
 import { actOn, setOnStage, type VideoCallGot, type VideoCallPerson } from './team-call';
 import { toast } from './toast';
 import type { TeamSide } from './types';
@@ -69,43 +68,15 @@ export function Panel({
 const clock = (at: number) =>
   new Date(at).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
 
-/** A chat message, with each link and email address in it one to press (core's `chatLinkParts`). */
-export function ChatText({ text }: { text: string }) {
-  return (
-    <>
-      {chatLinkParts(text).map((p, i) =>
-        p.href ? (
-          <a
-            key={i}
-            href={p.href}
-            {...(p.href.startsWith('mailto:')
-              ? {}
-              : { target: '_blank', rel: 'noopener noreferrer nofollow' })}
-            className="font-medium text-accent-text underline underline-offset-2 hover:no-underline"
-            data-testid="call-chat-link"
-          >
-            {p.text}
-          </a>
-        ) : (
-          <span key={i}>{p.text}</span>
-        ),
-      )}
-    </>
-  );
-}
-
 export function ChatPanel({
   messages,
   send,
   sending,
-  aiNotes,
   onClose,
 }: {
   messages: readonly ReceivedChatMessage[];
   send: (text: string) => Promise<unknown>;
   sending: boolean;
-  /** Whether the call's AI notes are on, so what's typed goes in them. */
-  aiNotes: boolean;
   onClose: () => void;
 }) {
   const [text, setText] = useState('');
@@ -128,7 +99,7 @@ export function ChatPanel({
       <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto px-4 py-3">
         {messages.length === 0 ? (
           <p className="text-[13px] text-text-3" data-testid="call-chat-empty">
-            {aiNotes ? VIDEO_CALL_WORDS.chatInNotes : VIDEO_CALL_WORDS.chatNotKept}
+            {VIDEO_CALL_WORDS.chatKept}
           </p>
         ) : null}
         {messages.map((m) => (
