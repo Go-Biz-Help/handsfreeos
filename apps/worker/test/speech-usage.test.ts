@@ -92,6 +92,30 @@ describe('the tally', () => {
     expect((await tally('speech.live.minute')).every((r) => r.charged_at !== null)).toBe(true);
   });
 
+  it('bills a Rime voice on its own line, at one and a half times its own price', async () => {
+    await noteSpeech(deps, scope, [
+      { key: 'speech.voice.coda.kchar', quantity: 10, source: 'call', ref: 'CA3' },
+      { key: 'speech.voice.mist.kchar', quantity: 10, source: 'call', ref: 'CA3' },
+    ]);
+    await chargeSpeech(deps);
+    // 10,000 characters: Coda's 50¢ is 75¢ at 1.5×, and Mist's 30¢ is 45¢.
+    expect(await ledger('speech.voice.coda.kchar')).toEqual([
+      expect.objectContaining({
+        amount_cents: '-75',
+        cost_cents: '50',
+        unit: 'kchar',
+        subject: 'AI voice: speaking in a Rime Coda voice',
+      }),
+    ]);
+    expect(await ledger('speech.voice.mist.kchar')).toEqual([
+      expect.objectContaining({
+        amount_cents: '-45',
+        cost_cents: '30',
+        subject: 'AI voice: speaking in a Rime Mist voice',
+      }),
+    ]);
+  });
+
   it('bills a total that has waited a day, whatever it’s worth', async () => {
     await rows(
       admin(),

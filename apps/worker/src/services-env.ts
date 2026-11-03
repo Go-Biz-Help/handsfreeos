@@ -29,6 +29,7 @@ import { createTelephony } from './telephony/index';
 import { createSiteHost } from './hosting';
 import { createDriveTimer } from './geo/driving';
 import { createModelPicker, createSpeech, createVoiceAi } from './voice-agent/index';
+import { voiceTroubleAlarm } from './voice-agent/voice-trouble';
 import { createGeocoder } from './geo/geocoder';
 import { createOpinly } from './opinly';
 import { createTranscriber } from './telephony/transcriber';
@@ -66,7 +67,11 @@ export function createEngineServices(env: WorkerEnv, log: Logger, db: Db): Engin
     video: createFfmpegConverter({ log }),
     geocoder: createGeocoder(env, log),
     driving: createDriveTimer(env, log),
-    speech: createSpeech(env, log),
+    speech: createSpeech(
+      env,
+      log,
+      voiceTroubleAlarm({ mailer, log, alertEmails: env.aiAlertEmails, webUrl: env.webUrl }),
+    ),
     voiceAi: createVoiceAi(env, aiSwitch),
     aiFor: createModelPicker(env, aiSwitch),
     siteHost: createSiteHost(env),

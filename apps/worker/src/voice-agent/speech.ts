@@ -15,9 +15,17 @@
  *
  * `deepgram` (deepgram-speech.ts) is the real one, listening with Nova-3 or, with VOICE_LISTENER=flux, Flux
  * (deepgram-flux.ts); `fake` (fake-speech.ts) is the stand-in for tests, which treats the audio it's sent as the
- * words themselves.
+ * words themselves. A business may pick a Rime voice instead of a Deepgram one: voices.ts sends each voice's
+ * speaking to its provider (rime-speech.ts for Rime), and listening always stays with Deepgram.
  */
-import type { PhoneListener, PhoneVoice } from '@hfos/core/server';
+import {
+  phoneVoiceInfo,
+  voiceFallback,
+  voiceSpeaker,
+  type PhoneListener,
+  type PhoneVoice,
+  type VoiceReadiness,
+} from '@hfos/core/server';
 
 /** Words heard on the call. */
 export interface HeardWords {
@@ -144,22 +152,29 @@ export interface SpeechServices {
   ): Promise<HeardClip>;
   /** `text` said in one clip. */
   voiceClip(text: string, options: SpeakOptions): Promise<VoiceClip>;
+  /** Which providers can speak (voices.ts); without it, Deepgram's voices alone. */
+  voices?(): VoiceReadiness;
+  /**
+   * A voice couldn't speak, so the call or the clip switched to `to`, its closest Deepgram voice: support is told
+   * (voice-trouble.ts). It never throws.
+   */
+  trouble?(from: PhoneVoice, to: PhoneVoice, where: 'call' | 'clip', error: unknown): void;
 }
+
+/** One provider's speaking, without the listening: Rime (rime-speech.ts). */
+export type VoiceServices = Pick<SpeechServices, 'speak' | 'openVoice' | 'voiceClip'>;
 
 /**
- * Each voice the owner can pick, in English and in Spanish (Deepgram Aura 2). Any other language is spoken in the
- * English voice.
+ * What a voice speaks in for the caller's language: Deepgram's model ("aura-2-thalia-en"), or a Rime speaker named
+ * with its model ("rime-coda:eyre"), so a call's open voice (VoiceLine.model) changes when the voice or the language
+ * does. Spanish is spoken by the voice's Spanish speaker, anything else by its English one (@hfos/core voices.ts).
  */
-export const VOICE_MODELS: Readonly<
-  Record<PhoneVoice, { readonly en: string; readonly es: string }>
-> = {
-  warm: { en: 'aura-2-thalia-en', es: 'aura-2-celeste-es' },
-  bright: { en: 'aura-2-andromeda-en', es: 'aura-2-estrella-es' },
-  calm: { en: 'aura-2-helena-en', es: 'aura-2-celeste-es' },
-  deep: { en: 'aura-2-apollo-en', es: 'aura-2-nestor-es' },
-};
-
 export function voiceModel(voice: PhoneVoice, language: string | null): string {
-  const v = VOICE_MODELS[voice] ?? VOICE_MODELS.warm;
-  return language?.toLowerCase().startsWith('es') ? v.es : v.en;
+  const info = phoneVoiceInfo(voice);
+  const speaker = voiceSpeaker(voice, language);
+  return info.provider === 'deepgram' ? speaker : `rime-${info.model}:${speaker}`;
 }
+
+/** Deepgram's model for a voice: a Rime voice that reaches Deepgram asks for the Deepgram voice closest to it. */
+export const deepgramModel = (voice: PhoneVoice, language: string | null): string =>
+  voiceSpeaker(voiceFallback(voice), language);

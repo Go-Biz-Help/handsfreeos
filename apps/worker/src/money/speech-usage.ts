@@ -1,5 +1,5 @@
 /**
- * The AI's hearing and voice (Deepgram) on the wallet, at 1.5× what it costs us.
+ * The AI's hearing and voice (Deepgram, and Rime's voices) on the wallet, at 1.5× what it costs us.
  *
  * Three places use it: talking out loud (http/speech.ts), the AI teammate on a live call (voice-agent/session.ts),
  * and call and voicemail transcripts (telephony/cell.ts). Each writes what it used to `app.speech_usage` in exact
@@ -18,7 +18,7 @@
  * that doesn't get said.
  */
 import { randomUUID } from 'node:crypto';
-import { priceOf, speechUsageKey, type UsageKey } from '@hfos/core/server';
+import { priceOf, speechUsageKey, type UsageKey, type VoiceRateKey } from '@hfos/core/server';
 import { asWorker, rows, sql, type Db } from '@hfos/db/client';
 import type { Logger } from 'pino';
 import type { JobHandler } from '../jobs';
@@ -27,12 +27,14 @@ import { chargeUsage, rateCard, type WalletDeps } from './wallet';
 
 export type SpeechKey = Extract<
   UsageKey,
-  'speech.live.minute' | 'speech.recording.minute' | 'speech.voice.kchar' | 'speech.meeting.minute'
+  'speech.live.minute' | 'speech.recording.minute' | 'speech.meeting.minute' | VoiceRateKey
 >;
 export const SPEECH_KEYS: readonly SpeechKey[] = [
   'speech.live.minute',
   'speech.recording.minute',
   'speech.voice.kchar',
+  'speech.voice.coda.kchar',
+  'speech.voice.mist.kchar',
   'speech.meeting.minute',
 ];
 
@@ -53,6 +55,23 @@ export const speechMinutes = (seconds: number): number =>
 
 /** Words said as the thousands of characters the card counts: Deepgram bills every character it's sent. */
 export const speechKchars = (text: string): number => text.length / 1000;
+
+/** Characters said in each voice's price line (Deepgram's, Rime Coda's, Rime Mist's) on a call. */
+export type SaidChars = Readonly<Partial<Record<VoiceRateKey, number>>>;
+
+/** What a call said, as uses: one per price line it spoke on. */
+export function voiceUses(
+  said: SaidChars,
+  source: SpeechSource,
+  ref: string | null = null,
+): SpeechUse[] {
+  return (Object.entries(said) as [VoiceRateKey, number | undefined][]).map(([key, chars]) => ({
+    key,
+    quantity: Math.max(0, chars ?? 0) / 1000,
+    source,
+    ref,
+  }));
+}
 
 /** The smallest quantity the tally holds (numeric(18, 6)); anything less is nothing. */
 const SMALLEST = 0.000001;
@@ -96,6 +115,8 @@ export const SPEECH_SUBJECTS: Readonly<Record<SpeechKey, string>> = {
   'speech.live.minute': 'AI voice: listening on calls',
   'speech.recording.minute': 'AI voice: turning speech into words',
   'speech.voice.kchar': 'AI voice: speaking',
+  'speech.voice.coda.kchar': 'AI voice: speaking in a Rime Coda voice',
+  'speech.voice.mist.kchar': 'AI voice: speaking in a Rime Mist voice',
   'speech.meeting.minute': 'AI voice: listening in Zoom meetings',
 };
 

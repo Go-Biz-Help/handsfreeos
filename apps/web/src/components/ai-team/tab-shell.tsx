@@ -1,4 +1,11 @@
 'use client';
+import {
+  PHONE_VOICE_PICK_WORDS,
+  phoneVoiceInfo,
+  withPhoneVoice,
+  type PhoneVoice,
+  type TeammateConfig,
+} from '@hfos/core';
 import { useRouter } from 'next/navigation';
 import { useMemo, useState, type ReactNode } from 'react';
 import { toast } from 'sonner';
@@ -62,6 +69,22 @@ export function TeammateTabShell({
     ? progressView(data.progress, data.progress.approvalsNeeded)
     : null;
 
+  /** Use this voice, from the test console: saved as a new revision straight away. */
+  async function keepVoice(voice: PhoneVoice) {
+    if (!t) return;
+    try {
+      await actions.saveConfig({
+        teammateId: t.id,
+        baseRevision: t.revision,
+        config: withPhoneVoice(t.config, voice) as TeammateConfig,
+      });
+      toast.success(PHONE_VOICE_PICK_WORDS.saved(phoneVoiceInfo(voice).name));
+      router.refresh();
+    } catch (e) {
+      toast.error(errorMessage(e));
+    }
+  }
+
   async function restore(revision: number) {
     if (!t) return;
     setRestoring(revision);
@@ -112,7 +135,9 @@ export function TeammateTabShell({
           name={t.name}
           timeZone={tz}
           config={null}
+          savedConfig={t.config}
           unsaved={false}
+          onUseVoice={keepVoice}
         />
       ) : null}
     </div>

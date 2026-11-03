@@ -299,6 +299,8 @@ export function checkPerson(data: CheckData, userId: string, span: BookingSpan):
     warnings.push(warn('time_off', `${name} is off then`, userId));
   if (data.config.integrations.checkStaffCalendars && overlapsAny(person.external, span))
     warnings.push(warn('calendar_busy', `${name}’s calendar shows busy then`, userId));
+  if (overlapsAny(person.elsewhere, blocked))
+    warnings.push(warn('booked_elsewhere', `${name} is booked in another business then`, userId));
   return { overlap, warnings };
 }
 

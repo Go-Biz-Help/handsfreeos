@@ -28,7 +28,16 @@
  * pauses are a real call's.
  */
 import type { Logger } from 'pino';
-import type { ConversationHandoffReason, PhoneListener, PhoneVoice } from '@hfos/core/server';
+import {
+  voiceFallback,
+  voiceRateKey,
+  voiceReady,
+  type ConversationHandoffReason,
+  type PhoneListener,
+  type PhoneVoice,
+  type VoiceRateKey,
+} from '@hfos/core/server';
+import type { SaidChars } from '../money/speech-usage';
 import type { CallEnding, TurnOutcome } from './brain';
 import { CANT_GO_ON, GOODBYE, STILL_THERE, tongue, type CallLine } from './prompt';
 import {
@@ -119,8 +128,11 @@ export interface CallMind {
   transfer(reason: ConversationHandoffReason, note: string): Promise<void>;
   /** However the call ended, once: its words saved, its run closed. */
   finish(lines: readonly CallLine[], ending: CallEnding): Promise<void>;
-  /** What it listened to (seconds) and every character it asked to have said: the business's to pay for. */
-  noteSpeech(listenedSeconds: number, said: string): Promise<void>;
+  /**
+   * What it listened to (seconds) and every character it asked to have said, on each voice's price line: the
+   * business's to pay for.
+   */
+  noteSpeech(listenedSeconds: number, said: SaidChars): Promise<void>;
   /** Words heard so far (interim or final), as the listener gives them. */
   heard?(words: HeardWords): void;
   /** The caller talked over the reply to `turn` (0 is the greeting), so the rest of it wasn't said. */
@@ -262,8 +274,13 @@ export class CallSession {
   private readonly log: Logger;
   /** When it started listening: the call's listening is billed from here to the end. */
   private listenedFrom: number | null = null;
-  /** Every character it asked to have said, cut short or not: each one is billed. */
-  private saidText = '';
+  /** Every character it asked to have said, cut short or not, on the line of the voice that said it: each is billed. */
+  private readonly said: Partial<Record<VoiceRateKey, number>> = {};
+  /**
+   * The voice it speaks in now: the one it was set up with, or that voice's closest Deepgram voice once Rime isn't
+   * set up or had trouble on this call (voice-trouble.ts). Set at pickup.
+   */
+  private voiceNow: PhoneVoice = 'warm';
   private started: Promise<boolean> | null = null;
 
   constructor(
@@ -327,6 +344,12 @@ export class CallSession {
       return false;
     }
     this.ready = prepared;
+    // A Rime voice speaks in Deepgram's closest one while Rime isn't set up on this worker.
+    const providers = this.deps.speech.voices?.();
+    this.voiceNow =
+      !providers || voiceReady(prepared.voice, providers)
+        ? prepared.voice
+        : voiceFallback(prepared.voice);
     // They hung up while it was getting ready: the run it just started is closed like any other call's.
     if (this.closed) {
       await this.mind
@@ -549,41 +572,93 @@ export class CallSession {
   }
 
   private voice(u: Utterance, sentence: string): void {
-    const ready = this.ready!;
     u.voiced = u.voiced.then(async () => {
       if (u.abort.signal.aborted || u.failed) return;
-      this.saidText += sentence;
+      const voice = this.voiceNow;
+      this.count(voice, sentence.length);
+      let sent = false;
       try {
-        await sayOne({
-          line: this.lineFor(this.language),
-          byRequest: () =>
-            this.deps.speech.speak(sentence, {
-              voice: ready.voice,
-              language: this.language,
-              signal: u.abort.signal,
-            }),
-          sentence,
-          signal: u.abort.signal,
-          send: (audio) => {
-            const clock = this.clock;
-            if (clock && u.began >= clock.started && clock.firstAudio === null) {
-              clock.audio();
-              // The first sound of the answer: where the wait went, as soon as it's over.
-              this.mind.timed?.(this.clockTurn, clock.log());
-            }
-            this.link.sendAudio(audio);
-          },
-          lineFailed: (e) => {
-            this.lineFailures++;
-            this.log.warn({ err: e }, 'the call’s voice failed; saying the sentence by request');
-          },
-        });
+        await this.sayIn(voice, u, sentence, () => (sent = true));
+        return;
+      } catch (e) {
+        if (u.abort.signal.aborted) return;
+        const fallback = voiceFallback(voice);
+        // Its own voice couldn't start the sentence: the rest of the call is said in the closest Deepgram voice,
+        // beginning with this sentence, so the caller never hears silence (the owner's pick, 8a).
+        if (sent || fallback === voice) {
+          u.failed = true;
+          this.log.warn({ err: e }, 'couldn’t speak on a call');
+          return;
+        }
+        this.switchVoice(voice, fallback, e);
+        this.count(voice, -sentence.length);
+        this.count(fallback, sentence.length);
+      }
+      try {
+        await this.sayIn(this.voiceNow, u, sentence, () => undefined);
       } catch (e) {
         if (u.abort.signal.aborted) return;
         u.failed = true;
-        this.log.warn({ err: e }, 'couldn’t speak on a call');
+        this.log.warn(
+          { err: e },
+          'couldn’t speak on a call, in its own voice or the one it switched to',
+        );
       }
     });
+  }
+
+  /** One sentence in `voice`: down the call's open voice when it has one in that voice, else by request. */
+  private async sayIn(
+    voice: PhoneVoice,
+    u: Utterance,
+    sentence: string,
+    sent: () => void,
+  ): Promise<void> {
+    await sayOne({
+      line: this.lineFor(this.language),
+      byRequest: () =>
+        this.deps.speech.speak(sentence, {
+          voice,
+          language: this.language,
+          signal: u.abort.signal,
+        }),
+      sentence,
+      signal: u.abort.signal,
+      send: (audio) => {
+        sent();
+        const clock = this.clock;
+        if (clock && u.began >= clock.started && clock.firstAudio === null) {
+          clock.audio();
+          // The first sound of the answer: where the wait went, as soon as it's over.
+          this.mind.timed?.(this.clockTurn, clock.log());
+        }
+        this.link.sendAudio(audio);
+      },
+      lineFailed: (e) => {
+        this.lineFailures++;
+        this.log.warn({ err: e }, 'the call’s voice failed; saying the sentence by request');
+      },
+    });
+  }
+
+  /** Characters said (or taken back) on the price line of the voice that said them. */
+  private count(voice: PhoneVoice, chars: number): void {
+    const key = voiceRateKey(voice);
+    this.said[key] = (this.said[key] ?? 0) + chars;
+  }
+
+  /** The rest of the call is said in `to`: its open voice in `from` is done with, and support is told. */
+  private switchVoice(from: PhoneVoice, to: PhoneVoice, e: unknown): void {
+    this.voiceNow = to;
+    this.voiceLine?.close();
+    this.voiceLine = null;
+    // A line in the old voice still opening is closed when it arrives (lineFor finds its model is another).
+    this.lineFailures = 0;
+    this.log.warn(
+      { err: e, from, to },
+      'a voice couldn’t speak on a call; the rest is in its Deepgram voice',
+    );
+    this.deps.speech.trouble?.(from, to, 'call', e);
   }
 
   /**
@@ -593,7 +668,7 @@ export class CallSession {
   private lineFor(language: string | null): VoiceLine | null {
     const ready = this.ready;
     if (!ready || !this.deps.speech.openVoice) return null;
-    const model = voiceModel(ready.voice, language);
+    const model = voiceModel(this.voiceNow, language);
     const line = this.voiceLine;
     if (line?.open && line.model === model) return line;
     if (line) {
@@ -609,7 +684,7 @@ export class CallSession {
     const open = this.deps.speech.openVoice;
     if (!ready || !open || this.opening || this.closed || this.lineFailures >= LINE_FAILURES_MAX)
       return;
-    this.opening = open({ voice: ready.voice, language })
+    this.opening = open({ voice: this.voiceNow, language })
       .then((line) => {
         if (this.closed) line.close();
         else this.voiceLine = line;
@@ -735,7 +810,7 @@ export class CallSession {
       this.log.error({ err: e }, 'couldn’t close a call’s run');
     }
     await this.mind
-      .noteSpeech(this.listenedFrom ? (Date.now() - this.listenedFrom) / 1000 : 0, this.saidText)
+      .noteSpeech(this.listenedFrom ? (Date.now() - this.listenedFrom) / 1000 : 0, this.said)
       .catch((e: unknown) =>
         this.log.error({ err: e }, 'couldn’t note what a call heard and said'),
       );

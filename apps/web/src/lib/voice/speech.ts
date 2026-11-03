@@ -2,8 +2,18 @@
 /**
  * Talking out loud's connection to the worker (@hfos/core's voice/index.ts has the contract): a recording goes
  * to POST /v1/speech/hear and comes back as words, and words go to POST /v1/speech/say and come back as audio.
+ * GET /v1/speech/voices says which voice providers can speak, for the voice pickers.
  */
-import { heardSpeechOf, VOICE_WORDS, type HeardSpeech, type PhoneVoice } from '@hfos/core';
+import {
+  heardSpeechOf,
+  isPhoneVoice,
+  SPOKEN_VOICE_HEADER,
+  voiceReadinessOf,
+  VOICE_WORDS,
+  type HeardSpeech,
+  type PhoneVoice,
+  type VoiceReadiness,
+} from '@hfos/core';
 import { ApiError } from '../api/errors';
 import { publicEnv } from '../env';
 import { supabaseBrowser } from '../supabase/client';
@@ -84,6 +94,18 @@ export async function say(
   },
   signal?: AbortSignal,
 ): Promise<ArrayBuffer> {
+  return (await sayClip(body, signal)).audio;
+}
+
+/** Like `say`, with the clip's type and the voice that said it (a Rime voice in trouble is said in Deepgram's). */
+export async function sayClip(
+  body: Parameters<typeof say>[0],
+  signal?: AbortSignal,
+): Promise<{
+  readonly audio: ArrayBuffer;
+  readonly contentType: string;
+  readonly voice: PhoneVoice | null;
+}> {
   const res = await post(
     '/v1/speech/say',
     {
@@ -95,5 +117,20 @@ export async function say(
     },
     signal,
   );
-  return res.arrayBuffer();
+  const spoken = res.headers.get(SPOKEN_VOICE_HEADER);
+  return {
+    audio: await res.arrayBuffer(),
+    contentType: res.headers.get('content-type') ?? 'audio/mpeg',
+    voice: isPhoneVoice(spoken) ? spoken : null,
+  };
+}
+
+/** Which voice providers can speak (Rime needs its key on the worker). */
+export async function voiceReadiness(signal?: AbortSignal): Promise<VoiceReadiness> {
+  const res = await post(
+    '/v1/speech/voices',
+    { method: 'GET', headers: { authorization: `Bearer ${await token()}` } },
+    signal,
+  );
+  return voiceReadinessOf(await res.json().catch(() => null));
 }

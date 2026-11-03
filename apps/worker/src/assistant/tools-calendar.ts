@@ -404,6 +404,7 @@ const WARNING_KIND: Record<AppointmentWarning['code'], string> = {
   buffer_clash: 'conflict',
   outside_hours: 'outside_hours',
   calendar_busy: 'busy',
+  booked_elsewhere: 'busy',
   time_off: 'time_off',
   in_past: 'in_past',
 };

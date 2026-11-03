@@ -13,8 +13,9 @@ import { TestConsoleView, type TestCustomer } from '../test-console';
  * The phone's test console with React Native Testing Library, the worker played by a stand-in stream: a written test
  * shows the reply and what it looked up; an incoming call starts with the greeting and a goodbye ends it; an outgoing
  * call needs a customer, and sends which way it goes and why; with no signal it says so and keeps the words;
- * talking out loud says each reply in the teammate's voice and sends what the caller says; and a reply takes a thumbs
- * down on its run, and "Retry with the fix" runs that turn again with it.
+ * talking out loud says each reply in the teammate's voice and sends what the caller says; a call can try another
+ * voice, hear it and keep it; and a reply takes a thumbs down on its run, and "Retry with the fix" runs that turn
+ * again with it.
  */
 
 jest.mock('expo/fetch', () => ({ fetch: jest.fn() }));
@@ -42,12 +43,16 @@ jest.mock('@/ai-team/test-stream', () => {
 
 const mockHear = jest.fn();
 const mockSay = jest.fn();
+const mockSayClip = jest.fn();
+const mockReadiness = jest.fn();
 jest.mock('@/voice/speech', () => {
   const actual = jest.requireActual('@/voice/speech');
   return {
     ...actual,
     hear: (...args: unknown[]) => mockHear(...args),
     say: (...args: unknown[]) => mockSay(...args),
+    sayClip: (...args: unknown[]) => mockSayClip(...args),
+    voiceReadiness: () => mockReadiness(),
     forget: jest.fn(),
   };
 });
@@ -117,6 +122,7 @@ beforeEach(() => {
     response: { ok: true },
   }));
   jest.mocked(change).mockReset();
+  mockReadiness.mockResolvedValue({ deepgram: true, rime: true });
 });
 
 describe('a written test', () => {
@@ -291,8 +297,72 @@ describe('a test call', () => {
       call: { direction: 'outbound', purpose: 'quote', goal: null },
     });
     expect(screen.getByTestId('test-console-how')).toHaveTextContent(
-      'Outgoing call · follow up a quote · Now',
+      'Outgoing call · follow up a quote · Now · Warm voice',
     );
+  });
+
+  it('tries another voice: Hear it says the greeting in it, and Use this voice saves it', async () => {
+    const TEAMMATE = 'cccccccc-cccc-4ccc-8ccc-cccccccccccc';
+    const config = {
+      version: 3,
+      identity: { name: 'Ava', disclosure: 'first_message' },
+      phone: { enabled: true, voice: 'warm', greeting: '' },
+    };
+    const posted: { path: string; body: unknown }[] = [];
+    jest.mocked(api.POST as unknown as jest.Mock).mockImplementation(async (path: string, init) => {
+      posted.push({ path, body: (init as { body: unknown }).body });
+      if (path === '/v1/queries/ai_teammate.get')
+        return {
+          data: { teammate: { id: TEAMMATE, revision: 4, config } },
+          response: { ok: true },
+        };
+      if (path === '/v1/commands/ai_teammate.save_config')
+        return { data: { teammateId: TEAMMATE, revision: 5 }, response: { ok: true } };
+      return {
+        data: { feedback: [], messageRuns: [], canSaveRules: true },
+        response: { ok: true },
+      };
+    });
+    mockSayClip.mockResolvedValue({ uri: 'file:///cache/eyre.mp3', voice: 'rime_eyre' });
+    answer(() => [done('Thanks for calling. This is Ava, the AI assistant. How can I help?')]);
+    await render(<Harness />);
+    await choose('test-channel-phone');
+    await waitFor(() => expect(screen.getByTestId('test-call-voice-warm')).toBeChecked());
+    await fireEvent.press(screen.getByTestId('test-call-voice-rime_eyre'));
+    expect(screen.getByTestId('test-call-voice-trying')).toHaveTextContent(
+      'Trying Eyre. Your settings still say another voice.',
+    );
+    expect(screen.getByTestId('test-console-how')).toHaveTextContent(
+      'Incoming call · Now · Eyre voice',
+    );
+
+    await fireEvent.press(screen.getByTestId('test-call-voice-hear'));
+    await waitFor(() => expect(audio.__played).toContain('file:///cache/eyre.mp3'));
+    audio.__played.length = 0;
+    expect(mockSayClip.mock.calls[0]![0]).toEqual({
+      workspaceId: WS,
+      text: 'Thanks for calling. This is Ava, the AI assistant. How can I help?',
+      voice: 'rime_eyre',
+      language: null,
+    });
+
+    await fireEvent.press(screen.getByTestId('test-call-voice-use'));
+    await waitFor(() => expect(screen.queryByTestId('test-call-voice-trying')).toBeNull());
+    expect(posted.find((p) => p.path === '/v1/commands/ai_teammate.save_config')?.body).toEqual({
+      workspaceId: WS,
+      teammateId: TEAMMATE,
+      baseRevision: 4,
+      config: { ...config, phone: { ...config.phone, voice: 'rime_eyre' } },
+    });
+    expect(screen.getByTestId('test-call-voice-rime_eyre')).toBeChecked();
+  });
+
+  it('keeps a Rime voice from being picked until Rime is set up', async () => {
+    mockReadiness.mockResolvedValue({ deepgram: true, rime: false });
+    await render(<Harness />);
+    await choose('test-channel-phone');
+    await waitFor(() => expect(screen.getByTestId('test-call-voice-rime_cove')).toBeDisabled());
+    expect(screen.getByTestId('test-call-voice-calm')).not.toBeDisabled();
   });
 
   it('talks out loud: says the greeting in its voice, hears the caller, and answers out loud', async () => {
