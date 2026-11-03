@@ -10955,11 +10955,13 @@ the same way it refuses removing a business's last owner.
 
 #### The daily problem check
 
-A scheduled Claude task runs every morning in the project. It reads **Needs a fix** (the live database's
+A scheduled Claude task runs three times a day in the project (7:23 AM, 1:23 PM and 7:23 PM Central). It reads **Needs a fix** (the live database's
 `app.problem_reports`, open and `kind = 'fix'`, through the Supabase connector, read only), finds each new problem's
 cause in the code, fixes it with a test, adds its `PROBLEM_FIXES` entry, and puts the day's fixes in one pull request
-for the owner to merge. A problem that's really a limit gets its words added to `problemKind` instead. After three
-mornings in a row with nothing to fix, it stops and says so. It never marks reports handled by hand: they clear
+for the owner to merge. A problem that's really a limit gets its words added to `problemKind` instead. An outreach
+extension bug is fixed straight away; anything that changes what the extension does waits for the owner's answer.
+After 3 days in a row (9 checks) with nothing to fix, it stops and says so. Each check is noted in the project's
+`problem-reports-split/check-log.md`. It never marks reports handled by hand: they clear
 themselves once the fix is live.
 
 ### Looking at a business
