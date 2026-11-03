@@ -62,6 +62,7 @@ import {
 } from './helper';
 import { likeYoursFound, PICK_LIKE_YOURS_JOB, pickLikeYoursJob } from './like-yours';
 import { TODAY_DRAFT_ACTION, todayDraft } from './today';
+import { TIMES_BOOK_ACTION, timesBook, timesCheck } from './times-check';
 import { askCoded, askProgressed, askSettled } from './asks';
 import { armPrune, LIVE_PRUNE_JOB, liveChanged, livePruneJob, warningSeen } from './live';
 import { needNoted, sendWaits, WAITING_PUSH_JOB, waitingPushJob } from './waiting';
@@ -221,6 +222,9 @@ export const outreachAddonWorker: AddonWorkerModule = {
     'appointment.completed': appointmentCompleted,
     // Instagram accounts like the business's, found by search, wait for the AI's pick (./like-yours.ts).
     'outreach.like_yours.found': likeYoursFound,
+    // An OK'd message with times waits while they're checked again and its booking made (./times-check.ts, decision
+    // 149).
+    'outreach.times.check': timesCheck,
   },
   jobs: {
     [READ_CHATS_JOB]: readChatsJob,
@@ -262,6 +266,8 @@ export const outreachAddonWorker: AddonWorkerModule = {
     [MESSAGE_REWRITE_ACTION]: messageRewrite,
     [VIDEO_SCRIPT_ACTION]: videoScript,
     [TODAY_DRAFT_ACTION]: todayDraft,
+    // The time a reply confirms, booked as the person copies it on the web's Today (./times-check.ts, decision 149).
+    [TIMES_BOOK_ACTION]: timesBook,
     [JOIN_ANSWER_ACTION]: joinAnswer,
     [LIKE_PICK_ACTION]: likePick,
     // The AI helper when a step didn't go, and the ways it learned (./helper.ts, decision 142).

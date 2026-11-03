@@ -8568,7 +8568,7 @@ export interface paths {
         put?: never;
         /**
          * The person OKs messages and comments the extension drafted, as they are or changed; with none named, every one waiting (Approve all) except replies handed over to them, messages to someone who needs them and answers to Alignable posts asking for what the business offers, which wait to be OK’d one at a time. The extension sends them. On training wheels, each message counts toward coming off them; each comment counts toward the comments’ own wait.
-         * @description Risk level 1. Requires outreach.use. Emits outreach.send.approved. Can wait on a phone for 30 minutes, then asks.
+         * @description Risk level 1. Requires outreach.use. Emits outreach.send.approved, outreach.times.check. Can wait on a phone for 30 minutes, then asks.
          */
         post: operations["command_outreach_send_approve"];
         delete?: never;
@@ -8608,7 +8608,7 @@ export interface paths {
         put?: never;
         /**
          * The extension drafted a message to someone on the person’s list for today: a first message, a follow-up or a reply; or, on Instagram, LinkedIn and Alignable, a comment on a good post of theirs; or, on Facebook, the day’s reply to a question asked in one of the person’s groups. It waits for the person’s OK, or, when they chose for messages to go on their own and their training wheels are off, goes as it is; a comment or a reply in a group goes on its own once the person has OK’d 25 there and a week has gone by, and an answer to an Alignable post asking for what the business offers always waits, as do a message offering another time after a missed demo, a birthday or new-job note, and a reply to something the business’s Knowledge doesn’t answer. A message already drafted for them comes back instead. A client in Contacts gets only replies.
-         * @description Risk level 0. Requires outreach.use. Emits outreach.send.queued.
+         * @description Risk level 0. Requires outreach.use. Emits outreach.send.queued, outreach.times.check.
          */
         post: operations["command_outreach_send_queue"];
         delete?: never;

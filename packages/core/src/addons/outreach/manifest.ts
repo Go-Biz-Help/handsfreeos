@@ -164,6 +164,7 @@ export const outreachAddon = defineAddon({
       'outreach.friends.cancel_all',
       'outreach.requests.paused',
       'outreach.requests.started_again',
+      'outreach.times.check',
     ],
     // The last part of a download, and chats read in Messenger, start the AI's read of the chats
     // (apps/worker/src/addons/outreach/chats.ts); group posts worth a look start its check of them (./posts.ts), and
@@ -188,6 +189,8 @@ export const outreachAddon = defineAddon({
     // Someone who wants a demo, or answered the playbook's questions, goes in the main pipeline (decision 105, ./leads.ts);
     // once they came to the demo, their lead moves on and waits for the person's won or lost (decision 106). Accounts
     // an Instagram search showed for accounts like yours wait for the AI to pick the best (decision 110, ./like-yours.ts).
+    // An OK'd message that offers times, or books one, has them checked again and the booking made before it goes
+    // (decision 149, ./times.ts).
     consumes: [
       'outreach.download.saved',
       'outreach.chats.collected',
@@ -219,6 +222,7 @@ export const outreachAddon = defineAddon({
       'outreach.lead.wanted',
       'appointment.completed',
       'outreach.like_yours.found',
+      'outreach.times.check',
     ],
   },
   jobs: [
@@ -290,6 +294,7 @@ export const outreachAddon = defineAddon({
     'stages',
     'tallies',
     'threads',
+    'time_offers',
     'touches',
     'waiting_pushes',
     'warnings',

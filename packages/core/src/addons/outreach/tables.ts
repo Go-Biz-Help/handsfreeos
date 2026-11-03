@@ -5,7 +5,7 @@
  * and demos, 20261027001200 for the extension on its own, 20261027001300 for the messages it sends,
  * 20261027001500 for live status: the computers, the day and the feed, and 20261027001600 for Waiting for you: the
  * steps it needs the person for, and the bundled push, 20261027001700 for asking the extension, 20261027002000 for
- * the fits among friends and chats, 20261027002100 for stages, 20261027002200 for checking and joining groups, 20261027002810 for countries, 20261027008400 for partners, 20261027009300 for finding partners by search, 20261027009800 for a code from the person's email, 20261027014100 for finding people by topic, and 20261027021500 for counting what the extension does):
+ * the fits among friends and chats, 20261027002100 for stages, 20261027002200 for checking and joining groups, 20261027002810 for countries, 20261027008400 for partners, 20261027009300 for finding partners by search, 20261027009800 for a code from the person's email, 20261027014100 for finding people by topic, 20261027021500 for counting what the extension does, and 20261027022400 for times to meet offered in the chat):
  * the Drizzle mirror its server code reads and writes through.
  * Server-only.
  * test/addons/outreach-tables.test.ts holds the mirror to the live columns.
@@ -37,6 +37,7 @@ import type {
 } from './automation';
 import type { EngagementKind, HelpfulState } from './helpful';
 import type { TallyKind } from './tallies';
+import type { KeptTime, TimeBooking, TimeOfferState } from './meeting-times';
 import type { ChatReadState } from './chat-read';
 import type { CheckVerdict, RequestAnswer } from './checks';
 import type {
@@ -1734,6 +1735,48 @@ export const followerReads = addonOutreach.table(
   (t) => [unique().on(t.workspaceId, t.id), unique().on(t.workspaceId, t.userId, t.platform)],
 );
 
+/**
+ * A drafted message that offers times on a booking page's calendar, or books one (./meeting-times.ts, decision 149;
+ * 20261027022400). The message queued from one of its drafts takes it (`sendId`): once OK'd it waits while the times
+ * are checked again and the booking made (`drafted`, `checking`), then goes (`ready`, `booked`), or is written again
+ * when a time was taken (`taken`). Each person's own.
+ */
+export const timeOffers = addonOutreach.table(
+  'time_offers',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    workspaceId: workspaceRef(),
+    userId: uuid('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    profileId: uuid('profile_id').notNull(),
+    calendarId: uuid('calendar_id').notNull(),
+    hostUserId: userRef('host_user_id'),
+    zone: text('zone').notNull(),
+    times: jsonb('times').notNull().default([]).$type<KeptTime[]>(),
+    booking: jsonb('booking').$type<TimeBooking>(),
+    drafts: text('drafts')
+      .array()
+      .notNull()
+      .default(sql`'{}'`),
+    sendId: uuid('send_id'),
+    state: text('state').notNull().default('drafted').$type<TimeOfferState>(),
+    approvedByPerson: boolean('approved_by_person').notNull().default(false),
+    redrafts: integer('redrafts').notNull().default(0),
+    appointmentId: uuid('appointment_id'),
+    why: text('why'),
+    createdAt: ts('created_at').notNull().defaultNow(),
+    updatedAt: ts('updated_at').notNull().defaultNow(),
+  },
+  (t) => [
+    unique().on(t.workspaceId, t.id),
+    foreignKey({
+      columns: [t.workspaceId, t.profileId],
+      foreignColumns: [profiles.workspaceId, profiles.id],
+    }).onDelete('cascade'),
+  ],
+);
+
 /** Every table above, for the test that holds the mirror to the live columns. */
 export const OUTREACH_TABLES = {
   asks,
@@ -1777,6 +1820,7 @@ export const OUTREACH_TABLES = {
   stages,
   tallies,
   threads,
+  timeOffers,
   touches,
   waitingPushes,
   warnings,

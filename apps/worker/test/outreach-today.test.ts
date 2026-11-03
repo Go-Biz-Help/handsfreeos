@@ -153,6 +153,7 @@ describe('drafts for Today', () => {
       },
       simple: false,
       unanswered: null,
+      meeting: null,
     });
   });
 
@@ -196,6 +197,7 @@ describe('drafts for Today', () => {
       opener: { playbookId: playbook!.id, kind: 'own', text: own },
       simple: false,
       unanswered: null,
+      meeting: null,
     });
     // Someone else's turns are their own.
     expect((await draft(member, { kind: 'opener', profileId })).json().opener.kind).toBe('style');

@@ -29,6 +29,7 @@ import { ownerCommands } from './ops/owners';
 import { occasionCommands } from './ops/occasions';
 import { listCommands, listQueries } from './ops/lists';
 import { liveCommands, liveQueries } from './ops/live';
+import { meetingTimeCommands } from './ops/meeting-times';
 import { tallyCommands, tallyQueries } from './ops/tallies';
 import { openerCommands, openerQueries } from './ops/openers';
 import { partnerCommands, partnerQueries } from './ops/partners';
@@ -69,6 +70,7 @@ export const outreachAddonServer: AddonServerModule = {
     ...demoCommands,
     ...automationCommands,
     ...sendCommands,
+    ...meetingTimeCommands,
     ...liveCommands,
     ...tallyCommands,
     ...listCommands,
