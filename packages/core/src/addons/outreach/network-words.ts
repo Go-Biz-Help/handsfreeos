@@ -15,12 +15,15 @@ import { TOUCHED_POSTS_WORDS } from './activity';
 import { askNameOn, TIDY_ASK_KINDS, TIDY_PACE_WORDS } from './asks';
 import { REQUEST_MUTUAL_YES } from './checks';
 import {
+  GROUP_MODE_KEYS,
+  GROUP_MODES,
   REQUEST_MODE_KEYS,
   REQUEST_MODES,
   SENDING_MODES,
   TIDY_MODE_KEYS,
   tidyModeOn,
   type AutomationSettings,
+  type GroupMode,
   type NetworkChoices,
   type RequestMode,
   type SendingMode,
@@ -36,6 +39,7 @@ import {
 import {
   answersRequests,
   inNetworkWords,
+  joinsGroups,
   isLooking,
   networkOfLink,
   NETWORKS,
@@ -130,6 +134,11 @@ interface MoreWords {
   readonly chatUrl: (threadKey: string) => string;
   /** Along the way's switches, in its words: what each does, and a line about it. */
   readonly ticks: Readonly<Record<AlongTick, readonly [string, string]>>;
+  /**
+   * What it does about groups (decision 148), where they're the person's to work (`joinsGroups`): the line above the
+   * pick, and what joining more does there. Only their own says the same on every network (`onlyMineNote`).
+   */
+  readonly groups?: { readonly about: string; readonly join: string };
   /** The playbook's networks step: where it looks for people there. */
   readonly where: string;
   /**
@@ -161,12 +170,14 @@ interface MoreWords {
   };
 }
 
-/** The switches along the way, each network's own (`NetworkChoices`). */
+/**
+ * The switches along the way, each network's own (`NetworkChoices`). Joining groups is `joinGroups`, which is a pick of
+ * two from decision 148 (`groupsChoiceOn`), not a tick, so it isn't here.
+ */
 export const ALONG_TICKS = [
   'warmUp',
   'confirmRequests',
   'collect',
-  'joinGroups',
   'watchPosts',
 ] as const satisfies readonly (keyof NetworkChoices & RunnerTick)[];
 export type AlongTick = (typeof ALONG_TICKS)[number];
@@ -179,8 +190,12 @@ const MORE: Readonly<Record<Platform, MoreWords>> = {
       warmUp: W.ticks.warmUp,
       confirmRequests: W.ticks.confirmRequests,
       collect: W.ticks.collect,
-      joinGroups: W.ticks.joinGroups,
       watchPosts: W.ticks.watchPosts,
+    },
+    groups: {
+      about:
+        'Your own groups are read first either way. This says whether it looks for more groups to join as well.',
+      join: 'When your groups have less than a week of people left to reach, it finds groups with your playbook’s words and asks to join up to 3 good ones a day, answering their questions from your playbook.',
     },
     where: 'In the groups they’re in, found with the words below.',
     helpful: true,
@@ -213,10 +228,6 @@ const MORE: Readonly<Record<Platform, MoreWords>> = {
       collect: [
         'Once a day, first: check invitations, find posts and read my chats',
         'These fill the list it works from. It searches posts with your playbooks’ words, reads who reacted to and commented on the good ones, and checks those people and your connections for good fits, inside its 40 profile reads a day.',
-      ],
-      joinGroups: [
-        'Join good groups when my groups run low',
-        'LinkedIn groups are quiet, so it joins few, and only ones that fit your playbook.',
       ],
       watchPosts: [
         'Look for new posts asking for what I offer, every hour or two',
@@ -260,7 +271,6 @@ const MORE: Readonly<Record<Platform, MoreWords>> = {
         'Once a day, first: save my newest followers, and read my messages and notifications',
         'These fill the list it works from: whoever followed you, or liked or commented on your posts, is a warm lead. It looks at the accounts you followed to see who followed you back, checks your followers for good fits, looks at your playbooks’ hashtags for posts, reads who liked and commented on the good ones and checks them for good fits, and looks for partners with Instagram’s search, too.',
       ],
-      joinGroups: ['Join good groups when my groups run low', 'Instagram has no groups to join.'],
       watchPosts: [
         'Look for new posts asking for what I offer, every hour or two',
         'In your working hours, it looks at your playbook’s hashtags for posts asking for what you offer.',
@@ -305,15 +315,16 @@ const MORE: Readonly<Record<Platform, MoreWords>> = {
         'Once a day, first: check connection requests, read my messages and my town’s posts, search for businesses like your clients, and read my groups',
         'These fill the list it works from. It checks your connections, and the businesses it finds, for good fits, and looks for partners, too.',
       ],
-      // Shown since decision 92: Alignable's groups go through the same pipeline as Facebook's.
-      joinGroups: [
-        'Join good groups when my groups run low',
-        'Your own groups come first. When the people found in them run low, it finds groups for your niche and area, and joins up to 3 good ones a day.',
-      ],
       watchPosts: [
         'Look for new questions asking for what I offer, every hour or two',
         'In your working hours, it looks at Alignable’s forum for owners asking for what you offer.',
       ],
+    },
+    // Since decision 92 Alignable's groups go through the same pipeline as Facebook's.
+    groups: {
+      about:
+        'Your own groups are read first either way. This says whether it looks for more groups to join as well.',
+      join: 'When the people found in your groups run low, it finds groups for your niche and area and joins up to 3 good ones a day.',
     },
     where: 'In your town’s community, and the forum where owners ask for referrals.',
     helpful: true,
@@ -575,6 +586,26 @@ export function requestsChoiceOn(platform: Platform) {
       label: REQUEST_MODES[key],
       note: notes[key] ?? null,
     })),
+  };
+}
+
+/**
+ * What it does about groups (decision 148) on a network's page in Settings, where groups are the person's to work
+ * (Facebook's and Alignable's): the choice, the line above it, and its two picks, with what each does there. Null where
+ * the network has no groups to work (Instagram's, LinkedIn's).
+ */
+export function groupsChoiceOn(platform: Platform) {
+  const words = joinsGroups(platform) ? MORE[platform].groups : null;
+  if (!words) return null;
+  const { friendRequests } = NETWORKS[platform].words;
+  const notes: Readonly<Record<GroupMode, string>> = {
+    join: words.join,
+    mine: `It joins nothing and looks for no new groups. The AI stops reading groups you aren’t in, and your ${friendRequests} go only to people in your own groups. Find and join more groups still works when you press it.`,
+  };
+  return {
+    label: 'Groups',
+    about: words.about,
+    options: GROUP_MODE_KEYS.map((key) => ({ key, label: GROUP_MODES[key], note: notes[key] })),
   };
 }
 

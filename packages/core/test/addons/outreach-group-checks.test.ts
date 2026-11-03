@@ -90,7 +90,7 @@ describe('a group’s fit, and what’s left', () => {
       /That’s less than a week\. The extension finds more groups/,
     );
     expect(prospectsWords(prospectsLeft(120, 20), false)).toMatch(
-      /Press Find and join more groups/,
+      /only the groups you’re in: press Find and join more groups/,
     );
     expect(prospectsWords(prospectsLeft(0, 20), true)).toMatch(/^Nobody left to reach/);
   });
@@ -309,6 +309,22 @@ describe('checking and joining groups', () => {
       'Texas Contractors Network',
       'Austin Small Business Owners',
     ]);
+  });
+
+  it('reads only the groups they’re in while that’s their pick', async () => {
+    // Only the groups I'm in (decision 148): the AI never reads a group they aren't in.
+    await runAs(owner, ws, 'outreach.automation.save', {
+      settings: { ...AUTOMATION_DEFAULTS, joinGroups: false },
+    });
+    expect(
+      (await runAs(owner, ws, 'outreach.groups.to_check', {})).groups.map(
+        (g: { name: string }) => g.name,
+      ),
+    ).toEqual(['Home Bakers Club']);
+    // And their own press still joins: the groups to join are the ones they aren't in, as ever.
+    expect(await runAs(owner, ws, 'outreach.joins.next', {})).toMatchObject({ onItsOwn: false });
+    await runAs(owner, ws, 'outreach.automation.save', { settings: AUTOMATION_DEFAULTS });
+    expect((await runAs(owner, ws, 'outreach.groups.to_check', {})).groups).toHaveLength(3);
   });
 
   it('keeps the About page and rules, has the AI read them, and follows its answer', async () => {

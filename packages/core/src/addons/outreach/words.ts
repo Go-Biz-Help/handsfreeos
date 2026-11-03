@@ -819,10 +819,6 @@ export const OUTREACH_WORDS = {
       'Once a day, first: check friend requests, save group members, find posts and read my chats',
       'These fill the list it works from. It checks your friends and groups for good fits too.',
     ],
-    joinGroups: [
-      'Join good groups when my groups run low',
-      'When your groups have less than a week of people left to reach, it finds groups with your playbook’s words and asks to join up to 3 good ones a day, answering their questions from your playbook.',
-    ],
     watchPosts: [
       'Look for new posts asking for what I offer, every hour or two',
       'In your working hours, it looks at the newest posts in your best groups. When one asks for what you offer, your phone hears at once and it goes to the top of your list.',

@@ -18,6 +18,7 @@ import {
   businessLimitsOn,
   messageKinds,
   newMessagesWait,
+  onlyMyGroups,
   readsRequests,
   requestAnswerOf,
   requestModeOf,
@@ -300,6 +301,8 @@ export const today = defineAddonQuery(outreachAddon, {
       slower,
       rules,
     } = await automationOf(ctx, me, now, input.platform);
+    // Working only the groups they're in (decision 148): nobody found in another group is theirs to reach.
+    const onlyMine = onlyMyGroups(settings);
     // The business's own on this network, halved after a warning there, on training wheels there, and while new there.
     const limits = todayLimits(
       done,
@@ -767,7 +770,7 @@ export const today = defineAddonQuery(outreachAddon, {
     );
     const foundLikesLeft = settings.warmUp ? Math.max(0, warmUpLeft - warmLikes - searchLikes) : 0;
     if (byTopic && playbooks.length && !requestsOff && (foundLeft || foundLikesLeft)) {
-      const good = (await foundGood(ctx, me, input.platform, lets, now)).filter(
+      const good = (await foundGood(ctx, me, input.platform, lets, now, onlyMine)).filter(
         (p) => !warmIds.has(p.id) && !carried.has(p.id),
       );
       const likedBy = (p: FoundGood) =>
@@ -1028,6 +1031,12 @@ export const today = defineAddonQuery(outreachAddon, {
             left join addon_outreach.playbooks cpb on cpb.id = ch.playbook_id
             where gp.workspace_id = ${ws} and g.admins_read_at is not null and not gp.runs_group
               and ch.verdict is distinct from 'not'
+              and ${
+                onlyMine
+                  ? sql`exists (select 1 from addon_outreach.my_groups m
+                      where m.group_id = g.id and m.user_id = ${me} and m.joined)`
+                  : sql`true`
+              }
               and ${notOthers(me, 'g')}
               and p.person_id is null and ${pitchable('p')} and ${inPlay(me, 'p')} and ${lets}
               and p.friendship not in ('self', 'friends', 'request_sent', 'request_received')
@@ -2115,6 +2124,7 @@ export const today = defineAddonQuery(outreachAddon, {
         why,
         input.platform,
         WORKING_PLATFORMS.some((p) => !everything.networks[p].on),
+        !onlyMine,
       ),
       facts,
     };
@@ -2185,6 +2195,8 @@ async function foundGood(
   platform: Platform,
   lets: SQL,
   now: number,
+  /** Only the groups the person is in (decision 148): a member found in any other group isn't theirs to reach. */
+  onlyMine = false,
 ): Promise<FoundGood[]> {
   const ago = (days: number) => new Date(now - days * DAY).toISOString();
   return rows<FoundGood>(
@@ -2211,6 +2223,12 @@ async function foundGood(
             where fr.profile_id = p.id and fr.user_id = ${me})
           and not exists (select 1 from addon_outreach.touches t
             where t.profile_id = p.id and t.kind = 'friend_request')
+          and ${
+            onlyMine
+              ? sql`(f.how <> 'member' or exists (select 1 from addon_outreach.my_groups m
+                  where m.group_id = g.id and m.user_id = ${me} and m.joined))`
+              : sql`true`
+          }
           and (f.how <> 'member' or g.admins_read_at is not null
             or exists (select 1 from addon_outreach.my_groups m
               left join addon_outreach.joins j on j.group_id = m.group_id and j.user_id = m.user_id

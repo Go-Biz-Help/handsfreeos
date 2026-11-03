@@ -218,7 +218,7 @@ describe('joining groups', () => {
     );
     const off = fakeHfos({ 'hfos-joins-next': () => next({ onItsOwn: false }) });
     expect((await joinGroups(jobWith(tab, off.hfos), null, true)).line).toBe(
-      'Joining groups on its own is off in your settings.',
+      'You’re working only the groups you’re in, so it joins none on its own.',
     );
     const plenty = fakeHfos({
       'hfos-joins-next': () => next({ prospects: { left: 400, perDay: 20, days: 20, low: false } }),

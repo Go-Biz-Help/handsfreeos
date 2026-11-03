@@ -500,6 +500,11 @@ export const myGroups = addonOutreach.table(
       .references(() => users.id, { onDelete: 'cascade' }),
     groupId: uuid('group_id').notNull(),
     joined: boolean('joined').notNull(),
+    /**
+     * How many screens down this person's last read of its members got (decision 148): the next read starts there, so
+     * a big group is worked right through. 0 starts at the top, as a list that ended sets it back to.
+     */
+    membersDepth: integer('members_depth').notNull().default(0),
     seenAt: ts('seen_at').notNull(),
     createdAt: ts('created_at').notNull().defaultNow(),
     updatedAt: ts('updated_at').notNull().defaultNow(),
