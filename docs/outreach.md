@@ -3669,7 +3669,7 @@ where decisions 37 and 59 put the settings; what they decided stands. Settled to
 148.  **Only the groups I'm in** (Chris, 3 Nov 2026: "I want a setting in the social outreach tool to stop it from
       joining more groups in the different platforms and focus on connecting with the members of the groups we are
       already in"), answered "1a 2a 3a 4a"; extension **0.125.0**, migration
-      `20261027022000_outreach_members_depth.sql`.
+      `20261027022200_outreach_members_depth.sql`.
       - **A pick of two, in place of the Join switch** (`GROUP_MODES`, `groupModeOf`, kept as `joinGroups`), on each
         network where groups are the person's to work (`joinsGroups`: Facebook, decision 48, and Alignable,
         decision 92), under **Groups** on that network's page in Settings, on the web and the phone
