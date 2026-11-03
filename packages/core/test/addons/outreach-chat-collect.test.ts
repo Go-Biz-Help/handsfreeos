@@ -97,6 +97,7 @@ describe('chats read in Messenger', () => {
     expect(await collect([{ ...avery, messages: [me('Hello again', daysAgo(5))] }])).toEqual({
       saved: 1,
       waiting: 0,
+      replied: [],
     });
     const older = await chatOf('Avery Lane');
     expect(older!.read_state).toBe('read');
