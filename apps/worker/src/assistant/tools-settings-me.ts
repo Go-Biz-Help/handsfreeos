@@ -7,7 +7,7 @@
  * is the business's business, and goes through the screens.
  */
 
-import { plainSpaces } from '@hfos/core/server';
+import { plainSpaces, zonePickLabel } from '@hfos/core/server';
 import type { Db } from '@hfos/db/client';
 import type { ToolContext } from './runtime';
 import { command, query } from './tools-read';
@@ -26,6 +26,23 @@ interface Me {
 }
 
 const meOf = (db: Db, ctx: ToolContext) => query<Me>(db, ctx, 'account.me');
+
+/** The person's saved week, for a set_hours that changes only the time zone. */
+async function savedWeek(db: Db, ctx: ToolContext): Promise<Hours> {
+  const now = Date.now();
+  const team = await query<{ people: { weekly: Hours }[] }>(db, ctx, 'schedule.team', {
+    from: new Date(now).toISOString(),
+    to: new Date(now + 86_400_000).toISOString(),
+    userIds: [ctx.actor.userId],
+  });
+  return team.people[0]?.weekly ?? [];
+}
+
+/** set_hours' zone as schedule.set takes it: a zone, null to follow the business's, or left as it is. */
+const zoneArg = (args: Args): { timezone?: string | null } => {
+  const zone = str(args['timeZone']);
+  return zone === undefined ? {} : { timezone: zone === 'business' ? null : zone };
+};
 
 /** Which email goes with which switch, in the words the settings screen uses. */
 const EMAIL_SWITCHES: Record<string, { key: string; label: string }> = {
@@ -113,16 +130,30 @@ const dayWords = (date: string) => {
 const updateMyHours: SettingsConfirmTool = {
   async prepare(_db, _ctx, args, toolCallId) {
     const act = action(args);
-    if (act === 'set_hours')
+    if (act === 'set_hours') {
+      const zone = zoneArg(args).timezone;
       return {
         card: settingsCard(toolCallId, 'update_my_hours', {
-          title: 'Change your working hours',
-          fields: [{ label: 'Your week', value: hoursLine((args['weekly'] as Hours) ?? []) }],
+          title: args['weekly'] ? 'Change your working hours' : 'Change your time zone',
+          fields: [
+            ...(args['weekly']
+              ? [{ label: 'Your week', value: hoursLine(args['weekly'] as Hours) }]
+              : []),
+            ...(zone !== undefined
+              ? [
+                  {
+                    label: 'Your hours are in',
+                    value: zone ? zonePickLabel(zone) : 'The business’s time zone',
+                  },
+                ]
+              : []),
+          ],
           confirmLabel: 'Save my hours',
           warnings: [{ kind: 'note', text: 'Visits already booked stay; this is about new ones.' }],
         }),
         result: { waiting: true },
       };
+    }
     if (act === 'remove_time_off')
       return {
         card: settingsCard(toolCallId, 'update_my_hours', {
@@ -160,7 +191,10 @@ const updateMyHours: SettingsConfirmTool = {
     const act = action(args);
     const href = `/app/w/${ctx.workspaceId}/settings/my-calendar`;
     if (act === 'set_hours') {
-      await command(db, ctx, 'schedule.set', { ownerKind: 'user', weekly: args['weekly'] ?? [] });
+      // Only the zone: the week stays as it's saved.
+      const weekly =
+        args['weekly'] ?? (zoneArg(args).timezone !== undefined ? await savedWeek(db, ctx) : []);
+      await command(db, ctx, 'schedule.set', { ownerKind: 'user', weekly, ...zoneArg(args) });
       return { outcome: 'Your hours are saved', href, command: 'schedule.set' };
     }
     if (act === 'remove_time_off') {

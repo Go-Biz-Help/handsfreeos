@@ -190,7 +190,7 @@ const ROWS = {
     page: 'my_calendar',
     section: null,
     label: 'Weekly hours',
-    words: ['my hours', 'working hours', 'availability', 'lunch break'],
+    words: ['my hours', 'working hours', 'availability', 'lunch break', 'my time zone'],
   },
   'my_calendar.time_off': {
     page: 'my_calendar',

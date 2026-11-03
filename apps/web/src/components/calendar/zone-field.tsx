@@ -1,8 +1,44 @@
 'use client';
-import { zoneChoices, zoneNote } from '@hfos/core';
+import { moreZoneChoices, US_TIME_ZONES, zoneChoices, zoneNote, type ZoneChoice } from '@hfos/core';
 import { Field } from '@/components/ui/field';
 import { Select } from '@/components/ui/input';
 import { cn } from '@/lib/utils';
+
+/**
+ * A time zone select's options: a zone already in play from outside the US first (the calendar's, the one picked),
+ * then the US zones, then every other zone under More time zones, by place. `first` adds a row above them all, such
+ * as "Same as the business".
+ */
+export function ZoneOptions({
+  calendarZone,
+  value,
+  first,
+}: {
+  calendarZone: string;
+  value: string;
+  first?: ZoneChoice;
+}) {
+  const top = zoneChoices(calendarZone, value);
+  const shown = new Set(top.map((z) => z.id));
+  const isUs = (id: string) => US_TIME_ZONES.some((z) => z.id === id);
+  const option = (z: ZoneChoice) => (
+    <option key={z.id} value={z.id}>
+      {z.label}
+    </option>
+  );
+  return (
+    <>
+      {first ? option(first) : null}
+      {top.filter((z) => !isUs(z.id)).map(option)}
+      <optgroup label="United States">{top.filter((z) => isUs(z.id)).map(option)}</optgroup>
+      <optgroup label="More time zones">
+        {moreZoneChoices()
+          .filter((z) => !shown.has(z.id))
+          .map(option)}
+      </optgroup>
+    </>
+  );
+}
 
 /**
  * Time zone, under the Date and Start of a time being set (Book, Reschedule, New webinar): the time above is read on
@@ -37,11 +73,7 @@ export function ZoneField({
           onChange={(e) => onChange(e.target.value)}
           data-testid={testId}
         >
-          {zoneChoices(calendarZone, value).map((z) => (
-            <option key={z.id} value={z.id}>
-              {z.label}
-            </option>
-          ))}
+          <ZoneOptions calendarZone={calendarZone} value={value} />
         </Select>
       </Field>
       <p

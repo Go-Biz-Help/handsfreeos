@@ -12,6 +12,7 @@ import {
   reminderScheduleWords,
   SEARCH_MIN_CHARS,
   tellNote,
+  findZones,
   timeOptionsWith,
   zoneChoices,
   zoneNote,
@@ -105,6 +106,8 @@ export function NewAppointmentSheet({
   const [minutes, setMinutes] = React.useState(() => nextHalfHour(timeZone));
   /** The zone the day and time are read in: the business's, or another picked under them. */
   const [zone, setZone] = React.useState(timeZone);
+  /** What's typed to find a zone off the chips (a customer in Manila), or null while that search is shut. */
+  const [zoneSearch, setZoneSearch] = React.useState<string | null>(null);
   const [userIds, setUserIds] = React.useState<readonly string[]>([]);
   const [title, setTitle] = React.useState('');
   const [notify, setNotify] = React.useState(true);
@@ -122,6 +125,7 @@ export function NewAppointmentSheet({
       setDay(date);
       setMinutes(nextHalfHour(timeZone));
       setZone(timeZone);
+      setZoneSearch(null);
       setTitle('');
       setChosen(null);
       setTyped('');
@@ -314,11 +318,40 @@ export function NewAppointmentSheet({
 
       <Field label="Time zone">
         <Chips
-          options={zoneChoices(timeZone, zone).map((z) => ({ value: z.id, label: z.label }))}
-          value={zone}
-          onChange={setZone}
+          options={[
+            ...zoneChoices(timeZone, zone).map((z) => ({ value: z.id, label: z.label })),
+            { value: MORE_ZONES, label: 'Somewhere else' },
+          ]}
+          value={zoneSearch === null ? zone : MORE_ZONES}
+          onChange={(v) => {
+            if (v === MORE_ZONES) return setZoneSearch('');
+            setZone(v);
+            setZoneSearch(null);
+          }}
           testID="new-appointment-zone"
         />
+        {zoneSearch !== null ? (
+          <View className="mt-2 gap-2">
+            <Input
+              value={zoneSearch}
+              onChangeText={setZoneSearch}
+              placeholder="Search a city, like Manila or London"
+              accessibilityLabel="Find a time zone"
+              autoCorrect={false}
+              autoFocus
+              testID="new-appointment-zone-search"
+            />
+            <Chips
+              options={findZones(zoneSearch).map((z) => ({ value: z.id, label: z.label }))}
+              value=""
+              onChange={(v) => {
+                setZone(v);
+                setZoneSearch(null);
+              }}
+              testID="new-appointment-zone-found"
+            />
+          </View>
+        ) : null}
         {zoneAway ? (
           <Text className="mt-1 text-xs font-medium text-text-2" testID="new-appointment-zone-note">
             {zoneAway}
@@ -565,6 +598,9 @@ function Chips({
     </ScrollView>
   );
 }
+
+/** The Time zone chip that opens the search for a zone off the list. */
+const MORE_ZONES = 'more';
 
 /** Fourteen days from today, starting at the day the calendar is showing. */
 function nextDays(from: string, timeZone: string): readonly string[] {

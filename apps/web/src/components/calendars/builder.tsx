@@ -5,6 +5,7 @@ import {
   inferLabels,
   parseConfig,
   validateCalendar,
+  zonePickLabel,
   type CalendarConfig,
   type CalendarIssue,
   type ConfigPatch,
@@ -62,6 +63,8 @@ import { Field } from '@/components/ui/field';
 import { Input, Select } from '@/components/ui/input';
 import { Switch } from '@/components/ui/switch';
 import { Textarea } from '@/components/ui/textarea';
+import { ZoneOptions } from '@/components/calendar/zone-field';
+import { ZoneChip } from '@/components/settings/my-calendar';
 import { ApiError, apiBrowser, errorMessage, unwrap } from '@/lib/api/client';
 import type {
   CalendarDetail,
@@ -126,6 +129,8 @@ interface Details {
   name: string;
   color: string;
   description: string | null;
+  /** Its own time zone; null follows the business's. */
+  timezone: string | null;
 }
 interface Edit {
   rev: number;
@@ -165,6 +170,8 @@ export interface BuilderProps {
   payments: BuilderPayments;
   /** Their own domain when one is serving (M17): the booking link in the right rail is on it. */
   brandedOrigin: string | null;
+  /** The business's time zone, which a calendar without its own follows. */
+  businessZone: string;
 }
 
 /**
@@ -180,8 +187,13 @@ export function CalendarBuilder(props: BuilderProps) {
 
   const saved = useMemo(() => parseConfig(calendar.config), [calendar.config]);
   const savedDetails = useMemo<Details>(
-    () => ({ name: calendar.name, color: calendar.color, description: calendar.description }),
-    [calendar.name, calendar.color, calendar.description],
+    () => ({
+      name: calendar.name,
+      color: calendar.color,
+      description: calendar.description,
+      timezone: calendar.ownTimezone,
+    }),
+    [calendar.name, calendar.color, calendar.description, calendar.ownTimezone],
   );
   const fresh: Edit = {
     rev: calendar.revision,
@@ -320,7 +332,9 @@ export function CalendarBuilder(props: BuilderProps) {
             baseRevision: current.rev,
             draft: draft as unknown as CalendarSaveBody['draft'],
             impactDecisions: decisions,
-            ...(changedDetails ? { name: d.name, color: d.color, description: d.description } : {}),
+            ...(changedDetails
+              ? { name: d.name, color: d.color, description: d.description, timezone: d.timezone }
+              : {}),
           },
         }),
       );
@@ -426,6 +440,7 @@ export function CalendarBuilder(props: BuilderProps) {
             {d.name}
           </h1>
           <CalendarStatusBadge status={calendar.status} />
+          {d.timezone ? <ZoneChip timeZone={d.timezone} /> : null}
           <span className="text-[13px] text-text-3" data-testid="builder-revision">
             Revision {calendar.revision}
             {latest ? ` · saved by ${savedBy} ${savedAt}` : ''}
@@ -468,7 +483,9 @@ export function CalendarBuilder(props: BuilderProps) {
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent>
-              <DropdownMenuItem onSelect={() => setRenaming(true)}>Rename…</DropdownMenuItem>
+              <DropdownMenuItem onSelect={() => setRenaming(true)}>
+                Name, color and time zone…
+              </DropdownMenuItem>
               {calendar.bookingPath ? (
                 <DropdownMenuItem onSelect={() => setLinking(true)}>Change link…</DropdownMenuItem>
               ) : null}
@@ -844,6 +861,7 @@ export function CalendarBuilder(props: BuilderProps) {
         open={renaming}
         onOpenChange={setRenaming}
         details={d}
+        businessZone={props.businessZone}
         onApply={(details) => {
           setEdit({ ...current, details });
           setRenaming(false);
@@ -867,14 +885,17 @@ function RenameDialog({
   open,
   onOpenChange,
   details,
+  businessZone,
   onApply,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   details: Details;
+  businessZone: string;
   onApply: (details: Details) => void;
 }) {
   const [form, setForm] = useState(details);
+  const zone = form.timezone ?? businessZone;
   return (
     <Dialog
       open={open}
@@ -883,7 +904,10 @@ function RenameDialog({
         onOpenChange(o);
       }}
     >
-      <DialogContent title="Name and color" description="Saved with the rest of your changes.">
+      <DialogContent
+        title="Name, color and time zone"
+        description="Saved with the rest of your changes."
+      >
         <div className="mt-4 flex flex-col gap-3.5">
           <Field label="Name" htmlFor="rename-name">
             <Input
@@ -904,6 +928,31 @@ function RenameDialog({
               maxLength={2000}
               onChange={(e) => setForm({ ...form, description: e.target.value || null })}
             />
+          </Field>
+          <Field
+            label="Time zone"
+            htmlFor="rename-zone"
+            hint={
+              form.timezone
+                ? `Its hours, booking page, reminders and messages to customers go by ${zonePickLabel(zone)}. Your calendar screens still show ${zonePickLabel(businessZone)}.`
+                : 'Its hours, booking page, reminders and messages to customers go by the business’s time zone.'
+            }
+          >
+            <Select
+              id="rename-zone"
+              value={form.timezone ?? ''}
+              onChange={(e) => setForm({ ...form, timezone: e.target.value || null })}
+              data-testid="calendar-zone"
+            >
+              <ZoneOptions
+                calendarZone={businessZone}
+                value={zone}
+                first={{
+                  id: '',
+                  label: `Same as the business (${zonePickLabel(businessZone)})`,
+                }}
+              />
+            </Select>
           </Field>
           <div>
             <div className="mb-1.5 text-[13px] font-medium">Color</div>

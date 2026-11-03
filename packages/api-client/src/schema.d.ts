@@ -88146,6 +88146,7 @@ export interface operations {
                                 /** Format: date-time */
                                 startsAt: string;
                             }[];
+                            ownTimezone: string | null;
                             privateBusy: {
                                 /** Format: date-time */
                                 endsAt: string;

@@ -1,7 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import {
+  findZones,
   fmtAtPicked,
   localInstant,
+  moreZoneChoices,
   sameZone,
   zoneChoices,
   zoneNote,
@@ -70,5 +72,30 @@ describe('the time zone pick', () => {
     expect(zoneNote(summer, 'America/Phoenix', CHI)).toBe(
       'That’s 11:00 AM Central Time on your calendar.',
     );
+  });
+});
+
+describe('more time zones', () => {
+  it('lists every other zone by place, without the US ones', () => {
+    const more = moreZoneChoices();
+    expect(more.length).toBeGreaterThan(400);
+    expect(more.find((z) => z.id === MANILA)?.label).toBe('Manila (Philippine Standard Time)');
+    expect(more.find((z) => z.id === 'America/Indiana/Knox')?.label).toMatch(/^Knox, Indiana \(/);
+    expect(more.some((z) => z.id === CHI)).toBe(false);
+    expect(more.at(-1)).toEqual({ id: 'UTC', label: 'UTC' });
+    const labels = more.slice(0, -1).map((z) => z.label);
+    expect(labels).toEqual([...labels].sort((a, b) => a.localeCompare(b, 'en')));
+  });
+
+  it('finds zones by what was typed, the US ones first', () => {
+    expect(findZones('manila').map((z) => z.id)).toEqual([MANILA]);
+    expect(findZones('pacific')[0]).toEqual({ id: LA, label: 'Pacific Time' });
+    expect(findZones('los angeles')[0]?.id).toBe(LA);
+    expect(findZones('  ')).toEqual([]);
+    expect(findZones('a', 3)).toHaveLength(3);
+  });
+
+  it('names UTC as itself', () => {
+    expect(zonePickLabel('Etc/UTC')).toBe('UTC');
   });
 });

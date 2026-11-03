@@ -610,7 +610,10 @@ export const ScheduleTeamOutput = z.object({
       userId: uuid,
       fullName: z.string(),
       scheduleId: uuid.nullable(),
+      /** The zone their hours are in. */
       timezone: z.string(),
+      /** Their hours' own zone (My calendar → Time zone); null follows the business's. */
+      ownTimezone: z.string().nullable(),
       weekly: WeeklyHours,
       /** No hours saved yet: weekdays 9 to 5 apply. */
       defaultHours: z.boolean(),

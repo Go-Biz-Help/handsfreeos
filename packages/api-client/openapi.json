@@ -143681,6 +143681,12 @@
                           "timezone": {
                             "type": "string"
                           },
+                          "ownTimezone": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
                           "weekly": {
                             "maxItems": 50,
                             "type": "array",
@@ -143995,6 +144001,7 @@
                           "fullName",
                           "scheduleId",
                           "timezone",
+                          "ownTimezone",
                           "weekly",
                           "defaultHours",
                           "hours",

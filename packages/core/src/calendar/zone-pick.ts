@@ -7,6 +7,7 @@
  * Changing the zone keeps the clock as typed, as a paper diary would: 2:00 PM stays 2:00 PM, now on Pacific's clock.
  * The line beside the pick always shows the moment it books. Browser-safe.
  */
+import { TIME_ZONES } from '../intl/time-zone-names';
 import { canonicalTimeZone } from '../intl/time-zones';
 import { US_TIME_ZONES } from '../onboarding-setup/address';
 import { localDateOf } from './engine/zoned';
@@ -24,17 +25,27 @@ export function sameZone(a: string, b: string): boolean {
   return a === b || (canonicalTimeZone(a) ?? a) === (canonicalTimeZone(b) ?? b);
 }
 
+/** A zone's place: "Manila" for Asia/Manila, "Knox, Indiana" for America/Indiana/Knox; nothing for UTC. */
+function placeOf(id: string): string {
+  const parts = id
+    .split('/')
+    .slice(1)
+    .map((p) => p.replace(/_/g, ' '));
+  return parts.length ? [parts.at(-1), ...parts.slice(0, -1).reverse()].join(', ') : '';
+}
+
 /**
  * How a pick names a zone: "Central Time", "Arizona Time" (which Intl calls Mountain Time, like Denver); a zone off
- * the US list by its own name and city, "Philippine Standard Time (Manila)".
+ * the US list by its own name and place, "Philippine Standard Time (Manila)".
  */
 export function zonePickLabel(zone: string): string {
   const id = canonicalTimeZone(zone) ?? zone;
   const us = US_TIME_ZONES.find((z) => z.id === id);
   if (us) return `${us.label} Time`;
+  if (id === 'UTC') return 'UTC';
   const label = zoneLabel(id);
-  const city = id.includes('/') ? id.slice(id.lastIndexOf('/') + 1).replace(/_/g, ' ') : '';
-  return city && !label.includes(city) ? `${label} (${city})` : label;
+  const place = placeOf(id);
+  return place && !label.includes(place) ? `${label} (${place})` : label;
 }
 
 /**
@@ -47,6 +58,41 @@ export function zoneChoices(calendarZone: string, picked?: string | null): reado
     .map((z) => canonicalTimeZone(z) ?? z)
     .filter((z) => !us.includes(z));
   return [...new Set([...extra, ...us])].map((id) => ({ id, label: zonePickLabel(id) }));
+}
+
+let more: readonly ZoneChoice[] | undefined;
+
+/**
+ * Every other zone HandsFreeOS knows, for "More time zones" under the US ones: place first, so a long list reads by
+ * city, "Manila (Philippine Standard Time)", in alphabetical order, with UTC last. Worked out once.
+ */
+export function moreZoneChoices(): readonly ZoneChoice[] {
+  if (!more) {
+    const us = new Set<string>(US_TIME_ZONES.map((z) => z.id));
+    more = TIME_ZONES.filter((id) => !us.has(id) && id !== 'UTC')
+      .map((id) => ({ id, label: `${placeOf(id)} (${zoneLabel(id)})` }))
+      .sort((a, b) => a.label.localeCompare(b.label, 'en'))
+      .concat({ id: 'UTC', label: 'UTC' });
+  }
+  return more;
+}
+
+/**
+ * Zones matching what someone typed, for the phone's search under its zone chips: by place or name, "manila",
+ * "london", "india", "eastern". The US zones come first.
+ */
+export function findZones(query: string, limit = 8): readonly ZoneChoice[] {
+  const q = query.trim().toLowerCase();
+  if (!q) return [];
+  const us = US_TIME_ZONES.map((z) => ({
+    id: z.id as string,
+    label: zonePickLabel(z.id),
+    also: `${z.label} ${z.example}`,
+  }));
+  return [...us, ...moreZoneChoices().map((z) => ({ ...z, also: z.id }))]
+    .filter((z) => `${z.label} ${z.also}`.toLowerCase().includes(q))
+    .slice(0, limit)
+    .map(({ id, label }) => ({ id, label }));
 }
 
 /**
