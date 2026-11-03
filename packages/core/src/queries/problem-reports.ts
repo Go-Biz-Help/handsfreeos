@@ -7,6 +7,8 @@ import { rows, sql } from '@hfos/db/client';
 import { HfosError } from '../errors';
 import { defineQuery } from '../kernel/define';
 import {
+  ProblemGroupsInput,
+  ProblemGroupsOutput,
   ProblemReportGetInput,
   ProblemReportGetOutput,
   ProblemReportListInput,
@@ -18,6 +20,9 @@ import {
   ProblemHelper,
   type HelperResult,
   type HelperVerdict,
+  type ProblemCleared,
+  type ProblemKind,
+  type ProblemLimit,
   type ProblemSource,
 } from '../schemas/problem-report';
 
@@ -39,6 +44,10 @@ type Row = {
   shown: boolean | null;
   note: string | null;
   handled_at: string | Date | null;
+  kind: ProblemKind;
+  limit_kind: ProblemLimit | null;
+  cleared: ProblemCleared | null;
+  fixed_in: string | null;
 };
 
 const iso = (at: string | Date) => new Date(at).toISOString();
@@ -59,12 +68,16 @@ const fields = (r: Row) => ({
   shown: r.shown,
   note: r.note,
   handledAt: r.handled_at ? iso(r.handled_at) : null,
+  kind: r.kind,
+  limitKind: r.limit_kind,
+  cleared: r.cleared,
+  fixedIn: r.fixed_in,
 });
 
 export const platformProblemReportList = defineQuery({
   name: 'platform.problem_report.list',
   description:
-    'Support: what HandsFreeOS’s own tools saw when something didn’t go, from every business, newest first: open, handled or both, on one area or all.',
+    'Support: what HandsFreeOS’s own tools saw when something didn’t go, from every business, newest first: open, handled or both, on one area or all, one step or all, limits or what needs a fix or both.',
   input: ProblemReportListInput,
   output: ProblemReportListOutput,
   permission: 'platform.health.read',
@@ -79,8 +92,8 @@ export const platformProblemReportList = defineQuery({
       }
     >(
       ctx.tx,
-      sql`select * from private.admin_problem_reports(${open}::boolean, ${input.area}::text,
-        ${input.before}::timestamptz, ${input.limit + 1})`,
+      sql`select * from private.admin_problem_report_page(${open}::boolean, ${input.area}::text,
+        ${input.job}::text, ${input.kind}::text, ${input.before}::timestamptz, ${input.limit + 1})`,
     );
     const areas = await rows<{ area: string; open: number }>(
       ctx.tx,
@@ -145,7 +158,7 @@ export const platformProblemReportGet = defineQuery({
         handled_by_name: string | null;
         helper: unknown;
       }
-    >(ctx.tx, sql`select * from private.admin_problem_report(${input.reportId}::uuid)`);
+    >(ctx.tx, sql`select * from private.admin_problem_report_full(${input.reportId}::uuid)`);
     if (!r)
       throw HfosError.notFound(
         'That report isn’t there anymore. Reports go after 30 days. Go back to Problem reports and pick another.',
@@ -158,6 +171,83 @@ export const platformProblemReportGet = defineQuery({
       outline: r.outline,
       handledBy: r.handled_by_name,
       helper: helper?.success ? helper.data : null,
+    };
+  },
+});
+
+/**
+ * The open reports grouped (20261027023100): the limits each business hit, and what needs a fix by problem (its area,
+ * step and words) across every business. The desk shows the limits apart, on top.
+ */
+export const platformProblemGroups = defineQuery({
+  name: 'platform.problem_report.groups',
+  description:
+    'Support: the open problem reports grouped: limits each business hit (its daily AI limit, its balance, a network refusing or warning), which clear themselves, apart from what needs a fix, by problem across every business.',
+  input: ProblemGroupsInput,
+  output: ProblemGroupsOutput,
+  permission: 'platform.health.read',
+  scope: onPlatform,
+  async handler(ctx, input) {
+    const found = await rows<{
+      kind: ProblemKind;
+      limit_kind: ProblemLimit | null;
+      workspace_id: string | null;
+      business: string | null;
+      area: string | null;
+      areas: string[] | null;
+      job: string | null;
+      note: string | null;
+      reports: number;
+      businesses: number;
+      first_at: string | Date;
+      last_at: string | Date;
+      newest_version: string | null;
+      report_id: string;
+      in_the_way: number;
+      moved: number;
+      not_looked: number;
+    }>(ctx.tx, sql`select * from private.admin_problem_groups(${input.area}::text)`);
+    const shared = (g: (typeof found)[number]) => ({
+      reports: Number(g.reports),
+      firstAt: iso(g.first_at),
+      lastAt: iso(g.last_at),
+      newestVersion: g.newest_version,
+      reportId: g.report_id,
+    });
+    return {
+      limits: found.flatMap((g) =>
+        g.kind === 'limit' && g.limit_kind && g.workspace_id
+          ? [
+              {
+                ...shared(g),
+                limitKind: g.limit_kind,
+                workspaceId: g.workspace_id,
+                business: g.business ?? '',
+                area: g.area,
+                areas: g.areas ?? [],
+                job: g.job,
+                note: g.note,
+              },
+            ]
+          : [],
+      ),
+      fixes: found.flatMap((g) =>
+        g.kind === 'fix' && g.area && g.job
+          ? [
+              {
+                ...shared(g),
+                area: g.area,
+                job: g.job,
+                note: g.note,
+                businesses: Number(g.businesses),
+                business: g.business,
+                inTheWay: Number(g.in_the_way),
+                moved: Number(g.moved),
+                notLooked: Number(g.not_looked),
+              },
+            ]
+          : [],
+      ),
     };
   },
 });
@@ -217,5 +307,6 @@ export const platformLearnedWayList = defineQuery({
 export const problemReportQueries = [
   platformProblemReportList,
   platformProblemReportGet,
+  platformProblemGroups,
   platformLearnedWayList,
 ];

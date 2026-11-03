@@ -23,6 +23,7 @@ import {
   LearnedWaySetRemovedInput,
   LearnedWaySetRemovedOutput,
 } from '../schemas/problem-report';
+import { problemKind } from '../support/problem-sort';
 
 const onPlatform = () => ({ kind: 'platform' as const });
 
@@ -43,6 +44,8 @@ export const problemReportSend = defineCommand({
     const me = requireHuman(ctx).userId;
     const ws = ctx.scope.workspaceId!;
     const report = ProblemReport.parse(input.report);
+    // A limit or a fix (20261027023100): the desk shows them apart.
+    const sorted = problemKind(report);
     const [today] = await ctx.tx
       .select({ n: count() })
       .from(problemReports)
@@ -76,6 +79,8 @@ export const problemReportSend = defineCommand({
         note: report.note,
         outline: report.outline,
         helper: report.helper,
+        kind: sorted.kind,
+        limitKind: sorted.limitKind,
       })
       .returning({ id: problemReports.id });
     await ctx.emit({
@@ -89,6 +94,7 @@ export const problemReportSend = defineCommand({
         area: report.area,
         job: report.job,
         page: report.page,
+        kind: sorted.kind,
       },
     });
     return { reportId: row!.id };
