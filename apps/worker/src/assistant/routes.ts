@@ -23,7 +23,7 @@ import { openStream } from '../http/sse';
 import { ADDON_WORKER_MODULES } from '../addons/modules';
 import type { AddonWorkerModule } from '../addons/types';
 import { personQuery, questionContext } from './context';
-import { ask, warmUp, type ToolContext, type ToolExecutor } from './runtime';
+import { ask, SHUTTING_DOWN, warmUp, type ToolContext, type ToolExecutor } from './runtime';
 import { addonActionToolByName } from './tools-addons';
 import * as store from './store';
 import type { AiProvider } from '@hfos/ai';
@@ -78,6 +78,38 @@ export const WARMS_PER_MINUTE = 12;
 /** Runs in progress on this machine, so Stop can reach them. */
 const running = new Map<string, { readonly userId: string; readonly stop: AbortController }>();
 
+/**
+ * Every question being answered on this machine, whether or not anyone is still listening (most people ask and
+ * leave), so a shutdown can let them finish: `settleAssistantRuns`.
+ */
+const answering = new Set<{ readonly stop: AbortController; readonly done: Promise<void> }>();
+
+/** After a shutdown's grace runs out, how long the answers it stopped get to save their line. */
+const SAVE_AFTER_STOP_MS = 5_000;
+
+/**
+ * For a shutdown (main.ts): waits up to `graceMs` for the questions being answered here to finish and save. Any
+ * still going then are stopped, and each saves what it had with a line saying an update cut it off
+ * (`CUT_OFF_BY_UPDATE`), so the person comes back to that rather than to a question with nothing under it. Answers
+ * how many were going.
+ */
+export async function settleAssistantRuns(graceMs: number): Promise<number> {
+  const going = [...answering];
+  if (!going.length) return 0;
+  const all = () => Promise.allSettled(going.map((a) => a.done));
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const late = await Promise.race([
+    all().then(() => false),
+    new Promise<boolean>((done) => (timer = setTimeout(() => done(true), graceMs))),
+  ]);
+  clearTimeout(timer);
+  if (late) {
+    for (const a of going) a.stop.abort(SHUTTING_DOWN);
+    await Promise.race([all(), new Promise((done) => setTimeout(done, SAVE_AFTER_STOP_MS))]);
+  }
+  return going.length;
+}
+
 export function registerAssistantRoutes(
   app: FastifyInstance,
   deps: HttpDeps,
@@ -114,51 +146,61 @@ export function registerAssistantRoutes(
     const stream = openStream<AssistantEvent>(reply);
     const stop = new AbortController();
     let runId: string | null = null;
+    const answer = async () => {
+      try {
+        // The run finishes and saves even if the browser or the phone app goes away; only Stop ends it early (and
+        // a shutdown, once its grace runs out: settleAssistantRuns).
+        await ask(
+          {
+            db: deps.httpDb,
+            provider: assistant.provider,
+            tools: assistant.tools,
+            wallet: deps.wallet,
+            log: deps.log,
+          },
+          {
+            actor,
+            workspaceId: input.workspaceId,
+            organizationId: context.organizationId,
+            ...(input.threadId ? { threadId: input.threadId } : {}),
+            text: input.text,
+            page: input.page,
+            tools: context.tools,
+            prompt,
+            receivedAt,
+          },
+          (event) => {
+            if (event.type === 'run') {
+              runId = event.runId;
+              running.set(event.runId, { userId: actor.userId, stop });
+            }
+            stream.send(event);
+          },
+          stop.signal,
+        );
+      } catch (e) {
+        const busyElsewhere = e instanceof HfosError && e.rule === 'already_running';
+        if (!busyElsewhere && !(e instanceof HfosError))
+          deps.log.error({ err: e }, 'assistant question failed');
+        stream.send({
+          type: 'error',
+          code: busyElsewhere ? 'already_running' : 'failed',
+          message:
+            e instanceof HfosError
+              ? e.message
+              : 'Something went wrong on our side. Try again in a minute.',
+        });
+      } finally {
+        if (runId) running.delete(runId);
+        stream.end();
+      }
+    };
+    const entry = { stop, done: answer() };
+    answering.add(entry);
     try {
-      // The run finishes and saves even if the browser goes away; only Stop ends it early.
-      await ask(
-        {
-          db: deps.httpDb,
-          provider: assistant.provider,
-          tools: assistant.tools,
-          wallet: deps.wallet,
-          log: deps.log,
-        },
-        {
-          actor,
-          workspaceId: input.workspaceId,
-          organizationId: context.organizationId,
-          ...(input.threadId ? { threadId: input.threadId } : {}),
-          text: input.text,
-          page: input.page,
-          tools: context.tools,
-          prompt,
-          receivedAt,
-        },
-        (event) => {
-          if (event.type === 'run') {
-            runId = event.runId;
-            running.set(event.runId, { userId: actor.userId, stop });
-          }
-          stream.send(event);
-        },
-        stop.signal,
-      );
-    } catch (e) {
-      const busyElsewhere = e instanceof HfosError && e.rule === 'already_running';
-      if (!busyElsewhere && !(e instanceof HfosError))
-        deps.log.error({ err: e }, 'assistant question failed');
-      stream.send({
-        type: 'error',
-        code: busyElsewhere ? 'already_running' : 'failed',
-        message:
-          e instanceof HfosError
-            ? e.message
-            : 'Something went wrong on our side. Try again in a minute.',
-      });
+      await entry.done;
     } finally {
-      if (runId) running.delete(runId);
-      stream.end();
+      answering.delete(entry);
     }
   });
 

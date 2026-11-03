@@ -26,7 +26,8 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { consentToAssistant } from './assistant-consent';
 import { ScriptedProvider, type AiProvider, type AiRequest } from '@hfos/ai';
 import { SPOKEN } from '../src/assistant/prompt';
-import { WARMS_PER_MINUTE } from '../src/assistant/routes';
+import { settleAssistantRuns, WARMS_PER_MINUTE } from '../src/assistant/routes';
+import { CUT_OFF_BY_UPDATE } from '../src/assistant/runtime';
 import { scriptedAssistant } from '../src/assistant/scripted';
 import { createToolExecutor, executorFor } from '../src/assistant/tools-write';
 import { buildHttpServer } from '../src/http/server';
@@ -597,4 +598,126 @@ describe('the Assistant', () => {
       await none.close();
     }
   });
+});
+
+/**
+ * Asking and leaving: the answer finishes and saves on the worker whether or not anyone is still listening, the
+ * saved chat says while it's still coming (`answering`), and a shutdown lets answers finish before it stops them,
+ * leaving a line saying an update cut them off.
+ */
+describe('asking and leaving', () => {
+  const slow = (thinkMs: number) =>
+    new ScriptedProvider([
+      {
+        when: /take your time/i,
+        thinkMs,
+        reply: () => 'All done. I finished while you were away.',
+      },
+    ]);
+  const chatOf = (threadId: string) =>
+    executeQuery(api(), assistantThreadGet, { workspaceId, threadId }, actor(owner), meta());
+  const runOf = async (runId: string) =>
+    (
+      await rows<{ status: string; error: string | null }>(
+        admin(),
+        sql`select status, error from app.assistant_runs where id = ${runId}`,
+      )
+    )[0]!;
+
+  it('finishes and saves the answer after the person leaves, and the chat says it’s coming meanwhile', async () => {
+    const server = await build('scripted', slow(1_500));
+    try {
+      await server.listen({ port: 0, host: '127.0.0.1' });
+      const address = server.server.address();
+      const port = typeof address === 'object' && address ? address.port : 0;
+      const leave = new AbortController();
+      const res = await fetch(`http://127.0.0.1:${port}/v1/assistant/messages`, {
+        method: 'POST',
+        headers: { authorization: `Bearer ${ownerToken}`, 'content-type': 'application/json' },
+        body: JSON.stringify({ workspaceId, text: 'Take your time: what’s new?' }),
+        signal: leave.signal,
+      });
+      expect(res.status).toBe(200);
+      // Read until the worker names the run, then leave: closing the tab, or the phone app.
+      const reader = res.body!.getReader();
+      let read = '';
+      while (!read.includes('"type":"run"')) {
+        const chunk = await reader.read();
+        if (chunk.done) break;
+        read += new TextDecoder().decode(chunk.value);
+      }
+      const run = JSON.parse(
+        read
+          .split('\n\n')
+          .find((b) => b.includes('"type":"run"'))!
+          .slice(6),
+      ) as { runId: string; threadId: string };
+      leave.abort();
+
+      const meanwhile = await chatOf(run.threadId);
+      expect(meanwhile.answering).toMatchObject({ runId: run.runId });
+      expect(meanwhile.messages.map((m) => m.role)).toEqual(['user']);
+
+      let landed = meanwhile;
+      for (let i = 0; i < 50 && landed.answering; i++) {
+        await new Promise((r) => setTimeout(r, 200));
+        landed = await chatOf(run.threadId);
+      }
+      expect(landed.answering).toBe(null);
+      expect(landed.messages.map((m) => [m.role, m.text])).toEqual([
+        ['user', 'Take your time: what’s new?'],
+        ['assistant', 'All done. I finished while you were away.'],
+      ]);
+      expect(await runOf(run.runId)).toEqual({ status: 'done', error: null });
+    } finally {
+      await server.close();
+    }
+  });
+
+  it('lets an answer finish when the worker shuts down, if it can', async () => {
+    const server = await build('scripted', slow(300));
+    try {
+      const asked = ask(ownerToken, 'Take your time, please', {}, server);
+      await until(async () => (await runningRuns()).length === 1);
+      expect(await settleAssistantRuns(10_000)).toBe(1);
+      const events = await asked;
+      expect(events.at(-1)).toMatchObject({ type: 'done' });
+      expect(textOf(events)).toBe('All done. I finished while you were away.');
+    } finally {
+      await server.close();
+    }
+  });
+
+  it('stops one still going when the shutdown’s grace runs out, and the chat says an update cut it off', async () => {
+    const server = await build('scripted', slow(30_000));
+    try {
+      const asked = ask(ownerToken, 'Take your time on this one', {}, server);
+      await until(async () => (await runningRuns()).length === 1);
+      expect(await settleAssistantRuns(100)).toBe(1);
+      const events = await asked;
+      const run = events[0]!.type === 'run' ? events[0]! : null;
+      expect(events.at(-1)).toEqual({ type: 'error', code: 'failed', message: CUT_OFF_BY_UPDATE });
+      const saved = await chatOf(run!.threadId);
+      expect(saved.answering).toBe(null);
+      expect(saved.messages.at(-1)).toMatchObject({ role: 'assistant', text: CUT_OFF_BY_UPDATE });
+      expect(await runOf(run!.runId)).toEqual({ status: 'failed', error: 'Cut off by a shutdown' });
+      // Nothing was going: nothing to wait for.
+      expect(await settleAssistantRuns(10_000)).toBe(0);
+    } finally {
+      await server.close();
+    }
+  });
+
+  const runningRuns = () =>
+    rows<{ id: string }>(
+      admin(),
+      sql`select id from app.assistant_runs where user_id = ${owner.id} and status = 'running'`,
+    );
+  async function until(ok: () => Promise<boolean>) {
+    for (let i = 0; i < 100; i++) {
+      if (await ok()) return;
+      await new Promise((r) => setTimeout(r, 50));
+    }
+    throw new Error('It never happened.');
+  }
 });

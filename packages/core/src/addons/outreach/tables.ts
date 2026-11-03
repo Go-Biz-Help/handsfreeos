@@ -38,6 +38,8 @@ import type {
 import type { EngagementKind, HelpfulState } from './helpful';
 import type { TallyKind } from './tallies';
 import type { KeptTime, TimeBooking, TimeOfferState } from './meeting-times';
+import type { AutopilotState } from './autopilot';
+import type { TodayKind } from './today';
 import type { ChatReadState } from './chat-read';
 import type { CheckVerdict, RequestAnswer } from './checks';
 import type {
@@ -719,6 +721,13 @@ export const automation = addonOutreach.table(
     userId: uuid('user_id')
       .notNull()
       .references(() => users.id, { onDelete: 'cascade' }),
+    /**
+     * Autopilot (../autopilot.ts, decision 151): everything on its own, the people it reaches OK'd a day at a time. The
+     * choices below stay the person's own under it.
+     */
+    autopilot: boolean('autopilot').notNull().default(false),
+    /** The business's day Autopilot's list was last made for them: once a day, whatever's found after waits. */
+    autopilotListedOn: date('autopilot_listed_on', { mode: 'string' }),
     sending: text('sending').notNull().default('off').$type<SendingMode>(),
     replies: text('replies').notNull().default('draft').$type<ReplyMode>(),
     tidying: text('tidying').notNull().default('off'),
@@ -1736,6 +1745,45 @@ export const followerReads = addonOutreach.table(
 );
 
 /**
+ * The people Autopilot asks the person about (../autopilot.ts, decision 151): one row a person and profile, from the
+ * first day it planned to reach them. Waiting till they OK the day's list, OK'd for good once they do (the steps after
+ * go without asking again), or left out for the day (`not_today`), which puts them on the next day's list. `day` is the
+ * business's day of the list they were last on; `kind` and `why` what it planned for them then; `spare` whether they
+ * were one past the day's limits, to go only when someone's taken off. Each person's own.
+ */
+export const autopilotPeople = addonOutreach.table(
+  'autopilot_people',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    workspaceId: workspaceRef(),
+    userId: uuid('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    profileId: uuid('profile_id').notNull(),
+    platform: text('platform').notNull().$type<Platform>(),
+    day: date('day', { mode: 'string' }).notNull(),
+    state: text('state').notNull().default('waiting').$type<AutopilotState>(),
+    kind: text('kind').notNull().$type<TodayKind>(),
+    why: text('why')
+      .array()
+      .notNull()
+      .default(sql`'{}'`),
+    spare: boolean('spare').notNull().default(false),
+    okdAt: ts('okd_at'),
+    createdAt: ts('created_at').notNull().defaultNow(),
+    updatedAt: ts('updated_at').notNull().defaultNow(),
+  },
+  (t) => [
+    unique().on(t.workspaceId, t.id),
+    unique().on(t.workspaceId, t.userId, t.profileId),
+    foreignKey({
+      columns: [t.workspaceId, t.profileId],
+      foreignColumns: [profiles.workspaceId, profiles.id],
+    }).onDelete('cascade'),
+  ],
+);
+
+/**
  * A drafted message that offers times on a booking page's calendar, or books one (./meeting-times.ts, decision 149;
  * 20261027022500). The message queued from one of its drafts takes it (`sendId`): once OK'd it waits while the times
  * are checked again and the booking made (`drafted`, `checking`), then goes (`ready`, `booked`), or is written again
@@ -1781,6 +1829,7 @@ export const timeOffers = addonOutreach.table(
 export const OUTREACH_TABLES = {
   asks,
   automation,
+  autopilotPeople,
   checks,
   computers,
   days,

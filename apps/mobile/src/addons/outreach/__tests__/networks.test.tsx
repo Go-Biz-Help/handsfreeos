@@ -626,6 +626,7 @@ const AUTOMATION: AutomationOutput = {
     dailyLimits: {},
     networksAllowed: ['facebook', 'linkedin'],
     networkLimits: {},
+    autopilotAllowed: true,
   },
 };
 

@@ -170,6 +170,7 @@ export function NetworkMine({
                 repliesAllowed={automation.rules.repliesAllowed}
                 postingAllowed={automation.rules.postingAllowed}
                 wheelsFrom={wheels.from}
+                piloted={value.autopilot}
                 boxed
                 disabled={disabled}
                 testID={testID}
@@ -178,6 +179,7 @@ export function NetworkMine({
                 platform={p}
                 value={choices}
                 onChange={set}
+                piloted={value.autopilot}
                 boxed
                 disabled={disabled}
                 testID={testID}

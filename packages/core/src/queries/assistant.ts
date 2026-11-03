@@ -1,5 +1,10 @@
 import { and, asc, desc, eq, isNull, sql as dsql } from 'drizzle-orm';
-import { assistantMessages, assistantThreads, assistantToolCalls } from '@hfos/db/schema';
+import {
+  assistantMessages,
+  assistantRuns,
+  assistantThreads,
+  assistantToolCalls,
+} from '@hfos/db/schema';
 import { HfosError } from '../errors';
 import { requireHuman } from '../kernel/actor';
 import { defineQuery } from '../kernel/define';
@@ -96,7 +101,24 @@ export const assistantThreadGet = defineQuery({
       .from(assistantToolCalls)
       .where(eq(assistantToolCalls.threadId, thread.id))
       .orderBy(asc(assistantToolCalls.createdAt), asc(assistantToolCalls.id));
+    // An answer still coming. Five minutes matches the worker's own cut-off (startRun, apps/worker/src/assistant/
+    // store.ts): a run left running longer than that was cut off, and the next question marks it so.
+    const [answering] = await ctx.tx
+      .select({ runId: assistantRuns.id, startedAt: assistantRuns.startedAt })
+      .from(assistantRuns)
+      .where(
+        and(
+          eq(assistantRuns.threadId, thread.id),
+          eq(assistantRuns.status, 'running'),
+          dsql`${assistantRuns.startedAt} > now() - interval '5 minutes'`,
+        ),
+      )
+      .orderBy(desc(assistantRuns.startedAt))
+      .limit(1);
     return {
+      answering: answering
+        ? { runId: answering.runId, startedAt: answering.startedAt.toISOString() }
+        : null,
       thread: summaryOut(thread),
       messages: messages.map((m) => ({
         id: m.id,

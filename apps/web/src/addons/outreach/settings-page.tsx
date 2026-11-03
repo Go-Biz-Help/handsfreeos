@@ -83,6 +83,7 @@ import { AskedCard, ComputersCard, useServerNow } from './live-view';
 import { RunNowAll } from './run-now';
 import {
   AllowedPicks,
+  AutopilotPart,
   DefaultsFold,
   ExtensionTicks,
   HoursPart,
@@ -117,6 +118,7 @@ type Rules = Pick<
   | 'dailyLimits'
   | 'networksAllowed'
   | 'networkLimits'
+  | 'autopilotAllowed'
 >;
 
 interface Props {
@@ -287,6 +289,7 @@ function SettingsPages({
             business={business}
             person={person}
             statuses={statuses}
+            autopilotAllowed={rules.autopilotAllowed}
           />
           {/* Their own profiles on every network, side by side (decision 84). */}
           {mine ? (
@@ -385,6 +388,7 @@ function GeneralPage({
   business,
   person,
   statuses,
+  autopilotAllowed,
 }: {
   workspaceId: string;
   me: Automation;
@@ -392,6 +396,7 @@ function GeneralPage({
   business: Readonly<Record<string, unknown>> | null;
   person: Autosave<AutomationSettings>;
   statuses: readonly SaveStatus[];
+  autopilotAllowed: boolean;
 }) {
   const own = { value: person.value, onChange: person.set, card: true, testId: 'outreach-my' };
   return (
@@ -433,6 +438,16 @@ function GeneralPage({
           {W.changedBy(me.changedBy)}
         </p>
       ) : null}
+      {/* Autopilot first (decision 151, answer 7a): one switch for every network they work. */}
+      <AutopilotPart
+        {...own}
+        testId="outreach-autopilot"
+        allowed={autopilotAllowed}
+        wheels={
+          me.wheels.on ||
+          OTHER_PLATFORMS.some((p) => me.networkWheels[p].on && person.value.networks[p].on)
+        }
+      />
       <VoicePart {...own} />
       <HoursPart {...own} timezone={me.timezone} />
       <PushesPart {...own} switches />
@@ -800,6 +815,7 @@ function NetworkPage({
                 repliesAllowed={rules.repliesAllowed}
                 postingAllowed={rules.postingAllowed}
                 wheelsStart={!wheels.from}
+                piloted={person.value.autopilot}
                 testId={testId}
               />
               <NetworkTicks
@@ -807,6 +823,7 @@ function NetworkPage({
                 platform={platform}
                 value={choices}
                 onChange={set}
+                piloted={person.value.autopilot}
                 testId={testId}
               />
               <NetworkTidy

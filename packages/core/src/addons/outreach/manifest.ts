@@ -165,6 +165,8 @@ export const outreachAddon = defineAddon({
       'outreach.requests.paused',
       'outreach.requests.started_again',
       'outreach.times.check',
+      'outreach.autopilot.listed',
+      'outreach.autopilot.answered',
     ],
     // The last part of a download, and chats read in Messenger, start the AI's read of the chats
     // (apps/worker/src/addons/outreach/chats.ts); group posts worth a look start its check of them (./posts.ts), and
@@ -243,6 +245,8 @@ export const outreachAddon = defineAddon({
     'outreach.pick_like_yours',
     'outreach.goal_check',
     'outreach.goal_midday',
+    'outreach.autopilot_list',
+    'outreach.autopilot_reminder',
   ],
   // Who from the chats brought in goes in Contacts (./chat-read.ts), how long a sent request waits, the hour of the
   // morning push, the weekly report, and which countries it reaches: Social Outreach → Settings → General, For your
@@ -253,6 +257,7 @@ export const outreachAddon = defineAddon({
     'ask_codes',
     'asks',
     'automation',
+    'autopilot_people',
     'checks',
     'computers',
     'days',
