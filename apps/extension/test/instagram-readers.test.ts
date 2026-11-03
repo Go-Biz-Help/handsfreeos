@@ -682,6 +682,7 @@ describe('a chat, as the owner’s Check of 21 Oct 2026 outlined one', () => {
         threadKey: '340282366841710300',
         profile: { id: null, username: 'dana.reyes', url: `${IG}/dana.reyes/` },
         when: null,
+        last: { line: 'Dana sent an attachment.', where: 'list' },
       },
     ]);
     const found = pageFound(readLooking(doc, doc.location.href, INSTAGRAM));

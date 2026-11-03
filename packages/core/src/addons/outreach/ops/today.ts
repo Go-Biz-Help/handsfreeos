@@ -25,6 +25,7 @@ import {
   underAPost,
   type RequestMode,
 } from '../automation';
+import { REPLY_STARTS } from '../alerts';
 import { GROUP_REPLY_WORDS, groupRepliesOn, REPLY_KEPT_DAYS } from '../active';
 import { demoLink, demoRef } from '../demos';
 import { bestFit, type Fit, type FitPlaybook } from '../fit';
@@ -1593,9 +1594,10 @@ export const today = defineAddonQuery(outreachAddon, {
 
     // Follow-ups and replies in chats that started another way (Reconnect, the download file, someone who wrote
     // first): likely prospects whose chat's last message was the person's, a few quiet days ago, until their first
-    // follow-up starts a conversation; and those who wrote last, lately. A client (decision 91) gets the reply alone.
-    // Nobody the chat's read says turned the offer down gets a follow-up, and a chat read as come to a close gets no
-    // reply (decision 134).
+    // follow-up starts a conversation; and those who wrote last, lately, likely prospects or anyone who wrote after a
+    // message, request or comment of the person's (decision 150, `REPLY_STARTS`). A client (decision 91) gets the
+    // reply alone. Nobody the chat's read says turned the offer down gets a follow-up, and a chat read as come to a
+    // close gets no reply (decision 134).
     const chats = await rows<{
       id: string;
       name: string;
@@ -1611,7 +1613,14 @@ export const today = defineAddonQuery(outreachAddon, {
       sql`select c.id, c.name, c.profile_id, p.url, c.thread_key, c.last_at, c.last_from_me, c.summary,
             c.next_step
           from addon_outreach.file_chats c left join addon_outreach.profiles p on p.id = c.profile_id
-          where c.workspace_id = ${ws} and c.user_id = ${me} and c.read_state = 'read' and c.prospect
+          where c.workspace_id = ${ws} and c.user_id = ${me} and c.read_state = 'read'
+            and (c.prospect or (not c.last_from_me and exists (select 1 from addon_outreach.touches t
+              where t.profile_id = c.profile_id and t.user_id = ${me}
+                and t.kind in (${sql.join(
+                  REPLY_STARTS.map((kind) => sql`${kind}`),
+                  sql`, `,
+                )})
+                and t.at < c.last_at + interval '1 minute')))
             and c.platform = ${input.platform}
             and (p.id is null or (${pitchable('p')} and ${openToMe(me, 'p')}
               and (not c.last_from_me or (${lets} and not ${isClient('p')}))))

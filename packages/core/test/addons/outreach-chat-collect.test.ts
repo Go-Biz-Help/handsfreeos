@@ -66,7 +66,7 @@ describe('chats read in Messenger', () => {
   };
 
   it('keeps a chat for the AI, with its number and who it’s with', async () => {
-    expect(await collect([avery])).toEqual({ saved: 1, waiting: 1 });
+    expect(await collect([avery])).toEqual({ saved: 1, waiting: 1, replied: [] });
     const c = await chatOf('Avery Lane');
     expect(c).toMatchObject({
       read_state: 'waiting',
@@ -90,13 +90,14 @@ describe('chats read in Messenger', () => {
       admin(),
       sql`update addon_outreach.file_chats set read_state = 'read' where workspace_id = ${ws}`,
     );
-    expect(await collect([avery])).toEqual({ saved: 0, waiting: 0 });
+    expect(await collect([avery])).toEqual({ saved: 0, waiting: 0, replied: [] });
     expect((await chatOf('Avery Lane'))!.read_state).toBe('read');
 
     // Scrolled up: an older message fills in, and the read stands.
     expect(await collect([{ ...avery, messages: [me('Hello again', daysAgo(5))] }])).toEqual({
       saved: 1,
       waiting: 0,
+      replied: [],
     });
     const older = await chatOf('Avery Lane');
     expect(older!.read_state).toBe('read');
@@ -109,7 +110,7 @@ describe('chats read in Messenger', () => {
     // A new message from them is read again.
     expect(
       await collect([{ ...avery, messages: [...avery.messages, them('How much?', daysAgo(1))] }]),
-    ).toEqual({ saved: 1, waiting: 1 });
+    ).toEqual({ saved: 1, waiting: 1, replied: [] });
     expect((await chatOf('Avery Lane'))!.read_state).toBe('waiting');
   });
 
