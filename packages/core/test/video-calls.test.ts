@@ -32,6 +32,7 @@ import {
   VIDEO_CALL_CHAT_NOT_FOR_AI,
   videoCallAdmit,
   videoCallChat,
+  videoCallChatGet,
   videoCallCoach,
   videoCallEnd,
   videoCallEnter,
@@ -732,6 +733,14 @@ describe('what the AI heard', () => {
       ),
     );
     expect(rewritten.code).toBe('42501');
+    // The team reads it from the appointment.
+    expect(
+      await ask(videoCallChatGet, { workspaceId: t.wsId, appointmentId }, t.owner),
+    ).toMatchObject({
+      callId,
+      more: 0,
+      messages: [{ name: 'Sol Customer', side: 'customer', body: 'Before: sol@example.com' }],
+    });
     const [changed] = await events('video_call.ai_changed', callId);
     expect(changed!.payload).toMatchObject({ appointmentId, on: false, forgotten: 2 });
     expect(await ask(videoCallGet, { workspaceId: t.wsId, callId }, t.owner)).toMatchObject({

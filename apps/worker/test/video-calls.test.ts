@@ -706,7 +706,7 @@ describe('what a call screen downloaded', () => {
 
 describe('the chat', () => {
   it('is kept for every call, AI notes off too, each message from its own sender’s ticket', async () => {
-    const c = await inCall('Sol');
+    const c = await walkIn('Sol');
     expect(
       await run(w, videoCallSetAi, { workspaceId: w.workspaceId, callId: c.callId, on: false }),
     ).toEqual({ changed: true, aiNotes: false });
@@ -760,11 +760,11 @@ describe('the chat', () => {
       },
     ]);
 
-    // The team reads it with the call, from its appointment.
+    // The team reads it with the call.
     expect(
       await query(w, videoCallChatGet, {
         workspaceId: w.workspaceId,
-        appointmentId: c.appointmentId,
+        callId: c.callId,
       }),
     ).toEqual({
       callId: c.callId,
@@ -797,12 +797,12 @@ describe('the chat', () => {
     await hook('room_finished', c.room, { roomSid: c.roomSid, at: endedAt });
     await drain(w);
     await runDue(w, [`video_call.keep_words:${c.roomSid}`]);
-    expect(await transcriptsOf(c.appointmentId)).toEqual([]);
+    expect(await callTranscriptsOf(c.callId)).toEqual([]);
     expect((await chatOf(c.callId)).map((m) => m.stretch)).toEqual([c.roomSid, c.roomSid]);
   });
 
   it('never gives the AI what was typed before its notes went off, or while they were off', async () => {
-    const c = await inCall('Lu');
+    const c = await walkIn('Lu');
     const ai = (on: boolean) =>
       run(w, videoCallSetAi, { workspaceId: w.workspaceId, callId: c.callId, on });
     await reportChat({
@@ -825,7 +825,7 @@ describe('the chat', () => {
     await hook('room_finished', c.room, { roomSid: c.roomSid, at: endedAt });
     await drain(w);
     await runDue(w, [`video_call.keep_words:${c.roomSid}`]);
-    const [kept] = await transcriptsOf(c.appointmentId);
+    const [kept] = await callTranscriptsOf(c.callId);
     expect(kept?.body).toBe(`Lu Customer (in the chat): ${after}`);
     // All three stay with the call for the team.
     expect((await chatOf(c.callId)).map((m) => m.stretch)).toEqual([
@@ -998,6 +998,60 @@ async function inCall(first: string) {
   return { ...b, roomSid, team, customerId: them.personId, customerTicket: them.ticket.token };
 }
 
+/**
+ * The team and a customer in a call that isn't for an appointment (part 5), so it takes none of the calendar's next
+ * hour, which the tests that need a booking share.
+ */
+async function walkIn(first: string) {
+  const [person] = await rows<{ id: string }>(
+    admin(),
+    sql`insert into app.people (workspace_id, first_name, last_name, email)
+        values (${w.workspaceId}, ${first}, 'Customer', ${`${first.toLowerCase()}-${randomUUID().slice(0, 8)}@example.com`})
+        returning id`,
+  );
+  const started = await w.app.inject({
+    method: 'POST',
+    url: '/v1/video-calls/start',
+    headers: { 'content-type': 'application/json', authorization: `Bearer ${ownerToken}` },
+    payload: JSON.stringify({ workspaceId: w.workspaceId, personId: person!.id }),
+  });
+  expect(started.statusCode, started.body).toBe(200);
+  const { callId, conversationId } = started.json() as { callId: string; conversationId: string };
+  const [m] = await rows<{ body_text: string }>(
+    admin(),
+    sql`select body_text from app.messages where conversation_id = ${conversationId}`,
+  );
+  const link = /(https?:\/\/\S+\/j\/[0-9A-Za-z]{32})(?:\s|$)/.exec(m!.body_text)![1]!;
+  const room = videoCallRoom(callId);
+  const roomSid = `RM_${randomUUID().slice(0, 12)}`;
+  const team = (await teamJoin(ownerToken, callId)).json() as {
+    personId: string;
+    name: string;
+    ticket: { token: string };
+  };
+  await cameIn(room, team.personId, { roomSid });
+  const them = (await enter(link, { name: `${first} Customer` })).json() as {
+    personId: string;
+    ticket: { token: string };
+  };
+  await cameIn(room, them.personId, { roomSid });
+  return {
+    callId,
+    room,
+    roomSid,
+    team,
+    customerId: them.personId,
+    customerTicket: them.ticket.token,
+  };
+}
+
+/** What a call that isn't for an appointment kept as its transcript. */
+const callTranscriptsOf = (callId: string) =>
+  rows<{ id: string; body: string }>(
+    admin(),
+    sql`select id, body from app.appointment_transcripts where video_call_id = ${callId}`,
+  );
+
 const asSystem = () =>
   systemActor({ workspaceId: w.workspaceId, organizationId: w.organizationId });
 
@@ -1124,7 +1178,7 @@ describe('the AI hearing the call', () => {
   });
 
   it('puts what was typed in the chat in the transcript beside what was said', async () => {
-    const c = await inCall('Rae');
+    const c = await walkIn('Rae');
     w.s.videoCalls.inRooms.set(c.room, { people: 2, listener: false });
     const t = listening();
     try {
@@ -1155,7 +1209,7 @@ describe('the AI hearing the call', () => {
       ).toBe(200);
       await drain(w);
       await runDue(w, [`video_call.keep_words:${c.roomSid}`]);
-      const [kept] = await transcriptsOf(c.appointmentId);
+      const [kept] = await callTranscriptsOf(c.callId);
       expect(kept?.body).toBe(
         [
           `Rae Customer: ${FAKE_HEARD} ${FAKE_HEARD}`,
