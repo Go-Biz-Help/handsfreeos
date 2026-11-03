@@ -362,7 +362,8 @@ export const VIDEO_CALL_CHAT_MAX_PER_PERSON = 500;
 
 /**
  * What a chat message is marked with, in place of the stretch that took it, when the AI's notes were off as it was
- * typed, or went off after: it stays with the call for the team, and no transcript or coach ever has it.
+ * typed, or went off after: it stays with the call for the team, and no transcript or coach ever has it. The
+ * database lets the team write only this (20261027022800_video_call_chat.sql, `video_call_messages_not_for_ai`).
  */
 export const VIDEO_CALL_CHAT_NOT_FOR_AI = 'ai-off';
 

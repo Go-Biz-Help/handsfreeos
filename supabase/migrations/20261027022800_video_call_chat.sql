@@ -19,7 +19,7 @@
 --          what was said ("Dana (in the chat): …"), while the call's AI
 --          notes are on, and are marked with that stretch either way.
 --
--- Only widens: a new table that only the worker writes.
+-- Only widens: a new table that only the worker writes, but for the team's mark when AI notes change.
 -- =============================================================================
 
 create table app.video_call_messages (
@@ -53,16 +53,23 @@ comment on table app.video_call_messages is
 create trigger video_call_messages_check_refs before insert or update on app.video_call_messages
   for each row execute function private.check_video_call_line_refs();
 
--- Whoever can see the call (and the person who sent it) can read the chat; only the worker writes it.
+-- Whoever can see the call (and the person who sent it) can read the chat; only the worker writes it. The team,
+-- turning the call's AI notes off or on, can only mark the messages not yet taken as never the AI's ('ai-off', core's
+-- VIDEO_CALL_CHAT_NOT_FOR_AI), never change what was typed.
 alter table app.video_call_messages enable row level security;
 
 create policy video_call_messages_select on app.video_call_messages for select to authenticated
   using (video_call_id in (select c.id from app.video_calls c)
     and person_row_id in (select p.id from app.video_call_people p));
+create policy video_call_messages_not_for_ai on app.video_call_messages for update to authenticated
+  using (private.has_permission(workspace_id, 'appointments.write')
+    and video_call_id in (select c.id from app.video_calls c)
+    and stretch is null)
+  with check (private.has_permission(workspace_id, 'appointments.write') and stretch = 'ai-off');
 create policy video_call_messages_service_all on app.video_call_messages for all to service_actor
   using (workspace_id = private.system_scope_workspace())
   with check (workspace_id = private.system_scope_workspace());
 
-grant select on app.video_call_messages to authenticated;
+grant select, update (stretch) on app.video_call_messages to authenticated;
 grant select, insert, update, delete on app.video_call_messages to service_actor;
 revoke all on app.video_call_messages from anon;
