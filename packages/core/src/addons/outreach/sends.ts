@@ -289,27 +289,31 @@ export function goesAsItIs(o: {
   readonly wheels: boolean;
   readonly kind: SendKind;
   readonly simple: boolean;
-  /** From `replyNeedsYou`, or why a comment waits for an OK of its own. */
+  /** From `replyNeedsYou`, or why a comment or message waits for an OK of its own. */
   readonly needsYou: string | null;
   /** For a comment or a reply in a group: whether its network's comment hold is on (`commentHoldOn`). */
   readonly held?: boolean;
+  /** Autopilot is on (decision 149): what waits for an OK of its own under any other choice goes too. */
+  readonly autopilot?: boolean;
 }): boolean {
+  if (o.wheels || o.sending === 'off') return false;
   // A partner's messages wait for the person's OK, whatever Sending says (decision 81), and so do another time after
-  // a no-show (decision 106) and a birthday or new-job note (decision 108).
+  // a no-show (decision 106) and a birthday or new-job note (decision 108); not under Autopilot (decision 149, answer
+  // 1a), where they go as the rest do, to people the person OK'd.
   if (
-    o.wheels ||
-    o.sending === 'off' ||
-    o.kind.startsWith('partner_') ||
-    o.kind === 'rebook' ||
-    o.kind === 'birthday' ||
-    o.kind === 'new_job'
+    !o.autopilot &&
+    (o.kind.startsWith('partner_') ||
+      o.kind === 'rebook' ||
+      o.kind === 'birthday' ||
+      o.kind === 'new_job')
   )
     return false;
   // A comment, or a reply in a group, goes on its own with any Sending but Off, once its hold is off, unless it needs
   // the person (decisions 92 and 114).
   if (underAPost(o.kind)) return !o.held && !o.needsYou;
-  if (o.kind !== 'reply') return o.sending === 'everything';
   if (o.needsYou) return false;
+  // A partner's reply goes as a reply does, under Autopilot.
+  if (o.kind !== 'reply' && o.kind !== 'partner_reply') return o.sending === 'everything';
   return o.replies === 'everything' || (o.replies === 'simple' && o.simple);
 }
 

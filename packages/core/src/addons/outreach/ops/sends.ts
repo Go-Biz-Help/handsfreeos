@@ -14,6 +14,7 @@ import { FRESH_MINUTES } from '../../../mobile';
 import { defineAddonCommand, defineAddonQuery } from '../../server';
 import { outreachAddon } from '../manifest';
 import { GROUP_REPLIES_SINCE, groupRepliesOn } from '../active';
+import { AUTOPILOT_WORDS, waitsForPeopleOk } from '../autopilot';
 import { underAPost, type PostSendKind, type SendKind } from '../automation';
 import { chatUrlOn } from '../network-words';
 import { NETWORKS, PLATFORMS, type Platform } from '../networks';
@@ -344,7 +345,21 @@ export const sendQueue = defineAddonCommand(outreachAddon, {
             .where(and(eq(fileChats.workspaceId, ws), eq(fileChats.id, input.chatId)))
         : [];
     // The person's choices and training wheels on the network the message goes on: each network's are its own.
-    const { choices: settings, wheels } = await automationOf(ctx, me, Date.now(), profile.platform);
+    const {
+      choices: settings,
+      wheels,
+      settings: { autopilot },
+    } = await automationOf(ctx, me, Date.now(), profile.platform);
+    // Under Autopilot (decision 149), nothing goes to someone the person hasn't OK'd on a day's list but an answer to
+    // them: Today doesn't list them, so this holds whatever drafted it.
+    const [okd] =
+      autopilot && waitsForPeopleOk(input.kind)
+        ? await rows<{ ok: boolean }>(
+            ctx.tx,
+            sql`select true as ok from addon_outreach.autopilot_people
+                where workspace_id = ${ws} and user_id = ${me} and profile_id = ${profile.id} and state = 'ok'`,
+          )
+        : [{ ok: true }];
     const at = changeMoment(ctx.meta);
     // A reply goes on its own only to what HandsFreeOS saw them write, and never to someone who needs the person.
     const theirs =
@@ -354,24 +369,36 @@ export const sendQueue = defineAddonCommand(outreachAddon, {
     const partner = isPartnerKind(input.kind);
     // A partner's message waits for an OK of its own, never Approve all (decision 81), and so does an answer to a post
     // asking for what the business offers where the network keeps those apart (Alignable's forum, decision 79),
-    // another time after a no-show (decision 106), and a birthday or new-job note (decision 108).
-    const needsYou = partner
-      ? PARTNER_WORDS.needsYou
-      : input.kind === 'rebook'
-        ? REBOOK_NEEDS_YOU
-        : isOccasionKind(input.kind)
-          ? OCCASION_WORDS.needsYou
-          : post
-            ? post.strong && NETWORKS[profile.platform].forumAnswersPerDay !== null
-              ? COMMENT_NEEDS_YOU.answer
-              : null
-            : input.kind !== 'reply'
+    // another time after a no-show (decision 106), and a birthday or new-job note (decision 108). Under Autopilot none
+    // of those does (decision 149, answer 1a): a partner's reply waits only as a reply does, when it needs them.
+    const replying = input.kind === 'reply' || (autopilot && input.kind === 'partner_reply');
+    const needsYou = !okd
+      ? AUTOPILOT_WORDS.notOkd
+      : partner && !replying
+        ? autopilot
+          ? null
+          : PARTNER_WORDS.needsYou
+        : input.kind === 'rebook'
+          ? autopilot
+            ? null
+            : REBOOK_NEEDS_YOU
+          : isOccasionKind(input.kind)
+            ? autopilot
               ? null
-              : theirs === null
-                ? 'HandsFreeOS hasn’t seen what they wrote'
-                : // Something they asked that the business's Knowledge doesn't answer (decision 122): the person's.
-                  (replyNeedsYou(theirs) ??
-                  (input.unanswered ? KNOWS_WORDS.needsYou(input.unanswered) : null));
+              : OCCASION_WORDS.needsYou
+            : post
+              ? post.strong &&
+                NETWORKS[profile.platform].forumAnswersPerDay !== null &&
+                !autopilot
+                ? COMMENT_NEEDS_YOU.answer
+                : null
+              : !replying
+                ? null
+                : theirs === null
+                  ? 'HandsFreeOS hasn’t seen what they wrote'
+                  : // Something they asked that the business's Knowledge doesn't answer (decision 122): the person's.
+                    (replyNeedsYou(theirs) ??
+                    (input.unanswered ? KNOWS_WORDS.needsYou(input.unanswered) : null));
     const goes = goesAsItIs({
       sending: settings.sending,
       replies: settings.replies,
@@ -380,6 +407,7 @@ export const sendQueue = defineAddonCommand(outreachAddon, {
       simple: input.simple,
       needsYou,
       held: post ? await commentHoldOf(ctx, me, profile.platform) : false,
+      autopilot,
     });
     const handOver = handedOver({
       sending: settings.sending,

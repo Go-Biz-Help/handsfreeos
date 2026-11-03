@@ -7197,6 +7197,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/commands/outreach.autopilot.answer": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * The person answers today’s Autopilot list: OK everyone still waiting (or those named), so Autopilot reaches them and the steps after go without asking again; Not today for those named, who are on tomorrow’s list again; or Put back those left out today.
+         * @description Risk level 1. Requires outreach.use. Emits outreach.autopilot.answered.
+         */
+        post: operations["command_outreach_autopilot_answer"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/commands/outreach.chat.keep": {
         parameters: {
             query?: never;
@@ -19631,6 +19651,26 @@ export interface paths {
          * @description Requires outreach.manage.
          */
         post: operations["query_outreach_automation_people"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/queries/outreach.autopilot": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Today’s Autopilot list for the person: the people it plans to reach today whom they haven’t OK’d, with what it plans for each and why, the spares last, and whether the list is made yet or when it comes.
+         * @description Requires outreach.use.
+         */
+        post: operations["query_outreach_autopilot"];
         delete?: never;
         options?: never;
         head?: never;
@@ -40702,6 +40742,7 @@ export interface operations {
                 "application/json": {
                     settings: {
                         acceptedPush?: boolean;
+                        autopilot?: boolean;
                         /** @default true */
                         collect?: boolean;
                         confirmRequests: boolean;
@@ -41055,6 +41096,8 @@ export interface operations {
                             };
                         };
                         rules: {
+                            /** @default true */
+                            autopilotAllowed: boolean;
                             dailyLimits: {
                                 comment?: number;
                                 first_message?: number;
@@ -41094,6 +41137,8 @@ export interface operations {
                         settings: {
                             /** @default false */
                             acceptedPush: boolean;
+                            /** @default false */
+                            autopilot: boolean;
                             /** @default true */
                             collect: boolean;
                             confirmRequests: boolean;
@@ -41429,6 +41474,39 @@ export interface operations {
                             ok: number;
                             on: boolean;
                         };
+                    };
+                };
+            };
+        };
+    };
+    command_outreach_autopilot_answer: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** @enum {string} */
+                    answer: "ok" | "not_today" | "waiting";
+                    profileIds?: string[];
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        changed: number;
+                        waiting: number;
                     };
                 };
             };
@@ -76124,6 +76202,8 @@ export interface operations {
                             };
                         };
                         rules: {
+                            /** @default true */
+                            autopilotAllowed: boolean;
                             dailyLimits: {
                                 comment?: number;
                                 first_message?: number;
@@ -76163,6 +76243,8 @@ export interface operations {
                         settings: {
                             /** @default false */
                             acceptedPush: boolean;
+                            /** @default false */
+                            autopilot: boolean;
                             /** @default true */
                             collect: boolean;
                             confirmRequests: boolean;
@@ -76537,6 +76619,57 @@ export interface operations {
                             userId: string;
                             wheels: boolean;
                         }[];
+                    };
+                };
+            };
+        };
+    };
+    query_outreach_autopilot: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        allowed: boolean;
+                        day: string;
+                        listAt: string | null;
+                        made: boolean;
+                        on: boolean;
+                        people: {
+                            dontPitch: boolean;
+                            /** @enum {string} */
+                            kind: "reply" | "demo_reminder" | "rebook" | "birthday" | "new_job" | "warm_lead" | "pitch" | "video" | "opener" | "follow_up" | "check_in" | "reconnect" | "comment" | "group_reply" | "warm_up" | "friend_request" | "confirm" | "recommend" | "partner_reply" | "partner_details" | "partner_follow_up" | "partner_ask" | "partner_warm_up";
+                            name: string;
+                            neverContact: boolean;
+                            personId: string | null;
+                            /** @enum {string} */
+                            platform: "facebook" | "linkedin" | "instagram" | "alignable";
+                            /** Format: uuid */
+                            profileId: string;
+                            spare: boolean;
+                            /** @enum {string} */
+                            state: "waiting" | "ok" | "not_today";
+                            url: string;
+                            why: string[];
+                        }[];
+                        waiting: number;
                     };
                 };
             };

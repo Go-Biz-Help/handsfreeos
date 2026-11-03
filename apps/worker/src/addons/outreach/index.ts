@@ -83,6 +83,14 @@ import {
   goalCheckJob,
   goalMiddayJob,
 } from './goal';
+import {
+  armAutopilots,
+  AUTOPILOT_LIST_JOB,
+  AUTOPILOT_REMINDER_JOB,
+  autopilotListJob,
+  autopilotReminderJob,
+  autopilotSaved,
+} from './autopilot';
 import { armWeekly, WEEKLY_JOB, weeklyJob } from './weekly';
 import { scheduleWordsWrite, WRITE_WORDS_JOB, wordsWanted, writeWordsJob } from './words';
 
@@ -209,7 +217,11 @@ export const outreachAddonWorker: AddonWorkerModule = {
       both(both(armDayReportFor, armGoalCheckFor), wordsWanted),
       oldGoodWanted,
     ),
-    'outreach.automation.saved': both(both(armDayReportFor, armGoalCheckFor), wordsWanted),
+    // And Autopilot's day's list (./autopilot.ts, decision 149): made at once as it's turned on, then each morning.
+    'outreach.automation.saved': both(
+      both(both(armDayReportFor, armGoalCheckFor), wordsWanted),
+      autopilotSaved,
+    ),
     'outreach.playbook.saved': wordsWanted,
     'outreach.lists.saved': wordsWanted,
     'main_offer.published': offerPublished,
@@ -230,11 +242,12 @@ export const outreachAddonWorker: AddonWorkerModule = {
     [CHECK_GROUPS_JOB]: checkGroupsJob,
     [DRAFT_HELPFUL_JOB]: draftHelpfulJob,
     // The morning push arms the day's reports, and the day's looks at the first messages, of whoever noted a step this
-    // week (./tracking.ts, ./goal.ts).
+    // week (./tracking.ts, ./goal.ts), and Autopilot's lists of whoever has it on (./autopilot.ts).
     [MORNING_JOB]: async (ctx) => {
       const next = await morningJob(ctx);
       await armDayReports(ctx);
       await armGoalChecks(ctx);
+      await armAutopilots(ctx);
       return next;
     },
     [WEEKLY_JOB]: weeklyJob,
@@ -247,6 +260,8 @@ export const outreachAddonWorker: AddonWorkerModule = {
     [PICK_LIKE_YOURS_JOB]: pickLikeYoursJob,
     [GOAL_CHECK_JOB]: goalCheckJob,
     [GOAL_MIDDAY_JOB]: goalMiddayJob,
+    [AUTOPILOT_LIST_JOB]: autopilotListJob,
+    [AUTOPILOT_REMINDER_JOB]: autopilotReminderJob,
   },
   // AI help on a playbook's parts, from the builder (./assist.ts), drafts for Today (./today.ts), and answers to a
   // group's questions when the extension asks to join it (./groups.ts), and which post to like (./likes.ts).

@@ -9,6 +9,7 @@ import { activityCommands, activityQueries } from './ops/activity';
 import { askCommands, askQueries } from './ops/asks';
 import { alertCommands } from './ops/alerts';
 import { automationCommands, automationQueries } from './ops/automation';
+import { autopilotCommands, autopilotQueries } from './ops/autopilot';
 import { chatCommands, chatQueries } from './ops/chats';
 import { checkCommands, checkQueries } from './ops/checks';
 import { countryCommands, countryQueries } from './ops/countries';
@@ -68,6 +69,7 @@ export const outreachAddonServer: AddonServerModule = {
     ...openerCommands,
     ...demoCommands,
     ...automationCommands,
+    ...autopilotCommands,
     ...sendCommands,
     ...liveCommands,
     ...tallyCommands,
@@ -106,6 +108,7 @@ export const outreachAddonServer: AddonServerModule = {
     ...postQueries,
     ...openerQueries,
     ...automationQueries,
+    ...autopilotQueries,
     ...sendQueries,
     ...liveQueries,
     ...tallyQueries,

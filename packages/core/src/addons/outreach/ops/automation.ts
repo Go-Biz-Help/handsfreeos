@@ -26,6 +26,7 @@ import {
   dayList,
   freshState,
   halvedNow,
+  keepOwnPicks,
   NETWORKS_DEFAULTS,
   NetworksSettings,
   notAllowedWords,
@@ -50,6 +51,7 @@ import {
   type WheelsKept,
   type WheelsState,
 } from '../automation';
+import { AUTOPILOT_WORDS } from '../autopilot';
 import { outreachSettings } from '../chat-read';
 import type { Voice } from '../voice';
 import { outreachAddon } from '../manifest';
@@ -65,37 +67,45 @@ function networksOf(row: Row): NetworksSettings {
   return read.success ? read.data : NETWORKS_DEFAULTS;
 }
 
-/** A person's choices as kept, or the business's defaults until they save their own; inside its rules either way. */
+/**
+ * A person's own choices as kept, or the business's defaults until they save their own: as they picked them, with
+ * neither the business's rules nor Autopilot's picks over them.
+ */
+const ownOf = (row: Row | undefined, rules: BusinessRules): AutomationSettings =>
+  row
+    ? {
+        autopilot: row.autopilot,
+        sending: row.sending,
+      replies: row.replies,
+      warmUp: row.warmUp,
+      confirmRequests: row.confirmRequests,
+      collect: row.collect,
+      joinGroups: row.joinGroups,
+      watchPosts: row.watchPosts,
+      posting: row.posting,
+      hours: { start: row.hoursStart, end: row.hoursEnd, days: [...row.days] },
+      noting: row.noting,
+      readChats: row.readChats,
+      markPosts: row.markPosts,
+      pushes: row.pushes,
+      dayReport: row.dayReport,
+      acceptedPush: row.acceptedPush,
+      voice: {
+        shorthand: row.voiceShorthand,
+        acronyms: row.voiceAcronyms,
+        emoji: row.voiceEmoji,
+        split: row.voiceSplit,
+      },
+        networks: networksOf(row),
+      }
+    : rules.defaults;
+
+/**
+ * A person's choices as they stand: their own (`ownOf`), with Autopilot's picks over them while it's on (decision
+ * 149), inside the business's rules.
+ */
 const settingsOf = (row: Row | undefined, rules: BusinessRules): AutomationSettings =>
-  withinRules(
-    row
-      ? {
-          sending: row.sending,
-          replies: row.replies,
-          warmUp: row.warmUp,
-          confirmRequests: row.confirmRequests,
-          collect: row.collect,
-          joinGroups: row.joinGroups,
-          watchPosts: row.watchPosts,
-          posting: row.posting,
-          hours: { start: row.hoursStart, end: row.hoursEnd, days: [...row.days] },
-          noting: row.noting,
-          readChats: row.readChats,
-          markPosts: row.markPosts,
-          pushes: row.pushes,
-          dayReport: row.dayReport,
-          acceptedPush: row.acceptedPush,
-          voice: {
-            shorthand: row.voiceShorthand,
-            acronyms: row.voiceAcronyms,
-            emoji: row.voiceEmoji,
-            split: row.voiceSplit,
-          },
-          networks: networksOf(row),
-        }
-      : rules.defaults,
-    rules,
-  );
+  withinRules(ownOf(row, rules), rules);
 
 /** The business's rules for everyone's choices (decision 38), kept with its Social Outreach settings. */
 export async function rulesOf(ctx: Ctx): Promise<BusinessRules> {
@@ -437,6 +447,7 @@ async function shown(ctx: Ctx, whose: string, row: Row | undefined, rules: Busin
       dailyLimits: rules.dailyLimits,
       networksAllowed: rules.networksAllowed,
       networkLimits: rules.networkLimits,
+      autopilotAllowed: rules.autopilotAllowed,
     },
   };
 }
@@ -484,25 +495,37 @@ export const automationSave = defineAddonCommand(outreachAddon, {
     const at = changeMoment(ctx.meta);
     const rules = await rulesOf(ctx);
     const before = await rowOf(ctx, whose);
-    // A screen from before the voice, the day's report, the accept push or the networks sends none: the ones kept stay.
+    // A screen from before the voice, the day's report, the accept push, the networks or Autopilot sends none: the
+    // ones kept stay.
     const kept = settingsOf(before, rules);
-    const s: AutomationSettings = {
+    const own = ownOf(before, rules);
+    const autopilot = input.settings.autopilot ?? own.autopilot;
+    const asked: AutomationSettings = {
       ...input.settings,
+      autopilot,
       voice: input.settings.voice ?? kept.voice,
       dayReport: input.settings.dayReport ?? kept.dayReport,
       acceptedPush: input.settings.acceptedPush ?? kept.acceptedPush,
       networks: input.settings.networks ?? kept.networks,
     };
+    // While Autopilot is on, and as it's turned on or off, what it picks stays the person's own underneath (decision
+    // 149): the screens show its picks then, so theirs come back as they were once it's off.
+    const s = own.autopilot || autopilot ? keepOwnPicks(asked, own) : asked;
+    if (autopilot && !own.autopilot && !rules.autopilotAllowed)
+      throw HfosError.rule('outreach_autopilot_not_allowed', 403, AUTOPILOT_WORDS.notAllowed);
     const refused = notAllowedWords(s, rules);
     if (refused) throw HfosError.rule('not_allowed', 403, refused);
-    // Choosing Sending (b), or Replies (b) or (c), starts the training wheels, once, on each network on its own.
-    const wheels = wheelsMatter(s) && !before?.wheelsFrom ? { wheelsFrom: at } : {};
+    // Choosing Sending (b), or Replies (b) or (c), starts the training wheels, once, on each network on its own; and so
+    // does Autopilot, whose picks are those (decision 149, answer 6a).
+    const inForce = withinRules(s, rules);
+    const wheels = wheelsMatter(inForce) && !before?.wheelsFrom ? { wheelsFrom: at } : {};
     const networkWheels = { ...(before?.networkWheels ?? {}) };
     for (const p of OTHER_PLATFORMS)
-      if (wheelsMatter(s.networks[p]) && !networkWheels[p]?.from)
+      if (wheelsMatter(inForce.networks[p]) && !networkWheels[p]?.from)
         networkWheels[p] = { from: at.toISOString(), ok: 0, edits: [], doneAt: null };
     const values = {
       ...wheels,
+      autopilot: s.autopilot,
       networks: s.networks,
       networkWheels,
       sending: s.sending,
@@ -559,6 +582,9 @@ export const automationSave = defineAddonCommand(outreachAddon, {
           (['facebook', ...OTHER_PLATFORMS] as const).map((p) => [p, choicesFor(s, p).on]),
         ),
         byOther: whose !== me,
+        // Autopilot in force, and turned on now (decision 149): the worker makes today's list at once.
+        autopilot: inForce.autopilot,
+        ...(inForce.autopilot && !own.autopilot ? { autopilotOn: true } : {}),
       },
     });
     return shown(ctx, whose, row, rules);

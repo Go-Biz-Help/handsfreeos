@@ -319,6 +319,13 @@ export type NetworksSettings = z.output<typeof NetworksSettings>;
 export const NETWORKS_DEFAULTS: NetworksSettings = NetworksSettings.parse({});
 
 export const AutomationSettings = z.object({
+  /**
+   * Autopilot (decision 149; Chris, 3 Nov 2026): everything goes on its own on every network they work
+   * (`AUTOPILOT_PICKS`), and each day they OK the people it plans to reach for the first time (./autopilot.ts). Their
+   * own picks stay kept under it, and come back when it's turned off. Off to start, and off where the business
+   * doesn't allow it (`BusinessRules.autopilotAllowed`).
+   */
+  autopilot: z.boolean().default(false),
   sending: z.enum(SENDING_MODE_KEYS),
   /** Replies (decision 27): every one waits until a person picks otherwise, and from builds before 0.15. */
   replies: z.enum(REPLY_MODE_KEYS).default('draft'),
@@ -385,6 +392,7 @@ export function choicesFor(settings: AutomationSettings, platform: Platform): Ne
 }
 
 export const AUTOMATION_DEFAULTS: AutomationSettings = {
+  autopilot: false,
   sending: 'off',
   replies: 'draft',
   warmUp: true,
@@ -464,6 +472,8 @@ export const BusinessRules = z.object({
     .transform((nets) => PLATFORM_KEYS.filter((p) => p === 'facebook' || nets.includes(p))),
   /** Each other network's daily limits under its starting ones; Facebook's are `dailyLimits`. */
   networkLimits: NetworkLimits.default({}),
+  /** People may turn on Autopilot (decision 149, answer 7a): allowed to start, like the other choices. */
+  autopilotAllowed: z.boolean().default(true),
   defaults: AutomationSettings.default(AUTOMATION_DEFAULTS),
 });
 export type BusinessRules = z.output<typeof BusinessRules>;
@@ -502,21 +512,96 @@ function choicesWithin(
   };
 }
 
-/** A person's choices as they stand inside the business's rules, on every network. */
+/**
+ * What Autopilot picks on every network while it's on (decision 149, answer 1a): messages, replies and posts on their
+ * own, and the AI deciding the requests the person gets. The rest (liking a post first, tidying, groups, the once-a-day
+ * jobs) stays as they picked it. The business's rules still hold: a choice it doesn't allow steps back as any does.
+ */
+export const AUTOPILOT_PICKS = {
+  sending: 'everything',
+  replies: 'everything',
+  confirmRequests: true,
+  requests: 'fits_delete',
+  posting: 'own',
+} as const satisfies Partial<NetworkChoices>;
+
+/** A network's choices under Autopilot. */
+const piloted = (c: NetworkChoices): NetworkChoices => ({ ...c, ...AUTOPILOT_PICKS });
+
+/** A person's choices with what Autopilot picks over their own, on every network (`AUTOPILOT_PICKS`). */
+export function autopilotOver(settings: AutomationSettings): AutomationSettings {
+  return {
+    ...settings,
+    sending: AUTOPILOT_PICKS.sending,
+    replies: AUTOPILOT_PICKS.replies,
+    confirmRequests: AUTOPILOT_PICKS.confirmRequests,
+    posting: AUTOPILOT_PICKS.posting,
+    networks: {
+      facebook: { ...settings.networks.facebook, requests: AUTOPILOT_PICKS.requests },
+      linkedin: piloted(settings.networks.linkedin),
+      instagram: piloted(settings.networks.instagram),
+      alignable: piloted(settings.networks.alignable),
+    },
+  };
+}
+
+/** A network's choices with the person's own back where Autopilot picks. */
+const ownPicks = (c: NetworkChoices, own: NetworkChoices): NetworkChoices => ({
+  ...c,
+  sending: own.sending,
+  replies: own.replies,
+  confirmRequests: own.confirmRequests,
+  requests: own.requests,
+  posting: own.posting,
+});
+
+/**
+ * Choices to keep, with the person's own (`own`) wherever Autopilot picks: what a save keeps while Autopilot is on, or
+ * as it's turned off, so their own come back as they were (decision 149). Everything else is as `settings` says.
+ */
+export function keepOwnPicks(
+  settings: AutomationSettings,
+  own: AutomationSettings,
+): AutomationSettings {
+  return {
+    ...settings,
+    sending: own.sending,
+    replies: own.replies,
+    confirmRequests: own.confirmRequests,
+    posting: own.posting,
+    networks: {
+      facebook: { ...settings.networks.facebook, requests: own.networks.facebook.requests },
+      linkedin: ownPicks(settings.networks.linkedin, own.networks.linkedin),
+      instagram: ownPicks(settings.networks.instagram, own.networks.instagram),
+      alignable: ownPicks(settings.networks.alignable, own.networks.alignable),
+    },
+  };
+}
+
+/** Whether a choice is one Autopilot makes while it's on: the screens show it as Autopilot's, not to change. */
+export const AUTOPILOT_PICKS_KEYS = Object.keys(AUTOPILOT_PICKS) as (keyof typeof AUTOPILOT_PICKS)[];
+
+/**
+ * A person's choices as they stand inside the business's rules, on every network: with Autopilot's picks over their
+ * own while it's on and the business allows it (decision 149), then each stepped back to what the business allows.
+ */
 export function withinRules(
   settings: AutomationSettings,
   rules: BusinessRules,
 ): AutomationSettings {
+  const autopilot = settings.autopilot && rules.autopilotAllowed;
+  const s = autopilot ? autopilotOver(settings) : settings;
   return {
-    ...settings,
-    sending: allowedOf(SENDING_MODE_KEYS, rules.sendingAllowed, settings.sending),
-    replies: allowedOf(REPLY_MODE_KEYS, rules.repliesAllowed, settings.replies),
-    posting: allowedOf(POSTING_MODE_KEYS, rules.postingAllowed, settings.posting),
+    ...s,
+    autopilot,
+    sending: allowedOf(SENDING_MODE_KEYS, rules.sendingAllowed, s.sending),
+    replies: allowedOf(REPLY_MODE_KEYS, rules.repliesAllowed, s.replies),
+    posting: allowedOf(POSTING_MODE_KEYS, rules.postingAllowed, s.posting),
     networks: {
-      facebook: settings.networks.facebook,
-      linkedin: choicesWithin(settings.networks.linkedin, rules, 'linkedin'),
-      instagram: choicesWithin(settings.networks.instagram, rules, 'instagram'),
-      alignable: choicesWithin(settings.networks.alignable, rules, 'alignable'),
+      facebook: s.networks.facebook,
+      linkedin: choicesWithin(s.networks.linkedin, rules, 'linkedin'),
+      instagram: choicesWithin(s.networks.instagram, rules, 'instagram'),
+      alignable: choicesWithin(s.networks.alignable, rules, 'alignable'),
     },
   };
 }
@@ -810,6 +895,8 @@ export const AutomationOutput = z.object({
     dailyLimits: BusinessLimits,
     networksAllowed: z.array(z.enum(PLATFORM_KEYS)),
     networkLimits: NetworkLimits,
+    /** People may turn on Autopilot (decision 149). */
+    autopilotAllowed: z.boolean().default(true),
   }),
 });
 export type AutomationOutput = z.output<typeof AutomationOutput>;
@@ -827,6 +914,8 @@ export const AutomationSaveInput = z.object({
     dayReport: z.boolean().optional(),
     acceptedPush: z.boolean().optional(),
     networks: NetworksSettings.optional(),
+    // A screen from before Autopilot (decision 149) sends none: it stays as it was.
+    autopilot: z.boolean().optional(),
   }),
 });
 export type AutomationSaveInput = z.input<typeof AutomationSaveInput>;
