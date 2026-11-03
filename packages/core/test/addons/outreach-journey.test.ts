@@ -156,7 +156,7 @@ describe('a customer’s way so far, and a group’s page', () => {
       new Date(hoursAgo(3)),
     );
     await runAs(owner, ws, 'outreach.touch.save', { kind: 'like', ...kai, postUrl: null });
-    // Dana wrote back to the owner, and their chat was read.
+    // Dana wrote back to the owner, and their chat was read: a reply to the friend request (decision 150).
     await runAs(owner, ws, 'outreach.chats.collect', {
       chats: [
         {
@@ -172,11 +172,6 @@ describe('a customer’s way so far, and a group’s page', () => {
       admin(),
       sql`update addon_outreach.file_chats set summary = 'Asked what it costs.', next_step = 'Send the price list'
           where workspace_id = ${ws} and name = ${dana.name}`,
-    );
-    await rows(
-      admin(),
-      sql`insert into addon_outreach.replies (workspace_id, user_id, profile_id, after_at, seen_at, pushed)
-          values (${ws}, ${owner.id}, ${danaId}, ${hoursAgo(4)}, ${hoursAgo(2)}, true)`,
     );
     danaPerson = (await runAs(owner, ws, 'outreach.profile.contact', { profileId: danaId }))
       .personId;

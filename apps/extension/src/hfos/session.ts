@@ -28,6 +28,7 @@ import {
 } from './messages';
 import type { HelperLookOutput, HelperWaysOutput } from '@hfos/core/addons/outreach/helper';
 import { checkPrompt, PromptRefused, startPrompt } from './prompt';
+import { heardReplies } from './replied';
 import { outreachBusinesses } from './saves';
 
 /**
@@ -376,11 +377,15 @@ async function value(ask: SessionAsk): Promise<HfosValues[SessionAsk['type']]> {
     case 'hfos-pick':
       await chrome.storage.local.set({ [BUSINESS_KEY]: ask.businessId });
       return account();
-    case 'hfos-collect-chats':
-      return call(
+    case 'hfos-collect-chats': {
+      const got = await call(
         api().POST('/v1/commands/outreach.chats.collect', { body: ask.input }),
         ask.input.workspaceId,
       );
+      // Someone wrote back, as the chats read showed (decision 150): their runner drafts the answer next.
+      heardReplies(ask.input.platform ?? 'facebook', got.replied ?? []);
+      return got;
+    }
     case 'hfos-save-friends':
       return call(
         api().POST('/v1/commands/outreach.friends.save', { body: ask.input }),
@@ -632,11 +637,17 @@ async function value(ask: SessionAsk): Promise<HfosValues[SessionAsk['type']]> {
         api().POST('/v1/commands/outreach.engaged.save', { body: ask.input }),
         ask.input.workspaceId,
       );
-    case 'hfos-replies-note':
-      return call(
+    case 'hfos-replies-note': {
+      const got = await call(
         api().POST('/v1/commands/outreach.replies.note', { body: ask.input }),
         ask.input.workspaceId,
       );
+      heardReplies(
+        ask.input.platform ?? 'facebook',
+        got.replies.map((r) => r.profileId),
+      );
+      return got;
+    }
     case 'hfos-join-answers':
       return call(
         workerPost<JoinAnswerOutput>('/v1/addons/outreach/actions/outreach.join.answer', {

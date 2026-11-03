@@ -913,12 +913,20 @@ describe('Read my chats, on Instagram', () => {
         threadKey: '111',
         profile: { id: null, username: 'dana.reyes', url: `${IG}/dana.reyes/` },
         when: null,
+        // Its row's line, compared on the computer each time, open or not (decision 150).
+        last: { line: 'Yes, what do you need?', where: 'list' },
       },
     ]);
     // Sam's chat open, theirs last in the list: Dana, by the name the row shows.
     const mine = chatPage('222', 'sam.lee', 'Sam Lee', false)();
     expect(readReplies(mine, mine.location.href)).toEqual([
-      { name: 'Dana Reyes', threadKey: null, profile: null, when: '2h' },
+      {
+        name: 'Dana Reyes',
+        threadKey: null,
+        profile: null,
+        when: '2h',
+        last: { line: 'Yes, what do you need?', where: 'list' },
+      },
     ]);
   });
 
@@ -937,8 +945,20 @@ describe('Read my chats, on Instagram', () => {
     ).window.document;
     const seen = readReplies(doc, doc.location.href);
     expect(seen).toEqual([
-      { name: 'Dana Reyes', threadKey: null, profile: null, when: '2h' },
-      { name: 'Casey Moreno', threadKey: null, profile: null, when: '1d' },
+      {
+        name: 'Dana Reyes',
+        threadKey: null,
+        profile: null,
+        when: '2h',
+        last: { line: 'Yes, what do you need?', where: 'list' },
+      },
+      {
+        name: 'Casey Moreno',
+        threadKey: null,
+        profile: null,
+        when: '1d',
+        last: { line: 'Sent an attachment', where: 'list' },
+      },
     ]);
     // Sent as Instagram's, each by its name: never what they wrote.
     expect(repliesInput('ws-1', seen, false, 'instagram').seen).toEqual([

@@ -7248,7 +7248,7 @@ export interface paths {
         put?: never;
         /**
          * Bring in one-to-one chats the extension read in Messenger in the person’s browser, each with its latest few messages and when they were sent, for the AI to read later. They join the chats from the person’s Facebook download, one per person. Adds nobody to Contacts itself.
-         * @description Risk level 1. Requires outreach.use. Emits outreach.chats.collected.
+         * @description Risk level 1. Requires outreach.use. Emits outreach.chats.collected, outreach.reply.seen.
          */
         post: operations["command_outreach_chats_collect"];
         delete?: never;
@@ -8487,7 +8487,7 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * The extension saw chats on the person’s Facebook whose last message is theirs: each one after a message of the person’s it noted is kept as a reply, once, and their phone told unless they were looking at it.
+         * The extension saw chats on one of the person’s networks whose last message is theirs: each one after a message, request or comment of the person’s it noted is kept as a reply, once, and once more for a newer message of theirs, and their phone told unless they were looking at it.
          * @description Risk level 0. Requires outreach.use. Emits outreach.reply.seen.
          */
         post: operations["command_outreach_replies_note"];
@@ -41602,6 +41602,7 @@ export interface operations {
                 };
                 content: {
                     "application/json": {
+                        replied?: string[];
                         saved: number;
                         waiting: number;
                     };
@@ -45476,6 +45477,8 @@ export interface operations {
                     platform?: "facebook" | "linkedin" | "instagram" | "alignable";
                     seen: {
                         name: string;
+                        /** @default false */
+                        newer?: boolean;
                         /** @default null */
                         profile?: {
                             id: string | null;

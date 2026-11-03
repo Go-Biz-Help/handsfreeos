@@ -43,6 +43,11 @@ export const ChatsCollectOutput = z.object({
   saved: z.number().int(),
   /** Of those, the ones waiting for the AI. */
   waiting: z.number().int(),
+  /**
+   * Who wrote back, by profile, as the chats read showed it (decision 150): their runner drafts the answer next. Left
+   * out by a HandsFreeOS from before it.
+   */
+  replied: z.array(z.uuid()).optional(),
 });
 export type ChatsCollectOutput = z.output<typeof ChatsCollectOutput>;
 

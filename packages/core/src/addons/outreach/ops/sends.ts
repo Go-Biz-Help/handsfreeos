@@ -4,7 +4,7 @@
  * person's groups (decision 114): each drafted one waits for the person's OK or goes as it is, and the extension says
  * when it went. Each person's are their own.
  */
-import { and, eq, inArray, isNotNull, isNull, or, sql } from 'drizzle-orm';
+import { and, desc, eq, inArray, isNotNull, isNull, or, sql } from 'drizzle-orm';
 import { rows } from '@hfos/db/client';
 import { HfosError } from '../../../errors';
 import { requireHuman, userIdOf } from '../../../kernel/actor';
@@ -337,13 +337,28 @@ export const sendQueue = defineAddonCommand(outreachAddon, {
       underAPost(input.kind) && input.postId
         ? await postOf(ctx, me, profile, input.postId, input.kind)
         : null;
+    // A reply listed from the extension's sighting names no chat: it's theirs latest, as the runner just brought it in
+    // and the AI drafted from it (decision 150), so what they wrote is known.
     const [chat] =
       input.chatId && !post
         ? await ctx.tx
             .select({ id: fileChats.id, userId: fileChats.userId, recent: fileChats.recent })
             .from(fileChats)
             .where(and(eq(fileChats.workspaceId, ws), eq(fileChats.id, input.chatId)))
-        : [];
+        : !post && (input.kind === 'reply' || input.kind === 'partner_reply')
+          ? await ctx.tx
+              .select({ id: fileChats.id, userId: fileChats.userId, recent: fileChats.recent })
+              .from(fileChats)
+              .where(
+                and(
+                  eq(fileChats.workspaceId, ws),
+                  eq(fileChats.userId, me),
+                  eq(fileChats.profileId, profile.id),
+                ),
+              )
+              .orderBy(desc(fileChats.lastAt))
+              .limit(1)
+          : [];
     // The person's choices and training wheels on the network the message goes on: each network's are its own.
     const {
       choices: settings,

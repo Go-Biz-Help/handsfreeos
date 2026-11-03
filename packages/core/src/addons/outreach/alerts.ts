@@ -4,9 +4,10 @@
  *
  * - **A reply.** In any Facebook tab, the extension looks at the chats on the page (Messenger's list, an open chat,
  *   a small chat window) and tells HandsFreeOS of each whose last message is theirs (`outreach.replies.note`). It
- *   counts as a reply when the person's last message to them, as the extension noted it, came before: so once for
- *   each message of theirs, never for an old chat. Unless the person was looking at that tab just then, their phone
- *   hears "Dana Reyes wrote back".
+ *   counts as a reply when the person's last message, request or comment to them (`REPLY_STARTS`), as the extension
+ *   noted it, came before: so once for each of those, never for an old chat. A newer message of theirs counts again,
+ *   at most once a quarter hour (decision 150, `NEWER_QUIET_MS`), and so does one a chat read finds. Unless the person
+ *   was looking at that tab just then, their phone hears "Dana Reyes wrote back".
  * - **The morning.** At the business's hour (`morningPushHour`, 8 to start; Social Outreach → Settings → General,
  *   For your team), each person who used the extension lately and has something on their list for today hears how much.
  *
@@ -49,11 +50,36 @@ export const ReplySeen = z.object({
   /** The chat's id, from its link, when the page showed one. */
   threadKey: ThreadKey.nullable().default(null),
   profile: ProfileRef.nullable().default(null),
+  /**
+   * Its last line changed on the person's computer since the extension last saw it there (decision 150): a newer
+   * message of theirs, even with nothing of the person's noted since their last one. The words never leave the
+   * computer.
+   */
+  newer: z.boolean().default(false),
 });
 export type ReplySeen = z.input<typeof ReplySeen>;
 
 /** The most chats one note sends. */
 export const REPLIES_MOST = 20;
+
+/**
+ * The steps of the person's that start a conversation (decision 150; the owner, 3 Nov 2026, answer 5a): a message, a
+ * friend or connection request, a comment on their post. Someone who writes after one of these is answered, whether
+ * or not the AI read them as a likely prospect. A like starts nothing.
+ */
+export const REPLY_STARTS = ['message', 'friend_request', 'comment'] as const;
+
+/**
+ * A newer message from someone who already wrote back buzzes the person's phone at most this often (decision 150,
+ * answer 1a): a few messages in a row are one buzz. Their draft is written again either way.
+ */
+export const NEWER_QUIET_MS = 15 * 60_000;
+
+/**
+ * How lately their message was written for a chat read to count it as a reply (decision 150, answer 3a), as the
+ * extension's own sightings go (`REPLY_FRESH_MS` there): an older one is still answered from Today, without a buzz.
+ */
+export const REPLY_FRESH_MS = 2 * 24 * 3_600_000;
 
 export const RepliesNoteInput = z.object({
   workspaceId: z.uuid(),
@@ -66,7 +92,10 @@ export const RepliesNoteInput = z.object({
 export type RepliesNoteInput = z.input<typeof RepliesNoteInput>;
 
 export const RepliesNoteOutput = z.object({
-  /** The replies new to HandsFreeOS: after a message of the person's that nothing had answered. */
+  /**
+   * The replies new to HandsFreeOS: after a message, request or comment of the person's that nothing had answered, or
+   * a newer message of theirs (decision 150). Each has their runner draft the answer next.
+   */
   replies: z.array(z.object({ profileId: z.uuid(), name: z.string() })),
 });
 export type RepliesNoteOutput = z.output<typeof RepliesNoteOutput>;

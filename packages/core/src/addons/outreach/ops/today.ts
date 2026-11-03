@@ -26,6 +26,7 @@ import {
   underAPost,
   type RequestMode,
 } from '../automation';
+import { REPLY_STARTS } from '../alerts';
 import { GROUP_REPLY_WORDS, groupRepliesOn, REPLY_KEPT_DAYS } from '../active';
 import { demoLink, demoRef } from '../demos';
 import { bestFit, type Fit, type FitPlaybook } from '../fit';
@@ -333,9 +334,9 @@ export async function todayFor(
     const [sent] = await rows<{ n: number }>(
       ctx.tx,
       sql`select count(*)::int as n from addon_outreach.touches t
-          join addon_outreach.profiles p on p.id = t.profile_id
-          where t.workspace_id = ${ws} and t.user_id = ${me} and t.kind = 'friend_request'
-            and p.platform = ${input.platform} and t.at >= ${new Date(now - 7 * DAY).toISOString()}::timestamptz`,
+            join addon_outreach.profiles p on p.id = t.profile_id
+            where t.workspace_id = ${ws} and t.user_id = ${me} and t.kind = 'friend_request'
+              and p.platform = ${input.platform} and t.at >= ${new Date(now - 7 * DAY).toISOString()}::timestamptz`,
     );
     week = { done: sent?.n ?? 0, most: weekly };
     const r = limits.friend_request;
@@ -368,15 +369,15 @@ export async function todayFor(
   }>(
     ctx.tx,
     sql`select count(*) filter (where f.state = 'request_sent')::int as waiting,
-          count(*) filter (where f.state = 'friends')::int as friends,
-          count(*) filter (where f.state = 'request_sent' and exists (
-            select 1 from addon_outreach.touches t where t.profile_id = p.id and t.user_id = ${me}
-              and t.kind = 'friend_request' and t.auto))::int as extension,
-          count(*) filter (where f.state = 'request_sent' and f.cancel_at is not null
-            and f.cancel_at >= f.since)::int as cancelling
-        from addon_outreach.friends f
-        join addon_outreach.profiles p on p.id = f.profile_id
-        where f.workspace_id = ${ws} and f.user_id = ${me} and p.platform = ${input.platform}`,
+            count(*) filter (where f.state = 'friends')::int as friends,
+            count(*) filter (where f.state = 'request_sent' and exists (
+              select 1 from addon_outreach.touches t where t.profile_id = p.id and t.user_id = ${me}
+                and t.kind = 'friend_request' and t.auto))::int as extension,
+            count(*) filter (where f.state = 'request_sent' and f.cancel_at is not null
+              and f.cancel_at >= f.since)::int as cancelling
+          from addon_outreach.friends f
+          join addon_outreach.profiles p on p.id = f.profile_id
+          where f.workspace_id = ${ws} and f.user_id = ${me} and p.platform = ${input.platform}`,
   );
   const held = requestsHeldOn(input.platform, mine ?? { waiting: 0, friends: 0 });
   // The network said they reached their monthly limit there (decision 147): none till the day it ends, whatever
@@ -507,30 +508,30 @@ export async function todayFor(
   }>(
     ctx.tx,
     sql`select distinct on (e.profile_id, e.kind) p.id, p.name, p.url, p.friendship, e.kind, e.comment,
-          h.post_url, g.name as group_name, pb.name as playbook_name, p.warm_up_missed_at,
-          (select max(t.at) from addon_outreach.touches t
-            where t.profile_id = p.id and t.user_id = ${me} and t.kind = 'like'
-              and t.at >= ${ago(WARM_UP_WINDOW_DAYS)}::timestamptz) as liked_at,
-          (exists (select 1 from addon_outreach.touches t
-              where t.profile_id = p.id and t.kind = 'friend_request')
-            or exists (select 1 from addon_outreach.friends f
-              where f.profile_id = p.id and f.user_id = ${me}
-                ${follows ? sql`and f.state not in ('friends', 'request_received')` : sql``})) as reached,
-          exists (select 1 from addon_outreach.touches t
-            where t.user_id = ${me} and t.kind = 'comment' and h.post_url is not null
-              and t.post_url = h.post_url and t.at >= e.seen_at) as answered,
-          ${notOthers(me, 'p')} as free
-        from addon_outreach.engagements e
-        join addon_outreach.profiles p on p.id = e.profile_id
-        left join addon_outreach.helpful h on h.id = e.helpful_id
-        left join addon_outreach.groups g on g.id = h.group_id
-        left join addon_outreach.playbooks pb on pb.id = h.playbook_id
-        where e.workspace_id = ${ws} and e.user_id = ${me}
-          and e.seen_at >= ${ago(WARM_LEAD_DAYS)}::timestamptz
-          and p.friendship <> 'self' and ${pitchable('p')} and ${inPlayAnyOwner(me, 'p')} and ${lets}
-          and not exists (select 1 from addon_outreach.group_people x
-            where x.profile_id = p.id and x.runs_group)
-        order by e.profile_id, e.kind, e.seen_at desc`,
+            h.post_url, g.name as group_name, pb.name as playbook_name, p.warm_up_missed_at,
+            (select max(t.at) from addon_outreach.touches t
+              where t.profile_id = p.id and t.user_id = ${me} and t.kind = 'like'
+                and t.at >= ${ago(WARM_UP_WINDOW_DAYS)}::timestamptz) as liked_at,
+            (exists (select 1 from addon_outreach.touches t
+                where t.profile_id = p.id and t.kind = 'friend_request')
+              or exists (select 1 from addon_outreach.friends f
+                where f.profile_id = p.id and f.user_id = ${me}
+                  ${follows ? sql`and f.state not in ('friends', 'request_received')` : sql``})) as reached,
+            exists (select 1 from addon_outreach.touches t
+              where t.user_id = ${me} and t.kind = 'comment' and h.post_url is not null
+                and t.post_url = h.post_url and t.at >= e.seen_at) as answered,
+            ${notOthers(me, 'p')} as free
+          from addon_outreach.engagements e
+          join addon_outreach.profiles p on p.id = e.profile_id
+          left join addon_outreach.helpful h on h.id = e.helpful_id
+          left join addon_outreach.groups g on g.id = h.group_id
+          left join addon_outreach.playbooks pb on pb.id = h.playbook_id
+          where e.workspace_id = ${ws} and e.user_id = ${me}
+            and e.seen_at >= ${ago(WARM_LEAD_DAYS)}::timestamptz
+            and p.friendship <> 'self' and ${pitchable('p')} and ${inPlayAnyOwner(me, 'p')} and ${lets}
+            and not exists (select 1 from addon_outreach.group_people x
+              where x.profile_id = p.id and x.runs_group)
+          order by e.profile_id, e.kind, e.seen_at desc`,
   );
   // Where the post is: its group on Facebook, and the person's own feed elsewhere ("on LinkedIn"). Off any helpful
   // post, the network's own notifications said it (Alignable's): a recommendation, or their post or answer liked.
@@ -583,8 +584,8 @@ export async function todayFor(
   const [missed] = await rows<{ n: number }>(
     ctx.tx,
     sql`select count(*)::int as n from addon_outreach.profiles p
-        where p.workspace_id = ${ws} and p.platform = ${input.platform}
-          and p.warm_up_missed_at >= ${todayFrom}::timestamptz`,
+          where p.workspace_id = ${ws} and p.platform = ${input.platform}
+            and p.warm_up_missed_at >= ${todayFrom}::timestamptz`,
   );
   const warmUpLeft = Math.max(0, leftToday(limits, 'warm_up') - (missed?.n ?? 0));
   let warmRequests = 0;
@@ -677,39 +678,41 @@ export async function todayFor(
     }>(
       ctx.tx,
       sql`select distinct on (p.id) p.id, p.name, p.url, p.intro, po.body, pb.name as playbook_name,
-            p.warm_up_missed_at,
-            (select max(t.at) from addon_outreach.touches t
-              where t.profile_id = p.id and t.user_id = ${me} and t.kind in ('like', 'comment')
-                and t.at >= ${ago(WARM_UP_WINDOW_DAYS)}::timestamptz
-                ${
-                  // For a build that finds people by topic, only a warm-up from before the person switched to it
-                  // counts (`foundByTopicSince`): a like or a comment since, found or not (LinkedIn's comment on its
-                  // own, or one OK'd), is no AI check. With no switch known yet, none does.
-                  byTopic ? sql`and t.at < ${switched?.toISOString() ?? null}::timestamptz` : sql``
-                }) as warmed_at
-          from addon_outreach.posts po
-          join addon_outreach.profiles p on p.id = po.profile_id
-          left join addon_outreach.playbooks pb on pb.id = po.playbook_id
-          where po.workspace_id = ${ws} and po.group_id is null and po.check_state = 'good'
-            and po.seen_at >= ${ago(WARM_UP_WINDOW_DAYS)}::timestamptz
+              p.warm_up_missed_at,
+              (select max(t.at) from addon_outreach.touches t
+                where t.profile_id = p.id and t.user_id = ${me} and t.kind in ('like', 'comment')
+                  and t.at >= ${ago(WARM_UP_WINDOW_DAYS)}::timestamptz
+                  ${
+                    // For a build that finds people by topic, only a warm-up from before the person switched to it
+                    // counts (`foundByTopicSince`): a like or a comment since, found or not (LinkedIn's comment on its
+                    // own, or one OK'd), is no AI check. With no switch known yet, none does.
+                    byTopic
+                      ? sql`and t.at < ${switched?.toISOString() ?? null}::timestamptz`
+                      : sql``
+                  }) as warmed_at
+            from addon_outreach.posts po
+            join addon_outreach.profiles p on p.id = po.profile_id
+            left join addon_outreach.playbooks pb on pb.id = po.playbook_id
+            where po.workspace_id = ${ws} and po.group_id is null and po.check_state = 'good'
+              and po.seen_at >= ${ago(WARM_UP_WINDOW_DAYS)}::timestamptz
             and p.person_id is null and ${pitchable('p')} and ${inPlay(me, 'p')} and ${reach}
-            and p.friendship not in ('self', 'friends', 'request_sent', 'request_received')
-            and not ${myOwnProfile(me)}
-            and not exists (select 1 from addon_outreach.group_people x
-              where x.profile_id = p.id and x.runs_group)
-            and not exists (select 1 from addon_outreach.friends f
-              where f.profile_id = p.id and f.user_id = ${me})
-            and not exists (select 1 from addon_outreach.touches t
-              where t.profile_id = p.id and t.kind = 'friend_request')
-            ${
-              // Someone found whom the AI checked good, or might fit, is the found pick's, below.
-              byTopic
-                ? sql`and not exists (select 1 from addon_outreach.checks ch where ch.profile_id = p.id
-                    and ch.user_id = ${me} and ch.via = 'found' and ch.verdict in ('good', 'maybe'))`
-                : sql``
-            }
-          order by p.id, po.seen_at desc
-          limit ${CANDIDATES_MOST}`,
+              and p.friendship not in ('self', 'friends', 'request_sent', 'request_received')
+              and not ${myOwnProfile(me)}
+              and not exists (select 1 from addon_outreach.group_people x
+                where x.profile_id = p.id and x.runs_group)
+              and not exists (select 1 from addon_outreach.friends f
+                where f.profile_id = p.id and f.user_id = ${me})
+              and not exists (select 1 from addon_outreach.touches t
+                where t.profile_id = p.id and t.kind = 'friend_request')
+              ${
+                // Someone found whom the AI checked good, or might fit, is the found pick's, below.
+                byTopic
+                  ? sql`and not exists (select 1 from addon_outreach.checks ch where ch.profile_id = p.id
+                      and ch.user_id = ${me} and ch.via = 'found' and ch.verdict in ('good', 'maybe'))`
+                  : sql``
+              }
+            order by p.id, po.seen_at desc
+            limit ${CANDIDATES_MOST}`,
     );
     const fitted = searched.flatMap((p) => {
       if (warmIds.has(p.id)) return [];
@@ -910,23 +913,23 @@ export async function todayFor(
       }>(
         ctx.tx,
         sql`select p.id, p.name, p.url, ch.why as check_why, pb.name as playbook_name, p.warm_up_missed_at,
-              (select max(t.at) from addon_outreach.touches t
-                where t.profile_id = p.id and t.user_id = ${me} and t.kind = 'like'
-                  and t.at >= ${ago(WARM_UP_WINDOW_DAYS)}::timestamptz) as liked_at
-            from addon_outreach.followers fo
-            join addon_outreach.profiles p on p.id = fo.profile_id
-            join addon_outreach.checks ch on ch.profile_id = p.id and ch.user_id = ${me}
-              and ch.verdict in ('good', 'maybe')
-            left join addon_outreach.playbooks pb on pb.id = ch.playbook_id
-            where fo.workspace_id = ${ws} and fo.user_id = ${me} and p.platform = 'facebook'
-              and fo.seen_at >= ${ago(FOLLOWERS_KEPT_DAYS)}::timestamptz
+                (select max(t.at) from addon_outreach.touches t
+                  where t.profile_id = p.id and t.user_id = ${me} and t.kind = 'like'
+                    and t.at >= ${ago(WARM_UP_WINDOW_DAYS)}::timestamptz) as liked_at
+              from addon_outreach.followers fo
+              join addon_outreach.profiles p on p.id = fo.profile_id
+              join addon_outreach.checks ch on ch.profile_id = p.id and ch.user_id = ${me}
+                and ch.verdict in ('good', 'maybe')
+              left join addon_outreach.playbooks pb on pb.id = ch.playbook_id
+              where fo.workspace_id = ${ws} and fo.user_id = ${me} and p.platform = 'facebook'
+                and fo.seen_at >= ${ago(FOLLOWERS_KEPT_DAYS)}::timestamptz
               and not ${knowsThem(me)} and ${stillToReach(me)} and ${reach}
-              and not exists (select 1 from addon_outreach.friends fr
-                where fr.profile_id = p.id and fr.user_id = ${me})
-              and not exists (select 1 from addon_outreach.touches t
-                where t.profile_id = p.id and t.kind = 'friend_request')
-            order by (ch.verdict = 'good') desc, ch.checked_at desc nulls last, p.id
-            limit ${CANDIDATES_MOST}`,
+                and not exists (select 1 from addon_outreach.friends fr
+                  where fr.profile_id = p.id and fr.user_id = ${me})
+                and not exists (select 1 from addon_outreach.touches t
+                  where t.profile_id = p.id and t.kind = 'friend_request')
+              order by (ch.verdict = 'good') desc, ch.checked_at desc nulls last, p.id
+              limit ${CANDIDATES_MOST}`,
       )
     ).filter((p) => !warmIds.has(p.id));
     const likedBy = (p: (typeof good)[number]) =>
@@ -1031,39 +1034,39 @@ export async function todayFor(
     }>(
       ctx.tx,
       sql`select distinct on (p.id) p.id, p.name, p.url, p.intro, p.mutual_friends, gp.lines,
-            gp.group_id, g.name as group_name, g.detail as group_detail, g.members as group_members,
-            g.privacy as group_privacy, p.warm_up_missed_at, g.check_state, g.check_why, g.check_playbook_id,
-            exists (select 1 from addon_outreach.my_groups m
-              where m.group_id = g.id and m.user_id = ${me} and m.joined) as in_group,
-            (select max(t.at) from addon_outreach.touches t
-              where t.profile_id = p.id and t.user_id = ${me} and t.kind = 'like'
-                and t.at >= ${ago(WARM_UP_WINDOW_DAYS)}::timestamptz) as liked_at,
-            ch.verdict, ch.why as verdict_why, cpb.name as verdict_playbook
-          from addon_outreach.group_people gp
-          join addon_outreach.groups g on g.id = gp.group_id
-          join addon_outreach.profiles p on p.id = gp.profile_id
-          left join addon_outreach.checks ch on ch.profile_id = p.id and ch.user_id = ${me}
-          left join addon_outreach.playbooks cpb on cpb.id = ch.playbook_id
-          where gp.workspace_id = ${ws} and g.admins_read_at is not null and not gp.runs_group
-            and ch.verdict is distinct from 'not'
-            and ${
-              onlyMine
-                ? sql`exists (select 1 from addon_outreach.my_groups m
-                    where m.group_id = g.id and m.user_id = ${me} and m.joined)`
-                : sql`true`
-            }
-            and ${notOthers(me, 'g')}
+              gp.group_id, g.name as group_name, g.detail as group_detail, g.members as group_members,
+              g.privacy as group_privacy, p.warm_up_missed_at, g.check_state, g.check_why, g.check_playbook_id,
+              exists (select 1 from addon_outreach.my_groups m
+                where m.group_id = g.id and m.user_id = ${me} and m.joined) as in_group,
+              (select max(t.at) from addon_outreach.touches t
+                where t.profile_id = p.id and t.user_id = ${me} and t.kind = 'like'
+                  and t.at >= ${ago(WARM_UP_WINDOW_DAYS)}::timestamptz) as liked_at,
+              ch.verdict, ch.why as verdict_why, cpb.name as verdict_playbook
+            from addon_outreach.group_people gp
+            join addon_outreach.groups g on g.id = gp.group_id
+            join addon_outreach.profiles p on p.id = gp.profile_id
+            left join addon_outreach.checks ch on ch.profile_id = p.id and ch.user_id = ${me}
+            left join addon_outreach.playbooks cpb on cpb.id = ch.playbook_id
+            where gp.workspace_id = ${ws} and g.admins_read_at is not null and not gp.runs_group
+              and ch.verdict is distinct from 'not'
+              and ${
+                onlyMine
+                  ? sql`exists (select 1 from addon_outreach.my_groups m
+                      where m.group_id = g.id and m.user_id = ${me} and m.joined)`
+                  : sql`true`
+              }
+              and ${notOthers(me, 'g')}
             and p.person_id is null and ${pitchable('p')} and ${inPlay(me, 'p')} and ${reach}
-            and p.friendship not in ('self', 'friends', 'request_sent', 'request_received')
-            and not ${myOwnProfile(me)}
-            and not exists (select 1 from addon_outreach.group_people x
-              where x.profile_id = p.id and x.runs_group)
-            and not exists (select 1 from addon_outreach.friends f
-              where f.profile_id = p.id and f.user_id = ${me})
-            and not exists (select 1 from addon_outreach.touches t
-              where t.profile_id = p.id and t.kind = 'friend_request')
-          order by p.id, gp.seen_at desc
-          limit ${CANDIDATES_MOST}`,
+              and p.friendship not in ('self', 'friends', 'request_sent', 'request_received')
+              and not ${myOwnProfile(me)}
+              and not exists (select 1 from addon_outreach.group_people x
+                where x.profile_id = p.id and x.runs_group)
+              and not exists (select 1 from addon_outreach.friends f
+                where f.profile_id = p.id and f.user_id = ${me})
+              and not exists (select 1 from addon_outreach.touches t
+                where t.profile_id = p.id and t.kind = 'friend_request')
+            order by p.id, gp.seen_at desc
+            limit ${CANDIDATES_MOST}`,
     );
     const fitted = found.flatMap((p) => {
       // A warm lead is on the list already, ahead of these.
@@ -1178,20 +1181,20 @@ export async function todayFor(
     const accepted = await rows<{ id: string; name: string; url: string; since: Date | string }>(
       ctx.tx,
       sql`select p.id, p.name, p.url, f.since from addon_outreach.friends f
-          join addon_outreach.profiles p on p.id = f.profile_id
-          where f.workspace_id = ${ws} and f.user_id = ${me} and f.state = 'friends'
-            and f.since between ${ago(TODAY_WINDOW_DAYS.opener)}::timestamptz
-              and ${ago(pace.messageAfterDays)}::timestamptz
+            join addon_outreach.profiles p on p.id = f.profile_id
+            where f.workspace_id = ${ws} and f.user_id = ${me} and f.state = 'friends'
+              and f.since between ${ago(TODAY_WINDOW_DAYS.opener)}::timestamptz
+                and ${ago(pace.messageAfterDays)}::timestamptz
             and ${pitchable('p')} and ${inPlay(me, 'p')} and ${reach}
-            and exists (select 1 from addon_outreach.touches t where t.profile_id = p.id
-              and t.user_id = ${me} and t.kind = 'friend_request')
-            and not exists (select 1 from addon_outreach.touches t where t.profile_id = p.id
-              and t.kind = 'message')
-            and not exists (select 1 from addon_outreach.file_chats c where c.profile_id = p.id
-              and c.user_id = ${me})
-            and not exists (select 1 from addon_outreach.follow_ups fu where fu.profile_id = p.id
-              and fu.user_id = ${me})
-          order by f.since desc limit ${openersLeft}`,
+              and exists (select 1 from addon_outreach.touches t where t.profile_id = p.id
+                and t.user_id = ${me} and t.kind = 'friend_request')
+              and not exists (select 1 from addon_outreach.touches t where t.profile_id = p.id
+                and t.kind = 'message')
+              and not exists (select 1 from addon_outreach.file_chats c where c.profile_id = p.id
+                and c.user_id = ${me})
+              and not exists (select 1 from addon_outreach.follow_ups fu where fu.profile_id = p.id
+                and fu.user_id = ${me})
+            order by f.since desc limit ${openersLeft}`,
     );
     openers = accepted.length;
     for (const p of accepted)
@@ -1220,33 +1223,33 @@ export async function todayFor(
     const [sentThere] = await rows<{ n: number }>(
       ctx.tx,
       sql`select count(*)::int as n from addon_outreach.touches t
-          join addon_outreach.profiles p on p.id = t.profile_id
-          where t.workspace_id = ${ws} and t.user_id = ${me} and t.step = 'first_message'
-            and p.platform = ${input.platform} and t.at >= ${todayFrom}::timestamptz
-            and not exists (select 1 from addon_outreach.friends f
-              where f.profile_id = p.id and f.user_id = ${me} and f.state = 'friends')`,
+            join addon_outreach.profiles p on p.id = t.profile_id
+            where t.workspace_id = ${ws} and t.user_id = ${me} and t.step = 'first_message'
+              and p.platform = ${input.platform} and t.at >= ${todayFrom}::timestamptz
+              and not exists (select 1 from addon_outreach.friends f
+                where f.profile_id = p.id and f.user_id = ${me} and f.state = 'friends')`,
     );
     const left = Math.min(openersLeft - openers, Math.max(0, requestsCap - (sentThere?.n ?? 0)));
     const waiting = left
       ? await rows<{ id: string; name: string; url: string; since: Date | string }>(
           ctx.tx,
           sql`select p.id, p.name, p.url, f.since from addon_outreach.friends f
-              join addon_outreach.profiles p on p.id = f.profile_id
-              where f.workspace_id = ${ws} and f.user_id = ${me} and f.state = 'request_sent'
-                and f.since between ${ago(TODAY_WINDOW_DAYS.opener)}::timestamptz
-                  and ${ago(requestsAfter)}::timestamptz
+                join addon_outreach.profiles p on p.id = f.profile_id
+                where f.workspace_id = ${ws} and f.user_id = ${me} and f.state = 'request_sent'
+                  and f.since between ${ago(TODAY_WINDOW_DAYS.opener)}::timestamptz
+                    and ${ago(requestsAfter)}::timestamptz
                 and ${pitchable('p')} and ${inPlay(me, 'p')} and ${reach}
-                and exists (select 1 from addon_outreach.touches t where t.profile_id = p.id
-                  and t.user_id = ${me} and t.kind = 'friend_request')
-                and not exists (select 1 from addon_outreach.touches t where t.profile_id = p.id
-                  and t.kind = 'message')
-                and not exists (select 1 from addon_outreach.file_chats c where c.profile_id = p.id
-                  and c.user_id = ${me})
-                and not exists (select 1 from addon_outreach.follow_ups fu where fu.profile_id = p.id
-                  and fu.user_id = ${me})
-                and not exists (select 1 from addon_outreach.replies r where r.profile_id = p.id
-                  and r.user_id = ${me})
-              order by f.since desc limit ${left}`,
+                  and exists (select 1 from addon_outreach.touches t where t.profile_id = p.id
+                    and t.user_id = ${me} and t.kind = 'friend_request')
+                  and not exists (select 1 from addon_outreach.touches t where t.profile_id = p.id
+                    and t.kind = 'message')
+                  and not exists (select 1 from addon_outreach.file_chats c where c.profile_id = p.id
+                    and c.user_id = ${me})
+                  and not exists (select 1 from addon_outreach.follow_ups fu where fu.profile_id = p.id
+                    and fu.user_id = ${me})
+                  and not exists (select 1 from addon_outreach.replies r where r.profile_id = p.id
+                    and r.user_id = ${me})
+                order by f.since desc limit ${left}`,
         )
       : [];
     for (const p of waiting)
@@ -1271,12 +1274,12 @@ export async function todayFor(
   const nowAt = new Date(now).toISOString();
   // The latest chat with someone, for where it's going: the person's own.
   const latestChat = (p: string) => sql`left join lateral (
-      select c.id, c.thread_key, c.summary, c.next_step, c.pitch, c.pitch_why, c.last_at, c.last_from_me
-      from addon_outreach.file_chats c where c.profile_id = ${sql.raw(p)}.id and c.user_id = ${me}
-      order by c.last_at desc limit 1
-    ) c on true`;
+        select c.id, c.thread_key, c.summary, c.next_step, c.pitch, c.pitch_why, c.last_at, c.last_from_me
+        from addon_outreach.file_chats c where c.profile_id = ${sql.raw(p)}.id and c.user_id = ${me}
+        order by c.last_at desc limit 1
+      ) c on true`;
   const notBooked = (p: string) => sql`not exists (select 1 from addon_outreach.demos d
-      where d.profile_id = ${sql.raw(p)}.id and d.user_id = ${me} and d.undone_at is null)`;
+        where d.profile_id = ${sql.raw(p)}.id and d.user_id = ${me} and d.undone_at is null)`;
 
   // After a demo booked through the person's link (decision 106): a short reminder the day before, on the business's
   // calendar, unless the person wrote to them since that day began there (however long the clocks make it); and after
@@ -1298,35 +1301,35 @@ export async function todayFor(
     }>(
       ctx.tx,
       sql`select distinct on (p.id) p.id, p.name, p.url, c.id as chat_id, c.thread_key, c.summary, c.next_step,
-            a.starts_at, (a.status = 'no_show' or aa.status = 'no_show') as missed
-          from addon_outreach.demos d
-          join addon_outreach.profiles p on p.id = d.profile_id
-          join app.appointments a on a.id = d.appointment_id and a.bin_item_id is null
-          join app.appointment_attendees aa on aa.appointment_id = a.id and aa.person_id = d.person_id
-          ${latestChat('p')}
-          where d.workspace_id = ${ws} and d.user_id = ${me} and d.how = 'link' and d.undone_at is null
+              a.starts_at, (a.status = 'no_show' or aa.status = 'no_show') as missed
+            from addon_outreach.demos d
+            join addon_outreach.profiles p on p.id = d.profile_id
+            join app.appointments a on a.id = d.appointment_id and a.bin_item_id is null
+            join app.appointment_attendees aa on aa.appointment_id = a.id and aa.person_id = d.person_id
+            ${latestChat('p')}
+            where d.workspace_id = ${ws} and d.user_id = ${me} and d.how = 'link' and d.undone_at is null
             and ${pitchable('p')} and ${inPlayAnyOwner(me, 'p')} and ${reach}
-            and ((a.status = 'scheduled' and aa.status = 'booked'
-                and (a.starts_at at time zone ${zone})::date
-                  = (${nowAt}::timestamptz at time zone ${zone})::date + 1
-                and not exists (select 1 from addon_outreach.touches t
-                  where t.profile_id = p.id and t.user_id = ${me} and t.kind = 'message'
-                    and t.at >= ((a.starts_at at time zone ${zone})::date - 1)::timestamp at time zone ${zone}))
-              or ((a.status = 'no_show' or aa.status = 'no_show')
-                and a.starts_at between ${ago(TODAY_WINDOW_DAYS.rebook)}::timestamptz and ${nowAt}::timestamptz
-                and not exists (select 1 from addon_outreach.touches t
-                  where t.profile_id = p.id and t.user_id = ${me} and t.kind = 'message' and t.at > a.starts_at)
-                and not exists (select 1 from addon_outreach.sends s
-                  where s.profile_id = p.id and s.user_id = ${me} and s.kind = 'rebook' and s.state = 'skipped'
-                    and s.done_at > a.starts_at)
-                and not exists (select 1 from addon_outreach.demos d2
-                  where d2.profile_id = p.id and d2.undone_at is null and d2.at > d.at)))
-            and (c.id is null or c.last_from_me or c.last_at <= d.at)
-            and not exists (select 1 from addon_outreach.replies r
-              where r.profile_id = p.id and r.user_id = ${me} and r.seen_at > d.at
-                and not exists (select 1 from addon_outreach.touches t
-                  where t.profile_id = p.id and t.user_id = ${me} and t.kind = 'message' and t.at > r.seen_at))
-          order by p.id, a.starts_at desc`,
+              and ((a.status = 'scheduled' and aa.status = 'booked'
+                  and (a.starts_at at time zone ${zone})::date
+                    = (${nowAt}::timestamptz at time zone ${zone})::date + 1
+                  and not exists (select 1 from addon_outreach.touches t
+                    where t.profile_id = p.id and t.user_id = ${me} and t.kind = 'message'
+                      and t.at >= ((a.starts_at at time zone ${zone})::date - 1)::timestamp at time zone ${zone}))
+                or ((a.status = 'no_show' or aa.status = 'no_show')
+                  and a.starts_at between ${ago(TODAY_WINDOW_DAYS.rebook)}::timestamptz and ${nowAt}::timestamptz
+                  and not exists (select 1 from addon_outreach.touches t
+                    where t.profile_id = p.id and t.user_id = ${me} and t.kind = 'message' and t.at > a.starts_at)
+                  and not exists (select 1 from addon_outreach.sends s
+                    where s.profile_id = p.id and s.user_id = ${me} and s.kind = 'rebook' and s.state = 'skipped'
+                      and s.done_at > a.starts_at)
+                  and not exists (select 1 from addon_outreach.demos d2
+                    where d2.profile_id = p.id and d2.undone_at is null and d2.at > d.at)))
+              and (c.id is null or c.last_from_me or c.last_at <= d.at)
+              and not exists (select 1 from addon_outreach.replies r
+                where r.profile_id = p.id and r.user_id = ${me} and r.seen_at > d.at
+                  and not exists (select 1 from addon_outreach.touches t
+                    where t.profile_id = p.id and t.user_id = ${me} and t.kind = 'message' and t.at > r.seen_at))
+            order by p.id, a.starts_at desc`,
     );
     for (const p of demoed.slice(0, followLeft)) {
       const when = demoWhen(p.starts_at, intlTimeZone(zone));
@@ -1369,28 +1372,28 @@ export async function todayFor(
     }>(
       ctx.tx,
       sql`select distinct on (p.id) p.id, p.name, p.url, c.id as chat_id, c.thread_key, c.summary, c.next_step,
-            o.kind, o.detail
-          from (
-            select o.profile_id, o.kind, min(o.seen_at) as since,
-              (array_agg(o.detail order by o.seen_at desc) filter (where o.detail is not null))[1] as detail
-            from addon_outreach.occasions o
-            where o.workspace_id = ${ws} and o.user_id = ${me}
-              and ((o.kind = 'birthday' and o.on_day = ${today})
-                or (o.kind = 'new_job' and o.on_day > ${today} - ${NEW_JOB_DAYS}::int))
-            group by o.profile_id, o.kind
-          ) o
-          join addon_outreach.profiles p on p.id = o.profile_id
-          ${latestChat('p')}
+              o.kind, o.detail
+            from (
+              select o.profile_id, o.kind, min(o.seen_at) as since,
+                (array_agg(o.detail order by o.seen_at desc) filter (where o.detail is not null))[1] as detail
+              from addon_outreach.occasions o
+              where o.workspace_id = ${ws} and o.user_id = ${me}
+                and ((o.kind = 'birthday' and o.on_day = ${today})
+                  or (o.kind = 'new_job' and o.on_day > ${today} - ${NEW_JOB_DAYS}::int))
+              group by o.profile_id, o.kind
+            ) o
+            join addon_outreach.profiles p on p.id = o.profile_id
+            ${latestChat('p')}
           where p.friendship <> 'self' and ${notNever('p')} and ${inPlay(me, 'p')} and ${reach}
-            and (c.id is not null or exists (select 1 from addon_outreach.checks ch
-              where ch.profile_id = p.id and ch.user_id = ${me} and ch.verdict = 'good'))
-            and not exists (select 1 from addon_outreach.touches t
-              where t.profile_id = p.id and t.user_id = ${me} and t.kind = 'message'
-                and t.at >= o.since - interval '12 hours')
-            and not exists (select 1 from addon_outreach.sends s
-              where s.profile_id = p.id and s.user_id = ${me} and s.kind = o.kind and s.state = 'skipped'
-                and s.done_at >= o.since - interval '12 hours')
-          order by p.id, (o.kind = 'birthday') desc, o.since desc`,
+              and (c.id is not null or exists (select 1 from addon_outreach.checks ch
+                where ch.profile_id = p.id and ch.user_id = ${me} and ch.verdict = 'good'))
+              and not exists (select 1 from addon_outreach.touches t
+                where t.profile_id = p.id and t.user_id = ${me} and t.kind = 'message'
+                  and t.at >= o.since - interval '12 hours')
+              and not exists (select 1 from addon_outreach.sends s
+                where s.profile_id = p.id and s.user_id = ${me} and s.kind = o.kind and s.state = 'skipped'
+                  and s.done_at >= o.since - interval '12 hours')
+            order by p.id, (o.kind = 'birthday') desc, o.since desc`,
     );
     const due = noted
       .filter((p) => !listedNow.has(p.id))
@@ -1434,24 +1437,24 @@ export async function todayFor(
     }>(
       ctx.tx,
       sql`select p.id, p.name, p.url, c.id as chat_id, c.thread_key, c.summary, c.next_step, c.pitch_why,
-            coalesce(s.mark = 'ready', false) as marked, f.step,
-            coalesce(f.answer = 'yes' and f.stopped_at is null, false) as said_yes
-          from addon_outreach.profiles p
-          left join addon_outreach.stages s on s.profile_id = p.id and s.user_id = ${me}
-          left join addon_outreach.follow_ups f on f.profile_id = p.id and f.user_id = ${me}
-          ${latestChat('p')}
-          where p.workspace_id = ${ws} and p.friendship <> 'self' and ${pitchable('p')}
+              coalesce(s.mark = 'ready', false) as marked, f.step,
+              coalesce(f.answer = 'yes' and f.stopped_at is null, false) as said_yes
+            from addon_outreach.profiles p
+            left join addon_outreach.stages s on s.profile_id = p.id and s.user_id = ${me}
+            left join addon_outreach.follow_ups f on f.profile_id = p.id and f.user_id = ${me}
+            ${latestChat('p')}
+            where p.workspace_id = ${ws} and p.friendship <> 'self' and ${pitchable('p')}
             and not ${isClient('p')} and ${notLater(me, 'p')} and ${reach}
-            and (c.pitch = 'ready' or s.mark = 'ready'
-              or (f.answer = 'yes' and f.stopped_at is null
-                and (f.step = 'video' or (f.step = 'first' and not ${hasVideo}))))
-            and (s.id is null or (s.pitched_at is null and s.mark is distinct from 'lost'))
-            and ${notBooked('p')}
-            and not exists (select 1 from addon_outreach.touches t
-              where t.profile_id = p.id and t.user_id = ${me} and t.kind = 'message'
-                and t.at > greatest(c.last_at, s.marked_at, f.answered_at))
-          order by greatest(c.last_at, s.marked_at, f.answered_at) desc nulls last, p.id
-          limit ${followLeft}`,
+              and (c.pitch = 'ready' or s.mark = 'ready'
+                or (f.answer = 'yes' and f.stopped_at is null
+                  and (f.step = 'video' or (f.step = 'first' and not ${hasVideo}))))
+              and (s.id is null or (s.pitched_at is null and s.mark is distinct from 'lost'))
+              and ${notBooked('p')}
+              and not exists (select 1 from addon_outreach.touches t
+                where t.profile_id = p.id and t.user_id = ${me} and t.kind = 'message'
+                  and t.at > greatest(c.last_at, s.marked_at, f.answered_at))
+            order by greatest(c.last_at, s.marked_at, f.answered_at) desc nulls last, p.id
+            limit ${followLeft}`,
     );
     followLeft -= ready.length;
     for (const p of ready)
@@ -1492,15 +1495,15 @@ export async function todayFor(
     }>(
       ctx.tx,
       sql`select p.id, p.name, p.url, c.id as chat_id, c.thread_key, c.summary, c.next_step
-          from addon_outreach.follow_ups f join addon_outreach.profiles p on p.id = f.profile_id
-          ${latestChat('p')}
-          where f.workspace_id = ${ws} and f.user_id = ${me} and f.step = 'first' and f.answer = 'yes'
-            and f.stopped_at is null
+            from addon_outreach.follow_ups f join addon_outreach.profiles p on p.id = f.profile_id
+            ${latestChat('p')}
+            where f.workspace_id = ${ws} and f.user_id = ${me} and f.step = 'first' and f.answer = 'yes'
+              and f.stopped_at is null
             and ${pitchable('p')} and ${inPlay(me, 'p')} and ${reach} and ${notBooked('p')}
-            and not exists (select 1 from addon_outreach.touches t
-              where t.profile_id = p.id and t.user_id = ${me} and t.kind = 'message' and t.at > f.answered_at)
-          order by f.answered_at desc, p.id
-          limit ${followLeft}`,
+              and not exists (select 1 from addon_outreach.touches t
+                where t.profile_id = p.id and t.user_id = ${me} and t.kind = 'message' and t.at > f.answered_at)
+            order by f.answered_at desc, p.id
+            limit ${followLeft}`,
     );
     followLeft -= yes.length;
     for (const p of yes)
@@ -1527,10 +1530,10 @@ export async function todayFor(
   // a chat they haven't answered or accepted: a message to their Requests waits there, one only.
   const answeredOrAccepted = follows
     ? sql`(f.answer is not null
-        or exists (select 1 from addon_outreach.friends fr
-          where fr.profile_id = p.id and fr.user_id = ${me} and fr.state = 'friends')
-        or exists (select 1 from addon_outreach.replies r
-          where r.profile_id = p.id and r.user_id = ${me}))`
+          or exists (select 1 from addon_outreach.friends fr
+            where fr.profile_id = p.id and fr.user_id = ${me} and fr.state = 'friends')
+          or exists (select 1 from addon_outreach.replies r
+            where r.profile_id = p.id and r.user_id = ${me}))`
     : sql`true`;
   if (followLeft > 0) {
     const quiet = await rows<{
@@ -1549,21 +1552,21 @@ export async function todayFor(
     }>(
       ctx.tx,
       sql`select p.id, p.name, p.url, c.id as chat_id, c.thread_key, c.summary, c.next_step, f.next, f.step,
-            f.sent, f.last_at, f.answer
-          from addon_outreach.follow_ups f join addon_outreach.profiles p on p.id = f.profile_id
-          ${latestChat('p')}
-          where f.workspace_id = ${ws} and f.user_id = ${me} and f.stopped_at is null
-            and f.due_at <= ${nowAt}::timestamptz
+              f.sent, f.last_at, f.answer
+            from addon_outreach.follow_ups f join addon_outreach.profiles p on p.id = f.profile_id
+            ${latestChat('p')}
+            where f.workspace_id = ${ws} and f.user_id = ${me} and f.stopped_at is null
+              and f.due_at <= ${nowAt}::timestamptz
             and ${pitchable('p')} and ${inPlay(me, 'p')} and ${reach} and ${notBooked('p')}
-            and not exists (select 1 from addon_outreach.replies r
-              where r.profile_id = f.profile_id and r.user_id = ${me} and r.seen_at > f.last_at)
-            and (c.id is null or c.last_from_me or c.last_at <= f.last_at)
-            and ${answeredOrAccepted}
-            and not exists (select 1 from addon_outreach.touches t
-              where t.profile_id = p.id and t.user_id = ${me} and t.kind = 'message'
-                and t.at > greatest(f.last_at, ${ago(MANUAL_QUIET_HOURS / 24)}::timestamptz))
-          order by f.due_at, p.id
-          limit ${followLeft}`,
+              and not exists (select 1 from addon_outreach.replies r
+                where r.profile_id = f.profile_id and r.user_id = ${me} and r.seen_at > f.last_at)
+              and (c.id is null or c.last_from_me or c.last_at <= f.last_at)
+              and ${answeredOrAccepted}
+              and not exists (select 1 from addon_outreach.touches t
+                where t.profile_id = p.id and t.user_id = ${me} and t.kind = 'message'
+                  and t.at > greatest(f.last_at, ${ago(MANUAL_QUIET_HOURS / 24)}::timestamptz))
+            order by f.due_at, p.id
+            limit ${followLeft}`,
     );
     followLeft -= quiet.length;
     // Which follow-up of how many, and since when a check-in's been quiet, on the business's calendar.
@@ -1604,9 +1607,10 @@ export async function todayFor(
 
   // Follow-ups and replies in chats that started another way (Reconnect, the download file, someone who wrote
   // first): likely prospects whose chat's last message was the person's, a few quiet days ago, until their first
-  // follow-up starts a conversation; and those who wrote last, lately. A client (decision 91) gets the reply alone.
-  // Nobody the chat's read says turned the offer down gets a follow-up, and a chat read as come to a close gets no
-  // reply (decision 134).
+  // follow-up starts a conversation; and those who wrote last, lately, likely prospects or anyone who wrote after a
+  // message, request or comment of the person's (decision 150, `REPLY_STARTS`). A client (decision 91) gets the
+  // reply alone. Nobody the chat's read says turned the offer down gets a follow-up, and a chat read as come to a
+  // close gets no reply (decision 134).
   const chats = await rows<{
     id: string;
     name: string;
@@ -1620,23 +1624,30 @@ export async function todayFor(
   }>(
     ctx.tx,
     sql`select c.id, c.name, c.profile_id, p.url, c.thread_key, c.last_at, c.last_from_me, c.summary,
-          c.next_step
-        from addon_outreach.file_chats c left join addon_outreach.profiles p on p.id = c.profile_id
-        where c.workspace_id = ${ws} and c.user_id = ${me} and c.read_state = 'read' and c.prospect
-          and c.platform = ${input.platform}
-          and (p.id is null or (${pitchable('p')} and ${openToMe(me, 'p')}
-            and (not c.last_from_me or (${reach} and not ${isClient('p')}))))
-          and ((c.last_from_me and c.last_at between ${ago(TODAY_WINDOW_DAYS.follow_up)}::timestamptz
-                and ${ago(pace.firstGap)}::timestamptz
-                and c.pitch is distinct from 'not_interested'
-                and not exists (select 1 from addon_outreach.follow_ups f
-                  where f.profile_id = c.profile_id and f.user_id = ${me}))
-            or (not c.last_from_me and c.last_at >= ${ago(TODAY_WINDOW_DAYS.reply)}::timestamptz
-                and not ${closedChat('c')}))
-          and not exists (select 1 from addon_outreach.touches t
-            where t.profile_id = c.profile_id and t.user_id = ${me} and t.kind = 'message'
-              and t.at > c.last_at)
-        order by c.last_at desc limit ${TODAY_MOST * 2}`,
+            c.next_step
+          from addon_outreach.file_chats c left join addon_outreach.profiles p on p.id = c.profile_id
+          where c.workspace_id = ${ws} and c.user_id = ${me} and c.read_state = 'read'
+            and (c.prospect or (not c.last_from_me and exists (select 1 from addon_outreach.touches t
+              where t.profile_id = c.profile_id and t.user_id = ${me}
+                and t.kind in (${sql.join(
+                  REPLY_STARTS.map((kind) => sql`${kind}`),
+                  sql`, `,
+                )})
+                and t.at < c.last_at + interval '1 minute')))
+            and c.platform = ${input.platform}
+            and (p.id is null or (${pitchable('p')} and ${openToMe(me, 'p')}
+              and (not c.last_from_me or (${reach} and not ${isClient('p')}))))
+            and ((c.last_from_me and c.last_at between ${ago(TODAY_WINDOW_DAYS.follow_up)}::timestamptz
+                  and ${ago(pace.firstGap)}::timestamptz
+                  and c.pitch is distinct from 'not_interested'
+                  and not exists (select 1 from addon_outreach.follow_ups f
+                    where f.profile_id = c.profile_id and f.user_id = ${me}))
+              or (not c.last_from_me and c.last_at >= ${ago(TODAY_WINDOW_DAYS.reply)}::timestamptz
+                  and not ${closedChat('c')}))
+            and not exists (select 1 from addon_outreach.touches t
+              where t.profile_id = c.profile_id and t.user_id = ${me} and t.kind = 'message'
+                and t.at > c.last_at)
+          order by c.last_at desc limit ${TODAY_MOST * 2}`,
   );
   let replies = TODAY_MOST;
   for (const c of chats) {
@@ -1677,16 +1688,16 @@ export async function todayFor(
   }>(
     ctx.tx,
     sql`select distinct on (r.profile_id) r.profile_id, p.name, p.url, r.thread_key, r.seen_at
-        from addon_outreach.replies r join addon_outreach.profiles p on p.id = r.profile_id
-        where r.workspace_id = ${ws} and r.user_id = ${me} and p.platform = ${input.platform}
-          and r.seen_at >= ${ago(TODAY_WINDOW_DAYS.reply)}::timestamptz and ${pitchable('p')}
-          and not exists (select 1 from addon_outreach.touches t
-            where t.profile_id = r.profile_id and t.user_id = ${me} and t.kind = 'message'
-              and t.at > r.seen_at)
-          and not exists (select 1 from addon_outreach.file_chats c
-            where c.profile_id = r.profile_id and c.user_id = ${me} and c.collected_at > r.seen_at
-              and (c.last_from_me or (c.read_state = 'read' and ${closedChat('c')})))
-        order by r.profile_id, r.seen_at desc`,
+          from addon_outreach.replies r join addon_outreach.profiles p on p.id = r.profile_id
+          where r.workspace_id = ${ws} and r.user_id = ${me} and p.platform = ${input.platform}
+            and r.seen_at >= ${ago(TODAY_WINDOW_DAYS.reply)}::timestamptz and ${pitchable('p')}
+            and not exists (select 1 from addon_outreach.touches t
+              where t.profile_id = r.profile_id and t.user_id = ${me} and t.kind = 'message'
+                and t.at > r.seen_at)
+            and not exists (select 1 from addon_outreach.file_chats c
+              where c.profile_id = r.profile_id and c.user_id = ${me} and c.collected_at > r.seen_at
+                and (c.last_from_me or (c.read_state = 'read' and ${closedChat('c')})))
+          order by r.profile_id, r.seen_at desc`,
   );
   seen.sort((a, b) => new Date(b.seen_at).getTime() - new Date(a.seen_at).getTime());
   for (const r of seen) {
@@ -1726,17 +1737,17 @@ export async function todayFor(
     }>(
       ctx.tx,
       sql`select p.id, p.name, p.url, ch.why, ch.about, ch.next_step, pb.name as playbook_name,
-            c.id as chat_id, c.thread_key
-          from addon_outreach.checks ch
-          join addon_outreach.profiles p on p.id = ch.profile_id
-          left join addon_outreach.playbooks pb on pb.id = ch.playbook_id
-          left join lateral (
-            select c.id, c.thread_key, c.last_at from addon_outreach.file_chats c
-            where c.profile_id = p.id and c.user_id = ${me} order by c.last_at desc limit 1
-          ) c on true
-          where ch.workspace_id = ${ws} and ${reconnectReady(me, ago(RECONNECT_QUIET_DAYS), lets)}
-          order by (ch.verdict = 'good') desc, ch.checked_at desc, p.id
-          limit ${reconnectLeft + items.length}`,
+              c.id as chat_id, c.thread_key
+            from addon_outreach.checks ch
+            join addon_outreach.profiles p on p.id = ch.profile_id
+            left join addon_outreach.playbooks pb on pb.id = ch.playbook_id
+            left join lateral (
+              select c.id, c.thread_key, c.last_at from addon_outreach.file_chats c
+              where c.profile_id = p.id and c.user_id = ${me} order by c.last_at desc limit 1
+            ) c on true
+            where ch.workspace_id = ${ws} and ${reconnectReady(me, ago(RECONNECT_QUIET_DAYS), lets)}
+            order by (ch.verdict = 'good') desc, ch.checked_at desc, p.id
+            limit ${reconnectLeft + items.length}`,
     );
     const listedNow = new Set(items.map((i) => i.profileId).filter(Boolean));
     for (const p of fits.filter((f) => !listedNow.has(f.id)).slice(0, reconnectLeft))
@@ -1769,11 +1780,11 @@ export async function todayFor(
     const [answered] = await rows<{ n: number }>(
       ctx.tx,
       sql`select count(*)::int as n from addon_outreach.touches t
-          join addon_outreach.profiles p on p.id = t.profile_id
-          where t.workspace_id = ${ws} and t.user_id = ${me} and t.kind = 'comment'
-            and p.platform = ${input.platform} and t.at >= ${todayFrom}::timestamptz
-            and exists (select 1 from addon_outreach.posts po
-              where po.user_id = ${me} and po.url = t.post_url and po.strong)`,
+            join addon_outreach.profiles p on p.id = t.profile_id
+            where t.workspace_id = ${ws} and t.user_id = ${me} and t.kind = 'comment'
+              and p.platform = ${input.platform} and t.at >= ${todayFrom}::timestamptz
+              and exists (select 1 from addon_outreach.posts po
+                where po.user_id = ${me} and po.url = t.post_url and po.strong)`,
     );
     askingLeft = Math.min(commentsLeft, Math.max(0, answersCap - (answered?.n ?? 0)));
   }
@@ -1793,26 +1804,26 @@ export async function todayFor(
     }>(
       ctx.tx,
       sql`select * from (select po.id, po.url, po.posted, po.body, po.check_why, po.strong, po.seen_at,
-            p.id as profile_id, p.name, p.url as profile_url, g.name as group_name, pb.name as playbook_name,
-            row_number() over (partition by po.strong order by po.seen_at desc) as nth
-          from addon_outreach.posts po
-          join addon_outreach.profiles p on p.id = po.profile_id
-          left join addon_outreach.groups g on g.id = po.group_id
-          left join addon_outreach.playbooks pb on pb.id = po.playbook_id
-          where po.workspace_id = ${ws} and po.user_id = ${me} and po.check_state = 'good'
-            and po.skipped_at is null and po.seen_at >= ${ago(POST_FRESH_DAYS)}::timestamptz
-            ${
-              // One an older check called good waits for the check that knows the owner’s field (decision 143).
-              sql`and (po.checked_at is null or po.checked_at >= ${FIELD_CHECK_SINCE}::timestamptz)`
-            }
-            and p.friendship <> 'self' and not ${myOwnProfile(me)}
+              p.id as profile_id, p.name, p.url as profile_url, g.name as group_name, pb.name as playbook_name,
+              row_number() over (partition by po.strong order by po.seen_at desc) as nth
+            from addon_outreach.posts po
+            join addon_outreach.profiles p on p.id = po.profile_id
+            left join addon_outreach.groups g on g.id = po.group_id
+            left join addon_outreach.playbooks pb on pb.id = po.playbook_id
+            where po.workspace_id = ${ws} and po.user_id = ${me} and po.check_state = 'good'
+              and po.skipped_at is null and po.seen_at >= ${ago(POST_FRESH_DAYS)}::timestamptz
+              ${
+                // One an older check called good waits for the check that knows the owner’s field (decision 143).
+                sql`and (po.checked_at is null or po.checked_at >= ${FIELD_CHECK_SINCE}::timestamptz)`
+              }
+              and p.friendship <> 'self' and not ${myOwnProfile(me)}
             and ${pitchable('p')} and ${inPlay(me, 'p')} and ${notOthers(me, 'g')} and ${reach}
-            and not exists (select 1 from addon_outreach.group_people x
-              where x.profile_id = p.id and x.runs_group)
-            and not exists (select 1 from addon_outreach.touches t
-              where t.user_id = ${me} and t.kind = 'comment' and t.post_url = po.url)) good
-          where not good.strong or good.nth <= ${askingLeft}
-          order by good.strong desc, good.seen_at desc limit ${commentsLeft}`,
+              and not exists (select 1 from addon_outreach.group_people x
+                where x.profile_id = p.id and x.runs_group)
+              and not exists (select 1 from addon_outreach.touches t
+                where t.user_id = ${me} and t.kind = 'comment' and t.post_url = po.url)) good
+            where not good.strong or good.nth <= ${askingLeft}
+            order by good.strong desc, good.seen_at desc limit ${commentsLeft}`,
     );
     for (const po of good)
       items.push(
@@ -1856,18 +1867,18 @@ export async function todayFor(
     }>(
       ctx.tx,
       sql`select po.id, po.url, po.posted, po.body, p.id as profile_id, p.name, p.url as profile_url,
-            g.name as group_name
-          from addon_outreach.posts po
-          join addon_outreach.profiles p on p.id = po.profile_id
-          left join addon_outreach.groups g on g.id = po.group_id
-          where po.workspace_id = ${ws} and po.user_id = ${me} and po.reply_at is not null
-            and po.reply_at >= ${ago(REPLY_KEPT_DAYS)}::timestamptz
-            and po.skipped_at is null and po.check_state <> 'good'
-            and p.friendship <> 'self' and not ${myOwnProfile(me)}
+              g.name as group_name
+            from addon_outreach.posts po
+            join addon_outreach.profiles p on p.id = po.profile_id
+            left join addon_outreach.groups g on g.id = po.group_id
+            where po.workspace_id = ${ws} and po.user_id = ${me} and po.reply_at is not null
+              and po.reply_at >= ${ago(REPLY_KEPT_DAYS)}::timestamptz
+              and po.skipped_at is null and po.check_state <> 'good'
+              and p.friendship <> 'self' and not ${myOwnProfile(me)}
             and ${contactable('p')} and ${notOthers(me, 'p')} and ${notOthers(me, 'g')} and ${reach}
-            and not exists (select 1 from addon_outreach.touches t
-              where t.user_id = ${me} and t.kind = 'comment' and t.post_url = po.url)
-          order by po.reply_at desc limit ${repliesLeft}`,
+              and not exists (select 1 from addon_outreach.touches t
+                where t.user_id = ${me} and t.kind = 'comment' and t.post_url = po.url)
+            order by po.reply_at desc limit ${repliesLeft}`,
     );
     for (const po of asked)
       items.push(
@@ -1893,27 +1904,27 @@ export async function todayFor(
     const [recommended] = await rows<{ n: number }>(
       ctx.tx,
       sql`select count(*)::int as n from addon_outreach.touches t
-          join addon_outreach.profiles p on p.id = t.profile_id
-          where t.workspace_id = ${ws} and t.user_id = ${me} and t.kind = 'recommend'
-            and p.platform = ${input.platform} and t.at >= ${todayFrom}::timestamptz`,
+            join addon_outreach.profiles p on p.id = t.profile_id
+            where t.workspace_id = ${ws} and t.user_id = ${me} and t.kind = 'recommend'
+              and p.platform = ${input.platform} and t.at >= ${todayFrom}::timestamptz`,
     );
     const left = Math.max(0, RECOMMEND_PER_DAY - (recommended?.n ?? 0));
     const partnerOf = sql`exists (select 1 from addon_outreach.partners pa
-      where pa.profile_id = p.id and pa.user_id = ${me} and pa.partner_at is not null)`;
+        where pa.profile_id = p.id and pa.user_id = ${me} and pa.partner_at is not null)`;
     const vouched = left
       ? await rows<{ id: string; name: string; url: string; partner: boolean }>(
           ctx.tx,
           sql`select p.id, p.name, p.url, ${partnerOf} as partner
-              from addon_outreach.profiles p
-              where p.workspace_id = ${ws} and ${notNever('p')} and ${lets}
-                and (${partnerOf} or (p.person_id is not null and (
-                  exists (select 1 from app.invoices i
-                    where i.person_id = p.person_id and i.status = 'paid')
-                  or exists (select 1 from app.jobs j
-                    where j.person_id = p.person_id and j.status = 'done'))))
-                and not exists (select 1 from addon_outreach.touches t
-                  where t.profile_id = p.id and t.user_id = ${me} and t.kind = 'recommend')
-              order by md5(p.id::text || ${todayFrom}) limit ${left}`,
+                from addon_outreach.profiles p
+                where p.workspace_id = ${ws} and ${notNever('p')} and ${lets}
+                  and (${partnerOf} or (p.person_id is not null and (
+                    exists (select 1 from app.invoices i
+                      where i.person_id = p.person_id and i.status = 'paid')
+                    or exists (select 1 from app.jobs j
+                      where j.person_id = p.person_id and j.status = 'done'))))
+                  and not exists (select 1 from addon_outreach.touches t
+                    where t.profile_id = p.id and t.user_id = ${me} and t.kind = 'recommend')
+                order by md5(p.id::text || ${todayFrom}) limit ${left}`,
         )
       : [];
     for (const p of vouched)
@@ -1947,22 +1958,22 @@ export async function todayFor(
   }>(
     ctx.tx,
     sql`select n.id, n.step, n.name, n.why, n.retry_at, p.id as profile_id, p.url as profile_url,
-          po.id as post_id, po.url as post_url, po.posted, po.body
-        from addon_outreach.needs n
-        join addon_outreach.profiles p on p.workspace_id = n.workspace_id and p.id = n.profile_id
-        left join addon_outreach.posts po on po.workspace_id = n.workspace_id and po.id = n.post_id
-        where n.workspace_id = ${ws} and n.user_id = ${me} and n.state = 'open' and n.send_id is null
-          and n.retry_at >= ${retrySince(now)}::timestamptz and p.platform = ${input.platform}
-          and n.step in (${sql.join(
-            LIST_RETRY_STEPS.filter(
-              (step) => !requestsOff || (step !== 'friend_request' && step !== 'warm_up'),
-            ).map((step) => sql`${step}`),
-            sql`, `,
-          )})
-          and (n.step <> 'comment' or po.id is not null)
-          and (n.step = 'confirm' or ${pitchable('p')})
-        order by n.retry_at, n.seen_at, n.id
-        limit ${TODAY_MOST}`,
+            po.id as post_id, po.url as post_url, po.posted, po.body
+          from addon_outreach.needs n
+          join addon_outreach.profiles p on p.workspace_id = n.workspace_id and p.id = n.profile_id
+          left join addon_outreach.posts po on po.workspace_id = n.workspace_id and po.id = n.post_id
+          where n.workspace_id = ${ws} and n.user_id = ${me} and n.state = 'open' and n.send_id is null
+            and n.retry_at >= ${retrySince(now)}::timestamptz and p.platform = ${input.platform}
+            and n.step in (${sql.join(
+              LIST_RETRY_STEPS.filter(
+                (step) => !requestsOff || (step !== 'friend_request' && step !== 'warm_up'),
+              ).map((step) => sql`${step}`),
+              sql`, `,
+            )})
+            and (n.step <> 'comment' or po.id is not null)
+            and (n.step = 'confirm' or ${pitchable('p')})
+          order by n.retry_at, n.seen_at, n.id
+          limit ${TODAY_MOST}`,
   );
   items.splice(
     0,
@@ -1994,10 +2005,10 @@ export async function todayFor(
   const readAdmins = await rows<{ id: string; name: string | null; url: string }>(
     ctx.tx,
     sql`select g.id, g.name, g.url from addon_outreach.groups g
-        where g.workspace_id = ${ws} and g.platform = ${input.platform} and g.admins_read_at is null
-          and exists (select 1 from addon_outreach.group_people gp
-            where gp.group_id = g.id and not gp.runs_group)
-        order by g.seen_at desc nulls last limit 10`,
+          where g.workspace_id = ${ws} and g.platform = ${input.platform} and g.admins_read_at is null
+            and exists (select 1 from addon_outreach.group_people gp
+              where gp.group_id = g.id and not gp.runs_group)
+          order by g.seen_at desc nulls last limit 10`,
   );
   // The messages the extension drafted (../sends.ts): each with its item, and anyone skipped today off the list. A
   // comment drafted is its post's, and a writer with one open isn't offered a second till it's sent or skipped.
@@ -2022,18 +2033,18 @@ export async function todayFor(
       }>(
         ctx.tx,
         sql`select p.id, p.person_id, p.platform_id, exists (select 1 from addon_outreach.demos d
-              where d.profile_id = p.id and d.user_id = ${me} and d.how = 'marked' and d.undone_at is null) as marked,
-              (select f.answer from addon_outreach.follow_ups f
-                where f.profile_id = p.id and f.user_id = ${me} and f.answered_at >= f.last_at) as answer,
-              -- The check's word that they look more like a partner (decision 130), till they're on the person's
-              -- Partners list or said not to be one.
-              (select ch.partner_hint from addon_outreach.checks ch
-                where ch.profile_id = p.id and ch.user_id = ${me} and ch.partner_hint is not null
-                  and not exists (select 1 from addon_outreach.partners pa
-                    where pa.profile_id = p.id and pa.user_id = ${me}
-                      and (pa.stage is not null or pa.fit = 'not'))) as partner_hint
-            from addon_outreach.profiles p
-            where p.workspace_id = ${ws} and p.id = any (${`{${profileIds.join(',')}}`}::uuid[])`,
+                where d.profile_id = p.id and d.user_id = ${me} and d.how = 'marked' and d.undone_at is null) as marked,
+                (select f.answer from addon_outreach.follow_ups f
+                  where f.profile_id = p.id and f.user_id = ${me} and f.answered_at >= f.last_at) as answer,
+                -- The check's word that they look more like a partner (decision 130), till they're on the person's
+                -- Partners list or said not to be one.
+                (select ch.partner_hint from addon_outreach.checks ch
+                  where ch.profile_id = p.id and ch.user_id = ${me} and ch.partner_hint is not null
+                    and not exists (select 1 from addon_outreach.partners pa
+                      where pa.profile_id = p.id and pa.user_id = ${me}
+                        and (pa.stage is not null or pa.fit = 'not'))) as partner_hint
+              from addon_outreach.profiles p
+              where p.workspace_id = ${ws} and p.id = any (${`{${profileIds.join(',')}}`}::uuid[])`,
       )
     : [];
   const knownOf = new Map(known.map((k) => [k.id, k]));
