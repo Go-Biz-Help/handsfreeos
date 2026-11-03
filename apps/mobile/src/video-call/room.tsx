@@ -17,6 +17,8 @@
  *   as a note.
  * - **A webinar** (a session's call, HANDSFREEOS_WEBINARS_IMPLEMENTATION_PLAN.md): the stage shows only who's
  *   presenting, the team and anyone they brought on stage, never the hundreds watching.
+ * - **What it used**: the phone reports what it has downloaded every minute and as it goes (./call-data.ts), so the
+ *   call is priced by what it really used.
  */
 import {
   LISTENER_IDENTITY,
@@ -91,6 +93,7 @@ import { toast } from '@/components/ui/toast';
 import { errorMessage } from '@/lib/api';
 import { cn } from '@/lib/utils';
 
+import { useCallData } from './call-data';
 import { endOf, type CallEnd } from './ends';
 import { AUDIO_OUTPUTS, mediaProblem } from './media';
 import {
@@ -205,6 +208,8 @@ export default function CallRoom({
       });
     };
   }, [room, ticket.url, ticket.token]);
+  // What this phone downloads, so the call is priced by what it really used.
+  useCallData(room, ticket.token);
 
   return (
     <RoomContext.Provider value={room}>

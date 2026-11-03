@@ -19,6 +19,7 @@ import {
   RoomConfiguration,
   RoomServiceClient,
   ServerError,
+  TokenVerifier,
   TrackSource,
   WebhookReceiver,
 } from 'livekit-server-sdk';
@@ -58,6 +59,12 @@ export function sourcesOf(p: VideoCallPublish): {
   ];
   return { canPublish: sources.length > 0, canPublishSources: sources };
 }
+
+/**
+ * How long a ticket that has run out is still read for a call screen's report of what it downloaded: longer than any
+ * call. The ticket only says who is reporting; getting in still needs one that hasn't run out.
+ */
+export const VIDEO_CALL_TICKET_READ_HOURS = 12;
 
 const EVERYTHING: VideoCallPublish = { camera: true, microphone: true, screen: true };
 
@@ -118,6 +125,7 @@ function failed(e: unknown, what: string): VideoCallError {
 export function createLiveKit(config: LiveKitConfig): VideoCallProvider {
   const rooms = new RoomServiceClient(config.url, config.apiKey, config.apiSecret);
   const receiver = new WebhookReceiver(config.apiKey, config.apiSecret);
+  const tickets = new TokenVerifier(config.apiKey, config.apiSecret);
 
   return {
     name: 'livekit',
@@ -148,6 +156,17 @@ export function createLiveKit(config: LiveKitConfig): VideoCallProvider {
     async readReport(body, authorization) {
       try {
         return reportOf(await receiver.receive(body, authorization));
+      } catch {
+        return null;
+      }
+    },
+
+    async readTicket(token) {
+      try {
+        const claims = await tickets.verify(token, `${VIDEO_CALL_TICKET_READ_HOURS}h`);
+        const room = claims.video?.room;
+        const identity = claims.sub;
+        return room && identity ? { room, identity } : null;
       } catch {
         return null;
       }

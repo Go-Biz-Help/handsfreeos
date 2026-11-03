@@ -310,6 +310,23 @@ const pushesAbout = (callId: string) =>
     (p) => p.message.to === ownerPhone && p.message.collapseId === `video-call-${callId}`,
   );
 
+/** Every connection LiveKit told of in a call, and what each screen said it downloaded (what the call used). */
+const connectionsOf = async (callId: string) =>
+  rows<{ kind: string; participant_sid: string; left_at: Date | null; bytes_received: string }>(
+    admin(),
+    sql`select kind, participant_sid, left_at, bytes_received::text from app.video_call_connections
+        where video_call_id = ${callId} order by joined_at, participant_sid`,
+  );
+
+/** A call screen saying what it has downloaded, as the web sends it (a beacon's plain text). */
+const reportData = (body: Record<string, unknown>, contentType = 'text/plain;charset=UTF-8') =>
+  w.app.inject({
+    method: 'POST',
+    url: '/public/calls/data',
+    headers: { 'content-type': contentType },
+    payload: JSON.stringify(body),
+  });
+
 const joinedAt = async (attendeeId: string) =>
   (
     await rows<{ joined_at: Date | null }>(
@@ -474,7 +491,7 @@ describe('a customer on their own Join link', () => {
 });
 
 describe('LiveKit’s word', () => {
-  it('is believed only when signed, and keeps nothing about other rooms or the AI’s listener', async () => {
+  it('is believed only when signed, keeps nothing about other rooms, and only the connection of the AI’s listener', async () => {
     const b = await booked('Fay', at(1, '13:00'));
     const unsigned = await w.app.inject({
       method: 'POST',
@@ -492,12 +509,11 @@ describe('LiveKit’s word', () => {
     });
     expect(forged.statusCode).toBe(401);
 
-    // Nothing to keep: a room starting, the AI's listener, a room that isn't a call, a call that isn't there.
+    // Nothing to keep: a room starting, a room that isn't a call, a call that isn't there.
     const otherRoom = 'someone-elses-room';
     const goneCall = videoCallRoom(randomUUID());
     for (const told of [
       await hook('room_started', b.room),
-      await hook('participant_joined', b.room, { identity: LISTENER_IDENTITY }),
       await hook('participant_joined', otherRoom, { identity: randomUUID() }),
       await hook('participant_joined', goneCall, { identity: randomUUID() }),
     ])
@@ -522,6 +538,18 @@ describe('LiveKit’s word', () => {
     expect(await stored(b.room)).toBe(1);
     await drain(w);
     expect(await callRow(b.callId)).toMatchObject({ state: 'live' });
+
+    // The AI's listener: LiveKit bills its connection like anyone's, so that alone is kept, for what the call used.
+    const listen = { identity: LISTENER_IDENTITY, roomSid: 'RM_fay', participantSid: 'PA_fay_ai' };
+    expect((await hook('participant_joined', b.room, listen)).statusCode).toBe(200);
+    expect((await hook('participant_left', b.room, listen)).statusCode).toBe(200);
+    await drain(w);
+    expect(
+      (await connectionsOf(b.callId)).map((c) => [c.kind, c.participant_sid, !!c.left_at]),
+    ).toEqual([
+      ['person', expect.stringMatching(/^PA_/), false],
+      ['listener', 'PA_fay_ai', true],
+    ]);
   });
 
   it('takes someone out who comes back on an old ticket, and they come back only by asking', async () => {
@@ -623,6 +651,39 @@ describe('LiveKit’s word', () => {
     await hook('room_finished', b.room, { roomSid, at: closedAt + 1000 });
     await drain(w);
     expect(await charges()).toHaveLength(1);
+  });
+});
+
+describe('what a call screen downloaded', () => {
+  it('is kept for its own connection, on the ticket it joined with, and from nobody else', async () => {
+    const b = await booked('Hal', await soonest());
+    const joined = await teamJoin(ownerToken, b.callId);
+    const { personId, ticket } = joined.json() as { personId: string; ticket: { token: string } };
+    await cameIn(b.room, personId, { roomSid: 'RM_hal', participantSid: 'PA_hal_team' });
+
+    expect(
+      (await reportData({ ticket: ticket.token, sid: 'PA_hal_team', bytes: 1_234_567 })).statusCode,
+    ).toBe(204);
+    // The phone sends JSON: the same.
+    expect(
+      (
+        await reportData(
+          { ticket: ticket.token, sid: 'PA_hal_team', bytes: 2_000_000 },
+          'application/json',
+        )
+      ).statusCode,
+    ).toBe(204);
+    // Not a ticket, a connection LiveKit never told of, a body that isn't one: answered alike, nothing kept.
+    expect(
+      (await reportData({ ticket: 'not-a-ticket', sid: 'PA_hal_team', bytes: 9e9 })).statusCode,
+    ).toBe(204);
+    expect(
+      (await reportData({ ticket: ticket.token, sid: 'PA_someone_else', bytes: 9e9 })).statusCode,
+    ).toBe(204);
+    expect((await reportData({ ticket: ticket.token, sid: 'PA_hal_team' })).statusCode).toBe(400);
+    expect(await connectionsOf(b.callId)).toEqual([
+      expect.objectContaining({ participant_sid: 'PA_hal_team', bytes_received: '2000000' }),
+    ]);
   });
 });
 

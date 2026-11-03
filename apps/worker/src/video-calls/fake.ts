@@ -84,6 +84,10 @@ export function createFakeVideo(): FakeVideo {
       tickets.push(t);
       return { url: 'fake:', token: `fake-livekit.${enc(JSON.stringify(t))}` };
     },
+    async readTicket(token) {
+      const t = readFakeTicket(token);
+      return t ? { room: t.room, identity: t.identity } : null;
+    },
     async readReport(body, authorization) {
       if (authorization !== FAKE_VIDEO_WEBHOOK_KEY) return null;
       try {

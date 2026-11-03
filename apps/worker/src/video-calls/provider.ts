@@ -76,6 +76,12 @@ export interface VideoCallProvider {
   ticket(t: TicketRequest): Promise<VideoTicket>;
   /** A webhook's report, or null when it isn't signed with our key or its body was changed on the way. */
   readReport(body: string, authorization: string | undefined): Promise<VideoReport | null>;
+  /**
+   * Who a ticket it signed is for, and into which room, or null for one it didn't sign. A call screen's report of what
+   * it downloaded comes with the ticket it joined on (`POST /public/calls/data`). Tickets last minutes and calls last
+   * hours, so one that has run out is still read, for up to `VIDEO_CALL_TICKET_READ_HOURS`.
+   */
+  readTicket(token: string): Promise<{ readonly room: string; readonly identity: string } | null>;
   /** Takes someone out of a room. Someone who isn't in it, or a room that's closed, is no trouble. */
   remove(room: string, identity: string): Promise<void>;
   /** Mutes someone's microphone. False when they aren't in the room or have no microphone on. */
