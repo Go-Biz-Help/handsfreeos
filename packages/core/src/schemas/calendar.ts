@@ -821,9 +821,14 @@ export const SessionPublishOutput = z.object({
 export const SeriesCreateInput = z.object({
   workspaceId: uuid,
   calendarId: uuid,
-  /** The first occurrence's local date, in the calendar's zone. */
+  /** The first occurrence's local date, in `timezone`. */
   firstDate: localDate,
   rule: RecurrenceRule,
+  /**
+   * The zone whose clock the visits keep (`firstDate` and `rule.localTime`): a customer's, picked beside the time.
+   * The calendar's own when left out.
+   */
+  timezone: timezone.optional(),
   durationMinutes: lengthMinutes.optional(),
   serviceId: uuid.nullable().optional(),
   userIds: z.array(uuid).min(1).max(10).optional(),
@@ -867,6 +872,8 @@ export const WebinarScheduleInput = z.object({
   title,
   /** The first (or only) date's start. */
   startsAt: isoDateTime,
+  /** The zone whose clock a repeat keeps (the time picked beside it); the calendar's own when left out. */
+  timezone: timezone.optional(),
   /** Defaults to the calendar's length. */
   durationMinutes: lengthMinutes.optional(),
   /** Who presents; missing lets the calendar choose (on a calendar made for it, you). */

@@ -1047,10 +1047,11 @@ export const seriesCreate = defineCommand({
     if (input.leadId) await requireLead(ctx.tx, ws, input.leadId);
     if (input.customRecordId) await requireCustomRecord(ctx.tx, ws, input.customRecordId);
     const sessions = config.schedule.mode === 'sessions';
-    const occurrences = expandRecurrence(input.rule, input.firstDate, calendar.timeZone).slice(
-      0,
-      config.recurring.maxOccurrences,
-    );
+    const occurrences = expandRecurrence(
+      input.rule,
+      input.firstDate,
+      input.timezone ?? calendar.timeZone,
+    ).slice(0, config.recurring.maxOccurrences);
     if (!occurrences.length)
       throw HfosError.validation(
         [{ path: 'rule', message: 'No dates match this repeat.' }],

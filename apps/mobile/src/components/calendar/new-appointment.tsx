@@ -13,6 +13,8 @@ import {
   SEARCH_MIN_CHARS,
   tellNote,
   timeOptionsWith,
+  zoneChoices,
+  zoneNote,
   type CalendarConfig,
   type ContactStart,
 } from '@hfos/core';
@@ -54,6 +56,9 @@ import { cn } from '@/lib/utils';
  * Someone not yet a customer is added here too: a search that finds nobody offers "Add “Dana Smith” as a new
  * contact", and a small form takes their name, number and email in this sheet (an iPhone shows one sheet at a time).
  * Adding works with no signal like everything else here, and the time asked for waits for them to be added first.
+ *
+ * The time starts on the business's clock. Time zone sets it on another one (a customer's "2 PM Pacific"), and the
+ * line under it says where that lands on the calendar (core `zone-pick.ts`, as on the web).
  */
 export function NewAppointmentSheet({
   open,
@@ -98,6 +103,8 @@ export function NewAppointmentSheet({
   // The next half hour, which is what someone asking from a customer's house means; inside the working day, so a
   // booking made late in the evening opens on the morning rather than at 9 PM.
   const [minutes, setMinutes] = React.useState(() => nextHalfHour(timeZone));
+  /** The zone the day and time are read in: the business's, or another picked under them. */
+  const [zone, setZone] = React.useState(timeZone);
   const [userIds, setUserIds] = React.useState<readonly string[]>([]);
   const [title, setTitle] = React.useState('');
   const [notify, setNotify] = React.useState(true);
@@ -114,6 +121,7 @@ export function NewAppointmentSheet({
     if (open) {
       setDay(date);
       setMinutes(nextHalfHour(timeZone));
+      setZone(timeZone);
       setTitle('');
       setChosen(null);
       setTyped('');
@@ -137,7 +145,7 @@ export function NewAppointmentSheet({
       await askForTime({
         workspaceId: business.id,
         calendarId: calendar.id,
-        startsAt: new Date(localInstant(day, clockOf(minutes), timeZone)).toISOString(),
+        startsAt: new Date(localInstant(day, clockOf(minutes), zone)).toISOString(),
         durationMinutes: length,
         serviceId: service?.serviceId ?? null,
         personId: forWhom?.id ?? null,
@@ -159,6 +167,8 @@ export function NewAppointmentSheet({
       setBusy(false);
     }
   };
+
+  const zoneAway = zoneNote(localInstant(day, clockOf(minutes), zone), zone, timeZone);
 
   const tell = calendar?.config
     ? tellNote(
@@ -300,6 +310,20 @@ export function NewAppointmentSheet({
           testID="new-appointment-time"
         />
         <Text className="mt-1 text-xs text-text-3">{fmtLength(length)}</Text>
+      </Field>
+
+      <Field label="Time zone">
+        <Chips
+          options={zoneChoices(timeZone, zone).map((z) => ({ value: z.id, label: z.label }))}
+          value={zone}
+          onChange={setZone}
+          testID="new-appointment-zone"
+        />
+        {zoneAway ? (
+          <Text className="mt-1 text-xs font-medium text-text-2" testID="new-appointment-zone-note">
+            {zoneAway}
+          </Text>
+        ) : null}
       </Field>
 
       {onThisCalendar.length ? (
