@@ -294,14 +294,15 @@ describe('a coached call', () => {
           },
         ],
         stepsCovered: ['s1', 's2', 'nope'],
+        pitchedEarly: false,
         tips: ['Book the visit before hanging up.'],
         language: 'en',
       },
       {
         steps: [
-          { id: 's1', title: 'a', say: '' },
-          { id: 's2', title: 'b', say: '' },
-          { id: 's3', title: 'c', say: '' },
+          { id: 's1', title: 'a', say: '', stage: null, tip: '' },
+          { id: 's2', title: 'b', say: '', stage: null, tip: '' },
+          { id: 's3', title: 'c', say: '', stage: null, tip: '' },
         ],
         objections: [],
         points: [],
@@ -492,6 +493,115 @@ describe('a coached call', () => {
   });
 });
 
+describe('coaching by stage', () => {
+  /** A call with a new customer, who calls in or is called. */
+  async function callWith(
+    first: string,
+    direction: 'inbound' | 'outbound',
+  ): Promise<{ callId: string; personId: string }> {
+    const [p] = await rows<{ id: string }>(
+      admin(),
+      sql`insert into app.people (workspace_id, first_name, last_name) values (${ws}, ${first}, 'Stage') returning id`,
+    );
+    const [c] = await rows<{ id: string }>(
+      admin(),
+      sql`insert into app.calls (workspace_id, direction, status, person_id, placed_by, to_e164, provider_sid, answered_at)
+          values (${ws}, ${direction}, 'in_progress', ${p!.id}, ${rep.id}, '+17135550199', ${`CA${randomUUID().slice(0, 12)}`}, now())
+          returning id`,
+    );
+    return { callId: c!.id, personId: p!.id };
+  }
+  async function leadFor(person: string, daysOld: number): Promise<void> {
+    const [stage] = await rows<{ id: string; pipeline_id: string }>(
+      admin(),
+      sql`select id, pipeline_id from app.pipeline_stages
+          where workspace_id = ${ws} and kind = 'open' order by position limit 1`,
+    );
+    await rows(
+      admin(),
+      sql`insert into app.leads (workspace_id, pipeline_id, stage_id, person_id, title, created_at)
+          values (${ws}, ${stage!.pipeline_id}, ${stage!.id}, ${person}, 'Wants a quote',
+            now() - make_interval(days => ${daysOld}))`,
+    );
+  }
+  const begin = (callId: string, person: string | null) =>
+    worker('salescoach.call.begin', { callId, userId: rep.id, personId: person });
+
+  it('opens with the script for how the call started, else the usual one', async () => {
+    const staged = {
+      ...PLAYBOOK,
+      steps: PLAYBOOK.steps.map((st, i) => ({
+        ...st,
+        stage: (['connect', 'problem', 'commit'] as const)[i],
+        tip: '',
+      })),
+    };
+    for (const [name, kind] of [
+      ['New leads', 'new_lead'],
+      ['Older leads', 'aged_lead'],
+      ['Cold calls', 'cold_call'],
+    ] as const)
+      await as(owner, 'salescoach.playbook.save', { name, kind, details: staged });
+
+    const fresh = await callWith('Nina', 'outbound');
+    await leadFor(fresh.personId, 3);
+    expect((await begin(fresh.callId, fresh.personId)).playbook).toMatchObject({
+      name: 'New leads',
+    });
+    const old = await callWith('Omar', 'outbound');
+    await leadFor(old.personId, 60);
+    expect((await begin(old.callId, old.personId)).playbook).toMatchObject({
+      name: 'Older leads',
+    });
+    // Nobody on file: a cold call.
+    const cold = await callWith('Pia', 'outbound');
+    expect((await begin(cold.callId, null)).playbook).toMatchObject({ name: 'Cold calls' });
+    // The customer called: the usual one, whatever their lead.
+    const inbound = await callWith('Quinn', 'inbound');
+    await leadFor(inbound.personId, 3);
+    expect((await begin(inbound.callId, inbound.personId)).playbook).toMatchObject({
+      name: 'First call',
+    });
+  });
+
+  it('keeps a card’s tip, and a nudge, for the rep to see live', async () => {
+    const { callId, personId: person } = await callWith('Rae', 'inbound');
+    const begun = await begin(callId, person);
+    await worker('salescoach.card.add', {
+      coachedCallId: begun.coachedCallId,
+      step: 's1',
+      card: {
+        kind: 'nudge',
+        title: 'Price before the problem',
+        say: 'Before price, ask: What made you look into this now?',
+        heard: '',
+        tip: 'Slow down.',
+        objectionId: null,
+      },
+    });
+    const live = await as(rep, 'salescoach.live', {});
+    expect(live.call.cards[0]).toMatchObject({ kind: 'nudge', tip: 'Slow down.' });
+    // A tip too long for the screen is refused, not cut.
+    expect(
+      await refused(
+        worker('salescoach.card.add', {
+          coachedCallId: begun.coachedCallId,
+          step: null,
+          card: {
+            kind: 'question',
+            title: 'Ask',
+            say: 'How long has that been going on?',
+            heard: '',
+            tip: 'x'.repeat(121),
+            objectionId: null,
+          },
+        }),
+      ),
+    ).toBe('validation');
+    await worker('salescoach.call.end', { coachedCallId: begun.coachedCallId, lines: [] });
+  });
+});
+
 describe('suggested replies', () => {
   async function aThread(): Promise<{
     conversationId: string;
@@ -589,6 +699,7 @@ describe('a written conversation’s write-up', () => {
         followUp: 'Hi Mike, the quote is on its way.',
         objections: [],
         stepsCovered: [],
+        pitchedEarly: false,
         tips: [],
         language: null,
       },

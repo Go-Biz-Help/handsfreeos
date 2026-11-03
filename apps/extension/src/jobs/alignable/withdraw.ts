@@ -19,6 +19,7 @@ import type { ProfileRef } from '../../networks/facebook/types';
 import { counted } from '../../words';
 import { paced, pause, valueOf, warnedOn, type Job, type JobEnd } from '../job';
 import { ownTidy } from '../own-tidy';
+import { declineThese } from './answer';
 import { isTheirs } from './checks';
 import { ALIGNABLE, readAlignableIn, signedOutEnd, type AlignablePage } from './read';
 
@@ -195,13 +196,18 @@ export async function withdrawTicked(job: Job, profileIds: readonly string[]): P
 
 /**
  * Withdrawing on its own, once a day (decision 98): the oldest requests HandsFreeOS picked for today, as the person
- * chose for Alignable. Nobody is handed to the person: one it can't withdraw, it passes over.
+ * chose for Alignable; then, from 0.118.0, the requests they got that it picked to decline (decision 136, ./answer.ts).
+ * Nobody is handed to the person: one it can't withdraw or decline, it passes over.
  */
 export async function withdrawOnItsOwn(job: Job): Promise<JobEnd> {
   const lists = await listsOf(job);
-  return ownTidy(job, lists, (which, picks) =>
-    which === 'cancel_request'
-      ? withdrawThese(job, picks, lists)
-      : Promise.resolve({ line: '', warned: false }),
+  return ownTidy(
+    job,
+    lists,
+    (which, picks) =>
+      which === 'cancel_request'
+        ? withdrawThese(job, picks, lists)
+        : Promise.resolve({ line: '', warned: false }),
+    (picks) => declineThese(job, picks, lists),
   );
 }

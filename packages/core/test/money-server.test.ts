@@ -1179,11 +1179,13 @@ describe('a refund', () => {
       status: 'pending',
       provider_refund_id: providerRefundId,
     });
-    // An answer without the refund's own id keeps the one known.
-    await record({ status: 'succeeded', refundedAt: '2026-10-01T12:00:00.000Z' });
+    // An answer without the refund's own id keeps the one known. The dates are a day or two back, so the
+    // business's 30-day summary further down counts this refund whatever day the tests run.
+    const daysAgo = (n: number) => new Date(Date.now() - n * 86_400_000).toISOString();
+    await record({ status: 'succeeded', refundedAt: daysAgo(2) });
     const done = await refundRow(asked.refundId);
     expect(done).toMatchObject({ status: 'succeeded', provider_refund_id: providerRefundId });
-    await record({ status: 'succeeded', refundedAt: '2026-10-09T12:00:00.000Z' });
+    await record({ status: 'succeeded', refundedAt: daysAgo(1) });
     expect(await refundRow(asked.refundId)).toEqual(done);
   });
 

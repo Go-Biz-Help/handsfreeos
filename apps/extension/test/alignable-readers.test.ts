@@ -11,9 +11,11 @@ import { commentOn } from '../src/networks/alignable/auto';
 import {
   groupCards,
   groupFacts,
+  groupOf,
   groupLeaders,
   groupStanding,
   memberRows,
+  monthlyLimitOn,
   readAlignable,
 } from '../src/networks/alignable/read';
 import { readReplies } from '../src/networks/alignable/replies';
@@ -619,6 +621,66 @@ describe('Messages', () => {
   });
 });
 
+describe('the conversation open on Messages, as Alignable draws it since 30 Oct 2026', () => {
+  // 0.117.0's 19:02 UTC outline: the conversation's header has no test id of its own, and Send is
+  // `messaging-send-desktop`; the site's menu and Messages' list each have a header too.
+  const drawn2026 = (header = true) =>
+    page(
+      `${AL}/biz/conversations?with_business_id=42`,
+      `<div><header><nav aria-label="Main"><a href="/biz/profile"><img alt="Me" /></a>
+        <a href="/austin-tx/acme-plumbing?user=5">Somewhere</a></nav></header>
+      <div><div data-testid="inbox"><div>
+        <div><header><h3>Messages</h3><button><svg></svg>New Message</button></header>
+          <div data-testid="conversationInSidebar"><div><div><img alt="" /><div><div>Dana Reyes</div><div>Talk soon</div></div></div>
+            <span data-testid="conversationDate">Oct 30</span></div></div></div>
+        <div>${
+          header
+            ? `<header><div><img alt="" /><a href="/biz/businesses/42?user=5&cyfid=6&cyattr=7"><div>Dana Reyes</div></a></div>
+          <div><div data-testid="ellipses"><div></div></div></div></header>`
+            : ''
+        }
+          <div><div><div><div><p>You and Dana Reyes are connected</p>
+            ${myRow('Want to swap referrals?', '9:40 AM')}
+            ${theirRow('42', 'Sure, talk soon', '10:02 AM')}</div></div></div>
+          <div data-testid="full-view-write-message"><button data-testid="messaging-upload-trigger-desktop"><svg role="img"></svg></button>
+            <div><div><div dir="ltr"><div role="presentation" dir="ltr" contenteditable="true" placeholder="Write a message"></div>
+              <textarea placeholder="Write a message"></textarea></div>
+              <button data-testid="messaging-send-desktop" title="Send"><svg role="img"></svg></button></div></div></div></div></div>
+      </div></div></div></div>`,
+    );
+
+  it('reads who it’s with from its plain header, its box and its Send, and who wrote last', () => {
+    const doc = drawn2026();
+    expect(readAlignable(doc, doc.location.href).chat).toEqual({
+      name: 'Dana Reyes',
+      profile: { id: '42', username: null, url: `${AL}/biz/businesses/42` },
+      box: true,
+      send: true,
+      messages: [
+        { from: 'me', text: 'Want to swap referrals?', when: '9:40 AM' },
+        { from: 'them', text: 'Sure, talk soon', when: '10:02 AM' },
+      ],
+      last: 'them',
+    });
+    expect(readReplies(doc, `${AL}/biz/conversations`)).toEqual([
+      {
+        name: 'Dana Reyes',
+        threadKey: '42',
+        profile: { id: '42', username: null, url: `${AL}/biz/businesses/42` },
+        when: null,
+      },
+    ]);
+  });
+
+  it('never takes the list’s header or the site’s menu for the conversation’s, before its own is drawn', () => {
+    const doc = drawn2026(false);
+    expect(readAlignable(doc, doc.location.href).chat).toMatchObject({
+      name: null,
+      profile: null,
+    });
+  });
+});
+
 /**
  * A conversation open on Messages, rebuilt element for element from the owner's Check of 21 Oct 2026 (0.83.0), with
  * made-up words where its outline hid them: its header's link to the business it's with, the business card and a day
@@ -1008,6 +1070,39 @@ describe('groups, as Alignable lists them (decision 92)', () => {
     expect(groupFacts(doc, doc.location.href)).toMatchObject({ members: 1204, leaders: true });
   });
 
+  it('reads the Directory of a group’s members at its /biz address (decision 138)', () => {
+    const row = (id: string, path: string, name: string, business: string) =>
+      `<div class="group-member-list__member-row-wrapper" data-group-member-row-id="${id}">
+        <div class="group-member-list__member-row js-group-members-result" data-member-id="${id}" data-member-index="0">
+          <a class="name js-hover-card" href="${path}">${name}</a>
+          <a class="business js-hover-card" href="${path}">${business}</a>
+          <a class="js-biz-connect-create-button mobile" data-link-name="connect_cta"
+            href="/biz/connection_requests/make_connection?business_id=${id}">Connect</a>
+          <a class="js-biz-connect-create-button desktop" data-link-name="connect_cta"
+            href="/biz/connection_requests/make_connection?business_id=${id}">Connect</a>
+        </div></div>`;
+    const doc = page(
+      `${AL}/biz/groups/ai-automation/members`,
+      `<main><h1>AI &amp; Automation</h1>${row('29855652', '/keller-tx/umorphos', 'Pat Lane', 'Umorphos')}${row(
+        '29855653',
+        '/boise-id/pine-painting',
+        'Jamie Pine',
+        'Pine Painting',
+      )}</main>`,
+    );
+    expect(
+      memberRows(doc, doc.location.href).map((m) => [m.name, m.profile.url, m.business]),
+    ).toEqual([
+      ['Pat Lane', `${AL}/keller-tx/umorphos`, 'Umorphos'],
+      ['Jamie Pine', `${AL}/boise-id/pine-painting`, 'Pine Painting'],
+    ]);
+    expect(groupOf(new URL(doc.location.href))).toEqual({
+      id: 'ai-automation',
+      url: `${AL}/groups/ai-automation`,
+      page: 'members',
+    });
+  });
+
   it('marks a leader by the word beside them, and says when a page showed none', () => {
     const marked = page(
       `${AL}/groups/home-pros-network/members`,
@@ -1134,5 +1229,73 @@ describe('a comment on a good post (decision 92)', () => {
     expect(await commentOn(doc, doc.location.href, 'Hi', on)).toBe('not_sent');
     expect(sent).toEqual([]);
     expect(doc.querySelector<HTMLTextAreaElement>('#top textarea')!.value).toBe('My own words');
+  });
+});
+
+describe('Alignable’s monthly connection limit (decision 147)', () => {
+  const on = (body: string) => page(`${AL}/biz/businesses/42`, body);
+
+  it('reads it in a box over the page, however Alignable words it', () => {
+    expect(
+      monthlyLimitOn(
+        on(`<main><h1>Dana Reyes</h1></main><div role="dialog"><h2>You’ve reached your monthly connection limit</h2>
+          <p>Upgrade to Premium to keep growing your network.</p><button>Upgrade</button><button>Not now</button></div>`),
+      ),
+    ).toBe('You’ve reached your monthly connection limit');
+    // A heading and the line under it splitting the words.
+    expect(
+      monthlyLimitOn(
+        on(
+          `<div aria-modal="true"><h3>Monthly limit reached</h3><p>Upgrade to send more connection requests.</p></div>`,
+        ),
+      ),
+    ).toBe('Monthly limit reached Upgrade to send more connection requests.');
+    expect(
+      monthlyLimitOn(
+        on(
+          `<dialog open><p>You’ve used all 25 of your free connection requests this month.</p></dialog>`,
+        ),
+      ),
+    ).toBe('You’ve used all 25 of your free connection requests this month.');
+  });
+
+  it('reads it shown anywhere on the page but what someone wrote', () => {
+    expect(
+      monthlyLimitOn(
+        on(`<main><div><div>You’re out of connection requests for this month.</div></div></main>`),
+      ),
+    ).toBe('You’re out of connection requests for this month.');
+    expect(
+      monthlyLimitOn(
+        on(`<main><article><p>I hit my monthly connection limit on here, any tips?</p></article>
+          <div contenteditable="true">we reached the monthly connection limit</div></main>`),
+      ),
+    ).toBeNull();
+  });
+
+  it('never takes a box drawn ahead of time and hidden, nor a count of how many so far', () => {
+    expect(
+      monthlyLimitOn(
+        on(`<div style="display:none"><div role="dialog"><p>You’ve reached your monthly connection limit</p></div></div>
+          <div hidden><p>Monthly connection limit reached</p></div>`),
+      ),
+    ).toBeNull();
+    expect(
+      monthlyLimitOn(
+        on(`<main><p>You’ve used 20 of 25 connection requests this month.</p>
+        <p>3 out of 25 connection requests this month</p><p>Upgrade for unlimited connections each month.</p></main>`),
+      ),
+    ).toBeNull();
+  });
+
+  it('says so on the page’s read only where it shows', () => {
+    const shown = on(
+      `<div role="dialog"><p>You’ve reached your monthly connection limit</p></div>`,
+    );
+    expect(readAlignable(shown, shown.location.href).limit).toBe(
+      'You’ve reached your monthly connection limit',
+    );
+    const plain = on('<main><h1>Dana Reyes</h1></main>');
+    expect('limit' in readAlignable(plain, plain.location.href)).toBe(false);
   });
 });

@@ -22,14 +22,14 @@ export const LOGO_TRIES = 5;
 const OTHER_COMPANIES =
   /\b(?:google|facebook|instagram|twitter|linkedin|youtube|tiktok|pinterest|yelp|bbb|homeadvisor|houzz|nextdoor|thumbtack|trustpilot|mastercard|paypal|venmo|wix|squarespace|godaddy|wordpress|weebly|shopify)\b/i;
 
-interface Tag {
+export interface Tag {
   readonly at: number;
   readonly name: string;
   readonly attrs: Readonly<Record<string, string>>;
 }
 
 /** Every tag of these names, with its attributes (names lower-case, values decoded); a tag is read up to 4,000 characters. */
-function tagsOf(html: string, names: readonly string[]): Tag[] {
+export function tagsOf(html: string, names: readonly string[]): Tag[] {
   const out: Tag[] = [];
   for (const m of html.matchAll(new RegExp(`<(${names.join('|')})(?=[\\s>/])`, 'gi'))) {
     const rest = html.slice(m.index + m[0].length, m.index + m[0].length + 4_000);
@@ -260,7 +260,8 @@ export function themeColorOf(html: string): string | null {
   return null;
 }
 
-function hexOf(raw: string): string | null {
+/** A CSS colour as #rrggbb: hex, or rgb() and rgba() (alpha ignored); null for anything else. */
+export function hexOf(raw: string): string | null {
   const v = raw.trim().toLowerCase();
   if (/^#[0-9a-f]{6}$/.test(v)) return v;
   if (/^#[0-9a-f]{3}$/.test(v)) return `#${[...v.slice(1)].map((c) => c + c).join('')}`;

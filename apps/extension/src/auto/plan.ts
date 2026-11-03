@@ -1,29 +1,34 @@
 /**
  * What the runner that works on its own (./run.ts) does next, and when: plain workings, kept apart so they can be
- * tested. It goes down the list for today (packages/core/src/addons/outreach/today.ts) in its own order: requests to
- * confirm, then posts to like, then friend requests, then comments (decisions 26, 30 and 33). Messages
- * (packages/core/src/addons/outreach/sends.ts) come around those: the ones OK'd go first, then it drafts the rest,
- * which wait for the person or go as they are; with Approve all, it drafts them all before anything else, so they're
- * ready first thing. Within the working hours it spreads the day's steps out, at random times; after **Start my day** it goes at
- * a person's pace, a minute or few apart. Before any of it, once a day, it checks the person's friend requests, checks
- * their groups for their people and joins good ones when people left to reach run low (decision 48), saves their
- * groups' members, finds posts, reads their chats (decision 32) and checks their friends for good fits (decision 46),
- * which fill that list. In the working hours, every hour or two, it looks at the newest posts in their best groups
- * (decision 49), so one asking for what they offer is answered fast.
+ * tested. It goes down the list for today (packages/core/src/addons/outreach/today.ts): requests to confirm, friend
+ * requests, posts to like and comments (decisions 26, 30 and 33), and the messages it drafts
+ * (packages/core/src/addons/outreach/sends.ts), each kind taking turns with the others (decision 138), so one that
+ * keeps failing never holds up the rest. A reply to someone who wrote back is drafted before anything else (decision
+ * 125), then the ones OK'd go; with Approve all, the drafts have the first turn. Within the working hours it spreads the day's steps out, at random times; after **Start my day** it goes at
+ * a person's pace, a minute or few apart. Once a day, it checks the person's friend requests, checks their groups for
+ * their people and joins good ones when people left to reach run low (decision 48), saves their groups' members, finds
+ * posts, reads their chats (decision 32) and checks their friends for good fits (decision 46), which fill that list;
+ * from 0.112.0 that reading and the list take turns at a person's pace till the reading's done (decision 123,
+ * `listTurn`), so nothing on the list waits for all of it. In the working hours, every hour or two, it looks at the
+ * newest posts in their best groups (decision 49), so one asking for what they offer is answered fast.
  */
 import {
   businessDay,
   nextInHours,
   startAfterToday,
   underAPost,
+  waitsForWorkDay,
+  workHours,
   workWindow,
   type WorkingHours,
 } from '@hfos/core/addons/outreach/automation';
 import { startWords, type LiveDay } from '@hfos/core/addons/outreach/live';
+import { SEARCH_AGAIN } from '@hfos/core/addons/outreach/goal';
 import { WATCH_EVERY_MINUTES } from '@hfos/core/addons/outreach/posts';
 import type { TodayKind } from '@hfos/core/addons/outreach/today';
 import type { NeedNoteInput, TodayList, TodayListItem } from '../hfos/messages';
 import type { ListMark, ListsSaved } from '@hfos/core/addons/outreach/lists';
+import type { JobEnd } from '../jobs/job';
 import type { TriedBefore } from './lists';
 
 /** Where the runner keeps its state, which the panel watches. */
@@ -35,8 +40,11 @@ export const ALIGNABLE_STATE_KEY = 'hfos.auto.alignable';
 /** Where Instagram's runner keeps its own (./instagram.ts). */
 export const INSTAGRAM_STATE_KEY = 'hfos.auto.instagram';
 
-/** The kinds it does on its own, in the order it does them. */
-export const AUTO_KINDS = ['confirm', 'warm_up', 'friend_request', 'comment'] as const;
+/**
+ * The kinds it does on its own, in the order of their turns: a friend request before a like (decision 138), so one a
+ * like made ready (or nothing to like did) goes before the next likes.
+ */
+export const AUTO_KINDS = ['confirm', 'friend_request', 'warm_up', 'comment'] as const;
 export type AutoKind = (typeof AUTO_KINDS)[number];
 /**
  * What it counts as done today: the steps above, messages drafted, and messages sent; and on Instagram the stories its
@@ -44,7 +52,7 @@ export type AutoKind = (typeof AUTO_KINDS)[number];
  */
 export type DoneKind = AutoKind | 'drafted' | 'sent' | 'story_like';
 
-/** The jobs it does once a day before the list, in the order it does them (./daily.ts, decision 32). */
+/** The jobs it does once a day, in order (./daily.ts, decision 32), by turns with the list (decision 123). */
 export const DAILY_JOBS = [
   'requests',
   'tidy',
@@ -96,8 +104,6 @@ export const START_JITTER_MS = 20 * 60_000;
 /** How often it looks again in the hours when nothing's left: a new request to confirm may come. */
 export const IDLE_MS = 60 * 60_000;
 
-const DAY = 86_400_000;
-
 /** Where the runner is, kept in the extension's storage across the background's restarts. */
 export interface AutoState {
   /** The business's day these are for: "2026-10-09". A new day starts afresh. */
@@ -114,6 +120,34 @@ export interface AutoState {
   readonly daily?: Readonly<Partial<Record<DailyJob | OwnDailyJob, string>>>;
   /** What it did before the day today (./lists.ts), each with how it went in words. Missing in a state kept by 0.26. */
   readonly before?: TriedBefore;
+  /**
+   * The last go did a part of the morning's reading: the next does a step on the list, when there's one (decision 123,
+   * `listTurn`). Missing in a state kept by 0.111.
+   */
+  readonly readLast?: boolean;
+  /**
+   * Who wrote back since their reply was last drafted today, by profile (decision 125): their reply is drafted next,
+   * though it was tried before today, and the next go is the list's. Missing in a state kept by 0.112.
+   */
+  readonly replied?: readonly string[];
+  /**
+   * The once-a-day jobs with more of today's room left, each with when its next batch goes (decision 126, `afterDaily`):
+   * the checks, a batch at a time through the hours, while the day's first messages need more good fits. Missing in a
+   * state kept by 0.113.
+   */
+  readonly againAt?: Readonly<Partial<Record<DailyJob | OwnDailyJob, number>>>;
+  /**
+   * Whether today's list last said the network needs more good fits (decision 126, its goal's `more`), and the rounds of
+   * finding it did again today for it, with when the last began (`roundDue`). Missing in a state kept by 0.113.
+   */
+  readonly more?: boolean;
+  readonly round?: number;
+  readonly roundAt?: number | null;
+  /**
+   * When the next message tried again on the network may go, as today's list last said (decision 132): the runner
+   * looks again by then, though nothing else is left. Missing in a state kept by 0.115.
+   */
+  readonly retryAt?: number | null;
   /**
    * The person's lists as HandsFreeOS last said, and the step before the day under way now: for the panel's live
    * checklist. Missing in a state kept by 0.27.
@@ -153,6 +187,12 @@ export function freshState(day: string | null, tabId: number | null = null): Aut
     done: {},
     daily: {},
     before: {},
+    readLast: false,
+    replied: [],
+    againAt: {},
+    more: false,
+    round: 0,
+    roundAt: null,
     watchAt: null,
     helpfulAt: null,
     helpfulUp: false,
@@ -176,9 +216,92 @@ export function isState(value: unknown): value is AutoState {
   );
 }
 
-/** The once-a-day job to do next, when it collects: the first not done today. */
-export const nextDaily = (state: Pick<AutoState, 'daily'>): DailyJob | null =>
-  DAILY_JOBS.find((job) => state.daily?.[job] === undefined) ?? null;
+/**
+ * The once-a-day job to do next, when it collects: the first not done today whose next batch isn't still to come
+ * (`waitsAgain`).
+ */
+export const nextDaily = (
+  state: Pick<AutoState, 'daily' | 'againAt'>,
+  now = Date.now(),
+): DailyJob | null =>
+  DAILY_JOBS.find((job) => state.daily?.[job] === undefined && !waitsAgain(state, job, now)) ??
+  null;
+
+/** How long after a batch with more of today's room left the next goes (decision 126): spread through the hours. */
+export const AGAIN_MINUTES = [35, 60] as const;
+
+/** Whether a once-a-day job waits for its next batch. */
+export const waitsAgain = (
+  state: Pick<AutoState, 'againAt'>,
+  job: DailyJob | OwnDailyJob,
+  now: number,
+): boolean => (state.againAt?.[job] ?? 0) > now;
+
+/** When the first once-a-day job waiting for its next batch goes, or null with none waiting. */
+export function soonestAgain(
+  state: Pick<AutoState, 'againAt' | 'daily'>,
+  now: number,
+): number | null {
+  const at = Object.entries(state.againAt ?? {})
+    .filter(([job, when]) => state.daily?.[job as DailyJob] === undefined && (when ?? 0) > now)
+    .map(([, when]) => when!);
+  return at.length ? Math.min(...at) : null;
+}
+
+/**
+ * What a once-a-day job leaves in the state: done for today with how it went; or, a batch done with more of today's
+ * room left (`again`, decision 126), its next batch 35 to 60 minutes later (`random` 0 to 1), not done yet.
+ */
+export function afterDaily(
+  state: Pick<AutoState, 'daily' | 'againAt'>,
+  kind: DailyJob | OwnDailyJob,
+  end: Pick<JobEnd, 'line' | 'again' | 'warned' | 'failed'>,
+  now: number,
+  random: number,
+): Pick<AutoState, 'daily' | 'againAt'> {
+  const { [kind]: _was, ...againAt } = state.againAt ?? {};
+  if (end.again && !end.warned && !end.failed) {
+    const [least, most] = AGAIN_MINUTES;
+    const at = now + Math.round((least + random * (most - least)) * 60_000);
+    return { daily: state.daily ?? {}, againAt: { ...againAt, [kind]: at } };
+  }
+  return { daily: { ...state.daily, [kind]: end.line }, againAt };
+}
+
+/** The words a day's last line adds while the checks wait for their next batch (decision 126). */
+export const AGAIN_WORDS =
+  'It checks more people later today, as today’s first messages need more good fits.';
+
+/**
+ * Whether it finds people again now (decision 126, answer 6a): today's list says the network needs more good fits,
+ * the day's once-a-day reading is done, and it has done fewer than `SEARCH_AGAIN.rounds` rounds today, the last at least
+ * `SEARCH_AGAIN.minutes` ago.
+ */
+export const roundDue = (
+  state: Pick<AutoState, 'more' | 'round' | 'roundAt'>,
+  now: number,
+): boolean =>
+  state.more === true &&
+  (state.round ?? 0) < SEARCH_AGAIN.rounds &&
+  now - (state.roundAt ?? 0) >= SEARCH_AGAIN.minutes * 60_000;
+
+/**
+ * A round of finding again (`roundDue`): the network's finding jobs to do once more today, with the next search words
+ * (each asks HandsFreeOS with the round), and the round noted.
+ */
+export function nextRound(
+  state: Pick<AutoState, 'daily' | 'round'>,
+  finding: readonly (DailyJob | OwnDailyJob)[],
+  now: number,
+): Pick<AutoState, 'daily' | 'round' | 'roundAt'> {
+  const daily = Object.fromEntries(
+    Object.entries(state.daily ?? {}).filter(([job]) => !finding.includes(job as DailyJob)),
+  );
+  return { daily, round: (state.round ?? 0) + 1, roundAt: now };
+}
+
+/** Facebook's jobs that find people, done again in a round (`nextRound`): groups, their members, and the checks. */
+export const FINDING_JOBS: readonly DailyJob[] = ['group_checks', 'join', 'members', 'checks'];
 
 /** When it next looks at the newest posts after one at `now`: an hour or two later, at random (`random` 0 to 1). */
 export function nextWatch(now: number, random: number): number {
@@ -199,9 +322,97 @@ export const helpfulDue = (
 export const watchDue = (state: Pick<AutoState, 'watchAt'>, now: number): boolean =>
   (state.watchAt ?? 0) <= now;
 
-/** Someone on the list, by what they're on it for. */
-export const itemKey = (item: Pick<TodayListItem, 'kind' | 'postId' | 'profileId' | 'name'>) =>
-  `${item.kind}:${item.postId ?? item.profileId ?? item.name}`;
+/**
+ * Someone on the list, by what they're on it for. A step tried again (decision 145) is a new one each time it's put
+ * back, so it goes once more though it was tried today.
+ */
+export const itemKey = (
+  item: Pick<TodayListItem, 'kind' | 'postId' | 'profileId' | 'name'> & {
+    readonly retry?: { readonly at: string };
+  },
+) =>
+  `${item.kind}:${item.postId ?? item.profileId ?? item.name}${item.retry ? `@${item.retry.at}` : ''}`;
+
+/**
+ * Whether the list goes before the morning's reading this go (decision 123; the owner, 29 Oct 2026, an hour into a
+ * day: "all it has done is 4 likes on facebook and nothing else on any of the platforms"). While reading is left today
+ * (the lists before the day and the once-a-day jobs), a step on the list and a part of the reading take turns, at a
+ * person's pace, so the day's likes, requests and the messages OK'd never wait the hour or two the reading takes. The
+ * first go of a day reads; a first save of the person's lists still holds the day (`held`, ./lists.ts `holdsTheDay`);
+ * a list with nothing left on it reads on.
+ */
+export const listTurn = (
+  state: Pick<AutoState, 'readLast' | 'replied'>,
+  reading: boolean,
+  held: boolean,
+): boolean => reading && !held && (state.readLast === true || (state.replied?.length ?? 0) > 0);
+
+/** The kinds that answer someone who wrote back (decision 125): drafted first, as soon as they're seen. */
+export const REPLY_KINDS: readonly TodayKind[] = ['reply', 'partner_reply'];
+export const isReplyKind = (kind: TodayKind) => REPLY_KINDS.includes(kind);
+
+/** Whether a piece of work drafts the reply to someone who wrote back. */
+const isReplyDraft = (work: Work): boolean => work.do === 'draft' && isReplyKind(work.item.kind);
+
+/**
+ * What goes outside the working hours (decision 133; the owner, 30 Oct 2026: "it should always be checking for new
+ * messages and always respond in real time it just shouldn't send out new messages if it's not in the working
+ * time"): a reply to someone who wrote back, drafted at once, and sent once OK'd or on its own as Replies says.
+ * Nothing new goes: no first message, follow-up, like or request. Stop for today and a warning still stop it all.
+ */
+export const answersAnyTime = (work: Work): boolean =>
+  work.do !== 'step' && isReplyKind(work.item.kind);
+
+/** A runner's day outside its hours, for the replies alone: at a person's pace, with no end to spread them over. */
+export const ANSWERING: Extract<NetworkDay, { go: true }> = {
+  go: true,
+  started: true,
+  until: null,
+};
+
+/** Outside the hours, while a reply waits for the person's OK, how often the runner looks for it OK'd. */
+export const REPLY_LOOK_MS = 2 * 60_000;
+
+/** Whether a reply drafted on the list waits for the person's OK: outside the hours, it goes once they give it. */
+export const replyWaiting = (
+  list: Pick<TodayList, 'items'> & { readonly partners?: readonly TodayListItem[] },
+): boolean =>
+  [...list.items, ...(list.partners ?? [])].some(
+    (item) => isReplyKind(item.kind) && item.send?.state === 'waiting',
+  );
+
+/**
+ * When a runner outside its hours looks next: soon while a reply waits for an OK, else at the hours' next start
+ * (`next`; null when there's none this week). A message tried again that waits its turn (`retry`, from `retryWake`)
+ * brings it sooner, as a reply tried again goes any time too.
+ */
+export const lookOutsideAt = (
+  waiting: boolean,
+  now: number,
+  next: number | null,
+  retry: readonly number[] = [],
+): number | null => {
+  const look = waiting ? Math.min(now + REPLY_LOOK_MS, next ?? Infinity) : next;
+  return retry.length ? Math.min(look ?? Infinity, ...retry) : look;
+};
+
+/** The most kept as having written back: a day's worth, far more than a list carries. */
+const REPLIED_MOST = 50;
+
+/** Who wrote back, with those just seen (decision 125). */
+export const withReplied = (replied: readonly string[], profileIds: readonly string[]): string[] =>
+  [...new Set([...replied, ...profileIds])].slice(-REPLIED_MOST);
+
+/** Who wrote back still to answer after a piece of work: a reply drafted is theirs answered. */
+export const repliedAfter = (replied: readonly string[], work: Work): string[] =>
+  isReplyDraft(work) ? replied.filter((id) => id !== work.item.profileId) : [...replied];
+
+/**
+ * Who wrote back whose reply is still on what's left: the rest (not on today's list, or answered from the person's own
+ * tab) are let go, so they never keep the list's turn.
+ */
+export const stillReplied = (replied: readonly string[], left: readonly Work[]): string[] =>
+  replied.filter((id) => left.some((work) => isReplyDraft(work) && work.item.profileId === id));
 
 /**
  * What's left for it to do today, in its order: the kinds it does for the person (the list's `auto`), not tried
@@ -226,6 +437,16 @@ export function itemsLeft(
   // A post asking for what the business offers goes first (decision 49): answered while it's fresh.
   return [...left.filter((item) => item.asking), ...left.filter((item) => !item.asking)];
 }
+
+/** When to look again for a message tried again that waits its turn (decision 132): its time, once it's after `now`. */
+export const retryWake = (state: Pick<AutoState, 'retryAt'>, now: number): number[] =>
+  state.retryAt != null && state.retryAt > now ? [state.retryAt] : [];
+
+/** What today's list says for the runner's state: whether it needs more good fits, and when a retry may go. */
+export const listSays = (list: Pick<TodayList, 'goal' | 'retryAt'>) => ({
+  more: list.goal?.more === true,
+  retryAt: list.retryAt ? Date.parse(list.retryAt) : null,
+});
 
 /** One thing for it to do: a step on the list, drafting a message, or sending one OK'd. */
 export type Work =
@@ -256,18 +477,75 @@ const messagesOn = (items: readonly TodayListItem[], kinds: readonly string[]) =
   );
 
 /**
- * What's left for it to do today, in its order: messages OK'd first; then, with Approve all, every message to draft
- * before the steps, else the steps before them. A message needs the person kept, and their chat or profile to send in.
- * A partner's steps (decision 81) come after the customers' of each sort: a like while it may like on its own, and
- * messages that each wait for an OK of their own.
+ * The lanes that take turns (decision 138; the owner, 31 Oct 2026: "all of the tasks should be independent… so
+ * comments work even if likes don't or messages work even if comments don't"): each kind of step, a partner's steps,
+ * and the messages to draft.
+ */
+export type Lane = AutoKind | 'partner' | 'message';
+
+const laneOf = (work: Work): Lane =>
+  work.do === 'draft'
+    ? 'message'
+    : work.item.kind === 'partner_warm_up'
+      ? 'partner'
+      : (work.item.kind as AutoKind);
+
+/** The lane of a piece of work tried today, by its key (`workKey`): none for a send, which goes before the turns. */
+function laneOfKey(key: string): Lane | null {
+  if (key.startsWith('draft:')) return 'message';
+  const kind = key.slice(0, key.indexOf(':'));
+  if (kind === 'partner_warm_up') return 'partner';
+  return (AUTO_KINDS as readonly string[]).includes(kind) ? (kind as AutoKind) : null;
+}
+
+/**
+ * The work in turns: each go, the lane tried least today goes next, ties in `order`. A lane that keeps failing (likes
+ * a network won't take) gets its turns and no more, so friend requests, comments and messages carry on beside it.
+ */
+export function inTurns(
+  lanes: ReadonlyMap<Lane, readonly Work[]>,
+  order: readonly Lane[],
+  tried: readonly string[],
+): Work[] {
+  const turns = new Map<Lane, number>();
+  for (const key of tried) {
+    const lane = laneOfKey(key);
+    if (lane) turns.set(lane, (turns.get(lane) ?? 0) + 1);
+  }
+  const at = new Map<Lane, number>();
+  const all: Work[] = [];
+  for (;;) {
+    let pick: Lane | null = null;
+    for (const lane of order) {
+      if ((at.get(lane) ?? 0) >= (lanes.get(lane)?.length ?? 0)) continue;
+      if (pick === null || (turns.get(lane) ?? 0) < (turns.get(pick) ?? 0)) pick = lane;
+    }
+    if (pick === null) return all;
+    const i = at.get(pick) ?? 0;
+    all.push(lanes.get(pick)![i]!);
+    at.set(pick, i + 1);
+    turns.set(pick, (turns.get(pick) ?? 0) + 1);
+  }
+}
+
+/**
+ * What's left for it to do today, in its order: replies to those who wrote back first (decision 125), then messages
+ * OK'd, then a comment on a post asking for what the business offers (decision 49); then the rest in turns (decision
+ * 138): each kind of step and the messages to draft, the drafts' turn first with Approve all. A message needs the
+ * person kept, and their chat or profile to send in. A partner's steps (decision 81) take turns as a lane of their own,
+ * after the customers' when it's a tie: a like while it may like on its own, and messages that each wait for an OK of
+ * their own. Someone who wrote back again since (`replied`) has their reply drafted again, though it was tried today.
  */
 export function workLeft(
   list: Pick<TodayList, 'items' | 'auto' | 'messages' | 'sending'> & {
     readonly partners?: readonly TodayListItem[];
+    readonly newMessagesWait?: boolean;
   },
   tried: readonly string[],
+  replied: readonly string[] = [],
 ): Work[] {
   const done = new Set(tried);
+  const again = new Set(replied);
   const steps = itemsLeft(list.items, list.auto, tried).map(
     (item) => ({ do: 'step', item }) as const,
   );
@@ -277,21 +555,35 @@ export function workLeft(
         .filter((item) => item.kind === 'partner_warm_up' && item.profileUrl !== null)
         .map((item) => ({ do: 'step', item }) as const)
     : [];
+  // Not one of the person's working days: what starts or nudges a conversation waits for one (decision 139).
   const messages = [
     ...messagesOn(list.items, list.messages),
     ...messagesOn(partners, list.messages),
-  ];
+  ].filter((item) => !(list.newMessagesWait && waitsForWorkDay(item.kind)));
   const sends = messages
     .filter((item) => item.send?.state === 'approved')
     .map((item) => ({ do: 'send', item }) as const);
   const drafts = messages
     .filter((item) => item.send === null)
     .map((item) => ({ do: 'draft', item }) as const);
-  const all: Work[] =
+  const replies = drafts.filter(isReplyDraft);
+  const others = drafts.filter((work) => !isReplyDraft(work));
+  const open = (work: Work) =>
+    !done.has(workKey(work)) ||
+    (isReplyDraft(work) && work.item.profileId !== null && again.has(work.item.profileId));
+  const lanes = new Map<Lane, Work[]>();
+  for (const work of [...steps.filter((w) => !w.item.asking), ...partnerSteps, ...others].filter(
+    open,
+  ))
+    lanes.set(laneOf(work), [...(lanes.get(laneOf(work)) ?? []), work]);
+  const order: Lane[] =
     list.sending === 'approve_all'
-      ? [...sends, ...drafts, ...steps, ...partnerSteps]
-      : [...sends, ...steps, ...partnerSteps, ...drafts];
-  return all.filter((work) => !done.has(workKey(work)));
+      ? ['message', ...AUTO_KINDS, 'partner']
+      : [...AUTO_KINDS, 'partner', 'message'];
+  return [
+    ...[...replies, ...sends, ...steps.filter((w) => w.item.asking)].filter(open),
+    ...inTurns(lanes, order, tried),
+  ];
 }
 
 /**
@@ -314,18 +606,23 @@ export function gapAfter(input: {
   return Math.round(Math.min(most, Math.max(least, even * (0.5 + input.random))));
 }
 
-/** When the working hours next start after `now`, within a week; a little after the hour, at random. */
+/**
+ * When the working hours next start after `now`, every day while the person keeps working on other days (decision
+ * 139); a little after the hour, at random. Today's start while it's ahead, else a later day's by the business's
+ * calendar, as the words say it (`networkWaitWords`): a day of 23 hours, when the clocks go forward, is never skipped.
+ */
 export function nextStart(
   hours: WorkingHours,
   timeZone: string,
   now: number,
   random: number,
 ): number | null {
-  for (let days = 0; days <= 7; days++) {
-    const window = workWindow(hours, timeZone, now + days * DAY);
-    if (window && window.from > now) return window.from + Math.round(random * START_JITTER_MS);
-  }
-  return null;
+  const today = workWindow(workHours(hours), timeZone, now);
+  const at =
+    today && today.from > now
+      ? today.from
+      : startAfterToday(workHours(hours), timeZone, businessDay(now, timeZone));
+  return at === null ? null : at + Math.round(random * START_JITTER_MS);
 }
 
 /**
@@ -354,7 +651,7 @@ export function networkDay(input: {
   const next = () => nextStart(input.hours, input.timeZone, input.now, input.random);
   if (pressed?.state === 'stopped') {
     // Held for the rest of the business's day, whatever its hours: it starts again on a later one.
-    const again = startAfterToday(input.hours, input.timeZone, input.today);
+    const again = startAfterToday(workHours(input.hours), input.timeZone, input.today);
     const jitter = Math.round(input.random * START_JITTER_MS);
     return {
       go: false,
@@ -363,7 +660,7 @@ export function networkDay(input: {
     };
   }
   if (pressed?.state === 'started') return { go: true, started: true, until: null };
-  const window = workWindow(input.hours, input.timeZone, input.now);
+  const window = workWindow(workHours(input.hours), input.timeZone, input.now);
   if (window && input.now >= window.from && input.now < window.to)
     return { go: true, started: false, until: window.to };
   return { go: false, stopped: null, next: next() };
@@ -381,8 +678,8 @@ export function networkWaitWords(
   now: number,
 ): string {
   const at = wait.stopped
-    ? startAfterToday(hours, timeZone, businessDay(now, timeZone))
-    : nextInHours(hours, timeZone, now);
+    ? startAfterToday(workHours(hours), timeZone, businessDay(now, timeZone))
+    : nextInHours(workHours(hours), timeZone, now);
   const when = at !== null && at > now ? startWords(at, timeZone, now) : null;
   if (wait.stopped)
     return when
@@ -402,12 +699,10 @@ export function needOf(
   item: Pick<TodayListItem, 'kind' | 'name' | 'profileId' | 'postId' | 'postUrl' | 'profileUrl'>,
   line: string,
   businessId: string,
+  reportId: string | null = null,
 ): NeedNoteInput | null {
   if (!(AUTO_KINDS as readonly string[]).includes(item.kind) || !item.profileId) return null;
-  const why = [`${item.name}’s post: `, `${item.name}: `].reduce(
-    (said, lead) => (said.startsWith(lead) ? said.slice(lead.length) : said),
-    line,
-  );
+  const why = whyOf(item, line);
   return {
     workspaceId: businessId,
     step: item.kind as AutoKind,
@@ -416,5 +711,35 @@ export function needOf(
     name: item.name,
     url: (item.kind === 'comment' ? item.postUrl : null) ?? item.profileUrl ?? null,
     why,
+    reportId,
   };
+}
+
+/**
+ * Why a step didn't go, from the line it shows, less its lead ("Dana Reyes: ", "Dana Reyes’s post: "): what Needs you
+ * says, and the note on its problem report, which never names anyone (decision 142).
+ */
+export function whyOf(item: Pick<TodayListItem, 'name'>, line: string): string {
+  return [`${item.name}’s post: `, `${item.name}: `].reduce(
+    (said, lead) => (said.startsWith(lead) ? said.slice(lead.length) : said),
+    line,
+  );
+}
+
+/**
+ * The same, for a problem report and the AI helper: their name anywhere else in it, or their first name on its own, is
+ * "(their name)".
+ */
+export function reportWhy(item: Pick<TodayListItem, 'name'>, line: string): string {
+  const name = item.name.trim().replace(/\s+/g, ' ');
+  let why = whyOf(item, line);
+  if (!name) return why;
+  why = why.split(name).join('(their name)');
+  const first = name.split(' ')[0]!;
+  if (first.length < 3 || first === name) return why;
+  const escaped = first.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  return why.replace(
+    new RegExp(`(?<![\\p{L}\\p{N}])${escaped}(?![\\p{L}\\p{N}])`, 'gu'),
+    '(their name)',
+  );
 }

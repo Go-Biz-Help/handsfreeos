@@ -27,10 +27,11 @@ import { outreachAddon } from '../manifest';
 import type { Platform } from '../playbooks';
 import { byResults } from '../results';
 import { groupPeople, groups, myGroups } from '../tables';
-import { choicesFor } from '../automation';
+import { choicesFor, onlyMyGroups } from '../automation';
 import { automationOf } from './automation';
 import { EVER, keepGroup, reachedPeople, resultsByGroup } from './activity';
 import { inWorkspace, keptProfile, once } from './common';
+import { tally } from './tallies';
 import { playbooksInUse } from './friends';
 import { groupFitOf, peopleLeft, prospectsOf } from './group-checks';
 
@@ -85,6 +86,8 @@ export const groupsSave = defineAddonCommand(outreachAddon, {
     const me = requireHuman(ctx).userId;
     const at = changeMoment(ctx.meta);
     return once(async () => {
+      // Each group read off the page counts (decision 140).
+      await tally(ctx, me, input.platform, 'group_listed', input.groups.length, at);
       for (const g of input.groups) await keepFacts(ctx, input.platform, me, g, at);
       await ctx.emit({
         type: 'outreach.groups.saved',
@@ -100,7 +103,7 @@ export const groupsSave = defineAddonCommand(outreachAddon, {
 export const groupSave = defineAddonCommand(outreachAddon, {
   name: 'outreach.group.save',
   description:
-    'Save a group the person has open on Facebook or Alignable and the people on its People tab or members page (or one of its See all pages), with the lines under each name. Admins, moderators and leaders are kept as such and never suggested; the full list of them marks the group’s admins as read. Nobody goes in Contacts.',
+    'Save a group the person has open on Facebook or Alignable and the people on its People tab or members page (or one of its See all pages), with the lines under each name. Admins, moderators and leaders are kept as such and never suggested; the full list of them marks the group’s admins as read, and the once-a-day read notes how far down its member list it got. Nobody goes in Contacts.',
   risk: 1,
   input: GroupSaveInput,
   output: GroupSaveOutput,
@@ -112,6 +115,8 @@ export const groupSave = defineAddonCommand(outreachAddon, {
     const ws = ctx.scope.workspaceId!;
     const at = changeMoment(ctx.meta);
     return once(async () => {
+      // Each member read off the group's people counts (decision 140).
+      await tally(ctx, me, input.platform, 'member', input.people.length, at);
       const groupId = await keepFacts(ctx, input.platform, me, input, at);
       let runs = 0;
       for (const p of input.people) {
@@ -148,6 +153,22 @@ export const groupSave = defineAddonCommand(outreachAddon, {
       }
       if (input.adminsPage)
         await ctx.tx.update(groups).set({ adminsReadAt: at }).where(eq(groups.id, groupId));
+      // How deep this read of its members got, so the next one goes further down (decision 148).
+      if (input.readTo !== null && input.readTo !== undefined)
+        await ctx.tx
+          .insert(myGroups)
+          .values({
+            workspaceId: ws,
+            userId: me,
+            groupId,
+            joined: input.joined ?? true,
+            membersDepth: input.readTo,
+            seenAt: at,
+          })
+          .onConflictDoUpdate({
+            target: [myGroups.workspaceId, myGroups.userId, myGroups.groupId],
+            set: { membersDepth: input.readTo, seenAt: at },
+          });
       await ctx.emit({
         type: 'outreach.group.saved',
         entityType: 'workspace',
@@ -190,6 +211,7 @@ export const groupsList = defineAddonQuery(outreachAddon, {
       members: number | null;
       detail: string | null;
       joined: boolean | null;
+      members_depth: number;
       people: number;
       runs: number;
       admins_read_at: Date | string | null;
@@ -209,6 +231,8 @@ export const groupsList = defineAddonQuery(outreachAddon, {
             g.check_state, g.check_why, g.check_who, g.check_playbook_id, cpb.name as check_playbook, g.checked_at,
             j.state as join_state, j.asked_at as join_at,
             (select m.joined from addon_outreach.my_groups m where m.group_id = g.id and m.user_id = ${me}) as joined,
+            coalesce((select m.members_depth from addon_outreach.my_groups m
+              where m.group_id = g.id and m.user_id = ${me}), 0) as members_depth,
             (select count(*)::int from addon_outreach.group_people gp where gp.group_id = g.id) as people,
             (select count(*)::int from addon_outreach.group_people gp
               where gp.group_id = g.id and gp.runs_group) as runs,
@@ -225,7 +249,9 @@ export const groupsList = defineAddonQuery(outreachAddon, {
     const results = resultsByGroup(await reachedPeople(ctx, { from: EVER, me, everyone: true }));
     // The AI's read of a group goes over what its name says (decision 48).
     const fitted = listed.map((g) => ({ g, fit: groupFitOf(playbooks, g) }));
-    const left = await peopleLeft(ctx, me, playbooks, input.platform);
+    const choices = choicesFor((await automationOf(ctx, me)).settings, input.platform);
+    // Working only their own groups, the people left to reach are the ones in those groups (decision 148).
+    const left = await peopleLeft(ctx, me, playbooks, input.platform, onlyMyGroups(choices));
     const counts = Object.fromEntries(
       GROUP_VERDICT_KEYS.map((v) => [v, fitted.filter((f) => f.fit.verdict === v).length]),
     ) as Record<GroupVerdict, number>;
@@ -260,6 +286,7 @@ export const groupsList = defineAddonQuery(outreachAddon, {
         people: g.people,
         runsGroup: g.runs,
         adminsRead: g.admins_read_at !== null,
+        membersDepth: g.members_depth,
         requests: g.requests,
         replies: resultsOf(g.id).replies,
         demos: resultsOf(g.id).demos,
@@ -280,8 +307,8 @@ export const groupsList = defineAddonQuery(outreachAddon, {
             : null,
       })),
       prospects: await prospectsOf(ctx, left, input.platform),
-      // The person's Join switch on the network shown (Facebook's is the settings' own).
-      joinsOnItsOwn: choicesFor((await automationOf(ctx, me)).settings, input.platform).joinGroups,
+      // The person's groups pick on the network shown (Facebook's is the settings' own, decision 148).
+      joinsOnItsOwn: choices.joinGroups,
       page,
       pages,
       total,

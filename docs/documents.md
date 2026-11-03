@@ -98,7 +98,10 @@ Confirm card. Uploading a PDF is the person's own file, so it isn't the Assistan
 
 **The browser reads PDFs with pdf.js's legacy build, on the page's own thread.** It runs on the older phones
 customers sign on, and nothing has to be served from a separate address. Fonts, character maps and image decoders a
-PDF asks for come from jsDelivr at the exact version installed; a PDF that needs none of them never asks.
+PDF asks for come from jsDelivr at the exact version installed; a PDF that needs none of them never asks. Even the
+legacy build reads a page's words with `for await` over a stream, which Safari can't do yet, so `loadPdfJs` first gives
+streams that loop where it's missing (`streams.ts`). Without it, Safari finds no words to type over and Place fields
+for me fails; `e2e/documents.spec.ts` takes the loop away in Chromium to check.
 
 **A typed signature is a picture of the name**, drawn in one of `SIGNATURE_STYLES` (Google fonts, via `next/font`),
 cropped to the ink. The signed copy never needs the font.

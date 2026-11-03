@@ -14,7 +14,8 @@ import type { AddonEventContext } from '../types';
 
 /**
  * `appointment.booked`: a booking through a demo link counts as a demo; one through a partner link (decision 81) moves
- * that partner to Call booked, and is never a demo.
+ * that partner to Call booked, and is a demo too only for someone the person marked as a potential partner (decision
+ * 130).
  */
 export async function appointmentBooked(ctx: AddonEventContext): Promise<void> {
   const p = (ctx.event.payload ?? {}) as { attendeeId?: string | null };
@@ -39,6 +40,7 @@ export async function appointmentBooked(ctx: AddonEventContext): Promise<void> {
           ref: a.link_ref,
           appointmentId,
           at: new Date(a.created_at).toISOString(),
+          personId: a.person_id,
         },
         ctx.actor,
         ctx.meta,

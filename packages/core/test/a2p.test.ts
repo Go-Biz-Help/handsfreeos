@@ -18,6 +18,7 @@ import {
   sampleHasOptOut,
   sampleNamesBusiness,
   sampleSuggestions,
+  senderForCarriers,
   sensitiveFlags,
   type A2pDraft,
 } from '../src/messaging/a2p';
@@ -40,6 +41,7 @@ const good: A2pDraft = {
   optInPath: 'hosted',
   sensitiveTopics: [],
   monthlyVolume: 'under_1000',
+  policyContact: { email: 'office@lonestarhvac.com' },
 };
 
 describe('a clean draft goes through', () => {
@@ -138,12 +140,58 @@ describe('the business the carrier looks up', () => {
     expect(issues[0]!.severity).toBe('warning');
   });
 
+  it('tells a business with a DBA to keep its legal name here, when the name has no LLC or Inc', () => {
+    const [issue] = issuesFor(
+      checkDraft({ ...good, legalName: 'HandsFreeOS' }, 'HandsFreeOS'),
+      'legalName',
+    );
+    expect(issue?.why).toMatch(/DBA/);
+  });
+
+  it('names a business with a DBA both ways for the carriers, and one without it once', () => {
+    expect(senderForCarriers('Go Biz Help LLC', 'HandsFreeOS')).toBe(
+      'Go Biz Help LLC (doing business as HandsFreeOS)',
+    );
+    expect(senderForCarriers('Lone Star HVAC LLC', 'Lone Star HVAC')).toBe('Lone Star HVAC LLC');
+    expect(senderForCarriers(' Lone Star HVAC LLC ')).toBe('Lone Star HVAC LLC');
+  });
+
   it('blocks a registration with no website for the reviewer to open', () => {
     expect(
       issuesFor(checkDraft({ ...good, website: '' }, BUSINESS), 'website').some(
         (i) => i.severity === 'blocker',
       ),
     ).toBe(true);
+  });
+});
+
+describe('the way to reach the business, which the policy and terms we write print', () => {
+  const contact = (d: A2pDraft) => issuesFor(checkDraft(d, BUSINESS), 'policyContact');
+
+  it('needs an email or a phone number while either page is ours', () => {
+    expect(contact({ ...good, policyContact: {} })).toHaveLength(1);
+    expect(
+      contact({ ...good, policyContact: {}, policyUrl: 'https://lonestarhvac.com/privacy' }),
+    ).toHaveLength(1);
+    expect(contact({ ...good, policyContact: { phone: '(512) 555-0142' } })).toEqual([]);
+  });
+
+  it('asks for nothing when both pages are the business’s own', () => {
+    expect(
+      contact({
+        ...good,
+        policyContact: {},
+        policyUrl: 'https://lonestarhvac.com/privacy',
+        termsUrl: 'https://lonestarhvac.com/terms',
+      }),
+    ).toEqual([]);
+  });
+
+  it('blocks an email or a number that isn’t one, and says which', () => {
+    const bad = contact({ ...good, policyContact: { email: 'office at lonestar', phone: '555' } });
+    expect(bad.map((i) => i.severity)).toEqual(['blocker', 'blocker']);
+    expect(bad[0]!.message).toContain('office at lonestar');
+    expect(bad[1]!.message).toContain('555');
   });
 });
 

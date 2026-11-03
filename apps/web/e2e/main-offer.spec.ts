@@ -222,14 +222,17 @@ test('an owner builds the main offer a step at a time, scores it and goes live, 
   // Get ready: the offer and the niche are done; Today waits on the owner's messages and numbers, and says which is
   // first beside Start my day. Their profile is left too, as advice that holds nothing (decision 90).
   await page.goto(`/app/w/${workspaceId}/a/outreach?view=today`);
-  const ready = page.getByTestId('get-ready');
-  await expect(ready.getByTestId('ready-offer')).toHaveAttribute('data-state', 'done');
-  await expect(ready.getByTestId('ready-playbook')).toHaveAttribute('data-state', 'done');
-  await expect(ready.getByTestId('ready-profile')).toHaveAttribute('data-state', 'todo');
   await expect(page.getByTestId('live-start')).toBeDisabled();
   await expect(page.getByTestId('live-not-ready')).toContainText(
     'You haven’t OK’d how your messages read yet.',
   );
+  // Get ready itself is on Set up (decision 129), a press away from Today.
+  await page.getByTestId('today-get-ready-open').click();
+  await expect(page).toHaveURL(new RegExp(`/a/outreach/set-up$`));
+  const ready = page.getByTestId('get-ready');
+  await expect(ready.getByTestId('ready-offer')).toHaveAttribute('data-state', 'done');
+  await expect(ready.getByTestId('ready-playbook')).toHaveAttribute('data-state', 'done');
+  await expect(ready.getByTestId('ready-profile')).toHaveAttribute('data-state', 'todo');
   // Beside a Start that waits, the profile never says "start now": only that the day doesn't wait on it.
   await expect(ready.getByTestId('ready-profile-no-hold')).toContainText(
     'Your day doesn’t wait on this one',
@@ -316,7 +319,7 @@ test('an owner builds the main offer a step at a time, scores it and goes live, 
   const sides = page.getByTestId('outreach-profiles-side-by-side');
   await expect(sides).toContainText('Facebook');
   await expect(sides).toContainText('Test Owner');
-  await page.goto(`/app/w/${workspaceId}/a/outreach?view=today`);
+  await page.goto(`/app/w/${workspaceId}/a/outreach/set-up`);
 
   // Your messages: the AI writes samples for the playbook in the owner's voice, and they OK how they read.
   await ready.getByTestId('ready-open-messages').click();
@@ -363,6 +366,9 @@ test('an owner builds the main offer a step at a time, scores it and goes live, 
   await expect(numbers.getByTestId('ready-verdict')).toContainText('Facebook’s safe pace');
   await numbers.getByTestId('ready-numbers-save').click();
   await expect(page.getByTestId('get-ready')).toHaveCount(0);
+  await expect(page.getByTestId('outreach-set-up-ready-facebook-done')).toBeVisible();
+  await page.goto(`/app/w/${workspaceId}/a/outreach/today`);
+  await expect(page.getByTestId('today-get-ready')).toHaveCount(0);
   await expect(page.getByTestId('live-not-ready')).toHaveCount(0);
 
   // The main offer's page: how the live version is doing in Social Outreach, too new to judge with no messages yet.

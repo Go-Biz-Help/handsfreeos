@@ -34,12 +34,20 @@ export const urls = {
   /**
    * Each store's link goes on the app page once it's set; until then that page says "coming soon" for it.
    * Google Play's `referrer` holds UTM tags (`utm_source=website`, `utm_campaign=get_the_app`) for Play Console's
-   * acquisition reports; the app's onboarding link says `utm_source=onboarding`.
+   * acquisition reports; the app's onboarding link says `utm_source=onboarding`. The App Store link has no campaign
+   * tags yet (see `packages/core/src/onboarding/app-links.ts`).
    */
-  appStore: '',
+  appStore: 'https://apps.apple.com/us/app/handsfreeos/id6813606312',
   playStore:
     'https://play.google.com/store/apps/details?id=com.gobizhelp.handsfreeos&referrer=utm_source%3Dwebsite%26utm_campaign%3Dget_the_app',
 } as const;
+
+/**
+ * The website chat on every page: the HandsFreeOS workspace's own widget, its snippet copied from Settings →
+ * Website chat. It is the texting-consent chat the carriers' A2P review is sent to: after a visitor's first
+ * message it asks for their details with the consent box, so it stays on every page.
+ */
+export const chatScript = 'https://app.handsfreeos.com/embed/v1/wk_uJni908sa8AGUjGaXmX8.js';
 
 /**
  * The plan: what every founding spot buys.

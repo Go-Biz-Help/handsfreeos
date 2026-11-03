@@ -20,6 +20,7 @@ import {
   HfosError,
   lowerLabel,
   manyFor,
+  normalizeChatOrigins,
   pluralOf,
   RECORD_ICON_LABELS,
   relationshipTypeName,
@@ -35,7 +36,7 @@ import {
 } from '@hfos/core/server';
 import type { Db } from '@hfos/db/client';
 import type { ToolContext, ToolOutcome } from './runtime';
-import { command, query, quoted, when } from './tools-read';
+import { command, query, quoted, rehearse, when } from './tools-read';
 import { settingsCard, type SettingsConfirmTool } from './tools-settings-calendar';
 
 type Args = Record<string, unknown>;
@@ -1989,7 +1990,7 @@ const manageRcs: SettingsConfirmTool = {
     const s = status.rcsSender;
     if (!s || s.status === 'failed')
       throw HfosError.notFound(
-        'This business has no RCS sender connected. Connecting one is on Settings → Texting & calls, with the sender made in its own Twilio account.',
+        'This business has no RCS sender connected. Ask for one under RCS messaging in Settings → Texting & calls (it’s paid on Stripe’s page), and HandsFreeOS makes it and connects it.',
       );
     const about = [
       { label: 'Sender', value: s.senderId },
@@ -2137,17 +2138,133 @@ const sourceIn = async (db: Db, ctx: ToolContext, id: unknown) => {
   );
   if (!source)
     throw HfosError.notFound(
-      'No website form or connected app has that id. Ids are in get_settings (area lead_intake); texts, calls and emails are changed with manage_lead_intake.',
+      'No website form or connected app has that id. Ids are in get_settings (area lead_intake); texts, calls, emails, Messenger, Instagram, lead ads and Indeed are changed with manage_lead_intake.',
     );
   return { intake, source, form: source.kind === 'website_form' };
 };
+
+/** A new website form's command input, from the arguments: the sites as the screen stores them. */
+function newFormOf(args: Args): Args {
+  const name = str(args['name']);
+  if (!name)
+    throw need(
+      'name',
+      'Say what to call the form, like Quote form. Its customers and leads are filed under it.',
+    );
+  const typed = list<string>(args['websites']) ?? [];
+  if (!typed.length)
+    throw need(
+      'websites',
+      'Say which website the form goes on, like lonestarhvac.com. It works on the sites listed and nowhere else.',
+    );
+  const { origins, issues } = normalizeChatOrigins(typed);
+  if (issues.length)
+    throw HfosError.validation(
+      issues.map((i) => ({
+        path: i.index === null ? 'websites' : `websites.${i.index}`,
+        message: i.message,
+      })),
+      issues[0]!.message,
+    );
+  return {
+    kind: 'website_form',
+    name,
+    allowedOrigins: origins,
+    ...defined({
+      createLead: bool(args['createLead']),
+      pipelineId: args['pipelineId'] === null ? null : str(args['pipelineId']),
+      stageId: args['stageId'] === null ? null : str(args['stageId']),
+      dailyCap: num(args['dailyCap']),
+      redirectUrl: str(args['thankYouPage']),
+    }),
+  };
+}
+
+const siteWords = (origins: readonly string[]) =>
+  origins.map((o) => o.replace(/^https?:\/\//, '')).join(', ');
 
 const manageLeadForm: SettingsConfirmTool = {
   async prepare(db, ctx, args, toolCallId) {
     const act = action(args);
     const tool = 'manage_lead_form';
+
+    if (act === 'create') {
+      const input = newFormOf(args);
+      // The command's own rules (the pipeline and stage, the thank-you page) refuse it before any card is drawn.
+      await rehearse(db, ctx, 'intake_source.create', input);
+      const intake = await query<IntakeList>(db, ctx, 'intake.list');
+      const pipeline = intake.pipelines.find((p) => p.id === input['pipelineId']);
+      const stage = pipeline?.stages.find((s) => s.id === input['stageId']);
+      return {
+        card: card(
+          toolCallId,
+          tool,
+          `Add a website form: ${String(input['name'])}`,
+          [
+            { label: 'What', value: 'A form on your website' },
+            { label: 'Filed under', value: String(input['name']) },
+            { label: 'Sites', value: siteWords(input['allowedOrigins'] as string[]) },
+            ...(input['createLead'] === false
+              ? [{ label: 'Opens a lead', value: 'Customer only' }]
+              : []),
+            ...(pipeline ? [{ label: 'Lands in', value: pipeline.name }] : []),
+            ...(stage ? [{ label: 'Stage', value: stage.name }] : []),
+            ...(input['dailyCap']
+              ? [{ label: 'Most a day', value: String(input['dailyCap']) }]
+              : []),
+            ...(input['redirectUrl']
+              ? [{ label: 'Thank-you page', value: String(input['redirectUrl']) }]
+              : []),
+          ],
+          'Make the form',
+          [
+            {
+              kind: 'note',
+              text: 'Once it’s made, copy its snippet from Settings → Lead intake and paste it into your page. Only the sites listed can send it.',
+            },
+          ],
+        ),
+        result: { waiting: true },
+      };
+    }
+
+    if (args['sourceId'] === undefined)
+      throw need(
+        'sourceId',
+        'Say which form or app. Their ids are in get_settings (area lead_intake).',
+      );
     const { intake, source, form } = await sourceIn(db, ctx, args['sourceId']);
     const what = { label: 'What', value: form ? 'A form on your website' : 'A connected app' };
+
+    if (act === 'new_key') {
+      if (!form)
+        throw need(
+          'sourceId',
+          `${source.name} is a connected app. Its key is shown only once, so it can’t be replaced in a chat. Retire it, then connect the app again with Connect an app in Settings → Lead intake.`,
+          'Only a website form’s key can be replaced here.',
+        );
+      if (!source.publicKey)
+        throw need(
+          'sourceId',
+          'That one is where the leads from the forms you build here land. It has no key to replace.',
+        );
+      return {
+        card: card(
+          toolCallId,
+          tool,
+          `Give ${source.name} a new key?`,
+          [what, { label: 'Sites', value: siteWords(source.allowedOrigins) || 'None yet' }],
+          'Give it a new key',
+          [
+            {
+              kind: 'caution',
+              text: 'The form on your site stops working at once, until you paste in its new snippet from Settings → Lead intake.',
+            },
+          ],
+        ),
+        result: { waiting: true },
+      };
+    }
 
     if (act === 'pause' || act === 'turn_on') {
       const on = act === 'turn_on';
@@ -2276,7 +2393,26 @@ const manageLeadForm: SettingsConfirmTool = {
   async commit(db, ctx, args) {
     const act = action(args);
     const back = href(ctx, 'settings/lead-intake');
+    if (act === 'create') {
+      await command(db, ctx, 'intake_source.create', newFormOf(args));
+      return {
+        outcome: 'Made. Copy its snippet from Settings → Lead intake into your page',
+        href: back,
+        command: 'intake_source.create',
+      };
+    }
     const sourceId = args['sourceId'];
+    if (act === 'new_key') {
+      // Only a form's: the card was drawn for one, and the command answers an app's with a secret nobody would see.
+      const { form } = await sourceIn(db, ctx, sourceId);
+      if (!form) throw need('sourceId', 'Only a website form’s key can be replaced here.');
+      await command(db, ctx, 'intake_source.rotate_key', { sourceId });
+      return {
+        outcome: 'New key. Paste the new snippet from Settings → Lead intake into your site',
+        href: back,
+        command: 'intake_source.rotate_key',
+      };
+    }
     if (act === 'retire') {
       await command(db, ctx, 'intake_source.archive', { sourceId });
       return { outcome: 'Retired', href: back, command: 'intake_source.archive' };

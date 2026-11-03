@@ -74,6 +74,9 @@ export const OWNER_WORDS = {
   moveLabel: 'Move this group to a teammate',
   /** A person menu's give, for an owner or admin. */
   giveTo: (to: TeamOwner): string => (to.you ? 'Make them yours' : `Give them to ${to.name}`),
+  /** What a give does, in the person menu's explainer (`OUTREACH_WORDS.person.hints`). */
+  giveHint: (to: TeamOwner): string =>
+    `${to.you ? 'Only you reach out to them from now on, from your Today.' : `Only ${to.name} reaches out to them from now on, from their Today.`} Whoever had them before stops, and their messages still waiting to go are skipped. Replies still go.`,
   moved: (kind: OwnedKind, to: TeamOwner): string => {
     const whose = to.you ? 'yours' : `${to.name}’s`;
     return kind === 'group' ? `This group is ${whose} now.` : `They’re ${whose} now.`;

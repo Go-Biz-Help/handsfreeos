@@ -1,6 +1,8 @@
 import Image from 'next/image';
 import Link from 'next/link';
+import { competitors } from '@/content/compare';
 import { company, urls } from '@/content/site';
+import { tradePages } from '@/content/trade-pages';
 import { Container } from './ui';
 
 const columns = [
@@ -13,7 +15,12 @@ const columns = [
       { href: '/app', label: 'Phone app' },
       { href: '/blog', label: 'Blog' },
       { href: '/affiliates', label: 'Affiliates' },
+      ...competitors.map((c) => ({ href: `/vs/${c.id}`, label: `vs ${c.name}` })),
     ],
+  },
+  {
+    title: 'Made for',
+    links: tradePages.map((p) => ({ href: `/${p.slug}`, label: p.who })),
   },
   {
     title: 'Help',
@@ -41,7 +48,7 @@ export function SiteFooter() {
   return (
     <footer className="border-border bg-card-2 border-t">
       <Container className="py-14">
-        <div className="grid gap-10 sm:grid-cols-2 lg:grid-cols-4">
+        <div className="grid gap-10 sm:grid-cols-2 lg:grid-cols-[minmax(0,1.5fr)_repeat(4,minmax(0,1fr))]">
           <div>
             <Link href="/" className="flex items-center gap-2.5 font-bold">
               <Image
@@ -74,7 +81,10 @@ export function SiteFooter() {
               <ul className="space-y-2.5">
                 {column.links.map((link) => (
                   <li key={link.label}>
-                    <Link href={link.href} className="text-text-2 hover:text-text text-base">
+                    <Link
+                      href={link.href}
+                      className="text-text-2 hover:text-text text-base [overflow-wrap:anywhere]"
+                    >
                       {link.label}
                     </Link>
                   </li>

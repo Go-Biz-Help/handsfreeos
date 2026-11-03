@@ -5,7 +5,8 @@
  * person can, with the same rules, events and audit. Anything that reaches a customer or changes a record waits
  * for the person's OK ("confirm").
  *
- * Three of these act above one business — adding a business, and pushing templates and packs to client businesses.
+ * Four of these act above one business: adding a business, changing a template's steps, and pushing templates and
+ * packs to client businesses.
  * Their commands check the organization's own permission; the tool is offered on `workspace.update`, which every
  * agency owner and admin holds in each of its businesses, and the card says when the person isn't one.
  */
@@ -14,17 +15,22 @@ import { MENU_KEYS } from '../account/menu';
 import {
   APPROVALS_NEEDED_MAX,
   APPROVALS_NEEDED_MIN,
+  FOLLOW_UP_MAX_STEPS,
+  FOLLOW_UP_UNITS,
   PHONE_ANSWER_MODES,
   QUESTION_KINDS,
   QUOTE_MODES,
 } from '../ai-team/config';
 import { PHONE_VOICES, phoneVoiceInfo } from '../ai-team/voices';
 import { AUTOMATION_GROUPS, AUTOMATIONS, type AutomationId } from '../automations/catalog';
-import { CALL_VOICEMAIL_CHOICES } from '../automations/settings';
+import { CALL_TRIES_MAX } from '../automations/call-hours';
+import { STAGE_ROLES } from '../automations/pipeline-roles';
+import { CALL_VOICEMAIL_CHOICES, CONTACT_AI_GUIDE_MAX } from '../automations/settings';
 import { IDEA_MINE, IDEA_SORTS, IDEA_STATUSES } from '../ideas/words';
 import { PUSH_SWITCHES } from '../push';
 import { uuid } from '../schemas/common';
-import { clock, define, text, type AssistantTool } from './tool-kit';
+import { WorkflowOpSchema } from '../workflows/ops';
+import { clock, define, text, WeeklyHoursInput, type AssistantTool } from './tool-kit';
 
 const AUTOMATION_IDS = AUTOMATIONS.map((a) => a.id) as [AutomationId, ...AutomationId[]];
 
@@ -94,8 +100,64 @@ export const extraTools: readonly AssistantTool[] = [
   define({
     name: 'update_ai_teammate_rules',
     description:
-      'Change the AI teammate’s finer rules, as its screen sections have them. Qualify: switch it on, add, change or remove the questions it asks new leads (kind, choices, required, which answers mean not a fit, and for a file question who hears when it arrives), where a qualified lead moves, who is told, whether it then offers times, whether the team hears when a lead isn’t a fit, and whether it opens and closes deals. Limits: replies to one customer a day, look-ups per reply, its share of the daily AI limit, discounts, bills, new bills, quotes and maintenance plans. Hand-off: when frustrated, sensitive topics, who is told and how, and what the customer is told. Phone calls: on or off, when it picks up, its voice and greeting. Identity: email signature and tone. Autonomy: approvals before it works on its own, and when drafts expire. Its name, status, channels, hours and skills are manage_ai_teammate. Read it first with get_settings area ai_teammate (question ids are there); stage ids come from get_settings area pipelines and people from list_team. Pass only what changes.',
+      'Change the AI teammate’s finer rules, as its screen sections have them. Channels: the address it emails from and the website chat it answers. Respond: how its first message to a new lead goes (text or email) and how long after the lead comes in. Book: whether it reschedules, cancels, uses a waitlist, books repeat visits and checks the service area. Photos: whether it looks at photos and gives rough price ranges from them. Hours: the hours it works when they’re its own. Add-ons: which ones it uses in a conversation. Qualify: switch it on, add, change or remove the questions it asks new leads (kind, choices, required, which answers mean not a fit, and for a file question who hears when it arrives), where a qualified lead moves, who is told, whether it then offers times, whether the team hears when a lead isn’t a fit, and whether it opens and closes deals. Limits: replies to one customer a day, look-ups per reply, its share of the daily AI limit, discounts, bills, new bills, quotes and maintenance plans. Hand-off: when frustrated, sensitive topics, who is told and how, and what the customer is told. Phone calls: on or off, when it picks up, its voice and greeting. Identity: email signature and tone. Autonomy: approvals before it works on its own, and when drafts expire. Its name, status, which channels it answers, when it works and its skills on or off are manage_ai_teammate; when each follow-up goes is update_automations’ followUpTimes. Read it first with get_settings area ai_teammate (question ids are there); stage ids come from get_settings area pipelines and people from list_team. Pass only what changes.',
     input: z.object({
+      // Channels
+      emailsFromAddressId: uuid
+        .optional()
+        .describe('The address it emails from: an id from catalogs.emailAddresses in get_settings'),
+      chatWidgetId: uuid
+        .optional()
+        .describe('The website chat it answers: an id from catalogs.chatWidgets in get_settings'),
+      // Respond
+      firstMessageBy: z
+        .enum(['sms', 'email'])
+        .optional()
+        .describe(
+          'Its first message to a new lead. sms: a text when they agreed to texts, otherwise an email; email: always email',
+        ),
+      firstMessageAfterMinutes: z
+        .int()
+        .min(0)
+        .max(120)
+        .optional()
+        .describe('How long after a new lead comes in it sends that first message; 0 for at once'),
+      // Book
+      reschedules: z.boolean().optional().describe('Moves a booking when the customer asks'),
+      cancels: z.boolean().optional().describe('Cancels a booking when the customer asks'),
+      usesWaitlist: z
+        .boolean()
+        .optional()
+        .describe('Puts a customer on a calendar’s waitlist when nothing open suits them'),
+      booksRepeatVisits: z
+        .boolean()
+        .optional()
+        .describe('Books repeat visits, on its calendars that let customers repeat'),
+      checksServiceArea: z
+        .boolean()
+        .optional()
+        .describe('Checks their ZIP code against the service areas before offering times'),
+      // Photos
+      looksAtPhotos: z.boolean().optional().describe('Looks at the photos customers send'),
+      priceRangesFromPhotos: z
+        .boolean()
+        .optional()
+        .describe('May say a rough price range from a photo, never a quote'),
+      // Hours
+      ownHours: WeeklyHoursInput.min(1)
+        .optional()
+        .describe(
+          'The hours it works, in the business’s time zone: every stretch, the whole week. Sets it to work only these hours',
+        ),
+      // Add-ons
+      useAddons: z
+        .array(z.string().trim().min(2).max(60))
+        .max(20)
+        .optional()
+        .describe(
+          'Add-ons it starts using in a customer’s conversation, by name as get_settings add_ons lists them',
+        ),
+      stopUsingAddons: z.array(z.string().trim().min(2).max(60)).max(20).optional(),
       // Qualify
       qualifies: z.boolean().optional().describe('The Qualify skill on or off'),
       addQuestions: z.array(QuestionInput).max(10).optional(),
@@ -222,10 +284,29 @@ export const extraTools: readonly AssistantTool[] = [
   define({
     name: 'update_automations',
     description:
-      'Turn automations on or off by their id from list_automations — any row on Settings → Automations, whether its switch lives there, in what Home watches for, or in the AI teammate — and change re-engaging dead leads’ timing and message, which form Intake questions sends, when the end-of-day email goes, what the AI does when a voicemail box answers its call, and whether its pages ask for an OK to call. Re-engaging dead leads can only be turned on from the screen, where its message is read first. new_lead_greeting is only the AI teammate’s first message to a brand-new lead, and it goes out only while the teammate’s Respond switch is on too (manage_ai_teammate’s repliesToLeads, which is the whole section).',
+      'Turn automations on or off by their id from list_automations — any row on Settings → Automations, whether its switch lives there, in what Home watches for, or in the AI teammate — and change when each of the AI teammate’s Follow-ups after silence goes and how many monthly ones come after, re-engaging dead leads’ timing and message, which form Intake questions sends, when the end-of-day email goes, what the AI does when a voicemail box answers its call, the calling hours and tries for campaign and workflow calls to leads, whether its pages ask for an OK to call, the Maintenance due texts, what each pipeline stage means and how the business tags customers. Turning on re-engaging dead leads the first time puts its message on the card to read before Confirm. new_lead_greeting is only the AI teammate’s first message to a brand-new lead, and it goes out only while the teammate’s Respond switch is on too (manage_ai_teammate’s repliesToLeads, which is the whole section).',
     input: z.object({
       turnOn: z.array(z.enum(AUTOMATION_IDS)).max(49).optional(),
       turnOff: z.array(z.enum(AUTOMATION_IDS)).max(49).optional(),
+      followUpTimes: z
+        .array(
+          z.object({
+            after: z.int().min(1).max(1000),
+            unit: z.enum(FOLLOW_UP_UNITS),
+          }),
+        )
+        .min(1)
+        .max(FOLLOW_UP_MAX_STEPS)
+        .optional()
+        .describe(
+          'Follow-ups after silence: every follow-up in order, each this long after the message the customer didn’t answer and later than the one before (5 minutes to 5 years). The whole list, so read followUps.times from list_automations first and change only what was asked: “make the first one an hour” keeps the others. Like [{"after":1,"unit":"hours"},{"after":1,"unit":"days"}]',
+        ),
+      followUpMonthlyForMonths: z
+        .int()
+        .min(0)
+        .max(12)
+        .optional()
+        .describe('After the last of those, one a month for this many months; 0 for none'),
       reengageAfterDays: z
         .int()
         .min(30)
@@ -250,11 +331,71 @@ export const extraTools: readonly AssistantTool[] = [
         .enum(CALL_VOICEMAIL_CHOICES)
         .optional()
         .describe('text: hang up and text instead; message: leave a short one; hang_up'),
+      callLeadsFrom: clock
+        .optional()
+        .describe(
+          'Campaign and workflow calls start no earlier than this, 24-hour, in each lead’s own time: 08:00 or later (the law’s earliest; stricter states keep theirs)',
+        ),
+      callLeadsUntil: clock
+        .optional()
+        .describe(
+          'And end by this, 24-hour: 21:00 at the latest, at least an hour after the start',
+        ),
+      callLeadsAtWeekends: z
+        .boolean()
+        .optional()
+        .describe('Saturdays and Sundays too, where the law allows them'),
+      callTries: z
+        .int()
+        .min(1)
+        .max(CALL_TRIES_MAX)
+        .optional()
+        .describe(
+          'How many times a campaign’s or workflow’s call rings a lead who doesn’t answer, a day apart. What it does for a voicemail box comes after the last',
+        ),
       askForOkToCall: z
         .boolean()
         .optional()
         .describe(
           'Show an “OK to call me, including with an AI assistant” box under the text box on the business’s forms, booking page, waitlist and website chat. A tick counts as agreed in writing to calls',
+        ),
+      callBusinessLandlines: z
+        .boolean()
+        .optional()
+        .describe(
+          'Let a campaign’s or workflow’s call go to someone with no written yes when their number is a business landline (checked with the phone company first, charged per number to the balance: get_settings prices lists what each check costs). Mobiles, home lines and internet numbers still need the yes',
+        ),
+      maintenanceMessage: text(480)
+        .optional()
+        .describe(
+          'The Maintenance due text. Placeholders: {firstName}, {businessName}, {service}, {link}; it must have {link}',
+        ),
+      maintenancePlanMessage: text(480)
+        .optional()
+        .describe(
+          'The same text for a customer whose maintenance plan covers the service: {plan} too, and it must have {link}',
+        ),
+      stageMeanings: z
+        .array(
+          z.object({
+            stageId: uuid.describe('An open stage, from get_settings pipelines'),
+            means: z
+              .enum([...STAGE_ROLES, 'none'])
+              .describe(
+                'What moves a deal there: contacted (someone got back to them), quoted (a quote went out), booked (a visit was booked); none: deals only reach it by hand',
+              ),
+          }),
+        )
+        .min(1)
+        .max(50)
+        .optional(),
+      howYouTag: z
+        .string()
+        .trim()
+        .max(CONTACT_AI_GUIDE_MAX)
+        .optional()
+        .describe(
+          'How the business tags customers, in its own words, which the AI reads whenever it looks at a customer’s tags. Empty clears it',
         ),
     }),
     autonomy: 'confirm',
@@ -369,9 +510,26 @@ export const extraTools: readonly AssistantTool[] = [
   define({
     name: 'get_agency_area',
     description:
-      'The agency area of this business’s organization: its client businesses, workflow templates and knowledge packs, with the ids push_to_client_businesses needs. With a templateId, what that template’s details are and which businesses have it. Agency owners and admins only.',
+      'The agency area of this business’s organization: its client businesses, workflow templates and knowledge packs, with the ids push_to_client_businesses needs. With a templateId, that template as its editor shows it: each step in plain words with its id, the checks to fix, its draft as written with the draft’s revision (for edit_template_steps), the details each business picks, and which businesses have it. Agency owners and admins only.',
     input: z.object({ templateId: uuid.optional() }),
     autonomy: 'auto',
+    permission: 'workspace.update',
+  }),
+  define({
+    name: 'edit_template_steps',
+    description:
+      'Change an agency workflow template’s draft step by step, as its editor does: add, change, move or delete a step, add or delete a branch’s path, point a go-to, or change what starts it or its settings. Read it with get_agency_area (with its templateId) first, and write each change against its draft as written there; a new step’s id is s_ and 8 lowercase letters or digits. Where a step names something each business has of its own (a stage, a tag, a person, a calendar), the template names a detail each business picks instead, as {"$ph": "office_user"}. The changes apply in order, all or none. Only the draft changes: businesses keep what they have until it’s published and pushed to them. Agency owners and admins only.',
+    input: z.object({
+      templateId: uuid,
+      baseRevision: z
+        .int()
+        .min(1)
+        .describe(
+          'The draft’s revision from get_agency_area. If someone saves in between, it’s refused: read it again',
+        ),
+      ops: z.array(WorkflowOpSchema).min(1).max(50),
+    }),
+    autonomy: 'confirm',
     permission: 'workspace.update',
   }),
   define({

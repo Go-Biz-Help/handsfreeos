@@ -23,18 +23,18 @@
  *   niche and area and checked by the AI, the good ones joined while their groups run low, their members read leaders
  *   first, and their posts read (`group_checks`, `join`, `members`, `group_posts`, ../jobs/alignable/groups.ts); and
  *   the businesses found, checked by the AI from their pages, last (`found_checks`).
- * - **Then Alignable's list for today** (`outreach.today` with `platform: 'alignable'`), the kinds it does on its own
- *   (`auto`): a look at their business page and a like on a recent post of theirs when the page shows one, or the
- *   look alone when it doesn't (warm-up; for a writer found by their post, the post it found, liked on its own page);
- *   a connection request with their page's own Connect, the business checked by
- *   Alignable's id first, never to one their page shows they're connected with already (0.94.0), who's kept as a
- *   connection instead; and the messages: drafted after a look-up of their page, and sent once OK'd in Alignable's
- *   messages, typing only into that conversation's box. From 0.95.0 a comment on a good post is drafted by the AI and
- *   goes through Waiting for you as messages do (decision 92, ./comments.ts): it waits for the person's OK while the
- *   comment hold or training wheels are on, then goes on its own, only in the post's own reply form; an answer to a
- *   post asking for what the business offers waits for their OK every time. Recommend is only ever theirs. Requests
- *   they got are left for them to accept, and old requests to withdraw are theirs too: no reader of the ones they've
- *   sent is built.
+ * - **Then Alignable's list for today,** a step after each part of the reading above while it's left (decision 123)
+ *   (`outreach.today` with `platform: 'alignable'`), the kinds it does on its own (`auto`): a look at their business
+ *   page and a like on a recent post of theirs when the page shows one, or the look alone when it doesn't (warm-up; for
+ *   a writer found by their post, the post it found, liked on its own page); a connection request with their page's own
+ *   Connect, the business checked by Alignable's id first, never to one their page shows they're connected with already
+ *   (0.94.0), who's kept as a connection instead; and the messages: drafted after a look-up of their page, and sent
+ *   once OK'd in Alignable's messages, typing only into that conversation's box. From 0.95.0 a comment on a good post
+ *   is drafted by the AI and goes through Waiting for you as messages do (decision 92, ./comments.ts): it waits for the
+ *   person's OK while the comment hold or training wheels are on, then goes on its own, only in the post's own reply
+ *   form; an answer to a post asking for what the business offers waits for their OK every time. Recommend is only ever
+ *   theirs. Requests they got are left for them to accept, and old requests to withdraw are theirs too: no reader of
+ *   the ones they've sent is built.
  * - **At Alignable's pace:** a few minutes between steps, within Alignable's limits, which HandsFreeOS keeps (its list
  *   holds only what they have room for).
  * - **Stops on any Alignable warning,** for the day, on Alignable alone: the other networks go on.
@@ -53,16 +53,19 @@ import {
   neverLike,
 } from '@hfos/core/addons/outreach/like-pick';
 import { standDownWords } from '@hfos/core/addons/outreach/live';
-import { chatUrlOn } from '@hfos/core/addons/outreach/network-words';
+import { chatUrlOn, requestsLimitLine } from '@hfos/core/addons/outreach/network-words';
 import { NETWORKS, type Platform } from '@hfos/core/addons/outreach/networks';
 import { PARTNER_CHECKS_PER_DAY } from '@hfos/core/addons/outreach/partners';
 import { messageParts, partPauseMs } from '@hfos/core/addons/outreach/voice';
 import type { TodayKind } from '@hfos/core/addons/outreach/today';
+import { buttonFor } from '@hfos/core/addons/outreach/helper';
+import type { ProblemHelper } from '@hfos/core/problem-report';
 import { haltAsk } from '../asks/run';
 import { follow, loadSettings } from '../hfos/follow';
 import { feed, keptFor, onBeat, type Kept } from '../hfos/live';
 import type { Drafts, TodayList, TodayListItem } from '../hfos/messages';
 import { isNoting, noteNeed, takeNote } from '../hfos/noting';
+import { clearRetried, handsOver, retryAfterUpdate } from './retry';
 import { alignableListSave } from '../hfos/saves';
 import { answer, api, call, Refused, savingTo } from '../hfos/session';
 import { keepWarning, warnedNow, warningInput } from '../hfos/warned';
@@ -85,6 +88,7 @@ import { readWarmLeads } from '../jobs/alignable/engaged';
 import { findPostsInTown } from '../jobs/alignable/posts';
 import { ALIGNABLE, readAlignableIn, type AlignablePage } from '../jobs/alignable/read';
 import { withdrawOnItsOwn } from '../jobs/alignable/withdraw';
+import { answerOne } from '../jobs/alignable/answer';
 import { valueOf, warnedLine, type Hfos, type Job, type JobEnd } from '../jobs/job';
 import { chatMemory } from '../jobs/chats';
 import { checkFound } from '../jobs/found-checks';
@@ -113,26 +117,45 @@ import {
   beforeDayDoing,
   beforeDayLine,
   doBeforeDay,
+  holdsTheDay,
   markOf,
   type BeforeDay,
 } from './lists';
 import {
+  afterDaily,
+  AGAIN_WORDS,
   ALIGNABLE_STATE_KEY,
+  ANSWERING,
+  answersAnyTime,
   freshState,
   gapAfter,
   isState,
+  listTurn,
+  lookOutsideAt,
   needOf,
   networkDay,
   networkWaitWords,
+  nextRound,
   nextStart,
+  repliedAfter,
+  replyWaiting,
+  roundDue,
+  soonestAgain,
+  stillReplied,
+  waitsAgain,
+  withReplied,
   workKey,
   workLeft,
   type AutoState,
   type DailyJob,
   type DoneKind,
+  type NetworkDay,
   type OwnDailyJob,
   type Work,
+  listSays,
+  retryWake,
 } from './plan';
+import { helpAfter, stepHelp } from './helper';
 import { askInLine, inTurn } from './turns';
 
 const PLATFORM: Platform = 'alignable';
@@ -142,9 +165,10 @@ export const ALIGNABLE_ALARM = 'hfos-auto-alignable';
 
 /**
  * The kinds it does on its own on Alignable, in order (its kit's `runs.auto`): comments and forum answers go through
- * `sends`, as messages do (./comments.ts), and requests they got are theirs to accept.
+ * `sends`, as messages do (./comments.ts). From 0.118.0 the requests they got that HandsFreeOS says to accept, as they
+ * pressed or the AI said (decision 136), are accepted on My Network's Requests (../jobs/alignable/answer.ts).
  */
-export const ALIGNABLE_AUTO: readonly TodayKind[] = ['warm_up', 'friend_request'];
+export const ALIGNABLE_AUTO: readonly TodayKind[] = ['confirm', 'warm_up', 'friend_request'];
 /**
  * The once-a-day jobs on Alignable, in order, as Instagram's: the requests, the connections checked, their chats
  * (0.84.0), Find partners, their town's posts, and who engaged with them, from their notifications (`helpful`: who
@@ -295,8 +319,18 @@ async function closeWindow(): Promise<void> {
  * for now with nothing tried, when Alignable asked them to sign in.
  */
 type Outcome =
-  | { readonly done: true; readonly line: string }
-  | { readonly done: false; readonly line: string; readonly need?: true }
+  | { readonly done: true; readonly line: string; readonly helper?: ProblemHelper }
+  | {
+      readonly done: false;
+      readonly line: string;
+      readonly need?: true;
+      /** Worth the AI helper's look though it isn't handed over: a like it couldn't press (decision 142). */
+      readonly look?: true;
+      /** Found done already (connected, asked, friends already): nothing's left to do, so it's no failure (decision 145). */
+      readonly skip?: true;
+      /** What the AI helper did inside the step, for its report (decision 142). */
+      readonly helper?: ProblemHelper;
+    }
   | { readonly stop: string }
   | { readonly again: string };
 
@@ -317,10 +351,13 @@ async function warnedOn(page: AlignablePage, businessId: string): Promise<string
 
 const read = () => readAlignableIn(tab);
 
-/** Their business as kept: by Alignable's id for it when the link carries one, else its address in its town. */
-function wantOf(profileUrl: string | null): ProfileRef | null {
-  const url = urlOf(profileUrl, ALIGNABLE);
-  return url ? businessRef(url, idIn(url)) : null;
+/**
+ * Their business as kept: by Alignable's id for it when the link carries one or HandsFreeOS keeps it beside the link
+ * (decision 131), else its address in its town.
+ */
+function wantOf(item: Pick<TodayListItem, 'profileUrl' | 'platformId'>): ProfileRef | null {
+  const url = urlOf(item.profileUrl, ALIGNABLE);
+  return url ? businessRef(url, idIn(url) ?? item.platformId ?? null) : null;
 }
 
 /**
@@ -350,7 +387,7 @@ async function openBusiness(
   | { readonly page: AlignablePage; readonly want: ProfileRef; readonly noted: ProfileRef }
   | { readonly outcome: Outcome }
 > {
-  const want = wantOf(item.profileUrl);
+  const want = wantOf(item);
   if (!want) return { outcome: { done: false, line: `${item.name}: no Alignable page kept` } };
   await tab.open(want.url);
   await setState({ tabId: tab.tabId });
@@ -415,7 +452,7 @@ async function likeFoundPost(
   businessId: string,
   after: After,
 ): Promise<Outcome | null> {
-  const want = wantOf(item.profileUrl);
+  const want = wantOf(item);
   const id = discussionIdOf(item.postUrl);
   if (!want || !id) return null;
   const url = `${ALIGNABLE}/biz/discussions/${id}`;
@@ -435,7 +472,11 @@ async function likeFoundPost(
     if (!liked.ok) throw new Error(liked.error);
     if (liked.result === 'none' || liked.result === 'not_sent') {
       await missed(item, businessId);
-      return { done: false, line: `Couldn’t like ${item.name}’s post: ${after.without}` };
+      return {
+        done: false,
+        line: `Couldn’t like ${item.name}’s post: ${after.without}`,
+        look: true,
+      };
     }
     await pause(SETTLE_MS);
     const warned = await warnedOn(await read(), businessId);
@@ -480,7 +521,7 @@ async function likeFoundAnswer(
   businessId: string,
   after: After,
 ): Promise<Outcome | null> {
-  const want = wantOf(item.profileUrl);
+  const want = wantOf(item);
   const id = discussionIdOf(item.postUrl);
   if (!want || !id) return null;
   const url = `${ALIGNABLE}/biz/discussions/${id}`;
@@ -598,7 +639,11 @@ async function warmUp(item: TodayListItem, businessId: string): Promise<Outcome>
     if (!liked.ok) throw new Error(liked.error);
     if (liked.result === 'none' || liked.result === 'not_sent') {
       await missed(item, businessId);
-      return { done: false, line: `Couldn’t like ${item.name}’s post: ${after.without}` };
+      return {
+        done: false,
+        line: `Couldn’t like ${item.name}’s post: ${after.without}`,
+        look: true,
+      };
     }
     postUrl = liked.postUrl ?? chosen.post.url;
     await pause(SETTLE_MS);
@@ -642,6 +687,34 @@ async function keepConnection(item: TodayListItem, profile: ProfileRef, business
 }
 
 /**
+ * Alignable said the person reached their monthly limit of connection requests (decision 147): HandsFreeOS keeps new
+ * ones off their list till the 1st, with the likes before them, and says so on Today. Likes, comments and messages go
+ * on, so it's no stop and no warning; nor a step for the helper, as nothing on the page can send it. One tried again
+ * goes back to the person, as any that didn't go.
+ */
+async function monthlyLimit(
+  item: TodayListItem,
+  words: string,
+  businessId: string,
+): Promise<Outcome> {
+  let until: string | null = null;
+  try {
+    const out = await call(
+      api().POST('/v1/commands/outreach.requests.pause', {
+        body: { workspaceId: businessId, platform: PLATFORM, words: [words.slice(0, 300)] },
+      }),
+      businessId,
+    );
+    until = out.until;
+  } catch (error) {
+    // Noted with the next request it tries, which shows Alignable's box again; a sign-in that ended says so with the
+    // next list.
+    console.warn('HandsFreeOS Social couldn’t note Alignable’s monthly limit', error);
+  }
+  return { done: false, line: `${item.name}: ${requestsLimitLine(PLATFORM, until)}` };
+}
+
+/**
  * A connection request, with their business page's own Connect: a link that makes the request at once, carrying
  * Alignable's id for their business, which is checked first. Their page is opened again after, to see it went. A
  * business their page shows they're connected with already (its own Remove Connection, 0.94.0) is passed over, and
@@ -653,7 +726,7 @@ async function connect(item: TodayListItem, businessId: string): Promise<Outcome
   const shown = opened.page.found.business!;
   if (shown.connected) {
     await keepConnection(item, opened.noted, businessId);
-    return { done: false, line: `${item.name}: you’re connected already` };
+    return { done: false, line: `${item.name}: you’re connected already`, skip: true };
   }
   if (!opened.noted.id)
     return {
@@ -661,32 +734,106 @@ async function connect(item: TodayListItem, businessId: string): Promise<Outcome
       line: `${item.name}: Alignable didn’t show their business’s id, so Connect wasn’t pressed`,
       need: true,
     };
-  if (!shown.connect)
-    return shown.message
-      ? {
-          done: false,
-          line: `${item.name}: no Connect on their page: you’re connected already, or asked`,
-        }
-      : { done: false, line: `${item.name}: couldn’t find Connect on their page`, need: true };
-  const went = await tab.ask({ type: 'hfos-connect', profile: opened.noted });
-  if (!went.ok) throw new Error(went.error);
-  if (went.result === 'already')
-    return { done: false, line: `${item.name}: you’re connected already, or asked` };
-  if (went.result !== 'done')
-    return { done: false, line: `${item.name}: couldn’t find Connect on their page`, need: true };
-  // The press may have opened another page: once it's loaded, their page again shows whether the request went.
-  await pause(SETTLE_MS);
-  if (tab.tabId !== null) await tab.loaded(tab.tabId);
-  await tab.open(opened.want.url);
-  const page = await read();
-  const stop = await warnedOn(page, businessId);
-  if (stop) return { stop };
-  const after = page.found.business;
-  // It went once their own Connect is gone, or their page shows you're connected now (its Remove Connection).
-  const taken =
-    after !== null && isTheirs(after, opened.want) && (after.connected || !after.connect);
-  if (page.signedOut || !taken)
-    return { done: false, line: `${item.name}: Alignable didn’t take the request`, need: true };
+  if (!shown.connect && shown.message)
+    return {
+      done: false,
+      line: `${item.name}: no Connect on their page: you’re connected already, or asked`,
+      skip: true,
+    };
+  /** Their page's own Connect link: whether it went, or `already` when it says they're connected or asked. */
+  const pressLink = async () => {
+    const went = await tab.ask({ type: 'hfos-connect', profile: opened.noted });
+    if (!went.ok) throw new Error(went.error);
+    return went.result;
+  };
+  const pressed = shown.connect ? await pressLink() : 'none';
+  if (pressed === 'already')
+    return { done: false, line: `${item.name}: you’re connected already, or asked`, skip: true };
+  // Connect moved, or something's over it: the AI helper finds it on their page, checked as theirs (decision 142).
+  const help = stepHelp(tab, answer as Hfos, {
+    businessId,
+    platform: PLATFORM,
+    step: item.kind,
+    theirName: item.name,
+    button: buttonFor(PLATFORM, 'friend_request')!,
+  });
+  const missing = 'couldn’t find Connect on their page';
+  if (
+    pressed !== 'done' &&
+    !(await help.press(missing, async () => (await pressLink()) === 'done'))
+  )
+    return {
+      done: false,
+      line: `${item.name}: ${missing}`,
+      need: true,
+      helper: await help.end(false),
+    };
+  type Seen =
+    | { readonly stop: string }
+    | { readonly limit: string }
+    | { readonly taken: boolean; readonly theirs: boolean };
+  /** The page in the tab now: whether it's theirs, and shows the request went. */
+  const shows = async (): Promise<Seen> => {
+    const page = await read();
+    // Alignable's monthly limit (decision 147), before its warnings: the box may say "too many" too, and it holds
+    // back only connection requests.
+    if (page.found.limit) return { limit: page.found.limit };
+    const stop = await warnedOn(page, businessId);
+    if (stop) return { stop };
+    const after = page.found.business;
+    const theirs = !page.signedOut && after !== null && isTheirs(after, opened.want);
+    // It went once their own Connect is gone, or their page shows you're connected now (its Remove Connection).
+    return { taken: theirs && (after.connected || !after.connect), theirs };
+  };
+  /** Once what the press opened has loaded. */
+  const settled = async () => {
+    await pause(SETTLE_MS);
+    if (tab.tabId !== null) await tab.loaded(tab.tabId);
+  };
+  /** Their page again, once what the press opened has loaded: whether it shows the request went. */
+  const reopened = async (): Promise<Seen> => {
+    await settled();
+    await tab.open(opened.want.url);
+    return shows();
+  };
+  // Their page as the press left it (decision 145): a box asking one more thing shows only now, and is gone once their
+  // page opens again. Still theirs and still showing Connect, the AI helper looks at it here, box and all. Never taken
+  // as gone from this alone: their page opened again says.
+  if (pressed === 'done') {
+    await settled();
+    const left = await shows();
+    if ('stop' in left) return left;
+    if ('limit' in left) return monthlyLimit(item, left.limit, businessId);
+    if (left.theirs && !left.taken)
+      await help.press(
+        'pressed Connect, but their page still shows it',
+        async () => (await pressLink()) === 'done',
+      );
+  }
+  let seen = await reopened();
+  if ('stop' in seen) return seen;
+  if ('limit' in seen) return monthlyLimit(item, seen.limit, businessId);
+  // Pressed, and their page still shows Connect: the AI helper presses the one on their page (decision 142).
+  if (
+    !seen.taken &&
+    seen.theirs &&
+    (await help.press(
+      'pressed Connect, but their page still shows it',
+      async () => (await pressLink()) === 'done',
+    ))
+  ) {
+    seen = await reopened();
+    if ('stop' in seen) return seen;
+    if ('limit' in seen) return monthlyLimit(item, seen.limit, businessId);
+  }
+  if (!seen.taken)
+    return {
+      done: false,
+      line: `${item.name}: Alignable didn’t take the request`,
+      need: true,
+      helper: await help.end(false),
+    };
+  const helper = await help.end(true);
   await takeNote(
     {
       type: 'hfos-noted',
@@ -703,7 +850,49 @@ async function connect(item: TodayListItem, businessId: string): Promise<Outcome
     },
     PLATFORM,
   );
-  return { done: true, line: `Sent ${item.name} a connection request` };
+  return { done: true, line: `Sent ${item.name} a connection request`, helper };
+}
+
+/**
+ * Their connection request accepted on My Network's Requests (decision 136): as they pressed Confirm, or the AI said
+ * to. One no longer on the list was answered already: it waits for the next read of their requests.
+ */
+async function accept(item: TodayListItem, businessId: string): Promise<Outcome> {
+  const want = wantOf(item);
+  if (!want) return { done: false, line: `${item.name}: no Alignable page kept` };
+  const job = jobFor(businessId);
+  const went = await answerOne(
+    job,
+    { name: item.name, url: item.profileUrl, platformId: item.platformId ?? null },
+    'confirm',
+  );
+  await setState({ tabId: tab.tabId });
+  // Its warning, noted as the job's (`jobFor`), stops the day; a page asking to sign in, for now.
+  if (typeof went === 'object')
+    return went.warned
+      ? { stop: went.line }
+      : went.failed
+        ? { again: SIGNED_OUT }
+        : { done: false, line: `${item.name}: ${went.line}` };
+  if (went === 'stopped') return { done: false, line: `${item.name}: stopped` };
+  if (went === 'already')
+    return { done: false, line: `${item.name}: no request of theirs waiting on Requests` };
+  if (went === 'skipped')
+    return { done: false, line: `${item.name}: couldn’t accept it on Requests`, need: true };
+  await takeNote(
+    {
+      type: 'hfos-answered',
+      answered: {
+        answer: 'confirm',
+        to: { name: item.name, profile: want },
+        mutualFriends: null,
+        auto: true,
+      },
+      at: now(),
+    },
+    PLATFORM,
+  );
+  return { done: true, line: `Accepted ${item.name}’s connection request` };
 }
 
 // ------------------------------------------------------------------------------------------------- messages
@@ -737,7 +926,7 @@ async function openChat(
 ): Promise<
   { readonly profile: ProfileRef; readonly thread: ThreadRef } | { readonly outcome: Outcome }
 > {
-  let want = wantOf(item.profileUrl);
+  let want = wantOf(item);
   let id = item.threadKey ?? want?.id ?? null;
   if (!id) {
     const opened = await openBusiness(item, businessId);
@@ -794,7 +983,7 @@ async function draftMessage(item: TodayListItem, businessId: string): Promise<Ou
     },
   });
   if (!drafted.ok) return { done: false, line: `${item.name}: ${drafted.problem.message}` };
-  const { drafts, opener, simple, kind: draftedKind } = drafted.value as Drafts;
+  const { drafts, opener, simple, unanswered, kind: draftedKind } = drafted.value as Drafts;
   const kind = (draftedKind ?? item.kind) as MessageKind;
   const text = drafts[0];
   if (!text) return { done: false, line: `${item.name}: the AI had nothing to write` };
@@ -809,6 +998,8 @@ async function draftMessage(item: TodayListItem, businessId: string): Promise<Ou
         text,
         opener: kind === 'opener' ? opener : null,
         simple: kind === 'reply' && simple,
+        // Something Knowledge doesn't answer: it waits for the person (decision 122).
+        unanswered: kind === 'reply' ? (unanswered ?? null) : null,
       },
     }),
     businessId,
@@ -845,8 +1036,7 @@ async function sendMessage(
   businessId: string,
   split: boolean,
 ): Promise<Outcome> {
-  if (item.kind === 'comment')
-    return sendComment(item, wantOf(item.profileUrl), businessId, commenting);
+  if (item.kind === 'comment') return sendComment(item, wantOf(item), businessId, commenting);
   const send = item.send!;
   const failed = async (line: string): Promise<Outcome> => {
     const lead = `${item.name}: `;
@@ -912,6 +1102,8 @@ export function doWork(work: Work, businessId: string, split: boolean): Promise<
       return warmUp(work.item, businessId);
     case 'friend_request':
       return connect(work.item, businessId);
+    case 'confirm':
+      return accept(work.item, businessId);
     default:
       // Never on its list for it (`ALIGNABLE_AUTO`): comments and answers go as sends, drafted and sent above.
       return Promise.resolve({
@@ -925,6 +1117,7 @@ const DOING: Readonly<Partial<Record<TodayKind, string>>> = {
   warm_up: 'Looking at the business page of',
   partner_warm_up: 'Looking at the business page of',
   friend_request: 'Sending a connection request to',
+  confirm: 'Accepting the connection request from',
 };
 
 const doing = (work: Work) =>
@@ -952,21 +1145,43 @@ const doneAs = (work: Work): DoneKind =>
 export function alignableWorkLeft(
   list: Pick<TodayList, 'items' | 'auto' | 'messages' | 'sending'> & {
     readonly partners?: readonly TodayListItem[];
+    readonly newMessagesWait?: boolean;
   },
   tried: readonly string[],
+  replied: readonly string[] = [],
 ): Work[] {
-  return workLeft({ ...list, auto: list.auto.filter((k) => ALIGNABLE_AUTO.includes(k)) }, tried);
+  return workLeft(
+    { ...list, auto: list.auto.filter((k) => ALIGNABLE_AUTO.includes(k)) },
+    tried,
+    replied,
+  );
 }
 
 // ------------------------------------------------------------------------------------------------- the once-a-day jobs
 
 /** The once-a-day job to do next on Alignable: the first not done today. */
 export const nextAlignableDaily = (
-  state: Pick<AutoState, 'daily'>,
+  state: Pick<AutoState, 'daily' | 'againAt'>,
   passOver: readonly AlignableDaily[] = [],
+  now = Date.now(),
 ): AlignableDaily | null =>
-  ALIGNABLE_DAILY.find((job) => state.daily?.[job] === undefined && !passOver.includes(job)) ??
-  null;
+  ALIGNABLE_DAILY.find(
+    (job) =>
+      state.daily?.[job] === undefined && !passOver.includes(job) && !waitsAgain(state, job, now),
+  ) ?? null;
+
+/**
+ * Alignable's jobs that find people, done again in a round while it needs more good fits (decision 126, plan.ts
+ * `nextRound`): its search with the next kinds of business, groups and their members, who commented on good posts, and their checks.
+ */
+export const ALIGNABLE_FINDING: readonly AlignableDaily[] = [
+  'search',
+  'group_checks',
+  'join',
+  'members',
+  'post_people',
+  'found_checks',
+];
 
 /**
  * A job that says what it couldn't find with the page's outline (decision 74): the jobs from 0.95.0, whose pages are
@@ -1053,6 +1268,8 @@ async function go(): Promise<void> {
     return closeWindow();
   }
   void follow(() => void tick()).catch(() => undefined);
+  // Updated since it last went: what was handed over before is tried again, once (decision 145).
+  await retryAfterUpdate(to.businessId);
   const { settings, timezone } = found;
   const choices = settings.networks.alignable;
   let state = await stateNow();
@@ -1084,11 +1301,37 @@ async function go(): Promise<void> {
   });
   const tomorrow = () => nextStart(settings.hours, timezone, Date.now(), random);
   if (!own.go) {
-    await closeWindow();
     await setState({ started: false, stopped: own.stopped });
+    // Outside the hours a reply to someone who wrote back still goes, and nothing new does (decision 133): never after
+    // Stop for today or a warning, nor while noting's off or an ask of theirs is in line.
+    const answering =
+      own.stopped === null &&
+      !(await warnedNow(PLATFORM)) &&
+      (await isNoting()) &&
+      !askInLine(PLATFORM)
+        ? await listNow(to.businessId, state.tried, state.replied)
+        : null;
+    const answers = answering?.left.filter(answersAnyTime) ?? [];
+    if (answers[0])
+      return workNext(answers, {
+        businessId: to.businessId,
+        settings,
+        timezone,
+        own: ANSWERING,
+        reading: false,
+        random,
+      });
+    await closeWindow();
     await say(networkWaitWords(NAME, own, settings.hours, timezone, at));
-    // The beat says when it's pressed (`days.alignable`), and wakes this before then.
-    return goAt(own.next);
+    // The beat says when it's pressed (`days.alignable`), and wakes this before then; a reply waiting for an OK, or a message tried again, sooner.
+    return goAt(
+      lookOutsideAt(
+        !!answering && replyWaiting(answering.list),
+        at,
+        own.next,
+        answering ? retryWake(await stateNow(), at) : [],
+      ),
+    );
   }
   if (own.started && !state.started) state = await setState({ started: true, stopped: null });
   if (state.stopped === 'warning' || (await warnedNow(PLATFORM))) {
@@ -1121,6 +1364,40 @@ async function go(): Promise<void> {
   );
   if (JSON.stringify(state.lists) !== JSON.stringify(lists)) state = await setState({ lists });
   const before = beforeDay(lists, state.before ?? {}, at, timezone, PLATFORM);
+  // Reads that need the screen wait till the person is away from their computer (decision 120).
+  const away = await awayNow();
+  const passOver = putOff.passOver(away);
+  let daily = choices.collect ? nextAlignableDaily(state, passOver, at) : null;
+  // Short of good fits once the day's reading is done (decision 126, answer 6a): it finds people again, with the next
+  // search words, and checks them.
+  if (
+    choices.collect &&
+    !before &&
+    !daily &&
+    !passOver.some((job) => state.daily?.[job] === undefined) &&
+    roundDue(state, at)
+  ) {
+    state = await setState(nextRound(state, ALIGNABLE_FINDING, at));
+    daily = nextAlignableDaily(state, passOver, at);
+  }
+  const reading = before !== null || daily !== null;
+  // The morning's reading and the list take turns (decision 123): a step on the list now, when there's one, after a
+  // part of the reading went last.
+  if (listTurn(state, reading, holdsTheDay(before))) {
+    const { left } = await listNow(to.businessId, state.tried, state.replied);
+    // Who wrote back and isn't on what's left gives the reading its turn back (decision 125).
+    const replied = stillReplied(state.replied ?? [], left);
+    if (replied.length !== (state.replied ?? []).length) state = await setState({ replied });
+    if (left[0])
+      return workNext(left, {
+        businessId: to.businessId,
+        settings,
+        timezone,
+        own,
+        reading,
+        random,
+      });
+  }
   if (before) {
     const end = await inTurn('runner', () => beforeTheDay(before, to.businessId), PLATFORM);
     const line = beforeDayLine(before, end, PLATFORM);
@@ -1129,10 +1406,12 @@ async function go(): Promise<void> {
       await say(end.line, { stopped: 'warning' });
       return goAt(tomorrow());
     }
+    // Put off till they're away, or done: the list has its turn next either way (decision 123).
     if (end.away) {
-      await say(line);
+      await say(line, { readLast: true });
       return soon();
     }
+    await setState({ readLast: true });
     void feed('job', `${NAME}: ${line}`);
     if (before.do === 'save' && before.first && end.failed) {
       await closeWindow();
@@ -1146,10 +1425,6 @@ async function go(): Promise<void> {
     return soon();
   }
 
-  // Reads that need the screen wait till the person is away from their computer (decision 120).
-  const away = await awayNow();
-  const passOver = putOff.passOver(away);
-  const daily = choices.collect ? nextAlignableDaily(state, passOver) : null;
   if (daily) {
     const end = await inTurn('runner', () => collect(daily, to.businessId), PLATFORM);
     if (end.warned) {
@@ -1158,42 +1433,96 @@ async function go(): Promise<void> {
       return goAt(tomorrow());
     }
     const line = `${DAILY_NAMES[daily]}: ${end.line}`;
-    await say(line);
+    await say(line, { readLast: true });
     if (end.away) putOff.off(daily);
     else void feed('job', `${NAME}: ${line}`);
     return soon();
   }
 
-  const list: TodayList = await call(
-    api().POST('/v1/queries/outreach.today', {
-      body: { workspaceId: to.businessId, platform: PLATFORM },
-    }),
-    to.businessId,
-  );
-  const left = alignableWorkLeft(list, state.tried);
-  const work = left[0];
-  if (!work) {
+  const { left } = await listNow(to.businessId, state.tried, state.replied);
+  if (!left[0]) {
     await closeWindow();
     // What waits for them to be away is looked at again sooner.
     const waiting = choices.collect
       ? waitingWords(waitingFor(passOver, state.daily, DAILY_NAMES))
       : null;
+    // The checks' next batch, when one's to come today (decision 126).
+    const again = choices.collect ? soonestAgain(await stateNow(), at) : null;
     await say(
-      waiting
-        ? `${state.tried.length ? `The rest of today on ${NAME} is done.` : `Nothing on your ${NAME} list for it to do yet.`} ${waiting}`
-        : state.tried.length
-          ? `Done for today on ${NAME}. It looks again within the hour for anything new.`
-          : `Nothing on your ${NAME} list for it to do yet.`,
+      `${
+        waiting
+          ? `${state.tried.length ? `The rest of today on ${NAME} is done.` : `Nothing on your ${NAME} list for it to do yet.`} ${waiting}`
+          : state.tried.length
+            ? `Done for today on ${NAME}. It looks again within the hour for anything new.`
+            : `Nothing on your ${NAME} list for it to do yet.`
+      }${again !== null ? ` ${AGAIN_WORDS}` : ''}`,
     );
-    return goAt(at + (waiting ? AWAY_AGAIN_MS : 60 * 60_000));
+    return goAt(
+      Math.min(
+        at + (waiting ? AWAY_AGAIN_MS : 60 * 60_000),
+        ...(again !== null ? [again] : []),
+        // A message tried again that waits its turn (decision 132).
+        ...retryWake(await stateNow(), at),
+      ),
+    );
   }
+  return workNext(left, {
+    businessId: to.businessId,
+    settings,
+    timezone,
+    own,
+    reading,
+    random,
+  });
+}
+
+/** Asks for Alignable's list for today, and gives it and what's left on it for its runner (`alignableWorkLeft`). */
+async function listNow(
+  businessId: string,
+  tried: readonly string[],
+  replied: readonly string[] = [],
+): Promise<{ readonly list: TodayList; readonly left: Work[] }> {
+  const list: TodayList = await call(
+    api().POST('/v1/queries/outreach.today', {
+      body: { workspaceId: businessId, platform: PLATFORM },
+    }),
+    businessId,
+  );
+  // Whether Alignable needs more good fits today (decision 126): it finds people again once the day's reading is done.
+  // And when a message tried again may go (decision 132): it looks again by then.
+  const says = listSays(list);
+  const kept = await stateNow();
+  if (kept.more !== says.more || (kept.retryAt ?? null) !== says.retryAt) await setState(says);
+  return { list, left: alignableWorkLeft(list, tried, replied) };
+}
+
+/**
+ * Does the first of what's left on Alignable's list, notes how it went, and sets when to go next: at Alignable's pace,
+ * the day's steps spread out over what's left of the hours, or a person's pace while the morning's reading is left
+ * (decision 123) or after Start my day.
+ */
+async function workNext(
+  left: readonly Work[],
+  at: {
+    readonly businessId: string;
+    readonly settings: NonNullable<Awaited<ReturnType<typeof loadSettings>>>['settings'];
+    readonly timezone: string;
+    readonly own: Extract<NetworkDay, { go: true }>;
+    /** Some of the morning's reading is left: the list's turn goes back to it. */
+    readonly reading: boolean;
+    readonly random: number;
+  },
+): Promise<void> {
+  const work = left[0]!;
+  const { businessId, settings, own } = at;
+  const tomorrow = () => nextStart(settings.hours, at.timezone, Date.now(), at.random);
   const { item } = work;
-  await say(doing(work), { working: true });
+  await say(doing(work), { working: true, readLast: false });
   let outcome: Outcome;
   try {
     outcome = await inTurn(
       'runner',
-      () => doWork(work, to.businessId, settings.voice?.split ?? true),
+      () => doWork(work, businessId, settings.voice?.split ?? true),
       PLATFORM,
     );
   } catch (error) {
@@ -1205,27 +1534,47 @@ async function go(): Promise<void> {
   } finally {
     await setState({ working: false });
   }
+  // A step that didn't go: the AI helper looks first, clearing the way and saying what it sees (decision 142); then
+  // the page it ended on, outline, why and all, noted while the window still shows it (decision 74). A stop for now
+  // goes by untouched.
+  const helped = await helpAfter({
+    tab,
+    hfos: answer as Hfos,
+    businessId,
+    platform: PLATFORM,
+    work,
+    job: work.do === 'step' ? work.item.kind : work.do,
+    outcome,
+    again:
+      work.do === 'step'
+        ? () =>
+            inTurn(
+              'runner',
+              () => doWork(work, businessId, settings.voice?.split ?? true),
+              PLATFORM,
+            )
+        : null,
+    say: (line) => say(line, { working: true, readLast: false }),
+  });
+  outcome = helped.outcome;
+  await setState({ working: false });
   // Alignable asked them to sign in: nothing tried, and it looks again in a while.
   if ('again' in outcome) {
     await closeWindow();
     await say(outcome.again, { needs: true });
     return goAt(Date.now() + AGAIN_MS);
   }
-  // A step that didn't go: the page it ended on, outline and all, noted while the window still shows it (decision 74).
-  if ('done' in outcome && !outcome.done)
-    await reporter(tab, answer as Hfos, {
-      businessId: to.businessId,
-      platform: PLATFORM,
-      askId: null,
-      job: work.do === 'step' ? work.item.kind : work.do,
-    })({ note: 'The step didn’t go.', outline: true });
-  state = await stateNow();
+  const state = await stateNow();
   const kind = doneAs(work);
   const done =
     'done' in outcome && outcome.done
       ? { ...state.done, [kind]: (state.done[kind] ?? 0) + 1 }
       : state.done;
-  await setState({ tried: [...state.tried, workKey(work)], done });
+  await setState({
+    tried: [...state.tried, workKey(work)],
+    done,
+    replied: repliedAfter(state.replied ?? [], work),
+  });
   if ('stop' in outcome) {
     await closeWindow();
     await say(outcome.stop, { stopped: 'warning' });
@@ -1233,8 +1582,12 @@ async function go(): Promise<void> {
   }
   await say(outcome.line);
   const need =
-    'need' in outcome && work.do === 'step' ? needOf(item, outcome.line, to.businessId) : null;
+    work.do === 'step' && handsOver(item, outcome)
+      ? needOf(item, outcome.line, businessId, helped.reportId)
+      : null;
   if (need) void noteNeed(need);
+  // A step tried again that it found done already is cleared (decision 145).
+  if (work.do === 'step') void clearRetried(item, outcome, businessId);
   void feed(outcome.done ? 'done' : 'passed', `${NAME}: ${outcome.line}`);
   if (stopAsked) {
     await closeWindow();
@@ -1246,8 +1599,9 @@ async function go(): Promise<void> {
       now: Date.now(),
       until: own.until,
       left: left.length - 1,
-      started: own.started,
-      random,
+      // A person's pace while the morning's reading is left: the list's turn and the reading's go by turns.
+      started: own.started || at.reading,
+      random: at.random,
     }),
   );
   if (gap > KEEP_WINDOW_MS) await closeWindow();
@@ -1280,7 +1634,7 @@ async function beforeTheDay(step: BeforeDay, businessId: string): Promise<JobEnd
   // The morning's requests, and the first check, stand for today's once-a-day ones.
   const stands =
     !end.failed && (key === 'requests' || key === 'checks')
-      ? { daily: { ...state.daily, [key]: end.line } }
+      ? afterDaily(state, key, end, Date.now(), Math.random())
       : {};
   await setState({ before: { ...state.before, [key]: end.line }, ...stands });
   return end;
@@ -1291,7 +1645,11 @@ async function collect(kind: AlignableDaily, businessId: string): Promise<JobEnd
   await say(DAILY_DOING[kind], { working: true });
   let end: JobEnd;
   try {
-    end = await runAlignableDaily(kind, jobFor(businessId));
+    // A round of finding again asks for the next search words (decision 126).
+    end = await runAlignableDaily(kind, {
+      ...jobFor(businessId),
+      round: (await stateNow()).round ?? 0,
+    });
   } catch (error) {
     if (error instanceof Refused) throw error;
     end = isNotAway(error)
@@ -1303,7 +1661,8 @@ async function collect(kind: AlignableDaily, businessId: string): Promise<JobEnd
   // Put off till they're away (decision 120): not done for the day, so it's tried again then.
   if (end.away) return end;
   const state = await stateNow();
-  await setState({ daily: { ...state.daily, [kind]: end.line } });
+  // A batch of checks with more of today's room left: the next later on (decision 126).
+  await setState(afterDaily(state, kind, end, Date.now(), Math.random()));
   return end;
 }
 
@@ -1339,6 +1698,31 @@ export async function alignableTick(): Promise<void> {
 }
 
 const tick = alignableTick;
+
+/**
+ * Someone wrote back on Alignable (decision 125, ../hfos/replies.ts): their reply is drafted next, now, before the next
+ * step's time, or as soon as the go under way ends. The day's own rules still say whether it goes at all.
+ */
+export async function alignableReplied(profileIds: readonly string[]): Promise<void> {
+  const state = await stateNow();
+  await setState({ replied: withReplied(state.replied ?? [], profileIds) });
+  void tick();
+}
+
+/**
+ * A conversation on Alignable's Messages, kept open (decision 125, ./watch.ts), has a new last line: its chats are read
+ * again at their next turn, though read today, as its list doesn't say who wrote last. Only the conversations whose
+ * last line changed since they were read are opened (`chatMemory`).
+ */
+export async function alignableChatsAgain(): Promise<void> {
+  const state = await stateNow();
+  if (state.daily?.chats !== undefined) {
+    const daily = { ...state.daily };
+    delete daily.chats;
+    await setState({ daily });
+  }
+  void tick();
+}
 
 /** When the background starts: it looks once, and the beat wakes it after. */
 export async function wakeAlignable(): Promise<void> {

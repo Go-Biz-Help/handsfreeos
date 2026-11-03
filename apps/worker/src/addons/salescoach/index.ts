@@ -1,14 +1,15 @@
 /**
  * AI Sales Coach in the worker (docs/salescoach.md, docs/addon-architecture.md): what it does with a call it hears
- * live (./live.ts), the write-up after (./after-call.ts), replies to suggest when a customer writes (./suggest.ts), and a
- * playbook to start from (./draft.ts). The worker
- * hands it work only while it's on, and everything it does through the kernel (with `ctx.actor`) is refused the
- * moment it's turned off.
+ * live (./live.ts), the write-up after (./after-call.ts), replies to suggest when a customer writes (./suggest.ts), the
+ * script the AI teammate follows on its own calls to leads (./call-script.ts), and a playbook to start from
+ * (./draft.ts). The worker hands it work only while it's on, and everything it does through the kernel (with
+ * `ctx.actor`) is refused the moment it's turned off.
  */
 import { catalogAddon } from '@hfos/core/server';
 import type { AddonWorkerModule } from '../types';
 import { afterCall } from './after-call';
-import { playbookDraft } from './draft';
+import { salescoachCallScript } from './call-script';
+import { playbookDraft, salesBriefGuess } from './draft';
 import { armLearning, LEARN_JOB, learnNow, learnWeekly, onWin } from './learn';
 import { AFTER_CALL_JOB, salescoachLiveCalls } from './live';
 import { conversationQuiet, QUIET_JOB } from './quiet';
@@ -17,6 +18,8 @@ import { onCustomerWrote, SUGGEST_JOB, suggestReplies } from './suggest';
 export const salescoachAddonWorker: AddonWorkerModule = {
   manifest: catalogAddon('salescoach'),
   liveCalls: salescoachLiveCalls,
+  // The AI teammate's own calls to leads follow the business's script, up to how much it matters (./call-script.ts).
+  callScript: salescoachCallScript,
   // A customer wrote: replies to suggest, once the burst settles (./suggest.ts).
   // And the wins it learns from (./learn.ts).
   subscribers: {
@@ -35,5 +38,9 @@ export const salescoachAddonWorker: AddonWorkerModule = {
   },
   // The weekly look at what won, armed from now whenever it turns on.
   onEnable: armLearning,
-  actions: { 'salescoach.playbook.draft': playbookDraft, 'salescoach.learn.now': learnNow },
+  actions: {
+    'salescoach.playbook.brief': salesBriefGuess,
+    'salescoach.playbook.draft': playbookDraft,
+    'salescoach.learn.now': learnNow,
+  },
 };

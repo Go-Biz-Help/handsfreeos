@@ -12,6 +12,7 @@
  */
 import { NETWORKS } from '@hfos/core/addons/outreach/networks';
 import type {
+  AnswerRequestAsk,
   AutoAnswer,
   AutoAsk,
   BrowseAnswer,
@@ -44,7 +45,7 @@ import type {
 import { centerUrl } from '../accounts-center/pages';
 import { CENTER_ASKS, centerWork, type CenterAsk } from '../accounts-center/work';
 import { isWholeAddress, type Kit } from '../kit';
-import { maskOn, outlineLooking, readLooking, readWarnings } from './read';
+import { maskOn, outlineLooking, outlineSiteOf, readLooking, readWarnings } from './read';
 import type { LookingSite } from './site';
 
 /** Answers a look (`hfos-try`), only on the kinds of page its step is for. */
@@ -97,7 +98,7 @@ async function putCode(site: LookingSite, ask: CodeAsk): Promise<CodeAnswer> {
 /** The asks about its lists it answers, where its site has them: never Facebook's chats, feed or pages. */
 type LookingBrowseAsk = Exclude<
   BrowseAsk,
-  { type: 'hfos-scroll-chats' | 'hfos-scroll-feed' | 'hfos-scroll-page' }
+  { type: 'hfos-scroll-chats' | 'hfos-scroll-feed' | 'hfos-point-times' | 'hfos-scroll-page' }
 >;
 const BROWSE_ASKS: ReadonlySet<string> = new Set<LookingBrowseAsk['type']>([
   'hfos-scroll-list',
@@ -143,6 +144,18 @@ async function withdrawHere(site: LookingSite, ask: WithdrawAsk): Promise<Withdr
   if (!site.withdraw)
     return { ok: false, error: `The extension doesn’t withdraw requests on ${site.name}.` };
   return { ok: true, result: await site.withdraw(document, location.href, ask.profile) };
+}
+
+/** Answers a request the person got, where the site does (Alignable's, decision 136). */
+async function answerHere(site: LookingSite, ask: AnswerRequestAsk): Promise<AutoAnswer> {
+  if (!site.answerRequest)
+    return { ok: false, error: `The extension doesn’t answer requests on ${site.name}.` };
+  if (!ask.profile)
+    return { ok: false, error: `The extension didn’t say whose request it is on ${site.name}.` };
+  return {
+    ok: true,
+    result: await site.answerRequest(document, location.href, ask.profile, ask.answer),
+  };
 }
 
 /**
@@ -312,6 +325,7 @@ export function lookingKit(site: LookingSite): Kit {
     lookFor: () => 'warnings',
     noticer: () => site.noticer?.() ?? { click: () => null, enter: () => null },
     outline: (doc, href, options = {}) => outlineLooking(doc, href, site, options),
+    outlineSite: outlineSiteOf(site),
     work: (ask) =>
       site.accountsCenter && CENTER_ASKS.has(ask.type)
         ? centerWork(site.accountsCenter, ask as CenterAsk, (doc, href) =>
@@ -331,8 +345,10 @@ export function lookingKit(site: LookingSite): Kit {
                     ? unfollowHere(site)
                     : ask.type === 'hfos-withdraw'
                       ? withdrawHere(site, ask as WithdrawAsk)
-                      : ON_ITS_OWN_ASKS.has(ask.type)
-                        ? onItsOwn(site, ask as OnItsOwnAsk)
-                        : null,
+                      : ask.type === 'hfos-answer-request'
+                        ? answerHere(site, ask as AnswerRequestAsk)
+                        : ON_ITS_OWN_ASKS.has(ask.type)
+                          ? onItsOwn(site, ask as OnItsOwnAsk)
+                          : null,
   };
 }

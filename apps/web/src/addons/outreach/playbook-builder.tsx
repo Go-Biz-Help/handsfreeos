@@ -7,8 +7,8 @@
  * step with a problem on it doesn't carry on.
  *
  * Where to look has each network's own words on a customers' playbook (decision 92), each shown while its network is
- * ticked: the hashtags Instagram looks at (cleaned as they're typed), the words LinkedIn's post search goes with, and
- * the kinds of business Alignable searches for, with whether the business works with these clients online. The AI
+ * ticked: the words Facebook's post search goes with (decision 141), the hashtags Instagram looks at (cleaned as
+ * they're typed), the words LinkedIn's post search goes with, and the kinds of business Alignable searches for, with whether the business works with these clients online. The AI
  * writes each list once; a save sends one only when the person changed it, so a builder left open never puts an empty
  * list back over what the AI wrote meanwhile, and never says what the AI has written (`wordsWritten`, the server's).
  */
@@ -125,8 +125,9 @@ interface Draft {
   groupWords: string[];
   /**
    * Each network's own words and whether it works online (data version 8, decision 92). A save sends each only when the
-   * person changed it (`FIND_PARTS`), so the server keeps what the AI wrote meanwhile.
+   * person changed it (`FIND_PARTS`), so the server keeps what the AI wrote meanwhile. Facebook's from data version 9.
    */
+  facebookSearches: string[];
   hashtags: string[];
   postSearches: string[];
   businessKinds: string[];
@@ -161,6 +162,7 @@ const fromDetails = (name: string, d: PlaybookDetails): Draft => ({
   area: d.area ?? '',
   platforms: d.platforms,
   groupWords: d.groupWords,
+  facebookSearches: d.facebookSearches ?? [],
   hashtags: d.hashtags ?? [],
   postSearches: d.postSearches ?? [],
   businessKinds: d.businessKinds ?? [],
@@ -185,6 +187,7 @@ const LIST_KEYS = [
   'signs',
   'skip',
   'groupWords',
+  'facebookSearches',
   'hashtags',
   'postSearches',
   'businessKinds',
@@ -216,10 +219,17 @@ const withTyping = (d: Draft, typing: Typing): Draft =>
  * and it shows (`hasWordsOn`), so a builder left open never puts back what the AI wrote since it opened. Left out, the
  * server keeps what's saved.
  */
-const FIND_PARTS = ['hashtags', 'postSearches', 'businessKinds', 'worksOnline'] as const;
+const FIND_PARTS = [
+  'facebookSearches',
+  'hashtags',
+  'postSearches',
+  'businessKinds',
+  'worksOnline',
+] as const;
 type FindPart = (typeof FIND_PARTS)[number];
 /** The network whose part it is: the works-online switch is Alignable's, as its search goes by it. */
 const FIND_PART_ON: Readonly<Record<FindPart, WordsPlatform>> = {
+  facebookSearches: 'facebook',
   hashtags: 'instagram',
   postSearches: 'linkedin',
   businessKinds: 'alignable',
@@ -253,6 +263,7 @@ const toDetails = (d: Draft, sent: readonly FindPart[] = FIND_PARTS): PlaybookDe
   area: orNull(d.area),
   platforms: d.platforms,
   groupWords: d.groupWords,
+  ...(sent.includes('facebookSearches') ? { facebookSearches: d.facebookSearches } : {}),
   ...(sent.includes('hashtags') ? { hashtags: d.hashtags } : {}),
   ...(sent.includes('postSearches') ? { postSearches: d.postSearches } : {}),
   ...(sent.includes('businessKinds') ? { businessKinds: d.businessKinds } : {}),
@@ -599,6 +610,7 @@ export function PlaybookBuilder({
       signs: d.signs,
       skip: d.skip,
       groupWords: d.groupWords,
+      facebookSearches: d.facebookSearches,
       hashtags: d.hashtags,
       postSearches: d.postSearches,
       businessKinds: d.businessKinds,

@@ -1,6 +1,6 @@
 'use client';
-import { allQuestions, type FormDefinition } from '@hfos/core';
-import { AlertTriangle, Check, Loader2, Undo2 } from 'lucide-react';
+import { allQuestions, POLL_WORDS, type FormDefinition, type FormOp } from '@hfos/core';
+import { AlertTriangle, Check, Loader2, Sparkles, Undo2 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 import { toast } from 'sonner';
@@ -9,7 +9,12 @@ import { Card } from '@/components/ui/card';
 import { Segmented } from '@/components/ui/segmented';
 import { apiBrowser, errorMessage, unwrap } from '@/lib/api/client';
 import type { FormCatalogsOut, FormGet, FormResultsOut } from '@/lib/api/types';
+import { cueErrorMessage, questionsWanting, writeCues } from '@/lib/forms/poll-cues';
 import { FormStatusBadge } from './chips';
+import { PollDraftCard } from './poll-draft';
+import { PollLeadsCard } from './poll-leads';
+import { PollSlidesCard } from './poll-slides';
+import { FormDesignPanel, type FormBrand } from './design-panel';
 import { useFormEditor } from './editor-state';
 import { FormPreview } from './preview';
 import { FormResults } from './results';
@@ -17,7 +22,7 @@ import { FormShare } from './share';
 import { QuestionList } from './question-list';
 import { QuestionSettings } from './question-settings';
 
-type Tab = 'questions' | 'preview' | 'results' | 'share';
+type Tab = 'questions' | 'design' | 'preview' | 'results' | 'share';
 
 /**
  * One form, three ways to look at the same thing: the questions, and the form as a customer sees it. The
@@ -36,6 +41,7 @@ export function FormEditor({
   brandedOrigin,
   timeZone,
   openResponse = null,
+  brand = { color: null, logo: null },
 }: {
   workspaceId: string;
   initial: FormGet;
@@ -48,6 +54,8 @@ export function FormEditor({
   timeZone: string;
   /** A response a search result opens (`?response=<id>`): the form opens on its Results, with it open. */
   openResponse?: string | null;
+  /** The business's logo and colour, which the form follows until its design says otherwise. */
+  brand?: FormBrand;
 }) {
   const router = useRouter();
   const editor = useFormEditor(workspaceId, initial.form.formId, {
@@ -87,6 +95,27 @@ export function FormEditor({
     }
   }
 
+  /** "Use on all my forms": the draft is saved first, since the design is read from it. */
+  async function useDesignEverywhere() {
+    try {
+      await editor.save();
+      const out = unwrap(
+        await apiBrowser().POST('/v1/commands/form.use_design_everywhere', {
+          body: { workspaceId, formId: initial.form.formId },
+        }),
+      );
+      toast.success(
+        out.formIds.length === 0
+          ? 'Your other forms already look like this.'
+          : out.formIds.length === 1
+            ? 'Your other form looks like this now.'
+            : `Your other ${out.formIds.length} forms look like this now.`,
+      );
+    } catch (e) {
+      toast.error(errorMessage(e));
+    }
+  }
+
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-center gap-3">
@@ -96,6 +125,10 @@ export function FormEditor({
           ariaLabel="How to look at this form"
           options={[
             { value: 'questions', label: 'Questions', testId: 'tab-questions' },
+            // A live poll pops up in a video call, in the call's own look.
+            ...(editor.definition.mode === 'poll'
+              ? []
+              : [{ value: 'design' as const, label: 'Design', testId: 'tab-design' }]),
             { value: 'preview', label: 'Preview', testId: 'tab-preview' },
             {
               value: 'results',
@@ -104,7 +137,10 @@ export function FormEditor({
                 : 'Results',
               testId: 'tab-results',
             },
-            { value: 'share', label: 'Share', testId: 'tab-share' },
+            // A live poll has no link: its questions pop up in a video call.
+            ...(editor.definition.mode === 'poll'
+              ? []
+              : [{ value: 'share' as const, label: 'Share', testId: 'tab-share' }]),
           ]}
         />
         <FormStatusBadge status={initial.form.status} />
@@ -168,15 +204,49 @@ export function FormEditor({
 
       {tab === 'questions' ? (
         <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
-          <QuestionList
-            definition={editor.definition}
-            selectedId={selected}
-            onSelect={setSelected}
-            apply={editor.apply}
-            readOnly={!canManage}
-          />
+          <div className="min-w-0 space-y-3">
+            {editor.definition.mode === 'poll' && (canManage || editor.definition.slides) ? (
+              <PollSlidesCard
+                workspaceId={workspaceId}
+                formId={initial.form.formId}
+                definition={editor.definition}
+                apply={editor.apply}
+                readOnly={!canManage}
+              />
+            ) : null}
+            {editor.definition.mode === 'poll' && canManage ? (
+              <PollDraftCard
+                workspaceId={workspaceId}
+                definition={editor.definition}
+                apply={editor.apply}
+              />
+            ) : null}
+            {editor.definition.mode === 'poll' ? (
+              <PollLeadsCard
+                workspaceId={workspaceId}
+                definition={editor.definition}
+                apply={editor.apply}
+                readOnly={!canManage}
+              />
+            ) : null}
+            {editor.definition.mode === 'poll' && canManage ? (
+              <WriteAllCues
+                workspaceId={workspaceId}
+                definition={editor.definition}
+                apply={editor.apply}
+              />
+            ) : null}
+            <QuestionList
+              definition={editor.definition}
+              selectedId={selected}
+              onSelect={setSelected}
+              apply={editor.apply}
+              readOnly={!canManage}
+            />
+          </div>
           {selected ? (
             <QuestionSettings
+              workspaceId={workspaceId}
               definition={editor.definition}
               questionId={selected}
               apply={editor.apply}
@@ -189,9 +259,23 @@ export function FormEditor({
             </Card>
           )}
         </div>
+      ) : tab === 'design' ? (
+        <FormDesignPanel
+          workspaceId={workspaceId}
+          embedOrigins={initial.form.embedOrigins}
+          onUseEverywhere={useDesignEverywhere}
+          definition={editor.definition}
+          apply={editor.apply}
+          readOnly={!canManage}
+          brand={brand}
+        />
       ) : tab === 'preview' ? (
         <div className="mx-auto w-full max-w-2xl">
-          <FormPreview definition={editor.definition} />
+          <FormPreview
+            definition={editor.definition}
+            businessColor={brand.color}
+            logo={brand.logo}
+          />
           <p className="mt-3 text-center text-[12.5px] text-text-3">
             Nothing here is recorded. This is the live version of what you are building.
           </p>
@@ -217,5 +301,54 @@ export function FormEditor({
         />
       )}
     </div>
+  );
+}
+
+/**
+ * A live poll's when-to-ask phrases, written by the AI for every question that has none (part 3; the owner's 10). They
+ * land in the draft as edits, to read and change before publishing.
+ */
+function WriteAllCues({
+  workspaceId,
+  definition,
+  apply,
+}: {
+  workspaceId: string;
+  definition: FormDefinition;
+  apply: (ops: FormOp[]) => void;
+}) {
+  const [busy, setBusy] = useState(false);
+  const wanting = questionsWanting(definition);
+  if (!wanting.length) return null;
+  const write = async () => {
+    setBusy(true);
+    try {
+      const ops = await writeCues(workspaceId, definition, wanting);
+      if (ops.length) {
+        apply(ops);
+        toast.success(
+          ops.length === 1
+            ? 'Phrases written for 1 question. Check them, then publish.'
+            : `Phrases written for ${ops.length} questions. Check them, then publish.`,
+        );
+      }
+    } catch (e) {
+      toast.error(cueErrorMessage(e));
+    } finally {
+      setBusy(false);
+    }
+  };
+  return (
+    <Card className="flex items-center gap-3 p-3" data-testid="poll-write-cues">
+      <Sparkles className="h-4 w-4 shrink-0 text-accent-text" strokeWidth={1.75} aria-hidden />
+      <p className="min-w-0 flex-1 text-[13px] text-text-2">
+        {wanting.length === 1
+          ? '1 question has no when-to-ask phrases. The AI listens for these during the call.'
+          : `${wanting.length} questions have no when-to-ask phrases. The AI listens for these during the call.`}
+      </p>
+      <Button size="sm" variant="secondary" loading={busy} onClick={() => void write()}>
+        {POLL_WORDS.writeAllCues}
+      </Button>
+    </Card>
   );
 }

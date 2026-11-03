@@ -51,6 +51,7 @@ import { limitsFor } from './automation';
 import { clearNeeds } from './needs';
 import { claimGroup, claimProfile } from './owners';
 import { notePartnerWarmed } from './partners';
+import { tally } from './tallies';
 import { slowsNow, warningOf } from './tidy';
 
 const DAY = 24 * 60 * 60 * 1000;
@@ -325,6 +326,8 @@ export const touchSave = defineAddonCommand(outreachAddon, {
           at,
         })
         .returning({ id: touches.id });
+      // What the extension did on its own counts (decision 140); what the person did themselves doesn't.
+      if (input.auto) await tally(ctx, me, input.platform, input.kind, 1, at);
       // The first step on a network starts the person's 2 weeks at half limits there (decision 96): the earliest
       // noted, as a step taken offline can arrive after a later one.
       await ctx.tx

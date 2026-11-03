@@ -213,8 +213,9 @@ function messenger(sent: Sent[], name = 'Dana Reyes'): Document {
 
 /**
  * Dana's profile (at her username, unless `at` says otherwise), whose Message opens her chat window with the cursor in
- * its box, as Facebook's does (or nothing, or takes the tab to her chat in Messenger), with Riley's left open over it
- * (or not), and another Dana Reyes's, linking to nobody (or not).
+ * its box, as Facebook's does in front (or nothing, or takes the tab to her chat in Messenger), with Riley's left open
+ * over it (or not), and another Dana Reyes's, linking to nobody (or not). Her window links to her username, unless
+ * `links` says otherwise; with `cursor` false, Facebook puts no cursor in it, as with its window behind another.
  */
 function danaProfile(
   sent: Sent[],
@@ -223,6 +224,8 @@ function danaProfile(
     rileyOpen: boolean;
     namesakeOpen?: boolean;
     at?: string;
+    links?: string;
+    cursor?: boolean;
   },
 ): Document {
   const doc = load('profile-2026.html', o.at ?? DANA);
@@ -238,10 +241,10 @@ function danaProfile(
   doc.querySelector('[role="button"][aria-label="Message"]')!.addEventListener('click', () => {
     if (o.opens === 'messenger') world.doc = messenger(sent);
     if (o.opens !== true) return;
-    const hers = chatWindow(doc, 'Dana Reyes', '/dana.reyes.12/');
+    const hers = chatWindow(doc, 'Dana Reyes', o.links ?? '/dana.reyes.12/');
     layer.append(hers);
     sends(doc, sent);
-    hers.querySelector<HTMLElement>('[role="textbox"]')!.focus();
+    if (o.cursor !== false) hers.querySelector<HTMLElement>('[role="textbox"]')!.focus();
   });
   return doc;
 }
@@ -417,6 +420,100 @@ describe('sending a message on Facebook', () => {
       line: 'Dana Reyes: couldn’t find a chat open with them, so nothing was sent',
     });
     expect(none).toEqual([]);
+  });
+
+  it('sends in the window their Message opened, linking by number without the cursor, once their number’s profile is theirs', async () => {
+    // The owner's report of 30 Oct 2026: kept by username, her window links to her by number, and with the runner's
+    // window behind the person's, Facebook puts no cursor in it. Her number's profile opens at her username.
+    const NUMBER = '100009000000031';
+    const BY_NUMBER = `${FB}/profile.php?id=${NUMBER}`;
+    const sent: Sent[] = [];
+    const page = () =>
+      danaProfile(sent, { opens: true, rileyOpen: true, links: `/${NUMBER}/`, cursor: false });
+    world.pages = (url) => (url === DANA || url === BY_NUMBER ? page() : null);
+    const outcome = await send(approved({ kind: 'reconnect', threadKey: null }));
+    expect(outcome).toEqual({ done: true, line: 'Sent Dana Reyes a message' });
+    expect(world.opened).toEqual([DANA, BY_NUMBER]);
+    expect(sent).toEqual([{ to: 'Write to Dana Reyes', text: 'Glad to help, Dana.' }]);
+    // Noted with her number, which HandsFreeOS keeps from then on.
+    expect(noted()).toMatchObject({ to: { profile: { id: NUMBER, username: 'dana.reyes.12' } } });
+    expect(world.posted.find((p) => p.path === SEND_DONE)?.body).toMatchObject({ sent: true });
+  });
+
+  it('goes by their number once HandsFreeOS keeps it, with no check, in their window or their chat in Messenger', async () => {
+    const NUMBER = '100009000000031';
+    // Their window links to that number: it goes there straight away, cursor or not.
+    const sent: Sent[] = [];
+    world.pages = (url) =>
+      url === DANA
+        ? danaProfile(sent, { opens: true, rileyOpen: true, links: `/${NUMBER}/`, cursor: false })
+        : null;
+    expect(
+      await send(approved({ kind: 'reconnect', threadKey: null, platformId: NUMBER })),
+    ).toEqual({ done: true, line: 'Sent Dana Reyes a message' });
+    expect(world.opened).toEqual([DANA]);
+    expect(sent).toEqual([{ to: 'Write to Dana Reyes', text: 'Glad to help, Dana.' }]);
+    // Their chat in Messenger links to that number: it goes there, without their profile.
+    const inMessenger: Sent[] = [];
+    world.opened = [];
+    world.pages = (url) => (url === CHAT ? messenger(inMessenger) : null);
+    expect(await send(approved({ platformId: THREAD_KEY }))).toEqual({
+      done: true,
+      line: 'Sent Dana Reyes a message',
+    });
+    expect(world.opened).toEqual([CHAT]);
+    expect(inMessenger).toEqual([{ to: 'Message Dana Reyes', text: 'Glad to help, Dana.' }]);
+  });
+
+  it('sends nothing when the number the window links to isn’t shown to be theirs', async () => {
+    // Her window doesn't open; another Dana Reyes's pops up, linking by number. That number's profile is someone
+    // else's, or Facebook leaves it at the number, so nothing proves it's hers.
+    const NUMBER = '100009000000044';
+    const BY_NUMBER = `${FB}/profile.php?id=${NUMBER}`;
+    for (const theirs of [() => load('profile-2026.html', `${FB}/sam.lee.4`), null]) {
+      const sent: Sent[] = [];
+      world.opened = [];
+      world.posted = [];
+      world.noted = [];
+      world.pages = (url) => {
+        if (url === BY_NUMBER)
+          return theirs?.() ?? danaProfile(sent, { opens: false, rileyOpen: false, at: BY_NUMBER });
+        if (url !== DANA) return null;
+        const doc = danaProfile(sent, { opens: false, rileyOpen: true });
+        doc
+          .querySelector('[role="button"][aria-label="Message"]')!
+          .addEventListener('click', () => {
+            const other = doc.importNode(
+              load('chat-window-2026.html', `${FB}/friends/requests/`)
+                .querySelector('[aria-label="Close chat"]')!
+                .closest('[role="none"]')!,
+              true,
+            );
+            other.innerHTML = other.innerHTML
+              .replaceAll('Riley Quinn', 'Dana Reyes')
+              .replaceAll('Riley', 'Dana')
+              .replaceAll('/riley.quinn.7/', `/${NUMBER}/`);
+            other
+              .querySelector('[role="textbox"]')!
+              .setAttribute('data-who', 'the other Dana Reyes');
+            doc.body.append(other);
+            sends(doc, sent);
+          });
+        return doc;
+      };
+      const outcome = await send(approved({ kind: 'reconnect', threadKey: null }));
+      expect(outcome).toEqual({
+        done: false,
+        line: 'Dana Reyes: couldn’t make sure the chat that opened was theirs, so nothing was sent',
+      });
+      expect(world.opened).toEqual([DANA, BY_NUMBER]);
+      expect(sent).toEqual([]);
+      expect(world.posted.find((p) => p.path === SEND_DONE)?.body).toMatchObject({
+        sent: false,
+        why: 'couldn’t make sure the chat that opened was theirs, so nothing was sent',
+      });
+      expect(world.noted).toEqual([]);
+    }
   });
 
   it('sends a reply through their profile when the chat kept shows another name, noting no chat for it', async () => {

@@ -124,13 +124,19 @@ export function validateIntake(
 
 // ---- Helpers ----
 
-/** Three online bookings an hour per phone (or email) and thirty per calendar (the AI teammate's count too). */
+/**
+ * Three online bookings an hour per phone (or email) and thirty per calendar (the AI teammate's count too). A
+ * sessions calendar takes up to 500 an hour, since a webinar's seats fill in a rush after a post or an ad.
+ */
+export const BOOKINGS_AN_HOUR = { calendar: 30, sessions: 500 } as const;
+
 export async function enforceCaps(
   tx: Tx,
   workspaceId: string,
   calendarId: string,
   phone: string | null,
   email: string | null,
+  perCalendar: number = BOOKINGS_AN_HOUR.calendar,
 ): Promise<void> {
   const [r] = await rows<{ by_contact: number; by_calendar: number }>(
     tx,
@@ -151,7 +157,7 @@ export async function enforceCaps(
       429,
       'That’s a lot of bookings at once. Try again in an hour, or give us a call.',
     );
-  if ((r?.by_calendar ?? 0) >= 30)
+  if ((r?.by_calendar ?? 0) >= perCalendar)
     throw HfosError.rule(
       'too_many_bookings',
       429,
@@ -340,7 +346,14 @@ export const appointmentBookOnline = defineCommand({
 
     const phone = input.customer.phone ?? null;
     const email = input.customer.email ?? null;
-    await enforceCaps(ctx.tx, ws, calendar.id, phone, email);
+    await enforceCaps(
+      ctx.tx,
+      ws,
+      calendar.id,
+      phone,
+      email,
+      config.schedule.mode === 'sessions' ? BOOKINGS_AN_HOUR.sessions : BOOKINGS_AN_HOUR.calendar,
+    );
     const { personId, created } = await findOrCreateCustomer(ctx, input.customer, 'Booking page');
     const person = await requirePerson(ctx.tx, ws, personId);
     const stopped = phone ? await isOptedOut(ctx.tx, ws, phone) : false;

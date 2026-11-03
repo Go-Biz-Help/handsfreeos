@@ -3,6 +3,7 @@ import {
   CONTACT_EDIT_WORDS,
   isSocialChannel,
   PRIVATE_THREAD_WORDS,
+  SENDER_WORDS,
   SOCIAL_CHANNEL_NAMES,
   SOCIAL_CONTACT_NAMES,
   splitName,
@@ -143,6 +144,7 @@ export function ContextPanel({
   canMoney,
   onAddPerson,
   onLinkPerson,
+  onLinkTo,
   onEditPerson,
   onPersonCreated,
   extra,
@@ -162,6 +164,8 @@ export function ContextPanel({
   canMoney: boolean;
   onAddPerson: () => void;
   onLinkPerson: () => void;
+  /** Links the conversation to this customer: the one who already has the address. */
+  onLinkTo: (personId: string, name: string) => void;
   /** Opens the whole customer form over the conversation. */
   onEditPerson: () => void;
   /** A customer named here: the conversation is linked to them. */
@@ -177,6 +181,8 @@ export function ContextPanel({
     social && data.social && data.social.contact.name !== SOCIAL_CONTACT_NAMES[social]
       ? data.social.contact.name
       : null;
+  // Email from an address somebody in Contacts already has.
+  const known = data.sender?.customer ?? null;
   const cameFrom = social ? (
     <AttributionSection workspaceId={workspaceId} conversationId={c.id} />
   ) : null;
@@ -257,24 +263,52 @@ export function ContextPanel({
                 ? 'First wrote in the website chat'
                 : social
                   ? `First wrote on ${SOCIAL_CHANNEL_NAMES[social]}`
-                  : 'First texted'}{' '}
+                  : c.channel === 'email'
+                    ? 'First emailed'
+                    : 'First texted'}{' '}
               {formatDate(c.createdAt, { time: true })}
             </div>
           </div>
         </div>
-        {c.private ? (
-          // Someone's own mail is never a customer while it's theirs (M19).
-          <p className="text-[13px] text-text-2">{PRIVATE_THREAD_WORDS.panel}</p>
+        <p className="text-[13px] text-text-2">
+          {c.private
+            ? // Someone's own mail is never a customer's while it's theirs (M19): it's shared first.
+              PRIVATE_THREAD_WORDS.panel
+            : c.channel === 'chat'
+              ? 'This visitor doesn’t match anyone in Contacts. Once you add or link them, this chat shows on their timeline.'
+              : social
+                ? `They don’t match anyone in Contacts yet: ${SOCIAL_CHANNEL_NAMES[social]} doesn’t share a phone number or email. Once you add or link them, this conversation and the ads that brought them show on their record.`
+                : c.channel === 'email'
+                  ? 'This address doesn’t match anyone in Contacts. Once you add or link them, this conversation shows on their timeline.'
+                  : 'This number doesn’t match anyone in Contacts. Once you add or link them, this conversation and any calls show on their timeline.'}
+        </p>
+        {c.private ? null : known ? (
+          // Somebody already has the address: linking them is what's wanted, not a second of them.
+          <>
+            <p className="text-[13px] text-text-2" data-testid="context-sender-known">
+              {SENDER_WORDS.known(known.fullName)}
+            </p>
+            <Button
+              size="sm"
+              onClick={() => onLinkTo(known.id, known.fullName)}
+              data-testid="context-link-known"
+            >
+              <LinkIcon className="h-3.5 w-3.5" strokeWidth={1.5} />
+              {SENDER_WORDS.linkTo(known.fullName)}
+            </Button>
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={onLinkPerson}
+              data-testid="context-link-person"
+            >
+              {SENDER_WORDS.linkSomeoneElse}
+            </Button>
+          </>
         ) : (
           <>
-            <p className="text-[13px] text-text-2">
-              {c.channel === 'chat'
-                ? 'This visitor doesn’t match anyone in Contacts. Once you add or link them, this chat shows on their timeline.'
-                : social
-                  ? `They don’t match anyone in Contacts yet: ${SOCIAL_CHANNEL_NAMES[social]} doesn’t share a phone number or email. Once you add or link them, this conversation and the ads that brought them show on their record.`
-                  : 'This number doesn’t match anyone in Contacts. Once you add or link them, this conversation and any calls show on their timeline.'}
-            </p>
             <AddPersonInline
+              key={c.id}
               workspaceId={workspaceId}
               phone={c.channel === 'sms' ? c.counterpartDisplay : (data.chat?.phone ?? null)}
               email={c.channel === 'email' ? c.counterpart : null}
@@ -283,7 +317,7 @@ export function ContextPanel({
                   ? (data.chat?.name ?? undefined)
                   : social
                     ? (socialName ?? undefined)
-                    : undefined
+                    : (data.sender?.name ?? undefined)
               }
               onCreated={onPersonCreated}
               onMoreDetails={onAddPerson}

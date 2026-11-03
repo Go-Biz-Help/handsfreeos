@@ -25,7 +25,7 @@
  * the page showed. Check notes only how many of each it found, never what they say (../../jobs/report.ts).
  */
 import { measuredSide } from '../facebook/chat';
-import { clean } from '../facebook/dom';
+import { clean, textLines, textLinesWhere } from '../facebook/dom';
 import { visible } from '../facebook/fetch';
 import type { Named, ProfileRef } from '../facebook/types';
 import { mainOf, nameOf } from '../looking/looks';
@@ -198,6 +198,11 @@ export type AlignableFound = {
   readonly events?: readonly EventCard[];
   /** An event's own page: who's hosting it and who's going. */
   readonly event?: EventPage;
+  /**
+   * From 0.124.0 (decision 147): Alignable saying the person reached their monthly limit of connection requests, in its
+   * own words, as the box after Connect puts it: left out on any page that doesn't say so.
+   */
+  readonly limit?: string;
   /** From 0.108.0 (decision 116): who liked a post, while the box of them is open over its page (./likers.ts). */
   readonly likers?: readonly Named[];
 };
@@ -822,11 +827,22 @@ const CONTROLS = 'button, [role="button"], a[href]';
 export function groupOf(
   url: URL,
 ): { readonly id: string; readonly url: string; readonly page: string | null } | null {
-  const [first = '', slug = '', page] = parts(url);
+  const all = parts(url);
+  // Its Directory of members under /biz since Oct 2026 (decision 138; the owner's look of 31 Oct 2026: "the
+  // Directory link, which opens /biz/groups/<slug>/members"): the group's own page as ever.
+  const under = all[0]?.toLowerCase() === 'biz' && all[1]?.toLowerCase() === 'groups';
+  const [first = '', slug = '', page] = under ? all.slice(1) : all;
   if (first.toLowerCase() !== 'groups' || !GROUP_SLUG.test(slug)) return null;
   if (NOT_GROUPS.has(slug.toLowerCase())) return null;
   return { id: slug, url: `${HOST}/groups/${slug}`, page: page ? page.toLowerCase() : null };
 }
+
+/**
+ * A group's Directory of its members: /biz/groups/<group>/members since Oct 2026 (decision 138), where
+ * /groups/<group>/members shows nothing.
+ */
+export const membersPage = (group: { readonly id: string }): string =>
+  `${HOST}/biz/groups/${group.id}/members`;
 
 /** A group as a link to it showed it: its name in its address, its page, and its name when the page said it. */
 export interface GroupLink {
@@ -1560,8 +1576,34 @@ function messagesIn(
     .slice(-MESSAGES_MOST);
 }
 
+/**
+ * Send in Messages: `messaging-send-external` till the owner's sends of 30 Oct 2026, `messaging-send-desktop` since
+ * (0.117.0's 19:02 UTC outline).
+ */
+export const MESSAGE_SEND = `${PART('messaging-send-external')}, ${PART('messaging-send-desktop')}`;
+
+/**
+ * The open conversation's header, which links to the business it's with: its own part (`channel-header-loaded`) till
+ * 30 Oct 2026; since then a plain header with no test id, beside the conversation's messages and box to write in, so
+ * the first one on the way up from that box, never past Messages itself (`inbox`), whose list has a header of its own,
+ * and never the site's menu.
+ */
+export function chatHeader(doc: Document): Element | null {
+  const own = doc.querySelector(PART('channel-header-loaded'));
+  if (own) return own;
+  const write = doc.querySelector(PART('full-view-write-message'));
+  for (let at = write?.parentElement ?? null; at; at = at.parentElement) {
+    const header = [...at.children].find(
+      (child) => child.localName === 'header' && !child.querySelector('nav'),
+    );
+    if (header) return header;
+    if (at.matches(PART('inbox'))) return null;
+  }
+  return null;
+}
+
 export function chatOpen(doc: Document, base: string): ChatOpen | null {
-  const header = doc.querySelector(PART('channel-header-loaded'));
+  const header = chatHeader(doc);
   const write = doc.querySelector(PART('full-view-write-message'));
   if (!header && !write) return null;
   const link = header
@@ -1574,7 +1616,7 @@ export function chatOpen(doc: Document, base: string): ChatOpen | null {
     name: clean(link?.a.textContent) || null,
     profile,
     box: !!box && visible(box),
-    send: doc.querySelector(PART('messaging-send-external')) !== null,
+    send: doc.querySelector(MESSAGE_SEND) !== null,
     messages,
     last: messages[messages.length - 1]?.from ?? null,
   };
@@ -1635,10 +1677,65 @@ function engagedOn(doc: Document, base: string): Engaged[] {
   return [...found.values()].slice(0, MOST);
 }
 
+/**
+ * What Alignable says when the person reached their monthly limit of connection requests (decision 147), whatever the
+ * box's exact words: "You’ve reached your monthly connection limit", "Monthly connection limit reached", "You’ve used all
+ * 25 of your connection requests this month". Never a warning: Alignable holds nothing back but those requests.
+ */
+export const MONTHLY_LIMIT: readonly RegExp[] = [
+  /\bmonthly\b[^.!?]{0,40}\b(connection|connect|invitation)s?\b[^.!?]{0,20}\blimits?\b/i,
+  /\bmonthly limits?\b[^.!?]{0,40}\b(connection|invitation)s?\b/i,
+  /\b(reached|hit|exceeded|used up)\b[^.!?]{0,30}\bmonthly limits?\b/i,
+  // All of them used, never a count of how many so far ("used 20 of 25", "3 out of 25").
+  /\b(reached|hit|used (up|all)|no more|(you['’]re|you are) out of)\b[^.!?]{0,40}\b(connection|invitation)s?\b[^.!?]{0,30}\b(this|per|a|each|for the|for this) month\b/i,
+];
+/** A box over the page: where Alignable puts it. */
+const OVER =
+  '[role="dialog"], [role="alertdialog"], [aria-modal="true"], dialog[open], [role="alert"]';
+/** What someone wrote, whose words may say anything: a post, a business's own words, a box to write in. */
+const SOMEONE_WROTE =
+  'article, [role="article"], [role="feed"], [contenteditable="true"], textarea, [role="textbox"]';
+const saysLimit = (text: string) => MONTHLY_LIMIT.some((pattern) => pattern.test(text));
+
+/**
+ * Alignable's monthly limit on connection requests, as it says it on the page (decision 147): in a box over the page
+ * first, its lines one by one and then together (a heading and the line under it may split the words); else anywhere
+ * shown on the page but what someone wrote, looked through only when the page's text says it somewhere at all.
+ */
+export function monthlyLimitOn(doc: Document): string | null {
+  // Only what shows: a box drawn ahead of time and hidden, or inside something hidden, never counts.
+  const known = new Map<Element, boolean>();
+  const shown = (element: Element | null): boolean => {
+    if (!element || element === doc.body || element === doc.documentElement) return true;
+    const kept = known.get(element);
+    if (kept !== undefined) return kept;
+    const is = visible(element) && shown(element.parentElement);
+    known.set(element, is);
+    return is;
+  };
+  for (const box of doc.querySelectorAll(OVER)) {
+    if (!shown(box)) continue;
+    const lines = textLines(box, 40, SOMEONE_WROTE);
+    const line = lines.find((l) => l.length <= 300 && saysLimit(l));
+    if (line) return clean(line);
+    const all = clean(lines.join(' '));
+    if (all.length <= 600 && saysLimit(all)) return all.slice(0, 300);
+  }
+  if (!doc.body || !saysLimit(clean(doc.body.textContent))) return null;
+  const line = textLinesWhere(
+    doc.body,
+    (text) => shown(text.parentElement),
+    3_000,
+    SOMEONE_WROTE,
+  ).find((l) => l.length <= 300 && saysLimit(l));
+  return line ? clean(line) : null;
+}
+
 export function readAlignable(doc: Document, href: string): AlignableFound {
   const group = groupFacts(doc, href);
   const events = eventCards(doc, href);
   const event = eventPage(doc, href);
+  const limit = monthlyLimitOn(doc);
   return {
     businesses: [...searchResults(doc, href).slice(0, MOST), ...connectionRows(doc, href)],
     engaged: engagedOn(doc, href),
@@ -1655,5 +1752,6 @@ export function readAlignable(doc: Document, href: string): AlignableFound {
     ...(group ? { group } : {}),
     ...(events.length ? { events } : {}),
     ...(event ? { event } : {}),
+    ...(limit ? { limit } : {}),
   };
 }

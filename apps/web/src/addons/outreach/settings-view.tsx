@@ -18,6 +18,8 @@
 import {
   BusinessRules,
   choicesFor,
+  groupModeChange,
+  groupModeOf,
   hoursProblem,
   hourWords,
   OTHER_PLATFORMS,
@@ -28,12 +30,15 @@ import {
   POSTING_MODE_KEYS,
   POSTING_MODES,
   type PostingMode,
+  requestModeChange,
+  requestModeOf,
   SENDING_MODE_KEYS,
   SENDING_MODES,
   WEEKDAY_WORDS,
   WHEELS_START_WORDS,
   wheelsMatter,
   wheelsWords,
+  worksEveryDay,
   type AutomationSettings,
   type NetworkChoices,
   type OtherPlatform,
@@ -50,8 +55,10 @@ import {
   NETWORK_WORDS as NW,
   networksOn,
   noRunnerWords,
+  groupsChoiceOn,
   onItsOwnAbout,
   postingAboutOn,
+  requestsChoiceOn,
   sendingModesOn,
   ticksOn,
   ticksShownOn,
@@ -301,7 +308,12 @@ export function NetworkModes({
   );
 }
 
-/** Along the way on one network, in its words: liking first, confirming requests, the once-a-day jobs, and more. */
+/**
+ * Along the way on one network, in its words: liking first, confirming requests, the once-a-day jobs, and more. Where
+ * the extension answers the requests the person gets (Facebook's), how it answers them, in place of a tick
+ * (decision 121); and where groups are theirs to work (Facebook's and Alignable's), whether it joins more or works
+ * only the groups they're in (decision 148).
+ */
 export function NetworkTicks({
   platform,
   value,
@@ -318,19 +330,64 @@ export function NetworkTicks({
   const ticks = ticksOn(platform);
   // None on a network whose runner reads none yet.
   const shown = ticksShownOn(platform);
-  if (!shown.length) return null;
+  const requests = requestsChoiceOn(platform);
+  const groups = groupsChoiceOn(platform);
+  if (!shown.length && !requests && !groups) return null;
+  const answering = requestModeOf(value);
+  const grouping = groupModeOf(value);
   return (
-    <Part title={W.sections.along} card={card}>
-      {shown.map((key) => (
-        <Tick
-          key={key}
-          words={ticks[key]}
-          checked={value[key]}
-          onChange={(on) => onChange({ [key]: on })}
-          testId={`${testId}-${key}`}
-        />
-      ))}
-    </Part>
+    <>
+      {shown.length ? (
+        <Part title={W.sections.along} card={card}>
+          {shown.map((key) => (
+            <Tick
+              key={key}
+              words={ticks[key]}
+              checked={value[key]}
+              onChange={(on) => onChange({ [key]: on })}
+              testId={`${testId}-${key}`}
+            />
+          ))}
+        </Part>
+      ) : null}
+      {requests ? (
+        <Part
+          title={requests.label}
+          about={requests.about}
+          card={card}
+          testId={`${testId}-requests`}
+        >
+          <div role="radiogroup" aria-label={requests.label} className="flex flex-col gap-2">
+            {requests.options.map((o) => (
+              <RadioCard
+                key={o.key}
+                selected={answering === o.key}
+                onSelect={() => onChange(requestModeChange(o.key))}
+                title={o.label}
+                description={o.note ?? undefined}
+                testId={`${testId}-requests-${o.key}`}
+              />
+            ))}
+          </div>
+        </Part>
+      ) : null}
+      {groups ? (
+        <Part title={groups.label} about={groups.about} card={card} testId={`${testId}-groups`}>
+          <div role="radiogroup" aria-label={groups.label} className="flex flex-col gap-2">
+            {groups.options.map((o) => (
+              <RadioCard
+                key={o.key}
+                selected={grouping === o.key}
+                onSelect={() => onChange(groupModeChange(o.key))}
+                title={o.label}
+                description={o.note}
+                testId={`${testId}-groups-${o.key}`}
+              />
+            ))}
+          </div>
+        </Part>
+      ) : null}
+    </>
   );
 }
 
@@ -559,6 +616,13 @@ export function HoursPart({
           {problem}
         </p>
       ) : null}
+      <Tick
+        switches
+        words={W.everyDay}
+        checked={worksEveryDay(value.hours)}
+        onChange={(everyDay) => hours({ everyDay })}
+        testId={`${testId}-every-day`}
+      />
     </Part>
   );
 }
@@ -686,7 +750,7 @@ export function NetworksPart({
                       className="text-[13px] text-warning-text"
                       data-testid={`${testId}-${p}-wheels`}
                     >
-                      {wheelsWords(wheels)}
+                      {wheelsWords(wheels, network.fullSpeed)}
                     </p>
                   ) : null}
                   <NetworkModes

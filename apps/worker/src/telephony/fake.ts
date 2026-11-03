@@ -6,6 +6,7 @@ import {
   type ContentTemplate,
   type ExternalNumber,
   type ExternalTwilioCreds,
+  type LineCheck,
   type OutboundMessage,
   type PlaceCallRequest,
   type ProviderAccount,
@@ -125,6 +126,16 @@ export interface FakeTelephony extends TelephonyProvider {
   readonly deletedContents: string[];
   /** Numbers the carrier lookup was asked about, in order (20261010000900). */
   readonly lookups: string[];
+  /**
+   * What the line check says about a number (AI calls, part 5), set by a test: anything not here is a mobile, and
+   * its caller name is undetermined. Every check asked, in order, in `lineChecks`.
+   */
+  readonly lines: Map<string, LineCheck>;
+  readonly lineChecks: {
+    readonly e164: string;
+    readonly lineType: boolean;
+    readonly callerName: boolean;
+  }[];
   /**
    * A business's own Twilio account, as if it had one (20261010000900): signed in to with `secret`, whether as
    * the account or as an API key. `parentSid` makes it a subaccount of another such account. Returns its sid.
@@ -254,6 +265,8 @@ export function createFakeTelephony(opts: FakeOptions): FakeTelephony {
   const contents = new Map<string, ContentTemplate & { accountSid: string }>();
   const deletedContents: string[] = [];
   const lookups: string[] = [];
+  const lines = new Map<string, LineCheck>();
+  const lineChecks: FakeTelephony['lineChecks'] = [];
   /** Businesses' own Twilio accounts (20261010000900), and the numbers in them. */
   const externalAccounts = new Map<
     string,
@@ -539,6 +552,8 @@ export function createFakeTelephony(opts: FakeOptions): FakeTelephony {
     contents,
     deletedContents,
     lookups,
+    lines,
+    lineChecks,
     addExternalAccount({ sid, secret, friendlyName, parentSid }) {
       const id = sid ?? fakeSid('AC');
       externalAccounts.set(id, {
@@ -653,6 +668,14 @@ export function createFakeTelephony(opts: FakeOptions): FakeTelephony {
           ? 'Twilio - Toll-Free - SMS-Sybase365/MMS-SVR'
           : 'Twilio - SMS/MMS-SVR',
         lineType: e164.startsWith('+18') ? 'tollFree' : 'nonFixedVoip',
+      };
+    },
+    async checkLine(_account, e164, ask) {
+      lineChecks.push({ e164, ...ask });
+      const line = lines.get(e164) ?? { lineType: 'mobile', callerType: 'UNDETERMINED' };
+      return {
+        lineType: ask.lineType ? line.lineType : null,
+        callerType: ask.callerName ? line.callerType : null,
       };
     },
     async inspectAccount(creds) {

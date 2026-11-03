@@ -15,7 +15,7 @@ import { HfosError } from '../../../errors';
 import { requireHuman } from '../../../kernel/actor';
 import { changeMoment } from '../../../kernel/moment';
 import { defineAddonCommand, defineAddonQuery } from '../../server';
-import { businessLimitsOn } from '../automation';
+import { businessLimitsOn, onlyMyGroups } from '../automation';
 import type { CheckVerdict } from '../checks';
 import { eachSearchOnce } from '../finds';
 import { bestFit, type FitPlaybook } from '../fit';
@@ -45,6 +45,7 @@ import type { PlaybookDetails } from '../playbooks';
 import { dayNumber, inTurn } from '../posts';
 import { groups, joins, myGroups } from '../tables';
 import { automationOf, rulesOf } from './automation';
+import { moreToday } from './checks';
 import {
   countryLetsSql,
   countryRuleOf,
@@ -54,6 +55,7 @@ import {
   pitchable,
   type Ctx,
 } from './common';
+import { tally } from './tallies';
 import { playbooksInUse } from './friends';
 import { claimGroup } from './owners';
 import { slowsNow, startOfToday, warningOf } from './tidy';
@@ -112,6 +114,8 @@ export async function peopleLeft(
   me: string,
   playbooks: readonly Playbook[],
   platform: Platform = 'facebook',
+  /** Only the groups the person is in (decision 148): people found in any other group aren't theirs to reach. */
+  onlyMine = false,
 ): Promise<Map<string, number>> {
   const left = new Map<string, number>();
   if (!playbooks.length) return left;
@@ -144,6 +148,12 @@ export async function peopleLeft(
         join addon_outreach.profiles p on p.id = gp.profile_id
         where gp.workspace_id = ${ctx.scope.workspaceId!}
           and ${byCheck ? sql`true` : sql`g.admins_read_at is not null`}
+          and ${
+            onlyMine
+              ? sql`exists (select 1 from addon_outreach.my_groups m
+                  where m.group_id = g.id and m.user_id = ${me} and m.joined)`
+              : sql`true`
+          }
           and not gp.runs_group and p.person_id is null and ${pitchable('p')} and ${inPlay(me, 'p')}
           and ${notOthers(me, 'g')} and ${lets}
           and p.friendship not in ('self', 'friends', 'request_sent', 'request_received')
@@ -237,7 +247,7 @@ export function groupSearchWords(
 export const groupsToCheck = defineAddonQuery(outreachAddon, {
   name: 'outreach.groups.to_check',
   description:
-    'Which of the business’s groups on a network (Facebook’s, or Alignable’s) the person’s computer checks next for whether the playbooks’ people are there: their own groups first, then groups found that fit by name; none checked lately. Facebook’s when no network is named.',
+    'Which of the business’s groups on a network (Facebook’s, or Alignable’s) the person’s computer checks next for whether the playbooks’ people are there: their own groups first, then groups found that fit by name; none checked lately. Only their own groups while they work only those. Facebook’s when no network is named.',
   input: GroupsToCheckInput,
   output: GroupsToCheckOutput,
   permission: 'outreach.use',
@@ -249,6 +259,8 @@ export const groupsToCheck = defineAddonQuery(outreachAddon, {
   async handler(ctx, input) {
     const me = requireHuman(ctx).userId;
     const now = Date.now();
+    // Working only their own groups, the AI reads no group they aren't in (decision 148).
+    const onlyMine = onlyMyGroups((await automationOf(ctx, me, now, input.platform)).choices);
     const found = await rows<CheckedGroupRow & { id: string; url: string }>(
       ctx.tx,
       sql`select g.id, g.name, g.url, g.detail, g.members, g.privacy, g.check_state, g.check_why,
@@ -256,6 +268,7 @@ export const groupsToCheck = defineAddonQuery(outreachAddon, {
           from addon_outreach.groups g
           left join addon_outreach.my_groups m on m.group_id = g.id and m.user_id = ${me}
           where g.workspace_id = ${ctx.scope.workspaceId!} and g.platform = ${input.platform}
+            and ${onlyMine ? sql`m.joined` : sql`true`}
             and (g.check_state is null
               or (g.check_state in ('good', 'maybe', 'not')
                 and g.checked_at < ${ago(now, GROUP_CHECK_AGAIN_DAYS)}::timestamptz)
@@ -316,6 +329,8 @@ export const groupLook = defineAddonCommand(outreachAddon, {
       .for('update');
     if (!group)
       throw HfosError.notFound('That group isn’t kept here anymore. Save your groups again.');
+    // A group the computer read counts (decision 140); one that showed nothing doesn't.
+    if (!nothing) await tally(ctx, me, group.platform, 'group', 1, at);
     await ctx.tx
       .update(groups)
       .set({
@@ -410,7 +425,7 @@ export const groupCheck = defineAddonCommand(outreachAddon, {
 export const joinsNext = defineAddonQuery(outreachAddon, {
   name: 'outreach.joins.next',
   description:
-    'Which groups on a network (Facebook’s, or Alignable’s) the person’s computer asks to join next (decisions 31 and 92): the ones the AI says the business’s people are in, or that fit well by name while it hasn’t read them, that the person isn’t in and hasn’t asked to join; no more than today has room for there. With how many people that network’s groups have left to reach, words to search for more groups with and whether they go anywhere, and the person’s Join switch there. Facebook’s when no network is named.',
+    'Which groups on a network (Facebook’s, or Alignable’s) the person’s computer asks to join next (decisions 31 and 92): the ones the AI says the business’s people are in, or that fit well by name while it hasn’t read them, that the person isn’t in and hasn’t asked to join; no more than today has room for there. With how many people that network’s groups have left to reach, words to search for more groups with and whether they go anywhere, and what the person picked about groups there. Facebook’s when no network is named.',
   input: JoinsNextInput,
   output: JoinsNextOutput,
   permission: 'outreach.use',
@@ -439,9 +454,10 @@ export const joinsNext = defineAddonQuery(outreachAddon, {
     );
     const today = done?.n ?? 0;
     const playbooks = await playbooksInUse(ctx, platform);
+    const choices = (await automationOf(ctx, me, now, platform)).choices;
     const prospects = await prospectsOf(
       ctx,
-      await peopleLeft(ctx, me, playbooks, platform),
+      await peopleLeft(ctx, me, playbooks, platform, onlyMyGroups(choices)),
       platform,
     );
     const words = groupSearchWords(playbooks, platform);
@@ -474,8 +490,8 @@ export const joinsNext = defineAddonQuery(outreachAddon, {
           b.fit.score - a.fit.score ||
           (b.g.members ?? 0) - (a.g.members ?? 0),
       );
-    // A different word each day, in turn.
-    const [word] = inTurn(words, 1, dayNumber(now));
+    // A different word each day, in turn; a search again later in the day takes the next word (decision 126).
+    const [word] = inTurn(words, 1, dayNumber(now) + input.round);
     return {
       groups: ranked.slice(0, room).map(({ g }) => ({ groupId: g.id, name: g.name, url: g.url })),
       today,
@@ -483,8 +499,9 @@ export const joinsNext = defineAddonQuery(outreachAddon, {
       prospects,
       words: word?.words ?? null,
       anywhere: word?.anywhere ?? false,
-      // The person's Join switch on that network (Facebook's is the settings' own).
-      onItsOwn: (await automationOf(ctx, me, now, platform)).choices.joinGroups,
+      // The person's groups pick on that network (Facebook's is the settings' own, decision 148).
+      onItsOwn: choices.joinGroups,
+      more: await moreToday(ctx, me, platform, now, warning),
     };
   },
 });
@@ -504,11 +521,13 @@ export const joinNote = defineAddonCommand(outreachAddon, {
     const ws = ctx.scope.workspaceId!;
     const at = changeMoment(ctx.meta);
     const [group] = await ctx.tx
-      .select({ id: groups.id })
+      .select({ id: groups.id, platform: groups.platform })
       .from(groups)
       .where(and(eq(groups.workspaceId, ws), eq(groups.id, input.groupId)));
     if (!group)
       throw HfosError.notFound('That group isn’t kept here anymore. Save your groups again.');
+    // A group joined, or asked to join, counts (decision 140); one it couldn't join doesn't.
+    if (input.state !== 'failed') await tally(ctx, me, group.platform, 'joined', 1, at);
     await ctx.tx
       .insert(joins)
       .values({

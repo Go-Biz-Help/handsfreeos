@@ -10,7 +10,7 @@
  * look is the fallback.
  *
  * The same channel brings the person's day and computers (decision 41): Start my day or Stop for today pressed in the
- * app, another computer of theirs used, a warning seen on one. Those go to ./live.ts, whose beat asks HandsFreeOS
+ * app, another computer of theirs used, a warning seen on one, a ticker of theirs on screen (decision 140). Those go to ./live.ts, whose beat asks HandsFreeOS
  * where things stand and wakes the runner.
  *
  * And what waits for the person (decisions 40 and 42): a message drafted, OK'd or sent, a step handed over or done, a
@@ -39,6 +39,8 @@ const LIVE_EVENTS = new Set([
   'outreach.day.stopped',
   'outreach.live.changed',
   'outreach.warning.seen',
+  // A ticker of the person's came on screen (decision 140): the beat's answer says to tell the line every few seconds.
+  'outreach.live.watched',
 ]);
 
 let live: RealtimeClient | null = null;

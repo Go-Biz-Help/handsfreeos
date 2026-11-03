@@ -290,6 +290,15 @@ Each is registered by one line in an explicit list (`ADDON_CATALOG`, `ADDON_SERV
   the add-on's page at that path and query, where the person claims the meeting (`live_meeting.claim`; their Zoom linked through
   core's coaching Zoom app, `app.live_meeting_accounts`) and Zoom's stream starts; the worker hears Zoom's transcript (apps/worker/src/meetings/live.ts) and the same hooks get the
   lines, with `call.kind` `'meeting'` and `call.liveMeetingId` instead of `callId`.
+- **Scripts for the AI teammate's calls to leads** (AI Sales Coach round five, part three; docs/salescoach.md): an
+  add-on that says `callScripts` in its manifest and has a `callScript` hook in its worker half writes the script the
+  AI teammate follows on the calls it places to leads: a workflow's "AI teammate calls them" step and a call
+  campaign's calls (apps/worker/src/ai-calls/scripts.ts). It's asked once, as the customer picks up, while the add-on
+  runs; the first add-on with a script wins. The hook only reads (it's handed the database, its scope and its actor,
+  no AI), has 1.5 seconds, and up to 6,000 characters of what it returns go into the call's prompt as data. A hook
+  that throws, is late or returns null leaves the call to go on without a script. Core's rules for these calls hold
+  whatever the script says: the greeting says who it is, that it's an AI and that the call is recorded; it offers
+  only what the step or campaign allows; and it books as the step says.
 - **Problem reports** (20261027008100; docs/outreach.md decision 75): when an add-on's own tool (a browser
   extension, say) can't do something, it sends core's `problem_report.send` on the person's behalf, with the
   add-on's id as `addonId` (a label, never a key), its source and an area of its own ("linkedin"). HandsFreeOS's
@@ -466,7 +475,11 @@ drawer. A person who may open only one of its pages gets a row that goes straigh
 other in the person's menu (`addon:<id>`, `packages/core/src/account/menu.ts`): it moves, hides and goes into a group,
 where its pages show under its name. A menu saved before then held each page as a place of its own
 (`addon:<id>:<page>`); it's read as the add-on, where the first of its pages stood. The phone app has no side menu:
-an add-on's places are under its name at the top of More.
+an add-on's places are under its name at the top of More. An add-on may put a count on one of its pages, such as
+Social Outreach's Needs you: the web registry's `navCount` names the page and a component, fetched the first time
+the menu draws the add-on, that keeps its own number and draws it with `MenuCount` (`components/shell/nav-links.tsx`).
+It shows on that page in the pop-out, and on the add-on's row while the pop-out is closed; one that's slow or breaks
+shows nothing.
 
 **One check, every actor.** The kernel refuses an add-on's operation, and core's operations run by the system for
 it, for people, the system, workflows and the AI teammate alike (`addon_inactive`, with the add-on's id in the

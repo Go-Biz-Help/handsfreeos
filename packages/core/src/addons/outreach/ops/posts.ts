@@ -31,13 +31,14 @@ import {
 import { posts, touches } from '../tables';
 import { keepGroup } from './activity';
 import { inWorkspace, keptProfile, once } from './common';
+import { tally } from './tallies';
 import { findWriter } from './finds';
 import { playbooksInUse } from './friends';
 
 export const postsSave = defineAddonCommand(outreachAddon, {
   name: 'outreach.posts.save',
   description:
-    'Keep the posts in a Facebook group’s feed, or found by a network’s own search (LinkedIn’s post search, Instagram’s hashtags and places, Alignable’s town), that are worth a comment from the person: those saying a playbook’s signs or asking for help, or found under a playbook’s own hashtag or phrase, with who wrote them and the hashtag or phrase that found them, for the AI to check. Says how each post the page shows stands, for the extension to mark. Nobody goes in Contacts.',
+    'Keep the posts in a Facebook group’s feed, or found by a network’s own search (Facebook’s and LinkedIn’s post search, Instagram’s hashtags and places, Alignable’s town), that are worth a comment from the person: those saying a playbook’s signs or asking for help, or found under a playbook’s own hashtag or phrase, with who wrote them and the hashtag or phrase that found them, for the AI to check. Says how each post the page shows stands, for the extension to mark. Nobody goes in Contacts.',
   risk: 1,
   input: PostsSaveInput,
   output: PostsSaveOutput,
@@ -52,6 +53,8 @@ export const postsSave = defineAddonCommand(outreachAddon, {
       const groupId = input.group ? await keepGroup(ctx, input.platform, input.group) : null;
       const playbooks = await playbooksInUse(ctx, input.platform);
       const urls = [...new Set(input.posts.map((p) => p.url))];
+      // Each post the computer read counts (decision 140).
+      await tally(ctx, me, input.platform, 'post', urls.length, at);
       const kept = await ctx.tx
         .select()
         .from(posts)
@@ -164,7 +167,7 @@ export const postsSave = defineAddonCommand(outreachAddon, {
 export const postCheck = defineAddonCommand(outreachAddon, {
   name: 'outreach.post.check',
   description:
-    'Worker: what the AI made of a group post kept as worth a look: good for the person to comment on, or not, with why, and whether its writer is asking now for what the business offers; or that it couldn’t be read. A good post’s writer on Instagram, LinkedIn or Alignable is found, for the AI’s check of them.',
+    'Worker: what the AI made of a group post kept as worth a look: good for the person to comment on, or not, with why, whether its writer is asking now for what the business offers, and whether its writer is someone the business is for; or that it couldn’t be read. On Instagram, LinkedIn or Alignable a good post’s writer is found, and so is one who fits though their post isn’t good, for the AI’s check of them.',
   risk: 0,
   input: PostCheckInput,
   output: PostCheckOutput,
@@ -192,8 +195,10 @@ export const postCheck = defineAddonCommand(outreachAddon, {
       .set({ checkState: check, checkWhy: input.check?.why ?? null, strong, checkedAt: at })
       .where(eq(posts.id, post.id));
     // A good post's writer, on a network that checks people found (decision 92), is found: the AI checks them from
-    // their own page before anything is done for them.
+    // their own page before anything is done for them. So is a writer the business is for whose post isn't one to
+    // comment on, as most a search finds are their own ads (decision 123), found by the search.
     if (check === 'good') await findWriter(ctx, post, at);
+    else if (check === 'not' && input.check?.fits) await findWriter(ctx, post, at, 'searched');
     await ctx.emit({
       type: 'outreach.post.checked',
       entityType: 'workspace',
@@ -242,14 +247,14 @@ export const postSkip = defineAddonCommand(outreachAddon, {
 });
 
 /**
- * The words to search a network's posts with (LinkedIn's post search, latest first): the playbooks' own, as an ask for
- * Find posts takes them (`postSearchWords`), the day's in turn. For the extension's runner, which finds posts once a
- * day on its own; on Instagram, with the day's hashtags and the area's places (`postLooks`).
+ * The words to search a network's posts with (Facebook's and LinkedIn's post search, latest first): the playbooks'
+ * own, as an ask for Find posts takes them (`postSearchWords`), the day's in turn. For the extension's runner, which
+ * finds posts once a day on its own; on Instagram, with the day's hashtags and the area's places (`postLooks`).
  */
 export const postWords = defineAddonQuery(outreachAddon, {
   name: 'outreach.posts.words',
   description:
-    'The words the person’s computer searches a network’s posts with today, from the playbooks in use: their own phrases for the network’s post search first, a few a day in turn, else the quoted words in their signs, then their words for groups. With them, the hashtags a day’s look on Instagram opens (the playbooks’ own first, else ones made from their area and words), and the playbooks’ places, to tell a post tagged in the area.',
+    'The words the person’s computer searches a network’s posts with today, from the playbooks in use: their own phrases for the network’s post search first, a few a day in turn, else (off Facebook) the quoted words in their signs, then their words for groups. With them, the hashtags a day’s look on Instagram opens (the playbooks’ own first, else ones made from their area and words), and the playbooks’ places, to tell a post tagged in the area.',
   input: PostWordsInput,
   output: PostWordsOutput,
   permission: 'outreach.use',
@@ -260,8 +265,8 @@ export const postWords = defineAddonQuery(outreachAddon, {
   scope: inWorkspace,
   async handler(ctx, input) {
     const playbooks = await playbooksInUse(ctx, input.platform);
-    // Each day the next in turn, by the day's number.
-    const day = dayNumber();
+    // Each day the next in turn, by the day's number; a search again later in the day the next after (decision 126).
+    const day = dayNumber() + input.round;
     return {
       words: postSearchWords(playbooks, input.platform, day),
       // Where its runner looks at hashtags (Instagram's).

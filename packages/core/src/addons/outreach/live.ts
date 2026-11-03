@@ -24,6 +24,7 @@ import { fmtDateShort, fmtTime } from '../../calendar/when';
 import {
   nextInHours,
   SENDING_MODE_KEYS,
+  workHours,
   workWindow,
   WorkingHours,
   type SendingMode,
@@ -253,6 +254,11 @@ export const LiveBeatOutput = z.object({
   stepsKept: z.array(z.uuid()),
   /** Asks from HandsFreeOS waiting for this computer (./asks.ts): 0 when it isn't the one that works. */
   asks: z.number().int().min(0),
+  /**
+   * A ticker of the person's is on screen (./tallies.ts, decision 140): while it is, the working computer sends its
+   * line every few seconds (`WATCHED_LINE_SECONDS`). False from a HandsFreeOS before it.
+   */
+  watched: z.boolean().default(false),
 });
 export type LiveBeatOutput = z.output<typeof LiveBeatOutput>;
 
@@ -485,10 +491,11 @@ export function ownDayWords(input: {
   const { day, hours, timezone, now } = input;
   if (day.state !== 'none' || input.sending === 'off' || !hours) return '';
   if (!runsOnItsOwn(input.platform ?? 'facebook')) return '';
-  const next = nextInHours(hours, timezone || 'UTC', now);
+  // Every day while they keep working on other days (decision 139).
+  const next = nextInHours(workHours(hours), timezone || 'UTC', now);
   if (next === null) return '';
   if (next > now) return `Starts on its own ${startWords(next, timezone, now)}.`;
-  const window = workWindow(hours, timezone || 'UTC', now);
+  const window = workWindow(workHours(hours), timezone || 'UTC', now);
   return window ? `Going on its own until ${clockWords(window.to, timezone)}.` : '';
 }
 
@@ -501,7 +508,7 @@ export function dayGoing(input: Parameters<typeof ownDayWords>[0]): boolean {
   if (input.day.state === 'started') return true;
   if (input.day.state !== 'none' || input.sending === 'off' || !input.hours) return false;
   if (!runsOnItsOwn(input.platform ?? 'facebook')) return false;
-  const next = nextInHours(input.hours, input.timezone || 'UTC', input.now);
+  const next = nextInHours(workHours(input.hours), input.timezone || 'UTC', input.now);
   return next !== null && next <= input.now;
 }
 

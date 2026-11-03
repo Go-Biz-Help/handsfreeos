@@ -690,7 +690,8 @@ export const invoiceOverdueJob: JobHandler = async (ctx) => {
   if (Number(invoice.balance_cents) <= 0) return;
   // Never while a payment is on its way: the command agrees, and this saves the call.
   if (invoice.settling) return { rescheduleAt: new Date(ctx.now + SETTLING_WAIT_MS) };
-  const markAt = overdueFrom(invoice.due_on, timeZone) + graceDays * DAY;
+  // Whole days where the business is, as the job was armed: a day the clocks change is 23 or 25 hours long.
+  const markAt = overdueFrom(addLocalDays(invoice.due_on, graceDays), timeZone);
   if (markAt > ctx.now + 250) return { rescheduleAt: new Date(markAt) };
 
   const { output } = await executeCommand(

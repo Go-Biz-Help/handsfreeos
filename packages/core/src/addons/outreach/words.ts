@@ -153,6 +153,13 @@ export const OUTREACH_WORDS = {
   openOnFacebook: 'Open on Facebook',
   leaveIt: 'Leave it',
   left: (name: string) => `Left. ${name} is off this list until they ask again.`,
+  /** Confirm and Delete on a request to decide (decision 136): the extension does it. */
+  confirmRequest: 'Confirm',
+  deleteRequest: 'Delete',
+  confirming: (name: string) =>
+    `Confirming. Your computer confirms ${name}’s request as it works through your day.`,
+  deleting: (name: string) =>
+    `Deleting. Your computer deletes ${name}’s request with its once-a-day jobs.`,
   asked: (when: string, mutual: number | null) =>
     `Asked ${when}${mutual ? ` · ${mutual.toLocaleString('en-US')} mutual` : ''}`,
   hearTitle: 'How you hear of it',
@@ -272,11 +279,7 @@ export const OUTREACH_WORDS = {
   sentWaiting: 'I’d send this. Change it if you like; your changes teach the AI.',
   sentOkd: 'OK’d: the extension sends it soon.',
 
-  // ---- The page's tabs (decision 59) ----
-  /** The line under the page's title. */
-  pageAbout:
-    'Finds people who fit on your networks, connects with them and starts real chats for you.',
-  /** The four tabs and the gear, in order. */
+  // ---- Names a screen says in passing: a link to Settings, Results' heading (the pages are ./pages.ts) ----
   tabs: {
     today: 'Today',
     people: 'People',
@@ -284,12 +287,10 @@ export const OUTREACH_WORDS = {
     results: 'Results',
     settings: 'Settings',
   },
-  tabDetails: {
-    today: 'What needs you, and your list',
-    people: 'Everyone you reached, your friends, chats and partners',
-    groups: 'Groups to work, and why',
-    results: 'Friends made, chats and demos booked',
-    settings: 'Your settings, playbooks and computer',
+  /** Find people's two parts (decision 128): every way's card, and the groups' own list. */
+  findParts: {
+    ways: 'Every way',
+    groups: 'Groups',
   },
   /** People's lists. */
   peopleParts: {
@@ -332,14 +333,26 @@ export const OUTREACH_WORDS = {
   settingsParts: {
     playbooks: 'Playbooks',
     computer: 'Your computer',
+    team: 'Team',
     fresh: 'Start fresh',
   },
   needsYou: NEEDS_YOU,
   /** Nothing waits: said in a line on Today. */
   needsYouNone: 'Nothing needs you right now.',
   doneToday: 'Done today',
-  seeAllToday: 'See everything it did today',
-  computerDetails: 'Details',
+  /** Under Done today: its feed is every network's (decision 127). */
+  doneTodayAbout: 'On every network, newest first.',
+  /** Done today shows its first steps, then the rest in place. */
+  doneTodayMore: (n: number) => `Show ${things(n, 'more step', 'more steps')}`,
+  /** A post cut short above a comment, on Today and Waiting for you: More shows the whole post, Less folds it (decision 141). */
+  postMore: 'More',
+  postLess: 'Less',
+  /** Today's one card for what to know: warnings, holds and notes, each a line (decision 127). */
+  headsUp: 'Heads up',
+  /** Today's line to Needs you, which has its own page (decision 127). */
+  needsYouCount: (n: number) =>
+    n === 1 ? '1 thing needs you.' : `${n.toLocaleString('en-US')} things need you.`,
+  openNeedsYou: 'Open Needs you',
   /** Today's fold-out, in place of the notes that sat beside each tab. */
   howItWorks: 'How Social Outreach works',
   howItWorksSteps: [
@@ -358,6 +371,8 @@ export const OUTREACH_WORDS = {
   ] as const,
   /** The Results tab: from reached to booked. */
   results: {
+    /** The phone's link to Results on the web, with the whole team's and the old Activity's tables. */
+    onWeb: 'More on the web',
     headline: (demos: number) => things(demos, 'demo booked', 'demos booked'),
     from: (people: number) => `from ${things(people, 'person reached', 'people reached')}`,
     funnel: {
@@ -375,7 +390,34 @@ export const OUTREACH_WORDS = {
   person: {
     menu: (name: string) => `More for ${name}`,
     /** What pressing the name does, for a screen reader (the name itself is the button's label). */
-    nameHint: 'Opens their page, Contacts, Client, Don’t pitch and more',
+    nameHint: 'Opens everything about them: their page, Contacts, Client, Don’t pitch and more',
+    /**
+     * The person panel (decision 128): their name opens it, with the menu's actions at its top, then why they fit,
+     * the chat so far, where they were found and every step.
+     */
+    panel: {
+      about: 'Everything about them, and what you can do.',
+      whyFit: 'Why they fit',
+      intro: 'Their page says',
+      mutual: (count: number) => (count === 1 ? '1 mutual friend' : `${count} mutual friends`),
+      nextStep: 'Next step',
+      theChat: 'The chat so far',
+      noChat: 'No chat read yet.',
+      foundIn: 'Found in',
+      everyStep: 'Every step',
+      noSteps: 'No steps yet.',
+      moreSteps: (count: number) =>
+        count === 1 ? '1 earlier step not shown' : `${count} earlier steps not shown`,
+      /** Who wrote last in the chat, and when ("3 h ago"). */
+      lastFrom: (fromMe: boolean, ago: string) =>
+        `${fromMe ? 'You wrote last' : 'They wrote last'}, ${ago}`,
+      /** The group a step came from. */
+      fromGroup: (name: string | null) => `from ${name ?? 'a group'}`,
+      aGroup: 'a group',
+      showAll: (count: number) => `Show all ${count.toLocaleString('en-US')} steps`,
+      showLatest: 'Show the latest only',
+      close: 'Close',
+    },
     /** While the menu asks where they stand (`outreach.profile.marks`). */
     loading: 'Checking where they stand…',
     /** The People tab's moves to another stage, in the menu after opening their page. */
@@ -422,6 +464,15 @@ export const OUTREACH_WORDS = {
       }`,
     demoBooked: 'Demo booked',
     notDemo: 'Not a demo after all',
+    /** Potential partner (decision 130, `outreach.partner.potential`): onto the person's Partners list, and back off. */
+    potentialPartner: 'Potential partner',
+    notPartner: 'Not a partner after all',
+    /** Why the AI's check thinks they look more like a partner, over the button. */
+    partnerHint: (why: string) => `Looks more like a partner: ${why}`,
+    potentialDone: (name: string) =>
+      `${name} is on your Partners list now. They get partner messages from here: a like first, then the ask a day later, each waiting for your OK.`,
+    potentialOff: (name: string) =>
+      `${name} is off your Partners list, and back on customer messages where they were.`,
     /** Later (decision 100): off the person's own Today for 2 weeks (`LATER_DAYS`), then back. */
     later: 'Later: back in 2 weeks',
     notLater: (until: string) => `Take off Later (back ${laterDay(until)})`,
@@ -441,9 +492,49 @@ export const OUTREACH_WORDS = {
      * their page and where they stand can't be asked (`personMenuOfflineWords` in ./person-menu.ts picks).
      */
     needsSignal: (opens: 'page' | 'chat' | null) =>
-      `Contacts, Client, Demo booked, Later, Don’t pitch and Never contact need signal. ${
+      `Contacts, Client, Demo booked, Potential partner, Later, Don’t pitch and Never contact need signal. ${
         opens ? `Opening their ${opens} works now.` : 'Try again when you’re back online.'
       }`,
+    /**
+     * What each item in the person menu does, in a sentence or two: shown when the pointer rests on it on the web
+     * (`HINT_DELAY_MS`), and when it's held on the phone. Who reached them first, and giving them to a teammate, are
+     * `OWNER_WORDS.giveHint`'s.
+     */
+    hints: {
+      openPage: 'Opens their own page, to look them over or do something there yourself.',
+      openChat: 'Opens your chat with them, to read it or write to them yourself.',
+      inContacts: 'Opens them in Contacts.',
+      addToContacts:
+        'Saves them as a customer in Contacts. If someone there has the same name, you pick whether it’s them first.',
+      markClient:
+        'Tags them Client in Contacts. Nobody here sends them outreach again, and their replies still come to you.',
+      notClient:
+        'Takes the Client tag off, so they can get outreach again. Messages skipped when you marked them stay skipped.',
+      demoBooked:
+        'For a demo they booked some other way than your demo link. It counts toward which first messages work.',
+      notDemo: 'Takes back the demo you marked.',
+      potentialPartner:
+        'Puts them on your Partners list. They get partner messages instead: a like first, then the ask a day later, each waiting for your OK.',
+      notPartner: 'Takes them off your Partners list, and back to customer messages.',
+      later:
+        'Takes them off your Today for 2 weeks, then they’re back on their own. Your messages to them waiting for an OK are skipped, and their replies still come.',
+      notLater: 'Puts them back on your Today now.',
+      dontPitch:
+        'Stops outreach to them from anyone here: first messages, pitches and follow-ups. Replies to them still go.',
+      notDontPitch: 'They can get outreach again.',
+      neverContact:
+        'Stops everything from anyone here: no messages, likes, comments or friend requests, not even replies.',
+      notNeverContact: 'They can be reached again.',
+      /** The Pipeline's moves, by `StageMark`. */
+      moves: {
+        ready: 'Today offers them a pitch next, with your demo link in the drafts.',
+        pitched: 'Notes that you’ve already offered them a demo.',
+        lost: 'Ends outreach to them for good. Their replies still come, and Back in play undoes it.',
+        open: 'Clears your mark, so their stage goes back to what their chat says.',
+      } as Readonly<Record<string, string>>,
+    },
+    /** Under the phone's person menu: holding an item shows its explainer, as the pointer resting on it does on the web. */
+    holdForHint: 'Press and hold a button to see what it does.',
     /** Under a chat's own Don't pitch and Never contact switches with no signal. */
     switchesNeedSignal:
       'Don’t pitch and Never contact need signal. Try again when you’re back online.',
@@ -483,6 +574,9 @@ export const OUTREACH_WORDS = {
   // ---- Groups and chats ----
   search: 'Search by name',
   more: 'Show more',
+  /** A friend's Keep switch: never suggested for unfriending. */
+  friendKeep: 'Keep: never suggest unfriending them',
+  friendKeepLabel: (name: string) => `Keep ${name}: never suggest unfriending them`,
   /** The Groups tab with none to show, by which groups. */
   groupsEmpty: {
     work: {
@@ -602,24 +696,28 @@ export const OUTREACH_WORDS = {
     avoid: 'Words to avoid',
     disclaimer: 'Disclaimer',
     tags: 'Tags',
-    // Each network's own words on a customers' playbook (data version 8, decision 92), shown while it runs there.
+    // Each network's own words on a customers' playbook (data versions 8 and 9, decisions 92 and 141), shown while it
+    // runs there.
+    facebookSearches: 'Words to search Facebook’s posts with',
     hashtags: 'Hashtags on Instagram',
     postSearches: 'Words to search LinkedIn’s posts with',
     businessKinds: 'Kinds of business to search for on Alignable',
     worksOnline: 'Clients online',
   },
   /**
-   * Each network's own words on a customers' playbook (decision 92): written by the AI once, from who it's for and
-   * their problem, while the list is empty, and the person's to change. An emptied list means that network looks at
-   * nothing for it. Which one shows under a list is `findWordsHint`'s.
+   * Each network's own words on a customers' playbook (decisions 92 and 141): written by the AI once, around the
+   * playbook's topic (the problem it solves and running that kind of business), while the list is empty, and the
+   * person's to change. An emptied list means that network looks at nothing for it. Which one shows under a list is
+   * `findWordsHint`'s.
    */
   findWords: {
     written: (perDay: number) =>
-      `The AI wrote these from who it’s for and their problem. Change any; it looks at ${perDay} a day, in turn.`,
+      `The AI wrote these around your topic: the problem you solve and running that kind of business. Change any; it looks at ${perDay} a day, in turn.`,
     notYet:
-      'While this list is empty, the AI writes it once from who it’s for and their problem. Any words you add are used instead.',
+      'While this list is empty, the AI writes it once around your topic: the problem you solve and running that kind of business. Any words you add are used instead.',
     own: 'These are your own words, so the AI won’t add to them. Empty the list and it writes its own.',
     none: {
+      facebook: 'Facebook won’t search posts for this playbook.',
       instagram: 'Instagram won’t look at hashtags for this playbook.',
       linkedin: 'LinkedIn won’t search posts for this playbook.',
       alignable: 'Alignable won’t search for businesses for this playbook.',
@@ -721,10 +819,6 @@ export const OUTREACH_WORDS = {
       'Once a day, first: check friend requests, save group members, find posts and read my chats',
       'These fill the list it works from. It checks your friends and groups for good fits too.',
     ],
-    joinGroups: [
-      'Join good groups when my groups run low',
-      'When your groups have less than a week of people left to reach, it finds groups with your playbook’s words and asks to join up to 3 good ones a day, answering their questions from your playbook.',
-    ],
     watchPosts: [
       'Look for new posts asking for what I offer, every hour or two',
       'In your working hours, it looks at the newest posts in your best groups. When one asks for what you offer, your phone hears at once and it goes to the top of your list.',
@@ -765,6 +859,14 @@ export const OUTREACH_WORDS = {
     `Your business doesn’t allow: ${choices.join('; ')}. An owner or admin can change that in Settings → General.`,
   from: 'From',
   to: 'to',
+  /** Under the working hours (decision 139). */
+  everyDay: [
+    'Keep working on other days',
+    'Likes, friend requests, comments and replies go every day in these hours. New messages (first messages, follow-ups, Reconnect and partner asks) go only on the days ticked here.',
+  ] as const,
+  /** On Today, on a day that isn't one of theirs while it keeps working (decision 139). */
+  newMessagesWait:
+    'Not one of your working days: likes, friend requests, comments and replies go on today, and new messages wait for your next working day.',
   usual: 'The usual choice.',
   weeks: (n: number) => (n === 1 ? '1 week' : `${n} weeks`),
   aDay: (n: number) => `${n.toLocaleString()} a day`,

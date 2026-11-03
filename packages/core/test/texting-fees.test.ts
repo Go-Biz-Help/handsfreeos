@@ -125,6 +125,8 @@ describe('what a registration costs', () => {
     expect(keys(textingFeeLines({ ...paid, monthlyVolume: 'over_100000' }))).toEqual([
       'secondary_vetting',
     ]);
+    // HandsFreeOS's own business pays nothing, whatever it sends.
+    expect(textingFeeLines({ ...nothing, ours: true, monthlyVolume: 'over_100000' })).toEqual([]);
   });
 
   it('writes the fee with the registration, shows it to managers only, and nothing for toll-free', async () => {
@@ -175,6 +177,36 @@ describe('what a registration costs', () => {
       owner,
     );
     expect(free.fee).toBeNull();
+  });
+
+  it('charges HandsFreeOS’s own business nothing, and puts aside a fee it was given before', async () => {
+    const wsId = await freshBusiness('Fees Ours Co');
+    // Sent before it was marked ours: it owes the fee like anyone.
+    const before = await run(
+      registrationSubmit,
+      { workspaceId: wsId, kind: 'a2p_10dlc', business },
+      owner,
+    );
+    expect(before.fee).toMatchObject({ amountCents: 1_950 });
+    await rows(admin(), sql`update app.workspaces set is_platform = true where id = ${wsId}`);
+    try {
+      const status = (await ask(phoneSetupStatus, { workspaceId: wsId }, owner)).textingFees;
+      expect(status?.paidFor.ours).toBe(true);
+      // Sent again: nothing to pay, and the old fee is put aside.
+      const again = await run(
+        registrationSubmit,
+        { workspaceId: wsId, kind: 'a2p_10dlc', business },
+        owner,
+      );
+      expect(again.fee).toBeNull();
+      const all = await admin().select().from(textingFees).where(eq(textingFees.workspaceId, wsId));
+      expect(all.map((f) => f.status)).toEqual(['cancelled']);
+      expect(
+        (await ask(phoneSetupStatus, { workspaceId: wsId }, owner)).textingFees?.due,
+      ).toBeNull();
+    } finally {
+      await rows(admin(), sql`update app.workspaces set is_platform = false where id = ${wsId}`);
+    }
   });
 
   it('keeps what Stripe says the worker’s: a person can only put an unpaid fee aside', async () => {

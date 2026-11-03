@@ -1,6 +1,8 @@
 import { linkRefOf } from '@hfos/core';
 import type { Metadata } from 'next';
 import { PublicFrame } from '@/components/booking/public-shell';
+import { EmbedHeight } from '@/components/forms/embed-height';
+import { FormLookFrame } from '@/components/forms/form-look';
 import { PublicForm } from '@/components/forms/public-form';
 import { formPageData, getPublicForm, personalSheet, resumeSheet } from '@/lib/api/public-forms';
 
@@ -74,11 +76,39 @@ export default async function PublicFormPage({
       linkRef={linkRefOf(ref)}
     />
   );
-  // Embedded on the business's own site: no frame of ours around it, and no padding fighting theirs.
-  if (embed === '1') return <div className="p-1">{form}</div>;
+  const look = page.business.look ?? null;
+  const embedded = embed === '1';
+  const designed = (
+    <FormLookFrame
+      design={page.definition.design}
+      businessColor={look?.color ?? null}
+      logo={look?.logo ?? null}
+      embedded={embedded}
+      className="mx-auto w-full max-w-[var(--form-max-width,672px)]"
+    >
+      {form}
+    </FormLookFrame>
+  );
+  // Embedded on the business's own site: no frame of ours around it, no padding fighting theirs, and no background
+  // of the page's own, so a form without one sits on the site's. A page in another colour scheme than the site it's
+  // on gets a solid backdrop from the browser, so it's always light here; the form's own colours come from its design.
+  if (embedded)
+    return (
+      <>
+        <style>{'html,body{background:transparent!important;color-scheme:light!important}'}</style>
+        <EmbedHeight>{designed}</EmbedHeight>
+      </>
+    );
   return (
-    <PublicFrame business={{ name: page.business.name, phone: null, phoneDisplay: null }}>
-      <div className="mx-auto w-full max-w-2xl px-4 py-8 sm:py-12">{form}</div>
+    <PublicFrame
+      business={{
+        name: page.business.name,
+        phone: null,
+        phoneDisplay: null,
+        look: look ?? undefined,
+      }}
+    >
+      <div className="w-full px-4 py-8 sm:py-12">{designed}</div>
     </PublicFrame>
   );
 }

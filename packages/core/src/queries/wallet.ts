@@ -47,7 +47,7 @@ const inWorkspace = (i: { workspaceId: string }) => ({
 });
 
 /** The live card, or core's seeded one where a row is missing: never nothing, which would price at zero. */
-async function liveCard(ctx: QueryContext): Promise<RateCard> {
+export async function liveRateCard(ctx: Pick<QueryContext, 'tx'>): Promise<RateCard> {
   const list = await rows<{
     key: string;
     unit: string;
@@ -291,7 +291,7 @@ export const usagePrices = defineQuery({
   permission: 'money.read',
   scope: inWorkspace,
   async handler(ctx) {
-    const card = await liveCard(ctx);
+    const card = await liveRateCard(ctx);
     /**
      * Not every key: the four AI token buckets mean nothing to a business, and a page listing "cache write,
      * $3.75 per million tokens" is a page nobody reads. AI is shown as what it buys — a reply — which is what
@@ -340,6 +340,8 @@ export const usagePrices = defineQuery({
         say('voice.inbound.tollfree.minute', 'A minute on a toll-free number', 'a minute'),
         say('number.local.month', 'A phone number', 'a month'),
         say('number.tollfree.month', 'A toll-free number', 'a month'),
+        say('lookup.line_type', 'Checking what kind of line a number is', 'each'),
+        say('lookup.caller_name', 'Checking who a landline belongs to', 'each'),
         { key: null, what: 'An AI reply', unit: 'about', cents: Math.max(1, aiReply) },
         {
           key: null,

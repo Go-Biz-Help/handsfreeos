@@ -274,6 +274,27 @@ describe('the list for today', () => {
     await runAs(owner, ws, 'outreach.demo.mark', { profileId: first.profileId, booked: true });
     expect(await again()).toMatchObject({ demoBooked: true });
   });
+
+  it('gives the number Facebook knows someone by once it’s kept, for the extension to find their chats by', async () => {
+    // Kept by username: no number yet. A message the extension noted with their number keeps it (the owner's report of
+    // 30 Oct 2026), which stays theirs when their name or username changes.
+    const first = (await list()).items.find(
+      (i: { kind: string; profileId: string | null; profileUrl: string | null }) =>
+        i.kind !== 'friend_request' &&
+        i.profileId &&
+        i.profileUrl?.includes('/profile.php') === false,
+    );
+    expect(first).not.toHaveProperty('platformId');
+    await rows(
+      admin(),
+      sql`update addon_outreach.profiles set platform_id = '100009000009931'
+          where id = ${first.profileId} and platform_id is null`,
+    );
+    const again = (await list()).items.find(
+      (i: { profileId: string | null }) => i.profileId === first.profileId,
+    );
+    expect(again).toMatchObject({ platformId: '100009000009931' });
+  });
 });
 
 /**

@@ -25,6 +25,7 @@ import {
   scoringProblems,
   withSafeResultLinks,
   type Question,
+  type FormMode,
 } from './definition';
 import { newPageId, newResultId } from './ids';
 import { customTargetFieldId, isCustomTarget, type QuestionType } from './questions';
@@ -32,10 +33,7 @@ import { customTargetFieldId, isCustomTarget, type QuestionType } from './questi
 // ---- A form to start from ----
 
 /** A new, empty form: one page, one thank-you screen, nothing asked yet. */
-export function blankForm(
-  title: string,
-  mode: 'form' | 'survey' | 'quiz' = 'form',
-): FormDefinition {
+export function blankForm(title: string, mode: FormMode = 'form'): FormDefinition {
   return FormDefinition.parse({
     mode,
     title,
@@ -309,6 +307,23 @@ export async function formIssues(
       issues.push({
         message: `“${question.title}” needs to say which of “${calendar.name}”’s services it books.`,
         ...at,
+      });
+  }
+
+  // A live poll's slides: a PDF uploaded for one of the business's polls (a copied poll keeps its original's).
+  const slides = definition.mode === 'poll' ? definition.slides : null;
+  if (slides) {
+    const [file] = await rows<{ status: string }>(
+      tx,
+      sql`select status::text as status from app.files
+          where id = ${slides.fileId} and workspace_id = ${workspaceId} and record_type = 'form'
+            and deleted_at is null`,
+    );
+    if (!file)
+      issues.push({ message: `The slides “${slides.name}” aren’t there anymore. Add them again.` });
+    else if (file.status !== 'ready')
+      issues.push({
+        message: `The slides “${slides.name}” didn’t finish uploading. Add them again.`,
       });
   }
 

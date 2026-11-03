@@ -1,5 +1,14 @@
 'use client';
-import { CalendarDays, ChevronLeft, ChevronRight, Globe, Plus, Truck, Users } from 'lucide-react';
+import {
+  CalendarDays,
+  ChevronLeft,
+  ChevronRight,
+  Globe,
+  Plus,
+  Truck,
+  Users,
+  Video,
+} from 'lucide-react';
 import { ZoneChip } from '@/components/settings/my-calendar';
 import { Avatar } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
@@ -209,6 +218,7 @@ export function Agenda({
   onMine,
   onOpen,
   onNew,
+  onWebinar,
 }: {
   view: AgendaView;
   timeZone: string;
@@ -231,6 +241,8 @@ export function Agenda({
   onMine: (mine: boolean) => void;
   onOpen: (appt: Appointment) => void;
   onNew: () => void;
+  /** New webinar, when the business has HandsFreeOS video calls and the person may schedule. */
+  onWebinar?: () => void;
 }) {
   // The day, its busy rows and the "now" line are core's (`agendaRows`), so the phone app builds the same list from
   // its own copy. The appointments themselves stay the API's, and the row it names is looked up by id.
@@ -314,7 +326,21 @@ export function Agenda({
               <ChevronRight className="h-[18px] w-[18px]" strokeWidth={1.5} />
             </button>
           </div>
-          <ZoneChip timeZone={timeZone} />
+          <div className="flex flex-none items-center gap-1.5">
+            {onWebinar ? (
+              <button
+                type="button"
+                aria-label="New webinar"
+                title="New webinar"
+                onClick={onWebinar}
+                data-testid="agenda-new-webinar"
+                className="flex h-8 w-8 items-center justify-center rounded-control text-text-2"
+              >
+                <Video className="h-[18px] w-[18px]" strokeWidth={1.5} />
+              </button>
+            ) : null}
+            <ZoneChip timeZone={timeZone} />
+          </div>
         </div>
 
         <div className="flex items-center gap-2">

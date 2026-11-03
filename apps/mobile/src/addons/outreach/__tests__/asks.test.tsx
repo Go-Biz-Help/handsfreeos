@@ -95,6 +95,7 @@ const GROUP: GroupsOutput['groups'][number] = {
   people: 0,
   runsGroup: 0,
   adminsRead: false,
+  membersDepth: 0,
   requests: 0,
   replies: 0,
   demos: 0,

@@ -74,6 +74,8 @@ describe('the automations catalog', () => {
       'job_unconfirmed',
       // An add-on's alerts are switched in the add-on's own settings.
       'addon_alert',
+      // Someone hot after a webinar is switched on each live poll: What happens to hot ones.
+      'webinar_hot',
     ];
     const bound = AUTOMATIONS.flatMap((a) =>
       a.binding.store === 'attention_kind' ? [...a.binding.kinds] : [],

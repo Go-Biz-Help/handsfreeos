@@ -9,7 +9,9 @@ import { z } from 'zod';
 import { AskShown } from './asks';
 import { clipLine } from './live';
 import { PUSH_MODE_KEYS, WheelsState, WorkingHours } from './automation';
+import { REQUEST_ANSWER_KEYS } from './checks';
 import { FIT_LEVEL_KEYS } from './fit';
+import { FRIEND_ANSWER_KEYS } from './limits';
 import { PLATFORM_KEYS } from './networks';
 import { Send } from './sends';
 import {
@@ -56,6 +58,11 @@ export const WaitingNeed = z.object({
   threadKey: z.string().nullable(),
   /** The last time it couldn't. */
   seenAt: z.iso.datetime(),
+  /**
+   * The problem report the extension sent with it (decision 142): HandsFreeOS staff open it from the card. Null for
+   * one from before, or a message that didn't go. Reports go after 30 days, so it may be gone.
+   */
+  reportId: z.uuid().nullable(),
 });
 export type WaitingNeed = z.output<typeof WaitingNeed>;
 
@@ -74,6 +81,8 @@ export const WaitingRequest = z.object({
   /** When they asked. */
   since: z.iso.datetime(),
   mutualFriends: z.number().int().nullable(),
+  /** What the AI says to do with it (decision 136), once it's read them: Confirm or Delete stands out for it. */
+  said: z.enum(REQUEST_ANSWER_KEYS).nullable().default(null),
 });
 export type WaitingRequest = z.output<typeof WaitingRequest>;
 
@@ -128,6 +137,8 @@ export const NeedNoteInput = z.object({
     .trim()
     .min(1)
     .transform((w) => clipLine(w)),
+  /** The problem report it sent of the page (decision 142), for HandsFreeOS staff to open from Needs you. */
+  reportId: z.uuid().nullable().default(null),
 });
 export type NeedNoteInput = z.input<typeof NeedNoteInput>;
 export const NeedNoteOutput = z.object({
@@ -152,7 +163,47 @@ export const NeedClearOutput = z.object({
   state: z.enum(NEED_STATES),
 });
 
+/** The most steps Retry all tries again at once: every one Steps it needs you for lists, and more. */
+export const NEED_RETRY_MOST = 100;
+
+/**
+ * Retry, or Retry all, on steps handed to the person (decisions 132 and 145), from the web, the phone, the Assistant,
+ * and the extension on its own after an update: the steps by their ids, or with none named every one that can be.
+ */
+export const NeedRetryInput = z.object({
+  workspaceId: z.uuid(),
+  needIds: z.array(z.uuid()).min(1).max(NEED_RETRY_MOST).nullable().default(null),
+  /**
+   * Whether messages and comments that didn't go are tried again too. False for the extension's own Retry all after an
+   * update (decision 145): one that went after all would go twice, so those wait for the person's press.
+   */
+  sends: z.boolean().default(true),
+});
+export type NeedRetryInput = z.input<typeof NeedRetryInput>;
+export const NeedRetryOutput = z.object({
+  /**
+   * Each tried again: its step, and when it may go at the soonest (a message or comment that didn't go, a few minutes
+   * apart), or when it went back on Today's list (any other step).
+   */
+  retried: z.array(z.object({ needId: z.uuid(), at: z.iso.datetime() })),
+  /** Those that couldn't be: done since, a newer message to them waits already, or a step with nothing to go on. */
+  passed: z.number().int().min(0),
+});
+export type NeedRetryOutput = z.output<typeof NeedRetryOutput>;
+
 /** The person set a friend request aside: off Waiting for you until they ask again. */
 export const RequestSetAsideInput = z.object({ workspaceId: z.uuid(), profileId: z.uuid() });
 export type RequestSetAsideInput = z.input<typeof RequestSetAsideInput>;
 export const RequestSetAsideOutput = z.object({ profileId: z.uuid() });
+
+/** The person's Confirm or Delete on a friend request they got (decision 136): the extension does it. */
+export const RequestAnswerInput = z.object({
+  workspaceId: z.uuid(),
+  profileId: z.uuid(),
+  answer: z.enum(FRIEND_ANSWER_KEYS),
+});
+export type RequestAnswerInput = z.input<typeof RequestAnswerInput>;
+export const RequestAnswerOutput = z.object({
+  profileId: z.uuid(),
+  answer: z.enum(FRIEND_ANSWER_KEYS),
+});

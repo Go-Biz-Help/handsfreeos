@@ -17,6 +17,7 @@
 import { z } from 'zod';
 import { clipLine, isOffline, offlineWords } from './live';
 import { JOINS_PER_DAY } from './group-checks';
+import { UNANSWERED_MOST } from './knows';
 import { DraftOpener } from './openers';
 import { DRAFT_KINDS } from './today';
 import { appVersionAtLeast } from '../../mobile';
@@ -469,10 +470,14 @@ export const ASK_KINDS_FOR = {
     'cancel',
     'unfriend',
     'research',
+    // People's Run now (decision 129, `run-now.ts`), on each of its views.
+    'chats',
   ],
-  pipeline: ['research'],
+  pipeline: ['research', 'requests', 'friends', 'checks', 'chats'],
   groups: ['groups', 'group_search', 'members', 'posts', 'group_checks', 'join'],
-  chats: ['chats'],
+  chats: ['chats', 'requests', 'friends', 'checks'],
+  /** People's other views (Partners, Skipped for country): its Run now's. */
+  people: ['requests', 'friends', 'checks', 'chats'],
   today: ['lookup', 'members', 'post', 'profile_read', 'profile_edit', 'username_check'],
   settings: ['checkup', 'profile_read', 'profile_edit', 'username_check'],
 } as const satisfies Record<string, readonly AskKind[]>;
@@ -818,6 +823,11 @@ export const AskResult = z.object({
   kind: z.enum(DRAFT_KINDS).nullable().default(null),
   opener: DraftOpener.nullable().default(null),
   simple: z.boolean().default(false),
+  /**
+   * For a reply: what they asked that the business's Knowledge doesn't answer (decision 122,
+   * `TodayDraftOutput.unanswered`), said under the drafts. Null from extensions before 0.111.0.
+   */
+  unanswered: z.string().max(UNANSWERED_MOST).nullable().default(null),
   lookedUp: z.boolean().default(false),
   /** Research with the day's checks used up: the person goes first in tomorrow's checks. */
   queued: z.boolean().default(false),

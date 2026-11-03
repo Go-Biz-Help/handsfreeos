@@ -988,6 +988,8 @@ describe('parity with core', () => {
       'texting_rejected',
       // Real Estate step 5: every add-on's alerts.
       'addon_alert',
+      // Webinars part 5: someone hot after a call with a live poll.
+      'webinar_hot',
     ]);
     await worker(A)((tx) =>
       tx.execute(

@@ -1,8 +1,9 @@
 'use client';
 /**
- * Needs you, at the top of Social Outreach's Today (docs/outreach.md, decisions 40, 42, 59 and 72). The extension only
- * counts it, on its icon and in a line in its panel, which links here at `#needs-you` as its pop-ups do, so the
- * heading keeps that id. Everything waiting for the person, in one list (packages/core/src/addons/outreach/waiting.ts):
+ * Needs you, Social Outreach's first page (docs/outreach.md, decisions 40, 42, 59, 72 and 127). The extension only
+ * counts it, on its icon and in a line in its panel, which links to Today's `#needs-you` as its pop-ups do: Today
+ * sends that here, and the list keeps the id. Everything waiting for the person, in one list
+ * (packages/core/src/addons/outreach/waiting.ts):
  *
  * - **Your computer needs you**: something asked of it from here hit a step it couldn't find, or Facebook wants a
  *   password typed (./asks.tsx), with **Carry on**, **Skip** and **Stop**;
@@ -14,8 +15,11 @@
  *   person under their own hold, it says how long that lasts;
  * - **Steps it needs you for**: a step the extension couldn't do, in its network's words, to do there (**I did it**)
  *   or **Let it go**; **Open** goes to their page on that network (or the post, or the chat), and a message that
- *   didn't go has its words to copy;
- * - **Friend requests to decide**: requests from the last two weeks that didn't fit a playbook, with why, and
+ *   didn't go has its words to copy. Every step that can be tried again has **Retry** (decisions 132 and 145), with
+ *   **Retry all** over two or more: a message goes again a few minutes after the one before, and any other step goes
+ *   back on Today's list for the extension's next go;
+ * - **Friend requests to decide**: requests from the last two weeks the AI isn't sure of (decision 136), or that didn't
+ *   fit a playbook, with why, and **Confirm** and **Delete** (the extension does it; what the AI says stands out) beside
  *   **Leave it**.
  *
  * Each person's name opens their person menu (./person-menu.tsx, decision 91): their page first, then Contacts, Mark
@@ -32,7 +36,7 @@ import {
   openChatWords,
   openPageWords,
 } from '@hfos/core/addons/outreach/network-words';
-import { networkOfLink } from '@hfos/core/addons/outreach/networks';
+import { answersRequests, networkOfLink } from '@hfos/core/addons/outreach/networks';
 import { COMMENT_HOLD_WORDS } from '@hfos/core/addons/outreach/sends';
 import {
   approveAllCount,
@@ -45,10 +49,15 @@ import {
   moreWords,
   needClearedWords,
   needPageOf,
+  needReportHref,
+  NEED_REPORT_WORDS,
+  needRetryable,
   needTitleAround,
   needWhyWords,
   NEED_CLEARS,
+  NEED_RETRY,
   postTitleAround,
+  retriedWords,
   WAITING_KIND_KEYS,
   WAITING_KINDS,
   waitingWords,
@@ -56,9 +65,10 @@ import {
   type WaitingKind,
 } from '@hfos/core/addons/outreach/waiting-words';
 import { OUTREACH_WORDS as W } from '@hfos/core/addons/outreach/words';
-import { Check, CheckCheck, Copy, ExternalLink, X } from 'lucide-react';
+import { Check, CheckCheck, Copy, ExternalLink, RotateCcw, Trash2, X } from 'lucide-react';
 import Link from 'next/link';
 import { toast } from 'sonner';
+import { useStaffCan } from '@/components/shell/workspace-shell';
 import { Badge } from '@/components/ui/badge';
 import { Button, buttonClassName } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
@@ -69,8 +79,10 @@ import { outreachHref } from './address';
 import { AskLine } from './asks';
 import { ChatSoFar } from './chat-bubbles';
 import { KeepChatButton } from './chat-keep';
+import { UnsureCountryCard } from './country-skipped';
 import { NetworkName } from './network-ui';
 import { PersonName } from './person-menu';
+import { PostQuote } from './post-quote';
 import { Drafted } from './drafted';
 import type { Waiting, WaitingItem } from './types';
 import { useAct } from './use-act';
@@ -107,25 +119,21 @@ export function NeedsYou({ workspaceId, waiting }: { workspaceId: string; waitin
     800,
   );
   return (
-    <section aria-labelledby="needs-you" className="space-y-3" data-testid="outreach-waiting">
-      <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
-        <h2 id="needs-you" className="text-lg font-semibold tracking-tight">
-          {W.needsYou}
-          {waiting.count ? (
-            <span className="font-medium text-text-3" data-testid="waiting-count">
-              {' '}
-              · {waiting.count.toLocaleString()}
-            </span>
-          ) : null}
-        </h2>
-        {waiting.count ? (
-          <span className="text-[12.5px] text-text-3">{waitingWords(waiting.count)}</span>
-        ) : null}
-      </div>
+    <section
+      id="needs-you"
+      aria-label={W.needsYou}
+      className="space-y-3"
+      data-testid="outreach-waiting"
+    >
       {waiting.count ? (
-        WAITING_KIND_KEYS.map((kind) => (
-          <Group key={kind} workspaceId={workspaceId} kind={kind} waiting={waiting} />
-        ))
+        <>
+          <p className="text-[13px] text-text-2" data-testid="waiting-count">
+            {waitingWords(waiting.count)}
+          </p>
+          {WAITING_KIND_KEYS.map((kind) => (
+            <Group key={kind} workspaceId={workspaceId} kind={kind} waiting={waiting} />
+          ))}
+        </>
       ) : (
         <p
           className="rounded-card border border-dashed border-border-strong px-4 py-3.5 text-[13px] text-text-2"
@@ -134,6 +142,8 @@ export function NeedsYou({ workspaceId, waiting }: { workspaceId: string; waitin
           {W.needsYouNone}
         </p>
       )}
+      {/* Whoever the country setting can't place waits on the person too (decision 128): it loads itself. */}
+      <UnsureCountryCard workspaceId={workspaceId} />
     </section>
   );
 }
@@ -171,6 +181,7 @@ function Group({
             comments={approveAllTakesComments(comments)}
           />
         ) : null}
+        {kind === 'need' ? <RetryAll workspaceId={workspaceId} items={items} /> : null}
       </div>
       {kind === 'message' && waiting.wheels.on ? (
         <p className="px-5 pt-1.5 text-[12.5px] text-text-2" data-testid="waiting-wheels">
@@ -282,6 +293,40 @@ function ApproveAll({
   );
 }
 
+/**
+ * Tries a step handed over again, or every one (`needIds` null): a message a few minutes after the one before, any
+ * other step back on Today's list (decision 145).
+ */
+async function retry(workspaceId: string, needIds: string[] | null): Promise<void> {
+  const { retried, passed } = unwrap(
+    await apiBrowser().POST('/v1/commands/outreach.need.retry', {
+      body: { workspaceId, needIds },
+    }),
+  );
+  const said = retriedWords(retried.length, passed);
+  if (retried.length) toast.success(said);
+  else toast.info(said);
+}
+
+/** Retry all, over two or more steps that can be tried again (decisions 132 and 145). */
+function RetryAll({ workspaceId, items }: { workspaceId: string; items: readonly WaitingItem[] }) {
+  const { busy, act } = useAct();
+  const retryable = items.filter((item) => item.kind === 'need' && needRetryable(item.need));
+  if (retryable.length < 2) return null;
+  return (
+    <Button
+      size="sm"
+      variant="ghost"
+      disabled={busy !== null}
+      onClick={() => void act('retry-all', () => retry(workspaceId, null))}
+      data-testid="waiting-retry-all"
+    >
+      <RotateCcw className="h-3.5 w-3.5" strokeWidth={1.5} />
+      {NEED_RETRY.all}
+    </Button>
+  );
+}
+
 function SendRow({ workspaceId, item }: { workspaceId: string; item: SendItem }) {
   const send = item.send;
   const platform = networkOfWaiting(item);
@@ -373,12 +418,7 @@ function CommentRow({ workspaceId, item }: { workspaceId: string; item: SendItem
         ) : null}
       </div>
       {send.post ? (
-        <blockquote
-          className="mt-1.5 whitespace-pre-wrap border-l-2 border-border pl-3 text-[13px] text-text-2"
-          data-testid="waiting-comment-post"
-        >
-          {send.post}
-        </blockquote>
+        <PostQuote post={send.post} whole={send.postWhole} testId="waiting-comment-post" />
       ) : null}
       <Drafted workspaceId={workspaceId} name={send.name} send={send} comment={platform} />
     </div>
@@ -396,6 +436,7 @@ function NeedRow({
 }) {
   const need = item.need;
   const { busy, act } = useAct();
+  const staffSees = useStaffCan('platform.health.read');
   const clear = (how: NeedClear) =>
     act(how, async () => {
       const { state } = unwrap(
@@ -437,6 +478,19 @@ function NeedRow({
       <p className="mt-1 text-[12.5px] text-text-2">
         {needWhyWords(need.why)}
         {when(need.seenAt, timeZone) ? ` · ${when(need.seenAt, timeZone)}` : ''}
+        {/* HandsFreeOS staff only: the page the extension saw, and what the AI helper found (decision 142). */}
+        {need.reportId && staffSees ? (
+          <>
+            {' · '}
+            <Link
+              href={needReportHref(need.reportId)}
+              className="font-medium text-accent-text hover:underline"
+              data-testid="waiting-need-report"
+            >
+              {NEED_REPORT_WORDS}
+            </Link>
+          </>
+        ) : null}
       </p>
       {need.text ? (
         <div className="mt-2 flex items-start gap-2">
@@ -465,6 +519,18 @@ function NeedRow({
             <ExternalLink className="h-3.5 w-3.5" strokeWidth={1.5} />
             {messenger ? openChatWords(platform) : openPageWords(platform)}
           </a>
+        ) : null}
+        {needRetryable(need) ? (
+          <Button
+            size="sm"
+            variant="secondary"
+            disabled={busy !== null}
+            onClick={() => void act('retry', () => retry(workspaceId, [need.needId]))}
+            data-testid="waiting-need-retry"
+          >
+            <RotateCcw className="h-3.5 w-3.5" strokeWidth={1.5} />
+            {NEED_RETRY.one}
+          </Button>
         ) : null}
         <Button
           size="sm"
@@ -501,6 +567,8 @@ function RequestRow({
 }) {
   const request = item.request;
   const platform = networkOfWaiting(item);
+  // Confirm and Delete where the extension answers requests (decision 136): Facebook, LinkedIn and Alignable.
+  const answers = answersRequests(platform);
   const { busy, act } = useAct();
   return (
     <div>
@@ -535,6 +603,37 @@ function RequestRow({
           <ExternalLink className="h-3.5 w-3.5" strokeWidth={1.5} />
           {openPageWords(platform)}
         </a>
+        {answers
+          ? (['confirm', 'delete'] as const).map((answer) => (
+              <Button
+                key={answer}
+                // What the AI says stands out (decision 136): the rest stay quiet.
+                variant={request.said === answer ? 'secondary' : 'ghost'}
+                size="sm"
+                disabled={busy !== null}
+                onClick={() =>
+                  void act(
+                    answer,
+                    async () =>
+                      unwrap(
+                        await apiBrowser().POST('/v1/commands/outreach.request.answer', {
+                          body: { workspaceId, profileId: request.profileId, answer },
+                        }),
+                      ),
+                    answer === 'confirm' ? W.confirming(request.name) : W.deleting(request.name),
+                  )
+                }
+                data-testid={`waiting-request-${answer}`}
+              >
+                {answer === 'confirm' ? (
+                  <Check className="h-3.5 w-3.5" strokeWidth={1.5} />
+                ) : (
+                  <Trash2 className="h-3.5 w-3.5" strokeWidth={1.5} />
+                )}
+                {answer === 'confirm' ? W.confirmRequest : W.deleteRequest}
+              </Button>
+            ))
+          : null}
         <Button
           variant="ghost"
           size="sm"

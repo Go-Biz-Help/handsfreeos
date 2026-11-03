@@ -157,6 +157,26 @@ export function conversationActions(ref: ConversationRef) {
         markMovedHere(ref.conversationId, { shared: true });
       }, CONVERSATION_DONE.shared),
     /**
+     * The team's thread onto a customer who already exists; they gain its number or address. Any time, like the web's
+     * Link: the thread is theirs on this phone at once.
+     */
+    link: (personId: string, done: string) =>
+      run(
+        () =>
+          change(
+            'conversation.link_person',
+            { ...input, personId },
+            {
+              // Linking a customer puts an email thread in the Inbox, as the server does (M19).
+              optimistic: update(
+                "person_id = ?, folder = CASE WHEN channel = 'email' THEN 'inbox' ELSE folder END",
+                [personId],
+              ),
+            },
+          ),
+        done,
+      ),
+    /**
      * A text or email that didn't go out, sent again. Its row says Sending… once HandsFreeOS's copy arrives. In quiet
      * hours a text waits for them to end, like any held text, and the toast says when it goes (`who` and the
      * business's `timeZone` word that).

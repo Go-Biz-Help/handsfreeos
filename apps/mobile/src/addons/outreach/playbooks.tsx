@@ -13,6 +13,7 @@ import { View } from 'react-native';
 
 import { change, ChangeError } from '@/changes';
 import { BookOpen, Plus } from '@/components/icons';
+import { useKeyboardHeight } from '@/components/shell/keyboard';
 import { List, ListLabel, ListRow } from '@/components/shell/list';
 import { Screen } from '@/components/shell/screen';
 import { Button } from '@/components/ui/button';
@@ -154,6 +155,7 @@ function NewSheet({
 }) {
   const [name, setName] = React.useState('');
   const [busy, setBusy] = React.useState(false);
+  const keyboard = useKeyboardHeight();
   const make = async (template: PlaybookTemplateKey | null) => {
     const named = name.trim() || (template ? PLAYBOOK_TEMPLATES[template].name : '');
     setBusy(true);
@@ -166,7 +168,7 @@ function NewSheet({
   };
   return (
     <Sheet open={open} onClose={onClose} title={W.newPlaybook} scroll testID="playbooks-new-sheet">
-      <View className="gap-3">
+      <View style={keyboard ? { paddingBottom: keyboard } : undefined} className="gap-3">
         <Input
           value={name}
           onChangeText={setName}

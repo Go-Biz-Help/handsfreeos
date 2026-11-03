@@ -38,6 +38,7 @@ import {
   type WeekReview,
 } from '../tracking';
 import { automationOf } from './automation';
+import { goalShorts } from './goal';
 import { inWorkspace, seesEveryone, type Ctx } from './common';
 import { periodStart } from './activity';
 
@@ -345,6 +346,8 @@ export const dayReport = defineAddonQuery(outreachAddon, {
       numbers: counted.reduce<TrackingNumbers>((s, c) => add(s, c), NO_NUMBERS),
       target: goal ? targetFor({ ...goal, days: 1 }).messages : null,
       active: lately.length > 0,
+      // A day named, as the worker names the one whose hours just ended, says who fell short (decision 126).
+      short: input.day ? await goalShorts(ctx, me, new Date(from), new Date(to), now) : [],
     };
   },
 });

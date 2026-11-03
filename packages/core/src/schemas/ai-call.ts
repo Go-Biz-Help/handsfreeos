@@ -1,13 +1,19 @@
 /**
- * AI outbound calls: the AI teammate rings a customer itself, for one of four reasons, in open hours and never in
+ * AI outbound calls: the AI teammate rings a customer itself, for one of five reasons, in open hours and never in
  * quiet hours, saying it's an AI and that the call is recorded. While it's training, a person approves each call
  * first (a `call` draft); a quote follow-up always waits for a person.
  */
 import { z } from 'zod';
 import { isoDateTime, uuid } from './common';
 
-/** Why it calls. */
-export const AI_CALL_PURPOSES = ['confirm_visit', 'missed_call', 'quote', 'campaign'] as const;
+/** Why it calls. `workflow`: a workflow's "AI teammate calls them" step, with its own call playbook. */
+export const AI_CALL_PURPOSES = [
+  'confirm_visit',
+  'missed_call',
+  'quote',
+  'campaign',
+  'workflow',
+] as const;
 export const aiCallPurpose = z.enum(AI_CALL_PURPOSES);
 export type AiCallPurpose = z.infer<typeof aiCallPurpose>;
 

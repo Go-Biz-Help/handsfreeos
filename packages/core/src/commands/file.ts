@@ -58,10 +58,10 @@ async function requireRecord(
 
 /**
  * Some files belong to the **business** rather than to a customer: a knowledge document
- * (`knowledge_document.begin_upload`) and the signed authorisation for moving a number
- * (`number_port.begin_upload`). Two things follow for both, and nothing else in this file changes:
- * a different permission decides who may touch them, and **no customer timeline hears of them** — there is
- * no customer to hear.
+ * (`knowledge_document.begin_upload`), the signed authorisation for moving a number
+ * (`number_port.begin_upload`), a document template's PDF and a live poll's slides. Two things follow for
+ * each, and nothing else in this file changes: a different permission decides who may touch them, and **no
+ * customer timeline hears of them** — there is no customer to hear.
  */
 const BUSINESS_OWN = {
   knowledge: {
@@ -79,6 +79,12 @@ const BUSINESS_OWN = {
     permission: 'documents.manage',
     refusal:
       'Only people who make document templates can change a template’s PDF. Ask an owner or admin of this business.',
+  },
+  /** A live poll's slides, a PDF (20261027020000): its record is the poll's form. */
+  form: {
+    permission: 'forms.manage',
+    refusal:
+      'Only people who make forms can change a live poll’s slides. Ask an owner or admin of this business.',
   },
 } as const;
 
@@ -326,6 +332,13 @@ export const fileDelete = defineCommand({
         'document_file_kept',
         409,
         `${current.name} is a template’s PDF, kept for the documents sent from it. Add another PDF on the template to replace it.`,
+      );
+    // Published versions of the poll, and calls that showed them, still point at them.
+    if (current.recordType === 'form')
+      throw HfosError.rule(
+        'slides_file_kept',
+        409,
+        `${current.name} is a live poll’s slides, kept for the versions of the poll that show them. Add other slides on the poll to replace them.`,
       );
     // The database refuses it too (private.guard_locked_file); this says so with the file's name.
     if (current.lockedAt)

@@ -113,6 +113,8 @@ export const cards = addonSalescoach.table(
     objectionId: text('objection_id'),
     dismissedAt: ts('dismissed_at'),
     createdAt: ts('created_at').notNull().defaultNow(),
+    /** How to say it (round five, 20261027021400). */
+    tip: text('tip').notNull().default(''),
   },
   (t) => [unique().on(t.workspaceId, t.id)],
 );

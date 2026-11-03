@@ -10,6 +10,7 @@ import {
   User,
   Users,
   UsersRound,
+  Video,
   Wrench,
   type LucideIcon,
 } from 'lucide-react';
@@ -23,6 +24,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Field, Hint, Label } from '@/components/ui/field';
 import { Input, Select } from '@/components/ui/input';
 import { Segmented } from '@/components/ui/segmented';
+import { useWorkspaceShell } from '@/components/shell/workspace-shell';
 import { Stepper } from '@/components/ui/stepper';
 import { apiBrowser, errorMessage, unwrap } from '@/lib/api/client';
 import type { ResourceItem, ResourceKind, ServiceItem } from '@/lib/api/types';
@@ -78,6 +80,14 @@ export const PRESET_COPY: Record<PresetKey, PresetCopy> = {
     icon: CalendarDays,
     name: () => 'Open house',
   },
+  webinar: {
+    title: 'Webinar',
+    description:
+      'You present on a HandsFreeOS video call, once or on repeat, and up to 500 people save a seat to watch.',
+    fills: 'Fixed sessions, HandsFreeOS video, 500 seats',
+    icon: Video,
+    name: () => 'Webinars',
+  },
   resource: {
     title: 'Resource',
     // Core's own words for it (no staff by default).
@@ -115,6 +125,7 @@ const ORDER: PresetKey[] = [
   'service',
   'group',
   'event',
+  'webinar',
   'resource',
   'collective',
   'dispatch',
@@ -137,6 +148,9 @@ export function PresetPicker({
   resources: ResourceItem[];
 }) {
   const router = useRouter();
+  // A Webinar calendar runs on HandsFreeOS video calls, so it's offered while the business has them.
+  const { videoCalls } = useWorkspaceShell();
+  const order = ORDER.filter((key) => key !== 'webinar' || videoCalls);
   const first = myName.trim().split(/\s+/)[0] || myName;
   const others = people.filter((p) => p.id !== myUserId);
   const [pick, setPick] = useState<PresetKey>('personal');
@@ -248,7 +262,7 @@ export function PresetPicker({
         aria-label="How it works"
         className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3"
       >
-        {ORDER.map((key) => {
+        {order.map((key) => {
           const c = PRESET_COPY[key];
           const Icon = c.icon;
           const on = pick === key;

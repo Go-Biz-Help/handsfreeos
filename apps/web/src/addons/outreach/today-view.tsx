@@ -1,6 +1,11 @@
 'use client';
 /**
- * Social Outreach's Today tab (docs/outreach.md, the plan's Phase 1 step 5): the person's short list for the day on
+ * Social Outreach's Today (docs/outreach.md, the plan's Phase 1 step 5, and decision 127's page to watch it work): at
+ * the top, one Heads up card for what to know (a warning, training wheels, half limits on a new account, requests
+ * held with Cancel all, profile ideas waiting), the count of what needs the person with the way to Needs you (its own
+ * page, which a `#needs-you` here opens, as the extension's links still ask), and a card for each network the person
+ * works (./status-strip.tsx). Beside the list, Done today, the feed of every step today; below it, for owners and
+ * admins, how each person's extension is doing (decision 24). Then the person's short list for the day on
  * Facebook, from what HandsFreeOS knows (packages/core/src/addons/outreach/today.ts): requests they got from people who
  * fit to confirm (decision 30), a post to like before a friend request (decision 33), friend requests to people from
  * the business's groups who fit a playbook, a first message to new friends, friends the AI found a good fit to
@@ -19,11 +24,12 @@
  * A message the extension drafted to send for them (packages/core/src/addons/outreach/sends.ts) shows in place of the
  * drafts: one waiting has its words to change, **Send** and **Skip**, and **Approve all** OKs every one waiting but a
  * reply handed over or one to someone who needs the person, which wait for an OK of their own (`oneByOne`, decision
- * 42); the extension then sends them in Messenger. The same messages are in Waiting for you (./waiting-view.tsx). While the person's training wheels are on, it says what's left before they
- * come off; owners and admins see who's on them and can end them early.
+ * 42); the extension then sends them in Messenger. Those waiting under Needs you (./waiting-view.tsx) stay off the
+ * list, so nobody shows twice. While the person's training wheels are on, it says what's left before they come off;
+ * owners and admins see who's on them and can end them early.
  *
- * Each network has its own list (Chris: each network on its own): the strip at the top has a row for each network the
- * person works, with its own Start my day and Stop for today and its own warning line, and the list is the one shown
+ * Each network has its own list (Chris: each network on its own): each network's card has its own Start my day and
+ * Stop for today, its warning line and its bars, and the list is the network picked at the top of the page
  * (`outreach.today` with its `platform`), in its words: an invitation to connect on LinkedIn, a friend request on
  * Facebook. Asks made from it carry its network, and only the kinds it can be asked show.
  *
@@ -37,6 +43,7 @@
  * asking for what the business offers.
  */
 import { freshWords, underAPost, wheelsWords } from '@hfos/core/addons/outreach/automation';
+import { KNOWS_WORDS } from '@hfos/core/addons/outreach/knows';
 import { clockWords } from '@hfos/core/addons/outreach/live';
 import { OPENER_KINDS, openerShort, type DraftOpener } from '@hfos/core/addons/outreach/openers';
 import { warningNote } from '@hfos/core/addons/outreach/tidy';
@@ -58,27 +65,22 @@ import {
 import { askableOn, askOpen, cantAskWhy } from '@hfos/core/addons/outreach/asks';
 import {
   dailyWordsOn,
-  findPostsWordsOn,
   helpfulOn,
   NETWORK_WORDS as NW,
+  requestsAgainWords,
   requestsHeldWords,
   todayKindsOn,
   todayOpenOf,
 } from '@hfos/core/addons/outreach/network-words';
-import {
-  NETWORKS,
-  PLATFORMS,
-  runsOnItsOwn,
-  type Platform,
-} from '@hfos/core/addons/outreach/networks';
-import { adviceLeft, READY_WORDS } from '@hfos/core/addons/outreach/readiness';
+import { NETWORKS, PLATFORMS, type Platform } from '@hfos/core/addons/outreach/networks';
+import { READY_WORDS } from '@hfos/core/addons/outreach/readiness';
+import { SET_UP_PAGE_WORDS, todayReadyWords } from '@hfos/core/addons/outreach/set-up-page';
 import { messageParts } from '@hfos/core/addons/outreach/voice';
 import { OUTREACH_WORDS as W } from '@hfos/core/addons/outreach/words';
 import { PROFILE_PART_WORDS } from '@hfos/core/addons/outreach/profile-parts';
 import {
   BellOff,
   CalendarCheck,
-  Check,
   CheckCheck,
   ChevronDown,
   Copy,
@@ -89,7 +91,8 @@ import {
   X,
 } from 'lucide-react';
 import Link from 'next/link';
-import { useState } from 'react';
+import { useRouter } from 'next/navigation';
+import { useEffect, useState } from 'react';
 import { toast } from 'sonner';
 import { Badge } from '@/components/ui/badge';
 import { Button, ButtonLink } from '@/components/ui/button';
@@ -101,24 +104,27 @@ import { useLiveRefresh } from '@/lib/realtime/live-provider';
 import { cn } from '@/lib/utils';
 import { outreachHref } from './address';
 import { AskButton, AskLine, latestAskOn, targetOf } from './asks';
+import { CancelAllButtons } from './cancel-all';
 import { ChatSoFar } from './chat-bubbles';
 import { Drafted } from './drafted';
 import { HelpfulCard } from './helpful-card';
 import { PersonName } from './person-menu';
-import { GetReadyCard } from './get-ready';
+import { PostQuote } from './post-quote';
+import { GoalNote, goalNoteOn } from './goal-note';
+import { OutreachCounters } from './counters';
+import { TeamCard } from './live-view';
 import { StatusStrip, type NetworkLive } from './status-strip';
 import type {
   Asks,
   HelpfulList,
   Live,
+  LiveTeam,
   Readiness,
   TodayItem,
   TodayList,
   Waiting,
-  WheelsList,
 } from './types';
 import { useAct } from './use-act';
-import { NeedsYou } from './waiting-view';
 
 const KIND_BADGE = {
   confirm: 'ok',
@@ -152,7 +158,7 @@ export function TodayView({
   networks,
   today,
   helpful,
-  wheels,
+  team = null,
   asks,
   waiting,
   readiness,
@@ -169,24 +175,29 @@ export function TodayView({
   today: TodayList;
   /**
    * Get ready on the network shown (decisions 63 and 90): what's left, the profile's advice among it; null when it
-   * couldn't be had. Whether anything holds the day is `today.ready`.
+   * couldn't be had. Whether anything holds the day is `today.ready`. Get ready itself is on Set up (decision 129).
    */
   readiness: Readiness | null;
   /** Today's helpful post, and those up lately (decision 50). */
   helpful: HelpfulList;
-  /** Who's on training wheels: for owners and admins, else null. */
-  wheels: WheelsList | null;
+  /** How each person's extension is doing on the network shown: for owners and admins, else null. */
+  team?: LiveTeam | null;
   /** The look-ups and group members asked of the person's computer from here. */
   asks: Asks;
-  /** Everything that needs the person, first. Null when it couldn't be had. */
+  /** Everything that needs the person: its count, and what stays off the list. Null when it couldn't be had. */
   waiting: Waiting | null;
 }) {
   // A look-up's drafts, and a group's members saved, show once its ask ends.
   useLiveRefresh(['outreach_ask'], 800);
-  // Until the person is ready, Get ready shows in place of the list (decision 63); once they are, only while their
-  // profile is left, as advice above the list (decision 90).
+  const router = useRouter();
+  // The extension's Needs you link and its pop-ups open Today at `#needs-you`: Needs you is its own page now.
+  useEffect(() => {
+    if (window.location.hash === '#needs-you')
+      router.replace(outreachHref(workspaceId, { view: 'needs' }));
+  }, [router, workspaceId]);
+  // Until the person is ready, a line says how much is left with Set up a press away, in place of the list (decisions
+  // 63 and 129); once they are, only while their profile is left, as advice above the list (decision 90).
   const ready = today.ready;
-  const getReady = readiness && (!ready || adviceLeft(readiness.items).length) ? readiness : null;
   const live = networks.find((n) => n.platform === platform)?.live ?? null;
   const many = networks.length > 1;
   const name = PLATFORMS[platform];
@@ -217,8 +228,104 @@ export function TodayView({
       );
       toast.success(W.okdAll(out.approved.length, comments));
     });
+  // What to know today, each a line in one card: the network's warning when its card doesn't say it already, training
+  // wheels, half limits on a new account, requests held, and profile ideas waiting.
+  const warning = today.warning && !live?.warning ? today.warning : null;
+  // Short of today's first messages, why, and what to try (decision 126): none from a server before it.
+  const goal = today.goal && goalNoteOn(today.goal, platform) ? today.goal : null;
+  const headsUp = Boolean(
+    warning ||
+    today.wheels.on ||
+    today.fresh?.on ||
+    today.newMessagesWait ||
+    today.requestsHeld ||
+    goal ||
+    today.profileOwn,
+  );
   return (
     <div data-testid="outreach-today">
+      {/* Everything it did on its own, today, this week and this month, going up as it works (decision 140). */}
+      <OutreachCounters
+        workspaceId={workspaceId}
+        working={networks.map((n) => n.platform)}
+        canManage={canManage}
+      />
+      {headsUp ? (
+        <Card className="mb-4 p-4" data-testid="today-heads-up">
+          <h2 className="text-[15px] font-semibold">{W.headsUp}</h2>
+          <ul className="mt-2 grid gap-2.5 text-[13px]">
+            {warning ? (
+              <li role="alert" data-testid="today-warning" className="text-danger-text">
+                {warningNote(warning, Date.now(), platform)}
+              </li>
+            ) : null}
+            {today.wheels.on ? (
+              <li data-testid="today-wheels" className="text-text-2">
+                {wheelsWords(today.wheels, today.fullSpeed)}
+              </li>
+            ) : null}
+            {/* None from a server before decision 96. */}
+            {today.fresh?.on ? (
+              <li data-testid="today-fresh" className="text-text-2">
+                {freshWords(today.fresh, platform)}
+              </li>
+            ) : null}
+            {/* None from a server before decision 139. */}
+            {today.newMessagesWait ? (
+              <li data-testid="today-new-messages-wait" className="text-text-2">
+                {W.newMessagesWait}
+              </li>
+            ) : null}
+            {today.requestsHeld ? (
+              <li data-testid="today-requests-held" className="text-warning-text">
+                <p>{requestsHeldWords(today.requestsHeld, platform)}</p>
+                {/* Cancel all (decision 121), while it isn't going: none from a server before it. */}
+                {today.requestsHeld.why === 'waiting' && !today.requestsHeld.cancelling ? (
+                  <CancelAllButtons
+                    workspaceId={workspaceId}
+                    platform={platform}
+                    asks={asks}
+                    waiting={today.requestsHeld.count}
+                    extension={today.requestsHeld.extension ?? 0}
+                  />
+                ) : null}
+                {/* The network's monthly limit (decision 147): Start again, after an upgrade there. */}
+                {today.requestsHeld.why === 'limit' ? (
+                  <StartRequestsAgain workspaceId={workspaceId} platform={platform} />
+                ) : null}
+              </li>
+            ) : null}
+            {goal ? <GoalNote workspaceId={workspaceId} platform={platform} goal={goal} /> : null}
+            {/* Their profile, read on its own on the 1st: what the AI suggests waits for their OK (decision 99). */}
+            {today.profileOwn ? (
+              <li data-testid="today-profile-own" className="text-text-2">
+                {PROFILE_PART_WORDS.ownWaiting(platform, today.profileOwn.parts)}{' '}
+                <Link
+                  href={outreachHref(workspaceId, { view: 'settings', part: platform })}
+                  className="font-medium text-accent-text hover:underline"
+                >
+                  {PROFILE_PART_WORDS.ownLook}
+                </Link>
+              </li>
+            ) : null}
+          </ul>
+        </Card>
+      ) : null}
+      {waiting?.count ? (
+        <p
+          className="mb-4 flex flex-wrap items-baseline gap-x-2 rounded-card bg-accent-soft px-4 py-3 text-[13.5px] text-accent-text"
+          data-testid="today-needs-you"
+        >
+          <span className="font-semibold">{W.needsYouCount(waiting.count)}</span>
+          <Link
+            href={outreachHref(workspaceId, { view: 'needs' })}
+            className="font-medium underline-offset-2 hover:underline"
+            data-testid="today-needs-you-open"
+          >
+            {W.openNeedsYou}
+          </Link>
+        </p>
+      ) : null}
       {networks.length ? (
         <StatusStrip
           workspaceId={workspaceId}
@@ -230,59 +337,13 @@ export function TodayView({
       ) : null}
       <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_320px]">
         <div className="min-w-0 space-y-5">
-          {today.warning && !live?.warning ? (
-            <p
-              role="alert"
-              data-testid="today-warning"
-              className="rounded-card bg-danger-soft p-3.5 text-[13px] text-danger-text"
-            >
-              {warningNote(today.warning, Date.now(), platform)}
-            </p>
+          {readiness ? (
+            <GetReadyLine
+              workspaceId={workspaceId}
+              words={todayReadyWords(PLATFORMS[platform], ready, readiness.items)}
+              ready={ready}
+            />
           ) : null}
-          {today.wheels.on ? (
-            <p
-              data-testid="today-wheels"
-              className="rounded-card bg-card-2 p-3.5 text-[13px] text-text-2"
-            >
-              {wheelsWords(today.wheels)}
-            </p>
-          ) : null}
-          {/* None from a server before decision 96. */}
-          {today.fresh?.on ? (
-            <p
-              data-testid="today-fresh"
-              className="rounded-card bg-card-2 p-3.5 text-[13px] text-text-2"
-            >
-              {freshWords(today.fresh, platform)}
-            </p>
-          ) : null}
-          {today.requestsHeld ? (
-            <p
-              data-testid="today-requests-held"
-              className="rounded-card bg-warning-soft p-3.5 text-[13px] text-warning-text"
-            >
-              {requestsHeldWords(today.requestsHeld, platform)}
-            </p>
-          ) : null}
-          {/* Their profile, read on its own on the 1st: what the AI suggests waits for their OK (decision 99). */}
-          {today.profileOwn ? (
-            <p
-              data-testid="today-profile-own"
-              className="rounded-card bg-card-2 p-3.5 text-[13px] text-text-2"
-            >
-              {PROFILE_PART_WORDS.ownWaiting(platform, today.profileOwn.parts)}{' '}
-              <Link
-                href={outreachHref(workspaceId, { view: 'settings', part: platform })}
-                className="font-medium text-accent-text hover:underline"
-              >
-                {PROFILE_PART_WORDS.ownLook}
-              </Link>
-            </p>
-          ) : null}
-          {getReady ? (
-            <GetReadyCard workspaceId={workspaceId} readiness={getReady} asks={asks} />
-          ) : null}
-          {waiting ? <NeedsYou workspaceId={workspaceId} waiting={waiting} /> : null}
           {helpfulOn(platform) ? (
             <HelpfulCard
               workspaceId={workspaceId}
@@ -341,9 +402,6 @@ export function TodayView({
           ) : ready ? (
             <TodayStart workspaceId={workspaceId} platform={platform} />
           ) : null}
-          {askableOn(platform, 'posts') && !runsOnItsOwn(platform) ? (
-            <FindPostsCard workspaceId={workspaceId} platform={platform} asks={asks} />
-          ) : null}
           {partners.length ? (
             <section
               aria-labelledby="today-partners-title"
@@ -378,8 +436,7 @@ export function TodayView({
           ) : null}
         </div>
         <aside className="space-y-4">
-          {live ? <DoneToday workspaceId={workspaceId} live={live} platform={platform} /> : null}
-          {wheels?.people.length ? <WheelsCard workspaceId={workspaceId} wheels={wheels} /> : null}
+          {live ? <DoneToday live={live} /> : null}
           {!today.hasPlaybook ? (
             <Card className="p-4">
               <h3 className="text-[15px] font-semibold">
@@ -431,6 +488,7 @@ export function TodayView({
           ) : null}
         </aside>
       </div>
+      {team ? <TeamCard team={team} className="mt-5" /> : null}
       <HowItWorks />
     </div>
   );
@@ -440,42 +498,43 @@ export function TodayView({
 const START_ASKS = { groups: 'groups', chats: 'chats', friends: 'checks' } as const;
 
 /**
- * Find posts, on a network the extension doesn't work on its own: the person asks for it here, and the good ones come
- * onto the list. Where a runner works the network (Alignable's, from part 5), it reads the town's posts once a day
- * itself, so the card doesn't show.
- */
-function FindPostsCard({
-  workspaceId,
-  platform,
-  asks,
-}: {
-  workspaceId: string;
-  platform: Platform;
-  asks: Asks;
-}) {
-  const words = findPostsWordsOn(platform);
-  return (
-    <Card className="p-5" data-testid="today-find-posts">
-      <h2 className="text-[15px] font-semibold">{words.title}</h2>
-      <p className="mt-1 text-[13px] text-text-2">{words.body}</p>
-      <div className="mt-3">
-        <AskButton
-          workspaceId={workspaceId}
-          asks={asks}
-          ask={{ kind: 'posts' }}
-          platform={platform}
-          label={words.title}
-          testId="today-find-posts-ask"
-        />
-      </div>
-    </Card>
-  );
-}
-
-/**
  * An empty list: what gives it something to work with, each a button to where it's done (decision 59), in its
  * network's words, and only the steps its network can be asked.
  */
+/** Start again, under Today's note on a monthly limit's pause (decision 147): after an upgrade on the network. */
+function StartRequestsAgain({
+  workspaceId,
+  platform,
+}: {
+  workspaceId: string;
+  platform: Platform;
+}) {
+  const words = requestsAgainWords(platform);
+  const { busy, act } = useAct();
+  return (
+    <div className="mt-2">
+      <Button
+        size="sm"
+        variant="secondary"
+        loading={busy === 'start-again'}
+        onClick={() =>
+          void act('start-again', async () => {
+            const out = unwrap(
+              await apiBrowser().POST('/v1/commands/outreach.requests.start_again', {
+                body: { workspaceId, platform },
+              }),
+            );
+            toast.success(out.ended ? words.done : words.notOn);
+          })
+        }
+        data-testid="today-requests-again"
+      >
+        {words.button}
+      </Button>
+    </div>
+  );
+}
+
 function TodayStart({ workspaceId, platform }: { workspaceId: string; platform: Platform }) {
   const words = NETWORKS[platform].words;
   const steps = W.todayStart
@@ -530,21 +589,20 @@ function TodayStart({ workspaceId, platform }: { workspaceId: string; platform: 
 }
 
 /** The newest of today's steps, beside the lists: the rest, and the computers, on the computer's own page. */
-function DoneToday({
-  workspaceId,
-  live,
-  platform,
-}: {
-  workspaceId: string;
-  live: Live;
-  platform: Platform;
-}) {
-  const shown = live.steps.slice(0, 6);
+/** How many of today's steps show before the rest are asked for. */
+const DONE_SHOWN = 8;
+
+/** Every step taken today, on every network, newest first: its first ones, then the rest in place. */
+function DoneToday({ live }: { live: Live }) {
+  const [all, setAll] = useState(false);
+  const shown = all ? live.steps : live.steps.slice(0, DONE_SHOWN);
+  const more = live.steps.length - shown.length;
   return (
     <Card className="p-4" data-testid="today-done">
       <h3 className="text-[15px] font-semibold">{W.doneToday}</h3>
+      <p className="mt-0.5 text-[12.5px] text-text-3">{W.doneTodayAbout}</p>
       {shown.length ? (
-        <ol className="mt-3 space-y-2">
+        <ol className="mt-3 space-y-2" data-testid="today-done-steps">
           {shown.map((step, i) => (
             <li key={`${step.at}-${i}`} className="flex gap-3 text-[13px]">
               <span className="w-[62px] flex-none tabular-nums text-text-3">
@@ -565,12 +623,16 @@ function DoneToday({
       ) : (
         <p className="mt-2 text-[13px] text-text-2">{W.noSteps}</p>
       )}
-      <Link
-        href={outreachHref(workspaceId, { view: 'live', net: platform })}
-        className="mt-3 inline-block text-[13px] font-medium text-accent-text hover:underline"
-      >
-        {W.seeAllToday}
-      </Link>
+      {more > 0 ? (
+        <button
+          type="button"
+          onClick={() => setAll(true)}
+          className="mt-3 text-[13px] font-medium text-accent-text hover:underline"
+          data-testid="today-done-more"
+        >
+          {W.doneTodayMore(more)}
+        </button>
+      ) : null}
     </Card>
   );
 }
@@ -695,17 +757,24 @@ function TodayRow({
         </span>
       </div>
       {item.post ? (
-        <blockquote
-          className="mt-1.5 whitespace-pre-wrap border-l-2 border-border pl-3 text-[13px] text-text-2"
-          data-testid="today-post"
-        >
-          {item.post}
-          {item.posted ? <span className="text-text-3"> · {item.posted}</span> : null}
-        </blockquote>
+        <PostQuote
+          post={item.post}
+          whole={item.postWhole}
+          posted={item.posted}
+          testId="today-post"
+        />
       ) : null}
       {item.summary ? <p className="mt-1.5 text-[13px] text-text">{item.summary}</p> : null}
       {item.nextStep ? (
         <p className="mt-1 text-[12.5px] text-text-2">Next: {item.nextStep}</p>
+      ) : null}
+      {item.partnerHint && item.profileId && !partner ? (
+        <PartnerHint
+          workspaceId={workspaceId}
+          profileId={item.profileId}
+          name={item.name}
+          hint={item.partnerHint}
+        />
       ) : null}
       <ChatSoFar recent={item.recent} />
       {item.send ? (
@@ -728,53 +797,89 @@ function TodayRow({
   );
 }
 
-/** Who's on training wheels, for owners and admins: how far each has come, and End now. */
-function WheelsCard({ workspaceId, wheels }: { workspaceId: string; wheels: WheelsList }) {
+/**
+ * The AI's check thought this customer looks more like a partner (decision 130): why, and Potential partner, which puts
+ * them on the Partners list with partner messages. The person decides.
+ */
+function PartnerHint({
+  workspaceId,
+  profileId,
+  name,
+  hint,
+}: {
+  workspaceId: string;
+  profileId: string;
+  name: string;
+  hint: string;
+}) {
   const { busy, act } = useAct();
   return (
-    <Card className="p-4" data-testid="today-wheels-team">
-      <h3 className="text-[15px] font-semibold">{W.wheelsTitle}</h3>
-      <p className="mt-1.5 text-[13px] text-text-2">
-        Their messages wait for their OK and their daily limits are half, for 7 days and 25 messages
-        OK’d. End them early for someone you trust.
+    <div
+      className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1.5 rounded-control bg-card-2 px-3 py-2"
+      data-testid="today-partner-hint"
+    >
+      <p className="min-w-0 flex-[1_1_220px] text-[12.5px] text-text-2">
+        {W.person.partnerHint(hint)}
       </p>
-      <ul className="mt-2 space-y-2 text-[13px]">
-        {wheels.people.map((p) => (
-          <li key={`${p.userId}:${p.platform}`} className="flex items-center justify-between gap-3">
-            <span className="min-w-0">
-              <span className="font-medium">{p.name}</span>
-              <span className="text-text-3"> · {PLATFORMS[p.platform]}</span>
-              <span className="block text-[12px] text-text-3">
-                {p.wheels.ok.toLocaleString()} of 25 OK’d ·{' '}
-                {p.wheels.daysLeft
-                  ? `${p.wheels.daysLeft} ${p.wheels.daysLeft === 1 ? 'day' : 'days'} to go`
-                  : 'days done'}
-              </span>
-            </span>
-            <Button
-              variant="secondary"
-              size="sm"
-              disabled={busy !== null}
-              onClick={() =>
-                void act(
-                  `${p.userId}:${p.platform}`,
-                  async () =>
-                    unwrap(
-                      await apiBrowser().POST('/v1/commands/outreach.wheels.end', {
-                        body: { workspaceId, userId: p.userId, platform: p.platform },
-                      }),
-                    ),
-                  W.wheelsEnded(p.name),
-                )
-              }
-              data-testid="today-wheels-end"
-            >
-              <Check className="h-3.5 w-3.5" strokeWidth={1.5} />
-              {W.endNow}
-            </Button>
-          </li>
-        ))}
-      </ul>
+      <Button
+        size="sm"
+        variant="secondary"
+        disabled={busy !== null}
+        onClick={() =>
+          void act(
+            'partner',
+            async () =>
+              unwrap(
+                await apiBrowser().POST('/v1/commands/outreach.partner.potential', {
+                  body: { workspaceId, profileId, potential: true },
+                }),
+              ),
+            W.person.potentialDone(name),
+          )
+        }
+        data-testid="today-potential-partner"
+      >
+        {busy === 'partner' ? <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden /> : null}
+        {W.person.potentialPartner}
+      </Button>
+    </div>
+  );
+}
+
+/** Get ready on the network shown, on Set up (decision 129): how much holds the day, or the profile's advice. */
+function GetReadyLine({
+  workspaceId,
+  words,
+  ready,
+}: {
+  workspaceId: string;
+  words: string | null;
+  ready: boolean;
+}) {
+  if (!words) return null;
+  return (
+    <Card
+      className={cn(
+        'flex flex-wrap items-center justify-between gap-3 p-4',
+        ready ? '' : 'border-warning-soft',
+      )}
+      data-testid="today-get-ready"
+      data-advice={ready ? 'true' : undefined}
+    >
+      <div className="min-w-0 flex-[1_1_260px]">
+        <p className="text-[11.5px] font-semibold uppercase tracking-[0.04em] text-text-3">
+          {READY_WORDS.card}
+        </p>
+        <p className="mt-1 text-[13.5px] text-text-2">{words}</p>
+      </div>
+      <ButtonLink
+        size="sm"
+        variant={ready ? 'secondary' : 'primary'}
+        href={outreachHref(workspaceId, { view: 'setup' })}
+        data-testid="today-get-ready-open"
+      >
+        {SET_UP_PAGE_WORDS.todayOpen}
+      </ButtonLink>
     </Card>
   );
 }
@@ -801,6 +906,8 @@ function Drafts({
   const [draftedOpener, setOpener] = useState<DraftOpener | null>(null);
   /** What they were written as: a reply to a yes comes back as Send the video or Send the link. */
   const [draftedAs, setDraftedAs] = useState<DraftKind | null>(null);
+  /** For a reply: what they asked that Knowledge doesn't answer (decision 122). */
+  const [draftedUnanswered, setUnanswered] = useState<string | null>(null);
   // Looked up on its network first, while the computer is online and can be asked there.
   const lookup = {
     kind: 'lookup' as const,
@@ -818,6 +925,7 @@ function Drafts({
   const drafts = fromLookup?.drafts ?? drafted;
   const opener = fromLookup ? fromLookup.opener : draftedOpener;
   const as = (fromLookup ? fromLookup.kind : draftedAs) ?? kind;
+  const unanswered = fromLookup ? fromLookup.unanswered : draftedUnanswered;
   const lookingUp = looked !== null && askOpen(looked.state);
   const skipping = useAct();
   const skip = (postId: string) =>
@@ -845,6 +953,7 @@ function Drafts({
       setDrafted(out.drafts);
       setOpener(out.opener);
       setDraftedAs(out.kind);
+      setUnanswered(out.unanswered);
     } catch (e) {
       toast.error(errorMessage(e));
     } finally {
@@ -926,6 +1035,11 @@ function Drafts({
       {drafts.length && opener ? (
         <p className="mb-1 text-[12px] text-text-3" data-testid="today-opener">
           Opens with {OPENER_KINDS[opener.kind].toLowerCase()}: “{openerShort(opener.text, 70)}”
+        </p>
+      ) : null}
+      {drafts.length && unanswered ? (
+        <p className="mb-1 text-[12px] text-text-3" data-testid="today-unanswered">
+          {KNOWS_WORDS.draftNote(unanswered)}
         </p>
       ) : null}
       {drafts.length ? (

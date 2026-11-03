@@ -18,6 +18,7 @@ import {
   type FormSettingsInput,
   type QuestionInput,
 } from './definition';
+import type { FormDesignInput } from './design';
 import { CalculationId, ChoiceId, PageId, QuestionId, ResultId } from './ids';
 import type { CalculationInput, ScoringInput } from './logic';
 import type { QuestionChoiceInput } from './questions';
@@ -68,7 +69,8 @@ export type FormOp =
   | { readonly op: 'set_form'; readonly patch: FormPatch }
   | { readonly op: 'set_scoring'; readonly patch: Partial<ScoringInput> }
   | { readonly op: 'set_on_submit'; readonly patch: Partial<OnSubmitInput> }
-  | { readonly op: 'set_settings'; readonly patch: Partial<FormSettingsInput> };
+  | { readonly op: 'set_settings'; readonly patch: Partial<FormSettingsInput> }
+  | { readonly op: 'set_design'; readonly patch: Partial<FormDesignInput> };
 export type FormOpName = FormOp['op'];
 
 const loose = z.record(z.string(), z.unknown());
@@ -107,6 +109,7 @@ export const FormOpSchema = z.discriminatedUnion('op', [
   z.object({ op: z.literal('set_scoring'), patch: loose }),
   z.object({ op: z.literal('set_on_submit'), patch: loose }),
   z.object({ op: z.literal('set_settings'), patch: loose }),
+  z.object({ op: z.literal('set_design'), patch: loose }),
 ]);
 export const FormOpList = z.array(FormOpSchema).max(500);
 
@@ -249,6 +252,19 @@ function updateQuestion(
         (target.config as Bag)[k] = mergeJson((target.config as Bag)[k], v);
       }
       old.config = { ...beforeRest, choices: beforeChoices };
+      continue;
+    }
+    if (key === 'live' && isPlainObject(value)) {
+      // Left out before, it goes back to none on undo; and a live question's points are replaced whole, so undoing
+      // a suggestion, or taking an answer's points off, leaves nothing behind.
+      const before = target.live == null ? null : (cloneJson(target.live) as Bag);
+      old.live =
+        before && isPlainObject(value.points) && !isPlainObject(before.points)
+          ? { ...before, points: {} }
+          : before;
+      const merged = mergeJson((target.live ?? {}) as Bag, value);
+      if (isPlainObject(value.points)) merged.points = cloneJson(value.points);
+      target.live = merged;
       continue;
     }
     old[key] = cloneJson(target[key]);
@@ -433,10 +449,14 @@ function applyOne(work: Work, op: FormOp, i: number): FormOp {
       return { op: 'add_result', index: at, result: removed as unknown as FormResultInput };
     }
     case 'set_form': {
-      const allowed = new Set(['mode', 'title', 'intro']);
+      const allowed = new Set(['mode', 'title', 'intro', 'slides', 'leads']);
       for (const key of Object.keys(op.patch))
         if (!allowed.has(key)) fail(i, 'bad_patch', `Change ${key} with its own op.`);
-      return { op: 'set_form', patch: patchInto(work as unknown as Bag, op.patch, i, 'Form') };
+      const undo = patchInto(work as unknown as Bag, op.patch, i, 'Form');
+      // A poll that had no slides, or no follow-up of its own, goes back to none.
+      if ('slides' in undo && undo.slides === undefined) undo.slides = null;
+      if ('leads' in undo && undo.leads === undefined) undo.leads = null;
+      return { op: 'set_form', patch: undo };
     }
     case 'set_scoring':
       return {
@@ -468,6 +488,15 @@ function applyOne(work: Work, op: FormOp, i: number): FormOp {
           'Settings',
         ) as Partial<FormSettingsInput>,
       };
+    case 'set_design': {
+      // A form saved before the Design tab has no design yet; it starts from nothing set.
+      const bag = work as unknown as Bag;
+      if (!isPlainObject(bag.design)) bag.design = {};
+      return {
+        op: 'set_design',
+        patch: patchInto(bag.design as Bag, op.patch, i, 'Design') as Partial<FormDesignInput>,
+      };
+    }
     default: {
       const unknown: { op?: unknown } = op;
       return fail(i, 'invalid', `Unknown op ${String(unknown.op)}.`);
@@ -547,6 +576,7 @@ const AREA_OPS: Readonly<Record<string, FormOpName>> = {
   scoring: 'set_scoring',
   onSubmit: 'set_on_submit',
   settings: 'set_settings',
+  design: 'set_design',
 };
 
 function blame(ops: readonly FormOp[], targetId: string | null, area: FormOpName | null): number {
@@ -570,8 +600,39 @@ function targetAtPath(root: unknown, path: readonly PropertyKey[]): string | nul
   return found;
 }
 
+export interface ApplyFormOptions {
+  /**
+   * For an editor: keep the spaces a person types at the start or end of a text. The parse trims every
+   * text, and the editor applies an op on each keystroke, so without this the space at the end of "Your "
+   * is gone before the next word can be typed. What's saved is still trimmed: the server applies the same
+   * ops without this.
+   */
+  readonly keepSpaces?: boolean;
+}
+
+/** The parsed form with each text put back as it was typed wherever the parse only trimmed it. */
+function keepTypedSpaces<T>(typed: unknown, parsed: T): T {
+  if (typeof parsed === 'string')
+    return (typeof typed === 'string' && typed.trim() === parsed ? typed : parsed) as T;
+  if (Array.isArray(parsed))
+    return parsed.map((v, i) =>
+      keepTypedSpaces(Array.isArray(typed) ? typed[i] : undefined, v),
+    ) as T;
+  if (isPlainObject(parsed)) {
+    const out: Record<string, unknown> = {};
+    for (const [k, v] of Object.entries(parsed))
+      out[k] = keepTypedSpaces(isPlainObject(typed) ? typed[k] : undefined, v);
+    return out as T;
+  }
+  return parsed;
+}
+
 /** Applies ops all or nothing. Throws a FormOpError naming the op that failed. */
-export function applyFormOps(definition: FormDefinition, ops: readonly FormOp[]): ApplyFormResult {
+export function applyFormOps(
+  definition: FormDefinition,
+  ops: readonly FormOp[],
+  options: ApplyFormOptions = {},
+): ApplyFormResult {
   const work = cloneJson(definition);
   const inverse: FormOp[] = [];
   ops.forEach((op, i) => inverse.unshift(applyOne(work, op, i)));
@@ -594,7 +655,10 @@ export function applyFormOps(definition: FormDefinition, ops: readonly FormOp[])
       duplicate.message,
       duplicate.id,
     );
-  return { definition: parsed.data, inverse };
+  return {
+    definition: options.keepSpaces ? keepTypedSpaces(work, parsed.data) : parsed.data,
+    inverse,
+  };
 }
 
 /**

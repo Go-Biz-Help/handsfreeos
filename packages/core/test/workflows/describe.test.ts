@@ -72,6 +72,17 @@ describe('the AI teammate', () => {
     expect(describeStep(hand({ firstMessage: 'none' }), catalogs)).toBe(
       'Hand to the AI teammate: reply and help; it waits for them',
     );
+    const call = (config: Record<string, unknown>) =>
+      Step.parse({ id: sid('cl'), type: 'action', action: 'call_with_ai', config });
+    expect(describeStep(call({ opening: 'about your quote' }), catalogs)).toBe(
+      'The AI teammate calls them: “about your quote”; offers a time when they want one',
+    );
+    expect(
+      describeStep(call({ opening: 'about your quote', book: 'never' }), {
+        ...catalogs,
+        teammateName: 'Ava',
+      }),
+    ).toBe('Ava (AI) calls them: “about your quote”; leaves booking to the team');
     const t = (event: string) => describeTrigger(Trigger.parse({ kind: 'event', event }));
     expect(t('lead.qualified')).toBe('When a lead is qualified');
     expect(t('ai_teammate.handed_off')).toBe(

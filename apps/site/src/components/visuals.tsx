@@ -332,23 +332,21 @@ export function BusyTimesVisual() {
 /**
  * The lead nobody answered, as it looks on a lock screen at 8pm: drawn for the night band, so it is set in
  * the night colours in both themes. The notifications carry `rise`, so inside a `<Reveal>` they arrive one
- * after another, the way they did.
+ * after another, the way they did. The home page tells it in the visitor's own trade (content/trades.ts).
  */
-export function MissedLeadVisual() {
+export function MissedLeadVisual({
+  lead = {
+    name: 'Kevin M.',
+    ask: 'Hi, is anyone free to look at a leaking water heater today?',
+    gone: 'All good, found someone who can come tonight. Thanks anyway.',
+  },
+}: {
+  lead?: { readonly name: string; readonly ask: string; readonly gone: string };
+}) {
   const notes = [
-    {
-      app: 'Messages',
-      time: '7:42 PM',
-      title: 'Kevin M.',
-      body: 'Hi, is anyone free to look at a leaking water heater today?',
-    },
-    { app: 'Phone', time: '7:49 PM', title: 'Missed call', body: 'Kevin M.' },
-    {
-      app: 'Messages',
-      time: '8:01 PM',
-      title: 'Kevin M.',
-      body: 'All good, found someone who can come tonight. Thanks anyway.',
-    },
+    { app: 'Messages', time: '7:42 PM', title: lead.name, body: lead.ask },
+    { app: 'Phone', time: '7:49 PM', title: 'Missed call', body: lead.name },
+    { app: 'Messages', time: '8:01 PM', title: lead.name, body: lead.gone },
   ] as const;
   return (
     <div

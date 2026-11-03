@@ -6,7 +6,11 @@
  * command a screen runs and every setting row against these lists. docs/operations.md, "Keeping the Assistant able to
  * do everything", says how to add to them.
  */
+import { AUTOMATIONS, type AutomationDef } from '../automations/catalog';
 import type { Permission } from '../permissions';
+
+/** Every Automations row, with what each may say about itself (always on). */
+const AUTOMATION_ROWS: readonly AutomationDef[] = AUTOMATIONS;
 
 /** One screen command the Assistant runs as it is. */
 export interface ScreenAction {
@@ -68,11 +72,21 @@ export const SCREEN_ACTIONS: Readonly<Record<string, ScreenAction>> = {
   'attendee.set_attendance': {},
   'call_suggestion.decide': {},
   'job.add_visit': {},
+  'session.publish': {},
+  'webinar.schedule': {},
   'video_call.admit': {},
   'video_call.end': {},
   'video_call.mute': {},
+  'video_call.poll_close': {},
+  'video_call.poll_open': {},
+  'video_call.poll_skip': {},
   'video_call.remove': {},
   'video_call.set_ai': {},
+  'video_call.set_attendee_video': {},
+  'video_call.set_poll': {},
+  'video_call.set_poll_ai': {},
+  'video_call.slide': {},
+  'video_call.stage': {},
   'video_call.turn_away': {},
   // ---- Money and plans ----
   'subscription.set_connection': {},
@@ -94,6 +108,7 @@ export const SCREEN_ACTIONS: Readonly<Record<string, ScreenAction>> = {
   'document.void': {},
   // ---- Forms and reviews ----
   'form.set_delivery': {},
+  'form.use_design_everywhere': {},
   'review_connection.disconnect': {},
   'review_connection.sync_now': {},
   // ---- Ideas ----
@@ -115,6 +130,8 @@ export const SCREEN_ACTIONS: Readonly<Record<string, ScreenAction>> = {
   'workflow_template.create_from_workflow': { offeredTo: 'workspace.update' },
   'workflow_template.publish': { offeredTo: 'workspace.update' },
   'workflow_template.rename': { offeredTo: 'workspace.update' },
+  // Putting yourself on this business, from its Team page, as one of the agency's owners and admins who reach it.
+  'workspace.join': { offeredTo: 'workspace.update' },
   // ---- Settings → Account and My calendar ----
   'calendar_connection.disconnect': {},
   'calendar_connection.sync_now': {},
@@ -174,16 +191,18 @@ export const SCREEN_ACTIONS: Readonly<Record<string, ScreenAction>> = {
   },
   'email_address.reassign': {},
   'email_sender_rule.remove': {},
-  // ---- Settings → Website chat, Facebook & Instagram, Lead intake ----
+  // ---- Settings → Website chat, Facebook & Instagram ----
   'chat_widget.rotate_key': {
     warning: 'Every chat snippet pasted before stops working until the new one is pasted in.',
   },
-  'meta_account.disconnect': {},
-  'meta_connection.disconnect': {},
-  'intake_source.create': {},
-  'intake_source.rotate_key': {
+  // Disconnecting is a click; connecting again is signing in to Facebook, which only the person can do.
+  'meta_account.disconnect': {
     warning:
-      'Every copy of the old key stops working at once, on the website and in any connected app.',
+      'Only you can bring it back, with Connect Facebook in Settings → Facebook & Instagram.',
+  },
+  'meta_connection.disconnect': {
+    warning:
+      'Every Page and Instagram account it connected stops answering here. Only you can bring them back, with Connect Facebook in Settings → Facebook & Instagram.',
   },
   // ---- Settings → Calendars ----
   'booking_site.set_page': {},
@@ -206,8 +225,35 @@ export const SCREEN_ACTIONS: Readonly<Record<string, ScreenAction>> = {
   'funnel.turn_on': {},
   'funnel.pause': {},
   'funnel.archive': {},
+  // ---- AI quick setup and onboarding setup: a screen's answers at a time, from read_ai_setup_get or read_onboarding_setup_get ----
+  'ai_setup.save': {},
+  'ai_setup.finish': {},
+  'onboarding_setup.save': {
+    warning:
+      'Some screens act as they’re saved: the team screen sends its invitations, the simple page goes live or off, and the booking screen turns the booking page on.',
+  },
+  'onboarding_setup.finish': {
+    warning: 'Handed to the owner, it emails them an invitation to check it and finish.',
+  },
   // ---- Settings → Imports ----
   'import.cancel': {},
+  // ---- Settings → Migrations: each step checks the agency's or the business's Migrations permission itself ----
+  'migration.create': { offeredTo: 'migrations.manage' },
+  'migration.scan': { offeredTo: 'migrations.manage' },
+  'migration.select': { offeredTo: 'migrations.manage' },
+  'migration.map_scopes': {
+    offeredTo: 'migrations.manage',
+    warning: 'A sub-account set to land in a new business makes that business now.',
+  },
+  'migration.start': {
+    offeredTo: 'migrations.manage',
+    warning:
+      'It brings what was picked from the old system into the business now; no message, invoice or reminder goes out because of it. Taking it all back is Roll back, on the Migrations page, which only a person presses.',
+  },
+  'migration.pause': { offeredTo: 'migrations.manage' },
+  'migration.resume': { offeredTo: 'migrations.manage' },
+  'migration.retry': { offeredTo: 'migrations.manage' },
+  'migration.resolve_merge': { offeredTo: 'migrations.manage' },
   // ---- HandsFreeOS's own Admin area: staff only (the owner, 2026-10-27) ----
   'support.ticket.assign': {},
   'support.ticket.dismiss_draft': {},
@@ -240,6 +286,7 @@ export const SCREEN_ACTIONS: Readonly<Record<string, ScreenAction>> = {
   'phone_listener.set': {},
   'phone_model.set': {},
   'problem_report.set_handled': {},
+  'learned_way.set_removed': { warning: 'Set aside, no computer tries it again.' },
   'video_calls.set': {},
   'founding.approve': { warning: 'A free seat goes on their business at once.' },
   'founding.decline': {},
@@ -296,6 +343,8 @@ export const NEVER_FOR_THE_ASSISTANT: Readonly<Record<string, string>> = {
   'addon.purge': 'deleting an add-on’s data for good (the owner, 2026-10-26)',
   'addon.start_fresh': 'deleting an add-on’s data for good (the owner, 2026-10-26)',
   'migration.rollback': 'taking back everything a move from another CRM brought, for good',
+  'migration.delete':
+    'deleting a move from another CRM, which finishes off the records it archived, for good',
   'calendar_connection.connect': 'signing in to Google or Outlook, which only the person can do',
   'mailbox.connect': 'signing in to Outlook or Gmail, which only the person can do',
   'meeting_connection.connect': 'signing in to Zoom, which only the person can do',
@@ -310,6 +359,8 @@ export const NEVER_FOR_THE_ASSISTANT: Readonly<Record<string, string>> = {
   'support.staff.accept': 'accepting a support invitation, which is the person’s own',
   'extension_sign_in.answer': 'letting the browser extension in, which is the person’s own',
   'live_meeting.claim': 'done from HandsFreeOS’s app inside Zoom',
+  'form.begin_slides_upload':
+    'uploading a live poll’s slides, a PDF from the person’s own computer; they add it on the poll',
   'document_template.begin_upload':
     'uploading a template’s PDF, a file from the person’s own computer; they add it on the template',
   'document_template.set_source':
@@ -358,37 +409,7 @@ export interface NotYet {
   readonly why: string;
 }
 
-export const ASSISTANT_NOT_YET: readonly NotYet[] = [
-  {
-    page: 'Agency area',
-    actions: ['workflow_template.save_draft', 'workspace.join'],
-    why: 'A template’s draft saves as step changes, as a workflow’s does; and joining another of the agency’s businesses acts outside the one the Assistant is in.',
-  },
-  {
-    page: 'Settings → Migrations',
-    actions: [
-      'migration.create',
-      'migration.scan',
-      'migration.select',
-      'migration.map_scopes',
-      'migration.start',
-      'migration.pause',
-      'migration.resolve_merge',
-      'migration.delete',
-    ],
-    why: 'Moving from another CRM is a wizard whose steps check the agency’s permission themselves, so each needs its own tool and card.',
-  },
-  {
-    page: 'AI quick setup and onboarding setup',
-    actions: [
-      'ai_setup.save',
-      'ai_setup.finish',
-      'onboarding_setup.save',
-      'onboarding_setup.finish',
-    ],
-    why: 'They save a whole wizard’s answers at once. The Assistant sets each part up with its own tools; walking the wizard needs one of its own.',
-  },
-];
+export const ASSISTANT_NOT_YET: readonly NotYet[] = [];
 
 // ---------- settings: every row on the Settings pages (settings/catalog.ts) ----------
 
@@ -473,8 +494,211 @@ export const SETTING_TOOLS: Readonly<Record<string, readonly SettingWay[]>> = {
     { tool: 'manage_web_address', field: 'action', value: 'add' },
     { tool: 'manage_web_address', field: 'action', value: 'remove' },
   ],
-  // ---- Automations ----
+  // ---- Permissions ----
+  'permissions.who_can': [{ tool: 'manage_permissions', field: 'action', value: 'set_role' }],
+  'permissions.defaults': [{ tool: 'manage_permissions', field: 'action', value: 'reset_role' }],
+  'permissions.people': [
+    { tool: 'manage_permissions', field: 'action', value: 'set_person' },
+    { tool: 'manage_permissions', field: 'action', value: 'reset_person' },
+  ],
+  // ---- Automations: each row's switch by its id, wherever the switch lives; an always-on row is on the Never list ----
+  ...Object.fromEntries(
+    AUTOMATION_ROWS.filter((a) => !a.locked).map((a) => [
+      `automation.${a.id}`,
+      [
+        { tool: 'update_automations', field: 'turnOn', value: a.id },
+        { tool: 'update_automations', field: 'turnOff', value: a.id },
+      ],
+    ]),
+  ),
+  'adjust.urgent_after': [
+    { tool: 'update_action_center_settings', field: 'hotLeadUrgentAfterMinutes' },
+  ],
+  'adjust.big_job': [{ tool: 'update_action_center_settings', field: 'bigJobDollars' }],
+  'adjust.typical_value': [
+    { tool: 'update_action_center_settings', field: 'typicalJobValueDollars' },
+  ],
+  'adjust.reply_c': [{ tool: 'update_action_center_settings', field: 'replyCToConfirm' }],
+  'adjust.maintenance_plan': [{ tool: 'update_automations', field: 'maintenancePlanMessage' }],
+  'adjust.ignore_balances': [
+    { tool: 'update_action_center_settings', field: 'ignoreBalancesUnderDollars' },
+  ],
+  'adjust.stage_meanings': [{ tool: 'update_automations', field: 'stageMeanings' }],
+  'adjust.gone_quiet': [{ tool: 'update_action_center_settings', field: 'goneQuietAfterDays' }],
+  'adjust.gone_cold': [{ tool: 'update_automations', field: 'reengageAfterDays' }],
+  'adjust.voicemail_box': [{ tool: 'update_automations', field: 'whenVoicemailAnswers' }],
+  'adjust.how_you_tag': [{ tool: 'update_automations', field: 'howYouTag' }],
+  'adjust.calling_hours': [
+    { tool: 'update_automations', field: 'callLeadsFrom' },
+    { tool: 'update_automations', field: 'callLeadsUntil' },
+    { tool: 'update_automations', field: 'callLeadsAtWeekends' },
+  ],
+  'adjust.call_tries': [{ tool: 'update_automations', field: 'callTries' }],
   'adjust.ok_to_call': [{ tool: 'update_automations', field: 'askForOkToCall' }],
+  'adjust.business_landlines': [{ tool: 'update_automations', field: 'callBusinessLandlines' }],
+  // ---- Safety ----
+  'safety.check_ins': [
+    { tool: 'update_safety_settings', field: 'askAfterMinutes' },
+    { tool: 'update_safety_settings', field: 'alertAfterMinutes' },
+    { tool: 'update_safety_settings', field: 'safetyUserId' },
+  ],
+  // ---- Usage & balance: the card itself is typed on the payment provider's page, which only the person does ----
+  'usage.balance': [{ tool: 'do_wallet_top_up', field: 'amountCents' }],
+  'usage.auto_top_up': [
+    { tool: 'update_auto_topup', field: 'on' },
+    { tool: 'update_auto_topup', field: 'belowDollars' },
+    { tool: 'update_auto_topup', field: 'addDollars' },
+  ],
+  'usage.ai_limit': [{ tool: 'do_wallet_set_ai_limit', field: 'aiDailyLimitCents' }],
+  // Buying a seat is on Stripe's page (founding.buy is on the Never list); renewing is the business's switch.
+  'usage.founding': [{ tool: 'do_founding_set_renewing', field: 'renewing' }],
+  // ---- Texting & calls: the calls rows change the default number, as the screen does ----
+  'texting.inbox_visibility': [{ tool: 'set_inbox_visibility', field: 'eachPersonSeesTheirOwn' }],
+  'texting.number': [
+    { tool: 'manage_phone_number', field: 'action', value: 'get' },
+    { tool: 'manage_phone_number', field: 'action', value: 'give_up' },
+    { tool: 'manage_numbers', field: 'action', value: 'rename' },
+    { tool: 'manage_numbers', field: 'action', value: 'make_default' },
+    { tool: 'manage_numbers', field: 'action', value: 'choose_who_it_rings' },
+    { tool: 'do_number_port_start', field: 'e164' },
+    { tool: 'do_number_import_start', field: 'e164' },
+  ],
+  // The campaign fee is paid on Stripe's page (texting_fee.pay is on the Never list).
+  'texting.registration': [
+    { tool: 'submit_carrier_registration', field: 'kind' },
+    { tool: 'do_registration_save_draft', field: 'answers' },
+  ],
+  // Asking for a sender is paid on Stripe's page (rcs_request.submit is on the Never list); HandsFreeOS makes it.
+  'texting.rcs': [
+    { tool: 'do_rcs_sender_connect', field: 'senderId' },
+    { tool: 'manage_rcs', field: 'action', value: 'check_now' },
+    { tool: 'manage_rcs', field: 'action', value: 'disconnect' },
+  ],
+  'texting.rcs_send': [
+    { tool: 'manage_rcs', field: 'action', value: 'pause' },
+    { tool: 'manage_rcs', field: 'action', value: 'turn_on' },
+  ],
+  'texting.rcs_line': [
+    { tool: 'manage_rcs', field: 'action', value: 'start_on_number' },
+    { tool: 'manage_rcs', field: 'phoneNumberId' },
+  ],
+  'texting.quiet_hours': [
+    { tool: 'update_texting_settings', field: 'quietHoursEnabled' },
+    { tool: 'update_texting_settings', field: 'quietHoursStart' },
+    { tool: 'update_texting_settings', field: 'quietHoursEnd' },
+  ],
+  'texting.remind_waiting': [{ tool: 'update_texting_settings', field: 'remindTeamAfterMinutes' }],
+  'texting.calls': [{ tool: 'update_texting_settings', field: 'ringPhones' }],
+  'texting.ring_for': [{ tool: 'update_texting_settings', field: 'ringSeconds' }],
+  'texting.caller_id': [{ tool: 'update_texting_settings', field: 'showCustomerNumber' }],
+  'texting.recording': [
+    { tool: 'do_phone_number_set_recording_notice', field: 'announceRecording' },
+  ],
+  'texting.voicemail': [
+    { tool: 'update_texting_settings', field: 'voicemailEnabled' },
+    { tool: 'update_texting_settings', field: 'voicemailGreeting' },
+  ],
+  // ---- Email: connecting a mailbox is signing in to Microsoft, which only the person does (mailbox.connect) ----
+  'email.sending_address': [
+    { tool: 'manage_email_settings', field: 'action', value: 'add_address' },
+    { tool: 'manage_email_settings', field: 'action', value: 'change_address' },
+    { tool: 'manage_email_settings', field: 'displayName' },
+    { tool: 'manage_email_settings', field: 'isDefault' },
+    { tool: 'manage_email_settings', field: 'ownerUserId' },
+    { tool: 'do_email_address_reassign', field: 'to' },
+  ],
+  'email.own_domain': [
+    { tool: 'manage_email_settings', field: 'action', value: 'add_domain' },
+    { tool: 'manage_email_settings', field: 'action', value: 'check_domain' },
+    { tool: 'manage_email_settings', field: 'action', value: 'remove_domain' },
+    { tool: 'manage_email_settings', field: 'emailDomainId' },
+    { tool: 'do_email_domain_receive', field: 'emailDomainId' },
+    { tool: 'do_email_domain_stop_receiving', field: 'emailDomainId' },
+  ],
+  'email.mailboxes': [{ tool: 'do_mailbox_disconnect', field: 'connectionId' }],
+  'email.blocked': [
+    { tool: 'manage_email_settings', field: 'action', value: 'unblock' },
+    { tool: 'block_email_address', field: 'address' },
+  ],
+  'email.unknown_senders': [
+    { tool: 'sort_unmatched_email', field: 'action', value: 'file_under_customer' },
+    { tool: 'sort_unmatched_email', field: 'action', value: 'dismiss' },
+  ],
+  'email.sender_rules': [{ tool: 'do_email_sender_rule_remove', field: 'address' }],
+  // Settings → Website chat, and each chat in Forms → Website chats, changed as its screen does.
+  'website_chat.who_answers': [{ tool: 'manage_website_chat', field: 'answeredByAi' }],
+  'website_chat.daily_limit': [{ tool: 'manage_website_chat', field: 'dailyCap' }],
+  'website_chat.sites': [
+    { tool: 'manage_website_chat', field: 'action', value: 'create' },
+    { tool: 'manage_website_chat', field: 'websites', value: 'https://lonestarhvac.com' },
+  ],
+  'website_chat.install': [{ tool: 'do_chat_widget_rotate_key', field: 'widgetId' }],
+  'website_chat.look': [
+    { tool: 'manage_website_chat', field: 'name' },
+    { tool: 'manage_website_chat', field: 'greeting' },
+    { tool: 'manage_website_chat', field: 'buttonLabel' },
+    { tool: 'manage_website_chat', field: 'color', value: '#2d69d8' },
+    { tool: 'manage_website_chat', field: 'textColor', value: 'automatic' },
+    { tool: 'manage_website_chat', field: 'topBarColor', value: '#191d25' },
+  ],
+  'website_chat.logo': [{ tool: 'manage_website_chat', field: 'showLogo' }],
+  'website_chat.placement': [
+    { tool: 'manage_website_chat', field: 'position', value: 'left' },
+    { tool: 'manage_website_chat', field: 'phonePosition', value: 'same_as_computer' },
+    { tool: 'manage_website_chat', field: 'computerLift' },
+    { tool: 'manage_website_chat', field: 'phoneLift' },
+    { tool: 'manage_website_chat', field: 'computerButton', value: 'icon' },
+    { tool: 'manage_website_chat', field: 'phoneButton', value: 'hidden' },
+  ],
+  'website_chat.away': [
+    { tool: 'manage_website_chat', field: 'whenNobodyAnswers', value: 'chat' },
+    { tool: 'manage_website_chat', field: 'awayMessage' },
+    { tool: 'manage_website_chat', field: 'askFor.name', value: 'when_needed' },
+    { tool: 'manage_website_chat', field: 'askFor.phone', value: 'after_first_message' },
+    { tool: 'manage_website_chat', field: 'askFor.email', value: 'never' },
+  ],
+  'website_chat.text_box': [{ tool: 'manage_website_chat', field: 'askForSmsConsent' }],
+  // ---- Facebook & Instagram ----
+  'facebook_instagram.accounts': [{ tool: 'do_meta_account_disconnect', field: 'accountId' }],
+  'facebook_instagram.sign_in': [{ tool: 'do_meta_connection_disconnect', field: 'connectionId' }],
+  // ---- Lead intake ----
+  'lead_intake.channels': [
+    ...['text', 'call', 'email', 'messenger', 'instagram', 'facebook_lead_ad', 'indeed'].map(
+      (value) => ({ tool: 'manage_lead_intake', field: 'channel', value }),
+    ),
+    { tool: 'manage_lead_intake', field: 'active' },
+    { tool: 'manage_lead_intake', field: 'createLead' },
+    { tool: 'manage_lead_intake', field: 'pipelineId' },
+    { tool: 'manage_lead_intake', field: 'stageId' },
+    { tool: 'manage_lead_intake', field: 'name' },
+    { tool: 'manage_lead_intake', field: 'dailyCap' },
+  ],
+  'lead_intake.sources': [
+    ...['create', 'change', 'new_key', 'pause', 'turn_on', 'retire'].map((value) => ({
+      tool: 'manage_lead_form',
+      field: 'action',
+      value,
+    })),
+    { tool: 'manage_lead_form', field: 'websites' },
+    { tool: 'manage_lead_form', field: 'thankYouPage' },
+  ],
+  // ---- Tags ----
+  'tags.list': [
+    ...['create', 'change', 'delete'].map((value) => ({
+      tool: 'manage_tag',
+      field: 'action',
+      value,
+    })),
+    { tool: 'manage_tag', field: 'name' },
+    { tool: 'manage_tag', field: 'color' },
+  ],
+  'tags.ai_tagging': [
+    ...['start', 'stop'].map((value) => ({ tool: 'ai_tag_customers', field: 'action', value })),
+    { tool: 'ai_tag_customers', field: 'instructions' },
+    { tool: 'ai_tag_customers', field: 'tagIds' },
+    { tool: 'ai_tag_customers', field: 'onlyTagId' },
+    { tool: 'ai_tag_customers', field: 'fixDetails' },
+  ],
 };
 
 /** Setting rows the Assistant never changes, and why. */
@@ -490,6 +714,27 @@ export const SETTINGS_NEVER: Readonly<Record<string, string>> = {
   'phone.documents_mobile_data': 'a setting of the phone in their hand, set on it',
   'phone.changes': 'a setting of the phone in their hand, set on it',
   'phone.my_safety': 'the person’s own safety contacts, which only they choose',
+  'safety.preview': 'nothing of its own to change: it shows what the check-in times set',
+  'usage.card':
+    'the card is typed on the payment provider’s own page, which only the person can do (do_wallet_forget_card takes it off)',
+  'usage.prices':
+    'HandsFreeOS’s own prices, to read (get_settings, area usage): nothing here is the business’s to change',
+  'usage.statement':
+    'what was charged and added, to read (get_settings, area usage): nothing to change',
+  'texting.stop_help':
+    'always on: every text answers STOP, START and HELP by itself, and an opted-out customer stays opted out until they text START',
+  'website_chat.try':
+    'a preview page the person opens to chat with their own chat box; test chats create and send nothing, so there is nothing to set',
+  'tags.ai_changes':
+    'what the AI changed lately and why, to read (ai_tagging_status): nothing to set, and a tag it put on comes off with tag_customers',
+  'facebook_instagram.lead_ads':
+    'what each Page’s lead ads send in, to read (get_settings, area facebook_instagram); letting leads in is connecting Facebook again or Meta’s own Leads Access, which only the person can do, and whether they open a lead is Lead intake’s (manage_lead_intake)',
+  ...Object.fromEntries(
+    AUTOMATION_ROWS.filter((a) => a.locked).map((a) => [
+      `automation.${a.id}`,
+      'always on, so a person always sees what waits on them: it has no switch',
+    ]),
+  ),
 };
 
 /**
@@ -497,16 +742,6 @@ export const SETTINGS_NEVER: Readonly<Record<string, string>> = {
  * the first, says which tool changes each of its rows (adding what's missing), and takes it off.
  */
 export const SETTINGS_NOT_YET: readonly string[] = [
-  'permissions',
-  'automations',
-  'safety',
-  'usage',
-  'texting',
-  'email',
-  'website_chat',
-  'facebook_instagram',
-  'lead_intake',
-  'tags',
   'relationships',
   'calendars',
   'payments',

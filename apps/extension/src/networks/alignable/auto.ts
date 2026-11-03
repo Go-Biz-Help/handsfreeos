@@ -14,8 +14,8 @@
  *   Connection, 0.94.0). It makes the request at once and may open another page, so the tab answers as it presses, and
  *   the runner opens their page again to see the request went.
  * - **A message** in their conversation (/biz/conversations?with_business_id=<id>): typed only into that conversation's
- *   own box (`full-view-write-message`) while it's empty, and sent with its Send (`messaging-send-external`). It went
- *   once the box empties.
+ *   own box (`full-view-write-message`) while it's empty, and sent with its Send (`messaging-send-external`, since 30
+ *   Oct 2026 `messaging-send-desktop`). It went once the box empties.
  * - **A comment** on a good post (from 0.95.0, decision 92), once it's OK'd or past the comment hold: only on the post's
  *   own page, by its discussion's id, only in its own reply form at the top (`discussion-comment-reply-form`), never
  *   one under an answer, only while its box is empty, and sent with that form's own Send. It went once the box empties.
@@ -30,6 +30,7 @@
  */
 import type { CommentLiked, TheirComment } from '../../messages';
 import type { AutoResult, TheirPost } from '../facebook/auto';
+import { squashed, timesShown } from '../facebook/dom';
 import { visible } from '../facebook/fetch';
 import type { JoinStep } from '../facebook/join';
 import type { ProfileRef } from '../facebook/types';
@@ -38,6 +39,7 @@ import type { CommentOn } from '../looking/site';
 import {
   answerParts,
   businessPage,
+  chatHeader,
   chatOpen,
   CONNECT_AT,
   differ,
@@ -47,6 +49,7 @@ import {
   isDiscussionPage,
   likesIn,
   linksIn,
+  MESSAGE_SEND,
   PART,
   postParts,
   urlOf,
@@ -64,7 +67,7 @@ const ASKED = /^(connected|request sent|requested|pending|invitation sent)$/i;
 const WRITING = '[contenteditable="true"], textarea, [role="textbox"]';
 /** How long a like and a message are waited on to show they went. */
 const WENT_MS = 5_000;
-const SENT_MS = 6_000;
+const SENT_MS = 8_000;
 
 /** Whether two links are to the same business: by Alignable's id when both carry it, else its address in its town. */
 export function sameBusiness(a: ProfileRef, b: ProfileRef): boolean {
@@ -73,9 +76,14 @@ export function sameBusiness(a: ProfileRef, b: ProfileRef): boolean {
   return a.url.toLowerCase() === b.url.toLowerCase();
 }
 
-/** Whether a Like shows it's given: it says Liked or Unlike, or it's pressed. */
+/**
+ * Whether a Like shows it's given: it says Liked or Unlike, or it's pressed, or (a group's feed, the owner's outline of
+ * 31 Oct 2026) Alignable marks it `active`.
+ */
 const likedNow = (like: Element) =>
-  LIKED.test(nameOf(like)) || like.getAttribute('aria-pressed') === 'true';
+  LIKED.test(nameOf(like)) ||
+  like.getAttribute('aria-pressed') === 'true' ||
+  (like.matches('[data-like-button]') && like.classList.contains('active'));
 
 /** A post's own Like: one saying Like (or Liked), in the post and not in one of its answers; never its count. */
 export function likeOf(post: Element, base: string): HTMLElement | null {
@@ -288,7 +296,7 @@ export function connectOnPage(doc: Document, href: string, profile: ProfileRef):
 export function messageBoxFor(doc: Document, href: string, them: ProfileRef): HTMLElement | null {
   const url = urlOf(href, href);
   if (!them.id || url?.searchParams.get('with_business_id') !== them.id) return null;
-  if (!doc.querySelector(PART('channel-header-loaded'))) return null;
+  if (!chatHeader(doc)) return null;
   const linked = chatOpen(doc, href)?.profile;
   if (!linked || !(linked.id ? linked.id === them.id : sameBusiness(linked, them))) return null;
   const writes = [...doc.querySelectorAll(PART('full-view-write-message'))];
@@ -300,9 +308,9 @@ export function messageBoxFor(doc: Document, href: string, them: ProfileRef): HT
 function sendFor(box: Element, doc: Document): HTMLElement | null {
   const own = box
     .closest(PART('full-view-write-message'))
-    ?.querySelector<HTMLElement>(PART('messaging-send-external'));
+    ?.querySelector<HTMLElement>(MESSAGE_SEND);
   if (own) return own;
-  const all = [...doc.querySelectorAll<HTMLElement>(PART('messaging-send-external'))];
+  const all = [...doc.querySelectorAll<HTMLElement>(MESSAGE_SEND)];
   return all.length === 1 ? all[0]! : null;
 }
 
@@ -350,8 +358,25 @@ export async function writeMessage(
     takeOut(box);
     return 'not_theirs';
   }
+  // It went once the box empties, or what was typed shows once more in the conversation: Alignable sometimes leaves
+  // the writing in the box after it sends (the owner's sends of 30 Oct 2026, on 0.114.0, said "didn't take" of
+  // messages that were in the conversation).
+  const before = timesShown(doc, text, WRITING);
   send.click();
-  return (await waitFor(() => (writingIn(box) ? null : true), SENT_MS)) ? 'done' : 'not_sent';
+  const went = await waitFor(
+    () => (!writingIn(box) || timesShown(doc, text, WRITING) > before ? true : null),
+    SENT_MS,
+  );
+  if (!went) return 'not_sent';
+  // What was typed left in the box after it went is taken out, so the next message finds it empty.
+  if (
+    box.isConnected &&
+    writingIn(box) &&
+    !(await waitFor(() => (writingIn(box) ? null : true), 2_000)) &&
+    squashed('value' in box ? String(box.value) : box.textContent) === squashed(text)
+  )
+    takeOut(box);
+  return 'done';
 }
 
 // ------------------------------------------------------------------------------------------------ comments

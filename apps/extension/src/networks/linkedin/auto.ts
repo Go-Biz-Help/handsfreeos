@@ -10,6 +10,8 @@
  * - **Connect** on their profile, without a note (Chris: LinkedIn invitations go with no note): Connect in the top
  *   card, or under More when Follow comes first; then the box's **Send without a note**. It never types a note, and a
  *   box that asks for anything (their email, a note it insists on) is left for the person.
+ * - **Accept** or **Ignore** their invitation (decision 136, from 0.118.0), in their profile's top card, once the
+ *   person pressed Confirm or Delete in HandsFreeOS or the AI said to as they chose.
  * - **A comment** in the post's own box, never a reply's, sent with that box's own button: one saying Comment or Post
  *   (or, a best reading of LinkedIn's newer words, "Post comment", "Submit comment"); anything else is left for the
  *   person.
@@ -19,7 +21,7 @@
  * Like the readers, it goes by what a person sees (words, labels, links, page order), never LinkedIn's class names.
  */
 import type { AutoResult, TheirPost } from '../facebook/auto';
-import { isAfter } from '../facebook/dom';
+import { isAfter, squashed, timesShown } from '../facebook/dom';
 import { shown, visible } from '../facebook/fetch';
 import { hasWriting, reacted } from './actions';
 import { readChat } from './chat';
@@ -36,8 +38,16 @@ import {
 } from './posts';
 import { inTopCard, readProfile } from './profile';
 import type { ProfileRef } from './types';
-import { classifyUrl, comparable, linkedinUrl, memberIdFrom, sameMember } from './urls';
-import { CONNECT, MESSAGE, MORE } from './vocabulary';
+import {
+  byMemberId,
+  classifyUrl,
+  comparable,
+  linkedinUrl,
+  memberIdFrom,
+  sameMember,
+  threadOf,
+} from './urls';
+import { ACCEPT, CONNECT, IGNORE, MESSAGE, MORE } from './vocabulary';
 
 export type { AutoResult, TheirPost };
 
@@ -64,6 +74,12 @@ const REPLY_BOX = /^(add a reply|reply to\b|write a reply)/i;
 /** How long a box, a menu and a change are waited on, and how often they're looked at. */
 const WAIT_MS = 8_000;
 const LOOK_MS = 300;
+/** How long a sent message has to show it went. */
+const SENT_MS = 8_000;
+/** How long a box to write to them in may take to show: a new conversation's is drawn in the interop frame, which
+ * loads all of LinkedIn's messaging first (the owner's sends of 30 Oct 2026, on 0.114.0). */
+const BOX_MS = 5_000;
+const NEW_BOX_MS = 15_000;
 
 export const says = (control: Element, pattern: RegExp) =>
   wordsOf(control).some((w) => pattern.test(w));
@@ -216,6 +232,14 @@ export async function connect(doc: Document, href: string): Promise<ConnectResul
   }
   if (!press) return 'none';
   press.click();
+  return connectSent(doc, href);
+}
+
+/**
+ * Once Connect is pressed (by `connect`, or the AI helper's press of it, decision 142): the invitation box's own send
+ * as it is, when LinkedIn opens one that asks nothing else, then the wait for Pending.
+ */
+export async function connectSent(doc: Document, href: string): Promise<ConnectResult> {
   const pending = () => profileOn(doc, href).connection === 'pending';
   const next = await waitFor<HTMLElement | 'asks' | 'sent'>(
     () => sendAsItIs(doc) ?? (pending() ? 'sent' : null),
@@ -224,6 +248,54 @@ export async function connect(doc: Document, href: string): Promise<ConnectResul
   if (next === null || next === 'asks') return next === 'asks' ? 'none' : 'not_sent';
   next.click();
   return (await waitFor(() => (pending() ? true : null))) ? 'done' : 'not_sent';
+}
+
+/** The box LinkedIn may open to be sure of an Ignore: its own Ignore. */
+const SURE_IGNORE = /^(ignore|ignore invitation)$/i;
+
+/**
+ * Answers their invitation from their profile (decision 136): Accept, or Ignore, in its top card (Ignore under More
+ * when it isn't beside Accept), then the box's own Ignore where LinkedIn asks to be sure. It went once their profile
+ * no longer has Accept. `already` when there's nothing to answer: connected for Accept, or no invitation of theirs
+ * waiting for Ignore; `none` when there's no such button, which is the person's.
+ */
+export async function answerInvitation(
+  doc: Document,
+  href: string,
+  answer: 'confirm' | 'delete',
+): Promise<ConnectResult> {
+  const before = profileOn(doc, href).connection;
+  if (before !== 'received')
+    return (answer === 'confirm' ? before === 'connected' : before === 'not_connected')
+      ? 'already'
+      : 'none';
+  const pattern = answer === 'confirm' ? ACCEPT : IGNORE;
+  let press = topCardControl(doc, pattern);
+  if (!press && answer === 'delete') {
+    const more = topCardControl(doc, MORE);
+    if (!more) return 'none';
+    more.click();
+    press = await waitFor(() => topCardControl(doc, pattern), 3_000);
+  }
+  if (!press) return 'none';
+  press.click();
+  const answered = () => profileOn(doc, href).connection !== 'received';
+  const next = await waitFor<HTMLElement | 'answered'>(() => {
+    if (answered()) return 'answered';
+    if (answer !== 'delete') return null;
+    for (const box of doc.querySelectorAll(OVER_THE_PAGE)) {
+      if (!shown(box)) continue;
+      const sure = [...box.querySelectorAll<HTMLElement>(CONTROLS)].find(
+        (c) => shown(c) && says(c, SURE_IGNORE),
+      );
+      if (sure) return sure;
+    }
+    return null;
+  });
+  if (next === 'answered') return 'done';
+  if (!next) return 'not_sent';
+  next.click();
+  return (await waitFor(() => (answered() ? true : null))) ? 'done' : 'not_sent';
 }
 
 // ------------------------------------------------------------------------------------------------ writing
@@ -289,8 +361,33 @@ async function typeAndSend(
   if (!hasWriting(box)) return 'not_sent';
   const send = sendFor(box, pattern);
   if (!send) return 'none';
+  // Its Comment shows once something's typed, but stays off a moment after (the owner's outline of 31 Oct 2026).
+  await waitFor(
+    () =>
+      send.hasAttribute('disabled') || send.getAttribute('aria-disabled') === 'true' ? null : true,
+    3_000,
+  );
+  // It went once the box empties, or what was typed shows once more where the box is: LinkedIn sometimes draws the
+  // box afresh, or leaves the writing in it a while (the owner's sends of 30 Oct 2026, on 0.114.0, said "didn't take"
+  // of a message that was in the conversation).
+  const place = box.getRootNode();
+  const before = timesShown(place, text, WRITING);
   send.click();
-  return (await waitFor(() => (hasWriting(box) ? null : true), 6_000)) ? 'done' : 'not_sent';
+  const went = await waitFor(
+    () => (!hasWriting(box) || timesShown(place, text, WRITING) > before ? true : null),
+    SENT_MS,
+  );
+  if (!went) return 'not_sent';
+  // What was typed left in the box after it went is taken out, so the next message finds it empty.
+  if (
+    box.isConnected &&
+    hasWriting(box) &&
+    !(await waitFor(() => (hasWriting(box) ? null : true), 2_000)) &&
+    squashed(box.tagName === 'TEXTAREA' ? (box as HTMLTextAreaElement).value : box.textContent) ===
+      squashed(text)
+  )
+    takeOut(box);
+  return 'done';
 }
 
 /** The post the page is about: its own page's, the first. */
@@ -381,28 +478,81 @@ function windowLinks(box: Element, doc: Document, href: string): ProfileRef[] {
 }
 
 /**
+ * Who a new conversation's box is to, as the part around it links to them: the people linked outside its messages in
+ * the nearest part around the box that links to anyone, short of the list of conversations or a second box to write
+ * in. In LinkedIn's newer messaging, the card over the box with their picture and name (the owner's sends of 30 Oct
+ * 2026, on 0.114.0).
+ */
+function composeLinks(box: Element, href: string): ProfileRef[] {
+  let up = box.parentElement;
+  for (let steps = 0; up && steps < 12; steps++, up = up.parentElement) {
+    if ([...up.querySelectorAll(WRITING)].filter(shown).length > 1) break;
+    if (
+      [...up.querySelectorAll('a[href]')].some((a) => threadOf(a.getAttribute('href') ?? '', href))
+    )
+      break;
+    const linked = peopleLinked(linksOutsideMessages(up), href, inPageBar).map((p) => p.profile);
+    if (linked.length) return linked;
+  }
+  return [];
+}
+
+/** A new conversation's own page: what Message on their profile opens (/messaging/thread/new/?recipient=…). */
+const NEW_CONVERSATION = /^\/messaging\/(thread\/new|compose)(\/|$)/i;
+
+/**
+ * Whether a new conversation's address names whom the link their profile's Message was names: the same `recipient`,
+ * written the same way, whatever way that is. Their profile's Message (/messaging/compose/?profileUrn=…&recipient=…)
+ * takes the tab to /messaging/thread/new/?recipient=… with it (the owner's sends of 30 Oct 2026, on 0.117.0).
+ */
+function namesWhomOpened(url: URL, opened: string | null): boolean {
+  const recipient = url.searchParams.get('recipient');
+  return (
+    !!recipient && !!opened && linkedinUrl(opened)?.searchParams.get('recipient') === recipient
+  );
+}
+
+/**
  * The box to write to them in: the conversation's own on its page (when it's with them, as far as it says), or the
  * one window over the page that links to them, wherever LinkedIn draws it (its interop box among them: ./dom.ts).
- * Null when there's none, or more than one.
+ * Null when there's none, or more than one. `opened` is the link their profile's Message was, when the runner pressed
+ * it: a new conversation whose address names whom it named is theirs.
  */
-export function messageBoxFor(doc: Document, href: string, them: ProfileRef): HTMLElement | null {
+export function messageBoxFor(
+  doc: Document,
+  href: string,
+  them: ProfileRef,
+  opened: string | null = null,
+): HTMLElement | null {
   const address = classifyUrl(href);
   const main = mainOf(doc);
   const url = linkedinUrl(href);
   // The new conversation Message on their profile opens names whom it's to (/messaging/thread/new/?recipient=…).
-  const to = address.kind === 'messaging' && url ? memberIdFrom(url) : null;
-  if (address.kind === 'chat' || to) {
+  const fresh = address.kind === 'messaging' && !!url && NEW_CONVERSATION.test(url.pathname);
+  const toId = fresh ? memberIdFrom(url!) : null;
+  const to = toId ? { id: toId, username: null, url: href } : null;
+  const asOpened = fresh && namesWhomOpened(url!, opened);
+  if (address.kind === 'chat' || fresh) {
     // Their conversation's own page: the runner opened it by its id and checked it's theirs, or Message on their
-    // profile opened it for them. Only something plainly saying it's someone else's is a reason to stop. LinkedIn's
-    // newer pages draw it in the interop frame's own page.
-    if (to && them.id && to !== them.id) return null;
+    // profile opened it for them. Only something plainly saying it's someone else's is a reason to stop: an id of the
+    // same kind as theirs that isn't theirs (LinkedIn writes one member's id two ways: ./urls.ts), or a card over the
+    // box linking to someone else. A new conversation whose address names nobody it can read is theirs by that card,
+    // or by naming whom their profile's Message named: then that, not an id read off their profile, says who it's to.
+    // LinkedIn's newer pages draw it in the interop frame's own page, with no card when they've written before: their
+    // past messages are there instead (the owner's sends of 30 Oct 2026, on 0.117.0).
+    if (to && !asOpened && byMemberId(to, them) && to.id !== them.id) return null;
     const boxes = pagesOf(doc).flatMap((page) => {
       if (address.kind === 'chat') {
         const chat = readChat(page, address, href);
         if (chat.profile && comparable(chat.profile, them) && !sameMember(chat.profile, them))
           return [];
       }
-      return messageBoxes(page === doc ? main : page);
+      return messageBoxes(page === doc ? main : page).filter((box) => {
+        if (!fresh) return true;
+        const linked = composeLinks(box, href);
+        if (linked.some((p) => comparable(p, them) && !sameMember(p, them))) return false;
+        return to !== null || asOpened || linked.some((p) => sameMember(p, them));
+      });
     });
     return boxes.length === 1 ? boxes[0]! : null;
   }
@@ -421,27 +571,47 @@ export function messageBoxFor(doc: Document, href: string, them: ProfileRef): HT
   return theirs.length === 1 ? theirs[0]! : null;
 }
 
-/** On their profile, the top card's Message: whether there was one to press. */
-export function openMessage(doc: Document): boolean {
+/**
+ * On their profile, the top card's Message, pressed: false when there's none, else the link it is (whole), or null
+ * when it's a button.
+ */
+export function openMessage(doc: Document, href: string): string | null | false {
   const message = topCardControl(doc, MESSAGE);
   if (!message) return false;
+  const link = message.closest('a[href]')?.getAttribute('href');
   message.click();
-  return true;
+  return link ? (linkedinUrl(link, href)?.href ?? null) : null;
 }
 
 /**
  * Writes a message to them in their conversation and sends it, waiting a little for the box to show. Nothing is typed
  * unless the focus is in their box, and nothing is sent unless, once typed, it's still their conversation's box; else
- * what was typed is taken out again (`not_theirs`).
+ * what was typed is taken out again (`not_theirs`). `opened` is the link their profile's Message was (`openMessage`).
+ *
+ * Each look goes by the page's address as it is then: Message on their profile takes the tab to the new conversation's
+ * page only once LinkedIn has loaded its messaging, which can be after the ask comes (more so in a window behind
+ * another), and a look that kept their profile's address never took that page's box for theirs (the owner's sends of
+ * 30 Oct 2026, on 0.117.0). Its longer wait counts once the address is that page's, or from the start after a Message
+ * that's a link (to that page).
  */
 export async function writeMessage(
   doc: Document,
   href: string,
   text: string,
   them: ProfileRef,
+  opened: string | null = null,
 ): Promise<AutoResult> {
-  const theirs = () => messageBoxFor(doc, href, them);
-  const box = await waitFor(theirs, 5_000);
+  const at = () => doc.defaultView?.location.href || href;
+  const theirs = () => messageBoxFor(doc, at(), them, opened);
+  let box = theirs();
+  for (
+    let waited = 0;
+    !box && waited < (opened || classifyUrl(at()).kind === 'messaging' ? NEW_BOX_MS : BOX_MS);
+    waited += LOOK_MS
+  ) {
+    await pause(LOOK_MS);
+    box = theirs();
+  }
   if (!box) return 'none';
   return typeAndSend(box, text, SENDS_MESSAGE, theirs);
 }

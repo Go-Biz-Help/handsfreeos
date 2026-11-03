@@ -45,6 +45,7 @@ import { ActivityIndicator, View } from 'react-native';
 
 import { change, ChangeError } from '@/changes';
 import { Archive, Check, Plus, RotateCcw, Sparkles, Trash } from '@/components/icons';
+import { useKeyboardHeight } from '@/components/shell/keyboard';
 import { List, ListRow } from '@/components/shell/list';
 import { Screen } from '@/components/shell/screen';
 import { Badge } from '@/components/ui/badge';
@@ -77,7 +78,8 @@ import { PHONE_WORDS } from './phone-words';
  * Suggest more, Write it for me), and writes the short video's script there, part by part (`outreach.video.script`);
  * what it writes is only offered, and saved with the part. It needs signal. Its networks are one part: one playbook
  * for every network (Chris), at least one picked. Each network's own words, and whether its clients are online, show
- * on a customers' playbook while that network is ticked (decision 92).
+ * on a customers' playbook while that network is ticked (decision 92): Facebook's phrases for its post search too
+ * (decision 141).
  */
 
 export type Section = keyof typeof W.playbookSections | 'name';
@@ -107,6 +109,7 @@ export const SECTION_FIELDS: Readonly<
   avoid: ['avoid'],
   disclaimer: ['disclaimer'],
   tags: ['tags'],
+  facebookSearches: ['facebookSearches'],
   hashtags: ['hashtags'],
   postSearches: ['postSearches'],
   businessKinds: ['businessKinds'],
@@ -116,6 +119,7 @@ const SECTIONS = Object.keys(SECTION_FIELDS) as Exclude<Section, 'name'>[];
 
 /** The parts only a customers' playbook has, each shown while its network is ticked (decision 92). */
 const NETWORK_SECTIONS: Partial<Record<Exclude<Section, 'name'>, WordsPlatform>> = {
+  facebookSearches: 'facebook',
   hashtags: 'instagram',
   postSearches: 'linkedin',
   businessKinds: 'alignable',
@@ -206,6 +210,7 @@ export function sectionWords(details: PlaybookDetails, section: Exclude<Section,
     case 'tone':
     case 'disclaimer':
       return or(details[section]);
+    case 'facebookSearches':
     case 'hashtags':
     case 'postSearches':
     case 'businessKinds': {
@@ -454,6 +459,7 @@ function SectionSheet({
   const [draft, setDraft] = React.useState<Pick<Playbook, 'name' | 'details'>>(playbook);
   const [problem, setProblem] = React.useState<string | null>(null);
   const [busy, setBusy] = React.useState(false);
+  const keyboard = useKeyboardHeight();
   React.useEffect(() => {
     if (section) {
       setDraft({ name: playbook.name, details: playbook.details });
@@ -477,7 +483,7 @@ function SectionSheet({
     : undefined;
   return (
     <Sheet open={section !== null} onClose={onClose} title={title} scroll testID="playbook-sheet">
-      <View className="gap-3">
+      <View style={keyboard ? { paddingBottom: keyboard } : undefined} className="gap-3">
         {section ? (
           <SectionEditor section={section} draft={draft} set={set} setDraft={setDraft} {...ai} />
         ) : null}
@@ -562,6 +568,7 @@ type ListKey =
   | 'tags'
   | 'samples'
   | 'avoid'
+  | 'facebookSearches'
   | 'hashtags'
   | 'postSearches'
   | 'businessKinds'
@@ -830,6 +837,7 @@ function SectionEditor({
           ) : null}
         </>
       );
+    case 'facebookSearches':
     case 'hashtags':
     case 'postSearches':
     case 'businessKinds': {

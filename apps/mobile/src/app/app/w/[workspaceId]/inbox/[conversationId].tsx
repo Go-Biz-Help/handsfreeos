@@ -21,6 +21,7 @@ import {
   PENDING_REPLY_WORDS,
   replySubject,
   rowName,
+  SENDER_WORDS,
   SENT_WORDS,
   SOCIAL_CHANNEL_NAMES,
   SOCIAL_MAX_ATTACHMENTS,
@@ -74,7 +75,9 @@ import {
   PrivateBanner,
   SnoozeSheet,
   StatusBanner,
+  type SenderActions,
 } from '@/components/inbox/conversation-parts';
+import { LinkPersonSheet } from '@/components/inbox/link-person-sheet';
 import { LaneSwitcher } from '@/components/inbox/lane-switcher';
 import { PendingReplyBubble } from '@/components/inbox/pending-reply';
 import { CallCard, DayDivider, EmailCard, MessageBubble } from '@/components/inbox/thread-items';
@@ -105,6 +108,7 @@ import { dropReplyPhoto, sendReply, takeReplyPhoto, type TrayPhoto } from '@/inb
 import { threadEntries, type ThreadEntry } from '@/inbox/thread-entries';
 import { useConversation, useThread } from '@/inbox/use-conversation';
 import { useEmailFacts } from '@/inbox/use-email';
+import { useSender } from '@/inbox/use-sender';
 import { useLanes, useMembers, useNow } from '@/inbox/use-inbox';
 import { api, errorMessage, unwrap } from '@/lib/api';
 import { config } from '@/lib/config';
@@ -221,6 +225,7 @@ function Thread() {
     | 'stage'
     | 'next-action'
     | 'add-person'
+    | 'link-person'
     | 'delete'
     | null
   >(null);
@@ -248,6 +253,13 @@ function Thread() {
   const phoneDisplay = person?.phone ?? (channel === 'sms' ? (c?.counterpartDisplay ?? '') : '');
   const emailTo = channel === 'email' ? (c?.counterpart ?? null) : (person?.email ?? null);
   const email = useEmailFacts(conversationId, current === 'email' ? emailTo : null);
+  // Team email from somebody not linked yet: who already has the address, and the name their mail gave (2026-10-29).
+  // Someone's own mail is shared first (the owner's pick), so it asks nothing until then.
+  const sender = useSender(
+    business.id,
+    conversationId,
+    channel === 'email' && !c?.person && !c?.private ? (c?.counterpart ?? null) : null,
+  );
 
   // Opening a conversation reads it, as on the web.
   const readOnce = React.useRef(false);
@@ -702,6 +714,10 @@ function Thread() {
     }
   };
 
+  /** The conversation onto a customer who already exists, who gains its number or address. */
+  const linkPerson = (to: { readonly id: string; readonly name: string }): Promise<boolean> =>
+    actions.link(to.id, SENDER_WORDS.linked(to.name));
+
   const addNote = async (text: string): Promise<boolean> => {
     if (!person) return false;
     try {
@@ -725,6 +741,13 @@ function Thread() {
       toast.error(error instanceof Error ? error.message : String(error));
       return false;
     }
+  };
+
+  const senderActions: SenderActions = {
+    known: sender.known,
+    onAdd: () => setSheet('add-person'),
+    onLink: () => setSheet('link-person'),
+    onLinkKnown: (known) => void linkPerson(known),
   };
 
   const backToList = () => {
@@ -903,6 +926,7 @@ function Thread() {
           who={who}
           timeZone={data.timeZone}
           onReopen={() => void actions.reopen()}
+          sender={all ? null : senderActions}
         />
         {social && !all ? (
           <AttributionStrip workspaceId={business.id} conversationId={conversationId} />
@@ -1043,6 +1067,7 @@ function Thread() {
         onStage={lead && stages.length > 1 ? () => setSheet('stage') : null}
         onNextAction={lead ? () => setSheet('next-action') : null}
         onAddPerson={person || priv ? null : () => setSheet('add-person')}
+        onLinkPerson={person || priv || all ? null : () => setSheet('link-person')}
         stageName={lead?.stageName ?? null}
         moves={moves}
         onMove={(m) => void moveTo(m)}
@@ -1133,7 +1158,14 @@ function Thread() {
         open={sheet === 'add-person'}
         onClose={() => setSheet(null)}
         counterpart={c.counterpartDisplay}
+        defaultName={sender.name}
         onSave={addPerson}
+      />
+      <LinkPersonSheet
+        open={sheet === 'link-person'}
+        onClose={() => setSheet(null)}
+        counterpart={c.counterpartDisplay}
+        onPick={(customer) => linkPerson(customer)}
       />
       <DeleteSheet
         open={sheet === 'delete'}

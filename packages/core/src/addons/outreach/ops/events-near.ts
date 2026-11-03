@@ -18,6 +18,7 @@ import {
 import { outreachAddon } from '../manifest';
 import { eventReads } from '../tables';
 import { inWorkspace } from './common';
+import { tally } from './tallies';
 import { startOfToday } from './tidy';
 
 const DAY = 86_400_000;
@@ -76,6 +77,8 @@ export const eventsRead = defineAddonCommand(outreachAddon, {
               where u <> all (excluded.urls) order by n))[1:${EVENTS_KEPT_MOST}],
             updated_at = excluded.read_at`,
     );
+    // Each event the computer read counts (decision 140).
+    await tally(ctx, me, input.platform, 'event', new Set(input.urls).size, at);
     return { readAt: at.toISOString() };
   },
 });

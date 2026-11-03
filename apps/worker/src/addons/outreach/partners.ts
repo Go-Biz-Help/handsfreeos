@@ -10,6 +10,8 @@
  * - Each read takes a batch, the oldest first, with what HandsFreeOS knows of them: the groups they run and how big,
  *   their followers, and the lines under their name. At the day's AI limit the rest wait a few hours; an answer it
  *   can't use marks that one as failed, tried again in a week.
+ * - Someone the person marked as a potential partner (decision 130) is read too, with or without a partner playbook,
+ *   for what kind of partner they are and who listens to them: their mark stands whatever the AI says.
  */
 import { NETWORKS, type Platform } from '@hfos/core/addons/outreach/networks';
 import { partnerSave } from '@hfos/core/addons/outreach/ops/partners';
@@ -112,9 +114,11 @@ export async function checkPartnersJob(ctx: AddonJobContext): Promise<JobResult>
       mutual_friends: number | null;
       groups: { name: string | null; members: number | null; who: string | null }[] | null;
       lead: { kind: PartnerSearchKind; words: string } | null;
+      marked: boolean;
     }>(
       tx,
       sql`select pa.id, pa.looked_at, pa.lines, p.name, p.platform, p.intro, p.followers, p.mutual_friends,
+            (pa.marked_at is not null and pa.stage is not null) as marked,
             (select json_build_object('kind', l.kind, 'words', l.words) from addon_outreach.partner_leads l
               where l.workspace_id = pa.workspace_id and l.user_id = pa.user_id and l.profile_id = pa.profile_id)
               as lead,
@@ -126,7 +130,8 @@ export async function checkPartnersJob(ctx: AddonJobContext): Promise<JobResult>
                 order by g.members desc nulls last limit ${GROUPS_TOLD}) g) as groups
           from addon_outreach.partners pa
           join addon_outreach.profiles p on p.id = pa.profile_id
-          where pa.workspace_id = ${ws} and pa.fit = 'waiting'
+          where pa.workspace_id = ${ws} and (pa.fit = 'waiting'
+            or (pa.marked_at is not null and pa.stage is not null and cardinality(pa.lines) > 0))
           order by pa.looked_at limit ${CHECK_PARTNERS_BATCH + 1}`,
     ),
     playbooks: await rows<{ id: string; name: string; details: unknown }>(
@@ -145,7 +150,8 @@ export async function checkPartnersJob(ctx: AddonJobContext): Promise<JobResult>
   });
 
   for (const person of found.waiting.slice(0, CHECK_PARTNERS_BATCH)) {
-    // Only the partner playbooks on their network: with none, there's nothing to check them against.
+    // Only the partner playbooks on their network: with none, there's nothing to check them against, unless the person
+    // marked them, when the read is for the messages to fit.
     const theirs = playbooks.filter((p) => p.details.platforms.includes(person.platform));
     const told: PartnerPlaybook[] = theirs.map((p) => ({
       name: p.name,
@@ -158,7 +164,7 @@ export async function checkPartnersJob(ctx: AddonJobContext): Promise<JobResult>
       kinds: partnerKindsOf(p.details),
     }));
     let answer: ReturnType<typeof checkedPartnerAnswer> | null = null;
-    if (told.length)
+    if (told.length || person.marked)
       try {
         const { value } = await askStructured(ctx, ctx.scope, {
           system: partnerSystem(person.platform),
@@ -172,6 +178,7 @@ export async function checkPartnersJob(ctx: AddonJobContext): Promise<JobResult>
                 lines: person.lines,
                 playbooks: told,
                 platform: person.platform,
+                marked: person.marked,
               }),
             },
           ],

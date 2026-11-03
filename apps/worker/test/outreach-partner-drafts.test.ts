@@ -152,6 +152,7 @@ describe('a partner’s drafts', () => {
       ],
       opener: null,
       simple: false,
+      unanswered: null,
     });
   });
 

@@ -28,6 +28,7 @@ const answer = {
   followUp: 'Gracias, Rosa.',
   objections: [],
   stepsCovered: [],
+  pitchedEarly: false,
   tips: [],
   language: 'en',
 };

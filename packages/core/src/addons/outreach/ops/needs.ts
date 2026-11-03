@@ -10,6 +10,7 @@ import { clipLine } from '../live';
 import type { Platform } from '../networks';
 import {
   NEED_QUIET_DAYS,
+  NEED_RETRY_DAYS,
   NEED_SHOWN_DAYS,
   NEED_WHY_MOST,
   needUrlOf,
@@ -18,6 +19,13 @@ import {
 import { needs, posts } from '../tables';
 
 const DAY = 86_400_000;
+
+/**
+ * A step put back on Today's list since then (Retry, decision 145) is there still, and off Steps it needs you for:
+ * `NEED_RETRY_DAYS` at most.
+ */
+export const retrySince = (now: number): string =>
+  new Date(now - NEED_RETRY_DAYS * DAY).toISOString();
 
 export interface NeedSeen {
   readonly step: NeedStep;
@@ -32,6 +40,8 @@ export interface NeedSeen {
   /** Where to do it, as the extension or HandsFreeOS saw it: kept when it's on their network. */
   readonly url: string | null;
   readonly why: string;
+  /** The problem report the extension sent with it (decision 142): kept with the newest why. */
+  readonly reportId?: string | null;
 }
 
 /**
@@ -39,7 +49,8 @@ export interface NeedSeen {
  *
  * - the same step for the same person or post open already: it's seen again, with the newest why (and, for a message,
  *   the newest send); fresh again only when it had left the list (not seen for `NEED_SHOWN_DAYS`), so the person
- *   hears of it once more;
+ *   hears of it once more. One put back on Today's list (Retry, decision 145) that couldn't be done since is handed
+ *   back: on the list again, quietly, as the person heard of it before;
  * - the same let go within `NEED_QUIET_DAYS`: nothing is kept;
  * - else a new one, which the person hears of (`outreach.need.noted`).
  */
@@ -103,7 +114,10 @@ export async function openNeed(
               why: seen.why,
               name: seen.name,
               url: seen.url,
+              reportId: seen.reportId ?? null,
               ...(seen.sendId ? { sendId: seen.sendId } : {}),
+              // Put back on Today's list before this, it couldn't be done again: it waits for the person again.
+              ...(open.retryAt && at >= open.retryAt ? { retryAt: null } : {}),
             }
           : {}),
         // Back on the list after a week off it: it begins to wait again, as it reaches HandsFreeOS.
@@ -125,6 +139,7 @@ export async function openNeed(
       name: seen.name,
       url: seen.url,
       why: seen.why,
+      reportId: seen.reportId ?? null,
       // When it couldn't; it begins to wait (`created_at`) as it reaches HandsFreeOS, however long the extension
       // kept it, so the bundled push never takes it for one told already.
       seenAt: at,

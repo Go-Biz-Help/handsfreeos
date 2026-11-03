@@ -30,7 +30,9 @@ import {
   goesAsItIs,
   handedOver,
   handOverPushWords,
+  postParts,
   postStartOf,
+  SEND_POST_MOST,
   replyNeedsYou,
 } from '../../src/addons/outreach/sends';
 import { computerOn, outreachBusiness, refused, runAs } from './outreach-fixture';
@@ -146,6 +148,14 @@ describe('training wheels', () => {
     expect(postStartOf('  Short post.  ')).toBe('Short post.');
     expect(postStartOf('word '.repeat(80))).toMatch(/^word word .*…$/);
     expect(postStartOf('word '.repeat(80)).length).toBeLessThanOrEqual(200);
+    // With the whole post for More when it's cut short, and none when the start is all of it (decision 141).
+    expect(postParts('  Short post.  ', SEND_POST_MOST)).toEqual({
+      post: 'Short post.',
+      postWhole: null,
+    });
+    const long = postParts(`  ${'word '.repeat(80)}`, SEND_POST_MOST);
+    expect(long.post).toBe(postStartOf('word '.repeat(80)));
+    expect(long.postWhole).toBe('word '.repeat(80).trim());
   });
 
   it('know a reply that needs the person, as the AI teammate does', () => {
@@ -155,13 +165,14 @@ describe('training wheels', () => {
     expect(replyNeedsYou('Can I talk to a real person?')).toBe('they asked for you');
     expect(replyNeedsYou('This is ridiculous, nobody is answering')).toBe('they sound upset');
     expect(replyNeedsYou('Please stop messaging me')).toBe('they asked you to stop messaging them');
-    expect(handOverPushWords('Dana Cole', 'they asked for you')).toEqual({
-      title: 'Dana Cole needs you',
-      body: 'Their reply waits for your OK on Today: they asked for you.',
+    expect(handOverPushWords('Dana Cole', 'they asked for you', 'facebook')).toEqual({
+      title: 'Facebook reply needs you',
+      body: 'From Dana Cole: they asked for you, so the AI’s answer waits for you. Tap to see it.',
     });
-    expect(handOverPushWords('Dana Cole', null).body).toBe(
-      'Their reply waits for your OK on Today: it isn’t a simple one.',
-    );
+    expect(handOverPushWords('Dana Cole', null)).toEqual({
+      title: 'Reply needs you',
+      body: 'From Dana Cole: it isn’t a simple one, so the AI’s answer waits for you. Tap to see it.',
+    });
   });
 });
 
@@ -370,6 +381,94 @@ describe('messages on their own', () => {
     expect(await openerOf('Gray Lund')).toBeUndefined();
   });
 
+  it('tries one that didn’t go again with Retry, and Retry all spaces them a few minutes apart (decision 132)', async () => {
+    const [gray, fern] = [await profileOf('gray.lund.3'), await profileOf('fern.ash.9')];
+    const needOf = async (profileId: string) =>
+      (await runAs(owner, ws, 'outreach.waiting', {})).items.find(
+        (i: { kind: string; need?: { profileId: string; step: string } }) =>
+          i.kind === 'need' && i.need?.profileId === profileId && i.need.step === 'message',
+      )?.need;
+    const failed = await needOf(gray);
+    expect(failed).toMatchObject({ text: 'Hi Gray!' });
+
+    // Someone else can't try the person's again.
+    expect(
+      await refused(runAs(member, ws, 'outreach.send.retry', { needIds: [failed.needId] })),
+    ).toBe('not_found');
+    const before = Date.now();
+    const one = await runAs(owner, ws, 'outreach.send.retry', { needIds: [failed.needId] });
+    expect(one.passed).toBe(0);
+    expect(one.retried).toHaveLength(1);
+    expect(one.retried[0]).toMatchObject({ needId: failed.needId });
+    expect(one.retried[0].sendId).not.toBe(failed.sendId);
+    expect(new Date(one.retried[0].at).getTime()).toBeGreaterThanOrEqual(before - 1_000);
+    // Off Steps it needs you for, and back on the list OK'd as it was, as a send of its own.
+    expect(await needOf(gray)).toBeUndefined();
+    expect((await openerOf('Gray Lund')).send).toMatchObject({
+      sendId: one.retried[0].sendId,
+      state: 'approved',
+      text: 'Hi Gray!',
+    });
+    expect((await today()).retryAt).toBeNull();
+    expect(
+      await refused(runAs(owner, ws, 'outreach.send.retry', { needIds: [failed.needId] })),
+    ).toBe('not_found');
+
+    // It doesn't go again: it's handed back. And another that didn't go, an hour before.
+    await runAs(owner, ws, 'outreach.send.done', {
+      sendId: one.retried[0].sendId,
+      sent: false,
+      why: 'Messenger didn’t open a chat with them.',
+    });
+    const [fernSent] = await rows<{ id: string }>(
+      admin(),
+      sql`insert into addon_outreach.sends (workspace_id, user_id, profile_id, kind, text, drafted, state, done_at)
+          values (${ws}, ${owner.id}, ${fern}, 'opener', 'Hi Fern!', 'Hi Fern!', 'failed', now())
+          returning id`,
+    );
+    await rows(
+      admin(),
+      sql`insert into addon_outreach.needs (workspace_id, user_id, step, profile_id, send_id, name, why, seen_at)
+          values (${ws}, ${owner.id}, 'message', ${fern}, ${fernSent!.id}, 'Fern Ash', 'it didn’t go',
+            now() - interval '1 hour')`,
+    );
+    // A third whose message went since: passed over, and still waiting for the person.
+    const [ana] = await rows<{ id: string }>(
+      admin(),
+      sql`insert into addon_outreach.sends (workspace_id, user_id, profile_id, kind, text, drafted, state, done_at)
+          values (${ws}, ${owner.id}, ${fern}, 'follow_up', 'Hi again, Fern!', 'Hi again, Fern!', 'sent', now())
+          returning id`,
+    );
+    await rows(
+      admin(),
+      sql`insert into addon_outreach.needs (workspace_id, user_id, step, profile_id, send_id, name, why, seen_at)
+          values (${ws}, ${owner.id}, 'comment', ${fern}, ${ana!.id}, 'Fern Ash', 'it didn’t go', now())`,
+    );
+
+    const all = await runAs(owner, ws, 'outreach.send.retry', {});
+    expect(all.passed).toBe(1);
+    expect(all.retried).toHaveLength(2);
+    // The oldest first, now; the next 3 to 7 minutes after it.
+    const [first, second] = all.retried as { at: string; sendId: string }[];
+    const gap = new Date(second!.at).getTime() - new Date(first!.at).getTime();
+    expect(gap).toBeGreaterThanOrEqual(3 * 60_000);
+    expect(gap).toBeLessThanOrEqual(7 * 60_000);
+    const [kept] = await rows<{ profile_id: string; state: string }>(
+      admin(),
+      sql`select profile_id, state from addon_outreach.sends where id = ${first!.sendId}`,
+    );
+    expect(kept).toEqual({ profile_id: fern, state: 'approved' });
+    // Gray's waits its turn: off the list till then, and Today says when the next may go.
+    const list = await today();
+    expect(
+      list.items.find(
+        (i: { kind: string; name: string }) => i.kind === 'opener' && i.name === 'Gray Lund',
+      ),
+    ).toBeUndefined();
+    expect(list.retryAt).toBe(second!.at);
+    expect(await needOf(gray)).toBeUndefined();
+  });
+
   it('with (b), training wheels start: every message waits, and the limits are half', async () => {
     const before = await today();
     expect(before.wheels.on).toBe(false);
@@ -554,13 +653,28 @@ describe('messages on their own', () => {
         'they asked for you',
         'HandsFreeOS hasn’t seen what they wrote',
       ]);
+      // Something they asked that the business's Knowledge doesn't answer waits too (decision 122).
+      await chat('max.dale.3', 'Max Dale', '2000777', 'Do you come out to Dallas?');
+      const max = await chatOf('Max Dale');
+      const asked = await runAs(member, ws, 'outreach.send.queue', {
+        profileId: max.profile_id,
+        kind: 'reply',
+        chatId: max.id,
+        text: 'Good question. Let me check on that and get back to you.',
+        simple: false,
+        unanswered: 'whether you come out to Dallas',
+      });
+      expect(asked.state).toBe('waiting');
+      expect((await handOvers()).at(-1)?.why).toBe(
+        'Knowledge has no answer to whether you come out to Dallas',
+      );
     });
 
     it('with (a), every reply waits, and nobody is buzzed', async () => {
       await automation(member, 'steps', 'draft');
       await chat('mo.lane.4', 'Mo Lane', '2000666', 'Thanks!');
       expect((await reply(await chatOf('Mo Lane'), true)).state).toBe('waiting');
-      expect(await handOvers()).toHaveLength(4);
+      expect(await handOvers()).toHaveLength(5);
     });
 
     it('shows the chat so far beside a message waiting for an OK', async () => {

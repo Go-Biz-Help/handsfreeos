@@ -54,6 +54,7 @@ export function assistDraftOf(playbook: Pick<Playbook, 'name' | 'details'>): Ass
     signs: d.signs,
     skip: d.skip,
     groupWords: d.groupWords,
+    facebookSearches: d.facebookSearches ?? [],
     hashtags: d.hashtags ?? [],
     postSearches: d.postSearches ?? [],
     businessKinds: d.businessKinds ?? [],

@@ -43,9 +43,12 @@ describe('assistant coverage', () => {
   it('lists the pages still to do, in menu order, and asks the API nothing', async () => {
     await showDesk(<AssistantCoverage />, () => ({}));
     const c = assistantCoverage();
-    expect(await screen.findByTestId('coverage-not-yet')).toHaveTextContent(has(c.notYet[0]!.page));
+    // The gaps change as they're closed: the first one left, or the words for none.
+    expect(await screen.findByTestId('coverage-not-yet')).toHaveTextContent(
+      has(c.notYet[0]?.page ?? DESK_COVERAGE_WORDS.notYetNone),
+    );
     expect(screen.getByTestId('coverage-settings')).toHaveTextContent(
-      has(c.settingsToCheck[0]!.label),
+      has(c.settingsToCheck[0]?.label ?? DESK_COVERAGE_WORDS.settingsNone),
     );
     expect(post).not.toHaveBeenCalled();
   });

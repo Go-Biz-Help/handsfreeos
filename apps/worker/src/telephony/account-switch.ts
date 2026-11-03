@@ -4,6 +4,8 @@
  *
  * **On** is `ensureAccount` — the same subaccount, messaging service, API key and TwiML app the first number
  * would have made — done now, so the Account SID is there to give HighLevel or Twilio before any number is.
+ * While the job is still trying, the page says "Turning on…"; when its last try fails, it keeps why in words on
+ * the job (`payload.problem`), and the page shows that under the switch.
  *
  * **Off** closes the subaccount with the master account, for good. The command already refused while anything
  * was in it; this asks again the moment before closing, because a number can be bought or a transfer started
@@ -25,9 +27,9 @@ import {
   scheduleJob,
   telephonyAccountChanged,
 } from '@hfos/core/server';
-import { asWorker } from '@hfos/db/client';
+import { asWorker, sql } from '@hfos/db/client';
 import { eq } from 'drizzle-orm';
-import { telephonyAccounts } from '@hfos/db/schema';
+import { scheduledJobs, telephonyAccounts } from '@hfos/db/schema';
 import type { EventHandler, HandlerContext } from '../handlers/types';
 import type { JobHandler, JobMap } from '../jobs';
 import {
@@ -37,8 +39,9 @@ import {
   type TenantScope,
   type WorkerServices,
 } from '../services';
-import { errorMessage } from '../outbox';
+import { errorMessage, MAX_ATTEMPTS } from '../outbox';
 import { ensureAccount, loadAccount } from './accounts';
+import { ProviderError, type ProviderAccount } from './provider';
 
 export const ACCOUNT_JOBS = {
   open: 'telephony.account_open',
@@ -77,10 +80,42 @@ const tell = (
     workerMeta(),
   );
 
+/** Why turning on kept failing, in words the page shows under the switch once the worker stops trying. */
+function openTrouble(ctx: WorkerServices, e: unknown): string {
+  const lead = 'Phone & texting couldn’t be turned on:';
+  if (e instanceof ProviderError) {
+    if (/maximum number of subaccounts/i.test(e.message))
+      return `${lead} HandsFreeOS has reached Twilio’s limit on business accounts. Ask HandsFreeOS support to raise it.`;
+    if (e.httpStatus === 401 || e.httpStatus === 403)
+      return e.accountSid === ctx.telephony.masterAccountSid
+        ? `${lead} Twilio, our phone carrier, refused HandsFreeOS’s sign-in. Try again in an hour, or ask HandsFreeOS support.`
+        : `${lead} Twilio, our phone carrier, refused your business’s account. Try again in a minute, or ask HandsFreeOS support.`;
+    if (e.httpStatus === 429)
+      return `${lead} Twilio, our phone carrier, was too busy. Try again in a few minutes.`;
+  }
+  return `${lead} Twilio, our phone carrier, didn’t answer. Try again in a few minutes.`;
+}
+
 export const accountOpen: JobHandler = async (ctx) => {
   const scope = tenantOf(ctx.scope);
-  // Failures retry with the job's backoff: a carrier that did not answer is not a reason to give up on "on".
-  const account = await ensureAccount(ctx, scope);
+  let account: ProviderAccount;
+  try {
+    account = await ensureAccount(ctx, scope);
+  } catch (e) {
+    // Failures retry with the job's backoff: a carrier that did not answer is not a reason to give up on "on".
+    if (ctx.attempt < MAX_ATTEMPTS) throw e;
+    // The last try: why is kept on the job in words, so the page says it instead of quietly showing Off again.
+    // The job's own last_error keeps the carrier's words for whoever looks into it.
+    ctx.log.warn({ err: errorMessage(e) }, 'phone & texting gave up turning on after the last try');
+    const problem = JSON.stringify({ problem: openTrouble(ctx, e) });
+    await asWorker(ctx.db, {}, (tx) =>
+      tx
+        .update(scheduledJobs)
+        .set({ payload: sql`${scheduledJobs.payload} || ${problem}::jsonb` })
+        .where(eq(scheduledJobs.id, ctx.job.id)),
+    );
+    throw e;
+  }
   await tell(ctx, scope, { status: 'active', accountSid: account.sid, problem: null });
 };
 

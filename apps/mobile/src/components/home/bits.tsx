@@ -20,6 +20,7 @@ import {
   EyeOff,
   Globe,
   MessageSquareOff,
+  Presentation,
   Puzzle,
   Tag,
   GraduationCap,
@@ -112,6 +113,8 @@ const KIND_LOOK: Readonly<
   // An add-on's alert (round six: its cards reach the people who see its record), as the web draws it.
   addon_alert: { icon: Puzzle, tone: 'warning' },
   faq_suggestions: { icon: CircleQuestionMark, tone: 'ai' },
+  // Hot after a webinar: someone a person should reach while they're still warm from it.
+  webinar_hot: { icon: Presentation, tone: 'danger' },
 };
 
 const TONE_CLASS: Readonly<Partial<Record<Tone, { bg: string; fg: string }>>> = {

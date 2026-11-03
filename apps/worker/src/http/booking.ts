@@ -135,7 +135,7 @@ export interface BookingHttpOptions {
   readonly limits?: Partial<BookingLimits>;
 }
 
-function limitsFor(opts: BookingHttpOptions): BookingLimits {
+export function limitsFor(opts: BookingHttpOptions): BookingLimits {
   const factor = Math.max(1, Math.floor(opts.limitFactor ?? 1));
   const scaled = (r: RateRule): RateRule => ({ max: r.max * factor, timeWindow: r.timeWindow });
   return {
@@ -231,7 +231,7 @@ async function firstNames(tx: Tx, ids: readonly string[]): Promise<Map<string, s
 }
 
 /** US and Canadian numbers only (+1), as E.164; null when left empty. */
-function usPhone(raw: string | null | undefined): string | null {
+export function usPhone(raw: string | null | undefined): string | null {
   if (!raw || !raw.trim()) return null;
   const e164 = normalizePhone(raw);
   if (!e164 || !NANP_RE.test(e164))
@@ -240,13 +240,13 @@ function usPhone(raw: string | null | undefined): string | null {
 }
 
 /** "Mike Johnson" → Mike and Johnson; one word is a first name. */
-function splitName(name: string): { firstName: string; lastName: string } {
+export function splitName(name: string): { firstName: string; lastName: string } {
   const [first = '', ...rest] = name.trim().split(/\s+/);
   return { firstName: first, lastName: rest.join(' ') };
 }
 
 /** Core names customer fields `customer.*`; the page's form has name, phone and email. */
-function publicPaths(e: unknown): never {
+export function publicPaths(e: unknown): never {
   if (e instanceof HfosError && e.code === 'validation' && Array.isArray(e.details))
     throw new HfosError(
       'validation',
@@ -262,7 +262,7 @@ function publicPaths(e: unknown): never {
 }
 
 /** A filled honeypot is a bot: a plain 400, nothing saved. */
-function refuseHoneypot(body: unknown): void {
+export function refuseHoneypot(body: unknown): void {
   const website = (body as { website?: unknown } | null)?.website;
   if (typeof website === 'string' && website.trim() !== '')
     throw HfosError.validation([], 'That didn’t go through. Refresh the page and try again.');
@@ -340,7 +340,7 @@ async function depositPayments(tx: Tx, invoiceId: string) {
 
 // ---- Reads ----
 
-async function businessIn(
+export async function businessIn(
   tx: Tx,
   workspaceId: string,
   siteName: string | null,

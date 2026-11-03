@@ -50,6 +50,8 @@ import { auditList } from './audit.list';
 import { appointmentTranscriptList, meetingConnectionList } from '../commands/meeting-connection';
 import { liveMeetingAccountMine } from '../commands/live-meeting';
 import { videoCallQueries } from '../commands/video-call';
+import { videoCallPollQueries } from '../commands/video-call-poll';
+import { videoCallLeadQueries } from '../commands/video-call-leads';
 import { callSuggestionList } from '../commands/call-suggestion';
 import {
   appointmentGet,
@@ -267,6 +269,8 @@ export const queries: readonly QueryDef[] = [
   ...portalMessageQueries,
   // HandsFreeOS video calls (docs/video-calls.md).
   ...videoCallQueries,
+  ...videoCallPollQueries,
+  ...videoCallLeadQueries,
   ...supportQueries,
   ...platformQueries,
   // What our own tools saw when something didn't go (20261027008100).

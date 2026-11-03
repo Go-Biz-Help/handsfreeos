@@ -20,6 +20,7 @@ import {
   Mail,
   MessageSquare,
   MessageSquareOff,
+  PhoneCall,
   PhoneMissed,
   RefreshCw,
   ShieldCheck,
@@ -116,6 +117,7 @@ const ACTION_ICONS: Record<string, LucideIcon> = {
   enrol_workflow: Workflow,
   remove_from_workflow: UserX,
   hand_to_ai_teammate: Sparkles,
+  call_with_ai: PhoneCall,
 };
 
 export function actionIcon(action: string): LucideIcon {

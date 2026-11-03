@@ -232,6 +232,8 @@ describe('Check Facebook', () => {
       'bio',
       'links',
       'confirm',
+      // Under Sent requests, where the job cancels from 0.110.1.
+      'cancel',
       'post',
       'comment',
       'request',
@@ -239,7 +241,6 @@ describe('Check Facebook', () => {
       'like',
       'unfriend',
       'message',
-      'cancel',
       'username',
       'file',
     ]);
@@ -274,9 +275,9 @@ describe('Check Facebook', () => {
       like: 'profile',
       unfriend: 'profile',
       message: 'profile',
-      cancel: 'profile',
     });
     expect(tried.find(([step]) => step === 'confirm')![1]).toBe(REQUESTS);
+    expect(tried.find(([step]) => step === 'cancel')![1]).toBe(REQUESTS);
     expect(tried.find(([step]) => step === 'links')![1]).toBe(CONTACT);
     expect(tried.find(([step]) => step === 'username')![1]).toBe(USERNAME_PAGE);
     expect(tried.find(([step]) => step === 'file')![1]).toBe(DOWNLOAD_PAGE);

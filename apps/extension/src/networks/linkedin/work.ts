@@ -11,6 +11,8 @@
  * - Their helpful post put up on their own feed, and who engaged with one of theirs read (./compose.ts).
  * - On a good post its search found (decision 92), who commented and who reacted, from the box its reactions count
  *   opens, which it closes again (./compose.ts).
+ * - On the post search, each post's own link from its menu's Copy link to post, caught before it reaches the person's
+ *   clipboard (decision 123, ./post-links.ts).
  * - Once the person lets LinkedIn's runner work on its own (src/auto/linkedin.ts), on the pages of people on their
  *   list for today: their posts read and one liked (on their activity, or the post a search found on its own page),
  *   Connect without a note, the comment the AI drafted, and the messages they OK'd (./auto.ts).
@@ -26,6 +28,7 @@ import type {
   TheirCommentAnswer,
   TheirCommentAsk,
   ConnectAsk,
+  AnswerRequestAsk,
   BrowseAsk,
   FeedPostAnswer,
   FeedPostAsk,
@@ -33,9 +36,12 @@ import type {
   FetchAsk,
   GroupPostAnswer,
   GroupPostAsk,
+  OpenMessageAnswer,
   OpenMessageAsk,
   OwnProfileAnswer,
   OwnProfileAsk,
+  PostLinksAnswer,
+  PostLinksAsk,
   PostPeopleAnswer,
   PostPeopleAsk,
   WriteNameAsk,
@@ -49,7 +55,9 @@ import type {
 } from '../../messages';
 import { writeLinkedInPart } from './parts';
 import {
+  answerInvitation,
   connect,
+  connectSent,
   likeTheirPost,
   openMessage,
   theirPosts,
@@ -67,6 +75,7 @@ import {
   writeFeedPost,
 } from './compose';
 import { dataPage } from './data';
+import { postLinksOn } from './post-links';
 import {
   loadWholeProfile,
   readOwnProfile,
@@ -106,6 +115,7 @@ export const WORK_ASKS: ReadonlySet<string> = new Set([
   'hfos-their-comment',
   'hfos-like-comment',
   'hfos-connect',
+  'hfos-answer-request',
   'hfos-comment',
   'hfos-message',
   'hfos-open-message',
@@ -114,6 +124,7 @@ export const WORK_ASKS: ReadonlySet<string> = new Set([
   'hfos-feed-post',
   'hfos-engaged',
   'hfos-post-people',
+  'hfos-post-links',
   'hfos-try',
 ]);
 
@@ -126,11 +137,13 @@ type WorkAsk =
   | WithdrawAsk
   | AutoAsk
   | ConnectAsk
+  | AnswerRequestAsk
   | OpenMessageAsk
   | FetchAsk
   | FeedPostAsk
   | Extract<GroupPostAsk, { type: 'hfos-engaged' }>
   | PostPeopleAsk
+  | PostLinksAsk
   | TheirCommentAsk
   | CommentLikeAsk;
 
@@ -262,6 +275,13 @@ async function postStep(
   };
 }
 
+/** Each post's own link on the post search, from its menu (decision 123, ./post-links.ts): only on the search. */
+async function linksStep(ask: PostLinksAsk): Promise<PostLinksAnswer> {
+  if (classifyUrl(location.href).kind !== 'search-posts')
+    return { ok: false, error: 'LinkedIn didn’t open the post search.' };
+  return postLinksOn(document, location.href, ask.most, ask.skip);
+}
+
 /** Their comment on a good post (decision 116), read then liked, only on the post's own page (./compose.ts). */
 async function commentStep(
   ask: TheirCommentAsk | CommentLikeAsk,
@@ -278,8 +298,8 @@ async function commentStep(
 
 /** The runner's steps (./auto.ts), each only on its own kind of page. */
 async function autoStep(
-  ask: AutoAsk | ConnectAsk | OpenMessageAsk,
-): Promise<AutoAnswer | PostsAnswer | BrowseAnswer> {
+  ask: AutoAsk | ConnectAsk | AnswerRequestAsk | OpenMessageAsk,
+): Promise<AutoAnswer | PostsAnswer | BrowseAnswer | OpenMessageAnswer> {
   const kind = classifyUrl(location.href).kind;
   // Their profile, their activity, or (decision 92) the post of theirs a search found, liked on its own page.
   const onTheirs = kind === 'profile' || kind === 'activity' || kind === 'post';
@@ -297,9 +317,20 @@ async function autoStep(
       return { ok: true, ...(await likeTheirPost(document, location.href, ask.profile, ask)) };
     case 'hfos-connect':
       if (kind !== 'profile') return { ok: false, error: 'LinkedIn didn’t open their profile.' };
-      return { ok: true, result: await connect(document, location.href) };
-    case 'hfos-open-message':
-      return { ok: kind === 'profile' && openMessage(document) };
+      return {
+        ok: true,
+        result: ask.sent
+          ? await connectSent(document, location.href)
+          : await connect(document, location.href),
+      };
+    case 'hfos-answer-request':
+      // Their invitation, answered in their profile's top card (decision 136).
+      if (kind !== 'profile') return { ok: false, error: 'LinkedIn didn’t open their profile.' };
+      return { ok: true, result: await answerInvitation(document, location.href, ask.answer) };
+    case 'hfos-open-message': {
+      const opened = kind === 'profile' ? openMessage(document, location.href) : false;
+      return opened === false ? { ok: false } : { ok: true, opened };
+    }
     case 'hfos-comment':
       if (kind !== 'post') return { ok: false, error: 'LinkedIn didn’t open the post.' };
       return { ok: true, result: await writeComment(document, ask.text) };
@@ -309,7 +340,13 @@ async function autoStep(
         return { ok: false, error: 'LinkedIn didn’t open a conversation with them.' };
       return {
         ok: true,
-        result: await writeMessage(document, location.href, ask.text, ask.profile),
+        result: await writeMessage(
+          document,
+          location.href,
+          ask.text,
+          ask.profile,
+          ask.opened ?? null,
+        ),
       };
   }
 }
@@ -339,6 +376,7 @@ export function work(ask: { readonly type: string }): Promise<unknown> | null {
     case 'hfos-their-posts':
     case 'hfos-like-post':
     case 'hfos-connect':
+    case 'hfos-answer-request':
     case 'hfos-comment':
     case 'hfos-message':
     case 'hfos-open-message':
@@ -353,6 +391,8 @@ export function work(ask: { readonly type: string }): Promise<unknown> | null {
     case 'hfos-engaged':
     case 'hfos-post-people':
       return postStep(known);
+    case 'hfos-post-links':
+      return linksStep(known);
     case 'hfos-try':
       return tryStep(known);
   }

@@ -3,7 +3,7 @@
 The extension that works beside a person on Facebook, and on LinkedIn, Instagram and Alignable once they turn each on,
 for the Social Outreach add-on (docs/outreach.md). It connects to HandsFreeOS only for businesses that have that add-on on.
 
-**This is a test build (0.109.0), and a bare one** (decisions 43, 59 and 72 in docs/outreach.md). Everything is set
+**This is a test build (0.112.0), and a bare one** (decisions 43, 59 and 72 in docs/outreach.md). Everything is set
 and started in HandsFreeOS; the extension does the work on Facebook. Its side panel shows progress and activity only:
 signing in, what it does next with today's steps and **Start my day** and **Stop for today**, how many things need
 you in HandsFreeOS (with a link there), each network's line, what it did today, and a link to HandsFreeOS. Needs you
@@ -725,7 +725,7 @@ and how. A build that's handed a kind it doesn't know ends it saying so, and goe
 | **Check my groups** (Groups)                                                               | Asks HandsFreeOS which groups are next (yours first, then ones that fit by name), opens each, reads its latest posts, then its About tab (what it's for and its rules), and sends them for the AI (`src/jobs/groups-check.ts`, decision 48)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               | A window of its own, one group every 8 to 16 seconds, up to 8 (4 a day on its own)                    |
 | **Find and join more groups**, **Ask to join** (Groups)                                    | Asks HandsFreeOS which groups to join (with none, searches with your playbook's words and checks the best 3 first), presses **Join group**, writes in the AI's answers to its questions, ticks that you agree to the rules, submits, and notes how it went (`src/jobs/join.ts`, `src/networks/facebook/join.ts`)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          | A window of its own, one group every 20 to 40 seconds, up to 3 a day                                  |
 | **OK, post it** (Today, a helpful post)                                                    | Opens the group, presses **Write something…**, types the post you OK'd into the box Facebook opens, presses **Post**, finds it at the top of the newest posts for its link, and notes it (`src/jobs/helpful.ts`, `src/networks/facebook/compose.ts`, decision 50)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         | A window of its own, one post                                                                         |
-| **Cancel the ticked requests**, **Unfriend the ticked** (Friends)                          | Opens each profile you ticked that's still on the lists, checks it's them and where you stand, presses **Cancel request** (or **Friends**, **Unfriend** and **Confirm**), checks it says **Add friend** after, and notes it (`src/jobs/tidy.ts`)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          | A tab you can see, one person every 20 to 40 seconds, up to 30 and 20 a day                           |
+| **Cancel the ticked requests**, **Unfriend the ticked** (Friends)                          | Requests: from 0.110.1 opens your friend requests, presses **View sent requests**, and presses the **Cancel request** beside each one you ticked that's still on the lists, found by the link to their profile, then checks it's gone. Friends: opens each profile, checks it's them and where you stand, presses **Friends**, **Unfriend** and **Confirm**, and checks it says **Add friend** after. Each is noted (`src/jobs/tidy.ts`)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  | A tab you can see, one person every 20 to 40 seconds, up to 30 and 20 a day                           |
 | **Save my groups**, **Find groups** (Groups)                                               | Your groups, or a search for groups with the words you gave, scrolled and saved with how each fits your playbooks (`src/jobs/groups.ts`)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  | A window of its own, 4 to 9 seconds a screen, 8 screens                                               |
 | **Save a group**, **Save its members**, **Save members of my best groups** (Groups, Today) | A group's admins and moderators read to the end first, then a few screens of its members; the best groups are up to 3 of your Work these, those with fewest saved first                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   | A window of its own                                                                                   |
 | **Find posts** (Groups)                                                                    | Your Work these groups (or Maybe, with none), up to 5, each feed scrolled a screen at a time; the posts worth a look go to the AI, and the good ones on Today (`src/jobs/posts.ts`)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       | The same, 6 to 12 seconds a screen, 8 screens a group                                                 |
@@ -837,9 +837,11 @@ to 33 in docs/outreach.md). Your choices are your own, set on Social Outreach's 
   work, the AI writes a short comment for it too, which goes under it while the day's comments have room (0.33.0). A
   profile with no post of theirs to like gets its request without one.
 - **Confirm friend requests from people who fit a playbook** (on to start): **Confirm their request** on your list.
-- **Join good groups when my groups run low** (on to start): with less than a week of people left to reach in your
-  groups, it finds groups with your playbook's words and asks to join up to 3 good ones a day, the AI answering their
-  questions from your playbook (decision 48).
+- **Groups** (a pick of two, decision 148): **Join more good groups when mine run low**, as it starts, means that
+  with less than a week of people left to reach in your groups it finds groups with your playbook's words and asks to
+  join up to 3 good ones a day, the AI answering their questions from your playbook (decision 48). **Only the groups
+  I'm in** joins and searches for none, has the AI read only the groups you're in, and sends your friend requests only
+  to people found in them; **Find and join more groups** still joins when you press it.
 - **Helpful posts** (after your OK, to start): once a day the AI writes a post that helps the people in one of your
   groups. You copy it and post it yourself, the extension posts it after your OK on Today, or on its own in your
   hours (decision 50); your business may allow only some of these.
@@ -849,7 +851,8 @@ to 33 in docs/outreach.md). Your choices are your own, set on Social Outreach's 
 - **Once a day, first** (on to start): checking your friend requests, saving your groups' members, Find posts, Read
   my chats and checking your friends for good fits, which fill your list, and checking your groups and joining good ones
   when they run low (decisions 32, 46 and 48). From 0.97.0, right after the friend requests, it tidies up as you chose
-  for each network (below, "Tidying up on its own").
+  for each network (below, "Tidying up on its own"). From 0.112.0 a step on your list goes between them (below, "The
+  list between the morning's reading").
 - **When:** your working hours and days, on your business's clock (9 AM to 5 PM, Monday to Friday, to start).
 
 Before anything else in your day, it saves your own lists (`src/auto/lists.ts`; docs/outreach.md, decision 60): your
@@ -869,9 +872,11 @@ the step under way (`doing`), so they show its count under that step, sent every
 With **Once a day** ticked, the first thing it does each working day, or after **Start my day**, is fill your list, a
 job at a time, a minute or few apart, in its window (`src/auto/daily.ts`, `src/jobs/`): it saves the friend requests
 you've got (Friend requests, loading a few screens of them); checks up to 4 of your groups for your people (Check my
-groups); while **Join good groups when my groups run low** is on and your groups have less than a week of people left
-to reach, asks to join up to 3 good groups (the only thing it presses here); the admins and moderators of up to 3 of your Work these
-groups (the ones with fewest saved first), read to the end, then a few screens of their members (a group whose admins
+groups); while your **Groups** pick is **Join more good groups when mine run low** and your groups have less than a week of
+people left to reach, asks to join up to 3 good groups (the only thing it presses here); the admins and moderators of up to 3 of your Work these
+groups (the ones with fewest saved first), read to the end, then ten screens of their members, carrying on from where
+the last read of each list left off (0.125.0, decision 148: it scrolls past what it read before, saving nothing, and
+starts at the top again once a list runs out or it has gone 40 screens down) (a group whose admins
 don't load to the end waits for another day, so nobody who runs it is suggested); Find posts in those groups; Read
 my chats, up to 60 a day; Check my friends, the day's 40; Find partners (0.64.0, decision 81), up to 15 people who
 could partner with you, read as the checks read friends with how many follow them, for the AI's partner check
@@ -1073,6 +1078,357 @@ shows under Instagram). Your Instagram choices in HandsFreeOS say what it does (
 Each step is noted as the extension's own (`auto`), as Instagram's. A step its page doesn't let it do goes to your
 Needs you; it never guesses.
 
+### The day's first messages, nearly guaranteed (0.114.0)
+
+Before 0.114.0 it checked 40 people a day on Facebook and LinkedIn, all at once in the morning, and searched once a day
+whatever the day needed (the owner's report of 29 Oct 2026: 12 first messages in three days against about 55 a day).
+From 0.114.0 (docs/outreach.md, decision 126):
+
+- **Checks a batch at a time.** While a network needs more good fits, HandsFreeOS lets it check up to that network's
+  most (150 a day on Facebook and LinkedIn, 60 on Instagram and Alignable). The once-a-day checks take their usual
+  batch, and when HandsFreeOS gave all it asked for and today has room for more, the job ends with `again`: it isn't done
+  for the day, and the next batch goes 35 to 60 minutes later (`afterDaily`, `againAt` in the runner's state,
+  `moreToCome` in `src/jobs/checks.ts`). The day's last line says more checks come later.
+- **Finds people again while short.** Once the day's reading is done and today's list still says the network needs
+  more good fits (its goal's `more`), the runner does its finding jobs once more, up to twice a day and 90 minutes
+  apart, each round asking HandsFreeOS for the next search words (`roundDue`, `nextRound`, and `round` on a job):
+  Facebook's groups, joining and members, then its checks; LinkedIn's post search and who reacted; Instagram's
+  hashtags, an account like yours and who liked; Alignable's search, groups and members. Joining a group goes ahead
+  on such a day though people left to reach aren't low.
+- **Never a message to someone who isn't a friend yet** (answer 3c): more requests to more good fits are the lever.
+
+### Your messages, kept open and read every minute (0.113.0)
+
+Before 0.113.0 a reply was seen when the once-a-day chats read came round, or when you had a chat page on screen, and
+its draft waited behind every step on the list (the owner's report of 29 Oct 2026: a prospect's Instagram reply seen an
+hour late). From 0.113.0 (docs/outreach.md, decision 125, `src/auto/watch.ts`):
+
+- **A window of its own keeps your messages open.** While Chrome is open, you're signed in, this is the computer that
+  works and noting is on, a window opens beside yours and minimizes itself, with one tab for each network that's on and
+  works on its own (not Off): Messenger, LinkedIn's messaging, Instagram's messages and Alignable's. Its tabs are kept
+  from being put to sleep (`autoDiscardable`).
+- **Read every minute, where it stands.** Nothing is pressed, scrolled or typed there. On Facebook, LinkedIn and
+  Instagram the tab's script says who wrote last (`hfos-replies-now`, the same reader as any tab's, decision 22), and
+  the background sends it to HandsFreeOS as that network's (`src/hfos/replies.ts`), so your phone hears who wrote back.
+  Alignable's list doesn't say who wrote last, so when a conversation's last line changes, Alignable's runner reads
+  its chats again at their next turn, opening only the ones that changed (`alignableChatsAgain`).
+- **A reply is drafted next.** When HandsFreeOS keeps a reply as new (it answers a message of yours), that network's
+  runner goes now, not at its next step's time, and drafts the reply before anything else (`onReplied`, `replied` in
+  the runner's state, `REPLY_KINDS` in `src/auto/plan.ts`). A reply always comes first on the list now, before the
+  messages you OK'd and the steps, and someone who writes back again the same day gets their reply drafted again. Your
+  Replies choice still says whether it waits for your OK, and the network's day still says whether the runner works.
+- **Loaded afresh now and then:** every 20 minutes (Alignable's every 5), when a page went elsewhere (a sign-in page
+  is left be for 5 minutes), and when a page doesn't answer.
+- **Closing it is yours.** A tab you close stays closed for an hour, and every tab does when you close the window. A
+  network turned off, Off, or warned today has its tab closed; noting off, signing out or another computer working
+  closes the window.
+
+### The list between the morning's reading (0.112.0)
+
+Before 0.112.0 each network did all of its once-a-day reading, and the saves before the day, before the first step on
+its list. That reading takes an hour or two on Facebook, so the day's likes, requests and the messages you OK'd waited
+behind it (the owner's report of 29 Oct 2026: an hour in, 4 likes and nothing else). From 0.112.0 (docs/outreach.md,
+decision 123) a part of the reading and a step on the list take turns, on every network: after each once-a-day job, or
+a save before the day, the next go does the first step left on that network's list, then the next go reads again, a
+person's few minutes apart till the reading is done (`listTurn` in `src/auto/plan.ts`, `readLast` in the runner's
+state). A day's first go reads. The first full save of your lists and the first check of your groups still hold the
+whole day, as the list can't be worked out without them (`holdsTheDay` in `src/auto/lists.ts`). On Instagram, LinkedIn
+and Alignable a read put off till you're away counts as the reading's turn, so the list goes next. With nothing on the
+list, the reading goes on. Nothing in HandsFreeOS changes for it.
+
+### Alignable's monthly connection limit (0.124.0)
+
+The owner, 2 Nov 2026: Alignable's connection requests kept failing, and the box after Connect said they'd "reached
+my monthly connection limit" and asked them to upgrade (docs/outreach.md, decision 147). The AI helper pressed its
+Not now, and the request never went. From 0.124.0:
+
+- **Alignable's page read says so** (`limit` on what its readers found, `monthlyLimitOn` in
+  `src/networks/alignable/read.ts`): Alignable's words in a box over the page first, else anywhere shown on the page
+  but what someone wrote. A box drawn ahead of time and hidden never counts.
+- **Connect looks for it before Alignable's warnings** (`monthlyLimit` in `src/auto/alignable.ts`), as the page shows
+  it after the press and when their page opens again. It tells HandsFreeOS (`outreach.requests.pause`), which keeps
+  new connection requests, and the likes before them, off Today's list till the 1st of next month. The panel says so
+  ("Alignable says you’ve reached your monthly limit, so new connection requests wait till Dec 1…").
+- **Never a warning or a stop.** Likes, comments, messages and the rest of Alignable's day go on, nothing is halved,
+  and the AI helper doesn't look. One tried again (Retry) goes back to the person, as any step that didn't go.
+- **Start again** under Today's note, in the app, ends it sooner after an upgrade on Alignable; still at the limit,
+  the next Connect pauses them again.
+
+### Pop-ups you can read at a glance (0.123.1)
+
+The owner, 2 Nov 2026, with a screenshot of two cut-off phone pushes: "the mobile notifications we getting are kind of
+hard to understand at a quick glance" (docs/outreach.md, decision 146). Chrome's pop-ups take the phone's new words
+from core (`eachPushWords`, `bundlePushWords`, `handOverPushWords` in `waiting-words.ts`): the network and what
+happened in the title ("LinkedIn message to OK", "Alignable step for you", "Facebook reply needs you"), who in the
+message, and "Click to…" where the phone says "Tap to…". A comment waiting now pops up as a comment, not a message.
+Words only: nothing else changed.
+
+### Retry all, and again after each update (0.123.0)
+
+The owner, 1 Nov 2026: "any failures we should have a retry all option because we should be fixing those issues after
+updates" (docs/outreach.md, decision 145). Retry and Retry all on Steps it needs you for now take any step, not only a
+message or comment that didn't go (`outreach.need.retry`). A request, a confirm, a like before a request, or a comment
+the extension writes itself goes back on Today's list with `retry` on its item. From 0.123.0:
+
+- **Tried once more for each time it's put back.** The step's key carries when it was put back (`itemKey` in
+  `src/auto/plan.ts`), so it goes again though it was tried today. Done, it's noted as any step is, which clears it.
+  Found done already (connected, invited, asked, friends already: `skip` on the outcome), it's cleared
+  (`outreach.need.clear`, `clearRetried` in `src/auto/retry.ts`). Anything else hands it back to Steps it needs you
+  for (`handsOver`).
+- **Once after each update, on its own.** The first go of a new version for a business presses Retry all
+  (`retryAfterUpdate`, kept in `hfos-retried-for` in `chrome.storage.local`), so what failed before a fix is tried
+  with it. Not a message or comment that didn't go (`sends: false`): one that went after all would go twice, so
+  those wait for the person's Retry.
+- **Done already isn't a failure.** A step found done already sends no problem report, and isn't handed over.
+- **Facebook's "couldn't tell where things stand"** is handed over, and the AI helper looks first: a profile whose
+  buttons it can't read is likely a new layout.
+- **The helper says why it didn't look** (`notLooked` on the report's helper part): this computer's 80 looks used, the
+  page unread, the AI not asked (with HandsFreeOS's words: its limit, the balance, busy), or HandsFreeOS not answering.
+- **Alignable's Connect** reads their page as the press left it before opening it again: still theirs and still
+  showing Connect, the AI helper looks there, while a box asking one more thing still shows.
+
+### The AI helper, when a step doesn't go (0.122.0)
+
+The owner's report of 1 Nov 2026: a like and an Alignable connection request didn't go, and nothing said why
+(docs/outreach.md, decision 142). From 0.122.0, when a step on Today's list doesn't go on any network:
+
+- **A learned way first.** For a step whose button the helper may press (Add friend, Confirm, Connect, Accept,
+  Follow), the ways every computer trusts (`outreach.helper.ways`, kept an hour) are tried in the tab: one presses only
+  when exactly one thing on the page fits it (`pressWay` in `src/networks/helper-view.ts`).
+- **Then it looks.** The tab makes a view of the page (`helperView`: numbered controls with the network's own words,
+  everything a person wrote as "[2 words]", the person as "(their name)"), the worker's AI says what it sees and one
+  move (`outreach.helper.look`), and the tab takes it (`HelperHands.move`): a click that only clears the way, a scroll,
+  Escape, a wait, or a press of the step's own button. Up to 8 moves a step, 80 looks a day on a computer
+  (`hfos-helper-looks` in `chrome.storage.local`).
+- **Inside a step** (`stepHelp` in `src/auto/helper.ts`), on a page the runner checked is theirs, it may press the
+  step's button where the runner couldn't find it; the step's own check says whether it went, and a way that worked is
+  noted (`outreach.helper.way`). LinkedIn's invitation box after the helper's Connect is sent as it is
+  (`hfos-connect` with `sent`). Anywhere else (`helpAfter`) it only clears and says, and a step it cleared the way for
+  is tried once more.
+- **The report** carries the runner's own words as its note, the outline, and what the helper did; its id goes with
+  the step's Needs you, for HandsFreeOS staff's See what it saw.
+
+### Facebook's post search, with your playbooks' phrases (0.121.0)
+
+The owner's report of 1 Nov 2026: the posts it found to comment on weren't about the playbook (docs/outreach.md,
+decision 141). From 0.121.0 the once-a-day **Find posts** on Facebook, after the groups (or with none to go through),
+asks HandsFreeOS for the day's phrases (`outreach.posts.words` with Facebook: the playbooks' own **Words to search
+Facebook's posts with**, five a day in turn) and searches Facebook's posts with each, with Facebook's Recent posts
+filter on (`recentPostSearch` in `src/jobs/posts.ts`). It reads three screens of each at a person's pace, pointing at
+the posts' times first as in the groups (decision 138), and sends them in no group, found by search, with the phrase
+(`facebookSearchPostsSave` in `src/hfos/saves.ts`). A post Facebook says is from past a week ago is left out. Nothing
+is pressed. A playbook whose phrases the AI hasn't written yet, or that the person emptied, adds no search: Facebook's
+search never falls back on the signs' words. The day's line says both: "Looked through 3 groups… Searched Facebook's
+posts for 5 phrases: 12 posts sent for the AI to check."
+
+### Counted, and on the ticker as it happens (0.120.0)
+
+HandsFreeOS now counts everything the extension does on its own and shows what it's doing that very second on a
+ticker along the bottom of every Social Outreach page (docs/outreach.md, decision 140). The counting happens in
+HandsFreeOS as each save arrives, so older builds are counted too. From 0.120.0:
+
+- **The ticker, every few seconds.** While a ticker of yours is on screen, HandsFreeOS says so on the beat's answer
+  (`watched`) and over the live channel (`outreach.live.watched`), and the line goes every 4 seconds
+  (`WATCHED_LINE_SECONDS`) instead of every 20. Once nobody's watching it's back to every 20 at the next beat.
+- **Its own answers to requests say so** (`auto` on `outreach.friend.note`): a request the runner confirmed, or one the
+  AI said to turn down (decision 136), counts as the extension's; one you answered yourself, or one gone before it got
+  there, doesn't.
+
+### Every job gets its turn, Facebook's new Like, and Alignable's Directory (0.119.0)
+
+On Friday 30 Oct 2026 nearly every daily goal was missed (docs/outreach.md, decision 138). From 0.119.0:
+
+- **Jobs take turns on each network** (`inTurns` in `src/auto/plan.ts`). After replies, the messages you OK'd and what
+  waits on you, the job tried least today goes next: confirming requests, friend requests, warm-up likes, comments,
+  partners and messages to write. A like that keeps failing no longer holds up requests, comments or messages. A
+  warm-up like still comes before its own request.
+- **Facebook's Like** is now "React with Like to …'s post" (`likeStateOf` in `src/networks/facebook/posts.ts`). The
+  runner presses only a Like it can tell isn't pressed, and finds a post Facebook swapped out after scrolling by going
+  back to the top a screen at a time (`pickedAgain` in `src/networks/facebook/auto.ts`).
+- **LinkedIn's Copy link to post** is caught in every frame of the tab, from the clipboard's own writing and from the
+  "Link copied" note's link (`src/networks/copies.ts`, `src/networks/linkedin/post-links.ts`). If it still finds no
+  link, the problem report keeps the page's outline.
+- **LinkedIn's short links** (`https://lnkd.in/p/…`, what Copy link gives now) are followed by the background, without
+  cookies, to the post's own address (`src/jobs/linkedin/short-links.ts`). This is why 0.119.0 asks for
+  `https://lnkd.in/*`; Chrome may ask you to allow it.
+- **Facebook group posts' links** fill in only when the mouse goes over their time, so the runner points at each one in
+  the feed and waits a moment before reading it (`pointAtTimes` in `src/networks/facebook/browse.ts`).
+- **Alignable group members** are read from the group's Directory, /biz/groups/<group>/members (`membersPage` in
+  `src/networks/alignable/read.ts`), and a feed post's Like counts as done once it shows Liked.
+- **Every day, new messages on working days** (decision 139). With Keep working on other days on (under Working hours,
+  on to start), each network works every day in your hours. First messages, follow-ups, Reconnect and partner asks wait
+  for a ticked day (`newMessagesWait` on Today, read by `workLeft`); likes, requests, comments and replies go on.
+
+Not yet tried on the owner's computer.
+
+### The day the clocks go forward (0.119.1)
+
+Before 0.119.1 a network's next start after its hours counted days as 24 hours (`nextStart` in `src/auto/plan.ts`). The
+Sunday the clocks go forward is 23 hours long, so from 11 PM the Saturday before, the runners slept till Monday's
+hours and skipped that Sunday, while Today and the panel said Sunday. Now the next start is today's while it's ahead,
+else the first later day's by the business's calendar (`startAfterToday`), the same day the words name.
+
+### Requests you get, answered as the AI says, on every network (0.118.0)
+
+From 0.118.0 (docs/outreach.md, decision 136) HandsFreeOS's AI reads the profile of everyone who sends you a request,
+against your playbooks, and says Confirm, Delete or Not sure. Your Confirm or Delete on Friend requests to decide goes
+first. The extension then answers them on LinkedIn and Alignable too, not just Facebook:
+
+- **LinkedIn:** an invitation to accept is on Today's list, and the runner presses Accept in the top card of their
+  profile (`answerInvitation` in `src/networks/linkedin/auto.ts`), checks Accept is gone, and notes it as your answer.
+  One to delete goes once a day after withdrawing, up to 30: Ignore in the same top card (under More when it isn't
+  beside Accept), and the box's own Ignore where LinkedIn asks (`src/jobs/linkedin/ignore.ts`).
+- **Alignable:** both go on My Network's Requests, on the row about that business, found by Alignable's id for it:
+  Accept, or Decline (`src/networks/alignable/answer.ts`, `src/jobs/alignable/answer.ts`). It opens Requests again to
+  see the row went. Alignable's Decline hasn't shown on a Check yet, so a row it can't answer is noted with the page's
+  outline.
+
+As on Facebook, nobody in Contacts, nobody you've chatted with, no partner and nobody on Don't pitch is deleted unless
+you pressed Delete, and nobody on Never contact is answered. Not yet tried on the owner's computer. Builds before
+0.118.0 leave LinkedIn's and Alignable's requests to you.
+
+### LinkedIn's new conversation, Instagram's Follow Back first (0.117.1), and Alignable's new Messages (0.117.2)
+
+On the owner's sends of 30 Oct 2026, on 0.117.0, every LinkedIn message through Message on a profile said "couldn't
+find the box to write in", and some Instagram messages said "couldn't find Message on their account" (docs/outreach.md,
+decision 135).
+
+LinkedIn's Message takes the tab to the new conversation's page only once it has loaded its messaging, which can be after
+the runner's pause, and the look for the box kept the profile's address it began with, so it never took that page's box
+for theirs. Now each look goes by the page's address as it is then (`writeMessage` in `src/networks/linkedin/auto.ts`),
+waiting up to 15 seconds after a Message that's a link. When they've written before, LinkedIn shows their past messages
+over the box instead of a card about them: the box is theirs when the page's address names whom the Message pressed
+named (`recipient`; `openMessage` gives the link, the runner passes it as `opened`).
+
+Instagram shows Message only on accounts you follow, so a follower you hadn't followed back had only Follow Back. When
+their account shows no Message and they follow you, the runner follows them back, notes it as a follow, then presses
+Message (`followBack` in `src/auto/instagram.ts`). Nobody who doesn't follow you is followed.
+
+Alignable's messages broke the same day (0.117.2): since midday on 30 Oct 2026 (between the 15:35 and 19:02 UTC
+outlines) it draws a conversation's header with no test id of its own (it was `channel-header-loaded`) and its Send as
+`messaging-send-desktop` (it was `messaging-send-external`). With no header to read, every message said "Alignable showed
+a different conversation". The conversation's header is now the first header on the way up from its box to write in
+(`chatHeader` in `src/networks/alignable/read.ts`), never Messages' list's own header nor the site's menu, and either
+Send counts (`MESSAGE_SEND`), for the runner's sends, Read my chats, who wrote back, and noting the person's own.
+
+### Replies seen by name, and answered any time (0.117.0)
+
+Instagram's list of chats links to none of them, and neither does LinkedIn's newer list of conversations, so before
+0.117.0 the messages pages kept open (0.113.0) saw no reply on Instagram, and on LinkedIn only the conversation open
+on the page: a reply waited for the once-a-day chats read or for you to open the chat (the owner's report of 30 Oct
+2026). From 0.117.0 (docs/outreach.md, decision 133) a row whose last line is theirs goes to HandsFreeOS by the name
+it shows, never what they wrote, and HandsFreeOS takes it only when exactly one person you messaged on that network
+goes by that name. Reactions, "You: …", Instagram's "Active 2h ago" and "Seen", InMails, ads and group chats are left
+out. Facebook and Alignable read as they did.
+
+Replies also go outside your working hours now: a reply to someone who wrote back is drafted at once, and sent once
+you OK it (or on its own, as Replies says), hours or not. Nothing new goes outside them: first messages, follow-ups,
+reconnects, likes and requests wait for the hours, OK'd or not. While a reply waits for your OK outside the hours, the
+runner looks for it every 2 minutes. Stop for today and a warning still stop everything.
+
+### Retry, spaced out, and fewer false "didn't take" (0.116.0)
+
+A message or comment that didn't go waits on Steps it needs you for in HandsFreeOS, which from now has **Retry** on each
+and **Retry all** over two or more (docs/outreach.md, decision 132). Each goes again as a new send, OK'd as it was, the
+oldest now and each next one 3 to 7 minutes after the one before. Till its time its person is off the list for today,
+and the list says when the next may go (`retryAt`); a runner with nothing else to do looks again then (`listSays` and
+`retryWake` in `src/auto/plan.ts`), and still does one thing at a time at its network's pace.
+
+The owner's sends of 30 Oct 2026, on 0.114.0, had LinkedIn and Alignable say "didn't take the message" of messages that
+were in the conversation: LinkedIn drew its box afresh as it sent, and Alignable left the writing in its box. From
+0.116.0 a message went once its box empties or once what was typed shows once more where the box is (`timesShown` in
+`src/networks/facebook/dom.ts`), and what's left in the box after is taken out, so the next message finds it empty.
+
+And on LinkedIn's newer messaging, Message on someone's profile opens a new conversation (`/messaging/thread/new/
+?recipient=…`) drawn in the interop frame, which loads all of LinkedIn's messaging first: it said "couldn't find the box
+to write in" every time. Now it waits up to 15 seconds for the box there, and takes it as theirs by the card over it
+linking to them (`composeLinks` in `src/networks/linkedin/auto.ts`), as the address may name them by the other kind of
+member id. Only a card linking to someone else, or an id of the same kind that isn't theirs, stops it.
+
+### Each person kept by their network's own id (0.115.0)
+
+Names and the names in addresses change, and a network's own id for someone doesn't (the owner, 30 Oct 2026). From
+0.115.0 (docs/outreach.md, decision 131) the extension keeps and goes by that id wherever a network shows one:
+
+- **LinkedIn:** a check of someone's profile (Check my connections, Research, and the checks of people found by topic)
+  sends the member id its top card links to them by beside the name in their address (`seen` in
+  `outreach.check.look`), and HandsFreeOS keeps whichever of the two it lacked. Today's list carries the id kept
+  (`platformId`), so the runner goes by it: two links are one member when their ids agree, whatever the names in their
+  addresses say, and never when they differ (`sameMember`, `keptMember`); Sales Navigator's id for a member isn't
+  LinkedIn's, so between those two it goes by the name. A kept conversation that links to them by id is theirs with no
+  look at their profile first, and when the name in their kept address shows someone else, or nobody, their profile is
+  opened by id once (`openProfile`).
+- **Alignable:** a check of a business's page sends its id and its address in its town the same way, and the runner
+  goes straight to the conversation by the id kept, with no look at its page first for it.
+- **Facebook:** a chat window's link gives their number, kept from 0.114.1 once a message goes (above).
+- **Instagram** shows no id for an account in its links, only the name in its address, so it stays by that. Its chats
+  are kept by their own key, which doesn't change.
+
+### A post's link from its menu on LinkedIn's post search (0.112.0)
+
+LinkedIn's newer post search links no post (the owner's Check LinkedIn of 29 Oct 2026), and a post with no link can't be
+kept, so from 27 Oct its post search saved nothing. From 0.112.0 (docs/outreach.md, decision 123), on each screen of the
+search, each person's post with no link, up to 8, gets its own from its menu: it presses the post's **Open control menu
+for post by …**, then **Copy link to post**, then reads the link the page copied (`src/networks/linkedin/post-links.ts`,
+`withLinks` in `src/jobs/linkedin/posts.ts`). That's all it presses.
+
+- **Your clipboard is never written to.** Before any press it runs a small piece in the page's own world (`catchCopies`
+  in `src/tab.ts`, `src/networks/copies.ts`) that keeps what the page copies on the page while the extension waits for
+  it, and passes every other copy through as always. When that can't run, nothing is pressed.
+- **No post's menu is pressed twice** in a search, link or not. A company's post is passed over, as before.
+- **When it doesn't work,** after two posts in a row whose menu had no Copy link to post, or gave no link, it stops and
+  notes the page in HandsFreeOS with its outline, taken while the menu was open (decision 74), once a search. Check
+  LinkedIn does it for one post, so a Check shows whether it works.
+
+### Replies Knowledge doesn't answer (0.111.0)
+
+From 0.111.0 (docs/outreach.md, decision 122) what the AI writes reads the business's Knowledge and profile, as the AI
+Teammate does. When someone asks something none of it answers, the AI says what (`unanswered` on the draft), its
+draft says you'll check, and the extension hands that on with the reply (`outreach.send.queue`), so the reply waits
+for you under Waiting for you with "Knowledge has no answer to …", whatever your Replies setting. The extension does
+nothing else differently. A build before 0.111.0 sends none, so only what Replies holds waits.
+
+### Cancelling from Sent requests (0.110.1)
+
+From 0.110.1 a request you sent is cancelled from your friend requests, not from the person's profile (the owner's
+report of 29 Oct 2026: on a profile, Cancel request couldn't always be found, so each one came to Needs you). The
+ticked ones, Cancel all's and tidying on its own all go this way (`src/jobs/tidy.ts`):
+
+- It opens your friend requests and presses **View sent requests**, as saving the ones you've sent does.
+- For each one, it finds their row by the link to their profile, never by a name alone, scrolling the list for it
+  (up to 60 screens, letting Facebook load more at the bottom once), and presses the **Cancel request** beside them
+  (`src/networks/facebook/sent.ts`). When Facebook opens a box to be sure, it presses that box's **Cancel request**
+  (or **Confirm**), never its **Cancel**.
+- It checks their row no longer says Cancel request, and notes it in HandsFreeOS as before.
+- Someone the whole list doesn't show has their profile opened instead, to see where things stand: friends now, or no
+  request waiting.
+- One it can't cancel comes to Needs you with "Under Sent requests, press “Cancel request” beside their name", or is
+  passed over when it's working on its own.
+
+**Check Facebook** tries cancelling there too, after View sent requests: a Cancel request beside someone, never
+pressed.
+
+Not yet tried on the owner's computer.
+
+### Cancel all, and deleting requests you get (0.110.0)
+
+From 0.110.0 (docs/outreach.md, decision 121):
+
+- **Cancel all** under Old friend requests in HandsFreeOS marks every request of yours still waiting, however new,
+  leaving out the ones the extension sent unless you untick that. The extension cancels the oldest of them straight
+  away, up to the day's limit (30 on Facebook), and the rest once a day with the other once-a-day jobs, the way
+  tidying on its own goes (`src/jobs/own-tidy.ts`), whatever you picked for tidying. LinkedIn's and Alignable's
+  withdraw them the same way. Stop in HandsFreeOS clears the marks.
+- **Requests you get, on Facebook,** go as you pick in Settings: confirm who fits (as before), confirm them all,
+  delete them all, or confirm who fits and delete the rest. Confirming goes through your day as before. Deleting goes
+  once a day, up to 30: on their profile it presses Respond, then Delete request (`decline` in
+  `src/networks/facebook/tidy.ts`), checks the profile says Add friend after, and notes it as your answer
+  (`hfos-friend-note`), even while noting is off. HandsFreeOS never picks someone in Contacts, someone you've chatted
+  with, a partner, or anyone on Don't pitch or Never contact.
+
+Not yet tried on the owner's computer. Builds before 0.110.0 still cancel Cancel all's requests, as tidying on its
+own, but never delete a request.
+
 ### Its window waits till you're away (0.109.0)
 
 From 0.109.0 (docs/outreach.md, decision 120) a read that needs the screen no longer pulls its window over your work.
@@ -1229,7 +1585,8 @@ to 10 a day; each inside today's limit with the ones you ticked, halved while a 
 warned you. The extension goes through them with the same job as your ticks (`src/jobs/own-tidy.ts`), but hands
 nobody to you: a step it can't do, it passes over. On each network:
 
-- **Facebook** (after Friend requests): Cancel request, then Unfriend, on each profile (`src/jobs/tidy.ts`).
+- **Facebook** (after Friend requests): Cancel request under Sent requests (from 0.110.1), then Unfriend on each
+  profile (`src/jobs/tidy.ts`).
 - **LinkedIn** (after Invitations): Withdraw on Sent invitations (`src/jobs/linkedin/withdraw.ts`).
 - **Instagram** (after Who followed you back, so nobody who followed back goes): Unfollow, never anyone who wrote
   back or a customer (`src/jobs/instagram/unfollow.ts`).
@@ -1480,6 +1837,10 @@ networks Chrome lets it on, so HandsFreeOS can say what to press when an ask wai
   around them whether one was a step and who to (`src/networks/facebook/actions.ts`), and tells the background. It never reads
   what was written, writes to the page, clicks, scrolls or sends anything, but for the next rules. What it does on its
   own keeps the owner's decisions: off by default, the daily limits, and a stop for the day on any Facebook warning.
+- **The messages kept open are only read** (decision 125, `src/auto/watch.ts`). Their window stays minimized, and
+  nothing on their pages is pressed, scrolled or typed; each is read where it stands once a minute, and loaded afresh
+  at most every few minutes. A tab the person closed stays closed for an hour. A reply goes like every other message:
+  drafted by the network's runner, inside its day, waiting for an OK as the person's Replies choice says.
 - **Scrolling groups only when asked, slowly.** **Find posts** (`src/jobs/posts.ts`) only scrolls a group's own
   feed (`scrollFeed`, `groupFeedPage`), a screen at a time, 6 to 12 seconds apart: it opens nothing and presses
   nothing. Once a day, on its own, it also scrolls your friend requests and a group's members the same way
@@ -1591,6 +1952,13 @@ networks Chrome lets it on, so HandsFreeOS can say what to press when an ask wai
   for a message coming in doesn't take it), and no chat open as it was pressed showed a name that may be theirs.
   Messenger's chat links by number, so for someone kept by username it opens their profile's **Message** instead,
   and when that takes the tab to their chat in Messenger, it takes their number from it once it shows their name.
+  Facebook's chat windows link by number too, and put no cursor in a window that opens while the runner's is behind
+  the person's (the owner's report of 30 Oct 2026, when every send through a profile's **Message** to someone kept by
+  username stopped there). So from 0.114.1, when the one window that opened on **Message** with their name links to
+  them only by a number, it opens that number's profile, and only when Facebook shows it at their username does it
+  press **Message** again there and type into the window that links to that number (`openedWindowLinks`,
+  `theirKey`); else it sends nothing, and says it couldn't make sure the chat was theirs. The number is noted with
+  the message, so HandsFreeOS keeps it.
   Just before sending it checks again that the box is still theirs and no other box took the writing, and if not
   takes the writing out of every box it went in and sends nothing (`not_theirs`); writing it can't take out of a box
   that held the person's own is named in its line, for them to delete. When
@@ -1691,7 +2059,12 @@ you on Alignable read once a week (decision 112, 0.104.0), and your Facebook fol
 week (decision 113, 0.105.0), staying active in your groups (decision 114, 0.106.0), and Alignable's search in the
 towns within 25 miles of yours (decision 115, 0.107.0), and liking a commenter's comment, 3 screens of a Likes box and
 Alignable's likers (decision 116, 0.108.0), and drafts naming each of someone's businesses and its window waiting
-till you're away (decisions 119 and 120, 0.109.0); Social
+till you're away (decisions 119 and 120, 0.109.0), and Cancel all and deleting requests you get (decision 121,
+0.110.0), and cancelling from Sent requests (0.110.1), and replies Knowledge doesn't answer waiting for you
+(decision 122, 0.111.0), and the list taking turns with the morning's reading and a post's link on LinkedIn's
+post search from its menu (decision 123, 0.112.0), and your messages kept open and read every minute, a reply drafted
+first (decision 125, 0.113.0), and checks in batches and searching again while a network is short of the day's first
+messages (decision 126, 0.114.0); Social
 Outreach's onboarding is built, in HandsFreeOS (decisions 36 and 45). Safari on Mac
 follows in Phase 2.
 

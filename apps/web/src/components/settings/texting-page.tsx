@@ -375,6 +375,7 @@ export function TextingPage({
             fee={status.textingFees.due}
             goPay={goPay}
             setupReturn={setupReturn}
+            ours={status.textingFees.paidFor.ours}
           />
         ) : null}
         {step === 'buy_number' ? (
@@ -1127,6 +1128,7 @@ function TextingFeeDue({
   fee,
   goPay,
   setupReturn = null,
+  ours = false,
 }: {
   workspaceId: string;
   fee: Fee;
@@ -1134,6 +1136,8 @@ function TextingFeeDue({
   goPay: boolean;
   /** In setup's number step: Stripe's page comes back to Settings, which sends them on to this. */
   setupReturn?: string | null;
+  /** HandsFreeOS's own business, never charged: a fee it has anyway is let through, with no page. */
+  ours?: boolean;
 }) {
   const router = useRouter();
   const [paying, setPaying] = useState(false);
@@ -1148,14 +1152,14 @@ function TextingFeeDue({
     },
     [setupReturn, workspaceId],
   );
-  const go = goPay || paying;
+  const go = !ours && (goPay || paying);
   useEffect(() => {
     if (go && fee.status === 'open' && fee.checkoutUrl) toPage(fee.checkoutUrl);
   }, [go, fee.status, fee.checkoutUrl, toPage]);
   const waiting =
     fee.status === 'pending' ||
     (back && fee.status === 'open') ||
-    (paying && fee.status !== 'open');
+    (paying && (ours || fee.status !== 'open'));
   useEffect(() => {
     if (!waiting) return;
     const timer = setInterval(() => router.refresh(), 2500);
@@ -1176,7 +1180,7 @@ function TextingFeeDue({
           body: { workspaceId, textingFeeId: fee.id },
         }),
       );
-      if (out.checkoutUrl) toPage(out.checkoutUrl);
+      if (out.checkoutUrl && !ours) toPage(out.checkoutUrl);
       else router.refresh();
     } catch (e) {
       toast.error(errorMessage(e));
@@ -1197,7 +1201,11 @@ function TextingFeeDue({
       data-testid="texting-fee-due"
       data-status={fee.status}
       action={
-        waiting ? null : fee.status === 'open' && fee.checkoutUrl ? (
+        waiting ? null : ours ? (
+          <Button size="sm" onClick={() => void payAgain()} data-testid="texting-fee-ours">
+            Send it without paying
+          </Button>
+        ) : fee.status === 'open' && fee.checkoutUrl ? (
           <Button size="sm" onClick={() => toPage(fee.checkoutUrl!)} data-testid="texting-fee-pay">
             Pay {amount}
           </Button>
@@ -1217,10 +1225,14 @@ function TextingFeeDue({
       {waiting ? (
         <span className="flex items-center gap-2" role="status">
           <span className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-accent border-t-transparent" />
-          {back && fee.status === 'open'
-            ? 'Confirming your payment with Stripe…'
-            : 'Making your payment page…'}
+          {ours
+            ? 'Sending it to the carriers…'
+            : back && fee.status === 'open'
+              ? 'Confirming your payment with Stripe…'
+              : 'Making your payment page…'}
         </span>
+      ) : ours ? (
+        `HandsFreeOS’s own business isn’t charged for texting, so you don’t pay ${what}. Send it to the carriers without paying.`
       ) : fee.problem ? (
         `We couldn’t take ${what}: ${fee.problem} ${month ? 'Your texts keep going out.' : 'Nothing goes to the carriers until it’s paid.'}`
       ) : (
@@ -1361,6 +1373,7 @@ function RegisterAhead({
           fee={status.textingFees.due}
           goPay={goPay}
           setupReturn={setupReturn}
+          ours={status.textingFees.paidFor.ours}
         />
       ) : null}
       {body}
@@ -1800,7 +1813,12 @@ function Configured({
               : ''}
           </p>
           {status.textingFees?.month ? (
-            <TextingFeeDue workspaceId={workspaceId} fee={status.textingFees.month} goPay={false} />
+            <TextingFeeDue
+              workspaceId={workspaceId}
+              fee={status.textingFees.month}
+              goPay={false}
+              ours={status.textingFees.paidFor.ours}
+            />
           ) : null}
           <div className="mt-3.5">
             {regRows.map(([title, date], i) => (

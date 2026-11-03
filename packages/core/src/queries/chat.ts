@@ -1,6 +1,7 @@
 import { and, asc, eq, isNull } from 'drizzle-orm';
 import { aiTeammates, chatWidgets } from '@hfos/db/schema';
-import { chatWidgetName, readableTextOn } from '../chat/origins';
+import { chatColorsOf, chatPlacementOf, chatWhenAwayOf } from '../chat/look';
+import { chatShownName } from '../chat/origins';
 import { HfosError } from '../errors';
 import { defineQuery } from '../kernel/define';
 import type { QueryContext } from '../kernel/types';
@@ -39,34 +40,44 @@ async function widgets(ctx: QueryContext, workspaceId: string, widgetId?: string
       ),
     )
     .orderBy(asc(chatWidgets.createdAt), asc(chatWidgets.id));
-  return list.map(({ w, teammateName, teammateStatus }): ChatWidgetOut => ({
-    id: w.id,
-    name: chatWidgetName(w.allowedOrigins),
-    publicKey: w.publicKey,
-    allowedOrigins: w.allowedOrigins,
-    teammate:
-      w.teammateId && teammateName && teammateStatus
-        ? { id: w.teammateId, name: teammateName, status: teammateStatus }
-        : null,
-    greeting: w.greeting,
-    launcherLabel: w.launcherLabel,
-    accentColor: w.accentColor,
-    textColor: readableTextOn(w.accentColor),
-    position: w.position === 'left' ? 'left' : 'right',
-    awayMessage: w.awayMessage,
-    askFor: chatAskForOf(w.askFor),
-    smsConsent: w.smsConsent,
-    dailyCap: w.dailyCap,
-    paused: w.pausedAt !== null,
-    pausedAt: iso(w.pausedAt),
-    install: {
-      seen: w.lastSeenAt !== null,
-      lastSeenOrigin: w.lastSeenOrigin,
-      lastSeenAt: iso(w.lastSeenAt),
-    },
-    createdAt: w.createdAt.toISOString(),
-    updatedAt: w.updatedAt.toISOString(),
-  }));
+  return list.map(({ w, teammateName, teammateStatus }): ChatWidgetOut => {
+    const colors = chatColorsOf(w);
+    const placement = chatPlacementOf(w);
+    return {
+      id: w.id,
+      name: chatShownName(w.name, w.allowedOrigins),
+      ownName: w.name,
+      publicKey: w.publicKey,
+      allowedOrigins: w.allowedOrigins,
+      teammate:
+        w.teammateId && teammateName && teammateStatus
+          ? { id: w.teammateId, name: teammateName, status: teammateStatus }
+          : null,
+      greeting: w.greeting,
+      launcherLabel: w.launcherLabel,
+      accentColor: colors.accent,
+      textColor: colors.accentText,
+      ownTextColor: w.textColor,
+      headerColor: w.headerColor,
+      showLogo: w.showLogo,
+      position: placement.desktop.position,
+      placement,
+      awayMessage: w.awayMessage,
+      whenAway: chatWhenAwayOf(w.whenAway),
+      askFor: chatAskForOf(w.askFor),
+      smsConsent: w.smsConsent,
+      dailyCap: w.dailyCap,
+      paused: w.pausedAt !== null,
+      pausedAt: iso(w.pausedAt),
+      install: {
+        seen: w.lastSeenAt !== null,
+        lastSeenOrigin: w.lastSeenOrigin,
+        lastSeenAt: iso(w.lastSeenAt),
+      },
+      createdAt: w.createdAt.toISOString(),
+      updatedAt: w.updatedAt.toISOString(),
+    };
+  });
 }
 
 export const chatWidgetList = defineQuery({

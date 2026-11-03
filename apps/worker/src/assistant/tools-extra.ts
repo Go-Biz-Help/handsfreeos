@@ -9,11 +9,13 @@
  *   watches for, or the AI teammate), exactly as the page's switches do (`automationPatch`). Re-engaging dead leads
  *   stays off until someone reads its message on the screen, so the card for it can't be confirmed.
  * - The person's own phone alerts and side menu, and taking part in Ideas and Get help: theirs alone.
- * - Adding a business and pushing to client businesses, which only the organization's owners and admins may do. The
- *   commands check that on the organization; the cards say so first rather than failing on Confirm.
+ * - Adding a business, changing a template's steps and pushing to client businesses, which only the organization's
+ *   owners and admins may do. The commands check that on the organization; the cards say so first rather than
+ *   failing on Confirm. A template's steps change op by op against its draft, as a workflow's do (tools-content.ts).
  */
 import { randomUUID } from 'node:crypto';
 import {
+  ADDON_CATALOG,
   applyTeammatePatch,
   attentionSettingsOf,
   AUTOMATION_GROUP_TITLES,
@@ -25,31 +27,40 @@ import {
   automationSettingsOf,
   DEFAULT_MENU,
   diffTeammateConfigs,
+  followUpLadderWords,
+  formatClock,
   GET_HELP_WORDS,
+  guessStageRole,
   HfosError,
   IDEA_STATUS_WORDS,
   ideaUpdateLine,
   IDEAS_WORDS,
   isValidTimeZone,
+  lineCheckPriceWords,
   MENU_ALWAYS_SHOWN,
   MENU_WORDS,
   menuOf,
   menuSummary,
   moveKey,
   parseAutomationSettings,
+  parseDefinition,
   pushSwitchesOf,
   PUSH_SWITCHES,
   reengageOn,
   sameMenu,
   storedMenu,
+  STAGE_ROLE_LABELS,
   SUGGESTED_MENU,
+  templateIssues,
   validateTeammate,
   type AttentionSettings,
   type AutomationContext,
   type AutomationId,
   type AutomationPatch,
   type AutomationSettings,
+  type FollowUpStep,
   type IdeaStatus,
+  type LineCheckCents,
   type Menu,
   type MenuKey,
   type NotifyWho,
@@ -58,13 +69,16 @@ import {
   type QualifyingQuestion,
   type QualifyingQuestionInput,
   type QuestionKind,
+  type StageRole,
   type TeammateCatalogs,
   type TeammateConfig,
   type TeammatePatch,
+  type WorkflowOp,
 } from '@hfos/core/server';
 import type { Db } from '@hfos/db/client';
 import type { ToolContext, ToolOutcome } from './runtime';
-import { command, query } from './tools-read';
+import { draftChanges, draftSaved, draftToRead } from './tools-content';
+import { command, query, rehearse } from './tools-read';
 import { settingsCard, type SettingsConfirmTool } from './tools-settings-calendar';
 
 type Args = Record<string, unknown>;
@@ -292,9 +306,29 @@ function rulesPatch(config: TeammateConfig, args: Args): TeammatePatch {
   // Null or empty goes back to the usual one.
   const cleared = (key: string) => (args[key] === undefined ? undefined : (str(args[key]) ?? ''));
 
-  // Identity
+  // Identity and channels
   put('identity', 'signature', cleared('emailSignature'));
   put('identity', 'toneNote', cleared('tone'));
+  put('channels', 'emailAddressId', str(args['emailsFromAddressId']));
+  put('channels', 'widgetId', str(args['chatWidgetId']));
+  // Respond: its first message to a new lead
+  nest('respond', 'newLeads', {
+    channel: str(args['firstMessageBy']),
+    delayMinutes: num(args['firstMessageAfterMinutes']),
+  });
+  // Book, photos and its own hours
+  put('book', 'reschedule', bool(args['reschedules']));
+  put('book', 'cancel', bool(args['cancels']));
+  put('book', 'waitlist', bool(args['usesWaitlist']));
+  put('book', 'repeats', bool(args['booksRepeatVisits']));
+  put('book', 'serviceArea', bool(args['checksServiceArea']));
+  put('photos', 'enabled', bool(args['looksAtPhotos']));
+  put('photos', 'priceRanges', bool(args['priceRangesFromPhotos']));
+  const ownHours = list<{ day: number; start: string; end: string }>(args['ownHours']);
+  if (ownHours) {
+    put('hours', 'mode', 'custom');
+    put('hours', 'custom', ownHours);
+  }
   // Qualify
   put('qualify', 'enabled', bool(args['qualifies']));
   put('qualify', 'questions', nextQuestions(config.qualify.questions, args));
@@ -346,7 +380,68 @@ function rulesPatch(config: TeammateConfig, args: Args): TeammatePatch {
   // Autonomy
   put('autonomy', 'approvalsNeeded', num(args['approvalsBeforeAutomatic']));
   put('autonomy', 'draftExpiresMinutes', num(args['draftsExpireAfterMinutes']));
+  // Add-ons, by id once checkRefs has found them
+  const addons = {
+    ...Object.fromEntries((list<string>(args['useAddons']) ?? []).map((id) => [id, { on: true }])),
+    ...Object.fromEntries(
+      (list<string>(args['stopUsingAddons']) ?? []).map((id) => [id, { on: false }]),
+    ),
+  };
+  if (Object.keys(addons).length) (patch as Record<string, unknown>)['addons'] = addons;
   return patch as TeammatePatch;
+}
+
+/** The add-ons running here that give the AI teammate something to use, as its Add-ons section lists them. */
+async function teammateAddonsHere(
+  db: Db,
+  ctx: ToolContext,
+): Promise<{ id: string; name: string }[]> {
+  const { installed } = await query<{ installed?: { addonId: string; running: boolean }[] }>(
+    db,
+    ctx,
+    'addon.list',
+  );
+  const running = new Set((installed ?? []).filter((i) => i.running).map((i) => i.addonId));
+  return ADDON_CATALOG.filter((m) => !!m.teammate && running.has(m.id)).map((m) => ({
+    id: m.id,
+    name: m.name,
+  }));
+}
+
+/**
+ * Add-ons named in useAddons and stopUsingAddons, as their ids. Turning one on needs it running here and giving
+ * the teammate something; turning one off always works, so a stopped add-on can still be switched off.
+ */
+async function addonArgs(db: Db, ctx: ToolContext, args: Args, name: string): Promise<Args> {
+  const use = list<string>(args['useAddons']) ?? [];
+  const stop = list<string>(args['stopUsingAddons']) ?? [];
+  if (!use.length && !stop.length) return args;
+  const lower = (s: string) => s.trim().toLowerCase();
+  const find = (asked: string) =>
+    ADDON_CATALOG.find((m) => lower(m.id) === lower(asked) || lower(m.name) === lower(asked));
+  const here = use.length ? await teammateAddonsHere(db, ctx) : [];
+  const ids = (asked: string[], on: boolean) =>
+    asked.map((a) => {
+      const m = find(a);
+      if (!m)
+        throw HfosError.notFound(
+          `No add-on is called “${a}”. The add-ons are in get_settings with area add_ons.`,
+        );
+      if (on && !m.teammate)
+        throw HfosError.rule(
+          'addon_not_for_teammate',
+          400,
+          `${m.name} has nothing for ${name} to use in a conversation.`,
+        );
+      if (on && !here.some((h) => h.id === m.id))
+        throw HfosError.rule(
+          'addon_not_on',
+          409,
+          `${m.name} isn’t on in this business, so ${name} can’t use it yet. Turn it on in Add-ons first.`,
+        );
+      return m.id;
+    });
+  return { ...args, useAddons: ids(use, true), stopUsingAddons: ids(stop, false) };
 }
 
 /** Stage and people ids must be ones the business has, or the save would name someone who isn't there. */
@@ -366,6 +461,16 @@ function checkRefs(args: Args, catalogs: TeammateCatalogs): void {
   );
   if (strangers.length)
     throw HfosError.notFound('That person isn’t on the team. The team’s ids come from list_team.');
+  const address = str(args['emailsFromAddressId']);
+  if (address && !catalogs.emailAddresses.some((a) => a.id === address))
+    throw HfosError.notFound(
+      'No email address with that id. The addresses it can send from are catalogs.emailAddresses in get_settings with area ai_teammate; add one in Settings → Email.',
+    );
+  const widget = str(args['chatWidgetId']);
+  if (widget && !catalogs.chatWidgets.some((w) => w.id === widget))
+    throw HfosError.notFound(
+      'No website chat with that id. The chats are catalogs.chatWidgets in get_settings with area ai_teammate.',
+    );
 }
 
 function nextRules(config: TeammateConfig, args: Args, catalogs: TeammateCatalogs) {
@@ -487,8 +592,9 @@ function ruleWarnings(
 }
 
 const updateAiTeammateRules: SettingsConfirmTool = {
-  async prepare(db, ctx, args, toolCallId) {
+  async prepare(db, ctx, asked, toolCallId) {
     const { teammate, catalogs } = await requireTeammate(db, ctx);
+    const args = await addonArgs(db, ctx, asked, teammate.name);
     const next = nextRules(teammate.config, args, catalogs);
     const fields = ruleFields(teammate.config, next, catalogs);
     if (!fields.length) throw nothingChanges(`${teammate.name}’s rules are already set that way.`);
@@ -503,9 +609,10 @@ const updateAiTeammateRules: SettingsConfirmTool = {
     };
   },
 
-  async commit(db, ctx, args) {
+  async commit(db, ctx, asked) {
     // Read again and saved on that revision: someone saving in between is a conflict, not a silent overwrite.
     const { teammate, catalogs } = await requireTeammate(db, ctx);
+    const args = await addonArgs(db, ctx, asked, teammate.name);
     await command(db, ctx, 'ai_teammate.save_config', {
       teammateId: teammate.id,
       baseRevision: teammate.revision,
@@ -527,11 +634,15 @@ interface AutomationState {
   readonly canManageTeammate: boolean;
   /** For Intake questions: the forms it could send (null when they couldn't be read). */
   readonly forms: { formId: string; name: string; status: string }[] | null;
+  /** For Business landlines: what checking a number costs, as the page shows it (null when it can't see prices). */
+  readonly lineCheckCents: LineCheckCents | null;
+  /** For What each stage means: every open stage, by pipeline (null when they couldn't be read). */
+  readonly stages: { id: string; name: string; pipeline: string }[] | null;
 }
 
 /** Everything the page reads to draw its rows, read the way the page reads it. */
 async function automationState(db: Db, ctx: ToolContext): Promise<AutomationState> {
-  const [{ workspace }, team, services, plans, forms] = await Promise.all([
+  const [{ workspace }, team, services, plans, forms, prices, pipelines] = await Promise.all([
     query<{ workspace: { settings: Record<string, unknown> } }>(db, ctx, 'workspace.get'),
     teammateOf(db, ctx).catch(() => null),
     query<{ items: { repeatMonths: number | null }[] }>(db, ctx, 'service.list').catch(() => null),
@@ -545,8 +656,21 @@ async function automationState(db: Db, ctx: ToolContext): Promise<AutomationStat
       ctx,
       'form.list',
     ).catch(() => null),
+    query<{ items: { key: string | null; cents: number }[] }>(db, ctx, 'usage.prices').catch(
+      () => null,
+    ),
+    query<{
+      pipelines: {
+        name: string;
+        archivedAt: string | null;
+        stages: { id: string; name: string; kind: string }[];
+      }[];
+    }>(db, ctx, 'pipeline.list').catch(() => null),
   ]);
   const teammate = team?.teammate ?? null;
+  const priced = (key: string) => prices?.items.find((p) => p.key === key)?.cents;
+  const line = priced('lookup.line_type');
+  const owner = priced('lookup.caller_name');
   return {
     ctx: {
       attention: attentionSettingsOf(workspace.settings),
@@ -566,8 +690,25 @@ async function automationState(db: Db, ctx: ToolContext): Promise<AutomationStat
     teammate,
     canManageTeammate: team?.canManage ?? false,
     forms: forms?.items ?? null,
+    lineCheckCents: line !== undefined && owner !== undefined ? { line, owner } : null,
+    // The open stages the page lists, as it lists them.
+    stages: pipelines
+      ? pipelines.pipelines
+          .filter((p) => !p.archivedAt)
+          .flatMap((p) =>
+            p.stages
+              .filter((st) => st.kind === 'open')
+              .map((st) => ({ id: st.id, name: st.name, pipeline: p.name })),
+          )
+      : null,
   };
 }
+
+/** What moves a deal into a stage: the business's pick, else the guess from its name, as the page shows it. */
+const stageMeaning = (roles: Record<string, string>, stage: { id: string; name: string }) =>
+  (roles[stage.id] ?? guessStageRole(stage.name) ?? 'none') as StageRole | 'none';
+const stageMeaningWords = (means: StageRole | 'none') =>
+  means === 'none' ? 'Nothing: deals reach it only by hand' : STAGE_ROLE_LABELS[means];
 
 async function listAutomations(db: Db, ctx: ToolContext, args: Args): Promise<ToolOutcome> {
   const state = await automationState(db, ctx);
@@ -591,7 +732,7 @@ async function listAutomations(db: Db, ctx: ToolContext, args: Args): Promise<To
           ...(r.locked ? { alwaysOn: true } : {}),
           ...(r.on && r.needsSetup ? { notWorkingYet: r.needsSetup.text } : {}),
           ...(r.awaitingReview
-            ? { turnsOnOnlyOnTheScreen: 'Its message is read first, in Adjust' }
+            ? { messageReadFirst: 'Turning it on puts its message on the card to read first' }
             : {}),
           ...(r.on && r.drafts ? { waitsForApprovalWhileTraining: true } : {}),
           ...(r.fallback ? { withoutAiTeammate: r.fallback } : {}),
@@ -603,12 +744,32 @@ async function listAutomations(db: Db, ctx: ToolContext, args: Args): Promise<To
         message: a.reengage.template,
         messageRead: a.reengage.reviewedAt !== null,
       },
+      followUps: state.teammate
+        ? {
+            times: followUpLadderWords(state.teammate.config.followUp.ladder),
+            ladder: state.teammate.config.followUp.ladder,
+            thenMonthlyForMonths: state.teammate.config.followUp.monthlyForMonths,
+          }
+        : null,
       intakeForm: a.intake.formId
         ? (state.forms?.find((f) => f.formId === a.intake.formId)?.name ?? 'A form')
         : null,
       endOfDayEmailAt: a.briefings.eveningAt,
       whenVoicemailAnswers: a.calls.voicemail,
+      callsToLeads: {
+        from: a.calls.hours.start,
+        until: a.calls.hours.end,
+        atWeekends: a.calls.hours.weekends,
+        tries: a.calls.tries,
+      },
       asksForOkToCall: a.calls.askConsent,
+      maintenanceDue: { message: a.maintenance.template, planMessage: a.maintenance.planTemplate },
+      stageMeanings: state.stages?.map((st) => ({
+        stageId: st.id,
+        stage: `${st.name} (${st.pipeline})`,
+        means: stageMeaningWords(stageMeaning(a.pipeline.roles, st)),
+      })),
+      howYouTag: a.contactAi.guide || null,
     },
   };
 }
@@ -641,7 +802,11 @@ interface AutomationPlan {
   /** Labels of what will text or call customers on its own once this saves. */
   readonly reaching: string[];
   readonly notes: string[];
+  /** Fewer follow-ups than before, or new times while follow-ups are off: said, so nobody is surprised. */
+  readonly followUpNote: string | null;
 }
+
+const monthsWords = (n: number) => (n === 0 ? 'none' : `${n} month${n === 1 ? '' : 's'}`);
 
 const VOICEMAIL_WORDS: Record<string, string> = {
   text: 'Hang up and send a text instead',
@@ -760,6 +925,54 @@ function planAutomations(state: AutomationState, args: Args): AutomationPlan {
       reaching.push(intake.def.label);
   }
 
+  // When each follow-up after silence goes: the AI teammate's, saved with its settings as the Adjust panel does.
+  let followUpNote: string | null = null;
+  const ladder = list<FollowUpStep>(args['followUpTimes']);
+  const monthly = num(args['followUpMonthlyForMonths']);
+  const followUps = automationDef('follow_ups_after_silence');
+  if ((ladder || monthly !== undefined) && !at.teammate)
+    blocked.push(
+      `When ${followUps.label.toLowerCase()} go is the AI teammate’s, and there isn’t one yet. Set one up under AI teammate first.`,
+    );
+  else if ((ladder || monthly !== undefined) && !state.canManageTeammate)
+    blocked.push(
+      `When ${followUps.label.toLowerCase()} go is the AI teammate’s: only people who can run the AI teammate can change it. Ask an owner or admin.`,
+    );
+  else if (at.teammate && (ladder || monthly !== undefined)) {
+    const was = at.teammate.config as unknown as TeammateConfig;
+    let next: TeammateConfig;
+    try {
+      next = applyTeammatePatch(was, {
+        followUp: {
+          ...(ladder ? { ladder: ladder.map((x) => ({ after: x.after, unit: x.unit })) } : {}),
+          ...(monthly === undefined ? {} : { monthlyForMonths: monthly }),
+        },
+      });
+    } catch (e) {
+      throw invalid(e, 'Those follow-up times don’t work');
+    }
+    const a = was.followUp;
+    const b = next.followUp;
+    if (JSON.stringify(a.ladder) !== JSON.stringify(b.ladder))
+      fields.push({
+        label: 'Follow-up times',
+        value: `${followUpLadderWords(a.ladder)} → ${followUpLadderWords(b.ladder)}`,
+      });
+    if (a.monthlyForMonths !== b.monthlyForMonths)
+      fields.push({
+        label: 'Then monthly for',
+        value: `${monthsWords(a.monthlyForMonths)} → ${monthsWords(b.monthlyForMonths)}`,
+      });
+    if (JSON.stringify(a) !== JSON.stringify(b)) {
+      at = withPatch(at, { store: 'teammate', config: next as unknown as Record<string, unknown> });
+      stores.add('teammate');
+      if (b.ladder.length < a.ladder.length)
+        followUpNote = `That’s ${b.ladder.length} follow-up${b.ladder.length === 1 ? '' : 's'} instead of ${a.ladder.length}.`;
+      if (!b.enabled)
+        followUpNote = `${followUpNote ? `${followUpNote} ` : ''}${followUps.label} is off, so nothing goes until it’s on.`;
+    }
+  }
+
   // The timings and wording only Settings → Automations keeps.
   const now = at.automations;
   const reengage = {
@@ -773,11 +986,50 @@ function planAutomations(state: AutomationState, args: Args): AutomationPlan {
     now.calls.voicemail) as AutomationSettings['calls']['voicemail'];
   const askConsent =
     typeof args['askForOkToCall'] === 'boolean' ? args['askForOkToCall'] : now.calls.askConsent;
+  const hours = {
+    start: str(args['callLeadsFrom']) ?? now.calls.hours.start,
+    end: str(args['callLeadsUntil']) ?? now.calls.hours.end,
+    weekends:
+      typeof args['callLeadsAtWeekends'] === 'boolean'
+        ? args['callLeadsAtWeekends']
+        : now.calls.hours.weekends,
+  };
+  const tries = num(args['callTries']) ?? now.calls.tries;
+  const businessLandlines =
+    typeof args['callBusinessLandlines'] === 'boolean'
+      ? args['callBusinessLandlines']
+      : now.calls.businessLandlines;
+  const maintenance = {
+    template: straight(str(args['maintenanceMessage'])) ?? now.maintenance.template,
+    planTemplate: straight(str(args['maintenancePlanMessage'])) ?? now.maintenance.planTemplate,
+  };
+  const guide = str(args['howYouTag'])?.trim() ?? now.contactAi.guide;
+  // A stage set back to the guess from its name drops the pick, as the page does.
+  const roles = { ...now.pipeline.roles };
+  const stageFields: Field[] = [];
+  for (const pick of list<{ stageId: string; means: StageRole | 'none' }>(args['stageMeanings']) ??
+    []) {
+    const stage = state.stages?.find((st) => st.id === pick.stageId);
+    if (!stage)
+      throw HfosError.notFound(
+        'No open stage with that id. The stages come from get_settings pipelines.',
+      );
+    if (stageMeaning(roles, stage) === pick.means) continue;
+    if (pick.means === (guessStageRole(stage.name) ?? 'none')) delete roles[stage.id];
+    else roles[stage.id] = pick.means;
+    stageFields.push({
+      label: `${stage.name} (${stage.pipeline})`,
+      value: stageMeaningWords(pick.means),
+    });
+  }
   const next: AutomationSettings = {
     ...now,
     reengage: { ...now.reengage, ...reengage },
     briefings: { ...now.briefings, eveningAt },
-    calls: { ...now.calls, voicemail, askConsent },
+    calls: { ...now.calls, voicemail, askConsent, hours, tries, businessLandlines },
+    maintenance: { ...now.maintenance, ...maintenance },
+    pipeline: { ...now.pipeline, roles },
+    contactAi: { ...now.contactAi, guide },
   };
   if (reengage.afterDays !== now.reengage.afterDays)
     fields.push({ label: 'Re-engage: gone cold after', value: plural(reengage.afterDays, 'day') });
@@ -799,8 +1051,40 @@ function planAutomations(state: AutomationState, args: Args): AutomationPlan {
     fields.push({ label: 'End-of-day email at', value: eveningAt });
   if (voicemail !== now.calls.voicemail)
     fields.push({ label: 'When a voicemail box answers', value: VOICEMAIL_WORDS[voicemail]! });
+  if (hours.start !== now.calls.hours.start || hours.end !== now.calls.hours.end)
+    fields.push({
+      label: 'Calling hours for leads',
+      value: `${formatClock(hours.start)} to ${formatClock(hours.end)}, in each lead’s own time`,
+    });
+  if (hours.weekends !== now.calls.hours.weekends)
+    fields.push({ label: 'Calls to leads at weekends', value: hours.weekends ? 'Yes' : 'No' });
+  if (tries !== now.calls.tries)
+    fields.push({
+      label: 'When a lead doesn’t answer',
+      value: tries === 1 ? 'Call once' : `Try up to ${tries} times, a day apart`,
+    });
   if (askConsent !== now.calls.askConsent)
     fields.push({ label: 'Ask for an OK to call', value: askConsent ? 'On' : 'Off' });
+  if (businessLandlines !== now.calls.businessLandlines)
+    fields.push({
+      label: 'Call business landlines without a yes',
+      value:
+        businessLandlines && state.lineCheckCents
+          ? `On. Each check is charged to your balance: ${lineCheckPriceWords(state.lineCheckCents)}`
+          : businessLandlines
+            ? 'On. Each check is charged to your balance'
+            : 'Off',
+    });
+  const newText = maintenance.template !== now.maintenance.template;
+  const newPlanText = maintenance.planTemplate !== now.maintenance.planTemplate;
+  if (newText) fields.push({ label: 'Maintenance due text', value: maintenance.template });
+  if (newPlanText)
+    fields.push({ label: 'For customers on a maintenance plan', value: maintenance.planTemplate });
+  if ((newText || newPlanText) && automationRow(automationDef('maintenance_due'), at).on)
+    reaching.push('The maintenance due text');
+  fields.push(...stageFields);
+  if (guide !== now.contactAi.guide)
+    fields.push({ label: 'How you tag customers', value: guide || 'Nothing written' });
   if (JSON.stringify(next) !== JSON.stringify(now)) {
     try {
       parseAutomationSettings(next);
@@ -821,6 +1105,7 @@ function planAutomations(state: AutomationState, args: Args): AutomationPlan {
     blocked,
     reaching,
     notes,
+    followUpNote,
   };
 }
 
@@ -844,6 +1129,7 @@ function automationWarnings(plan: AutomationPlan, training: boolean): Warning[] 
         plan.reaching.length === 1 ? 'its' : 'their'
       } own.${training ? ' What your AI teammate writes waits for approval while it’s training.' : ''}`,
     });
+  if (plan.followUpNote) out.push({ kind: 'note', text: plan.followUpNote });
   if (plan.notes.length)
     out.push({ kind: 'note', text: `Not working until set up: ${plan.notes.join(' ')}` });
   return out.slice(0, 3);
@@ -1590,7 +1876,13 @@ interface TemplateSummary {
   installs: { total: number; installed: number; pending: number; failed: number; behind: number };
 }
 interface TemplateGet {
-  template: TemplateSummary & { placeholders: { key: string; label: string }[] };
+  template: TemplateSummary & {
+    /** The draft's: a save is made against it. */
+    revision: number;
+    /** The draft as written. */
+    definition: Record<string, unknown>;
+    placeholders: { key: string; label: string }[];
+  };
   installs: {
     workspaceId: string;
     workspaceName: string;
@@ -1624,13 +1916,19 @@ async function getAgencyArea(db: Db, ctx: ToolContext, args: Args): Promise<Tool
     if (templateId) {
       const got = await templateOf(db, ctx, templateId);
       const keys = got.template.placeholders;
+      const def = parseDefinition(got.template.definition);
       return {
         result: {
           template: {
             id: got.template.id,
             name: got.template.name,
             version: got.template.latestVersion,
-            detailsEachBusinessPicks: keys.map((p) => p.label),
+            detailsEachBusinessPicks: keys.map((p) => ({ key: p.key, label: p.label })),
+            checksToFix: templateIssues(def)
+              .filter((i) => i.severity === 'error')
+              .map((i) => i.message),
+            // A template names no business's stages or people, so there are no names to look up.
+            ...draftToRead(got.template.definition, def, {}, got.template.revision),
           },
           businesses: got.installs.map((i) => ({
             id: i.workspaceId,
@@ -1670,6 +1968,73 @@ async function getAgencyArea(db: Db, ctx: ToolContext, args: Args): Promise<Tool
     throw e;
   }
 }
+
+const templatePath = (organizationId: string, templateId: unknown) =>
+  `/app/org/${organizationId}/templates/${String(templateId)}`;
+
+const editTemplateSteps: SettingsConfirmTool = {
+  async prepare(db, ctx, args, toolCallId) {
+    const { org, name: orgName } = await agencyOf(db, ctx);
+    if (!org)
+      return {
+        card: settingsCard(toolCallId, 'edit_template_steps', {
+          title: 'Change a template',
+          fields: [],
+          confirmLabel: '',
+          warnings: [{ kind: 'blocked', text: notAgencyAdmin(orgName) }],
+        }),
+        result: { blocked: true, why: notAgencyAdmin(orgName) },
+      };
+    const ops = args['ops'] as WorkflowOp[];
+    const { template: t } = await templateOf(db, ctx, args['templateId']);
+    await rehearse(db, ctx, 'workflow_template.save_draft', {
+      organizationId: ctx.organizationId,
+      templateId: t.id,
+      baseRevision: args['baseRevision'],
+      ops,
+    });
+    const { lines, fields } = draftChanges(
+      parseDefinition(t.definition),
+      ops,
+      {},
+      `The template “${t.name}”’s draft is that way already.`,
+    );
+    return {
+      card: settingsCard(toolCallId, 'edit_template_steps', {
+        title: `Change the template “${t.name}”?`,
+        fields: [{ label: 'Template', value: t.name }, ...fields],
+        confirmLabel: 'Save draft',
+        warnings: [
+          {
+            kind: 'note',
+            text: t.latestVersion
+              ? `Only the draft changes. Businesses keep version ${t.latestVersion} until it’s published and pushed to them.`
+              : 'Only the draft changes. No business gets it until it’s published and pushed to them.',
+          },
+        ],
+      }),
+      result: { template: t.name, changes: lines },
+    };
+  },
+  async commit(db, ctx, args) {
+    const out = await command<{ issues: { severity: string; message: string }[] }>(
+      db,
+      ctx,
+      'workflow_template.save_draft',
+      {
+        organizationId: ctx.organizationId,
+        templateId: args['templateId'],
+        baseRevision: args['baseRevision'],
+        ops: args['ops'],
+      },
+    );
+    return {
+      outcome: draftSaved(out.issues),
+      href: templatePath(ctx.organizationId, args['templateId']),
+      command: 'workflow_template.save_draft',
+    };
+  },
+};
 
 const pushToClientBusinesses: SettingsConfirmTool = {
   async prepare(db, ctx, args, toolCallId) {
@@ -1806,7 +2171,7 @@ const pushToClientBusinesses: SettingsConfirmTool = {
       });
       return {
         outcome: `Pushed to ${n}. Each gets a draft to test and publish.`,
-        href: `/app/org/${organizationId}/templates/${String(args['templateId'])}`,
+        href: templatePath(organizationId, args['templateId']),
         command: 'workflow_template.push',
       };
     }
@@ -1840,6 +2205,7 @@ export const extraConfirmTools: Record<string, SettingsConfirmTool> = {
   manage_idea: manageIdea,
   contact_support: contactSupport,
   add_business: addBusiness,
+  edit_template_steps: editTemplateSteps,
   push_to_client_businesses: pushToClientBusinesses,
 };
 
@@ -1855,5 +2221,6 @@ export const extraStepLabels: Record<string, string> = {
   contact_support: 'Writing to support',
   add_business: 'Adding the business',
   get_agency_area: 'Looking at the agency area',
+  edit_template_steps: 'Getting the template’s steps ready',
   push_to_client_businesses: 'Getting the push ready',
 };

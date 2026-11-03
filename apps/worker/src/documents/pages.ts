@@ -88,6 +88,9 @@ const folderOf = (source: PdfSource) =>
 const pathOf = (source: PdfSource, page: number, ext: 'png' | 'json') =>
   `${folderOf(source)}/${page}.${ext}`;
 
+/** Where a drawn page's picture is kept (a live poll's slides show it in a call, video-calls/slides.ts). */
+export const drawnPicturePath = (source: PdfSource, page: number) => pathOf(source, page, 'png');
+
 const round2 = (n: number) => Math.round(n * 100) / 100;
 
 // ---------- drawing ----------

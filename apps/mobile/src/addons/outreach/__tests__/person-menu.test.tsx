@@ -157,7 +157,7 @@ describe('The name on the phone', () => {
     expect(name.props.accessibilityRole).toBe('button');
     expect(name.props.accessibilityLabel).toBe('Dana Reyes');
     expect(name.props.accessibilityHint).toBe(
-      'Opens their page, Contacts, Client, Don’t pitch and more',
+      'Opens everything about them: their page, Contacts, Client, Don’t pitch and more',
     );
     expect(name.props.accessibilityState).toEqual({ expanded: false });
     expect(screen.queryByTestId('person-menu-sheet')).toBeNull();
@@ -193,6 +193,7 @@ describe('The person menu on the phone', () => {
       'person-add-contact',
       'person-client',
       'person-demo-mark',
+      'person-partner',
       'person-later',
       'person-dont-pitch',
       'person-never-contact',
@@ -219,7 +220,7 @@ describe('The person menu on the phone', () => {
     ]);
     expect(
       screen.getByText(
-        'Contacts, Client, Demo booked, Later, Don’t pitch and Never contact need signal. Opening their page works now.',
+        'Contacts, Client, Demo booked, Potential partner, Later, Don’t pitch and Never contact need signal. Opening their page works now.',
       ),
     ).toBeTruthy();
     for (const t of [
@@ -248,7 +249,7 @@ describe('The person menu on the phone', () => {
     expect(screen.queryByTestId('person-open-page')).toBeNull();
     expect(screen.queryByTestId('person-open-chat')).toBeNull();
     expect(screen.getByTestId('person-needs-signal')).toHaveTextContent(
-      'Contacts, Client, Demo booked, Later, Don’t pitch and Never contact need signal. Try again when you’re back online.',
+      'Contacts, Client, Demo booked, Potential partner, Later, Don’t pitch and Never contact need signal. Try again when you’re back online.',
     );
     expect(api.POST).not.toHaveBeenCalled();
   });
@@ -509,6 +510,45 @@ describe('The person menu on the phone', () => {
     expect(toast.show).toHaveBeenCalledWith('Dana Reyes is back on your Today.');
   });
 
+  it('marks them a potential partner under the AI’s word, and takes it back', async () => {
+    answers(marksOf({ partnerHint: 'Runs a group of 3,000 homeowners' }));
+    changed({ partnerId: id(80), stage: 'found', skipped: 1 });
+    await open();
+    expect(
+      screen.getByText('Looks more like a partner: Runs a group of 3,000 homeowners'),
+    ).toBeTruthy();
+    await fireEvent.press(screen.getByTestId('person-partner'));
+    await waitFor(() =>
+      expect(change).toHaveBeenCalledWith('outreach.partner.potential', {
+        workspaceId: WS,
+        profileId: PROFILE,
+        potential: true,
+      }),
+    );
+    expect(toast.show).toHaveBeenCalledWith(
+      'Dana Reyes is on your Partners list now. They get partner messages from here: a like first, then the ask a day later, each waiting for your OK.',
+    );
+
+    answers(marksOf({ partner: true, myPartner: { stage: 'found', marked: true } }));
+    changed({ partnerId: id(80), stage: null, skipped: 0 });
+    await fireEvent.press(screen.getByRole('button', { name: 'Dana Reyes' }));
+    await waitFor(() => expect(screen.queryByTestId('person-loading')).toBeNull());
+    expect(screen.getByText('Not a partner after all')).toBeTruthy();
+    // Someone marked may still book a demo.
+    expect(screen.getByText('Demo booked')).toBeTruthy();
+    await fireEvent.press(screen.getByTestId('person-partner'));
+    await waitFor(() =>
+      expect(change).toHaveBeenCalledWith('outreach.partner.potential', {
+        workspaceId: WS,
+        profileId: PROFILE,
+        potential: false,
+      }),
+    );
+    expect(toast.show).toHaveBeenCalledWith(
+      'Dana Reyes is off your Partners list, and back on customer messages where they were.',
+    );
+  });
+
   it('opens them in Contacts once they’re there, and takes a demo back', async () => {
     answers(marksOf({ personId: CUSTOMER, demoBooked: true }));
     await open();
@@ -516,6 +556,28 @@ describe('The person menu on the phone', () => {
     expect(screen.getByText('Not a demo after all')).toBeTruthy();
     await fireEvent.press(screen.getByTestId('person-in-contacts'));
     expect(openWebPath).toHaveBeenCalledWith(`/app/w/${WS}/customers/people/${CUSTOMER}`);
+  });
+
+  it('says what a button does when it’s held, and to a screen reader, without pressing it', async () => {
+    answers(marksOf());
+    await open();
+    expect(screen.getByTestId('outreach-hold-note')).toHaveTextContent(
+      'Press and hold a button to see what it does.',
+    );
+    const later = screen.getByTestId('person-later');
+    expect(later.props.accessibilityHint).toContain('Takes them off your Today for 2 weeks');
+    expect(screen.queryByTestId('outreach-hint')).toBeNull();
+    await fireEvent(later, 'longPress');
+    expect(screen.getByTestId('outreach-hint')).toHaveTextContent(
+      /^Takes them off your Today for 2 weeks/,
+    );
+    expect(change).not.toHaveBeenCalled();
+    // Holding another moves the explainer there; holding it again hides it.
+    await fireEvent(screen.getByTestId('person-dont-pitch'), 'longPress');
+    expect(screen.getAllByTestId('outreach-hint')).toHaveLength(1);
+    expect(screen.getByTestId('outreach-hint')).toHaveTextContent(/^Stops outreach to them/);
+    await fireEvent(screen.getByTestId('person-dont-pitch'), 'longPress');
+    expect(screen.queryByTestId('outreach-hint')).toBeNull();
   });
 
   it('waits for where they stand before its switches work, and says why it couldn’t ask', async () => {
@@ -531,5 +593,68 @@ describe('The person menu on the phone', () => {
     ).toHaveTextContent('That person isn’t kept here.');
     expect(screen.getByTestId('person-dont-pitch').props.accessibilityState.disabled).toBe(true);
     expect(screen.getByTestId('person-open-page').props.accessibilityState.disabled).toBe(false);
+  });
+});
+
+describe('Everything about them, under the actions (decision 128)', () => {
+  const GROUP = id(70);
+  const step = (kind: 'friend_request' | 'message', at: string) => ({
+    kind,
+    step: kind === 'message' ? ('first_message' as const) : null,
+    at,
+    auto: true,
+    by: null,
+    group:
+      kind === 'friend_request' ? { name: 'Springfield Makers', url: 'https://x.test/g' } : null,
+    postUrl: null,
+  });
+
+  it('shows why they fit, the next step, the chat, where they were found and every step', async () => {
+    answers(
+      marksOf({
+        intro: ['Owner at Reyes Design'],
+        mutualFriends: 4,
+        journey: {
+          stage: 'talking',
+          why: ['Runs a design studio'],
+          nextStep: 'Ask about their spring launch',
+          groups: [{ groupId: GROUP, name: 'Springfield Makers', url: 'https://x.test/g' }],
+          chat: {
+            summary: 'Asked what the service costs.',
+            nextStep: null,
+            lastAt: new Date(Date.now() - 3 * 3_600_000).toISOString(),
+            lastFromMe: false,
+          },
+          steps: [
+            step('message', new Date(Date.now() - 86_400_000).toISOString()),
+            step('friend_request', new Date(Date.now() - 2 * 86_400_000).toISOString()),
+          ],
+          moreSteps: 0,
+          lead: null,
+        },
+      }),
+    );
+    await open();
+    const panel = await screen.findByTestId('person-panel');
+    expect(within(panel).getByTestId('person-panel-why')).toHaveTextContent(
+      /Why they fitRuns a design studioOwner at Reyes Design4 mutual friends/,
+    );
+    expect(within(panel).getByTestId('person-panel-next')).toHaveTextContent(
+      /Ask about their spring launch/,
+    );
+    expect(within(panel).getByTestId('person-panel-chat')).toHaveTextContent(
+      /Asked what the service costs\.They wrote last, 3 h ago/,
+    );
+    expect(within(panel).getByTestId('person-panel-steps')).toHaveTextContent(
+      /from Springfield Makers · 2 d ago/,
+    );
+    await fireEvent.press(within(panel).getByRole('link', { name: 'Springfield Makers' }));
+    expect(openWebPath).toHaveBeenCalledWith(`/app/w/${WS}/a/outreach?view=groups&group=${GROUP}`);
+  });
+
+  it('waits for where they stand, and shows nothing more from a build before it', async () => {
+    answers(marksOf());
+    await open();
+    expect(screen.queryByTestId('person-panel')).toBeNull();
   });
 });

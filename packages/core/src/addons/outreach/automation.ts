@@ -112,6 +112,108 @@ export const TIDY_MODES = {
 export type TidyMode = keyof typeof TIDY_MODES;
 export const TIDY_MODE_KEYS = Object.keys(TIDY_MODES) as [TidyMode, ...TidyMode[]];
 
+/**
+ * What it does about groups on a network where they're joined (decision 148), each network's own: it joins more good
+ * ones when the people left to reach in the person's own groups run low (decisions 31 and 48, as it starts), or it
+ * works only the groups they're already in. Kept as `joinGroups`, off for only their own.
+ */
+export const GROUP_MODES = {
+  join: 'Join more good groups when mine run low',
+  mine: 'Only the groups I’m in',
+} as const;
+export type GroupMode = keyof typeof GROUP_MODES;
+export const GROUP_MODE_KEYS = Object.keys(GROUP_MODES) as [GroupMode, ...GroupMode[]];
+
+/** Which of the two the person picked on a network, as their choices keep it. */
+export const groupModeOf = (choices: { readonly joinGroups: boolean }): GroupMode =>
+  choices.joinGroups ? 'join' : 'mine';
+
+/** A pick of what it does about groups, as the choices keep it. */
+export const groupModeChange = (mode: GroupMode): { joinGroups: boolean } => ({
+  joinGroups: mode === 'join',
+});
+
+/**
+ * Whether the person works only the groups they're in there (decision 148): nothing joined or searched for on its own,
+ * no group they aren't in checked by the AI, and only people found in their own groups reached.
+ */
+export const onlyMyGroups = (choices: { readonly joinGroups: boolean }): boolean =>
+  groupModeOf(choices) === 'mine';
+
+/**
+ * The friend requests the person gets (decision 121), where the extension answers them (the runners on Facebook,
+ * LinkedIn and Alignable, decision 136): left to them; the AI's good ones confirmed, the rest left to them (decision 30,
+ * as it starts); the AI deciding, its good ones confirmed and its noes deleted; all confirmed; or all deleted. Kept as
+ * `confirmRequests`, off when they're left to the person, and, while it's on, `requests`. From decision 136 the AI
+ * reads each one's profile to say which are good (`requestAnswerOf`), not the lines Facebook's list showed.
+ */
+export const REQUEST_MODES = {
+  mine: 'Leave them all to me',
+  fits: 'Let the AI confirm the good ones, and leave the rest to me',
+  fits_delete: 'Let the AI decide: confirm the good ones, and delete the rest',
+  all: 'Confirm them all',
+  delete: 'Delete them all',
+} as const;
+export type RequestMode = keyof typeof REQUEST_MODES;
+export const REQUEST_MODE_KEYS = Object.keys(REQUEST_MODES) as [RequestMode, ...RequestMode[]];
+/** What `requests` keeps: every mode but leaving them to the person, which is `confirmRequests` off. */
+export const ANSWER_MODE_KEYS = [
+  'fits',
+  'fits_delete',
+  'all',
+  'delete',
+] as const satisfies readonly [RequestMode, ...RequestMode[]];
+export type AnswerMode = (typeof ANSWER_MODE_KEYS)[number];
+
+/** The requests the person gets, as they picked: from `confirmRequests` and `requests`. */
+export const requestModeOf = (choices: {
+  readonly confirmRequests: boolean;
+  readonly requests?: AnswerMode;
+}): RequestMode => (choices.confirmRequests ? (choices.requests ?? 'fits') : 'mine');
+
+/** A pick of how requests are answered, as the choices keep it. */
+export const requestModeChange = (
+  mode: RequestMode,
+): { confirmRequests: boolean; requests?: AnswerMode } =>
+  mode === 'mine' ? { confirmRequests: false } : { confirmRequests: true, requests: mode };
+
+/** Whether a pick deletes some of the requests the person gets. */
+export const deletesRequests = (mode: RequestMode): boolean =>
+  mode === 'fits_delete' || mode === 'delete';
+
+/** Whether the AI reads the requests the person gets under a pick (decision 136): not when all go one way. */
+export const readsRequests = (mode: RequestMode): boolean => mode !== 'all' && mode !== 'delete';
+
+/**
+ * What becomes of a friend request someone sent the person, where the extension answers them (decisions 30, 121 and
+ * 136): confirmed, deleted, or theirs to decide (null). Their own Confirm or Delete goes first, whatever they picked.
+ * Nobody on Don't pitch or tagged Friend or family is answered but by them. Else as they picked: by the AI's read of
+ * their profile while it decides (`said`), or before it has, a good fit by the lines the list showed (`good`). A no is
+ * deleted only while they have it decide, and only with a playbook in use. The callers keep their own rules besides:
+ * who's never deleted, and the business's countries.
+ */
+export function requestAnswerOf(r: {
+  readonly mode: RequestMode;
+  /** The person's own Confirm or Delete since the request came (`friends.answer`). */
+  readonly pressed: 'confirm' | 'delete' | null;
+  /** Not on Don't pitch, nor tagged Friend or family. */
+  readonly pitched: boolean;
+  /** The business has a playbook in use. */
+  readonly playbooks: boolean;
+  /** What the AI says to do with it, once it's read them for it. */
+  readonly said: 'confirm' | 'delete' | 'ask' | null;
+  /** They fit a playbook well by what the list showed of them (decision 30). */
+  readonly good: boolean;
+}): 'confirm' | 'delete' | null {
+  if (r.pressed) return r.pressed;
+  if (!r.pitched || r.mode === 'mine') return null;
+  if (r.mode === 'all') return 'confirm';
+  if (r.mode === 'delete') return 'delete';
+  const said = r.said ?? (r.good && r.playbooks ? 'confirm' : null);
+  if (said === 'confirm') return 'confirm';
+  return said === 'delete' && r.mode === 'fits_delete' && r.playbooks ? 'delete' : null;
+}
+
 /** A network's tidying as it goes there: unfriending only where the network has it, else just the old requests. */
 export const tidyModeOn = (platform: Platform, mode: TidyMode): TidyMode =>
   mode === 'unfriend' && NETWORKS[platform].tidyLimits.unfriend === 0 ? 'cancel' : mode;
@@ -124,11 +226,20 @@ export const WorkingHours = z
     /** The hour it starts, and the hour it stops, on the business's clock. */
     start: z.number().int().min(0).max(23),
     end: z.number().int().min(1).max(24),
-    /** The days it works, 0 being Sunday; kept each once, in order (`dayList`). */
+    /**
+     * The days it works, 0 being Sunday; kept each once, in order (`dayList`). With `everyDay`, the days new messages go
+     * (decision 139): everything else goes every day.
+     */
     days: z
       .array(z.number().int().min(0).max(6))
       .min(1, { error: 'Pick at least one day.' })
       .max(7),
+    /**
+     * Keep working on other days (decision 139): likes, friend requests, comments and replies go every day in these
+     * hours, and only new messages (`WORK_DAY_KINDS`) wait for `days`. On to start: hours kept before it, without it,
+     * keep working too (`worksEveryDay`).
+     */
+    everyDay: z.boolean().optional(),
   })
   .refine((h) => h.end - h.start >= 1, {
     error: 'Make the working hours at least an hour long, ending after they start.',
@@ -158,6 +269,7 @@ export const NetworkChoices = z.object({
   warmUp: z.boolean().default(true),
   confirmRequests: z.boolean().default(true),
   collect: z.boolean().default(true),
+  /** What it does about groups (`GROUP_MODES`, decision 148): joins more when theirs run low, or only their own. */
   joinGroups: z.boolean().default(true),
   watchPosts: z.boolean().default(true),
   posting: z.enum(POSTING_MODE_KEYS).default('after_ok'),
@@ -166,8 +278,19 @@ export const NetworkChoices = z.object({
    * says so, as the extension can't see an account's age. Off to start.
    */
   young: z.boolean().default(false),
+  /**
+   * Full speed there now (decision 138; the owner, 31 Oct 2026, "Fix it all, full speed Monday"): its full safe
+   * limits, never halved for a person new there or on training wheels. A warning there still halves them for a week.
+   * Off to start.
+   */
+  fullSpeed: z.boolean().default(false),
   /** Tidying up on its own there (decision 98): old requests to start. */
   tidy: z.enum(TIDY_MODE_KEYS).default('cancel'),
+  /**
+   * How the requests the person gets there are answered while `confirmRequests` is on (decision 121): those who fit
+   * confirmed, to start. Only where the runner answers them (`NETWORKS[p].runs.auto` has `confirm`).
+   */
+  requests: z.enum(ANSWER_MODE_KEYS).default('fits'),
 });
 export type NetworkChoices = z.output<typeof NetworkChoices>;
 export const NETWORK_CHOICES_DEFAULTS: NetworkChoices = NetworkChoices.parse({});
@@ -182,9 +305,12 @@ export const NetworksSettings = z.object({
     .object({
       on: z.boolean().default(true),
       young: z.boolean().default(false),
+      fullSpeed: z.boolean().default(false),
       tidy: z.enum(TIDY_MODE_KEYS).default('cancel'),
+      /** How the requests they get are answered while `confirmRequests` (a column) is on (decision 121). */
+      requests: z.enum(ANSWER_MODE_KEYS).default('fits'),
     })
-    .default({ on: true, young: false, tidy: 'cancel' }),
+    .default({ on: true, young: false, fullSpeed: false, tidy: 'cancel', requests: 'fits' }),
   linkedin: NetworkChoices.default(NETWORK_CHOICES_DEFAULTS),
   instagram: NetworkChoices.default(NETWORK_CHOICES_DEFAULTS),
   alignable: NetworkChoices.default(NETWORK_CHOICES_DEFAULTS),
@@ -201,8 +327,9 @@ export const AutomationSettings = z.object({
   /** The once-a-day jobs (decision 32): they fill the list it works from. On when left out, as 0.11 of the extension does. */
   collect: z.boolean().default(true),
   /**
-   * When people left to reach in the groups run low, it finds groups and asks to join up to 3 good ones a day (decision
-   * 48), with the once-a-day jobs. On when left out.
+   * What it does about groups (`GROUP_MODES`, decision 148): on, it finds groups and asks to join up to 3 good ones a
+   * day when people left to reach in the groups run low (decision 48), with the once-a-day jobs; off, it works only
+   * the groups the person is in. On when left out.
    */
   joinGroups: z.boolean().default(true),
   /**
@@ -243,7 +370,9 @@ export function choicesFor(settings: AutomationSettings, platform: Platform): Ne
   return {
     on: settings.networks.facebook.on,
     young: settings.networks.facebook.young,
+    fullSpeed: settings.networks.facebook.fullSpeed,
     tidy: settings.networks.facebook.tidy,
+    requests: settings.networks.facebook.requests,
     sending,
     replies,
     warmUp,
@@ -429,15 +558,16 @@ type DoesChoices = Pick<NetworkChoices, 'sending' | 'confirmRequests' | 'warmUp'
 /**
  * The kinds on the list for today the extension does on its own for someone, in the order it does them: requests
  * to confirm first, then likes, friend requests and comments. Messages go their own way (`MESSAGE_KINDS`). None on a
- * network the person doesn't work, and only what the network's runner does (its kit's `runs`): LinkedIn's accepts no
- * invitations, so its Accept rows stay the person's.
+ * network the person doesn't work, and only what the network's runner does (its kit's `runs`). Requests to confirm go
+ * whatever the person picked for those (decision 136): Today lists only the ones it's to confirm, which with the
+ * requests left to them are the ones they pressed Confirm on.
  */
 export function autoKinds(settings: DoesChoices, platform: Platform = 'facebook'): TodayKind[] {
   if (settings.sending === 'off' || settings.on === false) return [];
   const runs: readonly TodayKind[] = NETWORKS[platform].runs.auto;
   return (
     [
-      ...(settings.confirmRequests ? (['confirm'] as const) : []),
+      'confirm',
       ...(settings.warmUp ? (['warm_up'] as const) : []),
       'friend_request',
       'comment',
@@ -592,6 +722,16 @@ export function freshState(first: Date | string | null, young: boolean, now: num
   };
 }
 
+/**
+ * Whether someone's daily limits on a network are half now: new there (decision 96) or on training wheels there, but
+ * never once they picked Full speed there (decision 138). A warning halves them too, for callers.
+ */
+export const halvedNow = (state: {
+  readonly wheels: { readonly on: boolean };
+  readonly fresh: { readonly on: boolean };
+  readonly choices: Pick<NetworkChoices, 'fullSpeed'>;
+}): boolean => !state.choices.fullSpeed && (state.wheels.on || state.fresh.on);
+
 /** Where a network's half limits for someone new there stand, in words for the person. */
 export function freshWords(state: FreshState, platform: Platform): string {
   const name = PLATFORMS[platform];
@@ -605,8 +745,8 @@ export function freshWords(state: FreshState, platform: Platform): string {
   return `New on ${name}: your daily limits there are half until ${day}, so ${name} gets used to you slowly.`;
 }
 
-/** Where training wheels stand, in words for the person. */
-export function wheelsWords(state: WheelsState): string {
+/** Where training wheels stand, in words for the person: without half limits once they picked Full speed (decision 138). */
+export function wheelsWords(state: WheelsState, fullSpeed = false): string {
   const left = [
     state.ok < WHEELS.ok ? `${WHEELS.ok - state.ok} more messages to OK` : null,
     state.daysLeft ? `${state.daysLeft} ${state.daysLeft === 1 ? 'day' : 'days'} to go` : null,
@@ -614,7 +754,7 @@ export function wheelsWords(state: WheelsState): string {
       ? `fewer changes: you changed ${state.edits} of the last ${WHEELS.last}`
       : null,
   ].filter(Boolean);
-  return `Training wheels: every message waits for your OK, and your daily limits are half${left.length ? `. Still: ${left.join(', ')}` : ''}.`;
+  return `Training wheels: every message waits for your OK${fullSpeed ? '' : ', and your daily limits are half'}${left.length ? `. Still: ${left.join(', ')}` : ''}.`;
 }
 
 export const AutomationInput = z.object({
@@ -755,6 +895,42 @@ export const WARM_UP_WINDOW_DAYS = 14;
 export const dayList = (days: readonly number[]) => [...new Set(days)].sort((a, b) => a - b);
 
 const clock = (hour: number) => `${String(hour).padStart(2, '0')}:00`;
+
+/** Every day of the week, Sunday first. */
+export const ALL_WEEK = [0, 1, 2, 3, 4, 5, 6] as const;
+
+/**
+ * The hours the extension works in on its own (decision 139): the person's, every day of the week while they keep
+ * working on other days; else only on their days. New messages still go only on their days (`newMessagesWait`).
+ */
+export const workHours = (hours: WorkingHours): WorkingHours =>
+  worksEveryDay(hours) ? { ...hours, days: [...ALL_WEEK] } : hours;
+
+/** Whether the person keeps working on other days (decision 139): unless they turned it off. */
+export const worksEveryDay = (hours: Pick<WorkingHours, 'everyDay'>): boolean =>
+  hours.everyDay !== false;
+
+/**
+ * The messages that start or nudge a conversation, which go only on the person's working days while everything else
+ * goes every day (decision 139, the owner's "1a 2a 3a" of 31 Oct 2026): first messages, Reconnect, follow-ups and
+ * check-ins, and asks and follow-ups about partnering. What answers someone (a reply, the link or video after a yes, a
+ * demo's reminder, another time, the partner details) goes any day, and so does a birthday or new-job note, which
+ * belongs to its day.
+ */
+export const WORK_DAY_KINDS = [
+  'opener',
+  'reconnect',
+  'follow_up',
+  'check_in',
+  'partner_ask',
+  'partner_follow_up',
+] as const satisfies readonly MessageKind[];
+export const waitsForWorkDay = (kind: string): boolean =>
+  (WORK_DAY_KINDS as readonly string[]).includes(kind);
+
+/** Whether new messages wait today: the extension works today, but it isn't one of the person's days (decision 139). */
+export const newMessagesWait = (hours: WorkingHours, timeZone: string, now: number): boolean =>
+  worksEveryDay(hours) && !hours.days.includes(zonedParts(now, timeZone).weekday);
 
 /** Today's working window in the business's time zone, as instants: null on a day off. */
 export function workWindow(

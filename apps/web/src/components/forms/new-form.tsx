@@ -11,7 +11,7 @@ import { RadioCard } from '@/components/ui/radio-card';
 import { apiBrowser, errorMessage, unwrap } from '@/lib/api/client';
 import { FORM_MODE_LABELS, MODE_BLURB } from '@/lib/forms/words';
 
-const MODES: FormMode[] = ['form', 'survey', 'quiz'];
+const MODES: FormMode[] = ['form', 'survey', 'quiz', 'poll'];
 
 /** Name it, say which of the three it is, and open the editor. Everything else is changed later. */
 export function NewFormDialog({
@@ -49,7 +49,7 @@ export function NewFormDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
         title="New form"
-        description="You can change any of this later, including which of the three it is."
+        description="You can change any of this later, including which kind it is."
       >
         <div className="space-y-4">
           <Field label="What is it called?" htmlFor="form-name">
@@ -66,7 +66,7 @@ export function NewFormDialog({
           </Field>
           <fieldset>
             <legend className="mb-1.5 block text-[13px] font-medium text-text">Which kind?</legend>
-            <div className="grid gap-2 sm:grid-cols-3">
+            <div className="grid gap-2 sm:grid-cols-2">
               {MODES.map((m) => (
                 <RadioCard
                   key={m}

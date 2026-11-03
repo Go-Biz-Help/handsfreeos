@@ -49,6 +49,7 @@ const world = vi.hoisted(() => ({
     start: number;
     end: number;
     days: number[];
+    everyDay?: boolean;
   },
 }));
 
@@ -209,10 +210,13 @@ vi.mock('../src/tab', async () => {
                 this.at,
                 message.text as string,
                 message.profile as never,
+                (message.opened as string | null | undefined) ?? null,
               ),
             };
-          case 'hfos-open-message':
-            return { ok: auto.openMessage(doc) };
+          case 'hfos-open-message': {
+            const opened = auto.openMessage(doc, this.at);
+            return opened === false ? { ok: false } : { ok: true, opened };
+          }
           case 'hfos-feed-post':
             return {
               ok: true,
@@ -232,7 +236,7 @@ const { WorkTab } = await import('../src/tab');
 const { answer } = await import('../src/hfos/session');
 const { LIVE_KEY } = await import('../src/hfos/live');
 const { NETWORKS_KEY } = await import('../src/networks/on');
-const { LINKEDIN_STATE_KEY } = await import('../src/auto/plan');
+const { freshState, LINKEDIN_STATE_KEY } = await import('../src/auto/plan');
 const { WARNED_KEY } = await import('../src/hfos/warned');
 
 const store = new Map<string, unknown>();
@@ -272,12 +276,20 @@ beforeAll(() => {
 afterAll(() => vi.unstubAllGlobals());
 
 const today = () => new Date().toLocaleDateString('en-CA', { timeZone: 'America/Chicago' });
-/** Working hours that leave out today: nothing goes on its own unless a test says. */
+/**
+ * Working hours that leave out today: nothing goes on its own unless a test says. Only on their working days, or
+ * the day goes on its own every day (decision 139) and what it says waits on the clock.
+ */
 const notToday = () => {
   const weekday = new Date(
     new Date().toLocaleString('en-US', { timeZone: 'America/Chicago' }),
   ).getDay();
-  return { start: 9, end: 17, days: [0, 1, 2, 3, 4, 5, 6].filter((d) => d !== weekday) };
+  return {
+    start: 9,
+    end: 17,
+    days: [0, 1, 2, 3, 4, 5, 6].filter((d) => d !== weekday),
+    everyDay: false,
+  };
 };
 const ALL_DAY = { start: 0, end: 24, days: [0, 1, 2, 3, 4, 5, 6] };
 const day = (state: 'none' | 'started' | 'stopped') => ({
@@ -359,7 +371,7 @@ beforeEach(() => {
 });
 
 describe('what it does on LinkedIn’s list', () => {
-  it('does only the kinds it does there: invitations they got are theirs to accept', () => {
+  it('does only the kinds it does there: from 0.118.0 the invitations HandsFreeOS says to accept too', () => {
     const nia = item({
       kind: 'comment',
       name: 'Nia Park',
@@ -379,8 +391,9 @@ describe('what it does on LinkedIn’s list', () => {
       sending: 'steps',
     } as never;
     expect(linkedInWorkLeft(list, []).map((w) => w.item.kind)).toEqual([
-      'warm_up',
+      'confirm',
       'friend_request',
+      'warm_up',
     ]);
     // A comment is never a step of its own there (0.99.0, decision 102): it's drafted to wait for an OK at first, as
     // a message is, and sent once OK'd.
@@ -388,7 +401,7 @@ describe('what it does on LinkedIn’s list', () => {
       linkedInWorkLeft({ ...(list as object), messages: ['comment'] } as never, []).map(
         (w) => `${w.do}: ${w.item.kind}`,
       ),
-    ).toEqual(['step: warm_up', 'step: friend_request', 'draft: comment']);
+    ).toEqual(['step: confirm', 'step: friend_request', 'step: warm_up', 'draft: comment']);
     expect(
       linkedInWorkLeft(
         {
@@ -519,6 +532,76 @@ describe('what it does on LinkedIn’s list', () => {
     expect(notedAs()).toEqual([
       { kind: 'friend_request', auto: true, postUrl: null, platform: 'linkedin' },
     ]);
+  });
+
+  it('opens their profile by member id when the name in their kept address shows someone else, as when they changed it (decision 131)', async () => {
+    const BY_ID = `${LI}/in/ACoAAFakeDanaReyes123/`;
+    const NEW_ADDRESS = `${LI}/in/dana-reyes-plumbing/`;
+    // Their old address shows another member now; their member id takes LinkedIn to their new one.
+    world.pages = (url) =>
+      url === BY_ID
+        ? { fixture: 'linkedin-profile.html', at: NEW_ADDRESS }
+        : { fixture: 'linkedin-profile.html' };
+    world.behave = (doc, url) => {
+      if (url === DANA)
+        for (const link of doc.querySelectorAll('a[href*="ACoAAFakeDanaReyes123"]'))
+          link.setAttribute(
+            'href',
+            (link.getAttribute('href') ?? '').replace(
+              'ACoAAFakeDanaReyes123',
+              'ACoAAFakeOtherDana456',
+            ),
+          );
+      const connect = doc.querySelector('[aria-label="Invite Dana Reyes to connect"]')!;
+      connect.addEventListener('click', () => {
+        connect.insertAdjacentHTML(
+          'beforebegin',
+          '<button aria-label="Pending, click to withdraw invitation sent to Dana Reyes"><span>Pending</span></button>',
+        );
+        connect.remove();
+      });
+    };
+    const outcome = await doWork(
+      { do: 'step', item: item({ platformId: 'ACoAAFakeDanaReyes123' }) },
+      ME.businessId,
+      false,
+    );
+    expect(outcome).toEqual({ done: true, line: 'Sent Dana Reyes an invitation to connect' });
+    expect(world.opened).toEqual([DANA, BY_ID]);
+  });
+
+  it('presses nothing when neither the name in their kept address nor their member id shows them', async () => {
+    const BY_ID = `${LI}/in/ACoAAFakeDanaReyes123/`;
+    // Both take LinkedIn to another member's profile.
+    world.pages = (url) =>
+      url === BY_ID
+        ? { fixture: 'linkedin-profile.html', at: `${LI}/in/someone-else-9/` }
+        : { fixture: 'linkedin-profile.html' };
+    let pressed = false;
+    world.behave = (doc) => {
+      for (const link of doc.querySelectorAll('a[href*="ACoAAFakeDanaReyes123"]'))
+        link.setAttribute(
+          'href',
+          (link.getAttribute('href') ?? '').replace(
+            'ACoAAFakeDanaReyes123',
+            'ACoAAFakeOtherDana456',
+          ),
+        );
+      doc
+        .querySelector('[aria-label="Invite Dana Reyes to connect"]')!
+        .addEventListener('click', () => (pressed = true));
+    };
+    const outcome = await doWork(
+      { do: 'step', item: item({ platformId: 'ACoAAFakeDanaReyes123' }) },
+      ME.businessId,
+      false,
+    );
+    expect(outcome).toMatchObject({
+      done: false,
+      line: 'Dana Reyes: LinkedIn showed a different page',
+    });
+    expect(world.opened).toEqual([DANA, BY_ID]);
+    expect(pressed).toBe(false);
   });
 
   it('looks at their profile, then likes the first post of theirs nothing rules out', async () => {
@@ -848,6 +931,53 @@ describe('what it does on LinkedIn’s list', () => {
     });
   });
 
+  // The owner's sends of 30 Oct 2026, on 0.117.0: Message on a profile took the tab to a new conversation drawn in
+  // LinkedIn's interop frame, but only after the runner's pause, so the box was never taken for theirs.
+  it('sends through Message on her profile, once the tab turns into the new conversation after the ask came', async () => {
+    world.pages = () => ({ fixture: 'linkedin-profile.html' });
+    const sent: string[] = [];
+    world.behave = (doc) => {
+      doc.querySelector('[aria-label="Message Dana Reyes"]')!.addEventListener('click', (event) => {
+        event.preventDefault();
+        setTimeout(() => {
+          doc.defaultView!.history.pushState(
+            {},
+            '',
+            '/messaging/thread/new/?recipient=ACoAAFakeDanaReyes123&screenContext=NON_SELF_PROFILE_VIEW',
+          );
+          const frame = doc.createElement('iframe');
+          frame.setAttribute('data-testid', 'interop-iframe');
+          doc.body.append(frame);
+          const inner = frame.contentDocument!;
+          inner.body.innerHTML = load(
+            'linkedin-new-conversation.html',
+            `${LI}/messaging/thread/new/`,
+          ).body.innerHTML;
+          const box = inner.querySelector('[role="textbox"]')!;
+          const send = inner.querySelector<HTMLButtonElement>('button[type="submit"]')!;
+          inner.execCommand = (_c: string, _u?: boolean, text?: string) => {
+            box.textContent = text ?? '';
+            send.disabled = !box.textContent;
+            return true;
+          };
+          send.addEventListener('click', () => {
+            sent.push(box.textContent ?? '');
+            box.textContent = '';
+          });
+        }, 3_000);
+      });
+    };
+    world.answers['/v1/commands/outreach.send.done'] = () => ({ ok: true });
+    const outcome = await doWork(
+      { do: 'send', item: approvedSend({ kind: 'reconnect', threadKey: null }) },
+      ME.businessId,
+      false,
+    );
+    expect(outcome).toEqual({ done: true, line: 'Sent Dana Reyes a message' });
+    expect(world.opened).toEqual([DANA]);
+    expect(sent).toEqual(['Glad to help, Dana.']);
+  }, 30_000);
+
   /** Her conversation's own page as LinkedIn behaves: what's typed in its box goes when its Send is pressed. */
   function chatSends(doc: Document, sent: string[]) {
     const box = doc.querySelector('main [role="textbox"]')!;
@@ -884,6 +1014,47 @@ describe('what it does on LinkedIn’s list', () => {
         (world.noted[0]?.note as { step: { thread: { id: string } | null } }).step.thread?.id,
       ).toBe(THREAD_KEY);
     }
+  });
+
+  it('sends in her kept conversation, linking by member id, with no look at her profile once HandsFreeOS keeps her member id (decision 131)', async () => {
+    world.pages = () => ({ fixture: 'linkedin-chat.html' });
+    const sent: string[] = [];
+    world.behave = (doc) => chatSends(doc, sent);
+    world.answers['/v1/commands/outreach.send.done'] = () => ({ ok: true });
+    const outcome = await doWork(
+      { do: 'send', item: approvedSend({ platformId: 'ACoAAFakeDanaReyes123' }) },
+      ME.businessId,
+      false,
+    );
+    expect(outcome).toEqual({ done: true, line: 'Sent Dana Reyes a message' });
+    expect(world.opened).toEqual([`${LI}/messaging/thread/${encodeURIComponent(THREAD_KEY)}/`]);
+    expect(sent).toEqual(['Glad to help, Dana.']);
+  });
+
+  it('sends nothing in a kept conversation that links to another member id than the one HandsFreeOS keeps', async () => {
+    world.pages = (url) =>
+      url === DANA ? { fixture: 'linkedin-profile.html' } : { fixture: 'linkedin-chat.html' };
+    const sent: string[] = [];
+    world.behave = (doc, url) => {
+      // Her profile and her conversation both link to another member than the one kept.
+      for (const link of doc.querySelectorAll('a[href*="ACoAAFakeDanaReyes123"]'))
+        link.setAttribute(
+          'href',
+          (link.getAttribute('href') ?? '').replace(
+            'ACoAAFakeDanaReyes123',
+            'ACoAAFakeOtherDana456',
+          ),
+        );
+      if (url !== DANA) chatSends(doc, sent);
+    };
+    world.answers['/v1/commands/outreach.send.done'] = () => ({ ok: true });
+    const outcome = await doWork(
+      { do: 'send', item: approvedSend({ platformId: 'ACoAAFakeDanaReyes123' }) },
+      ME.businessId,
+      false,
+    );
+    expect(outcome).toMatchObject({ done: false });
+    expect(sent).toEqual([]);
   });
 
   it('sends nothing when her kept conversation, opened again after her profile, links to someone else', async () => {
@@ -963,11 +1134,32 @@ describe('what it does on LinkedIn’s list', () => {
 });
 
 describe('its day', () => {
-  it('waits outside the working hours with nothing pressed, waking at their start', async () => {
+  it('waits outside the working hours with nothing pressed, waking at their start: nothing new goes (decision 133)', async () => {
     keep(day('none'));
+    // A step and a first message OK'd wait for the hours; only a reply goes outside them.
+    world.answers['/v1/queries/outreach.today'] = () => ({
+      items: [
+        item({}),
+        item({
+          kind: 'opener',
+          send: {
+            sendId: '9b6f5c4d-3e2a-4b1c-8d9e-0f1a2b3c4d5e',
+            state: 'approved',
+            text: 'Hi Dana',
+            handedOver: false,
+            needsYou: null,
+          },
+        } as Partial<TodayListItem>),
+      ],
+      auto: ['warm_up', 'friend_request'],
+      messages: ['opener', 'reply'],
+      sending: 'steps',
+      partners: [],
+      limits: { like: { done: 0, most: 30 } },
+    });
     await linkedInTick();
     expect(world.opened).toEqual([]);
-    expect(alarms.get('hfos-auto-linkedin')).toBeGreaterThan(Date.now());
+    expect(alarms.get('hfos-auto-linkedin')).toBeGreaterThan(Date.now() + 60 * 60_000);
     expect((store.get(LINKEDIN_STATE_KEY) as { line: string }).line).toBe(
       'Starts on its own on LinkedIn tomorrow at 9:00 AM. To start now, press Start my day for LinkedIn on Today in HandsFreeOS.',
     );
@@ -1084,6 +1276,61 @@ describe('its day', () => {
     expect(store.get(LINKEDIN_STATE_KEY)).toMatchObject({
       line: 'Helpful post: Put your helpful post up on your LinkedIn feed.',
       helpfulUp: true,
+    });
+  });
+
+  it('takes turns: a part of the morning’s reading, then a step on the list (decision 123)', async () => {
+    keep(day('started'));
+    world.hours = ALL_DAY;
+    world.choices = { on: true, sending: 'steps', collect: true, posting: 'after_ok' };
+    const saved = new Date().toISOString();
+    world.hfos['hfos-lists'] = () => ({
+      friendsAt: saved,
+      requestsAt: saved,
+      sentAt: saved,
+      groupsAt: null,
+      groupChecksAt: null,
+      tidyAt: saved,
+      checksAt: saved,
+    });
+    world.answers['/v1/queries/outreach.today'] = () => ({
+      items: [item({})],
+      auto: ['friend_request'],
+      messages: [],
+      sending: 'steps',
+    });
+    world.pages = () => ({ fixture: 'linkedin-profile.html' });
+    world.behave = (doc) => {
+      const connect = doc.querySelector('[aria-label="Invite Dana Reyes to connect"]');
+      connect?.addEventListener('click', () => {
+        connect.insertAdjacentHTML(
+          'beforebegin',
+          '<button aria-label="Pending, click to withdraw invitation sent to Dana Reyes"><span>Pending</span></button>',
+        );
+        connect.remove();
+      });
+    };
+    // A part of the reading went last, and the once-a-day jobs are all still to do: the invitation goes now.
+    store.set(LINKEDIN_STATE_KEY, { ...freshState(today()), started: true, readLast: true });
+    const before = Date.now();
+    await linkedInTick();
+    expect(world.opened).toEqual([DANA]);
+    expect(notedAs()).toEqual([
+      { kind: 'friend_request', auto: true, postUrl: null, platform: 'linkedin' },
+    ]);
+    expect(store.get(LINKEDIN_STATE_KEY)).toMatchObject({ readLast: false, daily: {} });
+    // At a person's pace while the reading's left: within LinkedIn's few minutes, never spread over the day.
+    expect(alarms.get('hfos-auto-linkedin')! - before).toBeLessThanOrEqual(7 * 60_000);
+
+    // Next go, the reading's turn: the first once-a-day job, and nothing on the list.
+    world.opened.length = 0;
+    world.noted.length = 0;
+    await linkedInTick();
+    expect(world.opened).not.toContain(DANA);
+    expect(notedAs()).toEqual([]);
+    expect(store.get(LINKEDIN_STATE_KEY)).toMatchObject({
+      readLast: true,
+      daily: { requests: expect.any(String) },
     });
   });
 

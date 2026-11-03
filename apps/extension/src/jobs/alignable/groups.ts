@@ -29,6 +29,7 @@ import {
   GROUP_CHECKS_DAILY,
   GROUP_POST_MOST,
   GROUP_POSTS_READ,
+  MEMBER_DEPTH_MOST,
   type JoinAnswered,
 } from '@hfos/core/addons/outreach/group-checks';
 import { groupsToWork as pickGroups } from '@hfos/core/addons/outreach/results';
@@ -42,7 +43,7 @@ import {
 } from '../../hfos/saves';
 import type { JoinStep } from '../../networks/facebook/join';
 import { line } from '../../networks/facebook/lookup';
-import { groupOf, type GroupCard, type Member } from '../../networks/alignable/read';
+import { groupOf, membersPage, type GroupCard, type Member } from '../../networks/alignable/read';
 import { townOf } from '../../networks/alignable/site';
 import { counted } from '../../words';
 import { FOUND_CHECKED, JOIN_PACE_MS } from '../join';
@@ -302,7 +303,12 @@ async function joinsNext(job: Job): Promise<JoinsNext> {
   return valueOf(
     await job.hfos({
       type: 'hfos-joins-next',
-      input: { workspaceId: job.businessId, platform: 'alignable' },
+      input: {
+        workspaceId: job.businessId,
+        platform: 'alignable',
+        // Today's round of finding again (decision 126): the next search words.
+        ...(job.round ? { round: job.round } : {}),
+      },
     }),
   );
 }
@@ -375,10 +381,11 @@ export async function joinGroupsOn(job: Job): Promise<JobEnd> {
   let got = await joinsNext(job);
   if (!got.onItsOwn)
     return {
-      line: 'Joining groups on its own is off in your Alignable settings.',
+      line: 'You’re working only the Alignable groups you’re in, so it joins none on its own.',
       warned: false,
     };
-  if (!got.prospects.low)
+  // Or more on a day the first messages need more good fits (decision 126).
+  if (!got.prospects.low && !got.more)
     return {
       line: `Your Alignable groups have ${counted(got.prospects.left, 'person', 'people')} left to reach: no need to join more yet.`,
       warned: false,
@@ -476,9 +483,10 @@ const placeOf = (m: Member) => {
 
 /**
  * **Group members:** up to 3 Alignable groups the person is in, the fewest people saved first, their town's included.
- * Each group's members page is read a few screens: its leaders first, saved to the group as running it (never
- * reached: they stay partner leads), then everyone else, saved to the group and sent as found, with the group, for the
- * AI's found check. HandsFreeOS reaches a group's members only once its leaders were read, or a week after joining.
+ * Each group's members page is read a few screens, carrying on from where the last read left off (decision 148): its
+ * leaders first, saved to the group as running it (never reached: they stay partner leads), then everyone else, saved
+ * to the group and sent as found, with the group, for the AI's found check. HandsFreeOS reaches a group's members only
+ * once its leaders were read, or a week after joining.
  */
 export async function readMembers(job: Job): Promise<JobEnd> {
   const groups = (await groupsToWorkOn(job, POST_GROUPS))
@@ -499,8 +507,10 @@ export async function readMembers(job: Job): Promise<JobEnd> {
     if (g > 0) await pause(paced(PAGE_PACE_MS));
     const name = group.name ?? 'your group';
     job.progress(`Opening ${name}’s members…`);
-    await job.tab.open(`${card.url}/members`);
+    await job.tab.open(membersPage(card));
     await pause(DRAWN_MS);
+    // Where its last read got to: a server before this, or a list that ran out, starts at the top.
+    const from = Math.min(Math.max(group.membersDepth ?? 0, 0), MEMBER_DEPTH_MOST);
     const got = await gather(
       job,
       MEMBER_SCREENS - 1,
@@ -508,9 +518,23 @@ export async function readMembers(job: Job): Promise<JobEnd> {
       memberKey,
       (n) =>
         `Reading ${name}’s members, leaders first… ${counted(n, 'business', 'businesses')} so far.`,
+      from
+        ? {
+            skip: from,
+            past: (screen) =>
+              `Scrolling past ${name}’s members you’ve read… ${screen} of ${from} screens.`,
+          }
+        : undefined,
     );
     if (ended(got)) return got;
     looked++;
+    // Where the next read starts: the top again once the list ran out or it's as deep as it goes; stopped part way,
+    // the depth stays as it was.
+    const readTo = job.stopped()
+      ? null
+      : got.whole || got.screens >= MEMBER_DEPTH_MOST
+        ? 0
+        : got.screens;
     const shown = got.page.found.group;
     const theirs = got.items.filter((m) => someoneElse(m.profile));
     const leaders = theirs.filter((m) => m.leader);
@@ -535,6 +559,7 @@ export async function readMembers(job: Job): Promise<JobEnd> {
       job.businessId,
       // Its leaders are read once they were, or the page showed none: then its members may be reached.
       leaders.length > 0 || shown?.leaders !== true,
+      readTo,
     );
     if (built.ok)
       for (const input of built.input)

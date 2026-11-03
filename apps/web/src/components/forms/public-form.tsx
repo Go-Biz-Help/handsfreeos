@@ -17,13 +17,13 @@ import {
   type FormDefinition,
 } from '@hfos/core';
 import { ArrowLeft, CheckCircle2, Loader2 } from 'lucide-react';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { Button } from '@/components/ui/button';
-import { Card } from '@/components/ui/card';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Turnstile } from '@/components/booking/turnstile';
 import { ApiError } from '@/lib/api/errors';
 import { TURNSTILE_SITE_KEY } from '@/lib/api/public-booking';
+import { cn } from '@/lib/utils';
 import {
   saveContactSheet,
   saveSheet,
@@ -32,6 +32,7 @@ import {
   type SentForm,
 } from '@/lib/api/public-forms';
 import { PublicFormContext } from './booking-picker';
+import { FormHead, FormSurface, useFormLook } from './form-look';
 import { QuestionField } from './question-field';
 import { StepButtons, StepProgress, useFormSteps } from './steps';
 
@@ -87,6 +88,7 @@ export function PublicForm({
   /** The `ref` the page was opened with: the sheet keeps it, and so does a time booked on it. */
   linkRef?: string | null;
 }) {
+  const { dark } = useFormLook();
   const [answers, setAnswers] = useState<AnswerSheet>(resumed?.answers ?? {});
   const [sheet, setSheet] = useState<{ responseId: string; token: string } | null>(
     resumed ? { responseId: resumed.responseId, token: resumed.token } : null,
@@ -120,6 +122,8 @@ export function PublicForm({
   const botSiteKey = botCheck && !personal ? (botCheck.siteKey ?? TURNSTILE_SITE_KEY) : null;
   const botNeeded = botCheck !== null && !personal;
   const [botToken, setBotToken] = useState<string | null>(null);
+  /** Cloudflare's check couldn't run; with it out of sight, the form says so. */
+  const [botFailed, setBotFailed] = useState(false);
   const [botReset, setBotReset] = useState(0);
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const starting = useRef<Promise<{ responseId: string; token: string }> | null>(null);
@@ -295,7 +299,7 @@ export function PublicForm({
   if (sent) {
     const words = (text: string) => fillWords(text, { firstName });
     return (
-      <Card className="p-6 text-center sm:p-8" data-testid="form-sent">
+      <FormSurface className="p-6 text-center sm:p-8" data-testid="form-sent">
         <CheckCircle2 className="mx-auto h-8 w-8 text-success-text" strokeWidth={1.5} />
         <h1 className="mt-3 text-[19px] font-medium text-text">{words(sent.headline)}</h1>
         {sent.body ? (
@@ -322,11 +326,12 @@ export function PublicForm({
           <a
             href={sent.buttonUrl}
             className="mt-5 inline-flex h-9 items-center rounded-control bg-accent px-3.5 text-sm font-medium text-white"
+            data-form-action=""
           >
             {sent.buttonLabel}
           </a>
         ) : null}
-      </Card>
+      </FormSurface>
     );
   }
 
@@ -336,15 +341,13 @@ export function PublicForm({
     cost and offered no way out, which is an opt-in record that would not survive being asked about.
   */
   const consentBox = (
-    <div className="mt-6">
-      <Checkbox
-        className="text-[13px] font-medium"
-        label={consentWords.title}
+    <div className="mt-[var(--form-gap,1.5rem)] flex flex-col gap-3">
+      <ConsentChoice
+        title={consentWords.title}
         checked={consent}
-        onChange={(e) => setConsent(e.target.checked)}
-        data-testid="form-sms-consent"
-      />
-      <p className="ml-[26px] mt-1 text-xs text-text-3">
+        onChange={setConsent}
+        testId="form-sms-consent"
+      >
         {consentWords.detail}{' '}
         {consentWords.policyUrl ? (
           <a className="underline" href={consentWords.policyUrl} target="_blank" rel="noreferrer">
@@ -359,40 +362,52 @@ export function PublicForm({
             </a>
           </>
         ) : null}
-      </p>
+      </ConsentChoice>
       {/* Offers have their own box, never ticked for them: agreeing to hear about the job they asked for is not
           agreeing to hear about a special (core's offersConsentWords). */}
       {offers ? (
-        <>
-          <Checkbox
-            className="mt-3 text-[13px] font-medium"
-            label={offers.title}
-            checked={offersConsent}
-            onChange={(e) => setOffersConsent(e.target.checked)}
-            data-testid="form-offers-consent"
-          />
-          <p className="ml-[26px] mt-1 text-xs text-text-3">{offers.detail}</p>
-        </>
+        <ConsentChoice
+          title={offers.title}
+          checked={offersConsent}
+          onChange={setOffersConsent}
+          testId="form-offers-consent"
+        >
+          {offers.detail}
+        </ConsentChoice>
       ) : null}
       {/* Calls have their own box too: a yes to texts isn't a yes to calls from an AI (core's callConsentWords). */}
       {calls ? (
-        <>
-          <Checkbox
-            className="mt-3 text-[13px] font-medium"
-            label={calls.title}
-            checked={callConsent}
-            onChange={(e) => setCallConsent(e.target.checked)}
-            data-testid="form-call-consent"
-          />
-          <p className="ml-[26px] mt-1 text-xs text-text-3">{calls.detail}</p>
-        </>
+        <ConsentChoice
+          title={calls.title}
+          checked={callConsent}
+          onChange={setCallConsent}
+          testId="form-call-consent"
+        >
+          {calls.detail}
+        </ConsentChoice>
       ) : null}
     </div>
   );
 
   const botBox = botSiteKey ? (
     <div className="mt-4">
-      <Turnstile siteKey={botSiteKey} onToken={setBotToken} resetKey={botReset} />
+      {/* Out of sight unless Cloudflare needs a click, and then in the form's light or dark. */}
+      <Turnstile
+        siteKey={botSiteKey}
+        onToken={(token) => {
+          setBotToken(token);
+          if (token) setBotFailed(false);
+        }}
+        onFailed={() => setBotFailed(true)}
+        resetKey={botReset}
+        invisible
+        theme={dark ? 'dark' : 'light'}
+      />
+      {botFailed && !botToken ? (
+        <p role="alert" className="mt-2 text-[13px] text-danger-text" data-testid="form-bot-failed">
+          We couldn’t check you’re a person just now. Reload the page and try again.
+        </p>
+      ) : null}
     </div>
   ) : botNeeded ? (
     <p className="mt-4 text-[13px] text-danger-text">
@@ -408,11 +423,13 @@ export function PublicForm({
 
   return (
     <PublicFormContext.Provider value={pageContext}>
-      <Card className="p-5 sm:p-7" data-testid="public-form">
-        <h1 className="text-[19px] font-medium text-text">{definition.title}</h1>
-        {definition.intro ? (
-          <p className="mt-2 whitespace-pre-wrap text-[14px] text-text-2">{definition.intro}</p>
-        ) : null}
+      <FormSurface className="p-5 sm:p-7" data-testid="public-form">
+        <FormHead
+          title={definition.title}
+          intro={definition.intro}
+          titleClassName="text-[19px] font-medium text-text"
+          introClassName="mt-2 text-[14px] text-text-2"
+        />
 
         {closed ? (
           <p
@@ -449,9 +466,9 @@ export function PublicForm({
               </p>
             ) : null}
 
-            <div className="mt-6 space-y-6">
+            <div className="mt-6 flex flex-col gap-[var(--form-gap,1.5rem)]">
               {steps.shown.map((page) => (
-                <section key={page.page.id} className="space-y-6">
+                <section key={page.page.id} className="flex flex-col gap-[var(--form-gap,1.5rem)]">
                   {page.page.title ? (
                     <h2 className="text-[15px] font-medium text-text-2">{page.page.title}</h2>
                   ) : null}
@@ -533,6 +550,7 @@ export function PublicForm({
                     onClick={send}
                     disabled={sending || (botNeeded && !botToken)}
                     data-testid="form-send"
+                    data-form-action=""
                   >
                     {sending ? (
                       <Loader2 className="h-4 w-4 animate-spin" strokeWidth={1.75} />
@@ -549,7 +567,43 @@ export function PublicForm({
             )}
           </>
         )}
-      </Card>
+      </FormSurface>
     </PublicFormContext.Provider>
+  );
+}
+
+/**
+ * One permission box (texts, offers, calls): drawn like a single checkbox question (question-field.tsx), so it takes
+ * the form's corners, colours and text size, with its words always showing under it.
+ */
+function ConsentChoice({
+  title,
+  checked,
+  onChange,
+  testId,
+  children,
+}: {
+  title: string;
+  checked: boolean;
+  onChange: (checked: boolean) => void;
+  testId: string;
+  children: ReactNode;
+}) {
+  return (
+    <div
+      className={cn(
+        'rounded-control border px-3.5 py-2.5 transition-colors',
+        checked ? 'border-accent bg-accent/5' : 'border-border hover:bg-card-2',
+      )}
+    >
+      <Checkbox
+        className="text-[14px]"
+        label={title}
+        checked={checked}
+        onChange={(e) => onChange(e.target.checked)}
+        data-testid={testId}
+      />
+      <p className="ml-7 mt-1 text-[12.5px] text-text-3">{children}</p>
+    </div>
   );
 }

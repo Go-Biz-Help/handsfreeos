@@ -285,6 +285,8 @@ export const recordType = app.enum('record_type', [
   'custom_record',
   /** The PDF a document template is made from: record_id is the template (20261027015100). Tags never use it. */
   'document',
+  /** A live poll's slides, a PDF: record_id is the poll's form (20261027019700). Tags never use it. */
+  'form',
 ]);
 export const activityKind = app.enum('activity_kind', [
   'note',
@@ -1534,6 +1536,8 @@ export const messages = app.table('messages', {
   direction: direction('direction').notNull(),
   status: messageStatus('status').notNull(),
   fromAddress: text('from_address'),
+  /** Email: the name on its From line, so its sender can be added to Contacts as who they said they were. */
+  fromName: text('from_name'),
   toAddresses: text('to_addresses')
     .array()
     .notNull()
@@ -2789,6 +2793,24 @@ export const videoCalls = app.table('video_calls', {
   linkKeyHash: text('link_key_hash'),
   /** A call that isn't for an appointment: its own line on the customer's timeline. */
   activityId: uuid('activity_id').references(() => activities.id, { onDelete: 'set null' }),
+  /** meeting, or webinar (a session's call): set when the call is made (20261027019600). */
+  format: text('format').notNull().default('meeting'),
+  /** A webinar: attendees' cameras off, seen only by the team, or seen by everyone. */
+  attendeeVideo: text('attendee_video').notNull().default('off'),
+  /** A webinar: the key in its link anyone can use, `/live/<key>`. */
+  doorKey: text('door_key'),
+  /** A webinar: when the "starting now" message went out. */
+  startingNowAt: ts('starting_now_at'),
+  /** The live poll its questions pop up from (20261027019800). */
+  pollFormId: uuid('poll_form_id').references((): AnyPgColumn => forms.id, {
+    onDelete: 'set null',
+  }),
+  /** How far the AI hearing the team goes with the poll: ask, suggest or off (20261027019900). */
+  pollAi: text('poll_ai').notNull().default('ask'),
+  /** The slide of the poll's PDF on the stage, counted from 1; null while the slides aren't up (20261027020000). */
+  slide: integer('slide'),
+  /** When the slide showing last changed. */
+  slideAt: ts('slide_at'),
 });
 
 /** Who's in a video call: a teammate, a customer on their own Join link, or someone let in (20261027013000). */
@@ -2814,6 +2836,72 @@ export const videoCallPeople = app.table('video_call_people', {
   participantSid: text('participant_sid'),
   seconds: integer('seconds').notNull().default(0),
   ...timestamps(),
+  /** A webinar: brought on stage by the team, so their microphone and camera work (20261027019600). */
+  onStage: boolean('on_stage').notNull().default(false),
+});
+
+/**
+ * A live poll's question or button, asked in a call (20261027019800): open until its time is up, nearly everyone
+ * answered or the team closed it; or skipped for now. One open at a time in a call.
+ */
+export const videoCallPolls = app.table('video_call_polls', {
+  id: id(),
+  workspaceId: workspaceRef(),
+  videoCallId: uuid('video_call_id')
+    .notNull()
+    .references(() => videoCalls.id, { onDelete: 'cascade' }),
+  formId: uuid('form_id')
+    .notNull()
+    .references((): AnyPgColumn => forms.id, { onDelete: 'cascade' }),
+  versionId: uuid('version_id')
+    .notNull()
+    .references((): AnyPgColumn => formVersions.id),
+  questionId: text('question_id').notNull(),
+  /** open, closed or skipped. */
+  state: text('state').notNull().default('open'),
+  /** team, or ai (the AI hearing the presenter, part 3). */
+  openedBy: text('opened_by').notNull().default('team'),
+  openedByUserId: userRef('opened_by_user_id'),
+  openedAt: ts('opened_at'),
+  closesAt: ts('closes_at'),
+  closedAt: ts('closed_at'),
+  answers: integer('answers').notNull().default(0),
+  ...timestamps(),
+});
+
+/**
+ * Each customer in a call with a live poll, scored when it ended (20261027020100): points, Hot, Warm or Cold, the
+ * AI's reason, and what happened to a hot one. Only the worker writes it.
+ */
+export const videoCallLeads = app.table('video_call_leads', {
+  id: id(),
+  workspaceId: workspaceRef(),
+  videoCallId: uuid('video_call_id')
+    .notNull()
+    .references(() => videoCalls.id, { onDelete: 'cascade' }),
+  personId: uuid('person_id')
+    .notNull()
+    .references(() => people.id, { onDelete: 'cascade' }),
+  formId: uuid('form_id').references((): AnyPgColumn => forms.id, { onDelete: 'set null' }),
+  responseId: uuid('response_id').references((): AnyPgColumn => formResponses.id, {
+    onDelete: 'set null',
+  }),
+  points: integer('points').notNull().default(0),
+  /** hot, warm or cold. */
+  label: text('label').notNull(),
+  stayed: boolean('stayed').notNull().default(false),
+  seconds: integer('seconds').notNull().default(0),
+  /** What the points came from, in words. */
+  parts: jsonb('parts').$type<object[]>().notNull().default([]),
+  reason: text('reason'),
+  reasonAt: ts('reason_at'),
+  /** What the poll said to do with the hot ones: list, home or text. */
+  followUp: text('follow_up').notNull().default('list'),
+  /** The AI teammate's text to a hot one: sent, drafted, card or skipped. */
+  outcome: text('outcome'),
+  outcomeReason: text('outcome_reason'),
+  scoredAt: ts('scored_at').notNull().defaultNow(),
+  ...timestamps(),
 });
 
 /**
@@ -2834,6 +2922,26 @@ export const videoCallLines = app.table('video_call_lines', {
   saidAt: ts('said_at').notNull(),
   lineKey: text('line_key').notNull(),
   createdAt: ts('created_at').notNull().defaultNow(),
+});
+
+/**
+ * Each LiveKit connection in a HandsFreeOS video call (20261027022000): when it came and went, and what its app says
+ * it downloaded. What the call really used, so it can be priced by that (docs/video-calls.md, "What a call used").
+ */
+export const videoCallConnections = app.table('video_call_connections', {
+  id: id(),
+  workspaceId: workspaceRef(),
+  videoCallId: uuid('video_call_id').notNull(),
+  kind: text('kind').notNull(),
+  personRowId: uuid('person_row_id').references(() => videoCallPeople.id, { onDelete: 'cascade' }),
+  roomSid: text('room_sid').notNull(),
+  participantSid: text('participant_sid').notNull(),
+  joinedAt: ts('joined_at').notNull(),
+  leftAt: ts('left_at'),
+  bytesReceived: bigint('bytes_received', { mode: 'number' }).notNull().default(0),
+  reportedAt: ts('reported_at'),
+  createdAt: ts('created_at').notNull().defaultNow(),
+  updatedAt: ts('updated_at').notNull().defaultNow(),
 });
 
 /**
@@ -3629,13 +3737,30 @@ export const chatWidgets = app.table('chat_widgets', {
   greeting: text('greeting'),
   launcherLabel: text('launcher_label').notNull().default('Chat with us'),
   accentColor: text('accent_color').notNull().default('#2d69d8'),
-  /** right, left. */
+  /** right, left: on a computer, and on a phone unless mobilePosition says otherwise. */
   position: text('position').notNull().default('right'),
   awayMessage: text('away_message'),
   askFor: jsonb('ask_for').$type<Json>().notNull().default({}),
   smsConsent: boolean('sms_consent').notNull().default(true),
   dailyCap: integer('daily_cap').notNull().default(200),
   pausedAt: ts('paused_at'),
+  /** What the business calls it in Forms; null: its first site. */
+  name: text('name'),
+  /** right, left on a phone; null: the same as position. */
+  mobilePosition: text('mobile_position'),
+  /** Pixels higher than the button's usual spot (0-300). */
+  desktopLift: smallint('desktop_lift').notNull().default(0),
+  mobileLift: smallint('mobile_lift').notNull().default(0),
+  /** label, icon (and hidden on a phone). */
+  desktopButton: text('desktop_button').notNull().default('label'),
+  mobileButton: text('mobile_button').notNull().default('label'),
+  /** The words on the button and top bar; null: whichever reads on the colour. */
+  textColor: text('text_color'),
+  /** The top bar; null: accentColor. */
+  headerColor: text('header_color'),
+  showLogo: boolean('show_logo').notNull().default(true),
+  /** away_form, chat. */
+  whenAway: text('when_away').notNull().default('away_form'),
   /** The install check; the worker's. */
   lastSeenOrigin: text('last_seen_origin'),
   lastSeenAt: ts('last_seen_at'),
@@ -6337,10 +6462,20 @@ export const walletRecharges = app.table('wallet_recharges', {
 
 // ---- Forms, surveys and quizzes (M15) ----
 
-export const formMode = app.enum('form_mode', ['form', 'survey', 'quiz']);
+/** `poll` is a live poll, asked in a video call (20261027019700). */
+export const formMode = app.enum('form_mode', ['form', 'survey', 'quiz', 'poll']);
 export const formStatus = app.enum('form_status', ['draft', 'live', 'closed', 'archived']);
 export const formResponseStatus = app.enum('form_response_status', ['in_progress', 'completed']);
-export const formSource = app.enum('form_source', ['link', 'embed', 'chat', 'qr', 'app', 'api']);
+export const formSource = app.enum('form_source', [
+  'link',
+  'embed',
+  'chat',
+  'qr',
+  'app',
+  'api',
+  /** A live poll's answers, given in a video call (20261027019700). */
+  'video_call',
+]);
 export const customFieldEntity = app.enum('custom_field_entity', [
   'person',
   'company',
@@ -6479,6 +6614,10 @@ export const formResponses = app.table('form_responses', {
   stoppedPages: textArray('stopped_pages'),
   /** The `ref` its link was opened with, for a time booked on it (20261027012200). */
   linkRef: text('link_ref'),
+  /** A live poll's sheet: the video call its answers were given in (20261027019800). */
+  videoCallId: uuid('video_call_id').references((): AnyPgColumn => videoCalls.id, {
+    onDelete: 'set null',
+  }),
   startedAt: ts('started_at').notNull().defaultNow(),
   completedAt: ts('completed_at'),
   ...timestamps(),
@@ -7858,6 +7997,8 @@ export const campaigns = app.table('campaigns', {
   /** AI outbound calls: a call campaign's one opening line ("about our fall tune-up …"), and whether a person changed it. */
   callOpening: text('call_opening'),
   callEdited: boolean('call_edited').notNull().default(false),
+  /** AI calls, part 4: a call campaign that keeps adding anyone who later fits and agrees to calls, until stopped. */
+  keepAdding: boolean('keep_adding').notNull().default(false),
   /** Why the worker paused it; null when a person did. */
   pausedReason: text('paused_reason'),
   ...timestamps(),
@@ -7892,7 +8033,7 @@ export const aiCalls = app.table('ai_calls', {
   personId: uuid('person_id')
     .notNull()
     .references(() => people.id, { onDelete: 'cascade' }),
-  /** confirm_visit, missed_call, quote or campaign. */
+  /** confirm_visit, missed_call, quote, campaign or workflow. */
   purpose: text('purpose').notNull(),
   attendeeId: uuid('attendee_id').references(() => appointmentAttendees.id, {
     onDelete: 'cascade',
@@ -7902,6 +8043,8 @@ export const aiCalls = app.table('ai_calls', {
   campaignRecipientId: uuid('campaign_recipient_id').references(() => campaignRecipients.id, {
     onDelete: 'cascade',
   }),
+  /** A workflow's call: the step's playbook (what to find out, what to offer, when to book). */
+  playbook: jsonb('playbook'),
   toE164: text('to_e164').notNull(),
   goal: text('goal').notNull(),
   /** awaiting_approval, queued, calling, done, skipped, cancelled or failed. */
@@ -7913,10 +8056,34 @@ export const aiCalls = app.table('ai_calls', {
   outcome: text('outcome'),
   summary: text('summary'),
   dedupeKey: text('dedupe_key').notNull(),
+  /** How many times it has rung: a campaign's or a workflow's call tries again the next day, up to 3. */
+  tries: smallint('tries').notNull().default(0),
+  /** A call to a lead: why it could go, `written` (a yes) or `business_landline` (AI calls, part 5). */
+  consentBasis: text('consent_basis'),
   placedAt: ts('placed_at'),
   finishedAt: ts('finished_at'),
   ...timestamps(),
 });
+
+/**
+ * What the phone company said about a number (AI calls, part 5): its line type and, for a landline, who it's
+ * registered to. Used for 90 days, then asked again (core's business-line.ts).
+ */
+export const phoneLineChecks = app.table(
+  'phone_line_checks',
+  {
+    id: id(),
+    workspaceId: workspaceRef(),
+    phoneE164: text('phone_e164').notNull(),
+    /** landline, mobile, voip, toll_free, other or unknown. */
+    lineType: text('line_type').notNull(),
+    /** business, consumer or unknown; null when it wasn't asked. */
+    callerType: text('caller_type'),
+    checkedAt: ts('checked_at').notNull().defaultNow(),
+    ...timestamps(),
+  },
+  (t) => [unique().on(t.workspaceId, t.phoneE164)],
+);
 
 /** Email campaigns: an address that asked for no more campaign email from this business. */
 export const emailUnsubscribes = app.table('email_unsubscribes', {
@@ -8088,7 +8255,45 @@ export const problemReports = app.table('problem_reports', {
   handledAt: ts('handled_at'),
   handledBy: userRef('handled_by'),
   createdAt: ts('created_at').notNull().defaultNow(),
+  /** What the AI helper did when the step didn't go (20261027021600): core's `ProblemHelper`. */
+  helper: jsonb('helper').$type<Record<string, unknown>>(),
 });
+
+/**
+ * How a tool's AI helper found a step's button in a new place (20261027021600): kept across every business, trusted
+ * once it has worked twice. Never anything a person wrote.
+ */
+export const learnedWays = platform.table('learned_ways', {
+  id: id(),
+  addonId: text('addon_id'),
+  area: text('area').notNull(),
+  button: text('button').notNull(),
+  way: jsonb('way').$type<Record<string, unknown>>().notNull(),
+  wayKey: text('way_key').notNull(),
+  worked: integer('worked').notNull().default(0),
+  failed: integer('failed').notNull().default(0),
+  trustedAt: ts('trusted_at'),
+  removedAt: ts('removed_at'),
+  removedBy: userRef('removed_by'),
+  firstAt: ts('first_at').notNull().defaultNow(),
+  lastWorkedAt: ts('last_worked_at'),
+  lastFailedAt: ts('last_failed_at'),
+});
+
+/** Which businesses a learned way worked or failed for (20261027021600). */
+export const learnedWayUses = platform.table(
+  'learned_way_uses',
+  {
+    wayId: uuid('way_id')
+      .notNull()
+      .references(() => learnedWays.id, { onDelete: 'cascade' }),
+    workspaceId: workspaceRef(),
+    worked: integer('worked').notNull().default(0),
+    failed: integer('failed').notNull().default(0),
+    lastAt: ts('last_at').notNull().defaultNow(),
+  },
+  (t) => [primaryKey({ columns: [t.wayId, t.workspaceId] })],
+);
 
 /** Maintenance (0095): one customer's own schedule for a service. `everyMonths` null means never remind them. */
 export const serviceSchedules = app.table('service_schedules', {

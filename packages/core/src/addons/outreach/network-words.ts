@@ -10,20 +10,36 @@
  *
  * Plain words, short sentences, curly apostrophes. Browser-safe and pure.
  */
+import { fmtMonthDay } from '../../calendar/when';
 import { TOUCHED_POSTS_WORDS } from './activity';
 import { askNameOn, TIDY_ASK_KINDS, TIDY_PACE_WORDS } from './asks';
+import { REQUEST_MUTUAL_YES } from './checks';
 import {
+  GROUP_MODE_KEYS,
+  GROUP_MODES,
+  REQUEST_MODE_KEYS,
+  REQUEST_MODES,
   SENDING_MODES,
   TIDY_MODE_KEYS,
   tidyModeOn,
   type AutomationSettings,
+  type GroupMode,
   type NetworkChoices,
+  type RequestMode,
   type SendingMode,
   type TidyMode,
 } from './automation';
-import { DAILY_WORDS, OWN_TIDY_LIMITS, type DailyStep, type TidyKind } from './limits';
 import {
+  DAILY_WORDS,
+  DECLINES_PER_DAY,
+  OWN_TIDY_LIMITS,
+  type DailyStep,
+  type TidyKind,
+} from './limits';
+import {
+  answersRequests,
   inNetworkWords,
+  joinsGroups,
   isLooking,
   networkOfLink,
   NETWORKS,
@@ -35,6 +51,7 @@ import {
   type RunnerTick,
 } from './networks';
 import { COMMENT_HOLD_WORDS } from './sends';
+import { CANCEL_FAST } from './tidy';
 import { TODAY_KINDS, type TodayItem, type TodayKind } from './today';
 import { messengerChatUrl } from './waiting-words';
 import { OUTREACH_WORDS as W } from './words';
@@ -83,9 +100,9 @@ export function withNetwork(
   platform: Platform,
   change: Partial<NetworkChoices>,
 ): AutomationSettings {
-  const { on, young, tidy, ...choices } = change;
-  // As `choicesFor` reads them: Facebook's are the settings' own fields, but for its switch, its account's age and its
-  // tidying, kept beside them.
+  const { on, young, fullSpeed, tidy, requests, ...choices } = change;
+  // As `choicesFor` reads them: Facebook's are the settings' own fields, but for its switch, its account's age, its
+  // full speed, its tidying and how the requests it gets are answered, kept beside them.
   const own = platform === 'facebook';
   const networks = {
     ...settings.networks,
@@ -93,7 +110,9 @@ export function withNetwork(
       ...settings.networks[platform],
       ...(on === undefined ? {} : { on }),
       ...(young === undefined ? {} : { young }),
+      ...(fullSpeed === undefined ? {} : { fullSpeed }),
       ...(tidy === undefined ? {} : { tidy }),
+      ...(requests === undefined ? {} : { requests }),
       ...(own ? {} : choices),
     },
   } as AutomationSettings['networks'];
@@ -115,6 +134,11 @@ interface MoreWords {
   readonly chatUrl: (threadKey: string) => string;
   /** Along the way's switches, in its words: what each does, and a line about it. */
   readonly ticks: Readonly<Record<AlongTick, readonly [string, string]>>;
+  /**
+   * What it does about groups (decision 148), where they're the person's to work (`joinsGroups`): the line above the
+   * pick, and what joining more does there. Only their own says the same on every network (`onlyMineNote`).
+   */
+  readonly groups?: { readonly about: string; readonly join: string };
   /** The playbook's networks step: where it looks for people there. */
   readonly where: string;
   /**
@@ -138,15 +162,22 @@ interface MoreWords {
     readonly about?: (weeks: string) => string;
     /** Tidying them on its own (decision 98): the choice that does it, and what it does once a day. */
     readonly own: { readonly pick: string; readonly does: string; readonly never?: string };
+    /**
+     * Cancel all (decision 121): its button, and what it does in words, "cancels" and "cancelling". None on a follow
+     * network, whose follows wait for nobody's answer.
+     */
+    readonly all?: { readonly button: string; readonly does: string; readonly doing: string };
   };
 }
 
-/** The switches along the way, each network's own (`NetworkChoices`). */
+/**
+ * The switches along the way, each network's own (`NetworkChoices`). Joining groups is `joinGroups`, which is a pick of
+ * two from decision 148 (`groupsChoiceOn`), not a tick, so it isn't here.
+ */
 export const ALONG_TICKS = [
   'warmUp',
   'confirmRequests',
   'collect',
-  'joinGroups',
   'watchPosts',
 ] as const satisfies readonly (keyof NetworkChoices & RunnerTick)[];
 export type AlongTick = (typeof ALONG_TICKS)[number];
@@ -159,8 +190,12 @@ const MORE: Readonly<Record<Platform, MoreWords>> = {
       warmUp: W.ticks.warmUp,
       confirmRequests: W.ticks.confirmRequests,
       collect: W.ticks.collect,
-      joinGroups: W.ticks.joinGroups,
       watchPosts: W.ticks.watchPosts,
+    },
+    groups: {
+      about:
+        'Your own groups are read first either way. This says whether it looks for more groups to join as well.',
+      join: 'When your groups have less than a week of people left to reach, it finds groups with your playbook’s words and asks to join up to 3 good ones a day, answering their questions from your playbook.',
     },
     where: 'In the groups they’re in, found with the words below.',
     helpful: true,
@@ -174,6 +209,7 @@ const MORE: Readonly<Record<Platform, MoreWords>> = {
         pick: 'Cancel old friend requests',
         does: 'cancels friend requests nobody answered in your business’s wait',
       },
+      all: { button: 'Cancel all', does: 'cancels', doing: 'cancelling' },
     },
   },
   linkedin: {
@@ -192,10 +228,6 @@ const MORE: Readonly<Record<Platform, MoreWords>> = {
       collect: [
         'Once a day, first: check invitations, find posts and read my chats',
         'These fill the list it works from. It searches posts with your playbooks’ words, reads who reacted to and commented on the good ones, and checks those people and your connections for good fits, inside its 40 profile reads a day.',
-      ],
-      joinGroups: [
-        'Join good groups when my groups run low',
-        'LinkedIn groups are quiet, so it joins few, and only ones that fit your playbook.',
       ],
       watchPosts: [
         'Look for new posts asking for what I offer, every hour or two',
@@ -216,6 +248,7 @@ const MORE: Readonly<Record<Platform, MoreWords>> = {
         pick: 'Withdraw old invitations',
         does: 'withdraws invitations nobody answered in your business’s wait',
       },
+      all: { button: 'Withdraw all', does: 'withdraws', doing: 'withdrawing' },
     },
   },
   // A follow network: a follow goes at once, a follow-back is the accepting, and tidying unfollows (the Instagram and
@@ -238,7 +271,6 @@ const MORE: Readonly<Record<Platform, MoreWords>> = {
         'Once a day, first: save my newest followers, and read my messages and notifications',
         'These fill the list it works from: whoever followed you, or liked or commented on your posts, is a warm lead. It looks at the accounts you followed to see who followed you back, checks your followers for good fits, looks at your playbooks’ hashtags for posts, reads who liked and commented on the good ones and checks them for good fits, and looks for partners with Instagram’s search, too.',
       ],
-      joinGroups: ['Join good groups when my groups run low', 'Instagram has no groups to join.'],
       watchPosts: [
         'Look for new posts asking for what I offer, every hour or two',
         'In your working hours, it looks at your playbook’s hashtags for posts asking for what you offer.',
@@ -283,15 +315,16 @@ const MORE: Readonly<Record<Platform, MoreWords>> = {
         'Once a day, first: check connection requests, read my messages and my town’s posts, search for businesses like your clients, and read my groups',
         'These fill the list it works from. It checks your connections, and the businesses it finds, for good fits, and looks for partners, too.',
       ],
-      // Shown since decision 92: Alignable's groups go through the same pipeline as Facebook's.
-      joinGroups: [
-        'Join good groups when my groups run low',
-        'Your own groups come first. When the people found in them run low, it finds groups for your niche and area, and joins up to 3 good ones a day.',
-      ],
       watchPosts: [
         'Look for new questions asking for what I offer, every hour or two',
         'In your working hours, it looks at Alignable’s forum for owners asking for what you offer.',
       ],
+    },
+    // Since decision 92 Alignable's groups go through the same pipeline as Facebook's.
+    groups: {
+      about:
+        'Your own groups are read first either way. This says whether it looks for more groups to join as well.',
+      join: 'When the people found in your groups run low, it finds groups for your niche and area and joins up to 3 good ones a day.',
     },
     where: 'In your town’s community, and the forum where owners ask for referrals.',
     helpful: true,
@@ -306,6 +339,7 @@ const MORE: Readonly<Record<Platform, MoreWords>> = {
         pick: 'Withdraw old connection requests',
         does: 'withdraws connection requests nobody answered in your business’s wait',
       },
+      all: { button: 'Withdraw all', does: 'withdraws', doing: 'withdrawing' },
     },
   },
 };
@@ -424,6 +458,11 @@ export function tidyWordsOn(platform: Platform) {
       about: (after: number) =>
         `${old.about ? old.about(weeks(after)) : `Sent more than ${weeks(after)} ago and not answered.`} ${old.why}`,
     },
+    /**
+     * Cancel all (decision 121): every request waiting for an answer, however new, the oldest first, at the day's
+     * limit, leaving out the ones the extension sent unless the person says. Null on a follow network.
+     */
+    all: old.all ? cancelAllWords(platform, old.all) : null,
     unfriend: {
       title: `${cap(w.friends)} to unfriend`,
       button: 'Unfriend the ticked',
@@ -435,16 +474,61 @@ export function tidyWordsOn(platform: Platform) {
   };
 }
 
+/** Cancel all's words on a network (decision 121), on the Friends tab's Tidy up and under Today's note. */
+function cancelAllWords(platform: Platform, all: NonNullable<MoreWords['oldRequests']['all']>) {
+  const { friendRequest, friendRequests } = NETWORKS[platform].words;
+  const yours = (n: number) =>
+    n === 1
+      ? `your ${friendRequest}`
+      : `all ${n.toLocaleString('en-US')} of your ${friendRequests}`;
+  return {
+    button: all.button,
+    about: (waiting: number, most: number) =>
+      `${cap(all.does)} ${yours(waiting)} waiting for an answer, however new, the oldest first, ${most.toLocaleString('en-US')} a day.`,
+    /** The box beside it, ticked to start. */
+    leaveOut: (sent: number) =>
+      sent === 0
+        ? 'Leave out any the extension sent'
+        : sent === 1
+          ? 'Leave out the one the extension sent'
+          : `Leave out the ${sent.toLocaleString('en-US')} the extension sent`,
+    /** Under Today's note: the two ways, with the extension's left out first. */
+    leavingOut: (sent: number) =>
+      `${all.button} but the extension’s ${sent.toLocaleString('en-US')}`,
+    every: (waiting: number) => `${all.button} ${waiting.toLocaleString('en-US')}`,
+    going: (left: number, most: number) =>
+      `${cap(all.doing)} all of them: ${left.toLocaleString('en-US')} left, ${most.toLocaleString('en-US')} a day. Any sent since wait as usual.`,
+    stop: 'Stop',
+    /** Beside one it's cancelling, on the list of old ones. */
+    marked: `${all.doing} with ${all.button}`,
+    started: (marked: number) =>
+      `${cap(all.doing)} ${marked === 1 ? 'it' : `all ${marked.toLocaleString('en-US')}`}, the oldest first.`,
+    stopped: `Stopped ${all.doing} them. The ones left wait as usual.`,
+  };
+}
+
 /**
  * Why no new friend requests are on Today's list (decision 97), and what lets them start again, in a network's words:
  * on the web and the phone.
  */
 export function requestsHeldWords(
-  held: { readonly why: 'waiting' | 'cap'; readonly count: number; readonly most: number },
+  held: {
+    readonly why: 'waiting' | 'cap' | 'limit';
+    readonly count: number;
+    readonly most: number;
+    /** Left for Cancel all (decision 121): none from a server before it. */
+    readonly cancelling?: number;
+    /** Cancel all's a day now (decision 126): none from a server before it. */
+    readonly cancelMost?: number | null;
+    /** The business day a monthly limit's pause ends (decision 147). */
+    readonly until?: string | null;
+  },
   platform: Platform,
 ): string {
   const kit = NETWORKS[platform];
   const { friendRequests, friends } = kit.words;
+  if (held.why === 'limit')
+    return `No new ${friendRequests} on ${kit.name} till ${held.until ? fmtMonthDay(held.until) : 'the 1st'}: ${kit.name} says you’ve reached your monthly limit. Likes, comments and messages go on. Upgraded on ${kit.name}? Start them again.`;
   const count = held.count.toLocaleString('en-US');
   if (held.why === 'cap')
     return `No new ${friendRequests} for now: you have ${count} ${friends} on ${kit.name}, close to its cap of ${kit.friendsCap.toLocaleString('en-US')}. ${
@@ -452,7 +536,77 @@ export function requestsHeldWords(
         ? `To make room, unfriend some under Tidy up on the Friends tab.`
         : `To make room, remove some ${friends} on ${kit.name}.`
     }`;
-  return `No new ${friendRequests} for now: ${count} of yours are still waiting for an answer, and ${kit.name} watches accounts with many. They start again under ${held.most.toLocaleString('en-US')}. Tick some under ${MORE[platform].oldRequests.title} in Tidy up on the Friends tab.`;
+  const start = `No new ${friendRequests} for now: ${count} of yours are still waiting for an answer, and ${kit.name} watches accounts with many. They start again under ${held.most.toLocaleString('en-US')}.`;
+  // Cancel all (decision 121): going already, or offered beneath, with the old list's ticks still there.
+  const { all, title } = MORE[platform].oldRequests;
+  if (!all) return `${start} Tick some under ${title} in Tidy up on the Friends tab.`;
+  if (held.cancelling)
+    return `${start} ${cap(all.doing)} all of them: ${held.cancelling.toLocaleString('en-US')} left, ${held.cancelMost ?? kit.tidyLimits.cancel_request} a day.`;
+  return `${start} ${all.button} ${all.does} them however new, ${(kit.tidyLimits.cancel_request * CANCEL_FAST.times).toLocaleString('en-US')} a day, or tick some under ${title} in Tidy up on the Friends tab.`;
+}
+
+/**
+ * The extension's line when the network says the person reached their monthly limit (decision 147), with the business
+ * day requests start again, or none when HandsFreeOS couldn't be told.
+ */
+export function requestsLimitLine(platform: Platform, until: string | null): string {
+  const kit = NETWORKS[platform];
+  return `${kit.name} says you’ve reached your monthly limit, so new ${kit.words.friendRequests} wait till ${until ? fmtMonthDay(until) : 'the 1st'}. Likes, comments and messages go on.`;
+}
+
+/** Start again, under Today's note on a monthly limit's pause (decision 147), and what it says once pressed. */
+export function requestsAgainWords(platform: Platform) {
+  const kit = NETWORKS[platform];
+  return {
+    button: 'Start again',
+    done: `New ${kit.words.friendRequests} on ${kit.name} start again. If ${kit.name} still says you’re at your limit, they wait again.`,
+    notOn: `New ${kit.words.friendRequests} on ${kit.name} weren’t waiting.`,
+  };
+}
+
+/**
+ * How the requests the person gets are answered (decisions 121 and 136), on a network's page in Settings where the
+ * extension answers them (Facebook's, LinkedIn's and Alignable's): the choice, how the AI decides, what it never does,
+ * and its picks. Null where they're the person's.
+ */
+export function requestsChoiceOn(platform: Platform) {
+  if (!answersRequests(platform)) return null;
+  const { friendRequests, friends } = NETWORKS[platform].words;
+  const notes: Readonly<Partial<Record<RequestMode, string>>> = {
+    mine: 'They wait for you under Waiting for you, each with what the AI says, and Confirm and Delete.',
+    fits: 'As it starts. The rest wait for you under Waiting for you, with Confirm and Delete.',
+    fits_delete:
+      'The ones it isn’t sure about wait for you. With no playbook in use, it deletes nobody.',
+  };
+  return {
+    label: `${cap(friendRequests)} you get`,
+    about: `The AI reads each one’s profile first, with your playbooks, your mutual ${friends} and where they live. A good one is a likely customer or partner, or a real person with ${REQUEST_MUTUAL_YES} or more mutual ${friends}. It confirms them as it works through your day, and deletes them once a day, up to ${DECLINES_PER_DAY} a day. It never deletes someone in Contacts, someone you’ve chatted with, a partner, or anyone on Don’t pitch, and never answers anyone on Never contact.`,
+    options: REQUEST_MODE_KEYS.map((key) => ({
+      key,
+      label: REQUEST_MODES[key],
+      note: notes[key] ?? null,
+    })),
+  };
+}
+
+/**
+ * What it does about groups (decision 148) on a network's page in Settings, where groups are the person's to work
+ * (Facebook's and Alignable's): the choice, the line above it, and its two picks, with what each does there. Null where
+ * the network has no groups to work (Instagram's, LinkedIn's).
+ */
+export function groupsChoiceOn(platform: Platform) {
+  const words = joinsGroups(platform) ? MORE[platform].groups : null;
+  if (!words) return null;
+  const { friendRequests } = NETWORKS[platform].words;
+  const notes: Readonly<Record<GroupMode, string>> = {
+    join: words.join,
+    mine: `It joins nothing and looks for no new groups. The AI stops reading groups you aren’t in, and your ${friendRequests} go only to people in your own groups. Find and join more groups still works when you press it.`,
+  };
+  return {
+    label: 'Groups',
+    about: words.about,
+    options: GROUP_MODE_KEYS.map((key) => ({ key, label: GROUP_MODES[key], note: notes[key] })),
+  };
 }
 
 /**
@@ -500,7 +654,12 @@ export const ticksOn = (
 
 /** The switches along the way Settings show on a network: only those its runner reads (its kit's `runs`). */
 export const ticksShownOn = (platform: Platform): readonly AlongTick[] =>
-  ALONG_TICKS.filter((tick) => NETWORKS[platform].runs.ticks.includes(tick));
+  ALONG_TICKS.filter(
+    (tick) =>
+      NETWORKS[platform].runs.ticks.includes(tick) &&
+      // Where the extension answers requests, the choice of how stands in its place (`requestsChoiceOn`).
+      !(tick === 'confirmRequests' && answersRequests(platform)),
+  );
 
 /** A chat's page on its network, from its id: Messenger's on Facebook, LinkedIn messaging's on LinkedIn. */
 export const chatUrlOn = (platform: Platform, threadKey: string | null): string | null =>
@@ -577,7 +736,11 @@ export const NETWORK_WORDS = {
   alwaysAllowed: 'Always allowed',
   limitsOn: (name: string) => `Daily limits on ${name}`,
   limitsAbout: (name: string) =>
-    `Up to ${name}’s starting limits, which keep an account there safe. Halved for your first 2 weeks there, for a week after a warning there, and on training wheels there.`,
+    `Up to ${name}’s starting limits, which keep an account there safe. Halved for your first 2 weeks there, for a week after a warning there, and on training wheels there, unless you go full speed.`,
+  /** The switch for full speed now (decision 138), under the limits. */
+  fullSpeed: (name: string) => `Full speed on ${name} now`,
+  fullSpeedAbout: (name: string) =>
+    `Your full daily limits on ${name} from today, without the half limits for your first weeks or training wheels. A warning from ${name} still halves them for a week.`,
   /** The switch for a young account (decision 96), on the network's page under its limits. */
   young: (name: string) => `My ${name} account is under a year old`,
   youngAbout: (name: string) =>

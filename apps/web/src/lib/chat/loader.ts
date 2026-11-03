@@ -11,13 +11,17 @@
  * - swaps only three messages with the window, each checked against the other side's origin: "open" (to the
  *   window, with the page's path), "close" and "unread" (from it). No token ever passes: the window keeps its
  *   own, in its own storage;
+ * - places the button as the business set it, separately on computers and on phones (screens up to 480 pixels
+ *   wide): its corner, how far it's lifted above its usual spot (to clear a bar along the bottom of the site), the
+ *   label beside the icon or only the round icon, and on phones hidden altogether (the chat then opens from a link
+ *   to #hfos-chat); only what differs from the usual is written, so the usual loader stays as small as it was;
  * - on phones turns the window into a full-screen sheet, clear of the notch and home bar, and locks the page's
  *   scroll while it's open;
  * - removes itself when the window never answers: the browser refused to show it (frame-ancestors), so this
  *   isn't one of the widget's sites. The console says so, for whoever is installing it.
  * The host element, <hfos-chat>, has an `open` attribute while the chat is open.
  */
-import { readableTextOn } from '@hfos/core';
+import { chatColorsOf, chatPlacementOf, type ChatPlacement } from '@hfos/core';
 
 export interface LoaderOptions {
   /** This app's origin, like https://app.handsfreeos.com. */
@@ -26,6 +30,10 @@ export interface LoaderOptions {
   readonly business: string;
   readonly label: string;
   readonly accent: string;
+  /** The words on the button; worked out from the accent when not given. */
+  readonly text?: string | null;
+  /** Where the button sits on computers and phones; a computer's corner alone is enough for older callers. */
+  readonly placement?: ChatPlacement;
   readonly position: 'left' | 'right';
   /** The preview page's workspace: its chat window answers through the test console instead. */
   readonly preview: string | null;
@@ -35,17 +43,47 @@ export interface LoaderOptions {
 const ICON =
   '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M21 12a8 8 0 0 1-8 8H8l-5 3 1.5-4.5A8 8 0 1 1 21 12zM8.5 12h0m4 0h0m4 0h0"/></svg>';
 
+/** The round icon alone: the button a circle, its label hidden (the button keeps it as its name). */
+const ICON_BUTTON = 'padding:0;width:54px;justify-content:center';
+const LABEL_BUTTON = 'padding:0 20px 0 17px;width:auto';
+
 /** The launcher and window's styles. The window animates itself (and respects reduced motion). */
-function styles(accent: string, text: string, side: 'left' | 'right'): string {
+function styles(accent: string, text: string, place: ChatPlacement): string {
+  const side = place.desktop.position;
+  const other = side === 'left' ? 'right' : 'left';
+  const lifted = (n: number) => (n ? `calc(var(--b) + ${n}px)` : 'var(--b)');
+  const icon = place.desktop.button === 'icon';
+  // A phone's button, written only where it differs from a computer's, in one rule so the loader stays small.
+  const m = place.mobile;
+  const moved = m.position !== side;
+  const phone = [
+    moved ? `${other}:16px;${side}:auto` : `${side}:16px`,
+    m.lift !== place.desktop.lift ? `bottom:${lifted(m.lift)}` : '',
+    m.button === 'hidden'
+      ? 'display:none'
+      : m.button === 'icon' && !icon
+        ? ICON_BUTTON
+        : m.button === 'label' && icon
+          ? LABEL_BUTTON
+          : '',
+  ]
+    .filter(Boolean)
+    .join(';');
+  const phoneMore = [
+    moved ? `i{${other}:-5px;${side}:auto}` : '',
+    m.button === 'icon' && !icon ? 'span{display:none}' : '',
+    m.button === 'label' && icon ? 'span{display:inline}' : '',
+  ].join('');
   return [
     ':host{all:initial;--b:max(20px,env(safe-area-inset-bottom))}',
     `button,iframe{position:fixed;z-index:2147483000;${side}:24px}`,
-    `button{bottom:var(--b);display:flex;align-items:center;gap:9px;height:54px;padding:0 20px 0 17px;border:0;border-radius:99px;background:${accent};color:${text};font:600 15px system-ui;box-shadow:0 8px 24px #0004;cursor:pointer}`,
+    `button{bottom:${lifted(place.desktop.lift)};display:flex;align-items:center;gap:9px;height:54px;${icon ? ICON_BUTTON : 'padding:0 20px 0 17px'};border:0;border-radius:99px;background:${accent};color:${text};font:600 15px system-ui;box-shadow:0 8px 24px #0004;cursor:pointer}`,
+    icon ? 'span{display:none}' : '',
     'svg{width:22px;height:22px}',
     `i{position:absolute;top:-5px;${side}:-5px;min-width:11px;padding:0 5px;border-radius:99px;background:#191d25;color:#fff;font:700 11px/21px system-ui;text-align:center;box-shadow:0 0 0 2px #fff}`,
     'iframe{bottom:20px;width:380px;height:min(704px,100% - 40px);border:0;border-radius:16px;box-shadow:0 24px 60px #0004}',
     // A replaced element doesn't stretch between top and bottom, so the sheet's height is written out.
-    `@media(max-width:480px){:host{--b:max(16px,env(safe-area-inset-bottom))}button{${side}:16px}iframe{inset:env(safe-area-inset-top) 0 auto;width:100%;height:calc(100% - env(safe-area-inset-top) - env(safe-area-inset-bottom));border-radius:0;box-shadow:0 0 0 99vmax ${accent}}}`,
+    `@media(max-width:480px){:host{--b:max(16px,env(safe-area-inset-bottom))}button{${phone}}${phoneMore}iframe{inset:env(safe-area-inset-top) 0 auto;width:100%;height:calc(100% - env(safe-area-inset-top) - env(safe-area-inset-bottom));border-radius:0;box-shadow:0 0 0 99vmax ${accent}}}`,
     '[hidden]{display:none!important}',
   ].join('');
 }
@@ -67,7 +105,7 @@ const BODY =
   'hs=()=>z.hash=="#hfos-chat"&&op(),' +
   'mk=()=>{h=c("hfos-chat");r=h.attachShadow({mode:"closed"});' +
   'r.innerHTML="<style>"+C+"</style><button type=button>"+I+"<span></span><i hidden></i></button>";' +
-  '[b,g]=r.querySelectorAll("button,i");b.children[1].textContent=L;b.onclick=op;' +
+  '[b,g]=r.querySelectorAll("button,i");b.children[1].textContent=b.ariaLabel=L;b.onclick=op;' +
   'b.onpointerenter=b.onfocus=()=>{if(!k)k=c("link"),k.rel="preconnect",k.href=A,d.head.append(k)};d.body.append(h);hs()},' +
   'go=()=>(w.requestIdleCallback||setTimeout)(mk,{timeout:3e3});' +
   'a("message",x=>{let q=x.data,n;if(x.source!=f?.contentWindow||x.origin!=A||!q?.hfos)return;y=1;clearTimeout(t);' +
@@ -79,14 +117,14 @@ const json = (v: string) => JSON.stringify(v);
 
 /** The loader for one widget, its look written in (the route keeps it for 5 minutes). */
 export function loaderScript(o: LoaderOptions): string {
-  const accent = /^#[0-9a-f]{6}$/i.test(o.accent) ? o.accent.toLowerCase() : '#2d69d8';
-  const side = o.position === 'left' ? 'left' : 'right';
+  const { accent, accentText } = chatColorsOf({ accentColor: o.accent, textColor: o.text });
+  const placement = o.placement ?? chatPlacementOf({ position: o.position });
   const consts = [
     `A=${json(o.app)}`,
     `K=${json(o.key)}`,
     `V=${json(o.preview ? `&preview=${o.preview}` : '')}`,
     `L=${json(o.label)}`,
-    `C=${json(styles(accent, readableTextOn(accent), side))}`,
+    `C=${json(styles(accent, accentText, placement))}`,
     `I=${json(ICON)}`,
   ].join(',');
   return `/*HandsFreeOS chat v1*/{const ${consts};${BODY}}\n`;

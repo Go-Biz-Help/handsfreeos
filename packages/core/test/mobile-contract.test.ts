@@ -140,9 +140,13 @@ const ONLINE_COMMANDS = [
   'outreach.friend.set',
   'outreach.client.set',
   'outreach.later.set',
+  // Cancel all, under Today's note when no new requests go for now (decision 121).
+  'outreach.friends.cancel_all',
   // Where someone stands, from the Pipeline screen (decision 47), and on the Partners list (decision 81).
   'outreach.stage.mark',
   'outreach.partner.mark',
+  // Potential partner, and Not a partner after all, from the person menu (decision 130).
+  'outreach.partner.potential',
   // Today's helpful post (decision 50): ask for it, OK it for the computer, say it's up, or put it aside.
   'outreach.helpful.ask',
   'outreach.helpful.ok',
@@ -169,6 +173,11 @@ const ONLINE_COMMANDS = [
   'outreach.demo.outcome',
   // A group or a person given to a teammate, on a group's page and the person menu (decision 107).
   'outreach.owner.move',
+  // Retry, and Retry all, on what didn't go, from Steps it needs you for (decision 132), and on any step (145).
+  'outreach.send.retry',
+  'outreach.need.retry',
+  // Start again, under Today's note on a network's monthly limit (decision 147).
+  'outreach.requests.start_again',
   // Feedback on the AI teammate's replies (HANDSFREEOS_AI_FEEDBACK_IMPLEMENTATION_PLAN.md), in a conversation and the
   // test console: a thumbs up or down, the answer to its quick question, and Not now on the rule it suggests.
   'ai_teammate.give_feedback',
@@ -198,6 +207,7 @@ const EXTENSION_COMMANDS = [
   'outreach.friend.note',
   'outreach.friend.end',
   'outreach.warning.note',
+  'outreach.requests.pause',
   'outreach.live.beat',
   'outreach.need.note',
   'outreach.ask.end',

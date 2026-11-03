@@ -135,7 +135,7 @@ export function PartnersBody({
 }) {
   const everyone = list ? PARTNER_STAGE_KEYS.reduce((n, s) => n + list.counts[s], 0) : 0;
   return (
-    <OutreachFrame tab="people" people="partners" testID="outreach-partners">
+    <OutreachFrame page="people" list={{ list: 'partners' }} testID="outreach-partners">
       <Note>{P.about}</Note>
       <ScrollView horizontal showsHorizontalScrollIndicator={false}>
         <View className="flex-row gap-1.5">
@@ -210,6 +210,11 @@ function PartnerCard({
       <View className="flex-row flex-wrap items-center gap-2">
         <Text className="text-[15px] font-semibold">{p.name}</Text>
         <NetworkName platform={p.platform} />
+        {p.marked ? (
+          <Badge variant="gray" testID="partner-marked">
+            <Text>{P.markedBadge}</Text>
+          </Badge>
+        ) : null}
         {p.fit === 'maybe' ? (
           <Badge variant="gray">
             <Text>{PARTNER_FITS.maybe}</Text>

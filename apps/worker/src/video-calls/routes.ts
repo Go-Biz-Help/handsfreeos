@@ -14,8 +14,12 @@
  *   anyone else on the call's link (the team's own address) asks to be let in, and their page asks how it stands.
  *   The page keeps a random key and only its hash is stored, so only that page can ask, or come in. What the page
  *   shows is the business's name and look, never the appointment's title: the link may have been passed on.
+ * - `POST /public/calls/data`: a call screen (the team's or a customer's, web or phone) says what it has downloaded
+ *   so far on its connection, every minute and as it leaves (core's `watchCallData`). It comes with the ticket the
+ *   screen joined on, so it can only speak for itself. Kept for what the call used (`video_call.data`).
  * - `POST /webhooks/livekit`: LiveKit's word on who came and went and when a room closed, checked against our key
- *   and stored, then worked through in order (reports.ts).
+ *   and stored, then worked through in order (reports.ts). The AI's listener's comings and goings are kept too: LiveKit
+ *   bills its connection like anyone's.
  */
 import { createHash, randomUUID } from 'node:crypto';
 import rateLimit from '@fastify/rate-limit';
@@ -27,11 +31,15 @@ import {
   HfosError,
   hostFirstName,
   isPersonIdentity,
+  LISTENER_IDENTITY,
+  videoCallData,
   videoCallEnter,
   videoCallJoin,
   videoCallKnock,
   videoCallKnockStatus,
   videoCallLinkOpens,
+  videoCallPollAnswer,
+  videoCallPollNow,
   videoCallRoom,
   videoCallStart,
   type RequestMeta,
@@ -53,6 +61,15 @@ const WEBHOOK_MAX_BYTES = 64 * 1024;
 const Key = z.string().regex(/^[0-9A-Za-z_-]{32,128}$/, 'Refresh the page and try again.');
 const Name = z.string().trim().min(1, 'Type your name.').max(120);
 const Id = z.uuid();
+
+/** A body sent as text (sendBeacon's), read as JSON; anything else is left for the schema to refuse. */
+const safeJson = (text: string): unknown => {
+  try {
+    return JSON.parse(text) as unknown;
+  } catch {
+    return null;
+  }
+};
 
 /** The hash a waiting page's key is kept as. */
 export const knockKeyHash = (key: string): string => createHash('sha256').update(key).digest('hex');
@@ -107,6 +124,8 @@ export async function registerVideoCallRoutes(app: FastifyInstance, deps: HttpDe
   const polling = { max: 40 * factor, timeWindow: '1 minute' };
   const looking = { max: 30 * factor, timeWindow: '1 minute' };
   const knocking = { max: 10 * factor, timeWindow: '1 minute' };
+  // A call screen reports once a minute; a whole office on one address in a webinar is many screens.
+  const reporting = { max: 240 * factor, timeWindow: '1 minute' };
 
   // ---------- the team ----------
 
@@ -131,6 +150,7 @@ export async function registerVideoCallRoutes(app: FastifyInstance, deps: HttpDe
       identity: joined.personId,
       name: joined.name,
       kind: 'team',
+      rights: joined.rights,
     });
     return { workspaceId: scope.workspaceId, ...joined, ticket };
   });
@@ -219,6 +239,7 @@ export async function registerVideoCallRoutes(app: FastifyInstance, deps: HttpDe
             identity: said.personId,
             name: said.name,
             kind: 'customer',
+            rights: said.rights,
           });
           return { ...said, ticket };
         };
@@ -380,10 +401,126 @@ export async function registerVideoCallRoutes(app: FastifyInstance, deps: HttpDe
           identity: personId,
           name: stands.name,
           kind: 'guest',
+          rights: stands.rights,
         });
         return { ...stands, ticket };
       },
     );
+
+    // ---------- a live poll, for a customer in the call on their own link (webinars, part 2) ----------
+
+    /** The call a customer's own link is for, and who they are. */
+    const callOfLink = async (token: string) => {
+      const link = await resolveCustomerLink(deps.httpDb, deps.bookingLinks, token);
+      if (!link) throw joinNotFound();
+      const { scope } = link;
+      const [c] = await asWorker(deps.httpDb, scope, (tx) =>
+        link.kind === 'call'
+          ? rows<{ call_id: string; person_id: string | null }>(
+              tx,
+              sql`select id as call_id, person_id from app.video_calls where id = ${link.callId}`,
+            )
+          : rows<{ call_id: string; person_id: string | null }>(
+              tx,
+              sql`select c.id as call_id, aa.person_id
+                  from app.appointment_attendees aa
+                  join app.video_calls c on c.appointment_id = aa.appointment_id
+                  where aa.id = ${link.attendeeId}`,
+            ),
+      );
+      if (!c) throw joinNotFound();
+      return { link, scope, callId: c.call_id, personId: c.person_id };
+    };
+
+    pub.get<{ Params: { token: string } }>(
+      '/public/join/:token/poll',
+      { config: { rateLimit: looking } },
+      async (req, reply) => {
+        void reply.header('cache-control', 'no-store').header('referrer-policy', 'no-referrer');
+        const { scope, callId, personId } = await callOfLink(req.params.token);
+        const now = await executeQuery(
+          deps.httpDb,
+          videoCallPollNow,
+          { workspaceId: scope.workspaceId, callId, personId },
+          systemActor(scope),
+          meta('booking_page'),
+        );
+        // A book button goes to the business's own booking page, on its own address.
+        if (now.poll?.button?.action === 'book' && now.bookPath) {
+          const origin = await asWorker(deps.httpDb, scope, (tx) =>
+            publicOrigin(tx, scope.workspaceId, deps.bookingLinks.webUrl),
+          );
+          return {
+            ...now,
+            poll: { ...now.poll, button: { ...now.poll.button, url: `${origin}${now.bookPath}` } },
+          };
+        }
+        return now;
+      },
+    );
+
+    pub.post<{ Params: { token: string } }>(
+      '/public/join/:token/poll',
+      { config: { rateLimit: looking } },
+      async (req, reply) => {
+        void reply.header('cache-control', 'no-store').header('referrer-policy', 'no-referrer');
+        const body = parseBody(z.object({ pollId: Id, value: z.unknown() }), req.body);
+        const { link, scope, personId } = await callOfLink(req.params.token);
+        if (link.kind === 'call' && !personId) throw joinNotFound();
+        const { output } = await executeCommand(
+          deps.httpDb,
+          videoCallPollAnswer,
+          {
+            workspaceId: scope.workspaceId,
+            pollId: body.pollId,
+            ...(link.kind === 'booking'
+              ? { attendeeId: link.attendeeId }
+              : { personId: personId! }),
+            value: body.value,
+          },
+          systemActor(scope),
+          meta('booking_page'),
+        );
+        return output;
+      },
+    );
+
+    // ---------- what a call screen downloaded ----------
+
+    pub.post('/public/calls/data', { config: { rateLimit: reporting } }, async (req, reply) => {
+      void reply.header('cache-control', 'no-store');
+      const body = parseBody(
+        z.object({
+          ticket: z.string().min(1).max(8192),
+          sid: z.string().trim().min(1).max(100),
+          bytes: z.int().min(0).max(Number.MAX_SAFE_INTEGER),
+        }),
+        // Sent as the page closes, with sendBeacon's text body.
+        typeof req.body === 'string' ? safeJson(req.body) : req.body,
+      );
+      const who = deps.videoCalls ? await deps.videoCalls.readTicket(body.ticket) : null;
+      const callId = who ? callIdOfRoom(who.room) : null;
+      if (!who || !callId || !isPersonIdentity(who.identity)) return reply.code(204).send();
+      const scope = await callScope(deps, callId);
+      if (!scope) return reply.code(204).send();
+      await executeCommand(
+        deps.httpDb,
+        videoCallData,
+        {
+          workspaceId: scope.workspaceId,
+          callId,
+          personId: who.identity,
+          participantSid: body.sid,
+          bytes: body.bytes,
+        },
+        systemActor(scope),
+        meta('worker'),
+      ).catch((e: unknown) => {
+        // The call went with its appointment, deleted for good: nothing to keep.
+        if (!(e instanceof HfosError && e.status === 404)) throw e;
+      });
+      return reply.code(204).send();
+    });
   });
 
   // ---------- LiveKit's webhooks ----------
@@ -408,8 +545,13 @@ export async function registerVideoCallRoutes(app: FastifyInstance, deps: HttpDe
       }
       if (report.event === 'other') return reply.code(200).send();
       const callId = callIdOfRoom(report.room);
-      // A room that isn't one of our calls, or the AI's listener coming and going: nothing to keep.
-      if (!callId || (report.event !== 'finished' && !isPersonIdentity(report.identity)))
+      // A room that isn't one of our calls, or someone who is neither one of its people nor the AI's listener.
+      if (
+        !callId ||
+        (report.event !== 'finished' &&
+          !isPersonIdentity(report.identity) &&
+          report.identity !== LISTENER_IDENTITY)
+      )
         return reply.code(200).send();
       const scope = await callScope(deps, callId);
       if (!scope) return reply.code(200).send();

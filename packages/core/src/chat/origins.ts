@@ -88,9 +88,17 @@ export function normalizeChatOrigin(raw: string): ChatOriginResult {
 /**
  * Every typed site as exact origins, each followed by its www (or bare) twin, without repeats. Blank entries
  * are skipped. Refusals name the entry they're about; the list itself needs 1 to MAX_CHAT_ORIGINS sites once
- * the twins are in.
+ * the twins are in (0 is fine for a form, which may be embedded nowhere). A form's sites go through this too.
  */
-export function normalizeChatOrigins(inputs: readonly string[]): {
+export function normalizeChatOrigins(
+  inputs: readonly string[],
+  options: {
+    /** An empty list is fine (a form embedded nowhere); a chat needs a site. */
+    readonly allowNone?: boolean;
+    /** What shows on the sites, for the words: "A chat" or "A form". */
+    readonly what?: string;
+  } = {},
+): {
   readonly origins: string[];
   readonly issues: ChatOriginIssue[];
 } {
@@ -108,17 +116,23 @@ export function normalizeChatOrigins(inputs: readonly string[]): {
       if (r.twin) add(r.twin);
     }
   });
-  if (issues.length === 0 && origins.length === 0)
+  if (!options.allowNone && issues.length === 0 && origins.length === 0)
     issues.push({ index: null, message: 'Add the website the chat goes on, like acme.com.' });
   if (origins.length > MAX_CHAT_ORIGINS)
     issues.push({
       index: null,
-      message: `A chat can show on up to ${MAX_CHAT_ORIGINS} sites, counting the www versions added for you. This list makes ${origins.length}.`,
+      message: `${options.what ?? 'A chat'} can show on up to ${MAX_CHAT_ORIGINS} sites, counting the www versions added for you. This list makes ${origins.length}.`,
     });
   return { origins, issues };
 }
 
 /** A widget's name in lists: the first site it shows on ("lonestarhvac.com"). */
+/** What a chat is called: the name the business gave it, or else its first site. */
+export const chatShownName = (
+  name: string | null | undefined,
+  origins: readonly string[],
+): string => name?.trim() || chatWidgetName(origins);
+
 export function chatWidgetName(origins: readonly string[]): string {
   const first = origins[0];
   if (!first) return 'Website chat';

@@ -32,7 +32,7 @@ import { useCan } from '@/components/shell/workspace-shell';
 import { apiBrowser, unwrap } from '@/lib/api/client';
 import { cn } from '@/lib/utils';
 import { outreachHref } from './address';
-import { NetworkFilterControl, NetworkName } from './network-ui';
+import { NetworkName } from './network-ui';
 import type { PartnerListRow, Partners } from './types';
 import { useAct } from './use-act';
 
@@ -52,11 +52,11 @@ export function PartnersView({
 }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
-  const go = (to: { partners?: PartnerView; net?: Platform | null; page?: number }) => {
+  const go = (to: { partners?: PartnerView; page?: number }) => {
     const href = outreachHref(workspaceId, {
       view: 'partners',
       partners: to.partners ?? show,
-      net: to.net === undefined ? net : to.net,
+      net,
       page: to.page ?? 1,
     });
     startTransition(() => router.replace(href, { scroll: false }));
@@ -85,7 +85,6 @@ export function PartnersView({
             }))}
           />
         </div>
-        <NetworkFilterControl value={net} onChange={(n) => go({ net: n })} />
       </div>
       <div
         className={cn('transition-opacity', pending && 'opacity-60')}
@@ -190,6 +189,11 @@ function PartnerItem({
           </div>
         </div>
         <span className="flex items-center gap-1.5">
+          {p.marked ? (
+            <Badge variant="gray" data-testid="partner-marked">
+              {P.markedBadge}
+            </Badge>
+          ) : null}
           {p.fit === 'maybe' ? <Badge variant="gray">{PARTNER_FITS.maybe}</Badge> : null}
           <span className="text-[12.5px] text-text-2" data-testid="partner-stage">
             {P.since(p.stage, p.stageAt)}

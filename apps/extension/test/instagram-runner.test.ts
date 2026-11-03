@@ -50,6 +50,7 @@ const world = vi.hoisted(() => ({
     start: number;
     end: number;
     days: number[];
+    everyDay?: boolean;
   },
 }));
 
@@ -326,12 +327,20 @@ const sentOn = (sent: string[]) => (doc: Document) => {
 // ------------------------------------------------------------------------------------------------- the day
 
 const today = () => new Date().toLocaleDateString('en-CA', { timeZone: 'America/Chicago' });
-/** Working hours that leave out today: nothing goes on its own unless a test says. */
+/**
+ * Working hours that leave out today: nothing goes on its own unless a test says. Only on their working days, or
+ * the day goes on its own every day (decision 139) and what it says waits on the clock.
+ */
 const notToday = () => {
   const weekday = new Date(
     new Date().toLocaleString('en-US', { timeZone: 'America/Chicago' }),
   ).getDay();
-  return { start: 9, end: 17, days: [0, 1, 2, 3, 4, 5, 6].filter((d) => d !== weekday) };
+  return {
+    start: 9,
+    end: 17,
+    days: [0, 1, 2, 3, 4, 5, 6].filter((d) => d !== weekday),
+    everyDay: false,
+  };
 };
 const ALL_DAY = { start: 0, end: 24, days: [0, 1, 2, 3, 4, 5, 6] };
 const day = (state: 'none' | 'started' | 'stopped') => ({
@@ -457,8 +466,8 @@ describe('what it does on Instagram’s list', () => {
       sending: 'steps',
     } as never;
     expect(instagramWorkLeft(list, []).map((w) => w.item.kind)).toEqual([
-      'warm_up',
       'friend_request',
+      'warm_up',
     ]);
     // The newest followers first, then who followed back seen on their accounts, the checks, the chats, Find
     // partners, the hashtags and the notifications.
@@ -874,7 +883,12 @@ describe('a warm-up on Instagram', () => {
     };
     expect(
       await doWork({ do: 'step', item: item({ kind: 'warm_up' }) }, ME.businessId, true, 3),
-    ).toEqual({ done: false, line: 'Couldn’t like Dana Reyes’s post: the follow goes without' });
+    ).toEqual({
+      done: false,
+      line: 'Couldn’t like Dana Reyes’s post: the follow goes without',
+      // Worth the AI helper's look, though it isn't handed over (decision 142).
+      look: true,
+    });
     expect(likes).toEqual([]);
     world.pages = () => ({ html: accountHtml({ username: 'sam.lee' }), at: `${IG}/sam.lee/` });
     expect(
@@ -916,6 +930,7 @@ describe('a follow on Instagram', () => {
     expect(await doWork({ do: 'step', item: item({}) }, ME.businessId, true)).toEqual({
       done: false,
       line: 'Dana Reyes: you follow them already, or asked to',
+      skip: true,
     });
     vi.useFakeTimers({ toFake: ['setTimeout'] });
     try {
@@ -1083,6 +1098,48 @@ describe('a message on Instagram', () => {
       ]);
       expect(left!.textContent).toBe('');
     });
+
+  // The owner's sends of 30 Oct 2026, on 0.117.0: followers not followed back had only Follow Back, no Message.
+  it('follows back someone who follows you when their account shows no Message, then messages them (decision 135)', async () => {
+    world.pages = (url) => (url === DANA ? { html: accountHtml() } : null);
+    const sent: { to: string; text: string }[] = [];
+    world.behave = (doc) => {
+      doc.querySelector('main')!.insertAdjacentHTML('beforeend', TABS);
+      doc.querySelector('#message')!.remove();
+      const follow = doc.querySelector('#follow')!;
+      follow.firstElementChild!.textContent = 'Follow Back';
+      follow.addEventListener('click', () => {
+        follow.firstElementChild!.textContent = 'Following';
+        follow.insertAdjacentHTML('afterend', '<div role="button" id="message">Message</div>');
+        doc.querySelector('#message')!.addEventListener('click', () => {
+          doc.body.insertAdjacentHTML('beforeend', chatOver('Dana Reyes', '/dana.reyes/'));
+          sendsOwn(doc, sent);
+        });
+      });
+    };
+    expect(await sendFromAccount()).toEqual({ done: true, line: 'Sent Dana Reyes a message' });
+    expect(sent).toEqual([{ to: 'Dana Reyes', text: 'Glad to help, Dana.\n\nWant the details?' }]);
+    expect(notedAs().map((n) => [n.kind, n.auto])).toEqual([
+      ['friend_request', true],
+      ['message', true],
+    ]);
+  });
+
+  it('follows nobody and says so when their account shows no Message and they don’t follow you', async () => {
+    world.pages = (url) => (url === DANA ? { html: accountHtml() } : null);
+    let followed = false;
+    world.behave = (doc) => {
+      doc.querySelector('main')!.insertAdjacentHTML('beforeend', TABS);
+      doc.querySelector('#message')!.remove();
+      doc.querySelector('#follow')!.addEventListener('click', () => (followed = true));
+    };
+    expect(await sendFromAccount()).toEqual({
+      done: false,
+      line: 'Dana Reyes: couldn’t find Message on their account',
+    });
+    expect(followed).toBe(false);
+    expect(world.noted).toEqual([]);
+  });
 
   it('never types into a chat left open from someone else, though it names nobody or its messages link to them', async () => {
     for (const leftOpen of [
@@ -1602,14 +1659,82 @@ describe('its day', () => {
     expect(store.get(WARNED_KEY)).toMatchObject({ instagram: { day: expect.any(String) } });
   });
 
-  it('waits outside the working hours with nothing pressed, waking at their start', async () => {
+  it('waits outside the working hours with nothing pressed, waking at their start: nothing new goes (decision 133)', async () => {
     keep(day('none'));
+    // A step and a first message OK'd wait for the hours; only a reply goes outside them.
+    world.answers['/v1/queries/outreach.today'] = () => ({
+      items: [
+        item({}),
+        item({
+          kind: 'opener',
+          send: {
+            sendId: '9b6f5c4d-3e2a-4b1c-8d9e-0f1a2b3c4d5e',
+            state: 'approved',
+            text: 'Hi Dana',
+            handedOver: false,
+            needsYou: null,
+          },
+        } as Partial<TodayListItem>),
+      ],
+      auto: ['warm_up', 'friend_request'],
+      messages: ['opener', 'reply'],
+      sending: 'steps',
+      partners: [],
+      limits: { like: { done: 0, most: 30 } },
+    });
     await instagramTick();
     expect(world.opened).toEqual([]);
-    expect(alarms.get('hfos-auto-instagram')).toBeGreaterThan(Date.now());
+    expect(alarms.get('hfos-auto-instagram')).toBeGreaterThan(Date.now() + 60 * 60_000);
     expect((store.get(INSTAGRAM_STATE_KEY) as { line: string }).line).toBe(
       'Starts on its own on Instagram tomorrow at 9:00 AM. To start now, press Start my day for Instagram on Today in HandsFreeOS.',
     );
+  });
+
+  it('answers someone who wrote back outside the working hours, then looks soon for the reply OK’d (decision 133)', async () => {
+    keep(day('none'));
+    const reply = item({ kind: 'reply' });
+    const listOf = (items: TodayListItem[]) => ({
+      items,
+      auto: ['warm_up', 'friend_request'],
+      messages: ['reply'],
+      sending: 'steps',
+      partners: [],
+      limits: { like: { done: 0, most: 30 } },
+    });
+    world.answers['/v1/queries/outreach.today'] = () => listOf([reply]);
+    world.answers['/v1/commands/outreach.send.queue'] = () => ({ state: 'waiting' });
+    world.pages = (url) => (url === DANA ? { html: accountHtml() } : null);
+    world.hfos['hfos-draft'] = () => ({
+      drafts: ['Glad it helped, Dana. Want to look at Tuesday?'],
+      kind: 'reply',
+      opener: null,
+      simple: false,
+    });
+    await instagramTick();
+    expect(world.asked.find((a) => a.type === 'hfos-draft')?.input).toMatchObject({
+      kind: 'reply',
+    });
+    expect((store.get(INSTAGRAM_STATE_KEY) as { line: string }).line).toBe(
+      'Wrote a message to Dana Reyes: it waits for your OK',
+    );
+    // Drafted, it waits for their OK: the runner looks again in a couple of minutes, not at the hours' start.
+    world.answers['/v1/queries/outreach.today'] = () =>
+      listOf([
+        {
+          ...reply,
+          send: {
+            sendId: '9c6f5c4d-3e2a-4b1c-8d9e-0f1a2b3c4d5e',
+            state: 'waiting',
+            text: 'Glad it helped, Dana. Want to look at Tuesday?',
+            handedOver: false,
+            needsYou: null,
+          },
+        },
+      ]);
+    const before = Date.now();
+    await instagramTick();
+    expect(alarms.get('hfos-auto-instagram')).toBeGreaterThanOrEqual(before + 2 * 60_000);
+    expect(alarms.get('hfos-auto-instagram')).toBeLessThanOrEqual(Date.now() + 2 * 60_000);
   });
 
   it('waits after Stop for today till the working hours of a later day', async () => {

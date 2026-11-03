@@ -11,10 +11,14 @@
  * - **Joining** (decision 31): when it's low, or the person asks, the extension searches for groups with the
  *   playbook's words, checks them, and asks to join up to 3 a day of those the AI calls good (or that fit well by name
  *   while it hasn't read them yet). The AI answers the group's questions from the playbook, on its own.
+ * - **Only the groups I'm in** (decision 148, `onlyMyGroups`): the person's other pick on a network with groups.
+ *   Nothing is joined or searched for on its own, the AI reads only groups they're in, and people left to reach and the
+ *   day's requests count only those groups. Their own Find and join more groups still joins.
  *
  * Browser-safe: the extension, the web, the phone and the worker read these words and shapes.
  */
 import { z } from 'zod';
+import { SearchRound } from './goal';
 import { quoteData } from '../../knowledge/prompt';
 import { inNetworkWords, NETWORKS, PLATFORM_KEYS, withArticle, type Platform } from './networks';
 import type { PlaybookDetails } from './playbooks';
@@ -61,6 +65,11 @@ export const GROUP_WHO_MOST = 200;
 export const JOINS_PER_DAY = Math.max(...PLATFORM_KEYS.map((p) => NETWORKS[p].joinsPerDay ?? 0));
 /** Fewer people left to reach than this many days of friend requests is low: time to find more groups. */
 export const LOW_DAYS = 7;
+/**
+ * A group's member list is read further down each day (decision 148): how many screens down a read may carry on from,
+ * so a big group is worked right through instead of its first screens again. Past it, the next read starts at the top.
+ */
+export const MEMBER_DEPTH_MOST = 40;
 /** The questions a group asks, and how long each and its answer. */
 export const JOIN_QUESTIONS_MOST = 10;
 export const JOIN_QUESTION_MOST = 500;
@@ -301,10 +310,10 @@ export function prospectsLeft(left: number, perDay: number): ProspectsLeft {
 /** "About 120 people left to reach in your groups: 6 days of friend requests." */
 export function prospectsWords(p: ProspectsLeft, joinsOnItsOwn: boolean): string {
   const people = `${p.left.toLocaleString('en-US')} ${p.left === 1 ? 'person' : 'people'}`;
-  // Only while the person lets it join on its own does the extension find more by itself.
+  // Only while the person lets it join on its own does the extension find more by itself (decision 148).
   const more = joinsOnItsOwn
     ? 'The extension finds more groups and asks to join the good ones.'
-    : 'Press Find and join more groups, or let it join on its own in Settings.';
+    : 'You’re working only the groups you’re in: press Find and join more groups, or pick joining more in Settings.';
   if (!p.left) return `Nobody left to reach in your groups. ${more}`;
   const days = p.days === 1 ? '1 day' : `${p.days.toLocaleString('en-US')} days`;
   const head = `${people} left to reach in your groups: about ${days} of friend requests.`;
@@ -320,6 +329,8 @@ export const JoinsNextInput = z.object({
   most: z.number().int().min(1).max(JOINS_PER_DAY).default(JOINS_PER_DAY),
   /** Only these groups, the person's pick: else the best not joined yet. */
   groupIds: z.array(z.uuid()).min(1).max(JOINS_PER_DAY).optional(),
+  /** Which of the day's searches (decision 126): each again takes the next words. */
+  round: SearchRound,
 });
 export type JoinsNextInput = z.input<typeof JoinsNextInput>;
 export const JoinsNextOutput = z.object({
@@ -337,6 +348,11 @@ export const JoinsNextOutput = z.object({
   anywhere: z.boolean().default(false),
   /** The person lets it join on its own when people left to reach run low (`joinGroups`). */
   onItsOwn: z.boolean(),
+  /**
+   * The day's first messages need more good fits there (decision 126, answer 6a): it joins as when people left run low.
+   * None from a server before it.
+   */
+  more: z.boolean().default(false),
 });
 export type JoinsNextOutput = z.output<typeof JoinsNextOutput>;
 

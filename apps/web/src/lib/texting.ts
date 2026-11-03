@@ -66,7 +66,11 @@ export async function loadTexting(
   }));
   // A paused widget is not a page a reviewer can open, and a form that was never published is not either,
   // so neither counts as a live surface however recently it was made.
-  const liveWidget = widgets.items.find((w) => !w.paused) ?? null;
+  // With more than one chat, the one offering the box to get texts is the registration's.
+  const liveWidget =
+    widgets.items.find((w) => !w.paused && w.smsConsent) ??
+    widgets.items.find((w) => !w.paused) ??
+    null;
   const liveForm = forms.items.find((f) => f.status === 'live') ?? null;
   const settings = (got.workspace.settings ?? {}) as Record<string, unknown>;
   // Settings → Workspace's website, which setup's quick questions fill in too. Without one, the business's simple
@@ -95,8 +99,21 @@ export async function loadTexting(
     surfaces: {
       siteSlug: site.site?.slug ?? null,
       chatPublicKey: liveWidget?.publicKey ?? null,
+      // The registration's chat: whether it already asks for details with the texts box, its sites, and whether
+      // it's been seen on them.
+      chat: liveWidget
+        ? {
+            id: liveWidget.id,
+            smsConsent: liveWidget.smsConsent,
+            askFor: liveWidget.askFor,
+            allowedOrigins: liveWidget.allowedOrigins,
+            install: liveWidget.install,
+          }
+        : null,
       contactFormSlug: liveForm?.slug ?? null,
       bookingEnabled: site.site?.enabled ?? false,
+      // The chat's code loads from the business's own domain once one is serving, as Settings → Website chat's does.
+      snippetOrigin: brandedOrigin,
     },
   };
 }

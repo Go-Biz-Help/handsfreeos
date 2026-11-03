@@ -32,6 +32,24 @@ export function splitName(full: string): NameParts {
     : { firstName: trimmed.slice(0, cut), lastName: trimmed.slice(cut + 1) };
 }
 
+const SENDER_QUOTES = new Set(['"', "'", '“', '”', '‘', '’']);
+
+/**
+ * The name an email's From line gave, as a new contact's name, or nothing: what's between quotes is kept, and a "name"
+ * that is only the address again, or has no letter in it, is no name.
+ */
+export function nameFromSender(raw: string | null | undefined): string | null {
+  // Quotes are peeled off one at a time: a regex anchored at the end slows down on a long run of them.
+  const quoted = (raw ?? '').trim();
+  let start = 0;
+  let end = quoted.length;
+  while (start < end && SENDER_QUOTES.has(quoted[start]!)) start++;
+  while (end > start && SENDER_QUOTES.has(quoted[end - 1]!)) end--;
+  const name = quoted.slice(start, end).trim().replace(/\s+/g, ' ');
+  if (!name || name.includes('@') || !/\p{L}/u.test(name)) return null;
+  return name.slice(0, 160);
+}
+
 /** The two halves back into one line, for showing what was saved. */
 export const joinName = (name: NameParts): string =>
   `${name.firstName} ${name.lastName}`.trim().replace(/\s+/g, ' ');
@@ -103,4 +121,24 @@ export const CONTACT_EDIT_WORDS = {
   duplicate: 'Somebody already has this number. Link the conversation to them instead.',
   /** Out to the full form, for the times you have the address and the company too. */
   moreDetails: 'Add more details instead',
+} as const;
+
+/**
+ * Adding or linking whoever wrote, from their conversation (the owner, 2026-10-29: "quickly create a new contact from
+ * it or assign that email to an existing contact"), on both apps.
+ */
+export const SENDER_WORDS = {
+  add: 'Add to Contacts',
+  link: 'Link to a contact',
+  linkTo: (name: string) => `Link to ${name}`,
+  /** Somebody already has the address: linking them is what's wanted, not adding a second one. */
+  known: (name: string) => `${name} already has this email address.`,
+  linkSomeoneElse: 'Link to someone else',
+  /** The phone's sheet for picking who it is. */
+  linkTitle: 'Link to a contact',
+  linkDescription: (counterpart: string) => `${counterpart} joins their record and timeline.`,
+  search: 'Search by name, number or email',
+  nobody: (typed: string) => `No one matches “${typed}”.`,
+  /** Done. */
+  linked: (name: string) => `Linked to ${name}.`,
 } as const;

@@ -26,6 +26,7 @@ import {
   type HfosValues,
   type Problem,
 } from './messages';
+import type { HelperLookOutput, HelperWaysOutput } from '@hfos/core/addons/outreach/helper';
 import { checkPrompt, PromptRefused, startPrompt } from './prompt';
 import { outreachBusinesses } from './saves';
 
@@ -443,13 +444,22 @@ async function value(ask: SessionAsk): Promise<HfosValues[SessionAsk['type']]> {
     case 'hfos-post-words':
       return call(
         api().POST('/v1/queries/outreach.posts.words', {
-          body: { workspaceId: ask.workspaceId, platform: ask.platform },
+          body: {
+            workspaceId: ask.workspaceId,
+            platform: ask.platform,
+            ...(ask.round ? { round: ask.round } : {}),
+          },
         }),
         ask.workspaceId,
       );
     case 'hfos-friend-end':
       return call(
         api().POST('/v1/commands/outreach.friend.end', { body: ask.input }),
+        ask.input.workspaceId,
+      );
+    case 'hfos-friend-note':
+      return call(
+        api().POST('/v1/commands/outreach.friend.note', { body: ask.input }),
         ask.input.workspaceId,
       );
     case 'hfos-report':
@@ -641,6 +651,30 @@ async function value(ask: SessionAsk): Promise<HfosValues[SessionAsk['type']]> {
           workspaceId: ask.workspaceId,
           input: ask.input,
         }),
+        ask.workspaceId,
+      );
+    case 'hfos-helper-look':
+      return call(
+        workerPost<HelperLookOutput>('/v1/addons/outreach/actions/outreach.helper.look', {
+          workspaceId: ask.workspaceId,
+          input: ask.input,
+        }),
+        ask.workspaceId,
+      );
+    case 'hfos-helper-ways':
+      return call(
+        workerPost<HelperWaysOutput>('/v1/addons/outreach/actions/outreach.helper.ways', {
+          workspaceId: ask.workspaceId,
+          input: ask.input,
+        }),
+        ask.workspaceId,
+      );
+    case 'hfos-helper-way':
+      return call(
+        workerPost<{ trusted: boolean; removed: boolean }>(
+          '/v1/addons/outreach/actions/outreach.helper.way',
+          { workspaceId: ask.workspaceId, input: ask.input },
+        ),
         ask.workspaceId,
       );
     case 'hfos-draft':

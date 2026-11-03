@@ -10,9 +10,12 @@ import {
   formatLocalDate,
   isClock,
   isLocalDate,
+  localDateOf,
   localInstant,
+  parseClock,
   parseLocalDate,
   weekdayOf,
+  zonedParts,
 } from './zoned';
 
 export const MAX_OCCURRENCES = 52;
@@ -106,4 +109,22 @@ export function expandRecurrence(
     date,
     startsAt: localInstant(date, rule.localTime, timeZone),
   }));
+}
+
+/**
+ * Occurrences of a series whose first visit is the instant `firstAt`. In a fall-back hour the clock time happens
+ * twice and `localInstant` takes the later one, so the first visit keeps the instant it was offered.
+ */
+export function expandRecurrenceFrom(
+  rule: RecurrenceRule,
+  firstAt: number,
+  timeZone: string,
+): Occurrence[] {
+  const firstDate = localDateOf(firstAt, timeZone);
+  const out = expandRecurrence(rule, firstDate, timeZone);
+  const first = out[0];
+  const at = zonedParts(firstAt, timeZone);
+  if (first?.date === firstDate && parseClock(rule.localTime) === at.hour * 60 + at.minute)
+    out[0] = { ...first, startsAt: firstAt };
+  return out;
 }

@@ -3,10 +3,12 @@ import {
   classifyUrl,
   companyFromUrl,
   groupFromUrl,
+  keptMember,
   linkedinUrl,
   memberIdFrom,
   postOf,
   profileRefOf,
+  sameMember,
   threadOf,
   workUrl,
 } from '../src/networks/linkedin/urls';
@@ -190,6 +192,38 @@ describe('memberIdFrom', () => {
     ).toBe('ACoAAFakeDanaReyes123');
     expect(id('/search/results/people/?keywords=plumber')).toBeNull();
     expect(id('/messaging/compose/?recipient=dana')).toBeNull();
+  });
+});
+
+describe('sameMember', () => {
+  const dana = { id: 'ACoAAFakeDanaReyes123', username: 'dana-reyes-4b2a1c', url: '' };
+  it('goes by LinkedIn’s id first, since the name in an address can change (decision 131)', () => {
+    expect(sameMember(dana, { ...dana, username: 'dana-reyes-plumbing' })).toBe(true);
+    expect(sameMember(dana, { ...dana, id: 'ACoAAFakeSomeoneElse9' })).toBe(false);
+    expect(sameMember(dana, { ...dana, id: null })).toBe(true);
+    expect(sameMember(dana, { id: dana.id, username: null, url: '' })).toBe(true);
+  });
+
+  it('goes by the name in their address between Sales Navigator’s id and LinkedIn’s, which differ', () => {
+    const sales = { ...dana, id: 'ACwAAFakeDanaSales456' };
+    expect(sameMember(dana, sales)).toBe(true);
+    expect(sameMember(dana, { ...sales, username: 'someone-else' })).toBe(false);
+    expect(sameMember({ ...dana, username: null }, { ...sales, username: null })).toBe(false);
+  });
+});
+
+describe('keptMember', () => {
+  it('adds the member id HandsFreeOS keeps beside the name in their address, when it’s one', () => {
+    expect(
+      keptMember('https://www.linkedin.com/in/dana-reyes-4b2a1c/', 'ACoAAFakeDanaReyes123'),
+    ).toEqual({
+      id: 'ACoAAFakeDanaReyes123',
+      username: 'dana-reyes-4b2a1c',
+      url: 'https://www.linkedin.com/in/dana-reyes-4b2a1c/',
+    });
+    expect(keptMember('https://www.linkedin.com/in/dana-reyes-4b2a1c/', '1234')?.id).toBeNull();
+    expect(keptMember('https://www.linkedin.com/in/dana-reyes-4b2a1c/', null)?.id).toBeNull();
+    expect(keptMember(null, 'ACoAAFakeDanaReyes123')).toBeNull();
   });
 });
 

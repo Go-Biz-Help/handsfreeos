@@ -21,8 +21,10 @@
  * box actually on the page) are not here: they belong to the worker, which can fetch. This module is what
  * can be decided from the form alone, and it is browser-safe so the wizard can run it on every keystroke.
  */
+import { normalizePhone } from '../crm/phone';
 import { STOP_KEYWORDS } from './sms';
 import type { OptInPath } from './consent';
+import { tradingName } from './preflight';
 
 export type IssueSeverity = 'blocker' | 'warning';
 
@@ -40,7 +42,8 @@ export type A2pField =
   | 'optInUrl'
   | 'optInProofUrl'
   | 'sensitiveTopics'
-  | 'monthlyVolume';
+  | 'monthlyVolume'
+  | 'policyContact';
 
 export interface A2pIssue {
   readonly field: A2pField;
@@ -68,6 +71,11 @@ export interface A2pDraft {
   /** The answer to "do your texts touch any of these?": the ids picked, `[]` for none, null before answering. */
   readonly sensitiveTopics?: readonly string[] | null;
   readonly monthlyVolume?: string;
+  /** The business's own privacy policy and terms; empty when it uses the ones HandsFreeOS hosts. */
+  readonly policyUrl?: string | null;
+  readonly termsUrl?: string | null;
+  /** How customers reach the business, as the privacy policy and terms say. */
+  readonly policyContact?: { readonly email?: string; readonly phone?: string };
 }
 
 // ---------- what the business does ----------
@@ -294,11 +302,61 @@ function legalNameIssue(draft: A2pDraft): A2pIssue | null {
     field: 'legalName',
     severity: 'warning',
     message: 'Is this exactly the name on your EIN letter, including LLC or Inc?',
-    why: 'The carrier compares this against IRS records character by character. "Lone Star Heating" fails where "Lone Star Heating LLC" passes.',
+    why: 'The carrier compares this against IRS records character by character. "Lone Star Heating" fails where "Lone Star Heating LLC" passes. If customers know you by another name (a DBA), still put the legal name here: we tell the carriers the other name too.',
   };
 }
 
+/**
+ * Who the carriers are told is texting: "Go Biz Help LLC (doing business as HandsFreeOS)" for a business
+ * customers know by another name (`tradingName`), or the legal name alone. Campaign descriptions start with it,
+ * so the legal name the brand was checked against and the name the texts are signed with arrive together.
+ */
+export function senderForCarriers(legalName: string, displayName?: string | null): string {
+  const dba = tradingName(legalName, displayName);
+  return dba ? `${legalName.trim()} (doing business as ${dba})` : legalName.trim();
+}
+
 const EIN_RE = /^[0-9]{2}-?[0-9]{7}$/;
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
+
+/**
+ * How customers reach the business, for the "Contact us" of the privacy policy and terms we host. A reviewer reads
+ * the terms for a way to get help, and a policy that gives none reads as unfinished. Asked for only while one of
+ * them is ours; the business's own pages say it themselves.
+ */
+function policyContactIssues(draft: A2pDraft): A2pIssue[] {
+  const ours = !(draft.policyUrl ?? '').trim() || !(draft.termsUrl ?? '').trim();
+  if (!ours) return [];
+  const email = (draft.policyContact?.email ?? '').trim();
+  const phone = (draft.policyContact?.phone ?? '').trim();
+  const why =
+    'Your privacy policy and terms say this under “Contact us”. The reviewer reads them for a way customers can reach you, and turns down pages without one.';
+  if (!email && !phone)
+    return [
+      {
+        field: 'policyContact',
+        severity: 'blocker',
+        message: 'Add an email address or a phone number customers can reach you at.',
+        why,
+      },
+    ];
+  const issues: A2pIssue[] = [];
+  if (email && !EMAIL_RE.test(email))
+    issues.push({
+      field: 'policyContact',
+      severity: 'blocker',
+      message: `“${email}” isn’t an email address. Check it, or leave it empty and give a phone number.`,
+      why,
+    });
+  if (phone && !normalizePhone(phone))
+    issues.push({
+      field: 'policyContact',
+      severity: 'blocker',
+      message: `“${phone}” isn’t a phone number. Check it, or leave it empty and give an email address.`,
+      why,
+    });
+  return issues;
+}
 
 /** Everything the wizard can decide about a draft without leaving the browser. */
 export function checkDraft(draft: A2pDraft, business: string): A2pIssue[] {
@@ -399,6 +457,8 @@ export function checkDraft(draft: A2pDraft, business: string): A2pIssue[] {
         why: 'The reviewer opens it from the registration, so it has to be a link that works.',
       });
   }
+
+  issues.push(...policyContactIssues(draft));
 
   const optIn = (draft.optInDescription ?? '').trim();
   if (optIn.length < 40)

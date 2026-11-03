@@ -53,6 +53,9 @@ export const ATTENTION_KINDS = [
   // Add-ons (HANDSFREEOS_REAL_ESTATE_IMPLEMENTATION_PLAN.md step 5): what an add-on raised for someone to see, in
   // its own words (a row of app.addon_alerts). Every add-on shares this one kind.
   'addon_alert',
+  // Webinars (HANDSFREEOS_WEBINARS_IMPLEMENTATION_PLAN.md part 5): someone hot after a call with a live poll, for a
+  // person to reach (a row of app.video_call_leads).
+  'webinar_hot',
 ] as const;
 export type AttentionKind = (typeof ATTENTION_KINDS)[number];
 
@@ -94,6 +97,7 @@ export const ATTENTION_KIND_LABELS: Readonly<Record<AttentionKind, string>> = {
   offer_lapsing: 'Promotion ending',
   texting_rejected: 'Texting turned down',
   addon_alert: 'Add-on alert',
+  webinar_hot: 'Hot after a webinar',
 };
 
 /** For folded groups: "Unconfirmed appointments · 4 customers". */
@@ -133,6 +137,7 @@ export const ATTENTION_KIND_PLURALS: Readonly<Record<AttentionKind, string>> = {
   offer_lapsing: 'Promotions ending',
   texting_rejected: 'Texting turned down',
   addon_alert: 'Add-on alerts',
+  webinar_hot: 'Hot after a webinar',
 };
 
 /**
@@ -193,6 +198,8 @@ export const ATTENTION_SUBJECT_OF = {
   texting_rejected: 'registration',
   // A row of app.addon_alerts.
   addon_alert: 'addon_alert',
+  // A row of app.video_call_leads: one customer, one call.
+  webinar_hot: 'webinar_lead',
 } as const satisfies Record<AttentionKind, string>;
 /** What a quiet channel's or a connection's card is stored as: the page that fixes it. */
 export const HEALTH_SUBJECT_TYPES = [
@@ -523,6 +530,14 @@ export const ATTENTION_PERMISSIONS: Readonly<
     snooze: [ITEM],
     dismiss: null,
   },
+  // Reaching someone hot is writing to them or calling them. The poll chose a person for it, or HandsFreeOS couldn't.
+  webinar_hot: {
+    handle: [ITEM, 'inbox.use'],
+    let_handle: null,
+    assign: [ITEM],
+    snooze: [ITEM],
+    dismiss: [ITEM],
+  },
 };
 
 /** The permissions an action on a kind needs, or null when the kind doesn't offer it. */
@@ -585,6 +600,7 @@ export const ATTENTION_HANDLE_LABELS: Readonly<Record<AttentionKind, string>> = 
   offer_lapsing: 'Open the promotion',
   texting_rejected: 'Fix and send again',
   addon_alert: 'Open',
+  webinar_hot: 'Call',
 };
 
 // ---- What runs on its own ----
@@ -672,6 +688,7 @@ export const LET_HANDLE_REFUSALS: Readonly<Partial<Record<AttentionKind, string>
   offer_lapsing: 'Whether a promotion runs longer is your call.',
   texting_rejected: 'Only you can fix the details the carriers turned down.',
   addon_alert: 'The add-on that raised this says when it’s done.',
+  webinar_hot: 'Someone hot from your webinar hears from a person on the team.',
 };
 
 /** Why HandsFreeOS won't handle this kind, or null when it does. */

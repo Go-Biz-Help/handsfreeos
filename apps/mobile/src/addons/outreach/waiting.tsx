@@ -9,7 +9,9 @@ import {
   openPageWords,
   todayKindsOn,
 } from '@hfos/core/addons/outreach/network-words';
-import { networkOfLink, PLATFORMS } from '@hfos/core/addons/outreach/networks';
+import { COUNTRY_LIST_WORDS as CW } from '@hfos/core/addons/outreach/countries';
+import { answersRequests, networkOfLink, PLATFORMS } from '@hfos/core/addons/outreach/networks';
+import type { FriendAnswer } from '@hfos/core/addons/outreach/limits';
 import {
   COMMENT_HOLD_WORDS,
   recentBubbles,
@@ -33,21 +35,29 @@ import {
   messagesTitle,
   moreWords,
   NEED_CLEARS,
+  NEED_RETRY,
   needClearedWords,
   needPageOf,
+  needRetryable,
   needTitle,
   needWhyWords,
+  NEED_REPORT_WORDS,
   oneByOneWords,
+  retriedWords,
   WAITING_KINDS,
   waitingWords,
   type NeedClear,
 } from '@hfos/core/addons/outreach/waiting-words';
 import { seenWords } from '@hfos/core/addons/outreach/live';
+import { router, type Href } from 'expo-router';
 import * as React from 'react';
 import { View } from 'react-native';
 
+import { staffCan, useKeptStaff } from '@/admin/staff';
 import { ChangeError } from '@/changes';
-import { Check, CheckCheck, ExternalLink, Pencil, X } from '@/components/icons';
+import { Check, CheckCheck, ExternalLink, Pencil, RotateCcw, Trash, X } from '@/components/icons';
+import { useBusinessIfAny } from '@/components/shell/business-context';
+import { useKeyboardHeight } from '@/components/shell/keyboard';
 import { Screen } from '@/components/shell/screen';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -58,15 +68,17 @@ import { Text } from '@/components/ui/text';
 import { toast } from '@/components/ui/toast';
 import { api, errorMessage, unwrap } from '@/lib/api';
 
-import { clearNeed, okAll, okSend, setAside, skipSend } from './actions';
+import { answerRequest, clearNeed, okAll, okSend, retrySteps, setAside, skipSend } from './actions';
 import { AskLine, useAskActions, type AskActions } from './asks';
 import { ChatBubbles } from './chat-bubbles';
 import { useOutreachWaiting } from './copy';
 import { NetworkName } from './networks';
-import { PersonName } from './person-menu';
+import { PersonMenuScope, PersonName } from './person-menu';
+import { PostQuote } from './post-quote';
 import {
   NeedsSignal,
   Note,
+  openOutreach,
   openOutside,
   openSettingsPart,
   useOutreachAnswer,
@@ -74,19 +86,21 @@ import {
 } from './kit';
 
 /**
- * Waiting for you on the phone (decision 44, owner answer 19b): the person's messages waiting for their OK come from
+ * Needs you on the phone (decision 44, owner answer 19b), its own page since decision 127, second on the add-on's
+ * first screen (./home.tsx) and where Today's count leads: the person's messages waiting for their OK come from
  * the phone's own copy, so they read, OK, change, skip and Approve all with no signal; each goes to HandsFreeOS when
  * the phone's back online. What they asked their computer that needs them there (decision 43, with **Carry on**,
  * **Skip** and **Stop**), the steps it needs them for and the friend requests to decide come from HandsFreeOS, with
  * signal, and the screen says so plainly without.
  *
- * Each card's name opens the person menu (decision 91, ./person-menu.tsx) inside the `PersonMenuScope` Today's tab puts
+ * Each card's name opens the person menu (decision 91, ./person-menu.tsx) inside the `PersonMenuScope` its screen puts
  * around it: their page first, then Contacts, Mark as client, Don't pitch, Never contact and the rest. Each card keeps
  * its own Open button.
  *
  * Comments on good posts (decision 92, Instagram's and Alignable's) wait among the messages, from the same copy, so they
  * too are OK'd, changed, skipped and Approved all with no signal: "Comment on Dana Reyes’s post", with the post's
- * first words above it and Open the post once HandsFreeOS has said them (the copy keeps no post). Approve all leaves an
+ * first words above it and Open the post once HandsFreeOS has said them (the copy keeps no post; one the copy brings
+ * while the screen is open has HandsFreeOS asked again, `unheardOf`). Approve all leaves an
  * answer to a post asking for what the business offers, and says why.
  */
 
@@ -114,11 +128,17 @@ export interface WaitingFromServer {
    * no post.
    */
   readonly posts?: ReadonlyMap<string, CommentPost>;
+  /**
+   * The messages and comments the answer listed, by id: one the phone's copy holds and this doesn't came after it, so
+   * the screen asks again for its chat or post (`unheardOf`).
+   */
+  readonly sendIds?: ReadonlySet<string>;
 }
 
-/** A comment's post, as HandsFreeOS says it: its first words, and where it is. */
+/** A comment's post, as HandsFreeOS says it: its first words, the whole of it when they're cut short, and where it is. */
 export interface CommentPost {
   readonly post: string | null;
+  readonly postWhole?: string | null;
   readonly postUrl: string | null;
 }
 
@@ -132,8 +152,18 @@ export function serverPart(answer: WaitingOutput): WaitingFromServer {
     posts: new Map(
       answer.items.flatMap((i) =>
         i.kind === 'message' && underAPost(i.send.kind)
-          ? [[i.send.sendId, { post: i.send.post, postUrl: i.send.postUrl }] as const]
+          ? [
+              [
+                i.send.sendId,
+                { post: i.send.post, postWhole: i.send.postWhole, postUrl: i.send.postUrl },
+              ] as const,
+            ]
           : [],
+      ),
+    ),
+    sendIds: new Set(
+      answer.items.flatMap((i) =>
+        i.kind === 'reply' || i.kind === 'message' ? [i.send.sendId] : [],
       ),
     ),
     asks: answer.items.flatMap((i) => (i.kind === 'ask' ? [i.ask] : [])),
@@ -144,6 +174,22 @@ export function serverPart(answer: WaitingOutput): WaitingFromServer {
     commentHolds: answer.commentHolds,
     pushes: answer.pushes,
   };
+}
+
+/**
+ * The messages and comments on the phone's list that HandsFreeOS's last answer didn't list, as one key ('' when none):
+ * the copy brings a new one at once, but its chat so far, or a comment's post and link, come only from HandsFreeOS. Its
+ * screen asks again when this changes, so a comment drafted while the screen was open shows its post and opens it, not
+ * the person's page (the owner's report, 1 Nov 2026). Before the first answer, or from one that doesn't say, nothing.
+ */
+export function unheardOf(phone: PhoneWaiting, server: WaitingFromServer | null): string {
+  const heard = server?.sendIds;
+  if (!heard) return '';
+  return [...phone.replies, ...phone.messages]
+    .map((s) => s.sendId)
+    .filter((id) => !heard.has(id))
+    .sort()
+    .join(',');
 }
 
 /** What a press says: done, or waiting on the phone for signal. */
@@ -157,7 +203,23 @@ function failed(e: unknown) {
   toast.error(e instanceof ChangeError ? e.message : errorMessage(e));
 }
 
-/** What needs the person and what its buttons do: for its own screen, and for Today's tab (./hub.tsx). */
+/** Needs you's screen (`?view=waiting`): everything waiting on the person, a change in a person menu reloading it. */
+export function NeedsYouScreen() {
+  const ctx = useOutreachContext();
+  const waiting = useWaitingProps();
+  return (
+    <PersonMenuScope
+      workspaceId={ctx.workspaceId}
+      online={ctx.online}
+      writesContacts={ctx.writesContacts}
+      onChanged={waiting.onRetry}
+    >
+      <WaitingBody {...waiting} />
+    </PersonMenuScope>
+  );
+}
+
+/** What needs the person and what its buttons do: for its own screen, and Today's count (./hub.tsx). */
 export function useWaitingProps(): React.ComponentProps<typeof WaitingBody> {
   const ctx = useOutreachContext();
   const phone = useOutreachWaiting(ctx.workspaceId, ctx.userId);
@@ -174,7 +236,27 @@ export function useWaitingProps(): React.ComponentProps<typeof WaitingBody> {
     W.rows.waiting,
   );
   const ws = ctx.workspaceId;
+  // One the copy brought since HandsFreeOS last answered: ask again for its chat or post, once for each new one, and
+  // only with signal (coming back, the answer is asked again anyway).
+  const unheard = unheardOf(phone, answer.data);
+  const online = React.useRef(ctx.online);
+  online.current = ctx.online;
+  const reload = answer.reload;
+  React.useEffect(() => {
+    if (unheard && online.current) reload();
+  }, [unheard, reload]);
   const askActions = useAskActions(null, answer.reload);
+  // Whoever the country setting isn't sure of waits here for a pick (decision 128).
+  const unsure = useOutreachAnswer(
+    async () =>
+      unwrap(
+        await api.POST('/v1/queries/outreach.countries.skipped', {
+          body: { workspaceId: ws, list: 'unsure', page: 1 },
+        }),
+      ),
+    `countries-unsure:${ws}`,
+    W.rows.waiting,
+  );
   return {
     phone,
     server: answer.data,
@@ -221,6 +303,16 @@ export function useWaitingProps(): React.ComponentProps<typeof WaitingBody> {
         failed(e);
       }
     },
+    // Retry, and Retry all, on any step (decisions 132 and 145): with signal, as it reaches them again.
+    onRetrySends: async (needIds) => {
+      try {
+        const { retried, passed } = (await retrySteps(ws, needIds)).output;
+        toast.show(retriedWords(retried.length, passed));
+        answer.reload();
+      } catch (e) {
+        failed(e);
+      }
+    },
     onLeave: async (request) => {
       try {
         await setAside(ws, request.profileId);
@@ -230,9 +322,23 @@ export function useWaitingProps(): React.ComponentProps<typeof WaitingBody> {
         failed(e);
       }
     },
+    // Confirm and Delete (decision 136): the extension does it.
+    onAnswer: async (request, said) => {
+      try {
+        await answerRequest(ws, request.profileId, said);
+        const done = said === 'confirm' ? W.confirming(request.name) : W.deleting(request.name);
+        toast.show(saidOf(ctx.online, done, W.queued));
+        answer.reload();
+      } catch (e) {
+        failed(e);
+      }
+    },
     // How the phone hears of it is on General.
     onSettings: () => openSettingsPart(ws, 'general'),
     askActions,
+    unsure: unsure.data?.total
+      ? { count: unsure.data.total, onOpen: () => openOutreach(ws, 'countries', 'show=unsure') }
+      : null,
   };
 }
 
@@ -248,10 +354,12 @@ export function WaitingBody({
   onSkip,
   onOkAll,
   onClear,
+  onRetrySends,
   onLeave,
+  onAnswer,
   onSettings,
   askActions,
-  embedded = false,
+  unsure = null,
 }: {
   phone: PhoneWaiting;
   server: WaitingFromServer | null;
@@ -264,12 +372,16 @@ export function WaitingBody({
   onSkip: (send: PhoneSend) => void;
   onOkAll: (sends: { sendId: string }[]) => void;
   onClear: (need: Need, how: NeedClear) => void;
+  /** Retry one step handed over, or every one (null): a message a few minutes after the one before (decision 145). */
+  onRetrySends?: (needIds: string[] | null) => void;
   onLeave: (request: Request) => void;
+  /** Confirm or Delete on a request to decide (decision 136), where the extension answers them. */
+  onAnswer?: (request: Request, answer: FriendAnswer) => void;
   onSettings: () => void;
   /** Carry on, Skip and Stop, on what the computer needs them for. */
   askActions?: AskActions;
-  /** Inside Today's tab, as Needs you (./hub.tsx): no screen of its own, and a line when nothing waits. */
-  embedded?: boolean;
+  /** How many the country setting isn't sure of, and opening them: null when none wait. */
+  unsure?: { readonly count: number; readonly onOpen: () => void } | null;
 }) {
   const [changing, setChanging] = React.useState<PhoneSend | null>(null);
   const all = approveAllFromPhone(phone);
@@ -294,24 +406,13 @@ export function WaitingBody({
       onSkip={() => onSkip(send)}
     />
   );
-  // Its own screen, or a part of Today's tab: a plain function, so the screen is never drawn anew.
-  const frame = (children: React.ReactNode) =>
-    embedded ? (
-      <View className="gap-3" testID="outreach-waiting">
-        {children}
-      </View>
-    ) : (
-      <Screen
-        title={W.rows.waiting}
-        subtitle={server ? waitingWords(count) : W.waitingMore(count)}
-        leading="back"
-        testID="outreach-waiting"
-      >
-        {children}
-      </Screen>
-    );
-  return frame(
-    <>
+  return (
+    <Screen
+      title={W.rows.waiting}
+      subtitle={server ? waitingWords(count) : W.waitingMore(count)}
+      leading="back"
+      testID="outreach-waiting"
+    >
       {!online ? (
         <Card className="px-4 py-3" testID="waiting-offline">
           <Note>{W.waitingOffline}</Note>
@@ -393,6 +494,19 @@ export function WaitingBody({
               shown={server.needs.length}
               kind="need"
               testID="waiting-need"
+              action={
+                onRetrySends && server.needs.filter(needRetryable).length >= 2 ? (
+                  <Button
+                    size="md"
+                    variant="ghost"
+                    icon={RotateCcw}
+                    onPress={() => onRetrySends(null)}
+                    testID="waiting-retry-all"
+                  >
+                    {NEED_RETRY.all}
+                  </Button>
+                ) : null
+              }
             >
               {server.needs.map((need) => (
                 <NeedCard
@@ -400,6 +514,11 @@ export function WaitingBody({
                   need={need}
                   when={seenWords(need.seenAt, timeZone, now)}
                   onClear={(how) => onClear(need, how)}
+                  onRetry={
+                    onRetrySends && needRetryable(need)
+                      ? () => onRetrySends([need.needId])
+                      : undefined
+                  }
                 />
               ))}
             </Group>
@@ -418,6 +537,7 @@ export function WaitingBody({
                   request={request}
                   when={seenWords(request.since, timeZone, now)}
                   onLeave={() => onLeave(request)}
+                  onAnswer={onAnswer ? (said) => onAnswer(request, said) : undefined}
                 />
               ))}
             </Group>
@@ -427,11 +547,23 @@ export function WaitingBody({
         <NeedsSignal words={serverError} onRetry={onRetry} testID="waiting-server-error" />
       ) : null}
 
-      {count === 0 && embedded && (server || !online) ? (
-        <Card className="border-dashed px-4 py-3.5" testID="waiting-empty">
-          <Note>{server ? W.needsYouNone : W.waitingMore(0)}</Note>
+      {unsure ? (
+        <Card className="gap-1.5 px-4 py-3.5" testID="waiting-country-unsure">
+          <Text className="text-[15px] font-semibold">{CW.unsureTitle}</Text>
+          <Note>{`${CW.unsureNote} ${CW.unsureCount(unsure.count)}`}</Note>
+          <Button
+            variant="secondary"
+            size="sm"
+            className="self-start"
+            onPress={unsure.onOpen}
+            testID="waiting-country-unsure-open"
+          >
+            {CW.unsureOpen}
+          </Button>
         </Card>
-      ) : count === 0 && (server || !online) ? (
+      ) : null}
+
+      {count === 0 && (server || !online) ? (
         <Card className="gap-1.5 px-5 py-6" testID="waiting-empty">
           {/* With no word from HandsFreeOS, only the phone's messages are known: steps and requests may wait. */}
           <Text className="text-[16px] font-semibold">
@@ -441,7 +573,7 @@ export function WaitingBody({
         </Card>
       ) : null}
 
-      {server && !embedded ? (
+      {server ? (
         <Card className="gap-2 px-4 py-3.5" testID="waiting-hear">
           <Text className="text-[15px] font-semibold">{W.hearTitle}</Text>
           <Note>{W.hearOfIt(server.pushes)}</Note>
@@ -465,7 +597,7 @@ export function WaitingBody({
           onOk(send, text);
         }}
       />
-    </>,
+    </Screen>
   );
 }
 
@@ -558,12 +690,13 @@ function SendCard({
         </Text>
       ) : null}
       {comment && post?.post ? (
-        <Text
+        // More shows the whole post when it's cut short (decision 141).
+        <PostQuote
+          post={post.post}
+          whole={post.postWhole}
           className="border-l-2 border-border pl-3 text-[13.5px] leading-[19px] text-text-2"
           testID="waiting-comment-post"
-        >
-          {post.post}
-        </Text>
+        />
       ) : null}
       {recent.length ? (
         <View className="gap-1">
@@ -632,6 +765,8 @@ function ChangeSheet({
 }) {
   const [text, setText] = React.useState('');
   const [problem, setProblem] = React.useState<string | null>(null);
+  // Above the keyboard, so the words being changed stay in view (the owner's report, 29 Oct 2026).
+  const keyboard = useKeyboardHeight();
   React.useEffect(() => {
     if (send) setText(send.text);
     setProblem(null);
@@ -658,7 +793,7 @@ function ChangeSheet({
       description={W.changeHelp}
       testID="waiting-change-sheet"
     >
-      <View className="gap-3">
+      <View style={keyboard ? { paddingBottom: keyboard } : undefined} className="gap-3">
         <Input
           value={text}
           onChangeText={(t) => {
@@ -687,10 +822,13 @@ function NeedCard({
   need,
   when,
   onClear,
+  onRetry,
 }: {
   need: Need;
   when: string;
   onClear: (how: NeedClear) => void;
+  /** Retry, on a step that can be tried again (decisions 132 and 145). */
+  onRetry?: () => void;
 }) {
   // Its profile's network, as HandsFreeOS says: its words, its label and its links are that network's.
   const platform = networkOfWaiting({ kind: 'need', need });
@@ -698,6 +836,11 @@ function NeedCard({
   // Only an address on a network the add-on knows opens: their page there, the post, or the chat.
   const page = need.url && networkOfLink(need.url) ? need.url : null;
   const why = needWhyWords(need.why);
+  // HandsFreeOS staff only: the page the extension saw, and what the AI helper found (decision 142).
+  const staffSees = staffCan(
+    useKeptStaff(useBusinessIfAny()?.userId ?? ''),
+    'platform.health.read',
+  );
   return (
     <Card className="gap-2 px-4 py-3.5" testID="waiting-need-item">
       {/* The name on its own, so it can be a button with its own target; the step under it says it in words. */}
@@ -728,6 +871,17 @@ function NeedCard({
         </Text>
       ) : null}
       <View className="flex-row flex-wrap gap-2">
+        {onRetry ? (
+          <Button
+            size="md"
+            variant="secondary"
+            icon={RotateCcw}
+            onPress={onRetry}
+            testID="waiting-need-retry"
+          >
+            {NEED_RETRY.one}
+          </Button>
+        ) : null}
         <Button size="md" icon={Check} onPress={() => onClear('done')} testID="waiting-need-done">
           {NEED_CLEARS.done}
         </Button>
@@ -751,6 +905,20 @@ function NeedCard({
             {messenger ? openChatWords(platform) : openPageWords(platform)}
           </Button>
         ) : null}
+        {need.reportId && staffSees ? (
+          <Button
+            size="md"
+            variant="ghost"
+            onPress={() =>
+              router.push(
+                `/app/admin/problems?report=${encodeURIComponent(need.reportId!)}` as Href,
+              )
+            }
+            testID="waiting-need-report"
+          >
+            {NEED_REPORT_WORDS}
+          </Button>
+        ) : null}
       </View>
     </Card>
   );
@@ -760,12 +928,16 @@ function RequestCard({
   request,
   when,
   onLeave,
+  onAnswer,
 }: {
   request: Request;
   when: string;
   onLeave: () => void;
+  onAnswer?: (answer: FriendAnswer) => void;
 }) {
   const platform = networkOfUrl(request.url);
+  // Confirm and Delete where the extension answers requests (decision 136): what the AI says stands out.
+  const answers = onAnswer && answersRequests(platform) ? onAnswer : null;
   return (
     <Card className="gap-2 px-4 py-3.5" testID="waiting-request-item">
       <View className="flex-row flex-wrap items-center gap-2">
@@ -786,6 +958,20 @@ function RequestCard({
         >
           {openPageWords(platform)}
         </Button>
+        {answers
+          ? (['confirm', 'delete'] as const).map((said) => (
+              <Button
+                key={said}
+                size="md"
+                variant={request.said === said ? 'secondary' : 'ghost'}
+                icon={said === 'confirm' ? Check : Trash}
+                onPress={() => answers(said)}
+                testID={`waiting-request-${said}`}
+              >
+                {said === 'confirm' ? W.confirmRequest : W.deleteRequest}
+              </Button>
+            ))
+          : null}
         <Button size="md" variant="ghost" icon={X} onPress={onLeave} testID="waiting-request-leave">
           {W.leaveIt}
         </Button>

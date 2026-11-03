@@ -12,8 +12,10 @@
  * 0.105.0, once a week before the day's checks, their followers, whose good fits among those who aren't friends go on
  * Today for a friend request (decision 113); and from 0.106.0, after finding posts, it likes a few recent posts in their
  * groups and keeps a question there for the day's reply, which the AI writes and waits for their OK at first
- * (decision 114). Nothing is pressed or sent on Facebook but Join group and its questions' answers, and only while the
- * person lets it join on its own; the likes in their groups; and on the person's own posts, See who reacted to this.
+ * (decision 114). From 0.121.0 Find posts also searches Facebook's posts with the playbooks' own phrases after the
+ * groups, or without any (decision 141). Nothing is pressed or sent on Facebook but Join group and its questions'
+ * answers, and only while the person lets it join on its own; the likes in their groups; and on the person's own
+ * posts, See who reacted to this.
  * They run while the person lets it work on its own and leaves **Once a day** ticked.
  */
 import type { ReadResult } from '../networks/facebook/types';
@@ -30,13 +32,14 @@ import { helpfulDaily } from '../jobs/helpful';
 import { joinGroups } from '../jobs/join';
 import type { Job, JobEnd } from '../jobs/job';
 import { checkRequests, saveMembers } from '../jobs/people';
-import { findPosts, groupsToWork, RUN_GROUPS } from '../jobs/posts';
+import { findPosts, groupsToWork, RUN_GROUPS, searchPosts, type WorkGroup } from '../jobs/posts';
 import { facebookOccasions } from '../jobs/occasions';
 import { readProfileOnItsOwn } from '../jobs/own-read';
 import { profileRead } from '../jobs/profile';
 import { tidyOnItsOwn } from '../jobs/tidy';
 import { takeNote } from '../hfos/noting';
-import { postsSave } from '../hfos/saves';
+import { facebookSearchPostsSave, postsSave } from '../hfos/saves';
+import { counted } from '../words';
 import type { DailyJob } from './plan';
 
 /** The most chats it reads for the AI in a day; the rest wait for tomorrow, or Read my chats. */
@@ -50,7 +53,7 @@ export const DAILY_DOING: Readonly<Record<DailyJob, string>> = {
   group_checks: 'Checking your groups for your people…',
   join: 'Looking for good groups to join…',
   members: 'Saving your groups’ members…',
-  posts: 'Finding posts in your groups…',
+  posts: 'Finding posts in your groups and Facebook’s search…',
   active: 'Liking a few recent posts in your groups…',
   chats: 'Reading your chats for the AI…',
   followers: 'Reading your followers, as it does once a week…',
@@ -99,6 +102,52 @@ export function postSender(
   };
 }
 
+/** Facebook's post search's sends (decision 141): each post once a run, with the phrase that found it. */
+function searchSender(job: Job): (page: ReadResult, words: string) => Promise<number> {
+  const sent = new Set<string>();
+  return async (page, words) => {
+    const built = facebookSearchPostsSave(page, job.businessId, words);
+    if (!built.ok) return 0;
+    const posts = built.input.posts.filter((post) => !sent.has(post.url));
+    if (!posts.length) return 0;
+    const answer = await job.hfos({ type: 'hfos-save-posts', input: { ...built.input, posts } });
+    if (!answer.ok) throw new Error(answer.problem.message);
+    for (const post of posts) sent.add(post.url);
+    return answer.value.checking;
+  };
+}
+
+/** Why Find posts went through no group. */
+const NO_GROUPS = 'You’re not in any group marked Work these or Maybe yet.';
+
+/**
+ * The once-a-day Find posts: the posts in the person's groups, then Facebook's post search with the day's phrases
+ * from the playbooks (decision 141), even with no group to go through, in one line. A server that sends no phrases
+ * leaves the search out.
+ */
+async function findPostsDaily(job: Job, groups: readonly WorkGroup[] | string): Promise<JobEnd> {
+  const inGroups =
+    typeof groups === 'string' ? null : await findPosts(job, groups, postSender(job));
+  if (inGroups?.warned || job.stopped()) return inGroups ?? { line: NO_GROUPS, warned: false };
+  job.progress('Asking HandsFreeOS what to search Facebook’s posts for…');
+  const asked = await job.hfos({
+    type: 'hfos-post-words',
+    workspaceId: job.businessId,
+    platform: 'facebook',
+    ...(job.round ? { round: job.round } : {}),
+  });
+  const words = asked.ok ? asked.value.words : [];
+  const searched = words.length ? await searchPosts(job, words, searchSender(job)) : null;
+  if (searched && 'warned' in searched) return searched;
+  const line = [
+    inGroups?.line ?? NO_GROUPS,
+    searched?.searched
+      ? `${job.stopped() ? 'Stopped. ' : ''}Searched Facebook’s posts for ${counted(searched.searched, 'phrase')}: ${counted(searched.checking, 'post')} sent for the AI to check.`
+      : null,
+  ];
+  return { line: line.filter(Boolean).join(' '), warned: false };
+}
+
 /** Does one of the once-a-day jobs. */
 export async function runDaily(kind: DailyJob, job: Job): Promise<JobEnd> {
   switch (kind) {
@@ -115,11 +164,9 @@ export async function runDaily(kind: DailyJob, job: Job): Promise<JobEnd> {
     case 'members':
     case 'posts': {
       const groups = await groupsToWork(job, RUN_GROUPS);
-      if (typeof groups === 'string')
-        return { line: 'You’re not in any group marked Work these or Maybe yet.', warned: false };
-      return kind === 'members'
-        ? saveMembers(job, groups)
-        : findPosts(job, groups, postSender(job));
+      if (kind === 'posts') return findPostsDaily(job, groups);
+      if (typeof groups === 'string') return { line: NO_GROUPS, warned: false };
+      return saveMembers(job, groups);
     }
     case 'active':
       return stayActive(job, (step) =>

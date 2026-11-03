@@ -46,7 +46,15 @@ const action = (a: ActionKey): MenuItem => ({
 
 /** The actions grouped by what they touch, then the steps that shape the flow. */
 const GROUPS: readonly { title: string; items: readonly MenuItem[] }[] = [
-  { title: 'Message the customer', items: [action('send_text'), action('send_email')] },
+  {
+    title: 'Message the customer',
+    items: [
+      action('send_text'),
+      action('send_email'),
+      // The AI teammate rings them: in its violet, like the AI steps.
+      { ...action('call_with_ai'), tone: 'ai' },
+    ],
+  },
   {
     title: 'The customer',
     items: [action('update_person'), action('add_tag'), action('remove_tag'), action('add_note')],

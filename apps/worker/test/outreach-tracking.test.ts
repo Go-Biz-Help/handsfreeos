@@ -6,6 +6,7 @@
  */
 import { randomUUID } from 'node:crypto';
 import { AUTOMATION_DEFAULTS } from '@hfos/core/addons/outreach/automation';
+import { goalTimes, nextGoalStart } from '@hfos/core/addons/outreach/goal';
 import { nextWeekly } from '@hfos/core/addons/outreach/results';
 import { nextDayEnd, reviewWeek } from '@hfos/core/addons/outreach/tracking';
 import { addDays, localDateOf, pushDeviceRegister, startOfLocalDay } from '@hfos/core/server';
@@ -19,6 +20,7 @@ import {
   runAs,
 } from '../../../packages/core/test/addons/outreach-fixture';
 import { addonJobs, withAddons } from '../src/addons/index';
+import { GOAL_CHECK_JOB, GOAL_MIDDAY_JOB } from '../src/addons/outreach/goal';
 import { DAY_REPORT_JOB, REVIEW_JOB } from '../src/addons/outreach/tracking';
 import { scriptedAi } from '../src/ai/scripted';
 import { processJobs } from '../src/jobs';
@@ -186,13 +188,14 @@ describe('the day’s report', () => {
     const first = await armed(ws, DAY_REPORT_JOB);
     expect(first!.at).toBe(nextDayEnd(EVERY_DAY, 'UTC', Date.now()).getTime());
 
-    // At 5:05 PM today: the day, and how far from the target.
+    // At 5:05 PM today: the day, how far from the target, and, with no playbook yet, that Facebook fell short and why
+    // (decision 126).
     const end = startOfLocalDay(today, 'UTC') + 17 * HOUR;
     await runJob(s, first!.id, end + 5 * 60_000);
     expect(await pushes(ws)).toEqual([
       {
         title: 'Your day',
-        body: 'Today: 3 messages, 1 said yes, 0 booked. 12 more messages hit your target.',
+        body: 'Today: 3 messages, 1 said yes, 0 booked. 12 more messages hit your target. Facebook fell 12 short: finish Get ready, and it starts reaching people.',
         path: `/app/w/${ws}/a/outreach?view=results&period=today`,
       },
     ]);
@@ -208,6 +211,43 @@ describe('the day’s report', () => {
     await runJob(s, next!.id, next!.at + 5 * 60_000);
     expect(await pushes(ws)).toHaveLength(1);
     expect(await armed(ws, DAY_REPORT_JOB)).toBeNull();
+  }, 60_000);
+});
+
+describe('the day’s first messages (decision 126)', () => {
+  it('pushes half an hour into the day who won’t reach it and why, again at midday only what’s new', async () => {
+    const s = testServices();
+    const ws = await business('Outreach Goal Pushes Co');
+    await sent(ws, 1, new Date(Date.now() - HOUR));
+    await runAs(owner, ws, 'outreach.automation.save', {
+      settings: { ...AUTOMATION_DEFAULTS, hours: EVERY_DAY },
+    });
+    await events(s, ws);
+    // Saving the settings armed the first look for half an hour into the next working hours.
+    const first = await armed(ws, GOAL_CHECK_JOB);
+    expect(first!.at).toBe(nextGoalStart(EVERY_DAY, 'UTC', Date.now()).getTime());
+
+    // With no playbook yet nothing goes out: Facebook won't reach the day's, which won't fix itself as the day goes.
+    await runJob(s, first!.id, first!.at + 5 * 60_000);
+    const day = localDateOf(first!.at, 'UTC');
+    expect(await pushes(ws)).toEqual([
+      {
+        title: 'Today’s first messages',
+        body: 'Facebook won’t reach today’s 15 first messages: finish Get ready, and it starts reaching people.',
+        path: `/app/w/${ws}/a/outreach?view=today&net=facebook`,
+      },
+    ]);
+    // The midday look, and tomorrow's first: they noted a step this week.
+    const midday = await armed(ws, GOAL_MIDDAY_JOB);
+    expect(midday!.at).toBe(goalTimes(day, EVERY_DAY, 'UTC').midday);
+    expect((await armed(ws, GOAL_CHECK_JOB))!.at).toBe(
+      goalTimes(addDays(day, 1), EVERY_DAY, 'UTC').start,
+    );
+
+    // At midday, Facebook was named already and nothing waits for an OK: no push.
+    await runJob(s, midday!.id, midday!.at + 5 * 60_000);
+    expect(await pushes(ws)).toHaveLength(1);
+    expect(await armed(ws, GOAL_MIDDAY_JOB)).toBeNull();
   }, 60_000);
 });
 

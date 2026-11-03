@@ -212,6 +212,17 @@ export function registrationPreflight(input: {
   optInProofUrl?: string | null;
   /** The ways the business is known, looked for on the website and beside the box. */
   names?: string[];
+  /** The name on the IRS letter, which a business with a DBA needs on its website too. */
+  legalName?: string;
+  /** What our privacy policy and terms are written from: a link to ours is judged from these, as it'll read. */
+  policyBusiness?: {
+    legalName?: string;
+    website?: string;
+    email?: string;
+    phone?: string;
+    offers?: boolean;
+    address?: { line1?: string; city?: string; state?: string; postalCode?: string };
+  };
 }): Promise<{ checks: PreflightCheck[] }> {
   return workerPost('/v1/telephony/registration-preflight', input);
 }
@@ -324,7 +335,7 @@ export interface PhoneAccountState {
   readonly accountSid: string | null;
   /** HandsFreeOS's parent Twilio account, which HighLevel asks for beside the sub-account's. */
   readonly parentAccountSid: string;
-  /** Why it was left on when someone tried to turn it off, in words. */
+  /** Why the switch didn't do what was last asked, in words: why it was left on, or couldn't be turned on. */
   readonly lastError: string | null;
 }
 

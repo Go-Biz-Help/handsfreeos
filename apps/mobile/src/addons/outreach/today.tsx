@@ -7,7 +7,9 @@ import {
 import { OUTREACH_WORDS as W } from '@hfos/core/addons/outreach/words';
 import {
   helpfulOn,
+  requestsAgainWords,
   requestsHeldWords,
+  tidyWordsOn,
   todayKindsOn,
   todayOpenOf,
 } from '@hfos/core/addons/outreach/network-words';
@@ -31,6 +33,7 @@ import {
   type HelpfulListOutput,
 } from '@hfos/core/addons/outreach/helpful';
 import { warningNote } from '@hfos/core/addons/outreach/tidy';
+import { goalTryPlace, type GoalTry } from '@hfos/core/addons/outreach/goal';
 import { PROFILE_PART_WORDS } from '@hfos/core/addons/outreach/profile-parts';
 import { recentBubbles, RECENT_WORDS } from '@hfos/core/addons/outreach/sends';
 import { oneByOneWords } from '@hfos/core/addons/outreach/waiting-words';
@@ -38,7 +41,7 @@ import * as React from 'react';
 import { View } from 'react-native';
 
 import { change, ChangeError } from '@/changes';
-import { Check, ExternalLink, X } from '@/components/icons';
+import { Check, ExternalLink, Handshake, X } from '@/components/icons';
 import { Screen } from '@/components/shell/screen';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -49,16 +52,19 @@ import { api, errorMessage, unwrap } from '@/lib/api';
 
 import { okSend, skipPost, skipSend } from './actions';
 import { ChatBubbles } from './chat-bubbles';
+import { GoalNote } from './goal-note';
 import {
   NeedsSignal,
   Note,
   openOutside,
+  openOutreach,
   openSettingsPart,
   Part,
   useOutreachAnswer,
   useOutreachContext,
 } from './kit';
 import { PersonName } from './person-menu';
+import { PostQuote } from './post-quote';
 
 /**
  * Today on the phone (decision 44): the person's list for today, kind by kind, what the extension does on its own,
@@ -189,7 +195,58 @@ export function useTodayProps(
         failed(e);
       }
     },
+    // The AI's check thought they look more like a partner (decision 130): onto the Partners list, with signal.
+    onPotential: async (profileId, name) => {
+      try {
+        await change('outreach.partner.potential', {
+          workspaceId: ws,
+          profileId,
+          potential: true,
+        });
+        after(W.person.potentialDone(name));
+      } catch (e) {
+        failed(e);
+      }
+    },
     onProfileOwn: () => openSettingsPart(ws, platform),
+    // Where each thing to try on a short day is done (decision 126).
+    onGoalTry: (t) => {
+      const place = goalTryPlace(t, platform);
+      if (place.view === 'settings') openSettingsPart(ws, place.part);
+      else openOutreach(ws, place.view);
+    },
+    // Cancel all (decision 121): the oldest go at once when the computer can take them, the rest once a day.
+    onCancelAll: async (leaveOutOwn) => {
+      try {
+        const out = await change('outreach.friends.cancel_all', {
+          workspaceId: ws,
+          platform,
+          on: true,
+          leaveOutOwn,
+        });
+        const { first, marked } = out.output;
+        // Nothing lost when the computer can't be asked now: the once-a-day job takes them.
+        if (first.length)
+          await change('outreach.ask.make', {
+            workspaceId: ws,
+            platform,
+            ask: { kind: 'cancel', profileIds: first },
+          }).catch(() => undefined);
+        after(tidyWordsOn(platform).all?.started(marked) ?? W.saved);
+      } catch (e) {
+        failed(e);
+      }
+    },
+    // Start again after an upgrade on the network, before its monthly limit's pause ends (decision 147).
+    onRequestsAgain: async () => {
+      try {
+        const out = await change('outreach.requests.start_again', { workspaceId: ws, platform });
+        const words = requestsAgainWords(platform);
+        after(out.output.ended ? words.done : words.notOn);
+      } catch (e) {
+        failed(e);
+      }
+    },
     onEndWheels: async (userId, name, network = 'facebook') => {
       try {
         await change('outreach.wheels.end', { workspaceId: ws, userId, platform: network });
@@ -221,8 +278,12 @@ export function TodayBody({
   onOk,
   onSkip,
   onNotForMe,
+  onPotential,
   onEndWheels,
   onProfileOwn,
+  onGoalTry,
+  onCancelAll,
+  onRequestsAgain,
   embedded = false,
   hideSends,
 }: {
@@ -238,10 +299,18 @@ export function TodayBody({
   onOk: (sendId: string) => void;
   onSkip: (sendId: string) => void;
   onNotForMe: (postId: string) => void;
+  /** Potential partner, from a customer the AI thinks looks more like one (decision 130). */
+  onPotential?: (profileId: string, name: string) => void;
   /** Ends someone's training wheels on a network: Facebook's when left out. */
   onEndWheels: (userId: string, name: string, platform?: Platform) => void;
   /** Opens the network's part of Settings, where the AI's suggestions for its profile wait (decision 99). */
   onProfileOwn?: () => void;
+  /** Opens where a thing to try on a day short of first messages is done (decision 126). */
+  onGoalTry?: (t: GoalTry) => void;
+  /** Starts Cancel all on the network (decision 121), leaving out the extension's or not. */
+  onCancelAll?: (leaveOutOwn: boolean) => void;
+  /** Starts new requests again before the network's monthly limit's pause ends (decision 147). */
+  onRequestsAgain?: () => void;
   /** Inside Today's tab, under Needs you (./hub.tsx): no screen of its own. */
   embedded?: boolean;
   /** Messages Needs you shows already: left off here, so nobody shows twice. */
@@ -278,16 +347,43 @@ export function TodayBody({
           </Text>
         </Card>
       ) : null}
-      {list.wheels.on ? <Note testID="today-wheels">{wheelsWords(list.wheels)}</Note> : null}
+      {list.wheels.on ? (
+        <Note testID="today-wheels">{wheelsWords(list.wheels, list.fullSpeed)}</Note>
+      ) : null}
       {/* None from a server before decisions 96 and 97. */}
       {list.fresh?.on ? <Note testID="today-fresh">{freshWords(list.fresh, platform)}</Note> : null}
+      {list.newMessagesWait ? (
+        <Note testID="today-new-messages-wait">{W.newMessagesWait}</Note>
+      ) : null}
       {list.requestsHeld ? (
-        <View className="rounded-menu bg-warning-soft px-3 py-2.5" testID="today-requests-held">
+        <View
+          className="gap-2 rounded-menu bg-warning-soft px-3 py-2.5"
+          testID="today-requests-held"
+        >
           <Text className="text-[13px] leading-[18px] text-warning-text">
             {requestsHeldWords(list.requestsHeld, platform)}
           </Text>
+          <CancelAllButtons
+            platform={platform}
+            held={list.requestsHeld}
+            onCancelAll={onCancelAll}
+          />
+          {list.requestsHeld.why === 'limit' && onRequestsAgain ? (
+            <View className="flex-row">
+              <Button
+                size="md"
+                variant="secondary"
+                onPress={onRequestsAgain}
+                testID="today-requests-again"
+              >
+                {requestsAgainWords(platform).button}
+              </Button>
+            </View>
+          ) : null}
         </View>
       ) : null}
+      {/* Short of today's first messages, why, and what to try (decision 126): none from a server before it. */}
+      {list.goal ? <GoalNote platform={platform} goal={list.goal} onTry={onGoalTry} /> : null}
       {/* Their profile, read on its own on the 1st: what the AI suggests waits for their OK (decision 99). */}
       {list.profileOwn ? (
         <View className="gap-2 rounded-menu bg-card-2 px-3 py-2.5" testID="today-profile-own">
@@ -324,6 +420,7 @@ export function TodayBody({
               onOk={onOk}
               onSkip={onSkip}
               onNotForMe={onNotForMe}
+              onPotential={onPotential}
             />
           ))}
         </Part>
@@ -338,6 +435,7 @@ export function TodayBody({
             onOk={onOk}
             onSkip={onSkip}
             onNotForMe={onNotForMe}
+            onPotential={onPotential}
           />
         ))
       ) : list.partners.length ? null : (
@@ -399,6 +497,47 @@ export function TodayBody({
   );
 }
 
+/**
+ * Under the note that no new requests go for now (decision 97): Cancel all's two ways to start, the extension's left
+ * out first (decision 121), while it isn't going and only where the network has it.
+ */
+function CancelAllButtons({
+  platform,
+  held,
+  onCancelAll,
+}: {
+  platform: Platform;
+  held: NonNullable<TodayOutput['requestsHeld']>;
+  onCancelAll?: (leaveOutOwn: boolean) => void;
+}) {
+  const words = tidyWordsOn(platform).all;
+  // None from a server before it, nor while it's going.
+  const extension = held.extension ?? 0;
+  if (!words || !onCancelAll || held.why !== 'waiting' || held.cancelling) return null;
+  return (
+    <View className="flex-row flex-wrap gap-2" testID="today-cancel-all">
+      {extension > 0 && extension < held.count ? (
+        <Button
+          size="md"
+          variant="secondary"
+          onPress={() => onCancelAll(true)}
+          testID="today-cancel-all-leaving-out"
+        >
+          {words.leavingOut(extension)}
+        </Button>
+      ) : null}
+      <Button
+        size="md"
+        variant="secondary"
+        onPress={() => onCancelAll(false)}
+        testID="today-cancel-all-every"
+      >
+        {words.every(held.count)}
+      </Button>
+    </View>
+  );
+}
+
 function limitWords(today: TodayOutput, kind: TodayKind): string | null {
   const step = TODAY_LIMIT[kind];
   if (!step) return null;
@@ -413,6 +552,7 @@ function KindPart({
   onOk,
   onSkip,
   onNotForMe,
+  onPotential,
 }: {
   platform: Platform;
   kind: TodayKind;
@@ -420,6 +560,7 @@ function KindPart({
   onOk: (sendId: string) => void;
   onSkip: (sendId: string) => void;
   onNotForMe: (postId: string) => void;
+  onPotential?: (profileId: string, name: string) => void;
 }) {
   const items = today.items.filter((i) => i.kind === kind && !i.asking);
   const auto = today.auto.includes(kind);
@@ -437,6 +578,7 @@ function KindPart({
           onOk={onOk}
           onSkip={onSkip}
           onNotForMe={onNotForMe}
+          onPotential={onPotential}
         />
       ))}
     </Part>
@@ -450,6 +592,7 @@ function ItemCard({
   onOk,
   onSkip,
   onNotForMe,
+  onPotential,
 }: {
   platform: Platform;
   item: TodayItem;
@@ -458,6 +601,7 @@ function ItemCard({
   onOk: (sendId: string) => void;
   onSkip: (sendId: string) => void;
   onNotForMe: (postId: string) => void;
+  onPotential?: (profileId: string, name: string) => void;
 }) {
   // Where Open goes, and its words, as the web's: the post, their chat, else their page.
   const openAt = todayOpenOf(item, platform);
@@ -497,10 +641,29 @@ function ItemCard({
       {item.kind === 'video' && !item.send ? <Note>{W.videoNext}</Note> : null}
       {item.summary ? <Text className="text-[14px] leading-[20px]">{item.summary}</Text> : null}
       {item.nextStep ? <Note>{`${W.nextStepLabel}: ${item.nextStep}`}</Note> : null}
+      {item.partnerHint && item.profileId && !item.partnerId && onPotential ? (
+        // The AI's check thought they look more like a partner (decision 130): the person decides.
+        <View className="gap-2 rounded-control bg-card-2 px-3 py-2" testID="today-partner-hint">
+          <Note>{W.person.partnerHint(item.partnerHint)}</Note>
+          <Button
+            size="sm"
+            variant="secondary"
+            icon={Handshake}
+            onPress={() => onPotential(item.profileId!, item.name)}
+            testID="today-potential-partner"
+          >
+            {W.person.potentialPartner}
+          </Button>
+        </View>
+      ) : null}
       {item.post ? (
-        <Text className="rounded-control bg-card-2 px-3 py-2 text-[14px] leading-[20px]">
-          {item.post}
-        </Text>
+        // More shows the whole post when it's cut short (decision 141).
+        <PostQuote
+          post={item.post}
+          whole={item.postWhole}
+          className="rounded-control bg-card-2 px-3 py-2 text-[14px] leading-[20px]"
+          testID="today-post"
+        />
       ) : null}
       {item.recent.length ? (
         <View className="gap-1">

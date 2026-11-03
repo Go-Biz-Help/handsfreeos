@@ -208,6 +208,17 @@ export interface NumberLookup {
 }
 
 /**
+ * What the phone company says about a number before an AI call to someone with no yes (AI calls, part 5), in
+ * Twilio's own words: the line type (Line Type Intelligence) and, when asked, who it's registered to (Caller Name).
+ */
+export interface LineCheck {
+  /** landline, mobile, fixedVoip, nonFixedVoip, tollFree …; null when it couldn't say. */
+  readonly lineType: string | null;
+  /** BUSINESS, CONSUMER or UNDETERMINED; null when not asked or it couldn't say (outside the US). */
+  readonly callerType: string | null;
+}
+
+/**
  * A Twilio account somebody else owns — a business's own, never one of our subaccounts — opened with what they
  * gave us: the Account SID with its auth token, or an API key's SID with its secret. **Never logged.**
  */
@@ -336,6 +347,15 @@ export interface TelephonyProvider {
    * it is a question about somebody else's number. One the lookup cannot place comes back with nulls.
    */
   lookupNumber(e164: string): Promise<NumberLookup>;
+  /**
+   * What kind of line a number is, and with `callerName` who it's registered to (AI calls, part 5). Asked on the
+   * business's own subaccount, which Twilio bills for each, so the wallet charges it on.
+   */
+  checkLine(
+    account: ProviderAccount,
+    e164: string,
+    ask: { readonly lineType: boolean; readonly callerName: boolean },
+  ): Promise<LineCheck>;
   /**
    * Signs in to a business's own Twilio account with what they gave us, and says what it is. A 401 or 403 is
    * the answer "those are not the right credentials".

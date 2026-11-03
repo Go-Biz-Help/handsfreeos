@@ -111,7 +111,7 @@ export const CONFIRM = /^(?:confirm(?: friend)?(?: request)?|accept(?: request)?
 export const DELETE =
   /^(?:delete(?: friend)?(?: request)?|remove request|decline(?: request)?)(?:\s+(.+))?$/i;
 /** The button of a request you've sent: "Cancel request", or "Cancel request Jane Doe" where a list has many. */
-const CANCEL = /^cancel(?: friend)? request(?:\s+(.+))?$/i;
+export const CANCEL = /^cancel(?: friend)? request(?:\s+(.+))?$/i;
 /** What a request's row says in place of its buttons once it's answered: "Request accepted", "Request removed". */
 const ANSWERED = /^request (?:accepted|removed|deleted|declined|canceled|cancelled)$/i;
 
@@ -122,7 +122,7 @@ const ROW_STEPS = 16;
 export const shown = (element: Element) => element.closest('[aria-hidden="true"]') === null;
 
 /** The buttons in a box the person can see. */
-const shownControls = (box: Element) =>
+export const shownControls = (box: Element) =>
   [...box.querySelectorAll('[role="button"], button')].filter(shown);
 
 /** What says where a row's request stands: its Confirm, its Cancel request, or the words of its answer. */
@@ -146,7 +146,7 @@ function marksIn(root: Element): Mark[] {
 }
 
 /** One request's row: where it stands, the box it is, and who it's about. */
-interface Row {
+export interface Row {
   readonly row: RequestRow;
   readonly box: Element;
   readonly profile: ProfileRef;

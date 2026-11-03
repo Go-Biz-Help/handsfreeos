@@ -5,7 +5,7 @@
  * and demos, 20261027001200 for the extension on its own, 20261027001300 for the messages it sends,
  * 20261027001500 for live status: the computers, the day and the feed, and 20261027001600 for Waiting for you: the
  * steps it needs the person for, and the bundled push, 20261027001700 for asking the extension, 20261027002000 for
- * the fits among friends and chats, 20261027002100 for stages, 20261027002200 for checking and joining groups, 20261027002810 for countries, 20261027008400 for partners, 20261027009300 for finding partners by search, 20261027009800 for a code from the person's email, and 20261027014100 for finding people by topic):
+ * the fits among friends and chats, 20261027002100 for stages, 20261027002200 for checking and joining groups, 20261027002810 for countries, 20261027008400 for partners, 20261027009300 for finding partners by search, 20261027009800 for a code from the person's email, 20261027014100 for finding people by topic, and 20261027021500 for counting what the extension does):
  * the Drizzle mirror its server code reads and writes through.
  * Server-only.
  * test/addons/outreach-tables.test.ts holds the mirror to the live columns.
@@ -36,8 +36,9 @@ import type {
   SendKind,
 } from './automation';
 import type { EngagementKind, HelpfulState } from './helpful';
+import type { TallyKind } from './tallies';
 import type { ChatReadState } from './chat-read';
-import type { CheckVerdict } from './checks';
+import type { CheckVerdict, RequestAnswer } from './checks';
 import type {
   Answer,
   ConversationStep,
@@ -58,7 +59,7 @@ import type { PartnerFit, PartnerKind, PartnerSearchKind, PartnerStage } from '.
 import type { DownloadCounts, DownloadList, DownloadMessage } from './download';
 import type { LikeYoursState } from './like-yours';
 import type { OccasionKind } from './occasions';
-import type { FriendState, TidyKind } from './limits';
+import type { FriendAnswer, FriendState, TidyKind } from './limits';
 import type { DraftOpener, OpenerKind } from './openers';
 import type { PlaybookDetails } from './playbooks';
 import type { PostCheck, PostFound } from './posts';
@@ -316,6 +317,14 @@ export const friends = addonOutreach.table(
     keep: boolean('keep').notNull().default(false),
     /** When the person set a request they got aside (Waiting for you's Leave it): it counts while it's since `since`. */
     setAsideAt: ts('set_aside_at'),
+    /** When Cancel all marked a sent request to cancel (decision 121): it counts while it's since `since`. */
+    cancelAt: ts('cancel_at'),
+    /**
+     * The person's Confirm or Delete on a request they got (decision 136), which the extension does: it counts while
+     * `answerAt` is since `since`.
+     */
+    answer: text('answer').$type<FriendAnswer>(),
+    answerAt: ts('answer_at'),
     createdAt: ts('created_at').notNull().defaultNow(),
     updatedAt: ts('updated_at').notNull().defaultNow(),
   },
@@ -491,6 +500,11 @@ export const myGroups = addonOutreach.table(
       .references(() => users.id, { onDelete: 'cascade' }),
     groupId: uuid('group_id').notNull(),
     joined: boolean('joined').notNull(),
+    /**
+     * How many screens down this person's last read of its members got (decision 148): the next read starts there, so
+     * a big group is worked right through. 0 starts at the top, as a list that ended sets it back to.
+     */
+    membersDepth: integer('members_depth').notNull().default(0),
     seenAt: ts('seen_at').notNull(),
     createdAt: ts('created_at').notNull().defaultNow(),
     updatedAt: ts('updated_at').notNull().defaultNow(),
@@ -804,6 +818,8 @@ export const sends = addonOutreach.table(
     /** A comment's post (decision 92): set for kind `comment`, and only for it. */
     postId: uuid('post_id'),
     approvedAt: ts('approved_at'),
+    /** One tried again goes no sooner (decision 132): each a few minutes after the one before. */
+    notBefore: ts('not_before'),
     doneAt: ts('done_at'),
     createdAt: ts('created_at').notNull().defaultNow(),
     updatedAt: ts('updated_at').notNull().defaultNow(),
@@ -840,6 +856,11 @@ export const computers = addonOutreach.table(
     allowed: text('allowed').array().$type<Platform[]>(),
     nextAt: ts('next_at'),
     toldAt: ts('told_at'),
+    /**
+     * Until when a ticker of the person's is on screen (./tallies.ts, decision 140): meanwhile its line is told every
+     * few seconds. Null, or past, while nobody's watching.
+     */
+    watchedUntil: ts('watched_until'),
     /**
      * When it first worked on a build that finds people by topic (decision 92, ./ops/live.ts `foundByTopicSince`): the
      * old search pick carries on only with writers warmed up before then.
@@ -922,6 +943,13 @@ export const needs = addonOutreach.table(
     url: text('url'),
     why: text('why').notNull(),
     state: text('state').notNull().default('open').$type<NeedState>(),
+    /** The problem report it was sent with (20261027021600): a label, as reports go after 30 days. */
+    reportId: uuid('report_id'),
+    /**
+     * When the person put it back on Today's list with Retry (20261027021800, decision 145): off their list meanwhile,
+     * for `NEED_RETRY_DAYS` at most. Null once it's handed back, and for one never put back.
+     */
+    retryAt: ts('retry_at'),
     seenAt: ts('seen_at').notNull(),
     clearedAt: ts('cleared_at'),
     createdAt: ts('created_at').notNull().defaultNow(),
@@ -1106,6 +1134,14 @@ export const checks = addonOutreach.table(
     mutualRead: integer('mutual_read'),
     /** Of someone the person knows, or someone found by topic (decision 92): the server sets it at each look. */
     via: text('via').notNull().default('known').$type<CheckVia>(),
+    /** Why they look more like a partner than a customer (decision 130), in one line: null when they don't. */
+    partnerHint: text('partner_hint'),
+    /**
+     * Of someone who asked to be friends (decision 136): what the AI says to do with their request, and why in a line.
+     * The verdict stays whether they'd be a customer.
+     */
+    requestAnswer: text('request_answer').$type<RequestAnswer>(),
+    requestWhy: text('request_why'),
     createdAt: ts('created_at').notNull().defaultNow(),
     updatedAt: ts('updated_at').notNull().defaultNow(),
   },
@@ -1165,6 +1201,8 @@ export const partners = addonOutreach.table(
     answeredAt: ts('answered_at'),
     lookedAt: ts('looked_at').notNull(),
     checkedAt: ts('checked_at'),
+    /** When the person marked them as a potential partner (decision 130): null for anyone the AI found. */
+    markedAt: ts('marked_at'),
     createdAt: ts('created_at').notNull().defaultNow(),
     updatedAt: ts('updated_at').notNull().defaultNow(),
   },
@@ -1523,6 +1561,55 @@ export const networkStarts = addonOutreach.table(
 );
 
 /**
+ * A network's own monthly limit on the person's requests (./request-pause.ts, decision 147): new requests there wait
+ * till `until`, unless Start again ends it sooner (`ended_at`). One row a person a network, written again each time.
+ */
+export const requestPauses = addonOutreach.table(
+  'request_pauses',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    workspaceId: workspaceRef(),
+    userId: uuid('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    platform: text('platform').notNull().$type<Platform>(),
+    words: text('words').array().notNull(),
+    at: ts('at').notNull(),
+    until: ts('until').notNull(),
+    endedAt: ts('ended_at'),
+    createdAt: ts('created_at').notNull().defaultNow(),
+    updatedAt: ts('updated_at').notNull().defaultNow(),
+  },
+  (t) => [unique().on(t.workspaceId, t.id), unique().on(t.workspaceId, t.userId, t.platform)],
+);
+
+/**
+ * How many of each thing the extension did on its own, a day at a time (./tallies.ts, decision 140): one row a person,
+ * business day, network and kind, added to as each save arrives. Each person writes only their own; owners and admins
+ * read the team's, which hold no names.
+ */
+export const tallies = addonOutreach.table(
+  'tallies',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    workspaceId: workspaceRef(),
+    userId: uuid('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    day: date('day', { mode: 'string' }).notNull(),
+    platform: text('platform').notNull().$type<Platform>(),
+    kind: text('kind').notNull().$type<TallyKind>(),
+    n: integer('n').notNull().default(0),
+    createdAt: ts('created_at').notNull().defaultNow(),
+    updatedAt: ts('updated_at').notNull().defaultNow(),
+  },
+  (t) => [
+    unique().on(t.workspaceId, t.id),
+    unique().on(t.workspaceId, t.userId, t.day, t.platform, t.kind),
+  ],
+);
+
+/**
  * A birthday or a new job the person's computer read for someone already kept (./occasions.ts, decision 108): on
  * Facebook's Birthdays page or LinkedIn's Catch up, once a day. Each person's own. `onDay` is the business's day it was
  * read for.
@@ -1684,9 +1771,11 @@ export const OUTREACH_TABLES = {
   posts,
   profiles,
   replies,
+  requestPauses,
   sends,
   setup,
   stages,
+  tallies,
   threads,
   touches,
   waitingPushes,

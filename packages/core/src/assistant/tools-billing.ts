@@ -315,7 +315,7 @@ export const billingTools: readonly AssistantTool[] = [
   define({
     name: 'update_auto_topup',
     description:
-      'Automatic top-up of the business’s own HandsFreeOS balance (what texts, calls and AI replies come out of — not money customers pay): turn it on or off, the balance it tops up below, and how much it adds each time. While it is on it charges the card on file by itself. Topping up now and adding or changing the card are the person’s own to do (settings_help with area usage). Read it first with get_settings (area usage). Nothing is saved until the person says yes on the card.',
+      'Automatic top-up of the business’s own HandsFreeOS balance (what texts, calls and AI replies come out of — not money customers pay): turn it on or off, the balance it tops up below, and how much it adds each time. While it is on it charges the card on file by itself. Topping up now is do_wallet_top_up; adding or changing the card is the person’s own to do (settings_help with area usage). Read it first with get_settings (area usage). Nothing is saved until the person says yes on the card.',
     input: z.object({
       on: z.boolean().optional(),
       belowDollars: z

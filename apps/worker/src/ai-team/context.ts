@@ -386,6 +386,11 @@ export interface RunContext {
   readonly conversationLanguage: string | null;
   /** The name a chat visitor typed. */
   readonly visitorName: string | null;
+  /**
+   * The chat window is asking this visitor for their details itself, right after their first message (the texting
+   * registration's chat), and they haven't given a way to reach them yet: the teammate leaves the asking to it.
+   */
+  readonly chatFormAsks?: boolean;
   /** No message from the teammate has gone to this customer in this conversation yet. */
   readonly firstAiMessage: boolean;
   /** Its settings say it discloses in its first message, and this is it. */
@@ -557,6 +562,7 @@ export async function loadRunContext(tx: Tx, input: LoadInput): Promise<RunConte
     strangerInChat,
     conversationLanguage: conv?.language ?? null,
     visitorName: visitor?.name ?? null,
+    chatFormAsks: !!visitor?.formAsks && !visitor.phone && !visitor.email,
     firstAiMessage,
     discloseNow: firstAiMessage && input.config.identity.disclosure === 'first_message',
     customer,
@@ -1031,14 +1037,28 @@ async function callHistory(tx: Tx, conversationId: string): Promise<HistoryLine[
 async function visitorOf(
   tx: Tx,
   counterpart: string,
-): Promise<{ name: string | null; phone: string | null; email: string | null } | null> {
+): Promise<{
+  name: string | null;
+  phone: string | null;
+  email: string | null;
+  /** Their chat window asks for the mobile number right after the first message. */
+  formAsks: boolean;
+} | null> {
   const id = counterpart.startsWith('chat:') ? counterpart.slice(5) : '';
   if (!id) return null;
-  const [v] = await rows<{ name: string | null; phone_e164: string | null; email: string | null }>(
+  const [v] = await rows<{
+    name: string | null;
+    phone_e164: string | null;
+    email: string | null;
+    form_asks: boolean | null;
+  }>(
     tx,
-    sql`select name, phone_e164, email from app.chat_visitors where id::text = ${id}`,
+    sql`select v.name, v.phone_e164, v.email,
+          w.ask_for->>'phone' = 'after_first_message' as form_asks
+        from app.chat_visitors v left join app.chat_widgets w on w.id = v.widget_id
+        where v.id::text = ${id}`,
   );
-  return v ? { name: v.name, phone: v.phone_e164, email: v.email } : null;
+  return v ? { name: v.name, phone: v.phone_e164, email: v.email, formAsks: !!v.form_asks } : null;
 }
 
 const hostOf = (u: string): string => {

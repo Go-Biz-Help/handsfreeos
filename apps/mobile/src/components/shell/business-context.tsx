@@ -36,3 +36,7 @@ export function useOptionalBusiness(): BusinessContextValue | null {
 export function businessHref(businessId: string, path = ''): `/app/w/${string}` {
   return `/app/w/${businessId}${path ? `/${path}` : ''}`;
 }
+
+/** The business open now and the person, as `useBusiness` says, or null outside one: for a card also drawn alone. */
+export const useBusinessIfAny = (): BusinessContextValue | null =>
+  React.useContext(BusinessContext);

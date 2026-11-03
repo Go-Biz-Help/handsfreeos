@@ -24,6 +24,7 @@
  * stay small: the schemas are in ./waiting.ts.
  */
 import { inWorkingHours, nextInHours, underAPost, type WorkingHours } from './automation';
+import type { RequestAnswer } from './checks';
 import type { FitLevel } from './fit';
 import { networkOfLink, NETWORKS, PLATFORMS, withArticle, type Platform } from './networks';
 
@@ -132,9 +133,71 @@ export function needClearedWords(how: NeedClear, state: NeedState): string {
     : 'Let go. It won’t be handed to you for a week.';
 }
 
+/**
+ * Retry, and Retry all, on a step handed to the person (decisions 132 and 145): a message or comment that didn't go goes
+ * again, OK'd as it was, each a few minutes after the one before; any other step (a friend or connection request, a
+ * confirm, a like before a request, a comment the extension writes itself) goes back on Today's list for the
+ * extension's next go, ahead of new ones, and the list does them one at a time.
+ */
+export const NEED_RETRY = { one: 'Retry', all: 'Retry all' } as const;
+/** The least and most minutes between one send tried again and the next: a person's pace, at random. */
+export const RETRY_GAP_MINUTES = { least: 3, most: 7 } as const;
+/**
+ * A step put back on Today's list (decision 145) stays on it this long at most: off Steps it needs you for meanwhile.
+ * Neither done nor handed back by then, it waits for the person again.
+ */
+export const NEED_RETRY_DAYS = 3;
+
+/** Why a step tried again is on Today's list (decision 145), first among its reasons. */
+export const RETRIED_WHY = 'Trying again: it didn’t go before';
+
+/** The steps Today's list takes back (decision 145): all but a message, which goes again through its send. */
+export const LIST_RETRY_STEPS = ['confirm', 'friend_request', 'warm_up', 'comment'] as const;
+
+/**
+ * Whether a step handed to the person can be tried again: a message or comment that didn't go, with its words; or a
+ * step Today's list takes back, a comment with its post.
+ */
+export const needRetryable = (need: {
+  readonly step: NeedStep;
+  readonly sendId: string | null;
+  readonly postId?: string | null;
+}): boolean =>
+  need.sendId !== null
+    ? need.step === 'message' || need.step === 'comment'
+    : need.step === 'confirm' ||
+      need.step === 'friend_request' ||
+      need.step === 'warm_up' ||
+      (need.step === 'comment' && (need.postId ?? null) !== null);
+
+/**
+ * What Retry or Retry all did: how many go again, and how many couldn't, as it was done since or one already waits.
+ * Messages go a few minutes apart, and the rest from Today's list, so it's always "on the extension's next go".
+ */
+export function retriedWords(retried: number, passed: number): string {
+  const n = (count: number) => count.toLocaleString('en-US');
+  const going =
+    retried === 0
+      ? 'Nothing to try again.'
+      : retried === 1
+        ? 'Trying it again on the extension’s next go.'
+        : `Trying ${n(retried)} again on the extension’s next go, one at a time.`;
+  if (!passed) return going;
+  return `${going} ${n(passed)} ${passed === 1 ? 'wasn’t' : 'weren’t'} tried again: it was done since, or a newer message to them waits already.`;
+}
+
 /** Why the extension couldn't do a step, as a need shows it: its own words, with a capital to start. */
 export const needWhyWords = (why: string): string =>
   why ? `${why[0]!.toUpperCase()}${why.slice(1)}` : why;
+
+/**
+ * HandsFreeOS staff only (decision 142): a need's link to the problem report the extension sent of the page, with what
+ * the AI helper found. Shown to those who read the support desk's Problem reports, never to the business.
+ */
+export const NEED_REPORT_WORDS = 'See what it saw';
+
+/** Where it opens: the report on the support desk. */
+export const needReportHref = (reportId: string): string => `/admin/problems/${reportId}`;
 
 /** A chat in Messenger, by the number in its link (`threadKey`): where to answer them. Null without one. */
 export const messengerChatUrl = (threadKey: string | null): string | null =>
@@ -233,12 +296,57 @@ export const REQUEST_HELD = {
 } as const;
 export type RequestHeld = keyof typeof REQUEST_HELD;
 
-/** Why a friend request is the person's to decide: how they fit, or that nothing does. */
+/** What the AI says to do with a request (decision 136), before its line on why. */
+export const REQUEST_SAID = {
+  confirm: 'The AI says confirm',
+  delete: 'The AI says delete',
+  ask: 'The AI isn’t sure',
+} as const satisfies Record<RequestAnswer, string>;
+
+/**
+ * Where the AI's read of a request stands (decision 136): it said (`read`), it's still to read them (`reading`, shown
+ * once a day has gone by), it couldn't read them (`failed`), or it doesn't read them (`off`: all go one way, they're
+ * on Don't pitch, or the network's requests are the person's).
+ */
+export type RequestRead = 'read' | 'reading' | 'failed' | 'off';
+
+/** How long a new request waits off the list for the AI's read (decision 136) before it shows without one. */
+export const REQUEST_READ_DAYS = 1;
+
+/** Why one the AI would delete waits for the person instead (decision 136). */
+export const REQUEST_KEPT = {
+  never: 'It never deletes someone in Contacts, kept, chatted with, or a partner',
+  no_playbook: 'With no playbook in use, it deletes nobody',
+} as const;
+export type RequestKept = keyof typeof REQUEST_KEPT;
+
+/** The person's own press on a request (decision 136), as Today's step says it. */
+export const REQUEST_PRESSED_WHY = {
+  confirm: 'You pressed Confirm',
+  delete: 'You pressed Delete',
+} as const;
+
+/**
+ * Why a friend request is the person's to decide: what the AI said and why (decision 136), or where its read stands;
+ * else how they fit, or that nothing does.
+ */
 export function requestWhy(
   reasons: readonly string[],
   level: FitLevel,
   held: RequestHeld | null = null,
+  ai: {
+    readonly read: RequestRead;
+    readonly said: RequestAnswer | null;
+    readonly why: string | null;
+    readonly kept?: RequestKept | null;
+  } = { read: 'off', said: null, why: null },
 ): string[] {
+  if (ai.read === 'read' && ai.said) {
+    const said = ai.why ? `${REQUEST_SAID[ai.said]}: ${ai.why}` : REQUEST_SAID[ai.said];
+    return [said, ...(ai.kept ? [REQUEST_KEPT[ai.kept]] : [])];
+  }
+  if (ai.read === 'reading') return ['The AI hasn’t read their profile yet'];
+  if (ai.read === 'failed') return ['The AI couldn’t read their profile'];
   const why = [...reasons];
   if (held) why.push(REQUEST_HELD[held]);
   else if (level !== 'skip' && !reasons.length)
@@ -320,76 +428,98 @@ const things = (n: number, one: string, many: string) =>
   n === 1 ? `1 ${one}` : `${n.toLocaleString('en-US')} ${many}`;
 
 /**
- * The bundled push, in the owner's words, messages first: "5 messages wait for your OK"; null with nothing to tell.
- * Replies handed over aren't in it, since each pushed at once on its own, unless `withReplies` (the extension's first
- * look after a sign-in, which tells of all that was there).
+ * Where the words are read (decision 146): the phone's push says "Tap to…", the extension's pop-up on the computer
+ * "Click to…". Either opens Needs you, so the words never name a page.
+ */
+export type PushOn = 'phone' | 'computer';
+const press = (on: PushOn) => (on === 'computer' ? 'Click' : 'Tap');
+
+/**
+ * A push's title (decision 146): the network and what happened, short enough that a phone never cuts it ("LinkedIn
+ * message to OK"); "Message to OK" when the network isn't known.
+ */
+const titleOn = (platform: Platform | null, what: string): string =>
+  platform ? `${PLATFORMS[platform]} ${what}` : `${what[0]!.toUpperCase()}${what.slice(1)}`;
+
+/**
+ * The bundled push (decision 146), messages first: "5 messages to OK", "And 2 steps for you. Tap to see them."; null
+ * with nothing to tell. Replies handed over aren't in it, since each pushed at once on its own, unless `withReplies`
+ * (the extension's first look after a sign-in, which tells of all that was there).
  */
 export function bundlePushWords(
   kinds: WaitingKinds,
   withReplies = false,
+  on: PushOn = 'phone',
 ): { title: string; body: string } | null {
   const messages = kinds.message.count + (withReplies ? kinds.reply.count : 0);
   const needs = kinds.need.count;
   if (messages)
     return {
-      title: `${things(messages, 'message waits', 'messages wait')} for your OK`,
+      title: `${things(messages, 'message', 'messages')} to OK`,
       body: needs
-        ? `And ${things(needs, 'step', 'steps')} the extension couldn’t do. Open Today.`
-        : `Open Today to OK, change or skip ${messages === 1 ? 'it' : 'them'}.`,
+        ? `And ${things(needs, 'step', 'steps')} for you. ${press(on)} to see them.`
+        : `${press(on)} to OK, change or skip ${messages === 1 ? 'it' : 'them'}.`,
     };
   if (needs)
     return {
-      title: needs === 1 ? '1 step needs you' : `${needs.toLocaleString('en-US')} steps need you`,
+      title: `${things(needs, 'step', 'steps')} for you`,
       body:
         needs === 1
-          ? 'The extension couldn’t do it. Do it yourself, or let it go, on Today.'
-          : 'The extension couldn’t do them. Do them yourself, or let them go, on Today.',
+          ? `The extension couldn’t do it. Do it yourself, or let it go. ${press(on)} to see it.`
+          : `The extension couldn’t do them. Do them yourself, or let them go. ${press(on)} to see them.`,
     };
   return null;
 }
 
-/** A line as a sentence: its first letter capital, no stop at the end. */
-const sentence = (line: string) => {
-  const t = line.trim().replace(/[.!\s]+$/, '');
-  return t ? `${t[0]!.toUpperCase()}${t.slice(1)}` : t;
-};
+/** What pushes on its own with "one for each": a message or comment to OK, or a step handed to the person. */
+export type EachPush =
+  | {
+      readonly kind: 'message' | 'comment';
+      readonly name: string;
+      /** The network it goes out on: null when it isn't known, and the title then names none. */
+      readonly platform: Platform | null;
+    }
+  | {
+      readonly kind: 'need';
+      readonly name: string;
+      readonly step: NeedStep;
+      readonly platform: Platform;
+    };
 
 /**
- * A push for one message, comment or need, with "one for each": "Dana Reyes: a message waits for your OK", "A comment
- * on Quinn Harper’s post waits for your OK". A need's says its network when it's known: "Dana Reyes: the extension
- * needs you on Alignable".
+ * A push for one message, comment or need, with "one for each" (decision 146): the network and what happened in the
+ * title, who in the body, and what a tap does. "LinkedIn message to OK" / "To Dana Reyes. Tap to OK, change or skip
+ * it."; a need says what to do in its network's words, never the extension's reason, which Needs you shows: "LinkedIn
+ * step for you" / "Send Dana Reyes an invitation to connect yourself, or let it go. Tap to open it."
  */
 export function eachPushWords(
-  kind: 'message' | 'comment' | 'need',
-  name: string,
-  why: string | null = null,
-  platform: Platform | null = null,
+  what: EachPush,
+  on: PushOn = 'phone',
 ): { title: string; body: string } {
-  if (kind === 'message')
+  if (what.kind === 'need')
     return {
-      title: `${name}: a message waits for your OK`,
-      body: 'OK it, change it or skip it on Today.',
+      title: titleOn(what.platform, 'step for you'),
+      body: `${needTitle(what.step, what.name, what.platform)}, or let it go. ${press(on)} to open it.`,
     };
-  if (kind === 'comment')
-    return {
-      title: `A comment on ${name}’s post waits for your OK`,
-      body: 'OK it, change it or skip it on Today.',
-    };
-  const said = why ? sentence(why) : '';
-  return {
-    title: `${name}: the extension needs you${platform ? ` on ${PLATFORMS[platform]}` : ''}`,
-    body: `${said ? `${said}. ` : ''}Do it yourself, or let it go, on Today.`,
-  };
+  const ok = `${press(on)} to OK, change or skip it.`;
+  return what.kind === 'message'
+    ? { title: titleOn(what.platform, 'message to OK'), body: `To ${what.name}. ${ok}` }
+    : { title: titleOn(what.platform, 'comment to OK'), body: `On ${what.name}’s post. ${ok}` };
 }
 
-/** The push, and the extension's pop-up, for a reply handed over: "Dana Reyes needs you". */
+/**
+ * The push, and the extension's pop-up, for a reply handed over (decision 146): "Facebook reply needs you" / "From
+ * Dana Reyes: they sound upset, so the AI’s answer waits for you. Tap to see it."
+ */
 export function handOverPushWords(
   name: string,
   why: string | null,
+  platform: Platform | null = null,
+  on: PushOn = 'phone',
 ): { title: string; body: string } {
   return {
-    title: `${name} needs you`,
-    body: `Their reply waits for your OK on Today${why ? `: ${why}` : ': it isn’t a simple one'}.`,
+    title: titleOn(platform, 'reply needs you'),
+    body: `From ${name}: ${why || 'it isn’t a simple one'}, so the AI’s answer waits for you. ${press(on)} to see it.`,
   };
 }
 

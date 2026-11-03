@@ -8,6 +8,7 @@
  */
 import { defineAddon } from '../manifest';
 import { OutreachSettingsSchema } from './chat-read';
+import { OUTREACH_PAGES } from './pages';
 
 export const outreachAddon = defineAddon({
   id: 'outreach',
@@ -26,8 +27,10 @@ export const outreachAddon = defineAddon({
   // 7: a playbook runs on its own networks only; a customers' playbook saved before gets Facebook and LinkedIn, as it
   // ran on both. 8: a playbook has each network's own words (hashtags on Instagram, LinkedIn's post searches, kinds of
   // business on Alignable), whether it works with clients online, and which networks' words the AI wrote; empty on one
-  // saved before.
-  dataVersion: 8,
+  // saved before. 9: a playbook has phrases for Facebook's post search, and the AI's hashtags and LinkedIn phrases,
+  // written before around who it's for, are written again around its topic (decision 141). 10: the posts an older
+  // check called good, still open for a comment, are checked again for the owner's own field (decision 143).
+  dataVersion: 10,
   catalog: {
     status: 'development',
     // The words someone uses when they need it: what recommendations and the AI's search match on.
@@ -109,6 +112,7 @@ export const outreachAddon = defineAddon({
       'outreach.send.done',
       'outreach.wheels.ended',
       'outreach.live.changed',
+      'outreach.live.watched',
       'outreach.day.started',
       'outreach.day.stopped',
       'outreach.lists.saved',
@@ -117,6 +121,7 @@ export const outreachAddon = defineAddon({
       'outreach.need.noted',
       'outreach.need.cleared',
       'outreach.request.set_aside',
+      'outreach.request.answered',
       'outreach.ask.made',
       'outreach.ask.started',
       'outreach.ask.progressed',
@@ -156,6 +161,9 @@ export const outreachAddon = defineAddon({
       'outreach.occasions.saved',
       'outreach.like_yours.found',
       'outreach.like_yours.changed',
+      'outreach.friends.cancel_all',
+      'outreach.requests.paused',
+      'outreach.requests.started_again',
     ],
     // The last part of a download, and chats read in Messenger, start the AI's read of the chats
     // (apps/worker/src/addons/outreach/chats.ts); group posts worth a look start its check of them (./posts.ts), and
@@ -173,8 +181,9 @@ export const outreachAddon = defineAddon({
     // work out where they live when the setting skips anyone (decision 61, ./countries.ts). Starting the day, or
     // saving one's settings, arms the day's report, and a new main offer tells whoever OK'd their messages against an
     // older one (decision 70, ./tracking.ts). Someone who could partner, read off their profile, waits for the AI's
-    // partner check (decision 81, ./partners.ts). A playbook saved, a network turned on and the day started have the AI
-    // write each network's own words for a customers' playbook that has none yet (decision 92, ./words.ts). Someone
+    // partner check (decision 81, ./partners.ts). A playbook saved, a network turned on, the day started and the
+    // morning's first list saved (decision 123) have the AI write each network's own words for a customers' playbook
+    // that has none yet (decision 92, ./words.ts). Someone
     // accepting the person's friend request pushes to their phone, when they switched that on (decision 101, ./alerts.ts).
     // Someone who wants a demo, or answered the playbook's questions, goes in the main pipeline (decision 105, ./leads.ts);
     // once they came to the demo, their lead moves on and waits for the person's won or lost (decision 106). Accounts
@@ -205,6 +214,7 @@ export const outreachAddon = defineAddon({
       'main_offer.published',
       'outreach.partner.looked',
       'outreach.playbook.saved',
+      'outreach.lists.saved',
       'outreach.friend.accepted',
       'outreach.lead.wanted',
       'appointment.completed',
@@ -227,6 +237,8 @@ export const outreachAddon = defineAddon({
     'outreach.check_partners',
     'outreach.write_words',
     'outreach.pick_like_yours',
+    'outreach.goal_check',
+    'outreach.goal_midday',
   ],
   // Who from the chats brought in goes in Contacts (./chat-read.ts), how long a sent request waits, the hour of the
   // morning push, the weekly report, and which countries it reaches: Social Outreach → Settings → General, For your
@@ -271,10 +283,12 @@ export const outreachAddon = defineAddon({
     'posts',
     'profiles',
     'replies',
+    'request_pauses',
     'reviews',
     'sends',
     'setup',
     'stages',
+    'tallies',
     'threads',
     'touches',
     'waiting_pushes',
@@ -308,8 +322,21 @@ export const outreachAddon = defineAddon({
     ],
   },
   ui: {
-    // Its place in the side menu, shown only while it runs and to people who may open it.
-    nav: [{ key: 'outreach', label: 'Social Outreach', icon: 'handshake', path: '' }],
+    // Its pages in the side menu, which pop out from its one row (the owner's decision, 2026-10-09; decision 127):
+    // one page for each thing the person comes to do, shown only while it runs and to people who may open it. The
+    // bare page (`path: ''`) isn't one of them: it forwards the old `?view=` addresses to these.
+    nav: [
+      // First while anything's left to set up: the web's registry draws its row, with "6 of 9" (decision 129).
+      { key: 'setup', label: OUTREACH_PAGES.setup, icon: 'list-checks', path: 'set-up' },
+      { key: 'needs-you', label: OUTREACH_PAGES['needs-you'], icon: 'inbox', path: 'needs-you' },
+      { key: 'today', label: OUTREACH_PAGES.today, icon: 'sun', path: 'today' },
+      { key: 'people', label: OUTREACH_PAGES.people, icon: 'users', path: 'people' },
+      { key: 'find', label: OUTREACH_PAGES.find, icon: 'search', path: 'find' },
+      { key: 'results', label: OUTREACH_PAGES.results, icon: 'chart-column', path: 'results' },
+      { key: 'playbooks', label: OUTREACH_PAGES.playbooks, icon: 'book-open', path: 'playbooks' },
+      // Not `settings`: that key would put the page in Settings search, which opens it on the web.
+      { key: 'gear', label: OUTREACH_PAGES.gear, icon: 'settings', path: 'settings' },
+    ],
     // A customer's Facebook profile and the chats saved with them; and how the main offer's live version is doing.
     slots: [
       { slot: 'person.panels', permission: 'outreach.use' },
@@ -318,13 +345,13 @@ export const outreachAddon = defineAddon({
     // The whole add-on on the phone, under More (decision 44): one page with the web's tabs (`?view=`), so the pushes'
     // links (`?view=waiting`, `live`, `today`) open the phone's screens; Settings' part (`?part=`, decision 73) and the
     // network shown (`?net=`) with them; the code an ask waits on (`?view=code&ask=`, decision 82); a group's own page
-    // (`?view=groups&group=`, decision 103); and a playbook. The activity and friends stay on the web, and their links
-    // open it.
+    // (`?view=groups&group=`, decision 103); and a playbook. Friends came to the phone with People's views (decision
+    // 128); the old Activity stays on the web, and its links open it.
     phone: [
       {
         path: '',
         query: ['view', 'part', 'for', 'net', 'show', 'tag', 'q', 'ask', 'group'],
-        web: { view: ['activity', 'friends'] },
+        web: { view: ['activity'] },
       },
       { path: 'playbooks/:playbookId' },
     ],

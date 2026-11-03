@@ -25,6 +25,7 @@ import {
   choicesFor,
   dayList,
   freshState,
+  halvedNow,
   NETWORKS_DEFAULTS,
   NetworksSettings,
   notAllowedWords,
@@ -203,7 +204,10 @@ export async function automationOf(
   wheels: WheelsState;
   /** Their half limits while new there (decision 96). */
   fresh: FreshState;
-  /** Their daily limits there are half: on training wheels, or new there. A warning halves them too, for callers. */
+  /**
+   * Their daily limits there are half: on training wheels, or new there, unless they picked Full speed there (decision
+   * 138). A warning halves them too, for callers.
+   */
   slower: boolean;
   rules: BusinessRules;
 }> {
@@ -215,13 +219,14 @@ export async function automationOf(
   const settings = settingsOf(row, rules);
   const wheels = stateOf(row, rules, now, platform);
   const fresh = freshOn(steps, userId, settings, now, platform);
+  const choices = choicesFor(settings, platform);
   return {
     settings,
-    choices: choicesFor(settings, platform),
+    choices,
     saved: row !== undefined,
     wheels,
     fresh,
-    slower: wheels.on || fresh.on,
+    slower: halvedNow({ wheels, fresh, choices }),
     rules,
   };
 }
@@ -267,7 +272,8 @@ export async function everyoneAutomation(ctx: Ctx, now = Date.now()) {
       const settings = settingsOf(row, rules);
       const wheels = stateOf(row, rules, now, platform);
       const fresh = freshOn(steps, userId, settings, now, platform);
-      return { settings, wheels, fresh, slower: wheels.on || fresh.on };
+      const choices = choicesFor(settings, platform);
+      return { settings, wheels, fresh, slower: halvedNow({ wheels, fresh, choices }) };
     },
   };
 }

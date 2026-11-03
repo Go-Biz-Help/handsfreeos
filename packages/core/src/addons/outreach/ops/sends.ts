@@ -24,7 +24,8 @@ import {
   commentHoldOn,
   goesAsItIs,
   handedOver,
-  postStartOf,
+  postParts,
+  SEND_POST_MOST,
   REBOOK_NEEDS_YOU,
   replyNeedsYou,
   SendApproveInput,
@@ -33,6 +34,8 @@ import {
   SendDoneOutput,
   SendQueueInput,
   SendQueueOutput,
+  SendRetryInput,
+  SendRetryOutput,
   SENDS_MOST,
   SendSkipInput,
   SendSkipOutput,
@@ -42,11 +45,13 @@ import {
   type Send,
 } from '../sends';
 import { PARTNER_WORDS } from '../partners';
+import { KNOWS_WORDS } from '../knows';
 import { isClientSkipped, type ClientCause } from '../person-menu';
 import { commentSendsOn, LINKEDIN_COMMENTS_WAIT_SINCE } from '../profile-parts';
 import { OUTREACH_WORDS } from '../words';
 import { heldForOthers } from '../owners';
-import { fileChats, openerUses, playbooks, posts, profiles, sends } from '../tables';
+import { fileChats, needs, openerUses, playbooks, posts, profiles, sends } from '../tables';
+import { RETRY_GAP_MINUTES } from '../waiting-words';
 import { OCCASION_WORDS } from '../occasions';
 import { isOccasionKind, isPartnerKind } from '../today';
 import { automationOf, countWheels } from './automation';
@@ -61,6 +66,7 @@ import {
   type ChatRef,
   type Ctx,
 } from './common';
+import { tally } from './tallies';
 import { workingBuild } from './live';
 import { openNeed } from './needs';
 import { someoneElses } from './owners';
@@ -118,7 +124,10 @@ export async function listed(ctx: Ctx, where: ReturnType<typeof and>): Promise<S
     recent: underAPost(s.kind) ? [] : (recent.get(`${s.userId}/${chatKey(refOf(s))}`) ?? []),
     postId: s.postId,
     postUrl: s.postId ? postUrl : null,
-    post: s.postId && postBody !== null ? postStartOf(postBody) : null,
+    // Its first words, and the whole post for More when they're cut short (decision 141).
+    ...(s.postId && postBody !== null
+      ? postParts(postBody, SEND_POST_MOST)
+      : { post: null, postWhole: null }),
   }));
 }
 
@@ -255,7 +264,7 @@ async function setPostAside(ctx: CommandContext, row: Row, at: Date): Promise<vo
 export const sendQueue = defineAddonCommand(outreachAddon, {
   name: 'outreach.send.queue',
   description:
-    'The extension drafted a message to someone on the person’s list for today: a first message, a follow-up or a reply; or, on Instagram, LinkedIn and Alignable, a comment on a good post of theirs; or, on Facebook, the day’s reply to a question asked in one of the person’s groups. It waits for the person’s OK, or, when they chose for messages to go on their own and their training wheels are off, goes as it is; a comment or a reply in a group goes on its own once the person has OK’d 25 there and a week has gone by, and an answer to an Alignable post asking for what the business offers always waits, as do a message offering another time after a missed demo and a birthday or new-job note. A message already drafted for them comes back instead. A client in Contacts gets only replies.',
+    'The extension drafted a message to someone on the person’s list for today: a first message, a follow-up or a reply; or, on Instagram, LinkedIn and Alignable, a comment on a good post of theirs; or, on Facebook, the day’s reply to a question asked in one of the person’s groups. It waits for the person’s OK, or, when they chose for messages to go on their own and their training wheels are off, goes as it is; a comment or a reply in a group goes on its own once the person has OK’d 25 there and a week has gone by, and an answer to an Alignable post asking for what the business offers always waits, as do a message offering another time after a missed demo, a birthday or new-job note, and a reply to something the business’s Knowledge doesn’t answer. A message already drafted for them comes back instead. A client in Contacts gets only replies.',
   risk: 0,
   input: SendQueueInput,
   output: SendQueueOutput,
@@ -360,7 +369,9 @@ export const sendQueue = defineAddonCommand(outreachAddon, {
               ? null
               : theirs === null
                 ? 'HandsFreeOS hasn’t seen what they wrote'
-                : replyNeedsYou(theirs);
+                : // Something they asked that the business's Knowledge doesn't answer (decision 122): the person's.
+                  (replyNeedsYou(theirs) ??
+                  (input.unanswered ? KNOWS_WORDS.needsYou(input.unanswered) : null));
     const goes = goesAsItIs({
       sending: settings.sending,
       replies: settings.replies,
@@ -407,6 +418,8 @@ export const sendQueue = defineAddonCommand(outreachAddon, {
       })
       .onConflictDoNothing()
       .returning({ id: sends.id });
+    // Each message or comment drafted counts (decision 140).
+    if (made) await tally(ctx, me, profile.platform, 'drafted', 1, at);
     if (made)
       await ctx.emit({
         type: 'outreach.send.queued',
@@ -750,12 +763,156 @@ export const sendsList = defineAddonQuery(outreachAddon, {
   },
 });
 
+const RETRY_GAP_MS = {
+  least: RETRY_GAP_MINUTES.least * 60_000,
+  most: RETRY_GAP_MINUTES.most * 60_000,
+};
+
+export const sendRetry = defineAddonCommand(outreachAddon, {
+  name: 'outreach.send.retry',
+  description:
+    'The person tries again messages and comments the extension couldn’t send, from Steps it needs you for: one (Retry), or with none named every one there (Retry all). Each goes again as it was, OK’d, a few minutes after the one before at random, so they never all go at once; its step leaves the list, and comes back if it can’t go again. One with a newer message to them waiting already, or that went since, is passed over.',
+  risk: 1,
+  input: SendRetryInput,
+  output: SendRetryOutput,
+  permission: 'outreach.use',
+  ai: {
+    tool: 'outreach_retry_messages',
+    autonomy: 'confirm',
+    keywords: ['retry', 'try again', 'resend', 'retry all', 'send again'],
+  },
+  scope: inWorkspace,
+  emits: ['outreach.send.approved', 'outreach.need.cleared'],
+  async handler(ctx, input) {
+    const me = requireHuman(ctx).userId;
+    const ws = ctx.scope.workspaceId!;
+    const at = changeMoment(ctx.meta);
+    // The steps handed over for a message or comment that didn't go, oldest first: the first goes again first.
+    const open = await ctx.tx
+      .select()
+      .from(needs)
+      .where(
+        and(
+          eq(needs.workspaceId, ws),
+          eq(needs.userId, me),
+          eq(needs.state, 'open'),
+          inArray(needs.step, ['message', 'comment']),
+          isNotNull(needs.sendId),
+          ...(input.needIds ? [inArray(needs.id, input.needIds)] : []),
+        ),
+      )
+      .orderBy(needs.seenAt)
+      .limit(SENDS_MOST);
+    if (input.needIds && !open.length)
+      throw HfosError.notFound(
+        'That isn’t waiting for you any more: it was done, let go or tried again. Refresh Waiting for you.',
+      );
+    return sendsAgain(ctx, me, open, at);
+  },
+});
+
+/**
+ * Tries again the messages and comments that didn't go, for the steps handed over for them (`open`, oldest first): each
+ * a new send, OK'd as it was, a few minutes after the one before at random from `at`; its step done. One with a newer
+ * message to them open already, or whose send isn't one that failed, is passed over. Retry's (`outreach.send.retry`)
+ * and Retry all's on every step (`outreach.need.retry`, ./waiting.ts).
+ */
+export async function sendsAgain(
+  ctx: CommandContext,
+  me: string,
+  open: readonly (typeof needs.$inferSelect)[],
+  at: Date,
+): Promise<{ retried: { needId: string; sendId: string; at: string }[]; passed: number }> {
+  const ws = ctx.scope.workspaceId!;
+  const failed: Row[] = open.length
+    ? await ctx.tx
+        .select()
+        .from(sends)
+        .where(
+          and(
+            mine(ctx, me),
+            eq(sends.state, 'failed'),
+            inArray(
+              sends.id,
+              open.map((need) => need.sendId!),
+            ),
+          ),
+        )
+    : [];
+  const failedOf = new Map(failed.map((row) => [row.id, row]));
+  const retried: { needId: string; sendId: string; at: string }[] = [];
+  let passed = 0;
+  let next = at.getTime();
+  for (const need of open) {
+    const row = failedOf.get(need.sendId!);
+    if (!row) {
+      passed++;
+      continue;
+    }
+    const notBefore = new Date(next);
+    // A new send, OK'd as it was: the extension tries each send once a day, by its own id. One open to them already
+    // (a newer draft, or one tried again) is theirs instead.
+    const [made] = await ctx.tx
+      .insert(sends)
+      .values({
+        workspaceId: ws,
+        userId: me,
+        profileId: row.profileId,
+        kind: row.kind,
+        chatId: row.chatId,
+        threadKey: row.threadKey,
+        text: row.text,
+        drafted: row.drafted,
+        opener: row.opener,
+        state: 'approved',
+        handedOver: row.handedOver,
+        needsYou: row.needsYou,
+        offerVersion: row.offerVersion,
+        postId: row.postId,
+        approvedAt: at,
+        notBefore,
+      })
+      .onConflictDoNothing()
+      .returning({ id: sends.id });
+    if (!made) {
+      passed++;
+      continue;
+    }
+    // A comment that didn't go set its post aside: back on the list, unless the person set it aside since.
+    if (underAPost(row.kind) && row.postId && row.doneAt)
+      await ctx.tx
+        .update(posts)
+        .set({ skippedAt: null })
+        .where(and(eq(posts.id, row.postId), eq(posts.skippedAt, row.doneAt)));
+    await ctx.tx
+      .update(needs)
+      .set({ state: 'done', clearedAt: at, updatedAt: new Date() })
+      .where(eq(needs.id, need.id));
+    await ctx.emit({
+      type: 'outreach.need.cleared',
+      entityType: 'outreach_need',
+      entityId: need.id,
+      payload: { userId: me, how: 'done', step: need.step },
+    });
+    await ctx.emit({
+      type: 'outreach.send.approved',
+      entityType: 'outreach_profile',
+      entityId: row.profileId,
+      payload: { kind: row.kind, changed: false },
+    });
+    retried.push({ needId: need.id, sendId: made.id, at: notBefore.toISOString() });
+    next += RETRY_GAP_MS.least + Math.random() * (RETRY_GAP_MS.most - RETRY_GAP_MS.least);
+  }
+  return { retried, passed };
+}
+
 /**
  * Today's sends for the list for today (./today.ts): those open, by profile and kind (a comment by its post), and the
  * people skipped or not sent to today, who are off the list until tomorrow (a comment's post alone). And each writer's
- * comment open, on whichever post: one at a time (decision 92's 17).
+ * comment open, on whichever post: one at a time (decision 92's 17). One tried again keeps its person off the list
+ * till it may go (decision 132): `retryAt` says when the next does, on a network.
  */
-export async function sendsToday(ctx: Ctx, me: string, todayFrom: string) {
+export async function sendsToday(ctx: Ctx, me: string, todayFrom: string, now: Date = new Date()) {
   const found = await rows<{
     id: string;
     profile_id: string;
@@ -765,12 +922,16 @@ export async function sendsToday(ctx: Ctx, me: string, todayFrom: string) {
     text: string;
     handed_over: boolean;
     needs_you: string | null;
+    not_before: Date | string | null;
+    platform: Platform | null;
   }>(
     ctx.tx,
-    sql`select id, profile_id, kind, post_id, state, text, handed_over, needs_you from addon_outreach.sends
-        where workspace_id = ${ctx.scope.workspaceId} and user_id = ${me}
-          and (state in ('waiting', 'approved')
-            or (state in ('skipped', 'failed') and done_at >= ${todayFrom}::timestamptz))`,
+    sql`select s.id, s.profile_id, s.kind, s.post_id, s.state, s.text, s.handed_over, s.needs_you, s.not_before,
+          p.platform
+        from addon_outreach.sends s left join addon_outreach.profiles p on p.id = s.profile_id
+        where s.workspace_id = ${ctx.scope.workspaceId} and s.user_id = ${me}
+          and (s.state in ('waiting', 'approved')
+            or (s.state in ('skipped', 'failed') and s.done_at >= ${todayFrom}::timestamptz))`,
   );
   // A comment or a reply in a group is its post's; anything else is its person's and kind's.
   const key = (profileId: string, kind: string, postId: string | null) =>
@@ -786,9 +947,16 @@ export async function sendsToday(ctx: Ctx, me: string, todayFrom: string) {
     }
   >();
   const off = new Set<string>();
+  const held = new Set<string>();
+  const retryAt = new Map<Platform, number>();
   const commentOn = new Map<string, string | null>();
   for (const s of found)
     if (s.state === 'waiting' || s.state === 'approved') {
+      const goes = s.not_before === null ? null : new Date(s.not_before).getTime();
+      if (s.state === 'approved' && goes !== null && goes > now.getTime()) {
+        held.add(key(s.profile_id, s.kind, s.post_id));
+        if (s.platform) retryAt.set(s.platform, Math.min(goes, retryAt.get(s.platform) ?? goes));
+      }
       open.set(key(s.profile_id, s.kind, s.post_id), {
         sendId: s.id,
         state: s.state,
@@ -803,13 +971,18 @@ export async function sendsToday(ctx: Ctx, me: string, todayFrom: string) {
       profileId ? (open.get(key(profileId, kind, postId)) ?? null) : null,
     off: (profileId: string | null, kind: string, postId: string | null = null) =>
       profileId !== null &&
-      off.has(key(profileId, kind, postId)) &&
-      !open.has(key(profileId, kind, postId)),
+      (held.has(key(profileId, kind, postId)) ||
+        (off.has(key(profileId, kind, postId)) && !open.has(key(profileId, kind, postId)))),
+    /** When the next send tried again on a network may go: null with none waiting there. */
+    retryAt: (platform: Platform): string | null => {
+      const goes = retryAt.get(platform);
+      return goes === undefined ? null : new Date(goes).toISOString();
+    },
     /** The post a writer's comment open is on: undefined with none. */
     commentOn: (profileId: string | null) =>
       profileId === null ? undefined : commentOn.get(profileId),
   };
 }
 
-export const sendCommands = [sendQueue, sendApprove, sendSkip, sendDone] as const;
+export const sendCommands = [sendQueue, sendApprove, sendSkip, sendDone, sendRetry] as const;
 export const sendQueries = [sendsList] as const;

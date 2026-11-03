@@ -9,7 +9,8 @@
  * - **Goes as it is** with Sending (b) once the training wheels are off.
  * - **A reply** follows the person's Replies instead (decision 27): with (b) it goes as it is when the AI found it
  *   simple; with (c) it always does; with (a) it waits. Whatever they chose, a reply to someone who needs the person
- *   (`replyNeedsYou`) waits, and with (b) or (c) one that waits is **handed over**: their phone hears it.
+ *   (`replyNeedsYou`) waits, and so does one to something the business's Knowledge doesn't answer (decision 122,
+ *   ./knows.ts); with (b) or (c) one that waits is **handed over**: their phone hears it.
  * - The extension sends what's OK'd in Messenger, in working hours, at a person's pace, and notes it as sent, or not
  *   sent and why.
  *
@@ -43,6 +44,7 @@ import {
   type SendKind,
   underAPost,
 } from './automation';
+import { UNANSWERED_MOST } from './knows';
 import { MESSAGE_MOST } from './limits';
 import { DraftOpener } from './openers';
 import { gapWords } from './voice';
@@ -143,17 +145,33 @@ export const Send = z.object({
   postId: z.uuid().nullable(),
   postUrl: z.string().nullable(),
   post: z.string().nullable(),
+  /**
+   * The whole post, when `post` is cut short: **More** shows it in place (decision 141). Null when `post` is all of it,
+   * or for a message; left out by servers from before it, and read as null.
+   */
+  postWhole: z.string().nullable().default(null),
 });
 export type Send = z.output<typeof Send>;
 
 /** How much of a comment's post shows above it in Waiting for you. */
 export const SEND_POST_MOST = 200;
 
-/** A post's first words, as a comment waiting shows them: cut short at `SEND_POST_MOST`. */
-export const postStartOf = (body: string): string => {
+/**
+ * A post as a card shows it (decision 141): its first words, cut short at `most`, and the whole of it for **More** when
+ * they were cut, else null.
+ */
+export function postParts(
+  body: string,
+  most: number,
+): { readonly post: string; readonly postWhole: string | null } {
   const t = body.trim();
-  return t.length > SEND_POST_MOST ? `${t.slice(0, SEND_POST_MOST - 1).trimEnd()}…` : t;
-};
+  return t.length > most
+    ? { post: `${t.slice(0, most - 1).trimEnd()}…`, postWhole: t }
+    : { post: t, postWhole: null };
+}
+
+/** A post's first words, as a comment waiting shows them: cut short at `SEND_POST_MOST`. */
+export const postStartOf = (body: string): string => postParts(body, SEND_POST_MOST).post;
 
 /** The extension drafted a message, or a comment, for someone on today's list: it waits, or goes as it is. */
 export const SendQueueInput = z
@@ -167,6 +185,11 @@ export const SendQueueInput = z
     opener: DraftOpener.nullable().default(null),
     /** For a reply: the AI found it simple, so with Replies (b) it goes as it is. */
     simple: z.boolean().default(false),
+    /**
+     * For a reply: what they asked that the business's Knowledge doesn't answer, as the AI said (decision 122,
+     * ./knows.ts), so it waits for the person whatever their Replies say. From the extension's 0.111.0.
+     */
+    unanswered: z.string().trim().max(UNANSWERED_MOST).nullable().default(null),
     /**
      * For a comment (decision 92) or a reply in a group (decision 114), and only for one: the post on Today it goes
      * under.
@@ -215,6 +238,24 @@ export const SendDoneInput = z.object({
 });
 export type SendDoneInput = z.input<typeof SendDoneInput>;
 export const SendDoneOutput = z.object({ sendId: z.uuid(), state: z.enum(SEND_STATE_KEYS) });
+
+/**
+ * Retry, or Retry all, on messages and comments the extension couldn't send (decision 132): the steps handed to the
+ * person by their ids, or with none named every one that can be tried again. Each goes again as it was, a few minutes
+ * after the one before.
+ */
+export const SendRetryInput = z.object({
+  workspaceId: z.uuid(),
+  needIds: z.array(z.uuid()).min(1).max(SENDS_MOST).nullable().default(null),
+});
+export type SendRetryInput = z.input<typeof SendRetryInput>;
+export const SendRetryOutput = z.object({
+  /** Each tried again: its step, the message that goes again, and when it may go at the soonest. */
+  retried: z.array(z.object({ needId: z.uuid(), sendId: z.uuid(), at: z.iso.datetime() })),
+  /** Those that couldn't be: a newer message to them waits already, or it went since. */
+  passed: z.number().int().min(0),
+});
+export type SendRetryOutput = z.output<typeof SendRetryOutput>;
 
 /** The person's messages waiting for their OK, and those OK'd, to send. */
 export const SendsInput = z.object({ workspaceId: z.uuid() });

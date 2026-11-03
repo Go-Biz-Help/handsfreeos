@@ -164,9 +164,11 @@ export function optInDescriptionDefault(business: string): string {
  * website and looks for the box the sentence describes. A description that promises a tick box on a page
  * that has none is the single most common way one of these is turned down.
  *
- * - `hosted` — HandsFreeOS collects it: the website chat widget and a public contact form, both carrying
- *   `smsConsentWords` already. We can turn these on in one click and give the carrier a URL that loads,
- *   which is why the wizard recommends it and why it is first here.
+ * - `hosted` — HandsFreeOS collects it: the website chat, pasted into the footer of the business's own site,
+ *   asks for the visitor's details right after their first message, with the box carrying `smsConsentWords`
+ *   (and the offers box, and links to the privacy policy and terms). We set it up in one click and give the
+ *   carrier a page that shows exactly what the chat asks, which is why the wizard recommends it and why it is
+ *   first here. (It used to make a contact form on a page of ours instead; a form already live still counts.)
  * - `own_site` — the business adds the box to its own forms. Honest, and sometimes the only option for a
  *   business with a real marketing site, but it is work somebody has to actually do before we submit.
  * - `in_person` — collected on paper, at the counter or over the phone. No URL exists to check, so the
@@ -176,8 +178,13 @@ export type OptInPath = 'hosted' | 'own_site' | 'in_person';
 
 /** The public places a hosted opt-in can live. Each is a URL a carrier can open. */
 export interface OptInSurfaces {
-  /** The website chat widget's public page, when one is live. */
+  /**
+   * The page showing what the website chat asks (`/chat/<key>` opened on its own), when one is live. A reviewer
+   * rarely starts a chat to find the box, so this is where they see it.
+   */
   readonly chatUrl?: string | null;
+  /** The business's own website, where the chat's code is pasted. */
+  readonly siteUrl?: string | null;
   /** A public form carrying the consent box, when one is live. */
   readonly formUrl?: string | null;
   /** The online booking page, when the business takes bookings. */
@@ -245,13 +252,19 @@ export function optInDescriptionFor(
   const shown = proof ? ` What they see is shown at ${proof}.` : '';
   switch (path) {
     case 'hosted': {
-      const where = urls.length
-        ? `at ${listUrls(urls)}`
-        : "on the business's own public contact form and website chat";
+      // The chat on the business's own site, which asks for their details after their first message; any form or
+      // booking page carrying the same box is said after it.
+      const site = surfaces.siteUrl?.trim() || null;
+      const chat = surfaces.chatUrl?.trim() || null;
+      const others = liveSurfaces({ formUrl: surfaces.formUrl, bookingUrl: surfaces.bookingUrl });
       return (
-        `Customers tick a box giving ${who} permission to text them, ${where}. ` +
+        `Customers agree in the chat on ${site ?? `${who}'s website`}. After a visitor sends their first ` +
+        'message, the chat asks for their name, mobile number and email, and they can tick a box giving ' +
+        `${who} permission to text them. ` +
         disclosureClause(who) +
-        offers
+        offers +
+        (chat ? ` A page showing exactly what the chat asks is at ${chat}.` : '') +
+        (others.length ? ` The same box is on ${listUrls(others)}.` : '')
       );
     }
     case 'own_site': {

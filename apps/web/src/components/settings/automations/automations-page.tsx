@@ -23,6 +23,7 @@ import {
   type AutomationId,
   type AutomationRow,
   type AutomationSettings,
+  type LineCheckCents,
   type NudgeCheckContext,
   type TeammateStatus,
 } from '@hfos/core';
@@ -84,6 +85,7 @@ export function AutomationsSettings({
   check,
   senderName,
   forms,
+  lineCheckCents,
   maintenanceReady,
 }: {
   workspaceId: string;
@@ -101,6 +103,8 @@ export function AutomationsSettings({
   check: NudgeCheckContext;
   senderName: string;
   forms: readonly IntakeFormOption[];
+  /** What checking a number costs, or null to someone who can't see prices. */
+  lineCheckCents: LineCheckCents | null;
   /** Whether any service repeats or plan names a service ("Maintenance due" has something to go on). */
   maintenanceReady: boolean;
 }) {
@@ -255,6 +259,7 @@ export function AutomationsSettings({
     senderName,
     teammateName: teammate.value?.name ?? null,
     forms,
+    lineCheckCents,
   };
 
   return (

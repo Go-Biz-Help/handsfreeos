@@ -7,6 +7,7 @@
  */
 import { zonedParts } from '../calendar/engine/zoned';
 import { funnelTimelineWords } from '../funnels/words';
+import { LEAD_LABELS, LEAD_WORDS, type LeadLabel } from '../meetings/leads';
 import { callClock } from '../inbox/time';
 import { lowerLabel, relatedWords } from '../relationships/words';
 import type { TimelineEntry } from '../schemas/activity';
@@ -239,6 +240,15 @@ export function describeTimeline(
       return `marked ${title || e.body || 'the lead'} qualified: every answer is in, and none rules them out`;
     case 'edit_not_applied':
       return notAppliedWords(e.meta);
+    // Webinars (part 5): Hot, Warm or Cold after a call with a live poll; what the points came from is in the well.
+    case 'webinar_rated': {
+      const label = str(e.meta.label);
+      return LEAD_WORDS.timeline(
+        (LEAD_LABELS as readonly string[]).includes(label) ? (label as LeadLabel) : 'cold',
+        str(e.meta.what) ? `“${str(e.meta.what)}”` : 'a webinar',
+        num(e.meta.points) ?? 0,
+      );
+    }
     // Relationships (0101): the pair as both records were named then, the same on either one's page.
     case 'related':
     case 'unrelated': {
@@ -400,6 +410,8 @@ export function timelineTone(e: TimelineEntry): TimelineTone {
   // The AI teammate's entries wear its violet (an undelivered message still shows red).
   if (aiTeammateOf(e) && !undelivered(e)) return 'ai';
   if (e.subtype === 'lead_qualified') return 'success';
+  if (e.subtype === 'webinar_rated')
+    return e.meta.label === 'hot' ? 'success' : e.meta.label === 'warm' ? 'warning' : 'muted';
   if (e.subtype === 'addon_line') {
     const tone = str(e.meta.tone);
     return (ADDON_LINE_TONES as readonly string[]).includes(tone)

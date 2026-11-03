@@ -36,6 +36,8 @@ export interface FormEditorState {
 }
 
 const HOLD_MS = 900;
+/** Typing applies an op per keystroke, so the spaces being typed have to survive the parse's trim. */
+const KEEP_SPACES = { keepSpaces: true } as const;
 
 export function useFormEditor(
   workspaceId: string,
@@ -84,7 +86,7 @@ export function useFormEditor(
     (ops: FormOp[]) => {
       if (!ops.length) return;
       try {
-        const { definition: next, inverse } = applyFormOps(definition, ops);
+        const { definition: next, inverse } = applyFormOps(definition, ops, KEEP_SPACES);
         setDefinition(next);
         undos.current = [...undos.current.slice(-19), inverse];
         setCanUndo(true);
@@ -105,7 +107,7 @@ export function useFormEditor(
     undos.current = undos.current.slice(0, -1);
     setCanUndo(undos.current.length > 0);
     try {
-      const { definition: next } = applyFormOps(definition, last);
+      const { definition: next } = applyFormOps(definition, last, KEEP_SPACES);
       setDefinition(next);
       pending.current = [...pending.current, ...last];
       setDirty(true);
@@ -166,6 +168,7 @@ const DEFAULT_TITLES: Partial<Record<QuestionType, string>> = {
   payment: 'Payment',
   video: 'Watch this first',
   booking: 'Pick a time',
+  button: 'Ready to take the next step?',
 };
 
 /** A question of that type with the smallest sensible config, ready to drop on a page. */
@@ -176,6 +179,20 @@ export function newQuestion(type: QuestionType): QuestionInput {
     type,
     title: DEFAULT_TITLES[type] ?? 'Your answer',
     config: (config.success ? config.data : {}) as never,
+  } as QuestionInput;
+}
+
+/**
+ * A single checkbox: a yes or no shown as one box to check. It starts as the one most forms want, an agreement
+ * they must check, and the business rewords it or makes it optional.
+ */
+export function newSingleCheckbox(): QuestionInput {
+  const question = newQuestion('yes_no');
+  return {
+    ...question,
+    title: 'I agree to the terms',
+    required: true,
+    config: { ...(question.config as Record<string, unknown>), display: 'checkbox' },
   } as QuestionInput;
 }
 

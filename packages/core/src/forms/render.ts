@@ -28,7 +28,13 @@ import {
   type ScoreResult,
 } from './logic';
 import type { FillContext } from './personal';
-import { answerIsEmpty, CHOICE_TYPES, UNANSWERED_TYPES, type AnswerValue } from './questions';
+import {
+  answerIsEmpty,
+  CHOICE_TYPES,
+  isSingleCheckbox,
+  UNANSWERED_TYPES,
+  type AnswerValue,
+} from './questions';
 import { isBookingAnswer } from './booking';
 import { watchFirstWords } from './video';
 
@@ -153,6 +159,16 @@ export interface AnswerProblem {
   readonly message: string;
 }
 
+/** What a question that must be answered says while it isn't. */
+export const ANSWER_THIS_ONE = 'Answer this one.';
+/** What a single checkbox that must be checked says while it isn't ("I agree to the terms"). */
+export const CHECK_THIS_BOX = 'Check this box to go on.';
+
+/** A problem that only means it isn't answered yet. Saving part way leaves these out: they're due when it's sent. */
+export function isUnansweredProblem(problem: AnswerProblem): boolean {
+  return problem.message === ANSWER_THIS_ONE || problem.message === CHECK_THIS_BOX;
+}
+
 const isEmail = (value: string): boolean => /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(value.trim());
 
 const choiceIds = (question: Question): string[] =>
@@ -168,7 +184,10 @@ export function answerProblem(question: Question, value: AnswerValue): string | 
   if (!asked(question)) return null;
   // A video is answered by watching it, so not having started is 0%, and the gate is what holds them back.
   if (question.type === 'video') return videoProblem(question, value);
-  if (answerIsEmpty(value)) return question.required ? 'Answer this one.' : null;
+  // One box to check: one that must be answered must be checked, so a No (the phone's switch, a chat) won't do.
+  if (isSingleCheckbox(question) && question.required && value !== true && value !== 'yes')
+    return CHECK_THIS_BOX;
+  if (answerIsEmpty(value)) return question.required ? ANSWER_THIS_ONE : null;
   const config = question.config as Record<string, unknown>;
 
   switch (question.type) {
@@ -260,6 +279,9 @@ export function answerProblem(question: Question, value: AnswerValue): string | 
     case 'booking':
       // Whether the time is still free is the calendar's to say, when the form is sent.
       return isBookingAnswer(value) ? null : 'Pick one of the times.';
+    case 'button':
+      // A live poll's button: pressing it is the answer.
+      return value === true ? null : 'Press the button.';
     default:
       return null;
   }

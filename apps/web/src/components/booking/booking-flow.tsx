@@ -269,7 +269,7 @@ function TimesIn({ label }: { label: string }) {
 }
 
 /** "Text me about this appointment": starts unticked; STOP always wins on the worker's side. */
-function SmsConsent({
+export function SmsConsent({
   checked,
   onChange,
   business,
@@ -345,7 +345,7 @@ function SmsConsent({
  * required; agreeing to texts about this booking is not agreeing to offers (core's offersConsentWords). The
  * "OK to call" box, for a business that asks for one, is the same box with core's callConsentWords.
  */
-function OffersConsent({
+export function OffersConsent({
   checked,
   onChange,
   words,
@@ -383,7 +383,7 @@ function OffersConsent({
 }
 
 /** People never see it, so it stays empty; bots fill it in and are turned away. */
-function Honeypot({ value, onChange }: { value: string; onChange: (v: string) => void }) {
+export function Honeypot({ value, onChange }: { value: string; onChange: (v: string) => void }) {
   return (
     <div aria-hidden className="absolute -left-[10000px] top-auto h-px w-px overflow-hidden">
       <label>

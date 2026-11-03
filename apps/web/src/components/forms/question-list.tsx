@@ -3,9 +3,9 @@ import {
   allQuestions,
   newChoiceId,
   newQuestionId,
+  questionKindLabel,
   type FormDefinition,
   type FormOp,
-  type QuestionType,
 } from '@hfos/core';
 import {
   ChevronDown,
@@ -27,8 +27,14 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { newPage, newQuestion } from './editor-state';
-import { QUESTION_ICONS, QUESTION_LABELS, QUESTION_MENU } from '@/lib/forms/words';
+import { newPage, newQuestion, newSingleCheckbox } from './editor-state';
+import {
+  menuItemIcon,
+  menuItemLabel,
+  questionIcon,
+  questionMenu,
+  type QuestionMenuItem,
+} from '@/lib/forms/words';
 import { cn } from '@/lib/utils';
 
 /**
@@ -56,9 +62,9 @@ export function QuestionList({
   const pageOf = (questionId: string) =>
     definition.pages.find((p) => p.questions.some((q) => q.id === questionId))!;
 
-  function add(type: QuestionType) {
+  function add(item: QuestionMenuItem) {
     const page = definition.pages[definition.pages.length - 1]!;
-    const question = newQuestion(type);
+    const question = item === 'single_checkbox' ? newSingleCheckbox() : newQuestion(item);
     apply([{ op: 'add_question', pageId: page.id, index: null, question }]);
     onSelect(question.id);
   }
@@ -128,7 +134,7 @@ export function QuestionList({
 
   const paged = definition.pages.length > 1;
   const row = (question: (typeof questions)[number], index: number) => {
-    const Icon = QUESTION_ICONS[question.type];
+    const Icon = questionIcon(question);
     const selected = question.id === selectedId;
     return (
       <div
@@ -152,7 +158,7 @@ export function QuestionList({
               {question.required ? <span className="ml-1 text-danger-text">*</span> : null}
             </span>
             <span className="block truncate text-[12px] text-text-3">
-              {QUESTION_LABELS[question.type]}
+              {questionKindLabel(question)}
               {question.showIf.conditions.length ? ' · only sometimes' : ''}
               {question.mapTo ? ' · fills a field' : ''}
             </span>
@@ -270,21 +276,21 @@ export function QuestionList({
           <DropdownMenuTrigger asChild>
             <Button variant="secondary" className="w-full" data-testid="add-question">
               <Plus className="h-4 w-4" strokeWidth={1.75} />
-              Add a question
+              {definition.mode === 'poll' ? 'Add a question or button' : 'Add a question'}
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent className="max-h-[60vh] w-64 overflow-y-auto">
-            {QUESTION_MENU.map((group) => (
+            {questionMenu(definition.mode).map((group) => (
               <div key={group.group}>
                 <p className="px-2 py-1.5 text-[11.5px] font-medium uppercase tracking-wide text-text-3">
                   {group.group}
                 </p>
-                {group.types.map((type) => {
-                  const Icon = QUESTION_ICONS[type];
+                {group.types.map((item) => {
+                  const Icon = menuItemIcon(item);
                   return (
-                    <DropdownMenuItem key={type} onSelect={() => add(type)}>
+                    <DropdownMenuItem key={item} onSelect={() => add(item)}>
                       <Icon className="h-4 w-4 text-text-3" strokeWidth={1.75} />
-                      {QUESTION_LABELS[type]}
+                      {menuItemLabel(item)}
                     </DropdownMenuItem>
                   );
                 })}
@@ -294,7 +300,7 @@ export function QuestionList({
         </DropdownMenu>
       ) : null}
 
-      {!readOnly && questions.length ? (
+      {!readOnly && questions.length && definition.mode !== 'poll' ? (
         <Button
           variant="ghost"
           className="w-full"

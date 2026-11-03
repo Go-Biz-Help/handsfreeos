@@ -5,7 +5,7 @@
  * request (a message's are `outreach.send.*`). The Live tab, the team view, the extension's icon and the pushes all
  * count what waits here (`waitingFor`), so they never disagree. Each person's are their own.
  */
-import { and, eq, sql } from 'drizzle-orm';
+import { and, asc, eq, inArray, isNull, lt, or, sql } from 'drizzle-orm';
 import { rows } from '@hfos/db/client';
 import { workspaceTimezone } from '../../../crm/records';
 import { HfosError } from '../../../errors';
@@ -14,19 +14,34 @@ import { changeMoment } from '../../../kernel/moment';
 import { defineAddonCommand, defineAddonQuery } from '../../server';
 import type { FitPlaybook } from '../fit';
 import { outreachAddon } from '../manifest';
-import { underAPost } from '../automation';
-import { PLATFORM_KEYS, type Platform } from '../networks';
+import {
+  choicesFor,
+  readsRequests,
+  requestAnswerOf,
+  requestModeOf,
+  underAPost,
+  type RequestMode,
+} from '../automation';
+import type { CheckVerdict } from '../checks';
+import { answersRequests, NETWORKS, PLATFORM_KEYS, type Platform } from '../networks';
 import { friends, needs, posts, profiles, sends } from '../tables';
 import {
   NEED_SHOWN_DAYS,
   NeedClearInput,
   NeedClearOutput,
+  NEED_RETRY_MOST,
+  NeedRetryInput,
+  NeedRetryOutput,
+  needRetryable,
   NeedNoteInput,
   NeedNoteOutput,
   needUrlOf,
   NO_KINDS,
+  REQUEST_READ_DAYS,
   REQUEST_SHOWN_DAYS,
   requestWhy,
+  RequestAnswerInput,
+  RequestAnswerOutput,
   RequestSetAsideInput,
   RequestSetAsideOutput,
   WAITING_SHOWN_MOST,
@@ -34,18 +49,20 @@ import {
   WaitingInput,
   WaitingOutput,
   type RequestHeld,
+  type RequestKept,
+  type RequestRead,
   type WaitingItem,
   type WaitingKinds,
   type WaitingNeed,
   type WaitingRequest,
 } from '../waiting';
 import { asksNeedingYou } from './ask-rows';
-import { automationOf } from './automation';
-import { contactable, inWorkspace, type Ctx } from './common';
+import { automationOf, everyoneAutomation } from './automation';
+import { contactable, inWorkspace, neverDeleted, type Ctx } from './common';
 import { playbooksInUse } from './friends';
-import { openNeed } from './needs';
-import { commentHoldOf, listed, mine } from './sends';
-import { notNever, requestFit, type RequestGot } from './today';
+import { openNeed, retrySince } from './needs';
+import { commentHoldOf, listed, mine, sendsAgain } from './sends';
+import { notNever, requestFit, type RequestAnswered } from './today';
 
 const DAY = 86_400_000;
 /** The most requests lately weighed a person at once: more than Facebook lets anyone keep waiting a fortnight. */
@@ -87,11 +104,13 @@ async function sendAndNeedKinds(
           where workspace_id = ${ws} and state = 'waiting' and user_id = any (${ids(userIds)}::uuid[])
           group by user_id`,
     ),
-    // A need names who and why: a colleague's are counted on the database, never read (decision 41).
+    // A need names who and why: a colleague's are counted on the database, never read (decision 41). One put back on
+    // Today's list lately isn't waiting (decision 145).
     rows<{ user_id: string; n: number; newest: Date | string | null }>(
       ctx.tx,
       sql`select user_id, n, newest
-          from private.outreach_needs_waiting(${ws}::uuid, ${ids(userIds)}::uuid[], ${shownSince(now)}::timestamptz)`,
+          from private.outreach_needs_counted(${ws}::uuid, ${ids(userIds)}::uuid[], ${shownSince(now)}::timestamptz,
+            ${retrySince(now)}::timestamptz)`,
     ),
   ]);
   for (const s of sent) {
@@ -106,10 +125,27 @@ async function sendAndNeedKinds(
 }
 
 /**
- * Each person's friend requests to decide, the newest first: those they got in the last two weeks, not set aside since
- * they asked, that don't fit a playbook (owner answer 13a), or that fit but aren't Today's to confirm because no
- * playbook is in use or the person is on Don't pitch; with why. Good fits Today leaves for a later day stay off, and
- * so does anyone on Never contact, whose requests are never confirmed.
+ * How each person has the requests they get answered on each network (decisions 121 and 136): as they picked there, or
+ * as the business starts everyone until they pick. Where the extension doesn't answer them, the good fits are Today's
+ * for the person to confirm, as decision 30 has it.
+ */
+async function requestModes(
+  ctx: Ctx,
+): Promise<(userId: string, platform: Platform) => RequestMode> {
+  const everyone = await everyoneAutomation(ctx);
+  return (userId, platform) =>
+    answersRequests(platform)
+      ? requestModeOf(choicesFor(everyone.of(userId, platform).settings, platform))
+      : 'fits';
+}
+
+/**
+ * Each person's friend requests to decide, the newest first: those they got in the last two weeks, not set aside
+ * since they asked nor pressed Confirm or Delete on, that aren't to be confirmed or deleted as they picked and the AI
+ * says (decisions 30, 121 and 136, `requestAnswerOf`); with why. One the AI is still to read stays off for a day
+ * (`REQUEST_READ_DAYS`), then shows saying so. One it would delete that's never deleted (in Contacts, kept, chatted
+ * with, a partner) waits here, and so does every one when there's no playbook in use to delete by. Anyone on Never
+ * contact stays off: their requests are never answered.
  */
 export async function requestsToDecide(
   ctx: Ctx,
@@ -119,49 +155,107 @@ export async function requestsToDecide(
 ): Promise<Map<string, WaitingRequest[]>> {
   const out = new Map<string, WaitingRequest[]>(userIds.map((id) => [id, []]));
   if (!userIds.length) return out;
+  const modeOf = await requestModes(ctx);
   const found = await rows<
-    RequestGot & { user_id: string; since: Date | string; pitched: boolean }
+    RequestAnswered & {
+      user_id: string;
+      since: Date | string;
+      pitched: boolean;
+      kept: boolean;
+      platform: Platform;
+      verdict: CheckVerdict | null;
+    }
   >(
     ctx.tx,
     sql`select * from (
           select f.user_id, p.id, p.name, p.url, p.intro, p.mutual_friends, g.name as group_name, f.since,
-            (${notNever('p')}) as pitched,
+            p.platform, (${notNever('p')}) as pitched, ${neverDeleted(sql`f.user_id`)} as kept,
+            case when f.answer_at >= f.since then f.answer end as pressed, rr.answer as said,
+            ch.request_why as said_why, rr.verdict,
             row_number() over (partition by f.user_id order by f.since desc) as nth
           from addon_outreach.friends f
           join addon_outreach.profiles p on p.id = f.profile_id
           left join addon_outreach.groups g on g.id = p.group_id
+          -- A check is its person's own: what the AI said of a colleague's requests is counted through
+          -- private.outreach_request_reads; only the person's own why is read.
+          left join private.outreach_request_reads(${ctx.scope.workspaceId!}::uuid, ${ids(userIds)}::uuid[]) rr
+            on rr.profile_id = p.id and rr.user_id = f.user_id
+          left join addon_outreach.checks ch on ch.profile_id = p.id and ch.user_id = f.user_id
           where f.workspace_id = ${ctx.scope.workspaceId!} and f.user_id = any (${ids(userIds)}::uuid[])
             and f.state = 'request_received' and ${contactable('p')}
             and f.since >= ${new Date(now - REQUEST_SHOWN_DAYS * DAY).toISOString()}::timestamptz
             and not (f.set_aside_at is not null and f.set_aside_at >= f.since)
+            and not (f.answer_at is not null and f.answer_at >= f.since)
         ) r where nth <= ${REQUESTS_MOST}
         order by user_id, since desc, name`,
   );
+  const deletesBy = playbooks.length > 0;
   for (const userId of userIds) {
     const theirs = found.filter((r) => r.user_id === userId);
     if (!theirs.length) continue;
-    out.set(
-      userId,
-      theirs
-        .map((r) => ({ r, fit: requestFit(playbooks, r) }))
-        // A good fit from someone pitched, with a playbook in use, is Today's to confirm (decision 30): if not today,
-        // then on a later day, so it never waits for the person, however many there are.
-        .filter(({ r, fit }) => !(fit.level === 'good' && r.pitched && playbooks.length))
-        .map(({ r, fit }) => {
-          const held: RequestHeld | null =
-            fit.level !== 'good' ? null : !playbooks.length ? 'no_playbook' : 'dont_pitch';
-          return {
-            profileId: r.id,
-            name: r.name,
-            url: r.url,
-            fit: fit.level,
-            why: requestWhy(fit.reasons, fit.level, held),
-            held,
-            since: new Date(r.since).toISOString(),
-            mutualFriends: r.mutual_friends,
-          };
+    const shown: WaitingRequest[] = [];
+    for (const r of theirs) {
+      const fit = requestFit(playbooks, r);
+      const answering = answersRequests(r.platform);
+      const mode = modeOf(userId, r.platform);
+      // The AI reads them while it decides, or helps the person decide (decision 136).
+      const reads = answering && readsRequests(mode) && r.pitched;
+      const said = reads ? r.said : null;
+      const answer = requestAnswerOf({
+        mode,
+        pressed: null,
+        pitched: r.pitched,
+        playbooks: deletesBy,
+        said,
+        good: fit.level === 'good',
+      });
+      // Today's to confirm (if not today, then on a later day), or deleted once a day: never the person's.
+      if (answer === 'confirm' || (answer === 'delete' && !r.kept)) continue;
+      // Not read yet: it waits off the list a day for the AI, with a playbook in use; with none, as before.
+      const read: RequestRead = !reads
+        ? 'off'
+        : said
+          ? 'read'
+          : r.verdict === 'failed'
+            ? 'failed'
+            : deletesBy
+              ? 'reading'
+              : 'off';
+      if (read === 'reading' && new Date(r.since).getTime() > now - REQUEST_READ_DAYS * DAY)
+        continue;
+      // A good fit waits here only when nothing else held it: no playbook in use, or Don't pitch.
+      const held: RequestHeld | null =
+        read !== 'off' || fit.level !== 'good' || (r.pitched && deletesBy)
+          ? null
+          : !deletesBy
+            ? 'no_playbook'
+            : 'dont_pitch';
+      const kept: RequestKept | null =
+        said !== 'delete' || mode !== 'fits_delete'
+          ? null
+          : r.kept
+            ? 'never'
+            : !deletesBy
+              ? 'no_playbook'
+              : null;
+      shown.push({
+        profileId: r.id,
+        name: r.name,
+        url: r.url,
+        fit: fit.level,
+        why: requestWhy(fit.reasons, fit.level, held, {
+          read,
+          said,
+          why: r.said_why,
+          kept,
         }),
-    );
+        held,
+        since: new Date(r.since).toISOString(),
+        mutualFriends: r.mutual_friends,
+        said,
+      });
+    }
+    out.set(userId, shown);
   }
   return out;
 }
@@ -220,14 +314,16 @@ async function neededOf(
     thread_key: string | null;
     platform: Platform;
     profile_url: string;
+    report_id: string | null;
   }>(
     ctx.tx,
     sql`select n.id, n.step, n.profile_id, n.post_id, n.send_id, n.name, n.url, n.why, n.seen_at, n.created_at,
-          s.text, s.thread_key, p.platform, p.url as profile_url
+          n.report_id, s.text, s.thread_key, p.platform, p.url as profile_url
         from addon_outreach.needs n
         join addon_outreach.profiles p on p.workspace_id = n.workspace_id and p.id = n.profile_id
         left join addon_outreach.sends s on s.id = n.send_id
         where n.workspace_id = ${ctx.scope.workspaceId!} and n.user_id = ${me} and n.state = 'open'
+          and (n.retry_at is null or n.retry_at < ${retrySince(now)}::timestamptz)
           and private.outreach_need_shown(n.workspace_id, n.user_id, n.profile_id, n.step, n.state, n.seen_at,
             ${shownSince(now)}::timestamptz)
         order by n.seen_at desc, n.id
@@ -249,6 +345,7 @@ async function neededOf(
       text: n.step === 'message' || n.step === 'comment' ? n.text : null,
       threadKey: n.step === 'message' ? n.thread_key : null,
       seenAt: new Date(n.seen_at).toISOString(),
+      reportId: n.report_id,
     },
   }));
 }
@@ -367,6 +464,7 @@ export const needNote = defineAddonCommand(outreachAddon, {
         name: input.name,
         url: input.url,
         why: input.why,
+        reportId: input.reportId,
       },
       changeMoment(ctx.meta),
     );
@@ -419,6 +517,72 @@ export const needClear = defineAddonCommand(outreachAddon, {
   },
 });
 
+export const needRetry = defineAddonCommand(outreachAddon, {
+  name: 'outreach.need.retry',
+  description:
+    'The person tries again steps the extension handed to them, from Steps it needs you for: one (Retry), or with none named every one there (Retry all); the extension does Retry all on its own once after it’s updated, all but messages and comments that didn’t go, which could go twice. A message or comment that didn’t go goes again as it was, OK’d, a few minutes after the one before; any other step (a friend or connection request, a confirm, a like before a request, a comment it writes itself) goes back on the list for today on its network, ahead of new ones, for the extension’s next go. Each leaves Steps it needs you for, and comes back if it can’t be done again.',
+  risk: 1,
+  input: NeedRetryInput,
+  output: NeedRetryOutput,
+  permission: 'outreach.use',
+  ai: {
+    tool: 'outreach_retry_steps',
+    autonomy: 'confirm',
+    keywords: ['retry', 'retry all', 'try again', 'failed steps', 'resend', 'send again'],
+  },
+  scope: inWorkspace,
+  emits: ['outreach.send.approved', 'outreach.need.cleared'],
+  async handler(ctx, input) {
+    const me = requireHuman(ctx).userId;
+    const ws = ctx.scope.workspaceId!;
+    const at = changeMoment(ctx.meta);
+    // The steps waiting for the person, oldest first: the first goes again first. One put back on Today's list lately
+    // is there already, and isn't put back twice.
+    const open = await ctx.tx
+      .select()
+      .from(needs)
+      .where(
+        and(
+          eq(needs.workspaceId, ws),
+          eq(needs.userId, me),
+          eq(needs.state, 'open'),
+          or(isNull(needs.retryAt), lt(needs.retryAt, new Date(retrySince(at.getTime())))),
+          ...(input.needIds ? [inArray(needs.id, input.needIds)] : []),
+          ...(input.sends ? [] : [isNull(needs.sendId)]),
+        ),
+      )
+      .orderBy(asc(needs.seenAt), asc(needs.id))
+      .limit(NEED_RETRY_MOST);
+    if (input.needIds && !open.length)
+      throw HfosError.notFound(
+        'That isn’t waiting for you any more: it was done, let go or tried again already. Refresh Waiting for you.',
+      );
+    // A message or comment that didn't go goes again through its send; the rest Today's list takes back.
+    const bySend = open.filter((n) => n.sendId !== null && needRetryable(n));
+    const byList = open.filter((n) => n.sendId === null && needRetryable(n));
+    const sent = await sendsAgain(ctx, me, bySend, at);
+    const listed: { needId: string; at: string }[] = [];
+    for (const need of byList) {
+      await ctx.tx
+        .update(needs)
+        .set({ retryAt: at, updatedAt: new Date() })
+        .where(eq(needs.id, need.id));
+      await ctx.emit({
+        type: 'outreach.need.cleared',
+        entityType: 'outreach_need',
+        entityId: need.id,
+        payload: { userId: me, how: 'retry', step: need.step },
+      });
+      listed.push({ needId: need.id, at: at.toISOString() });
+    }
+    return {
+      retried: [...sent.retried.map((r) => ({ needId: r.needId, at: r.at })), ...listed],
+      // And one with nothing to go on: a message whose words are gone.
+      passed: sent.passed + open.length - bySend.length - byList.length,
+    };
+  },
+});
+
 export const requestSetAside = defineAddonCommand(outreachAddon, {
   name: 'outreach.request.set_aside',
   description:
@@ -467,5 +631,86 @@ export const requestSetAside = defineAddonCommand(outreachAddon, {
   },
 });
 
-export const waitingCommands = [needNote, needClear, requestSetAside] as const;
+export const requestAnswer = defineAddonCommand(outreachAddon, {
+  name: 'outreach.request.answer',
+  description:
+    'The person confirms or deletes a friend request they got (decision 136), whatever they picked for those: their computer confirms it as it works through their day, or deletes it with the once-a-day jobs, on Facebook, LinkedIn or Alignable. It leaves Waiting for you at once.',
+  risk: 2,
+  input: RequestAnswerInput,
+  output: RequestAnswerOutput,
+  permission: 'outreach.use',
+  ai: {
+    tool: 'outreach_answer_request',
+    autonomy: 'confirm',
+    keywords: [
+      'confirm friend request',
+      'delete friend request',
+      'accept invitation',
+      'ignore invitation',
+    ],
+  },
+  scope: inWorkspace,
+  // Pressed with no signal on the phone, it keeps the moment it was pressed: a request that came after stays.
+  offline: 'anytime',
+  emits: ['outreach.request.answered'],
+  async handler(ctx, input) {
+    const me = requireHuman(ctx).userId;
+    const ws = ctx.scope.workspaceId!;
+    const at = changeMoment(ctx.meta).toISOString();
+    const [asked] = await rows<{ name: string; platform: Platform; open: boolean }>(
+      ctx.tx,
+      sql`select p.name, p.platform, ${contactable('p')} as open
+          from addon_outreach.friends f join addon_outreach.profiles p on p.id = f.profile_id
+          where f.workspace_id = ${ws} and f.user_id = ${me} and f.profile_id = ${input.profileId}
+            and f.state = 'request_received'`,
+    );
+    if (!asked)
+      throw HfosError.notFound(
+        'That friend request isn’t waiting any more: it was answered already. Refresh Waiting for you.',
+      );
+    const network = NETWORKS[asked.platform];
+    if (!answersRequests(asked.platform))
+      throw HfosError.rule(
+        'outreach_request_network',
+        422,
+        `Your computer doesn’t answer ${network.words.friendRequests} on ${network.name}. Answer ${asked.name}’s there yourself.`,
+      );
+    if (!asked.open)
+      throw HfosError.rule(
+        'outreach_never_contact',
+        422,
+        `${asked.name} is on Never contact, so your computer never answers their ${network.words.friendRequest}. Take them off Never contact in their menu first, or answer it on ${network.name} yourself.`,
+      );
+    await ctx.tx
+      .update(friends)
+      .set({
+        answer: input.answer,
+        answerAt: sql`greatest(coalesce(${friends.answerAt}, ${at}::timestamptz), ${at}::timestamptz)`,
+        updatedAt: new Date(),
+      })
+      .where(
+        and(
+          eq(friends.workspaceId, ws),
+          eq(friends.userId, me),
+          eq(friends.profileId, input.profileId),
+          eq(friends.state, 'request_received'),
+        ),
+      );
+    await ctx.emit({
+      type: 'outreach.request.answered',
+      entityType: 'outreach_profile',
+      entityId: input.profileId,
+      payload: { userId: me, answer: input.answer },
+    });
+    return { profileId: input.profileId, answer: input.answer };
+  },
+});
+
+export const waitingCommands = [
+  needNote,
+  needClear,
+  needRetry,
+  requestSetAside,
+  requestAnswer,
+] as const;
 export const waitingQueries = [waiting] as const;

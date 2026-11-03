@@ -79,6 +79,11 @@ export type JoinAnswer =
       readonly look: PublicLook;
       /** The AI takes notes from the call: the page says so before they join (the owner's 9a). */
       readonly aiNotes: boolean;
+      /**
+       * A webinar (a session's call): they join watching, muted with their camera off, so the page asks for no
+       * microphone or camera, and their name in the room is their first name.
+       */
+      readonly webinar?: boolean;
     };
 
 const isVideoCall = (location: unknown): boolean => {
@@ -130,9 +135,17 @@ export async function registerJoinRoutes(app: FastifyInstance, deps: HttpDeps): 
                 from app.workspaces w left join app.booking_sites bs on bs.workspace_id = w.id
                 where w.id = ${scope.workspaceId}`,
           );
-          const [who] = await rows<{ name: string; live: boolean; ai: boolean }>(
+          const [who] = await rows<{
+            name: string;
+            first: string;
+            live: boolean;
+            ai: boolean;
+            webinar: boolean;
+          }>(
             tx,
-            sql`select trim(concat_ws(' ', p.first_name, p.last_name)) as name,
+            sql`select trim(concat_ws(' ', p.first_name, p.last_name)) as name, trim(p.first_name) as first,
+                  coalesce((select c.format = 'webinar' from app.video_calls c
+                            where c.appointment_id = ${row.p.id} limit 1), ${row.p.kind === 'session'}) as webinar,
                   exists (select 1 from app.video_calls c
                           where c.appointment_id = ${row.p.id} and c.state = 'live') as live,
                   -- A call is made with its AI notes on; one the team turned them off for says so.
@@ -146,9 +159,10 @@ export async function registerJoinRoutes(app: FastifyInstance, deps: HttpDeps): 
             business: w?.name ?? 'The business',
             look: publicLookOf(w?.settings, deps.storageUrl),
             videoCalls: w?.video_calls === true,
-            name: who?.name ?? '',
+            name: who?.webinar ? who.first || who.name : (who?.name ?? ''),
             live: who?.live === true,
             aiNotes: who?.ai !== false,
+            webinar: who?.webinar === true,
           };
         });
         if (!seat) throw notFound();
@@ -176,6 +190,7 @@ export async function registerJoinRoutes(app: FastifyInstance, deps: HttpDeps): 
             name: seat.name,
             look: seat.look,
             aiNotes: seat.aiNotes,
+            webinar: seat.webinar,
           };
         }
         const url = meetingAddress(seat.p.location);

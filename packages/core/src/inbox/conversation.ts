@@ -109,7 +109,7 @@ export function notCustomerBanner(
   return {
     parts: [
       { strong: `${counterpartDisplay} isn’t a customer yet.` },
-      ` Add them, or link the ${channel === 'chat' ? 'chat' : isSocialChannel(channel) ? 'conversation' : 'number'} to someone you already have.`,
+      ` Add them, or link the ${channel === 'chat' ? 'chat' : isSocialChannel(channel) ? 'conversation' : channel === 'email' ? 'address' : 'number'} to someone you already have.`,
     ],
     short: 'Not in Contacts yet.',
     action: 'Add person',

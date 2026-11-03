@@ -29,6 +29,7 @@ import { ownerCommands } from './ops/owners';
 import { occasionCommands } from './ops/occasions';
 import { listCommands, listQueries } from './ops/lists';
 import { liveCommands, liveQueries } from './ops/live';
+import { tallyCommands, tallyQueries } from './ops/tallies';
 import { openerCommands, openerQueries } from './ops/openers';
 import { partnerCommands, partnerQueries } from './ops/partners';
 import { personMenuCommands, personMenuQueries } from './ops/person-menu';
@@ -37,6 +38,7 @@ import { saveCommands, saveQueries } from './ops/saves';
 import { sendCommands, sendQueries } from './ops/sends';
 import { conversationCommands, conversationQueries } from './ops/conversation';
 import { readinessCommands, readinessQueries } from './ops/readiness';
+import { requestPauseCommands } from './ops/request-pause';
 import { setupCommands, setupQueries } from './ops/setup';
 import { stageCommands, stageQueries } from './ops/stages';
 import { tidyCommands, tidyQueries } from './ops/tidy';
@@ -60,6 +62,7 @@ export const outreachAddonServer: AddonServerModule = {
     ...chatCommands,
     ...groupCommands,
     ...tidyCommands,
+    ...requestPauseCommands,
     ...postCommands,
     ...alertCommands,
     ...openerCommands,
@@ -67,6 +70,7 @@ export const outreachAddonServer: AddonServerModule = {
     ...automationCommands,
     ...sendCommands,
     ...liveCommands,
+    ...tallyCommands,
     ...listCommands,
     ...waitingCommands,
     ...askCommands,
@@ -104,6 +108,7 @@ export const outreachAddonServer: AddonServerModule = {
     ...automationQueries,
     ...sendQueries,
     ...liveQueries,
+    ...tallyQueries,
     ...listQueries,
     ...waitingQueries,
     ...askQueries,
@@ -140,6 +145,7 @@ export const outreachAddonServer: AddonServerModule = {
     'outreach.group.save': EXTENSION,
     'outreach.friend.end': EXTENSION,
     'outreach.warning.note': EXTENSION,
+    'outreach.requests.pause': EXTENSION,
     'outreach.posts.save': EXTENSION,
     'outreach.replies.note': EXTENSION,
     'outreach.warm_up.missed': EXTENSION,
@@ -174,6 +180,10 @@ export const outreachAddonServer: AddonServerModule = {
     'outreach.active.next': EXTENSION,
     'outreach.active.reply': EXTENSION,
     'outreach.finds.towns': EXTENSION,
+    'outreach.live.watch':
+      'The ticker saying it’s on screen, so the extension tells what it’s doing every few seconds.',
+    'outreach.ticker':
+      'The ticker’s own light read, asked every few seconds: the Assistant reads the same and more through outreach_live.',
     'outreach.opener.use':
       'The screens noting which opener a copied first message was drafted with.',
   },

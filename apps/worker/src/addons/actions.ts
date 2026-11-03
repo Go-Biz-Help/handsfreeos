@@ -40,7 +40,7 @@ export async function runAddonAction(
                  private.workspace_organization(${workspaceId}::uuid) as organization_id,
                  (select i.generation from app.addon_installations i
                   where i.workspace_id = ${workspaceId}::uuid and i.addon_id = ${manifest.id}) as generation,
-                 private.user_has_permission(${userId}, ${workspaceId}, ${action.permission}) as allowed`,
+                 private.asker_has_permission(${userId}, ${workspaceId}, ${action.permission}) as allowed`,
     ),
   );
   if (!on?.organization_id)

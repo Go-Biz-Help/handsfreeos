@@ -21,13 +21,14 @@
  *   their own profiles, last, inside the 40 profiles read (`found_checks`).
  * - **Today's helpful post,** when their LinkedIn posting choice lets it post on its own (`posting: 'own'`): put up on
  *   their own feed once the AI has written it (../jobs/linkedin/helpful.ts).
- * - **Then LinkedIn's list for today** (`outreach.today` with `platform: 'linkedin'`), the kinds it does on its own
- *   (`auto`): a look at their profile and a like on a post of theirs (warm-up; for a writer a search found, the post it
- *   found, liked on its own page), an invitation to connect without a note (Chris), and the messages: drafted after a
- *   look-up, and sent once OK'd, in LinkedIn messaging, typing only into that conversation's box. From 0.99.0 a comment
- *   on a good post goes as Instagram's and Alignable's do (decision 102, ./comments.ts): drafted from the post to wait
- *   for the person's OK at first, then written in the post's own box. Invitations they sent you are left for them to
- *   accept. Old invitations are withdrawn only when the person ticks them (their ask, ../asks/run.ts).
+ * - **Then LinkedIn's list for today,** a step after each part of the reading above while it's left (decision 123)
+ *   (`outreach.today` with `platform: 'linkedin'`), the kinds it does on its own (`auto`): a look at their profile and
+ *   a like on a post of theirs (warm-up; for a writer a search found, the post it found, liked on its own page), an
+ *   invitation to connect without a note (Chris), and the messages: drafted after a look-up, and sent once OK'd, in
+ *   LinkedIn messaging, typing only into that conversation's box. From 0.99.0 a comment on a good post goes as
+ *   Instagram's and Alignable's do (decision 102, ./comments.ts): drafted from the post to wait for the person's OK at
+ *   first, then written in the post's own box. Invitations they sent you are left for them to accept. Old invitations
+ *   are withdrawn only when the person ticks them (their ask, ../asks/run.ts).
  * - **At LinkedIn's pace:** a few minutes between steps, within LinkedIn's own limits, which HandsFreeOS keeps (its
  *   list holds only what they have room for, the week's 80 invitations among them).
  * - **Stops on any LinkedIn warning,** for the day, on LinkedIn alone: Facebook's runner goes on.
@@ -48,10 +49,13 @@ import { standDownWords } from '@hfos/core/addons/outreach/live';
 import { NETWORKS, type Platform } from '@hfos/core/addons/outreach/networks';
 import { messageParts, partPauseMs } from '@hfos/core/addons/outreach/voice';
 import type { TodayKind } from '@hfos/core/addons/outreach/today';
+import { buttonFor } from '@hfos/core/addons/outreach/helper';
+import type { ProblemHelper } from '@hfos/core/problem-report';
 import { follow, loadSettings } from '../hfos/follow';
 import { feed, keptFor, onBeat, type Kept } from '../hfos/live';
 import type { Drafts, TodayList, TodayListItem } from '../hfos/messages';
 import { isNoting, noteNeed, takeNote } from '../hfos/noting';
+import { clearRetried, handsOver, retryAfterUpdate } from './retry';
 import { chatCollect } from '../hfos/saves';
 import { answer, api, call, Refused, savingTo } from '../hfos/session';
 import { keepWarning, warnedNow, warningInput } from '../hfos/warned';
@@ -75,7 +79,7 @@ import { withdrawOnItsOwn } from '../jobs/linkedin/withdraw';
 import { LINKEDIN, readLinkedIn } from '../jobs/linkedin/read';
 import { linkedin, type LinkedInRead } from '../networks';
 import type { ProfileRef, ThreadRef } from '../networks/linkedin/types';
-import { comparable, postOf, profileRefOf, sameMember } from '../networks/linkedin/urls';
+import { comparable, keptMember, postOf, sameMember } from '../networks/linkedin/urls';
 import { isWorking, statesNow } from '../networks/on';
 import { awayNow } from '../away';
 import { WorkTab } from '../tab';
@@ -94,28 +98,47 @@ import {
   beforeDayDoing,
   beforeDayLine,
   doBeforeDay,
+  holdsTheDay,
   markOf,
   type BeforeDay,
 } from './lists';
 import {
+  afterDaily,
+  AGAIN_WORDS,
+  ANSWERING,
+  answersAnyTime,
   freshState,
   gapAfter,
   HELPFUL_AGAIN_MS,
   helpfulDue,
   isState,
   LINKEDIN_STATE_KEY,
+  listTurn,
+  lookOutsideAt,
   needOf,
   networkDay,
   networkWaitWords,
+  nextRound,
   nextStart,
+  repliedAfter,
+  replyWaiting,
+  roundDue,
+  soonestAgain,
+  stillReplied,
+  waitsAgain,
+  withReplied,
   workKey,
   workLeft,
   type AutoState,
   type DailyJob,
   type DoneKind,
+  type NetworkDay,
   type OwnDailyJob,
   type Work,
+  listSays,
+  retryWake,
 } from './plan';
+import { helpAfter, stepHelp } from './helper';
 import { askInLine, inTurn } from './turns';
 import { haltAsk } from '../asks/run';
 
@@ -125,10 +148,11 @@ const NAME = NETWORKS.linkedin.name;
 export const LINKEDIN_ALARM = 'hfos-auto-linkedin';
 
 /**
- * The kinds it does on its own on LinkedIn, in order: invitations they sent are theirs to accept. From 0.99.0 a comment
- * on a good post is drafted and sent through `sends` (decision 102), as Instagram's and Alignable's are, never as a step.
+ * The kinds it does on its own on LinkedIn, in order. From 0.99.0 a comment on a good post is drafted and sent through
+ * `sends` (decision 102), as Instagram's and Alignable's are, never as a step. From 0.118.0 the invitations they got
+ * that HandsFreeOS says to accept, as they pressed or the AI said (decision 136), are accepted from each profile.
  */
-export const LINKEDIN_AUTO: readonly TodayKind[] = ['warm_up', 'friend_request'];
+export const LINKEDIN_AUTO: readonly TodayKind[] = ['confirm', 'warm_up', 'friend_request'];
 /**
  * The once-a-day jobs on LinkedIn, in order. From 0.97.0 it withdraws old invitations on its own after checking the
  * new ones (`tidy`, decision 98), as the person chose; from 0.100.0 it then reads Catch up for birthdays and new jobs
@@ -253,8 +277,18 @@ async function closeWindow(): Promise<void> {
 
 /** What a step came to: done, passed over (handed to the person with `need`), or a stop for the day. */
 type Outcome =
-  | { readonly done: true; readonly line: string }
-  | { readonly done: false; readonly line: string; readonly need?: true }
+  | { readonly done: true; readonly line: string; readonly helper?: ProblemHelper }
+  | {
+      readonly done: false;
+      readonly line: string;
+      readonly need?: true;
+      /** Worth the AI helper's look though it isn't handed over: a like it couldn't press (decision 142). */
+      readonly look?: true;
+      /** Found done already (connected, asked, friends already): nothing's left to do, so it's no failure (decision 145). */
+      readonly skip?: true;
+      /** What the AI helper did inside the step, for its report (decision 142). */
+      readonly helper?: ProblemHelper;
+    }
   | { readonly stop: string };
 
 /** Stops for the day on LinkedIn's warning on the page, noting it in HandsFreeOS once as LinkedIn's. */
@@ -279,35 +313,49 @@ async function openProfile(
   | { readonly page: LinkedInRead; readonly noted: ProfileRef; readonly name: string }
   | { readonly outcome: Outcome }
 > {
-  const want = item.profileUrl ? profileRefOf(item.profileUrl) : null;
+  const want = keptMember(item.profileUrl, item.platformId);
   if (!want) return { outcome: { done: false, line: `${item.name}: no LinkedIn profile kept` } };
-  await tab.open(want.url);
-  await setState({ tabId: tab.tabId });
-  const page = await read();
-  const stop = await warnedOn(page, businessId);
-  if (stop) return { outcome: { stop } };
-  const shown = page.profile;
-  if (page.kind !== 'profile' || !shown?.profile || !isThem(shown, want, item.name))
-    return {
-      outcome: { done: false, line: `${item.name}: LinkedIn showed a different page`, need: true },
+  // By the name in their address, then by LinkedIn's id for them when that shows someone else or nobody: the name can
+  // change, and the id can't (decision 131).
+  const byId =
+    want.id && want.username
+      ? { ...want, username: null, url: `${LINKEDIN}/in/${want.id}/` }
+      : null;
+  for (const tried of byId ? [want, byId] : [want]) {
+    await tab.open(tried.url);
+    await setState({ tabId: tab.tabId });
+    const page = await read();
+    const stop = await warnedOn(page, businessId);
+    if (stop) return { outcome: { stop } };
+    const shown = page.profile;
+    if (page.kind !== 'profile' || !shown?.profile || !isThem(shown, tried, item.name)) continue;
+    const noted = {
+      id: want.id ?? shown.profile.id,
+      username: want.username ?? shown.profile.username,
+      url: want.url,
     };
-  const noted = {
-    id: want.id ?? shown.profile.id,
-    username: want.username ?? shown.profile.username,
-    url: want.url,
+    return { page, noted, name: shown.name ?? item.name };
+  }
+  return {
+    outcome: { done: false, line: `${item.name}: LinkedIn showed a different page`, need: true },
   };
-  return { page, noted, name: shown.name ?? item.name };
 }
 
 /** Says a warm-up had nothing to like: the invitation goes without. */
-async function missed(item: TodayListItem, businessId: string, line: string): Promise<Outcome> {
+async function missed(
+  item: TodayListItem,
+  businessId: string,
+  line: string,
+  /** Worth the AI helper's look at what stopped it, though it isn't handed over (decision 142). */
+  look = false,
+): Promise<Outcome> {
   await call(
     api().POST('/v1/commands/outreach.warm_up.missed', {
       body: { workspaceId: businessId, profileId: item.profileId! },
     }),
     businessId,
   );
-  return { done: false, line };
+  return look ? { done: false, line, look } : { done: false, line };
 }
 
 /** What comes after a warm-up, in words: the invitation, or for a partner the ask about partnering (decision 81). */
@@ -326,7 +374,7 @@ async function likeFoundPost(
   businessId: string,
   after: After,
 ): Promise<Outcome | null> {
-  const want = item.profileUrl ? profileRefOf(item.profileUrl) : null;
+  const want = keptMember(item.profileUrl, item.platformId);
   const url = item.postUrl ? postOf(item.postUrl) : null;
   if (!want || !url) return null;
   await tab.open(url);
@@ -344,7 +392,7 @@ async function likeFoundPost(
     const liked = await tab.ask({ type: 'hfos-like-post', profile: want, index, url: found.url });
     if (!liked.ok) throw new Error(liked.error);
     if (liked.result === 'none' || liked.result === 'not_sent')
-      return missed(item, businessId, `Couldn’t like ${item.name}’s post: ${after.without}`);
+      return missed(item, businessId, `Couldn’t like ${item.name}’s post: ${after.without}`, true);
     await pause(SETTLE_MS);
     const warned = await warnedOn(await read(), businessId);
     if (warned) return { stop: warned };
@@ -389,7 +437,7 @@ async function likeFoundComment(
   businessId: string,
   after: After,
 ): Promise<Outcome | null> {
-  const want = item.profileUrl ? profileRefOf(item.profileUrl) : null;
+  const want = keptMember(item.profileUrl, item.platformId);
   const url = item.postUrl ? postOf(item.postUrl) : null;
   if (!want || !url) return null;
   await tab.open(url);
@@ -511,7 +559,7 @@ async function warmUp(item: TodayListItem, businessId: string): Promise<Outcome>
     });
     if (!liked.ok) throw new Error(liked.error);
     if (liked.result === 'none' || liked.result === 'not_sent')
-      return missed(item, businessId, `Couldn’t like ${item.name}’s post: ${after.without}`);
+      return missed(item, businessId, `Couldn’t like ${item.name}’s post: ${after.without}`, true);
     postUrl = liked.postUrl ?? chosen.url;
     await pause(SETTLE_MS);
     const stop = await warnedOn(await read(), businessId);
@@ -550,33 +598,126 @@ const STANDING: Readonly<Record<string, string>> = {
   self: 'it’s your own profile',
 };
 
+/** Their invitation accepted from their profile (decision 136): as they pressed Confirm, or the AI said to. */
+async function accept(item: TodayListItem, businessId: string): Promise<Outcome> {
+  const opened = await openProfile(item, businessId);
+  if ('outcome' in opened) return opened.outcome;
+  const standing = opened.page.profile!.connection;
+  if (standing === 'connected')
+    return { done: false, line: `${item.name}: connected already`, skip: true };
+  if (standing !== 'received')
+    return { done: false, line: `${item.name}: no invitation of theirs waiting` };
+  const pressAccept = async () => {
+    const went = await tab.ask({ type: 'hfos-answer-request', answer: 'confirm' });
+    if (!went.ok) throw new Error(went.error);
+    return went.result;
+  };
+  let result = await pressAccept();
+  // Accept moved, or something's over it: the AI helper finds it on their profile, checked as theirs (decision 142).
+  const help = stepHelp(tab, answer as Hfos, {
+    businessId,
+    platform: PLATFORM,
+    step: item.kind,
+    theirName: item.name,
+    button: buttonFor(PLATFORM, 'confirm')!,
+  });
+  if (
+    result === 'none' &&
+    (await help.press('couldn’t find Accept', async () => (await pressAccept()) === 'done'))
+  )
+    result = 'done';
+  await pause(SETTLE_MS);
+  const page = await read();
+  const stop = await warnedOn(page, businessId);
+  if (stop) return { stop };
+  if (result === 'none')
+    return {
+      done: false,
+      line: `${item.name}: couldn’t find Accept`,
+      need: true,
+      helper: await help.end(false),
+    };
+  if (result === 'already')
+    return { done: false, line: `${item.name}: connected already`, skip: true };
+  if (result !== 'done' || page.profile?.connection === 'received')
+    return {
+      done: false,
+      line: `${item.name}: LinkedIn didn’t take it`,
+      need: true,
+      helper: await help.end(false),
+    };
+  const helper = await help.end(true);
+  await takeNote(
+    {
+      type: 'hfos-answered',
+      answered: {
+        answer: 'confirm',
+        to: { name: opened.name, profile: opened.noted },
+        mutualFriends: opened.page.profile!.mutualConnections,
+        auto: true,
+      },
+      at: now(),
+    },
+    PLATFORM,
+  );
+  return { done: true, line: `Accepted ${item.name}’s invitation`, helper };
+}
+
 /** An invitation to connect, without a note, from their profile. */
 async function invite(item: TodayListItem, businessId: string): Promise<Outcome> {
   const opened = await openProfile(item, businessId);
   if ('outcome' in opened) return opened.outcome;
   const standing = opened.page.profile!.connection;
-  if (standing === 'pending') return { done: false, line: `${item.name}: invited already` };
+  if (standing === 'pending')
+    return { done: false, line: `${item.name}: invited already`, skip: true };
   if (STANDING[standing])
     return {
       done: false,
       line: `${item.name}: ${STANDING[standing]}`,
       ...(standing === 'received' ? { need: true as const } : {}),
     };
-  const went = await tab.ask({ type: 'hfos-connect' });
-  if (!went.ok) throw new Error(went.error);
+  const pressConnect = async (sent?: true) => {
+    const went = await tab.ask({ type: 'hfos-connect', ...(sent ? { sent } : {}) });
+    if (!went.ok) throw new Error(went.error);
+    return went.result;
+  };
+  let result = await pressConnect();
+  // Connect moved, or something's over it: the AI helper finds it on their profile, checked as theirs (decision 142),
+  // and the invitation box it opens is sent as it is, as Connect's own is.
+  const help = stepHelp(tab, answer as Hfos, {
+    businessId,
+    platform: PLATFORM,
+    step: item.kind,
+    theirName: item.name,
+    button: buttonFor(PLATFORM, 'friend_request')!,
+  });
+  const missing = 'couldn’t find Connect, or LinkedIn asked for more than Send';
+  if (
+    result === 'none' &&
+    (await help.press(missing, async () => (await pressConnect()) === 'done'))
+  )
+    result = await pressConnect(true);
   await pause(SETTLE_MS);
   const page = await read();
   const stop = await warnedOn(page, businessId);
   if (stop) return { stop };
-  if (went.result === 'already') return { done: false, line: `${item.name}: invited already` };
-  if (went.result === 'none')
+  if (result === 'already')
+    return { done: false, line: `${item.name}: invited already`, skip: true };
+  if (result === 'none')
     return {
       done: false,
-      line: `${item.name}: couldn’t find Connect, or LinkedIn asked for more than Send`,
+      line: `${item.name}: ${missing}`,
       need: true,
+      helper: await help.end(false),
     };
-  if (went.result !== 'done' || page.profile?.connection !== 'pending')
-    return { done: false, line: `${item.name}: LinkedIn didn’t take the invitation`, need: true };
+  if (result !== 'done' || page.profile?.connection !== 'pending')
+    return {
+      done: false,
+      line: `${item.name}: LinkedIn didn’t take the invitation`,
+      need: true,
+      helper: await help.end(false),
+    };
+  const helper = await help.end(true);
   await takeNote(
     {
       type: 'hfos-noted',
@@ -593,7 +734,7 @@ async function invite(item: TodayListItem, businessId: string): Promise<Outcome>
     },
     PLATFORM,
   );
-  return { done: true, line: `Sent ${item.name} an invitation to connect` };
+  return { done: true, line: `Sent ${item.name} an invitation to connect`, helper };
 }
 
 /**
@@ -648,10 +789,15 @@ async function openChat(
   businessId: string,
   sending = false,
 ): Promise<
-  | { readonly profile: ProfileRef; readonly thread: ThreadRef | null }
+  | {
+      readonly profile: ProfileRef;
+      readonly thread: ThreadRef | null;
+      /** The link their profile's Message was, when it was pressed: the new conversation it opens names whom. */
+      readonly opened?: string | null;
+    }
   | { readonly outcome: Outcome }
 > {
-  const want = item.profileUrl ? profileRefOf(item.profileUrl) : null;
+  const want = keptMember(item.profileUrl, item.platformId);
   const different = {
     outcome: { done: false, line: `${item.name}: LinkedIn showed a different conversation` },
   };
@@ -695,7 +841,7 @@ async function openChat(
       outcome: { done: false, line: `${item.name}: couldn’t find Message on their profile` },
     };
   await pause(SETTLE_MS);
-  return { profile: opened.noted, thread: null };
+  return { profile: opened.noted, thread: null, opened: pressed.opened ?? null };
 }
 
 /** Their conversation as it is now, before a reply is drafted: brought into HandsFreeOS as LinkedIn's. */
@@ -737,7 +883,7 @@ async function draftMessage(item: TodayListItem, businessId: string): Promise<Ou
     },
   });
   if (!drafted.ok) return { done: false, line: `${item.name}: ${drafted.problem.message}` };
-  const { drafts, opener, simple, kind: draftedKind } = drafted.value as Drafts;
+  const { drafts, opener, simple, unanswered, kind: draftedKind } = drafted.value as Drafts;
   const kind = (draftedKind ?? item.kind) as MessageKind;
   const text = drafts[0];
   if (!text) return { done: false, line: `${item.name}: the AI had nothing to write` };
@@ -752,6 +898,8 @@ async function draftMessage(item: TodayListItem, businessId: string): Promise<Ou
         text,
         opener: kind === 'opener' ? opener : null,
         simple: kind === 'reply' && simple,
+        // Something Knowledge doesn't answer: it waits for the person (decision 122).
+        unanswered: kind === 'reply' ? (unanswered ?? null) : null,
       },
     }),
     businessId,
@@ -787,12 +935,7 @@ async function sendMessage(
 ): Promise<Outcome> {
   if (item.kind === 'comment')
     return commentOutcome(
-      await sendComment(
-        item,
-        item.profileUrl ? profileRefOf(item.profileUrl) : null,
-        businessId,
-        commenting,
-      ),
+      await sendComment(item, keptMember(item.profileUrl, item.platformId), businessId, commenting),
     );
   const send = item.send!;
   const failed = async (line: string): Promise<Outcome> => {
@@ -811,7 +954,12 @@ async function sendMessage(
   let partly: string | null = null;
   for (const [i, part] of parts.entries()) {
     if (i > 0) await pause(partPauseMs(part, Math.random()));
-    const wrote = await tab.ask({ type: 'hfos-message', text: part, profile: chat.profile });
+    const wrote = await tab.ask({
+      type: 'hfos-message',
+      text: part,
+      profile: chat.profile,
+      opened: chat.opened ?? null,
+    });
     const why = !wrote.ok
       ? wrote.error
       : wrote.result === 'none'
@@ -859,6 +1007,8 @@ export function doWork(work: Work, businessId: string, split: boolean): Promise<
       return warmUp(work.item, businessId);
     case 'friend_request':
       return invite(work.item, businessId);
+    case 'confirm':
+      return accept(work.item, businessId);
     default:
       // Never on its list for it (`LINKEDIN_AUTO`): comments go as sends, drafted and sent above.
       return Promise.resolve({
@@ -872,6 +1022,7 @@ const DOING: Readonly<Partial<Record<TodayKind, string>>> = {
   warm_up: 'Looking at the profile of',
   partner_warm_up: 'Looking at the profile of',
   friend_request: 'Inviting',
+  confirm: 'Accepting the invitation from',
 };
 
 const doing = (work: Work) =>
@@ -897,20 +1048,36 @@ const doneAs = (work: Work): DoneKind =>
 export function linkedInWorkLeft(
   list: Pick<TodayList, 'items' | 'auto' | 'messages' | 'sending'> & {
     readonly partners?: readonly TodayListItem[];
+    readonly newMessagesWait?: boolean;
   },
   tried: readonly string[],
+  replied: readonly string[] = [],
 ): Work[] {
-  return workLeft({ ...list, auto: list.auto.filter((k) => LINKEDIN_AUTO.includes(k)) }, tried);
+  return workLeft(
+    { ...list, auto: list.auto.filter((k) => LINKEDIN_AUTO.includes(k)) },
+    tried,
+    replied,
+  );
 }
 
 // ------------------------------------------------------------------------------------------------- the once-a-day jobs
 
 /** The once-a-day job to do next on LinkedIn: the first not done today. */
 export const nextLinkedInDaily = (
-  state: Pick<AutoState, 'daily'>,
+  state: Pick<AutoState, 'daily' | 'againAt'>,
   passOver: readonly LinkedInDaily[] = [],
+  now = Date.now(),
 ): LinkedInDaily | null =>
-  LINKEDIN_DAILY.find((job) => state.daily?.[job] === undefined && !passOver.includes(job)) ?? null;
+  LINKEDIN_DAILY.find(
+    (job) =>
+      state.daily?.[job] === undefined && !passOver.includes(job) && !waitsAgain(state, job, now),
+  ) ?? null;
+
+/**
+ * LinkedIn's jobs that find people, done again in a round while it needs more good fits (decision 126, plan.ts
+ * `nextRound`): LinkedIn’s post search with the next words, who reacted to and commented on good posts, and their checks.
+ */
+export const LINKEDIN_FINDING: readonly LinkedInDaily[] = ['posts', 'post_people', 'found_checks'];
 
 /** A job that notes a page it couldn't read with its outline (decision 74): its own way to, or the runner's. */
 const reporting = (job: Job, kind: LinkedInDaily): Job => ({
@@ -955,9 +1122,11 @@ export async function runLinkedInDaily(kind: LinkedInDaily, job: Job): Promise<J
           type: 'hfos-post-words',
           workspaceId: job.businessId,
           platform: PLATFORM,
+          ...(job.round ? { round: job.round } : {}),
         }),
       ).words;
-      return findPostsBySearch(job, words);
+      // A search that gives no post its link is noted with the page (decision 123).
+      return findPostsBySearch(reporting(job, kind), words);
     }
     case 'helpful':
       return linkedInHelpfulAsk(job);
@@ -992,6 +1161,8 @@ async function go(): Promise<void> {
     return closeWindow();
   }
   void follow(() => void tick()).catch(() => undefined);
+  // Updated since it last went: what was handed over before is tried again, once (decision 145).
+  await retryAfterUpdate(to.businessId);
   const { settings, timezone } = found;
   const choices = settings.networks.linkedin;
   let state = await stateNow();
@@ -1023,11 +1194,37 @@ async function go(): Promise<void> {
   });
   const tomorrow = () => nextStart(settings.hours, timezone, Date.now(), random);
   if (!own.go) {
-    await closeWindow();
     await setState({ started: false, stopped: own.stopped });
+    // Outside the hours a reply to someone who wrote back still goes, and nothing new does (decision 133): never after
+    // Stop for today or a warning, nor while noting's off or an ask of theirs is in line.
+    const answering =
+      own.stopped === null &&
+      !(await warnedNow(PLATFORM)) &&
+      (await isNoting()) &&
+      !askInLine(PLATFORM)
+        ? await listNow(to.businessId, state.tried, state.replied)
+        : null;
+    const answers = answering?.left.filter(answersAnyTime) ?? [];
+    if (answers[0])
+      return workNext(answers, {
+        businessId: to.businessId,
+        settings,
+        timezone,
+        own: ANSWERING,
+        reading: false,
+        random,
+      });
+    await closeWindow();
     await say(networkWaitWords(NAME, own, settings.hours, timezone, at));
-    // The beat says when it's pressed (`days.linkedin`), and wakes this before then.
-    return goAt(own.next);
+    // The beat says when it's pressed (`days.linkedin`), and wakes this before then; a reply waiting for an OK, or a message tried again, sooner.
+    return goAt(
+      lookOutsideAt(
+        !!answering && replyWaiting(answering.list),
+        at,
+        own.next,
+        answering ? retryWake(await stateNow(), at) : [],
+      ),
+    );
   }
   if (own.started && !state.started) state = await setState({ started: true, stopped: null });
   if (state.stopped === 'warning' || (await warnedNow(PLATFORM))) {
@@ -1060,6 +1257,40 @@ async function go(): Promise<void> {
   );
   if (JSON.stringify(state.lists) !== JSON.stringify(lists)) state = await setState({ lists });
   const before = beforeDay(lists, state.before ?? {}, at, timezone, PLATFORM);
+  // Reads that need the screen wait till the person is away from their computer (decision 120).
+  const away = await awayNow();
+  const passOver = putOff.passOver(away);
+  let daily = choices.collect ? nextLinkedInDaily(state, passOver, at) : null;
+  // Short of good fits once the day's reading is done (decision 126, answer 6a): it finds people again, with the next
+  // search words, and checks them.
+  if (
+    choices.collect &&
+    !before &&
+    !daily &&
+    !passOver.some((job) => state.daily?.[job] === undefined) &&
+    roundDue(state, at)
+  ) {
+    state = await setState(nextRound(state, LINKEDIN_FINDING, at));
+    daily = nextLinkedInDaily(state, passOver, at);
+  }
+  const reading = before !== null || daily !== null;
+  // The morning's reading and the list take turns (decision 123): a step on the list now, when there's one, after a
+  // part of the reading went last.
+  if (listTurn(state, reading, holdsTheDay(before))) {
+    const { left } = await listNow(to.businessId, state.tried, state.replied);
+    // Who wrote back and isn't on what's left gives the reading its turn back (decision 125).
+    const replied = stillReplied(state.replied ?? [], left);
+    if (replied.length !== (state.replied ?? []).length) state = await setState({ replied });
+    if (left[0])
+      return workNext(left, {
+        businessId: to.businessId,
+        settings,
+        timezone,
+        own,
+        reading,
+        random,
+      });
+  }
   if (before) {
     const end = await inTurn('runner', () => beforeTheDay(before, to.businessId), PLATFORM);
     const line = beforeDayLine(before, end, PLATFORM);
@@ -1068,10 +1299,12 @@ async function go(): Promise<void> {
       await say(end.line, { stopped: 'warning' });
       return goAt(tomorrow());
     }
+    // Put off till they're away, or done: the list has its turn next either way (decision 123).
     if (end.away) {
-      await say(line);
+      await say(line, { readLast: true });
       return soon();
     }
+    await setState({ readLast: true });
     void feed('job', `${NAME}: ${line}`);
     if (before.do === 'save' && before.first && end.failed) {
       await closeWindow();
@@ -1085,10 +1318,6 @@ async function go(): Promise<void> {
     return soon();
   }
 
-  // Reads that need the screen wait till the person is away from their computer (decision 120).
-  const away = await awayNow();
-  const passOver = putOff.passOver(away);
-  const daily = choices.collect ? nextLinkedInDaily(state, passOver) : null;
   if (daily) {
     const end = await inTurn('runner', () => collect(daily, to.businessId), PLATFORM);
     if (end.warned) {
@@ -1097,7 +1326,7 @@ async function go(): Promise<void> {
       return goAt(tomorrow());
     }
     const line = `${DAILY_NAMES[daily]}: ${end.line}`;
-    await say(line);
+    await say(line, { readLast: true });
     if (end.away) putOff.off(daily);
     else void feed('job', `${NAME}: ${line}`);
     return soon();
@@ -1126,36 +1355,90 @@ async function go(): Promise<void> {
     }
   }
 
-  const list: TodayList = await call(
-    api().POST('/v1/queries/outreach.today', {
-      body: { workspaceId: to.businessId, platform: PLATFORM },
-    }),
-    to.businessId,
-  );
-  const left = linkedInWorkLeft(list, state.tried);
-  const work = left[0];
-  if (!work) {
+  const { left } = await listNow(to.businessId, state.tried, state.replied);
+  if (!left[0]) {
     await closeWindow();
     // What waits for them to be away is looked at again sooner.
     const waiting = choices.collect
       ? waitingWords(waitingFor(passOver, state.daily, DAILY_NAMES))
       : null;
+    // The checks' next batch, when one's to come today (decision 126).
+    const again = choices.collect ? soonestAgain(await stateNow(), at) : null;
     await say(
-      waiting
-        ? `${state.tried.length ? `The rest of today on ${NAME} is done.` : `Nothing on your ${NAME} list for it to do yet.`} ${waiting}`
-        : state.tried.length
-          ? `Done for today on ${NAME}. It looks again within the hour for anything new.`
-          : `Nothing on your ${NAME} list for it to do yet.`,
+      `${
+        waiting
+          ? `${state.tried.length ? `The rest of today on ${NAME} is done.` : `Nothing on your ${NAME} list for it to do yet.`} ${waiting}`
+          : state.tried.length
+            ? `Done for today on ${NAME}. It looks again within the hour for anything new.`
+            : `Nothing on your ${NAME} list for it to do yet.`
+      }${again !== null ? ` ${AGAIN_WORDS}` : ''}`,
     );
-    return goAt(at + (waiting ? AWAY_AGAIN_MS : 60 * 60_000));
+    return goAt(
+      Math.min(
+        at + (waiting ? AWAY_AGAIN_MS : 60 * 60_000),
+        ...(again !== null ? [again] : []),
+        // A message tried again that waits its turn (decision 132).
+        ...retryWake(await stateNow(), at),
+      ),
+    );
   }
+  return workNext(left, {
+    businessId: to.businessId,
+    settings,
+    timezone,
+    own,
+    reading,
+    random,
+  });
+}
+
+/** Asks for LinkedIn's list for today, and gives it and what's left on it for its runner (`linkedInWorkLeft`). */
+async function listNow(
+  businessId: string,
+  tried: readonly string[],
+  replied: readonly string[] = [],
+): Promise<{ readonly list: TodayList; readonly left: Work[] }> {
+  const list: TodayList = await call(
+    api().POST('/v1/queries/outreach.today', {
+      body: { workspaceId: businessId, platform: PLATFORM },
+    }),
+    businessId,
+  );
+  // Whether LinkedIn needs more good fits today (decision 126): it finds people again once the day's reading is done.
+  // And when a message tried again may go (decision 132): it looks again by then.
+  const says = listSays(list);
+  const kept = await stateNow();
+  if (kept.more !== says.more || (kept.retryAt ?? null) !== says.retryAt) await setState(says);
+  return { list, left: linkedInWorkLeft(list, tried, replied) };
+}
+
+/**
+ * Does the first of what's left on LinkedIn's list, notes how it went, and sets when to go next: at LinkedIn's pace,
+ * the day's steps spread out over what's left of the hours, or a person's pace while the morning's reading is left
+ * (decision 123) or after Start my day.
+ */
+async function workNext(
+  left: readonly Work[],
+  at: {
+    readonly businessId: string;
+    readonly settings: NonNullable<Awaited<ReturnType<typeof loadSettings>>>['settings'];
+    readonly timezone: string;
+    readonly own: Extract<NetworkDay, { go: true }>;
+    /** Some of the morning's reading is left: the list's turn goes back to it. */
+    readonly reading: boolean;
+    readonly random: number;
+  },
+): Promise<void> {
+  const work = left[0]!;
+  const { businessId, settings, own } = at;
+  const tomorrow = () => nextStart(settings.hours, at.timezone, Date.now(), at.random);
   const { item } = work;
-  await say(doing(work), { working: true });
+  await say(doing(work), { working: true, readLast: false });
   let outcome: Outcome;
   try {
     outcome = await inTurn(
       'runner',
-      () => doWork(work, to.businessId, settings.voice?.split ?? true),
+      () => doWork(work, businessId, settings.voice?.split ?? true),
       PLATFORM,
     );
   } catch (error) {
@@ -1167,21 +1450,40 @@ async function go(): Promise<void> {
   } finally {
     await setState({ working: false });
   }
-  // A step that didn't go: the page it ended on, outline and all, noted while the window still shows it (decision 74).
-  if ('done' in outcome && !outcome.done)
-    await reporter(tab, answer as Hfos, {
-      businessId: to.businessId,
-      platform: PLATFORM,
-      askId: null,
-      job: work.do === 'step' ? work.item.kind : work.do,
-    })({ note: 'The step didn’t go.', outline: true });
-  state = await stateNow();
+  // A step that didn't go: the AI helper looks first, clearing the way and saying what it sees (decision 142); then
+  // the page it ended on, outline, why and all, noted while the window still shows it (decision 74).
+  const helped = await helpAfter({
+    tab,
+    hfos: answer as Hfos,
+    businessId,
+    platform: PLATFORM,
+    work,
+    job: work.do === 'step' ? work.item.kind : work.do,
+    outcome,
+    again:
+      work.do === 'step'
+        ? () =>
+            inTurn(
+              'runner',
+              () => doWork(work, businessId, settings.voice?.split ?? true),
+              PLATFORM,
+            )
+        : null,
+    say: (line) => say(line, { working: true, readLast: false }),
+  });
+  outcome = helped.outcome;
+  await setState({ working: false });
+  const state = await stateNow();
   const kind = doneAs(work);
   const done =
     'done' in outcome && outcome.done
       ? { ...state.done, [kind]: (state.done[kind] ?? 0) + 1 }
       : state.done;
-  await setState({ tried: [...state.tried, workKey(work)], done });
+  await setState({
+    tried: [...state.tried, workKey(work)],
+    done,
+    replied: repliedAfter(state.replied ?? [], work),
+  });
   if ('stop' in outcome) {
     await closeWindow();
     await say(outcome.stop, { stopped: 'warning' });
@@ -1189,8 +1491,12 @@ async function go(): Promise<void> {
   }
   await say(outcome.line);
   const need =
-    'need' in outcome && work.do === 'step' ? needOf(item, outcome.line, to.businessId) : null;
+    work.do === 'step' && handsOver(item, outcome)
+      ? needOf(item, outcome.line, businessId, helped.reportId)
+      : null;
   if (need) void noteNeed(need);
+  // A step tried again that it found done already is cleared (decision 145).
+  if (work.do === 'step') void clearRetried(item, outcome, businessId);
   void feed(outcome.done ? 'done' : 'passed', `${NAME}: ${outcome.line}`);
   if (stopAsked) {
     await closeWindow();
@@ -1202,8 +1508,9 @@ async function go(): Promise<void> {
       now: Date.now(),
       until: own.until,
       left: left.length - 1,
-      started: own.started,
-      random,
+      // A person's pace while the morning's reading is left: the list's turn and the reading's go by turns.
+      started: own.started || at.reading,
+      random: at.random,
     }),
   );
   if (gap > KEEP_WINDOW_MS) await closeWindow();
@@ -1236,7 +1543,7 @@ async function beforeTheDay(step: BeforeDay, businessId: string): Promise<JobEnd
   // The morning's invitations, and the first check, stand for today's once-a-day ones.
   const stands =
     !end.failed && (key === 'requests' || key === 'checks')
-      ? { daily: { ...state.daily, [key]: end.line } }
+      ? afterDaily(state, key, end, Date.now(), Math.random())
       : {};
   await setState({ before: { ...state.before, [key]: end.line }, ...stands });
   return end;
@@ -1247,7 +1554,11 @@ async function collect(kind: LinkedInDaily, businessId: string): Promise<JobEnd>
   await say(DAILY_DOING[kind], { working: true });
   let end: JobEnd;
   try {
-    end = await runLinkedInDaily(kind, jobFor(businessId));
+    // A round of finding again asks for the next search words (decision 126).
+    end = await runLinkedInDaily(kind, {
+      ...jobFor(businessId),
+      round: (await stateNow()).round ?? 0,
+    });
   } catch (error) {
     if (error instanceof Refused) throw error;
     end = isNotAway(error)
@@ -1259,7 +1570,8 @@ async function collect(kind: LinkedInDaily, businessId: string): Promise<JobEnd>
   // Put off till they're away (decision 120): not done for the day, so it's tried again then.
   if (end.away) return end;
   const state = await stateNow();
-  await setState({ daily: { ...state.daily, [kind]: end.line } });
+  // A batch of checks with more of today's room left: the next later on (decision 126).
+  await setState(afterDaily(state, kind, end, Date.now(), Math.random()));
   return end;
 }
 
@@ -1308,6 +1620,16 @@ export async function linkedInTick(): Promise<void> {
 }
 
 const tick = linkedInTick;
+
+/**
+ * Someone wrote back on LinkedIn (decision 125, ../hfos/replies.ts): their reply is drafted next, now, before the next
+ * step's time, or as soon as the go under way ends. The day's own rules still say whether it goes at all.
+ */
+export async function linkedInReplied(profileIds: readonly string[]): Promise<void> {
+  const state = await stateNow();
+  await setState({ replied: withReplied(state.replied ?? [], profileIds) });
+  void tick();
+}
 
 /** When the background starts: it looks once, and the beat wakes it after. */
 export async function wakeLinkedIn(): Promise<void> {

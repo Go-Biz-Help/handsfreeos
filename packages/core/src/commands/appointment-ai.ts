@@ -35,9 +35,9 @@ import {
   type AttendeeDraft,
   type BookingResult,
 } from '../calendar/booking';
-import { expandRecurrence, RecurrenceRule } from '../calendar/engine/recurrence';
+import { expandRecurrenceFrom, RecurrenceRule } from '../calendar/engine/recurrence';
 import { formatDuration } from '../calendar/format';
-import { localDateOf, zonedParts } from '../calendar/engine/zoned';
+import { zonedParts } from '../calendar/engine/zoned';
 import { loadCalendar, resolveService } from '../calendar/load';
 import { bookableDurations, defaultLocationKind, resolveTerms } from '../calendar/terms';
 import { leadFor } from '../crm/intake';
@@ -413,7 +413,7 @@ export const seriesBookForCustomer = defineCommand({
       count: Math.min(input.times, config.recurring.maxOccurrences),
       localTime: HH_MM(firstAt, tz),
     });
-    const occurrences = expandRecurrence(rule, localDateOf(firstAt, tz), tz);
+    const occurrences = expandRecurrenceFrom(rule, firstAt, tz);
     if (occurrences[0]?.startsAt !== firstAt)
       throw HfosError.validation(
         [{ path: 'startsAt', message: 'Start the repeats at a time the calendar offers.' }],

@@ -319,6 +319,15 @@ function describeAction(step: Extract<Step, { type: 'action' }>, names: Workflow
       return `Send a form by ${step.config.channel === 'email' ? 'email' : 'text'}: ${quote(
         step.config.message,
       )}`;
+    case 'call_with_ai': {
+      const who = names.teammateName ? `${names.teammateName} (AI)` : 'The AI teammate';
+      const book = {
+        when_ready: 'offers a time when they want one',
+        always: 'asks to book a visit',
+        never: 'leaves booking to the team',
+      }[step.config.book];
+      return `${who} calls them: ${quote(step.config.opening, 50)}; ${book}`;
+    }
   }
 }
 

@@ -51,8 +51,15 @@ const ROW = {
   note: 'Not read: Experience.',
   handledAt: null,
   hasOutline: true,
+  helper: null,
 };
-const FULL = { ...ROW, found: { roles: 0 }, outline: 'body\n  h2 "Experience"', handledBy: null };
+const FULL = {
+  ...ROW,
+  found: { roles: 0 },
+  outline: 'body\n  h2 "Experience"',
+  handledBy: null,
+  helper: null,
+};
 
 /** Text somewhere in a card. */
 const has = (text: string) => new RegExp(text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'));
@@ -67,6 +74,7 @@ beforeEach(() => {
       reports: body.state === 'handled' ? [] : [ROW],
       nextBefore: null,
       areas: [{ area: 'linkedin', open: 1 }],
+      steps: [],
     }),
     '/v1/queries/platform.problem_report.get': FULL,
     '/v1/commands/problem_report.set_handled': { changed: [ID] },

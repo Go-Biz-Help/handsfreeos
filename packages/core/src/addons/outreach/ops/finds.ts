@@ -6,7 +6,8 @@
  *
  * - **Only from good posts** (`outreach.posts.people_next`): the person's own, the AI called good, seen in the last
  *   week; those asking for what the business offers first, then the busiest, then the newest. A good post's writer is
- *   found by the AI's check of the post itself (`findWriter`, from ./posts.ts).
+ *   found by the AI's check of the post itself (`findWriter`, from ./posts.ts), and so is a writer the business is
+ *   for whose post isn't good, as found by the search (decision 123).
  * - **Nobody known or reached already is kept** (`keepFind`): the person, a post's writer among its people, a friend or
  *   anyone asked either way, a customer or client, anyone left alone or running a group, anyone who says a playbook's
  *   skip word, and anyone the country setting skips by where they are.
@@ -34,11 +35,15 @@ import {
   FindsSearchesInput,
   FindsSearchesOutput,
   findsWaitingMost,
+  FIND_WEEK_DAYS,
+  FindsWeekInput,
+  FindsWeekOutput,
   PostsPeopleNextInput,
   PostsPeopleNextOutput,
   skipWordIn,
   type FindHow,
 } from '../finds';
+import { SEARCH_AGAIN } from '../goal';
 import { outreachAddon } from '../manifest';
 import { NETWORKS, type Platform } from '../networks';
 import {
@@ -56,6 +61,7 @@ import {
   findsWaiting,
   findToCheck,
   likesBehind,
+  moreToday,
   myOwnProfile,
   perDayFor,
   stillToReach,
@@ -70,9 +76,10 @@ import {
   once,
   type Ctx,
 } from './common';
-import { playbooksInUse } from './friends';
+import { tally } from './tallies';
+import { latestDownload, playbooksInUse } from './friends';
 import { findsByTopic } from './live';
-import { startOfToday } from './tidy';
+import { startOfToday, warningOf } from './tidy';
 
 const DAY = 86_400_000;
 const ago = (now: number, days: number) => new Date(now - days * DAY).toISOString();
@@ -165,12 +172,15 @@ export async function keepFind(
  * the post's own find (`posted`, with its hashtag or phrase and its group), with the same leave-outs as anyone found.
  * The best of the finds, so the cap on finds waiting never holds a writer back. Null on a network that weighs people
  * by the words they show (Facebook's), and for someone whose computer runs an older build (`findsByTopic`): it never
- * checks them, so they stay the old search pick's, as decision 92's 18 keeps it.
+ * checks them, so they stay the old search pick's, as decision 92's 18 keeps it. A writer the business is for whose
+ * post isn't one to comment on is found by the search that showed it (`searched`, decision 123), the post kept, and
+ * only while the finds waiting for a check are under the cap, as anyone a search shows.
  */
 export async function findWriter(
   ctx: CommandContext,
   post: typeof posts.$inferSelect,
   at: Date,
+  how: Extract<FindHow, 'posted' | 'searched'> = 'posted',
 ): Promise<FindKept | null> {
   // An account like the business's (decision 110) is read for its people, never found itself.
   if (post.found === 'account') return null;
@@ -184,7 +194,7 @@ export async function findWriter(
       me: post.userId,
       profileId: author.id,
       platform: author.platform,
-      how: 'posted',
+      how,
       postId: post.id,
       groupId: post.groupId,
       words: post.words,
@@ -193,7 +203,7 @@ export async function findWriter(
       at,
     },
     await countryRuleOf(ctx),
-    true,
+    how === 'posted' || !(await findsFull(ctx, post.userId, author.platform, at.getTime())),
   );
 }
 
@@ -313,6 +323,8 @@ export const findsSave = defineAddonCommand(outreachAddon, {
           room--;
         } else if (kept === 'left') skipped++;
       }
+      // Each new person found counts (decision 140).
+      await tally(ctx, me, input.platform, 'found', added, at);
       if (added)
         await ctx.emit({
           type: 'outreach.finds.saved',
@@ -337,9 +349,18 @@ export const postsPeopleNext = defineAddonQuery(outreachAddon, {
     const me = requireHuman(ctx).userId;
     const ws = ctx.scope.workspaceId!;
     const now = Date.now();
-    const perDay = NETWORKS[input.platform].postPeoplePerDay ?? 0;
-    if (!perDay) return { posts: [], today: 0, perDay: 0 };
+    const usual = NETWORKS[input.platform].postPeoplePerDay ?? 0;
+    if (!usual) return { posts: [], today: 0, perDay: 0 };
     const todayStart = await startOfToday(ctx, now);
+    // As many again for each search again on a day the goal needs more good fits (decision 126, answer 6a).
+    const more = await moreToday(
+      ctx,
+      me,
+      input.platform,
+      now,
+      await warningOf(ctx, me, input.platform, todayStart, now),
+    );
+    const perDay = more ? usual * (1 + SEARCH_AGAIN.rounds) : usual;
     const [done] = await rows<{ n: number }>(
       ctx.tx,
       sql`select count(*)::int as n from addon_outreach.posts po
@@ -483,9 +504,91 @@ export const findsSearches = defineAddonQuery(outreachAddon, {
     if (await findsFull(ctx, me, input.platform, now)) return { searches: [] };
     const pool = kindSearches(await playbooksInUse(ctx, input.platform), input.platform);
     const perDay = FIND_WORDS_PER_DAY[input.platform as WordsPlatform];
-    return { searches: inTurn(pool, perDay, dayNumber(now)) };
+    // A search again later in the day takes the next in turn (decision 126).
+    return { searches: inTurn(pool, perDay, dayNumber(now) + input.round) };
+  },
+});
+
+/**
+ * Find people's numbers (decision 128): what each way of finding people found for the person in the last week, and how
+ * many the AI's check called a good fit or a maybe. People found by topic by network and how; their Facebook followers
+ * and the members of their groups, checked like friends; and the partners found for the business. One network's, or
+ * every network's.
+ */
+export const findsWeek = defineAddonQuery(outreachAddon, {
+  name: 'outreach.finds.week',
+  description:
+    'Where new people came from in the last week, for the person: how many were found each way on each network (writing, commenting on or liking a good post, in a group, at an event near them, following an account like theirs, or by a search), how many of those the AI called a good fit or a maybe, the followers and group members checked like friends, and the partners found. One network’s, or every network’s.',
+  input: FindsWeekInput,
+  output: FindsWeekOutput,
+  permission: 'outreach.use',
+  ai: {
+    tool: 'outreach_where_people_come_from',
+    keywords: [
+      'where people come from',
+      'found this week',
+      'hashtags found',
+      'events found',
+      'followers checked',
+    ],
+  },
+  scope: inWorkspace,
+  async handler(ctx, input) {
+    const me = requireHuman(ctx).userId;
+    const ws = ctx.scope.workspaceId!;
+    const since = ago(Date.now(), FIND_WEEK_DAYS);
+    const on = (column: ReturnType<typeof sql>) =>
+      input.platform ? sql`and ${column} = ${input.platform}` : sql``;
+    const ways = await rows<{
+      platform: Platform;
+      how: FindHow;
+      found: number;
+      good: number;
+      maybe: number;
+    }>(
+      ctx.tx,
+      sql`select f.platform, f.how, count(*)::int as found,
+            count(*) filter (where c.verdict = 'good')::int as good,
+            count(*) filter (where c.verdict = 'maybe')::int as maybe
+          from addon_outreach.finds f
+          left join addon_outreach.checks c
+            on c.workspace_id = f.workspace_id and c.user_id = f.user_id and c.profile_id = f.profile_id
+          where f.workspace_id = ${ws} and f.user_id = ${me} and f.found_at >= ${since}
+            ${on(sql`f.platform`)}
+          group by f.platform, f.how
+          order by f.platform, f.how`,
+    );
+    const checked = await rows<{ via: string; found: number; good: number; maybe: number }>(
+      ctx.tx,
+      sql`select c.via, count(*)::int as found,
+            count(*) filter (where c.verdict = 'good')::int as good,
+            count(*) filter (where c.verdict = 'maybe')::int as maybe
+          from addon_outreach.checks c
+          join addon_outreach.profiles p on p.workspace_id = c.workspace_id and p.id = c.profile_id
+          where c.workspace_id = ${ws} and c.user_id = ${me} and c.via in ('follower', 'member')
+            and c.looked_at >= ${since} ${on(sql`p.platform`)}
+          group by c.via`,
+    );
+    const [partners] = await rows<{ n: number }>(
+      ctx.tx,
+      sql`select count(*)::int as n from addon_outreach.profiles p
+          where p.workspace_id = ${ws} and p.partner_found_at >= ${since} ${on(sql`p.platform`)}`,
+    );
+    const none = { found: 0, good: 0, maybe: 0 };
+    const via = (v: string) => {
+      const got = checked.find((c) => c.via === v);
+      return got ? { found: got.found, good: got.good, maybe: got.maybe } : none;
+    };
+    return {
+      since,
+      ways,
+      followers: via('follower'),
+      members: via('member'),
+      partners: partners?.n ?? 0,
+      download: await latestDownload(ctx, me),
+    };
   },
 });
 
 export const findCommands = [findsSave] as const;
-export const findQueries = [postsPeopleNext, findsNext, findsSearches] as const;
+export const findQueries = [postsPeopleNext, findsNext, findsSearches, findsWeek] as const;

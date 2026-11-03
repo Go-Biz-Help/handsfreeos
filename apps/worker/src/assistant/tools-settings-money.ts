@@ -347,6 +347,7 @@ function nextAttention(now: AttentionSettings, args: Args): AttentionSettings {
   for (const k of off) kinds[k] = false;
   const bigJob = num(args['bigJobDollars']);
   const typical = args['typicalJobValueDollars'];
+  const ignoreUnder = num(args['ignoreBalancesUnderDollars']);
   return {
     ...now,
     kinds: kinds as AttentionSettings['kinds'],
@@ -365,6 +366,7 @@ function nextAttention(now: AttentionSettings, args: Args): AttentionSettings {
       ...now.money,
       estimateWaitingDays: num(args['estimateWaitingDays']) ?? now.money.estimateWaitingDays,
       invoiceOverdueDays: num(args['invoiceOverdueDays']) ?? now.money.invoiceOverdueDays,
+      minBalanceCents: ignoreUnder === undefined ? now.money.minBalanceCents : cents(ignoreUnder),
     },
     typicalJobValueCents:
       typical === undefined
@@ -409,6 +411,21 @@ const updateActionCenterSettings: SettingsConfirmTool = {
       });
     if (num(args['goneQuietAfterDays']) !== undefined)
       fields.push({ label: 'Gone quiet after', value: days(next.stale.days) });
+    if (num(args['estimateWaitingDays']) !== undefined)
+      fields.push({
+        label: 'An estimate waits for a decision after',
+        value: days(next.money.estimateWaitingDays),
+      });
+    if (num(args['invoiceOverdueDays']) !== undefined)
+      fields.push({
+        label: 'An unpaid invoice shows',
+        value:
+          next.money.invoiceOverdueDays === 0
+            ? 'The morning after it’s due'
+            : `${days(next.money.invoiceOverdueDays)} after it’s due`,
+      });
+    if (num(args['ignoreBalancesUnderDollars']) !== undefined)
+      fields.push({ label: 'Ignore balances under', value: money(next.money.minBalanceCents) });
     if (args['typicalJobValueDollars'] !== undefined)
       fields.push({
         label: 'A typical job is worth',

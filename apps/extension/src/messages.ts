@@ -26,10 +26,46 @@ import type { Engaged, PostResult } from './networks/facebook/compose';
 import type { JoinStep } from './networks/facebook/join';
 import type { ProfileRef, ReadResult } from './networks/facebook/types';
 import type { AlignableWithdrawResult } from './networks/alignable/withdraw';
+import type { CancelSentResult } from './networks/facebook/sent';
 import type { PostPerson, ReactorsRead } from './networks/linkedin/compose';
 import type { Answered, PageRead, ReplySighting, Seen, Step } from './networks/kit';
+import type { HelperMoveAsk, HelperMoveDone } from './networks/helper-view';
+import type { HelperButton, WayShape } from '@hfos/core/addons/outreach/helper';
 
 export type Ask = { readonly type: 'hfos-read' } | { readonly type: 'hfos-outline' };
+
+/**
+ * The AI helper's asks of a tab, on any network (docs/outreach.md, decision 142; src/networks/helper-view.ts): a view
+ * of the page (`fresh` at a step's first look), one move on the numbers of the last view, or a learned way pressed.
+ * `theirName` is who the step is for, shown in the view as "(their name)", never sent anywhere else.
+ */
+export type HelperAsk =
+  | {
+      readonly type: 'hfos-helper-view';
+      readonly theirName: string | null;
+      readonly fresh: boolean;
+    }
+  | {
+      readonly type: 'hfos-helper-move';
+      readonly move: HelperMoveAsk;
+      readonly button: HelperButton | null;
+    }
+  | {
+      readonly type: 'hfos-helper-way';
+      readonly way: WayShape;
+      readonly button: HelperButton;
+      readonly theirName: string | null;
+    };
+
+/** What a tab answers the helper: the view, how a move went, or whether a learned way was pressed. */
+export type HelperAnswer =
+  | {
+      readonly ok: true;
+      readonly view?: string;
+      readonly done?: HelperMoveDone;
+      readonly pressed?: boolean;
+    }
+  | { readonly ok: false; readonly error: string };
 
 /**
  * What the panel asks a tab on one of Facebook's download pages while it gets the person's file
@@ -61,6 +97,8 @@ export type BrowseAsk =
   | { readonly type: 'hfos-open-chat'; readonly threadId: string; readonly name?: string }
   | { readonly type: 'hfos-scroll-chats' }
   | { readonly type: 'hfos-scroll-feed' }
+  /** A group's feed: each post's time pointed at, for Facebook to give it its address (decision 138). */
+  | { readonly type: 'hfos-point-times' }
   | { readonly type: 'hfos-scroll-list' }
   /** A list of groups, or a search for them: scroll the page for more (src/jobs/groups.ts). */
   | { readonly type: 'hfos-scroll-page' }
@@ -108,13 +146,15 @@ export type AutoAsk =
    * `profile` says whose conversation's box it goes in (src/networks/linkedin/auto.ts, src/networks/alignable/auto.ts,
    * src/networks/instagram/auto.ts). On Facebook (src/networks/facebook/auto.ts) `names` does too, for a chat that
    * names them without a link to their profile: the name Facebook showed for them, on the chat or the profile the
-   * runner checked. Facebook types nothing for an ask without `profile`.
+   * runner checked. Facebook types nothing for an ask without `profile`. On LinkedIn `opened` is the link their
+   * profile's Message was, when the runner pressed it (`OpenMessageAnswer`): the new conversation it opens names whom.
    */
   | {
       readonly type: 'hfos-message';
       readonly text: string;
       readonly profile?: ProfileRef;
       readonly names?: readonly string[];
+      readonly opened?: string | null;
     };
 
 /**
@@ -123,12 +163,34 @@ export type AutoAsk =
  * page, whose answer is a `BrowseAnswer`. On Alignable (src/networks/alignable/auto.ts), `profile` says whose business
  * page it is, and only its own Connect, carrying Alignable's id for it, is pressed.
  */
-export type ConnectAsk = { readonly type: 'hfos-connect'; readonly profile?: ProfileRef };
+export type ConnectAsk = {
+  readonly type: 'hfos-connect';
+  readonly profile?: ProfileRef;
+  /**
+   * LinkedIn: Connect was pressed already (by the AI helper, decision 142): only its invitation box's own send as it
+   * is, when it asks nothing else, and the wait for Pending.
+   */
+  readonly sent?: true;
+};
+/**
+ * Answering a request the person got (decision 136, from 0.118.0), once they pressed Confirm or Delete in HandsFreeOS
+ * or the AI said to as they chose: on LinkedIn, Accept or Ignore in the top card of the profile of whoever sent it
+ * (src/networks/linkedin/auto.ts); on Alignable, Accept or Decline on that business's row of My Network's Requests
+ * (src/networks/alignable/answer.ts), found by `profile`. Its answer is an `AutoAnswer`: `already` when there's nothing
+ * left to answer, `none` when there's no such button to press.
+ */
+export type AnswerRequestAsk = {
+  readonly type: 'hfos-answer-request';
+  readonly answer: 'confirm' | 'delete';
+  readonly profile?: ProfileRef;
+};
 /**
  * On Instagram (src/networks/instagram/auto.ts), `profile` says whose account's Message it is. On Facebook
  * (src/networks/facebook/auto.ts), the chats open before it are noted first: none of those is taken for theirs by name.
  */
 export type OpenMessageAsk = { readonly type: 'hfos-open-message'; readonly profile?: ProfileRef };
+/** Whether Message was pressed; on LinkedIn, the link it was (null for a button), for the message's ask. */
+export type OpenMessageAnswer = BrowseAnswer & { readonly opened?: string | null };
 
 /**
  * Asking to join a group (src/networks/facebook/join.ts, decisions 31 and 48): on its page, press Join group and say what
@@ -242,6 +304,30 @@ export type PostPeopleAnswer =
   | { readonly ok: false; readonly error: string };
 
 /**
+ * On LinkedIn's post search (decision 123), whose newer layout links no post: each person's post's own link, from its
+ * menu's Copy link to post, caught before it reaches the person's clipboard (./networks/copies.ts), for up to `most`
+ * of the posts it shows with none. Each link goes with its post's key (`postKey`), as read from the page.
+ */
+export type PostLinksAsk = {
+  readonly type: 'hfos-post-links';
+  readonly most: number;
+  /** The keys of posts it has links for already, or sent: passed over. */
+  readonly skip: readonly string[];
+};
+export type PostLinksAnswer =
+  | {
+      readonly ok: true;
+      readonly links: readonly { readonly key: string; readonly url: string }[];
+      /** Every post it pressed the menu of, or looked for one on, link or not: none is pressed twice. */
+      readonly tried: readonly string[];
+      /** How it went, for the note when no link came: posts tried, menus opened, Copy link found, links caught. */
+      readonly found: Readonly<Record<string, number>>;
+      /** The page's outline when a menu had no Copy link to post, or it gave no link, taken while the menu was open. */
+      readonly outline?: string;
+    }
+  | { readonly ok: false; readonly error: string };
+
+/**
  * The person's own profile (decision 64): read what a stranger sees first, or put the bio they picked in, which on
  * LinkedIn is their headline, or LinkedIn's About or Alignable's About Us (decision 80; src/networks/facebook/own-profile.ts,
  * src/networks/linkedin/own-profile.ts, src/networks/instagram/own-profile.ts, src/networks/alignable/own-profile.ts).
@@ -261,6 +347,15 @@ export type WriteNameAsk = { readonly type: 'hfos-write-name'; readonly name: st
 export type PageThereAsk = { readonly type: 'hfos-page-there' };
 export type PageThereAnswer =
   | { readonly ok: true; readonly there: boolean | null }
+  | { readonly ok: false; readonly error: string };
+
+/**
+ * Who wrote last in the chats on the page, now (decision 125): the messages page kept open (src/auto/watch.ts) asks
+ * every minute, with no change to the page. Nothing while noting is off.
+ */
+export type RepliesNowAsk = { readonly type: 'hfos-replies-now' };
+export type RepliesNowAnswer =
+  | { readonly ok: true; readonly seen: readonly ReplySighting[] }
   | { readonly ok: false; readonly error: string };
 
 /**
@@ -433,6 +528,17 @@ export type WithdrawAnswer =
   | { readonly ok: false; readonly error: string };
 
 /**
+ * On Facebook's friend requests, once View sent requests has opened the list, cancel the request to this person
+ * (src/networks/facebook/sent.ts, from 0.110.1): its row is found by their profile link, and nothing else is pressed
+ * but the box Facebook opens to be sure.
+ */
+export type CancelSentAsk = { readonly type: 'hfos-cancel-sent'; readonly profile: ProfileRef };
+
+export type CancelSentAnswer =
+  | { readonly ok: true; readonly result: CancelSentResult }
+  | { readonly ok: false; readonly error: string };
+
+/**
  * On an Instagram account's own page, unfollow them, once the person ticked them (src/networks/instagram/unfollow.ts):
  * its Following (or Requested), then Unfollow in the box Instagram opens, each by its own words. `not_found` when the
  * page shows they aren't followed already; `none` when it couldn't.
@@ -449,6 +555,8 @@ export type AutoAnswer =
       readonly postUrl?: string | null;
       /** A message's typing it couldn't take out of another chat's box, with the name on that box (Facebook's). */
       readonly left?: MessageWrote['left'];
+      /** With `none`: who the window their profile's Message opened links to, for the runner to check (Facebook's). */
+      readonly linksTo?: MessageWrote['linksTo'];
     }
   | { readonly ok: false; readonly error: string };
 

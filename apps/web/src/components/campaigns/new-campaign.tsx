@@ -1,5 +1,5 @@
 'use client';
-import { CAMPAIGN_PER_HOUR_DEFAULT, CAMPAIGN_PER_HOUR_MAX } from '@hfos/core';
+import { CAMPAIGN_PER_HOUR_DEFAULT, CAMPAIGN_PER_HOUR_MAX, lineCheckCostWords } from '@hfos/core';
 import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { toast } from 'sonner';
@@ -42,8 +42,11 @@ export function NewCampaign({
   const [perHour, setPerHour] = useState(String(CAMPAIGN_PER_HOUR_DEFAULT));
   const [offerId, setOfferId] = useState('');
   const [channel, setChannel] = useState<Channel>('sms');
+  const [keepAdding, setKeepAdding] = useState(false);
   const email = channel === 'email';
   const calls = channel === 'call';
+  // Only calls keep adding people; it may start with nobody to call yet.
+  const adding = calls && keepAdding;
   const noun = email ? 'Emails' : calls ? 'Calls' : 'Texts';
   const [preview, setPreview] = useState<CampaignPreview | null>(null);
   const [busy, setBusy] = useState(false);
@@ -89,6 +92,7 @@ export function NewCampaign({
             perHour: pace,
             offerId: offerId || null,
             channel,
+            keepAdding: adding,
           },
         }),
       );
@@ -219,8 +223,20 @@ export function NewCampaign({
             data-testid="campaign-preview"
           >
             <span className="font-medium">
-              It would {email ? 'email' : calls ? 'call' : 'text'} {people(preview.recipients)}.
+              {adding && preview.recipients === 0
+                ? 'Nobody to call yet. Anyone who comes to fit joins and is called.'
+                : `It would ${email ? 'email' : calls ? 'call' : 'text'} ${people(preview.recipients)}${adding ? ' to begin with' : ''}.`}
             </span>
+            {calls && preview.landlineChecks > 0 ? (
+              <p className="mt-1 text-[12.5px] text-text-2" data-testid="campaign-landline-checks">
+                {`${people(preview.landlineChecks)} with no yes to calls ${preview.landlineChecks === 1 ? 'is' : 'are'} called only if the phone company says their number is a business landline, checked just before the call.`}
+                {preview.landlineCheckCents ? (
+                  <span data-testid="campaign-landline-cost">
+                    {` ${lineCheckCostWords(preview.landlineCheckCents)}`}
+                  </span>
+                ) : null}
+              </p>
+            ) : null}
             {skipped.length ? (
               <ul className="mt-1 text-[12.5px] text-text-2">
                 {skipped.map(([why, n]) => (
@@ -258,6 +274,21 @@ export function NewCampaign({
         />
       </Field>
 
+      {calls ? (
+        <div className="flex flex-col gap-1">
+          <Checkbox
+            label="Keep adding people"
+            checked={keepAdding}
+            onChange={(e) => setKeepAdding(e.target.checked)}
+            data-testid="campaign-keep-adding"
+          />
+          <span className="pl-7 text-[12.5px] text-text-2">
+            Anyone who later gets one of these tags or reaches one of these stages, and agrees to
+            calls in writing, joins and is called at this pace, until you stop it.
+          </span>
+        </div>
+      ) : null}
+
       <div className="flex items-center justify-between gap-3 border-t border-border pt-4">
         <span className="text-[12.5px] text-text-2">
           {email
@@ -274,7 +305,7 @@ export function NewCampaign({
             !goal.trim() ||
             !picked ||
             !paceOk ||
-            preview?.recipients === 0 ||
+            (preview?.recipients === 0 && !adding) ||
             (email && preview !== null && !preview.postalAddress)
           }
           data-testid="campaign-create"

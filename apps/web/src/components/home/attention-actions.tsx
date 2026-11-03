@@ -395,11 +395,13 @@ export function useItemActions(o: {
             return router.push(reachOf(item));
           case 'referral_mentioned':
             return void withBusy(item.id, () => createReferralLead(item));
-          // Two texts went already: a call when this browser can, else the conversation.
+          // Two texts went already, or they're hot after a webinar: a call when this browser can, else the
+          // conversation.
           case 'maintenance_due':
           case 'quiet_after_price':
           case 'client_quiet':
           case 'promise_due':
+          case 'webinar_hot':
             if (callsAvailable && item.personId) return void withBusy(item.id, () => call(item));
             return router.push(reachOf(item));
           case 'revenue_moved':

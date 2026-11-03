@@ -13,6 +13,7 @@ import { router } from 'expo-router';
 import { openWebPath } from '@/home/open';
 
 import { OutreachFrame, OutreachWorkspace } from '../frame';
+import { OutreachHomeBody } from '../home';
 import { LiveStrip } from '../hub';
 import { LiveBody, pressShown, startRefusedOf } from '../live';
 import { OutreachMoreRow } from '../more';
@@ -24,8 +25,9 @@ import { TodayBody } from '../today';
 import { id, TZ, WS } from './mocks';
 
 /**
- * Social Outreach's other screens on the phone (decisions 44 and 59): its one row in More, its four tabs and the gear,
- * the tabs left to the web, Today's strip and the live view with Start my day and Stop for today, Today with posts
+ * Social Outreach's other screens on the phone (decisions 44, 59 and 127): its one row in More, its first screen
+ * listing its pages, People's lists, the tabs left to the web, Today's cards and the live view with Start my day and
+ * Stop for today, Today with posts
  * asking for what the business offers first, comments drafted to wait on Instagram and Alignable (decision 92), each
  * name opening the person menu, the Pipeline's Client stage, and a playbook changed a part at a time on what's there
  * now. Settings have their own file (./settings.test.tsx).
@@ -71,28 +73,84 @@ describe('Social Outreach in More and its first screen', () => {
     expect(openWebPath).toHaveBeenCalledWith(`/app/w/${WS}/a/outreach`);
   });
 
-  it('moves between its four tabs in place, and opens Settings and Friends', async () => {
-    await render(
+  it('lists its pages in the web’s side-menu order, Needs you saying what waits, each opening its screen', async () => {
+    await render(<OutreachHomeBody workspaceId={WS} messages={3} />);
+    expect(screen.getByTestId('screen-title')).toHaveTextContent('Social Outreach');
+    const pages = ['needs-you', 'today', 'people', 'find', 'results', 'playbooks', 'gear'];
+    expect(
+      within(screen.getByTestId('outreach-pages'))
+        .getAllByTestId(/^outreach-page-/)
+        .map((row) => row.props.testID),
+    ).toEqual(pages.map((p) => `outreach-page-${p}`));
+    expect(screen.getByTestId('outreach-page-needs-you')).toHaveTextContent(
+      /Needs you3 messages wait for your OK/,
+    );
+    expect(screen.getByTestId('outreach-page-gear')).toHaveTextContent(/^Settings/);
+    expect(screen.queryByTestId('outreach-set-up-on-computer')).toBeNull();
+    for (const page of pages) await fireEvent.press(screen.getByTestId(`outreach-page-${page}`));
+    expect(jest.mocked(openWebPath).mock.calls.map(([p]) => p)).toEqual(
+      ['waiting', 'today', 'pipeline', 'find', 'results', 'playbooks', 'settings'].map(
+        (v) => `/app/w/${WS}/a/outreach?view=${v}`,
+      ),
+    );
+  });
+
+  it('says to finish setting up on a computer until it’s done', async () => {
+    await render(<OutreachHomeBody workspaceId={WS} messages={0} setUp={false} />);
+    expect(screen.getByTestId('outreach-set-up-on-computer')).toBeTruthy();
+    expect(screen.getByTestId('outreach-page-needs-you')).toHaveTextContent(
+      /Messages and comments to OK/,
+    );
+  });
+
+  it('titles a page by its name, and moves between People’s views in place, with their counts', async () => {
+    const view = await render(
       <OutreachWorkspace.Provider value={WS}>
-        <OutreachFrame tab="people" people="pipeline" testID="framed" />
+        <OutreachFrame page="people" counts={{ in_play: 12, talking: 3 }} testID="framed" />
       </OutreachWorkspace.Provider>,
     );
-    expect(screen.getByTestId('screen-title')).toHaveTextContent('Social Outreach');
-    for (const tab of ['today', 'groups', 'results'])
-      await fireEvent.press(screen.getByTestId(`outreach-tab-${tab}`));
-    await fireEvent.press(screen.getByTestId('outreach-people-chats'));
-    // Each tab replaces the screen, rather than stacking another on it.
+    expect(screen.getByTestId('screen-title')).toHaveTextContent('People');
+    expect(screen.queryByTestId('outreach-tabs')).toBeNull();
+    expect(screen.getByTestId('people-view-in_play')).toHaveTextContent('In play 12');
+    expect(screen.getByTestId('people-view-talking')).toHaveTextContent('Talking 3');
+    expect(screen.getByTestId('people-view-friends')).toHaveTextContent(/^Friends$/);
+    // Left alone's own lists show only under it.
+    expect(screen.queryByTestId('people-alone-keep')).toBeNull();
+    await fireEvent.press(screen.getByTestId('people-view-chats'));
+    await fireEvent.press(screen.getByTestId('people-view-in_play'));
+    await fireEvent.press(screen.getByTestId('people-view-friends'));
+    await fireEvent.press(screen.getByTestId('people-view-left_alone'));
+    await fireEvent.press(screen.getByTestId('people-view-clients'));
+    // A view replaces the screen, rather than stacking another on it; the one shown isn't pressed again.
     expect(jest.mocked(router.replace).mock.calls.map(([href]) => String(href))).toEqual([
-      expect.stringContaining('view=today'),
-      expect.stringContaining('view=groups'),
-      expect.stringContaining('view=results'),
       expect.stringContaining('view=chats'),
+      expect.stringMatching(/view=friends$/),
+      expect.stringContaining('view=friends&show=dont_pitch'),
+      expect.stringContaining('view=pipeline&show=client'),
     ]);
-    await fireEvent.press(screen.getByTestId('outreach-open-settings'));
-    await fireEvent.press(screen.getByTestId('outreach-people-friends'));
-    expect(jest.mocked(openWebPath).mock.calls.map(([p]) => p)).toEqual(
-      ['settings', 'friends'].map((v) => `/app/w/${WS}/a/outreach?view=${v}`),
+    jest.mocked(router.replace).mockClear();
+    await view.rerender(
+      <OutreachWorkspace.Provider value={WS}>
+        <OutreachFrame page="people" list={{ list: 'friends', show: 'keep' }} testID="framed" />
+      </OutreachWorkspace.Provider>,
     );
+    expect(screen.getByTestId('people-view-left_alone').props.accessibilityState).toEqual({
+      selected: true,
+    });
+    expect(screen.getByTestId('people-alone-keep').props.accessibilityState).toEqual({
+      selected: true,
+    });
+    await fireEvent.press(screen.getByTestId('people-alone-never_contact'));
+    await fireEvent.press(screen.getByTestId('people-alone-lost'));
+    expect(jest.mocked(router.replace).mock.calls.map(([href]) => String(href))).toEqual([
+      expect.stringMatching(/view=never_contact$/),
+      expect.stringContaining('view=pipeline&show=lost'),
+    ]);
+    // Skipped for country opens over People, so Back comes here.
+    await fireEvent.press(screen.getByTestId('people-alone-country'));
+    expect(jest.mocked(openWebPath).mock.calls.map(([p]) => p)).toEqual([
+      `/app/w/${WS}/a/outreach?view=countries&show=skipped`,
+    ]);
   });
 
   it('counts the setup as done only once it’s finished, whether the web’s line was hidden or not', () => {
@@ -158,6 +216,7 @@ const post = (n: number, name: string, asking: boolean): TodayItem => ({
   postUrl: `https://www.facebook.com/groups/1/posts/${n}/`,
   posted: '20m',
   post: asking ? 'Looking for a CRM for my crew, who do you use?' : 'Any tips for slow months?',
+  postWhole: null,
   asking,
   why: [],
   summary: null,
@@ -186,8 +245,12 @@ describe('Today on the phone', () => {
       ready: true,
       week: null,
       fresh: { on: false, from: null, until: null, days: 14 },
+      fullSpeed: false,
+      newMessagesWait: false,
       requestsHeld: null,
       profileOwn: null,
+      goal: null,
+      retryAt: null,
     };
     await render(
       <TodayBody
@@ -238,8 +301,12 @@ describe('Today on the phone', () => {
       ready: true,
       week: null,
       fresh: { on: false, from: null, until: null, days: 14 },
+      fullSpeed: false,
+      newMessagesWait: false,
       requestsHeld: null,
       profileOwn: null,
+      goal: null,
+      retryAt: null,
     };
     const onOk = jest.fn();
     const onSkip = jest.fn();
@@ -318,8 +385,12 @@ describe('Today on the phone', () => {
       ready: true,
       week: null,
       fresh: { on: false, from: null, until: null, days: 14 },
+      fullSpeed: false,
+      newMessagesWait: false,
       requestsHeld: null,
       profileOwn: null,
+      goal: null,
+      retryAt: null,
     };
     await render(
       <TodayBody
@@ -358,8 +429,12 @@ describe('Today on the phone', () => {
       ready: true,
       week: null,
       fresh: { on: false, from: null, until: null, days: 14 },
+      fullSpeed: false,
+      newMessagesWait: false,
       requestsHeld: null,
       profileOwn: null,
+      goal: null,
+      retryAt: null,
     };
     const helpful: HelpfulListOutput = {
       posts: [
@@ -430,8 +505,12 @@ describe('Today on the phone', () => {
       ready: true,
       week: null,
       fresh: { on: false, from: null, until: null, days: 14 },
+      fullSpeed: false,
+      newMessagesWait: false,
       requestsHeld: null,
       profileOwn: null,
+      goal: null,
+      retryAt: null,
     };
     const helpful: HelpfulListOutput = {
       posts: [
@@ -505,8 +584,12 @@ describe('Today on the phone', () => {
       ready: true,
       week: null,
       fresh: { on: false, from: null, until: null, days: 14 },
+      fullSpeed: false,
+      newMessagesWait: false,
       requestsHeld: null,
       profileOwn: null,
+      goal: null,
+      retryAt: null,
     };
     const helpful: HelpfulListOutput = {
       posts: [
@@ -575,8 +658,12 @@ const todayOf = (items: TodayItem[], partners: TodayItem[] = []): TodayOutput =>
   ready: true,
   week: null,
   fresh: { on: false, from: null, until: null, days: 14 },
+  fullSpeed: false,
+  newMessagesWait: false,
   requestsHeld: null,
   profileOwn: null,
+  goal: null,
+  retryAt: null,
 });
 
 const stagePerson = (
@@ -769,27 +856,16 @@ describe('The live view on the phone', () => {
     expect(screen.getByTestId('live-pre-day-checks')).toHaveTextContent(/To come/);
   });
 
-  it('sums the computer up at the top of Today: its state, today’s steps, Start my day and Details', async () => {
+  it('sums the computer up at the top of Today: its state, today’s steps and Start my day', async () => {
     const h = liveHandlers();
-    const onDetails = jest.fn();
-    await render(
-      <LiveStrip
-        live={LIVE}
-        error={null}
-        online
-        now={NOW}
-        pressed={null}
-        onDetails={onDetails}
-        {...h}
-      />,
-    );
+    await render(<LiveStrip live={LIVE} error={null} online now={NOW} pressed={null} {...h} />);
     expect(screen.getByTestId('live-state')).toHaveTextContent('Working');
     expect(screen.getByText('Liking a post of Dana Reyes’s')).toBeTruthy();
     expect(screen.getByTestId('today-limit-like')).toHaveTextContent(/^Likes7 \/ 40$/);
+    // Its whole day is Settings → Your computer now, not a Details button here (decision 127).
+    expect(screen.queryByTestId('today-status-details')).toBeNull();
     await fireEvent.press(screen.getByTestId('live-start'));
     expect(h.onStart).toHaveBeenCalled();
-    await fireEvent.press(screen.getByTestId('today-status-details'));
-    expect(onDetails).toHaveBeenCalled();
   });
 
   it('with no signal, keeps the last answer as of when it came, and a press waits on the phone', async () => {
@@ -931,7 +1007,6 @@ describe('The live view on the phone', () => {
         now={NOW}
         pressed={null}
         refused={{ words, fix }}
-        onDetails={jest.fn()}
         {...liveHandlers()}
       />,
     );
@@ -1177,14 +1252,18 @@ describe('A playbook on the phone', () => {
     const details = {
       ...PLAYBOOK.details,
       platforms: ['facebook' as const, 'instagram' as const, 'alignable' as const],
+      facebookSearches: ['missed calls', 'slow season'],
       hashtags: ['austinroofing', 'hailrepair'],
       businessKinds: [],
-      wordsWritten: ['instagram' as const, 'alignable' as const],
+      wordsWritten: ['facebook' as const, 'instagram' as const, 'alignable' as const],
       worksOnline: true,
     };
     expect(sectionsOf(details)).toEqual(
-      expect.arrayContaining(['hashtags', 'businessKinds', 'worksOnline']),
+      expect.arrayContaining(['facebookSearches', 'hashtags', 'businessKinds', 'worksOnline']),
     );
+    // Facebook's phrases for its post search (decision 141).
+    expect(sectionWords(details, 'facebookSearches')).toBe('missed calls\nslow season');
+    expect(sectionsOf({ ...details, goal: 'partner' })).not.toContain('facebookSearches');
     expect(sectionsOf(details)).not.toContain('postSearches');
     expect(sectionsOf({ ...details, goal: 'partner' })).not.toContain('hashtags');
     expect(sectionWords(details, 'hashtags')).toBe('#austinroofing\n#hailrepair');
@@ -1238,7 +1317,7 @@ describe('A playbook on the phone', () => {
     await render(body(PLAYBOOK));
     await fireEvent.press(screen.getByTestId('playbook-edit-hashtags'));
     expect(screen.getByTestId('playbook-words-hint')).toHaveTextContent(
-      'While this list is empty, the AI writes it once from who it’s for and their problem. Any words you add are used instead.',
+      'While this list is empty, the AI writes it once around your topic: the problem you solve and running that kind of business. Any words you add are used instead.',
     );
     // Words typed in are the person's own: the AI never adds to them.
     await fireEvent.changeText(screen.getByTestId('playbook-lines'), 'roofleak');

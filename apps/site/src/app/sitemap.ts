@@ -1,6 +1,8 @@
 import type { MetadataRoute } from 'next';
 import { connection } from 'next/server';
+import { competitors } from '@/content/compare';
 import { urls } from '@/content/site';
+import { tradePages } from '@/content/trade-pages';
 import { opinly } from '@/lib/opinly/client';
 import { absoluteUrl, blogPaths, routePath } from '@/lib/opinly/paths';
 
@@ -24,6 +26,8 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     '/privacy',
     '/terms',
     '/affiliates/terms',
+    ...tradePages.map((p) => `/${p.slug}`),
+    ...competitors.map((c) => `/vs/${c.id}`),
   ];
   const lastModified = new Date();
   const site: MetadataRoute.Sitemap = pages.map((path) => ({

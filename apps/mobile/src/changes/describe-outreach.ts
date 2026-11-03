@@ -76,6 +76,14 @@ export function describeOutreach(
     }
     case 'outreach.send.skip':
       return words(`Skipped ${to(str(input.sendId))}`, 'a message skipped', 'text');
+    case 'outreach.send.retry':
+      return input.needIds === null
+        ? words('Tried what didn’t go again', 'messages tried again', 'text')
+        : words('Tried a message again', 'a message tried again', 'text');
+    case 'outreach.need.retry':
+      return input.needIds === null
+        ? words('Tried what didn’t go again', 'steps tried again', 'task')
+        : words('Tried a step again', 'a step tried again', 'task');
     case 'outreach.day.start':
       return words(`Start my day${onNetwork(input)}`, 'Start my day', 'calendar');
     case 'outreach.day.stop':
@@ -86,6 +94,10 @@ export function describeOutreach(
         : words('Did a step yourself', 'a step done', 'task');
     case 'outreach.request.set_aside':
       return words('Left a friend request', 'a friend request left', 'person');
+    case 'outreach.request.answer':
+      return input.answer === 'confirm'
+        ? words('Confirmed a friend request', 'a friend request confirmed', 'person')
+        : words('Deleted a friend request', 'a friend request deleted', 'person');
     case 'outreach.post.skip':
       return words('Put a post aside', 'a post put aside', 'item');
     default:

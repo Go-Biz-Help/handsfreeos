@@ -14,7 +14,7 @@
  */
 
 /** The things worth going and looking at. Ids are stable: the wizard keys its rows on them. */
-export type PreflightId = 'website' | 'policy' | 'terms' | 'opt_in_surface';
+export type PreflightId = 'website' | 'policy' | 'terms' | 'opt_in_surface' | 'chat_on_site';
 
 export interface PreflightCheck {
   readonly id: PreflightId;
@@ -109,6 +109,29 @@ export function namesBusiness(text: string, names: readonly string[]): boolean {
     const two = nameKey(words.slice(0, 2).join(' '));
     return words.length >= 2 && two.length >= 6 && hay.includes(two);
   });
+}
+
+/**
+ * The name customers know the business by, when it isn't the legal name: its DBA ("doing business as").
+ * Null when the two are one name written differently.
+ *
+ * **Why it matters.** The carriers check the legal name against the IRS, then check that the texts, the
+ * website and the campaign all name that same business. HandsFreeOS is a DBA of Go Biz Help LLC: texts
+ * signed "HandsFreeOS" under a campaign that only says "Go Biz Help LLC" read as somebody else's, and are
+ * turned down (Twilio's 30918). Told "Go Biz Help LLC (doing business as HandsFreeOS)", they match.
+ *
+ * Only a clearly different name counts. "Lone Star HVAC" is "Lone Star HVAC LLC" without its LLC, and
+ * "Lone Star" for "Lone Star Heating LLC" is the business shortening itself; carriers read both as the same.
+ */
+export function tradingName(
+  legalName: string | null | undefined,
+  displayName: string | null | undefined,
+): string | null {
+  const legal = nameKey(legalName ?? '');
+  const shown = nameKey(displayName ?? '');
+  if (legal.length < 3 || shown.length < 3 || legal.includes(shown) || shown.includes(legal))
+    return null;
+  return (displayName ?? '').trim();
 }
 
 /** What the page's agreement box says and does, read the way a reviewer reads it. */
@@ -223,10 +246,14 @@ const unreachable = (page: FetchedPage, what: string): string =>
  * `names` are the ways the business is known (its name and its legal name). A site that never says either
  * is a warning rather than a blocker: some sites put their name only in a logo, which a reviewer can see and
  * we can't.
+ *
+ * A business with a DBA (`legalName` differs from a name customers know, `tradingName`) needs both on the
+ * site, or the reviewer can't tell the texts and the registration are the same business. Also a warning.
  */
 export function checkWebsite(
   page: FetchedPage | null,
   names: readonly string[] = [],
+  legalName: string | null = null,
 ): PreflightCheck {
   const base = {
     id: 'website' as const,
@@ -266,6 +293,17 @@ export function checkWebsite(
       severity: 'warning',
       ok: false,
       detail: `It opens, but we couldn’t find “${named[0]}” on it. A reviewer checks the site belongs to the business being registered, so put your business name on the page, in words rather than only in a logo.`,
+      url: page.finalUrl ?? page.url,
+    };
+  const legal = (legalName ?? '').trim();
+  const dba = named.map((n) => tradingName(legal, n)).find((n): n is string => !!n);
+  const unnamed = dba ? [dba, legal].find((n) => !namesBusiness(text, [n])) : undefined;
+  if (dba && unnamed)
+    return {
+      ...base,
+      severity: 'warning',
+      ok: false,
+      detail: `It opens, but we couldn’t find “${unnamed}” on it. Customers know you as ${dba} and the carriers know you as ${legal}, so the reviewer needs to see they’re the same business. Add a line like “${dba} is owned and run by ${legal}.” to the bottom of your site.`,
       url: page.finalUrl ?? page.url,
     };
   return {
@@ -532,6 +570,84 @@ export function checkOptInSurface(
     ...base,
     ok: true,
     detail: 'The box is there, starts empty, is optional, and says what it has to.',
+    url,
+  };
+}
+
+/** A website chat as the worker found it, for the hosted path's "is it on your site" row. */
+export interface ChatOnSite {
+  /** The widget's public key, which its snippet carries (`/embed/v1/<key>.js`). */
+  readonly key: string;
+  /** Where the install check last saw the chat open, when it has. */
+  readonly seenOrigin: string | null;
+  readonly paused: boolean;
+}
+
+/** A site's host without its www, so acme.com and www.acme.com are the same site. */
+const siteOf = (url: string | null | undefined): string | null => {
+  if (!url) return null;
+  try {
+    return new URL(/^https?:\/\//i.test(url) ? url : `https://${url}`).host.replace(/^www\./, '');
+  } catch {
+    return null;
+  }
+};
+
+/**
+ * Whether the chat is really on the business's website (the hosted path). A reviewer opens the website, and a chat
+ * whose code was never pasted there is a promise nobody can check: the registration is turned down.
+ *
+ * Found two ways, either enough: the widget's key in the page the worker fetched (the snippet names it), or the
+ * install check having seen the chat open on that site. The second covers site builders that add footer code after
+ * the page loads, where the fetched page doesn't carry it.
+ */
+export function checkChatOnSite(
+  website: FetchedPage | null,
+  chats: readonly ChatOnSite[],
+): PreflightCheck {
+  const base = {
+    id: 'chat_on_site' as const,
+    label: 'Your website shows the chat',
+    severity: 'blocker' as const,
+  };
+  const url = website ? (website.finalUrl ?? website.url) : null;
+  const site = siteOf(url);
+  if (!chats.length)
+    return {
+      ...base,
+      ok: false,
+      detail:
+        'The chat isn’t set up yet. Go back to “How customers agree” and press “Set this up for me”.',
+      url,
+    };
+  const live = chats.filter((c) => !c.paused);
+  if (!live.length)
+    return {
+      ...base,
+      ok: false,
+      detail:
+        'Your website chat is paused, so a reviewer won’t find it. Turn it back on at the top of Settings → Website chat.',
+      url,
+    };
+  const html = website?.status && website.status < 400 ? website.html : '';
+  if (live.some((c) => html.includes(c.key)))
+    return {
+      ...base,
+      ok: true,
+      detail: `The chat’s code is on ${site ?? 'your website'}. A reviewer who sends it a message is asked for their details, with the box.`,
+      url,
+    };
+  if (site && live.some((c) => siteOf(c.seenOrigin) === site))
+    return {
+      ...base,
+      ok: true,
+      detail: `The chat has opened on ${site}, so its code is there.`,
+      url,
+    };
+  return {
+    ...base,
+    ok: false,
+    detail: `We couldn’t find the chat on ${site ?? 'your website'}. Paste the code from “How customers agree” into your site’s footer and publish, then open your site and click the chat button once.`,
     url,
   };
 }

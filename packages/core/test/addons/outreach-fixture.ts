@@ -306,7 +306,8 @@ export async function computerOn(u: TestUser, ws: string, version: string): Prom
 
 /**
  * The AI's check of someone from their own page, as `u`'s computer's look and the worker's answer keep it: of someone
- * found when they're a find of `u`'s (decision 92).
+ * found when they're a find of `u`'s (decision 92); of someone who sent `u` a request, with what it says to do with
+ * it (`request`, decision 136).
  */
 export async function checkedAs(
   u: TestUser,
@@ -316,6 +317,10 @@ export async function checkedAs(
     readonly fit: 'good' | 'maybe' | 'not';
     readonly why: readonly string[];
     readonly playbookId?: string | null;
+    readonly request?: {
+      readonly answer: 'confirm' | 'delete' | 'ask';
+      readonly why: string | null;
+    } | null;
   },
 ): Promise<void> {
   const looked = (await runAs(u, ws, 'outreach.check.look', {
@@ -335,6 +340,7 @@ export async function checkedAs(
       why: [...answer.why],
       about: null,
       nextStep: null,
+      request: answer.request ?? null,
     },
   });
 }

@@ -201,6 +201,13 @@ function actionConfig(
       };
     case 'hand_to_ai_teammate':
       return { goal: 'respond', firstMessage: 'ai_writes', channel: 'latest', note: '' };
+    case 'call_with_ai':
+      return {
+        opening: 'about the request you just sent us',
+        findOut: '',
+        offer: '',
+        book: 'when_ready',
+      };
     case 'send_form':
       // The form is picked in the step's own settings; a placeholder until then (M15).
       return {

@@ -258,12 +258,28 @@ describe('Mark as client', () => {
       dontPitch: null,
       neverContact: null,
       canTakeOff: { dontPitch: false, neverContact: false },
+      // Not on the person's Partners list, and no check called them more of a partner (decision 130).
+      myPartner: null,
+      partnerHint: null,
       // Nobody has reached them yet; an owner can give them to anyone on the team (decision 107).
       owner: null,
       moveTo: [
         { userId: owner.id, name: 'Morgan Owner', you: true },
         { userId: member.id, name: 'Riley Member', you: false },
       ],
+      // The person panel's (decision 128): nothing read of them, and no step yet.
+      mutualFriends: null,
+      intro: [],
+      journey: {
+        stage: null,
+        why: [],
+        nextStep: null,
+        lead: null,
+        chat: null,
+        groups: [],
+        steps: [],
+        moreSteps: 0,
+      },
     });
     // Kept under a client's name: one, with no reason of their own.
     expect(

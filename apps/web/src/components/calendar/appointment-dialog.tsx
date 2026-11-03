@@ -12,6 +12,7 @@ import {
 import { AlertTriangle, CircleAlert } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { toast } from 'sonner';
+import { seatsLabel } from '@/components/booking/format';
 import { PersonDialog } from '@/components/crm/person-dialog';
 import { useCan } from '@/components/shell/workspace-shell';
 import { Button } from '@/components/ui/button';
@@ -106,7 +107,12 @@ export interface BookedResult {
   readonly startsAt: string;
   readonly endsAt: string;
   readonly userIds: readonly string[];
+  /** A date published on a Fixed sessions calendar, which the calendar opens to show its links. */
+  readonly published?: boolean;
 }
+
+/** The most seats a published date takes here: a calendar's own limit, and a webinar's people. */
+const MAX_SEATS = 500;
 
 export interface AppointmentPrefill {
   readonly date?: string | null;
@@ -130,6 +136,10 @@ export interface AppointmentPrefill {
  * way. When the calendar lets staff repeat visits, Repeats books the same visit weekly, fortnightly or monthly,
  * and the dates that don't fit are listed rather than booked over. A Customer search that finds nobody offers to
  * add them: Add a person opens over this with what was typed, and the new contact comes back as the customer.
+ *
+ * On a Fixed sessions calendar it publishes a date instead (`session.publish`): a name, who runs it, the seats, and
+ * no customer, since people take seats from the booking page. On HandsFreeOS video calls that date is a webinar,
+ * with its link anyone can use. Opened for a customer (their page's Book), it books them as before.
  */
 export function AppointmentDialog({
   workspaceId,
@@ -174,6 +184,9 @@ export function AppointmentDialog({
   const [tell, setTell] = useState(true);
   const [repeat, setRepeat] = useState<RepeatKey>('none');
   const [visits, setVisits] = useState(6);
+  /** A published date's name, and its seats when changed from the calendar's. */
+  const [sessionTitle, setSessionTitle] = useState('');
+  const [seats, setSeats] = useState<number | null>(null);
   const [warnings, setWarnings] = useState<AppointmentWarning[] | null>(null);
   /** A 409 resource_full: its message and the nearest open times. Never booked over. */
   const [full, setFull] = useState<{ message: string; times: string[] } | null>(null);
@@ -290,6 +303,13 @@ export function AppointmentDialog({
       )
     : [];
   const reach = contact && person && contact.id === person.id ? contact : null;
+  // A Fixed sessions calendar publishes a date people take seats on; on HandsFreeOS video calls, a webinar.
+  const publishing =
+    current?.schedule.mode === 'sessions' && !lockCustomer && !prefill.person && !prefill.personId;
+  const webinar = publishing && place?.kind === 'virtual' && place.video === 'handsfree';
+  const seatCount = Math.min(MAX_SEATS, seats ?? terms?.seats ?? 1);
+  const defaultTitle =
+    service?.name ?? calendars?.find((c) => c.id === calendarId)?.name ?? 'Session';
 
   // Keep choices valid as the calendar or service changes.
   const length = lengths.includes(duration) ? duration : (lengths[0] ?? 60);
@@ -345,6 +365,7 @@ export function AppointmentDialog({
 
   async function book() {
     if (!current) return;
+    if (publishing) return publish();
     if (repeating) return bookSeries();
     setBusy(true);
     setError(null);
@@ -383,6 +404,46 @@ export function AppointmentDialog({
         setWarnings((e.details as { warnings?: AppointmentWarning[] }).warnings ?? []);
       } else if (e instanceof ApiError && e.rule === 'resource_full') {
         // Every one of the equipment is in use then: a hard stop with fresh times, never "Book anyway".
+        setWarnings(null);
+        setFull({ message: e.message, times: freshTimes(e.details) });
+      } else setError(errorMessage(e));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  /** A date on a Fixed sessions calendar, with its seats; people take them from the booking page or its link. */
+  async function publish() {
+    setBusy(true);
+    setError(null);
+    try {
+      const where = location();
+      const title = sessionTitle.trim() || defaultTitle;
+      const out = unwrap(
+        await apiBrowser().POST('/v1/commands/session.publish', {
+          body: {
+            workspaceId,
+            calendarId,
+            startsAt: new Date(localInstant(date, minutesToClock(time), timeZone)).toISOString(),
+            durationMinutes: length,
+            serviceId: service?.id ?? null,
+            ...(withChoice && !many && !staffless ? { userIds: [withChoice] } : {}),
+            capacity: seatCount,
+            ...(sessionTitle.trim() ? { title: sessionTitle.trim() } : {}),
+            ...(where ? { location: where } : {}),
+            acknowledgeWarnings: !!warnings,
+          },
+        }),
+      );
+      toast.success(
+        `Published ${title} for ${fmtAt(out.startsAt, timeZone)}, with ${seatsLabel(out.capacity)}.`,
+      );
+      setWarnings(null);
+      onBooked({ ...out, userIds: [], published: true });
+    } catch (e) {
+      if (e instanceof ApiError && e.rule === 'needs_confirmation') {
+        setWarnings((e.details as { warnings?: AppointmentWarning[] }).warnings ?? []);
+      } else if (e instanceof ApiError && e.rule === 'resource_full') {
         setWarnings(null);
         setFull({ message: e.message, times: freshTimes(e.details) });
       } else setError(errorMessage(e));
@@ -456,7 +517,7 @@ export function AppointmentDialog({
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
-        title="New appointment"
+        title={publishing ? (webinar ? 'New webinar' : 'New session') : 'New appointment'}
         className="max-h-[92vh] w-[min(540px,calc(100vw-24px))] overflow-y-auto"
       >
         {noCalendars ? (
@@ -466,24 +527,44 @@ export function AppointmentDialog({
         ) : (
           <div className="mt-3.5 flex flex-col gap-2.5" data-testid="appointment-dialog">
             <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-[minmax(0,1.15fr)_minmax(0,1fr)]">
-              <div className="min-w-0">
-                <Label htmlFor="appt-customer">Customer</Label>
-                <CustomerPicker
-                  id="appt-customer"
-                  workspaceId={workspaceId}
-                  value={person}
-                  locked={lockCustomer}
-                  onChange={pickCustomer}
-                  onAddNew={
-                    canAddContact ? (typed) => setNewContact(contactFromSearch(typed)) : undefined
-                  }
-                />
-              </div>
+              {publishing ? (
+                <Field
+                  label={webinar ? 'Webinar name' : 'Session name'}
+                  htmlFor="appt-session-title"
+                  className="min-w-0"
+                >
+                  <Input
+                    id="appt-session-title"
+                    value={sessionTitle}
+                    maxLength={200}
+                    placeholder={defaultTitle}
+                    onChange={(e) => change(setSessionTitle)(e.target.value)}
+                    data-testid="session-title"
+                  />
+                </Field>
+              ) : (
+                <div className="min-w-0">
+                  <Label htmlFor="appt-customer">Customer</Label>
+                  <CustomerPicker
+                    id="appt-customer"
+                    workspaceId={workspaceId}
+                    value={person}
+                    locked={lockCustomer}
+                    onChange={pickCustomer}
+                    onAddNew={
+                      canAddContact ? (typed) => setNewContact(contactFromSearch(typed)) : undefined
+                    }
+                  />
+                </div>
+              )}
               <Field label="Calendar" htmlFor="appt-calendar" className="min-w-0">
                 <Select
                   id="appt-calendar"
                   value={calendarId}
-                  onChange={(e) => change(setCalendarId)(e.target.value)}
+                  onChange={(e) => {
+                    setSeats(null);
+                    change(setCalendarId)(e.target.value);
+                  }}
                 >
                   {list.map((c) => (
                     <option key={c.id} value={c.id}>
@@ -585,6 +666,30 @@ export function AppointmentDialog({
                 </Select>
               </Field>
             </div>
+            {publishing ? (
+              <div className="grid grid-cols-[minmax(0,1.2fr)_minmax(0,2fr)] items-end gap-2.5">
+                <Field label="Seats" htmlFor="appt-seats" className="min-w-0">
+                  <Input
+                    id="appt-seats"
+                    type="number"
+                    inputMode="numeric"
+                    min={1}
+                    max={MAX_SEATS}
+                    value={String(seatCount)}
+                    onChange={(e) => {
+                      const n = Math.round(Number(e.target.value));
+                      if (n >= 1) change(setSeats)(Math.min(MAX_SEATS, n));
+                    }}
+                    data-testid="session-seats"
+                  />
+                </Field>
+                <p className="pb-2.5 text-[12.5px] leading-[1.45] text-text-3">
+                  {webinar
+                    ? 'A webinar on HandsFreeOS video. People save a seat from your booking page or its own link.'
+                    : 'People take seats from your booking page.'}
+                </p>
+              </div>
+            ) : null}
             {canRepeat ? (
               <div className="grid grid-cols-[minmax(0,1.2fr)_minmax(0,1fr)] gap-2.5">
                 <Field label="Repeats" htmlFor="appt-repeat" className="min-w-0">
@@ -730,7 +835,17 @@ export function AppointmentDialog({
             onClick={() => void book()}
             data-testid="appointment-book"
           >
-            {warnings ? 'Book anyway' : repeating ? `Book ${visitCount} visits` : 'Book'}
+            {publishing
+              ? warnings
+                ? 'Publish anyway'
+                : webinar
+                  ? 'Publish webinar'
+                  : 'Publish session'
+              : warnings
+                ? 'Book anyway'
+                : repeating
+                  ? `Book ${visitCount} visits`
+                  : 'Book'}
           </Button>
         </div>
       </DialogContent>

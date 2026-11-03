@@ -172,6 +172,14 @@ export function beforeDay(
   return after && (after === 'group_checks' || tried[after] === undefined) ? { do: after } : null;
 }
 
+/**
+ * Whether what's due before the day holds the whole day: the first full save of the person's lists, and the first
+ * check of their groups, as the list can't be worked out without them. Anything else before the day takes turns with
+ * the list (decision 123).
+ */
+export const holdsTheDay = (step: BeforeDay | null): boolean =>
+  step !== null && ((step.do === 'save' && step.first) || step.do === 'group_checks');
+
 /** What it says while it does each, on its network (Facebook's unless said). */
 export function beforeDayDoing(step: BeforeDay, platform: Platform = 'facebook'): string {
   const on = LISTS_ON[platform];

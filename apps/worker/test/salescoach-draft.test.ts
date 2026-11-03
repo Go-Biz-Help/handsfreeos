@@ -1,7 +1,9 @@
 /**
  * AI Sales Coach's playbook to start from (`salescoach.playbook.draft`), through the worker's actions route against
- * the stand-in model: the business's own script tidied into steps, or one built from what the business says about
- * itself, numbered and held to the limits. Owners and admins only, as they write the playbooks.
+ * the stand-in model: the business's own script tidied into steps, or one built the question-led way from what the
+ * business says about itself and the owner's answers, each step with its stage, numbered and held to the limits. And
+ * what the builder can already answer (`salescoach.playbook.brief`). Owners and admins only, as they write the
+ * playbooks.
  */
 import { salescoachAddon } from '@hfos/core/addons/salescoach/manifest';
 import { createTokenVerifier, executeCommand, organizationCreate } from '@hfos/core/server';
@@ -26,13 +28,15 @@ let owner: TestUser;
 let member: TestUser;
 let ws: string;
 
-const draft = async (u: TestUser, input: Record<string, unknown>) =>
+const act = async (name: string, u: TestUser, input: Record<string, unknown>) =>
   app.inject({
     method: 'POST',
-    url: '/v1/addons/salescoach/actions/salescoach.playbook.draft',
+    url: `/v1/addons/salescoach/actions/${name}`,
     headers: { authorization: `Bearer ${await signInTestUser(u)}` },
     payload: { workspaceId: ws, input },
   });
+const draft = (u: TestUser, input: Record<string, unknown>) =>
+  act('salescoach.playbook.draft', u, input);
 
 beforeAll(async () => {
   const s = testServices({ ai: { provider: scriptedAi() } });
@@ -94,13 +98,66 @@ describe('a playbook to start from', () => {
     });
   });
 
-  it('builds one from the business when there’s no script', async () => {
+  it('builds one the question-led way when there’s no script, a stage on every step', async () => {
     const res = await draft(owner, { kind: 'estimate' });
     expect(res.statusCode).toBe(200);
-    expect(res.json().details.steps).toHaveLength(3);
+    const { name, details } = res.json();
+    expect(name).toBe('Going over an estimate');
+    expect(details.steps.map((st: { stage: string }) => st.stage)).toEqual([
+      'connect',
+      'situation',
+      'problem',
+      'future',
+      'consequence',
+      'importance',
+      'bridge',
+      'present',
+      'commit',
+    ]);
+  });
+
+  it('writes the owner’s answers in', async () => {
+    const res = await draft(owner, {
+      kind: 'aged_lead',
+      brief: { offer: 'a new roof', problems: 'leaks every storm' },
+    });
+    expect(res.statusCode).toBe(200);
+    const { name, details } = res.json();
+    expect(name).toBe('Older lead');
+    expect(details.steps[0].say).toContain('a new roof');
+    expect(details.steps[2].say).toContain('leaks every storm');
+  });
+
+  it('keeps a pasted script’s steps without stages', async () => {
+    const res = await draft(owner, { kind: 'cold_call', script: 'Say hi\nAsk for the owner' });
+    expect(res.json().details.steps.map((st: { stage: unknown }) => st.stage)).toEqual([
+      null,
+      null,
+    ]);
   });
 
   it('is for the people who write the playbooks', async () => {
     expect((await draft(member, { kind: 'first_call' })).statusCode).toBe(403);
+  });
+});
+
+describe('what the builder already knows', () => {
+  it('answers what it can and leaves the rest for the owner', async () => {
+    const res = await act('salescoach.playbook.brief', owner, {});
+    expect(res.statusCode).toBe(200);
+    expect(res.json()).toEqual({
+      brief: {
+        offer: expect.any(String),
+        buyers: '',
+        problems: '',
+        result: '',
+        why: '',
+        nextStep: '',
+      },
+    });
+  });
+
+  it('is for the people who write the playbooks', async () => {
+    expect((await act('salescoach.playbook.brief', member, {})).statusCode).toBe(403);
   });
 });

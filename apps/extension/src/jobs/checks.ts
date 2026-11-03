@@ -45,6 +45,8 @@ export type ReadThem =
       /** How many friends they have, and their mutual friends with the person, when those were read. */
       readonly friends?: number | null;
       readonly mutual?: ProfileRef[] | null;
+      /** Who the page showed, with every key it gave: kept beside the key they're kept by (decision 131). */
+      readonly seen?: ProfileRef | null;
     }
   | { readonly end: JobEnd };
 
@@ -93,8 +95,16 @@ export async function readThem(job: Job, who: Who): Promise<ReadThem> {
     followers,
     friends: profile.profile.friends ?? null,
     mutual,
+    seen: shown,
   };
 }
+
+/**
+ * Whether a batch of checks leaves more for later today (decision 126): it was given all it asked for, and today's room
+ * holds more, as on a day the goal needs more good fits (up to the kit's `checksMost`).
+ */
+export const moreToCome = (next: Pick<ChecksNext, 'people' | 'today' | 'perDay'>, most: number) =>
+  next.people.length >= most && next.today + next.people.length < next.perDay;
 
 /** How it went, in words for the person. */
 function summary(sent: number, missing: number): string {
@@ -130,6 +140,7 @@ export async function research(
             kind: null,
             opener: null,
             simple: false,
+            unanswered: null,
             lookedUp: false,
             queued: true,
           },
@@ -181,6 +192,7 @@ export async function checkFriends(
           missing: read.missing,
           friendsCount: read.friends ?? null,
           mutual: read.mutual ?? null,
+          ...(read.seen ? { seen: read.seen } : {}),
         },
       }),
     );
@@ -193,5 +205,9 @@ export async function checkFriends(
       await pause(paced(PACE_MS));
     }
   }
-  return { line: `Done. ${summary(sent, missing)}`, warned: false };
+  return {
+    line: `Done. ${summary(sent, missing)}`,
+    warned: false,
+    ...(moreToCome(next, most) ? { again: true } : {}),
+  };
 }

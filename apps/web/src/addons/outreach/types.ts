@@ -14,6 +14,8 @@ export type Friend = Friends['people'][number];
 export type Chats = Ok<'/v1/queries/outreach.chats'>;
 export type Chat = Chats['chats'][number];
 export type Groups = Ok<'/v1/queries/outreach.groups'>;
+/** What each way of finding people found this week, for Find people (decision 128). */
+export type FindsWeek = Ok<'/v1/queries/outreach.finds.week'>;
 export type Group = Groups['groups'][number];
 export type TodayList = Ok<'/v1/queries/outreach.today'>;
 /** Get ready (packages/core/src/addons/outreach/readiness.ts, decision 63): what's left before the extension reaches anyone. */

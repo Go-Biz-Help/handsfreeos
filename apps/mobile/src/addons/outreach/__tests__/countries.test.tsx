@@ -224,17 +224,11 @@ const COUNTS = (over: Partial<CountriesSkippedOutput> = {}): CountriesSkippedOut
   ...over,
 });
 
-describe('The countries on General', () => {
+describe('The countries on Team, and their lists on You', () => {
   it('saves them with For your team, holding Only these countries until one’s picked', async () => {
     const p = partProps();
     await render(
-      <SettingsPartBody
-        part="general"
-        automation={AUTOMATION}
-        {...p}
-        manages
-        business={BUSINESS}
-      />,
+      <SettingsPartBody part="team" automation={AUTOMATION} {...p} manages business={BUSINESS} />,
     );
     const part = screen.getByTestId('settings-countries');
     expect(within(part).getByText('Which countries to reach')).toBeTruthy();
@@ -253,7 +247,7 @@ describe('The countries on General', () => {
     const p = partProps();
     await render(
       <SettingsPartBody
-        part="general"
+        part="team"
         automation={AUTOMATION}
         {...p}
         manages

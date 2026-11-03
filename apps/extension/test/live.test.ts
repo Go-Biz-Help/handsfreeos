@@ -8,6 +8,7 @@ import {
   LIVE_STEPS_UNSENT_MOST,
   PRE_DAY_LINE_SECONDS,
 } from '@hfos/core/addons/outreach/live';
+import { WATCHED_LINE_SECONDS } from '@hfos/core/addons/outreach/tallies';
 import { freshState, type AutoState } from '../src/auto/plan';
 import {
   beatWait,
@@ -161,6 +162,17 @@ describe('changes heard live', () => {
     expect(
       liveEventFor({ type: 'outreach.day.started', actorId: 'u-dana' }, 'u-dana', 'c-here'),
     ).toBe(true);
+    // A ticker came on screen: this computer tells every few seconds from now. Another's line alone moves nothing.
+    expect(
+      liveEventFor({ type: 'outreach.live.watched', actorId: 'u-dana' }, 'u-dana', 'c-here'),
+    ).toBe(true);
+    expect(
+      liveEventFor(
+        { ...own, entityId: 'c-other', entityType: 'outreach_line' },
+        'u-dana',
+        'c-here',
+      ),
+    ).toBe(false);
   });
 
   it('leaves someone else’s alone, and hears nothing signed out', () => {
@@ -207,6 +219,18 @@ describe('how often it tells', () => {
     expect(beatWait(last, now({ line: 'Liked a post' }), none, at + LINE_BEAT_SECONDS * 1000)).toBe(
       0,
     );
+  });
+
+  it('sends a line alone every few seconds while a ticker of the person’s is on screen (decision 140)', () => {
+    const watched = { ...none, watched: true };
+    expect(beatWait(last, now({ line: 'Liked a post' }), watched, at + 1_000)).toBe(
+      WATCHED_LINE_SECONDS * 1000 - 1_000,
+    );
+    expect(
+      beatWait(last, now({ line: 'Liked a post' }), watched, at + WATCHED_LINE_SECONDS * 1000),
+    ).toBe(0);
+    // Nothing new is still nothing to tell.
+    expect(beatWait(last, now(), watched, at + 60_000)).toBe(-1);
   });
 
   it('sends a step before the first day’s count every few seconds, and goes now when that step changes', () => {

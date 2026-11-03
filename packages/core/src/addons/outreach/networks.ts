@@ -76,6 +76,11 @@ export interface NetworkKit {
   /** How many profiles the person's computer reads a day to check for good fits (decision 46). */
   readonly checksPerDay: number;
   /**
+   * The most it reads a day while the day's first messages need more good fits (decision 126, answer 4a): ./goal.ts
+   * `GOAL_AHEAD_DAYS` of them not ready ahead. Spread through the working hours, a batch at a time.
+   */
+  readonly checksMost: number;
+  /**
    * The most answers a day to posts asking for what the business offers, inside the daily comments: Alignable's forum,
    * where owners ask for referrals, watches for the same business answering every question (the plan: 2 a day). Null
    * where comments are the only limit.
@@ -164,6 +169,7 @@ export const NETWORKS: Readonly<Record<Platform, NetworkKit>> = {
     dailyLimits: DAILY_LIMITS,
     weeklyRequests: null,
     checksPerDay: 40,
+    checksMost: 150,
     forumAnswersPerDay: null,
     recommends: false,
     hashtags: false,
@@ -207,6 +213,7 @@ export const NETWORKS: Readonly<Record<Platform, NetworkKit>> = {
     dailyLimits: { friend_request: 15, first_message: 15, follow_up: 20, comment: 10, like: 30 },
     weeklyRequests: 80,
     checksPerDay: 40,
+    checksMost: 150,
     forumAnswersPerDay: null,
     recommends: false,
     hashtags: false,
@@ -224,10 +231,10 @@ export const NETWORKS: Readonly<Record<Platform, NetworkKit>> = {
     joinsPerDay: null,
     // Old invitations are withdrawn after the business's wait; nobody is removed.
     tidyLimits: { cancel_request: 20, unfriend: 0 },
-    // auto/linkedin.ts: likes and invitations; invitations sent to them are theirs to accept, and comments go through
-    // `sends`. Of the switches along the way it reads the warm-up and saving connections: it joins no groups and has
-    // no hourly look.
-    runs: { auto: ['warm_up', 'friend_request'], ticks: ['warmUp', 'collect'] },
+    // auto/linkedin.ts: likes and invitations, and from decision 136 accepting the invitations they get, as they
+    // picked and the AI says (on Received invitations); comments go through `sends`. Of the switches along the way it
+    // reads the warm-up and saving connections: it joins no groups and has no hourly look.
+    runs: { auto: ['confirm', 'warm_up', 'friend_request'], ticks: ['warmUp', 'collect'] },
     words: {
       friend: 'connection',
       friends: 'connections',
@@ -255,6 +262,7 @@ export const NETWORKS: Readonly<Record<Platform, NetworkKit>> = {
     dailyLimits: { friend_request: 20, first_message: 10, follow_up: 15, comment: 10, like: 30 },
     weeklyRequests: null,
     checksPerDay: 20,
+    checksMost: 60,
     forumAnswersPerDay: null,
     recommends: false,
     hashtags: true,
@@ -304,6 +312,7 @@ export const NETWORKS: Readonly<Record<Platform, NetworkKit>> = {
     dailyLimits: { friend_request: 15, first_message: 15, follow_up: 20, comment: 10, like: 30 },
     weeklyRequests: null,
     checksPerDay: 30,
+    checksMost: 60,
     forumAnswersPerDay: 2,
     recommends: true,
     hashtags: false,
@@ -323,8 +332,12 @@ export const NETWORKS: Readonly<Record<Platform, NetworkKit>> = {
     // auto/alignable.ts (part 5): warm-ups (a look at their business page, and a like on a recent post of theirs when
     // it shows one) and connection requests. Comments and forum answers wait for the person's OK, as they're public
     // writing (the plan's question 9, decision 92), and Recommend is only ever theirs. Of the switches along the way it
-    // reads the warm-up, the once-a-day jobs and joining groups (decision 92): it has no hourly look.
-    runs: { auto: ['warm_up', 'friend_request'], ticks: ['warmUp', 'collect', 'joinGroups'] },
+    // reads the warm-up, the once-a-day jobs and joining groups (decision 92): it has no hourly look. From decision 136
+    // it accepts the connection requests they get too, as they picked and the AI says (on My Network's Requests).
+    runs: {
+      auto: ['confirm', 'warm_up', 'friend_request'],
+      ticks: ['warmUp', 'collect', 'joinGroups'],
+    },
     words: {
       friend: 'connection',
       friends: 'connections',
@@ -351,6 +364,21 @@ export const isLooking = (platform: Platform): boolean => NETWORKS[platform].sta
  */
 export const runsOnItsOwn = (platform: Platform): boolean =>
   NETWORKS[platform].runs.auto.length > 0;
+
+/**
+ * Whether the extension answers the requests the person gets there on its own (decisions 30, 121 and 136): the runners
+ * on Facebook, LinkedIn and Alignable confirm them, and delete them as the person picks; Instagram's are the person's.
+ */
+export const answersRequests = (platform: Platform): boolean =>
+  NETWORKS[platform].runs.auto.includes('confirm');
+
+/**
+ * Whether groups are the person's to work on a network (decision 48 on Facebook, decision 92 on Alignable): its runner
+ * reads them and can ask to join them, so the person picks between joining more and only their own (decision 148).
+ * Instagram has no groups, and LinkedIn's are too quiet to work.
+ */
+export const joinsGroups = (platform: Platform): boolean =>
+  NETWORKS[platform].runs.ticks.includes('joinGroups');
 
 /**
  * A network's daily limits as they stand for the person: the business's own on that network, each at most the

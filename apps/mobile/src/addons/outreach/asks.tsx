@@ -24,7 +24,8 @@ import {
   type AsksOutput,
 } from '@hfos/core/addons/outreach/asks';
 import { clockWords } from '@hfos/core/addons/outreach/live';
-import type { Platform } from '@hfos/core/addons/outreach/networks';
+import { PLATFORMS, type Platform } from '@hfos/core/addons/outreach/networks';
+import { RUN_NOW_ALL, RUN_NOW_WORDS } from '@hfos/core/addons/outreach/run-now';
 import * as React from 'react';
 import { View } from 'react-native';
 
@@ -398,6 +399,46 @@ export function ComputerNote({ asks }: { asks: AsksOutput }) {
 }
 
 /** The Live screen's list: what the person asked their computer, today's and the open ones, each as it goes. */
+/**
+ * Run now (decision 129), on Your computer as on the web: every job the person's computer can do for them, a part for
+ * each network they work, each with its latest ask. Most run on their own each day.
+ */
+export function RunNowPart({
+  asks,
+  actions,
+  networks,
+}: {
+  asks: AsksOutput;
+  actions: AskActions;
+  /** The networks the person works. */
+  networks: readonly Platform[];
+}) {
+  const nets = networks
+    .map((platform) => ({ platform, kinds: RUN_NOW_ALL.filter((k) => askableOn(platform, k)) }))
+    .filter((n) => n.kinds.length);
+  if (!nets.length) return null;
+  return (
+    <Part title={RUN_NOW_WORDS.allTitle} about={RUN_NOW_WORDS.allAbout} testID="run-now-all">
+      {nets.map(({ platform, kinds }) => (
+        <Card key={platform} className="gap-3 px-4 py-3.5" testID={`run-now-all-${platform}`}>
+          <Text className="text-[14px] font-semibold">{PLATFORMS[platform]}</Text>
+          {kinds.map((kind) => (
+            <AskButton
+              key={kind}
+              asks={asks}
+              ask={{ kind } as AskInput}
+              platform={platform}
+              label={askNameOn(kind, platform)}
+              actions={actions}
+              testID={`run-now-all-${platform}-${kind}`}
+            />
+          ))}
+        </Card>
+      ))}
+    </Part>
+  );
+}
+
 export function AskedPart({ asks, actions }: { asks: AsksOutput; actions: AskActions }) {
   return (
     <Part title={ASK_WORDS.askedTitle} testID="live-asks">

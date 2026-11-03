@@ -8,7 +8,7 @@
  *   Chrome instead (the plan's "Things that can go wrong"), with the link to copy.
  * - **A blocked camera or microphone** says where to allow it; they can still join without it.
  */
-import { VIDEO_CALL_WORDS, isInAppBrowser } from '@hfos/core';
+import { VIDEO_CALL_WORDS, WEBINAR_WORDS, isInAppBrowser } from '@hfos/core';
 import { useMediaDevices, useTrackVolume } from '@livekit/components-react';
 import {
   createLocalAudioTrack,
@@ -340,6 +340,79 @@ export function PreJoin({
           data-testid="prejoin-join"
         >
           {joinLabel}
+        </Button>
+      </form>
+      {error ? (
+        <p className="text-[13px] text-danger-text" role="alert" data-testid="prejoin-error">
+          {error}
+        </p>
+      ) : null}
+    </div>
+  );
+}
+
+/**
+ * Before a webinar, for an attendee: they join watching, muted with their camera off, so there's no camera or
+ * microphone to check. Their name, the AI's notice, and Join.
+ */
+export function WebinarJoin({
+  heading,
+  name: initialName,
+  notice,
+  busy,
+  error,
+  onJoin,
+}: {
+  heading: ReactNode;
+  name: string;
+  notice?: string | null;
+  busy: boolean;
+  error: string | null;
+  onJoin: (name: string, choices: DeviceChoices) => void;
+}) {
+  const [name, setName] = useState(initialName);
+  return (
+    <div className="mx-auto flex w-full max-w-[460px] flex-1 flex-col justify-center gap-4 px-4 py-6">
+      {heading}
+      <p className="text-center text-[13.5px] text-text-2" data-testid="prejoin-webinar">
+        {WEBINAR_WORDS.joinHint}
+      </p>
+      {notice ? (
+        <p
+          className="flex items-start gap-2 rounded-control bg-card-2 px-3 py-2.5 text-[13px] text-text-2"
+          data-testid="prejoin-ai-notice"
+        >
+          <FileText size={15} className="mt-0.5 flex-none text-text-3" aria-hidden />
+          {notice}
+        </p>
+      ) : null}
+      <form
+        className="flex flex-col gap-2 sm:flex-row sm:items-end"
+        onSubmit={(e) => {
+          e.preventDefault();
+          const typed = name.trim();
+          if (typed && !busy) onJoin(typed, { mic: false, camera: false, blur: false });
+        }}
+      >
+        <label className="flex flex-1 flex-col gap-1 text-[13px] font-medium">
+          Your name
+          <Input
+            value={name}
+            maxLength={120}
+            autoComplete="given-name"
+            onChange={(e) => setName(e.target.value)}
+            data-testid="prejoin-name"
+          />
+        </label>
+        <Button
+          type="submit"
+          size="lg"
+          loading={busy}
+          disabled={!name.trim()}
+          className="sm:min-w-[140px]"
+          data-testid="prejoin-join"
+        >
+          {VIDEO_CALL_WORDS.join}
         </Button>
       </form>
       {error ? (

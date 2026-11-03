@@ -235,6 +235,20 @@ describe('a tab’s script, by its network', () => {
     });
   });
 
+  it('on Facebook, says who wrote last in the chats on the page when asked, for the messages kept open (decision 125)', async () => {
+    const page = await tab('chat.html', 'https://www.facebook.com/messages/t/1234567890/', on);
+    const answer = (await page.ask({ type: 'hfos-replies-now' })) as {
+      ok: boolean;
+      seen: { name: string; threadKey: string | null }[];
+    };
+    expect(answer.ok).toBe(true);
+    expect(answer.seen.map((s) => [s.name, s.threadKey])).toEqual([
+      ['Maria Lopez', '9876543210123'],
+      ['Austin Biz Mastermind', '555666777'],
+      ['Sam Carter', '1234567890'],
+    ]);
+  });
+
   it('on Facebook, types a message only for an ask that says whose chat it goes in', async () => {
     const page = await tab(
       'chat-2026.html',

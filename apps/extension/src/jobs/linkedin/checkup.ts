@@ -1,17 +1,17 @@
 /**
  * Check LinkedIn (`checkup`, docs/outreach.md decisions 74 and 76): one press when something on LinkedIn isn't working.
  * It opens the person's main LinkedIn pages one at a time and reads each as the other jobs do (their profile, their
- * feed, their connections, a people search, a posts search, their messages, Catch up and one connection's profile), and on the
- * way tries each of the extension's steps up to its last press (src/networks/linkedin/tries.ts): putting the headline
- * in, posting, commenting, connecting, messaging, liking, withdrawing and the data file; and on someone else's post on
- * its own page (decision 92), liking it there and the box of who reacted, opened from its reactions count and closed
- * again. Nothing is ever saved, posted, sent, liked, connected or withdrawn. Each page and each step is noted in
- * HandsFreeOS with what it found
- * (../report.ts), the outline kept when a step doesn't work, so everything that doesn't is found in one go; the end's
- * line names the steps that don't, and those it found nothing to try on. Its window stays in front while it works,
- * as Chrome draws nothing in a window hidden behind another (put another over it, and it comes back in front for its
- * next page or step), and then the person's own comes back. It stops on any
- * LinkedIn warning.
+ * feed, their connections, a people search, a posts search, their messages, Catch up and one connection's profile), and
+ * on the way tries each of the extension's steps up to its last press (src/networks/linkedin/tries.ts): putting the
+ * headline in, posting, commenting, connecting, messaging, liking, withdrawing and the data file; and on someone else's
+ * post on its own page (decision 92), liking it there and the box of who reacted, opened from its reactions count and
+ * closed again; on the posts search, one post's link from its menu's Copy link to post (decision 123), caught before it
+ * reaches the person's clipboard. Nothing is ever saved, posted, sent, liked, connected or withdrawn. Each page and
+ * each step is noted in HandsFreeOS with what it found (../report.ts), the outline kept when a step doesn't work, so
+ * everything that doesn't is found in one go; the end's line names the steps that don't, and those it found nothing to
+ * try on. Its window stays in front while it works, as Chrome draws nothing in a window hidden behind another (put
+ * another over it, and it comes back in front for its next page or step), and then the person's own comes back. It
+ * stops on any LinkedIn warning.
  */
 import type { LinkedInRead } from '../../networks';
 import { DATA_PAGE } from '../../networks/linkedin/data';
@@ -28,6 +28,7 @@ import {
   postSearchUrl,
   readLinkedIn,
 } from './read';
+import { withLinks } from './posts';
 
 async function checkup(job: Job): Promise<JobEnd> {
   const c = new Checkup<LinkedInRead>(job, 'linkedin', readLinkedIn);
@@ -78,8 +79,11 @@ async function checkup(job: Job): Promise<JobEnd> {
   const posts = await c.open(postSearchUrl(SEARCH_WORDS), 'the posts search');
   if (isEnd(posts)) return posts;
   await c.note('the posts search', posts.posts?.length ?? 0);
+  // Its newer layout links no post: one person's post gets its own from its menu's Copy link to post (decision 123),
+  // the page noted with the menu open when that gives none.
+  const searched = await withLinks(job, posts, new Set(), 1);
   const theirPost =
-    [...(feed.posts ?? []), ...(posts.posts ?? [])].find((p) => p.url && !p.company) ?? null;
+    [...(feed.posts ?? []), ...(searched.posts ?? [])].find((p) => p.url && !p.company) ?? null;
   const commentOn = async (their: Post): Promise<JobEnd | null> => {
     if (stopped()) return stopped();
     const post = await c.open(their.url!, 'a post');

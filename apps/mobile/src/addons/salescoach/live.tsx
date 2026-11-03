@@ -1,9 +1,10 @@
 import type { CardKind } from '@hfos/core/addons/salescoach/coach';
+import { playbookStages, SALES_STAGE_LABELS, stageAt } from '@hfos/core/addons/salescoach/method';
 import { SALESCOACH_WORDS as W } from '@hfos/core/addons/salescoach/words';
 import * as React from 'react';
 import { View } from 'react-native';
 
-import { Headset, ShieldAlert, Sparkles } from '@/components/icons';
+import { Headset, ShieldAlert, Sparkles, TriangleAlert } from '@/components/icons';
 import { useBusiness } from '@/components/shell/business-context';
 import { Screen } from '@/components/shell/screen';
 import { Badge } from '@/components/ui/badge';
@@ -20,7 +21,8 @@ import { useLiveAnswer } from '@/lib/live-answer';
  * AI Sales Coach on the phone (docs/salescoach.md): the call the coach hears now, for a rep on their cell. The phone
  * belongs to the call, so the rep goes on speaker and opens this (the push about an objection brings them here too).
  * It asks again every few seconds while it's open, the newest card on top in big type, with where the call is in the
- * script. It needs signal: the call does too.
+ * script: its stage, for a script whose steps name the method's stages (round five). A card can carry a tip on how to
+ * say it, and a nudge stands out. It needs signal: the call does too.
  */
 
 /** How often the screen asks again during a call. */
@@ -31,6 +33,7 @@ const KIND_ICON: Record<CardKind, typeof Sparkles> = {
   fact: Sparkles,
   step: Sparkles,
   question: Sparkles,
+  nudge: TriangleAlert,
 };
 
 type Live = Awaited<ReturnType<typeof readLive>>;
@@ -65,12 +68,21 @@ export function CoachCard({
   };
   return (
     <Card
-      className={top ? 'gap-2 border-accent bg-accent-soft p-4' : 'gap-1.5 p-3.5'}
+      className={
+        card.kind === 'nudge'
+          ? `${top ? 'gap-2 p-4' : 'gap-1.5 p-3.5'} border-warning bg-warning-soft`
+          : top
+            ? 'gap-2 border-accent bg-accent-soft p-4'
+            : 'gap-1.5 p-3.5'
+      }
       testID="coach-card"
     >
       <View className="flex-row items-center gap-2">
-        <Icon as={KIND_ICON[card.kind]} className="size-4 text-accent-text" />
-        <Badge variant={card.kind === 'objection' ? 'pending' : 'accent'}>
+        <Icon
+          as={KIND_ICON[card.kind]}
+          className={card.kind === 'nudge' ? 'size-4 text-warning-text' : 'size-4 text-accent-text'}
+        />
+        <Badge variant={card.kind === 'objection' || card.kind === 'nudge' ? 'pending' : 'accent'}>
           <Text>{W.cardKinds[card.kind]}</Text>
         </Badge>
         <Text className="flex-1 text-[15px] font-semibold" numberOfLines={1}>
@@ -80,6 +92,11 @@ export function CoachCard({
       <Text className={top ? 'text-[20px] leading-[28px]' : 'text-[15px] leading-[21px]'}>
         {card.say}
       </Text>
+      {card.tip ? (
+        <Text className="text-[14px] text-text-2" testID="coach-tip">
+          <Text className="text-[14px] font-semibold">{W.live.how}:</Text> {card.tip}
+        </Text>
+      ) : null}
       {top && card.heard ? (
         <Text className="text-[13px] text-text-3">
           {W.live.heard}: “{card.heard}”
@@ -114,6 +131,8 @@ export function SalescoachLiveScreen() {
   };
   const steps = call?.playbook?.details.steps ?? [];
   const at = steps.findIndex((s) => s.id === call?.step);
+  const stages = playbookStages(steps);
+  const stage = stages.length ? (stageAt(steps, call?.step ?? null) ?? stages[0]!) : null;
   return (
     <Screen title={W.title} back="/app" testID="salescoach-live">
       {!call ? (
@@ -151,6 +170,12 @@ export function SalescoachLiveScreen() {
               </Text>
             ) : null}
           </View>
+          {stage ? (
+            <Text className="text-[15px] font-semibold" testID="coach-stage">
+              {W.live.stage}: {SALES_STAGE_LABELS[stage]} (
+              {W.live.stageOf(stages.indexOf(stage) + 1, stages.length)})
+            </Text>
+          ) : null}
           {steps.length ? (
             <Text className="text-[13.5px] text-text-2" testID="coach-step">
               {W.live.step}: {(at >= 0 ? steps[at] : steps[0])!.title} ({Math.max(1, at + 1)}/

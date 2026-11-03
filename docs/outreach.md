@@ -28,13 +28,19 @@ with the day's report and the week's review), finding people by topic on Instagr
 requests while 200 wait or near the cap (decisions 96 and 97), tidying up on its own on every network (decision
 98, extension 0.97.0), every part of the profile put in for the person, with a read on its own on the 1st of each
 month (decision 99, extension 0.98.0), and Later on a person, a push when a request is accepted, and LinkedIn's
-comments waiting for an OK at first (decisions 100 to 102, extension 0.99.0).
+comments waiting for an OK at first (decisions 100 to 102, extension 0.99.0), and everything it does counted at the top of Today with a ticker of what it's doing now along
+the bottom of every page (decision 140, extension 0.120.0).
 
-The parts below name the tabs they were built on. Since decision 59 those live here: **Today** has the Live tab's
-status, Start my day and Stop for today in a strip (the full day under its **Details**, `?view=live`), Waiting for
-you as **Needs you**, and the list; **People** has the Pipeline (a board for everyone in play), Friends and Chats;
-**Groups** is as it was; **Results** is the Activity tab; and the gear's **Settings** has the settings, Playbooks, the
-person's computers and Start fresh. The old addresses (`?view=waiting`, `?view=activity`) open what they became.
+The parts below name the tabs they were built on. Since decision 127 those are pages of their own, which pop out from
+Social Outreach's one row in the side menu, in this order: **Set up** (decision 129: how far the setup has come and
+each network's Get ready, with its count on the menu while anything's left); **Needs you** (Waiting for you, with
+its count on the menu); **Today**, with a card for each network (the Live tab's status, Start my day and Stop for today, and its bars),
+one Heads up, Done today (the old Details' feed), the list, and the team for owners; **People**, one list with a view
+for each kind (decision 128: In play, the Pipeline's board; Good fits, Friends, Requests and Sent, the Friends tab's
+lists; Talking; Chats; Partners; Clients; and Left alone); **Find people**, a card for each way new people are found,
+with the Groups under it; **Results** (the Activity tab, and which openers work); **Playbooks**; and **Settings**
+(decision 129: You, each network, This computer with Run now, and for owners and admins Team and Start fresh). The phone's first screen lists the same pages. The old addresses (`?view=waiting`, `?view=activity`, `?view=live`) open what they
+became.
 
 - **The activity panel** (`/a/outreach`, the page's first tab): what the extension noted over today, the last 7 days
   or the last 30. People reached, friend requests, likes, comments, chats started, follow-ups and who wrote back; by
@@ -97,7 +103,9 @@ person's computers and Start fresh. The old addresses (`?view=waiting`, `?view=a
   or maybe goes on the person's **Partners** list (`outreach.partners`) at Found, and `profiles.partner_found_at` keeps
   them and their twins out of every step for customers from then (`pitchable`); a friend request from them is still
   confirmed. The person marks them (`outreach.partner.mark`): Interested, Call booked, Make partner, Not now, back on
-  the list, or not a partner after all, which takes them off the list so they may be pitched again. Each person's own,
+  the list, or not a partner after all, which takes them off the list so they may be pitched again. The person can also
+  put anyone on it themselves with **Potential partner** in their person menu (`outreach.partner.potential`, decision
+  130). Each person's own,
   like their checks. Today reaches them in a part of its own (`partners`, `partnerToday`): a like first
   (`partner_warm_up`; one moves them to Warming up), the ask a day later (`partner_ask`, at most 3 a day, within the
   first messages the customers' steps left; again 90 days after Not now), up to 2 follow-ups a week apart
@@ -106,7 +114,8 @@ person's computers and Start fresh. The old addresses (`?view=waiting`, `?view=a
   (`partnerDraftPrompt`), and always waits for an OK of its own, never Approve all; once it goes it moves them along
   (`notePartnerSent`). The AI reads their answer while drafting a reply (`outreach.partner.answer`): a yes makes them
   Interested and drafts the details, not now or no sets them aside. A call booked through the partner link (its ref
-  starts `sp-`) moves them to Call booked (`outreach.partner.call`), never a demo. The extension (0.64.0) reads up to
+  starts `sp-`) moves them to Call booked (`outreach.partner.call`), never a demo, but for someone the person marked
+  themselves, for whom it's a demo too (decision 130). The extension (0.64.0) reads up to
   15 candidates a day on Facebook and LinkedIn after checking friends (**Find partners**, its `src/jobs/partners.ts`),
   with how many follow them off the top of their profile, and does Today's partner steps after the customers' of each
   sort (`workLeft`). On the web and the phone, the Partners list is one of People's lists (`?view=partners`, `?show=`
@@ -191,8 +200,8 @@ person's computers and Start fresh. The old addresses (`?view=waiting`, `?view=a
   playbook haven't been reached yet, against a day of friend requests ("1,240 people left to reach: about 62 days of
   friend requests"), each group's row the same, and when it's under a week (`LOW_DAYS`), says so. **Find and join
   more groups** (an ask, `join`), **Ask to join** on a group, and the once-a-day jobs while the person's
-  **Join good groups when my groups run low** setting is on (on to start) and people left are low, ask to join up to
-  3 a day (`JOINS_PER_DAY`, halved for a week after a warning; `outreach.joins.next`): the groups the AI said have
+  **Groups** pick is **Join more good groups when mine run low** (as it starts, decision 148) and people left are
+  low, ask to join up to 3 a day (`JOINS_PER_DAY`, halved for a week after a warning; `outreach.joins.next`): the groups the AI said have
   the business's people, then those that fit well by name not checked yet. With none, the extension searches
   Facebook with the playbook's words, checks the best 3 it finds and asks again. It presses **Join group**; when the
   group asks questions first, the AI answers each from the playbook (the worker's `outreach.join.answer` action),
@@ -384,8 +393,8 @@ person's computers and Start fresh. The old addresses (`?view=waiting`, `?view=a
   zone) each person who noted a step in the last 14 days and has something on their list hears how much ("6 on your list for today").
   Both are add-on pushes (`pushAddonNotice`), on the person's add-ons switch, and open Today.
 - **Which openers work** (decision 23, `openers.ts`, `ops/openers.ts`): each playbook keeps two or three styles the
-  AI opens first messages in, and up to three of the business's own openers, sent as written with the first name
-  filled in. A first message's drafts take the opener the person has used least, and copying one notes which it was
+  AI words a first message's one short question in (decision 137), and up to three of the business's own openers,
+  sent as written with the first name filled in. A first message's drafts take the opener the person has used least, and copying one notes which it was
   (`outreach.opener.use`). The Playbooks tab's **Which openers work** card counts, for each, the first messages sent
   with it, who wrote back and who booked a demo; owners and admins see everyone's.
 - **The demo link** (decision 24, `demos.ts`, `ops/demos.ts`, the worker's `demos.ts`): each person's own link to the
@@ -491,11 +500,12 @@ person's computers and Start fresh. The old addresses (`?view=waiting`, `?view=a
   network first, decision 91), beside **Open on <network>** (`needUrlOf`: the link given when it's on their network,
   the post or the chat, else their page there, so every step links; one kept with none, as every network's but
   Facebook's were before 26 October 2026, opens their page when it's read); and **Friend requests to decide**, those from the last
-  two weeks that didn't fit a playbook (or fit but are on Don't pitch), with why and **Leave it**. Each tab's label
+  two weeks that didn't fit a playbook (or fit but are on Don't pitch), with why and **Leave it**; from decision 136,
+  with what the AI says of each and **Confirm** and **Delete** on Facebook, LinkedIn and Alignable. Each tab's label
   carries the count. New
   messages and steps reach the phone as the person's **pushes** setting says: one bundled push at most every 2 hours
-  in their working hours ("5 messages wait for your OK", the default), or one for each; a reply handed over pushes at
-  once either way. The extension's Chrome pop-ups follow the same rule on the computer that works. A click opens
+  in their working hours ("5 messages to OK", the default), or one for each ("LinkedIn message to OK", decision 146);
+  a reply handed over pushes at once either way. The extension's Chrome pop-ups follow the same rule on the computer that works. A click opens
   Needs you in HandsFreeOS in a tab (`outreachPath(…, 'waiting')`, at `#needs-you`), never the side panel (decision
   72).
 - **Asking the extension** (decision 43, `asks.ts`, `ops/asks.ts`, `addon_outreach.asks`, the web's `asks.tsx`, the
@@ -676,7 +686,7 @@ person's computers and Start fresh. The old addresses (`?view=waiting`, `?view=a
 | The runner, and what it presses                          | `apps/extension/src/auto/plan.ts`, `src/auto/run.ts`, `src/auto/turns.ts`, `src/facebook/auto.ts`, `src/panel/status.ts`, `src/tab.ts`                                                                                                                                              |
 | Stages and the pitch (decision 47)                       | `stages.ts`, `ops/stages.ts`, `apps/web/src/addons/outreach/pipeline-view.tsx`, `apps/mobile/src/addons/outreach/pipeline.tsx`, `supabase/migrations/20261027002100_outreach_stages.sql`                                                                                            |
 | The fits among friends and chats (decision 46)           | `checks.ts`, `ops/checks.ts`, `apps/worker/src/addons/outreach/checks.ts`, `apps/extension/src/jobs/checks.ts`, `supabase/migrations/20261027002000_outreach_fit_checks.sql`                                                                                                        |
-| Groups, theirs first, then new ones (decision 48)        | `group-checks.ts`, `ops/group-checks.ts`, `apps/worker/src/addons/outreach/groups.ts`, `apps/extension/src/jobs/groups-check.ts`, `src/jobs/join.ts`, `src/facebook/join.ts`, `supabase/migrations/20261027002200_outreach_group_checks.sql`                                        |
+| Groups, theirs first, then new ones (decisions 48, 148)  | `group-checks.ts`, `ops/group-checks.ts`, `apps/worker/src/addons/outreach/groups.ts`, `apps/extension/src/jobs/groups-check.ts`, `src/jobs/join.ts`, `src/facebook/join.ts`, `supabase/migrations/20261027002200_outreach_group_checks.sql`                                        |
 | Finding people by topic (decision 92)                    | `finds.ts`, `ops/finds.ts`, `topics.ts`, `sends.ts` (`commentHoldOn`), `apps/worker/src/addons/outreach/words.ts`, `apps/extension/src/jobs/found-checks.ts`, `src/auto/comments.ts`, `supabase/migrations/20261027014100_outreach_found_by_topic.sql`                              |
 | Asking the extension                                     | `asks.ts`, `ops/asks.ts`, `apps/web/src/addons/outreach/asks.tsx`, `apps/worker/src/addons/outreach/asks.ts`, `supabase/migrations/20261027001700_outreach_asks.sql`                                                                                                                |
 | Its jobs                                                 | `apps/extension/src/asks/run.ts`, `src/hfos/asks.ts`, `src/jobs/`, `src/offscreen.ts`                                                                                                                                                                                               |
@@ -690,6 +700,7 @@ person's computers and Start fresh. The old addresses (`?view=waiting`, `?view=a
 | The chat so far beside a message waiting                 | `sends.ts` (`recentBubbles`), `ops/common.ts` (`recentOf`), `apps/web/src/addons/outreach/chat-bubbles.tsx`, `apps/mobile/src/addons/outreach/chat-bubbles.tsx`                                                                                                                     |
 | Don’t pitch covering a person kept twice                 | `ops/common.ts` (`neverTwins`, `pitchable`), `supabase/migrations/20261027002500_outreach_dont_pitch_twins.sql`                                                                                                                                                                     |
 | Start fresh                                              | `apps/web/src/addons/outreach/start-fresh.tsx`, core’s `addon.start_fresh`, `apps/extension/src/hfos/follow.ts` (`forgetOnFreshStart`)                                                                                                                                              |
+| Expert comments on posts (decisions 141 and 143)         | `posts.ts` (`POST_CHECK_SYSTEM`, `SEARCH_PARTS`), `topics.ts`, `today.ts` (`TASK.comment`, `withoutStockPraise`), `playbooks.ts` (`facebookSearches`), `apps/extension/src/jobs/posts.ts` (`searchPosts`)                                                                           |
 | The extension                                            | `apps/extension`                                                                                                                                                                                                                                                                    |
 
 Operations, all through the kernel:
@@ -889,24 +900,31 @@ than a store extension, and for more features, and answered the questions the sa
     notes it as its own; one it couldn't send says why and leaves the list for the day. From extension 0.94.1 it
     types a message only into a chat the page shows is with them, never into another chat window left open from the
     person before, and sends nothing when it can't tell: a chat that links to a profile counts only by their number or
-    username, never by a name someone else may share. LinkedIn's and Instagram's sending goes the same way.
+    username, never by a name someone else may share. LinkedIn's and Instagram's sending goes the same way. From
+    0.114.1, someone kept by username whose chat window links to them by number (as Facebook's do) has that number
+    checked first: the extension opens its profile, and only when Facebook shows it at their username does the
+    message go, into the window that links to that number (the owner's report of 30 Oct 2026, when two OK'd messages
+    came back "Couldn't find a chat open with them").
 27. **Replies are a setting, per person:** (a) drafts wait for the person; (b) simple replies go on their own and the
     rest are handed over with a push; (c) every reply goes on its own. (b) and (c) start training wheels. Built: the
     AI says whether each reply it drafts is simple; with (b) a simple one goes as it is, with (c) every one does, and
     with (a) each waits. Whatever the choice, a reply to someone who needs the person waits, as the AI teammate
     hands over (decision 1): asking to stop, a refund, a complaint, a legal threat, cancelling, asking for them,
     sounding upset or an emergency; so does one to a chat HandsFreeOS hasn't seen. With (b) or (c), one that waits
-    is handed over: their phone hears "Dana Reyes needs you", and why. Replies go only while Sending isn't off.
+    is handed over: their phone hears "Dana Reyes needs you", and why. Replies go only while Sending isn't off. From
+    decision 122, so does one to something the business's Knowledge doesn't answer.
 28. **When:** on its own in the person's working hours (9 to 5 to start), at random times, plus a **Start my day**
     button. Built, on every network from extension 0.96.0 (decision 95).
 29. **Tidying on its own is a setting:** off, cancelling old requests on their own, or cancelling and unfriending on
-    their own. Built on every network from extension 0.97.0 (decision 98).
+    their own. Built on every network from extension 0.97.0 (decision 98). Cancel all skips the wait (decision 121).
 30. **Friend requests from people who fit a playbook are confirmed on their own;** the rest wait. Built: those who
-    fit well.
+    fit well. From decision 121 it's one of five choices on Facebook, which can confirm them all or delete some. From
+    decision 136 the AI reads each one's profile to say who's good, on Facebook, LinkedIn and Alignable.
 31. **It asks to join good groups, up to 3 a day,** and the AI answers the join questions from the playbook. Automation part 5.
 32. **Find posts, Read my chats, saving group members and checking friend requests run once a day on their own.**
     Built: first thing in the working day (or after Start my day), before the list, while the extension works on its
-    own and **Once a day** is ticked (on to start).
+    own and **Once a day** is ticked (on to start). From decision 123 (extension 0.112.0) the list takes turns with
+    them instead of waiting for them all.
 33. **A like on one of their recent posts a day or two before the friend request.** Built: the request waits 20
     hours after the like; a like over 14 days old doesn't count; no post to like, no wait. The post is picked by the
     AI from their latest few, business first, then personal, never a sensitive one ("Which post gets the like").
@@ -1083,8 +1101,9 @@ The owner asked on 12 Oct 2026 for a better design of the add-on and the extensi
 design system ("Social Outreach redesign", a Design canvas), and said to build all of it. That changes where decisions
 41 to 44 put things; what they decided stands. Settled too:
 
-59. **Four tabs and the gear, and the panel in HandsFreeOS's look.** Ten tabs were too many, Waiting for you and Today
-    said the same, and every tab carried notes and the same orange line about the computer.
+59. **Four tabs and the gear, and the panel in HandsFreeOS's look** (the tabs and the gear replaced by decision 127:
+    pages in the side menu). Ten tabs were too many, Waiting for you and Today said the same, and every tab carried
+    notes and the same orange line about the computer.
     - **Today** opens first (the bare page; `?view=waiting` too): a strip with the computer's state, what it's doing,
       the next step, today's steps against the limits as bars, **Start my day** or **Stop for today**, and
       **Details** for the full day (`?view=live`: the feed, what was asked of it, the team and renaming computers);
@@ -1181,8 +1200,8 @@ From the main offer's plan (HANDSFREEOS_MAIN_OFFER_IMPLEMENTATION_PLAN.md, Chris
     comments first). Before a friend request the extension likes one of their posts, and when the post is about their
     work it leaves a short comment too, counted against the comments' limit (extension 0.33.0). Once they accept,
     the **First message** asks straight out whether they'd be open to the main offer's outcome, and says more info
-    follows if so. No message carries the guarantee (the owner, 2026-10-26: "it made them feel disjointed and
-    unnatural"); a reply gives it only when they ask whether there is one, as the price. A personal line goes first only when the look-up found something real that fits.
+    follows if so (since decision 137, one short question that makes them curious instead). No message carries the
+    guarantee (the owner, 2026-10-26: "it made them feel disjointed and unnatural"); a reply gives it only when they ask whether there is one, as the price. A personal line goes first only when the look-up found something real that fits.
     The business's own openers can say `{outcome}` and `{guarantee}`, filled from the offer's words in a few words.
     This replaces decision 47's moment to pitch for new friends; its read (`pitch`) stays for chats that started
     another way (Reconnect, the download file, people who wrote first). Built.
@@ -1810,7 +1829,7 @@ where decisions 37 and 59 put the settings; what they decided stands. Settled to
     **Find partners** looks for group admins and moderators, creators and businesses whose audience is the
     playbook's, the AI judging fit first and size second. It warms them up, then asks only whether they're open to a
     partnership, and every partner message waits for the person's OK. Someone asked to partner is never pitched as a
-    customer. A partner earns a share of each payment their clients make in HandsFreeOS in their first 12 months,
+    customer, but someone the person marked a potential partner may be offered a demo (decision 130). A partner earns a share of each payment their clients make in HandsFreeOS in their first 12 months,
     paid by HandsFreeOS once a month for payments at least 30 days old, from the business's card through Stripe, with
     Stripe's fees the business's and $25 the smallest payout unless the business sets a lower one; US partners
     first (the plan's decisions 16 to 18), then the countries the business reaches (decision 118). Each partner has their own page. Alignable's referral swap stays beside
@@ -2228,6 +2247,17 @@ where decisions 37 and 59 put the settings; what they decided stands. Settled to
     - **An accepted request clears the need to send it.** When the person's friends (or connections) list shows
       someone, their own handed-over friend request to them is done (`outreach.friends.save`, which tells
       `outreach.need.cleared`), however it was sent; a need noted after that look stays.
+    - **What each item does shows on hover** (Chris, 30 Oct 2026: "what does make them yours do? lets add an explainer
+      when we hover for like 2 seconds or whatever the industry standard is"). Every item that can be pressed says what
+      it does in a sentence or two (`PersonMenuItem.hint`, from `OUTREACH_WORDS.person.hints`, the Pipeline's moves by
+      `StageMark`, and `OWNER_WORDS.giveHint` for Give them to and Make them yours); a line never has one, since it
+      says it already. The web shows it beside the item once the pointer rests 0.7 seconds (`HINT_DELAY_MS`), the
+      common tooltip wait: 2 seconds reads as broken, and under half a second flashes while the pointer passes. The
+      next item's shows straight away while the pointer moves along, the keyboard landing on an item shows it too, and
+      a screen reader reads it with the item (`components/ui/tooltip.tsx`, Radix Tooltip); a touch never shows it. The
+      phone shows it under a button that's held (press and hold, Android's way for a tooltip), says "Press and hold a
+      button to see what it does." under the items, and gives it to VoiceOver and TalkBack as the button's hint.
+      Holding it again, pressing any item or closing hides it.
 
     No migration: the tag is core's, and the rest is worked out each time.
 
@@ -2245,12 +2275,15 @@ where decisions 37 and 59 put the settings; what they decided stands. Settled to
       LinkedIn use the old made-up words and Alignable doesn't search. Partner playbooks get none, and partner searches
       (decision 81) keep their words. Found while building: it writes only for the networks somebody in the business
       works (their own choice, or the business's starting one, inside the networks it allows), so a Facebook-only
-      business spends no AI on them, and turning a network on asks for its words then.
+      business spends no AI on them, and turning a network on asks for its words then. From decision 141 Facebook has
+      its own list too (**Words to search Facebook’s posts with**), so a Facebook-only business gets that one written. From decision 123 the morning's
+      first list saved asks too, as days start on their own with nothing pressed.
     - **Where it looks:** Instagram 5 hashtags a day in turn, about 10 posts each (2a; places stay 4); LinkedIn 5
       phrases a day in turn; Alignable 3 kinds of business a day in the person's own town and those within 25 miles
       (decision 115), or anywhere when that playbook works online (9), and the person's own groups, then groups it finds by niche and area (10a).
     - **Who it finds** (`finds`, each person's own): writers of posts the AI calls good, who liked or reacted to them
-      and who commented (3a, read only from good posts), Alignable search results and group members. Never the person,
+      and who commented (3a, read only from good posts), Alignable search results and group members. From decision
+      123 also the writer of a post that isn't good when the writer fits a playbook, found by the search. Never the person,
       a friend or connection, a customer or client, Don't pitch or Never contact, or a place outside the business's
       countries. What a commenter said goes once the AI reads it, or after 14 days.
     - **Each one is checked by the AI from their own page before anything else** (4a): a check marked `via = 'found'`,
@@ -2355,7 +2388,9 @@ where decisions 37 and 59 put the settings; what they decided stands. Settled to
       many. They start again under 200. Tidy up's old requests bring the count down.
     - **None once their friends there come within 100 of its cap** (`FRIENDS_CAP_ROOM`): 4,900 on Facebook.
     - **Today says why and what to do** (`requestsHeldWords`, `requestsHeld` on `outreach.today`), on the web and the
-      phone, and leaves the requests and the likes before them off the list, as after a warning.
+      phone, and leaves the requests and the likes before them off the list, as after a warning. From decision 121 it
+      offers Cancel all beneath, since requests read off a network's sent list count from when they were first seen
+      and so take the whole wait to reach Old friend requests.
 98. **Tidying up on its own** (Chris, 28 Oct 2026, "all of your picks": 1a and 12; decision 29's setting). Each
     network's once-a-day jobs tidy up as the person picks under that network in Settings, **Tidy up on its own**
     (`tidy` in its choices; Facebook's in `networks.facebook`): **Off** (only the ones they tick), the old requests
@@ -2822,6 +2857,846 @@ where decisions 37 and 59 put the settings; what they decided stands. Settled to
         comes in front.
       - **Its window opens beside theirs,** at the right of the person's window and the same height, without taking
         their attention, not in the middle of the screen.
+121.  **Cancel all, and the friend requests the person gets** (Chris, 29 Oct 2026, "Build it"). "need a way to remove
+      all friend requests that have not been answered and be able to exclude ones the add on extension created. Need
+      to be able to have the AI accept any received friend requests that would match the playbook or deny them all or
+      accept them all". Today had said no new requests go while 207 waited, and pointed to Old friend requests, which
+      was empty: the requests read off Facebook's sent list count from when they were first seen (`friends.since`), so
+      none had waited the 3 weeks.
+      - **Cancel all,** under Old friend requests in Tidy up on the Friends tab, and under Today's note
+        (`outreach.friends.cancel_all`, the Assistant's too, on a Confirm card): every sent request waiting there when
+        it's pressed, however new, is marked (`friends.cancel_at`), with a box ticked to start that leaves out the ones
+        the extension sent (`touches` of kind `friend_request` and `auto`). On Facebook it's **Cancel all**, on
+        LinkedIn and Alignable **Withdraw all**; none on Instagram, whose follows wait for nobody.
+      - **The extension cancels them on its own,** the oldest first, inside what's left of the day's tidy limit (30 a
+        day on Facebook), whatever the person picked for tidying on its own: the oldest at once (the command's `first`,
+        an ask of kind `cancel`, when the computer can take one), the rest with the once-a-day jobs (`own.cancel` on
+        `outreach.friends.tidy`, whose `mode` says at least `cancel` so a build before 0.110.0 cancels them too).
+        Tidy up shows how many are left with **Stop**, which clears the marks; the ones left wait as usual. A mark
+        counts while the request it was put on waits (`cancel_at >= since`): one sent again later starts afresh.
+      - **The requests the person gets, on Facebook,** go as they pick on Facebook's page in Settings
+        (`requestsChoiceOn`, in place of the Confirm tick): leave them all to me; confirm who fits a playbook and leave
+        the rest (decision 30, to start); confirm who fits and delete the rest; confirm them all; or delete them all.
+        Kept as `confirmRequests` (off for the first) and `networks.facebook.requests`.
+      - **Confirming goes through the day** as Today's `confirm` items, as before: everyone's when they confirm them
+        all, nobody's when they delete them all. **Deleting goes once a day,** up to 30 (`DECLINES_PER_DAY`, halved
+        when the limits are), counting any the person deleted themselves: HandsFreeOS picks who (`own.decline`), and
+        the extension presses Respond, then Delete request on their profile (from 0.110.0) and notes it as their
+        answer (`outreach.friend.note`), even while noting is off.
+      - **It never deletes** someone in Contacts, kept, chatted with (a chat in the file, a reply, a message noted), a
+        partner, or anyone on Don't pitch, and never answers anyone on Never contact. For not fitting, only with a
+        playbook in use: with none, nobody fits, so nobody is deleted. Those it never deletes wait in Waiting for you.
+        From decision 136 who fits is the AI's read of their profile, not the lines Facebook's list showed, and it's
+        the same on LinkedIn and Alignable.
+      - **From 0.110.1 a request the person sent is cancelled from Sent requests** (the owner's report of 29 Oct 2026,
+        where a profile's Cancel request couldn't be found and each one came to Needs you; the owner's words: "it
+        should be trying to unfriend them from https://www.facebook.com/friends/requests click sent friend requests
+        and then it can click them"). The extension opens the friend requests, presses View sent requests, finds each
+        one's row by the link to their profile, scrolling for it, and presses the Cancel request beside them; only
+        someone the whole list doesn't show has their profile opened, to see where things stand. The ticked ones,
+        Cancel all's and tidying on its own all go this way, and Check Facebook tries it there.
+122.  **The AI knows what the business's Knowledge says** (Chris, 29 Oct 2026, "Wait for me"). "is the ai in the
+      social outreach tool connected to the business’ ai knowledge base the ai teammate uses? if not it should be so
+      that common questions and business information is known by that ai". It wasn't: what it wrote read the playbook,
+      the main offer, what's known of the person and the chat, but none of Knowledge (side menu), which the AI
+      Teammate and the Sales Coach answer from.
+      - **Every message, comment and helpful post that speaks for the business reads it** (`knows.ts` in core, the
+        worker's `addons/outreach/knows.ts`): openers, reconnects, pitches, videos, follow-ups, check-ins, replies,
+        warm leads, comments, replies in groups, a partner's messages and the weekly helpful posts. It's told the
+        business profile in a few lines (`briefFromProfile`: what it does, its services, area, hours and policies) and
+        its published short answers and facts, and for a reply or a comment the longer items that match what they
+        wrote, found as the teammate finds them (`findKnowledge`). A birthday, a new job, a demo's reminder and a
+        rebook don't need it.
+      - **It says nothing about the business that none of them says,** in their words: the playbook, the offer, the
+        profile or Knowledge. The playbook's tone still decides how it reads. The profile's words to avoid are left out
+        like the playbook's. A price from the profile or Knowledge goes only when they ask and the profile allows it
+        (AI may quote prices); the main offer's price goes as before, when they ask.
+      - **A reply to something none of it answers waits for the person,** whatever Replies says (decision 27): the AI
+        names what wasn't answered (`unanswered`), its drafts say the person will check and answer the rest, and the
+        reply is handed over under Waiting for you with "Knowledge has no answer to …" (`KNOWS_WORDS.needsYou`).
+        Today's drafts on the web say so too, with how to fix it: answer it, or add it under Knowledge so the AI knows
+        next time. The extension hands it on with the reply (`unanswered` on `outreach.send.queue`) from **0.111.0**;
+        a build before it holds only what Replies holds.
+      - **Knowledge is the business's own,** so each business fills its own (Knowledge → Website scans its site).
+        With none, most questions wait. No migration.
+123.  **The first hour does more than read** (Chris, 29 Oct 2026, on extension 0.111.0, then "Both" on the card). "I don't understand why the
+      activity for basically everything on all the platforms except likes on facebook are empty? It's been working for
+      an hour (at least it should) and all it has done is 4 likes on facebook and nothing else on any of the
+      platforms?" The day's own records showed four causes, and these fix them. The second and third change decisions
+      32 and 92, as Chris chose.
+      - **The AI writes the search words when the day starts on its own** (a bug). Decision 92's words writer
+        (`outreach.write_words`) ran when a playbook was saved, a network turned on or the day started. Since decision
+        95 a day starts with nothing pressed, so a playbook from before decision 92 never got its words: Instagram
+        looked at the old made-up hashtags, LinkedIn at the old phrases, and Alignable searched for nobody. The
+        morning's first list the extension saves (`outreach.lists.saved`) asks for them too, once, for a customers'
+        playbook with none, on the networks somebody works.
+      - **A writer who fits is found even when their post isn't one to comment on.** The AI checks a post for whether
+        it's worth a comment, so a business owner's ad about their own work was "not good", and its writer never
+        found: on Instagram every post the hashtags showed was. The post check now also says whether the writer
+        themselves is someone a playbook is for (`fits`: an owner of such a business posting about their own work, even
+        an ad, fits; a competitor or anything a playbook says to skip never does). A writer who fits is found by the
+        search that showed the post (`searched`, "Found by your Instagram search for “…”"), the post kept, and checked
+        from their own page as anyone found is (decision 92's 4a). Only while the finds waiting for a check are under
+        the cap, as anyone a search shows; a good post's writer is found as before. No migration.
+      - **The list takes turns with the morning's reading** (extension **0.112.0**). Every network did all of its
+        once-a-day reading (decision 32) and its saves before the day (decision 60) before the first step on its list,
+        and on Facebook that took over an hour, so the day's likes, requests and three messages Chris had OK'd waited.
+        Now, while reading is left, a part of it and a step on the list go by turns, at a person's pace (`listTurn`,
+        `readLast` in the runner's state, on all four networks). A day's first go reads. The first full save of the
+        person's lists and the first check of their groups still hold the whole day (`holdsTheDay`), as the list can't
+        be worked out without them. A read put off till the person is away (decision 120) counts as the reading's turn.
+        With nothing on the list, the reading goes on. Once it's done, the day's steps spread out as before (decision
+        28).
+      - **LinkedIn's post search gets each post's link from its menu** (extension **0.112.0**, a bug). It saved no
+        posts from 27 Oct 2026: Chris's Check LinkedIn that day showed its newer search page links no post (six posts
+        read, the time plain words, every link to a writer or a hashtag), and a post with no link can't be kept. Now,
+        for each person's post with none, up to 8 a screen, the extension presses the post's menu, then **Copy link to
+        post**, and catches the link on the page before it reaches the person's clipboard; nothing is pressed unless
+        the page catches copies, and no post's menu twice. When two posts in a row give no link, it stops and notes the
+        page with its outline, the menu open (decision 74), once a search. Check LinkedIn does it for one post. No
+        migration.
+
+124.  **Messages talk about a business in plain words** (Chris, 29 Oct 2026). "the ai uses the business name too much
+      it's robotic when you say a whole business name every time you message someone." A reply named someone's
+      business by its run-together page name.
+      - **What every message is told** (`BUSINESS_NAMES` in `voice.ts`, in `DRAFT_RULES` on every network, and in the
+        sample messages and their rewrites in Your messages): say what a business does in plain words ("your
+        photography", "the solar side"), and "I" or "we" for the person's own. A business's name goes in at most once
+        in a whole chat, only where it reads naturally, and a handle or a name run together never. Decision 119's
+        mention of each business still holds, in those plain words. No migration, and no new extension.
+      - **The phone's Change box stays above the keyboard** (a bug). Changing a message waiting for OK put the keyboard
+        over the words being typed. That sheet, and the phone's other outreach sheets with a box to type in (renaming a
+        computer, a new playbook, a playbook's section), now lift by the keyboard's height (`useKeyboardHeight`).
+
+125.  **Each network's messages kept open and read every minute, and a reply drafted first** (Chris, 29 Oct 2026,
+      "Every minute" on the card; extension **0.113.0**). "is the social outreach tool supposed to reply to people as
+      well? … i think the system should keep a page of each platform open at all times and check for messages sent to
+      use each minute locally so that we can reply quickly." A prospect's Instagram reply was seen an hour late, by the
+      once-a-day chats read, and its draft then waited behind the day's steps (drafts came after every step unless
+      Approve all was on).
+      - **The messages kept open** (`src/auto/watch.ts`). While Chrome is open, someone's signed in, this is the
+        computer that works and noting is on, a window of the extension's own, minimized, holds one tab for each
+        network that's on and works on its own (not Off) and wasn't warned today: Messenger, LinkedIn's messaging,
+        Instagram's messages and Alignable's. Every minute each page is read where it stands, never pressed, scrolled
+        or typed in. On Facebook, LinkedIn and Instagram its script says who wrote last (`hfos-replies-now`, decision
+        22's readers), sent as that network's `outreach.replies.note`, so the phone hears who wrote back. Alignable's
+        list doesn't say who wrote last, so a conversation whose last line changed has Alignable's runner read its chats
+        again at their next turn (only the changed ones are opened). A page is loaded afresh every 20 minutes
+        (Alignable's every 5), and when it went elsewhere or doesn't answer, at most every 5 minutes. A tab the person
+        closes stays closed for an hour, and every tab does when they close the window. The phone's push names the
+        network they wrote on (`replyPushWords`; it said Facebook for every network). No migration.
+      - **A reply is drafted next** (`plan.ts`). A reply (`reply`, `partner_reply`) now comes first on every network's
+        list, before the messages OK'd and the steps, Approve all or not. When `outreach.replies.note` keeps a reply as
+        new, from the window above or any tab of the person's, that network's runner goes at once rather than at its
+        next step's time (`onReplied`), and while the morning's reading is left the list has the next turn (`replied` in
+        the runner's state, `listTurn`). Someone who writes back again the same day has their reply drafted again,
+        though it was tried. The Replies choice still decides whether it waits for an OK, and the network's day and
+        limits still decide whether the runner works at all: a reply seen outside the working hours buzzes the phone
+        and is drafted when the day starts. (From 0.117.0 it's drafted at once, hours or not: decision 133.)
+126.  **The day's first messages, nearly guaranteed** (Chris, 29 Oct 2026, "1a 2a 3c 4a 5a 6a 7a 8a 9a" on
+      questions-29-oct-goal.md; extension **0.114.0**). "the system needs to understand that its main purpose is to
+      send out new messages to good leads/candidates. It needs to almost guarantee it will reach its goal of messages
+      each day. … if it for any reason feels like it hasn't found enough people to message … then it should notify the
+      user what platform it won't be able to meet its goal and tell it why and suggest other searching methods." In
+      three days it had sent 12 first messages against about 55 a day: nobody had accepted a request since 20 Oct, it
+      checked 40 people a day, 197 old Facebook requests held new ones, and five messages waited for an OK.
+      - **The goal** (1a, 2a; `goal.ts`). First messages only, each network its own: its first-message limit as it
+        stands, half while the person is new there. Today's list carries it (`goal`): sent, on the list (those waiting
+        for an OK count as found, 8a), how many short, good fits ready ahead, and why it's short, the first that holds:
+        not ready; under 1 in 10 of the week's checks fit (once 20 were checked); still checking people they know; new
+        requests held; under 1 in 5 of the last 14 days' requests accepted (once 10 were sent); too few found to fill
+        the day's requests; or first messages waiting on accepts. Messages still go only to friends and connections
+        (3c): the lever is more requests to more good fits.
+      - **More checks and searches while short** (4a, 5a, 6a). A network that's ready and has under 2 days of its
+        first messages ready (or of its requests, while they aren't held) checks up to its kit's `checksMost` a day
+        (Facebook and LinkedIn 150, Instagram and Alignable 60, halved while new or warned), its found checks double,
+        the people of good posts triple, it joins groups though people left to reach aren't low, and "maybe" fits fill
+        whatever the good fits leave on Reconnect and the requests. The extension checks a batch at a time, the next
+        35 to 60 minutes later (`again`, `afterDaily`); once the day's reading is done and the list still says more,
+        it finds people again up to twice, 90 minutes apart, each round with the next search words (`round` on
+        `outreach.posts.words`, `outreach.finds.searches`, `outreach.joins.next`).
+      - **Telling the person** (7a, 8a; the worker's `goal.ts`). Half an hour into the working day one push says how
+        many messages wait for their OK and which networks won't reach the day's, for a reason that won't fix itself
+        as the day goes, with why; at midday, the same for anything new. Today shows the note with two or three things
+        to try, each a button (`goalTryPlace`): widen the niche, add a playbook, join groups or add search words,
+        finish the profile, turn on another network. The day's report names the networks that fell short.
+      - **Cancel all faster** (9a; `cancelMostNow`). 60 a day on Facebook while 100 or more requests wait, back to 30
+        after. No migration.
+
+127.  **Social Outreach, rearranged, part 1** (Chris, 29 Oct 2026, "all of your picks" on the redesign's 13 choices).
+      "right now we can do everything we need to and see everything we need to see but it’s hard to know where
+      everything is likely because we have been building on top of an already existing design/system and now the
+      design doesn’t fit the full picture." It replaces decision 59's four tabs and the gear, and decision 73's
+      Playbooks in Settings' menu. It ships in three parts, each live before the next; this is the first. Nothing is
+      taken away: only where things live changes.
+      - **A page for each thing the person comes to do, in the side menu's pop-out** (the owner's rule of 9 Oct 2026:
+        one row for an add-on, its pages popping out from it): Needs you, Today, People, Groups, Results, Playbooks and
+        Settings, each its own address under `/a/outreach/` (`OUTREACH_PAGES` in core's `pages.ts`; the web's
+        `address.ts`). Settings' page key is `gear`, as `settings` would put the page in Settings search. Each page has
+        its name and what it's for at the top. The bare address opens Today, or the setup for a first-timer. An old
+        address (`?view=…`, as pushes, emails, the extension and old phones still open) goes to the page its view
+        became, with the rest of its query: `waiting` and `code` to Needs you, `live` to Today, `activity` to Results,
+        and a Settings part into its path (`/settings/linkedin`). On the phone, the add-on's first screen lists the same
+        pages in the same order, each with what it's for (`home.tsx`), and each opens as its own screen. Back from one
+        comes to that list, even when a link opened it (the bell, a notification), and Back from the list to More's
+        list (`first-screen.ts`: before 3 Nov 2026 Back from Needs you opened by the bell went Home, and More opened
+        Needs you again).
+      - **Needs you is its own page,** first in the menu, with its count on the menu: on its page in the pop-out, and
+        on the add-on's row while that's closed (the web registry's `navCount`, which any add-on can declare; this
+        one's is `menu-count.tsx`, asking `outreach.waiting` for the counts alone). It's never narrowed to a network,
+        so nothing that waits is hidden. Today says how many things need the person, with the way there; the
+        extension's link to Today's `#needs-you` opens it. On the phone it's `?view=waiting`, and works with no signal
+        as before.
+      - **Today is for watching it work:** one **Heads up** card for what to know (a warning, training wheels, half
+        limits on a new account, requests held with Cancel all, profile ideas waiting), a card for each network with
+        its own Start my day or Stop for today, its warning line and its own bars, then the list. The Details page
+        (`?view=live`) folds in: **Done today**, beside the list, has every step today on every network, newest first
+        (its first 8, then the rest in place), and owners and admins see each person's extension below (**Your
+        team**). What was asked of the computer moves to Settings → Your computer, beside the computers. The phone's
+        Today has the same; its Settings → Your computer still opens the computer's whole day.
+      - **Playbooks are a page of their own,** out of Settings' menu, on the web and the phone. Which openers work
+        stays on it for now.
+      - **One network picker at the top of the page,** on Today (the networks the person works) and People's lists
+        (All networks, or one), in place of the filter beside each list. The pick is kept for the business (the cookie
+        `outreach-net-<business id>`), so the next page opens on it; an address's own `?net=` wins. Pressing a
+        network's name on Today's cards keeps it too.
+      - Part 2 makes People one list with views and a panel for each person, and adds Find people; part 3 regroups
+        Settings with a Team page, adds the Set up page, moves which openers work to Results, and puts Run now on Your
+        computer. No migration, and no command changed.
+
+128.  **Social Outreach, rearranged, part 2: People and Find people** (Chris, 29 Oct 2026, the same picks). Decision 127's
+      second part, on the web and the phone together. No migration, and no command changed; one query is new.
+      - **People is one list with a view for each kind,** in this order: In play, Good fits, Talking, Friends,
+        Requests, Sent, Chats, Partners, Clients and Left alone (`PEOPLE_VIEWS` in core's `people-views.ts`). Each
+        view is one of the lists HandsFreeOS already keeps, so its people, buttons and addresses are that list's own:
+        In play is the Pipeline's board (`/people`), Talking and Clients its stages, the friends lists the Friends
+        tab's (`/people/friends?show=…`), Chats and Partners their own. The row of views replaces the Friends tab's
+        own row; each view shows its count where the list shown knows it (`peopleCountsOf`: a friends list knows
+        every friends list's, the Pipeline its stages').
+      - **Left alone** gathers whoever outreach leaves be, each with who put them on and how to take them off:
+        Don't pitch, Never contact, Not a fit (the Pipeline's Lost), Keep, and **Skipped for country**
+        (`/people/skipped`, which was a list opened from General). When the business reaches anywhere and nobody is
+        skipped, that list says so and where the setting is. Left alone opens on Don't pitch.
+      - **Not sure where they live** moves to Needs you, at the end, with Let through and Skip on each person; on the
+        phone it's a card there saying how many wait, opening the list. An old address to it
+        (`?view=countries&show=unsure`) opens Needs you.
+      - **The person panel:** the name's menu (decision 91) opens as a panel from the right on the web, and on the
+        phone the same sheet grows: the menu's actions first, as before, then everything about them from
+        `outreach.profile.marks` (which now carries their journey, intro and mutual friends): why they fit, the AI's
+        next step, their lead, the chat so far with who wrote last, the groups they were found in (each opening its
+        page), and every step, the latest 6 until Show all.
+      - **Find people** (`/find`, in place of Groups in the menu): a card for each way Social Outreach finds new people,
+        on the networks it's on (`FIND_WAYS` in core's `find-page.ts`): Groups, Good posts, Searches, Accounts like
+        yours, Events near you, Your followers and Partners. Each card says what that way found for the person in the
+        last 7 days and how many the AI's check called a good fit (`outreach.finds.week`, new, reading
+        `addon_outreach.finds` joined to the checks, followers and group members checked, and partners found), and
+        opens where it's changed: Groups opens the groups (now `/find/groups`; `/groups` and `?view=groups` go there),
+        Searches shows the words from the playbooks in use and opens them, Partners the Partners list. Accounts like
+        yours (decision 110) moves here from Settings → Instagram, which now says where they went. Find posts, on a
+        network the extension doesn't work on its own, and Facebook's download file (**Old friends and chats**) move
+        here from Today and Friends. The network picker narrows the cards.
+      - **On the phone,** People's views are a row that scrolls at the top of each list, with Left alone's row under
+        it; a view replaces the screen. The friends lists come to the phone (`?view=friends&show=…`), each row with
+        the person's name opening the sheet, how they fit, since when, the group they were found in, and a friend's
+        Keep switch; so does Find people (`?view=find`), with Accounts like yours on it, and Results person by person,
+        the latest first, each step with when. Only the old Activity stays on the web (`ui.phone.web`).
+      - The words for the rows (`friendSinceWords`, `FRIEND_EMPTY`, `activityStepsOf`, the panel's) are core's, so the
+        web and the phone say the same.
+
+129.  **Social Outreach, rearranged, part 3: Settings, Set up and Run now** (Chris, 29 Oct 2026, the same picks).
+      Decision 127's last part, on the web and the phone together. No migration, and no command or query changed.
+      - **Settings in four groups:** **You** (the person's own settings, which was General), **Networks** (one page
+        for each), **This computer** (Your computer and its computers), and for owners and admins **Owners**: Team and
+        Start fresh (`SETTINGS_PART_KEYS` and `SETTINGS_WORDS.menu` in core's `settings-parts.ts`). Groups with nothing in them aren't shown.
+      - **Team** (`/settings/team`, the phone's `?part=team`) gathers what owners and admins set for everyone, which
+        was spread over General and each network's page: **Your people**, each with their training wheels ("4 of 25
+        OK’d · 3 days to go") and End now, and Their settings, which opens that person's You with a bar saying whose
+        they are and Back to yours (in place of the Settings for picker); then **For your team** (what people may pick,
+        the defaults, the countries, the extension's link and the business's settings); then each network's say for
+        the team, all on one page. You and each network's page say what moved there, with a button to it.
+      - **Set up is a page** (`/set-up`, the phone's `?view=setup`), first in the menu while anything's left and the
+        reminder isn't hidden (`setUpInMenu` in core's `set-up-page.ts`), with "6 of 9" beside it (`setupDoneOf`:
+        every step but the optional ones, each network's counted; the web registry's `navRow`, which any add-on can
+        declare, lets a page's row decide whether it shows). It has the next step with Carry on, every step where it
+        stands, Set up again, and **Get ready** on each network the person works, which was a card on Today. Today
+        keeps one line while something holds the day or advice is left (`todayReadyWords`), opening Set up. Once
+        it's gone from the menu, Settings → You opens it. The setup itself stays at `/setup`.
+      - **Which openers work moves to Results,** after its cards, with **Works best so far** on the one with the most
+        replies for what was sent once two in the playbook now have had at least 5 sends (`bestOpenerOf`, `FAIR_TRY`).
+        The phone's Results has it too.
+      - **Run now:** the jobs a person can ask the computer for, which were buttons on Friends, Chats and Groups, are
+        a **Run now** menu at the top of People and Find people, on the network picked (`RUN_NOW_ON` in core's
+        `run-now.ts`), and all of them, network by network, on Settings → Your computer (`RUN_NOW_ALL`), above what was
+        asked. Group search and Save a group by its link stay on Groups. On the phone, Your computer has every job.
+
+130.  **Marking someone a potential partner** (Chris, 30 Oct 2026, "1a 2a 3a 4a 5b 6a 7a 8a"). "need to be able to mark
+      people as potential partners, this should then change the messages to be more in the realm of trying to start a
+      potential partnership vs a pitch to demo although it can still lead to a demo." Migration
+      `20261027020500_outreach_marked_partners`: `partners.marked_at` and `checks.partner_hint`.
+      - **Potential partner** in anyone's person menu (decision 91), on the web and the phone, once their marks come
+        (`outreach.partner.potential`, risk 1, the Assistant's `outreach_potential_partner` on a Confirm card). It puts
+        them on the person's own Partners list at Found, marked (`marked_at`), with `partner_found_at` set, and sets
+        aside the customer messages waiting for anyone's OK for them (`CUSTOMER_SEND_KINDS`). Never for the person
+        themselves, nor anyone on Don't pitch or Never contact or a twin of one (`notNever`), and the menu doesn't
+        offer it while they're on either. Someone already on the list is only marked.
+      - **The AI reads them first:** the next Find partners read (`outreach.partners.next`) puts the marked ones before
+        any it found, then `outreach.partner.look` and the worker's check (`PARTNER_MARKED_ASK`) say what kind of
+        partner they are and who listens to them, so the messages fit. The mark wins: an AI "not" stays maybe, and the
+        stage never moves. Until it has read them, the kind is guessed from what's known (runs a group, followers).
+      - **The same steps as anyone found:** a like first, the ask a day later, even when they already chat, and the
+        marked ones go first within the same 3 asks a day (`partnerToday`, which says "You marked them" as the why).
+      - **It can still lead to a demo:** the details and replies for someone marked carry `PARTNER_DEMO_TASK` (when
+        they show interest or ask how it works, the call can also be a quick demo, partnering first) and a link to the
+        partner playbook's calendar, or else any playbook's. A call booked through it is Call booked on the Partners
+        list and a demo (`demos`, how `link`), with a lead as decision 105 says.
+      - **Not a partner after all** in the same menu takes them off the list and back on customer messages where they
+        were, and sets aside their waiting partner messages (`offTheList`, as the Partners list's own mark does). Not
+        for someone made a partner, who's changed on the Partners list.
+      - **The AI suggests some:** when a customer check thinks someone looks more like a partner (an agency or
+        consultant serving the business's customers, a coach or creator with a following of them, a group's admin),
+        it says why in one line (`partner`, kept as `checks.partner_hint`). Their card on Today and their person menu
+        say so, with a **Potential partner** button. The person decides.
+
+131.  **Each person kept by their network's own id** (Chris, 30 Oct 2026, extension 0.115.0). "if other platforms use
+      profile ids we should use those as well because they don’t change but usernames and names do." Facebook's number
+      is decision 26's 0.114.1 note. No migration: `profiles.platform_id` was there from the start.
+      - **Kept from a check:** `outreach.check.look` takes `seen`, who the page showed with every key it gave. When the
+        page showed the key someone is kept by, the other one is kept too (`keysSeen`): LinkedIn's member id from the
+        profile's top card, Alignable's business id and its address in its town. Never from a page that wasn't theirs
+        (`missing`), and never a key another profile here has: those two stay as they are.
+      - **Gone by first:** Today's items carry `platformId`. LinkedIn's runner goes by the member id when both links
+        have the same kind of it (`sameMember`; Sales Navigator's "ACwAA…" and LinkedIn's "ACoAA…" differ, so those go
+        by the name in the address), takes a kept conversation linking by that id as theirs without a look at their
+        profile, and opens their profile by id once when the name in their kept address shows someone else or nobody.
+        Alignable's runner goes straight to the conversation by the business id kept.
+      - **Instagram stays by the name in an account's address:** its links show no id. Reading one from the page's
+        code was left out, as it also holds the person's own; its chats are kept by their own key.
+132.  **Retry, and Retry all, spaced out like a person** (Chris, 30 Oct 2026, extension 0.116.0). "need a retry button,
+      when it does retry it shouldn't all send at the same time it should space them out."
+      - **Where:** on Steps it needs you for (web, phone, and the Assistant's `outreach_retry_messages`, on a Confirm
+        card), each message or comment that didn't go has **Retry**; with two or more listed, **Retry all**. Steps that
+        aren't a send (a friend request, a like) come back on the list on their own another day, so they have none
+        (decision 145 gives every step Retry).
+      - **What it does:** `outreach.send.retry` makes a new send, OK'd as it was, and marks the step done; one that
+        can't go again is handed back as a new step. A new send, not the old one again, as the extension tries each
+        send once a day by its own id. A comment's post, set aside when it didn't go, goes back on the list unless the
+        person set it aside since. One with a newer message to them waiting already, or that went since, is passed
+        over and said.
+      - **Spaced out:** the oldest goes first, now; each next one waits 3 to 7 minutes after the one before, at random
+        (`sends.not_before`, migration 20261027020600, `RETRY_GAP_MINUTES`). Till its time its person is off Today's
+        list, and Today says when the next may go on that network (`retryAt`), so a runner with nothing else to do
+        looks again then. Each runner still does one thing at a time at its network's pace, so they never go at once.
+      - **Fewer false alarms first** (the owner's sends of 30 Oct 2026, on 0.114.0): LinkedIn and Alignable said
+        "didn't take the message" of messages that were in the conversation, as LinkedIn drew the box afresh and
+        Alignable left the writing in it. A message went once the box empties or once what was typed shows once more
+        in the conversation (`timesShown`), and what's left in the box is taken out. On LinkedIn's newer messaging,
+        the new conversation Message opens loads in the interop frame, so it waits up to 15 seconds for the box, and
+        takes the box as theirs by the card over it linking to them, as the address may name them by the other kind of
+        member id: only a card or an id of the same kind naming someone else stops it.
+
+133.  **Replies seen by name, and answered any time** (Chris, 30 Oct 2026, extension **0.117.0**). A prospect's Instagram
+      reply got no draft: it was seen only when Chris opened the chat. "check to make sure we don't have this
+      issue with the other platforms as well." Then: "it should always be checking for new messages and always respond
+      in real time it just shouldn't send out new messages if it's not in the working time."
+      - **Why it was missed.** Instagram's list of chats is buttons that link to no chat (the owner's Checks of 21 and
+        28 Oct: none of 15 rows did), and decision 22's reader kept only a row with a chat's id, so from 0.113.0 the
+        messages page kept open (decision 125) never saw a reply on Instagram: one waited for the once-a-day chats
+        read, or for the person to open the chat. LinkedIn's newer list links to no conversation either (the owner's
+        Check LinkedIn of 29 Oct), so there only the conversation open on the page was seen. Facebook's list links each
+        chat by its number, and Alignable's is compared line by line (decision 125), so those were never short.
+      - **By name** (`networks/instagram/replies.ts`, `networks/linkedin/replies.ts`, `listedRows`). A row whose last
+        line is theirs goes by the name it shows, with no chat id or profile, never what they wrote: never "You: …", a
+        reaction, Instagram's "Active 2h ago" or "Seen", an InMail, an ad, LinkedIn itself or a group. HandsFreeOS
+        (`outreach.replies.note`) takes one only when exactly one person the person messaged on that network goes by
+        it (their name, the name in their address, or the name their chat is kept under), and keeps the reply with the
+        chat the person's message went in, so the runner opens it to read before it drafts. Two of that name: neither.
+        No migration.
+      - **Answered any time** (`answersAnyTime`, `ANSWERING`, `lookOutsideAt` in `src/auto/plan.ts`). Outside the
+        working hours, with nothing pressed, each network's runner still drafts a reply to someone who wrote back, at
+        once, and sends one the person OK'd (or that goes on its own as Replies says). Nothing new goes: no first
+        message, follow-up, reconnect, like or request, OK'd or not, till the hours start. While a reply waits for an
+        OK it looks again every 2 minutes, and a message tried again (decision 132) wakes it at its turn, since a reply
+        tried again goes any time too; else it sleeps till the hours. Stop for today, a warning, noting off and an
+        ask in line still stop it, as in the hours.
+
+134.  **The AI reads where the conversation is** (Chris, 30 Oct 2026). "Social Outreach AI needs to be aware of the
+      context of the conversation that has been had. This person said they don’t need a crm and I sent a message back
+      saying if that changes let me know and now the ai is trying to still pitch them again." The draft in the
+      screenshot was a reply written hours before, to their message before the chat moved on: it was still waiting for
+      an OK beside the chat as it is now, and a newer reply was never drafted while it waited (one open send a person
+      and kind).
+      Migration `20261027020700_outreach_drafts_the_chat_moves`: the person may delete their own drafts never OK'd.
+      - **A draft goes once the chat moves on:** when a read of a chat (`outreach.chats.collect`) shows a last message
+        none of those kept, by who wrote it and its words (`movedOn`, never by the times a read gave it), a draft for
+        them still waiting for an OK is deleted (`DRAFTS_THE_CHAT_MOVES`: an answer, a nudge, the next step, a first
+        message), and the next look drafts again from the chat as it is now, or not at all when the person answered
+        them. A page read again as it was, or scrolled up, changes nothing. An OK'd draft stays theirs to send, and a
+        demo's reminder, another time after a no-show and a birthday or new-job note stay: they're about a day.
+      - **Never pitched after a no:** a reply, a follow-up or a check-in to someone who said no or not now (their
+        answer kept for the conversation, their chat read as `not_interested`, or marked not a fit) is told so, with
+        why, and carries no link and none of the playbook's conversation questions (`declinedLine`), until a chat read
+        says they came round (`ready`) or they say yes, which drafts the next step as before.
+      - **The whole chat, not the last line:** a reply's task says to read the whole chat first and answer where it is
+        now; the rules say never to ask what the chat already answered, nor bring back what they turned down. A chat
+        that has come to a close gets one short, warm sign-off at most, with no question, pitch or link.
+      - **A closed chat gets no reply and no follow-up:** a chat's read gives no next step once the chat has come to a
+        close (they said no or not now, the owner said that's fine, and their last message only signs off), and says
+        what to answer when there is something. Today lists no reply for a chat read as `not_interested` with no next
+        step (`closedChat`), and no follow-up in a chat read as `not_interested`.
+      - **A reply the extension saw is answered by hand too:** it leaves Today once their chat, read after it was seen,
+        ends with the person's own message, or reads as come to a close. Before, only a message the extension noted
+        took it off.
+
+135.  **Sends that couldn't find where to write, found** (Chris, 30 Oct 2026, extension **0.117.1**). "still getting
+      failed messages being sent. investigate why and fix". On 0.117.0, every LinkedIn message through Message on a
+      profile said "couldn't find the box to write in" (none had gone in six days), and Instagram messages to some
+      followers said "couldn't find Message on their account".
+      - **LinkedIn's new conversation, looked at as it turns up** (`writeMessage`, `messageBoxFor` in
+        `src/networks/linkedin/auto.ts`). Message on a profile now takes the tab to the new conversation's page
+        (/messaging/thread/new/?recipient=…, drawn in the interop frame) only once LinkedIn has loaded its messaging,
+        which can be after the runner's pause, more so in a window behind another. The look kept the profile's address
+        it began with, so it never took that page's box for theirs. Now each look goes by the address as it is then,
+        and waits up to 15 seconds after a Message that's a link. Owner's outlines of 30 Oct 2026.
+      - **Theirs by whom Message named.** When they've written before, the page shows their past messages over the box
+        instead of a card about them. Their profile's Message is a link naming whom it's to (`recipient`), and the new
+        conversation's address names the same: a box on a page whose address names whom the Message the runner pressed
+        named is theirs (`openMessage` says the link, the runner passes it with the message as `opened`), whatever way
+        LinkedIn writes it, and that, not an id read off their profile, says who it's to. A card linking to someone
+        else still stops it.
+      - **Followed back on Instagram first** (Chris: "Follow back, then message"; `followBack` in
+        `src/auto/instagram.ts`). Instagram shows Message only on accounts the person follows, and followers count as
+        friends there, so a follower not followed back had only Follow Back. When their account shows no Message and
+        they follow the person, the runner presses Follow Back, checks it says Following, notes it as a follow (it
+        counts toward the day's follows), then presses Message. Someone who doesn't follow the person isn't followed,
+        and a private account (Requested) waits for them, each with its reason.
+      - **Alignable's new Messages page** (extension **0.117.2**; `chatHeader` and `MESSAGE_SEND` in
+        `src/networks/alignable/read.ts`). Since midday on 30 Oct 2026, Alignable draws a conversation's header with no
+        test id of its own and its Send as `messaging-send-desktop`, so every Alignable message said "Alignable showed a
+        different conversation". The conversation's header is now the first header on the way up from its box to write
+        in, never Messages' list's nor the site's menu, and either Send counts. No migration.
+
+136.  **The AI decides the friend requests the person gets** (Chris, 30 Oct 2026, "1a 2a 3a 4a 5c" on
+      questions-30-oct-requests.md, extension **0.118.0**). "we still need that feature that decides if we should
+      accept the friend requests or not and does it based on the playbooks etc". Friend requests to decide showed 36
+      with only Open and Leave it: who fit was a keyword match on the lines Facebook's list showed (decision 30), which
+      never read anyone's profile, so almost nobody fit, and LinkedIn's and Alignable's were never answered at all.
+      Migration `20261027020900_outreach_request_answers`: a check `via` of `request`, the AI's answer on the check
+      (`request_answer`, `request_why`), the person's press on the request (`friends.answer`, `answer_at`), and
+      `private.outreach_request_reads`, through which the team view counts a colleague's requests (a check is its
+      person's own), never with why.
+      - **The AI reads each one** (1a, `REQUEST_CHECK_SYSTEM`, `requestCheckPrompt`): someone who sent a request the
+        person hasn't answered, set aside or pressed on is next to check right after a Research press (`checks.next`'s
+        reason `request`, `asksMe`), and once more if they were checked before without it. The worker asks the usual
+        read and what to do with their request, with the mutual friends and where the business reaches (`reachesWords`):
+        **Confirm** a likely customer or partner, or a real person with 10 or more mutual friends
+        (`REQUEST_MUTUAL_YES`) who isn't a clear no; **Delete** a clear no (fake or spammy, sells the same, a playbook
+        says to leave them, lives outside where the business reaches), or nothing pointing to them with fewer than 10
+        mutual friends; **Not sure** when it's close. Its line on why is kept beside it. Not while the person confirms
+        or deletes them all (`readsRequests`), when what it says changes nothing.
+      - **The five choices, renamed and powered by it** (3a, `REQUEST_MODES`, `requestAnswerOf`): leave them all to
+        me; **let the AI confirm the good ones, and leave the rest to me** (as it starts); **let the AI decide**:
+        confirm the good ones and delete the rest; confirm them all; delete them all. Its Confirm goes on Today as
+        **Confirm their request** with its why, its Delete with the day's deletes (decision 121) only under "let the AI
+        decide" and only with a playbook in use, and its Not sure (and a Delete it may not do) waits for the person.
+        Before it has read someone, a keyword fit still confirms, as decision 30 had it.
+      - **Not sure waits with why, and Confirm and Delete** (2a): Friend requests to decide says "The AI says delete:
+        …", "The AI isn't sure: …", or that it hasn't read or couldn't read their profile, and adds **Confirm** and
+        **Delete** beside Leave it, on the web and the phone, the one the AI said standing out
+        (`outreach.request.answer`, risk 2, the Assistant's on a Confirm card, refused for anyone on Never contact). A
+        press goes first whatever the person picked, even under "leave them all to me": Confirm on Today ("You pressed
+        Confirm"), Delete with the day's deletes, even someone kept. One the AI would delete but never deletes says
+        why (`REQUEST_KEPT`).
+      - **The waiting ones first** (4a): the 36 already waiting are read before anyone else but those the person
+        pressed Research on, the most mutual friends first, in the day's room for checks; a new one waits off the list
+        a day for its read (`REQUEST_READ_DAYS`), then shows saying the AI hasn't read it. With no playbook in use
+        nothing waits off the list.
+      - **On every network that has requests** (5c, `answersRequests`): Facebook as before; **LinkedIn**, where the
+        runner opens the sender's profile and presses Accept in its top card (`answerInvitation`), and ignores one
+        with Ignore (under More when it's there, and the box's own Ignore when LinkedIn asks) with the day's deletes
+        (`jobs/linkedin/ignore.ts`); **Alignable**, where it finds the business's row on My Network's Requests and
+        presses Accept, or Decline or Ignore (`networks/alignable/answer.ts`, `jobs/alignable/answer.ts`). Both note each answer as
+        Facebook's do. Instagram's follows wait for nobody. LinkedIn's and Alignable's start confirming on their own
+        under the same choice, so the AI's yeses there go once 0.118.0 runs.
+137.  **First messages: one short question that makes them curious** (Chris, 30 Oct 2026: "i want the first message to
+      the contacts to be more straight forward but bring about curiosity", with "If i had something that could make you
+      more money while saving you time in your [insert niche] business would you be interested", the niche photography
+      or roofing). This replaces decision 65's first message, which asked whether they'd be open to the outcome, said
+      more info would follow, and put a line about them first. No migration, and no new extension.
+      - **The shape** (`FIRST_MESSAGE_SHAPE`, `FIRST_MESSAGE_EXAMPLE` in `conversation.ts`): one question, under 30
+        words, in the owner's words: the owner has something that could make them more money while saving them time,
+        in their kind of business, and would they be interested. Nothing goes before or after it: no greeting, no line
+        about them, no promise of more info, and never what the thing is, its name, a link or the price. It says only
+        what the offer really does (Chris asked the same day about businesses that sell SEO or credit repair): an offer
+        that doesn't make money or save time says what it does get them ("bring more customers to your roofing business
+        from Google", "help raise your credit score"), and one for people rather than businesses leaves out "in your …
+        business".
+      - **Their kind of business** (`THEIR_KIND` in `today.ts`) comes from what's known of them, as they'd say it
+        (roofing, real estate, photography): the one the offer fits best when they run more than one, their line of
+        work when they work for someone else ("as a realtor"), and "your business" when nothing shows it. Never guessed
+        from the playbook.
+      - **Every first message:** Today's drafts (`TASK.opener`), the one text to someone's Requests on Instagram
+        (`REQUESTS_TASK`), and Your messages' first samples, written or written again. A first message is one text,
+        whatever the person's voice says about splitting. Replies, follow-ups, Reconnect and partners' messages are as
+        before.
+      - **Openers still take turns** (decision 23): a playbook's AI style now only words the question ("Say it could
+        make them more money while saving them time"), never adds a line, and the ready-made playbooks' styles, the
+        suggestions and the AI's playbook help are written that way. A playbook saved before keeps its styles; one that
+        asks for a line about them is followed only as far as one short question allows. The business's own openers
+        still go as written, and the person's own first message in Your messages is still kept close to.
+138.  **Every job gets its turn, and full speed when the person says** (Chris, 31 Oct 2026, "Fix it all, full speed
+      Monday", extension **0.119.0**). "Why didn't we reach any of the goals", with Friday 30 Oct's numbers: Facebook 1
+      of 10 requests, 0 of 20 likes, 0 of 7 comments; LinkedIn nothing; Instagram 1 of 10 follows; Alignable 0 of 7
+      requests. And: "unless it needs to be in order such as the like then the request all of the tasks should be
+      independent… comments work even if likes don't or messages work even if comments don't". No migration.
+      - **Jobs take turns** (`inTurns`, `laneOf` in `src/auto/plan.ts`). Replies, the messages the person OK'd and
+        what waits on the person still go first. The rest is a line per job (confirming requests, friend requests,
+        warm-up likes, comments, partners, messages to write), and the job tried least today goes next, ties in the old
+        order. A warm-up like still comes before its own friend request; nothing else waits on another job, so a
+        network whose likes keep failing still sends its requests, comments and messages.
+      - **A failed warm-up counts** (`warmUpLeft` in `ops/today.ts`). A like that couldn't be done marks their request
+        ready (`outreach.warm_up.missed`), but wasn't counted against the day's likes, so Today kept adding new
+        warm-ups ahead of the ready requests all day (Facebook tried 45 against 20 likes). Today's warm-ups now leave
+        room for those missed today.
+      - **Facebook's new Like** (`likeStateOf`, `LIKE_HOOK` in `networks/facebook/posts.ts`). Since 30 Oct, Like is
+        "React with Like to …'s post", marked `data-ad-rendering-role="like_button"`, and posts scrolled past are swapped
+        for stand-ins (`data-virtualized`). The runner reads either label, presses only a Like it can tell isn't
+        pressed, and, when the post it picked was swapped out, scrolls back from the top a screen at a time to find it
+        again (`pickedAgain`). Owner's outlines of 31 Oct 2026.
+      - **LinkedIn's Copy link to post, caught more ways** (`catchCopiesIn` in `networks/copies.ts`,
+        `postLinkIn` and `toastLinks` in `networks/linkedin/post-links.ts`): in every frame of the tab, through the
+        clipboard's own writing and a copy event's data, and from the post link in the "Link copied" note LinkedIn shows.
+      - **Alignable members from the group's Directory** (`membersPage` in `networks/alignable/read.ts`): Alignable
+        moved a group's members to /biz/groups/<group>/members.
+      - **Comments on owners' own posts** (`POST_CHECK_SYSTEM` in `posts.ts`, `COMMENT_RULES` and `TASK.comment` in
+        `today.ts`). The post check only passed posts asking for help or inviting replies, so none of 175 posts since
+        23 Oct passed. A post by someone a playbook is for, about their own work (a job finished, a win, a tip, a photo
+        of their work, even promoting their own business), now passes too, and its comment says something genuine and
+        specific about what they shared, with nothing about the business: no pitch, no link.
+      - **Full speed on a network** (`fullSpeed` in each network's choices, `halvedNow` in `automation.ts`): a switch
+        under Your limits on each network's page in Settings, on the web and the phone, gives the person's full daily
+        limits there at once, without the half limits for their first weeks (decision 96) or for training wheels.
+        Training wheels still make every message wait for an OK, and a warning from the network still halves the limits
+        for a week. Off to start; the owner turns it on per network.
+      - **LinkedIn's short links followed** (`postUrlOfShort` in `src/jobs/linkedin/short-links.ts`, `withLinks` in
+        `jobs/linkedin/posts.ts`). Copy link to post now gives `https://lnkd.in/p/<code>`. The extension's background
+        follows it (no cookies) to the post's own address; one that leads nowhere is dropped and said on the job.
+        The extension asks for `https://lnkd.in/*` for this.
+      - **Facebook group posts' links filled in** (`pointAtTimes` in `networks/facebook/browse.ts`, `readPointed` in
+        `jobs/posts.ts`). A group feed's time links say only `?…` until the mouse goes over them; the runner points at
+        each visible one, waits `POINT_MS`, then reads the feed. Owner's check of 31 Oct 2026.
+139.  **Every day, with new messages on working days only** (Chris, 31 Oct 2026, "it can still do everything all week
+      everyday of the week but the days it's limited sending new messages are the days i put in the settings which are
+      currently m-f", answered "1a 2a 3a"; extension **0.119.0**, with decision 138). No migration.
+      - **Keep working on other days** (`WorkingHours.everyDay`, `worksEveryDay`, `workHours` in `automation.ts`), a
+        switch under Working hours, on the web and the phone, on to start (a setting saved before has none, which counts
+        as on). On, each network works every day in the same start and end hours: `workHours` gives all seven days to
+        `workWindow`, `nextInHours`, `networkDay`, `nextStart` and the waiting words. Off, it's the ticked days only, as
+        before.
+      - **New messages wait for a ticked day** (`WORK_DAY_KINDS`, `newMessagesWait` in `automation.ts`): first
+        messages, Reconnect, follow-ups, check-ins and partner asks and their follow-ups. Today says so on a day off
+        (`newMessagesWait`, `W.newMessagesWait`) and `workLeft` in `src/auto/plan.ts` leaves those drafts and sends for
+        the next ticked day. Likes, friend requests, comments, confirming requests and replies go on. So do the pitch or
+        video after a yes, demo reminders and rebooking (the conversation is already going), and birthday and new job
+        notes (they belong to their day).
+      - **The daily first-message goal still counts ticked days only** (`readiness.ts` reads `hours.days`).
+140.  **Everything it does, counted, and a ticker of what it's doing now** (Chris, 31 Oct 2026: "we should have a
+      counter of all the activities it's done that day, week, month. showing each platform and all together… also a
+      live activity feed that shows what it's doing that very second kind of like a ticker you see at the bottom of a
+      tv screen", answered "all of your picks"; extension **0.120.0**, migration `20261027021500_outreach_tallies`).
+      The picks:
+      - **Everything, in groups** (`TALLY_GROUPS`, `TALLY_KINDS` and `tallyLabel` in `tallies.ts`): Reached out
+        (requests, likes, comments, messages, recommendations, requests accepted, posts put up), Looked at (profiles,
+        posts, chats, new people found, people read from the person's lists, birthdays and news, events), Groups
+        (looked at, joined, members read, the person's groups read), Tidied up (old requests cancelled, friends removed,
+        requests turned down) and Written by the AI (messages and comments drafted). Each group opens to its lines, in
+        each network's own words. Requests, likes, comments, messages, profiles and posts show even at 0.
+      - **Only what it does on its own.** Each save that says the extension did something adds to the person's count
+        for the business's day, network and kind (`tally` in `ops/tallies.ts`), in the save's own transaction, so a
+        refused save counts nothing and older builds count too. What the person did themselves isn't counted:
+        `outreach.touch.save` and `outreach.friend.note` count only with `auto` (the extension's confirms, tidying and
+        answers say so from 0.120.0), and a helpful post only when the extension put it up. A message counts once, when
+        its touch is saved, never again at `outreach.send.done`.
+      - **Today, this week from Monday, this month from the 1st** (`countPeriodStart`), on the business's calendar.
+      - **At the top of Today**, on the web and the phone (`counters.tsx` in each), with Today, This week and This
+        month, All networks and a tab for each network worked or counted, going up live: the web asks again each time
+        the person's computer says something and every minute; the phone every 5 seconds while Today is open
+        (`TICKER_ASK_SECONDS`).
+      - **The ticker along the bottom of every Social Outreach page** (`ticker.tsx` on the web; the route's layout on
+        the phone): a Live dot, what the computer is doing now, then today's newest 12 steps going past like a TV's news
+        line (`tickerOf`, `outreach.ticker`, a lighter read than `outreach.live`). It holds still while pointed at,
+        focused or tapped, has Pause, and stands still for reduced motion, where the steps scroll by hand. The setup's
+        own full-screen steps don't have it.
+      - **About 5 seconds while a ticker is on screen, about a minute otherwise.** A ticker says so every minute
+        (`outreach.live.watch`, `computers.watched_until` for 90 seconds). Meanwhile each beat's answer says `watched`
+        and the extension sends a line alone every 4 seconds (`WATCHED_LINE_SECONDS`) instead of every 20, and the
+        server passes it on as often instead of every 45. The first watch tells the extension at once
+        (`outreach.live.watched`), so it speeds up without waiting for its minute's beat. A line alone told for a
+        ticker goes out as `outreach_line`, not `outreach_computer`, so Set up isn't drawn again every few seconds and
+        the person's other computers don't beat for it.
+      - **Owners and admins see the team's**, all together and person by person (`everyone`, refused to anyone else
+        with `outreach_counts_everyone`); counts hold no names, so the database lets managers read everyone's rows and
+        each person write only their own. Each person's ticker shows only their own computer.
+      - **From zero on the day it goes live**: nothing is worked out from before. A stretch that began earlier says
+        "Counted since Oct 31." (`countedSinceWords`). Counts are kept 400 days (`TALLY_KEEP_DAYS`, the worker's
+        nightly prune).
+
+141.  **Comments that sound like an expert, on posts that fit the playbook** (Chris, 1 Nov 2026: "the comments that
+      the social outreach extension is suggesting are very robotic and don’t make me sound like an expert in my field.
+      the posts we respond to should be related to the playbook so it should be searching for posts using keywords and
+      phrases related. also when it shows the suggested comment it should show a more option to show the whole post
+      instead of cutting it off"), answered "1a 2a 3b 4b 5b"; extension **0.121.0**, data version **9**, no migration.
+      What was wrong, from the live counts of the 5 days before: every comment waiting was on Instagram or LinkedIn,
+      on a post found by search, and the hashtags that found the most "good" posts were the trades' own
+      (#electriciansofinstagram, #roofingcontractor), while "too many leads" found none. The post check called a job
+      photo by someone the playbook is for good, the comment ask said to praise it "as a friendly local would", and
+      the AI's words were written for who the playbook is for, not its topic. The picks:
+      - **Only posts about the playbook's topic get comments** (1a). The post check (`POST_CHECK_SYSTEM` in `posts.ts`)
+        calls a post good only when it's about a playbook's problem, what the offer helps with, or running and growing
+        that kind of business: asking for help or a recommendation the offer answers, struggling with or complaining
+        about the problem, asking how others handle it, or a tip on it. A post that only shows the writer's work (a job
+        done, a photo, a win, an ad) isn't, however well they fit: the check says `fits` instead, so the writer is
+        still found, liked and followed (decision 123), with no comment. The check is told each playbook's niche and
+        problem as well as its offer and who it's for.
+      - **The AI's words are written again, around the topic** (2a). `FIND_WORDS_SYSTEM` (`topics.ts`) writes the
+        hashtags and phrases for the problem the business solves, what it helps with and running that kind of
+        business, never posts that only show the work; at most three local hashtags; the business-owner hashtags that
+        are about anything (#smallbusiness, #entrepreneur and the like) are dropped as noise. Data version 9
+        (`upgradePlaybookDetails`) lets go of the Instagram and LinkedIn lists the AI wrote before, even ones the person
+        changed since, as the owner chose; a list the person emptied stays empty, their own words stay, and
+        Alignable's kinds of business stay. The worker's data step 9 queues the business's words write at once, so the
+        new words come in minutes, at the usual cost of one AI ask per playbook.
+      - **Comments sound like a peer who knows the field** (3b). The comment ask (`TASK.comment`, `COMMENT_RULES` in
+        `today.ts`) is the owner's public comment "as someone who knows this field well talking to a peer": one
+        specific, useful point that builds on the post (a tip, what works, a common mistake, a rule of thumb) from what
+        the business knows and the playbook. When they asked for help with what the business does, it may say in a few
+        words that it's what they do, with no hard pitch and no link unless they asked (never a link where comments
+        wait to be posted). Never open with praise or thanks, never repeat the post back, never sound like a fan, a
+        brand or an ad, and never invent experience, numbers or results. Under 50 words, and Instagram's 30. A draft
+        that still opens with a sentence of stock praise ("Great post!", "Love this, Sam!", "So true.") has it taken
+        off (`withoutStockPraise`), and a draft with nothing left after it isn't offered. Comments already waiting stay
+        until they're OK'd or skipped, and good posts leave Today after 7 days.
+      - **No Comments part in Your messages** (4b): the voice is in the ask, the same for every business.
+      - **Facebook searches its posts with the playbook's phrases** (5b). A customers' playbook on Facebook has a new
+        list, **Words to search Facebook’s posts with** (`facebookSearches`, `FIND_WORDS_PARTS.facebook`, 8 to 12
+        phrases of up to 4 words, like "missed calls" or "anyone use a CRM"), written by the AI with the others and the
+        person's to change on the web and the phone; every ready-made playbook (CRM demos too) has its own. Each day the
+        extension's Find posts, after the groups (or with none), searches Facebook's posts with 5 of them in turn,
+        recent posts first, three screens each (`searchPosts` in `src/jobs/posts.ts`), and sends them in no group,
+        found by search, with the phrase (`PostsSaveInput` lets Facebook have no group only then). A post found with a
+        playbook's own phrase goes to the AI's check whatever its words say; one older than a week is left out. Unlike
+        LinkedIn, Facebook's search never falls back on the signs' words: no phrases, no search. Today says "On
+        Facebook" for such a post, and the comment ask says they posted it on Facebook.
+      - **More on a post cut short.** Today shows a post's first 280 characters (`TODAY_POST_MOST`) and Waiting for you
+        a comment's first 200 (`SEND_POST_MOST`), as before; when that cuts it short, **More** right after the words
+        shows the whole post in place (all of it HandsFreeOS kept, up to `POST_TEXT_MOST`), and **Less** folds it back,
+        on the web and the phone (`post-quote.tsx` in each). Both answers carry the whole post as `postWhole` beside
+        `post`, only when `post` was cut (`postParts` in `sends.ts`), so phones from before it show the start alone, as
+        they did. An answer to a comment on the person's own post (`warm_lead`) does the same with the comment.
+
+142.  **When a step doesn't go, the AI helper looks, and the report says why** (Chris, 1 Nov 2026: "it failed to like a
+      post and send a connection request. anytime that happens it should send a report of the outline of the page and
+      preferably a screenshot in the admin section as a failure report of some kind so we can investigate and fix",
+      then "build/copy the claude extension into social outreach so it can handle it on its own. the ai usage will
+      just get charged to the hfos customer", "not just clears the way because sometimes it could just be a layout
+      difference between what is there and what the extension expected. so if that’s the case it should identify that
+      and then put that in the report", "sometimes things are in a different place for different seemingly
+      inconsistent reasons so the extension needs to be able to handle the buttons/layout being different in a number
+      of different ways", and "forget the screenshot"), answered "all your picks" (1b 2a 3b); extension **0.122.0**,
+      migration `20261027021700_problem_reports_helper_and_learned_ways.sql`. Every step that didn't go already sent a
+      problem report with the page's outline (decisions 74 and 75); what was missing was why, and anything that could
+      fix it on the spot. No screenshots: the helper works from a view of the page, as the outline does.
+      - **The helper's view** (`src/networks/helper-view.ts`): the page as numbered lines, what's on top first (a box,
+        a menu), then the page, its top bar left out: each control's kind, the network's own words on it, and where a
+        link goes, masked as the outline masks it. Everything a person wrote is "[2 words]", and the person the step is
+        for is "(their name)": their name never leaves the computer. At most 24,000 characters.
+      - **It looks a move at a time** (`src/auto/helper.ts`, the worker's `outreach.helper.look`, core's
+        `addons/outreach/helper.ts`). The AI says what it sees (`in_the_way`, `moved`, `refused`, `warning`,
+        `unclear`), in a sentence of the network's words, and one move: click, scroll, Escape, wait, or press. At most 8
+        moves a step and 80 looks a day on a computer, every network together; each look is the add-on's AI use,
+        charged to the business like any other, and without the AI (its limit, the balance, busy) the step is reported
+        as before. Core checks every move against the view before the tab takes it: a click only clears the way, never
+        on anything that takes a step or changes something (`NEVER_CLEAR`: Like, Send, Message, Remove, Follow, Post,
+        Pay and the like), never a link to another page; a press is the step's own button alone (`HELPER_BUTTONS`,
+        `mayPress`), never one for someone else (a name that isn't theirs on it), never off the network.
+      - **Where it presses** (2a). Inside a step, once the runner checked the page is the person's: Facebook's Add
+        friend and Confirm, LinkedIn's Connect (and the invitation box sent as it is, as before) and Accept,
+        Instagram's Follow, and Alignable's Connect (also when their page still shows Connect after the press). The
+        step's own check then says whether it went, and the report says **Done by the AI helper**. Never a message, a
+        comment or a removal, and never a like: the runner can't tell the helper which post the AI picked, so a like
+        that didn't go gets its look (`look`) and is reported, never pressed. Anywhere else (a different page, a step
+        handed over) the helper only clears the way and says; when it cleared something, a step on Today's list is
+        tried once more, never a message (it could go twice), and one that goes then is **Fixed itself**.
+      - **The report says why** (1b). A step that didn't go sends the runner's own words as its note (their name as
+        "(their name)") with the outline and what the helper did: what it sorted it as, what it said, its moves, how it
+        ended (`app.problem_reports.helper`, `ProblemHelper`). Admin → Problem reports shows a badge on each ("Layout
+        changed · Done by the AI helper"), the helper's findings on the report and in Copy for Claude, and the last 7
+        days by step ("12 reports, 3 open · 4 in the way, 2 layout changed"), on the web and the phone. A step handed to
+        the person keeps its report's id (`addon_outreach.needs.report_id`), and HandsFreeOS staff who read the reports
+        (`platform.health.read`) see **See what it saw** on its Needs you card, on the web and the phone; the business
+        never does.
+      - **Learned ways** (3b). When the helper pressed the step's button and the step went, how it found it is kept
+        across every business (`platform.learned_ways`): the button's tag, role and the network's words on it, the part
+        of the page it's in, and the menu it was under. Once a way has worked twice it's trusted, and every computer
+        tries the trusted ways for a step before asking the AI, pressing only when exactly one thing on the page fits.
+        A trusted way that pressed but didn't make the step go counts as failed. Staff see each way, how often it
+        worked and for how many businesses, on Admin → Problem reports → **Learned ways**, and **Set aside** one so no
+        computer tries it again (`learned_way.set_removed`), or bring it back. One that hasn't worked in 90 days goes.
+        New ways sit beside the extension's own readers, never in place of them: the runner's own way is always tried
+        first.
+
+143.  **Comments from the owner's own field, never the poster's trade** (Chris, 1 Nov 2026: "the social outreach
+      comments are behaving like I'm an expert in their field not mine. Like saying what to do if a breaker flips
+      multiple times or what to do when trying to find a stud, it shouldn't be making these types of comments it should
+      be making marketing or automation or ai or crm expert comments since that's what my field is", then "so the
+      types of posts the comments for my field would be is when a business owner or someone is speak or asking about
+      ai or automations or crms etc"), answered "1a but keep in mind this is for my business another customer using
+      social outreach would be commenting to different types of posts, 2a, 3a"; data version **10**, no migration, no
+      new extension. What was wrong: every post still waiting for a comment had been called good before decision 141
+      went live (all 72 posts checked after it were not good), and decision 141's comment ask said "as someone who
+      knows this field", with no word of whose, so with a playbook for roofers or electricians the AI wrote as one of
+      them. The picks:
+      - **Only posts about the owner's own field get a comment** (1a), each business's own: what it does and what its
+        offer helps with, never the trade of who a playbook is for. The post check (`POST_CHECK_SYSTEM`) says a
+        playbook's niche and who it's for say whose posts to look at, never the owner's field; a post about the
+        writer's own trade or work (how to do it, a tip for their customers, a job done, a photo, a win, an ad) isn't
+        good, however well they fit, and says `fits` instead, so they're still found, liked and followed (decision
+        123). Running a business counts only where the post is about the owner's field, so "running and growing that
+        kind of business" is gone from the check.
+      - **The field comes from the business profile and the offer** (2a): nothing new to fill in. The post check is
+        now told the business profile (`<business_profile>`, `briefFromProfile`, read by `businessKnows`), as a draft
+        already was (decision 122), beside each playbook's offer and problem. The AI's search words (`FIND_WORDS_SYSTEM`
+        in `topics.ts`) are written around the topic in that field too, for words written from now on; words already
+        written stay.
+      - **Comments from that field, or none** (`TASK.comment`, `COMMENT_RULES`): the owner's public comment is "from
+        the owner's own field", never advice about the writer's own trade or work (how to do it, their tools, their
+        materials, their customers' questions) unless it's the owner's field too. When the owner's field has nothing
+        real to add, the AI writes no drafts, and the extension passes the post by for the day ("the AI had nothing to
+        say on it"). The rest of decision 141's voice stays.
+      - **The posts an older check called good are checked again** (3a). `sendOldGoodBack` (the worker's
+        `posts.ts`) sends back to the AI's check every good post checked before the new check went live
+        (`FIELD_CHECK_SINCE`) that a comment could still go on (seen in the last week, not skipped, no comment drafted
+        or posted), and queues the check at once: about one AI ask a post. A business with the add-on on never runs a
+        data step, so the next posts saved and the day's start do it (data step 10 is it for a reinstall), and Today
+        offers no post checked before then meanwhile. Those about the owner's field stay good; the rest leave Today. A
+        comment already waiting stays until it's OK'd or skipped.
+
+144.  **Comments that take a stand, and offer a demo when they want help** (Chris, 2 Nov 2026, showing their own comment on
+      a post asking for someone to do automations the right way: "You've got it all wrong, you need a crm where you
+      don't need to create automations in the first place because it does it for you. I can show you a demo if you're
+      interested.", and "these are the style comments i'm referring to. doesn't always have to be this but you should
+      understand what i mean"), answered "1a 2a 3a"; no data version, no migration, no new extension. Decision 141's
+      peer tip read like every other polite reply under a post. The picks:
+      - **A clear stand from the owner's field** (2a, `TASK.comment`, `COMMENT_RULES`): often a bold take on what most
+        people get wrong or do the hard way, and how the owner's way does it instead; sometimes one specific tip, a
+        rule of thumb or a common mistake. It challenges the usual way, never the person: never calling them wrong,
+        talking down to them or making fun of them. Decision 143 stands: the owner's own field, never the poster's
+        trade, and no drafts when that field has nothing real to add.
+      - **The angle is each business's own offer**: a comment is now told the main offer's angle (`ANGLE_KINDS` in
+        `today.ts`): its line, its outcome and how it works, never its price, its guarantee or its results, which a
+        comment in public doesn't say. Nothing is written for HandsFreeOS alone; another business's comments take its
+        own offer's stand.
+      - **An offer to show them only when they want the help** (1a): when the post asks for help with what the business
+        does, or is looking for someone to do it, the comment ends with a short, easy offer to show them, such as "I
+        can show you a demo if you're interested" (3a). On every other post it offers and pitches nothing.
+      - **No link in any comment** (3a): no link, no web address and no price, on Facebook too, where a link once went
+        when they asked for one. The playbook's link no longer reaches a comment's prompt. Those who say yes go on in
+        the chat, where the conversation's messages carry the link as before.
+
+145.  **Retry all on every step, and once on its own after each update** (Chris, 1 Nov 2026, with Steps it needs you
+      for showing six Alignable "didn’t take the request" and a LinkedIn invite: "any failures we should have a retry
+      all option because we should be fixing those issues after updates"), answered "yes on picks"; extension
+      **0.123.0**, migration `20261027021800_outreach_need_retry.sql`.
+      - **Retry on any step** (`outreach.need.retry`; the Assistant's `outreach_retry_steps`, on a Confirm card). Each
+        step there that can be tried again has **Retry**, and with two or more, **Retry all** tops the group, on the web
+        and the phone (`needRetryable`). A message or comment that didn't go goes again through its send, as decision
+        132 says. Any other step (a friend or connection request, a confirm, a like before a request, a comment the
+        extension writes itself) goes back on Today's list on its network for the extension's next go
+        (`addon_outreach.needs.retry_at`), first of its kind and within the day's limits, with the rest of that limit
+        after it (`withRetried`). One to someone on Don't pitch since, or a request while new ones are held (decision
+        97), isn't offered. `outreach.send.retry` stays for phones from before it.
+      - **Off Steps it needs you for meanwhile.** A step put back doesn't show or count there for 3 days at most
+        (`NEED_RETRY_DAYS`, `private.outreach_needs_counted`). Done, it's cleared as any step is. Found done already
+        (connected, invited, asked, friends already), the extension clears it. Anything else hands it back, quietly, as
+        the person heard of it before. Neither within 3 days, it waits for them again on its own.
+      - **Tried once more for each time it's put back.** Its item carries `retry` (the step and when), and the
+        extension's key for it does too, so it goes though the extension tried it today.
+      - **Once on its own after each update.** The first go of a new version for a business presses Retry all for it
+        (`retryAfterUpdate`), so what failed before a fix is tried with the fix. Not messages and comments that didn't
+        go (`sends: false`): one that went after all would go twice, so those wait for the person's Retry.
+      - **Fewer false failures, and better reports.** A step found done already is no failure: it sends no problem
+        report and isn't handed over (`skip`). Facebook's "couldn't tell where things stand" is handed over and the AI
+        helper looks first, as a profile whose buttons it can't read is likely a new layout. When the helper didn't
+        look at all, the report says why (`notLooked`): the computer's 80 looks used, the page unread, the AI not asked
+        (with HandsFreeOS's words: its limit, the balance, busy), or HandsFreeOS not answering. Alignable's Connect
+        reads their page as the press left it before opening it again; still theirs and still showing Connect, the
+        helper looks there, while a box asking one more thing still shows.
+
+146.  **Pushes you can read at a glance** (Chris, 2 Nov 2026, with a screenshot of two pushes cut off on the lock
+      screen, "Abundant LifeX3 Solutions…" and "Nevin Labib: the extension…": "the mobile notifications we getting are
+      kind of hard to understand at a quick glance"), answered "1b 2b 3a"; extension **0.123.1** for the pop-ups, no
+      migration. The title started with the name, so the phone cut it before it said what happened; a message didn't
+      say its network; the words said "on Today" though a tap opens Needs you; and a step showed the extension's own
+      reason. The picks, in core's `waiting-words.ts`, so the phone's pushes and Chrome's pop-ups say the same:
+      - **The network and what happened make the title, short enough never to be cut** (1b): "LinkedIn message to OK",
+        "Facebook comment to OK", "Alignable step for you", "Instagram reply needs you"; with no network known,
+        "Message to OK". Who it is goes in the body: "To Dana Reyes.", "On Dana Reyes’s post.", "From Dana Reyes: they
+        sound upset, so the AI’s answer waits for you." The bundled push follows: "5 messages to OK", "2 steps for you".
+      - **No words of the message in the push** (2b): just who it's to and its network.
+      - **A step says what to do, in its network's words** (3a, `needTitle`): "Send Dana Reyes an invitation to
+        connect yourself, or let it go." The extension's reason stays on Needs you.
+      - **Every push ends with what a tap does** ("Tap to OK, change or skip it.", "Tap to open it."), so none names a
+        page; the pop-ups say "Click to…" (`PushOn`).
+147.  **Alignable's monthly connection limit pauses its connection requests till the 1st** (Chris, 2 Nov 2026, after
+      the AI helper's reports showed it pressing Not now on a box after Connect: "oh it says i’ve reached my monthly
+      connection limit in alignable", "it asks me to upgrade"), answered "Pause requests till next month"; extension
+      **0.124.0**, migration `20261027021900_outreach_request_pauses.sql`.
+      - **The extension sees it.** Alignable's page read keeps its words when they say the person reached their
+        monthly limit of connection requests (`monthlyLimitOn`, the extension's `limit`). Connect looks for it before
+        Alignable's warnings, after the press and when their page opens again, and tells HandsFreeOS
+        (`outreach.requests.pause`, the extension's alone).
+      - **New connection requests wait till the 1st of next month**, the business's day (`pauseEndsOn`,
+        `addon_outreach.request_pauses`), and so do the likes before them and requests tried again, as decision 97
+        holds them; the day's goal and the searching for more to ask count it too (`goalStock`). Hit again within a
+        week of the last pause ending, it waits a week instead (`PAUSE_AGAIN_DAYS`): a limit counted over the last
+        30 days, not by the calendar month, doesn't cost a whole month.
+      - **Never a warning.** Likes, comments, messages and the rest of Alignable's day go on; nothing is halved, no
+        training wheels, no push, and the AI helper doesn't look. The step that hit it says so on the panel and in its
+        report; one tried again goes back to the person, as any that didn't go.
+      - **One line on Today, on the web and the phone** (`requestsHeld.why` `limit`, `requestsHeldWords`): "No new
+        connection requests on Alignable till Dec 1: Alignable says you’ve reached your monthly limit. Likes, comments
+        and messages go on. Upgraded on Alignable? Start them again." With **Start again**
+        (`outreach.requests.start_again`; the Assistant's `outreach_start_requests_again`, on a Confirm card), which
+        ends it now; still at the limit, the next Connect pauses them again.
+      - Any network's own monthly limit could use the same pause; only Alignable's is read today.
+
+148.  **Only the groups I'm in** (Chris, 3 Nov 2026: "I want a setting in the social outreach tool to stop it from
+      joining more groups in the different platforms and focus on connecting with the members of the groups we are
+      already in"), answered "1a 2a 3a 4a"; extension **0.125.0**, migration
+      `20261027022200_outreach_members_depth.sql`.
+      - **A pick of two, in place of the Join switch** (`GROUP_MODES`, `groupModeOf`, kept as `joinGroups`), on each
+        network where groups are the person's to work (`joinsGroups`: Facebook, decision 48, and Alignable,
+        decision 92), under **Groups** on that network's page in Settings, on the web and the phone
+        (`groupsChoiceOn`): **Join more good groups when mine run low**, as it starts and always worked, or **Only the
+        groups I'm in**. Each person picks their own, on each network (answer 3a). Instagram has no groups and
+        LinkedIn's are too quiet, so neither shows it.
+      - **Only the groups I'm in stops looking outside them** (`onlyMyGroups`), not just the joining:
+        - nothing is joined or searched for on its own (`outreach.joins.next`'s `onItsOwn`, as the switch off did);
+        - the AI reads no group they aren't in (`outreach.groups.to_check`), so nothing is spent checking groups
+          they'd never work;
+        - the day's friend requests go only to people found in groups they're in, on Facebook by the words they show
+          and on Alignable by the AI's check of each (`outreach.today`, `foundGood`'s `onlyMine`);
+        - people left to reach, and the days of friend requests on the Groups page, count only those groups
+          (`peopleLeft`'s `onlyMine`, `prospectsWords`);
+        - the day's goal never says to join more groups: it says to add search words instead (`goalTries`).
+      - **Their own press still joins** (answer 4a): **Find and join more groups** and a group's **Ask to join** work
+        as they always did, under either pick. A group joined that way is one of their own from then on.
+      - **A group's members are read further down each day** (answer 2a, `MEMBER_DEPTH_MOST` 40 screens,
+        `my_groups.members_depth`): the once-a-day read of a group's member list scrolls past the screens the last read
+        covered, at a quicker pace since it saves nothing, then reads its own ten screens (five on Alignable) and
+        notes where it got to (`outreach.group.save`'s `readTo`). A list that ran out, or one read as deep as it goes,
+        starts at the top again; one stopped part way leaves the depth as it was. This runs under either pick, so a
+        big group is worked right through instead of its first screens over and over.
+      - A business's owner setting it for the whole team was offered and left out (answer 3a): each person picks.
 
 ## Rules worth knowing before changing anything
 
@@ -2834,7 +3709,8 @@ where decisions 37 and 59 put the settings; what they decided stands. Settled to
   Alignable's groups and their members (decision 92); and what two switches send as the person goes, in the Facebook tab in front of them,
   panel open or not, each on by default and turned off in their settings in HandsFreeOS (decision 37): the chats they
   open in Messenger (**Read chats as I open them**), and the posts worth a look in a group's feed (**Look for posts
-  as I scroll a group**). Facebook's warnings are read there always. The extension's own work tabs are never read this way.
+  as I scroll a group**). Facebook's warnings are read there always. The extension's own work tabs are never read this way,
+  but for who wrote last on the messages pages it keeps open (decision 125).
   While noting is on, it also tells HandsFreeOS who wrote last in the chats on the page (decision 22), and the runner
   hands over a step it couldn't do (`outreach.need.note`, decision 42). Reading any other page only looks things up.
 - **Settings live in HandsFreeOS, never in the extension** (decision 37). A new choice for what the extension does
@@ -2845,6 +3721,8 @@ where decisions 37 and 59 put the settings; what they decided stands. Settled to
 - **What the AI writes for the person goes through `voice.ts`** (decisions 53 to 55). Every prompt that writes for
   them carries `PLAIN_WRITING` (everyday words, short sentences, relaxed, no long dash), and what comes back is cleaned
   with `noDashes` (a dash between words becomes a comma, between numbers a hyphen) whatever the prompt said. A message
+  talks about a business in plain words, its name at most once in a chat and never a handle (`BUSINESS_NAMES`,
+  decision 124). A message
   or comment carries the person's voice (`voiceLines`, from `AutomationSettings.voice`, columns `voice_*` in
   `addon_outreach.automation`; the worker reads it with `voiceFor`); a helpful post only their emoji choice. A message
   to a chat quiet `GAP_GREETING_DAYS` (3) or more opens with a greeting that fits the gap (`gapLine`), measured from the
@@ -2964,15 +3842,15 @@ where decisions 37 and 59 put the settings; what they decided stands. Settled to
   kept apart. On LinkedIn the extension notes the person's own steps, who wrote back and LinkedIn's warnings, as
   LinkedIn's (0.34.0, apps/extension/README.md, "The networks"), and takes no ask there before 0.40.0
   (`ASK_NETWORK_SINCE`); the activity panel is Facebook's. Joining groups is Facebook's and, from decision 92,
-  Alignable's, each with its own joins a day, warning and switch (`outreach.groups.to_check` and
+  Alignable's, each with its own joins a day, warning and groups pick (decision 148; `outreach.groups.to_check` and
   `outreach.joins.next` take `platform`, Facebook's when an older build names none). The team's live view is the network on
   screen's, as the person's own is (`outreach.live.team`'s `platform`): on any other than Facebook, only the people
   who have it on. A new place that
   reads a warning, a day or the day's counts names its network.
 - **Each network has its own choices** (Chris, 15 Oct 2026: the same choices as Facebook, each person turning networks
   on). Facebook's are the settings they always were; every other network's are in `AutomationSettings.networks`
-  (`NetworkChoices`: on, sending, replies, liking a post first, confirming requests, the once-a-day jobs, joining
-  groups, watching for posts, helpful posts), kept in `automation.networks` and off to start (20261027007100). Read
+  (`NetworkChoices`: on, sending, replies, liking a post first, confirming requests, the once-a-day jobs, what it does
+  about groups, watching for posts, helpful posts), kept in `automation.networks` and off to start (20261027007100). Read
   one network's with `choicesFor`, or `automationOf(ctx, me, now, platform)`, never the top-level fields for a network
   that isn't Facebook. The business allows networks (`rules.networksAllowed`, every one to start, Facebook always)
   and sets each other network's limits under its starting ones (`rules.networkLimits`); a network it stops allowing
@@ -3186,8 +4064,9 @@ where decisions 37 and 59 put the settings; what they decided stands. Settled to
   in the person's own chat, which the server reads itself; the AI's "simple" only counts with (b)). With (b) or (c),
   one that waits is handed over with a push (`handedOver`, the worker's `handOver`). Only an OK'd one
   (`approved`) is sent, and only the extension says it went (`outreach.send.done`); the message itself is noted as any
-  step is. One open send a person, profile and kind at a time: drafting again returns it. A send skipped or not sent
-  takes them off the list for the rest of the day. A first message sent this way notes its opener, as copying does.
+  step is. One open send a person, profile and kind at a time: drafting again returns it, until a read of their chat
+  shows it moved on, which deletes a draft never OK'd so the next look drafts again (decision 134). A send skipped or
+  not sent takes them off the list for the rest of the day. A first message sent this way notes its opener, as copying does.
   **A comment goes through `sends` too** where the network's comments wait at first (decision 92; the kit's
   `commentsWait: 'hold'`, Instagram and Alignable), as kind `comment` with its post (`sends.post_id`;
   `MESSAGE_KINDS` still means messages, and `SEND_KINDS` adds the comment). It's queued only for a good post of the
@@ -3212,7 +4091,9 @@ where decisions 37 and 59 put the settings; what they decided stands. Settled to
   answers what `outreach.waiting` does of them; a change to what's kept is a change to the manifest's `offline` and
   the migration together. A comment waiting is copied as a message is (decision 92, `phoneSendOf` takes
   `SEND_KINDS`): the copy keeps no post, so offline it shows its words alone, and the post above it once HandsFreeOS
-  has said it. A phone built before comments leaves their rows out of its copy, so nothing breaks.
+  has said it. A message or comment the copy brings after `outreach.waiting` last answered has the screen ask again
+  (`unheardOf`, the owner's report of 1 Nov 2026: an Instagram comment with no post, whose Open went to their page).
+  A phone built before comments leaves their rows out of its copy, so nothing breaks.
 - **On the phone, the newer press wins** (decision 44): an OK that waited is held to 30 minutes (`freshMinutes`), then
   asks; a skip that waited goes whenever, but is refused when the message was OK'd after it was pressed
   (`outreach_send_okd_since`); an OK that waited finds nothing to OK once the message was skipped meanwhile, and the
@@ -3243,7 +4124,12 @@ where decisions 37 and 59 put the settings; what they decided stands. Settled to
   or Don't pitch or tagged Friend or family), with why. A good fit from someone pitched is never here, even past the
   most Today lists at once: Today confirms it on a later day (decision 30).
   **Leave it** sets one aside until they ask again (`set_aside_at`). They count on the icon and the lists, and are
-  never pushed.
+  never pushed. Where the extension answers them (Facebook, LinkedIn, Alignable, `answersRequests`), decision 136
+  decides who's here (`requestAnswerOf`): never one Today confirms or tidying deletes. Each says what the AI said and
+  why (`requestWhy`), with **Confirm** and **Delete** (`outreach.request.answer`); one the AI hasn't read waits off
+  the list a day (`REQUEST_READ_DAYS`), but only with a playbook in use. A press counts while that request waits
+  (`friends.answer_at >= since`), and goes first whatever the person picked: Confirm on Today, Delete with the day's
+  deletes, even someone kept. The AI's no never deletes someone `neverDeleted`, nor anyone with no playbook in use.
 - **Pushes for what waits follow the person's choice** (`pushes`, the worker's `waiting.ts`): bundled, one job a
   person (`outreach.waiting_push`), 10 minutes after the first new one, at most every 2 hours and only in their
   working hours, and only when a message or step reached HandsFreeOS since the last (`waiting_pushes`, kept in the
@@ -3266,7 +4152,8 @@ where decisions 37 and 59 put the settings; what they decided stands. Settled to
   `network_starts`, the person's own, written only by `outreach.touch.save`; tests start everyone 90 days back
   (`season` in `outreach-fixture.ts`) unless the business is made with `{ newAccounts: true }`.
 - **Friend requests stop at 200 waiting or near the cap** (decision 97, `requestsHeldOn`): Today leaves them and the
-  likes before them off as after a warning, and says why with `requestsHeld`.
+  likes before them off as after a warning, and says why with `requestsHeld`. So does a network's monthly limit, till
+  the 1st (decision 147, `requestsPauseOf`): never a warning, so nothing else slows or stops.
 - **A post is checked once, and kept for the person who saw it** (`posts`, by `user_id` and link). Seen again, it's
   only updated; the AI's answer is taken once (`outreach.post.check` changes only a `waiting` post), and an answer it
   can't use marks it `failed`. Today offers it for a week from when it was last seen (`POST_FRESH_DAYS`), never when
@@ -3281,7 +4168,12 @@ where decisions 37 and 59 put the settings; what they decided stands. Settled to
   chat again is no news; a chat with nothing of the person's noted, or seen within 30 seconds of their message being
   noted (Messenger's list catching up), isn't one. The extension sends only who (the chat's number or their profile),
   only chats from the last two days, each at most every 3 minutes, and nothing while noting is off. The push goes to
-  that person alone, unless they had the tab in front of them.
+  that person alone, unless they had the tab in front of them. A reply seen leaves Today when the extension notes a
+  message to them, or when their chat, read after it was seen, ends with the person's own or reads as come to a close
+  (decision 134).
+- **Nobody who said no is pitched** (decision 134, `declinedLine`): a reply, a follow-up or a check-in to someone
+  whose answer kept is no or not now, whose chat reads `not_interested`, or who's marked not a fit carries no link and
+  no conversation questions, and the AI is told why. Only a chat read as `ready`, or their yes, brings the pitch back.
 - **The morning push is one job per business** (`outreach.morning`), armed when the add-on comes on, when the hour
   changes, and whenever the extension sends a reply or something Today reads, so a business that had the add-on
   before it gets one too. It works out each person's list as they would see it (`outreach.today` on their behalf),
@@ -3427,7 +4319,9 @@ where decisions 37 and 59 put the settings; what they decided stands. Settled to
   and group, restrictive to its person (`joins_own`); a failed one is asked again after a week, a new ask resetting
   when it went. The day's asks count since the business's midnight. Joining on its own is the person's
   `join_groups`, kept since 20261027001200 but unused until 20261027002200, which turned it on for everyone; the
-  once-a-day job joins only while it's on and people left to reach are under a week of friend requests. People left
+  once-a-day job joins only while it's on and people left to reach are under a week of friend requests. From
+  decision 148 that column is a pick of two (`onlyMyGroups`): off, the person works only the groups they're in, so no
+  group they aren't in is checked either, and their day reaches only those groups' people. People left
   count the way Today picks friend requests (found in a group that fits, fit a playbook, never reached, never running
   a group, on Don't pitch or in Contacts), up to 5,000. Groups go by network (decision 92): on Alignable the same
   pipeline checks and joins its groups, and people left count only those found in its groups, by the AI's check of
@@ -3540,6 +4434,11 @@ where decisions 37 and 59 put the settings; what they decided stands. Settled to
   business's clock, while `dayReport` is on; a save from a screen that sends none keeps the one kept.
 - **Timeline lines** come from `addonTimelineLine`: "added them from Facebook", "linked their Facebook profile",
   "saved 3 Facebook messages".
+- **The AI helper presses only the step's own button** (decision 142), on a page the runner checked is the person's,
+  and clears the way with nothing that takes a step or changes something. Core's checks (`checkedHelperAnswer`,
+  `mayClear`, `mayPress`) and the tab's (`HelperHands`) both hold it; widen `HELPER_BUTTONS` only with the owner's
+  OK, and never for a message, a comment, a removal or a like. Its view never holds what a person wrote or the
+  name of the person the step is for.
 - **No real people in the repo.** Tests and fixtures use made-up names; the extension's readers are tuned from
   outlines, never saved pages (apps/extension/README.md).
 

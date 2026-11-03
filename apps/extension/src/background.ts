@@ -12,23 +12,35 @@
  * moment they sign in (src/hfos/follow.ts), and sends a first-timer to HandsFreeOS's setup (src/hfos/setup.ts). Every
  * minute while someone is signed in it tells HandsFreeOS how things stand on this computer, and hears from it about
  * the person's day (src/hfos/live.ts). It keeps the number of things waiting for the person on its icon, and Chrome's
- * pop-ups about them, which open Needs you in HandsFreeOS (src/hfos/waiting.ts).
+ * pop-ups about them, which open Needs you in HandsFreeOS (src/hfos/waiting.ts). It keeps each network's messages open
+ * and reads them every minute (src/auto/watch.ts), and a reply HandsFreeOS keeps as new has that network's runner
+ * draft the answer next (decision 125).
  */
 import { answerAsk, askSoon, askTabIds, heardAsk, recoverAsk, signInChanged } from './asks/run';
-import { AUTO_ALARM, answerAuto, runnerTabId, tick, wake } from './auto/run';
-import { LINKEDIN_ALARM, linkedInRunnerTabId, linkedInTick, wakeLinkedIn } from './auto/linkedin';
+import { AUTO_ALARM, answerAuto, replied, runnerTabId, tick, wake } from './auto/run';
+import {
+  LINKEDIN_ALARM,
+  linkedInReplied,
+  linkedInRunnerTabId,
+  linkedInTick,
+  wakeLinkedIn,
+} from './auto/linkedin';
 import {
   ALIGNABLE_ALARM,
+  alignableChatsAgain,
+  alignableReplied,
   alignableRunnerTabId,
   alignableTick,
   wakeAlignable,
 } from './auto/alignable';
 import {
   INSTAGRAM_ALARM,
+  instagramReplied,
   instagramRunnerTabId,
   instagramTick,
   wakeInstagram,
 } from './auto/instagram';
+import { onAlignableMoved, tabClosed, WATCH_ALARM, watchTick, windowClosed } from './auto/watch';
 import { kitOf } from './networks';
 import { isWorking, NETWORKS_KEY, statesNow } from './networks/on';
 import { syncNetworks } from './networks/scripts';
@@ -44,6 +56,7 @@ import {
   type HfosAsk,
 } from './hfos/messages';
 import { isTabNote, sendWaitingSteps, takeNote } from './hfos/noting';
+import { onReplied } from './hfos/replies';
 import { PLACE_KEY } from './hfos/messages';
 import { answer, savingTo } from './hfos/session';
 import {
@@ -67,6 +80,17 @@ const SIGN_INS = new Set(['hfos-check-code', 'hfos-password', 'hfos-pick', 'hfos
 
 /** The person's own steps on a network: this computer is the one they use. */
 const OWN_STEPS = new Set(['hfos-noted', 'hfos-answered']);
+
+// Someone wrote back (decision 125): that network's runner drafts the reply next. Alignable's conversations moved on
+// its messages page kept open: its runner reads them again.
+const REPLIED = {
+  facebook: replied,
+  linkedin: linkedInReplied,
+  instagram: instagramReplied,
+  alignable: alignableReplied,
+} as const;
+onReplied((platform, profileIds) => void REPLIED[platform](profileIds));
+onAlignableMoved(() => void alignableChatsAgain());
 
 /**
  * Loads the settings when asked, and listens for changes to them and to the person's day; a wake from the live
@@ -164,6 +188,7 @@ chrome.alarms.onAlarm.addListener((alarm) => {
   if (alarm.name === LINKEDIN_ALARM) void linkedInTick();
   if (alarm.name === ALIGNABLE_ALARM) void alignableTick();
   if (alarm.name === INSTAGRAM_ALARM) void instagramTick();
+  if (alarm.name === WATCH_ALARM) void watchTick();
   if (alarm.name === BEAT_ALARM) {
     void beat(true);
     // Steps noted while HandsFreeOS couldn't be reached go now.
@@ -189,6 +214,8 @@ void syncNetworks();
 chrome.storage.onChanged.addListener((changes, area) => {
   if (area !== 'local') return;
   if (SETTINGS_KEY in changes || PLACE_KEY in changes) void syncNetworks();
+  // What's on, who's signed in or noting changed: the messages kept open follow at once.
+  if (SETTINGS_KEY in changes || PLACE_KEY in changes || NETWORKS_KEY in changes) void watchTick();
   // A network just turned on and allowed: the asks waiting on its line start.
   if (NETWORKS_KEY in changes) {
     askSoon();
@@ -199,6 +226,11 @@ chrome.storage.onChanged.addListener((changes, area) => {
 });
 chrome.permissions.onAdded.addListener(() => void syncNetworks());
 chrome.permissions.onRemoved.addListener(() => void syncNetworks());
+// The person closed the messages kept open: each stays closed for an hour (src/auto/watch.ts).
+chrome.windows.onRemoved.addListener((windowId) => void windowClosed(windowId));
+chrome.tabs.onRemoved.addListener((tabId, info) => void tabClosed(tabId, info.isWindowClosing));
+// The messages kept open, every minute from now.
+void watchTick();
 // Chrome started, or the extension was updated: the alarm may be gone.
 chrome.runtime.onStartup.addListener(() => {
   void wake();

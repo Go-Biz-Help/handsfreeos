@@ -39,6 +39,7 @@ import {
   type ReferralInfo,
   type ThankYouInfo,
 } from './load-after-job';
+import { loadWebinarLeads, type WebinarLeadInfo } from './load-webinar';
 import {
   loadDealStates,
   loadJobs,
@@ -121,7 +122,8 @@ export interface AttentionSubjectRef {
     | 'suggestion'
     | 'offer'
     | 'registration'
-    | 'addon_alert';
+    | 'addon_alert'
+    | 'webinar_lead';
   readonly id: string;
 }
 
@@ -199,6 +201,7 @@ const ITEM_OWNED: ReadonlySet<AttentionKind> = new Set([
   'job_never_completed',
   'job_no_address',
   'promise_due',
+  'webinar_hot',
 ]);
 
 const DAY = 86_400_000;
@@ -291,6 +294,8 @@ interface SubjectSets {
   readonly registrations: Set<string>;
   // Add-ons: what they raised (app.addon_alerts).
   readonly addonAlerts: Set<string>;
+  // Webinars: someone scored after a call with a live poll (app.video_call_leads).
+  readonly webinarLeads: Set<string>;
 }
 
 const emptySets = (): SubjectSets => ({
@@ -315,6 +320,7 @@ const emptySets = (): SubjectSets => ({
   offers: new Set(),
   registrations: new Set(),
   addonAlerts: new Set(),
+  webinarLeads: new Set(),
 });
 
 /** A connection's card is stored under its own table's type. */
@@ -349,6 +355,7 @@ function addSubject(s: SubjectSets, type: string, id: string): void {
   else if (type === 'offer') s.offers.add(id);
   else if (type === 'registration') s.registrations.add(id);
   else if (type === 'addon_alert') s.addonAlerts.add(id);
+  else if (type === 'webinar_lead') s.webinarLeads.add(id);
 }
 
 /**
@@ -367,7 +374,13 @@ async function expand(
   const s = emptySets();
   for (const x of subjects) addSubject(s, x.type, x.id);
   // A thank-you or a referral brings in its customer, so writing to them settles both.
-  if (s.thankYous.size || s.referrals.size || s.maintenance.size || s.promises.size) {
+  if (
+    s.thankYous.size ||
+    s.referrals.size ||
+    s.maintenance.size ||
+    s.promises.size ||
+    s.webinarLeads.size
+  ) {
     const whose = await rows<{ person_id: string }>(
       tx,
       sql`select person_id from app.thank_yous
@@ -380,7 +393,10 @@ async function expand(
           where workspace_id = ${workspaceId} and id = any(${uuidArray([...s.maintenance])})
           union all
           select person_id from app.promises
-          where workspace_id = ${workspaceId} and id = any(${uuidArray([...s.promises])})`,
+          where workspace_id = ${workspaceId} and id = any(${uuidArray([...s.promises])})
+          union all
+          select person_id from app.video_call_leads
+          where workspace_id = ${workspaceId} and id = any(${uuidArray([...s.webinarLeads])})`,
     );
     for (const w of whose) s.persons.add(w.person_id);
   }
@@ -435,7 +451,12 @@ async function expand(
           union all
           select 'promise', id from app.promises
           where workspace_id = ${workspaceId} and person_id = any(${uuidArray([...s.persons])})
-            and status = 'open'`,
+            and status = 'open'
+          union all
+          select 'webinar_lead', id from app.video_call_leads
+          where workspace_id = ${workspaceId} and person_id = any(${uuidArray([...s.persons])})
+            and label = 'hot' and (follow_up = 'home' or outcome = 'card')
+            and scored_at > now() - interval '4 days'`,
     );
     for (const t of theirs) addSubject(s, t.type, t.id);
   }
@@ -1338,6 +1359,7 @@ interface Loaded {
   readonly offers: Map<string, OfferInfo>;
   readonly registrations: Map<string, TextingRegistrationInfo>;
   readonly addonAlerts: Map<string, AddonAlertInfo>;
+  readonly webinarLeads: Map<string, WebinarLeadInfo>;
 }
 
 /** The usage wallet, for M16's three cards. One per business, so there is nothing to key it by. */
@@ -1549,6 +1571,13 @@ function resolutionOf(
       if (!t) return 'subject_gone';
       if (!thankYouSwitchOn(ctx.rawSettings)) return 'turned_off';
       if (t.thankYou.contactedAt) return 'contacted';
+      return 'expired';
+    }
+    case 'webinar_hot': {
+      const w = loaded.webinarLeads.get(row.subjectId);
+      if (!w) return 'subject_gone';
+      if (w.lead.contactedAt) return 'contacted';
+      if (w.lead.label !== 'hot') return 'cooled_off';
       return 'expired';
     }
     case 'referral_mentioned': {
@@ -1802,6 +1831,7 @@ export async function reconcile(
     ...scope.offers,
     ...scope.registrations,
     ...scope.addonAlerts,
+    ...scope.webinarLeads,
   ];
   const existing: AttentionItemRow[] = [];
   if (all) {
@@ -1909,6 +1939,7 @@ export async function reconcile(
     all,
   );
   const addonAlerts = await loadAddonAlerts(tx, workspaceId, [...scope.addonAlerts], all);
+  const webinarLeads = await loadWebinarLeads(tx, workspaceId, [...scope.webinarLeads], all, now);
   const members = await workspaceUsers(tx, workspaceId, ctx.organizationId);
   const loaded: Loaded = {
     leads,
@@ -1934,6 +1965,7 @@ export async function reconcile(
     offers,
     registrations,
     addonAlerts,
+    webinarLeads,
   };
 
   // Detect.
@@ -2454,6 +2486,26 @@ export async function reconcile(
         title: itemTitle(t.personName ?? 'Customer', t.title),
         detail: detailOf(t.reason),
         conversationId: t.conversationId,
+      },
+    );
+
+  // Webinars: someone hot after a call with a live poll, for a person to reach.
+  for (const w of webinarLeads.values())
+    run(
+      'webinar_hot',
+      {
+        business,
+        lead: w.lead,
+        openLead: w.openLead,
+        assigneeUserId: w.assigneeUserId,
+      },
+      w.lead.id,
+      { leadId: w.openLead?.id ?? null, personId: w.personId },
+      {
+        subjectType: 'webinar_lead',
+        title: itemTitle(w.personName ?? 'Customer', `Hot after ${w.lead.what}`),
+        detail: detailOf(w.reason),
+        conversationId: w.conversationId,
       },
     );
 

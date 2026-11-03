@@ -248,7 +248,7 @@ const ALIGNABLE_PAGES: Record<string, string> = {
   [`${AL}/groups/home-pros-network/about`]: html(`${ALIGNABLE_MENU}<main><h1>Home Pros Network</h1>
     <div><h2>About this group</h2><p>For people who fix and build homes.</p><p>Share leads and tips.</p></div>
     <span>1,204 members</span><button>Join</button></main>`),
-  [`${AL}/groups/home-pros-network/members`]:
+  [`${AL}/biz/groups/home-pros-network/members`]:
     html(`${ALIGNABLE_MENU}<main><h1>Home Pros Network</h1>
     <h2>Group Leaders</h2>
     <div><a href="/denver-co/stone-gutters/riley-stone">Riley Stone</a><a href="/denver-co/stone-gutters">Stone Gutters</a>
@@ -601,7 +601,7 @@ describe('Check Alignable', () => {
       `${AL}/groups/search?q=small%20business`,
       `${AL}/groups/home-pros-network`,
       `${AL}/groups/home-pros-network/about`,
-      `${AL}/groups/home-pros-network/members`,
+      `${AL}/biz/groups/home-pros-network/members`,
       // Then the events in their town and one event's page (0.104.0, decision 112): nothing on it is pressed.
       `${AL}/austin-tx/events`,
       `${AL}/austin-tx/events/101-spring-mixer`,

@@ -13,8 +13,10 @@ import {
   menuOf,
   organizationCreate,
   pushSwitchesOf,
+  guessStageRole,
   registry,
   sameMenu,
+  STAGE_ROLE_LABELS,
   workflowTemplateCreate,
   workflowTemplatePublish,
   type AssistantCard,
@@ -28,6 +30,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { toolsFor } from '../src/assistant/context';
 import type { ToolContext } from '../src/assistant/runtime';
 import { extraAutoTools, extraConfirmTools, extraStepLabels } from '../src/assistant/tools-extra';
+import { allScreenActionTools } from '../src/assistant/tools-screen-actions';
 import { createToolExecutor } from '../src/assistant/tools-write';
 
 /**
@@ -135,7 +138,7 @@ afterAll(closeTestDbs);
 describe('the extra tools', () => {
   it('each has an executor, a step label, and goes only to the roles its commands allow', () => {
     const names = [...Object.keys(extraAutoTools), ...Object.keys(extraConfirmTools)];
-    expect(names).toHaveLength(11);
+    expect(names).toHaveLength(12);
     for (const name of names) {
       const tool = assistantToolByName.get(name);
       expect(tool, name).toBeTruthy();
@@ -157,6 +160,7 @@ describe('the extra tools', () => {
       'update_automations',
       'add_business',
       'get_agency_area',
+      'edit_template_steps',
       'push_to_client_businesses',
     ])
       expect(member, name).not.toContain(name);
@@ -274,6 +278,48 @@ describe('the AI teammate’s finer rules', () => {
     ]);
   });
 
+  it('changes the first message, booking, photos and its own hours, only on Confirm', async () => {
+    const before = await teammate();
+    const { card, parsed } = await prepare('update_ai_teammate_rules', {
+      firstMessageBy: 'email',
+      firstMessageAfterMinutes: 5,
+      usesWaitlist: false,
+      booksRepeatVisits: true,
+      priceRangesFromPhotos: true,
+      ownHours: [1, 2, 3, 4, 5].map((day) => ({ day, start: '08:00', end: '18:00' })),
+    });
+    expect(field(card, 'First message by')!.value).toBe('text → email');
+    expect(field(card, 'Waits before the first message')!.value).toContain('→ 5 min');
+    expect(field(card, 'Waitlist')!.value).toBe('on → off');
+    expect(field(card, 'Repeat visits')!.value).toBe('off → on');
+    expect(field(card, 'Rough price ranges from photos')!.value).toBe('off → on');
+    expect(field(card, 'Works')).toBeTruthy();
+    expect((await teammate()).revision).toBe(before.revision);
+
+    await confirm('update_ai_teammate_rules', parsed);
+    const c = (await teammate()).config;
+    expect(c['respond'].newLeads).toMatchObject({ channel: 'email', delayMinutes: 5 });
+    expect(c['book']).toMatchObject({ waitlist: false, repeats: true });
+    expect(c['photos']).toMatchObject({ enabled: true, priceRanges: true });
+    expect(c['hours'].mode).toBe('custom');
+    expect(c['hours'].custom).toHaveLength(5);
+    // Everything else stays as it was.
+    expect(c['followUp']).toEqual(before.config['followUp']);
+    expect(c['qualify']).toEqual(before.config['qualify']);
+  });
+
+  it('turns on only an add-on that’s on here, and only an address the business has', async () => {
+    await expect(
+      prepare('update_ai_teammate_rules', { useAddons: ['Real Estate Agent'] }),
+    ).rejects.toMatchObject({ rule: 'addon_not_on' });
+    await expect(
+      prepare('update_ai_teammate_rules', { useAddons: ['Nothing like it'] }),
+    ).rejects.toThrow('No add-on is called “Nothing like it”');
+    await expect(
+      prepare('update_ai_teammate_rules', { emailsFromAddressId: randomUUID() }),
+    ).rejects.toThrow('No email address with that id.');
+  });
+
   it('says what is wrong instead of saving something the settings refuse', async () => {
     await expect(
       prepare('update_ai_teammate_rules', {
@@ -303,7 +349,7 @@ describe('Settings → Automations', () => {
     expect(list.find((a) => a.id === 'day_before_confirmation')!.on).toBe(true);
     expect(list.find((a) => a.id === 'reengage_dead_leads')).toMatchObject({
       on: false,
-      turnsOnOnlyOnTheScreen: expect.any(String),
+      messageReadFirst: expect.any(String),
     });
     expect(list.find((a) => a.id === 'drafts_awaiting_review')!['alwaysOn']).toBe(true);
     const leads = await read('list_automations', { group: 'leads' });
@@ -322,9 +368,16 @@ describe('Settings → Automations', () => {
       endOfDayEmailAt: '19:30',
       whenVoicemailAnswers: 'hang_up',
       askForOkToCall: true,
+      callLeadsFrom: '10:00',
+      callLeadsUntil: '18:00',
+      callTries: 2,
     });
     expect(card.title).toBe('Change your automations');
     expect(field(card, 'Ask for an OK to call')!.value).toBe('On');
+    expect(field(card, 'Calling hours for leads')!.value).toBe(
+      '10:00 AM to 6:00 PM, in each lead’s own time',
+    );
+    expect(field(card, 'When a lead doesn’t answer')!.value).toBe('Try up to 2 times, a day apart');
     expect(field(card, 'Day-before confirmation')!.value).toBe('Off');
     expect(field(card, 'Hot lead alert')!.value).toBe('Off');
     expect(field(card, 'End-of-day email at')!.value).toBe('19:30');
@@ -340,10 +393,97 @@ describe('Settings → Automations', () => {
       dayOf: true,
     });
     expect(s['automations'].briefings.eveningAt).toBe('19:30');
-    expect(s['automations'].calls).toMatchObject({ voicemail: 'hang_up', askConsent: true });
+    expect(s['automations'].calls).toMatchObject({
+      voicemail: 'hang_up',
+      askConsent: true,
+      hours: { start: '10:00', end: '18:00', weekends: true },
+      tries: 2,
+      businessLandlines: false,
+    });
+    // Never wider than the law allows.
+    await expect(prepare('update_automations', { callLeadsFrom: '07:00' })).rejects.toThrow(
+      'Calls can’t start before 8 AM',
+    );
     expect(s['attention'].kinds.hot_lead).toBe(false);
     expect(s['attention'].kinds.unanswered_lead).toBe(true);
     expect((await teammate()).config['followUp'].neverReplied).toBe(false);
+  });
+
+  it('changes when the first follow-up goes, keeping the others, only on Confirm', async () => {
+    const days = 'days 1, 2, 4, 7, 10, 14, 21 and 30';
+    const listed = (await read('list_automations', { group: 'leads' })).result['followUps'] as {
+      times: string;
+      ladder: { after: number; unit: string }[];
+      thenMonthlyForMonths: number;
+    };
+    expect(listed.times).toBe(`4 hours, then ${days}`);
+    const rest = listed.ladder.slice(1);
+
+    // The owner's own case: the first one at 15 minutes, then an hour instead.
+    const quarter = await prepare('update_automations', {
+      followUpTimes: [{ after: 15, unit: 'minutes' }, ...rest],
+    });
+    await confirm('update_automations', quarter.parsed);
+    const before = await teammate();
+    const { card, parsed } = await prepare('update_automations', {
+      followUpTimes: [{ after: 1, unit: 'hours' }, ...rest],
+    });
+    expect(card.fields).toEqual([
+      { label: 'Follow-up times', value: `15 minutes, then ${days} → 1 hour, then ${days}` },
+    ]);
+    expect(card.confirmLabel).toBe('Save the change');
+    expect((await teammate()).revision).toBe(before.revision);
+
+    await confirm('update_automations', parsed);
+    const after = await teammate();
+    expect(after.revision).toBe(before.revision + 1);
+    expect(after.config['followUp'].ladder).toEqual([{ after: 1, unit: 'hours' }, ...rest]);
+    // Everything else stays as it was.
+    expect(after.config['followUp'].monthlyForMonths).toBe(listed.thenMonthlyForMonths);
+    expect(after.config['respond']).toEqual(before.config['respond']);
+    expect(after.name).toBe('Ava');
+  });
+
+  it('says how many follow-ups are left when the list gets shorter, and what’s wrong with times out of order', async () => {
+    const { card } = await prepare('update_automations', {
+      followUpTimes: [
+        { after: 1, unit: 'hours' },
+        { after: 2, unit: 'days' },
+      ],
+      followUpMonthlyForMonths: 0,
+    });
+    expect(field(card, 'Then monthly for')!.value).toBe('6 months → none');
+    expect(card.warnings.map((w) => w.text)).toContain('That’s 2 follow-ups instead of 9.');
+
+    await expect(
+      prepare('update_automations', {
+        followUpTimes: [
+          { after: 2, unit: 'days' },
+          { after: 1, unit: 'days' },
+        ],
+      }),
+    ).rejects.toThrow('Each follow-up comes after the one before.');
+    await expect(
+      prepare('update_automations', { followUpTimes: [{ after: 2, unit: 'minutes' }] }),
+    ).rejects.toThrow('At least 5 minutes.');
+    const ladder = (await teammate()).config['followUp'].ladder;
+    await expect(prepare('update_automations', { followUpTimes: ladder })).rejects.toThrow(
+      'Nothing would change.',
+    );
+  });
+
+  it('turns on calling business landlines with what each check costs on the card', async () => {
+    const { card, parsed } = await prepare('update_automations', { callBusinessLandlines: true });
+    // As Settings → Automations shows it, from the live prices.
+    expect(card.fields).toEqual([
+      {
+        label: 'Call business landlines without a yes',
+        value:
+          'On. Each check is charged to your balance: $0.02 to check what kind of line a number is, and $0.02 more to check who a landline belongs to',
+      },
+    ]);
+    await confirm('update_automations', parsed);
+    expect((await settings())['automations'].calls.businessLandlines).toBe(true);
   });
 
   it('says so when turning one on reaches customers, and what it still needs', async () => {
@@ -406,6 +546,104 @@ describe('Settings → Automations', () => {
     await expect(
       prepare('update_automations', { turnOff: ['day_of_reminder'], turnOn: ['day_of_reminder'] }),
     ).rejects.toThrow('not both');
+  });
+
+  it('changes the maintenance plan text, what a stage means and how the business tags, only on Confirm', async () => {
+    const { pipelines } = await q<{
+      pipelines: { name: string; stages: { id: string; name: string; kind: string }[] }[];
+    }>('pipeline.list');
+    const stage = pipelines[0]!.stages.find((st) => st.kind === 'open')!;
+    const guess = guessStageRole(stage.name) ?? 'none';
+    const pick = guess === 'quoted' ? 'booked' : 'quoted';
+    const planText = 'Hi {firstName}, your {service} is due and your {plan} covers it: {link}';
+    const guide = 'VIP: has spent over $2,000 with us. Commercial: a business, not a home.';
+    const { card, parsed } = await prepare('update_automations', {
+      maintenancePlanMessage: planText,
+      stageMeanings: [{ stageId: stage.id, means: pick }],
+      howYouTag: guide,
+    });
+    expect(field(card, 'For customers on a maintenance plan')!.value).toBe(planText);
+    expect(field(card, `${stage.name} (${pipelines[0]!.name})`)!.value).toBe(
+      STAGE_ROLE_LABELS[pick],
+    );
+    expect(field(card, 'How you tag customers')!.value).toBe(guide);
+    // Maintenance due is on, so the new words go to customers on their own.
+    expect(card.warnings[0]!.text).toContain('The maintenance due text reaches customers');
+    expect((await settings())['automations'].contactAi?.guide ?? '').toBe('');
+
+    await confirm('update_automations', parsed);
+    const a = (await settings())['automations'];
+    expect(a.maintenance.planTemplate).toBe(planText);
+    expect(a.pipeline.roles).toEqual({ [stage.id]: pick });
+    expect(a.contactAi.guide).toBe(guide);
+    const { result } = await read('list_automations', {});
+    expect(result['howYouTag']).toBe(guide);
+    expect(
+      (result['stageMeanings'] as { stageId: string; means: string }[]).find(
+        (st) => st.stageId === stage.id,
+      )!.means,
+    ).toBe(STAGE_ROLE_LABELS[pick]);
+
+    // Set back to the guess from its name, the pick goes, as on the page.
+    const back = await prepare('update_automations', {
+      stageMeanings: [{ stageId: stage.id, means: guess }],
+    });
+    await confirm('update_automations', back.parsed);
+    expect((await settings())['automations'].pipeline.roles).toEqual({});
+    await expect(
+      prepare('update_automations', { maintenanceMessage: 'Your {service} is due soon.' }),
+    ).rejects.toThrow('Put {link} where the booking link goes');
+    await expect(
+      prepare('update_automations', {
+        stageMeanings: [{ stageId: randomUUID(), means: 'booked' }],
+      }),
+    ).rejects.toThrow('No open stage with that id');
+  });
+});
+
+describe('Settings → Migrations', () => {
+  it('pauses and carries on a move from another CRM on Confirm, warns before one starts, and never deletes one', async () => {
+    const tools = allScreenActionTools();
+    const named = (name: string) => tools.find((t) => t.name === name);
+    expect(named('do_migration_pause')!.permission).toBe('migrations.manage');
+    expect(named('do_migration_start')!.warning).toContain('Roll back');
+    expect(named('do_migration_map_scopes')!.warning).toContain('new business');
+    expect(named('do_migration_delete')).toBeUndefined();
+    expect(named('do_migration_rollback')).toBeUndefined();
+
+    const [connection] = await rows<{ id: string }>(
+      admin(),
+      sql`insert into app.migration_connections (organization_id, workspace_id, source_system, status, adapter_version)
+          values (${organizationId}, ${workspaceId}, 'gohighlevel', 'active', 1) returning id`,
+    );
+    const [migration] = await rows<{ id: string }>(
+      admin(),
+      sql`insert into app.migrations (organization_id, connection_id, source_system, status, name, adapter_version)
+          values (${organizationId}, ${connection!.id}, 'gohighlevel', 'importing'::app.migration_status,
+            ${`Off GoHighLevel ${mark}`}, 1)
+          returning id`,
+    );
+    const status = async () =>
+      (
+        await rows<{ status: string }>(
+          admin(),
+          sql`select status::text as status from app.migrations where id = ${migration!.id}`,
+        )
+      )[0]!.status;
+    const exec = createToolExecutor(api());
+    const args = { migrationId: migration!.id };
+
+    const pause = named('do_migration_pause')!;
+    const card = await exec.prepare(pause, args, ctxFor(owner), randomUUID());
+    expect(card.card?.type).toBe('confirm');
+    expect(await status()).toBe('importing');
+    await exec.commit(pause, args, ctxFor(owner), { toolCallId: randomUUID() });
+    expect(await status()).toBe('paused');
+
+    const resume = named('do_migration_resume')!;
+    await exec.prepare(resume, args, ctxFor(owner), randomUUID());
+    await exec.commit(resume, args, ctxFor(owner), { toolCallId: randomUUID() });
+    expect(await status()).toBe('importing');
   });
 });
 
@@ -696,6 +934,63 @@ describe('adding a business, and the agency area', () => {
     expect(await installs()).toEqual([expect.objectContaining({ workspaceId: newId })]);
   });
 
+  it('reads a template’s steps and changes its draft step by step on Confirm', async () => {
+    const look = async () =>
+      (await read('get_agency_area', { templateId })).result['template'] as Record<string, unknown>;
+    const before = await look();
+    expect(before['steps']).toEqual([]);
+    const args = {
+      templateId,
+      baseRevision: before['draftRevision'],
+      ops: [
+        {
+          op: 'add_step',
+          parentId: null,
+          branchId: null,
+          index: null,
+          step: {
+            id: 's_tpltask1',
+            type: 'action',
+            action: 'create_task',
+            config: { title: 'Call them back' },
+          },
+        },
+      ],
+    };
+    const { card, parsed } = await prepare('edit_template_steps', args);
+    expect(card.title).toBe(`Change the template “Follow-up ${mark}”?`);
+    expect(field(card, 'Change')!.value).toContain('Call them back');
+    expect(card.confirmLabel).toBe('Save draft');
+    expect(card.warnings[0]!.text).toContain('Businesses keep version 1');
+    expect((await look())['steps']).toEqual([]);
+    const done = await confirm('edit_template_steps', parsed);
+    expect(done.outcome).toMatch(/^Saved the draft/);
+    expect(done.href).toBe(`/app/org/${organizationId}/templates/${templateId}`);
+    const after = await look();
+    expect(after['steps']).toEqual([
+      { id: 's_tpltask1', depth: 0, says: expect.stringContaining('Call them back') },
+    ]);
+    expect(after['draftRevision']).toBe((before['draftRevision'] as number) + 1);
+
+    // A card drawn on the old draft is refused, and so is a change the draft already has.
+    await expect(prepare('edit_template_steps', args)).rejects.toMatchObject({
+      rule: 'revision_conflict',
+    });
+    await expect(
+      prepare('edit_template_steps', {
+        templateId,
+        baseRevision: after['draftRevision'],
+        ops: [
+          {
+            op: 'update_step',
+            stepId: 's_tpltask1',
+            patch: { config: { title: 'Call them back' } },
+          },
+        ],
+      }),
+    ).rejects.toThrow('Nothing would change');
+  });
+
   it('pushes a knowledge pack as suggestions on Confirm', async () => {
     const pushed = async () =>
       (
@@ -752,5 +1047,31 @@ describe('adding a business, and the agency area', () => {
       priya,
     );
     expect(push.card.confirmLabel).toBe('');
+    const edit = await prepare(
+      'edit_template_steps',
+      { templateId, baseRevision: 1, ops: [{ op: 'delete_step', stepId: 's_tpltask1' }] },
+      priya,
+    );
+    expect(edit.card.confirmLabel).toBe('');
+    expect(edit.card.warnings[0]!.kind).toBe('blocked');
+  });
+
+  it('puts an agency owner on a client’s business, from that business, on Confirm', async () => {
+    const join = allScreenActionTools().find((t) => t.name === 'do_workspace_join')!;
+    expect(join.permission).toBe('workspace.update');
+    const there = { ...ctxFor(owner), workspaceId: newId };
+    const tools = createToolExecutor(api());
+    const onIt = async () =>
+      (
+        await rows<{ n: number }>(
+          admin(),
+          sql`select count(*)::int as n from app.workspace_memberships
+              where workspace_id = ${newId} and user_id = ${owner.id}`,
+        )
+      )[0]!.n;
+    await tools.prepare(join, {}, there, randomUUID());
+    expect(await onIt()).toBe(0);
+    await tools.commit(join, {}, there, { toolCallId: randomUUID() });
+    expect(await onIt()).toBe(1);
   });
 });

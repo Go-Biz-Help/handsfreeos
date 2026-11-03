@@ -169,7 +169,7 @@ describe('Instagram’s kit and words', () => {
     expect(fitsRequests('x'.repeat(301))).toBe(false);
   });
 
-  it('writes a comment that waits to be posted short, with no link, hashtag or pitch (decision 92)', () => {
+  it('writes a comment that waits to be posted short, from the owner’s own field, with no link or hashtag (decisions 92, 141, 143 and 144)', () => {
     const comment = (platform: Platform) =>
       todayDraftPrompt({
         kind: 'comment',
@@ -177,26 +177,48 @@ describe('Instagram’s kit and words', () => {
         name: 'sage.plumbing',
         facts: [],
         recent: [],
-        playbook: { name: 'CRM demos', ...PLAYBOOK_TEMPLATES.crm_demos.details },
+        playbook: {
+          name: 'CRM demos',
+          ...PLAYBOOK_TEMPLATES.crm_demos.details,
+          link: 'https://cal.com/bright',
+        },
         post: { text: 'What do small crews use to keep track of calls?', group: null },
         platform,
       });
+    // From the owner's own field (decisions 141, 143 and 144): a clear stand, an offer to show them only when they want
+    // the help, and never a link, on any network.
     expect(comment('instagram')).toContain(
-      'They posted this on Instagram. Write the owner’s public comment under it: answer what they asked or add something useful, with no pitch and no link. Under 30 words.',
+      'They posted this on Instagram. Write the owner’s public comment under it, from the owner’s own field:',
     );
-    expect(comment('alignable')).toContain(
-      'add something useful, with no pitch and no link. Under 50 words.',
+    expect(comment('instagram')).toContain(
+      'with no link, no web address and no price. Otherwise offer nothing and pitch nothing. When the owner’s field has nothing real to add',
     );
-    // LinkedIn's wait for an OK at first too, from 0.99.0 (decision 102): a helpful answer, with no pitch or link.
+    expect(comment('instagram')).toContain('Never open with praise or thanks');
+    expect(comment('instagram')).toContain('Under 30 words.');
+    expect(comment('alignable')).toContain('no link, no web address');
+    expect(comment('alignable')).toContain('Under 50 words.');
+    // LinkedIn's wait for an OK at first too, from 0.99.0 (decision 102), with no link.
     expect(comment('linkedin')).toContain(
-      'They posted this on LinkedIn. Write the owner’s public comment under it: answer what they asked or add something useful, with no pitch and no link. Under 50 words.',
+      'They posted this on LinkedIn. Write the owner’s public comment under it, from the owner’s own field:',
     );
-    expect(comment('facebook')).toContain('only then offer to help');
+    expect(comment('linkedin')).toContain('no link, no web address');
+    expect(comment('linkedin')).toContain('Under 50 words.');
+    // Facebook's too, and the playbook's link never reaches a comment (decision 144).
+    expect(comment('facebook')).toContain('no link, no web address');
+    for (const platform of ['facebook', 'instagram', 'linkedin', 'alignable'] as const)
+      expect(comment(platform)).not.toContain('Link: ');
     expect(todayDraftSystem('instagram')).toContain(
-      'A comment on Instagram is under 30 words, with no link, no web address, no hashtags and no pitch',
+      'A comment on Instagram is under 30 words, with no link, no web address and no hashtags',
     );
-    expect(todayDraftSystem('alignable')).toContain('A comment on Alignable is a helpful answer');
-    expect(todayDraftSystem('linkedin')).toContain('A comment on LinkedIn is a helpful answer');
+    expect(todayDraftSystem('alignable')).toContain(
+      'A comment on Alignable reads like someone who does the owner’s own work every day',
+    );
+    expect(todayDraftSystem('linkedin')).toContain(
+      'A comment on LinkedIn reads like someone who does the owner’s own work every day',
+    );
+    expect(todayDraftSystem('linkedin')).toContain(
+      'an offer to show them only when they want help with it',
+    );
     expect(todayDraftSystem('facebook')).not.toContain('A comment on');
     expect(fitsComment('Same here! A shared call list helped our crew.', 'instagram')).toBe(true);
     expect(fitsComment('Love this #plumbing', 'instagram')).toBe(false);

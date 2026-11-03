@@ -39,17 +39,17 @@ export function nextMorning(now: number, timeZone: string, hour: number): Date {
 /** Who used the extension lately enough to hear in the morning: a step noted in this many days. */
 export const MORNING_ACTIVE_DAYS = 14;
 
-/** A chat the extension saw whose last message is theirs: who it's with, as the page showed it. */
-export const ReplySeen = z
-  .object({
-    name: PersonName,
-    /** The chat's id, from its link, when the page showed one. */
-    threadKey: ThreadKey.nullable().default(null),
-    profile: ProfileRef.nullable().default(null),
-  })
-  .refine((s) => s.threadKey !== null || s.profile !== null, {
-    error: 'Send the chat’s number or their profile.',
-  });
+/**
+ * A chat the extension saw whose last message is theirs: who it's with, as the page showed it. Instagram's list of
+ * chats and LinkedIn's list of conversations link to none of them, so a row there comes by its name alone, which
+ * counts only when it's the name of one person here the person messaged on that network.
+ */
+export const ReplySeen = z.object({
+  name: PersonName,
+  /** The chat's id, from its link, when the page showed one. */
+  threadKey: ThreadKey.nullable().default(null),
+  profile: ProfileRef.nullable().default(null),
+});
 export type ReplySeen = z.input<typeof ReplySeen>;
 
 /** The most chats one note sends. */
@@ -71,11 +71,14 @@ export const RepliesNoteOutput = z.object({
 });
 export type RepliesNoteOutput = z.output<typeof RepliesNoteOutput>;
 
-/** The push for a reply: "Dana Reyes wrote back". */
-export function replyPushWords(name: string): { title: string; body: string } {
+/** The push for a reply: "Dana Reyes wrote back", on the network they wrote on. */
+export function replyPushWords(
+  name: string,
+  platform: Platform = 'facebook',
+): { title: string; body: string } {
   return {
     title: `${name} wrote back`,
-    body: 'On Facebook. Your list for today has them, with drafts for your reply.',
+    body: `On ${PLATFORMS[platform]}. Your list for today has them, with drafts for your reply.`,
   };
 }
 

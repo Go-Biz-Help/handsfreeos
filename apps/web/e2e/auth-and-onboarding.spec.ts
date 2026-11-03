@@ -1,6 +1,7 @@
 import { expect, test } from '@playwright/test';
 import {
   codeFrom,
+  confirmEmail,
   createBusiness,
   linkFrom,
   MAILPIT,
@@ -82,6 +83,22 @@ test('the sign-up code: a wrong one is refused, and the email can be changed', a
   await step.getByRole('button', { name: 'Use a different email' }).click();
   await expect(page.getByLabel('Work email')).toHaveValue(email);
   await expect(page.getByLabel('Password')).toHaveValue('');
+});
+
+test('the business typed into the website’s example starts the setup filled in', async ({
+  page,
+}) => {
+  const email = uniqueEmail('website-business');
+  await page.goto('/sign-up?business=Rivera%20Family%20Plumbing&industry=plumbing');
+  await page.getByLabel('Full name').fill('Test Website');
+  await page.getByLabel('Work email').fill(email);
+  await page.getByLabel('Password').fill(PASSWORD);
+  await page.getByRole('button', { name: 'Create account' }).click();
+  await confirmEmail(page, email);
+
+  await expect(page).toHaveURL(/\/onboarding\?/);
+  await expect(page.getByTestId('setup-business-name')).toHaveValue('Rivera Family Plumbing');
+  await expect(page.getByTestId('setup-kind-plumbing')).toHaveAttribute('aria-checked', 'true');
 });
 
 test('an address that already has an account is told to sign in', async ({ page }) => {

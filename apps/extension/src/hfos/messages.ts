@@ -8,6 +8,13 @@ import type { ProfileUsernamesSaveInput } from '@hfos/core/addons/outreach/profi
 import type { paths } from '@hfos/api-client';
 import type { JoinAnswerInput, JoinAnswerOutput } from '@hfos/core/addons/outreach/group-checks';
 import type { LikePickInput, LikePickOutput } from '@hfos/core/addons/outreach/like-pick';
+import type {
+  HelperLookInput,
+  HelperLookOutput,
+  HelperWayNoteInput,
+  HelperWaysInput,
+  HelperWaysOutput,
+} from '@hfos/core/addons/outreach/helper';
 import type { TodayDraftInput, TodayDraftOutput } from '@hfos/core/addons/outreach/today';
 import type { DailyStep } from '@hfos/core/addons/outreach/limits';
 import type { ReadyItem, ReadyState } from '@hfos/core/addons/outreach/readiness';
@@ -38,6 +45,7 @@ export type TouchSaved = Ok<'/v1/commands/outreach.touch.save'>;
 export type Activity = Ok<'/v1/queries/outreach.activity'>;
 /** Friends (packages/core/src/addons/outreach/friends.ts): an answer to a request, and a list saved. */
 export type FriendNoteInput = Body<'/v1/commands/outreach.friend.note'>;
+export type FriendNoted = Ok<'/v1/commands/outreach.friend.note'>;
 export type FriendsSaveInput = Body<'/v1/commands/outreach.friends.save'>;
 export type FriendsSaved = Ok<'/v1/commands/outreach.friends.save'>;
 /** A part of Facebook's download file, brought in (packages/core/src/addons/outreach/download.ts). */
@@ -335,8 +343,16 @@ export type HfosAsk =
    * What to search a network's posts with: its runner's Find posts (LinkedIn's post search), and on Instagram the day's
    * hashtags and the area's places.
    */
-  | { readonly type: 'hfos-post-words'; readonly workspaceId: string; readonly platform: Platform }
+  | {
+      readonly type: 'hfos-post-words';
+      readonly workspaceId: string;
+      readonly platform: Platform;
+      /** Today's round of finding again (decision 126): the next words. */
+      readonly round?: number;
+    }
   | { readonly type: 'hfos-friend-end'; readonly input: FriendEndInput }
+  /** A request the person got that a job deleted (decision 121), noted whether or not noting is on. */
+  | { readonly type: 'hfos-friend-note'; readonly input: FriendNoteInput }
   | { readonly type: 'hfos-report'; readonly input: ReportSaveInput }
   | { readonly type: 'hfos-warning'; readonly input: WarningNoteInput }
   | { readonly type: 'hfos-save-posts'; readonly input: PostsSaveInput }
@@ -397,6 +413,22 @@ export type HfosAsk =
     }
   /** Which of someone's posts to like before their friend request (src/auto/run.ts). */
   | { readonly type: 'hfos-like-pick'; readonly workspaceId: string; readonly input: LikePickInput }
+  /** The AI helper, when a step didn't go (decision 142, src/auto/helper.ts): a look, the ways it learned, one pressed. */
+  | {
+      readonly type: 'hfos-helper-look';
+      readonly workspaceId: string;
+      readonly input: HelperLookInput;
+    }
+  | {
+      readonly type: 'hfos-helper-ways';
+      readonly workspaceId: string;
+      readonly input: HelperWaysInput;
+    }
+  | {
+      readonly type: 'hfos-helper-way';
+      readonly workspaceId: string;
+      readonly input: HelperWayNoteInput;
+    }
   | { readonly type: 'hfos-auto' }
   | { readonly type: 'hfos-auto-start' }
   | { readonly type: 'hfos-auto-stop' }
@@ -435,6 +467,7 @@ export interface HfosValues {
   readonly 'hfos-lists-saved': ListsSaved;
   readonly 'hfos-post-words': PostWords;
   readonly 'hfos-friend-end': FriendEnded;
+  readonly 'hfos-friend-note': FriendNoted;
   readonly 'hfos-report': ReportSaved;
   readonly 'hfos-warning': WarningNoted;
   readonly 'hfos-save-posts': PostsSaved;
@@ -472,6 +505,9 @@ export interface HfosValues {
   readonly 'hfos-replies-note': RepliesNoted;
   readonly 'hfos-join-answers': JoinAnswerOutput;
   readonly 'hfos-like-pick': LikePickOutput;
+  readonly 'hfos-helper-look': HelperLookOutput;
+  readonly 'hfos-helper-ways': HelperWaysOutput;
+  readonly 'hfos-helper-way': { readonly trusted: boolean; readonly removed: boolean };
   readonly 'hfos-auto': AutoStatus;
   readonly 'hfos-auto-start': AutoStatus;
   readonly 'hfos-auto-stop': AutoStatus;
@@ -531,6 +567,7 @@ export const WAITING_EVENTS: ReadonlySet<string> = new Set([
   'outreach.need.noted',
   'outreach.need.cleared',
   'outreach.request.set_aside',
+  'outreach.request.answered',
   'outreach.friend.answered',
   'outreach.friend.marked',
   'outreach.friends.saved',

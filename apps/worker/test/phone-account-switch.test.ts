@@ -14,6 +14,8 @@ import {
   numberImportStart,
   organizationCreate,
   phoneNumberBuy,
+  platformViewAsEnd,
+  platformViewAsStart,
   telephonyDisable,
   telephonyEnable,
   type HfosError,
@@ -98,6 +100,24 @@ async function drain(workspaceId: string, timeoutMs = 10_000) {
   }
 }
 
+/** One pass of this business's outbox and jobs, with turning on tried again now rather than after its backoff. */
+async function runOnce(workspaceId: string) {
+  await rows(
+    admin(),
+    sql`update app.outbox set locked_at = now(), locked_by = ${WORKER_ID}, next_attempt_at = now()
+        where status = 'pending' and workspace_id = ${workspaceId}`,
+  );
+  await rows(
+    admin(),
+    sql`update app.scheduled_jobs set locked_at = now(), locked_by = ${WORKER_ID},
+          run_at = case when kind = 'telephony.account_open' then now() else run_at end
+        where status = 'pending' and workspace_id = ${workspaceId}`,
+  );
+  const d = { ...s, workerId: WORKER_ID, batchSize: 200, reservedOnly: true };
+  await processOnce({ ...d, handlers });
+  await processJobs({ ...d, jobs });
+}
+
 const accountOf = async (workspaceId: string) =>
   (
     await admin()
@@ -173,6 +193,37 @@ describe('phone & texting on', () => {
     expect(said.map((e) => e.eventType)).toContain('telephony.account_changed');
   });
 
+  it('says "Turning on…" through a refresh while Twilio keeps refusing, then why, instead of going back to Off', async () => {
+    const ws = await business('Switch Refused');
+    const refused = vi
+      .spyOn(s.telephony, 'createSubaccount')
+      .mockRejectedValue(
+        new ProviderError('Authenticate', '20003', false, 401, s.telephony.masterAccountSid),
+      );
+    try {
+      await turnOn(ws);
+      // The press reaches the worker: the job is queued, and nothing is made yet.
+      await runOnce(ws);
+      expect(await accountOf(ws)).toBeUndefined();
+      expect((await shown(ws)).json()).toMatchObject({ state: 'turning_on', lastError: null });
+      // Refused, and tried again: still turning on.
+      await runOnce(ws);
+      expect((await shown(ws)).json()).toMatchObject({ state: 'turning_on', lastError: null });
+      for (let i = 0; i < 4; i++) await runOnce(ws);
+    } finally {
+      refused.mockRestore();
+    }
+    expect(await accountOf(ws)).toBeUndefined();
+    const after = (await shown(ws)).json();
+    expect(after).toMatchObject({ state: 'off', accountSid: null });
+    expect(after.lastError).toMatch(/couldn’t be turned on.*refused HandsFreeOS’s sign-in/);
+
+    // With Twilio letting HandsFreeOS in again, the next press turns it on, and the reason goes.
+    await turnOn(ws);
+    await drain(ws);
+    expect((await shown(ws)).json()).toMatchObject({ state: 'on', lastError: null });
+  });
+
   it('is only for those who manage the business’s numbers', async () => {
     const ws = await business('Switch Members');
     await rows(
@@ -184,6 +235,50 @@ describe('phone & texting on', () => {
       executeCommand(api(), telephonyEnable, { workspaceId: ws }, actor(member), meta()),
     ).rejects.toMatchObject({ status: 403 });
     expect((await shown(ws, member)).statusCode).toBe(403);
+  });
+
+  // The founder works in any business as its owner (20261013002100). The worker's routes ask about the person by
+  // id, so they need the founder's open business counted too, or the switch reads Off in it (20261027022100).
+  it('shows the founder working in the business what its owner sees, and nobody else from HandsFreeOS', async () => {
+    const ws = await business('Switch Founder Solar');
+    await turnOn(ws);
+    await drain(ws);
+    const [founder, agent] = await Promise.all([
+      createTestUser('switch-founder'),
+      createTestUser('switch-agent'),
+    ]);
+    await admin().execute(sql`update platform.staff set founder = false where founder`);
+    await admin().execute(
+      sql`insert into platform.staff (user_id, role, display_name, founder)
+          values (${agent.id}, 'agent', 'Sam at HandsFreeOS', false), (${founder.id}, 'agent', '', true)`,
+    );
+    try {
+      expect((await shown(ws, founder)).statusCode).toBe(403);
+
+      await executeCommand(api(), platformViewAsStart, { workspaceId: ws }, actor(founder), meta());
+      const seen = await shown(ws, founder);
+      expect(seen.statusCode).toBe(200);
+      expect(seen.json()).toMatchObject({ state: 'on', accountSid: expect.stringMatching(/^AC/) });
+
+      // Support's read-only look is not the owner's view.
+      await executeCommand(
+        api(),
+        platformViewAsStart,
+        { workspaceId: ws, reason: 'Their texting switch reads Off', minutes: 15 },
+        actor(agent),
+        meta(),
+      );
+      expect((await shown(ws, agent)).statusCode).toBe(403);
+      await executeCommand(api(), platformViewAsEnd, {}, actor(agent), meta());
+
+      // Once the founder leaves, the business is theirs no more.
+      await executeCommand(api(), platformViewAsEnd, {}, actor(founder), meta());
+      expect((await shown(ws, founder)).statusCode).toBe(403);
+    } finally {
+      await admin().execute(
+        sql`delete from platform.staff where user_id in (${agent.id}, ${founder.id})`,
+      );
+    }
   });
 });
 

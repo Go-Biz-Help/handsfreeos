@@ -29,7 +29,8 @@ import {
 } from '../coach';
 import { WIN_KINDS } from '../learn';
 import { salescoachAddon } from '../manifest';
-import { PlaybookDetails } from '../playbooks';
+import { callKindFor, type CallStart } from '../method';
+import { PlaybookDetails, type PlaybookKind } from '../playbooks';
 import { cards, coachedCalls, playbooks } from '../tables';
 import { inWorkspace } from './playbooks';
 
@@ -46,6 +47,8 @@ const Card = z.object({
   title: z.string(),
   say: z.string(),
   heard: z.string(),
+  /** How to say it (round five); empty when there's nothing to add. */
+  tip: z.string(),
   objectionId: z.string().nullable(),
   createdAt: z.string(),
 });
@@ -80,6 +83,7 @@ const cardOut = (c: typeof cards.$inferSelect): CoachCard => ({
   title: c.title,
   say: c.say,
   heard: c.heard,
+  tip: c.tip,
   objectionId: c.objectionId,
   createdAt: c.createdAt.toISOString(),
 });
@@ -135,12 +139,75 @@ async function loadCoached(tx: Tx, workspaceId: string, coachedCallId: string): 
   return c;
 }
 
+/** How long either side of an appointment's start a call with its customer counts as the booked call. */
+const BOOKED_WITHIN_MS = 30 * 60_000;
+
+/**
+ * How a call started, from core's records (round five): a meeting or a phone call and its way, whether the customer
+ * has an appointment starting about now, and how old their newest open lead is.
+ */
+export async function callStart(
+  tx: Tx,
+  input: { callId: string | null; liveMeetingId: string | null; personId: string | null },
+  now: Date,
+): Promise<CallStart> {
+  const [call] = input.callId
+    ? await rows<{ direction: 'inbound' | 'outbound' }>(
+        tx,
+        dbSql`select direction from app.calls where id = ${input.callId}`,
+      )
+    : [];
+  const [lead] = input.personId
+    ? await rows<{ created_at: string }>(
+        tx,
+        dbSql`select created_at from app.leads
+              where person_id = ${input.personId} and status = 'open' and archived_at is null and bin_item_id is null
+              order by created_at desc limit 1`,
+      )
+    : [];
+  const [booked] = input.personId
+    ? await rows<{ id: string }>(
+        tx,
+        dbSql`select a.id from app.appointment_attendees aa
+              join app.appointments a on a.id = aa.appointment_id
+              where aa.person_id = ${input.personId} and aa.cancelled_at is null
+                and a.status = 'scheduled' and a.bin_item_id is null
+                and a.starts_at between ${new Date(now.getTime() - BOOKED_WITHIN_MS).toISOString()}
+                  and ${new Date(now.getTime() + BOOKED_WITHIN_MS).toISOString()}
+              limit 1`,
+      )
+    : [];
+  return {
+    meeting: input.liveMeetingId !== null,
+    direction: call?.direction ?? null,
+    booked: booked !== undefined,
+    known: input.personId !== null,
+    leadAgeDays: lead
+      ? Math.max(0, (now.getTime() - new Date(lead.created_at).getTime()) / 86_400_000)
+      : null,
+  };
+}
+
+/** The business's script for a kind of call (its usual one first, then the oldest), else its usual script. */
+export async function playbookForKind(
+  tx: Tx,
+  workspaceId: string,
+  kind: PlaybookKind | null,
+): Promise<typeof playbooks.$inferSelect | undefined> {
+  const inUse = await tx
+    .select()
+    .from(playbooks)
+    .where(and(eq(playbooks.workspaceId, workspaceId), isNull(playbooks.archivedAt)))
+    .orderBy(desc(playbooks.isDefault), playbooks.createdAt);
+  return (kind && inUse.find((p) => p.kind === kind)) || inUse[0];
+}
+
 // ---------- the worker's ----------
 
 export const callBegin = defineAddonCommand(salescoachAddon, {
   name: 'salescoach.call.begin',
   description:
-    'Worker: someone who is coached answered a call or is in a Zoom meeting or a HandsFreeOS video call, and the coach is listening. Starts the coached call with the usual playbook, or finds the one already started.',
+    'Worker: someone who is coached answered a call or is in a Zoom meeting or a HandsFreeOS video call, and the coach is listening. Starts the coached call with the playbook for how the call started (a booked call, a new lead, an older lead or a cold call) or else the usual one, or finds the one already started.',
   risk: 0,
   input: z
     .object({
@@ -165,12 +232,9 @@ export const callBegin = defineAddonCommand(salescoachAddon, {
   emits: ['salescoach.call.started'],
   async handler(ctx, input) {
     const ws = ctx.scope.workspaceId!;
-    const [pb] = await ctx.tx
-      .select()
-      .from(playbooks)
-      .where(and(eq(playbooks.workspaceId, ws), isNull(playbooks.archivedAt)))
-      .orderBy(desc(playbooks.isDefault), playbooks.createdAt)
-      .limit(1);
+    // The script for how the call started when the business has one of that kind, else the usual one.
+    const kind = callKindFor(await callStart(ctx.tx, input, changeMoment(ctx.meta)));
+    const pb = await playbookForKind(ctx.tx, ws, kind);
     const [made] = await ctx.tx
       .insert(coachedCalls)
       .values({
@@ -235,6 +299,7 @@ export const cardAdd = defineAddonCommand(salescoachAddon, {
         title: z.string().trim().min(1).max(80),
         say: z.string().trim().min(1).max(400),
         heard: z.string().max(200),
+        tip: z.string().max(120).default(''),
         objectionId: z
           .string()
           .regex(/^o[0-9]{1,3}$/)

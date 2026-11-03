@@ -36,6 +36,7 @@ export function CampaignList({
               <span className="flex items-center gap-2 truncate text-[13.5px] font-medium">
                 {c.name}
                 <Badge variant="gray">{CHANNEL_WORDS[c.channel] ?? 'Texts'}</Badge>
+                {c.keepAdding ? <Badge variant="gray">Keeps adding</Badge> : null}
               </span>
               <span className="truncate text-[12.5px] text-text-2">{c.goal}</span>
             </div>

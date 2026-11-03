@@ -1,4 +1,6 @@
 import {
+  groupModeChange,
+  groupModeOf,
   hourWords,
   POSTING_MODE_KEYS,
   POSTING_MODES,
@@ -6,10 +8,13 @@ import {
   PUSH_MODES,
   REPLY_MODE_KEYS,
   REPLY_MODES,
+  requestModeChange,
+  requestModeOf,
   SENDING_MODE_KEYS,
   WEEKDAY_WORDS,
   WHEELS_START_WORDS,
   wheelsMatter,
+  worksEveryDay,
   type AutomationSettings,
   type NetworkChoices,
   type PostingMode,
@@ -18,10 +23,12 @@ import {
 } from '@hfos/core/addons/outreach/automation';
 import { HELPFUL_MODES_ON, helpfulHowOn } from '@hfos/core/addons/outreach/helpful';
 import {
+  groupsChoiceOn,
   helpfulOn,
   noRunnerWords,
   onItsOwnAbout,
   postingAboutOn,
+  requestsChoiceOn,
   sendingModesOn,
   ticksOn,
   ticksShownOn,
@@ -362,7 +369,12 @@ export function NetworkModes({
   );
 }
 
-/** Along the way on one network, in its words: liking first, confirming requests, the once-a-day jobs, and more. */
+/**
+ * Along the way on one network, in its words: liking first, confirming requests, the once-a-day jobs, and more. Where
+ * the extension answers the requests the person gets (Facebook's), how it answers them, in place of a tick
+ * (decision 121); and where groups are theirs to work (Facebook's and Alignable's), whether it joins more or works
+ * only the groups they're in (decision 148).
+ */
 export function NetworkTicks({
   platform,
   value,
@@ -381,23 +393,71 @@ export function NetworkTicks({
   const ticks = ticksOn(platform);
   // None on a network whose runner reads none yet.
   const shown = ticksShownOn(platform);
-  if (!shown.length) return null;
+  const requests = requestsChoiceOn(platform);
+  const groups = groupsChoiceOn(platform);
+  if (!shown.length && !requests && !groups) return null;
+  const answering = requestModeOf(value);
+  const grouping = groupModeOf(value);
   return (
-    <Section boxed={boxed} title={W.sections.along}>
-      <View className="gap-3">
-        {shown.map((k) => (
-          <Tick
-            key={k}
-            label={ticks[k][0]}
-            about={ticks[k][1]}
-            checked={value[k]}
-            onChange={(on) => onChange({ [k]: on })}
-            disabled={disabled}
-            testID={`${testID}-${k}`}
-          />
-        ))}
-      </View>
-    </Section>
+    <>
+      {shown.length ? (
+        <Section boxed={boxed} title={W.sections.along}>
+          <View className="gap-3">
+            {shown.map((k) => (
+              <Tick
+                key={k}
+                label={ticks[k][0]}
+                about={ticks[k][1]}
+                checked={value[k]}
+                onChange={(on) => onChange({ [k]: on })}
+                disabled={disabled}
+                testID={`${testID}-${k}`}
+              />
+            ))}
+          </View>
+        </Section>
+      ) : null}
+      {requests ? (
+        <Section
+          boxed={boxed}
+          title={requests.label}
+          about={requests.about}
+          testID={`${testID}-requests`}
+        >
+          {requests.options.map((o) => (
+            <Choice
+              key={o.key}
+              label={o.label}
+              about={o.note ?? undefined}
+              selected={answering === o.key}
+              onPress={() => onChange(requestModeChange(o.key))}
+              disabled={disabled}
+              testID={`${testID}-requests-${o.key}`}
+            />
+          ))}
+        </Section>
+      ) : null}
+      {groups ? (
+        <Section
+          boxed={boxed}
+          title={groups.label}
+          about={groups.about}
+          testID={`${testID}-groups`}
+        >
+          {groups.options.map((o) => (
+            <Choice
+              key={o.key}
+              label={o.label}
+              about={o.note}
+              selected={grouping === o.key}
+              onPress={() => onChange(groupModeChange(o.key))}
+              disabled={disabled}
+              testID={`${testID}-groups-${o.key}`}
+            />
+          ))}
+        </Section>
+      ) : null}
+    </>
   );
 }
 
@@ -575,6 +635,14 @@ export function WhenPart({
             );
           })}
         </View>
+        <Tick
+          label={W.everyDay[0]}
+          about={W.everyDay[1]}
+          checked={worksEveryDay(hours)}
+          onChange={(everyDay) => setHours({ everyDay }, false)}
+          disabled={disabled}
+          testID={`${testID}-every-day`}
+        />
       </View>
     </Section>
   );

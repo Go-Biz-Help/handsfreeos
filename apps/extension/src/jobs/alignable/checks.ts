@@ -15,7 +15,7 @@ import { line } from '../../networks/facebook/lookup';
 import type { BusinessPage, Ideal } from '../../networks/alignable/read';
 import { businessRef, idIn, urlOf } from '../../networks/alignable/read';
 import { counted } from '../../words';
-import type { ReadThem, Who } from '../checks';
+import { moreToCome, type ReadThem, type Who } from '../checks';
 import { paced, pause, valueOf, warnedOn, type Job, type JobEnd } from '../job';
 import { ALIGNABLE, readAlignableIn, signedOutEnd } from './read';
 
@@ -72,7 +72,12 @@ export async function readThemOnAlignable(job: Job, who: Who): Promise<ReadThem>
   if (page.signedOut) return { end: signedOutEnd() };
   const shown = page.found.business;
   if (!shown || !isTheirs(shown, want)) return { lines: [], missing: true, followers: null };
-  return { lines: businessLines(shown).slice(0, LOOKUP_LINES), missing: false, followers: null };
+  return {
+    lines: businessLines(shown).slice(0, LOOKUP_LINES),
+    missing: false,
+    followers: null,
+    seen: shown.profile,
+  };
 }
 
 /** How it went, in words for the person. */
@@ -111,6 +116,7 @@ export async function researchOnAlignable(
             kind: null,
             opener: null,
             simple: false,
+            unanswered: null,
             lookedUp: false,
             queued: true,
           },
@@ -163,6 +169,7 @@ export async function checkConnections(
           profileId: who.profileId,
           lines: read.lines,
           missing: read.missing,
+          ...(read.seen ? { seen: read.seen } : {}),
         },
       }),
     );
@@ -175,5 +182,9 @@ export async function checkConnections(
       await pause(paced(PACE_MS));
     }
   }
-  return { line: `Done. ${summary(sent, missing)}`, warned: false };
+  return {
+    line: `Done. ${summary(sent, missing)}`,
+    warned: false,
+    ...(moreToCome(next, most) ? { again: true } : {}),
+  };
 }

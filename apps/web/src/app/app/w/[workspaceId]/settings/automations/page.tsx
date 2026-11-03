@@ -39,7 +39,7 @@ export default async function AutomationsSettingsPage({
   if (!can(got.workspace.permissions, 'workspace.update')) notFound();
   const body = { body: { workspaceId } };
   // The number, addresses and chat sites are only for the wording's check (the business's own may be given).
-  const [pipelines, worked, phone, email, widgets, team, forms, services, plans] =
+  const [pipelines, worked, phone, email, widgets, team, forms, services, plans, prices] =
     await Promise.all([
       api.POST('/v1/queries/pipeline.list', body).then(unwrapPage),
       // What HandsFreeOS works out for a lead with no value: the median won lead over a year, else $500.
@@ -74,7 +74,15 @@ export default async function AutomationsSettingsPage({
         .POST('/v1/queries/plan.list', body)
         .then((r) => r.data?.plans ?? [])
         .catch(() => []),
+      // "Business landlines" says what checking a number costs, to someone who can see prices.
+      api
+        .POST('/v1/queries/usage.prices', body)
+        .then((r) => r.data?.items ?? null)
+        .catch(() => null),
     ]);
+  const priced = (key: string) => prices?.find((p) => p.key === key)?.cents;
+  const line = priced('lookup.line_type');
+  const owner = priced('lookup.caller_name');
   const number = phone?.number && phone.number.status === 'active' ? phone.number : null;
   const addresses = email?.addresses.map((a) => a.address) ?? [];
   const domains = [
@@ -118,6 +126,7 @@ export default async function AutomationsSettingsPage({
         check={check}
         senderName={(me.user.fullName.trim() || me.user.email).split(/\s+/)[0] ?? 'the team'}
         forms={forms.map((f) => ({ id: f.formId, name: f.name, status: f.status }))}
+        lineCheckCents={line !== undefined && owner !== undefined ? { line, owner } : null}
         maintenanceReady={
           services.some((s) => s.repeatMonths !== null) ||
           plans.some((p) => p.serviceId !== null && !p.archivedAt)

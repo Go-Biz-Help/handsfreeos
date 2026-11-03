@@ -7973,6 +7973,9 @@
                       "minimum": 0,
                       "maximum": 6
                     }
+                  },
+                  "everyDay": {
+                    "type": "boolean"
                   }
                 },
                 "required": ["start", "end", "days"]
@@ -8028,7 +8031,9 @@
                     "default": {
                       "on": true,
                       "young": false,
-                      "tidy": "cancel"
+                      "fullSpeed": false,
+                      "tidy": "cancel",
+                      "requests": "fits"
                     },
                     "type": "object",
                     "properties": {
@@ -8040,10 +8045,19 @@
                         "default": false,
                         "type": "boolean"
                       },
+                      "fullSpeed": {
+                        "default": false,
+                        "type": "boolean"
+                      },
                       "tidy": {
                         "default": "cancel",
                         "type": "string",
                         "enum": ["off", "cancel", "unfriend"]
+                      },
+                      "requests": {
+                        "default": "fits",
+                        "type": "string",
+                        "enum": ["fits", "fits_delete", "all", "delete"]
                       }
                     }
                   },
@@ -8059,7 +8073,9 @@
                       "watchPosts": true,
                       "posting": "after_ok",
                       "young": false,
-                      "tidy": "cancel"
+                      "fullSpeed": false,
+                      "tidy": "cancel",
+                      "requests": "fits"
                     },
                     "type": "object",
                     "properties": {
@@ -8106,10 +8122,19 @@
                         "default": false,
                         "type": "boolean"
                       },
+                      "fullSpeed": {
+                        "default": false,
+                        "type": "boolean"
+                      },
                       "tidy": {
                         "default": "cancel",
                         "type": "string",
                         "enum": ["off", "cancel", "unfriend"]
+                      },
+                      "requests": {
+                        "default": "fits",
+                        "type": "string",
+                        "enum": ["fits", "fits_delete", "all", "delete"]
                       }
                     }
                   },
@@ -8125,7 +8150,9 @@
                       "watchPosts": true,
                       "posting": "after_ok",
                       "young": false,
-                      "tidy": "cancel"
+                      "fullSpeed": false,
+                      "tidy": "cancel",
+                      "requests": "fits"
                     },
                     "type": "object",
                     "properties": {
@@ -8172,10 +8199,19 @@
                         "default": false,
                         "type": "boolean"
                       },
+                      "fullSpeed": {
+                        "default": false,
+                        "type": "boolean"
+                      },
                       "tidy": {
                         "default": "cancel",
                         "type": "string",
                         "enum": ["off", "cancel", "unfriend"]
+                      },
+                      "requests": {
+                        "default": "fits",
+                        "type": "string",
+                        "enum": ["fits", "fits_delete", "all", "delete"]
                       }
                     }
                   },
@@ -8191,7 +8227,9 @@
                       "watchPosts": true,
                       "posting": "after_ok",
                       "young": false,
-                      "tidy": "cancel"
+                      "fullSpeed": false,
+                      "tidy": "cancel",
+                      "requests": "fits"
                     },
                     "type": "object",
                     "properties": {
@@ -8238,10 +8276,19 @@
                         "default": false,
                         "type": "boolean"
                       },
+                      "fullSpeed": {
+                        "default": false,
+                        "type": "boolean"
+                      },
                       "tidy": {
                         "default": "cancel",
                         "type": "string",
                         "enum": ["off", "cancel", "unfriend"]
+                      },
+                      "requests": {
+                        "default": "fits",
+                        "type": "string",
+                        "enum": ["fits", "fits_delete", "all", "delete"]
                       }
                     }
                   }
@@ -8547,6 +8594,31 @@
         "required": ["workspaceId"]
       }
     },
+    "outreach.friends.cancel_all": {
+      "offline": "online",
+      "input": {
+        "type": "object",
+        "properties": {
+          "workspaceId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "platform": {
+            "default": "facebook",
+            "type": "string",
+            "enum": ["facebook", "linkedin", "instagram", "alignable"]
+          },
+          "on": {
+            "type": "boolean"
+          },
+          "leaveOutOwn": {
+            "default": true,
+            "type": "boolean"
+          }
+        },
+        "required": ["workspaceId", "on"]
+      }
+    },
     "outreach.helpful.ask": {
       "offline": "online",
       "input": {
@@ -8780,6 +8852,40 @@
         "required": ["workspaceId", "needId", "how"]
       }
     },
+    "outreach.need.retry": {
+      "offline": "online",
+      "input": {
+        "type": "object",
+        "properties": {
+          "workspaceId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "needIds": {
+            "default": null,
+            "anyOf": [
+              {
+                "minItems": 1,
+                "maxItems": 100,
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "format": "uuid"
+                }
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "sends": {
+            "default": true,
+            "type": "boolean"
+          }
+        },
+        "required": ["workspaceId"]
+      }
+    },
     "outreach.owner.move": {
       "offline": "online",
       "input": {
@@ -8824,6 +8930,26 @@
           }
         },
         "required": ["workspaceId", "partnerId", "mark"]
+      }
+    },
+    "outreach.partner.potential": {
+      "offline": "online",
+      "input": {
+        "type": "object",
+        "properties": {
+          "workspaceId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "profileId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "potential": {
+            "type": "boolean"
+          }
+        },
+        "required": ["workspaceId", "profileId", "potential"]
       }
     },
     "outreach.playbook.archive": {
@@ -9049,6 +9175,15 @@
                 "type": "boolean",
                 "const": true
               },
+              "facebookSearches": {
+                "maxItems": 12,
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 60
+                }
+              },
               "hashtags": {
                 "maxItems": 30,
                 "type": "array",
@@ -9083,7 +9218,7 @@
                 "type": "array",
                 "items": {
                   "type": "string",
-                  "enum": ["instagram", "linkedin", "alignable"]
+                  "enum": ["facebook", "instagram", "linkedin", "alignable"]
                 }
               },
               "audience": {
@@ -9459,6 +9594,27 @@
         "required": ["workspaceId", "item", "done"]
       }
     },
+    "outreach.request.answer": {
+      "offline": "anytime",
+      "input": {
+        "type": "object",
+        "properties": {
+          "workspaceId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "profileId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "answer": {
+            "type": "string",
+            "enum": ["confirm", "delete"]
+          }
+        },
+        "required": ["workspaceId", "profileId", "answer"]
+      }
+    },
     "outreach.request.set_aside": {
       "offline": "anytime",
       "input": {
@@ -9474,6 +9630,23 @@
           }
         },
         "required": ["workspaceId", "profileId"]
+      }
+    },
+    "outreach.requests.start_again": {
+      "offline": "online",
+      "input": {
+        "type": "object",
+        "properties": {
+          "workspaceId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "platform": {
+            "type": "string",
+            "enum": ["facebook", "linkedin", "instagram", "alignable"]
+          }
+        },
+        "required": ["workspaceId", "platform"]
       }
     },
     "outreach.send.approve": {
@@ -9509,6 +9682,36 @@
           "partial": {
             "default": false,
             "type": "boolean"
+          }
+        },
+        "required": ["workspaceId"]
+      }
+    },
+    "outreach.send.retry": {
+      "offline": "online",
+      "input": {
+        "type": "object",
+        "properties": {
+          "workspaceId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "needIds": {
+            "default": null,
+            "anyOf": [
+              {
+                "minItems": 1,
+                "maxItems": 100,
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "format": "uuid"
+                }
+              },
+              {
+                "type": "null"
+              }
+            ]
           }
         },
         "required": ["workspaceId"]

@@ -25,6 +25,7 @@ export default async function ProblemsPage({
     <ProblemReports
       reports={list.reports}
       areas={list.areas}
+      steps={list.steps}
       state={state}
       area={area}
       nextBefore={list.nextBefore}

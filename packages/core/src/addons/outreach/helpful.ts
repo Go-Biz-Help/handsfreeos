@@ -18,6 +18,7 @@
 import { z } from 'zod';
 import { quoteData } from '../../knowledge/prompt';
 import { POSTING_MODE_KEYS, type PostingMode } from './automation';
+import { knowsBlocks, type DraftKnows } from './knows';
 import { WHEN_MOST } from './limits';
 import { NETWORKS, PLATFORM_KEYS, type Platform } from './networks';
 import { PersonName, ProfileRef } from './saves';
@@ -395,6 +396,11 @@ export interface HelpfulPromptInput {
   readonly emoji?: boolean;
   /** On Instagram: the playbook's own hashtags, a few of which may close it. */
   readonly hashtags?: readonly string[];
+  /**
+   * What the business knows (decision 122, ./knows.ts): its profile and Knowledge, to write from what it knows well.
+   * Left out, it isn't told.
+   */
+  readonly knows?: DraftKnows | null;
 }
 
 /** The last line of the prompt: what to write, where. */
@@ -423,6 +429,7 @@ export function helpfulPrompt(input: HelpfulPromptInput): string {
             .join('\n'),
         )}\n</playbook>`
       : null,
+    ...(input.knows !== undefined ? knowsBlocks(input.knows) : []),
     input.group
       ? `<group>\n${quoteData(
           [

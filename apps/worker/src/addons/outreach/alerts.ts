@@ -5,7 +5,7 @@
  *   at it: "Dana Reyes wrote back".
  * - **A reply handed over** (`outreach.send.queued`, decision 27): with Replies (b) or (c), a reply that waits for the
  *   person after all, because it isn't simple or they need the person, is pushed at once, whatever their pushes
- *   setting says (./waiting.ts), and opens Waiting for you: "Dana Reyes needs you".
+ *   setting says (./waiting.ts), and opens Needs you: "Facebook reply needs you" (decision 146).
  * - **Someone accepted** the person's friend request, invitation or follow (`outreach.friend.accepted`, decision
  *   101): pushed at once when they switched it on, one push for everyone a list showed: "Dana Reyes accepted your
  *   friend request". Off to start.
@@ -109,9 +109,14 @@ export async function replySeen(ctx: AddonEventContext): Promise<void> {
   if (p.push && p.userId && p.profileIds?.length) {
     const userId = p.userId;
     await asWorker(ctx.db, ctx.scope, async (tx) => {
-      const found = await rows<{ id: string; name: string; person_id: string | null }>(
+      const found = await rows<{
+        id: string;
+        name: string;
+        person_id: string | null;
+        platform: Platform;
+      }>(
         tx,
-        sql`select id, name, person_id from addon_outreach.profiles
+        sql`select id, name, person_id, platform from addon_outreach.profiles
             where workspace_id = ${ctx.scope.workspaceId}
               and id = any (${`{${p.profileIds!.join(',')}}`}::uuid[])`,
       );
@@ -120,7 +125,7 @@ export async function replySeen(ctx: AddonEventContext): Promise<void> {
           key: `reply:${ctx.event.id}:${profile.id}`,
           userIds: [userId],
           permission: 'outreach.use',
-          ...replyPushWords(profile.name),
+          ...replyPushWords(profile.name, profile.platform),
           href: TODAY_HREF,
           collapseKey: `reply-${profile.id}`,
           personId: profile.person_id,
@@ -176,9 +181,9 @@ export async function handOver(ctx: AddonEventContext): Promise<void> {
   const userId = p.userId;
   const profileId = ctx.event.entityId;
   await asWorker(ctx.db, ctx.scope, async (tx) => {
-    const [profile] = await rows<{ name: string; person_id: string | null }>(
+    const [profile] = await rows<{ name: string; person_id: string | null; platform: Platform }>(
       tx,
-      sql`select name, person_id from addon_outreach.profiles
+      sql`select name, person_id, platform from addon_outreach.profiles
           where workspace_id = ${ctx.scope.workspaceId} and id = ${profileId}`,
     );
     if (!profile) return;
@@ -186,7 +191,7 @@ export async function handOver(ctx: AddonEventContext): Promise<void> {
       key: `hand-over:${ctx.event.id}`,
       userIds: [userId],
       permission: 'outreach.use',
-      ...handOverPushWords(profile.name, p.why ?? null),
+      ...handOverPushWords(profile.name, p.why ?? null, profile.platform),
       href: WAITING_HREF,
       // The same chat's "wrote back" gives way to it.
       collapseKey: `reply-${profileId}`,

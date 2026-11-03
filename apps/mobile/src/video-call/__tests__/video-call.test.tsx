@@ -62,6 +62,7 @@ const person = (over: Partial<VideoCallPerson>): VideoCallPerson => ({
   joinedAt: null,
   leftAt: null,
   seconds: 0,
+  onStage: false,
   ...over,
 });
 

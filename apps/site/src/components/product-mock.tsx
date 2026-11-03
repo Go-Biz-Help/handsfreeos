@@ -1,6 +1,8 @@
 'use client';
 
 import { useEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react';
+import { useYourBusiness } from '@/components/your-business';
+import type { Trade } from '@/content/trades';
 
 /**
  * The hero's picture of the product: a new lead texting after hours, the AI teammate answering and booking it,
@@ -10,6 +12,10 @@ import { useEffect, useRef, useState, type CSSProperties, type ReactNode } from 
  * and a still picture cannot show that. Every line holds its place from the first frame, so the page never
  * moves around it. The OK card is real enough to press: "Send it" is the whole argument in one tap — it asks
  * first, and you stay in charge.
+ *
+ * It is told in the visitor's own business once they have said what it is (components/your-business.tsx): their
+ * name in Ava's first line, and a customer in their trade. Picking another trade plays it again from the start;
+ * typing the name changes it where it stands.
  *
  * It is a drawing, not a screenshot, and the caption says so. Replace it with a real screenshot of the Inbox
  * once there is a demo business worth photographing.
@@ -29,8 +35,13 @@ const at = {
 type Step = 'asking' | 'editing' | 'sent';
 
 export function ProductMock() {
+  const { trade, shown, own } = useYourBusiness();
   const [run, setRun] = useState(0);
-  const [step, setStep] = useState<Step>('asking');
+  // A new trade is a new conversation, so the OK card starts over with it.
+  const play = `${run}:${trade.id}`;
+  const [card, setCard] = useState<{ play: string; step: Step }>({ play, step: 'asking' });
+  const step = card.play === play ? card.step : 'asking';
+  const setStep = (next: Step) => setCard({ play, step: next });
   const figure = useRef<HTMLElement>(null);
   const replay = useRef<HTMLButtonElement>(null);
 
@@ -68,16 +79,24 @@ export function ProductMock() {
 
   return (
     <figure ref={figure} className="m-0">
-      <Conversation key={run} step={step} onStep={setStep} />
+      <Conversation
+        key={play}
+        trade={trade}
+        business={shown}
+        own={own}
+        step={step}
+        onStep={setStep}
+      />
       <figcaption className="text-text-3 mt-6 flex flex-wrap items-center justify-between gap-x-4 gap-y-2 text-sm">
-        <span>An illustration of a HandsFreeOS inbox. Names and messages are made up.</span>
+        <span>
+          {own
+            ? 'An illustration of a HandsFreeOS inbox, with your business in it. The customer and messages are made up.'
+            : 'An illustration of a HandsFreeOS inbox. Names and messages are made up.'}
+        </span>
         <button
           ref={replay}
           type="button"
-          onClick={() => {
-            setStep('asking');
-            setRun((n) => n + 1);
-          }}
+          onClick={() => setRun((n) => n + 1)}
           className="text-text-2 hover:text-text -mx-2 inline-flex items-center gap-1.5 rounded-[8px] px-2 py-1 font-medium transition-[color,transform] duration-[150ms,160ms] ease-[ease,var(--curve-out)] motion-safe:active:scale-[0.97]"
         >
           <svg
@@ -96,23 +115,39 @@ export function ProductMock() {
         </button>
       </figcaption>
       <p className="sr-only" aria-live="polite">
-        {step === 'sent' ? 'Sent. Marisol has the quote.' : ''}
+        {step === 'sent' ? `Sent. ${trade.lead.first} has the quote.` : ''}
       </p>
     </figure>
   );
 }
 
-function Conversation({ step, onStep }: { step: Step; onStep: (step: Step) => void }) {
+function Conversation({
+  trade,
+  business,
+  own,
+  step,
+  onStep,
+}: {
+  trade: Trade;
+  business: string;
+  own: boolean;
+  step: Step;
+  onStep: (step: Step) => void;
+}) {
+  const { lead } = trade;
   return (
     <div>
       <div className="bg-card border-border relative rounded-[20px] border shadow-[var(--shadow-3)]">
         <div className="border-border flex items-center gap-3 border-b px-4 py-3.5 sm:px-5">
           <span className="bg-accent-soft-2 text-accent-text flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-xs font-bold">
-            MR
+            {lead.initials}
           </span>
           <div className="min-w-0">
-            <p className="truncate text-[0.9375rem] font-semibold">Marisol R.</p>
-            <p className="text-text-3 truncate text-xs">New lead · texted your business number</p>
+            <p className="truncate text-[0.9375rem] font-semibold">{lead.name}</p>
+            <p className="text-text-3 truncate text-xs">
+              New lead · texted{' '}
+              <span className={own ? 'text-text-2 font-semibold' : undefined}>{business}</span>
+            </p>
           </div>
           <span className="text-text-3 ml-auto text-xs whitespace-nowrap tabular-nums">
             7:42 PM
@@ -122,7 +157,7 @@ function Conversation({ step, onStep }: { step: Step; onStep: (step: Step) => vo
         {/* The OK card overlaps the foot of the thread on wider screens; the extra space there keeps it off the booking. */}
         <div className="space-y-3.5 px-4 py-5 sm:px-5 sm:pb-14">
           <Bubble side="in" at={at.first}>
-            Hi — my AC is blowing warm air. Can anyone come out today?
+            {trade.ask}
           </Bubble>
 
           {/* The dots and the reply share a place, so the reply lands where the dots were. */}
@@ -136,14 +171,13 @@ function Conversation({ step, onStep }: { step: Step; onStep: (step: Step) => vo
                 </span>
               </div>
               <Bubble side="out">
-                Sorry about that, Marisol — warm air in this heat is no fun. I can get a tech to you
-                tomorrow between 8 and 10 AM, or today between 5 and 7 PM. Which suits you?
+                <Named text={trade.reply} business={business} own={own} />
               </Bubble>
             </div>
           </div>
 
           <Bubble side="in" at={at.second}>
-            Tomorrow 8–10 please
+            {trade.pick}
           </Bubble>
 
           <div
@@ -164,14 +198,14 @@ function Conversation({ step, onStep }: { step: Step; onStep: (step: Step) => vo
               <path d="m4 10.5 4 4 8-9" />
             </svg>
             <span>
-              <strong className="font-semibold">Booked</strong> · Tue 8:00–10:00 AM · Dale ·
-              Diagnostic visit · reminder texts set
+              <strong className="font-semibold">Booked</strong> · {trade.booked} · reminder texts
+              set
             </span>
           </div>
         </div>
       </div>
 
-      <AskCard step={step} onStep={onStep} />
+      <AskCard trade={trade} step={step} onStep={onStep} />
     </div>
   );
 }
@@ -181,7 +215,15 @@ function Conversation({ step, onStep }: { step: Step; onStep: (step: Step) => vo
  * as you press through it; the change between them is a short crossfade, softened with a little blur so it
  * reads as one card changing rather than two swapping.
  */
-function AskCard({ step, onStep }: { step: Step; onStep: (step: Step) => void }) {
+function AskCard({
+  trade: { lead, quote },
+  step,
+  onStep,
+}: {
+  trade: Trade;
+  step: Step;
+  onStep: (step: Step) => void;
+}) {
   // It cannot be pressed before it has arrived: a keyboard would otherwise land on buttons nobody can see.
   const [arrived, setArrived] = useState(false);
   const pressed = useRef(false);
@@ -223,8 +265,9 @@ function AskCard({ step, onStep }: { step: Step; onStep: (step: Step) => void })
           <State shown={step === 'asking'}>
             <Label>Waiting for your OK</Label>
             <p className="text-sm">
-              Ava wants to send Marisol a <strong className="font-semibold">$189</strong> diagnostic
-              quote. It hasn&rsquo;t sent a price on its own yet.
+              Ava wants to send {lead.first} a{' '}
+              <strong className="font-semibold">{quote.price}</strong> {quote.what} quote. It
+              hasn&rsquo;t sent a price on its own yet.
             </p>
             <div className="mt-3.5 flex gap-2">
               <CardButton primary onClick={() => go('sent')}>
@@ -238,9 +281,7 @@ function AskCard({ step, onStep }: { step: Step; onStep: (step: Step) => void })
 
           <State shown={step === 'editing'}>
             <Label>Ava&rsquo;s draft</Label>
-            <p className="border-accent border-l-2 pl-3 text-sm">
-              Your quote for tomorrow&rsquo;s visit: $189. Look it over and accept it here.
-            </p>
+            <p className="border-accent border-l-2 pl-3 text-sm">{quote.draft}</p>
             <div className="mt-3.5 flex gap-2">
               <CardButton ref={draftSendRef} primary onClick={() => go('sent')}>
                 Send it
@@ -252,7 +293,7 @@ function AskCard({ step, onStep }: { step: Step; onStep: (step: Step) => void })
           <State shown={step === 'sent'}>
             <Label tone="success">Sent · you approved it</Label>
             <p className="text-sm">
-              Marisol has the quote. Once she accepts it, it becomes the invoice.
+              {lead.first} has the quote. Once it&rsquo;s accepted, it becomes the invoice.
             </p>
             <p className="text-success-text mt-3.5 flex items-center gap-1.5 text-sm font-semibold">
               {/* Mounted only once sent, so the tick draws as the card turns, not unseen beforehand. */}
@@ -383,6 +424,25 @@ function Bubble({
         {children}
       </p>
     </div>
+  );
+}
+
+/**
+ * Ava's line with the business's name in it. The visitor's own name is lit, so they see where it went the moment
+ * they type it.
+ */
+function Named({ text, business, own }: { text: string; business: string; own: boolean }) {
+  const [before, after = ''] = text.split('{business}');
+  return (
+    <>
+      {before}
+      <span
+        className={`font-semibold ${own ? '-mx-0.5 rounded-[5px] bg-white/20 px-1 [box-decoration-break:clone]' : ''}`}
+      >
+        {business}
+      </span>
+      {after}
+    </>
   );
 }
 

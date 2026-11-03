@@ -11,7 +11,7 @@ import { Switch } from '@/components/ui/switch';
 import { apiBrowser, errorMessage, unwrap } from '@/lib/api/client';
 import type { FormSummary } from '@/lib/api/types';
 import { PUBLIC_FORM_PATH } from '@/lib/forms/words';
-import { usePublicOrigin } from '@/lib/use-origin';
+import { useOrigin, usePublicOrigin } from '@/lib/use-origin';
 
 /**
  * The four ways a form reaches people: the link, a website embed, the AI teammate asking it in a
@@ -32,7 +32,7 @@ export function FormShare({
   /** Their own domain when one is serving (M17): the link to copy, and the QR code made from it. */
   brandedOrigin: string | null;
 }) {
-  const [origins, setOrigins] = useState(form.embedOrigins.join('\n'));
+  const [origins, setOrigins] = useState(form.embedOrigins.join(', '));
   const [inChat, setInChat] = useState(form.inChat);
   const [qr, setQr] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
@@ -41,6 +41,7 @@ export function FormShare({
   // matches and there is no hydration mismatch, and it is where the business's own domain comes in (M17).
   // Every other page that shows a public link uses it.
   const origin = usePublicOrigin(brandedOrigin);
+  const appOrigin = useOrigin();
   const path = siteSlug ? PUBLIC_FORM_PATH(siteSlug, form.slug) : null;
   const link = path ? `${origin}${path}` : null;
 
@@ -55,11 +56,13 @@ export function FormShare({
   async function save(next: { embedOrigins?: string[]; inChat?: boolean }) {
     setSaving(true);
     try {
-      unwrap(
+      const saved = unwrap(
         await apiBrowser().POST('/v1/commands/form.set_delivery', {
           body: { workspaceId, formId: form.formId, ...next },
         }),
       );
+      // As saved: exact addresses, with the www (or bare) version added for each.
+      if (next.embedOrigins) setOrigins(saved.embedOrigins.join(', '));
       toast.success('Saved.');
     } catch (e) {
       toast.error(errorMessage(e));
@@ -98,7 +101,9 @@ export function FormShare({
 
   // Past the guard above `siteSlug` is a string, so this is the address itself rather than a maybe-null one.
   const publicUrl = `${origin}${PUBLIC_FORM_PATH(siteSlug, form.slug)}`;
-  const embedSnippet = `<iframe src="${publicUrl}?embed=1" title="${form.name}" width="100%" height="720" style="border:0" loading="lazy"></iframe>`;
+  // The iframe, and the line that fits its box to the form (/embed/v1/form.js), from our own address: a business's
+  // own domain serves its pages, not our scripts.
+  const embedSnippet = `<iframe src="${publicUrl}?embed=1" title="${form.name}" width="100%" height="720" style="border:0" loading="lazy"></iframe>\n<script src="${appOrigin}/embed/v1/form.js" async></script>`;
 
   return (
     // One column that is the screen's width, not the embed snippet's: an implicit grid column grows to fit its widest
@@ -152,17 +157,18 @@ export function FormShare({
         <div>
           <h3 className="text-[14px] font-medium text-text">On your own website</h3>
           <p className="mt-0.5 text-[12.5px] text-text-3">
-            Paste the snippet where you want the form. Only the sites you list here may show it.
+            Paste the snippet where you want the form. Only the sites you list here may show it, and
+            its box grows to fit it. Its look is on the Design tab.
           </p>
         </div>
         <Field
           label="Sites allowed to show it"
           htmlFor="embed-origins"
-          hint="One per line, like https://example.com. Empty means it isn’t embedded anywhere."
+          hint="Like example.com, with commas between them. The www version is added for you. Empty means it isn’t embedded anywhere."
         >
           <Input
             id="embed-origins"
-            placeholder="https://example.com"
+            placeholder="example.com"
             value={origins}
             disabled={!canManage || saving}
             onChange={(e) => setOrigins(e.target.value)}
@@ -170,7 +176,7 @@ export function FormShare({
               save({
                 embedOrigins: origins
                   .split(/[\s,]+/)
-                  .map((o: string) => o.trim().toLowerCase())
+                  .map((o: string) => o.trim())
                   .filter(Boolean),
               })
             }

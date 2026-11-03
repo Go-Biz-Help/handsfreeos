@@ -21,6 +21,10 @@
  * written yes to calls, not called lately) and writes their call down for the AI teammate (ai-calls/), which
  * places it in open hours. The owner approved the whole list, so the calls don't wait for a person again. Without
  * the teammate's phone, it pauses.
+ *
+ * A call campaign that keeps adding people (AI calls, part 4) doesn't finish when its list is called: it looks for
+ * anyone who has come to fit since (a tag, an open deal in a stage, a yes to calls) and calls them at its pace,
+ * looking again within the hour, or as soon as one of those changes (`onMayJoinCampaign`), until it's stopped.
  */
 import { randomUUID } from 'node:crypto';
 import {
@@ -69,6 +73,10 @@ export const campaignSendKey = (campaignId: string): string => `campaign-send:${
 
 /** People drafted per run. */
 export const DRAFTS_PER_RUN = 10;
+/** People who join a campaign that keeps adding, per look. */
+const JOINERS_PER_LOOK = 50;
+/** How soon a campaign that keeps adding people looks again when nobody new fits (a change that may bring someone is sooner). */
+export const KEEP_ADDING_LOOK_MS = 60 * 60_000;
 /** Messages of a person's history the AI reads. */
 const HISTORY_MESSAGES = 4;
 const HISTORY_CHARS = 300;
@@ -116,6 +124,35 @@ export const onCampaignSending: EventHandler = async (ctx) => {
   const scope = tenantOf(ctx.scope);
   await schedule(ctx.tx, scope, CAMPAIGN_SEND_JOB, campaignSendKey(id), id, new Date(), true);
   await ctx.tx.execute(sql`update app.campaigns set next_send_at = now() where id = ${id}`);
+};
+
+/**
+ * Someone may have come to fit a call campaign that keeps adding people: a lead, a stage, a tag or a yes to calls
+ * changed (or the campaign's own switch did). A campaign with nobody left to call looks again as soon as its pace
+ * allows; one still working through its list will get to them anyway.
+ */
+export const onMayJoinCampaign: EventHandler = async (ctx) => {
+  const scope = tenantOf(ctx.scope);
+  const own = ctx.event.entityType === 'campaign' ? ctx.event.entityId : null;
+  const list = await rows<{ id: string; per_hour: number; last: Date | null }>(
+    ctx.tx,
+    sql`select c.id, c.per_hour,
+          (select max(r.sent_at) from app.campaign_recipients r where r.campaign_id = c.id) as last
+        from app.campaigns c
+        where c.workspace_id = ${scope.workspaceId} and c.status = 'sending' and c.channel = 'call'
+          and ${own ? sql`c.id = ${own}` : sql`c.keep_adding`}
+          and not exists (select 1 from app.campaign_recipients r
+                          where r.campaign_id = c.id and r.status = 'approved')`,
+  );
+  for (const c of list) {
+    const last = c.last ? new Date(c.last).getTime() : 0;
+    const at = new Date(Math.max(Date.now(), last + secondsBetween(c.per_hour) * 1000));
+    await schedule(ctx.tx, scope, CAMPAIGN_SEND_JOB, campaignSendKey(c.id), c.id, at, true);
+    await ctx.tx.execute(
+      sql`update app.campaigns set next_send_at = least(next_send_at, ${at.toISOString()}::timestamptz)
+          where id = ${c.id}`,
+    );
+  }
 };
 
 /** campaign.pace_changed: faster means the next text may be due sooner than it was set for. */
@@ -280,13 +317,15 @@ interface CampaignRow extends Record<string, unknown> {
   email_subject: string | null;
   email_body: string | null;
   call_opening: string | null;
+  keep_adding: boolean;
+  audience: { tagIds?: string[]; stageIds?: string[] } | null;
 }
 
 async function campaignOf(tx: Tx, id: string): Promise<CampaignRow | null> {
   const [c] = await rows<CampaignRow>(
     tx,
     sql`select id, name, goal, status, per_hour, created_by, offer_id, channel, email_subject, email_body,
-          call_opening
+          call_opening, keep_adding, audience
         from app.campaigns where id = ${id}`,
   );
   return c ?? null;
@@ -340,7 +379,9 @@ async function toReview(tx: Tx, scope: TenantScope, jobId: string, c: CampaignRo
         c.channel === 'email'
           ? `${c.name}: the email to ${ready} ${ready === 1 ? 'person' : 'people'} is written. Read it and approve to start sending.`
           : c.channel === 'call'
-            ? `${c.name}: the calls to ${ready} ${ready === 1 ? 'person' : 'people'} are ready. Read how they open and approve to start calling.`
+            ? c.keep_adding
+              ? `${c.name}: ${ready ? `the calls to ${ready} ${ready === 1 ? 'person' : 'people'} are ready` : 'nobody to call yet'}. Read how they open and approve: anyone who joins later is called too.`
+              : `${c.name}: the calls to ${ready} ${ready === 1 ? 'person' : 'people'} are ready. Read how they open and approve to start calling.`
             : `${c.name}: ${ready} texts written. Read them and approve to start sending.`,
       path: `/app/w/${scope.workspaceId}/campaigns/${c.id}`,
       refs: {},
@@ -1015,6 +1056,11 @@ async function callOne(
           order by r.created_at, r.id limit 1`,
     );
     if (!r) {
+      // One that keeps adding people takes in whoever has come to fit since, or looks again later.
+      if (c.keep_adding) {
+        const joined = await addJoiners(tx, scope.workspaceId, c, new Date(now));
+        return { rescheduleAt: new Date(joined ? now : now + KEEP_ADDING_LOOK_MS) };
+      }
       await finish(tx, scope, ctx.job.id, c);
       return undefined;
     }
@@ -1036,6 +1082,13 @@ async function callOne(
       );
       return { rescheduleAt: new Date(now) };
     }
+    // Someone back after their last call was left alone (not a business landline, then a yes) gets a new one.
+    const [earlier] = await rows<{ n: number }>(
+      tx,
+      sql`select count(*)::int as n from app.ai_calls
+          where campaign_recipient_id = ${r.id} and status = 'skipped'`,
+    );
+    const dedupeKey = earlier?.n ? `campaign:${r.id}:${earlier.n}` : `campaign:${r.id}`;
     const made = await queueAiCall(
       tx,
       scope,
@@ -1045,7 +1098,7 @@ async function callOne(
         to: r.phone_e164,
         goal: opening,
         campaignRecipientId: r.id,
-        dedupeKey: `campaign:${r.id}`,
+        dedupeKey,
       },
       ctx.job.id,
       { approved: true },
@@ -1053,7 +1106,7 @@ async function callOne(
     if (!made) {
       const [before] = await rows(
         tx,
-        sql`select 1 from app.ai_calls where campaign_recipient_id = ${r.id} limit 1`,
+        sql`select 1 from app.ai_calls where workspace_id = ${scope.workspaceId} and dedupe_key = ${dedupeKey}`,
       );
       // No teammate to make it: stop until someone turns it on and resumes.
       if (!before) {
@@ -1067,4 +1120,36 @@ async function callOne(
     );
     return { rescheduleAt: new Date(now + secondsBetween(c.per_hour) * 1000) };
   });
+}
+
+/**
+ * Whoever has come to fit a call campaign that keeps adding people since it last looked: anyone its tags or stages
+ * pick who agreed to calls in writing, isn't in it yet (or was left out for a reason that has changed), and isn't
+ * left out now. They're approved with the campaign; how many joined.
+ */
+async function addJoiners(tx: Tx, workspaceId: string, c: CampaignRow, now: Date): Promise<number> {
+  const audience = { tagIds: c.audience?.tagIds ?? [], stageIds: c.audience?.stageIds ?? [] };
+  if (!audience.tagIds.length && !audience.stageIds.length) return 0;
+  const facts = await callAudienceFacts(tx, workspaceId, { audience }, now, {
+    exceptCampaignId: c.id,
+    joining: c.id,
+  });
+  const ids = [...facts]
+    .filter(([, f]) => callSkipReasonOf(f) === null)
+    .map(([id]) => id)
+    .slice(0, JOINERS_PER_LOOK);
+  if (!ids.length) return 0;
+  const joined = await rows<{ id: string }>(
+    tx,
+    sql`insert into app.campaign_recipients (workspace_id, campaign_id, person_id, status)
+        select ${workspaceId}, ${c.id}, x.person_id, 'approved'
+        from unnest(array[${sql.join(
+          ids.map((id) => sql`${id}`),
+          sql`, `,
+        )}]::uuid[]) as x(person_id)
+        on conflict (campaign_id, person_id) do update set status = 'approved', skip_reason = null
+          where app.campaign_recipients.status = 'skipped'
+        returning id`,
+  );
+  return joined.length;
 }

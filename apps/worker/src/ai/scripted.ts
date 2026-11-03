@@ -857,6 +857,12 @@ const thankYouStep = (t: TeammateTurn): TeammateStep =>
     `${hello(t)}Thanks for choosing ${businessName(t.context)} today. We hope everything is working well!`,
   );
 
+/** Someone hot after a webinar: thanks for coming, and one question toward a call. */
+const webinarStep = (t: TeammateTurn): TeammateStep =>
+  say(
+    `${hello(t)}Thanks for joining the webinar from ${businessName(t.context)}! Would a quick call this week help?`,
+  );
+
 /** A reply to someone who just mentioned a referral starts by thanking them for it (prompt.ts's <referral>). */
 function thanked(asked: string, step: TeammateStep): TeammateStep {
   if (!asked.includes('<referral>') || 'text' in step) return step;
@@ -946,7 +952,9 @@ export function scriptedTeammateTurn(
       : asked.includes(NUDGE_ASK)
         ? nudgeStep()
         : asked.includes(TASK_ASK)
-          ? thankYouStep(turn)
+          ? asked.includes('<webinar>')
+            ? webinarStep(turn)
+            : thankYouStep(turn)
           : asked.includes(FUNNEL_ASK)
             ? funnelStep(turn, asked)
             : thanked(
@@ -1754,15 +1762,29 @@ function scriptedPlaybookAssist(message: string) {
 /**
  * Drafts for Today by their first name: one twice and one with “free trial”, for the checks to drop. A reply is
  * simple when their last message asks nothing, and says what they answered; the video and the link say which they
- * are, for the checks to find their links on the end.
+ * are, for the checks to find their links on the end. A reply to a question none of whose words the business
+ * profile or the knowledge has says it's unanswered, in their words (decision 122); one they have answers from the
+ * knowledge. Someone who said no gets a kind word and nothing more (decision 134).
  */
 function scriptedTodayDraft(message: string) {
   const name = /<person>([\s\S]*?)<\/person>/.exec(message)?.[1] ?? 'there';
   const first = unquote(name).split(' ')[0];
   const theirs = [...message.matchAll(/^Them: (.*)$/gm)].at(-1)?.[1] ?? '';
   const last = [...message.matchAll(/^(Owner|Them): /gm)].at(-1)?.[1];
-  const reply = message.includes('They wrote last. Write the owner’s reply');
+  const reply = message.includes('They wrote last. Read the whole chat first');
   const answer = reply && last === 'Them' ? scriptedAnswer(theirs) : 'none';
+  // A question in a reply (decision 122): answered from the first item of the knowledge sharing a word with it, or
+  // unanswered, in their words, when the business profile has none of its words either.
+  const asked = reply && last === 'Them' && theirs.includes('?') ? unquote(theirs) : '';
+  const askedWords = asked.toLowerCase().match(/[a-z]{4,}/g) ?? [];
+  const fromKnowledge = [...message.matchAll(/^Q: (.*)\nA: (.*)$/gm)].find((m) =>
+    askedWords.some((w) => m[1]!.toLowerCase().includes(w)),
+  )?.[2];
+  const profile = (quotedBlock(message, 'business_profile') ?? '').toLowerCase();
+  const unanswered =
+    asked && !fromKnowledge && !askedWords.some((w) => profile.includes(w))
+      ? asked.replace(/[?.!\s]+$/, '').toLowerCase()
+      : '';
   // A partner's messages (decision 81): the ask, a nudge, the details, and a reply that reads their answer.
   if (message.includes('Write the first message about partnering'))
     return {
@@ -1849,6 +1871,14 @@ function scriptedTodayDraft(message: string) {
       answer: 'none',
       drafts: [`Here’s my link to book a quick call, ${first}.`],
     };
+  // Someone who told the owner no, or not now (decision 134): nothing that pitches, whatever the rest says.
+  if (message.includes('They told the owner no, or not now'))
+    return {
+      simple: false,
+      answer,
+      unanswered: '',
+      drafts: [`No problem at all, ${first}. Take care!`],
+    };
   // A message the owner wrote themselves in Your messages (decision 87): kept close to, fitted to them.
   const example = /^- (.+)$/m.exec(unquote(quotedBlock(message, 'owner_example') ?? ''))?.[1];
   if (example)
@@ -1857,9 +1887,24 @@ function scriptedTodayDraft(message: string) {
       answer,
       drafts: [`${example} (for ${first})`],
     };
+  if (fromKnowledge)
+    return {
+      simple: false,
+      answer,
+      unanswered: '',
+      drafts: [`Good question, ${first}! ${unquote(fromKnowledge)}`],
+    };
+  if (unanswered)
+    return {
+      simple: false,
+      answer,
+      unanswered,
+      drafts: [`Good question, ${first}. Let me check on that and get back to you.`],
+    };
   return {
     simple: theirs !== '' && !theirs.includes('?'),
     answer,
+    unanswered: '',
     drafts: [
       `Hi ${first}, thanks for adding me! How’s business going?`,
       `Hey ${first}, good to connect. What keeps you busiest these days?`,
@@ -1871,7 +1916,7 @@ function scriptedTodayDraft(message: string) {
 
 /**
  * Social Outreach's check of a group post: good when it asks for a recommendation, strong when it's looking for a CRM
- * (decision 49), and why says which way.
+ * (decision 49), its writer fits when they speak of their own business (decision 123), and why says which way.
  */
 function scriptedPostCheck(message: string) {
   const post = /<post>\n([\s\S]*?)\n<\/post>/.exec(message)?.[1] ?? '';
@@ -1880,6 +1925,7 @@ function scriptedPostCheck(message: string) {
   return {
     good,
     strong,
+    fits: /\b(my|our) (business|company|shop|crew)\b/i.test(post),
     why: strong
       ? 'Looking for a CRM now'
       : good
@@ -2290,9 +2336,9 @@ function scriptedLikeYoursPick(message: string) {
 }
 
 /**
- * Social Outreach's words for finding people by topic (decision 92), from the playbook's niche and area: every list,
- * asked for or not, so the check can drop what wasn't asked; with a hashtag everyone uses, the business's own name, a
- * hashtag twice and a phrase too long, for the check to drop too. Works online only when asked: yes when the niche
+ * Social Outreach's words for finding people by topic (decisions 92 and 141), from the playbook's niche and area: every
+ * list, asked for or not, so the check can drop what wasn't asked; with a hashtag everyone uses, the business's own
+ * name, a hashtag and a Facebook phrase twice and a phrase too long, for the check to drop too. Works online only when asked: yes when the niche
  * or the area says online, else no.
  */
 function scriptedFindWords(message: string) {
@@ -2306,6 +2352,12 @@ function scriptedFindWords(message: string) {
   const town = area.split(',')[0]!.replace(/\s+/g, '').toLowerCase();
   const kind = first.charAt(0).toUpperCase() + first.slice(1);
   return {
+    facebookSearches: [
+      'missed calls',
+      `anyone use a ${first} app`,
+      `${first} tips`,
+      'missed calls',
+    ],
     hashtags: [
       `#${niche}`,
       `${first}life`,
@@ -2342,10 +2394,20 @@ const inSpanish = (message: string) =>
 /** The stand-in's "translation": the words marked as said in Spanish. */
 const spanish = (words: string) => `En español: ${words}`;
 
+/** The stand-in's "pitched too soon": the rep named a price before the customer had said two things. */
+function pitchedSoon(message: string): boolean {
+  let customer = 0;
+  for (const m of message.matchAll(/^(Customer|Rep): (.*)$/gm)) {
+    if (m[1] === 'Customer') customer++;
+    else if (/\$\d/.test(m[2]!) && customer < 2) return true;
+  }
+  return false;
+}
+
 /**
- * Sales Coach live (coach.ts): a customer worried about price gets the playbook's first objection's answer; a
- * question gets the first talking point; anything else no card. The call is at the script's second step once the
- * customer has spoken twice.
+ * Sales Coach live (coach.ts): a customer worried about price gets the playbook's first objection's answer, with a
+ * tip; a question gets the first talking point; a rep who named a price too soon gets a nudge; anything else no
+ * card. The call is at the script's second step once the customer has spoken twice.
  */
 function scriptedCoachCard(message: string, context: string) {
   const said = coachSaid(message, 'Customer');
@@ -2363,6 +2425,7 @@ function scriptedCoachCard(message: string, context: string) {
         title: (heard ?? 'Price').replace(/^"|"$/g, ''),
         say: inSpanish(message) ? spanish(answer ?? objection.words) : (answer ?? objection.words),
         heard: last,
+        tip: 'Calm and curious. Ask before you answer.',
         objectionId: objection.id,
       },
     };
@@ -2370,7 +2433,28 @@ function scriptedCoachCard(message: string, context: string) {
   if (last.includes('?') && point)
     return {
       step,
-      card: { kind: 'fact', title: 'They asked', say: point.words, heard: last, objectionId: null },
+      card: {
+        kind: 'fact',
+        title: 'They asked',
+        say: point.words,
+        heard: last,
+        tip: '',
+        objectionId: null,
+      },
+    };
+  if (pitchedSoon(message))
+    return {
+      step,
+      card: {
+        kind: 'nudge',
+        title: 'Price before the problem',
+        say: inSpanish(message)
+          ? spanish('What made you look into this now?')
+          : 'Before price, ask: What made you look into this now?',
+        heard: '',
+        tip: 'Slow down.',
+        objectionId: null,
+      },
     };
   return { step, card: null };
 }
@@ -2398,6 +2482,7 @@ function scriptedCoachWriteUp(message: string) {
         objectionId: coachParts(message, 'o')[0]?.id ?? null,
       })),
     stepsCovered: coachParts(message, 's').map((s) => s.id),
+    pitchedEarly: pitchedSoon(message),
     tips: ['Ask for the booking before you hang up.'],
     language: inSpanish(message) ? 'es' : 'en',
   };
@@ -2406,20 +2491,106 @@ function scriptedCoachWriteUp(message: string) {
 /** Sales Coach's playbook to start from: the pasted script's lines as steps, or three made up from the business. */
 function scriptedCoachPlaybook(message: string) {
   const script = quotedBlock(message, 'script');
-  const lines = script
-    ? unquote(script)
-        .split('\n')
-        .map((l) => l.trim())
-        .filter(Boolean)
-    : ['Say hello and who you are', 'Ask what they need', 'Book the visit'];
+  if (script) {
+    const lines = unquote(script)
+      .split('\n')
+      .map((l) => l.trim())
+      .filter(Boolean);
+    return {
+      name: 'Our script',
+      steps: lines.slice(0, 8).map((title) => ({ title, say: '', stage: null, tip: '' })),
+      objections: [
+        { objection: 'It’s too expensive', answer: 'I hear you. What were you hoping to spend?' },
+      ],
+      points: [{ topic: 'Warranty', fact: '[warranty length]' }],
+    };
+  }
+  // The question-led way: a step for each stage, using the owner's answers when there are some.
+  const answers = unquote(quotedBlock(message, 'owner_answers') ?? '');
+  const answer = (ask: RegExp) => new RegExp(`${ask.source}\\n(.+)`).exec(answers)?.[1]?.trim();
+  const problem =
+    answer(/What problems do they usually have before they call you\?/) ?? '[the problem]';
+  const offer = answer(/What do you sell on these calls\?/) ?? '[what you sell]';
+  const kind =
+    /^Write a playbook for this kind of call: (.*)\.$/m.exec(message)?.[1] ?? 'First call';
   return {
-    name: script ? 'Our script' : 'First call',
-    steps: lines.slice(0, 8).map((title) => ({ title, say: '' })),
+    name: kind,
+    steps: [
+      {
+        title: 'Say who you are and why you’re calling',
+        say: `Hi, it’s [your name] with [business]. It looks like you asked about ${offer}. Is that right?`,
+        stage: 'connect',
+        tip: 'Slow and calm.',
+      },
+      {
+        title: 'Ask what they use now',
+        say: 'What are you doing about that now?',
+        stage: 'situation',
+        tip: '',
+      },
+      {
+        title: 'Ask what isn’t working',
+        say: `You mentioned ${problem}. What do you mean by that?`,
+        stage: 'problem',
+        tip: 'Sound curious.',
+      },
+      {
+        title: 'Ask what they want instead',
+        say: 'If that were fixed, what would be different for you?',
+        stage: 'future',
+        tip: '',
+      },
+      {
+        title: 'Ask what happens if nothing changes',
+        say: 'What happens if nothing changes over the next year?',
+        stage: 'consequence',
+        tip: 'Concerned, not pushy.',
+      },
+      {
+        title: 'Ask how much it matters',
+        say: 'How important is it to you to fix this now?',
+        stage: 'importance',
+        tip: '',
+      },
+      {
+        title: 'Sum up in their words',
+        say: 'Based on what you told me, we could help. Would you like to see how?',
+        stage: 'bridge',
+        tip: '',
+      },
+      {
+        title: 'Show how you fix what they named',
+        say: `The way we fix ${problem} is [how]. Does that make sense?`,
+        stage: 'present',
+        tip: '',
+      },
+      {
+        title: 'Ask how they feel about it',
+        say: 'Do you feel this could be what you’re looking for?',
+        stage: 'commit',
+        tip: '',
+      },
+    ],
     objections: [
-      { objection: 'It’s too expensive', answer: 'I hear you. What were you hoping to spend?' },
+      {
+        objection: 'It’s too expensive',
+        answer: 'When you say it’s a lot, how do you mean? What were you comparing it to?',
+      },
+      {
+        objection: 'I need to think it over',
+        answer:
+          'That’s fine. What would you want to go over? Let’s set a time to talk again so you don’t have to chase me.',
+      },
     ],
     points: [{ topic: 'Warranty', fact: '[warranty length]' }],
   };
+}
+
+/** What the script builder can already answer (coach.ts's brief guess): what the business sells, from its profile. */
+function scriptedCoachBrief(message: string) {
+  const profile = unquote(quotedBlock(message, 'business_profile') ?? '').trim();
+  const offer = profile && !/not available/i.test(profile) ? firstSentence(profile, 200) : '';
+  return { offer, buyers: '', problems: '', result: '', why: '', nextStep: '' };
 }
 
 /**
@@ -2499,6 +2670,7 @@ export const SALESCOACH_RULES: readonly ScriptRule[] = [
     json: (message) => scriptedCoachWriteUp(message),
   },
   { when: /Write the playbook\.$/, json: (message) => scriptedCoachPlaybook(message) },
+  { when: /Answer what the business says\.$/, json: (message) => scriptedCoachBrief(message) },
 ];
 
 /**
@@ -2524,11 +2696,96 @@ function scriptedCallReview(message: string): unknown {
   };
 }
 
+/** Each person's line after a webinar, from what they did (video-calls/leads.ts's `leadLine`). */
+function scriptedLeadReasons(message: string) {
+  const people = [...message.matchAll(/^- (\S+) \((hot|warm|cold)\): (.+)$/gm)].map((m) => ({
+    id: m[1]!,
+    reason: `${m[2] === 'hot' ? 'Ready to talk' : m[2] === 'warm' ? 'Interested' : 'Not ready yet'}: ${m[3]!}.`,
+  }));
+  return { people };
+}
+
+/** Points for each answer of a poll (forms/poll-draft-routes.ts's `pointsRequest`): the later choice, yes, the high end. */
+function scriptedPollPoints(message: string) {
+  const questions = [...message.matchAll(/^- (\S+) \((\w+)\): .* · answers: (.+)$/gm)].map((m) => {
+    const keys = m[3]!.split('; ').map((a) => a.slice(0, a.indexOf(' = ')));
+    const points = keys.map((key, i) => ({
+      key,
+      points:
+        key === 'pressed'
+          ? 25
+          : key === 'answered'
+            ? 5
+            : key === 'yes'
+              ? 10
+              : key === 'no'
+                ? 0
+                : /^\d+$/.test(key)
+                  ? Math.max(0, Number(key) - 5) * 3
+                  : i * 5,
+    }));
+    return { id: m[1]!, points };
+  });
+  return { questions, lines: { stayed: 10, hot: 30, warm: 10 } };
+}
+
+/** A drafted poll (forms/poll-draft-routes.ts's `draftRequest`): a few easy questions, then a button. */
+function scriptedPollDraft(message: string) {
+  const count = Number(/How many questions and buttons: (\d+)/.exec(message)?.[1] ?? 6);
+  const slides = Number(/The presenter's slides \((\d+)\)/.exec(message)?.[1] ?? 0);
+  const slide = (n: number) => (slides >= n ? n : null);
+  const questions = [
+    {
+      type: 'choice',
+      title: 'Where do most of your customers come from now?',
+      choices: ['Referrals', 'Ads', 'Our website'],
+      cues: ['where do your customers come from'],
+      slide: slide(2),
+      points: [
+        { key: '2', points: 10 },
+        { key: '3', points: 10 },
+      ],
+    },
+    {
+      type: 'yes_no',
+      title: 'Do you use a CRM today?',
+      choices: [],
+      cues: ['quick show of hands'],
+      slide: slide(3),
+      points: [{ key: 'yes', points: 10 }],
+    },
+    {
+      type: 'scale',
+      title: 'How soon do you want this fixed?',
+      choices: [],
+      cues: ['how soon'],
+      slide: slide(4),
+      points: [
+        { key: '10', points: 20 },
+        { key: '9', points: 15 },
+        { key: '8', points: 10 },
+      ],
+    },
+  ].slice(0, Math.max(1, count - 1));
+  const button = {
+    type: 'button',
+    title: 'Want help setting it up?',
+    choices: ['Talk to someone'],
+    cues: ['if you want help'],
+    slide: null,
+    points: [{ key: 'pressed', points: 25 }],
+  };
+  return { questions: [...questions, button], lines: { stayed: 10, hot: 30, warm: 10 } };
+}
+
 export const MEETING_RULES: readonly ScriptRule[] = [
   {
     when: /Write the call review the instructions above describe\.$/,
     json: (m) => scriptedCallReview(m),
   },
+  { when: /Write the one line for each person\.$/, json: (m) => scriptedLeadReasons(m) },
+  { when: /Suggest the points for every answer\.$/, json: (m) => scriptedPollPoints(m) },
+  { when: /Draft the poll\.$/, json: (m) => scriptedPollDraft(m) },
 ];
 
 /**

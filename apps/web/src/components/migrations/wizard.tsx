@@ -572,10 +572,16 @@ function Running({
   detail: MigrationDetail;
 }) {
   const router = useRouter();
-  const act = async (command: string, extra: Record<string, unknown> = {}) => {
+  // Each path written out whole, so the Assistant's coverage check sees all three.
+  const act = async (
+    path:
+      | '/v1/commands/migration.pause'
+      | '/v1/commands/migration.resume'
+      | '/v1/commands/migration.retry',
+  ) => {
     try {
-      await apiBrowser().POST(`/v1/commands/${command}` as '/v1/commands/migration.pause', {
-        body: { organizationId, workspaceId, migrationId: detail.migration.id, ...extra },
+      await apiBrowser().POST(path as '/v1/commands/migration.pause', {
+        body: { organizationId, workspaceId, migrationId: detail.migration.id },
       });
       router.refresh();
     } catch (err) {
@@ -616,13 +622,13 @@ function Running({
       ) : null}
       <div className="mt-4 flex flex-wrap gap-2">
         {detail.migration.status === 'paused' ? (
-          <Button variant="secondary" onClick={() => act('migration.resume')}>
+          <Button variant="secondary" onClick={() => act('/v1/commands/migration.resume')}>
             Carry on
           </Button>
         ) : (
           <Button
             variant="secondary"
-            onClick={() => act('migration.pause')}
+            onClick={() => act('/v1/commands/migration.pause')}
             data-testid="migration-pause"
           >
             Pause
@@ -631,7 +637,7 @@ function Running({
         {detail.retryable > 0 ? (
           <Button
             variant="ghost"
-            onClick={() => act('migration.retry')}
+            onClick={() => act('/v1/commands/migration.retry')}
             data-testid="migration-retry"
           >
             <RefreshCw className="h-4 w-4" strokeWidth={1.75} />

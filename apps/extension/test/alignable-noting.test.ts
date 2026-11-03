@@ -168,6 +168,21 @@ describe('noting a message on Alignable', () => {
     expect(click(chat(''), '[data-testid="messaging-send-external"]')).toBeNull();
   });
 
+  it('notes Send as Alignable draws it since 30 Oct 2026, in a conversation whose header has no test id', () => {
+    const doc = page(
+      `${AL}/biz/conversations?with_business_id=42`,
+      `<div data-testid="inbox"><div><div><header><h3>Messages</h3></header></div>
+        <div><header><div><img alt="" /><a href="/biz/businesses/42?user=5&cyfid=6"><div>Dana Reyes</div></a></div></header>
+          <div><div></div><div data-testid="full-view-write-message"><div contenteditable="true">Hi Dana</div>
+            <button data-testid="messaging-send-desktop" title="Send"><svg></svg></button></div></div></div></div></div>`,
+    );
+    expect(click(doc, '[data-testid="messaging-send-desktop"] svg')).toMatchObject({
+      kind: 'message',
+      to: { name: 'Dana Reyes', profile: { id: '42' } },
+      thread: { id: '42', encrypted: false, url: `${AL}/biz/conversations?with_business_id=42` },
+    });
+  });
+
   it('notes Enter in its box only once the box empties', () => {
     const doc = chat('Hi Dana');
     const box = doc.querySelector('[contenteditable="true"]')!;

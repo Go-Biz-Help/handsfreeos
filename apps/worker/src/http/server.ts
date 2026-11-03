@@ -3,6 +3,7 @@ import { registerZoomRoutes } from '../meetings/routes';
 import cors from '@fastify/cors';
 import formbody from '@fastify/formbody';
 import {
+  checkChatOnSite,
   checkOptInSurface,
   checkPolicy,
   checkTerms,
@@ -10,12 +11,15 @@ import {
   dispositionOf,
   formatPhone,
   HfosError,
+  policyAsText,
+  privacyPolicy,
   SPOKEN_VOICE_HEADER,
+  termsOfService,
   type FetchedPage,
 } from '@hfos/core/server';
 import { asWorker, rows, sql } from '@hfos/db/client';
-import { telephonyAccounts } from '@hfos/db/schema';
-import { eq } from 'drizzle-orm';
+import { scheduledJobs, telephonyAccounts } from '@hfos/db/schema';
+import { and, desc, eq } from 'drizzle-orm';
 import Fastify, { type FastifyInstance, type FastifyRequest } from 'fastify';
 import { z } from 'zod';
 import { registerTeammateRoutes } from '../ai-team/routes';
@@ -26,11 +30,14 @@ import { registerMoneyLinkRoutes } from '../money/link-routes';
 import { registerWalletCardRoutes } from '../money/wallet-card-routes';
 import { registerPartnerPayoutRoutes } from '../partners/payout-routes';
 import { registerFakePaymentRoutes } from '../payments/fake-routes';
+import { ACCOUNT_JOBS } from '../telephony/account-switch';
 import { loadAccount } from '../telephony/accounts';
 import { ProviderError } from '../telephony/provider';
 import { renewAfterRefusal } from '../telephony/tokens';
 import { registerWorkflowRoutes } from '../workflows/index';
 import { registerBuilderRoutes } from '../workflows/builder-routes';
+import { registerPollCueRoutes } from '../forms/poll-cue-routes';
+import { registerPollDraftRoutes } from '../forms/poll-draft-routes';
 import { registerTemplateRoutes } from '../workflows/templates-routes';
 import {
   authenticate,
@@ -48,6 +55,7 @@ import { registerChatRoutes } from './chat';
 import { registerPortalRoutes } from './portal';
 import { formOrigins, registerIntakeRoutes } from './intake';
 import { registerFormRoutes } from './forms';
+import { registerWebsiteStyleRoutes } from './website-style';
 import { registerAddonActionRoutes } from './addon-actions';
 import { registerAddonConnectionRoutes } from './addon-connections';
 import { registerAddonSealedRoutes } from './addon-sealed';
@@ -57,6 +65,7 @@ import { registerExtensionSignInRoutes } from './extension-sign-in';
 import { registerAddonWebhookRoutes } from './addon-webhooks';
 import { registerVideoLinkRoutes } from './video-links';
 import { registerJoinRoutes } from './join';
+import { registerWebinarDoorRoutes } from './webinar-door';
 import { registerFoundingRoutes } from './founding';
 import { registerAffiliateRoutes } from './affiliates';
 import { registerLegalRoutes } from './legal';
@@ -187,7 +196,46 @@ const PreflightInput = z.strictObject({
   optInProofUrl: z.string().trim().max(500).nullable().optional(),
   /** The ways the business is known (its name and legal name), looked for on the website and beside the box. */
   names: z.array(z.string().trim().max(120)).max(4).default([]),
+  /** The name on the IRS letter: with a DBA, the website has to say it as well as the name customers know. */
+  legalName: z.string().trim().max(120).optional(),
+  /**
+   * What our privacy policy and terms are written from, as the wizard has it. A link to ours (`/legal/<site>/…`
+   * for this business) is judged from these, as the page will read once it's sent, rather than fetched: the page
+   * follows the saved answers a moment behind the typing, and is kept for a minute besides.
+   */
+  policyBusiness: z
+    .strictObject({
+      legalName: z.string().trim().max(120).optional(),
+      website: z.string().trim().max(300).optional(),
+      email: z.string().trim().max(254).optional(),
+      phone: z.string().trim().max(40).optional(),
+      offers: z.boolean().optional(),
+      address: z
+        .strictObject({
+          line1: z.string().trim().max(200).optional(),
+          city: z.string().trim().max(100).optional(),
+          state: z.string().trim().max(20).optional(),
+          postalCode: z.string().trim().max(20).optional(),
+        })
+        .optional(),
+    })
+    .optional(),
 });
+
+/** Which of our hosted pages a link is, for the business whose site has this name; null for anything else. */
+function hostedKind(
+  raw: string | null | undefined,
+  slug: string | null,
+): 'privacy' | 'terms' | null {
+  if (!raw || !slug) return null;
+  try {
+    const url = new URL(/^https?:\/\//i.test(raw) ? raw : `https://${raw}`);
+    const m = /^\/legal\/([A-Za-z0-9-]+)\/(privacy|terms)\/?$/.exec(url.pathname);
+    return m && m[1]!.toLowerCase() === slug.toLowerCase() ? (m[2] as 'privacy' | 'terms') : null;
+  } catch {
+    return null;
+  }
+}
 
 export async function buildHttpServer(deps: HttpDeps): Promise<FastifyInstance> {
   // Fly's proxy is the one hop in front, so request.ip is the caller's own address (the booking page's
@@ -311,6 +359,8 @@ export async function buildHttpServer(deps: HttpDeps): Promise<FastifyInstance> 
   // A customer's own portal: their private link, the code emailed to them, and the device it signs in.
   await registerPortalRoutes(app, deps);
   await registerFormRoutes(app, deps);
+  // A form's Match my website: a website's colours, font and corners, for its Design tab.
+  await registerWebsiteStyleRoutes(app, deps);
   // Documents: a signer's page (`/d/…`), their code, signing and declining, and the team's copy of a link.
   await registerDocumentRoutes(app, deps);
   // The AI placing the fields on a template's PDF, for the editor.
@@ -332,6 +382,8 @@ export async function buildHttpServer(deps: HttpDeps): Promise<FastifyInstance> 
   await registerVideoLinkRoutes(app, deps);
   // Joining an online session through a person's own Join link (funnels).
   await registerJoinRoutes(app, deps);
+  // A webinar's link anyone can use (/live/<key>): its door form saves a seat (http/webinar-door.ts).
+  await registerWebinarDoorRoutes(app, deps);
   // HandsFreeOS video calls: the team's and customers' tickets, asking to be let in, and LiveKit's webhooks.
   await registerVideoCallRoutes(app, deps);
   await registerSiteRoutes(app, deps);
@@ -349,6 +401,8 @@ export async function buildHttpServer(deps: HttpDeps): Promise<FastifyInstance> 
   await registerMainOfferRoutes(app, deps);
   await registerWorkflowRoutes(app, deps);
   await registerBuilderRoutes(app, deps);
+  await registerPollCueRoutes(app, deps);
+  await registerPollDraftRoutes(app, deps);
   await registerTemplateRoutes(app, deps);
   if (deps.testRoutes) registerTestRoutes(app, deps, deps.testRoutes);
 
@@ -402,24 +456,73 @@ export async function buildHttpServer(deps: HttpDeps): Promise<FastifyInstance> 
     const actor = await authenticate(deps, req);
     const input = parseBody(TelephonyAccountInput, req.body);
     await requirePermission(deps, actor.userId, input.workspaceId, 'channels.manage');
-    const [row] = await asWorker(deps.httpDb, { workspaceId: input.workspaceId }, (tx) =>
-      tx
-        .select({
-          status: telephonyAccounts.status,
-          accountSid: telephonyAccounts.accountSid,
-          lastError: telephonyAccounts.lastError,
-        })
-        .from(telephonyAccounts)
-        .where(eq(telephonyAccounts.workspaceId, input.workspaceId)),
+    const [row, opening] = await asWorker(
+      deps.httpDb,
+      { workspaceId: input.workspaceId },
+      async (tx) =>
+        [
+          (
+            await tx
+              .select({
+                status: telephonyAccounts.status,
+                accountSid: telephonyAccounts.accountSid,
+                lastError: telephonyAccounts.lastError,
+                updatedAt: telephonyAccounts.updatedAt,
+              })
+              .from(telephonyAccounts)
+              .where(eq(telephonyAccounts.workspaceId, input.workspaceId))
+          )[0],
+          // The latest press of On: the account is only written once Twilio has made it, so until then this is
+          // what knows it is turning on, or why it gave up.
+          (
+            await tx
+              .select({
+                status: scheduledJobs.status,
+                payload: scheduledJobs.payload,
+                finishedAt: scheduledJobs.finishedAt,
+              })
+              .from(scheduledJobs)
+              .where(
+                and(
+                  eq(scheduledJobs.workspaceId, input.workspaceId),
+                  eq(scheduledJobs.kind, ACCOUNT_JOBS.open),
+                ),
+              )
+              .orderBy(desc(scheduledJobs.createdAt))
+              .limit(1)
+          )[0],
+        ] as const,
     );
-    const on = !!row && row.status !== 'closed';
+    const open = !!row && row.status !== 'closed';
+    // Gave up since the account last changed: nothing made it on since, by the switch or by buying a number.
+    const gaveUp =
+      opening?.status === 'failed' &&
+      row?.status !== 'active' &&
+      (!row || !opening.finishedAt || opening.finishedAt > row.updatedAt);
+    const state =
+      row?.status === 'active'
+        ? 'on'
+        : opening?.status === 'pending'
+          ? 'turning_on'
+          : gaveUp
+            ? 'off'
+            : open
+              ? 'turning_on'
+              : 'off';
+    const problem = (opening?.payload as { problem?: unknown } | undefined)?.problem;
     return {
-      state: !on ? 'off' : row.status === 'provisioning' ? 'turning_on' : 'on',
-      accountSid: on ? row.accountSid : null,
+      state,
+      accountSid: state !== 'off' && open ? row.accountSid : null,
       // HandsFreeOS's own parent account, which every business's sits under. HighLevel's move form asks for
       // it beside the sub-account's. An identifier like the other, never a key.
       parentAccountSid: deps.telephony.masterAccountSid,
-      lastError: row?.lastError ?? null,
+      lastError: gaveUp
+        ? typeof problem === 'string'
+          ? problem
+          : 'Phone & texting couldn’t be turned on: Twilio, our phone carrier, kept refusing. Try again in a few minutes, or ask HandsFreeOS support.'
+        : state === 'off'
+          ? null
+          : (row?.lastError ?? null),
     };
   });
 
@@ -446,22 +549,59 @@ export async function buildHttpServer(deps: HttpDeps): Promise<FastifyInstance> 
       }
     };
 
+    // Our own policy and terms, as they'll read once sent: written from the wizard's answers, not fetched.
+    const [site] = input.policyBusiness
+      ? await asWorker(deps.httpDb, { workspaceId: input.workspaceId }, (tx) =>
+          rows<{ slug: string | null; name: string }>(
+            tx,
+            sql`select s.slug::text as slug, coalesce(nullif(s.name, ''), w.name) as name
+                from app.workspaces w left join app.booking_sites s on s.workspace_id = w.id
+                where w.id = ${input.workspaceId}`,
+          ),
+        )
+      : [];
+    const hostedOr = async (raw: string | null | undefined, kind: 'privacy' | 'terms') => {
+      if (!input.policyBusiness || !site || hostedKind(raw, site.slug) !== kind) return open(raw);
+      const business = { name: site.name, ...input.policyBusiness };
+      const doc = kind === 'privacy' ? privacyPolicy(business) : termsOfService(business);
+      const url = raw!.trim();
+      return { url, status: 200, html: policyAsText(doc), finalUrl: url } satisfies FetchedPage;
+    };
+
     // Fetched together: four sequential round trips would have the business watching a spinner for
     // the better part of half a minute.
     const names = input.names.filter(Boolean);
-    const [website, policy, terms, optIn] = await Promise.all([
+    const [website, policy, terms, optIn, chats] = await Promise.all([
       open(input.website),
-      open(input.policyUrl),
-      open(input.termsUrl),
+      hostedOr(input.policyUrl, 'privacy'),
+      hostedOr(input.termsUrl, 'terms'),
       open(input.optInPath === 'in_person' ? input.optInProofUrl : input.optInUrl),
+      // The hosted path is the chat on their own site: its key (in the snippet) and where it was last seen open.
+      input.optInPath === 'hosted'
+        ? asWorker(deps.httpDb, { workspaceId: input.workspaceId }, (tx) =>
+            rows<{ key: string; seen_origin: string | null; paused: boolean }>(
+              tx,
+              sql`select public_key as key, last_seen_origin as seen_origin, paused_at is not null as paused
+                  from app.chat_widgets where workspace_id = ${input.workspaceId}`,
+            ),
+          )
+        : Promise.resolve(null),
     ]);
 
     return {
       checks: [
-        checkWebsite(website, names),
+        checkWebsite(website, names, input.legalName ?? null),
         checkPolicy(policy),
         checkTerms(terms),
         checkOptInSurface(optIn, input.optInPath, names),
+        ...(chats
+          ? [
+              checkChatOnSite(
+                website,
+                chats.map((c) => ({ key: c.key, seenOrigin: c.seen_origin, paused: c.paused })),
+              ),
+            ]
+          : []),
       ],
     };
   });

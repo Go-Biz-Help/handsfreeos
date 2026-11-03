@@ -376,11 +376,12 @@ describe('each network’s own choices', () => {
       sending: 'steps',
       warmUp: false,
     });
-    // Facebook does nothing on its own; LinkedIn does its own steps, without liking a post first. Its runner accepts
-    // no invitations, so those stay the person's whatever the switch says (its kit's `runs`), and its comments wait
-    // for an OK at first, as messages do (decision 102).
+    // Facebook does nothing on its own; LinkedIn does its own steps, without liking a post first. From decision 136
+    // its runner accepts the invitations Today lists to confirm, and its comments wait for an OK at first, as
+    // messages do (decision 102).
     expect((await runAs(dana, ws, 'outreach.today', {})).auto).toEqual([]);
     expect((await runAs(dana, ws, 'outreach.today', { platform: 'linkedin' })).auto).toEqual([
+      'confirm',
       'friend_request',
     ]);
     // A screen from before networks sends none: the ones kept stay.
@@ -503,6 +504,49 @@ describe('each network’s own lists, asks and Today', () => {
       );
     expect(await kinds('linkedin')).toEqual(['reply: Sam Lee']);
     expect(await kinds()).toEqual([]);
+  });
+
+  it('take a reply seen by its name alone, as Instagram’s list of chats shows it, when one person messaged goes by it', async () => {
+    const dana = await teammate('Ellis Grant');
+    const ig = (username: string) => ({
+      id: null,
+      username,
+      url: `https://www.instagram.com/${username}/`,
+    });
+    const message = (username: string, name: string, threadKey: string) =>
+      runAs(
+        dana,
+        ws,
+        'outreach.touch.save',
+        { platform: 'instagram', kind: 'message', profile: ig(username), name, threadKey },
+        new Date(Date.now() - HOUR),
+      );
+    const seen = (name: string) =>
+      runAs(dana, ws, 'outreach.replies.note', { platform: 'instagram', seen: [{ name }] });
+    await message('kim.bakes', 'Kim Baker', '340282366841710301');
+    // Nobody the person messaged goes by the name: no reply.
+    expect((await seen('Lee Park')).replies).toEqual([]);
+    // The list's name, whatever its spaces and capitals; kept with the chat the message went in, which the runner
+    // opens to read before it drafts the reply.
+    const kim = (await seen('  kim   BAKER ')).replies;
+    expect(kim).toEqual([{ profileId: expect.any(String), name: 'Kim Baker' }]);
+    const [kept] = await rows<{ thread_key: string | null }>(
+      admin(),
+      sql`select thread_key from addon_outreach.replies where profile_id = ${kim[0].profileId}`,
+    );
+    expect(kept!.thread_key).toBe('340282366841710301');
+    const today = await runAs(dana, ws, 'outreach.today', { platform: 'instagram' });
+    expect(today.items.find((i: { name: string }) => i.name === 'Kim Baker')).toMatchObject({
+      kind: 'reply',
+      threadKey: '340282366841710301',
+    });
+    // By the name in their address too, when the list shows that.
+    await message('sam.fixes', 'Sam Ortiz', '340282366841710302');
+    expect((await seen('sam.fixes')).replies).toHaveLength(1);
+    // Two people messaged by one name: neither is known to be the one who wrote.
+    await message('jo.reed.1', 'Jo Reed', '340282366841710303');
+    await message('jo.reed.2', 'Jo Reed', '340282366841710304');
+    expect((await seen('Jo Reed')).replies).toEqual([]);
   });
 
   it('keep each network’s lists and first day apart', async () => {
@@ -1073,11 +1117,12 @@ describe('people found by topic on LinkedIn', () => {
     await checked(sky, 'drew-park-hvac', 'maybe', 'Might run an HVAC company');
     await checked(sky, 'ellis-ford-design', 'not', 'A designer, not a trade');
     const list = await listOf(sky, 'linkedin');
-    // A maybe and a no are never listed.
+    // A no is never listed; a maybe fills what's left after the good fits (decision 126, answer 5a).
     expect(list.filter((i) => names.includes(i.name)).map((i) => [i.name, i.kind])).toEqual([
       ['Robin Vale', 'comment'],
       ['Robin Vale', 'warm_up'],
       ['Quinn Harper', 'warm_up'],
+      ['Drew Park', 'warm_up'],
     ]);
     // The writer's like goes on the post it found; a reactor's on one of their own.
     const robin = list.find((i) => i.name === 'Robin Vale' && i.kind === 'warm_up')!;
@@ -1163,12 +1208,13 @@ describe('people found by topic on LinkedIn', () => {
     await touched(jo, 'morgan-ash-hvac', 'comment', 21, MORGAN_POST);
     // The AI said Taylor might fit; Morgan's check hasn't come.
     await checked(jo, 'taylor-reed-roofing', 'maybe', 'Might run a roofing crew');
-    // A comment since they were found is no warm-up the old pick gave: only a good check lists them.
+    // A comment since they were found is no warm-up the old pick gave: only a check that they fit, or might (decision
+    // 126, answer 5a), lists them.
     expect(
       (await listOf(jo, 'linkedin'))
         .filter((i) => ['Taylor Reed', 'Morgan Ash'].includes(i.name) && i.kind !== 'comment')
         .map((i) => [i.name, i.kind]),
-    ).toEqual([]);
+    ).toEqual([['Taylor Reed', 'warm_up']]);
   });
 
   it('still invites a writer the old search pick warmed up, and a computer before 0.95.0 keeps that pick', async () => {

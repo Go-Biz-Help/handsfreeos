@@ -12,6 +12,8 @@
  * and in the prompt, and test/settings-map.test.ts checks every step against the menus it names.
  */
 
+import { money } from '../money/format';
+import { RCS_FIRST_YEAR_CENTS } from '../money/rcs-fees';
 import type { Permission } from '../permissions';
 
 export const SETTINGS_AREAS = [
@@ -102,7 +104,7 @@ const CALENDAR_SECTIONS =
 
 /** The AI teammate's own sections, in its order (apps/web/src/lib/ai-team/describe.ts), and what each holds. */
 const TEAMMATE_SECTIONS =
-  'Identity (name, email signature, how it says it’s AI, tone), Channels (Texts, Email, Website chat, Phone calls), Respond (message new leads first, and how soon), Answer (from Knowledge, and photos customers send), Qualify (its questions, and what happens when a lead qualifies), Book (which calendars, rescheduling, cancelling, the waitlist, repeat visits, and checking the service area), Follow up, Hours (Always, After hours only, Custom), Autonomy (how many approvals before it works on its own), Limits (replies a day, discounts, bills, quotes, plans), Hand-off (when it hands over, who is told and how)';
+  'Identity (name, email signature, how it says it’s AI, tone), Channels (Texts, Email, Website chat, Phone calls), Respond (message new leads first, and how soon), Answer (from Knowledge, and photos customers send), Qualify (its questions, and what happens when a lead qualifies), Book (which calendars, rescheduling, cancelling, the waitlist, repeat visits, and checking the service area), Follow up (how many monthly ones; when each follow-up goes is set in Settings → Automations), Hours (Always, After hours only, Custom), Autonomy (how many approvals before it works on its own), Limits (replies a day, discounts, bills, quotes, plans), Hand-off (when it hands over, who is told and how)';
 
 /** Each calendar's own sections are reached the same way. */
 const ON_A_CALENDAR = 'Settings → Calendars, press the calendar, then';
@@ -255,6 +257,7 @@ const AREAS: Record<SettingsArea, AreaEntry> = {
     canChange: [
       'add, rename, recolour or delete a tag',
       'have the AI go through every customer and put tags on, or stop it',
+      'what the AI changed lately and why (to read), and taking off a tag it put on',
     ],
     handovers: [],
   },
@@ -456,9 +459,10 @@ const AREAS: Record<SettingsArea, AreaEntry> = {
       'Business number: Text me a test, and Release this number under ⋯',
       'Carrier registration: where it stands, and View what we sent',
       'RCS messaging',
-      'Texting rules: Quiet hours, and Remind the team when a customer waits',
+      'Texting rules: Quiet hours, Remind the team when a customer waits, and STOP, START and HELP (always on)',
       'When a customer calls: which browsers and phones ring, and Ring for',
       'What forwarded phones show',
+      'Call recording: whether customers hear that calls are recorded',
       'Voicemail: on or off, and the greeting',
     ],
     path: '/settings/texting',
@@ -472,6 +476,9 @@ const AREAS: Record<SettingsArea, AreaEntry> = {
       'name a number, or make it the default',
       'choose who a number rings',
       'choose whether each person sees only their own conversations',
+      'start bringing over a number the business already has',
+      'whether customers hear that calls are recorded',
+      'connect the RCS sender HandsFreeOS made, by its id',
       'pause or turn on RCS, choose its number, check it, or disconnect it',
     ],
     handovers: [
@@ -485,12 +492,12 @@ const AREAS: Record<SettingsArea, AreaEntry> = {
         ],
       },
       {
-        what: 'connect an RCS sender',
-        why: 'the sender is made in your own Twilio account, which only you sign in to',
+        what: 'ask for RCS, and pay for it',
+        why: 'it’s paid for on Stripe’s page, which only you can do',
         steps: [
-          'Make the RCS sender in your Twilio account.',
-          'Open Settings → Texting & calls and, in RCS messaging, press Connect RCS sender.',
-          'Paste the sender’s id. After that I can pause it, choose its number or check it for you.',
+          'Open Settings → Texting & calls and, in RCS messaging, fill in what your sender should show.',
+          `Press Pay ${money(RCS_FIRST_YEAR_CENTS)} and send, then pay on Stripe’s page.`,
+          'HandsFreeOS makes the sender and connects it. After that I can pause it, choose its number or check it for you.',
         ],
       },
     ],
@@ -500,12 +507,13 @@ const AREAS: Record<SettingsArea, AreaEntry> = {
     what: 'the addresses you send from, your own sending domain, connected mailboxes and blocked addresses',
     where: ['Settings', 'Email'],
     onScreen: [
-      'Sending address: the name customers see, and which address is the default',
-      'Use your own domain: Add domain, Check now',
+      'Sending address: the name customers see, which address is the default, and who reads each one',
+      'Use your own domain: Add domain, Add address, Check now, Remove domain, and Receive mail here too',
       // Connect Gmail is greyed out as Coming soon until Google's review (NEXT_PUBLIC_GMAIL_ENABLED).
       'Connected mailboxes: Connect Outlook, and Connect Gmail marked Coming soon',
-      'Blocked addresses',
-      'Mail from people not in Contacts',
+      'Blocked addresses: Unblock',
+      'Mail from people not in Contacts: Add or link, Dismiss',
+      'Where senders’ mail goes: Remove',
     ],
     notHere: [
       'connecting a Gmail mailbox: coming soon, so connect Outlook or send from the workspace address',
@@ -513,11 +521,16 @@ const AREAS: Record<SettingsArea, AreaEntry> = {
     path: '/settings/email',
     permission: 'channels.manage',
     canChange: [
-      'add or change a sending address',
+      'add or change a sending address, on the shared domain or your own',
+      'make an address one person’s own',
+      'decide what becomes of the address of someone who has left',
       'add or remove your own sending domain, and check it',
+      'receive mail at your own domain, or stop',
+      'disconnect a connected mailbox',
       'unblock an address',
       'block an address',
       'file mail from someone not in Contacts under a customer, or dismiss it',
+      'forget where a sender’s mail goes, so it is sorted as usual',
     ],
     handovers: [
       {
@@ -542,7 +555,7 @@ const AREAS: Record<SettingsArea, AreaEntry> = {
   },
   website_chat: {
     label: 'Website chat',
-    what: 'the chat box on your website: who answers it, how it looks, what it asks for',
+    what: 'the chat boxes on your websites: who answers each, how it looks, where its button sits on phones and computers, what it asks for. Every one is listed under Website chats on the Forms page too, which is where another one is added; this page shows the first',
     where: ['Settings', 'Website chat'],
     onScreen: [
       'Before it is on: Your sites, and Turn on website chat',
@@ -550,16 +563,22 @@ const AREAS: Record<SettingsArea, AreaEntry> = {
       'Your sites',
       'Add it to your site: the snippet',
       'Try it',
-      'Look: Greeting, Button label, Colour',
-      'When nobody is answering: Away message, and What to ask visitors for',
+      'Look: Name, Greeting, Button label, Button colour, Words on the button and top bar, Top bar of the chat, Show your logo',
+      'Where the button sits: On computers and On phones, each with Button (label, icon only, or hidden on phones), Corner and Higher up by',
+      'When nobody is answering: Let them chat anyway or Show the away message and a short form, Away message, What to ask visitors for, and Offer a box to get texts',
+      'Your logo: the business’s logo and colour, as on Settings → Workspace',
     ],
     path: '/settings/website-chat',
     permission: 'channels.manage',
     canChange: [
-      'turn it on or off',
-      'which sites it may show on',
-      'its greeting, label and colour',
-      'what it asks visitors for, and who answers',
+      'set one up on your website (or another one), and turn each on or off',
+      'which sites it may show on, and its name',
+      'who answers: your AI teammate, or only your team',
+      'the most new chats it takes a day',
+      'its greeting, button label and colours, and showing your logo',
+      'where its button sits on computers and on phones: the corner, how far up, label or icon only, or hidden on phones',
+      'whether visitors can chat anyway while nobody is answering, the away message, when it asks visitors for their name, mobile and email, and the box to get texts',
+      'a new key for its snippet, when someone put it on a site that isn’t yours',
     ],
     handovers: [
       {
@@ -568,7 +587,7 @@ const AREAS: Record<SettingsArea, AreaEntry> = {
         steps: [
           'I set the chat box up and give you the snippet.',
           'Paste it into your site before </body> (or into your site builder’s custom-code box).',
-          'Your sites on Settings → Website chat goes green once it sees it.',
+          'Your sites on the chat’s page (under Website chats on the Forms page) goes green once it sees it.',
         ],
       },
     ],
@@ -586,15 +605,27 @@ const AREAS: Record<SettingsArea, AreaEntry> = {
     ],
     path: '/settings/facebook-instagram',
     permission: 'channels.manage',
-    canChange: [],
+    canChange: [
+      'disconnect a Facebook Page or an Instagram account, so its messages stop coming here',
+      'disconnect a Facebook sign-in, and every Page and account it connected',
+    ],
     handovers: [
       {
-        what: 'connect a Facebook Page or an Instagram account',
+        what: 'connect a Facebook Page or an Instagram account, or connect one again',
         why: 'you sign in to Facebook yourself and choose the Pages, so nobody else can do it for you',
         steps: [
           'Open Settings → Facebook & Instagram and press Connect Facebook.',
           'Sign in with a Facebook account that manages the business’s Page, and leave every permission ticked.',
           'Pick which Pages and Instagram accounts answer in the inbox.',
+        ],
+      },
+      {
+        what: 'let a Page’s lead ads send their leads in',
+        why: 'it is a permission on Facebook, which only you can give',
+        steps: [
+          'If Lead ads says the sign-in didn’t allow reading leads, press Connect Facebook again and leave Leads ticked.',
+          'If it says Facebook is keeping the leads out, open Leads Access in Meta Business Suite’s settings and add HandsFreeOS.',
+          'The next lead shows up under Lead ads within a minute of being sent.',
         ],
       },
     ],
@@ -623,20 +654,30 @@ const AREAS: Record<SettingsArea, AreaEntry> = {
     path: '/settings/lead-intake',
     permission: 'channels.manage',
     canChange: [
-      'turn a channel on or off',
+      'turn each way in on or off: texts, missed calls, emails, Facebook Page and Instagram messages, lead ad forms and Indeed applicants',
       'whether a lead opens as well as the customer',
       'which pipeline and stage those leads land in, and what they are filed under',
       'the most leads a day a channel may open',
+      'add a form for your website, and give a form a new key',
       'pause, turn back on, change or retire a website form or connected app',
     ],
     handovers: [
       {
-        what: 'connect a form on your own website, or an app like Zapier',
-        why: 'a form needs its key pasted into your website, and an app’s key is a secret I never put in a chat',
+        what: 'put a website form on your site',
+        why: 'its snippet goes into your website, which lives outside HandsFreeOS',
         steps: [
-          'Open Settings → Lead intake and, in Forms and connected apps, press Website form or Connect an app.',
-          'A form gives you a snippet to paste into your page; an app gives you a key, shown once.',
-          'Tell me where you want those leads to land and I’ll set the pipeline up for you.',
+          'I add the form for you, on the sites you name.',
+          'Open Settings → Lead intake, find it under Forms and connected apps, and press Copy the snippet.',
+          'Paste it into your page where the form should be.',
+        ],
+      },
+      {
+        what: 'connect an app like Zapier',
+        why: 'an app’s key is a secret shown once, and I never put one in a chat',
+        steps: [
+          'Open Settings → Lead intake and, in Forms and connected apps, press Connect an app.',
+          'Copy the key it shows you, once, into the app.',
+          'Tell me where you want those leads to land and I’ll set it up for you.',
         ],
       },
     ],
@@ -727,23 +768,20 @@ const AREAS: Record<SettingsArea, AreaEntry> = {
     ],
     path: '/settings/usage',
     permission: 'money.manage',
-    canChange: ['automatic top-up: on or off, the balance it tops up below, and how much it adds'],
+    canChange: [
+      'automatic top-up: on or off, the balance it tops up below, and how much it adds',
+      'top up the balance now, from the card on file',
+      'the daily AI limit',
+      'take the card off, which turns automatic top-up off',
+      'whether the founding plan renews',
+    ],
     handovers: [
       {
-        what: 'top up the balance now, or change the card',
-        why: 'it is a card payment, which you make yourself',
+        what: 'add a card, or use a different one',
+        why: 'the card is typed on the payment provider’s own page, which only you can do',
         steps: [
           'Open Settings → Usage & balance.',
-          'Press Top up now.',
-          'Card on file is where the card is added or changed.',
-        ],
-      },
-      {
-        what: 'raise or lower the daily AI limit',
-        why: 'it decides how much the business’s AI may spend, which an owner or admin sets themselves',
-        steps: [
-          'Open Settings → Usage & balance.',
-          'Under Daily AI limit, type the most the AI may spend in a day.',
+          'Under Card on file, press Add a card, or Use a different card.',
         ],
       },
     ],
@@ -765,6 +803,7 @@ const AREAS: Record<SettingsArea, AreaEntry> = {
       'which kinds of thing Home looks for',
       'how fast a lead counts as waiting, and what a big job is',
       'what HandsFreeOS does on its own, and how it words it',
+      'when each of the AI teammate’s follow-ups after silence goes, and how many monthly ones come after',
       'when a dead lead counts as cold, how many a day are re-engaged, and the message they get',
       'which form Intake questions sends after a first booking',
       'when the end-of-day email goes out',
@@ -774,6 +813,7 @@ const AREAS: Record<SettingsArea, AreaEntry> = {
     howTo: [
       'Change one automation: Settings → Automations, its switch, or Adjust beside it',
       'Set what a typical job is worth: Settings → Automations, Adjust on Hot lead alert',
+      'Change when follow-ups go: Settings → Automations, Adjust on Follow-ups after silence, then each follow-up’s time',
     ],
   },
   ai_teammate: {
@@ -791,8 +831,12 @@ const AREAS: Record<SettingsArea, AreaEntry> = {
     canChange: [
       'set one up, name it, and how it introduces itself',
       'off, training wheels, or automatic',
-      'which channels it answers on, and its hours',
+      'which channels it answers on, the address it emails from, the website chat it answers, and its hours',
       'what it may do: answer, qualify, book, follow up',
+      'its first message to a new lead: by text or email, and how long after the lead comes in',
+      'whether it reschedules, cancels, uses a waitlist, books repeat visits and checks the service area',
+      'whether it looks at photos and gives rough price ranges from them',
+      'which add-ons it uses in a conversation',
       'the questions it asks new leads, where a qualified lead goes, and who is told',
       'its limits: replies a day, look-ups, its share of the AI limit, discounts, bills, quotes and plans',
       'when it hands a customer to a person, who is told, and what the customer hears',

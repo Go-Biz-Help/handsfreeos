@@ -16,11 +16,15 @@
  * An affiliate's code, kept by the proxy for 90 days (`lib/affiliate.ts`), goes along the same way as `?ref=` and
  * `?ref_at=`: the new account keeps them, and the business it makes is credited to that affiliate. A discount or
  * trial code's link goes as `?code=`, for the plan page to fill in.
+ *
+ * The business they typed into the home page's "Try it on your business" goes as `?business=` and `?industry=`
+ * (`lib/your-business.ts`), so the app's first setup screen starts with it filled in.
  */
 import { useEffect } from 'react';
 import { urls } from '@/content/site';
 import { CODE_COOKIE, CODE_PARAM, readRef, REF_COOKIE, REF_PARAM, refCode } from '@/lib/affiliate';
 import { anonId } from '@/lib/opinly/pixel';
+import { readYourBusiness, signUpParams } from '@/lib/your-business';
 
 const SIGN_UP = new URL(urls.signUp);
 
@@ -43,6 +47,12 @@ function addVisitor(event: Event): void {
   }
   const code = refCode(cookie(CODE_COOKIE));
   if (code) url.searchParams.set(CODE_PARAM, code);
+  // From scratch each time: a name typed, followed, then cleared must not ride along on the next click.
+  url.searchParams.delete('business');
+  url.searchParams.delete('industry');
+  for (const [key, value] of Object.entries(signUpParams(readYourBusiness()))) {
+    url.searchParams.set(key, value);
+  }
   if (url.toString() !== link.href) link.href = url.toString();
 }
 

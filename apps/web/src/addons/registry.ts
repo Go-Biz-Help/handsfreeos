@@ -19,7 +19,7 @@
  *   pm: { icon: Building2, settings: () => import('./pm/settings') },
  */
 import type { AddonSlotName } from '@hfos/core';
-import type { ComponentType } from 'react';
+import type { ComponentType, ReactNode } from 'react';
 import {
   House as realestateAddonIcon,
   ListChecks as realestateDutiesIcon,
@@ -28,7 +28,17 @@ import {
   Settings2 as realestateSettingsIcon,
   Wrench as realestateVendorsIcon,
 } from 'lucide-react';
-import { Handshake as outreachAddonIcon } from 'lucide-react';
+import {
+  BookOpen as outreachPlaybooksIcon,
+  ChartColumn as outreachResultsIcon,
+  Handshake as outreachAddonIcon,
+  Inbox as outreachNeedsYouIcon,
+  ListChecks as outreachSetupIcon,
+  Search as outreachFindIcon,
+  Settings2 as outreachSettingsIcon,
+  Sun as outreachTodayIcon,
+  Users as outreachPeopleIcon,
+} from 'lucide-react';
 import { Headset as salescoachAddonIcon } from 'lucide-react';
 
 /** Any lucide icon, as the side menu draws its places. */
@@ -157,6 +167,34 @@ export interface AddonUi {
    * to core's `addons/<id>/connections`, which sends the person on to here. Absent: core's page shows them.
    */
   readonly connections?: string;
+  /**
+   * A count in the side menu (Social Outreach's Needs you, its decision 127): on its page `page`, a key of the
+   * manifest's `ui.nav`, and on the add-on's row while its pages are closed. One component, fetched the first time the
+   * menu draws the add-on, keeps its number fresh and draws it with `MenuCount` (components/shell/nav-links.tsx).
+   */
+  readonly navCount?: {
+    readonly page: string;
+    readonly load: () => Promise<{ default: ComponentType<{ readonly workspaceId: string }> }>;
+  };
+  /**
+   * A page in the side menu that's there only while the add-on says so (Social Outreach's Set up, its decision 129):
+   * its page `page`, a key of the manifest's `ui.nav`. One component, fetched the first time the menu draws the
+   * add-on, decides, and draws the row with `row`, handed what goes beside its name. The row is always there while its
+   * page is open.
+   */
+  readonly navRow?: {
+    readonly page: string;
+    readonly load: () => Promise<{ default: ComponentType<NavRowProps> }>;
+  };
+}
+
+/** What an add-on's `navRow` is handed. */
+export interface NavRowProps {
+  readonly workspaceId: string;
+  /** Its page is the one open: the row is drawn whatever it decides. */
+  readonly lit: boolean;
+  /** Draws the row, with what goes beside its name. */
+  readonly row: (beside?: ReactNode) => ReactNode;
 }
 
 /** Every add-on's UI, by add-on id. */
@@ -193,11 +231,23 @@ export const ADDON_UI: Readonly<Record<string, AddonUi>> = {
   },
   outreach: {
     icon: outreachAddonIcon,
+    navIcons: {
+      setup: outreachSetupIcon,
+      'needs-you': outreachNeedsYouIcon,
+      today: outreachTodayIcon,
+      people: outreachPeopleIcon,
+      find: outreachFindIcon,
+      results: outreachResultsIcon,
+      playbooks: outreachPlaybooksIcon,
+      gear: outreachSettingsIcon,
+    },
     slots: {
       'person.panels': () => import('./outreach/person-panel'),
       'main_offer.panels': () => import('./outreach/offer-panel'),
     },
     settings: () => import('./outreach/settings-link'),
+    navCount: { page: 'needs-you', load: () => import('./outreach/menu-count') },
+    navRow: { page: 'setup', load: () => import('./outreach/setup-row') },
   },
   salescoach: {
     icon: salescoachAddonIcon,

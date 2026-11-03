@@ -200,3 +200,11 @@ export function monthOf(at: Date | number, timeZone: string): string {
   const month = parts.find((p) => p.type === 'month')?.value ?? '';
   return billingMonth(`${year}-${month}`);
 }
+
+/**
+ * One request to the phone company about a number (Twilio Lookup), by the check that asked: a check is one lookup
+ * Twilio bills, so a check made again (90 days on, or after a crash before it was kept) is charged again, as Twilio
+ * charges it again. The line type and the caller name are two requests, each its own charge.
+ */
+export const lineCheckUsageKey = (checkId: string, what: 'line_type' | 'caller_name'): string =>
+  `lookup:${need(checkId, 'line check id')}:${what}`;

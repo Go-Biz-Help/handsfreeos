@@ -92,6 +92,7 @@ export async function lookupOnLinkedIn(
       kind: drafted.kind,
       opener: drafted.opener,
       simple: drafted.simple,
+      unanswered: drafted.unanswered ?? null,
       lookedUp,
       queued: false,
     },

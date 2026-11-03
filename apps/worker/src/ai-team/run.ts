@@ -155,14 +155,29 @@ export interface FunnelRunSpec {
   readonly late: boolean;
 }
 
-/** A task an automation gave the teammate: what to write, and about what. */
-export interface TaskSpec {
-  readonly purpose: 'thank_you';
-  /** The job it's about ("AC tune-up"). */
-  readonly visit: string;
-  /** When the job was marked done. */
-  readonly doneAt: number;
-}
+/**
+ * A task an automation gave the teammate: what to write, and about what. A thank-you after a job, or a text to
+ * someone hot after a webinar (HANDSFREEOS_WEBINARS_IMPLEMENTATION_PLAN.md part 5).
+ */
+export type TaskSpec =
+  | {
+      readonly purpose: 'thank_you';
+      /** The job it's about ("AC tune-up"). */
+      readonly visit: string;
+      /** When the job was marked done. */
+      readonly doneAt: number;
+    }
+  | {
+      readonly purpose: 'webinar_hot';
+      /** The webinar ("Roofing in 2027"): the appointment's title, or the poll's name. */
+      readonly webinar: string;
+      /** When they were scored, just after it ended. */
+      readonly endedAt: number;
+      /** What their points came from: their answers, the buttons they pressed, staying to the end. */
+      readonly answers: readonly string[];
+      /** The AI's one line on why they're hot, when it's written. */
+      readonly reason: string | null;
+    };
 
 /** Whom a first message with no conversation goes to, and how (outreach.ts chose the channel by consent). */
 export interface FirstTarget {
@@ -1039,7 +1054,10 @@ const funnelSummary = (f: FunnelRunSpec, what: 'Sent' | 'Drafted') => {
 function repliedSummary(run: StartedRun, rc: RunContext): string {
   if (run.kind === 'funnel' && run.funnel) return funnelSummary(run.funnel, 'Sent');
   if (run.kind === 'nudge') return `Followed up (${run.nudge?.n ?? 1} of ${run.nudge?.total ?? 1})`;
-  if (run.kind === 'task') return `Thanked ${whom(rc)} after the job`;
+  if (run.kind === 'task')
+    return run.task?.purpose === 'webinar_hot'
+      ? `Wrote to ${whom(rc)} after the webinar`
+      : `Thanked ${whom(rc)} after the job`;
   return rc.batch.length ? `Replied to “${snippet(rc)}”` : `Wrote first to ${whom(rc)}`;
 }
 /** Why a reply waits for a person though the teammate answers on its own (round seven). */
@@ -1053,7 +1071,9 @@ function draftedSummary(run: StartedRun, rc: RunContext, state: RunState): strin
       : run.kind === 'nudge'
         ? 'Drafted a follow-up'
         : run.kind === 'task'
-          ? `Drafted a thank-you to ${whom(rc)}`
+          ? run.task?.purpose === 'webinar_hot'
+            ? `Drafted a message to ${whom(rc)} after the webinar`
+            : `Drafted a thank-you to ${whom(rc)}`
           : rc.batch.length
             ? `Drafted a reply to “${snippet(rc)}”`
             : `Drafted a first message to ${whom(rc)}`;
@@ -1783,8 +1803,9 @@ async function finishFirst(
         outcome: 'replied',
         summary: repliedSummary(run, rc),
       });
-      // A thank-you asks nothing, so there's nothing to follow up; inside a funnel, the funnel follows up.
-      if (run.kind !== 'task' && run.kind !== 'funnel')
+      // A thank-you asks nothing, so there's nothing to follow up; inside a funnel, the funnel follows up. A message
+      // to someone hot after a webinar asks for the next step, so it's followed up like a first message.
+      if ((run.kind !== 'task' || run.task?.purpose === 'webinar_hot') && run.kind !== 'funnel')
         await scheduleFollowUp(
           tx,
           run.scope,

@@ -16,10 +16,13 @@ import { platformOf, type PageRead } from '../networks/kit';
 import type { ReadResult } from '../networks/facebook/types';
 import type { HfosAnswer, HfosAsk, HfosValues } from '../hfos/messages';
 import type {
+  AnswerRequestAsk,
   Answer,
   Ask,
   BrowseAnswer,
   BrowseAsk,
+  CancelSentAnswer,
+  CancelSentAsk,
   FetchAnswer,
   FetchAsk,
   FeedPostAnswer,
@@ -28,6 +31,8 @@ import type {
   GroupFeedAnswer,
   GroupFeedAsk,
   GroupLikeAsk,
+  PostLinksAnswer,
+  PostLinksAsk,
   PostPeopleAnswer,
   PostPeopleAsk,
   GroupPostAnswer,
@@ -69,6 +74,8 @@ export interface JobTab {
   keepInFront?(): Promise<void>;
   /** Closes it, and its window when it has one of its own: done with the network's pages before the job ends. */
   close?(): Promise<void>;
+  /** Has the page catch what it copies while its script says to (../networks/copies.ts): whether it could. */
+  catchCopies?(): Promise<boolean>;
   ask(message: Ask): Promise<Answer>;
   ask(message: BrowseAsk): Promise<BrowseAnswer | Answer>;
   ask(message: FetchAsk): Promise<FetchAnswer>;
@@ -78,6 +85,7 @@ export interface JobTab {
   ask(message: GroupFeedAsk): Promise<GroupFeedAnswer>;
   ask(message: GroupLikeAsk): Promise<AutoAnswer>;
   ask(message: PostPeopleAsk): Promise<PostPeopleAnswer>;
+  ask(message: PostLinksAsk): Promise<PostLinksAnswer>;
   ask(message: OwnProfileAsk): Promise<OwnProfileAnswer>;
   ask(message: PageThereAsk): Promise<PageThereAnswer>;
   ask(message: WriteNameAsk): Promise<OwnProfileAnswer>;
@@ -85,7 +93,9 @@ export interface JobTab {
   ask(message: CodeAsk): Promise<CodeAnswer>;
   ask(message: TryAsk): Promise<TryAnswer>;
   ask(message: WithdrawAsk): Promise<WithdrawAnswer>;
+  ask(message: CancelSentAsk): Promise<CancelSentAnswer>;
   ask(message: UnfollowAsk): Promise<UnfollowAnswer>;
+  ask(message: AnswerRequestAsk): Promise<AutoAnswer>;
 }
 
 /** HandsFreeOS: the background's own line (src/hfos/session.ts). */
@@ -118,6 +128,11 @@ export interface Job {
   readonly code?: (line: string) => Promise<string | null>;
   /** Notes the page its tab shows in HandsFreeOS (decision 74, ./report.ts): what it found, and what it didn't. */
   readonly report?: Reporter;
+  /**
+   * Today's round of finding again (decision 126, src/auto/plan.ts `nextRound`): 0 the first time, and each round
+   * after asks HandsFreeOS for the next search words. A runner's once-a-day jobs only.
+   */
+  readonly round?: number;
 }
 
 /**
@@ -145,6 +160,11 @@ export interface JobEnd {
   readonly whole?: boolean;
   /** Put off till the person is away from their computer (decision 120): tried again later, never done. */
   readonly away?: boolean;
+  /**
+   * A batch done with more of today's room left (decision 126): the runner does the next later today
+   * (src/auto/plan.ts `afterDaily`).
+   */
+  readonly again?: boolean;
 }
 
 export const pause = (ms: number) => new Promise((done) => setTimeout(done, ms));

@@ -1319,6 +1319,31 @@ describe('bringing a number that is already in Twilio (20261010000900)', () => {
     expect(seen[0]!.path).toBe('/v2/PhoneNumbers/%2B12565550123');
   });
 
+  it('checks a lead’s line on the business’s own subaccount, asking only what it’s told to (AI calls, part 5)', async () => {
+    const seen = mockTwilio([
+      [
+        /^GET lookups\.twilio\.com\/v2\/PhoneNumbers\//,
+        (req) => ({
+          json: new URL(req.url).searchParams.get('Fields')?.includes('caller_name')
+            ? { caller_name: { caller_name: 'LONE STAR HVAC', caller_type: 'BUSINESS' } }
+            : { line_type_intelligence: { type: 'landline' } },
+        }),
+      ],
+    ]);
+    const t = createTwilioTelephony(MASTER);
+    expect(
+      await t.checkLine(account, '+17135550100', { lineType: true, callerName: false }),
+    ).toEqual({ lineType: 'landline', callerType: null });
+    expect(
+      await t.checkLine(account, '+17135550100', { lineType: false, callerName: true }),
+    ).toEqual({ lineType: null, callerType: 'BUSINESS' });
+    expect(seen.map((r) => new URL(r.url).searchParams.get('Fields'))).toEqual([
+      'line_type_intelligence',
+      'caller_name',
+    ]);
+    expect(seen[0]!.auth).toBe(`${account.sid}:${account.authToken}`);
+  });
+
   it('signs in to a business’s own account as the API key it gave, and says whose subaccount it is', async () => {
     const seen = mockTwilio([
       [
@@ -1600,6 +1625,53 @@ describe('what the wizard settled goes to the carriers', () => {
     expect(body['Description']).toContain(
       "Recipients agree by ticking an unticked, optional box on the business's website form (https://lonestarhvac.com/contact).",
     );
+  });
+
+  it('names a business with a DBA both ways: in the description, and in toll-free’s own field', async () => {
+    const dba = { ...wizard, legalName: 'Go Biz Help LLC', displayName: 'HandsFreeOS' };
+    const seen = mockTwilio([
+      [
+        /^POST messaging\.twilio\.com\/v1\/Tollfree\/Verifications$/,
+        () => ({ status: 201, json: { sid: 'HHdbatest', status: 'PENDING_REVIEW' } }),
+      ],
+      [
+        /^POST messaging\.twilio\.com\/v1\/Services\/MGservicetest\/Compliance\/Usa2p$/,
+        () => ({ status: 201, json: { sid: 'QEdbatest', campaign_status: 'PENDING' } }),
+      ],
+    ]);
+    const twilio = createTwilioTelephony(MASTER);
+    await twilio.submitRegistration(account, request('toll_free_verification', {}, dba));
+    await twilio.submitRegistration(
+      account,
+      request('a2p_campaign', { a2p_brand: 'BNbrandtest' }, dba),
+    );
+    const tollFree = Object.fromEntries(seen[0]!.body);
+    expect(tollFree).toMatchObject({
+      BusinessName: 'Go Biz Help LLC',
+      DoingBusinessAs: 'HandsFreeOS',
+    });
+    expect(tollFree['UseCaseSummary']).toMatch(
+      /^Go Biz Help LLC \(doing business as HandsFreeOS\) sends /,
+    );
+    expect(seen[1]!.body.get('Description')).toMatch(
+      /^Go Biz Help LLC \(doing business as HandsFreeOS\) sends /,
+    );
+    expect(seen[1]!.body.get('HelpMessage')).toMatch(/^HandsFreeOS: /);
+  });
+
+  it('leaves the DBA out when the name customers know is the legal name without its LLC', async () => {
+    const seen = mockTwilio([
+      [
+        /^POST messaging\.twilio\.com\/v1\/Tollfree\/Verifications$/,
+        () => ({ status: 201, json: { sid: 'HHsametest', status: 'PENDING_REVIEW' } }),
+      ],
+    ]);
+    await createTwilioTelephony(MASTER).submitRegistration(
+      account,
+      request('toll_free_verification', {}, wizard),
+    );
+    expect(seen[0]!.body.has('DoingBusinessAs')).toBe(false);
+    expect(seen[0]!.body.get('UseCaseSummary')).toMatch(/^Lone Star HVAC LLC sends /);
   });
 
   it('names the carrier industry from the kind of business', () => {

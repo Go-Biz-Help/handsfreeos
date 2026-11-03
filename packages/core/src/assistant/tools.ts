@@ -3,6 +3,7 @@ import { ATTENTION_KINDS } from '../attention/kinds';
 import { isLocalDate } from '../calendar/engine/zoned';
 import { ATTENTION_ASK_ACTIONS } from '../schemas/attention';
 import { uuid } from '../schemas/common';
+import { IntakeChannelKind } from '../schemas/intake';
 import { SETTINGS_AREAS } from './settings-map';
 import {
   clock,
@@ -32,6 +33,13 @@ import { setupTools } from './tools-setup';
  * look-ups, tasks and notes run on their own ("auto").
  */
 export type { AssistantTool, ToolAutonomy } from './tool-kit';
+
+/** When the website chat asks a visitor for a detail, as Settings → Website chat offers it. */
+const chatAskWhen = z
+  .enum(['never', 'when_needed', 'after_first_message', 'before_chat'])
+  .describe(
+    'never: don’t ask. when_needed: only when it has to, like before booking. after_first_message: a short form after their first message, with the box to get texts. before_chat: before the chat starts.',
+  );
 
 export const assistantTools = [
   // ---------- looking things up (auto) ----------
@@ -534,7 +542,7 @@ export const assistantTools = [
   define({
     name: 'manage_tag',
     description:
-      'Add, rename, recolour or delete one of the labels you put on customers and leads.',
+      'Add, rename, recolour or delete one of the tags (labels) you put on customers and leads, as Settings → Tags lists them. tagId comes from get_settings with area tags, which also says how many records have each. Deleting takes it off all of them and can’t be undone. To put tags on or take them off customers, use tag_customers.',
     input: z.object({
       action: z.enum(['create', 'change', 'delete']),
       tagId: uuid.optional(),
@@ -568,7 +576,7 @@ export const assistantTools = [
   define({
     name: 'update_texting_settings',
     description:
-      'Change how texts and calls behave: quiet hours, how long a customer waits before the team is reminded, which phones ring and for how long, voicemail, and what the customer sees when a call is forwarded. Read it with get_settings first and pass only what changes.',
+      'Change how texts and calls behave: quiet hours, how long a customer waits before the team is reminded, which phones ring and for how long, voicemail, and what the customer sees when a call is forwarded. The calls settings are the default number’s, as on the screen. Whether callers hear that calls are recorded is do_phone_number_set_recording_notice. Read it with get_settings first and pass only what changes.',
     input: z.object({
       quietHoursEnabled: z.boolean().optional(),
       quietHoursStart: clock.optional().describe('When quiet hours start, like 20:00'),
@@ -622,7 +630,9 @@ export const assistantTools = [
       kind: z
         .enum(['a2p_10dlc', 'toll_free_verification'])
         .describe('a2p_10dlc for a local number'),
-      legalName: text(120).describe('The business name as it is registered'),
+      legalName: text(120).describe(
+        'The legal name exactly as on the IRS letter, with LLC or Inc, even when customers know the business by another name (a DBA): the carriers are told the name customers know as well',
+      ),
       businessType: z.enum(['llc', 'corporation', 'sole_proprietor', 'partnership', 'non_profit']),
       ein: text(10)
         .nullable()
@@ -652,7 +662,7 @@ export const assistantTools = [
   define({
     name: 'manage_email_settings',
     description:
-      'Change how email is sent: add or change a sending address, add your own sending domain (which gives back records to put in with whoever sold you the domain), check a domain once those records are in, remove one, or unblock an address that bounced.',
+      'Change how email is sent: add or change a sending address (on the shared domain, or on the business’s own once it is checked), make one address a person’s own, add your own sending domain (which gives back records to put in with whoever sold you the domain), check a domain once those records are in, remove one, or unblock an address that bounced. Addresses and domains are in get_settings (area email); people in list_team. What becomes of the address of someone who has left is do_email_address_reassign.',
     input: z.object({
       action: z.enum([
         'add_address',
@@ -667,7 +677,16 @@ export const assistantTools = [
       isDefault: z.boolean().optional(),
       emailAddressId: uuid.optional(),
       domain: text(255).optional().describe('A domain you own, like lonestarhvac.com'),
-      emailDomainId: uuid.optional(),
+      emailDomainId: uuid
+        .optional()
+        .describe(
+          'The domain to check or remove; for add_address, the business’s own domain to put it on',
+        ),
+      ownerUserId: uuid
+        .optional()
+        .describe(
+          'For add_address or change_address: make it this person’s own address, so only they send from it and its mail is theirs alone',
+        ),
       suppressionId: uuid.optional().describe('The blocked address to release'),
     }),
     autonomy: 'confirm',
@@ -676,15 +695,43 @@ export const assistantTools = [
   define({
     name: 'manage_website_chat',
     description:
-      'Set up or change the chat box on the business’s website: which sites it may show on, its greeting, button label and colour, whether the AI teammate answers it, and turning it on or off. The snippet still has to be pasted into their site, so say so.',
+      'Set up or change a chat box on the business’s website, as the Website chats list on the Forms page (and Settings → Website chat) does: its name, the sites it may show on, who answers it (the AI teammate, or only the team), the most new chats a day, its greeting, button label and colours, showing the business’s logo, where its button sits on computers and on phones (corner, how far up, label or icon only, or hidden on phones), what happens while nobody is answering, the away message, when it asks visitors for their name, mobile and email, the box to get texts, and turning it on or off. A business can have more than one; create adds another. Read them with get_settings (area website_chat) first and pass only what changes. The snippet still has to be pasted into their site, so say so; a new snippet key is do_chat_widget_rotate_key.',
     input: z.object({
       action: z.enum(['create', 'change', 'turn_on', 'turn_off']),
-      widgetId: uuid.optional(),
+      widgetId: uuid
+        .optional()
+        .describe(
+          'Which chat, from get_settings (area website_chat). Leave out for the business’s first chat, the one Settings → Website chat shows',
+        ),
+      name: z
+        .string()
+        .trim()
+        .max(60)
+        .optional()
+        .describe(
+          'What the business calls this chat in Forms, like Main website. Empty goes back to its first site.',
+        ),
       websites: z
         .array(text(300))
         .max(10)
         .optional()
-        .describe('The sites it may show on, like https://lonestarhvac.com'),
+        .describe(
+          'Every site it may show on, like https://lonestarhvac.com (the www version is added for you). This list replaces the one there, so keep the sites that stay.',
+        ),
+      answeredByAi: z
+        .boolean()
+        .optional()
+        .describe(
+          'True: the business’s AI teammate answers and the team can join. False: only the team answers, from the inbox. A new chat box starts with the AI teammate when there is one.',
+        ),
+      dailyCap: z
+        .int()
+        .min(1)
+        .max(10_000)
+        .optional()
+        .describe(
+          'The most new chats it takes a day, so a flood of strangers can’t use up AI time',
+        ),
       greeting: text(300).optional(),
       buttonLabel: text(40).optional(),
       color: z
@@ -692,7 +739,82 @@ export const assistantTools = [
         .regex(/^#[0-9a-fA-F]{6}$/)
         .optional()
         .describe('A hex colour like #2d69d8'),
-      answeredByAi: z.boolean().optional().describe('Whether the AI teammate answers it'),
+      textColor: z
+        .union([z.string().regex(/^#[0-9a-fA-F]{6}$/), z.literal('automatic')])
+        .optional()
+        .describe(
+          'The words on the button and the top bar: a hex colour, or automatic (white or dark, whichever reads)',
+        ),
+      topBarColor: z
+        .union([z.string().regex(/^#[0-9a-fA-F]{6}$/), z.literal('same_as_button')])
+        .optional()
+        .describe('The top bar of the open chat: a hex colour, or same_as_button'),
+      showLogo: z
+        .boolean()
+        .optional()
+        .describe(
+          'Show the business’s logo (Settings → Workspace) at the top of the chat; false shows its initials',
+        ),
+      position: z
+        .enum(['right', 'left'])
+        .optional()
+        .describe(
+          'The bottom corner the button sits in on computers, and on phones unless phonePosition says otherwise',
+        ),
+      phonePosition: z
+        .enum(['right', 'left', 'same_as_computer'])
+        .optional()
+        .describe('The bottom corner on phones (screens up to 480 pixels wide)'),
+      computerLift: z
+        .int()
+        .min(0)
+        .max(300)
+        .optional()
+        .describe(
+          'How many pixels above its usual spot the button sits on computers; 0 is the usual spot',
+        ),
+      phoneLift: z
+        .int()
+        .min(0)
+        .max(300)
+        .optional()
+        .describe(
+          'How many pixels above its usual spot the button sits on phones, to clear a bar along the bottom of the site (about 90 clears most)',
+        ),
+      computerButton: z
+        .enum(['label', 'icon'])
+        .optional()
+        .describe('On computers: the label beside the icon, or only the round icon'),
+      phoneButton: z
+        .enum(['label', 'icon', 'hidden'])
+        .optional()
+        .describe(
+          'On phones: the label beside the icon, only the round icon, or hidden (the chat then opens from a link to #hfos-chat on their site)',
+        ),
+      whenNobodyAnswers: z
+        .enum(['chat', 'away_form'])
+        .optional()
+        .describe(
+          'While nobody is answering (no AI teammate working and the business closed): chat lets visitors write as usual and says the team replies later; away_form shows the away message with a short form first',
+        ),
+      awayMessage: z
+        .string()
+        .trim()
+        .max(500)
+        .optional()
+        .describe(
+          'The first thing visitors read while nobody is answering. Empty goes back to the standard words.',
+        ),
+      askFor: z
+        .object({
+          name: chatAskWhen.optional(),
+          phone: chatAskWhen.optional(),
+          email: chatAskWhen.optional(),
+        })
+        .optional()
+        .describe(
+          'When it asks visitors for their name, mobile (phone) and email; only those given change',
+        ),
       askForSmsConsent: z
         .boolean()
         .optional()
@@ -705,17 +827,17 @@ export const assistantTools = [
   define({
     name: 'manage_lead_intake',
     description:
-      'Set what happens when a stranger reaches the business: whether someone who texts, calls and doesn’t get through, or emails becomes a customer and an open lead by themselves, which pipeline and stage those leads land in, what they are filed under, and the most a day. One channel per call. Read it with get_settings first and pass only what changes.',
+      'Set what happens when a stranger reaches the business, each row of Settings → Lead intake’s ways in: whether someone who texts, calls and doesn’t get through, emails, messages the Facebook Page or the Instagram account, sends a lead ad’s form, or applies through Indeed becomes a customer and an open lead by themselves, which pipeline and stage those leads land in, what they are filed under, and the most a day. One channel per call. Read it with get_settings (area lead_intake) first and pass only what changes. Website forms and connected apps are manage_lead_form.',
     input: z.object({
-      channel: z
-        .enum(['text', 'call', 'email'])
-        .describe(
-          'text: they text the business number. call: a missed call or voicemail. email: they write in.',
-        ),
+      channel: IntakeChannelKind.describe(
+        'text: they text the business number. call: a missed call or voicemail. email: they write in. messenger: they message the Facebook Page. instagram: they message the Instagram account. facebook_lead_ad: they send the form on a Facebook or Instagram lead ad. indeed: Indeed emails about someone who applied to a job (off until turned on).',
+      ),
       active: z
         .boolean()
         .optional()
-        .describe('Off leaves a stranger as a conversation only, with no customer and no lead'),
+        .describe(
+          'Off leaves a stranger as a conversation only, with no customer and no lead; a lead ad’s form or an Indeed applicant is not filed at all',
+        ),
       createLead: z.boolean().optional().describe('Whether a lead opens as well as the customer'),
       pipelineId: uuid.nullable().optional().describe('Null is their first pipeline'),
       stageId: uuid.nullable().optional().describe('Null is that pipeline’s first open stage'),
@@ -788,7 +910,7 @@ export const assistantTools = [
   define({
     name: 'update_action_center_settings',
     description:
-      'Change what Home watches for and what HandsFreeOS does on its own: which kinds of thing show up, how fast a new lead counts as waiting, what a big job is worth, how long before a lead has gone quiet, when an estimate or an unpaid invoice asks for attention, and whether HandsFreeOS confirms visits and follows up by itself. Read it with get_settings first.',
+      'Change what Home watches for and what HandsFreeOS does on its own: which kinds of thing show up, how fast a new lead counts as waiting, what a big job is worth, how long before a lead has gone quiet, when an estimate or an unpaid invoice asks for attention (and the balances too small to), and whether HandsFreeOS confirms visits and follows up by itself. Read it with get_settings first.',
     input: z.object({
       kindsOn: z.array(z.enum(ATTENTION_KINDS)).max(10).optional().describe('Kinds to turn on'),
       kindsOff: z.array(z.enum(ATTENTION_KINDS)).max(10).optional().describe('Kinds to turn off'),
@@ -799,6 +921,9 @@ export const assistantTools = [
       unconfirmedVisitWindowHours: z.int().min(1).max(168).optional(),
       estimateWaitingDays: z.int().min(1).max(60).optional(),
       invoiceOverdueDays: z.int().min(0).max(60).optional(),
+      ignoreBalancesUnderDollars: dollars
+        .optional()
+        .describe('An unpaid invoice with less than this left on it doesn’t show'),
       typicalJobValueDollars: dollars
         .nullable()
         .optional()
@@ -1285,7 +1410,7 @@ export const assistantTools = [
       'The business’s forms, surveys and quizzes: what each one is, whether it is taking answers, its public link and how many people have answered.',
     input: z.object({
       status: z.enum(['draft', 'live', 'closed']).optional(),
-      mode: z.enum(['form', 'survey', 'quiz']).optional(),
+      mode: z.enum(['form', 'survey', 'quiz', 'poll']).optional(),
     }),
     autonomy: 'auto',
     permission: 'workspace.read',
@@ -1309,15 +1434,15 @@ export const assistantTools = [
   define({
     name: 'build_form',
     description:
-      'Build a form, survey or quiz from the person’s words, or change one they name (formId). It saves a draft only — nothing a customer sees changes until it is published, which is a separate step they agree to. Put everything they asked for in the description.',
+      'Build a form, survey, quiz or live poll from the person’s words, or change one they name (formId). A live poll’s questions pop up during a HandsFreeOS video call or webinar, and it gets when-to-ask phrases for the AI listening. It saves a draft only — nothing a customer sees changes until it is published, which is a separate step they agree to. Put everything they asked for in the description.',
     input: z.object({
       description: text(2000).describe('What it should ask, or what to change, in their words'),
       formId: uuid.optional().describe('The form to change; leave it out to start a new one'),
       name: z.string().trim().min(1).max(120).optional().describe('A short name for a new form'),
       mode: z
-        .enum(['form', 'survey', 'quiz'])
+        .enum(['form', 'survey', 'quiz', 'poll'])
         .optional()
-        .describe('A new one: which of the three it is (default: form)'),
+        .describe('A new one: which kind it is (default: form)'),
     }),
     autonomy: 'auto',
     permission: 'forms.manage',

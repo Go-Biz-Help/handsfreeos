@@ -23,9 +23,10 @@
  *
  * Once a day, at the start of the working day or after Start my day, it first does the jobs that fill that list
  * (./daily.ts, decision 32): it checks their friend requests, saves their groups' members, finds posts and reads their
- * chats, one job a go, a few minutes apart. Then, in the working hours, every hour or two, it looks at the newest
- * posts at the top of their best groups (decision 49), between the day's steps; and when the person lets it post on
- * its own, it puts up today's helpful post once the AI has written it (decision 50).
+ * chats, one job a go, a few minutes apart; from 0.112.0 a step on the list goes after each (decision 123), so the
+ * day's likes, requests and messages OK'd don't wait for the reading to finish. Then, in the working hours, every hour
+ * or two, it looks at the newest posts at the top of their best groups (decision 49), between the day's steps; and when
+ * the person lets it post on its own, it puts up today's helpful post once the AI has written it (decision 50).
  *
  * It tells HandsFreeOS what it's doing and each step it takes (../hfos/live.ts, decision 41), and follows the day
  * HandsFreeOS keeps: Start my day and Stop for today pressed in the app, on the phone or here. Only the person's most
@@ -34,7 +35,12 @@
  * It takes turns on Facebook with what the person asks of the extension from HandsFreeOS (../asks/run.ts, decision
  * 43), through ./turns.ts: an ask goes first, and the runner carries on after.
  */
-import { businessDay, workWindow, type MessageKind } from '@hfos/core/addons/outreach/automation';
+import {
+  businessDay,
+  workHours,
+  workWindow,
+  type MessageKind,
+} from '@hfos/core/addons/outreach/automation';
 import { ASK_FIRST_WORDS } from '@hfos/core/addons/outreach/asks';
 import { standDownWords } from '@hfos/core/addons/outreach/live';
 import { DAILY_STEPS, pastLimitWords, type DailyStep } from '@hfos/core/addons/outreach/limits';
@@ -46,6 +52,8 @@ import {
   type LikePickOutput,
 } from '@hfos/core/addons/outreach/like-pick';
 import { LOOKUP_LINES } from '@hfos/core/addons/outreach/today';
+import { buttonFor } from '@hfos/core/addons/outreach/helper';
+import type { ProblemHelper } from '@hfos/core/problem-report';
 import { messageParts, partPauseMs } from '@hfos/core/addons/outreach/voice';
 import {
   AUTO_PLANS,
@@ -60,7 +68,6 @@ import { facebook } from '../networks/facebook/kit';
 import { FRIENDSHIP_WORDS } from '../networks/facebook/tidy';
 import type { ProfileRef, ReadResult, ThreadRef } from '../networks/facebook/types';
 import { valueOf, type Hfos, type Job, type JobEnd } from '../jobs/job';
-import { reporter } from '../jobs/report';
 import { nameForms, sameName } from '../networks/facebook/people';
 import { FACEBOOK, facebookUrl, profileFromUrl } from '../networks/facebook/urls';
 import type {
@@ -87,6 +94,7 @@ import {
   pressWaiting,
 } from '../hfos/live';
 import { isNoting, noteNeed, takeNote } from '../hfos/noting';
+import { clearRetried, handsOver, retryAfterUpdate } from './retry';
 import { answer, answerWith, api, call, Refused, savingTo } from '../hfos/session';
 import { keepWarning, warnedNow, warningInput } from '../hfos/warned';
 import { WorkTab } from '../tab';
@@ -107,23 +115,38 @@ import {
   beforeDayDoing,
   beforeDayLine,
   doBeforeDay,
+  holdsTheDay,
   markOf,
   type BeforeDay,
 } from './lists';
+import { helpAfter, stepHelp } from './helper';
 import { askInLine, inTurn } from './turns';
 import {
+  afterDaily,
+  AGAIN_WORDS,
+  answersAnyTime,
   AUTO_STATE_KEY,
+  FINDING_JOBS,
   freshState,
   gapAfter,
   HELPFUL_AGAIN_MS,
   helpfulDue,
   IDLE_MS,
   isState,
+  listTurn,
+  lookOutsideAt,
   needOf,
   nextDaily,
+  nextRound,
   nextStart,
   nextWatch,
+  repliedAfter,
+  replyWaiting,
+  roundDue,
+  soonestAgain,
+  stillReplied,
   watchDue,
+  withReplied,
   workKey,
   workLeft,
   type AutoKind,
@@ -131,6 +154,8 @@ import {
   type DailyJob,
   type DoneKind,
   type Work,
+  listSays,
+  retryWake,
 } from './plan';
 
 export const AUTO_ALARM = 'hfos-auto';
@@ -163,6 +188,8 @@ let busy = false;
 let stopAsked = false;
 /** A beat's answer asked it to end what it was doing while a go was under way: one more go once that ends. */
 let haltAgain = false;
+/** Someone wrote back while a go was under way (decision 125): one more go once that ends, for their reply. */
+let repliedAgain = false;
 
 const pause = (ms: number) => new Promise((done) => setTimeout(done, ms));
 
@@ -216,8 +243,18 @@ async function closeWindow(): Promise<void> {
  * for the day.
  */
 type Outcome =
-  | { readonly done: true; readonly line: string }
-  | { readonly done: false; readonly line: string; readonly need?: true }
+  | { readonly done: true; readonly line: string; readonly helper?: ProblemHelper }
+  | {
+      readonly done: false;
+      readonly line: string;
+      readonly need?: true;
+      /** Worth the AI helper's look though it isn't handed over: a like it couldn't press (decision 142). */
+      readonly look?: true;
+      /** Found done already (connected, asked, friends already): nothing's left to do, so it's no failure (decision 145). */
+      readonly skip?: true;
+      /** What the AI helper did inside the step, for its report (decision 142). */
+      readonly helper?: ProblemHelper;
+    }
   | { readonly stop: string };
 
 async function read(): Promise<ReadResult> {
@@ -277,6 +314,16 @@ const profileOf = (url: string | null): ProfileRef | null => {
 };
 
 /**
+ * Who a step on the list is for, as HandsFreeOS keeps them: their profile's link, with their number when it's kept
+ * too. Their chats link to them by it, and it stays theirs when their name or username changes.
+ */
+function keptOf(item: TodayListItem): ProfileRef | null {
+  const kept = profileOf(item.profileUrl);
+  const id = item.platformId ?? null;
+  return kept && !kept.id && id && /^\d{1,20}$/.test(id) ? { ...kept, id } : kept;
+}
+
+/**
  * Opens someone's profile and checks it's them: the page and its profile, and the profile to note the step against
  * (the one kept, with what the page added); or what stopped it.
  */
@@ -287,7 +334,7 @@ async function openProfile(
   | { readonly page: ReadResult; readonly profile: ProfileRef; readonly noted: ProfileRef }
   | { readonly outcome: Outcome }
 > {
-  const want = profileOf(item.profileUrl);
+  const want = keptOf(item);
   if (!want) return { outcome: { done: false, line: `${item.name}: no profile link kept` } };
   await tab.open(want.url);
   await setState({ tabId: tab.tabId });
@@ -315,14 +362,38 @@ async function onProfile(item: TodayListItem, job: AutoJob, businessId: string):
   const opened = await openProfile(item, businessId);
   if ('outcome' in opened) return opened.outcome;
   const { friendship } = opened.page.profile!;
-  if (friendship === plan.after) return { done: false, line: `${item.name}: done already` };
-  if (friendship !== plan.before)
-    return { done: false, line: `${item.name}: Facebook says ${FRIENDSHIP_WORDS[friendship]}` };
-  if (!(await pressPath(withTheirName(plan.path, [opened.page.profile!.name, item.name]))))
+  if (friendship === plan.after)
+    return { done: false, line: `${item.name}: done already`, skip: true };
+  // Facebook's buttons didn't say where things stand: maybe a new layout, so the AI helper looks and the step is the
+  // person's (decision 145). Anywhere else Facebook says, there's nothing to do.
+  if (friendship === 'unknown')
     return {
       done: false,
-      line: `${item.name}: couldn’t find “${plan.path[0]!.words[0]}”`,
+      line: `${item.name}: Facebook says ${FRIENDSHIP_WORDS.unknown}`,
       need: true,
+    };
+  if (friendship !== plan.before)
+    return {
+      done: false,
+      line: `${item.name}: Facebook says ${FRIENDSHIP_WORDS[friendship]}`,
+      skip: true,
+    };
+  const press = () => pressPath(withTheirName(plan.path, [opened.page.profile!.name, item.name]));
+  const missing = `couldn’t find “${plan.path[0]!.words[0]}”`;
+  // Its button moved, or something's over it: the AI helper finds it, on this page that's theirs (decision 142).
+  const help = stepHelp(tab, answer as Hfos, {
+    businessId,
+    platform: facebook.platform,
+    step: job,
+    theirName: item.name,
+    button: buttonFor(facebook.platform, job)!,
+  });
+  if (!(await press()) && !(await help.press(missing, press)))
+    return {
+      done: false,
+      line: `${item.name}: ${missing}`,
+      need: true,
+      helper: await help.end(false),
     };
   await sure(plan.then);
   await pause(SETTLE_MS);
@@ -330,15 +401,21 @@ async function onProfile(item: TodayListItem, job: AutoJob, businessId: string):
   const stop = await warnedOn(page, businessId);
   if (stop) return { stop };
   if (page.profile?.friendship !== plan.after)
-    return { done: false, line: `${item.name}: Facebook didn’t take it`, need: true };
+    return {
+      done: false,
+      line: `${item.name}: Facebook didn’t take it`,
+      need: true,
+      helper: await help.end(false),
+    };
+  const helper = await help.end(true);
   const to = { name: page.profile.name ?? item.name, profile: opened.noted };
   if (job === 'confirm') {
     await takeNote({
       type: 'hfos-answered',
-      answered: { answer: 'confirm', to, mutualFriends: page.profile.mutualFriends },
+      answered: { answer: 'confirm', to, mutualFriends: page.profile.mutualFriends, auto: true },
       at: now(),
     });
-    return { done: true, line: `Confirmed ${item.name}’s friend request` };
+    return { done: true, line: `Confirmed ${item.name}’s friend request`, helper };
   }
   await takeNote({
     type: 'hfos-noted',
@@ -353,7 +430,7 @@ async function onProfile(item: TodayListItem, job: AutoJob, businessId: string):
     },
     at: now(),
   });
-  return { done: true, line: `Sent ${item.name} a friend request` };
+  return { done: true, line: `Sent ${item.name} a friend request`, helper };
 }
 
 /** Comments the day's limit still has room for, as the list said this pass: a warm-up comment takes one. */
@@ -382,14 +459,15 @@ async function warmUp(item: TodayListItem, businessId: string): Promise<Outcome>
     most: LIKE_POSTS_READ,
   });
   if (!theirs.ok) throw new Error(theirs.error);
-  const missed = async (line: string): Promise<Outcome> => {
+  /** `look`: worth the AI helper's look at what stopped it, though the step isn't handed over (decision 142). */
+  const missed = async (line: string, look = false): Promise<Outcome> => {
     await call(
       api().POST('/v1/commands/outreach.warm_up.missed', {
         body: { workspaceId: businessId, profileId: item.profileId! },
       }),
       businessId,
     );
-    return { done: false, line };
+    return look ? { done: false, line, look } : { done: false, line };
   };
   if (!theirs.posts.length) return missed(`No post of ${item.name}’s to like: ${after.without}`);
   const posts = theirs.posts.map((p) => ({
@@ -423,7 +501,7 @@ async function warmUp(item: TodayListItem, businessId: string): Promise<Outcome>
   });
   if (!liked.ok) throw new Error(liked.error);
   if (liked.result === 'none' || liked.result === 'not_sent')
-    return missed(`Couldn’t like ${item.name}’s post: ${after.without}`);
+    return missed(`Couldn’t like ${item.name}’s post: ${after.without}`, true);
   await pause(SETTLE_MS);
   const stop = await warnedOn(await read(), businessId);
   if (stop) return { stop };
@@ -627,7 +705,7 @@ async function draftMessage(item: TodayListItem, businessId: string): Promise<Ou
     },
   });
   if (!drafted.ok) return { done: false, line: `${item.name}: ${drafted.problem.message}` };
-  const { drafts, opener, simple, kind: draftedKind } = drafted.value as Drafts;
+  const { drafts, opener, simple, unanswered, kind: draftedKind } = drafted.value as Drafts;
   // What the drafts are for: the kind asked for, or after a yes, the next step.
   const kind = (draftedKind ?? item.kind) as MessageKind;
   const text = drafts[0];
@@ -643,6 +721,8 @@ async function draftMessage(item: TodayListItem, businessId: string): Promise<Ou
         text,
         opener: kind === 'opener' ? opener : null,
         simple: kind === 'reply' && simple,
+        // Something Knowledge doesn't answer: it waits for the person (decision 122).
+        unanswered: kind === 'reply' ? (unanswered ?? null) : null,
       },
     }),
     businessId,
@@ -675,7 +755,7 @@ async function openChat(
     }
   | { readonly outcome: Outcome }
 > {
-  const want = profileOf(item.profileUrl);
+  const want = keptOf(item);
   let kept: ThreadRef | null = null;
   if (item.threadKey) {
     await tab.open(`${FACEBOOK}/messages/t/${encodeURIComponent(item.threadKey)}/`);
@@ -753,6 +833,34 @@ async function sendDone(sendId: string, businessId: string, sent: boolean, why: 
 }
 
 /**
+ * Their number, from the chat window their profile's Message opened, checked on Facebook (the owner's report of
+ * 30 Oct 2026): a small chat window links to someone by number, someone may be kept by username alone, and Facebook
+ * puts no cursor in a window that opens while the runner's is behind the person's, so no window could count as theirs.
+ * The number the one window that opened with their name links to is opened as a profile, and it's theirs only when
+ * Facebook shows that profile at their username. Their Message is pressed again there, and the message goes only into
+ * the window that links to them by that number. Null when it isn't shown to be theirs; a warning stops it.
+ */
+async function theirKey(
+  them: ProfileRef,
+  linked: ProfileRef,
+  businessId: string,
+): Promise<{ readonly profile: ProfileRef | null } | { readonly stop: string }> {
+  if (!linked.id || linked.username || them.id || !them.username) return { profile: null };
+  await tab.open(`${FACEBOOK}/profile.php?id=${encodeURIComponent(linked.id)}`);
+  await setState({ tabId: tab.tabId });
+  const page = await read();
+  const stop = await warnedOn(page, businessId);
+  if (stop) return { stop };
+  const shown = page.profile?.profile ?? null;
+  if (!shown || sameByKey(shown, them) !== true) return { profile: null };
+  const profile = { ...them, id: linked.id };
+  const pressed = await tab.ask({ type: 'hfos-open-message', profile });
+  if (!pressed.ok) return { profile: null };
+  await pause(SETTLE_MS);
+  return { profile };
+}
+
+/**
  * Sends a message OK'd (or let go as it is) in Messenger, and notes it as its own: as a few short texts, a few seconds
  * apart, when the person texts that way (@hfos/core/addons/outreach/voice), each part between blank lines its own.
  */
@@ -778,12 +886,25 @@ async function sendMessage(
   // Whose chat it goes in: the tab types only into one it shows is with them, by their profile, or by the name
   // Facebook showed for them where a chat links to nobody.
   const names = chat.name ? [chat.name] : [];
+  let profile = chat.profile;
   // Once a text has gone, the message has: the rest is said, not tried again.
   let partly: string | null = null;
   for (const [i, part] of parts.entries()) {
     // The next text a few seconds after, as long as typing it takes.
     if (i > 0) await pause(partPauseMs(part, Math.random()));
-    const wrote = await tab.ask({ type: 'hfos-message', text: part, profile: chat.profile, names });
+    let wrote = await tab.ask({ type: 'hfos-message', text: part, profile, names });
+    // The window their Message opened links to them by a key HandsFreeOS doesn't keep: that key, once Facebook shows
+    // it's theirs, and only then is it asked again.
+    if (i === 0 && wrote.ok && wrote.result === 'none' && wrote.linksTo) {
+      const checked = await theirKey(profile, wrote.linksTo, businessId);
+      if ('stop' in checked) return checked;
+      if (!checked.profile)
+        return failed(
+          `${item.name}: couldn’t make sure the chat that opened was theirs, so nothing was sent`,
+        );
+      profile = checked.profile;
+      wrote = await tab.ask({ type: 'hfos-message', text: part, profile, names });
+    }
     const why = !wrote.ok
       ? wrote.error
       : wrote.result === 'none'
@@ -804,7 +925,7 @@ async function sendMessage(
     type: 'hfos-noted',
     step: {
       kind: 'message',
-      to: { name: item.name, profile: chat.profile },
+      to: { name: item.name, profile },
       group: null,
       postUrl: null,
       thread: chat.thread,
@@ -918,7 +1039,8 @@ async function collect(kind: DailyJob, businessId: string): Promise<JobEnd> {
   await say(DAILY_DOING[kind], { working: true });
   let end: JobEnd;
   try {
-    end = await runDaily(kind, jobFor(businessId));
+    // A round of finding again asks for the next search words (decision 126).
+    end = await runDaily(kind, { ...jobFor(businessId), round: (await stateNow()).round ?? 0 });
   } catch (error) {
     if (error instanceof Refused) throw error;
     end = {
@@ -930,7 +1052,8 @@ async function collect(kind: DailyJob, businessId: string): Promise<JobEnd> {
   }
   const state = await stateNow();
   await setState({
-    daily: { ...state.daily, [kind]: end.line },
+    // A batch of checks with more of today's room left: the next later on (decision 126).
+    ...afterDaily(state, kind, end, Date.now(), Math.random()),
     // Find posts just read the groups: the newest posts wait an hour or two.
     ...(kind === 'posts' ? { watchAt: nextWatch(Date.now(), Math.random()) } : {}),
   });
@@ -962,7 +1085,7 @@ async function beforeTheDay(step: BeforeDay, businessId: string): Promise<JobEnd
   const state = await stateNow();
   const stands =
     !end.failed && (key === 'requests' || key === 'checks' || key === 'group_checks')
-      ? { daily: { ...state.daily, [key]: end.line } }
+      ? afterDaily(state, key, end, Date.now(), Math.random())
       : {};
   const lists = await (answer as Hfos)({ type: 'hfos-lists', workspaceId: businessId });
   await setState({
@@ -1018,6 +1141,8 @@ async function go(): Promise<void> {
     return void (await say('Sign in to HandsFreeOS in the panel, and the extension carries on.'));
   }
   const { settings, timezone } = await automationOf(to.businessId);
+  // Updated since it last went: what was handed over before is tried again, once (decision 145).
+  await retryAfterUpdate(to.businessId);
   let state = await stateNow();
   const at = Date.now();
   const day = businessDay(at, timezone);
@@ -1071,11 +1196,29 @@ async function go(): Promise<void> {
     );
     return goAt(at + LOOK_AGAIN_MS);
   }
-  const window = workWindow(settings.hours, timezone, at);
+  // Every day while the person keeps working on other days, new messages only on their days (decision 139).
+  const window = workWindow(workHours(settings.hours), timezone, at);
   const inHours = window !== null && at >= window.from && at < window.to;
   if (!state.started && !inHours) {
+    // Outside the hours a reply to someone who wrote back still goes, and nothing new does (decision 133). What the
+    // person asked from HandsFreeOS goes first.
+    if (askInLine()) return goAt(at + ASK_FIRST_MS);
+    const answering = await listNow(to.businessId, state.tried, state.replied);
+    const answers = answering.left.filter(answersAnyTime);
+    if (answers[0])
+      return workNext(answers, answering.list, {
+        businessId: to.businessId,
+        settings,
+        timezone,
+        inHours,
+        window,
+        reading: false,
+      });
     await closeWindow();
-    return goAt(tomorrow());
+    // A reply waiting for an OK goes once it's given, and one tried again at its turn: it looks again by then.
+    return goAt(
+      lookOutsideAt(replyWaiting(answering.list), at, tomorrow(), retryWake(await stateNow(), at)),
+    );
   }
 
   // What the person asked from HandsFreeOS goes first (../asks/run.ts): the runner looks again in a couple of minutes.
@@ -1089,6 +1232,31 @@ async function go(): Promise<void> {
   const lists = valueOf(await (answer as Hfos)({ type: 'hfos-lists', workspaceId: to.businessId }));
   if (JSON.stringify(state.lists) !== JSON.stringify(lists)) state = await setState({ lists });
   const before = beforeDay(lists, state.before ?? {}, at, timezone);
+  let daily = settings.collect ? nextDaily(state, at) : null;
+  // Short of good fits once the day's reading is done (decision 126, answer 6a): it finds people again, with the next
+  // search words, and checks them.
+  if (settings.collect && !before && !daily && roundDue(state, at)) {
+    state = await setState(nextRound(state, FINDING_JOBS, at));
+    daily = nextDaily(state, at);
+  }
+  const reading = before !== null || daily !== null;
+  // The morning's reading and the list take turns (decision 123): a step on the list now, when there's one, after a
+  // part of the reading went last.
+  if (listTurn(state, reading, holdsTheDay(before))) {
+    const { list, left } = await listNow(to.businessId, state.tried, state.replied);
+    // Who wrote back and isn't on what's left gives the reading its turn back (decision 125).
+    const replied = stillReplied(state.replied ?? [], left);
+    if (replied.length !== (state.replied ?? []).length) state = await setState({ replied });
+    if (left[0])
+      return workNext(left, list, {
+        businessId: to.businessId,
+        settings,
+        timezone,
+        inHours,
+        window,
+        reading,
+      });
+  }
   if (before) {
     const end = await inTurn('runner', () => beforeTheDay(before, to.businessId));
     if (end.warned) {
@@ -1107,7 +1275,7 @@ async function go(): Promise<void> {
       );
       return goAt(Date.now() + AGAIN_MS);
     }
-    await say(line);
+    await say(line, { readLast: true });
     if ((await stateNow()).stopped) {
       await closeWindow();
       return goAt(tomorrow());
@@ -1117,7 +1285,6 @@ async function go(): Promise<void> {
     );
   }
 
-  const daily = settings.collect ? nextDaily(state) : null;
   if (daily) {
     const end = await inTurn('runner', () => collect(daily, to.businessId));
     if (end.warned) {
@@ -1125,7 +1292,7 @@ async function go(): Promise<void> {
       await say(end.line, { stopped: 'warning' });
       return goAt(tomorrow());
     }
-    await say(`${DAILY_NAMES[daily]}: ${end.line}`);
+    await say(`${DAILY_NAMES[daily]}: ${end.line}`, { readLast: true });
     void feed('job', `${DAILY_NAMES[daily]}: ${end.line}`);
     if ((await stateNow()).stopped) {
       await closeWindow();
@@ -1190,37 +1357,91 @@ async function go(): Promise<void> {
     );
   }
 
-  const list: TodayList = await call(
-    api().POST('/v1/queries/outreach.today', { body: { workspaceId: to.businessId } }),
-    to.businessId,
-  );
-  const left = workLeft(list, state.tried);
-  const work = left[0];
-  commentsLeft = Math.max(0, list.limits.comment.most - list.limits.comment.done);
-  if (!work) {
+  const { list, left } = await listNow(to.businessId, state.tried, state.replied);
+  if (!left[0]) {
     await closeWindow();
+    // The checks' next batch, when one's to come today (decision 126).
+    const again = settings.collect ? soonestAgain(await stateNow(), at) : null;
     await say(
-      state.tried.length
-        ? 'Done for today. It looks again later for new requests to confirm.'
-        : 'Nothing on your list for it to do yet.',
+      `${
+        state.tried.length
+          ? 'Done for today. It looks again later for new requests to confirm.'
+          : 'Nothing on your list for it to do yet.'
+      }${again !== null ? ` ${AGAIN_WORDS}` : ''}`,
     );
-    // In the hours, it looks again within the hour, or when the newest posts are due, whichever is first.
+    // In the hours, it looks again within the hour, or when the newest posts or the next checks are due, whichever is
+    // first.
     const watchAt = settings.watchPosts ? ((await stateNow()).watchAt ?? null) : null;
     return goAt(
       inHours
-        ? Math.min(at + IDLE_MS, window!.to, ...(watchAt !== null ? [Math.max(watchAt, at)] : []))
+        ? Math.min(
+            at + IDLE_MS,
+            window!.to,
+            ...(watchAt !== null ? [Math.max(watchAt, at)] : []),
+            ...(again !== null ? [again] : []),
+            // A message tried again that waits its turn (decision 132).
+            ...retryWake(await stateNow(), at),
+          )
         : tomorrow(),
     );
   }
 
+  return workNext(left, list, {
+    businessId: to.businessId,
+    settings,
+    timezone,
+    inHours,
+    window,
+    reading,
+  });
+}
+
+/** The list for today on Facebook, and what's left on it for the runner, in its order. */
+async function listNow(
+  businessId: string,
+  tried: readonly string[],
+  replied: readonly string[] = [],
+): Promise<{ readonly list: TodayList; readonly left: Work[] }> {
+  const list: TodayList = await call(
+    api().POST('/v1/queries/outreach.today', { body: { workspaceId: businessId } }),
+    businessId,
+  );
+  // Whether Facebook needs more good fits today (decision 126): it finds people again once the day's reading is done.
+  // And when a message tried again may go (decision 132): it looks again by then.
+  const says = listSays(list);
+  const kept = await stateNow();
+  if (kept.more !== says.more || (kept.retryAt ?? null) !== says.retryAt) await setState(says);
+  return { list, left: workLeft(list, tried, replied) };
+}
+
+/**
+ * Does the first of what's left on the list, notes how it went, and sets when to go next: in the hours, the day's
+ * steps spread out over what's left of them; at a person's pace while the morning's reading is left (decision 123),
+ * or after Start my day.
+ */
+async function workNext(
+  left: readonly Work[],
+  list: TodayList,
+  at: {
+    readonly businessId: string;
+    readonly settings: Awaited<ReturnType<typeof automationOf>>['settings'];
+    readonly timezone: string;
+    readonly inHours: boolean;
+    readonly window: ReturnType<typeof workWindow>;
+    /** Some of the morning's reading is left: the list's turn goes back to it. */
+    readonly reading: boolean;
+  },
+): Promise<void> {
+  const work = left[0]!;
+  const { businessId, settings, inHours, window } = at;
+  const tomorrow = () => nextStart(settings.hours, at.timezone, Date.now(), Math.random());
+  commentsLeft = Math.max(0, list.limits.comment.most - list.limits.comment.done);
   const { item } = work;
-  await say(doing(work), { working: true });
+  await say(doing(work), { working: true, readLast: false });
   let outcome: Outcome;
   try {
     // A few texts unless they said otherwise; one HandsFreeOS from before the voice says nothing of it.
-    outcome = await inTurn('runner', () =>
-      doWork(work, to.businessId, settings.voice?.split ?? true),
-    );
+    outcome = await inTurn('runner', () => doWork(work, businessId, settings.voice?.split ?? true));
   } catch (error) {
     // The page went somewhere else, or the window was closed: passed over for today, not tried again and again.
     if (error instanceof Refused) throw error;
@@ -1231,35 +1452,54 @@ async function go(): Promise<void> {
   } finally {
     await setState({ working: false });
   }
-  // A step that didn't go: the page it ended on, outline and all, noted while the window still shows it (decision 74).
-  if ('done' in outcome && !outcome.done)
-    await reporter(tab, answer as Hfos, {
-      businessId: to.businessId,
-      platform: facebook.platform,
-      askId: null,
-      job: work.do === 'step' ? work.item.kind : work.do,
-    })({ note: 'The step didn’t go.', outline: true });
-  state = await stateNow();
+  // A step that didn't go: the AI helper looks first, clearing the way and saying what it sees (decision 142); then
+  // the page it ended on, outline, why and all, noted while the window still shows it (decision 74).
+  const helped = await helpAfter({
+    tab,
+    hfos: answer as Hfos,
+    businessId,
+    platform: facebook.platform,
+    work,
+    job: work.do === 'step' ? work.item.kind : work.do,
+    outcome,
+    again:
+      work.do === 'step'
+        ? () => inTurn('runner', () => doWork(work, businessId, settings.voice?.split ?? true))
+        : null,
+    say: (line) => say(line, { working: true, readLast: false }),
+  });
+  outcome = helped.outcome;
+  await setState({ working: false });
+  const state = await stateNow();
   const kind = doneAs(work);
   const done =
     'done' in outcome && outcome.done
       ? { ...state.done, [kind]: (state.done[kind] ?? 0) + 1 }
       : state.done;
-  await setState({ tried: [...state.tried, workKey(work)], done });
+  await setState({
+    tried: [...state.tried, workKey(work)],
+    done,
+    replied: repliedAfter(state.replied ?? [], work),
+  });
   if ('stop' in outcome) {
     await closeWindow();
     await say(outcome.stop, { stopped: 'warning' });
     return goAt(tomorrow());
   }
   await say(outcome.line);
-  // One the person can do themselves goes to their Waiting for you; done another day, or by them, it clears.
+  // One the person can do themselves, or one tried again that didn't go, goes to their Waiting for you; done another
+  // day, or by them, it clears.
   const need =
-    'need' in outcome && work.do === 'step' ? needOf(item, outcome.line, to.businessId) : null;
+    work.do === 'step' && handsOver(item, outcome)
+      ? needOf(item, outcome.line, businessId, helped.reportId)
+      : null;
   if (need) void noteNeed(need);
+  // A step tried again that it found done already is cleared (decision 145).
+  if (work.do === 'step') void clearRetried(item, outcome, businessId);
   // The feed of today's steps in HandsFreeOS. A stop on a warning isn't one: HandsFreeOS writes that line itself.
   void feed(outcome.done ? 'done' : 'passed', outcome.line);
   // Stop for today, pressed while that step went.
-  if (state.stopped) {
+  if ((await stateNow()).stopped) {
     await closeWindow();
     return goAt(tomorrow());
   }
@@ -1267,7 +1507,8 @@ async function go(): Promise<void> {
     now: Date.now(),
     until: inHours ? window!.to : null,
     left: left.length - 1,
-    started: state.started,
+    // A person's pace while the morning's reading is left: the list's turn and the reading's go by turns.
+    started: state.started || at.reading,
     random: Math.random(),
   });
   if (gap > KEEP_WINDOW_MS) await closeWindow();
@@ -1297,11 +1538,23 @@ export async function tick(): Promise<void> {
     busy = false;
     // The day stopped, or another computer took over, while that go went: it looks again now, and stops or stands
     // by, rather than at the next step's time.
-    if (haltAgain) {
+    if (haltAgain || repliedAgain) {
       haltAgain = false;
+      repliedAgain = false;
       void tick();
     }
   }
+}
+
+/**
+ * Someone wrote back on Facebook (decision 125, ../hfos/replies.ts): their reply is drafted next, now, before the
+ * next step's time, or as soon as the go under way ends. The day's own rules still say whether it goes at all.
+ */
+export async function replied(profileIds: readonly string[]): Promise<void> {
+  const state = await stateNow();
+  await setState({ replied: withReplied(state.replied ?? [], profileIds) });
+  if (busy) repliedAgain = true;
+  else void tick();
 }
 
 // A beat's answer that moves the day, or which computer works, has it look again. One that ends what it's doing

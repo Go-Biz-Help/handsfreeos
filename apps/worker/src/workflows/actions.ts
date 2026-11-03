@@ -1,5 +1,5 @@
 /**
- * The 19 actions a step can take.
+ * The 21 actions a step can take.
  *
  * Internal ones run their command as the workflow inside the step's own transaction (executeCommandIn, in a
  * savepoint), so the step's row, the command's writes and its events commit together, and a refusal leaves
@@ -10,6 +10,8 @@
  */
 import {
   activityLog,
+  businessLineOf,
+  callsBusinessLandlines,
   conversationAssign,
   conversationClose,
   executeCommandIn,
@@ -20,6 +22,7 @@ import {
   leadMoveStage,
   leadSetNextAction,
   leadUpdate,
+  lineFactsOf,
   personalFormQuery,
   personUpdate,
   recordSetTags,
@@ -33,6 +36,7 @@ import {
 } from '@hfos/core/server';
 import { rows, sql } from '@hfos/db/client';
 import type { z } from 'zod';
+import { queueAiCall } from '../ai-calls';
 import { handToTeammate } from '../ai-team/handover';
 import { workspaceManagers } from '../handlers/telephony';
 import { publicOrigin } from '../hosting/origin';
@@ -593,6 +597,69 @@ export async function runAction(ec: ExecCtx): Promise<Outcome> {
         channel: step.config.channel,
         note: r.values['note'] ?? '',
       });
+    }
+
+    case 'call_with_ai': {
+      // The AI teammate calls them with the step's playbook (ai-calls/index.ts places it, in open hours).
+      const r = await renderAll(ec, { opening: step.config.opening });
+      if (r.missing.length) return missingVariable(r.missing, r.values);
+      const opening = r.values['opening']!.replace(/^I[’']?m calling\s+/i, '');
+      const input = { opening, book: step.config.book };
+      if (!run.personId) return skipped('no_person', input);
+      const [p] = await rows<{ phone: string | null; consent: string; gone: boolean }>(
+        ec.tx,
+        sql`select phone_e164 as phone, call_consent::text as consent,
+              bin_item_id is not null or erased_at is not null as gone
+            from app.people where id = ${run.personId}`,
+      );
+      if (!p || p.gone) return skipped('no_person', input);
+      if (!p.phone) return skipped('no_phone', input);
+      if (p.consent === 'opted_out') return skipped('no_calls', input);
+      // A written yes (the customer page's "Agreed in writing", an import's column or the "OK to call" box), or a
+      // business landline while the business calls those: asked just before the call, unless already known.
+      if (p.consent !== 'opted_in') {
+        if (!(await callsBusinessLandlines(ec.tx, ec.scope.workspaceId)))
+          return skipped('no_call_consent', input);
+        const line = businessLineOf(
+          await lineFactsOf(ec.tx, ec.scope.workspaceId, p.phone, new Date()),
+        );
+        if (line === 'other') return skipped('not_business_landline', input);
+      }
+      if (test) return simulated(input, { would: 'call' });
+      const late = lateSkip(ec, input);
+      if (late) return late;
+      const queued = await queueAiCall(
+        ec.tx,
+        ec.scope,
+        {
+          purpose: 'workflow',
+          personId: run.personId,
+          to: p.phone,
+          goal: /[.!?]$/.test(opening) ? opening : `${opening}.`,
+          playbook: {
+            findOut: step.config.findOut,
+            offer: step.config.offer,
+            book: step.config.book,
+          },
+          // One call per run and step visit: a retried step doesn't ring twice.
+          dedupeKey: `workflow:${run.id}:${ec.stepKey}`,
+        },
+        ec.meta.correlationId,
+      );
+      if (!queued) {
+        const [made] = await rows<{ id: string }>(
+          ec.tx,
+          sql`select id from app.ai_calls
+              where workspace_id = ${ec.scope.workspaceId}
+                and dedupe_key = ${`workflow:${run.id}:${ec.stepKey}`}`,
+        );
+        return skipped(made ? 'already_called' : 'no_teammate', input);
+      }
+      return {
+        kind: 'done',
+        input,
+        output: { aiCallId: queued.id, waitsForApproval: queued.status === 'awaiting_approval' },
+      };
     }
   }
 }

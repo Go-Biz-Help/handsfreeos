@@ -21,12 +21,15 @@ import {
   findStep,
   HfosError,
   KnowledgeEditableContent,
+  lineCheckCostWords,
   MONEY_DRAFT_ACTIONS,
   normalizeSiteUrl,
   parseDefinition,
   plainSpaces,
   type AssistantCard,
   type WorkflowCatalogs,
+  type WorkflowDefinition,
+  type WorkflowNames,
   type WorkflowOp,
 } from '@hfos/core/server';
 import type { Db } from '@hfos/db/client';
@@ -133,6 +136,8 @@ interface CampaignSummary {
   status: 'drafting' | 'review' | 'sending' | 'paused' | 'done' | 'cancelled';
   pausedReason: string | null;
   perHour: number;
+  /** A call campaign that adds anyone who comes to fit, and never finishes while it's on. */
+  keepAdding: boolean;
   counts: {
     total: number;
     drafting: number;
@@ -215,6 +220,7 @@ const SKIP_WORDS: Record<string, string> = {
   emailed_recently: 'sent another campaign email in the last 14 days',
   no_call_consent: 'hasn’t agreed to calls in writing',
   called_recently: 'called by another campaign in the last 14 days',
+  not_business_landline: 'no yes to calls, and not a business landline',
 };
 /** Why HandsFreeOS paused a campaign, and what to do about it (the campaign page's words). */
 const PAUSED_WORDS: Record<string, string> = {
@@ -405,6 +411,9 @@ const startCampaign: SettingsConfirmTool = {
       throw need(
         'Who gets it? Give at least one tag in tagIds or one open pipeline stage in stageIds.',
       );
+    const keepAdding = args['keepAdding'] === true;
+    if (keepAdding && channel !== 'call')
+      throw need('Only a call campaign keeps adding people. Send it as calls, or leave that off.');
     const [tags, pipelines, offers] = await Promise.all([
       tagsOf(db, ctx),
       pipelinesOf(db, ctx),
@@ -431,6 +440,8 @@ const startCampaign: SettingsConfirmTool = {
       recipients: number;
       skipped: Record<string, number>;
       postalAddress: string | null;
+      landlineChecks: number;
+      landlineCheckCents: { line: number; owner: number; upTo: number } | null;
     }>(db, ctx, 'campaign.preview_audience', { audience: { tagIds, stageIds }, channel });
     const [, many] = NOUN[channel];
     const blocked =
@@ -440,7 +451,7 @@ const startCampaign: SettingsConfirmTool = {
           ? `The promotion “${offer.name}” has ended.`
           : channel === 'email' && !preview.postalAddress
             ? 'Every campaign email has to show the business address. Add it in Settings → Payments first (I can do that if you tell me the address).'
-            : preview.recipients === 0
+            : preview.recipients === 0 && !keepAdding
               ? `Nobody it picks can get it${leftOutLine(preview.skipped) ? `: ${leftOutLine(preview.skipped)}` : '. Nobody has those tags or stages'}.`
               : null;
     const who = await audienceWords(db, ctx, { tagIds, stageIds });
@@ -460,8 +471,21 @@ const startCampaign: SettingsConfirmTool = {
           { label: 'Who it picks', value: whoLine(who) },
           { label: 'Reaches', value: peopleOf(preview.recipients) },
           { label: 'Left out', value: leftOutLine(preview.skipped) },
+          {
+            label: 'Business landlines',
+            value:
+              channel === 'call' && preview.landlineChecks > 0
+                ? `${peopleOf(preview.landlineChecks)} with no yes to calls, called only if the phone company says their number is a business landline.${preview.landlineCheckCents ? ` ${lineCheckCostWords(preview.landlineCheckCents)}` : ''}`
+                : '',
+          },
           { label: 'About the promotion', value: offer?.name ?? '' },
           { label: 'Pace', value: paceLine({ channel, perHour: Number(args['perHour'] ?? 20) }) },
+          {
+            label: 'Keeps adding people',
+            value: keepAdding
+              ? 'Yes: anyone who later fits and agrees to calls joins, until you stop it'
+              : '',
+          },
         ],
         ...orBlocked(
           blocked,
@@ -493,6 +517,7 @@ const startCampaign: SettingsConfirmTool = {
         perHour: args['perHour'],
         offerId: str(args['offerId']) ?? null,
         channel: str(args['channel']) ?? 'sms',
+        keepAdding: args['keepAdding'] === true,
       },
     );
     const channel = (str(args['channel']) ?? 'sms') as Channel;
@@ -514,7 +539,7 @@ function campaignBlocked(got: CampaignGet, act: string, perHour?: number): strin
       if (c.status === 'drafting')
         return `It’s still being written. The ${many} wait here for approval once they’re ready.`;
       if (c.status !== 'review') return `It’s ${now}, so there’s nothing to approve.`;
-      if (c.counts.ready === 0) return 'There’s nobody left to send to.';
+      if (c.counts.ready === 0 && !c.keepAdding) return 'There’s nobody left to send to.';
       if (c.channel === 'email' && !(c.email?.subject?.trim() && c.email.body?.trim()))
         return 'The email isn’t written yet.';
       if (c.channel === 'call' && !c.call?.opening?.trim())
@@ -526,6 +551,14 @@ function campaignBlocked(got: CampaignGet, act: string, perHour?: number): strin
       return c.status === 'paused' ? null : `It’s ${now}, not paused.`;
     case 'stop':
       return c.status === 'done' || c.status === 'cancelled' ? `It’s already ${now}.` : null;
+    case 'keep_adding':
+    case 'stop_adding':
+      if (c.channel !== 'call') return 'Only a call campaign keeps adding people.';
+      if (c.status === 'done' || c.status === 'cancelled')
+        return `It’s ${now}, so nobody more joins it. Start a new call campaign instead.`;
+      if (c.keepAdding === (act === 'keep_adding'))
+        return c.keepAdding ? 'It already keeps adding people.' : 'It doesn’t keep adding people.';
+      return null;
     default:
       if (c.status === 'done' || c.status === 'cancelled')
         return `It’s ${now}, so its pace can’t change.`;
@@ -673,6 +706,40 @@ const manageCampaign: SettingsConfirmTool = {
           }),
           result,
         };
+      case 'keep_adding':
+      case 'stop_adding': {
+        const on = act === 'keep_adding';
+        return {
+          card: card(toolCallId, 'manage_campaign', {
+            title: on
+              ? `Have “${c.name}” keep adding people?`
+              : `Stop adding people to “${c.name}”?`,
+            fields: [
+              base,
+              {
+                label: on ? 'Who joins' : 'From now on',
+                value: on
+                  ? 'Anyone who later gets one of its tags or reaches one of its stages, and agrees to calls in writing'
+                  : 'It calls only the people it has, then finishes',
+              },
+              { label: 'Pace', value: paceLine(c) },
+            ],
+            ...orBlocked(
+              blocked,
+              on ? 'Keep adding people' : 'Stop adding people',
+              on
+                ? [
+                    {
+                      kind: 'caution',
+                      text: 'Each person who joins is called without asking you again, until you stop it.',
+                    },
+                  ]
+                : [],
+            ),
+          }),
+          result,
+        };
+      }
       default:
         return {
           card: card(toolCallId, 'manage_campaign', {
@@ -701,7 +768,10 @@ const manageCampaign: SettingsConfirmTool = {
       case 'approve_and_send':
         await command(db, ctx, 'campaign.approve', { campaignId });
         return {
-          outcome: `Approved. ${c.channel === 'call' ? 'Calls start' : `The ${many} start going`} to ${peopleOf(c.counts.ready)}, ${c.perHour} an hour while you’re open.`,
+          outcome:
+            c.keepAdding && c.counts.ready === 0
+              ? `Approved. Nobody fits yet: anyone who comes to fit is called, ${c.perHour} an hour while you’re open.`
+              : `Approved. ${c.channel === 'call' ? 'Calls start' : `The ${many} start going`} to ${peopleOf(c.counts.ready)}${c.keepAdding ? ' and anyone who comes to fit' : ''}, ${c.perHour} an hour while you’re open.`,
           href,
           command: 'campaign.approve',
         };
@@ -714,6 +784,18 @@ const manageCampaign: SettingsConfirmTool = {
       case 'stop':
         await command(db, ctx, 'campaign.cancel', { campaignId });
         return { outcome: `Stopped “${c.name}”.`, href, command: 'campaign.cancel' };
+      case 'keep_adding':
+      case 'stop_adding': {
+        const on = act === 'keep_adding';
+        await command(db, ctx, 'campaign.set_keep_adding', { campaignId, on });
+        return {
+          outcome: on
+            ? `“${c.name}” keeps adding people who come to fit, and calls them at its pace.`
+            : `“${c.name}” calls only the people it has now.`,
+          href,
+          command: 'campaign.set_keep_adding',
+        };
+      }
       default:
         await command(db, ctx, 'campaign.set_pace', { campaignId, perHour: args['perHour'] });
         return {
@@ -2270,12 +2352,74 @@ async function workflowDraft(db: Db, ctx: ToolContext, workflowId: unknown) {
   return { wf, def: parseDefinition(wf.definition), names: names?.catalogs ?? {} };
 }
 
+/**
+ * A draft as the model reads it to change it: each step, paths inside branches too, with the id a change names it
+ * by, and the draft as written with its revision, unless it's too long to read whole. A workflow's and an agency
+ * template's alike.
+ */
+export function draftToRead(
+  raw: Record<string, unknown>,
+  def: WorkflowDefinition,
+  names: WorkflowNames,
+  revision: number,
+) {
+  return {
+    steps: allSteps(def).map((l) => ({
+      id: l.step.id,
+      depth: l.depth,
+      says: describeStep(l.step, names, def),
+    })),
+    draftRevision: revision,
+    ...(JSON.stringify(raw).length <= DRAFT_MOST
+      ? { draft: raw }
+      : {
+          draftCutShort: true,
+          note: 'Its draft is too long to read whole here, so change it on its page.',
+        }),
+  };
+}
+
+/**
+ * What step changes to a draft come to, in its editor's words: every line, and the card's fields (Change, then Then,
+ * eight at most). Changes that leave the draft as it is are refused with `already`.
+ */
+export function draftChanges(
+  def: WorkflowDefinition,
+  ops: readonly WorkflowOp[],
+  names: WorkflowNames,
+  already: string,
+) {
+  let after: unknown = null;
+  try {
+    after = applyWorkflowOps(def, ops).definition;
+  } catch {
+    // The command took them; its own way of applying them is the one that counts.
+  }
+  if (after && JSON.stringify(after) === JSON.stringify(def)) throw nothingChanges(already);
+  const lines = describeOps(ops, def, names);
+  const shown =
+    lines.length > 8
+      ? [...lines.slice(0, 7), `And ${plural(lines.length - 7, 'more change')}`]
+      : lines;
+  return {
+    lines,
+    fields: shown.map((value, i) => ({ label: i === 0 ? 'Change' : 'Then', value })),
+  };
+}
+
+/** What saving a draft says, with the first check still to fix before it can be published. */
+export function draftSaved(issues: readonly { severity: string; message: string }[]): string {
+  const errors = issues.filter((i) => i.severity === 'error');
+  return errors.length
+    ? `Saved the draft. Fix ${errors.length === 1 ? 'this' : `${plural(errors.length, 'check')}, starting with this,`} before it can be published: ${errors[0]!.message}`
+    : 'Saved the draft.';
+}
+
 async function getWorkflow(db: Db, ctx: ToolContext, args: Args): Promise<ToolOutcome> {
   const { wf, def, names } = await workflowDraft(db, ctx, args['workflowId']);
   const startsWhen = describeTrigger(def.trigger, names);
   const errors = wf.issues.filter((i) => i.severity === 'error');
   const main = def.steps.map((s) => describeStep(s, names, def));
-  const whole = JSON.stringify(wf.definition).length <= DRAFT_MOST;
   return {
     result: {
       id: wf.id,
@@ -2283,20 +2427,8 @@ async function getWorkflow(db: Db, ctx: ToolContext, args: Args): Promise<ToolOu
       status: wf.status,
       startsWhen,
       liveVersion: wf.activeVersion?.version ?? null,
-      // Each step, paths inside branches too, with the id a change names it by.
-      steps: allSteps(def).map((l) => ({
-        id: l.step.id,
-        depth: l.depth,
-        says: describeStep(l.step, names, def),
-      })),
       checksToFix: errors.map((i) => i.message),
-      draftRevision: wf.revision,
-      ...(whole
-        ? { draft: wf.definition }
-        : {
-            draftCutShort: true,
-            note: 'Its draft is too long to read whole here, so change it on its page.',
-          }),
+      ...draftToRead(wf.definition, def, names, wf.revision),
     },
     card: {
       type: 'workflow',
@@ -2325,26 +2457,16 @@ const editWorkflowSteps: SettingsConfirmTool = {
       baseRevision: args['baseRevision'],
       ops,
     });
-    let after: unknown = null;
-    try {
-      after = applyWorkflowOps(def, ops).definition;
-    } catch {
-      // The command took them; its own way of applying them is the one that counts.
-    }
-    if (after && JSON.stringify(after) === JSON.stringify(def))
-      throw nothingChanges(`“${wf.name}”’s draft is that way already.`);
-    const lines = describeOps(ops, def, names);
-    const shown =
-      lines.length > 8
-        ? [...lines.slice(0, 7), `And ${plural(lines.length - 7, 'more change')}`]
-        : lines;
+    const { lines, fields } = draftChanges(
+      def,
+      ops,
+      names,
+      `“${wf.name}”’s draft is that way already.`,
+    );
     return {
       card: card(toolCallId, 'edit_workflow_steps', {
         title: `Change “${wf.name}”?`,
-        fields: [
-          { label: 'Workflow', value: wf.name },
-          ...shown.map((value, i) => ({ label: i === 0 ? 'Change' : 'Then', value })),
-        ],
+        fields: [{ label: 'Workflow', value: wf.name }, ...fields],
         confirmLabel: 'Save draft',
         warnings: [
           {
@@ -2366,11 +2488,8 @@ const editWorkflowSteps: SettingsConfirmTool = {
       'workflow.save_draft',
       { workflowId, baseRevision: args['baseRevision'], ops: args['ops'] },
     );
-    const errors = out.issues.filter((i) => i.severity === 'error');
     return {
-      outcome: errors.length
-        ? `Saved the draft. Fix ${errors.length === 1 ? 'this' : `${plural(errors.length, 'check')}, starting with this,`} before it can be published: ${errors[0]!.message}`
-        : 'Saved the draft.',
+      outcome: draftSaved(out.issues),
       href: contentPaths(ctx.workspaceId).workflow(workflowId),
       command: 'workflow.save_draft',
     };

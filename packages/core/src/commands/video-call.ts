@@ -25,9 +25,13 @@
  *   call, make a call with the customer and send them their own link (`video_call.start`). On it they come in as on
  *   a booking's Join link. The call is its own line on their timeline once it's over, with its transcript, summary
  *   and After the call.
+ * - **A session's call is a webinar** (HANDSFREEOS_WEBINARS_IMPLEMENTATION_PLAN.md, part 1): up to 500 people. The team
+ *   presents; attendees watch with their microphones off, a camera only when the team allows one
+ *   (`video_call.set_attendee_video`), and the team can bring one on stage (`video_call.stage`). What each person may
+ *   send is in their ticket (`rights`), and the worker changes it in LiveKit from those commands' events.
  */
 import { createHash, randomBytes } from 'node:crypto';
-import { and, asc, eq, inArray, lte, sql as dsql } from 'drizzle-orm';
+import { and, asc, eq, inArray, isNull, lte, sql as dsql } from 'drizzle-orm';
 import {
   activities,
   appointmentAttendees,
@@ -35,8 +39,10 @@ import {
   appointmentStaff,
   appointmentTranscripts,
   conversations,
+  forms,
   people,
   users,
+  videoCallConnections,
   videoCallLines,
   videoCallPeople,
   videoCalls,
@@ -50,20 +56,33 @@ import { defineCommand, defineQuery } from '../kernel/define';
 import { executeCommandWithin } from '../kernel/execute';
 import type { CommandContext, QueryContext } from '../kernel/types';
 import {
+  ATTENDEE_VIDEO_CHOICES,
   hostFirstName,
+  maxPeopleOf,
+  mayPublish,
   sideOfKind,
+  VIDEO_CALL_FORMATS,
   VIDEO_CALL_INVITE_CHANNELS,
   VIDEO_CALL_KINDS,
   VIDEO_CALL_LINK_KEY_LENGTH,
-  VIDEO_CALL_MAX_PEOPLE,
   VIDEO_CALL_PERSON_STATES,
   VIDEO_CALL_STATES,
+  VIDEO_CALL_WORDS,
+  videoCallAttributes,
   videoCallInviteChannel,
   videoCallInviteWords,
   videoCallLinkPath,
   videoCallTranscript,
+  WEBINAR_DOOR_KEY_LENGTH,
+  WEBINAR_MAX_ON_STAGE,
+  WEBINAR_WORDS,
+  type AttendeeVideo,
+  type VideoCallFormat,
   type VideoCallKind,
 } from '../meetings/video-calls';
+import { loadCalendar } from '../calendar/load';
+import { POLL_AI_MODES, type PollAiMode } from '../meetings/polls';
+import { mostDownloadable, VIDEO_CALL_DATA_LATE_MS } from '../meetings/call-data';
 import { defaultNumber, isOptedOut, loadRegistrations, readiness } from '../messaging/store';
 import { logChannelActivity } from '../crm/activities';
 import { AppointmentLocation } from '../schemas/calendar';
@@ -104,6 +123,16 @@ const CallOut = z.object({
   aiNotes: z.boolean(),
   startedAt: isoDateTime.nullable(),
   endedAt: isoDateTime.nullable(),
+  /** A meeting, or a webinar (a session's call). */
+  format: z.enum(VIDEO_CALL_FORMATS),
+  /** A webinar: whether attendees may turn their cameras on, and who sees them. */
+  attendeeVideo: z.enum(ATTENDEE_VIDEO_CHOICES),
+  /** A webinar: the key in its link anyone can use (`/live/<key>`). */
+  doorKey: z.string().nullable(),
+  /** The live poll its questions pop up from (part 2). */
+  pollFormId: uuid.nullable(),
+  /** How far the AI hearing the team goes with the poll (part 3). */
+  pollAi: z.enum(POLL_AI_MODES),
 });
 
 const PersonOut = z.object({
@@ -120,6 +149,8 @@ const PersonOut = z.object({
   leftAt: isoDateTime.nullable(),
   /** How long they've been in the call altogether, up to their last time leaving. */
   seconds: z.int(),
+  /** A webinar: an attendee the team brought on stage. */
+  onStage: z.boolean(),
 });
 
 const callOut = (c: CallRow): z.infer<typeof CallOut> => ({
@@ -131,6 +162,11 @@ const callOut = (c: CallRow): z.infer<typeof CallOut> => ({
   aiNotes: c.aiNotes,
   startedAt: iso(c.startedAt),
   endedAt: iso(c.endedAt),
+  format: formatOf(c),
+  attendeeVideo: attendeeVideoOf(c),
+  doorKey: c.doorKey,
+  pollFormId: c.pollFormId,
+  pollAi: pollAiOf(c),
 });
 
 const personOut = (p: PersonRow): z.infer<typeof PersonOut> => ({
@@ -145,7 +181,46 @@ const personOut = (p: PersonRow): z.infer<typeof PersonOut> => ({
   joinedAt: iso(p.joinedAt),
   leftAt: iso(p.leftAt),
   seconds: p.seconds,
+  onStage: p.onStage,
 });
+
+const formatOf = (c: CallRow): VideoCallFormat => (c.format === 'webinar' ? 'webinar' : 'meeting');
+const pollAiOf = (c: CallRow): PollAiMode =>
+  (POLL_AI_MODES as readonly string[]).includes(c.pollAi) ? (c.pollAi as PollAiMode) : 'ask';
+
+const attendeeVideoOf = (c: CallRow): AttendeeVideo =>
+  (ATTENDEE_VIDEO_CHOICES as readonly string[]).includes(c.attendeeVideo)
+    ? (c.attendeeVideo as AttendeeVideo)
+    : 'off';
+
+/**
+ * What someone may do in the room, carried in their ticket: how many the room holds, what they may send, and the
+ * attributes every page reads (a webinar's format, its camera choice, whether they're on stage).
+ */
+const RoomRights = z.object({
+  format: z.enum(VIDEO_CALL_FORMATS),
+  maxPeople: z.int(),
+  publish: z.object({ camera: z.boolean(), microphone: z.boolean(), screen: z.boolean() }),
+  attributes: z.record(z.string(), z.string()),
+});
+export type VideoCallRoomRights = z.infer<typeof RoomRights>;
+
+export function rightsOf(
+  call: CallRow,
+  p: { readonly kind: string; readonly onStage: boolean },
+): VideoCallRoomRights {
+  const format = formatOf(call);
+  const attendeeVideo = attendeeVideoOf(call);
+  const kind = (VIDEO_CALL_KINDS as readonly string[]).includes(p.kind)
+    ? (p.kind as VideoCallKind)
+    : 'guest';
+  return {
+    format,
+    maxPeople: maxPeopleOf(format),
+    publish: mayPublish({ format, kind, onStage: p.onStage, attendeeVideo }),
+    attributes: videoCallAttributes({ format, attendeeVideo, onStage: p.onStage }),
+  };
+}
 
 /** The appointment's host (or its first person): who customers wait for, and whose name they see. */
 async function hostOf(tx: Tx, appointmentId: string): Promise<string | null> {
@@ -184,12 +259,67 @@ const callsOff = () =>
     'HandsFreeOS video calls aren’t on for this business yet. Ask HandsFreeOS support to turn them on, or use Zoom, Google Meet or your own link for now.',
   );
 
-const callFull = () =>
+const callFull = (call: CallRow) =>
   HfosError.rule(
     'video_call_full',
     409,
-    `This call is full: it has room for ${VIDEO_CALL_MAX_PEOPLE} people. Try again when someone leaves.`,
+    formatOf(call) === 'webinar' ? WEBINAR_WORDS.full : VIDEO_CALL_WORDS.full,
   );
+
+/** How many more the call holds before it's full. */
+const roomFor = (call: CallRow) => maxPeopleOf(formatOf(call));
+
+/**
+ * What a call for this appointment is made as: a session's is a webinar, with its calendar's camera choice, its live
+ * poll (part 2) and a link anyone can use; anything else is a meeting.
+ */
+async function madeAs(
+  tx: Tx,
+  ws: string,
+  appointmentId: string,
+): Promise<{
+  format: VideoCallFormat;
+  attendeeVideo: AttendeeVideo;
+  doorKey: string | null;
+  pollFormId: string | null;
+  pollAi: PollAiMode;
+}> {
+  const [a] = await tx
+    .select({ kind: appointments.kind, calendarId: appointments.calendarId })
+    .from(appointments)
+    .where(and(eq(appointments.id, appointmentId), eq(appointments.workspaceId, ws)));
+  if (a?.kind !== 'session')
+    return {
+      format: 'meeting',
+      attendeeVideo: 'off',
+      doorKey: null,
+      pollFormId: null,
+      pollAi: 'ask',
+    };
+  const calendar = await loadCalendar(tx, ws, a.calendarId).catch(() => null);
+  const pollRef = calendar?.config.locations.webinar.pollFormId ?? null;
+  // A poll deleted or archived since the calendar picked it is simply not there.
+  const [poll] = pollRef
+    ? await tx
+        .select({ id: forms.id })
+        .from(forms)
+        .where(
+          and(
+            eq(forms.id, pollRef),
+            eq(forms.workspaceId, ws),
+            eq(forms.mode, 'poll'),
+            isNull(forms.archivedAt),
+          ),
+        )
+    : [];
+  return {
+    format: 'webinar',
+    attendeeVideo: calendar?.config.locations.webinar.attendeeVideo ?? 'off',
+    doorKey: randomKey(WEBINAR_DOOR_KEY_LENGTH),
+    pollFormId: poll?.id ?? null,
+    pollAi: calendar?.config.locations.webinar.pollAi ?? 'ask',
+  };
+}
 
 /** The call for an appointment, made the first time it's asked for, its host kept in step with the appointment. */
 async function callForAppointment(
@@ -198,9 +328,10 @@ async function callForAppointment(
 ): Promise<{ call: CallRow; created: boolean }> {
   const ws = ctx.scope.workspaceId!;
   const host = await hostOf(ctx.tx, appointmentId);
+  const as = await madeAs(ctx.tx, ws, appointmentId);
   const [made] = await ctx.tx
     .insert(videoCalls)
-    .values({ workspaceId: ws, appointmentId, hostUserId: host })
+    .values({ workspaceId: ws, appointmentId, hostUserId: host, ...as })
     .onConflictDoNothing({
       target: videoCalls.appointmentId,
       where: dsql`appointment_id is not null`,
@@ -211,8 +342,8 @@ async function callForAppointment(
       type: 'video_call.opened',
       entityType: 'video_call',
       entityId: made.id,
-      payload: { appointmentId, hostUserId: host },
-      after: { appointmentId },
+      payload: { appointmentId, hostUserId: host, format: as.format },
+      after: { appointmentId, format: as.format },
     });
     return { call: made, created: true };
   }
@@ -256,6 +387,69 @@ async function lockCall(ctx: CommandContext | QueryContext, callId: string): Pro
   return call;
 }
 
+// ---------- what a call used (20261027022000) ----------
+
+/**
+ * A connection LiveKit says came into the call's room, kept for what the call used. Told twice, it's kept once.
+ * Without LiveKit's ids (the stand-in's oldest tests) there's no connection to keep.
+ */
+async function openConnection(
+  ctx: CommandContext,
+  call: CallRow,
+  kind: 'person' | 'listener',
+  personRowId: string | null,
+  ids: { roomSid: string | null; participantSid: string | null },
+  at: Date,
+): Promise<void> {
+  if (!ids.roomSid || !ids.participantSid) return;
+  await ctx.tx
+    .insert(videoCallConnections)
+    .values({
+      workspaceId: call.workspaceId,
+      videoCallId: call.id,
+      kind,
+      personRowId,
+      roomSid: ids.roomSid,
+      participantSid: ids.participantSid,
+      joinedAt: at,
+    })
+    .onConflictDoNothing({
+      target: [videoCallConnections.videoCallId, videoCallConnections.participantSid],
+    });
+}
+
+/** One connection left (`participantSid`), or the room closed and took every one still open in it (`roomSid`). */
+async function closeConnections(
+  ctx: CommandContext,
+  callId: string,
+  at: Date,
+  participantSid: string | null,
+  roomSid?: string | null,
+): Promise<void> {
+  if (!participantSid && !roomSid) return;
+  await ctx.tx
+    .update(videoCallConnections)
+    .set({
+      leftAt: dsql`greatest(${videoCallConnections.joinedAt}, ${at.toISOString()}::timestamptz)`,
+    })
+    .where(
+      and(
+        eq(videoCallConnections.videoCallId, callId),
+        isNull(videoCallConnections.leftAt),
+        participantSid
+          ? eq(videoCallConnections.participantSid, participantSid)
+          : eq(videoCallConnections.roomSid, roomSid!),
+      ),
+    );
+}
+
+/** For the live polls' commands (video-call-poll.ts): a call held for the change, who's in it, and who's in now. */
+export {
+  connected as videoCallPersonIsIn,
+  lockCall as lockVideoCall,
+  peopleOf as videoCallPeopleOf,
+};
+
 // ---------- the worker's: making the call, and letting customers in ----------
 
 export const videoCallOpen = defineCommand({
@@ -288,6 +482,10 @@ const EnterOutput = z.object({
   name: z.string(),
   /** Who they're waiting for, by first name. */
   host: z.string().nullable(),
+  /** A meeting or a webinar: the page says what it's waiting for. */
+  format: z.enum(VIDEO_CALL_FORMATS),
+  /** In: what their ticket lets them do. */
+  rights: RoomRights.nullable(),
 });
 
 /** The customer at the door: a booking's attendee, or the customer a call that isn't for an appointment is with. */
@@ -397,6 +595,8 @@ export const videoCallEnter = defineCommand({
       personId: row?.id ?? null,
       name: row?.name ?? input.name,
       host,
+      format: formatOf(call),
+      rights: status === 'in' && row ? rightsOf(call, row) : null,
     });
 
     // Taken out by the team: they come back only by asking to be let in, like anyone else.
@@ -414,7 +614,7 @@ export const videoCallEnter = defineCommand({
       });
       return say('knocking', knock);
     }
-    if (inCall(list, mine?.id) >= VIDEO_CALL_MAX_PEOPLE) return say('full', mine ?? null);
+    if (inCall(list, mine?.id) >= roomFor(call)) return say('full', mine ?? null);
     const there = teamIsIn(list);
     const now = new Date();
     if (!mine) {
@@ -606,6 +806,8 @@ export const videoCallJoined = defineCommand({
     const list = call.state === 'ended' ? await peopleOf(ctx.tx, call.id) : [];
     if (kickedFrom(call, p, list)) return { changed: false, kick: true };
     const person = p!;
+    // Every connection LiveKit bills is kept, for what the call used: a reload or a second phone is one more.
+    await openConnection(ctx, call, 'person', person.id, input, at);
     // The same connection told twice.
     if (input.participantSid && person.participantSid === input.participantSid)
       return { changed: false, kick: false };
@@ -694,6 +896,8 @@ export const videoCallLeft = defineCommand({
       .from(videoCallPeople)
       .where(and(eq(videoCallPeople.id, input.personId), eq(videoCallPeople.videoCallId, call.id)))
       .for('update');
+    // This connection is over, even when another of theirs has taken over from it.
+    if (input.participantSid) await closeConnections(ctx, call.id, at, input.participantSid);
     if (!p || !connected(p)) return { changed: false, seconds: 0 };
     // An old connection a reload or a second phone took over from: they're still in the call.
     if (input.participantSid && p.participantSid && p.participantSid !== input.participantSid)
@@ -746,9 +950,11 @@ export const videoCallFinished = defineCommand({
   emits: ['video_call.ended'],
   async handler(ctx, input) {
     const call = await lockCall(ctx, input.callId);
+    const at = input.at ? new Date(input.at) : new Date();
+    // The room is closed, so every connection still open in it is too, late news included.
+    await closeConnections(ctx, call.id, at, null, input.roomSid ?? call.roomSid);
     // Late news of a room already closed, or of one before the call started again: nothing more to close.
     if (input.roomSid && call.roomSid !== input.roomSid) return { changed: false, seconds: 0 };
-    const at = input.at ? new Date(input.at) : new Date();
     const list = await peopleOf(ctx.tx, call.id);
     // Everyone's time in the call so far, this stretch's included.
     const secondsOf = new Map(list.map((p) => [p.id, p.seconds]));
@@ -872,6 +1078,8 @@ const JoinOutput = z.object({
   /** Their identity in the room. */
   personId: uuid,
   name: z.string(),
+  /** What their ticket lets them do: everything, on the team. */
+  rights: RoomRights,
 });
 
 /** A teammate joins from the appointment: straight in. A call that was ended starts again. */
@@ -891,8 +1099,8 @@ export const videoCallJoin = defineCommand({
     let call = await lockCall(ctx, input.callId);
     const list = await peopleOf(ctx.tx, call.id);
     const mine = list.find((p) => p.kind === 'team' && p.userId === me);
-    if ((!mine || !connected(mine)) && inCall(list, mine?.id) >= VIDEO_CALL_MAX_PEOPLE)
-      throw callFull();
+    if ((!mine || !connected(mine)) && inCall(list, mine?.id) >= roomFor(call))
+      throw callFull(call);
     const name = (await userName(ctx.tx, me)) ?? 'Team member';
     const now = new Date();
     if (call.state === 'ended') {
@@ -935,7 +1143,12 @@ export const videoCallJoin = defineCommand({
         payload: { appointmentId: call.appointmentId, personRowId: row.id, userId: me },
         broadcast: false,
       });
-    return { call: callOut(call), personId: row.id, name: row.name };
+    return {
+      call: callOut(call),
+      personId: row.id,
+      name: row.name,
+      rights: rightsOf(call, row),
+    };
   },
 });
 
@@ -943,17 +1156,20 @@ export const videoCallJoin = defineCommand({
 
 const KEY_ALPHABET = '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz';
 
-/** A customer's own link key: random letters and digits, every one equally likely. */
-function linkKey(): string {
+/** A key of random letters and digits, every one equally likely: a customer's own link, a webinar's door. */
+function randomKey(length: number): string {
   let out = '';
-  while (out.length < VIDEO_CALL_LINK_KEY_LENGTH)
+  while (out.length < length)
     for (const b of randomBytes(48)) {
       // 248 is 62 × 4: anything above it would make the first letters likelier.
       if (b < 248) out += KEY_ALPHABET[b % 62];
-      if (out.length === VIDEO_CALL_LINK_KEY_LENGTH) break;
+      if (out.length === length) break;
     }
   return out;
 }
+
+/** A customer's own link key. */
+const linkKey = (): string => randomKey(VIDEO_CALL_LINK_KEY_LENGTH);
 
 /** The hash a customer's link key is kept as. */
 export const videoCallLinkKeyHash = (key: string): string =>
@@ -1177,7 +1393,7 @@ export const videoCallAdmit = defineCommand({
         `${p.name} isn’t waiting anymore, so there’s nobody to let in. They can ask again from their link.`,
       );
     const list = await peopleOf(ctx.tx, call.id);
-    if (inCall(list) >= VIDEO_CALL_MAX_PEOPLE) throw callFull();
+    if (inCall(list) >= roomFor(call)) throw callFull(call);
     await ctx.tx
       .update(videoCallPeople)
       .set({ state: 'admitted', admittedAt: new Date(), admittedBy: me })
@@ -1318,6 +1534,141 @@ export const videoCallEnd = defineCommand({
       payload: { appointmentId: call.appointmentId },
       before: { state: call.state },
       after: { state: 'ended' },
+    });
+    return { changed: true };
+  },
+});
+
+// ---------- webinars (HANDSFREEOS_WEBINARS_IMPLEMENTATION_PLAN.md, part 1) ----------
+
+const notAWebinar = () =>
+  HfosError.rule(
+    'not_a_webinar',
+    409,
+    'This call isn’t a webinar, so everyone in it can already talk and turn their camera on.',
+  );
+
+/**
+ * Attendees' cameras in a webinar (the owner's 4): off, on with only the team seeing them, or on with everyone seeing
+ * everyone. The worker changes what every attendee in the room may send from the event.
+ */
+export const videoCallSetAttendeeVideo = defineCommand({
+  name: 'video_call.set_attendee_video',
+  description:
+    'In a HandsFreeOS webinar, choose whether attendees may turn their cameras on, and whether only the team or everyone sees them.',
+  risk: 1,
+  input: z.object({
+    workspaceId: uuid,
+    callId: uuid,
+    attendeeVideo: z.enum(ATTENDEE_VIDEO_CHOICES),
+  }),
+  output: z.object({ changed: z.boolean(), attendeeVideo: z.enum(ATTENDEE_VIDEO_CHOICES) }),
+  permission: 'appointments.write',
+  scope: inWorkspace,
+  emits: ['video_call.attendee_video_changed'],
+  async handler(ctx, input) {
+    requireHuman(ctx);
+    const call = await lockCall(ctx, input.callId);
+    if (formatOf(call) !== 'webinar') throw notAWebinar();
+    const was = attendeeVideoOf(call);
+    if (was === input.attendeeVideo) return { changed: false, attendeeVideo: was };
+    await ctx.tx
+      .update(videoCalls)
+      .set({ attendeeVideo: input.attendeeVideo })
+      .where(eq(videoCalls.id, call.id));
+    await ctx.emit({
+      type: 'video_call.attendee_video_changed',
+      entityType: 'video_call',
+      entityId: call.id,
+      payload: { appointmentId: call.appointmentId, attendeeVideo: input.attendeeVideo },
+      before: { attendeeVideo: was },
+      after: { attendeeVideo: input.attendeeVideo },
+    });
+    return { changed: true, attendeeVideo: input.attendeeVideo };
+  },
+});
+
+/**
+ * Brings an attendee on stage in a webinar, so they can use their microphone and camera, or sends them back to the
+ * audience. Up to three at once beside the team. The worker changes what they may send from the event.
+ */
+export const videoCallStage = defineCommand({
+  name: 'video_call.stage',
+  description:
+    'In a HandsFreeOS webinar, bring an attendee on stage so they can talk and be on camera, or send them back to the audience.',
+  risk: 1,
+  input: PersonInput.extend({ on: z.boolean() }),
+  output: z.object({ changed: z.boolean(), onStage: z.boolean() }),
+  permission: 'appointments.write',
+  scope: inWorkspace,
+  emits: ['video_call.stage_changed'],
+  async handler(ctx, input) {
+    requireHuman(ctx);
+    const { call, p } = await lockPerson(ctx, input.callId, input.personId);
+    if (formatOf(call) !== 'webinar') throw notAWebinar();
+    if (p.kind === 'team')
+      throw HfosError.rule(
+        'video_call_team_on_stage',
+        409,
+        `${p.name} is on your team, so they can already talk and be on camera.`,
+      );
+    if (p.onStage === input.on) return { changed: false, onStage: p.onStage };
+    if (input.on) {
+      if (!connected(p))
+        throw HfosError.rule(
+          'video_call_not_in',
+          409,
+          `${p.name} isn’t in the webinar right now, so they can’t come on stage. Ask again once they’re back.`,
+        );
+      const list = await peopleOf(ctx.tx, call.id);
+      const onStage = list.filter((x) => x.onStage && connected(x) && x.id !== p.id).length;
+      if (onStage >= WEBINAR_MAX_ON_STAGE)
+        throw HfosError.rule('video_call_stage_full', 409, WEBINAR_WORDS.stageFull);
+    }
+    await ctx.tx
+      .update(videoCallPeople)
+      .set({ onStage: input.on })
+      .where(eq(videoCallPeople.id, p.id));
+    await ctx.emit({
+      type: 'video_call.stage_changed',
+      entityType: 'video_call',
+      entityId: call.id,
+      payload: { appointmentId: call.appointmentId, personRowId: p.id, onStage: input.on },
+      before: { onStage: p.onStage },
+      after: { name: p.name, onStage: input.on },
+    });
+    return { changed: true, onStage: input.on };
+  },
+});
+
+/**
+ * The worker sent a webinar's "starting now" messages (the owner's 24): the call keeps when, so they go once, however
+ * often the sweep looks.
+ */
+export const videoCallStartingTold = defineCommand({
+  name: 'video_call.starting_told',
+  description:
+    'Worker: a webinar’s “starting now” messages went to the people booked who weren’t in yet.',
+  risk: 0,
+  input: z.object({ workspaceId: uuid, callId: uuid, sent: z.int().min(0) }),
+  output: z.object({ changed: z.boolean() }),
+  permission: null,
+  actors: ['system'],
+  scope: inWorkspace,
+  emits: ['video_call.starting_told'],
+  async handler(ctx, input) {
+    const call = await lockCall(ctx, input.callId);
+    if (call.startingNowAt) return { changed: false };
+    await ctx.tx
+      .update(videoCalls)
+      .set({ startingNowAt: new Date() })
+      .where(eq(videoCalls.id, call.id));
+    await ctx.emit({
+      type: 'video_call.starting_told',
+      entityType: 'video_call',
+      entityId: call.id,
+      payload: { appointmentId: call.appointmentId, sent: input.sent },
+      broadcast: false,
     });
     return { changed: true };
   },
@@ -1466,6 +1817,8 @@ export const videoCallKnockStatus = defineQuery({
     status: z.enum(['waiting', 'in', 'turned_away', 'removed', 'left']),
     name: z.string(),
     host: z.string().nullable(),
+    /** In: what their ticket lets them do. */
+    rights: RoomRights.nullable(),
   }),
   permission: null,
   actors: ['system'],
@@ -1485,7 +1838,12 @@ export const videoCallKnockStatus = defineQuery({
         'We can’t find your request to join this call. Ask again from the call’s link.',
       );
     const status = knockStatus(call, p, list);
-    return { status, name: p.name, host: hostFirstName(await userName(ctx.tx, call.hostUserId)) };
+    return {
+      status,
+      name: p.name,
+      host: hostFirstName(await userName(ctx.tx, call.hostUserId)),
+      rights: status === 'in' ? rightsOf(call, p) : null,
+    };
   },
 });
 
@@ -1589,6 +1947,95 @@ export const videoCallHeard = defineCommand({
       .onConflictDoNothing({ target: [videoCallLines.videoCallId, videoCallLines.lineKey] })
       .returning({ id: videoCallLines.id });
     return { kept: kept.length };
+  },
+});
+
+/**
+ * The AI's listener came into a call's room or left it. LiveKit bills its connection like anyone's, so it's kept for
+ * what the call used; it's never one of the call's people, and never shown.
+ */
+export const videoCallListener = defineCommand({
+  name: 'video_call.listener',
+  description:
+    'Worker: LiveKit says the AI’s listener came into a video call or left it. Kept only for what the call used.',
+  risk: 0,
+  input: z.object({
+    workspaceId: uuid,
+    callId: uuid,
+    event: z.enum(['joined', 'left']),
+    roomSid: z.string().trim().min(1).max(100),
+    participantSid: z.string().trim().min(1).max(100),
+    at: isoDateTime.optional(),
+  }),
+  output: z.object({ ok: z.literal(true) }),
+  permission: null,
+  actors: ['system'],
+  scope: inWorkspace,
+  emits: [],
+  async handler(ctx, input) {
+    const [call] = await ctx.tx
+      .select()
+      .from(videoCalls)
+      .where(
+        and(eq(videoCalls.id, input.callId), eq(videoCalls.workspaceId, ctx.scope.workspaceId!)),
+      );
+    if (!call) throw notThere();
+    const at = input.at ? new Date(input.at) : new Date();
+    if (input.event === 'joined') await openConnection(ctx, call, 'listener', null, input, at);
+    else await closeConnections(ctx, call.id, at, input.participantSid);
+    return { ok: true as const };
+  },
+});
+
+/**
+ * What someone's call screen says it has downloaded so far on one connection, as their own app measured it
+ * (`watchCallData`): the worker checked the ticket the report came with, so it's theirs. Kept as the most it has said,
+ * never past what that connection could have carried in the time (`mostDownloadable`), and only while the connection
+ * is in the call or just left it. A connection LiveKit never told us about isn't one, and is ignored.
+ */
+export const videoCallData = defineCommand({
+  name: 'video_call.data',
+  description:
+    'Worker: how much someone’s video call screen has downloaded so far on one connection, as their app measured it. Kept for what the call used.',
+  risk: 0,
+  input: z.object({
+    workspaceId: uuid,
+    callId: uuid,
+    /** Their identity in the room, from the ticket: a row of the call's people. */
+    personId: uuid,
+    participantSid: z.string().trim().min(1).max(100),
+    bytes: z.int().min(0).max(Number.MAX_SAFE_INTEGER),
+    at: isoDateTime.optional(),
+  }),
+  output: z.object({ kept: z.boolean(), bytes: z.int() }),
+  permission: null,
+  actors: ['system'],
+  scope: inWorkspace,
+  emits: [],
+  async handler(ctx, input) {
+    const at = input.at ? new Date(input.at) : new Date();
+    const [c] = await ctx.tx
+      .select()
+      .from(videoCallConnections)
+      .where(
+        and(
+          eq(videoCallConnections.videoCallId, input.callId),
+          eq(videoCallConnections.participantSid, input.participantSid),
+          eq(videoCallConnections.personRowId, input.personId),
+        ),
+      )
+      .for('update');
+    if (!c) return { kept: false, bytes: 0 };
+    if (c.leftAt && at.getTime() - c.leftAt.getTime() > VIDEO_CALL_DATA_LATE_MS)
+      return { kept: false, bytes: c.bytesReceived };
+    const until = c.leftAt && c.leftAt.getTime() < at.getTime() ? c.leftAt : at;
+    const bytes = Math.min(input.bytes, mostDownloadable(until.getTime() - c.joinedAt.getTime()));
+    if (bytes <= c.bytesReceived) return { kept: false, bytes: c.bytesReceived };
+    await ctx.tx
+      .update(videoCallConnections)
+      .set({ bytesReceived: bytes, reportedAt: at })
+      .where(eq(videoCallConnections.id, c.id));
+    return { kept: true, bytes };
   },
 });
 
@@ -1812,10 +2259,15 @@ export const videoCallCommands = [
   videoCallRemove,
   videoCallMute,
   videoCallEnd,
+  videoCallSetAttendeeVideo,
+  videoCallStage,
+  videoCallStartingTold,
   videoCallSetAi,
   videoCallHeard,
   videoCallKeepWords,
   videoCallCoach,
+  videoCallListener,
+  videoCallData,
 ] as const;
 
 export const videoCallQueries = [videoCallGet, videoCallKnockStatus] as const;

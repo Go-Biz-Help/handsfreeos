@@ -9,7 +9,8 @@
  * (`outreach.setup`), and ticks as they change, in this tab or another, or on the person's computer. Each row is a
  * link. Skip for now goes on and leaves a step to do; leaving opens it again at the first step left.
  *
- * `SetupBanner` is the slim "Next: …" line on Social Outreach's tabs, which fetches for itself.
+ * `SetupBanner` is the slim "Next: …" line at the top of the Set up page (decision 129), and `RailList` its list of
+ * every step.
  */
 import { PLATFORMS } from '@hfos/core/addons/outreach/networks';
 import {
@@ -39,13 +40,13 @@ import {
 } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { useEffect, useState, type ReactNode } from 'react';
+import type { ReactNode } from 'react';
 import { SetupCard, SetupPage } from '@/components/onboarding-setup/frame';
 import { Button, ButtonLink } from '@/components/ui/button';
-import { useLiveRefresh, useLiveVersion } from '@/lib/realtime/live-provider';
+import { useLiveRefresh } from '@/lib/realtime/live-provider';
 import { cn } from '@/lib/utils';
 import { outreachHref } from './address';
-import { getSetup, laidOut, saveSetup } from './setup-api';
+import { laidOut, saveSetup } from './setup-api';
 import { MainStep } from './setup-steps';
 import { NetworkStepView, SetupDone } from './setup-network';
 import type { Asks, Automation, Live, Readiness, Setup } from './types';
@@ -130,7 +131,7 @@ const Head = ({ children, first }: { children: ReactNode; first?: boolean }) => 
 );
 
 /** Every step where it stands: the main parts, then each network, the one being set up opened under its row. */
-function RailList({
+export function RailList({
   workspaceId,
   setup,
   at,
@@ -580,32 +581,21 @@ export function SetupView({
 }
 
 /**
- * The slim line on Social Outreach's tabs while a step is left: "Next: set up LinkedIn · 1 of 5 done. Facebook is
- * working." with Carry on and Hide. Shown only to someone who started the setup or never saved their own settings
- * (`showsSetupBanner`), so people who have used it for weeks aren't nagged.
+ * The slim line at the top of the Set up page (decision 129) while a step is left: "Next: set up LinkedIn · 1 of 5
+ * done. Facebook is working." with Carry on, and Hide, which takes Set up out of the side menu too.
  */
-export function SetupBanner({ workspaceId }: { workspaceId: string }) {
-  const [setup, setSetup] = useState<Setup | null>(null);
-  const version = useLiveVersion([
-    'outreach_setup',
-    'outreach_automation',
-    'outreach_playbook',
-    'outreach_day',
-    'main_offer',
-  ]);
+export function SetupBanner({
+  workspaceId,
+  setup,
+  onHidden,
+}: {
+  workspaceId: string;
+  setup: Setup;
+  /** Hidden: the setup as it's kept now. */
+  onHidden: (setup: Setup) => void;
+}) {
   const { busy, act } = useAct();
-  useEffect(() => {
-    let live = true;
-    void getSetup(workspaceId)
-      .then((got) => {
-        if (live) setSetup(got);
-      })
-      .catch(() => undefined);
-    return () => {
-      live = false;
-    };
-  }, [workspaceId, version]);
-  if (!setup?.banner || !setup.next) return null;
+  if (!setup.next) return null;
   const laid = laidOut(setup);
   const next = setup.next;
   const working = networksWorking(laid).map((p) => PLATFORMS[p]);
@@ -644,17 +634,22 @@ export function SetupBanner({ workspaceId }: { workspaceId: string }) {
       >
         {W.carryOn}
       </ButtonLink>
-      <Button
-        size="sm"
-        variant="ghost"
-        loading={busy === 'hide'}
-        onClick={() =>
-          void act('hide', async () => setSetup(await saveSetup(workspaceId, { hideBanner: true })))
-        }
-        data-testid="outreach-setup-hide"
-      >
-        {W.hide}
-      </Button>
+      {/* Hidden already: Set up has left the menu, and the line stays here. */}
+      {setup.banner ? (
+        <Button
+          size="sm"
+          variant="ghost"
+          loading={busy === 'hide'}
+          onClick={() =>
+            void act('hide', async () =>
+              onHidden(await saveSetup(workspaceId, { hideBanner: true })),
+            )
+          }
+          data-testid="outreach-setup-hide"
+        >
+          {W.hide}
+        </Button>
+      ) : null}
     </div>
   );
 }

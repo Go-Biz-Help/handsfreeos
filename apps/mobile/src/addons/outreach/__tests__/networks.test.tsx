@@ -1,11 +1,13 @@
 import {
   AUTOMATION_DEFAULTS,
+  choicesFor,
   NETWORKS_DEFAULTS,
   type AutomationOutput,
   type AutomationSettings,
   type NetworkChoices,
 } from '@hfos/core/addons/outreach/automation';
 import type { AsksOutput } from '@hfos/core/addons/outreach/asks';
+import type { FindsWeekOutput } from '@hfos/core/addons/outreach/finds';
 import { outreachSettings, type OutreachSettings } from '@hfos/core/addons/outreach/chat-read';
 import { NO_MESSAGE_NOTES } from '@hfos/core/addons/outreach/conversation';
 import type { LiveOutput } from '@hfos/core/addons/outreach/live';
@@ -19,6 +21,7 @@ import * as React from 'react';
 import { Linking } from 'react-native';
 
 import { SAVE_PAUSE_MS } from '../autosave';
+import { FindBody } from '../find';
 import { LiveStrip } from '../hub';
 import { PipelineBody } from '../pipeline';
 import { SettingsPartBody } from '../settings';
@@ -101,7 +104,6 @@ const handlers = () => ({
   onStart: jest.fn(),
   onStop: jest.fn(),
   onSettings: jest.fn(),
-  onDetails: jest.fn(),
 });
 
 describe('Today’s strip, a row for each network', () => {
@@ -125,8 +127,9 @@ describe('Today’s strip, a row for each network', () => {
     const row = screen.getByTestId('today-network-linkedin');
     expect(within(row).getByText('LinkedIn')).toBeTruthy();
     expect(within(row).getByText('Not started today')).toBeTruthy();
-    // Not the network shown: its limits are under its own list.
+    // Its own bars, on its own card (decision 127).
     expect(screen.queryByTestId('today-limits')).toBeNull();
+    expect(screen.getByTestId('today-limits-linkedin')).toBeTruthy();
     await fireEvent.press(screen.getByTestId('live-start'));
     expect(h.onStart).toHaveBeenCalled();
     await fireEvent.press(screen.getByTestId('today-network-linkedin-open'));
@@ -277,7 +280,7 @@ describe('Today’s strip, a row for each network', () => {
         {...handlers()}
       />,
     );
-    expect(screen.getByTestId('today-limit-friend_request')).toHaveTextContent(
+    expect(screen.getByTestId('today-limit-friend_request-linkedin')).toHaveTextContent(
       /^Invitations to connect1 \/ 15$/,
     );
     expect(screen.getByTestId('live-warning')).toHaveTextContent(
@@ -301,6 +304,7 @@ const item: TodayItem = {
   postUrl: null,
   posted: null,
   post: null,
+  postWhole: null,
   asking: false,
   why: ['Owner at Lane Plumbing'],
   summary: null,
@@ -327,8 +331,12 @@ const todayOf = (items: TodayItem[]): TodayOutput => ({
   ready: true,
   week: null,
   fresh: { on: false, from: null, until: null, days: 14 },
+  fullSpeed: false,
+  newMessagesWait: false,
   requestsHeld: null,
   profileOwn: null,
+  goal: null,
+  retryAt: null,
 });
 
 describe('A network’s list for today', () => {
@@ -391,6 +399,134 @@ describe('A network’s list for today', () => {
     await fireEvent.press(message);
     expect(opened).toHaveBeenLastCalledWith('https://www.linkedin.com/messaging/thread/2-abc%3D/');
     opened.mockRestore();
+  });
+
+  it('offers Cancel all under the note that no new requests go, the extension’s left out first (decision 121)', async () => {
+    const onCancelAll = jest.fn();
+    const held = {
+      why: 'waiting',
+      count: 207,
+      most: 200,
+      extension: 7,
+      cancelling: 0,
+      cancelMost: null,
+      until: null,
+    } as const;
+    const body = (requestsHeld: TodayOutput['requestsHeld']) => (
+      <TodayBody
+        platform="facebook"
+        today={{ ...todayOf([]), requestsHeld }}
+        error={null}
+        wheels={null}
+        onRetry={jest.fn()}
+        onOk={jest.fn()}
+        onSkip={jest.fn()}
+        onNotForMe={jest.fn()}
+        onEndWheels={jest.fn()}
+        onCancelAll={onCancelAll}
+      />
+    );
+    await render(body(held));
+    const leavingOut = screen.getByTestId('today-cancel-all-leaving-out');
+    expect(leavingOut).toHaveTextContent('Cancel all but the extension’s 7');
+    await fireEvent.press(leavingOut);
+    expect(onCancelAll).toHaveBeenLastCalledWith(true);
+    const every = screen.getByTestId('today-cancel-all-every');
+    expect(every).toHaveTextContent('Cancel all 207');
+    await fireEvent.press(every);
+    expect(onCancelAll).toHaveBeenLastCalledWith(false);
+    // None while it's going, and only the one when the extension sent none.
+    await render(body({ ...held, cancelling: 207 }));
+    expect(screen.queryByTestId('today-cancel-all')).toBeNull();
+    await render(body({ ...held, extension: 0 }));
+    expect(screen.queryByTestId('today-cancel-all-leaving-out')).toBeNull();
+    expect(screen.getByTestId('today-cancel-all-every')).toBeTruthy();
+  });
+
+  it('says till when Alignable’s monthly limit holds requests, with Start again and no Cancel all (decision 147)', async () => {
+    const onRequestsAgain = jest.fn();
+    await render(
+      <TodayBody
+        platform="alignable"
+        today={{
+          ...todayOf([]),
+          requestsHeld: {
+            why: 'limit',
+            count: 0,
+            most: 0,
+            extension: 0,
+            cancelling: 0,
+            cancelMost: null,
+            until: '2026-12-01',
+          },
+        }}
+        error={null}
+        wheels={null}
+        onRetry={jest.fn()}
+        onOk={jest.fn()}
+        onSkip={jest.fn()}
+        onNotForMe={jest.fn()}
+        onEndWheels={jest.fn()}
+        onCancelAll={jest.fn()}
+        onRequestsAgain={onRequestsAgain}
+      />,
+    );
+    const note = screen.getByTestId('today-requests-held');
+    expect(note).toHaveTextContent(/till Dec 1: Alignable says you’ve reached your monthly limit/);
+    expect(screen.queryByTestId('today-cancel-all')).toBeNull();
+    await fireEvent.press(screen.getByTestId('today-requests-again'));
+    expect(onRequestsAgain).toHaveBeenCalledTimes(1);
+  });
+
+  it('says how many first messages short and why, with what to try (decision 126)', async () => {
+    const onGoalTry = jest.fn();
+    const goal: NonNullable<TodayOutput['goal']> = {
+      most: 15,
+      done: 2,
+      listed: 1,
+      waitingOk: 1,
+      short: 12,
+      ahead: 3,
+      requests: { listed: 0, left: 20 },
+      more: true,
+      why: 'few_fits',
+      tries: ['niche', 'playbook'],
+      facts: {
+        checked: 0,
+        fit: 0,
+        weekChecked: 40,
+        weekFit: 3,
+        unchecked: 0,
+        sent: 0,
+        accepted: 0,
+      },
+    };
+    const body = (g: TodayOutput['goal']) => (
+      <TodayBody
+        platform="facebook"
+        today={{ ...todayOf([]), goal: g }}
+        error={null}
+        wheels={null}
+        onRetry={jest.fn()}
+        onOk={jest.fn()}
+        onSkip={jest.fn()}
+        onNotForMe={jest.fn()}
+        onEndWheels={jest.fn()}
+        onGoalTry={onGoalTry}
+      />
+    );
+    await render(body(goal));
+    expect(screen.getByTestId('today-goal')).toHaveTextContent(
+      /^Facebook is 12 short of today’s 15 first messages\. Only 3 of the 40 people it checked this week fit your playbooks\. It’s checking more people/,
+    );
+    await fireEvent.press(screen.getByTestId('today-goal-niche'));
+    expect(onGoalTry).toHaveBeenLastCalledWith('niche');
+    expect(screen.getByTestId('today-goal-playbook')).toHaveTextContent('Add a playbook');
+    // Get ready says what's left before it starts; nothing while it isn't short.
+    await render(body({ ...goal, why: 'not_ready', tries: [] }));
+    expect(screen.queryByTestId('today-goal')).toBeNull();
+    await render(body({ ...goal, short: 0, why: null }));
+    expect(screen.queryByTestId('today-goal')).toBeNull();
   });
 });
 
@@ -689,6 +825,15 @@ describe('A network’s page of Settings on the phone, saved as it’s changed',
   });
 });
 
+const WEEK: FindsWeekOutput = {
+  since: '2026-10-03T15:00:00.000Z',
+  ways: [],
+  followers: { found: 0, good: 0, maybe: 0 },
+  members: { found: 0, good: 0, maybe: 0 },
+  partners: 0,
+  download: null,
+};
+
 describe('A network’s page and the person’s computer (decisions 74 and 77)', () => {
   const asks = (
     allowed: ('facebook' | 'linkedin' | 'instagram')[] | null,
@@ -857,7 +1002,7 @@ describe('A network’s page and the person’s computer (decisions 74 and 77)',
     expect(screen.queryByTestId('settings-networks-instagram-profile')).toBeNull();
   });
 
-  it('lists the accounts like yours on Instagram, and lets an owner add and remove them (decision 110)', async () => {
+  it('lists the accounts like yours under Find people, and lets an owner add and remove them (decisions 110 and 128)', async () => {
     const instagramOn: AutomationOutput = {
       ...AUTOMATION,
       settings: {
@@ -886,39 +1031,48 @@ describe('A network’s page and the person’s computer (decisions 74 and 77)',
       onAdd,
       onRemove,
     });
-    const view = await render(
+    // Settings → Instagram says where they are now, and opens it.
+    const onLikeYours = jest.fn();
+    const settings = await render(
       <SettingsPartBody
         part="instagram"
         automation={instagramOn}
         {...partProps()}
-        likeYours={likeYours(true)}
+        onLikeYours={onLikeYours}
       />,
     );
-    const part = screen.getByTestId('settings-networks-instagram-like-yours');
+    expect(screen.getByTestId('settings-networks-instagram-like-yours-moved')).toHaveTextContent(
+      /Accounts like yours.*under Find people now/,
+    );
+    await fireEvent.press(screen.getByTestId('settings-networks-instagram-like-yours-open'));
+    expect(onLikeYours).toHaveBeenCalled();
+    await settings.unmount();
+    const findBody = (canManage: boolean) => (
+      <FindBody
+        week={WEEK}
+        error={null}
+        onRetry={jest.fn()}
+        online
+        onOpen={jest.fn()}
+        likeYours={likeYours(canManage)}
+      />
+    );
+    const view = await render(findBody(true));
+    const part = screen.getByTestId('find-like-yours');
     expect(within(part).getByText('Accounts like yours')).toBeTruthy();
-    expect(screen.getByTestId('settings-networks-instagram-like-yours-account')).toHaveTextContent(
+    expect(screen.getByTestId('find-like-yours-account')).toHaveTextContent(
       /@austinchamber.*Austin Chamber.*Picked by the AI · Not read yet.*Local owners follow it/,
     );
-    await fireEvent.press(screen.getByTestId('settings-networks-instagram-like-yours-remove'));
+    await fireEvent.press(screen.getByTestId('find-like-yours-remove'));
     await waitFor(() => expect(onRemove).toHaveBeenCalledWith(chamber.id));
-    await fireEvent.changeText(
-      screen.getByTestId('settings-networks-instagram-like-yours-input'),
-      '@atx.events',
-    );
-    await fireEvent.press(screen.getByTestId('settings-networks-instagram-like-yours-add'));
+    await fireEvent.changeText(screen.getByTestId('find-like-yours-input'), '@atx.events');
+    await fireEvent.press(screen.getByTestId('find-like-yours-add'));
     await waitFor(() => expect(onAdd).toHaveBeenCalledWith('@atx.events'));
     // Someone who doesn't manage the business sees the list, and who adds to it.
-    await view.rerender(
-      <SettingsPartBody
-        part="instagram"
-        automation={instagramOn}
-        {...partProps()}
-        likeYours={likeYours(false)}
-      />,
-    );
-    expect(screen.queryByTestId('settings-networks-instagram-like-yours-remove')).toBeNull();
-    expect(screen.queryByTestId('settings-networks-instagram-like-yours-input')).toBeNull();
-    expect(screen.getByTestId('settings-networks-instagram-like-yours')).toHaveTextContent(
+    await view.rerender(findBody(false));
+    expect(screen.queryByTestId('find-like-yours-remove')).toBeNull();
+    expect(screen.queryByTestId('find-like-yours-input')).toBeNull();
+    expect(screen.getByTestId('find-like-yours')).toHaveTextContent(
       /An owner or admin of this business adds and removes them\./,
     );
   });
@@ -971,14 +1125,14 @@ const savedOn = (
   now: Record<string, unknown>,
 ): Partial<OutreachSettings> => p.onSaveBusiness.mock.lastCall![0](outreachSettings(now));
 
-describe('For your team on a network, for owners and admins', () => {
+describe('Each network’s say for everyone, on Team, for owners and admins (decision 129)', () => {
   afterEach(() => jest.useRealTimers());
 
   it('lets the team use LinkedIn or not, saved at once on what’s kept', async () => {
     const p = partProps();
     const kept = { weeklyReport: false, rules: { sendingAllowed: ['off', 'steps'] } };
     await render(
-      <SettingsPartBody part="linkedin" automation={AUTOMATION} {...p} manages business={kept} />,
+      <SettingsPartBody part="team" automation={AUTOMATION} {...p} manages business={kept} />,
     );
     expect(screen.getByText('For your team on LinkedIn')).toBeTruthy();
     expect(screen.getByTestId('settings-rules-network-linkedin')).toBeChecked();
@@ -999,7 +1153,7 @@ describe('For your team on a network, for owners and admins', () => {
     jest.useFakeTimers();
     const p = partProps();
     await render(
-      <SettingsPartBody part="linkedin" automation={AUTOMATION} {...p} manages business={{}} />,
+      <SettingsPartBody part="team" automation={AUTOMATION} {...p} manages business={{}} />,
     );
     // At LinkedIn's starting limit: never past it.
     expect(screen.getByTestId('settings-rules-linkedin-limit-friend_request-up')).toBeDisabled();
@@ -1019,7 +1173,7 @@ describe('For your team on a network, for owners and admins', () => {
     const p = partProps();
     const kept = { rules: { networkLimits: { linkedin: { like: 5 } } } };
     await render(
-      <SettingsPartBody part="facebook" automation={AUTOMATION} {...p} manages business={kept} />,
+      <SettingsPartBody part="team" automation={AUTOMATION} {...p} manages business={kept} />,
     );
     expect(screen.getByTestId('settings-rules-network-facebook')).toBeDisabled();
     expect(screen.getByTestId('settings-rules-network-facebook')).toBeChecked();
@@ -1032,21 +1186,40 @@ describe('For your team on a network, for owners and admins', () => {
     expect(rules?.networkLimits).toEqual({ linkedin: { like: 5 } });
   });
 
-  it('still shows the team’s part on a network the business doesn’t use', async () => {
+  it('points a network’s page to Team, where a network the business doesn’t use can be let back in', async () => {
+    const onTeam = jest.fn();
+    const automation = {
+      ...AUTOMATION,
+      rules: { ...AUTOMATION.rules, networksAllowed: ['facebook' as const] },
+    };
+    const business = { rules: { networksAllowed: ['facebook'] } };
     await render(
       <SettingsPartBody
         part="linkedin"
-        automation={{
-          ...AUTOMATION,
-          rules: { ...AUTOMATION.rules, networksAllowed: ['facebook'] },
-        }}
+        automation={automation}
         {...partProps()}
         manages
-        business={{ rules: { networksAllowed: ['facebook'] } }}
+        business={business}
+        onTeam={onTeam}
       />,
     );
     expect(screen.getByTestId('settings-networks-linkedin-not-allowed')).toHaveTextContent(
       /^Your business doesn’t use LinkedIn for outreach\./,
+    );
+    expect(screen.queryByTestId('settings-rules-network-linkedin')).toBeNull();
+    expect(screen.getByTestId('settings-team-moved-linkedin')).toHaveTextContent(
+      /Your team’s say on LinkedIn is on Team\./,
+    );
+    await fireEvent.press(screen.getByTestId('settings-team-moved-linkedin-open'));
+    expect(onTeam).toHaveBeenCalled();
+    await render(
+      <SettingsPartBody
+        part="team"
+        automation={automation}
+        {...partProps()}
+        manages
+        business={business}
+      />,
     );
     expect(screen.getByTestId('settings-rules-network-linkedin')).not.toBeChecked();
     expect(screen.getByTestId('settings-rules-network-linkedin')).toBeEnabled();
@@ -1094,4 +1267,30 @@ describe('a network with no runner yet', () => {
       expect(screen.queryByTestId('modes-posting-after_ok')).toBeNull();
       expect(screen.queryByText(W_ALONG)).toBeNull();
     }));
+});
+
+describe('The friend requests the person gets, on Facebook (decision 121)', () => {
+  it('has the five choices in place of the confirming tick, saved as the choices keep them', async () => {
+    const onChange = jest.fn();
+    const value = choicesFor(AUTOMATION_DEFAULTS, 'facebook');
+    await render(
+      <NetworkTicks
+        platform="facebook"
+        value={value}
+        onChange={onChange}
+        boxed={false}
+        disabled={false}
+        testID="ticks"
+      />,
+    );
+    expect(screen.queryByTestId('ticks-confirmRequests')).toBeNull();
+    expect(screen.getByTestId('ticks-requests')).toHaveTextContent(
+      /never deletes someone in Contacts/,
+    );
+    expect(screen.getByTestId('ticks-requests-fits')).toBeChecked();
+    await fireEvent.press(screen.getByTestId('ticks-requests-fits_delete'));
+    expect(onChange).toHaveBeenLastCalledWith({ confirmRequests: true, requests: 'fits_delete' });
+    await fireEvent.press(screen.getByTestId('ticks-requests-mine'));
+    expect(onChange).toHaveBeenLastCalledWith({ confirmRequests: false });
+  });
 });

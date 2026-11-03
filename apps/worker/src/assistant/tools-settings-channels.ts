@@ -7,10 +7,10 @@
  * before it goes to the carriers, because they take days to answer and a wrong answer means starting again.
  */
 
-import { money } from '@hfos/core';
+import { HfosError, money, normalizeChatOrigins } from '@hfos/core';
 import type { Db } from '@hfos/db/client';
 import type { ToolContext } from './runtime';
-import { command, query } from './tools-read';
+import { command, query, rehearse } from './tools-read';
 import { settingsCard, type SettingsConfirmTool } from './tools-settings-calendar';
 
 type Args = Record<string, unknown>;
@@ -55,6 +55,16 @@ const phoneStatus = (db: Db, ctx: ToolContext) =>
 const updateTextingSettings: SettingsConfirmTool = {
   async prepare(db, ctx, args, toolCallId) {
     const status = await phoneStatus(db, ctx);
+    // The calls settings are the number's: with none yet, saying "Saved" would be untrue.
+    if (
+      !status?.number &&
+      (routingFrom(args, status) || bool(args['showCustomerNumber']) !== undefined)
+    )
+      throw HfosError.rule(
+        'no_number',
+        409,
+        'This business has no number yet, so there are no calls to set up. Get one under Get a business number in Settings → Texting & calls first.',
+      );
     const fields: Field[] = [];
     const quiet = quietFrom(args, status);
     if (quiet)
@@ -348,31 +358,60 @@ interface EmailStatus {
 const emailStatus = (db: Db, ctx: ToolContext) =>
   query<EmailStatus>(db, ctx, 'email.setup_status').catch(() => null);
 
+/** Who an address is being made the own address of, by name: the card says whose, not an id. */
+const personNamed = async (db: Db, ctx: ToolContext, userId: string | undefined) => {
+  if (!userId) return null;
+  const team = await query<{ members: { userId: string; fullName: string; email: string }[] }>(
+    db,
+    ctx,
+    'workspace.members',
+  ).catch(() => ({ members: [] }));
+  const m = team.members.find((x) => x.userId === userId);
+  if (!m)
+    throw HfosError.notFound(
+      'Nobody on this business’s team has that id. The people are in list_team.',
+    );
+  return m.fullName || m.email;
+};
+/** Said on the card when an address becomes one person's own. */
+const ownWarning = (name: string) =>
+  `Only ${name} sends from it, and mail to it reaches only them.`;
+
 const manageEmailSettings: SettingsConfirmTool = {
   async prepare(db, ctx, args, toolCallId) {
     const act = action(args);
     const status = await emailStatus(db, ctx);
     const address = status?.addresses.find((a) => a.id === args['emailAddressId']);
     const domain = status?.domains.find((d) => d.id === args['emailDomainId']);
+    const owner = await personNamed(db, ctx, str(args['ownerUserId']));
     const card = (title: string, fields: Field[], confirmLabel: string, warn?: string) =>
       settingsCard(toolCallId, 'manage_email_settings', {
         title,
         fields,
         confirmLabel,
-        warnings: warn ? [{ kind: 'note', text: warn }] : [],
+        warnings: [
+          ...(warn ? [{ kind: 'note', text: warn }] : []),
+          ...(owner ? [{ kind: 'note', text: ownWarning(owner) }] : []),
+        ],
       });
+    const whose = owner ? [{ label: 'Whose', value: `${owner}’s own` }] : [];
     switch (act) {
       case 'add_address':
+        if (args['emailDomainId'] !== undefined && !domain)
+          throw HfosError.notFound(
+            'That isn’t one of this business’s domains. Its domains are in get_settings (area email).',
+          );
         return {
           card: card(
             'Add a sending address',
             [
               {
                 label: 'Address',
-                value: `${str(args['localPart'])}@${status?.sharedDomain ?? 'your domain'}`,
+                value: `${str(args['localPart'])}@${domain?.domain ?? status?.sharedDomain ?? 'your domain'}`,
               },
               { label: 'From', value: str(args['displayName']) ?? '' },
               ...(args['isDefault'] === true ? [{ label: 'Default', value: 'Yes' }] : []),
+              ...whose,
             ],
             'Add it',
           ),
@@ -388,6 +427,7 @@ const manageEmailSettings: SettingsConfirmTool = {
                 ? [{ label: 'From', value: str(args['displayName'])! }]
                 : []),
               ...(args['isDefault'] === true ? [{ label: 'Default', value: 'Yes' }] : []),
+              ...whose,
             ],
             'Save the change',
           ),
@@ -443,7 +483,11 @@ const manageEmailSettings: SettingsConfirmTool = {
         const out = await command<{ address: string }>(db, ctx, 'email_address.create', {
           localPart: args['localPart'],
           displayName: args['displayName'],
-          ...defined({ isDefault: bool(args['isDefault']) }),
+          ...defined({
+            isDefault: bool(args['isDefault']),
+            emailDomainId: str(args['emailDomainId']),
+            ownerUserId: str(args['ownerUserId']),
+          }),
         });
         return { outcome: `Sending from ${out.address}`, href, command: 'email_address.create' };
       }
@@ -454,6 +498,7 @@ const manageEmailSettings: SettingsConfirmTool = {
             displayName: str(args['displayName']),
             localPart: str(args['localPart']),
             isDefault: bool(args['isDefault']),
+            ownerUserId: str(args['ownerUserId']),
           }),
         });
         return { outcome: 'Changed', href, command: 'email_address.update' };
@@ -483,108 +528,322 @@ const manageEmailSettings: SettingsConfirmTool = {
 
 // ---------- the chat box on the website ----------
 
-interface WidgetList {
-  widgets: {
+type AskMode = 'never' | 'when_needed' | 'after_first_message' | 'before_chat';
+const ASK_FIELDS = ['name', 'phone', 'email'] as const;
+/** The screen's words for each detail, and for when it is asked. */
+const ASK_LABELS = { name: 'Name', phone: 'Mobile', email: 'Email' } as const;
+const ASK_WORDS: Record<AskMode, string> = {
+  never: 'Don’t ask',
+  when_needed: 'When needed',
+  after_first_message: 'After their first message',
+  before_chat: 'Before the chat starts',
+};
+
+interface Widget {
+  id: string;
+  name: string;
+  allowedOrigins: string[];
+  teammate: { id: string; name: string } | null;
+  paused: boolean;
+}
+interface ChatTeammate {
+  teammate: {
     id: string;
-    allowedOrigins: string[];
-    greeting: string | null;
-    launcherLabel: string;
-    paused: boolean;
-    teammateId: string | null;
-  }[];
+    name: string;
+    status: string;
+    config?: { channels?: { chat?: unknown; widgetId?: unknown } };
+  } | null;
 }
 
-const widgetsOf = (db: Db, ctx: ToolContext) =>
-  query<WidgetList>(db, ctx, 'chat_widget.list').catch(() => ({ widgets: [] }));
+/**
+ * The business's chat box: the one named, or else its first, as Settings → Website chat shows it. Forms → Website
+ * chats lists every one, with the id get_settings (area website_chat) gives.
+ */
+async function chatBox(db: Db, ctx: ToolContext, widgetId: string | undefined) {
+  const { items } = await query<{ items: Widget[] }>(db, ctx, 'chat_widget.list');
+  if (!widgetId) return items[0] ?? null;
+  const named = items.find((w) => w.id === widgetId);
+  if (!named)
+    throw HfosError.notFound(
+      'That isn’t one of this business’s website chats. Its chats are in get_settings (area website_chat).',
+    );
+  return named;
+}
+
+const noChat = () =>
+  HfosError.rule(
+    'no_chat',
+    409,
+    'This business has no website chat yet. Say which website it goes on and I’ll set it up.',
+  );
+
+/** The sites as they will be saved, www twins added, or the screen's own words for a site it can't take. */
+function sitesOf(args: Args): string[] | undefined {
+  const typed = list<string>(args['websites']);
+  if (!typed) return undefined;
+  const { origins, issues } = normalizeChatOrigins(typed);
+  if (issues.length)
+    throw HfosError.validation(
+      issues.map((i) => ({
+        path: i.index === null ? 'websites' : `websites.${i.index}`,
+        message: i.message,
+      })),
+      issues[0]!.message,
+    );
+  return origins;
+}
+const siteWords = (origins: readonly string[]) =>
+  origins.map((o) => o.replace(/^https:\/\//, '')).join(', ');
+
+/**
+ * Who answers, as the screen's Who answers sets it: the business's AI teammate, or only the team. A new chat box
+ * starts with the teammate when there is one, as the screen's set-up does. Undefined leaves it as it is.
+ */
+async function answerer(db: Db, ctx: ToolContext, ai: boolean | undefined, creating: boolean) {
+  if (ai === false) return { teammateId: null, who: 'Only your team', note: null };
+  if (ai === undefined && !creating) return undefined;
+  const { teammate } = await query<ChatTeammate>(db, ctx, 'ai_teammate.get');
+  if (!teammate) {
+    if (ai === undefined) return { teammateId: null, who: 'Only your team', note: null };
+    throw HfosError.rule(
+      'no_teammate',
+      409,
+      'This business has no AI teammate yet, so only your team can answer website chats. Set one up under AI teammate first, then I can have it answer.',
+    );
+  }
+  // The screen's own note: an AI teammate that is off, or whose Website chat channel is off, leaves it to the team.
+  const note =
+    teammate.status === 'off'
+      ? `${teammate.name} is off, so your team answers for now. Turn it on from the AI teammate page.`
+      : teammate.config?.channels?.chat !== true
+        ? `${teammate.name}’s Website chat channel is off, so your team answers for now. Turn on Website chat under Channels on the AI teammate page.`
+        : null;
+  return { teammateId: teammate.id, who: `${teammate.name} (AI)`, note };
+}
+
+const CORNER_WORDS = { right: 'Bottom right', left: 'Bottom left' } as const;
+const BUTTON_WORDS = { label: 'Label and icon', icon: 'Icon only', hidden: 'Hidden' } as const;
+
+/** A colour, or the word for the one picked for you (null); undefined leaves it as it is. */
+function colourArg(v: unknown, auto: string): string | null | undefined {
+  if (v === auto) return null;
+  return str(v);
+}
+
+/** What changes besides the sites and who answers, as the command takes it, and as the card reads it. */
+function lookOf(args: Args) {
+  const away = typeof args['awayMessage'] === 'string' ? args['awayMessage'].trim() : undefined;
+  const name = typeof args['name'] === 'string' ? args['name'].trim() : undefined;
+  const ask = (args['askFor'] ?? {}) as Partial<Record<(typeof ASK_FIELDS)[number], AskMode>>;
+  const askFor = defined(Object.fromEntries(ASK_FIELDS.map((f) => [f, ask[f]])));
+  const position = str(args['position']) as 'right' | 'left' | undefined;
+  const phoneCorner = str(args['phonePosition']) as
+    'right' | 'left' | 'same_as_computer' | undefined;
+  const textColor = colourArg(args['textColor'], 'automatic');
+  const topBar = colourArg(args['topBarColor'], 'same_as_button');
+  const computerButton = str(args['computerButton']) as 'label' | 'icon' | undefined;
+  const phoneButton = str(args['phoneButton']) as 'label' | 'icon' | 'hidden' | undefined;
+  const whenAway = str(args['whenNobodyAnswers']) as 'chat' | 'away_form' | undefined;
+  const fields = defined({
+    name,
+    greeting: str(args['greeting']),
+    launcherLabel: str(args['buttonLabel']),
+    accentColor: str(args['color']),
+    textColor,
+    headerColor: topBar,
+    showLogo: bool(args['showLogo']),
+    position,
+    mobilePosition: phoneCorner === 'same_as_computer' ? null : phoneCorner,
+    desktopLift: num(args['computerLift']),
+    mobileLift: num(args['phoneLift']),
+    desktopButton: computerButton,
+    mobileButton: phoneButton,
+    awayMessage: away,
+    whenAway,
+    askFor: Object.keys(askFor).length ? askFor : undefined,
+    smsConsent: bool(args['askForSmsConsent']),
+    dailyCap: num(args['dailyCap']),
+  });
+  const lift = (n: number) => (n ? `${n} px higher` : 'Its usual spot');
+  const words: Field[] = [
+    ...(name === undefined ? [] : [{ label: 'Name', value: name || 'Its first site' }]),
+    ...(num(args['dailyCap'])
+      ? [{ label: 'New chats a day', value: String(args['dailyCap']) }]
+      : []),
+    ...(str(args['greeting']) ? [{ label: 'Greeting', value: str(args['greeting'])! }] : []),
+    ...(str(args['buttonLabel']) ? [{ label: 'Button', value: str(args['buttonLabel'])! }] : []),
+    ...(str(args['color']) ? [{ label: 'Colour', value: str(args['color'])! }] : []),
+    ...(textColor === undefined
+      ? []
+      : [{ label: 'Words on the button and top bar', value: textColor ?? 'Automatic' }]),
+    ...(topBar === undefined
+      ? []
+      : [{ label: 'Top bar of the chat', value: topBar ?? 'Same as the button' }]),
+    ...(bool(args['showLogo']) === undefined
+      ? []
+      : [{ label: 'Logo', value: args['showLogo'] ? 'Shown' : 'Initials instead' }]),
+    ...(position
+      ? [
+          {
+            label: phoneCorner ? 'Corner on computers' : 'Position',
+            value: CORNER_WORDS[position],
+          },
+        ]
+      : []),
+    ...(phoneCorner
+      ? [
+          {
+            label: 'Corner on phones',
+            value:
+              phoneCorner === 'same_as_computer'
+                ? 'Same as on computers'
+                : CORNER_WORDS[phoneCorner],
+          },
+        ]
+      : []),
+    ...(num(args['computerLift']) === undefined
+      ? []
+      : [{ label: 'Height on computers', value: lift(args['computerLift'] as number) }]),
+    ...(num(args['phoneLift']) === undefined
+      ? []
+      : [{ label: 'Height on phones', value: lift(args['phoneLift'] as number) }]),
+    ...(computerButton
+      ? [{ label: 'Button on computers', value: BUTTON_WORDS[computerButton] }]
+      : []),
+    ...(phoneButton ? [{ label: 'Button on phones', value: BUTTON_WORDS[phoneButton] }] : []),
+    ...(whenAway
+      ? [
+          {
+            label: 'While nobody is answering',
+            value:
+              whenAway === 'chat' ? 'They can chat anyway' : 'The away message and a short form',
+          },
+        ]
+      : []),
+    ...(away === undefined ? [] : [{ label: 'Away message', value: away || 'The standard words' }]),
+    ...ASK_FIELDS.filter((f) => ask[f]).map((f) => ({
+      label: `Ask for their ${ASK_LABELS[f].toLowerCase()}`,
+      value: ASK_WORDS[ask[f]!],
+    })),
+    ...(bool(args['askForSmsConsent']) === undefined
+      ? []
+      : [
+          {
+            label: 'Box to get texts',
+            value: args['askForSmsConsent'] ? 'Offered' : 'Not offered',
+          },
+        ]),
+  ];
+  return { fields, words };
+}
 
 const manageWebsiteChat: SettingsConfirmTool = {
   async prepare(db, ctx, args, toolCallId) {
     const act = action(args);
-    const { widgets } = await widgetsOf(db, ctx);
-    const current = widgets.find((w) => w.id === args['widgetId']) ?? widgets[0];
-    const sites = list<string>(args['websites']);
+    const creating = act === 'create';
+    const box = await chatBox(db, ctx, str(args['widgetId']));
+    if (!creating && !box) throw noChat();
     if (act === 'turn_on' || act === 'turn_off') {
       const on = act === 'turn_on';
       return {
         card: settingsCard(toolCallId, 'manage_website_chat', {
           title: on ? 'Turn the website chat on' : 'Turn the website chat off',
-          fields: [{ label: 'Chat box', value: on ? 'On' : 'Off' }],
+          fields: [
+            { label: 'Chat box', value: on ? 'On' : 'Off' },
+            { label: 'Shows on', value: siteWords(box!.allowedOrigins) },
+          ],
           confirmLabel: on ? 'Turn it on' : 'Turn it off',
           warnings: on
             ? []
             : [{ kind: 'note', text: 'Visitors won’t see it until it is turned back on.' }],
         }),
-        result: { waiting: true },
+        result: { waiting: true, widgetId: box!.id },
       };
     }
-    const creating = act === 'create';
+    const sites = sitesOf(args);
+    if (creating && !sites)
+      throw HfosError.validation(
+        [{ path: 'websites', message: 'Say which website the chat goes on, like acme.com.' }],
+        'Say which website the chat goes on, like acme.com.',
+      );
+    const who = await answerer(db, ctx, bool(args['answeredByAi']), creating);
+    const { words } = lookOf(args);
+    const fields: Field[] = [
+      ...(sites ? [{ label: 'Shows on', value: siteWords(sites) }] : []),
+      ...(who ? [{ label: 'Who answers', value: who.who }] : []),
+      ...words,
+    ];
+    if (!fields.length)
+      throw HfosError.rule(
+        'nothing_to_change',
+        400,
+        'Nothing to change was given. Say what to change on the chat, like its greeting or who answers.',
+      );
     return {
       card: settingsCard(toolCallId, 'manage_website_chat', {
-        title: creating ? 'Set up the website chat' : 'Change the website chat',
-        fields: [
-          ...(sites ? [{ label: 'Shows on', value: sites.join(', ') }] : []),
-          ...(str(args['greeting']) ? [{ label: 'Greeting', value: str(args['greeting'])! }] : []),
-          ...(str(args['buttonLabel'])
-            ? [{ label: 'Button', value: str(args['buttonLabel'])! }]
-            : []),
-          ...(str(args['color']) ? [{ label: 'Colour', value: str(args['color'])! }] : []),
-          ...(bool(args['answeredByAi']) === undefined
-            ? []
-            : [
-                {
-                  label: 'Answered by',
-                  value: args['answeredByAi'] ? 'Your AI teammate' : 'Your team',
-                },
-              ]),
-          ...(bool(args['askForSmsConsent']) === undefined
-            ? []
-            : [{ label: 'Asks to text them', value: args['askForSmsConsent'] ? 'Yes' : 'No' }]),
-        ],
+        title: creating ? 'Set up the website chat' : `Change the website chat on ${box!.name}`,
+        fields,
         confirmLabel: creating ? 'Set it up' : 'Save the change',
-        warnings: creating
-          ? [
-              {
-                kind: 'note',
-                text: 'It shows up once the snippet is on your site — I’ll give you that next.',
-              },
-            ]
-          : [],
+        warnings: [
+          ...(who?.note ? [{ kind: 'note' as const, text: who.note }] : []),
+          ...(creating && box
+            ? [
+                {
+                  kind: 'note' as const,
+                  text: `This adds another chat beside the one on ${box.name}. Only one chat shows on a page, so give it its own sites.`,
+                },
+              ]
+            : []),
+          ...(creating
+            ? [
+                {
+                  kind: 'note' as const,
+                  text: 'It shows up once its snippet is on your site. The snippet is under Add it to your site, on its page under Website chats on the Forms page.',
+                },
+              ]
+            : []),
+        ],
       }),
-      result: { waiting: true, widgetId: current?.id ?? null },
+      result: { waiting: true, widgetId: box?.id ?? null },
     };
   },
 
   async commit(db, ctx, args) {
     const act = action(args);
-    const { widgets } = await widgetsOf(db, ctx);
-    const current = widgets.find((w) => w.id === args['widgetId']) ?? widgets[0];
-    const href = `/app/w/${ctx.workspaceId}/settings/website-chat`;
+    const creating = act === 'create';
+    const box = await chatBox(db, ctx, str(args['widgetId']));
+    const pageOf = (id: string) => `/app/w/${ctx.workspaceId}/forms/chats/${id}`;
+    const href = box ? pageOf(box.id) : `/app/w/${ctx.workspaceId}/forms#website-chats`;
+    if (!creating && !box) throw noChat();
     if (act === 'turn_on' || act === 'turn_off') {
-      await command(db, ctx, act === 'turn_on' ? 'chat_widget.resume' : 'chat_widget.pause', {
-        widgetId: current?.id,
-      });
+      const name = act === 'turn_on' ? 'chat_widget.resume' : 'chat_widget.pause';
+      await command(db, ctx, name, { widgetId: box!.id });
       return {
         outcome: act === 'turn_on' ? 'The chat box is on' : 'The chat box is off',
         href,
-        command: act === 'turn_on' ? 'chat_widget.resume' : 'chat_widget.pause',
+        command: name,
       };
     }
-    const fields = defined({
-      greeting: str(args['greeting']),
-      launcherLabel: str(args['buttonLabel']),
-      accentColor: str(args['color']),
-      smsConsent: bool(args['askForSmsConsent']),
-    });
-    if (act === 'create') {
-      await command(db, ctx, 'chat_widget.create', {
-        allowedOrigins: list<string>(args['websites']) ?? [],
+    const sites = sitesOf(args);
+    const who = await answerer(db, ctx, bool(args['answeredByAi']), creating);
+    const { fields } = lookOf(args);
+    if (creating) {
+      const made = await command<{ widgetId: string }>(db, ctx, 'chat_widget.create', {
+        allowedOrigins: sites ?? [],
+        teammateId: who?.teammateId ?? null,
         ...fields,
       });
-      return { outcome: 'The chat box is set up', href, command: 'chat_widget.create' };
+      return {
+        outcome:
+          'The chat box is set up. Copy its snippet from Add it to your site on its page under Website chats on the Forms page, and paste it into your site.',
+        href: pageOf(made.widgetId),
+        command: 'chat_widget.create',
+      };
     }
     await command(db, ctx, 'chat_widget.update', {
-      widgetId: current?.id,
-      ...(list<string>(args['websites']) ? { allowedOrigins: list<string>(args['websites']) } : {}),
+      widgetId: box!.id,
+      ...(sites ? { allowedOrigins: sites } : {}),
+      ...(who ? { teammateId: who.teammateId } : {}),
       ...fields,
     });
     return { outcome: 'Changed', href, command: 'chat_widget.update' };
@@ -593,8 +852,20 @@ const manageWebsiteChat: SettingsConfirmTool = {
 
 // ---------- lead intake: leads that arrive on their own ----------
 
+/** Each way in on Settings → Lead intake, as its card says it. */
+const CHANNEL_WORDS = {
+  text: 'someone texts you',
+  call: 'a call is missed',
+  email: 'someone emails you',
+  messenger: 'someone messages your Facebook Page',
+  instagram: 'someone messages your Instagram account',
+  facebook_lead_ad: 'someone sends your lead ad’s form',
+  indeed: 'Indeed emails you about an applicant',
+} as const;
+type Channel = keyof typeof CHANNEL_WORDS;
+
 interface IntakeSource {
-  kind: 'text' | 'call' | 'email';
+  kind: string;
   name: string;
   active: boolean;
   createLead: boolean;
@@ -606,83 +877,166 @@ interface IntakeList {
   sources: IntakeSource[];
   pipelines: { id: string; name: string; stages: { id: string; name: string; kind: string }[] }[];
 }
+interface MetaList {
+  accounts: { platform: 'facebook' | 'instagram'; status: string }[];
+}
 
-const CHANNEL_WORDS = {
-  text: 'someone texts you',
-  call: 'a call is missed',
-  email: 'someone emails you',
-} as const;
-
-const intakeOf = (db: Db, ctx: ToolContext) =>
-  query<IntakeList>(db, ctx, 'intake.list').catch(() => null);
-
-const channelOf = (args: Args): 'text' | 'call' | 'email' => {
+const channelOf = (args: Args): Channel => {
   const c = str(args['channel']);
-  return c === 'call' || c === 'email' ? c : 'text';
+  return c && c in CHANNEL_WORDS ? (c as Channel) : 'text';
+};
+
+interface IntakeInput {
+  kind: Channel;
+  active?: boolean;
+  createLead?: boolean;
+  pipelineId?: string | null;
+  stageId?: string | null;
+  name?: string;
+  dailyCap?: number;
+}
+
+/** What the command is given: the channel, and only what was asked. */
+const intakeInput = (args: Args): IntakeInput => ({
+  kind: channelOf(args),
+  ...(defined({
+    active: bool(args['active']),
+    createLead: bool(args['createLead']),
+    pipelineId: args['pipelineId'] === null ? null : str(args['pipelineId']),
+    stageId: args['stageId'] === null ? null : str(args['stageId']),
+    name: str(args['name']),
+    dailyCap: num(args['dailyCap']),
+  }) as Omit<IntakeInput, 'kind'>),
+});
+
+/** Messages and lead ads arrive only from what's connected on Settings → Facebook & Instagram. */
+async function metaNote(db: Db, ctx: ToolContext, channel: Channel): Promise<string | null> {
+  if (channel !== 'messenger' && channel !== 'instagram' && channel !== 'facebook_lead_ad')
+    return null;
+  const meta = await query<MetaList>(db, ctx, 'meta_account.list').catch(() => null);
+  if (!meta) return null;
+  const platform = channel === 'instagram' ? 'instagram' : 'facebook';
+  if (meta.accounts.some((a) => a.platform === platform && a.status !== 'disconnected'))
+    return null;
+  return channel === 'instagram'
+    ? 'No Instagram account is connected yet, so nothing comes in this way until one is. Connecting it is yours to do, with Connect Facebook in Settings → Facebook & Instagram.'
+    : 'No Facebook Page is connected yet, so nothing comes in this way until one is. Connecting it is yours to do, with Connect Facebook in Settings → Facebook & Instagram.';
+}
+
+/** What turning a channel off means for the people who arrive on it. */
+const OFF_WORDS: Record<Channel, string> = {
+  text: 'Their texts still reach your inbox. Nobody is added to your customers or leads.',
+  call: 'Their calls and voicemails still reach your inbox. Nobody is added to your customers or leads.',
+  email: 'Their emails still reach your inbox. Nobody is added to your customers or leads.',
+  messenger: 'Their messages still reach your inbox. Nobody is added to your customers or leads.',
+  instagram: 'Their messages still reach your inbox. Nobody is added to your customers or leads.',
+  facebook_lead_ad: 'Lead ad forms sent while it’s off aren’t added to your customers or leads.',
+  indeed:
+    'Applicants Indeed emails you about aren’t added to your customers or leads. The emails still arrive.',
 };
 
 const manageLeadIntake: SettingsConfirmTool = {
   async prepare(db, ctx, args, toolCallId) {
-    const channel = channelOf(args);
-    const list = await intakeOf(db, ctx);
-    const current = list?.sources.find((s) => s.kind === channel);
-    const active = bool(args['active']);
-    const createLead = bool(args['createLead']);
-    const pipeline = list?.pipelines.find((p) => p.id === args['pipelineId']);
-    const stage = pipeline?.stages.find((s) => s.id === args['stageId']);
+    const input = intakeInput(args);
+    const channel = input.kind;
     const words = CHANNEL_WORDS[channel];
+    const list = await query<IntakeList>(db, ctx, 'intake.list');
+    const current = list.sources.find((s) => s.kind === channel);
+    const asked = Object.keys(input).filter((k) => k !== 'kind');
+    if (!asked.length)
+      throw HfosError.rule(
+        'nothing_to_change',
+        400,
+        `Say what to change about leads when ${words}: on or off, whether a lead opens, where it lands, what it’s filed under, or the most a day.`,
+      );
+    const active = input.active;
+    if (asked.length === 1 && active !== undefined && current?.active === active)
+      throw HfosError.rule(
+        'nothing_to_change',
+        400,
+        active
+          ? `Nothing would change. Leads already come in when ${words}.`
+          : `Nothing would change. It’s already off, so nobody becomes a lead when ${words}.`,
+      );
+    const fields: Field[] = [];
+    if (active !== undefined)
+      fields.push({ label: 'New customer and lead', value: active ? 'Yes' : 'No' });
+    if (input.createLead !== undefined)
+      fields.push({ label: 'Opens a lead', value: input.createLead ? 'Yes' : 'Customer only' });
+    if (input.pipelineId !== undefined || input.stageId !== undefined) {
+      const pipelineId =
+        input.pipelineId === undefined ? (current?.pipelineId ?? null) : input.pipelineId;
+      const pipeline = list.pipelines.find((p) => p.id === pipelineId);
+      if (pipelineId && !pipeline)
+        throw HfosError.validation(
+          [{ path: 'pipelineId', message: 'Pick one of your pipelines.' }],
+          'No pipeline has that id. Pick one from get_settings (area lead_intake).',
+        );
+      const stage = pipeline?.stages.find((s) => s.id === input.stageId);
+      if (input.stageId && pipeline && !stage)
+        throw HfosError.validation(
+          [{ path: 'stageId', message: 'Pick a stage in that pipeline.' }],
+          `That stage isn’t in ${pipeline.name}. Pick one of its stages from get_settings (area lead_intake).`,
+        );
+      fields.push(
+        { label: 'Lands in', value: pipeline?.name ?? 'Your first pipeline' },
+        { label: 'Stage', value: stage?.name ?? 'Its first open stage' },
+      );
+    }
+    if (input.name) fields.push({ label: 'Filed under', value: input.name });
+    if (input.dailyCap) fields.push({ label: 'Most a day', value: String(input.dailyCap) });
+    // The command's own rules refuse anything else before any card is drawn.
+    await rehearse(db, ctx, 'intake_source.update', { ...input });
+
     const off = active === false;
+    const turningOn = active === true && current?.active === false;
+    const warnings: { kind: 'note' | 'caution'; text: string }[] = [];
+    if (off)
+      warnings.push({
+        kind: channel === 'facebook_lead_ad' || channel === 'indeed' ? 'caution' : 'note',
+        text: OFF_WORDS[channel],
+      });
+    if (!off) {
+      const meta = await metaNote(db, ctx, channel);
+      if (meta) warnings.push({ kind: 'note', text: meta });
+    }
+    if (turningOn && channel === 'indeed')
+      warnings.push({
+        kind: 'note',
+        text: 'Indeed’s emails need to reach a connected inbox, or one you forward them to.',
+      });
+    else if (turningOn && (channel === 'text' || channel === 'call' || channel === 'email'))
+      warnings.push({
+        kind: 'note',
+        text: 'Wrong numbers and spam can become leads; archive those.',
+      });
+
     return {
       card: settingsCard(toolCallId, 'manage_lead_intake', {
-        title: off ? `Stop opening leads when ${words}` : `Open a lead when ${words}`,
-        fields: [
-          ...(active === undefined
-            ? []
-            : [{ label: 'New customer and lead', value: active ? 'Yes' : 'No' }]),
-          ...(createLead === undefined
-            ? []
-            : [{ label: 'Opens a lead', value: createLead ? 'Yes' : 'Customer only' }]),
-          ...(pipeline ? [{ label: 'Lands in', value: pipeline.name }] : []),
-          ...(stage ? [{ label: 'Stage', value: stage.name }] : []),
-          ...(str(args['name']) ? [{ label: 'Filed under', value: str(args['name'])! }] : []),
-          ...(num(args['dailyCap'])
-            ? [{ label: 'Most a day', value: String(num(args['dailyCap'])) }]
-            : []),
-        ],
+        title: off
+          ? `Stop opening leads when ${words}`
+          : active
+            ? `Open a lead when ${words}`
+            : `Change the leads that come in when ${words}`,
+        fields,
         confirmLabel: off ? 'Turn it off' : 'Save the change',
-        warnings: off
-          ? [
-              {
-                kind: 'note',
-                text: 'Their message still reaches your inbox — nobody is added to your customers.',
-              },
-            ]
-          : active === true && current?.active === false
-            ? [{ kind: 'note', text: 'Wrong numbers and spam can become leads; archive those.' }]
-            : [],
+        warnings,
       }),
       result: { waiting: true, channel },
     };
   },
 
   async commit(db, ctx, args) {
-    const channel = channelOf(args);
-    await command(db, ctx, 'intake_source.update', {
-      kind: channel,
-      ...defined({
-        active: bool(args['active']),
-        createLead: bool(args['createLead']),
-        pipelineId: args['pipelineId'] === null ? null : str(args['pipelineId']),
-        stageId: args['stageId'] === null ? null : str(args['stageId']),
-        name: str(args['name']),
-        dailyCap: num(args['dailyCap']),
-      }),
-    });
+    const input = intakeInput(args);
+    await command(db, ctx, 'intake_source.update', { ...input });
+    const words = CHANNEL_WORDS[input.kind];
     return {
       outcome:
-        bool(args['active']) === false
-          ? `No more leads when ${CHANNEL_WORDS[channel]}`
-          : `Leads will come in when ${CHANNEL_WORDS[channel]}`,
+        input.active === false
+          ? `No more leads when ${words}`
+          : input.active === true
+            ? `Leads will come in when ${words}`
+            : 'Saved',
       href: `/app/w/${ctx.workspaceId}/settings/lead-intake`,
       command: 'intake_source.update',
     };

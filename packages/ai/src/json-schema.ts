@@ -78,7 +78,34 @@ function strict(node: Schema): Schema {
     const note = `{${extra.map(([k, v]) => `${k}: ${JSON.stringify(v)}`).join(', ')}}`;
     out.description = typeof out.description === 'string' ? `${out.description}\n\n${note}` : note;
   }
-  return out;
+  return nullableEnum(out);
+}
+
+/**
+ * A choice that may also be null, written `type: ['string', 'null'], enum: ['up', 'down', null]`, sent as
+ * `anyOf: [{ type: 'string', enum: ['up', 'down'] }, { type: 'null' }]`. The API turned down every request whose
+ * schema had null inside an enum (the outreach helper and the like picker, 2026-11-02), and the anyOf form is the
+ * one its docs show for a nullable value.
+ */
+function nullableEnum(node: Schema): Schema {
+  const values = node.enum;
+  if (!Array.isArray(values) || !values.includes(null)) return node;
+  const types = Array.isArray(node.type) ? (node.type as unknown[]) : [node.type];
+  const others = types.filter((t) => t !== 'null' && t !== undefined);
+  if (others.length === 0) return node;
+  const { type: _type, enum: _enum, description, title, ...kept } = node;
+  return {
+    ...(title !== undefined ? { title } : {}),
+    ...(description !== undefined ? { description } : {}),
+    anyOf: [
+      {
+        ...kept,
+        type: others.length === 1 ? others[0] : others,
+        enum: values.filter((v) => v !== null),
+      },
+      { type: 'null' },
+    ],
+  };
 }
 
 export function structuredOutputSchema(schema: Record<string, unknown>): Record<string, unknown> {

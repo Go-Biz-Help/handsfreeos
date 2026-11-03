@@ -17,14 +17,26 @@ import {
   autoKinds,
   businessLimitsOn,
   messageKinds,
+  newMessagesWait,
+  onlyMyGroups,
+  readsRequests,
+  requestAnswerOf,
+  requestModeOf,
   underAPost,
+  type RequestMode,
 } from '../automation';
 import { GROUP_REPLY_WORDS, groupRepliesOn, REPLY_KEPT_DAYS } from '../active';
 import { demoLink, demoRef } from '../demos';
 import { bestFit, type Fit, type FitPlaybook } from '../fit';
 import type { GroupCheckState } from '../group-checks';
-import { type DailyStep } from '../limits';
-import { inNetworkWords, networkLimitsNow, NETWORKS } from '../networks';
+import { type DailyStep, type FriendAnswer } from '../limits';
+import {
+  answersRequests,
+  inNetworkWords,
+  networkLimitsNow,
+  NETWORKS,
+  WORKING_PLATFORMS,
+} from '../networks';
 import { outreachAddon } from '../manifest';
 import {
   ANSWERS,
@@ -40,7 +52,9 @@ import {
   RECOMMEND_WORDS,
   REQUESTS_WHY,
   requestsHeldOn,
+  requestsLimitHeld,
   TODAY_KIND_KEYS,
+  TODAY_LIMIT,
   TODAY_MOST,
   TODAY_WINDOW_DAYS,
   TodayInput,
@@ -48,9 +62,11 @@ import {
   TodayOutput,
   TODAY_POST_MOST,
   demoWhen,
+  withRetried,
   type TodayItem,
 } from '../today';
-import { POST_FRESH_DAYS } from '../posts';
+import { FIELD_CHECK_SINCE, POST_FRESH_DAYS } from '../posts';
+import { LIST_RETRY_STEPS, needWhyWords, REQUEST_PRESSED_WHY, RETRIED_WHY } from '../waiting-words';
 import { NEW_JOB_DAYS, OCCASION_WORDS, type OccasionKind } from '../occasions';
 import { commentSendsOn, foundByTopicOn, ownSuggestions } from '../profile-parts';
 import {
@@ -60,7 +76,7 @@ import {
   LEADERS_WAIT_DAYS,
   type FindHow,
 } from '../finds';
-import { RECONNECT_QUIET_DAYS, type CheckVerdict } from '../checks';
+import { RECONNECT_QUIET_DAYS, type CheckVerdict, type RequestAnswer } from '../checks';
 import { FOLLOWER_WHY, FOLLOWERS_KEPT_DAYS } from '../followers';
 import { type EngagementKind, WARM_LEAD_DAYS } from '../helpful';
 import type { GroupResults } from '../results';
@@ -83,20 +99,42 @@ import {
   openToMe,
   pitchable,
   recentOf,
+  requestAnswerColumns,
   type Ctx,
 } from './common';
-import { knownCheck, knowsThem, myOwnProfile, stillToReach } from './checks';
+import {
+  goalStock,
+  knowsThem,
+  myOwnProfile,
+  perDayFor,
+  reconnectReady,
+  stillToReach,
+} from './checks';
+import { goalFacts } from './goal';
+import { fewAhead, goalTries, goalWhy } from '../goal';
 import { foundByTopicSince, workingBuild } from './live';
 import { playbooksInUse } from './friends';
+import { retrySince } from './needs';
 import { readinessFor } from './readiness';
 import { groupFitOf } from './group-checks';
 import { sendsToday } from './sends';
+import { postParts } from '../sends';
+import { requestsPauseOf } from './request-pause';
 import { slowsNow, startOfToday, warningOf } from './tidy';
+import { cancelMostNow } from '../tidy';
 
 const DAY = 86_400_000;
 const HOUR = 3_600_000;
 /** A message the person wrote to someone themselves this lately puts their next follow-up off. */
 const MANUAL_QUIET_HOURS = 20;
+
+/**
+ * A chat the AI read as come to a close (decision 134): they said no or not now (`not_interested`) and there's nothing
+ * left to do (no next step), so their last message needs nothing back. A chat with no pitch read isn't: never null, so
+ * `not` it keeps them. `c` is its alias.
+ */
+const closedChat = (c: string) =>
+  sql`(${sql.raw(c)}.pitch is not distinct from 'not_interested' and ${sql.raw(c)}.next_step is null)`;
 
 const NONE_DONE: Record<DailyStep, number> = {
   friend_request: 0,
@@ -155,38 +193,79 @@ export type RequestGot = {
 export const requestFit = (playbooks: readonly FitPlaybook[], p: RequestGot): Fit =>
   bestFit(playbooks, { lines: p.intro, mutualFriends: p.mutual_friends, groupName: p.group_name });
 
+/** A request the person got, with what's known of it besides its profile (`requestAnswerColumns`). */
+export type RequestAnswered = RequestGot & {
+  readonly pressed: FriendAnswer | null;
+  readonly said: RequestAnswer | null;
+  readonly said_why: string | null;
+};
+
 /**
- * The requests the person got that Today lists as **Confirm their request** (decision 30): with a playbook in use,
- * from people who are pitched and fit one well, the best first, as many as Today lists of a kind; the rest of the good
- * fits on a later day. Waiting for you (./waiting.ts) lists the requests lately that aren't good fits for this, as the
- * person's to decide. A partner's is confirmed like anyone's (decision 81), and so is a client's (decision 91): saying
- * yes to a request is no pitch (`openToMe`, not `inPlay`).
+ * The requests the person got that Today lists as **Confirm their request** (decisions 30, 121 and 136), the ones they
+ * pressed Confirm on first, then the best fits, as many as Today lists of a kind; the rest on a later day. Waiting for
+ * you (./waiting.ts) lists the ones that are theirs to decide. A partner's is confirmed like anyone's (decision 81), and
+ * so is a client's (decision 91): saying yes to a request is no pitch (`openToMe`, not `inPlay`).
+ *
+ * Where the extension answers them (Facebook's, LinkedIn's and Alignable's), as the person picked and the AI says
+ * (`requestAnswerOf`): everyone's when they confirm them all, nobody's when they delete them all, and only the ones they
+ * pressed Confirm on when they leave them to themselves. Elsewhere, the good fits by the lines their list showed, for
+ * the person to confirm.
  */
 export async function requestsToConfirm(
   ctx: Ctx,
   me: string,
   playbooks: readonly FitPlaybook[],
   platform: Platform = 'facebook',
-): Promise<{ readonly p: RequestGot; readonly fit: Fit }[]> {
-  if (!playbooks.length) return [];
-  // The business's country setting skips some (decision 61): they're on the Skipped for country list instead. Only
-  // the network's own requests are its to confirm.
-  const lets = sql`(${countryLetsSql(await countryRuleOf(ctx), 'p')} and p.platform = ${platform})`;
-  const asked = await rows<RequestGot>(
+  mode: RequestMode = 'fits',
+): Promise<{ readonly p: RequestAnswered; readonly fit: Fit }[]> {
+  const answering = answersRequests(platform);
+  const picked = answering ? mode : 'fits';
+  // The business's country setting skips some (decision 61): they're on the Skipped for country list instead. One the
+  // person pressed Confirm on goes whatever it says. Only the network's own requests are its to confirm.
+  const lets = countryLetsSql(await countryRuleOf(ctx), 'p');
+  const asked = await rows<RequestAnswered & { pitched: boolean }>(
     ctx.tx,
-    sql`select p.id, p.name, p.url, p.intro, p.mutual_friends, g.name as group_name
-        from addon_outreach.friends f
-        join addon_outreach.profiles p on p.id = f.profile_id
-        left join addon_outreach.groups g on g.id = p.group_id
-        where f.workspace_id = ${ctx.scope.workspaceId!} and f.user_id = ${me}
-          and f.state = 'request_received' and ${notNever('p')} and ${openToMe(me, 'p')} and ${lets}
-        order by f.since desc limit ${CANDIDATES_MOST}`,
+    sql`select * from (
+          select p.id, p.name, p.url, p.intro, p.mutual_friends, g.name as group_name, f.since,
+            ${requestAnswerColumns}, (${notNever('p')}) as pitched,
+            (${openToMe(me, 'p')} and ${lets}) as open
+          from addon_outreach.friends f
+          join addon_outreach.profiles p on p.id = f.profile_id
+          left join addon_outreach.groups g on g.id = p.group_id
+          left join addon_outreach.checks ch on ch.profile_id = p.id and ch.user_id = ${me}
+          where f.workspace_id = ${ctx.scope.workspaceId!} and f.user_id = ${me}
+            and f.state = 'request_received' and p.platform = ${platform} and ${contactable('p')}
+        ) r
+        where r.pressed = 'confirm' or (r.open and r.pressed is null)
+        order by (r.pressed = 'confirm') desc nulls last, r.since desc
+        limit ${CANDIDATES_MOST}`,
   );
   return asked
-    .map((p) => ({ p, fit: requestFit(playbooks, p) }))
-    .filter(({ fit }) => fit.level === 'good')
-    .sort((a, b) => b.fit.score - a.fit.score || a.p.name.localeCompare(b.p.name))
-    .slice(0, TODAY_MOST);
+    .map(({ pitched, ...p }) => {
+      const fit = requestFit(playbooks, p);
+      return {
+        p,
+        fit,
+        answer: requestAnswerOf({
+          mode: picked,
+          pressed: answering ? p.pressed : null,
+          pitched,
+          playbooks: playbooks.length > 0,
+          said: answering && readsRequests(picked) ? p.said : null,
+          good: fit.level === 'good',
+        }),
+      };
+    })
+    .filter(({ answer }) => answer === 'confirm')
+    .sort(
+      (a, b) =>
+        Number(b.p.pressed === 'confirm') - Number(a.p.pressed === 'confirm') ||
+        Number(b.p.said === 'confirm') - Number(a.p.said === 'confirm') ||
+        b.fit.score - a.fit.score ||
+        a.p.name.localeCompare(b.p.name),
+    )
+    .slice(0, TODAY_MOST)
+    .map(({ p, fit }) => ({ p, fit }));
 }
 
 export const today = defineAddonQuery(outreachAddon, {
@@ -215,12 +294,15 @@ export const today = defineAddonQuery(outreachAddon, {
     const done = (await dayCounts(ctx, [me], input.platform, todayStart)).get(me)!;
     // The person's choices, training wheels and limits on this network: each network's are its own.
     const {
+      settings: everything,
       choices: settings,
       wheels,
       fresh,
       slower,
       rules,
     } = await automationOf(ctx, me, now, input.platform);
+    // Working only the groups they're in (decision 148): nobody found in another group is theirs to reach.
+    const onlyMine = onlyMyGroups(settings);
     // The business's own on this network, halved after a warning there, on training wheels there, and while new there.
     const limits = todayLimits(
       done,
@@ -257,15 +339,41 @@ export const today = defineAddonQuery(outreachAddon, {
         : null;
     // No new friend requests while 200 of theirs wait for an answer there, or their friends there near its cap
     // (decision 97): nor the likes before them, as after a warning.
-    const [mine] = await rows<{ waiting: number; friends: number }>(
+    // With how many of those the extension sent, and Cancel all's left (decision 121), for the note's buttons.
+    const [mine] = await rows<{
+      waiting: number;
+      friends: number;
+      extension: number;
+      cancelling: number;
+    }>(
       ctx.tx,
       sql`select count(*) filter (where f.state = 'request_sent')::int as waiting,
-            count(*) filter (where f.state = 'friends')::int as friends
+            count(*) filter (where f.state = 'friends')::int as friends,
+            count(*) filter (where f.state = 'request_sent' and exists (
+              select 1 from addon_outreach.touches t where t.profile_id = p.id and t.user_id = ${me}
+                and t.kind = 'friend_request' and t.auto))::int as extension,
+            count(*) filter (where f.state = 'request_sent' and f.cancel_at is not null
+              and f.cancel_at >= f.since)::int as cancelling
           from addon_outreach.friends f
           join addon_outreach.profiles p on p.id = f.profile_id
           where f.workspace_id = ${ws} and f.user_id = ${me} and p.platform = ${input.platform}`,
     );
-    const requestsHeld = requestsHeldOn(input.platform, mine ?? { waiting: 0, friends: 0 });
+    const held = requestsHeldOn(input.platform, mine ?? { waiting: 0, friends: 0 });
+    // The network said they reached their monthly limit there (decision 147): none till the day it ends, whatever
+    // else would hold them, as only that day lets them start again.
+    const paused = await requestsPauseOf(ctx, me, input.platform, now);
+    // Cancel all's pace now, for the note (decision 126, answer 9a).
+    const requestsHeld = paused
+      ? requestsLimitHeld(paused.day)
+      : held && {
+          ...held,
+          cancelMost: cancelMostNow(input.platform, {
+            going: held.cancelling > 0,
+            waiting: mine?.waiting ?? 0,
+            warned: slowsNow(warning, now),
+            slower,
+          }),
+        };
     const requestsOff =
       (warning !== null && new Date(warning.requestsFrom).getTime() > now) || requestsHeld !== null;
     const playbooks = await playbooksInUse(ctx, input.platform);
@@ -290,6 +398,7 @@ export const today = defineAddonQuery(outreachAddon, {
       postUrl: null,
       posted: null,
       post: null,
+      postWhole: null,
       asking: false,
       why: [],
       summary: null,
@@ -317,16 +426,29 @@ export const today = defineAddonQuery(outreachAddon, {
       .find((p) => p.details.videoLink);
     const hasVideo = Boolean(videoed);
 
-    // Requests the person got from people who fit a playbook well: theirs to confirm (decision 30). The rest lately are
-    // theirs to decide, in Waiting for you.
-    for (const { p, fit } of await requestsToConfirm(ctx, me, playbooks, input.platform))
+    // Requests the person got to confirm, as they picked and the AI says (decisions 30, 121 and 136). The rest lately
+    // are theirs to decide, in Waiting for you.
+    for (const { p, fit } of await requestsToConfirm(
+      ctx,
+      me,
+      playbooks,
+      input.platform,
+      requestModeOf(settings),
+    ))
       items.push(
         item({
           kind: 'confirm',
           name: p.name,
           profileId: p.id,
           profileUrl: p.url,
-          why: ['Asked to be your friend', ...fit.reasons],
+          why: [
+            inNetworkWords('Asked to be your friend', input.platform),
+            ...(p.pressed === 'confirm'
+              ? [REQUEST_PRESSED_WHY.confirm]
+              : p.said === 'confirm' && p.said_why
+                ? [p.said_why]
+                : fit.reasons),
+          ],
           playbookName: fit.playbookName,
         }),
       );
@@ -408,10 +530,7 @@ export const today = defineAddonQuery(outreachAddon, {
           profileId: w.id,
           profileUrl: w.url,
           postUrl: w.post_url,
-          post:
-            w.comment!.length > TODAY_POST_MOST
-              ? `${w.comment!.slice(0, TODAY_POST_MOST - 1).trimEnd()}…`
-              : w.comment,
+          ...shownPost(w.comment!),
           why: [did(w)],
           playbookName: w.playbook_name,
         }),
@@ -431,6 +550,15 @@ export const today = defineAddonQuery(outreachAddon, {
         ),
     );
     const warmIds = new Set(toFriend.map((w) => w.id));
+    // Today's warm-ups that found nothing to like, or a like that wouldn't go, take the day's likes as a like does
+    // (decision 138): their requests are ready now, and likes that keep failing no longer add new ones ahead of them.
+    const [missed] = await rows<{ n: number }>(
+      ctx.tx,
+      sql`select count(*)::int as n from addon_outreach.profiles p
+          where p.workspace_id = ${ws} and p.platform = ${input.platform}
+            and p.warm_up_missed_at >= ${todayFrom}::timestamptz`,
+    );
+    const warmUpLeft = Math.max(0, leftToday(limits, 'warm_up') - (missed?.n ?? 0));
     let warmRequests = 0;
     let warmLikes = 0;
     if (!requestsOff)
@@ -458,7 +586,7 @@ export const today = defineAddonQuery(outreachAddon, {
               playbookName: w.playbook_name,
             }),
           );
-        } else if (!ready && liked === null && warmLikes < leftToday(limits, 'warm_up')) {
+        } else if (!ready && liked === null && warmLikes < warmUpLeft) {
           warmLikes++;
           items.push(
             item({
@@ -506,9 +634,7 @@ export const today = defineAddonQuery(outreachAddon, {
     let carriedWaiting = 0;
     const searchLeft = Math.max(0, leftToday(limits, 'friend_request') - warmRequests);
     const searchLikesLeft =
-      follows && settings.warmUp && !byTopic
-        ? Math.max(0, leftToday(limits, 'warm_up') - warmLikes)
-        : 0;
+      follows && settings.warmUp && !byTopic ? Math.max(0, warmUpLeft - warmLikes) : 0;
     if (playbooks.length && !requestsOff && (searchLeft || searchLikesLeft)) {
       const switched = byTopic ? await foundByTopicSince(ctx, me, input.platform) : null;
       const searched = await rows<{
@@ -550,10 +676,10 @@ export const today = defineAddonQuery(outreachAddon, {
               and not exists (select 1 from addon_outreach.touches t
                 where t.profile_id = p.id and t.kind = 'friend_request')
               ${
-                // Someone found whom the AI checked good is the found pick's, below.
+                // Someone found whom the AI checked good, or might fit, is the found pick's, below.
                 byTopic
                   ? sql`and not exists (select 1 from addon_outreach.checks ch where ch.profile_id = p.id
-                      and ch.user_id = ${me} and ch.via = 'found' and ch.verdict = 'good')`
+                      and ch.user_id = ${me} and ch.via = 'found' and ch.verdict in ('good', 'maybe'))`
                   : sql``
               }
             order by p.id, po.seen_at desc
@@ -642,11 +768,9 @@ export const today = defineAddonQuery(outreachAddon, {
       0,
       leftToday(limits, 'friend_request') - warmRequests - searchRequests,
     );
-    const foundLikesLeft = settings.warmUp
-      ? Math.max(0, leftToday(limits, 'warm_up') - warmLikes - searchLikes)
-      : 0;
+    const foundLikesLeft = settings.warmUp ? Math.max(0, warmUpLeft - warmLikes - searchLikes) : 0;
     if (byTopic && playbooks.length && !requestsOff && (foundLeft || foundLikesLeft)) {
-      const good = (await foundGood(ctx, me, input.platform, lets, now)).filter(
+      const good = (await foundGood(ctx, me, input.platform, lets, now, onlyMine)).filter(
         (p) => !warmIds.has(p.id) && !carried.has(p.id),
       );
       const likedBy = (p: FoundGood) =>
@@ -717,7 +841,7 @@ export const today = defineAddonQuery(outreachAddon, {
                     postId: p.post_id,
                     postUrl: p.post_url,
                     posted: p.posted,
-                    post: p.body === null ? null : shownPost(p.body),
+                    ...(p.body === null ? {} : shownPost(p.body)),
                     ...(comment ? { likeComment: true } : {}),
                   }
                 : {}),
@@ -746,7 +870,7 @@ export const today = defineAddonQuery(outreachAddon, {
       leftToday(limits, 'friend_request') - warmRequests - searchRequests - foundRequests,
     );
     const followerLikesLeft = settings.warmUp
-      ? Math.max(0, leftToday(limits, 'warm_up') - warmLikes - searchLikes - foundLikes)
+      ? Math.max(0, warmUpLeft - warmLikes - searchLikes - foundLikes)
       : 0;
     if (
       input.platform === 'facebook' &&
@@ -771,7 +895,8 @@ export const today = defineAddonQuery(outreachAddon, {
                     and t.at >= ${ago(WARM_UP_WINDOW_DAYS)}::timestamptz) as liked_at
               from addon_outreach.followers fo
               join addon_outreach.profiles p on p.id = fo.profile_id
-              join addon_outreach.checks ch on ch.profile_id = p.id and ch.user_id = ${me} and ch.verdict = 'good'
+              join addon_outreach.checks ch on ch.profile_id = p.id and ch.user_id = ${me}
+                and ch.verdict in ('good', 'maybe')
               left join addon_outreach.playbooks pb on pb.id = ch.playbook_id
               where fo.workspace_id = ${ws} and fo.user_id = ${me} and p.platform = 'facebook'
                 and fo.seen_at >= ${ago(FOLLOWERS_KEPT_DAYS)}::timestamptz
@@ -780,7 +905,7 @@ export const today = defineAddonQuery(outreachAddon, {
                   where fr.profile_id = p.id and fr.user_id = ${me})
                 and not exists (select 1 from addon_outreach.touches t
                   where t.profile_id = p.id and t.kind = 'friend_request')
-              order by ch.checked_at desc nulls last, p.id
+              order by (ch.verdict = 'good') desc, ch.checked_at desc nulls last, p.id
               limit ${CANDIDATES_MOST}`,
         )
       ).filter((p) => !warmIds.has(p.id));
@@ -859,7 +984,7 @@ export const today = defineAddonQuery(outreachAddon, {
     );
     const likesLeft = Math.max(
       0,
-      leftToday(limits, 'warm_up') - warmLikes - searchLikes - foundLikes - followerLikes,
+      warmUpLeft - warmLikes - searchLikes - foundLikes - followerLikes,
     );
     if (
       kit.foundChecksPerDay === null &&
@@ -906,6 +1031,12 @@ export const today = defineAddonQuery(outreachAddon, {
             left join addon_outreach.playbooks cpb on cpb.id = ch.playbook_id
             where gp.workspace_id = ${ws} and g.admins_read_at is not null and not gp.runs_group
               and ch.verdict is distinct from 'not'
+              and ${
+                onlyMine
+                  ? sql`exists (select 1 from addon_outreach.my_groups m
+                      where m.group_id = g.id and m.user_id = ${me} and m.joined)`
+                  : sql`true`
+              }
               and ${notOthers(me, 'g')}
               and p.person_id is null and ${pitchable('p')} and ${inPlay(me, 'p')} and ${lets}
               and p.friendship not in ('self', 'friends', 'request_sent', 'request_received')
@@ -1135,8 +1266,9 @@ export const today = defineAddonQuery(outreachAddon, {
         where d.profile_id = ${sql.raw(p)}.id and d.user_id = ${me} and d.undone_at is null)`;
 
     // After a demo booked through the person's link (decision 106): a short reminder the day before, on the business's
-    // calendar, unless the person wrote to them since the day before; and after a no-show lately, another time, until
-    // they book again or write, or the person writes to them or skips it. Anyone owed a reply gets the reply instead.
+    // calendar, unless the person wrote to them since that day began there (however long the clocks make it); and after
+    // a no-show lately, another time, until they book again or write, or the person writes to them or skips it. Anyone
+    // owed a reply gets the reply instead.
     // First of the follow-ups' limit: they're due on the day.
     if (followLeft > 0) {
       const zone = await workspaceTimezone(ctx.tx, ws);
@@ -1166,7 +1298,7 @@ export const today = defineAddonQuery(outreachAddon, {
                     = (${nowAt}::timestamptz at time zone ${zone})::date + 1
                   and not exists (select 1 from addon_outreach.touches t
                     where t.profile_id = p.id and t.user_id = ${me} and t.kind = 'message'
-                      and t.at > a.starts_at - interval '36 hours'))
+                      and t.at >= ((a.starts_at at time zone ${zone})::date - 1)::timestamp at time zone ${zone}))
                 or ((a.status = 'no_show' or aa.status = 'no_show')
                   and a.starts_at between ${ago(TODAY_WINDOW_DAYS.rebook)}::timestamptz and ${nowAt}::timestamptz
                   and not exists (select 1 from addon_outreach.touches t
@@ -1462,6 +1594,8 @@ export const today = defineAddonQuery(outreachAddon, {
     // Follow-ups and replies in chats that started another way (Reconnect, the download file, someone who wrote
     // first): likely prospects whose chat's last message was the person's, a few quiet days ago, until their first
     // follow-up starts a conversation; and those who wrote last, lately. A client (decision 91) gets the reply alone.
+    // Nobody the chat's read says turned the offer down gets a follow-up, and a chat read as come to a close gets no
+    // reply (decision 134).
     const chats = await rows<{
       id: string;
       name: string;
@@ -1483,9 +1617,11 @@ export const today = defineAddonQuery(outreachAddon, {
               and (not c.last_from_me or (${lets} and not ${isClient('p')}))))
             and ((c.last_from_me and c.last_at between ${ago(TODAY_WINDOW_DAYS.follow_up)}::timestamptz
                   and ${ago(pace.firstGap)}::timestamptz
+                  and c.pitch is distinct from 'not_interested'
                   and not exists (select 1 from addon_outreach.follow_ups f
                     where f.profile_id = c.profile_id and f.user_id = ${me}))
-              or (not c.last_from_me and c.last_at >= ${ago(TODAY_WINDOW_DAYS.reply)}::timestamptz))
+              or (not c.last_from_me and c.last_at >= ${ago(TODAY_WINDOW_DAYS.reply)}::timestamptz
+                  and not ${closedChat('c')}))
             and not exists (select 1 from addon_outreach.touches t
               where t.profile_id = c.profile_id and t.user_id = ${me} and t.kind = 'message'
                 and t.at > c.last_at)
@@ -1518,7 +1654,8 @@ export const today = defineAddonQuery(outreachAddon, {
     }
 
     // Replies the extension saw (decision 22), for anyone not listed from their chat already, until the person
-    // writes back.
+    // writes back: as the extension notes a message it sent, or as their chat, read since, shows the person's last or
+    // reads as come to a close (decision 134).
     const listed = new Set(items.map((i) => i.profileId).filter(Boolean));
     const seen = await rows<{
       profile_id: string;
@@ -1535,6 +1672,9 @@ export const today = defineAddonQuery(outreachAddon, {
             and not exists (select 1 from addon_outreach.touches t
               where t.profile_id = r.profile_id and t.user_id = ${me} and t.kind = 'message'
                 and t.at > r.seen_at)
+            and not exists (select 1 from addon_outreach.file_chats c
+              where c.profile_id = r.profile_id and c.user_id = ${me} and c.collected_at > r.seen_at
+                and (c.last_from_me or (c.read_state = 'read' and ${closedChat('c')})))
           order by r.profile_id, r.seen_at desc`,
     );
     seen.sort((a, b) => new Date(b.seen_at).getTime() - new Date(a.seen_at).getTime());
@@ -1555,13 +1695,13 @@ export const today = defineAddonQuery(outreachAddon, {
 
     // Reconnect (decision 46): friends and people they've chatted with whom the AI found a good fit, once neither
     // side has written for a month, and not on the list already. They share the first messages' limit with Say hi.
-    // Someone found by topic is one only once they're a friend or have chatted (decision 92, `knownCheck`).
+    // Someone found by topic is one only once they're a friend or have chatted (decision 92, `knownCheck`). Those who
+    // might fit come after the good fits, so they fill a day that's short (decision 126, answer 5a).
     const reconnectLeft = Math.max(
       0,
       leftToday(limits, 'reconnect') - items.filter((i) => i.kind === 'opener').length,
     );
     if (reconnectLeft) {
-      const quiet = ago(RECONNECT_QUIET_DAYS);
       const fits = await rows<{
         id: string;
         name: string;
@@ -1583,14 +1723,9 @@ export const today = defineAddonQuery(outreachAddon, {
               select c.id, c.thread_key, c.last_at from addon_outreach.file_chats c
               where c.profile_id = p.id and c.user_id = ${me} order by c.last_at desc limit 1
             ) c on true
-            where ch.workspace_id = ${ws} and ch.user_id = ${me} and ch.verdict = 'good' and ${knownCheck(me)}
-              and p.friendship <> 'self' and ${pitchable('p')} and ${inPlay(me, 'p')} and ${lets}
-              and (c.last_at is null or c.last_at < ${quiet}::timestamptz)
-              and not exists (select 1 from addon_outreach.touches t where t.profile_id = p.id
-                and t.user_id = ${me} and t.kind = 'message' and t.at >= ${quiet}::timestamptz)
-              and not exists (select 1 from addon_outreach.replies r where r.profile_id = p.id
-                and r.user_id = ${me} and r.seen_at >= ${quiet}::timestamptz)
-            order by ch.checked_at desc, p.id limit ${reconnectLeft + items.length}`,
+            where ch.workspace_id = ${ws} and ${reconnectReady(me, ago(RECONNECT_QUIET_DAYS), lets)}
+            order by (ch.verdict = 'good') desc, ch.checked_at desc, p.id
+            limit ${reconnectLeft + items.length}`,
       );
       const listedNow = new Set(items.map((i) => i.profileId).filter(Boolean));
       for (const p of fits.filter((f) => !listedNow.has(f.id)).slice(0, reconnectLeft))
@@ -1655,6 +1790,10 @@ export const today = defineAddonQuery(outreachAddon, {
             left join addon_outreach.playbooks pb on pb.id = po.playbook_id
             where po.workspace_id = ${ws} and po.user_id = ${me} and po.check_state = 'good'
               and po.skipped_at is null and po.seen_at >= ${ago(POST_FRESH_DAYS)}::timestamptz
+              ${
+                // One an older check called good waits for the check that knows the owner’s field (decision 143).
+                sql`and (po.checked_at is null or po.checked_at >= ${FIELD_CHECK_SINCE}::timestamptz)`
+              }
               and p.friendship <> 'self' and not ${myOwnProfile(me)}
               and ${pitchable('p')} and ${inPlay(me, 'p')} and ${notOthers(me, 'g')} and ${lets}
               and not exists (select 1 from addon_outreach.group_people x
@@ -1674,19 +1813,14 @@ export const today = defineAddonQuery(outreachAddon, {
             postId: po.id,
             postUrl: po.url,
             posted: po.posted,
-            post:
-              po.body.length > TODAY_POST_MOST
-                ? `${po.body.slice(0, TODAY_POST_MOST - 1).trimEnd()}…`
-                : po.body,
+            ...shownPost(po.body),
             asking: po.strong,
             why: [
               ...(po.check_why ? [po.check_why] : []),
-              // A post off a group, from LinkedIn's post search, is on the network itself.
+              // A post off a group, from Facebook's or LinkedIn's post search (decision 141), is on the network itself.
               ...(po.group_name
                 ? [`In ${po.group_name}`]
-                : input.platform === 'facebook'
-                  ? []
-                  : [`On ${NETWORKS[input.platform].name}`]),
+                : [`On ${NETWORKS[input.platform].name}`]),
             ],
             playbookName: po.playbook_name,
           }),
@@ -1736,7 +1870,7 @@ export const today = defineAddonQuery(outreachAddon, {
             postId: po.id,
             postUrl: po.url,
             posted: po.posted,
-            post: shownPost(po.body),
+            ...shownPost(po.body),
             why: [GROUP_REPLY_WORDS.asked(po.group_name)],
           }),
         );
@@ -1786,6 +1920,68 @@ export const today = defineAddonQuery(outreachAddon, {
         );
     }
 
+    // Steps the person tried again from Steps it needs you for (decision 145): first of their kind, within today's
+    // limits, with the rest of a limit's kinds after them as far as it goes. A request or a like before one waits
+    // while new requests are held; one to someone on Don't pitch, or a comment on a post gone, isn't offered.
+    const retried = await rows<{
+      id: string;
+      step: (typeof LIST_RETRY_STEPS)[number];
+      name: string;
+      why: string;
+      retry_at: Date | string;
+      profile_id: string;
+      profile_url: string;
+      post_id: string | null;
+      post_url: string | null;
+      posted: string | null;
+      body: string | null;
+    }>(
+      ctx.tx,
+      sql`select n.id, n.step, n.name, n.why, n.retry_at, p.id as profile_id, p.url as profile_url,
+            po.id as post_id, po.url as post_url, po.posted, po.body
+          from addon_outreach.needs n
+          join addon_outreach.profiles p on p.workspace_id = n.workspace_id and p.id = n.profile_id
+          left join addon_outreach.posts po on po.workspace_id = n.workspace_id and po.id = n.post_id
+          where n.workspace_id = ${ws} and n.user_id = ${me} and n.state = 'open' and n.send_id is null
+            and n.retry_at >= ${retrySince(now)}::timestamptz and p.platform = ${input.platform}
+            and n.step in (${sql.join(
+              LIST_RETRY_STEPS.filter(
+                (step) => !requestsOff || (step !== 'friend_request' && step !== 'warm_up'),
+              ).map((step) => sql`${step}`),
+              sql`, `,
+            )})
+            and (n.step <> 'comment' or po.id is not null)
+            and (n.step = 'confirm' or ${pitchable('p')})
+          order by n.retry_at, n.seen_at, n.id
+          limit ${TODAY_MOST}`,
+    );
+    items.splice(
+      0,
+      items.length,
+      ...withRetried(
+        items,
+        retried.map((n) =>
+          item({
+            kind: n.step,
+            name: n.name,
+            profileId: n.profile_id,
+            profileUrl: n.profile_url,
+            ...(n.step === 'comment' && n.post_id
+              ? {
+                  postId: n.post_id,
+                  postUrl: n.post_url,
+                  posted: n.posted,
+                  ...shownPost(n.body ?? ''),
+                }
+              : {}),
+            why: [RETRIED_WHY, needWhyWords(n.why)],
+            retry: { needId: n.id, at: new Date(n.retry_at).toISOString() },
+          }),
+        ),
+        limits,
+      ),
+    );
+
     const readAdmins = await rows<{ id: string; name: string | null; url: string }>(
       ctx.tx,
       sql`select g.id, g.name, g.url from addon_outreach.groups g
@@ -1796,28 +1992,37 @@ export const today = defineAddonQuery(outreachAddon, {
     );
     // The messages the extension drafted (../sends.ts): each with its item, and anyone skipped today off the list. A
     // comment drafted is its post's, and a writer with one open isn't offered a second till it's sent or skipped.
-    const drafted = await sendsToday(ctx, me, todayFrom);
+    const drafted = await sendsToday(ctx, me, todayFrom, new Date(now));
     const commentOpenElsewhere = (i: TodayItem) => {
       const on = i.kind === 'comment' ? drafted.commentOn(i.profileId) : undefined;
       return on !== undefined && on !== i.postId;
     };
     const sentOf = (i: TodayItem) =>
       drafted.open(i.profileId, i.kind, underAPost(i.kind) ? i.postId : null);
-    // Who's in Contacts already, and who the person marked as having booked a demo: the web's menu on each. And what
-    // the AI read in an answer of theirs not answered yet, for a reply's why.
+    // Who's in Contacts already, and who the person marked as having booked a demo: the web's menu on each. What the AI
+    // read in an answer of theirs not answered yet, for a reply's why, and whether they look more like a partner.
     const profileIds = [...new Set(items.map((i) => i.profileId).filter((id) => id !== null))];
     const known = profileIds.length
       ? await rows<{
           id: string;
           person_id: string | null;
+          platform_id: string | null;
           marked: boolean;
           answer: Answer | null;
+          partner_hint: string | null;
         }>(
           ctx.tx,
-          sql`select p.id, p.person_id, exists (select 1 from addon_outreach.demos d
+          sql`select p.id, p.person_id, p.platform_id, exists (select 1 from addon_outreach.demos d
                 where d.profile_id = p.id and d.user_id = ${me} and d.how = 'marked' and d.undone_at is null) as marked,
                 (select f.answer from addon_outreach.follow_ups f
-                  where f.profile_id = p.id and f.user_id = ${me} and f.answered_at >= f.last_at) as answer
+                  where f.profile_id = p.id and f.user_id = ${me} and f.answered_at >= f.last_at) as answer,
+                -- The check's word that they look more like a partner (decision 130), till they're on the person's
+                -- Partners list or said not to be one.
+                (select ch.partner_hint from addon_outreach.checks ch
+                  where ch.profile_id = p.id and ch.user_id = ${me} and ch.partner_hint is not null
+                    and not exists (select 1 from addon_outreach.partners pa
+                      where pa.profile_id = p.id and pa.user_id = ${me}
+                        and (pa.stage is not null or pa.fit = 'not'))) as partner_hint
               from addon_outreach.profiles p
               where p.workspace_id = ${ws} and p.id = any (${`{${profileIds.join(',')}}`}::uuid[])`,
         )
@@ -1849,7 +2054,10 @@ export const today = defineAddonQuery(outreachAddon, {
           // Each line in the network's own words: "Asked to be your connection" on LinkedIn.
           why: why.map((w) => inNetworkWords(w, input.platform)),
           personId: k?.person_id ?? null,
+          // Their number on Facebook, once a step learned it: the extension knows their chats by it.
+          ...(k?.platform_id ? { platformId: k.platform_id } : {}),
           demoBooked: k?.marked ?? false,
+          ...(k?.partner_hint ? { partnerHint: k.partner_hint } : {}),
           recent: isMessage(i) ? (recent.get(chatKey(i)) ?? []) : [],
           ...(send ? { send } : {}),
         };
@@ -1873,6 +2081,53 @@ export const today = defineAddonQuery(outreachAddon, {
         ...(send ? { send } : {}),
       };
     });
+    // The day's goal (decision 126): first messages sent and on the list against the limit, the good fits ready, and
+    // why it's short. Those waiting for an OK count as found (answer 8a).
+    const firsts = listedItems.filter((i) => TODAY_LIMIT[i.kind] === 'first_message');
+    const short = Math.max(
+      0,
+      limits.first_message.most - limits.first_message.done - firsts.length,
+    );
+    const requestsListed = listedItems.filter(
+      (i) => i.kind === 'friend_request' || i.kind === 'warm_up',
+    ).length;
+    const requestsRoom = requestsOff ? 0 : leftToday(limits, 'friend_request');
+    const [stock, facts] = await Promise.all([
+      goalStock(ctx, me, input.platform, now),
+      goalFacts(ctx, me, input.platform, todayStart, now),
+    ]);
+    // More checks and searches today (answer 6a): ready, and under two days of good fits ready.
+    const more =
+      ready &&
+      (fewAhead(stock.messages, limits.first_message.most) ||
+        (!requestsOff && fewAhead(stock.requests, limits.friend_request.most)));
+    const reads = await perDayFor(ctx, me, now, input.platform, more);
+    const why = goalWhy({
+      short,
+      ready,
+      facts,
+      checksRoom: reads.checks.room,
+      requestsHeld: requestsOff,
+      requests: { listed: requestsListed, left: requestsRoom },
+    });
+    const goal = {
+      most: limits.first_message.most,
+      done: limits.first_message.done,
+      listed: firsts.length,
+      waitingOk: firsts.filter((i) => i.send?.state === 'waiting').length,
+      short,
+      ahead: stock.messages,
+      requests: { listed: requestsListed, left: requestsRoom },
+      more,
+      why,
+      tries: goalTries(
+        why,
+        input.platform,
+        WORKING_PLATFORMS.some((p) => !everything.networks[p].on),
+        !onlyMine,
+      ),
+      facts,
+    };
     return {
       limits,
       items: ready ? listedItems : listedItems.filter((i) => i.kind === 'reply'),
@@ -1892,16 +2147,19 @@ export const today = defineAddonQuery(outreachAddon, {
       wheels,
       ready,
       week,
-      fresh,
+      fresh: settings.fullSpeed ? { ...fresh, on: false } : fresh,
+      fullSpeed: settings.fullSpeed,
+      newMessagesWait: newMessagesWait(everything.hours, await workspaceTimezone(ctx.tx, ws), now),
       requestsHeld,
       profileOwn,
+      goal,
+      retryAt: drafted.retryAt(input.platform),
     };
   },
 });
 
-/** A post as Today shows it: cut short at `TODAY_POST_MOST`. */
-const shownPost = (body: string): string =>
-  body.length > TODAY_POST_MOST ? `${body.slice(0, TODAY_POST_MOST - 1).trimEnd()}…` : body;
+/** A post as Today shows it: cut short at `TODAY_POST_MOST`, with the whole of it for More (decision 141). */
+const shownPost = (body: string) => postParts(body, TODAY_POST_MOST);
 
 /** Someone found by topic whose AI check was good (decision 92), as Today weighs them. */
 type FoundGood = {
@@ -1937,6 +2195,8 @@ async function foundGood(
   platform: Platform,
   lets: SQL,
   now: number,
+  /** Only the groups the person is in (decision 148): a member found in any other group isn't theirs to reach. */
+  onlyMine = false,
 ): Promise<FoundGood[]> {
   const ago = (days: number) => new Date(now - days * DAY).toISOString();
   return rows<FoundGood>(
@@ -1950,7 +2210,7 @@ async function foundGood(
         from addon_outreach.finds f
         join addon_outreach.profiles p on p.id = f.profile_id
         join addon_outreach.checks ch on ch.profile_id = p.id and ch.user_id = ${me}
-          and ch.via = 'found' and ch.verdict = 'good'
+          and ch.via = 'found' and ch.verdict in ('good', 'maybe')
         left join addon_outreach.playbooks pb on pb.id = ch.playbook_id
         left join addon_outreach.groups g on g.id = f.group_id
         -- The post they wrote: their like goes on it. Someone who commented on it gets their comment liked there
@@ -1963,13 +2223,19 @@ async function foundGood(
             where fr.profile_id = p.id and fr.user_id = ${me})
           and not exists (select 1 from addon_outreach.touches t
             where t.profile_id = p.id and t.kind = 'friend_request')
+          and ${
+            onlyMine
+              ? sql`(f.how <> 'member' or exists (select 1 from addon_outreach.my_groups m
+                  where m.group_id = g.id and m.user_id = ${me} and m.joined))`
+              : sql`true`
+          }
           and (f.how <> 'member' or g.admins_read_at is not null
             or exists (select 1 from addon_outreach.my_groups m
               left join addon_outreach.joins j on j.group_id = m.group_id and j.user_id = m.user_id
               where m.group_id = g.id and m.user_id = ${me} and m.joined
                 and greatest(m.created_at, coalesce(j.asked_at, m.created_at))
                   <= ${ago(LEADERS_WAIT_DAYS)}::timestamptz))
-        order by array_position(${`{${FIND_HOW_KEYS.join(',')}}`}::text[], f.how),
+        order by (ch.verdict = 'good') desc, array_position(${`{${FIND_HOW_KEYS.join(',')}}`}::text[], f.how),
           coalesce(po.strong, false) desc, ch.checked_at desc nulls last, p.id
         limit ${CANDIDATES_MOST}`,
   );

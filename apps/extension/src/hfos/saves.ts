@@ -40,7 +40,12 @@ import {
 } from '@hfos/core/addons/outreach/finds';
 import { FOLLOWERS_SAVE_MOST } from '@hfos/core/addons/outreach/followers';
 import { REPLY_TRIES } from '@hfos/core/addons/outreach/active';
-import { POST_TEXT_MOST, POST_WORDS_MOST, POSTS_SAVE_MOST } from '@hfos/core/addons/outreach/posts';
+import {
+  POST_TEXT_MOST,
+  POST_WORDS_MOST,
+  POSTS_SAVE_MOST,
+  postHoursAgo,
+} from '@hfos/core/addons/outreach/posts';
 import { LOOKUP_LINE_MOST } from '@hfos/core/addons/outreach/today';
 import type { Answered, Reached, Step, StepGroup } from '../networks/facebook/actions';
 import { asked, askedByYou, mutualFriendsIn, type FriendList } from '../networks/facebook/friends';
@@ -251,6 +256,7 @@ export function friendNote(
       answer: answered.answer,
       ...who,
       mutualFriends: mutual(answered.mutualFriends),
+      auto: answered.auto === true,
     },
   };
 }
@@ -476,7 +482,12 @@ export function isAdminsPage(href: string): boolean {
  * admins page runs it, and so does anyone the page labels Admin or Moderator: they're kept so, and never suggested.
  * Only the last part says the admins page was read, so a save that stops halfway doesn't count it.
  */
-export function groupSave(result: ReadResult, workspaceId: string): Built<GroupSaveInput[]> {
+export function groupSave(
+  result: ReadResult,
+  workspaceId: string,
+  /** How many screens down its member list this read got (decision 148); null leaves the depth as it was. */
+  readTo: number | null = null,
+): Built<GroupSaveInput[]> {
   const page = result.group;
   const group = page?.group ? groupRef({ ...page.group, name: page.name }) : null;
   if (!page || !group) return { ok: false, why: NOT_WHICH_GROUP };
@@ -505,11 +516,13 @@ export function groupSave(result: ReadResult, workspaceId: string): Built<GroupS
     members: page.members,
     joined: page.joined,
   };
-  if (!people.length) return { ok: true, input: [{ ...facts, people: [], adminsPage: false }] };
+  if (!people.length)
+    return { ok: true, input: [{ ...facts, people: [], adminsPage: false, readTo }] };
   const parts: GroupSaveInput[] = [];
   for (let at = 0; at < people.length; at += GROUP_PEOPLE_MOST)
     parts.push({ ...facts, people: people.slice(at, at + GROUP_PEOPLE_MOST), adminsPage: false });
-  parts[parts.length - 1] = { ...parts[parts.length - 1]!, adminsPage };
+  // How deep the read got goes with the last part, as the admins page does: once, when it's all saved.
+  parts[parts.length - 1] = { ...parts[parts.length - 1]!, adminsPage, readTo };
   return { ok: true, input: parts };
 }
 
@@ -559,6 +572,64 @@ export function postsSave(
       group,
       posts: posts.slice(0, POSTS_SAVE_MOST),
       found,
+    },
+  };
+}
+
+/** The oldest post Facebook's post search shows that's kept: past a week, it's late to comment on. */
+const SEARCH_POST_HOURS_MOST = 7 * 24;
+
+/** Whether Facebook printed a post's time as past a week ago ("3w"), or as a date with its year. */
+function pastAWeek(when: string | null): boolean {
+  if (!when) return false;
+  const hours = postHoursAgo(when);
+  return hours === null ? /\b(?:19|20)\d\d\b/.test(when) : hours > SEARCH_POST_HOURS_MOST;
+}
+
+/**
+ * The posts Facebook's post search shows for one of the playbooks' phrases (decision 141, from 0.121.0), to keep the
+ * ones worth a comment, in no group: each with who wrote it, its own link and what it says, and the phrase it searched
+ * with (`words`), so a post found with a playbook's own is worth the AI's check whatever its words say. One without
+ * its author's profile, its link or any words is left out, and so is one from past a week ago.
+ */
+export function facebookSearchPostsSave(
+  result: ReadResult,
+  workspaceId: string,
+  words: string,
+): Built<PostsSaveInput> {
+  if (result.kind !== 'search')
+    return { ok: false, why: 'Open Facebook’s post search to find posts with it.' };
+  const seen = new Set<string>();
+  const posts = (result.posts ?? []).flatMap((post) => {
+    const url = networkAddress(post.url);
+    const who = post.author?.profile
+      ? whom({ name: post.author.name, profile: post.author.profile })
+      : null;
+    const text = clipText(post.text, POST_TEXT_MOST);
+    if (!url || !who || !text || seen.has(url) || pastAWeek(post.when)) return [];
+    seen.add(url);
+    return [
+      {
+        url,
+        author: who.profile,
+        name: who.name,
+        when: post.when ? clip(post.when, WHEN_MOST) : null,
+        text,
+        comments: post.comments,
+        reactions: post.reactions,
+      },
+    ];
+  });
+  if (!posts.length) return { ok: false, why: 'There are no posts on the page to look at yet.' };
+  return {
+    ok: true,
+    input: {
+      workspaceId,
+      platform: JOBS,
+      group: null,
+      posts: posts.slice(0, POSTS_SAVE_MOST),
+      found: 'search',
+      words: foundWith(words),
     },
   };
 }
@@ -906,6 +977,8 @@ export function alignableGroupSave(
   people: readonly AlignableMember[],
   workspaceId: string,
   leadersRead = false,
+  /** How many screens down its member list this read got (decision 148); null leaves the depth as it was. */
+  readTo: number | null = null,
 ): Built<GroupSaveInput[]> {
   const ref = groupRef(group, ALIGNABLE);
   if (!ref) return { ok: false, why: NOT_WHICH_GROUP };
@@ -937,11 +1010,12 @@ export function alignableGroupSave(
     members: group.members !== null && group.members <= 100_000_000 ? group.members : null,
     joined: group.joined,
   };
-  if (!kept.length) return { ok: true, input: [{ ...facts, people: [], adminsPage: leadersRead }] };
+  if (!kept.length)
+    return { ok: true, input: [{ ...facts, people: [], adminsPage: leadersRead, readTo }] };
   const parts: GroupSaveInput[] = [];
   for (let at = 0; at < kept.length; at += GROUP_PEOPLE_MOST)
     parts.push({ ...facts, people: kept.slice(at, at + GROUP_PEOPLE_MOST), adminsPage: false });
-  parts[parts.length - 1] = { ...parts[parts.length - 1]!, adminsPage: leadersRead };
+  parts[parts.length - 1] = { ...parts[parts.length - 1]!, adminsPage: leadersRead, readTo };
   return { ok: true, input: parts };
 }
 

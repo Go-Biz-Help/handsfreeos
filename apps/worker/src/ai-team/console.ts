@@ -69,7 +69,7 @@ import {
 import { asWorker, rows, sql, type Db, type Tx } from '@hfos/db/client';
 import type { Logger } from 'pino';
 import { ZodError } from 'zod';
-import { campaignFacts, quoteFacts, spokenWhen } from '../ai-calls';
+import { campaignFacts, playbookFacts, quoteFacts, spokenWhen } from '../ai-calls';
 import { aiBudget, recordAndChargeAi } from '../ai/budget';
 import type { WalletDeps } from '../money/wallet';
 import { runToolLoop, toolErrorContent, type ToolLoopAnswer } from '../ai/tool-loop';
@@ -426,6 +426,16 @@ async function outboundFor(
     }
     case 'missed_call':
       return { ...base, goal: 'back, since we missed your call earlier.', brief: null };
+    case 'workflow': {
+      // A workflow step's call: what it's about is the step's opening; the test has no playbook of its own.
+      const goal =
+        o.goal?.trim().replace(/^I[’']?m calling\s+/i, '') || 'about the request you sent us';
+      return {
+        ...base,
+        goal: /[.!?]$/.test(goal) ? goal : `${goal}.`,
+        brief: playbookFacts({ findOut: '', offer: '', book: 'when_ready' }),
+      };
+    }
   }
 }
 

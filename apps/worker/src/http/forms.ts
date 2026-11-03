@@ -26,9 +26,12 @@ import {
   type RequestMeta,
 } from '@hfos/core/server';
 import { asWorker, rows, sql } from '@hfos/db/client';
+import { workspaces } from '@hfos/db/schema';
+import { eq } from 'drizzle-orm';
 import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
 import { passThroughBotCheck, type BotCheck } from '../booking/bot-check';
+import { publicLookOf } from '../look/public';
 import { callBoxFor, offersBoxFor, type HttpDeps } from './common';
 
 const SLUG_RE = /^[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?$/i;
@@ -41,7 +44,7 @@ interface FormRouteRow extends Record<string, unknown> {
   readonly form_id: string;
   readonly form_slug: string;
   readonly form_name: string;
-  readonly mode: 'form' | 'survey' | 'quiz';
+  readonly mode: 'form' | 'survey' | 'quiz' | 'poll';
   readonly status: 'draft' | 'live' | 'closed' | 'archived';
   readonly version_id: string | null;
   readonly definition: unknown;
@@ -203,6 +206,8 @@ export async function registerFormRoutes(app: FastifyInstance, deps: HttpDeps): 
       { config: { rateLimit: limits.read } },
       async (req) => {
         const row = await findForm(req.params.site, req.params.slug);
+        // A live poll has no page: its questions pop up in a video call.
+        if (row.mode === 'poll') throw pageNotFound();
         const scope = { workspaceId: row.workspace_id, organizationId: row.organization_id };
         const definition = parseStoredForm(row.definition);
         // Somebody looked: the day's tally, with nothing in it that says who.
@@ -222,8 +227,19 @@ export async function registerFormRoutes(app: FastifyInstance, deps: HttpDeps): 
         const name = row.site_name ?? row.form_name;
         const offers = await worker(scope, (tx) => offersBoxFor(tx, row.workspace_id, name));
         const calls = await worker(scope, (tx) => callBoxFor(tx, row.workspace_id, name));
+        // The business's logo and colour, which the form follows until its design says otherwise.
+        const [ws] = await worker(scope, (tx) =>
+          tx
+            .select({ settings: workspaces.settings })
+            .from(workspaces)
+            .where(eq(workspaces.id, row.workspace_id)),
+        );
         return {
-          business: { name, timeZone: row.timezone },
+          business: {
+            name,
+            timeZone: row.timezone,
+            look: publicLookOf(ws?.settings, deps.storageUrl),
+          },
           // The separate box for offers, under the first, for a business that sends them.
           offersConsent: offers,
           // The "OK to call" box under those, for a business that asks for one.

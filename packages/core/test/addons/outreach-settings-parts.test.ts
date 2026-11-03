@@ -1,7 +1,8 @@
 /**
- * Social Outreach's Settings, a page for each part (./src/addons/outreach/settings-parts.ts): General first, then each
- * network, then Your computer and Start fresh; an address naming an old part or none opens General. A network's page
- * shows the person's limits there as they stand, from the business's own and the network's kit.
+ * Social Outreach's Settings, a page for each part (./src/addons/outreach/settings-parts.ts): You first (its key is
+ * `general`), then each network, then Your computer, Team and Start fresh (decision 129); an address naming an old part
+ * or none opens You. A network's page shows the person's limits there as they stand, from the business's own and the
+ * network's kit.
  */
 import { describe, expect, it } from 'vitest';
 import { hoursProblem, NO_RULES } from '../../src/addons/outreach/automation';
@@ -20,14 +21,15 @@ const shown = (...args: Parameters<typeof limitsShownOn>) =>
   limitsShownOn(...args).map((l) => [l.label, l.most, l.note]);
 
 describe('Settings, a page for each part', () => {
-  it('lists General, then every network, then Your computer and Start fresh', () => {
-    expect(SETTINGS_PART_KEYS).toEqual(['general', ...PLATFORM_KEYS, 'computer', 'fresh']);
+  it('lists You, then every network, then Your computer, Team and Start fresh', () => {
+    expect(SETTINGS_PART_KEYS).toEqual(['general', ...PLATFORM_KEYS, 'computer', 'team', 'fresh']);
     expect(SETTINGS_PART_KEYS.filter(isNetworkPart)).toEqual(PLATFORM_KEYS);
   });
 
-  it('opens the part an address names, and General for an old part or none', () => {
+  it('opens the part an address names, and You for an old part or none', () => {
     expect(settingsPartOf('linkedin')).toBe('linkedin');
     expect(settingsPartOf('computer')).toBe('computer');
+    expect(settingsPartOf('team')).toBe('team');
     for (const old of ['mine', 'business', null, undefined, '', 'nope']) {
       expect(settingsPartOf(old)).toBe('general');
     }

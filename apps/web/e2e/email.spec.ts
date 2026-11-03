@@ -209,11 +209,11 @@ test('email: a bounce blocks the address, and mail from a stranger waits in Othe
   await page.goto(`/app/w/${workspaceId}/inbox?box=other`);
   await list.getByText(karen).click();
   await page.getByTestId('banner-add-person').click();
-  // In the dialog: the inbox beside it labels its email rows too.
+  // In the dialog: the inbox beside it labels its email rows too, and her name comes from her From line.
   const dialog = page.getByRole('dialog');
   await expect(dialog.getByLabel('Email', { exact: true })).toHaveValue(karen);
-  await dialog.getByLabel('First name').fill('Karen');
-  await dialog.getByLabel('Last name').fill('Liu');
+  await expect(dialog.getByLabel('First name')).toHaveValue('Karen');
+  await expect(dialog.getByLabel('Last name')).toHaveValue('Liu');
   await dialog.getByTestId('person-save').click();
   await expect(page.getByTestId('thread-name')).toHaveText('Karen Liu');
   await page.goto(`/app/w/${workspaceId}/inbox?box=all`);

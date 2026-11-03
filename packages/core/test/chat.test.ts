@@ -308,6 +308,174 @@ describe('chat widgets (owners and admins)', () => {
     });
   });
 
+  it('keeps a name, the button’s place on computers and phones, its colours, logo and what happens while nobody answers', async () => {
+    const { widgetId: w } = await run(
+      chatWidgetCreate,
+      { workspaceId: wsId, allowedOrigins: ['place-heating.com'], name: 'Main website' },
+      owner,
+    );
+    const ref = { workspaceId: wsId, widgetId: w };
+    // A new chat looks and behaves as every chat did: one corner for both, its usual spot, the label, the logo,
+    // and the away form while nobody is answering.
+    const { widget: fresh } = await ask(chatWidgetGet, ref, member);
+    expect(fresh).toMatchObject({
+      name: 'Main website',
+      ownName: 'Main website',
+      ownTextColor: null,
+      headerColor: null,
+      showLogo: true,
+      whenAway: 'away_form',
+      placement: {
+        desktop: { position: 'right', lift: 0, button: 'label' },
+        mobile: { position: 'right', ownPosition: false, lift: 0, button: 'label' },
+      },
+    });
+
+    const change = {
+      ...ref,
+      textColor: '#FFEE00',
+      headerColor: '#191D25',
+      showLogo: false,
+      position: 'left',
+      mobilePosition: 'right',
+      desktopLift: 20,
+      mobileLift: 90,
+      desktopButton: 'icon',
+      mobileButton: 'hidden',
+      whenAway: 'chat',
+    };
+    expect((await run(chatWidgetUpdate, change, manager)).updated).toEqual([
+      'position',
+      'mobilePosition',
+      'desktopLift',
+      'mobileLift',
+      'desktopButton',
+      'mobileButton',
+      'textColor',
+      'headerColor',
+      'showLogo',
+      'whenAway',
+    ]);
+    expect((await run(chatWidgetUpdate, change, manager)).updated).toEqual([]);
+    const { widget } = await ask(chatWidgetGet, ref, member);
+    expect(widget).toMatchObject({
+      textColor: '#ffee00',
+      ownTextColor: '#ffee00',
+      headerColor: '#191d25',
+      showLogo: false,
+      position: 'left',
+      whenAway: 'chat',
+      placement: {
+        desktop: { position: 'left', lift: 20, button: 'icon' },
+        mobile: { position: 'right', ownPosition: true, lift: 90, button: 'hidden' },
+      },
+    });
+
+    // Back to automatic text, the phone following the computer's corner, and the first site for a name.
+    await run(
+      chatWidgetUpdate,
+      { ...ref, textColor: null, mobilePosition: null, name: '' },
+      manager,
+    );
+    const { widget: back } = await ask(chatWidgetGet, ref, member);
+    expect(back).toMatchObject({
+      name: 'place-heating.com',
+      ownName: null,
+      ownTextColor: null,
+      textColor: '#ffffff',
+      placement: { mobile: { position: 'left', ownPosition: false } },
+    });
+
+    const tooHigh = await expectHfos(
+      () => run(chatWidgetUpdate, { ...ref, mobileLift: 301 }, manager),
+      'validation',
+    );
+    expect(tooHigh.details).toEqual([
+      { path: 'mobileLift', message: expect.stringMatching(/up to 300/) },
+    ]);
+    // An icon-only button is for computers and phones; hiding it is for phones only.
+    await expectHfos(
+      () => run(chatWidgetUpdate, { ...ref, desktopButton: 'hidden' }, manager),
+      'validation',
+    );
+  });
+
+  it('names the business’s pages when it offers the texts box, so the box links to the policy and terms', async () => {
+    const siteOf = async (workspaceId: string) =>
+      (
+        await rows<{ slug: string; enabled: boolean }>(
+          admin(),
+          sql`select slug::text as slug, enabled from app.booking_sites where workspace_id = ${workspaceId}`,
+        )
+      )[0];
+    // Made with the box (the texting registration's chat): named at once, switched off.
+    const made = await run(organizationCreate, { businessName: 'Texts Box Plumbing' }, owner);
+    await run(
+      chatWidgetCreate,
+      {
+        workspaceId: made.workspaceId,
+        allowedOrigins: ['texts-box.com'],
+        smsConsent: true,
+        askFor: { name: 'after_first_message', phone: 'after_first_message', email: 'never' },
+      },
+      owner,
+    );
+    expect(await siteOf(made.workspaceId)).toEqual({
+      slug: expect.stringMatching(/^texts-box-plumbing/),
+      enabled: false,
+    });
+
+    // A widget offers the box unless it's told not to, so one made without saying is named too.
+    const plain = await run(organizationCreate, { businessName: 'Box Default Heating' }, owner);
+    const { widgetId: p } = await run(
+      chatWidgetCreate,
+      { workspaceId: plain.workspaceId, allowedOrigins: ['box-default.com'] },
+      owner,
+    );
+    expect(await siteOf(plain.workspaceId)).toMatchObject({ enabled: false });
+    // One made before widgets named their pages gets them the next time it's saved.
+    await rows(
+      admin(),
+      sql`delete from app.booking_sites where workspace_id = ${plain.workspaceId} returning id`,
+    );
+    await run(
+      chatWidgetUpdate,
+      { workspaceId: plain.workspaceId, widgetId: p, greeting: 'Hi! How can we help?' },
+      owner,
+    );
+    expect(await siteOf(plain.workspaceId)).toMatchObject({ enabled: false });
+
+    // Without it, nothing is named until the box is turned on.
+    const later = await run(organizationCreate, { businessName: 'Box Later Roofing' }, owner);
+    const { widgetId: w } = await run(
+      chatWidgetCreate,
+      { workspaceId: later.workspaceId, allowedOrigins: ['box-later.com'], smsConsent: false },
+      owner,
+    );
+    expect(await siteOf(later.workspaceId)).toBeUndefined();
+    await run(
+      chatWidgetUpdate,
+      {
+        workspaceId: later.workspaceId,
+        widgetId: w,
+        smsConsent: true,
+        askFor: { phone: 'after_first_message' },
+      },
+      owner,
+    );
+    expect(await siteOf(later.workspaceId)).toMatchObject({ enabled: false });
+    const { widget } = await ask(
+      chatWidgetGet,
+      { workspaceId: later.workspaceId, widgetId: w },
+      owner,
+    );
+    expect(widget.askFor).toEqual({
+      name: 'when_needed',
+      phone: 'after_first_message',
+      email: 'when_needed',
+    });
+  });
+
   it('lists widgets with the install check and the public key, and nothing secret', async () => {
     const seen = (origin: string) =>
       sys(chatWidgetRecordSeen, { workspaceId: wsId, widgetId, origin });
@@ -338,10 +506,16 @@ describe('chat widgets (owners and admins)', () => {
         'teammate',
         'greeting',
         'launcherLabel',
+        'ownName',
         'accentColor',
         'textColor',
+        'ownTextColor',
+        'headerColor',
+        'showLogo',
         'position',
+        'placement',
         'awayMessage',
+        'whenAway',
         'askFor',
         'smsConsent',
         'dailyCap',

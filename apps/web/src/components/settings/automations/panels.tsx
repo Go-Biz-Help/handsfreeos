@@ -9,6 +9,7 @@
 import {
   AUTO_CANCEL_WINDOW_MINUTES,
   AUTO_RECENT_PERSON_HOURS,
+  CALL_TRIES_MAX,
   callConsentWords,
   checkNudgeTemplate,
   CONTACT_AI_GUIDE_MAX,
@@ -26,8 +27,11 @@ import {
   followUpLadderWords,
   followUpStepMinutes,
   followUpStepWords,
+  formatClock,
   guessStageRole,
   intakeMessageProblem,
+  LINE_CHECK_DAYS,
+  lineCheckPriceWords,
   maintenanceTemplateProblem,
   NUDGE_SAMPLE,
   QUIET_FOLLOW_UP_MINUTES,
@@ -45,6 +49,7 @@ import {
   type CallVoicemailChoice,
   type FollowUpStep,
   type FollowUpUnit,
+  type LineCheckCents,
   type NudgeCheckContext,
   type NudgePlaceholder,
   type NudgeProblemCode,
@@ -109,6 +114,8 @@ export interface PanelEnv {
   readonly teammateName: string | null;
   /** The business's forms (not archived), for "Intake questions". */
   readonly forms: readonly IntakeFormOption[];
+  /** What checking a number costs ("Business landlines"), or null to someone who can't see prices. */
+  readonly lineCheckCents: LineCheckCents | null;
 }
 
 /** A form "Intake questions" may send. Only a live one goes out. */
@@ -1855,6 +1862,14 @@ function ReengagePanel({ env }: { env: PanelEnv }) {
   );
 }
 
+/** The calling hours a business can pick, on the hour: inside the legal 8 AM to 9 PM. */
+const CALL_CLOCKS = Array.from({ length: 14 }, (_, i) => `${String(8 + i).padStart(2, '0')}:00`);
+const TRY_CHOICES: readonly { value: number; label: string }[] = [
+  { value: 1, label: 'Once' },
+  { value: 2, label: 'Twice, a day apart' },
+  { value: 3, label: '3 times over 3 days' },
+];
+
 const VOICEMAIL_CHOICES: readonly { value: CallVoicemailChoice; label: string }[] = [
   { value: 'text', label: 'Hang up and send a text instead' },
   { value: 'message', label: 'Leave a short message' },
@@ -1866,7 +1881,12 @@ function AiCallsPanel({ env }: { env: PanelEnv }) {
   const ai = env.teammateName ?? 'Your AI teammate';
   const choice = env.automations.calls.voicemail;
   const askConsent = env.automations.calls.askConsent;
+  const hours = env.automations.calls.hours;
+  const tries = env.automations.calls.tries;
+  const landlines = env.automations.calls.businessLandlines;
   const callWords = callConsentWords(env.businessName);
+  const saveHours = (next: typeof hours, done: string) =>
+    void env.saveAutomations((s) => ({ ...s, calls: { ...s.calls, hours: next } }), done);
   return (
     <>
       <Block>
@@ -1908,6 +1928,98 @@ function AiCallsPanel({ env }: { env: PanelEnv }) {
           </Select>
         </SetRow>
       </Block>
+      <Block title="Calling hours for leads" setting="adjust.calling_hours">
+        <p className="mb-2 text-[12.5px] text-text-3" data-testid="ai-calls-hours-note">
+          Campaign and workflow calls go only in these hours, in each lead’s own time, and never
+          outside the legal hours where they are: 8 AM to 9 PM, or stricter where a state is (8 PM
+          in Florida, Oklahoma and Maryland, 9 AM and noon on Sundays in Texas, no Sundays or
+          holidays in Alabama, Louisiana, Mississippi, Rhode Island and Utah). They stay in your
+          open hours and out of quiet hours too.
+        </p>
+        <SetRow first title="Start" description="The earliest a call goes.">
+          <Select
+            selectSize="sm"
+            aria-label="Calls start"
+            value={hours.start}
+            data-testid="ai-calls-hours-start"
+            onChange={(e) => {
+              const start = e.target.value;
+              // An end less than an hour on moves with it.
+              const hourOn = CALL_CLOCKS[CALL_CLOCKS.indexOf(start) + 1]!;
+              const end = hours.end >= hourOn ? hours.end : hourOn;
+              saveHours({ ...hours, start, end }, `Calls to leads start at ${formatClock(start)}.`);
+            }}
+          >
+            {CALL_CLOCKS.slice(0, -1).map((c) => (
+              <option key={c} value={c}>
+                {formatClock(c)}
+              </option>
+            ))}
+          </Select>
+        </SetRow>
+        <SetRow title="End" description="The last call starts 15 minutes before.">
+          <Select
+            selectSize="sm"
+            aria-label="Calls end"
+            value={hours.end}
+            data-testid="ai-calls-hours-end"
+            onChange={(e) =>
+              saveHours(
+                { ...hours, end: e.target.value },
+                `Calls to leads end at ${formatClock(e.target.value)}.`,
+              )
+            }
+          >
+            {CALL_CLOCKS.filter((c) => c > hours.start).map((c) => (
+              <option key={c} value={c}>
+                {formatClock(c)}
+              </option>
+            ))}
+          </Select>
+        </SetRow>
+        <SetRow title="Weekends" description="Saturdays and Sundays, where the law allows them.">
+          <Switch
+            checked={hours.weekends}
+            label="Call at weekends"
+            onChange={(on) =>
+              saveHours(
+                { ...hours, weekends: on },
+                on ? 'Calls to leads go at weekends too.' : 'Calls to leads go on weekdays only.',
+              )
+            }
+            testId="ai-calls-hours-weekends"
+          />
+        </SetRow>
+      </Block>
+      <Block title="When a lead doesn’t answer" setting="adjust.call_tries">
+        <SetRow
+          first
+          title="Tries"
+          description="For campaign and workflow calls, when nobody answers, the line’s busy or a voicemail box picks up. What it does for a voicemail box comes after the last try."
+        >
+          <Select
+            selectSize="sm"
+            aria-label="Tries when a lead doesn’t answer"
+            value={String(tries)}
+            data-testid="ai-calls-tries"
+            onChange={(e) => {
+              const next = Math.min(CALL_TRIES_MAX, Math.max(1, Number(e.target.value)));
+              void env.saveAutomations(
+                (s) => ({ ...s, calls: { ...s.calls, tries: next } }),
+                next === 1
+                  ? 'It calls each lead once.'
+                  : `It tries each lead up to ${next} times, a day apart.`,
+              );
+            }}
+          >
+            {TRY_CHOICES.map((c) => (
+              <option key={c.value} value={String(c.value)}>
+                {c.label}
+              </option>
+            ))}
+          </Select>
+        </SetRow>
+      </Block>
       <Block title="Ask for an OK to call" setting="adjust.ok_to_call">
         <SetRow
           first
@@ -1938,6 +2050,37 @@ function AiCallsPanel({ env }: { env: PanelEnv }) {
         <p className="mt-1.5 text-[12.5px] text-text-3">
           Each yes shows on the customer’s Details with where they said it, like “Form: Get a
           quote”. It never undoes a “Doesn’t want calls”.
+        </p>
+      </Block>
+      <Block title="Business landlines" setting="adjust.business_landlines">
+        <SetRow
+          first
+          title="Call business landlines without a yes"
+          description={`For campaign and workflow calls to someone who hasn’t agreed in writing. Just before the call, the phone company is asked what the number is, and the answer is kept for ${LINE_CHECK_DAYS} days. It’s called only when it’s a landline and a business’s: registered to one, or a company’s number here. Mobiles, home lines and internet numbers still need the yes, even when used for work.`}
+        >
+          <Switch
+            checked={landlines}
+            label="Call business landlines without a yes"
+            onChange={(on) =>
+              void env.saveAutomations(
+                (s) => ({ ...s, calls: { ...s.calls, businessLandlines: on } }),
+                on
+                  ? 'Calls can now go to business landlines without a yes.'
+                  : 'Calls go only to people who agreed in writing.',
+              )
+            }
+            testId="ai-calls-business-landlines"
+          />
+        </SetRow>
+        <p className="mt-1.5 text-[12.5px] text-text-2" data-testid="ai-calls-landline-price">
+          {env.lineCheckCents
+            ? `Each check is charged to your balance: ${lineCheckPriceWords(env.lineCheckCents)}. A new campaign shows the most its checks could cost before it starts.`
+            : 'Each check is charged to your balance. Settings → Usage shows the price.'}
+        </p>
+        <p className="mt-1.5 text-[12.5px] text-text-3">
+          The AI still says who it is, that it’s an AI and that the call is recorded, and “don’t
+          call me again” is kept. Some states don’t make an exception for business numbers, so ask
+          your lawyer before turning this on.
         </p>
       </Block>
     </>

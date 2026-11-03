@@ -10,7 +10,9 @@
  * `campaign.update_email`. It needs the business's postal address, which every email shows (CAN-SPAM).
  *
  * A call campaign is one opening line: the worker drafts it once, a person changes it with `campaign.update_call`,
- * and once approved the AI teammate rings each person (only those who agreed to calls in writing).
+ * and once approved the AI teammate rings each person (only those who agreed to calls in writing). It can keep
+ * adding people (`keepAdding`, `campaign.set_keep_adding`): anyone who later fits and agrees to calls joins, and
+ * it doesn't finish on its own while it does.
  */
 import { and, eq, inArray, ne, sql as dsql } from 'drizzle-orm';
 import { rows, sql, type Tx } from '@hfos/db/client';
@@ -26,6 +28,7 @@ import {
   CampaignRecipientOutput,
   CampaignRecipientRef,
   CampaignRef,
+  CampaignSetKeepAddingInput,
   CampaignSetPaceInput,
   CampaignStateOutput,
   CampaignUpdateCallInput,
@@ -126,6 +129,11 @@ export const campaignCreate = defineCommand({
         throw HfosError.validation([{ path: 'audience.stageIds', message }], message);
       }
     }
+    if (input.keepAdding && input.channel !== 'call') {
+      const message =
+        'Only a call campaign keeps adding people. Send it as calls, or leave that off.';
+      throw HfosError.validation([{ path: 'keepAdding', message }], message);
+    }
     const email = input.channel === 'email';
     // Exact words the caller already has: the one text, or the email's subject and body.
     const words = input.words;
@@ -155,7 +163,8 @@ export const campaignCreate = defineCommand({
       );
     const people = await campaignAudience(ctx.tx, ws, input.audience, new Date(), input.channel);
     const recipients = people.filter((p) => p.skipReason === null).length;
-    if (recipients === 0)
+    // One that keeps adding people may start with nobody: they join as they fit and agree.
+    if (recipients === 0 && !input.keepAdding)
       throw HfosError.conflict(
         !people.length
           ? 'Nobody has those tags or is in those stages. Pick other tags or stages.'
@@ -178,6 +187,7 @@ export const campaignCreate = defineCommand({
         perHour: input.perHour,
         offerId: input.offerId,
         channel: input.channel,
+        keepAdding: input.keepAdding,
         createdBy: me,
         // An email's own words stand, and nothing is asked of the AI for them.
         ...(email && words ? { emailSubject: words.subject, emailBody: words.body } : {}),
@@ -185,31 +195,38 @@ export const campaignCreate = defineCommand({
       .returning({ id: campaigns.id });
     if (!c) throw HfosError.forbidden();
     const text = !email && words?.text ? words.text : null;
-    await rows(
-      ctx.tx,
-      // A text's own words are everyone's draft at once, ready for review: the AI writes nothing.
-      sql`insert into app.campaign_recipients (workspace_id, campaign_id, person_id, status, skip_reason, draft)
-          select ${ws}, ${c.id}, x.person_id,
-            case when x.reason is not null then 'skipped'
-                 when ${text}::text is not null then 'ready'
-                 else 'drafting' end,
-            x.reason,
-            case when x.reason is null then ${text}::text end
-          from unnest(array[${sql.join(
-            people.map((p) => sql`${p.personId}`),
-            sql`, `,
-          )}]::uuid[], array[${sql.join(
-            people.map((p) => sql`${p.skipReason}`),
-            sql`, `,
-          )}]::text[]) as x(person_id, reason)`,
-    );
+    if (people.length)
+      await rows(
+        ctx.tx,
+        // A text's own words are everyone's draft at once, ready for review: the AI writes nothing.
+        sql`insert into app.campaign_recipients (workspace_id, campaign_id, person_id, status, skip_reason, draft)
+            select ${ws}, ${c.id}, x.person_id,
+              case when x.reason is not null then 'skipped'
+                   when ${text}::text is not null then 'ready'
+                   else 'drafting' end,
+              x.reason,
+              case when x.reason is null then ${text}::text end
+            from unnest(array[${sql.join(
+              people.map((p) => sql`${p.personId}`),
+              sql`, `,
+            )}]::uuid[], array[${sql.join(
+              people.map((p) => sql`${p.skipReason}`),
+              sql`, `,
+            )}]::text[]) as x(person_id, reason)`,
+      );
     const skipped = people.length - recipients;
     await ctx.emit({
       type: 'campaign.created',
       entityType: 'campaign',
       entityId: c.id,
       payload: { campaignId: c.id, recipients, skipped, channel: input.channel },
-      after: { name: input.name, channel: input.channel, recipients, skipped },
+      after: {
+        name: input.name,
+        channel: input.channel,
+        recipients,
+        skipped,
+        ...(input.keepAdding ? { keepAdding: true } : {}),
+      },
     });
     return { campaignId: c.id, recipients, skipped };
   },
@@ -417,7 +434,8 @@ export const campaignApprove = defineCommand({
       .set({ status: 'approved' })
       .where(and(eq(campaignRecipients.campaignId, c.id), eq(campaignRecipients.status, 'ready')))
       .returning({ id: campaignRecipients.id });
-    if (!approved.length)
+    // One that keeps adding people may go with nobody yet: they're called as they join.
+    if (!approved.length && !c.keepAdding)
       throw HfosError.conflict(
         'Everyone was taken out or left out, so there’s nobody to send to. Cancel this campaign, or start a new one with other tags or stages.',
         'campaign_empty',
@@ -550,6 +568,47 @@ export const campaignSetPace = defineCommand({
   },
 });
 
+export const campaignSetKeepAdding = defineCommand({
+  name: 'campaign.set_keep_adding',
+  description:
+    'Turn on or off whether a call campaign keeps adding people: on, anyone who later gets one of its tags or reaches one of its stages, and agrees to calls in writing, joins and is called at its pace; off, it finishes once everyone it has is called.',
+  risk: 2,
+  input: CampaignSetKeepAddingInput,
+  output: CampaignStateOutput,
+  permission: 'workflows.manage',
+  scope: inWorkspace,
+  emits: ['campaign.keep_adding_changed'],
+  async handler(ctx, input) {
+    requireHuman(ctx);
+    const ws = ctx.scope.workspaceId!;
+    const c = await lockCampaign(ctx.tx, ws, input.campaignId);
+    if (c.channel !== 'call')
+      throw HfosError.conflict(
+        'Only a call campaign keeps adding people. Start a call campaign for that.',
+        'campaign_channel',
+      );
+    if (c.status === 'done' || c.status === 'cancelled')
+      throw HfosError.conflict(
+        `It’s ${STATUS_WORDS[c.status]}, so nobody more joins it. Start a new call campaign to reach more people.`,
+        'campaign_state',
+      );
+    if (c.keepAdding === input.on) return { campaignId: c.id, status: c.status as CampaignStatus };
+    await ctx.tx
+      .update(campaigns)
+      .set({ keepAdding: input.on, updatedAt: dsql`now()` })
+      .where(eq(campaigns.id, c.id));
+    await ctx.emit({
+      type: 'campaign.keep_adding_changed',
+      entityType: 'campaign',
+      entityId: c.id,
+      payload: { campaignId: c.id, on: input.on },
+      before: { keepAdding: c.keepAdding },
+      after: { name: c.name, keepAdding: input.on },
+    });
+    return { campaignId: c.id, status: c.status as CampaignStatus };
+  },
+});
+
 export const emailUnsubscribeRecord = defineCommand({
   name: 'email_unsubscribe.record',
   description:
@@ -593,5 +652,6 @@ export const campaignCommands = [
   campaignResume,
   campaignCancel,
   campaignSetPace,
+  campaignSetKeepAdding,
   emailUnsubscribeRecord,
 ] as const;

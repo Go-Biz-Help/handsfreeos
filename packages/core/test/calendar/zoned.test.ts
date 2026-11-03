@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   expandRecurrence,
+  expandRecurrenceFrom,
   expandWeeklyHours,
   localInstant,
   recurrenceDates,
@@ -114,6 +115,29 @@ describe('recurrence', () => {
       '2026-10-25T06:30:00.000Z',
       '2026-11-01T07:30:00.000Z',
     ]);
+  });
+
+  it('starts a series at the offered instant when its clock time happens twice', () => {
+    const weekly = rule({ freq: 'weekly', localTime: '01:00', count: 2 });
+    // The first 1 AM on the night clocks go back is kept; the next week has only one.
+    expect(
+      expandRecurrenceFrom(weekly, Date.parse('2026-11-01T06:00:00Z'), CHI).map((o) =>
+        iso(o.startsAt),
+      ),
+    ).toEqual(['2026-11-01T06:00:00.000Z', '2026-11-08T07:00:00.000Z']);
+    expect(expandRecurrenceFrom(weekly, Date.parse('2026-11-01T07:00:00Z'), CHI)[0]!.startsAt).toBe(
+      Date.parse('2026-11-01T07:00:00Z'),
+    );
+    // Any other time is just the series from its local date.
+    expect(
+      expandRecurrenceFrom(
+        rule({ freq: 'weekly', localTime: '10:00', count: 1 }),
+        Date.parse('2026-09-07T15:00:00Z'),
+        CHI,
+      ),
+    ).toEqual(
+      expandRecurrence(rule({ freq: 'weekly', localTime: '10:00', count: 1 }), '2026-09-07', CHI),
+    );
   });
 
   it('repeats every other week on chosen weekdays', () => {

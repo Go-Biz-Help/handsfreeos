@@ -28,7 +28,17 @@ describe('defaults', () => {
     expect(c.durations).toEqual({ minutes: [60], customerChooses: false, step: 30 });
     expect(c.capacity).toEqual({ seats: 1, maxPartySize: 1, showSeatsLeft: true });
     expect(c.schedule).toEqual({ mode: 'hours', hours: null });
-    expect(c.locations).toEqual({ options: [], customerChooses: false });
+    expect(c.locations).toEqual({
+      options: [],
+      customerChooses: false,
+      webinar: {
+        attendeeVideo: 'off',
+        startingNow: true,
+        missedFollowUp: true,
+        pollFormId: null,
+        pollAi: 'ask',
+      },
+    });
     expect(c.resources).toEqual({ required: [] });
     expect(c.buffers).toEqual({ before: 0, after: 0, travelMinutes: 0 });
     expect(c.territory).toEqual({ routing: 'off', territoryIds: [] });

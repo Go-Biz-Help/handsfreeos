@@ -12,7 +12,7 @@
  *   wrote the post; an answer's Like, to whoever wrote the answer.
  * - **Comment:** Send in a forum question's box to answer in, with something written, to whoever asked it; in a reply's
  *   box under an answer, to whoever wrote the answer.
- * - **Message:** Send in Messages (`messaging-send-external`) with something written, to who the conversation is with,
+ * - **Message:** Send in Messages (`messaging-send-external`, since 30 Oct 2026 `messaging-send-desktop`) with something written, to who the conversation is with,
  *   by Alignable's id for their business; or Enter in its box, once the box empties.
  * - **Recommendation:** its Recommend is a link to a page to write one on (/biz/recommendations/new?id=…), so the press
  *   that counts is the one sending what's written there, to the business that page is for, by Alignable's id. Today
@@ -34,6 +34,7 @@ import {
   CONNECT_AT,
   idIn,
   linksIn,
+  MESSAGE_SEND,
   PART,
   urlOf,
 } from './read';
@@ -201,7 +202,7 @@ function chatHere(doc: Document, base: string): { to: Reached; thread: ThreadRef
 
 /** Send in Messages, with something written. */
 function message(control: Element, doc: Document, base: string): Step | null {
-  const send = control.closest(PART('messaging-send-external'));
+  const send = control.closest(MESSAGE_SEND);
   if (!send) return null;
   if (!writingIn(doc.querySelector(PART('full-view-write-message'))?.querySelector(WRITING)))
     return null;

@@ -75,6 +75,8 @@ export const REASON_CODES = [
   'due_in',
   /** An add-on's alert that asks someone to say they've seen it. */
   'needs_ack',
+  /** Hot after a webinar: which one, and their points: "Roofing webinar · 42 points". */
+  'webinar',
 ] as const;
 export type ReasonCode = (typeof REASON_CODES)[number];
 

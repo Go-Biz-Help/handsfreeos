@@ -9,6 +9,7 @@ import {
   stateTone,
   todayWords,
   type LiveDay,
+  type LiveOutput,
 } from '@hfos/core/addons/outreach/live';
 import { askableOn } from '@hfos/core/addons/outreach/asks';
 import {
@@ -20,20 +21,23 @@ import {
 } from '@hfos/core/addons/outreach/network-words';
 import { PLATFORMS, runsOnItsOwn, type Platform } from '@hfos/core/addons/outreach/networks';
 import { notReadyWords, READY_WORDS } from '@hfos/core/addons/outreach/readiness';
+import { SET_UP_PAGE_WORDS, todayReadyWords } from '@hfos/core/addons/outreach/set-up-page';
 import { SETUP_WORDS } from '@hfos/core/addons/outreach/setup';
 import { warningNote } from '@hfos/core/addons/outreach/tidy';
 import { OUTREACH_WORDS as W } from '@hfos/core/addons/outreach/words';
 import * as React from 'react';
 import { Pressable, View } from 'react-native';
 
-import { Pause, Play } from '@/components/icons';
+import { ChevronRight, Inbox, Pause, Play } from '@/components/icons';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
+import { Icon } from '@/components/ui/icon';
 import { Text } from '@/components/ui/text';
 import { api, unwrap } from '@/lib/api';
 import { cn } from '@/lib/utils';
 
 import { AskButton, useAskActions, useAsks } from './asks';
+import { OutreachCounters } from './counters';
 import { OutreachFrame } from './frame';
 import {
   isSetUp,
@@ -46,20 +50,23 @@ import {
   useOutreachContext,
 } from './kit';
 import type { LiveBody } from './live';
-import { StartRefusedNote, useLiveProps } from './live';
+import { StartRefusedNote, StepsPart, TeamPart, useLiveProps } from './live';
 import { useNetworksOn } from './networks';
 import { PersonMenuScope } from './person-menu';
-import { GetReadyCard, useReadyProps } from './ready';
+import { useReadyProps } from './ready';
 import { TodayBody, useTodayProps } from './today';
-import { useWaitingProps, WaitingBody } from './waiting';
+import { useWaitingProps } from './waiting';
 
 /**
- * Social Outreach's Today on the phone (decision 59), as the web's: what the person's computer is doing with Start my
- * day and Stop for today in a strip, then everything that needs them (Needs you, which works with no signal), then
- * their list for the day. A message waiting for an OK shows once, under Needs you. Until the person has set Social
- * Outreach up (decision 45), it says to do that on a computer; until they're ready (decision 63), Get ready shows
- * above the list (./ready.tsx) and Start my day waits, saying beside it what holds the day and where it's done. Their
- * profile never holds it (decision 90): while it's left, Get ready shows it as advice beside a Start that works. A
+ * Social Outreach's Today on the phone (decisions 59 and 127), as the web's: how many things need the person, with the
+ * way to Needs you (its own page, ./waiting.tsx's `NeedsYouScreen`, which works with no signal), what their computer
+ * is doing with Start my day and Stop for today in a card for each network, their list for the day, Done today (every
+ * step today, newest first) and, for owners and admins, how each person's extension is doing. A message waiting for
+ * an OK stays off the list, under Needs you. Until the person has set Social
+ * Outreach up (decision 45), it says to do that on a computer; until they're ready (decision 63), a line above the list
+ * says how much is left, with Set up a press away (decision 129, ./setup.tsx, where Get ready is), and Start my day
+ * waits, saying beside it what holds the day and where it's done. Their profile never holds it (decision 90): while
+ * it's left, the line says it's still worth finishing. A
  * press HandsFreeOS refuses stays beside its Start in HandsFreeOS's words, with **Do it now** where it's fixed
  * (./live.tsx, `startRefusedOf`).
  *
@@ -69,8 +76,8 @@ import { useWaitingProps, WaitingBody } from './waiting';
  * network shown's, and each other row's Start my day waits on its own readiness (its own playbook counts), with its
  * own words beside it.
  *
- * Every name under Needs you and on the list opens the person menu (decision 91, ./person-menu.tsx); a change there
- * reloads both, so a card that should leave does.
+ * Every name on the list opens the person menu (decision 91, ./person-menu.tsx); a change there reloads the list and
+ * the count, so a card that should leave does.
  */
 export function TodayHub({ net: start = null }: { net?: Platform | null } = {}) {
   const ctx = useOutreachContext();
@@ -95,6 +102,21 @@ export function TodayHub({ net: start = null }: { net?: Platform | null } = {}) 
     `setup:${ctx.workspaceId}`,
     W.title,
   );
+  // The shown network's live answer, from its card: today's steps for Done today.
+  const [shownLive, setShownLive] = React.useState<LiveOutput | null>(null);
+  // How each person's extension is doing on the network shown, for owners and admins.
+  const team = useOutreachAnswer(
+    ctx.manages
+      ? async () =>
+          unwrap(
+            await api.POST('/v1/queries/outreach.live.team', {
+              body: { workspaceId: ctx.workspaceId, platform: net },
+            }),
+          )
+      : null,
+    `live-team:${ctx.workspaceId}:${net}`,
+    W.team,
+  );
   const reloadWaiting = waiting.onRetry;
   const reloadToday = today.onRetry;
   const reloadBoth = React.useCallback(() => {
@@ -115,12 +137,32 @@ export function TodayHub({ net: start = null }: { net?: Platform | null } = {}) 
         waiting.server.kinds.request.count
       : 0);
   return (
-    <OutreachFrame tab="today" testID="outreach-hub">
+    <OutreachFrame page="today" testID="outreach-hub">
+      {/* Everything it did on its own, today, this week and this month, going up as it works (decision 140). */}
+      <OutreachCounters working={nets} />
       {isSetUp(setup.data) ? null : (
         <Card className="px-4 py-3.5" testID="outreach-set-up-on-computer">
           <Note>{SETUP_WORDS.onPhone}</Note>
         </Card>
       )}
+      {count ? (
+        <Pressable
+          role="link"
+          accessibilityLabel={`${W.needsYouCount(count)} ${W.openNeedsYou}`}
+          onPress={() => openOutreach(ctx.workspaceId, 'waiting')}
+          className="min-h-12 flex-row items-center gap-3 rounded-card bg-accent-soft px-4 py-3 active:opacity-80"
+          testID="today-needs-you"
+        >
+          <Icon as={Inbox} className="size-5 text-accent-text" />
+          <View className="min-w-0 flex-1">
+            <Text className="text-[14.5px] font-semibold text-accent-text">
+              {W.needsYouCount(count)}
+            </Text>
+            <Text className="text-[13px] text-accent-text">{W.openNeedsYou}</Text>
+          </View>
+          <Icon as={ChevronRight} className="size-5 text-accent-text" />
+        </Pressable>
+      ) : null}
       {nets.map((p) => (
         <NetworkDay
           key={p}
@@ -130,28 +172,58 @@ export function TodayHub({ net: start = null }: { net?: Platform | null } = {}) 
           ready={!notReady}
           held={held}
           onShow={() => setAsked(p)}
-          onDetails={() => openOutreach(ctx.workspaceId, 'live', `net=${p}`)}
+          onLive={p === net ? setShownLive : undefined}
         />
       ))}
-      <GetReadyCard {...ready} />
+      {ready.readiness ? (
+        <GetReadyLine
+          words={todayReadyWords(PLATFORMS[net], ready.readiness.ready, ready.readiness.items)}
+          onOpen={() => openOutreach(ctx.workspaceId, 'setup')}
+        />
+      ) : null}
       <PersonMenuScope
         workspaceId={ctx.workspaceId}
         online={ctx.online}
         writesContacts={ctx.writesContacts}
         onChanged={reloadBoth}
       >
-        <Part
-          title={count ? `${W.needsYou} · ${count.toLocaleString('en-US')}` : W.needsYou}
-          testID="today-needs-you"
-        >
-          <WaitingBody {...waiting} embedded />
-        </Part>
         <Part title={many ? NW.listOn(PLATFORMS[net]) : W.listTitle} testID="today-list">
           <TodayBody {...today} embedded hideSends={shownOnce} />
         </Part>
       </PersonMenuScope>
       {askableOn(net, 'posts') && !runsOnItsOwn(net) ? <FindPosts platform={net} /> : null}
+      {shownLive ? (
+        <StepsPart
+          live={shownLive}
+          title={W.doneToday}
+          about={W.doneTodayAbout}
+          testID="today-done"
+        />
+      ) : null}
+      {team.data ? <TeamPart team={team.data} now={Date.now()} /> : null}
     </OutreachFrame>
+  );
+}
+
+/** Get ready on the network shown, on Set up (decision 129): how much holds the day, or the profile's advice. */
+function GetReadyLine({ words, onOpen }: { words: string | null; onOpen: () => void }) {
+  if (!words) return null;
+  return (
+    <Card className="gap-2 px-4 py-3.5" testID="today-get-ready">
+      <Text className="text-[11.5px] font-semibold uppercase tracking-[0.5px] text-text-3">
+        {READY_WORDS.card}
+      </Text>
+      <Note>{words}</Note>
+      <Button
+        size="sm"
+        variant="secondary"
+        className="self-start"
+        onPress={onOpen}
+        testID="today-get-ready-open"
+      >
+        {SET_UP_PAGE_WORDS.todayOpen}
+      </Button>
+    </Card>
   );
 }
 
@@ -190,14 +262,20 @@ function NetworkDay({
   platform,
   ready,
   held,
+  onLive,
   ...rest
-}: { platform: Platform } & Pick<
-  React.ComponentProps<typeof LiveStrip>,
-  'many' | 'shown' | 'ready' | 'held' | 'onShow' | 'onDetails'
->) {
+}: {
+  platform: Platform;
+  /** Hears its live answer, for the network shown: Today's Done today. */
+  onLive?: (live: LiveOutput | null) => void;
+} & Pick<React.ComponentProps<typeof LiveStrip>, 'many' | 'shown' | 'ready' | 'held' | 'onShow'>) {
   const ctx = useOutreachContext();
   const ws = ctx.workspaceId;
   const live = useLiveProps(false, platform);
+  const answer = live.live;
+  React.useEffect(() => {
+    onLive?.(answer);
+  }, [onLive, answer]);
   const own = useOutreachAnswer(
     rest.shown
       ? null
@@ -225,9 +303,8 @@ const DOT = {
 
 /**
  * The computer in a few lines: its state, what it's doing or when it was last seen, the next step, today's steps
- * against the limits, and Start my day or Stop for today. Details opens the live screen. With more than one network
- * (`many`), it's one network's row, by name: just its day, its Start or Stop and its warning, unless it's the one
- * shown, which has the rest too.
+ * against the limits, and Start my day or Stop for today. With more than one network (`many`), it's one network's
+ * card, by name: its day, its Start or Stop, its warning and its bars, and the computer's line on the one shown.
  */
 export function LiveStrip({
   platform = 'facebook',
@@ -241,7 +318,6 @@ export function LiveStrip({
   onStop,
   onSettings,
   onGeneral,
-  onDetails,
   refused = null,
   manages = false,
   ready = true,
@@ -266,7 +342,6 @@ export function LiveStrip({
 > & {
   /** The network whose day it is. */
   platform?: Platform;
-  onDetails: () => void;
   /** Whether the person is ready (decision 63): until they are, Start my day waits and says why. */
   ready?: boolean;
   /** One row of several, each network's own. */
@@ -345,13 +420,20 @@ export function LiveStrip({
       {full && computer && live.status?.nextAt && state === 'waiting' ? (
         <Note testID="live-next">{W.nextStep(seenWords(live.status.nextAt, tz, now))}</Note>
       ) : null}
-      {full && steps.length ? (
-        <View className="flex-row flex-wrap gap-y-3" testID="today-limits">
+      {steps.length ? (
+        <View
+          className="flex-row flex-wrap gap-y-3"
+          testID={many ? `today-limits-${platform}` : 'today-limits'}
+        >
           {steps.map((step) => {
             const { done, most } = live.limits[step];
             const filled = done >= most;
             return (
-              <View key={step} className="w-1/3 gap-1 pr-3" testID={`today-limit-${step}`}>
+              <View
+                key={step}
+                className="w-1/3 gap-1 pr-3"
+                testID={many ? `today-limit-${step}-${platform}` : `today-limit-${step}`}
+              >
                 <Text className="text-[12px] text-text-2" numberOfLines={1}>
                   {words[step].label}
                 </Text>
@@ -419,11 +501,6 @@ export function LiveStrip({
               {W.startDay}
             </Button>
           )}
-          {full ? (
-            <Button variant="ghost" onPress={onDetails} testID="today-status-details">
-              {W.computerDetails}
-            </Button>
-          ) : null}
         </View>
       )}
       {/* Beside a Start my day that waits on Get ready, on every row: what holds it, and where it's done. */}

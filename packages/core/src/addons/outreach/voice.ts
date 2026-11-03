@@ -10,6 +10,13 @@ import { z } from 'zod';
 // Core's since the main offer's builder writes the same way (packages/core/src/writing.ts).
 export { noDashes, PLAIN_WRITING } from '../../writing';
 
+/**
+ * How a message or sample talks about a business (decision 124): what it does in plain words, a name at most once in a
+ * chat, never a handle. A full business name in every message reads like a robot.
+ */
+export const BUSINESS_NAMES =
+  'Talk about a business the way people really talk, not by its name. Say what it does in plain words ("your photography", "the solar side", "your shop"), and "I" or "we" for the owner’s own. Use a business’s name at most once in a whole chat, only where it reads naturally, and never copy a handle or a name run together like "MapleStreetBakes".';
+
 export const Voice = z.object({
   /** Short forms like u, ur, thx and pls. */
   shorthand: z.boolean().default(false),

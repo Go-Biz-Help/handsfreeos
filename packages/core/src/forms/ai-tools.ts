@@ -68,6 +68,7 @@ export const FORM_TOOL_NAMES = [
   'set_scoring',
   'set_on_submit',
   'set_settings',
+  'set_design',
   'finish',
 ] as const;
 export type FormToolName = (typeof FORM_TOOL_NAMES)[number];
@@ -93,7 +94,7 @@ export const FORM_BUILDER_TOOLS: readonly FormToolDef[] = [
       ),
       json: nullable(
         str(
-          'The question’s own settings as a JSON object (choices, min, max, statement…), or null. A video takes {"url": "a YouTube, Vimeo or Loom link", "minPercent": 80} — minPercent holds the Next button until they have watched that much, null lets them move on.',
+          'The question’s own settings as a JSON object (choices, min, max, statement…), or null. A video takes {"url": "a YouTube, Vimeo or Loom link", "minPercent": 80} — minPercent holds the Next button until they have watched that much, null lets them move on. One box to check (I agree to the terms, Text me updates) is a yes_no with {"display": "checkbox"}, its title the words beside the box; a required one must be checked.',
         ),
       ),
       showIfJson: nullable(
@@ -107,7 +108,7 @@ export const FORM_BUILDER_TOOLS: readonly FormToolDef[] = [
   {
     name: 'update_question',
     description:
-      'Change a question with a JSON merge patch: objects merge, lists and null replace. Its own settings go under "config"; a new "type" replaces them. Choices are edited by id under config.choices: [{"id", "label"}].',
+      'Change a question with a JSON merge patch: objects merge, lists and null replace. Its own settings go under "config"; a new "type" replaces them. Choices are edited by id under config.choices: [{"id", "label"}]. In a live poll, "live" holds {"seconds": 60, "showResults": false, "cues": ["what the presenter might say just before asking it"], "points": {"c_…": 10}}; points are what each answer says about how ready someone is (-100 to 100), by a choice’s id, "yes" and "no", a rating or scale’s number, "answered" for a short answer or "pressed" for a button, and are replaced whole.',
     inputSchema: obj({
       questionId: questionRef,
       json: str('The merge patch as a JSON object.'),
@@ -166,11 +167,21 @@ export const FORM_BUILDER_TOOLS: readonly FormToolDef[] = [
   {
     name: 'set_form',
     description:
-      'The form itself: which of the three it is, its heading, and the words at the top.',
+      'The form itself: which kind it is, its heading, the words at the top, and a live poll’s follow-up.',
     inputSchema: obj({
-      mode: nullable(oneOf(['form', 'survey', 'quiz'], 'Which kind it is.')),
+      mode: nullable(
+        oneOf(
+          ['form', 'survey', 'quiz', 'poll'],
+          'Which kind it is. poll: a live poll, whose questions pop up one at a time during a HandsFreeOS video call or webinar.',
+        ),
+      ),
       title: nullable(str('The heading the customer reads.')),
       intro: nullable(str('The words above the first question.')),
+      leadsJson: nullable(
+        str(
+          'A live poll only: who to follow up with after the call, as JSON {"stayed": 10, "hot": 30, "warm": 10, "hotAction": "text"}. Points for staying to the end; Hot from and Warm from so many points (Warm below Hot); and what happens to hot ones: list (just the ranked list), home (a card on Home too) or text (the AI teammate texts them, the default).',
+        ),
+      ),
     }),
     strict: true,
   },
@@ -192,6 +203,13 @@ export const FORM_BUILDER_TOOLS: readonly FormToolDef[] = [
     name: 'set_settings',
     description:
       'How it behaves: identity (required, optional or anonymous), one question at a time (oneQuestionAtATime), one page at a time with Back and Next (onePageAtATime), the button’s words, when it closes.',
+    inputSchema: obj({ json: str('The merge patch as a JSON object.') }),
+    strict: true,
+  },
+  {
+    name: 'set_design',
+    description:
+      'How it looks: scheme (light or dark), colors {button, buttonText, background, text, field, fieldBorder, error} as #rrggbb or null to follow the business, font (a Google font name or null for ours), textSize (small, medium, large), corners (square, slight, round), fields (boxed, filled, underline), button {style: filled or outline, fullWidth}, spacing (compact, normal, roomy), labels (above or inside), width (narrow, medium, wide, full), showLogo, showTitle (false hides the form’s name at the top). Only when they ask about how it looks.',
     inputSchema: obj({ json: str('The merge patch as a JSON object.') }),
     strict: true,
   },
@@ -257,13 +275,15 @@ const INPUTS = {
     showIfJson: z.string().nullish(),
   }),
   set_form: z.object({
-    mode: z.enum(['form', 'survey', 'quiz']).nullish(),
+    mode: z.enum(['form', 'survey', 'quiz', 'poll']).nullish(),
     title: z.string().max(160).nullish(),
     intro: z.string().max(4000).nullish(),
+    leadsJson: z.string().nullish(),
   }),
   set_scoring: z.object({ json: z.string() }),
   set_on_submit: z.object({ json: z.string() }),
   set_settings: z.object({ json: z.string() }),
+  set_design: z.object({ json: z.string() }),
   finish: z.object({ summary: z.string().trim().min(1).max(500) }),
 };
 
@@ -447,6 +467,7 @@ export function formToolCallsToOps(
         if (input.mode) patch.mode = input.mode;
         if (input.title) patch.title = input.title;
         if (input.intro !== null && input.intro !== undefined) patch.intro = input.intro;
+        if (input.leadsJson) patch.leads = parseJsonObject(input.leadsJson, 'leadsJson');
         if (!Object.keys(patch).length) throw new CallError('Nothing to change.');
         return [{ op: 'set_form', patch }];
       }
@@ -469,6 +490,13 @@ export function formToolCallsToOps(
           {
             op: 'set_settings',
             patch: parseJsonObject(checked(INPUTS.set_settings, raw, 'The call').json, 'json'),
+          },
+        ];
+      case 'set_design':
+        return [
+          {
+            op: 'set_design',
+            patch: parseJsonObject(checked(INPUTS.set_design, raw, 'The call').json, 'json'),
           },
         ];
       case 'finish': {

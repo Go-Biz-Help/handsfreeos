@@ -34,12 +34,14 @@ function send(
       kind: kind === 'reply' ? 'reply' : 'opener',
       profileId: uuid(),
       name,
-      profileUrl: null,
+      // Their page on LinkedIn, so a pop-up names the network (decision 146).
+      profileUrl: `https://www.linkedin.com/in/${name.toLowerCase().replace(/\s+/g, '-')}`,
       chatId: null,
       threadKey: null,
       postId: null,
       postUrl: null,
       post: null,
+      postWhole: null,
       text: `Hi ${name}`,
       recent: [],
       state: 'waiting',
@@ -69,6 +71,7 @@ function need(name: string, why: string): WaitingItem {
       text: null,
       threadKey: null,
       seenAt: new Date(friday10).toISOString(),
+      reportId: null,
     },
   };
 }
@@ -86,6 +89,7 @@ function request(name: string): WaitingItem {
       held: null,
       since: new Date(friday10).toISOString(),
       mutualFriends: null,
+      said: null,
     },
   };
 }
@@ -118,8 +122,8 @@ describe('the pop-ups', () => {
     expect(shown.show).toEqual([
       {
         id: POPUP_ID,
-        title: '2 messages wait for your OK',
-        message: 'Open Today to OK, change or skip them.',
+        title: '2 messages to OK',
+        message: 'Click to OK, change or skip them.',
       },
     ]);
     expect(shown.told).toEqual(items.slice(0, 2).map(idOf));
@@ -161,8 +165,9 @@ describe('the pop-ups', () => {
     expect(shown.show).toEqual([
       {
         id: `${POPUP_ID}-${idOf(reply)}`,
-        title: 'Ana Moss needs you',
-        message: 'Their reply waits for your OK on Today: they sound upset.',
+        title: 'LinkedIn reply needs you',
+        message:
+          'From Ana Moss: they sound upset, so the AI’s answer waits for you. Click to see it.',
       },
     ]);
     expect(shown.told).toEqual([idOf(reply)]);
@@ -177,21 +182,23 @@ describe('the pop-ups', () => {
     ];
     const each = popUpsFor({ list: listOf(three, 'each'), told: [], lastAt: null, now: saturday });
     expect(each.show.map((p) => p.title)).toEqual([
-      'Dana Reyes: a message waits for your OK',
-      'Eli Brook: the extension needs you on Facebook',
-      'Sam Lee: a message waits for your OK',
+      'LinkedIn message to OK',
+      'Facebook step for you',
+      'LinkedIn message to OK',
     ]);
-    expect(each.show[1]!.message).toBe(
-      'Couldn’t find “Add friend”. Do it yourself, or let it go, on Today.',
-    );
+    expect(each.show.map((p) => p.message)).toEqual([
+      'To Dana Reyes. Click to OK, change or skip it.',
+      'Send Eli Brook a friend request yourself, or let it go. Click to open it.',
+      'To Sam Lee. Click to OK, change or skip it.',
+    ]);
     const four = [...three, send('message', 'Kim Lee')];
     expect(
       popUpsFor({ list: listOf(four, 'each'), told: [], lastAt: null, now: saturday }).show,
     ).toEqual([
       {
         id: POPUP_ID,
-        title: '3 messages wait for your OK',
-        message: 'And 1 step the extension couldn’t do. Open Today.',
+        title: '3 messages to OK',
+        message: 'And 1 step for you. Click to see them.',
       },
     ]);
     expect(
@@ -219,8 +226,8 @@ describe('the pop-ups', () => {
     expect(first.show).toEqual([
       {
         id: POPUP_ID,
-        title: '3 messages wait for your OK',
-        message: 'Open Today to OK, change or skip them.',
+        title: '3 messages to OK',
+        message: 'Click to OK, change or skip them.',
       },
     ]);
     expect(first.told).toEqual(items.map(idOf));
@@ -273,6 +280,7 @@ describe('steps it needs you for', () => {
       name: 'Eli Brook',
       url: 'https://www.facebook.com/eli.brook.2',
       why: 'couldn’t find “Add friend”',
+      reportId: null,
     });
     expect(
       needOf(

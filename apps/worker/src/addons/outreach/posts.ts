@@ -20,7 +20,9 @@ import { FOR_CUSTOMERS } from '@hfos/core/addons/outreach/ops/common';
 import { postCheck } from '@hfos/core/addons/outreach/ops/posts';
 import {
   checkedPostWhy,
+  FIELD_CHECK_SINCE,
   freshPost,
+  POST_FRESH_DAYS,
   type PostFound,
   POST_CHECK_SCHEMA,
   postCheckSystem,
@@ -31,12 +33,18 @@ import {
 } from '@hfos/core/addons/outreach/posts';
 import { executeCommand } from '@hfos/core/server';
 import type { Platform } from '@hfos/core/addons/outreach/networks';
-import { asWorker, rows, sql } from '@hfos/db/client';
+import { asWorker, rows, sql, type Tx } from '@hfos/db/client';
 import type { JobResult } from '../../jobs';
 import { AiAskError, askStructured } from '../../ai/ask';
 import { pushAddonNotice } from '../alerts';
 import { scheduleAddonJob } from '../queue';
-import type { AddonEventContext, AddonJobContext } from '../types';
+import type {
+  AddonDataMigration,
+  AddonEventContext,
+  AddonJobContext,
+  AddonScopeContext,
+} from '../types';
+import { businessKnows } from './knows';
 
 export const CHECK_POSTS_JOB = 'outreach.check_posts';
 const TODAY_HREF = '/a/outreach?view=today';
@@ -44,23 +52,66 @@ const TODAY_HREF = '/a/outreach?view=today';
 export const CHECK_POSTS_BATCH = 20;
 const HOUR = 3_600_000;
 
-/** `outreach.posts.saved`: the posts waiting are checked now. */
+/**
+ * `outreach.posts.saved`: the posts waiting are checked now, with any an older check called good sent back to it
+ * (decision 143).
+ */
 export async function postsSaved(ctx: AddonEventContext): Promise<void> {
-  await asWorker(ctx.db, ctx.scope, (tx) =>
-    scheduleAddonJob(
-      tx,
-      { id: ctx.manifest.id, generation: ctx.generation },
-      {
-        kind: CHECK_POSTS_JOB,
-        dedupeKey: `${CHECK_POSTS_JOB}:${ctx.scope.workspaceId}`,
-        runAt: new Date(),
-        payload: {},
-        workspaceId: ctx.scope.workspaceId,
-        organizationId: ctx.scope.organizationId,
-      },
-      { pullEarlier: true },
-    ),
+  await asWorker(ctx.db, ctx.scope, async (tx) => {
+    await sendOldGoodBack(tx, ctx);
+    await queueCheck(tx, ctx);
+  });
+}
+
+/** Queues the business's one post check, now. */
+async function queueCheck(tx: Tx, ctx: AddonScopeContext): Promise<void> {
+  await scheduleAddonJob(
+    tx,
+    { id: ctx.manifest.id, generation: ctx.generation },
+    {
+      kind: CHECK_POSTS_JOB,
+      dedupeKey: `${CHECK_POSTS_JOB}:${ctx.scope.workspaceId}`,
+      runAt: new Date(),
+      payload: {},
+      workspaceId: ctx.scope.workspaceId,
+      organizationId: ctx.scope.organizationId,
+    },
+    { pullEarlier: true },
   );
+}
+
+/**
+ * The posts still waiting for a comment that an older check called good go back to the AI's check, which now asks
+ * whether they're about the owner's own field (decision 143), and the check is queued at once. Only those checked before
+ * that check went live (`FIELD_CHECK_SINCE`) and that a comment could still go on: seen in the last week, not skipped,
+ * with no comment drafted or posted on them. So it does its work once, and then nothing.
+ *
+ * A business with the add-on on never runs a data step, so a posts save and the day's start send them back too
+ * (`oldGoodWanted`); data step 10 is it for a reinstall.
+ */
+export async function sendOldGoodBack(tx: Tx, ctx: AddonScopeContext): Promise<void> {
+  const ws = ctx.scope.workspaceId;
+  const back = await rows<{ id: string }>(
+    tx,
+    sql`update addon_outreach.posts po set check_state = 'waiting', check_why = null, strong = false,
+          checked_at = null
+        where po.workspace_id = ${ws} and po.check_state = 'good' and po.skipped_at is null
+          and po.checked_at < ${FIELD_CHECK_SINCE}::timestamptz
+          and po.seen_at >= now() - make_interval(days => ${POST_FRESH_DAYS}::int)
+          and not exists (select 1 from addon_outreach.sends s where s.post_id = po.id)
+          and not exists (select 1 from addon_outreach.touches t
+            where t.workspace_id = po.workspace_id and t.kind = 'comment' and t.post_url = po.url)
+        returning po.id`,
+  );
+  if (back.length) await queueCheck(tx, ctx);
+}
+
+/** Data step 10 (decision 143): `sendOldGoodBack`, for a reinstall. */
+export const recheckGoodPosts: AddonDataMigration = (ctx) => sendOldGoodBack(ctx.tx, ctx);
+
+/** `outreach.day.started`: the posts an older check called good go back to the check (decision 143). */
+export async function oldGoodWanted(ctx: AddonEventContext): Promise<void> {
+  await asWorker(ctx.db, ctx.scope, (tx) => sendOldGoodBack(tx, ctx));
 }
 
 /** `outreach.check_posts`: checks a batch of the business's waiting posts, and comes back for the rest. */
@@ -88,6 +139,8 @@ export async function checkPostsJob(ctx: AddonJobContext): Promise<JobResult> {
     ),
   }));
   if (!found.posts.length) return;
+  // What the business does, so the check knows the owner's own field (decision 143): unread, the offers say it alone.
+  const profile = (await businessKnows(ctx))?.brief ?? null;
   const read = found.playbooks.flatMap((p) => {
     const details = PlaybookDetails.safeParse(upgradePlaybookDetails(p.details));
     return details.success ? [{ name: p.name, details: details.data }] : [];
@@ -99,21 +152,24 @@ export async function checkPostsJob(ctx: AddonJobContext): Promise<JobResult> {
       .map((p) => ({
         name: p.name,
         offer: p.details.offer,
+        niche: p.details.niche,
+        problem: p.details.problem,
         audience: p.details.audience,
         signs: p.details.signs,
         skip: p.details.skip,
       }));
 
   for (const post of found.posts.slice(0, CHECK_POSTS_BATCH)) {
-    let check: { good: boolean; strong: boolean; why: string | null } | null;
+    let check: { good: boolean; strong: boolean; fits: boolean; why: string | null } | null;
     try {
       const { value } = await askStructured(ctx, ctx.scope, {
-        system: postCheckSystem(post.platform),
+        system: postCheckSystem(post.platform, post.group !== null),
         messages: [
           {
             role: 'user',
             content: postCheckPrompt({
               business: found.business?.name ?? 'the business',
+              profile,
               group: post.group,
               text: post.body,
               playbooks: playbooksOn(post.platform),
@@ -125,7 +181,12 @@ export async function checkPostsJob(ctx: AddonJobContext): Promise<JobResult> {
         maxTokens: 200,
         usage: { source: 'addon', addonId: ctx.manifest.id },
       });
-      check = { good: value.good, strong: value.strong, why: checkedPostWhy(value.why) };
+      check = {
+        good: value.good,
+        strong: value.strong,
+        fits: value.fits,
+        why: checkedPostWhy(value.why),
+      };
     } catch (e) {
       if (!(e instanceof AiAskError)) throw e;
       // The day's limit or an empty balance: the rest wait a few hours. Not set up: they wait for the next save.

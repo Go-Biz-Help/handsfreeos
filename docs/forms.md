@@ -61,8 +61,36 @@ business: they're a row each with no bin mark of their own, so until then Result
 Results and anything else that reads answers by form or by business leave them out, Bring back brings them back,
 and the worker reads them as it always has.
 
+**A live poll is only for a HandsFreeOS video call** (20261027019700). Its questions pop up when the team (or,
+later, the AI) asks them, so it has no public page, no embed, no rules on its questions, and the AI teammate and the
+phone never ask it; `form_response.*` refuses one (`form_is_poll`). Its answers still land as an ordinary response,
+so nothing that reads answers needs to know.
+
 **Ids are made by us, never by a model.** The AI builder writes labels; `formToolCallsToOps` stamps the
 ids and tells the model what they are.
+
+**The editor keeps the spaces being typed; what's saved is trimmed.** The editor applies an op on every
+keystroke, and the form's parse trims every text, so it calls `applyFormOps` with `keepSpaces` to put back a
+space typed at either end. Without it the space after a word was gone before the next word arrived. The server
+applies the same ops without `keepSpaces`, so nothing is stored with stray spaces.
+
+## Checkboxes, and a single checkbox
+
+- **Checkboxes** (`type: 'checkboxes'`, called "Pick any" until 2026-11-02) is several choices where they check any
+  number, with an optional least and most.
+- **A single checkbox** is one box to check, like "I agree to the terms" or "Text me updates". It isn't a type of its
+  own: it's a yes or no shown as one box (`config.display = 'checkbox'`, `isSingleCheckbox`), so Results, show-if
+  rules, the export, a quiz's grading, the phone and the AI teammate all read it as the yes or no they already know.
+  The question's title is the words beside the box. The add menu has a row for it (`single_checkbox` in
+  `QUESTION_MENU`, which starts it required), and a yes or no's settings switch between **Yes and No buttons** and
+  **One box to check**.
+
+**What rules here:**
+
+- **Checked is a yes; unchecked is no answer.** It's never recorded as a No, so Results counts the people who checked it.
+- **One that must be answered must be checked** (`CHECK_THIS_BOX` in `render.ts`). A No (said in a conversation, say)
+  doesn't count as agreeing. Saving part way leaves that problem out until it's sent
+  (`isUnansweredProblem`), as it does for any question not answered yet.
 
 ## The public page
 
@@ -74,7 +102,49 @@ ids and tells the model what they are.
 - a frame rule built from the sites the business listed, so an embedded form is framed by them and nobody
   else (`apps/web/src/lib/forms/frame.ts`).
 
-Embedding is a plain iframe with `?embed=1`; the page drops our frame and padding.
+Embedding is an iframe with `?embed=1` and one script line (`/embed/v1/form.js`, `lib/forms/embed-script.ts`): the
+page drops our frame and padding, says how tall it is whenever that changes, and the script fits the iframe to it. A
+snippet pasted before the script existed keeps its fixed height. The sites list takes sites typed any way and adds
+each one's `www` twin, as the website chat's does (`normalizeChatOrigins`).
+
+## How a form looks
+
+A form's `design` (`forms/design.ts`, the editor's **Design** tab) holds its colours, font, text size, corners, the
+style of its boxes and buttons, the space between questions, where the question words go, how wide it gets, and
+whether the business's logo and the form's name are at the top. A colour can be picked or typed as a hex code. The owner's picks (2026-11-02, 1a 2a 3a 4a): each form has its own design,
+starting from the business's; **Use on all my forms** copies one form's design to the rest; **Match my website**
+copies a site's colours, font and corners; and there's no box for custom CSS, which could hide the texting consent
+words.
+
+**What rules here:**
+
+- **The design is part of the definition,** so it changes through `set_design` ops (Undo works, the Assistant and
+  the AI form builder can set it) and goes live with Publish like the questions. **Use on all my forms**
+  (`form.use_design_everywhere`) is the one exception: it's its own act, behind a confirmation, and puts the design
+  on the other forms' drafts and live versions straight away, changing nothing else about them.
+- **Unset colours follow the business.** The buttons take the business's colour (Settings → Workspace), darkened for
+  white words as on its booking page; every other colour is worked out from the background. `formLook` sets every
+  colour token the form's parts use, so a visitor's own dark mode never turns a form on a light site dark.
+- **A form on a website is see-through** unless its design gives it a background, so it sits on whatever part of the
+  site it's in. Its page is always in the light colour scheme there, because a browser paints a solid backdrop behind
+  a frame whose scheme differs from the page around it.
+- **The public page and the preview are worked out the same way** (`FormLookFrame`), so the preview is what goes live.
+- **Match my website** is read by the worker, never the API (`apps/worker/src/http/website-style.ts`, signed in, with
+  `forms.manage`): the page and up to six stylesheets, as robots.txt allows. `look/style.ts` finds the buttons in the
+  HTML first, so builders that style everything with made-up class names (GoDaddy's `.c1-a4`) are read as well as
+  hand-written `.btn` rules. A paid font is stood in for by the closest free one, and it says so. Nothing is kept: the
+  design lands in the draft as one edit.
+- **HandsFreeOS's own permission boxes match the form.** The texting box (and the offers and calls boxes) are drawn
+  like a single checkbox question, in the form's corners, colours and text size, with their words always showing. They
+  can't be hidden or reworded on a form: they're what a carrier reads. A form's own "I agree to texts" question is
+  the same ask twice, and requiring it would make texting a condition of sending the form, which carriers refuse.
+- **Cloudflare's "are you a person" check stays out of sight** unless Cloudflare needs a click, and then shows in the
+  form's light or dark. If it can't run, the form says so above the send button.
+- **A hidden name stays for screen readers.** With no logo, name or intro showing, the form starts at its first
+  question.
+- **Site builders that wrap pasted code in a frame of their own** (GoDaddy's HTML section: an `srcdoc` frame sized
+  once, when the page loads) get that frame grown with the form by `/embed/v1/form.js` too. The script also asks each
+  form for its height when it starts, so a form that loaded first isn't left at the snippet's height.
 
 ## Videos and steps (funnels)
 
@@ -160,11 +230,47 @@ A form can walk somebody through a funnel: a video, their details, a longer vide
 - **The AI teammate and the phone** don't ask a form with a booking question (`NOT_IN_CHAT_TYPES`,
   `NOT_ON_THE_PHONE`).
 
+## Live polls (webinars, part 2)
+
+A fourth kind beside form, survey and quiz (`mode = 'poll'`), picked on a call or a webinar's calendar.
+`docs/video-calls.md`, "Live polls", is how a call runs one.
+
+- **What it may ask** (`pollProblems` in `definition.ts`): pick one, pick any, yes or no, a rating, a scale, a short
+  answer, and **buttons**, at most 30 items, no rules. A button (`questions.ts`) books on a calendar, opens an https
+  link, or says "talk to someone"; it belongs to live polls only, so any other form with one has a problem to fix.
+- **Each question's `live`** holds how long it stays up (`seconds`, 10 to 600, 60 by default), whether everyone
+  sees the totals after (`showResults`, off by default), and up to eight **when-to-ask phrases** (`cues`): what the
+  presenter might say just before asking it, which the AI hearing the call listens for (part 3). The AI writes them
+  from the editor or the Assistant's builder, and the business changes them like any words. With the poll's slides
+  (part 4: `definition.slides`, a PDF whose file's record is the form) a question can say the slide it goes with
+  (`live.slide`); "Slides" in `docs/video-calls.md` is how. `liveOf` fills the defaults. The editor shows both under
+  each question (**Seconds it stays up**); a poll has no Required switch, no Where it goes and no Share tab.
+- **Its answers** are one response per person per call (`form_responses.video_call_id`, `source = 'video_call'`), so
+  Results and the customer's record show them like any form's.
+- **Points for who to follow up with** (part 5): each answer's are on its question (`live.points`, by a choice's id,
+  `yes` and `no`, each number of a rating or scale, `answered`, `pressed`; -100 to 100, 0 left out), and the poll's
+  own `leads` holds what staying to the end is worth, where Hot and Warm start, and what happens to the hot ones.
+  `update_question` replaces `live.points` whole, so a point taken off stays off, and undo puts the old ones back.
+  The AI suggests them (**Suggest points for every question**) or drafts the whole poll from the webinar's goal and
+  slides (**Draft the questions with AI**); both land as edits. The Assistant's form builder sets them too
+  (`update_question` with `live.points`, `set_form` with `leadsJson`). "Who to follow up with" in `docs/video-calls.md` is how
+  they're used.
+
 ## Answering in a conversation
 
 A form marked "the AI teammate may ask this" (`in_chat`) becomes two teammate tools. The teammate holds no
 state: the sheet is the same row the public page writes, found by customer and form, so a conversation that
 stops halfway can be finished on the link and the other way round.
+
+## Website chats on the Forms page
+
+**Forms** also lists the business's website chats (**Website chats**, above the forms), for people who may change
+them (`channels.manage`), because a chat is how most visitors leave their details. They aren't forms: each is a
+`chat_widgets` row, edited by `chat_widget.update` on its own page (`forms/chats/<id>`, the same editor as
+**Settings** → **Website chat**), and the texting registration's chat is one of them, not a kind of its own. A chat
+keeps its name, its look, where its button sits on computers and phones, and what happens while nobody is answering
+(`20261027021600_website_chat_look_and_place.sql`). The operator's side is "Set up the website chat for a client" in
+`docs/operations.md`.
 
 ## On the phone (M17)
 

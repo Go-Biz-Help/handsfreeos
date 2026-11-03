@@ -81,6 +81,29 @@ export function* elementsAfter(element: Element, root: Element): Generator<Eleme
   }
 }
 
+/** Writing with every space taken out, to tell one piece of writing from another however it's broken into lines. */
+export const squashed = (text: string | null | undefined) => clean(text).replace(/\s/g, '');
+
+/**
+ * How many times some writing shows under `root`, outside its boxes to write in (`writing`): the smallest parts whose
+ * words, spaces aside, are just it. A message that went shows once more in its conversation, even where the network
+ * leaves what was typed in its box, or draws the box afresh.
+ */
+export function timesShown(root: Node, text: string, writing: string): number {
+  const want = squashed(text);
+  if (!want) return 0;
+  const found = new Set<Element>();
+  const walker = documentOf(root).createTreeWalker(root, SHOW_TEXT);
+  for (let node = walker.nextNode(); node; node = walker.nextNode()) {
+    const bit = squashed(node.nodeValue);
+    if (!bit || !want.includes(bit)) continue;
+    let part = node.parentElement;
+    while (part && squashed(part.textContent).length < want.length) part = part.parentElement;
+    if (part && !part.closest(writing) && squashed(part.textContent) === want) found.add(part);
+  }
+  return found.size;
+}
+
 export function isHeading(element: Element): boolean {
   return /^H[1-6]$/.test(element.tagName) || element.getAttribute('role') === 'heading';
 }

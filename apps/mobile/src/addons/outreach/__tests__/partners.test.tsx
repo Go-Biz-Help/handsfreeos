@@ -65,6 +65,7 @@ const partner = (
   why: ['Runs a busy homeowners group'],
   nextStep: 'Comment on their latest post',
   playbook: null,
+  marked: false,
   ...over,
 });
 
@@ -75,10 +76,10 @@ describe('the Partners list on the phone', () => {
   it('is one of People’s lists', async () => {
     await render(
       <OutreachWorkspace.Provider value={WS}>
-        <OutreachFrame tab="people" people="pipeline" testID="framed" />
+        <OutreachFrame page="people" testID="framed" />
       </OutreachWorkspace.Provider>,
     );
-    await fireEvent.press(screen.getByTestId('outreach-people-partners'));
+    await fireEvent.press(screen.getByTestId('people-view-partners'));
     expect(String(jest.mocked(router.replace).mock.calls.at(-1)?.[0])).toContain('view=partners');
   });
 
@@ -200,6 +201,7 @@ const step = (kind: TodayItem['kind'], over: Partial<TodayItem> = {}): TodayItem
   postUrl: null,
   posted: null,
   post: null,
+  postWhole: null,
   asking: false,
   why: ['Group admin: About 4,200 Austin homeowners'],
   summary: null,
@@ -250,8 +252,12 @@ describe('a partner’s steps on Today', () => {
       ready: true,
       week: null,
       fresh: { on: false, from: null, until: null, days: 14 },
+      fullSpeed: false,
+      newMessagesWait: false,
       requestsHeld: null,
       profileOwn: null,
+      goal: null,
+      retryAt: null,
     };
     await render(
       <TodayBody

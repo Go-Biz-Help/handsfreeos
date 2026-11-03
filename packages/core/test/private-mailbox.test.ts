@@ -18,6 +18,7 @@ import type {
   SystemActor,
 } from '../src/kernel/types';
 import {
+  conversationGet,
   conversationLinkPerson,
   conversationShare,
   emailAddressCreate,
@@ -369,6 +370,56 @@ describe('sharing with the team', () => {
     });
     const events = (await eventsOf(got.conversationId!)).map((e) => e.event_type);
     expect(events).toEqual(expect.arrayContaining(['conversation.shared', 'conversation.linked']));
+  });
+});
+
+describe('who an email nobody has linked is from (2026-10-29)', () => {
+  // The owner: "quickly create a new contact from it or assign that email to an existing contact". Their own mail
+  // offers it once it's shared with the team, which stays its own step (the owner's pick, 2026-10-29).
+  const senderOf = async (conversationId: string, u: TestUser = chris) =>
+    (await ask(conversationGet, { workspaceId: wsId, conversationId }, u)).sender;
+
+  it('keeps the name the email came from, and offers it for a new contact once it’s the team’s', async () => {
+    const address = `greg-${token()}@example.com`;
+    const got = await receive(address, chrisAddress, {
+      from: { address, name: '"Gregory Lyons"' },
+      subject: 'Zoom meeting with Gregory Lyons',
+    });
+    const [m] = await rows<{ from_name: string | null }>(
+      admin$(),
+      sql`select from_name from app.messages where id = ${got.messageId}`,
+    );
+    expect(m!.from_name).toBe('"Gregory Lyons"');
+    // Chris's own: nothing to add or link until it's shared.
+    expect(await senderOf(got.conversationId!)).toBeNull();
+    await run(conversationShare, { workspaceId: wsId, conversationId: got.conversationId }, chris);
+    expect(await senderOf(got.conversationId!)).toEqual({ name: 'Gregory Lyons', customer: null });
+  });
+
+  it('says who already has the address, until the thread is linked to them', async () => {
+    // Chris shares mail from somebody nobody has yet: the team's now, and still nobody's. (Mail to the team's own
+    // address from a stranger is usually made a customer by lead intake as it comes in.)
+    const ann = `ann-${token()}@example.com`;
+    const got = await receive(ann, chrisAddress, { subject: 'One more thing' });
+    await run(conversationShare, { workspaceId: wsId, conversationId: got.conversationId }, chris);
+    expect(await thread(got.conversationId!)).toMatchObject({ private_to: null, person_id: null });
+    expect(await senderOf(got.conversationId!, member)).toEqual({ name: null, customer: null });
+    // Somebody adds her from elsewhere: the thread is still nobody's, and now says whose address it is.
+    const p = await run(
+      personCreate,
+      { workspaceId: wsId, firstName: 'Ann', lastName: 'Ruiz', email: ann },
+      owner,
+    );
+    expect(await senderOf(got.conversationId!, member)).toEqual({
+      name: null,
+      customer: { id: p.personId, fullName: 'Ann Ruiz' },
+    });
+    await run(
+      conversationLinkPerson,
+      { workspaceId: wsId, conversationId: got.conversationId, personId: p.personId },
+      member,
+    );
+    expect(await senderOf(got.conversationId!, member)).toBeNull();
   });
 });
 

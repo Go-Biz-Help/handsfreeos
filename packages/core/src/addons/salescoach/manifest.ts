@@ -4,7 +4,8 @@
  * server code. Everything it declares starts with its id, `salescoach`.
  *
  * It hears a business's phone calls as they happen (`liveCalls`), shows the person on the call what to say next from
- * the business's own playbooks, and after the call writes the notes, a follow-up and a score. It took in the planned
+ * the business's own playbooks, and after the call writes the notes, a follow-up and a score. The AI teammate's calls
+ * to leads follow the same scripts (`callScripts`, round five). It took in the planned
  * Live Sales Assist (`salesassist`, retired, 2026-10-14). Its written conversations come next, then Zoom.
  *
  * It's in `development`: offered nowhere, and installable only where HandsFreeOS staff hand it out to try.
@@ -137,6 +138,8 @@ export const salescoachAddon = defineAddon({
   // It hears the calls of people who may be coached.
   // Zoom meetings too: HandsFreeOS's app inside Zoom opens the page's Zoom panel (`?view=zoom`).
   liveCalls: { permission: 'salescoach.use', zoom: { path: '', query: { view: 'zoom' } } },
+  // The AI teammate's calls to leads follow its scripts, up to how much it matters, then book a person (round five).
+  callScripts: true,
   billing: { model: 'free' },
   ui: {
     // One row in the side menu: the page has the live call, the coached calls, the trends and the playbooks (`?view=`).

@@ -6,6 +6,7 @@
 import { describe, expect, it } from 'vitest';
 import { networkOfWaiting } from '../../src/addons/outreach/network-words';
 import { PLATFORM_KEYS } from '../../src/addons/outreach/networks';
+import { withRetried } from '../../src/addons/outreach/today';
 import {
   approveAllCount,
   approveAllTakesComments,
@@ -19,15 +20,18 @@ import {
   eachPushWords,
   forumAnswer,
   forumAnswersLeftWords,
+  handOverPushWords,
   messagesTitle,
   messengerChatUrl,
   moreWords,
   needClearedWords,
   needPageOf,
+  needRetryable,
   needTitle,
   needTitleAround,
   needUrlOf,
   needWhyWords,
+  retriedWords,
   newestNudgeAt,
   NO_KINDS,
   nudgeCount,
@@ -101,50 +105,78 @@ describe('the bundled push’s timing', () => {
 });
 
 describe('the words', () => {
-  it('bundle messages first, in the owner’s words', () => {
+  it('bundle messages first, in words a glance reads (decision 146)', () => {
     // Replies handed over pushed on their own: the bundle leaves them out.
     expect(bundlePushWords(kinds({ message: 3, reply: 2 }))).toEqual({
-      title: '3 messages wait for your OK',
-      body: 'Open Today to OK, change or skip them.',
+      title: '3 messages to OK',
+      body: 'Tap to OK, change or skip them.',
+    });
+    expect(bundlePushWords(kinds({ message: 1 }))).toEqual({
+      title: '1 message to OK',
+      body: 'Tap to OK, change or skip it.',
     });
     expect(bundlePushWords(kinds({ message: 1, need: 2 }))).toEqual({
-      title: '1 message waits for your OK',
-      body: 'And 2 steps the extension couldn’t do. Open Today.',
+      title: '1 message to OK',
+      body: 'And 2 steps for you. Tap to see them.',
+    });
+    expect(bundlePushWords(kinds({ need: 1 }))).toEqual({
+      title: '1 step for you',
+      body: 'The extension couldn’t do it. Do it yourself, or let it go. Tap to see it.',
     });
     expect(bundlePushWords(kinds({ need: 2, request: 4 }))).toEqual({
-      title: '2 steps need you',
-      body: 'The extension couldn’t do them. Do them yourself, or let them go, on Today.',
+      title: '2 steps for you',
+      body: 'The extension couldn’t do them. Do them yourself, or let them go. Tap to see them.',
     });
     expect(bundlePushWords(kinds({ reply: 2, request: 1 }))).toBeNull();
-    // The extension's first look tells of them too.
-    expect(bundlePushWords(kinds({ message: 3, reply: 2 }), true)?.title).toBe(
-      '5 messages wait for your OK',
-    );
+    // The extension's first look tells of them too, and its pop-up is clicked, not tapped.
+    expect(bundlePushWords(kinds({ message: 3, reply: 2 }), true, 'computer')).toEqual({
+      title: '5 messages to OK',
+      body: 'Click to OK, change or skip them.',
+    });
     expect(bundlePushWords(kinds({ request: 4 }))).toBeNull();
     expect(bundlePushWords(NO_KINDS)).toBeNull();
   });
 
-  it('push one at a time with “one for each”, the why as a sentence', () => {
-    expect(eachPushWords('message', 'Dana Reyes')).toEqual({
-      title: 'Dana Reyes: a message waits for your OK',
-      body: 'OK it, change it or skip it on Today.',
+  it('push one at a time with “one for each”: the network and what happened first (decision 146)', () => {
+    expect(eachPushWords({ kind: 'message', name: 'Dana Reyes', platform: 'linkedin' })).toEqual({
+      title: 'LinkedIn message to OK',
+      body: 'To Dana Reyes. Tap to OK, change or skip it.',
     });
-    expect(eachPushWords('need', 'Dana Reyes', 'couldn’t find “Add friend”.')).toEqual({
-      title: 'Dana Reyes: the extension needs you',
-      body: 'Couldn’t find “Add friend”. Do it yourself, or let it go, on Today.',
+    // No network known: the title names none.
+    expect(eachPushWords({ kind: 'message', name: 'Dana Reyes', platform: null }).title).toBe(
+      'Message to OK',
+    );
+    // A step says what to do in its network's words, never the extension's reason.
+    expect(
+      eachPushWords({
+        kind: 'need',
+        name: 'Nevin Labib',
+        step: 'friend_request',
+        platform: 'linkedin',
+      }),
+    ).toEqual({
+      title: 'LinkedIn step for you',
+      body: 'Send Nevin Labib an invitation to connect yourself, or let it go. Tap to open it.',
     });
-    // With its network, as HandsFreeOS's pushes say it.
     expect(
       eachPushWords(
-        'need',
-        'Lane Landscaping Co',
-        'couldn’t find Connect on their page',
-        'alignable',
+        { kind: 'need', name: 'Lane Landscaping Co', step: 'confirm', platform: 'alignable' },
+        'computer',
       ),
     ).toEqual({
-      title: 'Lane Landscaping Co: the extension needs you on Alignable',
-      body: 'Couldn’t find Connect on their page. Do it yourself, or let it go, on Today.',
+      title: 'Alignable step for you',
+      body: 'Accept Lane Landscaping Co’s connection request yourself, or let it go. Click to open it.',
     });
+    // Every title fits on one line of a lock screen.
+    for (const platform of PLATFORM_KEYS) {
+      for (const what of [
+        eachPushWords({ kind: 'message', name: 'A', platform }),
+        eachPushWords({ kind: 'comment', name: 'A', platform }),
+        eachPushWords({ kind: 'need', name: 'A', step: 'message', platform }),
+        handOverPushWords('A', null, platform),
+      ])
+        expect(what.title.length).toBeLessThanOrEqual(25);
+    }
   });
 
   it('count Approve all the same everywhere, and say how a list is cut short', () => {
@@ -164,6 +196,81 @@ describe('the words', () => {
       'Let go. It won’t be handed to you for a week.',
     );
     expect(needClearedWords('done', 'open')).toMatch(/still waits for you/);
+  });
+
+  it('offer Retry on every step that can go again, and say what it did (decisions 132 and 145)', () => {
+    expect(needRetryable({ step: 'message', sendId: 'a' })).toBe(true);
+    expect(needRetryable({ step: 'comment', sendId: 'a' })).toBe(true);
+    // A message whose words are gone has nothing to go again with.
+    expect(needRetryable({ step: 'message', sendId: null })).toBe(false);
+    // Any other step goes back on Today's list; a comment the extension writes itself, with its post.
+    expect(needRetryable({ step: 'friend_request', sendId: null })).toBe(true);
+    expect(needRetryable({ step: 'confirm', sendId: null })).toBe(true);
+    expect(needRetryable({ step: 'warm_up', sendId: null })).toBe(true);
+    expect(needRetryable({ step: 'comment', sendId: null, postId: 'p' })).toBe(true);
+    expect(needRetryable({ step: 'comment', sendId: null, postId: null })).toBe(false);
+    expect(retriedWords(1, 0)).toBe('Trying it again on the extension’s next go.');
+    expect(retriedWords(7, 0)).toBe('Trying 7 again on the extension’s next go, one at a time.');
+    expect(retriedWords(2, 1)).toMatch(/^Trying 2 again.* 1 wasn’t tried again: /);
+    expect(retriedWords(0, 2)).toMatch(/^Nothing to try again\. 2 weren’t tried again: /);
+  });
+
+  it('put steps tried again first on Today, within the day’s limits (decision 145)', () => {
+    type Row = {
+      kind: 'friend_request' | 'warm_up' | 'confirm';
+      name: string;
+      postId: null;
+      profileId: string;
+    };
+    const row = (kind: Row['kind'], name: string): Row => ({
+      kind,
+      name,
+      postId: null,
+      profileId: name,
+    });
+    const limits = {
+      friend_request: { done: 7, most: 10 },
+      first_message: { done: 0, most: 10 },
+      follow_up: { done: 0, most: 10 },
+      comment: { done: 0, most: 10 },
+      like: { done: 0, most: 10 },
+    };
+    const listed = [
+      row('friend_request', 'Ann'),
+      row('friend_request', 'Bo'),
+      row('friend_request', 'Cy'),
+    ];
+    const names = (rows: readonly Row[]) => rows.map((r) => `${r.kind}:${r.name}`);
+    // Three left today: the two tried again first, then the first new one; Bo's own is the one tried again.
+    expect(
+      names(
+        withRetried(listed, [row('friend_request', 'Bo'), row('friend_request', 'Dee')], limits),
+      ),
+    ).toEqual(['friend_request:Bo', 'friend_request:Dee', 'friend_request:Ann']);
+    // Past the limit, one tried again waits for another day; a confirm has no limit; likes keep what they had.
+    expect(
+      names(
+        withRetried(
+          [row('warm_up', 'Eve'), ...listed],
+          [
+            row('friend_request', 'Fay'),
+            row('friend_request', 'Gus'),
+            row('friend_request', 'Hal'),
+            row('friend_request', 'Ivo'),
+            row('confirm', 'Jan'),
+          ],
+          limits,
+        ),
+      ),
+    ).toEqual([
+      'friend_request:Fay',
+      'friend_request:Gus',
+      'friend_request:Hal',
+      'confirm:Jan',
+      'warm_up:Eve',
+    ]);
+    // Nothing tried again: the list as it was.
+    expect(names(withRetried(listed, [], limits))).toEqual(names(listed));
   });
 
   it('say why a need couldn’t be done, and link its chat, the same everywhere', () => {
@@ -309,6 +416,42 @@ describe('the words', () => {
     ]);
   });
 
+  it('say what the AI says of a request, and why it waits for the person (decision 136)', () => {
+    const reasons = ['14 mutual friends'];
+    expect(
+      requestWhy(reasons, 'maybe', null, {
+        read: 'read',
+        said: 'ask',
+        why: 'A painter, but nothing says they hire',
+      }),
+    ).toEqual(['The AI isn’t sure: A painter, but nothing says they hire']);
+    // One it would delete, kept for the person: why it isn't deleted goes with it.
+    expect(
+      requestWhy(reasons, 'skip', null, {
+        read: 'read',
+        said: 'delete',
+        why: 'Sells the same thing',
+        kept: 'never',
+      }),
+    ).toEqual([
+      'The AI says delete: Sells the same thing',
+      'It never deletes someone in Contacts, kept, chatted with, or a partner',
+    ]);
+    expect(requestWhy(reasons, 'good', null, { read: 'read', said: 'confirm', why: null })).toEqual(
+      ['The AI says confirm'],
+    );
+    expect(requestWhy([], 'unknown', null, { read: 'reading', said: null, why: null })).toEqual([
+      'The AI hasn’t read their profile yet',
+    ]);
+    expect(requestWhy([], 'unknown', null, { read: 'failed', said: null, why: null })).toEqual([
+      'The AI couldn’t read their profile',
+    ]);
+    // Not read (all go one way, or on Don't pitch): the fit as before.
+    expect(
+      requestWhy(reasons, 'good', 'no_playbook', { read: 'off', said: null, why: null }),
+    ).toEqual(['14 mutual friends', 'Fits, but the business has no playbook in use yet']);
+  });
+
   it('leave a message to one tap when it’s handed over or to someone who needs the person', () => {
     expect(oneByOne({ handedOver: false, needsYou: null })).toBe(false);
     expect(oneByOne({ handedOver: true, needsYou: null })).toBe(true);
@@ -324,9 +467,9 @@ describe('the words', () => {
   });
 
   it('say a comment waiting by its post, and take comments into Approve all (decision 92)', () => {
-    expect(eachPushWords('comment', 'Quinn Harper')).toEqual({
-      title: 'A comment on Quinn Harper’s post waits for your OK',
-      body: 'OK it, change it or skip it on Today.',
+    expect(eachPushWords({ kind: 'comment', name: 'Quinn Harper', platform: 'facebook' })).toEqual({
+      title: 'Facebook comment to OK',
+      body: 'On Quinn Harper’s post. Tap to OK, change or skip it.',
     });
     expect(commentTitle('Dana Reyes')).toBe('Comment on Dana Reyes’s post');
     expect(messagesTitle(false)).toBe('Messages to OK');

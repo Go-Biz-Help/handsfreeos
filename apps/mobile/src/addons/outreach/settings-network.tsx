@@ -2,6 +2,7 @@ import {
   businessLimitsOn,
   choicesFor,
   freshWords,
+  halvedNow,
   NOT_FRESH,
   OTHER_PLATFORMS,
   wheelsWords,
@@ -26,6 +27,8 @@ import {
   type Platform,
 } from '@hfos/core/addons/outreach/networks';
 import { askableOn, type AsksOutput } from '@hfos/core/addons/outreach/asks';
+import { LIKE_YOURS_WORDS } from '@hfos/core/addons/outreach/like-yours';
+import { OUTREACH_PAGES } from '@hfos/core/addons/outreach/pages';
 import { checkCounts } from '@hfos/core/addons/outreach/profile-check';
 import {
   profileWordsOn,
@@ -46,7 +49,6 @@ import { Text } from '@/components/ui/text';
 import { AskButton, type AskActions } from './asks';
 import { useAutosave, type Autosave, type SaveState } from './autosave';
 import { Note } from './kit';
-import { LikeYoursSection, type LikeYoursProps } from './like-yours';
 import { ProfileList, type ProfileProps } from './ready';
 import {
   ExtensionTicks,
@@ -85,15 +87,15 @@ export function NetworkMine({
   asks = null,
   askActions = null,
   profile = null,
-  likeYours = null,
+  onLikeYours = null,
 }: {
   platform: Platform;
   automation: AutomationOutput;
   form: Autosave<AutomationSettings>;
   manages: boolean;
   online: boolean;
-  /** On Instagram, the business's accounts like yours (decision 110): null where there are none to show. */
-  likeYours?: LikeYoursProps | null;
+  /** On Instagram, opens Find people, where the accounts like yours are now (decision 128). */
+  onLikeYours?: (() => void) | null;
   /** The person's own asks of their computer (Check LinkedIn) and the computer: null on someone else's settings. */
   asks?: AsksOutput | null;
   askActions?: AskActions | null;
@@ -113,7 +115,11 @@ export function NetworkMine({
   const wheels = wheelsOf(automation, p);
   // Half limits while they're new there (decision 96), none from a server before it.
   const fresh = automation.fresh?.[p] ?? NOT_FRESH;
-  const limits = networkLimitsNow(p, wheels.on || fresh.on, businessLimitsOn(automation.rules, p));
+  const limits = networkLimitsNow(
+    p,
+    halvedNow({ wheels, fresh, choices }),
+    businessLimitsOn(automation.rules, p),
+  );
   const words = dailyWordsOn(p);
   const disabled = !online;
   return (
@@ -139,9 +145,9 @@ export function NetworkMine({
       ) : (
         <>
           {wheels.on && !isLooking(p) ? (
-            <Note testID={`${testID}-wheels`}>{wheelsWords(wheels)}</Note>
+            <Note testID={`${testID}-wheels`}>{wheelsWords(wheels, choices.fullSpeed)}</Note>
           ) : null}
-          {fresh.on && !isLooking(p) ? (
+          {fresh.on && !choices.fullSpeed && !isLooking(p) ? (
             <Note testID={`${testID}-fresh`}>{freshWords(fresh, p)}</Note>
           ) : null}
           <NetworkComputer
@@ -184,8 +190,23 @@ export function NetworkMine({
                 disabled={disabled}
                 testID={testID}
               />
-              {p === 'instagram' && likeYours ? (
-                <LikeYoursSection likeYours={likeYours} boxed disabled={disabled} testID={testID} />
+              {p === 'instagram' && onLikeYours ? (
+                <Section
+                  boxed
+                  title={LIKE_YOURS_WORDS.title}
+                  about={LIKE_YOURS_WORDS.moved}
+                  testID={`${testID}-like-yours-moved`}
+                >
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    className="self-start"
+                    onPress={onLikeYours}
+                    testID={`${testID}-like-yours-open`}
+                  >
+                    {OUTREACH_PAGES.find}
+                  </Button>
+                </Section>
               ) : null}
               {p === 'facebook' ? (
                 <ExtensionTicks
@@ -225,6 +246,14 @@ export function NetworkMine({
                   onChange={(young) => set({ young })}
                   disabled={disabled}
                   testID={`${testID}-young`}
+                />
+                <Tick
+                  label={NW.fullSpeed(name)}
+                  about={NW.fullSpeedAbout(name)}
+                  checked={choices.fullSpeed}
+                  onChange={(fullSpeed) => set({ fullSpeed })}
+                  disabled={disabled}
+                  testID={`${testID}-full-speed`}
                 />
               </Section>
             </>

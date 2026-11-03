@@ -9,6 +9,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { CheckLookInput } from '@hfos/core/addons/outreach/checks';
 import { LOOKUP_LINE_MOST } from '@hfos/core/addons/outreach/today';
 import { runAsk } from '../src/asks/run';
+import { repliesInput, sightingKey } from '../src/hfos/replies';
 import { instagramListSave } from '../src/hfos/saves';
 import { KITS } from '../src/networks';
 import { openChat, scrollDialog, scrollList } from '../src/networks/instagram/browse';
@@ -914,8 +915,37 @@ describe('Read my chats, on Instagram', () => {
         when: null,
       },
     ]);
+    // Sam's chat open, theirs last in the list: Dana, by the name the row shows.
     const mine = chatPage('222', 'sam.lee', 'Sam Lee', false)();
-    expect(readReplies(mine, mine.location.href)).toEqual([]);
+    expect(readReplies(mine, mine.location.href)).toEqual([
+      { name: 'Dana Reyes', threadKey: null, profile: null, when: '2h' },
+    ]);
+  });
+
+  it('tells who wrote last in the list of chats, whose rows link to no chat, by the name each shows', () => {
+    // As the owner's Checks of 21 and 28 Oct 2026 outlined it: every row a button, none a link to its chat.
+    const doc = new JSDOM(
+      `<!doctype html><html><body>${MENU}<main><section><div role="navigation" aria-label="Thread list"><div>
+        ${inboxRow('Dana Reyes', 'Yes, what do you need?', '2h')}
+        ${inboxRow('Sam Lee', 'You: Thanks!', '3d')}
+        ${inboxRow('Kim Baker', 'Reacted ❤️ to your message', '1h')}
+        ${inboxRow('Avery Lane', 'Active 2h ago', '5h')}
+        ${inboxRow('Jo Reed', 'Liked a message', '4h')}
+        ${inboxRow('Casey Moreno', 'Sent an attachment', '1d')}
+      </div></div></section></main></body></html>`,
+      { url: `${IG}/direct/inbox/` },
+    ).window.document;
+    const seen = readReplies(doc, doc.location.href);
+    expect(seen).toEqual([
+      { name: 'Dana Reyes', threadKey: null, profile: null, when: '2h' },
+      { name: 'Casey Moreno', threadKey: null, profile: null, when: '1d' },
+    ]);
+    // Sent as Instagram's, each by its name: never what they wrote.
+    expect(repliesInput('ws-1', seen, false, 'instagram').seen).toEqual([
+      { name: 'Dana Reyes', threadKey: null, profile: null },
+      { name: 'Casey Moreno', threadKey: null, profile: null },
+    ]);
+    expect(sightingKey(seen[0]!, 'instagram')).not.toBe(sightingKey(seen[1]!, 'instagram'));
   });
 
   it('reads each chat for the AI as Instagram’s, and notes the one whose last message is theirs', async () => {

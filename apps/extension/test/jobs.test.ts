@@ -20,9 +20,10 @@ vi.mock('../src/jobs/job', async (original) => ({
 }));
 
 const { readChats } = await import('../src/jobs/chats');
-const { checkRequests, saveMembers, ADMIN_SCROLLS, FRIEND_REQUESTS } =
+const { checkRequests, saveMembers, ADMIN_SCROLLS, FRIEND_REQUESTS, MEMBER_SCROLLS } =
   await import('../src/jobs/people');
-const { findPosts, groupsToWork, newestUrl, watchPosts } = await import('../src/jobs/posts');
+const { findPosts, groupsToWork, newestUrl, recentPostSearch, watchPosts } =
+  await import('../src/jobs/posts');
 const { postSender } = await import('../src/auto/daily');
 const { runDaily } = await import('../src/auto/daily');
 
@@ -58,8 +59,8 @@ function fakeTab(
   return { tab, opened, asked, goTo: (url: string) => (at = url) };
 }
 
-/** HandsFreeOS, answering as a save would, and keeping what it was sent. */
-function fakeHfos(groups: unknown[] = []) {
+/** HandsFreeOS, answering as a save would, and keeping what it was sent: Facebook's post search goes with `words`. */
+function fakeHfos(groups: unknown[] = [], words: string[] = []) {
   const sent: HfosAsk[] = [];
   const hfos = (async (ask: HfosAsk) => {
     sent.push(ask);
@@ -80,6 +81,8 @@ function fakeHfos(groups: unknown[] = []) {
         };
       case 'hfos-groups':
         return { ok: true, value: { groups: ask.input.view === 'work' ? groups : [] } };
+      case 'hfos-post-words':
+        return { ok: true, value: { words, tags: [], places: [] } };
       default:
         throw new Error(`Not expected: ${ask.type}`);
     }
@@ -331,6 +334,41 @@ describe('saving group members', () => {
     expect(sent).toEqual([]);
   });
 
+  it('carries on further down a member list than the last read got, and notes where it got to', async () => {
+    // Decision 148: it scrolls past the screens already read, saving nobody from them, then reads its own.
+    const { tab, opened, asked } = fakeTab(members, {
+      'hfos-scroll-list': Array<boolean>(3 + MEMBER_SCROLLS).fill(true),
+    });
+    const { hfos, sent } = fakeHfos();
+    const { job } = jobWith(tab, hfos);
+    const end = await saveMembers(job, [
+      group('4455667788', { adminsRead: true, membersDepth: 3 }),
+    ]);
+    expect(opened).toEqual([`${FB}/groups/4455667788/members/`]);
+    // The screens it read before, plus its own ten.
+    expect(asked.filter((a) => a === 'hfos-scroll-list')).toHaveLength(3 + MEMBER_SCROLLS);
+    const saves = sent.filter((a) => a.type === 'hfos-save-group') as Extract<
+      HfosAsk,
+      { type: 'hfos-save-group' }
+    >[];
+    expect(saves.at(-1)!.input.readTo).toBe(3 + MEMBER_SCROLLS);
+    expect(end.line).toContain('carrying on further down one list');
+  });
+
+  it('starts a member list at the top again once it runs out', async () => {
+    const { tab } = fakeTab(members, {
+      'hfos-scroll-list': Array<boolean>(2).fill(true),
+    });
+    const { hfos, sent } = fakeHfos();
+    const { job } = jobWith(tab, hfos);
+    await saveMembers(job, [group('4455667788', { adminsRead: true, membersDepth: 5 })]);
+    const saves = sent.filter((a) => a.type === 'hfos-save-group') as Extract<
+      HfosAsk,
+      { type: 'hfos-save-group' }
+    >[];
+    expect(saves.at(-1)!.input.readTo).toBe(0);
+  });
+
   it('goes to the groups with the fewest saved first, a few a day, and only members once admins are read', async () => {
     const { tab, opened } = fakeTab(members);
     const { hfos } = fakeHfos();
@@ -442,6 +480,56 @@ describe('finding posts', () => {
     expect(newestUrl(`${FB}/groups/123/?ref=share`)).toBe(
       `${FB}/groups/123/?ref=share&sorting_setting=CHRONOLOGICAL`,
     );
+  });
+
+  it('then searches Facebook’s posts with the day’s phrases, recent ones first, and sends them in no group (decision 141)', async () => {
+    const { tab, opened, asked } = fakeTab(
+      (url) => (url.includes('/search/posts/') ? 'feed-2026.html' : 'group-feed.html'),
+      { 'hfos-scroll-feed': [false], 'hfos-scroll-page': [true, true, false] },
+    );
+    const { hfos, sent } = fakeHfos([group('texascontractors')], ['missed calls', 'slow season']);
+    const { job } = jobWith(tab, hfos);
+    const end = await runDaily('posts', job);
+    expect(opened).toEqual([
+      `${FB}/groups/texascontractors/`,
+      recentPostSearch('missed calls'),
+      recentPostSearch('slow season'),
+    ]);
+    expect(recentPostSearch('missed calls')).toMatch(
+      /^https:\/\/www\.facebook\.com\/search\/posts\/\?q=missed%20calls&filters=/,
+    );
+    const words = sent.find((a) => a.type === 'hfos-post-words');
+    expect(words).toMatchObject({ workspaceId: BUSINESS, platform: 'facebook' });
+    // Three screens of the first, pointing at the times first; the second ends at its second screen.
+    expect(asked.filter((a) => a === 'hfos-scroll-page')).toHaveLength(3);
+    const saves = sent.filter((a) => a.type === 'hfos-save-posts') as Extract<
+      HfosAsk,
+      { type: 'hfos-save-posts' }
+    >[];
+    const searched = saves.filter((s) => s.input.found === 'search');
+    expect(searched.length).toBeGreaterThan(0);
+    for (const s of searched) expect(s.input).toMatchObject({ group: null, platform: 'facebook' });
+    expect(searched[0]!.input.words).toBe('missed calls');
+    expect(end.line).toMatch(
+      /^Looked through 1 group: .+ The good ones go on your list for today\. Searched Facebook’s posts for 2 phrases: \d+ posts? sent for the AI to check\.$/,
+    );
+  });
+
+  it('searches Facebook’s posts even with no good group, and searches nothing without phrases', async () => {
+    const pages = (url: string) =>
+      url.includes('/search/posts/') ? 'feed-2026.html' : 'group-feed.html';
+    const none = fakeHfos([], ['missed calls']);
+    const searched = await runDaily('posts', jobWith(fakeTab(pages).tab, none.hfos).job);
+    expect(searched.line).toMatch(
+      /^You’re not in any group marked Work these or Maybe yet\. Searched Facebook’s posts for 1 phrase: /,
+    );
+    const quiet = fakeTab(pages);
+    const nothing = await runDaily('posts', jobWith(quiet.tab, fakeHfos([], []).hfos).job);
+    expect(nothing).toEqual({
+      line: 'You’re not in any group marked Work these or Maybe yet.',
+      warned: false,
+    });
+    expect(quiet.opened).toEqual([]);
   });
 
   it('says so when they’re in no good group', async () => {

@@ -59,6 +59,7 @@ import { MoveDialog } from './move-dialog';
 import { ReassignDialog } from './reassign-dialog';
 import { JobBlock } from './job-block';
 import { VideoCallBlock } from './video-call-block';
+import { WebinarLeads } from './webinar-leads';
 import { invoiceThisVisit, useVisitMoney, VisitMoneyBlock } from './visit-money';
 
 const Section = ({
@@ -929,6 +930,10 @@ export function AppointmentSheet({
                 <Section label="Video call">
                   <VideoCallBlock workspaceId={workspaceId} appt={appt} version={version} />
                 </Section>
+              ) : null}
+
+              {appt.location.video === 'handsfree' ? (
+                <WebinarLeads workspaceId={workspaceId} appointmentId={appt.id} version={version} />
               ) : null}
 
               {appt.location.video === 'zoom' &&

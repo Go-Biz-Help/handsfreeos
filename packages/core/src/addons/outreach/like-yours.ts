@@ -289,6 +289,8 @@ export function checkedPicks(
 /** Settings → Instagram's words for them. */
 export const LIKE_YOURS_WORDS = {
   title: 'Accounts like yours',
+  /** Settings → Instagram's pointer to them, under Find people since decision 128. */
+  moved: 'They’re under Find people now, beside what each way found this week.',
   about:
     'Up to 5 Instagram accounts whose followers are your kind of customer, like your chamber of commerce, a venue or a business with the same customers. Each day your computer reads one: who commented on its latest posts and some of its followers, and the AI checks each before anything is done.',
   none: 'None yet. The AI picks some from your playbook once your computer has searched Instagram, or add one here.',

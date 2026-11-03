@@ -2017,6 +2017,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/commands/campaign.set_keep_adding": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Turn on or off whether a call campaign keeps adding people: on, anyone who later gets one of its tags or reaches one of its stages, and agrees to calls in writing, joins and is called at its pace; off, it finishes once everyone it has is called.
+         * @description Risk level 2. Requires workflows.manage. Emits campaign.keep_adding_changed.
+         */
+        post: operations["command_campaign_set_keep_adding"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/commands/campaign.set_pace": {
         parameters: {
             query?: never;
@@ -2107,7 +2127,7 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * Add a website chat widget: the sites it shows on (the www version is added for you), how it looks, who answers, and what it asks visitors for. Returns the public key for the snippet.
+         * Add a website chat widget: its name, the sites it shows on (the www version is added for you), how it looks and where its button sits on phones and computers, who answers, what happens while nobody is answering, and what it asks visitors for. Returns the public key for the snippet.
          * @description Risk level 2. Requires channels.manage. Emits chat_widget.created.
          */
         post: operations["command_chat_widget_create"];
@@ -2187,7 +2207,7 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * Change a website chat widget: its sites, look, greeting and away message, who answers, what it asks visitors for, SMS consent and daily limit. Only the fields sent change.
+         * Change a website chat widget: its name, sites, colours and logo, where its button sits on phones and computers, greeting, away message and what happens while nobody is answering, who answers, what it asks visitors for, SMS consent and daily limit. Only the fields sent change.
          * @description Risk level 2. Requires channels.manage. Emits chat_widget.updated.
          */
         post: operations["command_chat_widget_update"];
@@ -3777,6 +3797,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/commands/form.begin_slides_upload": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Reserve a place for a live poll’s slides, a PDF of 25 MB at most. Upload it to the returned path, confirm it with file.confirm, then put it on the poll with set_form {slides: {fileId, name, pages}}.
+         * @description Risk level 1. Requires forms.manage. Emits .
+         */
+        post: operations["command_form_begin_slides_upload"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/commands/form.create": {
         parameters: {
             query?: never;
@@ -3971,6 +4011,26 @@ export interface paths {
          * @description Risk level 2. Requires forms.manage. Emits form.opened, form.closed.
          */
         post: operations["command_form_set_status"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/form.use_design_everywhere": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Put one form’s design (its colours, font, shape and layout) on every other form. Live forms show it straight away; nothing else about them changes.
+         * @description Risk level 2. Requires forms.manage. Emits form.draft_saved, form.published.
+         */
+        post: operations["command_form_use_design_everywhere"];
         delete?: never;
         options?: never;
         head?: never;
@@ -5491,6 +5551,26 @@ export interface paths {
          * @description Risk level 1. Requires records.write. Emits lead.updated, lead.assigned. Can wait on a phone with no signal.
          */
         post: operations["command_lead_update"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/learned_way.set_removed": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Support: set aside ways the AI helper learned to find a step’s button (so no computer tries them again), or bring them back.
+         * @description Risk level 1. Requires platform.health.read. Emits learned_way.removed, learned_way.restored.
+         */
+        post: operations["command_learned_way_set_removed"];
         delete?: never;
         options?: never;
         head?: never;
@@ -7577,6 +7657,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/commands/outreach.friends.cancel_all": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * The person starts Cancel all on a social network: every sent friend request (LinkedIn’s invitations, Alignable’s connection requests) waiting for an answer there, however new, is cancelled by the browser extension on its own, the oldest first, at the day’s limit, leaving out the ones the extension sent unless they say. Or they stop it, and the ones left wait as usual. Not on Instagram, whose follows wait for nobody.
+         * @description Risk level 2. Requires outreach.use. Emits outreach.friends.cancel_all.
+         */
+        post: operations["command_outreach_friends_cancel_all"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/commands/outreach.friends.save": {
         parameters: {
             query?: never;
@@ -7627,7 +7727,7 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * Save a group the person has open on Facebook or Alignable and the people on its People tab or members page (or one of its See all pages), with the lines under each name. Admins, moderators and leaders are kept as such and never suggested; the full list of them marks the group’s admins as read. Nobody goes in Contacts.
+         * Save a group the person has open on Facebook or Alignable and the people on its People tab or members page (or one of its See all pages), with the lines under each name. Admins, moderators and leaders are kept as such and never suggested; the full list of them marks the group’s admins as read, and the once-a-day read notes how far down its member list it got. Nobody goes in Contacts.
          * @description Risk level 1. Requires outreach.use. Emits outreach.group.saved.
          */
         post: operations["command_outreach_group_save"];
@@ -7917,6 +8017,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/commands/outreach.live.watch": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * A ticker of the person’s is on screen: for the next minute and a half their computer tells what it’s doing every few seconds, instead of every 20.
+         * @description Risk level 0. Requires outreach.use. Emits outreach.live.watched.
+         */
+        post: operations["command_outreach_live_watch"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/commands/outreach.messages.edit": {
         parameters: {
             query?: never;
@@ -7991,6 +8111,26 @@ export interface paths {
          * @description Risk level 0. Requires outreach.use. Emits outreach.need.noted. Can wait on a phone with no signal.
          */
         post: operations["command_outreach_need_note"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/outreach.need.retry": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * The person tries again steps the extension handed to them, from Steps it needs you for: one (Retry), or with none named every one there (Retry all); the extension does Retry all on its own once after it’s updated, all but messages and comments that didn’t go, which could go twice. A message or comment that didn’t go goes again as it was, OK’d, a few minutes after the one before; any other step (a friend or connection request, a confirm, a like before a request, a comment it writes itself) goes back on the list for today on its network, ahead of new ones, for the extension’s next go. Each leaves Steps it needs you for, and comes back if it can’t be done again.
+         * @description Risk level 1. Requires outreach.use. Emits outreach.send.approved, outreach.need.cleared.
+         */
+        post: operations["command_outreach_need_retry"];
         delete?: never;
         options?: never;
         head?: never;
@@ -8108,9 +8248,29 @@ export interface paths {
         put?: never;
         /**
          * Marks someone on the person’s Partners list: interested, call booked, a partner now (made a partner of the business, with a link of their own), not now (they can be asked again in 90 days), back on the list, or not a partner after all, when they’re off the list and may be pitched as a customer again.
-         * @description Risk level 1. Requires outreach.use. Emits outreach.partner.marked.
+         * @description Risk level 1. Requires outreach.use. Emits outreach.partner.marked, outreach.send.skipped.
          */
         post: operations["command_outreach_partner_mark"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/outreach.partner.potential": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Marks someone as a potential partner, or not a partner after all (decision 130). Marked, they go on the person’s Partners list and get partner messages instead of customer ones: a like first, then the ask a day later, before anyone the AI found and within the same 3 asks a day, each waiting for an OK. The AI reads their profile for what kind of partner they are, and the mark stands whatever it says. Customer messages to them waiting for an OK are skipped. Not a partner after all takes them off the list and back to customer messages, where they were.
+         * @description Risk level 1. Requires outreach.use. Emits outreach.partner.marked, outreach.send.skipped.
+         */
+        post: operations["command_outreach_partner_potential"];
         delete?: never;
         options?: never;
         head?: never;
@@ -8187,7 +8347,7 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * Keep the posts in a Facebook group’s feed, or found by a network’s own search (LinkedIn’s post search, Instagram’s hashtags and places, Alignable’s town), that are worth a comment from the person: those saying a playbook’s signs or asking for help, or found under a playbook’s own hashtag or phrase, with who wrote them and the hashtag or phrase that found them, for the AI to check. Says how each post the page shows stands, for the extension to mark. Nobody goes in Contacts.
+         * Keep the posts in a Facebook group’s feed, or found by a network’s own search (Facebook’s and LinkedIn’s post search, Instagram’s hashtags and places, Alignable’s town), that are worth a comment from the person: those saying a playbook’s signs or asking for help, or found under a playbook’s own hashtag or phrase, with who wrote them and the hashtag or phrase that found them, for the AI to check. Says how each post the page shows stands, for the extension to mark. Nobody goes in Contacts.
          * @description Risk level 1. Requires outreach.use. Emits outreach.posts.saved.
          */
         post: operations["command_outreach_posts_save"];
@@ -8317,6 +8477,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/commands/outreach.request.answer": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * The person confirms or deletes a friend request they got (decision 136), whatever they picked for those: their computer confirms it as it works through their day, or deletes it with the once-a-day jobs, on Facebook, LinkedIn or Alignable. It leaves Waiting for you at once.
+         * @description Risk level 2. Requires outreach.use. Emits outreach.request.answered. Can wait on a phone with no signal.
+         */
+        post: operations["command_outreach_request_answer"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/commands/outreach.request.set_aside": {
         parameters: {
             query?: never;
@@ -8331,6 +8511,46 @@ export interface paths {
          * @description Risk level 0. Requires outreach.use. Emits outreach.request.set_aside. Can wait on a phone with no signal.
          */
         post: operations["command_outreach_request_set_aside"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/outreach.requests.pause": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Note that a social network told the person they reached their monthly limit of requests there (Alignable’s connection requests), in its own words, as the extension read it: new requests on that network wait till the 1st of next month, with the likes before them. Likes, comments and messages go on, and nothing else slows down.
+         * @description Risk level 1. Requires outreach.use. Emits outreach.requests.paused. Can wait on a phone with no signal.
+         */
+        post: operations["command_outreach_requests_pause"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/outreach.requests.start_again": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Start new requests again on a social network (Alignable’s connection requests) before the 1st, after the person upgraded there: the pause its monthly limit put on them ends now. If the network says the limit is still reached, they pause again.
+         * @description Risk level 1. Requires outreach.use. Emits outreach.requests.started_again.
+         */
+        post: operations["command_outreach_requests_start_again"];
         delete?: never;
         options?: never;
         head?: never;
@@ -8387,10 +8607,30 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * The extension drafted a message to someone on the person’s list for today: a first message, a follow-up or a reply; or, on Instagram, LinkedIn and Alignable, a comment on a good post of theirs; or, on Facebook, the day’s reply to a question asked in one of the person’s groups. It waits for the person’s OK, or, when they chose for messages to go on their own and their training wheels are off, goes as it is; a comment or a reply in a group goes on its own once the person has OK’d 25 there and a week has gone by, and an answer to an Alignable post asking for what the business offers always waits, as do a message offering another time after a missed demo and a birthday or new-job note. A message already drafted for them comes back instead. A client in Contacts gets only replies.
+         * The extension drafted a message to someone on the person’s list for today: a first message, a follow-up or a reply; or, on Instagram, LinkedIn and Alignable, a comment on a good post of theirs; or, on Facebook, the day’s reply to a question asked in one of the person’s groups. It waits for the person’s OK, or, when they chose for messages to go on their own and their training wheels are off, goes as it is; a comment or a reply in a group goes on its own once the person has OK’d 25 there and a week has gone by, and an answer to an Alignable post asking for what the business offers always waits, as do a message offering another time after a missed demo, a birthday or new-job note, and a reply to something the business’s Knowledge doesn’t answer. A message already drafted for them comes back instead. A client in Contacts gets only replies.
          * @description Risk level 0. Requires outreach.use. Emits outreach.send.queued.
          */
         post: operations["command_outreach_send_queue"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/outreach.send.retry": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * The person tries again messages and comments the extension couldn’t send, from Steps it needs you for: one (Retry), or with none named every one there (Retry all). Each goes again as it was, OK’d, a few minutes after the one before at random, so they never all go at once; its step leaves the list, and comes back if it can’t go again. One with a newer message to them waiting already, or that went since, is passed over.
+         * @description Risk level 1. Requires outreach.use. Emits outreach.send.approved, outreach.need.cleared.
+         */
+        post: operations["command_outreach_send_retry"];
         delete?: never;
         options?: never;
         head?: never;
@@ -14007,7 +14247,7 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * Publish a date on a fixed-sessions calendar that customers take seats in.
+         * Publish a date on a fixed-sessions calendar that customers take seats in. On a calendar whose place is a HandsFreeOS video call, each date is a webinar (up to 500 people, with a link anyone can use to save a seat).
          * @description Risk level 1. Requires appointments.write. Emits session.published.
          */
         post: operations["command_session_publish"];
@@ -15167,7 +15407,7 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * Pay a texting fee on a Stripe page with another card: a registration’s fees the card said no to, or a month of the campaign. The worker makes the page; read its address from phone.setup_status (textingFees). The card paid with is the one charged from then on.
+         * Pay a texting fee on a Stripe page with another card: a registration’s fees the card said no to, or a month of the campaign. The worker makes the page; read its address from phone.setup_status (textingFees). The card paid with is the one charged from then on. For HandsFreeOS’s own business, which is never charged, the worker lets the fee through instead.
          * @description Risk level 3. Requires channels.manage. Emits texting_fee.page_requested.
          */
         post: operations["command_texting_fee_pay"];
@@ -15337,6 +15577,66 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/commands/video_call.poll_close": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Close the question that’s up in a HandsFreeOS video call’s live poll.
+         * @description Risk level 0. Requires appointments.write. Emits video_call.poll_closed.
+         */
+        post: operations["command_video_call_poll_close"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/video_call.poll_open": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Pop a question or button from the call’s live poll up on everyone’s screen in a HandsFreeOS video call. Any question that’s up closes.
+         * @description Risk level 1. Requires appointments.write. Emits video_call.poll_opened, video_call.poll_closed.
+         */
+        post: operations["command_video_call_poll_open"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/video_call.poll_skip": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Skip a question in the call’s live poll for now, so the next one is up next. It can still be asked later.
+         * @description Risk level 0. Requires appointments.write. Emits video_call.poll_skipped.
+         */
+        post: operations["command_video_call_poll_skip"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/commands/video_call.remove": {
         parameters: {
             query?: never;
@@ -15371,6 +15671,106 @@ export interface paths {
          * @description Risk level 1. Requires appointments.write. Emits video_call.ai_changed.
          */
         post: operations["command_video_call_set_ai"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/video_call.set_attendee_video": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * In a HandsFreeOS webinar, choose whether attendees may turn their cameras on, and whether only the team or everyone sees them.
+         * @description Risk level 1. Requires appointments.write. Emits video_call.attendee_video_changed.
+         */
+        post: operations["command_video_call_set_attendee_video"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/video_call.set_poll": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Pick the live poll whose questions pop up in a HandsFreeOS video call, or take it off. Live polls are made in Forms.
+         * @description Risk level 1. Requires appointments.write. Emits video_call.poll_set, video_call.slide_changed.
+         */
+        post: operations["command_video_call_set_poll"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/video_call.set_poll_ai": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Say how far the AI goes with a HandsFreeOS video call’s live poll: pops a question up when it hears its moment and offers the rest (ask), only offers them (suggest), or leaves it to the team (off).
+         * @description Risk level 1. Requires appointments.write. Emits video_call.poll_ai_set.
+         */
+        post: operations["command_video_call_set_poll_ai"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/video_call.slide": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Show a slide of the live poll’s slides big on the stage in a HandsFreeOS video call, counted from 1, or take the slides down (null).
+         * @description Risk level 1. Requires appointments.write. Emits video_call.slide_changed.
+         */
+        post: operations["command_video_call_slide"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/video_call.stage": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * In a HandsFreeOS webinar, bring an attendee on stage so they can talk and be on camera, or send them back to the audience.
+         * @description Risk level 1. Requires appointments.write. Emits video_call.stage_changed.
+         */
+        post: operations["command_video_call_stage"];
         delete?: never;
         options?: never;
         head?: never;
@@ -15631,6 +16031,26 @@ export interface paths {
          * @description Risk level 3. Requires money.manage. Emits wallet.recharge_requested.
          */
         post: operations["command_wallet_top_up"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/webinar.schedule": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Schedule a webinar on HandsFreeOS video: one date, or the same time every week, every 2 weeks or every month. It goes on the business’s webinar calendar, which is made (as Webinars, with you presenting) when there isn’t one.
+         * @description Risk level 2. Requires appointments.write. Emits .
+         */
+        post: operations["command_webinar_schedule"];
         delete?: never;
         options?: never;
         head?: never;
@@ -19247,7 +19667,7 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * Who the person’s computer checks next for whether they fit a playbook, in order and no more than today has room for: anyone they pressed Research on, anyone waiting for a look at where they live (those asking to be friends first), friends whose chat looks like a prospect, then friends with any chat, others they’ve chatted with, friends from the groups, the rest of their friends, their followers on Facebook who aren’t friends yet, then people in the business’s Facebook groups who aren’t friends, the best fit first. Never anyone on Don’t pitch, nor anyone checked lately unless the person asked to check everyone again or they wait for a look.
+         * Who the person’s computer checks next for whether they fit a playbook, in order and no more than today has room for: anyone they pressed Research on, anyone who sent them a friend request they haven’t answered (for what to do with it), anyone waiting for a look at where they live (those asking to be friends first), friends whose chat looks like a prospect, then friends with any chat, others they’ve chatted with, friends from the groups, the rest of their friends, their followers on Facebook who aren’t friends yet, then people in the business’s Facebook groups who aren’t friends, the best fit first. Never anyone on Don’t pitch, nor anyone checked lately unless the person asked to check everyone again or they wait for a look.
          * @description Requires outreach.use.
          */
         post: operations["query_outreach_checks_next"];
@@ -19271,6 +19691,26 @@ export interface paths {
          * @description Requires outreach.use.
          */
         post: operations["query_outreach_countries_skipped"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/queries/outreach.counts": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * How many of each thing the person’s browser extension did on its own today, this week (from Monday) or this month (from the 1st), on each social network: friend requests, likes, comments and messages sent, profiles, posts and chats looked at, new people found, groups looked at and joined, old requests cancelled, messages drafted and more. Counting started the day it went live. Owners and admins can see the whole team’s, all together and person by person.
+         * @description Requires outreach.use.
+         */
+        post: operations["query_outreach_counts"];
         delete?: never;
         options?: never;
         head?: never;
@@ -19351,6 +19791,26 @@ export interface paths {
          * @description Requires outreach.use.
          */
         post: operations["query_outreach_finds_towns"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/queries/outreach.finds.week": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Where new people came from in the last week, for the person: how many were found each way on each network (writing, commenting on or liking a good post, in a group, at an event near them, following an account like theirs, or by a search), how many of those the AI called a good fit or a maybe, the followers and group members checked like friends, and the partners found. One network’s, or every network’s.
+         * @description Requires outreach.use.
+         */
+        post: operations["query_outreach_finds_week"];
         delete?: never;
         options?: never;
         head?: never;
@@ -19487,7 +19947,7 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * Which of the business’s groups on a network (Facebook’s, or Alignable’s) the person’s computer checks next for whether the playbooks’ people are there: their own groups first, then groups found that fit by name; none checked lately. Facebook’s when no network is named.
+         * Which of the business’s groups on a network (Facebook’s, or Alignable’s) the person’s computer checks next for whether the playbooks’ people are there: their own groups first, then groups found that fit by name; none checked lately. Only their own groups while they work only those. Facebook’s when no network is named.
          * @description Requires outreach.use.
          */
         post: operations["query_outreach_groups_to_check"];
@@ -19547,7 +20007,7 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * Which groups on a network (Facebook’s, or Alignable’s) the person’s computer asks to join next (decisions 31 and 92): the ones the AI says the business’s people are in, or that fit well by name while it hasn’t read them, that the person isn’t in and hasn’t asked to join; no more than today has room for there. With how many people that network’s groups have left to reach, words to search for more groups with and whether they go anywhere, and the person’s Join switch there. Facebook’s when no network is named.
+         * Which groups on a network (Facebook’s, or Alignable’s) the person’s computer asks to join next (decisions 31 and 92): the ones the AI says the business’s people are in, or that fit well by name while it hasn’t read them, that the person isn’t in and hasn’t asked to join; no more than today has room for there. With how many people that network’s groups have left to reach, words to search for more groups with and whether they go anywhere, and what the person picked about groups there. Facebook’s when no network is named.
          * @description Requires outreach.use.
          */
         post: operations["query_outreach_joins_next"];
@@ -19727,7 +20187,7 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * The person’s Partners list: everyone the AI found could send the business its customers, with how many are at each stage (Found, Warming up, Asked, Interested, Call booked, Partner, Not now), and for each their kind (a group’s admin, a creator, a business), network, audience and how big it is, why they fit and a first warm-up. The best fits with the biggest audiences first; a page at a time.
+         * The person’s Partners list: everyone the AI found could send the business its customers, and anyone the person marked as a potential partner, with how many are at each stage (Found, Warming up, Asked, Interested, Call booked, Partner, Not now), and for each their kind (a group’s admin, a creator, a business), network, audience and how big it is, why they fit, a first warm-up, and whether the person marked them. The best fits with the biggest audiences first; a page at a time.
          * @description Requires outreach.use.
          */
         post: operations["query_outreach_partners"];
@@ -19747,7 +20207,7 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * Who the person’s computer reads next for whether they could partner with the business, in order and no more than today has room for: admins of the biggest groups the business’s customers are in, then people with the biggest followings, then businesses. Only with a Find partners playbook in use on the network; never anyone on Don’t pitch or Never contact, anyone found already, anyone being messaged as a customer lately, nor anyone read lately.
+         * Who the person’s computer reads next for whether they could partner with the business, in order and no more than today has room for: anyone the person marked as a potential partner and not read since, then admins of the biggest groups the business’s customers are in, people with the biggest followings, and businesses. Those the AI finds only with a Find partners playbook in use on the network; never anyone on Don’t pitch or Never contact, anyone found already, anyone being messaged as a customer lately, nor anyone read lately.
          * @description Requires outreach.use.
          */
         post: operations["query_outreach_partners_next"];
@@ -19847,7 +20307,7 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * The words the person’s computer searches a network’s posts with today, from the playbooks in use: their own phrases for the network’s post search first, a few a day in turn, else the quoted words in their signs, then their words for groups. With them, the hashtags a day’s look on Instagram opens (the playbooks’ own first, else ones made from their area and words), and the playbooks’ places, to tell a post tagged in the area.
+         * The words the person’s computer searches a network’s posts with today, from the playbooks in use: their own phrases for the network’s post search first, a few a day in turn, else (off Facebook) the quoted words in their signs, then their words for groups. With them, the hashtags a day’s look on Instagram opens (the playbooks’ own first, else ones made from their area and words), and the playbooks’ places, to tell a post tagged in the area.
          * @description Requires outreach.use.
          */
         post: operations["query_outreach_posts_words"];
@@ -19867,7 +20327,7 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * Where someone the person reached stands, as their person menu shows it: in Contacts or not, a client (and why), a partner, a demo booked, on the person’s Later (and until when), on Don’t pitch or Never contact (and who put them on), and whether the person may take them off; who reached them first, and for an owner or admin, the teammates they can be given to.
+         * Where someone the person reached stands, as their person menu shows it: in Contacts or not, a client (and why), a partner, on the person’s own Partners list (at which stage, and whether they marked them) or looking more like a partner to the AI (and why), a demo booked, on the person’s Later (and until when), on Don’t pitch or Never contact (and who put them on), and whether the person may take them off; who reached them first, and for an owner or admin, the teammates they can be given to.
          * @description Requires outreach.use.
          */
         post: operations["query_outreach_profile_marks"];
@@ -19971,6 +20431,26 @@ export interface paths {
          * @description Requires outreach.use.
          */
         post: operations["query_outreach_stages"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/queries/outreach.ticker": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * What the ticker along the bottom of Social Outreach shows: what the person’s computer that works says it’s doing now, and today’s newest steps.
+         * @description Requires outreach.use.
+         */
+        post: operations["query_outreach_ticker"];
         delete?: never;
         options?: never;
         head?: never;
@@ -20531,6 +21011,26 @@ export interface paths {
          * @description Requires platform.health.read.
          */
         post: operations["query_platform_health_summary"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/queries/platform.learned_way.list": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Support: the ways the AI helper learned to find a step’s button in a new place, across every business: how each is found, how often it worked and failed, and whether every computer tries it.
+         * @description Requires platform.health.read.
+         */
+        post: operations["query_platform_learned_way_list"];
         delete?: never;
         options?: never;
         head?: never;
@@ -22571,6 +23071,46 @@ export interface paths {
          * @description Requires records.read.
          */
         post: operations["query_video_call_get"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/queries/video_call.leads": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Who to follow up with after a HandsFreeOS video call with a live poll: everyone who came, Hot, Warm or Cold, hottest first, with their points and the AI’s reason.
+         * @description Requires records.read.
+         */
+        post: operations["query_video_call_leads"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/queries/video_call.polls": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * A HandsFreeOS video call’s live poll: each question and button, whether it’s been asked, and the answers and totals so far.
+         * @description Requires records.read.
+         */
+        post: operations["query_video_call_polls"];
         delete?: never;
         options?: never;
         head?: never;
@@ -26302,6 +26842,11 @@ export interface operations {
                             wallet_empty?: true;
                             /** @default true */
                             wallet_low?: boolean;
+                            /**
+                             * @default true
+                             * @enum {boolean}
+                             */
+                            webinar_hot?: true;
                             /** @default true */
                             website_changed?: boolean;
                         };
@@ -26464,6 +27009,11 @@ export interface operations {
                                 wallet_empty: true;
                                 /** @default true */
                                 wallet_low: boolean;
+                                /**
+                                 * @default true
+                                 * @enum {boolean}
+                                 */
+                                webinar_hot: true;
                                 /** @default true */
                                 website_changed: boolean;
                             };
@@ -26603,6 +27153,19 @@ export interface operations {
                         calls?: {
                             /** @default false */
                             askConsent?: boolean;
+                            /** @default false */
+                            businessLandlines?: boolean;
+                            /** @default {} */
+                            hours?: {
+                                /** @default 21:00 */
+                                end?: string;
+                                /** @default 08:00 */
+                                start?: string;
+                                /** @default true */
+                                weekends?: boolean;
+                            };
+                            /** @default 3 */
+                            tries?: number;
                             /**
                              * @default text
                              * @enum {string}
@@ -26718,6 +27281,18 @@ export interface operations {
                             calls: {
                                 /** @default false */
                                 askConsent: boolean;
+                                /** @default false */
+                                businessLandlines: boolean;
+                                hours: {
+                                    /** @default 21:00 */
+                                    end: string;
+                                    /** @default 08:00 */
+                                    start: string;
+                                    /** @default true */
+                                    weekends: boolean;
+                                };
+                                /** @default 3 */
+                                tries: number;
                                 /**
                                  * @default text
                                  * @enum {string}
@@ -27167,7 +27742,7 @@ export interface operations {
                      * @default scratch
                      * @enum {string}
                      */
-                    preset?: "personal" | "round_robin" | "service" | "group" | "event" | "resource" | "collective" | "dispatch" | "scratch";
+                    preset?: "personal" | "round_robin" | "service" | "group" | "event" | "webinar" | "resource" | "collective" | "dispatch" | "scratch";
                     /** @default [] */
                     resources?: string[];
                     /** @default [] */
@@ -27388,6 +27963,25 @@ export interface operations {
                                  */
                                 video?: "none" | "google_meet" | "zoom" | "handsfree";
                             }[];
+                            /** @default {} */
+                            webinar?: {
+                                /**
+                                 * @default off
+                                 * @enum {string}
+                                 */
+                                attendeeVideo?: "off" | "team" | "everyone";
+                                /** @default true */
+                                missedFollowUp?: boolean;
+                                /**
+                                 * @default ask
+                                 * @enum {string}
+                                 */
+                                pollAi?: "ask" | "suggest" | "off";
+                                /** @default null */
+                                pollFormId?: string | null;
+                                /** @default true */
+                                startingNow?: boolean;
+                            };
                         };
                         /** @default {} */
                         notifications?: {
@@ -27973,6 +28567,8 @@ export interface operations {
                      */
                     channel?: "sms" | "email" | "call";
                     goal: string;
+                    /** @default false */
+                    keepAdding?: boolean;
                     name: string;
                     /** @default null */
                     offerId?: string | null;
@@ -28086,6 +28682,41 @@ export interface operations {
                 "application/json": {
                     /** Format: uuid */
                     campaignId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        campaignId: string;
+                        /** @enum {string} */
+                        status: "drafting" | "review" | "sending" | "paused" | "done" | "cancelled";
+                    };
+                };
+            };
+        };
+    };
+    command_campaign_set_keep_adding: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    campaignId: string;
+                    on: boolean;
                     /** Format: uuid */
                     workspaceId: string;
                 };
@@ -28266,26 +28897,39 @@ export interface operations {
                          * @default when_needed
                          * @enum {string}
                          */
-                        email?: "never" | "when_needed" | "before_chat";
+                        email?: "never" | "when_needed" | "after_first_message" | "before_chat";
                         /**
                          * @default when_needed
                          * @enum {string}
                          */
-                        name?: "never" | "when_needed" | "before_chat";
+                        name?: "never" | "when_needed" | "after_first_message" | "before_chat";
                         /**
                          * @default when_needed
                          * @enum {string}
                          */
-                        phone?: "never" | "when_needed" | "before_chat";
+                        phone?: "never" | "when_needed" | "after_first_message" | "before_chat";
                     };
                     awayMessage?: string | null;
                     dailyCap?: number;
+                    /** @enum {string} */
+                    desktopButton?: "label" | "icon";
+                    desktopLift?: number;
                     greeting?: string | null;
+                    headerColor?: string | null;
                     launcherLabel?: string;
                     /** @enum {string} */
+                    mobileButton?: "label" | "icon" | "hidden";
+                    mobileLift?: number;
+                    mobilePosition?: ("right" | "left") | null;
+                    name?: string | null;
+                    /** @enum {string} */
                     position?: "right" | "left";
+                    showLogo?: boolean;
                     smsConsent?: boolean;
                     teammateId?: string | null;
+                    textColor?: string | null;
+                    /** @enum {string} */
+                    whenAway?: "away_form" | "chat";
                     /** Format: uuid */
                     workspaceId: string;
                 };
@@ -28421,20 +29065,33 @@ export interface operations {
                     allowedOrigins?: string[];
                     askFor?: {
                         /** @enum {string} */
-                        email?: "never" | "when_needed" | "before_chat";
+                        email?: "never" | "when_needed" | "after_first_message" | "before_chat";
                         /** @enum {string} */
-                        name?: "never" | "when_needed" | "before_chat";
+                        name?: "never" | "when_needed" | "after_first_message" | "before_chat";
                         /** @enum {string} */
-                        phone?: "never" | "when_needed" | "before_chat";
+                        phone?: "never" | "when_needed" | "after_first_message" | "before_chat";
                     };
                     awayMessage?: string | null;
                     dailyCap?: number;
+                    /** @enum {string} */
+                    desktopButton?: "label" | "icon";
+                    desktopLift?: number;
                     greeting?: string | null;
+                    headerColor?: string | null;
                     launcherLabel?: string;
                     /** @enum {string} */
+                    mobileButton?: "label" | "icon" | "hidden";
+                    mobileLift?: number;
+                    mobilePosition?: ("right" | "left") | null;
+                    name?: string | null;
+                    /** @enum {string} */
                     position?: "right" | "left";
+                    showLogo?: boolean;
                     smsConsent?: boolean;
                     teammateId?: string | null;
+                    textColor?: string | null;
+                    /** @enum {string} */
+                    whenAway?: "away_form" | "chat";
                     /** Format: uuid */
                     widgetId: string;
                     /** Format: uuid */
@@ -31738,6 +32395,44 @@ export interface operations {
             };
         };
     };
+    command_form_begin_slides_upload: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    formId: string;
+                    /** @enum {string} */
+                    mimeType: "application/pdf";
+                    name: string;
+                    sizeBytes: number;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        bucket: string;
+                        /** Format: uuid */
+                        fileId: string;
+                        objectPath: string;
+                    };
+                };
+            };
+        };
+    };
     command_form_create: {
         parameters: {
             query?: never;
@@ -31752,7 +32447,7 @@ export interface operations {
                      * @default form
                      * @enum {string}
                      */
-                    mode?: "form" | "survey" | "quiz";
+                    mode?: "form" | "survey" | "quiz" | "poll";
                     name: string;
                     /** @description A starter’s key, like “quote” or “review” */
                     starter?: string;
@@ -32114,6 +32809,12 @@ export interface operations {
                         patch: {
                             [key: string]: unknown;
                         };
+                    } | {
+                        /** @enum {string} */
+                        op: "set_design";
+                        patch: {
+                            [key: string]: unknown;
+                        };
                     })[];
                     /** Format: uuid */
                     workspaceId: string;
@@ -32243,6 +32944,38 @@ export interface operations {
                         formId: string;
                         /** @enum {string} */
                         status: "draft" | "live" | "closed" | "archived";
+                    };
+                };
+            };
+        };
+    };
+    command_form_use_design_everywhere: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    formId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        formIds: string[];
+                        live: number;
                     };
                 };
             };
@@ -35535,6 +36268,35 @@ export interface operations {
                         /** @default [] */
                         notApplied: string[];
                         updated: string[];
+                    };
+                };
+            };
+        };
+    };
+    command_learned_way_set_removed: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    removed: boolean;
+                    wayIds: string[];
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        changed: string[];
                     };
                 };
             };
@@ -39261,6 +40023,8 @@ export interface operations {
                                 queued: boolean;
                                 /** @default false */
                                 simple: boolean;
+                                /** @default null */
+                                unanswered: string | null;
                             } | null;
                             startedAt: string | null;
                             /** @enum {string} */
@@ -39335,6 +40099,8 @@ export interface operations {
                                 queued: boolean;
                                 /** @default false */
                                 simple: boolean;
+                                /** @default null */
+                                unanswered: string | null;
                             } | null;
                             startedAt: string | null;
                             /** @enum {string} */
@@ -39380,6 +40146,8 @@ export interface operations {
                         queued?: boolean;
                         /** @default false */
                         simple?: boolean;
+                        /** @default null */
+                        unanswered?: string | null;
                     } | null;
                     /** @enum {string} */
                     state: "done" | "failed";
@@ -39593,6 +40361,8 @@ export interface operations {
                                 queued: boolean;
                                 /** @default false */
                                 simple: boolean;
+                                /** @default null */
+                                unanswered: string | null;
                             } | null;
                             startedAt: string | null;
                             /** @enum {string} */
@@ -39706,6 +40476,8 @@ export interface operations {
                                 queued: boolean;
                                 /** @default false */
                                 simple: boolean;
+                                /** @default null */
+                                unanswered: string | null;
                             } | null;
                             startedAt: string | null;
                             /** @enum {string} */
@@ -39937,6 +40709,7 @@ export interface operations {
                         hours: {
                             days: number[];
                             end: number;
+                            everyDay?: boolean;
                             start: number;
                         };
                         /** @default true */
@@ -39956,7 +40729,9 @@ export interface operations {
                              *       "watchPosts": true,
                              *       "posting": "after_ok",
                              *       "young": false,
-                             *       "tidy": "cancel"
+                             *       "fullSpeed": false,
+                             *       "tidy": "cancel",
+                             *       "requests": "fits"
                              *     }
                              */
                             alignable?: {
@@ -39964,6 +40739,8 @@ export interface operations {
                                 collect?: boolean;
                                 /** @default true */
                                 confirmRequests?: boolean;
+                                /** @default false */
+                                fullSpeed?: boolean;
                                 /** @default true */
                                 joinGroups?: boolean;
                                 /** @default false */
@@ -39978,6 +40755,11 @@ export interface operations {
                                  * @enum {string}
                                  */
                                 replies?: "draft" | "simple" | "everything";
+                                /**
+                                 * @default fits
+                                 * @enum {string}
+                                 */
+                                requests?: "fits" | "fits_delete" | "all" | "delete";
                                 /**
                                  * @default off
                                  * @enum {string}
@@ -39999,12 +40781,21 @@ export interface operations {
                              * @default {
                              *       "on": true,
                              *       "young": false,
-                             *       "tidy": "cancel"
+                             *       "fullSpeed": false,
+                             *       "tidy": "cancel",
+                             *       "requests": "fits"
                              *     }
                              */
                             facebook?: {
+                                /** @default false */
+                                fullSpeed?: boolean;
                                 /** @default true */
                                 on?: boolean;
+                                /**
+                                 * @default fits
+                                 * @enum {string}
+                                 */
+                                requests?: "fits" | "fits_delete" | "all" | "delete";
                                 /**
                                  * @default cancel
                                  * @enum {string}
@@ -40025,7 +40816,9 @@ export interface operations {
                              *       "watchPosts": true,
                              *       "posting": "after_ok",
                              *       "young": false,
-                             *       "tidy": "cancel"
+                             *       "fullSpeed": false,
+                             *       "tidy": "cancel",
+                             *       "requests": "fits"
                              *     }
                              */
                             instagram?: {
@@ -40033,6 +40826,8 @@ export interface operations {
                                 collect?: boolean;
                                 /** @default true */
                                 confirmRequests?: boolean;
+                                /** @default false */
+                                fullSpeed?: boolean;
                                 /** @default true */
                                 joinGroups?: boolean;
                                 /** @default false */
@@ -40047,6 +40842,11 @@ export interface operations {
                                  * @enum {string}
                                  */
                                 replies?: "draft" | "simple" | "everything";
+                                /**
+                                 * @default fits
+                                 * @enum {string}
+                                 */
+                                requests?: "fits" | "fits_delete" | "all" | "delete";
                                 /**
                                  * @default off
                                  * @enum {string}
@@ -40076,7 +40876,9 @@ export interface operations {
                              *       "watchPosts": true,
                              *       "posting": "after_ok",
                              *       "young": false,
-                             *       "tidy": "cancel"
+                             *       "fullSpeed": false,
+                             *       "tidy": "cancel",
+                             *       "requests": "fits"
                              *     }
                              */
                             linkedin?: {
@@ -40084,6 +40886,8 @@ export interface operations {
                                 collect?: boolean;
                                 /** @default true */
                                 confirmRequests?: boolean;
+                                /** @default false */
+                                fullSpeed?: boolean;
                                 /** @default true */
                                 joinGroups?: boolean;
                                 /** @default false */
@@ -40098,6 +40902,11 @@ export interface operations {
                                  * @enum {string}
                                  */
                                 replies?: "draft" | "simple" | "everything";
+                                /**
+                                 * @default fits
+                                 * @enum {string}
+                                 */
+                                requests?: "fits" | "fits_delete" | "all" | "delete";
                                 /**
                                  * @default off
                                  * @enum {string}
@@ -40293,6 +41102,7 @@ export interface operations {
                             hours: {
                                 days: number[];
                                 end: number;
+                                everyDay?: boolean;
                                 start: number;
                             };
                             /** @default true */
@@ -40304,7 +41114,9 @@ export interface operations {
                              *       "facebook": {
                              *         "on": true,
                              *         "young": false,
-                             *         "tidy": "cancel"
+                             *         "fullSpeed": false,
+                             *         "tidy": "cancel",
+                             *         "requests": "fits"
                              *       },
                              *       "linkedin": {
                              *         "on": false,
@@ -40317,7 +41129,9 @@ export interface operations {
                              *         "watchPosts": true,
                              *         "posting": "after_ok",
                              *         "young": false,
-                             *         "tidy": "cancel"
+                             *         "fullSpeed": false,
+                             *         "tidy": "cancel",
+                             *         "requests": "fits"
                              *       },
                              *       "instagram": {
                              *         "on": false,
@@ -40330,7 +41144,9 @@ export interface operations {
                              *         "watchPosts": true,
                              *         "posting": "after_ok",
                              *         "young": false,
-                             *         "tidy": "cancel"
+                             *         "fullSpeed": false,
+                             *         "tidy": "cancel",
+                             *         "requests": "fits"
                              *       },
                              *       "alignable": {
                              *         "on": false,
@@ -40343,7 +41159,9 @@ export interface operations {
                              *         "watchPosts": true,
                              *         "posting": "after_ok",
                              *         "young": false,
-                             *         "tidy": "cancel"
+                             *         "fullSpeed": false,
+                             *         "tidy": "cancel",
+                             *         "requests": "fits"
                              *       }
                              *     }
                              */
@@ -40360,7 +41178,9 @@ export interface operations {
                                  *       "watchPosts": true,
                                  *       "posting": "after_ok",
                                  *       "young": false,
-                                 *       "tidy": "cancel"
+                                 *       "fullSpeed": false,
+                                 *       "tidy": "cancel",
+                                 *       "requests": "fits"
                                  *     }
                                  */
                                 alignable: {
@@ -40368,6 +41188,8 @@ export interface operations {
                                     collect: boolean;
                                     /** @default true */
                                     confirmRequests: boolean;
+                                    /** @default false */
+                                    fullSpeed: boolean;
                                     /** @default true */
                                     joinGroups: boolean;
                                     /** @default false */
@@ -40382,6 +41204,11 @@ export interface operations {
                                      * @enum {string}
                                      */
                                     replies: "draft" | "simple" | "everything";
+                                    /**
+                                     * @default fits
+                                     * @enum {string}
+                                     */
+                                    requests: "fits" | "fits_delete" | "all" | "delete";
                                     /**
                                      * @default off
                                      * @enum {string}
@@ -40403,12 +41230,21 @@ export interface operations {
                                  * @default {
                                  *       "on": true,
                                  *       "young": false,
-                                 *       "tidy": "cancel"
+                                 *       "fullSpeed": false,
+                                 *       "tidy": "cancel",
+                                 *       "requests": "fits"
                                  *     }
                                  */
                                 facebook: {
+                                    /** @default false */
+                                    fullSpeed: boolean;
                                     /** @default true */
                                     on: boolean;
+                                    /**
+                                     * @default fits
+                                     * @enum {string}
+                                     */
+                                    requests: "fits" | "fits_delete" | "all" | "delete";
                                     /**
                                      * @default cancel
                                      * @enum {string}
@@ -40429,7 +41265,9 @@ export interface operations {
                                  *       "watchPosts": true,
                                  *       "posting": "after_ok",
                                  *       "young": false,
-                                 *       "tidy": "cancel"
+                                 *       "fullSpeed": false,
+                                 *       "tidy": "cancel",
+                                 *       "requests": "fits"
                                  *     }
                                  */
                                 instagram: {
@@ -40437,6 +41275,8 @@ export interface operations {
                                     collect: boolean;
                                     /** @default true */
                                     confirmRequests: boolean;
+                                    /** @default false */
+                                    fullSpeed: boolean;
                                     /** @default true */
                                     joinGroups: boolean;
                                     /** @default false */
@@ -40451,6 +41291,11 @@ export interface operations {
                                      * @enum {string}
                                      */
                                     replies: "draft" | "simple" | "everything";
+                                    /**
+                                     * @default fits
+                                     * @enum {string}
+                                     */
+                                    requests: "fits" | "fits_delete" | "all" | "delete";
                                     /**
                                      * @default off
                                      * @enum {string}
@@ -40480,7 +41325,9 @@ export interface operations {
                                  *       "watchPosts": true,
                                  *       "posting": "after_ok",
                                  *       "young": false,
-                                 *       "tidy": "cancel"
+                                 *       "fullSpeed": false,
+                                 *       "tidy": "cancel",
+                                 *       "requests": "fits"
                                  *     }
                                  */
                                 linkedin: {
@@ -40488,6 +41335,8 @@ export interface operations {
                                     collect: boolean;
                                     /** @default true */
                                     confirmRequests: boolean;
+                                    /** @default false */
+                                    fullSpeed: boolean;
                                     /** @default true */
                                     joinGroups: boolean;
                                     /** @default false */
@@ -40502,6 +41351,11 @@ export interface operations {
                                      * @enum {string}
                                      */
                                     replies: "draft" | "simple" | "everything";
+                                    /**
+                                     * @default fits
+                                     * @enum {string}
+                                     */
+                                    requests: "fits" | "fits_delete" | "all" | "delete";
                                     /**
                                      * @default off
                                      * @enum {string}
@@ -40701,6 +41555,12 @@ export interface operations {
                     }[] | null;
                     /** Format: uuid */
                     profileId: string;
+                    /** @default null */
+                    seen?: {
+                        id: string | null;
+                        url: string;
+                        username: string | null;
+                    } | null;
                     /** Format: uuid */
                     workspaceId: string;
                 };
@@ -41485,6 +42345,8 @@ export interface operations {
                 "application/json": {
                     /** @enum {string} */
                     answer: "confirm" | "delete";
+                    /** @default false */
+                    auto?: boolean;
                     /** @default null */
                     mutualFriends?: number | null;
                     name: string;
@@ -41572,6 +42434,45 @@ export interface operations {
                         } | null;
                         /** Format: uuid */
                         profileId: string;
+                    };
+                };
+            };
+        };
+    };
+    command_outreach_friends_cancel_all: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** @default true */
+                    leaveOutOwn?: boolean;
+                    on: boolean;
+                    /**
+                     * @default facebook
+                     * @enum {string}
+                     */
+                    platform?: "facebook" | "linkedin" | "instagram" | "alignable";
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        first: string[];
+                        leftOut: number;
+                        marked: number;
                     };
                 };
             };
@@ -41715,6 +42616,8 @@ export interface operations {
                     platform?: "facebook" | "linkedin" | "instagram" | "alignable";
                     /** @default null */
                     privacy?: ("public" | "private") | null;
+                    /** @default null */
+                    readTo?: number | null;
                     /** Format: uuid */
                     workspaceId: string;
                 };
@@ -42367,8 +43270,40 @@ export interface operations {
                         };
                         name: string;
                         stepsKept: string[];
+                        /** @default false */
+                        watched: boolean;
                         working: boolean;
                         workingName: string | null;
+                    };
+                };
+            };
+        };
+    };
+    command_outreach_live_watch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: date-time */
+                        until: string;
                     };
                 };
             };
@@ -42867,6 +43802,8 @@ export interface operations {
                     postId?: string | null;
                     /** Format: uuid */
                     profileId: string;
+                    /** @default null */
+                    reportId?: string | null;
                     /** @enum {string} */
                     step: "confirm" | "friend_request" | "warm_up" | "comment";
                     /** @default null */
@@ -42887,6 +43824,45 @@ export interface operations {
                     "application/json": {
                         fresh: boolean;
                         needId: string | null;
+                    };
+                };
+            };
+        };
+    };
+    command_outreach_need_retry: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** @default null */
+                    needIds?: string[] | null;
+                    /** @default true */
+                    sends?: boolean;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        passed: number;
+                        retried: {
+                            /** Format: date-time */
+                            at: string;
+                            /** Format: uuid */
+                            needId: string;
+                        }[];
                     };
                 };
             };
@@ -43144,6 +44120,40 @@ export interface operations {
             };
         };
     };
+    command_outreach_partner_potential: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    potential: boolean;
+                    /** Format: uuid */
+                    profileId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        partnerId: string | null;
+                        skipped: number;
+                        stage: ("found" | "warming" | "asked" | "interested" | "call_booked" | "partner" | "not_now") | null;
+                    };
+                };
+            };
+        };
+    };
     command_outreach_playbook_archive: {
         parameters: {
             query?: never;
@@ -43179,6 +44189,7 @@ export interface operations {
                             avoid: string[];
                             businessKinds?: string[];
                             disclaimer: string | null;
+                            facebookSearches?: string[];
                             /** @enum {string} */
                             goal: "demo" | "consult" | "estimate" | "appointment" | "call" | "sale" | "recruit" | "partner" | "community";
                             groupWords: string[];
@@ -43232,7 +44243,7 @@ export interface operations {
                                 }[];
                                 version: number | null;
                             } | null;
-                            wordsWritten?: ("instagram" | "linkedin" | "alignable")[];
+                            wordsWritten?: ("facebook" | "instagram" | "linkedin" | "alignable")[];
                             worksOnline?: boolean | null;
                         };
                         /** Format: uuid */
@@ -43262,6 +44273,7 @@ export interface operations {
                         avoid: string[];
                         businessKinds?: string[];
                         disclaimer: string | null;
+                        facebookSearches?: string[];
                         /** @enum {string} */
                         goal: "demo" | "consult" | "estimate" | "appointment" | "call" | "sale" | "recruit" | "partner" | "community";
                         groupWords: string[];
@@ -43315,7 +44327,7 @@ export interface operations {
                             }[];
                             version: number | null;
                         } | null;
-                        wordsWritten?: ("instagram" | "linkedin" | "alignable")[];
+                        wordsWritten?: ("facebook" | "instagram" | "linkedin" | "alignable")[];
                         worksOnline?: boolean | null;
                     };
                     name: string;
@@ -43344,6 +44356,7 @@ export interface operations {
                             avoid: string[];
                             businessKinds?: string[];
                             disclaimer: string | null;
+                            facebookSearches?: string[];
                             /** @enum {string} */
                             goal: "demo" | "consult" | "estimate" | "appointment" | "call" | "sale" | "recruit" | "partner" | "community";
                             groupWords: string[];
@@ -43397,7 +44410,7 @@ export interface operations {
                                 }[];
                                 version: number | null;
                             } | null;
-                            wordsWritten?: ("instagram" | "linkedin" | "alignable")[];
+                            wordsWritten?: ("facebook" | "instagram" | "linkedin" | "alignable")[];
                             worksOnline?: boolean | null;
                         };
                         /** Format: uuid */
@@ -44417,6 +45430,42 @@ export interface operations {
             };
         };
     };
+    command_outreach_request_answer: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** @enum {string} */
+                    answer: "confirm" | "delete";
+                    /** Format: uuid */
+                    profileId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @enum {string} */
+                        answer: "confirm" | "delete";
+                        /** Format: uuid */
+                        profileId: string;
+                    };
+                };
+            };
+        };
+    };
     command_outreach_request_set_aside: {
         parameters: {
             query?: never;
@@ -44444,6 +45493,70 @@ export interface operations {
                     "application/json": {
                         /** Format: uuid */
                         profileId: string;
+                    };
+                };
+            };
+        };
+    };
+    command_outreach_requests_pause: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** @enum {string} */
+                    platform: "facebook" | "linkedin" | "instagram" | "alignable";
+                    words: string[];
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        already: boolean;
+                        until: string;
+                    };
+                };
+            };
+        };
+    };
+    command_outreach_requests_start_again: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** @enum {string} */
+                    platform: "facebook" | "linkedin" | "instagram" | "alignable";
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        ended: boolean;
                     };
                 };
             };
@@ -44560,6 +45673,8 @@ export interface operations {
                     text: string;
                     /** @default null */
                     threadKey?: string | null;
+                    /** @default null */
+                    unanswered?: string | null;
                     /** Format: uuid */
                     workspaceId: string;
                 };
@@ -44591,6 +45706,8 @@ export interface operations {
                         post: string | null;
                         postId: string | null;
                         postUrl: string | null;
+                        /** @default null */
+                        postWhole: string | null;
                         /** Format: uuid */
                         profileId: string;
                         profileUrl: string | null;
@@ -44607,6 +45724,45 @@ export interface operations {
                         text: string;
                         threadKey: string | null;
                         why: string | null;
+                    };
+                };
+            };
+        };
+    };
+    command_outreach_send_retry: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** @default null */
+                    needIds?: string[] | null;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        passed: number;
+                        retried: {
+                            /** Format: date-time */
+                            at: string;
+                            /** Format: uuid */
+                            needId: string;
+                            /** Format: uuid */
+                            sendId: string;
+                        }[];
                     };
                 };
             };
@@ -46769,6 +47925,25 @@ export interface operations {
                         found?: {
                             [key: string]: number | boolean | string[];
                         };
+                        /** @default null */
+                        helper?: {
+                            /** @default null */
+                            learned?: ("worked" | "failed") | null;
+                            looks: number;
+                            moves: {
+                                /** @enum {string} */
+                                do: "click" | "scroll" | "escape" | "wait" | "press";
+                                on: string | null;
+                                went: boolean;
+                            }[];
+                            /** @default null */
+                            notLooked?: ("looks_used" | "no_view" | "not_asked" | "no_answer") | null;
+                            /** @enum {string} */
+                            result: "fixed_itself" | "done_by_helper" | "reported";
+                            said: string;
+                            /** @enum {string} */
+                            verdict: "in_the_way" | "moved" | "refused" | "warning" | "unclear";
+                        } | null;
                         job: string;
                         /** @default null */
                         note?: string | null;
@@ -54864,6 +56039,11 @@ export interface operations {
                         optInPath?: "hosted" | "own_site" | "in_person";
                         optInProofUrl?: string | null;
                         optInUrl?: string | null;
+                        policyContact?: {
+                            /** Format: email */
+                            email?: string;
+                            phone?: string;
+                        };
                         policyUrl?: string | null;
                         privacyPageUrl?: string | null;
                         sensitiveTopics?: ("lending" | "debt" | "lead_selling" | "cannabis" | "gambling" | "alcohol" | "tobacco" | "firearms")[];
@@ -55947,6 +57127,10 @@ export interface operations {
                                 id: string;
                                 /** @default  */
                                 say: string;
+                                /** @default null */
+                                stage: ("connect" | "situation" | "problem" | "future" | "consequence" | "importance" | "bridge" | "present" | "commit") | null;
+                                /** @default  */
+                                tip: string;
                                 title: string;
                             }[];
                         };
@@ -55954,7 +57138,7 @@ export interface operations {
                         id: string;
                         isDefault: boolean;
                         /** @enum {string} */
-                        kind: "first_call" | "estimate" | "follow_up" | "any";
+                        kind: "new_lead" | "booked_call" | "aged_lead" | "cold_call" | "first_call" | "estimate" | "follow_up" | "any";
                         name: string;
                         updatedAt: string;
                     };
@@ -55990,6 +57174,10 @@ export interface operations {
                             id: string;
                             /** @default  */
                             say?: string;
+                            /** @default null */
+                            stage?: ("connect" | "situation" | "problem" | "future" | "consequence" | "importance" | "bridge" | "present" | "commit") | null;
+                            /** @default  */
+                            tip?: string;
                             title: string;
                         }[];
                     };
@@ -55998,7 +57186,7 @@ export interface operations {
                      * @default any
                      * @enum {string}
                      */
-                    kind?: "first_call" | "estimate" | "follow_up" | "any";
+                    kind?: "new_lead" | "booked_call" | "aged_lead" | "cold_call" | "first_call" | "estimate" | "follow_up" | "any";
                     name: string;
                     /** Format: uuid */
                     playbookId?: string;
@@ -56035,6 +57223,10 @@ export interface operations {
                                 id: string;
                                 /** @default  */
                                 say: string;
+                                /** @default null */
+                                stage: ("connect" | "situation" | "problem" | "future" | "consequence" | "importance" | "bridge" | "present" | "commit") | null;
+                                /** @default  */
+                                tip: string;
                                 title: string;
                             }[];
                         };
@@ -56042,7 +57234,7 @@ export interface operations {
                         id: string;
                         isDefault: boolean;
                         /** @enum {string} */
-                        kind: "first_call" | "estimate" | "follow_up" | "any";
+                        kind: "new_lead" | "booked_call" | "aged_lead" | "cold_call" | "first_call" | "estimate" | "follow_up" | "any";
                         name: string;
                         updatedAt: string;
                     };
@@ -56141,6 +57333,8 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": {
+                    /** @default false */
+                    acknowledgeWarnings?: boolean;
                     /** Format: uuid */
                     calendarId: string;
                     capacity?: number;
@@ -56212,6 +57406,8 @@ export interface operations {
                             reason: string;
                             /** Format: date-time */
                             startsAt: string;
+                            /** @default false */
+                            warning: boolean;
                         }[];
                     };
                 };
@@ -58768,11 +59964,19 @@ export interface operations {
                         call: {
                             aiNotes: boolean;
                             appointmentId: string | null;
+                            /** @enum {string} */
+                            attendeeVideo: "off" | "team" | "everyone";
+                            doorKey: string | null;
                             endedAt: string | null;
+                            /** @enum {string} */
+                            format: "meeting" | "webinar";
                             hostUserId: string | null;
                             /** Format: uuid */
                             id: string;
                             personId: string | null;
+                            /** @enum {string} */
+                            pollAi: "ask" | "suggest" | "off";
+                            pollFormId: string | null;
                             startedAt: string | null;
                             /** @enum {string} */
                             state: "open" | "live" | "ended";
@@ -58780,6 +59984,19 @@ export interface operations {
                         name: string;
                         /** Format: uuid */
                         personId: string;
+                        rights: {
+                            attributes: {
+                                [key: string]: string;
+                            };
+                            /** @enum {string} */
+                            format: "meeting" | "webinar";
+                            maxPeople: number;
+                            publish: {
+                                camera: boolean;
+                                microphone: boolean;
+                                screen: boolean;
+                            };
+                        };
                     };
                 };
             };
@@ -58813,6 +60030,107 @@ export interface operations {
                 content: {
                     "application/json": {
                         requested: boolean;
+                    };
+                };
+            };
+        };
+    };
+    command_video_call_poll_close: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    callId: string;
+                    /** Format: uuid */
+                    pollId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        changed: boolean;
+                    };
+                };
+            };
+        };
+    };
+    command_video_call_poll_open: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    callId: string;
+                    questionId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        changed: boolean;
+                        /** Format: date-time */
+                        closesAt: string;
+                        /** Format: uuid */
+                        pollId: string;
+                    };
+                };
+            };
+        };
+    };
+    command_video_call_poll_skip: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    callId: string;
+                    questionId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        changed: boolean;
                     };
                 };
             };
@@ -58879,6 +60197,178 @@ export interface operations {
                     "application/json": {
                         aiNotes: boolean;
                         changed: boolean;
+                    };
+                };
+            };
+        };
+    };
+    command_video_call_set_attendee_video: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** @enum {string} */
+                    attendeeVideo: "off" | "team" | "everyone";
+                    /** Format: uuid */
+                    callId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @enum {string} */
+                        attendeeVideo: "off" | "team" | "everyone";
+                        changed: boolean;
+                    };
+                };
+            };
+        };
+    };
+    command_video_call_set_poll: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    callId: string;
+                    formId: string | null;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        changed: boolean;
+                        pollFormId: string | null;
+                    };
+                };
+            };
+        };
+    };
+    command_video_call_set_poll_ai: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** @enum {string} */
+                    ai: "ask" | "suggest" | "off";
+                    /** Format: uuid */
+                    callId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @enum {string} */
+                        ai: "ask" | "suggest" | "off";
+                        changed: boolean;
+                    };
+                };
+            };
+        };
+    };
+    command_video_call_slide: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    callId: string;
+                    slide: number | null;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        changed: boolean;
+                        of: number;
+                        slide: number | null;
+                    };
+                };
+            };
+        };
+    };
+    command_video_call_stage: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    callId: string;
+                    on: boolean;
+                    /** Format: uuid */
+                    personId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        changed: boolean;
+                        onStage: boolean;
                     };
                 };
             };
@@ -59361,6 +60851,73 @@ export interface operations {
             };
         };
     };
+    command_webinar_schedule: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** @default false */
+                    acknowledgeWarnings?: boolean;
+                    /** Format: uuid */
+                    calendarId?: string;
+                    durationMinutes?: number;
+                    notes?: string | null;
+                    /**
+                     * @default none
+                     * @enum {string}
+                     */
+                    repeat?: "none" | "week" | "two_weeks" | "month";
+                    seats?: number;
+                    /** Format: date-time */
+                    startsAt: string;
+                    times?: number;
+                    title: string;
+                    userIds?: string[];
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        appointmentIds: string[];
+                        /** Format: uuid */
+                        calendarId: string;
+                        calendarMade: boolean;
+                        calendarName: string;
+                        seriesId: string | null;
+                        skipped: {
+                            date: string;
+                            occurrence: number;
+                            reason: string;
+                            /** Format: date-time */
+                            startsAt: string;
+                            /** @default false */
+                            warning: boolean;
+                        }[];
+                        warnings: {
+                            /** @enum {string} */
+                            code: "in_past" | "buffer_clash" | "outside_hours" | "calendar_busy" | "time_off";
+                            message: string;
+                            resourceId: string | null;
+                            userId: string | null;
+                        }[];
+                    };
+                };
+            };
+        };
+    };
     command_whats_new_delete: {
         parameters: {
             query?: never;
@@ -59629,7 +61186,7 @@ export interface operations {
                     organizationId: string;
                     trigger?: {
                         /** @enum {string} */
-                        event: "person.created" | "person.updated" | "record.tags_changed" | "lead.created" | "lead.stage_changed" | "lead.assigned" | "lead.qualified" | "appointment.booked" | "appointment.rescheduled" | "appointment.cancelled" | "appointment.completed" | "appointment.no_show" | "attendee.joined" | "attendee.attended" | "attendee.no_show" | "message.received" | "call.missed" | "call.voicemail_left" | "call.completed" | "task.completed" | "ai_teammate.handed_off" | "estimate.sent" | "estimate.accepted" | "estimate.declined" | "invoice.paid" | "form.submitted" | "form.stopped" | "invoice.overdue";
+                        event: "person.created" | "person.updated" | "record.tags_changed" | "lead.created" | "lead.stage_changed" | "lead.assigned" | "lead.qualified" | "appointment.booked" | "appointment.rescheduled" | "appointment.cancelled" | "appointment.completed" | "appointment.no_show" | "attendee.joined" | "attendee.attended" | "attendee.no_show" | "webinar.rated" | "message.received" | "call.missed" | "call.voicemail_left" | "call.completed" | "task.completed" | "ai_teammate.handed_off" | "estimate.sent" | "estimate.accepted" | "estimate.declined" | "invoice.paid" | "form.submitted" | "form.stopped" | "invoice.overdue";
                         /** @default {} */
                         filters?: {
                             /** @default [] */
@@ -60144,10 +61701,10 @@ export interface operations {
                     /** Format: uuid */
                     proposalId?: string;
                     /** @enum {string} */
-                    recipeKey?: "speed_to_lead" | "missed_call_text_back" | "appointment_follow_up_review" | "estimate_follow_up" | "no_show_rebook" | "speed_to_lead_ai" | "missed_call_text_back_ai";
+                    recipeKey?: "speed_to_lead" | "missed_call_text_back" | "appointment_follow_up_review" | "estimate_follow_up" | "no_show_rebook" | "speed_to_lead_ai" | "missed_call_text_back_ai" | "speed_to_lead_phone";
                     trigger?: {
                         /** @enum {string} */
-                        event: "person.created" | "person.updated" | "record.tags_changed" | "lead.created" | "lead.stage_changed" | "lead.assigned" | "lead.qualified" | "appointment.booked" | "appointment.rescheduled" | "appointment.cancelled" | "appointment.completed" | "appointment.no_show" | "attendee.joined" | "attendee.attended" | "attendee.no_show" | "message.received" | "call.missed" | "call.voicemail_left" | "call.completed" | "task.completed" | "ai_teammate.handed_off" | "estimate.sent" | "estimate.accepted" | "estimate.declined" | "invoice.paid" | "form.submitted" | "form.stopped" | "invoice.overdue";
+                        event: "person.created" | "person.updated" | "record.tags_changed" | "lead.created" | "lead.stage_changed" | "lead.assigned" | "lead.qualified" | "appointment.booked" | "appointment.rescheduled" | "appointment.cancelled" | "appointment.completed" | "appointment.no_show" | "attendee.joined" | "attendee.attended" | "attendee.no_show" | "webinar.rated" | "message.received" | "call.missed" | "call.voicemail_left" | "call.completed" | "task.completed" | "ai_teammate.handed_off" | "estimate.sent" | "estimate.accepted" | "estimate.declined" | "invoice.paid" | "form.submitted" | "form.stopped" | "invoice.overdue";
                         /** @default {} */
                         filters?: {
                             /** @default [] */
@@ -62743,7 +64300,7 @@ export interface operations {
                                     aiCallId: string;
                                     goal: string;
                                     /** @enum {string} */
-                                    purpose: "confirm_visit" | "missed_call" | "quote" | "campaign";
+                                    purpose: "confirm_visit" | "missed_call" | "quote" | "campaign" | "workflow";
                                     to: string;
                                     toDisplay: string;
                                 } | null;
@@ -63620,7 +65177,7 @@ export interface operations {
                                     /** Format: uuid */
                                     itemId?: string;
                                     /** @enum {string} */
-                                    kind?: "hot_lead" | "unanswered_lead" | "stale_opportunity" | "missing_next_action" | "unconfirmed_appointment" | "ai_approval" | "customer_waiting" | "overdue_task" | "estimate_waiting" | "invoice_overdue" | "wallet_low" | "wallet_empty" | "wallet_card_declined" | "job_not_thanked" | "referral_mentioned" | "maintenance_due" | "pipeline_mismatch" | "quiet_after_price" | "job_unconfirmed" | "job_never_completed" | "job_no_address" | "client_quiet" | "promise_due" | "revenue_moved" | "channel_quiet" | "connection_error" | "connection_silent" | "ai_unreviewed" | "ai_corrections" | "website_changed" | "faq_suggestions" | "offer_lapsing" | "texting_rejected" | "addon_alert";
+                                    kind?: "hot_lead" | "unanswered_lead" | "stale_opportunity" | "missing_next_action" | "unconfirmed_appointment" | "ai_approval" | "customer_waiting" | "overdue_task" | "estimate_waiting" | "invoice_overdue" | "wallet_low" | "wallet_empty" | "wallet_card_declined" | "job_not_thanked" | "referral_mentioned" | "maintenance_due" | "pipeline_mismatch" | "quiet_after_price" | "job_unconfirmed" | "job_never_completed" | "job_no_address" | "client_quiet" | "promise_due" | "revenue_moved" | "channel_quiet" | "connection_error" | "connection_silent" | "ai_unreviewed" | "ai_corrections" | "website_changed" | "faq_suggestions" | "offer_lapsing" | "texting_rejected" | "addon_alert" | "webinar_hot";
                                     title: string;
                                     /** @enum {string} */
                                     tone: "accent" | "warning" | "danger" | "muted";
@@ -63938,7 +65495,7 @@ export interface operations {
                             /** Format: uuid */
                             id: string;
                             /** @enum {string} */
-                            kind: "hot_lead" | "unanswered_lead" | "stale_opportunity" | "missing_next_action" | "unconfirmed_appointment" | "ai_approval" | "customer_waiting" | "overdue_task" | "estimate_waiting" | "invoice_overdue" | "wallet_low" | "wallet_empty" | "wallet_card_declined" | "job_not_thanked" | "referral_mentioned" | "maintenance_due" | "pipeline_mismatch" | "quiet_after_price" | "job_unconfirmed" | "job_never_completed" | "job_no_address" | "client_quiet" | "promise_due" | "revenue_moved" | "channel_quiet" | "connection_error" | "connection_silent" | "ai_unreviewed" | "ai_corrections" | "website_changed" | "faq_suggestions" | "offer_lapsing" | "texting_rejected" | "addon_alert";
+                            kind: "hot_lead" | "unanswered_lead" | "stale_opportunity" | "missing_next_action" | "unconfirmed_appointment" | "ai_approval" | "customer_waiting" | "overdue_task" | "estimate_waiting" | "invoice_overdue" | "wallet_low" | "wallet_empty" | "wallet_card_declined" | "job_not_thanked" | "referral_mentioned" | "maintenance_due" | "pipeline_mismatch" | "quiet_after_price" | "job_unconfirmed" | "job_never_completed" | "job_no_address" | "client_quiet" | "promise_due" | "revenue_moved" | "channel_quiet" | "connection_error" | "connection_silent" | "ai_unreviewed" | "ai_corrections" | "website_changed" | "faq_suggestions" | "offer_lapsing" | "texting_rejected" | "addon_alert" | "webinar_hot";
                             leadId: string | null;
                             /** @enum {string} */
                             letHandleMode: "auto" | "ask" | "none";
@@ -63948,7 +65505,7 @@ export interface operations {
                             reach: ("sms" | "email" | "chat" | "portal" | "messenger" | "instagram") | null;
                             reasons: {
                                 /** @enum {string} */
-                                code: "value" | "amount" | "waiting" | "not_contacted" | "auto_replied" | "ready_to_book" | "qualified" | "repeat_customer" | "came_in_today" | "handed_off" | "last_contact" | "no_contact" | "follow_up_overdue" | "no_next_action" | "next_action" | "starts_in" | "asked_to_confirm" | "draft" | "approval" | "expires_in" | "overdue" | "not_viewed" | "stage" | "not_a_fit" | "job_done" | "referral" | "maintenance" | "price" | "job_passed" | "no_address" | "quiet" | "promise" | "revenue" | "quiet_channel" | "silent" | "broken" | "unreviewed" | "corrected" | "knows_otherwise" | "site_changed" | "asked" | "offer_ends" | "severity" | "due_in" | "needs_ack";
+                                code: "value" | "amount" | "waiting" | "not_contacted" | "auto_replied" | "ready_to_book" | "qualified" | "repeat_customer" | "came_in_today" | "handed_off" | "last_contact" | "no_contact" | "follow_up_overdue" | "no_next_action" | "next_action" | "starts_in" | "asked_to_confirm" | "draft" | "approval" | "expires_in" | "overdue" | "not_viewed" | "stage" | "not_a_fit" | "job_done" | "referral" | "maintenance" | "price" | "job_passed" | "no_address" | "quiet" | "promise" | "revenue" | "quiet_channel" | "silent" | "broken" | "unreviewed" | "corrected" | "knows_otherwise" | "site_changed" | "asked" | "offer_ends" | "severity" | "due_in" | "needs_ack" | "webinar";
                                 label: string;
                                 /** Format: date-time */
                                 since?: string;
@@ -63991,7 +65548,7 @@ export interface operations {
                 "application/json": {
                     /** @default false */
                     includeHandled?: boolean;
-                    kinds?: ("hot_lead" | "unanswered_lead" | "stale_opportunity" | "missing_next_action" | "unconfirmed_appointment" | "ai_approval" | "customer_waiting" | "overdue_task" | "estimate_waiting" | "invoice_overdue" | "wallet_low" | "wallet_empty" | "wallet_card_declined" | "job_not_thanked" | "referral_mentioned" | "maintenance_due" | "pipeline_mismatch" | "quiet_after_price" | "job_unconfirmed" | "job_never_completed" | "job_no_address" | "client_quiet" | "promise_due" | "revenue_moved" | "channel_quiet" | "connection_error" | "connection_silent" | "ai_unreviewed" | "ai_corrections" | "website_changed" | "faq_suggestions" | "offer_lapsing" | "texting_rejected" | "addon_alert")[];
+                    kinds?: ("hot_lead" | "unanswered_lead" | "stale_opportunity" | "missing_next_action" | "unconfirmed_appointment" | "ai_approval" | "customer_waiting" | "overdue_task" | "estimate_waiting" | "invoice_overdue" | "wallet_low" | "wallet_empty" | "wallet_card_declined" | "job_not_thanked" | "referral_mentioned" | "maintenance_due" | "pipeline_mismatch" | "quiet_after_price" | "job_unconfirmed" | "job_never_completed" | "job_no_address" | "client_quiet" | "promise_due" | "revenue_moved" | "channel_quiet" | "connection_error" | "connection_silent" | "ai_unreviewed" | "ai_corrections" | "website_changed" | "faq_suggestions" | "offer_lapsing" | "texting_rejected" | "addon_alert" | "webinar_hot")[];
                     /** @enum {string} */
                     scope?: "mine" | "everyone";
                     /** Format: uuid */
@@ -64070,7 +65627,7 @@ export interface operations {
                             /** Format: uuid */
                             id: string;
                             /** @enum {string} */
-                            kind: "hot_lead" | "unanswered_lead" | "stale_opportunity" | "missing_next_action" | "unconfirmed_appointment" | "ai_approval" | "customer_waiting" | "overdue_task" | "estimate_waiting" | "invoice_overdue" | "wallet_low" | "wallet_empty" | "wallet_card_declined" | "job_not_thanked" | "referral_mentioned" | "maintenance_due" | "pipeline_mismatch" | "quiet_after_price" | "job_unconfirmed" | "job_never_completed" | "job_no_address" | "client_quiet" | "promise_due" | "revenue_moved" | "channel_quiet" | "connection_error" | "connection_silent" | "ai_unreviewed" | "ai_corrections" | "website_changed" | "faq_suggestions" | "offer_lapsing" | "texting_rejected" | "addon_alert";
+                            kind: "hot_lead" | "unanswered_lead" | "stale_opportunity" | "missing_next_action" | "unconfirmed_appointment" | "ai_approval" | "customer_waiting" | "overdue_task" | "estimate_waiting" | "invoice_overdue" | "wallet_low" | "wallet_empty" | "wallet_card_declined" | "job_not_thanked" | "referral_mentioned" | "maintenance_due" | "pipeline_mismatch" | "quiet_after_price" | "job_unconfirmed" | "job_never_completed" | "job_no_address" | "client_quiet" | "promise_due" | "revenue_moved" | "channel_quiet" | "connection_error" | "connection_silent" | "ai_unreviewed" | "ai_corrections" | "website_changed" | "faq_suggestions" | "offer_lapsing" | "texting_rejected" | "addon_alert" | "webinar_hot";
                             leadId: string | null;
                             /** @enum {string} */
                             letHandleMode: "auto" | "ask" | "none";
@@ -64080,7 +65637,7 @@ export interface operations {
                             reach: ("sms" | "email" | "chat" | "portal" | "messenger" | "instagram") | null;
                             reasons: {
                                 /** @enum {string} */
-                                code: "value" | "amount" | "waiting" | "not_contacted" | "auto_replied" | "ready_to_book" | "qualified" | "repeat_customer" | "came_in_today" | "handed_off" | "last_contact" | "no_contact" | "follow_up_overdue" | "no_next_action" | "next_action" | "starts_in" | "asked_to_confirm" | "draft" | "approval" | "expires_in" | "overdue" | "not_viewed" | "stage" | "not_a_fit" | "job_done" | "referral" | "maintenance" | "price" | "job_passed" | "no_address" | "quiet" | "promise" | "revenue" | "quiet_channel" | "silent" | "broken" | "unreviewed" | "corrected" | "knows_otherwise" | "site_changed" | "asked" | "offer_ends" | "severity" | "due_in" | "needs_ack";
+                                code: "value" | "amount" | "waiting" | "not_contacted" | "auto_replied" | "ready_to_book" | "qualified" | "repeat_customer" | "came_in_today" | "handed_off" | "last_contact" | "no_contact" | "follow_up_overdue" | "no_next_action" | "next_action" | "starts_in" | "asked_to_confirm" | "draft" | "approval" | "expires_in" | "overdue" | "not_viewed" | "stage" | "not_a_fit" | "job_done" | "referral" | "maintenance" | "price" | "job_passed" | "no_address" | "quiet" | "promise" | "revenue" | "quiet_channel" | "silent" | "broken" | "unreviewed" | "corrected" | "knows_otherwise" | "site_changed" | "asked" | "offer_ends" | "severity" | "due_in" | "needs_ack" | "webinar";
                                 label: string;
                                 /** Format: date-time */
                                 since?: string;
@@ -64162,7 +65719,7 @@ export interface operations {
                             /** Format: uuid */
                             id: string;
                             /** @enum {string} */
-                            kind: "hot_lead" | "unanswered_lead" | "stale_opportunity" | "missing_next_action" | "unconfirmed_appointment" | "ai_approval" | "customer_waiting" | "overdue_task" | "estimate_waiting" | "invoice_overdue" | "wallet_low" | "wallet_empty" | "wallet_card_declined" | "job_not_thanked" | "referral_mentioned" | "maintenance_due" | "pipeline_mismatch" | "quiet_after_price" | "job_unconfirmed" | "job_never_completed" | "job_no_address" | "client_quiet" | "promise_due" | "revenue_moved" | "channel_quiet" | "connection_error" | "connection_silent" | "ai_unreviewed" | "ai_corrections" | "website_changed" | "faq_suggestions" | "offer_lapsing" | "texting_rejected" | "addon_alert";
+                            kind: "hot_lead" | "unanswered_lead" | "stale_opportunity" | "missing_next_action" | "unconfirmed_appointment" | "ai_approval" | "customer_waiting" | "overdue_task" | "estimate_waiting" | "invoice_overdue" | "wallet_low" | "wallet_empty" | "wallet_card_declined" | "job_not_thanked" | "referral_mentioned" | "maintenance_due" | "pipeline_mismatch" | "quiet_after_price" | "job_unconfirmed" | "job_never_completed" | "job_no_address" | "client_quiet" | "promise_due" | "revenue_moved" | "channel_quiet" | "connection_error" | "connection_silent" | "ai_unreviewed" | "ai_corrections" | "website_changed" | "faq_suggestions" | "offer_lapsing" | "texting_rejected" | "addon_alert" | "webinar_hot";
                             leadId: string | null;
                             /** @enum {string} */
                             letHandleMode: "auto" | "ask" | "none";
@@ -64172,7 +65729,7 @@ export interface operations {
                             reach: ("sms" | "email" | "chat" | "portal" | "messenger" | "instagram") | null;
                             reasons: {
                                 /** @enum {string} */
-                                code: "value" | "amount" | "waiting" | "not_contacted" | "auto_replied" | "ready_to_book" | "qualified" | "repeat_customer" | "came_in_today" | "handed_off" | "last_contact" | "no_contact" | "follow_up_overdue" | "no_next_action" | "next_action" | "starts_in" | "asked_to_confirm" | "draft" | "approval" | "expires_in" | "overdue" | "not_viewed" | "stage" | "not_a_fit" | "job_done" | "referral" | "maintenance" | "price" | "job_passed" | "no_address" | "quiet" | "promise" | "revenue" | "quiet_channel" | "silent" | "broken" | "unreviewed" | "corrected" | "knows_otherwise" | "site_changed" | "asked" | "offer_ends" | "severity" | "due_in" | "needs_ack";
+                                code: "value" | "amount" | "waiting" | "not_contacted" | "auto_replied" | "ready_to_book" | "qualified" | "repeat_customer" | "came_in_today" | "handed_off" | "last_contact" | "no_contact" | "follow_up_overdue" | "no_next_action" | "next_action" | "starts_in" | "asked_to_confirm" | "draft" | "approval" | "expires_in" | "overdue" | "not_viewed" | "stage" | "not_a_fit" | "job_done" | "referral" | "maintenance" | "price" | "job_passed" | "no_address" | "quiet" | "promise" | "revenue" | "quiet_channel" | "silent" | "broken" | "unreviewed" | "corrected" | "knows_otherwise" | "site_changed" | "asked" | "offer_ends" | "severity" | "due_in" | "needs_ack" | "webinar";
                                 label: string;
                                 /** Format: date-time */
                                 since?: string;
@@ -64206,7 +65763,7 @@ export interface operations {
                             /** Format: uuid */
                             itemId: string;
                             /** @enum {string} */
-                            kind: "hot_lead" | "unanswered_lead" | "stale_opportunity" | "missing_next_action" | "unconfirmed_appointment" | "ai_approval" | "customer_waiting" | "overdue_task" | "estimate_waiting" | "invoice_overdue" | "wallet_low" | "wallet_empty" | "wallet_card_declined" | "job_not_thanked" | "referral_mentioned" | "maintenance_due" | "pipeline_mismatch" | "quiet_after_price" | "job_unconfirmed" | "job_never_completed" | "job_no_address" | "client_quiet" | "promise_due" | "revenue_moved" | "channel_quiet" | "connection_error" | "connection_silent" | "ai_unreviewed" | "ai_corrections" | "website_changed" | "faq_suggestions" | "offer_lapsing" | "texting_rejected" | "addon_alert";
+                            kind: "hot_lead" | "unanswered_lead" | "stale_opportunity" | "missing_next_action" | "unconfirmed_appointment" | "ai_approval" | "customer_waiting" | "overdue_task" | "estimate_waiting" | "invoice_overdue" | "wallet_low" | "wallet_empty" | "wallet_card_declined" | "job_not_thanked" | "referral_mentioned" | "maintenance_due" | "pipeline_mismatch" | "quiet_after_price" | "job_unconfirmed" | "job_never_completed" | "job_no_address" | "client_quiet" | "promise_due" | "revenue_moved" | "channel_quiet" | "connection_error" | "connection_silent" | "ai_unreviewed" | "ai_corrections" | "website_changed" | "faq_suggestions" | "offer_lapsing" | "texting_rejected" | "addon_alert" | "webinar_hot";
                             /** Format: date-time */
                             scheduledFor: string;
                             title: string;
@@ -64266,7 +65823,7 @@ export interface operations {
                         /** Format: uuid */
                         itemId: string;
                         /** @enum {string} */
-                        kind: "hot_lead" | "unanswered_lead" | "stale_opportunity" | "missing_next_action" | "unconfirmed_appointment" | "ai_approval" | "customer_waiting" | "overdue_task" | "estimate_waiting" | "invoice_overdue" | "wallet_low" | "wallet_empty" | "wallet_card_declined" | "job_not_thanked" | "referral_mentioned" | "maintenance_due" | "pipeline_mismatch" | "quiet_after_price" | "job_unconfirmed" | "job_never_completed" | "job_no_address" | "client_quiet" | "promise_due" | "revenue_moved" | "channel_quiet" | "connection_error" | "connection_silent" | "ai_unreviewed" | "ai_corrections" | "website_changed" | "faq_suggestions" | "offer_lapsing" | "texting_rejected" | "addon_alert";
+                        kind: "hot_lead" | "unanswered_lead" | "stale_opportunity" | "missing_next_action" | "unconfirmed_appointment" | "ai_approval" | "customer_waiting" | "overdue_task" | "estimate_waiting" | "invoice_overdue" | "wallet_low" | "wallet_empty" | "wallet_card_declined" | "job_not_thanked" | "referral_mentioned" | "maintenance_due" | "pipeline_mismatch" | "quiet_after_price" | "job_unconfirmed" | "job_never_completed" | "job_no_address" | "client_quiet" | "promise_due" | "revenue_moved" | "channel_quiet" | "connection_error" | "connection_silent" | "ai_unreviewed" | "ai_corrections" | "website_changed" | "faq_suggestions" | "offer_lapsing" | "texting_rejected" | "addon_alert" | "webinar_hot";
                         /** @enum {string} */
                         mode: "auto" | "ask" | "none";
                         options: {
@@ -64428,6 +65985,11 @@ export interface operations {
                                 wallet_empty: true;
                                 /** @default true */
                                 wallet_low: boolean;
+                                /**
+                                 * @default true
+                                 * @enum {boolean}
+                                 */
+                                webinar_hot: true;
                                 /** @default true */
                                 website_changed: boolean;
                             };
@@ -65110,6 +66672,24 @@ export interface operations {
                                          */
                                         video: "none" | "google_meet" | "zoom" | "handsfree";
                                     }[];
+                                    webinar: {
+                                        /**
+                                         * @default off
+                                         * @enum {string}
+                                         */
+                                        attendeeVideo: "off" | "team" | "everyone";
+                                        /** @default true */
+                                        missedFollowUp: boolean;
+                                        /**
+                                         * @default ask
+                                         * @enum {string}
+                                         */
+                                        pollAi: "ask" | "suggest" | "off";
+                                        /** @default null */
+                                        pollFormId: string | null;
+                                        /** @default true */
+                                        startingNow: boolean;
+                                    };
                                 };
                                 notifications: {
                                     confirmation: {
@@ -65568,6 +67148,7 @@ export interface operations {
                             goal: string;
                             /** Format: uuid */
                             id: string;
+                            keepAdding: boolean;
                             name: string;
                             offer: {
                                 /** Format: uuid */
@@ -65650,6 +67231,7 @@ export interface operations {
                             goal: string;
                             /** Format: uuid */
                             id: string;
+                            keepAdding: boolean;
                             name: string;
                             offer: {
                                 /** Format: uuid */
@@ -65700,6 +67282,14 @@ export interface operations {
                 };
                 content: {
                     "application/json": {
+                        /** @default null */
+                        landlineCheckCents: {
+                            line: number;
+                            owner: number;
+                            upTo: number;
+                        } | null;
+                        /** @default 0 */
+                        landlineChecks: number;
                         postalAddress: string | null;
                         recipients: number;
                         skipped: {
@@ -65744,23 +67334,24 @@ export interface operations {
                                  * @default when_needed
                                  * @enum {string}
                                  */
-                                email: "never" | "when_needed" | "before_chat";
+                                email: "never" | "when_needed" | "after_first_message" | "before_chat";
                                 /**
                                  * @default when_needed
                                  * @enum {string}
                                  */
-                                name: "never" | "when_needed" | "before_chat";
+                                name: "never" | "when_needed" | "after_first_message" | "before_chat";
                                 /**
                                  * @default when_needed
                                  * @enum {string}
                                  */
-                                phone: "never" | "when_needed" | "before_chat";
+                                phone: "never" | "when_needed" | "after_first_message" | "before_chat";
                             };
                             awayMessage: string | null;
                             /** Format: date-time */
                             createdAt: string;
                             dailyCap: number;
                             greeting: string | null;
+                            headerColor: string | null;
                             /** Format: uuid */
                             id: string;
                             install: {
@@ -65770,11 +67361,31 @@ export interface operations {
                             };
                             launcherLabel: string;
                             name: string;
+                            ownName: string | null;
+                            ownTextColor: string | null;
                             paused: boolean;
                             pausedAt: string | null;
+                            placement: {
+                                desktop: {
+                                    /** @enum {string} */
+                                    button: "label" | "icon";
+                                    lift: number;
+                                    /** @enum {string} */
+                                    position: "right" | "left";
+                                };
+                                mobile: {
+                                    /** @enum {string} */
+                                    button: "label" | "icon" | "hidden";
+                                    lift: number;
+                                    ownPosition: boolean;
+                                    /** @enum {string} */
+                                    position: "right" | "left";
+                                };
+                            };
                             /** @enum {string} */
                             position: "right" | "left";
                             publicKey: string;
+                            showLogo: boolean;
                             smsConsent: boolean;
                             teammate: {
                                 /** Format: uuid */
@@ -65786,6 +67397,8 @@ export interface operations {
                             textColor: string;
                             /** Format: date-time */
                             updatedAt: string;
+                            /** @enum {string} */
+                            whenAway: "away_form" | "chat";
                         };
                     };
                 };
@@ -65824,23 +67437,24 @@ export interface operations {
                                  * @default when_needed
                                  * @enum {string}
                                  */
-                                email: "never" | "when_needed" | "before_chat";
+                                email: "never" | "when_needed" | "after_first_message" | "before_chat";
                                 /**
                                  * @default when_needed
                                  * @enum {string}
                                  */
-                                name: "never" | "when_needed" | "before_chat";
+                                name: "never" | "when_needed" | "after_first_message" | "before_chat";
                                 /**
                                  * @default when_needed
                                  * @enum {string}
                                  */
-                                phone: "never" | "when_needed" | "before_chat";
+                                phone: "never" | "when_needed" | "after_first_message" | "before_chat";
                             };
                             awayMessage: string | null;
                             /** Format: date-time */
                             createdAt: string;
                             dailyCap: number;
                             greeting: string | null;
+                            headerColor: string | null;
                             /** Format: uuid */
                             id: string;
                             install: {
@@ -65850,11 +67464,31 @@ export interface operations {
                             };
                             launcherLabel: string;
                             name: string;
+                            ownName: string | null;
+                            ownTextColor: string | null;
                             paused: boolean;
                             pausedAt: string | null;
+                            placement: {
+                                desktop: {
+                                    /** @enum {string} */
+                                    button: "label" | "icon";
+                                    lift: number;
+                                    /** @enum {string} */
+                                    position: "right" | "left";
+                                };
+                                mobile: {
+                                    /** @enum {string} */
+                                    button: "label" | "icon" | "hidden";
+                                    lift: number;
+                                    ownPosition: boolean;
+                                    /** @enum {string} */
+                                    position: "right" | "left";
+                                };
+                            };
                             /** @enum {string} */
                             position: "right" | "left";
                             publicKey: string;
+                            showLogo: boolean;
                             smsConsent: boolean;
                             teammate: {
                                 /** Format: uuid */
@@ -65866,6 +67500,8 @@ export interface operations {
                             textColor: string;
                             /** Format: date-time */
                             updatedAt: string;
+                            /** @enum {string} */
+                            whenAway: "away_form" | "chat";
                         }[];
                     };
                 };
@@ -66482,6 +68118,14 @@ export interface operations {
                             quiet: boolean;
                         };
                         rcs: boolean;
+                        sender: {
+                            customer: {
+                                fullName: string;
+                                /** Format: uuid */
+                                id: string;
+                            } | null;
+                            name: string | null;
+                        } | null;
                         social: {
                             account: {
                                 /** Format: uuid */
@@ -68169,7 +69813,7 @@ export interface operations {
                             inChat: boolean;
                             lastResponseAt: string | null;
                             /** @enum {string} */
-                            mode: "form" | "survey" | "quiz";
+                            mode: "form" | "survey" | "quiz" | "poll";
                             name: string;
                             questionCount: number;
                             responseCount: number;
@@ -68213,7 +69857,7 @@ export interface operations {
                 "application/json": {
                     /** @default false */
                     includeArchived?: boolean;
-                    mode?: ("form" | "survey" | "quiz")[];
+                    mode?: ("form" | "survey" | "quiz" | "poll")[];
                     search?: string;
                     status?: ("draft" | "live" | "closed" | "archived")[];
                     /** Format: uuid */
@@ -68237,7 +69881,7 @@ export interface operations {
                             inChat: boolean;
                             lastResponseAt: string | null;
                             /** @enum {string} */
-                            mode: "form" | "survey" | "quiz";
+                            mode: "form" | "survey" | "quiz" | "poll";
                             name: string;
                             questionCount: number;
                             responseCount: number;
@@ -68299,7 +69943,7 @@ export interface operations {
                             responseId: string;
                             scorePercent: number | null;
                             /** @enum {string} */
-                            source: "link" | "embed" | "chat" | "qr" | "app" | "api";
+                            source: "link" | "embed" | "chat" | "qr" | "app" | "api" | "video_call";
                         }[];
                     };
                 };
@@ -68355,7 +69999,7 @@ export interface operations {
                             resultId: string | null;
                             scorePercent: number | null;
                             /** @enum {string} */
-                            source: "link" | "embed" | "chat" | "qr" | "app" | "api";
+                            source: "link" | "embed" | "chat" | "qr" | "app" | "api" | "video_call";
                             /** Format: date-time */
                             startedAt: string;
                             /** @enum {string} */
@@ -68411,7 +70055,7 @@ export interface operations {
                             resultId: string | null;
                             scorePercent: number | null;
                             /** @enum {string} */
-                            source: "link" | "embed" | "chat" | "qr" | "app" | "api";
+                            source: "link" | "embed" | "chat" | "qr" | "app" | "api" | "video_call";
                             /** Format: date-time */
                             startedAt: string;
                             /** @enum {string} */
@@ -68455,7 +70099,7 @@ export interface operations {
                         /** Format: uuid */
                         formId: string;
                         /** @enum {string} */
-                        mode: "form" | "survey" | "quiz";
+                        mode: "form" | "survey" | "quiz" | "poll";
                         name: string;
                         passRate: number | null;
                         questions: {
@@ -74345,6 +75989,8 @@ export interface operations {
                                 queued: boolean;
                                 /** @default false */
                                 simple: boolean;
+                                /** @default null */
+                                unanswered: string | null;
                             } | null;
                             startedAt: string | null;
                             /** @enum {string} */
@@ -74525,6 +76171,7 @@ export interface operations {
                             hours: {
                                 days: number[];
                                 end: number;
+                                everyDay?: boolean;
                                 start: number;
                             };
                             /** @default true */
@@ -74536,7 +76183,9 @@ export interface operations {
                              *       "facebook": {
                              *         "on": true,
                              *         "young": false,
-                             *         "tidy": "cancel"
+                             *         "fullSpeed": false,
+                             *         "tidy": "cancel",
+                             *         "requests": "fits"
                              *       },
                              *       "linkedin": {
                              *         "on": false,
@@ -74549,7 +76198,9 @@ export interface operations {
                              *         "watchPosts": true,
                              *         "posting": "after_ok",
                              *         "young": false,
-                             *         "tidy": "cancel"
+                             *         "fullSpeed": false,
+                             *         "tidy": "cancel",
+                             *         "requests": "fits"
                              *       },
                              *       "instagram": {
                              *         "on": false,
@@ -74562,7 +76213,9 @@ export interface operations {
                              *         "watchPosts": true,
                              *         "posting": "after_ok",
                              *         "young": false,
-                             *         "tidy": "cancel"
+                             *         "fullSpeed": false,
+                             *         "tidy": "cancel",
+                             *         "requests": "fits"
                              *       },
                              *       "alignable": {
                              *         "on": false,
@@ -74575,7 +76228,9 @@ export interface operations {
                              *         "watchPosts": true,
                              *         "posting": "after_ok",
                              *         "young": false,
-                             *         "tidy": "cancel"
+                             *         "fullSpeed": false,
+                             *         "tidy": "cancel",
+                             *         "requests": "fits"
                              *       }
                              *     }
                              */
@@ -74592,7 +76247,9 @@ export interface operations {
                                  *       "watchPosts": true,
                                  *       "posting": "after_ok",
                                  *       "young": false,
-                                 *       "tidy": "cancel"
+                                 *       "fullSpeed": false,
+                                 *       "tidy": "cancel",
+                                 *       "requests": "fits"
                                  *     }
                                  */
                                 alignable: {
@@ -74600,6 +76257,8 @@ export interface operations {
                                     collect: boolean;
                                     /** @default true */
                                     confirmRequests: boolean;
+                                    /** @default false */
+                                    fullSpeed: boolean;
                                     /** @default true */
                                     joinGroups: boolean;
                                     /** @default false */
@@ -74614,6 +76273,11 @@ export interface operations {
                                      * @enum {string}
                                      */
                                     replies: "draft" | "simple" | "everything";
+                                    /**
+                                     * @default fits
+                                     * @enum {string}
+                                     */
+                                    requests: "fits" | "fits_delete" | "all" | "delete";
                                     /**
                                      * @default off
                                      * @enum {string}
@@ -74635,12 +76299,21 @@ export interface operations {
                                  * @default {
                                  *       "on": true,
                                  *       "young": false,
-                                 *       "tidy": "cancel"
+                                 *       "fullSpeed": false,
+                                 *       "tidy": "cancel",
+                                 *       "requests": "fits"
                                  *     }
                                  */
                                 facebook: {
+                                    /** @default false */
+                                    fullSpeed: boolean;
                                     /** @default true */
                                     on: boolean;
+                                    /**
+                                     * @default fits
+                                     * @enum {string}
+                                     */
+                                    requests: "fits" | "fits_delete" | "all" | "delete";
                                     /**
                                      * @default cancel
                                      * @enum {string}
@@ -74661,7 +76334,9 @@ export interface operations {
                                  *       "watchPosts": true,
                                  *       "posting": "after_ok",
                                  *       "young": false,
-                                 *       "tidy": "cancel"
+                                 *       "fullSpeed": false,
+                                 *       "tidy": "cancel",
+                                 *       "requests": "fits"
                                  *     }
                                  */
                                 instagram: {
@@ -74669,6 +76344,8 @@ export interface operations {
                                     collect: boolean;
                                     /** @default true */
                                     confirmRequests: boolean;
+                                    /** @default false */
+                                    fullSpeed: boolean;
                                     /** @default true */
                                     joinGroups: boolean;
                                     /** @default false */
@@ -74683,6 +76360,11 @@ export interface operations {
                                      * @enum {string}
                                      */
                                     replies: "draft" | "simple" | "everything";
+                                    /**
+                                     * @default fits
+                                     * @enum {string}
+                                     */
+                                    requests: "fits" | "fits_delete" | "all" | "delete";
                                     /**
                                      * @default off
                                      * @enum {string}
@@ -74712,7 +76394,9 @@ export interface operations {
                                  *       "watchPosts": true,
                                  *       "posting": "after_ok",
                                  *       "young": false,
-                                 *       "tidy": "cancel"
+                                 *       "fullSpeed": false,
+                                 *       "tidy": "cancel",
+                                 *       "requests": "fits"
                                  *     }
                                  */
                                 linkedin: {
@@ -74720,6 +76404,8 @@ export interface operations {
                                     collect: boolean;
                                     /** @default true */
                                     confirmRequests: boolean;
+                                    /** @default false */
+                                    fullSpeed: boolean;
                                     /** @default true */
                                     joinGroups: boolean;
                                     /** @default false */
@@ -74734,6 +76420,11 @@ export interface operations {
                                      * @enum {string}
                                      */
                                     replies: "draft" | "simple" | "everything";
+                                    /**
+                                     * @default fits
+                                     * @enum {string}
+                                     */
+                                    requests: "fits" | "fits_delete" | "all" | "delete";
                                     /**
                                      * @default off
                                      * @enum {string}
@@ -74970,7 +76661,7 @@ export interface operations {
                             /** Format: uuid */
                             profileId: string;
                             /** @enum {string} */
-                            reason: "asked" | "country" | "prospect" | "chat" | "chat_only" | "group" | "friend" | "follower" | "member";
+                            reason: "asked" | "request" | "country" | "prospect" | "chat" | "chat_only" | "group" | "friend" | "follower" | "member";
                             url: string;
                         }[];
                         perDay: number;
@@ -75037,6 +76728,67 @@ export interface operations {
                         unskipped: number;
                         unsure: number;
                         waiting: number;
+                    };
+                };
+            };
+        };
+    };
+    query_outreach_counts: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** @default false */
+                    everyone?: boolean;
+                    /**
+                     * @default today
+                     * @enum {string}
+                     */
+                    period?: "today" | "week" | "month";
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        counts: {
+                            /** @enum {string} */
+                            kind: "friend_request" | "like" | "comment" | "message" | "recommend" | "accepted" | "post_up" | "profile" | "post" | "chat" | "found" | "listed" | "occasion" | "event" | "group" | "joined" | "member" | "group_listed" | "cancelled" | "unfriended" | "declined" | "drafted";
+                            n: number;
+                            /** @enum {string} */
+                            platform: "facebook" | "linkedin" | "instagram" | "alignable";
+                        }[];
+                        everyone: boolean;
+                        from: string;
+                        people: {
+                            counts: {
+                                /** @enum {string} */
+                                kind: "friend_request" | "like" | "comment" | "message" | "recommend" | "accepted" | "post_up" | "profile" | "post" | "chat" | "found" | "listed" | "occasion" | "event" | "group" | "joined" | "member" | "group_listed" | "cancelled" | "unfriended" | "declined" | "drafted";
+                                n: number;
+                                /** @enum {string} */
+                                platform: "facebook" | "linkedin" | "instagram" | "alignable";
+                            }[];
+                            name: string;
+                            /** Format: uuid */
+                            userId: string;
+                        }[] | null;
+                        /** @enum {string} */
+                        period: "today" | "week" | "month";
+                        since: string | null;
+                        timezone: string;
+                        to: string;
                     };
                 };
             };
@@ -75136,6 +76888,8 @@ export interface operations {
                      * @enum {string}
                      */
                     platform?: "facebook" | "linkedin" | "instagram" | "alignable";
+                    /** @default 0 */
+                    round?: number;
                     /** Format: uuid */
                     workspaceId: string;
                 };
@@ -75184,6 +76938,76 @@ export interface operations {
                     "application/json": {
                         near: string[];
                         today: string | null;
+                    };
+                };
+            };
+        };
+    };
+    query_outreach_finds_week: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** @enum {string} */
+                    platform?: "facebook" | "linkedin" | "instagram" | "alignable";
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        download: {
+                            /** Format: date-time */
+                            at: string;
+                            counts: {
+                                chats: number;
+                                declined: number;
+                                followers: number;
+                                following: number;
+                                friends: number;
+                                linked: number;
+                                notLinked: number;
+                                removed: number;
+                                request_received: number;
+                                request_sent: number;
+                            };
+                            /** Format: date-time */
+                            madeAt: string;
+                        } | null;
+                        followers: {
+                            found: number;
+                            good: number;
+                            maybe: number;
+                        };
+                        members: {
+                            found: number;
+                            good: number;
+                            maybe: number;
+                        };
+                        partners: number;
+                        /** Format: date-time */
+                        since: string;
+                        ways: {
+                            found: number;
+                            good: number;
+                            /** @enum {string} */
+                            how: "posted" | "commented" | "liked" | "member" | "event" | "follows" | "searched";
+                            maybe: number;
+                            /** @enum {string} */
+                            platform: "facebook" | "linkedin" | "instagram" | "alignable";
+                        }[];
                     };
                 };
             };
@@ -75429,8 +77253,16 @@ export interface operations {
                 };
                 content: {
                     "application/json": {
+                        /** @default null */
+                        all: {
+                            /** Format: date-time */
+                            at: string;
+                            left: number;
+                        } | null;
                         cancel: {
                             fit: ("good" | "maybe" | "unknown" | "skip") | null;
+                            /** @default false */
+                            going: boolean;
                             lastContact: string | null;
                             name: string;
                             platformId: string | null;
@@ -75443,9 +77275,21 @@ export interface operations {
                         }[];
                         cancelAfterWeeks: number;
                         cap: number;
+                        /** @default 0 */
+                        extension: number;
                         friends: number;
                         limits: {
                             cancel_request: {
+                                done: number;
+                                most: number;
+                            };
+                            /**
+                             * @default {
+                             *       "done": 0,
+                             *       "most": 0
+                             *     }
+                             */
+                            decline: {
                                 done: number;
                                 most: number;
                             };
@@ -75459,12 +77303,30 @@ export interface operations {
                          * @default {
                          *       "mode": "off",
                          *       "cancel": [],
-                         *       "unfriend": []
+                         *       "unfriend": [],
+                         *       "decline": []
                          *     }
                          */
                         own: {
                             cancel: {
                                 fit: ("good" | "maybe" | "unknown" | "skip") | null;
+                                /** @default false */
+                                going: boolean;
+                                lastContact: string | null;
+                                name: string;
+                                platformId: string | null;
+                                /** Format: uuid */
+                                profileId: string;
+                                /** Format: date-time */
+                                since: string;
+                                url: string;
+                                username: string | null;
+                            }[];
+                            /** @default [] */
+                            decline: {
+                                fit: ("good" | "maybe" | "unknown" | "skip") | null;
+                                /** @default false */
+                                going: boolean;
                                 lastContact: string | null;
                                 name: string;
                                 platformId: string | null;
@@ -75479,6 +77341,8 @@ export interface operations {
                             mode: "off" | "cancel" | "unfriend";
                             unfriend: {
                                 fit: ("good" | "maybe" | "unknown" | "skip") | null;
+                                /** @default false */
+                                going: boolean;
                                 lastContact: string | null;
                                 name: string;
                                 platformId: string | null;
@@ -75496,6 +77360,8 @@ export interface operations {
                         };
                         unfriend: {
                             fit: ("good" | "maybe" | "unknown" | "skip") | null;
+                            /** @default false */
+                            going: boolean;
                             lastContact: string | null;
                             name: string;
                             platformId: string | null;
@@ -75506,6 +77372,8 @@ export interface operations {
                             url: string;
                             username: string | null;
                         }[];
+                        /** @default 0 */
+                        waiting: number;
                         warning: {
                             /** Format: date-time */
                             at: string;
@@ -75674,6 +77542,7 @@ export interface operations {
                             joined: boolean | null;
                             left: number;
                             members: number | null;
+                            membersDepth: number;
                             name: string | null;
                             people: number;
                             playbookName: string | null;
@@ -75876,6 +77745,8 @@ export interface operations {
                      * @enum {string}
                      */
                     platform?: "facebook" | "linkedin" | "instagram" | "alignable";
+                    /** @default 0 */
+                    round?: number;
                     /** Format: uuid */
                     workspaceId: string;
                 };
@@ -75897,6 +77768,8 @@ export interface operations {
                             name: string | null;
                             url: string;
                         }[];
+                        /** @default false */
+                        more: boolean;
                         onItsOwn: boolean;
                         perDay: number;
                         prospects: {
@@ -76101,6 +77974,7 @@ export interface operations {
                         hours?: {
                             days: number[];
                             end: number;
+                            everyDay?: boolean;
                             start: number;
                         };
                         limits: {
@@ -76489,6 +78363,7 @@ export interface operations {
                             followers: number | null;
                             /** @enum {string} */
                             kind: "group_admin" | "creator" | "business";
+                            marked: boolean;
                             name: string;
                             nextStep: string | null;
                             /** Format: uuid */
@@ -76744,6 +78619,7 @@ export interface operations {
                                 avoid: string[];
                                 businessKinds?: string[];
                                 disclaimer: string | null;
+                                facebookSearches?: string[];
                                 /** @enum {string} */
                                 goal: "demo" | "consult" | "estimate" | "appointment" | "call" | "sale" | "recruit" | "partner" | "community";
                                 groupWords: string[];
@@ -76797,7 +78673,7 @@ export interface operations {
                                     }[];
                                     version: number | null;
                                 } | null;
-                                wordsWritten?: ("instagram" | "linkedin" | "alignable")[];
+                                wordsWritten?: ("facebook" | "instagram" | "linkedin" | "alignable")[];
                                 worksOnline?: boolean | null;
                             };
                             /** Format: uuid */
@@ -76870,6 +78746,8 @@ export interface operations {
                      * @enum {string}
                      */
                     platform?: "facebook" | "linkedin" | "instagram" | "alignable";
+                    /** @default 0 */
+                    round?: number;
                     /** Format: uuid */
                     workspaceId: string;
                 };
@@ -76931,6 +78809,49 @@ export interface operations {
                             by: string | null;
                             tagged: boolean;
                         } | null;
+                        intro?: string[];
+                        journey?: {
+                            chat: {
+                                /** Format: date-time */
+                                lastAt: string;
+                                lastFromMe: boolean;
+                                nextStep: string | null;
+                                summary: string | null;
+                            } | null;
+                            groups: {
+                                /** Format: uuid */
+                                groupId: string;
+                                name: string | null;
+                                url: string;
+                            }[];
+                            lead: {
+                                afterDemo?: boolean;
+                                /** Format: uuid */
+                                leadId: string;
+                                stage: string;
+                                /** @enum {string} */
+                                status: "open" | "won" | "lost";
+                                title: string;
+                            } | null;
+                            moreSteps: number;
+                            nextStep: string | null;
+                            stage: ("found" | "warming" | "friends" | "talking" | "ready" | "pitched" | "booked" | "client" | "lost") | null;
+                            steps: {
+                                /** Format: date-time */
+                                at: string;
+                                auto: boolean;
+                                by: string | null;
+                                group: {
+                                    name: string | null;
+                                    url: string;
+                                } | null;
+                                /** @enum {string} */
+                                kind: "friend_request" | "like" | "comment" | "message" | "recommend" | "reply" | "demo";
+                                postUrl: string | null;
+                                step: ("first_message" | "follow_up") | null;
+                            }[];
+                            why: string[];
+                        };
                         laterUntil: string | null;
                         moveTo?: {
                             name: string;
@@ -76938,6 +78859,12 @@ export interface operations {
                             userId: string;
                             you: boolean;
                         }[];
+                        mutualFriends?: number | null;
+                        myPartner?: {
+                            marked: boolean;
+                            /** @enum {string} */
+                            stage: "found" | "warming" | "asked" | "interested" | "call_booked" | "partner" | "not_now";
+                        } | null;
                         name: string;
                         neverContact: {
                             at: string | null;
@@ -76950,6 +78877,7 @@ export interface operations {
                             you: boolean;
                         } | null;
                         partner: boolean;
+                        partnerHint?: string | null;
                         personId: string | null;
                         /** @enum {string} */
                         platform: "facebook" | "linkedin" | "instagram" | "alignable";
@@ -77730,6 +79658,8 @@ export interface operations {
                             post: string | null;
                             postId: string | null;
                             postUrl: string | null;
+                            /** @default null */
+                            postWhole: string | null;
                             /** Format: uuid */
                             profileId: string;
                             profileUrl: string | null;
@@ -77935,6 +79865,66 @@ export interface operations {
             };
         };
     };
+    query_outreach_ticker: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        computer: {
+                            activeAt: string | null;
+                            allowed?: ("facebook" | "linkedin" | "instagram" | "alignable")[] | null;
+                            /** Format: uuid */
+                            id: string;
+                            /** Format: date-time */
+                            lastSeenAt: string;
+                            name: string;
+                            /** @enum {string} */
+                            state: "working" | "waiting" | "idle" | "stopped" | "off" | "standby" | "trouble" | "signed_out";
+                            version: string | null;
+                            working: boolean;
+                        } | null;
+                        /** Format: date-time */
+                        now: string;
+                        status: {
+                            /** @default null */
+                            doing: ("friends" | "requests" | "sent" | "groups" | "group_checks" | "tidy" | "checks") | null;
+                            line: string | null;
+                            lineAt: string | null;
+                            nextAt: string | null;
+                            /** @enum {string} */
+                            state: "working" | "waiting" | "idle" | "stopped" | "off" | "standby" | "trouble" | "signed_out";
+                        } | null;
+                        steps: {
+                            /** Format: date-time */
+                            at: string;
+                            /** @enum {string} */
+                            kind: "done" | "passed" | "job" | "stopped" | "day";
+                            line: string;
+                        }[];
+                        timezone: string;
+                    };
+                };
+            };
+        };
+    };
     query_outreach_today: {
         parameters: {
             query?: never;
@@ -77978,6 +79968,33 @@ export interface operations {
                             on: boolean;
                             until: string | null;
                         };
+                        /** @default false */
+                        fullSpeed: boolean;
+                        /** @default null */
+                        goal: {
+                            ahead: number;
+                            done: number;
+                            facts: {
+                                accepted: number;
+                                checked: number;
+                                fit: number;
+                                sent: number;
+                                unchecked: number;
+                                weekChecked: number;
+                                weekFit: number;
+                            };
+                            listed: number;
+                            more: boolean;
+                            most: number;
+                            requests: {
+                                left: number;
+                                listed: number;
+                            };
+                            short: number;
+                            tries: ("niche" | "playbook" | "groups" | "words" | "profile" | "networks")[];
+                            waitingOk: number;
+                            why: ("not_ready" | "few_fits" | "checking" | "requests_held" | "few_accepts" | "few_found" | "waiting_accepts") | null;
+                        } | null;
                         hasPlaybook: boolean;
                         items: {
                             asking: boolean;
@@ -77989,13 +80006,17 @@ export interface operations {
                             likeComment?: boolean;
                             name: string;
                             nextStep: string | null;
+                            partnerHint?: string | null;
                             partnerId?: string | null;
                             personId: string | null;
+                            platformId?: string | null;
                             playbookName: string | null;
                             post: string | null;
                             posted: string | null;
                             postId: string | null;
                             postUrl: string | null;
+                            /** @default null */
+                            postWhole: string | null;
                             profileId: string | null;
                             profileUrl: string | null;
                             recent: {
@@ -78005,6 +80026,12 @@ export interface operations {
                                 text: string;
                             }[];
                             requests?: boolean;
+                            retry?: {
+                                /** Format: date-time */
+                                at: string;
+                                /** Format: uuid */
+                                needId: string;
+                            };
                             send: {
                                 handedOver: boolean;
                                 needsYou: string | null;
@@ -78042,6 +80069,8 @@ export interface operations {
                             };
                         };
                         messages: ("opener" | "reconnect" | "pitch" | "video" | "follow_up" | "check_in" | "reply" | "demo_reminder" | "rebook" | "birthday" | "new_job" | "partner_ask" | "partner_follow_up" | "partner_details" | "partner_reply" | "comment" | "group_reply")[];
+                        /** @default false */
+                        newMessagesWait: boolean;
                         /** @default [] */
                         partners: {
                             asking: boolean;
@@ -78053,13 +80082,17 @@ export interface operations {
                             likeComment?: boolean;
                             name: string;
                             nextStep: string | null;
+                            partnerHint?: string | null;
                             partnerId?: string | null;
                             personId: string | null;
+                            platformId?: string | null;
                             playbookName: string | null;
                             post: string | null;
                             posted: string | null;
                             postId: string | null;
                             postUrl: string | null;
+                            /** @default null */
+                            postWhole: string | null;
                             profileId: string | null;
                             profileUrl: string | null;
                             recent: {
@@ -78069,6 +80102,12 @@ export interface operations {
                                 text: string;
                             }[];
                             requests?: boolean;
+                            retry?: {
+                                /** Format: date-time */
+                                at: string;
+                                /** Format: uuid */
+                                needId: string;
+                            };
                             send: {
                                 handedOver: boolean;
                                 needsYou: string | null;
@@ -78098,11 +80137,21 @@ export interface operations {
                         ready: boolean;
                         /** @default null */
                         requestsHeld: {
+                            /** @default 0 */
+                            cancelling: number;
+                            /** @default null */
+                            cancelMost: number | null;
                             count: number;
+                            /** @default 0 */
+                            extension: number;
                             most: number;
+                            /** @default null */
+                            until: string | null;
                             /** @enum {string} */
-                            why: "waiting" | "cap";
+                            why: "waiting" | "cap" | "limit";
                         } | null;
+                        /** @default null */
+                        retryAt: string | null;
                         /** @enum {string} */
                         sending: "off" | "steps" | "approve_all" | "everything";
                         warning: {
@@ -78259,6 +80308,7 @@ export interface operations {
                         hours: {
                             days: number[];
                             end: number;
+                            everyDay?: boolean;
                             start: number;
                         };
                         items: ({
@@ -78297,6 +80347,8 @@ export interface operations {
                                     queued: boolean;
                                     /** @default false */
                                     simple: boolean;
+                                    /** @default null */
+                                    unanswered: string | null;
                                 } | null;
                                 startedAt: string | null;
                                 /** @enum {string} */
@@ -78333,6 +80385,8 @@ export interface operations {
                                 post: string | null;
                                 postId: string | null;
                                 postUrl: string | null;
+                                /** @default null */
+                                postWhole: string | null;
                                 /** Format: uuid */
                                 profileId: string;
                                 profileUrl: string | null;
@@ -78374,6 +80428,8 @@ export interface operations {
                                 post: string | null;
                                 postId: string | null;
                                 postUrl: string | null;
+                                /** @default null */
+                                postWhole: string | null;
                                 /** Format: uuid */
                                 profileId: string;
                                 profileUrl: string | null;
@@ -78405,6 +80461,7 @@ export interface operations {
                                 postId: string | null;
                                 /** Format: uuid */
                                 profileId: string;
+                                reportId: string | null;
                                 /** Format: date-time */
                                 seenAt: string;
                                 sendId: string | null;
@@ -78428,6 +80485,8 @@ export interface operations {
                                 name: string;
                                 /** Format: uuid */
                                 profileId: string;
+                                /** @default null */
+                                said: ("confirm" | "delete" | "ask") | null;
                                 /** Format: date-time */
                                 since: string;
                                 url: string;
@@ -79565,6 +81624,7 @@ export interface operations {
                                 brandPaid: boolean;
                                 brandSent: boolean;
                                 campaignCovered: boolean;
+                                ours: boolean;
                                 vettingPaid: boolean;
                             };
                         } | null;
@@ -80516,6 +82576,63 @@ export interface operations {
             };
         };
     };
+    query_platform_learned_way_list: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** @default null */
+                    area?: string | null;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        ways: {
+                            addonId: string | null;
+                            area: string;
+                            businesses: number;
+                            button: string;
+                            failed: number;
+                            /** Format: date-time */
+                            firstAt: string;
+                            lastFailedAt: string | null;
+                            lastWorkedAt: string | null;
+                            removedAt: string | null;
+                            trustedAt: string | null;
+                            way: {
+                                inside: string | null;
+                                label: string | null;
+                                menu: {
+                                    label: string | null;
+                                    role: string | null;
+                                    tag: string;
+                                    words: string | null;
+                                } | null;
+                                role: string | null;
+                                tag: string;
+                                words: string | null;
+                            };
+                            /** Format: uuid */
+                            wayId: string;
+                            worked: number;
+                        }[];
+                    };
+                };
+            };
+        };
+    };
     query_platform_me: {
         parameters: {
             query?: never;
@@ -80665,6 +82782,24 @@ export interface operations {
                         };
                         handledAt: string | null;
                         handledBy: string | null;
+                        helper: {
+                            /** @default null */
+                            learned: ("worked" | "failed") | null;
+                            looks: number;
+                            moves: {
+                                /** @enum {string} */
+                                do: "click" | "scroll" | "escape" | "wait" | "press";
+                                on: string | null;
+                                went: boolean;
+                            }[];
+                            /** @default null */
+                            notLooked: ("looks_used" | "no_view" | "not_asked" | "no_answer") | null;
+                            /** @enum {string} */
+                            result: "fixed_itself" | "done_by_helper" | "reported";
+                            said: string;
+                            /** @enum {string} */
+                            verdict: "in_the_way" | "moved" | "refused" | "warning" | "unclear";
+                        } | null;
                         job: string;
                         note: string | null;
                         outline: string | null;
@@ -80729,6 +82864,12 @@ export interface operations {
                             business: string;
                             handledAt: string | null;
                             hasOutline: boolean;
+                            helper: {
+                                /** @enum {string} */
+                                result: "fixed_itself" | "done_by_helper" | "reported";
+                                /** @enum {string} */
+                                verdict: "in_the_way" | "moved" | "refused" | "warning" | "unclear";
+                            } | null;
                             job: string;
                             note: string | null;
                             page: string;
@@ -80742,6 +82883,17 @@ export interface operations {
                             version: string | null;
                             /** Format: uuid */
                             workspaceId: string;
+                        }[];
+                        steps: {
+                            area: string;
+                            doneByHelper: number;
+                            fixed: number;
+                            inTheWay: number;
+                            job: string;
+                            moved: number;
+                            open: number;
+                            refused: number;
+                            reports: number;
                         }[];
                     };
                 };
@@ -85404,9 +87556,10 @@ export interface operations {
                                 /** Format: uuid */
                                 id: string;
                                 /** @enum {string} */
-                                kind: "objection" | "fact" | "step" | "question";
+                                kind: "objection" | "fact" | "step" | "question" | "nudge";
                                 objectionId: string | null;
                                 say: string;
+                                tip: string;
                                 title: string;
                             }[];
                             channel: ("sms" | "email" | "chat" | "portal" | "messenger" | "instagram") | null;
@@ -85457,6 +87610,12 @@ export interface operations {
                                         answered: number;
                                         of: number;
                                     };
+                                    /** @default null */
+                                    stages: {
+                                        covered: ("connect" | "situation" | "problem" | "future" | "consequence" | "importance" | "bridge" | "present" | "commit")[];
+                                        missed: ("connect" | "situation" | "problem" | "future" | "consequence" | "importance" | "bridge" | "present" | "commit")[];
+                                        pitchedEarly: boolean;
+                                    } | null;
                                     steps: {
                                         covered: number;
                                         of: number;
@@ -85614,9 +87773,10 @@ export interface operations {
                                 /** Format: uuid */
                                 id: string;
                                 /** @enum {string} */
-                                kind: "objection" | "fact" | "step" | "question";
+                                kind: "objection" | "fact" | "step" | "question" | "nudge";
                                 objectionId: string | null;
                                 say: string;
+                                tip: string;
                                 title: string;
                             }[];
                             /** Format: uuid */
@@ -85646,6 +87806,10 @@ export interface operations {
                                         id: string;
                                         /** @default  */
                                         say: string;
+                                        /** @default null */
+                                        stage: ("connect" | "situation" | "problem" | "future" | "consequence" | "importance" | "bridge" | "present" | "commit") | null;
+                                        /** @default  */
+                                        tip: string;
                                         title: string;
                                     }[];
                                 };
@@ -85705,6 +87869,10 @@ export interface operations {
                                     id: string;
                                     /** @default  */
                                     say: string;
+                                    /** @default null */
+                                    stage: ("connect" | "situation" | "problem" | "future" | "consequence" | "importance" | "bridge" | "present" | "commit") | null;
+                                    /** @default  */
+                                    tip: string;
                                     title: string;
                                 }[];
                             };
@@ -85712,7 +87880,7 @@ export interface operations {
                             id: string;
                             isDefault: boolean;
                             /** @enum {string} */
-                            kind: "first_call" | "estimate" | "follow_up" | "any";
+                            kind: "new_lead" | "booked_call" | "aged_lead" | "cold_call" | "first_call" | "estimate" | "follow_up" | "any";
                             name: string;
                             updatedAt: string;
                         }[];
@@ -87871,11 +90039,19 @@ export interface operations {
                         call: {
                             aiNotes: boolean;
                             appointmentId: string | null;
+                            /** @enum {string} */
+                            attendeeVideo: "off" | "team" | "everyone";
+                            doorKey: string | null;
                             endedAt: string | null;
+                            /** @enum {string} */
+                            format: "meeting" | "webinar";
                             hostUserId: string | null;
                             /** Format: uuid */
                             id: string;
                             personId: string | null;
+                            /** @enum {string} */
+                            pollAi: "ask" | "suggest" | "off";
+                            pollFormId: string | null;
                             startedAt: string | null;
                             /** @enum {string} */
                             state: "open" | "live" | "ended";
@@ -87900,12 +90076,168 @@ export interface operations {
                             kind: "team" | "customer" | "guest";
                             leftAt: string | null;
                             name: string;
+                            onStage: boolean;
                             personId: string | null;
                             seconds: number;
                             /** @enum {string} */
                             state: "waiting" | "admitted" | "in" | "left" | "turned_away" | "removed";
                             userId: string | null;
                         }[];
+                    };
+                };
+            };
+        };
+    };
+    query_video_call_leads: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    appointmentId?: string;
+                    /** Format: uuid */
+                    callId?: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        call: {
+                            ended: boolean;
+                            endedAt: string | null;
+                            formId: string | null;
+                            formName: string | null;
+                            hot: number;
+                            /** @enum {string} */
+                            hotAction: "list" | "home" | "text";
+                            /** Format: uuid */
+                            id: string;
+                            warm: number;
+                        } | null;
+                        counts: {
+                            cold: number;
+                            hot: number;
+                            warm: number;
+                        };
+                        leads: {
+                            /** @enum {string} */
+                            followUp: "list" | "home" | "text";
+                            /** Format: uuid */
+                            id: string;
+                            /** @enum {string} */
+                            label: "hot" | "warm" | "cold";
+                            name: string;
+                            outcome: ("sent" | "drafted" | "card" | "skipped") | null;
+                            outcomeReason: string | null;
+                            parts: {
+                                points: number;
+                                what: string;
+                            }[];
+                            /** Format: uuid */
+                            personId: string;
+                            points: number;
+                            reason: string | null;
+                            /** Format: date-time */
+                            scoredAt: string;
+                            seconds: number;
+                            stayed: boolean;
+                        }[];
+                    };
+                };
+            };
+        };
+    };
+    query_video_call_polls: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    callId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @enum {string} */
+                        ai: "ask" | "suggest" | "off";
+                        endsAt: string | null;
+                        form: {
+                            /** Format: uuid */
+                            id: string;
+                            name: string;
+                            ready: boolean;
+                        } | null;
+                        hearing: boolean;
+                        questions: {
+                            button: {
+                                /** @enum {string} */
+                                action: "link" | "book" | "talk";
+                                label: string;
+                            } | null;
+                            closesAt: string | null;
+                            openedAt: string | null;
+                            openedBy: ("team" | "ai") | null;
+                            pollId: string | null;
+                            pressed: {
+                                name: string;
+                                /** Format: uuid */
+                                personId: string;
+                            }[];
+                            questionId: string;
+                            seconds: number;
+                            showResults: boolean;
+                            slide: number | null;
+                            /** @enum {string} */
+                            state: "waiting" | "open" | "closed" | "skipped";
+                            texts: {
+                                name: string;
+                                text: string;
+                            }[];
+                            title: string;
+                            totals: {
+                                answered: number;
+                                average: number | null;
+                                bars: {
+                                    count: number;
+                                    id: string;
+                                    label: string;
+                                }[];
+                            };
+                            type: string;
+                        }[];
+                        slide: number | null;
+                        slides: {
+                            name: string;
+                            pages: number;
+                        } | null;
+                        watching: number;
                     };
                 };
             };

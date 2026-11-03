@@ -42,9 +42,24 @@ import {
   JOIN_ANSWER_ACTION,
   joinAnswer,
 } from './groups';
-import { CHECK_POSTS_JOB, checkPostsJob, postChecked, postsSaved } from './posts';
+import {
+  CHECK_POSTS_JOB,
+  checkPostsJob,
+  oldGoodWanted,
+  postChecked,
+  postsSaved,
+  recheckGoodPosts,
+} from './posts';
 import { DRAFT_HELPFUL_JOB, draftHelpfulJob, helpfulAsked } from './helpful';
 import { LIKE_PICK_ACTION, likePick } from './likes';
+import {
+  HELPER_LOOK_ACTION,
+  HELPER_WAY_ACTION,
+  HELPER_WAYS_ACTION,
+  helperLook,
+  helperWay,
+  helperWays,
+} from './helper';
 import { likeYoursFound, PICK_LIKE_YOURS_JOB, pickLikeYoursJob } from './like-yours';
 import { TODAY_DRAFT_ACTION, todayDraft } from './today';
 import { askCoded, askProgressed, askSettled } from './asks';
@@ -60,8 +75,16 @@ import {
   REVIEW_JOB,
   reviewJob,
 } from './tracking';
+import {
+  armGoalCheckFor,
+  armGoalChecks,
+  GOAL_CHECK_JOB,
+  GOAL_MIDDAY_JOB,
+  goalCheckJob,
+  goalMiddayJob,
+} from './goal';
 import { armWeekly, WEEKLY_JOB, weeklyJob } from './weekly';
-import { WRITE_WORDS_JOB, wordsWanted, writeWordsJob } from './words';
+import { scheduleWordsWrite, WRITE_WORDS_JOB, wordsWanted, writeWordsJob } from './words';
 
 /**
  * What the extension sends also arms the morning push and the weekly report, for a business that had the add-on on
@@ -119,8 +142,12 @@ export const outreachAddonWorker: AddonWorkerModule = {
     // useful to send. 4: its follow-ups are 5 to 7, each with its quiet days (moved from the one number), and a video
     // link. 5: the video's script. 6: the kinds of partner a partner playbook looks for. 7: a playbook runs on its own
     // networks, a customers' one saved before on Facebook and LinkedIn, as it ran. 8: each network's own words, works
-    // online, and the networks whose words the AI wrote, empty. Reading upgrades an older one too
-    // (outreach.playbook.list), so these only tidy what a reinstall brings back.
+    // online, and the networks whose words the AI wrote, empty. 9: phrases for Facebook's post search, and the AI's
+    // hashtags and LinkedIn phrases let go, then written again around the playbook's topic (decision 141). Reading
+    // upgrades an older one too (outreach.playbook.list), so these only tidy what a reinstall brings back, but for 9's
+    // write, asked for at once rather than at the next day's start. 10: the posts an older check called good, and
+    // still open for a comment, checked again for the owner's own field (decision 143, ./posts.ts); a posts save and
+    // the day's start do it for a business with the add-on on.
     2: upgradePlaybooks,
     3: upgradePlaybooks,
     4: upgradePlaybooks,
@@ -128,6 +155,11 @@ export const outreachAddonWorker: AddonWorkerModule = {
     6: upgradePlaybooks,
     7: upgradePlaybooks,
     8: upgradePlaybooks,
+    9: async (ctx) => {
+      await upgradePlaybooks(ctx);
+      await scheduleWordsWrite(ctx.tx, ctx);
+    },
+    10: recheckGoodPosts,
   },
   // The chats a download brought in, or read in Messenger, read by the AI (./chats.ts); group posts worth a look,
   // checked by it (./posts.ts); friends and people chatted with, checked for whether they fit (./checks.ts); a reply seen, or handed over to the person, pushed to their phone, and the morning push and weekly report
@@ -167,11 +199,19 @@ export const outreachAddonWorker: AddonWorkerModule = {
     'outreach.ask.ended': askSettled,
     'outreach.ask.cancelled': askSettled,
     // Starting the day, or saving one's settings, arms the day's report; a new main offer tells whoever OK'd their
-    // messages against an older one (./tracking.ts). A playbook saved, a network turned on and the day started (a
-    // safety net) have the AI write each network's own words for a customers' playbook with none (./words.ts).
-    'outreach.day.started': both(armDayReportFor, wordsWanted),
-    'outreach.automation.saved': both(armDayReportFor, wordsWanted),
+    // messages against an older one (./tracking.ts). A playbook saved, a network turned on and the day started have
+    // the AI write each network's own words for a customers' playbook with none (./words.ts); and, as days start on
+    // their own (decision 95) with nobody pressing anything, so does the morning's first list the extension saves (a
+    // safety net, decision 123).
+    // And the day's looks at its first messages (./goal.ts, decision 126).
+    // And the posts an older check called good go back to the check (./posts.ts, decision 143).
+    'outreach.day.started': both(
+      both(both(armDayReportFor, armGoalCheckFor), wordsWanted),
+      oldGoodWanted,
+    ),
+    'outreach.automation.saved': both(both(armDayReportFor, armGoalCheckFor), wordsWanted),
     'outreach.playbook.saved': wordsWanted,
+    'outreach.lists.saved': wordsWanted,
     'main_offer.published': offerPublished,
     // Someone who could partner, read off their profile, waits for the AI's partner check (./partners.ts).
     'outreach.partner.looked': partnerLooked,
@@ -189,10 +229,12 @@ export const outreachAddonWorker: AddonWorkerModule = {
     [CHECK_PARTNERS_JOB]: checkPartnersJob,
     [CHECK_GROUPS_JOB]: checkGroupsJob,
     [DRAFT_HELPFUL_JOB]: draftHelpfulJob,
-    // The morning push arms the day's reports of whoever noted a step this week (./tracking.ts).
+    // The morning push arms the day's reports, and the day's looks at the first messages, of whoever noted a step this
+    // week (./tracking.ts, ./goal.ts).
     [MORNING_JOB]: async (ctx) => {
       const next = await morningJob(ctx);
       await armDayReports(ctx);
+      await armGoalChecks(ctx);
       return next;
     },
     [WEEKLY_JOB]: weeklyJob,
@@ -203,6 +245,8 @@ export const outreachAddonWorker: AddonWorkerModule = {
     [REVIEW_JOB]: reviewJob,
     [WRITE_WORDS_JOB]: writeWordsJob,
     [PICK_LIKE_YOURS_JOB]: pickLikeYoursJob,
+    [GOAL_CHECK_JOB]: goalCheckJob,
+    [GOAL_MIDDAY_JOB]: goalMiddayJob,
   },
   // AI help on a playbook's parts, from the builder (./assist.ts), drafts for Today (./today.ts), and answers to a
   // group's questions when the extension asks to join it (./groups.ts), and which post to like (./likes.ts).
@@ -220,6 +264,10 @@ export const outreachAddonWorker: AddonWorkerModule = {
     [TODAY_DRAFT_ACTION]: todayDraft,
     [JOIN_ANSWER_ACTION]: joinAnswer,
     [LIKE_PICK_ACTION]: likePick,
+    // The AI helper when a step didn't go, and the ways it learned (./helper.ts, decision 142).
+    [HELPER_LOOK_ACTION]: helperLook,
+    [HELPER_WAYS_ACTION]: helperWays,
+    [HELPER_WAY_ACTION]: helperWay,
   },
   // The morning push, weekly report and review, and the feed's pruning, from now: nothing that came due while it was
   // off runs late.

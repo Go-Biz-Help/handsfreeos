@@ -5,7 +5,7 @@
  */
 import { describe, expect, it, vi } from 'vitest';
 import { NO_LISTS, type ListsSaved } from '@hfos/core/addons/outreach/lists';
-import { freshState } from '../src/auto/plan';
+import { freshState, listTurn } from '../src/auto/plan';
 import { readPage } from '../src/networks/facebook/page';
 import { requestsPage } from '../src/networks/facebook/friends';
 import type { HfosAsk } from '../src/hfos/messages';
@@ -17,7 +17,7 @@ vi.mock('../src/jobs/job', async (original) => ({
   pause: () => Promise.resolve(),
 }));
 
-const { beforeDay, beforeDayDoing, beforeDayLine, doBeforeDay, markOf } =
+const { beforeDay, beforeDayDoing, beforeDayLine, doBeforeDay, holdsTheDay, markOf } =
   await import('../src/auto/lists');
 const { checkSent, FRIEND_REQUESTS } = await import('../src/jobs/people');
 
@@ -134,6 +134,27 @@ describe('what comes before the day', () => {
     expect(
       beforeDayLine({ do: 'save', list: 'sent', first: true }, { line: 'Saved 3.', warned: false }),
     ).toBe('Sent requests: Saved 3.');
+  });
+
+  it('takes turns with the list, but for the first save and the first check of the groups (decision 123)', () => {
+    // The first save of the lists, and the first check of the groups, hold the whole day (decision 60).
+    expect(holdsTheDay({ do: 'save', list: 'friends', first: true })).toBe(true);
+    expect(holdsTheDay({ do: 'group_checks' })).toBe(true);
+    // The morning's requests, the weekly friends list, Tidy up and the check of friends take turns with the list.
+    expect(holdsTheDay({ do: 'save', list: 'requests', first: false })).toBe(false);
+    expect(holdsTheDay({ do: 'tidy' })).toBe(false);
+    expect(holdsTheDay({ do: 'checks' })).toBe(false);
+    expect(holdsTheDay(null)).toBe(false);
+
+    // A day's first go reads; after a part of the reading, a step on the list; after a step, the reading again.
+    expect(listTurn(freshState('2026-10-13'), true, false)).toBe(false);
+    expect(listTurn({ readLast: true }, true, false)).toBe(true);
+    expect(listTurn({ readLast: false }, true, false)).toBe(false);
+    // A state kept by 0.111 has none: it reads first.
+    expect(listTurn({}, true, false)).toBe(false);
+    // A first save holds the day whatever went last, and with no reading left the list goes anyway.
+    expect(listTurn({ readLast: true }, true, true)).toBe(false);
+    expect(listTurn({ readLast: true }, false, false)).toBe(false);
   });
 
   it('a fresh day starts with nothing done before it', () => {

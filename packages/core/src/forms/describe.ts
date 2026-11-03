@@ -15,7 +15,7 @@ import {
 } from './definition';
 import { cloneJson, jsonEqual } from '../workflows/json';
 import type { FormOp } from './ops';
-import { CHOICE_TYPES, QUESTION_LABELS, type QuestionType } from './questions';
+import { CHOICE_TYPES, questionKindLabel, type QuestionType } from './questions';
 
 // ---- One question ----
 
@@ -24,7 +24,9 @@ const choicesOf = (question: Question): { id: string; label: string }[] =>
 
 /** "Your budget — amount, must be answered, only sometimes, fills in Lead value". */
 export function questionLine(question: Question): string {
-  const bits = [QUESTION_LABELS[question.type as QuestionType].toLowerCase()];
+  const bits = [
+    questionKindLabel({ ...question, type: question.type as QuestionType }).toLowerCase(),
+  ];
   if (question.required) bits.push('must be answered');
   if (CHOICE_TYPES.has(question.type)) {
     const choices = choicesOf(question);
@@ -132,6 +134,7 @@ export function describeFormOp(op: FormOp, before: FormDefinition): string {
       if (patch.showIf !== undefined) changes.push('changed when it shows');
       if (patch.help !== undefined) changes.push('changed the line underneath');
       if (patch.config !== undefined) changes.push('changed its settings');
+      if (patch.live !== undefined) changes.push('changed how it pops up');
       return changes.length ? `${name}: ${changes.join(', ')}` : `Changed ${name}`;
     }
     case 'add_choice':
@@ -162,6 +165,13 @@ export function describeFormOp(op: FormOp, before: FormDefinition): string {
       return 'Deleted a result';
     case 'set_form': {
       const patch = op.patch as Record<string, unknown>;
+      if ('slides' in patch) {
+        const slides = patch.slides as { name?: unknown } | null;
+        return slides && typeof slides.name === 'string'
+          ? `Added the slides ${quoted(slides.name)}`
+          : 'Took the slides off';
+      }
+      if ('leads' in patch) return 'Changed who to follow up with after a call';
       if (typeof patch.mode === 'string') return `Made it a ${patch.mode}`;
       if (typeof patch.title === 'string') return `Changed the heading to ${quoted(patch.title)}`;
       return 'Changed the words at the top';
@@ -172,6 +182,12 @@ export function describeFormOp(op: FormOp, before: FormDefinition): string {
       return 'Changed what happens when somebody sends it';
     case 'set_settings':
       return 'Changed the settings';
+    case 'set_design': {
+      const patch = op.patch as Record<string, unknown>;
+      if (patch.matched && typeof patch.matched === 'object')
+        return 'Matched the design to the website';
+      return 'Changed the design';
+    }
   }
 }
 
@@ -264,6 +280,8 @@ export function diffForms(from: FormDefinition, to: FormDefinition): FormOp[] {
   if (from.mode !== to.mode) formPatch.mode = to.mode;
   if (from.title !== to.title) formPatch.title = to.title;
   if (from.intro !== to.intro) formPatch.intro = to.intro;
+  if (!jsonEqual(from.slides ?? null, to.slides ?? null)) formPatch.slides = to.slides ?? null;
+  if (!jsonEqual(from.leads ?? null, to.leads ?? null)) formPatch.leads = to.leads ?? null;
   if (Object.keys(formPatch).length) ops.push({ op: 'set_form', patch: formPatch });
   if (!jsonEqual(from.scoring, to.scoring))
     ops.push({ op: 'set_scoring', patch: cloneJson(to.scoring) });
@@ -271,6 +289,8 @@ export function diffForms(from: FormDefinition, to: FormDefinition): FormOp[] {
     ops.push({ op: 'set_on_submit', patch: cloneJson(to.onSubmit) });
   if (!jsonEqual(from.settings, to.settings))
     ops.push({ op: 'set_settings', patch: cloneJson(to.settings) });
+  if (!jsonEqual(from.design, to.design))
+    ops.push({ op: 'set_design', patch: cloneJson(to.design) });
 
   return ops;
 }

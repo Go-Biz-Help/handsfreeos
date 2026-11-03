@@ -79,11 +79,21 @@ describe('the widget’s settings', () => {
       greeting: GREETING,
       awayMessage: AWAY,
       away: false,
+      whenAway: 'away_form',
       look: {
         launcherLabel: 'Chat with us',
         accentColor: '#2d69d8',
         textColor: '#ffffff',
+        pickedTextColor: null,
+        // The top bar takes the button's colour until the business picks one.
+        headerColor: '#2d69d8',
+        headerTextColor: '#ffffff',
         position: 'right',
+        mobilePosition: 'right',
+        desktopLift: 0,
+        mobileLift: 0,
+        desktopButton: 'label',
+        mobileButton: 'label',
       },
       askFor: { name: 'when_needed', phone: 'when_needed', email: 'when_needed' },
       // The widget says the same six things the public form and the booking page say, and names the
@@ -133,6 +143,35 @@ describe('the widget’s settings', () => {
         sql`update app.workspaces set settings = settings - 'openHours' where id = ${w.workspaceId}`,
       );
       await setTeammateStatus(w.teammateId, 'training');
+    }
+  });
+});
+
+describe('the agreement box’s links', () => {
+  it('point at the business’s own privacy policy or terms as soon as the wizard says it has one', async () => {
+    await rows(
+      admin(),
+      sql`insert into app.registration_drafts (workspace_id, answers)
+          values (${w.workspaceId}, ${JSON.stringify({
+            form: { ownPolicyUrl: 'lonestarhvac.com/privacy', ownTermsUrl: '' },
+            at: new Date().toISOString(),
+          })}::jsonb)`,
+    );
+    try {
+      const { smsConsent } = (await configOf(w.key)).json();
+      expect(smsConsent).toEqual({
+        ...chatSmsConsent(
+          'chat-routes Booking HVAC',
+          'https://lonestarhvac.com/privacy',
+          `/legal/${w.site}/terms`,
+        ),
+        text: chatSmsConsent('chat-routes Booking HVAC', null).detail,
+      });
+    } finally {
+      await rows(
+        admin(),
+        sql`delete from app.registration_drafts where workspace_id = ${w.workspaceId}`,
+      );
     }
   });
 });

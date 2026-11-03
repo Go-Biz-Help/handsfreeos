@@ -44,15 +44,15 @@ test('a new owner works through Getting started on Home, hides it, and brings it
   await expect(number).toHaveAttribute('data-state', 'todo');
   await expect(page.getByTestId('getting-started-count')).toHaveText('0 of 9 done');
 
-  // The phone app's step opens the links: TestFlight for iPhone, Google Play for Android.
+  // The phone app's step opens the links: the App Store for iPhone, Google Play for Android.
   await page
     .getByTestId('getting-started-app')
-    .getByRole('button', { name: 'Get the links' })
+    .getByRole('button', { name: 'Get the app' })
     .click();
   const links = page.getByTestId('phone-app-links');
-  await expect(links.getByRole('link', { name: 'Open TestFlight' })).toHaveAttribute(
+  await expect(links.getByRole('link', { name: 'Open App Store' })).toHaveAttribute(
     'href',
-    'https://testflight.apple.com/join/GBEM8rJU',
+    'https://apps.apple.com/us/app/handsfreeos/id6813606312',
   );
   await expect(links.getByRole('link', { name: 'Open Google Play' })).toHaveAttribute(
     'href',

@@ -4,15 +4,16 @@
  * - a person (or it couldn't tell): the call streams to the voice agent, with a ticket naming the call it placed,
  *   and it says who it is, that it's an AI, that the call is recorded and why it's calling;
  * - a voicemail box or a fax: what the business chose on Settings → Automations — hang up and text instead,
- *   leave a short message after the beep, or just hang up.
+ *   leave a short message after the beep, or just hang up. A call to a lead with tries left only hangs up, and
+ *   rings again tomorrow (ai-calls/index.ts).
  *
  * Only a call this business placed, still ringing, to the number it placed it to, in the last ten minutes: anything
  * else is hung up.
  */
-import { automationSettingsOf, loadTeammate, scheduleJob } from '@hfos/core/server';
+import { automationSettingsOf, loadTeammate } from '@hfos/core/server';
 import { asWorker, rows, sql } from '@hfos/db/client';
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
-import { AI_CALL_JOBS } from '../ai-calls/index';
+import { textAfterLastTry, tryAgainTomorrow } from '../ai-calls/index';
 import { runtimeConfigOf } from '../ai-team/config';
 import {
   agentTwiml,
@@ -98,6 +99,12 @@ export function registerAiCallRoutes(app: FastifyInstance, deps: HttpDeps): void
     }
     const { call: c } = found;
     if (answeredByMachine(v.params['AnsweredBy'])) {
+      // A call to a lead with tries left just hangs up and rings again tomorrow: the voicemail choice is the last
+      // try's, so nobody gets three messages.
+      const later = await asWorker(deps.httpDb, scope, (tx) =>
+        tryAgainTomorrow(tx, scope, c.id, 'voicemail'),
+      );
+      if (later) return xml(reply, HANGUP_TWIML);
       const choice = found.voicemail;
       await asWorker(deps.httpDb, scope, async (tx) => {
         await tx.execute(
@@ -111,15 +118,7 @@ export function registerAiCallRoutes(app: FastifyInstance, deps: HttpDeps): void
                 }
               where id = ${c.id} and status = 'calling'`,
         );
-        if (choice === 'text')
-          await scheduleJob(tx, {
-            kind: AI_CALL_JOBS.voicemailText,
-            dedupeKey: `ai-call-vm:${c.id}`,
-            runAt: new Date(),
-            payload: { aiCallId: c.id },
-            workspaceId,
-            organizationId,
-          });
+        if (choice === 'text') await textAfterLastTry(tx, scope, c.id);
       });
       if (choice !== 'message') return xml(reply, HANGUP_TWIML);
       return xml(

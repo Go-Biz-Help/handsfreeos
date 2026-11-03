@@ -17,7 +17,9 @@
  * ./ops/finds.ts.
  */
 import { z } from 'zod';
+import { SearchRound } from './goal';
 import { GroupRef } from './activity';
+import { DownloadCounts } from './download';
 import { quoted, says } from './fit';
 import { NETWORKS, PLATFORM_KEYS, PLATFORMS, type Platform } from './networks';
 import type { PlaybookDetails } from './playbooks';
@@ -47,8 +49,8 @@ export const strongerHow = (a: FindHow, b: FindHow): FindHow =>
 
 /**
  * What a check is of (`checks.via`): someone the person knows (decision 46), someone found by topic, one of their
- * followers on Facebook who isn't their friend (decision 113), or someone in one of the business's Facebook groups who
- * isn't their friend (decision 116), both checked like a friend. The server sets it at each look; the readers about
+ * followers on Facebook who isn't their friend (decision 113), someone in one of the business's Facebook groups who
+ * isn't their friend (decision 116), both checked like a friend, or someone who asked to be friends (decision 136). The server sets it at each look; the readers about
  * people the person knows decide by who they know now, never by this, and the day's checks are counted by it: a
  * follower's and a group member's with the people they know, someone found's on its own.
  */
@@ -57,6 +59,8 @@ export const CHECK_VIAS = {
   found: 'Someone found',
   follower: 'Someone who follows you',
   member: 'Someone in one of your groups',
+  /** Asked to be the person's friend, and not one yet (decision 136): their check also says what to do with it. */
+  request: 'Someone who asked to be your friend',
 } as const;
 export type CheckVia = keyof typeof CHECK_VIAS;
 export const CHECK_VIA_KEYS = Object.keys(CHECK_VIAS) as [CheckVia, ...CheckVia[]];
@@ -102,6 +106,43 @@ export const FIND_FRESH_DAYS = 14;
  * reader drawn from guessed markup never holds the members back for good.
  */
 export const LEADERS_WAIT_DAYS = 7;
+
+/** How many days back Find people counts what each way found (decision 128). */
+export const FIND_WEEK_DAYS = 7;
+
+export const FindsWeekInput = z.object({
+  workspaceId: z.uuid(),
+  /** One network's; every network's when left out. */
+  platform: z.enum(PLATFORM_KEYS).optional(),
+});
+export type FindsWeekInput = z.input<typeof FindsWeekInput>;
+
+/** How many were found one way on one network, and how many of them the AI's check called a good fit, or a maybe. */
+const WayCount = z.object({
+  found: z.number().int().min(0),
+  good: z.number().int().min(0),
+  maybe: z.number().int().min(0),
+});
+
+/**
+ * What each way of finding people found for the person in the last week (decision 128's Find people): people found by
+ * topic (`finds`, by network and how), their followers and the members of their groups checked like friends, the
+ * partners found for the business, and their latest Facebook download file.
+ */
+export const FindsWeekOutput = z.object({
+  since: z.iso.datetime(),
+  ways: z.array(
+    z.object({ platform: z.enum(PLATFORM_KEYS), how: z.enum(FIND_HOW_KEYS), ...WayCount.shape }),
+  ),
+  followers: WayCount,
+  members: WayCount,
+  partners: z.number().int().min(0),
+  /** The person's latest Facebook download file brought in (Old friends and chats): null before the first. */
+  download: z
+    .object({ madeAt: z.iso.datetime(), at: z.iso.datetime(), counts: DownloadCounts })
+    .nullable(),
+});
+export type FindsWeekOutput = z.output<typeof FindsWeekOutput>;
 
 /** A find as its fact line reads it: how, on which network, with what words, where, and in which group. */
 export interface FindOf {
@@ -343,6 +384,8 @@ export const FindsSearchesInput = z.object({
   workspaceId: z.uuid(),
   /** The network whose search of businesses goes with the playbooks' kinds of business: Alignable's. */
   platform: z.enum(PLATFORM_KEYS).default('alignable'),
+  /** Which of the day's searches (decision 126): each again takes the next words. */
+  round: SearchRound,
 });
 export type FindsSearchesInput = z.input<typeof FindsSearchesInput>;
 

@@ -1,9 +1,11 @@
 'use client';
 /**
  * Sales Coach's playbooks (`?view=playbooks`): the usual one first, then the rest, then archived ones. Owners and
- * admins (`salescoach.manage`) write them: by hand, or from a draft the AI makes from the business or from their own
- * pasted script (`salescoach.playbook.draft`, a worker action), which they edit before saving. Everyone else reads.
+ * admins (`salescoach.manage`) write them: with the script builder (./script-builder.tsx), which writes one script
+ * for each kind of call the question-led way; from their own pasted script (`salescoach.playbook.draft`, a worker
+ * action); or by hand. Each draft opens in the editor to check before saving. Everyone else reads.
  */
+import { SALES_STAGE_LABELS, SALES_STAGES } from '@hfos/core/addons/salescoach/method';
 import {
   PLAYBOOK_KIND_LABELS,
   PLAYBOOK_KINDS,
@@ -14,7 +16,7 @@ import {
 } from '@hfos/core/addons/salescoach/playbooks';
 import type { PlaybookDraftOutput } from '@hfos/core/addons/salescoach/playbooks';
 import { SALESCOACH_WORDS as W } from '@hfos/core/addons/salescoach/words';
-import { Plus, Sparkles, Trash2 } from 'lucide-react';
+import { FileText, Plus, Sparkles, Trash2 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 import { toast } from 'sonner';
@@ -29,6 +31,7 @@ import { apiBrowser, unwrap } from '@/lib/api/client';
 import { errorMessage } from '@/lib/api/errors';
 import { workerPost } from '@/lib/api/worker';
 import { LessonsView } from './lessons-view';
+import { ScriptBuilder } from './script-builder';
 import type { Playbook } from './types';
 
 interface Draft {
@@ -38,7 +41,7 @@ interface Draft {
   readonly details: PlaybookDetails;
 }
 
-const fresh = (): Draft => ({ id: null, name: '', kind: 'first_call', details: blankPlaybook() });
+const fresh = (): Draft => ({ id: null, name: '', kind: 'new_lead', details: blankPlaybook() });
 
 export function PlaybooksView({
   workspaceId,
@@ -51,8 +54,11 @@ export function PlaybooksView({
 }) {
   const router = useRouter();
   const [editing, setEditing] = useState<Draft | null>(null);
-  const [drafting, setDrafting] = useState(false);
+  // Scripts the builder wrote that are still to check, after the one being edited.
+  const [queue, setQueue] = useState<{ readonly next: Draft[]; readonly of: number } | null>(null);
+  const [opening, setOpening] = useState<'builder' | 'script' | null>(null);
   const [script, setScript] = useState('');
+  const [scriptKind, setScriptKind] = useState<PlaybookKind>('new_lead');
   const [busy, setBusy] = useState(false);
 
   const askAi = async () => {
@@ -60,18 +66,11 @@ export function PlaybooksView({
     try {
       const out = await workerPost<PlaybookDraftOutput>(
         '/v1/addons/salescoach/actions/salescoach.playbook.draft',
-        {
-          workspaceId,
-          input: { kind: editing?.kind ?? 'first_call', ...(script.trim() ? { script } : {}) },
-        },
+        { workspaceId, input: { kind: scriptKind, script } },
       );
-      setEditing({
-        id: null,
-        name: out.name,
-        kind: editing?.kind ?? 'first_call',
-        details: out.details,
-      });
-      setDrafting(false);
+      setEditing({ id: null, name: out.name, kind: scriptKind, details: out.details });
+      setQueue(null);
+      setOpening(null);
       setScript('');
     } catch (e) {
       toast.error(errorMessage(e));
@@ -80,12 +79,19 @@ export function PlaybooksView({
     }
   };
 
+  /** The next script the builder wrote, or back to the list. */
+  const next = () => {
+    const [first, ...rest] = queue?.next ?? [];
+    setEditing(first ?? null);
+    setQueue(first && queue ? { next: rest, of: queue.of } : null);
+  };
+
   const act = async (fn: () => Promise<unknown>, done?: string) => {
     setBusy(true);
     try {
       await fn();
       if (done) toast.success(done);
-      setEditing(null);
+      next();
       router.refresh();
     } catch (e) {
       toast.error(errorMessage(e));
@@ -125,9 +131,10 @@ export function PlaybooksView({
       <Editor
         draft={editing}
         busy={busy}
+        place={queue ? { n: queue.of - queue.next.length, of: queue.of } : null}
         onChange={setEditing}
         onSave={() => void save(editing)}
-        onCancel={() => setEditing(null)}
+        onCancel={next}
       />
     );
 
@@ -139,17 +146,36 @@ export function PlaybooksView({
       </p>
       {canManage ? (
         <div className="flex flex-wrap gap-2">
-          <Button onClick={() => setEditing(fresh())}>
+          <Button onClick={() => setOpening((o) => (o === 'builder' ? null : 'builder'))}>
+            <Sparkles className="mr-1 h-4 w-4" strokeWidth={1.75} aria-hidden />
+            {W.builder.open}
+          </Button>
+          <Button
+            variant="secondary"
+            onClick={() => setOpening((o) => (o === 'script' ? null : 'script'))}
+          >
+            <FileText className="mr-1 h-4 w-4" strokeWidth={1.75} aria-hidden />
+            {W.playbooks.draft}
+          </Button>
+          <Button variant="ghost" onClick={() => setEditing(fresh())}>
             <Plus className="mr-1 h-4 w-4" strokeWidth={1.75} aria-hidden />
             {W.playbooks.add}
           </Button>
-          <Button variant="secondary" onClick={() => setDrafting((d) => !d)}>
-            <Sparkles className="mr-1 h-4 w-4" strokeWidth={1.75} aria-hidden />
-            {W.playbooks.draft}
-          </Button>
         </div>
       ) : null}
-      {drafting ? (
+      {opening === 'builder' ? (
+        <ScriptBuilder
+          workspaceId={workspaceId}
+          onCancel={() => setOpening(null)}
+          onBuilt={(scripts) => {
+            const drafts = scripts.map((d) => ({ id: null, ...d }));
+            setOpening(null);
+            setEditing(drafts[0]!);
+            setQueue({ next: drafts.slice(1), of: drafts.length });
+          }}
+        />
+      ) : null}
+      {opening === 'script' ? (
         <Card className="space-y-3 p-4">
           <p className="text-[13px] text-text-2">{W.playbooks.draftAbout}</p>
           <div>
@@ -162,8 +188,26 @@ export function PlaybooksView({
               onChange={(e) => setScript(e.target.value)}
             />
           </div>
-          <Button disabled={busy} onClick={() => void askAi()} data-testid="salescoach-draft">
-            {busy ? W.playbooks.drafting : W.playbooks.draft}
+          <div className="max-w-xs">
+            <Label htmlFor="coach-script-kind">{W.playbooks.draftKind}</Label>
+            <Select
+              id="coach-script-kind"
+              value={scriptKind}
+              onChange={(e) => setScriptKind(e.target.value as PlaybookKind)}
+            >
+              {PLAYBOOK_KINDS.map((k) => (
+                <option key={k} value={k}>
+                  {PLAYBOOK_KIND_LABELS[k]}
+                </option>
+              ))}
+            </Select>
+          </div>
+          <Button
+            disabled={busy || !script.trim()}
+            onClick={() => void askAi()}
+            data-testid="salescoach-draft"
+          >
+            {busy ? W.playbooks.drafting : W.playbooks.draftGo}
           </Button>
         </Card>
       ) : null}
@@ -241,8 +285,14 @@ function ReadOnly({ details }: { details: PlaybookDetails }) {
         <ol className="list-decimal space-y-1 pl-5">
           {details.steps.map((s) => (
             <li key={s.id}>
+              {s.stage ? (
+                <span className="mr-1.5 text-[12px] font-medium text-text-3">
+                  {SALES_STAGE_LABELS[s.stage]}:
+                </span>
+              ) : null}
               {s.title}
               {s.say ? <span className="text-text-2"> — “{s.say}”</span> : null}
+              {s.tip ? <span className="text-text-3"> ({s.tip})</span> : null}
             </li>
           ))}
         </ol>
@@ -280,9 +330,11 @@ function PartList<T extends { id: string }>({
     readonly label: string;
     readonly max: number;
     readonly long?: boolean;
+    /** A list to pick from; the empty choice keeps null. */
+    readonly options?: readonly { readonly value: string; readonly label: string }[];
   }[];
 }) {
-  const set = (i: number, key: keyof T & string, value: string) =>
+  const set = (i: number, key: keyof T & string, value: string | null) =>
     onChange(items.map((it, j) => (j === i ? { ...it, [key]: value } : it)));
   return (
     <section className="space-y-2">
@@ -293,7 +345,20 @@ function PartList<T extends { id: string }>({
           <span className="mt-2 w-5 flex-none text-[12px] tabular-nums text-text-3">{i + 1}</span>
           <div className="grid min-w-0 flex-1 gap-2 md:grid-cols-2">
             {fields.map((f) =>
-              f.long ? (
+              f.options ? (
+                <Select
+                  key={f.key}
+                  aria-label={f.label}
+                  value={String(it[f.key] ?? '')}
+                  onChange={(e) => set(i, f.key, e.target.value || null)}
+                >
+                  {f.options.map((o) => (
+                    <option key={o.value} value={o.value}>
+                      {o.label}
+                    </option>
+                  ))}
+                </Select>
+              ) : f.long ? (
                 <Textarea
                   key={f.key}
                   aria-label={f.label}
@@ -335,15 +400,23 @@ function PartList<T extends { id: string }>({
   );
 }
 
+const STAGE_OPTIONS = [
+  { value: '', label: W.playbooks.noStage },
+  ...SALES_STAGES.map((st) => ({ value: st, label: SALES_STAGE_LABELS[st] })),
+];
+
 function Editor({
   draft,
   busy,
+  place,
   onChange,
   onSave,
   onCancel,
 }: {
   draft: Draft;
   busy: boolean;
+  /** Which of the builder's scripts this is, when it wrote several. */
+  place: { n: number; of: number } | null;
   onChange: (d: Draft) => void;
   onSave: () => void;
   onCancel: () => void;
@@ -353,6 +426,11 @@ function Editor({
     onChange({ ...draft, details: { ...draft.details, ...d } });
   return (
     <Card className="space-y-5 p-4 md:p-5" data-testid="salescoach-editor">
+      {place && place.of > 1 ? (
+        <p className="text-[12.5px] font-medium text-text-3">
+          {W.playbooks.queue(place.n, place.of)}
+        </p>
+      ) : null}
       <div className="grid gap-3 md:grid-cols-2">
         <div>
           <Label htmlFor="coach-name">{W.playbooks.name}</Label>
@@ -384,11 +462,13 @@ function Editor({
         items={draft.details.steps}
         max={L.steps}
         addLabel={W.playbooks.addStep}
-        blank={() => ({ id: 's1', title: '', say: '' })}
+        blank={() => ({ id: 's1', title: '', say: '', stage: null, tip: '' })}
         onChange={(steps) => details({ steps })}
         fields={[
+          { key: 'stage', label: W.playbooks.stage, max: 0, options: STAGE_OPTIONS },
           { key: 'title', label: W.playbooks.step, max: L.stepTitle },
           { key: 'say', label: W.playbooks.say, max: L.stepSay, long: true },
+          { key: 'tip', label: W.playbooks.tip, max: L.stepTip },
         ]}
       />
       <PartList
@@ -426,7 +506,7 @@ function Editor({
           {W.playbooks.save}
         </Button>
         <Button variant="ghost" onClick={onCancel}>
-          {W.playbooks.cancel}
+          {place && place.of > 1 ? W.playbooks.skip : W.playbooks.cancel}
         </Button>
       </div>
     </Card>

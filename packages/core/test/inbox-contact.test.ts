@@ -3,7 +3,16 @@
  * one line it shows, so the splitting has to land the same way `fullName` joined it.
  */
 import { describe, expect, it } from 'vitest';
-import { CONTACT_EDIT_WORDS, joinName, nameProblem, noteProblem, splitName } from '../src/index';
+import {
+  CONTACT_EDIT_WORDS,
+  joinName,
+  nameFromSender,
+  nameProblem,
+  notCustomerBanner,
+  noteProblem,
+  SENDER_WORDS,
+  splitName,
+} from '../src/index';
 
 describe('a name edited as one line', () => {
   it('splits on the first space: everything after it is the last name', () => {
@@ -53,5 +62,40 @@ describe('what cannot be saved', () => {
   it('refuses an empty note and accepts one with anything in it', () => {
     expect(noteProblem('  ')).toBe(CONTACT_EDIT_WORDS.noteEmpty);
     expect(noteProblem('Gate code 4821')).toBeNull();
+  });
+});
+
+describe('adding whoever emailed (2026-10-29)', () => {
+  it('starts with the name their From line gave', () => {
+    expect(nameFromSender('Gregory Lyons')).toBe('Gregory Lyons');
+    expect(nameFromSender('"Gregory  Lyons" ')).toBe('Gregory Lyons');
+    expect(nameFromSender('“José Peña”')).toBe('José Peña');
+    // A From line that is mostly quotes still comes back at once.
+    expect(nameFromSender(`${'"'.repeat(50_000)}Ann${'"'.repeat(50_000)}x`)).toBe(
+      `Ann${'"'.repeat(50_000)}x`.slice(0, 160),
+    );
+  });
+
+  it('starts empty when the "name" is the address again, or none at all', () => {
+    expect(nameFromSender('grlyons1010@gmail.com')).toBeNull();
+    expect(nameFromSender('"grlyons1010@gmail.com"')).toBeNull();
+    expect(nameFromSender('  ')).toBeNull();
+    expect(nameFromSender('1010')).toBeNull();
+    expect(nameFromSender(null)).toBeNull();
+  });
+
+  it('names the address, not a number, for email', () => {
+    expect(notCustomerBanner('grlyons1010@gmail.com', 'email').parts).toEqual([
+      { strong: 'grlyons1010@gmail.com isn’t a customer yet.' },
+      ' Add them, or link the address to someone you already have.',
+    ]);
+  });
+
+  it('names who already has the address, so linking them is one tap', () => {
+    expect(SENDER_WORDS.known('Gregory Lyons')).toBe(
+      'Gregory Lyons already has this email address.',
+    );
+    expect(SENDER_WORDS.linkTo('Gregory Lyons')).toBe('Link to Gregory Lyons');
+    expect(SENDER_WORDS.linked('Gregory Lyons')).toBe('Linked to Gregory Lyons.');
   });
 });

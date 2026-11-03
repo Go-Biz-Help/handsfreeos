@@ -356,6 +356,8 @@ import {
 import { DemoMarkInput, DemoMarkOutput } from '@hfos/core/addons/outreach/demos';
 import { DemoOutcomeInput, DemoOutcomeOutput } from '@hfos/core/addons/outreach/leads';
 import { FriendSetInput, FriendSetOutput } from '@hfos/core/addons/outreach/friends';
+import { CancelAllInput, CancelAllOutput } from '@hfos/core/addons/outreach/tidy';
+import { RequestsAgainInput, RequestsAgainOutput } from '@hfos/core/addons/outreach/request-pause';
 import {
   ComputerRemoveInput,
   ComputerRemoveOutput,
@@ -365,7 +367,12 @@ import {
   DayOutput,
 } from '@hfos/core/addons/outreach/live';
 import { OwnerMoveInput, OwnerMoveOutput } from '@hfos/core/addons/outreach/owners';
-import { PartnerMarkInput, PartnerMarkOutput } from '@hfos/core/addons/outreach/partners';
+import {
+  PartnerMarkInput,
+  PartnerMarkOutput,
+  PartnerPotentialInput,
+  PartnerPotentialOutput,
+} from '@hfos/core/addons/outreach/partners';
 import {
   ClientSetInput,
   ClientSetOutput,
@@ -390,6 +397,8 @@ import { ProfileSaveOutput } from '@hfos/core/addons/outreach/saves';
 import {
   SendApproveInput,
   SendApproveOutput,
+  SendRetryInput,
+  SendRetryOutput,
   SendSkipInput,
   SendSkipOutput,
 } from '@hfos/core/addons/outreach/sends';
@@ -410,6 +419,10 @@ import {
 import {
   NeedClearInput,
   NeedClearOutput,
+  NeedRetryInput,
+  NeedRetryOutput,
+  RequestAnswerInput,
+  RequestAnswerOutput,
   RequestSetAsideInput,
   RequestSetAsideOutput,
 } from '@hfos/core/addons/outreach/waiting';
@@ -642,6 +655,8 @@ export const PHONE_COMMANDS = {
   // Won or lost after the demo, on a customer's Social card (decision 106): with signal, as the card is.
   'outreach.demo.outcome': command(ONLINE, DemoOutcomeInput, DemoOutcomeOutput),
   'outreach.friend.set': command(ONLINE, FriendSetInput, FriendSetOutput),
+  // Cancel all, under Today's note when no new requests go for now (decision 121): with signal.
+  'outreach.friends.cancel_all': command(ONLINE, CancelAllInput, CancelAllOutput),
   'outreach.helpful.ask': command(ONLINE, HelpfulAskInput, HelpfulAskOutput),
   'outreach.helpful.ok': command(ONLINE, HelpfulOkInput, HelpfulChangeOutput),
   'outreach.helpful.posted': command(ONLINE, HelpfulPostedInput, HelpfulChangeOutput),
@@ -655,10 +670,14 @@ export const PHONE_COMMANDS = {
   'outreach.messages.edit': command(ONLINE, MessageEditInput, ReadinessOutput),
   'outreach.messages.forget': command(ONLINE, MessageForgetInput, ReadinessOutput),
   'outreach.need.clear': command(ANYTIME, NeedClearInput, NeedClearOutput),
+  // Retry, and Retry all, on any step handed over (decision 145): with signal, as it reaches them again.
+  'outreach.need.retry': command(ONLINE, NeedRetryInput, NeedRetryOutput),
   // Where someone stands on the Partners list (decision 81): with signal, as the pipeline's marks are.
   // An owner or admin gives a group or a person to a teammate (decision 107): with signal, as the person menu is.
   'outreach.owner.move': command(ONLINE, OwnerMoveInput, OwnerMoveOutput),
   'outreach.partner.mark': command(ONLINE, PartnerMarkInput, PartnerMarkOutput),
+  // Potential partner from the person menu (decision 130): with signal, as the rest of the menu is.
+  'outreach.partner.potential': command(ONLINE, PartnerPotentialInput, PartnerPotentialOutput),
   'outreach.playbook.archive': command(ONLINE, PlaybookArchiveInput, Playbook),
   'outreach.playbook.save': command(ONLINE, PlaybookSaveInput, Playbook),
   'outreach.post.skip': command(ANYTIME, PostSkipInput, PostSkipOutput),
@@ -667,8 +686,14 @@ export const PHONE_COMMANDS = {
   'outreach.readiness.messages': command(ONLINE, MessagesOkInput, ReadinessOutput),
   'outreach.readiness.numbers': command(ONLINE, NumbersInput, ReadinessOutput),
   'outreach.readiness.profile': command(ONLINE, ProfileTickInput, ReadinessOutput),
+  // Confirm and Delete on a request to decide (decision 136): kept on the phone and sent when it can, as Leave it.
+  'outreach.request.answer': command(ANYTIME, RequestAnswerInput, RequestAnswerOutput),
   'outreach.request.set_aside': command(ANYTIME, RequestSetAsideInput, RequestSetAsideOutput),
+  // Start again, under Today's note on a monthly limit's pause (decision 147): with signal.
+  'outreach.requests.start_again': command(ONLINE, RequestsAgainInput, RequestsAgainOutput),
   'outreach.send.approve': command(FRESH, SendApproveInput, SendApproveOutput),
+  // Retry, and Retry all, on what didn't go (decision 132), from builds before decision 145's: with signal.
+  'outreach.send.retry': command(ONLINE, SendRetryInput, SendRetryOutput),
   'outreach.send.skip': command(ANYTIME, SendSkipInput, SendSkipOutput),
   // Where someone stands, on the Pipeline screen (decision 47): with signal, as the person menu's marks are.
   'outreach.stage.mark': command(ONLINE, StageMarkInput, StageMarkOutput),

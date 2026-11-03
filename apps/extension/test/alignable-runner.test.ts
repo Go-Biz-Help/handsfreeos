@@ -44,6 +44,7 @@ const world = vi.hoisted(() => ({
     start: number;
     end: number;
     days: number[];
+    everyDay?: boolean;
   },
 }));
 
@@ -259,6 +260,28 @@ const chatHtml = (withId = '42') => `<div data-testid="inbox">
     <form id="elsewhere"><div contenteditable="true" id="other-box"></div><button>Send</button></form>
   </div>`;
 
+/**
+ * The same conversation as Alignable draws it since the owner's sends of 30 Oct 2026 (0.117.0's 19:02 UTC outline): the
+ * site's menu in a header of its own, Messages' list under a header too, then the conversation's header with no test id
+ * (its picture and a link to their business), its messages, and its box with Send as `messaging-send-desktop`.
+ */
+const chatHtml2026 = (withId = '42') => `<div><header><nav aria-label="Main">
+    <a href="/biz/conversations?_fan=1&_nav=2">Messages</a><a href="/biz/profile"><img alt="Me" /></a></nav></header>
+  <div><div data-testid="inbox"><div>
+    <div><header><h3>Messages</h3><button><svg></svg>New Message</button></header>
+      <div data-testid="conversationInSidebar"><div><div>Sam Lee</div><div>See you Tuesday</div></div></div></div>
+    <div><header><div><img alt="" /><a href="/biz/businesses/${withId}?user=5&cyfid=6&cyattr=7"><div>Dana Reyes</div></a></div>
+        <div><div data-testid="ellipses"><div></div></div></div></header>
+      <div><div><div><div><p>You and Dana Reyes are connected</p>
+          <div><a href="/biz/businesses/${withId}?user=5&cyfid=6&cyattr=7"><img alt="" /></a>
+            <div><div><span>Dana</span><span>2 days</span></div>
+              <div data-testid="rel-card-message"><div>Thanks for connecting!</div><svg></svg></div></div></div></div></div></div>
+        <div data-testid="full-view-write-message"><button data-testid="messaging-upload-trigger-desktop"><svg></svg></button>
+          <div><div><div dir="ltr"><div contenteditable="true" id="box" placeholder="Write a message"></div></div>
+            <button data-testid="messaging-send-desktop" title="Send"><svg></svg></button></div></div></div></div></div>
+    <form id="elsewhere"><div contenteditable="true" id="other-box"></div><button>Send</button></form>
+  </div></div></div></div>`;
+
 /** Alignable's search for businesses, as Check Alignable read it (0.66.0): two results, each by Alignable's id. */
 const searchHtml = `<section><div role="contentinfo"><ul>
   <div><a href="/austin-tx/hill-homes?user=8&page_num=1&result_id=4242"><img alt="Hana Hill" /></a>
@@ -275,12 +298,20 @@ const searchHtml = `<section><div role="contentinfo"><ul>
 // ------------------------------------------------------------------------------------------------- the day
 
 const today = () => new Date().toLocaleDateString('en-CA', { timeZone: 'America/Chicago' });
-/** Working hours that leave out today: nothing goes on its own unless a test says. */
+/**
+ * Working hours that leave out today: nothing goes on its own unless a test says. Only on their working days, or
+ * the day goes on its own every day (decision 139) and what it says waits on the clock.
+ */
 const notToday = () => {
   const weekday = new Date(
     new Date().toLocaleString('en-US', { timeZone: 'America/Chicago' }),
   ).getDay();
-  return { start: 9, end: 17, days: [0, 1, 2, 3, 4, 5, 6].filter((d) => d !== weekday) };
+  return {
+    start: 9,
+    end: 17,
+    days: [0, 1, 2, 3, 4, 5, 6].filter((d) => d !== weekday),
+    everyDay: false,
+  };
 };
 const ALL_DAY = { start: 0, end: 24, days: [0, 1, 2, 3, 4, 5, 6] };
 const day = (state: 'none' | 'started' | 'stopped') => ({
@@ -391,7 +422,7 @@ beforeEach(() => {
 // ------------------------------------------------------------------------------------------------- the list
 
 describe('what it does on Alignable’s list', () => {
-  it('warms up and connects on its own; comments, answers and requests they got stay theirs', () => {
+  it('warms up, connects and (from 0.118.0) accepts on its own; comments and answers stay theirs', () => {
     const list = {
       items: [
         item({ kind: 'confirm', name: 'Avery Lane' }),
@@ -409,8 +440,9 @@ describe('what it does on Alignable’s list', () => {
       sending: 'steps',
     } as never;
     expect(alignableWorkLeft(list, []).map((w) => w.item.kind)).toEqual([
-      'warm_up',
+      'confirm',
       'friend_request',
+      'warm_up',
     ]);
     // Their own groups first, before any search or join (decision 92), then the requests.
     expect(nextAlignableDaily({ daily: {} })).toBe('my_groups');
@@ -621,6 +653,7 @@ describe('a connection request on Alignable', () => {
     expect(await doWork({ do: 'step', item: item({}) }, ME.businessId, false)).toEqual({
       done: false,
       line: 'Dana Reyes: no Connect on their page: you’re connected already, or asked',
+      skip: true,
     });
     expect(pressed).toBe('');
     expect(world.noted).toEqual([]);
@@ -630,12 +663,84 @@ describe('a connection request on Alignable', () => {
     world.pages = () => ({ html: businessHtml(), at: DANA_PAGE });
     world.behave = (doc) =>
       doc.querySelector('#connect')!.addEventListener('click', (event) => event.preventDefault());
-    expect(await doWork({ do: 'step', item: item({}) }, ME.businessId, false)).toEqual({
+    expect(await doWork({ do: 'step', item: item({}) }, ME.businessId, false)).toMatchObject({
       done: false,
       line: 'Dana Reyes: Alignable didn’t take the request',
       need: true,
     });
     expect(world.noted).toEqual([]);
+  });
+
+  it('pauses connection requests till the 1st when Alignable says the monthly limit is reached, with no warning and no helper (decision 147)', async () => {
+    world.pages = () => ({ html: businessHtml(), at: DANA_PAGE });
+    // Alignable's box after Connect, as the owner saw it on 2 Nov 2026: their limit, Upgrade, and Not now.
+    world.behave = (doc) =>
+      doc.querySelector('#connect')!.addEventListener('click', (event) => {
+        event.preventDefault();
+        doc.body.insertAdjacentHTML(
+          'beforeend',
+          `<div role="dialog" aria-modal="true"><h2>You’ve reached your monthly connection limit.</h2>
+            <p>Upgrade to keep growing your network. You’ve sent too many connection requests.</p>
+            <a href="/biz/premium">Upgrade</a><button>Not now</button></div>`,
+        );
+      });
+    world.answers['/v1/commands/outreach.requests.pause'] = () => ({
+      until: '2026-12-01',
+      already: false,
+    });
+    expect(await doWork({ do: 'step', item: item({}) }, ME.businessId, false)).toEqual({
+      done: false,
+      line: 'Dana Reyes: Alignable says you’ve reached your monthly limit, so new connection requests wait till Dec 1. Likes, comments and messages go on.',
+    });
+    expect(world.posted).toContainEqual({
+      path: '/v1/commands/outreach.requests.pause',
+      body: {
+        workspaceId: ME.businessId,
+        platform: 'alignable',
+        words: ['You’ve reached your monthly connection limit.'],
+      },
+    });
+    // Its "too many" is no warning here, the helper never looks, and their page isn't opened again.
+    expect(world.asked.map((a) => a.type)).not.toContain('hfos-warning');
+    expect(world.asked.map((a) => a.type).filter((t) => t.startsWith('hfos-helper'))).toEqual([]);
+    expect(world.opened).toEqual([DANA]);
+    expect(world.noted).toEqual([]);
+  });
+
+  it('still says requests wait when HandsFreeOS couldn’t be told, and goes on', async () => {
+    world.pages = () => ({ html: businessHtml(), at: DANA_PAGE });
+    world.behave = (doc) =>
+      doc.querySelector('#connect')!.addEventListener('click', (event) => {
+        event.preventDefault();
+        doc.body.insertAdjacentHTML(
+          'beforeend',
+          '<div role="dialog"><p>Monthly connection limit reached</p><button>Not now</button></div>',
+        );
+      });
+    expect(await doWork({ do: 'step', item: item({}) }, ME.businessId, false)).toEqual({
+      done: false,
+      line: 'Dana Reyes: Alignable says you’ve reached your monthly limit, so new connection requests wait till the 1st. Likes, comments and messages go on.',
+    });
+  });
+
+  it('lets the AI helper look at their page as Connect left it, before it’s opened again (decision 145)', async () => {
+    // Their page after the press, where a box asking one more thing would show; opened again, Alignable shows another.
+    let opens = 0;
+    world.pages = () => ({
+      html: businessHtml({ id: opens++ === 0 ? '42' : '77' }),
+      at: DANA_PAGE,
+    });
+    world.behave = (doc) =>
+      doc.querySelector('#connect')?.addEventListener('click', (event) => event.preventDefault());
+    world.hfos['hfos-helper-ways'] = () => ({ ways: [] });
+    expect(await doWork({ do: 'step', item: item({}) }, ME.businessId, false)).toMatchObject({
+      done: false,
+      line: 'Dana Reyes: Alignable didn’t take the request',
+      need: true,
+      // It looked while their page was as the press left it: the page opened again wasn't theirs.
+      helper: { result: 'reported', looks: 0, notLooked: 'no_view' },
+    });
+    expect(world.opened).toEqual([DANA, DANA]);
   });
 
   /** Every link that would change a connection, noting which was pressed. */
@@ -660,6 +765,7 @@ describe('a connection request on Alignable', () => {
     expect(await doWork({ do: 'step', item: item({}) }, ME.businessId, false)).toEqual({
       done: false,
       line: 'Dana Reyes: you’re connected already',
+      skip: true,
     });
     expect(world.opened).toEqual([DANA]);
     expect(pressed).toEqual([]);
@@ -709,6 +815,7 @@ describe('a connection request on Alignable', () => {
     expect(await doWork({ do: 'step', item: item({}) }, ME.businessId, false)).toEqual({
       done: false,
       line: 'Dana Reyes: no Connect on their page: you’re connected already, or asked',
+      skip: true,
     });
     expect(pressed).toEqual([]);
     expect(world.noted).toEqual([]);
@@ -757,11 +864,15 @@ describe('a message on Alignable', () => {
       if (typed) typed.textContent = text ?? '';
       return true;
     };
-    doc.querySelector('[data-testid="messaging-send-external"]')!.addEventListener('click', () => {
-      const box = doc.querySelector('#box')!;
-      sent.push(box.textContent ?? '');
-      box.textContent = '';
-    });
+    doc
+      .querySelector(
+        '[data-testid="messaging-send-external"], [data-testid="messaging-send-desktop"]',
+      )!
+      .addEventListener('click', () => {
+        const box = doc.querySelector('#box')!;
+        sent.push(box.textContent ?? '');
+        box.textContent = '';
+      });
   };
 
   it('sends one OK’d in their conversation, typing only into its own box, and says it went', async () => {
@@ -787,6 +898,66 @@ describe('a message on Alignable', () => {
     expect(
       world.posted.find((p) => p.path === '/v1/commands/outreach.send.done')?.body,
     ).toMatchObject({ sent: true });
+  });
+
+  it('sends one in their conversation as Alignable draws it since 30 Oct 2026: a header with no test id, and Send as messaging-send-desktop', async () => {
+    world.pages = (url) => (url === DANA_CHAT ? { html: chatHtml2026() } : null);
+    const sent: string[] = [];
+    let other = '';
+    world.behave = (doc) => {
+      sentOn(sent)(doc);
+      other = doc.querySelector('#other-box')!.textContent ?? '';
+    };
+    world.answers['/v1/commands/outreach.send.done'] = () => ({ ok: true });
+    const outcome = await doWork({ do: 'send', item: approved() }, ME.businessId, false);
+    expect(outcome).toEqual({ done: true, line: 'Sent Dana Reyes a message' });
+    expect(sent).toEqual(['Glad to help, Dana.']);
+    expect(other).toBe('');
+    expect(notedAs()).toEqual([
+      { kind: 'message', auto: true, postUrl: null, id: '42', platform: 'alignable' },
+    ]);
+  });
+
+  it('types nothing in a conversation drawn that way with another business, nor before its header is drawn', async () => {
+    world.pages = () => ({ html: chatHtml2026('77'), at: DANA_CHAT });
+    const sent: string[] = [];
+    world.behave = sentOn(sent);
+    world.answers['/v1/commands/outreach.send.done'] = () => ({ ok: true });
+    const outcome = await doWork({ do: 'send', item: approved() }, ME.businessId, false);
+    expect(outcome).toEqual({
+      done: false,
+      line: 'Dana Reyes: Alignable showed a different conversation',
+    });
+    expect(sent).toEqual([]);
+
+    const { writeMessage } = await import('../src/networks/alignable/auto');
+    const { JSDOM } = await import('jsdom');
+    const doc = new JSDOM(`<!doctype html><html><body>${chatHtml2026()}</body></html>`, {
+      url: DANA_CHAT,
+    }).window.document;
+    // Only the list's header and the site's menu left: neither is the conversation's.
+    doc.querySelector('[data-testid="ellipses"]')!.closest('header')!.remove();
+    sentOn(sent)(doc);
+    const dana = { id: '42', username: null, url: DANA };
+    expect(await writeMessage(doc, DANA_CHAT, 'Glad to help, Dana.', dana)).toBe('none');
+    expect(sent).toEqual([]);
+    expect(doc.querySelector('#box')!.textContent).toBe('');
+  });
+
+  it('goes straight to their conversation by the id HandsFreeOS keeps beside their address in its town (decision 131)', async () => {
+    world.pages = (url) => (url === DANA_CHAT ? { html: chatHtml() } : null);
+    const sent: string[] = [];
+    world.behave = sentOn(sent);
+    world.answers['/v1/commands/outreach.send.done'] = () => ({ ok: true });
+    const outcome = await doWork(
+      { do: 'send', item: approved({ profileUrl: DANA_PAGE, platformId: '42' }) },
+      ME.businessId,
+      false,
+    );
+    expect(outcome).toEqual({ done: true, line: 'Sent Dana Reyes a message' });
+    // No look at their business page first for its id.
+    expect(world.opened).toEqual([DANA_CHAT]);
+    expect(sent).toEqual(['Glad to help, Dana.']);
   });
 
   it('types nothing when Alignable opens a conversation with another business, and says it wasn’t sent', async () => {
@@ -865,6 +1036,71 @@ describe('a message on Alignable', () => {
     }
   });
 
+  it('knows a message went by its showing in the conversation, though Alignable leaves it in the box', async () => {
+    const { writeMessage } = await import('../src/networks/alignable/auto');
+    const { JSDOM } = await import('jsdom');
+    const doc = new JSDOM(`<!doctype html><html><body>${chatHtml()}</body></html>`, {
+      url: DANA_CHAT,
+    }).window.document;
+    let typed: Element | null = null;
+    for (const box of doc.querySelectorAll('[contenteditable="true"]'))
+      box.addEventListener('click', () => (typed = box));
+    doc.execCommand = (_c: string, _u?: boolean, text?: string) => {
+      if (typed) typed.textContent = text ?? '';
+      return true;
+    };
+    // Alignable shows the message in the conversation, and the box keeps it.
+    doc.querySelector('[data-testid="messaging-send-external"]')!.addEventListener('click', () => {
+      const card = doc.createElement('div');
+      card.setAttribute('data-testid', 'rel-card-message');
+      card.append(doc.createElement('div'));
+      card.firstElementChild!.textContent = doc.querySelector('#box')!.textContent;
+      doc.querySelector('[data-testid="channel-header-loaded"]')!.after(card);
+    });
+    vi.useFakeTimers({ toFake: ['setTimeout'] });
+    try {
+      const writing = writeMessage(doc, DANA_CHAT, 'Glad to help, Dana.', {
+        id: '42',
+        username: null,
+        url: DANA,
+      });
+      await vi.advanceTimersByTimeAsync(20_000);
+      expect(await writing).toBe('done');
+      // What was typed is taken out of the box, so the next message finds it empty.
+      expect(doc.querySelector('#box')!.textContent).toBe('');
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('says a message didn’t go when it never shows and the box keeps it', async () => {
+    const { writeMessage } = await import('../src/networks/alignable/auto');
+    const { JSDOM } = await import('jsdom');
+    const doc = new JSDOM(`<!doctype html><html><body>${chatHtml()}</body></html>`, {
+      url: DANA_CHAT,
+    }).window.document;
+    let typed: Element | null = null;
+    for (const box of doc.querySelectorAll('[contenteditable="true"]'))
+      box.addEventListener('click', () => (typed = box));
+    doc.execCommand = (_c: string, _u?: boolean, text?: string) => {
+      if (typed) typed.textContent = text ?? '';
+      return true;
+    };
+    vi.useFakeTimers({ toFake: ['setTimeout'] });
+    try {
+      const writing = writeMessage(doc, DANA_CHAT, 'Glad to help, Dana.', {
+        id: '42',
+        username: null,
+        url: DANA,
+      });
+      await vi.advanceTimersByTimeAsync(20_000);
+      expect(await writing).toBe('not_sent');
+      expect(doc.querySelector('#box')!.textContent).toBe('Glad to help, Dana.');
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it('types nothing in a conversation whose header isn’t drawn, on its address alone', async () => {
     const { writeMessage } = await import('../src/networks/alignable/auto');
     const { JSDOM } = await import('jsdom');
@@ -903,6 +1139,22 @@ describe('a message on Alignable', () => {
     };
     expect(drafted.input?.lookup).toContain('About Us: Family plumbers in Austin since 1990.');
     expect(world.noted).toEqual([]);
+  });
+
+  it('hands on what Knowledge doesn’t answer with a reply, so it waits for the person (decision 122)', async () => {
+    world.pages = (url) => (url === DANA ? { html: businessHtml(), at: DANA_PAGE } : null);
+    world.hfos['hfos-draft'] = () => ({
+      drafts: ['Good question, Dana. Let me check on that and get back to you.'],
+      kind: 'reply',
+      opener: null,
+      simple: false,
+      unanswered: 'whether you come out to Dallas',
+    });
+    world.answers['/v1/commands/outreach.send.queue'] = () => ({ state: 'waiting' });
+    await doWork({ do: 'draft', item: item({ kind: 'reply' }) }, ME.businessId, false);
+    expect(
+      world.posted.find((p) => p.path === '/v1/commands/outreach.send.queue')?.body,
+    ).toMatchObject({ kind: 'reply', simple: false, unanswered: 'whether you come out to Dallas' });
   });
 });
 
@@ -1470,7 +1722,10 @@ describe('Alignable’s groups', () => {
         { prospects: { left: 400, days: 20, low: false } },
         'Your Alignable groups have 400 people left to reach: no need to join more yet.',
       ],
-      [{ onItsOwn: false }, 'Joining groups on its own is off in your Alignable settings.'],
+      [
+        { onItsOwn: false },
+        'You’re working only the Alignable groups you’re in, so it joins none on its own.',
+      ],
     ] as const;
     for (const [more, line] of cases) {
       world.hfos['hfos-joins-next'] = () => joinsNext({ groups: GROUPS, ...more });
@@ -1502,7 +1757,7 @@ describe('Alignable’s groups', () => {
     world.pages = (url) =>
       url === MINE
         ? myProfile()
-        : url === `${GROUPS[0]!.url}/members`
+        : url === `${AL}/biz/groups/home-pros-network/members`
           ? {
               html: `<main><h1>Home Pros Network</h1><span>1,204 members</span>
               <h2>Group Leaders</h2>
@@ -1516,7 +1771,7 @@ describe('Alignable’s groups', () => {
             }
           : null;
     const end = await runAlignableDaily('members', dailyJob());
-    expect(world.opened).toEqual([MINE, `${GROUPS[0]!.url}/members`]);
+    expect(world.opened).toEqual([MINE, `${AL}/biz/groups/home-pros-network/members`]);
     const [saved] = inputsOf('hfos-save-group');
     expect(saved).toMatchObject({
       platform: 'alignable',
@@ -1954,11 +2209,32 @@ describe('its day', () => {
     expect(store.get(WARNED_KEY)).toMatchObject({ alignable: { day: expect.any(String) } });
   });
 
-  it('waits outside the working hours with nothing pressed, waking at their start', async () => {
+  it('waits outside the working hours with nothing pressed, waking at their start: nothing new goes (decision 133)', async () => {
     keep(day('none'));
+    // A step and a first message OK'd wait for the hours; only a reply goes outside them.
+    world.answers['/v1/queries/outreach.today'] = () => ({
+      items: [
+        item({}),
+        item({
+          kind: 'opener',
+          send: {
+            sendId: '9b6f5c4d-3e2a-4b1c-8d9e-0f1a2b3c4d5e',
+            state: 'approved',
+            text: 'Hi Dana',
+            handedOver: false,
+            needsYou: null,
+          },
+        } as Partial<TodayListItem>),
+      ],
+      auto: ['warm_up', 'friend_request'],
+      messages: ['opener', 'reply'],
+      sending: 'steps',
+      partners: [],
+      limits: { like: { done: 0, most: 30 } },
+    });
     await alignableTick();
     expect(world.opened).toEqual([]);
-    expect(alarms.get('hfos-auto-alignable')).toBeGreaterThan(Date.now());
+    expect(alarms.get('hfos-auto-alignable')).toBeGreaterThan(Date.now() + 60 * 60_000);
     expect((store.get(ALIGNABLE_STATE_KEY) as { line: string }).line).toBe(
       'Starts on its own on Alignable tomorrow at 9:00 AM. To start now, press Start my day for Alignable on Today in HandsFreeOS.',
     );

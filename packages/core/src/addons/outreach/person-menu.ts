@@ -2,7 +2,8 @@
  * The person menu on someone's name (docs/outreach.md, decision 91): wherever the app shows someone kept in Social
  * Outreach (Waiting for you, Today, the Pipeline, Chats, Friends), their name opens it. Its page on their network
  * first, which works with no signal, their chat second, then the Pipeline's moves, Contacts, **Mark as client**, Demo
- * booked, **Later** (decision 100), Don't pitch and Never contact, each showing where they stand now
+ * booked, **Potential partner** (decision 130), **Later** (decision 100), Don't pitch and Never contact, each showing
+ * where they stand now
  * (`outreach.profile.marks`) so it can be undone. `personMenuItems` decides the order, what shows, what's pressable
  * and the words, once, for the web and the phone.
  *
@@ -18,13 +19,16 @@
 import { z } from 'zod';
 import { CLIENT_CAUSES, type ClientCause } from '../../crm/record-words';
 import { SEND_KINDS, type MessageKind, type SendKind } from './automation';
+import { Journey } from './journey';
 import { chatUrlOn, openChatWords, openPageWords } from './network-words';
 import { PLATFORM_KEYS, type Platform } from './networks';
 import { OWNER_WORDS, TeamOwner } from './owners';
+import { PARTNER_STAGE_KEYS } from './partners';
 import { DontPitch, NeverContact } from './saves';
 import { OUTREACH_WORDS } from './words';
 
 const P = OUTREACH_WORDS.person;
+const H = P.hints;
 
 /**
  * The messages a client never gets, and Mark as client skips while they wait for an OK or are OK'd and not sent,
@@ -50,6 +54,12 @@ export const isClientSkipped = (kind: string): kind is ClientSkippedKind =>
  */
 export const mayTakeOff = (by: string | null, me: string, manages: boolean): boolean =>
   !by || by === me || manages;
+
+/**
+ * How long the pointer rests on a person menu item before what it does shows (`PersonMenuItem.hint`, Chris, 30 Oct
+ * 2026): the common tooltip wait, long enough not to flash up while the pointer passes, short enough to feel answered.
+ */
+export const HINT_DELAY_MS = 700;
 
 /** How long Later takes someone off the person's Today (decision 100, the owner's pick 30a): 2 weeks. */
 export const LATER_DAYS = 14;
@@ -130,6 +140,16 @@ export const ProfileMarksOutput = z.object({
   personId: z.uuid().nullable(),
   /** Found as a partner (decision 81), or a twin of one: asked to partner, so no Client or Demo booked. */
   partner: z.boolean(),
+  /**
+   * Their row on the person's own Partners list (decision 130): its stage, and whether the person marked them, who may
+   * be offered a demo. Null when they're not on it; left out by builds from before it.
+   */
+  myPartner: z
+    .object({ stage: z.enum(PARTNER_STAGE_KEYS), marked: z.boolean() })
+    .nullable()
+    .optional(),
+  /** Why the AI's check thought they look more like a partner (decision 130): null when it didn't. */
+  partnerHint: z.string().nullable().optional(),
   /** The person marked them as having booked a demo (`outreach.demo.mark`). */
   demoBooked: z.boolean(),
   client: ClientStanding,
@@ -146,6 +166,14 @@ export const ProfileMarksOutput = z.object({
   owner: TeamOwner.nullable().optional(),
   /** For an owner or admin: the teammates they can be given to (`outreach.owner.move`); none for anyone else. */
   moveTo: z.array(TeamOwner).optional(),
+  /**
+   * Everything about them, for the person panel (decision 128): their way so far (./journey.ts: where they stand and
+   * why, the groups they were found in, the chat as the AI read it, and every step), what their page's intro says, and
+   * their mutual friends. Left out by builds from before it.
+   */
+  journey: Journey.optional(),
+  intro: z.array(z.string()).optional(),
+  mutualFriends: z.number().int().nullable().optional(),
 });
 export type ProfileMarksOutput = z.output<typeof ProfileMarksOutput>;
 
@@ -199,6 +227,9 @@ export type PersonMenuKey =
   | 'client-line'
   | 'demo'
   | 'not-demo'
+  | 'potential-partner'
+  | 'not-partner'
+  | 'partner-hint'
   | 'later'
   | 'not-later'
   | 'dont-pitch'
@@ -224,6 +255,8 @@ export interface PersonMenuItem {
   readonly move?: string;
   /** The teammate a give goes to (`outreach.owner.move`). */
   readonly owner?: string;
+  /** What it does, in a sentence or two (`OUTREACH_WORDS.person.hints`): null for a line, which says it already. */
+  readonly hint: string | null;
   /** Shown as a warning: it puts them on a list (Don't pitch, Never contact) or a move says so. */
   readonly danger: boolean;
   /** It needs signal: with none it shows greyed out under the needs-signal note. */
@@ -237,9 +270,10 @@ export interface PersonMenuItem {
 /**
  * The person menu's items, in order: Open on {Network}; Open in {messages} when their chat is known; the Pipeline's
  * moves; In Contacts or Add to Contacts; Mark as client, Not a client after all, or why they're a client; Demo booked
- * or Not a demo after all; Later or Take off Later; who reached them first, and for an owner or admin each teammate to
- * give them to (decision 107); Don't pitch, Take off Don't pitch, or who put them on; Never contact, Take off Never
- * contact, or who put them on. A partner has no Client or Demo booked; without `contactsWrite` there's no Add to
+ * or Not a demo after all; Potential partner (with why the AI thinks so, when it does) or Not a partner after all
+ * (decision 130); Later or Take off Later; who reached them first, and for an owner or admin each teammate to give them
+ * to (decision 107); Don't pitch, Take off Don't pitch, or who put them on; Never contact, Take off Never contact, or
+ * who put them on. A partner has no Client, nor Demo booked unless the person marked them; without `contactsWrite` there's no Add to
  * Contacts or Client to press; a row with its own switches has no Don't pitch or Never contact. The marks' toggles wait
  * for `marks`, and everything but the Open items waits for signal.
  */
@@ -252,12 +286,14 @@ export function personMenuItems(input: PersonMenuInput): PersonMenuItem[] {
     key: PersonMenuKey,
     label: string,
     testId: string,
+    hint: string | null,
     o: { readonly danger?: boolean; readonly waitsForMarks?: boolean; readonly move?: string } = {},
   ): PersonMenuItem => ({
     key,
     kind: 'action',
     label,
     ...(o.move !== undefined ? { move: o.move } : {}),
+    hint,
     danger: o.danger ?? false,
     needsSignal: true,
     enabled: online && (o.waitsForMarks === false || known),
@@ -267,6 +303,7 @@ export function personMenuItems(input: PersonMenuInput): PersonMenuItem[] {
     key,
     kind: 'line',
     label,
+    hint: null,
     danger: false,
     needsSignal: false,
     enabled: false,
@@ -281,6 +318,7 @@ export function personMenuItems(input: PersonMenuInput): PersonMenuItem[] {
       kind: 'open',
       label: openPageWords(row.platform),
       url,
+      hint: H.openPage,
       danger: false,
       needsSignal: false,
       enabled: true,
@@ -293,6 +331,7 @@ export function personMenuItems(input: PersonMenuInput): PersonMenuItem[] {
       kind: 'open',
       label: openChatWords(row.platform),
       url: chat,
+      hint: H.openChat,
       danger: false,
       needsSignal: false,
       enabled: true,
@@ -305,7 +344,7 @@ export function personMenuItems(input: PersonMenuInput): PersonMenuItem[] {
     items.push(line('move-to', P.moveTo, 'person-move-to'));
     for (const m of moves)
       items.push(
-        press(`move-${m.key}`, m.label, `pipeline-mark-${m.key}`, {
+        press(`move-${m.key}`, m.label, `pipeline-mark-${m.key}`, H.moves[m.key] ?? null, {
           danger: m.danger ?? false,
           waitsForMarks: false,
           move: m.key,
@@ -317,10 +356,16 @@ export function personMenuItems(input: PersonMenuInput): PersonMenuItem[] {
   const personId = marks ? marks.personId : (row.personId ?? null);
   const personKnown = known || row.personId !== undefined;
   if (personId)
-    items.push(press('in-contacts', P.inContacts, 'person-in-contacts', { waitsForMarks: false }));
+    items.push(
+      press('in-contacts', P.inContacts, 'person-in-contacts', H.inContacts, {
+        waitsForMarks: false,
+      }),
+    );
   else if (contactsWrite)
     items.push({
-      ...press('add-contact', P.addToContacts, 'person-add-contact', { waitsForMarks: false }),
+      ...press('add-contact', P.addToContacts, 'person-add-contact', H.addToContacts, {
+        waitsForMarks: false,
+      }),
       enabled: online && personKnown,
     });
 
@@ -328,7 +373,7 @@ export function personMenuItems(input: PersonMenuInput): PersonMenuItem[] {
   if (!partner) {
     const client = marks?.client ?? null;
     if (client?.on && client.tagged && !client.because) {
-      if (contactsWrite) items.push(press('not-client', P.notClient, 'person-client'));
+      if (contactsWrite) items.push(press('not-client', P.notClient, 'person-client', H.notClient));
       else items.push(line('client-line', P.clientLine('tagged'), 'person-client-line'));
     } else if (client?.on)
       items.push(
@@ -338,16 +383,31 @@ export function personMenuItems(input: PersonMenuInput): PersonMenuItem[] {
           'person-client-line',
         ),
       );
-    else if (contactsWrite) items.push(press('mark-client', P.markClient, 'person-client'));
+    else if (contactsWrite)
+      items.push(press('mark-client', P.markClient, 'person-client', H.markClient));
   }
 
-  // 6: Demo booked.
-  if (!partner) {
+  // 6: Demo booked. Someone the person marked as a potential partner may book one (decision 130).
+  const mine = marks?.myPartner ?? null;
+  if (!partner || mine?.marked) {
     const booked = marks?.demoBooked ?? row.demoBooked ?? false;
     items.push(
       booked
-        ? press('not-demo', P.notDemo, 'person-demo-mark')
-        : press('demo', P.demoBooked, 'person-demo-mark'),
+        ? press('not-demo', P.notDemo, 'person-demo-mark', H.notDemo)
+        : press('demo', P.demoBooked, 'person-demo-mark', H.demoBooked),
+    );
+  }
+
+  // 6b: Potential partner (decision 130): on the person's own Partners list, or not. A partner of the business stays,
+  // and someone left alone is never asked to partner. Shown once their marks come, since only those say which.
+  if (mine) {
+    if (mine.stage !== 'partner')
+      items.push(press('not-partner', P.notPartner, 'person-partner', H.notPartner));
+  } else if (marks && !marks.dontPitch && !marks.neverContact) {
+    if (marks.partnerHint)
+      items.push(line('partner-hint', P.partnerHint(marks.partnerHint), 'person-partner-hint'));
+    items.push(
+      press('potential-partner', P.potentialPartner, 'person-partner', H.potentialPartner),
     );
   }
 
@@ -355,8 +415,8 @@ export function personMenuItems(input: PersonMenuInput): PersonMenuItem[] {
   const laterUntil = marks?.laterUntil ?? null;
   items.push(
     laterUntil
-      ? press('not-later', P.notLater(laterUntil), 'person-later')
-      : press('later', P.later, 'person-later'),
+      ? press('not-later', P.notLater(laterUntil), 'person-later', H.notLater)
+      : press('later', P.later, 'person-later', H.later),
   );
 
   // 8: whose they are (decision 107): who reached them first, and each teammate an owner or admin can give them to.
@@ -366,7 +426,12 @@ export function personMenuItems(input: PersonMenuInput): PersonMenuItem[] {
     .filter((t) => t.userId !== owner?.userId)
     .forEach((t, i) =>
       items.push({
-        ...press(`owner-${t.userId}`, OWNER_WORDS.giveTo(t), `person-owner-${i}`),
+        ...press(
+          `owner-${t.userId}`,
+          OWNER_WORDS.giveTo(t),
+          `person-owner-${i}`,
+          OWNER_WORDS.giveHint(t),
+        ),
         owner: t.userId,
       }),
     );
@@ -375,9 +440,11 @@ export function personMenuItems(input: PersonMenuInput): PersonMenuItem[] {
   if (!input.ownSwitches) {
     const dontPitch = marks?.dontPitch ?? null;
     if (!dontPitch)
-      items.push(press('dont-pitch', P.dontPitch, 'person-dont-pitch', { danger: true }));
+      items.push(
+        press('dont-pitch', P.dontPitch, 'person-dont-pitch', H.dontPitch, { danger: true }),
+      );
     else if (marks?.canTakeOff.dontPitch)
-      items.push(press('not-dont-pitch', P.notDontPitch, 'person-dont-pitch'));
+      items.push(press('not-dont-pitch', P.notDontPitch, 'person-dont-pitch', H.notDontPitch));
     else
       items.push(
         line(
@@ -388,9 +455,15 @@ export function personMenuItems(input: PersonMenuInput): PersonMenuItem[] {
       );
     const never = marks?.neverContact ?? null;
     if (!never)
-      items.push(press('never-contact', P.neverContact, 'person-never-contact', { danger: true }));
+      items.push(
+        press('never-contact', P.neverContact, 'person-never-contact', H.neverContact, {
+          danger: true,
+        }),
+      );
     else if (marks?.canTakeOff.neverContact)
-      items.push(press('not-never-contact', P.notNeverContact, 'person-never-contact'));
+      items.push(
+        press('not-never-contact', P.notNeverContact, 'person-never-contact', H.notNeverContact),
+      );
     else
       items.push(
         line(

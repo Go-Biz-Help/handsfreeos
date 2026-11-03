@@ -212,8 +212,9 @@ describe('needs and pushes, on the database', () => {
       asUser(api(), u.claims, (tx) =>
         rows<{ user_id: string; n: number }>(
           tx,
-          sql`select user_id, n from private.outreach_needs_waiting(${ws}::uuid,
-                ${`{${users.map((x) => x.id).join(',')}}`}::uuid[], now() - interval '7 days')
+          sql`select user_id, n from private.outreach_needs_counted(${ws}::uuid,
+                ${`{${users.map((x) => x.id).join(',')}}`}::uuid[], now() - interval '7 days',
+                now() - interval '3 days')
               order by user_id`,
         ),
       );

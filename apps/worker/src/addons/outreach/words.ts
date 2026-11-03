@@ -36,11 +36,11 @@ import {
   type FindWordsDue,
 } from '@hfos/core/addons/outreach/topics';
 import { executeCommand, HfosError } from '@hfos/core/server';
-import { asWorker, rows, sql } from '@hfos/db/client';
+import { asWorker, rows, sql, type Tx } from '@hfos/db/client';
 import type { JobResult } from '../../jobs';
 import { AiAskError, askStructured } from '../../ai/ask';
 import { scheduleAddonJob } from '../queue';
-import type { AddonEventContext, AddonJobContext } from '../types';
+import type { AddonEventContext, AddonJobContext, AddonScopeContext } from '../types';
 
 export const WRITE_WORDS_JOB = 'outreach.write_words';
 /** How many playbooks one run writes for: the rest come straight after. */
@@ -57,20 +57,26 @@ export async function wordsWanted(ctx: AddonEventContext): Promise<void> {
   // Another add-on's settings saved, or none of this one's: nothing to write.
   const p = (ctx.event.payload ?? {}) as Record<string, unknown>;
   if (p['addonId'] !== undefined && p['addonId'] !== ctx.manifest.id) return;
-  await asWorker(ctx.db, ctx.scope, (tx) =>
-    scheduleAddonJob(
-      tx,
-      { id: ctx.manifest.id, generation: ctx.generation },
-      {
-        kind: WRITE_WORDS_JOB,
-        dedupeKey: `${WRITE_WORDS_JOB}:${ctx.scope.workspaceId}`,
-        runAt: new Date(),
-        payload: {},
-        workspaceId: ctx.scope.workspaceId,
-        organizationId: ctx.scope.organizationId,
-      },
-      { pullEarlier: true },
-    ),
+  await asWorker(ctx.db, ctx.scope, (tx) => scheduleWordsWrite(tx, ctx));
+}
+
+/**
+ * Queues the business's one words write, now: also data version 9's, which let go of the AI's words on who playbooks
+ * are for, to be written again around their topic (decision 141).
+ */
+export async function scheduleWordsWrite(tx: Tx, ctx: AddonScopeContext): Promise<void> {
+  await scheduleAddonJob(
+    tx,
+    { id: ctx.manifest.id, generation: ctx.generation },
+    {
+      kind: WRITE_WORDS_JOB,
+      dedupeKey: `${WRITE_WORDS_JOB}:${ctx.scope.workspaceId}`,
+      runAt: new Date(),
+      payload: {},
+      workspaceId: ctx.scope.workspaceId,
+      organizationId: ctx.scope.organizationId,
+    },
+    { pullEarlier: true },
   );
 }
 

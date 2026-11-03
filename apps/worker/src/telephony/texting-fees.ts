@@ -13,7 +13,8 @@
  * (`private.texting_months_due`) and writes that month's fee, one per month, however often it runs.
  *
  * **Paying online switched off** (no Stripe on this server) never strands a registration: its fee is recorded as
- * waived, said so in the logs, and the registration goes ahead. Charging nothing beats texting nothing.
+ * waived, said so in the logs, and the registration goes ahead. Charging nothing beats texting nothing. HandsFreeOS's
+ * own business (`workspaces.is_platform`) is never charged: core gives it no fees, and one it has anyway is waived.
  */
 import {
   executeCommand,
@@ -63,6 +64,8 @@ type FeeRow = {
   /** The card a texting fee was paid with before, and its customer: what this one is charged to. */
   card_ref: string | null;
   customer_ref: string | null;
+  /** HandsFreeOS's own business, which is never charged. */
+  ours: boolean;
 };
 
 const feeRow = (ctx: { db: Db }, scope: TenantScope, id: string) =>
@@ -70,7 +73,7 @@ const feeRow = (ctx: { db: Db }, scope: TenantScope, id: string) =>
     rows<FeeRow>(
       tx,
       sql`select f.id, f.purpose::text as purpose, f.status::text as status, f.lines, f.amount_cents,
-            f.period_start, f.session_ref, w.name as business,
+            f.period_start, f.session_ref, w.name as business, w.is_platform as ours,
             coalesce(u.email::text, (
               select o.email::text from app.workspace_memberships m join app.users o on o.id = m.user_id
               where m.workspace_id = f.workspace_id and m.role = 'owner' order by m.created_at limit 1)) as email,
@@ -183,6 +186,13 @@ async function makePage(ctx: JobContext, scope: TenantScope, f: FeeRow): Promise
 /** The page could not be made: said on the fee, so the business sees it and can ask again. */
 const pageTrouble = 'The payment page couldn’t be made. Try again in a little while.';
 
+/** HandsFreeOS's own business: let through uncharged, so its registration goes to the carriers. */
+const waiveOurs = (ctx: { db: Db }, scope: TenantScope, f: FeeRow) =>
+  record(ctx, scope, f.id, {
+    status: 'waived',
+    problem: 'HandsFreeOS’s own business isn’t charged for texting.',
+  });
+
 /** One fee: the kept card when there is one, or a page. Safe to run again: only a `pending` fee is collected. */
 export const collectTextingFee: JobHandler = async (ctx) => {
   const scope = tenantOf(ctx.scope);
@@ -190,6 +200,10 @@ export const collectTextingFee: JobHandler = async (ctx) => {
   if (!textingFeeId) return;
   const [f] = await feeRow(ctx, scope, textingFeeId);
   if (!f || f.status !== 'pending') return;
+  if (f.ours) {
+    await waiveOurs(ctx, scope, f);
+    return;
+  }
   const platform = ctx.payments.providers.stripe.platform;
   if (!platform.webhooks.configured) {
     ctx.log.warn(
@@ -244,12 +258,19 @@ export const collectTextingFee: JobHandler = async (ctx) => {
   }
 };
 
-/** A page for a fee the card said no to, or whose page ran out. */
+/**
+ * A page for a fee the card said no to, or whose page ran out. For HandsFreeOS's own business, asked for from any
+ * unpaid fee (`texting_fee.pay`), the fee is let through instead: one made before it was marked as ours.
+ */
 export const pageTextingFee: JobHandler = async (ctx) => {
   const scope = tenantOf(ctx.scope);
   const textingFeeId = String(ctx.job.payload['textingFeeId'] ?? '');
   if (!textingFeeId) return;
   const [f] = await feeRow(ctx, scope, textingFeeId);
+  if (f?.ours && ['pending', 'open', 'failed'].includes(f.status)) {
+    await waiveOurs(ctx, scope, f);
+    return;
+  }
   if (!f || f.status !== 'failed') return;
   try {
     await makePage(ctx, scope, f);

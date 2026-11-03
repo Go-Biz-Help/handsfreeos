@@ -1,10 +1,17 @@
 /**
- * A playbook to start from (`salescoach.playbook.draft`, docs/salescoach.md): the model writes one from what the
- * business says about itself, or tidies the business's own script, pasted or read from one of its files. Core holds
- * what it's asked and checks the answer (coach.ts); nothing is saved here, the owner edits it and saves. It counts
- * against the business's daily AI limit like any other use.
+ * A playbook to start from (`salescoach.playbook.draft`, docs/salescoach.md): the model writes one the question-led
+ * way from what the business says about itself and the owner's answers to the builder's questions, or tidies the
+ * business's own script, pasted or read from one of its files. Before that, `salescoach.playbook.brief` answers what
+ * it can of those questions, for the owner to fill in. Core holds what it's asked and checks the answer (coach.ts);
+ * nothing is saved here, the owner edits it and saves. Each counts against the business's daily AI limit like any
+ * other use.
  */
 import {
+  BRIEF_GUESS_SCHEMA,
+  BRIEF_GUESS_SYSTEM,
+  BriefGuessAnswer,
+  briefGuessPrompt,
+  checkedBrief,
   checkedDraft,
   PLAYBOOK_DRAFT_SCHEMA,
   PLAYBOOK_DRAFT_SYSTEM,
@@ -14,7 +21,9 @@ import {
 import {
   PLAYBOOK_LIMITS,
   PlaybookDraftInput,
+  SalesBriefGuessInput,
   type PlaybookDraftOutput,
+  type SalesBriefGuessOutput,
 } from '@hfos/core/addons/salescoach/playbooks';
 import { HfosError } from '@hfos/core/server';
 import {
@@ -84,12 +93,13 @@ export const playbookDraft: AddonWorkerAction<PlaybookDraftInput> = {
               kind: input.kind,
               business: await businessText(ctx),
               script: script?.trim() || null,
+              brief: input.brief ?? null,
             }),
           },
         ],
         schema: PLAYBOOK_DRAFT_SCHEMA,
         zod: PlaybookDraftAnswer,
-        maxTokens: 4000,
+        maxTokens: 6000,
         usage: { source: 'addon', addonId: ctx.manifest.id },
       });
       return checkedDraft(value, input.kind);
@@ -104,6 +114,44 @@ export const playbookDraft: AddonWorkerAction<PlaybookDraftInput> = {
         'ai_failed',
         502,
         'The AI couldn’t write a playbook this time. Try again, or start from a blank one.',
+      );
+    }
+  },
+};
+
+export const salesBriefGuess: AddonWorkerAction<Record<string, never>> = {
+  permission: 'salescoach.manage',
+  ai: {
+    tool: 'salescoach_guess_sales_answers',
+    description:
+      "What HandsFreeOS can already answer of the script builder's questions (what the business sells, who buys, their usual problems, the result they want, why people pick it, the next step), from its profile and knowledge. Blank where it doesn't say. Nothing is saved.",
+    autonomy: 'auto',
+    keywords: ['build my scripts', 'sales script questions'],
+  },
+  input: SalesBriefGuessInput,
+  async run(ctx, raw): Promise<SalesBriefGuessOutput> {
+    SalesBriefGuessInput.parse(raw);
+    try {
+      const { value } = await askStructured(ctx, ctx.scope, {
+        system: BRIEF_GUESS_SYSTEM,
+        messages: [{ role: 'user', content: briefGuessPrompt(await businessText(ctx)) }],
+        schema: BRIEF_GUESS_SCHEMA,
+        zod: BriefGuessAnswer,
+        maxTokens: 1200,
+        usage: { source: 'addon', addonId: ctx.manifest.id },
+      });
+      return { brief: checkedBrief(value) };
+    } catch (e) {
+      if (!(e instanceof AiAskError)) throw e;
+      if (e.code === 'budget_reached' || e.code === 'wallet_empty')
+        throw HfosError.rule('budget_reached', 429, e.message || AI_BUDGET_MESSAGE);
+      if (e.code === 'ai_unavailable')
+        throw HfosError.rule('ai_not_configured', 503, AI_UNAVAILABLE_MESSAGE);
+      if (e.retryable) throw HfosError.rule('ai_busy', 503, AI_BUSY_MESSAGE);
+      throw HfosError.rule(
+        'ai_failed',
+        502,
+        'The AI couldn’t read what HandsFreeOS knows this time. Answer the questions yourself, or try again.',
       );
     }
   },

@@ -5,7 +5,8 @@
  */
 import { randomUUID } from 'node:crypto';
 import { PLAYBOOK_TEMPLATES } from '@hfos/core/addons/outreach/playbooks';
-import { rows, sql } from '@hfos/db/client';
+import { FIELD_CHECK_SINCE } from '@hfos/core/addons/outreach/posts';
+import { asWorker, rows, sql } from '@hfos/db/client';
 import { closeTestDbs, createTestUser, testDbs, type TestUser } from '@hfos/db/testing';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import {
@@ -14,7 +15,9 @@ import {
   runAs,
 } from '../../../packages/core/test/addons/outreach-fixture';
 import { addonJobs, withAddons } from '../src/addons/index';
+import { outreachAddonWorker } from '../src/addons/outreach';
 import { CHECK_POSTS_JOB } from '../src/addons/outreach/posts';
+import type { AddonDataMigration } from '../src/addons/types';
 import { scriptedAi } from '../src/ai/scripted';
 import { processJobs } from '../src/jobs';
 import { processOnce } from '../src/outbox';
@@ -194,5 +197,94 @@ describe('finding good posts’ writers (decision 92)', () => {
           where f.workspace_id = ${ws}`,
     );
     expect(found).toEqual([{ name: 'Made Up Person 7', how: 'posted', words: 'missed calls' }]);
+  });
+});
+
+describe('checking again the posts an older check called good (decision 143)', () => {
+  it('sends the ones still open for a comment back to the check on the next save, once', async () => {
+    const s = testServices({ ai: { provider: scriptedAi() } });
+    const ws = await seen('Outreach Recheck Co', [
+      'Can anyone recommend a CRM for my crew?',
+      'Business owners: a breaker tripped twice? Check what is plugged in first.',
+      'Can anyone recommend an answering service?',
+      'Recommend a scheduling app?',
+      'Anyone have a bookkeeper they like?',
+    ]);
+    await drain(s, ws);
+    // An older check, before the one that knows the owner’s field, called every one good.
+    await rows(
+      admin(),
+      sql`update addon_outreach.posts set check_state = 'good', check_why = 'Old check',
+            checked_at = ${FIELD_CHECK_SINCE}::timestamptz - interval '1 day'
+          where workspace_id = ${ws}`,
+    );
+    const url = (n: number) => post(n, '').url;
+    // One has its comment, one was skipped, and one is over a week old: a comment can't go on those.
+    const [first] = await rows<{ user_id: string; profile_id: string }>(
+      admin(),
+      sql`select user_id, profile_id from addon_outreach.posts
+          where workspace_id = ${ws} and url = ${url(3)}`,
+    );
+    await rows(
+      admin(),
+      sql`insert into addon_outreach.touches (workspace_id, profile_id, user_id, kind, post_url, at)
+          values (${ws}, ${first!.profile_id}, ${first!.user_id}, 'comment', ${url(3)}, now())`,
+    );
+    await rows(
+      admin(),
+      sql`update addon_outreach.posts set skipped_at = now()
+          where workspace_id = ${ws} and url = ${url(4)}`,
+    );
+    await rows(
+      admin(),
+      sql`update addon_outreach.posts set seen_at = now() - interval '8 days'
+          where workspace_id = ${ws} and url = ${url(5)}`,
+    );
+
+    // A business with the add-on on never runs a data step: the next posts saved send the old ones back.
+    await runAs(owner, ws, 'outreach.posts.save', {
+      group,
+      posts: [post(6, 'Can anyone recommend a bookkeeper?')],
+    });
+    await drain(s, ws);
+    const after = [
+      {
+        body: 'Can anyone recommend a CRM for my crew?',
+        check_state: 'good',
+        check_why: 'Asking for a recommendation',
+      },
+      {
+        body: 'Business owners: a breaker tripped twice? Check what is plugged in first.',
+        check_state: 'not',
+        check_why: 'Nothing to answer',
+      },
+      {
+        body: 'Can anyone recommend an answering service?',
+        check_state: 'good',
+        check_why: 'Old check',
+      },
+      { body: 'Recommend a scheduling app?', check_state: 'good', check_why: 'Old check' },
+      { body: 'Anyone have a bookkeeper they like?', check_state: 'good', check_why: 'Old check' },
+      {
+        body: 'Can anyone recommend a bookkeeper?',
+        check_state: 'good',
+        check_why: 'Asking for a recommendation',
+      },
+    ];
+    expect(await states(ws)).toEqual(after);
+
+    // Data step 10, for a reinstall, does the same, and only once: those checked since stay as they are.
+    const [org] = await rows<{ organization_id: string }>(
+      admin(),
+      sql`select organization_id from app.workspaces where id = ${ws}`,
+    );
+    await asWorker(testDbs().worker.db, { workspaceId: ws }, (tx) =>
+      outreachAddonWorker.dataMigrations![10]!({
+        tx,
+        manifest: outreachAddonWorker.manifest,
+        scope: { workspaceId: ws, organizationId: org!.organization_id },
+      } as unknown as Parameters<AddonDataMigration>[0]),
+    );
+    expect(await states(ws)).toEqual(after);
   });
 });

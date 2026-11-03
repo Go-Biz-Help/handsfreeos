@@ -7,7 +7,7 @@ import { NETWORKS } from '@hfos/core/addons/outreach/networks';
 import { isWholeAddress, type Kit, type Noticed } from '../kit';
 import { answerFromClick, seenFromClick, stepFromClick, stepFromEnter } from './actions';
 import { lookFor } from './looking';
-import { outlinePage } from './outline';
+import { FACEBOOK_OUTLINE, outlinePage } from './outline';
 import { readPage } from './page';
 import { readReplies } from './replies';
 import type { PageKind, ReadResult } from './types';
@@ -58,5 +58,6 @@ export const facebook: Kit = {
   }),
   outline: (doc, href, options = {}) =>
     outlinePage(doc, href, { ...options, found: options.found as ReadResult | undefined }),
+  outlineSite: FACEBOOK_OUTLINE,
   work,
 };

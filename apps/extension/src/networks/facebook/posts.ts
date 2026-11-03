@@ -19,8 +19,24 @@ const POST_END =
 export const COMMENT = /^(comment|reply) by\b/i;
 /** A count on its own, as 2026 posts show them on their buttons: "6", "1.2K". */
 const COUNT = /^[\d.,]+\s*[km]?$/i;
-/** The Like button: "Like", or "Remove Like" (or Love, Haha…) once you've reacted. */
-export const LIKE = /^(like|remove (like|love|care|haha|wow|sad|angry))$/i;
+/**
+ * The Like button: "Like", or since 30 Oct 2026 "React with Like to Dana Reyes's post" (decision 138); "Remove Like"
+ * (or Love, Haha…), since then "Remove Like from Dana Reyes's post", once you've reacted. Never the "Change Like
+ * reaction" beside it, or the count of reactions ("Like: 8 people").
+ */
+export const LIKE = /^(like|react with like\b.*|remove (like|love|care|haha|wow|sad|angry)\b.*)$/i;
+/** A Like button not pressed yet. */
+export const NOT_LIKED = /^(like|react with like\b.*)$/i;
+/** One pressed: "Remove Like", "Change Love reaction". */
+const LIKED = /^(remove|change) (like|love|care|haha|wow|sad|angry)\b/i;
+/** Facebook's own mark on a post's Like button since 2026 (decision 138): it holds when the words change. */
+export const LIKE_HOOK = '[data-ad-rendering-role="like_button"]';
+/** Whether a post's Like button is pressed already, or not, or says something it doesn't know. */
+export function likeStateOf(button: Element): 'like' | 'liked' | 'unknown' {
+  const label = clean(button.getAttribute('aria-label')) || clean(button.textContent);
+  if (button.getAttribute('aria-pressed') === 'true' || LIKED.test(label)) return 'liked';
+  return NOT_LIKED.test(label) ? 'like' : 'unknown';
+}
 
 const hasWords = (element: Element) => clean(element.textContent) !== '';
 
@@ -40,7 +56,12 @@ export function postBoxes(root: Element): Element[] {
       !COMMENT.test(clean(article.getAttribute('aria-label'))) &&
       hasWords(article),
   );
-  const boxes = [...articles, ...byActions(root)];
+  // Since 30 Oct 2026 a profile's posts are plain boxes Facebook marks as drawn or not, its Like marked within
+  // (decision 138); one scrolled past is an empty stand-in.
+  const drawn = [...root.querySelectorAll('[data-virtualized="false"]')].filter(
+    (box) => box.querySelector(LIKE_HOOK) !== null && hasWords(box),
+  );
+  const boxes = [...articles, ...byActions(root), ...drawn];
   return boxes
     .filter((box) => !boxes.some((other) => other !== box && other.contains(box)))
     .sort((a, b) => (isBefore(a, b) ? -1 : isBefore(b, a) ? 1 : 0));

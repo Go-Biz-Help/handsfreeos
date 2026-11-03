@@ -16,6 +16,7 @@ export const PRESET_KEYS = [
   'service',
   'group',
   'event',
+  'webinar',
   'resource',
   'collective',
   'dispatch',
@@ -67,6 +68,23 @@ export const CALENDAR_PRESETS: readonly CalendarPreset[] = [
       waitlist: { enabled: true },
       durations: { minutes: [60], customerChooses: false },
       recurring: { customerSeries: false },
+    },
+  },
+  {
+    key: 'webinar',
+    name: 'Webinar',
+    description:
+      'You present on a HandsFreeOS video call, once or on repeat, and up to 500 people save a seat to watch.',
+    config: {
+      public: true,
+      schedule: { mode: 'sessions' },
+      // As many seats as the room holds (WEBINAR_MAX_PEOPLE): not everyone who saves one comes.
+      capacity: { seats: 500 },
+      waitlist: { enabled: true },
+      durations: { minutes: [60], customerChooses: false },
+      // A weekly webinar for a year.
+      recurring: { customerSeries: false, staffSeries: true, maxOccurrences: 52 },
+      locations: { options: [{ kind: 'virtual', video: 'handsfree' }] },
     },
   },
   {

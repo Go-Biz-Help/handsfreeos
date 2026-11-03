@@ -21,6 +21,7 @@ import {
   ChevronRight,
   Plus,
   Settings2,
+  Video,
 } from 'lucide-react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { startTransition, useMemo, useOptimistic, useState, type ReactNode } from 'react';
@@ -32,6 +33,7 @@ import {
   ProviderMark,
 } from '@/components/settings/calendar-connection-card';
 import { ZoneChip } from '@/components/settings/my-calendar';
+import { useWorkspaceShell } from '@/components/shell/workspace-shell';
 import { Avatar } from '@/components/ui/avatar';
 import { Button, ButtonLink } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
@@ -70,6 +72,7 @@ import { firstName, useNow } from './appt';
 import { MonthGrid, type MonthBlock, type MonthCell } from './month-grid';
 import { MoveDialog } from './move-dialog';
 import { TimeGrid, type GridBlock, type GridColumn, type GridMove } from './time-grid';
+import { WebinarDialog, type ScheduledWebinar } from './webinar-dialog';
 
 const VIEWS = [
   { value: 'day', label: 'Day', testId: 'view-day' },
@@ -137,6 +140,10 @@ export function CalendarPage(props: {
   const fine = useMatches('(pointer: fine)');
   const canManage = can(props.permissions, 'calendars.manage');
   const [move, setMove] = useState<GridMove | null>(null);
+  // New webinar, while the business has HandsFreeOS video calls: it makes the webinar calendar when there's none.
+  const { videoCalls } = useWorkspaceShell();
+  const canWebinar = videoCalls && can(props.permissions, 'appointments.write');
+  const [webinar, setWebinar] = useState(false);
 
   const href = (patch: Partial<CalendarQuery>) =>
     calendarHref(workspaceId, { ...q, ...patch }, today);
@@ -377,7 +384,19 @@ export function CalendarPage(props: {
   const openNew = (prefill: Partial<CalendarQuery> = {}) =>
     go({ ...CLOSED_NEW, new: true, ...prefill });
   function booked(out: BookedResult) {
-    go({ ...CLOSED_NEW, date: dateOf(out.startsAt, tz) });
+    // A published date opens, to show its seats and, for a webinar, its link anyone can use.
+    go({
+      ...CLOSED_NEW,
+      date: dateOf(out.startsAt, tz),
+      ...(out.published ? { appt: out.appointmentId } : {}),
+    });
+  }
+
+  function scheduled(out: ScheduledWebinar) {
+    setWebinar(false);
+    // The first date opens, with its link anyone can use; a calendar made for it shows up in the filters too.
+    go({ ...CLOSED_NEW, date: dateOf(out.startsAt, tz), appt: out.appointmentId });
+    router.refresh();
   }
 
   const toggleCalendar = (id: string) => {
@@ -510,6 +529,16 @@ export function CalendarPage(props: {
                 <Settings2 className="h-4 w-4" strokeWidth={1.5} />
                 Manage calendars
               </ButtonLink>
+            ) : null}
+            {canWebinar ? (
+              <Button
+                variant="secondary"
+                onClick={() => setWebinar(true)}
+                data-testid="calendar-new-webinar"
+              >
+                <Video className="h-4 w-4" strokeWidth={1.5} />
+                New webinar
+              </Button>
             ) : null}
             <Button onClick={() => openNew({ date })} data-testid="calendar-new">
               <Plus className="h-4 w-4" strokeWidth={1.75} />
@@ -818,6 +847,7 @@ export function CalendarPage(props: {
           onMine={(only) => go({ people: only ? [myUserId] : null })}
           onOpen={(a) => go({ appt: a.id })}
           onNew={() => openNew({ date })}
+          onWebinar={canWebinar ? () => setWebinar(true) : undefined}
         />
         <button
           type="button"
@@ -849,6 +879,19 @@ export function CalendarPage(props: {
           }}
           onOpenChange={(o) => !o && go(CLOSED_NEW)}
           onBooked={booked}
+        />
+      ) : null}
+      {webinar ? (
+        <WebinarDialog
+          open
+          workspaceId={workspaceId}
+          timeZone={tz}
+          people={simplePeople}
+          myUserId={myUserId}
+          calendars={liveCalendars}
+          date={date < today ? today : date}
+          onOpenChange={setWebinar}
+          onScheduled={scheduled}
         />
       ) : null}
       {q.appt ? (
