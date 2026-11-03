@@ -682,6 +682,23 @@ export const SETTING_TOOLS: Readonly<Record<string, readonly SettingWay[]>> = {
     { tool: 'manage_lead_form', field: 'websites' },
     { tool: 'manage_lead_form', field: 'thankYouPage' },
   ],
+  // ---- Tags ----
+  'tags.list': [
+    ...['create', 'change', 'delete'].map((value) => ({
+      tool: 'manage_tag',
+      field: 'action',
+      value,
+    })),
+    { tool: 'manage_tag', field: 'name' },
+    { tool: 'manage_tag', field: 'color' },
+  ],
+  'tags.ai_tagging': [
+    ...['start', 'stop'].map((value) => ({ tool: 'ai_tag_customers', field: 'action', value })),
+    { tool: 'ai_tag_customers', field: 'instructions' },
+    { tool: 'ai_tag_customers', field: 'tagIds' },
+    { tool: 'ai_tag_customers', field: 'onlyTagId' },
+    { tool: 'ai_tag_customers', field: 'fixDetails' },
+  ],
 };
 
 /** Setting rows the Assistant never changes, and why. */
@@ -708,6 +725,8 @@ export const SETTINGS_NEVER: Readonly<Record<string, string>> = {
     'always on: every text answers STOP, START and HELP by itself, and an opted-out customer stays opted out until they text START',
   'website_chat.try':
     'a preview page the person opens to chat with their own chat box; test chats create and send nothing, so there is nothing to set',
+  'tags.ai_changes':
+    'what the AI changed lately and why, to read (ai_tagging_status): nothing to set, and a tag it put on comes off with tag_customers',
   'facebook_instagram.lead_ads':
     'what each Page’s lead ads send in, to read (get_settings, area facebook_instagram); letting leads in is connecting Facebook again or Meta’s own Leads Access, which only the person can do, and whether they open a lead is Lead intake’s (manage_lead_intake)',
   ...Object.fromEntries(
@@ -723,7 +742,6 @@ export const SETTINGS_NEVER: Readonly<Record<string, string>> = {
  * the first, says which tool changes each of its rows (adding what's missing), and takes it off.
  */
 export const SETTINGS_NOT_YET: readonly string[] = [
-  'tags',
   'relationships',
   'calendars',
   'payments',

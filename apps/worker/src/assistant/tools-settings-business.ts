@@ -419,34 +419,112 @@ const manageTeam: SettingsConfirmTool = {
 
 // ---------- tags ----------
 
+interface TagRow {
+  id: string;
+  name: string;
+  color: string;
+  usage: number;
+}
+
+/** "1 customer or lead", "3 customers and leads": companies count as customers here, as on the Tags page. */
+const onRecords = (n: number) => (n === 1 ? '1 customer or lead' : `${n} customers and leads`);
+
+/** The tag asked about, and the rest, read the way Settings → Tags lists them; refuses what the screen wouldn't do. */
+async function tagChange(db: Db, ctx: ToolContext, args: Args) {
+  const act = action(args);
+  const { tags } = await query<{ tags: TagRow[] }>(db, ctx, 'tag.list');
+  const name = str(args['name']);
+  const color = str(args['color'])?.toLowerCase();
+  const same = (a: string, b: string) => a.toLowerCase() === b.toLowerCase();
+  const taken = (id: string | null) =>
+    name ? tags.find((t) => t.id !== id && same(t.name, name)) : undefined;
+  if (act === 'create') {
+    if (!name)
+      throw HfosError.validation(
+        [{ path: 'name', message: 'Name the tag.' }],
+        'Say what the new tag is called.',
+      );
+    const twin = taken(null);
+    if (twin)
+      throw HfosError.rule(
+        'tag_exists',
+        409,
+        `There’s already a tag called ${twin.name}. Use that one, or pick another name.`,
+      );
+    return { act, current: null, name, color };
+  }
+  const tagId = str(args['tagId']);
+  if (!tagId)
+    throw HfosError.validation(
+      [{ path: 'tagId', message: 'Pick a tag.' }],
+      'Say which tag: the tags and their ids are in get_settings with area tags.',
+    );
+  const current = tags.find((t) => t.id === tagId);
+  if (!current)
+    throw HfosError.notFound(
+      'No tag has that id. It may have been deleted. The tags are in get_settings with area tags.',
+    );
+  if (act === 'change') {
+    const twin = taken(current.id);
+    if (twin)
+      throw HfosError.rule(
+        'tag_exists',
+        409,
+        `There’s already a tag called ${twin.name}. Pick another name, or use that one.`,
+      );
+    const renamed = name !== undefined && name !== current.name;
+    const recoloured = color !== undefined && color !== current.color.toLowerCase();
+    if (!renamed && !recoloured)
+      throw HfosError.rule(
+        'nothing_to_change',
+        400,
+        `Nothing would change. ${current.name} already has that name and colour.`,
+      );
+    return {
+      act,
+      current,
+      name: renamed ? name : undefined,
+      color: recoloured ? color : undefined,
+    };
+  }
+  return { act, current, name: undefined, color: undefined };
+}
+
 const manageTag: SettingsConfirmTool = {
   async prepare(db, ctx, args, toolCallId) {
-    const act = action(args);
-    const { tags } = await query<{ tags: { id: string; name: string }[] }>(
-      db,
-      ctx,
-      'tag.list',
-    ).catch(() => ({ tags: [] as { id: string; name: string }[] }));
-    const current = tags.find((t) => t.id === args['tagId']);
+    const { act, current, name, color } = await tagChange(db, ctx, args);
+    const label = current?.name ?? name ?? '';
     return {
       card: settingsCard(toolCallId, 'manage_tag', {
         title:
           act === 'create'
-            ? `Add the ${str(args['name'])} label`
+            ? `Add the ${label} tag`
             : act === 'delete'
-              ? `Delete the ${current?.name ?? ''} label`
-              : `Change the ${current?.name ?? ''} label`,
+              ? `Delete the ${label} tag`
+              : `Change the ${label} tag`,
         fields: [
-          { label: 'Label', value: str(args['name']) ?? current?.name ?? '' },
-          ...(current && str(args['name']) && current.name !== str(args['name'])
-            ? [{ label: 'Was', value: current.name }]
+          { label: 'Tag', value: name ?? label },
+          ...(current && name ? [{ label: 'Was', value: current.name }] : []),
+          ...(color ? [{ label: 'Colour', value: color }] : []),
+          ...(current && act === 'delete'
+            ? [{ label: 'On', value: onRecords(current.usage) }]
             : []),
         ],
         confirmLabel:
           act === 'create' ? 'Add it' : act === 'delete' ? 'Delete it' : 'Save the change',
         warnings:
-          act === 'delete'
-            ? [{ kind: 'note', text: 'It comes off every customer and lead that has it.' }]
+          act === 'delete' && current
+            ? [
+                {
+                  kind: 'caution',
+                  text:
+                    current.usage === 1
+                      ? 'It comes off the one customer or lead that has it, and can’t be brought back.'
+                      : current.usage
+                        ? `It comes off all ${current.usage} customers and leads that have it, and can’t be brought back.`
+                        : 'Nothing has it, and it can’t be brought back.',
+                },
+              ]
             : [],
       }),
       result: { waiting: true, action: act },
@@ -454,29 +532,26 @@ const manageTag: SettingsConfirmTool = {
   },
 
   async commit(db, ctx, args) {
-    const act = action(args);
+    // Checked again: a tag added or deleted since the card is refused the same way.
+    const { act, current, name, color } = await tagChange(db, ctx, args);
     const href = `/app/w/${ctx.workspaceId}/settings/tags`;
     if (act === 'create') {
-      await command(db, ctx, 'tag.create', {
-        name: args['name'],
-        ...defined({ color: str(args['color']) }),
-      });
-      return { outcome: `${str(args['name'])} is added`, href, command: 'tag.create' };
+      await command(db, ctx, 'tag.create', { name, ...defined({ color }) });
+      return { outcome: `${name} is added`, href, command: 'tag.create' };
     }
     if (act === 'delete') {
       const out = await command<{ removedFrom: number }>(db, ctx, 'tag.delete', {
-        tagId: args['tagId'],
+        tagId: current!.id,
       });
       return {
-        outcome: out.removedFrom ? `Deleted, off ${out.removedFrom} records` : 'Deleted',
+        outcome: out.removedFrom
+          ? `Deleted, and taken off ${onRecords(out.removedFrom)}`
+          : 'Deleted',
         href,
         command: 'tag.delete',
       };
     }
-    await command(db, ctx, 'tag.update', {
-      tagId: args['tagId'],
-      ...defined({ name: str(args['name']), color: str(args['color']) }),
-    });
+    await command(db, ctx, 'tag.update', { tagId: current!.id, ...defined({ name, color }) });
     return { outcome: 'Changed', href, command: 'tag.update' };
   },
 };

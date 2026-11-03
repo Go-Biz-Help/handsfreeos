@@ -257,6 +257,7 @@ const AREAS: Record<SettingsArea, AreaEntry> = {
     canChange: [
       'add, rename, recolour or delete a tag',
       'have the AI go through every customer and put tags on, or stop it',
+      'what the AI changed lately and why (to read), and taking off a tag it put on',
     ],
     handovers: [],
   },
