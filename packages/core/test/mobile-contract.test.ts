@@ -178,6 +178,8 @@ const ONLINE_COMMANDS = [
   'outreach.need.retry',
   // Start again, under Today's note on a network's monthly limit (decision 147).
   'outreach.requests.start_again',
+  // OK, Not today and Put back on Autopilot's day's list, first on Needs you (decision 151).
+  'outreach.autopilot.answer',
   // Feedback on the AI teammate's replies (HANDSFREEOS_AI_FEEDBACK_IMPLEMENTATION_PLAN.md), in a conversation and the
   // test console: a thumbs up or down, the answer to its quick question, and Not now on the rule it suggests.
   'ai_teammate.give_feedback',
@@ -301,6 +303,8 @@ const QUERIES = [
   'outreach.readiness',
   // Not sure where they live and Skipped for country, from General on the phone (decision 104).
   'outreach.countries.skipped',
+  // Autopilot's day's list, first on Needs you (decision 151).
+  'outreach.autopilot',
   // The extension's sign-ins waiting for the person's number, for the screen its push opens (20261027002910).
   'extension_sign_in.pending',
   // The feedback on the AI teammate's replies on a screen, and what came of it, asked again while it's being read.

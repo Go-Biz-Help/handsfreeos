@@ -13,7 +13,7 @@
  * one waited for the once-a-day chats read or for the person to open the chat. A reaction, or Instagram's own line
  * ("Active 2h ago", "Seen"), is never a reply.
  */
-import type { ReplySighting } from '../facebook/replies';
+import { lineOf, mergedSighting, type ReplySighting } from '../facebook/replies';
 import { chatOn, chatRows, ownOf, type ChatOpen } from './read';
 import { instagramUrl, partsOf } from './urls';
 
@@ -23,11 +23,13 @@ import { instagramUrl, partsOf } from './urls';
  */
 export function lastFromThem(chat: ChatOpen | null): ReplySighting | null {
   if (!chat?.with || !chat.thread || chat.last !== 'them') return null;
+  const last = chat.messages[chat.messages.length - 1];
   return {
     name: chat.name ?? chat.with.username,
     threadKey: chat.thread,
     profile: { id: null, username: chat.with.username, url: chat.with.url },
     when: null,
+    last: lineOf(last?.from === 'them' ? last.text : null, 'chat'),
   };
 }
 
@@ -49,22 +51,25 @@ export function readReplies(doc: Document, href: string): ReplySighting[] {
   if (open) found.push(open);
   for (const row of chatRows(doc, href)) {
     if (!theirsLast(row)) continue;
+    const last = lineOf(row.preview, 'list');
     if (row.thread) {
-      found.push({ name: row.name, threadKey: row.thread, profile: null, when: row.when });
+      found.push({ name: row.name, threadKey: row.thread, profile: null, when: row.when, last });
       continue;
     }
     // The open chat's own row adds nothing: the chat says who it's with. Any other goes by the name it shows.
     const theOpen =
       open &&
       [open.name, open.profile?.username].some((n) => n && nameKey(n) === nameKey(row.name));
-    if (!theOpen) found.push({ name: row.name, threadKey: null, profile: null, when: row.when });
+    if (!theOpen)
+      found.push({ name: row.name, threadKey: null, profile: null, when: row.when, last });
+    // Its row's line is the one compared each time, open or not (decision 150).
+    else found[0] = mergedSighting(found[0], { ...found[0]!, last });
   }
   // Each chat once: the open one says who it's with, and the list when they wrote.
   const byKey = new Map<string, ReplySighting>();
   for (const s of found) {
     const key = s.threadKey ?? `name:${nameKey(s.name)}`;
-    const had = byKey.get(key);
-    byKey.set(key, had && !s.profile ? had : { ...s, when: had?.when ?? s.when });
+    byKey.set(key, mergedSighting(byKey.get(key), s));
   }
   return [...byKey.values()];
 }

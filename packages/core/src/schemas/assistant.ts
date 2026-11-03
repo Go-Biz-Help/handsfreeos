@@ -298,6 +298,13 @@ export const AssistantThreadGetOutput = z.object({
   thread: AssistantThreadSummary,
   messages: z.array(AssistantMessageOut),
   toolCalls: z.array(AssistantToolCallOut),
+  /**
+   * An answer still coming in this chat: its run hasn't ended and started under five minutes ago (after that the
+   * worker counts it as cut off). The worker finishes every question whether or not anyone is still listening, so a
+   * screen that opens the chat meanwhile shows it's on its way and checks back until it lands
+   * (`assistant/catch-up.ts`). Null when nothing is.
+   */
+  answering: z.object({ runId: uuid, startedAt: isoDateTime }).nullable(),
 });
 
 export const AssistantThreadRenameInput = z.object({

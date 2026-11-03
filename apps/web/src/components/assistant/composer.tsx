@@ -184,7 +184,9 @@ export function AssistantComposer({ phone }: { phone: boolean }) {
           className="block min-h-[46px] w-full resize-none bg-transparent px-3 pb-0.5 pt-2.5 text-[14.5px] leading-[1.45] text-text placeholder:text-placeholder focus:outline-none"
         />
         <div className="flex items-center gap-1 px-1.5 pb-1.5 pt-1">
-          <span className="min-w-0 flex-1 px-1.5 text-xs text-text-3">{ASSISTANT_WORDS.hint}</span>
+          <span className="min-w-0 flex-1 px-1.5 text-xs text-text-3" data-testid="assistant-hint">
+            {a.running ? ASSISTANT_WORDS.hintWhileAnswering : ASSISTANT_WORDS.hint}
+          </span>
           <Button
             variant={talking ? 'secondary' : 'ghost'}
             size="icon"

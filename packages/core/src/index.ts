@@ -77,6 +77,8 @@ export * from './assistant/places-map';
 export * from './assistant/coverage';
 // The Assistant's words, and the settings people have of their own (M10 step 17).
 export * from './assistant/words';
+// Asking and leaving: picking an answer back up that came in while nobody was watching.
+export * from './assistant/catch-up';
 export * from './account/settings-words';
 export * from './account/view-as-words';
 export * from './account/sign-in';

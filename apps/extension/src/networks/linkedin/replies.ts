@@ -12,7 +12,7 @@
  */
 import type { ChatOptions } from '../facebook/chat';
 import { clean } from '../facebook/dom';
-import type { ReplySighting } from '../facebook/replies';
+import { lineOf, mergedSighting, type ReplySighting } from '../facebook/replies';
 import { readChat } from './chat';
 import { listedRows, readChats } from './chats';
 import { mainOf } from './dom';
@@ -45,7 +45,13 @@ function lastFromThem(chat: ChatPage, thread: ThreadRef | null): ReplySighting |
   if (!last || last.from !== 'them' || !chat.name || SEVERAL.test(chat.name)) return null;
   const threadKey = (chat.thread ?? thread)?.id ?? null;
   if (!threadKey && !chat.profile) return null;
-  return { name: chat.name, threadKey, profile: chat.profile, when: null };
+  return {
+    name: chat.name,
+    threadKey,
+    profile: chat.profile,
+    when: null,
+    last: lineOf(last.text, 'chat'),
+  };
 }
 
 export function readReplies(
@@ -59,29 +65,37 @@ export function readReplies(
   const linked = readChats(mainOf(doc), href);
   for (const chat of linked)
     if (theirsSaid(clean(chat.preview), chat.name))
-      found.push({ name: chat.name, threadKey: chat.thread.id, profile: null, when: chat.when });
+      found.push({
+        name: chat.name,
+        threadKey: chat.thread.id,
+        profile: null,
+        when: chat.when,
+        last: lineOf(chat.preview, 'list'),
+      });
   const open =
     address.kind === 'chat'
       ? lastFromThem(readChat(doc, address, href, options), address.thread)
       : null;
-  if (open) found.push(open);
+  const openAt = open ? found.push(open) - 1 : -1;
   // The rows that link to no conversation go by the name they show, but for the one open, which says who it's with.
   const named = new Set(linked.map((chat) => nameKey(chat.name)));
   for (const row of listedRows(mainOf(doc))) {
     if (named.has(nameKey(row.name)) || !theirsSaid(clean(row.preview), row.name)) continue;
+    const last = lineOf(row.preview, 'list');
     if (open && nameKey(open.name) === nameKey(row.name)) {
-      found[found.indexOf(open)] = { ...open, when: open.when ?? row.when };
+      // Its row's line is the one compared each time, open or not (decision 150).
+      const had = found[openAt]!;
+      found[openAt] = mergedSighting(had, { ...had, when: had.when ?? row.when, last });
       continue;
     }
     named.add(nameKey(row.name));
-    found.push({ name: row.name, threadKey: null, profile: null, when: row.when });
+    found.push({ name: row.name, threadKey: null, profile: null, when: row.when, last });
   }
   // Each conversation once: the open one says who it's with, and the list when they wrote.
   const byKey = new Map<string, ReplySighting>();
   for (const s of found) {
     const key = s.threadKey ?? `${s.profile?.id ?? ''}|${s.profile?.username ?? ''}|${s.name}`;
-    const had = byKey.get(key);
-    byKey.set(key, had && !s.profile ? had : { ...s, when: had?.when ?? s.when });
+    byKey.set(key, mergedSighting(byKey.get(key), s));
   }
   return [...byKey.values()];
 }

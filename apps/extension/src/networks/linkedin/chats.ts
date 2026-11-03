@@ -70,7 +70,19 @@ export interface ListedRow {
  * as shown, its label kept ("InMail • …"), so a reader can tell it apart.
  */
 export function listedRows(root: Element): ListedRow[] {
-  const rows: ListedRow[] = [];
+  return rowsIn(root).map(({ row, name }) => {
+    const said = row.querySelector('p');
+    return {
+      name,
+      preview: (said && shownText(said)) || null,
+      when: clean(row.querySelector('time')?.textContent) || null,
+    };
+  });
+}
+
+/** The rows of the newer list that link to no conversation, each with its heading and the name it shows. */
+function rowsIn(root: Element): { row: Element; heading: Element; name: string }[] {
+  const rows: { row: Element; heading: Element; name: string }[] = [];
   for (const list of root.querySelectorAll('ul[aria-label]')) {
     if (!/^conversation list$/i.test(clean(list.getAttribute('aria-label')))) continue;
     for (const row of list.querySelectorAll('li')) {
@@ -79,14 +91,38 @@ export function listedRows(root: Element): ListedRow[] {
       if (row.querySelector('a[href*="/messaging/thread/"]')) continue;
       const heading = row.querySelector('h1, h2, h3, h4, h5, h6, [role="heading"]');
       const name = heading ? shownText(heading) : '';
-      if (!name) continue;
-      const said = row.querySelector('p');
-      rows.push({
-        name,
-        preview: (said && shownText(said)) || null,
-        when: clean(row.querySelector('time')?.textContent) || null,
-      });
+      if (heading && name) rows.push({ row, heading, name });
     }
   }
   return rows;
+}
+
+const sameRowName = (a: string, b: string) =>
+  clean(a).toLowerCase().replace(/\s+/g, ' ') === clean(b).toLowerCase().replace(/\s+/g, ' ');
+
+/**
+ * Opens the conversation a row of the newer list shows by `name`, as a person does: a press of the row, on the part
+ * around its name that's pressed (a button, or what takes the keyboard), else its name, which the row hears (decision
+ * 150, answer 4a: Read my chats goes through LinkedIn's conversations again). Whether there was such a row.
+ */
+export function pressRow(root: Element, name: string): boolean {
+  const found = rowsIn(root).find((r) => sameRowName(r.name, name));
+  if (!found) return false;
+  let press: Element = found.heading;
+  for (
+    let up = found.heading.parentElement;
+    up && up !== found.row.parentElement;
+    up = up.parentElement
+  )
+    if (up.matches('button, a[href], [role="button"], [tabindex]')) {
+      press = up;
+      break;
+    }
+  (press as HTMLElement).click();
+  return true;
+}
+
+/** The last row of the newer list, to scroll from for more. */
+export function lastRow(root: Element): Element | null {
+  return rowsIn(root).at(-1)?.row ?? null;
 }
