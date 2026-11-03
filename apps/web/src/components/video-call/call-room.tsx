@@ -26,6 +26,8 @@
  *   them too, or offers the team "Ask now?" over the stage (part 3, `PollOffer`).
  * - **The poll's slides** (part 4): while the team shows them they're the big picture for everyone (./slides.tsx),
  *   and the team turns them from the bar over the stage, the panel or the arrow keys.
+ * - **What it used**: the screen reports what it has downloaded every minute and as it goes (./call-data.ts), so the
+ *   call is priced by what it really used.
  */
 import {
   ATTENDEE_VIDEO_CHOICES,
@@ -116,6 +118,7 @@ import { errorMessage } from '@/lib/api/errors';
 import { brandLook } from '@/lib/look';
 import { cn } from '@/lib/utils';
 import { canBlur, setBlur } from './blur';
+import { useCallData } from './call-data';
 import { ChatPanel, PeoplePanel } from './call-panels';
 import { CallStage } from './call-stage';
 import { PollOffer, PollPanel } from './poll-panel';
@@ -246,6 +249,8 @@ function LiveRoom({ ticket, choices, heading, color, team, coach, poll, onEnd }:
       void disconnect();
     };
   }, [room, connect, disconnect, ticket.url, ticket.token]);
+  // What this screen downloads, so the call is priced by what it really used.
+  useCallData(room, ticket.token);
 
   const toggleBlur = useCallback(
     async (on: boolean) => {

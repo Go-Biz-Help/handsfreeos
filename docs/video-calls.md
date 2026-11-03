@@ -1,4 +1,4 @@
-# HandsFreeOS video calls (20261027013000, 20261027013300, 20261027013500, 20261027014600, 20261027019600, 20261027019800, 20261027019900, 20261027020000, 20261027020100)
+# HandsFreeOS video calls (20261027013000, 20261027013300, 20261027013500, 20261027014600, 20261027019600, 20261027019800, 20261027019900, 20261027020000, 20261027020100, 20261027022000)
 
 HandsFreeOS's own Zoom-like calls. A calendar's Online place (or one service on it) can say **HandsFreeOS video
 call**, and each appointment booked there gets its own call, with nothing for the business to connect. Customers
@@ -73,6 +73,9 @@ webhook) is "Video calls: LiveKit" in `docs/operations.md`.
 | Hot after a webinar, on Home                 | `packages/core/src/attention/detectors/webinar-hot.ts`, `attention/load-webinar.ts`                                               |
 | The AI suggesting points, drafting a poll    | `apps/worker/src/forms/poll-draft-routes.ts`; the editor's side in `apps/web/src/lib/forms/poll-leads.ts`                         |
 | The editor's cards, and the ranked list      | `components/forms/poll-leads.tsx`, `poll-draft.tsx`; `components/calendar/webinar-leads.tsx` on the appointment                   |
+| What a call used: each connection            | `supabase/migrations/20261027022000_video_call_connections.sql` (`app.video_call_connections`); `video_call.data`, `.listener`    |
+| What a call used: measuring and reporting    | `packages/core/src/meetings/call-data.ts` (`watchCallData`); `components/video-call/call-data.ts`, the phone's `call-data.ts`     |
+| What a call used: the report, checked        | `POST /public/calls/data` in `apps/worker/src/video-calls/routes.ts` (`readTicket` in `livekit.ts`)                               |
 
 ## How a call goes
 
@@ -471,6 +474,39 @@ hottest reached first.
   poll's slides when it has them, and writes the questions and a closing button, each with points, when-to-ask phrases
   and a slide, plus the lines (`POST /v1/forms/ai/draft-poll`). They land in the draft as edits to read and change.
 
+### What a call used (20261027022000)
+
+The owner asked to charge each call for what it really used (thread "Charge video calls for real usage", plan doc
+of 3 November 2026). LiveKit bills two things: every connection's minutes ($0.0005 a minute) and the data it sends
+down to each one ($0.12 a GB). Its own report of each call needs its $500-a-month Scale plan, so HandsFreeOS measures
+both itself.
+
+The owner's answers (2026-11-03): **1** the AI listener's connection is charged too; **2** Usage & balance shows the
+price as a person-minute plus a GB ("Video calls: 0.075¢ a person per minute, plus 18¢ for each GB of video watched");
+**3** each call's cost shows only in Usage & balance, not on the appointment; **4** calls already charged stay as
+they are; **5** sending smaller videos in big meetings comes later, after a month of real numbers.
+
+Part 1, built, only measures. The balance is still charged the flat `video.minute` until part 2 prices calls from
+what's kept here, once a week of it has been checked against LiveKit's bill. Part 3 shows each call's cost in Usage
+& balance.
+
+- **Every connection LiveKit tells of is a row** of `app.video_call_connections`: a person's (`video_call.joined`,
+  once per participant sid, a reload's included) or the AI listener's (`video_call.listener`, from its own webhooks,
+  which the route now lets through). It's closed when LiveKit says it left, or when the room closes with it open.
+- **Each call screen measures what it downloads** with WebRTC's own counters: the transport's bytes received, else
+  the chosen candidate pair's, else every stream's with headers (`bytesReceivedOf`). `watchCallData` reads them every
+  15 seconds and reports every minute when the count grew, and once more as the screen goes (leaving, the tab
+  closing, the phone app going to the background), from the last reading. A new participant sid starts from zero; a
+  peer connection LiveKit replaced keeps what it counted.
+- **A report speaks only for its own connection.** It comes with the ticket the screen joined on, which the worker
+  signed: `readTicket` reads who and which room off it, accepting one that ran out up to 12 hours ago, since tickets
+  last 15 minutes and calls last hours. `video_call.data` keeps it only for a connection of that person LiveKit told
+  of, as the most it has said, and never past what 10 HD videos could carry in the time (130 MB a minute, with a
+  minute's grace: `mostDownloadable`). Reports more than five minutes after the connection left are too late.
+- **The web sends it as a beacon**, plain text, so it goes without a preflight from a business's own address and as
+  the page closes. The phone sends JSON. The route answers 204 whatever it was, so it tells nothing about tickets.
+- **Only the worker writes the rows**, and only people who can read the business's money see them.
+
 ## Running it locally
 
 Without LiveKit the worker uses its stand-in: tickets connect to nothing and the call screen shows a stand-in for
@@ -493,6 +529,8 @@ enough to see captions and lines arrive. With `DEEPGRAM_API_KEY` and `VOICE_AGEN
   but **Video call** goes on to open the call for whoever pressed it, so for now it's only a button.
 - Screen share from a phone's browser, which phones don't allow; they can watch someone else's.
 - Joining by phone, recordings, breakout rooms and picture backgrounds.
+- Charging each call for what it really used ("What a call used" above): part 1 measures it, and the balance still
+  takes the flat `video.minute` until part 2.
 - Live polls and slides on the phone's call screen: the team asks and presents from the web for now, and the phone
   shows whoever is presenting. The ranked list after a webinar is on the web too; the phone has the Home cards.
 - Slides in any form but a PDF (PowerPoint and Keynote save as one), and animations or videos inside slides.
