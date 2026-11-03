@@ -1,3 +1,4 @@
+import type { AutopilotAnswer } from '@hfos/core/addons/outreach/autopilot';
 import type { FriendAnswer } from '@hfos/core/addons/outreach/limits';
 import type { Platform } from '@hfos/core/addons/outreach/networks';
 import type { NeedClear } from '@hfos/core/addons/outreach/waiting-words';
@@ -74,6 +75,21 @@ export const retrySteps = (workspaceId: string, needIds: string[] | null) =>
 /** Leave it, on a friend request that's the person's to decide. */
 export const setAside = (workspaceId: string, profileId: string) =>
   change('outreach.request.set_aside', { workspaceId, profileId });
+
+/**
+ * OK, Not today or Put back, on Autopilot's day's list (decision 149): with signal, since the list comes from
+ * HandsFreeOS. OK with nobody named OKs everyone still waiting.
+ */
+export const answerAutopilot = (
+  workspaceId: string,
+  answer: AutopilotAnswer,
+  profileIds?: string[],
+) =>
+  change('outreach.autopilot.answer', {
+    workspaceId,
+    answer,
+    ...(profileIds ? { profileIds } : {}),
+  });
 
 /** Confirm or Delete, on a friend request that's the person's to decide (decision 136): the extension does it. */
 export const answerRequest = (workspaceId: string, profileId: string, answer: FriendAnswer) =>

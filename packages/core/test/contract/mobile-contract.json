@@ -7890,6 +7890,9 @@
           "settings": {
             "type": "object",
             "properties": {
+              "autopilot": {
+                "type": "boolean"
+              },
               "sending": {
                 "type": "string",
                 "enum": ["off", "steps", "approve_all", "everything"]
@@ -8270,6 +8273,31 @@
           }
         },
         "required": ["workspaceId", "settings"]
+      }
+    },
+    "outreach.autopilot.answer": {
+      "offline": "online",
+      "input": {
+        "type": "object",
+        "properties": {
+          "workspaceId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "answer": {
+            "type": "string",
+            "enum": ["ok", "not_today", "waiting"]
+          },
+          "profileIds": {
+            "maxItems": 500,
+            "type": "array",
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        },
+        "required": ["workspaceId", "answer"]
       }
     },
     "outreach.client.set": {
@@ -15245,6 +15273,18 @@
       }
     },
     "outreach.automation.people": {
+      "input": {
+        "type": "object",
+        "properties": {
+          "workspaceId": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        "required": ["workspaceId"]
+      }
+    },
+    "outreach.autopilot": {
       "input": {
         "type": "object",
         "properties": {

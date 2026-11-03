@@ -340,6 +340,10 @@ import {
   ProfileContactInput,
 } from '@hfos/core/addons/outreach/asks';
 import {
+  AutopilotAnswerInput,
+  AutopilotAnswerOutput,
+} from '@hfos/core/addons/outreach/autopilot';
+import {
   AutomationSaveInput,
   AutomationSaveOutput,
   WheelsEndInput,
@@ -638,6 +642,8 @@ export const PHONE_COMMANDS = {
   'outreach.ask.make': command(ONLINE, AskMakeInput, AskMakeOutput),
   'outreach.ask.reply': command(ONLINE, AskReplyInput, AskChangedOutput),
   'outreach.automation.save': command(ONLINE, AutomationSaveInput, AutomationSaveOutput),
+  // Autopilot's day's list on Needs you (decision 149): OK, Not today and Put back, with signal.
+  'outreach.autopilot.answer': command(ONLINE, AutopilotAnswerInput, AutopilotAnswerOutput),
   // Mark as client, or Not a client after all, from the person menu on a name (decision 91): with signal.
   'outreach.client.set': command(ONLINE, ClientSetInput, ClientSetOutput),
   // The person's computers, under Settings → Your computer (the Live screen): renamed or removed, with signal.

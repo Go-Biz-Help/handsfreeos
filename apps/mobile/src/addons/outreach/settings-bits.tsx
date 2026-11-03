@@ -21,6 +21,7 @@ import {
   type ReplyMode,
   type SendingMode,
 } from '@hfos/core/addons/outreach/automation';
+import { AUTOPILOT_WORDS } from '@hfos/core/addons/outreach/autopilot';
 import { HELPFUL_MODES_ON, helpfulHowOn } from '@hfos/core/addons/outreach/helpful';
 import {
   groupsChoiceOn,
@@ -275,8 +276,9 @@ export function NetworkModes({
   repliesAllowed,
   postingAllowed = POSTING_MODE_KEYS,
   wheelsFrom,
+  piloted = false,
   boxed,
-  disabled,
+  disabled: off,
   testID,
 }: Allowed & {
   platform: Platform;
@@ -284,10 +286,13 @@ export function NetworkModes({
   onChange: (change: Partial<NetworkChoices>) => void;
   /** When the network's training wheels started; undefined where they don't apply. */
   wheelsFrom?: string | null;
+  /** Autopilot is on (decision 149): its picks show, and wait under it to be picked again. */
+  piloted?: boolean;
   boxed: boolean;
   disabled: boolean;
   testID: string;
 }) {
+  const disabled = off || piloted;
   const modes = sendingModesOn(platform);
   // Where the extension doesn't work the network yet, nothing goes on its own, and there's no helpful post on some.
   const runs = runsOnItsOwn(platform);
@@ -312,6 +317,7 @@ export function NetworkModes({
     wheelsFrom === null && wheelsMatter(next) ? WHEELS_START_WORDS : undefined;
   return (
     <>
+      {piloted ? <Note testID={`${testID}-piloted`}>{AUTOPILOT_WORDS.picked}</Note> : null}
       <Section
         boxed={boxed}
         title={W.sections.onItsOwn}
@@ -379,6 +385,7 @@ export function NetworkTicks({
   platform,
   value,
   onChange,
+  piloted = false,
   boxed,
   disabled,
   testID,
@@ -386,6 +393,8 @@ export function NetworkTicks({
   platform: Platform;
   value: NetworkChoices;
   onChange: (change: Partial<NetworkChoices>) => void;
+  /** Autopilot is on (decision 149): it answers the requests, so that choice waits under it. */
+  piloted?: boolean;
   boxed: boolean;
   disabled: boolean;
   testID: string;
@@ -424,6 +433,7 @@ export function NetworkTicks({
           about={requests.about}
           testID={`${testID}-requests`}
         >
+          {piloted ? <Note>{AUTOPILOT_WORDS.picked}</Note> : null}
           {requests.options.map((o) => (
             <Choice
               key={o.key}
@@ -431,7 +441,7 @@ export function NetworkTicks({
               about={o.note ?? undefined}
               selected={answering === o.key}
               onPress={() => onChange(requestModeChange(o.key))}
-              disabled={disabled}
+              disabled={disabled || piloted}
               testID={`${testID}-requests-${o.key}`}
             />
           ))}
@@ -529,6 +539,46 @@ export function ExtensionTicks({
           />
         ))}
       </View>
+    </Section>
+  );
+}
+
+/**
+ * Autopilot (decision 149, answer 7a): one switch for every network the person works, first on General. Hidden when the
+ * business doesn't allow it, unless it's on already (so it can be turned off).
+ */
+export function AutopilotPart({
+  value,
+  onChange,
+  allowed,
+  wheels,
+  boxed,
+  disabled,
+  testID,
+}: {
+  value: AutomationSettings;
+  onChange: Edit<AutomationSettings>;
+  allowed: boolean;
+  /** Training wheels are on somewhere they work: each message still waits for their OK there. */
+  wheels: boolean;
+  boxed: boolean;
+  disabled: boolean;
+  testID: string;
+}) {
+  if (!allowed && !value.autopilot) return null;
+  return (
+    <Section boxed={boxed} title={AUTOPILOT_WORDS.name} about={AUTOPILOT_WORDS.about}>
+      <Tick
+        label={AUTOPILOT_WORDS.name}
+        about={value.autopilot ? AUTOPILOT_WORDS.howItAsks : AUTOPILOT_WORDS.offPutsBack}
+        checked={value.autopilot}
+        onChange={(on) => onChange((v) => ({ ...v, autopilot: on }))}
+        disabled={disabled}
+        testID={`${testID}-autopilot`}
+      />
+      {value.autopilot && wheels ? (
+        <Note testID={`${testID}-autopilot-wheels`}>{AUTOPILOT_WORDS.wheels}</Note>
+      ) : null}
     </Section>
   );
 }
