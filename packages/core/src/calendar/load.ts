@@ -540,6 +540,8 @@ export interface StaffData {
   readonly exceptions: ExceptionSpan[];
   /** Busy times read from their Google or Outlook calendar (empty unless asked for). */
   readonly external: Interval[];
+  /** When they're booked in their other businesses, buffers and travel included: times only. */
+  readonly elsewhere: Interval[];
   readonly bookings: StaffBooking[];
 }
 
@@ -593,6 +595,12 @@ export async function loadStaffData(
               and b.starts_at < ${tsParam(span.end)} and b.ends_at > ${tsParam(span.start)}`,
       )
     : [];
+  // Booked in another business they work in: only when (private.busy_elsewhere).
+  const elsewhere = await rows<{ user_id: string; s: number; e: number }>(
+    tx,
+    sql`select b.user_id, ${epoch(sql`b.starts_at`)} as s, ${epoch(sql`b.ends_at`)} as e
+        from private.busy_elsewhere(${workspaceId}, ${uuidArray(ids)}, ${tsParam(span.start)}, ${tsParam(span.end)}) b`,
+  );
   // A left join: an appointment on a private record the caller can't see (sealed) still makes its staff busy.
   const bookings = await rows<{
     user_id: string;
@@ -629,6 +637,9 @@ export async function loadStaffData(
       exceptions: own,
       external: normalize(
         busy.filter((b) => b.user_id === userId).map((b) => ({ start: b.s, end: b.e })),
+      ),
+      elsewhere: normalize(
+        elsewhere.filter((b) => b.user_id === userId).map((b) => ({ start: b.s, end: b.e })),
       ),
       bookings: bookings
         .filter((b) => b.user_id === userId)
@@ -882,8 +893,9 @@ export interface LoadedSlots {
 
 /**
  * Reads everything the engine needs for one request on fresh data: the calendar and service hours layers,
- * each person's hours, time off, busy times (only when the calendar checks staff calendars) and bookings,
- * the resources with their bookings, sessions to join and the workspace's territories. Bookings are read
+ * each person's hours, time off, busy times (only when the calendar checks staff calendars), bookings and
+ * times booked in their other businesses, the resources with their bookings, sessions to join and the
+ * workspace's territories. Bookings are read
  * over the requested days padded by the visit's length, buffers and travel, whole local days, so buffers
  * and daily limits see everything that matters.
  */
@@ -978,7 +990,7 @@ export async function loadSlotInput(
     staff: [...staff.values()].map((s) => ({
       userId: s.userId,
       windows: s.windows,
-      busy: normalize([...s.timeOff, ...s.external]),
+      busy: normalize([...s.timeOff, ...s.external, ...s.elsewhere]),
       bookings: s.bookings,
     })),
     resources: [...resourceData.values()].map((r) => ({
