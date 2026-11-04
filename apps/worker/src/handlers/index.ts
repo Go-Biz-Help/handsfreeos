@@ -84,6 +84,8 @@ import { onHandoffNudge } from '../automations/handoff';
 import { onConnectionBroke, onCorrection, onFeedback } from '../automations/health';
 import { onArmJobCheck, onStillGoing } from '../automations/job-check';
 import { onCallPromise, onMessagePromise } from '../automations/promises';
+import { onMessageTasks } from '../automations/conversation-tasks';
+import { onPhoneCallTranscribed } from '../meetings/review';
 import { onEngaged, onPipelineEvidence } from '../automations/pipeline';
 import { onHelpKeyword } from './help-reply';
 import { onReviewReplied, onReviewSyncWanted } from './reviews';
@@ -255,7 +257,14 @@ const ownTeammateAndWorkflows: HandlerMap = withWorkflows(
       // Automations' pipeline rows (automations/pipeline.ts): someone got back to a customer, so their deal may move
       // on; and someone really talking with the business may need a deal of their own.
       // …and "Promises not kept" reads what a person on the team wrote for one (automations/promises.ts).
-      'message.queued': [onMessageQueued, onPipelineEvidence, onEngaged, onMessagePromise],
+      // …and "Add tasks from what you say" reads it for what they said they'd do (automations/conversation-tasks.ts).
+      'message.queued': [
+        onMessageQueued,
+        onPipelineEvidence,
+        onEngaged,
+        onMessagePromise,
+        onMessageTasks,
+      ],
       // An email from someone's own mailbox (M19): sent, and heard by nothing else.
       'email.private_queued': onMessageQueued,
       // A text waiting for quiet hours to end goes then; a cancelled one ends at once (messaging/scheduled.ts).
@@ -431,7 +440,8 @@ const ownTeammateAndWorkflows: HandlerMap = withWorkflows(
       // business is read by the AI in a job of its own (automations/referrals.ts).
       // A customer's HELP is answered with the business's name and number (handlers/help-reply.ts).
       'message.received': [onHelpKeyword, onMessageReferral, onEngaged],
-      'call.transcribed': [onCallReferral, onCallPromise],
+      // …and a phone call someone on the team was on gets the review a video call gets (meetings/review.ts).
+      'call.transcribed': [onCallReferral, onCallPromise, onPhoneCallTranscribed],
       // Automations' "Hand-off nobody picked up" (automations/handoff.ts) and "Approvals about to expire"
       // (automations/expiring.ts): the rounds after a hand-off, and the warning before a decision runs out.
       'conversation.handed_off': onHandoffNudge,

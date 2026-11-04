@@ -98,6 +98,15 @@ const at = (days: number, hour: number, minute = 0) => {
   return d;
 };
 const span = (from: Date, to: Date) => [from.toISOString(), to.toISOString()];
+/** Settings → Automations' "Add tasks from what you say", on or off for this business. */
+const setAiTasks = (on: boolean) =>
+  rows(
+    admin(),
+    sql`update app.workspaces set settings = coalesce(settings, '{}'::jsonb) || jsonb_build_object('automations',
+          coalesce(settings->'automations', '{}'::jsonb) || jsonb_build_object('switches',
+            coalesce(settings->'automations'->'switches', '{}'::jsonb) || jsonb_build_object('aiTasks', ${on}::boolean)))
+        where id = ${workspaceId}`,
+  );
 
 async function reserve(): Promise<void> {
   for (const table of ['outbox', 'webhook_deliveries', 'scheduled_jobs'])
@@ -1109,7 +1118,7 @@ describe('connecting Zoom', () => {
     zoom.setSettings('settings@zoom.fake', { audioTranscript: true });
   });
 
-  it('sums up a recorded call on the customer’s timeline; its task and follow-up wait for a person', async () => {
+  it('sums up a recorded call on the customer’s timeline and adds its task; the follow-up waits for a person', async () => {
     const call = await book('Duct quote call', at(-2, 15), at(-2, 16), [tech.id], {
       kind: 'virtual',
       video: 'zoom',
@@ -1150,11 +1159,12 @@ describe('connecting Zoom', () => {
       meta(),
     );
     expect(review.summary).toContain('Duct quote call');
+    // Owner, 4 Nov: the task is made on its own; the email waits for someone to send it.
     expect(review.items.map((i) => [i.kind, i.status])).toEqual([
-      ['task', 'pending'],
+      ['task', 'approved'],
       ['follow_up', 'pending'],
     ]);
-    // The summary is on Mike's timeline already; nothing else ran.
+    // The summary is on Mike's timeline, and the task is on the host's list, about Mike, due two days after.
     const notes = await rows<{ body: string }>(
       admin(),
       sql`select body from app.activities where person_id = ${person!.id} and kind = 'note'`,
@@ -1162,32 +1172,28 @@ describe('connecting Zoom', () => {
     expect(notes.map((n) => n.body)).toEqual([
       expect.stringContaining('Call summary: Duct quote call'),
     ]);
-    const tasksBefore = await rows(
-      admin(),
-      sql`select 1 from app.tasks where person_id = ${person!.id}`,
-    );
-    expect(tasksBefore).toHaveLength(0);
-
-    // Approve the task, renamed; dismiss the email.
     const task = review.items.find((i) => i.kind === 'task')!;
-    const done = await executeCommand(
-      api(),
-      callSuggestionDecide,
-      {
-        workspaceId,
-        suggestionId: task.id,
-        decision: 'approve',
-        edits: { title: 'Send Mike the duct quote' },
-      },
-      actor(tech),
-      meta(),
-    );
-    expect(done.output.taskId).not.toBeNull();
-    const [made] = await rows<{ title: string; assignee_user_id: string; due_at: Date | null }>(
+    const made = await rows<{
+      id: string;
+      title: string;
+      assignee_user_id: string;
+      due_at: Date | null;
+      notes: string;
+    }>(
       admin(),
-      sql`select title, assignee_user_id, due_at from app.tasks where id = ${done.output.taskId}`,
+      sql`select id, title, assignee_user_id, due_at, notes from app.tasks where person_id = ${person!.id}`,
     );
-    expect(made).toMatchObject({ title: 'Send Mike the duct quote', assignee_user_id: tech.id });
+    expect(made).toEqual([
+      {
+        id: task.taskId,
+        title: 'Send the quote',
+        assignee_user_id: tech.id,
+        due_at: new Date(new Date(at(-2, 16)).getTime() + 2 * 86_400_000),
+        notes: 'Added by the AI from your video call with Mike Johnson.',
+      },
+    ]);
+
+    // The email: dismissed.
     const email = review.items.find((i) => i.kind === 'follow_up')!;
     await executeCommand(
       api(),
@@ -1201,7 +1207,7 @@ describe('connecting Zoom', () => {
       executeCommand(
         api(),
         callSuggestionDecide,
-        { workspaceId, suggestionId: task.id, decision: 'approve' },
+        { workspaceId, suggestionId: email.id, decision: 'approve' },
         actor(owner),
         meta(),
       ),
@@ -1214,6 +1220,75 @@ describe('connecting Zoom', () => {
       meta(),
     );
     expect(after.items.map((i) => i.status)).toEqual(['approved', 'dismissed']);
+    const tasks = await rows(admin(), sql`select 1 from app.tasks where person_id = ${person!.id}`);
+    expect(tasks).toHaveLength(1);
+  });
+
+  it('suggests a recorded call’s task, rather than adding it, while Add tasks from what you say is off', async () => {
+    await setAiTasks(false);
+    try {
+      const call = await book('Quote call, tasks off', at(-2, 17), at(-2, 18), [tech.id], {
+        kind: 'virtual',
+        video: 'zoom',
+        record: true,
+      });
+      const [person] = await rows<{ id: string }>(
+        admin(),
+        sql`insert into app.people (workspace_id, first_name, last_name)
+            values (${workspaceId}, 'Lena', 'Park') returning id`,
+      );
+      await rows(
+        admin(),
+        sql`insert into app.appointment_attendees (workspace_id, appointment_id, person_id, status)
+            values (${workspaceId}, ${call}, ${person!.id}, 'booked')`,
+      );
+      await executeCommand(
+        s.db,
+        appointmentAttachTranscript,
+        {
+          workspaceId,
+          appointmentId: call,
+          provider: 'zoom',
+          externalId: 'review-tasks-off',
+          body: 'Priya: I’ll send you the quote by Friday.\nLena: Thanks.',
+        },
+        systemActor(scope()),
+        meta(),
+      );
+      await drain();
+      const review = await executeQuery(
+        api(),
+        callSuggestionList,
+        { workspaceId, appointmentId: call },
+        actor(tech),
+        meta(),
+      );
+      const task = review.items.find((i) => i.kind === 'task')!;
+      expect(task).toMatchObject({ status: 'pending', taskId: null });
+      expect(
+        await rows(admin(), sql`select 1 from app.tasks where person_id = ${person!.id}`),
+      ).toHaveLength(0);
+      // Approved, renamed, it's made then.
+      const done = await executeCommand(
+        api(),
+        callSuggestionDecide,
+        {
+          workspaceId,
+          suggestionId: task.id,
+          decision: 'approve',
+          edits: { title: 'Send Lena the duct quote' },
+        },
+        actor(tech),
+        meta(),
+      );
+      const [made] = await rows<{ title: string; assignee_user_id: string }>(
+        admin(),
+        sql`select title, assignee_user_id from app.tasks where id = ${done.output.taskId}`,
+      );
+      expect(made).toEqual({ title: 'Send Lena the duct quote', assignee_user_id: tech.id });
+    } finally {
+      await setAiTasks(true);
+    }
   });
 
   it('seals the summary of a call on a private deal with the deal, so only its people read it', async () => {

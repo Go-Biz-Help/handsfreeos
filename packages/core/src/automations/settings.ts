@@ -66,6 +66,12 @@ const Switches = z.object({
   aiTags: on(),
   /** …and fills in or corrects their name, email, number and address when they said so (0107). */
   aiDetails: on(),
+  /**
+   * The AI adds a task, on its own, for whatever the team said it would do: on a call (phone, video or an
+   * appointment's) and in the texts, emails and chats they write (20261027023200). Off, a call's tasks wait for an OK
+   * and messages make none.
+   */
+  aiTasks: on(),
 });
 export type AutomationSwitch = keyof z.infer<typeof Switches>;
 export const AUTOMATION_SWITCHES = Object.keys(Switches.shape) as readonly AutomationSwitch[];

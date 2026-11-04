@@ -22,7 +22,6 @@ import { closeTestDbs } from '@hfos/db/testing';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import {
   binRestore,
-  callSuggestionDecide,
   callSuggestionRecord,
   customRecordDelete,
   inboxSetVisibility,
@@ -474,7 +473,7 @@ describe('8. a meeting on a private deal', () => {
       },
       w.scope,
     );
-    expect(done).toEqual({ noted: true, suggestions: 1 });
+    expect(done).toEqual({ noted: true, suggestions: 1, tasks: 1 });
     for (const u of [w.priya, w.marco])
       expect(titles(groupOf(await everything(w, u, 'secondlookword'), 'notes'))).toEqual([
         'Call summary: Heron Point tour',
@@ -482,27 +481,20 @@ describe('8. a meeting on a private deal', () => {
     expect(allTitles(await everything(w, w.member, 'secondlookword'))).toEqual([]);
     expect(titles((await oneKind(w, w.member, 'secondlookword', 'notes')).group)).toEqual([]);
 
-    // Marco comes off the deal; Priya approves the task it suggested: sealed with the deal, and left unassigned,
-    // since its host is no longer on it.
-    await rows(admin(), sql`update app.custom_records set team_user_ids = '{}' where id = ${deal}`);
-    const [suggestion] = await rows<{ id: string }>(
-      admin(),
-      sql`select id from app.call_suggestions where appointment_id = ${tour} and kind = 'task'`,
-    );
-    const approved = await run(
-      callSuggestionDecide,
-      { workspaceId: w.wsId, suggestionId: suggestion!.id, decision: 'approve' },
-      w.priya,
-    );
+    // The task it made on its own is sealed with the deal, and given to Marco, who hosted it and is on the deal.
     const [task] = await rows<{
       custom_record_id: string;
       sealed: boolean;
       assignee_user_id: string | null;
     }>(
       admin(),
-      sql`select custom_record_id, sealed, assignee_user_id from app.tasks where id = ${approved.taskId}`,
+      sql`select t.custom_record_id, t.sealed, t.assignee_user_id from app.tasks t
+          join app.call_suggestions s on (s.result->>'taskId')::uuid = t.id
+          where s.appointment_id = ${tour} and s.kind = 'task'`,
     );
-    expect(task).toEqual({ custom_record_id: deal, sealed: true, assignee_user_id: null });
+    expect(task).toEqual({ custom_record_id: deal, sealed: true, assignee_user_id: w.marco.id });
+    // Marco comes off the deal: it's still sealed, so only the deal's people find it.
+    await rows(admin(), sql`update app.custom_records set team_user_ids = '{}' where id = ${deal}`);
     expect(titles(groupOf(await everything(w, w.priya, 'topofferword'), 'tasks'))).toEqual([
       'Topofferword: draft the 410 offer',
     ]);
@@ -549,7 +541,7 @@ describe('8. a meeting on a private deal', () => {
       },
       w.scope,
     );
-    expect(done).toEqual({ noted: true, suggestions: 1 });
+    expect(done).toEqual({ noted: true, suggestions: 1, tasks: 1 });
     const [kept] = await rows<{ summary: string }>(
       admin(),
       sql`select summary from app.appointment_transcripts where id = ${transcript}`,

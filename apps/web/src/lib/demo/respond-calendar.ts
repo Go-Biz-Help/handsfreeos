@@ -303,12 +303,14 @@ export const transcriptsOf = (n: DemoCallNotes | null, provider: string) => ({
 export function suggestionsOf(n: DemoCallNotes | null): Suggestions {
   return {
     summary: n?.summary ?? null,
+    transcript: null,
     items: (n?.suggestions ?? []).map((s) => ({
       id: s.id,
       kind: s.kind,
       status: s.status,
       preview: { ...s.preview },
       createdAt: iso(n!.at),
+      taskId: s.taskId ?? null,
     })),
   };
 }

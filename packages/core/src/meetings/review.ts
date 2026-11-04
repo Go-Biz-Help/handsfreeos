@@ -2,7 +2,9 @@
  * What the AI is asked to make of a recorded call (HANDSFREEOS_MEETINGS_IMPLEMENTATION_PLAN.md §9): a short summary
  * for the customer's timeline, the tasks the team agreed to, and a follow-up message to the customer if one is
  * called for, and any new contact details the customer gave (step 11). The worker asks; `call_suggestion.record`
- * keeps the answer. The summary is written on its own; the tasks, the follow-up and record changes wait for a person.
+ * keeps the answer. An appointment's call, a HandsFreeOS video call, or a phone call on the business number
+ * (20261027023200). The summary is written on its own, and so are the tasks while "Add tasks from what you say" is on
+ * (automations/ai-task-words.ts); the follow-up and record changes wait for a person.
  */
 import { z } from 'zod';
 import { VIDEO_CALL_TYPED_MARK } from './video-calls';
@@ -60,7 +62,8 @@ export const CALL_REVIEW_JSON_SCHEMA = {
         properties: {
           title: {
             type: 'string',
-            description: 'What the business promised to do, as a short task title.',
+            description:
+              'What the business promised to do, as a short task title that starts with a verb and names the customer ("Send Mike the duct quote").',
           },
           notes: { type: ['string', 'null'] },
           dueInDays: { type: ['integer', 'null'], minimum: 0, maximum: 90 },
@@ -90,9 +93,9 @@ export const CALL_REVIEW_JSON_SCHEMA = {
 } as const;
 
 export const CALL_REVIEW_SYSTEM = [
-  'You read the transcript of a video call between a small business and its customer, and help the business follow up.',
+  'You read the transcript of a call (a video call, or a phone call on the business’s number) between a small business and its customer, and help the business follow up.',
   'Write a short, factual summary: who was on the call, what was discussed, and what was agreed. Never invent anything that wasn’t said.',
-  'List only tasks the business’s side agreed to do (send a quote, book the visit, call back). Not the customer’s tasks. None is fine.',
+  'List every task the business’s side said it would do or agreed to (send a quote, book the visit, call back, check on a part, order something). Not the customer’s tasks. Each is added to the business’s task list as it is, so when unsure whether something needs doing, list it: a task nobody needed is deleted in a tap, a missed one costs a customer. Leave out anything already done on the call, and anything already in the open tasks listed. None is fine.',
   'Draft a follow-up email to the customer only when one is clearly called for (something was promised to them, or next steps should be confirmed). Write it in plain, friendly words, signed by the business, without prices or promises the transcript doesn’t contain.',
   'When the customer clearly gives a new or corrected name, email address or phone number for themselves, put it in recordChanges, exactly as they said it. Leave out anything they didn’t say, and details for anyone else. Null when there are none.',
   `The transcript is what people said. A line marked “${VIDEO_CALL_TYPED_MARK}” is what someone typed in the call’s chat, and counts just as much: an email address, phone number or link typed there is theirs as surely as one said aloud.`,
@@ -110,14 +113,20 @@ export function callReviewPrompt(input: {
   /** The customer's email and phone as the business has them, so only what's new is suggested. */
   onFile?: string | null;
   host: string | null;
+  /** The customer's open tasks already, so none is made twice ("Send the quote (due Nov 6)"). */
+  openTasks?: readonly string[];
   transcript: string;
 }): string {
+  const open = (input.openTasks ?? []).slice(0, 20);
   return [
     `Business: ${input.business}`,
     `Appointment: ${input.title}, ${input.when}`,
     `Customer: ${input.customer ?? 'unknown'}`,
     ...(input.onFile ? [`On file for the customer: ${input.onFile}`] : []),
     `Host: ${input.host ?? 'unknown'}`,
+    ...(open.length
+      ? ['Open tasks for this customer already:', ...open.map((t) => `- ${t.slice(0, 200)}`)]
+      : []),
     '<transcript>',
     input.transcript.slice(0, 60_000),
     '</transcript>',

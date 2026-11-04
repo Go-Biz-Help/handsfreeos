@@ -197,6 +197,8 @@ export interface DemoSuggestion {
   /** A task's `title`; a follow-up email's `subject` and `body`. */
   readonly preview: Readonly<Record<string, string>>;
   status: 'pending' | 'approved' | 'dismissed';
+  /** The task it made: on its own, or once someone tapped Add task. */
+  taskId?: string;
 }
 
 /** What the AI heard on a recorded call: the summary, the words, and what it suggests doing next. */

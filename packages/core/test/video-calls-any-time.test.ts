@@ -254,7 +254,7 @@ describe('a video call with a customer, any time', () => {
     expect(onDana!.person_id).toBe(dana);
   });
 
-  it('keeps what the AI heard as the call’s transcript, puts its summary on that line, and waits on the rest', async () => {
+  it('keeps what the AI heard as the call’s transcript, puts its summary on that line, adds its task and waits on the email', async () => {
     await runSystem(
       videoCallHeard,
       {
@@ -306,11 +306,13 @@ describe('a video call with a customer, any time', () => {
     expect(await runSystem(callSuggestionRecord, review, t.scope)).toEqual({
       noted: true,
       suggestions: 2,
+      tasks: 1,
     });
     // Once: a retried job does nothing more.
     expect(await runSystem(callSuggestionRecord, review, t.scope)).toEqual({
       noted: false,
       suggestions: 0,
+      tasks: 0,
     });
     const [line] = await linesOf(callId);
     expect(line!.body).toBe(review.review.summary);
@@ -321,26 +323,37 @@ describe('a video call with a customer, any time', () => {
       t.priya,
     );
     expect(after.summary).toBe(review.review.summary);
+    // Owner, 4 Nov: the task is made on its own; the email still waits for someone to send it.
     expect(after.items.map((i) => [i.kind, i.status])).toEqual([
-      ['task', 'pending'],
+      ['task', 'approved'],
       ['follow_up', 'pending'],
     ]);
-    // Approved, the task goes to whoever hosted the call, about the customer.
+    // It goes to whoever hosted the call, about the customer, saying where it came from.
     const task = after.items.find((i) => i.kind === 'task')!;
-    const done = await run(
-      callSuggestionDecide,
-      { workspaceId: t.wsId, suggestionId: task.id, decision: 'approve' },
-      t.owner,
-    );
-    const [made] = await rows<{ title: string; assignee_user_id: string; person_id: string }>(
+    expect(task.taskId).not.toBeNull();
+    const [made] = await rows<{
+      title: string;
+      assignee_user_id: string;
+      person_id: string;
+      notes: string;
+    }>(
       admin(),
-      sql`select title, assignee_user_id, person_id from app.tasks where id = ${done.taskId}`,
+      sql`select title, assignee_user_id, person_id, notes from app.tasks where id = ${task.taskId}`,
     );
     expect(made).toEqual({
       title: 'Send Dana the duct quote',
       assignee_user_id: t.priya.id,
       person_id: dana,
+      notes: 'Added by the AI from your video call with Dana Lopez.',
     });
+    // Already made: a press on it is refused.
+    await expect(
+      run(
+        callSuggestionDecide,
+        { workspaceId: t.wsId, suggestionId: task.id, decision: 'approve' },
+        t.owner,
+      ),
+    ).rejects.toMatchObject({ rule: 'call_suggestion_decided' });
   });
 
   it('keeps one line through a later stretch, timed by how long the customer was in it all told', async () => {
