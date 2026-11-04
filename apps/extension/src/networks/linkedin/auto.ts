@@ -55,6 +55,15 @@ const pause = (ms: number) => new Promise((done) => setTimeout(done, ms));
 
 /** What LinkedIn draws over the page: the invitation's box. */
 export const OVER_THE_PAGE = '[role="dialog"], [role="alertdialog"], dialog';
+
+/**
+ * The boxes over the page, wherever LinkedIn draws them: on the page, or in its interop box (./dom.ts `placesOf`),
+ * where its invitation box "Add a note to your invitation?" shows from November 2026, out of the page's own look-ups
+ * (the owner's problem reports of 3 Nov 2026, on 0.123.0: the box was never seen, so its Send without a note was never
+ * pressed).
+ */
+const boxesOver = (doc: Document): Element[] =>
+  placesOf(doc).flatMap((place) => [...place.querySelectorAll(OVER_THE_PAGE)]);
 /** Where a person writes. */
 export const WRITING = '[role="textbox"], [contenteditable="true"], textarea';
 /** What's inside a post and isn't it: its comments and a link's preview. */
@@ -201,7 +210,7 @@ export function topCardControl(doc: Document, pattern: RegExp): HTMLElement | nu
 
 /** The invitation box's way to send as it is, when it asks nothing else: no field to fill in. */
 function sendAsItIs(doc: Document): HTMLElement | 'asks' | null {
-  for (const box of doc.querySelectorAll(OVER_THE_PAGE)) {
+  for (const box of boxesOver(doc)) {
     if (!shown(box)) continue;
     const controls = [...box.querySelectorAll<HTMLElement>(CONTROLS)].filter(shown);
     const without = controls.find((c) => says(c, WITHOUT_NOTE));
@@ -283,7 +292,7 @@ export async function answerInvitation(
   const next = await waitFor<HTMLElement | 'answered'>(() => {
     if (answered()) return 'answered';
     if (answer !== 'delete') return null;
-    for (const box of doc.querySelectorAll(OVER_THE_PAGE)) {
+    for (const box of boxesOver(doc)) {
       if (!shown(box)) continue;
       const sure = [...box.querySelectorAll<HTMLElement>(CONTROLS)].find(
         (c) => shown(c) && says(c, SURE_IGNORE),

@@ -96,12 +96,19 @@ export function nameFromTitle(title: string): string | null {
   return isNameLike(name) ? name : null;
 }
 
-/** The name on the page's links to this profile, outside the top bar: the one by the tabs, a post's author. */
+/**
+ * The profile's tabs, which link to it too, each with its own words: "All", "About", and words Facebook's own list
+ * doesn't know, as Check-ins (`sk=map`). Never a name: one taken for theirs left Add Friend with their name after it
+ * unmatched, so a friend request said it couldn't tell where things stand (the owner's problem reports of 3 Nov 2026).
+ */
+const TABS = '[role="tablist"], [role="tab"]';
+
+/** The name on the page's links to this profile, outside the top bar and its tabs: the one by the tabs, a post's author. */
 function nameFromLinks(root: Element, address: PageAddress, base: string): string | null {
   if (!address.profile) return null;
   const key = profileKey(address.profile);
   const anchors = [...root.querySelectorAll('a[href]')].filter((anchor) => {
-    if (inTopBar(anchor)) return false;
+    if (inTopBar(anchor) || anchor.closest(TABS)) return false;
     const url = facebookUrl(anchor.getAttribute('href') ?? '', base);
     const profile = url ? profileFromUrl(url) : null;
     return profile !== null && profileKey(profile) === key;

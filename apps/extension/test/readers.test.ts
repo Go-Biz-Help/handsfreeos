@@ -253,6 +253,31 @@ describe('a profile, as Facebook drew it in 2026', () => {
     expect(readPage(doc, url, NOW).profile?.name).toBe('Dana Reyes');
   });
 
+  it('never takes a tab’s words for the name, so Add Friend with their name after it is theirs', () => {
+    // The owner's problem reports of 3 Nov 2026 (0.123.0): a profile with no username, whose tabs all link to it by
+    // its number, no name in the title, and a Check-ins tab, whose word Facebook's own list doesn't know, taken for the
+    // name; Add Friend Dana Reyes then said nothing about "her", so the request couldn't tell where things stood.
+    const byNumber = 'https://www.facebook.com/profile.php?id=100012';
+    const doc = load('profile-2026.html', byNumber);
+    doc.title = 'Facebook';
+    for (const link of doc.querySelectorAll('a[href^="/dana.reyes.12"]')) {
+      const tab = /^\/dana\.reyes\.12\/([a-z_]+)\/?$/.exec(link.getAttribute('href')!)?.[1];
+      link.setAttribute('href', `/profile.php?id=100012${tab ? `&sk=${tab}` : ''}`);
+    }
+    const friends = doc.querySelector('[role="button"][aria-label="Friends"]')!;
+    friends.setAttribute('aria-label', 'Add Friend Dana Reyes');
+    friends.querySelector('span span')!.textContent = 'Add friend';
+    doc
+      .querySelector('[role="tab"][aria-label="More profile tabs"]')!
+      .insertAdjacentHTML(
+        'beforebegin',
+        '<a role="tab" aria-selected="false" href="/profile.php?id=100012&sk=map"><div><span dir="auto">Check-ins</span></div></a>',
+      );
+    const profile = readPage(doc, byNumber, NOW).profile;
+    expect(profile?.name).toBe('Dana Reyes');
+    expect(profile?.friendship).toBe('not_friends');
+  });
+
   it('reads a post that isn’t an article, without the hidden words around it or the empty ones loading', () => {
     expect(result.posts).toEqual([
       {

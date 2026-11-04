@@ -265,7 +265,7 @@ describe('appointment reminders', () => {
     expect(await runAt(one.k.day)).toBe(at(12, '16:00'));
     await runDue(w, [one.k.day]);
     expect(textsTo(w, one.c.phone).at(-1)!.body).toBe(
-      `Reminder from ${BUSINESS}: your AC tune-up is tomorrow, ${dayShort(start, LA)} at 8:00 AM. Dale is coming to 123 Main St. Reply C to confirm.`,
+      `Reminder from ${BUSINESS}: your appointment is tomorrow, ${dayShort(start, LA)} at 8:00 AM. Dale is coming to 123 Main St. Reply C to confirm.`,
     );
   });
 
