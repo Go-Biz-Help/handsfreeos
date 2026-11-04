@@ -395,7 +395,7 @@ became.
   zone) each person who noted a step in the last 14 days and has something on their list hears how much ("6 on your list for today").
   Both are add-on pushes (`pushAddonNotice`), on the person's add-ons switch, and open Today.
 - **Which openers work** (decision 23, `openers.ts`, `ops/openers.ts`): each playbook keeps two or three styles the
-  AI words a first message's one short question in (decision 137), and up to three of the business's own openers,
+  AI words a first message's one short question in (decisions 137 and 152), and up to three of the business's own openers,
   sent as written with the first name filled in. A first message's drafts take the opener the person has used least, and copying one notes which it was
   (`outreach.opener.use`). The Playbooks tab's **Which openers work** card counts, for each, the first messages sent
   with it, who wrote back and who booked a demo; owners and admins see everyone's.
@@ -1048,7 +1048,8 @@ These are settled too:
 46. **Find the fits among the person's friends and chats.** The extension opens each friend's profile, and the
     business page it links to, at a person's pace, about 40 a day; the AI reads what they say with the person's chat
     with them, when there is one, and says whether they fit a playbook, why, what they do and a first step. Those who
-    fit well and haven't heard from the person in a month go on Today as **Reconnect**, with drafts. Friends with a
+    fit well and haven't heard from the person in a month go on Today as **Reconnect**, with drafts (a catch-up, then
+    the first message's question, since decision 152). Friends with a
     chat go first, then friends from the groups, then the rest. It runs with the once-a-day jobs, and from the
     Friends tab's **Check my friends**. Growth part 1. Built.
     - **46a. Research one person from their row.** The owner asked for a **Research** button on person rows (friends,
@@ -1215,7 +1216,7 @@ From the main offer's plan (HANDSFREEOS_MAIN_OFFER_IMPLEMENTATION_PLAN.md, Chris
     comments first). Before a friend request the extension likes one of their posts, and when the post is about their
     work it leaves a short comment too, counted against the comments' limit (extension 0.33.0). Once they accept,
     the **First message** asks straight out whether they'd be open to the main offer's outcome, and says more info
-    follows if so (since decision 137, one short question that makes them curious instead). No message carries the
+    follows if so (since decision 152, one short question that says how the business can help instead). No message carries the
     guarantee (the owner, 2026-10-26: "it made them feel disjointed and unnatural"); a reply gives it only when they ask whether there is one, as the price. A personal line goes first only when the look-up found something real that fits.
     The business's own openers can say `{outcome}` and `{guarantee}`, filled from the offer's words in a few words.
     This replaces decision 47's moment to pitch for new friends; its read (`pitch`) stays for chats that started
@@ -3336,7 +3337,8 @@ where decisions 37 and 59 put the settings; what they decided stands. Settled to
       the contacts to be more straight forward but bring about curiosity", with "If i had something that could make you
       more money while saving you time in your [insert niche] business would you be interested", the niche photography
       or roofing). This replaces decision 65's first message, which asked whether they'd be open to the outcome, said
-      more info would follow, and put a line about them first. No migration, and no new extension.
+      more info would follow, and put a line about them first. No migration, and no new extension. Since decision 152
+      the question opens "Hey" and their first name and names what the offer is, and Reconnect asks it too.
       - **The shape** (`FIRST_MESSAGE_SHAPE`, `FIRST_MESSAGE_EXAMPLE` in `conversation.ts`): one question, under 30
         words, in the owner's words: the owner has something that could make them more money while saving them time,
         in their kind of business, and would they be interested. Nothing goes before or after it: no greeting, no line
@@ -3835,6 +3837,42 @@ where decisions 37 and 59 put the settings; what they decided stands. Settled to
         from the list, keeps them off for good, as anywhere.
       - The extension needs nothing new: it reads Today again within the hour while it waits (`IDLE_MS`), so an OK
         given after the day started is worked that hour. A chat with nobody kept for it yet waits for the person.
+152.  **First messages say how the business can help, and Reconnect asks it too** (Chris, 4 Nov 2026: "the social
+      outreach tool seemed to still be using the old method of seeing how their business was doing and starting a
+      conversation, what should be doing is saying how we can help them", with "Hey, if I could get you more deals
+      while also saving you time for your [insert business niche] business using my easy to use crm software would you
+      be interested?"). The old way was Reconnect's ("asks how they are or how their work is going. Don't pitch yet"),
+      which decision 137 left out, and the check's first step ("Ask how the new shop is going") going into every
+      draft. He picked 1b (Reconnect too, as "the catch up message and then immediately … I was wondering if i could
+      get you more deals…"), 2a (name what it is: "feels more straightforward") and 3b ("Hey [first name],"). This
+      replaces decision 137's question. No migration, and no new extension.
+      - **The first message** (`FIRST_MESSAGE_SHAPE`, `FIRST_MESSAGE_EXAMPLE` in `conversation.ts`): one question,
+        under 35 words, in the owner's words: "Hey" and their first name (just "Hey," when their name isn't a
+        person's), if the owner could get them what the offer really does, for their kind of business, using what the
+        offer is, would they be interested. "Hey Sam, if I could get you more deals while also saving you time for your
+        roofing business using my easy to use CRM software, would you be interested?" What it is comes from the offer,
+        in a few plain words ("my roof inspections", "my credit repair program"), never its brand name, how it works, a
+        link or the price; an offer that doesn't bring deals or save time says what it does get them, and one for
+        people rather than businesses leaves out "for your … business", as decision 137 said. Nothing else goes before
+        or after it. Their kind of business is still `THEIR_KIND`. Every first message: Today's drafts, the one text to
+        someone's Requests on Instagram, and Your messages' first samples, still as one text.
+      - **Reconnect** (`TASK.reconnect` in `today.ts`, `RECONNECT_QUESTION_SHAPE`): a short, warm catch-up that greets
+        them by first name, says it's been a while and hopes they and their work are doing well, from their pages or
+        the chat ("Hey Mike, it's been a while! Hope the new shop is keeping you busy."), then right after it the same
+        question opening "I was wondering if I could …". The catch-up asks nothing of its own, so the question is the
+        message's only one, as every draft asks at most one. Two texts when the person sends a few
+        (Settings → General, "Send a message as a few short texts"), else one message; the greeting is the catch-up's,
+        never a text of its own. Its drafts are told the main offer now, and the message goes with the offer's version.
+        It starts the conversation at the first message (`noteSent`) for someone in none yet, so a yes gets the video or
+        the link and silence gets the follow-ups, as after any first message; someone mid-conversation keeps theirs.
+      - **Not to someone who said no** (decision 134): marked not a fit, answered no or not now, or their chat read as
+        not interested, Reconnect only catches up, as before (`RECONNECT_CATCH_UP`), with nothing that pitches, and
+        starts no conversation (`turnedDown`).
+      - **The check's first step** (`firstStepFact`) still goes into Reconnect's catch-up and the other drafts, never a
+        first message. The ready-made CRM playbook's first style is now "Say it could get them more deals while saving
+        them time"; a playbook saved before keeps its styles, which only word the question. The AI's playbook help
+        suggests openers in the new shape, and the main offer builder's preview reads "Hey Sam, if I could get you … for
+        your business, would you be interested?". The business's own openers still go as written.
 
 ## Rules worth knowing before changing anything
 

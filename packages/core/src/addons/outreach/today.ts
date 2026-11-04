@@ -15,13 +15,15 @@
  *   requests. A profile with no post to like goes without.
  * - **Confirm their request** (decision 30): friend requests the person got from people who fit a playbook well.
  * - **First message** (decision 65, ./conversation.ts): new friends who accepted the person's request a day or more
- *   ago (the playbook's pace) and haven't had a message yet. It asks straight out about the main offer. On a follow
- *   network (Instagram's) a follow-back is the accepting; someone who hasn't followed back in 3 days (its kit's
+ *   ago (the playbook's pace) and haven't had a message yet. It asks straight out whether the main offer would help
+ *   them (decision 152). On a follow network (Instagram's) a follow-back is the accepting; someone who hasn't followed
+ *   back in 3 days (its kit's
  *   `requestsMessageAfterDays`) gets one short message, marked as going to their Requests (`requests`): no link, no
  *   video, one text, and at most 5 of the day's first messages (`requestsMessagesPerDay`). No follow-up goes in a chat
  *   they haven't answered or accepted.
  * - **Reconnect** (decision 46): friends and people they've chatted with whom the AI found a good fit (./checks.ts),
- *   when neither side has written for a month. They count against the first messages.
+ *   when neither side has written for a month: a short catch-up, then the first message's question (decision 152).
+ *   They count against the first messages.
  * - **Send the video** (decision 66): someone who said yes to the first message, when the playbook has a video.
  * - **Send the link** (decisions 47 and 66): someone who said yes to the video (or to the first message, with no
  *   video), or whose chat the AI read as ready for the offer, or the person marked ready, until the link goes or the
@@ -66,6 +68,7 @@ import {
   ANSWER_KEYS,
   CONVERSATION_STEPS,
   FIRST_MESSAGE_SHAPE,
+  RECONNECT_QUESTION_SHAPE,
   type Answer,
   type ConversationStep,
   type OwnWords,
@@ -706,16 +709,17 @@ export interface DraftConversation {
 }
 
 /**
- * Their kind of business in a first message (decision 137): from what's known of them, as they'd say it, and never
- * guessed.
+ * Their kind of business in a first message and Reconnect's question (decisions 137 and 152): from what's known of
+ * them, as they'd say it, and never guessed.
  */
 const THEIR_KIND =
   'Where the question names their business, name its kind from the facts or their pages in a word or two, as they’d say it (roofing, real estate, photography); when they run more than one, the one the offer fits best. When those don’t show it, say “your business”, and when they work for someone else, put it as their line of work (“as a realtor”). Never guess it from the playbook.';
 
 const TASK: Record<CustomerDraftKind, string> = {
   opener: `They just accepted the owner’s friend request. Write the first message as ${FIRST_MESSAGE_SHAPE} ${THEIR_KIND}`,
-  reconnect:
-    'They’re already the owner’s friend or have chatted before, but neither has written in a while. Write a short, warm message that picks things up again from what their pages say or what the chat was about, and asks how they are or how their work is going. Don’t pitch yet.',
+  // A catch-up, then why the owner is writing (decision 152): the question is the message's only one, as every draft
+  // asks at most one. One who turned the offer down only catches up (`RECONNECT_CATCH_UP`).
+  reconnect: `They’re already the owner’s friend or have chatted before, but neither has written in a while. Write a short, warm catch-up, then right after it why the owner is writing. The catch-up greets them by first name, says it’s been a while and hopes they and their work are doing well, picking up something from what their pages say or what the chat was about (“Hey Mike, it’s been a while! Hope the new shop is keeping you busy.”), with no question of its own, so the only question is the one after it. Then the question: ${RECONNECT_QUESTION_SHAPE} ${THEIR_KIND}`,
   pitch:
     'They’re ready for a call: they said yes, or the chat shows they need what the business offers and seem open to it. Write a short message that answers where the chat left off when it needs it, then gives the link to book a quick call and one line on what they’ll get from it: a plan for their business, with their numbers. No pressure.',
   video:
@@ -744,6 +748,20 @@ const TASK: Record<CustomerDraftKind, string> = {
   group_reply:
     'They asked this in a Facebook group the owner is in. Write the owner’s public reply under it, as a friendly neighbour would: answer what they asked, or add something useful from what the owner knows. Nothing about the business unless they asked for what it does, and no pitch, no link and no web address. Under 40 words. When there’s nothing useful the owner could honestly add, write no drafts.',
 };
+
+/**
+ * The check's first step for them ("Ask how the new shop is going", ./checks.ts) as a draft's fact: for Reconnect's
+ * catch-up and the rest, never a first message, which is the owner's question and nothing else (decision 152).
+ */
+export const firstStepFact = (kind: DraftKind, step: string | null | undefined): string | null =>
+  step && kind !== 'opener' ? `A good first step: ${step}` : null;
+
+/**
+ * Reconnect to someone who told the owner no, or not now, before (decision 134): only the catch-up, as Reconnect was
+ * before decision 152, with nothing that pitches.
+ */
+export const RECONNECT_CATCH_UP =
+  'They’re already the owner’s friend or have chatted before, but neither has written in a while. Write a short, warm message that picks things up again from what their pages say or what the chat was about, and asks how they are or how their work is going. Don’t pitch.';
 
 /**
  * A first message on a follow network (Instagram's) to someone who hasn't followed the owner back (`TodayItem.requests`):
@@ -903,7 +921,13 @@ export const knowsFor = (kind: DraftKind): boolean => KNOWS_KINDS.has(kind);
  * The kinds a draft is told someone turned the offer down for (decision 134): the ones that carry on the conversation
  * where it is. The next step after a yes is theirs to have, whatever they said before.
  */
-const DECLINED_KINDS: ReadonlySet<DraftKind> = new Set(['reply', 'follow_up', 'check_in']);
+const DECLINED_KINDS: ReadonlySet<DraftKind> = new Set([
+  'reply',
+  'follow_up',
+  'check_in',
+  // Reconnect only catches up with them (decision 152, `RECONNECT_CATCH_UP`).
+  'reconnect',
+]);
 
 /** Whether a kind of draft is told they turned the offer down. */
 export const declinedFor = (kind: DraftKind): boolean => DECLINED_KINDS.has(kind);
@@ -920,9 +944,13 @@ export function declinedLine(why: string | null): string {
   ].join(' ');
 }
 
-/** The kinds a draft is told the main offer for: the conversation's. Reconnect's drafts stay without a pitch. */
+/**
+ * The kinds a draft is told the main offer for: the conversation's, and Reconnect's, whose question after the catch-up
+ * is the first message's (decision 152).
+ */
 const OFFER_KINDS: ReadonlySet<DraftKind> = new Set([
   'opener',
+  'reconnect',
   'video',
   'pitch',
   'follow_up',
@@ -944,8 +972,8 @@ export function todayDraftPrompt(input: {
   readonly recent: readonly DownloadMessage[];
   readonly playbook: DraftPlaybook | null;
   /**
-   * The main offer they were pitched with, or the live one: every message but a warm lead and Reconnect, and only its
-   * angle for a comment.
+   * The main offer they were pitched with, or the live one: every message but a warm lead, and only its angle for a
+   * comment.
    */
   readonly offer?: DraftOffer | null;
   /** Where they are in the conversation, for a follow-up, a check-in or a reply. */
@@ -1005,6 +1033,10 @@ export function todayDraftPrompt(input: {
   // A message in Messenger can go as a few texts; a comment is one, in public, and so is a first message: one short
   // question (decision 137), to their Requests or not.
   const texts = isMessageKind(input.kind) && input.kind !== 'opener';
+  // Reconnect is its catch-up, then its question (decision 152): two texts when the person sends a few, else one
+  // message. One to someone who turned the offer down only catches up.
+  const catchUp = input.kind === 'reconnect' && declined !== null;
+  const twoTexts = input.kind === 'reconnect' && !catchUp;
   const playbook = p
     ? [
         `Name: ${p.name}`,
@@ -1030,8 +1062,8 @@ export function todayDraftPrompt(input: {
         .filter(Boolean)
         .join('\n')
     : 'None yet: keep it friendly and simple.';
-  // The main offer's words, for the conversation's messages; a public comment gets only its angle (decision 144), and
-  // Reconnect waits.
+  // The main offer's words, for the conversation's messages and Reconnect's question (decision 152); a public comment
+  // gets only its angle (decision 144).
   const angle = ANGLE_KINDS.has(input.kind);
   const o = OFFER_KINDS.has(input.kind) || angle ? (input.offer ?? null) : null;
   const offer = o
@@ -1093,7 +1125,9 @@ export function todayDraftPrompt(input: {
     input.post ? `<post>\n${quoteData(input.post.text)}\n</post>` : null,
     requests
       ? REQUESTS_TASK
-      : taskOn(input.kind, input.platform ?? 'facebook', !!input.post?.group),
+      : catchUp
+        ? inNetworkWords(RECONNECT_CATCH_UP, input.platform ?? 'facebook')
+        : taskOn(input.kind, input.platform ?? 'facebook', !!input.post?.group),
     where,
     declined ? declinedLine(declined.why) : null,
     useful,
@@ -1115,10 +1149,11 @@ export function todayDraftPrompt(input: {
       ? `Word the question in this style, as far as it fits one short question with nothing added: ${quoteData(input.opener.text)}`
       : null,
     ...ownLines(input.own ?? null, requests),
-    voiceLines(voice, texts),
+    voiceLines(voice, texts, twoTexts),
     texts
       ? gapLine(input.lastAt ?? lastOf(input.recent), input.now ?? Date.now(), {
-          split: voice.split,
+          // Reconnect's greeting is its catch-up's: the question is the second text.
+          split: voice.split && !twoTexts,
           theyWroteLast: input.recent.at(-1)?.fromMe === false,
         })
       : null,

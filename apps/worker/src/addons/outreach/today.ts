@@ -67,6 +67,7 @@ import {
   draftOfferOf,
   demoWhen,
   DRAFTS_FOR,
+  firstStepFact,
   fitsComment,
   fitsGroupReply,
   fitsOccasion,
@@ -326,7 +327,8 @@ export const todayDraft: AddonWorkerAction<TodayDraftInput> = {
       ...(found.profile?.group ? [`Found in the group ${found.profile.group}`] : []),
       ...(found.check?.about ? [found.check.about] : []),
       ...(found.check?.why ?? []),
-      ...(found.check?.next_step ? [`A good first step: ${found.check.next_step}`] : []),
+      // Never in a first message, which is the owner's question and nothing else (decision 152).
+      ...[firstStepFact(input.kind, found.check?.next_step)].filter((f): f is string => f !== null),
     ];
     const kept = found.playbooks.flatMap((p) => {
       const read = PlaybookDetails.safeParse(upgradePlaybookDetails(p.details));

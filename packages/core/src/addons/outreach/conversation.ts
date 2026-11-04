@@ -2,9 +2,11 @@
  * The conversation after someone accepts (docs/outreach.md, decisions 65 to 68; the main offer plan's "The
  * conversation"): the video's three steps, after a warm-up, on Facebook.
  *
- * 1. **First message** (`opener`): one short, straight question that makes them curious, in the owner's words, with
- *    their kind of business put in (decision 137, `FIRST_MESSAGE_SHAPE`). No message carries the guarantee (the owner,
- *    2026-10-26: it read disjointed): a reply gives it only when they ask whether there is one.
+ * 1. **First message** (`opener`): one short, straight question that says how the owner can help them, in the owner's
+ *    words, with their first name, their kind of business and what the offer is put in (decisions 137 and 152,
+ *    `FIRST_MESSAGE_SHAPE`). Reconnect asks it too, right after a short catch-up (`RECONNECT_QUESTION_SHAPE`). No message
+ *    carries the guarantee (the owner, 2026-10-26: it read disjointed): a reply gives it only when they ask whether there
+ *    is one.
  * 2. **Send the video** (`video`): to someone who said yes, the playbook's short video and a line selling the call.
  *    A playbook with no video yet skips it.
  * 3. **Send the link** (`pitch`): to someone who wants the call, the booking link (decision 24).
@@ -399,15 +401,24 @@ export const AnswerNoteOutput = z.object({ noted: z.boolean() });
 // ---- Writing the samples (the worker's `outreach.messages.samples`) ----
 
 /**
- * What a first message is (decision 137, the owner, 30 Oct 2026, replacing decision 65's): one short, straight question
- * that makes them curious, in the owner's own words, with their kind of business put in. Your messages' samples and
- * Today's drafts (./today.ts) are written to it.
+ * What a first message is (decision 152, the owner, 4 Nov 2026, after decision 137's): one short, straight question
+ * that says how the owner can help them, in the owner's own words, with their first name, their kind of business and
+ * what the offer is put in. Your messages' samples and Today's drafts (./today.ts) are written to it, and Reconnect
+ * asks the same after its catch-up (`RECONNECT_QUESTION_SHAPE`).
  */
 export const FIRST_MESSAGE_EXAMPLE =
-  'If I had something that could make you more money while saving you time in your photography business, would you be interested?';
-/** The most words in a first message: the owner's example has 22. */
-export const FIRST_MESSAGE_WORDS = 30;
-export const FIRST_MESSAGE_SHAPE = `one short, straight question, under ${FIRST_MESSAGE_WORDS} words, that makes them curious enough to say yes: the owner has something that could get them what the offer really does, put broadly rather than in the offer’s words, in their kind of business, and would they be interested. Like: “${FIRST_MESSAGE_EXAMPLE}” Keep close to those words, but say only what the offer really does: when it doesn’t make them money or save them time, put what it does get them in a few plain words instead (“bring more customers to your roofing business from Google”, “help raise your credit score”). When the offer is for people rather than businesses, leave out “in your … business” and fit the question to them. Never say what the thing is, how it works, its name, a link or the price, and put nothing before or after the question: no greeting, no line about them, no promise of more info.`;
+  'Hey Sam, if I could get you more deals while also saving you time for your roofing business using my easy to use CRM software, would you be interested?';
+/** Reconnect's question after its catch-up (decision 152): why the owner is writing, in the owner's words. */
+export const RECONNECT_QUESTION_EXAMPLE =
+  'I was wondering if I could get you more deals while also saving you time for your roofing business using my easy to use CRM software, would you be interested?';
+/** The most words in a first message: the owner's example has 29. */
+export const FIRST_MESSAGE_WORDS = 35;
+/** What the question says, wherever it's asked: only what the offer really does and is, in a few plain words. */
+const QUESTION_RULES =
+  'Keep close to those words, but say only what the offer really does and what it really is. When it doesn’t get them more deals or save them time, put what it does get them in a few plain words instead (“bring more customers to your roofing business from Google”, “help raise your credit score”). Name what it is the way the offer does, in a few plain words (“my easy to use CRM software”, “my roof inspections”, “my credit repair program”), never by its brand name. When the offer is for people rather than businesses, leave out “for your … business” and fit the question to them. Never say how it works, a link or the price, and never promise more info.';
+export const FIRST_MESSAGE_SHAPE = `one short, straight question, under ${FIRST_MESSAGE_WORDS} words, that says how the owner can help them: “Hey” and their first name, then if the owner could get them what the offer really does, put broadly rather than in the offer’s words, for their kind of business, using what the offer is, would they be interested. Like: “${FIRST_MESSAGE_EXAMPLE}” ${QUESTION_RULES} Their first name is the first word of their name when it reads as a person’s first name; when it doesn’t (a business’s page, initials), start with just “Hey,”. Put nothing else before or after the question: no line about them.`;
+/** Reconnect's question (decision 152): sent right after its catch-up, so it opens with no greeting of its own. */
+export const RECONNECT_QUESTION_SHAPE = `one short, straight question, under ${FIRST_MESSAGE_WORDS} words, that says why the owner is writing: “I was wondering if” the owner could get them what the offer really does, put broadly rather than in the offer’s words, for their kind of business, using what the offer is, would they be interested. Like: “${RECONNECT_QUESTION_EXAMPLE}” ${QUESTION_RULES}`;
 /** A sample's kind of business: the made-up person's, from the playbook's niche. */
 const NICHE_KIND = 'Put in the kind of business the playbook’s niche runs, in a word or two.';
 

@@ -55,8 +55,11 @@ export function voiceSample(voice: Voice): string[] {
   return voice.split ? [greeting, point] : [`${greeting} ${point}`];
 }
 
-/** What a message or comment is told about the person's own voice. `texts` when it can go as several texts. */
-export function voiceLines(voice: Voice, texts: boolean): string {
+/**
+ * What a message or comment is told about the person's own voice. `texts` when it can go as several texts, and
+ * `two` when those are two: Reconnect's catch-up, then its question (decision 152).
+ */
+export function voiceLines(voice: Voice, texts: boolean, two = false): string {
   return [
     voice.shorthand
       ? 'Text like a friend would: short forms like u, ur, thx, pls and gonna are good.'
@@ -66,7 +69,9 @@ export function voiceLines(voice: Voice, texts: boolean): string {
       : 'No text acronyms like lol or btw.',
     voice.emoji ? 'An emoji fits now and then: one at most.' : 'No emoji.',
     texts && voice.split
-      ? `Write it the way people text: 1 to ${PARTS_MOST} short texts, with a blank line between texts. Each text is one thought, like a greeting, then the point.`
+      ? two
+        ? 'Write it as two short texts, with a blank line between them.'
+        : `Write it the way people text: 1 to ${PARTS_MOST} short texts, with a blank line between texts. Each text is one thought, like a greeting, then the point.`
       : 'Write it as one message, with no blank lines.',
   ].join('\n');
 }

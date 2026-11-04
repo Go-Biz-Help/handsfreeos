@@ -359,9 +359,10 @@ export const PlaybookDetails = z
     /** A few of the business's own messages, for the AI to sound like. */
     samples: lines(PLAYBOOK_LIMITS.samples),
     /**
-     * How first messages open (decision 23): styles the AI words its one short question in ("Say it could make them
-     * more money while saving them time", decision 137), and the business's own openers, sent as written. Drafts take
-     * turns with them (./openers.ts), so the results card can say which work. A playbook saved before them has none.
+     * How first messages open (decision 23): styles the AI words its one short question in ("Say it could get them
+     * more deals while saving them time", decisions 137 and 152), and the business's own openers, sent as written.
+     * Drafts take turns with them (./openers.ts), so the results card can say which work. A playbook saved before them
+     * has none.
      */
     openerStyles: lines(PLAYBOOK_LIMITS.openerStyles)
       .refine(distinct, 'Each style once.')
@@ -514,7 +515,7 @@ const TEMPLATES = {
       steps: ['connect', 'engage', 'message', 'follow_up'],
       tone: 'Friendly and curious, one owner to another. Short messages, no hard sell.',
       openerStyles: [
-        'Say it could make them more money while saving them time.',
+        'Say it could get them more deals while saving them time.',
         'Say it could stop leads slipping through the cracks.',
         'Say it could give them their evenings back.',
       ],

@@ -247,7 +247,8 @@ export const MAIN_OFFER_WORDS = {
   forMessagesHint:
     'A few words each. A first message carries the outcome, and a reply gives the guarantee when someone asks about one. Messages never say the price.',
   previewTitle: 'How a first message will read',
-  previewNote: 'Social Outreach writes each one, with something real about them first',
+  previewNote:
+    'Social Outreach writes each one with their name, their kind of business and what you offer',
   scoreIt: 'Score my offer',
   scoreAgain: 'Score again',
   scoring: 'Scoring…',
@@ -585,11 +586,11 @@ export function offerRowLine(offer: {
 }
 
 /**
- * How a first message carries the offer, for the builder's preview: the workbook's script, with the outcome in a few
- * words and no guarantee (docs/outreach.md, decision 65). Social Outreach writes the real ones, with something about
- * the person first.
+ * How a first message carries the offer, for the builder's preview: one short question with the outcome in a few words
+ * and no guarantee (docs/outreach.md, decision 152). Social Outreach writes the real ones, with their first name, their
+ * kind of business and what the offer is put in.
  */
 export function firstMessagePreview(outcome: string): string {
   const o = outcome.trim() || '[the outcome]';
-  return `Just reaching out to see if you’d be open to ${o}? If so, let me know and I’ll send more info.`;
+  return `Hey Sam, if I could get you ${o} for your business, would you be interested?`;
 }
