@@ -43,9 +43,9 @@ export const PROBLEM_FIXES: readonly ProblemFix[] = [
     area: 'facebook',
     job: 'friend_request',
     note: 'Facebook says it couldn’t tell where things stand',
-    fixedIn: '0.126.1',
-    pr: 500,
-    said: 'On a profile with no username, a tab’s word (Check-ins) was taken for the name, so Add Friend with their name didn’t count.',
+    fixedIn: '0.126.3',
+    pr: 510,
+    said: 'A tab’s word was taken for the name on profiles with no username (0.126.1, #500); and a profile with no Add friend at all, only Message or Follow, read as a page it couldn’t read: it’s passed over now.',
   },
   {
     area: 'linkedin',
@@ -62,6 +62,30 @@ export const PROBLEM_FIXES: readonly ProblemFix[] = [
     fixedIn: '0.126.2',
     pr: 506,
     said: 'A reply seen by name alone went on Today with no chat to open, so the AI answered a chat that ended with your own message.',
+  },
+  {
+    area: 'linkedin',
+    job: 'friend_request',
+    note: 'Sent (their name) an invitation to connect',
+    fixedIn: '0.126.3',
+    pr: 510,
+    said: 'More’s menu shows outside the top card now, so Connect under More was pressed only by the AI helper; the runner looks in that menu itself.',
+  },
+  {
+    area: 'linkedin',
+    job: 'post_people.count',
+    note: 'No reactions count on the post to open who reacted.',
+    fixedIn: '0.126.3',
+    pr: 510,
+    said: 'A post minutes old with no reactions was reported; it’s reported only when HandsFreeOS saw reactions on it.',
+  },
+  {
+    area: 'alignable',
+    job: 'post_people.likers',
+    note: 'Couldn’t open the post’s box of who liked it.',
+    fixedIn: '0.126.3',
+    pr: 510,
+    said: 'On a group’s own discussion page (/groups/<group>/<discussion>) the count of likes was never pressed: only /biz/discussions counted.',
   },
 ];
 
