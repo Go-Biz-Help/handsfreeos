@@ -88,6 +88,8 @@ export function DemoDirector({
   /** A scene asked for in the address (`?demo=<scene>`), loaded once the player is ready. */
   const [asked, setAsked] = useState<string | null>(null);
   const busyRef = useRef(false);
+  // A scene still loading: Space pressed meanwhile plays its first step once it's ready, rather than doing nothing.
+  const loadingRef = useRef<Promise<void> | null>(null);
   const stateRef = useRef(state);
   stateRef.current = state;
 
@@ -243,6 +245,7 @@ export function DemoDirector({
   };
 
   const next = useCallback(async () => {
+    if (loadingRef.current) await loadingRef.current;
     const s = stateRef.current;
     const sc = s ? findScene(s.scene) : null;
     if (!s || !sc || busyRef.current) return;
@@ -287,6 +290,8 @@ export function DemoDirector({
       if (busyRef.current) return;
       busyRef.current = true;
       setBusy(true);
+      let loaded = () => {};
+      loadingRef.current = new Promise<void>((resolve) => (loaded = resolve));
       const before = stateRef.current?.scene ?? null;
       try {
         // Made-up messages sign off with the business's own teammate's name.
@@ -329,6 +334,8 @@ export function DemoDirector({
       } finally {
         busyRef.current = false;
         setBusy(false);
+        loadingRef.current = null;
+        loaded();
       }
     },
     [businessName, me, router, timeZone, workspaceId],
