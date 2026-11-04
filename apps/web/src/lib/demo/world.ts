@@ -1,4 +1,4 @@
-import type { ConversationHandoffReason } from '@hfos/core';
+import type { AssistantCard, ConversationHandoffReason } from '@hfos/core';
 import type { DemoState } from './state';
 
 /**
@@ -162,11 +162,15 @@ export interface DemoInvoice {
   readonly dueOn: string;
 }
 
-/** One scripted answer from the Assistant: what it says it's doing, its words, then a card. */
+/**
+ * One scripted answer from the Assistant: what it says it's doing, what it looked up (`shows`: the cards a look-up
+ * returns, like what you're owed or a day's appointments), its words, then a card for each thing it asks to do.
+ */
 export interface DemoAnswer {
   readonly steps: readonly { readonly id: string; readonly label: string }[];
+  readonly shows?: readonly AssistantCard[];
   readonly text: string;
-  readonly card?: DemoConfirmCard;
+  readonly cards?: readonly DemoConfirmCard[];
 }
 
 export interface DemoConfirmCard {
@@ -175,10 +179,20 @@ export interface DemoConfirmCard {
   readonly title: string;
   readonly fields: readonly { readonly label: string; readonly value: string }[];
   readonly confirmLabel: string;
+  /** A text or email's words, under the fields. */
+  readonly body?: string;
   readonly note?: string;
   /** What Confirm says it did, and the page it opens (in the business, e.g. `campaigns/<id>`). */
   readonly outcome: string;
   readonly opens?: string;
+}
+
+/** A service the business offers, added from Ask HandsFreeOS. */
+export interface DemoService {
+  readonly id: string;
+  readonly name: string;
+  readonly minutes: number;
+  readonly priceCents: number;
 }
 
 export interface DemoWorld {
@@ -188,6 +202,7 @@ export interface DemoWorld {
   readonly campaigns: DemoCampaign[];
   readonly estimates: DemoEstimate[];
   readonly invoices: DemoInvoice[];
+  readonly services: DemoService[];
   /** What the Assistant answers the next question with; null leaves questions to the real Assistant. */
   answer: DemoAnswer | null;
   /** Every card the scene has shown, by tool call id, for Confirm. */

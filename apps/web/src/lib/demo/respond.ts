@@ -14,6 +14,7 @@ import {
   type DemoEstimate,
   type DemoInvoice,
   type DemoLine,
+  type DemoService,
   type DemoWorld,
 } from './world';
 
@@ -604,7 +605,7 @@ function confirmCard(c: DemoConfirmCard): AssistantCard {
     conversationId: null,
     title: c.title,
     fields: [...c.fields],
-    body: null,
+    body: c.body ?? null,
     stageFrom: null,
     stageTo: null,
     warnings: c.note ? [{ kind: 'note', text: c.note }] : [],
@@ -649,7 +650,7 @@ function savedChat(w: DemoWorld): Ok<'/v1/queries/assistant_thread.get'> {
         id: demoId(0xc001 + i * 2),
         role: 'assistant' as const,
         text: t.answer.text,
-        cards: t.answer.card ? [confirmCard(t.answer.card)] : [],
+        cards: [...(t.answer.shows ?? []), ...(t.answer.cards ?? []).map(confirmCard)],
         createdAt: iso(t.at + 4000),
       },
     ]),
@@ -658,7 +659,10 @@ function savedChat(w: DemoWorld): Ok<'/v1/queries/assistant_thread.get'> {
   };
 }
 
-/** The scripted answer, streamed as the worker streams one: the steps, the words a few at a time, then the card. */
+/**
+ * The scripted answer, streamed as the worker streams one: the steps, what it looked up, the words a few at a time,
+ * then a card for each thing it asks to do.
+ */
 function stream(w: DemoWorld, signal: AbortSignal | null | undefined): Response {
   const a = w.answer!;
   const events: { wait: number; event: AssistantEvent }[] = [
@@ -671,10 +675,12 @@ function stream(w: DemoWorld, signal: AbortSignal | null | undefined): Response 
     });
     events.push({ wait: 1100, event: { type: 'step', id: s.id, label: s.label, status: 'done' } });
   }
+  for (const card of a.shows ?? []) events.push({ wait: 250, event: { type: 'card', card } });
   const words = a.text.split(/(?<= )/);
   for (let i = 0; i < words.length; i += 2)
     events.push({ wait: 70, event: { type: 'text', delta: words.slice(i, i + 2).join('') } });
-  if (a.card) events.push({ wait: 400, event: { type: 'card', card: confirmCard(a.card) } });
+  for (const card of a.cards ?? [])
+    events.push({ wait: 400, event: { type: 'card', card: confirmCard(card) } });
   events.push({ wait: 100, event: { type: 'done', messageId: ANSWER } });
   const encoder = new TextEncoder();
   const body = new ReadableStream<Uint8Array>({
@@ -688,6 +694,30 @@ function stream(w: DemoWorld, signal: AbortSignal | null | undefined): Response 
     },
   });
   return new Response(body, { status: 200, headers: { 'content-type': 'text/event-stream' } });
+}
+
+type ServiceItem = Ok<'/v1/queries/service.list'>['items'][number];
+const SERVICE_COLORS = ['#2563eb', '#0d9488', '#d97706', '#7c3aed'];
+
+/** A service added in the scene, as Settings → Calendars → Services lists it: anyone on the team can do it. */
+function serviceRow(s: DemoService, i: number): ServiceItem {
+  return {
+    id: s.id,
+    name: s.name,
+    description: null,
+    durations: [s.minutes],
+    defaultDuration: s.minutes,
+    bufferBefore: 0,
+    bufferAfter: 15,
+    color: SERVICE_COLORS[i % SERVICE_COLORS.length]!,
+    priceCents: s.priceCents,
+    repeatMonths: null,
+    locationKinds: [],
+    staffUserIds: [],
+    resources: [],
+    hours: null,
+    archivedAt: null,
+  };
 }
 
 const findConversation = (w: DemoWorld, id: unknown) =>
@@ -860,6 +890,16 @@ export async function demoResponse(
     case 'campaign.get': {
       const found = w.campaigns.find((x) => x.id === body['campaignId']);
       return found ? json(campaign(found)) : null;
+    }
+    case 'service.list': {
+      if (!w.services.length) return null;
+      const res = await real();
+      if (!res.ok) return res;
+      const got = (await res.json()) as Ok<'/v1/queries/service.list'>;
+      // A real service of the same name gives way to the scene's, so the list never shows it twice.
+      const mine = w.services.map(serviceRow);
+      const items = [...got.items.filter((s) => !mine.some((m) => m.name === s.name)), ...mine];
+      return json({ ...got, items: items.sort((a, b) => a.name.localeCompare(b.name)) });
     }
   }
   if (!names) return null;

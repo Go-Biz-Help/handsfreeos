@@ -151,3 +151,55 @@ test('demo player: calls, website chats, hand-offs to you, and a quote that beco
     await expect(page.getByText(name)).toHaveCount(0);
   }
 });
+
+test('demo player: Ask HandsFreeOS sets up services, chases what’s owed, moves a job and asks for reviews', async ({
+  page,
+}) => {
+  test.setTimeout(420_000);
+  const workspaceId = await staffBusiness(page, 'demo-assistant');
+  await page.goto(`/app/w/${workspaceId}?demo`);
+  await expect(director(page)).toBeVisible();
+  const thread = page.getByTestId('conversation');
+
+  // Scene 8: hours and three services from one sentence, a card for each, then the services page.
+  await pick(page, 'business-setup', 'Open Ask HandsFreeOS');
+  await play(page, 5);
+  await expect(page).toHaveURL(/\/settings\/calendars\/services/);
+  for (const name of ['Drain cleaning', 'Water heater flush', 'Leak repair'])
+    await expect(page.getByTestId(`service-row-${name}`)).toBeVisible();
+  await expect(page.getByTestId('service-editor')).toContainText('Leak repair');
+
+  // Scene 9: what's owed, a text for each late one, and the first one answers.
+  await pick(page, 'money-owed', 'Open Ask HandsFreeOS');
+  await play(page, 5);
+  await expect(page).toHaveURL(/\/inbox\/de300000-/);
+  await expect(thread.getByText(/Just a friendly nudge on invoice INV-1162/)).toBeVisible();
+  await expect(
+    thread.getByText('So sorry, that one slipped by me. Paying it tonight!'),
+  ).toBeVisible();
+
+  // Scene 10: tomorrow's jobs, one moved on a card, and the customer told.
+  await pick(page, 'my-day', 'Open Ask HandsFreeOS');
+  await play(page, 5);
+  await expect(thread.getByText(/Your appointment is now/)).toBeVisible();
+  await expect(thread.getByText(/Friday works even better/)).toBeVisible();
+  await expect(page.getByTestId('context-panel').getByText('Water heater install')).toBeVisible();
+
+  // Scene 11: a thank-you with the review link for each job done, and five stars back.
+  await pick(page, 'review-requests', 'Open Ask HandsFreeOS');
+  await play(page, 4);
+  await expect(thread.getByText(/would you leave us a quick review\?/)).toBeVisible();
+  await expect(thread.getByText('Done! Five stars.', { exact: false })).toBeVisible();
+
+  // None of it was ever saved.
+  await page.getByTestId('demo-exit').click();
+  await expect(director(page)).toHaveCount(0);
+  await page.goto(`/app/w/${workspaceId}/settings/calendars/services`);
+  await expect(page.getByTestId('services')).toBeVisible();
+  await expect(page.getByTestId('service-row-Leak repair')).toHaveCount(0);
+  await page.goto(`/app/w/${workspaceId}/inbox`);
+  await expect(page.getByRole('heading', { name: 'Inbox' })).toBeVisible();
+  for (const name of ['Gary Holt', 'Dave Johnson', 'Linda Park']) {
+    await expect(page.getByText(name)).toHaveCount(0);
+  }
+});

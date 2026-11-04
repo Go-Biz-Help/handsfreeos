@@ -109,6 +109,7 @@ export function DemoDirector({
     return {
       workspaceId,
       me,
+      timeZone,
       async go(path) {
         const href = pageOf(path);
         if (window.location.pathname === href) return;
@@ -125,6 +126,10 @@ export function DemoDirector({
         await pointAt(await waitFor(target));
       },
       openAssistant,
+      async closeAssistant() {
+        assistantRef.current.setOpen(false);
+        await sleep(300);
+      },
       async ask(question) {
         if (!assistantRef.current.open) await openAssistant();
         const box = await waitFor('[data-testid="assistant-composer"] textarea');
@@ -156,7 +161,7 @@ export function DemoDirector({
       waitFor,
       wait: sleep,
     };
-  }, [me, router, workspaceId]);
+  }, [me, router, timeZone, workspaceId]);
 
   /** Keys come back to the player after a step: a step that focused a box would otherwise take the next Space. */
   const settle = () => {
