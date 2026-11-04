@@ -43,6 +43,8 @@ const LiveContext = createContext<LiveContextValue>({
 });
 
 const POLL_MS = 60_000;
+/** A change this tab makes up and tells only itself about (the demo player's scenes, lib/demo). */
+const LOCAL_CHANGE_EVENT = 'hfos:local-change';
 const MAX_BACKOFF_MS = 30_000;
 const MAX_WAIT_MS = 5_000;
 
@@ -165,12 +167,15 @@ export function LiveProvider({
       if (!channel) scheduleReconnect();
     };
     document.addEventListener('visibilitychange', onVisible);
+    const onLocal = (e: Event) => notify((e as CustomEvent<LiveChange>).detail);
+    window.addEventListener(LOCAL_CHANGE_EVENT, onLocal);
     void connect();
 
     return () => {
       stopped = true;
       auth.subscription.unsubscribe();
       document.removeEventListener('visibilitychange', onVisible);
+      window.removeEventListener(LOCAL_CHANGE_EVENT, onLocal);
       if (backoff) clearTimeout(backoff);
       stopPolling();
       teardown();
@@ -276,6 +281,29 @@ export function useLiveVersion(
     }, whileHidden);
   }, [subscribe, key, onlyKey, debounceMs, whileHidden]);
   return version;
+}
+
+/**
+ * Tells this tab's screens that these entity types changed, as a broadcast would, without anything being sent: the
+ * demo player's scenes (lib/demo) use it after making up a message or a draft. No id, so every screen showing one
+ * of these types fetches again.
+ */
+export function emitLocalChange(entityTypes: readonly string[]): void {
+  const at = new Date().toISOString();
+  for (const entityType of entityTypes)
+    window.dispatchEvent(
+      new CustomEvent<LiveChange>(LOCAL_CHANGE_EVENT, {
+        detail: {
+          id: crypto.randomUUID(),
+          type: 'local',
+          entityType,
+          entityId: null,
+          actorId: null,
+          correlationId: null,
+          at,
+        },
+      }),
+    );
 }
 
 export function useLiveConnected(): boolean {

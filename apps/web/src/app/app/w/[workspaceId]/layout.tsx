@@ -7,6 +7,7 @@ import { ExtensionSignInPrompt } from '@/components/account/extension-sign-in-pr
 import { AssistantPanel } from '@/components/assistant/assistant-panel';
 import { AssistantProvider } from '@/components/assistant/assistant-provider';
 import { CallOverlays } from '@/components/calls/call-overlays';
+import { DemoDirector } from '@/components/demo/demo-director';
 import { Tour } from '@/components/onboarding/tour';
 import { SearchProvider } from '@/components/search/search-provider';
 import { MenuEditor } from '@/components/shell/menu-editor';
@@ -142,6 +143,15 @@ export default async function WorkspaceLayout({
                     <CallOverlays />
                     {/* Signing in to the browser extension with this person's email: pick the number it shows. */}
                     <ExtensionSignInPrompt />
+                    {/* The demo player, for HandsFreeOS staff in a business of their own (`?demo` opens it). */}
+                    {staff && !viewingAs && !teammateView ? (
+                      <DemoDirector
+                        workspaceId={workspaceId}
+                        businessName={current.name}
+                        timeZone={current.timezone}
+                        me={{ id: signedInAs, name: me.user.fullName }}
+                      />
+                    ) : null}
                     {/* The tour of the menu: after the setup wizard, and from the card or Get help. */}
                     <Tour workspaceId={workspaceId} taken={guideOf(me, workspaceId).tourTaken} />
                   </SearchProvider>

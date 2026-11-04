@@ -1,6 +1,7 @@
 'use client';
 import { createApiClient, type ApiClient } from '@hfos/api-client';
 import { VIEW_AS_HEADER } from '@hfos/core';
+import { installDemoFetch } from '../demo/browser';
 import { publicEnv } from '../env';
 import { supabaseBrowser } from '../supabase/client';
 import { readViewCookie } from '../view-as';
@@ -17,11 +18,14 @@ let client: ApiClient | undefined;
  */
 export function apiBrowser(): ApiClient {
   if (!client) {
+    installDemoFetch();
     client = createApiClient({
       baseUrl: publicEnv.apiUrl,
       getToken: async () =>
         (await supabaseBrowser().auth.getSession()).data.session?.access_token ?? null,
       correlationId: mintCorrelationId,
+      // Looked up per request, so the demo player's answers (lib/demo) reach this client too.
+      fetch: (input, init) => globalThis.fetch(input, init),
     });
     client.use({
       onRequest({ request }) {
