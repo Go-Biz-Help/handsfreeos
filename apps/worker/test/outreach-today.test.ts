@@ -324,7 +324,7 @@ describe('drafts for Today', () => {
         dueAt: new Date(Date.now() + 86_400_000),
       });
     const res = (await draft(owner, { kind: 'reply', chatId })).json();
-    // No video yet: the link is next.
+    // A yes gets the link next (decision 153).
     expect(res).toMatchObject({ kind: 'pitch', answer: 'yes', simple: false });
     expect(res.drafts[0]).toMatch(/link to book a quick call/);
     const [kept] = await testDbs()
