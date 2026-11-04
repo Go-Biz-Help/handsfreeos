@@ -10,12 +10,14 @@
 
 import {
   applyPatch,
+  HfosError,
   slugify,
   type AssistantCard,
   type CalendarConfig,
   type ConfigPatch,
 } from '@hfos/core/server';
 import type { Db } from '@hfos/db/client';
+import type { Geocoder } from '../geo/geocoder';
 import type { CommittedAction, PreparedAction, ToolContext } from './runtime';
 import { command, query } from './tools-read';
 
@@ -23,13 +25,24 @@ type Args = Record<string, unknown>;
 type ConfirmCard = Extract<AssistantCard, { type: 'confirm' }>;
 type Field = { label: string; value: string };
 
+/** What a few settings tools need from the worker: the map, to find an address. */
+export interface SettingsDeps {
+  readonly geocoder?: Geocoder | null;
+}
+
 export interface SettingsConfirmTool {
-  prepare(db: Db, ctx: ToolContext, args: Args, toolCallId: string): Promise<PreparedAction>;
+  prepare(
+    db: Db,
+    ctx: ToolContext,
+    args: Args,
+    toolCallId: string,
+    deps?: SettingsDeps,
+  ): Promise<PreparedAction>;
   commit(
     db: Db,
     ctx: ToolContext,
     args: Args,
-    extra: { lostReason?: string; toolCallId: string },
+    extra: { lostReason?: string; toolCallId: string } & SettingsDeps,
   ): Promise<CommittedAction>;
 }
 
@@ -374,219 +387,514 @@ async function saveConfig(
   });
 }
 
-const manageService: SettingsConfirmTool = {
-  async prepare(db, ctx, args, toolCallId) {
-    const act = action(args);
-    const { items } = await query<{ items: Named[] }>(db, ctx, 'service.list').catch(() => ({
-      items: [] as Named[],
-    }));
-    const current = items.find((s) => s.id === args['serviceId']);
-    if (act === 'archive')
-      return {
-        card: settingsCard(toolCallId, 'manage_service', {
-          title: `Archive ${current?.name ?? 'the service'}`,
-          fields: [{ label: 'Service', value: current?.name ?? '' }],
-          confirmLabel: 'Archive it',
-          warnings: [
-            { kind: 'note', text: 'Visits already booked stay; it can’t be booked again.' },
-          ],
-        }),
-        result: { waiting: true, service: current?.name },
-      };
-    const durations = list(args['durationsMinutes']) as unknown as number[] | undefined;
-    const price = args['priceDollars'];
-    const fields: Field[] = [
-      { label: 'Service', value: str(args['name']) ?? current?.name ?? '' },
-      ...(durations
-        ? [{ label: 'How long', value: durations.map((d) => `${d} min`).join(' or ') }]
-        : []),
-      ...(price === undefined
-        ? []
-        : [
-            {
-              label: 'Price',
-              value: price === null ? 'No set price' : dollars(Number(price) * 100),
-            },
-          ]),
-      ...(num(args['bufferBeforeMinutes']) === undefined &&
-      num(args['bufferAfterMinutes']) === undefined
-        ? []
-        : [
-            {
-              label: 'Gap around it',
-              value: [
-                num(args['bufferBeforeMinutes']) === undefined
-                  ? null
-                  : `${num(args['bufferBeforeMinutes'])} min before`,
-                num(args['bufferAfterMinutes']) === undefined
-                  ? null
-                  : `${num(args['bufferAfterMinutes'])} min after`,
-              ]
-                .filter(Boolean)
-                .join(', '),
-            },
-          ]),
-      ...(list(args['staffUserIds'])
-        ? [{ label: 'Who can do it', value: await teamNames(db, ctx, list(args['staffUserIds'])!) }]
-        : []),
-    ];
-    return {
-      card: settingsCard(toolCallId, 'manage_service', {
-        title:
-          act === 'create'
-            ? `Add ${str(args['name']) ?? 'a service'}`
-            : `Change ${current?.name ?? 'the service'}`,
-        fields,
-        confirmLabel: act === 'create' ? 'Add it' : 'Save the change',
-      }),
-      result: { waiting: true, creating: act === 'create' },
-    };
-  },
+// ---------- services, resources and territories: Settings → Calendars' own pages ----------
 
-  async commit(db, ctx, args) {
-    const act = action(args);
-    if (act === 'archive') {
-      await command(db, ctx, 'service.archive', { serviceId: args['serviceId'] });
-      return { outcome: 'Archived', href: null, command: 'service.archive' };
-    }
-    const price = args['priceDollars'];
-    const input = defined({
-      name: str(args['name']),
-      description: str(args['description']),
-      durations: list(args['durationsMinutes']),
+interface ServiceRow {
+  id: string;
+  name: string;
+  durations: number[];
+  bufferBefore: number;
+  bufferAfter: number;
+  priceCents: number | null;
+  repeatMonths: number | null;
+  staffUserIds: string[];
+  resources: { resourceId: string; quantity: number }[];
+  hours: Hours | null;
+}
+interface ResourceRow {
+  id: string;
+  name: string;
+  kind: string;
+  quantity: number;
+  location: string | null;
+  hours: Hours | null;
+}
+interface TerritoryRow {
+  id: string;
+  name: string;
+  kind: 'zip' | 'radius' | 'polygon';
+  postalCodes: string[];
+  centerAddress: string | null;
+  radiusMiles: number | null;
+  polygon: number[][] | null;
+  userIds: string[];
+}
+
+const servicesOf = async (db: Db, ctx: ToolContext) =>
+  (await query<{ items: ServiceRow[] }>(db, ctx, 'service.list')).items;
+const resourcesOf = async (db: Db, ctx: ToolContext) =>
+  (await query<{ items: ResourceRow[] }>(db, ctx, 'resource.list')).items;
+const territoriesOf = async (db: Db, ctx: ToolContext) =>
+  (await query<{ items: TerritoryRow[] }>(db, ctx, 'territory.list')).items;
+
+const same = (a: string, b: string) => a.trim().toLowerCase() === b.trim().toLowerCase();
+/** A value as text with its keys in order, so two lists read from different places compare by what they hold. */
+const canon = (v: unknown) =>
+  JSON.stringify(v, (_k, x: unknown) =>
+    x && typeof x === 'object' && !Array.isArray(x)
+      ? Object.fromEntries(Object.entries(x).sort(([a], [b]) => a.localeCompare(b)))
+      : x,
+  );
+const sameList = (a: readonly unknown[], b: readonly unknown[]) => canon(a) === canon(b);
+const taken = (what: string, name: string) =>
+  HfosError.conflict(
+    `There’s already a ${what} called “${name}”. Pick a different name.`,
+    'name_taken',
+  );
+const nameIt = (what: string) =>
+  HfosError.validation([{ path: 'name', message: `Name the ${what}.` }], `Name the ${what}.`);
+const nothingChanges = (why: string) => HfosError.validation([], `Nothing would change. ${why}`);
+const noSuch = (what: string, area: string) =>
+  HfosError.notFound(`No ${what} has that id. They’re in get_settings (area ${area}).`);
+
+const minutesWords = (list: readonly number[]) => list.map((d) => `${d} min`).join(' or ');
+const repeatWords = (months: number | null) =>
+  months === null ? 'Doesn’t repeat' : months === 1 ? 'Every month' : `Every ${months} months`;
+const ownHoursWords = (hours: Hours | null, none: string) =>
+  hours === null ? none : hoursLine(hours);
+const needsWords = (
+  needs: readonly { resourceId: string; quantity: number }[],
+  resources: readonly ResourceRow[],
+) =>
+  needs.length
+    ? needs
+        .map(
+          (n) =>
+            `${resources.find((r) => r.id === n.resourceId)?.name ?? 'A resource'} × ${n.quantity}`,
+        )
+        .join(', ')
+    : 'Nothing else';
+const RESOURCE_KIND_WORDS: Record<string, string> = {
+  room: 'Room',
+  equipment: 'Equipment',
+  vehicle: 'Vehicle',
+  property: 'Property',
+  chair: 'Chair',
+  other: 'Other',
+};
+const hoursOf = (v: unknown) =>
+  v === undefined ? undefined : v === null ? null : (v as Hours).map((h) => ({ ...h }));
+const needsOf = (v: unknown) =>
+  Array.isArray(v)
+    ? (v as { resourceId: string; quantity?: number }[]).map((n) => ({
+        resourceId: n.resourceId,
+        quantity: n.quantity ?? 1,
+      }))
+    : undefined;
+
+/** A service as asked for: what is there now, with what was said on top. */
+async function serviceChange(db: Db, ctx: ToolContext, args: Args) {
+  const act = action(args);
+  const [services, resources] = await Promise.all([servicesOf(db, ctx), resourcesOf(db, ctx)]);
+  const current = act === 'create' ? undefined : services.find((s) => s.id === args['serviceId']);
+  if (act !== 'create' && !current) throw noSuch('service', 'services');
+  const name = str(args['name']);
+  if (act === 'create' && !name) throw nameIt('service');
+  if (name && services.some((s) => s.id !== current?.id && same(s.name, name)))
+    throw taken('service', name);
+  const needs = needsOf(args['resources']);
+  const missing = needs?.find((n) => !resources.some((r) => r.id === n.resourceId));
+  if (missing) throw noSuch('resource', 'resources');
+  const price = args['priceDollars'];
+  return {
+    act,
+    current,
+    resources,
+    next: {
+      name,
+      durations: list(args['durationsMinutes']) as unknown as number[] | undefined,
       priceCents:
         price === undefined ? undefined : price === null ? null : Math.round(Number(price) * 100),
       bufferBefore: num(args['bufferBeforeMinutes']),
       bufferAfter: num(args['bufferAfterMinutes']),
+      repeatMonths:
+        args['repeatMonths'] === undefined ? undefined : (num(args['repeatMonths']) ?? null),
       staffUserIds: list(args['staffUserIds']),
-    });
-    if (act === 'create') {
-      await command(db, ctx, 'service.create', input);
+      resources: needs,
+      hours: hoursOf(args['hours']),
+    },
+  };
+}
+
+const manageService: SettingsConfirmTool = {
+  async prepare(db, ctx, args, toolCallId) {
+    const { act, current, resources, next } = await serviceChange(db, ctx, args);
+    if (act === 'archive')
       return {
-        outcome: `${str(args['name'])} is ready to book`,
-        href: `/app/w/${ctx.workspaceId}/settings/calendars/services`,
-        command: 'service.create',
+        card: settingsCard(toolCallId, 'manage_service', {
+          title: `Archive ${current!.name}`,
+          fields: [{ label: 'Service', value: current!.name }],
+          confirmLabel: 'Archive it',
+          warnings: [
+            {
+              kind: 'note',
+              text: 'Visits already booked keep it, but it can’t be booked again. Calendars offering it will show something to fix.',
+            },
+          ],
+        }),
+        result: { waiting: true, service: current!.name },
+      };
+    // What changes: everything said for a new one, only what differs for one already there.
+    const differs = <T>(v: T | undefined, now: T | undefined) =>
+      v !== undefined && (current === undefined || canon(v) !== canon(now));
+    const fields: Field[] = [{ label: 'Service', value: current?.name ?? next.name! }];
+    if (current && differs(next.name, current.name))
+      fields.push({ label: 'New name', value: next.name! });
+    const durations = next.durations ?? (current ? undefined : [60]);
+    if (differs(durations, current?.durations))
+      fields.push({ label: 'How long', value: minutesWords(durations!) });
+    if (differs(next.priceCents, current?.priceCents))
+      fields.push({
+        label: 'Price shown',
+        value: next.priceCents === null ? 'No price shown' : dollars(next.priceCents!),
+      });
+    if (differs(next.bufferBefore, current?.bufferBefore))
+      fields.push({ label: 'Setup before', value: `${next.bufferBefore} min` });
+    if (differs(next.bufferAfter, current?.bufferAfter))
+      fields.push({ label: 'Cleanup after', value: `${next.bufferAfter} min` });
+    if (differs(next.repeatMonths, current?.repeatMonths))
+      fields.push({ label: 'Repeats', value: repeatWords(next.repeatMonths!) });
+    if (differs(next.staffUserIds, current?.staffUserIds))
+      fields.push({
+        label: 'Who can do it',
+        value: next.staffUserIds!.length
+          ? await teamNames(db, ctx, next.staffUserIds!)
+          : 'Everyone',
+      });
+    if (differs(next.resources, current?.resources))
+      fields.push({ label: 'Needs', value: needsWords(next.resources!, resources) });
+    if (differs(next.hours, current?.hours))
+      fields.push({
+        label: 'Hours',
+        value: ownHoursWords(next.hours!, 'Any time the calendar is open'),
+      });
+    if (current && fields.length === 1)
+      throw nothingChanges(`${current.name} is already set up that way.`);
+    return {
+      card: settingsCard(toolCallId, 'manage_service', {
+        title: current ? `Change ${current.name}` : `Add ${next.name}`,
+        fields,
+        confirmLabel: current ? 'Save the change' : 'Add it',
+      }),
+      result: { waiting: true, creating: !current },
+    };
+  },
+
+  async commit(db, ctx, args) {
+    const { act, current, next } = await serviceChange(db, ctx, args);
+    const href = `/app/w/${ctx.workspaceId}/settings/calendars/services`;
+    if (act === 'archive') {
+      const out = await command<{ calendars: Named[] }>(db, ctx, 'service.archive', {
+        serviceId: current!.id,
+      });
+      const still = out.calendars.map((c) => c.name);
+      return {
+        outcome: still.length
+          ? `Archived. ${still.join(', ')} still offer${still.length === 1 ? 's' : ''} it, so ${still.length === 1 ? 'its' : 'their'} settings show something to fix`
+          : 'Archived',
+        href,
+        command: 'service.archive',
       };
     }
-    await command(db, ctx, 'service.update', { serviceId: args['serviceId'], ...input });
-    return {
-      outcome: 'Changed',
-      href: `/app/w/${ctx.workspaceId}/settings/calendars/services`,
-      command: 'service.update',
-    };
+    const input = defined({
+      ...next,
+      description: str(args['description']),
+      defaultDuration: next.durations?.[0],
+    });
+    if (!current) {
+      await command(db, ctx, 'service.create', input);
+      return { outcome: `${next.name} is ready to book`, href, command: 'service.create' };
+    }
+    await command(db, ctx, 'service.update', { serviceId: current.id, ...input });
+    return { outcome: 'Changed', href, command: 'service.update' };
   },
 };
 
+async function resourceChange(db: Db, ctx: ToolContext, args: Args) {
+  const act = action(args);
+  const resources = await resourcesOf(db, ctx);
+  const current = act === 'create' ? undefined : resources.find((r) => r.id === args['resourceId']);
+  if (act !== 'create' && !current) throw noSuch('resource', 'resources');
+  const name = str(args['name']);
+  if (act === 'create' && !name) throw nameIt('resource');
+  if (name && resources.some((r) => r.id !== current?.id && same(r.name, name)))
+    throw taken('resource', name);
+  return {
+    act,
+    current,
+    next: {
+      name,
+      kind: str(args['kind']),
+      quantity: num(args['quantity']),
+      location: args['location'] === undefined ? undefined : (str(args['location']) ?? null),
+      hours: hoursOf(args['hours']),
+    },
+  };
+}
+
 const manageResource: SettingsConfirmTool = {
   async prepare(db, ctx, args, toolCallId) {
-    const act = action(args);
-    const { items } = await query<{ items: Named[] }>(db, ctx, 'resource.list').catch(() => ({
-      items: [] as Named[],
-    }));
-    const current = items.find((r) => r.id === args['resourceId']);
-    const quantity = num(args['quantity']);
+    const { act, current, next } = await resourceChange(db, ctx, args);
+    if (act === 'archive')
+      return {
+        card: settingsCard(toolCallId, 'manage_resource', {
+          title: `Archive ${current!.name}`,
+          fields: [{ label: 'Resource', value: current!.name }],
+          confirmLabel: 'Archive it',
+          warnings: [
+            {
+              kind: 'note',
+              text: 'Visits already booked keep it. Services and calendars that need it will show something to fix.',
+            },
+          ],
+        }),
+        result: { waiting: true, action: act },
+      };
+    const differs = <T>(v: T | undefined, now: T | undefined) =>
+      v !== undefined && (current === undefined || canon(v) !== canon(now));
+    const fields: Field[] = [{ label: 'Resource', value: current?.name ?? next.name! }];
+    if (current && differs(next.name, current.name))
+      fields.push({ label: 'New name', value: next.name! });
+    const kind = next.kind ?? (current ? undefined : 'other');
+    if (differs(kind, current?.kind))
+      fields.push({ label: 'What it is', value: RESOURCE_KIND_WORDS[kind!] ?? kind! });
+    const quantity = next.quantity ?? (current ? undefined : 1);
+    if (differs(quantity, current?.quantity))
+      fields.push({ label: 'How many', value: String(quantity) });
+    if (differs(next.location, current?.location))
+      fields.push({ label: 'Where', value: next.location ?? 'Nowhere in particular' });
+    if (differs(next.hours, current?.hours))
+      fields.push({ label: 'Hours', value: ownHoursWords(next.hours!, 'Any time') });
+    if (current && fields.length === 1)
+      throw nothingChanges(`${current.name} is already set up that way.`);
     return {
       card: settingsCard(toolCallId, 'manage_resource', {
-        title:
-          act === 'create'
-            ? `Add ${str(args['name']) ?? 'a resource'}`
-            : act === 'archive'
-              ? `Archive ${current?.name ?? 'the resource'}`
-              : `Change ${current?.name ?? 'the resource'}`,
-        fields: [
-          { label: 'Resource', value: str(args['name']) ?? current?.name ?? '' },
-          ...(str(args['kind']) ? [{ label: 'What it is', value: str(args['kind'])! }] : []),
-          ...(quantity === undefined ? [] : [{ label: 'How many', value: String(quantity) }]),
-          ...(args['location'] === undefined
-            ? []
-            : [{ label: 'Where', value: str(args['location']) ?? 'Nowhere in particular' }]),
-        ],
-        confirmLabel:
-          act === 'create' ? 'Add it' : act === 'archive' ? 'Archive it' : 'Save the change',
+        title: current ? `Change ${current.name}` : `Add ${next.name}`,
+        fields,
+        confirmLabel: current ? 'Save the change' : 'Add it',
       }),
       result: { waiting: true, action: act },
     };
   },
 
   async commit(db, ctx, args) {
-    const act = action(args);
-    if (act === 'archive') {
-      await command(db, ctx, 'resource.archive', { resourceId: args['resourceId'] });
-      return { outcome: 'Archived', href: null, command: 'resource.archive' };
-    }
-    const input = defined({
-      name: str(args['name']),
-      kind: str(args['kind']),
-      quantity: num(args['quantity']),
-      location: args['location'] === undefined ? undefined : (str(args['location']) ?? null),
-    });
+    const { act, current, next } = await resourceChange(db, ctx, args);
     const href = `/app/w/${ctx.workspaceId}/settings/calendars/resources`;
-    if (act === 'create') {
-      await command(db, ctx, 'resource.create', input);
-      return { outcome: `${str(args['name'])} is added`, href, command: 'resource.create' };
+    if (act === 'archive') {
+      const out = await command<{ calendars: Named[] }>(db, ctx, 'resource.archive', {
+        resourceId: current!.id,
+      });
+      const still = out.calendars.map((c) => c.name);
+      return {
+        outcome: still.length
+          ? `Archived. ${still.join(', ')} still need${still.length === 1 ? 's' : ''} it, so ${still.length === 1 ? 'its' : 'their'} settings show something to fix`
+          : 'Archived',
+        href,
+        command: 'resource.archive',
+      };
     }
-    await command(db, ctx, 'resource.update', { resourceId: args['resourceId'], ...input });
+    const input = defined(next);
+    if (!current) {
+      await command(db, ctx, 'resource.create', input);
+      return { outcome: `${next.name} is added`, href, command: 'resource.create' };
+    }
+    await command(db, ctx, 'resource.update', { resourceId: current.id, ...input });
     return { outcome: 'Changed', href, command: 'resource.update' };
   },
 };
 
+type Shape =
+  { kind: 'zip' } | { kind: 'radius'; address: string; lat: number; lng: number; miles: number };
+
+const zipWords = (zips: readonly string[]) =>
+  !zips.length
+    ? 'No ZIP codes yet'
+    : zips.length > 6
+      ? `${zips.slice(0, 5).join(', ')} and ${zips.length - 5} more`
+      : zips.join(', ');
+const areaWords = (
+  t: Pick<TerritoryRow, 'kind' | 'postalCodes' | 'centerAddress' | 'radiusMiles' | 'polygon'>,
+) =>
+  t.kind === 'radius'
+    ? `${t.radiusMiles ?? 0} miles from ${t.centerAddress ?? 'a point on the map'}`
+    : t.kind === 'polygon'
+      ? `An area drawn on the map (${t.polygon?.length ?? 0} corners)`
+      : zipWords(t.postalCodes);
+
+/** So many miles from an address: found on the map, as the screen finds it before it saves. */
+async function milesFrom(args: Args, geocoder: Geocoder | null | undefined): Promise<Shape | null> {
+  const asked = args['milesFrom'] as { address: string; miles: number } | undefined;
+  if (!asked) return null;
+  if (!geocoder || geocoder.name === 'off')
+    throw HfosError.rule(
+      'maps_off',
+      503,
+      'I can’t look addresses up on the map right now. Give the ZIP codes it covers instead, or set the distance in Settings → Calendars → Territories.',
+    );
+  const place = await geocoder.geocode(asked.address);
+  if (!place)
+    throw HfosError.validation(
+      [{ path: 'milesFrom.address', message: 'That address wasn’t found on the map.' }],
+      `“${asked.address}” wasn’t found on the map. Check the address and try again.`,
+    );
+  return {
+    kind: 'radius',
+    address: asked.address,
+    lat: place.lat,
+    lng: place.lng,
+    miles: asked.miles,
+  };
+}
+
+async function territoryChange(
+  db: Db,
+  ctx: ToolContext,
+  args: Args,
+  geocoder: Geocoder | null | undefined,
+) {
+  const act = action(args);
+  const territories = await territoriesOf(db, ctx);
+  const current =
+    act === 'create' ? undefined : territories.find((t) => t.id === args['territoryId']);
+  if (act !== 'create' && !current) throw noSuch('territory', 'territories');
+  if (act === 'delete') return { act, current, next: null };
+  const name = str(args['name']);
+  if (act === 'create' && !name) throw nameIt('territory');
+  if (name && territories.some((t) => t.id !== current?.id && same(t.name, name)))
+    throw taken('territory', name);
+  const zips = list(args['postalCodes']);
+  if (zips && args['milesFrom'])
+    throw HfosError.validation(
+      [{ path: 'milesFrom', message: 'Give ZIP codes or a distance, not both.' }],
+      'A territory covers ZIP codes or so many miles from an address, not both. Say which.',
+    );
+  const radius = await milesFrom(args, geocoder);
+  const shape: Shape | undefined = radius ?? (zips || !current ? { kind: 'zip' } : undefined);
+  return {
+    act,
+    current,
+    next: {
+      name,
+      shape,
+      postalCodes:
+        shape?.kind === 'zip' ? [...new Set(zips ?? current?.postalCodes ?? [])] : undefined,
+      userIds: list(args['userIds']),
+    },
+  };
+}
+
+/** Whether what it covers changes: another kind, another list of ZIP codes, or another distance. */
+function areaChanges(
+  current: TerritoryRow | undefined,
+  next: { shape?: Shape; postalCodes?: string[] },
+): boolean {
+  if (!next.shape) return false;
+  if (!current || current.kind !== next.shape.kind) return true;
+  if (next.shape.kind === 'radius')
+    return next.shape.address !== current.centerAddress || next.shape.miles !== current.radiusMiles;
+  return !sameList([...(next.postalCodes ?? [])].sort(), [...current.postalCodes].sort());
+}
+
 const manageTerritory: SettingsConfirmTool = {
-  async prepare(db, ctx, args, toolCallId) {
-    const act = action(args);
-    const { items } = await query<{ items: Named[] }>(db, ctx, 'territory.list').catch(() => ({
-      items: [] as Named[],
-    }));
-    const current = items.find((t) => t.id === args['territoryId']);
-    const zips = list(args['postalCodes']);
-    const people = list(args['userIds']);
+  async prepare(db, ctx, args, toolCallId, deps) {
+    const { act, current, next } = await territoryChange(db, ctx, args, deps?.geocoder);
+    const back = 'Settings → Calendars → Territories';
+    if (act === 'delete' || !next)
+      return {
+        card: settingsCard(toolCallId, 'manage_territory', {
+          title: `Delete ${current!.name}`,
+          fields: [
+            { label: 'Territory', value: current!.name },
+            { label: 'Covers', value: areaWords(current!) },
+          ],
+          confirmLabel: 'Delete it',
+          warnings: [
+            {
+              kind: 'caution',
+              text: 'Calendars that route by service area stop sending visits there to its people. It can’t be brought back.',
+            },
+            { kind: 'note', text: 'Visits already booked stay where they are.' },
+          ],
+        }),
+        result: { waiting: true, action: act },
+      };
+    const after = next.shape
+      ? next.shape.kind === 'radius'
+        ? `${next.shape.miles} miles from ${next.shape.address}`
+        : zipWords(next.postalCodes ?? [])
+      : null;
+    const before = current ? areaWords(current) : null;
+    const fields: Field[] = [{ label: 'Territory', value: current?.name ?? next.name! }];
+    if (current && next.name && next.name !== current.name)
+      fields.push({ label: 'New name', value: next.name });
+    if (after !== null && areaChanges(current, next)) {
+      fields.push({ label: 'Covers', value: after });
+      if (before) fields.push({ label: 'Was', value: before });
+    }
+    if (
+      next.userIds &&
+      (!current || !sameList([...next.userIds].sort(), [...current.userIds].sort()))
+    )
+      fields.push({
+        label: 'Who covers it',
+        value: next.userIds.length ? await teamNames(db, ctx, next.userIds) : 'Nobody yet',
+      });
+    if (current && fields.length === 1)
+      throw nothingChanges(`${current.name} is already set up that way.`);
+    const warnings: { kind: string; text: string }[] = [];
+    if (current && next.shape && current.kind !== next.shape.kind)
+      warnings.push({
+        kind: 'note',
+        text:
+          next.shape.kind === 'radius' && current.postalCodes.length
+            ? `Its ${current.postalCodes.length === 1 ? 'ZIP code comes' : `${current.postalCodes.length} ZIP codes come`} off: it covers the distance instead.`
+            : `It stops covering ${before}.`,
+      });
+    if (next.shape?.kind === 'zip' && !(next.postalCodes ?? []).length)
+      warnings.push({
+        kind: 'note',
+        text: `It covers no ZIP codes yet, so no visits are sent there. Add them here or in ${back}.`,
+      });
     return {
       card: settingsCard(toolCallId, 'manage_territory', {
-        title:
-          act === 'create'
-            ? `Add ${str(args['name']) ?? 'a territory'}`
-            : act === 'delete'
-              ? `Delete ${current?.name ?? 'the territory'}`
-              : `Change ${current?.name ?? 'the territory'}`,
-        fields: [
-          { label: 'Territory', value: str(args['name']) ?? current?.name ?? '' },
-          ...(zips
-            ? [
-                {
-                  label: 'ZIP codes',
-                  value: zips.length > 6 ? `${zips.length} ZIP codes` : zips.join(', '),
-                },
-              ]
-            : []),
-          ...(people ? [{ label: 'Who covers it', value: await teamNames(db, ctx, people) }] : []),
-        ],
-        confirmLabel:
-          act === 'create' ? 'Add it' : act === 'delete' ? 'Delete it' : 'Save the change',
-        warnings:
-          act === 'delete'
-            ? [{ kind: 'note', text: 'Visits already booked stay where they are.' }]
-            : [],
+        title: current ? `Change ${current.name}` : `Add ${next.name}`,
+        fields,
+        confirmLabel: current ? 'Save the change' : 'Add it',
+        warnings,
       }),
       result: { waiting: true, action: act },
     };
   },
 
-  async commit(db, ctx, args) {
-    const act = action(args);
+  async commit(db, ctx, args, extra) {
+    const { act, current, next } = await territoryChange(db, ctx, args, extra.geocoder);
     const href = `/app/w/${ctx.workspaceId}/settings/calendars/territories`;
-    if (act === 'delete') {
-      await command(db, ctx, 'territory.delete', { territoryId: args['territoryId'] });
+    if (act === 'delete' || !next) {
+      await command(db, ctx, 'territory.delete', { territoryId: current!.id });
       return { outcome: 'Deleted', href, command: 'territory.delete' };
     }
-    const input = defined({
-      name: str(args['name']),
-      postalCodes: list(args['postalCodes']),
-      userIds: list(args['userIds']),
+    const changes = areaChanges(current, next);
+    const area = defined({
+      // A ZIP area staying one keeps its shape and takes the new list; anything else sends the shape.
+      shape:
+        changes && (next.shape!.kind === 'radius' || current?.kind !== 'zip')
+          ? next.shape
+          : undefined,
+      postalCodes: changes ? next.postalCodes : undefined,
     });
-    if (act === 'create') {
-      await command(db, ctx, 'territory.create', input);
-      return { outcome: `${str(args['name'])} is added`, href, command: 'territory.create' };
+    if (!current) {
+      await command(db, ctx, 'territory.create', {
+        name: next.name,
+        ...area,
+        ...defined({ userIds: next.userIds }),
+      });
+      return { outcome: `${next.name} is added`, href, command: 'territory.create' };
     }
-    await command(db, ctx, 'territory.update', { territoryId: args['territoryId'], ...input });
+    await command(db, ctx, 'territory.update', {
+      territoryId: current.id,
+      ...defined({ name: next.name, userIds: next.userIds }),
+      ...area,
+    });
     return { outcome: 'Changed', href, command: 'territory.update' };
   },
 };

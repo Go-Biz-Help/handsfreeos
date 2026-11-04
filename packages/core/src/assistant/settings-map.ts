@@ -373,8 +373,9 @@ const AREAS: Record<SettingsArea, AreaEntry> = {
     permission: 'calendars.manage',
     canChange: [
       'add, change or archive a service',
-      'its lengths, price, buffers and colour',
-      'who can do it, and what it needs',
+      'its name, lengths, price shown, setup before and cleanup after',
+      'how often it repeats (a customer is due again)',
+      'who can do it, what it needs and how many, and the hours it can be booked',
     ],
     handovers: [],
   },
@@ -387,7 +388,10 @@ const AREAS: Record<SettingsArea, AreaEntry> = {
     ],
     path: '/settings/calendars/resources',
     permission: 'calendars.manage',
-    canChange: ['add, change or archive a resource', 'how many there are, and its hours'],
+    canChange: [
+      'add, change or archive a resource',
+      'its name, kind, how many there are, where it is, and its hours',
+    ],
     handovers: [],
   },
   territories: {
@@ -401,8 +405,23 @@ const AREAS: Record<SettingsArea, AreaEntry> = {
     ],
     path: '/settings/calendars/territories',
     permission: 'calendars.manage',
-    canChange: ['add, change or delete a territory', 'its ZIP codes and who covers them'],
-    handovers: [],
+    canChange: [
+      'add, change or delete a territory',
+      'its ZIP codes, or so many miles from an address, and who covers it',
+      'rename an area drawn on the map, change who covers it, or turn it into ZIP codes or a distance',
+    ],
+    handovers: [
+      {
+        what: 'draw an area on the map, or change one drawn there',
+        why: 'its corners are placed by hand on the map, which I can’t see',
+        steps: [
+          'Open Settings → Calendars → Territories.',
+          'Press New, or the pencil beside the territory.',
+          'Under Where it covers, pick Draw on map, and click each corner of the area.',
+          'Press Add territory, or Save.',
+        ],
+      },
+    ],
   },
   booking_site: {
     label: 'Booking site',

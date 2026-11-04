@@ -742,6 +742,57 @@ export const SETTING_TOOLS: Readonly<Record<string, readonly SettingWay[]>> = {
       field,
     })),
   ],
+  // ---- Calendars ----
+  'calendars.services': [
+    ...['create', 'change', 'archive'].map((value) => ({
+      tool: 'manage_service',
+      field: 'action',
+      value,
+    })),
+    ...[
+      'name',
+      'durationsMinutes',
+      'priceDollars',
+      'bufferBeforeMinutes',
+      'bufferAfterMinutes',
+      'repeatMonths',
+      'staffUserIds',
+      'resources',
+      'hours',
+    ].map((field) => ({ tool: 'manage_service', field })),
+  ],
+  'calendars.resources': [
+    ...['create', 'change', 'archive'].map((value) => ({
+      tool: 'manage_resource',
+      field: 'action',
+      value,
+    })),
+    ...['room', 'equipment', 'vehicle', 'property', 'chair', 'other'].map((value) => ({
+      tool: 'manage_resource',
+      field: 'kind',
+      value,
+    })),
+    ...['name', 'quantity', 'location', 'hours'].map((field) => ({
+      tool: 'manage_resource',
+      field,
+    })),
+  ],
+  // An area drawn on the map is drawn there (a handover in the settings map); the rest is here.
+  'calendars.territories': [
+    ...['create', 'change', 'delete'].map((value) => ({
+      tool: 'manage_territory',
+      field: 'action',
+      value,
+    })),
+    ...['name', 'postalCodes', 'milesFrom', 'userIds'].map((field) => ({
+      tool: 'manage_territory',
+      field,
+    })),
+  ],
+  'calendars.booking_site': ['slug', 'name', 'intro', 'enabled'].map((field) => ({
+    tool: 'update_booking_site',
+    field,
+  })),
 };
 
 /** Setting rows the Assistant never changes, and why. */
@@ -784,9 +835,4 @@ export const SETTINGS_NEVER: Readonly<Record<string, string>> = {
  * The Settings pages (and add-ons' settings) whose rows aren't checked yet, in menu order: the daily routine takes
  * the first, says which tool changes each of its rows (adding what's missing), and takes it off.
  */
-export const SETTINGS_NOT_YET: readonly string[] = [
-  'calendars',
-  'payments',
-  'partners',
-  'realestate',
-];
+export const SETTINGS_NOT_YET: readonly string[] = ['payments', 'partners', 'realestate'];

@@ -403,22 +403,48 @@ export const assistantTools = [
   define({
     name: 'manage_service',
     description:
-      'Add, change or archive something you book: its name, how long it takes, what it costs, its buffers, and who can do it. Prices are in dollars.',
+      'Add, change or archive something you book, as Settings → Calendars → Services does: its name, how long it takes, what it costs, its setup and cleanup time, how often a customer is due again, who can do it, what it needs as well as a person, and the hours it can be booked. Prices are in dollars. serviceId, resourceId and user ids come from get_settings (areas services, resources and team). Pass only what changes.',
     input: z.object({
       action: z.enum(['create', 'change', 'archive']),
       serviceId: uuid.optional().describe('The service to change or archive'),
-      name: text(80).optional(),
+      name: text(120).optional(),
       description: text(500).optional(),
       durationsMinutes: z
         .array(minutes)
         .min(1)
         .max(6)
         .optional()
-        .describe('The lengths it can be booked for'),
-      priceDollars: dollars.nullable().optional(),
-      bufferBeforeMinutes: z.int().min(0).max(240).optional(),
-      bufferAfterMinutes: z.int().min(0).max(240).optional(),
-      staffUserIds: z.array(uuid).max(50).optional().describe('Who can do it'),
+        .describe(
+          'The lengths it can be booked for; the first is the one picked unless they choose',
+        ),
+      priceDollars: dollars.nullable().optional().describe('The price shown; null for none'),
+      bufferBeforeMinutes: z.int().min(0).max(240).optional().describe('Setup before'),
+      bufferAfterMinutes: z.int().min(0).max(240).optional().describe('Cleanup after'),
+      repeatMonths: z
+        .int()
+        .min(1)
+        .max(60)
+        .nullable()
+        .optional()
+        .describe(
+          'Repeats every this many months (a customer is due again); null when it doesn’t repeat',
+        ),
+      staffUserIds: z.array(uuid).max(50).optional().describe('Who can do it; empty for everyone'),
+      resources: z
+        .array(
+          z.object({
+            resourceId: uuid,
+            quantity: z.int().min(1).max(100).default(1),
+          }),
+        )
+        .max(20)
+        .optional()
+        .describe('What it needs as well as a person, and how many of each; empty for nothing'),
+      hours: WeeklyHoursInput.nullable()
+        .optional()
+        .describe(
+          'Only at certain hours, on top of the calendar’s; null for any time the calendar is open',
+        ),
     }),
     autonomy: 'confirm',
     permission: 'calendars.manage',
@@ -426,14 +452,17 @@ export const assistantTools = [
   define({
     name: 'manage_resource',
     description:
-      'Add, change or archive something a job needs as well as a person — a truck, a bay, a piece of equipment — including how many there are.',
+      'Add, change or archive something a job needs as well as a person (a room, a truck, a chair, a piece of equipment), as Settings → Calendars → Resources does: its name, what it is, how many there are, where it is, and its own hours. resourceId comes from get_settings (area resources). Pass only what changes.',
     input: z.object({
       action: z.enum(['create', 'change', 'archive']),
       resourceId: uuid.optional(),
-      name: text(80).optional(),
-      kind: z.enum(['vehicle', 'room', 'equipment', 'other']).optional(),
-      quantity: z.int().min(1).max(100).optional(),
-      location: text(200).nullable().optional(),
+      name: text(120).optional(),
+      kind: z.enum(['room', 'equipment', 'vehicle', 'property', 'chair', 'other']).optional(),
+      quantity: z.int().min(1).max(100).optional().describe('How many can be booked at once'),
+      location: text(300).nullable().optional(),
+      hours: WeeklyHoursInput.nullable()
+        .optional()
+        .describe('When it can be booked; null for any time'),
     }),
     autonomy: 'confirm',
     permission: 'calendars.manage',
@@ -441,11 +470,11 @@ export const assistantTools = [
   define({
     name: 'manage_territory',
     description:
-      'Add, change or delete a territory: the ZIP codes an area covers and who covers them.',
+      'Add, change or delete a territory (a service area), as Settings → Calendars → Territories does: the ZIP codes it covers, or so many miles from an address, and who covers it. An area drawn on the map is drawn there; this can still rename it, change who covers it, or turn it into ZIP codes or miles from an address. territoryId and user ids come from get_settings (areas territories and team).',
     input: z.object({
       action: z.enum(['create', 'change', 'delete']),
       territoryId: uuid.optional(),
-      name: text(80).optional(),
+      name: text(120).optional(),
       postalCodes: z
         .array(
           z
@@ -453,9 +482,17 @@ export const assistantTools = [
             .trim()
             .regex(/^\d{5}$/, 'Five-digit ZIP codes.'),
         )
-        .max(500)
-        .optional(),
-      userIds: z.array(uuid).max(50).optional().describe('Who covers it'),
+        .max(5000)
+        .optional()
+        .describe('A ZIP area’s codes: the whole list it should have'),
+      milesFrom: z
+        .object({
+          address: text(300).describe('The address it is measured from'),
+          miles: z.number().min(0.1).max(250),
+        })
+        .optional()
+        .describe('Instead of ZIP codes: everywhere within so many miles of an address'),
+      userIds: z.array(uuid).max(100).optional().describe('Who covers it'),
     }),
     autonomy: 'confirm',
     permission: 'calendars.manage',
@@ -463,11 +500,11 @@ export const assistantTools = [
   define({
     name: 'update_booking_site',
     description:
-      'Change the page customers book on: its web address, the name and intro they see, and whether it is on at all.',
+      'Change the page customers book on, as Settings → Calendars → Booking site does: its web address, the name and intro they see, and whether it is on at all.',
     input: z.object({
-      slug: z.string().trim().min(1).max(60).optional().describe('The last part of its address'),
+      slug: z.string().trim().min(1).max(64).optional().describe('The last part of its address'),
       name: text(120).optional(),
-      intro: text(500).nullable().optional(),
+      intro: text(2000).nullable().optional(),
       enabled: z.boolean().optional(),
     }),
     autonomy: 'confirm',
