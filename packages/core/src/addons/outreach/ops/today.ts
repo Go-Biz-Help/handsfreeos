@@ -1677,7 +1677,8 @@ export async function todayFor(
 
   // Replies the extension saw (decision 22), for anyone not listed from their chat already, until the person
   // writes back: as the extension notes a message it sent, or as their chat, read since, shows the person's last or
-  // reads as come to a close (decision 134).
+  // reads as come to a close (decision 134). One seen by its name alone (Instagram's list) goes with their chat a read
+  // kept, so the extension brings it in before the AI answers it, and finds the person's message last when it is.
   const listed = new Set(items.map((i) => i.profileId).filter(Boolean));
   const seen = await rows<{
     profile_id: string;
@@ -1687,7 +1688,12 @@ export async function todayFor(
     seen_at: Date | string;
   }>(
     ctx.tx,
-    sql`select distinct on (r.profile_id) r.profile_id, p.name, p.url, r.thread_key, r.seen_at
+    sql`select distinct on (r.profile_id) r.profile_id, p.name, p.url,
+            coalesce(r.thread_key, (select c.thread_key from addon_outreach.file_chats c
+              where c.workspace_id = ${ws} and c.user_id = ${me} and c.profile_id = r.profile_id
+                and c.thread_key is not null
+              order by c.last_at desc limit 1)) as thread_key,
+            r.seen_at
           from addon_outreach.replies r join addon_outreach.profiles p on p.id = r.profile_id
           where r.workspace_id = ${ws} and r.user_id = ${me} and p.platform = ${input.platform}
             and r.seen_at >= ${ago(TODAY_WINDOW_DAYS.reply)}::timestamptz and ${pitchable('p')}

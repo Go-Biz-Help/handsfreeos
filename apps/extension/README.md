@@ -1136,6 +1136,21 @@ whole day, as the list can't be worked out without them (`holdsTheDay` in `src/a
 and Alignable a read put off till you're away counts as the reading's turn, so the list goes next. With nothing on the
 list, the reading goes on. Nothing in HandsFreeOS changes for it.
 
+### A reply with nothing to answer (0.126.2)
+
+The problem check of 4 Nov 2026 found an Instagram draft where "the AI had nothing to write". Instagram's list of chats
+shows rows by name alone, and one said someone wrote back a couple of minutes after a read of their chat had found the
+person's message last. The reply went on Today with no chat to open, so the extension never read it again before the
+AI answered: from the chat as last kept, ending with the person's own message, the AI had nothing to say, and the step
+was reported. From 0.126.2:
+
+- A reply seen by its name alone goes on Today with the chat a read kept for them (core's `outreach.today`), so the
+  extension opens it and reads it before the AI answers, on Facebook, LinkedIn and Instagram.
+- On Instagram the chat brought in is kept, with its row's time in the list beside it, as Read my chats keeps one.
+  Before, it was read and never kept, as Instagram shows no times on its messages.
+- When that chat ends with the person's own message, the step ends there: no draft, nothing reported, and the read
+  takes them off Today's replies (`yoursLast` in `src/hfos/saves.ts`).
+
 ### Two misreads the problem check found (0.126.1)
 
 The scheduled problem check (docs/operations.md, "The daily problem check") found two steps that kept failing on the

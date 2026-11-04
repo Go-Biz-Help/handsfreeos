@@ -61,11 +61,11 @@ import { feed, keptFor, onBeat, type Kept } from '../hfos/live';
 import type { Drafts, TodayList, TodayListItem } from '../hfos/messages';
 import { isNoting, noteNeed, takeNote } from '../hfos/noting';
 import { clearRetried, handsOver, retryAfterUpdate } from './retry';
-import { chatCollect } from '../hfos/saves';
+import { chatCollect, NOTHING_TO_ANSWER } from '../hfos/saves';
 import { answer, api, call, Refused, savingTo } from '../hfos/session';
 import { keepWarning, warnedNow, warningInput } from '../hfos/warned';
 import { chatMemory } from '../jobs/chats';
-import { chatPageOf, readInstagramChats } from '../jobs/instagram/chats';
+import { chatPageOf, isRow, readInstagramChats } from '../jobs/instagram/chats';
 import { accountIn, checkFollowers, isTheirs, readThemOnInstagram } from '../jobs/instagram/checks';
 import { readInstagramWarmLeads } from '../jobs/instagram/engaged';
 import { lookUpOnInstagram } from '../jobs/instagram/lookup';
@@ -938,18 +938,25 @@ async function openChat(
 async function bringInChat(
   item: TodayListItem,
   businessId: string,
-): Promise<{ readonly stop: string } | null> {
+): Promise<{ readonly stop: string } | Outcome | null> {
   if (!item.threadKey) return null;
   const opened = await openChat(item, businessId);
   if ('outcome' in opened) return 'stop' in opened.outcome ? opened.outcome : null;
-  const chat = (await read()).found.chat;
+  const { found } = await read();
+  const chat = found.chat;
   const page = chat ? chatPageOf(chat) : null;
-  const built = page ? chatCollect(page, new Date(), null, PLATFORM) : null;
+  // Its messages carry no time on Instagram: its row in the list beside it says when it last moved, as the chats read
+  // takes it (../jobs/instagram/chats.ts). Without one, nothing of it could be kept.
+  const row = chat ? found.chats.find((r) => isRow(chat, r)) : undefined;
+  const built = page ? chatCollect(page, new Date(), row?.when ?? null, PLATFORM) : null;
   if (built)
     await answer({
       type: 'hfos-collect-chats',
       input: { workspaceId: businessId, platform: PLATFORM, chats: [built] },
     });
+  // The last message whose side shows, a photo or a sticker among them, is the person's.
+  if (chat?.last === 'me')
+    return { done: false, line: `${item.name}: ${NOTHING_TO_ANSWER}`, skip: true };
   return null;
 }
 

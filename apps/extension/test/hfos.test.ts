@@ -27,6 +27,7 @@ import {
   nameKey,
   outreachBusinesses,
   postsSave,
+  yoursLast,
   type AlignableMember,
   type FoundPerson,
 } from '../src/hfos/saves';
@@ -115,6 +116,22 @@ describe('chatCollect', () => {
       { from: 'them', sender: 'Lee Park', text: 'Hey', when: 'Today at 9:00 AM' },
     ]);
     expect(chatCollect(group, now)).toBeNull();
+  });
+
+  it('says when a reply’s chat ends with the person’s message, past Facebook’s own lines', () => {
+    const mine = { from: 'me', sender: null, text: 'Hi Dana', when: null } as const;
+    const theirs = { from: 'them', sender: 'Dana Reyes', text: 'Hey!', when: null } as const;
+    const notice = {
+      from: 'unknown',
+      sender: null,
+      text: 'You’re now friends',
+      when: null,
+    } as const;
+    expect(yoursLast(chat([theirs, mine]))).toBe(true);
+    expect(yoursLast(chat([theirs, mine, notice]))).toBe(true);
+    expect(yoursLast(chat([mine, theirs]))).toBe(false);
+    expect(yoursLast(chat([notice]))).toBe(false);
+    expect(yoursLast(null)).toBe(false);
   });
 });
 
