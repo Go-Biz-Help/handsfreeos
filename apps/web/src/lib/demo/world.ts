@@ -1,3 +1,4 @@
+import type { ConversationHandoffReason } from '@hfos/core';
 import type { DemoState } from './state';
 
 /**
@@ -36,6 +37,35 @@ export interface DemoMessage {
   readonly teammate?: boolean;
   readonly approved?: boolean;
   readonly draftId?: string;
+  /** The business's hand-off line, which the teammate sends when it hands the conversation to a person. */
+  readonly handoffLine?: boolean;
+  /** Sent by the presenter, from the composer. */
+  readonly byMe?: boolean;
+  /** A phone call rather than a text: how far it has got, and what it left behind once it's over. */
+  readonly call?: DemoCall;
+}
+
+export interface DemoCall {
+  status: 'ringing' | 'in_progress' | 'completed';
+  /** The AI teammate picked up. */
+  answeredByAi: boolean;
+  seconds: number | null;
+  transcript: string | null;
+}
+
+/** Why the AI teammate handed a conversation to a person, and when. Cleared once someone takes it. */
+export interface DemoHandoff {
+  readonly since: number;
+  readonly reason: ConversationHandoffReason;
+  readonly note: string;
+}
+
+/** A website chat's visitor, as they typed it and where they are on the site. */
+export interface DemoVisitor {
+  readonly id: string;
+  readonly name: string;
+  readonly site: string;
+  readonly pagePath: string;
 }
 
 export interface DemoDraft {
@@ -60,11 +90,20 @@ export interface DemoVisit {
 export interface DemoConversation {
   readonly id: string;
   readonly person: DemoPerson;
+  /** False while a website chat's visitor hasn't said who they are: no contact is linked yet. */
+  known?: boolean;
+  /** `sms` unless said otherwise. */
+  readonly channel?: 'sms' | 'chat';
+  readonly visitor?: DemoVisitor;
   readonly createdAt: number;
   unread: number;
   readonly messages: DemoMessage[];
   readonly drafts: DemoDraft[];
   readonly visits: DemoVisit[];
+  /** Waiting for a person since the teammate handed it over. */
+  handoff?: DemoHandoff | null;
+  /** The presenter took it over from the teammate. */
+  takenOver?: boolean;
 }
 
 export interface DemoRecipient {
@@ -86,6 +125,41 @@ export interface DemoCampaign {
   readonly writingMs: number;
   approvedAt?: number;
   readonly recipients: DemoRecipient[];
+}
+
+/** A line on an estimate or invoice. */
+export interface DemoLine {
+  readonly name: string;
+  readonly description: string | null;
+  readonly quantity: number;
+  readonly unitPriceCents: number;
+}
+
+/** An estimate the scene made up: sent and opened, and approved once the customer types their name. */
+export interface DemoEstimate {
+  readonly id: string;
+  readonly number: string;
+  readonly title: string;
+  readonly person: DemoPerson;
+  readonly email: string;
+  readonly lines: readonly DemoLine[];
+  readonly createdAt: number;
+  readonly sentAt: number;
+  readonly viewedAt: number;
+  /** Its last good day, `YYYY-MM-DD`. */
+  readonly expiresOn: string;
+  accepted?: { readonly at: number; readonly name: string };
+}
+
+/** An invoice raised from a made-up estimate: a draft until the presenter sends it. */
+export interface DemoInvoice {
+  readonly id: string;
+  readonly number: string;
+  readonly estimateId: string;
+  readonly createdAt: number;
+  sentAt?: number;
+  /** `YYYY-MM-DD`. */
+  readonly dueOn: string;
 }
 
 /** One scripted answer from the Assistant: what it says it's doing, its words, then a card. */
@@ -112,6 +186,8 @@ export interface DemoWorld {
   readonly workspaceId: string;
   readonly conversations: DemoConversation[];
   readonly campaigns: DemoCampaign[];
+  readonly estimates: DemoEstimate[];
+  readonly invoices: DemoInvoice[];
   /** What the Assistant answers the next question with; null leaves questions to the real Assistant. */
   answer: DemoAnswer | null;
   /** Every card the scene has shown, by tool call id, for Confirm. */
@@ -120,6 +196,8 @@ export interface DemoWorld {
   readonly chat: { readonly question: string; readonly answer: DemoAnswer; readonly at: number }[];
   /** The cards the presenter has confirmed, by tool call id. */
   readonly confirmed: string[];
+  /** The scene shows the AI teammate past its training, replying on its own: its status reads automatic. */
+  teammateAutomatic: boolean;
 }
 
 /** The wall-clock time `hour:minute`, `days` from `at`'s date, in `timeZone`, as ms since the epoch. */

@@ -1,4 +1,4 @@
-import type { AssistantCard, AssistantEvent } from '@hfos/core';
+import { CHAT_VISITOR_NAME, type AssistantCard, type AssistantEvent } from '@hfos/core';
 import type { Ok } from '../api/types';
 import { buildWorld } from './scenes';
 import type { DemoState } from './state';
@@ -11,6 +11,9 @@ import {
   type DemoConfirmCard,
   type DemoConversation,
   type DemoDraft,
+  type DemoEstimate,
+  type DemoInvoice,
+  type DemoLine,
   type DemoWorld,
 } from './world';
 
@@ -29,6 +32,8 @@ type Draft = Drafts['items'][number];
 type Visits = Ok<'/v1/queries/appointment.list'>;
 type Campaign = Ok<'/v1/queries/campaign.get'>;
 type Timeline = Ok<'/v1/queries/timeline.list'>;
+type EstimateGet = Ok<'/v1/queries/estimate.get'>;
+type InvoiceGet = Ok<'/v1/queries/invoice.get'>;
 
 const TEAMMATE = demoId(0xa001);
 const LINE = demoId(0xa002);
@@ -36,46 +41,65 @@ const CALENDAR = demoId(0xa003);
 const RUN = demoId(0xa004);
 const THREAD = demoId(0xa005);
 const ANSWER = demoId(0xa006);
+const WIDGET = demoId(0xa008);
 const FROM_NUMBER = '+15125550100';
 
 const iso = (ms: number) => new Date(ms).toISOString();
 const json = (body: unknown, status = 200) =>
   new Response(JSON.stringify(body), { status, headers: { 'content-type': 'application/json' } });
 
+/** What a message or a call reads as in the inbox's row. */
+const previewOf = (m: DemoConversation['messages'][number]) =>
+  m.call
+    ? m.call.status === 'completed'
+      ? 'Call answered by your AI teammate'
+      : 'Incoming call'
+    : m.body;
+
+/** A website chat's counterpart is its visitor; a text's is the phone number. */
+const chatOf = (c: DemoConversation) => (c.channel === 'chat' ? (c.visitor ?? null) : null);
+
 function summary(w: DemoWorld, c: DemoConversation): Summary {
   const last = c.messages[c.messages.length - 1]!;
   const waiting = last.direction === 'inbound' ? iso(last.at) : null;
+  const visitor = chatOf(c);
+  const known = c.known ?? true;
+  const channel = c.channel ?? 'sms';
   return {
     id: c.id,
-    channel: 'sms',
-    counterpart: c.person.phone,
-    counterpartDisplay: phoneDisplay(c.person.phone),
+    channel,
+    counterpart: visitor ? visitor.id : c.person.phone,
+    counterpartDisplay: visitor
+      ? known
+        ? visitor.name
+        : CHAT_VISITOR_NAME
+      : phoneDisplay(c.person.phone),
     status: 'open',
-    person: { id: c.person.id, fullName: fullName(c.person) },
+    person: known ? { id: c.person.id, fullName: fullName(c.person) } : null,
     assignee: null,
     unreadCount: c.unread,
     lastMessageAt: iso(last.at),
-    lastPreview: last.body.slice(0, 140),
+    lastPreview: previewOf(last).slice(0, 140),
     lastDirection: last.direction,
-    lastSentBy: null,
+    lastSentBy: last.byMe ? { id: w.state.me.id, fullName: w.state.me.name } : null,
     awaitingReplySince: waiting,
     snoozedUntil: null,
     archived: false,
     openLead: null,
     createdAt: iso(c.createdAt),
-    handledBy: 'ai',
+    handledBy: c.takenOver ? 'person' : 'ai',
     teammate: { id: TEAMMATE, name: w.state.teammate },
-    needsPersonSince: null,
-    handoffReason: null,
-    handoffNote: null,
-    takenOverBy: null,
-    onSiteNow: false,
+    needsPersonSince: c.handoff ? iso(c.handoff.since) : null,
+    handoffReason: c.handoff?.reason ?? null,
+    handoffNote: c.handoff?.note ?? null,
+    takenOverBy: c.takenOver ? { id: w.state.me.id, fullName: w.state.me.name } : null,
+    onSiteNow: !!visitor,
     lanes: [
       {
         id: c.id,
-        channel: 'sms',
+        channel,
         lineId: LINE,
-        lineDisplay: phoneDisplay(FROM_NUMBER),
+        lineDisplay: visitor ? visitor.site : phoneDisplay(FROM_NUMBER),
         unreadCount: c.unread,
         status: 'open',
         archived: false,
@@ -99,33 +123,54 @@ function conversation(w: DemoWorld, c: DemoConversation): Conversation {
     hour: '2-digit',
     minute: '2-digit',
   }).format(new Date());
+  const visitor = chatOf(c);
+  const known = c.known ?? true;
   return {
     conversation: summary(w, c),
-    chat: null,
-    person: {
-      id: p.id,
-      fullName: fullName(p),
-      firstName: p.firstName,
-      lastName: p.lastName,
-      phone: phoneDisplay(p.phone),
-      phoneE164: p.phone,
-      email: null,
-      address: {
-        line1: null,
-        line2: null,
-        city: p.city,
-        state: null,
-        postalCode: null,
-        country: 'US',
-      },
-      tags: [],
-      customerSince: iso(p.customerSince ?? c.createdAt),
-      smsConsent: 'unknown',
-      archived: false,
-    },
+    chat: visitor
+      ? {
+          visitorId: visitor.id,
+          widgetId: WIDGET,
+          site: visitor.site,
+          name: known ? visitor.name : null,
+          phone: known ? phoneDisplay(p.phone) : null,
+          phoneE164: known ? p.phone : null,
+          email: null,
+          // They gave their details in the chat, so they were added to Contacts: nobody was matched.
+          matchedOn: null,
+          pagePath: visitor.pagePath,
+          lastSeenAt: iso(Date.now()),
+          onSiteNow: true,
+          blocked: false,
+          networkBlockedUntil: null,
+        }
+      : null,
+    person: known
+      ? {
+          id: p.id,
+          fullName: fullName(p),
+          firstName: p.firstName,
+          lastName: p.lastName,
+          phone: phoneDisplay(p.phone),
+          phoneE164: p.phone,
+          email: null,
+          address: {
+            line1: null,
+            line2: null,
+            city: p.city,
+            state: null,
+            postalCode: null,
+            country: 'US',
+          },
+          tags: [],
+          customerSince: iso(p.customerSince ?? c.createdAt),
+          smsConsent: 'unknown',
+          archived: false,
+        }
+      : null,
     openTasks: [],
     sender: null,
-    canText: { ok: true, reason: null },
+    canText: visitor ? { ok: false, reason: 'chat_channel' } : { ok: true, reason: null },
     social: null,
     fromNumber: phoneDisplay(FROM_NUMBER),
     rcs: false,
@@ -135,42 +180,44 @@ function conversation(w: DemoWorld, c: DemoConversation): Conversation {
 }
 
 function thread(w: DemoWorld, c: DemoConversation): Thread {
+  const chat = c.channel === 'chat';
+  const me = { id: w.state.me.id, fullName: w.state.me.name };
   const items = c.messages.map((m): ThreadMessage => ({
-    type: 'message',
+    type: m.call ? 'call' : 'message',
     id: m.id,
     occurredAt: iso(m.at),
     direction: m.direction,
-    status: m.direction === 'inbound' ? 'received' : 'delivered',
-    channel: 'sms',
-    body: m.body,
+    status: m.call ? m.call.status : m.direction === 'inbound' ? 'received' : 'delivered',
+    channel: m.call ? null : (c.channel ?? 'sms'),
+    body: m.call ? null : m.body,
     subject: null,
-    fromAddress: m.direction === 'inbound' ? c.person.phone : FROM_NUMBER,
+    fromAddress: chat ? null : m.direction === 'inbound' ? c.person.phone : FROM_NUMBER,
     media: [],
-    sentBy: null,
+    sentBy: m.byMe ? me : null,
     errorCode: null,
     errorMessage: null,
-    deliveredAt: m.direction === 'outbound' ? iso(m.at + 2000) : null,
-    durationSeconds: null,
+    deliveredAt: m.direction === 'outbound' && !chat ? iso(m.at + 2000) : null,
+    durationSeconds: m.call?.status === 'completed' ? m.call.seconds : null,
     isVoicemail: false,
     hasRecording: false,
     recordingPath: null,
     recordingSeconds: null,
-    answeredVia: null,
+    answeredVia: m.call?.answeredByAi && m.call.status !== 'ringing' ? 'ai' : null,
     scheduledFor: null,
-    transcript: null,
-    transcriptStatus: null,
+    transcript: m.call?.transcript ?? null,
+    transcriptStatus: m.call?.transcript ? 'completed' : null,
     answeredBy: null,
     conversationId: c.id,
     lineDisplay: null,
     bodyHtml: null,
-    toAddresses: [m.direction === 'inbound' ? FROM_NUMBER : c.person.phone],
+    toAddresses: chat || m.call ? [] : [m.direction === 'inbound' ? FROM_NUMBER : c.person.phone],
     ccAddresses: [],
     via: null,
     teammate: m.teammate ? { id: TEAMMATE, name: w.state.teammate } : null,
     approvedBy: m.approved ? { id: w.state.me.id, fullName: w.state.me.name } : null,
     aiDraftId: m.draftId ?? null,
-    handoffLine: false,
-    transport: 'sms',
+    handoffLine: !!m.handoffLine,
+    transport: m.call || chat ? null : 'sms',
     readAt: null,
     rich: null,
     buttonReply: null,
@@ -278,21 +325,23 @@ function visits(w: DemoWorld, c: DemoConversation): Visits {
 
 function timeline(c: DemoConversation): Timeline {
   const entries = [
-    ...c.messages.map((m) => ({
-      id: demoId(0xb0000 + c.messages.indexOf(m)),
-      entry: 'activity',
-      kind: 'sms',
-      subtype: m.direction,
-      body: m.body,
-      occurredAt: iso(m.at),
-      actor: null,
-      actorType: m.teammate ? 'ai_teammate' : 'system',
-      personId: c.person.id,
-      companyId: null,
-      leadId: null,
-      customRecordId: null,
-      meta: { direction: m.direction, messageId: m.id, transport: 'sms', conversationId: c.id },
-    })),
+    ...c.messages
+      .filter((m) => !m.call)
+      .map((m) => ({
+        id: demoId(0xb0000 + c.messages.indexOf(m)),
+        entry: 'activity',
+        kind: 'sms',
+        subtype: m.direction,
+        body: m.body,
+        occurredAt: iso(m.at),
+        actor: null,
+        actorType: m.teammate ? 'ai_teammate' : 'system',
+        personId: c.person.id,
+        companyId: null,
+        leadId: null,
+        customRecordId: null,
+        meta: { direction: m.direction, messageId: m.id, transport: 'sms', conversationId: c.id },
+      })),
     ...c.visits.map((v) => ({
       id: demoId(0xb1000 + c.visits.indexOf(v)),
       entry: 'activity',
@@ -392,6 +441,157 @@ function campaign(c: DemoCampaign): Campaign {
     },
     recipients,
     nextSendAt: c.approvedAt ? iso(c.approvedAt + 3 * 60_000) : null,
+  };
+}
+
+// ---------------------------------------------------------------------------------------- estimates and invoices
+
+/** The lines as the API reads them back, with nothing off and no tax, so each line's net is its amount. */
+function moneyLines(lines: readonly DemoLine[], seed: number): EstimateGet['estimate']['lines'] {
+  return lines.map((l, i) => {
+    const amount = Math.round(l.quantity * l.unitPriceCents);
+    return {
+      id: demoId(seed + i),
+      position: i,
+      productId: null,
+      name: l.name,
+      description: l.description,
+      quantity: l.quantity,
+      unitLabel: 'each',
+      unitPriceCents: l.unitPriceCents,
+      taxable: false,
+      discountCents: 0,
+      allocatedCents: 0,
+      amountCents: amount,
+      netCents: amount,
+    };
+  });
+}
+
+function moneyTotals(lines: readonly DemoLine[]): EstimateGet['estimate']['totals'] {
+  const total = lines.reduce((sum, l) => sum + Math.round(l.quantity * l.unitPriceCents), 0);
+  return {
+    subtotalCents: total,
+    discountCents: 0,
+    discountPercentBp: null,
+    taxableBaseCents: 0,
+    taxCents: 0,
+    taxRateBp: 0,
+    taxLabel: null,
+    totalCents: total,
+    currency: 'usd',
+  };
+}
+
+const moneyPerson = (e: DemoEstimate) => ({
+  id: e.person.id,
+  fullName: fullName(e.person),
+  email: e.email,
+  phone: phoneDisplay(e.person.phone),
+});
+
+const NO_TERMS = { kind: 'none', percentBp: 0, amountCents: 0 } as const;
+
+function invoiceRow(w: DemoWorld, inv: DemoInvoice, e: DemoEstimate) {
+  const totals = moneyTotals(e.lines);
+  return {
+    id: inv.id,
+    publicRef: inv.id.slice(-8),
+    number: inv.sentAt ? inv.number : null,
+    status: inv.sentAt ? ('sent' as const) : ('draft' as const),
+    state: inv.sentAt ? 'sent' : 'draft',
+    purpose: 'standard' as const,
+    origin: 'estimate' as const,
+    title: e.title,
+    person: moneyPerson(e),
+    leadId: null,
+    attendeeId: null,
+    estimateId: e.id,
+    subscriptionId: null,
+    connectionId: null,
+    assignee: { id: w.state.me.id, fullName: w.state.me.name },
+    totals,
+    amountPaidCents: 0,
+    amountRefundedCents: 0,
+    balanceCents: totals.totalCents,
+    dueOn: inv.dueOn,
+    terms: null,
+    sentAt: inv.sentAt ? iso(inv.sentAt) : null,
+    firstViewedAt: null,
+    paidAt: null,
+    voidedAt: null,
+    createdAt: iso(inv.createdAt),
+  };
+}
+
+function estimate(w: DemoWorld, e: DemoEstimate): EstimateGet {
+  const totals = moneyTotals(e.lines);
+  const accepted = e.accepted ?? null;
+  return {
+    estimate: {
+      id: e.id,
+      publicRef: e.id.slice(-8),
+      number: e.number,
+      status: accepted ? 'accepted' : 'sent',
+      state: accepted ? 'accepted' : 'viewed',
+      title: e.title,
+      person: moneyPerson(e),
+      leadId: null,
+      assignee: { id: w.state.me.id, fullName: w.state.me.name },
+      totals,
+      deposit: NO_TERMS,
+      depositCents: 0,
+      expiresOn: e.expiresOn,
+      sentAt: iso(e.sentAt),
+      firstViewedAt: iso(e.viewedAt),
+      acceptedAt: accepted ? iso(accepted.at) : null,
+      declinedAt: null,
+      voidedAt: null,
+      createdAt: iso(e.createdAt),
+      notes: 'Price includes the permit. Good for 30 days.',
+      revision: 2,
+      linkVersion: 1,
+      acceptedName: accepted?.name ?? null,
+      acceptedVia: accepted ? 'link' : null,
+      acceptedBy: null,
+      acceptedWording: accepted
+        ? `By typing my name, I approve this estimate from ${w.state.business}.`
+        : null,
+      declinedReason: null,
+      voidReason: null,
+      lines: moneyLines(e.lines, 0xd000),
+    },
+    invoices: w.invoices
+      .filter((i) => i.estimateId === e.id)
+      .map((i) => {
+        const row = invoiceRow(w, i, e);
+        return {
+          id: row.id,
+          number: row.number,
+          status: row.status,
+          state: row.state,
+          purpose: row.purpose,
+          totalCents: row.totals.totalCents,
+          balanceCents: row.balanceCents,
+        };
+      }),
+  };
+}
+
+function invoice(w: DemoWorld, inv: DemoInvoice): InvoiceGet | null {
+  const e = w.estimates.find((x) => x.id === inv.estimateId);
+  if (!e) return null;
+  return {
+    invoice: {
+      ...invoiceRow(w, inv, e),
+      notes: null,
+      revision: 1,
+      linkVersion: 1,
+      voidReason: null,
+      lines: moneyLines(e.lines, 0xd100),
+    },
+    payments: [],
+    refunds: [],
   };
 }
 
@@ -552,6 +752,37 @@ export async function demoResponse(
         },
       });
     }
+    if (name === 'conversation.take_over' && c)
+      return json({ conversationId: c.id, draftCancelled: false });
+    if (name === 'conversation.hand_to_ai' && c)
+      return json({ conversationId: c.id, teammateId: TEAMMATE });
+    if (name === 'estimate.convert') {
+      // The step that presses it has already raised the invoice.
+      const inv = w.invoices.find((i) => i.estimateId === body['estimateId']);
+      const e = w.estimates.find((x) => x.id === body['estimateId']);
+      if (inv && e)
+        return json({
+          estimateId: e.id,
+          invoiceId: inv.id,
+          purpose: 'standard',
+          totalCents: moneyTotals(e.lines).totalCents,
+          depositCents: 0,
+        });
+    }
+    if (name === 'invoice.send' || name === 'estimate.send') {
+      const inv = w.invoices.find((i) => i.id === body['invoiceId']);
+      if (inv) return json({ invoiceId: inv.id, number: inv.number, status: 'sent' });
+    }
+    if (name === 'message.send' && c) {
+      // The step that types it has already put it in the thread: the composer swaps its own copy for that one.
+      const sent = [...c.messages].reverse().find((m) => m.byMe);
+      return json({
+        messageId: sent?.id ?? demoId(0xa009),
+        conversationId: c.id,
+        status: 'sent',
+        duplicate: false,
+      });
+    }
     return json({});
   }
 
@@ -601,8 +832,31 @@ export async function demoResponse(
         ai: got.ai + open,
       });
     }
+    case 'ai_teammate.get': {
+      if (!w.teammateAutomatic) return null;
+      // Past its training: replies go out on their own, so the banner says so.
+      const res = await real();
+      if (!res.ok) return res;
+      const got = (await res.json()) as Ok<'/v1/queries/ai_teammate.get'>;
+      return json({
+        ...got,
+        teammate: got.teammate ? { ...got.teammate, status: 'automatic' } : null,
+        progress: got.progress
+          ? { ...got.progress, status: 'automatic', remaining: 0, automaticVia: 'threshold' }
+          : null,
+      });
+    }
     case 'assistant_thread.get':
       return body['threadId'] === THREAD ? json(savedChat(w)) : null;
+    case 'estimate.get': {
+      const found = w.estimates.find((x) => x.id === body['estimateId']);
+      return found ? json(estimate(w, found)) : null;
+    }
+    case 'invoice.get': {
+      const found = w.invoices.find((x) => x.id === body['invoiceId']);
+      const out = found ? invoice(w, found) : null;
+      return out ? json(out) : null;
+    }
     case 'campaign.get': {
       const found = w.campaigns.find((x) => x.id === body['campaignId']);
       return found ? json(campaign(found)) : null;

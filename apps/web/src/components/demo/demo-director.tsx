@@ -108,6 +108,7 @@ export function DemoDirector({
     };
     return {
       workspaceId,
+      me,
       async go(path) {
         const href = pageOf(path);
         if (window.location.pathname === href) return;
@@ -136,10 +137,26 @@ export function DemoDirector({
         await sleep(350);
         await clickOn(await waitFor('@assistant-send'));
       },
+      async type(target, text) {
+        const box = await waitFor(target);
+        await pointAt(box);
+        if (!(box instanceof HTMLTextAreaElement || box instanceof HTMLInputElement))
+          throw new Error(`${target} isn’t a box to type in.`);
+        // React keeps the box's value: set it the way the browser would, so the box's own change handler runs.
+        const proto = box instanceof HTMLTextAreaElement ? HTMLTextAreaElement : HTMLInputElement;
+        const setValue = Object.getOwnPropertyDescriptor(proto.prototype, 'value')?.set;
+        for (let i = 1; i <= text.length; i++) {
+          setValue?.call(box, text.slice(0, i));
+          box.dispatchEvent(new Event('input', { bubbles: true }));
+          await sleep(text[i - 1] === ' ' ? 45 : 22 + Math.random() * 24);
+        }
+        await sleep(300);
+      },
+      refresh: (types) => emitLocalChange(types),
       waitFor,
       wait: sleep,
     };
-  }, [router, workspaceId]);
+  }, [me, router, workspaceId]);
 
   /** Keys come back to the player after a step: a step that focused a box would otherwise take the next Space. */
   const settle = () => {
