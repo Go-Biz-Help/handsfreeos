@@ -30,7 +30,32 @@ export interface ProblemFix {
 }
 
 /** Newest last. */
-export const PROBLEM_FIXES: readonly ProblemFix[] = [];
+export const PROBLEM_FIXES: readonly ProblemFix[] = [
+  {
+    area: 'alignable',
+    job: 'friend_request',
+    note: 'Alignable didn’t take the request',
+    fixedIn: '0.124.0',
+    pr: 478,
+    said: 'Alignable’s monthly connection limit box left Connect showing; from 0.124.0 the limit is read and requests wait till the 1st.',
+  },
+  {
+    area: 'facebook',
+    job: 'friend_request',
+    note: 'Facebook says it couldn’t tell where things stand',
+    fixedIn: '0.126.1',
+    pr: 500,
+    said: 'On a profile with no username, a tab’s word (Check-ins) was taken for the name, so Add Friend with their name didn’t count.',
+  },
+  {
+    area: 'linkedin',
+    job: 'friend_request',
+    note: 'LinkedIn didn’t take the invitation',
+    fixedIn: '0.126.1',
+    pr: 500,
+    said: 'The invitation box shows inside LinkedIn’s interop box now, so Send without a note was never pressed.',
+  },
+];
 
 /** Whether an entry can clear anything: it names its version or its time. */
 export const problemFixReady = (fix: ProblemFix): boolean =>

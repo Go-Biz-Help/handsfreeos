@@ -161,6 +161,35 @@ describe('connecting without a note', () => {
     },
   );
 
+  it('presses Send without a note in the box LinkedIn draws in its interop box, out of the page’s reach', async () => {
+    // From November 2026 the invitation box shows inside the interop box's shadow root (the owner's problem reports
+    // of 3 Nov 2026, on 0.123.0): never seen there, its Send without a note was never pressed.
+    const doc = load('linkedin-profile.html', DANA);
+    const host = doc.createElement('div');
+    host.setAttribute('data-testid', 'interop-shadowdom');
+    doc.body.append(host);
+    const inside = host.attachShadow({ mode: 'open' });
+    const pressed: string[] = [];
+    const press = doc.querySelector('[aria-label="Invite Dana Reyes to connect"]')!;
+    press.addEventListener('click', () => {
+      pressed.push('Connect');
+      const box = load('linkedin-invite-box.html', DANA);
+      const dialog = doc.importNode(box.querySelector('[role="dialog"]')!, true);
+      inside.append(dialog);
+      dialog.querySelector('[aria-label="Send without a note"]')!.addEventListener('click', () => {
+        pressed.push('Send without a note');
+        dialog.remove();
+        press.insertAdjacentHTML(
+          'beforebegin',
+          '<button aria-label="Pending, click to withdraw invitation sent to Dana Reyes"><span>Pending</span></button>',
+        );
+        press.remove();
+      });
+    });
+    expect(await connect(doc, DANA)).toBe('done');
+    expect(pressed).toEqual(['Connect', 'Send without a note']);
+  });
+
   it('never types a note, and leaves a box that asks for more to the person', async () => {
     vi.useFakeTimers({ toFake: ['setTimeout'] });
     const doc = load('linkedin-profile.html', DANA);
