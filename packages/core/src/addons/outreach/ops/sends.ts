@@ -281,7 +281,8 @@ async function dropStaleCatchUps(ctx: CommandContext, me: string, at: Date): Pro
   );
   await rows(
     ctx.tx,
-    sql`update addon_outreach.sends s set state = 'skipped', done_at = ${at}, updated_at = ${at}
+    sql`update addon_outreach.sends s set state = 'skipped', done_at = ${at.toISOString()}::timestamptz,
+            updated_at = ${at.toISOString()}::timestamptz
           where ${stale} and s.state = 'approved'`,
   );
 }
