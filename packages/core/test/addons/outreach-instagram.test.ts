@@ -159,7 +159,9 @@ describe('Instagram’s kit and words', () => {
       },
       platform: 'instagram',
     });
-    expect(back).toContain('They just followed the owner back.');
+    expect(back).toContain(
+      'They and the owner haven’t talked yet, so this is the owner’s first message to them.',
+    );
     expect(back).not.toContain(REQUESTS_TASK);
     expect(back).toContain('cal.com');
     expect(fitsRequests('Hi Sam, are you open to more booked calls?')).toBe(true);

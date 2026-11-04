@@ -64,7 +64,9 @@ import {
   contactable,
   inWorkspace,
   isClient,
+  outreachWrote,
   recentOf,
+  talkedWith,
   type ChatRef,
   type Ctx,
 } from './common';
@@ -263,6 +265,27 @@ async function setPostAside(ctx: CommandContext, row: Row, at: Date): Promise<vo
     .where(and(eq(posts.id, row.postId), isNull(posts.skippedAt)));
 }
 
+/**
+ * Catch-ups drafted for someone Reconnect no longer takes (decision 155, answer 3a): someone the person never had a
+ * conversation with, or whom Social Outreach wrote to before. The person's own still waiting for an OK goes, and one
+ * OK'd is skipped, so the Say hi first message comes instead when they're never talked to. Run as each draft is queued,
+ * so those drafted before the change go within the day, whatever drafted them.
+ */
+async function dropStaleCatchUps(ctx: CommandContext, me: string, at: Date): Promise<void> {
+  const stale = sql`s.workspace_id = ${ctx.scope.workspaceId!} and s.user_id = ${me} and s.kind = 'reconnect'
+    and exists (select 1 from addon_outreach.profiles p
+      where p.id = s.profile_id and (not ${talkedWith(me)} or ${outreachWrote}))`;
+  await rows(
+    ctx.tx,
+    sql`delete from addon_outreach.sends s where ${stale} and s.state = 'waiting'`,
+  );
+  await rows(
+    ctx.tx,
+    sql`update addon_outreach.sends s set state = 'skipped', done_at = ${at}, updated_at = ${at}
+          where ${stale} and s.state = 'approved'`,
+  );
+}
+
 export const sendQueue = defineAddonCommand(outreachAddon, {
   name: 'outreach.send.queue',
   description:
@@ -276,6 +299,7 @@ export const sendQueue = defineAddonCommand(outreachAddon, {
   async handler(ctx, input) {
     const me = requireHuman(ctx).userId;
     const ws = ctx.scope.workspaceId!;
+    await dropStaleCatchUps(ctx, me, changeMoment(ctx.meta));
     const open = () =>
       listed(
         ctx,

@@ -56,6 +56,7 @@ import {
   REQUESTS_WHY,
   requestsHeldOn,
   requestsLimitHeld,
+  SAY_HI_WHY,
   TODAY_KIND_KEYS,
   TODAY_LIMIT,
   TODAY_MOST,
@@ -106,11 +107,13 @@ import {
   type Ctx,
 } from './common';
 import {
+  acceptedMine,
   goalStock,
   knowsThem,
   myOwnProfile,
   perDayFor,
   reconnectReady,
+  sayHiReady,
   stillToReach,
 } from './checks';
 import { goalFacts } from './goal';
@@ -1170,43 +1173,64 @@ export async function todayFor(
 
   // First message (decision 65): new friends who accepted the person's request, without a message yet. On a follow
   // network (Instagram's) a follow-back is the accepting: someone they followed who's among their saved followers.
+  // Then any other friend never talked to whom a check found fit, or might (decision 155): the person accepted their
+  // request, connected on the network themselves, or has been friends a while. Never Reconnect's catch-up, which is for
+  // a conversation had. Each waits the playbook's days after becoming friends, the good fits before the maybes.
   const openersLeft = leftToday(limits, 'opener');
   let openers = 0;
   if (openersLeft) {
-    const accepted = await rows<{ id: string; name: string; url: string; since: Date | string }>(
+    const fresh = sql`(${acceptedMine(me)} and f.since >= ${ago(TODAY_WINDOW_DAYS.opener)}::timestamptz)`;
+    const accepted = await rows<{
+      id: string;
+      name: string;
+      url: string;
+      since: Date | string;
+      fresh: boolean;
+      mine: boolean;
+      theirs: boolean;
+      why: string[] | null;
+      about: string | null;
+      playbook_name: string | null;
+    }>(
       ctx.tx,
-      sql`select p.id, p.name, p.url, f.since from addon_outreach.friends f
+      sql`select p.id, p.name, p.url, f.since, ${fresh} as fresh, ${acceptedMine(me)} as mine,
+              (f.answer is not null or ch.request_answer is not null) as theirs,
+              case when ch.verdict in ('good', 'maybe') then ch.why end as why,
+              case when ch.verdict in ('good', 'maybe') then ch.about end as about,
+              pb.name as playbook_name
+            from addon_outreach.friends f
             join addon_outreach.profiles p on p.id = f.profile_id
-            where f.workspace_id = ${ws} and f.user_id = ${me} and f.state = 'friends'
-              and f.since between ${ago(TODAY_WINDOW_DAYS.opener)}::timestamptz
-                and ${ago(pace.messageAfterDays)}::timestamptz
-            and ${pitchable('p')} and ${inPlay(me, 'p')} and ${reach}
-              and exists (select 1 from addon_outreach.touches t where t.profile_id = p.id
-                and t.user_id = ${me} and t.kind = 'friend_request')
-              and not exists (select 1 from addon_outreach.touches t where t.profile_id = p.id
-                and t.kind = 'message')
-              and not exists (select 1 from addon_outreach.file_chats c where c.profile_id = p.id
-                and c.user_id = ${me})
-              and not exists (select 1 from addon_outreach.follow_ups fu where fu.profile_id = p.id
-                and fu.user_id = ${me})
-            order by f.since desc limit ${openersLeft}`,
+            left join addon_outreach.checks ch on ch.profile_id = p.id and ch.user_id = ${me}
+            left join addon_outreach.playbooks pb on pb.id = ch.playbook_id
+            where f.workspace_id = ${ws} and f.since <= ${ago(pace.messageAfterDays)}::timestamptz
+              and ${sayHiReady(me, ago(TODAY_WINDOW_DAYS.opener), reach)}
+            order by ${fresh} desc, (ch.verdict = 'good') desc nulls last, f.since desc, p.id
+            limit ${openersLeft}`,
     );
     openers = accepted.length;
-    for (const p of accepted)
+    for (const p of accepted) {
+      const when = dayWords(p.since, now);
+      const how = p.mine
+        ? follows
+          ? SAY_HI_WHY.followedBack(when)
+          : SAY_HI_WHY.accepted(when)
+        : p.theirs
+          ? SAY_HI_WHY.theirs(when)
+          : SAY_HI_WHY.known;
       items.push(
         item({
           kind: 'opener',
           name: p.name,
           profileId: p.id,
           profileUrl: p.url,
-          why: [
-            follows
-              ? `Followed you back ${dayWords(p.since, now)}`
-              : `Accepted your request ${dayWords(p.since, now)}`,
-          ],
+          // One who accepted the person's request lately says only that, as ever; anyone else, why the check found them.
+          why: p.fresh ? [how] : [how, ...(p.why ?? [])],
+          summary: p.about,
+          playbookName: p.playbook_name,
           demoLink: demoFor(p.id),
         }),
       );
+    }
   }
 
   // No follow-back in a few days, on a follow network (Instagram's, the Instagram and Alignable plan's "The steps"):
@@ -1675,8 +1699,9 @@ export async function todayFor(
     );
   }
 
-  // Reconnect (decision 46): friends and people they've chatted with whom the AI found a good fit, once neither
-  // side has written for a month, and not on the list already. They share the first messages' limit with Say hi.
+  // Reconnect (decision 46): people the person has had a conversation with whom the AI found a good fit, once neither
+  // side has written for a month, as Social Outreach's first message to them (decision 155, `reconnectReady`), and not
+  // on the list already. They share the first messages' limit with Say hi, and anyone never talked to gets that.
   // Someone found by topic is one only once they're a friend or have chatted (decision 92, `knownCheck`). Those who
   // might fit come after the good fits, so they fill a day that's short (decision 126, answer 5a).
   const reconnectLeft = Math.max(

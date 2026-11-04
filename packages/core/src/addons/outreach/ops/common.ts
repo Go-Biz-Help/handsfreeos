@@ -763,6 +763,24 @@ export async function keptProfile(
   return row!;
 }
 
+/**
+ * A conversation the person has had with them (decision 155): a chat of theirs kept with them in which they wrote, at
+ * least in what was kept of it, not only the person's own messages. `p` is the profile.
+ */
+export const talkedWith = (me: string) => sql`exists (select 1 from addon_outreach.file_chats c
+    where c.profile_id = p.id and c.user_id = ${me}
+      and (not c.last_from_me or exists (select 1 from jsonb_array_elements(c.recent) m
+        where m ->> 'fromMe' = 'false')))`;
+
+/**
+ * A message from Social Outreach that went to them, anyone's on the team (decision 155): a draft sent, or one the
+ * extension sent on its own. A comment under their post isn't one. `p` is the profile.
+ */
+export const outreachWrote = sql`(exists (select 1 from addon_outreach.sends s
+    where s.profile_id = p.id and s.state = 'sent' and s.post_id is null)
+  or exists (select 1 from addon_outreach.touches t
+    where t.profile_id = p.id and t.kind = 'message' and t.auto))`;
+
 /** Where the person's own Facebook stood with someone, as the extension saw or noted it. */
 export interface FriendSeen {
   readonly profileId: string;

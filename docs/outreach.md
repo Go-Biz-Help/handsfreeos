@@ -213,14 +213,16 @@ became.
   out each time from what HandsFreeOS knows (`today.ts`, `ops/today.ts`). Friend requests to people from the groups
   who fit a playbook, best first and as many as today's limit has left, only from groups whose admins are read and
   never to anyone who runs a group, is on Don't pitch, is in Contacts, or has had a request; a first message to new
-  friends who accepted the person's request; follow-ups to likely prospects gone quiet (the playbook's pace);
+  friends who accepted the person's request, and to any other friend a check found fit whom the person has never
+  talked to (decision 155); follow-ups to likely prospects gone quiet (the playbook's pace);
   replies owed; and comments on good group posts (below). With **Like a post first** on (decision 33, each person's
   own setting, on to start), someone's request waits until a day after one of their posts was liked, and the list has
   **Like a post first** for as many as a day's requests; a profile with no post to like goes without. Requests the
   person got from people who fit a playbook well come first, as **Confirm their request** (decision 30). **Reconnect**
-  (decision 46): friends and people they've chatted with whom the AI found a good fit, once neither side has written
-  for a month (`RECONNECT_QUIET_DAYS`), with the AI's why, who they are and a first step, sharing the first messages'
-  limit with Say hi; its drafts pick things up again without a pitch, from what the AI found. **Pitch** (decision 47):
+  (decision 46): people they've had a conversation with whom the AI found a good fit, once neither side has written
+  for a month (`RECONNECT_QUIET_DAYS`), and only as Social Outreach's first message to them (decision 155), with the
+  AI's why, who they are and a first step, sharing the first messages' limit with Say hi; its drafts catch up, then
+  ask the first message's question (decision 152). **Pitch** (decision 47):
   people whose chat the AI read as ready for the offer, or the person marked ready, until a pitch goes, they're
   booked or not a fit, or the person writes to them again; counted against the follow-ups, and in place of a reply or
   follow-up to them. **Answer their comment** (decision 50): people who commented on the person's helpful post. A
@@ -3907,6 +3909,32 @@ where decisions 37 and 59 put the settings; what they decided stands. Settled to
         keeps it as the library's own. The playbook keeps its script writer (decision 69); where its link box was, it
         points to Settings → Videos. The setup's video step (decision 83) is done once the library has a video, or the
         business says it doesn't use one, and opens Videos.
+155.  **Reconnect's catch-up only for a conversation had, as Social Outreach's first message** (Chris, 4 Nov 2026:
+      "the social outreach is doing the catchup message with people ive never talked to and/or just recently became
+      friends on connected with. this is not right"). Reconnect took anyone known whom a check found fit once nobody
+      had written in a month, and never having written counted, so since decision 152's "it's been a while" opening
+      it reached friends never messaged, people whose request was confirmed (decision 136; a confirm isn't a step
+      noted, so Say hi never took them), connections made by hand, and even people who'd just accepted the extension's
+      request, on the day they did, before Say hi's wait. He picked 1 ("people who we've had a conversation with but
+      it's been over a month since the last message and its the social out reach ai first message to them"), 2a and
+      3a. No migration, and no new extension.
+      - **Reconnect** (`reconnectReady` in `ops/checks.ts`): only someone the person has had a conversation with, a
+        chat kept with them in which they wrote (`talkedWith` in `ops/common.ts`), quiet a month as before, and only
+        when Social Outreach never wrote to them, a draft of anyone's sent or a message the extension sent on its own
+        (`outreachWrote`). Someone further along gets the conversation's own steps instead.
+      - **Say hi for everyone never talked to** (2a, `sayHiReady`): besides new friends who accepted the person's
+        request (decision 65, within a month, with no check needed), any friend or connection a check found fit, or
+        might, with no chat, no message from anyone and no conversation started: whose request the person or the AI
+        confirmed, connected with on the network by hand, or friends a while. Each waits the playbook's days after
+        becoming friends (`pace.messageAfterDays`), shares the first messages' limit, and comes after the new accepts,
+        the good fits before the maybes. Today says how: "Accepted your request …", "You accepted their friend request
+        …", or "A friend you haven't talked to yet" (`SAY_HI_WHY`, no day said, since when a friendship first seen began
+        isn't known), then the check's why. The first message's task now reads "They and the owner haven't talked yet,
+        so this is the owner's first message to them", on every network, and Reconnect's "They've chatted with the
+        owner before". The day's goal counts both (`goalStock`).
+      - **Catch-ups already drafted** (3a, `dropStaleCatchUps` in `ops/sends.ts`): one for someone Reconnect no longer
+        takes goes as the person's next draft is queued: still waiting for an OK, it's deleted (the policy decision 134
+        added lets the person delete their own); OK'd, it's skipped. Never-talked-to people then get Say hi.
 
 ## Rules worth knowing before changing anything
 
@@ -4513,7 +4541,8 @@ where decisions 37 and 59 put the settings; what they decided stands. Settled to
   keeps each person to their own rows, owners and admins included (`checks_own`), since the AI read their chats; the
   worker reads them as `service_actor`. The day's count is the looks since the business's midnight. Today's
   **Reconnect** takes only `good` ones, never anyone not pitched, and never someone written to either way in the last
-  month or on the list already; it counts against the first messages, as Say hi does. **A check can be of someone
+  month or on the list already, and only someone they've had a conversation with whom Social Outreach never wrote to
+  (decision 155); it counts against the first messages, as Say hi does, which takes the fits never talked to. **A check can be of someone
   found by topic** (decision 92, `checks.via`): the server sets it at each look, `found` when the profile is a find of
   the person's who isn't someone they know (`knownToMe`), else `known`; a Research press is `known`. The readers about
   people known (Reconnect, the Friends tab's good fits, Check everyone again, `checksSummary`) go by `knownToMe` when

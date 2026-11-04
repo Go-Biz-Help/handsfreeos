@@ -207,6 +207,18 @@ export const TODAY_LIMIT: Readonly<Record<TodayKind, DailyStep | null>> = {
  * time, decision 106) are still worth it.
  */
 export const TODAY_WINDOW_DAYS = { opener: 30, follow_up: 60, reply: 14, rebook: 14 } as const;
+
+/**
+ * Why someone's on Today for Say hi (decisions 65 and 155), in Facebook's words (`inNetworkWords` puts each network's):
+ * they accepted the person's request, or followed them back on a follow network; the person accepted theirs; or a
+ * friend the person hasn't talked to yet, with no day said, since when a friendship first seen began isn't known.
+ */
+export const SAY_HI_WHY = {
+  accepted: (when: string) => `Accepted your request ${when}`,
+  followedBack: (when: string) => `Followed you back ${when}`,
+  theirs: (when: string) => `You accepted their friend request ${when}`,
+  known: 'A friend you haven’t talked to yet',
+} as const;
 /** The most of each kind listed when no limit says: replies. */
 export const TODAY_MOST = 20;
 
@@ -719,10 +731,11 @@ const THEIR_KIND =
   'Where the question names their business, name its kind from the facts or their pages in a word or two, as they’d say it (roofing, real estate, photography); when they run more than one, the one the offer fits best. When those don’t show it, say “your business”, and when they work for someone else, put it as their line of work (“as a realtor”). Never guess it from the playbook.';
 
 const TASK: Record<CustomerDraftKind, string> = {
-  opener: `They just accepted the owner’s friend request. Write the first message as ${FIRST_MESSAGE_SHAPE} ${THEIR_KIND}`,
+  // Someone the owner hasn't talked with yet (decision 155): just friends, or friends a while without a chat.
+  opener: `They and the owner haven’t talked yet, so this is the owner’s first message to them. Write it as ${FIRST_MESSAGE_SHAPE} ${THEIR_KIND}`,
   // A catch-up, then why the owner is writing (decision 152): the question is the message's only one, as every draft
   // asks at most one. One who turned the offer down only catches up (`RECONNECT_CATCH_UP`).
-  reconnect: `They’re already the owner’s friend or have chatted before, but neither has written in a while. Write a short, warm catch-up, then right after it why the owner is writing. The catch-up greets them by first name, says it’s been a while and hopes they and their work are doing well, picking up something from what their pages say or what the chat was about (“Hey Mike, it’s been a while! Hope the new shop is keeping you busy.”), with no question of its own, so the only question is the one after it. Then the question: ${RECONNECT_QUESTION_SHAPE} ${THEIR_KIND}`,
+  reconnect: `They’ve chatted with the owner before, but neither has written in over a month. Write a short, warm catch-up, then right after it why the owner is writing. The catch-up greets them by first name, says it’s been a while and hopes they and their work are doing well, picking up something from what their pages say or what the chat was about (“Hey Mike, it’s been a while! Hope the new shop is keeping you busy.”), with no question of its own, so the only question is the one after it. Then the question: ${RECONNECT_QUESTION_SHAPE} ${THEIR_KIND}`,
   // The owner's own ask for the call (decision 153), with the times or the link to book.
   pitch: `They’re ready for a call: they said yes, or the chat shows they need what the business offers and seem open to it. Write a short message that answers where the chat left off when it needs it, then ${DEMO_ASK_SHAPE} Then the link to book.`,
   video:
@@ -764,7 +777,7 @@ export const firstStepFact = (kind: DraftKind, step: string | null | undefined):
  * before decision 152, with nothing that pitches.
  */
 export const RECONNECT_CATCH_UP =
-  'They’re already the owner’s friend or have chatted before, but neither has written in a while. Write a short, warm message that picks things up again from what their pages say or what the chat was about, and asks how they are or how their work is going. Don’t pitch.';
+  'They’ve chatted with the owner before, but neither has written in over a month. Write a short, warm message that picks things up again from what their pages say or what the chat was about, and asks how they are or how their work is going. Don’t pitch.';
 
 /**
  * A first message on a follow network (Instagram's) to someone who hasn't followed the owner back (`TodayItem.requests`):
@@ -850,15 +863,7 @@ export function fitsComment(text: string, platform: Platform): boolean {
  * where the helpful post goes on the person's own) is on the network, not in a group.
  */
 function taskOn(kind: CustomerDraftKind, platform: Platform, inGroup: boolean): string {
-  const said = inNetworkWords(TASK[kind], platform);
-  // On a follow network (Instagram's) a follow-back is the accepting.
-  const task =
-    kind === 'opener' && NETWORKS[platform].requestsMessageAfterDays !== null
-      ? said.replace(
-          /^They just accepted the owner’s [^.]+\./,
-          'They just followed the owner back.',
-        )
-      : said;
+  const task = inNetworkWords(TASK[kind], platform);
   // A comment that waits to be posted (decision 92) keeps to the network's words; no comment carries a link (decision
   // 144).
   const most = COMMENT_WORDS_MOST[platform];
