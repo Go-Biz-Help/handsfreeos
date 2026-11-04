@@ -3873,6 +3873,16 @@ where decisions 37 and 59 put the settings; what they decided stands. Settled to
         them time"; a playbook saved before keeps its styles, which only word the question. The AI's playbook help
         suggests openers in the new shape, and the main offer builder's preview reads "Hey Sam, if I could get you … for
         your business, would you be interested?". The business's own openers still go as written.
+153.  **The step after a yes asks for a demo, the owner's way** (Chris, 4 Nov 2026: "start scheduling a demo call by
+      saying something like let's schedule a time where i can demo it for you so you can see what it's about, if you
+      don't like it no pressure how's that sound?"; picked 1a, the times in the same message). **Send the link** (and
+      Your messages' link sample) now asks for a time to show them in those words (`DEMO_ASK_EXAMPLE`,
+      `DEMO_ASK_SHAPE` in `conversation.ts`): "demo it for you" when the offer can be shown, like software, otherwise a
+      quick call to walk them through it, and never the plan, numbers or results they'd get from the call, which it
+      used to promise. With open times (decision 149) they go in just before "how's that sound?" ("I have tomorrow at
+      11 ct or this friday at noon ct, how's that sound?"), then the link for any other time; with none, the link. A
+      playbook with no video already goes from a yes straight to this step, as Chris's does; the video step stays for a
+      playbook that has one. No migration, and no new extension.
 
 ## Rules worth knowing before changing anything
 

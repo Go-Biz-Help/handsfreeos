@@ -67,6 +67,7 @@ import type { MainOfferParts } from '../../main-offer/parts';
 import {
   ANSWER_KEYS,
   CONVERSATION_STEPS,
+  DEMO_ASK_SHAPE,
   FIRST_MESSAGE_SHAPE,
   RECONNECT_QUESTION_SHAPE,
   type Answer,
@@ -720,8 +721,8 @@ const TASK: Record<CustomerDraftKind, string> = {
   // A catch-up, then why the owner is writing (decision 152): the question is the message's only one, as every draft
   // asks at most one. One who turned the offer down only catches up (`RECONNECT_CATCH_UP`).
   reconnect: `They’re already the owner’s friend or have chatted before, but neither has written in a while. Write a short, warm catch-up, then right after it why the owner is writing. The catch-up greets them by first name, says it’s been a while and hopes they and their work are doing well, picking up something from what their pages say or what the chat was about (“Hey Mike, it’s been a while! Hope the new shop is keeping you busy.”), with no question of its own, so the only question is the one after it. Then the question: ${RECONNECT_QUESTION_SHAPE} ${THEIR_KIND}`,
-  pitch:
-    'They’re ready for a call: they said yes, or the chat shows they need what the business offers and seem open to it. Write a short message that answers where the chat left off when it needs it, then gives the link to book a quick call and one line on what they’ll get from it: a plan for their business, with their numbers. No pressure.',
+  // The owner's own ask for the call (decision 153), with the times or the link to book.
+  pitch: `They’re ready for a call: they said yes, or the chat shows they need what the business offers and seem open to it. Write a short message that answers where the chat left off when it needs it, then ${DEMO_ASK_SHAPE} Then the link to book.`,
   video:
     'They said yes to hearing more. Write a short message with the short video: here’s a short video on how it works and how others got results, and if a quick call where they can see how it would work for their business sounds good, they can just say. Sell the call, not the service.',
   follow_up:

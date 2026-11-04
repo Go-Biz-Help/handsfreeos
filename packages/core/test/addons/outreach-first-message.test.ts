@@ -6,6 +6,8 @@
  */
 import { describe, expect, it } from 'vitest';
 import {
+  DEMO_ASK_EXAMPLE,
+  DEMO_ASK_SHAPE,
   FIRST_MESSAGE_EXAMPLE,
   FIRST_MESSAGE_SHAPE,
   FIRST_MESSAGE_WORDS,
@@ -192,6 +194,29 @@ describe('Reconnect', () => {
   });
 });
 
+describe('Send the link (decision 153)', () => {
+  it('asks for a time to demo it, in the owner’s words, with the link to book', () => {
+    expect(DEMO_ASK_EXAMPLE).toBe(
+      'Let’s schedule a time where I can demo it for you so you can see what it’s about. If you don’t like it, no pressure. How’s that sound?',
+    );
+    const prompt = todayDraftPrompt({
+      kind: 'pitch',
+      business: 'Bright Books',
+      name: 'Dana Reyes',
+      facts: [],
+      recent: [{ fromMe: false, text: 'Sure, sounds interesting', at: new Date().toISOString() }],
+      playbook: { ...crm, link: 'https://brightbooks.com/book/demo' },
+    });
+    expect(prompt).toContain(DEMO_ASK_SHAPE);
+    expect(prompt).toMatch(/“demo it for you” when the offer is something that can be shown/);
+    expect(prompt).toMatch(/Never a plan, numbers or results they’ll get from the call/);
+    expect(prompt).toContain(
+      'Put this link in every draft, exactly as written: https://brightbooks.com/book/demo',
+    );
+    expect(prompt).not.toMatch(/a plan for their business, with their numbers\. No pressure/);
+  });
+});
+
 describe('Your messages’ first samples', () => {
   const facts: SamplesFacts = {
     business: 'Pine Roof Leads',
@@ -224,5 +249,17 @@ describe('Your messages’ first samples', () => {
       others: [],
     });
     expect(again).toContain(FIRST_MESSAGE_SHAPE);
+    // The link sample asks for the demo the owner's way too (decision 153).
+    expect(all).toContain(
+      `- link: the message when they want a call, with [booking link]: it ${DEMO_ASK_SHAPE}`,
+    );
+    expect(
+      messageRewritePrompt({
+        ...facts,
+        slot: { part: 'link', index: 0 },
+        before: 'Book here',
+        others: [],
+      }),
+    ).toContain(DEMO_ASK_SHAPE);
   });
 });

@@ -419,6 +419,14 @@ const QUESTION_RULES =
 export const FIRST_MESSAGE_SHAPE = `one short, straight question, under ${FIRST_MESSAGE_WORDS} words, that says how the owner can help them: “Hey” and their first name, then if the owner could get them what the offer really does, put broadly rather than in the offer’s words, for their kind of business, using what the offer is, would they be interested. Like: “${FIRST_MESSAGE_EXAMPLE}” ${QUESTION_RULES} Their first name is the first word of their name when it reads as a person’s first name; when it doesn’t (a business’s page, initials), start with just “Hey,”. Put nothing else before or after the question: no line about them.`;
 /** Reconnect's question (decision 152): sent right after its catch-up, so it opens with no greeting of its own. */
 export const RECONNECT_QUESTION_SHAPE = `one short, straight question, under ${FIRST_MESSAGE_WORDS} words, that says why the owner is writing: “I was wondering if” the owner could get them what the offer really does, put broadly rather than in the offer’s words, for their kind of business, using what the offer is, would they be interested. Like: “${RECONNECT_QUESTION_EXAMPLE}” ${QUESTION_RULES}`;
+/**
+ * How the owner asks for the call once they're interested (decision 153, the owner, 4 Nov 2026): a time to show them,
+ * no pressure, and how's that sound. Send the link and Your messages' link sample are written to it.
+ */
+export const DEMO_ASK_EXAMPLE =
+  'Let’s schedule a time where I can demo it for you so you can see what it’s about. If you don’t like it, no pressure. How’s that sound?';
+/** The ask for the call, as a draft or a sample is told it (`DEMO_ASK_EXAMPLE`). */
+export const DEMO_ASK_SHAPE = `asks to set up a time to show them, in the owner’s words: “${DEMO_ASK_EXAMPLE}” Keep close to those words: “demo it for you” when the offer is something that can be shown, like software, and otherwise a quick call to walk them through it. Never a plan, numbers or results they’ll get from the call.`;
 /** A sample's kind of business: the made-up person's, from the playbook's niche. */
 const NICHE_KIND = 'Put in the kind of business the playbook’s niche runs, in a word or two.';
 
@@ -542,7 +550,7 @@ export function messageSamplesPrompt(f: SamplesFacts): string {
       p.hasVideo
         ? '- video: the message after they say yes, with [video link]: a short video on how it works and how others got results, and if a quick call sounds good, they can just say.'
         : '- video: null.',
-      '- link: the message when they want a call, with [booking link] and one line on what they’ll get from the call: a plan for their business, with their numbers.',
+      `- link: the message when they want a call, with [booking link]: it ${DEMO_ASK_SHAPE}`,
       `- followUps: ${f.followUps} short follow-ups in turn, for when they go quiet after the first message, each one or two lines, each different, never repeating one before.`,
       p.usefulWhat
         ? '- checkIn: a monthly check-in that gives them the useful thing, with no ask.'
@@ -659,7 +667,7 @@ function partTask(slot: SampleSlot, f: Pick<SamplesFacts, 'playbook' | 'followUp
     case 'video':
       return 'the message after they say yes, with [video link]: a short video on how it works and how others got results, and if a quick call sounds good, they can just say.';
     case 'link':
-      return 'the message when they want a call, with [booking link] and one line on what they’ll get from the call: a plan for their business, with their numbers.';
+      return `the message when they want a call, with [booking link]: it ${DEMO_ASK_SHAPE}`;
     case 'followUps':
       return `follow-up ${slot.index + 1} of ${f.followUps}, for when they go quiet after the first message: one or two lines.`;
     case 'checkIn':

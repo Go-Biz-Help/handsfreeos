@@ -1903,7 +1903,7 @@ function scriptedTodayDraft(message: string) {
           time: picked,
           drafts: [`That works, ${first}! What’s the best email for the invite?`],
         };
-  if (message.includes('gives the link to book a quick call'))
+  if (message.includes('asks to set up a time to show them'))
     return {
       simple: false,
       answer: 'none',
