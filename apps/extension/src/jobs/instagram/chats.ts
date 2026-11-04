@@ -52,13 +52,21 @@ export function chatPageOf(chat: ChatOpen): ChatPage | null {
   };
 }
 
-/** Whether the chat open is the row pressed: by the name it shows, or a new one-to-one chat opened by the press. */
-function isRow(chat: ChatOpen | null, row: ChatRow, before: string | null): chat is ChatOpen {
+/**
+ * Whether the chat open is the row's: by its id, or the name it shows; or, after a press, a new one-to-one chat it
+ * opened (`before`: the chat open before the press). Left out, only the id and the name tell.
+ */
+export function isRow(
+  chat: ChatOpen | null,
+  row: ChatRow,
+  before?: string | null,
+): chat is ChatOpen {
   if (!chat?.thread || !chat.with) return false;
+  if (row.thread !== null && row.thread === chat.thread) return true;
   const name = row.name.trim().toLowerCase();
   if (chat.name?.trim().toLowerCase() === name || chat.with.username.toLowerCase() === name)
     return true;
-  return chat.thread !== before;
+  return before !== undefined && chat.thread !== before;
 }
 
 /**

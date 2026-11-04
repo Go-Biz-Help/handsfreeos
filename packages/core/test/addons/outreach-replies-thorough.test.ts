@@ -3,7 +3,8 @@
  * again, at most once every quarter hour; a Facebook chat in the list is theirs by the chat number a chat read kept, or
  * by the one name; someone who writes after a friend or connection request or a comment counts as after a message; a
  * reply a chat read found buzzes the phone like the extension's; a reply drafted from a sighting keeps the chat it
- * answers; and Today drafts a reply in any chat the person's outreach started, not only a likely prospect's.
+ * answers; Today drafts a reply in any chat the person's outreach started, not only a likely prospect's; and a reply
+ * seen by its name alone goes on Today with the chat a read kept, so the extension reads it before the AI answers.
  */
 import { rows, sql } from '@hfos/db/client';
 import { closeTestDbs, createTestUser, testDbs, type TestUser } from '@hfos/db/testing';
@@ -241,5 +242,23 @@ describe('every reply, in a business', () => {
       }),
     );
     expect(items.map((i) => i.name)).not.toContain('Bo Lin');
+  });
+
+  it('a reply seen by its name alone goes with their chat, and leaves once it shows the person’s message last', async () => {
+    // Messaged from their profile: no chat number noted with it, but a read of the chat kept one.
+    await touch('message', 'ivy.west.32', 'Ivy West', 30 * MIN);
+    const ivy = await profileOf('ivy.west.32');
+    const messages = [me('Hi Ivy, quick one', ago(30 * MIN))];
+    await collect('Ivy West', 'ivy.west.32', '4000601', messages);
+    // A list that shows rows by name alone (Instagram's) says they wrote last.
+    expect((await seen({ name: 'Ivy West' })).replies).toEqual([
+      { profileId: ivy, name: 'Ivy West' },
+    ]);
+    expect(await listed()).toContainEqual(
+      expect.objectContaining({ name: 'Ivy West', kind: 'reply', threadKey: '4000601' }),
+    );
+    // The extension opens that chat to answer it: the person's message is still the last, so it's off Today.
+    await collect('Ivy West', 'ivy.west.32', '4000601', messages);
+    expect((await listed()).map((i) => i.name)).not.toContain('Ivy West');
   });
 });

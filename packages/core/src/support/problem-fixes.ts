@@ -55,6 +55,14 @@ export const PROBLEM_FIXES: readonly ProblemFix[] = [
     pr: 500,
     said: 'The invitation box shows inside LinkedIn’s interop box now, so Send without a note was never pressed.',
   },
+  {
+    area: 'instagram',
+    job: 'draft',
+    note: 'the AI had nothing to write',
+    fixedIn: '0.126.2',
+    pr: 506,
+    said: 'A reply seen by name alone went on Today with no chat to open, so the AI answered a chat that ended with your own message.',
+  },
 ];
 
 /** Whether an entry can clear anything: it names its version or its time. */

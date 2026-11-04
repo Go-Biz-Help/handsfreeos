@@ -1405,6 +1405,40 @@ describe('a message on Instagram', () => {
     expect(drafted.input?.lookup).toContain('Plumber in Austin');
     expect(world.noted).toEqual([]);
   });
+
+  it('brings in the chat of a reply first, and writes nothing when the person’s message is still the last', async () => {
+    // Their chat, with its row in the list beside it saying when it last moved: the person wrote last.
+    const row = `<div role="navigation" aria-label="Thread list"><div><div role="button"><div><img alt="user"></div>
+      <div><span dir="auto"><span title="Dana Reyes">Dana Reyes</span></span>
+      <div><span dir="auto"><span>You: Hi Dana</span></span><span dir="auto"><abbr><span>13h</span></abbr></span></div></div></div></div></div>`;
+    world.pages = (url) =>
+      url === DANA_CHAT
+        ? { html: chatHtml().replace('<main><section>', `<main><section>${row}`) }
+        : null;
+    world.hfos['hfos-draft'] = () => ({ drafts: [], kind: 'reply', opener: null, simple: false });
+    const outcome = await doWork(
+      { do: 'draft', item: item({ kind: 'reply', threadKey: '111' }) },
+      ME.businessId,
+      true,
+    );
+    expect(outcome).toEqual({
+      done: false,
+      line: 'Dana Reyes: your message is the last one in your chat, so there’s nothing to answer',
+      skip: true,
+    });
+    expect(world.opened).toEqual([DANA_CHAT]);
+    // Kept as it is now, so Today lets the reply go; the AI is never asked.
+    const collected = world.asked.find((a) => a.type === 'hfos-collect-chats') as {
+      input?: {
+        chats: { thread: { id: string }; messages: { fromMe: boolean; text: string }[] }[];
+      };
+    };
+    expect(collected.input?.chats[0]).toMatchObject({
+      thread: { id: '111' },
+      messages: [{ fromMe: true, text: 'Hi Dana' }],
+    });
+    expect(world.asked.some((a) => a.type === 'hfos-draft')).toBe(false);
+  });
 });
 
 describe('a comment on a good post on Instagram (decision 92)', () => {

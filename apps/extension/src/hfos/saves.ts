@@ -158,6 +158,18 @@ export function chatCollect(
   };
 }
 
+/**
+ * A reply's chat, brought in before the AI answers it, that ends with the person's own message (the last one the page
+ * says whose it is): nothing of theirs is left to answer, as when a sighting by name alone wasn't a reply. Its step
+ * ends without a draft and isn't reported, and the chat read takes them off Today's replies.
+ */
+export const yoursLast = (chat: Pick<ChatPage, 'messages'> | null | undefined): boolean =>
+  chat?.messages.filter((m) => m.from !== 'unknown').at(-1)?.from === 'me';
+
+/** The step's line when `yoursLast`, after their name. */
+export const NOTHING_TO_ANSWER =
+  'your message is the last one in your chat, so there’s nothing to answer';
+
 /** An address as HandsFreeOS takes one: on its network's own pages, over https (the kit's `link`), and not too long. */
 export const networkAddress = (url: string | null, platform: Platform = JOBS) =>
   url && url.length <= 500 && NETWORKS[platform].link.test(url) ? url : null;
