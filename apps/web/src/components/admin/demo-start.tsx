@@ -80,6 +80,10 @@ export function DemoStart({
           and live shows. A scene’s people, messages and money are made up, and nothing in it is
           sent or saved.
         </p>
+        <p className="max-w-2xl text-[13px] text-text-3" data-testid="demo-phone-scenes">
+          Scenes 54 and 55 are about the phone’s notifications, so they play on the phone: open
+          Admin → Demo player in the HandsFreeOS app.
+        </p>
       </div>
 
       <Card className="flex flex-col gap-4 p-5">

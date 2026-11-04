@@ -139,3 +139,26 @@ right of the panel, so it can be left out of what's shared, and H hides it. It s
 5. If a screen the scene opens asks for something `respond.ts` doesn't answer yet, the browser console says
    `demo: no made-up answer for …`. Add the answer there, typed with `Ok<…>` so the compiler checks its shape.
 6. Cover it in `e2e/demo-player.spec.ts`: play it to the end with Space, and check what it shows.
+
+## On the phone
+
+Scenes 54 (Approve from the lock screen) and 55 (Woken for a real emergency) are about the phone's notifications, so
+they play on the phone app, from its own Admin → Demo player (`apps/mobile/src/demo`, the screen is
+`app/app/admin/demo.tsx`). The presenter picks one of their own businesses there (Bright Path Home Services when they
+are in it) and plays the scene with Next on a small player over the business's screens; Hide makes it a button at the
+edge so a screen recording shows only the app.
+
+- **The same rules as here:** made-up ids with the same prefix (`demo/ids.ts`), nothing saved or sent, Exit leaves the
+  business as it was. One kept value says where the scene is up to (`demo/state.ts`, on the phone like a teammate
+  view), and the made-up rows are worked out from it each time (`demoWorld` in `demo/scenes.ts`).
+- **On the real screens:** the inbox, a thread and the draft cards add the scene's rows to the copy's own
+  (`useDemoWorld`), so they're drawn as real ones are.
+- **Nothing made up reaches HandsFreeOS:** the queue of changes asks `demo/pretend.ts` first, which answers any
+  change that names a made-up id on the phone. Approving the made-up draft, on its card or from the lock screen,
+  plays the scene's Approve step; a reply typed into a made-up thread shows there and goes nowhere.
+- **Its notifications are the worker's:** built from the same words (`draftPushOf`, `tellTeam`'s emergency) and
+  shown by the code that shows a real push (`notificationOf`), buttons and all, then set off by the phone a few
+  seconds later so the presenter can lock it. A step with `press` plays when that button is pressed on the
+  notification (Approve), or when it's tapped (`open`), as well as on Next.
+- **Covered by** `apps/mobile/src/demo/__tests__/demo.test.ts`. There is no phone to play them on in CI: try each on
+  a real phone before showing it.

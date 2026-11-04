@@ -9,6 +9,7 @@ import { lock } from '@/lib/lock';
 import { appFetch, isTestOffline, networkSnapshot, subscribeNetwork } from '@/lib/network';
 import { copyLogger } from '@/sync/logger';
 import { viewRefusal } from '@/view-as/state';
+import { pretendChange } from '@/demo/pretend';
 
 import type { CommandName, InputOf } from './commands';
 import { Changes, type ChangeOptions, type ChangeResult } from './controller';
@@ -54,6 +55,8 @@ export const changes = new Changes({
   log: (message, error) => copyLogger.log({ level: 50, message, error }),
   // Nothing is changed in a business the person is viewing as a teammate (20261018000100).
   refuse: viewRefusal,
+  // Made-up things in a demo scene (src/demo) are answered on the phone and go nowhere.
+  pretend: pretendChange,
 });
 
 /**
