@@ -20,6 +20,7 @@ import { demoEars } from '@/lib/demo/ears';
 import {
   DEMO_SCENES,
   findScene,
+  SCENE_KIND_LABEL,
   voiceoverScript,
   type DemoPlayer,
   type DemoScene,
@@ -157,12 +158,14 @@ export function DemoDirector({
       me,
       timeZone,
       async go(path) {
+        // A page can carry its state in the address (the calendar's `?view=&date=&appt=`): that counts as another page.
         const href = pageOf(path);
-        if (window.location.pathname === href) return;
+        const page = href.split('?')[0]!;
+        if (window.location.pathname + window.location.search === href) return;
         const link = find(`aside a[href="${href}"]`);
         if (link) await clickOn(link);
         else router.push(href);
-        await until(() => window.location.pathname === href);
+        await until(() => window.location.pathname === page);
         await sleep(300);
       },
       async click(target) {
@@ -214,6 +217,17 @@ export function DemoDirector({
           await sleep(text[i - 1] === ' ' ? 45 : 22 + Math.random() * 24);
         }
         await sleep(300);
+      },
+      async attach(target, file) {
+        const input = await waitFor(target);
+        if (!(input instanceof HTMLInputElement) || input.type !== 'file')
+          throw new Error(`${target} isn’t a file picker.`);
+        // Pickers are usually hidden behind a drop zone: the scene points at that first.
+        const files = new DataTransfer();
+        files.items.add(new File([file.text], file.name, { type: file.type }));
+        input.files = files.files;
+        input.dispatchEvent(new Event('change', { bubbles: true }));
+        await sleep(400);
       },
       refresh: (types) => emitLocalChange(types),
       waitFor,
@@ -409,7 +423,9 @@ export function DemoDirector({
   if (!on || hidden) return null;
   return (
     <aside
-      className="fixed inset-y-0 left-0 z-[60] flex flex-col border-r border-border bg-card text-text shadow-3 print:hidden"
+      // pointer-events-auto: an open sheet turns pointer events off for the page, and the player stays pressable over
+      // it (a press here closes the sheet, as any press outside it does).
+      className="pointer-events-auto fixed inset-y-0 left-0 z-[60] flex flex-col border-r border-border bg-card text-text shadow-3 print:hidden"
       style={{ width: PANEL_PX }}
       aria-label="Demo player"
       data-testid="demo-director"
@@ -464,8 +480,7 @@ export function DemoDirector({
           <>
             <div className="flex flex-col gap-1">
               <span className="text-[11px] font-semibold uppercase tracking-wide text-text-3">
-                Scene {scene.number} ·{' '}
-                {scene.kind === 'assistant' ? 'Ask HandsFreeOS' : 'AI teammate'}
+                Scene {scene.number} · {SCENE_KIND_LABEL[scene.kind]}
               </span>
               <span className="text-[15px] font-semibold leading-snug">{scene.title}</span>
               {voiceover ? (

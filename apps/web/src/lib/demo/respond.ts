@@ -5,7 +5,34 @@ import {
   type AssistantEvent,
 } from '@hfos/core';
 import type { Ok } from '../api/types';
-import { buildWorld } from './scenes';
+import {
+  appointmentDetail,
+  appointmentItem,
+  CALENDAR,
+  chatOf as videoChatOf,
+  documentOf,
+  findSuggestion,
+  findVisit,
+  leadTimeline,
+  notesOf,
+  seatOf,
+  suggestionsOf,
+  teamWithMe,
+  transcriptsOf,
+  videoCallOf,
+  visitsBetween,
+  webinarChatOf,
+  webinarLeadsOf,
+} from './respond-calendar';
+import {
+  boardWith,
+  importOf,
+  offersWith,
+  peopleWith,
+  reviewsWith,
+  searchWith,
+} from './respond-growth';
+import { buildWorld, findScene } from './scenes';
 import type { DemoState } from './state';
 import {
   businessOf,
@@ -23,6 +50,7 @@ import {
   type DemoLeadRecord,
   type DemoLesson,
   type DemoLine,
+  type DemoPerson,
   type DemoReferral,
   type DemoService,
   type DemoWorld,
@@ -48,7 +76,6 @@ type InvoiceGet = Ok<'/v1/queries/invoice.get'>;
 
 const TEAMMATE = demoId(0xa001);
 const LINE = demoId(0xa002);
-const CALENDAR = demoId(0xa003);
 const RUN = demoId(0xa004);
 const THREAD = demoId(0xa005);
 const ANSWER = demoId(0xa006);
@@ -57,6 +84,8 @@ const FROM_NUMBER = '+15125550100';
 const STAGE = demoId(0xa00a);
 const PIPELINE = demoId(0xa00b);
 const SOCIAL_ACCOUNT = demoId(0xa00c);
+/** The business's card account, for a scene's invoices to be paid into. */
+const STRIPE = demoId(0xa023);
 
 /** "brightpathhomeservices": the business's name as an address or a handle. */
 const slugOf = (w: DemoWorld) =>
@@ -419,43 +448,7 @@ function visits(w: DemoWorld, c: DemoConversation, status: unknown): Visits {
     timezone: w.state.timeZone,
     items: c.visits
       .filter((v) => cancelled || !v.cancelled)
-      .map((v) => ({
-        id: v.id,
-        calendar: { id: CALENDAR, name: 'Service calls', color: '#2d69d8' },
-        service: { id: demoId(0xa007), name: v.title },
-        kind: 'booking',
-        title: v.title,
-        startsAt: iso(v.startsAt),
-        endsAt: iso(v.startsAt + v.minutes * 60_000),
-        bufferBefore: 0,
-        bufferAfter: 0,
-        capacity: 1,
-        seatsTaken: v.cancelled ? 0 : 1,
-        status: v.cancelled ? 'cancelled' : 'scheduled',
-        location: {
-          kind: null,
-          address: null,
-          meetingUrl: null,
-          postalCode: null,
-          video: null,
-          meetingId: null,
-          meetingFor: null,
-          meetingError: null,
-          record: false,
-        },
-        seriesId: null,
-        occurrence: null,
-        source: 'ai_teammate',
-        leadId: null,
-        customRecord: null,
-        notes: null,
-        staff: [],
-        resources: [],
-        attendees: [],
-        heldUntil: null,
-        createdAt: iso(v.bookedAt),
-        updatedAt: iso(v.bookedAt),
-      })),
+      .map((visit) => appointmentItem(w, { visit, person: c.person, conversationId: c.id })),
   };
 }
 
@@ -619,42 +612,67 @@ function moneyTotals(lines: readonly DemoLine[]): EstimateGet['estimate']['total
   };
 }
 
-const moneyPerson = (e: DemoEstimate) => ({
-  id: e.person.id,
-  fullName: fullName(e.person),
-  email: e.email,
-  phone: phoneDisplay(e.person.phone),
+const moneyPerson = (p: DemoPerson, email: string | null) => ({
+  id: p.id,
+  fullName: fullName(p),
+  email,
+  phone: phoneDisplay(p.phone),
 });
+
+/** What an invoice bills: its estimate's customer and lines, or its own. */
+interface Bill {
+  readonly title: string;
+  readonly person: DemoPerson;
+  readonly email: string | null;
+  readonly lines: readonly DemoLine[];
+}
+
+function billOf(w: DemoWorld, inv: DemoInvoice): Bill | null {
+  if (inv.estimateId) {
+    const e = w.estimates.find((x) => x.id === inv.estimateId);
+    return e ? { title: e.title, person: e.person, email: e.email, lines: e.lines } : null;
+  }
+  return inv.person && inv.lines
+    ? { title: inv.title ?? '', person: inv.person, email: inv.email ?? null, lines: inv.lines }
+    : null;
+}
 
 const NO_TERMS = { kind: 'none', percentBp: 0, amountCents: 0 } as const;
 
-function invoiceRow(w: DemoWorld, inv: DemoInvoice, e: DemoEstimate) {
-  const totals = moneyTotals(e.lines);
+function invoiceRow(w: DemoWorld, inv: DemoInvoice, bill: Bill) {
+  const totals = moneyTotals(bill.lines);
+  const paid = inv.paid ?? null;
+  const status = paid ? ('paid' as const) : inv.sentAt ? ('sent' as const) : ('draft' as const);
   return {
     id: inv.id,
     publicRef: inv.id.slice(-8),
     number: inv.sentAt ? inv.number : null,
-    status: inv.sentAt ? ('sent' as const) : ('draft' as const),
-    state: inv.sentAt ? 'sent' : 'draft',
-    purpose: 'standard' as const,
-    origin: 'estimate' as const,
-    title: e.title,
-    person: moneyPerson(e),
+    status,
+    state: status,
+    purpose: inv.purpose ?? ('standard' as const),
+    origin: inv.estimateId
+      ? ('estimate' as const)
+      : inv.purpose === 'deposit'
+        ? ('booking' as const)
+        : ('staff' as const),
+    title: bill.title,
+    person: moneyPerson(bill.person, bill.email),
     leadId: null,
-    attendeeId: null,
-    estimateId: e.id,
+    attendeeId: inv.appointmentId ? seatOf(inv.appointmentId) : null,
+    estimateId: inv.estimateId ?? null,
     subscriptionId: null,
-    connectionId: null,
+    connectionId: STRIPE,
     assignee: { id: w.state.me.id, fullName: w.state.me.name },
     totals,
-    amountPaidCents: 0,
+    amountPaidCents: paid ? totals.totalCents : 0,
     amountRefundedCents: 0,
-    balanceCents: totals.totalCents,
+    balanceCents: paid ? 0 : totals.totalCents,
     dueOn: inv.dueOn,
     terms: null,
     sentAt: inv.sentAt ? iso(inv.sentAt) : null,
-    firstViewedAt: null,
-    paidAt: null,
+    // Opened from the text a moment after it went, and paid from there.
+    firstViewedAt: paid ? iso(Math.max((inv.sentAt ?? paid.at) + 5_000, paid.at - 60_000)) : null,
+    paidAt: paid ? iso(paid.at) : null,
     voidedAt: null,
     createdAt: iso(inv.createdAt),
   };
@@ -671,7 +689,7 @@ function estimate(w: DemoWorld, e: DemoEstimate): EstimateGet {
       status: accepted ? 'accepted' : 'sent',
       state: accepted ? 'accepted' : 'viewed',
       title: e.title,
-      person: moneyPerson(e),
+      person: moneyPerson(e.person, e.email),
       leadId: null,
       assignee: { id: w.state.me.id, fullName: w.state.me.name },
       totals,
@@ -715,20 +733,55 @@ function estimate(w: DemoWorld, e: DemoEstimate): EstimateGet {
 }
 
 function invoice(w: DemoWorld, inv: DemoInvoice): InvoiceGet | null {
-  const e = w.estimates.find((x) => x.id === inv.estimateId);
-  if (!e) return null;
+  const bill = billOf(w, inv);
+  if (!bill) return null;
+  const row = invoiceRow(w, inv, bill);
+  const paid = inv.paid ?? null;
   return {
     invoice: {
-      ...invoiceRow(w, inv, e),
+      ...row,
       notes: null,
       revision: 1,
       linkVersion: 1,
       voidReason: null,
-      lines: moneyLines(e.lines, 0xd100),
+      lines: moneyLines(bill.lines, 0xd100),
     },
-    payments: [],
+    // Paid by card from the link on their phone, through the business's Stripe account.
+    payments: paid
+      ? [
+          {
+            id: demoId(parseInt(inv.id.slice(-12), 16) + 0x8200),
+            invoiceId: inv.id,
+            amountCents: row.totals.totalCents,
+            method: 'card',
+            provider: 'stripe',
+            providerStatus: 'succeeded',
+            status: 'succeeded',
+            cardBrand: paid.brand,
+            cardLast4: paid.last4,
+            connectionId: STRIPE,
+            feeCents: null,
+            netCents: null,
+            failureCode: null,
+            refundedCents: 0,
+            recordedBy: null,
+            receivedAt: iso(paid.at),
+            createdAt: iso(paid.at - 20_000),
+          },
+        ]
+      : [],
     refunds: [],
   };
+}
+
+/** The invoices written for one visit, as its sheet reads them. */
+function visitInvoices(w: DemoWorld, appointmentId: unknown) {
+  return w.invoices
+    .filter((i) => i.appointmentId === appointmentId)
+    .flatMap((i) => {
+      const bill = billOf(w, i);
+      return bill ? [invoiceRow(w, i, bill)] : [];
+    });
 }
 
 function confirmCard(c: DemoConfirmCard): AssistantCard {
@@ -1103,10 +1156,21 @@ export async function demoResponse(
     return json(decision(w, card));
   }
   if (/^\/v1\/assistant\/runs\/[^/]+\/stop$/.test(path) && names) return json({ stopping: false });
+  // Copy link on a made-up estimate, invoice or plan: a customer's link in the shape the worker mints.
+  if (path === '/v1/money/link' && names) {
+    const letter = String(body['kind'] ?? 'estimate').slice(0, 1);
+    return json({ url: `https://app.handsfreeos.com/${letter}/${String(body['id']).slice(-8)}` });
+  }
 
   const op = /^\/v1\/(queries|commands)\/(.+)$/.exec(path);
   if (!op) return null;
   const [, kind, name] = op;
+  // The scene's own answers, whatever they name: an import that never leaves the tab.
+  const own = findScene(state.scene)?.answers?.[name!];
+  if (own) {
+    const answer = own(w, body);
+    if (answer !== undefined) return json(answer);
+  }
   const c = findConversation(w, body['conversationId'] ?? body['personId']);
 
   if (kind === 'commands') {
@@ -1155,6 +1219,43 @@ export async function demoResponse(
           purpose: 'standard',
           totalCents: moneyTotals(e.lines).totalCents,
           depositCents: 0,
+        });
+    }
+    if (name === 'invoice.create') {
+      // The step that presses Invoice this visit has already written it.
+      const inv = [...w.invoices]
+        .reverse()
+        .find(
+          (i) => !i.estimateId && i.appointmentId && seatOf(i.appointmentId) === body['attendeeId'],
+        );
+      const bill = inv ? billOf(w, inv) : null;
+      if (inv && bill) {
+        const total = moneyTotals(bill.lines).totalCents;
+        return json({
+          invoiceId: inv.id,
+          number: null,
+          status: 'draft',
+          totalCents: total,
+          balanceCents: total,
+          dueOn: inv.dueOn,
+          revision: 1,
+          changed: true,
+        });
+      }
+    }
+    if (name === 'appointment.set_status' && findVisit(w, body['appointmentId']))
+      return json({ appointmentId: body['appointmentId'], status: body['status'] });
+    if (name === 'call_suggestion.decide') {
+      const found = findSuggestion(w, body['suggestionId']);
+      if (found)
+        return json({
+          suggestionId: found.id,
+          status: body['decision'] === 'dismiss' ? 'dismissed' : 'approved',
+          taskId:
+            found.kind === 'task' && body['decision'] !== 'dismiss'
+              ? demoId(parseInt(found.id.slice(-12), 16) + 0x8300)
+              : null,
+          conversationId: null,
         });
     }
     if (name === 'invoice.send' || name === 'estimate.send') {
@@ -1300,6 +1401,96 @@ export async function demoResponse(
         },
       });
     }
+    case 'appointment.list': {
+      // The calendar's week: the real visits, and the scene's in it. A person's or a lead's list is answered below.
+      if (body['personId'] || body['leadId'] || body['conversationId'] || names) break;
+      const mine = visitsBetween(w, body['from'], body['to']);
+      if (!mine.length) return null;
+      const res = await real();
+      if (!res.ok) return res;
+      const got = (await res.json()) as Visits;
+      return json({ ...got, items: [...got.items, ...mine] });
+    }
+    case 'schedule.team': {
+      // The scene's visits are the presenter's, so the calendar has a column for them, with their Google busy times.
+      if (!visitsBetween(w, null, null).length && !w.google.connected) return null;
+      const res = await real();
+      if (!res.ok) return res;
+      return json(teamWithMe(w, (await res.json()) as Ok<'/v1/queries/schedule.team'>));
+    }
+    case 'payment_connection.list': {
+      // A scene's invoices are paid by card, into an account of the business's that only the scene has.
+      if (!w.invoices.some((i) => !i.estimateId)) return null;
+      const res = await real();
+      if (!res.ok) return res;
+      const got = (await res.json()) as Ok<'/v1/queries/payment_connection.list'>;
+      const since = iso(w.state.startedAt - 200 * 24 * 3600_000);
+      return json({
+        connections: [
+          {
+            id: STRIPE,
+            provider: 'stripe',
+            environment: 'live',
+            status: 'active',
+            displayName: null,
+            label: null,
+            externalAccountId: 'acct_demo',
+            isDefault: true,
+            usableByMe: true,
+            usedBy: 'everyone',
+            userIds: [],
+            capabilities: {},
+            connectedAt: since,
+            disconnectedAt: null,
+            disconnectedReason: null,
+            failures: 0,
+            lastError: null,
+            liveSubscriptions: 0,
+            locationId: null,
+            tokenExpiresAt: null,
+          },
+          ...got.connections.map((c) => ({ ...c, isDefault: false })),
+        ],
+      });
+    }
+    case 'review.list': {
+      if (!w.reviews.length && !w.reviewsConnected) return null;
+      const res = await real();
+      if (!res.ok) return res;
+      return json(reviewsWith(w, (await res.json()) as Ok<'/v1/queries/review.list'>));
+    }
+    case 'offer.list': {
+      if (!w.offers.length) return null;
+      const res = await real();
+      if (!res.ok) return res;
+      return json(offersWith(w, (await res.json()) as Ok<'/v1/queries/offer.list'>));
+    }
+    case 'lead.board': {
+      if (!w.leads.some((l) => l.onBoard)) return null;
+      const res = await real();
+      if (!res.ok) return res;
+      return json(boardWith(w, (await res.json()) as Ok<'/v1/queries/lead.board'>));
+    }
+    case 'person.list': {
+      // Only the plain list: a search, a tag or a page further on is the real one alone.
+      const plain = !body['q'] && !body['tagId'] && !body['cursor'] && !body['standing'];
+      if (!w.imports.length || !plain) return null;
+      const res = await real();
+      if (!res.ok) return res;
+      return json(peopleWith(w, (await res.json()) as Ok<'/v1/queries/person.list'>));
+    }
+    case 'crm.summary': {
+      const brought = w.imports.reduce((n, i) => n + i.people.length, 0);
+      if (!brought) return null;
+      const res = await real();
+      if (!res.ok) return res;
+      const got = (await res.json()) as Ok<'/v1/queries/crm.summary'>;
+      return json({ ...got, people: got.people + brought });
+    }
+    case 'search.everything': {
+      const out = await searchWith(w, body, real);
+      return out instanceof Response ? out : out ? json(out) : null;
+    }
     case 'service.list': {
       if (!w.services.length) return null;
       const res = await real();
@@ -1319,7 +1510,7 @@ export async function demoResponse(
       case 'lead.get':
         return l ? json(lead(w, l)) : null;
       case 'timeline.list':
-        return json({ items: [], nextCursor: null });
+        return json(l ? leadTimeline(w, l) : { items: [], nextCursor: null });
       case 'task.list':
         return json({ items: [], nextCursor: null, timezone: w.state.timeZone });
       case 'file.list':
@@ -1327,8 +1518,56 @@ export async function demoResponse(
       case 'workflow.run_list':
         return json({ items: [], nextCursor: null });
       case 'appointment.list':
-        return json({ timezone: w.state.timeZone, items: [] });
+        // Their conversation's visits, when they have one: a lead's visit is booked in its chat.
+        return json(c ? visits(w, c, body['status']) : { timezone: w.state.timeZone, items: [] });
     }
+  // A visit's sheet, what the AI made of a recorded call, and a contract sent to sign.
+  switch (name) {
+    case 'appointment.get': {
+      const v = findVisit(w, body['appointmentId']);
+      if (v) return json({ appointment: appointmentDetail(w, v) });
+      break;
+    }
+    case 'appointment.transcripts': {
+      const v = findVisit(w, body['appointmentId']);
+      return json(transcriptsOf(notesOf(w, body), v ? 'zoom' : 'handsfree'));
+    }
+    case 'call_suggestion.list':
+      return json(suggestionsOf(notesOf(w, body)));
+    case 'video_call.chat': {
+      const chat = videoChatOf(w, body['callId']) ?? webinarChatOf(w, body['callId']);
+      if (chat) return json(chat);
+      break;
+    }
+    case 'video_call.get': {
+      const call = videoCallOf(w, body);
+      if (call) return json(call);
+      break;
+    }
+    case 'video_call.leads': {
+      const leads = webinarLeadsOf(w, body);
+      if (leads) return json(leads);
+      break;
+    }
+    case 'import.get': {
+      const i = w.imports.find((x) => x.id === body['importId']);
+      if (i) return json(importOf(w, i));
+      break;
+    }
+    case 'document.get': {
+      const d = w.documents.find((x) => x.id === body['documentId']);
+      if (d) return json(documentOf(w, d));
+      break;
+    }
+    case 'calendar.get':
+      // The made-up visits' calendar has no settings of its own: the sheet does without, as it does for a refusal.
+      if (body['calendarId'] === CALENDAR)
+        return json(
+          { error: { code: 'not_found', message: 'Not in this demo.', rule: 'demo_not_found' } },
+          404,
+        );
+      break;
+  }
   // The panels beside a made-up conversation.
   switch (name) {
     case 'appointment.list':
@@ -1351,15 +1590,18 @@ export async function demoResponse(
         canJoin: [],
         timeZone: w.state.timeZone,
       });
-    case 'money.for_record':
+    case 'money.for_record': {
+      const invoices =
+        body['recordType'] === 'appointment' ? visitInvoices(w, body['recordId']) : [];
       return json({
         estimates: [],
-        invoices: [],
+        invoices,
         subscriptions: [],
-        balanceCents: 0,
-        collectedCents: 0,
+        balanceCents: invoices.reduce((n, i) => n + i.balanceCents, 0),
+        collectedCents: invoices.reduce((n, i) => n + i.amountPaidCents, 0),
         quotedCents: 0,
       });
+    }
   }
   // A made-up record this scene has no answer for yet: as if it weren't there, never the real API's guess.
   if (process.env.NODE_ENV !== 'production') console.warn(`demo: no made-up answer for ${name}`);

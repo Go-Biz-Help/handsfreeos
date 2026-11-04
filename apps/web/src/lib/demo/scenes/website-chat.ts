@@ -20,7 +20,7 @@ const VISIT = demoId(0x30031);
 const priya = (w: Parameters<typeof conversationIn>[0]) => conversationIn(w, CONVERSATION);
 
 /** The business's website for the chat's header: its name as a plain .com, as a widget's site reads. */
-const siteOf = (business: string) =>
+export const siteOf = (business: string) =>
   `${business
     .toLowerCase()
     .replace(/&/g, 'and')

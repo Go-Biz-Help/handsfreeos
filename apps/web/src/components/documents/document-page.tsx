@@ -40,6 +40,7 @@ import type { DocumentGetOut, DocumentSignerRow } from '@/lib/api/types';
 import { workerPost } from '@/lib/api/worker';
 import { documentFileUrl } from '@/lib/documents/files';
 import { aboutHref, documentBadge } from '@/lib/documents/words';
+import { useLiveRefresh } from '@/lib/realtime/live-provider';
 import { formatDate } from '@/lib/format';
 import { boxStyle, EditView, PdfPages, ValueView } from './pdf-pages';
 
@@ -53,6 +54,8 @@ export function DocumentPage({ workspaceId, doc }: { workspaceId: string; doc: D
   const [busy, setBusy] = useState<string | null>(null);
   const badge = documentBadge(doc.status, doc.finishing);
   const names = new Map(doc.signers.map((s) => [s.id, s.name]));
+  // Opened, signed, finished: each step shows as it happens.
+  useLiveRefresh(['document']);
 
   useEffect(() => {
     if (!doc.source) return;

@@ -47,11 +47,32 @@ right of the panel, so it can be left out of what's shared, and H hides it. It s
   tapped), photos, drafts waiting for an OK (with what approving does: book, move or cancel a visit, or send a quote's
   link; what the presenter changed; what it used from Knowledge), visits, hand-offs to a person (and Take it),
   estimates with the customer's approval, invoices made from them, services, campaigns, leads with a page of their
-  own, and Home's cards for a lesson from the presenter's change and for a referral (Create lead). `teammateAutomatic` makes the AI
-  teammate read as answering on its own, for scenes past its training. A business with no AI teammate (Bright
-  Path has none) gets one made up, in training.
+  own, and Home's cards for a lesson from the presenter's change and for a referral (Create lead). Since scenes
+  31 to 38 it also holds visits on the calendar with no conversation (booked online, by the AI teammate or by
+  staff, with a price, an address, a Zoom or HandsFreeOS call and the reminders sent), the AI's notes from a
+  recorded call (summary, transcript, suggested task and follow-up email), a lead's video call with its chat,
+  invoices for a visit (a deposit, or the job's bill paid by card), Google Calendar busy times, and documents to
+  sign (a PDF in `public/demo/`, opened and signed with a picture of a signature). Since scenes 40 to 45 and 65:
+  a webinar (a visit with `seats` and `webinar`: who came, how long, and how the poll scored them), Google reviews
+  and their answers (`reviewsConnected` shows Google as connected), Knowledge's promotions, leads on the Pipeline
+  board (`onBoard`), a spreadsheet's import and the people it made, and notes, which Search finds by their words
+  along with the scene's texts. `teammateAutomatic` makes the AI teammate read as answering on its own, for scenes
+  past its training. A business with no AI teammate (Bright Path has none) gets one made up, in training.
 - **Made-up ids start with `de300000-0000-4000-8000-`** (`demoId`), so an answer for one can't be mistaken for a
   real record.
+- **The calendar's answers are in `respond-calendar.ts`:** a visit as the calendar and its sheet read it, the
+  presenter added to the calendar's people with made-up hours when they aren't on the team (Bright Path's founder
+  isn't), Google busy times, call notes and transcripts, and a document's page. The calendar list adds the scene's
+  visits to the real ones. A visit's invoice comes from `money.for_record`, and invoices that aren't from an
+  estimate get a made-up Stripe connection, so a card payment has an account to land in. A visit's HandsFreeOS call
+  (`video_call.get`) and a webinar's scored people (`video_call.leads`) are there too.
+- **Growing the business is in `respond-growth.ts`:** reviews, promotions, the Pipeline board, the contacts list
+  and an import's progress, each the real answer with the scene's rows on top, and Search everything with the
+  scene's notes and texts in their groups, matched and marked the way the server does (`@hfos/core`'s search
+  helpers). It answers only when one of them holds every word typed.
+- **A scene's own answers** (`answers` on `DemoScene`, by operation name) come first, whatever the request names:
+  scene 40's `import.create` and `import.start`, so the file never reaches Storage (the wizard skips the upload for
+  bucket `hfos-demo`) and nobody is added to the business.
 
 ## Adding a scene
 
@@ -62,6 +83,8 @@ right of the panel, so it can be left out of what's shared, and H hides it. It s
    - `change` for what it makes up, written against the world (`world.ts`), never the screen;
    - `live` for the entity types the screens on show should fetch again;
    - `run` for what the pointer does (`DemoPlayer` in `scenes/types.ts`). Aim at a `data-testid` as `@id`.
+     `p.go` takes an address with a query string too, such as the calendar on a day with a visit's sheet open
+     (`calendarPath` in `scenes/calendar-kit.ts`).
 3. A step's `change` lands before its `run`, so a page the run opens already shows it. When the step is a click
    that makes the app fetch again by itself (Take it, Turn into an invoice, Send), leave those types out of `live`,
    or the screen changes before the click.
@@ -77,7 +100,11 @@ right of the panel, so it can be left out of what's shared, and H hides it. It s
      says yes to the answer's cards; `reply` is a customer texting back, opened in the Inbox. `ran(...)` lists the
      answer's steps by the labels the worker shows for each tool (`PREPARING` for a card's tool with none), and
      `textCard`, `approveTextCard` and `textsSent` are the texting cards and the conversations they start.
-     `scenes/ask-look.ts` and `scenes/ask-do.ts` are built this way.
+     `scenes/ask-look.ts` and `scenes/ask-do.ts` are built this way. `beatStep` turns one beat into a step, for a
+     scene that asks Ask HandsFreeOS part way through (`scenes/paperwork-calls.ts`, scene 38).
+   - **Calendar, money and paperwork scenes** (`scenes/calendar-money.ts`, `scenes/paperwork-calls.ts`) use
+     `scenes/calendar-kit.ts`: `calendarPath`, `openVisit`, `bookedText` (the booking text as the worker words it)
+     and `REMINDERS`.
    - **Out loud:** `p.say` speaks a line to it instead of typing (`scenes/ask-voice.ts`). It turns talking on and
      the turn hears the words as written (`ears.ts`, through `scriptVoice` in `lib/voice/session.ts`), so no
      microphone is used. A spoken yes confirms the one waiting card, and a line its voice can't say plays as a
@@ -88,6 +115,9 @@ right of the panel, so it can be left out of what's shared, and H hides it. It s
      as it is. A Home card is aimed at by `[data-testid="attention-card"][data-item="<id>"]`; `@id` takes no
      descendant, so write a CSS selector there. A toast's button is gone by the time a presenter has finished
      talking: open its page with `p.go` in the next step.
+   - **In the app** (`kind: 'app'`): scenes that show a screen rather than the AI teammate or Ask HandsFreeOS.
+     `p.attach` drops a file on a file picker (point at its drop zone first), and `p.type` types into a box such as
+     the Search box.
    - **Only what the Assistant can do.** It can't search notes or messages (Search everything is for people only),
      so a scene that finds something that way plays in the Search box instead.
 5. If a screen the scene opens asks for something `respond.ts` doesn't answer yet, the browser console says

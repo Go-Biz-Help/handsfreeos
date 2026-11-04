@@ -59,6 +59,45 @@ function pointOf(a: DemoAnswer): string {
   return first ? lastCard(first.type) : LAST;
 }
 
+/** One beat as a step: so a scene that isn't all Ask HandsFreeOS can still ask it something along the way. */
+export function beatStep(b: Beat): DemoStep {
+  if ('step' in b) return b.step;
+  if ('ask' in b)
+    return {
+      label: b.label,
+      voiceover: b.voiceover,
+      change: (w, at) => {
+        b.change?.(w, at);
+        const a = b.answer(w, at);
+        for (const c of a.cards ?? []) w.cards[c.toolCallId] = c;
+        w.answer = a;
+        w.chat.push({ question: asked(b.ask, at, w.state.timeZone), answer: a, at });
+      },
+      live: b.live,
+      run: async (p) => {
+        await p.ask(asked(b.ask, Date.now(), p.timeZone));
+        await answered(p);
+        // The answer is scripted, so what it shows is known: point at it as it would be pointed at in person.
+        await p.point(b.point ?? pointFor(b));
+      },
+    };
+  return {
+    label: b.label,
+    voiceover: b.voiceover,
+    change: (w, at) => {
+      const waiting = (w.answer?.cards ?? []).map((c) => c.toolCallId);
+      w.answer = null;
+      w.confirmed.push(...waiting.filter((id) => !w.confirmed.includes(id)));
+      b.change?.(w, at);
+    },
+    live: b.live,
+    run: async (p) => {
+      await confirmEach(p, b.confirm);
+      await b.then?.(p);
+    },
+  };
+}
+
 export function askScene(s: {
   readonly id: string;
   readonly number: number;
@@ -71,46 +110,7 @@ export function askScene(s: {
   const steps: DemoStep[] = [
     { label: 'Open Ask HandsFreeOS (⌘J)', voiceover: s.open, run: (p) => p.openAssistant() },
   ];
-  for (const b of s.beats) {
-    if ('step' in b) {
-      steps.push(b.step);
-    } else if ('ask' in b) {
-      steps.push({
-        label: b.label,
-        voiceover: b.voiceover,
-        change: (w, at) => {
-          b.change?.(w, at);
-          const a = b.answer(w, at);
-          for (const c of a.cards ?? []) w.cards[c.toolCallId] = c;
-          w.answer = a;
-          w.chat.push({ question: asked(b.ask, at, w.state.timeZone), answer: a, at });
-        },
-        live: b.live,
-        run: async (p) => {
-          await p.ask(asked(b.ask, Date.now(), p.timeZone));
-          await answered(p);
-          // The answer is scripted, so what it shows is known: point at it as it would be pointed at in person.
-          await p.point(b.point ?? pointFor(b));
-        },
-      });
-    } else {
-      steps.push({
-        label: b.label,
-        voiceover: b.voiceover,
-        change: (w, at) => {
-          const waiting = (w.answer?.cards ?? []).map((c) => c.toolCallId);
-          w.answer = null;
-          w.confirmed.push(...waiting.filter((id) => !w.confirmed.includes(id)));
-          b.change?.(w, at);
-        },
-        live: b.live,
-        run: async (p) => {
-          await confirmEach(p, b.confirm);
-          await b.then?.(p);
-        },
-      });
-    }
-  }
+  steps.push(...s.beats.map(beatStep));
   return {
     id: s.id,
     number: s.number,
@@ -150,12 +150,20 @@ const EMPTY: DemoWorld = {
   services: [],
   lessons: [],
   leads: [],
+  visits: [],
+  google: { connected: false, busy: [] },
+  documents: [],
   referrals: [],
   answer: null,
   cards: {},
   chat: [],
   confirmed: [],
   teammateAutomatic: false,
+  reviews: [],
+  reviewsConnected: false,
+  offers: [],
+  imports: [],
+  notes: [],
 };
 
 /** Ids for one scene's made-up records: its number keeps them apart from every other scene's. */

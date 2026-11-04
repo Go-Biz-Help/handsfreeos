@@ -19,17 +19,31 @@ export interface DemoStep {
   readonly run?: (player: DemoPlayer) => Promise<void>;
 }
 
+/** What a scene shows off, as the demo player and Admin → Demo player label it. */
+export const SCENE_KIND_LABEL = {
+  teammate: 'AI teammate',
+  assistant: 'Ask HandsFreeOS',
+  app: 'In the app',
+} as const;
+
 export interface DemoScene {
   readonly id: string;
   /** Its number in the presentation's list. */
   readonly number: number;
   readonly title: string;
-  /** Which AI it shows. */
-  readonly kind: 'teammate' | 'assistant';
+  /** What it shows: the AI teammate, Ask HandsFreeOS, or the app's own screens. */
+  readonly kind: 'teammate' | 'assistant' | 'app';
   /** Where the first step starts, in the business (e.g. `inbox`). */
   readonly startsOn: string;
   /** The made-up records it starts with. */
   readonly setup?: (world: DemoWorld, at: number) => void;
+  /**
+   * Queries and commands the scene answers itself though they name nothing made up, by name (`import.create`), so
+   * none of them reaches the business: a screen's own steps, such as an import or a setup, played through.
+   */
+  readonly answers?: Readonly<
+    Record<string, (world: DemoWorld, body: Record<string, unknown>) => unknown>
+  >;
   readonly steps: readonly DemoStep[];
 }
 
@@ -57,6 +71,11 @@ export interface DemoPlayer {
    * first), and resolves once they've been heard. Nothing is recorded: it hears the words as written.
    */
   say(words: string): Promise<void>;
+  /** Puts a file in a file box (`<input type="file">`), as choosing it would, with no file picker. */
+  attach(
+    target: string,
+    file: { readonly name: string; readonly type: string; readonly text: string },
+  ): Promise<void>;
   /** Types into a box on the page (a textarea or an input), a letter at a time, without sending it. */
   type(target: string, text: string): Promise<void>;
   /** Tells this tab's screens these entity types changed, so they fetch again (after a run's own click). */

@@ -356,6 +356,141 @@ test('demo player: the AI teammate texts back a missed call, reads a photo, move
     await expect(page.getByText(name)).toHaveCount(0);
 });
 
+test('demo player: a visit paid on the spot, a deposit to book, bookings online and around your own calendar, tune-ups that book themselves, a contract signed on a phone, and a call turned into tasks and a quote', async ({
+  page,
+}) => {
+  test.setTimeout(900_000);
+  const workspaceId = await staffBusiness(page, 'demo-calendar-money');
+  await page.goto(`/app/w/${workspaceId}/inbox?demo`);
+  await expect(director(page)).toBeVisible();
+  const sheet = page.getByTestId('appointment-sheet');
+
+  // Scene 31: the job marked done, invoiced from the visit, texted, and paid by card before leaving.
+  await pick(page, 'paid-on-the-spot', 'Open Wes’s AC repair');
+  await play(page, 6);
+  await expect(page).toHaveURL(/\/calendar\?/);
+  await expect(page.getByTestId('visit-invoice')).toHaveAttribute('data-state', 'paid');
+  await expect(page.getByTestId('visit-invoice-paid')).toContainText('$385');
+
+  // Scene 32: the booking link with a deposit, booked and paid, and the visit shows what's left.
+  await pick(page, 'deposit-to-book', 'Open the Inbox');
+  await play(page, 5);
+  await expect(page.getByTestId('visit-deposit-paid')).toContainText('$250');
+  await expect(page.getByTestId('visit-deposit-after')).toContainText('$2,200');
+
+  // Scene 34: a booking from the website lands on tomorrow, with its reminders set.
+  await pick(page, 'book-themselves', 'Open tomorrow on the calendar');
+  await play(page, 4);
+  await expect(sheet).toContainText('Owen Fischer');
+  await expect(sheet).toContainText('Booked online');
+  await expect(sheet.getByText('2 hours before')).toBeVisible();
+
+  // Scene 35: busy on Google Calendar, so it offers other times and books one.
+  await pick(page, 'own-calendar', 'Open tomorrow on the calendar');
+  await play(page, 5);
+  await expect(page.getByTestId('busy-block')).toBeVisible();
+  await expect(page.getByText('Paige Holloway · Katy').first()).toBeVisible();
+
+  // Scene 36: three customers due for a tune-up, all on next week's calendar.
+  await pick(page, 'tune-ups-due', 'Open the Inbox');
+  await play(page, 7);
+  await expect(page).toHaveURL(/view=week/);
+  for (const name of ['Darlene Marsh', 'Curtis Becker', 'Imelda Navarro'])
+    await expect(page.getByText(name).first()).toBeVisible();
+
+  // Scene 33: the agreement opened and signed on her phone, every step on the record.
+  await pick(page, 'sign-on-phone', 'Open Heather’s agreement');
+  await play(page, 4);
+  await expect(page.locator('img[alt^="Signed by"]')).toBeVisible();
+  await expect(page.getByTestId('document-steps')).toContainText('Signed: Heather Malone');
+
+  // Scene 37: a recorded call's task approved and its follow-up email sent, with the transcript kept.
+  await pick(page, 'call-to-tasks', 'Open today’s call');
+  await play(page, 5);
+  await expect(page.locator('[data-testid="call-suggestion"][data-status="pending"]')).toHaveCount(
+    0,
+  );
+  await expect(page.getByTestId('appointment-transcript')).toHaveAttribute('open', '');
+
+  // Scene 38: a video call's notes and chat, then the estimate written and texted from Ask HandsFreeOS.
+  await pick(page, 'video-quote', 'Open Lauren’s lead');
+  await play(page, 7);
+  await expect(page).toHaveURL(/\/money\/estimates\/de300000-/);
+  await expect(page.getByTestId('document-activity')).toContainText('Lauren Hayes');
+
+  // None of it was ever saved.
+  await page.getByTestId('demo-exit').click();
+  await expect(director(page)).toHaveCount(0);
+  await page.goto(`/app/w/${workspaceId}/inbox`);
+  await expect(page.getByRole('heading', { name: 'Inbox' })).toBeVisible();
+  for (const name of ['Erin Ortiz', 'Paige Holloway', 'Curtis Becker'])
+    await expect(page.getByText(name)).toHaveCount(0);
+  await page.goto(`/app/w/${workspaceId}/documents`);
+  await expect(page.getByRole('heading', { name: 'Documents' })).toBeVisible();
+  await expect(page.getByText('AC system installation agreement')).toHaveCount(0);
+});
+
+test('demo player: moving in from another CRM, a form that texts back, Google reviews answered, last fall’s customers won back, a webinar that finds buyers, this month’s offer, and search that reads notes and texts', async ({
+  page,
+}) => {
+  test.setTimeout(900_000);
+  const workspaceId = await staffBusiness(page, 'demo-day-one');
+  await page.goto(`/app/w/${workspaceId}/inbox?demo`);
+  await expect(director(page)).toBeVisible();
+
+  // Scene 40: a spreadsheet from the old CRM, its columns matched, and six customers in with their tags.
+  await pick(page, 'crm-import', 'Open Import');
+  await play(page, 5);
+  await expect(page).toHaveURL(/\/customers/);
+  await expect(page.getByText('Marcy Delacroix').first()).toBeVisible();
+  await expect(page.getByText('Moved from old CRM').first()).toBeVisible();
+
+  // Scene 41: the quote form's lead on the board, texted in seconds, and booked from the chat.
+  await pick(page, 'form-texts-back', 'Open your pipeline');
+  await play(page, 6);
+  await expect(page).toHaveURL(/\/inbox\/de300000-/);
+  await expect(page.getByTestId('context-panel')).toContainText('Water test and estimate');
+
+  // Scene 42: both of today's Google reviews answered from Ask HandsFreeOS.
+  await pick(page, 'answer-reviews', 'Open your reviews');
+  await play(page, 3);
+  await expect(page.getByTestId('review-answer')).toHaveCount(2);
+
+  // Scene 43: last fall's customers found, texted, and one writes back.
+  await pick(page, 'win-back', 'Open Ask HandsFreeOS');
+  await play(page, 5);
+  await expect(page).toHaveURL(/\/inbox\/de300000-/);
+  await expect(
+    page.getByText('The furnace has been making a rattling noise').first(),
+  ).toBeVisible();
+
+  // Scene 44: the webinar's people scored Hot, Warm and Cold, and the hot one books.
+  await pick(page, 'webinar-buyers', 'Open today’s webinar');
+  await play(page, 5);
+  await expect(page.getByText('Is tomorrow afternoon open?').first()).toBeVisible();
+
+  // Scene 45: a website visitor hears about this month's offer and books it.
+  await pick(page, 'best-offer', 'Open your offers');
+  await play(page, 5);
+  await expect(page.getByTestId('context-panel')).toContainText('AC tune-up');
+
+  // Scene 65: Search finds the note and the text by their words, and opens the text.
+  await pick(page, 'skylight-search', 'Search for what you remember');
+  await play(page, 3);
+  await expect(page).toHaveURL(/\/inbox\/de300000-.*message=/);
+  await expect(page.getByText('The roofer fixed the leaky skylight!').first()).toBeVisible();
+
+  // None of it was ever saved.
+  await page.getByTestId('demo-exit').click();
+  await expect(director(page)).toHaveCount(0);
+  await page.goto(`/app/w/${workspaceId}/customers`);
+  await expect(page.getByRole('heading', { name: 'Contacts' })).toBeVisible();
+  await expect(page.getByText('Marcy Delacroix')).toHaveCount(0);
+  await page.goto(`/app/w/${workspaceId}/reviews`);
+  await expect(page.getByRole('heading', { name: 'Reviews' })).toBeVisible();
+  await expect(page.getByText('Rhonda Sutton')).toHaveCount(0);
+});
+
 test('demo player: Admin → Demo player plays a scene in your business, each step with its voiceover', async ({
   page,
 }) => {

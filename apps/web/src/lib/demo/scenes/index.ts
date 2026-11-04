@@ -5,9 +5,13 @@ import { ASK_LOOK_SCENES } from './ask-look';
 import { talkFromTheTruck } from './ask-voice';
 import { businessSetup } from './business-setup';
 import { busyCall } from './busy-call';
+import { CALENDAR_MONEY_SCENES } from './calendar-money';
+import { DAY_ONE_SCENES } from './day-one';
+import { GROWTH_SCENES } from './growth';
 import { leadText } from './lead-text';
 import { moneyOwed } from './money-owed';
 import { myDay } from './my-day';
+import { PAPERWORK_CALL_SCENES } from './paperwork-calls';
 import { priceQuestion } from './price-question';
 import { quoteToInvoice } from './quote-to-invoice';
 import { reviewRequests } from './review-requests';
@@ -16,10 +20,12 @@ import { TEAMMATE_SALES_SCENES } from './teammate-sales';
 import { TEAMMATE_VISIT_SCENES } from './teammate-visits';
 import { textCampaign } from './text-campaign';
 import { upsetCustomer } from './upset-customer';
+import { WEBINAR_SEARCH_SCENES } from './webinar-search';
 import { websiteChat } from './website-chat';
 import type { DemoScene } from './types';
 
 export type { DemoPlayer, DemoScene, DemoStep } from './types';
+export { SCENE_KIND_LABEL } from './types';
 
 /** Every scene, in the presentation's order. */
 export const DEMO_SCENES: readonly DemoScene[] = [
@@ -37,6 +43,11 @@ export const DEMO_SCENES: readonly DemoScene[] = [
   ...TEAMMATE_VISIT_SCENES,
   ...TEAMMATE_SALES_SCENES,
   ...TEAMMATE_CHANNEL_SCENES,
+  ...CALENDAR_MONEY_SCENES,
+  ...PAPERWORK_CALL_SCENES,
+  ...DAY_ONE_SCENES,
+  ...GROWTH_SCENES,
+  ...WEBINAR_SEARCH_SCENES,
   ...ASK_LOOK_SCENES,
   ...ASK_DO_SCENES,
   talkFromTheTruck,
@@ -72,12 +83,20 @@ export function buildWorld(state: DemoState, workspaceId: string): DemoWorld | n
     services: [],
     lessons: [],
     leads: [],
+    visits: [],
+    google: { connected: false, busy: [] },
+    documents: [],
     referrals: [],
     answer: null,
     cards: {},
     chat: [],
     confirmed: [],
     teammateAutomatic: false,
+    reviews: [],
+    reviewsConnected: false,
+    offers: [],
+    imports: [],
+    notes: [],
   };
   scene.setup?.(world, state.startedAt);
   state.steps.forEach((offset, i) => scene.steps[i]?.change?.(world, state.startedAt + offset));

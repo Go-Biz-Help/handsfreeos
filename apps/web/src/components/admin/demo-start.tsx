@@ -6,6 +6,7 @@ import { Card } from '@/components/ui/card';
 import { copyText } from '@/components/ui/copy-field';
 import { RadioCard } from '@/components/ui/radio-card';
 import { apiBrowser, errorMessage, unwrap } from '@/lib/api/client';
+import { SCENE_KIND_LABEL } from '@/lib/demo/scenes/types';
 
 /** A business the scenes can play in. */
 export interface DemoPlace {
@@ -19,7 +20,7 @@ export interface DemoSceneSummary {
   readonly id: string;
   readonly number: number;
   readonly title: string;
-  readonly kind: 'teammate' | 'assistant';
+  readonly kind: keyof typeof SCENE_KIND_LABEL;
   readonly steps: readonly { readonly label: string; readonly voiceover: string }[];
   /** Its voiceover as one script, to copy. */
   readonly script: string;
@@ -163,8 +164,7 @@ export function DemoStart({
                 <div className="flex flex-wrap items-start gap-3">
                   <div className="flex min-w-0 flex-1 flex-col gap-0.5">
                     <span className="text-[11px] font-semibold uppercase tracking-wide text-text-3">
-                      Scene {s.number} ·{' '}
-                      {s.kind === 'assistant' ? 'Ask HandsFreeOS' : 'AI teammate'}
+                      Scene {s.number} · {SCENE_KIND_LABEL[s.kind]}
                     </span>
                     <span className="text-[15px] font-semibold leading-snug">{s.title}</span>
                   </div>

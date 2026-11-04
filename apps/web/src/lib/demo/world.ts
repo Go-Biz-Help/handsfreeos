@@ -124,6 +124,97 @@ export interface DemoVisit {
   readonly minutes: number;
   readonly bookedAt: number;
   cancelled?: boolean;
+  /** The job is done: marked complete on its sheet. */
+  completed?: boolean;
+  /** Who booked it, as the sheet's chip says ("Booked online", "Booked by AI"); the AI teammate unless said. */
+  readonly source?: 'staff' | 'booking_page' | 'ai_teammate';
+  /** What the visit costs, for the bill after it. */
+  readonly priceCents?: number;
+  /** At the customer's home. */
+  readonly address?: string;
+  /** A video call rather than a visit, and whether it's recorded: its words come back as the call's notes. */
+  readonly video?: 'zoom' | 'handsfree';
+  /** What the AI made of the call once it was over. */
+  readonly notes?: DemoCallNotes;
+  /** The reminders it set: a confirmation, then each reminder by its key (`day_before`, `before_120`). */
+  readonly reminders?: { readonly confirmedAt: number; readonly keys: readonly string[] };
+  /** Everyone booked into it, when it's more than the one person (a webinar's seats). */
+  readonly seats?: readonly DemoPerson[];
+  /** A webinar: its call, its live poll, and how it scored everyone who came. */
+  readonly webinar?: DemoWebinar;
+}
+
+/** One person who came to a webinar, scored from the live poll and what they said in the chat. */
+export interface DemoWebinarLead {
+  readonly id: string;
+  readonly person: DemoPerson;
+  readonly label: 'hot' | 'warm' | 'cold';
+  readonly points: number;
+  /** Stayed to the end, and how long they were on. */
+  readonly stayed: boolean;
+  readonly seconds: number;
+  /** What earned the points, a line each. */
+  readonly parts: readonly { readonly what: string; readonly points: number }[];
+  /** The hot ones' reason, in a line. */
+  readonly reason: string | null;
+  /** What the AI teammate did about it: `sent` a text, or nothing yet. */
+  readonly outcome: 'sent' | null;
+}
+
+export interface DemoWebinar {
+  readonly callId: string;
+  /** The live poll's question. */
+  readonly poll: string;
+  /** The scores a lead needs to be Hot or Warm. */
+  readonly hot: number;
+  readonly warm: number;
+  readonly leads: readonly DemoWebinarLead[];
+}
+
+/** A visit on the calendar with nobody's conversation behind it (a call booked by hand, a job from last week). */
+export interface DemoCalendarVisit extends DemoVisit {
+  readonly person: DemoPerson;
+}
+
+/** One thing the AI suggests after a recorded call, waiting for a person to approve or dismiss it. */
+export interface DemoSuggestion {
+  readonly id: string;
+  readonly kind: 'task' | 'follow_up';
+  /** A task's `title`; a follow-up email's `subject` and `body`. */
+  readonly preview: Readonly<Record<string, string>>;
+  status: 'pending' | 'approved' | 'dismissed';
+}
+
+/** What the AI heard on a recorded call: the summary, the words, and what it suggests doing next. */
+export interface DemoCallNotes {
+  readonly id: string;
+  readonly at: number;
+  readonly summary: string;
+  readonly transcript: string;
+  readonly suggestions: readonly DemoSuggestion[];
+}
+
+/** A HandsFreeOS video call that wasn't for an appointment: its own line on the customer's timeline. */
+export interface DemoVideoCall {
+  readonly id: string;
+  /** When it ended. */
+  readonly at: number;
+  readonly seconds: number;
+  readonly notes: DemoCallNotes;
+  /** What was typed in the call's chat, oldest first. */
+  readonly chat: readonly {
+    readonly id: string;
+    readonly at: number;
+    readonly side: 'team' | 'customer';
+    readonly name: string;
+    readonly body: string;
+  }[];
+}
+
+/** A time the presenter's own Google Calendar has them busy: the calendar shows it, and nobody can book over it. */
+export interface DemoBusy {
+  readonly startsAt: number;
+  readonly endsAt: number;
 }
 
 /** A Messenger or Instagram ad the customer tapped before they wrote: where they came from. */
@@ -154,6 +245,10 @@ export interface DemoLeadRecord {
   /** Where it came from, as the lead's Source reads: "Referred by Carla Benson". */
   readonly source: string | null;
   readonly at: number;
+  /** A video call with them, on the lead's timeline. */
+  readonly videoCall?: DemoVideoCall;
+  /** It shows on the Pipeline board too, in its stage (or the first open one). */
+  readonly onBoard?: boolean;
 }
 
 /**
@@ -255,15 +350,49 @@ export interface DemoEstimate {
   accepted?: { readonly at: number; readonly name: string };
 }
 
-/** An invoice raised from a made-up estimate: a draft until the presenter sends it. */
+/**
+ * An invoice: raised from a made-up estimate (its lines and customer are the estimate's), or written for a visit
+ * with its own. A draft until the presenter sends it.
+ */
 export interface DemoInvoice {
   readonly id: string;
   readonly number: string;
-  readonly estimateId: string;
+  readonly estimateId?: string;
+  /** Written for one visit (Invoice this visit, or a booking's deposit): the visit's sheet shows it. */
+  readonly appointmentId?: string;
+  readonly purpose?: 'standard' | 'deposit';
+  /** Its own, when it isn't from an estimate. */
+  readonly title?: string;
+  readonly person?: DemoPerson;
+  readonly email?: string | null;
+  readonly lines?: readonly DemoLine[];
   readonly createdAt: number;
   sentAt?: number;
   /** `YYYY-MM-DD`. */
   readonly dueOn: string;
+  /** Paid in full, by card on their phone. */
+  paid?: { readonly at: number; readonly brand: string; readonly last4: string };
+}
+
+/** A contract sent to sign (docs/documents.md), on a PDF in the web app's own `public/demo/`. */
+export interface DemoDocument {
+  readonly id: string;
+  readonly name: string;
+  readonly person: DemoPerson;
+  readonly email: string;
+  /** Under the web app, e.g. `/demo/install-agreement.pdf`, with its pages' size in points. */
+  readonly pdf: string;
+  readonly pages: readonly { readonly width: number; readonly height: number }[];
+  /** Where her signature, name and date go: fractions of the page, from the top left. */
+  readonly spots: {
+    readonly signature: { x: number; y: number; w: number; h: number };
+    readonly name: { x: number; y: number; w: number; h: number };
+    readonly date: { x: number; y: number; w: number; h: number };
+  };
+  readonly sentAt: number;
+  openedAt?: number;
+  /** Signed: when, on what, and the picture of the signature (under the web app). */
+  signed?: { readonly at: number; readonly device: string; readonly image: string };
 }
 
 /**
@@ -304,6 +433,42 @@ export interface DemoService {
   readonly priceCents: number;
 }
 
+/** A Google review, as Reviews lists it; `reply` once it's answered. */
+export interface DemoReview {
+  readonly id: string;
+  readonly author: string;
+  readonly stars: number;
+  readonly body: string;
+  readonly postedAt: number;
+  reply?: { readonly body: string; readonly at: number };
+}
+
+/** An offer in Knowledge → Offers, running from `startsOn` to `endsOn` (YYYY-MM-DD). */
+export interface DemoOffer {
+  readonly id: string;
+  readonly name: string;
+  readonly details: string;
+  readonly startsOn: string;
+  readonly endsOn: string;
+  readonly at: number;
+}
+
+/** A spreadsheet brought in from another CRM, and the people it made. */
+export interface DemoImport {
+  readonly id: string;
+  readonly fileName: string;
+  readonly at: number;
+  readonly people: readonly DemoPerson[];
+}
+
+/** A note on a customer's page: its first line is its title, as Search and the timeline show it. */
+export interface DemoNote {
+  readonly id: string;
+  readonly person: DemoPerson;
+  readonly body: string;
+  readonly at: number;
+}
+
 export interface DemoWorld {
   readonly state: DemoState;
   readonly workspaceId: string;
@@ -315,6 +480,11 @@ export interface DemoWorld {
   readonly lessons: DemoLesson[];
   readonly leads: DemoLeadRecord[];
   readonly referrals: DemoReferral[];
+  /** Visits on the calendar with no conversation behind them; a conversation's own visits show there too. */
+  readonly visits: DemoCalendarVisit[];
+  /** The presenter's Google Calendar: connected, and the times it has them busy. */
+  readonly google: { connected: boolean; readonly busy: DemoBusy[] };
+  readonly documents: DemoDocument[];
   /** What the Assistant answers the next question with; null leaves questions to the real Assistant. */
   answer: DemoAnswer | null;
   /** Every card the scene has shown, by tool call id, for Confirm. */
@@ -325,6 +495,13 @@ export interface DemoWorld {
   readonly confirmed: string[];
   /** The scene shows the AI teammate past its training, replying on its own: its status reads automatic. */
   teammateAutomatic: boolean;
+  /** Google reviews, and whether Google shows as connected on Reviews. */
+  readonly reviews: DemoReview[];
+  reviewsConnected: boolean;
+  readonly offers: DemoOffer[];
+  readonly imports: DemoImport[];
+  /** Notes on the scene's customers, which Search finds by their words. */
+  readonly notes: DemoNote[];
 }
 
 /** The wall-clock time `hour:minute`, `days` from `at`'s date, in `timeZone`, as ms since the epoch. */
