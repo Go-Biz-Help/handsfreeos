@@ -23,6 +23,8 @@ import {
   normalizeChatOrigins,
   pluralOf,
   RECORD_ICON_LABELS,
+  RECORD_KIND_STARTERS,
+  RELATIONSHIP_STARTERS,
   relationshipTypeName,
   ROLE_LABELS,
   ROLE_PERMISSIONS,
@@ -693,8 +695,51 @@ interface StarterField {
   choices?: string[];
 }
 
+/**
+ * A starter (Settings → Relationships' one press) as the tool's own inputs, with whatever else was said on top. A new
+ * name without its own plural gets its own plural, not the starter's.
+ */
+function withStarter(args: Args, starter: Args | undefined): Args {
+  if (!starter) return args;
+  if (action(args) !== 'create')
+    throw need('starter', 'A starter is only for adding one. Say what to change instead.');
+  const given = defined(args);
+  if (str(given['name']) && !str(given['plural'])) delete starter['plural'];
+  return { ...starter, ...given };
+}
+
+const kindStarter = (args: Args) => {
+  const s = RECORD_KIND_STARTERS.find((k) => k.key === args['starter']);
+  return withStarter(
+    args,
+    s && {
+      name: s.singular,
+      plural: s.plural,
+      nameLabel: s.nameLabel,
+      icon: s.icon,
+      fields: s.fields.map((f) => ({
+        name: f.label,
+        holds: f.type,
+        ...(f.options ? { choices: [...f.options] } : {}),
+      })),
+      linkTo: s.link.end,
+      linkLabel: s.link.label,
+      linkCardinality: s.link.cardinality,
+    },
+  );
+};
+
+const typeStarter = (args: Args) => {
+  const s = RELATIONSHIP_STARTERS.find((t) => t.key === args['starter']);
+  return withStarter(
+    args,
+    s && { a: { ...s.a }, b: { ...s.b }, cardinality: s.cardinality, sameBothWays: s.mutual },
+  );
+};
+
 const manageRecordKind: SettingsConfirmTool = {
-  async prepare(db, ctx, args, toolCallId) {
+  async prepare(db, ctx, given, toolCallId) {
+    const args = kindStarter(given);
     const act = action(args);
     const tool = 'manage_record_kind';
     const kinds = await kindsOf(db, ctx, true);
@@ -849,7 +894,8 @@ const manageRecordKind: SettingsConfirmTool = {
     };
   },
 
-  async commit(db, ctx, args) {
+  async commit(db, ctx, given) {
+    const args = kindStarter(given);
     const act = action(args);
     const back = href(ctx, 'settings/relationships');
     if (act === 'create') {
@@ -923,7 +969,8 @@ const relOut = (t: RelType) => ({
 });
 
 const manageRelationshipType: SettingsConfirmTool = {
-  async prepare(db, ctx, args, toolCallId) {
+  async prepare(db, ctx, given, toolCallId) {
+    const args = typeStarter(given);
     const act = action(args);
     const tool = 'manage_relationship_type';
     const types = await relTypesOf(db, ctx, true);
@@ -1090,7 +1137,8 @@ const manageRelationshipType: SettingsConfirmTool = {
     };
   },
 
-  async commit(db, ctx, args) {
+  async commit(db, ctx, given) {
+    const args = typeStarter(given);
     const act = action(args);
     const back = href(ctx, 'settings/relationships');
     if (act === 'create') {

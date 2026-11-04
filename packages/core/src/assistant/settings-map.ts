@@ -287,7 +287,9 @@ const AREAS: Record<SettingsArea, AreaEntry> = {
     permission: 'fields.manage',
     canChange: [
       'add, change, archive or bring back a kind of record, with its first fields and its tie to customers',
+      'add one of the starters in one go (pets, vehicles, properties, units, students, equipment), with their fields and owners',
       'set up, rename, archive or bring back a relationship type, and how many each end may have',
+      'set up one of the starter relationships (spouse or partner, family member, parent and child, emergency contact, works at, business location)',
     ],
     handovers: [],
   },

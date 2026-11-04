@@ -16,7 +16,9 @@ import {
   intakeSourceCreate,
   organizationCreate,
   personCreate,
+  RECORD_ICON_LABELS,
   registry,
+  relationshipTypeName,
   type CommandDef,
   type HumanActor,
 } from '@hfos/core/server';
@@ -361,13 +363,15 @@ interface KindRow {
   id: string;
   singular: string;
   plural: string;
+  nameLabel: string;
   icon: string;
   archivedAt: string | null;
 }
 interface TypeRow {
   id: string;
-  a: { label: string };
-  b: { label: string };
+  a: { end: string; label: string };
+  b: { end: string; label: string };
+  cardinality: string;
   mutual: boolean;
   archivedAt: string | null;
 }
@@ -493,6 +497,80 @@ describe('manage_record_kind and manage_relationship_type', () => {
     expect((await relTypes()).find((t) => t.id === spouse.id)!.archivedAt).not.toBeNull();
     await commit('manage_relationship_type', { action: 'restore', relationshipTypeId: spouse.id });
     expect((await relTypes()).find((t) => t.id === spouse.id)!.archivedAt).toBeNull();
+  });
+
+  it('adds a starter kind just as the screen’s one press does, only on Confirm', async () => {
+    const args = { action: 'create', starter: 'vehicles' };
+    const { card } = await prepare('manage_record_kind', args);
+    expect(card.title).toBe('Add Vehicles as a kind of record');
+    expect(field(card, 'Its name is called')).toBe('Year, make and model');
+    expect(field(card, 'Picture')).toBe(RECORD_ICON_LABELS.car);
+    expect(field(card, 'First fields')).toBe(
+      'License plate (Short text), VIN (Short text), Mileage (Number), Color (Short text)',
+    );
+    expect(field(card, 'How many')).toBe(
+      'Each owner can have many vehicles. Each vehicle can have many owners.',
+    );
+    expect((await kinds()).some((k) => k.singular === 'Vehicle')).toBe(false);
+    await commit('manage_record_kind', args);
+    const vehicle = (await kinds()).find((k) => k.singular === 'Vehicle')!;
+    expect(vehicle.nameLabel).toBe('Year, make and model');
+    expect((await relTypes()).map((t) => relationshipTypeName(t))).toContain('Owner ↔ Vehicle');
+    expect(
+      (await fields())
+        .filter((f) => f.recordTypeId === vehicle.id)
+        .map((f) => f.label)
+        .sort(),
+    ).toEqual(['Color', 'License plate', 'Mileage', 'VIN']);
+
+    // One already there is refused by name, a new name gets its own plural, and a starter only adds.
+    await expect(
+      prepare('manage_record_kind', { action: 'create', starter: 'pets' }),
+    ).rejects.toThrow('There’s already a kind of record called “Pet”.');
+    const renamed = await prepare('manage_record_kind', {
+      action: 'create',
+      starter: 'units',
+      name: 'Apartment',
+    });
+    expect(renamed.card.title).toBe('Add Apartments as a kind of record');
+    expect(field(renamed.card, 'Tied to')).toBe('Contacts, as “Tenant”');
+    await expect(
+      prepare('manage_record_kind', {
+        action: 'change',
+        customRecordTypeId: vehicle.id,
+        starter: 'vehicles',
+      }),
+    ).rejects.toThrow('A starter is only for adding one.');
+  });
+
+  it('sets up a starter relationship just as the screen’s one press does, only on Confirm', async () => {
+    const args = { action: 'create', starter: 'works_at' };
+    const { card } = await prepare('manage_relationship_type', args);
+    expect(card.title).toBe('Set up Employee ↔ Employer');
+    expect(field(card, 'End A')).toBe('Customer, called “Employee”');
+    expect(field(card, 'End B')).toBe('Company, called “Employer”');
+    expect(field(card, 'How many')).toBe(
+      'Each employee can have many employers. Each employer can have many employees.',
+    );
+    expect((await relTypes()).some((t) => t.a.label === 'Employee')).toBe(false);
+    await commit('manage_relationship_type', args);
+    const works = (await relTypes()).find((t) => t.a.label === 'Employee')!;
+    expect([works.a.end, works.b.end, works.cardinality, works.mutual]).toEqual([
+      'person',
+      'company',
+      'many_to_many',
+      false,
+    ]);
+    await expect(prepare('manage_relationship_type', args)).rejects.toThrow(
+      'That relationship is already set up.',
+    );
+
+    const family = await prepare('manage_relationship_type', {
+      action: 'create',
+      starter: 'family',
+    });
+    expect(family.card.title).toBe('Set up Family member');
+    expect(field(family.card, 'How many')).toBe('Each customer can have many family members.');
   });
 });
 
