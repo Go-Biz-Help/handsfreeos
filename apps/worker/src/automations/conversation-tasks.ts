@@ -18,6 +18,7 @@ import {
   localInstant,
   quoteData,
   taskCreate,
+  uuidArray,
 } from '@hfos/core/server';
 import { asWorker, rows, sql } from '@hfos/db/client';
 import { z } from 'zod';
@@ -264,7 +265,7 @@ export const conversationTasksJob: JobHandler = async (ctx) => {
             where m.conversation_id = ${conversationId} and m.workspace_id = ${scope.workspaceId}
               and m.created_at <= ${new Date(now).toISOString()}::timestamptz
               and m.created_at > ${new Date(now - 30 * 86_400_000).toISOString()}::timestamptz
-              and (m.id = any(${[...ids]}::uuid[]) or m.id in (
+              and (m.id = any(${uuidArray([...ids])}) or m.id in (
                 select id from app.messages where conversation_id = ${conversationId}
                   and created_at <= ${new Date(now).toISOString()}::timestamptz
                 order by created_at desc limit ${CONTEXT_MESSAGES}))
